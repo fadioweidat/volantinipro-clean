@@ -1,0 +1,20 @@
+-- ── 014 Lombardia: indice province ────────────────────────────────────────
+-- Eseguire i file in qualsiasi ordine nel Supabase SQL Editor.
+-- Ogni file è autonomo e safe da rieseguire.
+
+-- 014_VA_Varese.sql                         136 comuni  236 KB
+-- 014_CO_Como.sql                           147 comuni  268 KB
+-- 014_SO_Sondrio.sql                         77 comuni  235 KB
+-- 014_MI_Milano.sql                         133 comuni  263 KB
+-- 014_BG_Bergamo.sql                        243 comuni  499 KB
+-- 014_BS_Brescia.sql                        205 comuni  559 KB
+-- 014_PV_Pavia.sql                          185 comuni  444 KB
+-- 014_CR_Cremona.sql                        113 comuni  258 KB
+-- 014_MN_Mantova.sql                         64 comuni  227 KB
+-- 014_LC_Lecco.sql                           84 comuni  151 KB
+-- 014_LO_Lodi.sql                            60 comuni  144 KB
+-- 014_MB_MonzaBrianza.sql                    55 comuni  88 KB
+
+-- Verifica globale dopo tutti i file:
+-- SELECT COUNT(DISTINCT municipality_code) as comuni, COUNT(*) as settori
+-- FROM public.map_sectors WHERE service_type = 'd2d';

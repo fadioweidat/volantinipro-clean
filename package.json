@@ -1,0 +1,26 @@
+{
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "import:istat": "node data/istat/import_data.mjs --scope=lombardia",
+    "import:istat:italy": "node data/istat/import_data.mjs --scope=italy",
+    "import:istat:dry-run": "node data/istat/import_data.mjs --scope=lombardia --dry-run=true",
+    "import:economic": "node data/istat/import_economic_indicators.mjs --scope=lombardia",
+    "import:economic:dry-run": "node data/istat/import_economic_indicators.mjs --scope=lombardia --dry-run=true",
+    "import:omi": "node data/omi/import_omi_zones.mjs",
+    "import:omi:dry-run": "node data/omi/import_omi_zones.mjs --dry-run=true",
+    "import:gtfs": "node data/gtfs/import_stops.mjs",
+    "import:gtfs:dry-run": "node data/gtfs/import_stops.mjs --dry-run=true"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.105.4",
+    "@vitejs/plugin-react": "^5.0.0",
+    "adm-zip": "^0.5.17",
+    "proj4": "^2.20.8",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "shapefile": "^0.6.6",
+    "vite": "^7.0.0",
+    "xlsx": "^0.18.5"
+  }
+}

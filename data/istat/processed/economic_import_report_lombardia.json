@@ -1,0 +1,219 @@
+{
+  "import_scope": "lombardia",
+  "source_files_used": [
+    "data\\istat\\raw\\MEF_IRPEF_comuni_2024_ai2023\\Redditi_e_principali_variabili_IRPEF_su_base_comunale_CSV_2023.csv",
+    "data\\istat\\raw\\MEF_IRPEF_comuni_2025_ai2024\\Redditi_e_principali_variabili_IRPEF_su_base_comunale_CSV_2024.csv"
+  ],
+  "rows_processed": 3004,
+  "rows_inserted": 0,
+  "rows_updated": 1502,
+  "skipped_rows": 0,
+  "missing_fields": {
+    "employment_rate": 1502,
+    "businesses_total": 1502
+  },
+  "validation_results": {
+    "supabase": [
+      {
+        "municipality_code": "015046",
+        "municipality_name": "Canegrate",
+        "average_income": 25823.43,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "020008",
+        "municipality_name": "Canneto sull'Oglio",
+        "average_income": 21476.65,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "014024",
+        "municipality_name": "Cosio Valtellino",
+        "average_income": 24024.7,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "016085",
+        "municipality_name": "Costa Valle Imagna",
+        "average_income": 21451.67,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "019068",
+        "municipality_name": "Persico Dosimo",
+        "average_income": 25346.42,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "017139",
+        "municipality_name": "Pertica Alta",
+        "average_income": 22691.95,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "017180",
+        "municipality_name": "Soiano del Lago",
+        "average_income": 32344.22,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "015213",
+        "municipality_name": "Solaro",
+        "average_income": 25465.75,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "098001",
+        "municipality_name": "Abbadia Cerreto",
+        "average_income": 21777.22,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "097001",
+        "municipality_name": "Abbadia Lariana",
+        "average_income": 26597.15,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "015002",
+        "municipality_name": "Abbiategrasso",
+        "average_income": 26186.52,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "017001",
+        "municipality_name": "Acquafredda",
+        "average_income": 22789.65,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "020001",
+        "municipality_name": "Acquanegra sul Chiese",
+        "average_income": 21418.47,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "019001",
+        "municipality_name": "Acquanegra Cremonese",
+        "average_income": 23496.77,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "016001",
+        "municipality_name": "Adrara San Martino",
+        "average_income": 22723.5,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "016002",
+        "municipality_name": "Adrara San Rocco",
+        "average_income": 21195.29,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "017002",
+        "municipality_name": "Adro",
+        "average_income": 23498.1,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "019002",
+        "municipality_name": "Agnadello",
+        "average_income": 24914.61,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "017003",
+        "municipality_name": "Agnosine",
+        "average_income": 23700.19,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      },
+      {
+        "municipality_code": "012001",
+        "municipality_name": "Agra",
+        "average_income": 15471.28,
+        "employment_rate": null,
+        "businesses_total": null,
+        "source_name": "MEF - Dichiarazioni fiscali",
+        "source_year": 2024,
+        "source_level": "comune"
+      }
+    ]
+  }
+}
