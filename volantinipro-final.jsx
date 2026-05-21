@@ -730,9 +730,10 @@ const [activeMapLayers, setActiveMapLayers] = useState(() => defaultLayerState(s
     if (!data.campaignZones || data.campaignZones.length === 0) {
       const defaultZoneId = "zone_" + Date.now();
       const flyerQuantityFromStep1 = data.qty || 10000;
-      const initZone = {
+      const initialZoneCount = data.zoneCountIntent === "few" ? 2 : data.zoneCountIntent === "multi" ? 3 : 1;
+      const makeInitialZone = (index) => ({
         id: defaultZoneId,
-        zone_label: data.cityName ? `Zona ${data.cityName}` : "Zona 1",
+        zone_label: index === 0 && data.cityName ? `Zona ${data.cityName}` : `Zona ${index + 1}`,
         store_name: data.storeName || "",
         service_type: svcType,
         service_variant: data.flyerFormat || "a5",
@@ -740,22 +741,26 @@ const [activeMapLayers, setActiveMapLayers] = useState(() => defaultLayerState(s
         assigned_budget: flyerQuantityFromStep1 * ((QUOTE_PRICES[svcType] || 18.5) / 1000),
         coverage_percent: 100,
         recommended_flyers: flyerQuantityFromStep1,
-        searchMode: data.searchMode || "municipality",
-        city: data.city || null,
-        cityName: data.cityName || "",
-        radius: data.radius || 3,
-        selected: data.zones || [],
-        selectedCaps: data.selectedCaps || [],
-        capDataMap: data.capDataMap || {},
-        manualAssignments: data.manualAssignments || {},
+        searchMode: index === 0 ? data.searchMode || "municipality" : "municipality",
+        city: index === 0 ? data.city || null : null,
+        cityName: index === 0 ? data.cityName || "" : "",
+        radius: index === 0 ? data.radius || 3 : 3,
+        selected: index === 0 ? data.zones || [] : [],
+        selectedCaps: index === 0 ? data.selectedCaps || [] : [],
+        capDataMap: index === 0 ? data.capDataMap || {} : {},
+        manualAssignments: index === 0 ? data.manualAssignments || {} : {},
         allocationMode: data.allocationMode || "auto",
         startDate: data.startDate || "",
         endDate: data.endDate || "",
         activeMapLayers: defaultLayerState(svcType)
-      };
+      });
+      const initZone = makeInitialZone(0);
+      const initialZones = Array.from({ length: initialZoneCount }, (_, index) => (
+        index === 0 ? initZone : { ...makeInitialZone(index), id: `zone_${Date.now()}_${index}` }
+      ));
       setData(prev => ({
         ...prev,
-        campaignZones: [initZone],
+        campaignZones: initialZones,
         activeZoneId: defaultZoneId,
         selectedService: svcType,
         activeService: svcType,
@@ -938,16 +943,17 @@ const [activeMapLayers, setActiveMapLayers] = useState(() => defaultLayerState(s
 
   const handleAddZone = () => {
     const newId = "zone_" + Date.now();
+    const nextSvc = svcType || data.type || "d2d";
     const newZone = {
       id: newId,
-      zone_label: `Zona ${data.campaignZones.length + 1}`,
+      zone_label: `Zona ${(data.campaignZones || []).length + 1}`,
       store_name: "",
-      service_type: "d2d",
-      service_variant: "a5",
-      assigned_flyers: 10000,
-      assigned_budget: 10000 * (18.5 / 1000),
+      service_type: nextSvc,
+      service_variant: data.flyerFormat || "a5",
+      assigned_flyers: data.qty || 10000,
+      assigned_budget: (data.qty || 10000) * ((QUOTE_PRICES[nextSvc] || 18.5) / 1000),
       coverage_percent: 100,
-      recommended_flyers: 10000,
+      recommended_flyers: data.qty || 10000,
       searchMode: "municipality",
       city: null,
       cityName: "",
@@ -959,7 +965,7 @@ const [activeMapLayers, setActiveMapLayers] = useState(() => defaultLayerState(s
       allocationMode: "auto",
       startDate: data.startDate || "",
       endDate: data.endDate || "",
-      activeMapLayers: defaultLayerState("d2d")
+      activeMapLayers: defaultLayerState(nextSvc)
     };
     setData(prev => ({
       ...prev,
@@ -1379,6 +1385,11 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     ]) : [];
   const h2hHotspotSummary = isMovementStep2 && selZones.length > 0 ? 
     (typeof h2hHotspotRows === 'function' ? h2hHotspotRows(selZones).slice(0, 3) : []) : [];
+  const campaignZones = data.campaignZones || [];
+  const totalCampaignFlyers = campaignZones.reduce((sum, z) => sum + Number(z.assigned_flyers || 0), 0);
+  const totalCampaignBudget = campaignZones.reduce((sum, z) => sum + Number(z.assigned_budget || 0), 0);
+  const uniqueCampaignComuni = new Set(campaignZones.reduce((acc, z) => { if (z.selected) acc.push(...z.selected); return acc; }, [])).size;
+  const activeCampaignZone = campaignZones.find(z => z.id === data.activeZoneId) || campaignZones[0] || null;
 
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto", padding: "34px clamp(16px, 4vw, 32px) 160px", background: C.navyMid, minHeight: "100vh", overflow: "visible" }}>
@@ -1531,7 +1542,47 @@ const radiusInsightRows = zonesInRadius.map(z => ({
       </div>
 
       {/* Section */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 310px", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "-4px 0 12px", overflowX: "auto", paddingBottom: 2 }}>
+        {campaignZones.map((z, idx) => {
+          const isActive = z.id === data.activeZoneId;
+          const zoneSvcColor = SERVICE_META[z.service_type || "d2d"]?.color || C.orange;
+          const configured = z.searchMode === "cap" ? (z.selectedCaps || []).length > 0 : !!z.city;
+          return (
+            <button key={z.id} onClick={() => setData(prev => ({ ...prev, activeZoneId: z.id }))}
+              style={{
+                minHeight: 32,
+                padding: "0 10px",
+                borderRadius: 8,
+                border: `1px solid ${isActive ? zoneSvcColor : "rgba(255,255,255,.09)"}`,
+                background: isActive ? `${zoneSvcColor}18` : "rgba(255,255,255,.035)",
+                color: isActive ? C.white : "rgba(255,255,255,.58)",
+                fontFamily: F.sans,
+                fontSize: 11,
+                fontWeight: 800,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                whiteSpace: "nowrap",
+                flexShrink: 0
+              }}>
+              <span>{z.zone_label || `Zona ${idx + 1}`}</span>
+              <span style={{ fontSize: 9, color: configured ? C.green : C.yellow }}>{configured ? "OK" : "Da configurare"}</span>
+            </button>
+          );
+        })}
+        <button type="button" onClick={() => setDropOpen(true)}
+          style={{ minHeight: 32, padding: "0 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.72)", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+          Modifica zona
+        </button>
+        <button onClick={handleAddZone}
+          style={{ minHeight: 32, padding: "0 10px", borderRadius: 8, border: `1px dashed ${col}`, background: `${col}0f`, color: col, fontFamily: F.sans, fontSize: 11, fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+          + Aggiungi un'altra zona / comune
+        </button>
+      </div>
+
+      {/* Section */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 280px", gap: 14 }}>
 
         {/* Section */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1967,281 +2018,20 @@ const isManual = allocationMode === "manual";
         </div>
 
         {/* Section */}
-        {/* RIGHT COLUMN - CAMPAIGN SUMMARY AND ZONES LIST */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          
-          {/* CAMPAIGN TOTALS CARD */}
-          <div style={{ background: "linear-gradient(135deg, rgba(8,22,16,0.3) 0%, rgba(16,8,25,0.3) 100%)", borderRadius: 12, padding: "16px", border: `1px solid rgba(255,255,255,.08)`, boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: C.orange, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 8 }}>
-              RIEPILOGO CAMPAGNA MULTI-ZONA
-            </div>
-            
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-              <div style={{ padding: "8px", borderRadius: 8, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.05)" }}>
-                <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em" }}>Totale Volantini</div>
-                <div style={{ fontFamily: F.sans, fontSize: 16, fontWeight: 800, color: C.white, marginTop: 2 }}>
-                  {((data.campaignZones || []).reduce((sum, z) => sum + Number(z.assigned_flyers || 0), 0)).toLocaleString("it-IT")}
-                </div>
+        {/* RIGHT COLUMN - ACTIVE ZONE SUMMARY */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+          {activeCampaignZone && (
+            <div style={{ background: "rgba(255,255,255,.025)", borderRadius: 10, padding: "10px 12px", border: `1px solid rgba(255,255,255,.06)` }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: "rgba(255,255,255,.45)", letterSpacing: ".08em", textTransform: "uppercase" }}>Zona attiva</div>
+                <span style={{ fontFamily: F.sans, fontSize: 8, fontWeight: 900, color: col, background: `${col}16`, borderRadius: 5, padding: "2px 6px" }}>{svcType.toUpperCase()}</span>
               </div>
-              <div style={{ padding: "8px", borderRadius: 8, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.05)" }}>
-                <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em" }}>Budget Stimato</div>
-                <div style={{ fontFamily: F.sans, fontSize: 16, fontWeight: 800, color: C.green, marginTop: 2 }}>
-                  € {((data.campaignZones || []).reduce((sum, z) => sum + Number(z.assigned_budget || 0), 0)).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-              </div>
-              <div style={{ padding: "8px", borderRadius: 8, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.05)" }}>
-                <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em" }}>Comuni Unici</div>
-                <div style={{ fontFamily: F.sans, fontSize: 16, fontWeight: 800, color: C.blue, marginTop: 2 }}>
-                  {(new Set((data.campaignZones || []).reduce((acc, z) => { if (z.selected) acc.push(...z.selected); return acc; }, [])).size)}
-                </div>
-              </div>
-              <div style={{ padding: "8px", borderRadius: 8, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.05)" }}>
-                <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em" }}>Zone Totali</div>
-                <div style={{ fontFamily: F.sans, fontSize: 16, fontWeight: 800, color: C.white, marginTop: 2 }}>
-                  {data.campaignZones?.length || 0}
-                </div>
+              <div style={{ fontFamily: F.serif, fontSize: 22, color: C.white, lineHeight: 1, marginBottom: 4 }}>{activeCampaignZone.zone_label || "Zona"}</div>
+              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.46)", lineHeight: 1.45 }}>
+                {activeCampaignZone.cityName || "Da configurare"} · {(activeCampaignZone.assigned_flyers || data.qty || 0).toLocaleString("it-IT")} volantini · {activeCampaignZone.radius || radius}km
               </div>
             </div>
-          </div>
-
-          {/* LISTA ZONE CONFIGURATE */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 4px" }}>
-              <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.6)" }}>ZONE PIANIFICATE</span>
-              <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.3)" }}>Clicca per selezionare / modificare</span>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: "380px", overflowY: "auto", paddingRight: "4px" }}>
-              {(data.campaignZones || []).map((z, idx) => {
-                const isActive = z.id === data.activeZoneId;
-                const zoneSvcColor = SERVICE_META[z.service_type || "d2d"]?.color || C.orange;
-                const hasStoreName = z.store_name && z.store_name.trim().length > 0;
-                
-                return (
-                  <div key={z.id} 
-                    onClick={() => setData(prev => ({ ...prev, activeZoneId: z.id }))}
-                    style={{
-                      background: isActive ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.02)",
-                      borderRadius: 10,
-                      border: `1.5px solid ${isActive ? zoneSvcColor : "rgba(255,255,255,.06)"}`,
-                      padding: "12px",
-                      cursor: "pointer",
-                      transition: "all 0.15s ease-in-out",
-                      boxShadow: isActive ? `0 2px 12px ${zoneSvcColor}18` : "none"
-                    }}>
-                    
-                    {/* INTESTAZIONE SCHEDA ZONA */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: isActive ? 800 : 700, color: isActive ? C.white : "rgba(255,255,255,.7)" }}>
-                            {z.zone_label || `Zona ${idx + 1}`}
-                          </span>
-                          {hasStoreName && (
-                            <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)", background: "rgba(255,255,255,.05)", padding: "1px 5px", borderRadius: 4 }}>
-                              {z.store_name}
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)" }}>
-                          {z.cityName ? `${z.cityName} (${z.radius} km)` : "Nessuna area impostata"}
-                        </div>
-                      </div>
-                      
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                        <span style={{
-                          fontFamily: F.sans,
-                          fontSize: 9,
-                          fontWeight: 800,
-                          color: zoneSvcColor,
-                          background: `${zoneSvcColor}14`,
-                          padding: "2px 6px",
-                          borderRadius: 4,
-                          textTransform: "uppercase"
-                        }}>
-                          {z.service_type === "d2d" ? "Door to Door" : z.service_type === "h2h" ? "Hand to Hand" : "Business"}
-                        </span>
-                        <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white }}>
-                          {parseInt(z.assigned_flyers || 0).toLocaleString("it-IT")} vol.
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* DETTAGLI MODIFICABILI (COLLAPSIBLE - MOSTRATI SOLO SE ATTIVA) */}
-                    {isActive && (
-                      <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,.08)", display: "flex", flexDirection: "column", gap: 10 }}>
-                        
-                        {/* INPUT LABEL & STORE */}
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                          <div>
-                            <label style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", display: "block", marginBottom: 3 }}>Nome Zona</label>
-                            <input type="text" value={z.zone_label || ""} 
-                              onChange={(e) => updateZoneField(z.id, "zone_label", e.target.value)}
-                              style={{ width: "100%", background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 6, padding: "5px 8px", fontFamily: F.sans, fontSize: 11, color: C.white }} />
-                          </div>
-                          <div>
-                            <label style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", display: "block", marginBottom: 3 }}>Punto Vendita (opz)</label>
-                            <input type="text" value={z.store_name || ""} 
-                              placeholder="E.g. Negozio Centro"
-                              onChange={(e) => updateZoneField(z.id, "store_name", e.target.value)}
-                              style={{ width: "100%", background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 6, padding: "5px 8px", fontFamily: F.sans, fontSize: 11, color: C.white }} />
-                          </div>
-                        </div>
-
-                        {/* SERVICE SELECTION PILLS */}
-                        <div>
-                          <label style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", display: "block", marginBottom: 4 }}>Servizio</label>
-                          <div style={{ display: "flex", gap: 4 }}>
-                            {["d2d", "h2h", "b2b"].map(svc => {
-                              const sMeta = SERVICE_META[svc] || SERVICE_META.d2d;
-                              const isSvcSel = z.service_type === svc;
-                              return (
-                                <button key={svc} 
-                                  onClick={() => updateZoneField(z.id, "service_type", svc)}
-                                  style={{
-                                    flex: 1,
-                                    padding: "5px 4px",
-                                    borderRadius: 6,
-                                    border: `1px solid ${isSvcSel ? sMeta.color : "rgba(255,255,255,.07)"}`,
-                                    background: isSvcSel ? `${sMeta.color}15` : "rgba(255,255,255,.02)",
-                                    color: isSvcSel ? sMeta.color : "rgba(255,255,255,.45)",
-                                    fontFamily: F.sans,
-                                    fontSize: 10,
-                                    fontWeight: 700,
-                                    cursor: "pointer"
-                                  }}>
-                                  {sMeta.nameShort || sMeta.name}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* QUANTITA E FORMATO */}
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                          <div>
-                            <label style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", display: "block", marginBottom: 3 }}>Volantini</label>
-                            <input type="number" step="1000" min="1000" value={z.assigned_flyers || ""} 
-                              onChange={(e) => updateZoneField(z.id, "assigned_flyers", parseInt(e.target.value) || 0)}
-                              style={{ width: "100%", background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 6, padding: "5px 8px", fontFamily: F.sans, fontSize: 11, color: C.white, fontVariantNumeric: "tabular-nums" }} />
-                          </div>
-                          <div>
-                            <label style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", display: "block", marginBottom: 3 }}>Formato</label>
-                            <select value={z.service_variant || "a5"} 
-                              onChange={(e) => updateZoneField(z.id, "service_variant", e.target.value)}
-                              style={{ width: "100%", background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 6, padding: "5px 8px", fontFamily: F.sans, fontSize: 11, color: C.white }}>
-                              <option value="a5">A5 standard</option>
-                              <option value="a4">A4 piegato</option>
-                              <option value="a6">A6 cartolina</option>
-                              <option value="lungo">Lungo 10x21</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        {/* RAGGIO SLIDER */}
-                        <div>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                            <label style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)" }}>Raggio di copertura</label>
-                            <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: zoneSvcColor }}>{z.radius} km</span>
-                          </div>
-                          <input type="range" min="0.5" max="15" step="0.5" value={z.radius || 3}
-                            onChange={(e) => {
-                              const newRad = parseFloat(e.target.value);
-                              setRadius(newRad);
-                              updateZoneField(z.id, "radius", newRad);
-                            }}
-                            style={{ width: "100%", accentColor: zoneSvcColor, height: 4, borderRadius: 2, background: "rgba(255,255,255,.1)" }} />
-                        </div>
-
-                        {/* AZIONI ZONA */}
-                        <div style={{ display: "flex", gap: 6, marginTop: 4, borderTop: "1px solid rgba(255,255,255,.05)", paddingTop: 8 }}>
-                          <button onClick={(e) => handleDuplicateZone(z, e)}
-                            style={{
-                              flex: 1,
-                              padding: "6px",
-                              borderRadius: 6,
-                              border: "1px solid rgba(255,255,255,.08)",
-                              background: "rgba(255,255,255,.03)",
-                              color: "rgba(255,255,255,.6)",
-                              fontFamily: F.sans,
-                              fontSize: 10,
-                              fontWeight: 600,
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: 4
-                            }}>
-                            Duplica
-                          </button>
-                          
-                          <button onClick={(e) => handleMoveZone(idx, "up", e)} disabled={idx === 0}
-                            style={{
-                              padding: "6px 8px",
-                              borderRadius: 6,
-                              border: "1px solid rgba(255,255,255,.08)",
-                              background: "rgba(255,255,255,.03)",
-                              color: idx === 0 ? "rgba(255,255,255,.15)" : "rgba(255,255,255,.6)",
-                              cursor: idx === 0 ? "not-allowed" : "pointer"
-                            }}>
-                            ↑
-                          </button>
-
-                          <button onClick={(e) => handleMoveZone(idx, "down", e)} disabled={idx === data.campaignZones.length - 1}
-                            style={{
-                              padding: "6px 8px",
-                              borderRadius: 6,
-                              border: "1px solid rgba(255,255,255,.08)",
-                              background: "rgba(255,255,255,.03)",
-                              color: idx === data.campaignZones.length - 1 ? "rgba(255,255,255,.15)" : "rgba(255,255,255,.6)",
-                              cursor: idx === data.campaignZones.length - 1 ? "not-allowed" : "pointer"
-                            }}>
-                            ↓
-                          </button>
-                          
-                          <button onClick={(e) => handleDeleteZone(z.id, e)} disabled={data.campaignZones.length <= 1}
-                            style={{
-                              padding: "6px 12px",
-                              borderRadius: 6,
-                              border: "1px solid rgba(248,113,113,.15)",
-                              background: "rgba(248,113,113,.06)",
-                              color: data.campaignZones.length <= 1 ? "rgba(255,255,255,.15)" : C.red,
-                              fontFamily: F.sans,
-                              fontSize: 10,
-                              fontWeight: 600,
-                              cursor: data.campaignZones.length <= 1 ? "not-allowed" : "pointer"
-                            }}>
-                            Elimina
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            
-            {/* ADD ZONE BUTTON */}
-            <button onClick={handleAddZone}
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: 8,
-                border: `1px dashed ${col}`,
-                background: `${col}08`,
-                color: col,
-                fontFamily: F.sans,
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: "pointer",
-                textAlign: "center",
-                transition: "all 0.15s ease",
-                boxShadow: `0 2px 8px ${col}08`
-              }}>
-              + Aggiungi un'altra zona / comune
-            </button>
-          </div>
-
+          )}
           {/* TELEMETRIA GIS COLLAPSIBLE CONTAINER */}
           {city && (
             <div style={{ background: "rgba(255,255,255,.02)", borderRadius: 12, border: "1px solid rgba(255,255,255,.06)", overflow: "hidden" }}>
@@ -5350,6 +5140,97 @@ function CookieBanner({ onNav }) {
   );
 }
 
+function Step1ZoneCountSelector({ data, setData }) {
+  const selected = data.zoneCountIntent || "single";
+  const zones = data.campaignZones || [];
+  const shouldShowZones = selected !== "single";
+  const options = [
+    { id: "single", label: "1 zona", sub: "Un comune o punto vendita" },
+    { id: "few", label: "2-5 zone", sub: "Piu zone nella stessa campagna" },
+    { id: "multi", label: "Piu zone / multi-citta", sub: "Campagna estesa" },
+  ];
+  const ensureZones = (intent) => {
+    const count = intent === "few" ? 2 : intent === "multi" ? 3 : 1;
+    setData(prev => {
+      const current = prev.campaignZones || [];
+      const next = Array.from({ length: count }, (_, index) => current[index] || makeOperationalZone(index, { service: prev.type || "d2d", qty: prev.qty || 10000, flyerFormat: prev.flyerFormat || "a5" }));
+      return { ...prev, zoneCountIntent: intent, campaignZones: next, activeZoneId: next[0]?.id || null };
+    });
+  };
+  const addCompactZone = () => {
+    setData(prev => {
+      const current = prev.campaignZones || [];
+      const nextZone = makeOperationalZone(current.length, { service: prev.type || "d2d", qty: prev.qty || 10000, flyerFormat: prev.flyerFormat || "a5" });
+      return { ...prev, zoneCountIntent: prev.zoneCountIntent === "single" ? "few" : prev.zoneCountIntent, campaignZones: [...current, nextZone], activeZoneId: nextZone.id };
+    });
+  };
+  return (
+    <div style={{ maxWidth: 960, margin: "26px auto -18px", padding: "0 28px" }}>
+      <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
+        <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,.42)", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 10 }}>
+          Quante zone o punti vendita vuoi configurare?
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 8 }}>
+          {options.map(option => {
+            const active = selected === option.id;
+            return (
+              <button key={option.id} type="button" onClick={() => ensureZones(option.id)}
+                style={{ textAlign: "left", padding: "11px 12px", borderRadius: 9, border: `1px solid ${active ? C.orange : "rgba(255,255,255,.09)"}`, background: active ? "rgba(232,87,26,.12)" : "rgba(255,255,255,.03)", color: C.white, cursor: "pointer" }}>
+                <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 900 }}>{option.label}</div>
+                <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.42)", marginTop: 3 }}>{option.sub}</div>
+              </button>
+            );
+          })}
+        </div>
+        {shouldShowZones && (
+          <div style={{ display: "flex", gap: 6, marginTop: 10, overflowX: "auto", paddingBottom: 1 }}>
+            {(zones.length ? zones : [makeOperationalZone(0, { service: data.type || "d2d", qty: data.qty || 10000 })]).map((zone, index) => (
+              <button key={zone.id || index} type="button" onClick={() => setData(prev => ({ ...prev, activeZoneId: zone.id }))}
+                style={{ minHeight: 30, padding: "0 10px", borderRadius: 8, border: `1px solid ${zone.id === data.activeZoneId ? C.orange : "rgba(255,255,255,.1)"}`, background: zone.id === data.activeZoneId ? "rgba(232,87,26,.12)" : "rgba(255,255,255,.035)", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 800, whiteSpace: "nowrap", cursor: "pointer" }}>
+                {zone.zone_label || `Zona ${index + 1}`}
+              </button>
+            ))}
+            <button type="button" onClick={addCompactZone} style={{ minHeight: 30, padding: "0 10px", borderRadius: 8, border: `1px dashed ${C.orange}`, background: "rgba(232,87,26,.08)", color: C.orange, fontFamily: F.sans, fontSize: 11, fontWeight: 900, whiteSpace: "nowrap", cursor: "pointer" }}>
+              + Aggiungi zona
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function makeOperationalZone(index, base = {}) {
+  const service = base.service_type || base.service || "d2d";
+  const qty = Number(base.assigned_flyers || base.qty || 10000);
+  const cityName = base.cityName || "";
+  const geo = GEO_DATA.find(g => g.name.toLowerCase() === cityName.trim().toLowerCase()) || null;
+  return {
+    id: base.id || `zone_${Date.now()}_${index}`,
+    zone_label: base.zone_label || `Zona ${index + 1}`,
+    store_name: base.store_name || "",
+    service_type: service,
+    service_variant: base.service_variant || base.flyerFormat || "a5",
+    assigned_flyers: qty,
+    assigned_budget: qty * ((QUOTE_PRICES[service] || 18.5) / 1000),
+    coverage_percent: base.coverage_percent || 100,
+    recommended_flyers: base.recommended_flyers || qty,
+    searchMode: base.searchMode || "municipality",
+    city: base.city || geo,
+    cityName,
+    radius: Number(base.radius || 3),
+    selected: base.selected || (geo?.id ? [geo.id] : []),
+    selectedCaps: base.selectedCaps || [],
+    capDataMap: base.capDataMap || {},
+    manualAssignments: base.manualAssignments || {},
+    allocationMode: base.allocationMode || "auto",
+    startDate: base.startDate || "",
+    endDate: base.endDate || "",
+    activeMapLayers: base.activeMapLayers || defaultLayerState(service),
+  };
+}
+
+
 export default function App() {
   const readPrefill = () => {
     if (typeof window === "undefined") return { has: false, patch: {} };
@@ -5408,7 +5289,7 @@ const [data, setData] = useState({
     campaignPeriodStart: "", campaignPeriodEnd: "", alreadyPrinted: false,
     printServices: [], paperWeight: "115", printSides: "fronte", colorMode: "cmyk",
     campaignPlan: "single", totalCampaigns: 1, planDiscount: 0,
-    redistExtra: null, zoneMode: "auto",
+    redistExtra: null, zoneMode: "auto", zoneCountIntent: "single",
     city: null, cityName: "", radius: 3, selectedRadius: 3, searchedLocation: "", zones: [], selectedZones: [], selectedComuni: [],
     layerValues: {}, adminInfoSummary: null, serviceKpis: null, requiredFlyers: 0,
     flyerQuantityFromStep1: 10000, missingFlyers: 0, coverageStatus: "empty", recommendations: [],
@@ -5476,7 +5357,7 @@ const isConfiguratorPage = page === "step1" || page === "step2" || page === "ste
         {isConfiguratorPage && (
           <>
             <StepperBar current={page} onGo={goTo} />
-            {page === "step1" && <Step1 data={data} setData={setData} onNext={() => goTo("step2")} />}
+            {page === "step1" && <><Step1ZoneCountSelector data={data} setData={setData} /><Step1 data={data} setData={setData} onNext={() => goTo("step2")} /></>}
             {page === "step2" && <Step2ErrorBoundary><Step2 data={data} setData={setData} onNext={() => goTo("step3")} onBack={() => goTo("step1")} /></Step2ErrorBoundary>}
             {page === "step3" && <Step3 data={data} setData={setData} onNext={() => goTo("step4")} onBack={() => goTo("step2")} />}
             {page === "step4" && <Step4 data={data} setData={setData} onBack={() => goTo("step3")} onHome={() => goTo("home")} onCampaignSaved={(id) => goTo("payment", { campaignId: id })} />}

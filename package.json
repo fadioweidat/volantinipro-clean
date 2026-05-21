@@ -1,6 +1,8 @@
 {
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "vite --host 0.0.0.0 --port 5173 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
     "import:istat": "node data/istat/import_data.mjs --scope=lombardia",
     "import:istat:italy": "node data/istat/import_data.mjs --scope=italy",
     "import:istat:dry-run": "node data/istat/import_data.mjs --scope=lombardia --dry-run=true",
@@ -16,9 +18,11 @@
     "@supabase/supabase-js": "^2.105.4",
     "@vitejs/plugin-react": "^5.0.0",
     "adm-zip": "^0.5.17",
+    "leaflet": "^1.9.4",
     "proj4": "^2.20.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-leaflet": "^5.0.0",
     "shapefile": "^0.6.6",
     "vite": "^7.0.0",
     "xlsx": "^0.18.5"
