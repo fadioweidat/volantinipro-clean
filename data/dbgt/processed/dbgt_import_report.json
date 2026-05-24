@@ -1,0 +1,1468 @@
+{
+  "imported_files": [
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015002_ABBIATEGRASSO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015005_ALBAIRATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015007_ARCONATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015009_ARESE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015010_ARLUNO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015011_ASSAGO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015012_BAREGGIO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015014_BASIANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015015_BASIGLIO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015016_BELLINZAGO_LOMBARDO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015019_BERNATE_TICINO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015022_BESATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015024_BINASCO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015026_BOFFALORA_SOPRA_TICINO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015027_BOLLATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015032_BRESSO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015035_BUBBIANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015036_BUCCINASCO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015038_BUSCATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015040_BUSSERO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015041_BUSTO_GAROLFO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015042_CALVIGNASCO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015044_CAMBIAGO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015046_CANEGRATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015050_CARPIANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015051_CARUGATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015055_CASARILE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015058_CASOREZZO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015059_CASSANO_D_ADDA\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015060_CASSINA_DE_PECCHI\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015061_CASSINETTA_DI_LUGAGNANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015062_CASTANO_PRIMO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015070_CERNUSCO_SUL_NAVIGLIO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015071_CERRO_AL_LAMBRO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015072_CERRO_MAGGIORE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015074_CESANO_BOSCONE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015076_CESATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015077_CINISELLO_BALSAMO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015078_CISLIANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015081_COLOGNO_MONZESE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015082_COLTURANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015085_CORBETTA\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015086_CORMANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015087_CORNAREDO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015093_CORSICO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015096_CUGGIONO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015097_CUSAGO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015098_CUSANO_MILANINO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015099_DAIRAGO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015101_DRESANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015103_GAGGIANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015105_GARBAGNATE_MILANESE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015106_GESSATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015108_GORGONZOLA\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015110_GREZZAGO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015112_GUDO_VISCONTI\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015113_INVERUNO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015114_INZAGO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015115_LACCHIARELLA\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015116_LAINATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015118_LEGNANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015122_LISCATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015125_LOCATE_DI_TRIULZI\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015130_MAGENTA\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015131_MAGNAGO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015134_MARCALLO_CON_CASONE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015136_MASATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015139_MEDIGLIA\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015140_MELEGNANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015142_MELZO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015144_MESERO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015146_MILANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015150_MORIMONDO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015151_MOTTA_VISCONTI\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015154_NERVIANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015155_NOSATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015157_NOVATE_MILANESE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015158_NOVIGLIO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015159_OPERA\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015164_OSSONA\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015165_OZZERO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015166_PADERNO_DUGNANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015167_PANTIGLIATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015168_PARABIAGO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015169_PAULLO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015170_PERO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015171_PESCHIERA_BORROMEO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015172_PESSANO_CON_BORNAGO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015173_PIEVE_EMANUELE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015175_PIOLTELLO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015176_POGLIANO_MILANESE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015177_POZZO_D_ADDA\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015178_POZZUOLO_MARTESANA\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015179_PREGNANA_MILANESE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015181_RESCALDINA\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015182_RHO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015183_ROBECCHETTO_CON_INDUNO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015184_ROBECCO_SUL_NAVIGLIO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015185_RODANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015188_ROSATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015189_ROZZANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015191_SAN_COLOMBANO_AL_LAMBRO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015192_SAN_DONATO_MILANESE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015194_SAN_GIORGIO_SU_LEGNANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015195_SAN_GIULIANO_MILANESE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015200_SANTO_STEFANO_TICINO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015201_SAN_VITTORE_OLONA\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015202_SAN_ZENONE_AL_LAMBRO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015204_SEDRIANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015205_SEGRATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015206_SENAGO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015209_SESTO_SAN_GIOVANNI\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015210_SETTALA\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015211_SETTIMO_MILANESE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015213_SOLARO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015219_TREZZANO_ROSA\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015220_TREZZANO_SUL_NAVIGLIO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015221_TREZZO_SULL_ADDA\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015222_TRIBIANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015224_TRUCCAZZANO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015226_TURBIGO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015229_VANZAGO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015230_VAPRIO_D_ADDA\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015236_VERNATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015237_VIGNATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015242_VIMODRONE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015243_VITTUONE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015244_VIZZOLO_PREDABISSI\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015247_ZIBIDO_SAN_GIACOMO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015248_VILLA_CORTESE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015249_VANZAGHELLO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015250_BARANZATE\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    },
+    {
+      "gpkg": "data\\dbgt\\downloads\\MI\\015251_VERMEZZO_CON_ZELO\\dbgt.gpkg",
+      "layers": {
+        "dbgt_limiti_comunali": null,
+        "dbgt_toponimo_stradale": null,
+        "dbgt_toponimo_nome": null,
+        "dbgt_numero_civico": null,
+        "dbgt_accesso_esterno": null,
+        "dbgt_accesso_numero_civico": null
+      }
+    }
+  ],
+  "materialized": true
+}

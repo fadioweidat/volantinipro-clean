@@ -1,0 +1,3736 @@
+{
+  "provinces": [
+    {
+      "province": "MI",
+      "municipalities": 133,
+      "packages": [
+        {
+          "codice_comune": "015076",
+          "comune": "CESATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15076",
+          "zip": "data\\dbgt\\downloads\\MI\\015076_CESATE.zip",
+          "zip_bytes": 17940724,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015076_CESATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015076_CESATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 9347072
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015076_CESATE\\dbgt.gpkg",
+              "bytes": 37920768
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015076_CESATE\\Isoipse.zip",
+              "bytes": 111790
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015076_CESATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015101",
+          "comune": "DRESANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15101",
+          "zip": "data\\dbgt\\downloads\\MI\\015101_DRESANO.zip",
+          "zip_bytes": 6778058,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015101_DRESANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015101_DRESANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 3506176
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015101_DRESANO\\dbgt.gpkg",
+              "bytes": 15237120
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015101_DRESANO\\Isoipse.zip",
+              "bytes": 36697
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015101_DRESANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015155",
+          "comune": "NOSATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15155",
+          "zip": "data\\dbgt\\downloads\\MI\\015155_NOSATE.zip",
+          "zip_bytes": 4049607,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015155_NOSATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015155_NOSATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 1982464
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015155_NOSATE\\dbgt.gpkg",
+              "bytes": 9388032
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015155_NOSATE\\Isoipse.zip",
+              "bytes": 149145
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015155_NOSATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015005",
+          "comune": "ALBAIRATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15005",
+          "zip": "data\\dbgt\\downloads\\MI\\015005_ALBAIRATE.zip",
+          "zip_bytes": 13666636,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015005_ALBAIRATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015005_ALBAIRATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 6959104
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015005_ALBAIRATE\\dbgt.gpkg",
+              "bytes": 29130752
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015005_ALBAIRATE\\Isoipse.zip",
+              "bytes": 80675
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015005_ALBAIRATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015074",
+          "comune": "CESANO BOSCONE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15074",
+          "zip": "data\\dbgt\\downloads\\MI\\015074_CESANO_BOSCONE.zip",
+          "zip_bytes": 11468706,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015074_CESANO_BOSCONE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015074_CESANO_BOSCONE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 5672960
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015074_CESANO_BOSCONE\\dbgt.gpkg",
+              "bytes": 25268224
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015074_CESANO_BOSCONE\\Isoipse.zip",
+              "bytes": 29071
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015074_CESANO_BOSCONE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015200",
+          "comune": "SANTO STEFANO TICINO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15200",
+          "zip": "data\\dbgt\\downloads\\MI\\015200_SANTO_STEFANO_TICINO.zip",
+          "zip_bytes": 10854871,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015200_SANTO_STEFANO_TICINO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015200_SANTO_STEFANO_TICINO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 5582848
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015200_SANTO_STEFANO_TICINO\\dbgt.gpkg",
+              "bytes": 23846912
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015200_SANTO_STEFANO_TICINO\\Isoipse.zip",
+              "bytes": 38990
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015200_SANTO_STEFANO_TICINO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015036",
+          "comune": "BUCCINASCO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15036",
+          "zip": "data\\dbgt\\downloads\\MI\\015036_BUCCINASCO.zip",
+          "zip_bytes": 24952789,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015036_BUCCINASCO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015036_BUCCINASCO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 14516224
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015036_BUCCINASCO\\dbgt.gpkg",
+              "bytes": 52142080
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015036_BUCCINASCO\\Isoipse.zip",
+              "bytes": 64954
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015036_BUCCINASCO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015236",
+          "comune": "VERNATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15236",
+          "zip": "data\\dbgt\\downloads\\MI\\015236_VERNATE.zip",
+          "zip_bytes": 9259159,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015236_VERNATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015236_VERNATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 4751360
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015236_VERNATE\\dbgt.gpkg",
+              "bytes": 21676032
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015236_VERNATE\\Isoipse.zip",
+              "bytes": 114588
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015236_VERNATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015093",
+          "comune": "CORSICO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15093",
+          "zip": "data\\dbgt\\downloads\\MI\\015093_CORSICO.zip",
+          "zip_bytes": 17660941,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015093_CORSICO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015093_CORSICO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 9318400
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015093_CORSICO\\dbgt.gpkg",
+              "bytes": 40087552
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015093_CORSICO\\Isoipse.zip",
+              "bytes": 90236
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015093_CORSICO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015140",
+          "comune": "MELEGNANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15140",
+          "zip": "data\\dbgt\\downloads\\MI\\015140_MELEGNANO.zip",
+          "zip_bytes": 11482711,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015140_MELEGNANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015140_MELEGNANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 6082560
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015140_MELEGNANO\\dbgt.gpkg",
+              "bytes": 26468352
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015140_MELEGNANO\\Isoipse.zip",
+              "bytes": 133089
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015140_MELEGNANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015201",
+          "comune": "SAN VITTORE OLONA",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15201",
+          "zip": "data\\dbgt\\downloads\\MI\\015201_SAN_VITTORE_OLONA.zip",
+          "zip_bytes": 9279305,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015201_SAN_VITTORE_OLONA\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015201_SAN_VITTORE_OLONA\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 4399104
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015201_SAN_VITTORE_OLONA\\dbgt.gpkg",
+              "bytes": 20164608
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015201_SAN_VITTORE_OLONA\\Isoipse.zip",
+              "bytes": 81446
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015201_SAN_VITTORE_OLONA\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015014",
+          "comune": "BASIANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15014",
+          "zip": "data\\dbgt\\downloads\\MI\\015014_BASIANO.zip",
+          "zip_bytes": 6792544,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015014_BASIANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015014_BASIANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 3600384
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015014_BASIANO\\dbgt.gpkg",
+              "bytes": 16023552
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015014_BASIANO\\Isoipse.zip",
+              "bytes": 121946
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015014_BASIANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015108",
+          "comune": "GORGONZOLA",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15108",
+          "zip": "data\\dbgt\\downloads\\MI\\015108_GORGONZOLA.zip",
+          "zip_bytes": 17112878,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015108_GORGONZOLA\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015108_GORGONZOLA\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 8814592
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015108_GORGONZOLA\\dbgt.gpkg",
+              "bytes": 38998016
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015108_GORGONZOLA\\Isoipse.zip",
+              "bytes": 126853
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015108_GORGONZOLA\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015169",
+          "comune": "PAULLO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15169",
+          "zip": "data\\dbgt\\downloads\\MI\\015169_PAULLO.zip",
+          "zip_bytes": 13991329,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015169_PAULLO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015169_PAULLO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 7069696
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015169_PAULLO\\dbgt.gpkg",
+              "bytes": 30060544
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015169_PAULLO\\Isoipse.zip",
+              "bytes": 38550
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015169_PAULLO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015192",
+          "comune": "SAN DONATO MILANESE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15192",
+          "zip": "data\\dbgt\\downloads\\MI\\015192_SAN_DONATO_MILANESE.zip",
+          "zip_bytes": 19508345,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015192_SAN_DONATO_MILANESE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015192_SAN_DONATO_MILANESE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 10702848
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015192_SAN_DONATO_MILANESE\\dbgt.gpkg",
+              "bytes": 43171840
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015192_SAN_DONATO_MILANESE\\Isoipse.zip",
+              "bytes": 138906
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015192_SAN_DONATO_MILANESE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015206",
+          "comune": "SENAGO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15206",
+          "zip": "data\\dbgt\\downloads\\MI\\015206_SENAGO.zip",
+          "zip_bytes": 21098245,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015206_SENAGO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015206_SENAGO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 11763712
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015206_SENAGO\\dbgt.gpkg",
+              "bytes": 50229248
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015206_SENAGO\\Isoipse.zip",
+              "bytes": 200387
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015206_SENAGO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015078",
+          "comune": "CISLIANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15078",
+          "zip": "data\\dbgt\\downloads\\MI\\015078_CISLIANO.zip",
+          "zip_bytes": 10699543,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015078_CISLIANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015078_CISLIANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 5591040
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015078_CISLIANO\\dbgt.gpkg",
+              "bytes": 25108480
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015078_CISLIANO\\Isoipse.zip",
+              "bytes": 103813
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015078_CISLIANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015210",
+          "comune": "SETTALA",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15210",
+          "zip": "data\\dbgt\\downloads\\MI\\015210_SETTALA.zip",
+          "zip_bytes": 27026332,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015210_SETTALA\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015210_SETTALA\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 16297984
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015210_SETTALA\\dbgt.gpkg",
+              "bytes": 58466304
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015210_SETTALA\\Isoipse.zip",
+              "bytes": 74648
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015210_SETTALA\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015082",
+          "comune": "COLTURANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15082",
+          "zip": "data\\dbgt\\downloads\\MI\\015082_COLTURANO.zip",
+          "zip_bytes": 5667153,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015082_COLTURANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015082_COLTURANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 2912256
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015082_COLTURANO\\dbgt.gpkg",
+              "bytes": 13639680
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015082_COLTURANO\\Isoipse.zip",
+              "bytes": 64313
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015082_COLTURANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015051",
+          "comune": "CARUGATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15051",
+          "zip": "data\\dbgt\\downloads\\MI\\015051_CARUGATE.zip",
+          "zip_bytes": 15884343,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015051_CARUGATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015051_CARUGATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 8286208
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015051_CARUGATE\\dbgt.gpkg",
+              "bytes": 32010240
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015051_CARUGATE\\Isoipse.zip",
+              "bytes": 62942
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015051_CARUGATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015110",
+          "comune": "GREZZAGO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15110",
+          "zip": "data\\dbgt\\downloads\\MI\\015110_GREZZAGO.zip",
+          "zip_bytes": 4881288,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015110_GREZZAGO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015110_GREZZAGO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 2637824
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015110_GREZZAGO\\dbgt.gpkg",
+              "bytes": 12005376
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015110_GREZZAGO\\Isoipse.zip",
+              "bytes": 30884
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015110_GREZZAGO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015250",
+          "comune": "BARANZATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15250",
+          "zip": "data\\dbgt\\downloads\\MI\\015250_BARANZATE.zip",
+          "zip_bytes": 8011325,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015250_BARANZATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015250_BARANZATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 4141056
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015250_BARANZATE\\dbgt.gpkg",
+              "bytes": 19554304
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015250_BARANZATE\\Isoipse.zip",
+              "bytes": 22815
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015250_BARANZATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015157",
+          "comune": "NOVATE MILANESE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15157",
+          "zip": "data\\dbgt\\downloads\\MI\\015157_NOVATE_MILANESE.zip",
+          "zip_bytes": 16259958,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015157_NOVATE_MILANESE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015157_NOVATE_MILANESE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 8937472
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015157_NOVATE_MILANESE\\dbgt.gpkg",
+              "bytes": 38604800
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015157_NOVATE_MILANESE\\Isoipse.zip",
+              "bytes": 62331
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015157_NOVATE_MILANESE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015146",
+          "comune": "MILANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15146",
+          "zip": "data\\dbgt\\downloads\\MI\\015146_MILANO.zip",
+          "zip_bytes": 541754168,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015146_MILANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015146_MILANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 338624512
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015146_MILANO\\dbgt.gpkg",
+              "bytes": 1336418304
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015146_MILANO\\Isoipse.zip",
+              "bytes": 2584038
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015146_MILANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015194",
+          "comune": "SAN GIORGIO SU LEGNANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15194",
+          "zip": "data\\dbgt\\downloads\\MI\\015194_SAN_GIORGIO_SU_LEGNANO.zip",
+          "zip_bytes": 8228410,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015194_SAN_GIORGIO_SU_LEGNANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015194_SAN_GIORGIO_SU_LEGNANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 4333568
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015194_SAN_GIORGIO_SU_LEGNANO\\dbgt.gpkg",
+              "bytes": 20062208
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015194_SAN_GIORGIO_SU_LEGNANO\\Isoipse.zip",
+              "bytes": 25071
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015194_SAN_GIORGIO_SU_LEGNANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015131",
+          "comune": "MAGNAGO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15131",
+          "zip": "data\\dbgt\\downloads\\MI\\015131_MAGNAGO.zip",
+          "zip_bytes": 17033482,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015131_MAGNAGO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015131_MAGNAGO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 8138752
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015131_MAGNAGO\\dbgt.gpkg",
+              "bytes": 34742272
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015131_MAGNAGO\\Isoipse.zip",
+              "bytes": 153334
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015131_MAGNAGO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015244",
+          "comune": "VIZZOLO PREDABISSI",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15244",
+          "zip": "data\\dbgt\\downloads\\MI\\015244_VIZZOLO_PREDABISSI.zip",
+          "zip_bytes": 8278072,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015244_VIZZOLO_PREDABISSI\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015244_VIZZOLO_PREDABISSI\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 4366336
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015244_VIZZOLO_PREDABISSI\\dbgt.gpkg",
+              "bytes": 18714624
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015244_VIZZOLO_PREDABISSI\\Isoipse.zip",
+              "bytes": 89592
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015244_VIZZOLO_PREDABISSI\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015113",
+          "comune": "INVERUNO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15113",
+          "zip": "data\\dbgt\\downloads\\MI\\015113_INVERUNO.zip",
+          "zip_bytes": 30136260,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015113_INVERUNO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015113_INVERUNO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 18157568
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015113_INVERUNO\\dbgt.gpkg",
+              "bytes": 63545344
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015113_INVERUNO\\Isoipse.zip",
+              "bytes": 45468
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015113_INVERUNO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015071",
+          "comune": "CERRO AL LAMBRO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15071",
+          "zip": "data\\dbgt\\downloads\\MI\\015071_CERRO_AL_LAMBRO.zip",
+          "zip_bytes": 20580409,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015071_CERRO_AL_LAMBRO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015071_CERRO_AL_LAMBRO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 10743808
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015071_CERRO_AL_LAMBRO\\dbgt.gpkg",
+              "bytes": 43261952
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015071_CERRO_AL_LAMBRO\\Isoipse.zip",
+              "bytes": 114343
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015071_CERRO_AL_LAMBRO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015219",
+          "comune": "TREZZANO ROSA",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15219",
+          "zip": "data\\dbgt\\downloads\\MI\\015219_TREZZANO_ROSA.zip",
+          "zip_bytes": 9341442,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015219_TREZZANO_ROSA\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015219_TREZZANO_ROSA\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 4952064
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015219_TREZZANO_ROSA\\dbgt.gpkg",
+              "bytes": 19939328
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015219_TREZZANO_ROSA\\Isoipse.zip",
+              "bytes": 41950
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015219_TREZZANO_ROSA\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015072",
+          "comune": "CERRO MAGGIORE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15072",
+          "zip": "data\\dbgt\\downloads\\MI\\015072_CERRO_MAGGIORE.zip",
+          "zip_bytes": 21694488,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015072_CERRO_MAGGIORE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015072_CERRO_MAGGIORE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 12435456
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015072_CERRO_MAGGIORE\\dbgt.gpkg",
+              "bytes": 57085952
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015072_CERRO_MAGGIORE\\Isoipse.zip",
+              "bytes": 208462
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015072_CERRO_MAGGIORE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015114",
+          "comune": "INZAGO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15114",
+          "zip": "data\\dbgt\\downloads\\MI\\015114_INZAGO.zip",
+          "zip_bytes": 25057622,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015114_INZAGO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015114_INZAGO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 13623296
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015114_INZAGO\\dbgt.gpkg",
+              "bytes": 51703808
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015114_INZAGO\\Isoipse.zip",
+              "bytes": 97492
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015114_INZAGO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015032",
+          "comune": "BRESSO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15032",
+          "zip": "data\\dbgt\\downloads\\MI\\015032_BRESSO.zip",
+          "zip_bytes": 10058388,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015032_BRESSO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015032_BRESSO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 5566464
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015032_BRESSO\\dbgt.gpkg",
+              "bytes": 24911872
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015032_BRESSO\\Isoipse.zip",
+              "bytes": 46181
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015032_BRESSO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015040",
+          "comune": "BUSSERO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15040",
+          "zip": "data\\dbgt\\downloads\\MI\\015040_BUSSERO.zip",
+          "zip_bytes": 7823794,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015040_BUSSERO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015040_BUSSERO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 4308992
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015040_BUSSERO\\dbgt.gpkg",
+              "bytes": 18513920
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015040_BUSSERO\\Isoipse.zip",
+              "bytes": 47932
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015040_BUSSERO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015165",
+          "comune": "OZZERO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15165",
+          "zip": "data\\dbgt\\downloads\\MI\\015165_OZZERO.zip",
+          "zip_bytes": 7469861,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015165_OZZERO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015165_OZZERO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 3657728
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015165_OZZERO\\dbgt.gpkg",
+              "bytes": 16089088
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015165_OZZERO\\Isoipse.zip",
+              "bytes": 105237
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015165_OZZERO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015188",
+          "comune": "ROSATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15188",
+          "zip": "data\\dbgt\\downloads\\MI\\015188_ROSATE.zip",
+          "zip_bytes": 9918200,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015188_ROSATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015188_ROSATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 5066752
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015188_ROSATE\\dbgt.gpkg",
+              "bytes": 23015424
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015188_ROSATE\\Isoipse.zip",
+              "bytes": 102506
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015188_ROSATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015085",
+          "comune": "CORBETTA",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15085",
+          "zip": "data\\dbgt\\downloads\\MI\\015085_CORBETTA.zip",
+          "zip_bytes": 25694836,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015085_CORBETTA\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015085_CORBETTA\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 13258752
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015085_CORBETTA\\dbgt.gpkg",
+              "bytes": 58081280
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015085_CORBETTA\\Isoipse.zip",
+              "bytes": 165528
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015085_CORBETTA\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015170",
+          "comune": "PERO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15170",
+          "zip": "data\\dbgt\\downloads\\MI\\015170_PERO.zip",
+          "zip_bytes": 13335939,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015170_PERO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015170_PERO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 6844416
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015170_PERO\\dbgt.gpkg",
+              "bytes": 30560256
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015170_PERO\\Isoipse.zip",
+              "bytes": 110158
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015170_PERO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015115",
+          "comune": "LACCHIARELLA",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15115",
+          "zip": "data\\dbgt\\downloads\\MI\\015115_LACCHIARELLA.zip",
+          "zip_bytes": 17775043,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015115_LACCHIARELLA\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015115_LACCHIARELLA\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 9322496
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015115_LACCHIARELLA\\dbgt.gpkg",
+              "bytes": 41041920
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015115_LACCHIARELLA\\Isoipse.zip",
+              "bytes": 114742
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015115_LACCHIARELLA\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015185",
+          "comune": "RODANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15185",
+          "zip": "data\\dbgt\\downloads\\MI\\015185_RODANO.zip",
+          "zip_bytes": 12379294,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015185_RODANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015185_RODANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 6275072
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015185_RODANO\\dbgt.gpkg",
+              "bytes": 26791936
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015185_RODANO\\Isoipse.zip",
+              "bytes": 41785
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015185_RODANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015061",
+          "comune": "CASSINETTA DI LUGAGNANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15061",
+          "zip": "data\\dbgt\\downloads\\MI\\015061_CASSINETTA_DI_LUGAGNANO.zip",
+          "zip_bytes": 4935244,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015061_CASSINETTA_DI_LUGAGNANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015061_CASSINETTA_DI_LUGAGNANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 2576384
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015061_CASSINETTA_DI_LUGAGNANO\\dbgt.gpkg",
+              "bytes": 11464704
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015061_CASSINETTA_DI_LUGAGNANO\\Isoipse.zip",
+              "bytes": 28108
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015061_CASSINETTA_DI_LUGAGNANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015009",
+          "comune": "ARESE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15009",
+          "zip": "data\\dbgt\\downloads\\MI\\015009_ARESE.zip",
+          "zip_bytes": 20966979,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015009_ARESE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015009_ARESE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 11862016
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015009_ARESE\\dbgt.gpkg",
+              "bytes": 49336320
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015009_ARESE\\Isoipse.zip",
+              "bytes": 108804
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015009_ARESE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015142",
+          "comune": "MELZO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15142",
+          "zip": "data\\dbgt\\downloads\\MI\\015142_MELZO.zip",
+          "zip_bytes": 22255409,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015142_MELZO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015142_MELZO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 10371072
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015142_MELZO\\dbgt.gpkg",
+              "bytes": 48484352
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015142_MELZO\\Isoipse.zip",
+              "bytes": 119906
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015142_MELZO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015221",
+          "comune": "TREZZO SULL`ADDA",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15221",
+          "zip": "data\\dbgt\\downloads\\MI\\015221_TREZZO_SULL_ADDA.zip",
+          "zip_bytes": 15507535,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015221_TREZZO_SULL_ADDA\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015221_TREZZO_SULL_ADDA\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 8925184
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015221_TREZZO_SULL_ADDA\\dbgt.gpkg",
+              "bytes": 33251328
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015221_TREZZO_SULL_ADDA\\Isoipse.zip",
+              "bytes": 460607
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015221_TREZZO_SULL_ADDA\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015224",
+          "comune": "TRUCCAZZANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15224",
+          "zip": "data\\dbgt\\downloads\\MI\\015224_TRUCCAZZANO.zip",
+          "zip_bytes": 15633415,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015224_TRUCCAZZANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015224_TRUCCAZZANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 7598080
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015224_TRUCCAZZANO\\dbgt.gpkg",
+              "bytes": 35094528
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015224_TRUCCAZZANO\\Isoipse.zip",
+              "bytes": 283495
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015224_TRUCCAZZANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015247",
+          "comune": "ZIBIDO SAN GIACOMO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15247",
+          "zip": "data\\dbgt\\downloads\\MI\\015247_ZIBIDO_SAN_GIACOMO.zip",
+          "zip_bytes": 15291769,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015247_ZIBIDO_SAN_GIACOMO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015247_ZIBIDO_SAN_GIACOMO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 7741440
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015247_ZIBIDO_SAN_GIACOMO\\dbgt.gpkg",
+              "bytes": 34140160
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015247_ZIBIDO_SAN_GIACOMO\\Isoipse.zip",
+              "bytes": 139276
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015247_ZIBIDO_SAN_GIACOMO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015166",
+          "comune": "PADERNO DUGNANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15166",
+          "zip": "data\\dbgt\\downloads\\MI\\015166_PADERNO_DUGNANO.zip",
+          "zip_bytes": 44969100,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015166_PADERNO_DUGNANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015166_PADERNO_DUGNANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 23130112
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015166_PADERNO_DUGNANO\\dbgt.gpkg",
+              "bytes": 100970496
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015166_PADERNO_DUGNANO\\Isoipse.zip",
+              "bytes": 270523
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015166_PADERNO_DUGNANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015015",
+          "comune": "BASIGLIO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15015",
+          "zip": "data\\dbgt\\downloads\\MI\\015015_BASIGLIO.zip",
+          "zip_bytes": 11653067,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015015_BASIGLIO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015015_BASIGLIO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 6688768
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015015_BASIGLIO\\dbgt.gpkg",
+              "bytes": 24719360
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015015_BASIGLIO\\Isoipse.zip",
+              "bytes": 83730
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015015_BASIGLIO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015195",
+          "comune": "SAN GIULIANO MILANESE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15195",
+          "zip": "data\\dbgt\\downloads\\MI\\015195_SAN_GIULIANO_MILANESE.zip",
+          "zip_bytes": 32776782,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015195_SAN_GIULIANO_MILANESE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015195_SAN_GIULIANO_MILANESE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 16302080
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015195_SAN_GIULIANO_MILANESE\\dbgt.gpkg",
+              "bytes": 71622656
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015195_SAN_GIULIANO_MILANESE\\Isoipse.zip",
+              "bytes": 406082
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015195_SAN_GIULIANO_MILANESE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015105",
+          "comune": "GARBAGNATE MILANESE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15105",
+          "zip": "data\\dbgt\\downloads\\MI\\015105_GARBAGNATE_MILANESE.zip",
+          "zip_bytes": 18539018,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015105_GARBAGNATE_MILANESE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015105_GARBAGNATE_MILANESE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 9871360
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015105_GARBAGNATE_MILANESE\\dbgt.gpkg",
+              "bytes": 43368448
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015105_GARBAGNATE_MILANESE\\Isoipse.zip",
+              "bytes": 152648
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015105_GARBAGNATE_MILANESE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015167",
+          "comune": "PANTIGLIATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15167",
+          "zip": "data\\dbgt\\downloads\\MI\\015167_PANTIGLIATE.zip",
+          "zip_bytes": 5631341,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015167_PANTIGLIATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015167_PANTIGLIATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 3108864
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015167_PANTIGLIATE\\dbgt.gpkg",
+              "bytes": 12677120
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015167_PANTIGLIATE\\Isoipse.zip",
+              "bytes": 34474
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015167_PANTIGLIATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015116",
+          "comune": "LAINATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15116",
+          "zip": "data\\dbgt\\downloads\\MI\\015116_LAINATE.zip",
+          "zip_bytes": 28348819,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015116_LAINATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015116_LAINATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 14188544
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015116_LAINATE\\dbgt.gpkg",
+              "bytes": 63356928
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015116_LAINATE\\Isoipse.zip",
+              "bytes": 179221
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015116_LAINATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015172",
+          "comune": "PESSANO CON BORNAGO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15172",
+          "zip": "data\\dbgt\\downloads\\MI\\015172_PESSANO_CON_BORNAGO.zip",
+          "zip_bytes": 12095314,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015172_PESSANO_CON_BORNAGO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015172_PESSANO_CON_BORNAGO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 6516736
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015172_PESSANO_CON_BORNAGO\\dbgt.gpkg",
+              "bytes": 27324416
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015172_PESSANO_CON_BORNAGO\\Isoipse.zip",
+              "bytes": 75086
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015172_PESSANO_CON_BORNAGO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015016",
+          "comune": "BELLINZAGO LOMBARDO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15016",
+          "zip": "data\\dbgt\\downloads\\MI\\015016_BELLINZAGO_LOMBARDO.zip",
+          "zip_bytes": 6163860,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015016_BELLINZAGO_LOMBARDO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015016_BELLINZAGO_LOMBARDO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 3403776
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015016_BELLINZAGO_LOMBARDO\\dbgt.gpkg",
+              "bytes": 14479360
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015016_BELLINZAGO_LOMBARDO\\Isoipse.zip",
+              "bytes": 52763
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015016_BELLINZAGO_LOMBARDO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015204",
+          "comune": "SEDRIANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15204",
+          "zip": "data\\dbgt\\downloads\\MI\\015204_SEDRIANO.zip",
+          "zip_bytes": 13934919,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015204_SEDRIANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015204_SEDRIANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 7208960
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015204_SEDRIANO\\dbgt.gpkg",
+              "bytes": 32395264
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015204_SEDRIANO\\Isoipse.zip",
+              "bytes": 83026
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015204_SEDRIANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015175",
+          "comune": "PIOLTELLO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15175",
+          "zip": "data\\dbgt\\downloads\\MI\\015175_PIOLTELLO.zip",
+          "zip_bytes": 24157150,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015175_PIOLTELLO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015175_PIOLTELLO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 12664832
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015175_PIOLTELLO\\dbgt.gpkg",
+              "bytes": 54296576
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015175_PIOLTELLO\\Isoipse.zip",
+              "bytes": 122560
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015175_PIOLTELLO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015144",
+          "comune": "MESERO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15144",
+          "zip": "data\\dbgt\\downloads\\MI\\015144_MESERO.zip",
+          "zip_bytes": 9124455,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015144_MESERO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015144_MESERO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 5025792
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015144_MESERO\\dbgt.gpkg",
+              "bytes": 21417984
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015144_MESERO\\Isoipse.zip",
+              "bytes": 66434
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015144_MESERO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015179",
+          "comune": "PREGNANA MILANESE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15179",
+          "zip": "data\\dbgt\\downloads\\MI\\015179_PREGNANA_MILANESE.zip",
+          "zip_bytes": 10923366,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015179_PREGNANA_MILANESE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015179_PREGNANA_MILANESE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 5709824
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015179_PREGNANA_MILANESE\\dbgt.gpkg",
+              "bytes": 25337856
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015179_PREGNANA_MILANESE\\Isoipse.zip",
+              "bytes": 69350
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015179_PREGNANA_MILANESE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015098",
+          "comune": "CUSANO MILANINO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15098",
+          "zip": "data\\dbgt\\downloads\\MI\\015098_CUSANO_MILANINO.zip",
+          "zip_bytes": 12469828,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015098_CUSANO_MILANINO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015098_CUSANO_MILANINO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 6733824
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015098_CUSANO_MILANINO\\dbgt.gpkg",
+              "bytes": 30228480
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015098_CUSANO_MILANINO\\Isoipse.zip",
+              "bytes": 53698
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015098_CUSANO_MILANINO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015229",
+          "comune": "VANZAGO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15229",
+          "zip": "data\\dbgt\\downloads\\MI\\015229_VANZAGO.zip",
+          "zip_bytes": 10894892,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015229_VANZAGO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015229_VANZAGO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 5681152
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015229_VANZAGO\\dbgt.gpkg",
+              "bytes": 25579520
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015229_VANZAGO\\Isoipse.zip",
+              "bytes": 78436
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015229_VANZAGO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015134",
+          "comune": "MARCALLO CON CASONE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15134",
+          "zip": "data\\dbgt\\downloads\\MI\\015134_MARCALLO_CON_CASONE.zip",
+          "zip_bytes": 13916631,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015134_MARCALLO_CON_CASONE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015134_MARCALLO_CON_CASONE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 7184384
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015134_MARCALLO_CON_CASONE\\dbgt.gpkg",
+              "bytes": 31735808
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015134_MARCALLO_CON_CASONE\\Isoipse.zip",
+              "bytes": 98479
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015134_MARCALLO_CON_CASONE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015059",
+          "comune": "CASSANO D`ADDA",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15059",
+          "zip": "data\\dbgt\\downloads\\MI\\015059_CASSANO_D_ADDA.zip",
+          "zip_bytes": 28182563,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015059_CASSANO_D_ADDA\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015059_CASSANO_D_ADDA\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 14123008
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015059_CASSANO_D_ADDA\\dbgt.gpkg",
+              "bytes": 62955520
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015059_CASSANO_D_ADDA\\Isoipse.zip",
+              "bytes": 350151
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015059_CASSANO_D_ADDA\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015151",
+          "comune": "MOTTA VISCONTI",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15151",
+          "zip": "data\\dbgt\\downloads\\MI\\015151_MOTTA_VISCONTI.zip",
+          "zip_bytes": 11947106,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015151_MOTTA_VISCONTI\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015151_MOTTA_VISCONTI\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 6176768
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015151_MOTTA_VISCONTI\\dbgt.gpkg",
+              "bytes": 26849280
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015151_MOTTA_VISCONTI\\Isoipse.zip",
+              "bytes": 217894
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015151_MOTTA_VISCONTI\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015041",
+          "comune": "BUSTO GAROLFO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15041",
+          "zip": "data\\dbgt\\downloads\\MI\\015041_BUSTO_GAROLFO.zip",
+          "zip_bytes": 39911500,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015041_BUSTO_GAROLFO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015041_BUSTO_GAROLFO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 23482368
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015041_BUSTO_GAROLFO\\dbgt.gpkg",
+              "bytes": 82771968
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015041_BUSTO_GAROLFO\\Isoipse.zip",
+              "bytes": 66867
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015041_BUSTO_GAROLFO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015183",
+          "comune": "ROBECCHETTO CON INDUNO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15183",
+          "zip": "data\\dbgt\\downloads\\MI\\015183_ROBECCHETTO_CON_INDUNO.zip",
+          "zip_bytes": 13814998,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015183_ROBECCHETTO_CON_INDUNO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015183_ROBECCHETTO_CON_INDUNO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 7512064
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015183_ROBECCHETTO_CON_INDUNO\\dbgt.gpkg",
+              "bytes": 30457856
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015183_ROBECCHETTO_CON_INDUNO\\Isoipse.zip",
+              "bytes": 254064
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015183_ROBECCHETTO_CON_INDUNO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015122",
+          "comune": "LISCATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15122",
+          "zip": "data\\dbgt\\downloads\\MI\\015122_LISCATE.zip",
+          "zip_bytes": 10614642,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015122_LISCATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015122_LISCATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 5406720
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015122_LISCATE\\dbgt.gpkg",
+              "bytes": 23986176
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015122_LISCATE\\Isoipse.zip",
+              "bytes": 63066
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015122_LISCATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015038",
+          "comune": "BUSCATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15038",
+          "zip": "data\\dbgt\\downloads\\MI\\015038_BUSCATE.zip",
+          "zip_bytes": 7892237,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015038_BUSCATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015038_BUSCATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 4231168
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015038_BUSCATE\\dbgt.gpkg",
+              "bytes": 18026496
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015038_BUSCATE\\Isoipse.zip",
+              "bytes": 163353
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015038_BUSCATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015070",
+          "comune": "CERNUSCO SUL NAVIGLIO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15070",
+          "zip": "data\\dbgt\\downloads\\MI\\015070_CERNUSCO_SUL_NAVIGLIO.zip",
+          "zip_bytes": 46134964,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015070_CERNUSCO_SUL_NAVIGLIO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015070_CERNUSCO_SUL_NAVIGLIO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 26648576
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015070_CERNUSCO_SUL_NAVIGLIO\\dbgt.gpkg",
+              "bytes": 97030144
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015070_CERNUSCO_SUL_NAVIGLIO\\Isoipse.zip",
+              "bytes": 118887
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015070_CERNUSCO_SUL_NAVIGLIO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015171",
+          "comune": "PESCHIERA BORROMEO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15171",
+          "zip": "data\\dbgt\\downloads\\MI\\015171_PESCHIERA_BORROMEO.zip",
+          "zip_bytes": 24550190,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015171_PESCHIERA_BORROMEO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015171_PESCHIERA_BORROMEO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 12525568
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015171_PESCHIERA_BORROMEO\\dbgt.gpkg",
+              "bytes": 54648832
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015171_PESCHIERA_BORROMEO\\Isoipse.zip",
+              "bytes": 266936
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015171_PESCHIERA_BORROMEO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015022",
+          "comune": "BESATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15022",
+          "zip": "data\\dbgt\\downloads\\MI\\015022_BESATE.zip",
+          "zip_bytes": 7999356,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015022_BESATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015022_BESATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 4059136
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015022_BESATE\\dbgt.gpkg",
+              "bytes": 17125376
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015022_BESATE\\Isoipse.zip",
+              "bytes": 149270
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015022_BESATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015125",
+          "comune": "LOCATE DI TRIULZI",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15125",
+          "zip": "data\\dbgt\\downloads\\MI\\015125_LOCATE_DI_TRIULZI.zip",
+          "zip_bytes": 9815339,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015125_LOCATE_DI_TRIULZI\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015125_LOCATE_DI_TRIULZI\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 5124096
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015125_LOCATE_DI_TRIULZI\\dbgt.gpkg",
+              "bytes": 23048192
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015125_LOCATE_DI_TRIULZI\\Isoipse.zip",
+              "bytes": 128883
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015125_LOCATE_DI_TRIULZI\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015050",
+          "comune": "CARPIANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15050",
+          "zip": "data\\dbgt\\downloads\\MI\\015050_CARPIANO.zip",
+          "zip_bytes": 27027771,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015050_CARPIANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015050_CARPIANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 16076800
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015050_CARPIANO\\dbgt.gpkg",
+              "bytes": 59551744
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015050_CARPIANO\\Isoipse.zip",
+              "bytes": 45828
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015050_CARPIANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015168",
+          "comune": "PARABIAGO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15168",
+          "zip": "data\\dbgt\\downloads\\MI\\015168_PARABIAGO.zip",
+          "zip_bytes": 36443463,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015168_PARABIAGO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015168_PARABIAGO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 18886656
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015168_PARABIAGO\\dbgt.gpkg",
+              "bytes": 83853312
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015168_PARABIAGO\\Isoipse.zip",
+              "bytes": 178668
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015168_PARABIAGO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015077",
+          "comune": "CINISELLO BALSAMO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15077",
+          "zip": "data\\dbgt\\downloads\\MI\\015077_CINISELLO_BALSAMO.zip",
+          "zip_bytes": 57168423,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015077_CINISELLO_BALSAMO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015077_CINISELLO_BALSAMO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 31944704
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015077_CINISELLO_BALSAMO\\dbgt.gpkg",
+              "bytes": 124170240
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015077_CINISELLO_BALSAMO\\Isoipse.zip",
+              "bytes": 191112
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015077_CINISELLO_BALSAMO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015189",
+          "comune": "ROZZANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15189",
+          "zip": "data\\dbgt\\downloads\\MI\\015189_ROZZANO.zip",
+          "zip_bytes": 47795367,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015189_ROZZANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015189_ROZZANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 28368896
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015189_ROZZANO\\dbgt.gpkg",
+              "bytes": 102301696
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015189_ROZZANO\\Isoipse.zip",
+              "bytes": 149221
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015189_ROZZANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015150",
+          "comune": "MORIMONDO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15150",
+          "zip": "data\\dbgt\\downloads\\MI\\015150_MORIMONDO.zip",
+          "zip_bytes": 19603779,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015150_MORIMONDO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015150_MORIMONDO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 12582912
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015150_MORIMONDO\\dbgt.gpkg",
+              "bytes": 40964096
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015150_MORIMONDO\\Isoipse.zip",
+              "bytes": 162735
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015150_MORIMONDO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015136",
+          "comune": "MASATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15136",
+          "zip": "data\\dbgt\\downloads\\MI\\015136_MASATE.zip",
+          "zip_bytes": 5426509,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015136_MASATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015136_MASATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 2793472
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015136_MASATE\\dbgt.gpkg",
+              "bytes": 13221888
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015136_MASATE\\Isoipse.zip",
+              "bytes": 81963
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015136_MASATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015058",
+          "comune": "CASOREZZO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15058",
+          "zip": "data\\dbgt\\downloads\\MI\\015058_CASOREZZO.zip",
+          "zip_bytes": 9167906,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015058_CASOREZZO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015058_CASOREZZO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 4939776
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015058_CASOREZZO\\dbgt.gpkg",
+              "bytes": 21680128
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015058_CASOREZZO\\Isoipse.zip",
+              "bytes": 67330
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015058_CASOREZZO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015130",
+          "comune": "MAGENTA",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15130",
+          "zip": "data\\dbgt\\downloads\\MI\\015130_MAGENTA.zip",
+          "zip_bytes": 52851200,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015130_MAGENTA\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015130_MAGENTA\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 29593600
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015130_MAGENTA\\dbgt.gpkg",
+              "bytes": 108900352
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015130_MAGENTA\\Isoipse.zip",
+              "bytes": 193811
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015130_MAGENTA\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015012",
+          "comune": "BAREGGIO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15012",
+          "zip": "data\\dbgt\\downloads\\MI\\015012_BAREGGIO.zip",
+          "zip_bytes": 22757063,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015012_BAREGGIO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015012_BAREGGIO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 11825152
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015012_BAREGGIO\\dbgt.gpkg",
+              "bytes": 52092928
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015012_BAREGGIO\\Isoipse.zip",
+              "bytes": 120556
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015012_BAREGGIO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015019",
+          "comune": "BERNATE TICINO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15019",
+          "zip": "data\\dbgt\\downloads\\MI\\015019_BERNATE_TICINO.zip",
+          "zip_bytes": 19875892,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015019_BERNATE_TICINO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015019_BERNATE_TICINO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 11603968
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015019_BERNATE_TICINO\\dbgt.gpkg",
+              "bytes": 41771008
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015019_BERNATE_TICINO\\Isoipse.zip",
+              "bytes": 229494
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015019_BERNATE_TICINO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015184",
+          "comune": "ROBECCO SUL NAVIGLIO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15184",
+          "zip": "data\\dbgt\\downloads\\MI\\015184_ROBECCO_SUL_NAVIGLIO.zip",
+          "zip_bytes": 20038140,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015184_ROBECCO_SUL_NAVIGLIO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015184_ROBECCO_SUL_NAVIGLIO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 10162176
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015184_ROBECCO_SUL_NAVIGLIO\\dbgt.gpkg",
+              "bytes": 41824256
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015184_ROBECCO_SUL_NAVIGLIO\\Isoipse.zip",
+              "bytes": 138239
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015184_ROBECCO_SUL_NAVIGLIO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015248",
+          "comune": "VILLA CORTESE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15248",
+          "zip": "data\\dbgt\\downloads\\MI\\015248_VILLA_CORTESE.zip",
+          "zip_bytes": 9166773,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015248_VILLA_CORTESE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015248_VILLA_CORTESE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 4853760
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015248_VILLA_CORTESE\\dbgt.gpkg",
+              "bytes": 21716992
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015248_VILLA_CORTESE\\Isoipse.zip",
+              "bytes": 42366
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015248_VILLA_CORTESE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015099",
+          "comune": "DAIRAGO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15099",
+          "zip": "data\\dbgt\\downloads\\MI\\015099_DAIRAGO.zip",
+          "zip_bytes": 7367120,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015099_DAIRAGO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015099_DAIRAGO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 3559424
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015099_DAIRAGO\\dbgt.gpkg",
+              "bytes": 16334848
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015099_DAIRAGO\\Isoipse.zip",
+              "bytes": 69517
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015099_DAIRAGO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015173",
+          "comune": "PIEVE EMANUELE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15173",
+          "zip": "data\\dbgt\\downloads\\MI\\015173_PIEVE_EMANUELE.zip",
+          "zip_bytes": 18448911,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015173_PIEVE_EMANUELE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015173_PIEVE_EMANUELE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 10657792
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015173_PIEVE_EMANUELE\\dbgt.gpkg",
+              "bytes": 41902080
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015173_PIEVE_EMANUELE\\Isoipse.zip",
+              "bytes": 134308
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015173_PIEVE_EMANUELE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015159",
+          "comune": "OPERA",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15159",
+          "zip": "data\\dbgt\\downloads\\MI\\015159_OPERA.zip",
+          "zip_bytes": 12781601,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015159_OPERA\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015159_OPERA\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 6709248
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015159_OPERA\\dbgt.gpkg",
+              "bytes": 30068736
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015159_OPERA\\Isoipse.zip",
+              "bytes": 81429
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015159_OPERA\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015178",
+          "comune": "POZZUOLO MARTESANA",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15178",
+          "zip": "data\\dbgt\\downloads\\MI\\015178_POZZUOLO_MARTESANA.zip",
+          "zip_bytes": 16068632,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015178_POZZUOLO_MARTESANA\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015178_POZZUOLO_MARTESANA\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 8183808
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015178_POZZUOLO_MARTESANA\\dbgt.gpkg",
+              "bytes": 35725312
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015178_POZZUOLO_MARTESANA\\Isoipse.zip",
+              "bytes": 106452
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015178_POZZUOLO_MARTESANA\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015181",
+          "comune": "RESCALDINA",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15181",
+          "zip": "data\\dbgt\\downloads\\MI\\015181_RESCALDINA.zip",
+          "zip_bytes": 21893558,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015181_RESCALDINA\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015181_RESCALDINA\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 10964992
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015181_RESCALDINA\\dbgt.gpkg",
+              "bytes": 49012736
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015181_RESCALDINA\\Isoipse.zip",
+              "bytes": 212627
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015181_RESCALDINA\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015055",
+          "comune": "CASARILE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15055",
+          "zip": "data\\dbgt\\downloads\\MI\\015055_CASARILE.zip",
+          "zip_bytes": 7085962,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015055_CASARILE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015055_CASARILE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 3825664
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015055_CASARILE\\dbgt.gpkg",
+              "bytes": 17104896
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015055_CASARILE\\Isoipse.zip",
+              "bytes": 39543
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015055_CASARILE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015087",
+          "comune": "CORNAREDO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15087",
+          "zip": "data\\dbgt\\downloads\\MI\\015087_CORNAREDO.zip",
+          "zip_bytes": 23604418,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015087_CORNAREDO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015087_CORNAREDO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 12201984
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015087_CORNAREDO\\dbgt.gpkg",
+              "bytes": 53170176
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015087_CORNAREDO\\Isoipse.zip",
+              "bytes": 124457
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015087_CORNAREDO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015237",
+          "comune": "VIGNATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15237",
+          "zip": "data\\dbgt\\downloads\\MI\\015237_VIGNATE.zip",
+          "zip_bytes": 20716504,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015237_VIGNATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015237_VIGNATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 12853248
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015237_VIGNATE\\dbgt.gpkg",
+              "bytes": 43700224
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015237_VIGNATE\\Isoipse.zip",
+              "bytes": 41831
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015237_VIGNATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015118",
+          "comune": "LEGNANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15118",
+          "zip": "data\\dbgt\\downloads\\MI\\015118_LEGNANO.zip",
+          "zip_bytes": 50832716,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015118_LEGNANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015118_LEGNANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 25452544
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015118_LEGNANO\\dbgt.gpkg",
+              "bytes": 116215808
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015118_LEGNANO\\Isoipse.zip",
+              "bytes": 318564
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015118_LEGNANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015106",
+          "comune": "GESSATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15106",
+          "zip": "data\\dbgt\\downloads\\MI\\015106_GESSATE.zip",
+          "zip_bytes": 11513220,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015106_GESSATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015106_GESSATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 5705728
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015106_GESSATE\\dbgt.gpkg",
+              "bytes": 25206784
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015106_GESSATE\\Isoipse.zip",
+              "bytes": 121191
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015106_GESSATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015062",
+          "comune": "CASTANO PRIMO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15062",
+          "zip": "data\\dbgt\\downloads\\MI\\015062_CASTANO_PRIMO.zip",
+          "zip_bytes": 22824622,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015062_CASTANO_PRIMO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015062_CASTANO_PRIMO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 10928128
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015062_CASTANO_PRIMO\\dbgt.gpkg",
+              "bytes": 46878720
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015062_CASTANO_PRIMO\\Isoipse.zip",
+              "bytes": 292962
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015062_CASTANO_PRIMO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015226",
+          "comune": "TURBIGO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15226",
+          "zip": "data\\dbgt\\downloads\\MI\\015226_TURBIGO.zip",
+          "zip_bytes": 12678902,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015226_TURBIGO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015226_TURBIGO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 6414336
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015226_TURBIGO\\dbgt.gpkg",
+              "bytes": 26501120
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015226_TURBIGO\\Isoipse.zip",
+              "bytes": 236105
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015226_TURBIGO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015191",
+          "comune": "SAN COLOMBANO AL LAMBRO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15191",
+          "zip": "data\\dbgt\\downloads\\MI\\015191_SAN_COLOMBANO_AL_LAMBRO.zip",
+          "zip_bytes": 25276907,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015191_SAN_COLOMBANO_AL_LAMBRO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015191_SAN_COLOMBANO_AL_LAMBRO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 12181504
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015191_SAN_COLOMBANO_AL_LAMBRO\\dbgt.gpkg",
+              "bytes": 54181888
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015191_SAN_COLOMBANO_AL_LAMBRO\\Isoipse.zip",
+              "bytes": 1111044
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015191_SAN_COLOMBANO_AL_LAMBRO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015242",
+          "comune": "VIMODRONE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15242",
+          "zip": "data\\dbgt\\downloads\\MI\\015242_VIMODRONE.zip",
+          "zip_bytes": 12365387,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015242_VIMODRONE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015242_VIMODRONE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 6615040
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015242_VIMODRONE\\dbgt.gpkg",
+              "bytes": 28962816
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015242_VIMODRONE\\Isoipse.zip",
+              "bytes": 78534
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015242_VIMODRONE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015086",
+          "comune": "CORMANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15086",
+          "zip": "data\\dbgt\\downloads\\MI\\015086_CORMANO.zip",
+          "zip_bytes": 13586747,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015086_CORMANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015086_CORMANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 7376896
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015086_CORMANO\\dbgt.gpkg",
+              "bytes": 32858112
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015086_CORMANO\\Isoipse.zip",
+              "bytes": 72065
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015086_CORMANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015026",
+          "comune": "BOFFALORA SOPRA TICINO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15026",
+          "zip": "data\\dbgt\\downloads\\MI\\015026_BOFFALORA_SOPRA_TICINO.zip",
+          "zip_bytes": 16633127,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015026_BOFFALORA_SOPRA_TICINO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015026_BOFFALORA_SOPRA_TICINO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 9519104
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015026_BOFFALORA_SOPRA_TICINO\\dbgt.gpkg",
+              "bytes": 35430400
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015026_BOFFALORA_SOPRA_TICINO\\Isoipse.zip",
+              "bytes": 107332
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015026_BOFFALORA_SOPRA_TICINO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015205",
+          "comune": "SEGRATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15205",
+          "zip": "data\\dbgt\\downloads\\MI\\015205_SEGRATE.zip",
+          "zip_bytes": 33183705,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015205_SEGRATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015205_SEGRATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 21712896
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015205_SEGRATE\\dbgt.gpkg",
+              "bytes": 72372224
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015205_SEGRATE\\Isoipse.zip",
+              "bytes": 122278
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015205_SEGRATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015096",
+          "comune": "CUGGIONO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15096",
+          "zip": "data\\dbgt\\downloads\\MI\\015096_CUGGIONO.zip",
+          "zip_bytes": 15884820,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015096_CUGGIONO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015096_CUGGIONO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 8290304
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015096_CUGGIONO\\dbgt.gpkg",
+              "bytes": 35594240
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015096_CUGGIONO\\Isoipse.zip",
+              "bytes": 223057
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015096_CUGGIONO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015035",
+          "comune": "BUBBIANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15035",
+          "zip": "data\\dbgt\\downloads\\MI\\015035_BUBBIANO.zip",
+          "zip_bytes": 4157902,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015035_BUBBIANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015035_BUBBIANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 2379776
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015035_BUBBIANO\\dbgt.gpkg",
+              "bytes": 9728000
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015035_BUBBIANO\\Isoipse.zip",
+              "bytes": 19767
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015035_BUBBIANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015211",
+          "comune": "SETTIMO MILANESE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15211",
+          "zip": "data\\dbgt\\downloads\\MI\\015211_SETTIMO_MILANESE.zip",
+          "zip_bytes": 22660169,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015211_SETTIMO_MILANESE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015211_SETTIMO_MILANESE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 11730944
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015211_SETTIMO_MILANESE\\dbgt.gpkg",
+              "bytes": 51314688
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015211_SETTIMO_MILANESE\\Isoipse.zip",
+              "bytes": 106273
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015211_SETTIMO_MILANESE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015042",
+          "comune": "CALVIGNASCO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15042",
+          "zip": "data\\dbgt\\downloads\\MI\\015042_CALVIGNASCO.zip",
+          "zip_bytes": 3149267,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015042_CALVIGNASCO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015042_CALVIGNASCO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 1724416
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015042_CALVIGNASCO\\dbgt.gpkg",
+              "bytes": 7770112
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015042_CALVIGNASCO\\Isoipse.zip",
+              "bytes": 6609
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015042_CALVIGNASCO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015139",
+          "comune": "MEDIGLIA",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15139",
+          "zip": "data\\dbgt\\downloads\\MI\\015139_MEDIGLIA.zip",
+          "zip_bytes": 18546388,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015139_MEDIGLIA\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015139_MEDIGLIA\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 9310208
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015139_MEDIGLIA\\dbgt.gpkg",
+              "bytes": 41857024
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015139_MEDIGLIA\\Isoipse.zip",
+              "bytes": 213497
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015139_MEDIGLIA\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015164",
+          "comune": "OSSONA",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15164",
+          "zip": "data\\dbgt\\downloads\\MI\\015164_OSSONA.zip",
+          "zip_bytes": 9442975,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015164_OSSONA\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015164_OSSONA\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 5148672
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015164_OSSONA\\dbgt.gpkg",
+              "bytes": 22065152
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015164_OSSONA\\Isoipse.zip",
+              "bytes": 59530
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015164_OSSONA\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015011",
+          "comune": "ASSAGO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15011",
+          "zip": "data\\dbgt\\downloads\\MI\\015011_ASSAGO.zip",
+          "zip_bytes": 14894009,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015011_ASSAGO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015011_ASSAGO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 8261632
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015011_ASSAGO\\dbgt.gpkg",
+              "bytes": 33898496
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015011_ASSAGO\\Isoipse.zip",
+              "bytes": 77955
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015011_ASSAGO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015097",
+          "comune": "CUSAGO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15097",
+          "zip": "data\\dbgt\\downloads\\MI\\015097_CUSAGO.zip",
+          "zip_bytes": 11250053,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015097_CUSAGO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015097_CUSAGO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 6004736
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015097_CUSAGO\\dbgt.gpkg",
+              "bytes": 24330240
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015097_CUSAGO\\Isoipse.zip",
+              "bytes": 98014
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015097_CUSAGO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015060",
+          "comune": "CASSINA DE PECCHI",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15060",
+          "zip": "data\\dbgt\\downloads\\MI\\015060_CASSINA_DE_PECCHI.zip",
+          "zip_bytes": 13990264,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015060_CASSINA_DE_PECCHI\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015060_CASSINA_DE_PECCHI\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 7675904
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015060_CASSINA_DE_PECCHI\\dbgt.gpkg",
+              "bytes": 32186368
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015060_CASSINA_DE_PECCHI\\Isoipse.zip",
+              "bytes": 75561
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015060_CASSINA_DE_PECCHI\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015103",
+          "comune": "GAGGIANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15103",
+          "zip": "data\\dbgt\\downloads\\MI\\015103_GAGGIANO.zip",
+          "zip_bytes": 18090384,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015103_GAGGIANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015103_GAGGIANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 9101312
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015103_GAGGIANO\\dbgt.gpkg",
+              "bytes": 41615360
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015103_GAGGIANO\\Isoipse.zip",
+              "bytes": 187168
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015103_GAGGIANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015007",
+          "comune": "ARCONATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15007",
+          "zip": "data\\dbgt\\downloads\\MI\\015007_ARCONATE.zip",
+          "zip_bytes": 8858463,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015007_ARCONATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015007_ARCONATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 4390912
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015007_ARCONATE\\dbgt.gpkg",
+              "bytes": 18833408
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015007_ARCONATE\\Isoipse.zip",
+              "bytes": 79443
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015007_ARCONATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015158",
+          "comune": "NOVIGLIO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15158",
+          "zip": "data\\dbgt\\downloads\\MI\\015158_NOVIGLIO.zip",
+          "zip_bytes": 13942455,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015158_NOVIGLIO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015158_NOVIGLIO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 7098368
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015158_NOVIGLIO\\dbgt.gpkg",
+              "bytes": 30797824
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015158_NOVIGLIO\\Isoipse.zip",
+              "bytes": 83780
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015158_NOVIGLIO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015177",
+          "comune": "POZZO D`ADDA",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15177",
+          "zip": "data\\dbgt\\downloads\\MI\\015177_POZZO_D_ADDA.zip",
+          "zip_bytes": 7377893,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015177_POZZO_D_ADDA\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015177_POZZO_D_ADDA\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 3919872
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015177_POZZO_D_ADDA\\dbgt.gpkg",
+              "bytes": 17502208
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015177_POZZO_D_ADDA\\Isoipse.zip",
+              "bytes": 49531
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015177_POZZO_D_ADDA\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015230",
+          "comune": "VAPRIO D`ADDA",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15230",
+          "zip": "data\\dbgt\\downloads\\MI\\015230_VAPRIO_D_ADDA.zip",
+          "zip_bytes": 11309829,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015230_VAPRIO_D_ADDA\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015230_VAPRIO_D_ADDA\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 5881856
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015230_VAPRIO_D_ADDA\\dbgt.gpkg",
+              "bytes": 26251264
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015230_VAPRIO_D_ADDA\\Isoipse.zip",
+              "bytes": 226244
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015230_VAPRIO_D_ADDA\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015027",
+          "comune": "BOLLATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15027",
+          "zip": "data\\dbgt\\downloads\\MI\\015027_BOLLATE.zip",
+          "zip_bytes": 27882496,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015027_BOLLATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015027_BOLLATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 14692352
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015027_BOLLATE\\dbgt.gpkg",
+              "bytes": 60928000
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015027_BOLLATE\\Isoipse.zip",
+              "bytes": 189948
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015027_BOLLATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015202",
+          "comune": "SAN ZENONE AL LAMBRO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15202",
+          "zip": "data\\dbgt\\downloads\\MI\\015202_SAN_ZENONE_AL_LAMBRO.zip",
+          "zip_bytes": 15613387,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015202_SAN_ZENONE_AL_LAMBRO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015202_SAN_ZENONE_AL_LAMBRO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 8359936
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015202_SAN_ZENONE_AL_LAMBRO\\dbgt.gpkg",
+              "bytes": 32804864
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015202_SAN_ZENONE_AL_LAMBRO\\Isoipse.zip",
+              "bytes": 147184
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015202_SAN_ZENONE_AL_LAMBRO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015176",
+          "comune": "POGLIANO MILANESE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15176",
+          "zip": "data\\dbgt\\downloads\\MI\\015176_POGLIANO_MILANESE.zip",
+          "zip_bytes": 13535900,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015176_POGLIANO_MILANESE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015176_POGLIANO_MILANESE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 7622656
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015176_POGLIANO_MILANESE\\dbgt.gpkg",
+              "bytes": 29261824
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015176_POGLIANO_MILANESE\\Isoipse.zip",
+              "bytes": 58274
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015176_POGLIANO_MILANESE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015213",
+          "comune": "SOLARO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15213",
+          "zip": "data\\dbgt\\downloads\\MI\\015213_SOLARO.zip",
+          "zip_bytes": 14812485,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015213_SOLARO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015213_SOLARO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 8257536
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015213_SOLARO\\dbgt.gpkg",
+              "bytes": 34942976
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015213_SOLARO\\Isoipse.zip",
+              "bytes": 197611
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015213_SOLARO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015182",
+          "comune": "RHO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15182",
+          "zip": "data\\dbgt\\downloads\\MI\\015182_RHO.zip",
+          "zip_bytes": 57670124,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015182_RHO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015182_RHO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 28749824
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015182_RHO\\dbgt.gpkg",
+              "bytes": 127803392
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015182_RHO\\Isoipse.zip",
+              "bytes": 319878
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015182_RHO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015220",
+          "comune": "TREZZANO SUL NAVIGLIO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15220",
+          "zip": "data\\dbgt\\downloads\\MI\\015220_TREZZANO_SUL_NAVIGLIO.zip",
+          "zip_bytes": 25069004,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015220_TREZZANO_SUL_NAVIGLIO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015220_TREZZANO_SUL_NAVIGLIO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 15384576
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015220_TREZZANO_SUL_NAVIGLIO\\dbgt.gpkg",
+              "bytes": 54501376
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015220_TREZZANO_SUL_NAVIGLIO\\Isoipse.zip",
+              "bytes": 100079
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015220_TREZZANO_SUL_NAVIGLIO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015154",
+          "comune": "NERVIANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15154",
+          "zip": "data\\dbgt\\downloads\\MI\\015154_NERVIANO.zip",
+          "zip_bytes": 25841342,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015154_NERVIANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015154_NERVIANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 13246464
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015154_NERVIANO\\dbgt.gpkg",
+              "bytes": 59518976
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015154_NERVIANO\\Isoipse.zip",
+              "bytes": 233698
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015154_NERVIANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015249",
+          "comune": "VANZAGHELLO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15249",
+          "zip": "data\\dbgt\\downloads\\MI\\015249_VANZAGHELLO.zip",
+          "zip_bytes": 8841933,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015249_VANZAGHELLO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015249_VANZAGHELLO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 5148672
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015249_VANZAGHELLO\\dbgt.gpkg",
+              "bytes": 20328448
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015249_VANZAGHELLO\\Isoipse.zip",
+              "bytes": 83325
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015249_VANZAGHELLO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015251",
+          "comune": "VERMEZZO CON ZELO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15251",
+          "zip": "data\\dbgt\\downloads\\MI\\015251_VERMEZZO_CON_ZELO.zip",
+          "zip_bytes": 11645866,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015251_VERMEZZO_CON_ZELO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015251_VERMEZZO_CON_ZELO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 6160384
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015251_VERMEZZO_CON_ZELO\\dbgt.gpkg",
+              "bytes": 25120768
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015251_VERMEZZO_CON_ZELO\\Isoipse.zip",
+              "bytes": 30134
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015251_VERMEZZO_CON_ZELO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015024",
+          "comune": "BINASCO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15024",
+          "zip": "data\\dbgt\\downloads\\MI\\015024_BINASCO.zip",
+          "zip_bytes": 7069809,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015024_BINASCO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015024_BINASCO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 3710976
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015024_BINASCO\\dbgt.gpkg",
+              "bytes": 16736256
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015024_BINASCO\\Isoipse.zip",
+              "bytes": 42007
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015024_BINASCO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015209",
+          "comune": "SESTO SAN GIOVANNI",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15209",
+          "zip": "data\\dbgt\\downloads\\MI\\015209_SESTO_SAN_GIOVANNI.zip",
+          "zip_bytes": 33633909,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015209_SESTO_SAN_GIOVANNI\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015209_SESTO_SAN_GIOVANNI\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 17551360
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015209_SESTO_SAN_GIOVANNI\\dbgt.gpkg",
+              "bytes": 79319040
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015209_SESTO_SAN_GIOVANNI\\Isoipse.zip",
+              "bytes": 213770
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015209_SESTO_SAN_GIOVANNI\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015243",
+          "comune": "VITTUONE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15243",
+          "zip": "data\\dbgt\\downloads\\MI\\015243_VITTUONE.zip",
+          "zip_bytes": 10937004,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015243_VITTUONE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015243_VITTUONE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 5902336
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015243_VITTUONE\\dbgt.gpkg",
+              "bytes": 24125440
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015243_VITTUONE\\Isoipse.zip",
+              "bytes": 42717
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015243_VITTUONE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015044",
+          "comune": "CAMBIAGO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15044",
+          "zip": "data\\dbgt\\downloads\\MI\\015044_CAMBIAGO.zip",
+          "zip_bytes": 11187982,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015044_CAMBIAGO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015044_CAMBIAGO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 5804032
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015044_CAMBIAGO\\dbgt.gpkg",
+              "bytes": 23453696
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015044_CAMBIAGO\\Isoipse.zip",
+              "bytes": 124169
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015044_CAMBIAGO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015046",
+          "comune": "CANEGRATE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15046",
+          "zip": "data\\dbgt\\downloads\\MI\\015046_CANEGRATE.zip",
+          "zip_bytes": 17532284,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015046_CANEGRATE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015046_CANEGRATE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 9224192
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015046_CANEGRATE\\dbgt.gpkg",
+              "bytes": 41103360
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015046_CANEGRATE\\Isoipse.zip",
+              "bytes": 80782
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015046_CANEGRATE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015081",
+          "comune": "COLOGNO MONZESE",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15081",
+          "zip": "data\\dbgt\\downloads\\MI\\015081_COLOGNO_MONZESE.zip",
+          "zip_bytes": 25753923,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015081_COLOGNO_MONZESE\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015081_COLOGNO_MONZESE\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 14069760
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015081_COLOGNO_MONZESE\\dbgt.gpkg",
+              "bytes": 53186560
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015081_COLOGNO_MONZESE\\Isoipse.zip",
+              "bytes": 149178
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015081_COLOGNO_MONZESE\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015010",
+          "comune": "ARLUNO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15010",
+          "zip": "data\\dbgt\\downloads\\MI\\015010_ARLUNO.zip",
+          "zip_bytes": 20256510,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015010_ARLUNO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015010_ARLUNO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 10551296
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015010_ARLUNO\\dbgt.gpkg",
+              "bytes": 46497792
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015010_ARLUNO\\Isoipse.zip",
+              "bytes": 161513
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015010_ARLUNO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015222",
+          "comune": "TRIBIANO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15222",
+          "zip": "data\\dbgt\\downloads\\MI\\015222_TRIBIANO.zip",
+          "zip_bytes": 8525781,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015222_TRIBIANO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015222_TRIBIANO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 4636672
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015222_TRIBIANO\\dbgt.gpkg",
+              "bytes": 18575360
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015222_TRIBIANO\\Isoipse.zip",
+              "bytes": 55608
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015222_TRIBIANO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015002",
+          "comune": "ABBIATEGRASSO",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15002",
+          "zip": "data\\dbgt\\downloads\\MI\\015002_ABBIATEGRASSO.zip",
+          "zip_bytes": 42275718,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015002_ABBIATEGRASSO\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015002_ABBIATEGRASSO\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 22360064
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015002_ABBIATEGRASSO\\dbgt.gpkg",
+              "bytes": 90992640
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015002_ABBIATEGRASSO\\Isoipse.zip",
+              "bytes": 510291
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015002_ABBIATEGRASSO\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        },
+        {
+          "codice_comune": "015112",
+          "comune": "GUDO VISCONTI",
+          "url": "https://www.geoportale.regione.lombardia.it/rlregis_download/service/package?dbId=514&cod=15112",
+          "zip": "data\\dbgt\\downloads\\MI\\015112_GUDO_VISCONTI.zip",
+          "zip_bytes": 4074580,
+          "gpkg": [
+            "data\\dbgt\\downloads\\MI\\015112_GUDO_VISCONTI\\dbgt.gpkg"
+          ],
+          "files": [
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015112_GUDO_VISCONTI\\base_dbt_per_pianificazione.gpkg",
+              "bytes": 2179072
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015112_GUDO_VISCONTI\\dbgt.gpkg",
+              "bytes": 10317824
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015112_GUDO_VISCONTI\\Isoipse.zip",
+              "bytes": 56684
+            },
+            {
+              "path": "data\\dbgt\\downloads\\MI\\015112_GUDO_VISCONTI\\leggimi.txt",
+              "bytes": 953
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "packages": 133,
+  "gpkg_found": 133
+}

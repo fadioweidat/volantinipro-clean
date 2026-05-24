@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>http://localhost:5173/</loc>
+  </url>
+  <url>
+    <loc>http://localhost:5173/preventivo-rapido</loc>
+  </url>
+  <url>
+    <loc>http://localhost:5173/consulente</loc>
+  </url>
+  <url>
+    <loc>http://localhost:5173/login</loc>
+  </url>
+  <url>
+    <loc>http://localhost:5173/dashboard</loc>
+  </url>
+  <url>
+    <loc>http://localhost:5173/campagna/demo</loc>
+  </url>
+  <url>
+    <loc>http://localhost:5173/privacy</loc>
+  </url>
+  <url>
+    <loc>http://localhost:5173/termini</loc>
+  </url>
+  <url>
+    <loc>http://localhost:5173/cookie-policy</loc>
+  </url>
+</urlset>

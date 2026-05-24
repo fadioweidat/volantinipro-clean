@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Accesso VolantiniPro</title>
+  <style>
+    body {
+      font-family: 'DM Sans', Arial, sans-serif;
+      background: #F5F4F1;
+      margin: 0;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 520px;
+      margin: 0 auto;
+      background: #1A2744;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .header {
+      background: #E8571A;
+      padding: 24px 32px;
+      text-align: center;
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: 700;
+      color: white;
+      letter-spacing: -0.5px;
+    }
+    .body {
+      padding: 36px 32px;
+    }
+    h2 {
+      color: white;
+      font-size: 22px;
+      margin: 0 0 16px;
+    }
+    p {
+      color: rgba(255,255,255,0.7);
+      font-size: 15px;
+      line-height: 1.6;
+      margin: 0 0 20px;
+    }
+    .btn {
+      display: inline-block;
+      background: #E8571A;
+      color: white !important;
+      text-decoration: none;
+      padding: 14px 28px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 16px;
+      margin: 8px 0 24px;
+    }
+    .note {
+      font-size: 12px;
+      color: rgba(255,255,255,0.35);
+    }
+    .footer {
+      background: rgba(0,0,0,0.2);
+      padding: 20px 32px;
+      text-align: center;
+    }
+    .footer p {
+      font-size: 12px;
+      color: rgba(255,255,255,0.3);
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">VolantiniPro</div>
+    </div>
+    <div class="body">
+      <h2>Accedi alla tua dashboard</h2>
+      <p>
+        Clicca il pulsante qui sotto per accedere alla tua area personale
+        e visualizzare le tue campagne di distribuzione.
+      </p>
+      <a href="{{ .ConfirmationURL }}" class="btn">
+        Entra nella dashboard &rarr;
+      </a>
+      <p class="note">
+        Il link &egrave; valido per 24 ore. Se non hai richiesto questo accesso,
+        ignora questa email.
+      </p>
+    </div>
+    <div class="footer">
+      <p>VolantiniPro &mdash; Distribuzione professionale Milano</p>
+      <p>info@volantinipro.it</p>
+    </div>
+  </div>
+</body>
+</html>
