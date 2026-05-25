@@ -1,4 +1,4 @@
-import React from "react";
+import { useState } from "react";
 
 const BRAND_ORANGE = "#E8571A";
 const BRAND_ORANGE_HOVER = "#D14A14";
@@ -51,7 +51,7 @@ export default function Button({
   type = "button",
   ...props
 }) {
-  const [hovered, setHovered] = React.useState(false);
+  const [hovered, setHovered] = useState(false);
   const safeVariant = variantStyles[variant] ? variant : "primary";
   const hoverStyle =
     safeVariant === "primary"
