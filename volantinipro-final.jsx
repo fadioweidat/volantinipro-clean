@@ -5497,7 +5497,7 @@ const urgency = prefillPatch.urgency;
         quickSource: prefillPatch.source || d.quickSource || ""
       }));
     }
-    const paths = { home: "/", login: "/login", dashboard: "/dashboard", campaign: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}${prefillPatch?.new ? "?nuovo=true" : ""}` : "/dashboard", payment: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}/pagamento` : "/dashboard", privacy: "/privacy", terms: "/termini", cookie: "/cookie-policy", quick: "/preventivo-rapido", consultant: "/consulente", step1: "/configuratore", step2: "/configuratore", step3: "/configuratore", step4: "/configuratore", admin: "/admin" };
+    const paths = { home: "/", login: "/login", dashboard: "/dashboard", campaign: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}${prefillPatch?.new ? "?nuovo=true" : ""}` : "/dashboard", payment: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}/pagamento` : "/dashboard", privacy: "/privacy", terms: "/termini", cookie: "/cookie-policy", quick: "/preventivo-rapido", consultant: "/consulente", step1: "/configuratore", step2: "/configuratore", step3: "/configuratore", step4: "/configuratore", admin: "/admin/campaigns/11111111-1111-1111-1111-111111111111/gps" };
     if (typeof window !== "undefined") {
       const params = new URLSearchParams();
       if (p.startsWith("step")) {

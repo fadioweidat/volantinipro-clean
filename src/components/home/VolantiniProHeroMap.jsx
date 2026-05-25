@@ -70,6 +70,10 @@ function BenefitIcon({ type }) {
 export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWorks }) {
   const compact = useCompact();
   const [menuOpen, setMenuOpen] = useState(false);
+  const goAdmin = () => {
+    if (typeof onAdmin === "function") return onAdmin();
+    window.location.href = "/admin/campaigns/11111111-1111-1111-1111-111111111111/gps";
+  };
 
   const benefits = [
     {
@@ -142,6 +146,12 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
 
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           {!compact && (
+            <Button variant="secondary" onClick={goAdmin} style={headerOutlineButtonStyle}>
+              <ShieldIcon />
+              Area Admin
+            </Button>
+          )}
+          {!compact && (
             <Button variant="secondary" onClick={onLogin} style={headerOutlineButtonStyle}>
               Accedi
             </Button>
@@ -171,6 +181,7 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
           <button onClick={() => { setMenuOpen(false); onConfigure?.(); }} style={mobileMenuItemStyle}>Prezzi</button>
           <button onClick={() => { setMenuOpen(false); onHowItWorks?.(); }} style={mobileMenuItemStyle}>Funzionalità</button>
           <button onClick={() => { setMenuOpen(false); onHowItWorks?.(); }} style={mobileMenuItemStyle}>Chi siamo</button>
+          <button onClick={() => { setMenuOpen(false); goAdmin(); }} style={{ ...mobileMenuItemStyle, color: C.orange }}>Area Admin</button>
           <button onClick={() => { setMenuOpen(false); onLogin?.(); }} style={{ ...mobileMenuItemStyle, color: C.orange }}>Accedi</button>
         </div>
       )}
