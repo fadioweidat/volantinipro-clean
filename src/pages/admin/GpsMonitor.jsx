@@ -4,19 +4,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { createProofPhotoSignedUrl, getCampaignGpsPoints, getCampaignGpsSessions, getCampaignProofPhotos } from '../../lib/services/gps-api.js';
 
 export function GpsMonitor({ campaignId }) {
-  const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [] });
+  const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], activeSession: null });
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const [points, sessions, photos] = await Promise.all([
-          getCampaignGpsPoints(campaignId),
-          getCampaignGpsSessions(campaignId),
+        const sessions = await getCampaignGpsSessions(campaignId);
+        const activeSession = getLatestTrackableSession(sessions);
+        const [points, photos] = await Promise.all([
+          activeSession ? getCampaignGpsPoints(campaignId, { sessionId: activeSession.id }) : Promise.resolve([]),
           getCampaignProofPhotos(campaignId),
         ]);
         const photosWithUrls = await hydratePhotoUrls(photos);
-        if (!cancelled) setState({ loading: false, error: null, points, sessions, photos: photosWithUrls });
+        if (!cancelled) setState({ loading: false, error: null, points, sessions, photos: photosWithUrls, activeSession });
       } catch (err) {
         if (!cancelled) setState((prev) => ({ ...prev, loading: false, error: err?.message || 'Errore caricamento GPS.' }));
       }
@@ -32,6 +33,11 @@ export function GpsMonitor({ campaignId }) {
   const status = deriveCampaignStatus(state.sessions);
   const activeMs = state.sessions.reduce((sum, session) => sum + sessionDurationMs(session), 0);
   const latest = state.points[state.points.length - 1] || null;
+  const latestActivityAt = state.activeSession?.updated_at || latest?.created_at || latest?.recorded_at || state.activeSession?.started_at || null;
+  const driverOnline = latestActivityAt ? Date.now() - new Date(latestActivityAt).getTime() < 45000 : false;
+  const activeSessionLabel = state.activeSession
+    ? `${state.activeSession.status} · ${formatDateTime(state.activeSession.started_at || state.activeSession.created_at)}`
+    : 'nessuna sessione';
 
   return (
     <GpsShell title="Admin GPS Monitor" subtitle={`Campagna ${campaignId}`}>
@@ -40,6 +46,8 @@ export function GpsMonitor({ campaignId }) {
         <Metric label="Stato campagna" value={status} />
         <Metric label="Sessioni" value={state.sessions.length} />
         <Metric label="Punti GPS" value={state.points.length} />
+        <Metric label="Sessione mappa" value={activeSessionLabel} />
+        <Metric label="Driver" value={driverOnline ? 'online' : 'offline'} />
         <Metric label="Tempo attivo" value={formatDuration(activeMs)} />
       </div>
 
@@ -56,10 +64,12 @@ export function GpsMonitor({ campaignId }) {
         <div style={cardStyle}>
           <p style={eyebrowStyle}>Sessioni</p>
           {state.sessions.length ? state.sessions.map((session) => (
-            <div key={session.id} style={rowStyle}>
+            <div key={session.id} style={session.id === state.activeSession?.id ? activeSessionRowStyle : rowStyle}>
               <strong>{session.status}</strong>
               <span>{formatDateTime(session.started_at)} - {formatDateTime(session.ended_at || session.paused_at)}</span>
               <span>{session.driver_id}</span>
+              <span>{sessionOnlineLabel(session, state.activeSession, latest)}</span>
+              {session.id === state.activeSession?.id ? <span style={activeBadgeStyle}>mappa</span> : null}
             </div>
           )) : <EmptyState text="Nessuna sessione registrata" />}
         </div>
@@ -73,6 +83,24 @@ export function GpsMonitor({ campaignId }) {
       </section>
     </GpsShell>
   );
+}
+
+function sessionOnlineLabel(session, activeSession, latestPoint) {
+  if (session.id !== activeSession?.id) return 'offline';
+  const activityAt = session.updated_at || latestPoint?.created_at || latestPoint?.recorded_at || session.started_at;
+  if (!activityAt) return 'offline';
+  return Date.now() - new Date(activityAt).getTime() < 45000 ? 'online' : 'offline';
+}
+
+function getLatestTrackableSession(sessions) {
+  const trackableStatuses = new Set(['started', 'paused', 'completed']);
+  return (sessions || [])
+    .filter((session) => trackableStatuses.has(session.status))
+    .sort((a, b) => {
+      const aTime = new Date(a.started_at || a.created_at || 0).getTime();
+      const bTime = new Date(b.started_at || b.created_at || 0).getTime();
+      return bTime - aTime;
+    })[0] || null;
 }
 
 function GpsMap({ points, latest }) {
@@ -176,4 +204,6 @@ const metricGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit
 const metricStyle = { display: 'grid', gap: 4, padding: 12, background: '#fff', borderRadius: 10, border: '1px solid #d7ded9' };
 const gridTwoStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 16 };
 const rowStyle = { display: 'flex', gap: 12, padding: 12, borderBottom: '1px solid #e2e8f0', alignItems: 'center', flexWrap: 'wrap' };
+const activeSessionRowStyle = { ...rowStyle, background: '#fff7ed', borderRadius: 10, borderBottom: '1px solid #fed7aa' };
+const activeBadgeStyle = { padding: '3px 8px', borderRadius: 999, background: '#e8571a', color: '#fff', fontSize: 11, fontWeight: 900 };
 const errorStyle = { padding: 12, borderRadius: 10, color: '#991b1b', background: '#fee2e2', border: '1px solid #fecaca' };

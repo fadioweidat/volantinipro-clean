@@ -1,8 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { endGpsSession, insertGpsPoint, pauseGpsSession, resumeGpsSession, startGpsSession } from '../lib/services/gps-api.js';
+import {
+  endGpsSession,
+  getActiveGpsSession,
+  heartbeatGpsSession,
+  insertGpsPoint,
+  pauseGpsSession,
+  resumeGpsSession,
+  startGpsSession,
+} from '../lib/services/gps-api.js';
 
 const SEND_INTERVAL_MS = 15000;
 const MIN_DISTANCE_METERS = 8;
+const HEARTBEAT_INTERVAL_MS = 20000;
+const QUEUE_FLUSH_INTERVAL_MS = 10000;
+const HIGH_SPEED_MPS = 2.2;
 
 export function useGpsTracking(campaignId) {
   const [session, setSession] = useState(null);
@@ -11,11 +22,22 @@ export function useGpsTracking(campaignId) {
   const [accuracy, setAccuracy] = useState(null);
   const [lastPosition, setLastPosition] = useState(null);
   const [lastSentAt, setLastSentAt] = useState(null);
+  const [networkStatus, setNetworkStatus] = useState(typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'online');
+  const [queueSize, setQueueSize] = useState(0);
+  const [wakeLockStatus, setWakeLockStatus] = useState('unsupported');
   const watchIdRef = useRef(null);
+  const wakeLockRef = useRef(null);
+  const highAccuracyRef = useRef(true);
   const sessionRef = useRef(null);
   const statusRef = useRef('idle');
   const lastSentRef = useRef({ at: 0, lat: null, lng: null });
   const sendingRef = useRef(false);
+  const queueKeyRef = useRef('');
+
+  useEffect(() => {
+    queueKeyRef.current = `volantinipro:gps-queue:${campaignId || 'unknown'}`;
+    setQueueSize(readQueue(queueKeyRef.current).length);
+  }, [campaignId]);
 
   useEffect(() => {
     sessionRef.current = session;
@@ -32,9 +54,81 @@ export function useGpsTracking(campaignId) {
     watchIdRef.current = null;
   }, []);
 
+  const releaseWakeLock = useCallback(async () => {
+    if (!wakeLockRef.current) return;
+    try {
+      await wakeLockRef.current.release();
+    } catch {
+      // The browser can release wake lock on its own when the page is hidden.
+    }
+    wakeLockRef.current = null;
+    setWakeLockStatus('released');
+  }, []);
+
+  const requestWakeLock = useCallback(async () => {
+    if (!('wakeLock' in navigator)) {
+      setWakeLockStatus('unsupported');
+      return;
+    }
+    if (document.visibilityState !== 'visible') return;
+    try {
+      wakeLockRef.current = await navigator.wakeLock.request('screen');
+      setWakeLockStatus('active');
+      wakeLockRef.current.addEventListener('release', () => {
+        wakeLockRef.current = null;
+        setWakeLockStatus('released');
+      });
+    } catch (err) {
+      setWakeLockStatus('error');
+      console.warn('Wake Lock non disponibile', err);
+    }
+  }, []);
+
+  const enqueuePoint = useCallback((payload) => {
+    const key = queueKeyRef.current;
+    if (!key) return;
+    const queue = readQueue(key);
+    queue.push({ ...payload, queuedAt: new Date().toISOString() });
+    writeQueue(key, queue);
+    setQueueSize(queue.length);
+  }, []);
+
+  const flushQueue = useCallback(async () => {
+    const key = queueKeyRef.current;
+    if (!key || sendingRef.current || navigator.onLine === false) return;
+    const queue = readQueue(key);
+    if (!queue.length) {
+      setQueueSize(0);
+      return;
+    }
+
+    sendingRef.current = true;
+    const remaining = [];
+    try {
+      for (const queuedPoint of queue) {
+        try {
+          const { queuedAt, ...payload } = queuedPoint;
+          const point = await insertGpsPoint(payload);
+          lastSentRef.current = { at: Date.now(), lat: Number(payload.lat), lng: Number(payload.lng) };
+          setLastSentAt(new Date().toISOString());
+          setLastPosition(point);
+          setAccuracy(point.accuracy ?? payload.accuracy ?? null);
+        } catch (err) {
+          remaining.push(queuedPoint);
+          console.warn('Punto GPS rimasto in coda', err);
+        }
+      }
+      writeQueue(key, remaining);
+      setQueueSize(remaining.length);
+      if (!remaining.length) setError(null);
+    } finally {
+      sendingRef.current = false;
+    }
+  }, []);
+
   const sendPosition = useCallback(async (position) => {
     const activeSession = sessionRef.current;
-    if (!campaignId || !activeSession?.id || statusRef.current !== 'active' || sendingRef.current) return;
+    if (!campaignId || !activeSession?.id || statusRef.current !== 'active') return;
     const coords = position.coords;
     const lat = Number(coords.latitude);
     const lng = Number(coords.longitude);
@@ -49,41 +143,56 @@ export function useGpsTracking(campaignId) {
     if (elapsed < SEND_INTERVAL_MS) return;
     if (movedMeters < MIN_DISTANCE_METERS && elapsed < SEND_INTERVAL_MS * 2) return;
 
+    const payload = {
+      campaignId,
+      sessionId: activeSession.id,
+      driverId: activeSession.driver_id,
+      lat,
+      lng,
+      accuracy: Number.isFinite(coords.accuracy) ? coords.accuracy : null,
+      speed: Number.isFinite(coords.speed) ? coords.speed : null,
+      heading: Number.isFinite(coords.heading) ? coords.heading : null,
+      recordedAt: new Date(position.timestamp || now).toISOString(),
+    };
+
+    if (navigator.onLine === false || sendingRef.current) {
+      enqueuePoint(payload);
+      setNetworkStatus('offline');
+      return;
+    }
+
     sendingRef.current = true;
     try {
-      const point = await insertGpsPoint({
-        campaignId,
-        sessionId: activeSession.id,
-        driverId: activeSession.driver_id,
-        lat,
-        lng,
-        accuracy: Number.isFinite(coords.accuracy) ? coords.accuracy : null,
-        speed: Number.isFinite(coords.speed) ? coords.speed : null,
-        heading: Number.isFinite(coords.heading) ? coords.heading : null,
-        recordedAt: new Date(position.timestamp || now).toISOString(),
-      });
+      const point = await insertGpsPoint(payload);
       lastSentRef.current = { at: now, lat, lng };
       setLastSentAt(new Date().toISOString());
       setLastPosition(point);
       setAccuracy(point.accuracy ?? coords.accuracy ?? null);
       setError(null);
     } catch (err) {
-      setError(err?.message || 'Errore invio posizione GPS.');
+      enqueuePoint(payload);
+      setError(`${err?.message || 'Errore invio posizione GPS.'} Punto salvato in coda locale.`);
     } finally {
       sendingRef.current = false;
     }
-  }, [campaignId]);
+  }, [campaignId, enqueuePoint]);
 
-  const startWatch = useCallback(() => {
+  const startWatch = useCallback((forceHighAccuracy = highAccuracyRef.current) => {
     if (!navigator.geolocation) {
       setStatus('permission_error');
       setError('GPS non disponibile su questo dispositivo/browser.');
       return;
     }
     stopWatch();
+    highAccuracyRef.current = forceHighAccuracy;
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         const coords = position.coords;
+        const speed = Number.isFinite(coords.speed) ? coords.speed : 0;
+        const shouldUseHighAccuracy = speed >= HIGH_SPEED_MPS;
+        if (shouldUseHighAccuracy !== highAccuracyRef.current && statusRef.current === 'active') {
+          window.setTimeout(() => startWatch(shouldUseHighAccuracy), 0);
+        }
         setAccuracy(Number.isFinite(coords.accuracy) ? coords.accuracy : null);
         setLastPosition({
           lat: coords.latitude,
@@ -102,7 +211,7 @@ export function useGpsTracking(campaignId) {
         }
         setError(geoError.message || 'Errore lettura posizione GPS.');
       },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
+      { enableHighAccuracy: forceHighAccuracy, maximumAge: forceHighAccuracy ? 5000 : 15000, timeout: 20000 },
     );
   }, [sendPosition, stopWatch]);
 
@@ -114,9 +223,11 @@ export function useGpsTracking(campaignId) {
     setSession(nextSession);
     setStatus('active');
     lastSentRef.current = { at: 0, lat: null, lng: null };
+    await requestWakeLock();
     startWatch();
+    flushQueue();
     return nextSession;
-  }, [campaignId, startWatch]);
+  }, [campaignId, flushQueue, requestWakeLock, startWatch]);
 
   const pause = useCallback(async () => {
     if (!sessionRef.current?.id) return null;
@@ -126,8 +237,9 @@ export function useGpsTracking(campaignId) {
     setSession(updated);
     setStatus('paused');
     stopWatch();
+    await releaseWakeLock();
     return updated;
-  }, [stopWatch]);
+  }, [releaseWakeLock, stopWatch]);
 
   const resume = useCallback(async () => {
     if (!sessionRef.current?.id) return null;
@@ -136,9 +248,11 @@ export function useGpsTracking(campaignId) {
     statusRef.current = 'active';
     setSession(updated);
     setStatus('active');
+    await requestWakeLock();
     startWatch();
+    flushQueue();
     return updated;
-  }, [startWatch]);
+  }, [flushQueue, requestWakeLock, startWatch]);
 
   const end = useCallback(async () => {
     if (!sessionRef.current?.id) return null;
@@ -148,10 +262,80 @@ export function useGpsTracking(campaignId) {
     statusRef.current = 'completed';
     setSession(updated);
     setStatus('completed');
+    await releaseWakeLock();
     return updated;
-  }, [stopWatch]);
+  }, [releaseWakeLock, stopWatch]);
 
-  useEffect(() => stopWatch, [stopWatch]);
+  useEffect(() => {
+    let cancelled = false;
+    async function resumeExistingSession() {
+      if (!campaignId) return;
+      try {
+        const existing = await getActiveGpsSession(campaignId);
+        if (cancelled || !existing || existing.status !== 'started') return;
+        sessionRef.current = existing;
+        statusRef.current = 'active';
+        setSession(existing);
+        setStatus('active');
+        await requestWakeLock();
+        startWatch();
+        flushQueue();
+      } catch (err) {
+        console.warn('Resume session GPS non riuscito', err);
+      }
+    }
+    resumeExistingSession();
+    return () => {
+      cancelled = true;
+    };
+  }, [campaignId, flushQueue, requestWakeLock, startWatch]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      console.info('GPS visibilitychange', document.visibilityState);
+      if (document.visibilityState === 'visible' && statusRef.current === 'active') {
+        requestWakeLock();
+        startWatch();
+        flushQueue();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [flushQueue, requestWakeLock, startWatch]);
+
+  useEffect(() => {
+    const onOnline = () => {
+      setNetworkStatus('online');
+      flushQueue();
+    };
+    const onOffline = () => setNetworkStatus('offline');
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, [flushQueue]);
+
+  useEffect(() => {
+    const timer = window.setInterval(flushQueue, QUEUE_FLUSH_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [flushQueue]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (statusRef.current !== 'active' || !sessionRef.current?.id) return;
+      heartbeatGpsSession(sessionRef.current.id).catch((err) => {
+        console.warn('Heartbeat GPS non riuscito', err);
+      });
+    }, HEARTBEAT_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => () => {
+    stopWatch();
+    releaseWakeLock();
+  }, [releaseWakeLock, stopWatch]);
 
   return {
     session,
@@ -160,6 +344,9 @@ export function useGpsTracking(campaignId) {
     accuracy,
     lastPosition,
     lastSentAt,
+    networkStatus,
+    queueSize,
+    wakeLockStatus,
     isActive: status === 'active',
     isPaused: status === 'paused',
     start,
@@ -178,4 +365,16 @@ function distanceMeters(lat1, lng1, lat2, lng2) {
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
     Math.sin(dLng / 2) ** 2;
   return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function readQueue(key) {
+  try {
+    return JSON.parse(window.localStorage.getItem(key) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function writeQueue(key, queue) {
+  window.localStorage.setItem(key, JSON.stringify(queue.slice(-500)));
 }

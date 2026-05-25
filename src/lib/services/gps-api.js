@@ -2,6 +2,7 @@ import { supabase } from '../../supabaseClient.js';
 
 const PROOF_BUCKET = 'proof-photos';
 const DEV_DRIVER_ID = '22222222-2222-2222-2222-222222222222';
+const RETRY_DELAYS_MS = [800, 1800, 4000];
 
 async function requireSupabase() {
   if (!supabase) throw new Error('Supabase non configurato.');
@@ -17,6 +18,24 @@ async function getCurrentUserId() {
   }
 
   return data?.user?.id || DEV_DRIVER_ID;
+}
+
+async function withRetry(operation, label = 'operazione Supabase') {
+  let lastError = null;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (attempt >= RETRY_DELAYS_MS.length) break;
+      await sleep(RETRY_DELAYS_MS[attempt]);
+    }
+  }
+  throw lastError || new Error(`${label} non riuscita.`);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
 }
 
 export async function startGpsSession(campaignId) {
@@ -41,6 +60,25 @@ export async function startGpsSession(campaignId) {
 
   if (error) throw error;
   return data;
+}
+
+export async function getActiveGpsSession(campaignId) {
+  const client = await requireSupabase();
+  const driverId = await getCurrentUserId();
+
+  const { data, error } = await client
+    .from('delivery_sessions')
+    .select('*')
+    .eq('campaign_id', campaignId)
+    .eq('driver_id', driverId)
+    .in('status', ['started', 'paused'])
+    .order('started_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data || null;
 }
 
 export async function pauseGpsSession(sessionId) {
@@ -92,21 +130,25 @@ export async function insertGpsPoint({
   const client = await requireSupabase();
   const resolvedDriverId = driverId || (await getCurrentUserId());
 
-  const { data, error } = await client
-    .from('gps_tracking_points')
-    .insert({
-      campaign_id: campaignId,
-      session_id: sessionId,
-      driver_id: resolvedDriverId,
-      lat,
-      lng,
-      accuracy,
-      speed,
-      heading,
-      recorded_at: recordedAt || new Date().toISOString(),
-    })
-    .select('*')
-    .single();
+  const { data, error } = await withRetry(async () => {
+    const result = await client
+      .from('gps_tracking_points')
+      .insert({
+        campaign_id: campaignId,
+        session_id: sessionId,
+        driver_id: resolvedDriverId,
+        lat,
+        lng,
+        accuracy,
+        speed,
+        heading,
+        recorded_at: recordedAt || new Date().toISOString(),
+      })
+      .select('*')
+      .single();
+    if (result.error) throw result.error;
+    return result;
+  }, 'invio punto GPS');
 
   console.log('SUPABASE GPS POINT RESULT', { data, error });
 
@@ -114,14 +156,35 @@ export async function insertGpsPoint({
   return data;
 }
 
-export async function getCampaignGpsPoints(campaignId) {
+export async function heartbeatGpsSession(sessionId) {
+  const client = await requireSupabase();
+  const { data, error } = await client
+    .from('delivery_sessions')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('id', sessionId)
+    .select('*')
+    .single();
+
+  if (error) {
+    const message = `${error.message || ''} ${error.details || ''}`;
+    if (message.toLowerCase().includes('updated_at')) return null;
+    throw error;
+  }
+  return data;
+}
+
+export async function getCampaignGpsPoints(campaignId, { sessionId } = {}) {
   const client = await requireSupabase();
 
-  const { data, error } = await client
+  let query = client
     .from('gps_tracking_points')
     .select('*')
     .eq('campaign_id', campaignId)
     .order('recorded_at', { ascending: true });
+
+  if (sessionId) query = query.eq('session_id', sessionId);
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data || [];

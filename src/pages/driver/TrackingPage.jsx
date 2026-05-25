@@ -67,6 +67,9 @@ export function TrackingPage({ campaignId }) {
           <Metric label="Accuracy" value={tracking.accuracy != null ? `${Math.round(tracking.accuracy)} m` : 'n/d'} />
           <Metric label="Ultimo invio" value={tracking.lastSentAt ? new Date(tracking.lastSentAt).toLocaleTimeString('it-IT') : 'nessuno'} />
           <Metric label="Sessione" value={tracking.session?.id ? tracking.session.id.slice(0, 8) : 'non avviata'} />
+          <Metric label="Rete" value={tracking.networkStatus} />
+          <Metric label="Coda locale" value={tracking.queueSize} />
+          <Metric label="Wake lock" value={tracking.wakeLockStatus} />
         </div>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
