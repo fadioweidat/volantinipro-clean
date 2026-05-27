@@ -247,7 +247,7 @@ function MapViewport({ center, radiusKm }) {
 function makeComuniFeatures(analysis) {
   return (analysis?.comuni_breakdown || [])
     .map((row, index) => {
-      const geometry = parseGeoJson(row.geometry_geojson);
+      const geometry = parseGeoJson(row.geometry_geojson || row.geometry || row.geojson || row.geom);
       if (!geometry) return null;
       const area = Number(row.area_km2 || 0);
       const households = Number(row.households_total || row.famiglie_stimate || 0);
@@ -296,7 +296,14 @@ function parseGeoJson(value) {
   if (!value) return null;
   if (typeof value === "object") return value;
   try {
-    return JSON.parse(value);
+    const first = JSON.parse(value);
+    if (typeof first === "string") {
+      const s = first.trim();
+      if ((s.startsWith("{") && s.endsWith("}")) || (s.startsWith("[") && s.endsWith("]"))) {
+        return JSON.parse(s);
+      }
+    }
+    return first;
   } catch {
     return null;
   }
