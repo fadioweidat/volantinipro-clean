@@ -744,10 +744,9 @@ const resolveStep2City = (value) => {
     return name && (name === raw || raw.includes(name) || name.includes(raw));
   }) || null;
 };
-const DEFAULT_STEP2_CITY = GEO_DATA.find(g => g.id === "cormano") || { id: "cormano", name: "Cormano", label: "Cormano", lat: 45.551, lng: 9.163 };
-const initialCity = data.city || resolveStep2City(data.cityName || data.searchedLocation || data.comune) || DEFAULT_STEP2_CITY;
-const [search, setSearch] = useState(data.cityName || initialCity?.label || initialCity?.name || "");
-const [city, setCity] = useState(initialCity || null);
+const initialCity = data.city || resolveStep2City(data.cityName) || null;
+const [search, setSearch] = useState(data.cityName || "");
+const [city, setCity] = useState(initialCity);
 const [radius, setRadius] = useState(data.radius || 3);
 const [selected, setSelected] = useState(data.zones || []);
 const [dropOpen, setDropOpen] = useState(false);
@@ -783,7 +782,7 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
       const initialZoneCount = data.zoneCountIntent === "few" ? 2 : data.zoneCountIntent === "multi" ? 3 : 1;
       const makeInitialZone = (index) => ({
         id: defaultZoneId,
-        zone_label: index === 0 && (data.cityName || initialCity?.name) ? `Zona ${data.cityName || initialCity?.label || initialCity?.name}` : `Zona ${index + 1}`,
+        zone_label: `Zona ${index + 1}`,
         store_name: data.storeName || "",
         service_type: svcType,
         service_variant: data.flyerFormat || "a5",
@@ -972,6 +971,64 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
         campaignZones: updatedZones,
       };
     });
+  };
+
+  const resetActiveZone = () => {
+    setSearch("");
+    setCity(null);
+    setRadius(3);
+    setSelected([]);
+    setSelectedCaps([]);
+    setCapDataMap({});
+    setManualAssignments({});
+    setGeocodeSuggestions([]);
+    setCapSuggestions([]);
+    setDropOpen(false);
+    setSearchMode("municipality");
+    setData(prev => {
+      const updatedZones = (prev.campaignZones || []).map(zone => (
+        zone.id === prev.activeZoneId
+          ? {
+              ...zone,
+              city: null,
+              cityName: "",
+              radius: 3,
+              radiusKm: 3,
+              selected: [],
+              selectedCaps: [],
+              capDataMap: {},
+              manualAssignments: {},
+              searchMode: "municipality"
+            }
+          : zone
+      ));
+      return {
+        ...prev,
+        searchedLocation: "",
+        comune: "",
+        cityName: "",
+        city: null,
+        radius: 3,
+        radiusKm: 3,
+        selectedRadius: 3,
+        zones: [],
+        selectedZones: [],
+        selectedComuni: [],
+        selectedCaps: [],
+        capDataMap: {},
+        manualAssignments: {},
+        searchMode: "municipality",
+        campaignZones: updatedZones,
+      };
+    });
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("comune");
+      url.searchParams.delete("municipality");
+      url.searchParams.set("step", "2");
+      const qs = url.searchParams.toString();
+      window.history.replaceState(null, "", qs ? `${url.pathname}?${qs}` : url.pathname);
+    }
   };
 
   const handleDuplicateZone = (zoneToClone, e) => {
@@ -1792,6 +1849,10 @@ const radiusInsightRows = zonesInRadius.map(z => ({
         <button type="button" onClick={() => setDropOpen(true)}
           style={{ minHeight: 32, padding: "0 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.72)", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
           Modifica zona
+        </button>
+        <button type="button" onClick={resetActiveZone}
+          style={{ minHeight: 32, padding: "0 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.58)", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+          Reset zona
         </button>
         <button onClick={handleAddZone}
           style={{ minHeight: 32, padding: "0 10px", borderRadius: 8, border: `1px dashed ${col}`, background: `${col}0f`, color: col, fontFamily: F.sans, fontSize: 11, fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
