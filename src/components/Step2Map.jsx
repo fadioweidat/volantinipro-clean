@@ -42,6 +42,23 @@ function esc(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function parseGeoJsonValue(value) {
+  if (!value) return null;
+  if (typeof value === 'object') return value;
+  try {
+    const first = JSON.parse(value);
+    if (typeof first === 'string') {
+      const s = first.trim();
+      if ((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))) {
+        return JSON.parse(s);
+      }
+    }
+    return first;
+  } catch {
+    return null;
+  }
+}
+
 // CSS applicato globalmente una sola volta
 const MAP_CSS = `
 /* Voyager: nessun filter – strade, nomi comuni e vie sono visibili per default */
@@ -852,19 +869,21 @@ export function Step2Map({
         const gisStyle = sel ? styleSel : styleUnsel;
         const tip = isD2D ? _buildD2DTip(z, col, sel) : `<b>${esc(z.name)}</b>`;
 
-        if (z.geometry) {
-          try {
-            const gj = typeof z.geometry === 'string' ? JSON.parse(z.geometry) : z.geometry;
-            L.geoJSON(gj, { style: gisStyle, interactive: isD2D })
-              .bindTooltip(tip, { direction: 'center', opacity: 1, sticky: true })
-              .on('click', () => isD2D && onToggleZone?.(z.id))
-              .addTo(group);
-          } catch (_e) {
-            if (isD2D) _renderD2DCircle(L, z, col, sel, tip, group, onToggleZone, styleUnsel, styleSel);
-          }
-        } else if (isD2D) {
-          _renderD2DCircle(L, z, col, sel, tip, group, onToggleZone, styleUnsel, styleSel);
+        if (!z.geometry) {
+          console.warn('Comune senza geometry reale', z);
+          return;
         }
+
+        const gj = parseGeoJsonValue(z.geometry);
+        if (!gj) {
+          console.warn('Comune senza geometry reale', z);
+          return;
+        }
+
+        L.geoJSON(gj, { style: gisStyle, interactive: isD2D })
+          .bindTooltip(tip, { direction: 'center', opacity: 1, sticky: true })
+          .on('click', () => isD2D && onToggleZone?.(z.id))
+          .addTo(group);
       });
     }
 

@@ -221,14 +221,7 @@ serve(async (req) => {
 
     const hasDemographicData = comuni.some((row) => Number(row.households_total || row.famiglie_stimate || 0) > 0 || Number(row.population_total || row.popolazione_stimata || 0) > 0);
     if (!hasDemographicData) {
-      return json({
-        values: {},
-        comuni_breakdown: comuni.map((row) => ({ comune_name: row.comune_name || row.municipality_name })),
-        metadata: { isEstimated: false, warnings: ["DEMOGRAPHIC_INDICATORS_EMPTY",...warnings], mapboxPlace },
-        error: "TERRITORIAL_DATA_NOT_AVAILABLE",
-        sources: [...sources],
-        confidenceReduced: true,
-      });
+      warnings.push("DEMOGRAPHIC_INDICATORS_EMPTY");
     }
 
     sources.add(sourceLabel("istat"));

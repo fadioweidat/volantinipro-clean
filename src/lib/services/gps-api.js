@@ -273,3 +273,95 @@ export async function createProofPhotoSignedUrl(storagePath) {
   if (error) throw error;
   return data?.signedUrl || null;
 }
+
+function safeJson(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
+}
+
+export async function getSessionPath(sessionId) {
+  const client = await requireSupabase();
+  if (!sessionId) return [];
+  const { data, error } = await client
+    .from('gps_tracking_points')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('recorded_at', { ascending: true });
+  if (error) throw error;
+  return Array.isArray(data) ? data : [];
+}
+
+export async function getCampaignRecord(campaignId) {
+  const client = await requireSupabase();
+  if (!campaignId) return null;
+  const tables = ['campaigns', 'campagne', 'quote_requests'];
+  for (const table of tables) {
+    const { data, error } = await client.from(table).select('*').eq('id', campaignId).maybeSingle();
+    if (!error && data) return data;
+  }
+  return null;
+}
+
+export function getSessionGroup(session) {
+  const metadata = safeJson(session?.metadata || session?.session_metadata);
+  const id = metadata.group_id || metadata.groupId || metadata.group || metadata.group_uuid || null;
+  const name = metadata.group_name || metadata.groupName || metadata.group_label || metadata.groupTitle || null;
+  if (!id) return { id: 'ungrouped', name: 'Senza gruppo' };
+  return { id: String(id), name: name ? String(name) : String(id) };
+}
+
+export function displayDriverName(session) {
+  if (!session) return '';
+  const metadata = safeJson(session.metadata || session.session_metadata);
+  const explicit = session.driver_name || session.driverName || metadata.driver_name || metadata.driverName;
+  if (explicit) return String(explicit);
+  const id = session.driver_id || session.driverId;
+  if (!id) return 'Operatore';
+  return `Operatore ${String(id).slice(0, 6)}`;
+}
+
+export function classifyDriverStatus(lastPingIso) {
+  if (!lastPingIso) return 'offline';
+  const lastMs = new Date(lastPingIso).getTime();
+  if (!Number.isFinite(lastMs)) return 'offline';
+  const ageMs = Date.now() - lastMs;
+  if (ageMs <= 2 * 60000) return 'online';
+  if (ageMs <= 5 * 60000) return 'warning';
+  return 'offline';
+}
+
+export function calculateDistanceKm(points = []) {
+  if (!Array.isArray(points) || points.length < 2) return 0;
+  let km = 0;
+  for (let i = 1; i < points.length; i += 1) {
+    const a = points[i - 1];
+    const b = points[i];
+    const aLat = Number(a?.lat);
+    const aLng = Number(a?.lng);
+    const bLat = Number(b?.lat);
+    const bLng = Number(b?.lng);
+    if (![aLat, aLng, bLat, bLng].every(Number.isFinite)) continue;
+    km += haversineKm(aLat, aLng, bLat, bLng);
+  }
+  return Math.round(km * 100) / 100;
+}
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function deg2rad(deg) {
+  return deg * (Math.PI / 180);
+}

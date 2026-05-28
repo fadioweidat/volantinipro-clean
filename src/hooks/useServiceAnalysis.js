@@ -181,6 +181,7 @@ function normalizeGeometryInRow(row) {
   if (rawGeom) {
     return {
       ...row,
+      geometry_geojson: row.geometry_geojson ?? rawGeom,
       geometry: typeof rawGeom === 'object' ? rawGeom : safeJsonParse(rawGeom),
     };
   }
