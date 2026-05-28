@@ -42,23 +42,6 @@ function esc(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function parseGeoJsonValue(value) {
-  if (!value) return null;
-  if (typeof value === 'object') return value;
-  try {
-    const first = JSON.parse(value);
-    if (typeof first === 'string') {
-      const s = first.trim();
-      if ((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))) {
-        return JSON.parse(s);
-      }
-    }
-    return first;
-  } catch {
-    return null;
-  }
-}
-
 // CSS applicato globalmente una sola volta
 const MAP_CSS = `
 /* Voyager: nessun filter – strade, nomi comuni e vie sono visibili per default */
@@ -166,8 +149,7 @@ const LAYER_META = {
   comuni:   { color: '#5B7FA6', icon: '▭', label: 'Comuni'        },
   settori:  { color: '#4A6E8A', icon: '▤', label: 'Settori'       },
   // Points
-  poi:      { color: '#4E8E6E', icon: 'P', label: 'POI'           },
-  transport:{ color: '#2563EB', icon: 'T', label: 'TPL'            },
+  poi:      { color: '#4E8E6E', icon: '⊙', label: 'POI'           },
   civici:   { color: '#4B5568', icon: '▦', label: 'Civici'        },
   // Phase 2 overlays (structure — future: true, no live data yet)
   density:  { color: '#3B82F6', icon: '▒', label: 'Densità fam.'  },
@@ -177,52 +159,17 @@ const LAYER_META = {
   tracking: { color: '#4B5568', icon: '◎', label: 'Tracking GPS'  },
 };
 
-const TRANSPORT_SOURCE_LABELS = {
-  atm_milano: 'ATM Milano',
-  trenord_lombardia: 'Trenord',
-};
-
-function getTransportLayerLabel(transportState, transportAvailable) {
-  if (!transportAvailable) return 'Dati TPL non disponibili';
-  const sources = Array.isArray(transportState?.sources)
-    ? transportState.sources.filter(Boolean)
-    : [];
-  const stopSources = Array.isArray(transportState?.stops)
-    ? transportState.stops.map((stop) => stop.source).filter(Boolean)
-    : [];
-  const uniqueSources = Array.from(new Set([...sources, ...stopSources])).sort();
-  if (uniqueSources.length > 1) return 'TPL · fonti multiple';
-  if (uniqueSources.length === 1) return `TPL · ${TRANSPORT_SOURCE_LABELS[uniqueSources[0]] || uniqueSources[0]}`;
-  const label = transportState?.label;
-  if (label && label !== 'Dati TPL non disponibili') return label;
-  const routeTypes = Array.isArray(transportState?.routeTypes) ? transportState.routeTypes : [];
-  if (routeTypes.length === 1 && routeTypes[0] === 'train') return 'TPL · Trenord';
-  if (routeTypes.some((type) => ['metro', 'tram', 'bus'].includes(type))) return 'TPL · ATM Milano';
-  return 'TPL';
-}
-
-function LayerPanel({ config, svcType, activeLayers, settori, civiciState, transportState, onToggle, opacityLevel, onOpacityChange, onReset }) {
+function LayerPanel({ config, activeLayers, settori, onToggle, opacityLevel, onOpacityChange, onReset }) {
   const [collapsed, setCollapsed] = useState(false);
   if (!config || config.length === 0) return null;
-  const visibleConfig = config.filter(layer => layer.available !== false);
-  const primaryIds = svcType === 'h2h' ? ['radius', 'poi', 'transport'] : ['radius', 'comuni', 'settori', 'civici', 'poi'];
-  const primaryLayers = visibleConfig.filter(layer => primaryIds.includes(layer.id));
-  const hasAdvancedLayers = svcType !== 'h2h' && visibleConfig.length > primaryLayers.length;
-  const civiciCount =
-    Number(civiciState?.count || 0) ||
-    Number(civiciState?.bboxCount || 0);
-  const civiciAvailable =
-    Boolean(civiciState?.available) || civiciCount > 0;
-  const transportAvailable = Boolean(
-    transportState?.available ||
-    Number(transportState?.count || 0) > 0 ||
-    (transportState?.stops || []).length > 0
-  );
-  const transportLabel = getTransportLayerLabel(transportState, transportAvailable);
-  const civiciLabel = civiciAvailable ? 'OSM · copertura parziale' : 'Civici non disponibili';
-  const civiciMessage = civiciAvailable
-    ? (civiciState?.message || 'Civici OSM presenti nel bbox selezionato. Copertura non completa.')
-    : (civiciState?.message || 'Serve una fonte dati civici/address points completa per questa zona.');
+  const primaryLayers = config.filter(layer => ['radius', 'comuni', 'settori', 'civici', 'poi'].includes(layer.id));
+  const hasAdvancedLayers = config.length > primaryLayers.length;
+  const civiciAvailable = false;
+  const civiciMicrocopy = [
+    'Civici non disponibili',
+    'Serve una fonte dati civici/address points per questa zona',
+    'Layer previsto per Door to Door, non ancora popolato',
+  ];
   const hasCiviciLayer = primaryLayers.some((layer) => layer.id === 'civici');
 
   return (
@@ -272,12 +219,8 @@ function LayerPanel({ config, svcType, activeLayers, settori, civiciState, trans
             const active = isOn && !layer.future && !civiciDisabled;
             const settoriNoData = layer.id === 'settori' && !layer.future && isOn
               && (!settori || settori.length === 0);
-            
             const civiciTag = layer.id === 'civici'
-              ? (civiciAvailable ? { bg: 'rgba(22,163,74,0.14)', fg: 'rgba(34,197,94,0.82)', txt: civiciLabel } : { bg: 'rgba(148,163,184,0.14)', fg: 'rgba(148,163,184,0.82)', txt: civiciLabel })
-              : null;
-            const transportTag = layer.id === 'transport'
-              ? (transportAvailable ? { bg: 'rgba(37,99,235,0.16)', fg: 'rgba(147,197,253,0.88)', txt: transportLabel } : { bg: 'rgba(148,163,184,0.14)', fg: 'rgba(148,163,184,0.82)', txt: transportLabel })
+              ? (civiciAvailable ? { bg: 'rgba(22,163,74,0.14)', fg: 'rgba(34,197,94,0.82)', txt: 'disponibili' } : { bg: 'rgba(148,163,184,0.14)', fg: 'rgba(148,163,184,0.82)', txt: 'non disponibili' })
               : null;
 
             return (
@@ -367,22 +310,10 @@ function LayerPanel({ config, svcType, activeLayers, settori, civiciState, trans
                         background: civiciTag.bg,
                         color: civiciTag.fg,
                         fontWeight: 800,
+                        textTransform: 'uppercase',
                         letterSpacing: '0.04em',
                       }}>
                         {civiciTag.txt}
-                      </span>
-                    )}
-                    {transportTag && (
-                      <span style={{
-                        fontSize: 7,
-                        padding: '1px 4px',
-                        borderRadius: 3,
-                        background: transportTag.bg,
-                        color: transportTag.fg,
-                        fontWeight: 800,
-                        letterSpacing: '0.04em',
-                      }}>
-                        {transportTag.txt}
                       </span>
                     )}
                     <div style={{
@@ -396,17 +327,16 @@ function LayerPanel({ config, svcType, activeLayers, settori, civiciState, trans
               </div>
             );
           })}
-          {hasCiviciLayer && (
+          {!civiciAvailable && hasCiviciLayer && (
             <div style={{
               padding: '6px 10px 4px',
               fontSize: 9,
               color: 'rgba(255,255,255,0.36)',
               borderTop: '1px solid rgba(255,255,255,0.05)',
             }}>
-              <div>{civiciMessage}</div>
-              {civiciAvailable && civiciCount > 0 && (
-                <div>{civiciCount.toLocaleString('it-IT')} civici OSM nel raggio</div>
-              )}
+              {civiciMicrocopy.map((row) => (
+                <div key={row}>{row}</div>
+              ))}
             </div>
           )}
           {hasAdvancedLayers && (
@@ -626,22 +556,6 @@ function computeBreaks(values) {
   return [q(0.2), q(0.4), q(0.6), q(0.8), Infinity];
 }
 
-function transportMarkerStyle(type) {
-  if (type === 'metro') return { color: '#dc2626', stroke: '#7f1d1d', radius: 6.2 };
-  if (type === 'tram') return { color: '#16a34a', stroke: '#14532d', radius: 5.2 };
-  if (type === 'bus') return { color: '#2563eb', stroke: '#1e3a8a', radius: 4.4 };
-  if (type === 'train') return { color: '#7c3aed', stroke: '#4c1d95', radius: 5.8 };
-  return { color: '#64748b', stroke: '#334155', radius: 4 };
-}
-
-function transportTypeLabel(type) {
-  if (type === 'metro') return 'Metro';
-  if (type === 'tram') return 'Tram';
-  if (type === 'bus') return 'Bus';
-  if (type === 'train') return 'Treno';
-  return 'Fermata TPL';
-}
-
 export function Step2Map({
   city,
   radius,
@@ -655,8 +569,6 @@ export function Step2Map({
   activeLayers,
   settori,       // Array<{id, numero, name?, geometry}> | null
   pois,          // Array<{id, lat, lng, name, category, color, priority, address}> from usePoi
-  civiciState,
-  transportState,
   onLayerToggle,
   layerPanelConfig,
   campaignZones, // Nuovi parametri per multi-zona
@@ -869,21 +781,19 @@ export function Step2Map({
         const gisStyle = sel ? styleSel : styleUnsel;
         const tip = isD2D ? _buildD2DTip(z, col, sel) : `<b>${esc(z.name)}</b>`;
 
-        if (!z.geometry) {
-          console.warn('Comune senza geometry reale', z);
-          return;
+        if (z.geometry) {
+          try {
+            const gj = typeof z.geometry === 'string' ? JSON.parse(z.geometry) : z.geometry;
+            L.geoJSON(gj, { style: gisStyle, interactive: isD2D })
+              .bindTooltip(tip, { direction: 'center', opacity: 1, sticky: true })
+              .on('click', () => isD2D && onToggleZone?.(z.id))
+              .addTo(group);
+          } catch (_e) {
+            if (isD2D) _renderD2DCircle(L, z, col, sel, tip, group, onToggleZone, styleUnsel, styleSel);
+          }
+        } else if (isD2D) {
+          _renderD2DCircle(L, z, col, sel, tip, group, onToggleZone, styleUnsel, styleSel);
         }
-
-        const gj = parseGeoJsonValue(z.geometry);
-        if (!gj) {
-          console.warn('Comune senza geometry reale', z);
-          return;
-        }
-
-        L.geoJSON(gj, { style: gisStyle, interactive: isD2D })
-          .bindTooltip(tip, { direction: 'center', opacity: 1, sticky: true })
-          .on('click', () => isD2D && onToggleZone?.(z.id))
-          .addTo(group);
       });
     }
 
@@ -1080,78 +990,7 @@ export function Step2Map({
       });
     }
 
-    const civiciCount =
-      Number(civiciState?.count || 0) ||
-      Number(civiciState?.bboxCount || 0);
-    const civiciDataAvailable =
-      Boolean(civiciState?.available) || civiciCount > 0;
-    const civiciActive = activeLayers?.civici === true && civiciDataAvailable;
-    const addressPoints = civiciState?.points || [];
-    if (civiciActive && addressPoints.length > 0) {
-      const civiciGroup = L.layerGroup().addTo(map);
-      layersRef.current.civiciGroup = civiciGroup;
-
-      addressPoints.forEach((point) => {
-        const tip = [
-          `<b>${esc([point.via, point.numeroCivico].filter(Boolean).join(' ') || 'Civico')}</b>`,
-          point.comune ? `<span style="color:rgba(255,255,255,0.45)">${esc(point.comune)}</span>` : null,
-          point.distanceM != null ? `<span style="color:rgba(255,255,255,0.32)">${Math.round(point.distanceM)} m dal centro</span>` : null,
-          `<span style="color:rgba(34,197,94,0.82)">OSM · copertura parziale</span>`,
-        ].filter(Boolean).join('<br>');
-
-        L.circleMarker([point.lat, point.lng], {
-          radius: 2.6,
-          color: 'rgba(15,23,42,0.52)',
-          weight: 0.6,
-          fillColor: '#4B5568',
-          fillOpacity: 0.72,
-          opacity: 0.8,
-        }).bindTooltip(tip, { direction: 'top', offset: [0, -4], opacity: 1 })
-          .addTo(civiciGroup);
-      });
-    }
-    const transportAvailable = Boolean(
-      transportState?.available ||
-      Number(transportState?.count || 0) > 0 ||
-      (transportState?.stops || []).length > 0
-    );
-    const transportLabel = getTransportLayerLabel(transportState, transportAvailable);
-    const transportActive = svcType === 'h2h' && activeLayers?.transport !== false && transportAvailable;
-    const transportStops = transportState?.stops || [];
-    if (transportActive && transportStops.length > 0) {
-      const transportGroup = L.layerGroup().addTo(map);
-      layersRef.current.transportGroup = transportGroup;
-
-      transportStops.forEach((stop) => {
-        const lat = Number(stop.lat);
-        const lng = Number(stop.lng);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-        const style = transportMarkerStyle(stop.stopType);
-        const routeNames = (stop.routes || [])
-          .map((route) => route.shortName || route.longName || route.routeId)
-          .filter(Boolean)
-          .slice(0, 8)
-          .join(', ');
-        const tip = [
-          `<b>${esc(stop.stopName || 'Fermata TPL')}</b>`,
-          `<span style="color:${style.color};opacity:0.86">${esc(transportTypeLabel(stop.stopType))}</span>`,
-          routeNames ? `<span style="color:rgba(255,255,255,0.45)">Linee: ${esc(routeNames)}</span>` : null,
-          `<span style="color:rgba(147,197,253,0.88)">${esc(transportLabel)}</span>`,
-        ].filter(Boolean).join('<br>');
-
-        L.circleMarker([lat, lng], {
-          radius: style.radius,
-          color: style.stroke,
-          weight: 1.2,
-          fillColor: style.color,
-          fillOpacity: 0.78,
-          opacity: 0.86,
-        }).bindTooltip(tip, { direction: 'top', offset: [0, -4], opacity: 1 })
-          .addTo(transportGroup);
-      });
-    }
-
-    // Density choropleth (D2D) ──────────────────────────────────────────
+    // ── 5. Density choropleth (D2D) ──────────────────────────────────────────
     // Colored comuni polygons by family count — CartoDB blue sequential scale.
     if (activeLayers?.density === true && svcType === 'd2d' && zonesWithCoords?.length > 0) {
       const densityGroup = L.layerGroup().addTo(map);
@@ -1184,7 +1023,7 @@ export function Step2Map({
       }
     }
 
-  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, civiciState, transportState, mapZoom, campaignZones, activeZoneId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, mapZoom, campaignZones, activeZoneId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={{ position: 'relative', width: '100%', height: 420 }}>
@@ -1232,11 +1071,8 @@ export function Step2Map({
       {leafletLoaded && city && layerPanelConfig && (
         <LayerPanel
           config={layerPanelConfig}
-          svcType={svcType}
           activeLayers={activeLayers}
           settori={settori}
-          civiciState={civiciState}
-          transportState={transportState}
           onToggle={onLayerToggle}
           opacityLevel={opacityLevel}
           onOpacityChange={onOpacityChange}
@@ -1360,7 +1196,3 @@ function _renderD2DCircle(L, z, col, sel, tip, group, onToggleZone, styleUnsel, 
     .on('click', () => onToggleZone?.(z.id))
     .addTo(group);
 }
-
-
-
-

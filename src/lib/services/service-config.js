@@ -19,10 +19,10 @@ export const SERVICE_LAYERS = {
     layers: [
       { id: 'radius',   label: 'Raggio',        defaultOn: true,  available: true,  future: false, category: 'base'      },
       { id: 'poi',      label: 'POI',            defaultOn: true,  available: true,  future: false, category: 'points'    },
-      { id: 'transport', label: 'TPL',           defaultOn: true,  available: true,  future: false, category: 'points'    },
+      { id: 'civici',   label: 'Civici',         defaultOn: false, available: true,  future: false, category: 'points'    },
       { id: 'hotspot',  label: 'Hotspot H2H',   defaultOn: false, available: false, future: true,  category: 'overlay'   },
-      { id: 'comuni',   label: 'Comuni',         defaultOn: false, available: false, future: false, category: 'territory' },
-      { id: 'settori',  label: 'Settori',        defaultOn: false, available: false, future: false, category: 'territory' },
+      { id: 'comuni',   label: 'Comuni',         defaultOn: false, available: true,  future: false, category: 'territory' },
+      { id: 'settori',  label: 'Settori',        defaultOn: false, available: true,  future: false, category: 'territory' },
       { id: 'tracking', label: 'Tracking GPS',   defaultOn: false, available: false, future: true,  category: 'live'      },
     ],
   },
@@ -104,4 +104,3 @@ export function getOverlayTypesForService(svcType) {
 
 // Re-export POI tag config so service-config remains the single source of truth.
 export { POI_TAGS, getPoiTagsForService } from './poi-api.js';
-
