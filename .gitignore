@@ -96,3 +96,20 @@ data/istat/download/
 #    data/istat/processed/
 #    *.geojson  (final production GeoJSON)
 # ─────────────────────────────────────────────
+
+# TERRITORIAL DATA
+data/dbgt/downloads/
+data/gtfs/
+data/osm/
+data/**/*.zip
+data/**/*.7z
+data/**/*.rar
+data/**/*.gpkg
+data/**/*.shp
+data/**/*.dbf
+data/**/*.sqlite
+
+# SQL / BACKUPS
+*.sql
+backup/
+backups/
