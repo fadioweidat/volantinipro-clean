@@ -69,11 +69,6 @@ export async function fetchDemographicIndicators({ geographyRef, year = DEFAULT_
     limit: '1',
   });
 
-  if (import.meta.env.DEV) {
-    console.debug('[demographic-indicators] geography_ref normalizzato:', ref, `(input: ${geographyRef})`);
-    console.debug('[demographic-indicators] query URL params:', params.toString());
-  }
-
   const response = await fetch(`${supabaseUrl}/rest/v1/demographic_indicators?${params}`, {
     headers: {
       apikey: anonKey,
@@ -90,9 +85,6 @@ export async function fetchDemographicIndicators({ geographyRef, year = DEFAULT_
   }
 
   const row = Array.isArray(result) ? result[0] : null;
-  if (import.meta.env.DEV) {
-    console.log('[DEMOGRAPHICS raw row]', row);
-  }
   if (!row) return null;
 
   const mapped = {
@@ -113,10 +105,6 @@ export async function fetchDemographicIndicators({ geographyRef, year = DEFAULT_
     age_35_64_pct: normalizePercent(row.share_age_35_64),
     age_65_plus_pct: normalizePercent(row.share_age_65_plus),
   };
-
-  if (import.meta.env.DEV) {
-    console.log('[DEMOGRAPHICS mapped]', mapped);
-  }
 
   return mapped;
 }

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { fetchDemographicIndicators } from '../lib/services/demographic-indicators';
 
+const STABLE_EMPTY_RESULT = { data: null, loading: false, error: null };
+
 /**
  * Fetches demographic age distribution from public.demographic_indicators.
  * Returns null values (not estimates) if the municipality code is unavailable
@@ -16,14 +18,12 @@ export function useDemographicIndicators(params) {
 
   const geographyRef = params?.geographyRef ?? null;
   const year = params?.year;
+  const canLoadDemographics =
+    typeof geographyRef === 'string' &&
+    geographyRef.trim().length > 0;
 
   useEffect(() => {
-    if (!geographyRef) {
-      setData(null);
-      setError(null);
-      setLoading(false);
-      return;
-    }
+    if (!canLoadDemographics) return undefined;
 
     let cancelled = false;
 
@@ -36,9 +36,6 @@ export function useDemographicIndicators(params) {
         if (!cancelled) setData(result);
       } catch (err) {
         if (!cancelled) {
-          if (import.meta.env.DEV) {
-            console.debug('[useDemographicIndicators] error:', err?.message);
-          }
           setError(err?.message || 'DEMOGRAPHICS_FETCH_ERROR');
           setData(null);
         }
@@ -49,7 +46,8 @@ export function useDemographicIndicators(params) {
 
     run();
     return () => { cancelled = true; };
-  }, [geographyRef, year]);
+  }, [canLoadDemographics, geographyRef, year]);
 
+  if (!canLoadDemographics) return STABLE_EMPTY_RESULT;
   return { data, loading, error };
 }

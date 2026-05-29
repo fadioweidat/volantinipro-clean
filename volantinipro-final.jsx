@@ -1,4 +1,4 @@
-import React, { Component, Fragment, useState, useEffect, useRef } from "react";
+import React, { Component, Fragment, useState, useEffect, useRef, useMemo, useCallback } from "react";
 
 import { printQuotePdf } from "./src/lib/pdf/printQuotePdf.js";
 import { supabase, confirmCampaignPayment, hasSupabaseConfig, saveCampaign, saveSmartPairingWaitlist } from "./src/lib/supabaseClient.js";
@@ -627,7 +627,7 @@ const[ue,ge,Fe]=H.split("-");D({[P]:`${Fe}/${ge}/${ue}`,[F]:H})}}),_jsx("span",{
 
 function apiToZones(apiData, city) {
   if (import.meta.env.DEV) {
-    console.debug('[apiToZones] called', apiData
+    console.debug('[DBG apiToZones normalized]', apiData
       ? { error: apiData.error, hasValues: !!apiData.values, breakdownLen: apiData.comuni_breakdown?.length, firstKeys: apiData.comuni_breakdown?.[0] ? Object.keys(apiData.comuni_breakdown[0]) : [] }
       : null);
   }
@@ -1148,12 +1148,43 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
     });
   };
 
-const selectedMunicipality = searchMode !== "cap" ? (city?.label || city?.name || null) : null;
-const analysisScope = data.activeZoneId || "zone";
-const { data: apiData, loading: apiLoading, error: apiError } = useServiceAnalysis(city?.lat, city?.lng, radiusKm, svcType, selectedMunicipality, quantityForAnalysis, analysisScope);
+const selectedMunicipality = useMemo(
+  () => searchMode !== "cap" ? (city?.label || city?.name || null) : null,
+  [searchMode, city?.label, city?.name]
+);
+const analysisScope = useMemo(() => data.activeZoneId || "zone", [data.activeZoneId]);
+const analysisParams = useMemo(() => ({
+  lat: city?.lat ?? null,
+  lng: city?.lng ?? null,
+  radiusKm,
+  serviceType: svcType,
+  municipality: selectedMunicipality,
+  quantity: quantityForAnalysis,
+  scope: analysisScope,
+}), [city?.lat, city?.lng, radiusKm, svcType, selectedMunicipality, quantityForAnalysis, analysisScope]);
+const { data: apiData, loading: apiLoading, error: apiError } = useServiceAnalysis(
+  analysisParams.lat,
+  analysisParams.lng,
+  analysisParams.radiusKm,
+  analysisParams.serviceType,
+  analysisParams.municipality,
+  analysisParams.quantity,
+  analysisParams.scope
+);
 const { sectors, loading: sectorsLoading } = useSectors(city?.lat, city?.lng, radiusKm, svcType);
 const { pois, loading: poiLoading }    = usePoi(city?.lat, city?.lng, radiusKm, svcType);
-const { civiciState, loading: civiciLoading } = useAddressPoints(city?.lat, city?.lng, radiusKm);
+const addressPointParams = useMemo(() => ({
+  lat: city?.lat ?? null,
+  lng: city?.lng ?? null,
+  radiusKm,
+  serviceType: svcType,
+}), [city?.lat, city?.lng, radiusKm, svcType]);
+const { civiciState, loading: civiciLoading } = useAddressPoints(
+  addressPointParams.lat,
+  addressPointParams.lng,
+  addressPointParams.radiusKm,
+  addressPointParams.serviceType
+);
   const analysisLoading = apiLoading;
   const gisLoading = Boolean(city && (apiLoading || sectorsLoading || poiLoading || civiciLoading));
   const [gisTimedOut, setGisTimedOut] = useState(false);
@@ -1163,27 +1194,21 @@ const { civiciState, loading: civiciLoading } = useAddressPoints(city?.lat, city
     const timeoutId = window.setTimeout(() => setGisTimedOut(true), 12000);
     return () => window.clearTimeout(timeoutId);
   }, [gisLoading, data.activeZoneId, city?.lat, city?.lng, radiusKm, svcType]);
-const omiInfo = apiData?.metadata?.omi ?? null;
-if (import.meta.env.DEV) {
-  console.debug("[Step2 radius sync]", {
-    activeZoneId: data.activeZoneId,
-    center: city ? { lat: city.lat, lng: city.lng, name: city.name || city.label } : null,
-    radiusKm,
-    serviceType: svcType,
-    quantity: quantityForAnalysis,
-    selectedComune: selectedMunicipality,
-    comuniCount: apiData?.comuni_breakdown?.length ?? 0,
-  });
-  console.log("[OMI] info", omiInfo);
-}
-const primaryMunicipalityCode = apiData?.comuni_breakdown?.[0]?.municipality_code ?? null;
-const demoParams = primaryMunicipalityCode ? { geographyRef: primaryMunicipalityCode, year: 2025 } : null;
-const { data: demoData, loading: demoLoading, error: demoError } = useDemographicIndicators(demoParams);
-if (import.meta.env.DEV) {
-  console.log("[DEMOGRAPHICS params]", demoParams);
-  console.log("[DEMOGRAPHICS data]", demoData);
-  console.log("[DEMOGRAPHICS error]", demoError);
-}
+const primaryMunicipalityCode = useMemo(
+  () => apiData?.comuni_breakdown?.[0]?.municipality_code ?? apiData?.comuni_breakdown?.[0]?.comune_code ?? null,
+  [apiData]
+);
+const demographicsParams = useMemo(() => {
+  const lat = Number(city?.lat);
+  const lng = Number(city?.lng);
+  const canLoadDemographics =
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    primaryMunicipalityCode != null;
+  if (!canLoadDemographics) return null;
+  return { geographyRef: primaryMunicipalityCode, year: 2025 };
+}, [city?.lat, city?.lng, primaryMunicipalityCode]);
+const { data: demoData, loading: demoLoading, error: demoError } = useDemographicIndicators(demographicsParams);
   const analysisError = apiError;
 const confirmedSources = confirmedSourcesOrFallback(apiData, apiError);
 const confirmedStep2Sources = confirmedSources;
@@ -1243,10 +1268,19 @@ const civiciAvailable =
   }, [search, searchMode]);
 
 const activeLay = layers.find(l => l.id === thLayerId) || layers[0];
-const apiZones = (apiData && !apiData.error && apiData.values) ? apiToZones(apiData, city) : null;
-const hasUsefulApiZones = Array.isArray(apiZones) && apiZones.length > 0 && apiZones.some(z => Number(z.families || z.familiesInRadius || z.flyersMin || 0) > 0);
-const apiZonesByName = new Map((apiZones || []).map(z => [String(z.name || "").trim().toLowerCase(), z]));
-const mockFallbackZones = (city && !apiLoading && !hasUsefulApiZones) ? ZONE_DATA.map(z => {
+const apiZones = useMemo(
+  () => (apiData && !apiData.error && apiData.values) ? apiToZones(apiData, city) : null,
+  [apiData, city]
+);
+const hasUsefulApiZones = useMemo(
+  () => Array.isArray(apiZones) && apiZones.length > 0 && apiZones.some(z => Number(z.families || z.familiesInRadius || z.flyersMin || 0) > 0),
+  [apiZones]
+);
+const apiZonesByName = useMemo(
+  () => new Map((apiZones || []).map(z => [String(z.name || "").trim().toLowerCase(), z])),
+  [apiZones]
+);
+const mockFallbackZones = useMemo(() => (city && !apiLoading && !hasUsefulApiZones) ? ZONE_DATA.map(z => {
     if (!GEO_DATA.find(c => c.id === z.id)) return null;
 const dist = z.dist[city.id] ?? 999;
 const pct = computePct(dist, radiusKm, z.area);
@@ -1266,10 +1300,16 @@ const pct = computePct(dist, radiusKm, z.area);
       coverage: pct,
       geometry_geojson: apiZonesByName.get(String(z.name || "").trim().toLowerCase())?.geometry_geojson || z.geometry_geojson || null
     };
-  }).filter(Boolean) : null;
-const zonesInRadius = hasUsefulApiZones ? apiZones : (mockFallbackZones || []);
-  const capZones = selectedCaps.map(cap => capDataMap[cap]).filter(zone => zone && !zone.unavailable);
-  const allZones = [...zonesInRadius,...capZones];
+  }).filter(Boolean) : null, [city, apiLoading, hasUsefulApiZones, radiusKm, apiZonesByName]);
+const zonesInRadius = useMemo(
+  () => hasUsefulApiZones ? apiZones : (mockFallbackZones || []),
+  [hasUsefulApiZones, apiZones, mockFallbackZones]
+);
+  const capZones = useMemo(
+    () => selectedCaps.map(cap => capDataMap[cap]).filter(zone => zone && !zone.unavailable),
+    [selectedCaps, capDataMap]
+  );
+  const allZones = useMemo(() => [...zonesInRadius,...capZones], [zonesInRadius, capZones]);
 
   useEffect(() => {
     if (hasUsefulApiZones) {
@@ -1277,7 +1317,7 @@ const zonesInRadius = hasUsefulApiZones ? apiZones : (mockFallbackZones || []);
     } else if (!hasUsefulApiZones && mockFallbackZones && mockFallbackZones.length > 0) {
       setSelected(mockFallbackZones.map(z => z.id));
     } else if (!hasUsefulApiZones && !mockFallbackZones) { setSelected([]); }
-  }, [city?.id, radius, hasUsefulApiZones, !!mockFallbackZones]);
+  }, [city?.id, radius, hasUsefulApiZones, apiZones, mockFallbackZones]);
 
   // In CAP mode, selZones = only selected CAPs; in Comune mode = zones in radius
   const selZones = searchMode === "cap"
@@ -1496,9 +1536,6 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     roiB2B: Math.round(selZones.reduce((a, z) => a + (z.roiB2B || 0), 0) / selZones.length),
     confB2B: Math.round(selZones.reduce((a, z) => a + (z.confB2B || 0), 0) / selZones.length),
   } : null;
-  if (import.meta.env.DEV) {
-    console.log('[DEMOGRAPHICS aiAgg]', { eta14: aiAgg?.eta14, eta34: aiAgg?.eta34, eta64: aiAgg?.eta64, eta65: aiAgg?.eta65 });
-  }
   // Pill button style helper
   const pill = (active, c) => ({
     padding: "6px 14px", borderRadius: 100, cursor: "pointer", fontFamily: F.sans, fontSize: 12,
@@ -1609,17 +1646,20 @@ const radiusInsightRows = zonesInRadius.map(z => ({
   const totalCampaignFlyers = campaignZones.reduce((sum, z) => sum + Number(z.assigned_flyers || 0), 0);
   const totalCampaignBudget = campaignZones.reduce((sum, z) => sum + Number(z.assigned_budget || 0), 0);
   const uniqueCampaignComuni = new Set(campaignZones.reduce((acc, z) => { if (z.selected) acc.push(...z.selected); return acc; }, [])).size;
-  const activeCampaignZone = campaignZones.find(z => z.id === data.activeZoneId) || campaignZones[0] || null;
-  const resolveCampaignZoneCity = (zone) => zone?.city || GEO_DATA.find(g => {
+  const activeCampaignZone = useMemo(
+    () => campaignZones.find(z => z.id === data.activeZoneId) || campaignZones[0] || null,
+    [campaignZones, data.activeZoneId]
+  );
+  const resolveCampaignZoneCity = useCallback((zone) => zone?.city || GEO_DATA.find(g => {
     const name = String(zone?.cityName || zone?.zone_label || "").trim().toLowerCase();
     return name && (g.name.toLowerCase() === name || name.includes(g.name.toLowerCase()) || g.name.toLowerCase().includes(name));
-  }) || null;
-  const getCampaignZoneLabel = (zone, index) => {
+  }) || null, []);
+  const getCampaignZoneLabel = useCallback((zone, index) => {
     const cityLabel = zone?.cityName || zone?.city?.name || zone?.city?.label || "";
     if (cityLabel) return `Zona ${index + 1} · ${cityLabel}`;
     return zone?.zone_label || `Zona ${index + 1}`;
-  };
-  const selectCampaignZone = (zoneId) => {
+  }, []);
+  const selectCampaignZone = useCallback((zoneId) => {
     const zone = campaignZones.find(z => z.id === zoneId);
     if (!zone) return;
     const resolvedCity = resolveCampaignZoneCity(zone);
@@ -1646,7 +1686,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
       allocationMode: zone.allocationMode || "auto",
       searchMode: zone.searchMode || "municipality",
     }));
-  };
+  }, [campaignZones, resolveCampaignZoneCity, setData, svcType]);
   const gisSkeleton = (width = 54) => (
     <span
       aria-hidden="true"
@@ -3512,10 +3552,6 @@ const eur4 = n => `€${(n || 0).toLocaleString("it-IT", { minimumFractionDigits
 const cleanSource = s => truthfulSourceLabel(s || "");
 const nonEmpty = arr => arr.filter(x => x && x.v !== undefined && x.v !== null && x.v !== "" && x.v !== "-");
 const kpis = data.serviceKpis || {};
-  if (import.meta.env.DEV) {
-    console.log("[STEP4 DATA]", data);
-    console.log("[STEP4 KPI SOURCE]", kpis, data?.metadata);
-  }
 const step4Omi = data.metadata?.omi ?? null;
 const zoneAllocs = data.zonesAllocation || [];
 const requiredQty = data.fullCoverageFlyers || data.requiredTotalFlyers || kpis.recommendedFlyers || zoneAllocs.reduce((a, z) => a + (z.requiredFlyers || 0), 0);

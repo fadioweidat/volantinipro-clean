@@ -68,7 +68,8 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
     source: 'eq.osm',
     lat: `gte.${centerLat - latDelta}`,
     lng: `gte.${centerLng - lngDelta}`,
-    limit: '1000',
+    order: 'lat.asc',
+    limit: '500',
   });
   params.append('lat', `lte.${centerLat + latDelta}`);
   params.append('lng', `lte.${centerLng + lngDelta}`);
@@ -78,7 +79,7 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
       apikey: anonKey,
       Authorization: `Bearer ${anonKey}`,
       Prefer: 'count=exact',
-      Range: '0-999',
+      Range: '0-499',
       'Range-Unit': 'items',
     },
   });

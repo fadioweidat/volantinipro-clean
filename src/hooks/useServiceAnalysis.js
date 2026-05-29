@@ -7,17 +7,19 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
   const requestIdRef = useRef(0);
 
   useEffect(() => {
-    if (!lat || !lng) return;
-    const requestId = ++requestIdRef.current;
-    const controller = new AbortController();
     const radiusKm = Number(radius);
     const centerLat = Number(lat);
     const centerLng = Number(lng);
+    if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng) || !Number.isFinite(radiusKm) || radiusKm <= 0) {
+      return undefined;
+    }
+
+    const requestId = ++requestIdRef.current;
+    const controller = new AbortController();
 
     const fetchData = async () => {
       setLoading(true);
       setError(null);
-      setData(null);
 
       try {
         const baseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_SUPABASE_URL;
@@ -36,7 +38,7 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
         const url = `${apiUrl}?lat=${encodeURIComponent(centerLat)}&lng=${encodeURIComponent(centerLng)}&radius=${encodeURIComponent(radiusKm)}&service=${encodeURIComponent(service)}${municipalityParam}${quantityParam}`;
 
         if (import.meta.env.DEV) {
-          console.debug('[useServiceAnalysis] request', {
+          console.debug('[DBG analysis]', {
             requestId,
             scope,
             service,
@@ -58,17 +60,6 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
         const result = await response.json().catch(() => ({ error: "INVALID_ANALYSIS_RESPONSE" }));
         if (requestId !== requestIdRef.current) return;
 
-        if (import.meta.env.DEV) {
-          console.debug('[useServiceAnalysis] response', {
-            requestId,
-            scope,
-            status: response.status,
-            error: result.error || result.code || 'none',
-            comuniCount: result.comuni_breakdown?.length ?? 0,
-            firstKeys: result.comuni_breakdown?.[0] ? Object.keys(result.comuni_breakdown[0]).join(',') : 'none',
-          });
-        }
-
         if (!response.ok || result.error) {
           setError(result.error || result.code || `HTTP_${response.status}`);
           setData(result.sources || result.metadata ? result : null);
@@ -79,11 +70,7 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
       } catch (err) {
         if (err?.name === 'AbortError') return;
         if (requestId !== requestIdRef.current) return;
-        if (import.meta.env.DEV) {
-          console.debug('[useServiceAnalysis] fetch threw:', err?.message);
-        }
         setError("CONNECTION_ERROR");
-        setData(null);
       } finally {
         if (requestId === requestIdRef.current) setLoading(false);
       }

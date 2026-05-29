@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { EMPTY_CIVICI_STATE, fetchAddressPointsInRadius, makeCiviciState } from '../lib/services/address-points-api.js';
 
-export function useAddressPoints(lat, lng, radiusKm) {
+const STABLE_EMPTY_RESULT = { civiciState: EMPTY_CIVICI_STATE, loading: false, error: null };
+
+export function useAddressPoints(lat, lng, radiusKm, serviceType = 'd2d') {
   const [state, setState] = useState(EMPTY_CIVICI_STATE);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -9,21 +11,22 @@ export function useAddressPoints(lat, lng, radiusKm) {
   const latR = lat != null ? Math.round(Number(lat) * 10000) / 10000 : null;
   const lngR = lng != null ? Math.round(Number(lng) * 10000) / 10000 : null;
   const radR = radiusKm != null ? Math.round(Number(radiusKm) * 10) / 10 : null;
+  const canLoad =
+    serviceType === 'd2d' &&
+    Number.isFinite(latR) &&
+    Number.isFinite(lngR) &&
+    Number.isFinite(radR) &&
+    radR > 0 &&
+    radR <= 5;
 
   useEffect(() => {
-    if (!Number.isFinite(latR) || !Number.isFinite(lngR) || !Number.isFinite(radR)) {
-      setState(EMPTY_CIVICI_STATE);
-      setLoading(false);
-      setError(null);
-      return undefined;
-    }
+    if (!canLoad) return undefined;
 
     let cancelled = false;
 
     (async () => {
       setLoading(true);
       setError(null);
-      setState(EMPTY_CIVICI_STATE);
       try {
         const result = await fetchAddressPointsInRadius({
           centerLat: latR,
@@ -45,7 +48,7 @@ export function useAddressPoints(lat, lng, radiusKm) {
           }));
         }
       } catch (err) {
-        if (import.meta.env.DEV) console.debug('[useAddressPoints] error:', err?.message);
+        if (import.meta.env.DEV) console.debug('[DBG address_points error]', err?.message);
         if (!cancelled) {
           setError(err?.message || 'ADDRESS_POINTS_ERROR');
           setState(EMPTY_CIVICI_STATE);
@@ -56,7 +59,8 @@ export function useAddressPoints(lat, lng, radiusKm) {
     })();
 
     return () => { cancelled = true; };
-  }, [latR, lngR, radR]);
+  }, [canLoad, latR, lngR, radR]);
 
+  if (!canLoad) return STABLE_EMPTY_RESULT;
   return { civiciState: state, loading, error };
 }
