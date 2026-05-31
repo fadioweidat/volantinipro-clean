@@ -364,7 +364,7 @@ const { children,...rest } = props;
 const _jsxs = _jsx;
 const GEO_DATA=[{id:"cormano",name:"Cormano",lat:45.551,lng:9.163},{id:"sesto",name:"Sesto San Giovanni",lat:45.533,lng:9.237},{id:"bresso",name:"Bresso",lat:45.542,lng:9.192},{id:"cinisello",name:"Cinisello Balsamo",lat:45.559,lng:9.212},{id:"monza",name:"Monza",lat:45.584,lng:9.274},{id:"niguarda",name:"Milano Niguarda",lat:45.507,lng:9.188},{id:"varedo",name:"Varedo",lat:45.574,lng:9.161},{id:"paderno",name:"Paderno Dugnano",lat:45.568,lng:9.163},{id:"cusano",name:"Cusano Milanino",lat:45.551,lng:9.18},{id:"quarto",name:"Quarto Oggiaro",lat:45.5,lng:9.137},{id:"senago",name:"Senago",lat:45.576,lng:9.13}],ZONE_DATA=[{id:"cormano",name:"Cormano",area:6.8,pop:21800,families:8500,mailboxes:7100,coverage:78,flyersMin:1e4,flyersMax:12e3,operDays:3,familyIdx:72,reachD2D:84,roiD2D:68,confD2D:81,eta14:null,eta34:null,eta64:null,eta65:null,genderM:49,genderF:51,areaType:"Residenziale mista",poi:145,nearbyBiz:38,commDens:61,flowScore:74,transitStops:23,trainStations:3,operDaysH2H:2,reachH2H:79,roiH2H:65,confH2H:76,hotspots:"Piazza centrale – Stazione",timeSlots:"08-10 – 12-14",strongPts:7,bizTotal:92,competitors:11,commDensB2B:74,operDaysB2B:2,cdIdx:74,reachB2B:82,roiB2B:71,confB2B:80,clusters:3,topCats:"Retail – Food – Servizi",targetBiz:41,strongZone:"Asse centrale",reddito:24200,densita:3200,stranieri:10.4,indVec:189,occup:65.2,imprese:1240,dist:{cormano:0,sesto:5.8,bresso:3.1,cinisello:3.9,monza:10.1,niguarda:4.8,varedo:2.8,paderno:1.4,cusano:1.8,quarto:5.2,senago:3.8}},{id:"bresso",name:"Bresso",area:3.1,pop:27100,families:11200,mailboxes:9400,coverage:87,flyersMin:13e3,flyersMax:15e3,operDays:2,familyIdx:80,reachD2D:88,roiD2D:74,confD2D:85,eta14:null,eta34:null,eta64:null,eta65:null,genderM:48,genderF:52,areaType:"Urbano residenziale",poi:198,nearbyBiz:54,commDens:71,flowScore:82,transitStops:14,trainStations:1,operDaysH2H:2,reachH2H:83,roiH2H:70,confH2H:80,hotspots:"Corso principale – Metro",timeSlots:"08-10 – 17-19",strongPts:5,bizTotal:120,competitors:18,commDensB2B:79,operDaysB2B:1,cdIdx:79,reachB2B:85,roiB2B:74,confB2B:82,clusters:4,topCats:"Food – Retail – Salute",targetBiz:54,strongZone:"Via principale",reddito:25800,densita:8900,stranieri:12.8,indVec:150,occup:66.8,imprese:1980,dist:{cormano:3.1,sesto:4.2,bresso:0,cinisello:2.8,monza:8.9,niguarda:2.1,varedo:4.8,paderno:4,cusano:2.9,quarto:7.4,senago:6.1}},{id:"cinisello",name:"Cinisello Balsamo",area:12.1,pop:73800,families:29100,mailboxes:24800,coverage:92,flyersMin:3e4,flyersMax:36e3,operDays:6,familyIdx:75,reachD2D:90,roiD2D:72,confD2D:88,eta14:null,eta34:null,eta64:null,eta65:null,genderM:48,genderF:52,areaType:"Misto residenziale",poi:320,nearbyBiz:98,commDens:78,flowScore:88,transitStops:18,trainStations:2,operDaysH2H:3,reachH2H:87,roiH2H:74,confH2H:84,hotspots:"C.C. – Stazione – Piazze",timeSlots:"08-10 – 12-14 – 17-19",strongPts:9,bizTotal:210,competitors:32,commDensB2B:82,operDaysB2B:3,cdIdx:82,reachB2B:88,roiB2B:76,confB2B:85,clusters:7,topCats:"Retail – Food – Uffici",targetBiz:94,strongZone:"C.C. + direzionale",reddito:23400,densita:5800,stranieri:15.2,indVec:154,occup:65.4,imprese:4800,dist:{cormano:3.9,sesto:2.2,bresso:2.8,cinisello:0,monza:5.8,niguarda:3.4,varedo:5.6,paderno:4.8,cusano:3.1,quarto:8.2,senago:4.4}},{id:"varedo",name:"Varedo",area:4.2,pop:13200,families:5400,mailboxes:3800,coverage:100,flyersMin:6e3,flyersMax:7e3,operDays:2,familyIdx:68,reachD2D:76,roiD2D:60,confD2D:78,eta14:null,eta34:null,eta64:null,eta65:null,genderM:49,genderF:51,areaType:"Bassa densita",poi:82,nearbyBiz:22,commDens:44,flowScore:46,transitStops:6,trainStations:1,operDaysH2H:1,reachH2H:62,roiH2H:52,confH2H:68,hotspots:"Piazza municipio",timeSlots:"08-10 – 16-18",strongPts:3,bizTotal:48,competitors:6,commDensB2B:52,operDaysB2B:1,cdIdx:52,reachB2B:64,roiB2B:55,confB2B:70,clusters:2,topCats:"Bar – Retail",targetBiz:21,strongZone:"Centro storico",reddito:22800,densita:3140,stranieri:8.4,indVec:203,occup:62.8,imprese:620,dist:{cormano:2.8,sesto:7.4,bresso:4.8,cinisello:5.6,monza:8.8,niguarda:6.2,varedo:0,paderno:1.8,cusano:3.2,quarto:6.4,senago:2.2}},{id:"paderno",name:"Paderno Dugnano",area:10.8,pop:37800,families:15200,mailboxes:12800,coverage:82,flyersMin:16e3,flyersMax:19e3,operDays:4,familyIdx:71,reachD2D:82,roiD2D:65,confD2D:80,eta14:null,eta34:null,eta64:null,eta65:null,genderM:49,genderF:51,areaType:"Residenziale mista",poi:168,nearbyBiz:48,commDens:62,flowScore:68,transitStops:14,trainStations:1,operDaysH2H:2,reachH2H:76,roiH2H:62,confH2H:74,hotspots:"Stazione – Piazze – Mercato",timeSlots:"08-10 – 12-14",strongPts:5,bizTotal:108,competitors:14,commDensB2B:68,operDaysB2B:2,cdIdx:68,reachB2B:77,roiB2B:64,confB2B:76,clusters:4,topCats:"Food – Retail – Salute",targetBiz:48,strongZone:"Asse ferroviario",reddito:23200,densita:3500,stranieri:11.2,indVec:167,occup:64.2,imprese:2100,dist:{cormano:1.4,sesto:5.2,bresso:4,cinisello:4.8,monza:9.2,niguarda:5.8,varedo:1.8,paderno:0,cusano:2.4,quarto:5.8,senago:3.4}},{id:"sesto",name:"Sesto S. Giovanni",area:11.6,pop:81200,families:33500,mailboxes:28200,coverage:94,flyersMin:34e3,flyersMax:4e4,operDays:6,familyIdx:77,reachD2D:91,roiD2D:75,confD2D:89,eta14:null,eta34:null,eta64:null,eta65:null,genderM:48,genderF:52,areaType:"Urbano denso",poi:380,nearbyBiz:112,commDens:82,flowScore:90,transitStops:22,trainStations:3,operDaysH2H:3,reachH2H:89,roiH2H:77,confH2H:86,hotspots:"Metro M1 – Centro – Stazione",timeSlots:"07-09 – 12-14 – 17-19",strongPts:11,bizTotal:280,competitors:42,commDensB2B:86,operDaysB2B:3,cdIdx:86,reachB2B:91,roiB2B:79,confB2B:88,clusters:8,topCats:"Retail – Food – Uffici",targetBiz:126,strongZone:"P.za Resistenza",reddito:26200,densita:6200,stranieri:14.8,indVec:181,occup:67.2,imprese:6200,dist:{cormano:5.8,sesto:0,bresso:4.2,cinisello:2.2,monza:7.1,niguarda:3.8,varedo:7.4,paderno:5.2,cusano:4.9,quarto:9.4,senago:7.2}},{id:"cusano",name:"Cusano Milanino",area:4,pop:19300,families:7600,mailboxes:6200,coverage:85,flyersMin:8e3,flyersMax:1e4,operDays:2,familyIdx:70,reachD2D:80,roiD2D:64,confD2D:79,eta14:null,eta34:null,eta64:null,eta65:null,genderM:49,genderF:51,areaType:"Medio-alta",poi:124,nearbyBiz:36,commDens:58,flowScore:62,transitStops:8,trainStations:0,operDaysH2H:2,reachH2H:72,roiH2H:60,confH2H:72,hotspots:"Centro – Parco",timeSlots:"08-10 – 16-18",strongPts:4,bizTotal:78,competitors:9,commDensB2B:62,operDaysB2B:1,cdIdx:62,reachB2B:74,roiB2B:62,confB2B:74,clusters:3,topCats:"Retail – Salute",targetBiz:35,strongZone:"Via Roma + centro",reddito:24800,densita:4800,stranieri:9.8,indVec:188,occup:64.8,imprese:980,dist:{cormano:1.8,sesto:4.9,bresso:2.9,cinisello:3.1,monza:9.4,niguarda:4.2,varedo:3.2,paderno:2.4,cusano:0,quarto:6.8,senago:3.2}}],LAYERS={d2d:[{id:"families",label:"Famiglie",field:"families",fmt:n=>n.toLocaleString("it-IT"),unit:"nuclei",src:"ISTAT",lo:"#FFF5F0",hi:"#C2410C"},{id:"pop",label:"Popolazione",field:"pop",fmt:n=>n.toLocaleString("it-IT"),unit:"ab.",src:"ISTAT",lo:"#EFF6FF",hi:"#1E3A8A"},{id:"densita",label:"Densità ab.",field:"densita",fmt:n=>n.toLocaleString("it-IT"),unit:"ab/km²",src:"ISTAT",lo:"#F5F3FF",hi:"#4C1D95"},{id:"coverage",label:"Peso sul totale",field:"coverage",fmt:n=>n+"%",unit:"%",src:"Dati geografici",lo:"#ECFDF5",hi:"#065F3C"},{id:"flyersMin",label:"Volantini consigliati",field:"flyersMin",fmt:n=>n.toLocaleString("it-IT")+"+",unit:"pz.",src:"Analisi interna",lo:"#F0F9FF",hi:"#075985"},{id:"familyIdx",label:"Residential relevance",field:"familyIdx",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#FDF2F8",hi:"#701A75"},{id:"eta65",label:"Età 65+",field:"eta65",fmt:n=>n+"%",unit:"over 65",src:"ISTAT",lo:"#FFFBEB",hi:"#78350F"}],h2h:[{id:"flowScore",label:"Intensita passaggio",field:"flowScore",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#EFF6FF",hi:"#1E3A8A"},{id:"poi",label:"POI concentration",field:"poi",fmt:n=>n.toLocaleString("it-IT"),unit:"POI",src:"Google Places",lo:"#EFF6FF",hi:"#1E3A8A"},{id:"transitStops",label:"Transit proximity",field:"transitStops",fmt:n=>n+" fermate",unit:"fermate",src:"Trasporto pubblico / GTFS",lo:"#F5F3FF",hi:"#4C1D95"},{id:"strongPts",label:"Hotspot operativi",field:"strongPts",fmt:n=>n+" punti",unit:"punti",src:"Analisi interna",lo:"#ECFDF5",hi:"#065F3C"},{id:"commDens",label:"Densità passaggio",field:"commDens",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#FFF5F0",hi:"#C2410C"},{id:"nearbyBiz",label:"Attrattori locali",field:"nearbyBiz",fmt:n=>n.toLocaleString("it-IT"),unit:"att.",src:"Google Places",lo:"#ECFDF5",hi:"#065F3C"}],b2b:[{id:"bizTotal",label:"Attività rilevate",field:"bizTotal",fmt:n=>n.toLocaleString("it-IT"),unit:"att.",src:"Google Places",lo:"#FDF2F8",hi:"#701A75"},{id:"competitors",label:"Competitor",field:"competitors",fmt:n=>n.toLocaleString("it-IT"),unit:"comp.",src:"Google Places",lo:"#FFF5F0",hi:"#C2410C"},{id:"commDensB2B",label:"Densità commerciale",field:"commDensB2B",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#FFFBEB",hi:"#78350F"},{id:"clusters",label:"Forza cluster",field:"clusters",fmt:n=>n+" cluster",unit:"cluster",src:"Analisi interna",lo:"#EFF6FF",hi:"#1E3A8A"},{id:"targetBiz",label:"Rilevanza target",field:"targetBiz",fmt:n=>n.toLocaleString("it-IT")+" att.",unit:"att.",src:"Google Places",lo:"#ECFDF5",hi:"#065F3C"},{id:"reddito",label:"Reddito medio",field:"reddito",fmt:n=>"EUR "+n.toLocaleString("it-IT"),unit:"EUR /anno",src:"Dati territoriali",lo:"#F0FDF4",hi:"#14532D"},{id:"cdIdx",label:"Commercial Density Index",field:"cdIdx",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#F5F3FF",hi:"#4C1D95"}]},SERVICE_META={d2d:{label:"Door to Door",icon:" ",color:C.orange,mode:"residential",src:["ISTAT","Mapbox","OpenStreetMap","landuse / buildings","Dati geografici","Analisi interna"],allocationSort:(n,i)=>(i.familyIdx||0)*1.8+(i.coverage||0)*1.2+(i.families||0)*.006-(i.dist||0)*5-((n.familyIdx||0)*1.8+(n.coverage||0)*1.2+(n.families||0)*.006-(n.dist||0)*5),mainKpis:n=>[{l:"Famiglie stimate",v:n.families.toLocaleString("it-IT"),u:"nuclei",src:"ISTAT",c:C.orange,icon:""},{l:"Popolazione stimata",v:n.pop.toLocaleString("it-IT"),u:"abitanti",src:"ISTAT",c:C.orange,icon:""},{l:"Superficie coperta",v:n.area+" km²",u:"",src:"Dati geografici",c:C.blue,icon:""},{l:"Copertura stimata",v:n.coverage+"%",u:"",src:"ISTAT+GIS",c:C.green,icon:""},{l:"Range operativo",v:n.flyersMin.toLocaleString("it-IT")+" - "+n.flyersMax.toLocaleString("it-IT"),u:"pz.",src:"Calc.",c:C.green,icon:""},{l:"Giorni operativi",v:n.operDays+" giorni",u:"",src:"Operativo",c:C.yellow,icon:""},{l:"Comuni nel raggio",v:"-",u:"",src:"Dati geografici",c:C.blue,icon:""}],advKpis:n=>[{l:"Family Index",v:n.familyIdx,c:C.orange},{l:"Reach Score",v:n.reachD2D,c:C.blue},{l:"ROI Score",v:n.roiD2D,c:C.green},{l:"Confidence",v:n.confD2D,c:C.purple}],aiCats:[{group:"Residential profile",l:"Famiglie",v:n=>n.families.toLocaleString("it-IT")+" nuclei"},{group:"Residential profile",l:"Popolazione",v:n=>n.pop.toLocaleString("it-IT")+" ab."},{group:"Residential profile",l:"Densita residenziale",v:n=>n.densita.toLocaleString("it-IT")+" ab/km²"},{group:"Residential profile",l:"Tipologia area",v:n=>n.areaType},{group:"Demographic profile",l:"Eta 0-14",v:n=>n.eta14+"%"},{group:"Demographic profile",l:"Eta 15-34",v:n=>n.eta34+"%"},{group:"Demographic profile",l:"Eta 35-64",v:n=>n.eta64+"%"},{group:"Demographic profile",l:"Età 65+",v:n=>n.eta65+"%"},{group:"Demographic profile",l:"Genere",v:n=>"M "+n.genderM+"% – F "+n.genderF+"%"},{group:"Demographic profile",l:"Indice vecchiaia",v:n=>n.indVec+"/100"},{group:"Demographic profile",l:"% Stranieri",v:n=>n.stranieri+"%"},{group:"Economic context",l:"Reddito medio",v:n=>"EUR "+n.reddito.toLocaleString("it-IT"),c:"green"},{group:"Economic context",l:"Tasso occupazione",v:n=>n.occup+"%",c:"green"},{group:"Economic context",l:"Imprese come contesto",v:n=>n.imprese.toLocaleString("it-IT")},{group:"Operational reading",l:"Residential strength",v:n=>n.familyIdx+"/100"},{group:"Operational reading",l:"Copertura consigliata",v:n=>n.coverage>=88?"Copertura piena":n.coverage>=75?"Copertura selettiva estesa":"Copertura selettiva"},{group:"Operational reading",l:"Suitability campagna",v:n=>n.reachD2D>=86?"Alta":n.reachD2D>=76?"Buona":"Mirata"},{group:"Operational reading",l:"Confidence level",v:n=>n.confD2D+"/100"}]},h2h:{label:"Hand to Hand",icon:"",color:C.blue,mode:"movement",src:["Google Places","Google Places","OpenStreetMap","Overpass","Trasporto pubblico / GTFS","Mapbox","Analisi interna","Dati geografici"],allocationSort:(n,i)=>(i.flowScore||0)*2.4+(i.strongPts||0)*13+(i.transitStops||0)*1.9+(i.poi||0)*.18+(i.commDens||0)*1.2-(i.dist||0)*4-((n.flowScore||0)*2.4+(n.strongPts||0)*13+(n.transitStops||0)*1.9+(n.poi||0)*.18+(n.commDens||0)*1.2-(n.dist||0)*4),mainKpis:n=>{const i=n.flowScore,r=i<40?"Basso":i<60?"Medio":i<80?"Alto":"Molto Alto",l=i<40?C.red:i<60?C.yellow:i<80?C.green:C.purple;return[{l:"POI rilevanti",v:n.poi.toLocaleString("it-IT"),u:"POI",src:"Google Places",c:C.blue,icon:""},{l:"Competitor rilevati",v:Math.round(n.nearbyBiz*.28),u:"comp.",src:"Google Places",c:C.red,icon:"–"},{l:"Densità passaggio",v:n.commDens+"/100",u:"",src:"Analisi interna",c:C.orange,icon:" "},{l:"Flusso potenziale",v:r+" – "+i+"/100",u:"",src:"Analisi interna",c:l,icon:""},{l:"Fermate / stazioni",v:n.transitStops+" fermate – "+n.trainStations+" staz.",u:"",src:"Trasporto pubblico / GTFS",c:C.purple,icon:""},{l:"Hotspot operativi",v:n.strongPts+" punti",u:"",src:"Analisi interna",c:C.green,icon:""},{l:"Giorni operativi",v:n.operDaysH2H+" giorni",u:"",src:"Operativo",c:C.yellow,icon:""}]},advKpis:n=>[{l:"Reach Score",v:n.reachH2H,c:C.blue},{l:"ROI Score",v:n.roiH2H,c:C.green},{l:"Confidence",v:n.confH2H,c:C.purple},{l:"Reddito medio",v:n.reddito,c:C.green}],aiCats:[{group:"Movement profile",l:"Intensita passaggio",v:n=>n.flowScore+"/100"},{group:"Movement profile",l:"Anchor trasporto",v:n=>n.transitStops+" fermate – "+n.trainStations+" staz."},{group:"Movement profile",l:"Scuole / eventi",v:n=>n.strongPts+" punti"},{group:"Movement profile",l:"Rilevanza pedonale",v:n=>n.commDens>=75?"Alta":n.commDens>=58?"Media":"Locale"},{group:"Local attractiveness",l:"POI rilevanti",v:n=>n.poi.toLocaleString("it-IT")},{group:"Local attractiveness",l:"Attività vicine",v:n=>n.nearbyBiz.toLocaleString("it-IT")},{group:"Local attractiveness",l:"Contesto mixed-use",v:n=>n.areaType},{group:"Operational timing",l:"Fasce consigliate",v:n=>n.timeSlots},{group:"Operational timing",l:"opportunita mattina",v:n=>n.timeSlots.includes("08")||n.timeSlots.includes("07")?"Forte":"Media"},{group:"Operational timing",l:"opportunita pranzo",v:n=>n.timeSlots.includes("12")?"Forte":"Da validare"},{group:"Operational reading",l:"Hotspot principale",v:n=>n.hotspots},{group:"Operational reading",l:"Punti operativi",v:n=>n.strongPts+" suggeriti"},{group:"Operational reading",l:"Exposure quality",v:n=>n.flowScore>=80?"Alta":n.flowScore>=65?"Buona":"Mirata"},{group:"Operational reading",l:"Confidence level",v:n=>n.confH2H+"/100"}]},b2b:{label:"Business Distribution",icon:"",color:C.purple,mode:"business",src:["Google Places","Google Places","OpenStreetMap","Mapbox","Analisi interna","Dati geografici","Dati territoriali"],allocationSort:(n,i)=>(i.targetBiz||0)*1.9+(i.commDensB2B||0)*2.2+(i.clusters||0)*10-(i.competitors||0)*.35-(i.dist||0)*3-((n.targetBiz||0)*1.9+(n.commDensB2B||0)*2.2+(n.clusters||0)*10-(n.competitors||0)*.35-(n.dist||0)*3),mainKpis:n=>[{l:"Attività rilevate",v:n.bizTotal.toLocaleString("it-IT"),u:"att.",src:"Google Places",c:C.purple,icon:""},{l:"Competitor rilevati",v:n.competitors,u:"comp.",src:"Google Places",c:C.red,icon:"–"},{l:"Densità commerciale",v:n.commDensB2B+"/100",u:"",src:"Analisi interna",c:C.orange,icon:" "},{l:"Reddito medio stimato",v:"EUR "+n.reddito.toLocaleString("it-IT"),u:"anno",src:"Dati territoriali",c:C.green,icon:""},{l:"Commercial Density Index",v:n.cdIdx+"/100",u:"",src:"Analisi interna",c:C.purple,icon:"-–"},{l:"Giorni operativi",v:n.operDaysB2B+" giorni",u:"",src:"Operativo",c:C.yellow,icon:""}],advKpis:n=>[{l:"Comm. Density",v:n.cdIdx,c:C.purple},{l:"Reach Score",v:n.reachB2B,c:C.blue},{l:"ROI Score",v:n.roiB2B,c:C.green},{l:"Confidence",v:n.confB2B,c:C.orange}],aiCats:[{group:"Commercial profile",l:"Attività rilevate",v:n=>n.bizTotal.toLocaleString("it-IT")+" attivita"},{group:"Commercial profile",l:"Categorie dominanti",v:n=>n.topCats},{group:"Commercial profile",l:"Densità commerciale",v:n=>n.commDensB2B+"/100"},{group:"Commercial profile",l:"Attività target",v:n=>n.targetBiz.toLocaleString("it-IT")+" att."},{group:"Economic context",l:"Reddito medio stimato",v:n=>"EUR "+n.reddito.toLocaleString("it-IT"),c:"green"},{group:"Economic context",l:"Tasso occupazione",v:n=>n.occup+"%"},{group:"Economic context",l:"Base imprese locale",v:n=>n.imprese.toLocaleString("it-IT")},{group:"Competitive context",l:"Competitor rilevati",v:n=>n.competitors.toLocaleString("it-IT")},{group:"Competitive context",l:"Livello competizione",v:n=>n.competitors>30?"Alto":n.competitors>12?"Medio":"Contenuto"},{group:"Operational reading",l:"Cluster commerciali",v:n=>n.clusters+" cluster"},{group:"Operational reading",l:"Zona business forte",v:n=>n.strongZone},{group:"Operational reading",l:"Attrattivita commerciale",v:n=>n.commDensB2B>=78?"Alta":n.commDensB2B>=62?"Media":"Da validare"},{group:"Operational reading",l:"Confidence level",v:n=>n.confB2B+"/100"}]}};
 function getTargetBizMeta(n){const i=n.businessCategory||n.targetBusinessType||n.businessSector||"altro";return BUSINESS_CATEGORIES[i]||BUSINESS_CATEGORIES.altro}function bizCategoryChart(n,i){const r={};n.forEach(u=>(u.topCats||"").split(" – ").filter(Boolean).forEach((h,f)=>{r[h]=(r[h]||0)+Math.max(1,Math.round((u.bizTotal||0)*(f===0?.34:f===1?.24:.16)))}));
-const l=Object.entries(r).map(([u,h])=>({label:u,count:h,target:i.aliases.some(f=>u.toLowerCase().includes(f.toLowerCase()))||u.toLowerCase().includes(i.label.toLowerCase().split(" ")[0])})).sort((u,h)=>h.count-u.count);return l.length?l:[{label:i.label,count:n.reduce((u,h)=>u+(h.targetBiz||0),0),target:!0}]}function businessZoneScore(n){return Math.round(Math.min(100,(n.commDensB2B||0)*.34+(n.reachB2B||0)*.22+(n.roiB2B||0)*.18+(n.targetBiz||0)/Math.max(1,n.bizTotal||1)*100*.16+Math.min(10,(n.clusters||0)*1.2)))}function businessRows(n,i){return[...n].sort((r,l)=>businessZoneScore(l)-businessZoneScore(r)).map(r=>({id:r.id,name:r.strongZone||r.name,zoneName:r.name,score:businessZoneScore(r),activities:r.bizTotal||0,target:r.targetBiz||0,competitors:r.competitors||0,density:r.commDensB2B||0,clusters:r.clusters||0,dominant:(r.topCats||i.label).split(" – ")[0]}))}function h2hHotspotStrength(n){return Math.round(Math.min(100,(n.flowScore||0)*.42+(n.commDens||0)*.2+Math.min(22,(n.transitStops||0)*.9)+Math.min(12,(n.strongPts||0)*1.2)+Math.min(8,(n.poi||0)/38)))}function h2hHotspotRows(n){return[...n].sort((i,r)=>h2hHotspotStrength(r)-h2hHotspotStrength(i)).map(i=>({id:i.id,name:(i.hotspots||i.name).split(" – ")[0],zoneName:i.name,strength:h2hHotspotStrength(i),poi:i.poi||0,transit:(i.transitStops||0)+(i.trainStations||0),anchors:i.strongPts||0,flow:i.flowScore||0,density:i.commDens||0,time:i.timeSlots||"Da validare",reason:i.flowScore>=82?"Alta concentrazione di passaggio vicino ad anchor urbani.":i.transitStops>=14?"Buona opportunita per flussi scuola-lavoro e trasporto.":"Zona utile per distribuzione manuale breve e mirata."}))}function normalizeH2HCategory(n){return String(n||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")}function countPoisByCategory(n,i){return n.filter(r=>i.some(l=>normalizeH2HCategory(r.category).includes(l))).length}function countTransportByType(n,i){return (n?.stops||[]).filter(r=>{const l=[r.stopType,...(r.routes||[]).map(u=>u.routeTypeLabel)].map(normalizeH2HCategory);return l.some(u=>i.includes(u))}).length}function buildH2HOperationalClusters(n,i,r){const l=Array.isArray(n)?n.filter(u=>Number.isFinite(Number(u.lat))&&Number.isFinite(Number(u.lng))):[];if(!l.length)return[];const u=r<=2?.0015:r<=5?.003:.005,h=new Map;l.forEach(f=>{const m=`${Math.round(Number(f.lat)/u)}_${Math.round(Number(f.lng)/u)}`;if(!h.has(m))h.set(m,[]);h.get(m).push(f)});const T=Array.from(h.values()).map((f,m)=>{const y=f.reduce((A,B)=>A+Number(B.lat),0)/f.length,x=f.reduce((A,B)=>A+Number(B.lng),0)/f.length,w=f.reduce((A,B)=>A+(Number(B.priority)||0),0),j=f.filter(A=>(Number(A.priority)||0)>=8).length,z=countPoisByCategory(f,["stazione","metro"]),R=countPoisByCategory(f,["universit","scuola"]),D=countPoisByCategory(f,["centro comm","teatro","cinema","attrazione","mercato","biblioteca","bar","caffe","caff","ristorante"]),W=Math.round(Math.min(100,w*3+j*10+z*8+R*6+Math.min(18,D*2))),A=[...f].sort((B,P)=>(Number(P.priority)||0)-(Number(B.priority)||0))[0];return{id:`h2h_cluster_${m}`,name:A?.name||`Zona operativa ${m+1}`,zoneName:A?.category||"Cluster POI",lat:y,lng:x,poi:f.length,transit:z,anchors:R,attractions:D,strength:W,flow:W,density:Math.min(100,Math.round(f.length*8)),time:"Da validare",reason:`${f.length.toLocaleString("it-IT")} POI reali nel cluster`,items:f}}).sort((f,m)=>m.strength-f.strength);return T.map((f,m)=>({...f,rank:m+1,name:`Zona ${m+1} · ${f.name}`}))}function getH2HMetrics(n,i,r){const l=Array.isArray(n)?n:[],u=Array.isArray(i?.stops)?i.stops:[],h=buildH2HOperationalClusters(l,i,r),f=countPoisByCategory(l,["stazione"]),m=countPoisByCategory(l,["metro"])+countTransportByType(i,["metro"]),y=countTransportByType(i,["train"])+f,x=countPoisByCategory(l,["universit"]),w=countPoisByCategory(l,["centro comm","teatro","cinema","attrazione","mercato","biblioteca","bar","caffe","caff","ristorante"]),j=h.filter(z=>z.strength>=45||z.poi>=2).length;return{poi:l.length,zones:h.length,hotspots:j,clusters:h,tplStops:u.length,stations:y,metro:m,universities:x,localAttractors:w,transitTotal:u.length+f+m,flowScore:h.length?Math.round(h.reduce((z,R)=>z+R.strength,0)/h.length):0}}function Pv(n){const i=n.reduce((h,f)=>h+(f.poi||0),0),r=n.reduce((h,f)=>h+(f.transitStops||0)+(f.trainStations||0),0),l=n.reduce((h,f)=>h+(f.strongPts||0),0),u=n.reduce((h,f)=>h+(f.nearbyBiz||0),0);return[{label:"POI rilevanti",value:i,color:Qi.pedestrian.color},{label:"Fermate / stazioni",value:r,color:Qi.transit.color},{label:"Scuole / eventi",value:l,color:Qi.school.color},{label:"Attrattori locali",value:u,color:Qi.retail.color}]}function residentialStrength(n){return Math.round(Math.min(100,(n.familyIdx||0)*.34+(n.reachD2D||0)*.22+(n.coverage||0)*.2+Math.min(16,(n.families||0)/1850)+Math.min(8,(n.mailboxes||0)/2400)))}function residentialRows(n){return[...n].sort((i,r)=>residentialStrength(r)-residentialStrength(i)).map((i,r)=>({id:i.id,rank:r+1,name:i.name,strength:residentialStrength(i),families:i.families||0,population:i.pop||0,coverage:i.coverage||0,required:i.families||0,recommended:`${(i.flyersMin||0).toLocaleString("it-IT")}-${(i.flyersMax||0).toLocaleString("it-IT")}`,contribution:n.reduce((l,u)=>l+(u.families||0),0)>0?Math.round((i.families||0)/n.reduce((l,u)=>l+(u.families||0),0)*100):0,areaType:i.areaType}))}const ZONE_COLORS=["#2563EB","#16A34A","#7C3AED","#0891B2","#65A30D","#0F766E","#4F46E5","#0284C7","#15803D","#6D28D9","#0D9488"];
+const l=Object.entries(r).map(([u,h])=>({label:u,count:h,target:i.aliases.some(f=>u.toLowerCase().includes(f.toLowerCase()))||u.toLowerCase().includes(i.label.toLowerCase().split(" ")[0])})).sort((u,h)=>h.count-u.count);return l.length?l:[{label:i.label,count:n.reduce((u,h)=>u+(h.targetBiz||0),0),target:!0}]}function businessZoneScore(n){return Math.round(Math.min(100,(n.commDensB2B||0)*.34+(n.reachB2B||0)*.22+(n.roiB2B||0)*.18+(n.targetBiz||0)/Math.max(1,n.bizTotal||1)*100*.16+Math.min(10,(n.clusters||0)*1.2)))}function businessRows(n,i){return[...n].sort((r,l)=>businessZoneScore(l)-businessZoneScore(r)).map(r=>({id:r.id,name:r.strongZone||r.name,zoneName:r.name,score:businessZoneScore(r),activities:r.bizTotal||0,target:r.targetBiz||0,competitors:r.competitors||0,density:r.commDensB2B||0,clusters:r.clusters||0,dominant:(r.topCats||i.label).split(" – ")[0]}))}function h2hHotspotStrength(n){return Math.round(Math.min(100,(n.flowScore||0)*.42+(n.commDens||0)*.2+Math.min(22,(n.transitStops||0)*.9)+Math.min(12,(n.strongPts||0)*1.2)+Math.min(8,(n.poi||0)/38)))}function h2hHotspotRows(n){return[...n].sort((i,r)=>h2hHotspotStrength(r)-h2hHotspotStrength(i)).map(i=>({id:i.id,name:(i.hotspots||i.name).split(" – ")[0],zoneName:i.name,strength:h2hHotspotStrength(i),poi:i.poi||0,transit:(i.transitStops||0)+(i.trainStations||0),anchors:i.strongPts||0,flow:i.flowScore||0,density:i.commDens||0,time:i.timeSlots||"Da validare",reason:i.flowScore>=82?"Alta concentrazione di passaggio vicino ad anchor urbani.":i.transitStops>=14?"Buona opportunita per flussi scuola-lavoro e trasporto.":"Zona utile per distribuzione manuale breve e mirata."}))}function normalizeH2HCategory(n){return String(n||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")}function countPoisByCategory(n,i){return n.filter(r=>i.some(l=>normalizeH2HCategory(r.category).includes(l))).length}function countTransportByType(n,i){return (n?.stops||[]).filter(r=>{const l=[r.stopType,...(r.routes||[]).map(u=>u.routeTypeLabel)].map(normalizeH2HCategory);return l.some(u=>i.includes(u))}).length}function buildH2HOperationalClusters(n,i,r){const l=Array.isArray(n)?n.filter(u=>Number.isFinite(Number(u.lat))&&Number.isFinite(Number(u.lng))):[];if(!l.length)return[];const u=r<=2?.0015:r<=5?.003:.005,h=new Map;l.forEach(f=>{const m=`${Math.round(Number(f.lat)/u)}_${Math.round(Number(f.lng)/u)}`;if(!h.has(m))h.set(m,[]);h.get(m).push(f)});const T=Array.from(h.values()).map((f,m)=>{const y=f.reduce((A,B)=>A+Number(B.lat),0)/f.length,x=f.reduce((A,B)=>A+Number(B.lng),0)/f.length,w=f.reduce((A,B)=>A+(Number(B.priority)||0),0),j=f.filter(A=>(Number(A.priority)||0)>=8).length,z=countPoisByCategory(f,["stazione","metro"]),R=countPoisByCategory(f,["universit","scuola"]),D=countPoisByCategory(f,["centro comm","teatro","cinema","attrazione","mercato","biblioteca","bar","caffe","caff","ristorante"]),W=Math.round(Math.min(100,w*3+j*10+z*8+R*6+Math.min(18,D*2))),A=[...f].sort((B,P)=>(Number(P.priority)||0)-(Number(B.priority)||0))[0];return{id:`h2h_cluster_${m}`,name:A?.name||`Zona operativa ${m+1}`,zoneName:A?.category||"Cluster POI",lat:y,lng:x,poi:f.length,transit:z,anchors:R,attractions:D,strength:W,flow:W,density:Math.min(100,Math.round(f.length*8)),time:"Da validare",reason:`${f.length.toLocaleString("it-IT")} POI reali nel cluster`,items:f}}).sort((f,m)=>m.strength-f.strength);return T.map((f,m)=>({...f,rank:m+1,name:`Zona ${m+1} · ${f.name}`}))}function getH2HMetrics(n,i,r){const l=Array.isArray(n)?n:[],u=Array.isArray(i?.stops)?i.stops:[],h=buildH2HOperationalClusters(l,i,r),f=countPoisByCategory(l,["stazione"]),m=countPoisByCategory(l,["metro"])+countTransportByType(i,["metro"]),y=countTransportByType(i,["train"])+f,x=countPoisByCategory(l,["universit"]),w=countPoisByCategory(l,["centro comm","teatro","cinema","attrazione","mercato","biblioteca","bar","caffe","caff","ristorante"]);return{poi:l.length,zones:h.length,hotspots:h.length,clusters:h,tplStops:u.length,stations:y,metro:m,universities:x,localAttractors:w,transitTotal:u.length+f+m,flowScore:h.length?Math.round(h.reduce((z,R)=>z+R.strength,0)/h.length):0}}function categoryMatchesBusiness(n,i){const r=normalizeH2HCategory(`${n?.category||""} ${n?.name||""}`),l=Array.isArray(i?.aliases)?i.aliases.map(normalizeH2HCategory):[];return l.length?l.some(u=>r.includes(u)):true}function buildBusinessOperationalClusters(n,i,r){const l=Array.isArray(n)?n.filter(u=>Number.isFinite(Number(u.lat))&&Number.isFinite(Number(u.lng))):[];if(!l.length)return[];const u=r<=2?.0015:r<=5?.003:.005,h=new Map;l.forEach(f=>{const m=`${Math.round(Number(f.lat)/u)}_${Math.round(Number(f.lng)/u)}`;if(!h.has(m))h.set(m,[]);h.get(m).push(f)});return Array.from(h.values()).map((f,m)=>{const y=f.reduce((A,B)=>A+Number(B.lat),0)/f.length,x=f.reduce((A,B)=>A+Number(B.lng),0)/f.length,w=f.reduce((A,B)=>A+(Number(B.priority)||0),0),j=f.filter(A=>categoryMatchesBusiness(A,i)).length,z=f.reduce((A,B)=>{const P=B.category||"Altro";A[P]=(A[P]||0)+1;return A},{}),R=Object.entries(z).sort((A,B)=>B[1]-A[1])[0]?.[0]||i?.label||"Business",D=Math.round(Math.min(100,w*3+j*8+f.length*4)),W=[...f].sort((A,B)=>(Number(B.priority)||0)-(Number(A.priority)||0))[0];return{id:`b2b_cluster_${m}`,name:`Zona ${m+1} · ${W?.name||R}`,zoneName:R,lat:y,lng:x,activities:f.length,target:j,competitors:Math.max(0,f.length-j),density:Math.min(100,Math.round(f.length*8)),clusters:1,dominant:R,score:D,items:f}}).sort((f,m)=>m.score-f.score)}function getBusinessMetrics(n,i,r){const l=Array.isArray(n)?n:[],h=buildBusinessOperationalClusters(l,i,r),f=l.filter(m=>categoryMatchesBusiness(m,i)).length,u=l.reduce((m,y)=>{const x=y.category||"Altro";m[x]=(m[x]||0)+1;return m},{}),T=Object.entries(u).map(([m,y])=>({label:m,count:y,target:categoryMatchesBusiness({category:m},i)})).sort((m,y)=>y.count-m.count);return{businesses:l.length,competitors:Math.max(0,l.length-f),commercialDensity:h.length?Math.round(h.reduce((m,y)=>m+y.density,0)/h.length):0,clusters:h.length,targetBusinesses:f,categories:T,clusterRows:h,cdIdx:h.length?Math.round(h.reduce((m,y)=>m+y.score,0)/h.length):0}}function Pv(n){const i=n.reduce((h,f)=>h+(f.poi||0),0),r=n.reduce((h,f)=>h+(f.transitStops||0)+(f.trainStations||0),0),l=n.reduce((h,f)=>h+(f.strongPts||0),0),u=n.reduce((h,f)=>h+(f.nearbyBiz||0),0);return[{label:"POI rilevanti",value:i,color:Qi.pedestrian.color},{label:"Fermate / stazioni",value:r,color:Qi.transit.color},{label:"Scuole / eventi",value:l,color:Qi.school.color},{label:"Attrattori locali",value:u,color:Qi.retail.color}]}function residentialStrength(n){return Math.round(Math.min(100,(n.familyIdx||0)*.34+(n.reachD2D||0)*.22+(n.coverage||0)*.2+Math.min(16,(n.families||0)/1850)+Math.min(8,(n.mailboxes||0)/2400)))}function residentialRows(n){return[...n].sort((i,r)=>residentialStrength(r)-residentialStrength(i)).map((i,r)=>({id:i.id,rank:r+1,name:i.name,strength:residentialStrength(i),families:i.families||0,population:i.pop||0,coverage:i.coverage||0,required:i.families||0,recommended:`${(i.flyersMin||0).toLocaleString("it-IT")}-${(i.flyersMax||0).toLocaleString("it-IT")}`,contribution:n.reduce((l,u)=>l+(u.families||0),0)>0?Math.round((i.families||0)/n.reduce((l,u)=>l+(u.families||0),0)*100):0,areaType:i.areaType}))}const ZONE_COLORS=["#2563EB","#16A34A","#7C3AED","#0891B2","#65A30D","#0F766E","#4F46E5","#0284C7","#15803D","#6D28D9","#0D9488"];
 function getComuneColor(n=""){const p=["#14b8a6","#3b82f6","#8b5cf6","#06b6d4","#22c55e","#6366f1"],i=[...n].reduce((r,l)=>r+l.charCodeAt(0),0);return p[i%p.length]}
 function pickRealComuneGeometry(z) {
   const geomRaw = z?.geometry_geojson || z?.geometry || z?.geojson || z?.geom || z?.feature?.geometry || null;
@@ -1283,31 +1283,11 @@ const apiZonesByName = useMemo(
   () => new Map((apiZones || []).map(z => [String(z.name || "").trim().toLowerCase(), z])),
   [apiZones]
 );
-const mockFallbackZones = useMemo(() => (city && !apiLoading && !hasUsefulApiZones) ? ZONE_DATA.map(z => {
-    if (!GEO_DATA.find(c => c.id === z.id)) return null;
-const dist = z.dist[city.id] ?? 999;
-const pct = computePct(dist, radiusKm, z.area);
-    if (pct <= 0) return null;
-    const familiesInRadius = Math.max(1, Math.round((z.families || 0) * pct / 100));
-    const popInRadius = Math.max(1, Math.round((z.pop || 0) * pct / 100));
-    const flyersInRadius = Math.max(1, Math.round((z.flyersMin || familiesInRadius * 1.1) * pct / 100));
-    return {
-      ...z,
-      dist,
-      pct,
-      families: familiesInRadius,
-      pop: popInRadius,
-      volantiniNelRaggio: flyersInRadius,
-      flyersMin: flyersInRadius,
-      flyersMax: Math.round(flyersInRadius * 1.1),
-      coverage: pct,
-      geometry_geojson: apiZonesByName.get(String(z.name || "").trim().toLowerCase())?.geometry_geojson || z.geometry_geojson || null
-    };
-  }).filter(Boolean) : null, [city, apiLoading, hasUsefulApiZones, radiusKm, apiZonesByName]);
 const zonesInRadius = useMemo(
-  () => hasUsefulApiZones ? apiZones : (mockFallbackZones || []),
-  [hasUsefulApiZones, apiZones, mockFallbackZones]
+  () => hasUsefulApiZones ? apiZones : [],
+  [hasUsefulApiZones, apiZones]
 );
+const territorialDataUnavailable = Boolean(city && !apiLoading && !hasUsefulApiZones);
   const capZones = useMemo(
     () => selectedCaps.map(cap => capDataMap[cap]).filter(zone => zone && !zone.unavailable),
     [selectedCaps, capDataMap]
@@ -1317,10 +1297,10 @@ const zonesInRadius = useMemo(
   useEffect(() => {
     if (hasUsefulApiZones) {
       setSelected(apiZones.map(z => z.id));
-    } else if (!hasUsefulApiZones && mockFallbackZones && mockFallbackZones.length > 0) {
-      setSelected(mockFallbackZones.map(z => z.id));
-    } else if (!hasUsefulApiZones && !mockFallbackZones) { setSelected([]); }
-  }, [city?.id, radius, hasUsefulApiZones, apiZones, mockFallbackZones]);
+    } else {
+      setSelected([]);
+    }
+  }, [city?.id, radius, hasUsefulApiZones, apiZones]);
 
   // In CAP mode, selZones = only selected CAPs; in Comune mode = zones in radius
   const selZones = searchMode === "cap"
@@ -1432,6 +1412,8 @@ const totalCapacity = isResidentialStep2 ? doorCoverage.fullCoverageFlyers : sel
       totalCapacity,
       isPartial,
       requiredFlyers,
+      operationalWaypoints,
+      gpsPlannedPoints: operationalWaypoints,
       requiredTotalFlyers: requiredFlyers,
       fullCoverageFlyers: requiredFlyers,
       missingFlyers: isResidentialStep2 ? doorCoverage.missingFlyers : Math.max(0, requiredFlyers - flyerQuantityFromStep1),
@@ -1445,18 +1427,61 @@ const totalCapacity = isResidentialStep2 ? doorCoverage.fullCoverageFlyers : sel
       activeService: svcType,
       selectedService: svcType,
       comuniNelRaggio: zonesInRadius.length,
-      metadata: { omi: omiInfo },
+      metadata: { omi: omiInfo, operational_waypoints: operationalWaypoints },
     }));
     onNext();
   }
 
-const coverageStatus = selZones.length === 0 ? "empty" : isPartial ? "partial" : "sufficient";
+const coverageStatus = selZones.length === 0 && !isMovementStep2 && !isBusinessStep2 ? "empty" : isPartial ? "partial" : "sufficient";
 const remainingFlyers = isResidentialStep2 && doorCoverage ? doorCoverage.remainingFlyers : (coverageStatus === "sufficient" ? flyerQuantityFromStep1 - requiredFlyers : 0);
-const canGo = searchMode === "cap" ? selectedCaps.length > 0 : selZones.length > 0;
+const canGo = searchMode === "cap" ? selectedCaps.length > 0 : (selZones.length > 0 || ((isMovementStep2 || isBusinessStep2) && pois.length > 0));
 const h2hMetrics = useMemo(
   () => getH2HMetrics(pois, transportState, radiusKm),
   [pois, transportState, radiusKm]
 );
+const businessMetrics = useMemo(
+  () => getBusinessMetrics(pois, targetBusinessMeta, radiusKm),
+  [pois, targetBusinessMeta, radiusKm]
+);
+const operationalWaypoints = useMemo(() => {
+  if (isMovementStep2) {
+    return h2hMetrics.clusters.slice(0, 24).map((point) => ({
+      id: point.id,
+      type: "h2h_hotspot",
+      label: point.name,
+      category: point.zoneName,
+      lat: point.lat,
+      lng: point.lng,
+      score: point.strength,
+      poiCount: point.poi,
+      source: "POI/TPL cluster",
+    })).filter(point => Number.isFinite(point.lat) && Number.isFinite(point.lng));
+  }
+  if (isBusinessStep2) {
+    return businessMetrics.clusterRows.slice(0, 24).map((point) => ({
+      id: point.id,
+      type: "b2b_cluster",
+      label: point.name,
+      category: point.dominant || point.zoneName,
+      lat: point.lat,
+      lng: point.lng,
+      score: point.score,
+      poiCount: point.activities,
+      source: "POI business cluster",
+    })).filter(point => Number.isFinite(point.lat) && Number.isFinite(point.lng));
+  }
+  return (civiciState?.points || []).slice(0, 50).map((point) => ({
+    id: point.id,
+    type: "d2d_address_sample",
+    label: [point.via, point.numeroCivico].filter(Boolean).join(" ") || "Civico OSM",
+    category: point.comune || "Civico",
+    lat: point.lat,
+    lng: point.lng,
+    score: null,
+    poiCount: null,
+    source: "OSM address sample",
+  })).filter(point => Number.isFinite(point.lat) && Number.isFinite(point.lng));
+}, [isMovementStep2, isBusinessStep2, h2hMetrics.clusters, businessMetrics.clusterRows, civiciState?.points]);
 const serviceKpis = selZones.length > 0 ? {
     area: selZones.reduce((a, z) => a + (Number(z.area) || 0), 0).toFixed(1),
     hotspotStrength: isMovementStep2 ? h2hMetrics.zones : Math.round(selZones.reduce((a, z) => a + (h2hHotspotStrength(z) || 0), 0) / selZones.length),
@@ -1475,18 +1500,20 @@ const serviceKpis = selZones.length > 0 ? {
     metro: isMovementStep2 ? h2hMetrics.metro : 0,
     universities: isMovementStep2 ? h2hMetrics.universities : 0,
     localAttractors: isMovementStep2 ? h2hMetrics.localAttractors : 0,
+    gpsWaypoints: operationalWaypoints.length,
     transitStops: isMovementStep2 ? h2hMetrics.transitTotal : selZones.reduce((a, z) => a + (Number(z.transitStops) || 0) + (Number(z.trainStations) || 0), 0),
     flowScore: isMovementStep2 ? h2hMetrics.flowScore : selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.flowScore) || 0), 0) / selZones.length) : 0,
-    businesses: selZones.reduce((a, z) => a + (Number(z.bizTotal) || 0), 0),
-    competitors: selZones.reduce((a, z) => a + (Number(z.competitors) || 0), 0),
-    commercialDensity: selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.commDensB2B) || 0), 0) / selZones.length) : 0,
-    clusters: selZones.reduce((a, z) => a + (Number(z.clusters) || 0), 0),
-    targetBusinesses: selZones.reduce((a, z) => a + (Number(z.targetBiz) || 0), 0),
+    businesses: isBusinessStep2 ? businessMetrics.businesses : selZones.reduce((a, z) => a + (Number(z.bizTotal) || 0), 0),
+    competitors: isBusinessStep2 ? businessMetrics.competitors : selZones.reduce((a, z) => a + (Number(z.competitors) || 0), 0),
+    commercialDensity: isBusinessStep2 ? businessMetrics.commercialDensity : (selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.commDensB2B) || 0), 0) / selZones.length) : 0),
+    clusters: isBusinessStep2 ? businessMetrics.clusters : selZones.reduce((a, z) => a + (Number(z.clusters) || 0), 0),
+    targetBusinesses: isBusinessStep2 ? businessMetrics.targetBusinesses : selZones.reduce((a, z) => a + (Number(z.targetBiz) || 0), 0),
+    cdIdx: isBusinessStep2 ? businessMetrics.cdIdx : (selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.cdIdx) || 0), 0) / selZones.length) : 0),
     familyIndex: selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.familyIdx) || 0), 0) / selZones.length) : null,
     reachScore: selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.reachD2D) || 0), 0) / selZones.length) : null,
     roiScore: selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.roiD2D) || 0), 0) / selZones.length) : null,
     confidenceScore: selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.confD2D) || 0), 0) / selZones.length) : null,
-  } : { area: "0", hotspotStrength: isMovementStep2 ? h2hMetrics.zones : 0, families: 0, pop: 0, population: 0, coverage: 0, recommendedFlyers: 0, selectedComuni: [], comuniCount: 0, poi: isMovementStep2 ? h2hMetrics.poi : 0, operationalZones: isMovementStep2 ? h2hMetrics.zones : 0, hotspotCount: isMovementStep2 ? h2hMetrics.zones : 0, tplStops: isMovementStep2 ? h2hMetrics.tplStops : 0, stations: isMovementStep2 ? h2hMetrics.stations : 0, metro: isMovementStep2 ? h2hMetrics.metro : 0, universities: isMovementStep2 ? h2hMetrics.universities : 0, localAttractors: isMovementStep2 ? h2hMetrics.localAttractors : 0, transitStops: isMovementStep2 ? h2hMetrics.transitTotal : 0, flowScore: isMovementStep2 ? h2hMetrics.flowScore : 0, businesses: 0, competitors: 0, commercialDensity: 0, clusters: 0, targetBusinesses: 0, familyIndex: null, reachScore: null, roiScore: null, confidenceScore: null };
+  } : { area: "0", hotspotStrength: isMovementStep2 ? h2hMetrics.zones : 0, families: 0, pop: 0, population: 0, coverage: 0, recommendedFlyers: 0, selectedComuni: [], comuniCount: 0, poi: isMovementStep2 ? h2hMetrics.poi : 0, operationalZones: isMovementStep2 ? h2hMetrics.zones : isBusinessStep2 ? businessMetrics.clusters : 0, hotspotCount: isMovementStep2 ? h2hMetrics.zones : 0, tplStops: isMovementStep2 ? h2hMetrics.tplStops : 0, stations: isMovementStep2 ? h2hMetrics.stations : 0, metro: isMovementStep2 ? h2hMetrics.metro : 0, universities: isMovementStep2 ? h2hMetrics.universities : 0, localAttractors: isMovementStep2 ? h2hMetrics.localAttractors : 0, gpsWaypoints: operationalWaypoints.length, transitStops: isMovementStep2 ? h2hMetrics.transitTotal : 0, flowScore: isMovementStep2 ? h2hMetrics.flowScore : 0, businesses: isBusinessStep2 ? businessMetrics.businesses : 0, competitors: isBusinessStep2 ? businessMetrics.competitors : 0, commercialDensity: isBusinessStep2 ? businessMetrics.commercialDensity : 0, clusters: isBusinessStep2 ? businessMetrics.clusters : 0, targetBusinesses: isBusinessStep2 ? businessMetrics.targetBusinesses : 0, cdIdx: isBusinessStep2 ? businessMetrics.cdIdx : 0, familyIndex: null, reachScore: null, roiScore: null, confidenceScore: null };
 const radiusInsightRows = zonesInRadius.map(z => ({
       id: z.id,
       name: z.name,
@@ -1644,8 +1671,8 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     ] : []),
   ];
   const residentialRadiusRows = residentialRows(zonesInRadius);
-  const businessCategorySummary = isBusinessStep2 && selZones.length > 0 && targetBusinessMeta ? bizCategoryChart(selZones, targetBusinessMeta) : [];
-  const businessClusterSummary = isBusinessStep2 && selZones.length > 0 && targetBusinessMeta ? businessRows(selZones, targetBusinessMeta) : [];
+  const businessCategorySummary = isBusinessStep2 && targetBusinessMeta ? (businessMetrics.categories.length ? businessMetrics.categories : bizCategoryChart(selZones, targetBusinessMeta)) : [];
+  const businessClusterSummary = isBusinessStep2 && targetBusinessMeta ? (businessMetrics.clusterRows.length ? businessMetrics.clusterRows : businessRows(selZones, targetBusinessMeta)) : [];
 
   const h2hAttractionSummary = isMovementStep2 ? [
       {label: "POI rilevanti", value: h2hMetrics.poi, color: "#3B82F6"},
@@ -2181,10 +2208,16 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                     <div style={{ opacity: 0.8, fontSize: 12 }}>La copertura dati reale e attualmente attiva per la Lombardia.</div>
                   </div>
                 )}
+                {territorialDataUnavailable && analysisError !== "TERRITORIAL_DATA_NOT_AVAILABLE" && (
+                  <div style={{ padding: 24, textAlign: "center", color: C.red, background: "rgba(248,113,113,.08)", border: `1px solid ${C.red}33`, borderRadius: 12, fontFamily: F.sans, fontSize: 13 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 6 }}>Dati territoriali non disponibili per questa zona.</div>
+                    <div style={{ opacity: 0.8, fontSize: 12 }}>I POI reali restano visibili dove disponibili, ma non vengono creati comuni o zone territoriali da dati locali.</div>
+                  </div>
+                )}
                 {analysisError === "POI_DATA_NOT_AVAILABLE" && <div style={{ padding: 20, textAlign: "center", color: C.orange, background: "rgba(232,87,26,.08)", borderRadius: 8, fontFamily: F.sans, fontSize: 12 }}>Dati POI non disponibili per questa zona.</div>}
                 
-                {(isMovementStep2 ? h2hMetrics.clusters : [...allZones].sort((a, b) => zCap(b) - zCap(a))).map(z => {
-                  const sel = isMovementStep2 ? true : z.isCap ? selectedCaps.includes(z.postalCode) : selected.includes(z.id);
+                {(isMovementStep2 ? h2hMetrics.clusters : isBusinessStep2 && businessMetrics.clusterRows.length ? businessMetrics.clusterRows : [...allZones].sort((a, b) => zCap(b) - zCap(a))).map(z => {
+                  const sel = isMovementStep2 || (isBusinessStep2 && businessMetrics.clusterRows.length) ? true : z.isCap ? selectedCaps.includes(z.postalCode) : selected.includes(z.id);
                   const alloc = zonesAllocation.find(a => a.id === z.id) || { requiredFlyers: zCap(z), assignedFlyers: 0, coveragePercent: 0, allocationStatus: "none" };
 const isManual = allocationMode === "manual";
                   const assignedFlyers = Math.max(0, Math.round(Number(alloc.assignedFlyers || alloc.assigned || alloc.allocated || alloc.volantini_assegnati || 0)));
@@ -2205,7 +2238,7 @@ const isManual = allocationMode === "manual";
                     }}>
                       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "24px minmax(160px,1fr) 32px" : "24px 1fr 180px 120px 32px", gap: 12, alignItems: "center" }}>
                         {/* Checkbox */}
-                        <div onClick={() => { if (!isMovementStep2) toggleZone(z.id); }} style={{
+                        <div onClick={() => { if (!isMovementStep2 && !(isBusinessStep2 && businessMetrics.clusterRows.length)) toggleZone(z.id); }} style={{
                           width: 18, height: 18, borderRadius: 5, cursor: "pointer",
                           border: `2px solid ${sel ? col : "rgba(255,255,255,.2)"}`,
                           background: sel ? col : "transparent", display: "flex", alignItems: "center", justifyContent: "center"
@@ -2214,7 +2247,7 @@ const isManual = allocationMode === "manual";
                         </div>
 
                         {/* Nome & Info */}
-                        <div onClick={() => { if (!isMovementStep2) toggleZone(z.id); }} style={{ cursor: isMovementStep2 ? "default" : "pointer", flex: 1 }}>
+                        <div onClick={() => { if (!isMovementStep2 && !(isBusinessStep2 && businessMetrics.clusterRows.length)) toggleZone(z.id); }} style={{ cursor: isMovementStep2 || (isBusinessStep2 && businessMetrics.clusterRows.length) ? "default" : "pointer", flex: 1 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: sel ? 700 : 400, color: sel ? C.white : "rgba(255,255,255,.45)" }}>{z.name}</div>
                             {z.isCap && <span style={{ padding: "1px 5px", borderRadius: 4, background: "rgba(255,255,255,.1)", fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.4)", fontWeight: 700 }}>CAP</span>}
@@ -2479,7 +2512,7 @@ const isManual = allocationMode === "manual";
                 { l: "Area", v: search || null },
                 { l: "Raggio", v: radiusKm < 1 ? `${radiusKm * 1000}m` : `${radiusKm}km` },
                 { l: "Categoria", v: targetBusinessMeta?.label ?? null },
-                { l: "Zone", v: selZones.length },
+                { l: "Zone", v: serviceKpis?.operationalZones ?? selZones.length },
                 { l: "Inseriti", v: flyerQuantityFromStep1.toLocaleString("it-IT") },
                 { l: "Necessari", v: requiredFlyers.toLocaleString("it-IT") },
                 { l: coverageStatus === "partial" ? "Mancanti" : "Rimanenti", v: (coverageStatus === "partial" ? missingFlyers : remainingFlyers).toLocaleString("it-IT") },
@@ -2520,7 +2553,7 @@ const isManual = allocationMode === "manual";
                   {isResidentialStep2 ? "D2D — Output residenziale" : isMovementStep2 ? "H2H — Output pedonale" : isBusinessStep2 ? "B2B — Output commerciale" : "Output servizio"}
                 </span>
               </div>
-              {selZones.length === 0 && !isMovementStep2 ? (
+              {selZones.length === 0 && !isMovementStep2 && !isBusinessStep2 ? (
                 <div style={{ padding: "14px 0", textAlign: "center", fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.28)" }}>Seleziona almeno un comune</div>
               ) : (
                 <div style={{ padding: "8px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
@@ -2533,11 +2566,13 @@ const isManual = allocationMode === "manual";
                     { l: "POI rilevati", v: gisLoading ? gisKpi(null, 62) : serviceKpis.poi, format: "number", c: col },
                     { l: "Fermate transit", v: gisLoading ? gisKpi(null, 48) : serviceKpis.transitStops, format: "number", c: C.purple },
                     { l: "Hotspot", v: gisLoading ? gisKpi(null, 54) : serviceKpis.hotspotCount, format: "number", c: C.green },
+                    { l: "Waypoint GPS", v: gisLoading ? gisKpi(null, 44) : serviceKpis.gpsWaypoints, format: "number", c: C.yellow },
                     { l: "Flusso potenziale", v: gisLoading ? gisKpi(null, 54) : serviceKpis.flowScore, unit: "/100", c: C.white },
                   ] : isBusinessStep2 ? [
                     { l: "Attività rilevate", v: serviceKpis.businesses, format: "number", c: col },
                     { l: "Competitor vicini", v: gisLoading ? gisKpi(null, 48) : serviceKpis.competitors, format: "number", c: C.red },
                     { l: "Cluster commerciali", v: gisLoading ? gisKpi(null, 42) : serviceKpis.clusters, format: "number", c: C.white },
+                    { l: "Waypoint GPS", v: gisLoading ? gisKpi(null, 44) : serviceKpis.gpsWaypoints, format: "number", c: C.yellow },
                     { l: "Attività target", v: gisLoading ? gisKpi(null, 58) : serviceKpis.targetBusinesses, format: "number", c: C.green },
                   ] : [
                     { l: "Zone", v: selZones.length, format: "number", c: col },
@@ -2686,7 +2721,7 @@ const isManual = allocationMode === "manual";
           )}
 
           {/* Business intelligence — compact target + top categories + expandable clusters */}
-          {isBusinessStep2 && viewMode === "distribuzione" && selZones.length > 0 && (
+          {isBusinessStep2 && viewMode === "distribuzione" && (selZones.length > 0 || businessMetrics.businesses > 0) && (
             <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)", overflow: "hidden" }}>
               <div style={{ padding: "9px 14px", borderBottom: "1px solid rgba(255,255,255,.06)", display: "flex", alignItems: "center", gap: 7 }}>
                 <div style={{ width: 16, height: 3, background: col, borderRadius: 2 }} />
@@ -3590,6 +3625,7 @@ const nonEmpty = arr => arr.filter(x => x && x.v !== undefined && x.v !== null &
 const kpis = data.serviceKpis || {};
 const step4Omi = data.metadata?.omi ?? null;
 const zoneAllocs = data.zonesAllocation || [];
+const plannedGpsPoints = data.operationalWaypoints || data.gpsPlannedPoints || data.metadata?.operational_waypoints || [];
 const requiredQty = data.fullCoverageFlyers || data.requiredTotalFlyers || kpis.recommendedFlyers || zoneAllocs.reduce((a, z) => a + (z.requiredFlyers || 0), 0);
 const rawRemainingQty = flyerQty - requiredQty;
 const remainingQty = data.remainingFlyers ?? data.remainingQuantity ?? Math.max(0, rawRemainingQty);
@@ -3820,6 +3856,7 @@ const quotePdfData = {
       availabilityLabel: disc > 0 ? "Smart Pairing confermato dal backend" : "Smart Pairing non disponibile per questa configurazione.",
       smartPairingApplied: disc > 0,
       smartPairingDiscountPct: disc > 0 ? disc : null,
+      operationalWaypoints: plannedGpsPoints,
       compatibleZone: pdfPlanningRows.find(r => r.pair)?.pair ? `${pdfPlanningRows.find(r => r.pair).pair.zone} – ${pdfPlanningRows.find(r => r.pair).pair.type === "same" ? "stessa zona" : "zona vicina"}` : null,
     },
     pricing: {
@@ -3872,6 +3909,7 @@ function handleDownloadPdf() {
           extra_services: selectedExtras.map(e => e.id),
           pricing: quotePdfData.pricing,
           service_kpis: kpis,
+          operational_waypoints: plannedGpsPoints,
           source: data.quickSource || "configurator",
         },
       });
