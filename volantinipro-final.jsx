@@ -244,7 +244,7 @@ const go = (target) => { setMenuOpen(false); onNav(target); };
         {!isMobile && <div style={{ display: "flex", gap: 34 }}>{navLinks.map(l => <a key={l} className="nl" href="#" style={{ color: "rgba(255,255,255,.72)", textDecoration: "none", fontFamily: F.sans, fontSize: 14, fontWeight: 600 }}>{l}{l === "Risorse" ? <span style={{ marginLeft: 5, color: "rgba(255,255,255,.46)", fontSize: 10 }}>▾</span> : null}</a>)}</div>}
         {!isMobile && <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button onClick={() => go("login")} style={{ padding: "10px 16px", borderRadius: 10, border: "none", background: "transparent", color: "rgba(255,255,255,.78)", fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Accedi</button>
-          <button className="vb" onClick={() => go("step1")} style={{ padding: "12px 22px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: `0 10px 28px ${C.orangeGlow}` }}>Configura zona</button>
+          <button className="vb" onClick={() => go("step1")} style={{ padding: "12px 22px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: `0 8px 22px ${C.orangeGlow}` }}>Configura la tua campagna</button>
         </div>}
         {isMobile && <button aria-label={menuOpen ? "Chiudi menu" : "Apri menu"} onClick={() => setMenuOpen(v => !v)} style={{ minWidth: 72, height: 44, borderRadius: 9, border: "1px solid rgba(255,255,255,.16)", background: "rgba(255,255,255,.06)", color: C.white, fontFamily: F.sans, fontSize: 12, fontWeight: 800, lineHeight: 1, cursor: "pointer" }}>{menuOpen ? "Chiudi" : "Menu"}</button>}
       </div>
@@ -254,7 +254,7 @@ const go = (target) => { setMenuOpen(false); onNav(target); };
             {navLinks.map(l => <a key={l} href="#" className="nl" onClick={() => setMenuOpen(false)} style={{ minHeight: 44, display: "flex", alignItems: "center", color: "rgba(255,255,255,.7)", textDecoration: "none", fontFamily: F.sans, fontSize: 14, fontWeight: 600 }}>{l}</a>)}
             <button onClick={() => go("admin")} style={{ minHeight: 44, borderRadius: 9, border: "1px solid rgba(232,87,26,.35)", background: "rgba(232,87,26,.1)", color: C.orange, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Admin</button>
             <button onClick={() => go("login")} style={{ minHeight: 44, borderRadius: 9, border: "1px solid rgba(255,255,255,.18)", background: "transparent", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Accedi</button>
-            <button className="vb" onClick={() => go("step1")} style={{ minHeight: 46, borderRadius: 9, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Configura zona</button>
+            <button className="vb" onClick={() => go("step1")} style={{ minHeight: 46, borderRadius: 9, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Configura la tua campagna</button>
           </div>
         </div>
       )}
@@ -350,7 +350,7 @@ const kpis = [
 }
 
 function HomePage({onStart:n}){const i=()=>document.getElementById("come-funziona")?.scrollIntoView({behavior:"smooth",block:"start"}),[r,l]=useState(!1),[u,h]=useState({city:"",qty:"5000",service:"Door to Door"}),f=Math.max(180,Math.round((Number(u.qty)||0)*(u.service==="Door to Door" ?.13 : u.service==="Hand to Hand" ?.18 :.22))),m=[{t:"Piattaforma",items:[["Configuratore","step1"],["Preventivo rapido","quick"],["Come funziona","home"],["Tracking GPS","campaign"]]},{t:"Servizi",items:[["Door to Door","step1"],["Hand to Hand","step1"],["Business Distribution","step1"],["Report campagna","campaign"]]},{t:"Risorse",items:[["Servizi","home"],["Supporto","consultant"],["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]]}];useEffect(()=>{const D=()=>l(window.innerWidth<760);return D(),window.addEventListener("resize",D),()=>window.removeEventListener("resize",D)},[]);const[kpiBandVisible,setKpiBandVisible]=useState(!0),kpiBandRef=useRef(null);useEffect(()=>{const D=kpiBandRef.current;if(!D)return;const W=new IntersectionObserver(([A])=>{A.isIntersecting&&(setKpiBandVisible(!0),W.disconnect())},{threshold:.25});return W.observe(D),()=>W.disconnect()},[]);
-const x=[{value:"Dati territoriali",l:"Integrati nel sistema",src:"Fonti ISTAT"},{value:"Analisi zona",l:"Interattiva su mappa",src:"Geomarketing"},{value:"GPS e report",l:"Disponibili post-campagna",src:"Tracking"},{value:"31",l:"Servizi su misura",src:"Copertura operativa"}],w=["Dati ISTAT ufficiali","GPS certificato","No vincoli mensili"],j=["Retail locale","Food locale","Casa e servizi","Fitness locale","Attivita locale"],T=[{n:"01",t:"Tipo campagna",d:"Scegli servizio, quantita, formato, stampa e frequenza.",b:"Servizio + quantita",c:C.orange},{n:"02",t:"Zona & Mappa",d:"Cerca il comune, imposta il raggio e analizza famiglie, popolazione, POI o attivita.",b:"Comune + raggio",c:C.orange},{n:"03",t:"Pianificazione",d:"Calendario operativo con date disponibili e opportunita Smart Pairing quando presenti.",b:"Date e opportunita",c:C.orange},{n:"04",t:"Preventivo completo",d:"Ricevi un riepilogo con servizio, zona, date, output analisi e prezzo finale.",b:"Riepilogo + prezzo",c:C.orange}],z=[{name:"Door to Door",icon:"D2D",desc:"Distribuzione in cassette postali, condomini, palazzi, villette e zone residenziali.",features:["Famiglie stimate","Popolazione stimata","Copertura zona","Volantini consigliati","Comuni nel raggio"],c:C.orange},{name:"Hand to Hand",icon:"H2H",desc:"Distribuzione manuale in punti ad alto passaggio.",features:["POI rilevanti","Fermate metro/bus/treno","Scuole, università, eventi","Flusso potenziale","Smart Pairing"],c:C.orange},{name:"Business Distribution",icon:"B2B",desc:"Distribuzione mirata ad attività commerciali, uffici e zone business.",features:["Attività rilevate","Categorie commerciali","Competitor vicini","Densità commerciale","Cluster zona"],c:C.orange}],R=[{n:"01",t:"Configura campagna",d:"Percorso completo in 4 step: servizio, zona, Smart Pairing e preventivo finale.",benefits:["Analisi ISTAT zona","Smart Pairing se disponibile","AI Optimizer incluso","Tempo: 10 minuti"],cta:"Configura campagna ",c:C.orange,fn:()=>n("step1")},{n:"02",t:"Preventivo rapido",d:"Inserisci pochi dati e ricevi una stima iniziale senza completare tutto il configuratore.",benefits:["3 campi essenziali","Prezzo istantaneo","Nessun account richiesto"],cta:"Completa preventivo",c:C.orange,fn:()=>n("quick"),quick:!0},{n:"03",t:"Parla con un consulente",d:"Preferisci supporto diretto? Invia una richiesta e ti ricontattiamo.",benefits:["Brief gratuito","Scelta servizio guidata","Richiamo operativo","Tempo: immediato"],cta:"Parla con consulente",c:C.orange,fn:()=>n("consultant")}];return _jsxs("div",{style:{background:C.navyDeep,paddingBottom:0},children:[_jsx(VolantiniProHeroMap,{onConfigure:()=>n("step1"),onLogin:()=>n("login"),onAdmin:()=>n("admin"),onHowItWorks:i}),_jsx(TrustBar,{metrics:[{value:"120+",label:"Campagne attive"},{value:"2.4M",label:"Famiglie raggiunte"},{value:"31",label:"Comuni coperti"},{value:"98%",label:"Coverage media"}]}),_jsx("section",{className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,borderTop:"1px solid rgba(0,0,0,.06)"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:34},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Tre modi per iniziare"}),_jsx("h2",{style:{fontFamily:F.serif,fontSize:46,color:C.navy,letterSpacing:"-1.4px",marginBottom:10},children:"Scegli il tuo punto di partenza."}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:660,lineHeight:1.65},children:"Configurazione completa, stima rapida o supporto diretto: tre percorsi per ogni esigenza."})]}),_jsx("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:18,marginBottom:28},children:R.map(({n:D,t:W,d:A,benefits:F,cta:B,c:P,fn:J,quick:V})=>_jsxs("div",{style:{borderRadius:16,padding:"26px 24px",background:C.white,border:"1px solid rgba(0,0,0,.09)",boxShadow:"0 2px 12px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",minHeight:V?365:315},children:[_jsxs("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18},children:[_jsx("div",{style:{width:34,height:4,borderRadius:2,background:P}}),_jsx("div",{style:{fontFamily:F.serif,fontSize:34,color:"rgba(0,0,0,.06)",lineHeight:1},children:D})]}),_jsx("h3",{style:{fontFamily:F.serif,fontSize:24,color:C.navy,letterSpacing:"-.4px",marginBottom:10},children:W}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:C.muted,lineHeight:1.62,marginBottom:16},children:A}),V?_jsxs("div",{style:{display:"grid",gap:8,marginBottom:16},children:[_jsx("input",{value:u.city,onChange:H=>h({...u,city:H.target.value}),placeholder:"Comune",style:{width:"100%",padding:"10px 11px",borderRadius:8,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.06)",color:C.white,fontFamily:F.sans,fontSize:12}}),_jsxs("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8},children:[_jsxs("select",{value:u.service,onChange:H=>h({...u,service:H.target.value}),style:{width:"100%",padding:"10px 9px",borderRadius:8,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.06)",color:C.white,fontFamily:F.sans,fontSize:12},children:[_jsx("option",{children:"Door to Door"}),_jsx("option",{children:"Hand to Hand"}),_jsx("option",{children:"Business Distribution"})]}),_jsx("input",{value:u.qty,onChange:H=>h({...u,qty:H.target.value.replace(/\D/g,"")}),placeholder:"Volantini",inputMode:"numeric",style:{width:"100%",padding:"10px 9px",borderRadius:8,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.06)",color:C.white,fontFamily:F.sans,fontSize:12}})]}),_jsxs("div",{style:{padding:"10px 12px",borderRadius:9,background:`${P}12`,border:`1px solid ${P}28`,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10},children:[_jsx("span",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.52)"},children:"Stima indicativa"}),_jsxs("strong",{style:{fontFamily:F.serif,fontSize:24,color:C.white,letterSpacing:"-.5px"},children:["EUR ",f.toLocaleString("it-IT")]})]})]}):null,_jsx("div",{style:{display:"grid",gap:7,marginBottom:18},children:F.map(H=>_jsxs("div",{style:{display:"flex",alignItems:"center",gap:8,fontFamily:F.sans,fontSize:12,color:"rgba(0,0,0,.55)"},children:[_jsx("span",{style:{width:15,height:15,borderRadius:"50%",background:`${P}24`,color:P,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:900,flexShrink:0},children:""}),H]},H))}),_jsx(Button,{onClick:J,variant:W==="Configura campagna"?"primary":W==="Preventivo rapido"?"secondary":"ghost",style:{marginTop:"auto",width:"100%",minHeight:44,padding:W==="Parla con un consulente"?"0":"0 12px",borderRadius:10,fontFamily:F.sans,fontSize:14,fontWeight:700,color:W==="Parla con un consulente"?C.text:undefined,justifyContent:W==="Parla con un consulente"?"flex-start":"center"},children:W==="Parla con un consulente"?`${B} \u2192`:B})]},W))})]})}),_jsx("section",{ref:kpiBandRef,className:"section-tight",style:{background:C.navy,paddingLeft:28,paddingRight:28,borderTop:`3px solid ${C.orange}`,opacity:kpiBandVisible?1:0,transform:kpiBandVisible?"none":"translateY(22px)",transition:"opacity .5s ease, transform .7s cubic-bezier(.2,.8,.2,1)",willChange:"transform, opacity"},children:_jsx("div",{style:{maxWidth:1200,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2},children:x.map(({value:D,l:W,src:A},F)=>_jsxs("div",{style:{padding:"34px 26px",borderLeft:F>0?"1px solid rgba(255,255,255,.07)":"none"},children:[_jsx("div",{style:{width:26,height:3,background:C.orange,borderRadius:2,marginBottom:16}}),_jsx("div",{style:{fontFamily:F.serif,fontSize:typeof D=="string"&&D.length>8?34:50,color:C.white,letterSpacing:"-1.4px",lineHeight:1,marginBottom:10,fontVariantNumeric:"tabular-nums"},children:D}),_jsx("div",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.6)",lineHeight:1.4,marginBottom:8},children:W}),_jsx("div",{style:{display:"inline-flex",padding:"3px 7px",borderRadius:4,background:"rgba(232,87,26,.12)",fontFamily:F.sans,fontSize:9,color:C.orange},children:A})]},W))})}),_jsx("section",{id:"come-funziona",className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,scrollMarginTop:80},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:64},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Dall'idea al volantino in mano"}),_jsxs("h2",{style:{fontFamily:F.serif,fontSize:48,color:C.navy,letterSpacing:"-1.5px",marginBottom:14,lineHeight:1.06},children:["Dall'idea alla campagna",_jsx("br",{}),"in 4 step misurabili."]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:520,lineHeight:1.65},children:"Un flusso unico per definire servizio, zona, date operative e preventivo finale."})]}),_jsx("div",{className:"steps-grid",style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2},children:T.map(({n:D,t:W,d:A,b:F,c:B},P)=>_jsxs("div",{className:"vc",style:{padding:"34px 24px",background:C.white,borderRadius:P===0?"16px 0 0 16px":P===3?"0 16px 16px 0":0,borderLeft:P>0?`1px solid ${C.steelDark}`:"none",position:"relative",overflow:"hidden"},children:[_jsx("div",{style:{position:"absolute",top:-8,right:12,fontFamily:F.serif,fontSize:94,color:"#F0F2F5",lineHeight:1,userSelect:"none"},children:D}),_jsx("div",{style:{width:34,height:4,borderRadius:2,background:B,marginBottom:20}}),_jsx("h3",{style:{fontFamily:F.serif,fontSize:20,color:C.navy,marginBottom:10,letterSpacing:"-.3px"},children:W}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:C.muted,lineHeight:1.65,marginBottom:20},children:A}),_jsx("div",{style:{display:"inline-flex",padding:"4px 10px",borderRadius:6,background:`${B}18`,fontFamily:F.sans,fontSize:11,fontWeight:700,color:B},children:F})]},D))}),_jsx("div",{style:{textAlign:"center",marginTop:48},children:_jsx("button",{className:"vb",onClick:()=>n("step1"),style:{padding:"15px 38px",borderRadius:12,border:"none",background:C.orange,color:C.white,fontFamily:F.sans,fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:`0 8px 28px ${C.orangeGlow}`},children:"Configura la tua campagna "})})]})}),_jsx(ServicesSection,{onConfigure:()=>n("step1")}),_jsx(FeatureZonaMappa,{onConfigure:()=>n("step1")}),_jsx(FeatureSmartPairing,{onConfigure:()=>n("step1")}),_jsx(RisultatiSection,{}),_jsx(FAQSection,{onContact:()=>n("consultant")}),_jsx(PricingSection,{onConfigure:()=>n("step1"),onConsultant:()=>n("consultant")}),_jsx(Footer,{onNav:n,onHowItWorks:i}),_jsx("footer",{style:{display:"none",background:"#070D1A",borderTop:"1px solid rgba(255,255,255,.05)",padding:"52px 28px 34px"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{display:"flex",gap:64,marginBottom:44},children:[_jsxs("div",{style:{flex:"0 0 250px"},children:[_jsxs("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:16},children:[_jsx("div",{style:{width:30,height:30,borderRadius:7,background:C.orange,display:"flex",alignItems:"center",justifyContent:"center"},children:_jsxs("svg",{width:"16",height:"16",viewBox:"0 0 20 20",fill:"none",children:[_jsx("path",{d:"M3 17L10 3L17 17H3Z",fill:"white"}),_jsx("circle",{cx:"10",cy:"12",r:"2",fill:"white",opacity:".7"})]})}),_jsxs("span",{style:{fontFamily:F.serif,fontSize:18,color:C.white},children:["Volantini",_jsx("span",{style:{color:C.orange},children:"Pro"})]})]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.33)",lineHeight:1.65,marginBottom:16},children:"Piattaforma B2B per configurare campagne di volantinaggio con dati territoriali, GPS e report operativo."}),_jsx("div",{style:{display:"inline-flex",alignItems:"center",gap:6,padding:"4px 10px",borderRadius:6,background:"rgba(232,87,26,.1)",fontFamily:F.sans,fontSize:11,color:C.orange},children:"Operativo su Milano e Lombardia"})]}),_jsx("div",{style:{display:"flex",gap:52,flex:1},children:m.map(({t:D,items:W})=>_jsxs("div",{children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:C.orange,marginBottom:16},children:D}),_jsx("div",{style:{display:"flex",flexDirection:"column",gap:9},children:W.map(([A,F])=>_jsx("button",{onClick:()=>F==="home"&&A==="Come funziona"?i():n(F),style:{padding:0,border:"none",background:"transparent",textAlign:"left",fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.36)",cursor:"pointer"},children:A},A))})]},D))})]}),_jsxs("div",{style:{borderTop:"1px solid rgba(255,255,255,.05)",paddingTop:24,display:"flex",justifyContent:"space-between"},children:[_jsx("span",{style:{fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)"},children:"2025 VolantiniPro S.r.l. - Milano"}),_jsx("span",{style:{display:"flex",gap:10,alignItems:"center"},children:[["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]].map(([D,W])=>_jsx("button",{onClick:()=>n(W),style:{padding:0,border:"none",background:"transparent",fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)",cursor:"pointer"},children:D},D))})]})]})})]})}
+const x=[{value:"Dati territoriali",l:"Integrati nel sistema",src:"Fonti ISTAT"},{value:"Analisi zona",l:"Interattiva su mappa",src:"Geomarketing"},{value:"GPS e report",l:"Disponibili post-campagna",src:"Tracking"},{value:"31",l:"Servizi su misura",src:"Copertura operativa"}],w=["Dati ISTAT ufficiali","GPS certificato","No vincoli mensili"],j=["Retail locale","Food locale","Casa e servizi","Fitness locale","Attivita locale"],T=[{n:"01",t:"Tipo campagna",d:"Scegli servizio, quantita, formato, stampa e frequenza.",b:"Servizio + quantita",c:C.orange},{n:"02",t:"Zona & Mappa",d:"Cerca il comune, imposta il raggio e analizza famiglie, popolazione, POI o attivita.",b:"Comune + raggio",c:C.orange},{n:"03",t:"Pianificazione",d:"Calendario operativo con date disponibili e opportunita Smart Pairing quando presenti.",b:"Date e opportunita",c:C.orange},{n:"04",t:"Preventivo completo",d:"Ricevi un riepilogo con servizio, zona, date, output analisi e prezzo finale.",b:"Riepilogo + prezzo",c:C.orange}],z=[{name:"Door to Door",icon:"D2D",desc:"Distribuzione in cassette postali, condomini, palazzi, villette e zone residenziali.",features:["Famiglie stimate","Popolazione stimata","Copertura zona","Volantini consigliati","Comuni nel raggio"],c:C.orange},{name:"Hand to Hand",icon:"H2H",desc:"Distribuzione manuale in punti ad alto passaggio.",features:["POI rilevanti","Fermate metro/bus/treno","Scuole, università, eventi","Flusso potenziale","Smart Pairing"],c:C.orange},{name:"Business Distribution",icon:"B2B",desc:"Distribuzione mirata ad attività commerciali, uffici e zone business.",features:["Attività rilevate","Categorie commerciali","Competitor vicini","Densità commerciale","Cluster zona"],c:C.orange}],R=[{n:"01",t:"Configura campagna",d:"Percorso completo in 4 step: servizio, zona, Smart Pairing e preventivo finale.",benefits:["Analisi ISTAT zona","Smart Pairing se disponibile","AI Optimizer incluso","Tempo: 10 minuti"],cta:"Configura la tua campagna",c:C.orange,fn:()=>n("step1")},{n:"02",t:"Preventivo rapido",d:"Inserisci pochi dati e ricevi una stima iniziale senza completare tutto il configuratore.",benefits:["3 campi essenziali","Prezzo istantaneo","Nessun account richiesto"],cta:"Preventivo rapido",c:C.orange,fn:()=>n("quick"),quick:!0},{n:"03",t:"Parla con un consulente",d:"Preferisci supporto diretto? Invia una richiesta e ti ricontattiamo.",benefits:["Brief gratuito","Scelta servizio guidata","Richiamo operativo","Tempo: immediato"],cta:"Parla con un consulente",c:C.orange,fn:()=>n("consultant")}];return _jsxs("div",{style:{background:C.navyDeep,paddingBottom:0},children:[_jsx(VolantiniProHeroMap,{onConfigure:()=>n("step1"),onLogin:()=>n("login"),onAdmin:()=>n("admin"),onHowItWorks:i}),_jsx(TrustBar,{metrics:[{value:"120+",label:"Campagne attive"},{value:"2.4M",label:"Famiglie raggiunte"},{value:"31",label:"Comuni coperti"},{value:"98%",label:"Coverage media"}]}),_jsx("section",{className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,borderTop:"1px solid rgba(0,0,0,.06)"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:34},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Tre modi per iniziare"}),_jsx("h2",{style:{fontFamily:F.serif,fontSize:46,color:C.navy,letterSpacing:"-1.4px",marginBottom:10},children:"Scegli il tuo punto di partenza."}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:660,lineHeight:1.65},children:"Configurazione completa, stima rapida o supporto diretto: tre percorsi per ogni esigenza."})]}),_jsx("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:18,marginBottom:28},children:R.map(({n:D,t:W,d:A,benefits:F,cta:B,c:P,fn:J,quick:V})=>_jsxs("div",{style:{borderRadius:16,padding:"26px 24px",background:C.white,border:"1px solid rgba(0,0,0,.09)",boxShadow:"0 2px 12px rgba(0,0,0,.06)",display:"flex",flexDirection:"column",minHeight:V?365:315},children:[_jsxs("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18},children:[_jsx("div",{style:{width:34,height:4,borderRadius:2,background:P}}),_jsx("div",{style:{fontFamily:F.serif,fontSize:34,color:"rgba(0,0,0,.06)",lineHeight:1},children:D})]}),_jsx("h3",{style:{fontFamily:F.serif,fontSize:24,color:C.navy,letterSpacing:"-.4px",marginBottom:10},children:W}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:C.muted,lineHeight:1.62,marginBottom:16},children:A}),V?_jsxs("div",{style:{display:"grid",gap:8,marginBottom:16},children:[_jsx("input",{value:u.city,onChange:H=>h({...u,city:H.target.value}),placeholder:"Comune",style:{width:"100%",padding:"10px 11px",borderRadius:8,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.06)",color:C.white,fontFamily:F.sans,fontSize:12}}),_jsxs("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8},children:[_jsxs("select",{value:u.service,onChange:H=>h({...u,service:H.target.value}),style:{width:"100%",padding:"10px 9px",borderRadius:8,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.06)",color:C.white,fontFamily:F.sans,fontSize:12},children:[_jsx("option",{children:"Door to Door"}),_jsx("option",{children:"Hand to Hand"}),_jsx("option",{children:"Business Distribution"})]}),_jsx("input",{value:u.qty,onChange:H=>h({...u,qty:H.target.value.replace(/\D/g,"")}),placeholder:"Volantini",inputMode:"numeric",style:{width:"100%",padding:"10px 9px",borderRadius:8,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.06)",color:C.white,fontFamily:F.sans,fontSize:12}})]}),_jsxs("div",{style:{padding:"10px 12px",borderRadius:9,background:`${P}12`,border:`1px solid ${P}28`,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10},children:[_jsx("span",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.52)"},children:"Stima da"}),_jsxs("strong",{style:{fontFamily:F.serif,fontSize:32,color:C.orange,letterSpacing:"-.5px",lineHeight:1},children:["�",f.toLocaleString("it-IT")]})]})]}):null,_jsx("div",{style:{display:"grid",gap:7,marginBottom:18},children:F.map(H=>_jsxs("div",{style:{display:"flex",alignItems:"center",gap:8,fontFamily:F.sans,fontSize:12,color:"rgba(0,0,0,.55)"},children:[_jsx("span",{style:{width:15,height:15,borderRadius:"50%",background:`${P}24`,color:P,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:900,flexShrink:0},children:""}),H]},H))}),_jsx(Button,{onClick:J,variant:W==="Configura campagna"?"primary":W==="Preventivo rapido"?"secondary":"ghost",style:{marginTop:"auto",width:"100%",minHeight:44,padding:W==="Parla con un consulente"?"0":"0 12px",borderRadius:10,fontFamily:F.sans,fontSize:14,fontWeight:700,color:W==="Parla con un consulente"?C.text:undefined,justifyContent:W==="Parla con un consulente"?"flex-start":"center"},children:W==="Parla con un consulente"?B:B})]},W))})]})}),_jsx("section",{ref:kpiBandRef,className:"section-tight",style:{background:C.navy,paddingLeft:28,paddingRight:28,borderTop:`3px solid ${C.orange}`,opacity:kpiBandVisible?1:0,transform:kpiBandVisible?"none":"translateY(22px)",transition:"opacity .5s ease, transform .7s cubic-bezier(.2,.8,.2,1)",willChange:"transform, opacity"},children:_jsx("div",{style:{maxWidth:1200,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2},children:x.map(({value:D,l:W,src:A},F)=>_jsxs("div",{style:{padding:"34px 26px",borderLeft:F>0?"1px solid rgba(255,255,255,.07)":"none"},children:[_jsx("div",{style:{width:26,height:3,background:C.orange,borderRadius:2,marginBottom:16}}),_jsx("div",{style:{fontFamily:F.serif,fontSize:typeof D=="string"&&D.length>8?34:50,color:C.white,letterSpacing:"-1.4px",lineHeight:1,marginBottom:10,fontVariantNumeric:"tabular-nums"},children:D}),_jsx("div",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.6)",lineHeight:1.4,marginBottom:8},children:W}),_jsx("div",{style:{display:"inline-flex",padding:"3px 7px",borderRadius:4,background:"rgba(232,87,26,.12)",fontFamily:F.sans,fontSize:9,color:C.orange},children:A})]},W))})}),_jsx("section",{id:"come-funziona",className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,scrollMarginTop:80},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:64},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Dall'idea al volantino in mano"}),_jsxs("h2",{style:{fontFamily:F.serif,fontSize:48,color:C.navy,letterSpacing:"-1.5px",marginBottom:14,lineHeight:1.06},children:["Dall'idea alla campagna",_jsx("br",{}),"in 4 step misurabili."]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:520,lineHeight:1.65},children:"Un flusso unico per definire servizio, zona, date operative e preventivo finale."})]}),_jsx("div",{className:"steps-grid",style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2},children:T.map(({n:D,t:W,d:A,b:F,c:B},P)=>_jsxs("div",{className:"vc",style:{padding:"34px 24px",background:C.white,borderRadius:P===0?"16px 0 0 16px":P===3?"0 16px 16px 0":0,borderLeft:P>0?`1px solid ${C.steelDark}`:"none",position:"relative",overflow:"hidden"},children:[_jsx("div",{style:{position:"absolute",top:-8,right:12,fontFamily:F.serif,fontSize:94,color:"#F0F2F5",lineHeight:1,userSelect:"none"},children:D}),_jsx("div",{style:{width:34,height:4,borderRadius:2,background:B,marginBottom:20}}),_jsx("h3",{style:{fontFamily:F.serif,fontSize:20,color:C.navy,marginBottom:10,letterSpacing:"-.3px"},children:W}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:C.muted,lineHeight:1.65,marginBottom:20},children:A}),_jsx("div",{style:{display:"inline-flex",padding:"4px 10px",borderRadius:6,background:`${B}18`,fontFamily:F.sans,fontSize:11,fontWeight:700,color:B},children:F})]},D))}),_jsx("div",{style:{textAlign:"center",marginTop:48},children:_jsx("button",{className:"vb",onClick:()=>n("step1"),style:{padding:"15px 38px",borderRadius:12,border:"none",background:C.orange,color:C.white,fontFamily:F.sans,fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:`0 8px 28px ${C.orangeGlow}`},children:"Configura la tua campagna "})})]})}),_jsx(ServicesSection,{onConfigure:()=>n("step1")}),_jsx(FeatureZonaMappa,{onConfigure:()=>n("step1")}),_jsx(FeatureSmartPairing,{onConfigure:()=>n("step1")}),_jsx(RisultatiSection,{}),_jsx(FAQSection,{onContact:()=>n("consultant")}),_jsx(PricingSection,{onConfigure:()=>n("step1"),onConsultant:()=>n("consultant")}),_jsx(Footer,{onNav:n,onHowItWorks:i}),_jsx("footer",{style:{display:"none",background:"#070D1A",borderTop:"1px solid rgba(255,255,255,.05)",padding:"52px 28px 34px"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{display:"flex",gap:64,marginBottom:44},children:[_jsxs("div",{style:{flex:"0 0 250px"},children:[_jsxs("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:16},children:[_jsx("div",{style:{width:30,height:30,borderRadius:7,background:C.orange,display:"flex",alignItems:"center",justifyContent:"center"},children:_jsxs("svg",{width:"16",height:"16",viewBox:"0 0 20 20",fill:"none",children:[_jsx("path",{d:"M3 17L10 3L17 17H3Z",fill:"white"}),_jsx("circle",{cx:"10",cy:"12",r:"2",fill:"white",opacity:".7"})]})}),_jsxs("span",{style:{fontFamily:F.serif,fontSize:18,color:C.white},children:["Volantini",_jsx("span",{style:{color:C.orange},children:"Pro"})]})]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.33)",lineHeight:1.65,marginBottom:16},children:"Piattaforma B2B per configurare campagne di volantinaggio con dati territoriali, GPS e report operativo."}),_jsx("div",{style:{display:"inline-flex",alignItems:"center",gap:6,padding:"4px 10px",borderRadius:6,background:"rgba(232,87,26,.1)",fontFamily:F.sans,fontSize:11,color:C.orange},children:"Operativo su Milano e Lombardia"})]}),_jsx("div",{style:{display:"flex",gap:52,flex:1},children:m.map(({t:D,items:W})=>_jsxs("div",{children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:C.orange,marginBottom:16},children:D}),_jsx("div",{style:{display:"flex",flexDirection:"column",gap:9},children:W.map(([A,F])=>_jsx("button",{onClick:()=>F==="home"&&A==="Come funziona"?i():n(F),style:{padding:0,border:"none",background:"transparent",textAlign:"left",fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.36)",cursor:"pointer"},children:A},A))})]},D))})]}),_jsxs("div",{style:{borderTop:"1px solid rgba(255,255,255,.05)",paddingTop:24,display:"flex",justifyContent:"space-between"},children:[_jsx("span",{style:{fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)"},children:"2025 VolantiniPro S.r.l. - Milano"}),_jsx("span",{style:{display:"flex",gap:10,alignItems:"center"},children:[["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]].map(([D,W])=>_jsx("button",{onClick:()=>n(W),style:{padding:0,border:"none",background:"transparent",fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)",cursor:"pointer"},children:D},D))})]})]})})]})}
 
 // JSX runtime shim for reconstructed bundle code
 function _jsx(type, props, key) {
@@ -366,6 +366,8 @@ const GEO_DATA=[{id:"cormano",name:"Cormano",lat:45.551,lng:9.163},{id:"sesto",n
 function getTargetBizMeta(n){const i=n.businessCategory||n.targetBusinessType||n.businessSector||"altro";return BUSINESS_CATEGORIES[i]||BUSINESS_CATEGORIES.altro}function bizCategoryChart(n,i){const r={};n.forEach(u=>(u.topCats||"").split(" – ").filter(Boolean).forEach((h,f)=>{r[h]=(r[h]||0)+Math.max(1,Math.round((u.bizTotal||0)*(f===0?.34:f===1?.24:.16)))}));
 const l=Object.entries(r).map(([u,h])=>({label:u,count:h,target:i.aliases.some(f=>u.toLowerCase().includes(f.toLowerCase()))||u.toLowerCase().includes(i.label.toLowerCase().split(" ")[0])})).sort((u,h)=>h.count-u.count);return l.length?l:[{label:i.label,count:n.reduce((u,h)=>u+(h.targetBiz||0),0),target:!0}]}function businessZoneScore(n){return Math.round(Math.min(100,(n.commDensB2B||0)*.34+(n.reachB2B||0)*.22+(n.roiB2B||0)*.18+(n.targetBiz||0)/Math.max(1,n.bizTotal||1)*100*.16+Math.min(10,(n.clusters||0)*1.2)))}function businessRows(n,i){return[...n].sort((r,l)=>businessZoneScore(l)-businessZoneScore(r)).map(r=>({id:r.id,name:r.strongZone||r.name,zoneName:r.name,score:businessZoneScore(r),activities:r.bizTotal||0,target:r.targetBiz||0,competitors:r.competitors||0,density:r.commDensB2B||0,clusters:r.clusters||0,dominant:(r.topCats||i.label).split(" – ")[0]}))}function h2hHotspotStrength(n){return Math.round(Math.min(100,(n.flowScore||0)*.42+(n.commDens||0)*.2+Math.min(22,(n.transitStops||0)*.9)+Math.min(12,(n.strongPts||0)*1.2)+Math.min(8,(n.poi||0)/38)))}function h2hHotspotRows(n){return[...n].sort((i,r)=>h2hHotspotStrength(r)-h2hHotspotStrength(i)).map(i=>({id:i.id,name:(i.hotspots||i.name).split(" – ")[0],zoneName:i.name,strength:h2hHotspotStrength(i),poi:i.poi||0,transit:(i.transitStops||0)+(i.trainStations||0),anchors:i.strongPts||0,flow:i.flowScore||0,density:i.commDens||0,time:i.timeSlots||"Da validare",reason:i.flowScore>=82?"Alta concentrazione di passaggio vicino ad anchor urbani.":i.transitStops>=14?"Buona opportunita per flussi scuola-lavoro e trasporto.":"Zona utile per distribuzione manuale breve e mirata."}))}function normalizeH2HCategory(n){return String(n||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")}function countPoisByCategory(n,i){return n.filter(r=>i.some(l=>normalizeH2HCategory(r.category).includes(l))).length}function countTransportByType(n,i){return (n?.stops||[]).filter(r=>{const l=[r.stopType,...(r.routes||[]).map(u=>u.routeTypeLabel)].map(normalizeH2HCategory);return l.some(u=>i.includes(u))}).length}function buildH2HOperationalClusters(n,i,r){const l=Array.isArray(n)?n.filter(u=>Number.isFinite(Number(u.lat))&&Number.isFinite(Number(u.lng))):[];if(!l.length)return[];const u=r<=2?.0015:r<=5?.003:.005,h=new Map;l.forEach(f=>{const m=`${Math.round(Number(f.lat)/u)}_${Math.round(Number(f.lng)/u)}`;if(!h.has(m))h.set(m,[]);h.get(m).push(f)});const T=Array.from(h.values()).map((f,m)=>{const y=f.reduce((A,B)=>A+Number(B.lat),0)/f.length,x=f.reduce((A,B)=>A+Number(B.lng),0)/f.length,w=f.reduce((A,B)=>A+(Number(B.priority)||0),0),j=f.filter(A=>(Number(A.priority)||0)>=8).length,z=countPoisByCategory(f,["stazione","metro"]),R=countPoisByCategory(f,["universit","scuola"]),D=countPoisByCategory(f,["centro comm","teatro","cinema","attrazione","mercato","biblioteca","bar","caffe","caff","ristorante"]),W=Math.round(Math.min(100,w*3+j*10+z*8+R*6+Math.min(18,D*2))),A=[...f].sort((B,P)=>(Number(P.priority)||0)-(Number(B.priority)||0))[0];return{id:`h2h_cluster_${m}`,name:A?.name||`Zona operativa ${m+1}`,zoneName:A?.category||"Cluster POI",lat:y,lng:x,poi:f.length,transit:z,anchors:R,attractions:D,strength:W,flow:W,density:Math.min(100,Math.round(f.length*8)),time:"Da validare",reason:`${f.length.toLocaleString("it-IT")} POI reali nel cluster`,items:f}}).sort((f,m)=>m.strength-f.strength);return T.map((f,m)=>({...f,rank:m+1,name:`Zona ${m+1} · ${f.name}`}))}function getH2HMetrics(n,i,r){const l=Array.isArray(n)?n:[],u=Array.isArray(i?.stops)?i.stops:[],h=buildH2HOperationalClusters(l,i,r),f=countPoisByCategory(l,["stazione"]),m=countPoisByCategory(l,["metro"])+countTransportByType(i,["metro"]),y=countTransportByType(i,["train"])+f,x=countPoisByCategory(l,["universit"]),w=countPoisByCategory(l,["centro comm","teatro","cinema","attrazione","mercato","biblioteca","bar","caffe","caff","ristorante"]);return{poi:l.length,zones:h.length,hotspots:h.length,clusters:h,tplStops:u.length,stations:y,metro:m,universities:x,localAttractors:w,transitTotal:u.length+f+m,flowScore:h.length?Math.round(h.reduce((z,R)=>z+R.strength,0)/h.length):0}}function categoryMatchesBusiness(n,i){const r=normalizeH2HCategory(`${n?.category||""} ${n?.name||""}`),l=Array.isArray(i?.aliases)?i.aliases.map(normalizeH2HCategory):[];return l.length?l.some(u=>r.includes(u)):true}function buildBusinessOperationalClusters(n,i,r){const l=Array.isArray(n)?n.filter(u=>Number.isFinite(Number(u.lat))&&Number.isFinite(Number(u.lng))):[];if(!l.length)return[];const u=r<=2?.0015:r<=5?.003:.005,h=new Map;l.forEach(f=>{const m=`${Math.round(Number(f.lat)/u)}_${Math.round(Number(f.lng)/u)}`;if(!h.has(m))h.set(m,[]);h.get(m).push(f)});return Array.from(h.values()).map((f,m)=>{const y=f.reduce((A,B)=>A+Number(B.lat),0)/f.length,x=f.reduce((A,B)=>A+Number(B.lng),0)/f.length,w=f.reduce((A,B)=>A+(Number(B.priority)||0),0),j=f.filter(A=>categoryMatchesBusiness(A,i)).length,z=f.reduce((A,B)=>{const P=B.category||"Altro";A[P]=(A[P]||0)+1;return A},{}),R=Object.entries(z).sort((A,B)=>B[1]-A[1])[0]?.[0]||i?.label||"Business",D=Math.round(Math.min(100,w*3+j*8+f.length*4)),W=[...f].sort((A,B)=>(Number(B.priority)||0)-(Number(A.priority)||0))[0];return{id:`b2b_cluster_${m}`,name:`Zona ${m+1} · ${W?.name||R}`,zoneName:R,lat:y,lng:x,activities:f.length,target:j,competitors:Math.max(0,f.length-j),density:Math.min(100,Math.round(f.length*8)),clusters:1,dominant:R,score:D,items:f}}).sort((f,m)=>m.score-f.score)}function getBusinessMetrics(n,i,r){const l=Array.isArray(n)?n:[],h=buildBusinessOperationalClusters(l,i,r),f=l.filter(m=>categoryMatchesBusiness(m,i)).length,u=l.reduce((m,y)=>{const x=y.category||"Altro";m[x]=(m[x]||0)+1;return m},{}),T=Object.entries(u).map(([m,y])=>({label:m,count:y,target:categoryMatchesBusiness({category:m},i)})).sort((m,y)=>y.count-m.count);return{businesses:l.length,competitors:Math.max(0,l.length-f),commercialDensity:h.length?Math.round(h.reduce((m,y)=>m+y.density,0)/h.length):0,clusters:h.length,targetBusinesses:f,categories:T,clusterRows:h,cdIdx:h.length?Math.round(h.reduce((m,y)=>m+y.score,0)/h.length):0}}function Pv(n){const i=n.reduce((h,f)=>h+(f.poi||0),0),r=n.reduce((h,f)=>h+(f.transitStops||0)+(f.trainStations||0),0),l=n.reduce((h,f)=>h+(f.strongPts||0),0),u=n.reduce((h,f)=>h+(f.nearbyBiz||0),0);return[{label:"POI rilevanti",value:i,color:Qi.pedestrian.color},{label:"Fermate / stazioni",value:r,color:Qi.transit.color},{label:"Scuole / eventi",value:l,color:Qi.school.color},{label:"Attrattori locali",value:u,color:Qi.retail.color}]}function residentialStrength(n){return Math.round(Math.min(100,(n.familyIdx||0)*.34+(n.reachD2D||0)*.22+(n.coverage||0)*.2+Math.min(16,(n.families||0)/1850)+Math.min(8,(n.mailboxes||0)/2400)))}function residentialRows(n){return[...n].sort((i,r)=>residentialStrength(r)-residentialStrength(i)).map((i,r)=>({id:i.id,rank:r+1,name:i.name,strength:residentialStrength(i),families:i.families||0,population:i.pop||0,coverage:i.coverage||0,required:i.families||0,recommended:`${(i.flyersMin||0).toLocaleString("it-IT")}-${(i.flyersMax||0).toLocaleString("it-IT")}`,contribution:n.reduce((l,u)=>l+(u.families||0),0)>0?Math.round((i.families||0)/n.reduce((l,u)=>l+(u.families||0),0)*100):0,areaType:i.areaType}))}const ZONE_COLORS=["#2563EB","#16A34A","#7C3AED","#0891B2","#65A30D","#0F766E","#4F46E5","#0284C7","#15803D","#6D28D9","#0D9488"];
 function getComuneColor(n=""){const p=["#14b8a6","#3b82f6","#8b5cf6","#06b6d4","#22c55e","#6366f1"],i=[...n].reduce((r,l)=>r+l.charCodeAt(0),0);return p[i%p.length]}
+function normalizeTerritoryName(value=""){return String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();}
+function isMilanoTerritory(value){return /\bmilano\b/.test(normalizeTerritoryName(value));}function isMilanoCoordinates(lat,lng){const nLat=Number(lat),nLng=Number(lng);if(!Number.isFinite(nLat)||!Number.isFinite(nLng))return false;return nLat>=45.38&&nLat<=45.56&&nLng>=9.04&&nLng<=9.31;}
 function pickRealComuneGeometry(z) {
   const geomRaw = z?.geometry_geojson || z?.geometry || z?.geojson || z?.geom || z?.feature?.geometry || null;
   if (!geomRaw) return null;
@@ -634,49 +636,61 @@ function apiToZones(apiData, city) {
   }
   if (!apiData || apiData.error || !apiData.values) return null;
   const v = apiData.values;
-  const breakdown = apiData.comuni_breakdown || [];
+  const analysisLevel = apiData.metadata?.analysis_level || apiData.values?.analysis_level || "comune";
+  const breakdown = analysisLevel === "nil" && Array.isArray(apiData.nil_breakdown) && apiData.nil_breakdown.length
+    ? apiData.nil_breakdown
+    : apiData.comuni_breakdown || [];
   const totF = v.famiglie_stimate || v.families || v.households || 0;
   const totP = v.popolazione_stimata || v.population || 0;
   const totV = v.volantini_consigliati || v.volantini_stimati || v.recommended_flyers || 0;
   const nC = breakdown.length || 1;
   const items = breakdown.length > 0 ? breakdown : [{ comune_name: city?.name || 'Area', pct_copertura: v.copertura_stimata || 80, volantini_nel_raggio: totV }];
   return items.map((c, idx) => {
+    const territoryLevel = c.territory_level || analysisLevel;
+    const isNil = territoryLevel === "nil";
+    const territoryName = c.nil_name || c.comune_name || c.municipality_name || `Zona ${idx + 1}`;
+    const territoryCode = c.nil_code || c.comune_code || c.municipality_code || null;
     const pct = c.pct_copertura || c.percentuale || Math.round(100 / nC);
     const ratio = pct / 100;
     // Use per-municipality values when available (more accurate than total * ratio)
     const vol = c.volantini_nel_raggio || c.volantini_stimati || c.recommended_flyers || Math.round(totV * ratio);
-    const fam = c.households_total > 0 ? Math.round(c.households_total * ratio) : c.households > 0 ? Math.round(c.households) : c.families > 0 ? Math.round(c.families) : Math.round(vol / 1.1);
-    const pop = c.population_total > 0 ? Math.round(c.population_total * ratio) : c.population > 0 ? Math.round(c.population) : Math.round(totP * ratio);
+    const fam = c.households_in_radius > 0 ? Math.round(c.households_in_radius) : c.households_total > 0 ? Math.round(c.households_total * ratio) : c.households > 0 ? Math.round(c.households) : c.families > 0 ? Math.round(c.families) : Math.round(vol / 1.1);
+    const pop = c.population_in_radius > 0 ? Math.round(c.population_in_radius) : c.population_total > 0 ? Math.round(c.population_total * ratio) : c.population > 0 ? Math.round(c.population) : Math.round(totP * ratio);
     const ri = v.reach_score || 70, ro = v.roi_score || 70, co = v.confidence_score || 75, fi = v.family_index || 70;
+    const area = c.area_km2 > 0 ? Math.round(c.area_km2 * ratio * 10) / 10 : Math.round((v.area_km2 || 0) * ratio * 10) / 10;
     return {
-      id: `api_${idx}_${(c.comune_name || 'zona').toLowerCase().replace(/\s+/g, '_')}`,
-      name: c.comune_name || 'Zona ' + (idx + 1),
+      id: `${isNil ? "nil" : "api"}_${idx}_${String(territoryCode || territoryName).toLowerCase().replace(/\s+/g, '_')}`,
+      name: territoryName,
+      territoryLevel,
+      isNil,
+      nilCode: c.nil_code || null,
       municipality_code: c.comune_code || c.municipality_code || null,
-      area: c.area_km2 > 0 ? Math.round(c.area_km2 * ratio * 10) / 10 : Math.round((v.area_km2 || 5) * ratio * 10) / 10,
+      area,
       pop, families: fam, mailboxes: Math.round(fam * 0.93),
       coverage: pct, volantiniNelRaggio: Math.round(vol), familiesInRadius: fam, flyersMin: Math.round(vol), flyersMax: Math.round(vol * 1.1),
       operDays: Math.max(1, Math.ceil(vol / 4000)),
       familyIdx: fi, reachD2D: ri, roiD2D: ro, confD2D: co,
       eta14: null, eta34: null, eta64: null, eta65: null, genderM: 49, genderF: 51,
-      stranieri: 10, indVec: 170, densita: Math.round(pop / Math.max(0.1, (v.area_km2||5)*ratio)),
-      reddito: 22000, occup: 60, imprese: Math.round(fam * 0.05), areaType: 'Residenziale',
-      poi: Math.round(fam / 80), nearbyBiz: Math.round(fam / 180),
+      stranieri: null, indVec: c.old_age_index ?? null, densita: c.density_per_km2 > 0 ? Math.round(c.density_per_km2) : Math.round(pop / Math.max(0.1, area || 1)),
+      reddito: c.average_income ?? null, occup: null, imprese: c.businesses_total ?? null, areaType: isNil ? 'NIL Milano' : 'Territoriale',
+      poi: 0, nearbyBiz: 0,
       commDens: Math.min(100, Math.round(fi * 0.72)),
       flowScore: Math.min(100, Math.round(ri * 0.82)),
       transitStops: Math.max(2, Math.round((v.area_km2||5)*ratio*2)), trainStations: 0,
       operDaysH2H: Math.max(1, Math.ceil(vol/8000)),
       reachH2H: Math.round(ri*0.85), roiH2H: Math.round(ro*0.8), confH2H: Math.round(co*0.85),
-      hotspots: c.comune_name || 'Centro', timeSlots: '08-12 – 14-18', strongPts: 3,
-      bizTotal: Math.round(fam*0.04), competitors: Math.max(1, Math.round(fam*0.002)),
+      hotspots: territoryName, timeSlots: null, strongPts: 0,
+      bizTotal: 0, competitors: 0,
       commDensB2B: Math.min(100, Math.round(fi*0.65)),
       operDaysB2B: Math.max(1, Math.ceil(vol/10000)),
       cdIdx: Math.min(100, Math.round(fi*0.65)),
       reachB2B: Math.round(ri*0.8), roiB2B: Math.round(ro*0.75), confB2B: Math.round(co*0.8),
-      clusters: Math.max(1, Math.round((v.area_km2||5)*ratio/3)),
-      topCats: 'Retail – Food – Servizi',
-      targetBiz: Math.round(fam*0.025), strongZone: c.comune_name || 'Centro', dist: {},
+      clusters: Math.max(1, Math.round((area || 0)/3)),
+      topCats: null,
+      targetBiz: 0, strongZone: territoryName, dist: {},
       geometry_geojson: pickRealComuneGeometry(c),
       geometry: pickRealComuneGeometry(c),
+      source_flags: isNil ? ['NIL ufficiale Comune di Milano', 'ISTAT ripartito su geometria'] : [],
     };
   });
 }
@@ -740,6 +754,7 @@ const [thLayerId, setThLayerId] = useState(layers[0]?.id || null);
 const resolveStep2City = (value) => {
   const raw = String(value || "").trim().toLowerCase();
   if (!raw) return null;
+  if (normalizeTerritoryName(raw) === "milano") return { id: "milano", name: "Milano", label: "Milano", lat: 45.4642, lng: 9.19 };
   return GEO_DATA.find(g => {
     const name = String(g.name || g.label || "").trim().toLowerCase();
     return name && (name === raw || raw.includes(name) || name.includes(raw));
@@ -1150,8 +1165,17 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
   };
 
 const selectedMunicipality = useMemo(
-  () => searchMode !== "cap" ? (city?.label || city?.name || null) : null,
-  [searchMode, city?.label, city?.name]
+  () => {
+    if (searchMode === "cap") return null;
+    const raw = city?.label || city?.name || search || data.cityName || null;
+    if (isResidentialStep2 && (isMilanoTerritory(raw) || isMilanoCoordinates(city?.lat, city?.lng))) return "Milano";
+    return raw;
+  },
+  [searchMode, city?.label, city?.name, city?.lat, city?.lng, search, data.cityName, isResidentialStep2]
+);
+const requestedAnalysisLevel = useMemo(
+  () => isResidentialStep2 && (isMilanoTerritory(selectedMunicipality) || isMilanoCoordinates(city?.lat, city?.lng)) ? "nil" : "comune",
+  [isResidentialStep2, selectedMunicipality, city?.lat, city?.lng]
 );
 const analysisScope = useMemo(() => data.activeZoneId || "zone", [data.activeZoneId]);
 const analysisParams = useMemo(() => ({
@@ -1160,9 +1184,10 @@ const analysisParams = useMemo(() => ({
   radiusKm,
   serviceType: svcType,
   municipality: selectedMunicipality,
+  analysisLevel: requestedAnalysisLevel,
   quantity: quantityForAnalysis,
   scope: analysisScope,
-}), [city?.lat, city?.lng, radiusKm, svcType, selectedMunicipality, quantityForAnalysis, analysisScope]);
+}), [city?.lat, city?.lng, radiusKm, svcType, selectedMunicipality, requestedAnalysisLevel, quantityForAnalysis, analysisScope]);
 const { data: apiData, loading: apiLoading, error: apiError } = useServiceAnalysis(
   analysisParams.lat,
   analysisParams.lng,
@@ -1170,7 +1195,8 @@ const { data: apiData, loading: apiLoading, error: apiError } = useServiceAnalys
   analysisParams.serviceType,
   analysisParams.municipality,
   analysisParams.quantity,
-  analysisParams.scope
+  analysisParams.scope,
+  analysisParams.analysisLevel
 );
 const omiInfo = apiData?.metadata?.omi ?? null;
 const { sectors, loading: sectorsLoading } = useSectors(city?.lat, city?.lng, radiusKm, svcType);
@@ -1216,6 +1242,13 @@ const { data: demoData, loading: demoLoading, error: demoError } = useDemographi
 const confirmedSources = confirmedSourcesOrFallback(apiData, apiError);
 const confirmedStep2Sources = confirmedSources;
 const dataSourceLabel = (src) => sourceIsConfirmed(src, confirmedSources) ? normalizeDataSourceLabel(src) : (apiError || apiData?.error ? "Dati non disponibili" : "Stima interna");
+const responseBreakdownRows = Array.isArray(apiData?.nil_breakdown) && apiData.nil_breakdown.length ? apiData.nil_breakdown : (apiData?.comuni_breakdown || []);
+const responseTerritoryLevel = responseBreakdownRows.find(row => row?.territory_level)?.territory_level;
+const activeAnalysisLevel = apiData?.metadata?.analysis_level || apiData?.values?.analysis_level || responseTerritoryLevel || "comune";
+const isNilAnalysis = isResidentialStep2 && activeAnalysisLevel === "nil";
+const nilUnavailable = isResidentialStep2 && requestedAnalysisLevel === "nil" && apiData?.metadata?.nil_unavailable;
+const territoryPluralLabel = isNilAnalysis ? "Zone NIL" : "Comuni";
+const territorySingularLabel = isNilAnalysis ? "NIL" : "Comune";
 const civiciCount =
   Number(civiciState?.count || 0) ||
   Number(civiciState?.bboxCount || 0);
@@ -1287,6 +1320,15 @@ const zonesInRadius = useMemo(
   () => hasUsefulApiZones ? apiZones : [],
   [hasUsefulApiZones, apiZones]
 );
+useEffect(() => {
+  if (!apiData) return;
+  const nilRows = Array.isArray(apiData.nil_breakdown) && apiData.nil_breakdown.length ? apiData.nil_breakdown : (apiData.comuni_breakdown || []).filter(row => row?.territory_level === "nil");
+  const territoryLevel = nilRows.length ? "nil" : activeAnalysisLevel;
+  console.log("ANALYSIS_LEVEL", requestedAnalysisLevel);
+  console.log("TERRITORY_LEVEL", territoryLevel);
+  console.log("NIL_ROWS", nilRows?.length);
+  console.log("ZONES_IN_RADIUS", zonesInRadius);
+}, [apiData, requestedAnalysisLevel, activeAnalysisLevel, zonesInRadius]);
 const territorialDataUnavailable = Boolean(city && !apiLoading && !hasUsefulApiZones);
   const capZones = useMemo(
     () => selectedCaps.map(cap => capDataMap[cap]).filter(zone => zone && !zone.unavailable),
@@ -1398,12 +1440,14 @@ const totalCapacity = isResidentialStep2 ? doorCoverage.fullCoverageFlyers : sel
       selectedCaps,
       capDataMap,
       searchMode,
-      areaMode: isCapMode ? "cap" : "comune",
+      areaMode: isCapMode ? "cap" : activeAnalysisLevel,
+      analysisLevel: isCapMode ? "cap" : activeAnalysisLevel,
       capAnalysis: isCapMode ? selectedCaps.map(cap => capDataMap[cap]).filter(Boolean) : [],
       nearbyAreasExplicitlyAdded: false,
       selectedComuni: isCapMode
         ? []
         : selZones.map(z => z.name),
+      selectedNil: !isCapMode && isNilAnalysis ? selZones.map(z => ({ code: z.nilCode, name: z.name })) : [],
       selectedMunicipalities: isCapMode ? [] : selZones.map(z => z.name),
       cityName: isCapMode ? (selectedCaps.length === 1 ? `CAP ${selectedCaps[0]}` : `${selectedCaps.length} CAP selezionati`) : (city?.label || city?.name || ""),
       allocationMode,
@@ -1427,7 +1471,7 @@ const totalCapacity = isResidentialStep2 ? doorCoverage.fullCoverageFlyers : sel
       activeService: svcType,
       selectedService: svcType,
       comuniNelRaggio: zonesInRadius.length,
-      metadata: { omi: omiInfo, operational_waypoints: operationalWaypoints },
+      metadata: { omi: omiInfo, operational_waypoints: operationalWaypoints, analysis_level: activeAnalysisLevel, nil_unavailable: nilUnavailable },
     }));
     onNext();
   }
@@ -1491,6 +1535,8 @@ const serviceKpis = selZones.length > 0 ? {
     coverage: isResidentialStep2 ? Math.round(selZones.reduce((a, z) => a + (Number(z.coverage) || 0), 0) / selZones.length) : null,
     recommendedFlyers: isResidentialStep2 ? selZones.reduce((a, z) => a + (Number(z.flyersMin) || 0), 0) : 0,
     selectedComuni: selZones.map(z => z.name),
+    selectedNil: isNilAnalysis ? selZones.map(z => ({ code: z.nilCode, name: z.name })) : [],
+    analysisLevel: activeAnalysisLevel,
     comuniCount: selZones.length,
     poi: isMovementStep2 ? h2hMetrics.poi : selZones.reduce((a, z) => a + (Number(z.poi) || 0), 0),
     operationalZones: isMovementStep2 ? h2hMetrics.zones : selZones.length,
@@ -1513,7 +1559,7 @@ const serviceKpis = selZones.length > 0 ? {
     reachScore: isResidentialStep2 && selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.reachD2D) || 0), 0) / selZones.length) : null,
     roiScore: isResidentialStep2 && selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.roiD2D) || 0), 0) / selZones.length) : null,
     confidenceScore: isResidentialStep2 && selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.confD2D) || 0), 0) / selZones.length) : null,
-  } : { area: "0", hotspotStrength: isMovementStep2 ? h2hMetrics.zones : 0, families: 0, pop: 0, population: 0, coverage: 0, recommendedFlyers: 0, selectedComuni: [], comuniCount: 0, poi: isMovementStep2 ? h2hMetrics.poi : 0, operationalZones: isMovementStep2 ? h2hMetrics.zones : isBusinessStep2 ? businessMetrics.clusters : 0, hotspotCount: isMovementStep2 ? h2hMetrics.zones : 0, tplStops: isMovementStep2 ? h2hMetrics.tplStops : 0, stations: isMovementStep2 ? h2hMetrics.stations : 0, metro: isMovementStep2 ? h2hMetrics.metro : 0, universities: isMovementStep2 ? h2hMetrics.universities : 0, localAttractors: isMovementStep2 ? h2hMetrics.localAttractors : 0, gpsWaypoints: operationalWaypoints.length, transitStops: isMovementStep2 ? h2hMetrics.transitTotal : 0, flowScore: isMovementStep2 ? h2hMetrics.flowScore : 0, businesses: isBusinessStep2 ? businessMetrics.businesses : 0, competitors: isBusinessStep2 ? businessMetrics.competitors : 0, commercialDensity: isBusinessStep2 ? businessMetrics.commercialDensity : 0, clusters: isBusinessStep2 ? businessMetrics.clusters : 0, targetBusinesses: isBusinessStep2 ? businessMetrics.targetBusinesses : 0, cdIdx: isBusinessStep2 ? businessMetrics.cdIdx : 0, familyIndex: null, reachScore: null, roiScore: null, confidenceScore: null };
+  } : { area: "0", hotspotStrength: isMovementStep2 ? h2hMetrics.zones : 0, families: 0, pop: 0, population: 0, coverage: 0, recommendedFlyers: 0, selectedComuni: [], selectedNil: [], analysisLevel: activeAnalysisLevel, comuniCount: 0, poi: isMovementStep2 ? h2hMetrics.poi : 0, operationalZones: isMovementStep2 ? h2hMetrics.zones : isBusinessStep2 ? businessMetrics.clusters : 0, hotspotCount: isMovementStep2 ? h2hMetrics.zones : 0, tplStops: isMovementStep2 ? h2hMetrics.tplStops : 0, stations: isMovementStep2 ? h2hMetrics.stations : 0, metro: isMovementStep2 ? h2hMetrics.metro : 0, universities: isMovementStep2 ? h2hMetrics.universities : 0, localAttractors: isMovementStep2 ? h2hMetrics.localAttractors : 0, gpsWaypoints: operationalWaypoints.length, transitStops: isMovementStep2 ? h2hMetrics.transitTotal : 0, flowScore: isMovementStep2 ? h2hMetrics.flowScore : 0, businesses: isBusinessStep2 ? businessMetrics.businesses : 0, competitors: isBusinessStep2 ? businessMetrics.competitors : 0, commercialDensity: isBusinessStep2 ? businessMetrics.commercialDensity : 0, clusters: isBusinessStep2 ? businessMetrics.clusters : 0, targetBusinesses: isBusinessStep2 ? businessMetrics.targetBusinesses : 0, cdIdx: isBusinessStep2 ? businessMetrics.cdIdx : 0, familyIndex: null, reachScore: null, roiScore: null, confidenceScore: null };
 const radiusInsightRows = zonesInRadius.map(z => ({
       id: z.id,
       name: z.name,
@@ -1593,6 +1639,8 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     const weightPct = _totalFamiliesInRadius > 0 ? Math.round((z.families || 0) / _totalFamiliesInRadius * 100) : 0;
     return {
       id: z.id, name: z.name, lat: coords.lat, lng: coords.lng,
+      territoryLevel: z.territoryLevel,
+      isNil: z.isNil,
       families: z.families || 0, coverage: z.coverage || 0, area: z.area || 1,
       color: getComuneColor(z.id), geometry: pickRealComuneGeometry(z),
       weightPct, pop: z.pop || 0, volantiniNelRaggio: z.volantiniNelRaggio || z.volantini_nel_raggio || z.flyersMin || 0, flyersMin: z.flyersMin || 0, flyersMax: z.flyersMax || 0,
@@ -1623,12 +1671,22 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     flyersMax: selZones.reduce((a, z) => a + (z.flyersMax || 0), 0),
     operDays: selZones.reduce((a, z) => a + (z.operDays || 0), 0),
   } : null;
-  const residentialMainOutputs = d2dKpiZone ? SERVICE_META.d2d.mainKpis(d2dKpiZone).map(k =>
+  const safeMainKpis = (meta, zone) => {
+    try {
+      return zone && meta?.mainKpis ? meta.mainKpis(zone) : [];
+    } catch {
+      return [];
+    }
+  };
+  const residentialMainOutputs = d2dKpiZone ? safeMainKpis(SERVICE_META.d2d, d2dKpiZone).map(k =>
     k.l === "Comuni nel raggio" ? { ...k, v: String(zonesInRadius.length) } : k
   ) : [];
-  const h2hMainOutputs = firstZ ? SERVICE_META.h2h.mainKpis(firstZ) : [];
-  const businessMainOutputs = firstZ ? SERVICE_META.b2b.mainKpis(firstZ) : [];
-  const serviceOutputRows = firstZ ? serviceMeta.mainKpis(firstZ) : [];
+  const h2hMainOutputs = isMovementStep2 && firstZ ? safeMainKpis(SERVICE_META.h2h, firstZ) : [];
+  const businessMainOutputs = isBusinessStep2 && firstZ ? safeMainKpis(SERVICE_META.b2b, firstZ) : [];
+  const serviceOutputRows = firstZ ? safeMainKpis(serviceMeta, firstZ) : [];
+  const residentialMainOutputsNormalized = residentialMainOutputs.map(k =>
+    k.l === "Comuni nel raggio" ? { ...k, l: `${territoryPluralLabel} nel raggio`, v: String(zonesInRadius.length) } : k
+  );
   const residentialScores = aiAgg ? SERVICE_META.d2d.advKpis(aiAgg) : [];
   const h2hScores = aiAgg ? SERVICE_META.h2h.advKpis(aiAgg) : [];
   const businessScores = aiAgg ? SERVICE_META.b2b.advKpis(aiAgg) : [];
@@ -2020,7 +2078,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
             )}
             {isResidentialStep2 && city && (
               <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(8,15,30,.88)", borderRadius: 8, padding: "8px 10px", border: "1px solid rgba(255,255,255,.08)", maxWidth: 230 }}>
-                <div style={{ fontFamily: F.sans, fontSize: 8, fontWeight: 800, color: C.orange, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 6 }}>Residential territory</div>
+                <div style={{ fontFamily: F.sans, fontSize: 8, fontWeight: 800, color: C.orange, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 6 }}>{isNilAnalysis ? "NIL Milano" : "Residential territory"}</div>
                 {residentialRadiusRows.slice(0, 4).map(r => (
                   <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
                     <span style={{ width: 8, height: 8, borderRadius: "50%", background: getComuneColor(r.id), display: "inline-block" }} />
@@ -2157,7 +2215,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               {/* Header */}
               <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,.06)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
                 <div>
-                  <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white, marginBottom: 2 }}>Zone di distribuzione</div>
+                  <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white, marginBottom: 2 }}>{isNilAnalysis ? "Zone NIL nel raggio" : "Zone di distribuzione"}</div>
                   <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)" }}>
                     Budget disponibile: <b style={{ color: col }}>{flyerQuantityFromStep1.toLocaleString("it-IT")}</b> volantini
                   </div>
@@ -2186,7 +2244,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)", lineHeight: 1.4, maxWidth: 400 }}>
                   {allocationMode === "auto"
                     ? "Il sistema distribuisce automaticamente i volantini partendo dalle zone più vicine e più coerenti."
-                    : "Modalità manuale: scegli tu quanti volantini assegnare a ogni comune."
+                    : `Modalità manuale: scegli tu quanti volantini assegnare a ogni ${territorySingularLabel.toLowerCase()}.`
                   }
                 </div>
                 {allocationMode === "manual" && (
@@ -2206,6 +2264,12 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                   <div style={{ padding: 24, textAlign: "center", color: C.red, background: "rgba(248,113,113,.08)", border: `1px solid ${C.red}33`, borderRadius: 12, fontFamily: F.sans, fontSize: 13 }}>
                     <div style={{ fontWeight: 700, marginBottom: 6 }}>Dati territoriali non disponibili per questo comune.</div>
                     <div style={{ opacity: 0.8, fontSize: 12 }}>La copertura dati reale e attualmente attiva per la Lombardia.</div>
+                  </div>
+                )}
+                {nilUnavailable && (
+                  <div style={{ padding: 14, textAlign: "center", color: C.yellow, background: "rgba(251,191,36,.08)", border: `1px solid ${C.yellow}33`, borderRadius: 10, fontFamily: F.sans, fontSize: 12 }}>
+                    <div style={{ fontWeight: 800, marginBottom: 4 }}>Dati NIL non disponibili</div>
+                    <div style={{ opacity: 0.82 }}>Milano viene analizzata con il comportamento comunale attuale.</div>
                   </div>
                 )}
                 {territorialDataUnavailable && analysisError !== "TERRITORIAL_DATA_NOT_AVAILABLE" && (
@@ -2250,6 +2314,7 @@ const isManual = allocationMode === "manual";
                         <div onClick={() => { if (!isMovementStep2 && !(isBusinessStep2 && businessMetrics.clusterRows.length)) toggleZone(z.id); }} style={{ cursor: isMovementStep2 || (isBusinessStep2 && businessMetrics.clusterRows.length) ? "default" : "pointer", flex: 1 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: sel ? 700 : 400, color: sel ? C.white : "rgba(255,255,255,.45)" }}>{z.name}</div>
+                            {z.isNil && <span style={{ padding: "1px 5px", borderRadius: 4, background: `${getComuneColor(z.id)}22`, border: `1px solid ${getComuneColor(z.id)}55`, fontFamily: F.sans, fontSize: 8, color: getComuneColor(z.id), fontWeight: 800 }}>NIL</span>}
                             {z.isCap && <span style={{ padding: "1px 5px", borderRadius: 4, background: "rgba(255,255,255,.1)", fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.4)", fontWeight: 700 }}>CAP</span>}
                             {z.source_flags?.includes('Stima territoriale') && <span style={{ padding: "1px 5px", borderRadius: 4, background: "rgba(251,191,36,.15)", border: "1px solid rgba(251,191,36,.3)", fontFamily: F.sans, fontSize: 8, color: C.yellow, fontWeight: 700 }}>Stima territoriale</span>}
                           </div>
@@ -2371,7 +2436,7 @@ const isManual = allocationMode === "manual";
                         {remainingFlyers > 0 && radiusInsightRows.some(z => !selected.includes(z.id)) && (
                           <button onClick={addBestUnselectedZone}
                             style={{ padding: "7px 11px", borderRadius: 8, background: "rgba(46,204,138,.12)", color: C.green, border: "1px solid rgba(46,204,138,.28)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, cursor: "pointer" }}>
-                            Aggiungi comune consigliato
+                            Aggiungi {territorySingularLabel.toLowerCase()} consigliato
                           </button>
                         )}
                       </div>
@@ -2576,7 +2641,7 @@ const isManual = allocationMode === "manual";
                     { l: "Attività target", v: gisLoading ? gisKpi(null, 58) : serviceKpis.targetBusinesses, format: "number", c: C.green },
                   ] : [
                     { l: "Zone", v: selZones.length, format: "number", c: col },
-                    { l: "Comuni nel raggio", v: gisLoading ? gisKpi(null, 34) : zonesInRadius.length, format: "number", c: C.blue },
+                    { l: `${territoryPluralLabel} nel raggio`, v: gisLoading ? gisKpi(null, 34) : zonesInRadius.length, format: "number", c: C.blue },
                   ]).map(({ l, v, c, format, unit }) => (
                     <div key={l} style={{ padding: "7px 9px", borderRadius: 8, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.055)" }}>
                       <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.32)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 3 }}>{l}</div>
@@ -2677,7 +2742,7 @@ const isManual = allocationMode === "manual";
                 {[
                   { l: "Popolazione", v: formatNumber(serviceKpis.pop || serviceKpis.families) },
                   { l: "Densità", v: serviceKpis.area && serviceKpis.pop ? `${formatNumber(Math.round(serviceKpis.pop / Number(serviceKpis.area)))} ab/km²` : null },
-                  { l: "Comuni nel raggio", v: String(zonesInRadius.length) },
+                  { l: `${territoryPluralLabel} nel raggio`, v: String(zonesInRadius.length) },
                 ].map(({ l, v }) => (
                   <div key={l} style={{ padding: "6px 7px", borderRadius: 7, background: "rgba(255,255,255,.04)" }}>
                     <div style={{ fontFamily: F.sans, fontSize: 7, color: "rgba(255,255,255,.3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 2 }}>{l}</div>
@@ -2702,7 +2767,7 @@ const isManual = allocationMode === "manual";
                 </div>
                 {isResidentialStep2 && detailExpanded && residentialRadiusRows.length > 0 && (
                   <div style={{ marginTop: 8, padding: 8, borderRadius: 9, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.05)" }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.3)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".06em" }}>Top comuni nel raggio</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.3)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".06em" }}>Top {territoryPluralLabel.toLowerCase()} nel raggio</div>
                     {residentialRadiusRows.slice(0, 6).map(r => {
                       const selectedRow = selected.includes(r.id);
                       return (
@@ -2851,7 +2916,7 @@ const unavailable = v === null || v === undefined || v === "" || String(v).inclu
                           { l: "Popolazione stimata", v: formatNumber(serviceKpis.population || aiAgg.pop), c: C.white },
                           { l: "Superficie analizzata", v: serviceKpis.area ? formatAreaKm2(serviceKpis.area) : null, c: C.white },
                           { l: "Densità media", v: serviceKpis.area && (serviceKpis.population || aiAgg.pop) ? `${formatNumber(Math.round((serviceKpis.population || aiAgg.pop) / serviceKpis.area))} ab./km²` : null, c: C.white },
-                          { l: "Comuni nel raggio", v: gisKpi(formatNumber(zonesInRadius.length), 34), c: C.white },
+                          { l: `${territoryPluralLabel} nel raggio`, v: gisKpi(formatNumber(zonesInRadius.length), 34), c: C.white },
                         ].map(({ l, v, c }) => (
                           <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
                             <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.38)" }}>{l}</span>
@@ -3625,6 +3690,8 @@ const cleanSource = s => truthfulSourceLabel(s || "");
 const nonEmpty = arr => arr.filter(x => x && x.v !== undefined && x.v !== null && x.v !== "" && x.v !== "-");
 const kpis = data.serviceKpis || {};
 const step4Omi = data.metadata?.omi ?? null;
+const step4AnalysisLevel = data.analysisLevel || data.metadata?.analysis_level || kpis.analysisLevel || "comune";
+const step4TerritoryPluralLabel = step4AnalysisLevel === "nil" ? "Zone NIL" : "Comuni";
 const zoneAllocs = data.zonesAllocation || [];
 const plannedGpsPoints = data.operationalWaypoints || data.gpsPlannedPoints || data.metadata?.operational_waypoints || [];
 const requiredQty = data.fullCoverageFlyers || data.requiredTotalFlyers || kpis.recommendedFlyers || zoneAllocs.reduce((a, z) => a + (z.requiredFlyers || 0), 0);
@@ -3769,7 +3836,7 @@ const serviceSummaryConfig = {
       { l: "Popolazione stimata", v: formatNumber(kpisPopulation) || "dato non disponibile", src: "ISTAT" },
       { l: "Superficie analizzata", v: d2dAreaKm2 ? formatAreaKm2(d2dAreaKm2) : null, src: "Dati geografici / PostGIS" },
       { l: "Densità media", v: d2dAvgDensity ? `${formatNumber(d2dAvgDensity)} ab./km²` : null, src: "ISTAT" },
-      { l: "Comuni nel raggio", v: kpisComuniCount != null ? formatNumber(kpisComuniCount) : null, src: "Dati geografici / PostGIS" },
+      { l: `${step4TerritoryPluralLabel} nel raggio`, v: kpisComuniCount != null ? formatNumber(kpisComuniCount) : null, src: "Dati geografici / PostGIS" },
     ];
     serviceSummaryConfig.sources = d2dSummarySources;
   }
@@ -4045,7 +4112,7 @@ const savedRow = savedCampaign?.[0] || {};
 
                 {breakdownRows.length > 0 && (
                   <div>
-                    <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>{svcType === "d2d" ? "Comuni nel raggio / distribuzione" : "Zone selezionate / distribuzione"}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>{svcType === "d2d" ? `${step4TerritoryPluralLabel} nel raggio / distribuzione` : "Zone selezionate / distribuzione"}</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       {breakdownRows.map(row => {
                         return (

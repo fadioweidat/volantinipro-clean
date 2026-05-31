@@ -14,6 +14,34 @@ const json = (body: unknown, status = 200) =>
   });
 
 const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, Math.round(value || 0)));
+const normalizeText = (value: string | null) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+
+const isMilanoName = (value: string | null) => /\bmilano\b/.test(normalizeText(value));
+const isMilanoCoordinates = (lat: number, lng: number) =>
+  Number.isFinite(lat) &&
+  Number.isFinite(lng) &&
+  lat >= 45.38 &&
+  lat <= 45.56 &&
+  lng >= 9.04 &&
+  lng <= 9.31;
+
+function rowFamiliesInRadius(row: Record<string, unknown>) {
+  const explicit = Number(row.households_in_radius || row.famiglie_nel_raggio || 0);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+  const pct = Number(row.pct_copertura || 100) / 100;
+  return Number(row.households_total || row.famiglie_stimate || 0) * (Number.isFinite(pct) ? pct : 1);
+}
+
+function rowPopulationInRadius(row: Record<string, unknown>) {
+  const explicit = Number(row.population_in_radius || row.popolazione_nel_raggio || 0);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+  const pct = Number(row.pct_copertura || 100) / 100;
+  return Number(row.population_total || row.popolazione_stimata || 0) * (Number.isFinite(pct) ? pct : 1);
+}
 
 type OmiZone = {
   source?: string;
@@ -173,6 +201,8 @@ serve(async (req) => {
     const lat = Number(url.searchParams.get("lat"));
     const lng = Number(url.searchParams.get("lng"));
     const radiusKm = Number(url.searchParams.get("radius") || "3");
+    const service = url.searchParams.get("service") || "d2d";
+    const requestedAnalysisLevel = url.searchParams.get("analysisLevel") || url.searchParams.get("analysis_level") || null;
     const specificMunicipality = url.searchParams.get("municipality") || null;
     const warnings: string[] = [];
     const sources = new Set<string>();
@@ -196,11 +226,48 @@ serve(async (req) => {
       });
     }
 
-    const { data: comuni, error: rpcError } = await supabase.rpc("get_comuni_breakdown_in_radius", {
-      p_lat: lat,
-      p_lng: lng,
-      p_radius_km: radiusKm,
-    });
+    const wantsNil =
+      service === "d2d" &&
+      requestedAnalysisLevel === "nil" &&
+      (isMilanoName(specificMunicipality) || isMilanoCoordinates(lat, lng));
+
+    console.log("ANALYSIS_LEVEL", requestedAnalysisLevel);
+
+    let analysisLevel = "comune";
+    let nilUnavailable = false;
+    let nilRows: Array<Record<string, unknown>> = [];
+
+    if (wantsNil) {
+      const { data: nilData, error: nilError } = await supabase.rpc("get_nil_breakdown_in_radius", {
+        center_lat: lat,
+        center_lng: lng,
+        radius_km: radiusKm,
+      });
+
+      if (nilError) {
+        nilUnavailable = true;
+        warnings.push(`NIL_RPC_UNAVAILABLE:${nilError?.message || "get_nil_breakdown_in_radius"}`);
+      } else if (Array.isArray(nilData) && nilData.length > 0) {
+        nilRows = nilData as Array<Record<string, unknown>>;
+        analysisLevel = "nil";
+        sources.add(sourceLabel("postgis"));
+      } else {
+        nilUnavailable = true;
+        warnings.push("NIL_DATA_NOT_AVAILABLE");
+      }
+    }
+
+    let comuni: Array<Record<string, unknown>> = [];
+    let rpcError: { message?: string } | null = null;
+    if (analysisLevel !== "nil") {
+      const comuniResult = await supabase.rpc("get_comuni_breakdown_in_radius", {
+        p_lat: lat,
+        p_lng: lng,
+        p_radius_km: radiusKm,
+      });
+      comuni = Array.isArray(comuniResult.data) ? comuniResult.data as Array<Record<string, unknown>> : [];
+      rpcError = comuniResult.error;
+    }
 
     if (rpcError) {
       warnings.push(`POSTGIS_RPC_UNAVAILABLE:${rpcError?.message || "get_comuni_breakdown_in_radius"}`);
@@ -208,40 +275,73 @@ serve(async (req) => {
       sources.add(sourceLabel("postgis"));
     }
 
-    if (!comuni || comuni.length === 0) {
+    const territorialRows = analysisLevel === "nil" ? nilRows : (comuni || []);
+    console.log("TERRITORY_LEVEL", analysisLevel);
+    console.log("NIL_ROWS", nilRows?.length);
+
+    if (!territorialRows || territorialRows.length === 0) {
       return json({
         values: {},
         comuni_breakdown: [],
-        metadata: { isEstimated: false, warnings, mapboxPlace },
+        nil_breakdown: [],
+        metadata: { isEstimated: false, warnings, mapboxPlace, analysis_level: analysisLevel, nil_unavailable: nilUnavailable },
         error: "TERRITORIAL_DATA_NOT_AVAILABLE",
         sources: [...sources],
         confidenceReduced: true,
       });
     }
 
-    const hasDemographicData = comuni.some((row) => Number(row.households_total || row.famiglie_stimate || 0) > 0 || Number(row.population_total || row.popolazione_stimata || 0) > 0);
+    const hasDemographicData = territorialRows.some((row) => Number(row.households_total || row.famiglie_stimate || 0) > 0 || Number(row.population_total || row.popolazione_stimata || 0) > 0);
     if (!hasDemographicData) {
       warnings.push("DEMOGRAPHIC_INDICATORS_EMPTY");
     }
 
     sources.add(sourceLabel("istat"));
 
-    const totalFamilies = comuni.reduce((acc, row) => acc + Number(row.households_total || row.famiglie_stimate || 0), 0);
-    const totalPopulation = comuni.reduce((acc, row) => acc + Number(row.population_total || row.popolazione_stimata || 0), 0);
-    const totalArea = comuni.reduce((acc, row) => acc + Number(row.area_km2 || 0), 0);
-    const avgDensity = totalArea > 0 ? totalPopulation / totalArea : comuni.reduce((acc, row) => acc + Number(row.density_per_km2 || 0), 0) / comuni.length;
+    const totalFamilies = territorialRows.reduce((acc, row) => acc + rowFamiliesInRadius(row), 0);
+    const totalPopulation = territorialRows.reduce((acc, row) => acc + rowPopulationInRadius(row), 0);
+    const totalArea = territorialRows.reduce((acc, row) => acc + Number(row.area_km2 || 0), 0);
+    const omiMunicipality = specificMunicipality || (analysisLevel === "nil" ? "Milano" : null);
+    const omiLookupRows = analysisLevel === "nil" ? [{ comune_name: "Milano", municipality_name: "Milano", municipality_code: "015146" }] : territorialRows;
+    const omiZones = await loadOmiZones(supabase, lat, lng, radiusKm, omiLookupRows, warnings, omiMunicipality);
+    if (omiZones.length > 0) sources.add(sourceLabel("omi"));
+    const omiMinValues = omiZones.map((row) => Number(row.min_value)).filter(Number.isFinite);
+    const omiMaxValues = omiZones.map((row) => Number(row.max_value)).filter(Number.isFinite);
+    const avgDensity = totalArea > 0 ? totalPopulation / totalArea : territorialRows.reduce((acc, row) => acc + Number(row.density_per_km2 || 0), 0) / territorialRows.length;
     const recommendedFlyers = Math.round(totalFamilies * 1.1);
-    const avgCoverage = Math.round(comuni.reduce((acc, row) => acc + Number(row.pct_copertura || 100), 0) / comuni.length);
+    const avgCoverage = Math.round(territorialRows.reduce((acc, row) => acc + Number(row.pct_copertura || 100), 0) / territorialRows.length);
     const familyIndex = clamp((avgDensity / 65) + (totalFamilies / 900));
-    const reachScore = clamp(avgCoverage * 0.74 + Math.min(26, comuni.length * 5));
+    const reachScore = clamp(avgCoverage * 0.74 + Math.min(26, territorialRows.length * 5));
     const roiScore = clamp(55 + Math.min(30, totalFamilies / 900) + Math.min(12, avgCoverage / 12));
-    const confidenceScore = clamp(72 + Math.min(18, comuni.length * 2) - (warnings.length * 5));
+    const confidenceScore = clamp(72 + Math.min(18, territorialRows.length * 2) - (warnings.length * 5));
     sources.add(sourceLabel("internal_scoring"));
+
+    const normalizedBreakdown = territorialRows.map((row) => ({
+      territory_level: row.territory_level || analysisLevel,
+      nil_code: row.nil_code ? String(row.nil_code).trim() : null,
+      nil_name: row.nil_name || null,
+      comune_name: row.nil_name || row.comune_name || row.municipality_name,
+      municipality_code: row.municipality_code ? String(row.municipality_code).trim() : null,
+      pct_copertura: Math.round(Number(row.pct_copertura || 100)),
+      volantini_nel_raggio: Math.round(Number(row.volantini_nel_raggio || rowFamiliesInRadius(row) * 1.1 || 0)),
+      households_total: Number(row.households_total || 0),
+      population_total: Number(row.population_total || 0),
+      households_in_radius: Math.round(rowFamiliesInRadius(row)),
+      population_in_radius: Math.round(rowPopulationInRadius(row)),
+      area_km2: Number(row.area_km2 || 0),
+      density_per_km2: Number(row.density_per_km2 || 0),
+      age_0_14_pct: row.age_0_14_pct ?? null,
+      age_65_plus_pct: row.age_65_plus_pct ?? null,
+      average_income: row.average_income ?? null,
+      old_age_index: row.old_age_index ?? null,
+      businesses_total: row.businesses_total ?? null,
+      geometry_geojson: row.geometry_geojson || null,
+    }));
 
     return json({
       values: {
-        famiglie_stimate: totalFamilies,
-        popolazione_stimata: totalPopulation,
+        famiglie_stimate: Math.round(totalFamilies),
+        popolazione_stimata: Math.round(totalPopulation),
         area_km2: Math.round(totalArea * 10) / 10,
         copertura_stimata: avgCoverage,
         volantini_consigliati: recommendedFlyers,
@@ -250,22 +350,24 @@ serve(async (req) => {
         roi_score: roiScore,
         confidence_score: confidenceScore,
         densita_media: Math.round(avgDensity || 0),
-        comuni_coinvolti: comuni.length,
+        comuni_coinvolti: territorialRows.length,
+        analysis_level: analysisLevel,
+        ...(omiZones.length > 0 ? {
+          omi_min_value: omiMinValues.length ? Math.min(...omiMinValues) : null,
+          omi_max_value: omiMaxValues.length ? Math.max(...omiMaxValues) : null,
+          omi_zone_count: omiZones.length,
+          omi_typologies: [...new Set(omiZones.map((row) => row.typology).filter(Boolean))],
+        } : {}),
       },
-      comuni_breakdown: comuni.map((row) => ({
-        comune_name: row.comune_name || row.municipality_name,
-        municipality_code: row.municipality_code ? String(row.municipality_code).trim() : null,
-        pct_copertura: Math.round(Number(row.pct_copertura || 100)),
-        volantini_nel_raggio: Math.round(Number(row.volantini_nel_raggio || row.households_total || 0) * (row.volantini_nel_raggio ? 1 : 1.1)),
-        households_total: Number(row.households_total || 0),
-        population_total: Number(row.population_total || 0),
-        area_km2: Number(row.area_km2 || 0),
-        geometry_geojson: row.geometry_geojson || null,
-      })),
+      comuni_breakdown: normalizedBreakdown,
+      nil_breakdown: analysisLevel === "nil" ? normalizedBreakdown : [],
       metadata: {
         isEstimated: false,
         warnings,
         mapboxPlace,
+        analysis_level: analysisLevel,
+        nil_unavailable: nilUnavailable,
+        omi: buildOmiResult(omiZones),
       },
       confidenceReduced: warnings.length > 0,
       sources: [...sources],
