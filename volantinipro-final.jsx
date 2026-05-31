@@ -1485,11 +1485,11 @@ const operationalWaypoints = useMemo(() => {
 const serviceKpis = selZones.length > 0 ? {
     area: selZones.reduce((a, z) => a + (Number(z.area) || 0), 0).toFixed(1),
     hotspotStrength: isMovementStep2 ? h2hMetrics.zones : Math.round(selZones.reduce((a, z) => a + (h2hHotspotStrength(z) || 0), 0) / selZones.length),
-    families: selZones.reduce((a, z) => a + (Number(z.families) || 0), 0),
-    pop: selZones.reduce((a, z) => a + (Number(z.pop) || 0), 0),
-    population: selZones.reduce((a, z) => a + (Number(z.pop) || 0), 0),
-    coverage: Math.round(selZones.reduce((a, z) => a + (Number(z.coverage) || 0), 0) / selZones.length),
-    recommendedFlyers: selZones.reduce((a, z) => a + (Number(z.flyersMin) || 0), 0),
+    families: isResidentialStep2 ? selZones.reduce((a, z) => a + (Number(z.families) || 0), 0) : 0,
+    pop: isResidentialStep2 ? selZones.reduce((a, z) => a + (Number(z.pop) || 0), 0) : 0,
+    population: isResidentialStep2 ? selZones.reduce((a, z) => a + (Number(z.pop) || 0), 0) : 0,
+    coverage: isResidentialStep2 ? Math.round(selZones.reduce((a, z) => a + (Number(z.coverage) || 0), 0) / selZones.length) : null,
+    recommendedFlyers: isResidentialStep2 ? selZones.reduce((a, z) => a + (Number(z.flyersMin) || 0), 0) : 0,
     selectedComuni: selZones.map(z => z.name),
     comuniCount: selZones.length,
     poi: isMovementStep2 ? h2hMetrics.poi : selZones.reduce((a, z) => a + (Number(z.poi) || 0), 0),
@@ -1509,10 +1509,10 @@ const serviceKpis = selZones.length > 0 ? {
     clusters: isBusinessStep2 ? businessMetrics.clusters : selZones.reduce((a, z) => a + (Number(z.clusters) || 0), 0),
     targetBusinesses: isBusinessStep2 ? businessMetrics.targetBusinesses : selZones.reduce((a, z) => a + (Number(z.targetBiz) || 0), 0),
     cdIdx: isBusinessStep2 ? businessMetrics.cdIdx : (selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.cdIdx) || 0), 0) / selZones.length) : 0),
-    familyIndex: selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.familyIdx) || 0), 0) / selZones.length) : null,
-    reachScore: selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.reachD2D) || 0), 0) / selZones.length) : null,
-    roiScore: selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.roiD2D) || 0), 0) / selZones.length) : null,
-    confidenceScore: selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.confD2D) || 0), 0) / selZones.length) : null,
+    familyIndex: isResidentialStep2 && selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.familyIdx) || 0), 0) / selZones.length) : null,
+    reachScore: isResidentialStep2 && selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.reachD2D) || 0), 0) / selZones.length) : null,
+    roiScore: isResidentialStep2 && selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.roiD2D) || 0), 0) / selZones.length) : null,
+    confidenceScore: isResidentialStep2 && selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.confD2D) || 0), 0) / selZones.length) : null,
   } : { area: "0", hotspotStrength: isMovementStep2 ? h2hMetrics.zones : 0, families: 0, pop: 0, population: 0, coverage: 0, recommendedFlyers: 0, selectedComuni: [], comuniCount: 0, poi: isMovementStep2 ? h2hMetrics.poi : 0, operationalZones: isMovementStep2 ? h2hMetrics.zones : isBusinessStep2 ? businessMetrics.clusters : 0, hotspotCount: isMovementStep2 ? h2hMetrics.zones : 0, tplStops: isMovementStep2 ? h2hMetrics.tplStops : 0, stations: isMovementStep2 ? h2hMetrics.stations : 0, metro: isMovementStep2 ? h2hMetrics.metro : 0, universities: isMovementStep2 ? h2hMetrics.universities : 0, localAttractors: isMovementStep2 ? h2hMetrics.localAttractors : 0, gpsWaypoints: operationalWaypoints.length, transitStops: isMovementStep2 ? h2hMetrics.transitTotal : 0, flowScore: isMovementStep2 ? h2hMetrics.flowScore : 0, businesses: isBusinessStep2 ? businessMetrics.businesses : 0, competitors: isBusinessStep2 ? businessMetrics.competitors : 0, commercialDensity: isBusinessStep2 ? businessMetrics.commercialDensity : 0, clusters: isBusinessStep2 ? businessMetrics.clusters : 0, targetBusinesses: isBusinessStep2 ? businessMetrics.targetBusinesses : 0, cdIdx: isBusinessStep2 ? businessMetrics.cdIdx : 0, familyIndex: null, reachScore: null, roiScore: null, confidenceScore: null };
 const radiusInsightRows = zonesInRadius.map(z => ({
       id: z.id,
@@ -1636,14 +1636,14 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     ? residentialScores
     : isMovementStep2
       ? [
-        { l: "Family Index", v: aiAgg?.familyIdx, c: C.orange },
+        { l: "Hotspot Score", v: aiAgg?.reachH2H, c: C.orange },
         { l: "Reach Score", v: aiAgg?.reachH2H, c: C.blue },
         { l: "ROI Score", v: aiAgg?.roiH2H, c: C.green },
         { l: "Confidence", v: aiAgg?.confH2H, c: C.purple },
       ]
       : isBusinessStep2
         ? [
-          { l: "Family Index", v: aiAgg?.familyIdx, c: C.orange },
+          { l: "Cluster Score", v: aiAgg?.cdIdx, c: C.orange },
           { l: "Reach Score", v: aiAgg?.reachB2B, c: C.blue },
           { l: "ROI Score", v: aiAgg?.roiB2B, c: C.green },
           { l: "Confidence", v: aiAgg?.confB2B, c: C.purple },
@@ -2689,7 +2689,7 @@ const isManual = allocationMode === "manual";
           )}
 
           {/* Residential scores — compact gauges with expandable comuni list */}
-          {viewMode === "distribuzione" && selZones.length > 0 && (
+          {isResidentialStep2 && viewMode === "distribuzione" && selZones.length > 0 && (
             <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)", overflow: "hidden" }}>
               <div style={{ padding: "9px 14px", borderBottom: "1px solid rgba(255,255,255,.06)", display: "flex", alignItems: "center", gap: 7 }}>
                 <div style={{ width: 16, height: 3, background: col, borderRadius: 2 }} />
@@ -3608,12 +3608,13 @@ const total = subtotalBeforePlan - planDiscountAmount + extraCost;
 const flyWRaw = { 80: 80, 115: 115, 135: 135, 170: 170, 300: 300 }[data.printGramm || data.flyerWeight] || null;
 const flyW = flyWRaw ? `${flyWRaw} g/m²` : (data.printGramm || data.flyerWeight ? formatPaperWeight(data.printGramm || data.flyerWeight) : "-");
 const subL = { single: "Singola", monthly3: "3 mesi", monthly6: "6 mesi", monthly12: "12 mesi" }[data.campaignPlan || data.subscription] || "-";
-const hasZones = (data.selectedCaps && data.selectedCaps.length > 0) || (data.selectedComuni && data.selectedComuni.length > 0) || zones.length > 0;
+const isH2H = svcType === "h2h";
+const isB2B = svcType === "b2b" || svcType === "business-distribution";
+const hasOperationalWaypoints = (data.operationalWaypoints?.length || data.gpsPlannedPoints?.length || data.metadata?.operational_waypoints?.length || 0) > 0;
+const hasZones = (data.selectedCaps && data.selectedCaps.length > 0) || (data.selectedComuni && data.selectedComuni.length > 0) || zones.length > 0 || ((isH2H || isB2B) && hasOperationalWaypoints);
 const coverageBlocked = false;
 const canConfirm = Boolean(svcType && flyerQty > 0 && data.flyerFormat && hasZones && Number.isFinite(total) && !coverageBlocked);
 const confirmProblem = !hasZones ? "Completa la zona" : coverageBlocked ? "quantita volantini insufficiente" : !Number.isFinite(total) ? "Totale non calcolabile" : "";
-const isH2H = svcType === "h2h";
-const isB2B = svcType === "b2b" || svcType === "business-distribution";
 const pairingMonth = data.selectedMonth?.month ?? (data.startDate ? new Date(`${data.startDate}T00:00:00`).getMonth() : new Date().getMonth());
 const pairingYear = data.selectedMonth?.year ?? (data.startDate ? new Date(`${data.startDate}T00:00:00`).getFullYear() : new Date().getFullYear());
 const pairsData = realStep3Pairs;
@@ -3660,11 +3661,16 @@ const breakdownRows = radiusZoneRows.map(z => {
     return {...z, alloc, selectedRow, estimatedFlyers, coveragePercent, contribution };
   });
 const mainAreaLabel = data.cityName || data.comune || selectedZoneNames[0] || "l'area selezionata";
-const estimatedFamiliesForSummary = kpis.families ?? totF;
-const coverageForSummary = kpis.coverage ?? avgCov;
-const operationalSummary = quantityIsSufficient
+const estimatedFamiliesForSummary = svcType === "d2d" ? (kpis.families ?? totF) : null;
+const coverageForSummary = svcType === "d2d" ? (kpis.coverage ?? avgCov) : null;
+const operationalSummary = svcType === "d2d" ? (quantityIsSufficient
     ? `La campagna copre ${mainAreaLabel} con una stima di ${estimatedFamiliesForSummary.toLocaleString("it-IT")} famiglie e ${coverageForSummary}% di copertura. La quantita inserita e sufficiente; restano ${remainingQty.toLocaleString("it-IT")} volantini disponibili per estensione zona o scorta operativa.`
-    : `La quantita inserita non copre completamente l'area selezionata. Mancano ${missingQty.toLocaleString("it-IT")} volantini per raggiungere la copertura stimata.`;
+    : `La quantita inserita non copre completamente l'area selezionata. Mancano ${missingQty.toLocaleString("it-IT")} volantini per raggiungere la copertura stimata.`)
+    : svcType === "h2h"
+      ? `La campagna Hand to Hand copre ${mainAreaLabel} con ${formatNumber(kpis.poi)} POI rilevanti, ${formatNumber(kpis.operationalZones || kpis.hotspotCount)} hotspot e ${formatNumber(kpis.gpsWaypoints || plannedGpsPoints.length)} waypoint GPS pianificati.`
+      : isB2B
+        ? `La campagna Business copre ${mainAreaLabel} con ${formatNumber(kpis.businesses)} attivita rilevate, ${formatNumber(kpis.clusters)} cluster commerciali e ${formatNumber(kpis.targetBusinesses)} attivita target.`
+        : `La campagna copre ${mainAreaLabel} con i dati operativi disponibili per il servizio selezionato.`;
 const selectedDatesLabel = selDays.length
     ? selDays.map(k => { const pts = k.split("-"); return `${pts[2]} ${MONTHS_SHORT[parseInt(pts[1])]}`; }).join(" – ")
     : "Nessuna data selezionata";
@@ -3822,11 +3828,11 @@ const quotePdfData = {
       selectionMode: data.allocationMode === "manual" ? "Manuale" : "Auto",
     },
     outputs: {
-      estimatedFamilies: kpis.families ?? totF,
-      estimatedPopulation: kpisPopulation,
-      estimatedCoverage: kpis.coverage ?? avgCov,
-      recommendedFlyers: requiredQty || null,
-      fullCoverageFlyers: requiredQty || null,
+      estimatedFamilies: svcType === "d2d" ? (kpis.families ?? totF) : null,
+      estimatedPopulation: svcType === "d2d" ? kpisPopulation : null,
+      estimatedCoverage: svcType === "d2d" ? (kpis.coverage ?? avgCov) : null,
+      recommendedFlyers: svcType === "d2d" ? (requiredQty || null) : null,
+      fullCoverageFlyers: svcType === "d2d" ? (requiredQty || null) : null,
       insertedFlyers: flyerQty,
       remainingFlyers: quantityIsSufficient ? remainingQty : 0,
       missingFlyers: missingQty,
@@ -3838,7 +3844,7 @@ const quotePdfData = {
     municipalities: pdfMunicipalities,
     scores: (serviceSummaryConfig.scores || []).filter(s => s?.v != null).map(s => ({ label: s.l, value: s.v, description: s.d })),
     adminInfo: (serviceSummaryConfig.admin || []).filter(i => i?.v).map(i => ({ label: i.l, value: i.v })),
-    omi: step4Omi?.available ? { municipality: step4Omi.municipality, zone_name: step4Omi.zone_name, values: step4Omi.values || [], source: step4Omi.source || "Agenzia delle Entrate – OMI" } : null,
+    omi: svcType === "d2d" && step4Omi?.available ? { municipality: step4Omi.municipality, zone_name: step4Omi.zone_name, values: step4Omi.values || [], source: step4Omi.source || "Agenzia delle Entrate – OMI" } : null,
     extras: selectedExtras.map(e => ({
       id: e.id,
       label: e.label,
@@ -4096,7 +4102,7 @@ const savedRow = savedCampaign?.[0] || {};
                   )}
                 </div>
 
-                {step4Omi?.available && (
+                {svcType === "d2d" && step4Omi?.available && (
                   <div>
                     <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Valori immobiliari OMI</div>
                     <div style={{ padding: "12px 13px", borderRadius: 10, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.07)" }}>
