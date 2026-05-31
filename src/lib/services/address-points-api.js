@@ -61,53 +61,56 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
     return { rows: [], count: 0, bboxCount: 0, totalCount: 0, contentRangeCount: 0, renderedCount: 0 };
   }
 
-  const latDelta = radiusKm / 111.32;
-  const lngDelta = radiusKm / (111.32 * Math.max(0.2, Math.cos((centerLat * Math.PI) / 180)));
-  const params = new URLSearchParams({
-    select: 'id,source,comune,codice_comune,via,numero_civico,lat,lng,confidence',
-    source: 'eq.osm',
-    lat: `gte.${centerLat - latDelta}`,
-    lng: `gte.${centerLng - lngDelta}`,
-    order: 'lat.asc',
-    limit: '500',
-  });
-  params.append('lat', `lte.${centerLat + latDelta}`);
-  params.append('lng', `lte.${centerLng + lngDelta}`);
+  const generatedUrl = `${url}/rest/v1/rpc/get_address_points_osm_in_radius`;
+  console.log("[ADDRESS_POINTS_REQUEST]", generatedUrl);
 
-  const response = await fetch(`${url}/rest/v1/address_points?${params.toString()}`, {
+  const response = await fetch(generatedUrl, {
+    method: 'POST',
     headers: {
       apikey: anonKey,
       Authorization: `Bearer ${anonKey}`,
-      Prefer: 'count=exact',
-      Range: '0-499',
-      'Range-Unit': 'items',
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({
+      center_lat: centerLat,
+      center_lng: centerLng,
+      radius_km: radiusKm,
+      max_rows: 500,
+    }),
   });
 
-  const rows = await response.json();
-  if (!response.ok) throw new Error(rows?.message || 'ADDRESS_POINTS_REST_ERROR');
+  const body = await response.text();
+  let rows = null;
+  try {
+    rows = body ? JSON.parse(body) : null;
+  } catch {
+    rows = body;
+  }
+  if (!response.ok) {
+    console.error("[ADDRESS_POINTS_ERROR]", rows?.message || rows || 'ADDRESS_POINTS_REST_ERROR', response, response.status, rows);
+    throw new Error(rows?.message || 'ADDRESS_POINTS_REST_ERROR');
+  }
 
-  const contentRange = response.headers.get('content-range') || response.headers.get('Content-Range') || '';
-  const contentRangeCount = parseContentRangeTotal(contentRange);
-  const radiusM = Math.max(0, Number(radiusKm || 0)) * 1000;
   const resultRows = Array.isArray(rows)
     ? rows
         .map((row) => ({
           ...row,
-          distance_m: distanceMeters(centerLat, centerLng, Number(row.lat), Number(row.lng)),
+          distance_m: row.distance_m != null
+            ? Number(row.distance_m)
+            : distanceMeters(centerLat, centerLng, Number(row.lat), Number(row.lng)),
         }))
-        .filter((row) => Number.isFinite(row.distance_m) && row.distance_m <= radiusM)
+        .filter((row) => Number.isFinite(row.distance_m))
         .sort((a, b) => a.distance_m - b.distance_m)
     : [];
 
-  const bboxCount = Number.isFinite(contentRangeCount) ? contentRangeCount : resultRows.length;
+  const bboxCount = resultRows.length;
 
   return {
     rows: resultRows,
     count: bboxCount,
     bboxCount,
     totalCount: bboxCount,
-    contentRangeCount: bboxCount,
+    contentRangeCount: null,
     renderedCount: resultRows.length,
   };
 }
@@ -119,12 +122,6 @@ function firstFiniteNumber(...values) {
     if (Number.isFinite(number)) return number;
   }
   return 0;
-}
-
-function parseContentRangeTotal(contentRange) {
-  if (!contentRange) return null;
-  const total = Number(String(contentRange).split('/')[1]);
-  return Number.isFinite(total) ? total : null;
 }
 
 function distanceMeters(lat1, lng1, lat2, lng2) {
