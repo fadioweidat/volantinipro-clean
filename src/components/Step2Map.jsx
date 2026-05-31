@@ -159,12 +159,13 @@ const LAYER_META = {
   tracking: { color: '#4B5568', icon: '◎', label: 'Tracking GPS'  },
 };
 
-function LayerPanel({ config, activeLayers, settori, onToggle, opacityLevel, onOpacityChange, onReset }) {
+function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opacityLevel, onOpacityChange, onReset }) {
   const [collapsed, setCollapsed] = useState(false);
   if (!config || config.length === 0) return null;
   const primaryLayers = config.filter(layer => ['radius', 'comuni', 'settori', 'civici', 'poi'].includes(layer.id));
   const hasAdvancedLayers = config.length > primaryLayers.length;
-  const civiciAvailable = false;
+  const civiciCount = Number(civiciState?.count || 0) || Number(civiciState?.bboxCount || 0);
+  const civiciAvailable = Boolean(civiciState?.available) || civiciCount > 0;
   const civiciMicrocopy = [
     'Civici non disponibili',
     'Serve una fonte dati civici/address points per questa zona',
@@ -569,6 +570,7 @@ export function Step2Map({
   activeLayers,
   settori,       // Array<{id, numero, name?, geometry}> | null
   pois,          // Array<{id, lat, lng, name, category, color, priority, address}> from usePoi
+  civiciState,
   onLayerToggle,
   layerPanelConfig,
   campaignZones, // Nuovi parametri per multi-zona
@@ -697,14 +699,16 @@ export function Step2Map({
     const group = L.layerGroup().addTo(map);
     layersRef.current.group = group;
 
-    // ── DRAW ALL CAMPAIGN ZONES ──
-    const zonesList = campaignZones || [];
+    // Draw only the active campaign center on the main map. Inactive zones stay
+    // selectable from the sidebar, but stale centers must not create extra rings.
+    const activeZone = (campaignZones || []).find(z => z.id === activeZoneId);
+    const zonesList = activeZone ? [activeZone] : [{ id: 'active_zone', city, radiusKm: radius }];
     zonesList.forEach(z => {
       const isActive = z.id === activeZoneId;
-      const zCity = z.city || (isActive ? city : null);
+      const zCity = city || z.city || null;
       if (!zCity || !zCity.lat || !zCity.lng) return;
 
-      const zRadius = parseFloat(z.radiusKm ?? z.radius ?? z.radius_km ?? 3);
+      const zRadius = parseFloat((isActive ? radius : null) ?? z.radiusKm ?? z.radius ?? z.radius_km ?? 3);
       const zSvc = z.service_type || 'd2d';
       const zCol = isActive ? col : '#7F9BB0';
       const isRingOn = isActive ? (activeLayers?.radius !== false) : true;
@@ -992,6 +996,31 @@ export function Step2Map({
 
     // ── 5. Density choropleth (D2D) ──────────────────────────────────────────
     // Colored comuni polygons by family count — CartoDB blue sequential scale.
+    const civiciPoints = Array.isArray(civiciState?.points) ? civiciState.points : [];
+    if (activeLayers?.civici === true && civiciPoints.length > 0) {
+      const civiciGroup = L.layerGroup().addTo(map);
+      layersRef.current.civiciGroup = civiciGroup;
+      const maxPoints = radius <= 2 ? 500 : radius <= 5 ? 350 : 200;
+
+      civiciPoints.slice(0, maxPoints).forEach((point) => {
+        if (!Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return;
+        const label = [point.via, point.numeroCivico].filter(Boolean).join(' ') || 'Civico';
+        const comune = point.comune ? `<br><span style="color:rgba(255,255,255,0.5)">${esc(point.comune)}</span>` : '';
+        L.circleMarker([point.lat, point.lng], {
+          radius: Math.max(1.8, Math.min(3.2, 2.3 * opacityScale)),
+          color: 'rgba(15,23,42,0.62)',
+          weight: 0.6,
+          fillColor: '#4B5568',
+          fillOpacity: Math.min(0.78, 0.58 * opacityScale),
+          opacity: Math.min(0.86, 0.68 * opacityScale),
+          interactive: true,
+        }).bindTooltip(
+          `<b>${esc(label)}</b>${comune}<br><span style="color:rgba(255,255,255,0.42)">OSM - copertura parziale</span>`,
+          { direction: 'top', offset: [0, -4], opacity: 1 }
+        ).addTo(civiciGroup);
+      });
+    }
+
     if (activeLayers?.density === true && svcType === 'd2d' && zonesWithCoords?.length > 0) {
       const densityGroup = L.layerGroup().addTo(map);
       layersRef.current.densityGroup = densityGroup;
@@ -1023,7 +1052,7 @@ export function Step2Map({
       }
     }
 
-  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, mapZoom, campaignZones, activeZoneId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, civiciState, mapZoom, campaignZones, activeZoneId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={{ position: 'relative', width: '100%', height: 420 }}>
@@ -1073,6 +1102,7 @@ export function Step2Map({
           config={layerPanelConfig}
           activeLayers={activeLayers}
           settori={settori}
+          civiciState={civiciState}
           onToggle={onLayerToggle}
           opacityLevel={opacityLevel}
           onOpacityChange={onOpacityChange}

@@ -1171,6 +1171,7 @@ const { data: apiData, loading: apiLoading, error: apiError } = useServiceAnalys
   analysisParams.quantity,
   analysisParams.scope
 );
+const omiInfo = apiData?.metadata?.omi ?? null;
 const { sectors, loading: sectorsLoading } = useSectors(city?.lat, city?.lng, radiusKm, svcType);
 const { pois, loading: poiLoading }    = usePoi(city?.lat, city?.lng, radiusKm, svcType);
 const addressPointParams = useMemo(() => ({

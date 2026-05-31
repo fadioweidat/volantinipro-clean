@@ -48,6 +48,7 @@ export function useAddressPoints(lat, lng, radiusKm, serviceType = 'd2d') {
           }));
         }
       } catch (err) {
+        console.error("[ADDRESS_POINTS_ERROR]", err, null, null, err?.message || err);
         if (import.meta.env.DEV) console.debug('[DBG address_points error]', err?.message);
         if (!cancelled) {
           setError(err?.message || 'ADDRESS_POINTS_ERROR');
