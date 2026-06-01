@@ -137,7 +137,7 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
             </button>
           )}
           <button className="vb" onClick={onConfigure} style={primaryButtonStyle}>
-            Configura zona
+            Configura la tua campagna
           </button>
         </div>
       </nav>

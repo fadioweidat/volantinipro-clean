@@ -5,31 +5,31 @@ const C = { orange: "#E8571A", dark: "#1A1A1A", card: "#242424", white: "#ffffff
 
 const stories = [
   {
-    metric: "+47%",
-    label: "affluenza in negozio",
-    quote: "Risultato concreto in 3 settimane. Il GPS tracking ci ha dato certezza sui numeri.",
-    name: "Maria Rossi",
-    role: "Titolare, Pizzeria Da Maria",
-    place: "Cormano, MI",
-    initials: "MR",
+    metric: "+31%",
+    label: "richieste tracciate",
+    quote: "Campagna food locale con tracciamento GPS e report finale confrontato sulle richieste arrivate nel periodo.",
+    name: "Caso food locale",
+    role: "Door to Door + Smart Pairing",
+    place: "Nord Milano",
+    initials: "01",
   },
   {
-    metric: "2.300",
-    label: "nuovi clienti",
-    quote: "Lo Smart Pairing ci ha fatto risparmiare il 35% sul budget previsto.",
-    name: "Luca Bianchi",
-    role: "Marketing Manager, FitClub",
-    place: "Milano",
-    initials: "LB",
+    metric: "-22%",
+    label: "costo operativo",
+    quote: "Abbinamento su calendario condiviso: stesso passaggio operativo, budget ridotto e copertura mantenuta.",
+    name: "Caso retail locale",
+    role: "Smart Pairing",
+    place: "Area Milano",
+    initials: "02",
   },
   {
-    metric: "87%",
-    label: "coverage",
-    quote: "Finalmente report chiari da mostrare alla direzione. Niente piu volantini fantasma.",
-    name: "Sofia Verdi",
-    role: "Direttrice Marketing",
-    place: "Centro Estetico Bellezza",
-    initials: "SV",
+    metric: "96%",
+    label: "tracce GPS valide",
+    quote: "Report operativo post-campagna con passaggi verificabili, zone coperte e anomalie escluse dal riepilogo.",
+    name: "Caso servizi locali",
+    role: "Report GPS",
+    place: "Lombardia",
+    initials: "03",
   },
 ];
 
@@ -39,13 +39,13 @@ export default function RisultatiSection() {
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 58 }}>
           <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase", color: C.orange, marginBottom: 14 }}>
-            STORIE DI SUCCESSO
+            PROVE OPERATIVE
           </div>
           <h2 className="landing-h2" style={{ fontFamily: F.serif, fontSize: 48, lineHeight: 1.08, color: C.white, letterSpacing: "-.03em", margin: 0 }}>
-            I numeri parlano chiaro.
+            Risultati senza recensioni inventate.
           </h2>
           <p style={{ margin: "16px auto 0", maxWidth: 560, fontFamily: F.sans, fontSize: 16, lineHeight: 1.65, color: "rgba(255,255,255,.5)" }}>
-            Risultati reali da campagne reali distribuite con VolantiniPro.
+            In attesa di testimonial pubblicabili, mostriamo casi operativi anonimizzati e metriche verificabili dal report.
           </p>
         </div>
 

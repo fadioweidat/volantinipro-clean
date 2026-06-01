@@ -20,7 +20,7 @@ const plans = [
       "Preventivo PDF scaricabile",
       "1 servizio a scelta (D2D / H2H / B2B)",
     ],
-    cta: "Configura campagna",
+    cta: "Configura la tua campagna",
     ctaVariant: "outline",
   },
   {
@@ -37,7 +37,7 @@ const plans = [
       "Report GPS post-campagna",
       "Supporto prioritario",
     ],
-    cta: "Configura campagna Pro",
+    cta: "Configura la tua campagna",
     ctaVariant: "primary",
   },
   {

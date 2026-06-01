@@ -52,7 +52,7 @@ const columns = [
     links: [
       ["Come funziona", "how"],
       ["Prezzi", "step1"],
-      ["Configura campagna", "step1"],
+      ["Configura la tua campagna", "step1"],
       ["Smart Pairing", "how"],
       ["API & integrazioni", "consultant"],
     ],

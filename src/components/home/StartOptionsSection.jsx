@@ -157,7 +157,7 @@ export default function StartOptionsSection({ onStart }) {
                 fontWeight: 800,
                 boxShadow: "0 12px 28px rgba(249, 115, 22, 0.25)"
               }}>
-                Avvia configurazione
+                Configura la tua campagna
               </Button>
             </div>
           </div>
@@ -196,9 +196,9 @@ export default function StartOptionsSection({ onStart }) {
                 </div>
               </div>
 
-              <div style={{ padding: "12px 16px", borderRadius: 10, background: "rgba(59, 130, 246, 0.08)", border: "1px solid rgba(59, 130, 246, 0.2)", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-                <span style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,0.6)" }}>Stima budget</span>
-                <strong style={{ fontFamily: F.sans, fontSize: 20, fontWeight: 800, color: C.blue }}>€{f.toLocaleString("it-IT")}</strong>
+              <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(232, 87, 26, 0.08)", border: "1px solid rgba(232, 87, 26, 0.24)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
+                <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase", color: "rgba(255,255,255,0.54)" }}>Stima da</span>
+                <strong style={{ fontFamily: F.serif, fontSize: 32, lineHeight: 1, fontWeight: 900, color: C.orange, letterSpacing: "-0.03em" }}>€{f.toLocaleString("it-IT")}</strong>
               </div>
 
               <Button variant="secondary" onClick={() => onStart("quick")} className="vb" style={{
@@ -211,7 +211,7 @@ export default function StartOptionsSection({ onStart }) {
                 fontSize: 14,
                 fontWeight: 700,
               }}>
-                Calcola stima rapida
+                Preventivo rapido
               </Button>
             </div>
 
@@ -253,7 +253,7 @@ export default function StartOptionsSection({ onStart }) {
                 fontSize: 14,
                 fontWeight: 700,
               }}>
-                Parla con un consulente →
+                Parla con un consulente
               </Button>
             </div>
 
