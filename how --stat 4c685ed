@@ -1,0 +1,30 @@
+[33m7125c82[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mstep2-redesign-safe[m[33m)[m refs/heads/step2-redesign-safe@{Wed Jun 3 10:44:37 2026}: commit: Restore format utils
+[33m7125c82[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mstep2-redesign-safe[m[33m)[m HEAD@{Wed Jun 3 10:44:37 2026}: commit: Restore format utils
+[33m03a7a80[m[33m ([m[1;33mtag: [m[1;33mstep2-before-redesign[m[33m, [m[1;31morigin/master[m[33m)[m HEAD@{Tue Jun 2 21:49:15 2026}: checkout: moving from step2-redesign-safe to step2-redesign-safe
+[33m03a7a80[m[33m ([m[1;33mtag: [m[1;33mstep2-before-redesign[m[33m, [m[1;31morigin/master[m[33m)[m refs/heads/step2-redesign-safe@{Tue Jun 2 21:48:30 2026}: branch: Created from HEAD
+[33m03a7a80[m[33m ([m[1;33mtag: [m[1;33mstep2-before-redesign[m[33m, [m[1;31morigin/master[m[33m)[m HEAD@{Tue Jun 2 21:48:30 2026}: checkout: moving from 03a7a8019722d28d85879e5e84755d84d6b42cb3 to step2-redesign-safe
+[33m03a7a80[m[33m ([m[1;33mtag: [m[1;33mstep2-before-redesign[m[33m, [m[1;31morigin/master[m[33m)[m HEAD@{Tue Jun 2 21:44:57 2026}: checkout: moving from master to step2-before-redesign
+[33m505dea1[m[33m ([m[1;31morigin/main[m[33m, [m[1;32mmaster[m[33m, [m[1;32mmain[m[33m)[m refs/heads/master@{Tue Jun 2 21:41:19 2026}: reset: moving to origin/main
+[33m505dea1[m[33m ([m[1;31morigin/main[m[33m, [m[1;32mmaster[m[33m, [m[1;32mmain[m[33m)[m HEAD@{Tue Jun 2 21:41:19 2026}: reset: moving to origin/main
+[33m2e2fd19[m refs/heads/master@{Tue Jun 2 18:11:39 2026}: commit: Home page and pricing updates before Step 2 redesign
+[33m2e2fd19[m HEAD@{Tue Jun 2 18:11:39 2026}: commit: Home page and pricing updates before Step 2 redesign
+[33m505dea1[m[33m ([m[1;31morigin/main[m[33m, [m[1;32mmaster[m[33m, [m[1;32mmain[m[33m)[m refs/remotes/origin/main@{Tue Jun 2 18:09:28 2026}: update by push
+[33m03a7a80[m[33m ([m[1;33mtag: [m[1;33mstep2-before-redesign[m[33m, [m[1;31morigin/master[m[33m)[m refs/remotes/origin/master@{Mon Jun 1 17:43:56 2026}: update by push
+[33m03a7a80[m[33m ([m[1;33mtag: [m[1;33mstep2-before-redesign[m[33m, [m[1;31morigin/master[m[33m)[m refs/heads/master@{Mon Jun 1 17:43:48 2026}: commit: update homepage with real territory map preview
+[33m03a7a80[m[33m ([m[1;33mtag: [m[1;33mstep2-before-redesign[m[33m, [m[1;31morigin/master[m[33m)[m HEAD@{Mon Jun 1 17:43:48 2026}: commit: update homepage with real territory map preview
+[33m0a131de[m refs/remotes/origin/master@{Sun May 31 20:49:43 2026}: update by push
+[33m0a131de[m refs/heads/master@{Sun May 31 20:49:34 2026}: commit: enable nil analysis level for milano d2d
+[33m0a131de[m HEAD@{Sun May 31 20:49:34 2026}: commit: enable nil analysis level for milano d2d
+[33m4c685ed[m refs/remotes/origin/master@{Sun May 31 18:50:41 2026}: update by push
+[33m4c685ed[m refs/heads/master@{Sun May 31 18:50:32 2026}: commit: isolate step2 service outputs by service type
+[33m4c685ed[m HEAD@{Sun May 31 18:50:32 2026}: commit: isolate step2 service outputs by service type
+[33md582ea2[m refs/remotes/origin/master@{Sun May 31 18:21:43 2026}: update by push
+[33md582ea2[m refs/heads/master@{Sun May 31 18:21:35 2026}: commit: remove step2 mock zone fallback
+[33md582ea2[m HEAD@{Sun May 31 18:21:35 2026}: commit: remove step2 mock zone fallback
+[33mebbb8bf[m refs/heads/master@{Sun May 31 16:49:05 2026}: commit: fix hand to hand step2 operational kpis
+[33mebbb8bf[m HEAD@{Sun May 31 16:49:05 2026}: commit: fix hand to hand step2 operational kpis
+[33m6a0900a[m refs/remotes/origin/master@{Sun May 31 14:30:04 2026}: update by push
+[33m6a0900a[m refs/heads/master@{Sun May 31 14:29:55 2026}: commit: fix civici availability and layer integration
+[33m6a0900a[m HEAD@{Sun May 31 14:29:55 2026}: commit: fix civici availability and layer integration
+[33mbf0577d[m refs/remotes/origin/master@{Sun May 31 10:53:29 2026}: update by push
+[33mbf0577d[m refs/heads/master@{Sun May 31 10:53:19 2026}: commit: fix civici layer with spatial address points RPC
