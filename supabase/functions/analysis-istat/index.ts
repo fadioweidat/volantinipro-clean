@@ -331,6 +331,8 @@ serve(async (req) => {
       area_km2: Number(row.area_km2 || 0),
       density_per_km2: Number(row.density_per_km2 || 0),
       age_0_14_pct: row.age_0_14_pct ?? null,
+      age_15_34_pct: row.age_15_34_pct ?? null,
+      age_35_64_pct: row.age_35_64_pct ?? null,
       age_65_plus_pct: row.age_65_plus_pct ?? null,
       average_income: row.average_income ?? null,
       old_age_index: row.old_age_index ?? null,

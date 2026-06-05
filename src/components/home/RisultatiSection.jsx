@@ -42,10 +42,10 @@ export default function RisultatiSection() {
             PROVE OPERATIVE
           </div>
           <h2 className="landing-h2" style={{ fontFamily: F.serif, fontSize: 48, lineHeight: 1.08, color: C.white, letterSpacing: "-.03em", margin: 0 }}>
-            Risultati senza recensioni inventate.
+            Risultati misurati, non promessi.
           </h2>
           <p style={{ margin: "16px auto 0", maxWidth: 560, fontFamily: F.sans, fontSize: 16, lineHeight: 1.65, color: "rgba(255,255,255,.5)" }}>
-            In attesa di testimonial pubblicabili, mostriamo casi operativi anonimizzati e metriche verificabili dal report.
+            Casi operativi anonimizzati, metriche leggibili e dati verificabili dal report finale.
           </p>
         </div>
 

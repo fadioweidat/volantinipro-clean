@@ -37,8 +37,6 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
         const quantityParam = quantity ? `&quantity=${encodeURIComponent(quantity)}` : '';
         const analysisLevelParam = analysisLevel ? `&analysisLevel=${encodeURIComponent(analysisLevel)}` : '';
         const url = `${apiUrl}?lat=${encodeURIComponent(centerLat)}&lng=${encodeURIComponent(centerLng)}&radius=${encodeURIComponent(radiusKm)}&service=${encodeURIComponent(service)}${municipalityParam}${quantityParam}${analysisLevelParam}`;
-        console.log("ANALYSIS_LEVEL", analysisLevel);
-
         if (import.meta.env.DEV) {
           console.debug('[DBG analysis]', {
             requestId,
@@ -65,9 +63,6 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
         const nilRows = Array.isArray(result?.nil_breakdown) && result.nil_breakdown.length
           ? result.nil_breakdown
           : (result?.comuni_breakdown || []).filter((row) => row?.territory_level === "nil");
-        console.log("TERRITORY_LEVEL", result?.metadata?.analysis_level || result?.values?.analysis_level || nilRows?.[0]?.territory_level || null);
-        console.log("NIL_ROWS", nilRows?.length);
-
         if (!response.ok || result.error) {
           setError(result.error || result.code || `HTTP_${response.status}`);
           setData(result.sources || result.metadata ? result : null);

@@ -46,24 +46,24 @@ const services = [
   {
     title: "Door to Door",
     subtitle: "Residenziale",
-    price: "EUR 1,85 / 1000",
-    unit: "famiglie raggiunte",
+    price: "Prezzo personalizzato",
+    unit: "Calcolato sulla tua zona",
     bullets: ["Cassette, condomini, ville", "GPS punto-per-punto", "Report foto e mappe"],
     icon: <MailboxIcon />,
   },
   {
     title: "Hand to Hand",
     subtitle: "Mano a mano",
-    price: "EUR 2,20 / 1000",
-    unit: "contatti diretti",
+    price: "Prezzo personalizzato",
+    unit: "Calcolato sulla tua zona",
     bullets: ["Alto passaggio pedonale", "Fasce orarie ottimali", "POI strategici inclusi"],
     icon: <UsersIcon />,
   },
   {
     title: "Business Distribution",
     subtitle: "B2B",
-    price: "EUR 3,50 / punto",
-    unit: "attivita commerciale",
+    price: "Prezzo personalizzato",
+    unit: "Calcolato sulla tua zona",
     bullets: ["Uffici e negozi mirati", "Categorie merceologiche", "Competitor mappati"],
     icon: <BriefcaseIcon />,
   },
@@ -75,13 +75,13 @@ export default function ServicesSection({ onConfigure }) {
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 58 }}>
           <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: C.orange, marginBottom: 12 }}>
-            Scegli come distribuire
+            Quanto costa distribuire
           </div>
           <h2 className="landing-h2" style={{ fontFamily: F.serif, fontSize: 48, color: C.white, letterSpacing: "-1.5px", marginBottom: 12, lineHeight: 1.08 }}>
-            Servizi chiari, costi leggibili.
+            Servizi chiari, prezzo calcolato sulla tua zona.
           </h2>
           <p style={{ fontFamily: F.sans, fontSize: 16, color: "rgba(255,255,255,.52)", maxWidth: 560, margin: "0 auto", lineHeight: 1.65 }}>
-            Scegli il canale piu adatto alla tua campagna e parti da una base prezzo semplice da confrontare.
+            Il costo della distribuzione cambia in base ad area, quantita e servizio scelto.
           </p>
         </div>
 
@@ -94,7 +94,7 @@ export default function ServicesSection({ onConfigure }) {
               </h3>
               <p style={{ margin: "6px 0 24px", fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.6)" }}>{service.subtitle}</p>
               <div style={{ height: 1, background: "rgba(255,255,255,.08)", marginBottom: 24 }} />
-              <div style={{ fontFamily: F.serif, fontSize: 32, color: C.orange, lineHeight: 1, letterSpacing: "-.5px", marginBottom: 8 }}>
+              <div style={{ fontFamily: F.serif, fontSize: 27, color: C.orange, lineHeight: 1.08, letterSpacing: "-.4px", marginBottom: 8 }}>
                 {service.price}
               </div>
               <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.45)", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 26 }}>

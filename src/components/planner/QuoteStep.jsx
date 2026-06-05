@@ -10,9 +10,26 @@ const campaignLabels = {
   urgent: "Urgente",
 };
 
-export function QuoteStep({ quote, service, schedule, zones, omi, onBackToMap }) {
+const flyerSupplyLabels = {
+  ready: "Materiale gia pronto",
+  print: "Stampa da includere",
+};
+
+const addOns = [
+  { id: "design", title: "Grafica & Design", body: "Impaginazione creativa flat per la campagna.", price: 49 },
+  { id: "advancedPhotoReport", title: "Report fotografico avanzato", body: "Evidenze fotografiche aggiuntive nel report finale.", price: 39 },
+  { id: "analyticsReport", title: "Report Analytics", body: "Lettura sintetica di copertura, zone e opportunita.", price: 59 },
+  { id: "photoCertification", title: "Certificazione fotografica", body: "Selezione e validazione delle prove fotografiche.", price: 29 },
+  { id: "supervision", title: "Supervisione", body: "Controllo operativo dedicato sulla campagna.", price: 89 },
+];
+
+export function QuoteStep({ quote, service, schedule, zones, omi, quoteOptions, onQuoteOptionsChange, onBackToMap }) {
+  function toggleAddOn(id) {
+    onQuoteOptionsChange((prev) => ({ ...prev, [id]: !prev?.[id] }));
+  }
+
   return (
-    <section className="step-card">
+    <section className="step-card step-reveal">
       <div className="section-heading">
         <p className="eyebrow">Step 4</p>
         <h2>Preventivo e riepilogo zone</h2>
@@ -31,8 +48,36 @@ export function QuoteStep({ quote, service, schedule, zones, omi, onBackToMap })
         <Row label="Formato" value={service.format} />
         <Row label="Tipo campagna" value={campaignLabels[service.campaignType]} />
         <Row label="Volantini totali" value={formatNumber(quote.totalQuantity)} />
+        <Row label="Materiale" value={flyerSupplyLabels[service.flyerSupply] || flyerSupplyLabels.ready} />
         <Row label="Periodo" value={schedule.startDate && schedule.endDate ? `${schedule.startDate} - ${schedule.endDate}` : "Da definire"} />
         <Row label="Smart Pairing" value={schedule.smartPairing ? `${schedule.flexibilityDays} giorni flessibili` : "No"} />
+      </div>
+
+      <div className="addon-panel">
+        <div className="addon-panel-head">
+          <span>Add-on opzionali</span>
+          <b>{formatCurrency(quote.addOns)}</b>
+        </div>
+        <div className="addon-grid">
+          {addOns.map((addon) => {
+            const active = Boolean(quoteOptions?.[addon.id]);
+            return (
+              <button
+                key={addon.id}
+                type="button"
+                className={active ? "addon-option active" : "addon-option"}
+                onClick={() => toggleAddOn(addon.id)}
+                aria-pressed={active}
+              >
+                <span>
+                  <strong>{addon.title}</strong>
+                  <small>{addon.body}</small>
+                </span>
+                <b>{formatCurrency(addon.price)}</b>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="zone-summary-list">
@@ -64,9 +109,12 @@ export function QuoteStep({ quote, service, schedule, zones, omi, onBackToMap })
       </div>
 
       <div className="summary-list muted">
+        <Row label="Distribuzione base" value={formatCurrency(quote.distributionBase)} />
         <Row label="Volantini consigliati da backend" value={formatNumber(quote.recommended)} />
         <Row label="Zone OMI attive" value={formatNumber(omi?.values?.omi_zone_count)} />
         <Row label="Sconto Smart Pairing" value={formatCurrency(quote.discount)} />
+        <Row label="Stampa" value={quote.printCost ? formatCurrency(quote.printCost) : "Non inclusa"} />
+        <Row label="Add-on opzionali" value={formatCurrency(quote.addOns)} />
       </div>
 
       <div className="totals">

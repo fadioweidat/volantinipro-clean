@@ -310,8 +310,11 @@ function applyPosasRows(rows, demographics) {
   for (const row of rows) {
     const code = asIstatCode(pick(row, ["codice_comune"]));
     const age = toNumber(pick(row, ["eta"]));
-    const total = toNumber(pick(row, ["totale"]));
+    const total =
+      toNumber(pick(row, ["totale"])) ??
+      ((toNumber(pick(row, ["totale_maschi"])) ?? 0) + (toNumber(pick(row, ["totale_femmine"])) ?? 0));
     if (!code || age === null || total === null) continue;
+    if (age < 0 || age > 120) continue;
     const current = grouped.get(code) || {
       municipality_name: pick(row, ["comune"]),
       total: 0,

@@ -27,12 +27,12 @@ const plans = [
     name: "Pro",
     badge: "Piu scelto",
     priceLabel: "Su preventivo",
-    priceNote: "Con Smart Pairing incluso",
+    priceNote: "Con report e opzioni avanzate",
     color: CO,
     features: [
       "Tutto di Starter",
-      "Smart Pairing automatico",
-      "Sconto abbinamento fino al 20%",
+      "Smart Pairing se disponibile",
+      "Richiesta disponibilita quando non ci sono abbinamenti",
       "Calendario operativo avanzato",
       "Report GPS post-campagna",
       "Supporto prioritario",
@@ -74,13 +74,13 @@ export default function PricingSection({ onConfigure, onConsultant }) {
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 58 }}>
           <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase", color: CO, marginBottom: 16 }}>
-            Prezzi
+            Quanto costa la piattaforma
           </div>
           <h2 style={{ fontFamily: F.serif, fontSize: "clamp(36px, 3vw, 54px)", lineHeight: 1.08, color: "#1A1A1A", letterSpacing: "-0.03em", margin: 0 }}>
             Scegli il piano giusto
           </h2>
           <p style={{ fontFamily: F.sans, fontSize: 16, lineHeight: 1.65, color: "rgba(26,26,26,.52)", marginTop: 16, maxWidth: 480, marginLeft: "auto", marginRight: "auto" }}>
-            Il costo finale dipende da zona, quantita e servizio. Nessun canone mensile, paghi solo le campagne che attivi.
+            Abbonamento VolantiniPro e opzioni operative: nessun canone mensile obbligatorio, paghi solo le campagne che attivi.
           </p>
         </div>
 
@@ -147,7 +147,7 @@ export default function PricingSection({ onConfigure, onConsultant }) {
         </div>
 
         <p style={{ textAlign: "center", fontFamily: F.sans, fontSize: 13, color: "rgba(26,26,26,.38)", marginTop: 36 }}>
-          Tutti i prezzi sono IVA esclusa. Nessun abbonamento mensile obbligatorio.
+          Prezzo personalizzato in base a zona, quantita e servizio. Nessun abbonamento mensile obbligatorio.
         </p>
       </div>
     </section>

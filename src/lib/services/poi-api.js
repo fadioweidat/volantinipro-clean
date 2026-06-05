@@ -1,9 +1,11 @@
 // Real POI data from OpenStreetMap via Overpass API.
 // No API key required. Respects the /api/analysis/poi-search GeoJSON contract.
 
-const OVERPASS_URL =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_OVERPASS_ENDPOINT) ||
-  'https://overpass-api.de/api/interpreter';
+const OVERPASS_ENDPOINTS = [
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_OVERPASS_ENDPOINT) || null,
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+].filter(Boolean);
 
 // ── Per-service POI tag definitions ─────────────────────────────────────────
 // Each entry: Overpass key/value pair + display metadata + priority (1–10).
@@ -117,28 +119,32 @@ export async function fetchPois({ centerLat, centerLng, radiusKm = 5, serviceTyp
   const maxResults = serviceType === 'd2d' ? 80 : 150;
   const query      = buildQuery(tags, centerLat, centerLng, radiusM, maxResults);
 
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 18_000);
+  let lastError = null;
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 18_000);
 
-  try {
-    const res = await fetch(OVERPASS_URL, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body:    `data=${encodeURIComponent(query)}`,
-      signal:  ctrl.signal,
-    });
-    if (!res.ok) throw new Error(`Overpass HTTP ${res.status}`);
+    try {
+      const res = await fetch(endpoint, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body:    `data=${encodeURIComponent(query)}`,
+        signal:  ctrl.signal,
+      });
+      if (!res.ok) throw new Error(res.status === 504 ? 'OVERPASS_TIMEOUT' : `OVERPASS_HTTP_${res.status}`);
 
-    const data = await res.json();
-    const raw  = (data.elements || []).map(el => toPoi(el, tags)).filter(Boolean);
+      const data = await res.json();
+      const raw  = (data.elements || []).map(el => toPoi(el, tags)).filter(Boolean);
 
-    return dedup(raw).sort((a, b) => b.priority - a.priority);
-  } catch (err) {
-    if (err.name === 'AbortError') throw new Error('OVERPASS_TIMEOUT');
-    throw err;
-  } finally {
-    clearTimeout(timer);
+      return dedup(raw).sort((a, b) => b.priority - a.priority);
+    } catch (err) {
+      lastError = err.name === 'AbortError' ? new Error('OVERPASS_TIMEOUT') : err;
+    } finally {
+      clearTimeout(timer);
+    }
   }
+
+  throw lastError || new Error('OVERPASS_UNAVAILABLE');
 }
 
 /**

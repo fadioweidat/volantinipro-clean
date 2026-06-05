@@ -26,8 +26,9 @@ export function usePoi(lat, lng, radiusKm, serviceType) {
 
   useEffect(() => {
     if (!latR || !lngR || !serviceType) return;
-    // POI only meaningful for these service types (d2d too, but optional)
-    if (!['d2d', 'h2h', 'b2b'].includes(serviceType)) return;
+    // POI are operationally relevant for H2H/B2B. D2D uses ISTAT/GIS/civici and
+    // should not hit public Overpass endpoints in the client-facing flow.
+    if (!['h2h', 'b2b'].includes(serviceType)) return;
 
     const cacheKey = `${latR},${lngR},${radR},${serviceType}`;
 

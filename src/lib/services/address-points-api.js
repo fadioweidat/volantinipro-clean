@@ -62,7 +62,6 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
   }
 
   const generatedUrl = `${url}/rest/v1/rpc/get_address_points_osm_in_radius`;
-  console.log("[ADDRESS_POINTS_REQUEST]", generatedUrl);
 
   const response = await fetch(generatedUrl, {
     method: 'POST',

@@ -11,7 +11,7 @@ const faqs = [
   },
   {
     q: "Cos'e lo Smart Pairing?",
-    a: "Smart Pairing abbina la tua campagna a un'altra gia attiva nella stessa zona e nello stesso periodo. In questo modo condividi parte dei costi operativi e puoi risparmiare fino al 40%. Scopri di piu nel configuratore →",
+    a: "Smart Pairing e un'opportunita opzionale: quando esistono campagne compatibili nella stessa zona o in zone vicine, il sistema puo proporti un abbinamento con vantaggio economico. Puoi sempre continuare scegliendo la tua data anche senza Smart Pairing.",
   },
   {
     q: "I dati sulle famiglie e la popolazione sono aggiornati?",

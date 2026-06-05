@@ -67,7 +67,11 @@ function MiniMapPreview() {
 
 export default function StartOptionsSection({ onStart }) {
   const [u, h] = useState({ city: "Milano", qty: "10000", service: "Door to Door" });
-  const f = Math.max(180, Math.round((Number(u.qty) || 0) * (u.service === "Door to Door" ? 0.13 : u.service === "Hand to Hand" ? 0.18 : 0.22)));
+  const baseEstimate = Math.max(180, Math.round((Number(u.qty) || 0) * (u.service === "Door to Door" ? 0.13 : u.service === "Hand to Hand" ? 0.18 : 0.22)));
+  const estimateRange = {
+    min: Math.max(180, Math.round(baseEstimate * 0.86)),
+    max: Math.round(baseEstimate * 1.18),
+  };
 
   return (
     <section className="section" style={{
@@ -91,7 +95,7 @@ export default function StartOptionsSection({ onStart }) {
             Scegli il tuo punto di partenza.
           </h2>
           <p style={{ fontFamily: F.sans, fontSize: 17, color: C.muted, maxWidth: 660, lineHeight: 1.65 }}>
-            Configurazione completa con analisi GIS, stima rapida basata su dati reali o supporto strategico diretto.
+            Configurazione completa con analisi GIS, stima rapida per la tua zona o supporto strategico diretto.
           </p>
         </div>
 
@@ -181,7 +185,7 @@ export default function StartOptionsSection({ onStart }) {
               
               <h3 style={{ fontFamily: F.serif, fontSize: 24, color: C.white, letterSpacing: "-0.5px", marginBottom: 8 }}>Stima rapida</h3>
               <p style={{ fontFamily: F.sans, fontSize: 13, color: C.muted, marginBottom: 20 }}>
-                Simulatore veloce per stime di budget.
+                Range indicativo per comune, servizio e quantita.
               </p>
 
               <div style={{ display: "grid", gap: 10, marginBottom: 20 }}>
@@ -197,8 +201,8 @@ export default function StartOptionsSection({ onStart }) {
               </div>
 
               <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(232, 87, 26, 0.08)", border: "1px solid rgba(232, 87, 26, 0.24)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
-                <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase", color: "rgba(255,255,255,0.54)" }}>Stima da</span>
-                <strong style={{ fontFamily: F.serif, fontSize: 32, lineHeight: 1, fontWeight: 900, color: C.orange, letterSpacing: "-0.03em" }}>€{f.toLocaleString("it-IT")}</strong>
+                <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase", color: "rgba(255,255,255,0.54)" }}>Stima zona</span>
+                <strong style={{ fontFamily: F.serif, fontSize: 28, lineHeight: 1, fontWeight: 900, color: C.orange, letterSpacing: "-0.03em", whiteSpace: "nowrap" }}>€{estimateRange.min.toLocaleString("it-IT")} - €{estimateRange.max.toLocaleString("it-IT")}</strong>
               </div>
 
               <Button variant="secondary" onClick={() => onStart("quick")} className="vb" style={{
@@ -230,7 +234,7 @@ export default function StartOptionsSection({ onStart }) {
               
               <h3 style={{ fontFamily: F.serif, fontSize: 24, color: C.white, letterSpacing: "-0.5px", marginBottom: 8 }}>Consulenza strategica</h3>
               <p style={{ fontFamily: F.sans, fontSize: 13, color: C.muted, marginBottom: 20 }}>
-                Per campagne complesse o multi-zona. Un esperto configurerà il GIS con te.
+                Per campagne complesse o multi-zona. Un esperto configura il GIS con te.
               </p>
 
               <div style={{ display: "grid", gap: 12, marginBottom: 24 }}>

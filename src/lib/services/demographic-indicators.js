@@ -106,5 +106,15 @@ export async function fetchDemographicIndicators({ geographyRef, year = DEFAULT_
     age_65_plus_pct: normalizePercent(row.share_age_65_plus),
   };
 
+  const distribuzioneEta = {
+    eta014: mapped.age_0_14_pct,
+    eta1534: mapped.age_15_34_pct,
+    eta3564: mapped.age_35_64_pct,
+    eta65plus: mapped.age_65_plus_pct,
+  };
+  if (mapped.age_65_plus_pct > 45) {
+    console.error('Mapping fasce età sospetto:', distribuzioneEta);
+  }
+
   return mapped;
 }

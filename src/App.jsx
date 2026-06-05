@@ -31,12 +31,22 @@ const initialService = {
   quantity: 10000,
   format: "A5",
   campaignType: "standard",
+  flyerSupply: "ready",
+};
+
+const initialQuoteOptions = {
+  design: false,
+  advancedPhotoReport: false,
+  analyticsReport: false,
+  photoCertification: false,
+  supervision: false,
 };
 
 export default function App() {
   const [mode, setMode] = useState("home");
   const [currentStep, setCurrentStep] = useState(1);
   const [service, setService] = useState(initialService);
+  const [quoteOptions, setQuoteOptions] = useState(initialQuoteOptions);
   const [area, setArea] = useState(initialArea);
   const [selectedSectors, setSelectedSectors] = useState([]);
   const [zones, setZones] = useState([]);
@@ -88,8 +98,8 @@ export default function App() {
 
   const quoteZones = zones.length ? zones : [currentZone];
   const quote = useMemo(
-    () => buildQuote({ service, schedule, zones: quoteZones }),
-    [service, schedule, quoteZones],
+    () => buildQuote({ service, schedule, zones: quoteZones, quoteOptions }),
+    [service, schedule, quoteZones, quoteOptions],
   );
 
   function startPlanner(step = 1) {
@@ -158,7 +168,13 @@ export default function App() {
         sectors={sectors}
         poi={poi}
         omi={omi}
-        onStart={() => startPlanner(1)}
+        onStart={(target) => {
+          if (target === "quick" || target === "consultant") {
+            startPlanner(4);
+            return;
+          }
+          startPlanner(1);
+        }}
         onOpenMap={() => startPlanner(2)}
       />
     );
@@ -253,6 +269,7 @@ export default function App() {
         {currentStep === 1 && (
           <ServiceStep
             service={service}
+            quote={quote}
             onServiceChange={updateService}
             onNext={() => setCurrentStep(2)}
           />
@@ -306,6 +323,8 @@ export default function App() {
             service={service}
             schedule={schedule}
             zones={quoteZones}
+            quoteOptions={quoteOptions}
+            onQuoteOptionsChange={setQuoteOptions}
             analysis={analysis.data}
             omi={omi.data}
             onBackToMap={() => setCurrentStep(2)}
@@ -409,23 +428,35 @@ function makeZoneSnapshot({ area, service, selectedSectors, analysis, sectors, p
   };
 }
 
-function buildQuote({ service, schedule, zones }) {
+function buildQuote({ service, schedule, zones, quoteOptions }) {
   const unitPrices = { d2d: 0.085, h2h: 0.12, b2b: 0.16 };
   const setup = { d2d: 90, h2h: 140, b2b: 180 };
-  const formatMultiplier = { A6: 0.92, A5: 1, A4: 1.18, pieghevole: 1.28 };
+  const formatMultiplier = { A6: 0.92, A5: 1, A4: 1.18, DL: 1.05 };
   const campaignMultiplier = { standard: 1, urgent: 1.18, multi_area: 1.08 };
+  const addOnPrices = {
+    design: 49,
+    advancedPhotoReport: 39,
+    analyticsReport: 59,
+    photoCertification: 29,
+    supervision: 89,
+  };
   const unit = unitPrices[service.serviceType] ?? unitPrices.d2d;
   const totalQuantity = zones.reduce((sum, zone) => sum + Number(zone.quantity || service.quantity || 0), 0);
   const logistics = zones.reduce((sum, zone) => sum + setup[service.serviceType] + Number(zone.radiusKm || 0) * 18, 0);
   const smartPairingDiscount = schedule.smartPairing ? 0.08 : 0;
-  const gross = (totalQuantity * unit * (formatMultiplier[service.format] || 1) * (campaignMultiplier[service.campaignType] || 1)) + logistics;
-  const discount = Math.round(gross * smartPairingDiscount * 100) / 100;
-  const subtotal = Math.round((gross - discount) * 100) / 100;
+  const distributionBase = (totalQuantity * unit * (formatMultiplier[service.format] || 1) * (campaignMultiplier[service.campaignType] || 1)) + logistics;
+  const printCost = service.flyerSupply === "print" ? Math.round((totalQuantity / 1000) * 29 * 100) / 100 : 0;
+  const addOns = Object.entries(addOnPrices).reduce((sum, [key, price]) => sum + (quoteOptions?.[key] ? price : 0), 0);
+  const discount = Math.round(distributionBase * smartPairingDiscount * 100) / 100;
+  const subtotal = Math.round((distributionBase - discount + printCost + addOns) * 100) / 100;
   const vat = Math.round(subtotal * 0.22 * 100) / 100;
 
   return {
     unit,
     totalQuantity,
+    distributionBase: Math.round(distributionBase * 100) / 100,
+    printCost,
+    addOns,
     discount,
     subtotal,
     vat,

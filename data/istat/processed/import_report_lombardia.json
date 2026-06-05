@@ -3,6 +3,8 @@
   "source_files_used": [
     "data\\istat\\raw\\Limiti01012026_g\\Com01012026_g\\Com01012026_g_WGS84.shp",
     "data\\istat\\downloads\\Bilancio-annuale-demografia-comunale_Anni-1991-2025.xlsx",
+    "data\\istat\\raw\\MEF_IRPEF_comuni_2024_ai2023\\Redditi_e_principali_variabili_IRPEF_su_base_comunale_CSV_2023.csv",
+    "data\\istat\\raw\\MEF_IRPEF_comuni_2025_ai2024\\Redditi_e_principali_variabili_IRPEF_su_base_comunale_CSV_2024.csv",
     "data\\istat\\raw\\P2_2024_it_Comuni\\P2_2024_it_Comuni.csv",
     "data\\istat\\raw\\POSAS_2025_it_Tutti_i_file\\POSAS_2025_it_001_Torino.csv",
     "data\\istat\\raw\\POSAS_2025_it_Tutti_i_file\\POSAS_2025_it_002_Vercelli.csv",
@@ -169,14 +171,6 @@
       ],
       "examples": [
         {
-          "municipality_name": "Paderno d'Adda",
-          "province_name": "Lecco",
-          "region_name": "Lombardia",
-          "households_total": 1646,
-          "area_km2": 3.32,
-          "density_per_km2": 1167.46
-        },
-        {
           "municipality_name": "Como",
           "province_name": "Como",
           "region_name": "Lombardia",
@@ -311,6 +305,14 @@
           "households_total": 22245,
           "area_km2": 45.08,
           "density_per_km2": 1047.69
+        },
+        {
+          "municipality_name": "Paderno d'Adda",
+          "province_name": "Lecco",
+          "region_name": "Lombardia",
+          "households_total": 1646,
+          "area_km2": 3.32,
+          "density_per_km2": 1167.46
         },
         {
           "municipality_name": "Varedo",

@@ -254,6 +254,12 @@ function makeComuniFeatures(analysis) {
       const population = Number(row.population_total || row.popolazione_stimata || 0);
       const flyers = Number(row.volantini_nel_raggio || row.volantiniNelRaggio || 0);
       const coverage = Math.round(Number(row.pct_copertura || 0));
+      const eta65 = firstFiniteNumber(
+        row.age_65_plus_pct,
+        row.eta65,
+        row.eta_65_plus_pct,
+        row.share_age_65_plus,
+      );
       return {
         type: "Feature",
         geometry,
@@ -266,12 +272,21 @@ function makeComuniFeatures(analysis) {
           coverage,
           density: area > 0 ? Math.round(households / area) : 0,
           relevance: Math.round(households * (coverage / 100)),
+          eta65,
           metricValue: null,
           metricAvailable: false,
         },
       };
     })
     .filter(Boolean);
+}
+
+function firstFiniteNumber(...values) {
+  for (const value of values) {
+    const number = Number(value);
+    if (Number.isFinite(number)) return number;
+  }
+  return null;
 }
 
 function makeOmiFeatures(omi) {

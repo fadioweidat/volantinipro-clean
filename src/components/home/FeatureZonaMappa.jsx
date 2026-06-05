@@ -5,17 +5,23 @@ const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter
 const CO = "#E8571A";
 
 const features = [
-  { label: "Raggio di distribuzione", desc: "Imposta il raggio in km e visualizza subito i comuni coinvolti." },
-  { label: "Famiglie e popolazione", desc: "Dati ISTAT ufficiali: famiglie stimate, popolazione, densità residenziale." },
-  { label: "Copertura zona", desc: "Percentuale di copertura stimata per ogni comune nel raggio selezionato." },
-  { label: "Volantini consigliati", desc: "Quantità ottimale calcolata automaticamente in base all'area e ai dati." },
+  { label: "Famiglie ISTAT", desc: "Nuclei familiari disponibili nell'area dalla lettura territoriale." },
+  { label: "Comuni nel raggio", desc: "Elenco dei comuni coinvolti dalla zona configurata e dal raggio scelto." },
+  { label: "Copertura stimata", desc: "Percentuale di copertura prevista rispetto alla quantita inserita." },
+  { label: "Volantini consigliati", desc: "Fabbisogno operativo calcolato prima del preventivo." },
+];
+
+const outputs = [
+  "Famiglie ISTAT",
+  "Comuni nel raggio",
+  "Copertura stimata",
+  "Volantini consigliati",
 ];
 
 export default function FeatureZonaMappa({ onConfigure }) {
   return (
     <section className="section" style={{ background: "#0d1420", paddingLeft: 28, paddingRight: 28, boxSizing: "border-box" }}>
       <div style={{ maxWidth: 1160, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }}>
-        {/* Left: text */}
         <div>
           <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase", color: CO, marginBottom: 18 }}>
             Analisi territoriale precisa
@@ -23,8 +29,8 @@ export default function FeatureZonaMappa({ onConfigure }) {
           <h2 style={{ fontFamily: F.serif, fontSize: "clamp(36px, 3vw, 54px)", lineHeight: 1.08, color: "#f8fafc", letterSpacing: "-0.03em", margin: "0 0 22px" }}>
             Analisi zona<br />e mappa interattiva
           </h2>
-          <p style={{ fontFamily: F.sans, fontSize: 17, lineHeight: 1.7, color: "rgba(226,232,240,.62)", margin: "0 0 38px", maxWidth: 440 }}>
-            Cerca il comune, imposta il raggio e ottieni subito un'analisi territoriale completa con dati ISTAT reali, copertura e output operativo.
+          <p style={{ fontFamily: F.sans, fontSize: 17, lineHeight: 1.7, color: "rgba(226,232,240,.62)", margin: "0 0 38px", maxWidth: 460 }}>
+            Prima della campagna analizziamo territorio, raggio, copertura e fabbisogno operativo.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {features.map((f, i) => (
@@ -38,40 +44,25 @@ export default function FeatureZonaMappa({ onConfigure }) {
             ))}
           </div>
           <Button variant="primary" onClick={onConfigure} style={{ marginTop: 38, minHeight: 48, padding: "0 28px", borderRadius: 11, fontFamily: F.sans, fontSize: 14, fontWeight: 900, boxShadow: `0 12px 32px ${CO}40` }}>
-            Configura la tua zona →
+            Configura la tua zona
           </Button>
         </div>
-        {/* Right: mini map UI mock */}
+
         <div style={{ borderRadius: 20, overflow: "hidden", background: "#0a1625", border: "1px solid rgba(148,163,184,.18)", boxShadow: "0 30px 80px rgba(0,0,0,.45)" }}>
-          {/* toolbar */}
-          <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", alignItems: "center", gap: 10 }}>
-            {[{l:"D2D",c:CO},{l:"H2H",c:"#60a5fa"},{l:"B2B",c:"#a78bfa"}].map(t => (
-              <span key={t.l} style={{ padding: "5px 12px", borderRadius: 7, background: t.l==="D2D"?`${t.c}22`:"transparent", border: `1px solid ${t.l==="D2D"?t.c:"rgba(255,255,255,.1)"}`, fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: t.l==="D2D"?t.c:"rgba(255,255,255,.4)" }}>{t.l}</span>
-            ))}
-            <span style={{ marginLeft: "auto", fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.32)" }}>Raggio: 3 km</span>
+          <div style={{ padding: "16px 18px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ padding: "5px 12px", borderRadius: 7, background: `${CO}22`, border: `1px solid ${CO}`, fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: CO }}>D2D</span>
+            <span style={{ marginLeft: "auto", fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.38)" }}>Output generati dal configuratore</span>
           </div>
-          {/* KPI row */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 0 }}>
-            {[{v:"25.720",l:"Famiglie",c:CO},{v:"87%",l:"Copertura",c:"#2ecc8a"},{v:"3",l:"Comuni",c:"#60a5fa"}].map((k,i) => (
-              <div key={k.l} style={{ padding: "16px 18px", borderRight: i<2?"1px solid rgba(255,255,255,.06)":"none", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
-                <div style={{ fontFamily: F.sans, fontSize: 22, fontWeight: 900, color: k.c, letterSpacing: "-0.03em" }}>{k.v}</div>
-                <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.38)", textTransform: "uppercase", letterSpacing: ".08em", marginTop: 3 }}>{k.l}</div>
+          <div style={{ padding: 22, display: "grid", gap: 12 }}>
+            {outputs.map((label) => (
+              <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.075)" }}>
+                <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 850, color: "#f8fafc" }}>{label}</span>
+                <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: CO, textTransform: "uppercase", letterSpacing: ".06em" }}>Calcolato in Step 2</span>
               </div>
             ))}
           </div>
-          {/* zone rows */}
-          <div style={{ padding: "18px 18px 22px" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 14 }}>Comuni nel raggio</div>
-            {[{n:"Bresso",f:"11.200",c:"87%",col:CO},{n:"Cusano Milanino",f:"7.600",c:"78%",col:"#60a5fa"},{n:"Cinisello Balsamo",f:"6.920",c:"65%",col:"#2ecc8a"}].map(z => (
-              <div key={z.n} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 2, background: z.col, boxShadow: `0 0 8px ${z.col}` }} />
-                  <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "#f8fafc" }}>{z.n}</span>
-                  <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.34)" }}>{z.f} fam.</span>
-                </div>
-                <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: z.col }}>{z.c}</span>
-              </div>
-            ))}
+          <div style={{ margin: "0 22px 22px", padding: "14px 16px", borderRadius: 12, background: "rgba(232,87,26,.08)", border: "1px solid rgba(232,87,26,.22)", fontFamily: F.sans, fontSize: 12, lineHeight: 1.6, color: "rgba(255,255,255,.68)" }}>
+            I valori numerici compaiono solo dopo l'analisi reale della zona selezionata.
           </div>
         </div>
       </div>
