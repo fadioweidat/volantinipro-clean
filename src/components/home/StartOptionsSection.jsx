@@ -185,7 +185,7 @@ export default function StartOptionsSection({ onStart }) {
               
               <h3 style={{ fontFamily: F.serif, fontSize: 24, color: C.white, letterSpacing: "-0.5px", marginBottom: 8 }}>Stima rapida</h3>
               <p style={{ fontFamily: F.sans, fontSize: 13, color: C.muted, marginBottom: 20 }}>
-                Range indicativo per comune, servizio e quantita.
+                Range indicativo per comune, servizio e quantità.
               </p>
 
               <div style={{ display: "grid", gap: 10, marginBottom: 20 }}>

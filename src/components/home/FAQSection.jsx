@@ -7,35 +7,35 @@ const CO = "#E8571A";
 const faqs = [
   {
     q: "Come funziona il configuratore in 4 step?",
-    a: "Scegli servizio, zona, date operative e ricevi un preventivo completo con costi e analisi territoriale. In ogni passaggio vedi solo le informazioni utili per decidere senza perdere tempo. Scopri di piu nel configuratore →",
+    a: "Scegli servizio, zona, date operative e ricevi un preventivo completo con costi e analisi territoriale. In ogni passaggio vedi solo le informazioni utili per decidere senza perdere tempo. Scopri di più nel configuratore →",
   },
   {
-    q: "Cos'e lo Smart Pairing?",
-    a: "Smart Pairing e un'opportunita opzionale: quando esistono campagne compatibili nella stessa zona o in zone vicine, il sistema puo proporti un abbinamento con vantaggio economico. Puoi sempre continuare scegliendo la tua data anche senza Smart Pairing.",
+    q: "Cos'è lo Smart Pairing?",
+    a: "Smart Pairing è un'opportunità opzionale: quando esistono campagne compatibili nella stessa zona o in zone vicine, il sistema può proporti un abbinamento con vantaggio economico. Puoi sempre continuare scegliendo la tua data anche senza Smart Pairing.",
   },
   {
     q: "I dati sulle famiglie e la popolazione sono aggiornati?",
-    a: "Usiamo dati ISTAT, fonti GIS e analisi territoriali interne per stimare famiglie, popolazione e copertura. Le stime vengono aggiornate periodicamente e servono a costruire campagne piu precise. Scopri di piu nel configuratore →",
+    a: "Usiamo dati ISTAT, fonti GIS e analisi territoriali interne per stimare famiglie, popolazione e copertura. Le stime vengono aggiornate periodicamente e servono a costruire campagne più precise. Scopri di più nel configuratore →",
   },
   {
-    q: "Posso distribuire in piu comuni contemporaneamente?",
-    a: "Si, puoi impostare un raggio di distribuzione e valutare automaticamente i comuni vicini. La piattaforma mostra famiglie stimate, copertura e volumi consigliati per ogni area. Scopri di piu nel configuratore →",
+    q: "Posso distribuire in più comuni contemporaneamente?",
+    a: "Sì, puoi impostare un raggio di distribuzione e valutare automaticamente i comuni vicini. La piattaforma mostra famiglie stimate, copertura e volumi consigliati per ogni area. Scopri di più nel configuratore →",
   },
   {
-    q: "Il preventivo e vincolante?",
-    a: "No, il preventivo serve a darti una stima chiara prima di confermare la campagna. La conferma operativa avviene solo dopo la revisione del team e la disponibilita delle date. Scopri di piu nel configuratore →",
+    q: "Il preventivo è vincolante?",
+    a: "No, il preventivo serve a darti una stima chiara prima di confermare la campagna. La conferma operativa avviene solo dopo la revisione del team e la disponibilità delle date. Scopri di più nel configuratore →",
   },
   {
     q: "Sono previsti costi mensili o abbonamenti?",
-    a: "No, non ci sono abbonamenti obbligatori o costi fissi mensili. Paghi solo le campagne che decidi di attivare, con budget e servizio scelti da te. Scopri di piu nel configuratore →",
+    a: "No, non ci sono abbonamenti obbligatori o costi fissi mensili. Paghi solo le campagne che decidi di attivare, con budget e servizio scelti da te. Scopri di più nel configuratore →",
   },
   {
     q: "Cosa include il report post-campagna?",
-    a: "Il report include mappa della zona coperta, famiglie raggiunte stimate, date operative e tracking GPS quando previsto dal servizio. Puoi usarlo per condividere risultati chiari con soci, team o direzione. Scopri di piu nel configuratore →",
+    a: "Il report include mappa della zona coperta, famiglie raggiunte stimate, date operative e tracking GPS quando previsto dal servizio. Puoi usarlo per condividere risultati chiari con soci, team o direzione. Scopri di più nel configuratore →",
   },
   {
     q: "Posso usare la piattaforma senza creare un account?",
-    a: "Si, puoi configurare una campagna e ottenere una stima senza registrarti. L'account serve solo per salvare campagne, gestire lo storico e accedere ai report post-campagna. Scopri di piu nel configuratore →",
+    a: "Sì, puoi configurare una campagna e ottenere una stima senza registrarti. L'account serve solo per salvare campagne, gestire lo storico e accedere ai report post-campagna. Scopri di più nel configuratore →",
   },
 ];
 

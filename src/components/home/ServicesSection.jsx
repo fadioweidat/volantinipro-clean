@@ -81,7 +81,7 @@ export default function ServicesSection({ onConfigure }) {
             Servizi chiari, prezzo calcolato sulla tua zona.
           </h2>
           <p style={{ fontFamily: F.sans, fontSize: 16, color: "rgba(255,255,255,.52)", maxWidth: 560, margin: "0 auto", lineHeight: 1.65 }}>
-            Il costo della distribuzione cambia in base ad area, quantita e servizio scelto.
+            Il costo della distribuzione cambia in base ad area, quantità e servizio scelto.
           </p>
         </div>
 

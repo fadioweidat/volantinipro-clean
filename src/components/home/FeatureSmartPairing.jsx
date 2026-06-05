@@ -5,16 +5,16 @@ const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter
 const CO = "#E8571A";
 
 const features = [
-  { label: "Date sempre selezionabili", desc: "Il cliente puo scegliere il periodo desiderato anche senza Smart Pairing." },
-  { label: "Opportunita opzionale", desc: "Smart Pairing appare solo quando esistono campagne compatibili nella stessa zona o in zone vicine." },
-  { label: "Risparmio quando disponibile", desc: "Se c'e un abbinamento reale, il sistema lo segnala come vantaggio operativo." },
-  { label: "Richiesta disponibilita", desc: "Se non ci sono opportunita, puoi lasciare una richiesta e continuare la campagna." },
+  { label: "Date sempre selezionabili", desc: "Il cliente può scegliere il periodo desiderato anche senza Smart Pairing." },
+  { label: "Opportunità opzionale", desc: "Smart Pairing appare solo quando esistono campagne compatibili nella stessa zona o in zone vicine." },
+  { label: "Risparmio quando disponibile", desc: "Se c'è un abbinamento reale, il sistema lo segnala come vantaggio operativo." },
+  { label: "Richiesta disponibilità", desc: "Se non ci sono opportunità, puoi lasciare una richiesta e continuare la campagna." },
 ];
 
 const statuses = [
   { label: "Data scelta dal cliente", value: "Sempre possibile", active: true },
   { label: "Smart Pairing", value: "Solo se compatibile", active: false },
-  { label: "Richiesta disponibilita", value: "Opzionale", active: false },
+  { label: "Richiesta disponibilità", value: "Opzionale", active: false },
 ];
 
 export default function FeatureSmartPairing({ onConfigure }) {
@@ -23,10 +23,10 @@ export default function FeatureSmartPairing({ onConfigure }) {
       <div className="smart-pairing-layout" style={{ maxWidth: 1160, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }}>
         <div>
           <h2 style={{ fontFamily: F.serif, fontSize: 36, lineHeight: 1.08, color: "#fff", letterSpacing: 0, margin: "0 0 12px" }}>
-            Smart Pairing quando c'e una campagna compatibile
+            Smart Pairing quando c'è una campagna compatibile
           </h2>
           <p style={{ fontFamily: F.sans, fontSize: 16, lineHeight: 1.65, color: "rgba(255,255,255,.7)", margin: "0 0 28px", maxWidth: 520 }}>
-            Non e il metodo standard di prenotazione: e una possibilita extra di risparmio quando VolantiniPro ha gia attivita operative compatibili nell'area.
+            Non è il metodo standard di prenotazione: è una possibilità extra di risparmio quando VolantiniPro ha già attività operative compatibili nell'area.
           </p>
           <div style={{ borderRadius: 20, overflow: "hidden", background: "#0a1625", border: "1px solid rgba(148,163,184,.18)", boxShadow: "0 30px 80px rgba(0,0,0,.18)" }}>
             <div style={{ padding: "16px 18px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -52,10 +52,10 @@ export default function FeatureSmartPairing({ onConfigure }) {
             Funzione opzionale di risparmio
           </div>
           <h2 style={{ fontFamily: F.serif, fontSize: "clamp(36px, 3vw, 54px)", lineHeight: 1.08, color: "#fff", letterSpacing: 0, margin: "0 0 22px" }}>
-            Scegli la data.<br />Se c'e pairing, lo vedi.
+            Scegli la data.<br />Se c'è pairing, lo vedi.
           </h2>
           <p style={{ fontFamily: F.sans, fontSize: 17, lineHeight: 1.7, color: "rgba(255,255,255,.62)", margin: "0 0 38px", maxWidth: 460 }}>
-            Il calendario resta un flusso di pianificazione. Smart Pairing compare solo come opportunita aggiuntiva, basata su campagne reali compatibili.
+            Il calendario resta un flusso di pianificazione. Smart Pairing compare solo come opportunità aggiuntiva, basata su campagne reali compatibili.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {features.map((f, i) => (

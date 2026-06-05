@@ -11,7 +11,7 @@ const plans = [
     name: "Starter",
     badge: null,
     priceLabel: "Su preventivo",
-    priceNote: "Calcolato su zona e quantita",
+    priceNote: "Calcolato su zona e quantità",
     color: CB,
     features: [
       "Configuratore 4 step completo",
@@ -25,14 +25,14 @@ const plans = [
   },
   {
     name: "Pro",
-    badge: "Piu scelto",
+    badge: "Più scelto",
     priceLabel: "Su preventivo",
     priceNote: "Con report e opzioni avanzate",
     color: CO,
     features: [
       "Tutto di Starter",
       "Smart Pairing se disponibile",
-      "Richiesta disponibilita quando non ci sono abbinamenti",
+      "Richiesta disponibilità quando non ci sono abbinamenti",
       "Calendario operativo avanzato",
       "Report GPS post-campagna",
       "Supporto prioritario",
@@ -147,7 +147,7 @@ export default function PricingSection({ onConfigure, onConsultant }) {
         </div>
 
         <p style={{ textAlign: "center", fontFamily: F.sans, fontSize: 13, color: "rgba(26,26,26,.38)", marginTop: 36 }}>
-          Prezzo personalizzato in base a zona, quantita e servizio. Nessun abbonamento mensile obbligatorio.
+          Prezzo personalizzato in base a zona, quantità e servizio. Nessun abbonamento mensile obbligatorio.
         </p>
       </div>
     </section>

@@ -162,7 +162,7 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
           </h1>
 
           <p style={copyStyle(compact)}>
-            VolantiniPro ti aiuta a trovare le zone giuste, raggiungere piu
+            VolantiniPro ti aiuta a trovare le zone giuste, raggiungere più
             famiglie e massimizzare l'impatto delle tue campagne.
           </p>
 

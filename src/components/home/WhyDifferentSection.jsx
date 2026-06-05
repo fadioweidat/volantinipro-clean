@@ -3,7 +3,7 @@ import React from "react";
 const CARDS = [
   {
     title: "Dati territoriali ISTAT",
-    desc: "Famiglie, popolazione e densita abitativa vengono letti dalle fonti territoriali disponibili.",
+    desc: "Famiglie, popolazione e densità abitativa vengono letti dalle fonti territoriali disponibili.",
     icon: "ISTAT",
   },
   {
@@ -13,7 +13,7 @@ const CARDS = [
   },
   {
     title: "Tracking GPS",
-    desc: "Il lavoro sul campo puo essere verificato con percorsi operativi e tracciamento GPS.",
+    desc: "Il lavoro sul campo può essere verificato con percorsi operativi e tracciamento GPS.",
     icon: "GPS",
   },
   {
@@ -108,10 +108,10 @@ export default function WhyDifferentSection() {
         <div className="why-diff-header">
           <div className="vp-section-kicker">La differenza</div>
           <h2 id="why-different-title" className="vp-section-title">
-            Perche VolantiniPro e diverso
+            Perché VolantiniPro è diverso
           </h2>
           <p className="vp-section-copy">
-            Analizziamo il territorio prima della campagna, poi costruiamo copertura, quantita e report operativo.
+            Analizziamo il territorio prima della campagna, poi costruiamo copertura, quantità e report operativo.
           </p>
         </div>
 

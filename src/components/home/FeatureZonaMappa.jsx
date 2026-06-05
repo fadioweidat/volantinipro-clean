@@ -7,7 +7,7 @@ const CO = "#E8571A";
 const features = [
   { label: "Famiglie ISTAT", desc: "Nuclei familiari disponibili nell'area dalla lettura territoriale." },
   { label: "Comuni nel raggio", desc: "Elenco dei comuni coinvolti dalla zona configurata e dal raggio scelto." },
-  { label: "Copertura stimata", desc: "Percentuale di copertura prevista rispetto alla quantita inserita." },
+  { label: "Copertura stimata", desc: "Percentuale di copertura prevista rispetto alla quantità inserita." },
   { label: "Volantini consigliati", desc: "Fabbisogno operativo calcolato prima del preventivo." },
 ];
 
