@@ -99,8 +99,8 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
         position: "relative",
         overflow: "visible",
         background:
-          "radial-gradient(circle at 78% 56%, rgba(37, 99, 235, 0.18), transparent 33%), radial-gradient(circle at 13% 28%, rgba(249, 115, 22, 0.14), transparent 28%), linear-gradient(145deg, #050d1a 0%, #081426 54%, #06101f 100%)",
-        padding: compact ? "24px 20px 64px" : "24px 42px 64px",
+          "radial-gradient(circle at top right, rgba(232, 87, 26, 0.08), transparent 45%), linear-gradient(180deg, #050d1a 0%, #081426 100%)",
+        padding: compact ? "24px 20px 64px" : "32px 56px 80px",
         boxSizing: "border-box",
       }}
     >
@@ -110,9 +110,9 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
           inset: 0,
           pointerEvents: "none",
           backgroundImage:
-            "radial-gradient(circle, rgba(59, 130, 246, 0.38) 1px, transparent 1px), linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px)",
-          backgroundSize: "92px 92px, 64px 64px, 64px 64px",
-          maskImage: "linear-gradient(to bottom, black 0%, transparent 86%)",
+            "linear-gradient(rgba(255,255,255,.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.015) 1px, transparent 1px)",
+          backgroundSize: "64px 64px, 64px 64px",
+          maskImage: "linear-gradient(to bottom, black 0%, transparent 90%)",
         }}
       />
 
@@ -120,13 +120,13 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
         style={{
           position: "relative",
           zIndex: 30,
-          maxWidth: 1500,
+          maxWidth: 1400,
           margin: "0 auto",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           gap: 24,
-          marginBottom: compact ? 54 : 34,
+          marginBottom: compact ? 64 : 100,
         }}
         aria-label="Navigazione principale"
       >
@@ -192,12 +192,12 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
         style={{
           position: "relative",
           zIndex: 1,
-          maxWidth: 1500,
+          maxWidth: 1400,
           margin: "0 auto",
           display: "grid",
-          gridTemplateColumns: compact ? "1fr" : "0.82fr 1.9fr",
+          gridTemplateColumns: compact ? "1fr" : "0.85fr 1.6fr",
           alignItems: "center",
-          gap: compact ? 42 : 34,
+          gap: compact ? 48 : 80,
         }}
       >
         <div style={{ paddingTop: compact ? 0 : 22 }}>
@@ -222,7 +222,7 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
             ricevi la prova di ogni consegna.
           </p>
 
-          <div style={{ display: "grid", gap: 22 }}>
+          <div style={{ display: "grid", gap: 20 }}>
             {benefits.map((benefit) => (
               <div key={benefit.text} style={benefitRowStyle}>
                 <BenefitIcon type={benefit.icon} />
@@ -234,7 +234,8 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
           <div style={antiGhostClaimStyle}>
             <span style={antiGhostIconStyle}>GPS</span>
             <span>
-              <strong>Paghi per 10.000 volantini?</strong> Il GPS ti dimostra che sono 10.000.
+              <strong>10.000 volantini distribuiti?</strong><br />
+              Il GPS ti aiuta a verificare la copertura reale.
             </span>
           </div>
         </div>
@@ -569,46 +570,46 @@ const heroPreviewShellStyle = {
   height: "clamp(430px, 52vw, 520px)",
   position: "relative",
   overflow: "hidden",
-  borderRadius: 24,
-  border: "1px solid rgba(148, 163, 184, 0.32)",
+  borderRadius: 20,
+  border: "1px solid rgba(255, 255, 255, 0.08)",
   background: "linear-gradient(145deg, rgba(7, 15, 29, 0.98), rgba(10, 20, 36, 0.98) 48%, rgba(12, 27, 48, 0.98))",
-  boxShadow: "0 34px 90px rgba(0, 0, 0, 0.5), 0 30px 60px -20px rgba(232, 87, 26, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08)",
+  boxShadow: "0 40px 100px -10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.04)",
   color: "#f8fafc",
   fontFamily: F.sans,
 };
 
 const heroPreviewTopbarStyle = {
-  height: 52,
+  height: 48,
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
   gap: 14,
   padding: "0 18px",
-  borderBottom: "1px solid rgba(148, 163, 184, 0.18)",
-  background: "rgba(7, 14, 27, 0.74)",
+  borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
+  background: "rgba(7, 14, 27, 0.4)",
 };
 
 const heroPreviewAddressStyle = {
-  height: 28,
+  height: 26,
   minWidth: 0,
   padding: "0 12px",
   display: "inline-flex",
   alignItems: "center",
-  borderRadius: 8,
-  color: "rgba(226, 232, 240, 0.64)",
-  fontSize: 12,
-  fontWeight: 800,
-  background: "rgba(255, 255, 255, 0.065)",
+  borderRadius: 6,
+  color: "rgba(226, 232, 240, 0.5)",
+  fontSize: 11,
+  fontWeight: 600,
+  background: "rgba(255, 255, 255, 0.04)",
 };
 
 const heroPreviewBadgeStyle = {
-  padding: "5px 9px",
-  borderRadius: 999,
-  background: "rgba(232,87,26,.14)",
-  border: "1px solid rgba(232,87,26,.26)",
+  padding: "4px 8px",
+  borderRadius: 6,
+  background: "rgba(232,87,26,.1)",
+  border: "1px solid rgba(232,87,26,.2)",
   color: C.orange,
   fontSize: 10,
-  fontWeight: 900,
+  fontWeight: 700,
   whiteSpace: "nowrap",
 };
 
@@ -630,11 +631,11 @@ const heroMetricStyle = {
   minWidth: 0,
   display: "grid",
   alignContent: "center",
-  gap: 5,
-  padding: "12px 14px",
-  borderRadius: 14,
-  border: "1px solid rgba(148, 163, 184, 0.2)",
-  background: "linear-gradient(145deg, rgba(15, 27, 47, 0.92), rgba(10, 20, 36, 0.86))",
+  gap: 4,
+  padding: "14px 16px",
+  borderRadius: 12,
+  border: "1px solid rgba(255, 255, 255, 0.06)",
+  background: "rgba(15, 27, 47, 0.3)",
 };
 
 const heroMetricSkeletonStyle = {
@@ -660,12 +661,12 @@ const heroPreviewPanelStyle = {
   top: 14,
   width: "min(260px, 42%)",
   minWidth: 205,
-  padding: 13,
-  borderRadius: 14,
-  border: "1px solid rgba(148, 163, 184, 0.2)",
-  background: "rgba(8, 18, 32, 0.90)",
-  boxShadow: "0 18px 42px rgba(0,0,0,.32)",
-  backdropFilter: "blur(14px)",
+  padding: 16,
+  borderRadius: 12,
+  border: "1px solid rgba(255, 255, 255, 0.08)",
+  background: "rgba(8, 18, 32, 0.85)",
+  boxShadow: "0 24px 48px rgba(0,0,0,.4)",
+  backdropFilter: "blur(16px)",
 };
 
 const heroPreviewPanelTitleStyle = {
@@ -780,41 +781,48 @@ const centerNavStyle = {
 };
 
 const navButtonStyle = {
-  padding: 0,
+  padding: "8px 12px",
   border: 0,
   background: "transparent",
-  color: "rgba(248, 250, 252, 0.84)",
+  color: "rgba(248, 250, 252, 0.7)",
   fontFamily: F.sans,
-  fontSize: 15,
-  fontWeight: 700,
+  fontSize: 14,
+  fontWeight: 600,
   cursor: "pointer",
+  transition: "color 0.2s ease",
 };
 
 const headerOutlineButtonStyle = {
-  minHeight: 52,
-  padding: "0 22px",
-  borderRadius: 12,
-  border: "1.5px solid #E8571A",
-  background: "rgba(10, 20, 36, 0.78)",
-  color: C.orange,
+  minHeight: 46,
+  padding: "0 20px",
+  borderRadius: 8,
+  border: "1px solid rgba(255, 255, 255, 0.15)",
+  background: "rgba(255, 255, 255, 0.04)",
+  color: C.white,
   fontFamily: F.sans,
-  fontSize: 15,
-  fontWeight: 800,
+  fontSize: 14,
+  fontWeight: 600,
   cursor: "pointer",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 10,
+  gap: 8,
+  transition: "all 0.2s ease",
 };
 
 const primaryButtonStyle = {
-  minHeight: 52,
-  padding: "0 18px",
-  borderRadius: 12,
+  minHeight: 46,
+  padding: "0 22px",
+  borderRadius: 8,
   fontFamily: F.sans,
-  fontSize: 15,
-  fontWeight: 900,
-  boxShadow: "0 18px 44px rgba(232, 87, 26, 0.28)",
+  fontSize: 14,
+  fontWeight: 700,
+  background: C.orange,
+  color: C.white,
+  border: "none",
+  boxShadow: "0 6px 16px rgba(232, 87, 26, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
+  cursor: "pointer",
+  transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
 };
 
 const hamburgerButtonStyle = {
@@ -912,78 +920,78 @@ const badgeDotStyle = {
 };
 
 const heroEyebrowStyle = {
-  marginBottom: 16,
+  marginBottom: 20,
   color: C.orange,
   fontFamily: F.sans,
-  fontSize: 12,
-  fontWeight: 900,
-  letterSpacing: "0.12em",
+  fontSize: 11,
+  fontWeight: 800,
+  letterSpacing: "0.15em",
   textTransform: "uppercase",
 };
 
 const headlineStyle = (compact) => ({
   margin: 0,
   fontFamily: "'DM Serif Display', Georgia, serif",
-  fontSize: compact ? 52 : "clamp(56px, 4.35vw, 82px)",
-  lineHeight: 1.1,
-  fontWeight: 900,
-  letterSpacing: "-0.055em",
+  fontSize: compact ? 46 : "clamp(52px, 4.5vw, 78px)",
+  lineHeight: 1.05,
+  fontWeight: 400,
+  letterSpacing: "-0.03em",
   color: C.white,
-  textShadow: "0 16px 42px rgba(0, 0, 0, 0.36)",
+  textShadow: "0 24px 48px rgba(0, 0, 0, 0.5)",
 });
 
 const copyStyle = (compact) => ({
-  maxWidth: 390,
-  margin: "26px 0 34px",
-  color: C.muted,
+  maxWidth: 420,
+  margin: "32px 0 40px",
+  color: "rgba(255, 255, 255, 0.65)",
   fontFamily: F.sans,
-  fontSize: compact ? 16 : 17,
-  lineHeight: 1.68,
-  fontWeight: 500,
+  fontSize: compact ? 16 : 18,
+  lineHeight: 1.6,
+  fontWeight: 400,
 });
 
 const benefitRowStyle = {
   display: "flex",
   alignItems: "flex-start",
   gap: 16,
-  color: "rgba(226, 232, 240, 0.7)",
+  color: "rgba(226, 232, 240, 0.8)",
   fontFamily: F.sans,
   fontSize: 15,
-  fontWeight: 600,
+  fontWeight: 500,
   lineHeight: 1.5,
 };
 
 const antiGhostClaimStyle = {
-  marginTop: 28,
-  maxWidth: 430,
+  marginTop: 40,
+  maxWidth: 460,
   display: "flex",
   alignItems: "center",
-  gap: 12,
-  padding: "13px 15px",
-  borderRadius: 16,
-  border: "1px solid rgba(232, 87, 26, 0.36)",
-  background: "rgba(232, 87, 26, 0.12)",
-  color: "rgba(255, 255, 255, 0.9)",
+  gap: 14,
+  padding: "16px 20px",
+  borderRadius: 12,
+  border: "1px solid rgba(232, 87, 26, 0.2)",
+  background: "rgba(232, 87, 26, 0.08)",
+  color: "rgba(255, 255, 255, 0.85)",
   fontFamily: F.sans,
   fontSize: 14,
-  fontWeight: 700,
-  lineHeight: 1.45,
+  fontWeight: 500,
+  lineHeight: 1.5,
 };
 
 const antiGhostIconStyle = {
   flex: "0 0 auto",
-  minWidth: 38,
-  minHeight: 28,
-  padding: "0 9px",
-  borderRadius: 999,
+  minWidth: 40,
+  minHeight: 26,
+  padding: "0 10px",
+  borderRadius: 6,
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
   background: C.orange,
   color: C.white,
   fontSize: 11,
-  fontWeight: 950,
-  letterSpacing: "0.04em",
+  fontWeight: 800,
+  letterSpacing: "0.06em",
 };
 
 export default VolantiniProHeroMap;
