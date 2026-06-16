@@ -21,7 +21,7 @@ const outputs = [
 export default function FeatureZonaMappa({ onConfigure }) {
   return (
     <section className="section" style={{ background: "#050a14", paddingTop: 120, paddingBottom: 120, paddingLeft: 28, paddingRight: 28, boxSizing: "border-box" }}>
-      <div style={{ maxWidth: 1160, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 80, alignItems: "center" }}>
+      <div style={{ maxWidth: 1160, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(320px, 100%), 1fr))", gap: 80, alignItems: "center" }}>
         <div>
           <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".15em", textTransform: "uppercase", color: CO, marginBottom: 18 }}>
             Analisi territoriale precisa
