@@ -498,7 +498,7 @@ function HeroRealMapPreview({ compact }) {
               {hiddenZoneCount > 0 && (
                 <div className="vp-hero-zone-row" style={{ ...heroPreviewMoreRowStyle, margin: 0, animationDelay: `${visibleZones.length * 90}ms` }}>
                   <span>+ altri {formatNumero(hiddenZoneCount)} comuni</span>
-                  <span style={heroPreviewZoneValueStyle}>{formatHeroNumber(preview.zones.slice(visibleZoneCount).reduce((s, z) => s + z.families, 0))} fam.</span>
+                  <span style={heroPreviewZoneValueStyle}>&middot; {formatHeroNumber(preview.zones.slice(visibleZoneCount).reduce((s, z) => s + z.families, 0))} fam.</span>
                 </div>
               )}
             </div>
@@ -552,7 +552,7 @@ function normalizeHeroPreview(data, city) {
     .map((row, index) => normalizeHeroZone(row, index))
     .filter((zone) => zone.geometry);
   const values = data?.values || {};
-  const families = firstPositive(values.famiglie_stimate, values.families, values.households, rows.reduce((sum, row) => sum + row.families, 0));
+  const families = rows.reduce((sum, row) => sum + row.families, 0);
   const coverage = firstPositive(values.copertura_stimata, values.coverage_percent, values.coverage);
   return {
     zones: rows,
