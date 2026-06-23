@@ -703,9 +703,15 @@ export function Step2Map({
     // selectable from the sidebar, but stale centers must not create extra rings.
     const activeZone = (campaignZones || []).find(z => z.id === activeZoneId);
     const zonesList = activeZone ? [activeZone] : [{ id: 'active_zone', city, radiusKm: radius }];
+    (campaignZones || []).forEach(z => {
+      if (!zonesList.find(x => x.id === z.id)) {
+        zonesList.push(z);
+      }
+    });
+    
     zonesList.forEach(z => {
-      const isActive = z.id === activeZoneId;
-      const zCity = city || z.city || null;
+      const isActive = z.id === activeZoneId || z.id === 'active_zone';
+      const zCity = isActive ? city : (z.city || null);
       if (!zCity || !zCity.lat || !zCity.lng) return;
 
       const zRadius = parseFloat((isActive ? radius : null) ?? z.radiusKm ?? z.radius ?? z.radius_km ?? 3);
@@ -725,7 +731,7 @@ export function Step2Map({
           opacity: isActive ? 0.72 : 0.18,
           className: isActive ? 'gis-radius-glow' : '',
           interactive: false,
-        }).addTo(isActive ? map : group);
+        }).addTo(group);
       }
 
       // ── 2. Center Pin ──
@@ -735,7 +741,7 @@ export function Step2Map({
 
       const marker = L.marker([zCity.lat, zCity.lng], {
         icon: pinIcon(L, zCol), zIndexOffset: isActive ? 2000 : 1000,
-      }).bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10], opacity: 1 }).addTo(isActive ? map : group);
+      }).bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10], opacity: 1 }).addTo(group);
 
       if (!isActive) {
         // Cliccando su una zona inattiva, la attiva!

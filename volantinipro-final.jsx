@@ -2726,7 +2726,7 @@ const isManual = allocationMode === "manual";
                     isPartial ? (
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                         <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(232,87,26,.08)", border: "1px solid rgba(232,87,26,.28)", fontFamily: F.sans, fontSize: 11, color: C.orange, lineHeight: 1.5 }}>
-                          {isResidentialStep2 ? `Distribuzione selettiva: ${flyerQuantityFromStep1.toLocaleString("it-IT")} pz su ${requiredFlyers.toLocaleString("it-IT")} di copertura totale. Puoi procedere con la selezione attuale.` : "Distribuzione selettiva: quantità attuale inferiore alla copertura completa. Puoi procedere con la selezione attuale."}
+                          {isResidentialStep2 ? `Hai selezionato ${flyerQuantityFromStep1.toLocaleString("it-IT")} volantini su ${requiredFlyers.toLocaleString("it-IT")} necessari per copertura completa. Puoi procedere con copertura parziale oppure aumentare la quantità.` : `Hai selezionato ${flyerQuantityFromStep1.toLocaleString("it-IT")} volantini su ${requiredFlyers.toLocaleString("it-IT")} necessari per copertura completa. Puoi procedere con copertura parziale oppure aumentare la quantità.`}
                         </div>
                         <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 8 }}>
                           <button onClick={handleNext}
