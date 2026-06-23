@@ -773,7 +773,7 @@ export function Step2Map({
           dashArray:   themeMode ? null : '5 5',
         };
         const styleSel = {
-          color: col,
+          color: z.color || col,
           fillColor: comuneFill,
           fillOpacity: Math.max(fillOpacity, Math.min(0.28, 0.09 * opacityScale)),
           weight: 1.1,
