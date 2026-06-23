@@ -1,3 +1,5 @@
+import React, { useState, useEffect } from "react";
+
 const services = [
   {
     id: "d2d",
@@ -17,12 +19,12 @@ const services = [
     id: "b2b",
     title: "Business to Business",
     body: "Copertura attivita commerciali con POI categorizzati.",
-    accent: "#7C3AED",
+    accent: "#10B981",
     includes: ["Aziende", "Categorie", "Zone OMI"],
   },
 ];
 
-const quantities = [5000, 10000, 15000, 25000];
+const quantities = [5000, 10000, 25000, 50000, 100000];
 
 const formats = [
   { id: "A6", label: "A6" },
@@ -96,27 +98,47 @@ export function ServiceStep({ service, quote, onServiceChange, onNext }) {
             Prezzo calcolato su zona, quantita e date operative. La distribuzione viene definita nello Step 2.
           </p>
 
-          <div className="field">
-            <span>Quantita volantini</span>
-            <div className="option-pills">
+          <div className="quantity-card">
+            <div className="quantity-header">
+              <span>Quantità selezionata:</span>
+              <strong>{new Intl.NumberFormat("it-IT").format(Number(service.quantity || 5000))} volantini</strong>
+            </div>
+
+            <div className="quantity-presets">
               {quantities.map((quantity) => (
                 <button
                   key={quantity}
                   type="button"
-                  className={Number(service.quantity) === quantity ? "option-pill active" : "option-pill"}
+                  className={Number(service.quantity) === quantity ? "quantity-preset active" : "quantity-preset"}
                   onClick={() => onServiceChange({ quantity })}
                 >
-                  {quantity.toLocaleString("it-IT")}
+                  {new Intl.NumberFormat("it-IT").format(quantity)}
                 </button>
               ))}
             </div>
-            <input
-              type="number"
-              min="500"
-              step="500"
-              value={service.quantity}
-              onChange={(event) => onServiceChange({ quantity: Number(event.target.value) })}
-            />
+
+            <div className="quantity-slider-row">
+              <div className="quantity-slider-wrapper">
+                <div className="quantity-markers" aria-hidden="true">
+                  {quantities.map((q) => (
+                    <span key={q} className="marker" style={{ left: `${((q - 5000) / (100000 - 5000)) * 100}%` }} />
+                  ))}
+                </div>
+                <input
+                  type="range"
+                  min="5000"
+                  max="100000"
+                  step="1000"
+                  value={service.quantity || 5000}
+                  onChange={(event) => onServiceChange({ quantity: Number(event.target.value) })}
+                  className="quantity-slider"
+                  aria-label="Seleziona quantità volantini"
+                  style={{ '--progress': `${(((service.quantity || 5000) - 5000) / (100000 - 5000)) * 100}%` }}
+                />
+              </div>
+
+              <QuantityField value={service.quantity || 5000} onChange={(quantity) => onServiceChange({ quantity })} />
+            </div>
           </div>
 
           <OptionGroup
@@ -152,7 +174,7 @@ export function ServiceStep({ service, quote, onServiceChange, onNext }) {
             <strong>{serviceLabels[service.serviceType] || selectedService.title}</strong>
           </div>
           <SummaryRow label="Distribuzione" value="Calcolata sulla tua zona (Step 2)" />
-          <SummaryRow label="Quantita" value={Number(service.quantity || 0).toLocaleString("it-IT")} />
+          <SummaryRow label="Quantita" value={new Intl.NumberFormat("it-IT").format(Number(service.quantity || 0))} />
           <SummaryRow label="Formato" value={String(service.format || "A5").toUpperCase()} />
           <SummaryRow label="Piano" value={campaignLabels[service.campaignType] || "Standard"} />
           <SummaryRow label="Stampa" value={flyerSupplyLabels[service.flyerSupply] || flyerSupplyLabels.ready} />
@@ -196,4 +218,44 @@ function SummaryRow({ label, value, strong, highlight }) {
 
 function formatCurrency(value) {
   return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(value || 0);
+}
+
+function QuantityField({ value, onChange }) {
+  const [inputValue, setInputValue] = useState(Number(value).toLocaleString("it-IT"));
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setInputValue(Number(value).toLocaleString("it-IT"));
+    }
+  }, [value, isFocused]);
+
+  const handleInputChange = (e) => {
+    const val = e.target.value.replace(/\D/g, '');
+    setInputValue(val ? Number(val).toLocaleString("it-IT") : '');
+    const num = parseInt(val, 10);
+    if (!isNaN(num)) {
+      onChange(num);
+    }
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    let num = parseInt(inputValue.replace(/\D/g, ''), 10);
+    if (isNaN(num) || num < 5000) num = 5000;
+    if (num > 100000) num = 100000;
+    setInputValue(num.toLocaleString("it-IT"));
+    onChange(num);
+  };
+
+  return (
+    <input
+      type="text"
+      value={inputValue}
+      onChange={handleInputChange}
+      onFocus={() => setIsFocused(true)}
+      onBlur={handleBlur}
+      className="quantity-manual-input"
+    />
+  );
 }
