@@ -201,14 +201,14 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
         }}
       >
         <div style={{ paddingTop: compact ? 0 : 22 }}>
-          <div style={heroEyebrowStyle}>VOLANTINAGGIO &middot; DISTRIBUZIONE &middot; GEOMARKETING</div>
+          <div style={heroEyebrowStyle}>VOLANTINAGGIO &middot; DISTRIBUZIONE &middot; CONTROLLO GPS</div>
 
           <h1 style={{ ...headlineStyle(compact), maxWidth: 700 }}>
-            Campagne di volantinaggio pianificate con <span style={{ color: C.orange }}>mappa, GPS e report</span>
+            Campagne di volantinaggio con <span style={{ color: C.orange }}>mappa, GPS e report</span>
           </h1>
 
           <p style={copyStyle(compact)}>
-            Scegli il servizio, seleziona la zona, calcola il raggio di distribuzione e verifica il lavoro con tracciamento GPS e report finale.
+            Scegli il servizio, seleziona la zona, calcola il raggio di distribuzione e verifica il lavoro con prove GPS e report finale.
           </p>
 
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, marginBottom: 16 }}>
@@ -535,7 +535,7 @@ function HeroRealMapPreview({ compact }) {
             <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
               <div style={{ ...heroPreviewTotalStyle, marginTop: 0 }}>
                 <span>Totale famiglie</span>
-                <strong>{formatHeroNumber(animatedTotalFamilies ?? 0)}</strong>
+                <strong style={{ color: C.orange, fontSize: 16 }}>{formatHeroNumber(animatedTotalFamilies ?? 0)}</strong>
               </div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontStyle: "italic", marginTop: 12 }}>
                 Copertura calcolata sul raggio selezionato
@@ -806,7 +806,7 @@ const heroPreviewDotStyle = {
 
 const heroPreviewZoneNameStyle = {
   color: "#f8fafc",
-  fontSize: 11,
+  fontSize: 12,
   fontWeight: 850,
   overflow: "hidden",
   textOverflow: "ellipsis",
@@ -814,7 +814,7 @@ const heroPreviewZoneNameStyle = {
 };
 
 const heroPreviewZoneValueStyle = {
-  color: "rgba(226,232,240,.72)",
+  color: "rgba(255,255,255,.9)",
   fontSize: 10,
   fontWeight: 800,
 };
@@ -825,9 +825,10 @@ const heroPreviewTotalStyle = {
   borderTop: "1px solid rgba(255,255,255,.08)",
   display: "flex",
   justifyContent: "space-between",
+  alignItems: "center",
   gap: 8,
-  color: "rgba(226,232,240,.65)",
-  fontSize: 11,
+  color: "rgba(255,255,255,.85)",
+  fontSize: 12,
 };
 
 const heroAnalisiZonaCardStyle = {
