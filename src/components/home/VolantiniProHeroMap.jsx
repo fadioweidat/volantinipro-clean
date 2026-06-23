@@ -353,10 +353,26 @@ function useHeroMapPreviewStyles() {
           stroke-width: 4.5 !important;
           filter: drop-shadow(0 0 10px rgba(232, 87, 26, 0.8));
         }
+        .vp-hero-badge {
+          opacity: 0;
+          animation: vpHeroFadeIn .6s ease-out forwards;
+          animation-delay: 100ms;
+        }
+        .vp-hero-card {
+          opacity: 0;
+          transform: translateY(16px);
+          animation: vpHeroCardIn .6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation-delay: 200ms;
+        }
         .vp-hero-zone-row {
           opacity: 0;
-          transform: translateY(8px);
-          animation: vpHeroRowIn .38s ease-out forwards;
+          transform: translateX(-8px);
+          animation: vpHeroRowIn .45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .vp-hero-coverage-fill {
+          transform: scaleX(0);
+          transform-origin: left;
+          animation: vpHeroScaleX .8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       }
       @keyframes vpHeroPolygonIn {
@@ -367,8 +383,17 @@ function useHeroMapPreviewStyles() {
         from { stroke-dashoffset: 70; opacity: .15; }
         to { stroke-dashoffset: 0; opacity: 1; }
       }
-      @keyframes vpHeroRowIn {
+      @keyframes vpHeroCardIn {
         to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes vpHeroRowIn {
+        to { opacity: 1; transform: translateX(0); }
+      }
+      @keyframes vpHeroScaleX {
+        to { transform: scaleX(1); }
+      }
+      @keyframes vpHeroFadeIn {
+        to { opacity: 1; }
       }
     `;
     document.head.appendChild(style);
@@ -412,7 +437,7 @@ function HeroRealMapPreview({ compact }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: 18, fontWeight: 800, color: C.orange, textTransform: "uppercase", letterSpacing: "0.08em" }}>Monitor campagna</div>
-          <span style={{...heroPreviewBadgeStyle, flexShrink: 0}}>Esempio analisi zona</span>
+          <span className="vp-hero-badge" style={{...heroPreviewBadgeStyle, flexShrink: 0}}>Esempio analisi zona</span>
         </div>
         <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>Raggio, comuni coperti, quantità stimata e prove GPS.</div>
       </div>
@@ -473,7 +498,7 @@ function HeroRealMapPreview({ compact }) {
 
       {/* Analisi zona card — OUTSIDE the map */}
       {!unavailable && (
-        <div style={heroAnalisiZonaCardStyle}>
+        <div className="vp-hero-card" style={heroAnalisiZonaCardStyle}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
             <div>
               <div style={{ fontSize: 15, fontWeight: 900, color: C.orange, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Analisi zona</div>
@@ -486,17 +511,24 @@ function HeroRealMapPreview({ compact }) {
             {/* Zones list */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {visibleZones.map((zone, index) => (
-                <div key={zone.id} className="vp-hero-zone-row" style={{ ...heroPreviewZoneRowStyle, margin: 0, animationDelay: `${index * 90}ms` }}>
+                <div key={zone.id} className="vp-hero-zone-row" style={{ ...heroPreviewZoneRowStyle, margin: 0, animationDelay: `${350 + index * 90}ms` }}>
                   <span style={{ ...heroPreviewDotStyle, background: zone.color }} />
                   <span style={heroPreviewZoneNameStyle}>{zone.name}</span>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center", justifySelf: "end" }}>
-                    {zone.coverage ? <span style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", fontWeight: 700 }}>{Math.round(zone.coverage)}%</span> : null}
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", justifySelf: "end" }}>
+                    {zone.coverage ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <div style={{ width: 32, height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                          <div className="vp-hero-coverage-fill" style={{ width: `${Math.round(zone.coverage)}%`, height: "100%", background: zone.color, animationDelay: `${500 + index * 90}ms` }} />
+                        </div>
+                        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", fontWeight: 700, minWidth: 26, textAlign: "right" }}>{Math.round(zone.coverage)}%</span>
+                      </div>
+                    ) : null}
                     <span style={heroPreviewZoneValueStyle}>{formatHeroNumber(zone.families)} fam.</span>
                   </div>
                 </div>
               ))}
               {hiddenZoneCount > 0 && (
-                <div className="vp-hero-zone-row" style={{ ...heroPreviewMoreRowStyle, margin: 0, animationDelay: `${visibleZones.length * 90}ms` }}>
+                <div className="vp-hero-zone-row" style={{ ...heroPreviewMoreRowStyle, margin: 0, animationDelay: `${350 + visibleZones.length * 90}ms` }}>
                   <span>+ altri {formatNumero(hiddenZoneCount)} comuni</span>
                   <span style={heroPreviewZoneValueStyle}>&middot; {formatHeroNumber(preview.zones.slice(visibleZoneCount).reduce((s, z) => s + z.families, 0))} fam.</span>
                 </div>
@@ -507,7 +539,7 @@ function HeroRealMapPreview({ compact }) {
             <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
               <div style={{ ...heroPreviewTotalStyle, marginTop: 0 }}>
                 <span>Totale famiglie</span>
-                <strong>{formatHeroNumber(preview.zones.reduce((s, z) => s + z.families, 0))}</strong>
+                <strong>{formatHeroNumber(useCountUpNumber(preview.zones.reduce((s, z) => s + z.families, 0), animateMetrics, { duration: 900 }))}</strong>
               </div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontStyle: "italic", marginTop: 12 }}>
                 Copertura calcolata sul raggio selezionato
