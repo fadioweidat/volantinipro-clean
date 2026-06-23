@@ -424,7 +424,10 @@ function HeroRealMapPreview({ compact }) {
   const visibleZones = preview.zones.slice(0, visibleZoneCount);
   const hiddenZoneCount = Math.max(0, preview.zones.length - visibleZones.length);
   const animateMetrics = previewVisible && !loading && !unavailable;
-  return (
+  const totalFamilies = preview.zones.reduce((s, z) => s + z.families, 0);
+  const animatedTotalFamilies = useCountUpNumber(totalFamilies, animateMetrics, { duration: 900 });
+
+  return (
     <div ref={previewRef} aria-label="Anteprima reale mappa territoriale" style={{ paddingTop: compact ? 0 : 22 }}>
       {/* Monitor header */}
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
@@ -532,7 +535,7 @@ function HeroRealMapPreview({ compact }) {
             <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
               <div style={{ ...heroPreviewTotalStyle, marginTop: 0 }}>
                 <span>Totale famiglie</span>
-                <strong>{formatHeroNumber(useCountUpNumber(preview.zones.reduce((s, z) => s + z.families, 0), animateMetrics, { duration: 900 }))}</strong>
+                <strong>{formatHeroNumber(animatedTotalFamilies ?? 0)}</strong>
               </div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontStyle: "italic", marginTop: 12 }}>
                 Copertura calcolata sul raggio selezionato
