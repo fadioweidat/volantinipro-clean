@@ -100,7 +100,7 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
         overflow: "visible",
         background:
           "radial-gradient(circle at top right, rgba(232, 87, 26, 0.08), transparent 45%), linear-gradient(180deg, #050d1a 0%, #081426 100%)",
-        padding: compact ? "24px 20px 64px" : "32px 56px 80px",
+        padding: compact ? "24px 20px 40px" : "32px 56px 48px",
         boxSizing: "border-box",
       }}
     >
@@ -126,7 +126,7 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
           alignItems: "center",
           justifyContent: "space-between",
           gap: 24,
-          marginBottom: compact ? 64 : 100,
+          marginBottom: compact ? 48 : 80,
         }}
         aria-label="Navigazione principale"
       >
@@ -407,7 +407,7 @@ function HeroRealMapPreview({ compact }) {
   const hiddenZoneCount = Math.max(0, preview.zones.length - visibleZones.length);
   const animateMetrics = previewVisible && !loading && !unavailable;
   return (
-    <div ref={previewRef} aria-label="Anteprima reale mappa territoriale">
+    <div ref={previewRef} aria-label="Anteprima reale mappa territoriale" style={{ paddingTop: compact ? 0 : 22 }}>
       {/* Monitor header */}
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -420,7 +420,7 @@ function HeroRealMapPreview({ compact }) {
       {/* Monitor shell */}
       <div className="vp-hero-map-preview" style={heroPreviewShellStyle}>
         {/* KPI row */}
-        <div style={{ padding: "16px 18px 0" }}>
+        <div style={{ padding: "12px 14px 0" }}>
           <div style={heroPreviewMetricsStyle}>
             <HeroMetric loading={loading} number={preview.families} animate={animateMetrics} label="Famiglie raggiungibili" highlight />
             <HeroMetric loading={loading} number={radiusKm} suffix=" km" animate={animateMetrics} label="Raggio analisi" />
@@ -430,7 +430,7 @@ function HeroRealMapPreview({ compact }) {
         </div>
 
         {/* Map — clean, no overlay panel */}
-        <div style={{ padding: "14px 18px 18px" }}>
+        <div style={{ padding: "12px 14px 14px" }}>
           <div style={heroPreviewMapFrameStyle}>
             {loading && <PreviewLoading />}
             {unavailable ? (
@@ -689,7 +689,7 @@ const heroPreviewContentStyle = {
 const heroPreviewMetricsStyle = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
-  gap: 12,
+  gap: 8,
 };
 
 const heroMetricStyle = {
@@ -698,7 +698,7 @@ const heroMetricStyle = {
   flexDirection: "column",
   justifyContent: "center",
   gap: 2,
-  padding: "10px 14px",
+  padding: "8px 12px",
   borderRadius: 8,
   border: "1px solid rgba(255, 255, 255, 0.08)",
   background: "rgba(5, 10, 20, 0.6)",
@@ -713,7 +713,7 @@ const heroMetricSkeletonStyle = {
 
 const heroPreviewMapFrameStyle = {
   minHeight: 280,
-  height: "clamp(280px, 30vw, 380px)",
+  height: "clamp(240px, 25vw, 320px)",
   position: "relative",
   overflow: "hidden",
   borderRadius: 16,
@@ -803,8 +803,8 @@ const heroPreviewTotalStyle = {
 };
 
 const heroAnalisiZonaCardStyle = {
-  marginTop: 20,
-  padding: "24px 28px",
+  marginTop: 16,
+  padding: "18px 22px",
   borderRadius: 16,
   border: "1px solid rgba(255, 255, 255, 0.08)",
   background: "rgba(10, 20, 36, 0.7)",
