@@ -80,15 +80,15 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
   const benefits = [
     {
       icon: "target",
-      text: "Mappa operativa con raggio di distribuzione",
+      text: "Servizi di distribuzione per ogni tipo di campagna",
     },
     {
       icon: "chart",
-      text: "Comuni e copertura stimati prima della campagna",
+      text: "Mappa operativa con zona, raggio e comuni coinvolti",
     },
     {
       icon: "report",
-      text: "GPS e report finale per verificare il lavoro",
+      text: "GPS, prove fotografiche e report finale verificabile",
     },
   ];
 
@@ -201,39 +201,32 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
         }}
       >
         <div style={{ paddingTop: compact ? 0 : 22 }}>
-          <div style={heroEyebrowStyle}>PIANIFICA &middot; DISTRIBUISCI &middot; OTTIENI RISULTATI</div>
+          <div style={heroEyebrowStyle}>VOLANTINAGGIO &middot; DISTRIBUZIONE &middot; GEOMARKETING</div>
 
-          {/*
-            ALT 1 - volantinaggio di precisione
-            Titolo:   Volantinaggio di precisione.
-            Sottot.:  Dati territoriali reali, copertura GPS, prova fotografica di ogni consegna.
-
-            ALT 2 - misurabilita
-            Titolo:   Il volantinaggio, finalmente misurabile.
-            Sottot.:  Sai esattamente dove vanno i tuoi volantini - e puoi dimostrarlo.
-          */}
-          <h1 style={headlineStyle(compact)}>
-            <span style={{ display: "block" }}>Il volantinaggio</span>
-            <span style={{ display: "block" }}>diventa <span style={{ color: C.orange }}>geomarketing.</span></span>
+          <h1 style={{ ...headlineStyle(compact), maxWidth: 700 }}>
+            Campagne di volantinaggio pianificate con <span style={{ color: C.orange }}>mappa, GPS e report</span>
           </h1>
 
           <p style={copyStyle(compact)}>
-            Pianifica ogni campagna da una mappa operativa: seleziona la zona, imposta il raggio, verifica comuni e copertura, poi controlla distribuzione, GPS e report finale.
+            Scegli il servizio, seleziona la zona, calcola il raggio di distribuzione e verifica il lavoro con tracciamento GPS e report finale.
           </p>
 
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, marginBottom: 12 }}>
-            {/* The primary CTA is in the navbar, but the user wants a CTA in the hero body. I will add the secondary CTA here, and a duplicate of the primary if it makes sense. Wait, the user said "Aggiungere una CTA secondaria vicino alla CTA principale o sotto il blocco testo". The primary CTA is in the navbar. Maybe I should put both here so they are together in the hero. */}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, marginBottom: 16 }}>
             <Button variant="primary" className="vb" onClick={onConfigure} style={heroPrimaryButtonStyle}>
               Configura la tua campagna
             </Button>
             <Button variant="secondary" onClick={onHowItWorks} style={heroOutlineButtonStyle}>
-              Guarda il monitor
+              Vedi i servizi
             </Button>
           </div>
           
-          <p style={{ color: "rgba(255,255,255,0.6)", fontFamily: F.sans, fontSize: 13, marginTop: 0, marginBottom: 32 }}>
-            Calcola zona, quantità e copertura prima di distribuire.
-          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 32 }}>
+            {["Door to Door", "Hand to Hand", "Negozi", "Scuole", "Metro/Stazioni", "Report GPS"].map(chip => (
+              <span key={chip} style={{ padding: "5px 12px", borderRadius: 100, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", fontSize: 11, color: "rgba(226, 232, 240, 0.7)", fontWeight: 700, letterSpacing: "0.02em" }}>
+                {chip}
+              </span>
+            ))}
+          </div>
 
           <div style={{ display: "grid", gap: 20 }}>
             {benefits.map((benefit) => (
