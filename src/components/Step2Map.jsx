@@ -216,9 +216,11 @@ function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opac
           {primaryLayers.map(layer => {
             const meta = LAYER_META[layer.id] || { color: '#5B7FA6', icon: '○' };
             const civiciDisabled = layer.id === 'civici' && !civiciAvailable;
-            const isOn = civiciDisabled ? false : (activeLayers?.[layer.id] ?? layer.defaultOn ?? false);
-            const active = isOn && !layer.future && !civiciDisabled;
-            const settoriNoData = layer.id === 'settori' && !layer.future && isOn
+            const settoriDisabled = layer.id === 'settori' && !settori;
+            const isDisabled = civiciDisabled || settoriDisabled;
+            const isOn = isDisabled ? false : (activeLayers?.[layer.id] ?? layer.defaultOn ?? false);
+            const active = isOn && !layer.future && !isDisabled;
+            const settoriNoData = layer.id === 'settori' && !layer.future && (isOn || settoriDisabled)
               && (!settori || settori.length === 0);
             const civiciTag = layer.id === 'civici'
               ? (civiciAvailable ? { bg: 'rgba(22,163,74,0.14)', fg: 'rgba(34,197,94,0.82)', txt: 'disponibili' } : { bg: 'rgba(148,163,184,0.14)', fg: 'rgba(148,163,184,0.82)', txt: 'non disponibili' })
@@ -227,17 +229,17 @@ function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opac
             return (
               <div
                 key={layer.id}
-                onClick={!layer.future && !civiciDisabled ? () => onToggle?.(layer.id) : undefined}
+                onClick={!layer.future && !isDisabled ? () => onToggle?.(layer.id) : undefined}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 0,
-                  cursor: layer.future || civiciDisabled ? 'default' : 'pointer',
-                  opacity: layer.future ? 0.32 : (civiciDisabled ? 0.45 : 1),
+                  cursor: layer.future || isDisabled ? 'default' : 'pointer',
+                  opacity: layer.future ? 0.32 : (isDisabled ? 0.45 : 1),
                   transition: 'background 0.12s',
                   position: 'relative',
                 }}
-                onMouseEnter={e => { if (!layer.future && !civiciDisabled) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                onMouseEnter={e => { if (!layer.future && !isDisabled) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
               >
                 {/* Left color stripe – GIS layer indicator */}

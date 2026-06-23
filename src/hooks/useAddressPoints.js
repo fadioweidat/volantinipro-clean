@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { EMPTY_CIVICI_STATE, fetchAddressPointsInRadius, makeCiviciState } from '../lib/services/address-points-api.js';
+import { EMPTY_CIVICI_STATE, FALLBACK_CIVICI_STATE, fetchAddressPointsInRadius, makeCiviciState } from '../lib/services/address-points-api.js';
 
 const STABLE_EMPTY_RESULT = { civiciState: EMPTY_CIVICI_STATE, loading: false, error: null };
 
@@ -22,6 +22,7 @@ export function useAddressPoints(lat, lng, radiusKm, serviceType = 'd2d') {
   useEffect(() => {
     if (!canLoad) return undefined;
 
+    const controller = new AbortController();
     let cancelled = false;
 
     (async () => {
@@ -32,6 +33,7 @@ export function useAddressPoints(lat, lng, radiusKm, serviceType = 'd2d') {
           centerLat: latR,
           centerLng: lngR,
           radiusKm: radR,
+          signal: controller.signal
         });
         const totalCount =
           Number(result?.count || 0) ||
@@ -48,18 +50,23 @@ export function useAddressPoints(lat, lng, radiusKm, serviceType = 'd2d') {
           }));
         }
       } catch (err) {
+        if (err.name === 'AbortError') return;
+        
         console.error("[ADDRESS_POINTS_ERROR]", err, null, null, err?.message || err);
         if (import.meta.env.DEV) console.debug('[DBG address_points error]', err?.message);
         if (!cancelled) {
           setError(err?.message || 'ADDRESS_POINTS_ERROR');
-          setState(EMPTY_CIVICI_STATE);
+          setState(FALLBACK_CIVICI_STATE); // Graceful fallback
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [canLoad, latR, lngR, radR]);
 
   if (!canLoad) return STABLE_EMPTY_RESULT;

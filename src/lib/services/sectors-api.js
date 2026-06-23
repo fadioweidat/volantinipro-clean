@@ -4,31 +4,42 @@ import { supabase } from '../supabaseClient.js';
  * Fetches operational sectors from `map_sectors` via PostgREST RPC.
  * Returns a GeoJSON FeatureCollection, or null when backend is not ready.
  */
-export async function fetchSectors({ serviceType, centerLat, centerLng, radiusKm = 5 }) {
+export async function fetchSectors({ serviceType, centerLat, centerLng, radiusKm = 5, signal }) {
   if (!supabase) return null;
 
-  const { data, error } = await supabase.rpc('get_map_sectors', {
-    p_service_type: serviceType,
-    p_center_lat:   centerLat,
-    p_center_lng:   centerLng,
-    p_radius_km:    radiusKm,
-  });
+  console.log(`[MAP_SECTORS_REQUEST] type: ${serviceType}, lat: ${centerLat}, lng: ${centerLng}, radiusKm: ${radiusKm}`);
 
-  if (error) {
-    // Table / function not yet migrated — silent fallback so map stays usable
-    const msg = error.message ?? '';
-    if (
-      msg.includes('does not exist') ||
-      msg.includes('404') ||
-      msg.includes('42883') ||  // PostgreSQL: undefined_function
-      msg.includes('function')
-    ) {
+  try {
+    const { data, error } = await supabase.rpc('get_map_sectors', {
+      p_service_type: serviceType,
+      p_center_lat:   centerLat,
+      p_center_lng:   centerLng,
+      p_radius_km:    radiusKm,
+    }, { signal });
+
+    if (error) {
+      console.error("[MAP_SECTORS_ERROR]", error);
+      // Table / function not yet migrated — silent fallback so map stays usable
+      const msg = error.message ?? '';
+      if (
+        msg.includes('does not exist') ||
+        msg.includes('404') ||
+        msg.includes('42883') ||  // PostgreSQL: undefined_function
+        msg.includes('function')
+      ) {
+        return null;
+      }
+      // Return null instead of throwing to prevent crashing
       return null;
     }
-    throw error;
-  }
 
-  return data ?? null;
+    console.log(`[MAP_SECTORS_RESPONSE] Success, received features: ${data?.features?.length || 0}`);
+    return data ?? null;
+  } catch (err) {
+    if (err.name === 'AbortError') return null;
+    console.error("[MAP_SECTORS_ERROR]", err);
+    return null; // fallback
+  }
 }
 
 /**

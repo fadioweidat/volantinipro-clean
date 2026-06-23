@@ -2292,6 +2292,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               civiciState={civiciState}
               onLayerToggle={(id) => {
                 if (id === "civici" && !civiciAvailable) return;
+                if (id === "settori" && !sectors) return;
                 setActiveMapLayers(prev => ({ ...prev, [id]: !prev[id] }));
               }}
               layerPanelConfig={LAYER_PANEL_CONFIG[svcType] || LAYER_PANEL_CONFIG.d2d}

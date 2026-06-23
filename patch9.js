@@ -1,4 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+const fs = require('fs');
+
+try {
+  let code = fs.readFileSync('src/hooks/useServiceAnalysis.js', 'utf8');
+
+  // I will just replace the whole hook body to ensure it has all the logs exactly as requested.
+  const newHook = `import { useState, useEffect, useRef } from 'react';
 
 export function useServiceAnalysis(lat, lng, radius, service, municipality = null, quantity = null, scope = null, analysisLevel = null) {
   const [data, setData] = useState(null);
@@ -31,7 +37,7 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
         const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
         const endpoint = service === 'd2d' ? 'analysis-istat' : 'analysis-poi-search';
         const explicitUrl = service === 'd2d' ? import.meta.env.VITE_ANALYSIS_ISTAT_URL : import.meta.env.VITE_ANALYSIS_POI_URL;
-        const functionUrl = baseUrl ? `${baseUrl}/functions/v1/${endpoint}` : null;
+        const functionUrl = baseUrl ? \`\${baseUrl}/functions/v1/\${endpoint}\` : null;
         const apiUrl = explicitUrl || functionUrl;
         
         if (!apiUrl) {
@@ -40,10 +46,10 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
           return;
         }
         
-        const municipalityParam = municipality ? `&municipality=${encodeURIComponent(municipality)}` : '';
-        const quantityParam = quantity ? `&quantity=${encodeURIComponent(quantity)}` : '';
-        const analysisLevelParam = analysisLevel ? `&analysisLevel=${encodeURIComponent(analysisLevel)}` : '';
-        const url = `${apiUrl}?lat=${encodeURIComponent(centerLat)}&lng=${encodeURIComponent(centerLng)}&radius=${encodeURIComponent(radiusKm)}&service=${encodeURIComponent(service)}${municipalityParam}${quantityParam}${analysisLevelParam}`;
+        const municipalityParam = municipality ? \`&municipality=\${encodeURIComponent(municipality)}\` : '';
+        const quantityParam = quantity ? \`&quantity=\${encodeURIComponent(quantity)}\` : '';
+        const analysisLevelParam = analysisLevel ? \`&analysisLevel=\${encodeURIComponent(analysisLevel)}\` : '';
+        const url = \`\${apiUrl}?lat=\${encodeURIComponent(centerLat)}&lng=\${encodeURIComponent(centerLng)}&radius=\${encodeURIComponent(radiusKm)}&service=\${encodeURIComponent(service)}\${municipalityParam}\${quantityParam}\${analysisLevelParam}\`;
         
         if (import.meta.env.DEV) {
           console.log('[ZONE_ANALYSIS_REQUEST]', {
@@ -58,7 +64,7 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
 
         const headers = { 'Content-Type': 'application/json' };
         if (anonKey && apiUrl.includes('/functions/v1/')) {
-          headers.Authorization = `Bearer ${anonKey}`;
+          headers.Authorization = \`Bearer \${anonKey}\`;
           headers.apikey = anonKey;
         }
 
@@ -80,7 +86,7 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
         }
 
         if (!response.ok || result.error) {
-          setError(result.error || result.code || `HTTP_${response.status}`);
+          setError(result.error || result.code || \`HTTP_\${response.status}\`);
           setData(result.sources || result.metadata ? result : null);
         } else {
           setData(result);
@@ -104,4 +110,11 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
   }, [lat, lng, radius, service, municipality, quantity, scope, analysisLevel]);
 
   return { data, loading, error };
+}
+`;
+
+  fs.writeFileSync('src/hooks/useServiceAnalysis.js', newHook);
+  console.log('Patch 9 applied successfully.');
+} catch (e) {
+  console.error(e);
 }

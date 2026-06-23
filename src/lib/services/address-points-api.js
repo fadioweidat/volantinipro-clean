@@ -10,6 +10,18 @@ export const EMPTY_CIVICI_STATE = {
   points: [],
 };
 
+export const FALLBACK_CIVICI_STATE = {
+  available: false,
+  count: 0,
+  renderedCount: 0,
+  bboxCount: 0,
+  source: null,
+  coverage: 'none',
+  label: 'Civici non disponibili',
+  message: 'Dati civici non disponibili per questa zona',
+  points: [],
+};
+
 export function makeCiviciState(rows, totalCount = null, metadata = {}) {
   const points = Array.isArray(rows)
     ? rows
@@ -54,64 +66,77 @@ export function makeCiviciState(rows, totalCount = null, metadata = {}) {
   };
 }
 
-export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusKm }) {
+export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusKm, signal }) {
   const url = import.meta.env.VITE_SUPABASE_URL;
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
     return { rows: [], count: 0, bboxCount: 0, totalCount: 0, contentRangeCount: 0, renderedCount: 0 };
   }
 
-  const generatedUrl = `${url}/rest/v1/rpc/get_address_points_osm_in_radius`;
+  // Calculate bbox (1 degree lat is ~111km)
+  const latDelta = radiusKm / 111.0;
+  const lngDelta = radiusKm / (111.0 * Math.cos((centerLat * Math.PI) / 180));
+  const minLat = centerLat - latDelta;
+  const maxLat = centerLat + latDelta;
+  const minLng = centerLng - lngDelta;
+  const maxLng = centerLng + lngDelta;
 
-  const response = await fetch(generatedUrl, {
-    method: 'POST',
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      center_lat: centerLat,
-      center_lng: centerLng,
-      radius_km: radiusKm,
-      max_rows: 500,
-    }),
-  });
+  const generatedUrl = `${url}/rest/v1/address_points?select=*&source=eq.osm&lat=gte.${minLat}&lat=lte.${maxLat}&lng=gte.${minLng}&lng=lte.${maxLng}`;
 
-  const body = await response.text();
-  let rows = null;
+  console.log(`[ADDRESS_POINTS_FETCH_BBOX] lat: [${minLat}, ${maxLat}], lng: [${minLng}, ${maxLng}], radiusKm: ${radiusKm}`);
+
   try {
-    rows = body ? JSON.parse(body) : null;
-  } catch {
-    rows = body;
+    const response = await fetch(generatedUrl, {
+      method: 'GET',
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+        'Range-Unit': 'items',
+        'Range': '0-999',
+        'Prefer': 'count=exact'
+      },
+      signal
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("[ADDRESS_POINTS_ERROR] fetch failed", errText);
+      throw new Error(errText || 'ADDRESS_POINTS_REST_ERROR');
+    }
+
+    const rows = await response.json();
+    const contentRange = response.headers.get('content-range');
+    let contentRangeCount = rows.length;
+    if (contentRange) {
+      const match = contentRange.match(/\/(\d+)/);
+      if (match) contentRangeCount = parseInt(match[1], 10);
+    }
+
+    console.log(`[ADDRESS_POINTS_FETCH_SUCCESS] received ${rows.length} rows, content-range count: ${contentRangeCount}`);
+
+    const resultRows = rows
+      .map((row) => ({
+        ...row,
+        distance_m: distanceMeters(centerLat, centerLng, Number(row.lat), Number(row.lng)),
+      }))
+      .filter((row) => Number.isFinite(row.distance_m) && row.distance_m <= radiusKm * 1000)
+      .sort((a, b) => a.distance_m - b.distance_m);
+
+    const bboxCount = resultRows.length;
+
+    return {
+      rows: resultRows,
+      count: contentRangeCount,
+      bboxCount,
+      totalCount: contentRangeCount,
+      contentRangeCount,
+      renderedCount: resultRows.length,
+    };
+  } catch (err) {
+    console.error("[ADDRESS_POINTS_ERROR]", err?.message || err);
+    console.log("[ADDRESS_POINTS_FETCH_FALLBACK]");
+    throw err;
   }
-  if (!response.ok) {
-    console.error("[ADDRESS_POINTS_ERROR]", rows?.message || rows || 'ADDRESS_POINTS_REST_ERROR', response, response.status, rows);
-    throw new Error(rows?.message || 'ADDRESS_POINTS_REST_ERROR');
-  }
-
-  const resultRows = Array.isArray(rows)
-    ? rows
-        .map((row) => ({
-          ...row,
-          distance_m: row.distance_m != null
-            ? Number(row.distance_m)
-            : distanceMeters(centerLat, centerLng, Number(row.lat), Number(row.lng)),
-        }))
-        .filter((row) => Number.isFinite(row.distance_m))
-        .sort((a, b) => a.distance_m - b.distance_m)
-    : [];
-
-  const bboxCount = resultRows.length;
-
-  return {
-    rows: resultRows,
-    count: bboxCount,
-    bboxCount,
-    totalCount: bboxCount,
-    contentRangeCount: null,
-    renderedCount: resultRows.length,
-  };
 }
 
 function firstFiniteNumber(...values) {
