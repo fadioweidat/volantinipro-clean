@@ -3647,7 +3647,21 @@ function toggle(d) {
             <button onClick={() => { if (month < 11) setMonth(m => m + 1); else { setMonth(0); setYear(y => y + 1); } }} style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)", color: C.white, cursor: "pointer", fontSize: 14 }}>-–</button>
           </div>
 
-          <div style={{ background: "rgba(255,255,255,.03)", borderRadius: 13, padding: 16, border: "1px solid rgba(255,255,255,.06)" }}>
+          <div style={{ position: "relative", background: "rgba(255,255,255,.03)", borderRadius: 13, padding: 16, border: "1px solid rgba(255,255,255,.06)", overflow: "hidden" }}>
+            {realSmartPairingSlots.length === 0 && (
+              <div style={{ position: "absolute", inset: 0, background: "rgba(18,18,22,.82)", backdropFilter: "blur(3px)", borderRadius: 13, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center", zIndex: 5 }}>
+                <div style={{ fontSize: 26, marginBottom: 8 }}>📅</div>
+                <div style={{ fontFamily: F.serif, fontSize: 18, color: C.white, marginBottom: 4 }}>
+                  Nessuno slot in questa zona per {MONTHS_FULL[month]}
+                </div>
+                <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.58)", maxWidth: 280, marginBottom: 14, lineHeight: 1.5 }}>
+                  Appena apriamo campagne compatibili a {zoneLabel || "questa zona"} ti avvisiamo con priorità.
+                </div>
+                <button onClick={() => setShowRequest(true)} style={{ padding: "8px 16px", borderRadius: 8, background: C.orange, border: "none", color: C.white, fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  Richiedi un avviso
+                </button>
+              </div>
+            )}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, marginBottom: 5 }}>
               {DI.map(d => <div key={d} style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.26)", textAlign: "center", padding: "3px 0", letterSpacing: ".05em" }}>{d}</div>)}
             </div>
@@ -3708,7 +3722,7 @@ let bg = "rgba(255,255,255,.025)", border = "1px solid rgba(255,255,255,.04)", t
               {periodLabel && <><b style={{ color: C.white }}>Periodo Step 1:</b> {periodLabel}<br /></>}
               <b style={{ color: C.white }}>Stato:</b> {pairingDays.length ? "Smart Pairing selezionato" : "nessuna opportunità selezionata"}
             </div>
-            {selDays.length === 0 ? <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.3)", textAlign: "center", padding: "14px 0" }}>Richiedi disponibilità per questa zona.</div> :
+            {selDays.length === 0 ? <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.38)", textAlign: "center", padding: "14px 0", fontStyle: "italic" }}>Nessun giorno selezionato</div> :
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
                 {selDays.map(k => { const p = pairs[k]; return <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "7px 9px", borderRadius: 8, background: "rgba(255,255,255,.05)", fontFamily: F.sans, fontSize: 11 }}><span style={{ color: C.white }}>{fmtDay(k)}</span><span style={{ color: p?.type === "same" ? C.green : C.purple, fontWeight: 700 }}>{p ? `Smart Pairing -${p.disc}%` : "Data richiesta"}</span></div> })}
               </div>}
@@ -3737,15 +3751,18 @@ let bg = "rgba(255,255,255,.025)", border = "1px solid rgba(255,255,255,.04)", t
             <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.34)", lineHeight: 1.55 }}>Il prezzo finale viene calcolato nello Step 4 in base a servizio, zona, quantità e date.</div>
           </div>
 
-          <div style={{ padding: "11px 13px", borderRadius: 10, background: "rgba(251,191,36,.06)", border: "1px solid rgba(251,191,36,.16)", fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", lineHeight: 1.45 }}>
-            Disponibilità reale non ancora configurata. Puoi inviare una richiesta per questa zona.
-          </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: "auto" }}>
-            <button className="btn" onClick={handlePrimary} disabled={selDays.length === 0}
-              style={{ width: "100%", padding: "14px", borderRadius: 11, border: "none", background: selDays.length === 0 ? "rgba(255,255,255,.1)" : C.orange, color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: selDays.length === 0 ? "not-allowed" : "pointer", boxShadow: selDays.length ? `0 6px 18px ${C.orangeGlow}` : "none" }}>
-              {selDays.length === 0 ? "Nessuno slot disponibile" : "Genera preventivo"}
-            </button>
+            {selDays.length > 0 ? (
+              <button className="btn" onClick={handlePrimary}
+                style={{ width: "100%", padding: "14px", borderRadius: 11, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: `0 6px 18px ${C.orangeGlow}` }}>
+                Genera preventivo
+              </button>
+            ) : (
+              <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.38)", textAlign: "center", padding: "6px 0" }}>
+                Nessuno slot selezionato
+              </div>
+            )}
             {isContinuativePlan && <button className="btn" onClick={() => setShowRequest(true)} style={{ width: "100%", padding: "11px", borderRadius: 10, border: "1px solid rgba(167,139,250,.28)", background: "rgba(167,139,250,.08)", color: C.purple, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Richiedi avviso per piano continuativo</button>}
             <button className="btn" onClick={handleSkipPairing} style={{ width: "100%", padding: "11px", borderRadius: 10, border: "1px solid rgba(255,255,255,.14)", background: "rgba(255,255,255,.035)", color: "rgba(255,255,255,.66)", fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Continua con richiesta disponibilità</button>
             <button className="btn" onClick={onBack} style={{ width: "100%", padding: "11px", borderRadius: 10, border: "1px solid rgba(255,255,255,.1)", background: "transparent", color: "rgba(255,255,255,.42)", fontFamily: F.sans, fontSize: 13, cursor: "pointer" }}>Zona & Mappa</button>
