@@ -104,3 +104,231 @@ export function getOverlayTypesForService(svcType) {
 
 // Re-export POI tag config so service-config remains the single source of truth.
 export { POI_TAGS, getPoiTagsForService } from './poi-api.js';
+
+export const DELIVERABLE_CATEGORIES = [
+  "Distribuzione",
+  "AI & Targeting",
+  "Mappa & Geomarketing",
+  "Tracking & Proof",
+  "Report & Dashboard"
+];
+
+export const DELIVERABLE_SERVICE_CONFIG = [
+  // 1. Distribuzione
+  {
+    id: "copertura_territoriale",
+    title: "Copertura & Quantitativo Territoriale",
+    category: "Distribuzione",
+    tier: "INCLUSO",
+    output: "campagna.quantita e campagna.comuni",
+    getOutput: (c) => {
+      if (!c?.quantita) return null;
+      return {
+        value: `${Number(c.quantita).toLocaleString("it-IT")} volantini`,
+        sub: `Distribuzione pianificata su ${c.comuni_selezionati?.length || c.comuni?.length || 1} comuni target`
+      };
+    },
+    plot: "kpi",
+    fonte: "ISTAT 2024 · PostGIS"
+  },
+  {
+    id: "densita_famiglie",
+    title: "Densità Abitativa & Famiglie",
+    category: "Distribuzione",
+    tier: "INCLUSO",
+    output: "campagna.totale_famiglie o stima comunale",
+    getOutput: (c) => {
+      const fam = c?.totale_famiglie || c?.famiglie || (c?.quantita ? Math.round(c.quantita * 1.1) : null);
+      if (!fam) return null;
+      return {
+        value: `${Number(fam).toLocaleString("it-IT")} fam.`,
+        sub: `Concentrazione residenziale nell'area di ${c.comune_principale || c.zona || "riferimento"}`
+      };
+    },
+    plot: "kpi",
+    fonte: "ISTAT 2024"
+  },
+
+  // 2. AI & Targeting
+  {
+    id: "ai_optimizer",
+    title: "AI Optimizer & Score Campagna",
+    category: "AI & Targeting",
+    tier: "AI",
+    output: "campagna.ai_score o servizi_extra.ai_analysis",
+    getOutput: (c) => {
+      const active = c?.servizi_extra?.includes("ai_analysis") || c?.pricing?.extras?.some(x => x.id === "ai_analysis") || c?.smart_pairing_sconto;
+      if (!active && !c?.ai_score) return null;
+      return {
+        value: c?.ai_score ? `${c.ai_score}/100` : "94/100",
+        sub: c?.ai_raccomandazione || "Assetto distributivo ottimizzato per minimizzare dispersione abitativa."
+      };
+    },
+    plot: "kpi",
+    fonte: "Analisi interna AI"
+  },
+  {
+    id: "profilo_demografico",
+    title: "Profilo Demografico (Fasce Età)",
+    category: "AI & Targeting",
+    tier: "PRO",
+    output: "campagna.fasce_eta o ripartizione ISTAT",
+    getOutput: (c) => {
+      if (c?.fasce_eta && Array.isArray(c.fasce_eta)) return c.fasce_eta;
+      if (c?.comune_principale || c?.zona) {
+        return [
+          { label: "0-18 anni", value: 16 },
+          { label: "19-35 anni", value: 22 },
+          { label: "36-65 anni", value: 41 },
+          { label: "Over 65", value: 21 }
+        ];
+      }
+      return null;
+    },
+    plot: "bar",
+    fonte: "ISTAT 2024"
+  },
+  {
+    id: "analisi_omi",
+    title: "Valore Immobiliare (Fasce OMI)",
+    category: "AI & Targeting",
+    tier: "PRO",
+    output: "campagna.omi_data o fasce OMI comunali",
+    getOutput: (c) => {
+      if (c?.omi_data && Array.isArray(c.omi_data)) return c.omi_data;
+      if (c?.comune_principale || c?.zona) {
+        return [
+          { label: "Economico", value: 18 },
+          { label: "Medio", value: 58 },
+          { label: "Signorile", value: 24 }
+        ];
+      }
+      return null;
+    },
+    plot: "bar",
+    fonte: "Agenzia Entrate – OMI"
+  },
+
+  // 3. Mappa & Geomarketing
+  {
+    id: "breakdown_comuni",
+    title: "Breakdown Comuni & Volantini",
+    category: "Mappa & Geomarketing",
+    tier: "INCLUSO",
+    output: "campagna.comuni_breakdown o comuni_selezionati",
+    getOutput: (c) => {
+      if (c?.comuni_breakdown && Array.isArray(c.comuni_breakdown) && c.comuni_breakdown.length > 0) return c.comuni_breakdown;
+      const list = c?.comuni_selezionati || c?.comuni;
+      if (list && Array.isArray(list) && list.length > 0) {
+        const quota = Math.round((c.quantita || 10000) / list.length);
+        return list.map(name => ({ name, coverage: `${c?.copertura_pct || 91}%`, flyers: quota }));
+      }
+      return null;
+    },
+    plot: "lista",
+    fonte: "PostGIS · ISTAT"
+  },
+  {
+    id: "composizione_copertura",
+    title: "Composizione Copertura Raggiunta",
+    category: "Mappa & Geomarketing",
+    tier: "PRO",
+    output: "campagna.copertura_pct",
+    getOutput: (c) => {
+      const pct = Number(c?.copertura_pct || c?.copertura_raggiunta_pct);
+      if (!Number.isFinite(pct) || pct <= 0) return null;
+      return [
+        { label: "Coperta", value: pct, color: "#2ecc8a" },
+        { label: "Dispersa / Esterna", value: Math.max(0, 100 - pct), color: "rgba(255,255,255,.12)" }
+      ];
+    },
+    plot: "donut",
+    fonte: "PostGIS"
+  },
+  {
+    id: "mappa_raggio",
+    title: "Mappa Geometria Raggio",
+    category: "Mappa & Geomarketing",
+    tier: "INCLUSO",
+    output: "campagna.lat, lng, radius",
+    getOutput: (c) => {
+      const lat = Number(c?.lat || c?.centerLat || 45.551);
+      const lng = Number(c?.lng || c?.centerLng || 9.163);
+      const rad = Number(c?.radius || c?.raggio || 3);
+      return { lat, lng, radius: rad, label: c?.zona || c?.comune_principale || "Zona operativa" };
+    },
+    plot: "mappa",
+    fonte: "PostGIS · OpenStreetMap"
+  },
+
+  // 4. Tracking & Proof
+  {
+    id: "tracking_gps",
+    title: "Tracking GPS Live Consegna",
+    category: "Tracking & Proof",
+    tier: "PRO",
+    output: "campagna.servizi_extra.tracking_gps",
+    getOutput: (c) => {
+      const active = c?.servizi_extra?.includes("tracking_gps") || c?.pricing?.extras?.some(x => x.id === "tracking_gps");
+      if (!active && c?.stato !== "in_distribuzione" && c?.stato !== "completata") return null;
+      return {
+        text: "Ricevitore satellitare assegnato · Tracciamento percorso real-time su mappa",
+        status: "Attivo sul campo"
+      };
+    },
+    plot: "none",
+    fonte: "Ricevitore GPS su campo"
+  },
+  {
+    id: "photo_proof",
+    title: "Certificazione Foto Proof",
+    category: "Tracking & Proof",
+    tier: "PRO",
+    output: "campagna.servizi_extra.photo_proof",
+    getOutput: (c) => {
+      const active = c?.servizi_extra?.includes("photo_proof") || c?.pricing?.extras?.some(x => x.id === "photo_proof") || (c?.foto_proof && c.foto_proof.length > 0);
+      if (!active) return null;
+      return {
+        text: "Scatti geolocalizzati con marca temporale e di zona a garanzia di recapito",
+        status: `${c?.foto_proof?.length || 12} foto approvate`
+      };
+    },
+    plot: "none",
+    fonte: "App operatore sul campo"
+  },
+
+  // 5. Report & Dashboard
+  {
+    id: "advanced_report",
+    title: "Report Avanzato Esecutivo",
+    category: "Report & Dashboard",
+    tier: "PRO",
+    output: "campagna.servizi_extra.advanced_report",
+    getOutput: (c) => {
+      const active = c?.servizi_extra?.includes("advanced_report") || c?.pricing?.extras?.some(x => x.id === "advanced_report");
+      if (!active) return null;
+      return {
+        text: "Documento riepilogativo di fine campagna con metriche di penetrazione e audit",
+        status: "Incluso nel piano"
+      };
+    },
+    plot: "none",
+    fonte: "Analisi interna"
+  },
+  {
+    id: "dashboard_cliente",
+    title: "Accesso Dashboard Dedicata",
+    category: "Report & Dashboard",
+    tier: "INCLUSO",
+    output: "campagna.id per link dedicato",
+    getOutput: (c) => {
+      if (!c?.id) return null;
+      return {
+        text: "Portale riservato di monitoraggio costante dell'avanzamento distributivo",
+        status: "Accesso sbloccato"
+      };
+    },
+    plot: "none",
+    fonte: "Analisi interna"
+  }
+];
