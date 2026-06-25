@@ -24,7 +24,7 @@ export function MetricValue({ value, format, unit, color }: MetricValueProps) {
   let rendered = value;
   if (typeof value === "number") {
     if (format === "percent") rendered = `${value}%`;
-    else rendered = value.toLocaleString("it-IT");
+    else rendered = value.toLocaleString("it-IT", { useGrouping: true });
   }
 
   if (format === "currency-range" && typeof value === "string") {

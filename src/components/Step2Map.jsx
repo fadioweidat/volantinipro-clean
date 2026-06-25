@@ -1052,7 +1052,7 @@ export function Step2Map({
               },
               interactive: true,
             }).bindTooltip(
-              `<b>${esc(z.name)}</b><br>Famiglie: <b>${(fam).toLocaleString('it-IT')}</b>`,
+              `<b>${esc(z.name)}</b><br>Famiglie: <b>${(fam).toLocaleString("it-IT", { useGrouping: true })}</b>`,
               { direction: 'center', sticky: true, opacity: 1 }
             ).addTo(densityGroup);
           } catch (_e) {}
@@ -1166,9 +1166,9 @@ function _buildD2DTip(z, col, sel) {
   const density = z.area > 0 ? Math.round((z.families || 0) / z.area) : null;
   return [
     `<b style="color:rgba(255,255,255,0.95)">${esc(z.name)}</b>`,
-    `Famiglie: <b>${(z.families || 0).toLocaleString('it-IT')}</b>`,
-    density ? `Densità: <b>${density.toLocaleString('it-IT')} fam/km²</b>` : null,
-    `Volantini consigliati: <b>${flyers.toLocaleString('it-IT')}</b>`,
+    `Famiglie: <b>${(z.families || 0).toLocaleString("it-IT", { useGrouping: true })}</b>`,
+    density ? `Densità: <b>${density.toLocaleString("it-IT", { useGrouping: true })} fam/km²</b>` : null,
+    `Volantini consigliati: <b>${flyers.toLocaleString("it-IT", { useGrouping: true })}</b>`,
     `Copertura: ${_wPct}%`,
     sel ? `<span style="color:#6EC4A0">✓ Selezionata</span>` : `<span style="color:rgba(255,255,255,0.32)">○ Non inclusa</span>`,
   ].filter(Boolean).join('<br>');
@@ -1192,8 +1192,8 @@ function _buildSectorTip(s, num, munByCode, svcType, city, munSectorCounts, sele
   const nSectors = (munCode && munSectorCounts?.[munCode]) || 1;
   const famTot   = mun?.families || 0;
   const flyTot   = mun?.volantiniNelRaggio || mun?.flyersMin || famTot;
-  const famSec   = famTot > 0 ? Math.round(famTot / nSectors).toLocaleString('it-IT') : null;
-  const flySec   = flyTot > 0 ? Math.round(flyTot / nSectors).toLocaleString('it-IT') : null;
+  const famSec   = famTot > 0 ? Math.round(famTot / nSectors).toLocaleString("it-IT", { useGrouping: true }) : null;
+  const flySec   = flyTot > 0 ? Math.round(flyTot / nSectors).toLocaleString("it-IT", { useGrouping: true }) : null;
   const isMunSel = isD2D && mun && selected?.includes(mun.id);
   const name     = s.name ? ` — ${esc(s.name)}` : '';
 
