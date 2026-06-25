@@ -3710,8 +3710,8 @@ let bg = "rgba(255,255,255,.025)", border = "1px solid rgba(255,255,255,.04)", t
                 <textarea value={form.note || ""} onChange={e => setForm(f => ({...f, note: e.target.value }))} placeholder="Note opzionali" rows={3} style={{...inputStyle, resize: "vertical" }} />
               </div>
               {formError && <div style={{ padding: "7px 12px", borderRadius: 7, background: "rgba(248,113,113,.1)", border: "1px solid rgba(248,113,113,.28)", fontFamily: F.sans, fontSize: 11, color: C.red, marginBottom: 10 }}>{formError}</div>}
-              <button className="btn" onClick={handleRequestSubmit} style={{ width: "100%", padding: "12px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                Avvisami quando siete nella mia zona
+              <button className="btn" onClick={handleRequestSubmit} style={{ width: "100%", padding: "14px", borderRadius: 11, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: `0 6px 18px ${C.orangeGlow}` }}>
+                Avvisami appena ci sono slot compatibili
               </button>
             </div>
           )}
