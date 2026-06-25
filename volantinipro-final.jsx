@@ -1438,11 +1438,17 @@ const addressPointParams = useMemo(() => ({
   radiusKm,
   serviceType: svcType,
 }), [city?.lat, city?.lng, radiusKm, svcType]);
+const civiciFetchEnabled =
+  svcType === "d2d" &&
+  activeMapLayers?.civici === true &&
+  Boolean(city?.lat && city?.lng && radiusKm);
+
 const { civiciState, loading: civiciLoading } = useAddressPoints(
   addressPointParams.lat,
   addressPointParams.lng,
   addressPointParams.radiusKm,
-  addressPointParams.serviceType
+  addressPointParams.serviceType,
+  civiciFetchEnabled
 );
   const analysisLoading = apiLoading;
   const gisLoading = Boolean(city && (apiLoading || sectorsLoading || poiLoading || civiciLoading || transportLoading));
@@ -1758,7 +1764,7 @@ const serviceKpis = selZones.length > 0 ? {
     families: isResidentialStep2 ? selZones.reduce((a, z) => a + (Number(z.families) || 0), 0) : 0,
     pop: isResidentialStep2 ? selZones.reduce((a, z) => a + (Number(z.pop) || 0), 0) : 0,
     population: isResidentialStep2 ? selZones.reduce((a, z) => a + (Number(z.pop) || 0), 0) : 0,
-    coverage: isResidentialStep2 ? Math.round(selZones.reduce((a, z) => a + (Number(z.coverage) || 0), 0) / selZones.length) : null,
+    coverage: isResidentialStep2 ? (requiredFlyers > 0 ? Math.min(100, Math.round((flyerQuantityFromStep1 / requiredFlyers) * 100)) : Math.round(selZones.reduce((a, z) => a + (Number(z.coverage) || 0), 0) / selZones.length)) : null,
     recommendedFlyers: isResidentialStep2 ? selZones.reduce((a, z) => a + (Number(z.flyersMin) || 0), 0) : 0,
     selectedComuni: selZones.map(z => z.name),
     selectedNil: isNilAnalysis ? selZones.map(z => ({ code: z.nilCode, name: z.name })) : [],
@@ -2621,16 +2627,18 @@ const isManual = allocationMode === "manual";
                         {/* Checkbox */}
                         <div onClick={() => { if (!isMovementStep2 && !(isBusinessStep2 && businessMetrics.clusterRows.length)) toggleZone(z.id); }} style={{
                           width: 18, height: 18, borderRadius: 5, cursor: "pointer",
-                          border: `2px solid ${sel ? col : "rgba(255,255,255,.2)"}`,
-                          background: sel ? col : "transparent", display: "flex", alignItems: "center", justifyContent: "center"
+                          border: `2px solid ${coverageState !== "none" ? col : "rgba(255,255,255,.2)"}`,
+                          background: coverageState === "full" ? col : coverageState === "partial" ? `${col}33` : "transparent", display: "flex", alignItems: "center", justifyContent: "center"
                         }}>
-                          {sel && <svg width="9" height="9" viewBox="0 0 9 9"><path d="M1.5 4.5l2 2 4-4" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" /></svg>}
+                          {coverageState === "full" && <svg width="9" height="9" viewBox="0 0 9 9"><path d="M1.5 4.5l2 2 4-4" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" /></svg>}
+                          {coverageState === "partial" && <div style={{ width: 6, height: 2, background: col, borderRadius: 1 }} />}
                         </div>
 
                         {/* Nome & Info */}
                         <div onClick={() => { if (!isMovementStep2 && !(isBusinessStep2 && businessMetrics.clusterRows.length)) toggleZone(z.id); }} style={{ cursor: isMovementStep2 || (isBusinessStep2 && businessMetrics.clusterRows.length) ? "default" : "pointer", flex: 1 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: sel ? 700 : 400, color: sel ? C.white : "rgba(255,255,255,.45)" }}>{z.name}</div>
+                            <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: coverageState !== "none" ? 700 : 400, color: coverageState !== "none" ? C.white : "rgba(255,255,255,.45)" }}>{z.name}</div>
+                            {coverageState === "partial" && <span style={{ padding: "1px 5px", borderRadius: 4, background: `${col}15`, border: `1px solid ${col}40`, fontFamily: F.sans, fontSize: 8, color: col, fontWeight: 800 }}>PARZIALE</span>}
                             {z.isNil && <span style={{ padding: "1px 5px", borderRadius: 4, background: `${getComuneColor(z.id)}22`, border: `1px solid ${getComuneColor(z.id)}55`, fontFamily: F.sans, fontSize: 8, color: getComuneColor(z.id), fontWeight: 800 }}>NIL</span>}
                             {z.isCap && <span style={{ padding: "1px 5px", borderRadius: 4, background: "rgba(255,255,255,.1)", fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.4)", fontWeight: 700 }}>CAP</span>}
                             {z.source_flags?.includes('Stima territoriale') && <span style={{ padding: "1px 5px", borderRadius: 4, background: "rgba(251,191,36,.15)", border: "1px solid rgba(251,191,36,.3)", fontFamily: F.sans, fontSize: 8, color: C.yellow, fontWeight: 700 }}>Stima territoriale</span>}

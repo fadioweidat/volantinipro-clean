@@ -340,44 +340,57 @@ function HomePage({ map, analysis, sectors, poi, omi, onStart, onOpenMap }) {
   return (
     <main className="site-shell">
       <header className="site-nav">
-        <button className="brand-mark" type="button">VolantiniPro</button>
+        <button className="brand-mark" type="button" style={{color: 'var(--primary)', fontSize: '1.2rem'}}>Volantini<span style={{color: 'var(--accent)'}}>Pro</span></button>
         <nav>
-          <button type="button" onClick={onOpenMap}>Mappa GIS</button>
-          <button type="button" onClick={onStart}>Configura campagna</button>
+          <button type="button" onClick={onOpenMap} style={{background: 'transparent', border: 'none', color: 'var(--text-muted)', fontWeight: 600}}>Mappa GIS</button>
+          <button type="button" onClick={onStart} style={{background: 'var(--primary)', color: 'white', border: 'none'}}>Configura campagna</button>
         </nav>
       </header>
 
       <section className="home-hero">
+        <div className="home-copy">
+          <p className="eyebrow" style={{color: 'var(--text-muted)'}}>Piattaforma SaaS di Pianificazione Territoriale</p>
+          <h1>Distribuzione intelligente basata su dati reali.</h1>
+          <p>
+            VolantiniPro integra analisi geografiche, dati ISTAT, GIS e OMI in un flusso unico. 
+            Progetta la tua campagna Door-to-Door o Hand-to-Hand con precisione matematica e ottieni un preventivo immediato.
+          </p>
+          <div className="hero-actions" style={{marginTop: '12px'}}>
+            <button className="primary-action" type="button" onClick={onStart} style={{padding: '16px 24px', fontSize: '1.05rem'}}>Avvia configuratore</button>
+            <button className="secondary-action" type="button" onClick={onOpenMap} style={{padding: '16px 24px', fontSize: '1.05rem', background: 'transparent', border: '1px solid var(--border-light)'}}>Esplora Mappa GIS</button>
+          </div>
+          
+          <div style={{marginTop: '32px', display: 'flex', gap: '24px', alignItems: 'center'}}>
+            <div style={{display: 'flex', flexDirection: 'column'}}>
+              <span style={{fontSize: '1.8rem', fontWeight: 800, color: 'var(--primary)'}}>{loadingValue(analysis.loading, values.comuni_coinvolti)}</span>
+              <span style={{fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase'}}>Comuni Analizzati</span>
+            </div>
+            <div style={{width: '1px', height: '40px', background: 'var(--border-light)'}}></div>
+            <div style={{display: 'flex', flexDirection: 'column'}}>
+              <span style={{fontSize: '1.8rem', fontWeight: 800, color: 'var(--primary)'}}>{loadingValue(analysis.loading, values.famiglie_stimate)}</span>
+              <span style={{fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase'}}>Famiglie ISTAT</span>
+            </div>
+            <div style={{width: '1px', height: '40px', background: 'var(--border-light)'}}></div>
+            <div style={{display: 'flex', flexDirection: 'column'}}>
+              <span style={{fontSize: '1.8rem', fontWeight: 800, color: 'var(--primary)'}}>{loadingValue(poi.loading, poi.pois?.length)}</span>
+              <span style={{fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase'}}>POI Reali Map</span>
+            </div>
+          </div>
+        </div>
         <div className="home-map" aria-label="Anteprima GIS Lombardia">
           {map}
         </div>
-        <div className="home-copy">
-          <p className="eyebrow">Pianificazione territoriale</p>
-          <h1>Distribuzione volantini con mappe, dati ISTAT e preventivo operativo.</h1>
-          <p>
-            VolantiniPro unisce Supabase, settori Lombardia, funzioni ISTAT, POI e OMI/AdminInfo in un flusso unico:
-            scegli il servizio, valida la zona su mappa, pianifica il calendario e chiudi il riepilogo.
-          </p>
-          <div className="hero-actions">
-            <button className="primary-action" type="button" onClick={onStart}>Avvia configuratore</button>
-            <button className="secondary-action" type="button" onClick={onOpenMap}>Apri Step 2 GIS</button>
-          </div>
-        </div>
-      </section>
-
-      <section className="home-kpis" aria-label="Stato backend">
-        <HomeKpi label="Comuni nel raggio" value={values.comuni_coinvolti} loading={analysis.loading} />
-        <HomeKpi label="Famiglie ISTAT" value={values.famiglie_stimate} loading={analysis.loading} />
-        <HomeKpi label="Settori mappa" value={sectors.sectors?.length} loading={sectors.loading} />
-        <HomeKpi label="POI reali" value={poi.pois?.length} loading={poi.loading} />
-        <HomeKpi label="Zone OMI" value={omi.data?.values?.omi_zone_count} loading={omi.loading} />
       </section>
 
       <section className="workflow-band">
+        <div style={{gridColumn: '1 / -1', textAlign: 'center', marginBottom: '32px'}}>
+          <h2 style={{fontSize: '2.2rem', fontWeight: 800, color: 'var(--primary)'}}>Come funziona</h2>
+          <p style={{color: 'var(--text-muted)', fontSize: '1.1rem', marginTop: '12px'}}>Un flusso guidato per progettare la tua campagna in 4 step.</p>
+        </div>
         {steps.map((step) => (
           <article key={step.id}>
-            <span>{step.id}</span>
-            <h2>{step.label}</h2>
+            <span style={{background: 'var(--primary)', boxShadow: 'var(--shadow-md)'}}>{step.id}</span>
+            <h2 style={{color: 'var(--primary)'}}>{step.label}</h2>
             <p>{workflowText(step.id)}</p>
           </article>
         ))}
@@ -386,13 +399,10 @@ function HomePage({ map, analysis, sectors, poi, omi, onStart, onOpenMap }) {
   );
 }
 
-function HomeKpi({ label, value, loading }) {
-  return (
-    <div className="home-kpi">
-      <span>{label}</span>
-      <strong>{loading ? "..." : value == null ? "n/d" : Number(value).toLocaleString("it-IT")}</strong>
-    </div>
-  );
+function loadingValue(loading, value) {
+  if (loading) return "...";
+  if (value == null) return "n/d";
+  return Number(value).toLocaleString("it-IT");
 }
 
 function workflowText(stepId) {
