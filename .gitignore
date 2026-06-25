@@ -113,3 +113,7 @@ data/**/*.sqlite
 *.sql
 backup/
 backups/
+
+# Agents
+.agent/
+.agents/
