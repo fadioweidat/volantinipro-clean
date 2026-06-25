@@ -3602,7 +3602,7 @@ function toggle(d) {
       <div style={{ marginBottom: 22 }}>
         <h2 style={{ fontFamily: F.serif, fontSize: 34, color: C.white, letterSpacing: "-1px", marginBottom: 7 }}>Smart Pairing</h2>
         <p style={{ fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.48)", lineHeight: 1.65, maxWidth: 760 }}>
-          Il calendario mostra opportunità Smart Pairing solo quando arrivano da disponibilità reali del backend. Se non ci sono slot confermati, puoi inviare una richiesta di disponibilità.
+          Il calendario mostra opportunità Smart Pairing solo quando arrivano da disponibilità reali del backend. Se non trovi date adatte, puoi chiedere un avviso prioritario.
         </p>
       </div>
 
@@ -3617,7 +3617,7 @@ function toggle(d) {
                 </div>
               ))}
               <div style={{ gridColumn: "1 / -1", fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", lineHeight: 1.45 }}>
-                Per piani continuativi, lo Smart Pairing mostra solo abbinamenti compatibili confermati dal backend. Se non trovi slot adatti, invia una richiesta e il team ti avviserà quando ci sono campagne compatibili.
+                Per piani continuativi, lo Smart Pairing mostra solo abbinamenti compatibili confermati dal backend. Se non trovi slot adatti, richiedi un avviso e il team ti avviserà appena apriamo campagne compatibili.
               </div>
             </div>
           )}
@@ -3637,7 +3637,7 @@ function toggle(d) {
           </div>
           {realSmartPairingSlots.length === 0 && (
             <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 10, background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.2)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.62)", lineHeight: 1.55 }}>
-              Disponibilità reale non ancora configurata. Puoi inviare una richiesta. Nessuno slot Smart Pairing disponibile per questa zona nelle date selezionate.
+              Nessuna campagna Smart Pairing confermata nelle date selezionate. Usa l'opzione 'Avvisami' per ricevere una notifica appena apriamo slot compatibili col tuo piano.
             </div>
           )}
 
@@ -3658,7 +3658,7 @@ function toggle(d) {
                   Appena apriamo campagne compatibili a {zoneLabel || "questa zona"} ti avvisiamo con priorità.
                 </div>
                 <button onClick={() => setShowRequest(true)} style={{ padding: "8px 16px", borderRadius: 8, background: C.orange, border: "none", color: C.white, fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                  Richiedi un avviso
+                  Avvisami per questa zona
                 </button>
               </div>
             )}
@@ -3686,9 +3686,11 @@ let bg = "rgba(255,255,255,.025)", border = "1px solid rgba(255,255,255,.04)", t
             </div>
           </div>
 
-          <button onClick={() => { setShowRequest(v => !v); setSelDays([]); setFormSent(false); setFormError(""); }} style={{ marginTop: 14, padding: "11px 15px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-            Non trovo il giorno che voglio
-          </button>
+          {realSmartPairingSlots.length > 0 && (
+            <button onClick={() => { setShowRequest(v => !v); setSelDays([]); setFormSent(false); setFormError(""); }} style={{ marginTop: 14, padding: "11px 15px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              Non trovo il giorno che voglio · Avvisami per date diverse
+            </button>
+          )}
 
           {showRequest && (
             <div style={{ marginTop: 16, borderRadius: 14, padding: "20px", background: "rgba(255,255,255,.05)", border: "2px solid rgba(251,191,36,.28)" }}>
@@ -3763,8 +3765,8 @@ let bg = "rgba(255,255,255,.025)", border = "1px solid rgba(255,255,255,.04)", t
                 Nessuno slot selezionato
               </div>
             )}
-            {isContinuativePlan && <button className="btn" onClick={() => setShowRequest(true)} style={{ width: "100%", padding: "11px", borderRadius: 10, border: "1px solid rgba(167,139,250,.28)", background: "rgba(167,139,250,.08)", color: C.purple, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Richiedi avviso per piano continuativo</button>}
-            <button className="btn" onClick={handleSkipPairing} style={{ width: "100%", padding: "11px", borderRadius: 10, border: "1px solid rgba(255,255,255,.14)", background: "rgba(255,255,255,.035)", color: "rgba(255,255,255,.66)", fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Continua con richiesta disponibilità</button>
+            {isContinuativePlan && <button className="btn" onClick={() => setShowRequest(true)} style={{ width: "100%", padding: "11px", borderRadius: 10, border: "1px solid rgba(167,139,250,.28)", background: "rgba(167,139,250,.08)", color: C.purple, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Avvisami per piano continuativo</button>}
+            <button className="btn" onClick={handleSkipPairing} style={{ width: "100%", padding: "11px", borderRadius: 10, border: "1px solid rgba(255,255,255,.14)", background: "rgba(255,255,255,.035)", color: "rgba(255,255,255,.66)", fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Continua al preventivo standard (senza pairing)</button>
             <button className="btn" onClick={onBack} style={{ width: "100%", padding: "11px", borderRadius: 10, border: "1px solid rgba(255,255,255,.1)", background: "transparent", color: "rgba(255,255,255,.42)", fontFamily: F.sans, fontSize: 13, cursor: "pointer" }}>Zona & Mappa</button>
           </div>
         </div>
