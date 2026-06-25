@@ -3622,19 +3622,21 @@ function toggle(d) {
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 14, marginBottom: 14, flexWrap: "wrap" }}>
-            {[
-              { c: C.green, l: "Verde: Smart Pairing stessa zona confermato" },
-              { c: C.purple, l: "Viola/Blu: Smart Pairing zona compatibile confermato" },
-              { c: C.orange, l: "Bordo/check: selezionato" },
-              { c: "rgba(255,255,255,.08)", l: "Nessun colore: disponibilità non configurata" },
-            ].map(({ c, l }) => (
-              <div key={l} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ width: 10, height: 10, borderRadius: 3, background: c, flexShrink: 0 }} />
-                <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.52)" }}>{l}</span>
-              </div>
-            ))}
-          </div>
+          {realSmartPairingSlots.length > 0 && (
+            <div style={{ display: "flex", gap: 14, marginBottom: 14, flexWrap: "wrap" }}>
+              {[
+                { c: C.green, l: "Verde: Smart Pairing stessa zona confermato" },
+                { c: C.purple, l: "Viola/Blu: Smart Pairing zona compatibile confermato" },
+                { c: C.orange, l: "Bordo/check: selezionato" },
+                { c: "rgba(255,255,255,.08)", l: "Nessun colore: disponibilità non configurata" },
+              ].map(({ c, l }) => (
+                <div key={l} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 3, background: c, flexShrink: 0 }} />
+                  <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.52)" }}>{l}</span>
+                </div>
+              ))}
+            </div>
+          )}
           {realSmartPairingSlots.length === 0 && (
             <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 10, background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.2)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.62)", lineHeight: 1.55 }}>
               Nessuna campagna Smart Pairing confermata nelle date selezionate. Usa l'opzione 'Avvisami' per ricevere una notifica appena apriamo slot compatibili col tuo piano.
@@ -3730,27 +3732,49 @@ let bg = "rgba(255,255,255,.025)", border = "1px solid rgba(255,255,255,.04)", t
               </div>}
           </div>
 
-          <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px", border: "1px solid rgba(255,255,255,.08)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.32)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 10 }}>Riepilogo Smart Pairing</div>
-            {[
-              { l: "Giorni totali", v: selDays.length },
-              { l: "Giorni con Smart Pairing", v: pairingDays.length, c: pairingDays.length ? C.green : undefined },
-              { l: "Richiesta data diversa", v: showRequest ? "in compilazione" : "-", c: showRequest ? C.yellow : undefined },
-              { l: "Sconto medio stimato", v: averagePairingDiscount ? `-${averagePairingDiscount}%` : "-", c: averagePairingDiscount ? C.green : undefined },
-              maxPairingDiscount && maxPairingDiscount !== averagePairingDiscount ? { l: "Vantaggio massimo", v: `-${maxPairingDiscount}%`, c: C.green } : null,
-            ].filter(Boolean).map(({ l, v, c }) => (
-              <div key={l} style={{ display: "flex", justifyContent: "space-between", paddingBottom: 8, marginBottom: 8, borderBottom: "1px solid rgba(255,255,255,.05)" }}>
-                <span style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.44)" }}>{l}</span>
-                <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: c || C.white }}>{v}</span>
+          {selDays.length > 0 || realSmartPairingSlots.length > 0 ? (
+            <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px", border: "1px solid rgba(255,255,255,.08)" }}>
+              <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.32)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 10 }}>Riepilogo Smart Pairing</div>
+              {[
+                { l: "Giorni totali", v: selDays.length },
+                { l: "Giorni con Smart Pairing", v: pairingDays.length, c: pairingDays.length ? C.green : undefined },
+                { l: "Richiesta data diversa", v: showRequest ? "in compilazione" : "-", c: showRequest ? C.yellow : undefined },
+                { l: "Sconto combinato", v: averagePairingDiscount ? `-${averagePairingDiscount}%` : "-", c: averagePairingDiscount ? C.green : undefined },
+                maxPairingDiscount && maxPairingDiscount !== averagePairingDiscount ? { l: "Vantaggio massimo", v: `-${maxPairingDiscount}%`, c: C.green } : null,
+              ].filter(Boolean).map(({ l, v, c }) => (
+                <div key={l} style={{ display: "flex", justifyContent: "space-between", paddingBottom: 8, marginBottom: 8, borderBottom: "1px solid rgba(255,255,255,.05)" }}>
+                  <span style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.44)" }}>{l}</span>
+                  <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: c || C.white }}>{v}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ background: "rgba(255,255,255,.025)", borderRadius: 11, padding: "12px 14px", border: "1px solid rgba(255,255,255,.06)" }}>
+              <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.32)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 4 }}>Riepilogo Smart Pairing</div>
+              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)", lineHeight: 1.45 }}>
+                Scegli uno o più slot sul calendario per calcolare il vantaggio combinato sulla distribuzione.
               </div>
-            ))}
-          </div>
+            </div>
+          )}
 
           <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px", border: "1px solid rgba(255,255,255,.08)" }}>
             <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.32)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 10 }}>Impatto preventivo</div>
-            <div style={{ fontFamily: F.serif, fontSize: 28, color: averagePairingDiscount ? C.green : C.white, letterSpacing: "-1px", marginBottom: 3 }}>{averagePairingDiscount ? `-${averagePairingDiscount}%` : "calcolato in Step 4"}</div>
-            {averagePairingDiscount > 0 && <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.38)", marginBottom: 8 }}>Sconto pairing stimato sul costo distribuzione. Stima attuale: -?{saved.toFixed(2)}.</div>}
-            <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.34)", lineHeight: 1.55 }}>Il prezzo finale viene calcolato nello Step 4 in base a servizio, zona, quantità e date.</div>
+            {averagePairingDiscount > 0 ? (
+              <>
+                <div style={{ fontFamily: F.serif, fontSize: 28, color: C.green, letterSpacing: "-1px", marginBottom: 3 }}>-{averagePairingDiscount}%</div>
+                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.38)", marginBottom: 8 }}>Vantaggio pairing stimato applicato al costo di distribuzione.</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontFamily: F.serif, fontSize: 20, color: C.green, letterSpacing: "-0.5px", marginBottom: 5, lineHeight: 1.25 }}>
+                  Risparmi fino al 40%
+                </div>
+                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.62)", marginBottom: 8, lineHeight: 1.5 }}>
+                  Quando lavoriamo nella tua zona distribuiamo assieme ad altre campagne compatibili: risparmi il 40% nella stessa zona e il 20% in zone vicine.
+                </div>
+              </>
+            )}
+            <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.34)", lineHeight: 1.55 }}>Il prezzo finale viene confermato nello Step 4 in base a servizio, zona e date.</div>
           </div>
 
 
