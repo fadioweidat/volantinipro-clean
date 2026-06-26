@@ -212,9 +212,9 @@ export default function AdminDashboard({ onNav }) {
           <SideCard title="Azioni rapide">
             <ActionButton label="Nuova campagna" onClick={() => { window.location.href = "/admin/campaigns/new"; }} />
             <ActionButton label="Monitor GPS Live" onClick={() => { window.location.href = "/admin/live"; }} />
-            <ActionButton label="Gruppi prima campagna" onClick={() => { window.location.href = `/admin/campaigns/${filteredCampaigns[0]?.id}/groups`; }} disabledReason={filteredCampaigns[0]?.id ? "" : "Nessuna campagna selezionata."} />
-            <ActionButton label="Operazioni prima campagna" onClick={() => { window.location.href = `/admin/campaigns/${filteredCampaigns[0]?.id}/operations`; }} disabledReason={filteredCampaigns[0]?.id ? "" : "Nessuna campagna selezionata."} />
-            <ActionButton label="Report prima campagna" onClick={() => { window.location.href = `/admin/campaigns/${filteredCampaigns[0]?.id}/report`; }} disabledReason={filteredCampaigns[0]?.id ? "" : "Nessuna campagna selezionata."} />
+            <ActionButton label={`Gruppi della campagna${filteredCampaigns[0] ? ` (${filteredCampaigns[0].client})` : ""}`} onClick={() => { window.location.href = `/admin/campaigns/${filteredCampaigns[0]?.id}/groups`; }} disabledReason={filteredCampaigns[0]?.id ? "" : "Nessuna campagna selezionata."} />
+            <ActionButton label={`Operazioni GPS della campagna${filteredCampaigns[0] ? ` (${filteredCampaigns[0].client})` : ""}`} onClick={() => { window.location.href = `/admin/campaigns/${filteredCampaigns[0]?.id}/operations`; }} disabledReason={filteredCampaigns[0]?.id ? "" : "Nessuna campagna selezionata."} />
+            <ActionButton label={`Report della campagna${filteredCampaigns[0] ? ` (${filteredCampaigns[0].client})` : ""}`} onClick={() => { window.location.href = `/admin/campaigns/${filteredCampaigns[0]?.id}/report`; }} disabledReason={filteredCampaigns[0]?.id ? "" : "Nessuna campagna selezionata."} />
             <ActionButton label="Trova Smart Pairing" onClick={() => go("step3")} />
             <ActionButton label="Apri analisi zona" onClick={() => go("step2")} />
             <ActionButton label="Genera PDF preventivi" onClick={() => go("step4")} disabledReason="Richiede una campagna configurata nello Step 4." />
