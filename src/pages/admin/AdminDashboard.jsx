@@ -221,9 +221,16 @@ export default function AdminDashboard({ onNav }) {
             <ActionButton label="Esporta campagne operative" onClick={exportCsv} disabledReason={filteredCampaigns.length ? "" : "Nessuna campagna reale da esportare."} />
           </SideCard>
 
-          <SideCard title="Smart Pairing Waitlist" meta={`${waitlist.length} richieste`}>
-            {!availability.waitlist ? <EmptyState text="Tabella waitlist non disponibile." /> : waitlist.length === 0 ? <EmptyState text="Nessuna richiesta Smart Pairing reale." /> : waitlist.slice(0, 8).map((item) => <SimpleRow key={item.id || item.email || item.created_at} title={item.email || item.nome || "Richiesta"} subtitle={item.zone || item.zona || item.preferred_period || EMPTY} />)}
-          </SideCard>
+          {!availability.waitlist || waitlist.length === 0 ? (
+            <details style={{ padding: "10px 14px", borderRadius: 11, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
+              <summary style={{ cursor: "pointer", fontWeight: 700, opacity: 0.8 }}>Smart Pairing Waitlist (0)</summary>
+              <div style={{ marginTop: 10 }}><EmptyState text="Nessuna richiesta Smart Pairing reale." /></div>
+            </details>
+          ) : (
+            <SideCard title="Smart Pairing Waitlist" meta={`${waitlist.length} richieste`}>
+              {waitlist.slice(0, 8).map((item) => <SimpleRow key={item.id || item.email || item.created_at} title={item.email || item.nome || "Richiesta"} subtitle={item.zone || item.zona || item.preferred_period || EMPTY} />)}
+            </SideCard>
+          )}
 
           <SideCard title="Report e storico" meta={`${filteredCampaigns.length} campagne`}>
             {filteredCampaigns.slice(0, 5).map((campaign) => (
@@ -243,9 +250,16 @@ export default function AdminDashboard({ onNav }) {
             ))}
           </SideCard>
 
-          <SideCard title="Ultime attivita">
-            {!availability.activities ? <EmptyState text="Nessun log attivita reale disponibile." /> : activities.length === 0 ? <EmptyState text="Nessuna attivita registrata." /> : activities.slice(0, 8).map((activity) => <SimpleRow key={activity.id || activity.created_at} title={activity.message || activity.event || activity.action || EMPTY} subtitle={formatDate(activity.created_at || activity.recorded_at)} />)}
-          </SideCard>
+          {!availability.activities || activities.length === 0 ? (
+            <details style={{ padding: "10px 14px", borderRadius: 11, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
+              <summary style={{ cursor: "pointer", fontWeight: 700, opacity: 0.8 }}>Ultime attività (0)</summary>
+              <div style={{ marginTop: 10 }}><EmptyState text="Nessuna attività registrata." /></div>
+            </details>
+          ) : (
+            <SideCard title="Ultime attività">
+              {activities.slice(0, 8).map((activity) => <SimpleRow key={activity.id || activity.created_at} title={activity.message || activity.event || activity.action || EMPTY} subtitle={formatDate(activity.created_at || activity.recorded_at)} />)}
+            </SideCard>
+          )}
         </aside>
       </div>
     </main>
