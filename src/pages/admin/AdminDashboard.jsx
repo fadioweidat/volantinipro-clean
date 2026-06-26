@@ -69,11 +69,11 @@ export default function AdminDashboard({ onNav }) {
   const avgCpm = totalRevenue != null && totalQty > 0 ? (totalRevenue / totalQty) * 1000 : null;
 
   const kpis = [
+    { label: "Campagne in distribuzione", value: validCampaigns.filter((campaign) => campaign.status === "active").length, sub: "campagne operative attive", color: C.green },
+    { label: "Sessioni GPS live", value: activeSessions.length, sub: `${latestGpsPoints.length} tracker rilevati ora`, color: C.blue },
+    { label: "Campagne in attesa", value: validCampaigns.filter((campaign) => campaign.status === "pending").length, sub: "campagne operative valide", color: C.yellow },
     { label: "Revenue totale", value: totalRevenue == null ? EMPTY : euro(totalRevenue), sub: revenueValues.length ? "da campagne reali" : "colonna importo mancante", color: C.orange },
-    { label: "In distribuzione", value: validCampaigns.filter((campaign) => campaign.status === "active").length, sub: `${activeSessions.length} sessioni GPS attive`, color: C.green },
-    { label: "In attesa", value: validCampaigns.filter((campaign) => campaign.status === "pending").length, sub: "campagne valide", color: C.yellow },
-    { label: "Completate", value: validCampaigns.filter((campaign) => campaign.status === "done").length, sub: "campagne valide", color: "rgba(255,255,255,.58)" },
-    { label: "CPM medio", value: avgCpm == null ? EMPTY : euro(avgCpm), sub: totalQty > 0 ? "per 1.000 volantini" : "quantita mancante", color: C.blue },
+    { label: "CPM medio", value: avgCpm == null ? EMPTY : euro(avgCpm), sub: totalQty > 0 ? "per 1.000 volantini" : "quantità mancante", color: "rgba(255,255,255,.58)" },
   ];
 
   const exportCsv = () => {
