@@ -380,7 +380,16 @@ function CampaignRow({ campaign }) {
         <div><span style={mutedTinyStyle}>Gruppi</span><br /><strong style={{ color: C.orange }}>{campaign.ops?.groups || 0}</strong></div>
         <div><span style={mutedTinyStyle}>Operatori</span><br /><strong style={{ color: C.green }}>{campaign.ops?.online || 0} online</strong> · <span style={{ color: "#ef4444" }}>{campaign.ops?.offline || 0} offline</span></div>
         <div><span style={mutedTinyStyle}>Avanzamento</span><br /><strong style={{ color: C.blue }}>{campaign.ops?.progress || 0}%</strong></div>
-        <div><span style={mutedTinyStyle}>Anomalie</span><br /><strong style={{ color: campaign.ops?.problems ? "#ef4444" : C.green }}>{campaign.ops?.problems || 0} problemi</strong></div>
+        <div>
+          <span style={mutedTinyStyle}>Anomalie</span><br />
+          {(campaign.ops?.problems || 0) > 0 ? (
+            <a href={`/admin/campaigns/${campaign.id}/groups`} style={{ color: "#ef4444", fontWeight: 800, textDecoration: "underline" }}>
+              {campaign.ops.problems === 1 ? "1 problema" : `${campaign.ops.problems} problemi`}
+            </a>
+          ) : (
+            <strong style={{ color: C.green }}>0 problemi</strong>
+          )}
+        </div>
         <div><span style={mutedTinyStyle}>Ultimo ping</span><br /><strong style={{ color: "rgba(255,255,255,.65)" }}>{formatDate(campaign.ops?.lastPing)}</strong></div>
       </div>
     </div>
