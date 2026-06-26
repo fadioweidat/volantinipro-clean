@@ -19,7 +19,7 @@ const EMPTY = "Dato non disponibile";
 const STATUSES = {
   active: { label: "In distribuzione", color: C.green },
   pending: { label: "In attesa", color: C.yellow },
-  done: { label: "Completata", color: "rgba(255,255,255,.58)" },
+  done: { label: "Completata", color: "#94A3B8" },
 };
 const SERVICES = {
   d2d: { label: "D2D", color: C.orange },
@@ -157,7 +157,7 @@ export default function AdminDashboard({ onNav }) {
                   <input type="checkbox" checked={showTestCampaigns} onChange={(event) => setShowTestCampaigns(event.target.checked)} />
                   Mostra campagne test
                 </label>
-                {filterButtons(["all", "active", "pending", "done"], statusFilter, setStatusFilter, { all: "Tutte", active: "In distribuzione", pending: "In attesa", done: "Completate" })}
+                {statusFilterButtons(statusFilter, setStatusFilter)}
                 {filterButtons(["all", "d2d", "h2h", "b2b"], serviceFilter, setServiceFilter, { all: "Servizi", d2d: "D2D", h2h: "H2H", b2b: "B2B" }, C.blue)}
               </div>
             </div>
@@ -194,7 +194,7 @@ export default function AdminDashboard({ onNav }) {
             <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,.07)" }}>
               <p style={eyebrowStyle}>Mappa operativa reale</p>
             </div>
-            <div style={{ minHeight: 280, background: "linear-gradient(135deg,#081610,#080f1e)" }}>
+            <div style={{ minHeight: (validCampaigns.some(hasCoordinates) || latestGpsPoints.length > 0) ? 280 : 130, background: "linear-gradient(135deg,#081610,#080f1e)", display: "flex", alignItems: "center" }}>
               {validCampaigns.some(hasCoordinates) || latestGpsPoints.length > 0 ? (
                 <svg viewBox="0 0 580 280" width="100%" style={{ display: "block" }}>
                   <rect width="100%" height="100%" fill="rgba(255,255,255,.015)" />
@@ -202,7 +202,7 @@ export default function AdminDashboard({ onNav }) {
                   {latestGpsPoints.map((point) => <GpsMapPoint key={point.id || point.session_id} point={point} />)}
                 </svg>
               ) : (
-                <div style={{ padding: 16 }}><EmptyState text="Nessuna coordinata reale campagna o GPS live disponibile." /></div>
+                <div style={{ padding: 16, width: "100%" }}><EmptyState text="Nessuna coordinata reale campagna o GPS live disponibile." /></div>
               )}
             </div>
           </section>
@@ -455,6 +455,24 @@ function Notice({ text, danger = false }) {
 
 function filterButtons(ids, active, setActive, labels, color = C.orange) {
   return ids.map((id) => <button key={id} onClick={() => setActive(id)} style={{ padding: "5px 11px", borderRadius: 100, border: `1px solid ${active === id ? color : "rgba(255,255,255,.1)"}`, background: active === id ? `${color}18` : "rgba(255,255,255,.04)", color: active === id ? color : "rgba(255,255,255,.48)", fontFamily: F.sans, fontSize: 11, cursor: "pointer" }}>{labels[id]}</button>);
+}
+
+function statusFilterButtons(active, setActive) {
+  const cfg = {
+    all: { label: "Tutte", color: C.white },
+    active: { label: "In distribuzione", color: C.green },
+    pending: { label: "In attesa", color: C.yellow },
+    done: { label: "Completate", color: "#94A3B8" },
+  };
+  return Object.keys(cfg).map((id) => {
+    const item = cfg[id];
+    const isSel = active === id;
+    return (
+      <button key={id} onClick={() => setActive(id)} style={{ padding: "5px 12px", borderRadius: 100, border: `1px solid ${isSel ? item.color : "rgba(255,255,255,.14)"}`, background: isSel ? `${item.color}22` : "rgba(255,255,255,.04)", color: isSel ? item.color : "rgba(255,255,255,.68)", fontFamily: F.sans, fontSize: 11, fontWeight: isSel ? 800 : 600, cursor: "pointer" }}>
+        {item.label}
+      </button>
+    );
+  });
 }
 
 function projectPoint(lat, lng) {
