@@ -357,20 +357,31 @@ function CampaignRow({ campaign }) {
   const status = STATUSES[campaign.status] || STATUSES.pending;
   const quality = QUALITY_BADGES[campaign.quality] || QUALITY_BADGES.incomplete;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "72px minmax(180px,1.4fr) 92px 96px 92px 96px 112px 220px", gap: 10, alignItems: "center", padding: 12, borderRadius: 11, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.06)", overflowX: "auto" }}>
-      <div style={{ fontFamily: F.sans, fontSize: 11, color: service.color, fontWeight: 900 }}>{service.label}<br /><span style={{ color: "rgba(255,255,255,.35)", fontWeight: 600 }}>{String(campaign.id).slice(0, 8)}</span></div>
-      <div><strong style={{ fontFamily: F.sans, fontSize: 13, color: C.white }}>{campaign.client}</strong><br /><span style={mutedTinyStyle}>{campaign.zone} · {campaign.qty ? `${campaign.qty.toLocaleString("it-IT")} volantini` : EMPTY}</span></div>
-      <div style={{ fontFamily: F.sans, fontSize: 12, color: C.orange, fontWeight: 800 }}>{campaign.ops?.groups || 0} gruppi</div>
-      <div style={{ fontFamily: F.sans, fontSize: 12, color: C.green, fontWeight: 800 }}>{campaign.ops?.online || 0} online<br /><span style={{ color: "#ef4444" }}>{campaign.ops?.offline || 0} offline</span></div>
-      <div style={{ fontFamily: F.sans, fontSize: 12, color: C.blue, fontWeight: 800 }}>{campaign.ops?.progress || 0}%</div>
-      <div style={{ fontFamily: F.sans, fontSize: 12, color: campaign.ops?.problems ? "#ef4444" : C.green, fontWeight: 800 }}>{campaign.ops?.problems || 0} problemi</div>
-      <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.48)", fontWeight: 700 }}>{formatDate(campaign.ops?.lastPing)}</div>
-      <div style={{ padding: "4px 8px", borderRadius: 100, background: `${status.color}18`, color: status.color, fontFamily: F.sans, fontSize: 10, fontWeight: 800, textAlign: "center" }}>{status.label}</div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <a style={miniLinkButtonStyle} href={`/admin/campaigns/${campaign.id}/groups`}>Gruppi</a>
-        <a style={miniLinkButtonStyle} href={`/admin/campaigns/${campaign.id}/operations`}>GPS</a>
-        <a style={miniLinkButtonStyle} href={`/admin/campaigns/${campaign.id}/report`}>Report</a>
-        <span title={campaign.qualityReason} style={{ padding: "4px 8px", borderRadius: 100, background: `${quality.color}18`, color: quality.color, fontFamily: F.sans, fontSize: 10, fontWeight: 900, textAlign: "center" }}>{quality.label}</span>
+    <div style={{ padding: 14, borderRadius: 12, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.06)", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <div style={{ padding: "4px 8px", borderRadius: 8, background: `${service.color}18`, color: service.color, fontFamily: F.sans, fontSize: 11, fontWeight: 900, textAlign: "center" }}>
+            {service.label}<br /><span style={{ fontSize: 9, opacity: 0.7 }}>{String(campaign.id).slice(0, 6)}</span>
+          </div>
+          <div>
+            <strong style={{ fontFamily: F.sans, fontSize: 14, color: C.white }}>{campaign.client}</strong>
+            <div style={mutedTinyStyle}>{campaign.zone} · {campaign.qty ? `${campaign.qty.toLocaleString("it-IT")} volantini` : EMPTY}</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ padding: "4px 10px", borderRadius: 100, background: `${status.color}18`, color: status.color, fontFamily: F.sans, fontSize: 11, fontWeight: 800 }}>{status.label}</span>
+          <span title={campaign.qualityReason} style={{ padding: "4px 8px", borderRadius: 100, background: `${quality.color}18`, color: quality.color, fontFamily: F.sans, fontSize: 10, fontWeight: 900 }}>{quality.label}</span>
+          <a style={miniLinkButtonStyle} href={`/admin/campaigns/${campaign.id}/groups`}>Gruppi</a>
+          <a style={miniLinkButtonStyle} href={`/admin/campaigns/${campaign.id}/operations`}>GPS</a>
+          <a style={miniLinkButtonStyle} href={`/admin/campaigns/${campaign.id}/report`}>Report</a>
+        </div>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 18, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.05)", fontFamily: F.sans, fontSize: 12 }}>
+        <div><span style={mutedTinyStyle}>Gruppi</span><br /><strong style={{ color: C.orange }}>{campaign.ops?.groups || 0}</strong></div>
+        <div><span style={mutedTinyStyle}>Operatori</span><br /><strong style={{ color: C.green }}>{campaign.ops?.online || 0} online</strong> · <span style={{ color: "#ef4444" }}>{campaign.ops?.offline || 0} offline</span></div>
+        <div><span style={mutedTinyStyle}>Avanzamento</span><br /><strong style={{ color: C.blue }}>{campaign.ops?.progress || 0}%</strong></div>
+        <div><span style={mutedTinyStyle}>Anomalie</span><br /><strong style={{ color: campaign.ops?.problems ? "#ef4444" : C.green }}>{campaign.ops?.problems || 0} problemi</strong></div>
+        <div><span style={mutedTinyStyle}>Ultimo ping</span><br /><strong style={{ color: "rgba(255,255,255,.65)" }}>{formatDate(campaign.ops?.lastPing)}</strong></div>
       </div>
     </div>
   );
