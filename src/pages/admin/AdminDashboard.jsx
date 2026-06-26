@@ -63,6 +63,15 @@ export default function AdminDashboard({ onNav }) {
     .filter((campaign) => statusFilter === "all" || campaign.status === statusFilter)
     .filter((campaign) => serviceFilter === "all" || campaign.service === serviceFilter);
   const validCampaigns = campaigns.filter((campaign) => campaign.quality === "real");
+  const excludedCampaigns = campaigns.filter((campaign) => campaign.quality !== "real");
+  const excludedReasonsMap = excludedCampaigns.reduce((acc, c) => {
+    const r = c.qualityReason || "motivo non specificato";
+    acc[r] = (acc[r] || 0) + 1;
+    return acc;
+  }, {});
+  const excludedBreakdownText = Object.entries(excludedReasonsMap)
+    .map(([r, cnt]) => `${cnt} ${r}`)
+    .join(", ");
   const revenueValues = validCampaigns.map((campaign) => campaign.total).filter(Number.isFinite);
   const totalRevenue = revenueValues.length ? revenueValues.reduce((sum, value) => sum + value, 0) : null;
   const totalQty = validCampaigns.reduce((sum, campaign) => sum + (campaign.qty || 0), 0);
@@ -139,7 +148,9 @@ export default function AdminDashboard({ onNav }) {
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
               <div>
                 <p style={eyebrowStyle}>Campagne operative valide</p>
-                <span style={mutedTinyStyle}>{validCampaigns.length} valide · {campaigns.length - validCampaigns.length} escluse</span>
+                <span style={mutedTinyStyle} title={excludedBreakdownText ? `Dettaglio esclusioni reali: ${excludedBreakdownText}` : ""}>
+                  {validCampaigns.length} valide · {excludedCampaigns.length} escluse{excludedBreakdownText ? ` (${excludedBreakdownText})` : ""}
+                </span>
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 <label style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "5px 10px", borderRadius: 100, border: "1px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.58)", fontFamily: F.sans, fontSize: 11, cursor: "pointer" }}>
