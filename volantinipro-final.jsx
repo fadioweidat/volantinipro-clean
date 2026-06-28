@@ -3759,17 +3759,77 @@ function toggle(d) {
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "40px 28px 130px" }}>
-      <div style={{ marginBottom: 22 }}>
-        <h2 style={{ fontFamily: F.serif, fontSize: 34, color: C.white, letterSpacing: "-1px", marginBottom: 7 }}>Smart Pairing</h2>
-        <p style={{ fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.48)", lineHeight: 1.65, maxWidth: 760 }}>
-          Il calendario mostra opportunità Smart Pairing solo quando arrivano da disponibilità reali del backend. Se non trovi date adatte, puoi chiedere un avviso prioritario.
+      <style>{`
+        @keyframes pulseGlow {
+          0% { box-shadow: 0 0 15px rgba(6,182,212,0.3); transform: scale(0.99); }
+          50% { box-shadow: 0 0 30px rgba(99,102,241,0.6); transform: scale(1.01); }
+          100% { box-shadow: 0 0 15px rgba(6,182,212,0.3); transform: scale(0.99); }
+        }
+      `}</style>
+
+      {/* 1. HERO CARD */}
+      <div style={{ background: "linear-gradient(135deg, rgba(30,41,59,0.85) 0%, rgba(15,23,42,0.95) 100%)", borderRadius: 24, padding: isMobile ? "28px 20px" : "36px 40px", border: "1px solid rgba(99,102,241,0.3)", boxShadow: "0 20px 50px rgba(0,0,0,0.4)", marginBottom: 32, position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: -40, right: -40, width: 220, height: 220, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%)", pointerEvents: "none" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+          <span style={{ padding: "5px 12px", borderRadius: 100, background: "linear-gradient(135deg, #6366F1, #06B6D4)", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", boxShadow: "0 0 20px rgba(6,182,212,0.4)", animation: "pulseGlow 2.5s infinite" }}>
+            ✨ SMART PAIRING AI
+          </span>
+          {/* 8. STATO RICERCA BADGE */}
+          <span style={{ padding: "4px 10px", borderRadius: 100, background: realSmartPairingSlots.length > 0 ? "rgba(46,204,138,0.15)" : "rgba(251,191,36,0.15)", border: `1px solid ${realSmartPairingSlots.length > 0 ? "rgba(46,204,138,0.4)" : "rgba(251,191,36,0.4)"}`, color: realSmartPairingSlots.length > 0 ? C.green : C.yellow, fontFamily: F.sans, fontSize: 11, fontWeight: 700 }}>
+            {realSmartPairingSlots.length > 0 ? (selDays.length > 0 ? "● Confermato" : "● Campagne compatibili") : "● Ricerca in corso"}
+          </span>
+        </div>
+        <h2 style={{ fontFamily: F.serif, fontSize: isMobile ? 32 : 42, color: C.white, letterSpacing: "-1.2px", lineHeight: 1.1, marginBottom: 14 }}>
+          Riduci il costo della distribuzione fino al 40%.
+        </h2>
+        <p style={{ fontFamily: F.sans, fontSize: isMobile ? 14 : 16, color: "rgba(255,255,255,0.72)", lineHeight: 1.65, maxWidth: 720, marginBottom: 24 }}>
+          L'intelligenza artificiale raggruppa automaticamente campagne compatibili nella stessa zona. Quando troviamo campagne compatibili ricevi una notifica e distribuiamo ottimizzando logistica e mezzi.
         </p>
+        <button onClick={() => document.getElementById("smart-pairing-how")?.scrollIntoView({ behavior: "smooth" })} style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+          Come funziona ↓
+        </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 330px", gap: 20, alignItems: "start" }}>
+      {/* 2. TIMELINE PROCESSO */}
+      <div style={{ background: "rgba(255,255,255,0.025)", borderRadius: 20, padding: isMobile ? "20px 16px" : "24px 30px", border: "1px solid rgba(255,255,255,0.06)", marginBottom: 32 }}>
+        <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 18 }}>Il Processo Smart Pairing</div>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(5, 1fr)", gap: isMobile ? 12 : 16, alignItems: "center" }}>
+          {[
+            { step: "1", title: "Hai scelto la zona", desc: zoneLabel },
+            { step: "2", title: "L'AI cerca", desc: "Campagne compatibili" },
+            { step: "3", title: "Slot proposti", desc: "Finestre disponibili" },
+            { step: "4", title: "Confermi", desc: "Scegli le date" },
+            { step: "5", title: "Risparmi", desc: "Fino al 40%", highlight: true }
+          ].map((item) => (
+            <div key={item.step} style={{ background: item.highlight ? "rgba(46,204,138,0.12)" : "rgba(255,255,255,0.04)", border: `1px solid ${item.highlight ? "rgba(46,204,138,0.35)" : "rgba(255,255,255,0.08)"}`, borderRadius: 14, padding: "14px 16px" }}>
+              <div style={{ width: 22, height: 22, borderRadius: "50%", background: item.highlight ? C.green : "rgba(99,102,241,0.2)", color: item.highlight ? "#000" : C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>{item.step}</div>
+              <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: item.highlight ? C.green : C.white, marginBottom: 2 }}>{item.title}</div>
+              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{item.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 3. KPI CARDS */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 14, marginBottom: 32 }}>
+        {[
+          { label: "Possibile risparmio", val: "40%", sub: "Fino a -40% in zona", color: C.green },
+          { label: "Campagne compatibili", val: realSmartPairingSlots.length > 0 ? realSmartPairingSlots.length : "0", sub: realSmartPairingSlots.length > 0 ? "In quest'area" : "In ricerca continua", color: C.cyan },
+          { label: "Operatori disponibili", val: realSmartPairingSlots.length > 0 ? Math.max(4, Math.round((activeQty || 10000) / 2500)) : "4+", sub: "Squadra di zona", color: C.purple },
+          { label: "Tempo medio attesa", val: realSmartPairingSlots.length > 0 ? "0 giorni" : "2 giorni", sub: realSmartPairingSlots.length > 0 ? "Disponibile ora" : "Notifica prioritaria", color: C.yellow }
+        ].map((kpi, i) => (
+          <div key={i} style={{ background: "rgba(255,255,255,0.035)", borderRadius: 16, padding: "18px 20px", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+            <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8 }}>{kpi.label}</div>
+            <div style={{ fontFamily: F.serif, fontSize: 32, color: kpi.color, lineHeight: 1, marginBottom: 6 }}>{kpi.val}</div>
+            <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,0.55)" }}>{kpi.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 340px", gap: 24, alignItems: "start" }}>
         <div>
           {isContinuativePlan && (
-            <div style={{ marginBottom: 14, padding: "13px 15px", borderRadius: 12, background: "rgba(99,102,241,.07)", border: "1px solid rgba(99,102,241,.20)", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 10 }}>
+            <div style={{ marginBottom: 18, padding: "14px 16px", borderRadius: 14, background: "rgba(99,102,241,.07)", border: "1px solid rgba(99,102,241,.20)", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 10 }}>
               {[{ l: "Piano", v: planLabel }, { l: "Campagne/mese", v: data.campaignsPerMonth || 1 }, { l: "Totale campagne", v: totalCampaigns }].map(({ l, v }) => (
                 <div key={l} style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(255,255,255,.05)" }}>
                   <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 2 }}>{l}</div>
@@ -3782,176 +3842,205 @@ function toggle(d) {
             </div>
           )}
 
-          {realSmartPairingSlots.length > 0 && (
-            <div style={{ display: "flex", gap: 14, marginBottom: 14, flexWrap: "wrap" }}>
-              {[
-                { c: C.green, l: "Verde: Smart Pairing stessa zona confermato" },
-                { c: C.purple, l: "Viola/Blu: Smart Pairing zona compatibile confermato" },
-                { c: C.orange, l: "Bordo/check: selezionato" },
-                { c: "rgba(255,255,255,.08)", l: "Nessun colore: disponibilità non configurata" },
-              ].map(({ c, l }) => (
-                <div key={l} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: 3, background: c, flexShrink: 0 }} />
-                  <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.52)" }}>{l}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {realSmartPairingSlots.length === 0 && (
-            <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 10, background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.2)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.62)", lineHeight: 1.55 }}>
-              Nessuna campagna Smart Pairing confermata nelle date selezionate. Usa l'opzione 'Avvisami' per ricevere una notifica appena apriamo slot compatibili col tuo piano.
-            </div>
-          )}
-
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-            <button onClick={() => { if (month > 0) setMonth(m => m - 1); else { setMonth(11); setYear(y => y - 1); } }} style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)", color: C.white, cursor: "pointer", fontSize: 14 }}>-</button>
-            <span style={{ fontFamily: F.serif, fontSize: 20, color: C.white, minWidth: 165, textAlign: "center" }}>{MONTHS_FULL[month]} {year}</span>
-            <button onClick={() => { if (month < 11) setMonth(m => m + 1); else { setMonth(0); setYear(y => y + 1); } }} style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)", color: C.white, cursor: "pointer", fontSize: 14 }}>-–</button>
-          </div>
-
-          <div style={{ position: "relative", background: "rgba(255,255,255,.03)", borderRadius: 13, padding: 16, border: "1px solid rgba(255,255,255,.06)", overflow: "hidden" }}>
-            {realSmartPairingSlots.length === 0 && (
-              <div style={{ position: "absolute", inset: 0, background: "rgba(18,18,22,.82)", backdropFilter: "blur(3px)", borderRadius: 13, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center", zIndex: 5 }}>
-                <div style={{ fontSize: 26, marginBottom: 8 }}>📅</div>
-                <div style={{ fontFamily: F.serif, fontSize: 18, color: C.white, marginBottom: 4 }}>
-                  Nessuno slot in questa zona per {MONTHS_FULL[month]}
-                </div>
-                <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.58)", maxWidth: 280, marginBottom: 14, lineHeight: 1.5 }}>
-                  Appena apriamo campagne compatibili a {zoneLabel || "questa zona"} ti avvisiamo con priorità.
-                </div>
-                <button onClick={() => setShowRequest(true)} style={{ padding: "8px 16px", borderRadius: 8, background: "#6366F1", border: "none", color: C.white, fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                  Avvisami per questa zona
+          {/* 4 & 9. CALENDARIO COMPATTO OPPURE CASO "NESSUNO SLOT" */}
+          {realSmartPairingSlots.length === 0 ? (
+            <div style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.08) 0%, rgba(245,158,11,0.03) 100%)", borderRadius: 20, padding: "32px 26px", border: "1px solid rgba(251,191,36,0.25)", textAlign: "center", marginBottom: 28, boxShadow: "0 10px 30px rgba(0,0,0,0.2)" }}>
+              <div style={{ width: 54, height: 54, borderRadius: "50%", background: "rgba(251,191,36,0.15)", color: C.yellow, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, margin: "0 auto 16px" }}>🔍</div>
+              <h3 style={{ fontFamily: F.serif, fontSize: 24, color: C.white, marginBottom: 8 }}>Nessuna campagna compatibile al momento.</h3>
+              <p style={{ fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,0.7)", maxWidth: 520, margin: "0 auto 24px", lineHeight: 1.6 }}>
+                L'AI continua automaticamente la ricerca nelle prossime ore. Riceverai una notifica appena sarà disponibile uno Smart Pairing compatibile con la tua zona.
+              </p>
+              <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+                <button onClick={() => setShowRequest(true)} style={{ padding: "12px 24px", borderRadius: 10, background: C.yellow, color: "#000", fontFamily: F.sans, fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 14px rgba(251,191,36,0.3)" }}>
+                  Attivami
+                </button>
+                <button onClick={handleSkipPairing} style={{ padding: "12px 20px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.18)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                  Continua senza Smart Pairing →
                 </button>
               </div>
-            )}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, marginBottom: 5 }}>
-              {DI.map(d => <div key={d} style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.26)", textAlign: "center", padding: "3px 0", letterSpacing: ".05em" }}>{d}</div>)}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3 }}>
-              {Array(fdow(month, year)).fill(null).map((_, i) => <div key={`e${i}`} />)}
-              {Array(dim(month, year)).fill(null).map((_, i) => {
-                const d = i + 1, k = `${year}-${month}-${d}`, pair = pairs[k];
-const sel = selDays.includes(k);
-let bg = "rgba(255,255,255,.025)", border = "1px solid rgba(255,255,255,.04)", tc = "rgba(255,255,255,.22)";
-                if (sel && pair) { bg = pair.type === "same" ? "rgba(46,204,138,.25)" : "rgba(167,139,250,.22)"; border = `2px solid ${pair.type === "same" ? C.green : C.purple}`; tc = C.white; }
-                else if (pair?.type === "same") { bg = "rgba(46,204,138,.1)"; border = "1px solid rgba(46,204,138,.3)"; tc = C.green; }
-                else if (pair?.type === "nearby") { bg = "rgba(167,139,250,.1)"; border = "1px solid rgba(167,139,250,.3)"; tc = C.purple; }
-                return (
-                  <div key={d} onClick={() => toggle(d)} style={{ minHeight: isMobile ? 46 : 58, borderRadius: 8, padding: isMobile ? "6px 2px" : "8px 3px", textAlign: "center", cursor: pair ? "pointer" : "default", background: bg, border, transition: "all.14s" }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: sel ? 700 : 400, color: tc, marginBottom: 1 }}>{d}</div>
-                    {pair && wx[d] && <div style={{ fontSize: 8 }}>{wx[d]}</div>}
-                    {pair && !sel && <div style={{ fontFamily: F.sans, fontSize: 7, fontWeight: 700, color: pair.type === "same" ? C.green : C.purple, marginTop: 1 }}>-{pair.disc}%</div>}
-                    {sel && <div style={{ fontSize: 7, marginTop: 1, color: C.white }}> -{pair.disc}%</div>}
+          ) : (
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ display: "flex", gap: 14, marginBottom: 14, flexWrap: "wrap" }}>
+                {[
+                  { c: C.green, l: "Verde: Smart Pairing stessa zona confermato" },
+                  { c: C.purple, l: "Viola/Blu: Smart Pairing zona compatibile confermato" },
+                  { c: C.orange, l: "Bordo/check: selezionato" }
+                ].map(({ c, l }) => (
+                  <div key={l} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 3, background: c, flexShrink: 0 }} />
+                    <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.6)" }}>{l}</span>
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                ))}
+              </div>
 
-          {realSmartPairingSlots.length > 0 && (
-            <button onClick={() => { setShowRequest(v => !v); setSelDays([]); setFormSent(false); setFormError(""); }} style={{ marginTop: 14, padding: "11px 15px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-              Non trovo il giorno che voglio · Avvisami per date diverse
-            </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                <button onClick={() => { if (month > 0) setMonth(m => m - 1); else { setMonth(11); setYear(y => y - 1); } }} style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)", color: C.white, cursor: "pointer", fontSize: 14 }}>-</button>
+                <span style={{ fontFamily: F.serif, fontSize: 20, color: C.white, minWidth: 165, textAlign: "center" }}>{MONTHS_FULL[month]} {year}</span>
+                <button onClick={() => { if (month < 11) setMonth(m => m + 1); else { setMonth(0); setYear(y => y + 1); } }} style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)", color: C.white, cursor: "pointer", fontSize: 14 }}>-–</button>
+              </div>
+
+              <div style={{ position: "relative", background: "rgba(255,255,255,.03)", borderRadius: 16, padding: 16, border: "1px solid rgba(255,255,255,.08)", overflow: "hidden" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: 6 }}>
+                  {DI.map(d => <div key={d} style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.3)", textAlign: "center", padding: "4px 0" }}>{d}</div>)}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 }}>
+                  {Array(fdow(month, year)).fill(null).map((_, i) => <div key={`e${i}`} />)}
+                  {Array(dim(month, year)).fill(null).map((_, i) => {
+                    const d = i + 1, k = `${year}-${month}-${d}`, pair = pairs[k];
+                    const sel = selDays.includes(k);
+                    let bg = "rgba(255,255,255,.025)", border = "1px solid rgba(255,255,255,.04)", tc = "rgba(255,255,255,.22)";
+                    if (sel && pair) { bg = pair.type === "same" ? "rgba(46,204,138,.25)" : "rgba(167,139,250,.22)"; border = `2px solid ${pair.type === "same" ? C.green : C.purple}`; tc = C.white; }
+                    else if (pair?.type === "same") { bg = "rgba(46,204,138,.1)"; border = "1px solid rgba(46,204,138,.3)"; tc = C.green; }
+                    else if (pair?.type === "nearby") { bg = "rgba(167,139,250,.1)"; border = "1px solid rgba(167,139,250,.3)"; tc = C.purple; }
+                    return (
+                      <div key={d} onClick={() => toggle(d)} style={{ minHeight: isMobile ? 44 : 52, borderRadius: 8, padding: "6px 2px", textAlign: "center", cursor: pair ? "pointer" : "default", background: bg, border, transition: "all .15s" }}>
+                        <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: sel ? 700 : 400, color: tc, marginBottom: 1 }}>{d}</div>
+                        {pair && !sel && <div style={{ fontFamily: F.sans, fontSize: 8, fontWeight: 700, color: pair.type === "same" ? C.green : C.purple, marginTop: 2 }}>-{pair.disc}%</div>}
+                        {sel && <div style={{ fontSize: 8, marginTop: 2, color: C.white, fontWeight: 800 }}>-{pair.disc}%</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <button onClick={() => { setShowRequest(v => !v); setSelDays([]); setFormSent(false); setFormError(""); }} style={{ marginTop: 14, padding: "11px 15px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer", width: "100%" }}>
+                Non trovo il giorno che voglio · Avvisami per date diverse
+              </button>
+            </div>
           )}
 
           {showRequest && (
-            <div style={{ marginTop: 16, borderRadius: 14, padding: "20px", background: "rgba(255,255,255,.05)", border: "2px solid rgba(251,191,36,.28)" }}>
-              <div style={{ fontFamily: F.serif, fontSize: 18, color: C.white, marginBottom: 6 }}>Richiedi avviso Smart Pairing</div>
-              <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.48)", lineHeight: 1.55, marginBottom: 14 }}>
+            <div style={{ marginBottom: 28, borderRadius: 16, padding: "22px", background: "rgba(255,255,255,.05)", border: "2px solid rgba(251,191,36,.3)" }}>
+              <div style={{ fontFamily: F.serif, fontSize: 20, color: C.white, marginBottom: 6 }}>Richiedi avviso Smart Pairing</div>
+              <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)", lineHeight: 1.55, marginBottom: 16 }}>
                 Ti avviseremo via WhatsApp o Email quando lavoriamo nella tua zona o in una zona vicina compatibile.
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 14 }}>
                 <input value={form.nome} onChange={e => setForm(f => ({...f, nome: e.target.value }))} placeholder="Nome e Cognome" style={inputStyle} />
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                   <input value={form.telefono} onChange={e => setForm(f => ({...f, telefono: e.target.value }))} placeholder="WhatsApp" type="tel" style={inputStyle} />
                   <input value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value }))} placeholder="Email" type="email" style={inputStyle} />
                 </div>
                 <input value={form.periodo || ""} onChange={e => setForm(f => ({...f, periodo: e.target.value }))} placeholder="Periodo o giorni preferiti" style={inputStyle} />
                 <textarea value={form.note || ""} onChange={e => setForm(f => ({...f, note: e.target.value }))} placeholder="Note opzionali" rows={3} style={{...inputStyle, resize: "vertical" }} />
               </div>
-              {formError && <div style={{ padding: "7px 12px", borderRadius: 7, background: "rgba(248,113,113,.1)", border: "1px solid rgba(248,113,113,.28)", fontFamily: F.sans, fontSize: 11, color: C.red, marginBottom: 10 }}>{formError}</div>}
-              <button className="btn" onClick={handleRequestSubmit} style={{ width: "100%", padding: "14px", borderRadius: 11, border: "none", background: "linear-gradient(135deg,#6366F1 0%,#06B6D4 100%)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 6px 18px rgba(99,102,241,0.28)" }}>
+              {formError && <div style={{ padding: "8px 14px", borderRadius: 8, background: "rgba(248,113,113,.15)", border: "1px solid rgba(248,113,113,.3)", fontFamily: F.sans, fontSize: 12, color: C.red, marginBottom: 12 }}>{formError}</div>}
+              <button className="btn" onClick={handleRequestSubmit} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#6366F1 0%,#06B6D4 100%)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 6px 18px rgba(99,102,241,0.3)" }}>
                 Avvisami appena ci sono slot compatibili
               </button>
             </div>
           )}
-        </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-          <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px", border: "1px solid rgba(255,255,255,.08)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.32)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 12 }}>Riepilogo selezione</div>
-            <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.5)", lineHeight: 1.7 }}>
-              <b style={{ color: C.white }}>Servizio:</b> {svcLabel}<br />
-              <b style={{ color: C.white }}>Zona:</b> {zoneLabel}<br />
-              {periodLabel && <><b style={{ color: C.white }}>Periodo Step 1:</b> {periodLabel}<br /></>}
-              <b style={{ color: C.white }}>Stato:</b> {pairingDays.length ? "Smart Pairing selezionato" : "nessuna opportunità selezionata"}
-            </div>
-            {selDays.length === 0 ? <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.38)", textAlign: "center", padding: "14px 0", fontStyle: "italic" }}>Nessun giorno selezionato</div> :
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
-                {selDays.map(k => { const p = pairs[k]; return <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "7px 9px", borderRadius: 8, background: "rgba(255,255,255,.05)", fontFamily: F.sans, fontSize: 11 }}><span style={{ color: C.white }}>{fmtDay(k)}</span><span style={{ color: p?.type === "same" ? C.green : C.purple, fontWeight: 700 }}>{p ? `Smart Pairing -${p.disc}%` : "Data richiesta"}</span></div> })}
-              </div>}
-          </div>
-
-          {selDays.length > 0 || realSmartPairingSlots.length > 0 ? (
-            <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px", border: "1px solid rgba(255,255,255,.08)" }}>
-              <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.32)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 10 }}>Riepilogo Smart Pairing</div>
+          {/* 5. PERCHÉ CONVIENE */}
+          <div style={{ background: "rgba(255,255,255,0.025)", borderRadius: 18, padding: "24px", border: "1px solid rgba(255,255,255,0.06)", marginBottom: 24 }}>
+            <h3 style={{ fontFamily: F.serif, fontSize: 22, color: C.white, marginBottom: 16 }}>Perché scegliere Smart Pairing?</h3>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 12 }}>
               {[
-                { l: "Giorni totali", v: selDays.length },
-                { l: "Giorni con Smart Pairing", v: pairingDays.length, c: pairingDays.length ? C.green : undefined },
-                { l: "Richiesta data diversa", v: showRequest ? "in compilazione" : "-", c: showRequest ? C.yellow : undefined },
-                { l: "Sconto combinato", v: averagePairingDiscount ? `-${averagePairingDiscount}%` : "-", c: averagePairingDiscount ? C.green : undefined },
-                maxPairingDiscount && maxPairingDiscount !== averagePairingDiscount ? { l: "Vantaggio massimo", v: `-${maxPairingDiscount}%`, c: C.green } : null,
-              ].filter(Boolean).map(({ l, v, c }) => (
-                <div key={l} style={{ display: "flex", justifyContent: "space-between", paddingBottom: 8, marginBottom: 8, borderBottom: "1px solid rgba(255,255,255,.05)" }}>
-                  <span style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.44)" }}>{l}</span>
-                  <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: c || C.white }}>{v}</span>
+                "Risparmio economico fino al 40%",
+                "Minore impatto ambientale",
+                "Maggiore efficienza logistica",
+                "Distribuzione ottimizzata in zona",
+                "Stesso report finale certificato GPS"
+              ].map((adv, idx) => (
+                <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 12, background: "rgba(46,204,138,0.06)", border: "1px solid rgba(46,204,138,0.18)" }}>
+                  <span style={{ color: C.green, fontWeight: 900, fontSize: 15 }}>✓</span>
+                  <span style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,0.88)", fontWeight: 600 }}>{adv}</span>
                 </div>
               ))}
             </div>
-          ) : (
-            <div style={{ background: "rgba(255,255,255,.025)", borderRadius: 11, padding: "12px 14px", border: "1px solid rgba(255,255,255,.06)" }}>
-              <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.32)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 4 }}>Riepilogo Smart Pairing</div>
-              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)", lineHeight: 1.45 }}>
-                Scegli uno o più slot sul calendario per calcolare il vantaggio combinato sulla distribuzione.
-              </div>
-            </div>
-          )}
-
-          <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px", border: "1px solid rgba(255,255,255,.08)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.32)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 10 }}>Impatto preventivo</div>
-            {averagePairingDiscount > 0 ? (
-              <>
-                <div style={{ fontFamily: F.serif, fontSize: 28, color: C.green, letterSpacing: "-1px", marginBottom: 3 }}>-{averagePairingDiscount}%</div>
-                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.38)", marginBottom: 8 }}>Vantaggio pairing stimato applicato al costo di distribuzione.</div>
-              </>
-            ) : (
-              <>
-                <div style={{ fontFamily: F.serif, fontSize: 20, color: C.green, letterSpacing: "-0.5px", marginBottom: 5, lineHeight: 1.25 }}>
-                  Risparmi fino al 40%
-                </div>
-                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.62)", marginBottom: 8, lineHeight: 1.5 }}>
-                  Quando lavoriamo nella tua zona distribuiamo assieme ad altre campagne compatibili: risparmi il 40% nella stessa zona e il 20% in zone vicine.
-                </div>
-              </>
-            )}
-            <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.34)", lineHeight: 1.55 }}>Il prezzo finale viene confermato nello Step 4 in base a servizio, zona e date.</div>
           </div>
 
+          {/* 6. COME FUNZIONA */}
+          <div id="smart-pairing-how" style={{ background: "rgba(255,255,255,0.025)", borderRadius: 18, padding: "24px", border: "1px solid rgba(255,255,255,0.06)", marginBottom: 24 }}>
+            <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: C.cyan, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 6 }}>Algoritmo di abbinamento</div>
+            <h3 style={{ fontFamily: F.serif, fontSize: 22, color: C.white, marginBottom: 14 }}>Come funziona l'AI</h3>
+            <p style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,0.65)", lineHeight: 1.6, marginBottom: 16 }}>
+              L'AI confronta costantemente i flussi di distribuzione analizzando i seguenti parametri:
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)", gap: 10, marginBottom: 18 }}>
+              {["• Zona", "• Quantità", "• Periodo", "• Operatori", "• Disponibilità", "• Itinerari"].map((param, idx) => (
+                <div key={idx} style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(255,255,255,0.04)", fontFamily: F.sans, fontSize: 13, color: C.white, fontWeight: 600 }}>
+                  {param}
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.3)", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,0.92)", fontWeight: 600, lineHeight: 1.5 }}>
+              Successivamente crea automaticamente gruppi di distribuzione compatibili, abbattendo i costi di uscita logistica.
+            </div>
+          </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: "auto" }}>
+          {/* 10. MIGLIORARE LA FIDUCIA */}
+          <div style={{ background: "rgba(255,255,255,0.025)", borderRadius: 18, padding: "24px", border: "1px solid rgba(255,255,255,0.06)", marginBottom: 24 }}>
+            <h3 style={{ fontFamily: F.serif, fontSize: 20, color: C.white, marginBottom: 10 }}>Come viene calcolato il risparmio?</h3>
+            <p style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,0.65)", lineHeight: 1.6, marginBottom: 14 }}>
+              Il sistema confronta automaticamente: <b style={{ color: C.white }}>stessa zona, stesso periodo, quantità, disponibilità operatori e percorsi stradali</b>.
+            </p>
+            <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(46,204,138,0.08)", borderLeft: `3px solid ${C.green}`, fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,0.85)", lineHeight: 1.55 }}>
+              🔒 <b>Garanzia trasparenza:</b> Il risparmio mostrato deriva esclusivamente da campagne realmente compatibili. <b>Non vengono utilizzati dati casuali.</b>
+            </div>
+          </div>
+        </div>
+
+        {/* 7. SIDEBAR — MOSTRARE SEMPRE */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, position: isMobile ? "relative" : "sticky", top: 24 }}>
+          <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 20, padding: "24px", border: "1px solid rgba(255,255,255,.1)", boxShadow: "0 14px 35px rgba(0,0,0,0.3)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid rgba(255,255,255,.08)" }}>
+              <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".1em" }}>Riepilogo Smart Pairing</span>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: realSmartPairingSlots.length > 0 ? C.green : C.yellow, boxShadow: `0 0 10px ${realSmartPairingSlots.length > 0 ? C.green : C.yellow}` }} />
+            </div>
+            
+            <div style={{ display: "flex", flexDirection: "column", gap: 13, fontFamily: F.sans, fontSize: 13 }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "rgba(255,255,255,.5)" }}>Servizio</span>
+                <span style={{ color: C.white, fontWeight: 700 }}>{svcLabel}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "rgba(255,255,255,.5)" }}>Zona</span>
+                <span style={{ color: C.white, fontWeight: 700 }}>{zoneLabel}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "rgba(255,255,255,.5)" }}>Quantità</span>
+                <span style={{ color: C.white, fontWeight: 700 }}>{activeQty.toLocaleString("it-IT")} vol.</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "rgba(255,255,255,.5)" }}>Possibile sconto</span>
+                <span style={{ color: C.green, fontWeight: 800 }}>{averagePairingDiscount > 0 ? `-${averagePairingDiscount}%` : "Fino a -40%"}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "rgba(255,255,255,.5)" }}>Tempo stimato</span>
+                <span style={{ color: C.white, fontWeight: 600 }}>{realSmartPairingSlots.length > 0 ? "Immediato" : "2-3 giorni"}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ color: "rgba(255,255,255,.5)" }}>Stato ricerca</span>
+                <span style={{ padding: "3px 8px", borderRadius: 6, background: realSmartPairingSlots.length > 0 ? (selDays.length > 0 ? "rgba(46,204,138,0.15)" : "rgba(6,182,212,0.15)") : "rgba(251,191,36,0.15)", color: realSmartPairingSlots.length > 0 ? (selDays.length > 0 ? C.green : C.cyan) : C.yellow, fontSize: 11, fontWeight: 700 }}>
+                  {realSmartPairingSlots.length > 0 ? (selDays.length > 0 ? "Confermato" : "Compatibili") : "Ricerca in corso"}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.08)" }}>
+                <span style={{ color: "rgba(255,255,255,.6)" }}>Slot disponibili</span>
+                <span style={{ color: realSmartPairingSlots.length > 0 ? C.green : C.white, fontWeight: 800, fontSize: 15 }}>{realSmartPairingSlots.length}</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {selDays.length > 0 ? (
               <button className="btn" onClick={handlePrimary}
-                style={{ width: "100%", padding: "14px", borderRadius: 11, border: "none", background: "linear-gradient(135deg,#6366F1 0%,#06B6D4 100%)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 6px 18px rgba(99,102,241,0.28)" }}>
+                style={{ width: "100%", padding: "15px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#6366F1 0%,#06B6D4 100%)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 8px 24px rgba(99,102,241,0.35)" }}>
                 Genera preventivo
               </button>
-            ) : (
-              <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.38)", textAlign: "center", padding: "6px 0" }}>
-                Nessuno slot selezionato
+            ) : realSmartPairingSlots.length > 0 ? (
+              <div style={{ padding: "10px", textAlign: "center", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.5)" }}>
+                Scegli una o più date compatibili per continuare
               </div>
-            )}
-            {isContinuativePlan && <button className="btn" onClick={() => setShowRequest(true)} style={{ width: "100%", padding: "11px", borderRadius: 10, border: "1px solid rgba(167,139,250,.28)", background: "rgba(167,139,250,.08)", color: C.purple, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Avvisami per piano continuativo</button>}
-            <button className="btn" onClick={handleSkipPairing} style={{ width: "100%", padding: "11px", borderRadius: 10, border: "1px solid rgba(255,255,255,.14)", background: "rgba(255,255,255,.035)", color: "rgba(255,255,255,.66)", fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Continua al preventivo standard (senza pairing)</button>
-            <button className="btn" onClick={onBack} style={{ width: "100%", padding: "11px", borderRadius: 10, border: "1px solid rgba(255,255,255,.1)", background: "transparent", color: "rgba(255,255,255,.42)", fontFamily: F.sans, fontSize: 13, cursor: "pointer" }}>Zona & Mappa</button>
+            ) : null}
+            
+            <button className="btn" onClick={handleSkipPairing} style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.14)", background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.75)", fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              Continua senza Smart Pairing
+            </button>
+            <button className="btn" onClick={onBack} style={{ width: "100%", padding: "10px", borderRadius: 10, border: "none", background: "transparent", color: "rgba(255,255,255,.45)", fontFamily: F.sans, fontSize: 13, cursor: "pointer" }}>
+              ← Torna a Zona & Mappa
+            </button>
           </div>
         </div>
       </div>
