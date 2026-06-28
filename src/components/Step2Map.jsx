@@ -735,8 +735,8 @@ export function Step2Map({
       const zCol = isActive ? col : '#7F9BB0';
       const isRingOn = isActive ? (activeLayers?.radius !== false) : true;
 
-      // ── 1. Raggio / Circle — nascosto in modalità comune intero ──
-      const showCircle = isActive ? (isRingOn && !isMunicipalityMode) : isRingOn;
+      // ── 1. Raggio / Circle — sempre nascosto in modalità comune intero ──
+      const showCircle = isRingOn && !isMunicipalityMode;
       if (showCircle) {
         L.circle([zCity.lat, zCity.lng], {
           radius: zRadius * 1000,
@@ -773,17 +773,19 @@ export function Step2Map({
     // ── Confine comunale (municipality boundary from OSM Nominatim) ─────────
     if (isMunicipalityMode && municipalityBoundary) {
       try {
+        const cityName = city?.label || city?.name || 'Comune';
+        const boundaryTip = `<b style="color:#22C55E">${esc(cityName)}</b><br><span style="color:rgba(255,255,255,.6);font-size:11px">Intero comune — confine ufficiale OSM</span>`;
         const boundaryLayer = L.geoJSON(municipalityBoundary, {
           style: {
             color: '#22C55E',
             weight: 2.5,
             fillColor: '#22C55E',
-            fillOpacity: 0.04,
+            fillOpacity: 0.06,
             dashArray: '8 5',
-            opacity: 0.80,
-            interactive: false,
+            opacity: 0.85,
+            interactive: true,
           },
-        });
+        }).bindTooltip(boundaryTip, { direction: 'center', opacity: 1, sticky: true });
         boundaryLayer.addTo(group);
         layersRef.current.municipalityBoundary = boundaryLayer;
         console.log('[MUNICIPALITY_BOUNDARY_LOADED] drawn on map');
@@ -850,9 +852,11 @@ export function Step2Map({
               })
               .addTo(group);
           } catch (_e) {
-            if (isD2D) _renderD2DCircle(L, z, col, sel, tip, group, onToggleZone, styleUnsel, styleSel);
+            // In modalità comune: non mostrare cerchi fallback che sconfinano
+            if (isD2D && !isMunicipalityMode) _renderD2DCircle(L, z, col, sel, tip, group, onToggleZone, styleUnsel, styleSel);
           }
-        } else if (isD2D) {
+        } else if (isD2D && !isMunicipalityMode) {
+          // In modalità comune: senza geometry reale non disegnare cerchi nei comuni vicini
           _renderD2DCircle(L, z, col, sel, tip, group, onToggleZone, styleUnsel, styleSel);
         }
       });

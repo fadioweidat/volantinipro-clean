@@ -2444,9 +2444,19 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 </div>
               )}
             </div>
-            {city && selZones.length > 0 && (
+            {city && selZones.length > 0 && searchMode !== "municipality" && (
               <div style={{ position: "absolute", top: 58, right: 10, pointerEvents: "none", background: "rgba(8,15,30,.82)", border: `1px solid ${col}55`, borderRadius: 6, padding: "4px 10px", fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: C.white }}>
                 {selZones.length} {selZones.length === 1 ? "zona" : "zone"} selezionate
+              </div>
+            )}
+            {/* Badge "Intero comune" — visibile solo in modalità comune */}
+            {searchMode === "municipality" && city && (
+              <div style={{ position: "absolute", top: 10, right: 10, pointerEvents: "none", background: "rgba(8,22,12,.92)", border: "1px solid rgba(34,197,94,.45)", borderRadius: 8, padding: "6px 12px", display: "flex", alignItems: "center", gap: 7 }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22C55E", flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: "#22C55E" }}>Intero comune: {city.label || city.name}</div>
+                  <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.5)", marginTop: 1 }}>Distribuzione limitata al confine comunale</div>
+                </div>
               </div>
             )}
             {isResidentialStep2 && city && (
@@ -3956,6 +3966,7 @@ const [sent, setSent] = useState(false);
 const [emailSent, setEmailSent] = useState(false);
 const [pdfBusy, setPdfBusy] = useState(false);
 const [pdfError, setPdfError] = useState("");
+const [showTechPanel, setShowTechPanel] = useState(false);
 const [confirmSyncStatus, setConfirmSyncStatus] = useState("");
 const svcType = data.type || "d2d";
 const isQuick = data.quickSource === "quick_quote";
@@ -4441,149 +4452,220 @@ const savedRow = savedCampaign?.[0] || {};
           </div>
 
           <div style={{...box(), padding: "18px" }}>
-            {secHead("2", "Analisi zona & output servizio", "Dati territoriali e operativi generati in Step 2", col)}
+            {secHead("2", "Riepilogo copertura", "I dati essenziali della tua campagna", col)}
             {isQuick ? (
               <div style={{ padding: "14px", borderRadius: 10, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.42)", lineHeight: 1.55 }}>
-                Preventivo rapido: il dettaglio completo di KPI, comuni e profilo demografico sarà disponibile dopo l'analisi zona completa.
+                Preventivo rapido: il dettaglio completo sarà disponibile dopo l'analisi zona completa.
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <div>
-                  <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Area selezionata</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 8 }}>
-                    {nonEmpty([
-                      { l: "Comune / zona principale", v: data.cityName || data.comune || selectedZoneNames[0], src: "Step 2", c: C.white },
-                      { l: "Modalità", v: data.areaMode === "cap" ? "CAP" : data.areaMode === "address-radius" ? "Indirizzo + raggio" : "Comune con raggio di analisi", src: "Step 2", c: col },
-                      { l: "CAP selezionati", v: data.areaMode === "cap" ? (data.selectedCaps || []).join(" – ") : null, src: "Step 2", c: C.white },
-                      { l: "Raggio analisi", v: data.areaMode !== "cap" && data.radius ? `${data.radius < 1 ? data.radius * 1000 + "m" : data.radius + "km"}` : null, src: "Step 2", c: C.white },
-                      { l: "Superficie coperta", v: (() => { const a = kpis.area || (selZ.length ? selZ.reduce((s, z) => s + (z.area || 0), 0) : null); return a ? formatAreaKm2(a) : null; })(), src: "Dati geografici", c: C.blue },
-                      { l: "Modalità selezione", v: data.allocationMode === "manual" ? "Manuale" : "Auto", src: "Step 2", c: col },
-                    ]).map(fieldCard)}
-                    {selectedZoneNames.length > 0 && (
-                      <div style={{ padding: "10px 11px", background: "rgba(255,255,255,.04)", borderRadius: 10, border: "1px solid rgba(255,255,255,.055)" }}>
-                        <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Comuni selezionati</div>
-                        <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.white }}>{selectedZoneNames.length} {selectedZoneNames.length === 1 ? "comune" : "comuni"}</div>
-                        <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.45)", marginTop: 4, lineHeight: 1.55 }}>{selectedZoneNames.join(", ")}</div>
-                        <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.26)", marginTop: 4 }}>Dati geografici</div>
-                      </div>
-                    )}
-                  </div>
+
+                {/* ── KPI essenziali ── */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10 }}>
+                  {svcType === "d2d" && [
+                    { icon: "", l: "Copertura stimata", v: `${kpis.coverage ?? avgCov}%`, c: C.green },
+                    { icon: "", l: "Famiglie raggiungibili", v: formatNumber(kpis.families ?? totF), c: C.white },
+                    { icon: "", l: "Zone selezionate", v: `${selectedZoneNames.length} ${selectedZoneNames.length === 1 ? "comune" : "comuni"}`, c: col },
+                    { icon: "", l: "Volantini inseriti", v: flyerQty.toLocaleString("it-IT", { useGrouping: true }) + " pz.", c: C.white },
+                  ].map(({ icon, l, v, c }) => (
+                    <div key={l} style={{ padding: "14px 13px", background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)" }}>
+                      <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.36)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 5 }}>{icon} {l}</div>
+                      <div style={{ fontFamily: F.serif, fontSize: 22, color: c, letterSpacing: "-.5px" }}>{v || "—"}</div>
+                    </div>
+                  ))}
+                  {svcType === "h2h" && [
+                    { icon: "", l: "POI rilevanti", v: formatNumber(kpis.poi), c: C.blue },
+                    { icon: "", l: "Hotspot", v: formatNumber(kpis.operationalZones || kpis.hotspotCount), c: C.purple },
+                    { icon: "", l: "Waypoint GPS", v: formatNumber(kpis.gpsWaypoints || plannedGpsPoints.length), c: col },
+                    { icon: "", l: "Volantini inseriti", v: flyerQty.toLocaleString("it-IT", { useGrouping: true }) + " pz.", c: C.white },
+                  ].map(({ icon, l, v, c }) => (
+                    <div key={l} style={{ padding: "14px 13px", background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)" }}>
+                      <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.36)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 5 }}>{icon} {l}</div>
+                      <div style={{ fontFamily: F.serif, fontSize: 22, color: c, letterSpacing: "-.5px" }}>{v || "—"}</div>
+                    </div>
+                  ))}
+                  {isB2B && [
+                    { icon: "", l: "Attività rilevate", v: formatNumber(kpis.businesses), c: C.purple },
+                    { icon: "", l: "Cluster commerciali", v: formatNumber(kpis.clusters), c: col },
+                    { icon: "", l: "Attività target", v: formatNumber(kpis.targetBusinesses), c: C.green },
+                    { icon: "", l: "Volantini inseriti", v: flyerQty.toLocaleString("it-IT", { useGrouping: true }) + " pz.", c: C.white },
+                  ].map(({ icon, l, v, c }) => (
+                    <div key={l} style={{ padding: "14px 13px", background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)" }}>
+                      <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.36)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 5 }}>{icon} {l}</div>
+                      <div style={{ fontFamily: F.serif, fontSize: 22, color: c, letterSpacing: "-.5px" }}>{v || "—"}</div>
+                    </div>
+                  ))}
                 </div>
 
-                <div>
-                  <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>{serviceSummaryConfig.title}</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 8 }}>
-                    {nonEmpty(serviceSummaryConfig.fields || []).map(fieldCard)}
+                {/* ── Zona e comuni ── */}
+                {selectedZoneNames.length > 0 && (
+                  <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <div style={{ fontFamily: F.sans, fontSize: 20, color: col, lineHeight: 1, flexShrink: 0 }}></div>
+                    <div>
+                      <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white, marginBottom: 3 }}>{selectedZoneNames.length === 1 ? selectedZoneNames[0] : `${selectedZoneNames.length} comuni selezionati`}</div>
+                      {selectedZoneNames.length > 1 && <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.42)", lineHeight: 1.5 }}>{selectedZoneNames.join(" · ")}</div>}
+                    </div>
                   </div>
-                  {svcType === "d2d" && requiredQty > 0 && (
-                    <div style={{ marginTop: 8, padding: "10px 11px", borderRadius: 10, background: quantityIsSufficient ? "rgba(46,204,138,.08)" : "rgba(232,87,26,.08)", border: `1px solid ${quantityIsSufficient ? "rgba(46,204,138,.2)" : "rgba(248,113,113,.22)"}` }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: quantityIsSufficient ? C.green : C.red, marginBottom: 4 }}>{quantityIsSufficient ? "quantità sufficiente" : "quantità insufficiente"}</div>
-                      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.58)", lineHeight: 1.5 }}>
+                )}
+
+                {/* ── Stato quantità ── */}
+                {svcType === "d2d" && requiredQty > 0 && (
+                  <div style={{ padding: "10px 12px", borderRadius: 10, background: quantityIsSufficient ? "rgba(46,204,138,.07)" : "rgba(232,87,26,.07)", border: `1px solid ${quantityIsSufficient ? "rgba(46,204,138,.2)" : "rgba(248,113,113,.22)"}`, display: "flex", gap: 10, alignItems: "center" }}>
+                    <span style={{ fontSize: 16 }}>{quantityIsSufficient ? "" : ""}</span>
+                    <div>
+                      <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: quantityIsSufficient ? C.green : C.red, marginBottom: 2 }}>{quantityIsSufficient ? "Quantità sufficiente" : "Quantità insufficiente"}</div>
+                      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.52)", lineHeight: 1.45 }}>
                         {quantityIsSufficient
-                          ? "La quantità consigliata copre l'area selezionata. I volantini residui possono essere usati per ampliare il raggio, aggiungere comuni vicini o mantenere una scorta operativa."
-                          : "La quantità inserita non copre tutta l'area stimata. Puoi aumentare la quantità oppure procedere con copertura parziale se supportata dal piano operativo."}
+                          ? `Restano ${remainingQty.toLocaleString("it-IT", { useGrouping: true })} volantini disponibili per estensione zona o scorta operativa.`
+                          : `Mancano ${missingQty.toLocaleString("it-IT", { useGrouping: true })} volantini per coprire completamente l'area selezionata.`}
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
-                {breakdownRows.length > 0 && (
-                  <div>
-                    <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>{svcType === "d2d" ? `${step4TerritoryPluralLabel} nel raggio / distribuzione` : "Zone selezionate / distribuzione"}</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {breakdownRows.map(row => {
-                        return (
-                          <div key={row.id} style={{ padding: "9px 10px", borderRadius: 9, background: row.selectedRow ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.02)", border: `1px solid ${row.selectedRow ? "rgba(255,255,255,.07)" : "rgba(255,255,255,.04)"}`, display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 10, alignItems: "center" }}>
-                            <div>
-                              <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: row.selectedRow ? C.white : "rgba(255,255,255,.55)" }}>{row.name}</div>
-                              <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.38)" }}>
-                                {row.selectedRow
-                                  ? row.alloc?.allocationStatus === "full" || row.coveragePercent >= 100 ? "Selezionato – copertura completa" : "Selezionato – copertura parziale"
-                                  : "Nel raggio – non selezionato"}
-                                {!row.selectedRow && " – disponibile per estensione zona"}
+                {/* ── Pannello analisi tecnica collassabile ── */}
+                <div>
+                  <button
+                    onClick={() => setShowTechPanel(v => !v)}
+                    style={{ width: "100%", padding: "10px 13px", borderRadius: 10, border: "1px solid rgba(255,255,255,.09)", background: showTechPanel ? "rgba(255,255,255,.06)" : "rgba(255,255,255,.03)", color: "rgba(255,255,255,.55)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                  >
+                    <span>Analisi tecnica completa</span>
+                    <span style={{ fontSize: 10, opacity: .7 }}>{showTechPanel ? "▲ Chiudi" : "▼ Apri"}</span>
+                  </button>
+
+                  {showTechPanel && (
+                    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 14, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)" }}>
+
+                      {/* Area & modalità */}
+                      <div>
+                        <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Area selezionata</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 8 }}>
+                          {nonEmpty([
+                            { l: "Comune / zona principale", v: data.cityName || data.comune || selectedZoneNames[0], src: "Step 2", c: C.white },
+                            { l: "Modalità", v: data.areaMode === "cap" ? "CAP" : data.areaMode === "address-radius" ? "Indirizzo + raggio" : "Comune con raggio di analisi", src: "Step 2", c: col },
+                            { l: "CAP selezionati", v: data.areaMode === "cap" ? (data.selectedCaps || []).join(" – ") : null, src: "Step 2", c: C.white },
+                            { l: "Raggio analisi", v: data.areaMode !== "cap" && data.radius ? `${data.radius < 1 ? data.radius * 1000 + "m" : data.radius + "km"}` : null, src: "Step 2", c: C.white },
+                            { l: "Superficie coperta", v: (() => { const a = kpis.area || (selZ.length ? selZ.reduce((s, z) => s + (z.area || 0), 0) : null); return a ? formatAreaKm2(a) : null; })(), src: "Dati geografici", c: C.blue },
+                            { l: "Modalità selezione", v: data.allocationMode === "manual" ? "Manuale" : "Auto", src: "Step 2", c: col },
+                          ]).map(fieldCard)}
+                        </div>
+                      </div>
+
+                      {/* Output tecnico servizio */}
+                      <div>
+                        <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>{serviceSummaryConfig.title}</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 8 }}>
+                          {nonEmpty(serviceSummaryConfig.fields || []).map(fieldCard)}
+                        </div>
+                      </div>
+
+                      {/* Comuni nel raggio */}
+                      {breakdownRows.length > 0 && (
+                        <div>
+                          <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>{svcType === "d2d" ? `${step4TerritoryPluralLabel} nel raggio / distribuzione` : "Zone selezionate / distribuzione"}</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            {breakdownRows.map(row => (
+                              <div key={row.id} style={{ padding: "9px 10px", borderRadius: 9, background: row.selectedRow ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.02)", border: `1px solid ${row.selectedRow ? "rgba(255,255,255,.07)" : "rgba(255,255,255,.04)"}`, display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 10, alignItems: "center" }}>
+                                <div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: row.selectedRow ? C.white : "rgba(255,255,255,.55)" }}>{row.name}</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.38)" }}>
+                                    {row.selectedRow
+                                      ? row.alloc?.allocationStatus === "full" || row.coveragePercent >= 100 ? "Selezionato – copertura completa" : "Selezionato – copertura parziale"
+                                      : "Nel raggio – non selezionato"}
+                                    {!row.selectedRow && " – disponibile per estensione zona"}
+                                  </div>
+                                </div>
+                                <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: row.selectedRow ? col : "rgba(255,255,255,.36)" }}>{row.estimatedFlyers != null ? `${row.estimatedFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini` : "Estensione"}</div>
+                                <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: row.coveragePercent >= 100 ? C.green : row.coveragePercent != null ? "#F59E0B" : "rgba(255,255,255,.35)" }}>{row.coveragePercent != null ? `${Math.min(100, row.coveragePercent)}%` : "-"}</div>
+                                <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.42)" }}>{row.contribution != null ? `${row.contribution}%` : "-"}</div>
                               </div>
-                            </div>
-                            <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: row.selectedRow ? col : "rgba(255,255,255,.36)" }}>{row.estimatedFlyers != null ? `${row.estimatedFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini` : "Estensione"}</div>
-                            <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: row.coveragePercent >= 100 ? C.green : row.coveragePercent != null ? "#F59E0B" : "rgba(255,255,255,.35)" }}>{row.coveragePercent != null ? `${Math.min(100, row.coveragePercent)}%` : "-"}</div>
-                            <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.42)" }}>{row.contribution != null ? `${row.contribution}%` : "-"}</div>
+                            ))}
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Indicatori servizio</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 8 }}>
-                    {nonEmpty(serviceSummaryConfig.scores || []).map(s => (
-                      <div key={s.l} style={{ padding: "10px 11px", borderRadius: 10, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.055)" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
-                          <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.36)" }}>{s.l}</span>
-                          <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 900, color: s.c }}>{s.v}/100</span>
                         </div>
-                        <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.43)", lineHeight: 1.4 }}>{s.d}</div>
-                        {s.src && <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.24)", marginTop: 4 }}>{cleanSource(s.src)}</div>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Profilo demografico / ISTAT</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 8 }}>
-                    {nonEmpty(serviceSummaryConfig.admin || []).map(fieldCard)}
-                  </div>
-                  {false && svcType === "d2d" && (
-                    <div style={{ marginTop: 7, fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.34)", lineHeight: 1.45 }}>
-                      "Imprese totali- e mostrato come contesto territoriale secondario: la valutazione Door to Door resta basata su famiglie, copertura e profilo residenziale.
-                    </div>
-                  )}
-                  {svcType === "d2d" && (
-                    <div style={{ marginTop: 7, fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.34)", lineHeight: 1.45 }}>
-                      Copertura dati reale attiva per la Lombardia. Indicatori non ancora disponibili in questa vista: fasce et, % stranieri, tasso occupazione, reddito medio, imprese totali e codice catastale.
-                    </div>
-                  )}
-                </div>
-
-                {svcType === "d2d" && step4Omi?.available && (
-                  <div>
-                    <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Valori immobiliari OMI</div>
-                    <div style={{ padding: "12px 13px", borderRadius: 10, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.07)" }}>
-                      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                        {step4Omi.municipality && (
-                          <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(96,165,250,.12)", border: "1px solid rgba(96,165,250,.22)", fontFamily: F.sans, fontSize: 9, color: C.blue }}>{step4Omi.municipality}</span>
-                        )}
-                        {step4Omi.zone_name && (
-                          <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.65)" }}>Zona: {step4Omi.zone_name}</span>
-                        )}
-                      </div>
-                      {(step4Omi.values || []).slice(0, 3).map((tv, i) => (
-                        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderTop: i > 0 ? "1px solid rgba(255,255,255,.05)" : "none" }}>
-                          <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.55)" }}>{tv.typology}</span>
-                          <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white }}>{formatNumber(tv.min_value)}–{formatNumber(tv.max_value)} €/mq</span>
-                        </div>
-                      ))}
-                      {(step4Omi.values || []).length > 3 && (
-                        <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.38)", marginTop: 6 }}>+{step4Omi.values.length - 3} altre tipologie</div>
                       )}
-                      <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.28)", marginTop: 8 }}>Fonte: Agenzia delle Entrate – OMI</div>
+
+                      {/* Indicatori (Family Index, Reach, ROI, Confidence) */}
+                      {nonEmpty(serviceSummaryConfig.scores || []).length > 0 && (
+                        <div>
+                          <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Indicatori servizio</div>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 8 }}>
+                            {nonEmpty(serviceSummaryConfig.scores || []).map(s => (
+                              <div key={s.l} style={{ padding: "10px 11px", borderRadius: 10, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.055)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+                                  <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.36)" }}>{s.l}</span>
+                                  <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 900, color: s.c }}>{s.v}/100</span>
+                                </div>
+                                <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.43)", lineHeight: 1.4 }}>{s.d}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Profilo demografico / ISTAT */}
+                      {nonEmpty(serviceSummaryConfig.admin || []).length > 0 && (
+                        <div>
+                          <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Profilo demografico / ISTAT</div>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 8 }}>
+                            {nonEmpty(serviceSummaryConfig.admin || []).map(fieldCard)}
+                          </div>
+                          {svcType === "d2d" && (
+                            <div style={{ marginTop: 7, fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.34)", lineHeight: 1.45 }}>
+                              Copertura dati reale attiva per la Lombardia. Indicatori non ancora disponibili in questa vista: fasce età, % stranieri, tasso occupazione, reddito medio, imprese totali e codice catastale.
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* OMI */}
+                      {svcType === "d2d" && step4Omi?.available && (
+                        <div>
+                          <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Valori immobiliari OMI</div>
+                          <div style={{ padding: "12px 13px", borderRadius: 10, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.07)" }}>
+                            <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                              {step4Omi.municipality && <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(96,165,250,.12)", border: "1px solid rgba(96,165,250,.22)", fontFamily: F.sans, fontSize: 9, color: C.blue }}>{step4Omi.municipality}</span>}
+                              {step4Omi.zone_name && <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.65)" }}>Zona: {step4Omi.zone_name}</span>}
+                            </div>
+                            {(step4Omi.values || []).slice(0, 3).map((tv, i) => (
+                              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderTop: i > 0 ? "1px solid rgba(255,255,255,.05)" : "none" }}>
+                                <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.55)" }}>{tv.typology}</span>
+                                <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white }}>{formatNumber(tv.min_value)}–{formatNumber(tv.max_value)} €/mq</span>
+                              </div>
+                            ))}
+                            {(step4Omi.values || []).length > 3 && <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.38)", marginTop: 6 }}>+{step4Omi.values.length - 3} altre tipologie</div>}
+                            <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.28)", marginTop: 8 }}>Fonte: Agenzia delle Entrate – OMI</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Testo operativo */}
+                      <div style={{ padding: "11px 12px", borderRadius: 11, background: `${col}10`, border: `1px solid ${col}24`, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.62)", lineHeight: 1.55 }}>
+                        {operationalSummary}
+                      </div>
+
+                      {/* Fonti dati */}
+                      {(serviceSummaryConfig.sources || []).length > 0 && (
+                        <div>
+                          <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Fonti dati</div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                            {(serviceSummaryConfig.sources || []).map(s => (
+                              <span key={s} style={{ padding: "4px 8px", borderRadius: 6, background: "rgba(255,255,255,.055)", border: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.52)" }}>{cleanSource(s)}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                     </div>
-                  </div>
-                )}
-
-                <div style={{ padding: "11px 12px", borderRadius: 11, background: `${col}10`, border: `1px solid ${col}24`, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.62)", lineHeight: 1.55 }}>
-                  {operationalSummary}
+                  )}
                 </div>
 
-                <div>
-                  <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Fonti dati</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                    {(serviceSummaryConfig.sources || []).map(s => (
-                      <span key={s} style={{ padding: "4px 8px", borderRadius: 6, background: "rgba(255,255,255,.055)", border: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.52)" }}>{cleanSource(s)}</span>
-                    ))}
-                  </div>
+                {/* Link scarica analisi completa PDF */}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={handleDownloadPdf} disabled={pdfBusy} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${col}40`, background: `${col}0e`, color: col, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: pdfBusy ? "wait" : "pointer" }}>
+                    {pdfBusy ? "..." : " Scarica analisi completa PDF"}
+                  </button>
                 </div>
+
               </div>
             )}
           </div>
