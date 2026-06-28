@@ -767,92 +767,1042 @@ const Lv=[{value:"abbigliamento",label:"Abbigliamento / Moda"},{value:"tecnologi
 const Iv=[{value:50,label:"Circa 50 attività"},{value:100,label:"Circa 100 attività"},{value:200,label:"Circa 200 attività"},{value:500,label:"Circa 500 attività"}];
 const km=[{value:"reception",label:"Consegna a Reception / Banco"},{value:"cassetta",label:"Cassetta Postale Aziendale"},{value:"mano_manager",label:"Consegna a mano al Responsabile (+20%)"}];
 const Uv=[{id:"A6",label:"A6",size:"10x15 cm"},{id:"A5",label:"A5",size:"15x21 cm"},{id:"A4",label:"A4",size:"21x29 cm"},{id:"DL",label:"DL",size:"10x21 cm"}];
-const Kp=[{id:"photo_report_advanced",icon:"",label:"Report fotografico avanzato",price:"Extra",desc:"Report fotografico più dettagliato con evidenze ordinate per zona.",col:C.purple},{id:"report_analytics",icon:"",label:"Report Analytics",price:"Extra",desc:"Analisi post-campagna con KPI operativi e riepilogo territoriale.",col:C.green},{id:"photo_certification",icon:"",label:"Certificazione fotografica",price:"Extra",desc:"Validazione fotografica con prove organizzate e verificabili.",col:C.orange},{id:"supervision",icon:"",label:"Supervisione",price:"Extra",desc:"Controllo operativo aggiuntivo sulla campagna.",col:C.blue}];
-const Gu=[{id:"single",label:"Una sola campagna",icon:"",disc:0},{id:"monthly3",label:"Trimestrale",icon:"",disc:5},{id:"monthly6",label:"Semestrale",icon:"",disc:10},{id:"monthly12",label:"Annuale",icon:"–",disc:15}];
-function Step1ActivityPills({value,onChange,isMobile}){return _jsx("div",{style:{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(3,1fr)",gap:8},children:Ov.map(opt=>{const active=value===opt.value;return _jsx("button",{type:"button",onClick:()=>onChange(opt.value),style:{padding:"10px 11px",borderRadius:10,border:`1.5px solid ${active?"#22C55E":"rgba(255,255,255,.1)"}`,background:active?"rgba(34,197,94,.12)":"rgba(255,255,255,.04)",color:active?"#22C55E":"rgba(255,255,255,.68)",fontFamily:F.sans,fontSize:12,fontWeight:active?850:700,cursor:"pointer",textAlign:"center",transition:"all.18s"},children:opt.label},opt.value)})})}
-function Step1PeriodPresets({value,onChange,isMobile}){const opts=[{id:"asap",label:"Appena possibile"},{id:"within7",label:"Entro 7 giorni"},{id:"within15",label:"Entro 15 giorni"},{id:"custom",label:"Scegli una data"}];return _jsx("div",{style:{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12},children:opts.map(opt=>{const active=(value||"custom")===opt.id;return _jsx("button",{type:"button",onClick:()=>onChange(opt.id),className:`vp-s1-pill ${active?"active":""}`,children:opt.label},opt.id)})})}
-function Step1ConfigSummary({data}){
-  const service={d2d:"Door to Door",h2h:"Hand to Hand",b2b:"Business Distribution","business-distribution":"Business Distribution"}[data.type]||"Da selezionare";
-  const plan={single:"Una sola campagna",monthly3:"Trimestrale",monthly6:"Semestrale",monthly12:"Annuale"}[data.subscription]||"Da selezionare";
-  const urgency={normal:"Standard",urgent:"Urgente",standard:"Standard"}[data.urgency]||"Da selezionare";
-  const print=data.hasFlyers==="yes"?"Già stampati":data.hasFlyers==="no"?"Da stampare":"Da selezionare";
-  const fmt=data.flyerFormat?String(data.flyerFormat).toUpperCase():"Da selezionare";
-  const qty=data.qty?Number(data.qty).toLocaleString("it-IT", { useGrouping: true }):"Da selezionare";
-  const basePrint=data.hasFlyers==="no"&&data.qty?Math.round(Number(data.qty||0)/1000*29):0;
-  const partialSubtotal=basePrint;
-  const rows=[["Servizio",service],["Quantità",qty],["Formato",fmt],["Urgenza",urgency],["Piano",plan],["Stampa",print]];
-  return _jsxs("div",{className:"vp-s1-summary-container", style:{position:"sticky",bottom:18,zIndex:5},children:[
-    _jsx("div",{style:{fontFamily:F.sans,fontSize:10,fontWeight:800,color:"#22C55E",letterSpacing:".1em",textTransform:"uppercase",marginBottom:10},children:"Riepilogo configurazione"}),
-    _jsx("div",{className:"vp-s1-summary-grid",children:rows.map(([label,val])=>_jsxs("div",{className:"vp-s1-summary-item",children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:10,color:"rgba(255,255,255,.7)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:3},children:label}),_jsx("div",{style:{fontFamily:F.sans,fontSize:12,fontWeight:800,color:val==="Da selezionare"?"rgba(255,255,255,.34)":C.white},children:val})]},label))}),
-    _jsxs("div",{className:"vp-s1-summary-totals",children:[
-      _jsxs("div",{style:{display:"flex",justifyContent:"space-between",gap:12,fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.85)"},children:[_jsx("span",{children:"Distribuzione"}),_jsx("b",{style:{color:C.white},children:"Calcolata sulla tua zona (Step 2)"})]}),
-      basePrint>0&&_jsxs("div",{style:{display:"flex",justifyContent:"space-between",gap:12,fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.85)"},children:[_jsx("span",{children:"Stampa indicativa"}),_jsxs("b",{style:{color:"#22C55E"},children:["EUR ",basePrint.toLocaleString("it-IT", { useGrouping: true })]})]}),
-      _jsxs("div",{style:{display:"flex",justifyContent:"space-between",gap:12,fontFamily:F.sans,fontSize:14,color:C.white,borderTop:"1px solid rgba(255,255,255,.08)",paddingTop:7},children:[_jsx("span",{children:"Subtotale parziale"}),_jsxs("b",{style:{color:"#22C55E"},children:["EUR ",partialSubtotal.toLocaleString("it-IT", { useGrouping: true })]})]})
-    ]}),
-    _jsxs("p",{style:{margin:"10px 0 0",fontFamily:F.sans,fontSize:12,lineHeight:1.5,color:"rgba(255,255,255,.85)"},children:["Distribuzione e copertura: calcolate nel prossimo passaggio · piano ",plan," · formato ",fmt]})
-  ]})
+const Kp=[{id:"photo_report_advanced",icon:"📸",label:"Report fotografico avanzato",price:"Extra",desc:"Report fotografico più dettagliato con evidenze ordinate per zona.",col:C.purple},{id:"report_analytics",icon:"📊",label:"Report Analytics",price:"Extra",desc:"Analisi post-campagna con KPI operativi e riepilogo territoriale.",col:C.green},{id:"photo_certification",icon:"🏅",label:"Certificazione fotografica",price:"Extra",desc:"Validazione fotografica con prove organizzate e verificabili.",col:C.orange},{id:"supervision",icon:"👁️",label:"Supervisione",price:"Extra",desc:"Controllo operativo aggiuntivo sul campo durante la campagna.",col:C.blue}];
+const Gu=[{id:"single",label:"Una sola campagna",icon:"1️⃣",disc:0},{id:"monthly3",label:"Trimestrale",icon:"📅",disc:5},{id:"monthly6",label:"Semestrale",icon:"🗓️",disc:10},{id:"monthly12",label:"Annuale",icon:"👑",disc:15}];
+
+function Step1({ data, setData, onNext, onHome }) {
+  const isMobile = useIsMobile();
+  const [showSmartPairingModal, setShowSmartPairingModal] = useState(false);
+  const [showAllExtras, setShowAllExtras] = useState(false);
+
+  const updateData = (newVals) => {
+    setData((prev) => {
+      const next = { ...prev, ...newVals };
+      const monthsMult = { single: 1, monthly3: 3, monthly6: 6, monthly12: 12 };
+      const discountMult = { single: 0, monthly3: 5, monthly6: 10, monthly12: 15 };
+      const mMult = monthsMult[next.subscription] || 1;
+      const pDisc = discountMult[next.subscription] || 0;
+      const cPerMonth = next.subscription === "single" ? 1 : next.campaignsPerMonth || 1;
+
+      return {
+        ...next,
+        campaignsPerMonth: cPerMonth,
+        selectedService: next.type,
+        businessSector: next.activityType,
+        flyerQuantity: next.qty,
+        campaignPeriodStart: next.startDate,
+        campaignPeriodEnd: next.endDate,
+        alreadyPrinted: next.hasFlyers === "yes",
+        printServices: (next.extraServices || []).filter((s) => ["stampa", "grafica"].includes(s)),
+        paperWeight: next.printGramm,
+        printSides: next.printSide,
+        colorMode: next.printColor,
+        campaignPlan: next.subscription,
+        totalCampaigns: cPerMonth * mMult,
+        planDiscount: pDisc,
+        promoterCount: next.promoterCount,
+        timeSlot: next.timeSlot,
+        serviceDurationHours: next.serviceDurationHours,
+        distributionLocation: next.distributionLocation,
+        distributionPointType: next.distributionPointType,
+        operationalNotes: next.operationalNotes,
+        targetBusinessType: next.targetBusinessType,
+        businessCategory: next.businessCategory,
+        targetBusinessCount: next.targetBusinessCount,
+        businessZone: next.businessZone,
+        deliveryType: next.deliveryType,
+      };
+    });
+  };
+
+  const toggleExtra = (serviceId) => {
+    const current = data.extraServices || [];
+    const nextExtras = current.includes(serviceId)
+      ? current.filter((s) => s !== serviceId)
+      : [...current, serviceId];
+    updateData({ extraServices: nextExtras });
+  };
+
+  const formatDateDisplay = (isoStr) => {
+    if (!isoStr) return "";
+    const parts = isoStr.split("-");
+    return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : "";
+  };
+
+  const maskDateInput = (val) => {
+    const digits = val.replace(/\D/g, "").slice(0, 8);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+  };
+
+  const parseDateToIso = (val) => {
+    const match = val.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!match) return "";
+    const [, d, m, y] = match;
+    const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
+    if (
+      dateObj.getFullYear() !== Number(y) ||
+      dateObj.getMonth() !== Number(m) - 1 ||
+      dateObj.getDate() !== Number(d)
+    )
+      return "";
+    return `${y}-${m}-${d}`;
+  };
+
+  const distributionTypes = [
+    {
+      id: "d2d",
+      name: "Door to Door",
+      code: "D2D",
+      icon: "📬",
+      badge: "Più Popolare",
+      badgeColor: "#22C55E",
+      desc: "Distribuzione capillare in cassette postali, condomini, palazzi, villette e zone residenziali.",
+      useCases: "Attività locali, nuove aperture, promozioni stagionali e volantini offerte.",
+      benefits: "Copertura sistematica di tutte le famiglie della zona per un impatto visivo duraturo.",
+      target: "Famiglie e residenti di quartiere",
+      coverage: "Alta densità residenziale",
+      time: "5–7 giorni lavorativi",
+      price: "Da €18,50 / 1.000 pz",
+      color: "#22C55E",
+    },
+    {
+      id: "h2h",
+      name: "Hand to Hand",
+      code: "H2H",
+      icon: "🤝",
+      badge: "Alta Conversione",
+      badgeColor: "#60A5FA",
+      desc: "Distribuzione manuale e diretta da parte di promoter qualificati in punti ad alto flusso pedonale.",
+      useCases: "Eventi, inaugurazioni di negozi, palestre, promozioni immediate e flash.",
+      benefits: "Contatto umano immediato e selezione visiva del target ideale.",
+      target: "Passanti, studenti, pendolari e shopper",
+      coverage: "Piazze, stazioni e vie nevralgiche",
+      time: "Giornata / Fascia oraria mirata",
+      price: "Da €22,00 / 1.000 pz",
+      color: "#60A5FA",
+    },
+    {
+      id: "b2b",
+      name: "Distribuzione Business",
+      code: "B2B",
+      icon: "🏢",
+      badge: "Mirato B2B",
+      badgeColor: "#A78BFA",
+      desc: "Consegna professionale e selezionata presso attività commerciali, uffici, studi e aziende.",
+      useCases: "Servizi professionali, forniture B2B, convenzioni aziendali e settore Ho.Re.Ca.",
+      benefits: "Consegna qualificata a reception o direttamente ai responsabili decisionali.",
+      target: "Imprenditori, professionisti e commercianti",
+      coverage: "Aree commerciali e centri direzionali",
+      time: "3–5 giorni lavorativi",
+      price: "Da €35,00 / 1.000 pz",
+      color: "#A78BFA",
+    },
+  ];
+
+  const activityButtons = [
+    { value: "ristorazione", label: "🍕 Ristorazione" },
+    { value: "retail", label: "🛍 Retail" },
+    { value: "sanitario", label: "🏥 Sanitario" },
+    { value: "automotive", label: "🚗 Automotive" },
+    { value: "servizi", label: "🏢 Business" },
+    { value: "scuole", label: "🎓 Scuole" },
+    { value: "immobiliare", label: "🏠 Immobiliare" },
+    { value: "beauty", label: "💄 Beauty" },
+    { value: "fitness", label: "🏋 Fitness" },
+    { value: "altro", label: "✨ Altro" },
+  ];
+
+  const periodPresets = [
+    { id: "asap", label: "⚡ Prima possibile", desc: "Avvio appena ultimata la preparazione logistica" },
+    { id: "within7", label: "📅 Entro 7 giorni", desc: "Distribuzione programmata nella prossima settimana" },
+    { id: "within15", label: "🗓️ Entro 15 giorni", desc: "Pianificazione strategica a breve termine" },
+    { id: "custom", label: "🎯 Scelgo la data", desc: "Definisci tu il periodo esatto di inizio e fine" },
+  ];
+
+  const materialOptions = [
+    { id: "yes", icon: "📦", label: "Li ho già stampati", desc: "Fornisci tu il materiale pronto per la distribuzione logistica" },
+    { id: "no", icon: "🖨️", label: "Devo stamparli", desc: "Aggiungi al preventivo il nostro servizio di stampa tipografica professionale ad alta resa" },
+  ];
+
+  const priorityOptions = [
+    { id: "normal", label: "Standard", desc: "5–7 giorni lavorativi • Prezzo standard di listino", badge: "" },
+    { id: "urgent", label: "Urgente", desc: "Avvio rapido in 24–48h ove disponibile • Maggiorazione +20%", badge: "Rapido" },
+    { id: "express", label: "Express", desc: "Priorità massima immediata e dedicata • Maggiorazione +35%", badge: "Prioritario" },
+  ];
+
+  const planOptions = [
+    { id: "single", label: "Singola", subtitle: "Una sola campagna", disc: 0 },
+    { id: "monthly3", label: "Trimestrale", subtitle: "Pianificazione 3 mesi", disc: 5 },
+    { id: "monthly6", label: "Semestrale", subtitle: "Pianificazione 6 mesi", disc: 10 },
+    { id: "monthly12", label: "Annuale", subtitle: "Pianificazione 12 mesi", disc: 15 },
+  ];
+
+  const baseRate = { d2d: 18.5, h2h: 22.0, b2b: 35.0, "business-distribution": 35.0 }[data.type || "d2d"] || 18.5;
+  const activeQty = data.qty || 10000;
+  const distEst = (activeQty / 1000) * baseRate;
+  const printEst = data.hasFlyers === "no" ? Math.round((activeQty / 1000) * 29) : 0;
+  let subtotalEst = distEst + printEst;
+  if (data.urgency === "urgent") subtotalEst *= 1.2;
+  if (data.urgency === "express") subtotalEst *= 1.35;
+  const discPct = { single: 0, monthly3: 5, monthly6: 10, monthly12: 15 }[data.subscription] || 0;
+  if (discPct > 0) subtotalEst = subtotalEst * (1 - discPct / 100);
+  const totalEstFormatted = Math.round(subtotalEst).toLocaleString("it-IT");
+
+  const handleContinue = () => {
+    const checks = [
+      { fail: !data.type, id: "section-servizio" },
+      { fail: !data.qty || data.qty < 1000, id: "section-quantita" },
+      { fail: !data.hasFlyers || !data.flyerFormat, id: "section-formato" },
+      { fail: !data.urgency, id: "section-urgenza" },
+      { fail: !data.subscription, id: "section-piano" },
+    ];
+    for (const c of checks) {
+      if (c.fail) {
+        const el = document.getElementById(c.id);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.style.outline = "2px solid #22C55E";
+          el.style.borderRadius = "16px";
+          setTimeout(() => {
+            el.style.outline = "";
+          }, 2500);
+        }
+        return;
+      }
+    }
+    onNext();
+  };
+
+  const isH2H = data.type === "h2h";
+  const isB2B = data.type === "b2b" || data.type === "business-distribution";
+  const dateError = !!(data.startDate && data.endDate && data.endDate < data.startDate);
+
+  const mainExtras = [
+    { id: "gps_default", icon: "📍", label: "Tracking GPS", price: "Incluso Gratis", desc: "Monitoraggio satellitare reale di serie su tutte le distribuzioni.", active: true, disabled: true },
+    { id: "photo_report_advanced", icon: "📸", label: "Foto", price: "Extra", desc: "Report fotografico dettagliato con evidenze geolocalizzate per zona.", active: (data.extraServices || []).includes("photo_report_advanced") },
+    { id: "video_report", icon: "🎥", label: "Video", price: "Extra", desc: "Riprese video sul campo per testimoniare l'attività operativa.", active: (data.extraServices || []).includes("video_report") },
+    { id: "report_analytics", icon: "📊", label: "Report", price: "Extra", desc: "Analisi post-campagna con KPI territoriali e tassi di copertura.", active: (data.extraServices || []).includes("report_analytics") },
+  ];
+
+  const currentServiceLabel = { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Business Distribution", "business-distribution": "Business Distribution" }[data.type] || "Da selezionare";
+  const currentPlanLabel = { single: "Singola", monthly3: "Trimestrale (-5%)", monthly6: "Semestrale (-10%)", monthly12: "Annuale (-15%)" }[data.subscription] || "Da selezionare";
+  const currentUrgencyLabel = { normal: "Standard", urgent: "Urgente (+20%)", express: "Express (+35%)" }[data.urgency] || "Da selezionare";
+  const currentPrintLabel = data.hasFlyers === "yes" ? "Già stampati" : data.hasFlyers === "no" ? "Da stampare (+stampa)" : "Da selezionare";
+  const currentFormatLabel = data.flyerFormat ? String(data.flyerFormat).toUpperCase() : "Da selezionare";
+
+  return (
+    <div style={{ maxWidth: 1240, margin: "0 auto", padding: isMobile ? "32px 16px 120px" : "48px 28px 140px", color: "#F8FAFC" }}>
+      <style>{`
+        .vp-s1-card-hover { transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+        .vp-s1-card-hover:hover { transform: translateY(-4px); border-color: rgba(6, 182, 212, 0.4) !important; box-shadow: 0 20px 40px rgba(0,0,0,0.4) !important; background: rgba(24, 34, 53, 0.8) !important; }
+        .vp-s1-btn-hover { transition: all 0.2s ease; }
+        .vp-s1-btn-hover:hover { transform: scale(1.02); filter: brightness(1.1); }
+        .vp-s1-input-modern { width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(148,163,184,0.2); background: rgba(15, 23, 42, 0.6); color: #fff; font-family: 'DM Sans', sans-serif; font-size: 14px; transition: all 0.2s; box-sizing: border-box; }
+        .vp-s1-input-modern:focus { border-color: #22C55E; outline: none; box-shadow: 0 0 0 3px rgba(34,197,94,0.15); }
+        .vp-s1-slider { -webkit-appearance: none; width: 100%; height: 8px; border-radius: 4px; background: rgba(148,163,184,0.15); outline: none; margin: 16px 0; }
+        .vp-s1-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #22C55E; cursor: pointer; border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.4); transition: transform 0.15s; }
+        .vp-s1-slider::-webkit-slider-thumb:hover { transform: scale(1.18); }
+      `}</style>
+
+      {onHome && (
+        <button
+          onClick={onHome}
+          style={{ marginBottom: 24, padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(148,163,184,0.2)", background: "rgba(255,255,255,0.03)", color: "#94A3B8", fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: pointer, display: "inline-flex", alignItems: "center", gap: 8 }}
+        >
+          ← Torna alla Home
+        </button>
+      )}
+
+      {/* Hero & Progress Bar */}
+      <div style={{ marginBottom: 48 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 20, marginBottom: 28, padding: "20px 24px", borderRadius: 20, background: "rgba(24,34,53,0.5)", border: "1px solid rgba(148,163,184,0.15)", backdropFilter: "blur(16px)" }}>
+          {[
+            { step: 1, label: "Configurazione campagna", active: true },
+            { step: 2, label: "Zona & Mappa", active: false },
+            { step: 3, label: "Smart Pairing", active: false },
+            { step: 4, label: "Preventivo", active: false },
+          ].map((s, idx) => (
+            <div key={s.step} style={{ display: "flex", alignItems: "center", gap: 12, flex: isMobile ? "1 1 100%" : "1 1 0" }}>
+              <div style={{ width: 34, height: 34, borderRadius: "50%", background: s.active ? "#22C55E" : "rgba(148,163,184,0.12)", color: s.active ? "#000" : "#94A3B8", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.sans, fontSize: 14, fontWeight: 900, flexShrink: 0, boxShadow: s.active ? "0 0 16px rgba(34,197,94,0.4)" : "none" }}>
+                {s.step}
+              </div>
+              <div>
+                <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em", color: s.active ? "#22C55E" : "#64748B" }}>
+                  Step {s.step}
+                </div>
+                <div style={{ fontFamily: F.sans, fontSize: 14, fontWeight: s.active ? 800 : 600, color: s.active ? "#F8FAFC" : "#94A3B8" }}>
+                  {s.label}
+                </div>
+              </div>
+              {idx < 3 && !isMobile && <div style={{ flex: 1, height: 2, background: "rgba(148,163,184,0.15)", margin: "0 8px" }} />}
+            </div>
+          ))}
+        </div>
+
+        <h1 style={{ fontFamily: F.serif, fontSize: isMobile ? 36 : 48, lineHeight: 1.08, color: "#F8FAFC", letterSpacing: "-0.02em", margin: "0 0 12px" }}>
+          Crea la tua campagna
+        </h1>
+        <p style={{ fontFamily: F.sans, fontSize: 17, lineHeight: 1.6, color: "#94A3B8", margin: 0, maxWidth: 640 }}>
+          Scegli servizio, quantità e periodo. Nel passaggio successivo selezionerai la zona sulla mappa e vedrai famiglie e copertura in tempo reale.
+        </p>
+      </div>
+
+      {/* Main Layout Grid */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 360px", gap: 40, alignItems: "start" }}>
+        {/* Left Column: Configuration Sections */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
+          
+          {/* Section 1: Tipo di distribuzione */}
+          <div id="section-servizio" style={{ background: "rgba(15,23,42,0.6)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.18)", padding: isMobile ? 20 : 32, backdropFilter: "blur(20px)" }}>
+            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+              1 \u2013 Tipo di distribuzione
+            </div>
+            <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 24px" }}>
+              Seleziona il canale operativo principale
+            </h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
+              {distributionTypes.map((t) => {
+                const active = data.type === t.id;
+                return (
+                  <div
+                    key={t.id}
+                    onClick={() => updateData({ type: t.id })}
+                    className="vp-s1-card-hover"
+                    style={{
+                      padding: 24,
+                      borderRadius: 20,
+                      background: active ? "rgba(34,197,94,0.08)" : "rgba(24,34,53,0.5)",
+                      border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.15)"}`,
+                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      position: "relative",
+                      boxShadow: active ? "0 16px 36px rgba(34,197,94,0.15)" : "none",
+                    }}
+                  >
+                    <div style={{ position: "absolute", top: 18, right: 18, padding: "4px 10px", borderRadius: 100, background: `${t.badgeColor}20`, border: `1px solid ${t.badgeColor}50`, color: t.badgeColor, fontFamily: F.sans, fontSize: 11, fontWeight: 800 }}>
+                      {t.badge}
+                    </div>
+                    <div style={{ fontSize: 36, marginBottom: 16 }}>{t.icon}</div>
+                    <div style={{ fontFamily: F.serif, fontSize: 22, color: "#F8FAFC", marginBottom: 8 }}>{t.name}</div>
+                    <p style={{ fontFamily: F.sans, fontSize: 13, lineHeight: 1.55, color: "#94A3B8", margin: "0 0 18px", minHeight: 40 }}>{t.desc}</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14, borderRadius: 12, background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.05)", marginBottom: 20, flex: 1 }}>
+                      <div style={{ fontSize: 12, color: "#CBD5E1" }}>💡 <b style={{ color: "#F8FAFC" }}>Casi d'uso:</b> {t.useCases}</div>
+                      <div style={{ fontSize: 12, color: "#CBD5E1" }}>🎯 <b style={{ color: "#F8FAFC" }}>Target:</b> {t.target}</div>
+                      <div style={{ fontSize: 12, color: "#CBD5E1" }}>⏱️ <b style={{ color: "#F8FAFC" }}>Tempo medio:</b> {t.time}</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 14, borderTop: "1px solid rgba(148,163,184,0.15)" }}>
+                      <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: active ? "#22C55E" : "#CBD5E1" }}>{t.price}</span>
+                      <span style={{ width: 24, height: 24, borderRadius: "50%", background: active ? "#22C55E" : "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: active ? "#000" : "#fff", fontSize: 12, fontWeight: 900 }}>
+                        {active ? "✓" : "+"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Section 2: Attività cliente */}
+          <div style={{ background: "rgba(15,23,42,0.6)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.18)", padding: isMobile ? 20 : 32, backdropFilter: "blur(20px)" }}>
+            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+              2 \u2013 Settore o Attività
+            </div>
+            <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
+              Che tipo di attività devi pubblicizzare?
+            </h2>
+            <p style={{ fontFamily: F.sans, fontSize: 14, color: "#94A3B8", margin: "0 0 24px" }}>
+              Selezionando il tuo settore, l'AI ottimizzerà le zone e le fasce di distribuzione suggerite nello Step 2.
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(5, 1fr)", gap: 12 }}>
+              {activityButtons.map((btn) => {
+                const active = data.activityType === btn.value;
+                return (
+                  <button
+                    key={btn.value}
+                    type="button"
+                    onClick={() => updateData({ activityType: btn.value, businessSector: btn.value })}
+                    className="vp-s1-btn-hover"
+                    style={{
+                      padding: "14px 12px",
+                      borderRadius: 14,
+                      border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.18)"}`,
+                      background: active ? "rgba(34,197,94,0.15)" : "rgba(24,34,53,0.5)",
+                      color: active ? "#22C55E" : "#CBD5E1",
+                      fontFamily: F.sans,
+                      fontSize: 14,
+                      fontWeight: active ? 800 : 600,
+                      cursor: "pointer",
+                      textAlign: "center",
+                    }}
+                  >
+                    {btn.label}
+                  </button>
+                );
+              })}
+            </div>
+            {data.activityType === "altro" && (
+              <input
+                type="text"
+                placeholder="Specifica la tua attività (es. Centro estetico, Palestra, Pizzeria...)"
+                value={data.activityNote || ""}
+                onChange={(e) => updateData({ activityNote: e.target.value })}
+                className="vp-s1-input-modern"
+                style={{ marginTop: 16 }}
+              />
+            )}
+
+            {/* Configurazione speciale H2H */}
+            {isH2H && (
+              <div style={{ marginTop: 28, padding: 24, borderRadius: 18, background: "rgba(30,58,138,0.2)", border: "1px solid rgba(96,165,250,0.3)" }}>
+                <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "#60A5FA", marginBottom: 16 }}>
+                  🤝 Dettagli operativi Hand to Hand
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginBottom: 16 }}>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Numero Promoter</label>
+                    <select value={data.promoterCount || ""} onChange={(e) => updateData({ promoterCount: e.target.value })} className="vp-s1-input-modern">
+                      <option value="">Seleziona...</option>
+                      {Bv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Fascia Oraria</label>
+                    <select value={data.timeSlot || ""} onChange={(e) => updateData({ timeSlot: e.target.value })} className="vp-s1-input-modern">
+                      <option value="">Seleziona...</option>
+                      {Mv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Durata Servizio</label>
+                    <select value={data.serviceDurationHours || ""} onChange={(e) => updateData({ serviceDurationHours: e.target.value })} className="vp-s1-input-modern">
+                      <option value="">Seleziona...</option>
+                      {Fv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Luogo principale / Piazza</label>
+                    <input type="text" placeholder="es. Duomo, Stazione Centrale..." value={data.distributionLocation || ""} onChange={(e) => updateData({ distributionLocation: e.target.value })} className="vp-s1-input-modern" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Tipo Punto ad alto flusso</label>
+                    <select value={data.distributionPointType || ""} onChange={(e) => updateData({ distributionPointType: e.target.value })} className="vp-s1-input-modern">
+                      <option value="">Seleziona...</option>
+                      {Nv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Configurazione speciale B2B */}
+            {isB2B && (
+              <div style={{ marginTop: 28, padding: 24, borderRadius: 18, background: "rgba(88,28,135,0.2)", border: "1px solid rgba(167,139,250,0.3)" }}>
+                <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "#A78BFA", marginBottom: 16 }}>
+                  🏢 Dettagli operativi Distribuzione Business
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Tipo Attività Target</label>
+                    <select value={data.targetBusinessType || ""} onChange={(e) => updateData({ targetBusinessType: e.target.value })} className="vp-s1-input-modern">
+                      <option value="">Seleziona...</option>
+                      {$v.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Categoria Commerciale</label>
+                    <select value={data.businessCategory || ""} onChange={(e) => updateData({ businessCategory: e.target.value })} className="vp-s1-input-modern">
+                      <option value="">Seleziona...</option>
+                      {Lv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Numero Attività Target</label>
+                    <select value={data.targetBusinessCount || ""} onChange={(e) => updateData({ targetBusinessCount: e.target.value })} className="vp-s1-input-modern">
+                      <option value="">Seleziona...</option>
+                      {Iv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Zona Commerciale / Comune</label>
+                    <input type="text" placeholder="es. Zona Industriale, Centro Uffici..." value={data.businessZone || ""} onChange={(e) => updateData({ businessZone: e.target.value })} className="vp-s1-input-modern" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Modalità di Consegna</label>
+                    <select value={data.deliveryType || ""} onChange={(e) => updateData({ deliveryType: e.target.value })} className="vp-s1-input-modern">
+                      <option value="">Seleziona...</option>
+                      {km.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Section 3: Quantità volantini */}
+          <div id="section-quantita" style={{ background: "rgba(15,23,42,0.6)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.18)", padding: isMobile ? 20 : 32, backdropFilter: "blur(20px)" }}>
+            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+              3 \u2013 Quantità volantini
+            </div>
+            <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
+              Quanti volantini desideri distribuire?
+            </h2>
+            <div style={{ padding: "12px 18px", borderRadius: 12, background: "rgba(6,182,212,0.1)", border: "1px solid rgba(6,182,212,0.3)", color: "#22D3EE", fontSize: 13, fontWeight: 700, marginBottom: 24 }}>
+              💡 La copertura stimata (famiglie raggiunte e percentuale di zona) verrà calcolata automaticamente nello Step 2 in base all'area sulla mappa.
+            </div>
+
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24 }}>
+              {[5000, 10000, 25000, 50000, 100000].map((q) => {
+                const active = data.qty === q;
+                return (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => updateData({ qty: q })}
+                    className="vp-s1-btn-hover"
+                    style={{
+                      flex: "1 1 120px",
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.2)"}`,
+                      background: active ? "rgba(34,197,94,0.15)" : "rgba(24,34,53,0.5)",
+                      color: active ? "#22C55E" : "#F8FAFC",
+                      fontFamily: F.sans,
+                      fontSize: 15,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {new Intl.NumberFormat("it-IT").format(q)} pz
+                  </button>
+                );
+              })}
+            </div>
+
+            <input
+              type="range"
+              min={5000}
+              max={100000}
+              step={1000}
+              value={Math.max(5000, Math.min(100000, data.qty || 10000))}
+              onChange={(e) => updateData({ qty: Number(e.target.value) })}
+              className="vp-s1-slider"
+            />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(148,163,184,0.15)", flexWrap: "wrap", gap: 12 }}>
+              <div style={{ fontSize: 15, color: "#CBD5E1" }}>
+                Quantità selezionata: <b style={{ color: "#22C55E", fontSize: 22, marginLeft: 8 }}>{new Intl.NumberFormat("it-IT").format(data.qty || 10000)}</b> <span style={{ fontSize: 14 }}>volantini</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 13, color: "#94A3B8" }}>Inserimento manuale:</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={data.qty ? new Intl.NumberFormat("it-IT").format(data.qty) : ""}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "");
+                    updateData({ qty: v ? parseInt(v, 10) : "" });
+                  }}
+                  onBlur={(e) => {
+                    const v = e.target.value.replace(/\D/g, "");
+                    updateData({ qty: Math.max(5000, Math.min(100000, v ? parseInt(v, 10) : 10000)) });
+                  }}
+                  className="vp-s1-input-modern"
+                  style={{ width: 130, textAlign: "right", fontWeight: 800, fontSize: 16 }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 4: Periodo distribuzione */}
+          <div id="section-periodo" style={{ background: "rgba(15,23,42,0.6)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.18)", padding: isMobile ? 20 : 32, backdropFilter: "blur(20px)" }}>
+            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+              4 \u2013 Periodo di distribuzione
+            </div>
+            <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
+              Quando vuoi far partire la campagna?
+            </h2>
+            <p style={{ fontFamily: F.sans, fontSize: 14, color: "#94A3B8", margin: "0 0 24px" }}>
+              Seleziona una preferenza rapida oppure definisci le date esatte. Potrai confermare o modificare tutto prima dell'avvio.
+            </p>
+
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 16, marginBottom: data.campaignPeriodPreset === "custom" ? 24 : 0 }}>
+              {periodPresets.map((p) => {
+                const active = (data.campaignPeriodPreset || "custom") === p.id;
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => updateData({ campaignPeriodPreset: p.id, ...(p.id !== "custom" ? { startDate: "", endDate: "", startDateDraft: "", endDateDraft: "" } : {}) })}
+                    className="vp-s1-card-hover"
+                    style={{
+                      padding: 20,
+                      borderRadius: 16,
+                      background: active ? "rgba(34,197,94,0.12)" : "rgba(24,34,53,0.5)",
+                      border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.18)"}`,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ fontFamily: F.sans, fontSize: 16, fontWeight: 800, color: active ? "#22C55E" : "#F8FAFC", marginBottom: 6 }}>{p.label}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 13, color: "#94A3B8", lineHeight: 1.4 }}>{p.desc}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Calendario visualizzato SOLO quando "Scelgo la data" è selezionato */}
+            {(data.campaignPeriodPreset === "custom" || !data.campaignPeriodPreset) && (
+              <div style={{ padding: 24, borderRadius: 18, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(148,163,184,0.2)", marginTop: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#CBD5E1", marginBottom: 16 }}>🎯 Seleziona le date desiderate sul calendario:</div>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
+                  {[
+                    { label: "Data preferita di inizio", key: "startDate" },
+                    { label: "Data fine (opzionale)", key: "endDate" },
+                  ].map((field) => {
+                    const val = data[field.key] || "";
+                    const draftKey = `${field.key}Draft`;
+                    const draftVal = data[draftKey] ?? formatDateDisplay(val);
+                    return (
+                      <div key={field.key}>
+                        <label style={{ fontSize: 12, color: "#94A3B8", display: "block", marginBottom: 6 }}>{field.label}</label>
+                        <div style={{ position: "relative" }}>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="gg/mm/aaaa"
+                            value={draftVal}
+                            onChange={(e) => {
+                              const masked = maskDateInput(e.target.value);
+                              const parsed = parseDateToIso(masked);
+                              updateData({ [draftKey]: masked, ...(parsed ? { [field.key]: parsed } : !masked ? { [field.key]: "" } : {}) });
+                            }}
+                            className="vp-s1-input-modern"
+                            style={{ paddingRight: 44 }}
+                          />
+                          <input
+                            type="date"
+                            id={`date-picker-${field.key}`}
+                            value={val || ""}
+                            onChange={(e) => {
+                              const iso = e.target.value;
+                              if (!iso) return;
+                              updateData({ [field.key]: iso, [draftKey]: formatDateDisplay(iso) });
+                            }}
+                            style={{ position: "absolute", right: 0, top: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }}
+                          />
+                          <span
+                            onClick={() => {
+                              const el = document.getElementById(`date-picker-${field.key}`);
+                              if (el) {
+                                try { el.showPicker(); } catch { el.click(); }
+                              }
+                            }}
+                            style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", cursor: "pointer", fontSize: 18 }}
+                          >
+                            📅
+                          </span>
+                        </div>
+                        {val && <div style={{ fontSize: 11, color: "#22C55E", marginTop: 4, fontWeight: 700 }}>✓ Confermato: {formatDateDisplay(val)}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+                {dateError && (
+                  <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "rgba(239,68,68,0.15)", border: "1px solid #EF4444", color: "#EF4444", fontSize: 12, fontWeight: 700 }}>
+                    ⚠️ La data di fine precede la data di inizio. Per favore correggila.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Section 5: Materiale e Formato */}
+          <div id="section-formato" style={{ background: "rgba(15,23,42,0.6)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.18)", padding: isMobile ? 20 : 32, backdropFilter: "blur(20px)" }}>
+            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+              5 \u2013 Materiale & Formato
+            </div>
+            <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 24px" }}>
+              Hai già i volantini stampati o dobbiamo stamparli noi?
+            </h2>
+
+            {/* 2 Card Grandi Materiale */}
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20, marginBottom: 32 }}>
+              {materialOptions.map((m) => {
+                const active = (data.hasFlyers || "no") === m.id;
+                return (
+                  <div
+                    key={m.id}
+                    onClick={() => updateData({
+                      hasFlyers: m.id,
+                      extraServices: m.id === "yes"
+                        ? (data.extraServices || []).filter((s) => !["stampa", "grafica"].includes(s))
+                        : data.extraServices || [],
+                    })}
+                    className="vp-s1-card-hover"
+                    style={{
+                      padding: 24,
+                      borderRadius: 20,
+                      background: active ? "rgba(34,197,94,0.12)" : "rgba(24,34,53,0.5)",
+                      border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.18)"}`,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 16,
+                    }}
+                  >
+                    <span style={{ fontSize: 36 }}>{m.icon}</span>
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: active ? "#22C55E" : "#F8FAFC", marginBottom: 6 }}>{m.label}</div>
+                      <div style={{ fontSize: 13, color: "#94A3B8", lineHeight: 1.5 }}>{m.desc}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Formato 4 Card */}
+            <div style={{ borderTop: "1px solid rgba(148,163,184,0.15)", paddingTop: 24 }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: "#F8FAFC", marginBottom: 14 }}>
+                Seleziona il formato del volantino <span style={{ fontSize: 13, color: "#94A3B8", fontWeight: 500 }}>(per ottimizzare il carico e il peso logistico)</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 14 }}>
+                {Uv.map((fmt) => {
+                  const active = data.flyerFormat === fmt.id;
+                  return (
+                    <div
+                      key={fmt.id}
+                      onClick={() => updateData({ flyerFormat: fmt.id })}
+                      className="vp-s1-card-hover"
+                      style={{
+                        padding: 18,
+                        borderRadius: 16,
+                        background: active ? "rgba(34,197,94,0.15)" : "rgba(24,34,53,0.5)",
+                        border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.18)"}`,
+                        cursor: "pointer",
+                        textAlign: "center",
+                      }}
+                    >
+                      <div style={{ fontFamily: F.serif, fontSize: 24, color: active ? "#22C55E" : "#F8FAFC", marginBottom: 4 }}>{fmt.label}</div>
+                      <div style={{ fontSize: 12, color: "#94A3B8" }}>{fmt.size}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Section 6: Servizi extra */}
+          <div style={{ background: "rgba(15,23,42,0.6)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.18)", padding: isMobile ? 20 : 32, backdropFilter: "blur(20px)" }}>
+            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+              6 \u2013 Certificazione & Tracking
+            </div>
+            <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
+              Servizi extra per il controllo qualità
+            </h2>
+            <p style={{ fontFamily: F.sans, fontSize: 14, color: "#94A3B8", margin: "0 0 24px" }}>
+              Il monitoraggio satellitare GPS reale è sempre incluso di serie per la massima trasparenza operativa.
+            </p>
+
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 16, marginBottom: 20 }}>
+              {mainExtras.map((ext) => (
+                <div
+                  key={ext.id}
+                  onClick={() => !ext.disabled && toggleExtra(ext.id)}
+                  className={ext.disabled ? "" : "vp-s1-card-hover"}
+                  style={{
+                    padding: 20,
+                    borderRadius: 16,
+                    background: ext.active ? "rgba(34,197,94,0.12)" : "rgba(24,34,53,0.5)",
+                    border: `2px solid ${ext.active ? "#22C55E" : "rgba(148,163,184,0.18)"}`,
+                    cursor: ext.disabled ? "default" : "pointer",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 14,
+                  }}
+                >
+                  <span style={{ fontSize: 28 }}>{ext.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ fontSize: 16, fontWeight: 800, color: ext.active ? "#22C55E" : "#F8FAFC" }}>{ext.label}</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 6, background: ext.disabled ? "rgba(34,197,94,0.2)" : "rgba(255,255,255,0.1)", color: ext.disabled ? "#22C55E" : "#CBD5E1" }}>{ext.price}</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: "#94A3B8", lineHeight: 1.4 }}>{ext.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pulsante "Scopri tutti i servizi" */}
+            <div style={{ textAlign: "center", marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={() => setShowAllExtras(!showAllExtras)}
+                style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(148,163,184,0.2)", color: "#22D3EE", fontSize: 13, fontWeight: 700, cursor: pointer, transition: "all 0.2s" }}
+              >
+                {showAllExtras ? "▲ Nascondi catalogo servizi" : "🔍 Scopri tutti i servizi avanzati"}
+              </button>
+            </div>
+
+            {showAllExtras && (
+              <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid rgba(148,163,184,0.15)", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 16 }}>
+                {Kp.filter((k) => !["photo_report_advanced", "report_analytics"].includes(k.id)).map((ext) => {
+                  const active = (data.extraServices || []).includes(ext.id);
+                  return (
+                    <div
+                      key={ext.id}
+                      onClick={() => toggleExtra(ext.id)}
+                      className="vp-s1-card-hover"
+                      style={{
+                        padding: 18,
+                        borderRadius: 16,
+                        background: active ? "rgba(34,197,94,0.12)" : "rgba(24,34,53,0.4)",
+                        border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.15)"}`,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: active ? "#22C55E" : "#F8FAFC" }}>{ext.label}</span>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: "#A78BFA" }}>{ext.price}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: "#94A3B8" }}>{ext.desc}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Section 7: Priorità */}
+          <div id="section-urgenza" style={{ background: "rgba(15,23,42,0.6)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.18)", padding: isMobile ? 20 : 32, backdropFilter: "blur(20px)" }}>
+            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+              7 \u2013 Priorità operativa
+            </div>
+            <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 20px" }}>
+              Con che urgenza dobbiamo avviare la distribuzione?
+            </h2>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 16 }}>
+              {priorityOptions.map((p) => {
+                const active = data.urgency === p.id;
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => updateData({ urgency: p.id })}
+                    className="vp-s1-card-hover"
+                    style={{
+                      padding: 22,
+                      borderRadius: 18,
+                      background: active ? "rgba(34,197,94,0.12)" : "rgba(24,34,53,0.5)",
+                      border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.18)"}`,
+                      cursor: "pointer",
+                      position: "relative",
+                    }}
+                  >
+                    {p.badge && (
+                      <div style={{ position: "absolute", top: 12, right: 12, padding: "3px 8px", borderRadius: 100, background: p.id === "express" ? "rgba(239,68,68,0.2)" : "rgba(245,158,11,0.2)", color: p.id === "express" ? "#EF4444" : "#F59E0B", fontSize: 10, fontWeight: 800 }}>
+                        {p.badge}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 18, fontWeight: 800, color: active ? "#22C55E" : "#F8FAFC", marginBottom: 8 }}>{p.label}</div>
+                    <div style={{ fontSize: 13, color: "#94A3B8", lineHeight: 1.4 }}>{p.desc}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Section 8: Piano */}
+          <div id="section-piano" style={{ background: "rgba(15,23,42,0.6)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.18)", padding: isMobile ? 20 : 32, backdropFilter: "blur(20px)" }}>
+            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+              8 \u2013 Piano promozionale
+            </div>
+            <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
+              Vuoi fare una distribuzione singola o continuativa?
+            </h2>
+            <p style={{ fontFamily: F.sans, fontSize: 14, color: "#94A3B8", margin: "0 0 24px" }}>
+              I piani continuativi ti assicurano priorità nelle squadre operative e sconti automatici sui costi di distribuzione.
+            </p>
+
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 16, marginBottom: 20 }}>
+              {planOptions.map((pl) => {
+                const active = data.subscription === pl.id;
+                return (
+                  <div
+                    key={pl.id}
+                    onClick={() => updateData({ subscription: pl.id, campaignsPerMonth: pl.id === "single" ? 1 : data.campaignsPerMonth || 1 })}
+                    className="vp-s1-card-hover"
+                    style={{
+                      padding: 20,
+                      borderRadius: 18,
+                      background: active ? "rgba(34,197,94,0.15)" : "rgba(24,34,53,0.5)",
+                      border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.18)"}`,
+                      cursor: "pointer",
+                      textAlign: "center",
+                      position: "relative",
+                    }}
+                  >
+                    {pl.disc > 0 && (
+                      <div style={{ position: "absolute", top: -10, right: 10, background: "#F59E0B", color: "#000", padding: "2px 8px", borderRadius: 100, fontSize: 11, fontWeight: 900, boxShadow: "0 4px 10px rgba(245,158,11,0.3)" }}>
+                        -{pl.disc}%
+                      </div>
+                    )}
+                    <div style={{ fontSize: 20, fontWeight: 800, color: active ? "#22C55E" : "#F8FAFC", marginBottom: 4 }}>{pl.label}</div>
+                    <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: pl.disc > 0 ? 6 : 0 }}>{pl.subtitle}</div>
+                    {pl.disc > 0 && <div style={{ fontSize: 11, color: "#F59E0B", fontWeight: 800 }}>Sconto applicato</div>}
+                  </div>
+                );
+              })}
+            </div>
+
+            {data.subscription && data.subscription !== "single" && (
+              <div style={{ padding: 20, borderRadius: 16, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC", marginBottom: 4 }}>Quante uscite/campagne al mese vuoi effettuare?</div>
+                  <div style={{ fontSize: 12, color: "#A7F3D0" }}>Ottimizzi la pianificazione logistica su {h[data.subscription]} mesi</div>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  {[1, 2, 4].map((cnt) => {
+                    const active = (data.campaignsPerMonth || 1) === cnt;
+                    return (
+                      <button
+                        key={cnt}
+                        type="button"
+                        onClick={() => updateData({ campaignsPerMonth: cnt })}
+                        style={{ width: 44, height: 44, borderRadius: 12, border: `2px solid ${active ? "#22C55E" : "rgba(255,255,255,0.2)"}`, background: active ? "#22C55E" : "transparent", color: active ? "#000" : "#fff", fontSize: 16, fontWeight: 900, cursor: "pointer" }}
+                      >
+                        {cnt}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* NUOVA CARD "PROSSIMO PASSAGGIO" */}
+          <div style={{ background: "linear-gradient(135deg, rgba(15,23,42,0.85), rgba(8,14,28,0.95))", borderRadius: 24, border: "2px solid rgba(6,182,212,0.35)", padding: isMobile ? 24 : 36, boxShadow: "0 24px 64px rgba(0,0,0,0.5)", position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(6,182,212,0.15) 0%, transparent 70%)", pointerEvents: "none" }} />
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "4px 12px", borderRadius: 100, background: "rgba(6,182,212,0.15)", color: "#22D3EE", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 16 }}>
+              ⚡ Trasparenza Garantita
+            </div>
+            <h2 style={{ fontFamily: F.serif, fontSize: 30, color: "#F8FAFC", margin: "0 0 20px" }}>
+              Prossimo passaggio
+            </h2>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 18, marginBottom: 28 }}>
+              {[
+                "Selezionerai la zona direttamente sulla mappa.",
+                "Vedrai famiglie, popolazione e copertura stimata.",
+                "Riceverai un preventivo automatico basato sulla zona scelta.",
+                "Potrai modificare tutto prima della conferma finale.",
+              ].map((pt, idx) => (
+                <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: "rgba(34,197,94,0.2)", border: "1px solid #22C55E", color: "#22C55E", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, flexShrink: 0, marginTop: 2 }}>
+                    ✓
+                  </div>
+                  <span style={{ fontSize: 15, color: "#E2E8F0", lineHeight: 1.5, fontWeight: 500 }}>{pt}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* CTA Button & Note */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+              <button
+                type="button"
+                onClick={handleContinue}
+                className="vp-s1-btn-hover"
+                style={{
+                  width: "100%",
+                  padding: "18px 36px",
+                  borderRadius: 16,
+                  background: "linear-gradient(135deg, #22C55E, #16A34A)",
+                  color: "#fff",
+                  border: "none",
+                  fontFamily: F.sans,
+                  fontSize: 18,
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  boxShadow: "0 12px 32px rgba(34,197,94,0.4)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 12,
+                }}
+              >
+                <span>Continua allo Step 2</span>
+                <span style={{ fontSize: 22 }}>➔</span>
+              </button>
+              <div style={{ fontSize: 13, color: "#94A3B8", display: "flex", alignItems: "center", gap: 6 }}>
+                <span>🔒</span> <b>Nessun pagamento richiesto in questa fase.</b> Potrai personalizzare ogni dettaglio.
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Right Column: Persistent Sidebar */}
+        <div style={{ position: isMobile ? "static" : "sticky", top: 24, background: "rgba(10,13,20,0.85)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.2)", padding: 24, backdropFilter: "blur(24px)", boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16, borderBottom: "1px solid rgba(148,163,184,0.15)", marginBottom: 20 }}>
+            <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", textTransform: "uppercase", letterSpacing: ".1em" }}>Riepilogo Step 1</span>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22C55E", boxShadow: "0 0 10px #22C55E" }} />
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 24 }}>
+            {[
+              { label: "Servizio", val: currentServiceLabel },
+              { label: "Quantità", val: `${new Intl.NumberFormat("it-IT").format(data.qty || 10000)} pz` },
+              { label: "Formato", val: currentFormatLabel },
+              { label: "Urgenza", val: currentUrgencyLabel },
+              { label: "Piano", val: currentPlanLabel },
+              { label: "Extra", val: `${(data.extraServices || []).length + 1} inclusi` },
+            ].map((row, idx) => (
+              <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+                <span style={{ color: "#94A3B8" }}>{row.label}</span>
+                <span style={{ fontWeight: 800, color: row.val.includes("Da selezionare") ? "#64748B" : "#F8FAFC" }}>{row.val}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ padding: 18, borderRadius: 16, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)", marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "#A7F3D0", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>Prezzo stimato (non definitivo)</div>
+            <div style={{ fontSize: 26, fontWeight: 900, color: "#22C55E", letterSpacing: "-0.5px" }}>€ {totalEstFormatted} <span style={{ fontSize: 14, fontWeight: 600, color: "#94A3B8" }}>+ IVA</span></div>
+            <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 6, lineHeight: 1.4 }}>Calcolato su listino base. Il preventivo esatto verrà generato in base alle zone scelte nello Step 2.</div>
+          </div>
+
+          <div style={{ fontSize: 12, color: "#64748B", lineHeight: 1.5, textAlign: "center" }}>
+            Hai bisogno di aiuto? <button type="button" onClick={() => setShowSmartPairingModal(true)} style={{ background: "none", border: "none", color: "#06B6D4", textDecoration: "underline", cursor: "pointer", padding: 0, fontWeight: 700 }}>Scopri lo Smart Pairing</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal Spiegazione Smart Pairing opzionale */}
+      {showSmartPairingModal && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }} onClick={() => setShowSmartPairingModal(false)} />
+          <div style={{ position: "relative", width: "100%", maxWidth: 460, background: "#0F172A", border: "1px solid rgba(148,163,184,0.2)", borderRadius: 24, padding: 28, boxShadow: "0 24px 64px rgba(0,0,0,0.6)", zIndex: 1 }}>
+            <button onClick={() => setShowSmartPairingModal(false)} style={{ position: "absolute", top: 20, right: 20, background: "none", border: "none", color: "#94A3B8", fontSize: 24, cursor: "pointer" }}>×</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <span style={{ fontSize: 24 }}>✨</span>
+              <h3 style={{ fontFamily: F.serif, fontSize: 22, color: "#F8FAFC", margin: 0 }}>Smart Pairing AI</h3>
+            </div>
+            <p style={{ fontSize: 14, color: "#CBD5E1", lineHeight: 1.6, marginBottom: 14 }}>
+              Lo Smart Pairing non limita le tue date di distribuzione: è un'opportunità di risparmio aggiuntiva fino al <b>-40%</b>.
+            </p>
+            <p style={{ fontSize: 14, color: "#94A3B8", lineHeight: 1.6, marginBottom: 24 }}>
+              Nello Step 3 confronteremo automaticamente la tua zona con le squadre operative già attive sul territorio. Se non ci sono abbinamenti, potrai procedere al prezzo standard o attivare l'avviso prioritario.
+            </p>
+            <button onClick={() => setShowSmartPairingModal(false)} style={{ width: "100%", padding: "14px", borderRadius: 12, background: "#22C55E", color: "#fff", border: "none", fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
+              Perfetto, ho capito
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
-function Step1({data:n,setData:i,onNext:r,onHome:oe}){const[showSmartPairingModal,setShowSmartPairingModal]=useState(false);const l=useIsMobile(),u=[{id:"d2d",name:"Door to Door",code:"D2D",desc:"Distribuzione in cassette postali, condomini, palazzi, villette e zone residenziali.",features:["Attività locali","Promozioni di zona","Grande copertura territoriale"],c:"#22C55E"},{id:"h2h",name:"Hand to Hand",code:"H2H",desc:"Distribuzione manuale in punti ad alto passaggio.",features:["Eventi","Negozi","Palestre","Promozioni immediate"],c:C.blue,popular:!0},{id:"b2b",name:"Distribuzione Business",code:"B2B",desc:"Distribuzione presso attività commerciali, uffici e zone business.",features:["B2B","Servizi professionali","Attività commerciali","Zone business"],c:C.purple}],h={single:1,monthly3:3,monthly6:6,monthly12:12},f={single:0,monthly3:5,monthly6:10,monthly12:15},m=n.type==="h2h",y=n.type==="b2b"||n.type==="business-distribution",x=!!(n.type&&n.qty>0&&n.flyerFormat&&n.hasFlyers&&n.urgency&&n.subscription&&(!m||n.promoterCount&&n.timeSlot&&n.serviceDurationHours&&(n.distributionLocation||n.distributionPointType))&&(!y||n.targetBusinessType&&n.businessCategory&&n.targetBusinessCount&&(n.businessZone||n.cityName))),w=!!(n.startDate&&n.endDate&&n.endDate<n.startDate),j=A=>{if(!A)return"";
-const F=A.split("-");return F.length===3?`${F[2]}/${F[1]}/${F[0]}`:""},T=A=>{const F=A.replace(/\D/g,"").slice(0,8);return F.length<=2?F:F.length<=4?`${F.slice(0,2)}/${F.slice(2)}`:`${F.slice(0,2)}/${F.slice(2,4)}/${F.slice(4)}`},z=A=>{const F=A.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);if(!F)return"";
-const[,B,P,J]=F,V=new Date(Number(J),Number(P)-1,Number(B));return V.getFullYear()!==Number(J)||V.getMonth()!==Number(P)-1||V.getDate()!==Number(B)?"":`${J}-${P}-${B}`},R=(n.campaignsPerMonth||1)*(h[n.subscription]||1),D=A=>i(F=>{const B={...F,...A},P=h[B.subscription]||1,J=f[B.subscription]||0,V=B.subscription==="single"?1:B.campaignsPerMonth||1;return{...B,campaignsPerMonth:V,selectedService:B.type,businessSector:B.activityType,flyerQuantity:B.qty,campaignPeriodStart:B.startDate,campaignPeriodEnd:B.endDate,alreadyPrinted:B.hasFlyers==="yes",printServices:(B.extraServices||[]).filter(H=>["stampa","grafica"].includes(H)),paperWeight:B.printGramm,printSides:B.printSide,colorMode:B.printColor,campaignPlan:B.subscription,totalCampaigns:V*P,planDiscount:J,promoterCount:B.promoterCount,timeSlot:B.timeSlot,serviceDurationHours:B.serviceDurationHours,distributionLocation:B.distributionLocation,distributionPointType:B.distributionPointType,operationalNotes:B.operationalNotes,targetBusinessType:B.targetBusinessType,businessCategory:B.businessCategory,targetBusinessCount:B.targetBusinessCount,businessZone:B.businessZone,deliveryType:B.deliveryType}}),W=A=>i(F=>{const B=F.extraServices||[],P=B.includes(A)?B.filter(ge=>ge!==A):[...B,A],J={...F,extraServices:P},V=h[J.subscription]||1,H=f[J.subscription]||0,ue=J.subscription==="single"?1:J.campaignsPerMonth||1;return{...J,campaignsPerMonth:ue,selectedService:J.type,businessSector:J.activityType,flyerQuantity:J.qty,campaignPeriodStart:J.startDate,campaignPeriodEnd:J.endDate,alreadyPrinted:J.hasFlyers==="yes",printServices:P.filter(ge=>["stampa","grafica"].includes(ge)),paperWeight:J.printGramm,printSides:J.printSide,colorMode:J.printColor,campaignPlan:J.subscription,totalCampaigns:ue*V,planDiscount:H}});return _jsxs("div",{style:{maxWidth:1020,margin:"0 auto",padding:"64px 28px 140px"},children:[_jsx("style",{children:`
-.vp-s1-header { margin-bottom: 48px; }
-.vp-s1-title { font-family: 'DM Serif Display', Georgia, serif; font-size: clamp(32px, 4vw, 48px); color: #fff; letter-spacing: -1.5px; margin-bottom: 12px; line-height: 1.1; }
-.vp-s1-subtitle { font-family: 'DM Sans', Inter, system-ui, sans-serif; font-size: 16px; color: rgba(255,255,255,0.85); max-width: 600px; line-height: 1.6; }
-.vp-s1-sp-banner { margin-top: 24px; padding: 16px 20px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: flex-start; gap: 12px; }
-.vp-s1-sp-text { font-family: 'DM Sans', Inter, system-ui, sans-serif; font-size: 14px; color: rgba(255,255,255,0.7); line-height: 1.5; margin: 0; }
-.vp-s1-section-num { font-family: 'DM Sans', Inter, system-ui, sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; color: #22C55E; margin-bottom: 16px; display: block; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 12px; }
-.vp-s1-card { background: #0A0D14; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 32px 28px; cursor: pointer; position: relative; overflow: hidden; display: flex; flex-direction: column; min-height: 420px; transition: transform 0.3s ease, border-color 0.3s ease, background 0.3s ease; }
-.vp-s1-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.15); background: #0E121A; }
-.vp-s1-card.vp-active { border-color: #22C55E; background: rgba(34,197,94,0.04); box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
-.vp-s1-badge { position: absolute; top: 16px; right: 16px; background: rgba(34,197,94,0.15); color: #22C55E; padding: 6px 12px; border-radius: 20px; font-family: 'DM Sans', Inter, system-ui, sans-serif; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; border: 1px solid rgba(34,197,94,0.2); }
-
-.vp-s1-range { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.1); outline: none; margin: 8px 0; }
-.vp-s1-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #22C55E; cursor: pointer; transition: transform 0.15s; border: 2.5px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
-.vp-s1-range::-webkit-slider-thumb:hover { transform: scale(1.15); }
-.vp-s1-range:focus::-webkit-slider-thumb { outline: 2px solid rgba(34,197,94,0.5); outline-offset: 2px; }
-.vp-s1-range::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #22C55E; cursor: pointer; transition: transform 0.15s; border: 2.5px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
-/* Nuove classi Fase 3B-1 */
-.vp-s1-card-inner { background: rgba(8, 14, 28, 0.55); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 18px 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.25); }
-.vp-s1-input { width: 100%; padding: 12px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(8, 14, 28, 0.4); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: #fff; font-family: 'DM Sans', sans-serif; font-size: 14px; transition: border-color 0.2s, background 0.2s, box-shadow 0.2s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
-.vp-s1-input:focus { border-color: #22C55E; background: rgba(34,197,94,0.05); outline: none; box-shadow: 0 0 0 1px #22C55E, inset 0 2px 4px rgba(0,0,0,0.1); }
-.vp-s1-input.active { border-color: rgba(34,197,94,0.5); }
-.vp-s1-pill { padding: 8px 16px; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; border: 1px solid rgba(255,255,255,0.08); background: rgba(8, 14, 28, 0.4); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: rgba(255,255,255,0.7); box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: all 0.2s ease; }
-.vp-s1-pill:hover { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #fff; }
-.vp-s1-pill.active { border-color: #22C55E; background: rgba(34,197,94,0.15); color: #22C55E; box-shadow: 0 0 12px rgba(34,197,94,0.2), 0 4px 12px rgba(0,0,0,0.1); }
-.vp-s1-option-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 11px; cursor: pointer; border: 1px solid rgba(255,255,255,0.08); background: rgba(8, 14, 28, 0.4); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: all 0.2s ease; }
-.vp-s1-option-card:hover { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); }
-.vp-s1-option-card.active { border-color: #22C55E; background: rgba(34,197,94,0.12); box-shadow: 0 0 12px rgba(34,197,94,0.2), 0 4px 12px rgba(0,0,0,0.1); }
-
-.vp-s1-format-card { border-radius: 9px; padding: 11px; cursor: pointer; text-align: center; border: 1px solid rgba(255,255,255,0.08); background: rgba(8, 14, 28, 0.4); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: all 0.2s ease; }
-.vp-s1-format-card:hover { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); }
-.vp-s1-format-card.active { border-color: #22C55E; background: rgba(34,197,94,0.12); box-shadow: 0 0 12px rgba(34,197,94,0.2), 0 4px 12px rgba(0,0,0,0.1); }
-
-.vp-s1-plan-card { border-radius: 11px; padding: 16px 14px; cursor: pointer; border: 1px solid rgba(255,255,255,0.07); background: rgba(8, 14, 28, 0.4); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: all 0.2s ease; text-align: center; position: relative; }
-.vp-s1-plan-card:hover { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); }
-.vp-s1-plan-card.active { border-color: #22C55E; background: rgba(34,197,94,0.12); box-shadow: 0 0 12px rgba(34,197,94,0.2), 0 4px 12px rgba(0,0,0,0.1); }
-
-.vp-s1-campaign-btn { width: 56px; height: 56px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(8, 14, 28, 0.4); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: rgba(255,255,255,0.7); font-family: 'DM Serif Display', serif; font-size: 28px; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-.vp-s1-campaign-btn:hover { border-color: rgba(255,255,255,0.2); }
-.vp-s1-campaign-btn.active { border-color: #22C55E; background: rgba(34,197,94,0.15); color: #22C55E; }
-
-.vp-s1-summary-container { margin-bottom: 18px; padding: 14px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); }
-.vp-s1-summary-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); gap: 8px; }
-.vp-s1-summary-item { padding: 9px 10px; border-radius: 9px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); }
-.vp-s1-summary-totals { display: grid; gap: 7px; margin-top: 10px; padding: 11px 12px; border-radius: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); }
-
-.vp-s1-cta { padding: 15px 36px !important; border-radius: 12px !important; border: none !important; background: #22C55E !important; color: #fff !important; font-family: 'DM Sans', sans-serif !important; font-size: 16px !important; font-weight: 700 !important; cursor: pointer; box-shadow: 0 4px 0 #A1360B !important; transition: transform 0.1s !important; }
-.vp-s1-cta:active { transform: translateY(4px) !important; box-shadow: 0 0 0 #A1360B !important; }`}),_jsxs("div",{className:"vp-s1-header",children:[_jsx("h2",{className:"vp-s1-title",children:"Crea il tuo preventivo per distribuire volantini"}),_jsx("p",{className:"vp-s1-subtitle",children:"Scegli servizio, quantità e periodo. Nel passaggio successivo selezionerai la zona sulla mappa."}),_jsx("div",{className:"vp-s1-sp-banner",children:_jsxs("p",{className:"vp-s1-sp-text",children:[_jsx("span",{style:{color:"#22C55E",fontWeight:800},children:""}),"\u00a0Non trovi la data desiderata? Invia comunque la richiesta: ti avviseremo quando abbiamo disponibilità nella tua zona o in zone vicine.\u00a0",_jsx("button",{type:"button",onClick:()=>setShowSmartPairingModal(true),style:{color:"#22C55E",textDecoration:"none",fontWeight:700,background:"none",border:"none",cursor:"pointer",fontSize:14,fontFamily:F.sans,padding:0,display:"inline-block",marginTop:4},children:"Scopri come funziona →"})]})})]}),_jsxs("div",{id:"section-servizio",style:{marginBottom:48},children:[_jsx("div",{className:"vp-s1-section-num",children:"1 \u2013 Tipo di distribuzione"}),_jsx("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:20,alignItems:"stretch"},children:u.map(({id:A,name:F,code:B,desc:P,features:J,c:V,popular:H})=>{const ue=n.type===A;return _jsxs("div",{className:`vp-s1-card ${ue?"vp-active":""}`,role:"button",tabIndex:0,"aria-pressed":ue,onClick:()=>D({type:A}),onKeyDown:ge=>{(ge.key==="Enter"||ge.key===" ")&&(ge.preventDefault(),D({type:A}))},onFocus:ge=>{ge.currentTarget.style.boxShadow=`0 0 0 2px ${V}40`},onBlur:ge=>{ge.currentTarget.style.boxShadow="none"},style:{},children:[H&&_jsx("div",{className:"vp-s1-badge",children:"Popolare"}),ue&&_jsx("div",{style:{position:"absolute",top:20,left:20,width:24,height:24,borderRadius:"50%",background:"#22C55E",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1},children:_jsx("svg",{width:"12",height:"12",viewBox:"0 0 10 10",children:_jsx("path",{d:"M1.5 5l2.4 2.4L8.5 2.5",stroke:"white",strokeWidth:"2",fill:"none",strokeLinecap:"round",strokeLinejoin:"round"})})}),_jsxs("div",{style:{display:"flex",alignItems:"center",gap:16,marginBottom:24,paddingLeft:ue?36:0,transition:"padding .3s ease"},children:[_jsx("div",{style:{width:48,height:48,borderRadius:12,background:`${V}15`,border:`1px solid ${V}30`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:F.sans,fontSize:14,fontWeight:800,color:V,letterSpacing:".06em"},children:B})]}),_jsx("div",{style:{fontFamily:F.serif,fontSize:26,color:C.white,letterSpacing:"-.4px",lineHeight:1.1,marginBottom:12},children:F}),_jsx("p",{style:{fontFamily:F.sans,fontSize:14,color:"rgba(255,255,255,.8)",lineHeight:1.6,marginBottom:24},children:P}),_jsxs("div",{style:{display:"flex",flexDirection:"column",gap:6,marginBottom:14},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:10,fontWeight:700,color:"rgba(255,255,255,.4)",letterSpacing:".1em",textTransform:"uppercase",marginBottom:4},children:"Ideale per:"}),J.map(ge=>_jsxs("div",{style:{display:"flex",gap:10,alignItems:"flex-start"},children:[_jsx("div",{style:{width:16,height:16,borderRadius:4,background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.08)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:2},children:_jsx("svg",{width:"8",height:"8",viewBox:"0 0 8 8",children:_jsx("path",{d:"M1.2 4.1l1.7 1.7 3.8-4",stroke:"rgba(255,255,255,.4)",strokeWidth:"1.5",fill:"none",strokeLinecap:"round",strokeLinejoin:"round"})})}),_jsx("span",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.7)",lineHeight:1.4},children:ge})]},ge))]}),_jsxs("div",{style:{marginTop:"auto"},children:[ue?_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:800,color:"#22C55E",letterSpacing:".08em",textTransform:"uppercase"},children:"Servizio selezionato"}):null]})]},A)})})]}),_jsx(Step1ZoneCountSelector,{setData:i}),n.type==="d2d"&&_jsxs("div",{style:{marginBottom:22},children:[_jsx("div",{className:"vp-s1-section-num",children:"Opzionale: che tipo di attività devi pubblicizzare?"}),_jsxs("div",{className:"vp-s1-card-inner",children:[_jsx("p",{style:{fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.65)",marginBottom:12},children:[_jsx("span",{style:{color:"#22C55E",fontWeight:700,marginRight:6},children:""}),"Ci aiuta a suggerire zone, orari e servizi più adatti."]}),_jsx(Step1ActivityPills,{value:n.activityType,onChange:A=>D({activityType:A,businessSector:A}),isMobile:l}),n.activityType==="altro"&&_jsx("input",{type:"text",placeholder:"Descrivi l'attività...",value:n.activityNote||"",onChange:A=>D({activityNote:A.target.value}),className:"vp-s1-input",style:{marginTop:12}})]})]}),m&&_jsxs("div",{style:{marginBottom:22},children:[_jsx("div",{className:"vp-s1-section-num",children:"2 – Configurazione Hand to Hand"}),_jsxs("div",{className:"vp-s1-card-inner",children:[_jsxs("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:14,marginBottom:14},children:[_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Numero promoter"}),_jsxs("select",{value:n.promoterCount||"",onChange:A=>D({promoterCount:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Bv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Fascia oraria"}),_jsxs("select",{value:n.timeSlot||"",onChange:A=>D({timeSlot:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Mv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Durata servizio"}),_jsxs("select",{value:n.serviceDurationHours||"",onChange:A=>D({serviceDurationHours:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Fv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]})]}),_jsxs("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:14,marginBottom:14},children:[_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Luogo principale"}),_jsx("input",{type:"text",placeholder:"es. Duomo, Stazione Centrale...",value:n.distributionLocation||"",onChange:A=>D({distributionLocation:A.target.value}),className:"vp-s1-input"})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Tipo punto di distribuzione"}),_jsxs("select",{value:n.distributionPointType||"",onChange:A=>D({distributionPointType:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Nv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]})]}),_jsx("textarea",{placeholder:"Note operative (es. target studenti, uscita uffici...)",value:n.operationalNotes||"",onChange:A=>D({operationalNotes:A.target.value}),rows:2,className:"vp-s1-input",style:{resize:"vertical"}}),_jsxs("div",{style:{marginTop:12,fontFamily:F.sans,fontSize:12,color:C.blue,background:"rgba(96,165,250,.08)",padding:"8px 12px",borderRadius:8,border:"1px solid rgba(96,165,250,.2)"},children:[" ",_jsx("b",{children:"Hand to Hand:"})," il prezzo dipende da numero promoter, ore di servizio, luogo e quantità materiale."]})]})]}),y&&_jsxs("div",{style:{marginBottom:22},children:[_jsx("div",{className:"vp-s1-section-num",children:"2 – Configurazione Distribuzione Business"}),_jsxs("div",{className:"vp-s1-card-inner",children:[_jsxs("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:14,marginBottom:14},children:[_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Tipo attività target"}),_jsxs("select",{value:n.targetBusinessType||"",onChange:A=>D({targetBusinessType:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),$v.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Categoria commerciale"}),_jsxs("select",{value:n.businessCategory||"",onChange:A=>D({businessCategory:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Lv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]})]}),_jsxs("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:14,marginBottom:14},children:[_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Numero attività target"}),_jsxs("select",{value:n.targetBusinessCount||"",onChange:A=>D({targetBusinessCount:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Iv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Zona commerciale / comune"}),_jsx("input",{type:"text",placeholder:"es. zona uffici, area industriale...",value:n.businessZone||"",onChange:A=>D({businessZone:A.target.value}),className:"vp-s1-input"})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Tipo consegna"}),_jsxs("select",{value:n.deliveryType||"",onChange:A=>D({deliveryType:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),km.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]})]}),_jsx("textarea",{placeholder:"Note operative (es. solo ristoranti, evitare catene...)",value:n.operationalNotes||"",onChange:A=>D({operationalNotes:A.target.value}),rows:2,className:"vp-s1-input",style:{resize:"vertical"}}),_jsxs("div",{style:{marginTop:12,fontFamily:F.sans,fontSize:12,color:C.purple,background:"rgba(167,139,250,.08)",padding:"8px 12px",borderRadius:8,border:"1px solid rgba(167,139,250,.2)"},children:[" ",_jsx("b",{children:"Business:"})," il prezzo dipende da attività target, zona, quantità e tipo consegna."]})]})]}),_jsxs("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:16,marginBottom:22},children:[_jsxs("div",{id:"section-quantita",className:"vp-s1-card-inner",children:[_jsx("div",{className:"vp-s1-section-num",style:{marginBottom:6,paddingBottom:0,borderBottom:"none"},children:"3 \u2013 Quantit\u00e0 volantini"}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.85)",marginBottom:20,marginTop:-4},children:"Non sai quanti volantini servono? Scegli una quantità indicativa: nel prossimo passaggio vedrai la copertura stimata."}),_jsx("div",{style:{display:"flex",gap:6,flexWrap:l?"wrap":"nowrap",marginBottom:24},children:[5e3,1e4,25e3,5e4,1e5].map(A=>_jsx("button",{onClick:()=>D({qty:A}),className:`vp-s1-pill ${n.qty===A?"active":""}`,style:{flex:1,minWidth:l?"30%":0,textAlign:"center"},children:new Intl.NumberFormat("it-IT").format(A)},A))}),_jsxs("div",{style:{position:"relative", paddingBottom:24},children:[
-  _jsx("input",{type:"range",min:5000,max:100000,step:1000,value:Math.max(5000,Math.min(100000,n.qty||10000)),onChange:A=>D({qty:+A.target.value}),className:"vp-s1-range","aria-label":"Seleziona quantità volantini",style:{"--progress": `${(((Math.max(5000,Math.min(100000,n.qty||10000)))-5000)/(100000-5000))*100}%`}}),
-  _jsx("div",{style:{position:"absolute",left:0,right:0,top:28,display:"flex",pointerEvents:"none",padding:"0 10px"},children:
-    [5000, 10000, 25000, 50000, 100000].map(val => {
-      const p = ((val - 5000) / (100000 - 5000)) * 100;
-      return _jsx("div",{key: val, style:{position:"absolute",left:`calc(${p}% + ${10 - p*0.2}px)`,transform:"translateX(-50%)",display:"flex",flexDirection:"column",alignItems:"center"},children:
-        _jsx("div",{style:{width:1,height:6,background:"rgba(255,255,255,0.3)"}})
-      });
-    })
-  })
-]}),_jsxs("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:16,flexWrap:"wrap",gap:12,paddingTop:12,borderTop:"1px solid rgba(255,255,255,0.06)"},children:[_jsxs("div",{style:{fontFamily:F.sans,fontSize:14,color:"rgba(255,255,255,.9)",fontWeight:500},children:["Quantità selezionata: ",_jsx("b",{style:{color:"#22C55E",fontSize:18,marginLeft:6,letterSpacing:"-0.5px"},children:new Intl.NumberFormat("it-IT").format(n.qty||0)})," volantini"]}),_jsx("input",{type:"text",inputMode:"numeric",value:n.qty ? new Intl.NumberFormat("it-IT").format(n.qty) : "",onChange:A=>{const v = A.target.value.replace(/\D/g, "");D({qty: v ? parseInt(v, 10) : ""})},onBlur:A=>{const v = A.target.value.replace(/\D/g, "");D({qty: Math.max(5000, Math.min(100000, v ? parseInt(v, 10) : 10000))})},className:"vp-s1-input",style:{width:110,padding:"8px 12px",textAlign:"right",fontSize:14,fontWeight:700}})]})]}),_jsxs("div",{id:"section-periodo",className:"vp-s1-card-inner",children:[_jsx("div",{className:"vp-s1-section-num",children:"4 \u2013 Quando vuoi distribuire?"}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.85)",marginBottom:14,marginTop:-4},children:"Puoi anche lasciare il periodo indicativo: la data precisa sarà confermata dopo."}),_jsx(Step1PeriodPresets,{value:n.campaignPeriodPreset,onChange:A=>D({campaignPeriodPreset:A,...A!=="custom"?{startDate:"",endDate:"",startDateDraft:"",endDateDraft:""}:{}}),isMobile:l}),_jsx("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:10,marginBottom:10},children:[{l:"Data preferita",k:"startDate"},{l:"Data fine (opzionale)",k:"endDate"}].map(({l:A,k:F})=>{const B=n[F]||"",P=`${F}Draft`,J=n[P]??j(B);return _jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.6)",display:"block",marginBottom:5},children:A}),_jsxs("div",{style:{position:"relative"},children:[_jsx("input",{type:"text",inputMode:"numeric",placeholder:"gg/mm/aaaa",value:J,onChange:V=>{const H=T(V.target.value),ue=z(H);D({[P]:H,...ue?{[F]:ue}:H?{}:{[F]:""}})},className:`vp-s1-input ${B?"active":""}`,style:{paddingRight:38,colorScheme:"dark"}}),_jsx("input",{type:"date",style:{position:"absolute",right:0,top:0,opacity:0,width:"100%",height:"100%",cursor:"pointer",pointerEvents:"none"},id:`picker-${F}`,value:B||"",onChange:V=>{const H=V.target.value;if(!H)return;
-const[ue,ge,Fe]=H.split("-");D({[P]:`${Fe}/${ge}/${ue}`,[F]:H})}}),_jsx("span",{onClick:()=>{try{document.getElementById(`picker-${F}`).showPicker()}catch{document.getElementById(`picker-${F}`).click()}},style:{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",pointerEvents:"auto",cursor:"pointer",zIndex:10},children:React.createElement("svg",{width:15,height:15,viewBox:"0 0 16 16",fill:"none",xmlns:"http://www.w3.org/2000/svg",style:{display:"block",stroke:"rgba(255,255,255,.55)"}},React.createElement("rect",{x:1.5,y:2.5,width:13,height:12,rx:1.8,strokeWidth:1.2}),React.createElement("path",{d:"M5 1v3M11 1v3M1.5 6.5h13",strokeWidth:1.2,strokeLinecap:"round"}))})]}),B&&_jsxs("div",{style:{fontFamily:F.sans,fontSize:10,color:"#22C55E",marginTop:3},children:[" ",j(B)]})]},F)})}),_jsx("div",{style:{marginTop:12,padding:"8px 12px",borderRadius:8,background:"rgba(255,255,255,.02)",border:`1px solid ${w?C.red:"rgba(255,255,255,.05)"}`,fontFamily:F.sans,fontSize:11,color:w?C.red:"rgba(255,255,255,.45)",lineHeight:1.4},children:w?"Data fine precedente alla data inizio. Puoi correggerla ora o inviare una richiesta nello Step 3.":"La data precisa sarà confermata dal team operativo."})]})]}),_jsxs("div",{id:"section-formato",className:"vp-s1-card-inner",style:{marginBottom:22},children:[_jsx("div",{className:"vp-s1-section-num",children:"5 \u2013 Hai già i volantini stampati?"}),_jsxs("div",{children:[_jsxs("div",{style:{marginBottom:14},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:12,fontWeight:600,color:"rgba(255,255,255,.65)",marginBottom:10},children:"Hai già i volantini stampati?"}),_jsx("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:10},children:[{id:"yes",icon:"",label:"Sì, li ho già",sub:"Inserisci solo il formato"},{id:"no",icon:"",label:"No, devo stamparli",sub:"Aggiungi stampa al preventivo"}].map(({id:A,icon:F,label:B,sub:P})=>{const J=(n.hasFlyers||"no")===A;return _jsxs("div",{onClick:()=>D({hasFlyers:A,extraServices:A==="yes"?(n.extraServices||[]).filter(V=>!["stampa","grafica"].includes(V)):n.extraServices||[]}),className:`vp-s1-option-card ${J?"active":""}`,children:[_jsx("span",{style:{fontSize:20},children:F}),_jsxs("div",{children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:13,fontWeight:600,color:C.white,marginBottom:2},children:B}),_jsx("div",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)"},children:P})]})]},A)})})]}),_jsxs("div",{children:[_jsxs("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:600,color:"rgba(255,255,255,.7)",marginBottom:10},children:["Formato volantino ",_jsx("span",{style:{color:"rgba(255,255,255,.28)",fontWeight:400},children:"(per il calcolo della distribuzione)"})]}),_jsx("div",{style:{display:"grid",gridTemplateColumns:l?"repeat(2,1fr)":"repeat(4,1fr)",gap:7},children:Uv.map(({id:A,label:F,size:B})=>{const P=n.flyerFormat===A;return _jsxs("div",{onClick:()=>D({flyerFormat:A}),className:`vp-s1-format-card ${P?"active":""}`,children:[_jsx("div",{style:{fontFamily:F.serif,fontSize:18,color:P?"#22C55E":C.white},children:F}),_jsx("div",{style:{fontFamily:F.sans,fontSize:10,color:"rgba(255,255,255,.65)"},children:B})]},A)})})]})]}),_jsxs("div",{id:"section-urgenza",className:"vp-s1-card-inner",style:{marginBottom:22},children:[_jsx("div",{className:"vp-s1-section-num",children:"6 \u2013 Priorità operativa"}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.85)",marginBottom:14,marginTop:-4},children:"La disponibilità urgente viene confermata dal team operativo."}),_jsx("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:11},children:[{id:"normal",icon:"",label:"Standard",sub:"5–7 giorni lavorativi • Prezzo standard"},{id:"urgent",icon:"",label:"Urgente",sub:"24–48h se disponibile • Maggiorazione applicata"}].map(({id:A,icon:F,label:B,sub:P})=>{const J=n.urgency===A;return _jsxs("div",{onClick:()=>D({urgency:A}),className:`vp-s1-option-card ${J?"active":""}`,children:[_jsx("div",{style:{fontSize:22},children:F}),_jsxs("div",{style:{flex:1},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:14,fontWeight:600,color:C.white,marginBottom:2},children:B}),_jsx("div",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)"},children:P})]}),_jsx("div",{style:{width:19,height:19,borderRadius:"50%",border:`2px solid ${J?"#22C55E":"rgba(255,255,255,.2)"}`,background:J?"#22C55E":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0},children:J&&_jsx("svg",{width:"9",height:"9",viewBox:"0 0 9 9",children:_jsx("path",{d:"M1.5 4.5l2 2 4-4.5",stroke:"white",strokeWidth:"1.5",fill:"none",strokeLinecap:"round"})})})]},A)})})]}),_jsxs("div",{id:"section-piano",className:"vp-s1-card-inner",style:{marginBottom:32},children:[_jsx("div",{className:"vp-s1-section-num",children:"7 \u2013 Vuoi fare una distribuzione singola o continuativa?"}),_jsx("div",{style:{display:"grid",gridTemplateColumns:l?"repeat(2,1fr)":"repeat(4,1fr)",gap:9,marginBottom:12},children:Gu.map(({id:A,label:F,icon:B,disc:P})=>{const J=n.subscription===A,qp=n.type==="h2h"?2.20:n.type==="b2b"||n.type==="business-distribution"?3.50:1.85,qr=P>0&&n.qty>0?Math.round((n.qty/1000)*qp*12*(P/100)):0;return _jsxs("div",{onClick:()=>D({subscription:A,campaignsPerMonth:A==="single"?1:n.campaignsPerMonth||1}),className:`vp-s1-plan-card ${J?"active":""}`,children:[P>0&&_jsxs("div",{style:{position:"absolute",top:-8,right:8,background:"#F59E0B",color:C.white,fontFamily:F.sans,fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:20},children:["-",P,"%"]}),_jsx("div",{style:{fontSize:22,marginBottom:8},children:B}),_jsx("div",{style:{fontFamily:F.sans,fontSize:12,fontWeight:700,color:J?C.white:"rgba(255,255,255,.65)"},children:F}),P>0&&_jsxs("div",{style:{fontFamily:F.sans,fontSize:11,color:"#F59E0B",fontWeight:700,marginTop:4},children:["\u2212",P,"% sul totale"]})]},A)})}),n.subscription&&n.subscription!=="single"&&_jsxs("div",{style:{padding:"16px 18px",borderRadius:12,background:"rgba(34,197,94,.08)",border:"1px solid rgba(34,197,94,.2)"},children:[_jsxs("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12},children:[_jsxs("div",{children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:13,fontWeight:700,color:C.white,marginBottom:3},children:"Quante campagne al mese?"}),_jsxs("div",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.7)"},children:[Gu.find(A=>A.id===n.subscription)?.label," – sconto ",Gu.find(A=>A.id===n.subscription)?.disc,"% sulla distribuzione"]})]}),_jsx("div",{style:{display:"flex",gap:8},children:[1,2,4].map(A=>{const F=(n.campaignsPerMonth||1)===A;return _jsx("button",{onClick:()=>D({campaignsPerMonth:A}),className:`vp-s1-campaign-btn ${F?"active":""}`,children:A},A)})})]}),n.campaignsPerMonth&&_jsxs("div",{style:{marginTop:10,fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)"},children:[n.campaignsPerMonth," campagna",n.campaignsPerMonth>1?"e":""," al mese  - ",h[n.subscription]||1," mesi = ",_jsxs("b",{style:{color:"#22C55E"},children:[R," campagne totali"]})]})]})]}),_jsx(Step1ConfigSummary,{data:n}),_jsxs("div",{style:{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:10},children:[_jsx("button",{className:"vb vp-s1-cta",onClick:()=>{const sc=[{f:!n.type,i:"section-servizio"},{f:!n.qty||n.qty<1,i:"section-quantita"},{f:!n.flyerFormat||!n.hasFlyers,i:"section-formato"},{f:!n.urgency,i:"section-urgenza"},{f:!n.subscription,i:"section-piano"}];for(const{f:ok,i:si}of sc){if(ok){const el=document.getElementById(si);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.style.outline="2px solid rgba(34,197,94,.55)";el.style.borderRadius="12px";setTimeout(()=>{el.style.outline="";el.style.borderRadius=""},2500);}return;}}r();},children:"Scegli la zona"}),oe&&_jsx("button",{onClick:oe,style:{background:"none",border:"none",color:"rgba(255,255,255,.38)",fontFamily:F.sans,fontSize:12,cursor:"pointer",padding:"4px 0",letterSpacing:".2px"},children:"← Torna alla home"})]}),showSmartPairingModal&&_jsx("div",{style:{position:"fixed",inset:0,zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"},children:_jsxs("div",{style:{position:"relative",width:"100%",maxWidth:420},children:[_jsx("div",{style:{position:"absolute",inset:0,background:"rgba(0,0,0,.6)"},onClick:()=>setShowSmartPairingModal(false)}),_jsxs("div",{style:{position:"relative",background:"rgba(8, 14, 28, 0.65)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",boxShadow:"0 12px 48px rgba(0,0,0,0.3)",border:"1px solid rgba(255,255,255,.1)",borderRadius:16,padding:24,zIndex:1},children:[_jsx("button",{onClick:()=>setShowSmartPairingModal(false),style:{position:"absolute",top:14,right:14,background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,.65)",fontSize:20,lineHeight:1},children:"x"}),_jsxs("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:16},children:[_jsx("span",{style:{width:8,height:8,borderRadius:"50%",background:C.green,display:"inline-block"}}),_jsx("h3",{style:{fontFamily:F.sans,fontWeight:600,fontSize:15,color:C.white,margin:0},children:"Come funziona Smart Pairing"})]}),_jsxs("div",{style:{display:"flex",flexDirection:"column",gap:12},children:[_jsxs("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.65)",lineHeight:1.65,margin:0},children:["Il calendario Smart Pairing ",_jsx("strong",{style:{color:"rgba(255,255,255,.85)"},children:"non è un calendario completo di disponibilità"}),". Mostra solo le opportunità di abbinamento già pianificate."]}),_jsxs("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.65)",lineHeight:1.65,margin:0},children:["Nello Step 3 vedrai eventuali opportunità di abbinamento quando esistono campagne compatibili nella tua area."]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.65)",lineHeight:1.65,margin:0},children:"Non trovi la data desiderata? Puoi sempre inviare una richiesta. Smart Pairing \u00e8 una opportunit\u00e0 opzionale di risparmio e non limita le date disponibili."})]}),_jsx("button",{onClick:()=>setShowSmartPairingModal(false),style:{marginTop:18,width:"100%",background:"#22C55E",color:C.white,border:"none",borderRadius:8,padding:"10px",fontFamily:F.sans,fontSize:13,fontWeight:600,cursor:"pointer"},children:"Capito"})]})]})})]})]})}
 
 function apiToZones(apiData, city) {
   if (import.meta.env.DEV) {
@@ -4507,6 +5457,14 @@ const savedRow = savedCampaign?.[0] || {};
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 24px 140px" }}>
+      <style>{`
+        .s4-kpi-card:hover { background: rgba(255,255,255,.07) !important; border-color: rgba(255,255,255,.15) !important; }
+        .s4-svc-card { transition: transform .18s ease, box-shadow .18s ease; }
+        .s4-svc-card:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,.4); }
+        .s4-btn-green:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+        .s4-btn-outline:hover { background: rgba(255,255,255,.07) !important; }
+        .s4-step-chip { transition: background .15s; }
+      `}</style>
       {/* ── HERO DASHBOARD ── */}
       <div style={{ borderRadius: 18, border: `1px solid ${col}2e`, background: `linear-gradient(135deg, ${col}12 0%, rgba(8,15,30,0) 100%)`, padding: isMobile ? "18px 16px" : "26px 28px", marginBottom: 20 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
@@ -4514,10 +5472,21 @@ const savedRow = savedCampaign?.[0] || {};
           {isQuick && <div style={{ padding: "4px 10px", borderRadius: 100, background: "rgba(251,191,36,.12)", border: "1px solid rgba(251,191,36,.3)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.yellow, textTransform: "uppercase" }}>Stima indicativa</div>}
           {sent && <div style={{ padding: "4px 10px", borderRadius: 100, background: "rgba(46,204,138,.15)", border: "1px solid rgba(46,204,138,.35)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.green }}>✓ Campagna confermata</div>}
         </div>
-        <div style={{ fontFamily: F.serif, fontSize: isMobile ? 22 : 30, color: C.white, letterSpacing: "-0.8px", marginBottom: 3 }}>{mainAreaLabel || "La tua campagna"}</div>
-        <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.38)", marginBottom: 20 }}>
-          {tLabel}{data.distributionVariant ? ` · ${data.distributionVariant}` : ""} · {new Date().toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })}
-        </div>
+        <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.3)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 6 }}>La tua campagna è pronta</div>
+        <div style={{ fontFamily: F.serif, fontSize: isMobile ? 26 : 36, color: C.white, letterSpacing: "-1px", marginBottom: 10, lineHeight: 1.1 }}>{mainAreaLabel || "Preventivo completo"}</div>
+        {svcType === "d2d" ? (
+          <div style={{ fontFamily: F.sans, fontSize: isMobile ? 13 : 14, color: "rgba(255,255,255,.62)", marginBottom: 20, lineHeight: 1.6 }}>
+            La tua distribuzione raggiungerà circa{" "}
+            <strong style={{ color: col }}>{formatNumber(kpis.families ?? totF)} famiglie</strong>
+            {selectedZoneNames.length > 1 && <>{" "}in <strong style={{ color: col }}>{selectedZoneNames.length} comuni</strong></>}
+            {" "}con una copertura stimata del{" "}
+            <strong style={{ color: C.green }}>{kpis.coverage ?? avgCov}%</strong>.
+          </div>
+        ) : (
+          <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.38)", marginBottom: 20 }}>
+            {tLabel}{data.distributionVariant ? ` · ${data.distributionVariant}` : ""} · {new Date().toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })}
+          </div>
+        )}
         <div style={{ display: "grid", gridTemplateColumns: `repeat(${isMobile ? 2 : Math.min(5, 2 + (svcType === "d2d" ? 2 : 1))}, 1fr)`, gap: 8, marginBottom: 16 }}>
           {svcType === "d2d" && <>
             <div style={{ padding: "11px 12px", background: "rgba(46,204,138,.07)", borderRadius: 12, border: "1px solid rgba(46,204,138,.18)" }}>
@@ -4609,14 +5578,16 @@ const savedRow = savedCampaign?.[0] || {};
                 {/* ── KPI essenziali ── */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10 }}>
                   {svcType === "d2d" && [
-                    { icon: "", l: "Copertura stimata", v: `${kpis.coverage ?? avgCov}%`, c: C.green },
-                    { icon: "", l: "Famiglie raggiungibili", v: formatNumber(kpis.families ?? totF), c: C.white },
-                    { icon: "", l: "Zone selezionate", v: `${selectedZoneNames.length} ${selectedZoneNames.length === 1 ? "comune" : "comuni"}`, c: col },
-                    { icon: "", l: "Volantini inseriti", v: flyerQty.toLocaleString("it-IT", { useGrouping: true }) + " pz.", c: C.white },
-                  ].map(({ icon, l, v, c }) => (
-                    <div key={l} style={{ padding: "14px 13px", background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)" }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.36)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 5 }}>{icon} {l}</div>
-                      <div style={{ fontFamily: F.serif, fontSize: 22, color: c, letterSpacing: "-.5px" }}>{v || "—"}</div>
+                    { icon: "🏠", l: "Famiglie raggiungibili", sub: "Recapiti residenziali nell'area", v: formatNumber(kpis.families ?? totF), c: C.green },
+                    { icon: "👥", l: "Persone stimate", sub: "Stima su base ISTAT", v: formatNumber(Math.round((kpis.families ?? totF) * 2.4)), c: C.white },
+                    { icon: "📍", l: "Comuni coinvolti", sub: selectedZoneNames.slice(0, 2).join(", ") + (selectedZoneNames.length > 2 ? ` +${selectedZoneNames.length - 2}` : ""), v: `${selectedZoneNames.length || "—"}`, c: col },
+                    { icon: "📦", l: "Copertura stimata", sub: `${flyerQty.toLocaleString("it-IT", { useGrouping: true })} volantini inseriti`, v: `${kpis.coverage ?? avgCov}%`, c: C.green },
+                  ].map(({ icon, l, sub, v, c }) => (
+                    <div key={l} className="s4-kpi-card" style={{ padding: "16px 14px", background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)", transition: "background .18s, border-color .18s", cursor: "default" }}>
+                      <div style={{ fontSize: 22, marginBottom: 9 }}>{icon}</div>
+                      <div style={{ fontFamily: F.serif, fontSize: 24, color: c, letterSpacing: "-.5px", marginBottom: 3 }}>{v || "—"}</div>
+                      <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.75)", marginBottom: 3 }}>{l}</div>
+                      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.32)", lineHeight: 1.4 }}>{sub}</div>
                     </div>
                   ))}
                   {svcType === "h2h" && [
@@ -4656,17 +5627,38 @@ const savedRow = savedCampaign?.[0] || {};
 
                 {/* ── Stato quantità ── */}
                 {svcType === "d2d" && requiredQty > 0 && (
-                  <div style={{ padding: "10px 12px", borderRadius: 10, background: quantityIsSufficient ? "rgba(46,204,138,.07)" : "rgba(232,87,26,.07)", border: `1px solid ${quantityIsSufficient ? "rgba(46,204,138,.2)" : "rgba(248,113,113,.22)"}`, display: "flex", gap: 10, alignItems: "center" }}>
-                    <span style={{ fontSize: 16 }}>{quantityIsSufficient ? "" : ""}</span>
-                    <div>
-                      <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: quantityIsSufficient ? C.green : C.red, marginBottom: 2 }}>{quantityIsSufficient ? "Quantità sufficiente" : "Quantità insufficiente"}</div>
-                      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.52)", lineHeight: 1.45 }}>
-                        {quantityIsSufficient
-                          ? `Restano ${remainingQty.toLocaleString("it-IT", { useGrouping: true })} volantini disponibili per estensione zona o scorta operativa.`
-                          : `Mancano ${missingQty.toLocaleString("it-IT", { useGrouping: true })} volantini per coprire completamente l'area selezionata.`}
+                  quantityIsSufficient ? (
+                    <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(46,204,138,.07)", border: "1px solid rgba(46,204,138,.2)", display: "flex", gap: 10, alignItems: "center" }}>
+                      <span style={{ fontSize: 18 }}>✅</span>
+                      <div>
+                        <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: C.green, marginBottom: 2 }}>Copertura completa</div>
+                        <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.52)", lineHeight: 1.45 }}>
+                          Avanzano {remainingQty.toLocaleString("it-IT", { useGrouping: true })} volantini come scorta operativa.
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div style={{ padding: "16px", borderRadius: 12, background: "rgba(99,102,241,.06)", border: "1px solid rgba(99,102,241,.2)" }}>
+                      <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 14 }}>
+                        <span style={{ fontSize: 22, lineHeight: "1", flexShrink: 0 }}>📊</span>
+                        <div>
+                          <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.white, marginBottom: 5 }}>Copertura parziale</div>
+                          <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.58)", lineHeight: 1.55 }}>
+                            Con la quantità attuale raggiungerai circa il <strong style={{ color: "#A5B4FC" }}>{kpis.coverage ?? avgCov}%</strong> dell'area selezionata.<br />
+                            Per una copertura completa servono altri <strong style={{ color: "#A5B4FC" }}>{missingQty.toLocaleString("it-IT", { useGrouping: true })} volantini</strong>.
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        <button onClick={() => onHome("step1")} style={{ padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(99,102,241,.4)", background: "rgba(99,102,241,.15)", color: "#A5B4FC", fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                          ↑ Aumenta quantità
+                        </button>
+                        <button style={{ padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.5)", fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                          ✓ Mantieni copertura
+                        </button>
+                      </div>
+                    </div>
+                  )
                 )}
 
 
@@ -4688,7 +5680,7 @@ const savedRow = savedCampaign?.[0] || {};
                   const comm = svcCommercial[ext.id] || {};
                   const cardCol = comm.col || (ext.price === 0 && !ext.isUrgent ? C.green : ext.isUrgent ? C.red : C.blue);
                   return (
-                    <div key={ext.id} style={{ padding: "16px 18px", borderRadius: 14, background: `${cardCol}08`, border: `1px solid ${cardCol}28`, display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div key={ext.id} className="s4-svc-card" style={{ padding: "16px 18px", borderRadius: 14, background: `${cardCol}08`, border: `1px solid ${cardCol}28`, display: "flex", flexDirection: "column", gap: 12 }}>
                       {/* Header */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -4808,8 +5800,14 @@ const savedRow = savedCampaign?.[0] || {};
                 )}
 
                 {selDays.length === 0 && (
-                  <div style={{ padding: "14px", textAlign: "center", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.35)", background: "rgba(255,255,255,.03)", borderRadius: 10, border: "1px solid rgba(255,255,255,.06)" }}>
-                    Nessuna data selezionata. Il team contatterà entro 24h per definire il calendario.
+                  <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(46,204,138,.05)", border: "1px solid rgba(46,204,138,.15)", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                    <span style={{ fontSize: 24, lineHeight: "1", flexShrink: 0 }}>📅</span>
+                    <div>
+                      <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: C.white, marginBottom: 4 }}>Data da confermare</div>
+                      <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)", lineHeight: 1.55 }}>
+                        La data verrà concordata con il team operativo entro 24 ore dalla conferma della campagna.
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -5070,13 +6068,24 @@ const savedRow = savedCampaign?.[0] || {};
               </div>
             </div>
 
+            {/* Modificabile badge */}
+            {!sent && (
+              <div style={{ marginBottom: 12, padding: "8px 12px", borderRadius: 8, background: "rgba(46,204,138,.07)", border: "1px solid rgba(46,204,138,.18)", display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{ color: C.green, fontSize: 14, flexShrink: 0 }}>✓</span>
+                <div>
+                  <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.green }}>Configurazione modificabile</div>
+                  <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", lineHeight: 1.4, marginTop: 1 }}>Potrai modificare la campagna fino alla conferma definitiva.</div>
+                </div>
+              </div>
+            )}
+
             {/* CTAs */}
             {isQuick ? (
-              <button className="btn" onClick={() => onHome("step1")} style={{ width: "100%", padding: "13px", borderRadius: 10, border: "none", background: col, color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 8, boxShadow: `0 8px 24px ${col}33` }}>
+              <button className="btn s4-btn-green" onClick={() => onHome("step1")} style={{ width: "100%", padding: "13px", borderRadius: 10, border: "none", background: col, color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 8, boxShadow: `0 8px 24px ${col}33`, transition: "transform .15s, filter .15s" }}>
                 Completa configurazione →
               </button>
             ) : (
-              <button className="btn" disabled={!canConfirm} onClick={handleConfirmCampaign} style={{ width: "100%", padding: "13px", borderRadius: 10, border: "none", background: !canConfirm ? "rgba(255,255,255,.08)" : sent ? "rgba(46,204,138,.9)" : col, color: !canConfirm ? "rgba(255,255,255,.3)" : C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: canConfirm ? "pointer" : "not-allowed", marginBottom: 8, boxShadow: canConfirm && !sent ? `0 8px 24px ${col}2e` : "none" }}>
+              <button className="btn s4-btn-green" disabled={!canConfirm} onClick={handleConfirmCampaign} style={{ width: "100%", padding: "13px", borderRadius: 10, border: "none", background: !canConfirm ? "rgba(255,255,255,.08)" : sent ? "rgba(46,204,138,.9)" : col, color: !canConfirm ? "rgba(255,255,255,.3)" : C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: canConfirm ? "pointer" : "not-allowed", marginBottom: 8, boxShadow: canConfirm && !sent ? `0 8px 24px ${col}2e` : "none", transition: "transform .15s, filter .15s" }}>
                 {sent ? "✓ Campagna confermata" : "Conferma campagna →"}
               </button>
             )}
@@ -5099,6 +6108,23 @@ const savedRow = savedCampaign?.[0] || {};
               {emailSent && <div style={{ fontFamily: F.sans, fontSize: 10, color: C.green, textAlign: "center" }}>Scarica il PDF per condividere il preventivo.</div>}
               {pdfError && <div style={{ fontFamily: F.sans, fontSize: 10, color: C.red, textAlign: "center" }}>{pdfError}</div>}
             </div>
+
+            {!sent && (
+              <div style={{ marginTop: 10, padding: "14px", borderRadius: 11, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.07)" }}>
+                <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.28)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 12 }}>Cosa succede dopo?</div>
+                {[
+                  "Riceveremo la tua richiesta.",
+                  "Verificheremo disponibilità e operatori.",
+                  "Ti confermeremo il calendario entro 24h.",
+                  "Potrai ancora modificare la configurazione prima dell'avvio.",
+                ].map((step, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: i < 3 ? 8 : 0 }}>
+                    <div style={{ width: 18, height: 18, borderRadius: "50%", background: "rgba(46,204,138,.14)", border: "1px solid rgba(46,204,138,.25)", fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: C.green, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
+                    <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", lineHeight: 1.5 }}>{step}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
               <button className="btn" onClick={onBack} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "1px solid rgba(255,255,255,.1)", background: "transparent", color: "rgba(255,255,255,.4)", fontFamily: F.sans, fontSize: 11, cursor: "pointer" }}>← Modifica</button>
