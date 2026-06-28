@@ -4669,11 +4669,6 @@ const savedRow = savedCampaign?.[0] || {};
                   </div>
                 )}
 
-                {/* Nota analisi tecnica → vedi Sezione 5 */}
-                <div style={{ padding: "9px 12px", borderRadius: 9, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.42)" }}>KPI, indicatori, ISTAT, OMI e fonti dati disponibili in Sezione 5</span>
-                  <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.28)" }}>▼</span>
-                </div>
 
               </div>
             )}
@@ -4823,22 +4818,51 @@ const savedRow = savedCampaign?.[0] || {};
 
           {/* ── SEZIONE 5: Analisi tecnica ── */}
           <div style={{...box(), padding: "18px" }}>
-            <div
-              onClick={() => setShowTechPanel(v => !v)}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", marginBottom: showTechPanel ? 16 : 0, paddingBottom: showTechPanel ? 12 : 0, borderBottom: showTechPanel ? "1px solid rgba(255,255,255,.07)" : "none" }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(255,255,255,.08)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,.5)", flexShrink: 0 }}>5</div>
-                <div>
-                  <div style={{ fontFamily: F.serif, fontSize: 18, color: showTechPanel ? C.white : "rgba(255,255,255,.55)" }}>Analisi tecnica completa</div>
-                  <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.3)" }}>KPI · ISTAT · OMI · Indicatori · Comuni · Fonti</div>
+
+            {/* Card introduttiva — sempre visibile */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(99,102,241,.14)", border: "1px solid rgba(99,102,241,.28)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📊</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: F.serif, fontSize: 19, color: C.white, letterSpacing: "-.2px", marginBottom: 4 }}>Analisi tecnica completa</div>
+                  <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.52)", lineHeight: 1.55 }}>
+                    Visualizza l'analisi completa utilizzata per stimare copertura, popolazione e potenziale della zona selezionata.
+                  </div>
                 </div>
               </div>
-              <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.35)", fontWeight: 700 }}>{showTechPanel ? "▲ Chiudi" : "▼ Apri"}</span>
+
+              {/* Indice contenuti — visibile solo quando chiuso */}
+              {!showTechPanel && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                  {[
+                    { icon: "📈", label: "KPI di copertura" },
+                    { icon: "👥", label: "Indicatori demografici ISTAT" },
+                    { icon: "🏠", label: "Valori immobiliari OMI" },
+                    { icon: "🗺️", label: "Comuni selezionati" },
+                    { icon: "🎯", label: "Indicatori di qualità" },
+                    { icon: "📚", label: "Fonti dati ufficiali" },
+                  ].map(({ icon, label }) => (
+                    <div key={label} style={{ display: "flex", gap: 7, alignItems: "center", padding: "7px 10px", borderRadius: 8, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.055)" }}>
+                      <span style={{ fontSize: 13 }}>{icon}</span>
+                      <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>{label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Pulsante espansione */}
+              <button
+                onClick={() => setShowTechPanel(v => !v)}
+                style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(99,102,241,.32)", background: showTechPanel ? "rgba(99,102,241,.12)" : "rgba(99,102,241,.07)", color: showTechPanel ? "#A5B4FC" : "rgba(255,255,255,.6)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center", gap: 8, transition: "background .15s" }}
+              >
+                <span style={{ fontSize: 14 }}>{showTechPanel ? "▲" : "▼"}</span>
+                <span>{showTechPanel ? "Chiudi analisi tecnica" : "Espandi analisi tecnica"}</span>
+              </button>
             </div>
 
+            {/* Contenuto accordion — visibile solo quando aperto */}
             {showTechPanel && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,.07)", display: "flex", flexDirection: "column", gap: 6 }}>
                 {/* Helper: collapsible sub-section */}
                 {[
                   {
