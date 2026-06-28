@@ -3967,6 +3967,19 @@ const [emailSent, setEmailSent] = useState(false);
 const [pdfBusy, setPdfBusy] = useState(false);
 const [pdfError, setPdfError] = useState("");
 const [showTechPanel, setShowTechPanel] = useState(false);
+const [techSections, setTechSections] = useState({});
+const toggleTech = key => setTechSections(p => ({...p, [key]: !p[key]}));
+const svcCommercial = {
+  tracking_gps:    { icon: "📍", head: "Tracking GPS Live",        col: "#22C55E", bullets: ["Segui in tempo reale gli operatori sulla mappa","Storico percorso al termine della distribuzione","Link di condivisione per il tuo team"] },
+  photo_proof:     { icon: "📸", head: "Report Fotografico",        col: "#60A5FA", bullets: ["30 foto geolocalizzate con data e orario","Conferma visiva zona per zona","Archivio scaricabile dal portale cliente"] },
+  ai_analysis:     { icon: "🤖", head: "AI Optimizer",              col: "#2ECC8A", bullets: ["Analisi automatica della copertura dell'area","Segnalazione automatica di eventuali aree scoperte","Raccomandazioni operative post-campagna"] },
+  advanced_report: { icon: "📊", head: "Report Avanzato",           col: "#6366F1", bullets: ["Statistiche complete su zone e operatori","Breakdown copertura per comune","PDF professionale scaricabile"] },
+  printing:        { icon: "🖨️", head: "Stampa Materiale",          col: "#60A5FA", bullets: ["Produzione professionale del materiale","Qualità certificata per distribuzione","Consegna prima della campagna"] },
+  design:          { icon: "🎨", head: "Preparazione Grafica",      col: "#A78BFA", bullets: ["Adattamento file al formato richiesto","Verifica qualità prima della stampa","Supporto creativo dedicato"] },
+  quality_control: { icon: "✅", head: "Controllo Qualità",         col: "#2ECC8A", bullets: ["Verifica operativa in campo","Supervisione distribuzione","Report anomalie"] },
+  operator_support:{ icon: "👤", head: "Supporto Operatore",        col: "#60A5FA", bullets: ["Assistenza diretta alla pianificazione","Contatto dedicato per la campagna","Conferma operativa rapida"] },
+  urgent_distribution:{ icon: "⚡", head: "Distribuzione Urgente",  col: "#FF6666", bullets: ["Gestione prioritaria della campagna","Attivazione entro 48h","Team dedicato"] },
+};
 const [confirmSyncStatus, setConfirmSyncStatus] = useState("");
 const svcType = data.type || "d2d";
 const isQuick = data.quickSource === "quick_quote";
@@ -4405,16 +4418,60 @@ const savedRow = savedCampaign?.[0] || {};
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 24px 140px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22, flexWrap: "wrap" }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 5 }}>
-            <div style={{ padding: "4px 12px", borderRadius: 100, background: `${col}18`, border: `1px solid ${col}35`, fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: col }}>{cfg.icon} {cfg.label}</div>
-            {isQuick && <div style={{ padding: "4px 12px", borderRadius: 100, background: "rgba(251,191,36,.12)", border: "1px solid rgba(251,191,36,.3)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.yellow, textTransform: "uppercase" }}>Stima indicativa</div>}
-            <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.3)" }}>Preventivo – {isQuick ? "Rapido" : "Riepilogo completo"}</div>
-          </div>
-          <h2 style={{ fontFamily: F.serif, fontSize: 28, color: C.white, letterSpacing: "-1px" }}>{isQuick ? "Preventivo Rapido" : "Riepilogo campagna"}</h2>
-          {isQuick && <p style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.45)", marginTop: 6 }}>Questo preventivo è stato generato con dati parziali. Il prezzo finale può variare dopo l'analisi zona completa.</p>}
+      {/* ── HERO DASHBOARD ── */}
+      <div style={{ borderRadius: 18, border: `1px solid ${col}2e`, background: `linear-gradient(135deg, ${col}12 0%, rgba(8,15,30,0) 100%)`, padding: isMobile ? "18px 16px" : "26px 28px", marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+          <div style={{ padding: "4px 12px", borderRadius: 100, background: `${col}22`, border: `1px solid ${col}44`, fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: col }}>{cfg.icon} {tLabel}</div>
+          {isQuick && <div style={{ padding: "4px 10px", borderRadius: 100, background: "rgba(251,191,36,.12)", border: "1px solid rgba(251,191,36,.3)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.yellow, textTransform: "uppercase" }}>Stima indicativa</div>}
+          {sent && <div style={{ padding: "4px 10px", borderRadius: 100, background: "rgba(46,204,138,.15)", border: "1px solid rgba(46,204,138,.35)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.green }}>✓ Campagna confermata</div>}
         </div>
+        <div style={{ fontFamily: F.serif, fontSize: isMobile ? 22 : 30, color: C.white, letterSpacing: "-0.8px", marginBottom: 3 }}>{mainAreaLabel || "La tua campagna"}</div>
+        <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.38)", marginBottom: 20 }}>
+          {tLabel}{data.distributionVariant ? ` · ${data.distributionVariant}` : ""} · {new Date().toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${isMobile ? 2 : Math.min(5, 2 + (svcType === "d2d" ? 2 : 1))}, 1fr)`, gap: 8, marginBottom: 16 }}>
+          {svcType === "d2d" && <>
+            <div style={{ padding: "11px 12px", background: "rgba(46,204,138,.07)", borderRadius: 12, border: "1px solid rgba(46,204,138,.18)" }}>
+              <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".06em" }}>Famiglie</div>
+              <div style={{ fontFamily: F.serif, fontSize: 19, color: C.green, letterSpacing: "-.5px" }}>{formatNumber(kpis.families ?? totF) || "—"}</div>
+            </div>
+            <div style={{ padding: "11px 12px", background: `${col}0d`, borderRadius: 12, border: `1px solid ${col}28` }}>
+              <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".06em" }}>Copertura</div>
+              <div style={{ fontFamily: F.serif, fontSize: 19, color: col, letterSpacing: "-.5px" }}>{kpis.coverage ?? avgCov}%</div>
+            </div>
+          </>}
+          {(isH2H) && <>
+            <div style={{ padding: "11px 12px", background: "rgba(96,165,250,.07)", borderRadius: 12, border: "1px solid rgba(96,165,250,.2)" }}>
+              <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", marginBottom: 4, textTransform: "uppercase" }}>POI</div>
+              <div style={{ fontFamily: F.serif, fontSize: 19, color: C.blue }}>{formatNumber(kpis.poi) || "—"}</div>
+            </div>
+            <div style={{ padding: "11px 12px", background: "rgba(167,139,250,.07)", borderRadius: 12, border: "1px solid rgba(167,139,250,.2)" }}>
+              <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", marginBottom: 4, textTransform: "uppercase" }}>Hotspot</div>
+              <div style={{ fontFamily: F.serif, fontSize: 19, color: C.purple }}>{formatNumber(kpis.hotspotCount) || "—"}</div>
+            </div>
+          </>}
+          <div style={{ padding: "11px 12px", background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.08)" }}>
+            <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".06em" }}>Zone</div>
+            <div style={{ fontFamily: F.serif, fontSize: 19, color: C.white }}>{selectedZoneNames.length || "—"}</div>
+          </div>
+          <div style={{ padding: "11px 12px", background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.08)" }}>
+            <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".06em" }}>Volantini</div>
+            <div style={{ fontFamily: F.serif, fontSize: 19, color: C.white }}>{flyerQty >= 1000 ? (flyerQty / 1000).toFixed(0) + "k" : flyerQty}</div>
+          </div>
+          <div style={{ padding: "11px 12px", background: `${col}15`, borderRadius: 12, border: `1px solid ${col}35` }}>
+            <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".06em" }}>Totale</div>
+            <div style={{ fontFamily: F.serif, fontSize: 19, color: col }}>{eur(total)}</div>
+          </div>
+        </div>
+        {(selectedExtras.length > 0 || disc > 0) && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {selectedExtras.map(e => (
+              <span key={e.id} style={{ padding: "4px 10px", borderRadius: 100, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)", fontFamily: F.sans, fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,.72)" }}>{e.icon} {e.label}</span>
+            ))}
+            {disc > 0 && <span style={{ padding: "4px 10px", borderRadius: 100, background: "rgba(46,204,138,.1)", border: "1px solid rgba(46,204,138,.25)", fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: C.green }}>🔗 Smart Pairing -{disc}%</span>}
+            {selDays.length > 0 && <span style={{ padding: "4px 10px", borderRadius: 100, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.09)", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.55)" }}>📅 {selectedDatesLabel}</span>}
+          </div>
+        )}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 290px", gap: 16, paddingBottom: isMobile ? 96 : 0 }}>
@@ -4523,147 +4580,10 @@ const savedRow = savedCampaign?.[0] || {};
                   </div>
                 )}
 
-                {/* ── Pannello analisi tecnica collassabile ── */}
-                <div>
-                  <button
-                    onClick={() => setShowTechPanel(v => !v)}
-                    style={{ width: "100%", padding: "10px 13px", borderRadius: 10, border: "1px solid rgba(255,255,255,.09)", background: showTechPanel ? "rgba(255,255,255,.06)" : "rgba(255,255,255,.03)", color: "rgba(255,255,255,.55)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                  >
-                    <span>Analisi tecnica completa</span>
-                    <span style={{ fontSize: 10, opacity: .7 }}>{showTechPanel ? "▲ Chiudi" : "▼ Apri"}</span>
-                  </button>
-
-                  {showTechPanel && (
-                    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 14, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)" }}>
-
-                      {/* Area & modalità */}
-                      <div>
-                        <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Area selezionata</div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 8 }}>
-                          {nonEmpty([
-                            { l: "Comune / zona principale", v: data.cityName || data.comune || selectedZoneNames[0], src: "Step 2", c: C.white },
-                            { l: "Modalità", v: data.areaMode === "cap" ? "CAP" : data.areaMode === "address-radius" ? "Indirizzo + raggio" : "Comune con raggio di analisi", src: "Step 2", c: col },
-                            { l: "CAP selezionati", v: data.areaMode === "cap" ? (data.selectedCaps || []).join(" – ") : null, src: "Step 2", c: C.white },
-                            { l: "Raggio analisi", v: data.areaMode !== "cap" && data.radius ? `${data.radius < 1 ? data.radius * 1000 + "m" : data.radius + "km"}` : null, src: "Step 2", c: C.white },
-                            { l: "Superficie coperta", v: (() => { const a = kpis.area || (selZ.length ? selZ.reduce((s, z) => s + (z.area || 0), 0) : null); return a ? formatAreaKm2(a) : null; })(), src: "Dati geografici", c: C.blue },
-                            { l: "Modalità selezione", v: data.allocationMode === "manual" ? "Manuale" : "Auto", src: "Step 2", c: col },
-                          ]).map(fieldCard)}
-                        </div>
-                      </div>
-
-                      {/* Output tecnico servizio */}
-                      <div>
-                        <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>{serviceSummaryConfig.title}</div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 8 }}>
-                          {nonEmpty(serviceSummaryConfig.fields || []).map(fieldCard)}
-                        </div>
-                      </div>
-
-                      {/* Comuni nel raggio */}
-                      {breakdownRows.length > 0 && (
-                        <div>
-                          <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>{svcType === "d2d" ? `${step4TerritoryPluralLabel} nel raggio / distribuzione` : "Zone selezionate / distribuzione"}</div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                            {breakdownRows.map(row => (
-                              <div key={row.id} style={{ padding: "9px 10px", borderRadius: 9, background: row.selectedRow ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.02)", border: `1px solid ${row.selectedRow ? "rgba(255,255,255,.07)" : "rgba(255,255,255,.04)"}`, display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 10, alignItems: "center" }}>
-                                <div>
-                                  <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: row.selectedRow ? C.white : "rgba(255,255,255,.55)" }}>{row.name}</div>
-                                  <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.38)" }}>
-                                    {row.selectedRow
-                                      ? row.alloc?.allocationStatus === "full" || row.coveragePercent >= 100 ? "Selezionato – copertura completa" : "Selezionato – copertura parziale"
-                                      : "Nel raggio – non selezionato"}
-                                    {!row.selectedRow && " – disponibile per estensione zona"}
-                                  </div>
-                                </div>
-                                <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: row.selectedRow ? col : "rgba(255,255,255,.36)" }}>{row.estimatedFlyers != null ? `${row.estimatedFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini` : "Estensione"}</div>
-                                <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: row.coveragePercent >= 100 ? C.green : row.coveragePercent != null ? "#F59E0B" : "rgba(255,255,255,.35)" }}>{row.coveragePercent != null ? `${Math.min(100, row.coveragePercent)}%` : "-"}</div>
-                                <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.42)" }}>{row.contribution != null ? `${row.contribution}%` : "-"}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Indicatori (Family Index, Reach, ROI, Confidence) */}
-                      {nonEmpty(serviceSummaryConfig.scores || []).length > 0 && (
-                        <div>
-                          <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Indicatori servizio</div>
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 8 }}>
-                            {nonEmpty(serviceSummaryConfig.scores || []).map(s => (
-                              <div key={s.l} style={{ padding: "10px 11px", borderRadius: 10, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.055)" }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
-                                  <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.36)" }}>{s.l}</span>
-                                  <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 900, color: s.c }}>{s.v}/100</span>
-                                </div>
-                                <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.43)", lineHeight: 1.4 }}>{s.d}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Profilo demografico / ISTAT */}
-                      {nonEmpty(serviceSummaryConfig.admin || []).length > 0 && (
-                        <div>
-                          <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Profilo demografico / ISTAT</div>
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 8 }}>
-                            {nonEmpty(serviceSummaryConfig.admin || []).map(fieldCard)}
-                          </div>
-                          {svcType === "d2d" && (
-                            <div style={{ marginTop: 7, fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.34)", lineHeight: 1.45 }}>
-                              Copertura dati reale attiva per la Lombardia. Indicatori non ancora disponibili in questa vista: fasce età, % stranieri, tasso occupazione, reddito medio, imprese totali e codice catastale.
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* OMI */}
-                      {svcType === "d2d" && step4Omi?.available && (
-                        <div>
-                          <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Valori immobiliari OMI</div>
-                          <div style={{ padding: "12px 13px", borderRadius: 10, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.07)" }}>
-                            <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                              {step4Omi.municipality && <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(96,165,250,.12)", border: "1px solid rgba(96,165,250,.22)", fontFamily: F.sans, fontSize: 9, color: C.blue }}>{step4Omi.municipality}</span>}
-                              {step4Omi.zone_name && <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.65)" }}>Zona: {step4Omi.zone_name}</span>}
-                            </div>
-                            {(step4Omi.values || []).slice(0, 3).map((tv, i) => (
-                              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderTop: i > 0 ? "1px solid rgba(255,255,255,.05)" : "none" }}>
-                                <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.55)" }}>{tv.typology}</span>
-                                <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white }}>{formatNumber(tv.min_value)}–{formatNumber(tv.max_value)} €/mq</span>
-                              </div>
-                            ))}
-                            {(step4Omi.values || []).length > 3 && <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.38)", marginTop: 6 }}>+{step4Omi.values.length - 3} altre tipologie</div>}
-                            <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.28)", marginTop: 8 }}>Fonte: Agenzia delle Entrate – OMI</div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Testo operativo */}
-                      <div style={{ padding: "11px 12px", borderRadius: 11, background: `${col}10`, border: `1px solid ${col}24`, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.62)", lineHeight: 1.55 }}>
-                        {operationalSummary}
-                      </div>
-
-                      {/* Fonti dati */}
-                      {(serviceSummaryConfig.sources || []).length > 0 && (
-                        <div>
-                          <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Fonti dati</div>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                            {(serviceSummaryConfig.sources || []).map(s => (
-                              <span key={s} style={{ padding: "4px 8px", borderRadius: 6, background: "rgba(255,255,255,.055)", border: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.52)" }}>{cleanSource(s)}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                    </div>
-                  )}
-                </div>
-
-                {/* Link scarica analisi completa PDF */}
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={handleDownloadPdf} disabled={pdfBusy} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${col}40`, background: `${col}0e`, color: col, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: pdfBusy ? "wait" : "pointer" }}>
-                    {pdfBusy ? "..." : " Scarica analisi completa PDF"}
-                  </button>
+                {/* Nota analisi tecnica → vedi Sezione 5 */}
+                <div style={{ padding: "9px 12px", borderRadius: 9, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.42)" }}>KPI, indicatori, ISTAT, OMI e fonti dati disponibili in Sezione 5</span>
+                  <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.28)" }}>▼</span>
                 </div>
 
               </div>
@@ -4671,174 +4591,406 @@ const savedRow = savedCampaign?.[0] || {};
           </div>
 
           <div style={{...box(), padding: "18px" }}>
-            {secHead("3", "Servizi extra selezionati", "Opzioni aggiuntive incluse nel preventivo", C.purple)}
+            {secHead("3", "Servizi inclusi", "Cosa ricevi con questa campagna", C.purple)}
+
+            {/* ── Servizi già inclusi — commercial cards ── */}
             {selectedExtras.length === 0 ? (
               <div style={{ padding: "16px", textAlign: "center", background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)", borderRadius: 10, fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.34)" }}>
-                Nessun servizio extra selezionato per questa campagna.
+                Nessun servizio extra selezionato. Scopri le opzioni disponibili qui sotto.
               </div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
-                {selectedExtras.map(ext => (
-                  <div key={ext.id} style={{ padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", display: "flex", gap: 14, alignItems: "start" }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 10, background: `${ext.price === 0 && !ext.isUrgent ? C.green : (ext.isUrgent ? C.red : C.blue)}15`, border: `1px solid ${ext.price === 0 && !ext.isUrgent ? C.green : (ext.isUrgent ? C.red : C.blue)}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
-                      {ext.icon}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                        <span style={{ fontFamily: F.serif, fontSize: 16, color: C.white }}>{ext.label}</span>
-                        <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: ext.price === 0 && !ext.isUrgent ? C.green : (ext.isUrgent ? C.red : C.blue), padding: "2px 8px", borderRadius: 6, background: `${ext.price === 0 && !ext.isUrgent ? C.green : (ext.isUrgent ? C.red : C.blue)}10` }}>
-                          {ext.price > 0 ? eur(ext.price) : (ext.isUrgent ? "Urgente" : "Incluso")}
-                        </span>
-                      </div>
-                      <p style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.45)", lineHeight: 1.5, marginBottom: 8 }}>{ext.description}</p>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.green }} />
-                        <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(46,204,138,.8)", textTransform: "uppercase", letterSpacing: ".05em" }}>{ext.status === "included" ? "Incluso nel preventivo" : "Extra selezionato"}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {selectedExtras.some(e => e.id === "ai_analysis") && (
-              <div style={{ marginTop: 14, padding: "14px", borderRadius: 12, background: "rgba(46,204,138,.06)", border: "1px solid rgba(46,204,138,.18)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  <span style={{ fontSize: 18 }}></span>
-                  <span style={{ fontFamily: F.serif, fontSize: 16, color: C.green }}>Analisi AI della campagna</span>
-                </div>
-                <p style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)", lineHeight: 1.6 }}>
-                  Report AI incluso nel preventivo se selezionato. Le raccomandazioni verranno generate solo dai dati disponibili della configurazione, dell'area e della campagna.
-                </p>
-              </div>
-            )}
-            {optionalExtras.length > 0 && (
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Optional disponibili</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 8 }}>
-                  {optionalExtras.map(ext => (
-                    <div key={ext.id} style={{ padding: "11px", borderRadius: 10, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)", display: "grid", gap: 7 }}>
-                      <div style={{ display: "flex", gap: 9, alignItems: "center" }}>
-                        <span style={{ fontSize: 17 }}>{ext.icon}</span>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: C.white }}>{ext.label}</div>
-                          <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.38)" }}>{ext.description}</div>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 20 }}>
+                {selectedExtras.map(ext => {
+                  const comm = svcCommercial[ext.id] || {};
+                  const cardCol = comm.col || (ext.price === 0 && !ext.isUrgent ? C.green : ext.isUrgent ? C.red : C.blue);
+                  return (
+                    <div key={ext.id} style={{ padding: "16px 18px", borderRadius: 14, background: `${cardCol}08`, border: `1px solid ${cardCol}28`, display: "flex", flexDirection: "column", gap: 12 }}>
+                      {/* Header */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                          <span style={{ fontSize: 22 }}>{comm.icon || ext.icon}</span>
+                          <div>
+                            <div style={{ fontFamily: F.serif, fontSize: 16, color: C.white, letterSpacing: "-.2px" }}>{comm.head || ext.label}</div>
+                            <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: cardCol, textTransform: "uppercase", letterSpacing: ".06em", marginTop: 2 }}>
+                              {ext.price === 0 && !ext.isUrgent ? "Incluso" : ext.isUrgent ? "Servizio urgente" : "Extra selezionato"}
+                            </div>
+                          </div>
                         </div>
-                        <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "#06B6D4" }}>+{eur(ext.price)}</span>
+                        <div style={{ padding: "4px 10px", borderRadius: 8, background: `${cardCol}18`, fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: cardCol, flexShrink: 0 }}>
+                          {ext.price > 0 ? eur(ext.price) : (ext.isUrgent ? "+30%" : "✓")}
+                        </div>
                       </div>
-                      <button onClick={() => addOptionalExtra(ext.id)} style={{ width: "100%", padding: "8px", borderRadius: 8, border: "1px solid rgba(99,102,241,0.3)", background: "rgba(99,102,241,0.10)", color: "#6366F1", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>Aggiungi al preventivo</button>
+                      {/* Benefits */}
+                      {comm.bullets && (
+                        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+                          {comm.bullets.map((b, i) => (
+                            <li key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                              <span style={{ color: cardCol, fontSize: 12, flexShrink: 0, lineHeight: "18px" }}>✓</span>
+                              <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.65)", lineHeight: 1.45 }}>{b}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {!comm.bullets && ext.description && (
+                        <p style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)", lineHeight: 1.5, margin: 0 }}>{ext.description}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* ── Optional non ancora aggiunti ── */}
+            {optionalExtras.length > 0 && (
+              <div>
+                <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.28)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10 }}>Aggiungi alla campagna</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 8 }}>
+                  {optionalExtras.map(ext => {
+                    const comm = svcCommercial[ext.id] || {};
+                    const cardCol = comm.col || C.blue;
+                    return (
+                      <div key={ext.id} style={{ padding: "13px 14px", borderRadius: 12, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.07)", display: "flex", flexDirection: "column", gap: 10 }}>
+                        <div style={{ display: "flex", gap: 9, alignItems: "center" }}>
+                          <span style={{ fontSize: 20 }}>{comm.icon || ext.icon}</span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.white }}>{comm.head || ext.label}</div>
+                            {comm.bullets?.[0] && <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.42)", marginTop: 2 }}>{comm.bullets[0]}</div>}
+                          </div>
+                          <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: cardCol, flexShrink: 0 }}>+{eur(ext.price)}</span>
+                        </div>
+                        <button onClick={() => addOptionalExtra(ext.id)} style={{ width: "100%", padding: "8px", borderRadius: 8, border: `1px solid ${cardCol}35`, background: `${cardCol}10`, color: cardCol, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                          Aggiungi al preventivo
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{...box(), padding: "18px" }}>
+            {secHead("4", "Pianificazione", "Date, Smart Pairing e stato operativo", C.green)}
+            {data.smartPairingRequestSent ? (
+              <div style={{ padding: "14px", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.58)", background: "rgba(251,191,36,.06)", border: "1px solid rgba(251,191,36,.2)", borderRadius: 10, lineHeight: 1.6 }}>
+                <b style={{ color: C.yellow }}>Richiesta data diversa inviata.</b><br />
+                Periodo preferito: {data.contactRequestData?.periodo || "Dato non disponibile"}<br />
+                Ti avviseremo via WhatsApp o email appena disponibile uno slot compatibile.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {/* Status chips */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 8 }}>
+                  {nonEmpty([
+                    { icon: "📅", l: "Periodo", v: selDays.length > 0 ? selectedDatesLabel : "Da definire con il team", c: selDays.length > 0 ? C.white : "rgba(255,255,255,.38)" },
+                    { icon: "⚡", l: "Priorità", v: data.urgency === "urgent" ? "Urgente" : "Standard", c: data.urgency === "urgent" ? C.red : C.white },
+                    { icon: "🔗", l: "Smart Pairing", v: disc > 0 ? `Attivo — -${disc}%` : "Non attivo", c: disc > 0 ? C.green : "rgba(255,255,255,.38)" },
+                    { icon: "👤", l: "Operatore", v: "Da assegnare", c: "rgba(255,255,255,.38)" },
+                    { icon: "📦", l: "Stato campagna", v: sent ? "Confermata" : "In attesa conferma", c: sent ? C.green : C.yellow },
+                    selDays.length > 0 && { icon: "📍", l: "Date selezionate", v: `${selDays.length} ${selDays.length === 1 ? "giornata" : "giornate"}`, c: col },
+                  ]).map(({ icon, l, v, c }) => (
+                    <div key={l} style={{ padding: "10px 12px", background: "rgba(255,255,255,.04)", borderRadius: 10, border: "1px solid rgba(255,255,255,.07)" }}>
+                      <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.32)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4 }}>{icon} {l}</div>
+                      <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: c }}>{v}</div>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-            {selZ.length > 0 && svcType !== "d2d" && (
-              <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "rgba(96,165,250,.07)", border: "1px solid rgba(96,165,250,.18)", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.55)", lineHeight: 1.45 }}>
-                {svcType === "h2h"
-                  ? "Hand to Hand richiede meno volantini: la distribuzione avviene su passanti e hotspot ad alto flusso, non su tutte le cassette postali."
-                  : "Business Distribution usa quantità mirate: il conteggio si basa su attività target e cluster commerciali, non su copertura residenziale completa."}
+
+                {/* Giornate con Smart Pairing */}
+                {selDays.length > 0 && (
+                  <div>
+                    <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.28)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Giornate pianificate</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                      {selDays.map(k => {
+                        const p = pairsData[k] || null;
+                        const pts = k.split("-");
+                        const isPaired = Boolean(p);
+                        return (
+                          <div key={k} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10, background: p?.type === "same" ? "rgba(46,204,138,.08)" : p ? "rgba(232,87,26,.08)" : "rgba(255,255,255,.03)", border: `1px solid ${p?.type === "same" ? "rgba(46,204,138,.2)" : p ? "rgba(232,87,26,.2)" : "rgba(255,255,255,.07)"}` }}>
+                            <div style={{ width: 8, height: 8, borderRadius: "50%", background: isPaired ? (p.type === "same" ? C.green : C.orange) : "rgba(255,255,255,.22)", flexShrink: 0 }} />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white }}>{pts[2]} {MONTHS_SHORT[parseInt(pts[1])]}</div>
+                              {isPaired && <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Zona compatibile: {p.zone} — {p.type === "same" ? "stessa zona" : "zona vicina"}</div>}
+                              {!isPaired && <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)" }}>Data richiesta — conferma in attesa</div>}
+                            </div>
+                            {p?.disc > 0 && (
+                              <span style={{ padding: "3px 9px", borderRadius: 100, background: p.type === "same" ? "rgba(46,204,138,.15)" : "rgba(232,87,26,.15)", fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: p.type === "same" ? C.green : C.orange }}>-{p.disc}%</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {selDays.length === 0 && (
+                  <div style={{ padding: "14px", textAlign: "center", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.35)", background: "rgba(255,255,255,.03)", borderRadius: 10, border: "1px solid rgba(255,255,255,.06)" }}>
+                    Nessuna data selezionata. Il team contatterà entro 24h per definire il calendario.
+                  </div>
+                )}
               </div>
             )}
           </div>
 
+          {/* ── SEZIONE 5: Analisi tecnica ── */}
           <div style={{...box(), padding: "18px" }}>
-            {secHead("4", "Pianificazione campagna", "Date selezionate e opportunità disponibili", C.green)}
-            {data.smartPairingRequestSent
-              ? <div style={{ padding: "14px", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.58)", background: "rgba(251,191,36,.06)", border: "1px solid rgba(251,191,36,.2)", borderRadius: 10, lineHeight: 1.6 }}>
-                <b style={{ color: C.yellow }}>Richiesta data diversa inviata.</b><br />
-                Periodo preferito: {data.contactRequestData?.periodo || "Dato non disponibile"}<br />
-                Ti avviseremo via WhatsApp o Email.
+            <div
+              onClick={() => setShowTechPanel(v => !v)}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", marginBottom: showTechPanel ? 16 : 0, paddingBottom: showTechPanel ? 12 : 0, borderBottom: showTechPanel ? "1px solid rgba(255,255,255,.07)" : "none" }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(255,255,255,.08)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,.5)", flexShrink: 0 }}>5</div>
+                <div>
+                  <div style={{ fontFamily: F.serif, fontSize: 18, color: showTechPanel ? C.white : "rgba(255,255,255,.55)" }}>Analisi tecnica completa</div>
+                  <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.3)" }}>KPI · ISTAT · OMI · Indicatori · Comuni · Fonti</div>
+                </div>
               </div>
-              : selDays.length === 0
-                ? <div style={{ padding: "14px", textAlign: "center", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.42)", background: "rgba(255,255,255,.03)", borderRadius: 10 }}>Nessuna data selezionata. Potrai definire o confermare la pianificazione con il team.</div>
-                : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 8, marginBottom: 4 }}>
-                      {nonEmpty([
-                        selDays.length > 1 && { l: "Date selezionate", v: selectedDatesLabel, src: "Step 3", c: C.white },
-                        { l: "Disponibilità", v: disc > 0 ? "opportunità backend confermata" : "Richiesta disponibilità", src: "Step 3", c: disc > 0 ? C.green : C.white },
-                        disc > 0 && { l: "Vantaggio Smart Pairing", v: "Applicato", src: "Step 3", c: C.green },
-                        disc > 0 && { l: "Sconto operativo", v: `Smart Pairing -${disc}%`, src: "Calcolo", c: C.green },
-                      ]).map(fieldCard)}
-                    </div>
-                    {selDays.map(k => {
-                      const p = pairsData[k] || null;
-const pts = k.split("-");
-                      return (
-                        <div key={k} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 9, background: p?.type === "same" ? "rgba(46,204,138,.1)" : p ? "rgba(232,87,26,.1)" : "rgba(255,255,255,.035)", border: `1px solid ${p?.type === "same" ? "rgba(46,204,138,.25)" : p ? "rgba(232,87,26,.25)" : "rgba(255,255,255,.08)"}` }}>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 600, color: C.white }}>{pts[2]} {MONTHS_SHORT[parseInt(pts[1])]}</div>
-                            <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>{p ? `Zona compatibile: ${p.zone} – ${p.type === "same" ? "stessa zona" : "zona vicina"}` : "Data richiesta, non confermata"}</div>
+              <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.35)", fontWeight: 700 }}>{showTechPanel ? "▲ Chiudi" : "▼ Apri"}</span>
+            </div>
+
+            {showTechPanel && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {/* Helper: collapsible sub-section */}
+                {[
+                  {
+                    key: "kpi", label: "KPI", icon: "📈",
+                    content: (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 8 }}>
+                        {nonEmpty(serviceSummaryConfig.fields || []).map(fieldCard)}
+                      </div>
+                    ),
+                  },
+                  {
+                    key: "comuni", label: step4TerritoryPluralLabel + " nel raggio", icon: "🗺️",
+                    content: breakdownRows.length > 0 ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                        {breakdownRows.map(row => (
+                          <div key={row.id} style={{ padding: "8px 10px", borderRadius: 9, background: row.selectedRow ? "rgba(255,255,255,.04)" : "rgba(255,255,255,.02)", border: `1px solid ${row.selectedRow ? "rgba(255,255,255,.07)" : "rgba(255,255,255,.04)"}`, display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 10, alignItems: "center" }}>
+                            <div>
+                              <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: row.selectedRow ? C.white : "rgba(255,255,255,.52)" }}>{row.name}</div>
+                              <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.36)" }}>
+                                {row.selectedRow ? (row.alloc?.allocationStatus === "full" || row.coveragePercent >= 100 ? "Copertura completa" : "Copertura parziale") : "Nel raggio – non selezionato"}
+                              </div>
+                            </div>
+                            <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: row.selectedRow ? col : "rgba(255,255,255,.32)" }}>{row.estimatedFlyers != null ? row.estimatedFlyers.toLocaleString("it-IT", { useGrouping: true }) : "—"}</div>
+                            <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: row.coveragePercent >= 100 ? C.green : row.coveragePercent != null ? "#F59E0B" : "rgba(255,255,255,.32)" }}>{row.coveragePercent != null ? `${Math.min(100, row.coveragePercent)}%` : "—"}</div>
+                            <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.38)" }}>{row.contribution != null ? `${row.contribution}%` : "—"}</div>
                           </div>
-                          {p?.disc > 0 && <span style={{ padding: "3px 9px", borderRadius: 100, background: p.type === "same" ? "rgba(46,204,138,.2)" : "rgba(232,87,26,.2)", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: p.type === "same" ? C.green : C.orange }}>-{p.disc}%</span>}
+                        ))}
+                      </div>
+                    ) : <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.35)" }}>Nessun comune nel raggio disponibile.</div>,
+                  },
+                  {
+                    key: "indicatori", label: "Indicatori", icon: "🎯",
+                    content: nonEmpty(serviceSummaryConfig.scores || []).length > 0 ? (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(148px,1fr))", gap: 8 }}>
+                        {nonEmpty(serviceSummaryConfig.scores || []).map(s => (
+                          <div key={s.l} style={{ padding: "10px 11px", borderRadius: 10, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.055)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+                              <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.38)" }}>{s.l}</span>
+                              <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 900, color: s.c }}>{s.v}/100</span>
+                            </div>
+                            <div style={{ height: 3, background: "rgba(255,255,255,.07)", borderRadius: 2, overflow: "hidden" }}>
+                              <div style={{ height: "100%", width: `${s.v || 0}%`, background: s.c, borderRadius: 2 }} />
+                            </div>
+                            {s.d && <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.38)", marginTop: 5, lineHeight: 1.4 }}>{s.d}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    ) : <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.35)" }}>Indicatori non disponibili per questo servizio.</div>,
+                  },
+                  {
+                    key: "demo", label: "Profilo demografico ISTAT", icon: "👥",
+                    content: (
+                      <div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 8 }}>
+                          {nonEmpty(serviceSummaryConfig.admin || []).map(fieldCard)}
                         </div>
-                      );
-                    })}
+                        {svcType === "d2d" && (
+                          <div style={{ marginTop: 8, fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.3)", lineHeight: 1.45 }}>
+                            Dati reali da ISTAT per la Lombardia. Alcuni indicatori (fasce età, % stranieri, reddito) non ancora disponibili in questa versione.
+                          </div>
+                        )}
+                      </div>
+                    ),
+                  },
+                  svcType === "d2d" && step4Omi?.available ? {
+                    key: "omi", label: "Mercato immobiliare OMI", icon: "🏠",
+                    content: (
+                      <div style={{ padding: "12px 13px", borderRadius: 10, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.07)" }}>
+                        <div style={{ display: "flex", gap: 7, marginBottom: 10, flexWrap: "wrap" }}>
+                          {step4Omi.municipality && <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(96,165,250,.12)", border: "1px solid rgba(96,165,250,.22)", fontFamily: F.sans, fontSize: 9, color: C.blue }}>{step4Omi.municipality}</span>}
+                          {step4Omi.zone_name && <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.62)" }}>Zona: {step4Omi.zone_name}</span>}
+                        </div>
+                        {(step4Omi.values || []).slice(0, 4).map((tv, i) => (
+                          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderTop: i > 0 ? "1px solid rgba(255,255,255,.05)" : "none" }}>
+                            <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.52)" }}>{tv.typology}</span>
+                            <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white }}>{formatNumber(tv.min_value)}–{formatNumber(tv.max_value)} €/mq</span>
+                          </div>
+                        ))}
+                        {(step4Omi.values || []).length > 4 && <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.35)", marginTop: 6 }}>+{step4Omi.values.length - 4} tipologie</div>}
+                        <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.26)", marginTop: 8 }}>Fonte: Agenzia delle Entrate – OMI</div>
+                      </div>
+                    ),
+                  } : null,
+                  {
+                    key: "fonti", label: "Fonti dati", icon: "📚",
+                    content: (
+                      <div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 10 }}>
+                          {(serviceSummaryConfig.sources || []).map(s => (
+                            <span key={s} style={{ padding: "4px 9px", borderRadius: 6, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.07)", fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.52)" }}>{cleanSource(s)}</span>
+                          ))}
+                          {(serviceSummaryConfig.sources || []).length === 0 && <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.35)" }}>Nessuna fonte registrata.</span>}
+                        </div>
+                        <div style={{ padding: "10px 12px", borderRadius: 9, background: `${col}08`, border: `1px solid ${col}20`, fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.52)", lineHeight: 1.5 }}>
+                          {operationalSummary}
+                        </div>
+                      </div>
+                    ),
+                  },
+                ].filter(Boolean).map(({ key, label, icon, content }) => (
+                  <div key={key} style={{ borderRadius: 11, border: "1px solid rgba(255,255,255,.07)", overflow: "hidden" }}>
+                    <button
+                      onClick={() => toggleTech(key)}
+                      style={{ width: "100%", padding: "11px 14px", background: techSections[key] ? "rgba(255,255,255,.045)" : "rgba(255,255,255,.025)", border: "none", color: techSections[key] ? C.white : "rgba(255,255,255,.52)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left" }}
+                    >
+                      <span>{icon} {label}</span>
+                      <span style={{ fontSize: 10, opacity: .6 }}>{techSections[key] ? "▲" : "▼"}</span>
+                    </button>
+                    {techSections[key] && (
+                      <div style={{ padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,.06)", background: "rgba(8,15,30,.5)" }}>
+                        {content}
+                      </div>
+                    )}
                   </div>
-                )
-            }
+                ))}
+
+                <button onClick={handleDownloadPdf} disabled={pdfBusy} style={{ marginTop: 6, padding: "10px 16px", borderRadius: 10, border: `1px solid ${col}40`, background: `${col}0e`, color: col, fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: pdfBusy ? "wait" : "pointer", width: "100%" }}>
+                  {pdfBusy ? "Generazione PDF..." : "📄 Scarica analisi completa PDF"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Section */}
+        {/* ── SIDEBAR ── */}
         <div>
-          <div style={{...box(), padding: "18px", position: isMobile ? "static" : "sticky", top: 140 }}>
-            <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.32)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 14 }}>Preventivo & Costo</div>
-            <div style={{ padding: "10px 11px", borderRadius: 10, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.06)", marginBottom: 12 }}>
-              <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white, marginBottom: 4 }}>Distribuzione {tLabel}</div>
-              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.48)", lineHeight: 1.55 }}>
-                {flyerQty.toLocaleString("it-IT", { useGrouping: true })} volantini  - {eur4(unitPricePerFlyer)} = <b style={{ color: C.white }}>{eur(baseCost)}</b>
+          <div style={{...box(), padding: "18px", position: isMobile ? "static" : "sticky", top: 90, display: "flex", flexDirection: "column", gap: 0 }}>
+
+            {/* Status pill */}
+            <div style={{ marginBottom: 14, display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <div style={{ padding: "4px 10px", borderRadius: 100, background: sent ? "rgba(46,204,138,.15)" : "rgba(255,255,255,.07)", border: `1px solid ${sent ? "rgba(46,204,138,.35)" : "rgba(255,255,255,.12)"}`, fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: sent ? C.green : "rgba(255,255,255,.52)" }}>
+                {sent ? "✓ Confermata" : "⏳ In attesa conferma"}
               </div>
+              {isQuick && <div style={{ padding: "4px 10px", borderRadius: 100, background: "rgba(251,191,36,.1)", border: "1px solid rgba(251,191,36,.28)", fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: C.yellow }}>Stima rapida</div>}
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 12 }}>
+
+            {/* Campagna details */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14, padding: "12px", borderRadius: 11, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)" }}>
               {[
-                { l: "Subtotale distribuzione", v: eur(baseCost), c: "rgba(255,255,255,.72)" },...serviceExtras,
-                disc > 0 ? { l: `Smart Pairing -${disc}%`, v: `-${eur(smartPairingDiscount)}`, c: C.green } : null,
-                data.urgency === "urgent" && { l: "Urgenza +30%", v: `+${eur(urgSurch)}`, c: "#FF6666" },
-                subDiscPct > 0 && { l: `Piano -${subDiscPct}%`, v: `-${eur(planDiscountAmount)}`, c: C.green },
-              ].filter(Boolean).map(({ l, v, c }) => (
-                <div key={l} style={{ display: "flex", justifyContent: "space-between", paddingBottom: 6, borderBottom: "1px solid rgba(255,255,255,.05)" }}>
-                  <span style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.5)" }}>{l}</span>
-                  <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 600, color: c }}>{v}</span>
+                { l: "Zona", v: mainAreaLabel || "—" },
+                { l: "Quantità", v: flyerQty.toLocaleString("it-IT", { useGrouping: true }) + " pz." },
+                { l: "Formato", v: (data.flyerFormat || "-").toUpperCase() },
+                { l: "Piano", v: subL },
+                selDays.length > 0 && { l: "Periodo", v: selectedDatesLabel },
+              ].filter(Boolean).map(({ l, v }) => (
+                <div key={l} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6 }}>
+                  <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.38)", flexShrink: 0 }}>{l}</span>
+                  <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 600, color: C.white, textAlign: "right" }}>{v}</span>
                 </div>
               ))}
+              {/* Servizi selezionati */}
+              {selectedExtras.length > 0 && (
+                <div>
+                  <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.38)", marginBottom: 5 }}>Servizi</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {selectedExtras.map(e => (
+                      <span key={e.id} style={{ padding: "2px 7px", borderRadius: 5, background: "rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,.65)" }}>{e.icon} {e.label}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            <div style={{ background: `${col}10`, borderRadius: 10, padding: "12px", border: `1px solid ${col}28`, marginBottom: 12 }}>
+
+            {/* Price breakdown */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 5, borderBottom: "1px solid rgba(255,255,255,.05)" }}>
+                <span style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.45)" }}>Distribuzione {tLabel}</span>
+                <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,.72)" }}>{eur(baseCost)}</span>
+              </div>
+              {serviceExtras.map(({ l, v, c }) => (
+                <div key={l} style={{ display: "flex", justifyContent: "space-between", paddingBottom: 5, borderBottom: "1px solid rgba(255,255,255,.04)" }}>
+                  <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.42)" }}>{l}</span>
+                  <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 600, color: c }}>{v}</span>
+                </div>
+              ))}
+              {disc > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 5, borderBottom: "1px solid rgba(255,255,255,.04)" }}>
+                  <span style={{ fontFamily: F.sans, fontSize: 11, color: C.green }}>🔗 Smart Pairing -{disc}%</span>
+                  <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 600, color: C.green }}>-{eur(smartPairingDiscount)}</span>
+                </div>
+              )}
+              {data.urgency === "urgent" && (
+                <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 5, borderBottom: "1px solid rgba(255,255,255,.04)" }}>
+                  <span style={{ fontFamily: F.sans, fontSize: 11, color: C.red }}>⚡ Urgenza +30%</span>
+                  <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 600, color: C.red }}>+{eur(urgSurch)}</span>
+                </div>
+              )}
+              {subDiscPct > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 5, borderBottom: "1px solid rgba(255,255,255,.04)" }}>
+                  <span style={{ fontFamily: F.sans, fontSize: 11, color: C.green }}>Piano -{subDiscPct}%</span>
+                  <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 600, color: C.green }}>-{eur(planDiscountAmount)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Total box */}
+            <div style={{ background: `${col}12`, borderRadius: 12, padding: "14px", border: `1px solid ${col}30`, marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,.65)" }}>{isQuick ? "Prezzo indicativo" : "Totale stimato"}</span>
+                <span style={{ fontFamily: F.serif, fontSize: 28, color: col, letterSpacing: "-1px" }}>{eur(total)}</span>
+              </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{isQuick ? "Prezzo indicativo" : "Totale stimato"}</span>
-                <span style={{ fontFamily: F.serif, fontSize: 26, color: col, letterSpacing: "-1px" }}>{eur(total)}</span>
+                <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.28)" }}>IVA 22% (esclusa)</span>
+                <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.28)" }}>+{eur(total * 0.22)}</span>
               </div>
             </div>
+
+            {/* CTAs */}
             {isQuick ? (
-              <button className="btn" onClick={() => onHome("step1")}
-                style={{ width: "100%", padding: "12px", borderRadius: 10, border: "none", background: col, color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 6, boxShadow: `0 8px 20px ${col}33` }}>
-                Completa configurazione 
+              <button className="btn" onClick={() => onHome("step1")} style={{ width: "100%", padding: "13px", borderRadius: 10, border: "none", background: col, color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 8, boxShadow: `0 8px 24px ${col}33` }}>
+                Completa configurazione →
               </button>
             ) : (
-              <button className="btn" disabled={!canConfirm} onClick={handleConfirmCampaign}
-                style={{ width: "100%", padding: "12px", borderRadius: 10, border: "none", background: !canConfirm ? "rgba(255,255,255,.08)" : sent ? "rgba(46,204,138,.9)" : col, color: !canConfirm ? "rgba(255,255,255,.35)" : C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: canConfirm ? "pointer" : "not-allowed", marginBottom: 6 }}>
-                {sent ? "Confermata" : "Conferma campagna "}
+              <button className="btn" disabled={!canConfirm} onClick={handleConfirmCampaign} style={{ width: "100%", padding: "13px", borderRadius: 10, border: "none", background: !canConfirm ? "rgba(255,255,255,.08)" : sent ? "rgba(46,204,138,.9)" : col, color: !canConfirm ? "rgba(255,255,255,.3)" : C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: canConfirm ? "pointer" : "not-allowed", marginBottom: 8, boxShadow: canConfirm && !sent ? `0 8px 24px ${col}2e` : "none" }}>
+                {sent ? "✓ Campagna confermata" : "Conferma campagna →"}
               </button>
             )}
+
             {sent && (
-              <div style={{ marginBottom: 8, padding: "11px", borderRadius: 10, background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.22)", fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.62)", lineHeight: 1.5 }}>
-                <b style={{ color: C.green }}>Campagna confermata.</b><br />
-                Riceverai una email entro 1h con dettagli operativi e link dashboard campagna.
-                {confirmSyncStatus && <><br />{confirmSyncStatus}</>}
+              <div style={{ marginBottom: 10, padding: "10px 11px", borderRadius: 10, background: "rgba(46,204,138,.07)", border: "1px solid rgba(46,204,138,.2)", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.58)", lineHeight: 1.55 }}>
+                <b style={{ color: C.green }}>Campagna confermata.</b> Riceverai una email entro 1h con i dettagli operativi.
+                {confirmSyncStatus && <><br /><span style={{ color: "rgba(255,255,255,.4)" }}>{confirmSyncStatus}</span></>}
               </div>
             )}
             {!canConfirm && confirmProblem && !isQuick && <div style={{ fontFamily: F.sans, fontSize: 10, color: C.red, textAlign: "center", marginBottom: 8 }}>{confirmProblem}</div>}
-            <button className="btn" onClick={handleDownloadPdf} disabled={pdfBusy}
-              style={{ width: "100%", padding: "10px", borderRadius: 9, border: `1px solid ${col}45`, background: `${col}12`, color: col, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: pdfBusy ? "wait" : "pointer", marginBottom: 6 }}>
-              {pdfBusy ? "Generazione PDF––" : "Scarica PDF"}
-            </button>
-            <button className="btn" onClick={() => setEmailSent(true)}
-              style={{ width: "100%", padding: "10px", borderRadius: 9, border: "1px solid rgba(46,204,138,.28)", background: "rgba(46,204,138,.08)", color: C.green, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer", marginBottom: 6 }}>
-              {emailSent ? "Preventivo inviato" : "Invia preventivo via email"}
-            </button>
-            {emailSent && <div style={{ fontFamily: F.sans, fontSize: 10, color: C.green, textAlign: "center", marginBottom: 8 }}>Invio email reale non configurato. Scarica il PDF per condividere il preventivo.</div>}
-            {pdfError && <div style={{ fontFamily: F.sans, fontSize: 10, color: C.red, textAlign: "center", marginBottom: 8 }}>{pdfError}</div>}
-            <button className="btn" onClick={onBack} title="Torna a zona, date e configurazione precedente" style={{ width: "100%", padding: "9px", borderRadius: 8, border: "1px solid rgba(255,255,255,.1)", background: "transparent", color: "rgba(255,255,255,.42)", fontFamily: F.sans, fontSize: 12, cursor: "pointer", marginBottom: 5 }}>Modifica configurazione</button>
-            <button onClick={onHome} style={{ width: "100%", padding: "7px", borderRadius: 7, border: "none", background: "transparent", color: "rgba(255,255,255,.22)", fontFamily: F.sans, fontSize: 11, cursor: "pointer" }}>  Home</button>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+              <button className="btn" onClick={handleDownloadPdf} disabled={pdfBusy} style={{ width: "100%", padding: "10px", borderRadius: 9, border: `1px solid ${col}40`, background: `${col}0e`, color: col, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: pdfBusy ? "wait" : "pointer" }}>
+                {pdfBusy ? "Generazione PDF…" : "📄 Scarica preventivo PDF"}
+              </button>
+              <button className="btn" onClick={() => setEmailSent(true)} style={{ width: "100%", padding: "10px", borderRadius: 9, border: "1px solid rgba(46,204,138,.25)", background: "rgba(46,204,138,.07)", color: C.green, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                {emailSent ? "✓ Inviato" : "📧 Invia preventivo via email"}
+              </button>
+              {emailSent && <div style={{ fontFamily: F.sans, fontSize: 10, color: C.green, textAlign: "center" }}>Scarica il PDF per condividere il preventivo.</div>}
+              {pdfError && <div style={{ fontFamily: F.sans, fontSize: 10, color: C.red, textAlign: "center" }}>{pdfError}</div>}
+            </div>
+
+            <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+              <button className="btn" onClick={onBack} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "1px solid rgba(255,255,255,.1)", background: "transparent", color: "rgba(255,255,255,.4)", fontFamily: F.sans, fontSize: 11, cursor: "pointer" }}>← Modifica</button>
+              <button onClick={onHome} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: "transparent", color: "rgba(255,255,255,.2)", fontFamily: F.sans, fontSize: 11, cursor: "pointer" }}>🏠 Home</button>
+            </div>
           </div>
         </div>
       </div>
