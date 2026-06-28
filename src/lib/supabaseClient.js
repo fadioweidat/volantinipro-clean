@@ -47,28 +47,93 @@ async function supabaseRequest(path, { method = "GET", body, session, prefer = "
 export const supabase = hasSupabaseConfig()
   ? {
       from(table) {
-        const state = { table, selectValue: "*", filters: [], orderValue: null, limitValue: null, singleValue: false };
+        const state = {
+          table,
+          selectValue: "*",
+          filters: [],
+          orderValue: null,
+          limitValue: null,
+          singleValue: false,
+          maybeSingleValue: false,
+          method: "GET",
+          body: null,
+          upsert: null,
+          notFilters: [],
+        };
         const builder = {
           select(value = "*") { state.selectValue = value; return builder; },
           eq(column, value) { state.filters.push({ column, operator: "eq", value }); return builder; },
+          neq(column, value) { state.filters.push({ column, operator: "neq", value }); return builder; },
           ilike(column, value) { state.filters.push({ column, operator: "ilike", value }); return builder; },
+          not(column, operator, value) { state.notFilters.push({ column, operator, value }); return builder; },
           limit(value) { state.limitValue = value; return builder; },
           order(column, options = {}) { state.orderValue = { column, ascending: options.ascending !== false }; return builder; },
           single() { state.singleValue = true; return builder; },
+          maybeSingle() { state.maybeSingleValue = true; return builder; },
+          in(column, values) {
+            const quoted = values.map(v => `"${v}"`).join(',');
+            state.filters.push({ column, operator: "in", value: `(${quoted})` });
+            return builder;
+          },
+          insert(values) {
+            state.method = "POST";
+            state.body = Array.isArray(values) ? values : [values];
+            return builder;
+          },
+          update(values) {
+            state.method = "PATCH";
+            state.body = values;
+            return builder;
+          },
+          upsert(values, { onConflict } = {}) {
+            state.method = "POST";
+            state.body = Array.isArray(values) ? values : [values];
+            state.upsert = onConflict || true;
+            return builder;
+          },
+          delete() {
+            state.method = "DELETE";
+            return builder;
+          },
           async then(resolve) {
             try {
               const params = new URLSearchParams();
-              params.set("select", state.selectValue);
-              state.filters.forEach(({ column, operator, value }) => params.append(column, `${operator}.${value}`));
+              if (state.method === "GET") {
+                params.set("select", state.selectValue);
+              }
+              state.filters.forEach(({ column, operator, value }) => {
+                if (operator === "in") {
+                  params.append(column, `in.${value}`);
+                } else {
+                  params.append(column, `${operator}.${value}`);
+                }
+              });
+              state.notFilters.forEach(({ column, operator, value }) => {
+                params.append(column, `not.${operator}.${value}`);
+              });
               if (state.orderValue) params.set("order", `${state.orderValue.column}.${state.orderValue.ascending ? "asc" : "desc"}`);
               if (state.limitValue) params.set("limit", state.limitValue);
+              if (state.upsert) {
+                const onConflict = typeof state.upsert === "string" ? state.upsert : "id";
+                params.set("on_conflict", onConflict);
+              }
+
+              const preferParts = [];
+              if (state.upsert) preferParts.push("resolution=merge-duplicates");
+              if (state.method !== "GET") preferParts.push("return=representation");
+              const prefer = preferParts.length ? preferParts.join(",") : null;
+
               const rows = await supabaseRequest(`/rest/v1/${state.table}?${params.toString()}`, {
+                method: state.method,
+                body: state.body,
                 session: getStoredSupabaseSession(),
-                prefer: null,
+                prefer,
               });
-              resolve({ data: state.singleValue ? rows?.[0] || null : rows, error: null });
+              const isSingle = state.singleValue || state.maybeSingleValue;
+              resolve({ data: isSingle ? (Array.isArray(rows) ? rows[0] || null : rows || null) : (rows || []), error: null });
             } catch (error) {
-              resolve({ data: state.singleValue ? null : [], error });
+              const isSingle = state.singleValue || state.maybeSingleValue;
+              resolve({ data: isSingle ? null : [], error });
             }
           },
         };

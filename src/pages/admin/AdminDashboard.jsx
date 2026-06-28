@@ -1,4 +1,6 @@
+import 'leaflet/dist/leaflet.css';
 import { useEffect, useState } from "react";
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import { getRealCampaigns, selectOptionalTable } from "../../lib/services/admin-api.js";
 
 const C = {
@@ -194,16 +196,8 @@ export default function AdminDashboard({ onNav }) {
             <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,.07)" }}>
               <p style={eyebrowStyle}>Mappa operativa reale</p>
             </div>
-            <div style={{ minHeight: (validCampaigns.some(hasCoordinates) || latestGpsPoints.length > 0) ? 280 : 130, background: "linear-gradient(135deg,#081610,#080f1e)", display: "flex", alignItems: "center" }}>
-              {validCampaigns.some(hasCoordinates) || latestGpsPoints.length > 0 ? (
-                <svg viewBox="0 0 580 280" width="100%" style={{ display: "block" }}>
-                  <rect width="100%" height="100%" fill="rgba(255,255,255,.015)" />
-                  {validCampaigns.filter(hasCoordinates).map((campaign) => <CampaignMapPoint key={campaign.id} campaign={campaign} />)}
-                  {latestGpsPoints.map((point) => <GpsMapPoint key={point.id || point.session_id} point={point} />)}
-                </svg>
-              ) : (
-                <div style={{ padding: 16, width: "100%" }}><EmptyState text="Nessuna coordinata reale campagna o GPS live disponibile." /></div>
-              )}
+            <div style={{ minHeight: 480, width: "100%", background: "#081610", display: "flex", alignItems: "center" }}>
+              <DashboardRealMap campaigns={validCampaigns} gpsPoints={latestGpsPoints} />
             </div>
           </section>
         </div>
@@ -421,15 +415,76 @@ function CampaignRow({ campaign }) {
   );
 }
 
-function CampaignMapPoint({ campaign }) {
-  const point = projectPoint(campaign.lat, campaign.lng);
-  const service = SERVICES[campaign.service] || { color: "rgba(255,255,255,.45)" };
-  return <g><title>{`${campaign.client} · ${campaign.zone}`}</title><circle cx={point.x} cy={point.y} r="7" fill={service.color} /><text x={point.x} y={point.y - 11} textAnchor="middle" fontFamily={F.sans} fontSize="8" fill={service.color}>{String(campaign.id).slice(0, 6)}</text></g>;
+function DashboardMapLifecycle({ pointsCount }) {
+  const map = useMap();
+  useEffect(() => {
+    console.log("[GPS_MAP_INIT]");
+    if (pointsCount > 0) {
+      console.log("[GPS_MAP_POINTS_LOADED]");
+    } else {
+      console.log("[GPS_MAP_EMPTY]");
+    }
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+      console.log("[GPS_MAP_INVALIDATE_SIZE]");
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [map, pointsCount]);
+  return null;
 }
 
-function GpsMapPoint({ point }) {
-  const projected = projectPoint(point.lat, point.lng);
-  return <g><title>{`GPS live · sessione ${point.session_id || ""}`}</title><circle cx={projected.x} cy={projected.y} r="9" fill="none" stroke={C.green} strokeWidth="2" /><circle cx={projected.x} cy={projected.y} r="4" fill={C.green} /></g>;
+function DashboardRealMap({ campaigns, gpsPoints }) {
+  const validCamps = campaigns.filter(hasCoordinates);
+  const validGps = gpsPoints.filter((p) => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)));
+  const totalPoints = validCamps.length + validGps.length;
+  const firstGps = validGps[0];
+  const firstCamp = validCamps[0];
+  const center = firstGps ? [Number(firstGps.lat), Number(firstGps.lng)] : firstCamp ? [Number(firstCamp.lat), Number(firstCamp.lng)] : [45.4642, 9.19];
+
+  if (totalPoints === 0) {
+    return (
+      <div style={{ padding: 16, width: "100%" }}>
+        <EmptyState text="Nessun punto GPS disponibile" />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ height: "480px", width: "100%", position: "relative", zIndex: 1 }}>
+      <MapContainer center={center} zoom={13} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
+        <DashboardMapLifecycle pointsCount={totalPoints} />
+        <TileLayer
+          attribution='&copy; OpenStreetMap'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          eventHandlers={{
+            load: () => console.log("[GPS_TILE_LAYER_LOADED]"),
+            tileerror: () => console.log("[GPS_TILE_LAYER_ERROR]"),
+          }}
+        />
+        {validCamps.map((campaign) => {
+          const service = SERVICES[campaign.service] || { color: C.orange };
+          return (
+            <CircleMarker key={`camp-${campaign.id}`} center={[Number(campaign.lat), Number(campaign.lng)]} radius={8} pathOptions={{ color: service.color, fillColor: service.color, fillOpacity: 0.85, weight: 2 }}>
+              <Popup>
+                <strong>{campaign.client}</strong>
+                <br />
+                {campaign.zone}
+              </Popup>
+            </CircleMarker>
+          );
+        })}
+        {validGps.map((point, idx) => (
+          <CircleMarker key={`gps-${point.id || idx}`} center={[Number(point.lat), Number(point.lng)]} radius={6} pathOptions={{ color: C.green, fillColor: C.green, fillOpacity: 0.9, weight: 2 }}>
+            <Popup>
+              <strong>GPS Live</strong>
+              <br />
+              {formatDate(point.recorded_at || point.created_at)}
+            </Popup>
+          </CircleMarker>
+        ))}
+      </MapContainer>
+    </div>
+  );
 }
 
 function SideCard({ title, meta, children }) {

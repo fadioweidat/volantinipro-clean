@@ -1,4 +1,5 @@
 import { supabase } from '../../supabaseClient.js';
+import { isValidUuid } from './gps-api.js';
 
 const VALID_STATUSES = new Set(['draft', 'pending_review', 'in_progress', 'completed', 'cancelled', 'problem']);
 
@@ -33,6 +34,7 @@ export async function getCampaigns({ includeTest = false } = {}) {
 }
 
 export async function getCampaignById(id) {
+  if (!id || id === 'all' || !isValidUuid(id)) return null;
   const client = requireSupabase();
   const { data, error } = await client
     .from('campaigns')

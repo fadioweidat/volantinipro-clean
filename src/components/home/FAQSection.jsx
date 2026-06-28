@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import Button from "../ui/Button.jsx";
 
 const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
-const CO = "#E8571A";
+const C_PRIMARY = "#6366F1";
+const C_CYAN = "#06B6D4";
 
 const faqs = [
   {
@@ -50,7 +51,7 @@ function ToggleIcon({ open }) {
         alignItems: "center",
         justifyContent: "center",
         borderRadius: "50%",
-        color: CO,
+        color: C_PRIMARY,
         fontFamily: F.sans,
         fontSize: 24,
         lineHeight: 1,
@@ -68,16 +69,16 @@ export default function FAQSection({ onContact }) {
   const [open, setOpen] = useState(0);
 
   return (
-    <section className="section" style={{ background: "#FAF9F7", paddingLeft: 28, paddingRight: 28, boxSizing: "border-box" }}>
+    <section className="section" style={{ background: "#111827", paddingLeft: 28, paddingRight: 28, boxSizing: "border-box", borderTop: "1px solid rgba(148,163,184,0.18)" }}>
       <div className="faq-layout" style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div className="faq-sticky">
-          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase", color: CO, marginBottom: 16 }}>
+          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase", color: C_CYAN, marginBottom: 16 }}>
             DOMANDE FREQUENTI
           </div>
-          <h2 className="landing-h2" style={{ fontFamily: F.serif, fontSize: 48, lineHeight: 1.08, color: "#1A1A1A", letterSpacing: "-0.03em", margin: 0 }}>
+          <h2 className="landing-h2" style={{ fontFamily: F.serif, fontSize: 48, lineHeight: 1.08, color: "#F8FAFC", letterSpacing: "-0.03em", margin: 0 }}>
             Tutto quello che devi<br />sapere su VolantiniPro.
           </h2>
-          <p style={{ fontFamily: F.sans, fontSize: 16, lineHeight: 1.65, color: "rgba(0,0,0,.6)", margin: "22px 0 28px", maxWidth: 360 }}>
+          <p style={{ fontFamily: F.sans, fontSize: 16, lineHeight: 1.65, color: "#94A3B8", margin: "22px 0 28px", maxWidth: 360 }}>
             Non trovi la risposta che cerchi?<br />Scrivici, rispondiamo entro 2 ore.
           </p>
           <Button variant="primary" onClick={onContact} style={{ minHeight: 48, padding: "0 24px", fontSize: 15 }}>
@@ -89,7 +90,7 @@ export default function FAQSection({ onContact }) {
           {faqs.map((faq, i) => {
             const isOpen = open === i;
             return (
-              <div key={faq.q} className="faq-row">
+              <div key={faq.q} className="faq-row" style={{ borderBottom: "1px solid rgba(148,163,184,0.12)" }}>
                 <button
                   onClick={() => setOpen(isOpen ? null : i)}
                   style={{
@@ -106,7 +107,7 @@ export default function FAQSection({ onContact }) {
                     minHeight: 76,
                   }}
                 >
-                  <span style={{ fontFamily: F.sans, fontSize: 17, fontWeight: 700, color: "#1A1A1A", lineHeight: 1.35 }}>
+                  <span style={{ fontFamily: F.sans, fontSize: 17, fontWeight: 700, color: "#F8FAFC", lineHeight: 1.35 }}>
                     {faq.q}
                   </span>
                   <ToggleIcon open={isOpen} />
@@ -119,7 +120,7 @@ export default function FAQSection({ onContact }) {
                     transition: "max-height .3s ease, opacity .3s ease",
                   }}
                 >
-                  <p style={{ margin: "0 18px 24px", fontFamily: F.sans, fontSize: 15, lineHeight: 1.6, color: "rgba(0,0,0,.7)" }}>
+                  <p style={{ margin: "0 18px 24px", fontFamily: F.sans, fontSize: 15, lineHeight: 1.6, color: "#CBD5E1" }}>
                     {faq.a}
                   </p>
                 </div>

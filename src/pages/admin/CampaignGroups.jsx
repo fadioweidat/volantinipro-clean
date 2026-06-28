@@ -58,7 +58,10 @@ export function CampaignGroups({ campaignId }) {
   }
 
   function handleGroupClick(groupId) {
-    console.log('[GPS_GROUP_SELECTED]');
+    console.log('[GPS_GROUP_SELECTED]', groupId);
+    if (groupId) {
+      window.location.href = `/admin/campaigns/${campaignId}/groups/${encodeURIComponent(groupId)}`;
+    }
   }
 
   return (
@@ -127,7 +130,7 @@ export function CampaignGroups({ campaignId }) {
               <span>{group.photos}</span>
               <span style={{ color: STATUS[group.status] || '#fbbf24', fontWeight: 900 }}>{group.status}</span>
               <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <a style={smallButtonStyle} onClick={() => handleGroupClick(group.id)} href={`/admin/campaigns/${campaignId}/groups/${encodeURIComponent(group.id)}`}>Apri gruppo</a>
+                <a style={smallButtonStyle} href={`/admin/campaigns/${campaignId}/groups/${encodeURIComponent(group.id)}`}>Apri gruppo</a>
                 <button style={smallButtonStyle} type="button" onClick={() => copyGroup(group)}>Copia link</button>
               </span>
             </div>

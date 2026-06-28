@@ -10,6 +10,7 @@ import {
   getCampaignRecord,
   getSessionGroup,
   getSessionPath,
+  isValidUuid,
 } from './gps-api.js';
 import { buildGroupRows } from './group-ops.js';
 import { lastActivityAt, sessionDurationMs } from './report-utils.js';
@@ -117,8 +118,13 @@ export async function getApprovedProofPhotos(campaignId) {
 export async function getAdminCoverageCorrections(campaignId, { groupId } = {}) {
   if (!supabase) return [];
   try {
-    let query = supabase.from('admin_coverage_corrections').select('*').eq('campaign_id', campaignId).order('created_at', { ascending: true });
-    if (groupId) query = query.eq('group_id', groupId);
+    let query = supabase.from('admin_coverage_corrections').select('*').order('created_at', { ascending: true });
+    if (campaignId && campaignId !== 'all' && isValidUuid(campaignId)) {
+      query = query.eq('campaign_id', campaignId);
+    }
+    if (groupId && groupId !== 'all' && isValidUuid(groupId)) {
+      query = query.eq('group_id', groupId);
+    }
     const { data, error } = await query;
     if (error) return [];
     return Array.isArray(data) ? data : [];
@@ -163,8 +169,13 @@ export async function createAdminCoverageCorrection({
 export async function getAssignedZones(campaignId, { groupId } = {}) {
   if (!supabase) return [];
   try {
-    let query = supabase.from('assigned_zones').select('*').eq('campaign_id', campaignId);
-    if (groupId) query = query.eq('group_id', groupId);
+    let query = supabase.from('assigned_zones').select('*');
+    if (campaignId && campaignId !== 'all' && isValidUuid(campaignId)) {
+      query = query.eq('campaign_id', campaignId);
+    }
+    if (groupId && groupId !== 'all' && isValidUuid(groupId)) {
+      query = query.eq('group_id', groupId);
+    }
     const { data, error } = await query;
     if (error) return [];
     return Array.isArray(data) ? data : [];

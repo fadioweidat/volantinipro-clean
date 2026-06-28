@@ -1,5 +1,5 @@
 import 'leaflet/dist/leaflet.css';
-import { CircleMarker, MapContainer, Popup, TileLayer } from 'react-leaflet';
+import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet';
 import { useEffect, useMemo, useState } from 'react';
 import {
   displayDeviceId,
@@ -101,10 +101,10 @@ export function AdminLiveDashboard() {
       <div style={layoutStyle}>
         <section style={cardStyle}>
           <p style={eyebrowStyle}>Mappa live</p>
-          {visibleDrivers.some((item) => item.latest) ? (
+          {visibleDrivers.some((item) => item.latest && Number.isFinite(Number(item.latest.lat)) && Number.isFinite(Number(item.latest.lng))) ? (
             <LiveMap drivers={visibleDrivers} />
           ) : (
-            <EmptyState text={state.loading ? 'Caricamento tracking GPS...' : 'Nessun tracking GPS disponibile'} />
+            <EmptyState text={state.loading ? 'Caricamento tracking GPS...' : 'Nessun punto GPS disponibile'} />
           )}
         </section>
 
@@ -119,15 +119,50 @@ export function AdminLiveDashboard() {
   );
 }
 
+function LiveMapLifecycle({ pointsCount }) {
+  const map = useMap();
+  useEffect(() => {
+    console.log('[GPS_MAP_INIT]');
+    if (pointsCount > 0) {
+      console.log('[GPS_MAP_POINTS_LOADED]');
+    } else {
+      console.log('[GPS_MAP_EMPTY]');
+    }
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+      console.log('[GPS_MAP_INVALIDATE_SIZE]');
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [map, pointsCount]);
+  return null;
+}
+
 function LiveMap({ drivers }) {
-  const first = drivers.find((item) => item.latest)?.latest;
+  const validDrivers = drivers.filter((item) => item.latest && Number.isFinite(Number(item.latest.lat)) && Number.isFinite(Number(item.latest.lng)));
+  const first = validDrivers[0]?.latest;
   const center = first ? [Number(first.lat), Number(first.lng)] : [45.4642, 9.19];
 
+  if (validDrivers.length === 0) {
+    return (
+      <div style={{ padding: 16, width: '100%' }}>
+        <EmptyState text="Nessun punto GPS disponibile" />
+      </div>
+    );
+  }
+
   return (
-    <div style={{ height: 560, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)' }}>
+    <div style={{ height: '480px', width: '100%', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)', position: 'relative', zIndex: 1 }}>
       <MapContainer center={center} zoom={12} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
-        <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        {drivers.filter((item) => item.latest).map((item) => {
+        <LiveMapLifecycle pointsCount={validDrivers.length} />
+        <TileLayer
+          attribution='&copy; OpenStreetMap'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          eventHandlers={{
+            load: () => console.log('[GPS_TILE_LAYER_LOADED]'),
+            tileerror: () => console.log('[GPS_TILE_LAYER_ERROR]'),
+          }}
+        />
+        {validDrivers.map((item) => {
           const color = statusColor(item.status);
           return (
             <CircleMarker

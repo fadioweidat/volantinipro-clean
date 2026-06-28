@@ -4,6 +4,10 @@ const PROOF_BUCKET = 'proof-photos';
 const DEV_DRIVER_ID = '22222222-2222-2222-2222-222222222222';
 const RETRY_DELAYS_MS = [800, 1800, 4000];
 
+export function isValidUuid(value) {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 async function requireSupabase() {
   if (!supabase) throw new Error('Supabase non configurato.');
   return supabase;
@@ -66,16 +70,18 @@ export async function getActiveGpsSession(campaignId) {
   const client = await requireSupabase();
   const driverId = await getCurrentUserId();
 
-  const { data, error } = await client
-    .from('delivery_sessions')
-    .select('*')
-    .eq('campaign_id', campaignId)
+  let query = client.from('delivery_sessions').select('*');
+  if (campaignId && campaignId !== 'all' && isValidUuid(campaignId)) {
+    query = query.eq('campaign_id', campaignId);
+  }
+  query = query
     .eq('driver_id', driverId)
     .in('status', ['started', 'paused'])
     .order('started_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) throw error;
   return data || null;
@@ -183,10 +189,14 @@ export async function getCampaignGpsPoints(campaignId, { sessionId } = {}) {
   let query = client
     .from('gps_tracking_points')
     .select('*')
-    .eq('campaign_id', campaignId)
     .order('recorded_at', { ascending: true });
 
-  if (sessionId) query = query.eq('session_id', sessionId);
+  if (campaignId && campaignId !== 'all' && isValidUuid(campaignId)) {
+    query = query.eq('campaign_id', campaignId);
+  }
+  if (sessionId && sessionId !== 'all' && isValidUuid(sessionId)) {
+    query = query.eq('session_id', sessionId);
+  }
 
   const { data, error } = await query;
 
@@ -197,11 +207,16 @@ export async function getCampaignGpsPoints(campaignId, { sessionId } = {}) {
 export async function getCampaignGpsSessions(campaignId) {
   const client = await requireSupabase();
 
-  const { data, error } = await client
+  let query = client
     .from('delivery_sessions')
     .select('*')
-    .eq('campaign_id', campaignId)
     .order('created_at', { ascending: false });
+
+  if (campaignId && campaignId !== 'all' && isValidUuid(campaignId)) {
+    query = query.eq('campaign_id', campaignId);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data || [];
@@ -213,8 +228,11 @@ export async function getCampaignProofPhotos(campaignId, { approvedOnly = false 
   let query = client
     .from('proof_photos')
     .select('*')
-    .eq('campaign_id', campaignId)
     .order('created_at', { ascending: false });
+
+  if (campaignId && campaignId !== 'all' && isValidUuid(campaignId)) {
+    query = query.eq('campaign_id', campaignId);
+  }
 
   if (approvedOnly) query = query.not('approved_at', 'is', null);
 
@@ -290,7 +308,7 @@ function safeJson(value) {
 
 export async function getSessionPath(sessionId) {
   const client = await requireSupabase();
-  if (!sessionId) return [];
+  if (!sessionId || sessionId === 'all' || !isValidUuid(sessionId)) return [];
   const { data, error } = await client
     .from('gps_tracking_points')
     .select('*')
@@ -302,7 +320,7 @@ export async function getSessionPath(sessionId) {
 
 export async function getCampaignRecord(campaignId) {
   const client = await requireSupabase();
-  if (!campaignId) return null;
+  if (!campaignId || campaignId === 'all' || !isValidUuid(campaignId)) return null;
   const tables = ['campaigns', 'campagne', 'quote_requests'];
   for (const table of tables) {
     const { data, error } = await client.from(table).select('*').eq('id', campaignId).maybeSingle();

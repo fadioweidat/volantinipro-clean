@@ -9,9 +9,9 @@ export default function TrustBar({ metrics, clientLogos = [], showLogosLabel = t
   return (
     <section
       style={{
-        background: "#FAF9F7",
-        borderTop: "0.5px solid rgba(0,0,0,.10)",
-        borderBottom: "0.5px solid rgba(0,0,0,.10)",
+        background: "#111827",
+        borderTop: "1px solid rgba(148,163,184,0.18)",
+        borderBottom: "1px solid rgba(148,163,184,0.18)",
         padding: "48px 32px",
         boxSizing: "border-box",
       }}
@@ -25,7 +25,7 @@ export default function TrustBar({ metrics, clientLogos = [], showLogosLabel = t
                   fontFamily: F.serif,
                   fontSize: 42,
                   lineHeight: 1,
-                  color: "#1A1A1A",
+                  color: "#F8FAFC",
                   fontVariantNumeric: "tabular-nums",
                   marginBottom: 10,
                 }}
@@ -39,7 +39,7 @@ export default function TrustBar({ metrics, clientLogos = [], showLogosLabel = t
                   fontWeight: 800,
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
-                  color: "rgba(0,0,0,.50)",
+                  color: "#94A3B8",
                 }}
               >
                 {metric.label}
@@ -53,7 +53,7 @@ export default function TrustBar({ metrics, clientLogos = [], showLogosLabel = t
             style={{
               marginTop: 32,
               paddingTop: 32,
-              borderTop: "0.5px solid rgba(0,0,0,.10)",
+              borderTop: "1px solid rgba(148,163,184,0.18)",
               textAlign: "center",
             }}
           >
@@ -65,7 +65,7 @@ export default function TrustBar({ metrics, clientLogos = [], showLogosLabel = t
                   fontWeight: 800,
                   textTransform: "uppercase",
                   letterSpacing: "0.08em",
-                  color: "rgba(0,0,0,.42)",
+                  color: "#94A3B8",
                   marginBottom: 22,
                 }}
               >

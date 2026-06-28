@@ -582,6 +582,9 @@ export function Step2Map({
   opacityLevel,
   onOpacityChange,
   onLayerReset,
+  municipalityBoundary, // GeoJSON geometry del confine comunale (da OSM Nominatim)
+  isMunicipalityMode,   // true = mostra intero comune, non cerchio raggio
+  activeLayerId,        // id layer attivo — incluso nei dep per re-trigger del render
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -688,14 +691,25 @@ export function Step2Map({
 
     const col = serviceColor || '#ff6b1a';
     const opacityScale = opacityLevel === 'low' ? 0.65 : opacityLevel === 'high' ? 1.25 : 1;
-    const nextView = { lat: Number(city.lat), lng: Number(city.lng), radius: Number(radius) };
+    const nextView = { lat: Number(city.lat), lng: Number(city.lng), radius: Number(radius), boundary: municipalityBoundary };
     const viewChanged =
       viewRef.current.lat !== nextView.lat ||
       viewRef.current.lng !== nextView.lng ||
-      viewRef.current.radius !== nextView.radius;
+      viewRef.current.radius !== nextView.radius ||
+      viewRef.current.boundary !== nextView.boundary;
     if (viewChanged) {
-      map.setView([city.lat, city.lng], getZoomForRadius(radius), { animate: false });
       viewRef.current = nextView;
+      // In municipality mode with boundary: fitBounds to the polygon
+      if (isMunicipalityMode && municipalityBoundary) {
+        try {
+          const gj = L.geoJSON(municipalityBoundary);
+          map.fitBounds(gj.getBounds(), { padding: [24, 24], animate: false });
+        } catch {
+          map.setView([city.lat, city.lng], getZoomForRadius(radius), { animate: false });
+        }
+      } else {
+        map.setView([city.lat, city.lng], getZoomForRadius(radius), { animate: false });
+      }
     }
 
     const group = L.layerGroup().addTo(map);
@@ -721,8 +735,9 @@ export function Step2Map({
       const zCol = isActive ? col : '#7F9BB0';
       const isRingOn = isActive ? (activeLayers?.radius !== false) : true;
 
-      // ── 1. Raggio / Circle ──
-      if (isRingOn) {
+      // ── 1. Raggio / Circle — nascosto in modalità comune intero ──
+      const showCircle = isActive ? (isRingOn && !isMunicipalityMode) : isRingOn;
+      if (showCircle) {
         L.circle([zCity.lat, zCity.lng], {
           radius: zRadius * 1000,
           color: zCol,
@@ -737,8 +752,10 @@ export function Step2Map({
       }
 
       // ── 2. Center Pin ──
-      const tooltipContent = isActive 
-        ? `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:${zCol};opacity:0.85">${zRadius} km raggio (Attiva)</span>`
+      const tooltipContent = isActive
+        ? (isMunicipalityMode
+            ? `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:#22C55E;opacity:0.85">Intero comune</span>`
+            : `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:${zCol};opacity:0.85">${zRadius} km raggio (Attiva)</span>`)
         : `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:${zCol};opacity:0.75">${zRadius} km raggio<br><i>Clicca per attivare</i></span>`;
 
       const marker = L.marker([zCity.lat, zCity.lng], {
@@ -753,11 +770,39 @@ export function Step2Map({
       }
     });
 
+    // ── Confine comunale (municipality boundary from OSM Nominatim) ─────────
+    if (isMunicipalityMode && municipalityBoundary) {
+      try {
+        const boundaryLayer = L.geoJSON(municipalityBoundary, {
+          style: {
+            color: '#22C55E',
+            weight: 2.5,
+            fillColor: '#22C55E',
+            fillOpacity: 0.04,
+            dashArray: '8 5',
+            opacity: 0.80,
+            interactive: false,
+          },
+        });
+        boundaryLayer.addTo(group);
+        layersRef.current.municipalityBoundary = boundaryLayer;
+        console.log('[MUNICIPALITY_BOUNDARY_LOADED] drawn on map');
+      } catch (e) {
+        console.warn('[MUNICIPALITY_BOUNDARY_ERROR] draw failed', e);
+      }
+    }
+
     if (import.meta.env.DEV) {
       console.debug('[Step2Map] svcType:', svcType,
         '| zones:', zonesWithCoords?.length ?? 0,
         '| settori:', settori?.length ?? 'null',
+        '| isMunicipalityMode:', isMunicipalityMode,
+        '| hasBoundary:', !!municipalityBoundary,
         '| layers:', JSON.stringify(activeLayers));
+    }
+    if (activeLayerId) {
+      const zonesWithColor = zonesWithCoords?.filter(z => z.metricColor)?.length ?? 0;
+      console.log('[LAYER_RENDER_UPDATED]', { layerId: activeLayerId, themeMode, zonesColored: zonesWithColor, total: zonesWithCoords?.length ?? 0 });
     }
 
     // settoriActive: settori layer is on AND data is available
@@ -798,7 +843,11 @@ export function Step2Map({
             const gj = typeof z.geometry === 'string' ? JSON.parse(z.geometry) : z.geometry;
             L.geoJSON(gj, { style: gisStyle, interactive: isD2D })
               .bindTooltip(tip, { direction: 'center', opacity: 1, sticky: true })
-              .on('click', () => isD2D && onToggleZone?.(z.id))
+              .on('click', () => {
+                if (!isD2D) return;
+                console.log('[LAYER_ZONE_CLICKED]', { zone: z.name, metricLabel: z.metricLabel, metricFmt: z.metricFmt, families: z.families });
+                onToggleZone?.(z.id);
+              })
               .addTo(group);
           } catch (_e) {
             if (isD2D) _renderD2DCircle(L, z, col, sel, tip, group, onToggleZone, styleUnsel, styleSel);
@@ -1060,7 +1109,7 @@ export function Step2Map({
       }
     }
 
-  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, civiciState, mapZoom, campaignZones, activeZoneId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, civiciState, mapZoom, campaignZones, activeZoneId, municipalityBoundary, isMunicipalityMode, themeMode, activeLayerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={{ position: 'relative', width: '100%', height: 420 }}>
@@ -1164,8 +1213,14 @@ function _buildD2DTip(z, col, sel) {
   const _wPct  = z.weightPct === 0 && (z.families || 0) > 0 ? '<1' : (z.weightPct || 0);
   const flyers = z.volantiniNelRaggio || z.flyersMin || z.families || 0;
   const density = z.area > 0 ? Math.round((z.families || 0) / z.area) : null;
+  const layerRow = z.metricLabel
+    ? (z.metricFmt
+        ? `<span style="color:${z.metricColor || col}">${esc(z.metricLabel)}: <b>${esc(z.metricFmt)}</b></span>`
+        : `<span style="color:rgba(255,255,255,.35)">${esc(z.metricLabel)}: dato non disponibile</span>`)
+    : null;
   return [
     `<b style="color:rgba(255,255,255,0.95)">${esc(z.name)}</b>`,
+    layerRow,
     `Famiglie: <b>${(z.families || 0).toLocaleString("it-IT", { useGrouping: true })}</b>`,
     density ? `Densità: <b>${density.toLocaleString("it-IT", { useGrouping: true })} fam/km²</b>` : null,
     `Volantini consigliati: <b>${flyers.toLocaleString("it-IT", { useGrouping: true })}</b>`,

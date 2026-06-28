@@ -263,6 +263,15 @@ function ReportFilters({ filters, onChange, operators }) {
   );
 }
 
+function Metric({ label, value }) {
+  return (
+    <div style={{ background: 'rgba(255,255,255,.045)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 10, padding: '12px 14px' }}>
+      <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em', color: 'rgba(255,255,255,.45)' }}>{label}</div>
+      <div style={{ fontSize: 18, fontWeight: 900, color: '#fff', marginTop: 4, wordBreak: 'break-word' }}>{value}</div>
+    </div>
+  );
+}
+
 function Summary({ campaign, campaignId }) {
   const rows = [
     ['ID campagna', campaignId],
