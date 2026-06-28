@@ -1009,7 +1009,7 @@ function Step1({ data, setData, onNext, onHome }) {
       {onHome && (
         <button
           onClick={onHome}
-          style={{ marginBottom: 24, padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(148,163,184,0.2)", background: "rgba(255,255,255,0.03)", color: "#94A3B8", fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: pointer, display: "inline-flex", alignItems: "center", gap: 8 }}
+          style={{ marginBottom: 24, padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(148,163,184,0.2)", background: "rgba(255,255,255,0.03)", color: "#94A3B8", fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}
         >
           ← Torna alla Home
         </button>
@@ -1542,7 +1542,7 @@ function Step1({ data, setData, onNext, onHome }) {
               <button
                 type="button"
                 onClick={() => setShowAllExtras(!showAllExtras)}
-                style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(148,163,184,0.2)", color: "#22D3EE", fontSize: 13, fontWeight: 700, cursor: pointer, transition: "all 0.2s" }}
+                style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(148,163,184,0.2)", color: "#22D3EE", fontSize: 13, fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}
               >
                 {showAllExtras ? "▲ Nascondi catalogo servizi" : "🔍 Scopri tutti i servizi avanzati"}
               </button>
