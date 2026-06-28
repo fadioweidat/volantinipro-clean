@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getCampaignRecord } from '../../lib/services/gps-api.js';
-import { getRealGroups } from '../../lib/services/admin-api.js';
+import { getRealGroups, getAdminCoverageCorrections, getAssignedZones, computeCoverageMetrics } from '../../lib/services/admin-api.js';
 import { groupShareUrl } from '../../lib/services/group-ops.js';
 import { formatDateTime } from '../../lib/services/report-utils.js';
 
@@ -12,17 +12,20 @@ const STATUS = {
 };
 
 export function CampaignGroups({ campaignId }) {
-  const [state, setState] = useState({ loading: true, error: null, groups: [], campaign: null, notice: '' });
+  const [state, setState] = useState({ loading: true, error: null, groups: [], campaign: null, corrections: [], zones: [], notice: '' });
 
   useEffect(() => {
+    console.log('[GPS_MONITOR_OPENED]');
     let cancelled = false;
     async function load() {
       try {
-        const [groups, campaign] = await Promise.all([
+        const [groups, campaign, corrections, zones] = await Promise.all([
           getRealGroups(campaignId),
           getCampaignRecord(campaignId).catch(() => null),
+          getAdminCoverageCorrections(campaignId),
+          getAssignedZones(campaignId),
         ]);
-        if (!cancelled) setState({ loading: false, error: null, groups, campaign, notice: '' });
+        if (!cancelled) setState({ loading: false, error: null, groups, campaign, corrections, zones, notice: '' });
       } catch (err) {
         if (!cancelled) setState((prev) => ({ ...prev, loading: false, error: err?.message || 'Errore caricamento gruppi.' }));
       }
@@ -45,10 +48,17 @@ export function CampaignGroups({ campaignId }) {
     points: acc.points + group.points,
   }), { operators: 0, online: 0, offline: 0, problems: 0, km: 0, points: 0 });
 
+  const overallTargetKm = state.zones.reduce((s, z) => s + (Number(z.target_km) || 0), 0) || Math.max(10, totals.km || 10);
+  const metrics = computeCoverageMetrics(totals.km, overallTargetKm, state.corrections);
+
   async function copyGroup(group) {
     const url = groupShareUrl(campaignId, group);
     await navigator.clipboard?.writeText(url);
     setState((prev) => ({ ...prev, notice: `Link copiato: ${url}` }));
+  }
+
+  function handleGroupClick(groupId) {
+    console.log('[GPS_GROUP_SELECTED]');
   }
 
   return (
@@ -70,7 +80,21 @@ export function CampaignGroups({ campaignId }) {
       {state.error && <Notice danger text={state.error} />}
       {state.notice && <Notice text={state.notice} />}
 
-      <section style={kpiGridStyle}>
+      <section style={cardStyle}>
+        <div style={sectionHeaderStyle}>
+          <div>
+            <p style={eyebrowStyle}>Riepilogo Copertura (GPS Reale + Validazione Admin = Finale Cliente)</p>
+          </div>
+        </div>
+        <div style={kpiGridStyle}>
+          <Kpi label="GPS Reale" value={`${metrics.copertura_gps_reale_percent}%`} color="#60a5fa" />
+          <Kpi label="Validazione Admin" value={`${metrics.copertura_manual_admin_percent}%`} color="#2ecc8a" />
+          <Kpi label="Da Rifare" value={`${metrics.copertura_da_rifare_percent}%`} color="#ef4444" />
+          <Kpi label="Finale Cliente" value={`${metrics.copertura_finale_cliente_percent}%`} color="#e8571a" />
+        </div>
+      </section>
+
+      <section style={{ ...kpiGridStyle, marginTop: 16 }}>
         <Kpi label="Gruppi" value={groups.length} />
         <Kpi label="Operatori" value={totals.operators} />
         <Kpi label="Online" value={totals.online} color="#2ecc8a" />
@@ -103,7 +127,7 @@ export function CampaignGroups({ campaignId }) {
               <span>{group.photos}</span>
               <span style={{ color: STATUS[group.status] || '#fbbf24', fontWeight: 900 }}>{group.status}</span>
               <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <a style={smallButtonStyle} href={`/admin/campaigns/${campaignId}/groups/${encodeURIComponent(group.id)}`}>Apri gruppo</a>
+                <a style={smallButtonStyle} onClick={() => handleGroupClick(group.id)} href={`/admin/campaigns/${campaignId}/groups/${encodeURIComponent(group.id)}`}>Apri gruppo</a>
                 <button style={smallButtonStyle} type="button" onClick={() => copyGroup(group)}>Copia link</button>
               </span>
             </div>

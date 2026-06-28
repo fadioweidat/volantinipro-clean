@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   calculateDistanceKm,
 } from '../../lib/services/gps-api.js';
-import { getApprovedProofPhotos, getCampaignReport } from '../../lib/services/admin-api.js';
+import { getApprovedProofPhotos, getCampaignReport, getAdminCoverageCorrections, getAssignedZones, computeCoverageMetrics } from '../../lib/services/admin-api.js';
 import {
   buildGpsCsv,
   deriveCampaignStatus,
@@ -17,18 +17,20 @@ import {
 } from '../../lib/services/report-utils.js';
 
 export function ClientCampaignReport({ campaignId }) {
-  const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], campaign: null, notice: '' });
+  const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], campaign: null, corrections: [], zones: [], notice: '' });
   const token = new URLSearchParams(window.location.search).get('token') || '';
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const [report, photosWithUrls] = await Promise.all([
+        const [report, photosWithUrls, corrections, zones] = await Promise.all([
           getCampaignReport(campaignId),
           getApprovedProofPhotos(campaignId),
+          getAdminCoverageCorrections(campaignId),
+          getAssignedZones(campaignId),
         ]);
-        if (!cancelled) setState({ loading: false, error: null, points: report.points, sessions: report.sessions.map((item) => item.session), photos: photosWithUrls, campaign: report.campaign, notice: '' });
+        if (!cancelled) setState({ loading: false, error: null, points: report.points, sessions: report.sessions.map((item) => item.session), photos: photosWithUrls, campaign: report.campaign, corrections, zones, notice: '' });
       } catch (err) {
         if (!cancelled) setState((prev) => ({ ...prev, loading: false, error: err?.message || 'Report campagna non disponibile.' }));
       }
@@ -43,6 +45,9 @@ export function ClientCampaignReport({ campaignId }) {
   const operatorCount = new Set(state.sessions.map((session) => session.driver_id).filter(Boolean)).size;
   const hasData = state.points.length || state.sessions.length || state.photos.length;
   const dateRange = campaignDateRange(state.campaign, state.sessions);
+
+  const targetKm = state.zones.reduce((s, z) => s + (Number(z.target_km) || 0), 0) || Math.max(10, totalKm || 10);
+  const metrics = computeCoverageMetrics(totalKm, targetKm, state.corrections);
 
   function exportGpsCsv() {
     if (!state.points.length) {
@@ -62,13 +67,12 @@ export function ClientCampaignReport({ campaignId }) {
       <header style={headerStyle}>
         <div>
           <a href="/" style={brandStyle}>VolantiniPro</a>
-          <p style={eyebrowStyle}>Report cliente</p>
-          <h1 style={titleStyle}>{campaignTitle(state.campaign, campaignId)}</h1>
-          <p style={subtitleStyle}>Avanzamento, prove fotografiche approvate e dati di consegna della campagna.</p>
+          <h1 style={titleStyle}>Report trasparenza campagna</h1>
+          <p style={subtitleStyle}>{campaignTitle(state.campaign, campaignId)}</p>
         </div>
         <div style={actionGroupStyle}>
-          <button style={disabledButtonStyle} type="button" disabled>PDF disponibile dopo generazione report</button>
           <button style={buttonStyle} type="button" onClick={exportGpsCsv}>Scarica CSV GPS</button>
+          <button style={buttonStyle} type="button" onClick={() => window.print()}>Stampa PDF</button>
         </div>
       </header>
 
@@ -76,21 +80,20 @@ export function ClientCampaignReport({ campaignId }) {
       {state.notice && <Notice text={state.notice} />}
       {!hasData && !state.loading ? (
         <section style={emptyHeroStyle}>
-          <p style={eyebrowStyle}>Nessun dato operativo</p>
           <h2 style={{ margin: '0 0 8px', color: '#17211f' }}>Il report si popolera appena inizia il lavoro sul campo.</h2>
           <p style={{ margin: 0, color: '#64748b' }}>Qui compariranno percorso GPS, foto approvate, tempi e riepilogo finale della distribuzione.</p>
         </section>
       ) : null}
 
       <section style={metricGridStyle}>
+        <Metric label="Copertura verificata" value={`${metrics.copertura_finale_cliente_percent}%`} />
+        <Metric label="Validazione qualità admin" value="Area verificata dal responsabile operativo" />
         <Metric label="Stato campagna" value={state.loading ? 'caricamento' : status} />
         <Metric label="Avanzamento stimato" value={estimateProgress(state.sessions)} />
         <Metric label="Date lavoro" value={dateRange} />
         <Metric label="Operatori" value={operatorCount || 'in assegnazione'} />
         <Metric label="Km totali" value={`${totalKm.toFixed(2)} km`} />
         <Metric label="Tempo totale" value={formatDuration(totalMs)} />
-        <Metric label="Punti GPS" value={state.points.length} />
-        <Metric label="Ultima attivita" value={formatDateTime(lastActivity)} />
       </section>
 
       <section style={cardStyle}>

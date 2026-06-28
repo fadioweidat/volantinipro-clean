@@ -1,25 +1,28 @@
 import 'leaflet/dist/leaflet.css';
 import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-leaflet';
 import { useEffect, useMemo, useState } from 'react';
-import { createProofPhotoSignedUrl, getCampaignGpsPoints, getCampaignGpsSessions, getCampaignProofPhotos } from '../../lib/services/gps-api.js';
+import { createProofPhotoSignedUrl, getCampaignGpsPoints, getCampaignGpsSessions, getCampaignProofPhotos, calculateDistanceKm } from '../../lib/services/gps-api.js';
+import { getAdminCoverageCorrections, getAssignedZones, computeCoverageMetrics } from '../../lib/services/admin-api.js';
 
 export function CampaignTracking({ campaignId }) {
-  const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [] });
+  const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], corrections: [], zones: [] });
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const [points, sessions, photos] = await Promise.all([
+        const [points, sessions, photos, corrections, zones] = await Promise.all([
           getCampaignGpsPoints(campaignId),
           getCampaignGpsSessions(campaignId),
           getCampaignProofPhotos(campaignId, { approvedOnly: true }),
+          getAdminCoverageCorrections(campaignId),
+          getAssignedZones(campaignId),
         ]);
         const photosWithUrls = await Promise.all((photos || []).map(async (photo) => ({
           ...photo,
           signedUrl: await createProofPhotoSignedUrl(photo.storage_path).catch(() => null),
         })));
-        if (!cancelled) setState({ loading: false, error: null, points, sessions, photos: photosWithUrls });
+        if (!cancelled) setState({ loading: false, error: null, points, sessions, photos: photosWithUrls, corrections, zones });
       } catch (err) {
         if (!cancelled) setState((prev) => ({ ...prev, loading: false, error: err?.message || 'Tracking non disponibile.' }));
       }
@@ -34,6 +37,9 @@ export function CampaignTracking({ campaignId }) {
 
   const status = deriveCampaignStatus(state.sessions);
   const activeMs = state.sessions.reduce((sum, session) => sum + sessionDurationMs(session), 0);
+  const totalKm = calculateDistanceKm(state.points);
+  const targetKm = state.zones.reduce((s, z) => s + (Number(z.target_km) || 0), 0) || Math.max(10, totalKm || 10);
+  const metrics = computeCoverageMetrics(totalKm, targetKm, state.corrections);
 
   return (
     <main style={shellStyle}>
@@ -46,6 +52,8 @@ export function CampaignTracking({ campaignId }) {
       {state.error && <div style={errorStyle}>{state.error}</div>}
 
       <div style={metricGridStyle}>
+        <Metric label="Copertura verificata" value={`${metrics.copertura_finale_cliente_percent}%`} />
+        <Metric label="Validazione qualità admin" value="Area verificata dal responsabile operativo" />
         <Metric label="Stato campagna" value={status} />
         <Metric label="Punti GPS" value={state.points.length} />
         <Metric label="Tempo registrato" value={formatDuration(activeMs)} />

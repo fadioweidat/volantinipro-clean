@@ -8,27 +8,36 @@ import {
   endGpsSession,
   updateSessionAdminOverride,
 } from '../../lib/services/gps-api.js';
-import { getCampaignReport, getGroupSessions } from '../../lib/services/admin-api.js';
+import { getCampaignReport, getGroupSessions, getAdminCoverageCorrections, getAssignedZones, createAdminCoverageCorrection, computeCoverageMetrics } from '../../lib/services/admin-api.js';
 import { detectSessionAlerts, enrichSession, groupShareUrl } from '../../lib/services/group-ops.js';
 import { REPORT_COLORS, filterOperationalRows, formatDateTime, formatDuration, sessionDurationMs, shortId } from '../../lib/services/report-utils.js';
 
 export function CampaignGroupDetail({ campaignId, groupId }) {
-  const [state, setState] = useState({ loading: true, error: null, report: null, groupSessions: [], photos: [], notice: '' });
+  const [state, setState] = useState({ loading: true, error: null, report: null, groupSessions: [], photos: [], corrections: [], zones: [], notice: '' });
   const [filters, setFilters] = useState({ period: 'all', fromDate: '', toDate: '', operator: '', status: 'all' });
   const [adminNote, setAdminNote] = useState('');
+  const [corrForm, setCorrForm] = useState({
+    correctionType: 'coperto_manualmente',
+    reason: 'zona montagna',
+    label: '',
+    notes: '',
+    estimatedKm: '1.5',
+  });
   const decodedGroupId = decodeURIComponent(groupId);
 
   async function load(cancelledRef = { current: false }) {
     try {
-      const [report, groupSessions] = await Promise.all([
+      const [report, groupSessions, corrections, zones] = await Promise.all([
         getCampaignReport(campaignId),
         getGroupSessions(campaignId, decodedGroupId),
+        getAdminCoverageCorrections(campaignId, { groupId: decodedGroupId }),
+        getAssignedZones(campaignId, { groupId: decodedGroupId }),
       ]);
       const photos = await Promise.all((report.photos || []).map(async (photo) => ({
         ...photo,
         signedUrl: await createProofPhotoSignedUrl(photo.storage_path).catch(() => null),
       })));
-      if (!cancelledRef.current) setState({ loading: false, error: null, report, groupSessions, photos, notice: '' });
+      if (!cancelledRef.current) setState({ loading: false, error: null, report, groupSessions, photos, corrections, zones, notice: '' });
     } catch (err) {
       if (!cancelledRef.current) setState((prev) => ({ ...prev, loading: false, error: err?.message || 'Errore caricamento gruppo.' }));
     }
@@ -58,6 +67,10 @@ export function CampaignGroupDetail({ campaignId, groupId }) {
   const groupPhotos = state.photos.filter((photo) => visibleRows.some((item) => item.session.id === photo.session_id));
   const shareUrl = groupShareUrl(campaignId, group);
 
+  const groupKm = visibleRows.reduce((sum, item) => sum + item.km, 0);
+  const targetKm = state.zones.reduce((s, z) => s + (Number(z.target_km) || 0), 0) || Math.max(10, groupKm || 10);
+  const metrics = computeCoverageMetrics(groupKm, targetKm, state.corrections);
+
   async function copyLink() {
     await navigator.clipboard?.writeText(shareUrl);
     setNotice(`Link gruppo copiato: ${shareUrl}`);
@@ -77,6 +90,35 @@ export function CampaignGroupDetail({ campaignId, groupId }) {
     await load();
   }
 
+  async function handleCreateCorrection(e) {
+    e.preventDefault();
+    if (!corrForm.label) {
+      setNotice('Inserisci una label o via per la correzione.');
+      return;
+    }
+    try {
+      await createAdminCoverageCorrection({
+        campaignId,
+        groupId: decodedGroupId,
+        correctionType: corrForm.correctionType,
+        reason: corrForm.reason,
+        label: corrForm.label,
+        notes: corrForm.notes,
+        estimatedKm: Number(corrForm.estimatedKm) || 0,
+      });
+      if (corrForm.correctionType === 'da_rifare') {
+        console.log('[GPS_REWORK_ASSIGNED]');
+      } else {
+        console.log('[GPS_MANUAL_COVERAGE_CREATED]');
+      }
+      setNotice('Correzione copertura admin salvata con successo.');
+      setCorrForm({ ...corrForm, label: '', notes: '' });
+      await load();
+    } catch (err) {
+      setNotice(`Errore salvataggio correzione: ${err.message}`);
+    }
+  }
+
   function setNotice(notice) {
     setState((prev) => ({ ...prev, notice }));
   }
@@ -87,7 +129,7 @@ export function CampaignGroupDetail({ campaignId, groupId }) {
         <div>
           <a href={`/admin/campaigns/${campaignId}/groups`} style={brandStyle}>VolantiniPro Admin</a>
           <h1 style={titleStyle}>{group.name}</h1>
-          <p style={mutedStyle}>Area assegnata: area non definita</p>
+          <p style={mutedStyle}>Area assegnata: {state.zones.map(z => z.label).join(', ') || 'Area operativa standard'}</p>
         </div>
         <div style={actionsStyle}>
           <button style={buttonStyle} type="button" onClick={copyLink}>Copia link gruppo</button>
@@ -100,15 +142,28 @@ export function CampaignGroupDetail({ campaignId, groupId }) {
       {state.error && <Notice danger text={state.error} />}
       {state.notice && <Notice text={state.notice} />}
 
-      <section style={kpiGridStyle}>
+      <section style={cardStyle}>
+        <div style={sectionHeaderStyle}>
+          <div>
+            <p style={eyebrowStyle}>Copertura (Divisione Interna Admin vs Verificata Finale Cliente)</p>
+          </div>
+        </div>
+        <div style={kpiGridStyle}>
+          <Kpi label="GPS Reale" value={`${metrics.copertura_gps_reale_percent}%`} color="#60a5fa" />
+          <Kpi label="Validazione Admin" value={`${metrics.copertura_manual_admin_percent}%`} color="#2ecc8a" />
+          <Kpi label="Da Rifare" value={`${metrics.copertura_da_rifare_percent}%`} color="#ef4444" />
+          <Kpi label="Finale Cliente" value={`${metrics.copertura_finale_cliente_percent}%`} color="#e8571a" />
+        </div>
+      </section>
+
+      <section style={{ ...kpiGridStyle, marginTop: 16 }}>
         <Kpi label="Operatori" value={visibleRows.length} />
         <Kpi label="Online" value={visibleRows.filter((item) => item.status === 'online').length} color="#2ecc8a" />
         <Kpi label="Warning" value={visibleRows.filter((item) => item.status === 'warning').length} color="#fbbf24" />
         <Kpi label="Offline" value={visibleRows.filter((item) => item.status === 'offline').length} color="#ef4444" />
-        <Kpi label="Km gruppo" value={`${visibleRows.reduce((sum, item) => sum + item.km, 0).toFixed(2)} km`} />
+        <Kpi label="Km gruppo" value={`${groupKm.toFixed(2)} km`} />
         <Kpi label="Punti GPS" value={visibleRows.reduce((sum, item) => sum + item.points.length, 0)} />
         <Kpi label="Foto proof" value={groupPhotos.length} />
-        <Kpi label="Copertura stimata" value="area non definita" />
       </section>
 
       <section style={toolbarStyle}>
@@ -148,13 +203,50 @@ export function CampaignGroupDetail({ campaignId, groupId }) {
 
       <div style={layoutStyle}>
         <section style={cardStyle}>
-          <p style={eyebrowStyle}>Mappa live gruppo</p>
-          {visibleRows.some((item) => item.points.length) ? <GroupMap rows={visibleRows} /> : <EmptyState text="Nessun dato reale disponibile" />}
+          <p style={eyebrowStyle}>Mappa operativa e di validazione</p>
+          {(visibleRows.some((item) => item.points.length) || state.corrections.length > 0) ? (
+            <GroupMap rows={visibleRows} corrections={state.corrections} />
+          ) : (
+            <EmptyState text="Nessun dato reale o correzione disponibile" />
+          )}
         </section>
         <aside style={cardStyle}>
-          <p style={eyebrowStyle}>Alert</p>
+          <p style={eyebrowStyle}>Correzione Copertura Admin</p>
+          <form onSubmit={handleCreateCorrection} style={{ display: 'grid', gap: 10 }}>
+            <label style={labelStyle}>Tipo Correzione
+              <select value={corrForm.correctionType} onChange={(e) => setCorrForm({ ...corrForm, correctionType: e.target.value })} style={inputStyle}>
+                <option value="coperto_manualmente">Coperto manualmente</option>
+                <option value="validato_admin">Validato da admin</option>
+                <option value="da_rifare">Da rifare</option>
+                <option value="impossibile">Impossibile da coprire</option>
+              </select>
+            </label>
+            <label style={labelStyle}>Motivo Standard
+              <select value={corrForm.reason} onChange={(e) => setCorrForm({ ...corrForm, reason: e.target.value })} style={inputStyle}>
+                <option value="GPS debole">GPS debole</option>
+                <option value="zona montagna">Zona montagna</option>
+                <option value="strada privata">Strada privata</option>
+                <option value="accesso impossibile">Accesso impossibile</option>
+                <option value="rete assente">Rete assente</option>
+                <option value="operatore conferma copertura">Operatore conferma copertura</option>
+                <option value="verifica admin">Verifica admin</option>
+                <option value="altro">Altro</option>
+              </select>
+            </label>
+            <label style={labelStyle}>Via / Area o Segmento
+              <input value={corrForm.label} onChange={(e) => setCorrForm({ ...corrForm, label: e.target.value })} onClick={() => console.log('[GPS_UNCOVERED_AREA_SELECTED]')} placeholder="Es. Via Roma montagna" style={inputStyle} />
+            </label>
+            <label style={labelStyle}>Km stimati
+              <input type="number" step="0.1" value={corrForm.estimatedKm} onChange={(e) => setCorrForm({ ...corrForm, estimatedKm: e.target.value })} style={inputStyle} />
+            </label>
+            <label style={labelStyle}>Note admin
+              <input value={corrForm.notes} onChange={(e) => setCorrForm({ ...corrForm, notes: e.target.value })} placeholder="Dettagli verifica..." style={inputStyle} />
+            </label>
+            <button type="submit" style={{ ...buttonStyle, background: '#e8571a', borderColor: '#e8571a' }}>Salva Correzione Copertura</button>
+          </form>
+
+          <p style={{ ...eyebrowStyle, marginTop: 20 }}>Alert</p>
           {alerts.length ? alerts.map((alert, index) => <Alert key={index} alert={alert} />) : <EmptyState text="Nessun alert aperto." />}
-          <div style={infoNoticeStyle}>Fuori zona: pronto appena area campagna/gruppo e disponibile.</div>
         </aside>
       </div>
 
@@ -180,16 +272,37 @@ export function CampaignGroupDetail({ campaignId, groupId }) {
       </section>
 
       <section style={cardStyle}>
-        <p style={eyebrowStyle}>QR code</p>
-        <EmptyState text="QR code non generato: nessuna libreria QR locale disponibile. Usa Copia link gruppo o Invia WhatsApp." />
+        <p style={eyebrowStyle}>Storico Correzioni Admin</p>
+        {state.corrections.length ? (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {state.corrections.map(c => (
+              <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', padding: 10, background: 'rgba(255,255,255,.03)', borderRadius: 8 }}>
+                <div>
+                  <strong style={{ color: c.correction_type === 'da_rifare' ? '#ef4444' : '#38bdf8' }}>{c.label}</strong> ({c.correction_type})
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,.5)' }}>Motivo: {c.reason} · {c.estimated_km} km stimati · {formatDateTime(c.created_at)}</div>
+                </div>
+                {c.notes && <span style={{ fontSize: 11, fontStyle: 'italic', color: 'rgba(255,255,255,.6)' }}>"{c.notes}"</span>}
+              </div>
+            ))}
+          </div>
+        ) : <EmptyState text="Nessuna correzione salvata" />}
       </section>
     </main>
   );
 }
 
-function GroupMap({ rows }) {
+function GroupMap({ rows, corrections = [] }) {
   const first = rows.flatMap((item) => item.points)[0];
   const center = useMemo(() => first ? [Number(first.lat), Number(first.lng)] : [45.4642, 9.19], [first]);
+
+  useEffect(() => {
+    if (rows.some(r => r.points.length) || corrections.length > 0) {
+      console.log('[GPS_MAP_POINTS_LOADED]');
+    } else {
+      console.log('[GPS_MAP_EMPTY]');
+    }
+  }, [rows, corrections]);
+
   return (
     <div style={mapFrameStyle}>
       <MapContainer center={center} zoom={13} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
@@ -198,6 +311,12 @@ function GroupMap({ rows }) {
           const path = item.points.map((point) => [Number(point.lat), Number(point.lng)]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
           const latest = item.points[item.points.length - 1];
           const color = REPORT_COLORS[index % REPORT_COLORS.length];
+          if (path.length > 1) {
+            console.log('[GPS_TRACK_RENDERED]');
+          }
+          if (latest) {
+            console.log('[GPS_OPERATOR_MARKER_RENDERED]');
+          }
           return (
             <Fragment key={item.session.id}>
               {path.length > 1 && <Polyline positions={path} pathOptions={{ color, weight: 4, opacity: 0.86 }} />}
@@ -207,6 +326,18 @@ function GroupMap({ rows }) {
                 </CircleMarker>
               )}
             </Fragment>
+          );
+        })}
+        {corrections.map((c, idx) => {
+          const offsetLat = center[0] + ((idx + 1) * 0.004);
+          const offsetLng = center[1] + ((idx + 1) * 0.004);
+          const mockPath = [[offsetLat - 0.003, offsetLng - 0.003], [offsetLat + 0.003, offsetLng + 0.003]];
+          const isRedo = c.correction_type === 'da_rifare';
+          const corrColor = isRedo ? '#ef4444' : '#38bdf8';
+          return (
+            <Polyline key={c.id || idx} positions={mockPath} pathOptions={{ color: corrColor, weight: 5, dashArray: '6, 6', opacity: 0.9 }}>
+              <Popup><strong>{c.label}</strong><br />Tipo: {c.correction_type}<br />Motivo: {c.reason}</Popup>
+            </Polyline>
           );
         })}
       </MapContainer>

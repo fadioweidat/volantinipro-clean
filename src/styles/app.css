@@ -1,20 +1,18 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-  --primary: #F8FAFC;
-  --secondary: #94A3B8;
-  --accent: #6C5CE7;
-  --accent-hover: #5A4BD1;
-  --accent-secondary: #00CEC9;
-  --bg-main: #0B1020;
-  --bg-card: #151A2F;
-  --bg-card-hover: #1A2044;
-  --text-main: #F8FAFC;
-  --text-muted: #94A3B8;
-  --border-light: #2A3156;
-  --shadow-sm: 0 0 0 1px rgba(108,92,231,0.08), 0 1px 3px 0 rgba(0,0,0,0.3);
-  --shadow-md: 0 0 0 1px rgba(108,92,231,0.06), 0 4px 12px rgba(0,0,0,0.35);
-  --shadow-lg: 0 0 0 1px rgba(108,92,231,0.06), 0 10px 30px rgba(0,0,0,0.45);
+  --primary: #171717;
+  --secondary: #404040;
+  --accent: #E8571A;
+  --accent-hover: #D14A14;
+  --bg-main: #F5F5F7;
+  --bg-card: #FFFFFF;
+  --text-main: #171717;
+  --text-muted: #60706a;
+  --border-light: #E5E7EB;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   
   color: var(--text-main);
   background: var(--bg-main);
@@ -105,7 +103,7 @@ button {
 }
 
 .servizio-card:hover {
-  border-color: rgba(108,92,231,0.4);
+  border-color: rgba(232, 87, 26, 0.4);
   transform: translateY(-2px);
 }
 
@@ -127,7 +125,7 @@ button {
 }
 
 .faq-row:hover {
-  background: rgba(108,92,231,0.04);
+  background: rgba(232, 87, 26, 0.04);
 }
 
 .testimonial-card {
@@ -196,15 +194,15 @@ textarea {
   border: 1px solid var(--border-light);
   border-radius: 8px;
   padding: 10px 12px;
-  color: #F8FAFC;
-  background: #151A2F;
+  color: #17211f;
+  background: #ffffff;
   font-weight: 800;
 }
 
 .brand-mark {
   border-color: transparent;
   background: transparent;
-  color: #6C5CE7;
+  color: #0f766e;
   padding-left: 0;
 }
 
@@ -320,7 +318,7 @@ textarea {
   height: 34px;
   border-radius: 999px;
   color: #ffffff;
-  background: #6C5CE7;
+  background: #0f766e;
   font-weight: 900;
 }
 
@@ -373,7 +371,7 @@ textarea {
 
 .eyebrow {
   margin: 0 0 6px;
-  color: #6C5CE7;
+  color: #0f766e;
   font-size: 0.76rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -398,10 +396,10 @@ h2 {
 
 .status-pill {
   flex: 0 0 auto;
-  border: 1px solid #2A3156;
+  border: 1px solid #b7d4ce;
   border-radius: 999px;
   padding: 7px 10px;
-  color: #5A4BD1;
+  color: #115e59;
   background: #F3F4F6;
   font-size: 0.78rem;
   font-weight: 750;
@@ -418,7 +416,7 @@ h2 {
   min-height: 58px;
   border: 1px solid var(--border-light);
   border-radius: 8px;
-  background: #151A2F;
+  background: #ffffff;
   color: #52605b;
   cursor: pointer;
 }
@@ -426,13 +424,13 @@ h2 {
 .step-tabs button span {
   display: block;
   margin-bottom: 3px;
-  color: #6C5CE7;
+  color: #0f766e;
   font-weight: 850;
 }
 
 .step-tabs button.active {
-  border-color: #6C5CE7;
-  color: #151A2F;
+  border-color: #0f766e;
+  color: #10201d;
   background: #F3F4F6;
 }
 
@@ -453,11 +451,11 @@ h2 {
   border: 1px solid var(--border-light);
   border-radius: 16px;
   padding: 14px;
-  background: #151A2F;
+  background: #ffffff;
 }
 
 .step-progress-card span {
-  color: #6C5CE7;
+  color: #E8571A;
   font-size: 0.76rem;
   font-weight: 900;
   text-transform: uppercase;
@@ -465,7 +463,7 @@ h2 {
 }
 
 .step-progress-card b {
-  color: #F8FAFC;
+  color: #1A1A1A;
 }
 
 .step-progress-card i {
@@ -473,7 +471,7 @@ h2 {
   height: 3px;
   margin-top: 8px;
   border-radius: 999px;
-  background: #6C5CE7;
+  background: #E8571A;
   animation: progressFill 0.24s ease both;
 }
 
@@ -506,15 +504,15 @@ h2 {
   border: 1px solid var(--border-light);
   border-radius: 16px;
   padding: 14px;
-  color: #94A3B8;
-  background: #151A2F;
+  color: #35443f;
+  background: #ffffff;
   text-align: left;
   cursor: pointer;
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .service-option:hover {
-  border-color: var(--service-accent, #6C5CE7);
+  border-color: var(--service-accent, #E8571A);
   transform: translateY(-2px);
 }
 
@@ -525,9 +523,9 @@ h2 {
 }
 
 .service-option.active {
-  border-color: var(--service-accent, #6C5CE7);
+  border-color: var(--service-accent, #E8571A);
   background: #fffaf7;
-  box-shadow: inset 4px 0 0 var(--service-accent, #6C5CE7), 0 12px 28px rgba(23, 33, 31, 0.08);
+  box-shadow: inset 4px 0 0 var(--service-accent, #E8571A), 0 12px 28px rgba(23, 33, 31, 0.08);
 }
 
 .service-option-head {
@@ -537,7 +535,7 @@ h2 {
 }
 
 .service-option-head strong {
-  color: #F8FAFC;
+  color: #1A1A1A;
 }
 
 .service-option-head em {
@@ -547,7 +545,7 @@ h2 {
   height: 24px;
   border-radius: 999px;
   color: #ffffff;
-  background: var(--service-accent, #6C5CE7);
+  background: var(--service-accent, #E8571A);
   font-style: normal;
   animation: checkPop 0.18s ease both;
 }
@@ -568,7 +566,7 @@ h2 {
 }
 
 .service-active-note {
-  color: var(--service-accent, #6C5CE7) !important;
+  color: var(--service-accent, #E8571A) !important;
   font-size: 0.78rem !important;
   font-weight: 900;
   text-transform: uppercase;
@@ -597,8 +595,8 @@ h2 {
   border: 1px solid #cfd8d3;
   border-radius: 8px;
   padding: 11px 12px;
-  color: #F8FAFC;
-  background: #151A2F;
+  color: #12201d;
+  background: #ffffff;
 }
 
 .search-row {
@@ -625,21 +623,21 @@ h2 {
   border: 1px solid #cfd8d3;
   border-radius: 999px;
   padding: 10px 12px;
-  color: #94A3B8;
-  background: #151A2F;
+  color: #22332e;
+  background: #ffffff;
   font-weight: 800;
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .option-pill:hover {
-  border-color: #6C5CE7;
+  border-color: #E8571A;
 }
 
 .option-pill.active {
-  border-color: #6C5CE7;
-  color: #6C5CE7;
-  background: rgba(108,92,231,0.08);
-  box-shadow: inset 0 0 0 1px rgba(108,92,231,0.16);
+  border-color: #E8571A;
+  color: #E8571A;
+  background: rgba(232, 87, 26, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(232, 87, 26, 0.16);
 }
 
 .quick-row button,
@@ -647,8 +645,8 @@ h2 {
   border: 1px solid #cfd8d3;
   border-radius: 8px;
   padding: 10px 12px;
-  color: #94A3B8;
-  background: #151A2F;
+  color: #22332e;
+  background: #ffffff;
   cursor: pointer;
 }
 
@@ -658,14 +656,14 @@ h2 {
   border-radius: 8px;
   padding: 13px 16px;
   color: #ffffff;
-  background: #6C5CE7;
+  background: #E8571A;
   font-weight: 850;
   cursor: pointer;
   transition: background 0.15s ease, transform 0.15s ease;
 }
 
 .primary-action:hover {
-  background: #5A4BD1;
+  background: #D14A14;
   transform: translateY(-1px);
 }
 
@@ -676,8 +674,8 @@ h2 {
   border: 1px solid var(--border-light);
   border-radius: 8px;
   padding: 9px 10px;
-  background: #151A2F;
-  color: #94A3B8;
+  background: #ffffff;
+  color: #293a35;
 }
 
 .metrics-grid {
@@ -690,7 +688,7 @@ h2 {
   border: 1px solid var(--border-light);
   border-radius: 8px;
   padding: 10px;
-  background: #151A2F;
+  background: #ffffff;
 }
 
 .metric span {
@@ -710,7 +708,7 @@ h2 {
   overflow: hidden;
   border: 1px solid var(--border-light);
   border-radius: 8px;
-  background: #151A2F;
+  background: #ffffff;
 }
 
 .breakdown-head,
@@ -746,7 +744,7 @@ h2 {
 .addon-panel {
   border: 1px solid var(--border-light);
   border-radius: 8px;
-  background: #151A2F;
+  background: #ffffff;
 }
 
 .step-footer {
@@ -774,7 +772,7 @@ h2 {
   display: grid;
   gap: 4px;
   padding: 13px;
-  background: #F8FAFC;
+  background: #1A1A1A;
 }
 
 .config-summary > div:first-child span,
@@ -803,13 +801,13 @@ h2 {
 }
 
 .summary-row b {
-  color: #F8FAFC;
+  color: #1A1A1A;
   font-size: 0.82rem;
   text-align: right;
 }
 
 .summary-row.strong b {
-  color: #6C5CE7;
+  color: #E8571A;
   font-size: 0.98rem;
 }
 
@@ -833,7 +831,7 @@ h2 {
 }
 
 .addon-panel-head span {
-  color: #6C5CE7;
+  color: #E8571A;
   font-size: 0.78rem;
   font-weight: 900;
   text-transform: uppercase;
@@ -853,20 +851,20 @@ h2 {
   border: 1px solid var(--border-light);
   border-radius: 12px;
   padding: 12px;
-  color: #F8FAFC;
-  background: #151A2F;
+  color: #1A1A1A;
+  background: #ffffff;
   text-align: left;
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
 
 .addon-option:hover {
-  border-color: #6C5CE7;
+  border-color: #E8571A;
   transform: translateY(-1px);
 }
 
 .addon-option.active {
-  border-color: #6C5CE7;
-  background: rgba(108,92,231,0.07);
+  border-color: #E8571A;
+  background: rgba(232, 87, 26, 0.07);
 }
 
 .addon-option span {
@@ -880,7 +878,7 @@ h2 {
 }
 
 .addon-option b {
-  color: #6C5CE7;
+  color: #E8571A;
 }
 
 .switch-row {
@@ -890,7 +888,7 @@ h2 {
   border: 1px solid var(--border-light);
   border-radius: 8px;
   padding: 14px;
-  background: #151A2F;
+  background: #ffffff;
 }
 
 .switch-row input {
@@ -905,7 +903,7 @@ h2 {
 }
 
 .switch-row strong {
-  color: #F8FAFC;
+  color: #17211f;
 }
 
 .zone-stack {
@@ -942,7 +940,7 @@ h2 {
 }
 
 .zone-row b {
-  color: #F8FAFC;
+  color: #17211f;
 }
 
 .zone-row button {
@@ -961,7 +959,7 @@ h2 {
 
 .quote-box {
   padding: 16px;
-  background: #151A2F;
+  background: #10201d;
   color: #ffffff;
 }
 
@@ -1204,7 +1202,7 @@ h2 {
 
 @keyframes summaryPulse {
   0% {
-    background: rgba(108,92,231,0.12);
+    background: rgba(232, 87, 26, 0.12);
   }
   100% {
     background: transparent;
@@ -1276,7 +1274,7 @@ h2 {
   border: 1px solid var(--border-light);
   border-radius: 12px;
   padding: 20px;
-  background: #151A2F;
+  background: #ffffff;
 }
 
 .quantity-header {
@@ -1292,7 +1290,7 @@ h2 {
 }
 
 .quantity-header strong {
-  color: #F8FAFC;
+  color: #1A1A1A;
   font-weight: 800;
 }
 
@@ -1318,15 +1316,15 @@ h2 {
 }
 
 .quantity-preset:hover {
-  border-color: #6C5CE7;
-  color: #6C5CE7;
+  border-color: #E8571A;
+  color: #E8571A;
 }
 
 .quantity-preset.active {
-  border-color: #6C5CE7;
+  border-color: #E8571A;
   color: #ffffff;
-  background: #6C5CE7;
-  box-shadow: 0 4px 12px rgba(108,92,231,0.2);
+  background: #E8571A;
+  box-shadow: 0 4px 12px rgba(232, 87, 26, 0.2);
 }
 
 .quantity-slider-row {
@@ -1367,7 +1365,7 @@ h2 {
   -webkit-appearance: none;
   width: 100%;
   height: 6px;
-  background: linear-gradient(to right, #6C5CE7 var(--progress, 0%), #51615b var(--progress, 0%));
+  background: linear-gradient(to right, #E8571A var(--progress, 0%), #51615b var(--progress, 0%));
   border-radius: 4px;
   outline: none;
   margin: 0;
@@ -1382,7 +1380,7 @@ h2 {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #6C5CE7;
+  background: #E8571A;
   cursor: pointer;
   border: 3px solid #ffffff;
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
@@ -1398,7 +1396,7 @@ h2 {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #6C5CE7;
+  background: #E8571A;
   cursor: pointer;
   border: 3px solid #ffffff;
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
@@ -1415,8 +1413,8 @@ h2 {
   border: 1px solid #cfd8d3;
   border-radius: 8px;
   padding: 10px 12px;
-  color: #F8FAFC;
-  background: #151A2F;
+  color: #1A1A1A;
+  background: #ffffff;
   font-weight: 700;
   font-size: 0.95rem;
   text-align: right;
@@ -1425,8 +1423,8 @@ h2 {
 
 .quantity-manual-input:focus {
   outline: none;
-  border-color: #6C5CE7;
-  box-shadow: 0 0 0 3px rgba(108,92,231,0.1);
+  border-color: #E8571A;
+  box-shadow: 0 0 0 3px rgba(232, 87, 26, 0.1);
 }
 
 @media (max-width: 640px) {
@@ -1448,7 +1446,7 @@ h2 {
   appearance: none;
   width: 100%;
   height: 6px;
-  background: linear-gradient(to right, #6C5CE7 var(--progress, 0%), rgba(255, 255, 255, 0.1) var(--progress, 0%));
+  background: linear-gradient(to right, #E8571A var(--progress, 0%), rgba(255, 255, 255, 0.1) var(--progress, 0%));
   border-radius: 4px;
   outline: none;
   cursor: pointer;
@@ -1456,12 +1454,34 @@ h2 {
   margin-bottom: 24px;
 }
 
-.vp-s1-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #6C5CE7; cursor: pointer; transition: transform 0.15s; border: 2.5px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+.vp-s1-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #E8571A;
+  cursor: pointer;
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  transition: transform 0.1s ease;
+}
 
-.vp-s1-range::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #6C5CE7; cursor: pointer; transition: transform 0.15s; border: 2.5px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+.vp-s1-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #E8571A;
+  cursor: pointer;
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  transition: transform 0.1s ease;
+}
 
 .vp-s1-range::-webkit-slider-thumb:hover,
-.vp-s1-range:focus::-webkit-slider-thumb { outline: 2px solid rgba(0,206,201,0.5); outline-offset: 2px; }
+.vp-s1-range:focus::-webkit-slider-thumb {
+  transform: scale(1.2);
+}
 
 .vp-s1-range::-moz-range-thumb:hover,
 .vp-s1-range:focus::-moz-range-thumb {
@@ -1469,1540 +1489,189 @@ h2 {
 }
 
 /* ==========================================================================
-   RIPRISTINO HERO HOMEPAGE (CLEAN & LEGGIBILE)
-   Aderenza totale alle richieste del Checkpoint 12:
-   - Zero overlay cyan, zero glow eccessivo, zero blur, zero gradienti su testo
-   - Solo background dark (#0A0A1A)
-   - Leggero radial gradient viola dietro la Hero
-   - Leggero radial gradient cyan dietro la mappa
-   - Griglia tecnica molto trasparente (5-8% opacity)
-   - Testo completamente leggibile
-   - Mappa e layout intatti nella loro posizione originale
+   FASE 1 — UI REFINEMENT HOMEPAGE (HERO + GIS)
+   Enterprise SaaS Level - Cyber GIS Aesthetic
+   Scoped strictly under .saas-home-refinement to guarantee 0 leaks to Step 1-4
    ========================================================================== */
 
-/* 1. Background base Dark (#0A0A1A) e Radiali dietro Hero e Mappa */
-.saas-home-refinement,
-.home-shell-dark.saas-home-refinement {
-  background-color: #0A0A1A !important;
+/* 1. BACKGROUND (Cyber GIS) */
+.saas-home-refinement {
+  background-color: #090914 !important;
   color: #F5F5FF !important;
+  min-height: 100vh;
 }
 
-.saas-home-refinement section:first-of-type {
-  background: #0A0A1A !important;
-  background-image:
-    radial-gradient(circle 650px at 20% 35%, rgba(108, 92, 231, 0.12), transparent 70%),
-    radial-gradient(circle 700px at 80% 55%, rgba(0, 206, 201, 0.10), transparent 70%) !important;
-  background-position: center !important;
-  background-repeat: no-repeat !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+.saas-home-refinement section[style*="radial-gradient"],
+.saas-home-refinement div[style*="C.navyDeep"],
+.saas-home-refinement div[style*="navyDeep"] {
+  background: #090914 !important;
+  background-image: 
+    radial-gradient(circle at 15% 25%, rgba(108, 92, 231, 0.22) 0%, transparent 55%),
+    radial-gradient(circle at 85% 65%, rgba(0, 206, 201, 0.18) 0%, transparent 55%),
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px) !important;
+  background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px !important;
+  background-position: 0 0 !important;
 }
 
-/* 2. Griglia tecnica molto trasparente (5-8% opacity) */
-.saas-home-refinement section:first-of-type > div:first-child {
-  opacity: 0.06 !important;
-  filter: none !important;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 1) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 1) 1px, transparent 1px) !important;
-  background-size: 64px 64px, 64px 64px !important;
-  mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, transparent 90%) !important;
-  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, transparent 90%) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+/* Texture rumore e profondità Cyber GIS */
+.saas-home-refinement section[style*="radial-gradient"] > div[style*="background-image"] {
+  opacity: 0.4 !important;
+  filter: contrast(120%) brightness(110%);
 }
 
-/* 3. Eliminazione totale di blur, glow eccessivo e overlay pesanti sulla Hero */
-.saas-home-refinement section:first-of-type *,
+/* 2. NAVBAR (Glass, Blur, Border inferiore leggero, Hover morbidi) */
 .saas-home-refinement nav {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  box-shadow: none !important;
+  background: rgba(18, 18, 42, 0.6) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(162, 155, 254, 0.18) !important;
+  padding: 18px 36px !important;
+  border-radius: 0 0 24px 24px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+  transition: all 0.3s ease !important;
 }
 
-/* Ripristino Navbar pulita e sobria */
-.saas-home-refinement nav {
-  background: transparent !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
-  padding: 18px 0 !important;
+.saas-home-refinement nav button {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
-/* Shell monitor GIS / Mappa: bordo pulito, sfondo dark solido, nessun bagliore eccessivo */
-.saas-home-refinement .vp-hero-map-preview {
-  background: #12122A !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 20px !important;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5) !important;
+.saas-home-refinement nav button:hover {
+  transform: translateY(-1px) !important;
+  opacity: 0.95 !important;
 }
 
-/* 4. Ripristino perfetta leggibilità del testo (eliminazione gradienti e overlay cyan) */
-.saas-home-refinement h1,
-.home-shell-dark.saas-home-refinement h1 {
-  color: #F5F5FF !important;
-  font-weight: 800 !important;
+/* CTA Navbar con glow elegante */
+.saas-home-refinement nav button[style*="C.orange"],
+.saas-home-refinement nav button[style*="var(--primary)"],
+.saas-home-refinement nav button[style*="E8571A"] {
+  background: linear-gradient(135deg, #6C5CE7 0%, #00CEC9 100%) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  box-shadow: 0 0 24px rgba(108, 92, 231, 0.55), 0 4px 14px rgba(0, 206, 201, 0.35) !important;
   text-shadow: none !important;
 }
 
-/* Eliminazione gradiente sul testo e del cyan fastidioso sul titolo Hero */
-.saas-home-refinement h1 span,
-.home-shell-dark.saas-home-refinement h1 span,
-.home-shell-dark h1 span[style*="primary"] {
-  background: none !important;
-  -webkit-background-clip: border-box !important;
-  -webkit-text-fill-color: #A29BFE !important;
-  color: #A29BFE !important;
-  text-shadow: none !important;
-  display: inline !important;
+/* 3. HERO (Tipografia più grande/pesante/ariosa, contrasto, ombra del testo) */
+.saas-home-refinement h1 {
+  font-size: clamp(3rem, 5.5vw, 4.6rem) !important;
+  font-weight: 900 !important;
+  line-height: 1.1 !important;
+  letter-spacing: -0.04em !important;
+  color: #F5F5FF !important;
+  text-shadow: 0 4px 32px rgba(108, 92, 231, 0.4), 0 2px 10px rgba(0, 0, 0, 0.8) !important;
+  margin-bottom: 24px !important;
 }
 
-.saas-home-refinement p,
-.home-shell-dark.saas-home-refinement p {
+.saas-home-refinement h1 span[style*="C.orange"],
+.saas-home-refinement h1 span[style*="orange"] {
+  background: linear-gradient(135deg, #A29BFE 0%, #00CEC9 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+}
+
+.saas-home-refinement p {
+  font-size: 1.22rem !important;
+  line-height: 1.75 !important;
   color: #9D9DB5 !important;
-  text-shadow: none !important;
+  max-width: 700px !important;
+  margin-bottom: 38px !important;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6) !important;
 }
 
-.saas-home-refinement [style*="VOLANTINAGGIO"],
-.home-shell-dark [style*="VOLANTINAGGIO"] {
+.saas-home-refinement [style*="VOLANTINAGGIO"] {
   color: #00CEC9 !important;
-  text-shadow: none !important;
-  opacity: 0.9 !important;
+  letter-spacing: 0.14em !important;
+  font-weight: 800 !important;
+  text-shadow: 0 0 16px rgba(0, 206, 201, 0.45) !important;
 }
 
-/* Protezione del logo arancione "Pro" in Navbar */
-.saas-home-refinement nav button span > span {
-  color: #6C5CE7 !important;
-  -webkit-text-fill-color: #6C5CE7 !important;
+/* 4. MAPPA (Workstation GIS Professionale) */
+.saas-home-refinement .vp-hero-map-preview {
+  background: rgba(12, 12, 28, 0.88) !important;
+  border: 1px solid rgba(0, 206, 201, 0.35) !important;
+  border-radius: 24px !important;
+  box-shadow: 0 0 50px rgba(108, 92, 231, 0.3), 0 24px 70px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(24px) !important;
+  position: relative !important;
 }
 
-/* Metriche e testi nel monitor GIS */
+/* Badge LIVE e GIS nel monitor */
 .saas-home-refinement [style*="Monitor campagna"] {
   color: #A29BFE !important;
-  text-shadow: none !important;
+  letter-spacing: 0.1em !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.saas-home-refinement [style*="Monitor campagna"]::after {
+  content: "● LIVE";
+  background: rgba(0, 184, 148, 0.2);
+  color: #00B894;
+  border: 1px solid rgba(0, 184, 148, 0.5);
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  box-shadow: 0 0 10px rgba(0, 184, 148, 0.4);
 }
 
 .saas-home-refinement .vp-hero-badge {
-  background: rgba(108, 92, 231, 0.15) !important;
-  border: 1px solid rgba(108, 92, 231, 0.3) !important;
-  color: #A29BFE !important;
-  box-shadow: none !important;
-}
-
-/* ==========================================================================
-   FASE 1B — RIFINITURA COMPONENTI HOMEPAGE (ENTERPRISE SAAS QUALITY)
-   Osservanza rigorosa: Zero arancione (salvo logo Pro), Zero overlay, Zero !important
-   ========================================================================== */
-
-/* 1. MONITOR GIS: cornice premium, header software leggero, glow controllato */
-.saas-home-refinement .vp-hero-map-preview {
-  border: 1px solid rgba(108, 92, 231, 0.35);
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.75), 0 0 32px rgba(108, 92, 231, 0.16);
-  position: relative;
-}
-
-.saas-home-refinement .vp-hero-map-preview::before {
-  content: "● ● ●   GIS WORKSTATION // ANALYSIS LIVE";
-  display: block;
-  position: relative;
-  z-index: 20;
-  background: linear-gradient(90deg, #12122A 0%, #1a1a38 100%);
-  color: #A29BFE;
-  font-family: 'DM Sans', Inter, system-ui, sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  padding: 10px 18px;
-  border-bottom: 1px solid rgba(108, 92, 231, 0.22);
-  border-radius: 20px 20px 0 0;
-}
-
-/* 2. BANDA ISTAT / GIS / GPS / PDF: 4 dark cards visibili e distinte */
-.saas-home-refinement section[style*="FAF9F7"],
-.saas-home-refinement section[style*="cream"],
-.home-shell-dark section[style*="FAF9F7"] {
-  background: #12122A;
-  border-top: 1px solid rgba(108, 92, 231, 0.22);
-  border-bottom: 1px solid rgba(108, 92, 231, 0.22);
-  padding: 56px 32px;
-}
-
-.saas-home-refinement .trust-bar-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 22px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-@media (max-width: 900px) {
-  .saas-home-refinement .trust-bar-metrics {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 540px) {
-  .saas-home-refinement .trust-bar-metrics {
-    grid-template-columns: 1fr;
-  }
-}
-
-.saas-home-refinement .trust-bar-metrics > div {
-  background: #1E1E3A;
-  border: 1px solid rgba(108, 92, 231, 0.32);
-  border-radius: 18px;
-  padding: 32px 22px;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.35s ease, box-shadow 0.35s ease;
-}
-
-.saas-home-refinement .trust-bar-metrics > div:hover {
-  transform: translateY(-4px);
-  border-color: #00CEC9;
-  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.55), 0 0 24px rgba(0, 206, 201, 0.18);
-}
-
-.saas-home-refinement .trust-bar-metrics > div > div:first-child {
-  color: #F5F5FF;
-  font-size: 44px;
-}
-
-.saas-home-refinement .trust-bar-metrics > div > div:last-child {
-  color: #00CEC9;
-  letter-spacing: 0.08em;
-}
-
-/* 3. CARD “PERCHÉ VOLANTINIPRO È DIVERSO”: più padding, bordo ed eleganza */
-.saas-home-refinement .why-diff-card {
-  background: #12122A;
-  border: 1px solid rgba(108, 92, 231, 0.28);
-  border-radius: 24px;
-  padding: 42px 36px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 20px rgba(108, 92, 231, 0.10);
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
-}
-
-.saas-home-refinement .why-diff-card:hover {
-  transform: translateY(-4px);
-  background: #1E1E3A;
-  border-color: #00CEC9;
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 206, 201, 0.22);
-}
-
-.saas-home-refinement .why-diff-icon-badge {
-  background: rgba(108, 92, 231, 0.24);
-  border: 1px solid rgba(0, 206, 201, 0.5);
-  color: #00CEC9;
-  box-shadow: 0 0 18px rgba(0, 206, 201, 0.25);
-}
-
-.saas-home-refinement .why-diff-kicker {
-  color: #00CEC9;
-  letter-spacing: 0.16em;
-}
-
-/* 4. CARD FINALI CTA: eliminati blocchi bianchi forti, stile SaaS Enterprise */
-.saas-home-refinement .vp-start-primary {
-  background: #1E1E3A;
-  border: 1px solid rgba(0, 206, 201, 0.35);
-  border-radius: 24px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65), 0 0 32px rgba(108, 92, 231, 0.18);
-}
-
-.saas-home-refinement .vp-start-secondary {
-  background: #12122A;
-  border: 1px solid rgba(108, 92, 231, 0.25);
-  border-radius: 20px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-}
-
-.saas-home-refinement .vp-start-secondary h3 {
-  color: #F5F5FF;
-}
-
-.saas-home-refinement .vp-start-secondary p {
-  color: #9D9DB5;
-}
-
-.saas-home-refinement .vp-start-secondary:hover {
-  background: #1E1E3A;
-  border-color: #00CEC9;
-  transform: translateY(-4px);
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.65), 0 0 26px rgba(0, 206, 201, 0.2);
-}
-
-/* CTA Violet/Cyan all'interno delle card finali */
-.saas-home-refinement .vp-start-primary button,
-.saas-home-refinement .vp-start-secondary button,
-.saas-home-refinement .vb {
-  background: linear-gradient(135deg, #6C5CE7 0%, #00CEC9 100%);
-  color: #FFFFFF;
-  border: none;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(108, 92, 231, 0.42);
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  transition: all 0.3s ease;
-}
-
-.saas-home-refinement .vp-start-primary button:hover,
-.saas-home-refinement .vp-start-secondary button:hover,
-.saas-home-refinement .vb:hover {
-  box-shadow: 0 12px 32px rgba(0, 206, 201, 0.55);
-  transform: translateY(-2px);
-}
-
-/* 5. TIMELINE 01 / 02 / 03 / 04: card premium, badge e bordi violet/cyan */
-.saas-home-refinement .vc {
-  background: #1E1E3A;
-  border: 1px solid rgba(108, 92, 231, 0.30);
-  border-radius: 18px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-  transition: transform 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
-}
-
-.saas-home-refinement .vc:hover {
-  transform: translateY(-4px);
-  border-color: #00CEC9;
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.6), 0 0 24px rgba(0, 206, 201, 0.2);
-}
-
-.saas-home-refinement .vc h3 {
-  color: #F5F5FF;
-}
-
-.saas-home-refinement .vc p {
-  color: #9D9DB5;
-}
-
-/* ==========================================================================
-   HOMEPAGE FINALE — UI POLISH ENTERPRISE SAAS DESIGN SYSTEM (NO REDESIGN)
-   Osservanza assoluta di tutti i vincoli: Solo CSS in app.css, Zero modifiche JSX/Logic
-   Palette: BG #0B0B18 | Surface #141428 | Primary #6C5CE7 | Secondary #00CEC9 | Text #F5F5FF
-   ========================================================================== */
-
-/* 1. SPAZIATURE COMPATTE (-25/35% di spazio verticale per compattezza Enterprise) */
-html body .home-shell-dark.saas-home-refinement > section,
-html body .home-shell-dark.saas-home-refinement > div > section,
-html body .home-shell-dark.saas-home-refinement section.section {
-  padding-top: 68px !important;
-  padding-bottom: 68px !important;
-  background-color: transparent !important;
-}
-
-html body .home-shell-dark.saas-home-refinement {
-  background-color: #0B0B18 !important;
-  color: #F5F5FF !important;
-}
-
-/* FIX HERO: Leggibilità totale, griglia 2 colonne ripristinata e pulita */
-html body .home-shell-dark.saas-home-refinement section:first-of-type {
-  position: relative !important;
-  overflow: visible !important;
-  background: #0B0B18 !important;
-  z-index: 1 !important;
-  padding-bottom: 50px !important;
-}
-
-html body .home-shell-dark.saas-home-refinement section:first-of-type::before,
-html body .home-shell-dark.saas-home-refinement section:first-of-type::after {
-  display: none !important;
-  content: none !important;
-}
-
-html body .home-shell-dark.saas-home-refinement section:first-of-type > div:first-child {
-  position: absolute !important;
-  inset: 0 !important;
-  z-index: 0 !important;
-  pointer-events: none !important;
-  opacity: 0.04 !important;
-  filter: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-html body .home-shell-dark.saas-home-refinement section:first-of-type nav {
-  position: relative !important;
-  z-index: 50 !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  background: transparent !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
-  padding: 18px 0 !important;
-}
-
-html body .home-shell-dark.saas-home-refinement section:first-of-type > div[style*="grid"],
-html body .home-shell-dark.saas-home-refinement section:first-of-type > div:nth-of-type(2) {
-  position: relative !important;
-  z-index: 10 !important;
-  display: grid !important;
-  grid-template-columns: 0.85fr 1.6fr !important;
-  align-items: center !important;
-  gap: 80px !important;
-  max-width: 1400px !important;
-  margin: 0 auto !important;
-  filter: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  transform: none !important;
-}
-
-@media (max-width: 900px) {
-  html body .home-shell-dark.saas-home-refinement section:first-of-type > div[style*="grid"],
-  html body .home-shell-dark.saas-home-refinement section:first-of-type > div:nth-of-type(2) {
-    grid-template-columns: 1fr !important;
-    gap: 44px !important;
-  }
-}
-
-html body .home-shell-dark.saas-home-refinement section:first-of-type > div[style*="grid"] > div:first-child {
-  position: relative !important;
-  z-index: 20 !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-}
-
-/* 10. COLORI & PROTEZIONE ACCENTO BRAND (Logo Pro arancione protetto) */
-html body .home-shell-dark.saas-home-refinement nav button span > span,
-html body .home-shell-dark.saas-home-refinement nav [style*="E8571A"],
-html body .home-shell-dark.saas-home-refinement nav [style*="primary"],
-html body .home-shell-dark.saas-home-refinement footer [style*="E8571A"],
-html body .home-shell-dark.saas-home-refinement footer [style*="primary"] {
-  color: #6C5CE7 !important;
-  -webkit-text-fill-color: #6C5CE7 !important;
-}
-
-html body .home-shell-dark.saas-home-refinement [style*="E8571A"]:not(nav *):not(footer *),
-html body .home-shell-dark.saas-home-refinement [style*="color: rgb(108,92,231)"]:not(nav *):not(footer *) {
+  background: linear-gradient(135deg, rgba(108, 92, 231, 0.25), rgba(0, 206, 201, 0.25)) !important;
+  border: 1px solid rgba(0, 206, 201, 0.6) !important;
   color: #00CEC9 !important;
-}
-
-/* 7. TIPOGRAFIA COERENTE DESIGN SYSTEM */
-html body .home-shell-dark.saas-home-refinement body,
-html body .home-shell-dark.saas-home-refinement p,
-html body .home-shell-dark.saas-home-refinement span,
-html body .home-shell-dark.saas-home-refinement div {
-  font-family: 'DM Sans', Inter, system-ui, sans-serif;
-}
-
-html body .home-shell-dark.saas-home-refinement h1,
-html body .home-shell-dark.saas-home-refinement h2,
-html body .home-shell-dark.saas-home-refinement .landing-h2 {
-  font-family: 'DM Serif Display', Georgia, serif !important;
-  color: #F5F5FF !important;
-}
-
-html body .home-shell-dark.saas-home-refinement h3 {
-  font-family: 'DM Sans', Inter, system-ui, sans-serif !important;
-  color: #F5F5FF !important;
+  box-shadow: 0 0 16px rgba(0, 206, 201, 0.35) !important;
   font-weight: 800 !important;
 }
 
-/* 8. ICONE COERENTI DESIGN SYSTEM */
-html body .home-shell-dark.saas-home-refinement svg circle[stroke*="E8571A"],
-html body .home-shell-dark.saas-home-refinement svg path[stroke*="E8571A"],
-html body .home-shell-dark.saas-home-refinement svg [stroke*="E8571A"],
-html body .home-shell-dark.saas-home-refinement svg [stroke="#6C5CE7"] {
-  stroke: #6C5CE7 !important;
-}
-
-html body .home-shell-dark.saas-home-refinement svg circle[fill*="E8571A"],
-html body .home-shell-dark.saas-home-refinement svg path[fill*="E8571A"]:not(nav *):not(footer *) {
-  fill: #00CEC9 !important;
-}
-
-/* 2 & 6. GERARCHIA VISIVA E UNIFORMAZIONE CARD (3 LIVELLI COERENTI) */
-/* Regole generali animazioni max 250ms (Vincolo 9) */
-html body .home-shell-dark.saas-home-refinement .vp-hero-map-preview,
-html body .home-shell-dark.saas-home-refinement .vp-start-primary,
-html body .home-shell-dark.saas-home-refinement .vp-start-secondary,
-html body .home-shell-dark.saas-home-refinement .trust-bar-metrics > div,
-html body .home-shell-dark.saas-home-refinement .why-diff-card,
-html body .home-shell-dark.saas-home-refinement .testimonial-card,
-html body .home-shell-dark.saas-home-refinement .vc {
-  border-radius: 20px !important;
-  transition: opacity 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease !important;
-  position: relative !important;
-  overflow: hidden !important;
-}
-
-/* LIVELLO 1: PRIMARY CARDS (Ombra maggiore, bordo glow, contrasto forte) */
-html body .home-shell-dark.saas-home-refinement .vp-hero-map-preview,
-html body .home-shell-dark.saas-home-refinement .vp-start-primary {
-  background: linear-gradient(145deg, #141428 0%, #1c1c38 100%) !important;
-  border: 1px solid rgba(0, 206, 201, 0.45) !important;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.85), 0 0 32px rgba(0, 206, 201, 0.18) !important;
-}
-
-html body .home-shell-dark.saas-home-refinement .vp-hero-map-preview:hover,
-html body .home-shell-dark.saas-home-refinement .vp-start-primary:hover {
-  transform: translateY(-5px) !important;
-  border-color: #00CEC9 !important;
-  box-shadow: 0 32px 84px rgba(0, 0, 0, 0.95), 0 0 44px rgba(0, 206, 201, 0.3) !important;
-}
-
-/* LIVELLO 2: SECONDARY CARDS (Ombra morbida, bordo leggero) */
-html body .home-shell-dark.saas-home-refinement .trust-bar-metrics > div,
-html body .home-shell-dark.saas-home-refinement .why-diff-card,
-html body .home-shell-dark.saas-home-refinement .testimonial-card {
-  background: #141428 !important;
-  border: 1px solid rgba(108, 92, 231, 0.28) !important;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5) !important;
-  padding: 32px 28px !important;
-}
-
-html body .home-shell-dark.saas-home-refinement .trust-bar-metrics > div:hover,
-html body .home-shell-dark.saas-home-refinement .why-diff-card:hover,
-html body .home-shell-dark.saas-home-refinement .testimonial-card:hover {
-  transform: translateY(-4px) !important;
-  border-color: rgba(0, 206, 201, 0.6) !important;
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.75), 0 0 24px rgba(0, 206, 201, 0.16) !important;
-}
-
-/* LIVELLO 3: INFORMATIONAL CARDS (Molto discrete, quasi piatte) */
-html body .home-shell-dark.saas-home-refinement .vp-start-secondary,
-html body .home-shell-dark.saas-home-refinement .vc {
-  background: rgba(20, 20, 40, 0.65) !important;
-  border: 1px solid rgba(108, 92, 231, 0.16) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
-}
-
-html body .home-shell-dark.saas-home-refinement .vp-start-secondary:hover,
-html body .home-shell-dark.saas-home-refinement .vc:hover {
-  transform: translateY(-3px) !important;
-  border-color: rgba(108, 92, 231, 0.45) !important;
-  background: rgba(26, 26, 52, 0.8) !important;
-}
-
-/* Badge icone WhyDifferent (Vincolo 8) */
-html body .home-shell-dark.saas-home-refinement .why-diff-icon-badge {
-  width: 52px !important;
-  height: 52px !important;
-  background: rgba(108, 92, 231, 0.2) !important;
-  border: 1px solid rgba(0, 206, 201, 0.4) !important;
-  color: #00CEC9 !important;
-  border-radius: 14px !important;
-  box-shadow: 0 0 16px rgba(0, 206, 201, 0.15) !important;
-}
-
-/* 3. KPI PROFESSIONAL DASHBOARD (+31%, -22%, 96%) */
-html body .home-shell-dark.saas-home-refinement section[style*="background: #F8FAFC"],
-html body .home-shell-dark.saas-home-refinement section[style*="background: C.dark"] {
-  background: #0B0B18 !important;
-}
-
-html body .home-shell-dark.saas-home-refinement .testimonial-card {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-start !important;
-  text-align: left !important;
-}
-
-/* Titoli e numeri KPI evidenziati */
-html body .home-shell-dark.saas-home-refinement .testimonial-card > div:first-child {
-  font-family: 'DM Sans', Inter, system-ui, sans-serif !important;
-  font-size: 52px !important;
-  font-weight: 900 !important;
-  color: #F5F5FF !important;
-  letter-spacing: -1.5px !important;
-  margin-bottom: 4px !important;
-}
-
-html body .home-shell-dark.saas-home-refinement .testimonial-card > div:nth-child(2) {
-  font-size: 13px !important;
-  font-weight: 700 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.08em !important;
-  color: #00CEC9 !important;
-  margin-bottom: 18px !important;
-}
-
-/* Mini progress bar SaaS aziendale */
-html body .home-shell-dark.saas-home-refinement .testimonial-card > div:nth-child(3) {
-  width: 100% !important;
-  height: 6px !important;
-  background: rgba(255, 255, 255, 0.08) !important;
-  border-radius: 999px !important;
-  margin-bottom: 24px !important;
-  position: relative !important;
-}
-
-html body .home-shell-dark.saas-home-refinement .results-grid > article:nth-child(1) > div:nth-child(3)::after {
-  content: "";
-  position: absolute; left: 0; top: 0; bottom: 0; width: 31%;
-  background: linear-gradient(90deg, #6C5CE7, #00CEC9);
-  border-radius: 999px; box-shadow: 0 0 10px rgba(0, 206, 201, 0.5);
-}
-html body .home-shell-dark.saas-home-refinement .results-grid > article:nth-child(2) > div:nth-child(3)::after {
-  content: "";
-  position: absolute; left: 0; top: 0; bottom: 0; width: 78%;
-  background: linear-gradient(90deg, #6C5CE7, #00CEC9);
-  border-radius: 999px; box-shadow: 0 0 10px rgba(0, 206, 201, 0.5);
-}
-html body .home-shell-dark.saas-home-refinement .results-grid > article:nth-child(3) > div:nth-child(3)::after {
-  content: "";
-  position: absolute; left: 0; top: 0; bottom: 0; width: 96%;
-  background: linear-gradient(90deg, #6C5CE7, #00CEC9);
-  border-radius: 999px; box-shadow: 0 0 10px rgba(0, 206, 201, 0.5);
-}
-
-/* Icone badge nei KPI via ::before */
-html body .home-shell-dark.saas-home-refinement .results-grid > article:nth-child(1)::before { content: "▲ TRACCIAMENTO SATELLITARE"; }
-html body .home-shell-dark.saas-home-refinement .results-grid > article:nth-child(2)::before { content: "◈ OTTIMIZZAZIONE BUDGET"; }
-html body .home-shell-dark.saas-home-refinement .results-grid > article:nth-child(3)::before { content: "◉ VERIFICA SUL CAMPO"; }
-
-html body .home-shell-dark.saas-home-refinement .results-grid > article::before {
-  display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.12em;
-  color: #A29BFE; background: rgba(108, 92, 231, 0.15); padding: 4px 10px;
-  border-radius: 100px; margin-bottom: 14px;
-}
-
-/* 4. FAQ PREMIUM COMPONENT */
-html body .home-shell-dark.saas-home-refinement section[style*="background: #FAF9F7"] {
-  background: #0B0B18 !important;
-}
-
-html body .home-shell-dark.saas-home-refinement .faq-row {
-  border-bottom: 1px solid rgba(108, 92, 231, 0.22) !important;
-  transition: all 0.25s ease !important;
+/* 5. CARD KPI (Card più premium, glow leggerissimo, hover) */
+.saas-home-refinement [style*="background: \"rgba(5, 10, 20, 0.6)\""],
+.saas-home-refinement [style*="rgba(5, 10, 20, 0.6)"] {
+  background: rgba(30, 30, 58, 0.65) !important;
+  border: 1px solid rgba(162, 155, 254, 0.25) !important;
   border-radius: 12px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), 0 0 12px rgba(108, 92, 231, 0.15) !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
-html body .home-shell-dark.saas-home-refinement .faq-row:hover {
-  background: rgba(108, 92, 231, 0.08) !important;
-  border-color: rgba(0, 206, 201, 0.4) !important;
-}
-
-html body .home-shell-dark.saas-home-refinement .faq-row > button {
-  padding: 24px 20px !important;
-  transition: all 0.2s ease !important;
-}
-
-html body .home-shell-dark.saas-home-refinement .faq-row > button:focus-visible {
-  outline: 2px solid #00CEC9 !important;
-  border-radius: 10px !important;
-}
-
-html body .home-shell-dark.saas-home-refinement .faq-row > button span:first-child {
-  color: #F5F5FF !important;
-  font-size: 16px !important;
-  font-weight: 700 !important;
-}
-
-html body .home-shell-dark.saas-home-refinement .faq-row > button span:last-child {
-  color: #00CEC9 !important;
-}
-
-html body .home-shell-dark.saas-home-refinement .faq-row p {
-  color: #A29BFE !important;
-  font-size: 15px !important;
-  line-height: 1.65 !important;
-}
-
-/* 5. FOOTER PROFESSIONALE */
-html body .home-shell-dark.saas-home-refinement footer {
-  background: #070710 !important;
-  border-top: 1px solid rgba(108, 92, 231, 0.25) !important;
-  padding: 70px 28px 36px !important;
-}
-
-html body .home-shell-dark.saas-home-refinement .footer-grid {
-  gap: 56px !important;
-  padding-bottom: 56px !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-}
-
-html body .home-shell-dark.saas-home-refinement footer button {
-  color: #9D9DB5 !important;
-  transition: all 0.2s ease !important;
-}
-
-html body .home-shell-dark.saas-home-refinement footer button:hover {
-  color: #00CEC9 !important;
-  transform: translateX(4px) !important;
-}
-
-html body .home-shell-dark.saas-home-refinement footer [aria-label*="instagram"],
-html body .home-shell-dark.saas-home-refinement footer [aria-label*="linkedin"],
-html body .home-shell-dark.saas-home-refinement footer [aria-label*="youtube"] {
-  border: 1px solid rgba(108, 92, 231, 0.3) !important;
-  background: rgba(255, 255, 255, 0.03) !important;
-}
-
-html body .home-shell-dark.saas-home-refinement footer [aria-label*="instagram"]:hover,
-html body .home-shell-dark.saas-home-refinement footer [aria-label*="linkedin"]:hover,
-html body .home-shell-dark.saas-home-refinement footer [aria-label*="youtube"]:hover {
-  background: #6C5CE7 !important;
-  color: #FFFFFF !important;
-  border-color: #00CEC9 !important;
+.saas-home-refinement [style*="rgba(5, 10, 20, 0.6)"]:hover {
   transform: translateY(-2px) !important;
+  border-color: #00CEC9 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 206, 201, 0.3) !important;
 }
 
-html body .home-shell-dark.saas-home-refinement .footer-bottom span {
-  color: #64648C !important;
-}
-
-/* Pulsanti CTA generali Brand Gradient (Punto 1 Hero & CTA) */
-html body .home-shell-dark.saas-home-refinement button.vb,
-html body .home-shell-dark.saas-home-refinement .faq-sticky button {
+/* 6. CTA PRINCIPALI (#6C5CE7 -> #00CEC9) */
+.saas-home-refinement .vb,
+.saas-home-refinement button[style*="C.orange"],
+.saas-home-refinement .primary-action {
   background: linear-gradient(135deg, #6C5CE7 0%, #00CEC9 100%) !important;
   color: #FFFFFF !important;
   border: none !important;
-  border-radius: 14px !important;
-  box-shadow: 0 8px 32px rgba(108, 92, 231, 0.55), 0 0 18px rgba(0, 206, 201, 0.3) !important;
+  box-shadow: 0 8px 28px rgba(108, 92, 231, 0.45) !important;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  text-shadow: none !important;
 }
 
-html body .home-shell-dark.saas-home-refinement button.vb:hover,
-html body .home-shell-dark.saas-home-refinement .faq-sticky button:hover {
-  transform: translateY(-3px) scale(1.01) !important;
-  box-shadow: 0 14px 44px rgba(108, 92, 231, 0.75), 0 0 28px rgba(0, 206, 201, 0.5) !important;
+.saas-home-refinement .vb:hover,
+.saas-home-refinement .primary-action:hover {
+  transform: translateY(-2px) scale(1.02) !important;
+  box-shadow: 0 12px 36px rgba(0, 206, 201, 0.6) !important;
 }
 
-/* ==========================================================================
-   FASE FINALE UI POLISH (11 PUNTI FERREI ENTERPRISE)
-   ========================================================================== */
-
-/* 1. HERO POLISH (micro shadow, glow, contrasto) */
-html body .home-shell-dark.saas-home-refinement section:first-of-type h1 {
-  text-shadow: 0 4px 28px rgba(0, 0, 0, 0.85) !important;
-}
-
-/* 2 & 3. KPI ISTAT / GIS / GPS / PDF & PERCHÈ DIVERSO (Contrasto, icone, opacità scritte giganti) */
-html body .home-shell-dark.saas-home-refinement .why-diff-card {
-  background: #141428 !important;
-  border: 1px solid rgba(108, 92, 231, 0.32) !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
-  padding: 36px 32px !important;
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease !important;
-}
-
-html body .home-shell-dark.saas-home-refinement .why-diff-card:hover {
-  transform: translateY(-5px) !important;
-  background: #1A1A36 !important;
-  border-color: #00CEC9 !important;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(0, 206, 201, 0.25) !important;
-}
-
-html body .home-shell-dark.saas-home-refinement .why-diff-icon-badge {
-  background: linear-gradient(135deg, rgba(108, 92, 231, 0.25), rgba(0, 206, 201, 0.15)) !important;
-  border: 1px solid #00CEC9 !important;
-  color: #00CEC9 !important;
-  box-shadow: 0 4px 18px rgba(0, 206, 201, 0.22) !important;
-  border-radius: 16px !important;
-  width: 56px !important;
-  height: 56px !important;
-  font-size: 13px !important;
-}
-
-/* Riduzione opacità scritte giganti sullo sfondo */
-html body .home-shell-dark.saas-home-refinement .why-diff-card [class*="giant"],
-html body .home-shell-dark.saas-home-refinement .why-diff-card [style*="absolute"],
-html body .home-shell-dark.saas-home-refinement [class*="giant-text"],
-html body .home-shell-dark.saas-home-refinement [class*="watermark"] {
-  opacity: 0.03 !important;
-}
-
-/* 4. CONFIGURA CAMPAGNA (Unificazione 2 colonne in unico blocco coeso) */
-html body .home-shell-dark.saas-home-refinement section[aria-labelledby*="start"],
-html body .home-shell-dark.saas-home-refinement .vc > div {
-  border-radius: 20px !important;
-  box-shadow: 0 28px 75px rgba(0, 0, 0, 0.8), 0 0 32px rgba(108, 92, 231, 0.2) !important;
-  border: 1px solid rgba(108, 92, 231, 0.35) !important;
-  background: linear-gradient(145deg, #141428 0%, #1A1A36 100%) !important;
-}
-html body .home-shell-dark.saas-home-refinement .vc:hover > div {
-  border-color: #00CEC9 !important;
-  box-shadow: 0 36px 90px rgba(0, 0, 0, 0.95), 0 0 40px rgba(0, 206, 201, 0.3) !important;
-}
-
-/* 5. TIMELINE (Numeri 01-05 ridotti ed eleganti, protagonista = titolo card) */
-html body .home-shell-dark.saas-home-refinement .timeline-step-num,
-html body .home-shell-dark.saas-home-refinement [class*="step-num"],
-html body .home-shell-dark.saas-home-refinement [class*="timeline"] [class*="num"] {
-  font-size: 11px !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.18em !important;
-  color: rgba(162, 155, 254, 0.45) !important;
-  opacity: 0.65 !important;
-  text-transform: uppercase !important;
-  margin-bottom: 6px !important;
-}
-
-html body .home-shell-dark.saas-home-refinement .timeline-step-title {
-  font-size: 22px !important;
-  font-weight: 700 !important;
-  color: #F5F5FF !important;
-  margin-bottom: 8px !important;
-}
-
-html body .home-shell-dark.saas-home-refinement .timeline-step-badge {
-  background: #141428 !important;
-  border: 1px solid rgba(108, 92, 231, 0.4) !important;
-  color: #00CEC9 !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
-}
-
-/* 6. SPAZIATURE (Calibrate a 70px) */
-html body .home-shell-dark.saas-home-refinement > section,
-html body .home-shell-dark.saas-home-refinement > div > section,
-html body .home-shell-dark.saas-home-refinement section.section {
-  padding-top: 70px !important;
-  padding-bottom: 70px !important;
-}
-
-/* 7. UNIFORMAZIONE DEFINITIVA TUTTE LE CARD DESIGN SYSTEM */
-html body .home-shell-dark.saas-home-refinement .testimonial-card,
-html body .home-shell-dark.saas-home-refinement .servizio-card,
-html body .home-shell-dark.saas-home-refinement .timeline-card-body,
-html body .home-shell-dark.saas-home-refinement .vp-start-primary,
-html body .home-shell-dark.saas-home-refinement .vp-start-secondary {
-  border-radius: 20px !important;
-  box-sizing: border-box !important;
-}
-
-/* 8. TIPOGRAFIA GERARCHICA UNIFORMATA */
-html body .home-shell-dark.saas-home-refinement h1 {
-  font-family: 'DM Serif Display', Georgia, serif !important;
-  font-weight: 400 !important;
-  line-height: 1.06 !important;
-  color: #F5F5FF !important;
-}
-html body .home-shell-dark.saas-home-refinement h2,
-html body .home-shell-dark.saas-home-refinement .landing-h2 {
-  font-family: 'DM Serif Display', Georgia, serif !important;
-  font-size: clamp(34px, 4vw, 48px) !important;
-  font-weight: 400 !important;
-  line-height: 1.1 !important;
-  color: #F5F5FF !important;
-}
-html body .home-shell-dark.saas-home-refinement h3 {
-  font-family: 'DM Sans', Inter, system-ui, sans-serif !important;
-  font-size: 22px !important;
-  font-weight: 700 !important;
-  line-height: 1.3 !important;
-  color: #F5F5FF !important;
-}
-html body .home-shell-dark.saas-home-refinement [class*="kicker"],
-html body .home-shell-dark.saas-home-refinement [class*="eyebrow"],
-html body .home-shell-dark.saas-home-refinement [class*="caption"] {
-  font-family: 'DM Sans', Inter, system-ui, sans-serif !important;
-  font-size: 11px !important;
-  font-weight: 800 !important;
-  letter-spacing: 0.14em !important;
-  text-transform: uppercase !important;
-  color: #00CEC9 !important;
-}
-
-/* 9. FOOTER POLISH (Contrasto, spacing, divider) */
-html body .home-shell-dark.saas-home-refinement footer {
-  background: #070710 !important;
-  border-top: 1px solid rgba(108, 92, 231, 0.3) !important;
-  padding: 76px 32px 40px !important;
-}
-html body .home-shell-dark.saas-home-refinement footer .footer-grid {
-  gap: 60px !important;
-  padding-bottom: 60px !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-}
-html body .home-shell-dark.saas-home-refinement footer p,
-html body .home-shell-dark.saas-home-refinement footer .footer-bottom span {
-  color: #8E8EA8 !important;
-  font-size: 14px !important;
-}
-
-/* ==========================================================================
-   UI POLISH FINALE — CONFIGURATORE CAMPAGNA (SAAS ENTERPRISE)
-   Vincoli: Solo CSS, Zero modifiche JSX/funzionali, Palette Brand
-   ========================================================================== */
-
-/* Shell principale & Colori Base (14) */
-html body .planner-panel {
-  background: #0B0B18 !important;
-  color: #F5F5FF !important;
-  border-left: 1px solid rgba(108, 92, 231, 0.25) !important;
-  padding: 32px 28px !important;
-}
-
-/* 1. Header (spaziatura, contrasto, gerarchia) */
-html body .planner-panel .brand-header {
-  margin-bottom: 24px !important;
-  padding-bottom: 16px !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
-}
-html body .planner-panel .brand-mark {
-  color: #F5F5FF !important;
-  font-family: 'DM Serif Display', Georgia, serif !important;
-  font-size: 22px !important;
-}
-html body .planner-panel .status-pill {
-  background: rgba(0, 206, 201, 0.1) !important;
-  border: 1px solid rgba(0, 206, 201, 0.35) !important;
-  color: #00CEC9 !important;
-}
-
-/* 2. Smart Pairing Banner (Premium SaaS Component) */
-html body .planner-panel .switch-row,
-html body .planner-panel .calendar-note {
-  background: linear-gradient(135deg, rgba(108, 92, 231, 0.15), rgba(0, 206, 201, 0.08)) !important;
-  border: 1px solid rgba(0, 206, 201, 0.4) !important;
-  box-shadow: 0 0 20px rgba(0, 206, 201, 0.15) !important;
-  border-radius: 16px !important;
-  padding: 18px 20px !important;
-  position: relative !important;
-}
-html body .planner-panel .switch-row strong,
-html body .planner-panel .calendar-note strong {
-  color: #00CEC9 !important;
-}
-html body .planner-panel .switch-row span,
-html body .planner-panel .calendar-note span {
+/* Altre sezioni Home legacy sottostanti per omogeneità dark */
+.saas-home-refinement section[style*="cream"],
+.saas-home-refinement div[style*="cream"] {
+  background: #12122A !important;
+  border-top: 1px solid rgba(108, 92, 231, 0.18) !important;
   color: #F5F5FF !important;
 }
 
-/* 3. Card D2D / H2H / Business (hover, shadow, glow violet/cyan) */
-html body .planner-panel .service-option {
-  background: #141428 !important;
+.saas-home-refinement .vc {
+  background: #1E1E3A !important;
   border: 1px solid rgba(108, 92, 231, 0.22) !important;
-  border-radius: 16px !important;
-  padding: 20px !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
-  color: #A29BFE !important;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-html body .planner-panel .service-option:hover {
-  transform: translateY(-3px) !important;
-  background: #1C1C33 !important;
-  border-color: #6C5CE7 !important;
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.6), 0 0 16px rgba(108, 92, 231, 0.25) !important;
-}
-html body .planner-panel .service-option.active {
-  background: linear-gradient(145deg, #1C1C33, #141428) !important;
-  border: 1px solid #00CEC9 !important;
-  box-shadow: inset 4px 0 0 #00CEC9, 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 24px rgba(0, 206, 201, 0.35) !important;
-}
-html body .planner-panel .service-option-head strong {
   color: #F5F5FF !important;
-  font-size: 18px !important;
-}
-html body .planner-panel .service-option em,
-html body .planner-panel .service-option-head em {
-  background: #00CEC9 !important;
-  color: #0B0B18 !important;
-}
-html body .planner-panel .service-active-note {
-  color: #00CEC9 !important;
-}
-html body .planner-panel .service-includes small {
-  background: rgba(108, 92, 231, 0.2) !important;
-  color: #A29BFE !important;
-  border: 1px solid rgba(108, 92, 231, 0.3) !important;
-}
-
-/* 4. Quantità Slider & Presets */
-html body .planner-panel .quantity-card {
-  background: #141428 !important;
-  border: 1px solid rgba(108, 92, 231, 0.25) !important;
-  border-radius: 16px !important;
-  padding: 24px !important;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
-}
-html body .planner-panel .quantity-header strong {
-  color: #00CEC9 !important;
-  font-size: 18px !important;
-}
-html body .planner-panel .quantity-preset {
-  background: #1C1C33 !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  color: #A29BFE !important;
-}
-html body .planner-panel .quantity-preset:hover {
-  border-color: #6C5CE7 !important;
-  color: #F5F5FF !important;
-}
-html body .planner-panel .quantity-preset.active {
-  background: #6C5CE7 !important;
-  border-color: #00CEC9 !important;
-  color: #FFFFFF !important;
-  box-shadow: 0 0 18px rgba(0, 206, 201, 0.4) !important;
-}
-html body .planner-panel .quantity-slider {
-  background: linear-gradient(to right, #6C5CE7 var(--progress, 0%), rgba(255, 255, 255, 0.1) var(--progress, 0%)) !important;
-}
-html body .planner-panel .quantity-slider::-webkit-slider-thumb {
-  background: #00CEC9 !important;
-  border: 3px solid #FFFFFF !important;
-  box-shadow: 0 0 16px rgba(0, 206, 201, 0.8) !important;
-}
-html body .planner-panel .quantity-slider::-moz-range-thumb {
-  background: #00CEC9 !important;
-  border: 3px solid #FFFFFF !important;
-  box-shadow: 0 0 16px rgba(0, 206, 201, 0.8) !important;
-}
-
-/* 5, 6, 7. Data, Formato, Priorità Operativa */
-html body .planner-panel .field input,
-html body .planner-panel .field select,
-html body .planner-panel .field textarea {
-  background: #141428 !important;
-  border: 1px solid rgba(108, 92, 231, 0.3) !important;
-  color: #F5F5FF !important;
-  border-radius: 10px !important;
-}
-html body .planner-panel .field input:focus,
-html body .planner-panel .field select:focus,
-html body .planner-panel .field textarea:focus {
-  outline: none !important;
-  border-color: #00CEC9 !important;
-  box-shadow: 0 0 12px rgba(0, 206, 201, 0.25) !important;
-}
-html body .planner-panel .option-pill {
-  background: #141428 !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  color: #A29BFE !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
-}
-html body .planner-panel .option-pill:hover {
-  background: #1C1C33 !important;
-  border-color: #6C5CE7 !important;
-  color: #F5F5FF !important;
-}
-html body .planner-panel .option-pill.active {
-  background: linear-gradient(135deg, rgba(108, 92, 231, 0.35), rgba(0, 206, 201, 0.15)) !important;
-  border: 1px solid #00CEC9 !important;
-  color: #00CEC9 !important;
-  box-shadow: 0 0 16px rgba(0, 206, 201, 0.3) !important;
-}
-
-/* 8. Piano Campagna & Addons (SaaS Plan Style) */
-html body .planner-panel .addon-panel {
-  background: #141428 !important;
-  border: 1px solid rgba(108, 92, 231, 0.3) !important;
-  border-radius: 16px !important;
-}
-html body .planner-panel .addon-panel-head span {
-  color: #00CEC9 !important;
-}
-html body .planner-panel .addon-option {
-  background: #1C1C33 !important;
-  border: 1px solid rgba(255, 255, 255, 0.07) !important;
-  color: #F5F5FF !important;
-}
-html body .planner-panel .addon-option:hover {
-  border-color: #6C5CE7 !important;
-  background: #242442 !important;
-}
-html body .planner-panel .addon-option.active {
-  background: linear-gradient(135deg, rgba(108, 92, 231, 0.25), rgba(0, 206, 201, 0.1)) !important;
-  border: 1px solid #00CEC9 !important;
-  box-shadow: 0 0 16px rgba(0, 206, 201, 0.2) !important;
-}
-html body .planner-panel .addon-option strong {
-  color: #F5F5FF !important;
-}
-html body .planner-panel .addon-option b {
-  color: #00CEC9 !important;
-}
-
-/* 9. Riepilogo (Executive Summary) */
-html body .planner-panel .config-summary,
-html body .planner-panel .quote-box,
-html body .planner-panel .summary-list,
-html body .planner-panel .totals,
-html body .planner-panel .zone-summary {
-  background: #141428 !important;
-  border: 1px solid rgba(108, 92, 231, 0.3) !important;
-  border-radius: 16px !important;
-  color: #F5F5FF !important;
-}
-html body .planner-panel .config-summary > div:first-child,
-html body .planner-panel .quote-box {
-  background: #1C1C33 !important;
-  border-bottom: 1px solid rgba(108, 92, 231, 0.25) !important;
-}
-html body .planner-panel .summary-row span,
-html body .planner-panel .row span {
-  color: #A29BFE !important;
-}
-html body .planner-panel .summary-row b,
-html body .planner-panel .row b {
-  color: #F5F5FF !important;
-}
-html body .planner-panel .summary-row.strong b,
-html body .planner-panel .totals .row.strong b {
-  color: #00CEC9 !important;
-  font-size: 18px !important;
-}
-
-/* 10. CTA Finale (Focal Point Violet -> Cyan) */
-html body .planner-panel button.primary-action {
-  background: linear-gradient(135deg, #6C5CE7 0%, #00CEC9 100%) !important;
-  color: #FFFFFF !important;
-  border: none !important;
-  border-radius: 14px !important;
-  padding: 16px 24px !important;
-  font-size: 16px !important;
-  font-weight: 800 !important;
-  box-shadow: 0 10px 30px rgba(108, 92, 231, 0.5), 0 0 20px rgba(0, 206, 201, 0.3) !important;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-html body .planner-panel button.primary-action:hover {
-  transform: translateY(-3px) scale(1.01) !important;
-  box-shadow: 0 16px 42px rgba(108, 92, 231, 0.7), 0 0 30px rgba(0, 206, 201, 0.5) !important;
-}
-html body .planner-panel button.secondary-action {
-  background: #141428 !important;
-  border: 1px solid rgba(108, 92, 231, 0.4) !important;
-  color: #A29BFE !important;
-}
-html body .planner-panel button.secondary-action:hover {
-  border-color: #00CEC9 !important;
-  color: #F5F5FF !important;
-}
-
-/* 11, 12, 13. Step Tabs, Spaziature & Card Uniformate */
-html body .planner-panel .step-tabs button {
-  background: #141428 !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  color: #8E8EA8 !important;
-  border-radius: 12px !important;
-}
-html body .planner-panel .step-tabs button.active {
-  background: #1C1C33 !important;
-  border-color: #6C5CE7 !important;
-  color: #F5F5FF !important;
-  box-shadow: 0 4px 16px rgba(108, 92, 231, 0.25) !important;
-}
-html body .planner-panel .step-tabs button span {
-  color: #00CEC9 !important;
-}
-html body .planner-panel .step-progress-card {
-  background: #1C1C33 !important;
-  border: 1px solid rgba(108, 92, 231, 0.3) !important;
-  border-radius: 16px !important;
-}
-html body .planner-panel .step-progress-card span {
-  color: #00CEC9 !important;
-}
-html body .planner-panel .step-progress-card b {
-  color: #F5F5FF !important;
-  color: #00CEC9 !important;
-}
-html body .planner-panel .service-includes small {
-  background: rgba(108, 92, 231, 0.2) !important;
-  color: #A29BFE !important;
-  border: 1px solid rgba(108, 92, 231, 0.3) !important;
-}
-
-/* 4. Quantità Slider & Presets */
-html body .planner-panel .quantity-card {
-  background: #141428 !important;
-  border: 1px solid rgba(108, 92, 231, 0.25) !important;
-  border-radius: 16px !important;
-  padding: 24px !important;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
-}
-html body .planner-panel .quantity-header strong {
-  color: #00CEC9 !important;
-  font-size: 18px !important;
-}
-html body .planner-panel .quantity-preset {
-  background: #1C1C33 !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  color: #A29BFE !important;
-}
-html body .planner-panel .quantity-preset:hover {
-  border-color: #6C5CE7 !important;
-  color: #F5F5FF !important;
-}
-html body .planner-panel .quantity-preset.active {
-  background: #6C5CE7 !important;
-  border-color: #00CEC9 !important;
-  color: #FFFFFF !important;
-  box-shadow: 0 0 18px rgba(0, 206, 201, 0.4) !important;
-}
-html body .planner-panel .quantity-slider {
-  background: linear-gradient(to right, #6C5CE7 var(--progress, 0%), rgba(255, 255, 255, 0.1) var(--progress, 0%)) !important;
-}
-html body .planner-panel .quantity-slider::-webkit-slider-thumb {
-  background: #00CEC9 !important;
-  border: 3px solid #FFFFFF !important;
-  box-shadow: 0 0 16px rgba(0, 206, 201, 0.8) !important;
-}
-html body .planner-panel .quantity-slider::-moz-range-thumb {
-  background: #00CEC9 !important;
-  border: 3px solid #FFFFFF !important;
-  box-shadow: 0 0 16px rgba(0, 206, 201, 0.8) !important;
-}
-
-/* 5, 6, 7. Data, Formato, Priorità Operativa */
-html body .planner-panel .field input,
-html body .planner-panel .field select,
-html body .planner-panel .field textarea {
-  background: #141428 !important;
-  border: 1px solid rgba(108, 92, 231, 0.3) !important;
-  color: #F5F5FF !important;
-  border-radius: 10px !important;
-}
-html body .planner-panel .field input:focus,
-html body .planner-panel .field select:focus,
-html body .planner-panel .field textarea:focus {
-  outline: none !important;
-  border-color: #00CEC9 !important;
-  box-shadow: 0 0 12px rgba(0, 206, 201, 0.25) !important;
-}
-html body .planner-panel .option-pill {
-  background: #141428 !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  color: #A29BFE !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
-}
-html body .planner-panel .option-pill:hover {
-  background: #1C1C33 !important;
-  border-color: #6C5CE7 !important;
-  color: #F5F5FF !important;
-}
-html body .planner-panel .option-pill.active {
-  background: linear-gradient(135deg, rgba(108, 92, 231, 0.35), rgba(0, 206, 201, 0.15)) !important;
-  border: 1px solid #00CEC9 !important;
-  color: #00CEC9 !important;
-  box-shadow: 0 0 16px rgba(0, 206, 201, 0.3) !important;
-}
-
-/* 8. Piano Campagna & Addons (SaaS Plan Style) */
-html body .planner-panel .addon-panel {
-  background: #141428 !important;
-  border: 1px solid rgba(108, 92, 231, 0.3) !important;
-  border-radius: 16px !important;
-}
-html body .planner-panel .addon-panel-head span {
-  color: #00CEC9 !important;
-}
-html body .planner-panel .addon-option {
-  background: #1C1C33 !important;
-  border: 1px solid rgba(255, 255, 255, 0.07) !important;
-  color: #F5F5FF !important;
-}
-html body .planner-panel .addon-option:hover {
-  border-color: #6C5CE7 !important;
-  background: #242442 !important;
-}
-html body .planner-panel .addon-option.active {
-  background: linear-gradient(135deg, rgba(108, 92, 231, 0.25), rgba(0, 206, 201, 0.1)) !important;
-  border: 1px solid #00CEC9 !important;
-  box-shadow: 0 0 16px rgba(0, 206, 201, 0.2) !important;
-}
-html body .planner-panel .addon-option strong {
-  color: #F5F5FF !important;
-}
-html body .planner-panel .addon-option b {
-  color: #00CEC9 !important;
-}
-
-/* 9. Riepilogo (Executive Summary) */
-html body .planner-panel .config-summary,
-html body .planner-panel .quote-box,
-html body .planner-panel .summary-list,
-html body .planner-panel .totals,
-html body .planner-panel .zone-summary {
-  background: #141428 !important;
-  border: 1px solid rgba(108, 92, 231, 0.3) !important;
-  border-radius: 16px !important;
-  color: #F5F5FF !important;
-}
-html body .planner-panel .config-summary > div:first-child,
-html body .planner-panel .quote-box {
-  background: #1C1C33 !important;
-  border-bottom: 1px solid rgba(108, 92, 231, 0.25) !important;
-}
-html body .planner-panel .summary-row span,
-html body .planner-panel .row span {
-  color: #A29BFE !important;
-}
-html body .planner-panel .summary-row b,
-html body .planner-panel .row b {
-  color: #F5F5FF !important;
-}
-html body .planner-panel .summary-row.strong b,
-html body .planner-panel .totals .row.strong b {
-  color: #00CEC9 !important;
-  font-size: 18px !important;
-}
-
-/* 10. CTA Finale (Focal Point Violet -> Cyan) */
-html body .planner-panel button.primary-action {
-  background: linear-gradient(135deg, #6C5CE7 0%, #00CEC9 100%) !important;
-  color: #FFFFFF !important;
-  border: none !important;
-  border-radius: 14px !important;
-  padding: 16px 24px !important;
-  font-size: 16px !important;
-  font-weight: 800 !important;
-  box-shadow: 0 10px 30px rgba(108, 92, 231, 0.5), 0 0 20px rgba(0, 206, 201, 0.3) !important;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-html body .planner-panel button.primary-action:hover {
-  transform: translateY(-3px) scale(1.01) !important;
-  box-shadow: 0 16px 42px rgba(108, 92, 231, 0.7), 0 0 30px rgba(0, 206, 201, 0.5) !important;
-}
-html body .planner-panel button.secondary-action {
-  background: #141428 !important;
-  border: 1px solid rgba(108, 92, 231, 0.4) !important;
-  color: #A29BFE !important;
-}
-html body .planner-panel button.secondary-action:hover {
-  border-color: #00CEC9 !important;
-  color: #F5F5FF !important;
-}
-
-/* 11, 12, 13. Step Tabs, Spaziature & Card Uniformate */
-html body .planner-panel .step-tabs button {
-  background: #141428 !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  color: #8E8EA8 !important;
-  border-radius: 12px !important;
-}
-html body .planner-panel .step-tabs button.active {
-  background: #1C1C33 !important;
-  border-color: #6C5CE7 !important;
-  color: #F5F5FF !important;
-  box-shadow: 0 4px 16px rgba(108, 92, 231, 0.25) !important;
-}
-html body .planner-panel .step-tabs button span {
-  color: #00CEC9 !important;
-}
-html body .planner-panel .step-progress-card {
-  background: #1C1C33 !important;
-  border: 1px solid rgba(108, 92, 231, 0.3) !important;
-  border-radius: 16px !important;
-}
-html body .planner-panel .step-progress-card span {
-  color: #00CEC9 !important;
-}
-html body .planner-panel .step-progress-card b {
-  color: #F5F5FF !important;
-}
-html body .planner-panel .step-progress-card i {
-  background: linear-gradient(90deg, #6C5CE7, #00CEC9) !important;
-}
-
-/* ==========================================================================
-   CHECKPOINT 13 — FIX BUG DUPLICAZIONE KPI & POSIZIONE CORRETTA SUBITO DOPO HERO
-   Risegnalazione: Nessun redesign, 0 modifiche a JSX / Componenti / Logica
-   ========================================================================== */
-
-/* 1. RIMOZIONE DUPLICAZIONE E POSIZIONE SBAGLIATA
-   Nascondiamo definitivamente la banda duplicata che compariva a fondo pagina */
-.saas-home-refinement .section-tight,
-.home-shell-dark .section-tight {
-  display: none !important;
-}
-
-/* 2. VERI KPI NELLA POSIZIONE CORRETTA (SUBITO DOPO HERO/MONITOR)
-   Applichiamo la struttura KPI arricchita direttamente alla banda TrustBar */
-.saas-home-refinement .trust-bar-metrics > div {
-  background: #1E1E3A !important;
-  border: 1px solid rgba(108, 92, 231, 0.32) !important;
-  border-radius: 18px !important;
-  padding: 28px 22px !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: center !important;
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.35s ease, box-shadow 0.35s ease !important;
-}
-
-/* Nascondiamo i vecchi testi piatti del TrustBar per far posto ai veri KPI */
-.saas-home-refinement .trust-bar-metrics > div > div:nth-child(1) {
-  font-size: 0 !important;
-  line-height: 0 !important;
-  margin-bottom: 12px !important;
-}
-
-.saas-home-refinement .trust-bar-metrics > div > div:nth-child(2) {
-  font-size: 0 !important;
-  line-height: 0 !important;
-  margin-bottom: 0 !important;
-}
-
-/* Card 1: ISTAT */
-.saas-home-refinement .trust-bar-metrics > div:nth-child(1) > div:nth-child(1)::before {
-  content: "📊   756.981";
-  font-family: 'DM Serif Display', Georgia, serif;
-  font-size: 38px;
-  color: #F5F5FF;
-  letter-spacing: -0.02em;
-  display: block;
-  line-height: 1.15;
-}
-
-.saas-home-refinement .trust-bar-metrics > div:nth-child(1) > div:nth-child(2)::before {
-  content: "Famiglie ISTAT";
-  font-family: 'DM Sans', Inter, sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  color: #F5F5FF;
-  display: block;
-  line-height: 1.3;
-  margin-bottom: 4px;
-}
-
-.saas-home-refinement .trust-bar-metrics > div:nth-child(1) > div:nth-child(2)::after {
-  content: "Dati territoriali";
-  font-family: 'DM Sans', Inter, sans-serif;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #00CEC9;
-  display: block;
-}
-
-/* Card 2: GIS */
-.saas-home-refinement .trust-bar-metrics > div:nth-child(2) > div:nth-child(1)::before {
-  content: "🗺   34";
-  font-family: 'DM Serif Display', Georgia, serif;
-  font-size: 38px;
-  color: #F5F5FF;
-  letter-spacing: -0.02em;
-  display: block;
-  line-height: 1.15;
-}
-
-.saas-home-refinement .trust-bar-metrics > div:nth-child(2) > div:nth-child(2)::before {
-  content: "Comuni coperti";
-  font-family: 'DM Sans', Inter, sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  color: #F5F5FF;
-  display: block;
-  line-height: 1.3;
-  margin-bottom: 4px;
-}
-
-.saas-home-refinement .trust-bar-metrics > div:nth-child(2) > div:nth-child(2)::after {
-  content: "Analisi GIS";
-  font-family: 'DM Sans', Inter, sans-serif;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #00CEC9;
-  display: block;
-}
-
-/* Card 3: GPS */
-.saas-home-refinement .trust-bar-metrics > div:nth-child(3) > div:nth-child(1)::before {
-  content: "🛰   100%";
-  font-family: 'DM Serif Display', Georgia, serif;
-  font-size: 38px;
-  color: #F5F5FF;
-  letter-spacing: -0.02em;
-  display: block;
-  line-height: 1.15;
-}
-
-.saas-home-refinement .trust-bar-metrics > div:nth-child(3) > div:nth-child(2)::before {
-  content: "Tracking operativo";
-  font-family: 'DM Sans', Inter, sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  color: #F5F5FF;
-  display: block;
-  line-height: 1.3;
-  margin-bottom: 4px;
-}
-
-.saas-home-refinement .trust-bar-metrics > div:nth-child(3) > div:nth-child(2)::after {
-  content: "Verifica campo";
-  font-family: 'DM Sans', Inter, sans-serif;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #00CEC9;
-  display: block;
-}
-
-/* Card 4: PDF */
-.saas-home-refinement .trust-bar-metrics > div:nth-child(4) > div:nth-child(1)::before {
-  content: "📑   Certificato";
-  font-family: 'DM Serif Display', Georgia, serif;
-  font-size: 36px;
-  color: #F5F5FF;
-  letter-spacing: -0.02em;
-  display: block;
-  line-height: 1.15;
-}
-
-.saas-home-refinement .trust-bar-metrics > div:nth-child(4) > div:nth-child(2)::before {
-  content: "Report e prove";
-  font-family: 'DM Sans', Inter, sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  color: #F5F5FF;
-  display: block;
-  line-height: 1.3;
-  margin-bottom: 4px;
-}
-
-.saas-home-refinement .trust-bar-metrics > div:nth-child(4) > div:nth-child(2)::after {
-  content: "Output verificabile";
-  font-family: 'DM Sans', Inter, sans-serif;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #00CEC9;
-  display: block;
-}
-
-/* --------------------------------------------------------------------------
-   3. TIMELINE 01–04 (Ulteriore riduzione numeri e contrasto potenziato)
-   -------------------------------------------------------------------------- */
-.saas-home-refinement .vc > div:first-child,
-.home-shell-dark .vc > div:first-child {
-  font-size: 52px !important;
-  opacity: 0.10 !important;
-  color: #A29BFE !important;
-  top: 4px !important;
-  right: 16px !important;
-  z-index: 1 !important;
-}
-
-/* Protagonisti: titolo bianco puro ad alto contrasto e descrizione luminosa */
-.saas-home-refinement .vc h3,
-.home-shell-dark .vc h3 {
-  color: #FFFFFF !important;
-  font-size: 22px !important;
-  font-weight: 800 !important;
-  position: relative !important;
-  z-index: 10 !important;
-  margin-bottom: 10px !important;
-}
-
-.saas-home-refinement .vc p,
-.home-shell-dark .vc p {
-  color: #D2D2EA !important;
-  font-size: 15px !important;
-  line-height: 1.65 !important;
-  position: relative !important;
-  z-index: 10 !important;
-}
-
-.saas-home-refinement .vc [style*="primary"],
-.home-shell-dark .vc [style*="primary"] {
-  position: relative !important;
-  z-index: 10 !important;
-}
-
-/* --------------------------------------------------------------------------
-   4. HOVER UNIFORMATO
-   -------------------------------------------------------------------------- */
-.saas-home-refinement .trust-bar-metrics > div:hover,
-.saas-home-refinement .vc:hover,
-.home-shell-dark .vc:hover {
-  transform: translateY(-3px) !important;
-  border-color: #00CEC9 !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 24px rgba(0, 206, 201, 0.22) !important;
-  background: #1E1E3A !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
 }

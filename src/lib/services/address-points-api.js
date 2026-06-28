@@ -18,7 +18,7 @@ export const FALLBACK_CIVICI_STATE = {
   source: null,
   coverage: 'none',
   label: 'Civici non disponibili',
-  message: 'Dati civici non disponibili per questa zona',
+  message: 'Civici non disponibili per questa zona. La copertura resta calcolata sui dati territoriali.',
   points: [],
 };
 
@@ -66,6 +66,18 @@ export function makeCiviciState(rows, totalCount = null, metadata = {}) {
   };
 }
 
+// Session-level cache for request keys that timed out — prevents immediate retry
+const timeoutedKeys = new Set();
+
+// Max radius beyond which we skip the fetch entirely (bbox would be too large)
+const MAX_CIVICI_RADIUS_KM = 3;
+
+// Fields actually needed — never use select=*
+const SELECT_FIELDS = 'id,lat,lng,source';
+
+// Hard cap on rows returned from PostgREST
+const ROW_LIMIT = 1500;
+
 export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusKm, signal }) {
   const url = import.meta.env.VITE_SUPABASE_URL;
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -73,7 +85,13 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
     return { rows: [], count: 0, bboxCount: 0, totalCount: 0, contentRangeCount: 0, renderedCount: 0 };
   }
 
-  // Calculate bbox (1 degree lat is ~111km)
+  // Guard: skip large radii — bbox would contain too many rows and timeout anyway
+  if (radiusKm > MAX_CIVICI_RADIUS_KM) {
+    console.log('[ADDRESS_POINTS_FETCH_SKIPPED_RADIUS]', { radiusKm, maxAllowed: MAX_CIVICI_RADIUS_KM });
+    return { rows: [], count: 0, bboxCount: 0, totalCount: 0, contentRangeCount: 0, renderedCount: 0 };
+  }
+
+  // Calculate bbox (1 degree lat ≈ 111 km)
   const latDelta = radiusKm / 111.0;
   const lngDelta = radiusKm / (111.0 * Math.cos((centerLat * Math.PI) / 180));
   const minLat = centerLat - latDelta;
@@ -81,9 +99,23 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
   const minLng = centerLng - lngDelta;
   const maxLng = centerLng + lngDelta;
 
-  const generatedUrl = `${url}/rest/v1/address_points?select=*&source=eq.osm&lat=gte.${minLat}&lat=lte.${maxLat}&lng=gte.${minLng}&lng=lte.${maxLng}`;
+  const requestKey = `osm_${minLat.toFixed(5)}_${maxLat.toFixed(5)}_${minLng.toFixed(5)}_${maxLng.toFixed(5)}_r${radiusKm}`;
 
-  console.log(`[ADDRESS_POINTS_FETCH_BBOX] lat: [${minLat}, ${maxLat}], lng: [${minLng}, ${maxLng}], radiusKm: ${radiusKm}`);
+  // Guard: skip if this exact bbox already timed out this session
+  if (timeoutedKeys.has(requestKey)) {
+    console.log('[ADDRESS_POINTS_FETCH_SKIPPED_TIMEOUT]', { requestKey });
+    return { rows: [], count: 0, bboxCount: 0, totalCount: 0, contentRangeCount: 0, renderedCount: 0, isTimeout: true };
+  }
+
+  const generatedUrl =
+    `${url}/rest/v1/address_points` +
+    `?select=${SELECT_FIELDS}` +
+    `&source=eq.osm` +
+    `&lat=gte.${minLat}&lat=lte.${maxLat}` +
+    `&lng=gte.${minLng}&lng=lte.${maxLng}` +
+    `&limit=${ROW_LIMIT}`;
+
+  console.log(`[ADDRESS_POINTS_FETCH_BBOX] lat: [${minLat.toFixed(5)}, ${maxLat.toFixed(5)}], lng: [${minLng.toFixed(5)}, ${maxLng.toFixed(5)}], radiusKm: ${radiusKm}`);
 
   try {
     const response = await fetch(generatedUrl, {
@@ -91,16 +123,24 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
       headers: {
         apikey: anonKey,
         Authorization: `Bearer ${anonKey}`,
-        'Range-Unit': 'items',
-        'Range': '0-999',
-        'Prefer': 'count=exact'
+        'Prefer': 'count=exact',
       },
-      signal
+      signal,
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("[ADDRESS_POINTS_ERROR] fetch failed", errText);
+
+      // Supabase statement timeout — treat as graceful fallback, never as hard error
+      let errObj;
+      try { errObj = JSON.parse(errText); } catch { /* non-JSON body */ }
+      if (errObj?.code === '57014' || String(errObj?.code) === '57014') {
+        console.log('[ADDRESS_POINTS_FETCH_TIMEOUT]', { requestKey, status: response.status });
+        timeoutedKeys.add(requestKey);
+        return { rows: [], count: 0, bboxCount: 0, totalCount: 0, contentRangeCount: 0, renderedCount: 0, isTimeout: true };
+      }
+
+      console.error('[ADDRESS_POINTS_ERROR] fetch failed', response.status, errText);
       throw new Error(errText || 'ADDRESS_POINTS_REST_ERROR');
     }
 
@@ -112,7 +152,7 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
       if (match) contentRangeCount = parseInt(match[1], 10);
     }
 
-    console.log(`[ADDRESS_POINTS_FETCH_SUCCESS] received ${rows.length} rows, content-range count: ${contentRangeCount}`);
+    console.log(`[ADDRESS_POINTS_FETCH_SUCCESS] received ${rows.length} rows, total: ${contentRangeCount}`);
 
     const resultRows = rows
       .map((row) => ({
@@ -122,19 +162,22 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
       .filter((row) => Number.isFinite(row.distance_m) && row.distance_m <= radiusKm * 1000)
       .sort((a, b) => a.distance_m - b.distance_m);
 
-    const bboxCount = resultRows.length;
-
     return {
       rows: resultRows,
       count: contentRangeCount,
-      bboxCount,
+      bboxCount: resultRows.length,
       totalCount: contentRangeCount,
       contentRangeCount,
       renderedCount: resultRows.length,
     };
   } catch (err) {
-    console.error("[ADDRESS_POINTS_ERROR]", err?.message || err);
-    console.log("[ADDRESS_POINTS_FETCH_FALLBACK]");
+    // AbortError is expected on navigation/component-unmount — not an error
+    if (err.name === 'AbortError') {
+      console.log('[ADDRESS_POINTS_FETCH_ABORTED]');
+      throw err;
+    }
+    console.error('[ADDRESS_POINTS_ERROR]', err?.message || err);
+    console.log('[ADDRESS_POINTS_FETCH_FALLBACK]');
     throw err;
   }
 }

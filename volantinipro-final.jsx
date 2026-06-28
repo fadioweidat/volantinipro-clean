@@ -248,7 +248,7 @@ const go = (target) => { setMenuOpen(false); onNav(target); };
         {!isMobile && <div style={{ display: "flex", gap: 42 }}>{navLinks.map(l => <a key={l} className="nl" href="#" style={{ color: "rgba(255,255,255,.75)", textDecoration: "none", fontFamily: F.sans, fontSize: 15, fontWeight: 700, transition: "color 0.2s" }}>{l}{l === "Risorse" ? <span style={{ marginLeft: 5, color: "rgba(255,255,255,.4)", fontSize: 10 }}>▾</span> : null}</a>)}</div>}
         {!isMobile && <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
           <button onClick={() => go("login")} style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.04)", color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 700, cursor: "pointer", transition: "all 0.2s ease" }}>Accedi</button>
-          <button className="vb" onClick={() => go("step1")} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: `0 4px 14px rgba(232, 87, 26, 0.25), inset 0 1px 0 rgba(255,255,255,0.2)` }}>Configura la tua campagna</button>
+          <button className="vb" onClick={() => go("step1")} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "#22C55E", color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: `0 4px 14px rgba(34, 197, 94, 0.25), inset 0 1px 0 rgba(255,255,255,0.2)` }}>Configura la tua campagna</button>
         </div>}
         {isMobile && <button aria-label={menuOpen ? "Chiudi menu" : "Apri menu"} onClick={() => setMenuOpen(v => !v)} style={{ minWidth: 72, height: 44, borderRadius: 9, border: "1px solid rgba(255,255,255,.16)", background: "rgba(255,255,255,.06)", color: C.white, fontFamily: F.sans, fontSize: 12, fontWeight: 800, lineHeight: 1, cursor: "pointer" }}>{menuOpen ? "Chiudi" : "Menu"}</button>}
       </div>
@@ -258,7 +258,7 @@ const go = (target) => { setMenuOpen(false); onNav(target); };
             {navLinks.map(l => <a key={l} href="#" className="nl" onClick={() => setMenuOpen(false)} style={{ minHeight: 44, display: "flex", alignItems: "center", color: "rgba(255,255,255,.7)", textDecoration: "none", fontFamily: F.sans, fontSize: 14, fontWeight: 600 }}>{l}</a>)}
             <button onClick={() => go("admin")} style={{ minHeight: 44, borderRadius: 9, border: "1px solid rgba(232,87,26,.35)", background: "rgba(232,87,26,.1)", color: C.orange, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Admin</button>
             <button onClick={() => go("login")} style={{ minHeight: 44, borderRadius: 9, border: "1px solid rgba(255,255,255,.18)", background: "transparent", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Accedi</button>
-            <button className="vb" onClick={() => go("step1")} style={{ minHeight: 48, borderRadius: 9, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: `0 4px 14px rgba(232, 87, 26, 0.25)` }}>Configura la tua campagna</button>
+            <button className="vb" onClick={() => go("step1")} style={{ minHeight: 48, borderRadius: 9, border: "none", background: "#22C55E", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: `0 4px 14px rgba(34, 197, 94, 0.25)` }}>Configura la tua campagna</button>
           </div>
         </div>
       )}
@@ -289,9 +289,6 @@ const idx = ids.indexOf(current);
             </div>
           );
         })}
-        <button onClick={() => onGo("home")} style={{ marginLeft: "auto", background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 7, padding: "5px 12px", color: "rgba(255,255,255,.5)", fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-            Home
-        </button>
       </div>
     </div>
   );
@@ -354,7 +351,7 @@ const kpis = [
 }
 
 function HomePage({onStart:n}){const i=()=>document.getElementById("come-funziona")?.scrollIntoView({behavior:"smooth",block:"start"}),[r,l]=useState(!1),[u,h]=useState({city:"",qty:"5000",service:"Door to Door"}),f=Math.max(180,Math.round((Number(u.qty)||0)*(u.service==="Door to Door" ?.13 : u.service==="Hand to Hand" ?.18 :.22))),m=[{t:"Piattaforma",items:[["Configuratore","step1"],["Preventivo rapido","quick"],["Come funziona","home"],["Tracking GPS","campaign"]]},{t:"Servizi",items:[["Door to Door","step1"],["Hand to Hand","step1"],["Business Distribution","step1"],["Report campagna","campaign"]]},{t:"Risorse",items:[["Servizi","home"],["Supporto","consultant"],["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]]}];useEffect(()=>{const D=()=>l(window.innerWidth<760);return D(),window.addEventListener("resize",D),()=>window.removeEventListener("resize",D)},[]);const[kpiBandVisible,setKpiBandVisible]=useState(!0),kpiBandRef=useRef(null);useEffect(()=>{const D=kpiBandRef.current;if(!D)return;const W=new IntersectionObserver(([A])=>{A.isIntersecting&&(setKpiBandVisible(!0),W.disconnect())},{threshold:.25});return W.observe(D),()=>W.disconnect()},[]);
-const x=[{value:"ISTAT",l:"Dati reali",src:"Fonti territoriali"},{value:"GIS",l:"Analisi zona",src:"Mappa e raggio"},{value:"GPS",l:"Tracking operativo",src:"Verifica campo"},{value:"PDF",l:"Report e prove",src:"Output verificabile"}],w=["Dati ISTAT ufficiali","GPS certificato","No vincoli mensili"],j=["Retail locale","Food locale","Casa e servizi","Fitness locale","Attività locale"],T=[{n:"01",t:"Configura campagna",d:"Scegli servizio, quantità, formato, stampa e frequenza della distribuzione.",b:"Servizio + quantità",c:C.orange},{n:"02",t:"Zona e mappa",d:"Imposta comune e raggio, poi verifica famiglie ISTAT, comuni coinvolti, copertura e volantini consigliati.",b:"Analisi territoriale",c:C.orange},{n:"03",t:"Pianificazione",d:"Scegli il periodo desiderato. Smart Pairing resta opzionale quando esistono campagne compatibili.",b:"Date + opzioni",c:C.orange},{n:"04",t:"Preventivo completo",d:"Controlla riepilogo campagna, servizi, dati territoriali disponibili e prezzo finale calcolato.",b:"Riepilogo + prezzo",c:C.orange}],z=[{name:"Door to Door",icon:"D2D",desc:"Distribuzione in cassette postali, condomini, palazzi, villette e zone residenziali.",features:["Famiglie stimate","Popolazione stimata","Copertura zona","Volantini consigliati","Comuni nel raggio"],c:C.orange},{name:"Hand to Hand",icon:"H2H",desc:"Distribuzione manuale in punti ad alto passaggio.",features:["POI rilevanti","Fermate metro/bus/treno","Scuole, università, eventi","Flusso potenziale","Smart Pairing"],c:C.orange},{name:"Business Distribution",icon:"B2B",desc:"Distribuzione mirata ad attività commerciali, uffici e zone business.",features:["Attività rilevate","Categorie commerciali","Competitor vicini","Densità commerciale","Cluster zona"],c:C.orange}],R=[{n:"01",t:"Configura campagna",d:"Percorso completo in 4 step: campagna, zona, pianificazione e preventivo finale.",benefits:["Analisi ISTAT zona","Mappa e copertura","GPS e report verificabili","Smart Pairing opzionale"],cta:"Configura la tua campagna",c:C.orange,fn:()=>n("step1")},{n:"02",t:"Preventivo rapido",d:"Inserisci pochi dati e passa a un prezzo personalizzato calcolato su zona, quantità e servizio.",benefits:["3 campi essenziali","Prezzo personalizzato","Nessun account richiesto"],cta:"Preventivo rapido",c:C.orange,fn:()=>n("quick"),quick:!0},{n:"03",t:"Parla con un consulente",d:"Preferisci supporto diretto? Invia una richiesta e ti ricontattiamo.",benefits:["Brief gratuito","Scelta servizio guidata","Richiamo operativo","Tempo: immediato"],cta:"Parla con un consulente",c:C.orange,fn:()=>n("consultant")}];return _jsxs("div",{className:"home-shell-dark saas-home-refinement",style:{background:"#0A0A1A",paddingBottom:0,minHeight:"100vh"},children:[_jsx("style",{children:`
+const x=[{value:"ISTAT",l:"Dati reali",src:"Fonti territoriali"},{value:"GIS",l:"Analisi zona",src:"Mappa e raggio"},{value:"GPS",l:"Tracking operativo",src:"Verifica campo"},{value:"PDF",l:"Report e prove",src:"Output verificabile"}],w=["Dati ISTAT ufficiali","GPS certificato","No vincoli mensili"],j=["Retail locale","Food locale","Casa e servizi","Fitness locale","Attività locale"],T=[{n:"01",t:"Configura campagna",d:"Scegli servizio, quantità, formato, stampa e frequenza della distribuzione.",b:"Servizio + quantità",c:C.orange},{n:"02",t:"Zona e mappa",d:"Imposta comune e raggio, poi verifica famiglie ISTAT, comuni coinvolti, copertura e volantini consigliati.",b:"Analisi territoriale",c:C.orange},{n:"03",t:"Pianificazione",d:"Scegli il periodo desiderato. Smart Pairing resta opzionale quando esistono campagne compatibili.",b:"Date + opzioni",c:C.orange},{n:"04",t:"Preventivo completo",d:"Controlla riepilogo campagna, servizi, dati territoriali disponibili e prezzo finale calcolato.",b:"Riepilogo + prezzo",c:C.orange}],z=[{name:"Door to Door",icon:"D2D",desc:"Distribuzione nelle cassette postali di condomini, palazzi, villette e zone residenziali.",features:["attività locali","promozioni zona","grande copertura territoriale"],c:C.orange},{name:"Hand to Hand",icon:"H2H",desc:"Distribuzione a mano in punti ad alto passaggio.",features:["POI rilevanti","Fermate metro/bus/treno","Scuole, università, eventi","Flusso potenziale","Smart Pairing"],c:C.orange},{name:"Business Distribution",icon:"B2B",desc:"Distribuzione mirata ad attività commerciali, uffici e zone business.",features:["B2B","fornitori","servizi professionali","attività locali"],c:C.orange}],R=[{n:"01",t:"Configura campagna",d:"Percorso completo in 4 step: campagna, zona, pianificazione e preventivo finale.",benefits:["Analisi ISTAT zona","Mappa e copertura","GPS e report verificabili","Smart Pairing opzionale"],cta:"Configura la tua campagna",c:C.orange,fn:()=>n("step1")},{n:"02",t:"Preventivo rapido",d:"Inserisci pochi dati e passa a un prezzo personalizzato calcolato su zona, quantità e servizio.",benefits:["3 campi essenziali","Prezzo personalizzato","Nessun account richiesto"],cta:"Preventivo rapido",c:C.orange,fn:()=>n("quick"),quick:!0},{n:"03",t:"Parla con un consulente",d:"Preferisci supporto diretto? Invia una richiesta e ti ricontattiamo.",benefits:["Brief gratuito","Scelta servizio guidata","Richiamo operativo","Tempo: immediato"],cta:"Parla con un consulente",c:C.orange,fn:()=>n("consultant")}];return _jsxs("div",{className:"home-shell-dark saas-home-refinement",style:{background:"#0A0A1A",paddingBottom:0,minHeight:"100vh"},children:[_jsx("style",{children:`
   .home-shell-dark { background-color: #0A0A1A !important; color: #F5F5FF !important; }
   .home-shell-dark section, .home-shell-dark article { background: transparent !important; }
   .home-shell-dark section[style*="cream"], .home-shell-dark div[style*="cream"] { background: #12122A !important; border-top: 1px solid rgba(108, 92, 231, 0.2) !important; color: #F5F5FF !important; }
@@ -767,12 +764,12 @@ const Iv=[{value:50,label:"Circa 50 attività"},{value:100,label:"Circa 100 atti
 const km=[{value:"reception",label:"Consegna a Reception / Banco"},{value:"cassetta",label:"Cassetta Postale Aziendale"},{value:"mano_manager",label:"Consegna a mano al Responsabile (+20%)"}];
 const Uv=[{id:"A6",label:"A6",size:"10x15 cm"},{id:"A5",label:"A5",size:"15x21 cm"},{id:"A4",label:"A4",size:"21x29 cm"},{id:"DL",label:"DL",size:"10x21 cm"}];
 const Kp=[{id:"photo_report_advanced",icon:"",label:"Report fotografico avanzato",price:"Extra",desc:"Report fotografico più dettagliato con evidenze ordinate per zona.",col:C.purple},{id:"report_analytics",icon:"",label:"Report Analytics",price:"Extra",desc:"Analisi post-campagna con KPI operativi e riepilogo territoriale.",col:C.green},{id:"photo_certification",icon:"",label:"Certificazione fotografica",price:"Extra",desc:"Validazione fotografica con prove organizzate e verificabili.",col:C.orange},{id:"supervision",icon:"",label:"Supervisione",price:"Extra",desc:"Controllo operativo aggiuntivo sulla campagna.",col:C.blue}];
-const Gu=[{id:"single",label:"Singola",icon:"",disc:0},{id:"monthly3",label:"Trimestrale",icon:"",disc:5},{id:"monthly6",label:"Semestrale",icon:"",disc:10},{id:"monthly12",label:"Annuale",icon:"–",disc:15}];
-function Step1ActivityPills({value,onChange,isMobile}){return _jsx("div",{style:{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(3,1fr)",gap:8},children:Ov.map(opt=>{const active=value===opt.value;return _jsx("button",{type:"button",onClick:()=>onChange(opt.value),style:{padding:"10px 11px",borderRadius:10,border:`1.5px solid ${active?C.orange:"rgba(255,255,255,.1)"}`,background:active?"rgba(232,87,26,.12)":"rgba(255,255,255,.04)",color:active?C.orange:"rgba(255,255,255,.68)",fontFamily:F.sans,fontSize:12,fontWeight:active?850:700,cursor:"pointer",textAlign:"center",transition:"all.18s"},children:opt.label},opt.value)})})}
-function Step1PeriodPresets({value,onChange,isMobile}){const opts=[{id:"asap",label:"Appena possibile"},{id:"within7",label:"Entro 7 giorni"},{id:"within15",label:"Entro 15 giorni"},{id:"custom",label:"Scelgo una data"}];return _jsx("div",{style:{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12},children:opts.map(opt=>{const active=(value||"custom")===opt.id;return _jsx("button",{type:"button",onClick:()=>onChange(opt.id),className:`vp-s1-pill ${active?"active":""}`,children:opt.label},opt.id)})})}
+const Gu=[{id:"single",label:"Una sola campagna",icon:"",disc:0},{id:"monthly3",label:"Trimestrale",icon:"",disc:5},{id:"monthly6",label:"Semestrale",icon:"",disc:10},{id:"monthly12",label:"Annuale",icon:"–",disc:15}];
+function Step1ActivityPills({value,onChange,isMobile}){return _jsx("div",{style:{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(3,1fr)",gap:8},children:Ov.map(opt=>{const active=value===opt.value;return _jsx("button",{type:"button",onClick:()=>onChange(opt.value),style:{padding:"10px 11px",borderRadius:10,border:`1.5px solid ${active?"#22C55E":"rgba(255,255,255,.1)"}`,background:active?"rgba(34,197,94,.12)":"rgba(255,255,255,.04)",color:active?"#22C55E":"rgba(255,255,255,.68)",fontFamily:F.sans,fontSize:12,fontWeight:active?850:700,cursor:"pointer",textAlign:"center",transition:"all.18s"},children:opt.label},opt.value)})})}
+function Step1PeriodPresets({value,onChange,isMobile}){const opts=[{id:"asap",label:"Appena possibile"},{id:"within7",label:"Entro 7 giorni"},{id:"within15",label:"Entro 15 giorni"},{id:"custom",label:"Scegli una data"}];return _jsx("div",{style:{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12},children:opts.map(opt=>{const active=(value||"custom")===opt.id;return _jsx("button",{type:"button",onClick:()=>onChange(opt.id),className:`vp-s1-pill ${active?"active":""}`,children:opt.label},opt.id)})})}
 function Step1ConfigSummary({data}){
   const service={d2d:"Door to Door",h2h:"Hand to Hand",b2b:"Business Distribution","business-distribution":"Business Distribution"}[data.type]||"Da selezionare";
-  const plan={single:"Singola",monthly3:"Trimestrale",monthly6:"Semestrale",monthly12:"Annuale"}[data.subscription]||"Da selezionare";
+  const plan={single:"Una sola campagna",monthly3:"Trimestrale",monthly6:"Semestrale",monthly12:"Annuale"}[data.subscription]||"Da selezionare";
   const urgency={normal:"Standard",urgent:"Urgente",standard:"Standard"}[data.urgency]||"Da selezionare";
   const print=data.hasFlyers==="yes"?"Già stampati":data.hasFlyers==="no"?"Da stampare":"Da selezionare";
   const fmt=data.flyerFormat?String(data.flyerFormat).toUpperCase():"Da selezionare";
@@ -781,17 +778,17 @@ function Step1ConfigSummary({data}){
   const partialSubtotal=basePrint;
   const rows=[["Servizio",service],["Quantità",qty],["Formato",fmt],["Urgenza",urgency],["Piano",plan],["Stampa",print]];
   return _jsxs("div",{className:"vp-s1-summary-container", style:{position:"sticky",bottom:18,zIndex:5},children:[
-    _jsx("div",{style:{fontFamily:F.sans,fontSize:10,fontWeight:800,color:C.orange,letterSpacing:".1em",textTransform:"uppercase",marginBottom:10},children:"Riepilogo configurazione"}),
+    _jsx("div",{style:{fontFamily:F.sans,fontSize:10,fontWeight:800,color:"#22C55E",letterSpacing:".1em",textTransform:"uppercase",marginBottom:10},children:"Riepilogo configurazione"}),
     _jsx("div",{className:"vp-s1-summary-grid",children:rows.map(([label,val])=>_jsxs("div",{className:"vp-s1-summary-item",children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:10,color:"rgba(255,255,255,.7)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:3},children:label}),_jsx("div",{style:{fontFamily:F.sans,fontSize:12,fontWeight:800,color:val==="Da selezionare"?"rgba(255,255,255,.34)":C.white},children:val})]},label))}),
     _jsxs("div",{className:"vp-s1-summary-totals",children:[
       _jsxs("div",{style:{display:"flex",justifyContent:"space-between",gap:12,fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.85)"},children:[_jsx("span",{children:"Distribuzione"}),_jsx("b",{style:{color:C.white},children:"Calcolata sulla tua zona (Step 2)"})]}),
-      basePrint>0&&_jsxs("div",{style:{display:"flex",justifyContent:"space-between",gap:12,fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.85)"},children:[_jsx("span",{children:"Stampa indicativa"}),_jsxs("b",{style:{color:C.orange},children:["EUR ",basePrint.toLocaleString("it-IT", { useGrouping: true })]})]}),
-      _jsxs("div",{style:{display:"flex",justifyContent:"space-between",gap:12,fontFamily:F.sans,fontSize:14,color:C.white,borderTop:"1px solid rgba(255,255,255,.08)",paddingTop:7},children:[_jsx("span",{children:"Subtotale parziale"}),_jsxs("b",{style:{color:C.orange},children:["EUR ",partialSubtotal.toLocaleString("it-IT", { useGrouping: true })]})]})
+      basePrint>0&&_jsxs("div",{style:{display:"flex",justifyContent:"space-between",gap:12,fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.85)"},children:[_jsx("span",{children:"Stampa indicativa"}),_jsxs("b",{style:{color:"#22C55E"},children:["EUR ",basePrint.toLocaleString("it-IT", { useGrouping: true })]})]}),
+      _jsxs("div",{style:{display:"flex",justifyContent:"space-between",gap:12,fontFamily:F.sans,fontSize:14,color:C.white,borderTop:"1px solid rgba(255,255,255,.08)",paddingTop:7},children:[_jsx("span",{children:"Subtotale parziale"}),_jsxs("b",{style:{color:"#22C55E"},children:["EUR ",partialSubtotal.toLocaleString("it-IT", { useGrouping: true })]})]})
     ]}),
-    _jsxs("p",{style:{margin:"10px 0 0",fontFamily:F.sans,fontSize:12,lineHeight:1.5,color:"rgba(255,255,255,.85)"},children:["Configurazione attuale: distribuzione da calcolare sulla zona · piano ",plan," · formato ",fmt]})
+    _jsxs("p",{style:{margin:"10px 0 0",fontFamily:F.sans,fontSize:12,lineHeight:1.5,color:"rgba(255,255,255,.85)"},children:["Distribuzione e copertura: calcolate nel prossimo passaggio · piano ",plan," · formato ",fmt]})
   ]})
 }
-function Step1({data:n,setData:i,onNext:r}){const[showSmartPairingModal,setShowSmartPairingModal]=useState(false);const l=useIsMobile(),u=[{id:"d2d",name:"Door to Door",code:"D2D",desc:"Distribuzione in cassette postali, condomini, palazzi, villette e zone residenziali.",features:["Famiglie stimate","Popolazione stimata","Copertura zona","Volantini consigliati","Comuni nel raggio"],c:C.orange},{id:"h2h",name:"Hand to Hand",code:"H2H",desc:"Distribuzione manuale in punti ad alto passaggio.",features:["POI rilevanti","Fermate metro/bus/treno","Scuole, universit\u00e0, eventi","Flusso potenziale","Smart Pairing"],c:C.blue,popular:!0},{id:"b2b",name:"Distribuzione Business",code:"B2B",desc:"Distribuzione presso attività commerciali, uffici e zone business.",features:["Attività rilevate","Categorie commerciali","Competitor vicini","Densità commerciale","Cluster zona"],c:C.purple}],h={single:1,monthly3:3,monthly6:6,monthly12:12},f={single:0,monthly3:5,monthly6:10,monthly12:15},m=n.type==="h2h",y=n.type==="b2b"||n.type==="business-distribution",x=!!(n.type&&n.qty>0&&n.flyerFormat&&n.hasFlyers&&n.urgency&&n.subscription&&(!m||n.promoterCount&&n.timeSlot&&n.serviceDurationHours&&(n.distributionLocation||n.distributionPointType))&&(!y||n.targetBusinessType&&n.businessCategory&&n.targetBusinessCount&&(n.businessZone||n.cityName))),w=!!(n.startDate&&n.endDate&&n.endDate<n.startDate),j=A=>{if(!A)return"";
+function Step1({data:n,setData:i,onNext:r,onHome:oe}){const[showSmartPairingModal,setShowSmartPairingModal]=useState(false);const l=useIsMobile(),u=[{id:"d2d",name:"Door to Door",code:"D2D",desc:"Distribuzione in cassette postali, condomini, palazzi, villette e zone residenziali.",features:["Attività locali","Promozioni di zona","Grande copertura territoriale"],c:"#22C55E"},{id:"h2h",name:"Hand to Hand",code:"H2H",desc:"Distribuzione manuale in punti ad alto passaggio.",features:["Eventi","Negozi","Palestre","Promozioni immediate"],c:C.blue,popular:!0},{id:"b2b",name:"Distribuzione Business",code:"B2B",desc:"Distribuzione presso attività commerciali, uffici e zone business.",features:["B2B","Servizi professionali","Attività commerciali","Zone business"],c:C.purple}],h={single:1,monthly3:3,monthly6:6,monthly12:12},f={single:0,monthly3:5,monthly6:10,monthly12:15},m=n.type==="h2h",y=n.type==="b2b"||n.type==="business-distribution",x=!!(n.type&&n.qty>0&&n.flyerFormat&&n.hasFlyers&&n.urgency&&n.subscription&&(!m||n.promoterCount&&n.timeSlot&&n.serviceDurationHours&&(n.distributionLocation||n.distributionPointType))&&(!y||n.targetBusinessType&&n.businessCategory&&n.targetBusinessCount&&(n.businessZone||n.cityName))),w=!!(n.startDate&&n.endDate&&n.endDate<n.startDate),j=A=>{if(!A)return"";
 const F=A.split("-");return F.length===3?`${F[2]}/${F[1]}/${F[0]}`:""},T=A=>{const F=A.replace(/\D/g,"").slice(0,8);return F.length<=2?F:F.length<=4?`${F.slice(0,2)}/${F.slice(2)}`:`${F.slice(0,2)}/${F.slice(2,4)}/${F.slice(4)}`},z=A=>{const F=A.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);if(!F)return"";
 const[,B,P,J]=F,V=new Date(Number(J),Number(P)-1,Number(B));return V.getFullYear()!==Number(J)||V.getMonth()!==Number(P)-1||V.getDate()!==Number(B)?"":`${J}-${P}-${B}`},R=(n.campaignsPerMonth||1)*(h[n.subscription]||1),D=A=>i(F=>{const B={...F,...A},P=h[B.subscription]||1,J=f[B.subscription]||0,V=B.subscription==="single"?1:B.campaignsPerMonth||1;return{...B,campaignsPerMonth:V,selectedService:B.type,businessSector:B.activityType,flyerQuantity:B.qty,campaignPeriodStart:B.startDate,campaignPeriodEnd:B.endDate,alreadyPrinted:B.hasFlyers==="yes",printServices:(B.extraServices||[]).filter(H=>["stampa","grafica"].includes(H)),paperWeight:B.printGramm,printSides:B.printSide,colorMode:B.printColor,campaignPlan:B.subscription,totalCampaigns:V*P,planDiscount:J,promoterCount:B.promoterCount,timeSlot:B.timeSlot,serviceDurationHours:B.serviceDurationHours,distributionLocation:B.distributionLocation,distributionPointType:B.distributionPointType,operationalNotes:B.operationalNotes,targetBusinessType:B.targetBusinessType,businessCategory:B.businessCategory,targetBusinessCount:B.targetBusinessCount,businessZone:B.businessZone,deliveryType:B.deliveryType}}),W=A=>i(F=>{const B=F.extraServices||[],P=B.includes(A)?B.filter(ge=>ge!==A):[...B,A],J={...F,extraServices:P},V=h[J.subscription]||1,H=f[J.subscription]||0,ue=J.subscription==="single"?1:J.campaignsPerMonth||1;return{...J,campaignsPerMonth:ue,selectedService:J.type,businessSector:J.activityType,flyerQuantity:J.qty,campaignPeriodStart:J.startDate,campaignPeriodEnd:J.endDate,alreadyPrinted:J.hasFlyers==="yes",printServices:P.filter(ge=>["stampa","grafica"].includes(ge)),paperWeight:J.printGramm,printSides:J.printSide,colorMode:J.printColor,campaignPlan:J.subscription,totalCampaigns:ue*V,planDiscount:H}});return _jsxs("div",{style:{maxWidth:1020,margin:"0 auto",padding:"64px 28px 140px"},children:[_jsx("style",{children:`
 .vp-s1-header { margin-bottom: 48px; }
@@ -799,48 +796,48 @@ const[,B,P,J]=F,V=new Date(Number(J),Number(P)-1,Number(B));return V.getFullYear
 .vp-s1-subtitle { font-family: 'DM Sans', Inter, system-ui, sans-serif; font-size: 16px; color: rgba(255,255,255,0.85); max-width: 600px; line-height: 1.6; }
 .vp-s1-sp-banner { margin-top: 24px; padding: 16px 20px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: flex-start; gap: 12px; }
 .vp-s1-sp-text { font-family: 'DM Sans', Inter, system-ui, sans-serif; font-size: 14px; color: rgba(255,255,255,0.7); line-height: 1.5; margin: 0; }
-.vp-s1-section-num { font-family: 'DM Sans', Inter, system-ui, sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; color: #E8571A; margin-bottom: 16px; display: block; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 12px; }
+.vp-s1-section-num { font-family: 'DM Sans', Inter, system-ui, sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; color: #22C55E; margin-bottom: 16px; display: block; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 12px; }
 .vp-s1-card { background: #0A0D14; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 32px 28px; cursor: pointer; position: relative; overflow: hidden; display: flex; flex-direction: column; min-height: 420px; transition: transform 0.3s ease, border-color 0.3s ease, background 0.3s ease; }
 .vp-s1-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.15); background: #0E121A; }
-.vp-s1-card.vp-active { border-color: #E8571A; background: rgba(232,87,26,0.04); box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
-.vp-s1-badge { position: absolute; top: 16px; right: 16px; background: rgba(232,87,26,0.15); color: #E8571A; padding: 6px 12px; border-radius: 20px; font-family: 'DM Sans', Inter, system-ui, sans-serif; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; border: 1px solid rgba(232,87,26,0.2); }
+.vp-s1-card.vp-active { border-color: #22C55E; background: rgba(34,197,94,0.04); box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+.vp-s1-badge { position: absolute; top: 16px; right: 16px; background: rgba(34,197,94,0.15); color: #22C55E; padding: 6px 12px; border-radius: 20px; font-family: 'DM Sans', Inter, system-ui, sans-serif; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; border: 1px solid rgba(34,197,94,0.2); }
 
 .vp-s1-range { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.1); outline: none; margin: 8px 0; }
-.vp-s1-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #E8571A; cursor: pointer; transition: transform 0.15s; border: 2.5px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+.vp-s1-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #22C55E; cursor: pointer; transition: transform 0.15s; border: 2.5px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
 .vp-s1-range::-webkit-slider-thumb:hover { transform: scale(1.15); }
-.vp-s1-range:focus::-webkit-slider-thumb { outline: 2px solid rgba(232,87,26,0.5); outline-offset: 2px; }
-.vp-s1-range::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #E8571A; cursor: pointer; transition: transform 0.15s; border: 2.5px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+.vp-s1-range:focus::-webkit-slider-thumb { outline: 2px solid rgba(34,197,94,0.5); outline-offset: 2px; }
+.vp-s1-range::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #22C55E; cursor: pointer; transition: transform 0.15s; border: 2.5px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
 /* Nuove classi Fase 3B-1 */
 .vp-s1-card-inner { background: rgba(8, 14, 28, 0.55); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 18px 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.25); }
 .vp-s1-input { width: 100%; padding: 12px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(8, 14, 28, 0.4); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: #fff; font-family: 'DM Sans', sans-serif; font-size: 14px; transition: border-color 0.2s, background 0.2s, box-shadow 0.2s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
-.vp-s1-input:focus { border-color: #E8571A; background: rgba(232,87,26,0.05); outline: none; box-shadow: 0 0 0 1px #E8571A, inset 0 2px 4px rgba(0,0,0,0.1); }
-.vp-s1-input.active { border-color: rgba(232,87,26,0.5); }
+.vp-s1-input:focus { border-color: #22C55E; background: rgba(34,197,94,0.05); outline: none; box-shadow: 0 0 0 1px #22C55E, inset 0 2px 4px rgba(0,0,0,0.1); }
+.vp-s1-input.active { border-color: rgba(34,197,94,0.5); }
 .vp-s1-pill { padding: 8px 16px; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; border: 1px solid rgba(255,255,255,0.08); background: rgba(8, 14, 28, 0.4); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: rgba(255,255,255,0.7); box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: all 0.2s ease; }
 .vp-s1-pill:hover { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #fff; }
-.vp-s1-pill.active { border-color: #E8571A; background: rgba(232,87,26,0.15); color: #E8571A; box-shadow: 0 0 12px rgba(232,87,26,0.2), 0 4px 12px rgba(0,0,0,0.1); }
+.vp-s1-pill.active { border-color: #22C55E; background: rgba(34,197,94,0.15); color: #22C55E; box-shadow: 0 0 12px rgba(34,197,94,0.2), 0 4px 12px rgba(0,0,0,0.1); }
 .vp-s1-option-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 11px; cursor: pointer; border: 1px solid rgba(255,255,255,0.08); background: rgba(8, 14, 28, 0.4); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: all 0.2s ease; }
 .vp-s1-option-card:hover { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); }
-.vp-s1-option-card.active { border-color: #E8571A; background: rgba(232,87,26,0.12); box-shadow: 0 0 12px rgba(232,87,26,0.2), 0 4px 12px rgba(0,0,0,0.1); }
+.vp-s1-option-card.active { border-color: #22C55E; background: rgba(34,197,94,0.12); box-shadow: 0 0 12px rgba(34,197,94,0.2), 0 4px 12px rgba(0,0,0,0.1); }
 
 .vp-s1-format-card { border-radius: 9px; padding: 11px; cursor: pointer; text-align: center; border: 1px solid rgba(255,255,255,0.08); background: rgba(8, 14, 28, 0.4); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: all 0.2s ease; }
 .vp-s1-format-card:hover { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); }
-.vp-s1-format-card.active { border-color: #E8571A; background: rgba(232,87,26,0.12); box-shadow: 0 0 12px rgba(232,87,26,0.2), 0 4px 12px rgba(0,0,0,0.1); }
+.vp-s1-format-card.active { border-color: #22C55E; background: rgba(34,197,94,0.12); box-shadow: 0 0 12px rgba(34,197,94,0.2), 0 4px 12px rgba(0,0,0,0.1); }
 
 .vp-s1-plan-card { border-radius: 11px; padding: 16px 14px; cursor: pointer; border: 1px solid rgba(255,255,255,0.07); background: rgba(8, 14, 28, 0.4); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: all 0.2s ease; text-align: center; position: relative; }
 .vp-s1-plan-card:hover { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); }
-.vp-s1-plan-card.active { border-color: #E8571A; background: rgba(232,87,26,0.12); box-shadow: 0 0 12px rgba(232,87,26,0.2), 0 4px 12px rgba(0,0,0,0.1); }
+.vp-s1-plan-card.active { border-color: #22C55E; background: rgba(34,197,94,0.12); box-shadow: 0 0 12px rgba(34,197,94,0.2), 0 4px 12px rgba(0,0,0,0.1); }
 
 .vp-s1-campaign-btn { width: 56px; height: 56px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(8, 14, 28, 0.4); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: rgba(255,255,255,0.7); font-family: 'DM Serif Display', serif; font-size: 28px; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
 .vp-s1-campaign-btn:hover { border-color: rgba(255,255,255,0.2); }
-.vp-s1-campaign-btn.active { border-color: #E8571A; background: rgba(232,87,26,0.15); color: #E8571A; }
+.vp-s1-campaign-btn.active { border-color: #22C55E; background: rgba(34,197,94,0.15); color: #22C55E; }
 
 .vp-s1-summary-container { margin-bottom: 18px; padding: 14px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); }
 .vp-s1-summary-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); gap: 8px; }
 .vp-s1-summary-item { padding: 9px 10px; border-radius: 9px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); }
 .vp-s1-summary-totals { display: grid; gap: 7px; margin-top: 10px; padding: 11px 12px; border-radius: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); }
 
-.vp-s1-cta { padding: 15px 36px !important; border-radius: 12px !important; border: none !important; background: #E8571A !important; color: #fff !important; font-family: 'DM Sans', sans-serif !important; font-size: 16px !important; font-weight: 700 !important; cursor: pointer; box-shadow: 0 4px 0 #A1360B !important; transition: transform 0.1s !important; }
-.vp-s1-cta:active { transform: translateY(4px) !important; box-shadow: 0 0 0 #A1360B !important; }`}),_jsxs("div",{className:"vp-s1-header",children:[_jsx("h2",{className:"vp-s1-title",children:"Configura la tua campagna di volantinaggio"}),_jsx("p",{className:"vp-s1-subtitle",children:"Scegli servizio, quantità e periodo. Nel passaggio successivo calcoli zona, copertura e raggio sulla mappa."}),_jsx("div",{className:"vp-s1-sp-banner",children:_jsxs("p",{className:"vp-s1-sp-text",children:[_jsx("span",{style:{color:C.orange,fontWeight:800},children:"Smart Pairing:"}),"\u00a0non trovi la data desiderata? Invia comunque la richiesta. Ti avvisiamo quando siamo operativi nella tua zona o vicino.\u00a0",_jsx("button",{type:"button",onClick:()=>setShowSmartPairingModal(true),style:{color:C.orange,textDecoration:"none",fontWeight:700,background:"none",border:"none",cursor:"pointer",fontSize:14,fontFamily:F.sans,padding:0,display:"inline-block",marginTop:4},children:"Scopri come funziona →"})]})})]}),_jsxs("div",{id:"section-servizio",style:{marginBottom:48},children:[_jsx("div",{className:"vp-s1-section-num",children:"1 \u2013 Tipo di distribuzione"}),_jsx("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:20,alignItems:"stretch"},children:u.map(({id:A,name:F,code:B,desc:P,features:J,c:V,popular:H})=>{const ue=n.type===A;return _jsxs("div",{className:`vp-s1-card ${ue?"vp-active":""}`,role:"button",tabIndex:0,"aria-pressed":ue,onClick:()=>D({type:A}),onKeyDown:ge=>{(ge.key==="Enter"||ge.key===" ")&&(ge.preventDefault(),D({type:A}))},onFocus:ge=>{ge.currentTarget.style.boxShadow=`0 0 0 2px ${V}40`},onBlur:ge=>{ge.currentTarget.style.boxShadow="none"},style:{},children:[H&&_jsx("div",{className:"vp-s1-badge",children:"Popolare"}),ue&&_jsx("div",{style:{position:"absolute",top:20,left:20,width:24,height:24,borderRadius:"50%",background:C.orange,display:"flex",alignItems:"center",justifyContent:"center",zIndex:1},children:_jsx("svg",{width:"12",height:"12",viewBox:"0 0 10 10",children:_jsx("path",{d:"M1.5 5l2.4 2.4L8.5 2.5",stroke:"white",strokeWidth:"2",fill:"none",strokeLinecap:"round",strokeLinejoin:"round"})})}),_jsxs("div",{style:{display:"flex",alignItems:"center",gap:16,marginBottom:24,paddingLeft:ue?36:0,transition:"padding .3s ease"},children:[_jsx("div",{style:{width:48,height:48,borderRadius:12,background:`${V}15`,border:`1px solid ${V}30`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:F.sans,fontSize:14,fontWeight:800,color:V,letterSpacing:".06em"},children:B})]}),_jsx("div",{style:{fontFamily:F.serif,fontSize:26,color:C.white,letterSpacing:"-.4px",lineHeight:1.1,marginBottom:12},children:F}),_jsx("p",{style:{fontFamily:F.sans,fontSize:14,color:"rgba(255,255,255,.8)",lineHeight:1.6,marginBottom:24},children:P}),_jsx("div",{style:{display:"flex",flexDirection:"column",gap:8,marginBottom:18},children:J.map(ge=>_jsxs("div",{style:{display:"flex",gap:10,alignItems:"flex-start"},children:[_jsx("div",{style:{width:16,height:16,borderRadius:4,background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.08)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:2},children:_jsx("svg",{width:"8",height:"8",viewBox:"0 0 8 8",children:_jsx("path",{d:"M1.2 4.1l1.7 1.7 3.8-4",stroke:"rgba(255,255,255,.4)",strokeWidth:"1.5",fill:"none",strokeLinecap:"round",strokeLinejoin:"round"})})}),_jsx("span",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.7)",lineHeight:1.4},children:ge})]},ge))}),_jsxs("div",{style:{marginTop:"auto"},children:[ue?_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:800,color:C.orange,letterSpacing:".08em",textTransform:"uppercase"},children:"Servizio selezionato"}):null]})]},A)})})]}),_jsx(Step1ZoneCountSelector,{setData:i}),n.type==="d2d"&&_jsxs("div",{style:{marginBottom:22},children:[_jsx("div",{className:"vp-s1-section-num",children:"2 – Tipo di attività del cliente"}),_jsxs("div",{className:"vp-s1-card-inner",children:[_jsx("p",{style:{fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.65)",marginBottom:12},children:[_jsx("span",{style:{color:C.orange,fontWeight:700,marginRight:6},children:"Opzionale ma consigliato."}),"Serve per adattare suggerimenti, zone e orari al tipo di attività pubblicizzata."]}),_jsx(Step1ActivityPills,{value:n.activityType,onChange:A=>D({activityType:A,businessSector:A}),isMobile:l}),n.activityType==="altro"&&_jsx("input",{type:"text",placeholder:"Descrivi l'attività...",value:n.activityNote||"",onChange:A=>D({activityNote:A.target.value}),className:"vp-s1-input",style:{marginTop:12}})]})]}),m&&_jsxs("div",{style:{marginBottom:22},children:[_jsx("div",{className:"vp-s1-section-num",children:"2 – Configurazione Hand to Hand"}),_jsxs("div",{className:"vp-s1-card-inner",children:[_jsxs("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:14,marginBottom:14},children:[_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Numero promoter"}),_jsxs("select",{value:n.promoterCount||"",onChange:A=>D({promoterCount:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Bv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Fascia oraria"}),_jsxs("select",{value:n.timeSlot||"",onChange:A=>D({timeSlot:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Mv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Durata servizio"}),_jsxs("select",{value:n.serviceDurationHours||"",onChange:A=>D({serviceDurationHours:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Fv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]})]}),_jsxs("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:14,marginBottom:14},children:[_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Luogo principale"}),_jsx("input",{type:"text",placeholder:"es. Duomo, Stazione Centrale...",value:n.distributionLocation||"",onChange:A=>D({distributionLocation:A.target.value}),className:"vp-s1-input"})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Tipo punto di distribuzione"}),_jsxs("select",{value:n.distributionPointType||"",onChange:A=>D({distributionPointType:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Nv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]})]}),_jsx("textarea",{placeholder:"Note operative (es. target studenti, uscita uffici...)",value:n.operationalNotes||"",onChange:A=>D({operationalNotes:A.target.value}),rows:2,className:"vp-s1-input",style:{resize:"vertical"}}),_jsxs("div",{style:{marginTop:12,fontFamily:F.sans,fontSize:12,color:C.blue,background:"rgba(96,165,250,.08)",padding:"8px 12px",borderRadius:8,border:"1px solid rgba(96,165,250,.2)"},children:[" ",_jsx("b",{children:"Hand to Hand:"})," il prezzo dipende da numero promoter, ore di servizio, luogo e quantità materiale."]})]})]}),y&&_jsxs("div",{style:{marginBottom:22},children:[_jsx("div",{className:"vp-s1-section-num",children:"2 – Configurazione Distribuzione Business"}),_jsxs("div",{className:"vp-s1-card-inner",children:[_jsxs("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:14,marginBottom:14},children:[_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Tipo attività target"}),_jsxs("select",{value:n.targetBusinessType||"",onChange:A=>D({targetBusinessType:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),$v.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Categoria commerciale"}),_jsxs("select",{value:n.businessCategory||"",onChange:A=>D({businessCategory:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Lv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]})]}),_jsxs("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:14,marginBottom:14},children:[_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Numero attività target"}),_jsxs("select",{value:n.targetBusinessCount||"",onChange:A=>D({targetBusinessCount:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Iv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Zona commerciale / comune"}),_jsx("input",{type:"text",placeholder:"es. zona uffici, area industriale...",value:n.businessZone||"",onChange:A=>D({businessZone:A.target.value}),className:"vp-s1-input"})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Tipo consegna"}),_jsxs("select",{value:n.deliveryType||"",onChange:A=>D({deliveryType:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),km.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]})]}),_jsx("textarea",{placeholder:"Note operative (es. solo ristoranti, evitare catene...)",value:n.operationalNotes||"",onChange:A=>D({operationalNotes:A.target.value}),rows:2,className:"vp-s1-input",style:{resize:"vertical"}}),_jsxs("div",{style:{marginTop:12,fontFamily:F.sans,fontSize:12,color:C.purple,background:"rgba(167,139,250,.08)",padding:"8px 12px",borderRadius:8,border:"1px solid rgba(167,139,250,.2)"},children:[" ",_jsx("b",{children:"Business:"})," il prezzo dipende da attività target, zona, quantità e tipo consegna."]})]})]}),_jsxs("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:16,marginBottom:22},children:[_jsxs("div",{id:"section-quantita",className:"vp-s1-card-inner",children:[_jsx("div",{className:"vp-s1-section-num",style:{marginBottom:6,paddingBottom:0,borderBottom:"none"},children:"3 \u2013 Quantit\u00e0 volantini"}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.85)",marginBottom:20,marginTop:-4},children:"Seleziona una quantità o trascina il cursore."}),_jsx("div",{style:{display:"flex",gap:6,flexWrap:l?"wrap":"nowrap",marginBottom:24},children:[5e3,1e4,25e3,5e4,1e5].map(A=>_jsx("button",{onClick:()=>D({qty:A}),className:`vp-s1-pill ${n.qty===A?"active":""}`,style:{flex:1,minWidth:l?"30%":0,textAlign:"center"},children:new Intl.NumberFormat("it-IT").format(A)},A))}),_jsxs("div",{style:{position:"relative", paddingBottom:24},children:[
+.vp-s1-cta { padding: 15px 36px !important; border-radius: 12px !important; border: none !important; background: #22C55E !important; color: #fff !important; font-family: 'DM Sans', sans-serif !important; font-size: 16px !important; font-weight: 700 !important; cursor: pointer; box-shadow: 0 4px 0 #A1360B !important; transition: transform 0.1s !important; }
+.vp-s1-cta:active { transform: translateY(4px) !important; box-shadow: 0 0 0 #A1360B !important; }`}),_jsxs("div",{className:"vp-s1-header",children:[_jsx("h2",{className:"vp-s1-title",children:"Crea il tuo preventivo per distribuire volantini"}),_jsx("p",{className:"vp-s1-subtitle",children:"Scegli servizio, quantità e periodo. Nel passaggio successivo selezionerai la zona sulla mappa."}),_jsx("div",{className:"vp-s1-sp-banner",children:_jsxs("p",{className:"vp-s1-sp-text",children:[_jsx("span",{style:{color:"#22C55E",fontWeight:800},children:""}),"\u00a0Non trovi la data desiderata? Invia comunque la richiesta: ti avviseremo quando abbiamo disponibilità nella tua zona o in zone vicine.\u00a0",_jsx("button",{type:"button",onClick:()=>setShowSmartPairingModal(true),style:{color:"#22C55E",textDecoration:"none",fontWeight:700,background:"none",border:"none",cursor:"pointer",fontSize:14,fontFamily:F.sans,padding:0,display:"inline-block",marginTop:4},children:"Scopri come funziona →"})]})})]}),_jsxs("div",{id:"section-servizio",style:{marginBottom:48},children:[_jsx("div",{className:"vp-s1-section-num",children:"1 \u2013 Tipo di distribuzione"}),_jsx("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:20,alignItems:"stretch"},children:u.map(({id:A,name:F,code:B,desc:P,features:J,c:V,popular:H})=>{const ue=n.type===A;return _jsxs("div",{className:`vp-s1-card ${ue?"vp-active":""}`,role:"button",tabIndex:0,"aria-pressed":ue,onClick:()=>D({type:A}),onKeyDown:ge=>{(ge.key==="Enter"||ge.key===" ")&&(ge.preventDefault(),D({type:A}))},onFocus:ge=>{ge.currentTarget.style.boxShadow=`0 0 0 2px ${V}40`},onBlur:ge=>{ge.currentTarget.style.boxShadow="none"},style:{},children:[H&&_jsx("div",{className:"vp-s1-badge",children:"Popolare"}),ue&&_jsx("div",{style:{position:"absolute",top:20,left:20,width:24,height:24,borderRadius:"50%",background:"#22C55E",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1},children:_jsx("svg",{width:"12",height:"12",viewBox:"0 0 10 10",children:_jsx("path",{d:"M1.5 5l2.4 2.4L8.5 2.5",stroke:"white",strokeWidth:"2",fill:"none",strokeLinecap:"round",strokeLinejoin:"round"})})}),_jsxs("div",{style:{display:"flex",alignItems:"center",gap:16,marginBottom:24,paddingLeft:ue?36:0,transition:"padding .3s ease"},children:[_jsx("div",{style:{width:48,height:48,borderRadius:12,background:`${V}15`,border:`1px solid ${V}30`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:F.sans,fontSize:14,fontWeight:800,color:V,letterSpacing:".06em"},children:B})]}),_jsx("div",{style:{fontFamily:F.serif,fontSize:26,color:C.white,letterSpacing:"-.4px",lineHeight:1.1,marginBottom:12},children:F}),_jsx("p",{style:{fontFamily:F.sans,fontSize:14,color:"rgba(255,255,255,.8)",lineHeight:1.6,marginBottom:24},children:P}),_jsxs("div",{style:{display:"flex",flexDirection:"column",gap:6,marginBottom:14},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:10,fontWeight:700,color:"rgba(255,255,255,.4)",letterSpacing:".1em",textTransform:"uppercase",marginBottom:4},children:"Ideale per:"}),J.map(ge=>_jsxs("div",{style:{display:"flex",gap:10,alignItems:"flex-start"},children:[_jsx("div",{style:{width:16,height:16,borderRadius:4,background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.08)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:2},children:_jsx("svg",{width:"8",height:"8",viewBox:"0 0 8 8",children:_jsx("path",{d:"M1.2 4.1l1.7 1.7 3.8-4",stroke:"rgba(255,255,255,.4)",strokeWidth:"1.5",fill:"none",strokeLinecap:"round",strokeLinejoin:"round"})})}),_jsx("span",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.7)",lineHeight:1.4},children:ge})]},ge))]}),_jsxs("div",{style:{marginTop:"auto"},children:[ue?_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:800,color:"#22C55E",letterSpacing:".08em",textTransform:"uppercase"},children:"Servizio selezionato"}):null]})]},A)})})]}),_jsx(Step1ZoneCountSelector,{setData:i}),n.type==="d2d"&&_jsxs("div",{style:{marginBottom:22},children:[_jsx("div",{className:"vp-s1-section-num",children:"Opzionale: che tipo di attività devi pubblicizzare?"}),_jsxs("div",{className:"vp-s1-card-inner",children:[_jsx("p",{style:{fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.65)",marginBottom:12},children:[_jsx("span",{style:{color:"#22C55E",fontWeight:700,marginRight:6},children:""}),"Ci aiuta a suggerire zone, orari e servizi più adatti."]}),_jsx(Step1ActivityPills,{value:n.activityType,onChange:A=>D({activityType:A,businessSector:A}),isMobile:l}),n.activityType==="altro"&&_jsx("input",{type:"text",placeholder:"Descrivi l'attività...",value:n.activityNote||"",onChange:A=>D({activityNote:A.target.value}),className:"vp-s1-input",style:{marginTop:12}})]})]}),m&&_jsxs("div",{style:{marginBottom:22},children:[_jsx("div",{className:"vp-s1-section-num",children:"2 – Configurazione Hand to Hand"}),_jsxs("div",{className:"vp-s1-card-inner",children:[_jsxs("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:14,marginBottom:14},children:[_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Numero promoter"}),_jsxs("select",{value:n.promoterCount||"",onChange:A=>D({promoterCount:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Bv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Fascia oraria"}),_jsxs("select",{value:n.timeSlot||"",onChange:A=>D({timeSlot:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Mv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Durata servizio"}),_jsxs("select",{value:n.serviceDurationHours||"",onChange:A=>D({serviceDurationHours:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Fv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]})]}),_jsxs("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:14,marginBottom:14},children:[_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Luogo principale"}),_jsx("input",{type:"text",placeholder:"es. Duomo, Stazione Centrale...",value:n.distributionLocation||"",onChange:A=>D({distributionLocation:A.target.value}),className:"vp-s1-input"})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Tipo punto di distribuzione"}),_jsxs("select",{value:n.distributionPointType||"",onChange:A=>D({distributionPointType:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Nv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]})]}),_jsx("textarea",{placeholder:"Note operative (es. target studenti, uscita uffici...)",value:n.operationalNotes||"",onChange:A=>D({operationalNotes:A.target.value}),rows:2,className:"vp-s1-input",style:{resize:"vertical"}}),_jsxs("div",{style:{marginTop:12,fontFamily:F.sans,fontSize:12,color:C.blue,background:"rgba(96,165,250,.08)",padding:"8px 12px",borderRadius:8,border:"1px solid rgba(96,165,250,.2)"},children:[" ",_jsx("b",{children:"Hand to Hand:"})," il prezzo dipende da numero promoter, ore di servizio, luogo e quantità materiale."]})]})]}),y&&_jsxs("div",{style:{marginBottom:22},children:[_jsx("div",{className:"vp-s1-section-num",children:"2 – Configurazione Distribuzione Business"}),_jsxs("div",{className:"vp-s1-card-inner",children:[_jsxs("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:14,marginBottom:14},children:[_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Tipo attività target"}),_jsxs("select",{value:n.targetBusinessType||"",onChange:A=>D({targetBusinessType:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),$v.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Categoria commerciale"}),_jsxs("select",{value:n.businessCategory||"",onChange:A=>D({businessCategory:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Lv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]})]}),_jsxs("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:14,marginBottom:14},children:[_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Numero attività target"}),_jsxs("select",{value:n.targetBusinessCount||"",onChange:A=>D({targetBusinessCount:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),Iv.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Zona commerciale / comune"}),_jsx("input",{type:"text",placeholder:"es. zona uffici, area industriale...",value:n.businessZone||"",onChange:A=>D({businessZone:A.target.value}),className:"vp-s1-input"})]}),_jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)",display:"block",marginBottom:6},children:"Tipo consegna"}),_jsxs("select",{value:n.deliveryType||"",onChange:A=>D({deliveryType:A.target.value}),className:"vp-s1-input",children:[_jsx("option",{value:"",children:"Seleziona..."}),km.map(A=>_jsx("option",{value:A.value,children:A.label},A.value))]})]})]}),_jsx("textarea",{placeholder:"Note operative (es. solo ristoranti, evitare catene...)",value:n.operationalNotes||"",onChange:A=>D({operationalNotes:A.target.value}),rows:2,className:"vp-s1-input",style:{resize:"vertical"}}),_jsxs("div",{style:{marginTop:12,fontFamily:F.sans,fontSize:12,color:C.purple,background:"rgba(167,139,250,.08)",padding:"8px 12px",borderRadius:8,border:"1px solid rgba(167,139,250,.2)"},children:[" ",_jsx("b",{children:"Business:"})," il prezzo dipende da attività target, zona, quantità e tipo consegna."]})]})]}),_jsxs("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:16,marginBottom:22},children:[_jsxs("div",{id:"section-quantita",className:"vp-s1-card-inner",children:[_jsx("div",{className:"vp-s1-section-num",style:{marginBottom:6,paddingBottom:0,borderBottom:"none"},children:"3 \u2013 Quantit\u00e0 volantini"}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.85)",marginBottom:20,marginTop:-4},children:"Non sai quanti volantini servono? Scegli una quantità indicativa: nel prossimo passaggio vedrai la copertura stimata."}),_jsx("div",{style:{display:"flex",gap:6,flexWrap:l?"wrap":"nowrap",marginBottom:24},children:[5e3,1e4,25e3,5e4,1e5].map(A=>_jsx("button",{onClick:()=>D({qty:A}),className:`vp-s1-pill ${n.qty===A?"active":""}`,style:{flex:1,minWidth:l?"30%":0,textAlign:"center"},children:new Intl.NumberFormat("it-IT").format(A)},A))}),_jsxs("div",{style:{position:"relative", paddingBottom:24},children:[
   _jsx("input",{type:"range",min:5000,max:100000,step:1000,value:Math.max(5000,Math.min(100000,n.qty||10000)),onChange:A=>D({qty:+A.target.value}),className:"vp-s1-range","aria-label":"Seleziona quantità volantini",style:{"--progress": `${(((Math.max(5000,Math.min(100000,n.qty||10000)))-5000)/(100000-5000))*100}%`}}),
   _jsx("div",{style:{position:"absolute",left:0,right:0,top:28,display:"flex",pointerEvents:"none",padding:"0 10px"},children:
     [5000, 10000, 25000, 50000, 100000].map(val => {
@@ -850,8 +847,8 @@ const[,B,P,J]=F,V=new Date(Number(J),Number(P)-1,Number(B));return V.getFullYear
       });
     })
   })
-]}),_jsxs("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:16,flexWrap:"wrap",gap:12,paddingTop:12,borderTop:"1px solid rgba(255,255,255,0.06)"},children:[_jsxs("div",{style:{fontFamily:F.sans,fontSize:14,color:"rgba(255,255,255,.9)",fontWeight:500},children:["Quantità selezionata: ",_jsx("b",{style:{color:C.orange,fontSize:18,marginLeft:6,letterSpacing:"-0.5px"},children:new Intl.NumberFormat("it-IT").format(n.qty||0)})," volantini"]}),_jsx("input",{type:"text",inputMode:"numeric",value:n.qty ? new Intl.NumberFormat("it-IT").format(n.qty) : "",onChange:A=>{const v = A.target.value.replace(/\D/g, "");D({qty: v ? parseInt(v, 10) : ""})},onBlur:A=>{const v = A.target.value.replace(/\D/g, "");D({qty: Math.max(5000, Math.min(100000, v ? parseInt(v, 10) : 10000))})},className:"vp-s1-input",style:{width:110,padding:"8px 12px",textAlign:"right",fontSize:14,fontWeight:700}})]})]}),_jsxs("div",{id:"section-periodo",className:"vp-s1-card-inner",children:[_jsx("div",{className:"vp-s1-section-num",children:"4 \u2013 Quando vuoi distribuire?"}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.85)",marginBottom:14,marginTop:-4},children:"Scegli il periodo o indica una data preferita."}),_jsx(Step1PeriodPresets,{value:n.campaignPeriodPreset,onChange:A=>D({campaignPeriodPreset:A,...A!=="custom"?{startDate:"",endDate:"",startDateDraft:"",endDateDraft:""}:{}}),isMobile:l}),_jsx("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:10,marginBottom:10},children:[{l:"Data inizio",k:"startDate"},{l:"Data fine",k:"endDate"}].map(({l:A,k:F})=>{const B=n[F]||"",P=`${F}Draft`,J=n[P]??j(B);return _jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.6)",display:"block",marginBottom:5},children:A}),_jsxs("div",{style:{position:"relative"},children:[_jsx("input",{type:"text",inputMode:"numeric",placeholder:"gg/mm/aaaa",value:J,onChange:V=>{const H=T(V.target.value),ue=z(H);D({[P]:H,...ue?{[F]:ue}:H?{}:{[F]:""}})},className:`vp-s1-input ${B?"active":""}`,style:{paddingRight:38,colorScheme:"dark"}}),_jsx("input",{type:"date",style:{position:"absolute",right:0,top:0,opacity:0,width:"100%",height:"100%",cursor:"pointer",pointerEvents:"none"},id:`picker-${F}`,value:B||"",onChange:V=>{const H=V.target.value;if(!H)return;
-const[ue,ge,Fe]=H.split("-");D({[P]:`${Fe}/${ge}/${ue}`,[F]:H})}}),_jsx("span",{onClick:()=>{try{document.getElementById(`picker-${F}`).showPicker()}catch{document.getElementById(`picker-${F}`).click()}},style:{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",pointerEvents:"auto",cursor:"pointer",zIndex:10},children:React.createElement("svg",{width:15,height:15,viewBox:"0 0 16 16",fill:"none",xmlns:"http://www.w3.org/2000/svg",style:{display:"block",stroke:"rgba(255,255,255,.55)"}},React.createElement("rect",{x:1.5,y:2.5,width:13,height:12,rx:1.8,strokeWidth:1.2}),React.createElement("path",{d:"M5 1v3M11 1v3M1.5 6.5h13",strokeWidth:1.2,strokeLinecap:"round"}))})]}),B&&_jsxs("div",{style:{fontFamily:F.sans,fontSize:10,color:C.orange,marginTop:3},children:[" ",j(B)]})]},F)})}),_jsx("div",{style:{marginTop:12,padding:"8px 12px",borderRadius:8,background:"rgba(255,255,255,.02)",border:`1px solid ${w?C.red:"rgba(255,255,255,.05)"}`,fontFamily:F.sans,fontSize:11,color:w?C.red:"rgba(255,255,255,.45)",lineHeight:1.4},children:w?"Data fine precedente alla data inizio. Puoi correggerla ora o inviare una richiesta nello Step 3.":"Smart Pairing: non trovi la data desiderata? Invia comunque la richiesta. Ti avvisiamo quando siamo operativi nella tua zona o vicino."})]})]}),_jsxs("div",{id:"section-formato",className:"vp-s1-card-inner",style:{marginBottom:22},children:[_jsx("div",{className:"vp-s1-section-num",children:"5 \u2013 Tipo di volantino"}),_jsxs("div",{children:[_jsxs("div",{style:{marginBottom:14},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:12,fontWeight:600,color:"rgba(255,255,255,.65)",marginBottom:10},children:"Hai già i volantini stampati?"}),_jsx("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:10},children:[{id:"yes",icon:"",label:"Sì, li ho già",sub:"Inserisci solo il formato"},{id:"no",icon:"",label:"No, devo stamparli",sub:"Aggiungi stampa nei servizi extra"}].map(({id:A,icon:F,label:B,sub:P})=>{const J=(n.hasFlyers||"no")===A;return _jsxs("div",{onClick:()=>D({hasFlyers:A,extraServices:A==="yes"?(n.extraServices||[]).filter(V=>!["stampa","grafica"].includes(V)):n.extraServices||[]}),className:`vp-s1-option-card ${J?"active":""}`,children:[_jsx("span",{style:{fontSize:20},children:F}),_jsxs("div",{children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:13,fontWeight:600,color:C.white,marginBottom:2},children:B}),_jsx("div",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)"},children:P})]})]},A)})})]}),_jsxs("div",{children:[_jsxs("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:600,color:"rgba(255,255,255,.7)",marginBottom:10},children:["Formato volantino ",_jsx("span",{style:{color:"rgba(255,255,255,.28)",fontWeight:400},children:"(per il calcolo della distribuzione)"})]}),_jsx("div",{style:{display:"grid",gridTemplateColumns:l?"repeat(2,1fr)":"repeat(4,1fr)",gap:7},children:Uv.map(({id:A,label:F,size:B})=>{const P=n.flyerFormat===A;return _jsxs("div",{onClick:()=>D({flyerFormat:A}),className:`vp-s1-format-card ${P?"active":""}`,children:[_jsx("div",{style:{fontFamily:F.serif,fontSize:18,color:P?C.orange:C.white},children:F}),_jsx("div",{style:{fontFamily:F.sans,fontSize:10,color:"rgba(255,255,255,.65)"},children:B})]},A)})})]})]}),_jsxs("div",{id:"section-urgenza",className:"vp-s1-card-inner",style:{marginBottom:22},children:[_jsx("div",{className:"vp-s1-section-num",children:"6 \u2013 Priorit\u00e0 operativa"}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.85)",marginBottom:14,marginTop:-4},children:"Standard oppure urgente se vuoi partire più velocemente."}),_jsx("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:11},children:[{id:"normal",icon:"",label:"Standard",sub:"5-7 giorni lavorativi"},{id:"urgent",icon:"",label:"Urgente",sub:"24-48h – maggiorazione applicata"}].map(({id:A,icon:F,label:B,sub:P})=>{const J=n.urgency===A;return _jsxs("div",{onClick:()=>D({urgency:A}),className:`vp-s1-option-card ${J?"active":""}`,children:[_jsx("div",{style:{fontSize:22},children:F}),_jsxs("div",{style:{flex:1},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:14,fontWeight:600,color:C.white,marginBottom:2},children:B}),_jsx("div",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)"},children:P})]}),_jsx("div",{style:{width:19,height:19,borderRadius:"50%",border:`2px solid ${J?C.orange:"rgba(255,255,255,.2)"}`,background:J?C.orange:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0},children:J&&_jsx("svg",{width:"9",height:"9",viewBox:"0 0 9 9",children:_jsx("path",{d:"M1.5 4.5l2 2 4-4.5",stroke:"white",strokeWidth:"1.5",fill:"none",strokeLinecap:"round"})})})]},A)})})]}),_jsxs("div",{id:"section-piano",className:"vp-s1-card-inner",style:{marginBottom:32},children:[_jsx("div",{className:"vp-s1-section-num",children:"7 \u2013 Piano campagna"}),_jsx("div",{style:{display:"grid",gridTemplateColumns:l?"repeat(2,1fr)":"repeat(4,1fr)",gap:9,marginBottom:12},children:Gu.map(({id:A,label:F,icon:B,disc:P})=>{const J=n.subscription===A,qp=n.type==="h2h"?2.20:n.type==="b2b"||n.type==="business-distribution"?3.50:1.85,qr=P>0&&n.qty>0?Math.round((n.qty/1000)*qp*12*(P/100)):0;return _jsxs("div",{onClick:()=>D({subscription:A,campaignsPerMonth:A==="single"?1:n.campaignsPerMonth||1}),className:`vp-s1-plan-card ${J?"active":""}`,children:[P>0&&_jsxs("div",{style:{position:"absolute",top:-8,right:8,background:"#F59E0B",color:C.white,fontFamily:F.sans,fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:20},children:["-",P,"%"]}),_jsx("div",{style:{fontSize:22,marginBottom:8},children:B}),_jsx("div",{style:{fontFamily:F.sans,fontSize:12,fontWeight:700,color:J?C.white:"rgba(255,255,255,.65)"},children:F}),P>0&&_jsxs("div",{style:{fontFamily:F.sans,fontSize:11,color:"#F59E0B",fontWeight:700,marginTop:4},children:["\u2212",P,"% sul totale"]})]},A)})}),n.subscription&&n.subscription!=="single"&&_jsxs("div",{style:{padding:"16px 18px",borderRadius:12,background:"rgba(232,87,26,.08)",border:"1px solid rgba(232,87,26,.2)"},children:[_jsxs("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12},children:[_jsxs("div",{children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:13,fontWeight:700,color:C.white,marginBottom:3},children:"Quante campagne al mese?"}),_jsxs("div",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.7)"},children:[Gu.find(A=>A.id===n.subscription)?.label," – sconto ",Gu.find(A=>A.id===n.subscription)?.disc,"% sulla distribuzione"]})]}),_jsx("div",{style:{display:"flex",gap:8},children:[1,2,4].map(A=>{const F=(n.campaignsPerMonth||1)===A;return _jsx("button",{onClick:()=>D({campaignsPerMonth:A}),className:`vp-s1-campaign-btn ${F?"active":""}`,children:A},A)})})]}),n.campaignsPerMonth&&_jsxs("div",{style:{marginTop:10,fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)"},children:[n.campaignsPerMonth," campagna",n.campaignsPerMonth>1?"e":""," al mese  - ",h[n.subscription]||1," mesi = ",_jsxs("b",{style:{color:C.orange},children:[R," campagne totali"]})]})]})]}),_jsx(Step1ConfigSummary,{data:n}),_jsx("div",{style:{display:"flex",justifyContent:"flex-end"},children:_jsx("button",{className:"vb vp-s1-cta",onClick:()=>{const sc=[{f:!n.type,i:"section-servizio"},{f:!n.qty||n.qty<1,i:"section-quantita"},{f:!n.flyerFormat||!n.hasFlyers,i:"section-formato"},{f:!n.urgency,i:"section-urgenza"},{f:!n.subscription,i:"section-piano"}];for(const{f:ok,i:si}of sc){if(ok){const el=document.getElementById(si);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.style.outline="2px solid rgba(232,87,26,.55)";el.style.borderRadius="12px";setTimeout(()=>{el.style.outline="";el.style.borderRadius=""},2500);}return;}}r();},children:"Scegli la zona"})}),showSmartPairingModal&&_jsx("div",{style:{position:"fixed",inset:0,zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"},children:_jsxs("div",{style:{position:"relative",width:"100%",maxWidth:420},children:[_jsx("div",{style:{position:"absolute",inset:0,background:"rgba(0,0,0,.6)"},onClick:()=>setShowSmartPairingModal(false)}),_jsxs("div",{style:{position:"relative",background:"rgba(8, 14, 28, 0.65)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",boxShadow:"0 12px 48px rgba(0,0,0,0.3)",border:"1px solid rgba(255,255,255,.1)",borderRadius:16,padding:24,zIndex:1},children:[_jsx("button",{onClick:()=>setShowSmartPairingModal(false),style:{position:"absolute",top:14,right:14,background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,.65)",fontSize:20,lineHeight:1},children:"x"}),_jsxs("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:16},children:[_jsx("span",{style:{width:8,height:8,borderRadius:"50%",background:C.green,display:"inline-block"}}),_jsx("h3",{style:{fontFamily:F.sans,fontWeight:600,fontSize:15,color:C.white,margin:0},children:"Come funziona Smart Pairing"})]}),_jsxs("div",{style:{display:"flex",flexDirection:"column",gap:12},children:[_jsxs("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.65)",lineHeight:1.65,margin:0},children:["Il calendario Smart Pairing ",_jsx("strong",{style:{color:"rgba(255,255,255,.85)"},children:"non è un calendario completo di disponibilità"}),". Mostra solo le opportunità di abbinamento già pianificate."]}),_jsxs("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.65)",lineHeight:1.65,margin:0},children:["Nello Step 3 vedrai eventuali opportunità di abbinamento quando esistono campagne compatibili nella tua area."]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.65)",lineHeight:1.65,margin:0},children:"Non trovi la data desiderata? Puoi sempre inviare una richiesta. Smart Pairing \u00e8 una opportunit\u00e0 opzionale di risparmio e non limita le date disponibili."})]}),_jsx("button",{onClick:()=>setShowSmartPairingModal(false),style:{marginTop:18,width:"100%",background:C.orange,color:C.white,border:"none",borderRadius:8,padding:"10px",fontFamily:F.sans,fontSize:13,fontWeight:600,cursor:"pointer"},children:"Capito"})]})]})})]})]})}
+]}),_jsxs("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:16,flexWrap:"wrap",gap:12,paddingTop:12,borderTop:"1px solid rgba(255,255,255,0.06)"},children:[_jsxs("div",{style:{fontFamily:F.sans,fontSize:14,color:"rgba(255,255,255,.9)",fontWeight:500},children:["Quantità selezionata: ",_jsx("b",{style:{color:"#22C55E",fontSize:18,marginLeft:6,letterSpacing:"-0.5px"},children:new Intl.NumberFormat("it-IT").format(n.qty||0)})," volantini"]}),_jsx("input",{type:"text",inputMode:"numeric",value:n.qty ? new Intl.NumberFormat("it-IT").format(n.qty) : "",onChange:A=>{const v = A.target.value.replace(/\D/g, "");D({qty: v ? parseInt(v, 10) : ""})},onBlur:A=>{const v = A.target.value.replace(/\D/g, "");D({qty: Math.max(5000, Math.min(100000, v ? parseInt(v, 10) : 10000))})},className:"vp-s1-input",style:{width:110,padding:"8px 12px",textAlign:"right",fontSize:14,fontWeight:700}})]})]}),_jsxs("div",{id:"section-periodo",className:"vp-s1-card-inner",children:[_jsx("div",{className:"vp-s1-section-num",children:"4 \u2013 Quando vuoi distribuire?"}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.85)",marginBottom:14,marginTop:-4},children:"Puoi anche lasciare il periodo indicativo: la data precisa sarà confermata dopo."}),_jsx(Step1PeriodPresets,{value:n.campaignPeriodPreset,onChange:A=>D({campaignPeriodPreset:A,...A!=="custom"?{startDate:"",endDate:"",startDateDraft:"",endDateDraft:""}:{}}),isMobile:l}),_jsx("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:10,marginBottom:10},children:[{l:"Data preferita",k:"startDate"},{l:"Data fine (opzionale)",k:"endDate"}].map(({l:A,k:F})=>{const B=n[F]||"",P=`${F}Draft`,J=n[P]??j(B);return _jsxs("div",{children:[_jsx("label",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.6)",display:"block",marginBottom:5},children:A}),_jsxs("div",{style:{position:"relative"},children:[_jsx("input",{type:"text",inputMode:"numeric",placeholder:"gg/mm/aaaa",value:J,onChange:V=>{const H=T(V.target.value),ue=z(H);D({[P]:H,...ue?{[F]:ue}:H?{}:{[F]:""}})},className:`vp-s1-input ${B?"active":""}`,style:{paddingRight:38,colorScheme:"dark"}}),_jsx("input",{type:"date",style:{position:"absolute",right:0,top:0,opacity:0,width:"100%",height:"100%",cursor:"pointer",pointerEvents:"none"},id:`picker-${F}`,value:B||"",onChange:V=>{const H=V.target.value;if(!H)return;
+const[ue,ge,Fe]=H.split("-");D({[P]:`${Fe}/${ge}/${ue}`,[F]:H})}}),_jsx("span",{onClick:()=>{try{document.getElementById(`picker-${F}`).showPicker()}catch{document.getElementById(`picker-${F}`).click()}},style:{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",pointerEvents:"auto",cursor:"pointer",zIndex:10},children:React.createElement("svg",{width:15,height:15,viewBox:"0 0 16 16",fill:"none",xmlns:"http://www.w3.org/2000/svg",style:{display:"block",stroke:"rgba(255,255,255,.55)"}},React.createElement("rect",{x:1.5,y:2.5,width:13,height:12,rx:1.8,strokeWidth:1.2}),React.createElement("path",{d:"M5 1v3M11 1v3M1.5 6.5h13",strokeWidth:1.2,strokeLinecap:"round"}))})]}),B&&_jsxs("div",{style:{fontFamily:F.sans,fontSize:10,color:"#22C55E",marginTop:3},children:[" ",j(B)]})]},F)})}),_jsx("div",{style:{marginTop:12,padding:"8px 12px",borderRadius:8,background:"rgba(255,255,255,.02)",border:`1px solid ${w?C.red:"rgba(255,255,255,.05)"}`,fontFamily:F.sans,fontSize:11,color:w?C.red:"rgba(255,255,255,.45)",lineHeight:1.4},children:w?"Data fine precedente alla data inizio. Puoi correggerla ora o inviare una richiesta nello Step 3.":"La data precisa sarà confermata dal team operativo."})]})]}),_jsxs("div",{id:"section-formato",className:"vp-s1-card-inner",style:{marginBottom:22},children:[_jsx("div",{className:"vp-s1-section-num",children:"5 \u2013 Hai già i volantini stampati?"}),_jsxs("div",{children:[_jsxs("div",{style:{marginBottom:14},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:12,fontWeight:600,color:"rgba(255,255,255,.65)",marginBottom:10},children:"Hai già i volantini stampati?"}),_jsx("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:10},children:[{id:"yes",icon:"",label:"Sì, li ho già",sub:"Inserisci solo il formato"},{id:"no",icon:"",label:"No, devo stamparli",sub:"Aggiungi stampa al preventivo"}].map(({id:A,icon:F,label:B,sub:P})=>{const J=(n.hasFlyers||"no")===A;return _jsxs("div",{onClick:()=>D({hasFlyers:A,extraServices:A==="yes"?(n.extraServices||[]).filter(V=>!["stampa","grafica"].includes(V)):n.extraServices||[]}),className:`vp-s1-option-card ${J?"active":""}`,children:[_jsx("span",{style:{fontSize:20},children:F}),_jsxs("div",{children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:13,fontWeight:600,color:C.white,marginBottom:2},children:B}),_jsx("div",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)"},children:P})]})]},A)})})]}),_jsxs("div",{children:[_jsxs("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:600,color:"rgba(255,255,255,.7)",marginBottom:10},children:["Formato volantino ",_jsx("span",{style:{color:"rgba(255,255,255,.28)",fontWeight:400},children:"(per il calcolo della distribuzione)"})]}),_jsx("div",{style:{display:"grid",gridTemplateColumns:l?"repeat(2,1fr)":"repeat(4,1fr)",gap:7},children:Uv.map(({id:A,label:F,size:B})=>{const P=n.flyerFormat===A;return _jsxs("div",{onClick:()=>D({flyerFormat:A}),className:`vp-s1-format-card ${P?"active":""}`,children:[_jsx("div",{style:{fontFamily:F.serif,fontSize:18,color:P?"#22C55E":C.white},children:F}),_jsx("div",{style:{fontFamily:F.sans,fontSize:10,color:"rgba(255,255,255,.65)"},children:B})]},A)})})]})]}),_jsxs("div",{id:"section-urgenza",className:"vp-s1-card-inner",style:{marginBottom:22},children:[_jsx("div",{className:"vp-s1-section-num",children:"6 \u2013 Priorità operativa"}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.85)",marginBottom:14,marginTop:-4},children:"La disponibilità urgente viene confermata dal team operativo."}),_jsx("div",{style:{display:"grid",gridTemplateColumns:l?"1fr":"1fr 1fr",gap:11},children:[{id:"normal",icon:"",label:"Standard",sub:"5–7 giorni lavorativi • Prezzo standard"},{id:"urgent",icon:"",label:"Urgente",sub:"24–48h se disponibile • Maggiorazione applicata"}].map(({id:A,icon:F,label:B,sub:P})=>{const J=n.urgency===A;return _jsxs("div",{onClick:()=>D({urgency:A}),className:`vp-s1-option-card ${J?"active":""}`,children:[_jsx("div",{style:{fontSize:22},children:F}),_jsxs("div",{style:{flex:1},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:14,fontWeight:600,color:C.white,marginBottom:2},children:B}),_jsx("div",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)"},children:P})]}),_jsx("div",{style:{width:19,height:19,borderRadius:"50%",border:`2px solid ${J?"#22C55E":"rgba(255,255,255,.2)"}`,background:J?"#22C55E":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0},children:J&&_jsx("svg",{width:"9",height:"9",viewBox:"0 0 9 9",children:_jsx("path",{d:"M1.5 4.5l2 2 4-4.5",stroke:"white",strokeWidth:"1.5",fill:"none",strokeLinecap:"round"})})})]},A)})})]}),_jsxs("div",{id:"section-piano",className:"vp-s1-card-inner",style:{marginBottom:32},children:[_jsx("div",{className:"vp-s1-section-num",children:"7 \u2013 Vuoi fare una distribuzione singola o continuativa?"}),_jsx("div",{style:{display:"grid",gridTemplateColumns:l?"repeat(2,1fr)":"repeat(4,1fr)",gap:9,marginBottom:12},children:Gu.map(({id:A,label:F,icon:B,disc:P})=>{const J=n.subscription===A,qp=n.type==="h2h"?2.20:n.type==="b2b"||n.type==="business-distribution"?3.50:1.85,qr=P>0&&n.qty>0?Math.round((n.qty/1000)*qp*12*(P/100)):0;return _jsxs("div",{onClick:()=>D({subscription:A,campaignsPerMonth:A==="single"?1:n.campaignsPerMonth||1}),className:`vp-s1-plan-card ${J?"active":""}`,children:[P>0&&_jsxs("div",{style:{position:"absolute",top:-8,right:8,background:"#F59E0B",color:C.white,fontFamily:F.sans,fontSize:9,fontWeight:700,padding:"2px 7px",borderRadius:20},children:["-",P,"%"]}),_jsx("div",{style:{fontSize:22,marginBottom:8},children:B}),_jsx("div",{style:{fontFamily:F.sans,fontSize:12,fontWeight:700,color:J?C.white:"rgba(255,255,255,.65)"},children:F}),P>0&&_jsxs("div",{style:{fontFamily:F.sans,fontSize:11,color:"#F59E0B",fontWeight:700,marginTop:4},children:["\u2212",P,"% sul totale"]})]},A)})}),n.subscription&&n.subscription!=="single"&&_jsxs("div",{style:{padding:"16px 18px",borderRadius:12,background:"rgba(34,197,94,.08)",border:"1px solid rgba(34,197,94,.2)"},children:[_jsxs("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12},children:[_jsxs("div",{children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:13,fontWeight:700,color:C.white,marginBottom:3},children:"Quante campagne al mese?"}),_jsxs("div",{style:{fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.7)"},children:[Gu.find(A=>A.id===n.subscription)?.label," – sconto ",Gu.find(A=>A.id===n.subscription)?.disc,"% sulla distribuzione"]})]}),_jsx("div",{style:{display:"flex",gap:8},children:[1,2,4].map(A=>{const F=(n.campaignsPerMonth||1)===A;return _jsx("button",{onClick:()=>D({campaignsPerMonth:A}),className:`vp-s1-campaign-btn ${F?"active":""}`,children:A},A)})})]}),n.campaignsPerMonth&&_jsxs("div",{style:{marginTop:10,fontFamily:F.sans,fontSize:11,color:"rgba(255,255,255,.65)"},children:[n.campaignsPerMonth," campagna",n.campaignsPerMonth>1?"e":""," al mese  - ",h[n.subscription]||1," mesi = ",_jsxs("b",{style:{color:"#22C55E"},children:[R," campagne totali"]})]})]})]}),_jsx(Step1ConfigSummary,{data:n}),_jsxs("div",{style:{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:10},children:[_jsx("button",{className:"vb vp-s1-cta",onClick:()=>{const sc=[{f:!n.type,i:"section-servizio"},{f:!n.qty||n.qty<1,i:"section-quantita"},{f:!n.flyerFormat||!n.hasFlyers,i:"section-formato"},{f:!n.urgency,i:"section-urgenza"},{f:!n.subscription,i:"section-piano"}];for(const{f:ok,i:si}of sc){if(ok){const el=document.getElementById(si);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.style.outline="2px solid rgba(34,197,94,.55)";el.style.borderRadius="12px";setTimeout(()=>{el.style.outline="";el.style.borderRadius=""},2500);}return;}}r();},children:"Scegli la zona"}),oe&&_jsx("button",{onClick:oe,style:{background:"none",border:"none",color:"rgba(255,255,255,.38)",fontFamily:F.sans,fontSize:12,cursor:"pointer",padding:"4px 0",letterSpacing:".2px"},children:"← Torna alla home"})]}),showSmartPairingModal&&_jsx("div",{style:{position:"fixed",inset:0,zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"},children:_jsxs("div",{style:{position:"relative",width:"100%",maxWidth:420},children:[_jsx("div",{style:{position:"absolute",inset:0,background:"rgba(0,0,0,.6)"},onClick:()=>setShowSmartPairingModal(false)}),_jsxs("div",{style:{position:"relative",background:"rgba(8, 14, 28, 0.65)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",boxShadow:"0 12px 48px rgba(0,0,0,0.3)",border:"1px solid rgba(255,255,255,.1)",borderRadius:16,padding:24,zIndex:1},children:[_jsx("button",{onClick:()=>setShowSmartPairingModal(false),style:{position:"absolute",top:14,right:14,background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,.65)",fontSize:20,lineHeight:1},children:"x"}),_jsxs("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:16},children:[_jsx("span",{style:{width:8,height:8,borderRadius:"50%",background:C.green,display:"inline-block"}}),_jsx("h3",{style:{fontFamily:F.sans,fontWeight:600,fontSize:15,color:C.white,margin:0},children:"Come funziona Smart Pairing"})]}),_jsxs("div",{style:{display:"flex",flexDirection:"column",gap:12},children:[_jsxs("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.65)",lineHeight:1.65,margin:0},children:["Il calendario Smart Pairing ",_jsx("strong",{style:{color:"rgba(255,255,255,.85)"},children:"non è un calendario completo di disponibilità"}),". Mostra solo le opportunità di abbinamento già pianificate."]}),_jsxs("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.65)",lineHeight:1.65,margin:0},children:["Nello Step 3 vedrai eventuali opportunità di abbinamento quando esistono campagne compatibili nella tua area."]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.65)",lineHeight:1.65,margin:0},children:"Non trovi la data desiderata? Puoi sempre inviare una richiesta. Smart Pairing \u00e8 una opportunit\u00e0 opzionale di risparmio e non limita le date disponibili."})]}),_jsx("button",{onClick:()=>setShowSmartPairingModal(false),style:{marginTop:18,width:"100%",background:"#22C55E",color:C.white,border:"none",borderRadius:8,padding:"10px",fontFamily:F.sans,fontSize:13,fontWeight:600,cursor:"pointer"},children:"Capito"})]})]})})]})]})}
 
 function apiToZones(apiData, city) {
   if (import.meta.env.DEV) {
@@ -986,7 +983,7 @@ function Step2({ data, setData, onNext, onBack }) {
 const svcRaw = data.selectedService || data.activeService || data.type || "d2d";
 const svcType = ({door_to_door:"d2d","door-to-door":"d2d",door:"d2d",hand_to_hand:"h2h","hand-to-hand":"h2h",business:"b2b","business-distribution":"b2b",business_b2b:"b2b"})[svcRaw] || svcRaw;
 const serviceMeta = SERVICE_META[svcType] || SERVICE_META.d2d;
-const col = serviceMeta.color;
+const col = "#22C55E";
 const layers = LAYERS[svcType] || LAYERS.d2d;
 const isResidentialStep2 = serviceMeta.mode === "residential";
 const isBusinessStep2 = serviceMeta.mode === "business";
@@ -1021,6 +1018,8 @@ useEffect(() => {
     setData(d => ({ ...d, type: "d2d", selectedService: "d2d", activeService: "d2d" }));
   }
 }, [data.selectedService, data.activeService, data.type, setData]);
+  const isAdminView = false;
+  const [partialCoverageConfirmed, setPartialCoverageConfirmed] = useState(false);
   const [geocodeSuggestions, setGeocodeSuggestions] = useState([]);
   const [allocationMode, setAllocationMode] = useState(data.allocationMode || "auto");
   const [manualAssignments, setManualAssignments] = useState(data.manualAssignments || {});
@@ -1214,6 +1213,7 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
   }, [search, city, radiusKm, selected, selectedCaps, capDataMap, manualAssignments, allocationMode, searchMode, activeMapLayers, data.activeZoneId]);
 
   const updateActiveRadius = (nextRadiusKm) => {
+    setPartialCoverageConfirmed(false);
     const normalizedRadius = Number(nextRadiusKm);
     setRadius(normalizedRadius);
     setSelected([]);
@@ -1628,6 +1628,7 @@ const territorialDataUnavailable = Boolean(city && !apiLoading && !hasUsefulApiZ
 const flyerQuantityFromStep1 = data.flyerQuantity || data.qty || 10000;
 function zCap(z) { return svcType === "d2d" ? z.families : svcType === "h2h" ? z.poi * 2 : z.bizTotal * 3; }
   function toggleZone(id) {
+    setPartialCoverageConfirmed(false);
     if (id.startsWith("cap_")) {
       const cp = id.replace("cap_", "");
       setSelectedCaps(prev => prev.includes(cp) ? prev.filter(x => x !== cp) : [...prev, cp]);
@@ -1984,14 +1985,14 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     ? residentialScores
     : isMovementStep2
       ? [
-        { l: "Hotspot Score", v: aiAgg?.reachH2H, c: C.orange },
+        { l: "Hotspot Score", v: aiAgg?.reachH2H, c: "#22C55E" },
         { l: "Reach Score", v: aiAgg?.reachH2H, c: C.blue },
         { l: "ROI Score", v: aiAgg?.roiH2H, c: C.green },
         { l: "Confidence", v: aiAgg?.confH2H, c: C.purple },
       ]
       : isBusinessStep2
         ? [
-          { l: "Cluster Score", v: aiAgg?.cdIdx, c: C.orange },
+          { l: "Cluster Score", v: aiAgg?.cdIdx, c: "#22C55E" },
           { l: "Reach Score", v: aiAgg?.reachB2B, c: C.blue },
           { l: "ROI Score", v: aiAgg?.roiB2B, c: C.green },
           { l: "Confidence", v: aiAgg?.confB2B, c: C.purple },
@@ -2009,7 +2010,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
       { l: "Foot Traffic", v: serviceKpis.flowScore, c: C.blue },
       { l: "Hotspot Strength", v: serviceKpis.hotspotStrength, c: C.green },
       { l: "Transit Index", v: serviceKpis.transitStops, c: C.purple },
-      { l: "Attrattori locali", v: serviceKpis.nearbyBiz, c: C.orange },
+      { l: "Attrattori locali", v: serviceKpis.nearbyBiz, c: "#22C55E" },
     ] : []),
     ...(isBusinessStep2 ? [
       { l: "Competition Index", v: serviceKpis.competitors, c: C.red },
@@ -2104,14 +2105,15 @@ const radiusInsightRows = zonesInRadius.map(z => ({
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14, flexWrap: "wrap" }}>
         {/* Titolo */}
         <div style={{ flexShrink: 0 }}>
-          <div style={{ fontFamily: F.serif, fontSize: 22, color: C.white, letterSpacing: "-.5px" }}>Zona & Mappa</div>
+          <div style={{ fontFamily: F.serif, fontSize: 22, color: C.white, letterSpacing: "-.5px" }}>Scegli la zona di distribuzione</div>
+          <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.55)", marginTop: 4 }}>Cerca un comune o CAP, scegli il raggio e verifica la copertura stimata dei tuoi volantini.</div>
         </div>
 
         <div style={{ width: 1, height: 28, background: "rgba(255,255,255,.1)", flexShrink: 0 }} />
 
         {/* SERVICE PILLS - cambiano il servizio */}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {[{ id: "d2d", icon: " ", l: "Door to Door", c: C.orange }, { id: "h2h", icon: "", l: "Hand to Hand", c: C.blue }, { id: "b2b", icon: "", l: "Business", c: C.green }].map(({ id, icon, l, c }) => (
+          {[{ id: "d2d", icon: " ", l: "Door to Door", c: "#22C55E" }, { id: "h2h", icon: "", l: "Hand to Hand", c: C.blue }, { id: "b2b", icon: "", l: "Business", c: C.green }].map(({ id, icon, l, c }) => (
             <button key={id} onClick={() => setData(d => ({...d, type: id, selectedService: id, activeService: id }))} style={pill(svcType === id, c)}>
               {icon} {l}
             </button>
@@ -2155,7 +2157,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "0 12px" }}>
               <span style={{ fontSize: 13 }}>{searchMode === "cap" ? "" : ""} </span>
               <input value={search} onChange={e => { setSearch(e.target.value); setDropOpen(true); }} onFocus={() => setDropOpen(true)}
-                placeholder={searchMode === "cap" ? "Inserisci CAP (es. 20121)..." : "Cerca comune o indirizzo..."}
+                placeholder={searchMode === "cap" ? "Inserisci CAP (es. 20121)..." : "Cerca comune o CAP"}
                 style={{ flex: 1, background: "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 13, height: 38 }} />
               {search && <button onClick={() => { setSearch(""); setDropOpen(false); }} style={{ background: "none", border: "none", color: "rgba(255,255,255,.4)", cursor: "pointer", fontSize: 16 }}>-</button>}
             </div>
@@ -2167,7 +2169,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 geocodeSuggestions.map(c => (
                   <div key={c.id} onClick={() => { setCity(c); setSearch(c.label || c.name); setDropOpen(false); setSelected([]); }}
                     style={{ padding: "9px 14px", cursor: "pointer", fontFamily: F.sans, fontSize: 13, color: C.white, borderBottom: "1px solid rgba(255,255,255,.05)" }}
-                    onMouseEnter={e => e.currentTarget.style.background = "rgba(232,87,26,.12)"}
+                    onMouseEnter={e => e.currentTarget.style.background = "rgba(34, 197, 94,.12)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                      {c.label || c.name}
                   </div>
@@ -2178,7 +2180,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 capSuggestions.map(c => (
                   <div key={c.id} onClick={() => handleCapSelect(c)}
                     style={{ padding: "9px 14px", cursor: "pointer", fontFamily: F.sans, fontSize: 13, color: C.white, borderBottom: "1px solid rgba(255,255,255,.05)" }}
-                    onMouseEnter={e => e.currentTarget.style.background = "rgba(232,87,26,.12)"}
+                    onMouseEnter={e => e.currentTarget.style.background = "rgba(34, 197, 94,.12)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                      {c.name}
                   </div>
@@ -2191,19 +2193,24 @@ const radiusInsightRows = zonesInRadius.map(z => ({
         {/* Radius pills - hidden in CAP mode */}
         {searchMode !== "cap" && (
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)", marginRight: 4, whiteSpace: "nowrap" }}>Raggio:</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>Aumentando il raggio aumentano copertura, comuni coinvolti e quantità consigliata.</div>
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.35)", marginRight: 4, whiteSpace: "nowrap" }}>Raggio:</span>
             {S2_RADII.map(r => (
               <button key={r} onClick={() => updateActiveRadius(r)}
                 style={{
-                  padding: "7px 10px", borderRadius: 7, border: `1px solid ${radiusKm === r ? C.orange : "rgba(255,255,255,.1)"}`,
-                  background: radiusKm === r ? "rgba(232,87,26,.18)" : "rgba(255,255,255,.04)",
-                  color: radiusKm === r ? C.orange : "rgba(255,255,255,.5)",
+                  padding: "7px 10px", borderRadius: 7, border: `1px solid ${radiusKm === r ? "#22C55E" : "rgba(255,255,255,.1)"}`,
+                  background: radiusKm === r ? "rgba(34, 197, 94,.18)" : "rgba(255,255,255,.04)",
+                  color: radiusKm === r ? "#22C55E" : "rgba(255,255,255,.5)",
                   fontFamily: F.sans, fontSize: 11, fontWeight: radiusKm === r ? 700 : 400, cursor: "pointer", transition: "all.15s"
                 }}>
                 {r < 1 ? `${r * 1000}m` : `${r}km`}
               </button>
             ))}
-            <span style={{ fontFamily: F.serif, fontSize: 18, color: C.orange, marginLeft: 6 }}>{radiusKm < 1 ? `${radiusKm * 1000}m` : `${radiusKm}km`}</span>
+            <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white, marginLeft: 6 }}>Raggio selezionato: {radiusKm < 1 ? `${radiusKm * 1000}m` : `${radiusKm}km`}</span>
+              </div>
+            </div>
           </div>
         )}
         {searchMode === "cap" && selectedCaps.length > 0 && (
@@ -2245,7 +2252,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
       <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "-4px 0 12px", overflowX: "auto", paddingBottom: 2 }}>
         {campaignZones.map((z, idx) => {
           const isActive = z.id === data.activeZoneId;
-          const zoneSvcColor = SERVICE_META[z.service_type || "d2d"]?.color || C.orange;
+          const zoneSvcColor = "#22C55E";
           const configured = z.searchMode === "cap" ? (z.selectedCaps || []).length > 0 : !!z.city;
           return (
             <button key={z.id} onClick={() => selectCampaignZone(z.id)}
@@ -2316,7 +2323,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 if (id === "settori" && !sectors) return;
                 setActiveMapLayers(prev => ({ ...prev, [id]: !prev[id] }));
               }}
-              layerPanelConfig={LAYER_PANEL_CONFIG[svcType] || LAYER_PANEL_CONFIG.d2d}
+              layerPanelConfig={isAdminView ? (LAYER_PANEL_CONFIG[svcType] || LAYER_PANEL_CONFIG.d2d) : []}
               campaignZones={data.campaignZones}
               activeZoneId={data.activeZoneId}
               onSelectZone={selectCampaignZone}
@@ -2354,7 +2361,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               <div style={{ background: "rgba(8,15,30,.9)", backdropFilter: "blur(8px)", borderRadius: 6, padding: "4px 9px", fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.5)", border: "1px solid rgba(255,255,255,.07)" }}>
                 CartoDB – OSM
               </div>
-              {activeLay && viewMode !== "distribuzione" && (
+              {isAdminView && activeLay && viewMode !== "distribuzione" && (
                 <div style={{ background: "rgba(8,15,30,.88)", borderRadius: 6, padding: "4px 9px", fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.55)", border: "1px solid rgba(255,255,255,.06)" }}>
                   Layer: <b style={{ color: col }}>{activeLay.label}</b>
                 </div>
@@ -2367,7 +2374,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
             )}
             {isResidentialStep2 && city && (
               <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(8,15,30,.88)", borderRadius: 8, padding: "8px 10px", border: "1px solid rgba(255,255,255,.08)", maxWidth: 230 }}>
-                <div style={{ fontFamily: F.sans, fontSize: 8, fontWeight: 800, color: C.orange, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 6 }}>{isNilAnalysis ? "NIL Milano" : "Residential territory"}</div>
+                <div style={{ fontFamily: F.sans, fontSize: 8, fontWeight: 800, color: "#22C55E", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 6 }}>{isNilAnalysis ? "NIL Milano" : "Residential territory"}</div>
                 {residentialRadiusRows.slice(0, 4).map(r => (
                   <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
                     <span style={{ width: 8, height: 8, borderRadius: "50%", background: getComuneColor(r.id), display: "inline-block" }} />
@@ -2409,7 +2416,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               </div>
             )}
             {/* Legend tematica overlay */}
-            {viewMode === "tematica" && activeLay && zonesInRadius.length > 0 && (
+            {isAdminView && viewMode === "tematica" && activeLay && zonesInRadius.length > 0 && (
               <div style={{ position: "absolute", bottom: 10, right: 10, background: "rgba(8,15,30,.9)", backdropFilter: "blur(8px)", borderRadius: 8, padding: "8px 12px", border: "1px solid rgba(255,255,255,.08)" }}>
                 <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.4)", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".06em" }}>{activeLay.label}</div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.4)", marginBottom: 3 }}>
@@ -2476,7 +2483,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                         </div>
                         <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
                           <button onClick={() => { setSelectedCaps(prev => prev.filter(c => c !== cap)); setCapDataMap(prev => { const n={...prev}; delete n[cap]; return n; }); }}
-                            style={{ padding: "4px 10px", borderRadius: 7, border: "1px solid rgba(248,113,113,.3)", background: "rgba(232,87,26,.08)", color: C.red, fontFamily: F.sans, fontSize: 10, cursor: "pointer" }}>
+                            style={{ padding: "4px 10px", borderRadius: 7, border: "1px solid rgba(248,113,113,.3)", background: "rgba(34, 197, 94,.08)", color: C.red, fontFamily: F.sans, fontSize: 10, cursor: "pointer" }}>
                             Rimuovi CAP
                           </button>
                         </div>
@@ -2570,7 +2577,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               <div style={{ padding: "10px", display: "flex", flexDirection: "column", gap: 6 }}>
                 {analysisLoading && <div style={{ padding: 20, textAlign: "center", color: "rgba(255,255,255,.4)", fontFamily: F.sans, fontSize: 12 }}>Caricamento analisi territoriale...</div>}
                 {analysisError === "TERRITORIAL_DATA_NOT_AVAILABLE" && (
-                  <div style={{ padding: 24, textAlign: "center", color: C.red, background: "rgba(232,87,26,.08)", border: `1px solid ${C.red}33`, borderRadius: 12, fontFamily: F.sans, fontSize: 13 }}>
+                  <div style={{ padding: 24, textAlign: "center", color: C.red, background: "rgba(34, 197, 94,.08)", border: `1px solid ${C.red}33`, borderRadius: 12, fontFamily: F.sans, fontSize: 13 }}>
                     <div style={{ fontWeight: 700, marginBottom: 6 }}>Dati territoriali non disponibili per questo comune.</div>
                     <div style={{ opacity: 0.8, fontSize: 12 }}>La copertura dati reale e attualmente attiva per la Lombardia.</div>
                   </div>
@@ -2582,14 +2589,14 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                   </div>
                 )}
                 {territorialDataUnavailable && analysisError !== "TERRITORIAL_DATA_NOT_AVAILABLE" && (
-                  <div style={{ padding: 24, textAlign: "center", color: C.red, background: "rgba(232,87,26,.08)", border: `1px solid ${C.red}33`, borderRadius: 12, fontFamily: F.sans, fontSize: 13 }}>
+                  <div style={{ padding: 24, textAlign: "center", color: C.red, background: "rgba(34, 197, 94,.08)", border: `1px solid ${C.red}33`, borderRadius: 12, fontFamily: F.sans, fontSize: 13 }}>
                     <div style={{ fontWeight: 700, marginBottom: 6 }}>Dati territoriali non disponibili per questa zona.</div>
                     <div style={{ opacity: 0.8, fontSize: 12 }}>I POI reali restano visibili dove disponibili, ma non vengono creati comuni o zone territoriali da dati locali.</div>
                   </div>
                 )}
-                {analysisError === "POI_DATA_NOT_AVAILABLE" && <div style={{ padding: 20, textAlign: "center", color: C.orange, background: "rgba(232,87,26,.08)", borderRadius: 8, fontFamily: F.sans, fontSize: 12 }}>Dati POI non disponibili per questa zona.</div>}
+                {analysisError === "POI_DATA_NOT_AVAILABLE" && <div style={{ padding: 20, textAlign: "center", color: "#22C55E", background: "rgba(34, 197, 94,.08)", borderRadius: 8, fontFamily: F.sans, fontSize: 12 }}>Dati POI non disponibili per questa zona.</div>}
                 {shouldGroupMarginalZones && (
-                  <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(232,87,26,.08)", border: "1px solid rgba(232,87,26,.22)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(34, 197, 94,.08)", border: "1px solid rgba(34, 197, 94,.22)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                     <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.62)", lineHeight: 1.45 }}>
                       <b style={{ color: C.white }}>{city.name || city.label} è una città grande:</b> con un raggio di 1km la campagna sarà più mirata.
                       {primaryCoveredZones.length > 0 && <> Con {flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })} volantini coprirai principalmente: <b style={{ color: col }}>{primaryCoveredZones.join(", ")}</b>.</>}
@@ -2673,14 +2680,14 @@ const isManual = allocationMode === "manual";
                         {sel ? (
                           <div>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                              <span style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: coverageState === "full" ? C.green : coverageState === "partial" ? C.orange : "rgba(255,255,255,.38)", textTransform: "uppercase", letterSpacing: ".04em" }}>
+                              <span style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: coverageState === "full" ? C.green : coverageState === "partial" ? "#22C55E" : "rgba(255,255,255,.38)", textTransform: "uppercase", letterSpacing: ".04em" }}>
                                 {coverageLabel}
                               </span>
                               {coverageState !== "none" && <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: C.white }}>{coveragePercent}%</span>}
                             </div>
                             {coverageState !== "none" && (
                               <div style={{ height: 5, borderRadius: 3, background: "rgba(255,255,255,.08)", overflow: "hidden" }}>
-                                <div style={{ width: `${coveragePercent}%`, height: "100%", background: coverageState === "full" ? C.green : C.orange, borderRadius: 3 }} />
+                                <div style={{ width: `${coveragePercent}%`, height: "100%", background: coverageState === "full" ? C.green : "#22C55E", borderRadius: 3 }} />
                               </div>
                             )}
                           </div>
@@ -2747,40 +2754,81 @@ const isManual = allocationMode === "manual";
               {selZones.length > 0 && (
                 <div style={{ padding: "12px", background: "rgba(0,0,0,.15)", borderTop: "1px solid rgba(255,255,255,.05)" }}>
                   {allocationMode === "auto" ? (
-                    isPartial ? (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(232,87,26,.08)", border: "1px solid rgba(232,87,26,.28)", fontFamily: F.sans, fontSize: 11, color: C.orange, lineHeight: 1.5 }}>
-                          {isResidentialStep2 ? `Hai selezionato ${flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })} volantini su ${requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} necessari per copertura completa. Puoi procedere con copertura parziale oppure aumentare la quantità.` : `Hai selezionato ${flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })} volantini su ${requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} necessari per copertura completa. Puoi procedere con copertura parziale oppure aumentare la quantità.`}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: C.white, letterSpacing: ".05em", textTransform: "uppercase" }}>Copertura stimata</div>
+                      <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12, padding: 14 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+                          <div>
+                            <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Zona</div>
+                            <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{city ? city.name : (activeCampaignZone?.cityName || "Area")} · {radiusKm}km</div>
+                          </div>
+                          <div>
+                            <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Comuni coinvolti</div>
+                            <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{selZones.length || zonesInRadius.length}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini inseriti</div>
+                            <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Copertura stimata</div>
+                            <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: isPartial ? "#22C55E" : C.green }}>{serviceKpis?.coverage || 0}%</div>
+                          </div>
+                          {isPartial && (
+                            <>
+                              <div>
+                                <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini consigliati</div>
+                                <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{requiredFlyers.toLocaleString("it-IT", { useGrouping: true })}</div>
+                              </div>
+                              <div>
+                                <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Quantità mancante</div>
+                                <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: "#22C55E" }}>{missingFlyers.toLocaleString("it-IT", { useGrouping: true })}</div>
+                              </div>
+                            </>
+                          )}
                         </div>
-                        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 8 }}>
-                          <button onClick={handleNext}
-                            style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: col, color: C.white, border: "none", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
-                            Procedi con i miei {flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })} volantini
-                          </button>
-                          <button onClick={() => setData(d => ({...d, qty: requiredFlyers, flyerQuantity: requiredFlyers }))}
-                            style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: "transparent", color: col, border: `1px solid ${col}55`, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
-                            Aumenta a {requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} vol. (copertura completa)
-                          </button>
-                          <button onClick={() => setAllocationMode("manual")}
-                            style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: "transparent", color: col, border: `1px solid ${col}45`, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
-                            Modifica manualmente
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ padding: "10px 14px", background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.2)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.green }}>quantità sufficiente per la copertura totale.</div>
-                        {remainingFlyers > 0 && (
-                          <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.4)" }}>Avanzano {remainingFlyers.toLocaleString("it-IT", { useGrouping: true })} pz.</div>
+
+                        {isPartial ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(34, 197, 94,.08)", border: "1px solid rgba(34, 197, 94,.28)", display: "flex", alignItems: "flex-start", gap: 10 }}>
+                              <span style={{ padding: "4px 8px", borderRadius: 6, background: `${"#22C55E"}22`, color: "#22C55E", fontFamily: F.sans, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>Copertura parziale</span>
+                              <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.8)", lineHeight: 1.4 }}>
+                                Con {flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })} volantini puoi coprire circa il {serviceKpis?.coverage || 0}% dell’area selezionata. Per copertura completa stimiamo {requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini. Puoi procedere con copertura parziale oppure aumentare la quantità.
+                              </div>
+                            </div>
+                            
+                            {partialCoverageConfirmed ? (
+                              <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.28)", fontFamily: F.sans, fontSize: 12, color: C.green, fontWeight: 700, textAlign: "center" }}>
+                                Copertura parziale confermata.
+                              </div>
+                            ) : (
+                              <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 8 }}>
+                                <button onClick={() => setPartialCoverageConfirmed(true)}
+                                  style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: "transparent", color: C.white, border: "1px solid rgba(255,255,255,.3)", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                                  Procedi con copertura parziale
+                                </button>
+                                <button onClick={() => {
+                                    setData(d => ({...d, qty: requiredFlyers, flyerQuantity: requiredFlyers }));
+                                    setPartialCoverageConfirmed(false);
+                                  }}
+                                  style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: col, color: C.white, border: "none", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                                  Aumenta a {requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini
+                                </button>
+                                <button onClick={() => setAllocationMode("manual")}
+                                  style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: "transparent", color: col, border: `1px solid ${col}45`, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                                  Modifica manualmente
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ padding: "10px 14px", background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.2)", borderRadius: 10, display: "flex", alignItems: "center", gap: 10 }}>
+                            <span style={{ padding: "4px 8px", borderRadius: 6, background: `${C.green}22`, color: C.green, fontFamily: F.sans, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>Copertura completa</span>
+                            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,.8)" }}>La quantità inserita è sufficiente per coprire l’area selezionata.</div>
+                          </div>
                         )}
-                        {remainingFlyers > 0 && radiusInsightRows.some(z => !selected.includes(z.id)) && (
-                          <button onClick={addBestUnselectedZone}
-                            style={{ padding: "7px 11px", borderRadius: 8, background: "rgba(46,204,138,.12)", color: C.green, border: "1px solid rgba(46,204,138,.28)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, cursor: "pointer" }}>
-                            Aggiungi {territorySingularLabel.toLowerCase()} consigliato
-                          </button>
-                        )}
                       </div>
-                    )
+                    </div>
                   ) : (
                     /* Manual Mode Footer */
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -2899,7 +2947,7 @@ const isManual = allocationMode === "manual";
                   const v = Number(s.v || 0);
                   const isMaleWord = s.l.includes("Reach");
                   const word = isMaleWord ? (v > 70 ? "Alto" : v >= 40 ? "Medio" : "Basso") : (v > 70 ? "Alta" : v >= 40 ? "Media" : "Bassa");
-                  const colorVal = v > 70 ? C.green : v >= 40 ? C.yellow : C.orange;
+                  const colorVal = v > 70 ? C.green : v >= 40 ? C.yellow : "#22C55E";
                   let trLabel = s.l;
                   let tooltip = "Parametro statistico di analisi zona.";
                   if (s.l.includes("Family") || s.l.includes("Cluster") || s.l.includes("Hotspot")) {
@@ -2935,7 +2983,7 @@ const isManual = allocationMode === "manual";
           {(selZones.length > 0 || zonesInRadius.length > 0 || activeCampaignZone) && (
             <div style={{ background: "rgba(255,255,255,.02)", borderRadius: 12, border: "1px solid rgba(255,255,255,.06)", overflow: "hidden" }}>
               <button onClick={() => setShowTechnicalDetails(v => !v)} style={{ width: "100%", padding: "12px 16px", background: "rgba(255,255,255,.03)", border: "none", borderBottom: showTechnicalDetails ? "1px solid rgba(255,255,255,.06)" : "none", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", color: C.white, fontFamily: F.sans, fontSize: 12, fontWeight: 700 }}>
-                <span>Dettagli tecnici & fonti</span>
+                <span>Dettagli tecnici e fonti</span>
                 <span style={{ fontSize: 10, color: col }}>{showTechnicalDetails ? "▲ Nascondi" : "▼ Mostra dettagli tecnici"}</span>
               </button>
 
@@ -2965,8 +3013,8 @@ const isManual = allocationMode === "manual";
 
                   {/* VALORI OMI grezzi */}
                   {city && !isMovementStep2 && omiInfo?.available && (
-                    <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(232,87,26,.14)", padding: 12 }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: C.orange, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 8 }}>
+                    <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(34, 197, 94,.14)", padding: 12 }}>
+                      <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "#22C55E", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 8 }}>
                         Valori OMI (Agenzia Entrate)
                       </div>
                       <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
@@ -2984,9 +3032,9 @@ const isManual = allocationMode === "manual";
                         )}
                       </div>
                       {(omiInfo.values || []).map((v, i) => (
-                        <div key={i} style={{ padding: "6px 8px", borderRadius: 8, background: "rgba(232,87,26,.06)", border: "1px solid rgba(232,87,26,.14)", marginBottom: 4 }}>
+                        <div key={i} style={{ padding: "6px 8px", borderRadius: 8, background: "rgba(34, 197, 94,.06)", border: "1px solid rgba(34, 197, 94,.14)", marginBottom: 4 }}>
                           <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", marginBottom: 2 }}>{v.typology}</div>
-                          <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.orange }}>
+                          <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "#22C55E" }}>
                             {v.min_value != null && v.max_value != null ? `${v.min_value.toLocaleString("it-IT", { useGrouping: true })} – ${v.max_value.toLocaleString("it-IT", { useGrouping: true })} €/mq` : "-"}
                           </div>
                         </div>
@@ -3038,7 +3086,7 @@ const isManual = allocationMode === "manual";
                   <div key={cl.id} style={{ padding: "6px 8px", borderRadius: 8, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.05)", marginTop: 6 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
                       <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white }}>{cl.name}</span>
-                      <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: cl.score >= 78 ? C.green : cl.score >= 62 ? C.yellow : C.orange }}>{cl.score}/100</span>
+                      <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: cl.score >= 78 ? C.green : cl.score >= 62 ? C.yellow : "#22C55E" }}>{cl.score}/100</span>
                     </div>
                     <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.42)", lineHeight: 1.4 }}>{cl.dominant} – {cl.target} target – {cl.competitors} comp.</div>
                   </div>
@@ -3069,7 +3117,7 @@ const isManual = allocationMode === "manual";
                   <div key={h.id} style={{ padding: "6px 8px", borderRadius: 8, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.05)", marginTop: 6 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
                       <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white }}>{h.name}</span>
-                      <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: h.strength >= 78 ? C.green : h.strength >= 62 ? C.yellow : C.orange }}>{h.strength}/100</span>
+                      <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: h.strength >= 78 ? C.green : h.strength >= 62 ? C.yellow : "#22C55E" }}>{h.strength}/100</span>
                     </div>
                     <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.42)", lineHeight: 1.4 }}>{h.poi} POI – {h.transit} transit – {h.time}</div>
                   </div>
@@ -3112,7 +3160,7 @@ const pct2 = thMax > 0 ? Math.round((v / thMax) * 100) : 0;
                   <div style={{ padding: "10px", display: "grid", gap: 10 }}>
                     {["Residential profile", "Demographic profile", "Economic context", "Operational reading"].map(group => (
                       <div key={group} style={{ borderRadius: 10, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.06)", overflow: "hidden" }}>
-                        <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,.05)", fontFamily: F.sans, fontSize: 8, fontWeight: 800, color: C.orange, letterSpacing: ".09em", textTransform: "uppercase" }}>{group}</div>
+                        <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,.05)", fontFamily: F.sans, fontSize: 8, fontWeight: 800, color: "#22C55E", letterSpacing: ".09em", textTransform: "uppercase" }}>{group}</div>
                         <div style={{ padding: "7px 10px" }}>
                           {serviceMeta.aiCats.filter(row => row.group === group).map((row, i) => {
                             const v = row.v(aiAgg);
@@ -3127,7 +3175,7 @@ const unavailable = v === null || v === undefined || v === "" || String(v).inclu
                         </div>
                       </div>
                     ))}
-                    <div style={{ padding: "9px 10px", borderRadius: 9, background: "rgba(232,87,26,.08)", border: "1px solid rgba(232,87,26,.2)", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.58)", lineHeight: 1.45 }}>
+                    <div style={{ padding: "9px 10px", borderRadius: 9, background: "rgba(34, 197, 94,.08)", border: "1px solid rgba(34, 197, 94,.2)", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.58)", lineHeight: 1.45 }}>
                       Lettura residenziale: priorità a comuni con alta concentrazione famiglie, buona copertura cassette e quantità coerente con il fabbisogno stimato.
                     </div>
                   </div>
@@ -3135,7 +3183,7 @@ const unavailable = v === null || v === undefined || v === "" || String(v).inclu
                   <div style={{ padding: "10px", display: "grid", gap: 10 }}>
                     <div style={{ borderRadius: 10, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.06)", overflow: "hidden" }}>
                       <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,.05)", display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontFamily: F.sans, fontSize: 8, fontWeight: 800, color: C.orange, letterSpacing: ".09em", textTransform: "uppercase", flex: 1 }}>Indicatori demografici</span>
+                        <span style={{ fontFamily: F.sans, fontSize: 8, fontWeight: 800, color: "#22C55E", letterSpacing: ".09em", textTransform: "uppercase", flex: 1 }}>Indicatori demografici</span>
                         {demoData && <span style={{ fontFamily: F.sans, fontSize: 7, color: "rgba(255,255,255,.3)" }}>Anno {demoData.referenceYear}</span>}
                       </div>
                       <div style={{ padding: "7px 10px" }}>
@@ -3154,7 +3202,7 @@ const unavailable = v === null || v === undefined || v === "" || String(v).inclu
                         ))}
                       </div>
                     </div>
-                    <div style={{ padding: "9px 10px", borderRadius: 9, background: "rgba(232,87,26,.08)", border: "1px solid rgba(232,87,26,.2)", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.58)", lineHeight: 1.45 }}>
+                    <div style={{ padding: "9px 10px", borderRadius: 9, background: "rgba(34, 197, 94,.08)", border: "1px solid rgba(34, 197, 94,.2)", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.58)", lineHeight: 1.45 }}>
                       Distribuzione demografica comunale da dati reali. Non calcolata sul singolo raggio.
                     </div>
                   </div>
@@ -3272,7 +3320,7 @@ const unavailable = v === null || v === undefined || v === "" || String(v).inclu
               Tipo campagna
             </button>
             <button className="btn" onClick={handleNext} disabled={!canContinueCalendar}
-              style={{ width: "100%", minHeight: 52, padding: "0 14px", borderRadius: 11, border: "none", background: canContinueCalendar ? col : "rgba(255,255,255,.1)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: canContinueCalendar ? "pointer" : "not-allowed", boxShadow: canContinueCalendar ? `0 6px 18px ${C.orangeGlow}` : "none", textAlign: "center" }}>
+              style={{ width: "100%", minHeight: 52, padding: "0 14px", borderRadius: 11, border: "none", background: canContinueCalendar ? col : "rgba(255,255,255,.1)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: canContinueCalendar ? "pointer" : "not-allowed", boxShadow: canContinueCalendar ? `0 6px 18px rgba(34, 197, 94, 0.4)` : "none", textAlign: "center" }}>
               {gisTimedOut ? "Dati GIS non disponibili" : gisLoading ? "Analisi GIS in corso..." : step2ZonesReady ? "Continua al calendario" : "Seleziona/configura le zone"}
             </button>
             {!step2ZonesReady && (
@@ -6152,10 +6200,23 @@ const has = serviceOk || Boolean(comune) || qty > 0;
 const prefill = readPrefill();
 const routeToPage = path => {
     const p = path.toLowerCase();
-const url = new URL(window.location.href);
-const step = url.searchParams.get("step");
+    const url = new URL(window.location.href);
+    const step = url.searchParams.get("step");
 
-    if (p === "/" || p === "/index.html" || p === "/volantinipro-final.jsx") return "home";
+    if (p === "/home" || p.includes("landing") || p.includes("marketing")) return "home";
+    if (p === "/" || p === "/index.html" || p === "/volantinipro-final.jsx") return "step1";
+    if (p === "/configuratore") {
+      if (step) return `step${step}`;
+      return "step1";
+    }
+    if (p === "/zona" || p === "/step2") return "step2";
+    if (p === "/calendario" || p === "/step3") return "step3";
+    if (p === "/riepilogo" || p === "/step4") return "step4";
+    if (p.includes("configuratore") || prefill.has) {
+      if (step) return `step${step}`;
+      return "step1";
+    }
+
     if (p.includes("login")) return "login";
     if (p.includes("dashboard")) return "dashboard";
     if (p.includes("pagamento")) return "payment";
@@ -6165,12 +6226,8 @@ const step = url.searchParams.get("step");
     if (p.includes("cookie-policy") || p.includes("cookie")) return "cookie";
     if (p.includes("preventivo-rapido")) return "quick";
     if (p.includes("consulente")) return "consultant";
-    if (p.includes("configuratore") || prefill.has) {
-      if (step) return `step${step}`;
-      return "step1";
-    }
     if (p.includes("admin")) return "admin";
-    return "home";
+    return "step1";
   };
 const [page, setPage] = useState(routeToPage(window.location.pathname));
 
@@ -6210,7 +6267,7 @@ const urgency = prefillPatch.urgency;
         quickSource: prefillPatch.source || d.quickSource || ""
       }));
     }
-    const paths = { home: "/", login: "/login", dashboard: "/dashboard", campaign: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}${prefillPatch?.new ? "?nuovo=true" : ""}` : "/dashboard", payment: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}/pagamento` : "/dashboard", report: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}/report` : "/dashboard", privacy: "/privacy", terms: "/termini", cookie: "/cookie-policy", quick: "/preventivo-rapido", consultant: "/consulente", step1: "/configuratore", step2: "/configuratore", step3: "/configuratore", step4: "/configuratore", admin: "/admin" };
+    const paths = { home: "/", login: "/login", dashboard: "/dashboard", campaign: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}${prefillPatch?.new ? "?nuovo=true" : ""}` : "/dashboard", payment: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}/pagamento` : "/dashboard", report: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}/report` : "/dashboard", privacy: "/privacy", terms: "/termini", cookie: "/cookie-policy", quick: "/preventivo-rapido", consultant: "/consulente", step1: "/configuratore", step2: "/zona", step3: "/calendario", step4: "/riepilogo", admin: "/admin" };
     if (typeof window !== "undefined") {
       const params = new URLSearchParams();
       if (p.startsWith("step")) {
@@ -6224,8 +6281,8 @@ const urgency = prefillPatch.urgency;
         if (s.startDate) params.set("startDate", s.startDate);
         if (s.endDate) params.set("endDate", s.endDate);
         if (s.source || s.quickSource) params.set("source", s.source || s.quickSource);
-        params.set("step", p.replace("step", ""));
-        window.history.pushState(null, "", `/configuratore?${params.toString()}`);
+        
+        window.history.pushState(null, "", `${paths[p] || "/"}?${params.toString()}`);
       } else {
         window.history.pushState(null, "", paths[p] || "/");
       }
@@ -6256,7 +6313,7 @@ const isConfiguratorPage = page === "step1" || page === "step2" || page === "ste
         {isConfiguratorPage && (
           <>
             <StepperBar current={page} onGo={goTo} />
-            {page === "step1" && <Step1 data={data} setData={setData} onNext={() => goTo("step2")} />}
+            {page === "step1" && <Step1 data={data} setData={setData} onNext={() => goTo("step2")} onHome={() => goTo("home")} />}
             {page === "step2" && <Step2ErrorBoundary><Step2 data={data} setData={setData} onNext={() => goTo("step3")} onBack={() => goTo("step1")} /></Step2ErrorBoundary>}
             {page === "step3" && <Step3 data={data} setData={setData} onNext={() => goTo("step4")} onBack={() => goTo("step2")} />}
             {page === "step4" && <Step4 data={data} setData={setData} onBack={() => goTo("step3")} onHome={() => goTo("home")} onCampaignSaved={(id) => goTo("payment", { campaignId: id })} />}

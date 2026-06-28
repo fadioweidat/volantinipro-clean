@@ -102,6 +102,10 @@ export async function endGpsSession(sessionId) {
   });
 }
 
+export async function updateSessionAdminOverride(sessionId, patch) {
+  return updateGpsSession(sessionId, patch);
+}
+
 async function updateGpsSession(sessionId, patch) {
   const client = await requireSupabase();
 

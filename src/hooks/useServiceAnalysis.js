@@ -1,29 +1,69 @@
 import { useState, useEffect, useRef } from 'react';
 
+let hasLoggedInvalidZone = false;
+
 export function useServiceAnalysis(lat, lng, radius, service, municipality = null, quantity = null, scope = null, analysisLevel = null) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const requestIdRef = useRef(0);
+  const lastRequestKeyRef = useRef("");
 
   useEffect(() => {
     const radiusKm = Number(radius);
     const centerLat = Number(lat);
     const centerLng = Number(lng);
-    if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng) || !Number.isFinite(radiusKm) || radiusKm <= 0) {
+    
+    const hasValidZone =
+      municipality &&
+      Number.isFinite(centerLat) &&
+      Number.isFinite(centerLng) &&
+      centerLat !== 0 &&
+      centerLng !== 0 &&
+      radiusKm > 0;
+
+    if (!hasValidZone) {
+      if (import.meta.env.DEV && !hasLoggedInvalidZone) {
+        console.log("[ZONE_ANALYSIS_SKIPPED_INVALID_ZONE]", {
+          municipality,
+          centerLat,
+          centerLng,
+          radiusKm,
+          service,
+        });
+        hasLoggedInvalidZone = true;
+      }
       return undefined;
     }
 
-    if (import.meta.env.DEV) {
-      console.log('[ZONE_CHANGE]', { municipality, centerLat, centerLng, radiusKm, service });
+    const requestKey = [
+      service,
+      municipality || "",
+      Number(centerLat).toFixed(6),
+      Number(centerLng).toFixed(6),
+      radiusKm
+    ].join("|");
+
+    if (lastRequestKeyRef.current === requestKey && data !== null && error === null) {
+      if (import.meta.env.DEV) {
+        console.log("[ZONE_ANALYSIS_SKIPPED_DUPLICATE]", { requestKey });
+      }
+      return undefined;
     }
 
     const requestId = ++requestIdRef.current;
     const controller = new AbortController();
 
+    // Diamo subito feedback visivo
+    setLoading(true);
+
     const fetchData = async () => {
-      setLoading(true);
-      setData(null);
+      lastRequestKeyRef.current = requestKey;
+      
+      if (import.meta.env.DEV) {
+        console.log('[ZONE_CHANGE]', { municipality, centerLat, centerLng, radiusKm, service });
+      }
+
       setError(null);
 
       try {
@@ -99,8 +139,14 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
       }
     };
 
-    fetchData();
-    return () => controller.abort();
+    const timerId = setTimeout(() => {
+      fetchData();
+    }, 450); // Debounce delay 450ms
+
+    return () => {
+      clearTimeout(timerId);
+      controller.abort();
+    };
   }, [lat, lng, radius, service, municipality, quantity, scope, analysisLevel]);
 
   return { data, loading, error };

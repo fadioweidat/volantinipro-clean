@@ -114,6 +114,89 @@ export async function getApprovedProofPhotos(campaignId) {
   })));
 }
 
+export async function getAdminCoverageCorrections(campaignId, { groupId } = {}) {
+  if (!supabase) return [];
+  try {
+    let query = supabase.from('admin_coverage_corrections').select('*').eq('campaign_id', campaignId).order('created_at', { ascending: true });
+    if (groupId) query = query.eq('group_id', groupId);
+    const { data, error } = await query;
+    if (error) return [];
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createAdminCoverageCorrection({
+  campaignId,
+  groupId,
+  driverId = null,
+  adminId = null,
+  correctionType,
+  reason,
+  label,
+  notes = null,
+  estimatedKm = 0,
+  geom = null,
+}) {
+  if (!supabase) throw new Error('Supabase non configurato');
+  const { data, error } = await supabase
+    .from('admin_coverage_corrections')
+    .insert({
+      campaign_id: campaignId,
+      group_id: groupId || null,
+      driver_id: driverId || null,
+      admin_id: adminId || null,
+      correction_type: correctionType,
+      reason,
+      label,
+      notes,
+      estimated_km: Number(estimatedKm) || 0,
+      geom,
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function getAssignedZones(campaignId, { groupId } = {}) {
+  if (!supabase) return [];
+  try {
+    let query = supabase.from('assigned_zones').select('*').eq('campaign_id', campaignId);
+    if (groupId) query = query.eq('group_id', groupId);
+    const { data, error } = await query;
+    if (error) return [];
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export function computeCoverageMetrics(realKm, targetKm, corrections = []) {
+  const tKm = Number(targetKm) > 0 ? Number(targetKm) : Math.max(10, realKm || 10);
+  const realPercent = Math.min(100, Math.round((Number(realKm || 0) / tKm) * 100));
+  
+  const validAdminKm = (corrections || [])
+    .filter(c => ['coperto_manualmente', 'validato_admin'].includes(c.correction_type))
+    .reduce((sum, c) => sum + (Number(c.estimated_km) || 0), 0);
+  const manualAdminPercent = Math.min(100, Math.round((validAdminKm / tKm) * 100));
+
+  const redoKm = (corrections || [])
+    .filter(c => c.correction_type === 'da_rifare')
+    .reduce((sum, c) => sum + (Number(c.estimated_km) || 0), 0);
+  const redoPercent = Math.min(100, Math.round((redoKm / tKm) * 100));
+
+  const finalClientPercent = Math.min(100, realPercent + manualAdminPercent);
+
+  return {
+    copertura_gps_reale_percent: realPercent,
+    copertura_manual_admin_percent: manualAdminPercent,
+    copertura_da_rifare_percent: redoPercent,
+    copertura_finale_cliente_percent: finalClientPercent,
+  };
+}
+
 export async function selectOptionalTable(table, order = 'created_at') {
   if (!supabase) return { rows: [], available: false };
   try {
