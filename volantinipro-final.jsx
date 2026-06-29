@@ -27,6 +27,7 @@ import WhyDifferentSection from "./src/components/home/WhyDifferentSection.jsx";
 import RisultatiSection from "./src/components/home/RisultatiSection.jsx";
 import Footer from "./src/components/home/Footer.jsx";
 const AIConsultantSection = React.lazy(() => import("./src/components/home/AIConsultantSection.jsx"));
+const AICampaignCenter = React.lazy(() => import("./src/components/ai/AICampaignCenter.jsx"));
 import Button from "./src/components/ui/Button.jsx";
 import { MetricValue } from "./src/components/ui/MetricValue.tsx";
 import { sendEmailConferma } from "./src/api/sendEmailConferma.js";
@@ -352,6 +353,90 @@ const kpis = [
   );
 }
 
+// ── Tooltip informativo per KPI ──────────────────────────────────────────────
+function KpiTooltip({ tip, color }) {
+  const [open, setOpen] = useState(false);
+  if (!tip) return null;
+  const c = color || "#94A3B8";
+  return (
+    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", marginLeft: 4, flexShrink: 0, verticalAlign: "middle" }}>
+      <button
+        onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        aria-label="Mostra spiegazione"
+        style={{
+          width: 15, height: 15, borderRadius: "50%",
+          background: "rgba(255,255,255,0.07)", border: `1px solid ${c}55`,
+          color: c, fontFamily: "system-ui", fontSize: 9, fontWeight: 900,
+          cursor: "pointer", padding: 0, lineHeight: 1,
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+        }}
+      >ⓘ</button>
+      {open && (
+        <span style={{
+          position: "absolute", bottom: "calc(100% + 8px)", left: "50%",
+          transform: "translateX(-50%)", zIndex: 9999,
+          background: "#0F172A", border: "1px solid rgba(148,163,184,0.25)",
+          borderRadius: 10, padding: "10px 13px",
+          minWidth: 200, maxWidth: 280,
+          boxShadow: "0 12px 36px rgba(0,0,0,0.65)",
+          fontFamily: "'DM Sans', sans-serif", fontSize: 12, lineHeight: 1.6,
+          color: "#CBD5E1", pointerEvents: "none", whiteSpace: "normal", textAlign: "left",
+        }}>
+          {tip}
+          <span style={{
+            position: "absolute", bottom: -5, left: "50%",
+            transform: "translateX(-50%) rotate(-45deg)",
+            width: 9, height: 9, background: "#0F172A",
+            border: "1px solid rgba(148,163,184,0.25)",
+            borderRight: "none", borderTop: "none",
+          }} />
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ── Sezione "Come leggere i dati" — Home page ─────────────────────────────────
+function DataGuideSection() {
+  const cards = [
+    { icon: "🏠", title: "Famiglie", desc: "Stima delle abitazioni che possono ricevere il tuo volantino nell'area selezionata.", detail: "Basata sui dati ufficiali ISTAT aggiornati." },
+    { icon: "📍", title: "Copertura", desc: "Percentuale dell'area raggiunta con la quantità di volantini scelta.", detail: "100% = nessuna famiglia esclusa dalla distribuzione." },
+    { icon: "🗺️", title: "Zone", desc: "Le aree geografiche realmente coperte dalla campagna.", detail: "Ogni zona è verificata su mappa prima della distribuzione." },
+    { icon: "📡", title: "Monitoraggio GPS", desc: "Il percorso degli operatori viene registrato in tempo reale.", detail: "Puoi verificare dove e quando è avvenuta la distribuzione." },
+    { icon: "📄", title: "Report finale", desc: "Documento con risultati, foto e dati della distribuzione.", detail: "Ricevuto al termine di ogni campagna, con prove verificabili." },
+    { icon: "🤖", title: "Ottimizzazione AI", desc: "Il sistema cerca automaticamente campagne compatibili per ridurre i costi.", detail: "Puoi risparmiare fino al 40% condividendo le risorse operative." },
+  ];
+  return (
+    <section style={{ background: "#0B1020", borderTop: "1px solid rgba(148,163,184,0.12)", padding: "80px 28px" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: 52 }}>
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: ".15em", textTransform: "uppercase", color: "#E8571A", marginBottom: 14 }}>
+            Trasparenza totale
+          </div>
+          <h2 style={{ fontFamily: "'DM Serif Display', Georgia, serif", fontSize: 40, color: "#F8FAFC", letterSpacing: "-1.2px", marginBottom: 14, lineHeight: 1.08 }}>
+            Come leggere i risultati<br />della tua campagna
+          </h2>
+          <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 16, color: "#94A3B8", maxWidth: 520, margin: "0 auto", lineHeight: 1.65 }}>
+            Ogni numero ha un significato concreto. Ecco cosa indicano i dati mostrati e come ti aiutano a prendere decisioni migliori.
+          </p>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
+          {cards.map(card => (
+            <div key={card.title} style={{ padding: "26px 24px", borderRadius: 18, background: "#122036", border: "1px solid rgba(255,255,255,0.07)", display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ fontSize: 28, lineHeight: 1 }}>{card.icon}</div>
+              <div style={{ fontFamily: "'DM Serif Display', Georgia, serif", fontSize: 20, color: "#F8FAFC", letterSpacing: "-.2px" }}>{card.title}</div>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#CBD5E1", lineHeight: 1.6 }}>{card.desc}</div>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#64748B", lineHeight: 1.5, paddingTop: 6, borderTop: "1px solid rgba(255,255,255,0.05)" }}>{card.detail}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function HomePage({onStart:n}){const i=()=>document.getElementById("come-funziona")?.scrollIntoView({behavior:"smooth",block:"start"}),[r,l]=useState(!1),[u,h]=useState({city:"",qty:"5000",service:"Door to Door"}),f=Math.max(180,Math.round((Number(u.qty)||0)*(u.service==="Door to Door" ?.13 : u.service==="Hand to Hand" ?.18 :.22))),m=[{t:"Piattaforma",items:[["Configuratore","step1"],["Preventivo rapido","quick"],["Come funziona","home"],["Tracking GPS","campaign"]]},{t:"Servizi",items:[["Door to Door","step1"],["Hand to Hand","step1"],["Business Distribution","step1"],["Report campagna","campaign"]]},{t:"Risorse",items:[["Servizi","home"],["Supporto","consultant"],["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]]}];useEffect(()=>{const D=()=>l(window.innerWidth<760);return D(),window.addEventListener("resize",D),()=>window.removeEventListener("resize",D)},[]);const[kpiBandVisible,setKpiBandVisible]=useState(!0),kpiBandRef=useRef(null);useEffect(()=>{const D=kpiBandRef.current;if(!D)return;const W=new IntersectionObserver(([A])=>{A.isIntersecting&&(setKpiBandVisible(!0),W.disconnect())},{threshold:.25});return W.observe(D),()=>W.disconnect()},[]);
 const x=[{value:"ISTAT",l:"Dati reali",src:"Fonti territoriali"},{value:"GIS",l:"Analisi zona",src:"Mappa e raggio"},{value:"GPS",l:"Tracking operativo",src:"Verifica campo"},{value:"PDF",l:"Report e prove",src:"Output verificabile"}],w=["Dati ISTAT ufficiali","GPS certificato","No vincoli mensili"],j=["Retail locale","Food locale","Casa e servizi","Fitness locale","Attività locale"],T=[{n:"01",t:"Configura campagna",d:"Scegli servizio, quantità, formato, stampa e frequenza della distribuzione.",b:"Servizio + quantità",c:"#E8571A"},{n:"02",t:"Zona e mappa",d:"Imposta comune e raggio, poi verifica famiglie ISTAT, comuni coinvolti, copertura e volantini consigliati.",b:"Analisi territoriale",c:"#E8571A"},{n:"03",t:"Pianificazione",d:"Scegli il periodo desiderato. Smart Pairing resta opzionale quando esistono campagne compatibili.",b:"Date + opzioni",c:"#E8571A"},{n:"04",t:"Preventivo completo",d:"Controlla riepilogo campagna, servizi, dati territoriali disponibili e prezzo finale calcolato.",b:"Riepilogo + prezzo",c:"#E8571A"}],z=[{name:"Door to Door",icon:"D2D",desc:"Distribuzione nelle cassette postali di condomini, palazzi, villette e zone residenziali.",features:["attività locali","promozioni zona","grande copertura territoriale"],c:C.orange},{name:"Hand to Hand",icon:"H2H",desc:"Distribuzione a mano in punti ad alto passaggio.",features:["POI rilevanti","Fermate metro/bus/treno","Scuole, università, eventi","Flusso potenziale","Smart Pairing"],c:C.orange},{name:"Business Distribution",icon:"B2B",desc:"Distribuzione mirata ad attività commerciali, uffici e zone business.",features:["B2B","fornitori","servizi professionali","attività locali"],c:C.orange}],R=[{n:"01",t:"Configura campagna",d:"Percorso completo in 4 step: campagna, zona, pianificazione e preventivo finale.",benefits:["Analisi ISTAT zona","Mappa e copertura","GPS e report verificabili","Smart Pairing opzionale"],cta:"Configura la tua campagna",c:C.orange,fn:()=>n("step1")},{n:"02",t:"Preventivo rapido",d:"Inserisci pochi dati e passa a un prezzo personalizzato calcolato su zona, quantità e servizio.",benefits:["3 campi essenziali","Prezzo personalizzato","Nessun account richiesto"],cta:"Preventivo rapido",c:C.orange,fn:()=>n("quick"),quick:!0},{n:"03",t:"Parla con un consulente",d:"Preferisci supporto diretto? Invia una richiesta e ti ricontattiamo.",benefits:["Brief gratuito","Scelta servizio guidata","Richiamo operativo","Tempo: immediato"],cta:"Parla con un consulente",c:C.orange,fn:()=>n("consultant")}];return _jsxs("div",{className:"home-shell-dark saas-home-refinement",style:{background:"#0B1020",paddingBottom:0,minHeight:"100vh"},children:[_jsx("style",{children:`
   .home-shell-dark { background-color: #0B1020 !important; color: #F8FAFC !important; }
@@ -498,7 +583,7 @@ const x=[{value:"ISTAT",l:"Dati reali",src:"Fonti territoriali"},{value:"GIS",l:
       }))
     })
   ]
-})]})}),_jsx("section",{ref:kpiBandRef,className:"section-tight",style:{display:"none",background:C.navy,paddingLeft:28,paddingRight:28,borderTop:`3px solid ${C.orange}`,opacity:kpiBandVisible?1:0,transform:kpiBandVisible?"none":"translateY(22px)",transition:"opacity .5s ease, transform .7s cubic-bezier(.2,.8,.2,1)",willChange:"transform, opacity"},children:_jsx("div",{style:{maxWidth:1200,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2},children:x.map(({value:D,l:W,src:A},F)=>_jsxs("div",{style:{padding:"34px 26px",borderLeft:F>0?"1px solid rgba(255,255,255,.07)":"none"},children:[_jsx("div",{style:{width:26,height:3,background:C.orange,borderRadius:2,marginBottom:16}}),_jsx("div",{style:{fontFamily:F.serif,fontSize:typeof D=="string"&&D.length>8?34:50,color:C.white,letterSpacing:"-1.4px",lineHeight:1,marginBottom:10,fontVariantNumeric:"tabular-nums"},children:D}),_jsx("div",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.8)",lineHeight:1.4,marginBottom:8},children:W}),_jsx("div",{style:{display:"inline-flex",padding:"3px 7px",borderRadius:4,background:"rgba(232,87,26,.12)",fontFamily:F.sans,fontSize:9,color:C.orange},children:A})]},W))})}),_jsx("section",{id:"come-funziona",className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,scrollMarginTop:80},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:64},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Dall'idea al volantino in mano"}),_jsxs("h2",{style:{fontFamily:F.serif,fontSize:48,color:C.navy,letterSpacing:"-1.5px",marginBottom:14,lineHeight:1.06},children:["Dall'idea alla campagna",_jsx("br",{}),"in 4 step misurabili."]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:520,lineHeight:1.65},children:"Un flusso unico per definire servizio, zona, date operative e preventivo finale."})]}),_jsx("div",{className:"steps-grid",style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12},children:T.map(({n:D,t:W,d:A,b:F,c:B},P)=>_jsxs("div",{className:"vc",style:{padding:"34px 28px",background:C.white,borderRadius:16,border:"1px solid rgba(0,0,0,.04)",boxShadow:"0 8px 24px rgba(0,0,0,.02)",position:"relative",overflow:"hidden"},children:[_jsx("div",{style:{position:"absolute",top:-8,right:12,fontFamily:F.sans,fontWeight:900,fontSize:94,color:"#F4F6F8",lineHeight:1,userSelect:"none"},children:D}),_jsx("div",{style:{width:24,height:3,borderRadius:2,background:B,marginBottom:24}}),_jsx("h3",{style:{fontFamily:F.serif,fontSize:22,color:C.navy,marginBottom:12,letterSpacing:"-.3px"},children:W}),_jsx("p",{style:{fontFamily:F.sans,fontSize:14,color:C.muted,lineHeight:1.6,marginBottom:20},children:A}),_jsx("div",{style:{display:"inline-flex",padding:"4px 10px",borderRadius:6,background:`${B}12`,fontFamily:F.sans,fontSize:11,fontWeight:700,color:B},children:F})]},D))}),_jsx("div",{style:{textAlign:"center",marginTop:56},children:_jsx("button",{className:"vb",onClick:()=>n("step1"),style:{padding:"14px 34px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#E8571A 0%,#D0450B 100%)",color:C.white,fontFamily:F.sans,fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 6px 16px rgba(232,87,26,0.28)"},children:"Configura la tua campagna "})})]})}),_jsx(ServicesSection,{onConfigure:()=>n("step1")}),_jsx(React.Suspense,{fallback:_jsx("div",{style:{minHeight:200,background:"#0B1020"}}),children:_jsx(AIConsultantSection,{})}),_jsx(FeatureZonaMappa,{onConfigure:()=>n("step1")}),_jsx(FeatureSmartPairing,{onConfigure:()=>n("step1")}),_jsx(RisultatiSection,{}),_jsx(FAQSection,{onContact:()=>n("consultant")}),_jsx(PricingSection,{onConfigure:()=>n("step1"),onConsultant:()=>n("consultant")}),_jsx(Footer,{onNav:n,onHowItWorks:i}),_jsx("footer",{style:{display:"none",background:"#070D1A",borderTop:"1px solid rgba(255,255,255,.05)",padding:"52px 28px 34px"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{display:"flex",gap:64,marginBottom:44},children:[_jsxs("div",{style:{flex:"0 0 250px"},children:[_jsxs("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:16},children:[_jsx("div",{style:{width:30,height:30,borderRadius:7,background:C.orange,display:"flex",alignItems:"center",justifyContent:"center"},children:_jsxs("svg",{width:"16",height:"16",viewBox:"0 0 20 20",fill:"none",children:[_jsx("path",{d:"M3 17L10 3L17 17H3Z",fill:"white"}),_jsx("circle",{cx:"10",cy:"12",r:"2",fill:"white",opacity:".7"})]})}),_jsxs("span",{style:{fontFamily:F.serif,fontSize:18,color:C.white},children:["Volantini",_jsx("span",{style:{color:C.orange},children:"Pro"})]})]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.33)",lineHeight:1.65,marginBottom:16},children:"Piattaforma B2B per configurare campagne di volantinaggio con dati territoriali, GPS e report operativo."}),_jsx("div",{style:{display:"inline-flex",alignItems:"center",gap:6,padding:"4px 10px",borderRadius:6,background:"rgba(232,87,26,.1)",fontFamily:F.sans,fontSize:11,color:C.orange},children:"Operativo su Milano e Lombardia"})]}),_jsx("div",{style:{display:"flex",gap:52,flex:1},children:m.map(({t:D,items:W})=>_jsxs("div",{children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:C.orange,marginBottom:16},children:D}),_jsx("div",{style:{display:"flex",flexDirection:"column",gap:9},children:W.map(([A,F])=>_jsx("button",{onClick:()=>F==="home"&&A==="Come funziona"?i():n(F),style:{padding:0,border:"none",background:"transparent",textAlign:"left",fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.6)",cursor:"pointer"},children:A},A))})]},D))})]}),_jsxs("div",{style:{borderTop:"1px solid rgba(255,255,255,.05)",paddingTop:24,display:"flex",justifyContent:"space-between"},children:[_jsx("span",{style:{fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)"},children:"2025 VolantiniPro S.r.l. - Milano"}),_jsx("span",{style:{display:"flex",gap:10,alignItems:"center"},children:[["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]].map(([D,W])=>_jsx("button",{onClick:()=>n(W),style:{padding:0,border:"none",background:"transparent",fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)",cursor:"pointer"},children:D},D))})]})]})})]})}
+})]})}),_jsx("section",{ref:kpiBandRef,className:"section-tight",style:{display:"none",background:C.navy,paddingLeft:28,paddingRight:28,borderTop:`3px solid ${C.orange}`,opacity:kpiBandVisible?1:0,transform:kpiBandVisible?"none":"translateY(22px)",transition:"opacity .5s ease, transform .7s cubic-bezier(.2,.8,.2,1)",willChange:"transform, opacity"},children:_jsx("div",{style:{maxWidth:1200,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2},children:x.map(({value:D,l:W,src:A},F)=>_jsxs("div",{style:{padding:"34px 26px",borderLeft:F>0?"1px solid rgba(255,255,255,.07)":"none"},children:[_jsx("div",{style:{width:26,height:3,background:C.orange,borderRadius:2,marginBottom:16}}),_jsx("div",{style:{fontFamily:F.serif,fontSize:typeof D=="string"&&D.length>8?34:50,color:C.white,letterSpacing:"-1.4px",lineHeight:1,marginBottom:10,fontVariantNumeric:"tabular-nums"},children:D}),_jsx("div",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.8)",lineHeight:1.4,marginBottom:8},children:W}),_jsx("div",{style:{display:"inline-flex",padding:"3px 7px",borderRadius:4,background:"rgba(232,87,26,.12)",fontFamily:F.sans,fontSize:9,color:C.orange},children:A})]},W))})}),_jsx("section",{id:"come-funziona",className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,scrollMarginTop:80},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:64},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Dall'idea al volantino in mano"}),_jsxs("h2",{style:{fontFamily:F.serif,fontSize:48,color:C.navy,letterSpacing:"-1.5px",marginBottom:14,lineHeight:1.06},children:["Dall'idea alla campagna",_jsx("br",{}),"in 4 step misurabili."]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:520,lineHeight:1.65},children:"Un flusso unico per definire servizio, zona, date operative e preventivo finale."})]}),_jsx("div",{className:"steps-grid",style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12},children:T.map(({n:D,t:W,d:A,b:F,c:B},P)=>_jsxs("div",{className:"vc",style:{padding:"34px 28px",background:C.white,borderRadius:16,border:"1px solid rgba(0,0,0,.04)",boxShadow:"0 8px 24px rgba(0,0,0,.02)",position:"relative",overflow:"hidden"},children:[_jsx("div",{style:{position:"absolute",top:-8,right:12,fontFamily:F.sans,fontWeight:900,fontSize:94,color:"#F4F6F8",lineHeight:1,userSelect:"none"},children:D}),_jsx("div",{style:{width:24,height:3,borderRadius:2,background:B,marginBottom:24}}),_jsx("h3",{style:{fontFamily:F.serif,fontSize:22,color:C.navy,marginBottom:12,letterSpacing:"-.3px"},children:W}),_jsx("p",{style:{fontFamily:F.sans,fontSize:14,color:C.muted,lineHeight:1.6,marginBottom:20},children:A}),_jsx("div",{style:{display:"inline-flex",padding:"4px 10px",borderRadius:6,background:`${B}12`,fontFamily:F.sans,fontSize:11,fontWeight:700,color:B},children:F})]},D))}),_jsx("div",{style:{textAlign:"center",marginTop:56},children:_jsx("button",{className:"vb",onClick:()=>n("step1"),style:{padding:"14px 34px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#E8571A 0%,#D0450B 100%)",color:C.white,fontFamily:F.sans,fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 6px 16px rgba(232,87,26,0.28)"},children:"Configura la tua campagna "})})]})}),_jsx(ServicesSection,{onConfigure:()=>n("step1")}),_jsx(React.Suspense,{fallback:_jsx("div",{style:{minHeight:200,background:"#0B1020"}}),children:_jsx(AIConsultantSection,{})}),_jsx(React.Suspense,{fallback:_jsx("div",{style:{minHeight:200,background:"#0B1020"}}),children:_jsx(AICampaignCenter,{context:"home"})}),_jsx(FeatureZonaMappa,{onConfigure:()=>n("step1")}),_jsx(FeatureSmartPairing,{onConfigure:()=>n("step1")}),_jsx(RisultatiSection,{}),_jsx(DataGuideSection,{}),_jsx(FAQSection,{onContact:()=>n("consultant")}),_jsx(PricingSection,{onConfigure:()=>n("step1"),onConsultant:()=>n("consultant")}),_jsx(Footer,{onNav:n,onHowItWorks:i}),_jsx("footer",{style:{display:"none",background:"#070D1A",borderTop:"1px solid rgba(255,255,255,.05)",padding:"52px 28px 34px"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{display:"flex",gap:64,marginBottom:44},children:[_jsxs("div",{style:{flex:"0 0 250px"},children:[_jsxs("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:16},children:[_jsx("div",{style:{width:30,height:30,borderRadius:7,background:C.orange,display:"flex",alignItems:"center",justifyContent:"center"},children:_jsxs("svg",{width:"16",height:"16",viewBox:"0 0 20 20",fill:"none",children:[_jsx("path",{d:"M3 17L10 3L17 17H3Z",fill:"white"}),_jsx("circle",{cx:"10",cy:"12",r:"2",fill:"white",opacity:".7"})]})}),_jsxs("span",{style:{fontFamily:F.serif,fontSize:18,color:C.white},children:["Volantini",_jsx("span",{style:{color:C.orange},children:"Pro"})]})]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.33)",lineHeight:1.65,marginBottom:16},children:"Piattaforma B2B per configurare campagne di volantinaggio con dati territoriali, GPS e report operativo."}),_jsx("div",{style:{display:"inline-flex",alignItems:"center",gap:6,padding:"4px 10px",borderRadius:6,background:"rgba(232,87,26,.1)",fontFamily:F.sans,fontSize:11,color:C.orange},children:"Operativo su Milano e Lombardia"})]}),_jsx("div",{style:{display:"flex",gap:52,flex:1},children:m.map(({t:D,items:W})=>_jsxs("div",{children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:C.orange,marginBottom:16},children:D}),_jsx("div",{style:{display:"flex",flexDirection:"column",gap:9},children:W.map(([A,F])=>_jsx("button",{onClick:()=>F==="home"&&A==="Come funziona"?i():n(F),style:{padding:0,border:"none",background:"transparent",textAlign:"left",fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.6)",cursor:"pointer"},children:A},A))})]},D))})]}),_jsxs("div",{style:{borderTop:"1px solid rgba(255,255,255,.05)",paddingTop:24,display:"flex",justifyContent:"space-between"},children:[_jsx("span",{style:{fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)"},children:"2025 VolantiniPro S.r.l. - Milano"}),_jsx("span",{style:{display:"flex",gap:10,alignItems:"center"},children:[["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]].map(([D,W])=>_jsx("button",{onClick:()=>n(W),style:{padding:0,border:"none",background:"transparent",fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)",cursor:"pointer"},children:D},D))})]})]})})]})}
 
 // JSX runtime shim for reconstructed bundle code
 function _jsx(type, props, key) {
@@ -4813,13 +4898,16 @@ function toggle(d) {
       {/* 3. KPI CARDS */}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 14, marginBottom: 32 }}>
         {[
-          { label: "Possibile risparmio", val: "40%", sub: "Fino a -40% in zona", color: C.green },
-          { label: "Campagne compatibili", val: realSmartPairingSlots.length > 0 ? realSmartPairingSlots.length : "0", sub: realSmartPairingSlots.length > 0 ? "In quest'area" : "In ricerca continua", color: C.cyan },
-          { label: "Operatori disponibili", val: realSmartPairingSlots.length > 0 ? Math.max(4, Math.round((activeQty || 10000) / 2500)) : "4+", sub: "Squadra di zona", color: C.purple },
-          { label: "Tempo medio attesa", val: realSmartPairingSlots.length > 0 ? "0 giorni" : "2 giorni", sub: realSmartPairingSlots.length > 0 ? "Disponibile ora" : "Notifica prioritaria", color: C.yellow }
+          { label: "Possibile risparmio", val: "40%", sub: "Fino a -40% in zona", color: C.green, tip: "Percentuale di risparmio ottenibile condividendo il percorso con un'altra campagna nella stessa zona." },
+          { label: "Campagne compatibili", val: realSmartPairingSlots.length > 0 ? realSmartPairingSlots.length : "0", sub: realSmartPairingSlots.length > 0 ? "In quest'area" : "In ricerca continua", color: C.cyan, tip: "Numero di campagne attive nell'area che possono essere abbinate alla tua per ridurre i costi." },
+          { label: "Operatori disponibili", val: realSmartPairingSlots.length > 0 ? Math.max(4, Math.round((activeQty || 10000) / 2500)) : "4+", sub: "Squadra di zona", color: C.purple, tip: "Numero di operatori già attivi nella zona che possono gestire anche la tua distribuzione." },
+          { label: "Tempo medio attesa", val: realSmartPairingSlots.length > 0 ? "0 giorni" : "2 giorni", sub: realSmartPairingSlots.length > 0 ? "Disponibile ora" : "Notifica prioritaria", color: C.yellow, tip: "Tempo stimato prima di poter iniziare la distribuzione condividendo le risorse operative." }
         ].map((kpi, i) => (
           <div key={i} style={{ background: "rgba(255,255,255,0.035)", borderRadius: 16, padding: "20px", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", justifyContent: "space-between", boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10 }}>{kpi.label}</div>
+            <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10, display: "flex", alignItems: "center", gap: 4 }}>
+              {kpi.label}
+              <KpiTooltip tip={kpi.tip} color="rgba(255,255,255,0.4)" />
+            </div>
             <div style={{ fontFamily: F.serif, fontSize: 38, fontWeight: 900, color: kpi.color, lineHeight: 1, letterSpacing: "-1px", marginBottom: 6 }}>{kpi.val}</div>
             <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{kpi.sub}</div>
           </div>
@@ -5261,10 +5349,10 @@ const serviceExtras = selectedExtras.map(e => ({
     status: e.status
   }));
 const d2dScores = [
-    { l: "Family Index", v: kpis.familyIndex ?? avgFIdx, c: "#22C55E", d: "Qualità residenziale dell'area", src: "Analisi interna" },
-    { l: "Reach Score", v: kpis.reachScore ?? (selZ.length ? Math.round(selZ.reduce((a, z) => a + z.reachD2D, 0) / selZ.length) : 0), c: C.blue, d: "Potenziale copertura famiglie", src: "Analisi interna" },
-    { l: "ROI Score", v: kpis.roiScore ?? (selZ.length ? Math.round(selZ.reduce((a, z) => a + z.roiD2D, 0) / selZ.length) : 0), c: C.green, d: "Coerenza costo/opportunità", src: "Analisi interna" },
-    { l: "Confidence Score", v: kpis.confidenceScore ?? (selZ.length ? Math.round(selZ.reduce((a, z) => a + z.confD2D, 0) / selZ.length) : 0), c: C.purple, d: "Affidabilità della stima", src: "Analisi interna" },
+    { l: "Qualità area", v: kpis.familyIndex ?? avgFIdx, c: "#22C55E", d: "Qualità residenziale dell'area su 100. Più alto = zona più adatta alla distribuzione porta a porta.", src: "Analisi interna" },
+    { l: "Potenziale copertura", v: kpis.reachScore ?? (selZ.length ? Math.round(selZ.reduce((a, z) => a + z.reachD2D, 0) / selZ.length) : 0), c: C.blue, d: "Stima di quante famiglie puoi raggiungere efficacemente.", src: "Analisi interna" },
+    { l: "Efficienza campagna", v: kpis.roiScore ?? (selZ.length ? Math.round(selZ.reduce((a, z) => a + z.roiD2D, 0) / selZ.length) : 0), c: C.green, d: "Rapporto qualità/costo nell'area. Più alto = maggiore efficienza della spesa.", src: "Analisi interna" },
+    { l: "Affidabilità stima", v: kpis.confidenceScore ?? (selZ.length ? Math.round(selZ.reduce((a, z) => a + z.confD2D, 0) / selZ.length) : 0), c: C.purple, d: "Quanto sono precisi i dati mostrati. Più alto = stime più accurate.", src: "Analisi interna" },
   ];
 const kpisPopulation = kpis.population ?? kpis.pop ?? (totP || null);
 const kpisComuniCount = kpis.comuniCount ?? data.comuniNelRaggio ?? data.selectedComuni?.length ?? data.zones?.length ?? breakdownRows.length ?? selZ.length ?? null;
@@ -5307,9 +5395,9 @@ const serviceSummaryConfig = {
         { l: "Fasce consigliate", v: kpis.suggestedWindows, src: "Analisi interna", c: C.white },
       ],
       scores: [
-        { l: "Reach Score", v: kpis.reachScore, c: C.blue, d: "Esposizione stimata" },
-        { l: "ROI Score", v: kpis.roiScore, c: C.green, d: "Efficienza area/flusso" },
-        { l: "Confidence Score", v: kpis.confidenceScore, c: "#6366F1", d: "Affidabilità della stima" },
+        { l: "Potenziale copertura", v: kpis.reachScore, c: C.blue, d: "Stima di quante persone puoi raggiungere efficacemente." },
+        { l: "Efficienza campagna", v: kpis.roiScore, c: C.green, d: "Rapporto qualità/costo nell'area selezionata." },
+        { l: "Affidabilità stima", v: kpis.confidenceScore, c: "#6366F1", d: "Precisione dei dati. Più alto = stime più accurate." },
       ],
       admin: [
         { l: "Hotspot principale", v: kpis.strongestHotspot },
@@ -5323,15 +5411,15 @@ const serviceSummaryConfig = {
       fields: [
         { l: "Attività rilevate", v: formatNumber(kpis.businesses), src: "Google Places", c: C.purple },
         { l: "Categorie principali", v: kpis.categories || kpis.dominantProfile, src: "Google Places", c: C.blue },
-        { l: "Competitor", v: formatNumber(kpis.competitors), src: "Google Places", c: C.red },
-        { l: "Cluster commerciali", v: formatNumber(kpis.clusters), src: "Analisi interna", c: C.purple },
-        { l: "Commercial Density Index", v: kpis.cdIdx != null ? `${kpis.cdIdx}/100` : null, src: "Analisi interna", c: C.purple },
+        { l: "Competitor presenti", v: formatNumber(kpis.competitors), src: "Google Places", c: C.red },
+        { l: "Aree commerciali", v: formatNumber(kpis.clusters), src: "Analisi interna", c: C.purple },
+        { l: "Densità commerciale", v: kpis.cdIdx != null ? `${kpis.cdIdx}/100` : null, src: "Analisi interna", c: C.purple },
         { l: "Attività target", v: formatNumber(kpis.targetBusinesses), src: "Google Places", c: C.green },
       ],
       scores: [
-        { l: "Reach Score", v: kpis.reachScore, c: C.blue, d: "Potenziale raggiungimento target" },
-        { l: "ROI Score", v: kpis.roiScore, c: C.green, d: "Efficienza commerciale" },
-        { l: "Confidence Score", v: kpis.confidenceScore, c: "#6366F1", d: "Affidabilità della stima" },
+        { l: "Potenziale copertura", v: kpis.reachScore, c: C.blue, d: "Stima di quante attività puoi raggiungere." },
+        { l: "Efficienza campagna", v: kpis.roiScore, c: C.green, d: "Rapporto qualità/costo nell'area commerciale." },
+        { l: "Affidabilità stima", v: kpis.confidenceScore, c: "#6366F1", d: "Precisione dei dati. Più alto = stime più accurate." },
       ],
       admin: [
         { l: "Profilo commerciale", v: kpis.dominantProfile },
@@ -5927,13 +6015,16 @@ const savedRow = savedCampaign?.[0] || {};
               {!showTechPanel && (
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: 10 }}>
                   {[
-                    { label: "Target Stimato", val: formatNumber(kpis.families ?? totF) || "—", sub: "Famiglie e attività", c: C.green },
-                    { label: "Copertura", val: `${kpis.coverage ?? avgCov}%`, sub: "Sull'area totale", c: col },
-                    { label: "Aree Dettaglio", val: `${selectedZoneNames.length || "—"}`, sub: "Comuni / Zone", c: C.white },
-                    { label: "Affidabilità", val: "99.4%", sub: "Dati ISTAT / OMI", c: C.purple }
+                    { label: "Famiglie raggiungibili", val: formatNumber(kpis.families ?? totF) || "—", sub: "Stima famiglie target", c: C.green, tip: "Stima delle famiglie che possono ricevere il tuo volantino nell'area selezionata." },
+                    { label: "Copertura zona", val: `${kpis.coverage ?? avgCov}%`, sub: "Percentuale dell'area coperta", c: col, tip: "Percentuale dell'area raggiungibile con la quantità di volantini scelta. 100% = nessuna famiglia esclusa." },
+                    { label: "Zone selezionate", val: `${selectedZoneNames.length || "—"}`, sub: "Aree nella campagna", c: C.white, tip: "Numero di aree geografiche incluse nella distribuzione. Ogni zona è verificata su mappa." },
+                    { label: "Affidabilità dati", val: "99.4%", sub: "Dati territoriali verificati", c: C.purple, tip: "Indica la precisione dei dati mostrati, basata su fonti ufficiali aggiornate." }
                   ].map((item, idx) => (
                     <div key={idx} style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)" }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.45)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>{item.label}</div>
+                      <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.45)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4, display: "flex", alignItems: "center", gap: 3 }}>
+                        {item.label}
+                        <KpiTooltip tip={item.tip} color="rgba(255,255,255,0.4)" />
+                      </div>
                       <div style={{ fontFamily: F.serif, fontSize: 22, fontWeight: 800, color: item.c, letterSpacing: "-.5px", lineHeight: 1, marginBottom: 2 }}>{item.val}</div>
                       <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)" }}>{item.sub}</div>
                     </div>
