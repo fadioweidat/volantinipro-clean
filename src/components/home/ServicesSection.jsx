@@ -178,7 +178,7 @@ export default function ServicesSection({ onConfigure }) {
               onClick={onConfigure}
               style={{ padding: "13px 32px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)", color: "#F8FAFC", fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 6px 20px rgba(232,87,26,0.3)" }}
             >
-              Inizia ora →
+              Calcola la tua copertura →
             </button>
           </div>
         </div>

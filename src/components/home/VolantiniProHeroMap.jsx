@@ -70,7 +70,7 @@ function BenefitIcon({ type }) {
   );
 }
 
-export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWorks }) {
+export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWorks, onServices }) {
   const compact = useCompact();
   const [menuOpen, setMenuOpen] = useState(false);
   const goAdmin = () => {
@@ -142,8 +142,9 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
           <div style={centerNavStyle}>
             <button onClick={onHowItWorks} style={navButtonStyle}>Come funziona</button>
             <button onClick={onConfigure} style={navButtonStyle}>Prezzi</button>
-            <button onClick={onHowItWorks} style={navButtonStyle}>Funzionalit&agrave;</button>
+            <button onClick={onHowItWorks} style={navButtonStyle}>Funzionalità</button>
             <button onClick={onHowItWorks} style={navButtonStyle}>Chi siamo</button>
+            <button onClick={onServices} style={{ ...navButtonStyle, color: "#E8571A", fontWeight: 800 }}>Tutti i Servizi</button>
           </div>
         )}
 
@@ -160,7 +161,7 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
             </Button>
           )}
           <Button variant="primary" className="vb" onClick={onConfigure} style={primaryButtonStyle}>
-            Configura la tua campagna
+            Calcola la tua copertura
           </Button>
           {compact && (
             <button
@@ -182,9 +183,10 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
         <div style={mobileMenuStyle}>
           <button onClick={() => { setMenuOpen(false); onHowItWorks?.(); }} style={mobileMenuItemStyle}>Come funziona</button>
           <button onClick={() => { setMenuOpen(false); onConfigure?.(); }} style={mobileMenuItemStyle}>Prezzi</button>
-          <button onClick={() => { setMenuOpen(false); onHowItWorks?.(); }} style={mobileMenuItemStyle}>Funzionalit&agrave;</button>
+          <button onClick={() => { setMenuOpen(false); onHowItWorks?.(); }} style={mobileMenuItemStyle}>Funzionalità</button>
           <button onClick={() => { setMenuOpen(false); onHowItWorks?.(); }} style={mobileMenuItemStyle}>Chi siamo</button>
-          <button onClick={() => { setMenuOpen(false); goAdmin(); }} style={{ ...mobileMenuItemStyle, color: C.orange }}>Area Admin</button>
+          <button onClick={() => { setMenuOpen(false); onServices?.(); }} style={{ ...mobileMenuItemStyle, color: C.orange, fontWeight: 800 }}>Tutti i Servizi</button>
+          <button onClick={() => { setMenuOpen(false); goAdmin(); }} style={{ ...mobileMenuItemStyle, color: "rgba(255,255,255,.5)" }}>Area Admin</button>
           <button onClick={() => { setMenuOpen(false); onLogin?.(); }} style={{ ...mobileMenuItemStyle, color: C.orange }}>Accedi</button>
         </div>
       )}
@@ -210,17 +212,17 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
           <div style={heroEyebrowStyle}>VOLANTINAGGIO &middot; DISTRIBUZIONE &middot; CONTROLLO GPS</div>
 
           <h1 style={{ ...headlineStyle(compact), maxWidth: 700 }}>
-            Campagne di volantinaggio con <span style={{ color: C.orange }}>mappa, GPS e report</span>
+            Distribuisci volantini e verifica ogni consegna con <span style={{ color: C.orange }}>GPS e report fotografico</span>
           </h1>
 
           <p style={copyStyle(compact)}>
-            Scegli il servizio, seleziona la zona, calcola il raggio di distribuzione e verifica il lavoro con prove GPS e report finale.
+            Pianifica la zona, calcola quante famiglie puoi raggiungere e ricevi prove concrete al termine della distribuzione. Senza contratti fissi.
           </p>
 
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, marginBottom: 20 }}>
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.15 }}>
               <Button variant="primary" className="vb" onClick={onConfigure} style={heroPrimaryButtonStyle}>
-                Configura la tua campagna
+                Calcola la tua copertura
               </Button>
             </motion.div>
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.15 }}>

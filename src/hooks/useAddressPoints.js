@@ -37,7 +37,7 @@ export function useAddressPoints(lat, lng, radiusKm, serviceType = 'd2d') {
 
     // Return cached result immediately — includes cached timeouts (FALLBACK) and successes
     if (civiciCache.has(requestKey)) {
-      console.log('[ADDRESS_POINTS_FETCH_SKIPPED_CACHE]', { requestKey });
+      if (import.meta.env.DEV) console.log('[ADDRESS_POINTS_FETCH_SKIPPED_CACHE]', { requestKey });
       setState(civiciCache.get(requestKey));
       setError(null);
       setLoading(false);
@@ -50,7 +50,7 @@ export function useAddressPoints(lat, lng, radiusKm, serviceType = 'd2d') {
     (async () => {
       setLoading(true);
       setError(null);
-      console.log('[ADDRESS_POINTS_FETCH_START]', { requestKey });
+      if (import.meta.env.DEV) console.log('[ADDRESS_POINTS_FETCH_START]', { requestKey });
 
       try {
         const result = await fetchAddressPointsInRadius({
@@ -87,7 +87,7 @@ export function useAddressPoints(lat, lng, radiusKm, serviceType = 'd2d') {
       } catch (err) {
         // AbortError is not an error — happens on unmount or new request
         if (err.name === 'AbortError') {
-          console.log('[ADDRESS_POINTS_FETCH_ABORTED]');
+          if (import.meta.env.DEV) console.log('[ADDRESS_POINTS_FETCH_ABORTED]');
           return;
         }
 

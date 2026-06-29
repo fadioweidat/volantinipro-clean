@@ -1921,4 +1921,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   outline-offset: 2px !important;
 }
 
+/* Step 2 Enterprise Polish: Hover elegante per righe comuni */
+.town-list-item:hover {
+  background: rgba(255, 255, 255, 0.045) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  transform: translateY(-1px);
+}
+
 

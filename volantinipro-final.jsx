@@ -16,7 +16,6 @@ import { useDemographicIndicators } from "./src/hooks/useDemographicIndicators.j
 import { SkeletonCard } from "./src/components/SkeletonCard.jsx";
 import { Step2Map } from "./src/components/Step2Map.jsx";
 import { VolantiniProHeroMap } from "./src/components/home/VolantiniProHeroMap.jsx";
-import RealAdminDashboard from "./src/pages/admin/AdminDashboard.jsx";
 import FeatureZonaMappa from "./src/components/home/FeatureZonaMappa.jsx";
 import FeatureSmartPairing from "./src/components/home/FeatureSmartPairing.jsx";
 import FAQSection from "./src/components/home/FAQSection.jsx";
@@ -26,8 +25,10 @@ import ServicesSection from "./src/components/home/ServicesSection.jsx";
 import WhyDifferentSection from "./src/components/home/WhyDifferentSection.jsx";
 import RisultatiSection from "./src/components/home/RisultatiSection.jsx";
 import Footer from "./src/components/home/Footer.jsx";
-const AIConsultantSection = React.lazy(() => import("./src/components/home/AIConsultantSection.jsx"));
-const AICampaignCenter = React.lazy(() => import("./src/components/ai/AICampaignCenter.jsx"));
+const VolantiniProAIHub = React.lazy(() => import("./src/components/ai/VolantiniProAIHub.jsx"));
+const RealAdminDashboard = React.lazy(() => import("./src/pages/admin/AdminDashboard.jsx"));
+const ServiceCenter = React.lazy(() => import("./src/pages/ServiceCenter.jsx"));
+import KpiTooltip from "./src/components/ui/KpiTooltip.jsx";
 import Button from "./src/components/ui/Button.jsx";
 import { MetricValue } from "./src/components/ui/MetricValue.tsx";
 import { sendEmailConferma } from "./src/api/sendEmailConferma.js";
@@ -250,6 +251,7 @@ const go = (target) => { setMenuOpen(false); onNav(target); };
         </div>
         {!isMobile && <div style={{ display: "flex", gap: 42 }}>{navLinks.map(l => <a key={l} className="nl" href="#" style={{ color: "rgba(255,255,255,.75)", textDecoration: "none", fontFamily: F.sans, fontSize: 15, fontWeight: 700, transition: "color 0.2s" }}>{l}{l === "Risorse" ? <span style={{ marginLeft: 5, color: "rgba(255,255,255,.4)", fontSize: 10 }}>▾</span> : null}</a>)}</div>}
         {!isMobile && <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+          <button onClick={() => go("services")} style={{ padding: "10px 18px", borderRadius: 8, border: `1px solid ${page === "services" ? "rgba(232,87,26,.5)" : "rgba(255,255,255,.12)"}`, background: page === "services" ? "rgba(232,87,26,.12)" : "transparent", color: page === "services" ? C.orange : "rgba(255,255,255,.75)", fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all 0.2s ease" }}>Tutti i Servizi</button>
           <button onClick={() => go("login")} style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.04)", color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 700, cursor: "pointer", transition: "all 0.2s ease" }}>Accedi</button>
           <button className="vb" onClick={() => go("step1")} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "#22C55E", color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: `0 4px 14px rgba(34, 197, 94, 0.25), inset 0 1px 0 rgba(255,255,255,0.2)` }}>Configura la tua campagna</button>
         </div>}
@@ -259,7 +261,8 @@ const go = (target) => { setMenuOpen(false); onNav(target); };
         <div style={{ padding: "8px 16px 16px", borderTop: "1px solid rgba(255,255,255,.08)", background: "rgba(10,18,34,.98)" }}>
           <div style={{ display: "grid", gap: 8 }}>
             {navLinks.map(l => <a key={l} href="#" className="nl" onClick={() => setMenuOpen(false)} style={{ minHeight: 44, display: "flex", alignItems: "center", color: "rgba(255,255,255,.7)", textDecoration: "none", fontFamily: F.sans, fontSize: 14, fontWeight: 600 }}>{l}</a>)}
-            <button onClick={() => go("admin")} style={{ minHeight: 44, borderRadius: 9, border: "1px solid rgba(232,87,26,.35)", background: "rgba(232,87,26,.1)", color: C.orange, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Admin</button>
+            <button onClick={() => go("services")} style={{ minHeight: 44, borderRadius: 9, border: "1px solid rgba(232,87,26,.35)", background: "rgba(232,87,26,.07)", color: C.orange, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Tutti i Servizi</button>
+            <button onClick={() => go("admin")} style={{ minHeight: 44, borderRadius: 9, border: "1px solid rgba(255,255,255,.1)", background: "transparent", color: "rgba(255,255,255,.5)", fontFamily: F.sans, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Admin</button>
             <button onClick={() => go("login")} style={{ minHeight: 44, borderRadius: 9, border: "1px solid rgba(255,255,255,.18)", background: "transparent", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Accedi</button>
             <button className="vb" onClick={() => go("step1")} style={{ minHeight: 48, borderRadius: 9, border: "none", background: "#22C55E", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: `0 4px 14px rgba(34, 197, 94, 0.25)` }}>Configura la tua campagna</button>
           </div>
@@ -353,92 +356,10 @@ const kpis = [
   );
 }
 
-// ── Tooltip informativo per KPI ──────────────────────────────────────────────
-function KpiTooltip({ tip, color }) {
-  const [open, setOpen] = useState(false);
-  if (!tip) return null;
-  const c = color || "#94A3B8";
-  return (
-    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", marginLeft: 4, flexShrink: 0, verticalAlign: "middle" }}>
-      <button
-        onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-        aria-label="Mostra spiegazione"
-        style={{
-          width: 15, height: 15, borderRadius: "50%",
-          background: "rgba(255,255,255,0.07)", border: `1px solid ${c}55`,
-          color: c, fontFamily: "system-ui", fontSize: 9, fontWeight: 900,
-          cursor: "pointer", padding: 0, lineHeight: 1,
-          display: "inline-flex", alignItems: "center", justifyContent: "center",
-        }}
-      >ⓘ</button>
-      {open && (
-        <span style={{
-          position: "absolute", bottom: "calc(100% + 8px)", left: "50%",
-          transform: "translateX(-50%)", zIndex: 9999,
-          background: "#0F172A", border: "1px solid rgba(148,163,184,0.25)",
-          borderRadius: 10, padding: "10px 13px",
-          minWidth: 200, maxWidth: 280,
-          boxShadow: "0 12px 36px rgba(0,0,0,0.65)",
-          fontFamily: "'DM Sans', sans-serif", fontSize: 12, lineHeight: 1.6,
-          color: "#CBD5E1", pointerEvents: "none", whiteSpace: "normal", textAlign: "left",
-        }}>
-          {tip}
-          <span style={{
-            position: "absolute", bottom: -5, left: "50%",
-            transform: "translateX(-50%) rotate(-45deg)",
-            width: 9, height: 9, background: "#0F172A",
-            border: "1px solid rgba(148,163,184,0.25)",
-            borderRight: "none", borderTop: "none",
-          }} />
-        </span>
-      )}
-    </span>
-  );
-}
 
-// ── Sezione "Come leggere i dati" — Home page ─────────────────────────────────
-function DataGuideSection() {
-  const cards = [
-    { icon: "🏠", title: "Famiglie", desc: "Stima delle abitazioni che possono ricevere il tuo volantino nell'area selezionata.", detail: "Basata sui dati ufficiali ISTAT aggiornati." },
-    { icon: "📍", title: "Copertura", desc: "Percentuale dell'area raggiunta con la quantità di volantini scelta.", detail: "100% = nessuna famiglia esclusa dalla distribuzione." },
-    { icon: "🗺️", title: "Zone", desc: "Le aree geografiche realmente coperte dalla campagna.", detail: "Ogni zona è verificata su mappa prima della distribuzione." },
-    { icon: "📡", title: "Monitoraggio GPS", desc: "Il percorso degli operatori viene registrato in tempo reale.", detail: "Puoi verificare dove e quando è avvenuta la distribuzione." },
-    { icon: "📄", title: "Report finale", desc: "Documento con risultati, foto e dati della distribuzione.", detail: "Ricevuto al termine di ogni campagna, con prove verificabili." },
-    { icon: "🤖", title: "Ottimizzazione AI", desc: "Il sistema cerca automaticamente campagne compatibili per ridurre i costi.", detail: "Puoi risparmiare fino al 40% condividendo le risorse operative." },
-  ];
-  return (
-    <section style={{ background: "#0B1020", borderTop: "1px solid rgba(148,163,184,0.12)", padding: "80px 28px" }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 52 }}>
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: ".15em", textTransform: "uppercase", color: "#E8571A", marginBottom: 14 }}>
-            Trasparenza totale
-          </div>
-          <h2 style={{ fontFamily: "'DM Serif Display', Georgia, serif", fontSize: 40, color: "#F8FAFC", letterSpacing: "-1.2px", marginBottom: 14, lineHeight: 1.08 }}>
-            Come leggere i risultati<br />della tua campagna
-          </h2>
-          <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 16, color: "#94A3B8", maxWidth: 520, margin: "0 auto", lineHeight: 1.65 }}>
-            Ogni numero ha un significato concreto. Ecco cosa indicano i dati mostrati e come ti aiutano a prendere decisioni migliori.
-          </p>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
-          {cards.map(card => (
-            <div key={card.title} style={{ padding: "26px 24px", borderRadius: 18, background: "#122036", border: "1px solid rgba(255,255,255,0.07)", display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ fontSize: 28, lineHeight: 1 }}>{card.icon}</div>
-              <div style={{ fontFamily: "'DM Serif Display', Georgia, serif", fontSize: 20, color: "#F8FAFC", letterSpacing: "-.2px" }}>{card.title}</div>
-              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: "#CBD5E1", lineHeight: 1.6 }}>{card.desc}</div>
-              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#64748B", lineHeight: 1.5, paddingTop: 6, borderTop: "1px solid rgba(255,255,255,0.05)" }}>{card.detail}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
 
 function HomePage({onStart:n}){const i=()=>document.getElementById("come-funziona")?.scrollIntoView({behavior:"smooth",block:"start"}),[r,l]=useState(!1),[u,h]=useState({city:"",qty:"5000",service:"Door to Door"}),f=Math.max(180,Math.round((Number(u.qty)||0)*(u.service==="Door to Door" ?.13 : u.service==="Hand to Hand" ?.18 :.22))),m=[{t:"Piattaforma",items:[["Configuratore","step1"],["Preventivo rapido","quick"],["Come funziona","home"],["Tracking GPS","campaign"]]},{t:"Servizi",items:[["Door to Door","step1"],["Hand to Hand","step1"],["Business Distribution","step1"],["Report campagna","campaign"]]},{t:"Risorse",items:[["Servizi","home"],["Supporto","consultant"],["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]]}];useEffect(()=>{const D=()=>l(window.innerWidth<760);return D(),window.addEventListener("resize",D),()=>window.removeEventListener("resize",D)},[]);const[kpiBandVisible,setKpiBandVisible]=useState(!0),kpiBandRef=useRef(null);useEffect(()=>{const D=kpiBandRef.current;if(!D)return;const W=new IntersectionObserver(([A])=>{A.isIntersecting&&(setKpiBandVisible(!0),W.disconnect())},{threshold:.25});return W.observe(D),()=>W.disconnect()},[]);
-const x=[{value:"ISTAT",l:"Dati reali",src:"Fonti territoriali"},{value:"GIS",l:"Analisi zona",src:"Mappa e raggio"},{value:"GPS",l:"Tracking operativo",src:"Verifica campo"},{value:"PDF",l:"Report e prove",src:"Output verificabile"}],w=["Dati ISTAT ufficiali","GPS certificato","No vincoli mensili"],j=["Retail locale","Food locale","Casa e servizi","Fitness locale","Attività locale"],T=[{n:"01",t:"Configura campagna",d:"Scegli servizio, quantità, formato, stampa e frequenza della distribuzione.",b:"Servizio + quantità",c:"#E8571A"},{n:"02",t:"Zona e mappa",d:"Imposta comune e raggio, poi verifica famiglie ISTAT, comuni coinvolti, copertura e volantini consigliati.",b:"Analisi territoriale",c:"#E8571A"},{n:"03",t:"Pianificazione",d:"Scegli il periodo desiderato. Smart Pairing resta opzionale quando esistono campagne compatibili.",b:"Date + opzioni",c:"#E8571A"},{n:"04",t:"Preventivo completo",d:"Controlla riepilogo campagna, servizi, dati territoriali disponibili e prezzo finale calcolato.",b:"Riepilogo + prezzo",c:"#E8571A"}],z=[{name:"Door to Door",icon:"D2D",desc:"Distribuzione nelle cassette postali di condomini, palazzi, villette e zone residenziali.",features:["attività locali","promozioni zona","grande copertura territoriale"],c:C.orange},{name:"Hand to Hand",icon:"H2H",desc:"Distribuzione a mano in punti ad alto passaggio.",features:["POI rilevanti","Fermate metro/bus/treno","Scuole, università, eventi","Flusso potenziale","Smart Pairing"],c:C.orange},{name:"Business Distribution",icon:"B2B",desc:"Distribuzione mirata ad attività commerciali, uffici e zone business.",features:["B2B","fornitori","servizi professionali","attività locali"],c:C.orange}],R=[{n:"01",t:"Configura campagna",d:"Percorso completo in 4 step: campagna, zona, pianificazione e preventivo finale.",benefits:["Analisi ISTAT zona","Mappa e copertura","GPS e report verificabili","Smart Pairing opzionale"],cta:"Configura la tua campagna",c:C.orange,fn:()=>n("step1")},{n:"02",t:"Preventivo rapido",d:"Inserisci pochi dati e passa a un prezzo personalizzato calcolato su zona, quantità e servizio.",benefits:["3 campi essenziali","Prezzo personalizzato","Nessun account richiesto"],cta:"Preventivo rapido",c:C.orange,fn:()=>n("quick"),quick:!0},{n:"03",t:"Parla con un consulente",d:"Preferisci supporto diretto? Invia una richiesta e ti ricontattiamo.",benefits:["Brief gratuito","Scelta servizio guidata","Richiamo operativo","Tempo: immediato"],cta:"Parla con un consulente",c:C.orange,fn:()=>n("consultant")}];return _jsxs("div",{className:"home-shell-dark saas-home-refinement",style:{background:"#0B1020",paddingBottom:0,minHeight:"100vh"},children:[_jsx("style",{children:`
+const x=[{value:"Famiglie",l:"Abitazioni stimate",src:"Fonti territoriali",term:"Famiglie"},{value:"Zone",l:"Aree coperte",src:"Mappa e raggio",term:"Zone"},{value:"GPS",l:"Monitoraggio stradale",src:"Verifica campo",term:"GPS"},{value:"Report",l:"Documento finale",src:"Output verificabile",term:"Report PDF"}],w=["Dati ISTAT ufficiali","GPS certificato","No vincoli mensili"],j=["Retail locale","Food locale","Casa e servizi","Fitness locale","Attività locale"],T=[{n:"01",t:"Configura campagna",d:"Scegli servizio, quantità, formato, stampa e frequenza della distribuzione.",b:"Servizio + quantità",c:"#E8571A"},{n:"02",t:"Zona e mappa",d:"Imposta comune e raggio, poi verifica famiglie ISTAT, comuni coinvolti, copertura e volantini consigliati.",b:"Analisi territoriale",c:"#E8571A"},{n:"03",t:"Pianificazione",d:"Scegli il periodo desiderato. Smart Pairing resta opzionale quando esistono campagne compatibili.",b:"Date + opzioni",c:"#E8571A"},{n:"04",t:"Preventivo completo",d:"Controlla riepilogo campagna, servizi, dati territoriali disponibili e prezzo finale calcolato.",b:"Riepilogo + prezzo",c:"#E8571A"}],z=[{name:"Door to Door",icon:"D2D",desc:"Distribuzione nelle cassette postali di condomini, palazzi, villette e zone residenziali.",features:["attività locali","promozioni zona","grande copertura territoriale"],c:C.orange},{name:"Hand to Hand",icon:"H2H",desc:"Distribuzione a mano in punti ad alto passaggio.",features:["POI rilevanti","Fermate metro/bus/treno","Scuole, università, eventi","Flusso potenziale","Smart Pairing"],c:C.orange},{name:"Business Distribution",icon:"B2B",desc:"Distribuzione mirata ad attività commerciali, uffici e zone business.",features:["B2B","fornitori","servizi professionali","attività locali"],c:C.orange}],R=[{n:"01",t:"Configura campagna",d:"Percorso completo in 4 step: campagna, zona, pianificazione e preventivo finale.",benefits:["Analisi ISTAT zona","Mappa e copertura","GPS e report verificabili","Smart Pairing opzionale"],cta:"Configura la tua campagna",c:C.orange,fn:()=>n("step1")},{n:"02",t:"Preventivo rapido",d:"Inserisci pochi dati e passa a un prezzo personalizzato calcolato su zona, quantità e servizio.",benefits:["3 campi essenziali","Prezzo personalizzato","Nessun account richiesto"],cta:"Preventivo rapido",c:C.orange,fn:()=>n("quick"),quick:!0},{n:"03",t:"Parla con un consulente",d:"Preferisci supporto diretto? Invia una richiesta e ti ricontattiamo.",benefits:["Brief gratuito","Scelta servizio guidata","Richiamo operativo","Tempo: immediato"],cta:"Parla con un consulente",c:C.orange,fn:()=>n("consultant")}];return _jsxs("div",{className:"home-shell-dark saas-home-refinement",style:{background:"#0B1020",paddingBottom:0,minHeight:"100vh"},children:[_jsx("style",{children:`
   .home-shell-dark { background-color: #0B1020 !important; color: #F8FAFC !important; }
   .home-shell-dark section, .home-shell-dark article { background: transparent !important; }
   .home-shell-dark section[style*="cream"], .home-shell-dark div[style*="cream"] { background: #111827 !important; border-top: 1px solid rgba(148, 163, 184, 0.18) !important; color: #F8FAFC !important; }
@@ -455,7 +376,7 @@ const x=[{value:"ISTAT",l:"Dati reali",src:"Fonti territoriali"},{value:"GIS",l:
   .home-shell-dark .vp-start-secondary:hover { border-color: rgba(232, 87, 26, 0.4) !important; }
   .home-shell-dark .vp-start-secondary h3, .home-shell-dark .vp-start-secondary p { color: #CBD5E1 !important; }
   .home-shell-dark .vp-start-primary { background: #0f1a2e !important; }
-`}),_jsx(VolantiniProHeroMap,{onConfigure:()=>n("step1"),onLogin:()=>n("login"),onAdmin:()=>n("admin"),onHowItWorks:i}),_jsx(TrustBar,{metrics:[{value:"ISTAT",label:"Dati territoriali"},{value:"GIS",label:"Analisi zona"},{value:"GPS",label:"Tracking operativo"},{value:"PDF",label:"Report verificabili"}]}),_jsx(WhyDifferentSection,{}),_jsx("section",{className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,borderTop:"1px solid rgba(0,0,0,.06)"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:34},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Tre modi per iniziare"}),_jsx("h2",{style:{fontFamily:F.serif,fontSize:46,color:C.navy,letterSpacing:"-1.4px",marginBottom:10},children:"Scegli il tuo punto di partenza."}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:660,lineHeight:1.65},children:"Configurazione completa, stima rapida o supporto diretto: tre percorsi per ogni esigenza."})]}),_jsx("div", {
+`}),_jsx(VolantiniProHeroMap,{onConfigure:()=>n("step1"),onLogin:()=>n("login"),onAdmin:()=>n("admin"),onHowItWorks:i,onServices:()=>n("services")}),_jsx(TrustBar,{metrics:[{value:"ISTAT",label:"Dati territoriali"},{value:"GIS",label:"Analisi zona"},{value:"GPS",label:"Tracking operativo"},{value:"PDF",label:"Report verificabili"}]}),_jsx(WhyDifferentSection,{}),_jsx("section",{className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,borderTop:"1px solid rgba(0,0,0,.06)"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:34},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Tre modi per iniziare"}),_jsx("h2",{style:{fontFamily:F.serif,fontSize:46,color:C.navy,letterSpacing:"-1.4px",marginBottom:10},children:"Scegli il tuo punto di partenza."}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:660,lineHeight:1.65},children:"Configurazione completa, stima rapida o supporto diretto: tre percorsi per ogni esigenza."})]}),_jsx("div", {
   className: "vp-start-grid",
   children: [
     _jsx("style", {
@@ -583,7 +504,7 @@ const x=[{value:"ISTAT",l:"Dati reali",src:"Fonti territoriali"},{value:"GIS",l:
       }))
     })
   ]
-})]})}),_jsx("section",{ref:kpiBandRef,className:"section-tight",style:{display:"none",background:C.navy,paddingLeft:28,paddingRight:28,borderTop:`3px solid ${C.orange}`,opacity:kpiBandVisible?1:0,transform:kpiBandVisible?"none":"translateY(22px)",transition:"opacity .5s ease, transform .7s cubic-bezier(.2,.8,.2,1)",willChange:"transform, opacity"},children:_jsx("div",{style:{maxWidth:1200,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2},children:x.map(({value:D,l:W,src:A},F)=>_jsxs("div",{style:{padding:"34px 26px",borderLeft:F>0?"1px solid rgba(255,255,255,.07)":"none"},children:[_jsx("div",{style:{width:26,height:3,background:C.orange,borderRadius:2,marginBottom:16}}),_jsx("div",{style:{fontFamily:F.serif,fontSize:typeof D=="string"&&D.length>8?34:50,color:C.white,letterSpacing:"-1.4px",lineHeight:1,marginBottom:10,fontVariantNumeric:"tabular-nums"},children:D}),_jsx("div",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.8)",lineHeight:1.4,marginBottom:8},children:W}),_jsx("div",{style:{display:"inline-flex",padding:"3px 7px",borderRadius:4,background:"rgba(232,87,26,.12)",fontFamily:F.sans,fontSize:9,color:C.orange},children:A})]},W))})}),_jsx("section",{id:"come-funziona",className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,scrollMarginTop:80},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:64},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Dall'idea al volantino in mano"}),_jsxs("h2",{style:{fontFamily:F.serif,fontSize:48,color:C.navy,letterSpacing:"-1.5px",marginBottom:14,lineHeight:1.06},children:["Dall'idea alla campagna",_jsx("br",{}),"in 4 step misurabili."]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:520,lineHeight:1.65},children:"Un flusso unico per definire servizio, zona, date operative e preventivo finale."})]}),_jsx("div",{className:"steps-grid",style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12},children:T.map(({n:D,t:W,d:A,b:F,c:B},P)=>_jsxs("div",{className:"vc",style:{padding:"34px 28px",background:C.white,borderRadius:16,border:"1px solid rgba(0,0,0,.04)",boxShadow:"0 8px 24px rgba(0,0,0,.02)",position:"relative",overflow:"hidden"},children:[_jsx("div",{style:{position:"absolute",top:-8,right:12,fontFamily:F.sans,fontWeight:900,fontSize:94,color:"#F4F6F8",lineHeight:1,userSelect:"none"},children:D}),_jsx("div",{style:{width:24,height:3,borderRadius:2,background:B,marginBottom:24}}),_jsx("h3",{style:{fontFamily:F.serif,fontSize:22,color:C.navy,marginBottom:12,letterSpacing:"-.3px"},children:W}),_jsx("p",{style:{fontFamily:F.sans,fontSize:14,color:C.muted,lineHeight:1.6,marginBottom:20},children:A}),_jsx("div",{style:{display:"inline-flex",padding:"4px 10px",borderRadius:6,background:`${B}12`,fontFamily:F.sans,fontSize:11,fontWeight:700,color:B},children:F})]},D))}),_jsx("div",{style:{textAlign:"center",marginTop:56},children:_jsx("button",{className:"vb",onClick:()=>n("step1"),style:{padding:"14px 34px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#E8571A 0%,#D0450B 100%)",color:C.white,fontFamily:F.sans,fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 6px 16px rgba(232,87,26,0.28)"},children:"Configura la tua campagna "})})]})}),_jsx(ServicesSection,{onConfigure:()=>n("step1")}),_jsx(React.Suspense,{fallback:_jsx("div",{style:{minHeight:200,background:"#0B1020"}}),children:_jsx(AIConsultantSection,{})}),_jsx(React.Suspense,{fallback:_jsx("div",{style:{minHeight:200,background:"#0B1020"}}),children:_jsx(AICampaignCenter,{context:"home"})}),_jsx(FeatureZonaMappa,{onConfigure:()=>n("step1")}),_jsx(FeatureSmartPairing,{onConfigure:()=>n("step1")}),_jsx(RisultatiSection,{}),_jsx(DataGuideSection,{}),_jsx(FAQSection,{onContact:()=>n("consultant")}),_jsx(PricingSection,{onConfigure:()=>n("step1"),onConsultant:()=>n("consultant")}),_jsx(Footer,{onNav:n,onHowItWorks:i}),_jsx("footer",{style:{display:"none",background:"#070D1A",borderTop:"1px solid rgba(255,255,255,.05)",padding:"52px 28px 34px"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{display:"flex",gap:64,marginBottom:44},children:[_jsxs("div",{style:{flex:"0 0 250px"},children:[_jsxs("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:16},children:[_jsx("div",{style:{width:30,height:30,borderRadius:7,background:C.orange,display:"flex",alignItems:"center",justifyContent:"center"},children:_jsxs("svg",{width:"16",height:"16",viewBox:"0 0 20 20",fill:"none",children:[_jsx("path",{d:"M3 17L10 3L17 17H3Z",fill:"white"}),_jsx("circle",{cx:"10",cy:"12",r:"2",fill:"white",opacity:".7"})]})}),_jsxs("span",{style:{fontFamily:F.serif,fontSize:18,color:C.white},children:["Volantini",_jsx("span",{style:{color:C.orange},children:"Pro"})]})]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.33)",lineHeight:1.65,marginBottom:16},children:"Piattaforma B2B per configurare campagne di volantinaggio con dati territoriali, GPS e report operativo."}),_jsx("div",{style:{display:"inline-flex",alignItems:"center",gap:6,padding:"4px 10px",borderRadius:6,background:"rgba(232,87,26,.1)",fontFamily:F.sans,fontSize:11,color:C.orange},children:"Operativo su Milano e Lombardia"})]}),_jsx("div",{style:{display:"flex",gap:52,flex:1},children:m.map(({t:D,items:W})=>_jsxs("div",{children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:C.orange,marginBottom:16},children:D}),_jsx("div",{style:{display:"flex",flexDirection:"column",gap:9},children:W.map(([A,F])=>_jsx("button",{onClick:()=>F==="home"&&A==="Come funziona"?i():n(F),style:{padding:0,border:"none",background:"transparent",textAlign:"left",fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.6)",cursor:"pointer"},children:A},A))})]},D))})]}),_jsxs("div",{style:{borderTop:"1px solid rgba(255,255,255,.05)",paddingTop:24,display:"flex",justifyContent:"space-between"},children:[_jsx("span",{style:{fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)"},children:"2025 VolantiniPro S.r.l. - Milano"}),_jsx("span",{style:{display:"flex",gap:10,alignItems:"center"},children:[["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]].map(([D,W])=>_jsx("button",{onClick:()=>n(W),style:{padding:0,border:"none",background:"transparent",fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)",cursor:"pointer"},children:D},D))})]})]})})]})}
+})]})}),_jsx("section",{ref:kpiBandRef,className:"section-tight",style:{display:"none",background:C.navy,paddingLeft:28,paddingRight:28,borderTop:`3px solid ${C.orange}`,opacity:kpiBandVisible?1:0,transform:kpiBandVisible?"none":"translateY(22px)",transition:"opacity .5s ease, transform .7s cubic-bezier(.2,.8,.2,1)",willChange:"transform, opacity"},children:_jsx("div",{style:{maxWidth:1200,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2},children:x.map(({value:D,l:W,src:A,term:TM},F)=>_jsxs("div",{style:{padding:"34px 26px",borderLeft:F>0?"1px solid rgba(255,255,255,.07)":"none"},children:[_jsx("div",{style:{width:26,height:3,background:C.orange,borderRadius:2,marginBottom:16}}),_jsx("div",{style:{fontFamily:F.serif,fontSize:typeof D=="string"&&D.length>8?34:50,color:C.white,letterSpacing:"-1.4px",lineHeight:1,marginBottom:10,fontVariantNumeric:"tabular-nums"},children:D}),_jsxs("div",{style:{display:"flex",alignItems:"center",fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.8)",lineHeight:1.4,marginBottom:8},children:[W,_jsx(KpiTooltip,{term:TM||D})]}),_jsx("div",{style:{display:"inline-flex",padding:"3px 7px",borderRadius:4,background:"rgba(232,87,26,.12)",fontFamily:F.sans,fontSize:9,color:C.orange},children:A})]},W))})}),_jsx("section",{id:"come-funziona",className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,scrollMarginTop:80},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:64},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Dall'idea al volantino in mano"}),_jsxs("h2",{style:{fontFamily:F.serif,fontSize:48,color:C.navy,letterSpacing:"-1.5px",marginBottom:14,lineHeight:1.06},children:["Dall'idea alla campagna",_jsx("br",{}),"in 4 step misurabili."]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:520,lineHeight:1.65},children:"Un flusso unico per definire servizio, zona, date operative e preventivo finale."})]}),_jsx("div",{className:"steps-grid",style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12},children:T.map(({n:D,t:W,d:A,b:F,c:B},P)=>_jsxs("div",{className:"vc",style:{padding:"34px 28px",background:C.white,borderRadius:16,border:"1px solid rgba(0,0,0,.04)",boxShadow:"0 8px 24px rgba(0,0,0,.02)",position:"relative",overflow:"hidden"},children:[_jsx("div",{style:{position:"absolute",top:-8,right:12,fontFamily:F.sans,fontWeight:900,fontSize:94,color:"#F4F6F8",lineHeight:1,userSelect:"none"},children:D}),_jsx("div",{style:{width:24,height:3,borderRadius:2,background:B,marginBottom:24}}),_jsx("h3",{style:{fontFamily:F.serif,fontSize:22,color:C.navy,marginBottom:12,letterSpacing:"-.3px"},children:W}),_jsx("p",{style:{fontFamily:F.sans,fontSize:14,color:C.muted,lineHeight:1.6,marginBottom:20},children:A}),_jsx("div",{style:{display:"inline-flex",padding:"4px 10px",borderRadius:6,background:`${B}12`,fontFamily:F.sans,fontSize:11,fontWeight:700,color:B},children:F})]},D))}),_jsx("div",{style:{textAlign:"center",marginTop:56},children:_jsx("button",{className:"vb",onClick:()=>n("step1"),style:{padding:"14px 34px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#E8571A 0%,#D0450B 100%)",color:C.white,fontFamily:F.sans,fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 6px 16px rgba(232,87,26,0.28)"},children:"Configura la tua campagna "})})]})}),_jsx(ServicesSection,{onConfigure:()=>n("step1")}),_jsx(React.Suspense,{fallback:_jsx("div",{style:{minHeight:200,background:"#0B1020"}}),children:_jsx(VolantiniProAIHub,{onConfigure:()=>n("step1")})}),_jsx(FeatureZonaMappa,{onConfigure:()=>n("step1")}),_jsx(FeatureSmartPairing,{onConfigure:()=>n("step1")}),_jsx(RisultatiSection,{}),_jsx(FAQSection,{onContact:()=>n("consultant")}),_jsx(PricingSection,{onConfigure:()=>n("step1"),onConsultant:()=>n("consultant")}),_jsx(Footer,{onNav:n,onHowItWorks:i}),_jsx("footer",{style:{display:"none",background:"#070D1A",borderTop:"1px solid rgba(255,255,255,.05)",padding:"52px 28px 34px"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{display:"flex",gap:64,marginBottom:44},children:[_jsxs("div",{style:{flex:"0 0 250px"},children:[_jsxs("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:16},children:[_jsx("div",{style:{width:30,height:30,borderRadius:7,background:C.orange,display:"flex",alignItems:"center",justifyContent:"center"},children:_jsxs("svg",{width:"16",height:"16",viewBox:"0 0 20 20",fill:"none",children:[_jsx("path",{d:"M3 17L10 3L17 17H3Z",fill:"white"}),_jsx("circle",{cx:"10",cy:"12",r:"2",fill:"white",opacity:".7"})]})}),_jsxs("span",{style:{fontFamily:F.serif,fontSize:18,color:C.white},children:["Volantini",_jsx("span",{style:{color:C.orange},children:"Pro"})]})]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.33)",lineHeight:1.65,marginBottom:16},children:"Piattaforma B2B per configurare campagne di volantinaggio con dati territoriali, GPS e report operativo."}),_jsx("div",{style:{display:"inline-flex",alignItems:"center",gap:6,padding:"4px 10px",borderRadius:6,background:"rgba(232,87,26,.1)",fontFamily:F.sans,fontSize:11,color:C.orange},children:"Operativo su Milano e Lombardia"})]}),_jsx("div",{style:{display:"flex",gap:52,flex:1},children:m.map(({t:D,items:W})=>_jsxs("div",{children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:C.orange,marginBottom:16},children:D}),_jsx("div",{style:{display:"flex",flexDirection:"column",gap:9},children:W.map(([A,F])=>_jsx("button",{onClick:()=>F==="home"&&A==="Come funziona"?i():n(F),style:{padding:0,border:"none",background:"transparent",textAlign:"left",fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.6)",cursor:"pointer"},children:A},A))})]},D))})]}),_jsxs("div",{style:{borderTop:"1px solid rgba(255,255,255,.05)",paddingTop:24,display:"flex",justifyContent:"space-between"},children:[_jsx("span",{style:{fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)"},children:"2025 VolantiniPro S.r.l. - Milano"}),_jsx("span",{style:{display:"flex",gap:10,alignItems:"center"},children:[["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]].map(([D,W])=>_jsx("button",{onClick:()=>n(W),style:{padding:0,border:"none",background:"transparent",fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)",cursor:"pointer"},children:D},D))})]})]})})]})}
 
 // JSX runtime shim for reconstructed bundle code
 function _jsx(type, props, key) {
@@ -2092,6 +2013,8 @@ useEffect(() => {
   const [capSearchLoading, setCapSearchLoading] = useState(false);
 const [selectedCaps, setSelectedCaps] = useState(data.selectedCaps || []);
 const [capDataMap, setCapDataMap] = useState(data.capDataMap || {});
+const [techAccordion, setTechAccordion] = useState({ zonaAttiva: true, telemetria: false, omi: false, demografia: false, score: false, fonti: false });
+const toggleTechAccordion = (key) => setTechAccordion(prev => ({ ...prev, [key]: !prev[key] }));
 const activeZoneForRadius = data.campaignZones?.find(z => z.id === data.activeZoneId) || null;
 const radiusKm = Number(radius ?? activeZoneForRadius?.radiusKm ?? activeZoneForRadius?.radius ?? data.radiusKm ?? data.radius ?? 3);
 const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.qty || 10000);
@@ -2629,7 +2552,7 @@ const civiciAvailable =
     const name = city.label || city.name;
     if (!name) return;
     let cancelled = false;
-    console.log('[LOCATION_SEARCH_TYPE_DETECTED] municipality:', name);
+    if (import.meta.env.DEV) console.log('[LOCATION_SEARCH_TYPE_DETECTED] municipality:', name);
     (async () => {
       try {
         const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name + ', Italy')}&format=geojson&polygon_geojson=1&limit=1`;
@@ -2638,7 +2561,7 @@ const civiciAvailable =
         const geom = json.features?.[0]?.geometry || null;
         if (!cancelled) {
           setMunicipalityBoundary(geom);
-          if (geom) {
+          if (geom && import.meta.env.DEV) {
             console.log('[MUNICIPALITY_BOUNDARY_LOADED]', name, geom.type);
             console.log('[MUNICIPALITY_FULL_AREA_MODE]', name);
             console.log('[COVERAGE_CALCULATED_FOR_FULL_MUNICIPALITY]', name);
@@ -2968,6 +2891,23 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     .map(z => z.name)
     .filter(Boolean);
 
+  const summaryComuniStats = useMemo(() => {
+    const zoneRows = zoneRowsForList.filter(r => r.type === "zone");
+    let coperti = 0;
+    let parziali = 0;
+    let esclusi = 0;
+    zoneRows.forEach(row => {
+      const z = row.zone;
+      const alloc = zonesAllocation.find(a => a.id === z.id) || { requiredFlyers: zCap(z), assignedFlyers: 0 };
+      const assigned = Math.max(0, Math.round(Number(alloc.assignedFlyers || alloc.assigned || alloc.allocated || alloc.volantini_assegnati || 0)));
+      const required = Math.max(0, Math.round(Number(alloc.requiredFlyers || alloc.needed || alloc.volantini_necessari || zCap(z) || 0)));
+      if (assigned <= 0) esclusi++;
+      else if (assigned >= required) coperti++;
+      else parziali++;
+    });
+    return { total: zoneRows.length, coperti, parziali, esclusi };
+  }, [zoneRowsForList, zonesAllocation]);
+
   const aiAgg = selZones.length > 0 ? {
     pop: selZones.reduce((a, z) => a + (z.pop || 0), 0),
     families: selZones.reduce((a, z) => a + (z.families || 0), 0),
@@ -3028,7 +2968,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     const metricRaw = activeLay ? z[activeLay.field] : null;
     const hasMetric = metricRaw != null && !Number.isNaN(Number(metricRaw));
     if (activeLay && !hasMetric) {
-      console.log('[LAYER_DATA_MISSING]', { zone: z.name, field: activeLay.field, value: metricRaw });
+      if (import.meta.env.DEV) console.log('[LAYER_DATA_MISSING]', { zone: z.name, field: activeLay.field, value: metricRaw });
     }
     return {
       id: z.id, name: z.name, lat: coords.lat, lng: coords.lng,
@@ -3043,7 +2983,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     };
   }).filter(Boolean);
   if (activeLay && zonesWithCoords.length > 0) {
-    console.log('[LAYER_DATA_LOADED]', { layer: activeLay.id, label: activeLay.label, zones: zonesWithCoords.length, hasData: zonesWithCoords.filter(z => z.metricColor).length });
+    if (import.meta.env.DEV) console.log('[LAYER_DATA_LOADED]', { layer: activeLay.id, label: activeLay.label, zones: zonesWithCoords.length, hasData: zonesWithCoords.filter(z => z.metricColor).length });
   }
 
   const targetTotal = serviceKpis ? (isResidentialStep2 ? serviceKpis.families : isMovementStep2 ? serviceKpis.poi : serviceKpis.businesses) : 0;
@@ -3243,9 +3183,13 @@ const radiusInsightRows = zonesInRadius.map(z => ({
         )}
 
         {/* Vista Cliente / Vista Tecnica switch */}
-        <div style={{ marginLeft: "auto", display: "flex", background: "rgba(0,0,0,.22)", borderRadius: 8, padding: 2, border: "1px solid rgba(255,255,255,.09)", flexShrink: 0 }}>
-          <button onClick={() => setIsAdminView(false)} style={{ padding: "6px 12px", borderRadius: 6, border: "none", background: !isAdminView ? "rgba(34,197,94,.22)" : "transparent", color: !isAdminView ? "#22C55E" : "rgba(255,255,255,.4)", fontFamily: F.sans, fontSize: 11, fontWeight: !isAdminView ? 800 : 500, cursor: "pointer", transition: "all.15s", whiteSpace: "nowrap" }}>Vista Cliente</button>
-          <button onClick={() => setIsAdminView(true)} style={{ padding: "6px 12px", borderRadius: 6, border: "none", background: isAdminView ? "rgba(34,197,94,.22)" : "transparent", color: isAdminView ? "#22C55E" : "rgba(255,255,255,.4)", fontFamily: F.sans, fontSize: 11, fontWeight: isAdminView ? 800 : 500, cursor: "pointer", transition: "all.15s", whiteSpace: "nowrap" }}>Vista Tecnica</button>
+        <div style={{ marginLeft: "auto", display: "flex", background: "rgba(0,0,0,.35)", borderRadius: 10, padding: 3, border: "1px solid rgba(255,255,255,.12)", flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,.2)" }}>
+          <button onClick={() => setIsAdminView(false)} style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: !isAdminView ? "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)" : "transparent", color: !isAdminView ? C.white : "rgba(255,255,255,.5)", fontFamily: F.sans, fontSize: 12, fontWeight: !isAdminView ? 800 : 600, cursor: "pointer", transition: "all .2s ease", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6, boxShadow: !isAdminView ? "0 4px 12px rgba(232,87,26,.35)" : "none" }}>
+            <span>👤</span> Vista Cliente
+          </button>
+          <button onClick={() => setIsAdminView(true)} style={{ padding: "7px 14px", borderRadius: 8, background: isAdminView ? "rgba(34,197,94,.22)" : "transparent", color: isAdminView ? "#22C55E" : "rgba(255,255,255,.5)", fontFamily: F.sans, fontSize: 12, fontWeight: isAdminView ? 800 : 600, cursor: "pointer", transition: "all .2s ease", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6, border: isAdminView ? "1px solid rgba(34,197,94,.4)" : "1px solid transparent" }}>
+            <span>🛠</span> Vista Tecnica
+          </button>
         </div>
 
       </div>
@@ -3268,8 +3212,8 @@ const radiusInsightRows = zonesInRadius.map(z => ({
         <div style={{ position: "relative", flex: "0 0 340px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 0, padding: 0, borderRadius: 10, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.12)", overflow: "hidden" }}>
             <div style={{ display: "flex", background: "rgba(255,255,255,.03)", borderRight: "1px solid rgba(255,255,255,.12)" }}>
-              <button onClick={() => { setSearchMode("municipality"); setSearch(""); setMunicipalityBoundary(null); console.log('[LOCATION_SEARCH_TYPE_DETECTED] mode:municipality'); }} style={{ padding: "9px 10px", background: searchMode === "municipality" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>Comune</button>
-              <button onClick={() => { setSearchMode("address"); setSearch(""); setMunicipalityBoundary(null); console.log('[RADIUS_MODE_SELECTED]'); }} style={{ padding: "9px 10px", background: searchMode === "address" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>Raggio</button>
+              <button onClick={() => { setSearchMode("municipality"); setSearch(""); setMunicipalityBoundary(null); }} style={{ padding: "9px 10px", background: searchMode === "municipality" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>Comune</button>
+              <button onClick={() => { setSearchMode("address"); setSearch(""); setMunicipalityBoundary(null); }} style={{ padding: "9px 10px", background: searchMode === "address" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>Raggio</button>
               <button onClick={() => { setSearchMode("cap"); setSearch(""); setMunicipalityBoundary(null); }} style={{ padding: "9px 10px", background: searchMode === "cap" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>CAP</button>
             </div>
             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "0 12px" }}>
@@ -3365,7 +3309,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 {layers.map(lay => {
                   const active = activeLay?.id === lay.id;
                   return (
-                    <button key={lay.id} onClick={() => { setThLayerId(lay.id); setViewMode("tematica"); setShowLayerMenu(false); console.log('[LAYER_SELECTED]', lay.id, lay.label); }}
+                    <button key={lay.id} onClick={() => { setThLayerId(lay.id); setViewMode("tematica"); setShowLayerMenu(false); }}
                       style={{ display: "block", width: "100%", padding: "9px 14px", background: active ? `${col}18` : "transparent", border: "none", borderBottom: "1px solid rgba(255,255,255,.05)", color: active ? col : "rgba(255,255,255,.7)", fontFamily: F.sans, fontSize: 12, fontWeight: active ? 700 : 400, cursor: "pointer", textAlign: "left" }}
                       onMouseEnter={e => { if (!active) e.currentTarget.style.background = "rgba(255,255,255,.06)"; }}
                       onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}>
@@ -3424,7 +3368,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
       </div>
 
       {/* Section */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 280px", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) clamp(300px, 22vw, 340px)", gap: 16 }}>
 
         {/* Section */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -3658,6 +3602,22 @@ const radiusInsightRows = zonesInRadius.map(z => ({
             </div>
           )}
 
+          {/* BARRA RIASSUNTIVA COMUNI (Coerente con stato locale) */}
+          {(selZones.length > 0 || zonesInRadius.length > 0) && (
+            <div style={{ position: "sticky", top: 12, zIndex: 30, display: "flex", gap: 10, padding: "12px 16px", background: "rgba(11, 25, 44, 0.88)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderRadius: 12, border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 8px 32px rgba(0, 0, 0, 0.35)", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
+              <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.white, display: "flex", alignItems: "center", gap: 8 }}>
+                <span>📊 Riepilogo territorio:</span>
+                <span style={{ padding: "3px 9px", borderRadius: 6, background: "rgba(255,255,255,.1)", fontSize: 12 }}>{summaryComuniStats.total} {territoryPluralLabel}</span>
+                {allocationMode === "manual" && <span style={{ padding: "3px 9px", borderRadius: 6, background: "rgba(168,85,247,.2)", color: "#C084FC", fontSize: 11, fontWeight: 800 }}>🟣 Manuale</span>}
+              </div>
+              <div style={{ display: "flex", gap: 14, fontFamily: F.sans, fontSize: 12, fontWeight: 700, flexWrap: "wrap" }}>
+                <span style={{ color: "#22C55E", display: "flex", alignItems: "center", gap: 5 }}>🟢 {summaryComuniStats.coperti} Coperti</span>
+                <span style={{ color: "#FACC15", display: "flex", alignItems: "center", gap: 5 }}>🟡 {summaryComuniStats.parziali} Parziali</span>
+                <span style={{ color: "#F87171", display: "flex", alignItems: "center", gap: 5 }}>🔴 {summaryComuniStats.esclusi} Esclusi</span>
+              </div>
+            </div>
+          )}
+
           {/* COMUNE MODE: Zone di distribuzione */}
           {searchMode !== "cap" && city && (
             <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)", overflow: "hidden" }}>
@@ -3727,7 +3687,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               </div>
 
               {/* Lista zone */}
-              <div style={{ padding: "10px", display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ padding: "14px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
                 {analysisLoading && <div style={{ padding: 20, textAlign: "center", color: "rgba(255,255,255,.4)", fontFamily: F.sans, fontSize: 12 }}>Caricamento analisi territoriale...</div>}
                 {analysisError === "TERRITORIAL_DATA_NOT_AVAILABLE" && (
                   <div style={{ padding: 24, textAlign: "center", color: C.red, background: "rgba(34, 197, 94,.08)", border: `1px solid ${C.red}33`, borderRadius: 12, fontFamily: F.sans, fontSize: 13 }}>
@@ -3793,10 +3753,10 @@ const isManual = allocationMode === "manual";
                   const coverageLabel = coverageState === "none" ? "Nel raggio" : coverageState === "full" ? "Copertura totale" : "Copertura selettiva";
 
                   return (
-                    <div key={z.id} style={{
-                      borderRadius: 10, border: `1px solid ${sel ? `${col}40` : "rgba(255,255,255,.05)"}`,
-                      background: sel ? `${col}08` : "rgba(255,255,255,.01)", padding: "8px 10px",
-                      transition: "all.15s"
+                    <div key={z.id} className="town-list-item" style={{
+                      borderRadius: 12, border: `1px solid ${sel ? `${col}45` : "rgba(255,255,255,.035)"}`,
+                      background: sel ? `${col}0a` : "rgba(255,255,255,.012)", padding: "12px 14px",
+                      transition: "all .2s ease"
                     }}>
                       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "24px minmax(160px,1fr) 32px" : "24px 1fr 180px 120px 32px", gap: 12, alignItems: "center" }}>
                         {/* Checkbox */}
@@ -3813,7 +3773,9 @@ const isManual = allocationMode === "manual";
                         <div onClick={() => { if (!isMovementStep2 && !(isBusinessStep2 && businessMetrics.clusterRows.length)) toggleZone(z.id); }} style={{ cursor: isMovementStep2 || (isBusinessStep2 && businessMetrics.clusterRows.length) ? "default" : "pointer", flex: 1 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: coverageState !== "none" ? 700 : 400, color: coverageState !== "none" ? C.white : "rgba(255,255,255,.45)" }}>{z.name}</div>
-                            {coverageState === "partial" && <span style={{ padding: "1px 5px", borderRadius: 4, background: `${col}15`, border: `1px solid ${col}40`, fontFamily: F.sans, fontSize: 8, color: col, fontWeight: 800 }}>PARZIALE</span>}
+                            {coverageState === "full" && <span style={{ padding: "2px 6px", borderRadius: 4, background: "rgba(34,197,94,.15)", border: "1px solid rgba(34,197,94,.35)", fontFamily: F.sans, fontSize: 8, color: "#22C55E", fontWeight: 800 }}>🟢 COPERTO</span>}
+                            {coverageState === "partial" && <span style={{ padding: "2px 6px", borderRadius: 4, background: "rgba(250,204,21,.15)", border: "1px solid rgba(250,204,21,.35)", fontFamily: F.sans, fontSize: 8, color: "#FACC15", fontWeight: 800 }}>🟡 PARZIALE</span>}
+                            {coverageState === "none" && <span style={{ padding: "2px 6px", borderRadius: 4, background: "rgba(248,113,113,.15)", border: "1px solid rgba(248,113,113,.35)", fontFamily: F.sans, fontSize: 8, color: "#F87171", fontWeight: 800 }}>🔴 ESCLUSO</span>}
                             {z.isNil && <span style={{ padding: "1px 5px", borderRadius: 4, background: `${getComuneColor(z.id)}22`, border: `1px solid ${getComuneColor(z.id)}55`, fontFamily: F.sans, fontSize: 8, color: getComuneColor(z.id), fontWeight: 800 }}>NIL</span>}
                             {z.isCap && <span style={{ padding: "1px 5px", borderRadius: 4, background: "rgba(255,255,255,.1)", fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.4)", fontWeight: 700 }}>CAP</span>}
                             {z.source_flags?.includes('Stima territoriale') && <span style={{ padding: "1px 5px", borderRadius: 4, background: "rgba(251,191,36,.15)", border: "1px solid rgba(251,191,36,.3)", fontFamily: F.sans, fontSize: 8, color: C.yellow, fontWeight: 700 }}>Stima territoriale</span>}
@@ -4058,19 +4020,19 @@ const isManual = allocationMode === "manual";
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 10 }}>
                 <div style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(255,255,255,.05)" }}>
-                  <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 2 }}>{isResidentialStep2 ? "Cassette/famiglie" : isMovementStep2 ? "POI / Hotspot" : "Attività target"}</div>
+                  <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 2 }}>{!isAdminView ? (isResidentialStep2 ? "Famiglie raggiunte" : isMovementStep2 ? "Punti strategici" : "Aziende target") : (isResidentialStep2 ? "Cassette/famiglie" : isMovementStep2 ? "POI / Hotspot" : "Attività target")}</div>
                   <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.white }}>
                     {formatNumber(isResidentialStep2 ? (serviceKpis?.families || 0) : isMovementStep2 ? (serviceKpis?.poi || 0) : (serviceKpis?.businesses || 0))}
                   </div>
                 </div>
                 <div style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(255,255,255,.05)" }}>
-                  <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 2 }}>Copertura stimata</div>
+                  <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 2 }}>{!isAdminView ? "Capillarità area" : "Copertura stimata"}</div>
                   <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.green }}>
                     {serviceKpis?.coverage != null ? `${serviceKpis.coverage}%` : "-"}
                   </div>
                 </div>
                 <div style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(255,255,255,.05)" }}>
-                  <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 2 }}>Volantini consigliati</div>
+                  <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 2 }}>{!isAdminView ? "Tiratura ideale" : "Volantini consigliati"}</div>
                   <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.blue }}>
                     {requiredFlyers ? requiredFlyers.toLocaleString("it-IT", { useGrouping: true }) : (selZones.length || zonesInRadius.length || 0) > 0 ? flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true }) : "-"}
                   </div>
@@ -4087,381 +4049,250 @@ const isManual = allocationMode === "manual";
             </div>
           )}
 
-          {/* LIVELLO 2 — IL PROFILO (solo Vista Tecnica) */}
-          {isAdminView && (selZones.length > 0 || zonesInRadius.length > 0 || activeCampaignZone) && (
-            <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "14px 16px", border: "1px solid rgba(255,255,255,.07)" }}>
-              <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: col, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 6 }}>
-                Chi vive in questa zona
-              </div>
-              <div style={{ fontFamily: F.serif, fontSize: 17, color: C.white, marginBottom: 12 }}>
-                {aiAgg?.eta64 >= 40 ? "Zona a maggioranza adulta 35–64" : aiAgg?.eta34 >= 35 ? "Zona a maggioranza giovane 15–34" : aiAgg?.eta65 >= 30 ? "Zona a maggioranza senior 65+" : "Profilo demografico e territoriale bilanciato"}
-              </div>
-              
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                {baseScoreRows.map(s => {
-                  const v = Number(s.v || 0);
-                  const isMaleWord = s.l.includes("Reach");
-                  const word = isMaleWord ? (v > 70 ? "Alto" : v >= 40 ? "Medio" : "Basso") : (v > 70 ? "Alta" : v >= 40 ? "Media" : "Bassa");
-                  const colorVal = v > 70 ? C.green : v >= 40 ? C.yellow : "#22C55E";
-                  let trLabel = s.l;
-                  let tooltip = "Parametro statistico di analisi zona.";
-                  if (s.l.includes("Family") || s.l.includes("Cluster") || s.l.includes("Hotspot")) {
-                    trLabel = s.l.includes("Cluster") ? "Densità cluster" : s.l.includes("Hotspot") ? "Intensità hotspot" : "Densità famiglie";
-                    tooltip = "Rapporto tra target stimato e superficie operativa dell'area.";
-                  } else if (s.l.includes("Reach")) {
-                    trLabel = "Potenziale di reach";
-                    tooltip = "Stima della percentuale di target esposto alla distribuzione nel raggio.";
-                  } else if (s.l.includes("ROI")) {
-                    trLabel = "Resa attesa";
-                    tooltip = "Proiezione del ritorno sull'investimento basata su densità e costi operativi.";
-                  } else if (s.l.includes("Confidence")) {
-                    trLabel = "Affidabilità del dato";
-                    tooltip = "Precisione statistica calcolata su incrocio di fonti catastali, OMI e telemetria GIS.";
-                  }
-                  return (
-                    <div key={s.l} title={tooltip} style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.05)", cursor: "help" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
-                        <span style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.48)", textTransform: "uppercase", letterSpacing: ".05em" }}>{trLabel}</span>
-                        <span style={{ fontSize: 9, color: "rgba(255,255,255,.3)" }}>ℹ️</span>
-                      </div>
-                      <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: colorVal }}>
-                        {word}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* LIVELLO 3 — LA PROVA (collassato di default) */}
+          {/* CARD CONSIGLIO AI (Linguaggio naturale e consulenziale) */}
           {(selZones.length > 0 || zonesInRadius.length > 0 || activeCampaignZone) && (
-            <div style={{ background: "rgba(255,255,255,.02)", borderRadius: 12, border: "1px solid rgba(255,255,255,.06)", overflow: "hidden" }}>
-              <button onClick={() => setShowTechnicalDetails(v => !v)} style={{ width: "100%", padding: "12px 16px", background: "rgba(255,255,255,.03)", border: "none", borderBottom: showTechnicalDetails ? "1px solid rgba(255,255,255,.06)" : "none", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", color: C.white, fontFamily: F.sans, fontSize: 12, fontWeight: 700 }}>
-                <span>Dettagli tecnici e fonti</span>
-                <span style={{ fontSize: 10, color: col }}>{showTechnicalDetails ? "▲ Nascondi" : "▼ Mostra dettagli tecnici"}</span>
-              </button>
+            <div style={{ background: "rgba(59, 130, 246, .08)", borderRadius: 12, padding: "14px 16px", border: "1px solid rgba(59, 130, 246, .28)", boxShadow: "0 4px 14px rgba(59, 130, 246, .12)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 16 }}>🤖</span>
+                <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#60A5FA", letterSpacing: ".05em", textTransform: "uppercase" }}>Consiglio AI</span>
+                <span style={{ marginLeft: "auto", padding: "2px 6px", borderRadius: 4, background: "rgba(59, 130, 246, .2)", color: "#93C5FD", fontSize: 9, fontWeight: 700 }}>Raccomandazione guidata</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.88)", lineHeight: 1.45 }}>
+                <div>
+                  <div style={{ fontWeight: 800, color: "#93C5FD", marginBottom: 2 }}>Perché questa zona?</div>
+                  <div style={{ color: "rgba(255,255,255,.8)" }}>
+                    {isResidentialStep2
+                      ? `L'area presenta una concentrazione abitativa compatibile con una distribuzione Door to Door mirata.`
+                      : isBusinessStep2
+                      ? `La zona mostra una valida presenza di attività e poli commerciali coerenti con i tuoi target.`
+                      : `Il territorio prescelto offre punti strategici idonei ad intercettare i flussi della tua campagna.`}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, color: "#93C5FD", marginBottom: 2 }}>Cosa devi sapere</div>
+                  <div style={{ color: "rgba(255,255,255,.8)" }}>
+                    {missingFlyers > 0
+                      ? `Con la quantità attuale raggiungi circa il ${serviceKpis?.coverage != null ? serviceKpis.coverage : 0}% del target stimato nel raggio. Per una copertura completa sarà necessario aumentare la distribuzione.`
+                      : `Con i tuoi ${flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })} volantini copri in modo uniforme l'area selezionata.`}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, color: "#93C5FD", marginBottom: 2 }}>Il nostro consiglio</div>
+                  <div style={{ color: "rgba(255,255,255,.8)" }}>
+                    {missingFlyers > 0
+                      ? `Per ottenere la massima capillarità locale ti consigliamo di valutare una tiratura di circa ${(requiredFlyers || flyerQuantityFromStep1).toLocaleString("it-IT", { useGrouping: true })} volantini.`
+                      : `L'impostazione attuale risulta equilibrata. Puoi procedere al preventivo per confermare la pianificazione.`}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
-              {showTechnicalDetails && (
-                <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
-                  {/* SUMMARY & TELEMETRIA GIS */}
-                  <div style={{ background: `${col}10`, borderRadius: 12, padding: "14px 16px", border: `1px solid ${col}28` }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: col, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 8 }}>
-                      Summary – Telemetria GIS
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                      {[
-                        { l: "Raggio", v: radiusKm < 1 ? `${radiusKm * 1000}m` : `${radiusKm}km` },
-                        { l: "Superficie", v: serviceKpis?.area ? formatAreaKm2(serviceKpis.area) : null },
-                        { l: "Inseriti", v: flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true }) + " vol." },
-                        { l: "Copertura completa", v: requiredFlyers ? requiredFlyers.toLocaleString("it-IT", { useGrouping: true }) + " vol." : null },
-                        { l: coverageStatus === "partial" ? "Mancanti" : "Rimanenti", v: (coverageStatus === "partial" ? missingFlyers : remainingFlyers).toLocaleString("it-IT", { useGrouping: true }) + " vol." },
-                        { l: "Stato", v: coverageStatus === "sufficient" ? "Sufficiente" : coverageStatus === "empty" ? "Da selezionare" : "Copertura selettiva" },
-                      ].filter(r => r.v != null).map(({ l, v }) => (
-                        <div key={l} style={{ padding: "6px 8px", borderRadius: 7, background: "rgba(255,255,255,.06)" }}>
-                          <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.3)", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 1 }}>{l}</div>
-                          <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white }}>{v}</div>
-                        </div>
-                      ))}
-                    </div>
+          {/* VISTA CLIENTE: RIQUADRO BENEFICI CONCRETI ("Perché questa configurazione?") */}
+          {!isAdminView && (selZones.length > 0 || zonesInRadius.length > 0 || activeCampaignZone) && (
+            <div style={{ background: "rgba(34, 197, 94, .06)", borderRadius: 12, padding: "14px 16px", border: "1px solid rgba(34, 197, 94, .24)" }}>
+              <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#4ADE80", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                <span>💡</span> Perché questa configurazione?
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.85)", lineHeight: 1.45 }}>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <span style={{ color: "#4ADE80" }}>✓</span>
+                  <span><b>Zero dispersione:</b> Distribuzione mirata solo nelle aree con reale densità in target.</span>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <span style={{ color: "#4ADE80" }}>✓</span>
+                  <span><b>Budget ottimizzato:</b> Tiratura calibrata sul fabbisogno effettivo del territorio.</span>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <span style={{ color: "#4ADE80" }}>✓</span>
+                  <span><b>Monitoraggio certificato:</b> Tracciamento telemetrico GPS per la massima trasparenza operativa.</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SEZIONE PANNELLI AVANZATI / ACCORDION (Dual Experience) */}
+          {(selZones.length > 0 || zonesInRadius.length > 0 || activeCampaignZone) && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {!isAdminView && (
+                <button onClick={() => setShowTechnicalDetails(v => !v)} style={{ width: "100%", padding: "12px 16px", background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 10, display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", color: C.white, fontFamily: F.sans, fontSize: 12, fontWeight: 700, transition: "all .2s" }}>
+                  <span>⚙️ Mostra dettagli tecnici e fonti (Avanzato)</span>
+                  <span style={{ fontSize: 10, color: col }}>{showTechnicalDetails ? "▲ Nascondi" : "▼ Espandi"}</span>
+                </button>
+              )}
+
+              {(isAdminView || showTechnicalDetails) && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {/* ACCORDION 1: TELEMETRIA GIS */}
+                  <div style={{ background: "rgba(255,255,255,.025)", borderRadius: 10, border: "1px solid rgba(255,255,255,.06)", overflow: "hidden" }}>
+                    <button onClick={() => toggleTechAccordion('telemetria')} style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,.02)", border: "none", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700 }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ color: col }}>📡</span> Telemetria GIS</span>
+                      <span style={{ fontSize: 10, color: "rgba(255,255,255,.4)" }}>{techAccordion.telemetria ? "▲" : "▼"}</span>
+                    </button>
+                    <AnimatePresence>
+                      {techAccordion.telemetria && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}>
+                          <div style={{ padding: 12, borderTop: "1px solid rgba(255,255,255,.05)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                            {[
+                              { l: "Raggio", v: radiusKm < 1 ? `${radiusKm * 1000}m` : `${radiusKm}km` },
+                              { l: "Superficie", v: serviceKpis?.area ? formatAreaKm2(serviceKpis.area) : null },
+                              { l: "Inseriti", v: flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true }) + " vol." },
+                              { l: "Copertura completa", v: requiredFlyers ? requiredFlyers.toLocaleString("it-IT", { useGrouping: true }) + " vol." : null },
+                              { l: coverageStatus === "partial" ? "Mancanti" : "Rimanenti", v: (coverageStatus === "partial" ? missingFlyers : remainingFlyers).toLocaleString("it-IT", { useGrouping: true }) + " vol." },
+                              { l: "Stato", v: coverageStatus === "sufficient" ? "Sufficiente" : coverageStatus === "empty" ? "Da selezionare" : "Copertura selettiva" },
+                            ].filter(r => r.v != null).map(({ l, v }) => (
+                              <div key={l} style={{ padding: "6px 8px", borderRadius: 7, background: "rgba(255,255,255,.06)" }}>
+                                <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.3)", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 1 }}>{l}</div>
+                                <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white }}>{v}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
-                  {/* VALORI OMI grezzi */}
+                  {/* ACCORDION 2: VALORI OMI E TERRITORIO */}
                   {city && !isMovementStep2 && omiInfo?.available && (
-                    <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(34, 197, 94,.14)", padding: 12 }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "#22C55E", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 8 }}>
-                        Valori OMI (Agenzia Entrate)
-                      </div>
-                      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                        {omiInfo.municipality && (
-                          <div style={{ flex: 1, padding: "6px 8px", borderRadius: 7, background: "rgba(255,255,255,.04)" }}>
-                            <div style={{ fontFamily: F.sans, fontSize: 7, color: "rgba(255,255,255,.3)", textTransform: "uppercase", marginBottom: 2 }}>Comune OMI</div>
-                            <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white }}>{omiInfo.municipality.replace(/D\s+/g, "D'")}</div>
-                          </div>
+                    <div style={{ background: "rgba(255,255,255,.025)", borderRadius: 10, border: "1px solid rgba(34, 197, 94,.14)", overflow: "hidden" }}>
+                      <button onClick={() => toggleTechAccordion('omi')} style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,.02)", border: "none", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", color: "#22C55E", fontFamily: F.sans, fontSize: 11, fontWeight: 700 }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span>🏛</span> Valori OMI (Agenzia Entrate)</span>
+                        <span style={{ fontSize: 10, color: "rgba(255,255,255,.4)" }}>{techAccordion.omi ? "▲" : "▼"}</span>
+                      </button>
+                      <AnimatePresence>
+                        {techAccordion.omi && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}>
+                            <div style={{ padding: 12, borderTop: "1px solid rgba(34, 197, 94,.14)" }}>
+                              <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                                {omiInfo.municipality && (
+                                  <div style={{ flex: 1, padding: "6px 8px", borderRadius: 7, background: "rgba(255,255,255,.04)" }}>
+                                    <div style={{ fontFamily: F.sans, fontSize: 7, color: "rgba(255,255,255,.3)", textTransform: "uppercase", marginBottom: 2 }}>Comune OMI</div>
+                                    <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white }}>{omiInfo.municipality.replace(/ D\s+/g, "D'")}</div>
+                                  </div>
+                                )}
+                                {omiInfo.zone_name && (
+                                  <div style={{ flex: 1, padding: "6px 8px", borderRadius: 7, background: "rgba(255,255,255,.04)" }}>
+                                    <div style={{ fontFamily: F.sans, fontSize: 7, color: "rgba(255,255,255,.3)", textTransform: "uppercase", marginBottom: 2 }}>Zona OMI</div>
+                                    <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white }}>{omiInfo.zone_name.replace(/ D\s+ITALIA /gi, "D'ITALIA").replace(/ D\s+/g, "D'")}</div>
+                                  </div>
+                                )}
+                              </div>
+                              {(omiInfo.values || []).map((v, i) => (
+                                <div key={i} style={{ padding: "6px 8px", borderRadius: 8, background: "rgba(34, 197, 94,.06)", border: "1px solid rgba(34, 197, 94,.14)", marginBottom: 4 }}>
+                                  <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", marginBottom: 2 }}>{v.typology}</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "#22C55E" }}>
+                                    {v.min_value != null && v.max_value != null ? `${v.min_value.toLocaleString("it-IT", { useGrouping: true })} – ${v.max_value.toLocaleString("it-IT", { useGrouping: true })} €/mq` : "-"}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </motion.div>
                         )}
-                        {omiInfo.zone_name && (
-                          <div style={{ flex: 1, padding: "6px 8px", borderRadius: 7, background: "rgba(255,255,255,.04)" }}>
-                            <div style={{ fontFamily: F.sans, fontSize: 7, color: "rgba(255,255,255,.3)", textTransform: "uppercase", marginBottom: 2 }}>Zona OMI</div>
-                            <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white }}>{omiInfo.zone_name.replace(/D\s+ITALIA/gi, "D'ITALIA").replace(/D\s+/g, "D'")}</div>
-                          </div>
-                        )}
-                      </div>
-                      {(omiInfo.values || []).map((v, i) => (
-                        <div key={i} style={{ padding: "6px 8px", borderRadius: 8, background: "rgba(34, 197, 94,.06)", border: "1px solid rgba(34, 197, 94,.14)", marginBottom: 4 }}>
-                          <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", marginBottom: 2 }}>{v.typology}</div>
-                          <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "#22C55E" }}>
-                            {v.min_value != null && v.max_value != null ? `${v.min_value.toLocaleString("it-IT", { useGrouping: true })} – ${v.max_value.toLocaleString("it-IT", { useGrouping: true })} €/mq` : "-"}
-                          </div>
-                        </div>
-                      ))}
+                      </AnimatePresence>
                     </div>
                   )}
 
-                  {/* ISTAT grezzo */}
-                  {isResidentialStep2 && (serviceKpis?.pop > 0 || serviceKpis?.population > 0) && (
-                    <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)", padding: 12 }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.4)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 8 }}>
-                        ISTAT – Dati demografici grezzi
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                        <div style={{ padding: "6px 8px", borderRadius: 7, background: "rgba(255,255,255,.04)" }}>
-                          <div style={{ fontFamily: F.sans, fontSize: 7, color: "rgba(255,255,255,.3)", textTransform: "uppercase", marginBottom: 2 }}>Popolazione stimata</div>
-                          <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white }}>{formatNumber(serviceKpis.population || serviceKpis.pop || 0)}</div>
-                        </div>
-                        <div style={{ padding: "6px 8px", borderRadius: 7, background: "rgba(255,255,255,.04)" }}>
-                          <div style={{ fontFamily: F.sans, fontSize: 7, color: "rgba(255,255,255,.3)", textTransform: "uppercase", marginBottom: 2 }}>Densità demografica</div>
-                          <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white }}>{serviceKpis.area && (serviceKpis.population || serviceKpis.pop) ? `${formatNumber(Math.round((serviceKpis.population || serviceKpis.pop) / Number(serviceKpis.area)))} ab./km²` : "-"}</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-          {/* Business intelligence — compact target + top categories + expandable clusters */}
-          {showTechnicalDetails && isBusinessStep2 && viewMode === "distribuzione" && (selZones.length > 0 || businessMetrics.businesses > 0) && (
-            <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)", overflow: "hidden" }}>
-              <div style={{ padding: "9px 14px", borderBottom: "1px solid rgba(255,255,255,.06)", display: "flex", alignItems: "center", gap: 7 }}>
-                <div style={{ width: 16, height: 3, background: col, borderRadius: 2 }} />
-                <span style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.32)", letterSpacing: ".1em", textTransform: "uppercase", flex: 1 }}>Commercial intelligence</span>
-                {businessClusterSummary.length > 0 && (
-                  <button onClick={() => setDetailExpanded(v => !v)} style={{ padding: "2px 7px", borderRadius: 5, border: `1px solid ${col}35`, background: "transparent", color: col, fontFamily: F.sans, fontSize: 9, cursor: "pointer" }}>{detailExpanded ? "Meno" : "Cluster"}</button>
-                )}
-              </div>
-              <div style={{ padding: "8px 10px" }}>
-                <div style={{ padding: "5px 8px", marginBottom: 6, borderRadius: 8, background: `${targetBusinessMeta.color}12`, border: `1px solid ${targetBusinessMeta.color}28` }}>
-                  <div style={{ fontFamily: F.sans, fontSize: 7, color: "rgba(255,255,255,.3)", marginBottom: 1 }}>Categoria target</div>
-                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: targetBusinessMeta.color }}>{targetBusinessMeta.label}</div>
-                </div>
-                {businessCategorySummary.slice(0, 3).map(cat => (
-                  <div key={cat.label} style={{ display: "flex", alignItems: "center", gap: 7, padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: cat.target ? targetBusinessMeta.color : "rgba(255,255,255,.25)", flexShrink: 0 }} />
-                    <span style={{ fontFamily: F.sans, fontSize: 10, color: cat.target ? C.white : "rgba(255,255,255,.5)", flex: 1 }}>{cat.label}</span>
-                    <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: cat.target ? targetBusinessMeta.color : "rgba(255,255,255,.42)" }}>{cat.count.toLocaleString("it-IT", { useGrouping: true })}</span>
-                  </div>
-                ))}
-                {detailExpanded && businessClusterSummary.map(cl => (
-                  <div key={cl.id} style={{ padding: "6px 8px", borderRadius: 8, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.05)", marginTop: 6 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
-                      <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white }}>{cl.name}</span>
-                      <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: cl.score >= 78 ? C.green : cl.score >= 62 ? C.yellow : "#22C55E" }}>{cl.score}/100</span>
-                    </div>
-                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.42)", lineHeight: 1.4 }}>{cl.dominant} – {cl.target} target – {cl.competitors} comp.</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+                  {/* ACCORDION 3: ISTAT E PROFILO TARGET */}
+                  <div style={{ background: "rgba(255,255,255,.025)", borderRadius: 10, border: "1px solid rgba(255,255,255,.06)", overflow: "hidden" }}>
+                    <button onClick={() => toggleTechAccordion('demografia')} style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,.02)", border: "none", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700 }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ color: col }}>👥</span> ISTAT / Demografia e Profilo</span>
+                      <span style={{ fontSize: 10, color: "rgba(255,255,255,.4)" }}>{techAccordion.demografia ? "▲" : "▼"}</span>
+                    </button>
+                    <AnimatePresence>
+                      {techAccordion.demografia && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}>
+                          <div style={{ padding: 12, borderTop: "1px solid rgba(255,255,255,.05)", display: "flex", flexDirection: "column", gap: 10 }}>
+                            <div style={{ fontFamily: F.serif, fontSize: 15, color: C.white }}>
+                              {aiAgg?.eta64 >= 40 ? "Zona a maggioranza adulta 35–64" : aiAgg?.eta34 >= 35 ? "Zona a maggioranza giovane 15–34" : aiAgg?.eta65 >= 30 ? "Zona a maggioranza senior 65+" : "Profilo demografico e territoriale bilanciato"}
+                            </div>
 
-          {/* H2H Movement intelligence — compact attrattori + expandable hotspot */}
-          {showTechnicalDetails && isMovementStep2 && viewMode === "distribuzione" && h2hMetrics.poi > 0 && (
-            <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)", overflow: "hidden" }}>
-              <div style={{ padding: "9px 14px", borderBottom: "1px solid rgba(255,255,255,.06)", display: "flex", alignItems: "center", gap: 7 }}>
-                <div style={{ width: 16, height: 3, background: col, borderRadius: 2 }} />
-                <span style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.32)", letterSpacing: ".1em", textTransform: "uppercase", flex: 1 }}>Movement / hotspot</span>
-                {h2hHotspotSummary.length > 0 && (
-                  <button onClick={() => setDetailExpanded(v => !v)} style={{ padding: "2px 7px", borderRadius: 5, border: `1px solid ${col}35`, background: "transparent", color: col, fontFamily: F.sans, fontSize: 9, cursor: "pointer" }}>{detailExpanded ? "Meno" : "Hotspot"}</button>
-                )}
-              </div>
-              <div style={{ padding: "8px 10px" }}>
-                {h2hAttractionSummary.map(row => (
-                  <div key={row.label} style={{ display: "flex", alignItems: "center", gap: 7, padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: row.color, flexShrink: 0 }} />
-                    <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.55)", flex: 1 }}>{row.label}</span>
-                    <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: C.white }}>{row.value.toLocaleString("it-IT", { useGrouping: true })}</span>
-                  </div>
-                ))}
-                {detailExpanded && h2hHotspotSummary.map(h => (
-                  <div key={h.id} style={{ padding: "6px 8px", borderRadius: 8, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.05)", marginTop: 6 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
-                      <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white }}>{h.name}</span>
-                      <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: h.strength >= 78 ? C.green : h.strength >= 62 ? C.yellow : "#22C55E" }}>{h.strength}/100</span>
-                    </div>
-                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.42)", lineHeight: 1.4 }}>{h.poi} POI – {h.transit} transit – {h.time}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Legenda + ranking - vista Tematica */}
-          {showTechnicalDetails && viewMode === "tematica" && (
-            <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)", padding: "12px" }}>
-              <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.32)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 10 }}>Classifica – {activeLay?.label}</div>
-              {zonesInRadius.length === 0
-                ? <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.28)", textAlign: "center", padding: "12px 0" }}>Cerca un comune</div>
-                : [...zonesInRadius].sort((a, b) => b[activeLay?.field || "families"] - a[activeLay?.field || "families"]).map((z, i) => {
-                  const v = activeLay ? z[activeLay.field] : 0;
-const pct2 = thMax > 0 ? Math.round((v / thMax) * 100) : 0;
-                  return (
-                    <div key={z.id} style={{ display: "flex", alignItems: "center", gap: 7, padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
-                      <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.25)", width: 14 }}>{i + 1}.</span>
-                      <span style={{ fontFamily: F.sans, fontSize: 11, color: C.white, flex: 1, fontWeight: i === 0 ? 700 : 400 }}>{z.name.split(" ")[0]}</span>
-                      <div style={{ width: 44, height: 3, borderRadius: 2, background: "rgba(255,255,255,.1)", overflow: "hidden" }}>
-                        <div style={{ width: `${pct2}%`, height: "100%", background: activeLay ? thColor(v, thMin, thMax, activeLay.lo, activeLay.hi) : col, borderRadius: 2 }} />
-                      </div>
-                      <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.55)", width: 54, textAlign: "right" }}>{activeLay ? activeLay.fmt(v) : v}</span>
-                    </div>
-                  );
-                })
-              }
-            </div>
-          )}
-          {showTechnicalDetails && isResidentialStep2 && (
-            <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)", overflow: "hidden" }}>
-              <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.32)", letterSpacing: ".1em", textTransform: "uppercase" }}>
-                Profilo demografico
-              </div>
-              {!aiAgg
-                ? <div style={{ padding: "18px", textAlign: "center", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.28)" }}>Seleziona zone per vedere il profilo demografico</div>
-                : isResidentialStep2 && false ? (
-                  <div style={{ padding: "10px", display: "grid", gap: 10 }}>
-                    {["Residential profile", "Demographic profile", "Economic context", "Operational reading"].map(group => (
-                      <div key={group} style={{ borderRadius: 10, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.06)", overflow: "hidden" }}>
-                        <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,.05)", fontFamily: F.sans, fontSize: 8, fontWeight: 800, color: "#22C55E", letterSpacing: ".09em", textTransform: "uppercase" }}>{group}</div>
-                        <div style={{ padding: "7px 10px" }}>
-                          {serviceMeta.aiCats.filter(row => row.group === group).map((row, i) => {
-                            const v = row.v(aiAgg);
-const unavailable = v === null || v === undefined || v === "" || String(v).includes("undefined");
-                            return (
-                              <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
-                                <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.38)" }}>{row.l}</span>
-                                <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: unavailable ? "rgba(255,255,255,.28)" : row.c === "green" ? C.green : C.white, textAlign: "right", maxWidth: 150 }}><MetricValue value={unavailable ? null : v} /></span>
+                            {isResidentialStep2 && (serviceKpis?.pop > 0 || serviceKpis?.population > 0) && (
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                                <div style={{ padding: "6px 8px", borderRadius: 7, background: "rgba(255,255,255,.04)" }}>
+                                  <div style={{ fontFamily: F.sans, fontSize: 7, color: "rgba(255,255,255,.3)", textTransform: "uppercase", marginBottom: 2 }}>Popolazione stimata</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white }}>{formatNumber(serviceKpis.population || serviceKpis.pop || 0)}</div>
+                                </div>
+                                <div style={{ padding: "6px 8px", borderRadius: 7, background: "rgba(255,255,255,.04)" }}>
+                                  <div style={{ fontFamily: F.sans, fontSize: 7, color: "rgba(255,255,255,.3)", textTransform: "uppercase", marginBottom: 2 }}>Densità demografica</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white }}>{serviceKpis.area && (serviceKpis.population || serviceKpis.pop) ? `${formatNumber(Math.round((serviceKpis.population || serviceKpis.pop) / Number(serviceKpis.area)))} ab./km²` : "-"}</div>
+                                </div>
                               </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                    <div style={{ padding: "9px 10px", borderRadius: 9, background: "rgba(34, 197, 94,.08)", border: "1px solid rgba(34, 197, 94,.2)", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.58)", lineHeight: 1.45 }}>
-                      Lettura residenziale: priorità a comuni con alta concentrazione famiglie, buona copertura cassette e quantità coerente con il fabbisogno stimato.
-                    </div>
-                  </div>
-                ) : isResidentialStep2 ? (
-                  <div style={{ padding: "10px", display: "grid", gap: 10 }}>
-                    <div style={{ borderRadius: 10, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.06)", overflow: "hidden" }}>
-                      <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,.05)", display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontFamily: F.sans, fontSize: 8, fontWeight: 800, color: "#22C55E", letterSpacing: ".09em", textTransform: "uppercase", flex: 1 }}>Indicatori demografici</span>
-                        {demoData && <span style={{ fontFamily: F.sans, fontSize: 7, color: "rgba(255,255,255,.3)" }}>Anno {demoData.referenceYear}</span>}
-                      </div>
-                      <div style={{ padding: "7px 10px" }}>
-                        {demoLoading ? (
-                          <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.28)", padding: "6px 0" }}>Caricamento...</div>
-                        ) : [
-                          { l: "Età 0-14",  v: demoData?.age_0_14_pct  != null ? `${demoData.age_0_14_pct.toFixed(1)}%`  : null, c: "#93C5FD" },
-                          { l: "Età 15-34", v: demoData?.age_15_34_pct != null ? `${demoData.age_15_34_pct.toFixed(1)}%` : null, c: "#34D399" },
-                          { l: "Età 35-64", v: demoData?.age_35_64_pct != null ? `${demoData.age_35_64_pct.toFixed(1)}%` : null, c: "#FBBF24" },
-                          { l: "Età 65+",   v: demoData?.age_65_plus_pct != null ? `${demoData.age_65_plus_pct.toFixed(1)}%` : null, c: "#F87171" },
-                        ].map(({ l, v, c }) => (
-                          <div key={l} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
-                            <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.38)" }}>{l}</span>
-                            <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: v == null ? "rgba(255,255,255,.28)" : c, textAlign: "right", maxWidth: 170 }}><MetricValue value={v} /></span>
+                            )}
+
+                            {isBusinessStep2 && viewMode === "distribuzione" && (selZones.length > 0 || businessMetrics.businesses > 0) && (
+                              <div style={{ background: "rgba(255,255,255,.03)", borderRadius: 8, padding: 8 }}>
+                                <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: targetBusinessMeta.color, marginBottom: 6 }}>COMMERCIAL INTELLIGENCE</div>
+                                <div style={{ padding: "5px 8px", marginBottom: 6, borderRadius: 6, background: `${targetBusinessMeta.color}12` }}>
+                                  <div style={{ fontFamily: F.sans, fontSize: 7, color: "rgba(255,255,255,.3)" }}>Categoria target</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: targetBusinessMeta.color }}>{targetBusinessMeta.label}</div>
+                                </div>
+                                {businessCategorySummary.slice(0, 3).map(cat => (
+                                  <div key={cat.label} style={{ display: "flex", alignItems: "center", gap: 7, padding: "3px 0", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
+                                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: cat.target ? targetBusinessMeta.color : "rgba(255,255,255,.25)" }} />
+                                    <span style={{ fontFamily: F.sans, fontSize: 10, color: cat.target ? C.white : "rgba(255,255,255,.5)", flex: 1 }}>{cat.label}</span>
+                                    <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: cat.target ? targetBusinessMeta.color : "rgba(255,255,255,.42)" }}>{cat.count.toLocaleString("it-IT", { useGrouping: true })}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {isMovementStep2 && viewMode === "distribuzione" && h2hMetrics.poi > 0 && (
+                              <div style={{ background: "rgba(255,255,255,.03)", borderRadius: 8, padding: 8 }}>
+                                <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: col, marginBottom: 6 }}>MOVEMENT / HOTSPOT</div>
+                                {h2hAttractionSummary.map(row => (
+                                  <div key={row.label} style={{ display: "flex", alignItems: "center", gap: 7, padding: "3px 0", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
+                                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: row.color }} />
+                                    <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.55)", flex: 1 }}>{row.label}</span>
+                                    <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: C.white }}>{row.value.toLocaleString("it-IT", { useGrouping: true })}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {viewMode === "tematica" && (
+                              <div style={{ background: "rgba(255,255,255,.03)", borderRadius: 8, padding: 8 }}>
+                                <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.4)", marginBottom: 6 }}>CLASSIFICA – {activeLay?.label}</div>
+                                {zonesInRadius.slice(0, 5).map((z, i) => {
+                                  const v = activeLay ? z[activeLay.field] : 0;
+                                  return (
+                                    <div key={z.id} style={{ display: "flex", alignItems: "center", gap: 7, padding: "3px 0" }}>
+                                      <span style={{ fontSize: 9, color: "rgba(255,255,255,.3)" }}>{i + 1}.</span>
+                                      <span style={{ fontSize: 11, color: C.white, flex: 1 }}>{z.name.split(" ")[0]}</span>
+                                      <span style={{ fontSize: 10, fontWeight: 700, color: col }}>{activeLay ? activeLay.fmt(v) : v}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div style={{ padding: "9px 10px", borderRadius: 9, background: "rgba(34, 197, 94,.08)", border: "1px solid rgba(34, 197, 94,.2)", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.58)", lineHeight: 1.45 }}>
-                      Distribuzione demografica comunale da dati reali. Non calcolata sul singolo raggio.
-                    </div>
-                  </div>
-                ) : isMovementStep2 ? (
-                  <div style={{ padding: "10px", display: "grid", gap: 10 }}>
-                    {["Movement profile", "Local attractiveness", "Operational timing", "Operational reading"].map(group => (
-                      <div key={group} style={{ borderRadius: 10, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.06)", overflow: "hidden" }}>
-                        <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,.05)", fontFamily: F.sans, fontSize: 8, fontWeight: 800, color: C.blue, letterSpacing: ".09em", textTransform: "uppercase" }}>{group}</div>
-                        <div style={{ padding: "7px 10px" }}>
-                          {serviceMeta.aiCats.filter(row => row.group === group).map((row, i) => {
-                            const v = row.v(aiAgg);
-const unavailable = v === null || v === undefined || v === "" || String(v).includes("undefined");
-                            return (
-                              <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
-                                <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.38)" }}>{row.l}</span>
-                                <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: unavailable ? "rgba(255,255,255,.28)" : C.white, textAlign: "right", maxWidth: 150 }}><MetricValue value={unavailable ? null : v} /></span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                    <div style={{ padding: "9px 10px", borderRadius: 9, background: "rgba(96,165,250,.08)", border: "1px solid rgba(96,165,250,.2)", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.58)", lineHeight: 1.45 }}>
-                      Lettura operativa: priorità a punti con flusso alto, anchor trasporto/scuola-evento e fasce orarie coerenti. Le metriche demografiche restano secondarie.
-                    </div>
-                  </div>
-                ) : isBusinessStep2 ? (
-                  <div style={{ padding: "10px", display: "grid", gap: 10 }}>
-                    {["Commercial profile", "Economic context", "Competitive context", "Operational reading"].map(group => (
-                      <div key={group} style={{ borderRadius: 10, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.06)", overflow: "hidden" }}>
-                        <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,.05)", fontFamily: F.sans, fontSize: 8, fontWeight: 800, color: targetBusinessMeta.color, letterSpacing: ".09em", textTransform: "uppercase" }}>{group}</div>
-                        <div style={{ padding: "7px 10px" }}>
-                          {serviceMeta.aiCats.filter(row => row.group === group).map((row, i) => {
-                            const v = row.v(aiAgg);
-const unavailable = v === null || v === undefined || v === "" || String(v).includes("undefined");
-                            return (
-                              <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
-                                <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.38)" }}>{row.l}</span>
-                                <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: unavailable ? "rgba(255,255,255,.28)" : row.c === "green" ? C.green : C.white, textAlign: "right", maxWidth: 150 }}><MetricValue value={unavailable ? null : v} /></span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                    <div style={{ padding: "9px 10px", borderRadius: 9, background: `${targetBusinessMeta.color}10`, border: `1px solid ${targetBusinessMeta.color}22`, fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.58)", lineHeight: 1.45 }}>
-                      Lettura operativa: priorità alle zone con più attività target, cluster forti e densità commerciale alta. I competitor sono contesto decisionale, non blocco automatico.
-                    </div>
-                  </div>
-                ) : <div style={{ padding: "10px" }}>
-                  <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                    <MiniDonut data={[aiAgg.eta14, aiAgg.eta34, aiAgg.eta64, aiAgg.eta65]} colors={["#93C5FD", "#34D399", "#FBBF24", "#F87171"]} size={64} />
-                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                      {[["0-14", aiAgg.eta14, "#93C5FD"], ["15-34", aiAgg.eta34, "#34D399"], ["35-64", aiAgg.eta64, "#FBBF24"], ["65+", aiAgg.eta65, "#F87171"]].map(([l, v, c]) => (
-                        <div key={l} style={{ display: "flex", gap: 5, alignItems: "center" }}>
-                          <div style={{ width: 6, height: 6, borderRadius: 1, background: c, flexShrink: 0 }} />
-                          <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.5)" }}>{l}: <b style={{ color: v != null ? C.white : "rgba(255,255,255,.28)" }}><MetricValue value={v != null ? `${v}%` : null} /></b></span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  {[
-                    { l: "Reddito medio", v: "EUR " + aiAgg.reddito.toLocaleString("it-IT", { useGrouping: true }), c: C.green },
-                    { l: "Tasso occupaz.", v: aiAgg.occup + "%", c: C.blue },
-                    { l: "% Stranieri", v: aiAgg.stranieri + "%", c: C.teal },
-                    { l: "Imprese tot.", v: aiAgg.imprese.toLocaleString("it-IT", { useGrouping: true }), c: C.purple },
-                  ].map(({ l, v, c }) => (
-                    <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
-                      <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.4)" }}>{l}</span>
-                      <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: c }}>{v}</span>
-                    </div>
-                  ))}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8, maxHeight: 200, overflowY: "auto" }}>
-                    {serviceMeta.aiCats.map((row, i) => {
-                      const v = row.v(aiAgg);
-const unavailable = v === null || v === undefined || v === "" || String(v).includes("undefined");
-                      return (
-                        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 8px", borderRadius: 6, background: "rgba(255,255,255,.04)" }}>
-                          <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.35)" }}>{row.l}</span>
-                          <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 600, color: unavailable ? "rgba(255,255,255,.28)" : row.c === "green" ? C.green : C.white, textAlign: "right", maxWidth: 140 }}><MetricValue value={unavailable ? null : v} /></span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              }
-            </div>
-          )}
-                  {/* GLI SCORE IN FORMA NUMERICA (Unico pannello, elimina duplicato) */}
-                  <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)", padding: 12 }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.4)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 10 }}>
-                      Score tecnici grezzi
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                      {baseScoreRows.map(s => <ScoreGauge key={s.l} label={s.l} value={s.v} color={s.c} />)}
-                    </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
-                  {/* FONTI DATI */}
-                  <div style={{ background: "rgba(255,255,255,.03)", borderRadius: 10, padding: "10px 12px", border: "1px solid rgba(255,255,255,.05)" }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 8, fontWeight: 700, color: "rgba(255,255,255,.25)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 6 }}>Fonti dati</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                      {confirmedStep2Sources.map(s => <span key={s} style={{ padding: "2px 6px", borderRadius: 4, background: "rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.42)" }}>{s}</span>)}
-                    </div>
+                  {/* ACCORDION 4: SCORE TECNICI E FONTI */}
+                  <div style={{ background: "rgba(255,255,255,.025)", borderRadius: 10, border: "1px solid rgba(255,255,255,.06)", overflow: "hidden" }}>
+                    <button onClick={() => toggleTechAccordion('score')} style={{ width: "100%", padding: "10px 14px", background: "rgba(255,255,255,.02)", border: "none", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700 }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ color: col }}>📈</span> Score Tecnici e Fonti</span>
+                      <span style={{ fontSize: 10, color: "rgba(255,255,255,.4)" }}>{techAccordion.score ? "▲" : "▼"}</span>
+                    </button>
+                    <AnimatePresence>
+                      {techAccordion.score && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}>
+                          <div style={{ padding: 12, borderTop: "1px solid rgba(255,255,255,.05)", display: "flex", flexDirection: "column", gap: 12 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                              {baseScoreRows.map(s => <ScoreGauge key={s.l} label={s.l} value={s.v} color={s.c} />)}
+                            </div>
+                            <div style={{ background: "rgba(255,255,255,.03)", borderRadius: 8, padding: "8px 10px" }}>
+                              <div style={{ fontFamily: F.sans, fontSize: 8, fontWeight: 700, color: "rgba(255,255,255,.3)", textTransform: "uppercase", marginBottom: 6 }}>Fonti di calcolo confermate</div>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                {confirmedStep2Sources.map(s => <span key={s} style={{ padding: "2px 6px", borderRadius: 4, background: "rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.5)" }}>{s}</span>)}
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
               )}
@@ -4475,7 +4306,7 @@ const unavailable = v === null || v === undefined || v === "" || String(v).inclu
               Tipo campagna
             </button>
             <button className="btn" onClick={handleNext} disabled={!canContinueCalendar}
-              style={{ width: "100%", minHeight: 52, padding: "0 14px", borderRadius: 11, border: "none", background: canContinueCalendar ? col : "rgba(255,255,255,.1)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: canContinueCalendar ? "pointer" : "not-allowed", boxShadow: canContinueCalendar ? `0 6px 18px rgba(34, 197, 94, 0.4)` : "none", textAlign: "center" }}>
+              style={{ width: "100%", minHeight: 54, padding: "0 16px", borderRadius: 12, border: canContinueCalendar ? "1px solid rgba(255,255,255,0.2)" : "none", background: canContinueCalendar ? "linear-gradient(135deg, #22C55E 0%, #15803D 100%)" : "rgba(255,255,255,.08)", color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 900, cursor: canContinueCalendar ? "pointer" : "not-allowed", boxShadow: canContinueCalendar ? "0 4px 14px rgba(21, 128, 61, 0.35)" : "none", textAlign: "center", transition: "all .2s ease" }}>
               {gisTimedOut ? "Dati GIS non disponibili" : gisLoading ? "Analisi in corso..." : step2ZonesReady ? "Continua al preventivo →" : "Seleziona la zona per continuare"}
             </button>
             {!step2ZonesReady && (
@@ -5168,15 +4999,15 @@ const [showStep4Zones, setShowStep4Zones] = useState(false);
 const [techSections, setTechSections] = useState({});
 const toggleTech = key => setTechSections(p => ({...p, [key]: !p[key]}));
 const svcCommercial = {
-  tracking_gps:    { icon: "📍", head: "Tracking GPS Live",        col: "#22C55E", bullets: ["Segui in tempo reale gli operatori sulla mappa","Storico percorso al termine della distribuzione","Link di condivisione per il tuo team"] },
-  photo_proof:     { icon: "📸", head: "Report Fotografico",        col: "#60A5FA", bullets: ["30 foto geolocalizzate con data e orario","Conferma visiva zona per zona","Archivio scaricabile dal portale cliente"] },
-  ai_analysis:     { icon: "🤖", head: "AI Optimizer",              col: "#2ECC8A", bullets: ["Analisi automatica della copertura dell'area","Segnalazione automatica di eventuali aree scoperte","Raccomandazioni operative post-campagna"] },
-  advanced_report: { icon: "📊", head: "Report Avanzato",           col: "#6366F1", bullets: ["Statistiche complete su zone e operatori","Breakdown copertura per comune","PDF professionale scaricabile"] },
-  printing:        { icon: "🖨️", head: "Stampa Materiale",          col: "#60A5FA", bullets: ["Produzione professionale del materiale","Qualità certificata per distribuzione","Consegna prima della campagna"] },
-  design:          { icon: "🎨", head: "Preparazione Grafica",      col: "#A78BFA", bullets: ["Adattamento file al formato richiesto","Verifica qualità prima della stampa","Supporto creativo dedicato"] },
-  quality_control: { icon: "✅", head: "Controllo Qualità",         col: "#2ECC8A", bullets: ["Verifica operativa in campo","Supervisione distribuzione","Report anomalie"] },
-  operator_support:{ icon: "👤", head: "Supporto Operatore",        col: "#60A5FA", bullets: ["Assistenza diretta alla pianificazione","Contatto dedicato per la campagna","Conferma operativa rapida"] },
-  urgent_distribution:{ icon: "⚡", head: "Distribuzione Urgente",  col: "#FF6666", bullets: ["Gestione prioritaria della campagna","Attivazione entro 48h","Team dedicato"] },
+  tracking_gps:    { icon: "📍", head: "Tracking GPS Live",        col: "#22C55E", badge: "Più scelto",     bullets: ["Segui in tempo reale gli operatori sulla mappa","Storico percorso al termine della distribuzione","Link di condivisione per il tuo team"] },
+  photo_proof:     { icon: "📸", head: "Report Fotografico",        col: "#60A5FA", badge: "Massima sicurezza", bullets: ["30 foto geolocalizzate con data e orario","Conferma visiva zona per zona","Archivio scaricabile dal portale cliente"] },
+  ai_analysis:     { icon: "🤖", head: "AI Optimizer",              col: "#2ECC8A", badge: "Premium",        bullets: ["Analisi automatica della copertura dell'area","Segnalazione automatica di eventuali aree scoperte","Raccomandazioni operative post-campagna"] },
+  advanced_report: { icon: "📊", head: "Report Avanzato",           col: "#6366F1", badge: "Consigliato",    bullets: ["Statistiche complete su zone e operatori","Breakdown copertura per comune","PDF professionale scaricabile"] },
+  printing:        { icon: "🖨️", head: "Stampa Materiale",          col: "#60A5FA", badge: "Miglior rapporto qualità/prezzo", bullets: ["Produzione professionale del materiale","Qualità certificata per distribuzione","Consegna prima della campagna"] },
+  design:          { icon: "🎨", head: "Preparazione Grafica",      col: "#A78BFA", badge: "Premium",        bullets: ["Adattamento file al formato richiesto","Verifica qualità prima della stampa","Supporto creativo dedicato"] },
+  quality_control: { icon: "✅", head: "Controllo Qualità",         col: "#2ECC8A", badge: "Consigliato",    bullets: ["Verifica operativa in campo","Supervisione distribuzione","Report anomalie"] },
+  operator_support:{ icon: "👤", head: "Supporto Operatore",        col: "#60A5FA", badge: "Consigliato",    bullets: ["Assistenza diretta alla pianificazione","Contatto dedicato per la campagna","Conferma operativa rapida"] },
+  urgent_distribution:{ icon: "⚡", head: "Distribuzione Urgente",  col: "#FF6666", badge: null,             bullets: ["Gestione prioritaria della campagna","Attivazione entro 48h","Team dedicato"] },
 };
 const [confirmSyncStatus, setConfirmSyncStatus] = useState("");
 const svcType = data.type || "d2d";
@@ -5285,6 +5116,16 @@ const pairsData = realStep3Pairs;
 const box = (e = {}) => ({ background: "rgba(255,255,255,.04)", borderRadius: 13, border: "1px solid rgba(255,255,255,.08)",...e });
 const eur = n => `€${(n || 0).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const eur4 = n => `€${(n || 0).toLocaleString("it-IT", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
+const pctToFraction = pct => {
+  const p = Number(pct);
+  if (!p) return "";
+  if (p <= 12) return `circa 1 su ${Math.round(100 / p)}`;
+  if (p <= 28) return `circa 1 famiglia su ${Math.round(100 / p)}`;
+  if (p <= 55) return "quasi metà dell'area";
+  if (p <= 78) return "più della metà dell'area";
+  if (p <= 90) return "gran parte dell'area";
+  return "quasi tutta l'area";
+};
 const cleanSource = s => truthfulSourceLabel(s || "");
 const nonEmpty = arr => arr.filter(x => x && x.v !== undefined && x.v !== null && x.v !== "" && x.v !== "-");
 const kpis = data.serviceKpis || {};
@@ -5363,12 +5204,12 @@ const serviceSummaryConfig = {
     d2d: {
       title: "Output Door to Door",
       fields: [
-        { l: "Famiglie stimate", v: formatNumber(kpis.families ?? totF), src: "ISTAT", c: "#22C55E" },
+        { l: "Famiglie raggiungibili", v: formatNumber(kpis.families ?? totF), src: "ISTAT", c: "#22C55E" },
         { l: "Popolazione stimata", v: formatNumber(kpisPopulation) || "—", src: "ISTAT", c: "#22C55E" },
-        { l: "Copertura stimata", v: `${kpis.coverage ?? avgCov}%`, src: "Dati geografici", c: C.green },
-        { l: "Volantini consigliati", v: formatNumber(requiredQty || flyerQty), src: "Analisi interna", c: C.green },
-        { l: "Volantini inseriti", v: formatNumber(flyerQty), src: "Step 1", c: C.white },
-        remainingQty > 0 ? { l: "quantità residua", v: formatNumber(remainingQty), src: "Calcolo", c: C.green } : missingQty > 0 ? { l: "quantità mancante", v: formatNumber(missingQty), src: "Calcolo", c: C.red } : null,
+        { l: "Copertura dell'area", v: `${kpis.coverage ?? avgCov}%`, src: "Dati geografici", c: C.green },
+        { l: "Quantità consigliata", v: formatNumber(requiredQty || flyerQty), src: "Analisi interna", c: C.green },
+        { l: "Quantità inserita", v: formatNumber(flyerQty), src: "Step 1", c: C.white },
+        remainingQty > 0 ? { l: "Scorta operativa", v: formatNumber(remainingQty), src: "Calcolo", c: C.green } : missingQty > 0 ? { l: "Volantini mancanti", v: formatNumber(missingQty), src: "Calcolo", c: C.red } : null,
       ],
       scores: d2dScores,
       admin: [
@@ -5441,7 +5282,10 @@ const serviceSummaryConfig = {
   }
   const fieldCard = ({ l, v, src, c = C.white }) => (
     <div key={l} style={{ padding: "10px 11px", background: "rgba(255,255,255,.04)", borderRadius: 10, border: "1px solid rgba(255,255,255,.055)" }}>
-      <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>{l}</div>
+      <div style={{ display: "flex", alignItems: "center", fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>
+        <span>{l}</span>
+        <KpiTooltip term={l.split(" ")[0]} style={{ marginLeft: 4 }} />
+      </div>
       <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: c }}>{v || "Dato non disponibile"}</div>
       {src && <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.26)", marginTop: 4 }}>{cleanSource(src)}</div>}
     </div>
@@ -5631,19 +5475,28 @@ const savedRow = savedCampaign?.[0] || {};
           {isQuick && <div style={{ padding: "4px 10px", borderRadius: 100, background: "rgba(251,191,36,.12)", border: "1px solid rgba(251,191,36,.3)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.yellow, textTransform: "uppercase" }}>Stima indicativa</div>}
           {sent && <div style={{ padding: "4px 10px", borderRadius: 100, background: "rgba(46,204,138,.15)", border: "1px solid rgba(46,204,138,.35)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.green }}>✓ Campagna confermata</div>}
         </div>
-        <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.3)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 6 }}>La tua campagna è pronta</div>
-        <div style={{ fontFamily: F.serif, fontSize: isMobile ? 26 : 36, color: C.white, letterSpacing: "-1px", marginBottom: 10, lineHeight: 1.1 }}>{mainAreaLabel || "Preventivo completo"}</div>
+        <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: col, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 8 }}>La tua campagna è pronta</div>
+        <div style={{ fontFamily: F.serif, fontSize: isMobile ? 26 : 38, color: C.white, letterSpacing: "-1.2px", marginBottom: 12, lineHeight: 1.05 }}>{mainAreaLabel || "Preventivo completo"}</div>
         {svcType === "d2d" ? (
-          <div style={{ fontFamily: F.sans, fontSize: isMobile ? 13 : 14, color: "rgba(255,255,255,.62)", marginBottom: 20, lineHeight: 1.6 }}>
-            La tua distribuzione raggiungerà circa{" "}
-            <strong style={{ color: col }}>{formatNumber(kpis.families ?? totF)} famiglie</strong>
-            {selectedZoneNames.length > 1 && <>{" "}in <strong style={{ color: col }}>{selectedZoneNames.length} comuni</strong></>}
-            {" "}con una copertura stimata del{" "}
-            <strong style={{ color: C.green }}>{kpis.coverage ?? avgCov}%</strong>.
+          <div style={{ fontFamily: F.sans, fontSize: isMobile ? 13 : 15, color: "rgba(255,255,255,.75)", marginBottom: 20, lineHeight: 1.65, maxWidth: 680 }}>
+            Con questa configurazione raggiungerai circa{" "}
+            <strong style={{ color: C.green }}>{formatNumber(kpis.families ?? totF)} famiglie</strong>
+            {selectedZoneNames.length > 1 && <>{" "}distribuite in <strong style={{ color: col }}>{selectedZoneNames.length} comuni</strong></>}
+            {", "}coprendo{" "}
+            <strong style={{ color: C.green }}>{pctToFraction(kpis.coverage ?? avgCov)}</strong>
+            {" "}dell'area selezionata{" "}
+            <span style={{ color: "rgba(255,255,255,.45)", fontSize: isMobile ? 12 : 13 }}>({kpis.coverage ?? avgCov}%)</span>.
+          </div>
+        ) : svcType === "h2h" ? (
+          <div style={{ fontFamily: F.sans, fontSize: isMobile ? 13 : 15, color: "rgba(255,255,255,.75)", marginBottom: 20, lineHeight: 1.65 }}>
+            Campagna Hand to Hand su <strong style={{ color: col }}>{mainAreaLabel}</strong>{" "}
+            con <strong style={{ color: C.blue }}>{formatNumber(kpis.poi)} punti di interesse</strong> e{" "}
+            <strong style={{ color: C.purple }}>{formatNumber(kpis.hotspotCount)} hotspot</strong> ad alto passaggio.
           </div>
         ) : (
-          <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.38)", marginBottom: 20 }}>
-            {tLabel}{data.distributionVariant ? ` · ${data.distributionVariant}` : ""} · {new Date().toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })}
+          <div style={{ fontFamily: F.sans, fontSize: isMobile ? 13 : 15, color: "rgba(255,255,255,.75)", marginBottom: 20, lineHeight: 1.65 }}>
+            Campagna Business Distribution su <strong style={{ color: col }}>{mainAreaLabel}</strong>{" "}
+            con <strong style={{ color: C.purple }}>{formatNumber(kpis.businesses)} attività</strong> rilevate nel territorio.
           </div>
         )}
         <div style={{ display: "grid", gridTemplateColumns: `repeat(${isMobile ? 2 : Math.min(5, 2 + (svcType === "d2d" ? 2 : 1))}, 1fr)`, gap: 12, marginBottom: 20 }}>
@@ -5667,17 +5520,17 @@ const savedRow = savedCampaign?.[0] || {};
               <div style={{ fontFamily: F.serif, fontSize: 34, fontWeight: 900, color: C.purple, letterSpacing: "-1px", lineHeight: 1 }}>{formatNumber(kpis.hotspotCount) || "—"}</div>
             </div>
           </>}
-          <div style={{ padding: "16px 14px", background: "rgba(255,255,255,.04)", borderRadius: 16, border: "1px solid rgba(255,255,255,.1)", boxShadow: "0 4px 15px rgba(0,0,0,0.15)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.45)", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Zone</div>
-            <div style={{ fontFamily: F.serif, fontSize: 34, fontWeight: 900, color: C.white, letterSpacing: "-1px", lineHeight: 1 }}>{selectedZoneNames.length || "—"}</div>
+          <div style={{ padding: "14px 12px", background: "rgba(255,255,255,.025)", borderRadius: 14, border: "1px solid rgba(255,255,255,.07)" }}>
+            <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.35)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".06em" }}>Comuni</div>
+            <div style={{ fontFamily: F.serif, fontSize: 28, fontWeight: 900, color: "rgba(255,255,255,.72)", letterSpacing: "-1px", lineHeight: 1 }}>{selectedZoneNames.length || "—"}</div>
           </div>
-          <div style={{ padding: "16px 14px", background: "rgba(255,255,255,.04)", borderRadius: 16, border: "1px solid rgba(255,255,255,.1)", boxShadow: "0 4px 15px rgba(0,0,0,0.15)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.45)", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Volantini</div>
-            <div style={{ fontFamily: F.serif, fontSize: 34, fontWeight: 900, color: C.white, letterSpacing: "-1px", lineHeight: 1 }}>{flyerQty >= 1000 ? (flyerQty / 1000).toFixed(0) + "k" : flyerQty}</div>
+          <div style={{ padding: "14px 12px", background: "rgba(255,255,255,.025)", borderRadius: 14, border: "1px solid rgba(255,255,255,.07)" }}>
+            <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.35)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".06em" }}>Volantini</div>
+            <div style={{ fontFamily: F.serif, fontSize: 28, fontWeight: 900, color: "rgba(255,255,255,.8)", letterSpacing: "-1px", lineHeight: 1 }}>{flyerQty >= 1000 ? (flyerQty / 1000).toFixed(0) + "k" : flyerQty}</div>
           </div>
-          <div style={{ padding: "16px 14px", background: `${col}18`, borderRadius: 16, border: `1px solid ${col}45`, boxShadow: `0 4px 20px ${col}25` }}>
-            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.45)", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Totale</div>
-            <div style={{ fontFamily: F.serif, fontSize: 34, fontWeight: 900, color: col, letterSpacing: "-1px", lineHeight: 1 }}>{eur(total)}</div>
+          <div style={{ padding: "16px 14px", background: `${col}18`, borderRadius: 16, border: `1px solid ${col}55`, boxShadow: `0 6px 24px ${col}30` }}>
+            <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.55)", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".06em" }}>Prezzo finale</div>
+            <div style={{ fontFamily: F.serif, fontSize: isMobile ? 28 : 38, fontWeight: 900, color: col, letterSpacing: "-1.5px", lineHeight: 1 }}>{eur(total)}</div>
           </div>
         </div>
         {(selectedExtras.length > 0 || disc > 0) && (
@@ -5726,7 +5579,7 @@ const savedRow = savedCampaign?.[0] || {};
           </div>
 
           <div style={{...box(), padding: "18px" }}>
-            {secHead("2", "Riepilogo copertura", "I dati essenziali della tua campagna", col)}
+            {secHead("2", "Famiglie e copertura", "Quante persone raggiungerai con questa campagna", col)}
             {isQuick ? (
               <div style={{ padding: "14px", borderRadius: 10, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.42)", lineHeight: 1.55 }}>
                 Preventivo rapido: il dettaglio completo sarà disponibile dopo l'analisi zona completa.
@@ -5740,7 +5593,7 @@ const savedRow = savedCampaign?.[0] || {};
                     { icon: "🏠", l: "Famiglie raggiungibili", sub: "Recapiti residenziali nell'area", v: formatNumber(kpis.families ?? totF), c: C.green },
                     { icon: "👥", l: "Persone stimate", sub: "Stima su base ISTAT", v: formatNumber(Math.round((kpis.families ?? totF) * 2.4)), c: C.white },
                     { icon: "📍", l: "Comuni coinvolti", sub: selectedZoneNames.slice(0, 2).join(", ") + (selectedZoneNames.length > 2 ? ` +${selectedZoneNames.length - 2}` : ""), v: `${selectedZoneNames.length || "—"}`, c: col },
-                    { icon: "📦", l: "Copertura stimata", sub: `${flyerQty.toLocaleString("it-IT", { useGrouping: true })} volantini inseriti`, v: `${kpis.coverage ?? avgCov}%`, c: C.green },
+                    { icon: "📦", l: "Copertura dell'area", sub: pctToFraction(kpis.coverage ?? avgCov) || `${flyerQty.toLocaleString("it-IT", { useGrouping: true })} volantini`, v: `${kpis.coverage ?? avgCov}%`, c: C.green },
                   ].map(({ icon, l, sub, v, c }) => (
                     <div key={l} className="s4-kpi-card" style={{ padding: "16px 14px", background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)", transition: "background .18s, border-color .18s", cursor: "default" }}>
                       <div style={{ fontSize: 22, marginBottom: 9 }}>{icon}</div>
@@ -5839,6 +5692,51 @@ const savedRow = savedCampaign?.[0] || {};
                 )}
 
 
+              {/* ── AI Advisory Card ── */}
+              {!isQuick && (() => {
+                const cov = kpis.coverage ?? avgCov;
+                const flyersFor40 = requiredQty > 0 && cov < 40 ? Math.max(0, Math.round(requiredQty * 0.4) - flyerQty) : 0;
+                const rating = quantityIsSufficient && cov >= 70 ? "★★★★★ Ottima" : (quantityIsSufficient || cov >= 40) ? "★★★★☆ Buona" : "★★★☆☆ Base";
+                const ratingCol = quantityIsSufficient && cov >= 70 ? C.green : (quantityIsSufficient || cov >= 40) ? "#F59E0B" : col;
+                const tips = [
+                  quantityIsSufficient
+                    ? `Configurazione coerente: la quantità copre l'intera area selezionata.`
+                    : `Copertura parziale: ${missingQty.toLocaleString("it-IT", { useGrouping: true })} volantini aggiuntivi porterebbero alla copertura completa.`,
+                  `Budget adeguato per ${selectedZoneNames.length > 1 ? `${selectedZoneNames.length} comuni selezionati` : mainAreaLabel}.`,
+                  disc > 0
+                    ? `Smart Pairing attivo: stai risparmiando il ${disc}% grazie a campagne compatibili in zona.`
+                    : "Smart Pairing non disponibile per questo periodo — la data scelta non ha campagne compatibili.",
+                  flyersFor40 > 0
+                    ? `Per superare il 40% di copertura servono circa ${flyersFor40.toLocaleString("it-IT", { useGrouping: true })} volantini aggiuntivi.`
+                    : cov >= 40
+                      ? "Copertura iniziale buona per misurare l'efficacia della campagna nel territorio."
+                      : "Copertura base: ideale per un primo test dell'area prima di scalare.",
+                ];
+                return (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
+                    style={{ padding: "18px", borderRadius: 14, background: "linear-gradient(135deg, rgba(46,204,138,0.07) 0%, rgba(99,102,241,0.04) 100%)", border: "1px solid rgba(46,204,138,0.2)", marginTop: 4 }}
+                  >
+                    <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}>
+                      <span style={{ fontSize: 20 }}>🤖</span>
+                      <div style={{ fontFamily: F.serif, fontSize: 17, color: C.white, letterSpacing: "-.2px" }}>Consiglio VolantiniPro AI</div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+                      {tips.map((tip, i) => (
+                        <div key={i} style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
+                          <span style={{ color: C.green, fontSize: 12, lineHeight: "18px", flexShrink: 0 }}>✓</span>
+                          <span style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.72)", lineHeight: 1.55 }}>{tip}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ paddingTop: 12, borderTop: "1px solid rgba(255,255,255,.07)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.38)", textTransform: "uppercase", letterSpacing: ".07em" }}>Livello configurazione</span>
+                      <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: ratingCol }}>{rating}</span>
+                    </div>
+                  </motion.div>
+                );
+              })()}
+
               </div>
             )}
           </div>
@@ -5863,8 +5761,11 @@ const savedRow = savedCampaign?.[0] || {};
                         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                           <span style={{ fontSize: 22 }}>{comm.icon || ext.icon}</span>
                           <div>
-                            <div style={{ fontFamily: F.serif, fontSize: 16, color: C.white, letterSpacing: "-.2px" }}>{comm.head || ext.label}</div>
-                            <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: cardCol, textTransform: "uppercase", letterSpacing: ".06em", marginTop: 2 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
+                              <div style={{ fontFamily: F.serif, fontSize: 16, color: C.white, letterSpacing: "-.2px" }}>{comm.head || ext.label}</div>
+                              {comm.badge && <span style={{ padding: "2px 7px", borderRadius: 5, background: `${cardCol}22`, border: `1px solid ${cardCol}44`, fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: cardCol, flexShrink: 0 }}>{comm.badge}</span>}
+                            </div>
+                            <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: cardCol, textTransform: "uppercase", letterSpacing: ".06em" }}>
                               {ext.price === 0 && !ext.isUrgent ? "Incluso" : ext.isUrgent ? "Servizio urgente" : "Extra selezionato"}
                             </div>
                           </div>
@@ -6004,9 +5905,9 @@ const savedRow = savedCampaign?.[0] || {};
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(99,102,241,.14)", border: "1px solid rgba(99,102,241,.28)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📊</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: F.serif, fontSize: 19, color: C.white, letterSpacing: "-.2px", marginBottom: 4 }}>Analisi tecnica completa</div>
+                  <div style={{ fontFamily: F.serif, fontSize: 19, color: C.white, letterSpacing: "-.2px", marginBottom: 4 }}>Approfondimenti tecnici</div>
                   <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.52)", lineHeight: 1.55 }}>
-                    Visualizza l'analisi completa utilizzata per stimare copertura, popolazione e potenziale della zona selezionata.
+                    I dati di analisi usati per stimare copertura, famiglie e potenziale dell'area. Visibili su richiesta.
                   </div>
                 </div>
               </div>
@@ -6038,7 +5939,7 @@ const savedRow = savedCampaign?.[0] || {};
                 style={{ width: "100%", padding: "13px 16px", borderRadius: 12, border: "1px solid rgba(99,102,241,.35)", background: showTechPanel ? "rgba(99,102,241,.15)" : "rgba(99,102,241,.08)", color: showTechPanel ? "#A5B4FC" : C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center", gap: 8, transition: "all .2s", boxShadow: showTechPanel ? "none" : "0 4px 15px rgba(99,102,241,0.15)" }}
               >
                 <span style={{ fontSize: 14 }}>{showTechPanel ? "▲" : "▼"}</span>
-                <span>{showTechPanel ? "Chiudi analisi tecnica dettagliata" : "Espandi analisi tecnica (ISTAT, OMI, Waypoints)"}</span>
+                <span>{showTechPanel ? "Chiudi approfondimenti" : "Analisi avanzata · Mostra dati tecnici"}</span>
               </button>
             </div>
 
@@ -6153,11 +6054,22 @@ const savedRow = savedCampaign?.[0] || {};
                       <span>{icon} {label}</span>
                       <span style={{ fontSize: 10, opacity: .6 }}>{techSections[key] ? "▲" : "▼"}</span>
                     </button>
-                    {techSections[key] && (
-                      <div style={{ padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,.06)", background: "rgba(8,15,30,.5)" }}>
-                        {content}
-                      </div>
-                    )}
+                    <AnimatePresence>
+                      {techSections[key] && (
+                        <motion.div
+                          key="body"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                          style={{ overflow: "hidden" }}
+                        >
+                          <div style={{ padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,.06)", background: "rgba(8,15,30,.5)" }}>
+                            {content}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 ))}
 
@@ -6240,15 +6152,34 @@ const savedRow = savedCampaign?.[0] || {};
               )}
             </div>
 
-            {/* Total box */}
+            {/* Investment box */}
             <div style={{ background: "linear-gradient(135deg, rgba(232,87,26,0.15) 0%, rgba(99,102,241,0.1) 100%)", borderRadius: 16, padding: "18px 16px", border: "2px solid #E8571A", marginBottom: 16, boxShadow: "0 6px 24px rgba(232,87,26,0.25)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-                <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,.8)", textTransform: "uppercase", letterSpacing: ".04em" }}>{isQuick ? "Prezzo indicativo" : "Prezzo Finale"}</span>
+              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.5)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 8 }}>
+                {isQuick ? "Stima investimento" : "Il tuo investimento"}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+                <span style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>Totale campagna</span>
                 <span style={{ fontFamily: F.serif, fontSize: 38, fontWeight: 900, color: "#E8571A", letterSpacing: "-1.5px", lineHeight: 1 }}>{eur(total)}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-                <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)" }}>IVA 22% (esclusa)</span>
-                <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.6)" }}>+{eur(total * 0.22)}</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.42)" }}>Costo per 1.000 volantini</span>
+                  <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,.75)" }}>
+                    {flyerQty > 0 ? eur(total / flyerQty * 1000) : "—"}
+                  </span>
+                </div>
+                {svcType === "d2d" && (kpis.families ?? totF) > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                    <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.42)" }}>Costo per famiglia raggiunta</span>
+                    <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,.75)" }}>
+                      {eur(total / (kpis.families ?? totF))}
+                    </span>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.42)" }}>IVA 22% (esclusa)</span>
+                  <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.5)" }}>+{eur(total * 0.22)}</span>
+                </div>
               </div>
             </div>
 
@@ -6270,7 +6201,7 @@ const savedRow = savedCampaign?.[0] || {};
               </button>
             ) : (
               <button className="btn s4-btn-green" disabled={!canConfirm} onClick={handleConfirmCampaign} style={{ width: "100%", padding: "16px", borderRadius: 12, border: "none", background: !canConfirm ? "rgba(255,255,255,.08)" : sent ? "rgba(46,204,138,.9)" : "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)", color: !canConfirm ? "rgba(255,255,255,.3)" : C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: canConfirm ? "pointer" : "not-allowed", marginBottom: 10, boxShadow: canConfirm && !sent ? "0 8px 24px rgba(232,87,26,0.4)" : "none", transition: "all .2s" }}>
-                {sent ? "✓ Campagna confermata" : "Conferma campagna →"}
+                {sent ? "✓ Campagna confermata" : "Conferma e avvia la campagna →"}
               </button>
             )}
 
@@ -6511,7 +6442,11 @@ const btnStyle = {
 }
 
 function AdminDashboard({ onNav }) {
-  return <RealAdminDashboard onNav={onNav} />;
+  return (
+    <React.Suspense fallback={<div style={{ minHeight: "100vh", background: "#0B1020", display: "flex", alignItems: "center", justifyContent: "center" }}><SkeletonCard /></div>}>
+      <RealAdminDashboard onNav={onNav} />
+    </React.Suspense>
+  );
   const devAdminCampaigns = allowMockData ? ADMIN_CAMPAIGNS : [];
 const adminWaitlist = allowMockData ? ADMIN_WAITLIST : [];
 const adminMonthly = allowMockData ? ADMIN_MONTHLY : [];
@@ -7954,6 +7889,11 @@ const isConfiguratorPage = page === "step1" || page === "step2" || page === "ste
         {page === "terms" && <LegalPage type="terms" onNav={goTo} />}
         {page === "cookie" && <LegalPage type="cookie" onNav={goTo} />}
         {page === "admin" && <AdminDashboard onNav={goTo} />}
+        {page === "services" && (
+          <React.Suspense fallback={<div style={{ minHeight: "100vh", background: "#0B1020", display: "flex", alignItems: "center", justifyContent: "center" }}><SkeletonCard /></div>}>
+            <ServiceCenter onNav={goTo} />
+          </React.Suspense>
+        )}
         {isConfiguratorPage && (
           <>
             <StepperBar current={page} onGo={goTo} />

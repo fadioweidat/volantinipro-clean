@@ -738,7 +738,7 @@ export function Step2Map({
 
     const primaryMunCode = primaryZone?.municipality_code || primaryZone?.municipalityCode || null;
 
-    console.log('[PRIMARY_ZONE_SELECTION]', {
+    if (import.meta.env.DEV) console.log('[PRIMARY_ZONE_SELECTION]', {
       selectedCity:       city?.label || city?.name,
       selectedCoordinate: { lat: city?.lat, lng: city?.lng },
       candidateZones: (zonesWithCoords || []).map(z => ({
@@ -761,7 +761,7 @@ export function Step2Map({
       const otherNames = zonesWithCoords
         .filter(z => z.id !== primaryZone?.id)
         .map(z => z.name);
-      console.log('[MAP_RADIUS_INTERSECTIONS]', {
+      if (import.meta.env.DEV) console.log('[MAP_RADIUS_INTERSECTIONS]', {
         primary:      primaryZone?.name ?? city?.label ?? city?.name,
         intersecting: otherNames,
         total:        zonesWithCoords.length,
@@ -867,7 +867,7 @@ export function Step2Map({
         }).bindTooltip(boundaryTip, { direction: 'center', opacity: 1, sticky: true });
         boundaryLayer.addTo(group);
         layersRef.current.municipalityBoundary = boundaryLayer;
-        console.log('[MUNICIPALITY_BOUNDARY_LOADED] drawn on map');
+        if (import.meta.env.DEV) console.log('[MUNICIPALITY_BOUNDARY_LOADED] drawn on map');
       } catch (e) {
         console.warn('[MUNICIPALITY_BOUNDARY_ERROR] draw failed', e);
       }
@@ -883,7 +883,7 @@ export function Step2Map({
     }
     if (activeLayerId) {
       const zonesWithColor = zonesWithCoords?.filter(z => z.metricColor)?.length ?? 0;
-      console.log('[LAYER_RENDER_UPDATED]', { layerId: activeLayerId, themeMode, zonesColored: zonesWithColor, total: zonesWithCoords?.length ?? 0 });
+      if (import.meta.env.DEV) console.log('[LAYER_RENDER_UPDATED]', { layerId: activeLayerId, themeMode, zonesColored: zonesWithColor, total: zonesWithCoords?.length ?? 0 });
     }
 
     // settoriActive: settori layer is on AND data is available
@@ -928,7 +928,7 @@ export function Step2Map({
               .bindTooltip(tip, { direction: 'center', opacity: 1, sticky: true })
               .on('click', () => {
                 if (!isD2D) return;
-                console.log('[LAYER_ZONE_CLICKED]', { zone: z.name, metricLabel: z.metricLabel, metricFmt: z.metricFmt, families: z.families });
+                if (import.meta.env.DEV) console.log('[LAYER_ZONE_CLICKED]', { zone: z.name, metricLabel: z.metricLabel, metricFmt: z.metricFmt, families: z.families });
                 onToggleZone?.(z.id);
               })
               .addTo(group);
@@ -977,7 +977,7 @@ export function Step2Map({
         if (isMunicipalityMode) {
           // In municipality mode: mostra SOLO i settori del comune selezionato
           if (primaryMunCode && sMunCode && sMunCode !== primaryMunCode) {
-            console.log('[MAP_MILANO_SECTORS_FILTERED]', {
+            if (import.meta.env.DEV) console.log('[MAP_MILANO_SECTORS_FILTERED]', {
               sector: s.id, municipalityCode: sMunCode,
               municipality: sMunZone?.name, reason: 'municipality_mode_non_primary',
             });
@@ -989,7 +989,7 @@ export function Step2Map({
           if (sMunCode && primaryMunCode && sMunCode !== primaryMunCode) {
             const isExplicitlySelected = isD2D && sMunZone && selected?.includes(sMunZone.id);
             if (!isExplicitlySelected) {
-              console.log('[MAP_MILANO_SECTORS_FILTERED]', {
+              if (import.meta.env.DEV) console.log('[MAP_MILANO_SECTORS_FILTERED]', {
                 sector: s.id, municipalityCode: sMunCode,
                 municipality: sMunZone?.name, reason: 'radius_mode_not_selected',
               });
@@ -1194,7 +1194,7 @@ export function Step2Map({
       });
     }
 
-    console.log('[MAP_RENDERED_POLYGONS]', {
+    if (import.meta.env.DEV) console.log('[MAP_RENDERED_POLYGONS]', {
       comuniLayerOn: activeLayers?.comuni !== false,
       comuniRendered: !isMunicipalityMode && (zonesWithCoords?.length ?? 0),
       settoriTotal: settori?.length ?? 0,
