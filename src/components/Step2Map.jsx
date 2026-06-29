@@ -689,22 +689,72 @@ export function Step2Map({
     const showAllLabels  = currentZoom >= 15;
     const showSomeLabels = currentZoom >= 12;
 
-    // ── Rileva il comune primario (il comune che l'utente sta configurando) ──
-    // Priorità: zona esattamente corrispondente a city.lat/lng, poi prima selezionata
-    const primaryZone = zonesWithCoords?.find(z => {
-      const dlat = Math.abs((z.lat || 0) - city.lat);
-      const dlng = Math.abs((z.lng || 0) - city.lng);
-      return dlat < 0.01 && dlng < 0.01;
-    }) ?? zonesWithCoords?.find(z => selected?.includes(z.id)) ?? null;
+    // ── Rileva il comune primario ──────────────────────────────────────────────
+    // REGOLA: la zona primaria è SEMPRE il comune scelto dall'utente (city).
+    // Non usare il primo elemento di zonesWithCoords: in prossimità di Milano
+    // i quartieri milanesi (Bruzzano, Affori, Niguarda…) hanno coordinate
+    // sovrapponibili a quelle di comuni autonomi come Cormano o Bresso.
+    const cityName      = (city?.label || city?.name || '').trim().toLowerCase();
+    const cityIsMilano  = cityName.includes('milano');
+    // Codice ISTAT del Comune di Milano usato nei settori del DB
+    const MILANO_ISTAT  = '015146';
+
+    let primaryZone    = null;
+    let _selReason     = 'no_match';
+
+    // 1. Match esatto per nome (case-insensitive) — priorità assoluta
+    if (!primaryZone && cityName) {
+      const found = zonesWithCoords?.find(
+        z => (z.name || '').trim().toLowerCase() === cityName
+      );
+      if (found) { primaryZone = found; _selReason = 'exact_name'; }
+    }
+
+    // 2. Match parziale nome (il nome città è contenuto nel nome zona o viceversa)
+    if (!primaryZone && cityName) {
+      const found = zonesWithCoords?.find(z => {
+        const zn = (z.name || '').trim().toLowerCase();
+        return zn.includes(cityName) || cityName.includes(zn);
+      });
+      if (found) { primaryZone = found; _selReason = 'partial_name'; }
+    }
+
+    // 3. Coordinata più vicina — escludendo quartieri di Milano se city ≠ Milano
+    if (!primaryZone && zonesWithCoords?.length > 0) {
+      let best = null;
+      let bestD2 = Infinity;
+      zonesWithCoords.forEach(z => {
+        if (!cityIsMilano) {
+          const mc = String(z.municipality_code || z.municipalityCode || '');
+          if (mc.includes(MILANO_ISTAT)) return; // salta i settori/quartieri milanesi
+        }
+        const d2 = Math.pow((z.lat || 0) - city.lat, 2) +
+                   Math.pow((z.lng || 0) - city.lng, 2);
+        if (d2 < bestD2) { bestD2 = d2; best = z; }
+      });
+      // Accettare solo se < ~2 km (d² < 0.0004 in gradi ≈ ~2.2 km)
+      if (best && bestD2 < 0.0004) { primaryZone = best; _selReason = 'closest_coord_non_milan'; }
+    }
+
     const primaryMunCode = primaryZone?.municipality_code || primaryZone?.municipalityCode || null;
 
-    console.log('[MAP_SELECTED_COMUNE]', {
-      city: city?.label || city?.name,
-      isMunicipalityMode,
-      primaryZone: primaryZone?.name,
-      primaryMunCode,
-      selectedCount: selected?.length ?? 0,
-      zonesInRadius: zonesWithCoords?.length ?? 0,
+    console.log('[PRIMARY_ZONE_SELECTION]', {
+      selectedCity:       city?.label || city?.name,
+      selectedCoordinate: { lat: city?.lat, lng: city?.lng },
+      candidateZones: (zonesWithCoords || []).map(z => ({
+        name:    z.name,
+        munCode: z.municipality_code || z.municipalityCode,
+        distM:   Math.round(
+          Math.sqrt(
+            Math.pow((z.lat || 0) - city.lat, 2) +
+            Math.pow((z.lng || 0) - city.lng, 2)
+          ) * 111000
+        ),
+      })),
+      intersections:      (zonesWithCoords || []).map(z => z.name),
+      chosenPrimaryZone:  primaryZone?.name   ?? null,
+      chosenPrimaryComune: primaryMunCode      ?? null,
+      reason:             _selReason,
     });
 
     if (zonesWithCoords?.length > 0) {
@@ -712,9 +762,9 @@ export function Step2Map({
         .filter(z => z.id !== primaryZone?.id)
         .map(z => z.name);
       console.log('[MAP_RADIUS_INTERSECTIONS]', {
-        primary: primaryZone?.name ?? city?.label ?? city?.name,
+        primary:      primaryZone?.name ?? city?.label ?? city?.name,
         intersecting: otherNames,
-        total: zonesWithCoords.length,
+        total:        zonesWithCoords.length,
       });
     }
 
