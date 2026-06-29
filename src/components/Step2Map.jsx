@@ -689,6 +689,35 @@ export function Step2Map({
     const showAllLabels  = currentZoom >= 15;
     const showSomeLabels = currentZoom >= 12;
 
+    // ── Rileva il comune primario (il comune che l'utente sta configurando) ──
+    // Priorità: zona esattamente corrispondente a city.lat/lng, poi prima selezionata
+    const primaryZone = zonesWithCoords?.find(z => {
+      const dlat = Math.abs((z.lat || 0) - city.lat);
+      const dlng = Math.abs((z.lng || 0) - city.lng);
+      return dlat < 0.01 && dlng < 0.01;
+    }) ?? zonesWithCoords?.find(z => selected?.includes(z.id)) ?? null;
+    const primaryMunCode = primaryZone?.municipality_code || primaryZone?.municipalityCode || null;
+
+    console.log('[MAP_SELECTED_COMUNE]', {
+      city: city?.label || city?.name,
+      isMunicipalityMode,
+      primaryZone: primaryZone?.name,
+      primaryMunCode,
+      selectedCount: selected?.length ?? 0,
+      zonesInRadius: zonesWithCoords?.length ?? 0,
+    });
+
+    if (zonesWithCoords?.length > 0) {
+      const otherNames = zonesWithCoords
+        .filter(z => z.id !== primaryZone?.id)
+        .map(z => z.name);
+      console.log('[MAP_RADIUS_INTERSECTIONS]', {
+        primary: primaryZone?.name ?? city?.label ?? city?.name,
+        intersecting: otherNames,
+        total: zonesWithCoords.length,
+      });
+    }
+
     const col = serviceColor || '#ff6b1a';
     const opacityScale = opacityLevel === 'low' ? 0.65 : opacityLevel === 'high' ? 1.25 : 1;
     const nextView = { lat: Number(city.lat), lng: Number(city.lng), radius: Number(radius), boundary: municipalityBoundary };
@@ -811,8 +840,10 @@ export function Step2Map({
     const settoriActive = activeLayers?.settori !== false && settori?.length > 0;
 
     // ── 2. Comuni (confini comunali) ─────────────────────────────────────────
-    // When settori are active, comuni become secondary (reduced opacity).
-    if (activeLayers?.comuni !== false && zonesWithCoords?.length > 0) {
+    // In municipality mode the municipalityBoundary polygon already shows the
+    // selected comune — skip zonesWithCoords to avoid rendering neighboring
+    // comuni polygons that confuse the client view.
+    if (activeLayers?.comuni !== false && zonesWithCoords?.length > 0 && !isMunicipalityMode) {
       zonesWithCoords.forEach(z => {
         const sel = isD2D && selected?.includes(z.id);
         const comuneFill = themeMode ? (z.metricColor || z.color || '#7F9BB0') : (z.color || '#7F9BB0');
@@ -886,14 +917,45 @@ export function Step2Map({
 
       settori.forEach((s, idx) => {
         if (!s.geometry) return;
+
+        // ── Filtra settori per comune appartenente ────────────────────────────
+        // Mostra solo settori del comune primario (o dei comuni esplicitamente
+        // selezionati in radius mode). Impedisce che settori di Milano appaiano
+        // quando l'utente ha selezionato Sesto San Giovanni o Cormano.
+        const sMunCode = s.municipalityCode || s.municipality_code;
+        const sMunZone = sMunCode ? munByCode[sMunCode] : null;
+        if (isMunicipalityMode) {
+          // In municipality mode: mostra SOLO i settori del comune selezionato
+          if (primaryMunCode && sMunCode && sMunCode !== primaryMunCode) {
+            console.log('[MAP_MILANO_SECTORS_FILTERED]', {
+              sector: s.id, municipalityCode: sMunCode,
+              municipality: sMunZone?.name, reason: 'municipality_mode_non_primary',
+            });
+            return;
+          }
+        } else {
+          // In radius mode: mostra settori del comune primario; aggiungi altri
+          // SOLO se il relativo comune è stato esplicitamente selezionato.
+          if (sMunCode && primaryMunCode && sMunCode !== primaryMunCode) {
+            const isExplicitlySelected = isD2D && sMunZone && selected?.includes(sMunZone.id);
+            if (!isExplicitlySelected) {
+              console.log('[MAP_MILANO_SECTORS_FILTERED]', {
+                sector: s.id, municipalityCode: sMunCode,
+                municipality: sMunZone?.name, reason: 'radius_mode_not_selected',
+              });
+              return;
+            }
+          }
+        }
+
         try {
           const gj     = typeof s.geometry === 'string' ? JSON.parse(s.geometry) : s.geometry;
           const num    = s.numero || (idx + 1);
           const sId    = s.id ?? `s_${idx}`;
           const isSel  = selectedSectorId === sId;
 
-          const munCode  = s.municipalityCode || s.municipality_code;
-          const munZone  = munByCode[munCode];
+          const munCode  = sMunCode;
+          const munZone  = sMunZone;
           const isMunSel = isD2D && munZone && selected?.includes(munZone.id);
 
           const styleDef = {
@@ -1081,6 +1143,18 @@ export function Step2Map({
         ).addTo(civiciGroup);
       });
     }
+
+    console.log('[MAP_RENDERED_POLYGONS]', {
+      comuniLayerOn: activeLayers?.comuni !== false,
+      comuniRendered: !isMunicipalityMode && (zonesWithCoords?.length ?? 0),
+      settoriTotal: settori?.length ?? 0,
+      settoriForPrimary: settori?.filter(s => {
+        const c = s.municipalityCode || s.municipality_code;
+        return !primaryMunCode || c === primaryMunCode;
+      }).length ?? 0,
+      boundaryDrawn: !!(isMunicipalityMode && municipalityBoundary),
+      primaryComune: primaryZone?.name ?? city?.label ?? city?.name,
+    });
 
     if (activeLayers?.density === true && svcType === 'd2d' && zonesWithCoords?.length > 0) {
       const densityGroup = L.layerGroup().addTo(map);
