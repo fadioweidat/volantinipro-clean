@@ -23,6 +23,7 @@
     "@supabase/supabase-js": "^2.105.4",
     "@vitejs/plugin-react": "^5.0.0",
     "adm-zip": "^0.5.17",
+    "framer-motion": "^12.42.0",
     "leaflet": "^1.9.4",
     "proj4": "^2.20.8",
     "react": "^19.0.0",

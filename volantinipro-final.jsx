@@ -111,11 +111,11 @@ function confirmedSourcesOrFallback(analysisData, analysisError) {
 
 const C = {
   orange: "#E8571A", orangeGlow: "rgba(232,87,26,.35)",
-  navy: "#1A2744", navyDeep: "#0F1A30", navyMid: "#162238",
-  cream: "#FAF9F7", steelDark: "#E2E6EC",
+  navy: "#0B192C", navyDeep: "#060F1A", navyMid: "#122036",
+  cream: "#FDFBF7", steelDark: "#E2E6EC",
   green: "#2ECC8A", blue: "#60A5FA", purple: "#A78BFA",
   yellow: "#FBBF24", red: "#F87171", teal: "#2DD4BF",
-  text: "#1A1A1A", muted: "#6B7280", white: "#FFFFFF",
+  text: "#0B192C", muted: "#64748B", white: "#FFFFFF",
 };
 const F = { serif: "'DM Serif Display',Georgia,serif", sans: "'DM Sans',sans-serif" };
 // Step3 preview pricing (€ per 1000 flyers — simplified estimate formula)
@@ -157,8 +157,8 @@ function Bootstrap() {
       const s = document.createElement("style"); s.id = "vp-css";
       s.textContent = `html,body{overflow-x:hidden}*{box-sizing:border-box;margin:0;padding:0}
       @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
-      @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}.fu{animation:fadeUp.5s ease both}.fu1{animation:fadeUp.5s.1s ease both}.fu2{animation:fadeUp.5s.2s ease both}.fu3{animation:fadeUp.5s.3s ease both}.fadein{animation:fadeIn.35s ease both}.vb:hover{filter:brightness(1.1);transform:translateY(-2px);box-shadow:0 8px 24px rgba(99,102,241,0.35)!important}.vb{transition:all 0.3s cubic-bezier(0.16, 1, 0.3, 1)}.btn:hover{filter:brightness(1.09);transform:translateY(-1px)}.btn{transition:all.18s}.vc:hover{transform:translateY(-2px);box-shadow:0 14px 36px rgba(0,0,0,.13)}.vc{transition:all.22s}.nl:hover{color:#fff!important}.nl{transition:color.2s}.rh:hover{background:rgba(255,255,255,.06)!important}
-      .section{padding-top:128px;padding-bottom:128px}.section-tight{padding-top:64px;padding-bottom:64px}.section-inner-gap{display:flex;flex-direction:column;gap:48px}.trust-bar-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:32px}.trust-bar-logos{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:24px;align-items:center}.trust-bar-logos img{max-width:100%;max-height:42px;filter:grayscale(1);opacity:.6;transition:filter .18s ease,opacity .18s ease}.trust-bar-logos img:hover{filter:grayscale(0);opacity:1}.services-grid,.results-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.servizio-card{min-height:520px;display:flex;flex-direction:column;background:#242424;border-radius:16px;padding:32px 28px;border:.5px solid rgba(255,255,255,.08);transition:border-color .3s ease,transform .3s ease}.servizio-card:hover{border-color:rgba(99,102,241,.4);transform:translateY(-2px)}.faq-layout{display:grid;grid-template-columns:minmax(260px,.75fr) 1.25fr;gap:72px;align-items:start}.faq-sticky{position:sticky;top:96px}.faq-row{border-bottom:.5px solid rgba(0,0,0,.1);transition:background .3s ease}.faq-row:hover{background:rgba(99,102,241,.04)}.testimonial-card{min-height:430px;display:flex;flex-direction:column;background:#242424;border-radius:16px;padding:40px 32px;border:.5px solid rgba(255,255,255,.08)}.footer-grid{display:grid;grid-template-columns:1.35fr repeat(3,1fr);gap:56px}.footer-bottom{margin-top:64px;padding-top:24px;border-top:.5px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:space-between;gap:20px;color:rgba(255,255,255,.45);font-size:12px;font-family:"DM Sans",Inter,system-ui,sans-serif}
+      @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}.fu{animation:fadeUp.5s ease both}.fu1{animation:fadeUp.5s.1s ease both}.fu2{animation:fadeUp.5s.2s ease both}.fu3{animation:fadeUp.5s.3s ease both}.fadein{animation:fadeIn.35s ease both}.vb:hover{filter:brightness(1.1);transform:translateY(-2px);box-shadow:0 8px 24px rgba(232,87,26,0.35)!important}.vb{transition:all 0.3s cubic-bezier(0.16, 1, 0.3, 1)}.btn:hover{filter:brightness(1.09);transform:translateY(-1px)}.btn{transition:all.18s}.vc:hover{transform:translateY(-2px);box-shadow:0 14px 36px rgba(0,0,0,.13)}.vc{transition:all.22s}.nl:hover{color:#fff!important}.nl{transition:color.2s}.rh:hover{background:rgba(255,255,255,.06)!important}
+      .section{padding-top:128px;padding-bottom:128px}.section-tight{padding-top:64px;padding-bottom:64px}.section-inner-gap{display:flex;flex-direction:column;gap:48px}.trust-bar-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:32px}.trust-bar-logos{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:24px;align-items:center}.trust-bar-logos img{max-width:100%;max-height:42px;filter:grayscale(1);opacity:.6;transition:filter .18s ease,opacity .18s ease}.trust-bar-logos img:hover{filter:grayscale(0);opacity:1}.services-grid,.results-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.servizio-card{min-height:520px;display:flex;flex-direction:column;background:#242424;border-radius:16px;padding:32px 28px;border:.5px solid rgba(255,255,255,.08);transition:border-color .3s ease,transform .3s ease}.servizio-card:hover{border-color:rgba(232,87,26,.4);transform:translateY(-2px)}.faq-layout{display:grid;grid-template-columns:minmax(260px,.75fr) 1.25fr;gap:72px;align-items:start}.faq-sticky{position:sticky;top:96px}.faq-row{border-bottom:.5px solid rgba(0,0,0,.1);transition:background .3s ease}.faq-row:hover{background:rgba(232,87,26,.04)}.testimonial-card{min-height:430px;display:flex;flex-direction:column;background:#242424;border-radius:16px;padding:40px 32px;border:.5px solid rgba(255,255,255,.08)}.footer-grid{display:grid;grid-template-columns:1.35fr repeat(3,1fr);gap:56px}.footer-bottom{margin-top:64px;padding-top:24px;border-top:.5px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:space-between;gap:20px;color:rgba(255,255,255,.45);font-size:12px;font-family:"DM Sans",Inter,system-ui,sans-serif}
       input:focus,select:focus{outline:none!important}
       select option{background:#162238;color:white}
       @media(max-width:980px){.services-grid,.results-grid{grid-template-columns:1fr}.faq-layout{grid-template-columns:1fr;gap:44px}.faq-sticky{position:static}.footer-grid{grid-template-columns:repeat(2,1fr);gap:42px 32px}.smart-pairing-layout{grid-template-columns:1fr!important;gap:42px!important}.steps-grid{grid-template-columns:1fr!important}}@media(max-width:768px){.section{padding-top:64px!important;padding-bottom:64px!important;padding-left:20px!important;padding-right:20px!important}.section-tight{padding-top:48px!important;padding-bottom:48px!important;padding-left:20px!important;padding-right:20px!important}.trust-bar-metrics{grid-template-columns:repeat(2,1fr)}.trust-bar-logos{grid-template-columns:repeat(2,minmax(0,1fr))}.landing-h2{font-size:28px!important;letter-spacing:-.02em!important}.footer-bottom{display:grid;justify-content:stretch}}@media(max-width:760px){button,input,select,textarea{min-height:44px}}`;
@@ -356,16 +356,16 @@ const x=[{value:"ISTAT",l:"Dati reali",src:"Fonti territoriali"},{value:"GIS",l:
   .home-shell-dark section, .home-shell-dark article { background: transparent !important; }
   .home-shell-dark section[style*="cream"], .home-shell-dark div[style*="cream"] { background: #111827 !important; border-top: 1px solid rgba(148, 163, 184, 0.18) !important; color: #F8FAFC !important; }
   .home-shell-dark .vc { background: #182235 !important; border: 1px solid rgba(148, 163, 184, 0.18) !important; color: #F8FAFC !important; box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important; border-radius: 18px !important; }
-  .home-shell-dark .vb, .home-shell-dark button[style*="E8571A"], .home-shell-dark button[style*="orange"] { background: linear-gradient(135deg, #6366F1 0%, #06B6D4 100%) !important; color: #FFFFFF !important; border: none !important; box-shadow: 0 8px 24px rgba(99, 102, 241, 0.35) !important; text-shadow: none !important; }
+  .home-shell-dark .vb, .home-shell-dark button[style*="E8571A"], .home-shell-dark button[style*="orange"] { background: #E8571A !important; color: #FFFFFF !important; border: none !important; box-shadow: 0 8px 24px rgba(232, 87, 26, 0.35) !important; text-shadow: none !important; }
   .home-shell-dark .why-diff-card { background: #182235 !important; border: 1px solid rgba(148, 163, 184, 0.18) !important; }
-  .home-shell-dark .why-diff-card:hover { background: #22304A !important; border-color: #06B6D4 !important; transform: translateY(-4px); }
+  .home-shell-dark .why-diff-card:hover { background: #22304A !important; border-color: #E8571A !important; transform: translateY(-4px); }
   .home-shell-dark .why-diff-title, .home-shell-dark h1, .home-shell-dark h2, .home-shell-dark h3 { color: #F8FAFC !important; }
-  .home-shell-dark .why-diff-kicker { color: #06B6D4 !important; letter-spacing: 0.15em !important; }
-  .home-shell-dark .why-diff-icon-badge { background: rgba(99, 102, 241, 0.12) !important; color: #818CF8 !important; border: 1px solid rgba(99, 102, 241, 0.25) !important; }
+  .home-shell-dark .why-diff-kicker { color: #E8571A !important; letter-spacing: 0.15em !important; }
+  .home-shell-dark .why-diff-icon-badge { background: rgba(232, 87, 26, 0.12) !important; color: #E8571A !important; border: 1px solid rgba(232, 87, 26, 0.25) !important; }
   .home-shell-dark [style*="rgba(255,255,255,.08)"], .home-shell-dark [style*="rgba(255,255,255,.06)"], .home-shell-dark [style*="rgba(255,255,255,.04)"] { background: #182235 !important; border-color: rgba(148, 163, 184, 0.18) !important; color: #F8FAFC !important; }
-  .home-shell-dark span[style*="orange"], .home-shell-dark div[style*="orange"], .home-shell-dark [style*="E8571A"] { color: #06B6D4 !important; }
+  .home-shell-dark span[style*="orange"], .home-shell-dark div[style*="orange"], .home-shell-dark [style*="E8571A"] { color: #E8571A !important; }
   .home-shell-dark .vp-start-secondary { background: #182235 !important; border-color: rgba(148, 163, 184, 0.18) !important; color: #F8FAFC !important; }
-  .home-shell-dark .vp-start-secondary:hover { border-color: rgba(99, 102, 241, 0.4) !important; }
+  .home-shell-dark .vp-start-secondary:hover { border-color: rgba(232, 87, 26, 0.4) !important; }
   .home-shell-dark .vp-start-secondary h3, .home-shell-dark .vp-start-secondary p { color: #CBD5E1 !important; }
   .home-shell-dark .vp-start-primary { background: #0f1a2e !important; }
 `}),_jsx(VolantiniProHeroMap,{onConfigure:()=>n("step1"),onLogin:()=>n("login"),onAdmin:()=>n("admin"),onHowItWorks:i}),_jsx(TrustBar,{metrics:[{value:"ISTAT",label:"Dati territoriali"},{value:"GIS",label:"Analisi zona"},{value:"GPS",label:"Tracking operativo"},{value:"PDF",label:"Report verificabili"}]}),_jsx(WhyDifferentSection,{}),_jsx("section",{className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,borderTop:"1px solid rgba(0,0,0,.06)"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:34},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Tre modi per iniziare"}),_jsx("h2",{style:{fontFamily:F.serif,fontSize:46,color:C.navy,letterSpacing:"-1.4px",marginBottom:10},children:"Scegli il tuo punto di partenza."}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:660,lineHeight:1.65},children:"Configurazione completa, stima rapida o supporto diretto: tre percorsi per ogni esigenza."})]}),_jsx("div", {
@@ -426,7 +426,7 @@ const x=[{value:"ISTAT",l:"Dati reali",src:"Fonti territoriali"},{value:"GIS",l:
           _jsxs("div", {
             style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 },
             children: [
-              _jsx("div", { style: { width: 32, height: 4, borderRadius: 2, background: "linear-gradient(90deg,#6366F1,#06B6D4)" } }),
+              _jsx("div", { style: { width: 32, height: 4, borderRadius: 2, background: "linear-gradient(90deg,#E8571A,#D0450B)" } }),
               _jsx("div", { style: { fontFamily: F.sans, fontWeight: 900, fontSize: 42, color: "rgba(255,255,255,.05)", lineHeight: 1 }, children: D })
             ]
           }),
@@ -446,7 +446,7 @@ const x=[{value:"ISTAT",l:"Dati reali",src:"Fonti territoriali"},{value:"GIS",l:
           _jsx("button", {
             className: "vb",
             onClick: J,
-            style: { marginTop: "auto", width: "100%", minHeight: 54, padding: "0 24px", borderRadius: 12, fontFamily: F.sans, fontSize: 16, fontWeight: 700, border: "none", background: "linear-gradient(135deg,#6366F1 0%,#06B6D4 100%)", color: C.white, boxShadow: "0 8px 24px rgba(99,102,241,.3)", cursor: "pointer", textAlign: "center", transition: "all 0.3s ease" },
+            style: { marginTop: "auto", width: "100%", minHeight: 54, padding: "0 24px", borderRadius: 12, fontFamily: F.sans, fontSize: 16, fontWeight: 700, border: "none", background: "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)", color: C.white, boxShadow: "0 8px 24px rgba(232,87,26,.3)", cursor: "pointer", textAlign: "center", transition: "all 0.3s ease" },
             children: B
           })
         ]
@@ -496,7 +496,7 @@ const x=[{value:"ISTAT",l:"Dati reali",src:"Fonti territoriali"},{value:"GIS",l:
       }))
     })
   ]
-})]})}),_jsx("section",{ref:kpiBandRef,className:"section-tight",style:{display:"none",background:C.navy,paddingLeft:28,paddingRight:28,borderTop:`3px solid ${C.orange}`,opacity:kpiBandVisible?1:0,transform:kpiBandVisible?"none":"translateY(22px)",transition:"opacity .5s ease, transform .7s cubic-bezier(.2,.8,.2,1)",willChange:"transform, opacity"},children:_jsx("div",{style:{maxWidth:1200,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2},children:x.map(({value:D,l:W,src:A},F)=>_jsxs("div",{style:{padding:"34px 26px",borderLeft:F>0?"1px solid rgba(255,255,255,.07)":"none"},children:[_jsx("div",{style:{width:26,height:3,background:C.orange,borderRadius:2,marginBottom:16}}),_jsx("div",{style:{fontFamily:F.serif,fontSize:typeof D=="string"&&D.length>8?34:50,color:C.white,letterSpacing:"-1.4px",lineHeight:1,marginBottom:10,fontVariantNumeric:"tabular-nums"},children:D}),_jsx("div",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.8)",lineHeight:1.4,marginBottom:8},children:W}),_jsx("div",{style:{display:"inline-flex",padding:"3px 7px",borderRadius:4,background:"rgba(232,87,26,.12)",fontFamily:F.sans,fontSize:9,color:C.orange},children:A})]},W))})}),_jsx("section",{id:"come-funziona",className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,scrollMarginTop:80},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:64},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Dall'idea al volantino in mano"}),_jsxs("h2",{style:{fontFamily:F.serif,fontSize:48,color:C.navy,letterSpacing:"-1.5px",marginBottom:14,lineHeight:1.06},children:["Dall'idea alla campagna",_jsx("br",{}),"in 4 step misurabili."]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:520,lineHeight:1.65},children:"Un flusso unico per definire servizio, zona, date operative e preventivo finale."})]}),_jsx("div",{className:"steps-grid",style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12},children:T.map(({n:D,t:W,d:A,b:F,c:B},P)=>_jsxs("div",{className:"vc",style:{padding:"34px 28px",background:C.white,borderRadius:16,border:"1px solid rgba(0,0,0,.04)",boxShadow:"0 8px 24px rgba(0,0,0,.02)",position:"relative",overflow:"hidden"},children:[_jsx("div",{style:{position:"absolute",top:-8,right:12,fontFamily:F.sans,fontWeight:900,fontSize:94,color:"#F4F6F8",lineHeight:1,userSelect:"none"},children:D}),_jsx("div",{style:{width:24,height:3,borderRadius:2,background:B,marginBottom:24}}),_jsx("h3",{style:{fontFamily:F.serif,fontSize:22,color:C.navy,marginBottom:12,letterSpacing:"-.3px"},children:W}),_jsx("p",{style:{fontFamily:F.sans,fontSize:14,color:C.muted,lineHeight:1.6,marginBottom:20},children:A}),_jsx("div",{style:{display:"inline-flex",padding:"4px 10px",borderRadius:6,background:`${B}12`,fontFamily:F.sans,fontSize:11,fontWeight:700,color:B},children:F})]},D))}),_jsx("div",{style:{textAlign:"center",marginTop:56},children:_jsx("button",{className:"vb",onClick:()=>n("step1"),style:{padding:"14px 34px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#6366F1 0%,#06B6D4 100%)",color:C.white,fontFamily:F.sans,fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 6px 16px rgba(99,102,241,0.28)"},children:"Configura la tua campagna "})})]})}),_jsx(ServicesSection,{onConfigure:()=>n("step1")}),_jsx(FeatureZonaMappa,{onConfigure:()=>n("step1")}),_jsx(FeatureSmartPairing,{onConfigure:()=>n("step1")}),_jsx(RisultatiSection,{}),_jsx(FAQSection,{onContact:()=>n("consultant")}),_jsx(PricingSection,{onConfigure:()=>n("step1"),onConsultant:()=>n("consultant")}),_jsx(Footer,{onNav:n,onHowItWorks:i}),_jsx("footer",{style:{display:"none",background:"#070D1A",borderTop:"1px solid rgba(255,255,255,.05)",padding:"52px 28px 34px"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{display:"flex",gap:64,marginBottom:44},children:[_jsxs("div",{style:{flex:"0 0 250px"},children:[_jsxs("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:16},children:[_jsx("div",{style:{width:30,height:30,borderRadius:7,background:C.orange,display:"flex",alignItems:"center",justifyContent:"center"},children:_jsxs("svg",{width:"16",height:"16",viewBox:"0 0 20 20",fill:"none",children:[_jsx("path",{d:"M3 17L10 3L17 17H3Z",fill:"white"}),_jsx("circle",{cx:"10",cy:"12",r:"2",fill:"white",opacity:".7"})]})}),_jsxs("span",{style:{fontFamily:F.serif,fontSize:18,color:C.white},children:["Volantini",_jsx("span",{style:{color:C.orange},children:"Pro"})]})]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.33)",lineHeight:1.65,marginBottom:16},children:"Piattaforma B2B per configurare campagne di volantinaggio con dati territoriali, GPS e report operativo."}),_jsx("div",{style:{display:"inline-flex",alignItems:"center",gap:6,padding:"4px 10px",borderRadius:6,background:"rgba(232,87,26,.1)",fontFamily:F.sans,fontSize:11,color:C.orange},children:"Operativo su Milano e Lombardia"})]}),_jsx("div",{style:{display:"flex",gap:52,flex:1},children:m.map(({t:D,items:W})=>_jsxs("div",{children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:C.orange,marginBottom:16},children:D}),_jsx("div",{style:{display:"flex",flexDirection:"column",gap:9},children:W.map(([A,F])=>_jsx("button",{onClick:()=>F==="home"&&A==="Come funziona"?i():n(F),style:{padding:0,border:"none",background:"transparent",textAlign:"left",fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.6)",cursor:"pointer"},children:A},A))})]},D))})]}),_jsxs("div",{style:{borderTop:"1px solid rgba(255,255,255,.05)",paddingTop:24,display:"flex",justifyContent:"space-between"},children:[_jsx("span",{style:{fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)"},children:"2025 VolantiniPro S.r.l. - Milano"}),_jsx("span",{style:{display:"flex",gap:10,alignItems:"center"},children:[["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]].map(([D,W])=>_jsx("button",{onClick:()=>n(W),style:{padding:0,border:"none",background:"transparent",fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)",cursor:"pointer"},children:D},D))})]})]})})]})}
+})]})}),_jsx("section",{ref:kpiBandRef,className:"section-tight",style:{display:"none",background:C.navy,paddingLeft:28,paddingRight:28,borderTop:`3px solid ${C.orange}`,opacity:kpiBandVisible?1:0,transform:kpiBandVisible?"none":"translateY(22px)",transition:"opacity .5s ease, transform .7s cubic-bezier(.2,.8,.2,1)",willChange:"transform, opacity"},children:_jsx("div",{style:{maxWidth:1200,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2},children:x.map(({value:D,l:W,src:A},F)=>_jsxs("div",{style:{padding:"34px 26px",borderLeft:F>0?"1px solid rgba(255,255,255,.07)":"none"},children:[_jsx("div",{style:{width:26,height:3,background:C.orange,borderRadius:2,marginBottom:16}}),_jsx("div",{style:{fontFamily:F.serif,fontSize:typeof D=="string"&&D.length>8?34:50,color:C.white,letterSpacing:"-1.4px",lineHeight:1,marginBottom:10,fontVariantNumeric:"tabular-nums"},children:D}),_jsx("div",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.8)",lineHeight:1.4,marginBottom:8},children:W}),_jsx("div",{style:{display:"inline-flex",padding:"3px 7px",borderRadius:4,background:"rgba(232,87,26,.12)",fontFamily:F.sans,fontSize:9,color:C.orange},children:A})]},W))})}),_jsx("section",{id:"come-funziona",className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,scrollMarginTop:80},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:64},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Dall'idea al volantino in mano"}),_jsxs("h2",{style:{fontFamily:F.serif,fontSize:48,color:C.navy,letterSpacing:"-1.5px",marginBottom:14,lineHeight:1.06},children:["Dall'idea alla campagna",_jsx("br",{}),"in 4 step misurabili."]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:520,lineHeight:1.65},children:"Un flusso unico per definire servizio, zona, date operative e preventivo finale."})]}),_jsx("div",{className:"steps-grid",style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12},children:T.map(({n:D,t:W,d:A,b:F,c:B},P)=>_jsxs("div",{className:"vc",style:{padding:"34px 28px",background:C.white,borderRadius:16,border:"1px solid rgba(0,0,0,.04)",boxShadow:"0 8px 24px rgba(0,0,0,.02)",position:"relative",overflow:"hidden"},children:[_jsx("div",{style:{position:"absolute",top:-8,right:12,fontFamily:F.sans,fontWeight:900,fontSize:94,color:"#F4F6F8",lineHeight:1,userSelect:"none"},children:D}),_jsx("div",{style:{width:24,height:3,borderRadius:2,background:B,marginBottom:24}}),_jsx("h3",{style:{fontFamily:F.serif,fontSize:22,color:C.navy,marginBottom:12,letterSpacing:"-.3px"},children:W}),_jsx("p",{style:{fontFamily:F.sans,fontSize:14,color:C.muted,lineHeight:1.6,marginBottom:20},children:A}),_jsx("div",{style:{display:"inline-flex",padding:"4px 10px",borderRadius:6,background:`${B}12`,fontFamily:F.sans,fontSize:11,fontWeight:700,color:B},children:F})]},D))}),_jsx("div",{style:{textAlign:"center",marginTop:56},children:_jsx("button",{className:"vb",onClick:()=>n("step1"),style:{padding:"14px 34px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#E8571A 0%,#D0450B 100%)",color:C.white,fontFamily:F.sans,fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 6px 16px rgba(232,87,26,0.28)"},children:"Configura la tua campagna "})})]})}),_jsx(ServicesSection,{onConfigure:()=>n("step1")}),_jsx(FeatureZonaMappa,{onConfigure:()=>n("step1")}),_jsx(FeatureSmartPairing,{onConfigure:()=>n("step1")}),_jsx(RisultatiSection,{}),_jsx(FAQSection,{onContact:()=>n("consultant")}),_jsx(PricingSection,{onConfigure:()=>n("step1"),onConsultant:()=>n("consultant")}),_jsx(Footer,{onNav:n,onHowItWorks:i}),_jsx("footer",{style:{display:"none",background:"#070D1A",borderTop:"1px solid rgba(255,255,255,.05)",padding:"52px 28px 34px"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{display:"flex",gap:64,marginBottom:44},children:[_jsxs("div",{style:{flex:"0 0 250px"},children:[_jsxs("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:16},children:[_jsx("div",{style:{width:30,height:30,borderRadius:7,background:C.orange,display:"flex",alignItems:"center",justifyContent:"center"},children:_jsxs("svg",{width:"16",height:"16",viewBox:"0 0 20 20",fill:"none",children:[_jsx("path",{d:"M3 17L10 3L17 17H3Z",fill:"white"}),_jsx("circle",{cx:"10",cy:"12",r:"2",fill:"white",opacity:".7"})]})}),_jsxs("span",{style:{fontFamily:F.serif,fontSize:18,color:C.white},children:["Volantini",_jsx("span",{style:{color:C.orange},children:"Pro"})]})]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.33)",lineHeight:1.65,marginBottom:16},children:"Piattaforma B2B per configurare campagne di volantinaggio con dati territoriali, GPS e report operativo."}),_jsx("div",{style:{display:"inline-flex",alignItems:"center",gap:6,padding:"4px 10px",borderRadius:6,background:"rgba(232,87,26,.1)",fontFamily:F.sans,fontSize:11,color:C.orange},children:"Operativo su Milano e Lombardia"})]}),_jsx("div",{style:{display:"flex",gap:52,flex:1},children:m.map(({t:D,items:W})=>_jsxs("div",{children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:C.orange,marginBottom:16},children:D}),_jsx("div",{style:{display:"flex",flexDirection:"column",gap:9},children:W.map(([A,F])=>_jsx("button",{onClick:()=>F==="home"&&A==="Come funziona"?i():n(F),style:{padding:0,border:"none",background:"transparent",textAlign:"left",fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.6)",cursor:"pointer"},children:A},A))})]},D))})]}),_jsxs("div",{style:{borderTop:"1px solid rgba(255,255,255,.05)",paddingTop:24,display:"flex",justifyContent:"space-between"},children:[_jsx("span",{style:{fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)"},children:"2025 VolantiniPro S.r.l. - Milano"}),_jsx("span",{style:{display:"flex",gap:10,alignItems:"center"},children:[["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]].map(([D,W])=>_jsx("button",{onClick:()=>n(W),style:{padding:0,border:"none",background:"transparent",fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)",cursor:"pointer"},children:D},D))})]})]})})]})}
 
 // JSX runtime shim for reconstructed bundle code
 function _jsx(type, props, key) {
@@ -1050,7 +1050,7 @@ function Step1({ data, setData, onNext, onHome }) {
       </div>
 
       {/* Main Layout Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 360px", gap: 40, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 0 }}>
         {/* Left Column: Configuration Sections */}
         <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
           
@@ -1062,7 +1062,7 @@ function Step1({ data, setData, onNext, onHome }) {
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 24px" }}>
               Seleziona il canale operativo principale
             </h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 20 }}>
               {distributionTypes.map((t) => {
                 const active = data.type === t.id;
                 return (
@@ -1683,6 +1683,42 @@ function Step1({ data, setData, onNext, onHome }) {
             )}
           </div>
 
+          {/* ── Riepilogo Step 1 — inline summary ── */}
+          <div style={{ background: "rgba(10,13,20,0.85)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.2)", padding: isMobile ? 20 : 28, backdropFilter: "blur(24px)", boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16, borderBottom: "1px solid rgba(148,163,184,0.15)", marginBottom: 20 }}>
+              <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", textTransform: "uppercase", letterSpacing: ".1em" }}>Riepilogo Step 1</span>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22C55E", boxShadow: "0 0 10px #22C55E" }} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)", gap: isMobile ? "10px 16px" : "10px 40px", marginBottom: 20 }}>
+              {[
+                { label: "Servizio", val: currentServiceLabel },
+                { label: "Quantità", val: `${new Intl.NumberFormat("it-IT").format(data.qty || 10000)} pz` },
+                { label: "Formato", val: currentFormatLabel },
+                { label: "Urgenza", val: currentUrgencyLabel },
+                { label: "Piano", val: currentPlanLabel },
+                { label: "Extra", val: `${(data.extraServices || []).length + 1} inclusi` },
+              ].map((row, idx) => (
+                <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, paddingBottom: 8, borderBottom: "1px solid rgba(148,163,184,0.08)" }}>
+                  <span style={{ color: "#94A3B8" }}>{row.label}</span>
+                  <span style={{ fontWeight: 800, color: row.val.includes("Da selezionare") ? "#64748B" : "#F8FAFC" }}>{row.val}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: isMobile ? "flex" : "flex", flexDirection: isMobile ? "column" : "row", gap: 20, alignItems: isMobile ? "stretch" : "center" }}>
+              <div style={{ padding: "14px 20px", borderRadius: 16, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)", flexShrink: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#A7F3D0", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>Prezzo stimato (non definitivo)</div>
+                <div style={{ fontSize: 26, fontWeight: 900, color: "#22C55E", letterSpacing: "-0.5px" }}>€ {totalEstFormatted} <span style={{ fontSize: 14, fontWeight: 600, color: "#94A3B8" }}>+ IVA</span></div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.5, marginBottom: 6 }}>Calcolato su listino base. Il preventivo esatto verrà generato in base alle zone scelte nello Step 2.</div>
+                <div style={{ fontSize: 12, color: "#64748B", lineHeight: 1.5 }}>
+                  Hai bisogno di aiuto?{" "}
+                  <button type="button" onClick={() => setShowSmartPairingModal(true)} style={{ background: "none", border: "none", color: "#06B6D4", textDecoration: "underline", cursor: "pointer", padding: 0, fontWeight: 700 }}>Scopri lo Smart Pairing</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* NUOVA CARD "PROSSIMO PASSAGGIO" */}
           <div style={{ background: "linear-gradient(135deg, rgba(15,23,42,0.85), rgba(8,14,28,0.95))", borderRadius: 24, border: "2px solid rgba(6,182,212,0.35)", padding: isMobile ? 24 : 36, boxShadow: "0 24px 64px rgba(0,0,0,0.5)", position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(6,182,212,0.15) 0%, transparent 70%)", pointerEvents: "none" }} />
@@ -1743,39 +1779,6 @@ function Step1({ data, setData, onNext, onHome }) {
 
         </div>
 
-        {/* Right Column: Persistent Sidebar */}
-        <div style={{ position: isMobile ? "static" : "sticky", top: 24, background: "rgba(10,13,20,0.85)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.2)", padding: 24, backdropFilter: "blur(24px)", boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16, borderBottom: "1px solid rgba(148,163,184,0.15)", marginBottom: 20 }}>
-            <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", textTransform: "uppercase", letterSpacing: ".1em" }}>Riepilogo Step 1</span>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22C55E", boxShadow: "0 0 10px #22C55E" }} />
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 24 }}>
-            {[
-              { label: "Servizio", val: currentServiceLabel },
-              { label: "Quantità", val: `${new Intl.NumberFormat("it-IT").format(data.qty || 10000)} pz` },
-              { label: "Formato", val: currentFormatLabel },
-              { label: "Urgenza", val: currentUrgencyLabel },
-              { label: "Piano", val: currentPlanLabel },
-              { label: "Extra", val: `${(data.extraServices || []).length + 1} inclusi` },
-            ].map((row, idx) => (
-              <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
-                <span style={{ color: "#94A3B8" }}>{row.label}</span>
-                <span style={{ fontWeight: 800, color: row.val.includes("Da selezionare") ? "#64748B" : "#F8FAFC" }}>{row.val}</span>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ padding: 18, borderRadius: 16, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)", marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: "#A7F3D0", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>Prezzo stimato (non definitivo)</div>
-            <div style={{ fontSize: 26, fontWeight: 900, color: "#22C55E", letterSpacing: "-0.5px" }}>€ {totalEstFormatted} <span style={{ fontSize: 14, fontWeight: 600, color: "#94A3B8" }}>+ IVA</span></div>
-            <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 6, lineHeight: 1.4 }}>Calcolato su listino base. Il preventivo esatto verrà generato in base alle zone scelte nello Step 2.</div>
-          </div>
-
-          <div style={{ fontSize: 12, color: "#64748B", lineHeight: 1.5, textAlign: "center" }}>
-            Hai bisogno di aiuto? <button type="button" onClick={() => setShowSmartPairingModal(true)} style={{ background: "none", border: "none", color: "#06B6D4", textDecoration: "underline", cursor: "pointer", padding: 0, fontWeight: 700 }}>Scopri lo Smart Pairing</button>
-          </div>
-        </div>
       </div>
 
       {/* Modal Spiegazione Smart Pairing opzionale */}
@@ -4875,7 +4878,7 @@ function toggle(d) {
                 <textarea value={form.note || ""} onChange={e => setForm(f => ({...f, note: e.target.value }))} placeholder="Note opzionali" rows={3} style={{...inputStyle, resize: "vertical" }} />
               </div>
               {formError && <div style={{ padding: "8px 14px", borderRadius: 8, background: "rgba(248,113,113,.15)", border: "1px solid rgba(248,113,113,.3)", fontFamily: F.sans, fontSize: 12, color: C.red, marginBottom: 12 }}>{formError}</div>}
-              <button className="btn" onClick={handleRequestSubmit} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#6366F1 0%,#06B6D4 100%)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 6px 18px rgba(99,102,241,0.3)" }}>
+              <button className="btn" onClick={handleRequestSubmit} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 6px 18px rgba(99,102,241,0.3)" }}>
                 Avvisami appena ci sono slot compatibili
               </button>
             </div>
@@ -4976,7 +4979,7 @@ function toggle(d) {
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {selDays.length > 0 ? (
               <button className="btn" onClick={handlePrimary}
-                style={{ width: "100%", padding: "15px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#6366F1 0%,#06B6D4 100%)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 8px 24px rgba(99,102,241,0.35)" }}>
+                style={{ width: "100%", padding: "15px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 8px 24px rgba(99,102,241,0.35)" }}>
                 Genera preventivo
               </button>
             ) : realSmartPairingSlots.length > 0 ? (
@@ -7664,7 +7667,7 @@ const routeToPage = path => {
     const step = url.searchParams.get("step");
 
     if (p === "/home" || p.includes("landing") || p.includes("marketing")) return "home";
-    if (p === "/" || p === "/index.html" || p === "/volantinipro-final.jsx") return "step1";
+    if (p === "/" || p === "/index.html" || p === "/volantinipro-final.jsx") return "home";
     if (p === "/configuratore") {
       if (step) return `step${step}`;
       return "step1";

@@ -373,15 +373,15 @@ function Metric({ label, value }) {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const shellStyle = { minHeight: '100vh', padding: '0 0 40px', background: '#0a1020', color: 'rgba(255,255,255,.9)', fontFamily: 'Inter, system-ui, sans-serif' };
+const shellStyle = { minHeight: '100vh', padding: '0 0 40px', background: '#0B192C', color: 'rgba(255,255,255,.9)', fontFamily: "'DM Sans', Inter, system-ui, sans-serif" };
 const brandStyle = { display: 'block', color: '#e8571a', fontWeight: 900, textDecoration: 'none', padding: '16px 20px 0', fontSize: 16 };
-const eyebrowStyle = { margin: '8px 0 4px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: 'rgba(255,255,255,.42)', fontWeight: 900 };
-const cardStyle = { background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.09)', borderRadius: 14, padding: 18, margin: '0 14px 14px' };
-const mapWrapStyle = { height: 380, width: '100%', borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(255,255,255,.1)', position: 'relative', zIndex: 1 };
+const eyebrowStyle = { margin: '8px 0 4px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: 'rgba(255,255,255,.45)', fontWeight: 900 };
+const cardStyle = { background: 'rgba(18, 32, 54, 0.75)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 16, padding: 20, margin: '0 14px 16px', boxShadow: '0 8px 32px rgba(0,0,0,.2)' };
+const mapWrapStyle = { height: 380, width: '100%', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.12)', position: 'relative', zIndex: 1 };
 const outOfZoneBannerStyle = { position: 'sticky', top: 0, zIndex: 9999, background: '#ef4444', color: '#fff', fontWeight: 900, textAlign: 'center', padding: '14px 20px', fontSize: 16, letterSpacing: '.04em' };
 const errorBoxStyle = { marginTop: 12, padding: 12, borderRadius: 10, color: '#fca5a5', background: 'rgba(239,68,68,.15)', border: '1px solid rgba(239,68,68,.35)', fontSize: 14 };
 const successBoxStyle = { marginTop: 12, padding: 12, borderRadius: 10, color: '#86efac', background: 'rgba(34,197,94,.15)', border: '1px solid rgba(34,197,94,.35)', fontSize: 14 };
-const textareaStyle = { width: '100%', background: '#0f1f1a', border: '1px solid rgba(255,255,255,.15)', borderRadius: 10, padding: 12, color: '#fff', font: 'inherit', fontSize: 14, boxSizing: 'border-box' };
+const textareaStyle = { width: '100%', background: '#122036', border: '1px solid rgba(255,255,255,.15)', borderRadius: 10, padding: 12, color: '#fff', font: 'inherit', fontSize: 14, boxSizing: 'border-box' };
 
 // Big touch-friendly buttons
 const startBtnStyle = { border: 'none', borderRadius: 14, padding: '18px 32px', background: '#22C55E', color: '#fff', fontWeight: 900, cursor: 'pointer', fontSize: 18, minWidth: 140, letterSpacing: '.04em' };

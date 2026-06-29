@@ -14,7 +14,7 @@ const C = {
 
 const F = {
   sans: "'DM Sans', Inter, system-ui, sans-serif",
-  serif: "'Playfair Display', Georgia, serif",
+  serif: "'DM Serif Display', Georgia, serif",
 };
 
 const EMPTY = "Dato non disponibile";
@@ -553,15 +553,15 @@ function emptyData() {
   return { campaigns: [], waitlist: [], sessions: [], activeSessions: [], latestGpsPoints: [], activities: [], availability: {} };
 }
 
-const cardStyle = { background: "rgba(255,255,255,.04)", borderRadius: 13, border: "1px solid rgba(255,255,255,.08)", padding: 16 };
-const adminBadgeStyle = { display: "inline-flex", padding: "3px 10px", borderRadius: 100, background: "rgba(232,87,26,.15)", border: "1px solid rgba(232,87,26,.3)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.orange };
-const secondaryButtonStyle = { height: 38, padding: "0 15px", borderRadius: 10, border: "1px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.58)", fontFamily: F.sans, fontSize: 12, cursor: "pointer" };
-const eyebrowStyle = { margin: 0, fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.36)", letterSpacing: ".1em", textTransform: "uppercase" };
-const mutedTinyStyle = { fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.34)" };
-const kpiGridStyle = { display: "grid", gridTemplateColumns: "repeat(5, minmax(0,1fr))", gap: 10, marginBottom: 18 };
-const opsNavStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, marginTop: 12 };
-const opsNavItemStyle = { display: "grid", gap: 5, padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.035)", color: "rgba(255,255,255,.72)", textDecoration: "none", fontFamily: F.sans, fontSize: 12 };
-const opsCampaignStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,.07)", background: "rgba(255,255,255,.03)" };
-const inlineButtonStyle = { border: "1px solid rgba(255,255,255,.1)", borderRadius: 9, padding: "8px 10px", color: C.white, background: "rgba(255,255,255,.04)", textDecoration: "none", fontFamily: F.sans, fontSize: 12, fontWeight: 800 };
-const miniLinkButtonStyle = { ...inlineButtonStyle, padding: "4px 7px", fontSize: 10 };
-const linkStyle = { color: C.orange, textDecoration: "none", fontWeight: 900 };
+const cardStyle = { background: "#122036", borderRadius: 16, border: "1px solid rgba(255,255,255,.08)", padding: 20, transition: "all 0.2s ease" };
+const adminBadgeStyle = { display: "inline-flex", padding: "4px 12px", borderRadius: 100, background: "rgba(232,87,26,.15)", border: "1px solid rgba(232,87,26,.3)", fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: C.orange };
+const secondaryButtonStyle = { height: 40, padding: "0 18px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" };
+const eyebrowStyle = { margin: 0, fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,.45)", letterSpacing: ".12em", textTransform: "uppercase" };
+const mutedTinyStyle = { fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)" };
+const kpiGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14, marginBottom: 24 };
+const opsNavStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginTop: 16 };
+const opsNavItemStyle = { display: "grid", gap: 6, padding: 16, borderRadius: 12, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.85)", textDecoration: "none", fontFamily: F.sans, fontSize: 13, transition: "all 0.2s ease" };
+const opsCampaignStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: 14, borderRadius: 12, border: "1px solid rgba(255,255,255,.07)", background: "rgba(255,255,255,.03)" };
+const inlineButtonStyle = { border: "1px solid rgba(255,255,255,.12)", borderRadius: 8, padding: "8px 14px", color: C.white, background: "rgba(255,255,255,.06)", textDecoration: "none", fontFamily: F.sans, fontSize: 12, fontWeight: 700 };
+const miniLinkButtonStyle = { ...inlineButtonStyle, padding: "4px 8px", fontSize: 11 };
+const linkStyle = { color: C.orange, textDecoration: "none", fontWeight: 700 };

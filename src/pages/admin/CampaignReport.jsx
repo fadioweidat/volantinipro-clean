@@ -346,7 +346,7 @@ function AdminShell({ title, subtitle, campaignId, children }) {
       <header style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 22 }}>
         <div>
           <a href="/admin" style={{ color: '#e8571a', fontWeight: 900, textDecoration: 'none' }}>VolantiniPro Admin</a>
-          <h1 style={{ margin: '8px 0 4px', fontSize: 34, color: '#fff' }}>{title}</h1>
+          <h1 style={{ margin: '8px 0 4px', fontSize: 34, color: '#fff', fontFamily: "'DM Serif Display', Georgia, serif" }}>{title}</h1>
           <p style={{ margin: 0, color: 'rgba(255,255,255,.55)' }}>{subtitle}</p>
         </div>
         <div style={actionGroupStyle}>
@@ -359,8 +359,8 @@ function AdminShell({ title, subtitle, campaignId, children }) {
   );
 }
 
-const shellStyle = { minHeight: '100vh', padding: 24, background: '#07100d', color: 'rgba(255,255,255,.72)', fontFamily: 'Inter, system-ui, sans-serif' };
-const cardStyle = { background: 'rgba(255,255,255,.045)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, padding: 16, boxShadow: '0 16px 42px rgba(0,0,0,.24)' };
+const shellStyle = { minHeight: '100vh', padding: 24, background: '#0B192C', color: 'rgba(255,255,255,.72)', fontFamily: "'DM Sans', Inter, system-ui, sans-serif" };
+const cardStyle = { background: '#122036', border: '1px solid rgba(255,255,255,.08)', borderRadius: 16, padding: 20, transition: 'all 0.2s ease' };
 const toolbarStyle = { ...cardStyle, display: 'grid', gap: 14 };
 const kpiGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 12 };
 const gridTwoStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 16 };

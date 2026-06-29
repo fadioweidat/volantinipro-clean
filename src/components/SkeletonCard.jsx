@@ -1,24 +1,23 @@
 import React from 'react';
 
-export function SkeletonCard() {
+export function SkeletonCard({ variant = 'default', lines = [80, 200, 120] }) {
+  const isDark = variant === 'dark';
   return (
-    <div style={{ 
-      borderRadius: 12, 
-      padding: 20,
-      background: 'rgba(255,255,255,.04)',
-      border: '1px solid rgba(255,255,255,.07)', 
-      marginBottom: 10 
-    }}>
-      {[80, 200, 120].map((w, i) => (
-        <div key={i} style={{ 
-          width: w, 
-          height: i === 1 ? 16 : 10,
-          background: 'rgba(255,255,255,.08)', 
-          borderRadius: 4,
-          marginBottom: 10, 
-          opacity: 1 - i * 0.2 
-        }}/>
+    <div className={isDark ? "clean-card-dark" : "clean-card"} style={{ marginBottom: 12 }}>
+      {lines.map((w, i) => (
+        <div 
+          key={i} 
+          style={{ 
+            width: typeof w === 'number' ? `${w}px` : w, 
+            height: i === 1 ? 18 : 12,
+            background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(11,25,44,0.08)', 
+            borderRadius: 6,
+            marginBottom: i === lines.length - 1 ? 0 : 12,
+            animation: 'pulse 1.5s infinite ease-in-out'
+          }}
+        />
       ))}
     </div>
-  )
+  );
 }
+

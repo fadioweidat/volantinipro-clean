@@ -384,17 +384,17 @@ function EmptyState({ text }) {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const shellStyle = { minHeight: '100vh', padding: 24, background: '#07100d', color: 'rgba(255,255,255,.82)', fontFamily: 'Inter, system-ui, sans-serif' };
+const shellStyle = { minHeight: '100vh', padding: 24, background: '#0B192C', color: 'rgba(255,255,255,.82)', fontFamily: "'DM Sans', Inter, system-ui, sans-serif" };
 const headerStyle = { display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 22 };
 const brandStyle = { color: '#e8571a', fontWeight: 900, textDecoration: 'none' };
-const titleStyle = { margin: '8px 0 4px', fontSize: 30, color: '#fff' };
+const titleStyle = { margin: '8px 0 4px', fontSize: 30, color: '#fff', fontFamily: "'DM Serif Display', Georgia, serif" };
 const mutedStyle = { margin: 0, color: 'rgba(255,255,255,.45)', fontSize: 12 };
-const cardStyle = { background: 'rgba(255,255,255,.045)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, padding: 16, marginBottom: 14, boxShadow: '0 16px 42px rgba(0,0,0,.24)' };
-const eyebrowStyle = { margin: '0 0 10px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: 'rgba(255,255,255,.42)', fontWeight: 900 };
-const kpiGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 };
-const kpiCardStyle = { background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 10, padding: 12 };
-const mapWrapStyle = { height: 480, width: '100%', borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(255,255,255,.1)', position: 'relative', zIndex: 1 };
-const rowStyle = { display: 'flex', gap: 14, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,.06)', flexWrap: 'wrap', fontSize: 13, alignItems: 'center' };
+const cardStyle = { background: 'rgba(18, 32, 54, 0.75)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: '0 16px 42px rgba(0,0,0,.24)' };
+const eyebrowStyle = { margin: '0 0 10px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: 'rgba(255,255,255,.45)', fontWeight: 900 };
+const kpiGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12 };
+const kpiCardStyle = { background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, padding: 14 };
+const mapWrapStyle = { height: 500, width: '100%', borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,.12)', position: 'relative', zIndex: 1 };
+const rowStyle = { display: 'flex', gap: 14, padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,.06)', flexWrap: 'wrap', fontSize: 13, alignItems: 'center' };
 const labelStyle = { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, color: 'rgba(255,255,255,.55)', fontWeight: 800 };
-const selectStyle = { background: '#0f1f1a', border: '1px solid rgba(255,255,255,.12)', borderRadius: 8, padding: '8px 10px', color: '#fff', fontFamily: 'inherit', fontSize: 13, minWidth: 160 };
-const btnStyle = { border: '1px solid rgba(255,255,255,.1)', borderRadius: 10, padding: '10px 13px', color: '#fff', background: 'rgba(255,255,255,.04)', textDecoration: 'none', fontWeight: 900, cursor: 'pointer', fontSize: 13 };
+const selectStyle = { background: '#122036', border: '1px solid rgba(255,255,255,.15)', borderRadius: 8, padding: '8px 12px', color: '#fff', fontFamily: 'inherit', fontSize: 13, minWidth: 160 };
+const btnStyle = { border: '1px solid rgba(255,255,255,.12)', borderRadius: 10, padding: '10px 14px', color: '#fff', background: 'rgba(255,255,255,.06)', textDecoration: 'none', fontWeight: 700, cursor: 'pointer', fontSize: 13, transition: 'all 0.2s ease' };
