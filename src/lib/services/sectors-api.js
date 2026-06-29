@@ -18,7 +18,7 @@ export async function fetchSectors({ serviceType, centerLat, centerLng, radiusKm
     }, { signal });
 
     if (error) {
-      console.error("[MAP_SECTORS_ERROR]", error);
+      console.warn("[MAP_SECTORS_ERROR]", error);
       // Table / function not yet migrated — silent fallback so map stays usable
       const msg = error.message ?? '';
       if (

@@ -2,7 +2,7 @@ import React from "react";
 
 const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
 const C_ORANGE = "#E8571A";
-const GRAD = "linear-gradient(135deg, #6366F1 0%, #06B6D4 100%)";
+const GRAD = "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)";
 
 function Logo() {
   return (

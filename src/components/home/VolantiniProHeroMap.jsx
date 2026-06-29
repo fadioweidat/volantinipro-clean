@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import Button from "../ui/Button.jsx";
 import { Step2Map } from "../Step2Map.jsx";
 import { useServiceAnalysis } from "../../hooks/useServiceAnalysis.js";
@@ -195,12 +196,17 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
           maxWidth: 1400,
           margin: "0 auto",
           display: "grid",
-          gridTemplateColumns: compact ? "1fr" : "0.85fr 1.6fr",
+          gridTemplateColumns: compact ? "1fr" : "1fr 1.2fr",
           alignItems: "center",
-          gap: compact ? 48 : 80,
+          gap: compact ? 48 : 64,
         }}
       >
-        <div style={{ paddingTop: compact ? 0 : 22 }}>
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: "easeOut" }}
+          style={{ paddingTop: compact ? 0 : 16 }}
+        >
           <div style={heroEyebrowStyle}>VOLANTINAGGIO &middot; DISTRIBUZIONE &middot; CONTROLLO GPS</div>
 
           <h1 style={{ ...headlineStyle(compact), maxWidth: 700 }}>
@@ -211,13 +217,17 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
             Scegli il servizio, seleziona la zona, calcola il raggio di distribuzione e verifica il lavoro con prove GPS e report finale.
           </p>
 
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, marginBottom: 16 }}>
-            <Button variant="primary" className="vb" onClick={onConfigure} style={heroPrimaryButtonStyle}>
-              Configura la tua campagna
-            </Button>
-            <Button variant="secondary" onClick={onHowItWorks} style={heroOutlineButtonStyle}>
-              Vedi i servizi
-            </Button>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, marginBottom: 20 }}>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.15 }}>
+              <Button variant="primary" className="vb" onClick={onConfigure} style={heroPrimaryButtonStyle}>
+                Configura la tua campagna
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.15 }}>
+              <Button variant="secondary" onClick={onHowItWorks} style={heroOutlineButtonStyle}>
+                Vedi i servizi
+              </Button>
+            </motion.div>
           </div>
           
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 32 }}>
@@ -244,7 +254,7 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
               Il GPS ti aiuta a verificare la copertura reale.
             </span>
           </div>
-        </div>
+        </motion.div>
 
         <HeroRealMapPreview compact={compact} />
       </div>
@@ -340,7 +350,7 @@ function useHeroMapPreviewStyles() {
           transition: fill-opacity .35s ease-out, stroke-opacity .35s ease-out;
         }
         .vp-hero-map-preview .gis-radius-glow {
-          animation: vpHeroRadiusDraw .8s ease-out both;
+          animation: vpHeroRadiusDraw 1.2s ease-out both, vpHeroRadiusPulse 6s infinite ease-in-out 1.2s;
           stroke: #E8571A !important;
           stroke-dasharray: 10, 14 !important;
           stroke-width: 4.5 !important;
@@ -375,6 +385,10 @@ function useHeroMapPreviewStyles() {
       @keyframes vpHeroRadiusDraw {
         from { stroke-dashoffset: 70; opacity: .15; }
         to { stroke-dashoffset: 0; opacity: 1; }
+      }
+      @keyframes vpHeroRadiusPulse {
+        0%, 100% { filter: drop-shadow(0 0 10px rgba(232, 87, 26, 0.7)); stroke-width: 4.5px; }
+        50% { filter: drop-shadow(0 0 18px rgba(232, 87, 26, 1)); stroke-width: 5.5px; }
       }
       @keyframes vpHeroCardIn {
         to { opacity: 1; transform: translateY(0); }
@@ -481,7 +495,18 @@ function HeroRealMapPreview({ compact }) {
             {/* Center marker + radius label */}
             {!unavailable && !loading && (
               <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 450, display: "flex", flexDirection: "column", alignItems: "center", pointerEvents: "none" }}>
-                <div style={{ width: 20, height: 20, background: C.orange, borderRadius: "50%", border: "3px solid #fff", boxShadow: "0 0 20px rgba(232,87,26,0.9), 0 2px 8px rgba(0,0,0,0.5)" }} />
+                <motion.div
+                  animate={{
+                    scale: [1, 1.25, 1],
+                    boxShadow: [
+                      "0 0 16px rgba(232,87,26,0.85), 0 2px 8px rgba(0,0,0,0.5)",
+                      "0 0 28px rgba(232,87,26,1), 0 4px 12px rgba(0,0,0,0.6)",
+                      "0 0 16px rgba(232,87,26,0.85), 0 2px 8px rgba(0,0,0,0.5)"
+                    ]
+                  }}
+                  transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                  style={{ width: 22, height: 22, background: C.orange, borderRadius: "50%", border: "3.5px solid #fff" }}
+                />
                 <div style={{ marginTop: 8, background: "rgba(8,15,30,0.92)", padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 800, color: "#fff", border: "1px solid rgba(232,87,26,0.35)", whiteSpace: "nowrap", boxShadow: "0 4px 16px rgba(0,0,0,0.5)", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                   <span style={{ fontSize: 9, color: C.orange, textTransform: "uppercase", letterSpacing: "0.06em" }}>Centro campagna</span>
                   <span>Raggio {radiusKm} km</span>

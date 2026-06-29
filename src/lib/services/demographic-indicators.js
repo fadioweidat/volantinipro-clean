@@ -113,7 +113,7 @@ export async function fetchDemographicIndicators({ geographyRef, year = DEFAULT_
     eta65plus: mapped.age_65_plus_pct,
   };
   if (mapped.age_65_plus_pct > 45) {
-    console.error('Mapping fasce età sospetto:', distribuzioneEta);
+    console.warn('[DEMOGRAPHICS] Distribuzione età sospetta (65+>45%):', distribuzioneEta);
   }
 
   return mapped;

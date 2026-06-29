@@ -140,7 +140,7 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
         return { rows: [], count: 0, bboxCount: 0, totalCount: 0, contentRangeCount: 0, renderedCount: 0, isTimeout: true };
       }
 
-      console.error('[ADDRESS_POINTS_ERROR] fetch failed', response.status, errText);
+      console.warn('[ADDRESS_POINTS_ERROR] fetch failed', response.status, errText);
       throw new Error(errText || 'ADDRESS_POINTS_REST_ERROR');
     }
 
@@ -176,7 +176,7 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
       console.log('[ADDRESS_POINTS_FETCH_ABORTED]');
       throw err;
     }
-    console.error('[ADDRESS_POINTS_ERROR]', err?.message || err);
+    console.warn('[ADDRESS_POINTS_ERROR]', err?.message || err);
     console.log('[ADDRESS_POINTS_FETCH_FALLBACK]');
     throw err;
   }

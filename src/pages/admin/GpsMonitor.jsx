@@ -1,4 +1,5 @@
 import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 import { CircleMarker, GeoJSON, MapContainer, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getCampaignGpsPoints, getCampaignGpsSessions } from '../../lib/services/gps-api.js';
@@ -24,10 +25,9 @@ function MapAutoFit({ points }) {
     const timer = setTimeout(() => map.invalidateSize(), 250);
     if (points.length > 0) {
       try {
-        const L = window.L || require('leaflet');
         const latLngs = points.map(p => [Number(p.lat), Number(p.lng)]);
         map.fitBounds(L.latLngBounds(latLngs), { padding: [20, 20] });
-      } catch { /* ignore */ }
+      } catch { /* ignore: invalid bounds */ }
     }
     return () => clearTimeout(timer);
   }, [map, points.length]);

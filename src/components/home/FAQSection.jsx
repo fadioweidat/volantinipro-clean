@@ -1,9 +1,9 @@
 import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Button from "../ui/Button.jsx";
 
 const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
-const C_PRIMARY = "#6366F1";
-const C_CYAN = "#06B6D4";
+const C_ORANGE = "#E8571A";
 
 const faqs = [
   {
@@ -42,26 +42,29 @@ const faqs = [
 
 function ToggleIcon({ open }) {
   return (
-    <span
+    <motion.span
       aria-hidden="true"
+      animate={{ rotate: open ? 180 : 0 }}
+      transition={{ duration: 0.18 }}
       style={{
-        width: 26,
-        height: 26,
+        width: 28,
+        height: 28,
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
         borderRadius: "50%",
-        color: C_PRIMARY,
+        background: open ? "rgba(232, 87, 26, 0.15)" : "rgba(255, 255, 255, 0.05)",
+        border: `1px solid ${open ? "rgba(232, 87, 26, 0.4)" : "rgba(255, 255, 255, 0.1)"}`,
+        color: open ? C_ORANGE : "#F8FAFC",
         fontFamily: F.sans,
-        fontSize: 24,
+        fontSize: 20,
+        fontWeight: 700,
         lineHeight: 1,
-        transform: open ? "rotate(180deg)" : "rotate(0deg)",
-        transition: "transform .3s ease",
         flexShrink: 0,
       }}
     >
       {open ? "−" : "+"}
-    </span>
+    </motion.span>
   );
 }
 
@@ -69,10 +72,10 @@ export default function FAQSection({ onContact }) {
   const [open, setOpen] = useState(0);
 
   return (
-    <section className="section" style={{ background: "#111827", paddingLeft: 28, paddingRight: 28, boxSizing: "border-box", borderTop: "1px solid rgba(148,163,184,0.18)" }}>
+    <section className="section" style={{ background: "#111827", paddingLeft: 28, paddingRight: 28, boxSizing: "border-box", borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
       <div className="faq-layout" style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div className="faq-sticky">
-          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase", color: C_CYAN, marginBottom: 16 }}>
+          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase", color: C_ORANGE, marginBottom: 16 }}>
             DOMANDE FREQUENTI
           </div>
           <h2 className="landing-h2" style={{ fontFamily: F.serif, fontSize: 48, lineHeight: 1.08, color: "#F8FAFC", letterSpacing: "-0.03em", margin: 0 }}>
@@ -81,16 +84,18 @@ export default function FAQSection({ onContact }) {
           <p style={{ fontFamily: F.sans, fontSize: 16, lineHeight: 1.65, color: "#94A3B8", margin: "22px 0 28px", maxWidth: 360 }}>
             Non trovi la risposta che cerchi?<br />Scrivici, rispondiamo entro 2 ore.
           </p>
-          <Button variant="primary" onClick={onContact} style={{ minHeight: 48, padding: "0 24px", fontSize: 15 }}>
-            Contattaci →
-          </Button>
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.15 }} style={{ display: "inline-block" }}>
+            <Button variant="secondary" onClick={onContact} style={{ minHeight: 48, padding: "0 24px", fontSize: 14, fontWeight: 700, borderRadius: 12, border: "1px solid rgba(255, 255, 255, 0.15)", background: "rgba(255, 255, 255, 0.04)" }}>
+              Contattaci →
+            </Button>
+          </motion.div>
         </div>
 
         <div>
           {faqs.map((faq, i) => {
             const isOpen = open === i;
             return (
-              <div key={faq.q} className="faq-row" style={{ borderBottom: "1px solid rgba(148,163,184,0.12)" }}>
+              <div key={faq.q} className="faq-row" style={{ borderBottom: "1px solid rgba(255, 255, 255, 0.08)" }}>
                 <button
                   onClick={() => setOpen(isOpen ? null : i)}
                   style={{
@@ -112,18 +117,21 @@ export default function FAQSection({ onContact }) {
                   </span>
                   <ToggleIcon open={isOpen} />
                 </button>
-                <div
-                  style={{
-                    maxHeight: isOpen ? 180 : 0,
-                    opacity: isOpen ? 1 : 0,
-                    overflow: "hidden",
-                    transition: "max-height .3s ease, opacity .3s ease",
-                  }}
-                >
-                  <p style={{ margin: "0 18px 24px", fontFamily: F.sans, fontSize: 15, lineHeight: 1.6, color: "#CBD5E1" }}>
-                    {faq.a}
-                  </p>
-                </div>
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.18, ease: "easeInOut" }}
+                      style={{ overflow: "hidden" }}
+                    >
+                      <p style={{ margin: "0 18px 24px", fontFamily: F.sans, fontSize: 15, lineHeight: 1.6, color: "#CBD5E1" }}>
+                        {faq.a}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             );
           })}

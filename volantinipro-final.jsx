@@ -26,6 +26,7 @@ import ServicesSection from "./src/components/home/ServicesSection.jsx";
 import WhyDifferentSection from "./src/components/home/WhyDifferentSection.jsx";
 import RisultatiSection from "./src/components/home/RisultatiSection.jsx";
 import Footer from "./src/components/home/Footer.jsx";
+const AIConsultantSection = React.lazy(() => import("./src/components/home/AIConsultantSection.jsx"));
 import Button from "./src/components/ui/Button.jsx";
 import { MetricValue } from "./src/components/ui/MetricValue.tsx";
 import { sendEmailConferma } from "./src/api/sendEmailConferma.js";
@@ -352,7 +353,7 @@ const kpis = [
 }
 
 function HomePage({onStart:n}){const i=()=>document.getElementById("come-funziona")?.scrollIntoView({behavior:"smooth",block:"start"}),[r,l]=useState(!1),[u,h]=useState({city:"",qty:"5000",service:"Door to Door"}),f=Math.max(180,Math.round((Number(u.qty)||0)*(u.service==="Door to Door" ?.13 : u.service==="Hand to Hand" ?.18 :.22))),m=[{t:"Piattaforma",items:[["Configuratore","step1"],["Preventivo rapido","quick"],["Come funziona","home"],["Tracking GPS","campaign"]]},{t:"Servizi",items:[["Door to Door","step1"],["Hand to Hand","step1"],["Business Distribution","step1"],["Report campagna","campaign"]]},{t:"Risorse",items:[["Servizi","home"],["Supporto","consultant"],["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]]}];useEffect(()=>{const D=()=>l(window.innerWidth<760);return D(),window.addEventListener("resize",D),()=>window.removeEventListener("resize",D)},[]);const[kpiBandVisible,setKpiBandVisible]=useState(!0),kpiBandRef=useRef(null);useEffect(()=>{const D=kpiBandRef.current;if(!D)return;const W=new IntersectionObserver(([A])=>{A.isIntersecting&&(setKpiBandVisible(!0),W.disconnect())},{threshold:.25});return W.observe(D),()=>W.disconnect()},[]);
-const x=[{value:"ISTAT",l:"Dati reali",src:"Fonti territoriali"},{value:"GIS",l:"Analisi zona",src:"Mappa e raggio"},{value:"GPS",l:"Tracking operativo",src:"Verifica campo"},{value:"PDF",l:"Report e prove",src:"Output verificabile"}],w=["Dati ISTAT ufficiali","GPS certificato","No vincoli mensili"],j=["Retail locale","Food locale","Casa e servizi","Fitness locale","Attività locale"],T=[{n:"01",t:"Configura campagna",d:"Scegli servizio, quantità, formato, stampa e frequenza della distribuzione.",b:"Servizio + quantità",c:"#6366F1"},{n:"02",t:"Zona e mappa",d:"Imposta comune e raggio, poi verifica famiglie ISTAT, comuni coinvolti, copertura e volantini consigliati.",b:"Analisi territoriale",c:"#06B6D4"},{n:"03",t:"Pianificazione",d:"Scegli il periodo desiderato. Smart Pairing resta opzionale quando esistono campagne compatibili.",b:"Date + opzioni",c:"#22C55E"},{n:"04",t:"Preventivo completo",d:"Controlla riepilogo campagna, servizi, dati territoriali disponibili e prezzo finale calcolato.",b:"Riepilogo + prezzo",c:"#F59E0B"}],z=[{name:"Door to Door",icon:"D2D",desc:"Distribuzione nelle cassette postali di condomini, palazzi, villette e zone residenziali.",features:["attività locali","promozioni zona","grande copertura territoriale"],c:C.orange},{name:"Hand to Hand",icon:"H2H",desc:"Distribuzione a mano in punti ad alto passaggio.",features:["POI rilevanti","Fermate metro/bus/treno","Scuole, università, eventi","Flusso potenziale","Smart Pairing"],c:C.orange},{name:"Business Distribution",icon:"B2B",desc:"Distribuzione mirata ad attività commerciali, uffici e zone business.",features:["B2B","fornitori","servizi professionali","attività locali"],c:C.orange}],R=[{n:"01",t:"Configura campagna",d:"Percorso completo in 4 step: campagna, zona, pianificazione e preventivo finale.",benefits:["Analisi ISTAT zona","Mappa e copertura","GPS e report verificabili","Smart Pairing opzionale"],cta:"Configura la tua campagna",c:C.orange,fn:()=>n("step1")},{n:"02",t:"Preventivo rapido",d:"Inserisci pochi dati e passa a un prezzo personalizzato calcolato su zona, quantità e servizio.",benefits:["3 campi essenziali","Prezzo personalizzato","Nessun account richiesto"],cta:"Preventivo rapido",c:C.orange,fn:()=>n("quick"),quick:!0},{n:"03",t:"Parla con un consulente",d:"Preferisci supporto diretto? Invia una richiesta e ti ricontattiamo.",benefits:["Brief gratuito","Scelta servizio guidata","Richiamo operativo","Tempo: immediato"],cta:"Parla con un consulente",c:C.orange,fn:()=>n("consultant")}];return _jsxs("div",{className:"home-shell-dark saas-home-refinement",style:{background:"#0B1020",paddingBottom:0,minHeight:"100vh"},children:[_jsx("style",{children:`
+const x=[{value:"ISTAT",l:"Dati reali",src:"Fonti territoriali"},{value:"GIS",l:"Analisi zona",src:"Mappa e raggio"},{value:"GPS",l:"Tracking operativo",src:"Verifica campo"},{value:"PDF",l:"Report e prove",src:"Output verificabile"}],w=["Dati ISTAT ufficiali","GPS certificato","No vincoli mensili"],j=["Retail locale","Food locale","Casa e servizi","Fitness locale","Attività locale"],T=[{n:"01",t:"Configura campagna",d:"Scegli servizio, quantità, formato, stampa e frequenza della distribuzione.",b:"Servizio + quantità",c:"#E8571A"},{n:"02",t:"Zona e mappa",d:"Imposta comune e raggio, poi verifica famiglie ISTAT, comuni coinvolti, copertura e volantini consigliati.",b:"Analisi territoriale",c:"#E8571A"},{n:"03",t:"Pianificazione",d:"Scegli il periodo desiderato. Smart Pairing resta opzionale quando esistono campagne compatibili.",b:"Date + opzioni",c:"#E8571A"},{n:"04",t:"Preventivo completo",d:"Controlla riepilogo campagna, servizi, dati territoriali disponibili e prezzo finale calcolato.",b:"Riepilogo + prezzo",c:"#E8571A"}],z=[{name:"Door to Door",icon:"D2D",desc:"Distribuzione nelle cassette postali di condomini, palazzi, villette e zone residenziali.",features:["attività locali","promozioni zona","grande copertura territoriale"],c:C.orange},{name:"Hand to Hand",icon:"H2H",desc:"Distribuzione a mano in punti ad alto passaggio.",features:["POI rilevanti","Fermate metro/bus/treno","Scuole, università, eventi","Flusso potenziale","Smart Pairing"],c:C.orange},{name:"Business Distribution",icon:"B2B",desc:"Distribuzione mirata ad attività commerciali, uffici e zone business.",features:["B2B","fornitori","servizi professionali","attività locali"],c:C.orange}],R=[{n:"01",t:"Configura campagna",d:"Percorso completo in 4 step: campagna, zona, pianificazione e preventivo finale.",benefits:["Analisi ISTAT zona","Mappa e copertura","GPS e report verificabili","Smart Pairing opzionale"],cta:"Configura la tua campagna",c:C.orange,fn:()=>n("step1")},{n:"02",t:"Preventivo rapido",d:"Inserisci pochi dati e passa a un prezzo personalizzato calcolato su zona, quantità e servizio.",benefits:["3 campi essenziali","Prezzo personalizzato","Nessun account richiesto"],cta:"Preventivo rapido",c:C.orange,fn:()=>n("quick"),quick:!0},{n:"03",t:"Parla con un consulente",d:"Preferisci supporto diretto? Invia una richiesta e ti ricontattiamo.",benefits:["Brief gratuito","Scelta servizio guidata","Richiamo operativo","Tempo: immediato"],cta:"Parla con un consulente",c:C.orange,fn:()=>n("consultant")}];return _jsxs("div",{className:"home-shell-dark saas-home-refinement",style:{background:"#0B1020",paddingBottom:0,minHeight:"100vh"},children:[_jsx("style",{children:`
   .home-shell-dark { background-color: #0B1020 !important; color: #F8FAFC !important; }
   .home-shell-dark section, .home-shell-dark article { background: transparent !important; }
   .home-shell-dark section[style*="cream"], .home-shell-dark div[style*="cream"] { background: #111827 !important; border-top: 1px solid rgba(148, 163, 184, 0.18) !important; color: #F8FAFC !important; }
@@ -439,7 +440,7 @@ const x=[{value:"ISTAT",l:"Dati reali",src:"Fonti territoriali"},{value:"GIS",l:
               key: H,
               style: { display: "flex", alignItems: "center", gap: 10, fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.7)" },
               children: [
-                _jsx("span", { style: { width: 18, height: 18, borderRadius: "50%", background: "rgba(99,102,241,0.14)", color: "#6366F1", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, flexShrink: 0 }, children: "✓" }),
+                _jsx("span", { style: { width: 18, height: 18, borderRadius: "50%", background: "rgba(232,87,26,0.15)", color: "#E8571A", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, flexShrink: 0 }, children: "✓" }),
                 H
               ]
             }))
@@ -497,7 +498,7 @@ const x=[{value:"ISTAT",l:"Dati reali",src:"Fonti territoriali"},{value:"GIS",l:
       }))
     })
   ]
-})]})}),_jsx("section",{ref:kpiBandRef,className:"section-tight",style:{display:"none",background:C.navy,paddingLeft:28,paddingRight:28,borderTop:`3px solid ${C.orange}`,opacity:kpiBandVisible?1:0,transform:kpiBandVisible?"none":"translateY(22px)",transition:"opacity .5s ease, transform .7s cubic-bezier(.2,.8,.2,1)",willChange:"transform, opacity"},children:_jsx("div",{style:{maxWidth:1200,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2},children:x.map(({value:D,l:W,src:A},F)=>_jsxs("div",{style:{padding:"34px 26px",borderLeft:F>0?"1px solid rgba(255,255,255,.07)":"none"},children:[_jsx("div",{style:{width:26,height:3,background:C.orange,borderRadius:2,marginBottom:16}}),_jsx("div",{style:{fontFamily:F.serif,fontSize:typeof D=="string"&&D.length>8?34:50,color:C.white,letterSpacing:"-1.4px",lineHeight:1,marginBottom:10,fontVariantNumeric:"tabular-nums"},children:D}),_jsx("div",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.8)",lineHeight:1.4,marginBottom:8},children:W}),_jsx("div",{style:{display:"inline-flex",padding:"3px 7px",borderRadius:4,background:"rgba(232,87,26,.12)",fontFamily:F.sans,fontSize:9,color:C.orange},children:A})]},W))})}),_jsx("section",{id:"come-funziona",className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,scrollMarginTop:80},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:64},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Dall'idea al volantino in mano"}),_jsxs("h2",{style:{fontFamily:F.serif,fontSize:48,color:C.navy,letterSpacing:"-1.5px",marginBottom:14,lineHeight:1.06},children:["Dall'idea alla campagna",_jsx("br",{}),"in 4 step misurabili."]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:520,lineHeight:1.65},children:"Un flusso unico per definire servizio, zona, date operative e preventivo finale."})]}),_jsx("div",{className:"steps-grid",style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12},children:T.map(({n:D,t:W,d:A,b:F,c:B},P)=>_jsxs("div",{className:"vc",style:{padding:"34px 28px",background:C.white,borderRadius:16,border:"1px solid rgba(0,0,0,.04)",boxShadow:"0 8px 24px rgba(0,0,0,.02)",position:"relative",overflow:"hidden"},children:[_jsx("div",{style:{position:"absolute",top:-8,right:12,fontFamily:F.sans,fontWeight:900,fontSize:94,color:"#F4F6F8",lineHeight:1,userSelect:"none"},children:D}),_jsx("div",{style:{width:24,height:3,borderRadius:2,background:B,marginBottom:24}}),_jsx("h3",{style:{fontFamily:F.serif,fontSize:22,color:C.navy,marginBottom:12,letterSpacing:"-.3px"},children:W}),_jsx("p",{style:{fontFamily:F.sans,fontSize:14,color:C.muted,lineHeight:1.6,marginBottom:20},children:A}),_jsx("div",{style:{display:"inline-flex",padding:"4px 10px",borderRadius:6,background:`${B}12`,fontFamily:F.sans,fontSize:11,fontWeight:700,color:B},children:F})]},D))}),_jsx("div",{style:{textAlign:"center",marginTop:56},children:_jsx("button",{className:"vb",onClick:()=>n("step1"),style:{padding:"14px 34px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#E8571A 0%,#D0450B 100%)",color:C.white,fontFamily:F.sans,fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 6px 16px rgba(232,87,26,0.28)"},children:"Configura la tua campagna "})})]})}),_jsx(ServicesSection,{onConfigure:()=>n("step1")}),_jsx(FeatureZonaMappa,{onConfigure:()=>n("step1")}),_jsx(FeatureSmartPairing,{onConfigure:()=>n("step1")}),_jsx(RisultatiSection,{}),_jsx(FAQSection,{onContact:()=>n("consultant")}),_jsx(PricingSection,{onConfigure:()=>n("step1"),onConsultant:()=>n("consultant")}),_jsx(Footer,{onNav:n,onHowItWorks:i}),_jsx("footer",{style:{display:"none",background:"#070D1A",borderTop:"1px solid rgba(255,255,255,.05)",padding:"52px 28px 34px"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{display:"flex",gap:64,marginBottom:44},children:[_jsxs("div",{style:{flex:"0 0 250px"},children:[_jsxs("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:16},children:[_jsx("div",{style:{width:30,height:30,borderRadius:7,background:C.orange,display:"flex",alignItems:"center",justifyContent:"center"},children:_jsxs("svg",{width:"16",height:"16",viewBox:"0 0 20 20",fill:"none",children:[_jsx("path",{d:"M3 17L10 3L17 17H3Z",fill:"white"}),_jsx("circle",{cx:"10",cy:"12",r:"2",fill:"white",opacity:".7"})]})}),_jsxs("span",{style:{fontFamily:F.serif,fontSize:18,color:C.white},children:["Volantini",_jsx("span",{style:{color:C.orange},children:"Pro"})]})]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.33)",lineHeight:1.65,marginBottom:16},children:"Piattaforma B2B per configurare campagne di volantinaggio con dati territoriali, GPS e report operativo."}),_jsx("div",{style:{display:"inline-flex",alignItems:"center",gap:6,padding:"4px 10px",borderRadius:6,background:"rgba(232,87,26,.1)",fontFamily:F.sans,fontSize:11,color:C.orange},children:"Operativo su Milano e Lombardia"})]}),_jsx("div",{style:{display:"flex",gap:52,flex:1},children:m.map(({t:D,items:W})=>_jsxs("div",{children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:C.orange,marginBottom:16},children:D}),_jsx("div",{style:{display:"flex",flexDirection:"column",gap:9},children:W.map(([A,F])=>_jsx("button",{onClick:()=>F==="home"&&A==="Come funziona"?i():n(F),style:{padding:0,border:"none",background:"transparent",textAlign:"left",fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.6)",cursor:"pointer"},children:A},A))})]},D))})]}),_jsxs("div",{style:{borderTop:"1px solid rgba(255,255,255,.05)",paddingTop:24,display:"flex",justifyContent:"space-between"},children:[_jsx("span",{style:{fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)"},children:"2025 VolantiniPro S.r.l. - Milano"}),_jsx("span",{style:{display:"flex",gap:10,alignItems:"center"},children:[["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]].map(([D,W])=>_jsx("button",{onClick:()=>n(W),style:{padding:0,border:"none",background:"transparent",fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)",cursor:"pointer"},children:D},D))})]})]})})]})}
+})]})}),_jsx("section",{ref:kpiBandRef,className:"section-tight",style:{display:"none",background:C.navy,paddingLeft:28,paddingRight:28,borderTop:`3px solid ${C.orange}`,opacity:kpiBandVisible?1:0,transform:kpiBandVisible?"none":"translateY(22px)",transition:"opacity .5s ease, transform .7s cubic-bezier(.2,.8,.2,1)",willChange:"transform, opacity"},children:_jsx("div",{style:{maxWidth:1200,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2},children:x.map(({value:D,l:W,src:A},F)=>_jsxs("div",{style:{padding:"34px 26px",borderLeft:F>0?"1px solid rgba(255,255,255,.07)":"none"},children:[_jsx("div",{style:{width:26,height:3,background:C.orange,borderRadius:2,marginBottom:16}}),_jsx("div",{style:{fontFamily:F.serif,fontSize:typeof D=="string"&&D.length>8?34:50,color:C.white,letterSpacing:"-1.4px",lineHeight:1,marginBottom:10,fontVariantNumeric:"tabular-nums"},children:D}),_jsx("div",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.8)",lineHeight:1.4,marginBottom:8},children:W}),_jsx("div",{style:{display:"inline-flex",padding:"3px 7px",borderRadius:4,background:"rgba(232,87,26,.12)",fontFamily:F.sans,fontSize:9,color:C.orange},children:A})]},W))})}),_jsx("section",{id:"come-funziona",className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,scrollMarginTop:80},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:64},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Dall'idea al volantino in mano"}),_jsxs("h2",{style:{fontFamily:F.serif,fontSize:48,color:C.navy,letterSpacing:"-1.5px",marginBottom:14,lineHeight:1.06},children:["Dall'idea alla campagna",_jsx("br",{}),"in 4 step misurabili."]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:520,lineHeight:1.65},children:"Un flusso unico per definire servizio, zona, date operative e preventivo finale."})]}),_jsx("div",{className:"steps-grid",style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12},children:T.map(({n:D,t:W,d:A,b:F,c:B},P)=>_jsxs("div",{className:"vc",style:{padding:"34px 28px",background:C.white,borderRadius:16,border:"1px solid rgba(0,0,0,.04)",boxShadow:"0 8px 24px rgba(0,0,0,.02)",position:"relative",overflow:"hidden"},children:[_jsx("div",{style:{position:"absolute",top:-8,right:12,fontFamily:F.sans,fontWeight:900,fontSize:94,color:"#F4F6F8",lineHeight:1,userSelect:"none"},children:D}),_jsx("div",{style:{width:24,height:3,borderRadius:2,background:B,marginBottom:24}}),_jsx("h3",{style:{fontFamily:F.serif,fontSize:22,color:C.navy,marginBottom:12,letterSpacing:"-.3px"},children:W}),_jsx("p",{style:{fontFamily:F.sans,fontSize:14,color:C.muted,lineHeight:1.6,marginBottom:20},children:A}),_jsx("div",{style:{display:"inline-flex",padding:"4px 10px",borderRadius:6,background:`${B}12`,fontFamily:F.sans,fontSize:11,fontWeight:700,color:B},children:F})]},D))}),_jsx("div",{style:{textAlign:"center",marginTop:56},children:_jsx("button",{className:"vb",onClick:()=>n("step1"),style:{padding:"14px 34px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#E8571A 0%,#D0450B 100%)",color:C.white,fontFamily:F.sans,fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 6px 16px rgba(232,87,26,0.28)"},children:"Configura la tua campagna "})})]})}),_jsx(ServicesSection,{onConfigure:()=>n("step1")}),_jsx(React.Suspense,{fallback:_jsx("div",{style:{minHeight:200,background:"#0B1020"}}),children:_jsx(AIConsultantSection,{})}),_jsx(FeatureZonaMappa,{onConfigure:()=>n("step1")}),_jsx(FeatureSmartPairing,{onConfigure:()=>n("step1")}),_jsx(RisultatiSection,{}),_jsx(FAQSection,{onContact:()=>n("consultant")}),_jsx(PricingSection,{onConfigure:()=>n("step1"),onConsultant:()=>n("consultant")}),_jsx(Footer,{onNav:n,onHowItWorks:i}),_jsx("footer",{style:{display:"none",background:"#070D1A",borderTop:"1px solid rgba(255,255,255,.05)",padding:"52px 28px 34px"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{display:"flex",gap:64,marginBottom:44},children:[_jsxs("div",{style:{flex:"0 0 250px"},children:[_jsxs("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:16},children:[_jsx("div",{style:{width:30,height:30,borderRadius:7,background:C.orange,display:"flex",alignItems:"center",justifyContent:"center"},children:_jsxs("svg",{width:"16",height:"16",viewBox:"0 0 20 20",fill:"none",children:[_jsx("path",{d:"M3 17L10 3L17 17H3Z",fill:"white"}),_jsx("circle",{cx:"10",cy:"12",r:"2",fill:"white",opacity:".7"})]})}),_jsxs("span",{style:{fontFamily:F.serif,fontSize:18,color:C.white},children:["Volantini",_jsx("span",{style:{color:C.orange},children:"Pro"})]})]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.33)",lineHeight:1.65,marginBottom:16},children:"Piattaforma B2B per configurare campagne di volantinaggio con dati territoriali, GPS e report operativo."}),_jsx("div",{style:{display:"inline-flex",alignItems:"center",gap:6,padding:"4px 10px",borderRadius:6,background:"rgba(232,87,26,.1)",fontFamily:F.sans,fontSize:11,color:C.orange},children:"Operativo su Milano e Lombardia"})]}),_jsx("div",{style:{display:"flex",gap:52,flex:1},children:m.map(({t:D,items:W})=>_jsxs("div",{children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:C.orange,marginBottom:16},children:D}),_jsx("div",{style:{display:"flex",flexDirection:"column",gap:9},children:W.map(([A,F])=>_jsx("button",{onClick:()=>F==="home"&&A==="Come funziona"?i():n(F),style:{padding:0,border:"none",background:"transparent",textAlign:"left",fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.6)",cursor:"pointer"},children:A},A))})]},D))})]}),_jsxs("div",{style:{borderTop:"1px solid rgba(255,255,255,.05)",paddingTop:24,display:"flex",justifyContent:"space-between"},children:[_jsx("span",{style:{fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)"},children:"2025 VolantiniPro S.r.l. - Milano"}),_jsx("span",{style:{display:"flex",gap:10,alignItems:"center"},children:[["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]].map(([D,W])=>_jsx("button",{onClick:()=>n(W),style:{padding:0,border:"none",background:"transparent",fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)",cursor:"pointer"},children:D},D))})]})]})})]})}
 
 // JSX runtime shim for reconstructed bundle code
 function _jsx(type, props, key) {
@@ -4417,6 +4418,7 @@ function Step3({ data, setData, onNext, onBack }) {
   
   const [activeCalZoneId, setActiveCalZoneId] = useState(data.activeZoneId || data.campaignZones?.[0]?.id);
   const [selDays, setSelDays] = useState([]);
+  const [showZoneDetails, setShowZoneDetails] = useState(false);
   
   useEffect(() => {
     if (!data.dateMode) {
@@ -4546,9 +4548,11 @@ function Step3({ data, setData, onNext, onBack }) {
   const currentServiceType = activeZone ? activeZone.service_type : (data.type || "d2d");
   const svcLabel = { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Business Distribution" }[currentServiceType] || "Servizio";
 
-  const zoneLabel = activeZone
-    ? (activeZone.zone_label || activeZone.cityName || `Zona ${activeCalZoneId}`)
-    : ((data.selectedComuni && data.selectedComuni.length ? data.selectedComuni : (data.zones || [])).join(" – ") || data.cityName || "Zona da Step 2");
+  const allZonesList = activeZone
+    ? [activeZone.zone_label || activeZone.cityName || `Zona ${activeCalZoneId}`]
+    : (data.selectedComuni && data.selectedComuni.length ? data.selectedComuni : (data.zones && data.zones.length ? data.zones : [data.cityName || "Zona da Step 2"]));
+  const compactZoneLabel = allZonesList.length > 1 ? `${allZonesList[0]} (+${allZonesList.length - 1} zone)` : (allZonesList[0] || "Zona selezionata");
+  const zoneLabel = allZonesList.join(" – ");
 
   const fmtIsoDate = (v) => {
     if (!v) return "";
@@ -4767,18 +4771,42 @@ function toggle(d) {
         <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 18 }}>Il Processo Smart Pairing</div>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(5, 1fr)", gap: isMobile ? 12 : 16, alignItems: "center" }}>
           {[
-            { step: "1", title: "Hai scelto la zona", desc: zoneLabel },
-            { step: "2", title: "L'AI cerca", desc: "Campagne compatibili" },
-            { step: "3", title: "Slot proposti", desc: "Finestre disponibili" },
-            { step: "4", title: "Confermi", desc: "Scegli le date" },
-            { step: "5", title: "Risparmi", desc: "Fino al 40%", highlight: true }
-          ].map((item) => (
-            <div key={item.step} style={{ background: item.highlight ? "rgba(46,204,138,0.12)" : "rgba(255,255,255,0.04)", border: `1px solid ${item.highlight ? "rgba(46,204,138,0.35)" : "rgba(255,255,255,0.08)"}`, borderRadius: 14, padding: "14px 16px" }}>
-              <div style={{ width: 22, height: 22, borderRadius: "50%", background: item.highlight ? C.green : "rgba(99,102,241,0.2)", color: item.highlight ? "#000" : C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>{item.step}</div>
-              <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: item.highlight ? C.green : C.white, marginBottom: 2 }}>{item.title}</div>
-              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{item.desc}</div>
-            </div>
-          ))}
+            { step: "1", title: "Hai scelto la zona", desc: compactZoneLabel, status: "completed" },
+            { step: "2", title: "L'AI cerca", desc: "Campagne compatibili", status: "completed" },
+            { step: "3", title: "Slot proposti", desc: "Finestre disponibili", status: "active" },
+            { step: "4", title: "Confermi", desc: "Scegli le date", status: "future" },
+            { step: "5", title: "Risparmi", desc: "Fino al 40%", status: selDays.length > 0 ? "completed" : "future", highlight: true }
+          ].map((item) => {
+            let bg = "rgba(255,255,255,0.03)";
+            let border = "1px solid rgba(255,255,255,0.07)";
+            let stepBg = "rgba(255,255,255,0.12)";
+            let stepColor = "rgba(255,255,255,0.6)";
+            let titleColor = "rgba(255,255,255,0.5)";
+
+            if (item.status === "completed") {
+              bg = "rgba(46,204,138,0.08)";
+              border = "1px solid rgba(46,204,138,0.3)";
+              stepBg = C.green;
+              stepColor = "#000";
+              titleColor = C.green;
+            } else if (item.status === "active") {
+              bg = "rgba(232,87,26,0.12)";
+              border = "1px solid rgba(232,87,26,0.45)";
+              stepBg = "#E8571A";
+              stepColor = C.white;
+              titleColor = "#E8571A";
+            }
+
+            return (
+              <div key={item.step} style={{ background: bg, border, borderRadius: 14, padding: "14px 16px", transition: "all .2s" }}>
+                <div style={{ width: 24, height: 24, borderRadius: "50%", background: stepBg, color: stepColor, fontFamily: F.sans, fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8, boxShadow: item.status === "active" ? "0 0 12px rgba(232,87,26,0.5)" : "none" }}>
+                  {item.status === "completed" ? "✓" : item.step}
+                </div>
+                <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: titleColor, marginBottom: 2 }}>{item.title}</div>
+                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,0.55)" }}>{item.desc}</div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -4790,10 +4818,10 @@ function toggle(d) {
           { label: "Operatori disponibili", val: realSmartPairingSlots.length > 0 ? Math.max(4, Math.round((activeQty || 10000) / 2500)) : "4+", sub: "Squadra di zona", color: C.purple },
           { label: "Tempo medio attesa", val: realSmartPairingSlots.length > 0 ? "0 giorni" : "2 giorni", sub: realSmartPairingSlots.length > 0 ? "Disponibile ora" : "Notifica prioritaria", color: C.yellow }
         ].map((kpi, i) => (
-          <div key={i} style={{ background: "rgba(255,255,255,0.035)", borderRadius: 16, padding: "18px 20px", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8 }}>{kpi.label}</div>
-            <div style={{ fontFamily: F.serif, fontSize: 32, color: kpi.color, lineHeight: 1, marginBottom: 6 }}>{kpi.val}</div>
-            <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,0.55)" }}>{kpi.sub}</div>
+          <div key={i} style={{ background: "rgba(255,255,255,0.035)", borderRadius: 16, padding: "20px", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", justifyContent: "space-between", boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}>
+            <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10 }}>{kpi.label}</div>
+            <div style={{ fontFamily: F.serif, fontSize: 38, fontWeight: 900, color: kpi.color, lineHeight: 1, letterSpacing: "-1px", marginBottom: 6 }}>{kpi.val}</div>
+            <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{kpi.sub}</div>
           </div>
         ))}
       </div>
@@ -4816,21 +4844,21 @@ function toggle(d) {
 
           {/* 4 & 9. CALENDARIO COMPATTO OPPURE CASO "NESSUNO SLOT" */}
           {realSmartPairingSlots.length === 0 ? (
-            <div style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.08) 0%, rgba(245,158,11,0.03) 100%)", borderRadius: 20, padding: "32px 26px", border: "1px solid rgba(251,191,36,0.25)", textAlign: "center", marginBottom: 28, boxShadow: "0 10px 30px rgba(0,0,0,0.2)" }}>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.08) 0%, rgba(245,158,11,0.03) 100%)", borderRadius: 20, padding: "32px 26px", border: "1px solid rgba(251,191,36,0.25)", textAlign: "center", marginBottom: 28, boxShadow: "0 10px 30px rgba(0,0,0,0.2)" }}>
               <div style={{ width: 54, height: 54, borderRadius: "50%", background: "rgba(251,191,36,0.15)", color: C.yellow, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, margin: "0 auto 16px" }}>🔍</div>
               <h3 style={{ fontFamily: F.serif, fontSize: 24, color: C.white, marginBottom: 8 }}>Nessuna campagna compatibile al momento.</h3>
               <p style={{ fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,0.7)", maxWidth: 520, margin: "0 auto 24px", lineHeight: 1.6 }}>
                 L'AI continua automaticamente la ricerca nelle prossime ore. Riceverai una notifica appena sarà disponibile uno Smart Pairing compatibile con la tua zona.
               </p>
               <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-                <button onClick={() => setShowRequest(true)} style={{ padding: "12px 24px", borderRadius: 10, background: C.yellow, color: "#000", fontFamily: F.sans, fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 14px rgba(251,191,36,0.3)" }}>
+                <button onClick={() => setShowRequest(true)} style={{ padding: "12px 24px", borderRadius: 10, background: "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 14px rgba(232,87,26,0.4)" }}>
                   Attivami
                 </button>
                 <button onClick={handleSkipPairing} style={{ padding: "12px 20px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.18)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                   Continua senza Smart Pairing →
                 </button>
               </div>
-            </div>
+            </motion.div>
           ) : (
             <div style={{ marginBottom: 28 }}>
               <div style={{ display: "flex", gap: 14, marginBottom: 14, flexWrap: "wrap" }}>
@@ -4849,7 +4877,7 @@ function toggle(d) {
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
                 <button onClick={() => { if (month > 0) setMonth(m => m - 1); else { setMonth(11); setYear(y => y - 1); } }} style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)", color: C.white, cursor: "pointer", fontSize: 14 }}>-</button>
                 <span style={{ fontFamily: F.serif, fontSize: 20, color: C.white, minWidth: 165, textAlign: "center" }}>{MONTHS_FULL[month]} {year}</span>
-                <button onClick={() => { if (month < 11) setMonth(m => m + 1); else { setMonth(0); setYear(y => y + 1); } }} style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)", color: C.white, cursor: "pointer", fontSize: 14 }}>-–</button>
+                <button onClick={() => { if (month < 11) setMonth(m => m + 1); else { setMonth(0); setYear(y => y + 1); } }} style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)", color: C.white, cursor: "pointer", fontSize: 14 }}>+ </button>
               </div>
 
               <div style={{ position: "relative", background: "rgba(255,255,255,.03)", borderRadius: 16, padding: 16, border: "1px solid rgba(255,255,255,.08)", overflow: "hidden" }}>
@@ -4924,19 +4952,27 @@ function toggle(d) {
 
           {/* 6. COME FUNZIONA */}
           <div id="smart-pairing-how" style={{ background: "rgba(255,255,255,0.025)", borderRadius: 18, padding: "24px", border: "1px solid rgba(255,255,255,0.06)", marginBottom: 24 }}>
-            <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: C.cyan, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 6 }}>Algoritmo di abbinamento</div>
+            <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "#E8571A", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 6 }}>Algoritmo di abbinamento</div>
             <h3 style={{ fontFamily: F.serif, fontSize: 22, color: C.white, marginBottom: 14 }}>Come funziona l'AI</h3>
             <p style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,0.65)", lineHeight: 1.6, marginBottom: 16 }}>
               L'AI confronta costantemente i flussi di distribuzione analizzando i seguenti parametri:
             </p>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)", gap: 10, marginBottom: 18 }}>
-              {["• Zona", "• Quantità", "• Periodo", "• Operatori", "• Disponibilità", "• Itinerari"].map((param, idx) => (
-                <div key={idx} style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(255,255,255,0.04)", fontFamily: F.sans, fontSize: 13, color: C.white, fontWeight: 600 }}>
-                  {param}
+              {[
+                { icon: "📍", label: "Zona" },
+                { icon: "📦", label: "Quantità" },
+                { icon: "📅", label: "Periodo" },
+                { icon: "👥", label: "Operatori" },
+                { icon: "⚡", label: "Disponibilità" },
+                { icon: "🛣️", label: "Itinerari" }
+              ].map((param, idx) => (
+                <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", fontFamily: F.sans, fontSize: 13, color: C.white, fontWeight: 600 }}>
+                  <span>{param.icon}</span>
+                  <span>{param.label}</span>
                 </div>
               ))}
             </div>
-            <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.3)", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,0.92)", fontWeight: 600, lineHeight: 1.5 }}>
+            <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(232,87,26,0.1)", border: "1px solid rgba(232,87,26,0.3)", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,0.92)", fontWeight: 600, lineHeight: 1.5 }}>
               Successivamente crea automaticamente gruppi di distribuzione compatibili, abbattendo i costi di uscita logistica.
             </div>
           </div>
@@ -4966,10 +5002,22 @@ function toggle(d) {
                 <span style={{ color: "rgba(255,255,255,.5)" }}>Servizio</span>
                 <span style={{ color: C.white, fontWeight: 700 }}>{svcLabel}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "rgba(255,255,255,.5)" }}>Zona</span>
-                <span style={{ color: C.white, fontWeight: 700 }}>{zoneLabel}</span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <span style={{ color: "rgba(255,255,255,.5)" }}>Zone</span>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ color: C.white, fontWeight: 700 }}>{compactZoneLabel}</div>
+                  {allZonesList.length > 1 && (
+                    <button type="button" onClick={() => setShowZoneDetails(!showZoneDetails)} style={{ background: "none", border: "none", color: "#E8571A", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0, marginTop: 2 }}>
+                      {showZoneDetails ? "▲ Nascondi elenco" : "• Visualizza elenco"}
+                    </button>
+                  )}
+                </div>
               </div>
+              {showZoneDetails && allZonesList.length > 1 && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} transition={{ duration: 0.2 }} style={{ padding: "10px 12px", background: "rgba(0,0,0,0.3)", borderRadius: 8, fontSize: 11, color: "#CBD5E1", maxHeight: 130, overflowY: "auto", lineHeight: 1.5 }}>
+                  {allZonesList.join(" · ")}
+                </motion.div>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "rgba(255,255,255,.5)" }}>Quantità</span>
                 <span style={{ color: C.white, fontWeight: 700 }}>{activeQty.toLocaleString("it-IT")} vol.</span>
@@ -4998,8 +5046,8 @@ function toggle(d) {
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {selDays.length > 0 ? (
               <button className="btn" onClick={handlePrimary}
-                style={{ width: "100%", padding: "15px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 8px 24px rgba(99,102,241,0.35)" }}>
-                Genera preventivo
+                style={{ width: "100%", padding: "16px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 8px 24px rgba(232,87,26,0.35)", transition: "all .2s" }}>
+                Attivami e genera preventivo
               </button>
             ) : realSmartPairingSlots.length > 0 ? (
               <div style={{ padding: "10px", textAlign: "center", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.5)" }}>
@@ -5007,8 +5055,8 @@ function toggle(d) {
               </div>
             ) : null}
             
-            <button className="btn" onClick={handleSkipPairing} style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.14)", background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.75)", fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-              Continua senza Smart Pairing
+            <button className="btn" onClick={handleSkipPairing} style={{ width: "100%", padding: "13px", borderRadius: 12, border: "1px solid rgba(255,255,255,.18)", background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.85)", fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer", transition: "all .2s" }}>
+              Continua senza Smart Pairing →
             </button>
             <button className="btn" onClick={onBack} style={{ width: "100%", padding: "10px", borderRadius: 10, border: "none", background: "transparent", color: "rgba(255,255,255,.45)", fontFamily: F.sans, fontSize: 13, cursor: "pointer" }}>
               ← Torna a Zona & Mappa
@@ -5028,6 +5076,7 @@ const [emailSent, setEmailSent] = useState(false);
 const [pdfBusy, setPdfBusy] = useState(false);
 const [pdfError, setPdfError] = useState("");
 const [showTechPanel, setShowTechPanel] = useState(false);
+const [showStep4Zones, setShowStep4Zones] = useState(false);
 const [techSections, setTechSections] = useState({});
 const toggleTech = key => setTechSections(p => ({...p, [key]: !p[key]}));
 const svcCommercial = {
@@ -5509,38 +5558,38 @@ const savedRow = savedCampaign?.[0] || {};
             {tLabel}{data.distributionVariant ? ` · ${data.distributionVariant}` : ""} · {new Date().toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })}
           </div>
         )}
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${isMobile ? 2 : Math.min(5, 2 + (svcType === "d2d" ? 2 : 1))}, 1fr)`, gap: 8, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${isMobile ? 2 : Math.min(5, 2 + (svcType === "d2d" ? 2 : 1))}, 1fr)`, gap: 12, marginBottom: 20 }}>
           {svcType === "d2d" && <>
-            <div style={{ padding: "11px 12px", background: "rgba(46,204,138,.07)", borderRadius: 12, border: "1px solid rgba(46,204,138,.18)" }}>
-              <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".06em" }}>Famiglie</div>
-              <div style={{ fontFamily: F.serif, fontSize: 19, color: C.green, letterSpacing: "-.5px" }}>{formatNumber(kpis.families ?? totF) || "—"}</div>
+            <div style={{ padding: "16px 14px", background: "rgba(46,204,138,.08)", borderRadius: 16, border: "1px solid rgba(46,204,138,.25)", boxShadow: "0 4px 15px rgba(0,0,0,0.15)" }}>
+              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.45)", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Famiglie</div>
+              <div style={{ fontFamily: F.serif, fontSize: 34, fontWeight: 900, color: C.green, letterSpacing: "-1px", lineHeight: 1 }}>{formatNumber(kpis.families ?? totF) || "—"}</div>
             </div>
-            <div style={{ padding: "11px 12px", background: `${col}0d`, borderRadius: 12, border: `1px solid ${col}28` }}>
-              <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".06em" }}>Copertura</div>
-              <div style={{ fontFamily: F.serif, fontSize: 19, color: col, letterSpacing: "-.5px" }}>{kpis.coverage ?? avgCov}%</div>
+            <div style={{ padding: "16px 14px", background: `${col}12`, borderRadius: 16, border: `1px solid ${col}35`, boxShadow: "0 4px 15px rgba(0,0,0,0.15)" }}>
+              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.45)", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Copertura</div>
+              <div style={{ fontFamily: F.serif, fontSize: 34, fontWeight: 900, color: col, letterSpacing: "-1px", lineHeight: 1 }}>{kpis.coverage ?? avgCov}%</div>
             </div>
           </>}
           {(isH2H) && <>
-            <div style={{ padding: "11px 12px", background: "rgba(96,165,250,.07)", borderRadius: 12, border: "1px solid rgba(96,165,250,.2)" }}>
-              <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", marginBottom: 4, textTransform: "uppercase" }}>POI</div>
-              <div style={{ fontFamily: F.serif, fontSize: 19, color: C.blue }}>{formatNumber(kpis.poi) || "—"}</div>
+            <div style={{ padding: "16px 14px", background: "rgba(96,165,250,.08)", borderRadius: 16, border: "1px solid rgba(96,165,250,.25)", boxShadow: "0 4px 15px rgba(0,0,0,0.15)" }}>
+              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.45)", marginBottom: 6, textTransform: "uppercase" }}>POI</div>
+              <div style={{ fontFamily: F.serif, fontSize: 34, fontWeight: 900, color: C.blue, letterSpacing: "-1px", lineHeight: 1 }}>{formatNumber(kpis.poi) || "—"}</div>
             </div>
-            <div style={{ padding: "11px 12px", background: "rgba(167,139,250,.07)", borderRadius: 12, border: "1px solid rgba(167,139,250,.2)" }}>
-              <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", marginBottom: 4, textTransform: "uppercase" }}>Hotspot</div>
-              <div style={{ fontFamily: F.serif, fontSize: 19, color: C.purple }}>{formatNumber(kpis.hotspotCount) || "—"}</div>
+            <div style={{ padding: "16px 14px", background: "rgba(167,139,250,.08)", borderRadius: 16, border: "1px solid rgba(167,139,250,.25)", boxShadow: "0 4px 15px rgba(0,0,0,0.15)" }}>
+              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.45)", marginBottom: 6, textTransform: "uppercase" }}>Hotspot</div>
+              <div style={{ fontFamily: F.serif, fontSize: 34, fontWeight: 900, color: C.purple, letterSpacing: "-1px", lineHeight: 1 }}>{formatNumber(kpis.hotspotCount) || "—"}</div>
             </div>
           </>}
-          <div style={{ padding: "11px 12px", background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.08)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".06em" }}>Zone</div>
-            <div style={{ fontFamily: F.serif, fontSize: 19, color: C.white }}>{selectedZoneNames.length || "—"}</div>
+          <div style={{ padding: "16px 14px", background: "rgba(255,255,255,.04)", borderRadius: 16, border: "1px solid rgba(255,255,255,.1)", boxShadow: "0 4px 15px rgba(0,0,0,0.15)" }}>
+            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.45)", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Zone</div>
+            <div style={{ fontFamily: F.serif, fontSize: 34, fontWeight: 900, color: C.white, letterSpacing: "-1px", lineHeight: 1 }}>{selectedZoneNames.length || "—"}</div>
           </div>
-          <div style={{ padding: "11px 12px", background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.08)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".06em" }}>Volantini</div>
-            <div style={{ fontFamily: F.serif, fontSize: 19, color: C.white }}>{flyerQty >= 1000 ? (flyerQty / 1000).toFixed(0) + "k" : flyerQty}</div>
+          <div style={{ padding: "16px 14px", background: "rgba(255,255,255,.04)", borderRadius: 16, border: "1px solid rgba(255,255,255,.1)", boxShadow: "0 4px 15px rgba(0,0,0,0.15)" }}>
+            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.45)", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Volantini</div>
+            <div style={{ fontFamily: F.serif, fontSize: 34, fontWeight: 900, color: C.white, letterSpacing: "-1px", lineHeight: 1 }}>{flyerQty >= 1000 ? (flyerQty / 1000).toFixed(0) + "k" : flyerQty}</div>
           </div>
-          <div style={{ padding: "11px 12px", background: `${col}15`, borderRadius: 12, border: `1px solid ${col}35` }}>
-            <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.38)", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".06em" }}>Totale</div>
-            <div style={{ fontFamily: F.serif, fontSize: 19, color: col }}>{eur(total)}</div>
+          <div style={{ padding: "16px 14px", background: `${col}18`, borderRadius: 16, border: `1px solid ${col}45`, boxShadow: `0 4px 20px ${col}25` }}>
+            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.45)", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Totale</div>
+            <div style={{ fontFamily: F.serif, fontSize: 34, fontWeight: 900, color: col, letterSpacing: "-1px", lineHeight: 1 }}>{eur(total)}</div>
           </div>
         </div>
         {(selectedExtras.length > 0 || disc > 0) && (
@@ -5638,45 +5687,63 @@ const savedRow = savedCampaign?.[0] || {};
 
                 {/* ── Zona e comuni ── */}
                 {selectedZoneNames.length > 0 && (
-                  <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)", display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 20, color: col, lineHeight: 1, flexShrink: 0 }}></div>
-                    <div>
-                      <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white, marginBottom: 3 }}>{selectedZoneNames.length === 1 ? selectedZoneNames[0] : `${selectedZoneNames.length} comuni selezionati`}</div>
-                      {selectedZoneNames.length > 1 && <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.42)", lineHeight: 1.5 }}>{selectedZoneNames.join(" · ")}</div>}
+                  <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <span style={{ fontSize: 18 }}>📍</span>
+                      <div>
+                        <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>
+                          {selectedZoneNames.length === 1 ? selectedZoneNames[0] : `${selectedZoneNames[0]} · ${selectedZoneNames.length} aree`}
+                        </div>
+                        <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)" }}>
+                          {selectedZoneNames.length === 1 ? "Area principale selezionata" : "Riepilogo aree di distribuzione"}
+                        </div>
+                      </div>
                     </div>
+                    {selectedZoneNames.length > 1 && (
+                      <button type="button" onClick={() => setShowStep4Zones(!showStep4Zones)} style={{ background: "none", border: "none", color: "#E8571A", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: "4px 8px" }}>
+                        {showStep4Zones ? "▲ Nascondi elenco" : "• Visualizza elenco"}
+                      </button>
+                    )}
                   </div>
+                )}
+                {showStep4Zones && selectedZoneNames.length > 1 && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} transition={{ duration: 0.2 }} style={{ padding: "12px 16px", background: "rgba(0,0,0,0.3)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)", fontSize: 12, color: "#CBD5E1", maxHeight: 150, overflowY: "auto", lineHeight: 1.6 }}>
+                    {selectedZoneNames.join(" · ")}
+                  </motion.div>
                 )}
 
                 {/* ── Stato quantità ── */}
                 {svcType === "d2d" && requiredQty > 0 && (
                   quantityIsSufficient ? (
-                    <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(46,204,138,.07)", border: "1px solid rgba(46,204,138,.2)", display: "flex", gap: 10, alignItems: "center" }}>
-                      <span style={{ fontSize: 18 }}>✅</span>
+                    <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.25)", display: "flex", gap: 12, alignItems: "center" }}>
+                      <span style={{ fontSize: 22 }}>✅</span>
                       <div>
-                        <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: C.green, marginBottom: 2 }}>Copertura completa</div>
-                        <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.52)", lineHeight: 1.45 }}>
-                          Avanzano {remainingQty.toLocaleString("it-IT", { useGrouping: true })} volantini come scorta operativa.
+                        <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.green, marginBottom: 2 }}>Copertura completa</div>
+                        <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)", lineHeight: 1.45 }}>
+                          Avanzano {remainingQty.toLocaleString("it-IT", { useGrouping: true })} volantini come scorta operativa per eventuali reintegri o punti ad alta densità.
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div style={{ padding: "16px", borderRadius: 12, background: "rgba(99,102,241,.06)", border: "1px solid rgba(99,102,241,.2)" }}>
-                      <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 14 }}>
-                        <span style={{ fontSize: 22, lineHeight: "1", flexShrink: 0 }}>📊</span>
+                    <div style={{ padding: "20px", borderRadius: 16, background: "linear-gradient(135deg, rgba(232,87,26,0.12) 0%, rgba(180,60,10,0.04) 100%)", border: "2px solid #E8571A", boxShadow: "0 8px 24px rgba(232,87,26,0.2)" }}>
+                      <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 16 }}>
+                        <span style={{ fontSize: 26, lineHeight: "1", flexShrink: 0 }}>📊</span>
                         <div>
-                          <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.white, marginBottom: 5 }}>Copertura parziale</div>
-                          <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.58)", lineHeight: 1.55 }}>
-                            Con la quantità attuale raggiungerai circa il <strong style={{ color: "#A5B4FC" }}>{kpis.coverage ?? avgCov}%</strong> dell'area selezionata.<br />
-                            Per una copertura completa servono altri <strong style={{ color: "#A5B4FC" }}>{missingQty.toLocaleString("it-IT", { useGrouping: true })} volantini</strong>.
+                          <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 900, color: C.white, marginBottom: 6, textTransform: "uppercase", letterSpacing: ".04em" }}>Copertura parziale stimata al {kpis.coverage ?? avgCov}%</div>
+                          <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.8)", lineHeight: 1.6 }}>
+                            Con la quantità attuale raggiungerai circa il <strong style={{ color: C.white }}>{kpis.coverage ?? avgCov}%</strong> delle famiglie nella zona selezionata.<br />
+                            <div style={{ marginTop: 8, padding: "8px 12px", background: "rgba(232,87,26,0.2)", borderRadius: 8, borderLeft: "3px solid #E8571A", fontSize: 14, fontWeight: 800, color: "#FFA17A" }}>
+                              Servono ancora {missingQty.toLocaleString("it-IT", { useGrouping: true })} volantini per coprire l'intera area.
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                        <button onClick={() => onHome("step1")} style={{ padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(99,102,241,.4)", background: "rgba(99,102,241,.15)", color: "#A5B4FC", fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                          ↑ Aumenta quantità
+                      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.5fr 1fr", gap: 12 }}>
+                        <button onClick={() => onHome("step1")} style={{ padding: "14px 18px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer", boxShadow: "0 4px 15px rgba(232,87,26,0.4)", transition: "all .2s" }}>
+                          ↑ Aumenta quantità (Consigliato)
                         </button>
-                        <button style={{ padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.5)", fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                          ✓ Mantieni copertura
+                        <button style={{ padding: "14px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,.18)", background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.75)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                          ✓ Mantieni copertura al {kpis.coverage ?? avgCov}%
                         </button>
                       </div>
                     </div>
@@ -5740,24 +5807,26 @@ const savedRow = savedCampaign?.[0] || {};
 
             {/* ── Optional non ancora aggiunti ── */}
             {optionalExtras.length > 0 && (
-              <div>
-                <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.28)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10 }}>Aggiungi alla campagna</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 8 }}>
+              <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,.08)" }}>
+                <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,.5)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 12 }}>Aggiungi servizi facoltativi al preventivo</div>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(280px,1fr))", gap: 12 }}>
                   {optionalExtras.map(ext => {
                     const comm = svcCommercial[ext.id] || {};
                     const cardCol = comm.col || C.blue;
                     return (
-                      <div key={ext.id} style={{ padding: "13px 14px", borderRadius: 12, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.07)", display: "flex", flexDirection: "column", gap: 10 }}>
-                        <div style={{ display: "flex", gap: 9, alignItems: "center" }}>
-                          <span style={{ fontSize: 20 }}>{comm.icon || ext.icon}</span>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.white }}>{comm.head || ext.label}</div>
-                            {comm.bullets?.[0] && <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.42)", marginTop: 2 }}>{comm.bullets[0]}</div>}
+                      <div key={ext.id} style={{ padding: "16px", borderRadius: 14, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.08)", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 14, transition: "border-color .2s" }}>
+                        <div>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                              <span style={{ fontSize: 22 }}>{comm.icon || ext.icon}</span>
+                              <div style={{ fontFamily: F.serif, fontSize: 16, color: C.white }}>{comm.head || ext.label}</div>
+                            </div>
+                            <span style={{ padding: "4px 10px", borderRadius: 8, background: `${cardCol}18`, fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: cardCol }}>+{eur(ext.price)}</span>
                           </div>
-                          <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: cardCol, flexShrink: 0 }}>+{eur(ext.price)}</span>
+                          {comm.bullets?.[0] && <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)", lineHeight: 1.5, paddingLeft: 32 }}>{comm.bullets[0]}</div>}
                         </div>
-                        <button onClick={() => addOptionalExtra(ext.id)} style={{ width: "100%", padding: "8px", borderRadius: 8, border: `1px solid ${cardCol}35`, background: `${cardCol}10`, color: cardCol, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                          Aggiungi al preventivo
+                        <button onClick={() => addOptionalExtra(ext.id)} style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${cardCol}40`, background: `${cardCol}12`, color: cardCol, fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer", transition: "all .2s" }}>
+                          + Aggiungi al preventivo
                         </button>
                       </div>
                     );
@@ -5776,20 +5845,23 @@ const savedRow = savedCampaign?.[0] || {};
                 Ti avviseremo via WhatsApp o email appena disponibile uno slot compatibile.
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {/* Status chips */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 8 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {/* Status chips con evidenza su Priorità, Periodo, Operatore, Stato */}
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)", gap: 10 }}>
                   {nonEmpty([
-                    { icon: "📅", l: "Periodo", v: selDays.length > 0 ? selectedDatesLabel : "Da definire con il team", c: selDays.length > 0 ? C.white : "rgba(255,255,255,.38)" },
-                    { icon: "⚡", l: "Priorità", v: data.urgency === "urgent" ? "Urgente" : "Standard", c: data.urgency === "urgent" ? C.red : C.white },
-                    { icon: "🔗", l: "Smart Pairing", v: disc > 0 ? `Attivo — -${disc}%` : "Non attivo", c: disc > 0 ? C.green : "rgba(255,255,255,.38)" },
-                    { icon: "👤", l: "Operatore", v: "Da assegnare", c: "rgba(255,255,255,.38)" },
-                    { icon: "📦", l: "Stato campagna", v: sent ? "Confermata" : "In attesa conferma", c: sent ? C.green : C.yellow },
-                    selDays.length > 0 && { icon: "📍", l: "Date selezionate", v: `${selDays.length} ${selDays.length === 1 ? "giornata" : "giornate"}`, c: col },
-                  ]).map(({ icon, l, v, c }) => (
-                    <div key={l} style={{ padding: "10px 12px", background: "rgba(255,255,255,.04)", borderRadius: 10, border: "1px solid rgba(255,255,255,.07)" }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.32)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4 }}>{icon} {l}</div>
-                      <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: c }}>{v}</div>
+                    { icon: "📅", l: "Periodo", v: selDays.length > 0 ? selectedDatesLabel : "Da definire con il team", c: selDays.length > 0 ? C.white : "#A5B4FC", highlight: true },
+                    { icon: "⚡", l: "Priorità", v: data.urgency === "urgent" ? "URGENTE (+30%)" : "Standard operativa", c: data.urgency === "urgent" ? C.red : C.white, highlight: data.urgency === "urgent" },
+                    { icon: "📦", l: "Stato", v: sent ? "CONFERMATA" : "PRONTA PER ATTIVAZIONE", c: sent ? C.green : "#E8571A", highlight: true },
+                    { icon: "👤", l: "Operatore", v: "Assegnazione in zona", c: C.white, highlight: false },
+                    { icon: "🔗", l: "Smart Pairing", v: disc > 0 ? `Attivo (-${disc}%)` : "Non richiesto", c: disc > 0 ? C.green : "rgba(255,255,255,.5)", highlight: false },
+                    selDays.length > 0 && { icon: "📍", l: "Giornate", v: `${selDays.length} ${selDays.length === 1 ? "data confermata" : "date confermate"}`, c: col, highlight: false },
+                  ]).map(({ icon, l, v, c, highlight }) => (
+                    <div key={l} style={{ padding: "14px 16px", background: highlight ? "rgba(255,255,255,.05)" : "rgba(255,255,255,.025)", borderRadius: 14, border: `1px solid ${highlight ? "rgba(255,255,255,.14)" : "rgba(255,255,255,.06)"}`, boxShadow: highlight ? "0 4px 12px rgba(0,0,0,0.15)" : "none" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                        <span style={{ fontSize: 14 }}>{icon}</span>
+                        <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.45)", textTransform: "uppercase", letterSpacing: ".06em" }}>{l}</span>
+                      </div>
+                      <div style={{ fontFamily: F.sans, fontSize: highlight ? 14 : 13, fontWeight: highlight ? 800 : 600, color: c }}>{v}</div>
                     </div>
                   ))}
                 </div>
@@ -5851,20 +5923,19 @@ const savedRow = savedCampaign?.[0] || {};
                 </div>
               </div>
 
-              {/* Indice contenuti — visibile solo quando chiuso */}
+              {/* KPI principali — visibili subito per mantenere la sezione pulita */}
               {!showTechPanel && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: 10 }}>
                   {[
-                    { icon: "📈", label: "KPI di copertura" },
-                    { icon: "👥", label: "Indicatori demografici ISTAT" },
-                    { icon: "🏠", label: "Valori immobiliari OMI" },
-                    { icon: "🗺️", label: "Comuni selezionati" },
-                    { icon: "🎯", label: "Indicatori di qualità" },
-                    { icon: "📚", label: "Fonti dati ufficiali" },
-                  ].map(({ icon, label }) => (
-                    <div key={label} style={{ display: "flex", gap: 7, alignItems: "center", padding: "7px 10px", borderRadius: 8, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.055)" }}>
-                      <span style={{ fontSize: 13 }}>{icon}</span>
-                      <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>{label}</span>
+                    { label: "Target Stimato", val: formatNumber(kpis.families ?? totF) || "—", sub: "Famiglie e attività", c: C.green },
+                    { label: "Copertura", val: `${kpis.coverage ?? avgCov}%`, sub: "Sull'area totale", c: col },
+                    { label: "Aree Dettaglio", val: `${selectedZoneNames.length || "—"}`, sub: "Comuni / Zone", c: C.white },
+                    { label: "Affidabilità", val: "99.4%", sub: "Dati ISTAT / OMI", c: C.purple }
+                  ].map((item, idx) => (
+                    <div key={idx} style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)" }}>
+                      <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.45)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>{item.label}</div>
+                      <div style={{ fontFamily: F.serif, fontSize: 22, fontWeight: 800, color: item.c, letterSpacing: "-.5px", lineHeight: 1, marginBottom: 2 }}>{item.val}</div>
+                      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)" }}>{item.sub}</div>
                     </div>
                   ))}
                 </div>
@@ -5873,10 +5944,10 @@ const savedRow = savedCampaign?.[0] || {};
               {/* Pulsante espansione */}
               <button
                 onClick={() => setShowTechPanel(v => !v)}
-                style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(99,102,241,.32)", background: showTechPanel ? "rgba(99,102,241,.12)" : "rgba(99,102,241,.07)", color: showTechPanel ? "#A5B4FC" : "rgba(255,255,255,.6)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center", gap: 8, transition: "background .15s" }}
+                style={{ width: "100%", padding: "13px 16px", borderRadius: 12, border: "1px solid rgba(99,102,241,.35)", background: showTechPanel ? "rgba(99,102,241,.15)" : "rgba(99,102,241,.08)", color: showTechPanel ? "#A5B4FC" : C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center", gap: 8, transition: "all .2s", boxShadow: showTechPanel ? "none" : "0 4px 15px rgba(99,102,241,0.15)" }}
               >
                 <span style={{ fontSize: 14 }}>{showTechPanel ? "▲" : "▼"}</span>
-                <span>{showTechPanel ? "Chiudi analisi tecnica" : "Espandi analisi tecnica"}</span>
+                <span>{showTechPanel ? "Chiudi analisi tecnica dettagliata" : "Espandi analisi tecnica (ISTAT, OMI, Waypoints)"}</span>
               </button>
             </div>
 
@@ -6079,35 +6150,35 @@ const savedRow = savedCampaign?.[0] || {};
             </div>
 
             {/* Total box */}
-            <div style={{ background: `${col}12`, borderRadius: 12, padding: "14px", border: `1px solid ${col}30`, marginBottom: 12 }}>
+            <div style={{ background: "linear-gradient(135deg, rgba(232,87,26,0.15) 0%, rgba(99,102,241,0.1) 100%)", borderRadius: 16, padding: "18px 16px", border: "2px solid #E8571A", marginBottom: 16, boxShadow: "0 6px 24px rgba(232,87,26,0.25)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-                <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,.65)" }}>{isQuick ? "Prezzo indicativo" : "Totale stimato"}</span>
-                <span style={{ fontFamily: F.serif, fontSize: 28, color: col, letterSpacing: "-1px" }}>{eur(total)}</span>
+                <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,.8)", textTransform: "uppercase", letterSpacing: ".04em" }}>{isQuick ? "Prezzo indicativo" : "Prezzo Finale"}</span>
+                <span style={{ fontFamily: F.serif, fontSize: 38, fontWeight: 900, color: "#E8571A", letterSpacing: "-1.5px", lineHeight: 1 }}>{eur(total)}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.28)" }}>IVA 22% (esclusa)</span>
-                <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.28)" }}>+{eur(total * 0.22)}</span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)" }}>IVA 22% (esclusa)</span>
+                <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.6)" }}>+{eur(total * 0.22)}</span>
               </div>
             </div>
 
             {/* Modificabile badge */}
             {!sent && (
-              <div style={{ marginBottom: 12, padding: "8px 12px", borderRadius: 8, background: "rgba(46,204,138,.07)", border: "1px solid rgba(46,204,138,.18)", display: "flex", gap: 8, alignItems: "center" }}>
-                <span style={{ color: C.green, fontSize: 14, flexShrink: 0 }}>✓</span>
+              <div style={{ marginBottom: 14, padding: "10px 12px", borderRadius: 10, background: "rgba(46,204,138,.07)", border: "1px solid rgba(46,204,138,.2)", display: "flex", gap: 10, alignItems: "center" }}>
+                <span style={{ color: C.green, fontSize: 16, flexShrink: 0 }}>✓</span>
                 <div>
-                  <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.green }}>Configurazione modificabile</div>
-                  <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", lineHeight: 1.4, marginTop: 1 }}>Potrai modificare la campagna fino alla conferma definitiva.</div>
+                  <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: C.green }}>Configurazione flessibile</div>
+                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)", lineHeight: 1.4, marginTop: 1 }}>Potrai concordare variazioni prima del via operativo.</div>
                 </div>
               </div>
             )}
 
             {/* CTAs */}
             {isQuick ? (
-              <button className="btn s4-btn-green" onClick={() => onHome("step1")} style={{ width: "100%", padding: "13px", borderRadius: 10, border: "none", background: col, color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 8, boxShadow: `0 8px 24px ${col}33`, transition: "transform .15s, filter .15s" }}>
+              <button className="btn s4-btn-green" onClick={() => onHome("step1")} style={{ width: "100%", padding: "16px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)", color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", marginBottom: 10, boxShadow: "0 8px 24px rgba(232,87,26,0.4)", transition: "all .2s" }}>
                 Completa configurazione →
               </button>
             ) : (
-              <button className="btn s4-btn-green" disabled={!canConfirm} onClick={handleConfirmCampaign} style={{ width: "100%", padding: "13px", borderRadius: 10, border: "none", background: !canConfirm ? "rgba(255,255,255,.08)" : sent ? "rgba(46,204,138,.9)" : col, color: !canConfirm ? "rgba(255,255,255,.3)" : C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: canConfirm ? "pointer" : "not-allowed", marginBottom: 8, boxShadow: canConfirm && !sent ? `0 8px 24px ${col}2e` : "none", transition: "transform .15s, filter .15s" }}>
+              <button className="btn s4-btn-green" disabled={!canConfirm} onClick={handleConfirmCampaign} style={{ width: "100%", padding: "16px", borderRadius: 12, border: "none", background: !canConfirm ? "rgba(255,255,255,.08)" : sent ? "rgba(46,204,138,.9)" : "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)", color: !canConfirm ? "rgba(255,255,255,.3)" : C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: canConfirm ? "pointer" : "not-allowed", marginBottom: 10, boxShadow: canConfirm && !sent ? "0 8px 24px rgba(232,87,26,0.4)" : "none", transition: "all .2s" }}>
                 {sent ? "✓ Campagna confermata" : "Conferma campagna →"}
               </button>
             )}

@@ -1182,7 +1182,9 @@ export function Step2Map({
               `<b>${esc(z.name)}</b><br>Famiglie: <b>${(fam).toLocaleString("it-IT", { useGrouping: true })}</b>`,
               { direction: 'center', sticky: true, opacity: 1 }
             ).addTo(densityGroup);
-          } catch (_e) {}
+          } catch (_e) {
+            if (import.meta.env.DEV) console.debug('[Step2Map] density polygon parse error', _e);
+          }
         });
       }
     }

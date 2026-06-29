@@ -4,8 +4,8 @@ import Button from "../ui/Button.jsx";
 const C = {
   navy: "#0B1020",
   navyDeep: "#08111f",
-  primary: "#6366F1",
-  cyan: "#06B6D4",
+  primary: "#E8571A",
+  cyan: "#E8571A",
   success: "#22C55E",
   white: "#F8FAFC",
   muted: "rgba(203, 213, 225, 0.75)",
@@ -22,8 +22,8 @@ function MiniMapPreview() {
     <div style={{ position: "relative", height: 180, borderRadius: 12, overflow: "hidden", background: "#08111f", border: `1px solid ${C.border}`, marginBottom: 20 }}>
       <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
       <svg width="100%" height="100%" viewBox="0 0 400 180" preserveAspectRatio="xMidYMid slice" style={{ position: "absolute", inset: 0 }}>
-        <polygon points="120,40 160,30 220,50 240,90 200,140 140,120 100,80" fill="rgba(99,102,241,0.12)" stroke="rgba(99,102,241,0.45)" strokeWidth="1.5" />
-        <polygon points="220,50 280,40 320,80 300,130 240,150 200,140 240,90" fill="rgba(6,182,212,0.10)" stroke="rgba(6,182,212,0.4)" strokeWidth="1.5" />
+        <polygon points="120,40 160,30 220,50 240,90 200,140 140,120 100,80" fill="rgba(232,87,26,0.12)" stroke="rgba(232,87,26,0.45)" strokeWidth="1.5" />
+        <polygon points="220,50 280,40 320,80 300,130 240,150 200,140 240,90" fill="rgba(232,87,26,0.10)" stroke="rgba(232,87,26,0.4)" strokeWidth="1.5" />
         <circle cx="210" cy="90" r="70" fill="none" stroke="#22c55e" strokeWidth="1.5" strokeDasharray="4 4" />
         <circle cx="210" cy="90" r="4" fill="#22c55e" />
         <circle cx="160" cy="80" r="2" fill="#fff" opacity="0.5" />
@@ -50,8 +50,8 @@ export default function StartOptionsSection({ onStart }) {
 
   return (
     <section className="section" style={{ background: C.navyDeep, paddingLeft: 28, paddingRight: 28, borderTop: `1px solid ${C.border}`, position: "relative", overflow: "hidden" }}>
-      <div style={{ position: "absolute", top: 0, left: "20%", width: 600, height: 600, background: "radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 70%)", pointerEvents: "none" }} />
-      <div style={{ position: "absolute", bottom: 0, right: "10%", width: 500, height: 500, background: "radial-gradient(circle, rgba(6,182,212,0.05) 0%, transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", top: 0, left: "20%", width: 600, height: 600, background: "radial-gradient(circle, rgba(232,87,26,0.06) 0%, transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", bottom: 0, right: "10%", width: 500, height: 500, background: "radial-gradient(circle, rgba(232,87,26,0.05) 0%, transparent 70%)", pointerEvents: "none" }} />
 
       <div style={{ maxWidth: 1200, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <div style={{ marginBottom: 48 }}>
@@ -91,13 +91,13 @@ export default function StartOptionsSection({ onStart }) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 32 }}>
                 {["Dati ISTAT integrati", "AI Optimizer", "Smart Pairing zone", "Report operativo"].map(feature => (
                   <div key={feature} style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: F.sans, fontSize: 13, color: "rgba(248,250,252,0.85)" }}>
-                    <div style={{ width: 16, height: 16, borderRadius: 4, background: "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: C.primary }}>✓</div>
+                    <div style={{ width: 16, height: 16, borderRadius: 4, background: "rgba(232,87,26,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: C.primary }}>✓</div>
                     {feature}
                   </div>
                 ))}
               </div>
 
-              <Button variant="primary" onClick={() => onStart("step1")} className="vb" style={{ marginTop: "auto", width: "100%", minHeight: 52, padding: "0 16px", borderRadius: 12, fontFamily: F.sans, fontSize: 16, fontWeight: 800, boxShadow: "0 12px 28px rgba(99,102,241,0.25)" }}>
+              <Button variant="primary" onClick={() => onStart("step1")} className="vb" style={{ marginTop: "auto", width: "100%", minHeight: 52, padding: "0 16px", borderRadius: 12, fontFamily: F.sans, fontSize: 16, fontWeight: 800, boxShadow: "0 12px 28px rgba(232,87,26,0.25)" }}>
                 Configura la tua campagna
               </Button>
             </div>
@@ -125,7 +125,7 @@ export default function StartOptionsSection({ onStart }) {
                 </div>
               </div>
 
-              <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.22)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
+              <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(232,87,26,0.08)", border: "1px solid rgba(232,87,26,0.22)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
                 <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase", color: "rgba(255,255,255,0.54)" }}>Stima zona</span>
                 <strong style={{ fontFamily: F.serif, fontSize: 28, lineHeight: 1, fontWeight: 900, color: C.primary, letterSpacing: "-0.03em", whiteSpace: "nowrap" }}>€{estimateRange.min.toLocaleString("it-IT")} - €{estimateRange.max.toLocaleString("it-IT")}</strong>
               </div>

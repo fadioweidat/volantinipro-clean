@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "framer-motion";
 
 const CARDS = [
   {
@@ -44,7 +45,7 @@ export default function WhyDifferentSection() {
           font-weight: 800;
           letter-spacing: .15em;
           text-transform: uppercase;
-          color: #06B6D4;
+          color: #E8571A;
           margin-bottom: 18px;
         }
         .why-diff-title {
@@ -69,20 +70,19 @@ export default function WhyDifferentSection() {
           gap: 24px;
         }
         .why-diff-card {
-          background: rgba(24, 34, 53, 0.5);
-          border: 1px solid rgba(148, 163, 184, 0.18);
-          border-radius: 24px;
+          background: #122036;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 20px;
           padding: 32px 28px;
           display: flex;
           flex-direction: column;
           gap: 20px;
           min-height: 220px;
-          transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.4s ease, border-color 0.4s ease;
+          transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
         }
         .why-diff-card:hover {
           transform: translateY(-4px);
-          background: rgba(34, 48, 74, 0.7);
-          border-color: rgba(99, 102, 241, 0.4);
+          border-color: rgba(232, 87, 26, 0.4);
         }
         .why-diff-card:nth-child(1) { grid-column: span 7; }
         .why-diff-card:nth-child(2) { grid-column: span 5; }
@@ -96,13 +96,13 @@ export default function WhyDifferentSection() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(99, 102, 241, 0.12);
-          border: 1px solid rgba(99, 102, 241, 0.25);
+          background: rgba(232, 87, 26, 0.12);
+          border: 1px solid rgba(232, 87, 26, 0.25);
           font-family: 'DM Sans', Inter, system-ui, sans-serif;
           font-size: 12px;
           font-weight: 900;
           letter-spacing: .08em;
-          color: #818CF8;
+          color: #E8571A;
           margin-bottom: -4px;
         }
         .why-diff-card-title {
@@ -146,8 +146,16 @@ export default function WhyDifferentSection() {
         </div>
 
         <div className="why-diff-grid">
-          {CARDS.map((card) => (
-            <article key={card.title} className="why-diff-card">
+          {CARDS.map((card, idx) => (
+            <motion.article
+              key={card.title}
+              className="why-diff-card"
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.18, delay: idx * 0.05 }}
+              whileHover={{ y: -4, borderColor: "rgba(232, 87, 26, 0.4)" }}
+            >
               <div className="why-diff-icon-badge">{card.icon}</div>
               <div style={{ marginTop: "auto" }}>
                 <h3 className="why-diff-card-title">{card.title}</h3>
@@ -158,7 +166,7 @@ export default function WhyDifferentSection() {
                   </ul>
                 )}
               </div>
-            </article>
+            </motion.article>
           ))}
         </div>
       </div>

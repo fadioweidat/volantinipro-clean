@@ -91,7 +91,7 @@ export function useAddressPoints(lat, lng, radiusKm, serviceType = 'd2d') {
           return;
         }
 
-        console.error('[ADDRESS_POINTS_ERROR]', err?.message || err);
+        console.warn('[ADDRESS_POINTS_ERROR]', err?.message || err);
         if (import.meta.env.DEV) console.debug('[DBG address_points error]', err);
 
         if (!cancelled) {

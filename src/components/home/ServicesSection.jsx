@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "framer-motion";
 import Button from "../ui/Button.jsx";
 
 const F = {
@@ -7,9 +8,9 @@ const F = {
 };
 
 const C = {
-  primary: "#6366F1",
-  cyan: "#06B6D4",
-  success: "#22C55E",
+  primary: "#E8571A",
+  cyan: "#E8571A",
+  success: "#E8571A",
   white: "#F8FAFC",
 };
 
@@ -76,8 +77,8 @@ export default function ServicesSection({ onConfigure }) {
   return (
     <section className="section" style={{ background: "#0B1020", paddingLeft: 28, paddingRight: 28, borderTop: "1px solid rgba(148,163,184,0.18)" }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 64 }}>
-          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".15em", textTransform: "uppercase", color: C.cyan, marginBottom: 16 }}>
+        <div style={{ textAlign: "center", marginBottom: 56 }}>
+          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".15em", textTransform: "uppercase", color: C.primary, marginBottom: 16 }}>
             Quanto costa distribuire
           </div>
           <h2 className="landing-h2" style={{ fontFamily: F.serif, fontSize: 46, color: C.white, letterSpacing: "-0.03em", marginBottom: 16, lineHeight: 1.05 }}>
@@ -89,23 +90,32 @@ export default function ServicesSection({ onConfigure }) {
         </div>
 
         <div className="services-grid" style={{ gap: 24 }}>
-          {services.map((service) => (
-            <article key={service.title} className="servizio-card vc" style={{ borderRadius: 24, padding: "40px 32px", border: "1px solid rgba(148,163,184,0.18)", background: "rgba(24,34,53,0.5)", boxShadow: "0 24px 48px rgba(0,0,0,0.3)" }}>
-              <div style={{ marginBottom: 26 }}>{service.icon}</div>
+          {services.map((service, idx) => (
+            <motion.article
+              key={service.title}
+              className="servizio-card vc"
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.18, delay: idx * 0.05 }}
+              whileHover={{ y: -4, borderColor: "rgba(232, 87, 26, 0.4)" }}
+              style={{ borderRadius: 20, padding: "32px 28px", border: "1px solid rgba(255, 255, 255, 0.08)", background: "#122036", boxShadow: "0 16px 32px rgba(0,0,0,0.25)", display: "flex", flexDirection: "column" }}
+            >
+              <div style={{ marginBottom: 20 }}>{service.icon}</div>
               <h3 style={{ fontFamily: F.serif, fontSize: 24, color: C.white, lineHeight: 1.08, letterSpacing: "-0.02em", margin: 0 }}>
                 {service.title}
               </h3>
-              <p style={{ margin: "8px 0 24px", fontFamily: F.sans, fontSize: 14, color: "#94A3B8" }}>{service.subtitle}</p>
-              <div style={{ height: 1, background: "rgba(148,163,184,0.12)", marginBottom: 24 }} />
-              <div style={{ fontFamily: F.serif, fontSize: 24, color: service.accent, lineHeight: 1.05, letterSpacing: "-0.03em", marginBottom: 8 }}>
+              <p style={{ margin: "6px 0 20px", fontFamily: F.sans, fontSize: 14, color: "#94A3B8" }}>{service.subtitle}</p>
+              <div style={{ height: 1, background: "rgba(255, 255, 255, 0.08)", marginBottom: 20 }} />
+              <div style={{ fontFamily: F.serif, fontSize: 22, color: service.accent, lineHeight: 1.05, letterSpacing: "-0.02em", marginBottom: 6 }}>
                 {service.price}
               </div>
-              <div style={{ fontFamily: F.sans, fontSize: 12, color: "#94A3B8", letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 32 }}>
+              <div style={{ fontFamily: F.sans, fontSize: 11, color: "#94A3B8", letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 24 }}>
                 {service.unit}
               </div>
-              <div style={{ display: "grid", gap: 14, marginBottom: 36 }}>
+              <div style={{ display: "grid", gap: 12, marginBottom: 28 }}>
                 {service.bullets.map((bullet) => (
-                  <div key={bullet} style={{ display: "flex", alignItems: "center", gap: 12, fontFamily: F.sans, fontSize: 14, color: "#CBD5E1", fontWeight: 500 }}>
+                  <div key={bullet} style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: F.sans, fontSize: 14, color: "#CBD5E1", fontWeight: 500 }}>
                     <span style={{ color: service.accent, fontWeight: 900, fontSize: 12 }}>✓</span>
                     {bullet}
                   </div>
@@ -118,7 +128,7 @@ export default function ServicesSection({ onConfigure }) {
               >
                 Scopri come →
               </Button>
-            </article>
+            </motion.article>
           ))}
         </div>
       </div>
