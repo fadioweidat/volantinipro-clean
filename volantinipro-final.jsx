@@ -1,5 +1,6 @@
 import "./src/styles/app.css";
 import React, { Component, Fragment, useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 import { printQuotePdf } from "./src/lib/pdf/printQuotePdf.js";
 import { supabase, confirmCampaignPayment, hasSupabaseConfig, saveCampaign, saveSmartPairingWaitlist } from "./src/lib/supabaseClient.js";
@@ -996,11 +997,11 @@ function Step1({ data, setData, onNext, onHome }) {
     <div style={{ maxWidth: 1240, margin: "0 auto", padding: isMobile ? "32px 16px 120px" : "48px 28px 140px", color: "#F8FAFC" }}>
       <style>{`
         .vp-s1-card-hover { transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
-        .vp-s1-card-hover:hover { transform: translateY(-4px); border-color: rgba(6, 182, 212, 0.4) !important; box-shadow: 0 20px 40px rgba(0,0,0,0.4) !important; background: rgba(24, 34, 53, 0.8) !important; }
+        .vp-s1-card-hover:hover { transform: translateY(-4px); border-color: rgba(232, 87, 26, 0.4) !important; box-shadow: 0 20px 40px rgba(0,0,0,0.4) !important; background: #122036 !important; }
         .vp-s1-btn-hover { transition: all 0.2s ease; }
         .vp-s1-btn-hover:hover { transform: scale(1.02); filter: brightness(1.1); }
         .vp-s1-input-modern { width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(148,163,184,0.2); background: rgba(15, 23, 42, 0.6); color: #fff; font-family: 'DM Sans', sans-serif; font-size: 14px; transition: all 0.2s; box-sizing: border-box; }
-        .vp-s1-input-modern:focus { border-color: #22C55E; outline: none; box-shadow: 0 0 0 3px rgba(34,197,94,0.15); }
+        .vp-s1-input-modern:focus { border-color: #E8571A; outline: none; box-shadow: 0 0 0 3px rgba(232,87,26,0.15); }
         .vp-s1-slider { -webkit-appearance: none; width: 100%; height: 8px; border-radius: 4px; background: rgba(148,163,184,0.15); outline: none; margin: 16px 0; }
         .vp-s1-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #22C55E; cursor: pointer; border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.4); transition: transform 0.15s; }
         .vp-s1-slider::-webkit-slider-thumb:hover { transform: scale(1.18); }
@@ -1055,16 +1056,17 @@ function Step1({ data, setData, onNext, onHome }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
           
           {/* Section 1: Tipo di distribuzione */}
-          <div id="section-servizio" style={{ background: "rgba(15,23,42,0.6)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.18)", padding: isMobile ? 20 : 32, backdropFilter: "blur(20px)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+          <div id="section-servizio" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
+            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
               1 \u2013 Tipo di distribuzione
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 24px" }}>
               Seleziona il canale operativo principale
             </h2>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))", gap: 20, alignItems: "stretch" }}>
               {distributionTypes.map((t) => {
                 const active = data.type === t.id;
+                const cardCol = t.color || "#E8571A";
                 return (
                   <div
                     key={t.id}
@@ -1073,17 +1075,17 @@ function Step1({ data, setData, onNext, onHome }) {
                     style={{
                       padding: 24,
                       borderRadius: 20,
-                      background: active ? "rgba(34,197,94,0.08)" : "rgba(24,34,53,0.5)",
-                      border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.15)"}`,
+                      background: active ? "rgba(232, 87, 26, 0.12)" : "#122036",
+                      border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
                       cursor: "pointer",
                       display: "flex",
                       flexDirection: "column",
                       position: "relative",
-                      boxShadow: active ? "0 16px 36px rgba(34,197,94,0.15)" : "none",
+                      boxShadow: active ? "0 16px 40px rgba(232, 87, 26, 0.22)" : "none",
                     }}
                   >
-                    <div style={{ position: "absolute", top: 18, right: 18, padding: "4px 10px", borderRadius: 100, background: `${t.badgeColor}20`, border: `1px solid ${t.badgeColor}50`, color: t.badgeColor, fontFamily: F.sans, fontSize: 11, fontWeight: 800 }}>
-                      {t.badge}
+                    <div style={{ position: "absolute", top: 18, right: 18, padding: "4px 10px", borderRadius: 100, background: active ? "rgba(232, 87, 26, 0.2)" : `${t.badgeColor}20`, border: `1px solid ${active ? "#E8571A" : t.badgeColor}55`, color: active ? "#E8571A" : t.badgeColor, fontFamily: F.sans, fontSize: 11, fontWeight: 800, transition: "all .2s" }}>
+                      {active ? "✓ Selezionato" : t.badge}
                     </div>
                     <div style={{ fontSize: 36, marginBottom: 16 }}>{t.icon}</div>
                     <div style={{ fontFamily: F.serif, fontSize: 22, color: "#F8FAFC", marginBottom: 8 }}>{t.name}</div>
@@ -1093,9 +1095,9 @@ function Step1({ data, setData, onNext, onHome }) {
                       <div style={{ fontSize: 12, color: "#CBD5E1" }}>🎯 <b style={{ color: "#F8FAFC" }}>Target:</b> {t.target}</div>
                       <div style={{ fontSize: 12, color: "#CBD5E1" }}>⏱️ <b style={{ color: "#F8FAFC" }}>Tempo medio:</b> {t.time}</div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 14, borderTop: "1px solid rgba(148,163,184,0.15)" }}>
-                      <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: active ? "#22C55E" : "#CBD5E1" }}>{t.price}</span>
-                      <span style={{ width: 24, height: 24, borderRadius: "50%", background: active ? "#22C55E" : "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: active ? "#000" : "#fff", fontSize: 12, fontWeight: 900 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 14, borderTop: `1px solid ${active ? "rgba(232, 87, 26, 0.3)" : "rgba(255,255,255,0.08)"}` }}>
+                      <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: active ? "#E8571A" : "#CBD5E1" }}>{t.price}</span>
+                      <span style={{ width: 24, height: 24, borderRadius: "50%", background: active ? "#E8571A" : "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: active ? "#fff" : "#fff", fontSize: 12, fontWeight: 900, transition: "background .2s" }}>
                         {active ? "✓" : "+"}
                       </span>
                     </div>
@@ -1106,8 +1108,8 @@ function Step1({ data, setData, onNext, onHome }) {
           </div>
 
           {/* Section 2: Attività cliente */}
-          <div style={{ background: "rgba(15,23,42,0.6)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.18)", padding: isMobile ? 20 : 32, backdropFilter: "blur(20px)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+          <div style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
+            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
               2 \u2013 Settore o Attività
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
@@ -1128,9 +1130,9 @@ function Step1({ data, setData, onNext, onHome }) {
                     style={{
                       padding: "14px 12px",
                       borderRadius: 14,
-                      border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.18)"}`,
-                      background: active ? "rgba(34,197,94,0.15)" : "rgba(24,34,53,0.5)",
-                      color: active ? "#22C55E" : "#CBD5E1",
+                      border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
+                      background: active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.5)",
+                      color: active ? "#E8571A" : "#CBD5E1",
                       fontFamily: F.sans,
                       fontSize: 14,
                       fontWeight: active ? 800 : 600,
@@ -1154,11 +1156,20 @@ function Step1({ data, setData, onNext, onHome }) {
               />
             )}
 
-            {/* Configurazione speciale H2H */}
+            {/* Pannelli dinamici H2H / B2B */}
+            <AnimatePresence mode="wait">
             {isH2H && (
-              <div style={{ marginTop: 28, padding: 24, borderRadius: 18, background: "rgba(30,58,138,0.2)", border: "1px solid rgba(96,165,250,0.3)" }}>
-                <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "#60A5FA", marginBottom: 16 }}>
-                  🤝 Dettagli operativi Hand to Hand
+              <motion.div
+                key="panel-h2h"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                style={{ marginTop: 24, padding: isMobile ? 18 : 24, borderRadius: 20, background: "#122036", border: "1px solid rgba(255,255,255,0.08)", borderTop: "2px solid #60A5FA" }}
+              >
+                <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: "#60A5FA", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 18, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#60A5FA", flexShrink: 0 }} />
+                  Configurazione Hand to Hand
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginBottom: 16 }}>
                   <div>
@@ -1196,14 +1207,21 @@ function Step1({ data, setData, onNext, onHome }) {
                     </select>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             )}
 
-            {/* Configurazione speciale B2B */}
             {isB2B && (
-              <div style={{ marginTop: 28, padding: 24, borderRadius: 18, background: "rgba(88,28,135,0.2)", border: "1px solid rgba(167,139,250,0.3)" }}>
-                <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "#A78BFA", marginBottom: 16 }}>
-                  🏢 Dettagli operativi Distribuzione Business
+              <motion.div
+                key="panel-b2b"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                style={{ marginTop: 24, padding: isMobile ? 18 : 24, borderRadius: 20, background: "#122036", border: "1px solid rgba(255,255,255,0.08)", borderTop: "2px solid #A78BFA" }}
+              >
+                <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: "#A78BFA", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 18, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#A78BFA", flexShrink: 0 }} />
+                  Configurazione Distribuzione Business
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
                   <div>
@@ -1241,19 +1259,20 @@ function Step1({ data, setData, onNext, onHome }) {
                     </select>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             )}
+            </AnimatePresence>
           </div>
 
           {/* Section 3: Quantità volantini */}
-          <div id="section-quantita" style={{ background: "rgba(15,23,42,0.6)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.18)", padding: isMobile ? 20 : 32, backdropFilter: "blur(20px)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+          <div id="section-quantita" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
+            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
               3 \u2013 Quantità volantini
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
               Quanti volantini desideri distribuire?
             </h2>
-            <div style={{ padding: "12px 18px", borderRadius: 12, background: "rgba(6,182,212,0.1)", border: "1px solid rgba(6,182,212,0.3)", color: "#22D3EE", fontSize: 13, fontWeight: 700, marginBottom: 24 }}>
+            <div style={{ padding: "12px 18px", borderRadius: 12, background: "rgba(232, 87, 26, 0.1)", border: "1px solid rgba(232, 87, 26, 0.3)", color: "#E8571A", fontSize: 13, fontWeight: 700, marginBottom: 24 }}>
               💡 La copertura stimata (famiglie raggiunte e percentuale di zona) verrà calcolata automaticamente nello Step 2 in base all'area sulla mappa.
             </div>
 
@@ -1270,9 +1289,9 @@ function Step1({ data, setData, onNext, onHome }) {
                       flex: "1 1 120px",
                       padding: "12px 14px",
                       borderRadius: 12,
-                      border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.2)"}`,
-                      background: active ? "rgba(34,197,94,0.15)" : "rgba(24,34,53,0.5)",
-                      color: active ? "#22C55E" : "#F8FAFC",
+                      border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
+                      background: active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.5)",
+                      color: active ? "#E8571A" : "#F8FAFC",
                       fontFamily: F.sans,
                       fontSize: 15,
                       fontWeight: 800,
@@ -1295,9 +1314,9 @@ function Step1({ data, setData, onNext, onHome }) {
               className="vp-s1-slider"
             />
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(148,163,184,0.15)", flexWrap: "wrap", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.08)", flexWrap: "wrap", gap: 12 }}>
               <div style={{ fontSize: 15, color: "#CBD5E1" }}>
-                Quantità selezionata: <b style={{ color: "#22C55E", fontSize: 22, marginLeft: 8 }}>{new Intl.NumberFormat("it-IT").format(data.qty || 10000)}</b> <span style={{ fontSize: 14 }}>volantini</span>
+                Quantità selezionata: <b style={{ color: "#E8571A", fontSize: 22, marginLeft: 8 }}>{new Intl.NumberFormat("it-IT").format(data.qty || 10000)}</b> <span style={{ fontSize: 14 }}>volantini</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 13, color: "#94A3B8" }}>Inserimento manuale:</span>
@@ -1321,8 +1340,8 @@ function Step1({ data, setData, onNext, onHome }) {
           </div>
 
           {/* Section 4: Periodo distribuzione */}
-          <div id="section-periodo" style={{ background: "rgba(15,23,42,0.6)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.18)", padding: isMobile ? 20 : 32, backdropFilter: "blur(20px)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+          <div id="section-periodo" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
+            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
               4 \u2013 Periodo di distribuzione
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
@@ -1343,12 +1362,12 @@ function Step1({ data, setData, onNext, onHome }) {
                     style={{
                       padding: 20,
                       borderRadius: 16,
-                      background: active ? "rgba(34,197,94,0.12)" : "rgba(24,34,53,0.5)",
-                      border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.18)"}`,
+                      background: active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.5)",
+                      border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
                       cursor: "pointer",
                     }}
                   >
-                    <div style={{ fontFamily: F.sans, fontSize: 16, fontWeight: 800, color: active ? "#22C55E" : "#F8FAFC", marginBottom: 6 }}>{p.label}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 16, fontWeight: 800, color: active ? "#E8571A" : "#F8FAFC", marginBottom: 6 }}>{p.label}</div>
                     <div style={{ fontFamily: F.sans, fontSize: 13, color: "#94A3B8", lineHeight: 1.4 }}>{p.desc}</div>
                   </div>
                 );
@@ -1422,8 +1441,8 @@ function Step1({ data, setData, onNext, onHome }) {
           </div>
 
           {/* Section 5: Materiale e Formato */}
-          <div id="section-formato" style={{ background: "rgba(15,23,42,0.6)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.18)", padding: isMobile ? 20 : 32, backdropFilter: "blur(20px)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+          <div id="section-formato" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
+            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
               5 \u2013 Materiale & Formato
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 24px" }}>
@@ -1447,8 +1466,8 @@ function Step1({ data, setData, onNext, onHome }) {
                     style={{
                       padding: 24,
                       borderRadius: 20,
-                      background: active ? "rgba(34,197,94,0.12)" : "rgba(24,34,53,0.5)",
-                      border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.18)"}`,
+                      background: active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.5)",
+                      border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "flex-start",
@@ -1457,7 +1476,7 @@ function Step1({ data, setData, onNext, onHome }) {
                   >
                     <span style={{ fontSize: 36 }}>{m.icon}</span>
                     <div>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: active ? "#22C55E" : "#F8FAFC", marginBottom: 6 }}>{m.label}</div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: active ? "#E8571A" : "#F8FAFC", marginBottom: 6 }}>{m.label}</div>
                       <div style={{ fontSize: 13, color: "#94A3B8", lineHeight: 1.5 }}>{m.desc}</div>
                     </div>
                   </div>
@@ -1466,7 +1485,7 @@ function Step1({ data, setData, onNext, onHome }) {
             </div>
 
             {/* Formato 4 Card */}
-            <div style={{ borderTop: "1px solid rgba(148,163,184,0.15)", paddingTop: 24 }}>
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24 }}>
               <div style={{ fontSize: 15, fontWeight: 800, color: "#F8FAFC", marginBottom: 14 }}>
                 Seleziona il formato del volantino <span style={{ fontSize: 13, color: "#94A3B8", fontWeight: 500 }}>(per ottimizzare il carico e il peso logistico)</span>
               </div>
@@ -1481,13 +1500,13 @@ function Step1({ data, setData, onNext, onHome }) {
                       style={{
                         padding: 18,
                         borderRadius: 16,
-                        background: active ? "rgba(34,197,94,0.15)" : "rgba(24,34,53,0.5)",
-                        border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.18)"}`,
+                        background: active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.5)",
+                        border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
                         cursor: "pointer",
                         textAlign: "center",
                       }}
                     >
-                      <div style={{ fontFamily: F.serif, fontSize: 24, color: active ? "#22C55E" : "#F8FAFC", marginBottom: 4 }}>{fmt.label}</div>
+                      <div style={{ fontFamily: F.serif, fontSize: 24, color: active ? "#E8571A" : "#F8FAFC", marginBottom: 4 }}>{fmt.label}</div>
                       <div style={{ fontSize: 12, color: "#94A3B8" }}>{fmt.size}</div>
                     </div>
                   );
@@ -1497,8 +1516,8 @@ function Step1({ data, setData, onNext, onHome }) {
           </div>
 
           {/* Section 6: Servizi extra */}
-          <div style={{ background: "rgba(15,23,42,0.6)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.18)", padding: isMobile ? 20 : 32, backdropFilter: "blur(20px)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+          <div style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
+            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
               6 \u2013 Certificazione & Tracking
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
@@ -1517,8 +1536,8 @@ function Step1({ data, setData, onNext, onHome }) {
                   style={{
                     padding: 20,
                     borderRadius: 16,
-                    background: ext.active ? "rgba(34,197,94,0.12)" : "rgba(24,34,53,0.5)",
-                    border: `2px solid ${ext.active ? "#22C55E" : "rgba(148,163,184,0.18)"}`,
+                    background: ext.active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.5)",
+                    border: `2px solid ${ext.active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
                     cursor: ext.disabled ? "default" : "pointer",
                     display: "flex",
                     alignItems: "flex-start",
@@ -1528,8 +1547,8 @@ function Step1({ data, setData, onNext, onHome }) {
                   <span style={{ fontSize: 28 }}>{ext.icon}</span>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                      <span style={{ fontSize: 16, fontWeight: 800, color: ext.active ? "#22C55E" : "#F8FAFC" }}>{ext.label}</span>
-                      <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 6, background: ext.disabled ? "rgba(34,197,94,0.2)" : "rgba(255,255,255,0.1)", color: ext.disabled ? "#22C55E" : "#CBD5E1" }}>{ext.price}</span>
+                      <span style={{ fontSize: 16, fontWeight: 800, color: ext.active ? "#E8571A" : "#F8FAFC" }}>{ext.label}</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 6, background: ext.disabled ? "rgba(232,87,26,0.2)" : "rgba(255,255,255,0.1)", color: ext.disabled ? "#E8571A" : "#CBD5E1" }}>{ext.price}</span>
                     </div>
                     <div style={{ fontSize: 13, color: "#94A3B8", lineHeight: 1.4 }}>{ext.desc}</div>
                   </div>
@@ -1542,14 +1561,14 @@ function Step1({ data, setData, onNext, onHome }) {
               <button
                 type="button"
                 onClick={() => setShowAllExtras(!showAllExtras)}
-                style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(148,163,184,0.2)", color: "#22D3EE", fontSize: 13, fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}
+                style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#E8571A", fontSize: 13, fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}
               >
                 {showAllExtras ? "▲ Nascondi catalogo servizi" : "🔍 Scopri tutti i servizi avanzati"}
               </button>
             </div>
 
             {showAllExtras && (
-              <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid rgba(148,163,184,0.15)", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 16 }}>
+              <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.08)", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 16 }}>
                 {Kp.filter((k) => !["photo_report_advanced", "report_analytics"].includes(k.id)).map((ext) => {
                   const active = (data.extraServices || []).includes(ext.id);
                   return (
@@ -1560,14 +1579,14 @@ function Step1({ data, setData, onNext, onHome }) {
                       style={{
                         padding: 18,
                         borderRadius: 16,
-                        background: active ? "rgba(34,197,94,0.12)" : "rgba(24,34,53,0.4)",
-                        border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.15)"}`,
+                        background: active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.4)",
+                        border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
                         cursor: "pointer",
                       }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                        <span style={{ fontSize: 15, fontWeight: 800, color: active ? "#22C55E" : "#F8FAFC" }}>{ext.label}</span>
-                        <span style={{ fontSize: 11, fontWeight: 800, color: "#A78BFA" }}>{ext.price}</span>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: active ? "#E8571A" : "#F8FAFC" }}>{ext.label}</span>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: "#E8571A" }}>{ext.price}</span>
                       </div>
                       <div style={{ fontSize: 12, color: "#94A3B8" }}>{ext.desc}</div>
                     </div>
@@ -1578,8 +1597,8 @@ function Step1({ data, setData, onNext, onHome }) {
           </div>
 
           {/* Section 7: Priorità */}
-          <div id="section-urgenza" style={{ background: "rgba(15,23,42,0.6)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.18)", padding: isMobile ? 20 : 32, backdropFilter: "blur(20px)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+          <div id="section-urgenza" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
+            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
               7 \u2013 Priorità operativa
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 20px" }}>
@@ -1596,8 +1615,8 @@ function Step1({ data, setData, onNext, onHome }) {
                     style={{
                       padding: 22,
                       borderRadius: 18,
-                      background: active ? "rgba(34,197,94,0.12)" : "rgba(24,34,53,0.5)",
-                      border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.18)"}`,
+                      background: active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.5)",
+                      border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
                       cursor: "pointer",
                       position: "relative",
                     }}
@@ -1607,7 +1626,7 @@ function Step1({ data, setData, onNext, onHome }) {
                         {p.badge}
                       </div>
                     )}
-                    <div style={{ fontSize: 18, fontWeight: 800, color: active ? "#22C55E" : "#F8FAFC", marginBottom: 8 }}>{p.label}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: active ? "#E8571A" : "#F8FAFC", marginBottom: 8 }}>{p.label}</div>
                     <div style={{ fontSize: 13, color: "#94A3B8", lineHeight: 1.4 }}>{p.desc}</div>
                   </div>
                 );
@@ -1616,8 +1635,8 @@ function Step1({ data, setData, onNext, onHome }) {
           </div>
 
           {/* Section 8: Piano */}
-          <div id="section-piano" style={{ background: "rgba(15,23,42,0.6)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.18)", padding: isMobile ? 20 : 32, backdropFilter: "blur(20px)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+          <div id="section-piano" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
+            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
               8 \u2013 Piano promozionale
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
@@ -1638,8 +1657,8 @@ function Step1({ data, setData, onNext, onHome }) {
                     style={{
                       padding: 20,
                       borderRadius: 18,
-                      background: active ? "rgba(34,197,94,0.15)" : "rgba(24,34,53,0.5)",
-                      border: `2px solid ${active ? "#22C55E" : "rgba(148,163,184,0.18)"}`,
+                      background: active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.5)",
+                      border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
                       cursor: "pointer",
                       textAlign: "center",
                       position: "relative",
@@ -1650,7 +1669,7 @@ function Step1({ data, setData, onNext, onHome }) {
                         -{pl.disc}%
                       </div>
                     )}
-                    <div style={{ fontSize: 20, fontWeight: 800, color: active ? "#22C55E" : "#F8FAFC", marginBottom: 4 }}>{pl.label}</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: active ? "#E8571A" : "#F8FAFC", marginBottom: 4 }}>{pl.label}</div>
                     <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: pl.disc > 0 ? 6 : 0 }}>{pl.subtitle}</div>
                     {pl.disc > 0 && <div style={{ fontSize: 11, color: "#F59E0B", fontWeight: 800 }}>Sconto applicato</div>}
                   </div>
@@ -1659,10 +1678,10 @@ function Step1({ data, setData, onNext, onHome }) {
             </div>
 
             {data.subscription && data.subscription !== "single" && (
-              <div style={{ padding: 20, borderRadius: 16, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+              <div style={{ padding: 20, borderRadius: 16, background: "rgba(232, 87, 26, 0.1)", border: "1px solid rgba(232, 87, 26, 0.3)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC", marginBottom: 4 }}>Quante uscite/campagne al mese vuoi effettuare?</div>
-                  <div style={{ fontSize: 12, color: "#A7F3D0" }}>Ottimizzi la pianificazione logistica su {h[data.subscription]} mesi</div>
+                  <div style={{ fontSize: 12, color: "#CBD5E1" }}>Ottimizzi la pianificazione logistica su {h[data.subscription]} mesi</div>
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   {[1, 2, 4].map((cnt) => {
@@ -1672,7 +1691,7 @@ function Step1({ data, setData, onNext, onHome }) {
                         key={cnt}
                         type="button"
                         onClick={() => updateData({ campaignsPerMonth: cnt })}
-                        style={{ width: 44, height: 44, borderRadius: 12, border: `2px solid ${active ? "#22C55E" : "rgba(255,255,255,0.2)"}`, background: active ? "#22C55E" : "transparent", color: active ? "#000" : "#fff", fontSize: 16, fontWeight: 900, cursor: "pointer" }}
+                        style={{ width: 44, height: 44, borderRadius: 12, border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.2)"}`, background: active ? "#E8571A" : "transparent", color: active ? "#fff" : "#fff", fontSize: 16, fontWeight: 900, cursor: "pointer" }}
                       >
                         {cnt}
                       </button>
@@ -1684,10 +1703,10 @@ function Step1({ data, setData, onNext, onHome }) {
           </div>
 
           {/* ── Riepilogo Step 1 — inline summary ── */}
-          <div style={{ background: "rgba(10,13,20,0.85)", borderRadius: 24, border: "1px solid rgba(148,163,184,0.2)", padding: isMobile ? 20 : 28, backdropFilter: "blur(24px)", boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16, borderBottom: "1px solid rgba(148,163,184,0.15)", marginBottom: 20 }}>
-              <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#06B6D4", textTransform: "uppercase", letterSpacing: ".1em" }}>Riepilogo Step 1</span>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22C55E", boxShadow: "0 0 10px #22C55E" }} />
+          <div style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 28, boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: 20 }}>
+              <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", textTransform: "uppercase", letterSpacing: ".1em" }}>Riepilogo Step 1</span>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#E8571A", boxShadow: "0 0 10px #E8571A" }} />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)", gap: isMobile ? "10px 16px" : "10px 40px", marginBottom: 20 }}>
               {[
@@ -1698,31 +1717,31 @@ function Step1({ data, setData, onNext, onHome }) {
                 { label: "Piano", val: currentPlanLabel },
                 { label: "Extra", val: `${(data.extraServices || []).length + 1} inclusi` },
               ].map((row, idx) => (
-                <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, paddingBottom: 8, borderBottom: "1px solid rgba(148,163,184,0.08)" }}>
+                <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                   <span style={{ color: "#94A3B8" }}>{row.label}</span>
                   <span style={{ fontWeight: 800, color: row.val.includes("Da selezionare") ? "#64748B" : "#F8FAFC" }}>{row.val}</span>
                 </div>
               ))}
             </div>
             <div style={{ display: isMobile ? "flex" : "flex", flexDirection: isMobile ? "column" : "row", gap: 20, alignItems: isMobile ? "stretch" : "center" }}>
-              <div style={{ padding: "14px 20px", borderRadius: 16, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)", flexShrink: 0 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: "#A7F3D0", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>Prezzo stimato (non definitivo)</div>
-                <div style={{ fontSize: 26, fontWeight: 900, color: "#22C55E", letterSpacing: "-0.5px" }}>€ {totalEstFormatted} <span style={{ fontSize: 14, fontWeight: 600, color: "#94A3B8" }}>+ IVA</span></div>
+              <div style={{ padding: "14px 20px", borderRadius: 16, background: "rgba(232, 87, 26, 0.08)", border: "1px solid rgba(232, 87, 26, 0.25)", flexShrink: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#CBD5E1", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>Prezzo stimato (non definitivo)</div>
+                <div style={{ fontSize: 26, fontWeight: 900, color: "#E8571A", letterSpacing: "-0.5px" }}>€ {totalEstFormatted} <span style={{ fontSize: 14, fontWeight: 600, color: "#94A3B8" }}>+ IVA</span></div>
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.5, marginBottom: 6 }}>Calcolato su listino base. Il preventivo esatto verrà generato in base alle zone scelte nello Step 2.</div>
                 <div style={{ fontSize: 12, color: "#64748B", lineHeight: 1.5 }}>
                   Hai bisogno di aiuto?{" "}
-                  <button type="button" onClick={() => setShowSmartPairingModal(true)} style={{ background: "none", border: "none", color: "#06B6D4", textDecoration: "underline", cursor: "pointer", padding: 0, fontWeight: 700 }}>Scopri lo Smart Pairing</button>
+                  <button type="button" onClick={() => setShowSmartPairingModal(true)} style={{ background: "none", border: "none", color: "#E8571A", textDecoration: "underline", cursor: "pointer", padding: 0, fontWeight: 700 }}>Scopri lo Smart Pairing</button>
                 </div>
               </div>
             </div>
           </div>
 
           {/* NUOVA CARD "PROSSIMO PASSAGGIO" */}
-          <div style={{ background: "linear-gradient(135deg, rgba(15,23,42,0.85), rgba(8,14,28,0.95))", borderRadius: 24, border: "2px solid rgba(6,182,212,0.35)", padding: isMobile ? 24 : 36, boxShadow: "0 24px 64px rgba(0,0,0,0.5)", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(6,182,212,0.15) 0%, transparent 70%)", pointerEvents: "none" }} />
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "4px 12px", borderRadius: 100, background: "rgba(6,182,212,0.15)", color: "#22D3EE", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 16 }}>
+          <div style={{ background: "#122036", borderRadius: 24, border: "2px solid rgba(232, 87, 26, 0.35)", padding: isMobile ? 24 : 36, boxShadow: "0 24px 64px rgba(0,0,0,0.5)", position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(232, 87, 26, 0.15) 0%, transparent 70%)", pointerEvents: "none" }} />
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "4px 12px", borderRadius: 100, background: "rgba(232, 87, 26, 0.15)", color: "#E8571A", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 16 }}>
               ⚡ Trasparenza Garantita
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 30, color: "#F8FAFC", margin: "0 0 20px" }}>
@@ -1736,7 +1755,7 @@ function Step1({ data, setData, onNext, onHome }) {
                 "Potrai modificare tutto prima della conferma finale.",
               ].map((pt, idx) => (
                 <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: "rgba(34,197,94,0.2)", border: "1px solid #22C55E", color: "#22C55E", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, flexShrink: 0, marginTop: 2 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: "rgba(232, 87, 26, 0.2)", border: "1px solid #E8571A", color: "#E8571A", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, flexShrink: 0, marginTop: 2 }}>
                     ✓
                   </div>
                   <span style={{ fontSize: 15, color: "#E2E8F0", lineHeight: 1.5, fontWeight: 500 }}>{pt}</span>
@@ -1754,14 +1773,14 @@ function Step1({ data, setData, onNext, onHome }) {
                   width: "100%",
                   padding: "18px 36px",
                   borderRadius: 16,
-                  background: "linear-gradient(135deg, #22C55E, #16A34A)",
+                  background: "#E8571A",
                   color: "#fff",
                   border: "none",
                   fontFamily: F.sans,
                   fontSize: 18,
                   fontWeight: 900,
                   cursor: "pointer",
-                  boxShadow: "0 12px 32px rgba(34,197,94,0.4)",
+                  boxShadow: "0 12px 32px rgba(232, 87, 26, 0.4)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
