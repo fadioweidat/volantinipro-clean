@@ -30,7 +30,7 @@ const CARDS = [
 
 export default function WhyDifferentSection() {
   return (
-    <section style={{ background: "#0B1020", paddingTop: 80, paddingBottom: 80, paddingLeft: "5vw", paddingRight: "5vw", boxSizing: "border-box" }} aria-labelledby="why-different-title">
+    <section id="chi-siamo" style={{ background: "#0B1020", paddingTop: 80, paddingBottom: 80, paddingLeft: "5vw", paddingRight: "5vw", boxSizing: "border-box" }} aria-labelledby="why-different-title">
       <style>{`
         .why-diff-container {
           max-width: 1400px;

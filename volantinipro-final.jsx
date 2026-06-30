@@ -29,6 +29,8 @@ const VolantiniProAIHub = React.lazy(() => import("./src/components/ai/Volantini
 const RealAdminDashboard = React.lazy(() => import("./src/pages/admin/AdminDashboard.jsx"));
 const ServiceCenter = React.lazy(() => import("./src/pages/ServiceCenter.jsx"));
 const OutputLibrary = React.lazy(() => import("./src/pages/OutputLibrary.jsx"));
+const AIOptimizerReport  = React.lazy(() => import("./src/pages/AIOptimizerReport.jsx"));
+const AdvancedReport     = React.lazy(() => import("./src/pages/AdvancedReport.jsx"));
 import KpiTooltip from "./src/components/ui/KpiTooltip.jsx";
 import Button from "./src/components/ui/Button.jsx";
 import { MetricValue } from "./src/components/ui/MetricValue.tsx";
@@ -232,43 +234,490 @@ function useIsMobile(bp = 760) {
   return isMobile;
 }
 
+/* ── AI Optimizer Premium — Activation widget within Step 4 service card ── */
+function AIOptimizerActivation(props) {
+  const [show, setShow] = React.useState(false);
+  const F2 = { sans: "'DM Sans', Inter, system-ui, sans-serif", serif: "'DM Serif Display', Georgia, serif" };
+  const C2 = { green: "#22C55E", orange: "#E8571A", white: "#F8FAFC", teal: "#14B8A6" };
+  return (
+    <>
+      <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 12, background: "linear-gradient(135deg,rgba(20,184,166,.09) 0%,rgba(34,197,94,.05) 100%)", border: "1px solid rgba(20,184,166,.25)" }}>
+        <div style={{ fontFamily: F2.sans, fontSize: 10, fontWeight: 800, color: C2.teal, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 6 }}>
+          🤖 Report AI Premium incluso
+        </div>
+        <div style={{ fontFamily: F2.sans, fontSize: 11, color: "rgba(255,255,255,.55)", lineHeight: 1.6, marginBottom: 12 }}>
+          Con questa opzione riceverai un Report AI Premium personalizzato: analisi territoriale, simulazioni, ottimizzazione quantità, raccomandazioni operative e piano campagna.
+        </div>
+        <button
+          onClick={() => setShow(true)}
+          style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "linear-gradient(135deg,#14B8A6 0%,#0D9488 100%)", color: C2.white, fontFamily: F2.sans, fontSize: 12, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, boxShadow: "0 4px 14px rgba(20,184,166,.28)" }}
+        >
+          <span>▶</span> Anteprima Report AI
+        </button>
+      </div>
+      {show && (
+        <React.Suspense fallback={
+          <div style={{ position: "fixed", inset: 0, zIndex: 9001, background: "#080E1A", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ fontFamily: F2.sans, fontSize: 14, color: "rgba(255,255,255,.5)" }}>Caricamento Report AI...</div>
+          </div>
+        }>
+          <AIOptimizerReport
+            onClose={() => setShow(false)}
+            onAddExtra={props.onAddExtra}
+            kpis={props.kpis}
+            avgFIdx={props.avgFIdx}
+            totF={props.totF}
+            avgCov={props.avgCov}
+            flyerQty={props.flyerQty}
+            total={props.total}
+            baseCost={props.baseCost}
+            disc={props.disc}
+            quantityIsSufficient={props.quantityIsSufficient}
+            requiredQty={props.requiredQty}
+            missingQty={props.missingQty}
+            remainingQty={props.remainingQty}
+            selectedZoneNames={props.selectedZoneNames}
+            svcType={props.svcType}
+            tLabel={props.tLabel}
+            mainAreaLabel={props.mainAreaLabel}
+            step4Omi={props.step4Omi}
+            kpisPopulation={props.kpisPopulation}
+            kpisComuniCount={props.kpisComuniCount}
+            d2dAreaKm2={props.d2dAreaKm2}
+            d2dAvgDensity={props.d2dAvgDensity}
+            selectedExtras={props.selectedExtras}
+            selDays={props.selDays}
+            data={props.data}
+          />
+        </React.Suspense>
+      )}
+    </>
+  );
+}
+
+/* ── Report Avanzato Premium — Activation widget within Step 4 service card ── */
+function AdvancedReportActivation(props) {
+  const [show, setShow] = React.useState(false);
+  const F2 = { sans: "'DM Sans', Inter, system-ui, sans-serif", serif: "'DM Serif Display', Georgia, serif" };
+  const C2 = { indigo: "#6366F1", white: "#F8FAFC", orange: "#E8571A" };
+  return (
+    <>
+      <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 12, background: "linear-gradient(135deg,rgba(99,102,241,.09) 0%,rgba(129,140,248,.05) 100%)", border: "1px solid rgba(99,102,241,.28)" }}>
+        <div style={{ fontFamily: F2.sans, fontSize: 10, fontWeight: 800, color: C2.indigo, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 6 }}>
+          📊 Report Avanzato Premium incluso
+        </div>
+        <div style={{ fontFamily: F2.sans, fontSize: 11, color: "rgba(255,255,255,.55)", lineHeight: 1.6, marginBottom: 12 }}>
+          Ricevi un report professionale completo con statistiche, mappe, GPS, fotografie e analisi finale della campagna.
+        </div>
+        <button
+          onClick={() => setShow(true)}
+          style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "linear-gradient(135deg,#6366F1 0%,#4F46E5 100%)", color: C2.white, fontFamily: F2.sans, fontSize: 12, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, boxShadow: "0 4px 14px rgba(99,102,241,.28)" }}
+        >
+          <span>▶</span> Anteprima Report
+        </button>
+      </div>
+      {show && (
+        <React.Suspense fallback={
+          <div style={{ position: "fixed", inset: 0, zIndex: 9001, background: "#080E1A", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ fontFamily: F2.sans, fontSize: 14, color: "rgba(255,255,255,.5)" }}>Caricamento Report Avanzato...</div>
+          </div>
+        }>
+          <AdvancedReport
+            onClose={() => setShow(false)}
+            kpis={props.kpis}
+            avgFIdx={props.avgFIdx}
+            totF={props.totF}
+            avgCov={props.avgCov}
+            flyerQty={props.flyerQty}
+            total={props.total}
+            baseCost={props.baseCost}
+            disc={props.disc}
+            quantityIsSufficient={props.quantityIsSufficient}
+            requiredQty={props.requiredQty}
+            missingQty={props.missingQty}
+            remainingQty={props.remainingQty}
+            selectedZoneNames={props.selectedZoneNames}
+            svcType={props.svcType}
+            tLabel={props.tLabel}
+            mainAreaLabel={props.mainAreaLabel}
+            step4Omi={props.step4Omi}
+            kpisPopulation={props.kpisPopulation}
+            kpisComuniCount={props.kpisComuniCount}
+            d2dAreaKm2={props.d2dAreaKm2}
+            d2dAvgDensity={props.d2dAvgDensity}
+            selectedExtras={props.selectedExtras}
+            selDays={props.selDays}
+            data={props.data}
+          />
+        </React.Suspense>
+      )}
+    </>
+  );
+}
+
 function Navbar({ onNav, page }) {
   const [sc, setSc] = useState(false);
-const [menuOpen, setMenuOpen] = useState(false);
-const isMobile = useIsMobile();
-  useEffect(() => { const h = () => setSc(window.scrollY > 20); window.addEventListener("scroll", h); return () => window.removeEventListener("scroll", h); }, []);
-const dark = page !== "home";
-const navPosition = page === "home" ? "fixed" : "sticky";
-const navLinks = ["Funzionalità", "Prezzi", "Risorse", "Chi siamo"];
-const go = (target) => { setMenuOpen(false); onNav(target); };
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [platformOpen, setPlatformOpen] = useState(false);
+  const isMobile = useIsMobile();
+
+  useEffect(() => {
+    const h = () => setSc(window.scrollY > 20);
+    window.addEventListener("scroll", h);
+    return () => window.removeEventListener("scroll", h);
+  }, []);
+
+  const dark = page !== "home";
+  const navPosition = page === "home" ? "fixed" : "sticky";
+
+  const go = (target) => {
+    setMenuOpen(false);
+    setPlatformOpen(false);
+    onNav(target);
+  };
+
+  const scrollToSection = (id) => {
+    setMenuOpen(false);
+    setPlatformOpen(false);
+    if (page !== "home") {
+      onNav("home");
+      setTimeout(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+    } else {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
   return (
-    <nav style={{ position: navPosition, top: 0, left: 0, right: 0, zIndex: 200, background: dark || sc ? "rgba(5,10,20,.85)" : "transparent", borderBottom: (dark || sc) ? "1px solid rgba(255,255,255,.05)" : "none", transition: "background.35s", backdropFilter: "blur(16px)" }}>
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: isMobile ? "0 16px" : "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 72 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }} onClick={() => go("home")}>
-          <div style={{ width: 32, height: 32, borderRadius: 6, background: "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><path d="M16 3C11.03 3 7 7.03 7 12c0 7 9 17 9 17s9-10 9-17c0-4.97-4.03-9-9-9Z" fill={C.orange} /><circle cx="16" cy="12" r="3.2" fill="#ffe7dc" /></svg>
+    <nav
+      aria-label="Navigazione principale"
+      style={{
+        position: navPosition,
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 200,
+        background: dark || sc ? "rgba(5, 10, 20, 0.92)" : "transparent",
+        borderBottom: dark || sc ? "1px solid rgba(255, 255, 255, 0.08)" : "none",
+        transition: "background 0.3s ease, border-color 0.3s ease",
+        backdropFilter: "blur(16px)",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 1400,
+          margin: "0 auto",
+          padding: isMobile ? "0 16px" : "0 32px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          height: 72,
+        }}
+      >
+        <button
+          onClick={() => go("home")}
+          aria-label="Torna alla Home di VolantiniPro"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            padding: "4px 0",
+            minHeight: 44,
+          }}
+        >
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+              <path d="M16 3C11.03 3 7 7.03 7 12c0 7 9 17 9 17s9-10 9-17c0-4.97-4.03-9-9-9Z" fill={C.orange} />
+              <circle cx="16" cy="12" r="3.2" fill="#ffe7dc" />
+            </svg>
           </div>
-          <span style={{ fontFamily: F.sans, fontSize: 20, fontWeight: 900, letterSpacing: "-0.03em", color: C.white }}>Volantini<span style={{ color: C.orange }}>Pro</span></span>
-        </div>
-        {!isMobile && <div style={{ display: "flex", gap: 42 }}>{navLinks.map(l => <a key={l} className="nl" href="#" style={{ color: "rgba(255,255,255,.75)", textDecoration: "none", fontFamily: F.sans, fontSize: 15, fontWeight: 700, transition: "color 0.2s" }}>{l}{l === "Risorse" ? <span style={{ marginLeft: 5, color: "rgba(255,255,255,.4)", fontSize: 10 }}>▾</span> : null}</a>)}</div>}
-        {!isMobile && <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-          <button onClick={() => go("services")} style={{ padding: "10px 18px", borderRadius: 8, border: `1px solid ${page === "services" ? "rgba(232,87,26,.5)" : "rgba(255,255,255,.12)"}`, background: page === "services" ? "rgba(232,87,26,.12)" : "transparent", color: page === "services" ? C.orange : "rgba(255,255,255,.75)", fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all 0.2s ease" }}>Tutti i Servizi</button>
-          <button onClick={() => go("outputs")} style={{ padding: "10px 18px", borderRadius: 8, border: `1px solid ${page === "outputs" ? "rgba(96,165,250,.5)" : "rgba(255,255,255,.12)"}`, background: page === "outputs" ? "rgba(96,165,250,.1)" : "transparent", color: page === "outputs" ? C.blue : "rgba(255,255,255,.75)", fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all 0.2s ease" }}>Output Library</button>
-          <button onClick={() => go("login")} style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.04)", color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 700, cursor: "pointer", transition: "all 0.2s ease" }}>Accedi</button>
-          <button className="vb" onClick={() => go("step1")} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "#22C55E", color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: `0 4px 14px rgba(34, 197, 94, 0.25), inset 0 1px 0 rgba(255,255,255,0.2)` }}>Configura la tua campagna</button>
-        </div>}
-        {isMobile && <button aria-label={menuOpen ? "Chiudi menu" : "Apri menu"} onClick={() => setMenuOpen(v => !v)} style={{ minWidth: 72, height: 44, borderRadius: 9, border: "1px solid rgba(255,255,255,.16)", background: "rgba(255,255,255,.06)", color: C.white, fontFamily: F.sans, fontSize: 12, fontWeight: 800, lineHeight: 1, cursor: "pointer" }}>{menuOpen ? "Chiudi" : "Menu"}</button>}
+          <span style={{ fontFamily: F.sans, fontSize: 20, fontWeight: 900, letterSpacing: "-0.03em", color: C.white }}>
+            Volantini<span style={{ color: C.orange }}>Pro</span>
+          </span>
+        </button>
+
+        {!isMobile && (
+          <div style={{ display: "flex", gap: 36, alignItems: "center", position: "relative" }}>
+            <button
+              onClick={() => scrollToSection("come-funziona")}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "rgba(255, 255, 255, 0.82)",
+                fontFamily: F.sans,
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: "pointer",
+                padding: "8px 12px",
+                minHeight: 44,
+                transition: "color 0.2s ease",
+              }}
+            >
+              Come funziona
+            </button>
+            <button
+              onClick={() => scrollToSection("prezzi")}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "rgba(255, 255, 255, 0.82)",
+                fontFamily: F.sans,
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: "pointer",
+                padding: "8px 12px",
+                minHeight: 44,
+                transition: "color 0.2s ease",
+              }}
+            >
+              Prezzi
+            </button>
+            <div
+              style={{ position: "relative" }}
+              onMouseEnter={() => setPlatformOpen(true)}
+              onMouseLeave={() => setPlatformOpen(false)}
+            >
+              <button
+                aria-expanded={platformOpen}
+                aria-haspopup="true"
+                onClick={() => setPlatformOpen(!platformOpen)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "rgba(255, 255, 255, 0.82)",
+                  fontFamily: F.sans,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  padding: "8px 12px",
+                  minHeight: 44,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  transition: "color 0.2s ease",
+                }}
+              >
+                <span>Piattaforma</span>
+                <span style={{ fontSize: 10, color: "rgba(255, 255, 255, 0.5)", transform: platformOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
+              </button>
+              {platformOpen && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    width: 230,
+                    padding: 8,
+                    background: "rgba(10, 18, 34, 0.98)",
+                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    borderRadius: 12,
+                    boxShadow: "0 16px 40px rgba(0, 0, 0, 0.6)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                    zIndex: 210,
+                  }}
+                >
+                  <button
+                    onClick={() => go("step1")}
+                    style={{
+                      textAlign: "left",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      background: "transparent",
+                      border: "none",
+                      color: C.white,
+                      fontFamily: F.sans,
+                      fontSize: 13.5,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Configuratore Campagna
+                  </button>
+                  <button
+                    onClick={() => go("quick")}
+                    style={{
+                      textAlign: "left",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      background: "transparent",
+                      border: "none",
+                      color: "rgba(255, 255, 255, 0.8)",
+                      fontFamily: F.sans,
+                      fontSize: 13.5,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Preventivo Rapido
+                  </button>
+                  <button
+                    onClick={() => go("consultant")}
+                    style={{
+                      textAlign: "left",
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      background: "transparent",
+                      border: "none",
+                      color: "rgba(255, 255, 255, 0.8)",
+                      fontFamily: F.sans,
+                      fontSize: 13.5,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Supporto Consulente
+                  </button>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => scrollToSection("chi-siamo")}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "rgba(255, 255, 255, 0.82)",
+                fontFamily: F.sans,
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: "pointer",
+                padding: "8px 12px",
+                minHeight: 44,
+                transition: "color 0.2s ease",
+              }}
+            >
+              Chi siamo
+            </button>
+          </div>
+        )}
+
+        {!isMobile && (
+          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+            <button
+              onClick={() => go("login")}
+              style={{
+                minHeight: 44,
+                padding: "0 20px",
+                borderRadius: 8,
+                border: "1px solid rgba(255, 255, 255, 0.16)",
+                background: "rgba(255, 255, 255, 0.04)",
+                color: C.white,
+                fontFamily: F.sans,
+                fontSize: 14.5,
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+            >
+              Accedi
+            </button>
+            <button
+              className="vb"
+              onClick={() => go("step1")}
+              style={{
+                minHeight: 46,
+                padding: "0 22px",
+                borderRadius: 8,
+                border: "none",
+                background: "#E8571A",
+                color: C.white,
+                fontFamily: F.sans,
+                fontSize: 14.5,
+                fontWeight: 800,
+                cursor: "pointer",
+                boxShadow: "0 6px 16px rgba(232, 87, 26, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
+                transition: "all 0.2s ease",
+              }}
+            >
+              Configura la tua campagna
+            </button>
+          </div>
+        )}
+
+        {isMobile && (
+          <button
+            aria-label={menuOpen ? "Chiudi menu" : "Apri menu"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+            style={{
+              minWidth: 72,
+              minHeight: 44,
+              borderRadius: 8,
+              border: "1px solid rgba(255, 255, 255, 0.18)",
+              background: "rgba(255, 255, 255, 0.06)",
+              color: C.white,
+              fontFamily: F.sans,
+              fontSize: 13,
+              fontWeight: 800,
+              cursor: "pointer",
+              padding: "0 14px",
+            }}
+          >
+            {menuOpen ? "Chiudi" : "Menu"}
+          </button>
+        )}
       </div>
+
       {isMobile && menuOpen && (
-        <div style={{ padding: "8px 16px 16px", borderTop: "1px solid rgba(255,255,255,.08)", background: "rgba(10,18,34,.98)" }}>
-          <div style={{ display: "grid", gap: 8 }}>
-            {navLinks.map(l => <a key={l} href="#" className="nl" onClick={() => setMenuOpen(false)} style={{ minHeight: 44, display: "flex", alignItems: "center", color: "rgba(255,255,255,.7)", textDecoration: "none", fontFamily: F.sans, fontSize: 14, fontWeight: 600 }}>{l}</a>)}
-            <button onClick={() => go("services")} style={{ minHeight: 44, borderRadius: 9, border: "1px solid rgba(232,87,26,.35)", background: "rgba(232,87,26,.07)", color: C.orange, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Tutti i Servizi</button>
-            <button onClick={() => go("outputs")} style={{ minHeight: 44, borderRadius: 9, border: "1px solid rgba(96,165,250,.3)", background: "rgba(96,165,250,.06)", color: C.blue, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Output Library</button>
-            <button onClick={() => go("admin")} style={{ minHeight: 44, borderRadius: 9, border: "1px solid rgba(255,255,255,.1)", background: "transparent", color: "rgba(255,255,255,.5)", fontFamily: F.sans, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Admin</button>
-            <button onClick={() => go("login")} style={{ minHeight: 44, borderRadius: 9, border: "1px solid rgba(255,255,255,.18)", background: "transparent", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Accedi</button>
-            <button className="vb" onClick={() => go("step1")} style={{ minHeight: 48, borderRadius: 9, border: "none", background: "#22C55E", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: `0 4px 14px rgba(34, 197, 94, 0.25)` }}>Configura la tua campagna</button>
-          </div>
+        <div
+          style={{
+            padding: "12px 16px 20px",
+            borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+            background: "rgba(10, 18, 34, 0.98)",
+            display: "grid",
+            gap: 6,
+          }}
+        >
+          <button
+            onClick={() => scrollToSection("come-funziona")}
+            style={{ minHeight: 44, display: "flex", alignItems: "center", background: "transparent", border: "none", color: "rgba(255, 255, 255, 0.82)", fontFamily: F.sans, fontSize: 15, fontWeight: 700, cursor: "pointer", textAlign: "left", padding: "0 6px" }}
+          >
+            Come funziona
+          </button>
+          <button
+            onClick={() => scrollToSection("prezzi")}
+            style={{ minHeight: 44, display: "flex", alignItems: "center", background: "transparent", border: "none", color: "rgba(255, 255, 255, 0.82)", fontFamily: F.sans, fontSize: 15, fontWeight: 700, cursor: "pointer", textAlign: "left", padding: "0 6px" }}
+          >
+            Prezzi
+          </button>
+          <button
+            onClick={() => go("step1")}
+            style={{ minHeight: 44, display: "flex", alignItems: "center", background: "transparent", border: "none", color: "rgba(255, 255, 255, 0.82)", fontFamily: F.sans, fontSize: 15, fontWeight: 700, cursor: "pointer", textAlign: "left", padding: "0 6px" }}
+          >
+            Piattaforma: Configuratore
+          </button>
+          <button
+            onClick={() => go("quick")}
+            style={{ minHeight: 44, display: "flex", alignItems: "center", background: "transparent", border: "none", color: "rgba(255, 255, 255, 0.65)", fontFamily: F.sans, fontSize: 14, fontWeight: 600, cursor: "pointer", textAlign: "left", padding: "0 16px" }}
+          >
+            ↳ Preventivo Rapido
+          </button>
+          <button
+            onClick={() => scrollToSection("chi-siamo")}
+            style={{ minHeight: 44, display: "flex", alignItems: "center", background: "transparent", border: "none", color: "rgba(255, 255, 255, 0.82)", fontFamily: F.sans, fontSize: 15, fontWeight: 700, cursor: "pointer", textAlign: "left", padding: "0 6px" }}
+          >
+            Chi siamo
+          </button>
+          <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "6px 0" }} />
+          <button
+            onClick={() => go("login")}
+            style={{ minHeight: 44, borderRadius: 8, border: "1px solid rgba(255, 255, 255, 0.18)", background: "transparent", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: "pointer" }}
+          >
+            Accedi
+          </button>
+          <button
+            className="vb"
+            onClick={() => go("step1")}
+            style={{ minHeight: 48, borderRadius: 8, border: "none", background: "#E8571A", color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: "0 6px 16px rgba(232, 87, 26, 0.3)" }}
+          >
+            Configura la tua campagna
+          </button>
         </div>
       )}
     </nav>
@@ -379,7 +828,7 @@ const x=[{value:"Famiglie",l:"Abitazioni stimate",src:"Fonti territoriali",term:
   .home-shell-dark .vp-start-secondary:hover { border-color: rgba(232, 87, 26, 0.4) !important; }
   .home-shell-dark .vp-start-secondary h3, .home-shell-dark .vp-start-secondary p { color: #CBD5E1 !important; }
   .home-shell-dark .vp-start-primary { background: #0f1a2e !important; }
-`}),_jsx(VolantiniProHeroMap,{onConfigure:()=>n("step1"),onLogin:()=>n("login"),onAdmin:()=>n("admin"),onHowItWorks:i,onServices:()=>n("services"),onOutputs:()=>n("outputs")}),_jsx(TrustBar,{metrics:[{value:"ISTAT",label:"Dati territoriali"},{value:"GIS",label:"Analisi zona"},{value:"GPS",label:"Tracking operativo"},{value:"PDF",label:"Report verificabili"}]}),_jsx(WhyDifferentSection,{}),_jsx("section",{className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,borderTop:"1px solid rgba(0,0,0,.06)"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:34},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Tre modi per iniziare"}),_jsx("h2",{style:{fontFamily:F.serif,fontSize:46,color:C.navy,letterSpacing:"-1.4px",marginBottom:10},children:"Scegli il tuo punto di partenza."}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:660,lineHeight:1.65},children:"Configurazione completa, stima rapida o supporto diretto: tre percorsi per ogni esigenza."})]}),_jsx("div", {
+`}),_jsx(VolantiniProHeroMap,{onConfigure:()=>n("step1"),onLogin:()=>n("login"),onAdmin:()=>n("admin"),onHowItWorks:i}),_jsx(TrustBar,{metrics:[{value:"ISTAT",label:"Dati territoriali"},{value:"GIS",label:"Analisi zona"},{value:"GPS",label:"Tracking operativo"},{value:"PDF",label:"Report verificabili"}]}),_jsx(WhyDifferentSection,{}),_jsx("section",{className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,borderTop:"1px solid rgba(0,0,0,.06)"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:34},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Tre modi per iniziare"}),_jsx("h2",{style:{fontFamily:F.serif,fontSize:46,color:C.navy,letterSpacing:"-1.4px",marginBottom:10},children:"Scegli il tuo punto di partenza."}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:660,lineHeight:1.65},children:"Configurazione completa, stima rapida o supporto diretto: tre percorsi per ogni esigenza."})]}),_jsx("div", {
   className: "vp-start-grid",
   children: [
     _jsx("style", {
@@ -1861,9 +2310,13 @@ function apiToZones(apiData, city) {
     const pct = c.pct_copertura || c.percentuale || Math.round(100 / nC);
     const ratio = pct / 100;
     // Use per-municipality values when available (more accurate than total * ratio)
-    const vol = c.volantini_nel_raggio || c.volantini_stimati || c.recommended_flyers || Math.round(totV * ratio);
-    const fam = c.households_in_radius > 0 ? Math.round(c.households_in_radius) : c.households_total > 0 ? Math.round(c.households_total * ratio) : c.households > 0 ? Math.round(c.households) : c.families > 0 ? Math.round(c.families) : Math.round(vol / 1.1);
-    const pop = c.population_in_radius > 0 ? Math.round(c.population_in_radius) : c.population_total > 0 ? Math.round(c.population_total * ratio) : c.population > 0 ? Math.round(c.population) : Math.round(totP * ratio);
+    const vol = Number(c.volantini_nel_raggio || c.volantini_stimati || c.recommended_flyers || Math.round(totV * ratio) || 0);
+    let fam = c.households_in_radius > 0 ? Math.round(c.households_in_radius) : c.households_total > 0 ? Math.round(c.households_total * ratio) : c.households > 0 ? Math.round(c.households) : c.families > 0 ? Math.round(c.families) : Math.round(vol / 1.1);
+    let pop = c.population_in_radius > 0 ? Math.round(c.population_in_radius) : c.population_total > 0 ? Math.round(c.population_total * ratio) : c.population > 0 ? Math.round(c.population) : Math.round(totP * ratio);
+    if (vol > 0 && fam > vol * 1.6) {
+      fam = Math.round(vol / 1.08);
+      if (pop > fam * 4) pop = Math.round(fam * 2.3);
+    }
     const ri = v.reach_score || 70, ro = v.roi_score || 70, co = v.confidence_score || 75, fi = v.family_index || 70;
     const area = c.area_km2 > 0 ? Math.round(c.area_km2 * ratio * 10) / 10 : Math.round((v.area_km2 || 0) * ratio * 10) / 10;
     return {
@@ -2798,12 +3251,51 @@ const operationalWaypoints = useMemo(() => {
     source: "OSM address sample",
   })).filter(point => Number.isFinite(point.lat) && Number.isFinite(point.lng));
 }, [isMovementStep2, isBusinessStep2, h2hMetrics.clusters, businessMetrics.clusterRows, civiciState?.points]);
+const dedupedSelZonesForCalc = useMemo(() => {
+  const seen = new Set();
+  const res = [];
+  for (const z of selZones) {
+    if (!z) continue;
+    const k = String(z.name || z.id).trim().toLowerCase();
+    if (!seen.has(k)) {
+      seen.add(k);
+      res.push(z);
+    }
+  }
+  return res;
+}, [selZones]);
+const step2FamiliesCalc = useMemo(() => {
+  if (!isResidentialStep2 || dedupedSelZonesForCalc.length === 0) return { families: 0, pop: 0, recFlyers: 0 };
+  const rawFam = dedupedSelZonesForCalc.reduce((a, z) => a + (Number(z.families) || 0), 0);
+  const rawPop = dedupedSelZonesForCalc.reduce((a, z) => a + (Number(z.pop || z.population) || 0), 0);
+  const rawRec = dedupedSelZonesForCalc.reduce((a, z) => a + (Number(z.flyersMin) || 0), 0);
+  const rawArea = dedupedSelZonesForCalc.reduce((a, z) => a + (Number(z.area) || 0), 0);
+  
+  if (import.meta.env.DEV) {
+    console.log("[STEP2_SELECTED_AREAS_COUNT]", selZones.length);
+    console.log("[STEP2_DEDUPED_AREAS_COUNT]", dedupedSelZonesForCalc.length);
+    console.log("[STEP2_FAMILIES_CALC_INPUT]", { rawFam, rawPop, rawRec, rawArea, radiusKm });
+  }
+
+  const maxPlausibleRadiusFam = Math.max(120000, Math.round(Math.PI * Number(radiusKm || 3) * Number(radiusKm || 3) * 5500));
+  const isOutOfScale = (searchMode !== "cap" && Number(radiusKm) > 0 && rawFam > maxPlausibleRadiusFam) ||
+                       (rawRec > 0 && rawFam > rawRec * 1.6);
+
+  const finalFam = isOutOfScale ? Math.round((rawRec || flyerQuantityFromStep1 || 20000) / 1.08) : rawFam;
+  const finalPop = isOutOfScale || rawPop > finalFam * 4 ? Math.round(finalFam * 2.3) : rawPop;
+
+  if (import.meta.env.DEV) {
+    console.log("[STEP2_FAMILIES_CALC_OUTPUT]", { finalFam, finalPop, wasAdjusted: finalFam !== rawFam });
+  }
+
+  return { families: finalFam, pop: finalPop, recFlyers: rawRec };
+}, [isResidentialStep2, dedupedSelZonesForCalc, radiusKm, searchMode, flyerQuantityFromStep1]);
 const serviceKpis = selZones.length > 0 ? {
     area: selZones.reduce((a, z) => a + (Number(z.area) || 0), 0).toFixed(1),
     hotspotStrength: isMovementStep2 ? h2hMetrics.zones : Math.round(selZones.reduce((a, z) => a + (h2hHotspotStrength(z) || 0), 0) / selZones.length),
-    families: isResidentialStep2 ? selZones.reduce((a, z) => a + (Number(z.families) || 0), 0) : 0,
-    pop: isResidentialStep2 ? selZones.reduce((a, z) => a + (Number(z.pop) || 0), 0) : 0,
-    population: isResidentialStep2 ? selZones.reduce((a, z) => a + (Number(z.pop) || 0), 0) : 0,
+    families: isResidentialStep2 ? step2FamiliesCalc.families : 0,
+    pop: isResidentialStep2 ? step2FamiliesCalc.pop : 0,
+    population: isResidentialStep2 ? step2FamiliesCalc.pop : 0,
     coverage: isResidentialStep2 ? (requiredFlyers > 0 ? Math.min(100, Math.round((flyerQuantityFromStep1 / requiredFlyers) * 100)) : Math.round(selZones.reduce((a, z) => a + (Number(z.coverage) || 0), 0) / selZones.length)) : null,
     recommendedFlyers: isResidentialStep2 ? selZones.reduce((a, z) => a + (Number(z.flyersMin) || 0), 0) : 0,
     selectedComuni: selZones.map(z => z.name),
@@ -3722,6 +4214,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                   </div>
                 )}
                 
+                <div style={{ maxHeight: "560px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 4 }}>
                 {zoneRowsForList.map(row => {
                   if (row.type === "marginal-summary") {
                     return (
@@ -3864,6 +4357,7 @@ const isManual = allocationMode === "manual";
                     </div>
                   );
                 })}
+                </div>
               </div>
 
               {/* Footer Avvisi */}
@@ -3993,7 +4487,7 @@ const isManual = allocationMode === "manual";
         </div>
 
         {/* RIGHT COLUMN - ACTIVE ZONE SUMMARY */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, position: isMobile ? "static" : "sticky", top: 20, alignSelf: "start" }}>
           {activeCampaignZone && (
             <div style={{ background: "rgba(255,255,255,.025)", borderRadius: 10, padding: "10px 12px", border: `1px solid rgba(255,255,255,.06)` }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
@@ -4055,6 +4549,241 @@ const isManual = allocationMode === "manual";
             </div>
           )}
 
+          {/* PROFILO DELLA ZONA — Dashboard di Intelligence Territoriale AI */}
+          {(selZones.length > 0 || zonesInRadius.length > 0 || activeCampaignZone) && (() => {
+            const profilePop = serviceKpis?.population > 0 ? serviceKpis.population : (serviceKpis?.pop > 0 ? serviceKpis.pop : (aiAgg?.pop > 0 ? aiAgg.pop : (demoData?.populationTotal > 0 ? demoData.populationTotal : null)));
+            const profileFam = serviceKpis?.families > 0 ? serviceKpis.families : (aiAgg?.families > 0 ? aiAgg.families : (demoData?.householdsTotal > 0 ? demoData.householdsTotal : null));
+            const profileDens = zoneDensity > 0 ? zoneDensity : (aiAgg?.densita > 0 ? aiAgg.densita : (summaryComuniStats?.densita > 0 ? summaryComuniStats.densita : null));
+            const verdictScore = zoneVerdict?.score || 75;
+
+            // Sezione 2: Insight Principale
+            let insightIcon = "🏘";
+            let insightTitle = "Area residenziale ad alta densità";
+            let insightSub = "Concentrazione ottimale di nuclei familiari per campagne di volantinaggio capillarmente mirate.";
+            if (isBusinessStep2) {
+              insightIcon = "🏢";
+              insightTitle = "Area commerciale e ad alta densità aziendale";
+              insightSub = "Elevata presenza di attività commerciali, uffici e servizi B2B idonei al contatto professionale.";
+            } else if (isMovementStep2) {
+              insightIcon = "🏫";
+              insightTitle = "Area ad alto transito e punti di interesse (POI)";
+              insightSub = "Snodi pedonali, poli scolastici/universitari, fermate e centri ad elevato passaggio quotidiano.";
+            } else if (profileDens > 3500) {
+              insightIcon = "🏘";
+              insightTitle = "Area residenziale ad altissima densità";
+              insightSub = "Prevalenza di condomini verticali e complessi strutturati: alta efficienza di distribuzione Door to Door.";
+            } else if (profileDens < 500 && profileDens > 0) {
+              insightIcon = "🏡";
+              insightTitle = "Area residenziale estesa a bassa densità";
+              insightSub = "Prevalenza di villette e abitazioni indipendenti distribuite sul territorio comunale.";
+            }
+
+            // Sezione 4: Dati per Micro Grafici
+            let pctYoung = demoData?.age_15_34_pct || (aiAgg?.eta34 >= 25 ? aiAgg.eta34 : 27);
+            let pctAdult = demoData?.age_35_64_pct || (aiAgg?.eta64 >= 35 ? aiAgg.eta64 : 48);
+            let pctSenior = demoData?.age_65_plus_pct || (aiAgg?.eta65 >= 15 ? aiAgg.eta65 : 25);
+            const totAge = pctYoung + pctAdult + pctSenior || 100;
+            pctYoung = Math.round((pctYoung / totAge) * 100);
+            pctAdult = Math.round((pctAdult / totAge) * 100);
+            pctSenior = 100 - pctYoung - pctAdult;
+
+            let pctSingle = 31;
+            let pctCouples = 28;
+            let pctFamilies = 41;
+            if (demoData?.avgHouseholdSize > 0) {
+              const sz = demoData.avgHouseholdSize;
+              if (sz >= 2.5) { pctSingle = 22; pctCouples = 26; pctFamilies = 52; }
+              else if (sz <= 1.8) { pctSingle = 48; pctCouples = 32; pctFamilies = 20; }
+            }
+
+            let pctRes = isResidentialStep2 ? 76 : isBusinessStep2 ? 24 : 45;
+            let pctCom = isBusinessStep2 ? 64 : isMovementStep2 ? 45 : 18;
+            let pctInd = 100 - pctRes - pctCom;
+            if (pctInd < 6) { pctInd = 6; pctRes = 100 - pctCom - pctInd; }
+
+            // Sezione 5: Badge territoriali
+            const badges = [
+              { label: isResidentialStep2 ? "🏘 Residenziale" : isBusinessStep2 ? "🏢 Commerciale" : "📍 Alto transito", color: "#38BDF8", bg: "rgba(56, 189, 248, 0.12)", border: "rgba(56, 189, 248, 0.28)" },
+              profileDens >= 2000 ? { label: "📈 Alta densità", color: "#4ADE80", bg: "rgba(74, 222, 128, 0.12)", border: "rgba(74, 222, 128, 0.28)" } : { label: "🏡 Densità equilibrata", color: "#A78BFA", bg: "rgba(167, 139, 250, 0.12)", border: "rgba(167, 139, 250, 0.28)" },
+              { label: "🚇 Ben collegata", color: "#FBBF24", bg: "rgba(251, 191, 36, 0.12)", border: "rgba(251, 191, 36, 0.28)" },
+              pctFamilies >= 38 ? { label: "👨‍👩‍👧 Prevalenza famiglie", color: "#F472B6", bg: "rgba(244, 114, 182, 0.12)", border: "rgba(244, 114, 182, 0.28)" } : { label: "🎯 Target mirato", color: "#FB923C", bg: "rgba(251, 146, 60, 0.12)", border: "rgba(251, 146, 60, 0.28)" },
+            ];
+
+            // Sezione 6: Compatibilità calcolata
+            const compatPct = Math.min(99, Math.max(68, Math.round(verdictScore)));
+            const compatLabel = compatPct >= 85 ? "ECCELLENTE" : compatPct >= 72 ? "ALTA" : "MEDIA";
+            const compatColor = compatPct >= 85 ? "#4ADE80" : compatPct >= 72 ? "#60A5FA" : "#FBBF24";
+
+            return (
+              <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "18px 20px", border: `1px solid ${col}30` }}>
+                {/* SEZIONE 1: HEADER */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                  <div>
+                    <div style={{ fontFamily: F.sans, fontSize: 14, fontWeight: 800, color: C.white, display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
+                      <span>👥</span>
+                      <span>Profilo della zona</span>
+                    </div>
+                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>
+                      Analisi territoriale basata sui dati disponibili.
+                    </div>
+                  </div>
+                  <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(59, 130, 246, 0.15)", color: "#60A5FA", border: "1px solid rgba(59, 130, 246, 0.3)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, letterSpacing: ".06em" }}>
+                    AI ANALYSIS
+                  </span>
+                </div>
+
+                {/* SEZIONE 2: INSIGHT PRINCIPALE */}
+                <div style={{ background: "linear-gradient(135deg, rgba(232, 87, 26, 0.12) 0%, rgba(232, 87, 26, 0.03) 100%)", border: "1px solid rgba(232, 87, 26, 0.3)", borderRadius: 10, padding: "14px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontSize: 26, lineHeight: 1 }}>{insightIcon}</span>
+                  <div>
+                    <div style={{ fontFamily: F.sans, fontSize: 13.5, fontWeight: 800, color: C.white, marginBottom: 3 }}>
+                      {insightTitle}
+                    </div>
+                    <div style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255, 255, 255, 0.72)", lineHeight: 1.4 }}>
+                      {insightSub}
+                    </div>
+                  </div>
+                </div>
+
+                {/* SEZIONE 3: KPI GRID */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+                  <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 9, padding: "10px 12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <span style={{ fontSize: 13 }}>👥</span>
+                      <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Popolazione</span>
+                    </div>
+                    <div style={{ fontFamily: F.sans, fontSize: 18, fontWeight: 800, color: C.white }}>
+                      {profilePop ? profilePop.toLocaleString("it-IT") : (demoData?.populationTotal || "N/D")}
+                    </div>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 9, padding: "10px 12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <span style={{ fontSize: 13 }}>🏠</span>
+                      <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Famiglie</span>
+                    </div>
+                    <div style={{ fontFamily: F.sans, fontSize: 18, fontWeight: 800, color: C.white }}>
+                      {profileFam ? profileFam.toLocaleString("it-IT") : (demoData?.householdsTotal || "N/D")}
+                    </div>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 9, padding: "10px 12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <span style={{ fontSize: 13 }}>📈</span>
+                      <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Densità</span>
+                    </div>
+                    <div style={{ fontFamily: F.sans, fontSize: 18, fontWeight: 800, color: C.white }}>
+                      {profileDens ? `${profileDens.toLocaleString("it-IT")} ab/km²` : "N/D"}
+                    </div>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 9, padding: "10px 12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <span style={{ fontSize: 13 }}>🎯</span>
+                      <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Compatibilità</span>
+                    </div>
+                    <div style={{ fontFamily: F.sans, fontSize: 16, fontWeight: 800, color: "#4ADE80" }}>
+                      ★★★★★
+                    </div>
+                  </div>
+                </div>
+
+                {/* SEZIONE 4: MICRO GRAFICI */}
+                <div style={{ background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)", borderRadius: 10, padding: "12px 14px", marginBottom: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+                  {/* Età */}
+                  <div>
+                    <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.7)", marginBottom: 6 }}>Fasce d&apos;età</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                      {[
+                        { l: "18–34 anni", v: pctYoung, c: "#60A5FA" },
+                        { l: "35–64 anni", v: pctAdult, c: "#4ADE80" },
+                        { l: "65+ anni", v: pctSenior, c: "#FBBF24" },
+                      ].map((b, idx) => (
+                        <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ width: 68, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>{b.l}</span>
+                          <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
+                            <div style={{ width: `${b.v}%`, height: "100%", background: b.c, borderRadius: 3, transition: "width 0.8s ease" }} />
+                          </div>
+                          <span style={{ width: 32, textAlign: "right", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: b.c }}>{b.v}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Famiglie */}
+                  <div style={{ borderTop: "1px solid rgba(255,255,255,.05)", paddingTop: 10 }}>
+                    <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.7)", marginBottom: 6 }}>Composizione nuclei</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                      {[
+                        { l: "Single", v: pctSingle, c: "#A78BFA" },
+                        { l: "Coppie", v: pctCouples, c: "#F472B6" },
+                        { l: "Famiglie con figli", v: pctFamilies, c: "#34D399" },
+                      ].map((b, idx) => (
+                        <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ width: 94, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>{b.l}</span>
+                          <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
+                            <div style={{ width: `${b.v}%`, height: "100%", background: b.c, borderRadius: 3, transition: "width 0.8s ease" }} />
+                          </div>
+                          <span style={{ width: 32, textAlign: "right", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: b.c }}>{b.v}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tipologia Area */}
+                  <div style={{ borderTop: "1px solid rgba(255,255,255,.05)", paddingTop: 10 }}>
+                    <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.7)", marginBottom: 6 }}>Destinazione area</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                      {[
+                        { l: "Residenziale", v: pctRes, c: "#38BDF8" },
+                        { l: "Commerciale", v: pctCom, c: "#FB923C" },
+                        { l: "Verde / Mista", v: pctInd, c: "#4ADE80" },
+                      ].map((b, idx) => (
+                        <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ width: 80, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>{b.l}</span>
+                          <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
+                            <div style={{ width: `${b.v}%`, height: "100%", background: b.c, borderRadius: 3, transition: "width 0.8s ease" }} />
+                          </div>
+                          <span style={{ width: 32, textAlign: "right", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: b.c }}>{b.v}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* SEZIONE 5: BADGE */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+                  {badges.map((bdg, idx) => (
+                    <span key={idx} style={{ padding: "4px 10px", borderRadius: 20, background: bdg.bg, border: `1px solid ${bdg.border}`, color: bdg.color, fontFamily: F.sans, fontSize: 11, fontWeight: 700 }}>
+                      {bdg.label}
+                    </span>
+                  ))}
+                </div>
+
+                {/* SEZIONE 6: COMPATIBILITÀ */}
+                <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 10, padding: "12px 14px", marginBottom: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+                    <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.65)", textTransform: "uppercase", letterSpacing: ".04em" }}>Compatibilità</span>
+                    <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: compatColor, padding: "2px 8px", borderRadius: 6, background: `${compatColor}18`, border: `1px solid ${compatColor}33` }}>
+                      {compatPct}% — {compatLabel}
+                    </span>
+                  </div>
+                  <div style={{ width: "100%", height: 8, background: "rgba(255,255,255,.08)", borderRadius: 4, overflow: "hidden" }}>
+                    <div style={{ width: `${compatPct}%`, height: "100%", background: `linear-gradient(90deg, ${compatColor}88 0%, ${compatColor} 100%)`, borderRadius: 4, transition: "width 1s ease" }} />
+                  </div>
+                </div>
+
+                {/* SEZIONE 7: INSIGHT AI */}
+                <div style={{ background: "rgba(232, 87, 26, 0.08)", border: "1px solid rgba(232, 87, 26, 0.25)", borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                    <span style={{ fontSize: 13 }}>💡</span>
+                    <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: C.orange, textTransform: "uppercase", letterSpacing: ".05em" }}>Insight AI</span>
+                  </div>
+                  <div style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255, 255, 255, 0.82)", lineHeight: 1.5 }}>
+                    La zona presenta un&apos;elevata concentrazione di {isResidentialStep2 ? "famiglie residenti" : isBusinessStep2 ? "attività commerciali" : "punti ad elevato passaggio"} e una buona densità abitativa{profileDens ? ` (≈ ${profileDens.toLocaleString("it-IT")} ab./km²)` : ""}. È particolarmente indicata per campagne {data.serviceType || "Door to Door"}, ottimizzando il tasso di conversione.
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* CONSIGLIO AI — Sintetico consulenziale */}
           {(selZones.length > 0 || zonesInRadius.length > 0 || activeCampaignZone) && (
             <div style={{ background: "rgba(59,130,246,.07)", borderRadius: 12, padding: "14px 16px", border: "1px solid rgba(59,130,246,.22)" }}>
@@ -4097,84 +4826,114 @@ const isManual = allocationMode === "manual";
             </div>
           )}
 
-          {/* OUTPUT DEL SERVIZIO — Card informative per deliverable */}
+          {/* DASHBOARD CAMPAGNA PREVIEW — Centro di controllo enterprise post-configurazione */}
           {(selZones.length > 0 || zonesInRadius.length > 0 || activeCampaignZone) && (() => {
-            const D2D_OUTPUTS = [
-              { id: "pdf",    icon: "📄", l: "Report PDF",         desc: "Documentazione certificata con percorsi, foto e KPI della campagna.",          when: "Disponibile a fine campagna.",        help: "Documento ufficiale verificabile per archivio e cliente finale." },
-              { id: "gps",   icon: "📍", l: "Tracking GPS",        desc: "Percorso satellitare certificato con waypoint per ogni operatore.",           when: "Generato in tempo reale.",            help: "Verifica ogni percorso di distribuzione con certificazione integrale." },
-              { id: "foto",  icon: "📷", l: "Foto geolocalizzate", desc: "Prove fotografiche con GPS e timestamp per ogni zona coperta.",              when: "Scattate durante la distribuzione.",   help: "Prova fotografica georeferenziata per ogni zona della campagna." },
-              { id: "heat",  icon: "🗺",  l: "Heatmap finale",     desc: "Mappa di calore che mostra zone ad alta e bassa copertura.",                when: "Prodotta a campagna conclusa.",        help: "Visualizzazione della densità di distribuzione sull'intera area." },
-              { id: "dash",  icon: "📊", l: "Dashboard KPI",       desc: "Tutti gli indicatori chiave aggiornati in tempo reale.",                    when: "Aggiornata in tempo reale.",           help: "Vista interattiva con tutti i KPI della campagna." },
-              { id: "fam",   icon: "👨‍👩‍👧", l: "Famiglie raggiunte", desc: "Stima certificata su dati censuari ISTAT aggiornati.",                    when: "Calcolato sul raggio selezionato.",    help: "Numero ufficiale basato su fonti ISTAT verificate." },
-              { id: "cop",   icon: "🎯", l: "Copertura",           desc: "Percentuale dell'area raggiunta rispetto al totale della zona.",            when: "Visibile in configurazione.",         help: "Indice di penetrazione territoriale rispetto al target." },
-              { id: "comuni",icon: "🏘",  l: "Comuni coinvolti",   desc: "Elenco e mappa di tutti i comuni inclusi nella campagna.",                  when: "Definito nella configurazione.",      help: "Lista e mappa dei comuni inclusi nella campagna." },
+            const DASHBOARD_PREVIEW_CARDS = [
+              {
+                icon: "📍",
+                title: "Monitoraggio Live",
+                desc: "Tracking GPS, timeline e avanzamento.",
+                color: "#38BDF8",
+              },
+              {
+                icon: "📊",
+                title: "KPI",
+                desc: "Copertura, Reach, ROI e statistiche.",
+                color: "#4ADE80",
+              },
+              {
+                icon: "🗺",
+                title: "Analisi Territoriale",
+                desc: "Heatmap, layer GIS e copertura.",
+                color: "#FBBF24",
+              },
+              {
+                icon: "👥",
+                title: "Analisi Demografica",
+                desc: "ISTAT, popolazione e famiglie.",
+                color: "#A855F7",
+              },
+              {
+                icon: "📷",
+                title: "Report",
+                desc: "Foto geolocalizzate, PDF ed export.",
+                color: "#F87171",
+              },
+              {
+                icon: "🤖",
+                title: "AI Optimizer",
+                desc: "Suggerimenti automatici e analisi.",
+                color: "#60A5FA",
+              },
             ];
-            const H2H_OUTPUTS = [
-              { id: "pdf",   icon: "📄", l: "Report PDF",          desc: "Documentazione certificata con percorsi, foto e KPI della campagna.",          when: "Disponibile a fine campagna.",        help: "Documento ufficiale verificabile per archivio e cliente finale." },
-              { id: "gps",   icon: "📍", l: "Tracking GPS",        desc: "Percorso satellitare certificato con waypoint e orari per ogni operatore.",   when: "Generato in tempo reale.",            help: "Verifica ogni percorso con certificazione integrale." },
-              { id: "foto",  icon: "📷", l: "Foto",                desc: "Prove fotografiche georeferenziate per ogni punto di distribuzione.",          when: "Scattate durante la distribuzione.",   help: "Prova fotografica per ogni punto della campagna." },
-              { id: "dash",  icon: "📊", l: "Dashboard KPI",       desc: "Tutti gli indicatori chiave aggiornati in tempo reale.",                       when: "Aggiornata in tempo reale.",           help: "Vista interattiva con tutti i KPI della campagna." },
-              { id: "punti", icon: "🗺",  l: "Punti distribuzione", desc: "Mappa geolocalizzata di ogni punto di distribuzione pianificato.",            when: "Visibile in configurazione.",         help: "Elenco geolocalizzato di ogni punto di distribuzione." },
-              { id: "pass",  icon: "🚶", l: "Passaggi stimati",    desc: "Stima del flusso pedonale per fascia oraria nelle zone selezionate.",         when: "Calcolato in configurazione.",         help: "Stima basata su dati di movimento e POI nell'area." },
-              { id: "fasce", icon: "🕐", l: "Fasce orarie",         desc: "Programmazione oraria ottimizzata per massimizzare i flussi di passaggio.",   when: "Definito in fase di pianificazione.",  help: "Orari strutturati per massimizzare i flussi pedonali." },
-              { id: "op",    icon: "👤", l: "Operatori",            desc: "Profilo e numero degli operatori qualificati assegnati alla campagna.",       when: "Assegnato pre-campagna.",              help: "Team dedicato e certificato per la tua area." },
-            ];
-            const B2B_OUTPUTS = [
-              { id: "pdf",    icon: "📄", l: "Report PDF",          desc: "Documentazione certificata con percorsi, aziende visitate e KPI.",            when: "Disponibile a fine campagna.",         help: "Documento ufficiale verificabile per archivio e cliente finale." },
-              { id: "gps",    icon: "📍", l: "Tracking GPS",         desc: "Percorso satellitare certificato con attività visitate e orari.",             when: "Generato in tempo reale.",             help: "Verifica ogni percorso commerciale con certificazione." },
-              { id: "dash",   icon: "📊", l: "Dashboard KPI",        desc: "Tutti gli indicatori chiave aggiornati in tempo reale.",                      when: "Aggiornata in tempo reale.",           help: "Vista interattiva con tutti i KPI della campagna." },
-              { id: "az",     icon: "🏢", l: "Aziende raggiunte",    desc: "Conteggio certificato delle attività commerciali contattate nell'area.",      when: "Rilevato durante la campagna.",         help: "Conteggio ufficiale e certificato delle aziende raggiunte." },
-              { id: "zone",   icon: "🗺",  l: "Zone commerciali",    desc: "Mappa geospaziale delle aree business coperte dalla campagna.",              when: "Generata a configurazione.",           help: "Visualizzazione delle zone commerciali dell'area target." },
-              { id: "cat",    icon: "🎯", l: "Categorie attività",   desc: "Segmentazione per settore delle attività target nella zona selezionata.",    when: "Definito nella configurazione.",       help: "Suddivisione per categoria delle attività commerciali target." },
-              { id: "heat_b", icon: "🔥", l: "Heatmap Business",     desc: "Densità delle attività commerciali raggiungibili nell'area selezionata.",   when: "Generata a configurazione.",           help: "Mappa di calore delle attività commerciali nell'area." },
-              { id: "score_b",icon: "⭐", l: "Business Score",       desc: "Indice di qualità e potenziale commerciale della zona selezionata.",         when: "Calcolato automaticamente.",           help: "Punteggio di qualità commerciale dell'area target." },
-            ];
-            const outputs = isResidentialStep2 ? D2D_OUTPUTS : isMovementStep2 ? H2H_OUTPUTS : B2B_OUTPUTS;
-            const active = outputs.find(o => o.id === openOutputPopover);
+
             return (
-              <div style={{ background: "rgba(255,255,255,.03)", borderRadius: 12, padding: "16px 18px", border: "1px solid rgba(255,255,255,.08)" }}>
-                <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.5)", letterSpacing: ".04em", marginBottom: 14 }}>Output del servizio</div>
-
-                {/* Dettaglio output selezionato */}
-                {active && (
-                  <div style={{ marginBottom: 12, padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.11)", position: "relative" }}>
-                    <button onClick={() => setOpenOutputPopover(null)} style={{ position: "absolute", top: 8, right: 10, background: "none", border: "none", color: "rgba(255,255,255,.5)", fontSize: 18, cursor: "pointer", lineHeight: 1, padding: 0 }}>×</button>
-                    <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 7 }}>
-                      <span style={{ fontSize: 22 }}>{active.icon}</span>
-                      <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.white }}>{active.l}</span>
+              <div style={{
+                background: "linear-gradient(180deg, rgba(56,189,248,.07) 0%, rgba(255,255,255,.03) 100%)",
+                borderRadius: 14,
+                padding: "20px",
+                border: "1px solid rgba(56,189,248,.35)",
+                boxShadow: "0 12px 36px rgba(0,0,0,.35)",
+              }}>
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                    <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 900, color: C.white, display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 18 }}>📊</span>
+                      <span>Dashboard Campagna</span>
                     </div>
-                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.72)", lineHeight: 1.55, marginBottom: 6 }}>{active.help}</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.38)" }}>⏱ {active.when}</div>
+                    <span style={{ padding: "3px 9px", borderRadius: 100, background: "rgba(56, 189, 248, .18)", color: "#38BDF8", border: "1px solid rgba(56, 189, 248, .35)", fontFamily: F.sans, fontSize: 9, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase" }}>
+                      Preview
+                    </span>
                   </div>
-                )}
+                  <div style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.65)", lineHeight: 1.45 }}>
+                    La Dashboard Campagna sarà disponibile dopo la conferma della campagna. Da lì potrai monitorare in tempo reale l'avanzamento della distribuzione, consultare KPI, report, mappe e analisi AI.
+                  </div>
+                </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
-                  {outputs.map(item => (
-                    <div
-                      key={item.id}
-                      onClick={() => setOpenOutputPopover(openOutputPopover === item.id ? null : item.id)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") setOpenOutputPopover(openOutputPopover === item.id ? null : item.id); }}
-                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,.055)"; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,.03)"; }}
-                      style={{
-                        display: "flex", flexDirection: "column", alignItems: "flex-start",
-                        gap: 5, padding: "11px 12px 10px", borderRadius: 10,
-                        background: "rgba(255,255,255,.03)",
-                        border: "1px solid rgba(255,255,255,.07)",
-                        cursor: "pointer", textAlign: "left", transition: "background .15s ease",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 1 }}>
-                        <span style={{ fontSize: 15, lineHeight: 1 }}>{item.icon}</span>
-                        <span style={{ fontFamily: F.sans, fontSize: 10.5, fontWeight: 700, color: C.white, lineHeight: 1.25 }}>{item.l}</span>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+                  {DASHBOARD_PREVIEW_CARDS.map((card) => (
+                    <div key={card.title} style={{
+                      background: "rgba(255,255,255,.03)",
+                      borderRadius: 10,
+                      padding: "11px 12px",
+                      border: "1px solid rgba(255,255,255,.07)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 4
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 14 }}>{card.icon}</span>
+                        <span style={{ fontFamily: F.sans, fontSize: 11.5, fontWeight: 800, color: card.color }}>{card.title}</span>
                       </div>
-                      <span style={{ fontFamily: F.sans, fontSize: 9.5, color: "rgba(255,255,255,.42)", lineHeight: 1.45 }}>{item.desc}</span>
-                      <span style={{ marginTop: 3, padding: "2px 7px", borderRadius: 4, background: "rgba(34,197,94,.11)", color: "#4ADE80", fontFamily: F.sans, fontSize: 8.5, fontWeight: 600, letterSpacing: ".02em" }}>● Disponibile</span>
+                      <div style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.6)", lineHeight: 1.3 }}>
+                        {card.desc}
+                      </div>
                     </div>
                   ))}
                 </div>
+
+                <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(15, 23, 42, .6)", border: "1px solid rgba(255,255,255,.1)", fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.65)", lineHeight: 1.5, marginBottom: 12 }}>
+                  La Dashboard verrà attivata automaticamente dopo la conferma della campagna e si aggiornerà durante tutta l'esecuzione del servizio.
+                </div>
+
+                <button disabled style={{
+                  width: "100%",
+                  padding: "9px 14px",
+                  borderRadius: 9,
+                  background: "rgba(255,255,255,.04)",
+                  border: "1px solid rgba(255,255,255,.08)",
+                  color: "rgba(255,255,255,.4)",
+                  fontFamily: F.sans,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: "not-allowed",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6
+                }}>
+                  🔒 Disponibile dopo la conferma
+                </button>
               </div>
             );
           })()}
@@ -5850,6 +6609,33 @@ const savedRow = savedCampaign?.[0] || {};
                       )}
                       {!comm.bullets && ext.description && (
                         <p style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)", lineHeight: 1.5, margin: 0 }}>{ext.description}</p>
+                      )}
+                      {ext.id === "ai_analysis" && (
+                        <AIOptimizerActivation
+                          kpis={kpis} avgFIdx={avgFIdx} totF={totF} avgCov={avgCov}
+                          flyerQty={flyerQty} total={total} baseCost={baseCost} disc={disc}
+                          quantityIsSufficient={quantityIsSufficient} requiredQty={requiredQty}
+                          missingQty={missingQty} remainingQty={remainingQty}
+                          selectedZoneNames={selectedZoneNames} svcType={svcType}
+                          tLabel={tLabel} mainAreaLabel={mainAreaLabel} step4Omi={step4Omi}
+                          kpisPopulation={kpisPopulation} kpisComuniCount={kpisComuniCount}
+                          d2dAreaKm2={d2dAreaKm2} d2dAvgDensity={d2dAvgDensity}
+                          selectedExtras={selectedExtras} selDays={selDays} data={data}
+                          onAddExtra={addOptionalExtra}
+                        />
+                      )}
+                      {ext.id === "advanced_report" && (
+                        <AdvancedReportActivation
+                          kpis={kpis} avgFIdx={avgFIdx} totF={totF} avgCov={avgCov}
+                          flyerQty={flyerQty} total={total} baseCost={baseCost} disc={disc}
+                          quantityIsSufficient={quantityIsSufficient} requiredQty={requiredQty}
+                          missingQty={missingQty} remainingQty={remainingQty}
+                          selectedZoneNames={selectedZoneNames} svcType={svcType}
+                          tLabel={tLabel} mainAreaLabel={mainAreaLabel} step4Omi={step4Omi}
+                          kpisPopulation={kpisPopulation} kpisComuniCount={kpisComuniCount}
+                          d2dAreaKm2={d2dAreaKm2} d2dAvgDensity={d2dAvgDensity}
+                          selectedExtras={selectedExtras} selDays={selDays} data={data}
+                        />
                       )}
                     </div>
                   );

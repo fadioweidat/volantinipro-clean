@@ -70,12 +70,19 @@ function BenefitIcon({ type }) {
   );
 }
 
-export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWorks, onServices, onOutputs }) {
+export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWorks }) {
   const compact = useCompact();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [platformOpen, setPlatformOpen] = useState(false);
   const goAdmin = () => {
     if (typeof onAdmin === "function") return onAdmin();
     window.location.href = "/admin/campaigns/11111111-1111-1111-1111-111111111111/gps";
+  };
+
+  const scrollToSection = (id) => {
+    setMenuOpen(false);
+    setPlatformOpen(false);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const benefits = [
@@ -139,30 +146,75 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
         </button>
 
         {!compact && (
-          <div style={centerNavStyle}>
-            <button onClick={onHowItWorks} style={navButtonStyle}>Come funziona</button>
-            <button onClick={onConfigure} style={navButtonStyle}>Prezzi</button>
-            <button onClick={onHowItWorks} style={navButtonStyle}>Funzionalità</button>
-            <button onClick={onHowItWorks} style={navButtonStyle}>Chi siamo</button>
-            <button onClick={onServices} style={{ ...navButtonStyle, color: "#E8571A", fontWeight: 800 }}>Tutti i Servizi</button>
-            <button onClick={onOutputs} style={{ ...navButtonStyle, color: "#60A5FA", fontWeight: 800 }}>Output Library</button>
+          <div style={{ display: "flex", gap: 36, alignItems: "center", position: "relative" }}>
+            <button onClick={() => scrollToSection("come-funziona")} style={navButtonStyle}>Come funziona</button>
+            <button onClick={() => scrollToSection("prezzi")} style={navButtonStyle}>Prezzi</button>
+            <div
+              style={{ position: "relative" }}
+              onMouseEnter={() => setPlatformOpen(true)}
+              onMouseLeave={() => setPlatformOpen(false)}
+            >
+              <button
+                aria-expanded={platformOpen}
+                aria-haspopup="true"
+                onClick={() => setPlatformOpen(!platformOpen)}
+                style={{ ...navButtonStyle, display: "flex", alignItems: "center", gap: 6 }}
+              >
+                <span>Piattaforma</span>
+                <span style={{ fontSize: 10, color: "rgba(255, 255, 255, 0.5)", transform: platformOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
+              </button>
+              {platformOpen && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    width: 230,
+                    padding: 8,
+                    background: "rgba(10, 18, 34, 0.98)",
+                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    borderRadius: 12,
+                    boxShadow: "0 16px 40px rgba(0, 0, 0, 0.6)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                    zIndex: 210,
+                  }}
+                >
+                  <button
+                    onClick={() => onConfigure?.()}
+                    style={{ textAlign: "left", padding: "10px 12px", borderRadius: 8, background: "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    Configuratore Campagna
+                  </button>
+                  <button
+                    onClick={() => window.location.href = "/?page=quick"}
+                    style={{ textAlign: "left", padding: "10px 12px", borderRadius: 8, background: "transparent", border: "none", color: "rgba(255, 255, 255, 0.8)", fontFamily: F.sans, fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Preventivo Rapido
+                  </button>
+                  <button
+                    onClick={() => window.location.href = "/?page=consultant"}
+                    style={{ textAlign: "left", padding: "10px 12px", borderRadius: 8, background: "transparent", border: "none", color: "rgba(255, 255, 255, 0.8)", fontFamily: F.sans, fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Supporto Consulente
+                  </button>
+                </div>
+              )}
+            </div>
+            <button onClick={() => scrollToSection("chi-siamo")} style={navButtonStyle}>Chi siamo</button>
           </div>
         )}
 
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          {!compact && (
-            <Button variant="secondary" onClick={goAdmin} style={headerOutlineButtonStyle}>
-              <ShieldIcon />
-              Area Admin
-            </Button>
-          )}
           {!compact && (
             <Button variant="secondary" onClick={onLogin} style={headerOutlineButtonStyle}>
               Accedi
             </Button>
           )}
           <Button variant="primary" className="vb" onClick={onConfigure} style={primaryButtonStyle}>
-            Calcola la tua copertura
+            Configura la tua campagna
           </Button>
           {compact && (
             <button
@@ -182,14 +234,17 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
 
       {compact && menuOpen && (
         <div style={mobileMenuStyle}>
-          <button onClick={() => { setMenuOpen(false); onHowItWorks?.(); }} style={mobileMenuItemStyle}>Come funziona</button>
-          <button onClick={() => { setMenuOpen(false); onConfigure?.(); }} style={mobileMenuItemStyle}>Prezzi</button>
-          <button onClick={() => { setMenuOpen(false); onHowItWorks?.(); }} style={mobileMenuItemStyle}>Funzionalità</button>
-          <button onClick={() => { setMenuOpen(false); onHowItWorks?.(); }} style={mobileMenuItemStyle}>Chi siamo</button>
-          <button onClick={() => { setMenuOpen(false); onServices?.(); }} style={{ ...mobileMenuItemStyle, color: C.orange, fontWeight: 800 }}>Tutti i Servizi</button>
-          <button onClick={() => { setMenuOpen(false); onOutputs?.(); }} style={{ ...mobileMenuItemStyle, color: "#60A5FA", fontWeight: 800 }}>Output Library</button>
-          <button onClick={() => { setMenuOpen(false); goAdmin(); }} style={{ ...mobileMenuItemStyle, color: "rgba(255,255,255,.5)" }}>Area Admin</button>
+          <button onClick={() => { setMenuOpen(false); scrollToSection("come-funziona"); }} style={mobileMenuItemStyle}>Come funziona</button>
+          <button onClick={() => { setMenuOpen(false); scrollToSection("prezzi"); }} style={mobileMenuItemStyle}>Prezzi</button>
+          <button onClick={() => { setMenuOpen(false); onConfigure?.(); }} style={mobileMenuItemStyle}>Piattaforma: Configuratore</button>
+          <button onClick={() => { setMenuOpen(false); window.location.href = "/?page=quick"; }} style={{ ...mobileMenuItemStyle, color: "rgba(255,255,255,.65)", fontSize: 14 }}>↳ Preventivo Rapido</button>
+          <button onClick={() => { setMenuOpen(false); scrollToSection("chi-siamo"); }} style={mobileMenuItemStyle}>Chi siamo</button>
           <button onClick={() => { setMenuOpen(false); onLogin?.(); }} style={{ ...mobileMenuItemStyle, color: C.orange }}>Accedi</button>
+          <div style={{ marginTop: 8 }}>
+            <Button variant="primary" className="vb" onClick={() => { setMenuOpen(false); onConfigure?.(); }} style={{ ...primaryButtonStyle, width: "100%", minHeight: 48, justifyContent: "center" }}>
+              Configura la tua campagna
+            </Button>
+          </div>
         </div>
       )}
 
