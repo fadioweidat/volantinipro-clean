@@ -611,7 +611,7 @@ export function Step2Map({
       script.id = 'vp-leaflet-js';
       script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
       script.onload = () => setLeafletLoaded(true);
-      script.onerror = () => console.warn('[Step2Map] Leaflet non caricato');
+      script.onerror = () => { if (import.meta.env.DEV) console.warn('[Step2Map] Leaflet non caricato'); };
       document.head.appendChild(script);
     }
   }, []);

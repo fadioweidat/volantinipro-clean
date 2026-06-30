@@ -122,15 +122,15 @@ export function AdminLiveDashboard() {
 function LiveMapLifecycle({ pointsCount }) {
   const map = useMap();
   useEffect(() => {
-    console.log('[GPS_MAP_INIT]');
+    if (import.meta.env.DEV) console.log('[GPS_MAP_INIT]');
     if (pointsCount > 0) {
-      console.log('[GPS_MAP_POINTS_LOADED]');
+      if (import.meta.env.DEV) console.log('[GPS_MAP_POINTS_LOADED]');
     } else {
-      console.log('[GPS_MAP_EMPTY]');
+      if (import.meta.env.DEV) console.log('[GPS_MAP_EMPTY]');
     }
     const timer = setTimeout(() => {
       map.invalidateSize();
-      console.log('[GPS_MAP_INVALIDATE_SIZE]');
+      if (import.meta.env.DEV) console.log('[GPS_MAP_INVALIDATE_SIZE]');
     }, 250);
     return () => clearTimeout(timer);
   }, [map, pointsCount]);
@@ -158,8 +158,8 @@ function LiveMap({ drivers }) {
           attribution='&copy; OpenStreetMap'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           eventHandlers={{
-            load: () => console.log('[GPS_TILE_LAYER_LOADED]'),
-            tileerror: () => console.log('[GPS_TILE_LAYER_ERROR]'),
+            load: () => { if (import.meta.env.DEV) console.log('[GPS_TILE_LAYER_LOADED]'); },
+            tileerror: () => { if (import.meta.env.DEV) console.log('[GPS_TILE_LAYER_ERROR]'); },
           }}
         />
         {validDrivers.map((item) => {

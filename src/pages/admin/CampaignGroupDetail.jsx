@@ -107,9 +107,9 @@ export function CampaignGroupDetail({ campaignId, groupId }) {
         estimatedKm: Number(corrForm.estimatedKm) || 0,
       });
       if (corrForm.correctionType === 'da_rifare') {
-        console.log('[GPS_REWORK_ASSIGNED]');
+        if (import.meta.env.DEV) console.log('[GPS_REWORK_ASSIGNED]');
       } else {
-        console.log('[GPS_MANUAL_COVERAGE_CREATED]');
+        if (import.meta.env.DEV) console.log('[GPS_MANUAL_COVERAGE_CREATED]');
       }
       setNotice('Correzione copertura admin salvata con successo.');
       setCorrForm({ ...corrForm, label: '', notes: '' });
@@ -234,7 +234,7 @@ export function CampaignGroupDetail({ campaignId, groupId }) {
               </select>
             </label>
             <label style={labelStyle}>Via / Area o Segmento
-              <input value={corrForm.label} onChange={(e) => setCorrForm({ ...corrForm, label: e.target.value })} onClick={() => console.log('[GPS_UNCOVERED_AREA_SELECTED]')} placeholder="Es. Via Roma montagna" style={inputStyle} />
+              <input value={corrForm.label} onChange={(e) => setCorrForm({ ...corrForm, label: e.target.value })} onClick={() => import.meta.env.DEV && console.log('[GPS_UNCOVERED_AREA_SELECTED]')} placeholder="Es. Via Roma montagna" style={inputStyle} />
             </label>
             <label style={labelStyle}>Km stimati
               <input type="number" step="0.1" value={corrForm.estimatedKm} onChange={(e) => setCorrForm({ ...corrForm, estimatedKm: e.target.value })} style={inputStyle} />
@@ -297,9 +297,9 @@ function GroupMap({ rows, corrections = [] }) {
 
   useEffect(() => {
     if (rows.some(r => r.points.length) || corrections.length > 0) {
-      console.log('[GPS_MAP_POINTS_LOADED]');
+      if (import.meta.env.DEV) console.log('[GPS_MAP_POINTS_LOADED]');
     } else {
-      console.log('[GPS_MAP_EMPTY]');
+      if (import.meta.env.DEV) console.log('[GPS_MAP_EMPTY]');
     }
   }, [rows, corrections]);
 
@@ -312,10 +312,10 @@ function GroupMap({ rows, corrections = [] }) {
           const latest = item.points[item.points.length - 1];
           const color = REPORT_COLORS[index % REPORT_COLORS.length];
           if (path.length > 1) {
-            console.log('[GPS_TRACK_RENDERED]');
+            if (import.meta.env.DEV) console.log('[GPS_TRACK_RENDERED]');
           }
           if (latest) {
-            console.log('[GPS_OPERATOR_MARKER_RENDERED]');
+            if (import.meta.env.DEV) console.log('[GPS_OPERATOR_MARKER_RENDERED]');
           }
           return (
             <Fragment key={item.session.id}>

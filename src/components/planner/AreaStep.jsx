@@ -188,7 +188,7 @@ export function AreaStep({
                 style={{
                   padding: "7px 10px",
                   borderRadius: 999,
-                  borderColor: active ? "#0f766e" : undefined,
+                  border: active ? "1.5px solid #0f766e" : undefined,
                   background: active ? "#e8f5f2" : undefined,
                   color: active ? "#0f766e" : undefined,
                   fontWeight: active ? 850 : 750,
@@ -416,7 +416,7 @@ export function AreaStep({
               style={{
                 padding: "8px 10px",
                 borderRadius: 999,
-                borderColor: (allocationMode || "auto") === "auto" ? "#0f766e" : undefined,
+                border: (allocationMode || "auto") === "auto" ? "1.5px solid #0f766e" : undefined,
                 background: (allocationMode || "auto") === "auto" ? "#e8f5f2" : undefined,
                 color: (allocationMode || "auto") === "auto" ? "#0f766e" : undefined,
                 fontWeight: (allocationMode || "auto") === "auto" ? 850 : 750,
@@ -431,7 +431,7 @@ export function AreaStep({
               style={{
                 padding: "8px 10px",
                 borderRadius: 999,
-                borderColor: (allocationMode || "auto") === "manual" ? "#0f766e" : undefined,
+                border: (allocationMode || "auto") === "manual" ? "1.5px solid #0f766e" : undefined,
                 background: (allocationMode || "auto") === "manual" ? "#e8f5f2" : undefined,
                 color: (allocationMode || "auto") === "manual" ? "#0f766e" : undefined,
                 fontWeight: (allocationMode || "auto") === "manual" ? 850 : 750,

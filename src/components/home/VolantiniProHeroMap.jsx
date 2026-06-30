@@ -70,7 +70,7 @@ function BenefitIcon({ type }) {
   );
 }
 
-export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWorks, onServices }) {
+export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWorks, onServices, onOutputs }) {
   const compact = useCompact();
   const [menuOpen, setMenuOpen] = useState(false);
   const goAdmin = () => {
@@ -145,6 +145,7 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
             <button onClick={onHowItWorks} style={navButtonStyle}>Funzionalità</button>
             <button onClick={onHowItWorks} style={navButtonStyle}>Chi siamo</button>
             <button onClick={onServices} style={{ ...navButtonStyle, color: "#E8571A", fontWeight: 800 }}>Tutti i Servizi</button>
+            <button onClick={onOutputs} style={{ ...navButtonStyle, color: "#60A5FA", fontWeight: 800 }}>Output Library</button>
           </div>
         )}
 
@@ -186,6 +187,7 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
           <button onClick={() => { setMenuOpen(false); onHowItWorks?.(); }} style={mobileMenuItemStyle}>Funzionalità</button>
           <button onClick={() => { setMenuOpen(false); onHowItWorks?.(); }} style={mobileMenuItemStyle}>Chi siamo</button>
           <button onClick={() => { setMenuOpen(false); onServices?.(); }} style={{ ...mobileMenuItemStyle, color: C.orange, fontWeight: 800 }}>Tutti i Servizi</button>
+          <button onClick={() => { setMenuOpen(false); onOutputs?.(); }} style={{ ...mobileMenuItemStyle, color: "#60A5FA", fontWeight: 800 }}>Output Library</button>
           <button onClick={() => { setMenuOpen(false); goAdmin(); }} style={{ ...mobileMenuItemStyle, color: "rgba(255,255,255,.5)" }}>Area Admin</button>
           <button onClick={() => { setMenuOpen(false); onLogin?.(); }} style={{ ...mobileMenuItemStyle, color: C.orange }}>Accedi</button>
         </div>

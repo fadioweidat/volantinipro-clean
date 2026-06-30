@@ -18,7 +18,7 @@ async function getCurrentUserId() {
   const { data, error } = await client.auth.getUser();
 
   if (error) {
-    console.warn('Auth non disponibile, uso driver test.', error);
+    if (import.meta.env.DEV) console.warn('Auth non disponibile, uso driver test.', error);
   }
 
   return data?.user?.id || DEV_DRIVER_ID;
@@ -47,7 +47,7 @@ export async function startGpsSession(campaignId) {
   const driverId = await getCurrentUserId();
   const now = new Date().toISOString();
 
-  console.log('START GPS SESSION', { campaignId, driverId });
+  if (import.meta.env.DEV) console.log('START GPS SESSION', { campaignId, driverId });
 
   const { data, error } = await client
     .from('delivery_sessions')
@@ -60,7 +60,7 @@ export async function startGpsSession(campaignId) {
     .select('*')
     .single();
 
-  console.log('SUPABASE SESSION RESULT', { data, error });
+  if (import.meta.env.DEV) console.log('SUPABASE SESSION RESULT', { data, error });
 
   if (error) throw error;
   return data;
@@ -160,7 +160,7 @@ export async function insertGpsPoint({
     return result;
   }, 'invio punto GPS');
 
-  console.log('SUPABASE GPS POINT RESULT', { data, error });
+  if (import.meta.env.DEV) console.log('SUPABASE GPS POINT RESULT', { data, error });
 
   if (error) throw error;
   return data;

@@ -15,7 +15,7 @@ export function CampaignGroups({ campaignId }) {
   const [state, setState] = useState({ loading: true, error: null, groups: [], campaign: null, corrections: [], zones: [], notice: '' });
 
   useEffect(() => {
-    console.log('[GPS_MONITOR_OPENED]');
+    if (import.meta.env.DEV) console.log('[GPS_MONITOR_OPENED]');
     let cancelled = false;
     async function load() {
       try {
@@ -58,7 +58,7 @@ export function CampaignGroups({ campaignId }) {
   }
 
   function handleGroupClick(groupId) {
-    console.log('[GPS_GROUP_SELECTED]', groupId);
+    if (import.meta.env.DEV) console.log('[GPS_GROUP_SELECTED]', groupId);
     if (groupId) {
       window.location.href = `/admin/campaigns/${campaignId}/groups/${encodeURIComponent(groupId)}`;
     }

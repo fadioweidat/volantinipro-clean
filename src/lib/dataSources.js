@@ -87,7 +87,7 @@ export const DATA_SOURCES = [
     provider: "VolantiniPro",
     enabled: true,
     usedByServices: [SERVICE_IDS.D2D, SERVICE_IDS.H2H, SERVICE_IDS.B2B],
-    description: "Commercial Density, Family Index, Reach, ROI, Confidence, area intensity.",
+    description: "Commercial Density, Indice di residenzialità, Reach, ROI, Confidence, area intensity.",
   },
 ];
 

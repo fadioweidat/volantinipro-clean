@@ -87,7 +87,7 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
 
   // Guard: skip large radii — bbox would contain too many rows and timeout anyway
   if (radiusKm > MAX_CIVICI_RADIUS_KM) {
-    console.log('[ADDRESS_POINTS_FETCH_SKIPPED_RADIUS]', { radiusKm, maxAllowed: MAX_CIVICI_RADIUS_KM });
+    if (import.meta.env.DEV) console.log('[ADDRESS_POINTS_FETCH_SKIPPED_RADIUS]', { radiusKm, maxAllowed: MAX_CIVICI_RADIUS_KM });
     return { rows: [], count: 0, bboxCount: 0, totalCount: 0, contentRangeCount: 0, renderedCount: 0 };
   }
 
@@ -103,7 +103,7 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
 
   // Guard: skip if this exact bbox already timed out this session
   if (timeoutedKeys.has(requestKey)) {
-    console.log('[ADDRESS_POINTS_FETCH_SKIPPED_TIMEOUT]', { requestKey });
+    if (import.meta.env.DEV) console.log('[ADDRESS_POINTS_FETCH_SKIPPED_TIMEOUT]', { requestKey });
     return { rows: [], count: 0, bboxCount: 0, totalCount: 0, contentRangeCount: 0, renderedCount: 0, isTimeout: true };
   }
 
@@ -115,7 +115,7 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
     `&lng=gte.${minLng}&lng=lte.${maxLng}` +
     `&limit=${ROW_LIMIT}`;
 
-  console.log(`[ADDRESS_POINTS_FETCH_BBOX] lat: [${minLat.toFixed(5)}, ${maxLat.toFixed(5)}], lng: [${minLng.toFixed(5)}, ${maxLng.toFixed(5)}], radiusKm: ${radiusKm}`);
+  if (import.meta.env.DEV) console.log(`[ADDRESS_POINTS_FETCH_BBOX] lat: [${minLat.toFixed(5)}, ${maxLat.toFixed(5)}], lng: [${minLng.toFixed(5)}, ${maxLng.toFixed(5)}], radiusKm: ${radiusKm}`);
 
   try {
     const response = await fetch(generatedUrl, {
@@ -135,12 +135,12 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
       let errObj;
       try { errObj = JSON.parse(errText); } catch { /* non-JSON body */ }
       if (errObj?.code === '57014' || String(errObj?.code) === '57014') {
-        console.log('[ADDRESS_POINTS_FETCH_TIMEOUT]', { requestKey, status: response.status });
+        if (import.meta.env.DEV) console.log('[ADDRESS_POINTS_FETCH_TIMEOUT]', { requestKey, status: response.status });
         timeoutedKeys.add(requestKey);
         return { rows: [], count: 0, bboxCount: 0, totalCount: 0, contentRangeCount: 0, renderedCount: 0, isTimeout: true };
       }
 
-      console.warn('[ADDRESS_POINTS_ERROR] fetch failed', response.status, errText);
+      if (import.meta.env.DEV) console.warn('[ADDRESS_POINTS_ERROR] fetch failed', response.status, errText);
       throw new Error(errText || 'ADDRESS_POINTS_REST_ERROR');
     }
 
@@ -152,7 +152,7 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
       if (match) contentRangeCount = parseInt(match[1], 10);
     }
 
-    console.log(`[ADDRESS_POINTS_FETCH_SUCCESS] received ${rows.length} rows, total: ${contentRangeCount}`);
+    if (import.meta.env.DEV) console.log(`[ADDRESS_POINTS_FETCH_SUCCESS] received ${rows.length} rows, total: ${contentRangeCount}`);
 
     const resultRows = rows
       .map((row) => ({
@@ -173,11 +173,11 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
   } catch (err) {
     // AbortError is expected on navigation/component-unmount — not an error
     if (err.name === 'AbortError') {
-      console.log('[ADDRESS_POINTS_FETCH_ABORTED]');
+      if (import.meta.env.DEV) console.log('[ADDRESS_POINTS_FETCH_ABORTED]');
       throw err;
     }
-    console.warn('[ADDRESS_POINTS_ERROR]', err?.message || err);
-    console.log('[ADDRESS_POINTS_FETCH_FALLBACK]');
+    if (import.meta.env.DEV) console.warn('[ADDRESS_POINTS_ERROR]', err?.message || err);
+    if (import.meta.env.DEV) console.log('[ADDRESS_POINTS_FETCH_FALLBACK]');
     throw err;
   }
 }

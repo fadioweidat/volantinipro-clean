@@ -7,7 +7,7 @@ import { supabase } from '../supabaseClient.js';
 export async function fetchSectors({ serviceType, centerLat, centerLng, radiusKm = 5, signal }) {
   if (!supabase) return null;
 
-  console.log(`[MAP_SECTORS_REQUEST] type: ${serviceType}, lat: ${centerLat}, lng: ${centerLng}, radiusKm: ${radiusKm}`);
+  if (import.meta.env.DEV) console.log(`[MAP_SECTORS_REQUEST] type: ${serviceType}, lat: ${centerLat}, lng: ${centerLng}, radiusKm: ${radiusKm}`);
 
   try {
     const { data, error } = await supabase.rpc('get_map_sectors', {
@@ -18,7 +18,7 @@ export async function fetchSectors({ serviceType, centerLat, centerLng, radiusKm
     }, { signal });
 
     if (error) {
-      console.warn("[MAP_SECTORS_ERROR]", error);
+      if (import.meta.env.DEV) console.warn("[MAP_SECTORS_ERROR]", error);
       // Table / function not yet migrated — silent fallback so map stays usable
       const msg = error.message ?? '';
       if (
@@ -33,11 +33,11 @@ export async function fetchSectors({ serviceType, centerLat, centerLng, radiusKm
       return null;
     }
 
-    console.log(`[MAP_SECTORS_RESPONSE] Success, received features: ${data?.features?.length || 0}`);
+    if (import.meta.env.DEV) console.log(`[MAP_SECTORS_RESPONSE] Success, received features: ${data?.features?.length || 0}`);
     return data ?? null;
   } catch (err) {
     if (err.name === 'AbortError') return null;
-    console.error("[MAP_SECTORS_ERROR]", err);
+    if (import.meta.env.DEV) console.error("[MAP_SECTORS_ERROR]", err);
     return null; // fallback
   }
 }
