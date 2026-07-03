@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+
+const debugStep2 = (...args) => {
+  if (import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || window.__VOLANTINIPRO_DEBUG_STEP2__)) console.log(...args);
+};
+const warnStep2 = (...args) => {
+  if (import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || window.__VOLANTINIPRO_DEBUG_STEP2__)) console.warn(...args);
+};
 
 // CartoDB Voyager – leggibile, strade visibili, aspetto GIS operativo
 const CARTO_VOYAGER = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
@@ -172,6 +179,8 @@ function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opac
     'Layer previsto per Door to Door, non ancora popolato',
   ];
   const hasCiviciLayer = primaryLayers.some((layer) => layer.id === 'civici');
+  const settoriUnavailable = primaryLayers.some((layer) => layer.id === 'settori' && !layer.future)
+    && (!settori || settori.length === 0);
 
   return (
     <div style={{
@@ -330,6 +339,16 @@ function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opac
               </div>
             );
           })}
+          {settoriUnavailable && (
+            <div style={{
+              padding: '6px 10px 4px',
+              fontSize: 9,
+              color: 'rgba(255,255,255,0.36)',
+              borderTop: '1px solid rgba(255,255,255,0.05)',
+            }}>
+              Settori: dato non disponibile
+            </div>
+          )}
           {!civiciAvailable && hasCiviciLayer && (
             <div style={{
               padding: '6px 10px 4px',
@@ -559,7 +578,7 @@ function computeBreaks(values) {
   return [q(0.2), q(0.4), q(0.6), q(0.8), Infinity];
 }
 
-export function Step2Map({
+function Step2MapImpl({
   city,
   radius,
   svcType,
@@ -738,7 +757,7 @@ export function Step2Map({
 
     const primaryMunCode = primaryZone?.municipality_code || primaryZone?.municipalityCode || null;
 
-    if (import.meta.env.DEV) console.log('[PRIMARY_ZONE_SELECTION]', {
+    debugStep2('[PRIMARY_ZONE_SELECTION]', {
       selectedCity:       city?.label || city?.name,
       selectedCoordinate: { lat: city?.lat, lng: city?.lng },
       candidateZones: (zonesWithCoords || []).map(z => ({
@@ -761,7 +780,7 @@ export function Step2Map({
       const otherNames = zonesWithCoords
         .filter(z => z.id !== primaryZone?.id)
         .map(z => z.name);
-      if (import.meta.env.DEV) console.log('[MAP_RADIUS_INTERSECTIONS]', {
+      debugStep2('[MAP_RADIUS_INTERSECTIONS]', {
         primary:      primaryZone?.name ?? city?.label ?? city?.name,
         intersecting: otherNames,
         total:        zonesWithCoords.length,
@@ -867,23 +886,21 @@ export function Step2Map({
         }).bindTooltip(boundaryTip, { direction: 'center', opacity: 1, sticky: true });
         boundaryLayer.addTo(group);
         layersRef.current.municipalityBoundary = boundaryLayer;
-        if (import.meta.env.DEV) console.log('[MUNICIPALITY_BOUNDARY_LOADED] drawn on map');
+        debugStep2('[MUNICIPALITY_BOUNDARY_LOADED] drawn on map');
       } catch (e) {
-        console.warn('[MUNICIPALITY_BOUNDARY_ERROR] draw failed', e);
+        warnStep2('[MUNICIPALITY_BOUNDARY_ERROR] draw failed', e);
       }
     }
 
-    if (import.meta.env.DEV) {
-      console.debug('[Step2Map] svcType:', svcType,
-        '| zones:', zonesWithCoords?.length ?? 0,
-        '| settori:', settori?.length ?? 'null',
-        '| isMunicipalityMode:', isMunicipalityMode,
-        '| hasBoundary:', !!municipalityBoundary,
-        '| layers:', JSON.stringify(activeLayers));
-    }
+    debugStep2('[Step2Map] svcType:', svcType,
+      '| zones:', zonesWithCoords?.length ?? 0,
+      '| settori:', settori?.length ?? 'null',
+      '| isMunicipalityMode:', isMunicipalityMode,
+      '| hasBoundary:', !!municipalityBoundary,
+      '| layers:', JSON.stringify(activeLayers));
     if (activeLayerId) {
       const zonesWithColor = zonesWithCoords?.filter(z => z.metricColor)?.length ?? 0;
-      if (import.meta.env.DEV) console.log('[LAYER_RENDER_UPDATED]', { layerId: activeLayerId, themeMode, zonesColored: zonesWithColor, total: zonesWithCoords?.length ?? 0 });
+      debugStep2('[LAYER_RENDER_UPDATED]', { layerId: activeLayerId, themeMode, zonesColored: zonesWithColor, total: zonesWithCoords?.length ?? 0 });
     }
 
     // settoriActive: settori layer is on AND data is available
@@ -1194,7 +1211,7 @@ export function Step2Map({
       });
     }
 
-    if (import.meta.env.DEV) console.log('[MAP_RENDERED_POLYGONS]', {
+    debugStep2('[MAP_RENDERED_POLYGONS]', {
       comuniLayerOn: activeLayers?.comuni !== false,
       comuniRendered: !isMunicipalityMode && (zonesWithCoords?.length ?? 0),
       settoriTotal: settori?.length ?? 0,
@@ -1336,6 +1353,8 @@ export function Step2Map({
     </div>
   );
 }
+
+export const Step2Map = React.memo(Step2MapImpl);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
