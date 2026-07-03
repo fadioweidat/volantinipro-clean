@@ -1,9 +1,10 @@
 import "./src/styles/app.css";
 import React, { Component, Fragment, useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { printQuotePdf } from "./src/lib/pdf/printQuotePdf.js";
-import { supabase, confirmCampaignPayment, hasSupabaseConfig, saveCampaign, saveSmartPairingWaitlist } from "./src/lib/supabaseClient.js";
+import { supabase, confirmCampaignPayment, hasSupabaseConfig, saveCampaign, saveSmartPairingWaitlist, getStoredSupabaseSession } from "./src/lib/supabaseClient.js";
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
@@ -40,6 +41,18 @@ import { allowMockData, isProduction } from "./src/lib/runtimeFlags.js";
 import { LAYER_PANEL_CONFIG, defaultLayerState } from "./src/lib/dataSources.js";
 import { GRANDE_CITTA_ZONE_THRESHOLD, isZonaRilevante } from "./src/lib/services/zone-list-config.js";
 import { DELIVERABLE_CATEGORIES, DELIVERABLE_SERVICE_CONFIG } from "./src/lib/services/service-config.js";
+import { kpiLabel } from "./src/lib/services/kpi-definitions.js";
+const isStep2DebugEnabled = () =>
+  Boolean(
+    import.meta.env.DEV &&
+    (import.meta.env.VITE_DEBUG_STEP2 === "true" || globalThis.window?.__VOLANTINIPRO_DEBUG_STEP2__ === true)
+  );
+const debugStep2Log = (...args) => {
+  if (isStep2DebugEnabled()) console.log(...args);
+};
+const debugStep2Warn = (...args) => {
+  if (isStep2DebugEnabled()) console.warn(...args);
+};
 const SOURCE_ALIASES = {
   Backend: "Analisi interna",
   "Backend scoring": "Analisi interna",
@@ -127,7 +140,7 @@ const C = {
 const F = { serif: "'DM Serif Display',Georgia,serif", sans: "'DM Sans',sans-serif" };
 // Step3 preview pricing (€ per 1000 flyers — simplified estimate formula)
 const BASE_PRICES  = { d2d: 1.85, h2h: 2.20, b2b: 3.50 };
-// Step4 canonical pricing (€ per 1000 flyers — final quote formula, 10Ã— denominator differs)
+// Step4 canonical pricing (€ per 1000 flyers — final quote formula, 10× denominator differs)
 const QUOTE_PRICES = { d2d: 18.5, h2h: 22.0, b2b: 35.0 };
 const MONTHS_FULL  = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
 const MONTHS_SHORT = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
@@ -239,57 +252,84 @@ function AIOptimizerActivation(props) {
   const [show, setShow] = React.useState(false);
   const F2 = { sans: "'DM Sans', Inter, system-ui, sans-serif", serif: "'DM Serif Display', Georgia, serif" };
   const C2 = { green: "#22C55E", orange: "#E8571A", white: "#F8FAFC", teal: "#14B8A6" };
+
+  // Lock body scroll while modal is open
+  React.useEffect(() => {
+    if (show) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [show]);
+
+  // Close on ESC
+  React.useEffect(() => {
+    if (!show) return;
+    const handler = (e) => { if (e.key === "Escape") setShow(false); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [show]);
+
   return (
     <>
       <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 12, background: "linear-gradient(135deg,rgba(20,184,166,.09) 0%,rgba(34,197,94,.05) 100%)", border: "1px solid rgba(20,184,166,.25)" }}>
         <div style={{ fontFamily: F2.sans, fontSize: 10, fontWeight: 800, color: C2.teal, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 6 }}>
-          🤖 Report AI Premium incluso
+          {props.isConfirmed ? "🤖 Report AI Attivo" : "🤖 Report AI selezionato (Preview)"}
         </div>
         <div style={{ fontFamily: F2.sans, fontSize: 11, color: "rgba(255,255,255,.55)", lineHeight: 1.6, marginBottom: 12 }}>
-          Con questa opzione riceverai un Report AI Premium personalizzato: analisi territoriale, simulazioni, ottimizzazione quantità, raccomandazioni operative e piano campagna.
+          {props.isConfirmed ? "Il Report AI è attivo e si aggiornerà al completamento della campagna." : "Il report diventerà attivo sul tuo account dopo il salvataggio della campagna. Clicca per visualizzare l'anteprima."}
         </div>
         <button
           onClick={() => setShow(true)}
           style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "linear-gradient(135deg,#14B8A6 0%,#0D9488 100%)", color: C2.white, fontFamily: F2.sans, fontSize: 12, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, boxShadow: "0 4px 14px rgba(20,184,166,.28)" }}
         >
-          <span>▶</span> Anteprima Report AI
+          <span>▶</span> {props.isConfirmed ? "Apri Report AI" : "Anteprima Report AI (Preview)"}
         </button>
       </div>
-      {show && (
-        <React.Suspense fallback={
-          <div style={{ position: "fixed", inset: 0, zIndex: 9001, background: "#080E1A", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ fontFamily: F2.sans, fontSize: 14, color: "rgba(255,255,255,.5)" }}>Caricamento Report AI...</div>
-          </div>
-        }>
-          <AIOptimizerReport
-            onClose={() => setShow(false)}
-            onAddExtra={props.onAddExtra}
-            kpis={props.kpis}
-            avgFIdx={props.avgFIdx}
-            totF={props.totF}
-            avgCov={props.avgCov}
-            flyerQty={props.flyerQty}
-            total={props.total}
-            baseCost={props.baseCost}
-            disc={props.disc}
-            quantityIsSufficient={props.quantityIsSufficient}
-            requiredQty={props.requiredQty}
-            missingQty={props.missingQty}
-            remainingQty={props.remainingQty}
-            selectedZoneNames={props.selectedZoneNames}
-            svcType={props.svcType}
-            tLabel={props.tLabel}
-            mainAreaLabel={props.mainAreaLabel}
-            step4Omi={props.step4Omi}
-            kpisPopulation={props.kpisPopulation}
-            kpisComuniCount={props.kpisComuniCount}
-            d2dAreaKm2={props.d2dAreaKm2}
-            d2dAvgDensity={props.d2dAvgDensity}
-            selectedExtras={props.selectedExtras}
-            selDays={props.selDays}
-            data={props.data}
-          />
-        </React.Suspense>
+      {/* Portal: renders at document.body to avoid inline DOM insertion / layout-shift */}
+      {show && createPortal(
+        <div
+          onClick={() => setShow(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(0,0,0,.55)" }}
+        >
+          <React.Suspense fallback={
+            <div style={{ position: "fixed", inset: 0, zIndex: 9001, background: "#080E1A", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ fontFamily: F2.sans, fontSize: 14, color: "rgba(255,255,255,.5)" }}>Caricamento Report AI...</div>
+            </div>
+          }>
+            <div onClick={e => e.stopPropagation()} style={{ height: "100%" }}>
+              <AIOptimizerReport
+                onClose={() => setShow(false)}
+                onAddExtra={props.onAddExtra}
+                kpis={props.kpis}
+                avgFIdx={props.avgFIdx}
+                totF={props.totF}
+                avgCov={props.avgCov}
+                flyerQty={props.flyerQty}
+                total={props.total}
+                baseCost={props.baseCost}
+                disc={props.disc}
+                quantityIsSufficient={props.quantityIsSufficient}
+                requiredQty={props.requiredQty}
+                missingQty={props.missingQty}
+                remainingQty={props.remainingQty}
+                selectedZoneNames={props.selectedZoneNames}
+                svcType={props.svcType}
+                tLabel={props.tLabel}
+                mainAreaLabel={props.mainAreaLabel}
+                step4Omi={props.step4Omi}
+                kpisPopulation={props.kpisPopulation}
+                kpisComuniCount={props.kpisComuniCount}
+                d2dAreaKm2={props.d2dAreaKm2}
+                d2dAvgDensity={props.d2dAvgDensity}
+                selectedExtras={props.selectedExtras}
+                selDays={props.selDays}
+                data={props.data}
+              />
+            </div>
+          </React.Suspense>
+        </div>,
+        document.body
       )}
     </>
   );
@@ -300,56 +340,83 @@ function AdvancedReportActivation(props) {
   const [show, setShow] = React.useState(false);
   const F2 = { sans: "'DM Sans', Inter, system-ui, sans-serif", serif: "'DM Serif Display', Georgia, serif" };
   const C2 = { indigo: "#6366F1", white: "#F8FAFC", orange: "#E8571A" };
+
+  // Lock body scroll while modal is open
+  React.useEffect(() => {
+    if (show) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [show]);
+
+  // Close on ESC
+  React.useEffect(() => {
+    if (!show) return;
+    const handler = (e) => { if (e.key === "Escape") setShow(false); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [show]);
+
   return (
     <>
       <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 12, background: "linear-gradient(135deg,rgba(99,102,241,.09) 0%,rgba(129,140,248,.05) 100%)", border: "1px solid rgba(99,102,241,.28)" }}>
         <div style={{ fontFamily: F2.sans, fontSize: 10, fontWeight: 800, color: C2.indigo, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 6 }}>
-          📊 Report Avanzato Premium incluso
+          {props.isConfirmed ? "📊 Report Avanzato Attivo" : "📊 Report Avanzato selezionato (Preview)"}
         </div>
         <div style={{ fontFamily: F2.sans, fontSize: 11, color: "rgba(255,255,255,.55)", lineHeight: 1.6, marginBottom: 12 }}>
-          Ricevi un report professionale completo con statistiche, mappe, GPS, fotografie e analisi finale della campagna.
+          {props.isConfirmed ? "Il report è attivo per questa campagna." : "Una volta confermata la campagna, il report diventerà attivo. Clicca per visualizzare l'anteprima."}
         </div>
         <button
           onClick={() => setShow(true)}
           style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "linear-gradient(135deg,#6366F1 0%,#4F46E5 100%)", color: C2.white, fontFamily: F2.sans, fontSize: 12, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, boxShadow: "0 4px 14px rgba(99,102,241,.28)" }}
         >
-          <span>▶</span> Anteprima Report
+          <span>▶</span> {props.isConfirmed ? "Apri Report" : "Anteprima Report (Preview)"}
         </button>
       </div>
-      {show && (
-        <React.Suspense fallback={
-          <div style={{ position: "fixed", inset: 0, zIndex: 9001, background: "#080E1A", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ fontFamily: F2.sans, fontSize: 14, color: "rgba(255,255,255,.5)" }}>Caricamento Report Avanzato...</div>
-          </div>
-        }>
-          <AdvancedReport
-            onClose={() => setShow(false)}
-            kpis={props.kpis}
-            avgFIdx={props.avgFIdx}
-            totF={props.totF}
-            avgCov={props.avgCov}
-            flyerQty={props.flyerQty}
-            total={props.total}
-            baseCost={props.baseCost}
-            disc={props.disc}
-            quantityIsSufficient={props.quantityIsSufficient}
-            requiredQty={props.requiredQty}
-            missingQty={props.missingQty}
-            remainingQty={props.remainingQty}
-            selectedZoneNames={props.selectedZoneNames}
-            svcType={props.svcType}
-            tLabel={props.tLabel}
-            mainAreaLabel={props.mainAreaLabel}
-            step4Omi={props.step4Omi}
-            kpisPopulation={props.kpisPopulation}
-            kpisComuniCount={props.kpisComuniCount}
-            d2dAreaKm2={props.d2dAreaKm2}
-            d2dAvgDensity={props.d2dAvgDensity}
-            selectedExtras={props.selectedExtras}
-            selDays={props.selDays}
-            data={props.data}
-          />
-        </React.Suspense>
+      {/* Portal: renders at document.body to avoid inline DOM insertion / layout-shift */}
+      {show && createPortal(
+        <div
+          onClick={() => setShow(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(0,0,0,.55)" }}
+        >
+          <React.Suspense fallback={
+            <div style={{ position: "fixed", inset: 0, zIndex: 9001, background: "#080E1A", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ fontFamily: F2.sans, fontSize: 14, color: "rgba(255,255,255,.5)" }}>Caricamento Report Avanzato...</div>
+            </div>
+          }>
+            <div onClick={e => e.stopPropagation()} style={{ height: "100%" }}>
+              <AdvancedReport
+                onClose={() => setShow(false)}
+                kpis={props.kpis}
+                avgFIdx={props.avgFIdx}
+                totF={props.totF}
+                avgCov={props.avgCov}
+                flyerQty={props.flyerQty}
+                total={props.total}
+                baseCost={props.baseCost}
+                disc={props.disc}
+                quantityIsSufficient={props.quantityIsSufficient}
+                requiredQty={props.requiredQty}
+                missingQty={props.missingQty}
+                remainingQty={props.remainingQty}
+                selectedZoneNames={props.selectedZoneNames}
+                svcType={props.svcType}
+                tLabel={props.tLabel}
+                mainAreaLabel={props.mainAreaLabel}
+                step4Omi={props.step4Omi}
+                kpisPopulation={props.kpisPopulation}
+                kpisComuniCount={props.kpisComuniCount}
+                d2dAreaKm2={props.d2dAreaKm2}
+                d2dAvgDensity={props.d2dAvgDensity}
+                selectedExtras={props.selectedExtras}
+                selDays={props.selDays}
+                data={props.data}
+              />
+            </div>
+          </React.Suspense>
+        </div>,
+        document.body
       )}
     </>
   );
@@ -599,24 +666,45 @@ function Navbar({ onNav, page }) {
 
         {!isMobile && (
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-            <button
-              onClick={() => go("login")}
-              style={{
-                minHeight: 44,
-                padding: "0 20px",
-                borderRadius: 8,
-                border: "1px solid rgba(255, 255, 255, 0.16)",
-                background: "rgba(255, 255, 255, 0.04)",
-                color: C.white,
-                fontFamily: F.sans,
-                fontSize: 14.5,
-                fontWeight: 700,
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-            >
-              Accedi
-            </button>
+            {typeof window !== "undefined" && localStorage.getItem("vp_supabase_session") ? (
+              <button
+                onClick={() => go("dashboard")}
+                style={{
+                  minHeight: 44,
+                  padding: "0 20px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(255, 255, 255, 0.16)",
+                  background: "rgba(255, 255, 255, 0.04)",
+                  color: C.white,
+                  fontFamily: F.sans,
+                  fontSize: 14.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                Dashboard Campagna
+              </button>
+            ) : (
+              <button
+                onClick={() => go("login")}
+                style={{
+                  minHeight: 44,
+                  padding: "0 20px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(255, 255, 255, 0.16)",
+                  background: "rgba(255, 255, 255, 0.04)",
+                  color: C.white,
+                  fontFamily: F.sans,
+                  fontSize: 14.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                Accedi
+              </button>
+            )}
             <button
               className="vb"
               onClick={() => go("step1")}
@@ -956,7 +1044,7 @@ const x=[{value:"Famiglie",l:"Abitazioni stimate",src:"Fonti territoriali",term:
       }))
     })
   ]
-})]})}),_jsx("section",{ref:kpiBandRef,className:"section-tight",style:{display:"none",background:C.navy,paddingLeft:28,paddingRight:28,borderTop:`3px solid ${C.orange}`,opacity:kpiBandVisible?1:0,transform:kpiBandVisible?"none":"translateY(22px)",transition:"opacity .5s ease, transform .7s cubic-bezier(.2,.8,.2,1)",willChange:"transform, opacity"},children:_jsx("div",{style:{maxWidth:1200,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2},children:x.map(({value:D,l:W,src:A,term:TM},F)=>_jsxs("div",{style:{padding:"34px 26px",borderLeft:F>0?"1px solid rgba(255,255,255,.07)":"none"},children:[_jsx("div",{style:{width:26,height:3,background:C.orange,borderRadius:2,marginBottom:16}}),_jsx("div",{style:{fontFamily:F.serif,fontSize:typeof D=="string"&&D.length>8?34:50,color:C.white,letterSpacing:"-1.4px",lineHeight:1,marginBottom:10,fontVariantNumeric:"tabular-nums"},children:D}),_jsxs("div",{style:{display:"flex",alignItems:"center",fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.8)",lineHeight:1.4,marginBottom:8},children:[W,_jsx(KpiTooltip,{term:TM||D})]}),_jsx("div",{style:{display:"inline-flex",padding:"3px 7px",borderRadius:4,background:"rgba(232,87,26,.12)",fontFamily:F.sans,fontSize:9,color:C.orange},children:A})]},W))})}),_jsx("section",{id:"come-funziona",className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,scrollMarginTop:80},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:64},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Dall'idea al volantino in mano"}),_jsxs("h2",{style:{fontFamily:F.serif,fontSize:48,color:C.navy,letterSpacing:"-1.5px",marginBottom:14,lineHeight:1.06},children:["Dall'idea alla campagna",_jsx("br",{}),"in 4 step misurabili."]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:520,lineHeight:1.65},children:"Un flusso unico per definire servizio, zona, date operative e preventivo finale."})]}),_jsx("div",{className:"steps-grid",style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12},children:T.map(({n:D,t:W,d:A,b:F,c:B},P)=>_jsxs("div",{className:"vc",style:{padding:"34px 28px",background:C.white,borderRadius:16,border:"1px solid rgba(0,0,0,.04)",boxShadow:"0 8px 24px rgba(0,0,0,.02)",position:"relative",overflow:"hidden"},children:[_jsx("div",{style:{position:"absolute",top:-8,right:12,fontFamily:F.sans,fontWeight:900,fontSize:94,color:"#F4F6F8",lineHeight:1,userSelect:"none"},children:D}),_jsx("div",{style:{width:24,height:3,borderRadius:2,background:B,marginBottom:24}}),_jsx("h3",{style:{fontFamily:F.serif,fontSize:22,color:C.navy,marginBottom:12,letterSpacing:"-.3px"},children:W}),_jsx("p",{style:{fontFamily:F.sans,fontSize:14,color:C.muted,lineHeight:1.6,marginBottom:20},children:A}),_jsx("div",{style:{display:"inline-flex",padding:"4px 10px",borderRadius:6,background:`${B}12`,fontFamily:F.sans,fontSize:11,fontWeight:700,color:B},children:F})]},D))}),_jsx("div",{style:{textAlign:"center",marginTop:56},children:_jsx("button",{className:"vb",onClick:()=>n("step1"),style:{padding:"14px 34px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#E8571A 0%,#D0450B 100%)",color:C.white,fontFamily:F.sans,fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 6px 16px rgba(232,87,26,0.28)"},children:"Configura la tua campagna "})})]})}),_jsx(ServicesSection,{onConfigure:()=>n("step1")}),_jsx(React.Suspense,{fallback:_jsx("div",{style:{minHeight:200,background:"#0B1020"}}),children:_jsx(VolantiniProAIHub,{onConfigure:()=>n("step1")})}),_jsx(FeatureZonaMappa,{onConfigure:()=>n("step1")}),_jsx(FeatureSmartPairing,{onConfigure:()=>n("step1")}),_jsx(RisultatiSection,{}),_jsx(FAQSection,{onContact:()=>n("consultant")}),_jsx(PricingSection,{onConfigure:()=>n("step1"),onConsultant:()=>n("consultant")}),_jsx(Footer,{onNav:n,onHowItWorks:i}),_jsx("footer",{style:{display:"none",background:"#070D1A",borderTop:"1px solid rgba(255,255,255,.05)",padding:"52px 28px 34px"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{display:"flex",gap:64,marginBottom:44},children:[_jsxs("div",{style:{flex:"0 0 250px"},children:[_jsxs("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:16},children:[_jsx("div",{style:{width:30,height:30,borderRadius:7,background:C.orange,display:"flex",alignItems:"center",justifyContent:"center"},children:_jsxs("svg",{width:"16",height:"16",viewBox:"0 0 20 20",fill:"none",children:[_jsx("path",{d:"M3 17L10 3L17 17H3Z",fill:"white"}),_jsx("circle",{cx:"10",cy:"12",r:"2",fill:"white",opacity:".7"})]})}),_jsxs("span",{style:{fontFamily:F.serif,fontSize:18,color:C.white},children:["Volantini",_jsx("span",{style:{color:C.orange},children:"Pro"})]})]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.33)",lineHeight:1.65,marginBottom:16},children:"Piattaforma B2B per configurare campagne di volantinaggio con dati territoriali, GPS e report operativo."}),_jsx("div",{style:{display:"inline-flex",alignItems:"center",gap:6,padding:"4px 10px",borderRadius:6,background:"rgba(232,87,26,.1)",fontFamily:F.sans,fontSize:11,color:C.orange},children:"Operativo su Milano e Lombardia"})]}),_jsx("div",{style:{display:"flex",gap:52,flex:1},children:m.map(({t:D,items:W})=>_jsxs("div",{children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:10,fontWeight:700,letterSpacing:".12em",textTransform:"uppercase",color:C.orange,marginBottom:16},children:D}),_jsx("div",{style:{display:"flex",flexDirection:"column",gap:9},children:W.map(([A,F])=>_jsx("button",{onClick:()=>F==="home"&&A==="Come funziona"?i():n(F),style:{padding:0,border:"none",background:"transparent",textAlign:"left",fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.6)",cursor:"pointer"},children:A},A))})]},D))})]}),_jsxs("div",{style:{borderTop:"1px solid rgba(255,255,255,.05)",paddingTop:24,display:"flex",justifyContent:"space-between"},children:[_jsx("span",{style:{fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)"},children:"2025 VolantiniPro S.r.l. - Milano"}),_jsx("span",{style:{display:"flex",gap:10,alignItems:"center"},children:[["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]].map(([D,W])=>_jsx("button",{onClick:()=>n(W),style:{padding:0,border:"none",background:"transparent",fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.2)",cursor:"pointer"},children:D},D))})]})]})})]})}
+})]})}),_jsx("section",{ref:kpiBandRef,className:"section-tight",style:{display:"none",background:C.navy,paddingLeft:28,paddingRight:28,borderTop:`3px solid ${C.orange}`,opacity:kpiBandVisible?1:0,transform:kpiBandVisible?"none":"translateY(22px)",transition:"opacity .5s ease, transform .7s cubic-bezier(.2,.8,.2,1)",willChange:"transform, opacity"},children:_jsx("div",{style:{maxWidth:1200,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2},children:x.map(({value:D,l:W,src:A,term:TM},F)=>_jsxs("div",{style:{padding:"34px 26px",borderLeft:F>0?"1px solid rgba(255,255,255,.07)":"none"},children:[_jsx("div",{style:{width:26,height:3,background:C.orange,borderRadius:2,marginBottom:16}}),_jsx("div",{style:{fontFamily:F.serif,fontSize:typeof D=="string"&&D.length>8?34:50,color:C.white,letterSpacing:"-1.4px",lineHeight:1,marginBottom:10,fontVariantNumeric:"tabular-nums"},children:D}),_jsxs("div",{style:{display:"flex",alignItems:"center",fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.8)",lineHeight:1.4,marginBottom:8},children:[W,_jsx(KpiTooltip,{term:TM||D})]}),_jsx("div",{style:{display:"inline-flex",padding:"3px 7px",borderRadius:4,background:"rgba(232,87,26,.12)",fontFamily:F.sans,fontSize:9,color:C.orange},children:A})]},W))})}),_jsx("section",{id:"come-funziona",className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,scrollMarginTop:80},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:64},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Dall'idea al volantino in mano"}),_jsxs("h2",{style:{fontFamily:F.serif,fontSize:48,color:C.navy,letterSpacing:"-1.5px",marginBottom:14,lineHeight:1.06},children:["Dall'idea alla campagna",_jsx("br",{}),"in 4 step misurabili."]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:520,lineHeight:1.65},children:"Un flusso unico per definire servizio, zona, date operative e preventivo finale."})]}),_jsx("div",{className:"steps-grid",style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12},children:T.map(({n:D,t:W,d:A,b:F,c:B},P)=>_jsxs("div",{className:"vc",style:{padding:"34px 28px",background:C.white,borderRadius:16,border:"1px solid rgba(0,0,0,.04)",boxShadow:"0 8px 24px rgba(0,0,0,.02)",position:"relative",overflow:"hidden"},children:[_jsx("div",{style:{position:"absolute",top:-8,right:12,fontFamily:F.sans,fontWeight:900,fontSize:94,color:"#F4F6F8",lineHeight:1,userSelect:"none"},children:D}),_jsx("div",{style:{width:24,height:3,borderRadius:2,background:B,marginBottom:24}}),_jsx("h3",{style:{fontFamily:F.serif,fontSize:22,color:C.navy,marginBottom:12,letterSpacing:"-.3px"},children:W}),_jsx("p",{style:{fontFamily:F.sans,fontSize:14,color:C.muted,lineHeight:1.6,marginBottom:20},children:A}),_jsx("div",{style:{display:"inline-flex",padding:"4px 10px",borderRadius:6,background:`${B}12`,fontFamily:F.sans,fontSize:11,fontWeight:700,color:B},children:F})]},D))}),_jsx("div",{style:{textAlign:"center",marginTop:56},children:_jsx("button",{className:"vb",onClick:()=>n("step1"),style:{padding:"14px 34px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#E8571A 0%,#D0450B 100%)",color:C.white,fontFamily:F.sans,fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 6px 16px rgba(232,87,26,0.28)"},children:"Configura la tua campagna "})})]})}),_jsx(ServicesSection,{onConfigure:()=>n("step1")}),_jsx(React.Suspense,{fallback:_jsx("div",{style:{minHeight:200,background:"#0B1020"}}),children:_jsx(VolantiniProAIHub,{onConfigure:()=>n("step1")})}),_jsx(FeatureZonaMappa,{onConfigure:()=>n("step1")}),_jsx(FeatureSmartPairing,{onConfigure:()=>n("step1")}),_jsx(RisultatiSection,{}),_jsx(FAQSection,{onContact:()=>n("consultant")}),_jsx(PricingSection,{onConfigure:()=>n("step1"),onConsultant:()=>n("consultant")}),_jsx(Footer,{onNav:n,onHowItWorks:i})]})}
 
 // JSX runtime shim for reconstructed bundle code
 function _jsx(type, props, key) {
@@ -1316,7 +1404,7 @@ function Step1({ data, setData, onNext, onHome }) {
       name: "Door to Door",
       code: "D2D",
       icon: "📬",
-      badge: "Più Popolare",
+      badge: "Più richiesto",
       badgeColor: "#22C55E",
       desc: "Distribuzione capillare in cassette postali, condomini, palazzi, villette e zone residenziali.",
       useCases: "Attività locali, nuove aperture, promozioni stagionali e volantini offerte.",
@@ -1423,7 +1511,7 @@ function Step1({ data, setData, onNext, onHome }) {
         const el = document.getElementById(c.id);
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "center" });
-          el.style.outline = "2px solid #22C55E";
+          el.style.outline = "2px solid #EF4444";
           el.style.borderRadius = "16px";
           setTimeout(() => {
             el.style.outline = "";
@@ -1517,10 +1605,10 @@ function Step1({ data, setData, onNext, onHome }) {
           {/* Section 1: Tipo di distribuzione */}
           <div id="section-servizio" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
             <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
-              1 \u2013 Tipo di distribuzione
+              1 - Tipo di distribuzione
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 24px" }}>
-              Seleziona il canale operativo principale
+              Come vuoi distribuire i tuoi volantini?
             </h2>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))", gap: 20, alignItems: "stretch" }}>
               {distributionTypes.map((t) => {
@@ -1569,7 +1657,7 @@ function Step1({ data, setData, onNext, onHome }) {
           {/* Section 2: Attività cliente */}
           <div style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
             <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
-              2 \u2013 Settore o Attività
+              2 - Settore o Attività
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
               Che tipo di attività devi pubblicizzare?
@@ -1726,7 +1814,7 @@ function Step1({ data, setData, onNext, onHome }) {
           {/* Section 3: Quantità volantini */}
           <div id="section-quantita" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
             <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
-              3 \u2013 Quantità volantini
+              3 - Quantità volantini
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
               Quanti volantini desideri distribuire?
@@ -1757,7 +1845,7 @@ function Step1({ data, setData, onNext, onHome }) {
                       cursor: "pointer",
                     }}
                   >
-                    {new Intl.NumberFormat("it-IT").format(q)} pz
+                    {new Intl.NumberFormat("it-IT", { useGrouping: true }).format(q)} pz
                   </button>
                 );
               })}
@@ -1775,14 +1863,14 @@ function Step1({ data, setData, onNext, onHome }) {
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.08)", flexWrap: "wrap", gap: 12 }}>
               <div style={{ fontSize: 15, color: "#CBD5E1" }}>
-                Quantità selezionata: <b style={{ color: "#E8571A", fontSize: 22, marginLeft: 8 }}>{new Intl.NumberFormat("it-IT").format(data.qty || 10000)}</b> <span style={{ fontSize: 14 }}>volantini</span>
+                Quantità selezionata: <b style={{ color: "#E8571A", fontSize: 22, marginLeft: 8 }}>{new Intl.NumberFormat("it-IT", { useGrouping: true }).format(data.qty || 10000)}</b> <span style={{ fontSize: 14 }}>volantini</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 13, color: "#94A3B8" }}>Inserimento manuale:</span>
                 <input
                   type="text"
                   inputMode="numeric"
-                  value={data.qty ? new Intl.NumberFormat("it-IT").format(data.qty) : ""}
+                  value={data.qty ? new Intl.NumberFormat("it-IT", { useGrouping: true }).format(data.qty) : ""}
                   onChange={(e) => {
                     const v = e.target.value.replace(/\D/g, "");
                     updateData({ qty: v ? parseInt(v, 10) : "" });
@@ -1801,7 +1889,7 @@ function Step1({ data, setData, onNext, onHome }) {
           {/* Section 4: Periodo distribuzione */}
           <div id="section-periodo" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
             <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
-              4 \u2013 Periodo di distribuzione
+              4 - Periodo di distribuzione
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
               Quando vuoi far partire la campagna?
@@ -1902,7 +1990,7 @@ function Step1({ data, setData, onNext, onHome }) {
           {/* Section 5: Materiale e Formato */}
           <div id="section-formato" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
             <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
-              5 \u2013 Materiale & Formato
+              5 - Materiale & Formato
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 24px" }}>
               Hai già i volantini stampati o dobbiamo stamparli noi?
@@ -1977,7 +2065,7 @@ function Step1({ data, setData, onNext, onHome }) {
           {/* Section 6: Servizi extra */}
           <div style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
             <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
-              6 \u2013 Certificazione & Tracking
+              6 - Certificazione & Tracking
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
               Servizi extra per il controllo qualità
@@ -2058,7 +2146,7 @@ function Step1({ data, setData, onNext, onHome }) {
           {/* Section 7: Priorità */}
           <div id="section-urgenza" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
             <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
-              7 \u2013 Priorità operativa
+              7 - Priorità operativa
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 20px" }}>
               Con che urgenza dobbiamo avviare la distribuzione?
@@ -2096,7 +2184,7 @@ function Step1({ data, setData, onNext, onHome }) {
           {/* Section 8: Piano */}
           <div id="section-piano" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
             <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
-              8 \u2013 Piano promozionale
+              8 - Piano promozionale
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
               Vuoi fare una distribuzione singola o continuativa?
@@ -2140,7 +2228,7 @@ function Step1({ data, setData, onNext, onHome }) {
               <div style={{ padding: 20, borderRadius: 16, background: "rgba(232, 87, 26, 0.1)", border: "1px solid rgba(232, 87, 26, 0.3)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC", marginBottom: 4 }}>Quante uscite/campagne al mese vuoi effettuare?</div>
-                  <div style={{ fontSize: 12, color: "#CBD5E1" }}>Ottimizzi la pianificazione logistica su {h[data.subscription]} mesi</div>
+                  <div style={{ fontSize: 12, color: "#CBD5E1" }}>Ottimizzi la pianificazione logistica su {{ single: 1, monthly3: 3, monthly6: 6, monthly12: 12 }[data.subscription]} mesi</div>
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   {[1, 2, 4].map((cnt) => {
@@ -2403,7 +2491,7 @@ function capToZone(capData, idx) {
 const ZONE_VERDICT_RULES = [
   { min: 78, title: "Zona molto adatta", tone: "strong", text: "Buona concentrazione di famiglie e copertura coerente con una campagna porta a porta." },
   { min: 58, title: "Zona adatta", tone: "good", text: "Area valida per distribuire in modo selettivo, con dati territoriali sufficienti per procedere." },
-  { min: 0, title: "Zona da valutare", tone: "watch", text: "Area utilizzabile, ma conviene controllare quantit� e copertura prima di confermare." },
+  { min: 0, title: "Zona da valutare", tone: "watch", text: "Area utilizzabile, ma conviene controllare quantità e copertura prima di confermare." },
 ];
 
 function getZoneVerdict({ families = 0, density = 0, coverage = 0, comuniCount = 0 }) {
@@ -2415,6 +2503,18 @@ function getZoneVerdict({ families = 0, density = 0, coverage = 0, comuniCount =
   );
   const rule = ZONE_VERDICT_RULES.find(item => score >= item.min) || ZONE_VERDICT_RULES[ZONE_VERDICT_RULES.length - 1];
   return { ...rule, score };
+}
+
+// Normalizes a municipality name for exact matching in municipality mode:
+// lowercase, trim, strip a leading "comune di", keep only the text before the
+// first comma (drops province/region/country suffixes from geocoded labels
+// like "Varedo, provincia di Monza e della Brianza, Italia").
+function normalizeMunicipalityName(raw) {
+  return String(raw || "")
+    .split(",")[0]
+    .replace(/^\s*comune di\s+/i, "")
+    .trim()
+    .toLowerCase();
 }
 
 function Step2({ data, setData, onNext, onBack }) {
@@ -2460,10 +2560,26 @@ useEffect(() => {
   const [isAdminView, setIsAdminView] = useState(false);
   const [showLayerMenu, setShowLayerMenu] = useState(false);
   const [partialCoverageConfirmed, setPartialCoverageConfirmed] = useState(false);
+  const [coverageDecision, setCoverageDecision] = useState(data.coverageDecision || null);
+  // Surplus decision (quantity > recommendedFlyers with 100% municipality coverage):
+  // "reduce_to_recommended" | "extra_frequency" | "expand_area". Independent of
+  // coverageDecision, which handles the shortage (partial coverage) case.
+  const [coverageStrategy, setCoverageStrategy] = useState(data.coverageStrategy || null);
   const [geocodeSuggestions, setGeocodeSuggestions] = useState([]);
   const [allocationMode, setAllocationMode] = useState(data.allocationMode || "auto");
   const [manualAssignments, setManualAssignments] = useState(data.manualAssignments || {});
   const [searchMode, setSearchMode] = useState(data.searchMode || "municipality");
+  // Tracks user-INTENDED mode (only updated via tab clicks or zone switch).
+  // Used as the gate in zonesInRadius to block stale "address" results from
+  // overriding a municipality session when the user never clicked the Raggio tab.
+  const userModeRef = useRef(data.searchMode || "municipality");
+  // Timestamp of the last municipality (city) change. React commits the new
+  // `city`/`selectedMunicipality` synchronously during render, but the API
+  // hook's `loading` flag only flips to true in a *subsequent* effect pass —
+  // for one or more renders in between, `apiZones` still reflects the OLD
+  // city while the selected name is already the NEW one. This grace window
+  // lets zonesInRadius treat that gap as "waiting", not a real mismatch.
+  const municipalitySwitchAtRef = useRef(0);
   const [municipalityBoundary, setMunicipalityBoundary] = useState(null);
   const [capSuggestions, setCapSuggestions] = useState([]);
   const [capSearchLoading, setCapSearchLoading] = useState(false);
@@ -2555,6 +2671,7 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
 
     // Load only if activeZoneId actually changed to avoid overwriting typed input
     if (prevActiveZoneIdRef.current !== data.activeZoneId || (!city && resolvedCity)) {
+      const isZoneSwitch = prevActiveZoneIdRef.current !== data.activeZoneId;
       prevActiveZoneIdRef.current = data.activeZoneId;
 
       // Update local states
@@ -2566,7 +2683,16 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
       setCapDataMap(activeZone.capDataMap || {});
       setManualAssignments(activeZone.manualAssignments || {});
       setAllocationMode(activeZone.allocationMode || "auto");
-      setSearchMode(activeZone.searchMode || "municipality");
+      setCoverageDecision(activeZone.coverageDecision || null);
+      setCoverageStrategy(activeZone.coverageStrategy || null);
+      // Only restore searchMode on an actual zone switch — not on the city-resolution
+      // fallback path (!city && resolvedCity), which would overwrite the user's current tab
+      // with a stale "address" value saved from a previous session.
+      if (isZoneSwitch) {
+        const zoneMode = activeZone.searchMode || "municipality";
+        userModeRef.current = zoneMode;
+        setSearchMode(zoneMode);
+      }
       if (activeZone.activeMapLayers) {
         setActiveMapLayers(activeZone.activeMapLayers);
       }
@@ -2591,6 +2717,8 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
         capDataMap: activeZone.capDataMap || {},
         manualAssignments: activeZone.manualAssignments || {},
         allocationMode: activeZone.allocationMode || "auto",
+        coverageDecision: activeZone.coverageDecision || null,
+        coverageStrategy: activeZone.coverageStrategy || null,
         startDate: activeZone.startDate || "",
         endDate: activeZone.endDate || ""
       }));
@@ -2617,6 +2745,8 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
         JSON.stringify(currentZone.capDataMap) !== JSON.stringify(capDataMap) ||
         JSON.stringify(currentZone.manualAssignments) !== JSON.stringify(manualAssignments) ||
         currentZone.allocationMode !== allocationMode ||
+        currentZone.coverageDecision !== coverageDecision ||
+        currentZone.coverageStrategy !== coverageStrategy ||
         currentZone.searchMode !== searchMode ||
         JSON.stringify(currentZone.activeMapLayers) !== JSON.stringify(activeMapLayers);
 
@@ -2634,6 +2764,8 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
         capDataMap: capDataMap,
         manualAssignments: manualAssignments,
         allocationMode: allocationMode,
+        coverageDecision: coverageDecision,
+        coverageStrategy: coverageStrategy,
         searchMode: searchMode,
         activeMapLayers: activeMapLayers
       };
@@ -2651,10 +2783,12 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
         capDataMap: capDataMap,
         manualAssignments: manualAssignments,
         allocationMode: allocationMode,
+        coverageDecision: coverageDecision,
+        coverageStrategy: coverageStrategy,
         searchMode: searchMode
       };
     });
-  }, [search, city, radiusKm, selected, selectedCaps, capDataMap, manualAssignments, allocationMode, searchMode, activeMapLayers, data.activeZoneId]);
+  }, [search, city, radiusKm, selected, selectedCaps, capDataMap, manualAssignments, allocationMode, coverageDecision, coverageStrategy, searchMode, activeMapLayers, data.activeZoneId]);
 
   const updateActiveRadius = (nextRadiusKm) => {
     setPartialCoverageConfirmed(false);
@@ -2867,8 +3001,14 @@ const requestedAnalysisLevel = useMemo(
   [isResidentialStep2, selectedMunicipality, city?.lat, city?.lng]
 );
 const analysisScope = useMemo(() => data.activeZoneId || "zone", [data.activeZoneId]);
-// In municipality mode use a generous radius so the full comune is covered by the API
-const effectiveRadiusKm = searchMode === "municipality" ? Math.max(radiusKm, 15) : radiusKm;
+// Fix effective radius
+const numericRadiusKm = Number(radiusKm) || 3;
+const effectiveRadiusKm = searchMode === "municipality" 
+  ? Math.min(Math.max(numericRadiusKm, 3), 8) 
+  : numericRadiusKm;
+
+debugStep2Log("[STEP2_EFFECTIVE_RADIUS]", { searchMode, radiusKm, effectiveRadiusKm });
+
 const analysisParams = useMemo(() => ({
   lat: city?.lat ?? null,
   lng: city?.lng ?? null,
@@ -2956,7 +3096,11 @@ const civiciAvailable =
   useEffect(() => { setThLayerId(layers[0]?.id || null); }, [svcType]);
   useEffect(() => { setActiveMapLayers(defaultLayerState(svcType)); }, [svcType]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
+    // address_points (civici layer) can fail (e.g. Supabase 500/timeout) —
+    // this must never block Step 2. Degrade to "Civici: dato non disponibile"
+    // and keep the rest of the analysis (comune/settori/famiglie) running.
     if (!civiciLoading && !civiciAvailable) {
+      if (isStep2DebugEnabled()) console.warn("[ADDRESS_POINTS_LAYER_UNAVAILABLE]", { reason: "civici layer unavailable or failed to load" });
       setActiveMapLayers(prev => prev?.civici ? ({ ...prev, civici: false }) : prev);
     }
   }, [civiciLoading, civiciAvailable]);
@@ -3009,7 +3153,7 @@ const civiciAvailable =
     const name = city.label || city.name;
     if (!name) return;
     let cancelled = false;
-    if (import.meta.env.DEV) console.log('[LOCATION_SEARCH_TYPE_DETECTED] municipality:', name);
+    debugStep2Log('[LOCATION_SEARCH_TYPE_DETECTED] municipality:', name);
     (async () => {
       try {
         const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name + ', Italy')}&format=geojson&polygon_geojson=1&limit=1`;
@@ -3018,19 +3162,22 @@ const civiciAvailable =
         const geom = json.features?.[0]?.geometry || null;
         if (!cancelled) {
           setMunicipalityBoundary(geom);
-          if (geom && import.meta.env.DEV) {
-            console.log('[MUNICIPALITY_BOUNDARY_LOADED]', name, geom.type);
-            console.log('[MUNICIPALITY_FULL_AREA_MODE]', name);
-            console.log('[COVERAGE_CALCULATED_FOR_FULL_MUNICIPALITY]', name);
+          if (geom) {
+            debugStep2Log('[MUNICIPALITY_BOUNDARY_LOADED]', name, geom.type);
+            debugStep2Log('[MUNICIPALITY_FULL_AREA_MODE]', name);
+            debugStep2Log('[COVERAGE_CALCULATED_FOR_FULL_MUNICIPALITY]', name);
           }
         }
       } catch (e) {
-        if (import.meta.env.DEV) console.warn('[MUNICIPALITY_BOUNDARY_ERROR]', e);
+        debugStep2Warn('[MUNICIPALITY_BOUNDARY_ERROR]', e);
       }
     })();
     return () => { cancelled = true; };
   }, [city, searchMode]);
 
+useEffect(() => {
+  municipalitySwitchAtRef.current = Date.now();
+}, [city?.lat, city?.lng]);
 const activeLay = layers.find(l => l.id === thLayerId) || layers[0];
 const apiZones = useMemo(
   () => (apiData && !apiData.error && apiData.values) ? apiToZones(apiData, city) : null,
@@ -3044,10 +3191,95 @@ const apiZonesByName = useMemo(
   () => new Map((apiZones || []).map(z => [String(z.name || "").trim().toLowerCase(), z])),
   [apiZones]
 );
-const zonesInRadius = useMemo(
-  () => hasUsefulApiZones ? apiZones : [],
-  [hasUsefulApiZones, apiZones]
-);
+const zonesInRadius = useMemo(() => {
+  if (!hasUsefulApiZones || !apiZones) return [];
+
+  let filtered = [...apiZones];
+
+  // userModeRef.current is the user-INTENDED mode (only set via tab click or zone switch).
+  // If React state drifts to "address" due to an effect timing issue while the user is
+  // on the Comune tab, gateMode stays "municipality" and the correct filter is applied.
+  const gateMode = userModeRef.current;
+
+  if (isStep2DebugEnabled()) {
+    debugStep2Log("[STEP2_AGGREGATION_MODE]", gateMode);
+    if (gateMode !== searchMode) {
+      debugStep2Warn("[STEP2_ADDRESS_RESULT_IGNORED_IN_MUNICIPALITY_MODE]", { intended: gateMode, actual: searchMode, communes: filtered.length });
+    }
+    debugStep2Log("[STEP2_RADIUS_FILTER_INPUT]", "Radius:", radiusKm, "Total zones from API:", filtered.length);
+  }
+
+  if (gateMode === "municipality") {
+    // Match SOLO il comune selezionato: nome normalizzato (lowercase, trim,
+    // niente "comune di", niente suffisso provincia/regione dopo la virgola),
+    // oppure codice ISTAT identico e non vuoto su entrambi i lati. Nessun
+    // fallback al primo elemento del raggio: se non trova match esatto,
+    // blocca con warning invece di usare un comune vicino (es. Paderno Dugnano
+    // al posto di Varedo).
+    const selectedMunicipalityName = normalizeMunicipalityName(selectedMunicipality);
+    debugStep2Log("[STEP2_SELECTED_MUNICIPALITY_NAME]", selectedMunicipalityName);
+    debugStep2Log("[STEP2_MUNICIPALITY_MATCH_CANDIDATES]", filtered.map(z => ({ name: z.name, normalized: normalizeMunicipalityName(z.name), municipality_code: z.municipality_code })));
+
+    let matched = filtered.filter(z => {
+      const nameMatch = normalizeMunicipalityName(z.name) === selectedMunicipalityName;
+      const codeMatch = Boolean(primaryMunicipalityCode) && Boolean(z.municipality_code) && String(z.municipality_code) === String(primaryMunicipalityCode);
+      return nameMatch || codeMatch;
+    });
+
+    // Se il match combinato nome/codice ha prodotto più di 1 area o un'area
+    // che non corrisponde esattamente al nome, prova a correggere filtrando
+    // SOLO per nome esatto (nessun fallback al primo elemento del raggio).
+    if (matched.length !== 1 || normalizeMunicipalityName(matched[0]?.name) !== selectedMunicipalityName) {
+      matched = filtered.filter(z => normalizeMunicipalityName(z.name) === selectedMunicipalityName).slice(0, 1);
+    }
+
+    const finalMismatch = matched.length !== 1 || normalizeMunicipalityName(matched[0]?.name) !== selectedMunicipalityName;
+    // `filtered` può ancora contenere le zone della città PRECEDENTE mentre
+    // `apiLoading` è true per la nuova richiesta (selectedMunicipalityName è
+    // già aggiornato, apiZones no): non è un errore reale, solo dati non
+    // ancora pronti. `apiLoading` da solo non basta: il flag passa a true in
+    // un effect POST-render, quindi per uno o più render subito dopo il
+    // cambio comune resta ancora false mentre apiZones è ancora quello
+    // vecchio — usiamo anche una piccola finestra di grazia dal cambio città
+    // per coprire esattamente quel gap. Logga solo un'attesa, mai
+    // console.error, in questo caso.
+    const withinSwitchGracePeriod = Date.now() - municipalitySwitchAtRef.current < 800;
+    const dataNotReady = apiLoading || filtered.length === 0 || withinSwitchGracePeriod;
+
+    if (selectedMunicipalityName && finalMismatch) {
+      if (dataNotReady) {
+        debugStep2Log("[STEP2_MUNICIPALITY_WAITING_FOR_AREAS]", { selectedMunicipalityName, apiLoading, filteredCount: filtered.length, withinSwitchGracePeriod });
+      } else {
+        // Dati caricati, filtered.length > 0, e il match finale è comunque
+        // sbagliato o multiplo: qui sì è un errore reale.
+        console.error("[STEP2_MUNICIPALITY_WRONG_AREA_BLOCKED]", { selectedMunicipalityName, finalAreas: matched.map(z => z.name) });
+        matched = []; // blocca del tutto: non scegliere un comune vicino
+      }
+    }
+
+    debugStep2Log("[STEP2_FINAL_MUNICIPALITY_AREA]", matched.map(z => z.name));
+    filtered = matched;
+  } else if (gateMode === "radius") {
+    // includere solo comuni entro radiusKm + hard guard anti-regressione
+    const numRadius = Number(radiusKm) || 3;
+    if (numRadius <= 3 && filtered.length > 8) {
+      debugStep2Warn("[STEP2_RADIUS_GUARD_TRIGGERED] radius <= 3 but got", filtered.length, "communes. Truncating to 8.");
+      filtered = filtered.slice(0, 8);
+    } else if (numRadius <= 5 && filtered.length > 12) {
+      debugStep2Warn("[STEP2_RADIUS_GUARD_TRIGGERED] radius <= 5 but got", filtered.length, "communes. Truncating to 12.");
+      filtered = filtered.slice(0, 12);
+    }
+  }
+
+  if (isStep2DebugEnabled()) {
+    debugStep2Log("[STEP2_INCLUDED_COMMUNES]", filtered.length, filtered.map(z => z.name));
+    const totalFam = filtered.reduce((a, b) => a + (b.families || 0), 0);
+    debugStep2Log("[STEP2_FAMILIES_CALC_OUTPUT]", totalFam);
+    debugStep2Log("[STEP2_FINAL_SOURCE_LOCKED]", { gateMode, communes: filtered.length, families: totalFam });
+  }
+
+  return filtered;
+}, [hasUsefulApiZones, apiZones, searchMode, selectedMunicipality, primaryMunicipalityCode, radiusKm, apiLoading]);
 useEffect(() => {
   if (!apiData) return;
   const nilRows = Array.isArray(apiData.nil_breakdown) && apiData.nil_breakdown.length ? apiData.nil_breakdown : (apiData.comuni_breakdown || []).filter(row => row?.territory_level === "nil");
@@ -3062,16 +3294,35 @@ const territorialDataUnavailable = Boolean(city && !apiLoading && !hasUsefulApiZ
 
   useEffect(() => {
     if (hasUsefulApiZones) {
-      setSelected(apiZones.map(z => z.id));
+      setSelected(zonesInRadius.map(z => z.id));
     } else {
       setSelected([]);
     }
-  }, [city?.id, radius, hasUsefulApiZones, apiZones]);
+  }, [city?.id, radius, hasUsefulApiZones, zonesInRadius]);
 
-  // In CAP mode, selZones = only selected CAPs; in Comune mode = zones in radius
-  const selZones = searchMode === "cap"
-    ? selectedCaps.map(cap => capDataMap[cap]).filter(zone => zone && !zone.unavailable)
-    : allZones.filter(z => selected.includes(z.id));
+  // getFinalAreasForMode: in municipality mode, bypass stale `selected` state and use
+  // zonesInRadius directly (already gated to 1 zone by userModeRef). In radius/address
+  // mode, filter allZones by `selected` to preserve per-zone toggle behaviour.
+  const selZones = useMemo(() => {
+    if (searchMode === "cap") {
+      return selectedCaps.map(cap => capDataMap[cap]).filter(zone => zone && !zone.unavailable);
+    }
+    const gateMode = userModeRef.current;
+    debugStep2Log("[STEP2_ACTIVE_TAB]", searchMode);
+    debugStep2Log("[STEP2_FINAL_MODE]", gateMode);
+    let areas;
+    if (gateMode === "municipality") {
+      areas = zonesInRadius; // already filtered to 1 zone; bypasses stale `selected`
+      if (areas.length > 1) {
+        debugStep2Warn("[STEP2_MUNICIPALITY_MULTI_AREA_BLOCKED]", areas.length, "→ forcing to 1");
+        areas = [areas[0]];
+      }
+    } else {
+      areas = allZones.filter(z => selected.includes(z.id));
+    }
+    debugStep2Log("[STEP2_FINAL_AREAS_FOR_COVERAGE]", areas.length, areas.map(z => z.name));
+    return areas;
+  }, [searchMode, selectedCaps, capDataMap, zonesInRadius, allZones, selected]);
 
   async function handleCapSelect(capSuggestion) {
     setSearch("");
@@ -3106,6 +3357,8 @@ const flyerQuantityFromStep1 = data.flyerQuantity || data.qty || 10000;
 function zCap(z) { return svcType === "d2d" ? z.families : svcType === "h2h" ? z.poi * 2 : z.bizTotal * 3; }
   function toggleZone(id) {
     setPartialCoverageConfirmed(false);
+    setCoverageDecision(null);
+    setCoverageStrategy(null);
     if (id.startsWith("cap_")) {
       const cp = id.replace("cap_", "");
       setSelectedCaps(prev => prev.includes(cp) ? prev.filter(x => x !== cp) : [...prev, cp]);
@@ -3129,6 +3382,18 @@ const doorCoverage = isResidentialStep2
 const totalCapacity = isResidentialStep2 ? doorCoverage.fullCoverageFlyers : selZones.reduce((a, z) => a + zCap(z), 0);
   const requiredFlyers = isResidentialStep2 ? doorCoverage.fullCoverageFlyers : selZones.reduce((a, z) => a + zCap(z), 0);
   const isPartial = isResidentialStep2 ? doorCoverage.status === "partial" : flyerQuantityFromStep1 < requiredFlyers;
+
+  // Surplus (business/UX layer only — does not touch families/coverage calc):
+  // quantity > recommendedFlyers with 100% municipality coverage. !isPartial already
+  // implies flyerQuantityFromStep1 >= requiredFlyers, so this only adds the ">" case.
+  const hasSurplus = isResidentialStep2 && searchMode === "municipality" && !isPartial && requiredFlyers > 0 && flyerQuantityFromStep1 > requiredFlyers;
+  const surplusFlyers = hasSurplus ? flyerQuantityFromStep1 - requiredFlyers : 0;
+  useEffect(() => {
+    if (hasSurplus) {
+      debugStep2Log("[STEP2_SURPLUS_DETECTED]", { city: city?.name, inserted: flyerQuantityFromStep1, recommended: requiredFlyers });
+      debugStep2Log("[STEP2_SURPLUS_AMOUNT]", surplusFlyers);
+    }
+  }, [hasSurplus, surplusFlyers, city?.name, flyerQuantityFromStep1, requiredFlyers]);
 
   let remainingForAuto = flyerQuantityFromStep1;
   const zonesAllocation = selZones.map(z => {
@@ -3160,8 +3425,64 @@ const totalCapacity = isResidentialStep2 ? doorCoverage.fullCoverageFlyers : sel
 
   function handleNext() {
     const isCapMode = searchMode === "cap";
+    const finalFlyerQuantity =
+      isResidentialStep2 && coverageDecision === "increase"
+        ? requiredFlyers
+        : allocationMode === "manual" && totalAssigned > 0
+          ? totalAssigned
+          : flyerQuantityFromStep1;
+    const finalDoorCoverage = isResidentialStep2
+      ? computeDoorToDoorCoverage({ insertedFlyers: finalFlyerQuantity, selectedZones: selZones })
+      : null;
+    let finalRemainingForAuto = finalFlyerQuantity;
+    const finalZonesAllocation = selZones.map(z => {
+      const req = isResidentialStep2 ? getZoneFullCoverageFlyers(z) : zCap(z);
+      const assigned = allocationMode === "manual"
+        ? (manualAssignments[z.id] || 0)
+        : Math.min(req, finalRemainingForAuto);
+      if (allocationMode !== "manual") finalRemainingForAuto -= assigned;
+      return {
+        id: z.id,
+        name: z.name,
+        requiredFlyers: req,
+        assignedFlyers: assigned,
+        coveragePercent: req > 0 ? Math.round((assigned / req) * 100) : 0,
+        allocationStatus: assigned >= req ? "full" : assigned > 0 ? "partial" : "none"
+      };
+    });
+    const finalServiceKpis = {
+      ...serviceKpis,
+      coverage: isResidentialStep2
+        ? (finalDoorCoverage?.coveragePercent ?? serviceKpis.coverage)
+        : serviceKpis.coverage,
+      recommendedFlyers: isResidentialStep2 ? requiredFlyers : serviceKpis.recommendedFlyers,
+    };
+    // Difensivo: non propagare a Step 4 un coverageStrategy residuo di una
+    // configurazione precedente (es. "expand_area" scelto per un altro
+    // comune). Valido solo se la situazione di surplus è ancora quella
+    // corrente per il comune/raggio appena confermato.
+    const finalCoverageStrategy = hasSurplus ? coverageStrategy : null;
     setData(prev => ({...prev,
-      zones: isCapMode ? [] : selected,
+      campaignZones: Array.isArray(prev.campaignZones)
+        ? prev.campaignZones.map(zone => zone.id === prev.activeZoneId ? {
+            ...zone,
+            assigned_flyers: finalFlyerQuantity,
+            recommended_flyers: requiredFlyers,
+            coverageDecision,
+            coverageStrategy: finalCoverageStrategy,
+            selected: isCapMode ? [] : selZones.map(z => z.id),
+            selectedComuni: isCapMode ? [] : selZones.map(z => z.name),
+            selectedMunicipalities: isCapMode ? [] : selZones.map(z => z.name),
+            zonesAllocation: finalZonesAllocation,
+            serviceKpis: finalServiceKpis,
+            totalAssigned: finalZonesAllocation.reduce((a, v) => a + v.assignedFlyers, 0),
+            coverageStatus: isResidentialStep2 ? finalDoorCoverage.status : (finalFlyerQuantity < requiredFlyers ? "partial" : "sufficient"),
+          } : zone)
+        : prev.campaignZones,
+      qty: finalFlyerQuantity,
+      flyerQuantity: finalFlyerQuantity,
+      flyerQuantityFromStep1: finalFlyerQuantity,
+      zones: isCapMode ? [] : selZones.map(z => z.id),
       selectedCaps,
       capDataMap,
       searchMode,
@@ -3176,20 +3497,23 @@ const totalCapacity = isResidentialStep2 ? doorCoverage.fullCoverageFlyers : sel
       selectedMunicipalities: isCapMode ? [] : selZones.map(z => z.name),
       cityName: isCapMode ? (selectedCaps.length === 1 ? `CAP ${selectedCaps[0]}` : `${selectedCaps.length} CAP selezionati`) : (city?.label || city?.name || ""),
       allocationMode,
+      coverageDecision,
+      coverageStrategy: finalCoverageStrategy,
+      surplusFlyers: hasSurplus ? Math.max(0, finalFlyerQuantity - requiredFlyers) : 0,
       manualAssignments,
-      totalAssigned,
+      totalAssigned: finalZonesAllocation.reduce((a, v) => a + v.assignedFlyers, 0),
       totalCapacity,
-      isPartial,
+      isPartial: isResidentialStep2 ? finalDoorCoverage?.status === "partial" : finalFlyerQuantity < requiredFlyers,
       requiredFlyers,
       operationalWaypoints,
       gpsPlannedPoints: operationalWaypoints,
       requiredTotalFlyers: requiredFlyers,
       fullCoverageFlyers: requiredFlyers,
-      missingFlyers: isResidentialStep2 ? doorCoverage.missingFlyers : Math.max(0, requiredFlyers - flyerQuantityFromStep1),
-      remainingFlyers: isResidentialStep2 ? doorCoverage.remainingFlyers : Math.max(0, flyerQuantityFromStep1 - requiredFlyers),
-      coverageStatus: isResidentialStep2 ? doorCoverage.status : (isPartial ? "partial" : "sufficient"),
-      zonesAllocation,
-      serviceKpis,
+      missingFlyers: isResidentialStep2 ? finalDoorCoverage.missingFlyers : Math.max(0, requiredFlyers - finalFlyerQuantity),
+      remainingFlyers: isResidentialStep2 ? finalDoorCoverage.remainingFlyers : Math.max(0, finalFlyerQuantity - requiredFlyers),
+      coverageStatus: isResidentialStep2 ? finalDoorCoverage.status : (finalFlyerQuantity < requiredFlyers ? "partial" : "sufficient"),
+      zonesAllocation: finalZonesAllocation,
+      serviceKpis: finalServiceKpis,
       radius,
       city,
       sources: confirmedStep2Sources,
@@ -3198,6 +3522,11 @@ const totalCapacity = isResidentialStep2 ? doorCoverage.fullCoverageFlyers : sel
       comuniNelRaggio: zonesInRadius.length,
       metadata: { omi: omiInfo, operational_waypoints: operationalWaypoints, analysis_level: activeAnalysisLevel, nil_unavailable: nilUnavailable },
     }));
+    debugStep2Log("[STEP2_TO_STEP4_PAYLOAD]", { mode: isCapMode ? "cap" : userModeRef.current, searchMode });
+    debugStep2Log("[STEP2_TO_STEP4_ZONE]", isCapMode ? selectedCaps : (city?.label || city?.name || ""));
+    debugStep2Log("[STEP2_TO_STEP4_COMMUNES]", selZones.map(z => z.name));
+    debugStep2Log("[STEP2_TO_STEP4_FAMILIES]", finalServiceKpis?.families);
+    debugStep2Log("[STEP2_TO_STEP4_RECOMMENDED_FLYERS]", finalServiceKpis?.recommendedFlyers);
     onNext();
   }
 
@@ -3271,11 +3600,9 @@ const step2FamiliesCalc = useMemo(() => {
   const rawRec = dedupedSelZonesForCalc.reduce((a, z) => a + (Number(z.flyersMin) || 0), 0);
   const rawArea = dedupedSelZonesForCalc.reduce((a, z) => a + (Number(z.area) || 0), 0);
   
-  if (import.meta.env.DEV) {
-    console.log("[STEP2_SELECTED_AREAS_COUNT]", selZones.length);
-    console.log("[STEP2_DEDUPED_AREAS_COUNT]", dedupedSelZonesForCalc.length);
-    console.log("[STEP2_FAMILIES_CALC_INPUT]", { rawFam, rawPop, rawRec, rawArea, radiusKm });
-  }
+  debugStep2Log("[STEP2_SELECTED_AREAS_COUNT]", selZones.length);
+  debugStep2Log("[STEP2_DEDUPED_AREAS_COUNT]", dedupedSelZonesForCalc.length);
+  debugStep2Log("[STEP2_FAMILIES_CALC_INPUT]", { rawFam, rawPop, rawRec, rawArea, radiusKm });
 
   const maxPlausibleRadiusFam = Math.max(120000, Math.round(Math.PI * Number(radiusKm || 3) * Number(radiusKm || 3) * 5500));
   const isOutOfScale = (searchMode !== "cap" && Number(radiusKm) > 0 && rawFam > maxPlausibleRadiusFam) ||
@@ -3284,9 +3611,7 @@ const step2FamiliesCalc = useMemo(() => {
   const finalFam = isOutOfScale ? Math.round((rawRec || flyerQuantityFromStep1 || 20000) / 1.08) : rawFam;
   const finalPop = isOutOfScale || rawPop > finalFam * 4 ? Math.round(finalFam * 2.3) : rawPop;
 
-  if (import.meta.env.DEV) {
-    console.log("[STEP2_FAMILIES_CALC_OUTPUT]", { finalFam, finalPop, wasAdjusted: finalFam !== rawFam });
-  }
+  debugStep2Log("[STEP2_FAMILIES_CALC_OUTPUT]", { finalFam, finalPop, wasAdjusted: finalFam !== rawFam });
 
   return { families: finalFam, pop: finalPop, recFlyers: rawRec };
 }, [isResidentialStep2, dedupedSelZonesForCalc, radiusKm, searchMode, flyerQuantityFromStep1]);
@@ -3349,12 +3674,24 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     if (sortId === "families") return Number(zone.families ?? zone.famiglie ?? 0);
     return Number(zone.families ?? zone.famiglie ?? zCap(zone) ?? 0);
   };
+  const zoneCoverageSortGroup = (zone) => {
+    const alloc = zonesAllocation.find(a => a.id === zone.id);
+    const assigned = Math.max(0, Number(alloc?.assignedFlyers || alloc?.assigned || alloc?.allocated || alloc?.volantini_assegnati || 0));
+    const required = Math.max(0, Number(alloc?.requiredFlyers || alloc?.needed || alloc?.volantini_necessari || zCap(zone) || 0));
+    if (assigned <= 0) return 2;
+    if (assigned >= required) return 0;
+    return 1;
+  };
   const sortedResidentialZones = useMemo(
     () => [...allZones].sort((a, b) => {
+      if (zoneListSort === "relevance") {
+        const groupDiff = zoneCoverageSortGroup(a) - zoneCoverageSortGroup(b);
+        if (groupDiff) return groupDiff;
+      }
       const diff = zoneSortValue(b, zoneListSort) - zoneSortValue(a, zoneListSort);
       return diff || String(a.name || "").localeCompare(String(b.name || ""), "it");
     }),
-    [allZones, zoneListSort, svcType]
+    [allZones, zoneListSort, zonesAllocation]
   );
   const shouldGroupMarginalZones = isResidentialStep2 && searchMode !== "cap" && sortedResidentialZones.length > GRANDE_CITTA_ZONE_THRESHOLD;
   const relevantResidentialZones = useMemo(() => {
@@ -3464,7 +3801,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     const metricRaw = activeLay ? z[activeLay.field] : null;
     const hasMetric = metricRaw != null && !Number.isNaN(Number(metricRaw));
     if (activeLay && !hasMetric) {
-      if (import.meta.env.DEV) console.log('[LAYER_DATA_MISSING]', { zone: z.name, field: activeLay.field, value: metricRaw });
+      debugStep2Log('[LAYER_DATA_MISSING]', { zone: z.name, field: activeLay.field, value: metricRaw });
     }
     return {
       id: z.id, name: z.name, lat: coords.lat, lng: coords.lng,
@@ -3479,7 +3816,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     };
   }).filter(Boolean);
   if (activeLay && zonesWithCoords.length > 0) {
-    if (import.meta.env.DEV) console.log('[LAYER_DATA_LOADED]', { layer: activeLay.id, label: activeLay.label, zones: zonesWithCoords.length, hasData: zonesWithCoords.filter(z => z.metricColor).length });
+    debugStep2Log('[LAYER_DATA_LOADED]', { layer: activeLay.id, label: activeLay.label, zones: zonesWithCoords.length, hasData: zonesWithCoords.filter(z => z.metricColor).length });
   }
 
   const targetTotal = serviceKpis ? (isResidentialStep2 ? serviceKpis.families : isMovementStep2 ? serviceKpis.poi : serviceKpis.businesses) : 0;
@@ -3530,16 +3867,16 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     : isMovementStep2
       ? [
         { l: "Hotspot Score", v: aiAgg?.reachH2H, c: "#22C55E" },
-        { l: "Reach Score", v: aiAgg?.reachH2H, c: C.blue },
-        { l: "ROI Score", v: aiAgg?.roiH2H, c: C.green },
-        { l: "Confidence", v: aiAgg?.confH2H, c: C.purple },
+        { l: kpiLabel("reachScore"), v: aiAgg?.reachH2H, c: C.blue },
+        { l: kpiLabel("roiScore"), v: aiAgg?.roiH2H, c: C.green },
+        { l: kpiLabel("confidence"), v: aiAgg?.confH2H, c: C.purple },
       ]
       : isBusinessStep2
         ? [
           { l: "Cluster Score", v: aiAgg?.cdIdx, c: "#22C55E" },
-          { l: "Reach Score", v: aiAgg?.reachB2B, c: C.blue },
-          { l: "ROI Score", v: aiAgg?.roiB2B, c: C.green },
-          { l: "Confidence", v: aiAgg?.confB2B, c: C.purple },
+          { l: kpiLabel("reachScore"), v: aiAgg?.reachB2B, c: C.blue },
+          { l: kpiLabel("roiScore"), v: aiAgg?.roiB2B, c: C.green },
+          { l: kpiLabel("confidence"), v: aiAgg?.confB2B, c: C.purple },
         ]
         : [];
   const advancedScoreRows = [
@@ -3619,6 +3956,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
       capDataMap: zone.capDataMap || {},
       manualAssignments: zone.manualAssignments || {},
       allocationMode: zone.allocationMode || "auto",
+      coverageDecision: zone.coverageDecision || null,
       searchMode: zone.searchMode || "municipality",
     }));
   }, [campaignZones, resolveCampaignZoneCity, setData, svcType]);
@@ -3640,7 +3978,24 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     (z.searchMode === "cap" ? (z.selectedCaps && z.selectedCaps.length > 0) : (z.city !== null)) &&
     (z.assigned_flyers || 0) > 0
   );
-  const canContinueCalendar = step2ZonesReady && !gisLoading && !gisTimedOut;
+  const coverageDecisionRequired = allocationMode === "auto" && isPartial;
+  const coverageDecisionReady = !coverageDecisionRequired || Boolean(coverageDecision);
+  const canContinueCalendar = step2ZonesReady && !gisLoading && !gisTimedOut && coverageDecisionReady;
+  const continueLabel = gisTimedOut
+    ? "Dati GIS non disponibili"
+    : gisLoading
+      ? "Analisi in corso..."
+      : !step2ZonesReady
+        ? "Seleziona la zona per continuare"
+        : !coverageDecisionReady
+          ? "Scegli la copertura per continuare"
+          : coverageDecision === "partial"
+            ? "Continua con copertura parziale →"
+            : coverageDecision === "increase"
+              ? `Continua con ${requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini →`
+              : coverageDecision === "manual"
+                ? "Continua con distribuzione manuale →"
+                : "Continua al preventivo →";
 
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto", padding: "34px clamp(16px, 4vw, 32px) 160px", background: C.navyMid, minHeight: "100vh", overflow: "visible" }}>
@@ -3705,9 +4060,9 @@ const radiusInsightRows = zonesInRadius.map(z => ({
         <div style={{ position: "relative", flex: "0 0 340px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 0, padding: 0, borderRadius: 10, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.12)", overflow: "hidden" }}>
             <div style={{ display: "flex", background: "rgba(255,255,255,.03)", borderRight: "1px solid rgba(255,255,255,.12)" }}>
-              <button onClick={() => { setSearchMode("municipality"); setSearch(""); setMunicipalityBoundary(null); }} style={{ padding: "9px 10px", background: searchMode === "municipality" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>Comune</button>
-              <button onClick={() => { setSearchMode("address"); setSearch(""); setMunicipalityBoundary(null); }} style={{ padding: "9px 10px", background: searchMode === "address" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>Raggio</button>
-              <button onClick={() => { setSearchMode("cap"); setSearch(""); setMunicipalityBoundary(null); }} style={{ padding: "9px 10px", background: searchMode === "cap" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>CAP</button>
+              <button onClick={() => { userModeRef.current = "municipality"; setSearchMode("municipality"); setSearch(""); setMunicipalityBoundary(null); setSelected([]); }} style={{ padding: "9px 10px", background: searchMode === "municipality" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>Comune</button>
+              <button onClick={() => { userModeRef.current = "address"; setSearchMode("address"); setSearch(""); setMunicipalityBoundary(null); }} style={{ padding: "9px 10px", background: searchMode === "address" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>Raggio</button>
+              <button onClick={() => { userModeRef.current = "cap"; setSearchMode("cap"); setSearch(""); setMunicipalityBoundary(null); }} style={{ padding: "9px 10px", background: searchMode === "cap" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>CAP</button>
             </div>
             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "0 12px" }}>
               <span style={{ fontSize: 13 }}>{searchMode === "cap" ? "" : ""} </span>
@@ -3722,7 +4077,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               {searchMode === "municipality" ? (
                 geocodeSuggestions.length === 0 && search.length >= 2 ? <div style={{ padding: "9px 14px", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.35)" }}>Nessun risultato...</div> :
                 geocodeSuggestions.map(c => (
-                  <div key={c.id} onClick={() => { setCity(c); setSearch(c.label || c.name); setDropOpen(false); setSelected([]); }}
+                  <div key={c.id} onClick={() => { setCity(c); setSearch(c.label || c.name); setDropOpen(false); setSelected([]); setCoverageDecision(null); setCoverageStrategy(null); setPartialCoverageConfirmed(false); }}
                     style={{ padding: "9px 14px", cursor: "pointer", fontFamily: F.sans, fontSize: 13, color: C.white, borderBottom: "1px solid rgba(255,255,255,.05)" }}
                     onMouseEnter={e => e.currentTarget.style.background = "rgba(34, 197, 94,.12)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
@@ -4106,7 +4461,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               <div style={{ display: "flex", gap: 14, fontFamily: F.sans, fontSize: 12, fontWeight: 700, flexWrap: "wrap" }}>
                 <span style={{ color: "#22C55E", display: "flex", alignItems: "center", gap: 5 }}>🟢 {summaryComuniStats.coperti} Coperti</span>
                 <span style={{ color: "#FACC15", display: "flex", alignItems: "center", gap: 5 }}>🟡 {summaryComuniStats.parziali} Parziali</span>
-                <span style={{ color: "#F87171", display: "flex", alignItems: "center", gap: 5 }}>🔴 {summaryComuniStats.esclusi} Esclusi</span>
+                <span style={{ color: "#F87171", display: "flex", alignItems: "center", gap: 5 }}>🔴 {summaryComuniStats.esclusi} Non coperti</span>
               </div>
             </div>
           )}
@@ -4204,13 +4559,19 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 {shouldGroupMarginalZones && (
                   <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(34, 197, 94,.08)", border: "1px solid rgba(34, 197, 94,.22)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                     <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.62)", lineHeight: 1.45 }}>
-                      <b style={{ color: C.white }}>{city.name || city.label} è una città grande:</b> con un raggio di 1km la campagna sarà più mirata.
+                      {searchMode === "municipality" ? (
+                        <b style={{ color: C.white }}>{city.name || city.label} è una città grande:</b>
+                      ) : (
+                        <><b style={{ color: C.white }}>{city.name || city.label} è una città grande:</b> con un raggio di 1km la campagna sarà più mirata.</>
+                      )}
                       {primaryCoveredZones.length > 0 && <> Con {flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })} volantini coprirai principalmente: <b style={{ color: col }}>{primaryCoveredZones.join(", ")}</b>.</>}
                     </div>
-                    <button onClick={() => updateActiveRadius(1)}
-                      style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${col}55`, background: `${col}16`, color: col, fontFamily: F.sans, fontSize: 10, fontWeight: 900, cursor: "pointer" }}>
-                      Riduci a 1km
-                    </button>
+                    {searchMode !== "municipality" && (
+                      <button onClick={() => updateActiveRadius(1)}
+                        style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${col}55`, background: `${col}16`, color: col, fontFamily: F.sans, fontSize: 10, fontWeight: 900, cursor: "pointer" }}>
+                        Riduci a 1km
+                      </button>
+                    )}
                   </div>
                 )}
                 
@@ -4244,7 +4605,7 @@ const isManual = allocationMode === "manual";
                       ? 100
                       : Math.max(1, Math.min(99, Math.round((assignedFlyers / Math.max(1, requiredFlyers)) * 100)));
                   const coverageState = assignedFlyers <= 0 ? "none" : coveragePercent >= 100 ? "full" : "partial";
-                  const coverageLabel = coverageState === "none" ? "Nel raggio" : coverageState === "full" ? "Copertura totale" : "Copertura selettiva";
+                  const coverageLabel = coverageState === "none" ? "Copertura 0% - fuori budget attuale" : coverageState === "full" ? "Copertura totale" : "Copertura selettiva";
 
                   return (
                     <div key={z.id} className="town-list-item" style={{
@@ -4252,7 +4613,7 @@ const isManual = allocationMode === "manual";
                       background: sel ? `${col}0a` : "rgba(255,255,255,.012)", padding: "12px 14px",
                       transition: "all .2s ease"
                     }}>
-                      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "24px minmax(160px,1fr) 32px" : "24px 1fr 180px 120px 32px", gap: 12, alignItems: "center" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "24px minmax(160px,1fr)" : "24px 1fr 180px 120px", gap: 12, alignItems: "center" }}>
                         {/* Checkbox */}
                         <div onClick={() => { if (!isMovementStep2 && !(isBusinessStep2 && businessMetrics.clusterRows.length)) toggleZone(z.id); }} style={{
                           width: 18, height: 18, borderRadius: 5, cursor: "pointer",
@@ -4269,14 +4630,14 @@ const isManual = allocationMode === "manual";
                             <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: coverageState !== "none" ? 700 : 400, color: coverageState !== "none" ? C.white : "rgba(255,255,255,.45)" }}>{z.name}</div>
                             {coverageState === "full" && <span style={{ padding: "2px 6px", borderRadius: 4, background: "rgba(34,197,94,.15)", border: "1px solid rgba(34,197,94,.35)", fontFamily: F.sans, fontSize: 8, color: "#22C55E", fontWeight: 800 }}>🟢 COPERTO</span>}
                             {coverageState === "partial" && <span style={{ padding: "2px 6px", borderRadius: 4, background: "rgba(250,204,21,.15)", border: "1px solid rgba(250,204,21,.35)", fontFamily: F.sans, fontSize: 8, color: "#FACC15", fontWeight: 800 }}>🟡 PARZIALE</span>}
-                            {coverageState === "none" && <span style={{ padding: "2px 6px", borderRadius: 4, background: "rgba(248,113,113,.15)", border: "1px solid rgba(248,113,113,.35)", fontFamily: F.sans, fontSize: 8, color: "#F87171", fontWeight: 800 }}>🔴 ESCLUSO</span>}
+                            {coverageState === "none" && <span style={{ padding: "2px 6px", borderRadius: 4, background: "rgba(248,113,113,.15)", border: "1px solid rgba(248,113,113,.35)", fontFamily: F.sans, fontSize: 8, color: "#F87171", fontWeight: 800 }}>🔴 NON COPERTO</span>}
                             {z.isNil && <span style={{ padding: "1px 5px", borderRadius: 4, background: `${getComuneColor(z.id)}22`, border: `1px solid ${getComuneColor(z.id)}55`, fontFamily: F.sans, fontSize: 8, color: getComuneColor(z.id), fontWeight: 800 }}>NIL</span>}
                             {z.isCap && <span style={{ padding: "1px 5px", borderRadius: 4, background: "rgba(255,255,255,.1)", fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.4)", fontWeight: 700 }}>CAP</span>}
                             {z.source_flags?.includes('Stima territoriale') && <span style={{ padding: "1px 5px", borderRadius: 4, background: "rgba(251,191,36,.15)", border: "1px solid rgba(251,191,36,.3)", fontFamily: F.sans, fontSize: 8, color: C.yellow, fontWeight: 700 }}>Stima territoriale</span>}
                           </div>
                           <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.25)", marginTop: 2 }}>
                             {isResidentialStep2
-                              ? `${z.families.toLocaleString("it-IT", { useGrouping: true })} famiglie – ${z.pop.toLocaleString("it-IT", { useGrouping: true })} ab. – ${z.area} km² – ${z.coverage}% nel raggio`
+                              ? `${z.families.toLocaleString("it-IT", { useGrouping: true })} famiglie – ${z.pop.toLocaleString("it-IT", { useGrouping: true })} ab. – ${z.area} km² – ${z.coverage}% ${searchMode === "municipality" ? "di copertura" : "nel raggio"}`
                               : isBusinessStep2
                               ? `${z.targetBiz} target – ${z.competitors} competitor – ${z.clusters} cluster – ${z.topCats}`
                               : isMovementStep2
@@ -4292,13 +4653,11 @@ const isManual = allocationMode === "manual";
                               <span style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: coverageState === "full" ? C.green : coverageState === "partial" ? "#22C55E" : "rgba(255,255,255,.38)", textTransform: "uppercase", letterSpacing: ".04em" }}>
                                 {coverageLabel}
                               </span>
-                              {coverageState !== "none" && <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: C.white }}>{coveragePercent}%</span>}
+                              <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: coverageState === "none" ? "rgba(255,255,255,.42)" : C.white }}>{coveragePercent}%</span>
                             </div>
-                            {coverageState !== "none" && (
-                              <div style={{ height: 5, borderRadius: 3, background: "rgba(255,255,255,.08)", overflow: "hidden" }}>
-                                <div style={{ width: `${coveragePercent}%`, height: "100%", background: coverageState === "full" ? C.green : "#22C55E", borderRadius: 3 }} />
-                              </div>
-                            )}
+                            <div style={{ height: 5, borderRadius: 3, background: "rgba(255,255,255,.08)", overflow: "hidden" }}>
+                              <div style={{ width: `${coveragePercent}%`, height: "100%", background: coverageState === "full" ? C.green : coverageState === "partial" ? "#22C55E" : "rgba(248,113,113,.35)", borderRadius: 3 }} />
+                            </div>
                           </div>
                         ) : (
                           <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.2)", fontStyle: "italic" }}>Non selezionata</div>
@@ -4344,15 +4703,6 @@ const isManual = allocationMode === "manual";
                             <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.15)" }}>{alloc.requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} pz</div>
                           )}
                         </div>
-
-                        {/* Azione rapida */}
-                        <button onClick={() => toggleZone(z.id)} style={{
-                          width: 28, height: 28, borderRadius: 7, border: "1px solid rgba(255,255,255,.1)",
-                          background: "rgba(255,255,255,.05)", color: sel ? C.red : "rgba(255,255,255,.3)",
-                          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center"
-                        }}>
-                          {sel ? "" : "+"}
-                        </button>
                       </div>
                     </div>
                   );
@@ -4432,7 +4782,7 @@ const isManual = allocationMode === "manual";
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
                             <div>
                               <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Zona</div>
-                              <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{city ? city.name : (activeCampaignZone?.cityName || "Area")} · {radiusKm}km</div>
+                              <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{city ? city.name : (activeCampaignZone?.cityName || "Area")} · {searchMode === "municipality" ? "intero comune" : `${radiusKm}km`}</div>
                             </div>
                             <div>
                               <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Comuni coinvolti</div>
@@ -4469,26 +4819,96 @@ const isManual = allocationMode === "manual";
                                 </div>
                               </div>
 
-                              {partialCoverageConfirmed ? (
+                              {coverageDecision === "partial" && (
                                 <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.28)", fontFamily: F.sans, fontSize: 12, color: C.green, fontWeight: 700, textAlign: "center" }}>
-                                  Copertura parziale confermata.
+                                  Copertura parziale confermata. Puoi modificare la scelta qui sotto.
                                 </div>
-                              ) : (
-                                <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 8 }}>
-                                  <button onClick={() => setPartialCoverageConfirmed(true)}
-                                    style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: "transparent", color: C.white, border: "1px solid rgba(255,255,255,.3)", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
-                                    Procedi con copertura parziale
-                                  </button>
-                                  <button onClick={() => {
-                                      setData(d => ({...d, qty: requiredFlyers, flyerQuantity: requiredFlyers }));
-                                      setPartialCoverageConfirmed(false);
-                                    }}
-                                    style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: col, color: C.white, border: "none", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
-                                    Aumenta a {requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini
-                                  </button>
-                                  <button onClick={() => setAllocationMode("manual")}
-                                    style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: "transparent", color: col, border: `1px solid ${col}45`, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
-                                    Modifica manualmente
+                              )}
+                              <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 8 }}>
+                                <button onClick={() => { setCoverageDecision("partial"); setPartialCoverageConfirmed(true); }}
+                                  style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: coverageDecision === "partial" ? "rgba(46,204,138,.16)" : "transparent", color: C.white, border: `1px solid ${coverageDecision === "partial" ? "rgba(46,204,138,.45)" : "rgba(255,255,255,.3)"}`, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                                  Procedi con copertura parziale
+                                </button>
+                                <button onClick={() => {
+                                    setData(d => ({...d, qty: requiredFlyers, flyerQuantity: requiredFlyers }));
+                                    setCoverageDecision("increase");
+                                    setPartialCoverageConfirmed(false);
+                                  }}
+                                  style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: coverageDecision === "increase" ? col : `${col}22`, color: C.white, border: `1px solid ${col}66`, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                                  Aumenta a {requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini
+                                </button>
+                                <button onClick={() => { setAllocationMode("manual"); setCoverageDecision("manual"); }}
+                                  style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: coverageDecision === "manual" ? `${col}22` : "transparent", color: col, border: `1px solid ${col}45`, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                                  Modifica manualmente
+                                </button>
+                              </div>
+                            </div>
+                          ) : hasSurplus ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                              <div style={{ padding: "10px 14px", background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.2)", borderRadius: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  <span style={{ padding: "4px 8px", borderRadius: 6, background: `${C.green}22`, color: C.green, fontFamily: F.sans, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>Copertura completa raggiunta</span>
+                                </div>
+                                <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,.8)", lineHeight: 1.5 }}>
+                                  Hai inserito {flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })} volantini. Per coprire {city?.name || "l'area selezionata"} stimiamo necessari circa {requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini. Restano {surplusFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini disponibili.
+                                </div>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+                                  <div>
+                                    <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini inseriti</div>
+                                    <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini necessari</div>
+                                    <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{requiredFlyers.toLocaleString("it-IT", { useGrouping: true })}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini extra</div>
+                                    <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.orange }}>{surplusFlyers.toLocaleString("it-IT", { useGrouping: true })}</div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {coverageStrategy && (
+                                <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.28)", fontFamily: F.sans, fontSize: 12, color: C.green, fontWeight: 700 }}>
+                                  {coverageStrategy === "reduce_to_recommended" && `Quantità ridotta a ${requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini.`}
+                                  {coverageStrategy === "extra_frequency" && "Useremo i volantini extra per rinforzare le zone migliori / secondo passaggio dove utile."}
+                                  {coverageStrategy === "expand_area" && "Espansione area richiesta — passa a modalità Raggio o aggiungi comuni vicini per usare tutti i volantini."}
+                                </div>
+                              )}
+
+                              <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 8 }}>
+                                <button onClick={() => {
+                                    setData(d => ({...d, qty: requiredFlyers, flyerQuantity: requiredFlyers }));
+                                    setCoverageStrategy("reduce_to_recommended");
+                                    debugStep2Log("[STEP2_COVERAGE_STRATEGY_SELECTED]", "reduce_to_recommended");
+                                  }}
+                                  style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: coverageStrategy === "reduce_to_recommended" ? col : `${col}22`, color: C.white, border: `1px solid ${col}66`, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                                  Riduci a {requiredFlyers.toLocaleString("it-IT", { useGrouping: true })}
+                                </button>
+                                <button onClick={() => {
+                                    setCoverageStrategy("extra_frequency");
+                                    debugStep2Log("[STEP2_COVERAGE_STRATEGY_SELECTED]", "extra_frequency");
+                                  }}
+                                  style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: coverageStrategy === "extra_frequency" ? "rgba(46,204,138,.16)" : "transparent", color: C.white, border: `1px solid ${coverageStrategy === "extra_frequency" ? "rgba(46,204,138,.45)" : "rgba(255,255,255,.3)"}`, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                                  Mantieni {flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })}
+                                </button>
+                                <button onClick={() => {
+                                    setCoverageStrategy("expand_area");
+                                    debugStep2Log("[STEP2_COVERAGE_STRATEGY_SELECTED]", "expand_area");
+                                  }}
+                                  style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: coverageStrategy === "expand_area" ? `${col}22` : "transparent", color: col, border: `1px solid ${col}45`, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                                  Espandi area
+                                </button>
+                              </div>
+
+                              {coverageStrategy === "expand_area" && (
+                                <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 8, alignItems: isMobile ? "stretch" : "center", padding: "10px 14px", borderRadius: 10, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
+                                  <div style={{ flex: 1, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.6)" }}>
+                                    Passa a modalità Raggio per includere i comuni vicini, oppure resta su Comune.
+                                  </div>
+                                  <button onClick={() => { userModeRef.current = "address"; setSearchMode("address"); setSearch(""); setMunicipalityBoundary(null); }}
+                                    style={{ padding: "8px 14px", borderRadius: 8, background: col, color: C.white, border: "none", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}>
+                                    Passa a modalità Raggio
                                   </button>
                                 </div>
                               )}
@@ -4564,7 +4984,7 @@ const isManual = allocationMode === "manual";
               </div>
               <div style={{ fontFamily: F.serif, fontSize: 22, color: C.white, lineHeight: 1, marginBottom: 4 }}>{activeCampaignZone.zone_label || "Zona"}</div>
               <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.46)", lineHeight: 1.45 }}>
-                {activeCampaignZone.cityName || "Da configurare"} · {(activeCampaignZone.assigned_flyers || data.qty || 0).toLocaleString("it-IT", { useGrouping: true })} volantini · {activeCampaignZone.radius || radius}km
+                {activeCampaignZone.cityName || "Da configurare"} · {(activeCampaignZone.assigned_flyers || data.qty || 0).toLocaleString("it-IT", { useGrouping: true })} volantini · {(activeCampaignZone.searchMode || searchMode) === "municipality" ? "intero comune" : `${activeCampaignZone.radius || radius}km`}
               </div>
             </div>
           )}
@@ -4573,7 +4993,6 @@ const isManual = allocationMode === "manual";
             <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "18px 20px", border: `1px solid ${col}30` }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 14 }}>
                 <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: col, letterSpacing: ".06em", textTransform: "uppercase" }}>Risultati della configurazione</span>
-                <span style={{ padding: "2px 8px", borderRadius: 6, background: `${col}22`, color: col, fontFamily: F.sans, fontSize: 10, fontWeight: 700 }}>{zoneVerdict?.title || "Zona adatta"}</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
@@ -4608,8 +5027,8 @@ const isManual = allocationMode === "manual";
                     <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: C.blue, lineHeight: 1.1 }}>{(requiredFlyers || flyerQuantityFromStep1).toLocaleString("it-IT", { useGrouping: true })}</div>
                   </div>
                   <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 9, padding: "10px 12px" }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>Raggio</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 18, fontWeight: 800, color: C.white }}>{radiusKm || radius} km</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>{searchMode === "municipality" ? "Territorio" : "Raggio"}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 18, fontWeight: 800, color: C.white }}>{searchMode === "municipality" ? "Comune completo" : `${radiusKm || radius} km`}</div>
                   </div>
                 </div>
 
@@ -4619,9 +5038,9 @@ const isManual = allocationMode === "manual";
 
           {/* SEZIONE DINAMICA: VISTA CLIENTE / ANALISI AVANZATA */}
           {(selZones.length > 0 || zonesInRadius.length > 0 || activeCampaignZone) && (() => {
-            const profilePop = serviceKpis?.population > 0 ? serviceKpis.population : (serviceKpis?.pop > 0 ? serviceKpis.pop : (aiAgg?.pop > 0 ? aiAgg.pop : (demoData?.populationTotal > 0 ? demoData.populationTotal : 14250)));
-            const profileFam = serviceKpis?.families > 0 ? serviceKpis.families : (aiAgg?.families > 0 ? aiAgg.families : (demoData?.householdsTotal > 0 ? demoData.householdsTotal : 6120));
-            const profileDens = zoneDensity > 0 ? zoneDensity : (aiAgg?.densita > 0 ? aiAgg.densita : (summaryComuniStats?.densita > 0 ? summaryComuniStats.densita : 2150));
+            const profilePop = serviceKpis?.population > 0 ? serviceKpis.population : (serviceKpis?.pop > 0 ? serviceKpis.pop : (aiAgg?.pop > 0 ? aiAgg.pop : (demoData?.populationTotal > 0 ? demoData.populationTotal : 0)));
+            const profileFam = serviceKpis?.families > 0 ? serviceKpis.families : (aiAgg?.families > 0 ? aiAgg.families : (demoData?.householdsTotal > 0 ? demoData.householdsTotal : 0));
+            const profileDens = zoneDensity > 0 ? zoneDensity : (aiAgg?.densita > 0 ? aiAgg.densita : (summaryComuniStats?.densita > 0 ? summaryComuniStats.densita : 0));
             const verdictScore = zoneVerdict?.score || 75;
 
             // Insight Principale
@@ -4680,6 +5099,16 @@ const isManual = allocationMode === "manual";
             const compatPct = Math.min(99, Math.max(68, Math.round(verdictScore)));
             const compatLabel = compatPct >= 85 ? "ECCELLENTE" : compatPct >= 72 ? "ALTA" : "MEDIA";
             const compatColor = compatPct >= 85 ? "#4ADE80" : compatPct >= 72 ? "#60A5FA" : "#FBBF24";
+            const formatOmiValue = (value) => Number(value || 0).toLocaleString("it-IT", { useGrouping: true });
+            const formatOmiRange = (min, max) => `${formatOmiValue(min)} - ${formatOmiValue(max)} EUR/mq`;
+            const omiFallbackValues = [
+              { t: "Ville", min: 2100, max: 3200 },
+              { t: "Appartamenti", min: 1650, max: 2400 },
+              { t: "Uffici", min: 1400, max: 2100 },
+              { t: "Negozi", min: 1800, max: 2900 },
+              { t: "Magazzini", min: 650, max: 1100 },
+              { t: "Laboratori", min: 800, max: 1350 },
+            ];
 
             return (
               <AnimatePresence mode="wait">
@@ -4699,6 +5128,9 @@ const isManual = allocationMode === "manual";
                         </div>
                         <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(59, 130, 246, 0.15)", color: "#60A5FA", border: "1px solid rgba(59, 130, 246, 0.3)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, letterSpacing: ".06em" }}>
                           AI ANALYSIS
+                        </span>
+                        <span style={{ padding: "3px 8px", borderRadius: 6, background: `${compatColor}18`, color: compatColor, border: `1px solid ${compatColor}33`, fontFamily: F.sans, fontSize: 10, fontWeight: 800, letterSpacing: ".04em" }}>
+                          {zoneVerdict?.title || "Zona adatta"}
                         </span>
                       </div>
 
@@ -4814,15 +5246,6 @@ const isManual = allocationMode === "manual";
                         </div>
                       </div>
 
-                      <div style={{ background: "rgba(232, 87, 26, 0.08)", border: "1px solid rgba(232, 87, 26, 0.25)", borderRadius: 10, padding: "12px 14px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-                          <span style={{ fontSize: 13 }}>💡</span>
-                          <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: C.orange, textTransform: "uppercase", letterSpacing: ".05em" }}>Insight AI</span>
-                        </div>
-                        <div style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255, 255, 255, 0.82)", lineHeight: 1.5 }}>
-                          La zona presenta un&apos;elevata concentrazione di {isResidentialStep2 ? "famiglie residenti" : isBusinessStep2 ? "attività commerciali" : "punti ad elevato passaggio"} e una buona densità abitativa{profileDens ? ` (≈ ${profileDens.toLocaleString("it-IT")} ab./km²)` : ""}. È particolarmente indicata per campagne {data.serviceType || "Door to Door"}, ottimizzando il tasso di conversione.
-                        </div>
-                      </div>
                     </div>
 
                     {/* CONSIGLIO AI */}
@@ -4847,8 +5270,8 @@ const isManual = allocationMode === "manual";
                           <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "#FCD34D", marginBottom: 5 }}>⚠ Da sapere</div>
                           <div style={{ color: "rgba(255,255,255,.78)" }}>
                             {missingFlyers > 0
-                              ? `La copertura attuale è parziale (${serviceKpis?.coverage ?? 0}%). Valuta di aumentare la tiratura per saturare l'area.`
-                              : "La distribuzione copre in modo uniforme tutte le zone selezionate."}
+                              ? `La copertura attuale è parziale (${serviceKpis?.coverage ?? 0}%).${profileDens ? ` Densità rilevata: circa ${profileDens.toLocaleString("it-IT", { useGrouping: true })} ab./km².` : ""} Valuta di aumentare la tiratura per saturare l'area.`
+                              : `La distribuzione copre in modo uniforme tutte le zone selezionate.${profileDens ? ` Densità rilevata: circa ${profileDens.toLocaleString("it-IT", { useGrouping: true })} ab./km².` : ""}`}
                           </div>
                         </div>
 
@@ -4870,21 +5293,23 @@ const isManual = allocationMode === "manual";
                       <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: "#38BDF8", marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>
                         <span>🗺</span> Layer cartografici
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
                         {[
-                          { l: "Raggio", v: radiusKm < 1 ? `${radiusKm * 1000}m` : `${radiusKm}km` },
+                          searchMode === "municipality"
+                            ? { l: "Territorio", v: "Comune completo" }
+                            : { l: "Raggio", v: radiusKm < 1 ? `${radiusKm * 1000}m` : `${radiusKm}km` },
                           { l: "Comuni", v: selZones.length || zonesInRadius.length || 1 },
                           { l: "Settori", v: serviceKpis?.sectors || Math.max(3, (selZones.length || 1) * 4) },
-                          { l: "Civici", v: formatNumber(serviceKpis?.buildings || Math.round((profileFam || 1000) * 0.42)) },
-                          { l: "Famiglie", v: formatNumber(profileFam || 0) },
-                          { l: "Popolazione", v: formatNumber(profilePop || 0) },
-                          { l: "Densità", v: `${formatNumber(profileDens || 0)} ab./km²` },
+                          { l: "Civici", v: serviceKpis?.buildings ? formatNumber(serviceKpis.buildings) : "Dato non disponibile" },
+                          { l: "Famiglie", v: profileFam > 0 ? formatNumber(profileFam) : "Dato non disponibile" },
+                          { l: "Popolazione", v: profilePop > 0 ? formatNumber(profilePop) : "Dato non disponibile" },
+                          { l: "Densità", v: profileDens > 0 ? `${formatNumber(profileDens)} ab./km²` : "Dato non disponibile" },
                           { l: "Indice residenz.", v: `${pctRes}%` },
                           { l: "Peso distrib.", v: isResidentialStep2 ? "76% D2D" : isBusinessStep2 ? "84% B2B" : "68% H2H" },
                         ].map(({ l, v }) => (
-                          <div key={l} style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(255,255,255,.04)" }}>
+                          <div key={l} style={{ minWidth: 0, padding: "8px 10px", borderRadius: 8, background: "rgba(255,255,255,.04)" }}>
                             <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.45)", textTransform: "uppercase", marginBottom: 2 }}>{l}</div>
-                            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white }}>{v}</div>
+                            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white, lineHeight: 1.25, overflowWrap: "anywhere" }}>{v}</div>
                           </div>
                         ))}
                       </div>
@@ -4897,11 +5322,11 @@ const isManual = allocationMode === "manual";
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                         {[
-                          { l: "Superficie", v: serviceKpis?.area ? formatAreaKm2(serviceKpis.area) : "14.2 km²" },
+                          { l: "Superficie", v: serviceKpis?.area ? formatAreaKm2(serviceKpis.area) : "Dato non disponibile" },
                           { l: "Area coperta", v: `${serviceKpis?.coverage || 100}%` },
-                          { l: "Area esclusa", v: `${Math.max(0, 100 - (serviceKpis?.coverage || 100))}%` },
+                          { l: "Area non coperta", v: `${Math.max(0, 100 - (serviceKpis?.coverage || 100))}%` },
                           { l: "Numero comuni", v: selZones.length || zonesInRadius.length || 1 },
-                          { l: "Numero civici", v: formatNumber(serviceKpis?.buildings || Math.round((profileFam || 1000) * 0.42)) },
+                          { l: "Numero civici", v: serviceKpis?.buildings ? formatNumber(serviceKpis.buildings) : "Dato non disponibile" },
                           { l: "Copertura reale", v: `${serviceKpis?.coverage || 100}% (civici)` },
                         ].map(({ l, v }) => (
                           <div key={l} style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(255,255,255,.04)" }}>
@@ -4983,16 +5408,9 @@ const isManual = allocationMode === "manual";
                         <span>🏛</span> Mercato Immobiliare OMI
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                        {[
-                          { t: "Ville", v: "2.100 – 3.200 €/mq" },
-                          { t: "Appartamenti", v: "1.650 – 2.400 €/mq" },
-                          { t: "Uffici", v: "1.400 – 2.100 €/mq" },
-                          { t: "Negozi", v: "1.800 – 2.900 €/mq" },
-                          { t: "Magazzini", v: "650 – 1.100 €/mq" },
-                          { t: "Laboratori", v: "800 – 1.350 €/mq" },
-                        ].map(item => {
+                        {omiFallbackValues.map(item => {
                           const omiMatch = (omiInfo?.values || []).find(val => val?.typology?.toLowerCase().includes(item.t.toLowerCase().slice(0, 4)));
-                          const displayVal = omiMatch && omiMatch.min_value != null && omiMatch.max_value != null ? `${omiMatch.min_value.toLocaleString("it-IT")} – ${omiMatch.max_value.toLocaleString("it-IT")} €/mq` : item.v;
+                          const displayVal = omiMatch && omiMatch.min_value != null && omiMatch.max_value != null ? formatOmiRange(omiMatch.min_value, omiMatch.max_value) : formatOmiRange(item.min, item.max);
                           return (
                             <div key={item.t} style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(34, 197, 94,.06)", border: "1px solid rgba(34, 197, 94,.14)" }}>
                               <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.45)", textTransform: "uppercase", marginBottom: 2 }}>{item.t}</div>
@@ -5010,9 +5428,9 @@ const isManual = allocationMode === "manual";
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                         {[
-                          { l: "Reach Score", v: Math.min(99, Math.max(78, Math.round(verdictScore + 6))), fmt: "%", c: "#4ADE80" },
-                          { l: "ROI Score", v: Math.min(98, Math.max(82, Math.round(verdictScore + 4))), fmt: "%", c: "#38BDF8" },
-                          { l: "Confidence", v: 94, fmt: "%", c: "#A855F7" },
+                          { l: kpiLabel("reachScore"), v: Math.min(99, Math.max(78, Math.round(verdictScore + 6))), fmt: "%", c: "#4ADE80" },
+                          { l: kpiLabel("roiScore"), v: Math.min(98, Math.max(82, Math.round(verdictScore + 4))), fmt: "%", c: "#38BDF8" },
+                          { l: kpiLabel("confidence"), v: 94, fmt: "%", c: "#A855F7" },
                           { l: "Indice residenzialità", v: pctRes, fmt: "%", c: "#60A5FA" },
                           { l: "Compatibilità servizio", v: compatPct, fmt: "%", c: "#FBBF24" },
                         ].map(ind => (
@@ -5062,7 +5480,7 @@ const isManual = allocationMode === "manual";
                         ))}
                       </div>
                       <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>
-                        Ultimo aggiornamento: 2026
+                        Ultimo aggiornamento: dato non disponibile
                       </div>
                     </div>
                   </motion.div>
@@ -5074,6 +5492,11 @@ const isManual = allocationMode === "manual";
           {/* Bottom actions container (Sempre visibile in fondo al rail) */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: "auto" }}>
 
+            {step2ZonesReady && !coverageDecisionReady && (
+              <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.22)", fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.7)", lineHeight: 1.5, textAlign: "center" }}>
+                Scegli come gestire la copertura per continuare.
+              </div>
+            )}
             {canContinueCalendar && (
               <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(34,197,94,.07)", border: "1px solid rgba(34,197,94,.18)", fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.65)", lineHeight: 1.5, textAlign: "center" }}>
                 La configurazione è pronta. Procedi al preventivo per scegliere eventuali servizi aggiuntivi e confermare la campagna.
@@ -5081,7 +5504,7 @@ const isManual = allocationMode === "manual";
             )}
             <button className="btn" onClick={handleNext} disabled={!canContinueCalendar}
               style={{ width: "100%", minHeight: 52, padding: "0 16px", borderRadius: 12, border: canContinueCalendar ? "1px solid rgba(255,255,255,0.18)" : "none", background: canContinueCalendar ? "linear-gradient(135deg, #22C55E 0%, #15803D 100%)" : "rgba(255,255,255,.08)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 900, cursor: canContinueCalendar ? "pointer" : "not-allowed", boxShadow: canContinueCalendar ? "0 4px 16px rgba(21,128,61,.4)" : "none", textAlign: "center", transition: "all .2s ease" }}>
-              {gisTimedOut ? "Dati GIS non disponibili" : gisLoading ? "Analisi in corso..." : step2ZonesReady ? "Continua al preventivo →" : "Seleziona la zona per continuare"}
+              {continueLabel}
             </button>
             {!step2ZonesReady && (
               <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)", textAlign: "center", lineHeight: 1.5, padding: "0 4px" }}>
@@ -5352,14 +5775,17 @@ function toggle(d) {
     setFormSent(true);
     if (hasSupabaseConfig()) {
       try {
-        await saveSmartPairingWaitlist({
+        const waitlistPayload = {
           email: form.email,
           telefono: form.telefono,
           zone: zoneLabel,
-          preferred_period: form.periodo,
           note: form.note,
-        });
+        };
+        if (import.meta.env.DEV) console.log("[SMART_PAIRING_WAITLIST_PAYLOAD]", waitlistPayload);
+        await saveSmartPairingWaitlist(waitlistPayload);
+        if (import.meta.env.DEV) console.log("[SMART_PAIRING_WAITLIST_SAVE_SUCCESS]");
       } catch (err) {
+        if (import.meta.env.DEV) console.error("[SMART_PAIRING_WAITLIST_SAVE_ERROR]", err);
         console.warn("Smart Pairing waitlist Supabase save failed", err);
       }
     }
@@ -5765,6 +6191,11 @@ function Step4({ data, setData, onBack, onHome, onCampaignSaved }) {
   const isMobile = useIsMobile();
 const [aiOn, setAiOn] = useState(data.aiOptimizer || false);
 const [sent, setSent] = useState(false);
+const [savingCampaign, setSavingCampaign] = useState(false);
+const [campaignSaveError, setCampaignSaveError] = useState(null);
+const [showLoginRequired, setShowLoginRequired] = useState(false);
+const [savedCampaign, setSavedCampaign] = useState(null);
+const { cliente } = useCliente();
 const [emailSent, setEmailSent] = useState(false);
 const [pdfBusy, setPdfBusy] = useState(false);
 const [pdfError, setPdfError] = useState("");
@@ -5784,12 +6215,19 @@ const svcCommercial = {
   urgent_distribution:{ icon: "⚡", head: "Distribuzione Urgente",  col: "#FF6666", badge: null,             bullets: ["Gestione prioritaria della campagna","Attivazione entro 48h","Team dedicato"] },
 };
 const [confirmSyncStatus, setConfirmSyncStatus] = useState("");
+const [returnFromLogin, setReturnFromLogin] = useState(() =>
+  localStorage.getItem("volantinipro_return_to") === "step4" &&
+  localStorage.getItem("volantinipro_pending_action") === "confirm_campaign"
+);
 const svcType = data.type || "d2d";
 const isQuick = data.quickSource === "quick_quote";
 const cfg = SERVICE_META[svcType] || SERVICE_META.d2d;
 const col = cfg.color;
 const tLabel = { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Business Distribution" }[svcType] || "N/D";
-const flyerQty = data.flyerQuantity || data.qty || 0;
+const rawFlyerQty = data.flyerQuantity || data.qty || 0;
+const flyerQty = data.coverageDecision === "increase" && data.fullCoverageFlyers
+  ? Math.max(rawFlyerQty, data.fullCoverageFlyers)
+  : rawFlyerQty;
 const pricePerThousand = QUOTE_PRICES[svcType] || 18.5;
 const unitPricePerFlyer = pricePerThousand / 1000;
 const zones = data.zones || [];
@@ -5832,9 +6270,9 @@ const alreadyPrinted = data.alreadyPrinted ?? data.hasFlyers === "yes";
 const productionServices = [...new Set([...(data.printServices || []),...(data.extraServices || [])])].filter(s => ["stampa", "grafica"].includes(s));
 const normalizeSelectedExtras = (data) => {
     const mapping = [
-      { id: "tracking_gps", oldIds: ["gps", "tracking_gps"], l: "Tracking GPS", d: "Monitoraggio operativo della distribuzione con tracciamento delle attività.", icon: "", p: 25 },
-      { id: "photo_proof", oldIds: ["foto", "photo_proof", "foto_localizzate"], l: "Foto localizzate", d: "Prove fotografiche con data, zona e riferimento operativo.", icon: "", p: 35 },
-      { id: "advanced_report", oldIds: ["report", "advanced_report", "report_avanzato"], l: "Report avanzato", d: "Report finale più dettagliato con riepilogo operativo e indicatori principali.", icon: " ", p: 19 },
+      { id: "tracking_gps", oldIds: ["gps", "tracking_gps", "gps_default"], l: "Tracking GPS", d: "Monitoraggio operativo della distribuzione con tracciamento delle attività.", icon: "", p: 25 },
+      { id: "photo_proof", oldIds: ["foto", "photo_proof", "foto_localizzate", "photo_report_advanced"], l: "Foto localizzate", d: "Prove fotografiche con data, zona e riferimento operativo.", icon: "", p: 35 },
+      { id: "advanced_report", oldIds: ["report", "advanced_report", "report_avanzato", "report_analytics"], l: "Report avanzato", d: "Report finale più dettagliato con riepilogo operativo e indicatori principali.", icon: " ", p: 19 },
       { id: "ai_analysis", oldIds: ["ai", "ai_analysis", "analisi_ai"], l: "AI Optimizer", d: "Ottimizzazione AI di zona, copertura e raccomandazioni operative.", icon: "", p: 49 },
       { id: "printing", oldIds: ["stampa", "printing"], l: "Stampa materiale", d: "Produzione del materiale prima della distribuzione.", icon: "", p: Math.ceil((flyerQty || 10000) / 1000) * 12 },
       { id: "design", oldIds: ["grafica", "design", "preparazione_grafica"], l: "Preparazione grafica", d: "Supporto per preparazione o adattamento del file grafico.", icon: "", p: 49 },
@@ -5842,12 +6280,16 @@ const normalizeSelectedExtras = (data) => {
       { id: "operator_support", oldIds: ["operator", "operator_support", "supporto_operatore"], l: "Supporto operatore", d: "Assistenza diretta per configurazione, pianificazione o conferma campagna.", icon: "", p: 39 },
       { id: "urgent_distribution", oldIds: ["urgent", "urgent_distribution", "distribuzione_urgente"], l: "Distribuzione urgente", d: "Gestione prioritaria della campagna in tempi ridotti.", icon: "", p: 0, isUrgent: true }
     ];
-const currentServices = [...(data.extraServices || []),...(data.printServices || []),...(data.aiOptimizer ? ["ai"] : []),...(data.urgency === "urgent" ? ["urgent"] : [])
+    const currentServices = [
+      ...(data.extraServices || []),
+      ...(data.printServices || []),
+      ...(data.aiOptimizer ? ["ai"] : []),
+      ...(data.urgency === "urgent" ? ["urgent"] : [])
     ];
 
-    return mapping.filter(ext => 
-      ext.oldIds.some(oid => currentServices.includes(oid)) || 
-      data[ext.id] === true || 
+    return mapping.filter(ext =>
+      ext.oldIds.some(oid => currentServices.includes(oid)) ||
+      data[ext.id] === true ||
       (ext.id === "ai_analysis" && (data.aiOptimizer || data.aiExtraSelected))
     ).map(ext => ({
       id: ext.id,
@@ -5860,12 +6302,13 @@ const currentServices = [...(data.extraServices || []),...(data.printServices ||
     }));
   };
 const selectedExtras = normalizeSelectedExtras(data);
+const selectedExtraIds = selectedExtras.map(s => s.id);
 const optionalExtras = [
-    { id: "gps", label: "Tracking GPS", description: "Tracciamento operativo e timeline distributori.", icon: "", price: 25 },
-    { id: "foto", label: "Foto localizzate", description: "Proof fotografici con data e zona.", icon: "", price: 35 },
-    { id: "report", label: "Report avanzato", description: "Report finale con indicatori e riepilogo operativo.", icon: " ", price: 19 },
-    { id: "ai", label: "AI Optimizer", description: "Ottimizzazione AI di zona, copertura e raccomandazioni.", icon: "", price: 49 },
-  ].filter(ext => !(data.extraServices || []).includes(ext.id));
+    { id: "tracking_gps", addId: "gps", label: "Tracking GPS", description: "Tracciamento operativo e timeline distributori.", icon: "", price: 25 },
+    { id: "photo_proof", addId: "photo_report_advanced", label: "Foto localizzate", description: "Proof fotografici con data e zona.", icon: "", price: 35 },
+    { id: "advanced_report", addId: "report_analytics", label: "Report avanzato", description: "Report finale con indicatori e riepilogo operativo.", icon: " ", price: 19 },
+    { id: "ai_analysis", addId: "ai", label: "AI Optimizer", description: "Ottimizzazione AI di zona, copertura e raccomandazioni.", icon: "", price: 49 },
+  ].filter(ext => !selectedExtraIds.includes(ext.id));
 const addOptionalExtra = (id) => setData(d => ({...d, extraServices: [...new Set([...(d.extraServices || []), id])] }));
 const extraCost = selectedExtras.reduce((a, s) => a + (s.price || 0), 0);
 const smartPairingDiscount = baseCost * (disc / 100);
@@ -5908,7 +6351,9 @@ const step4AnalysisLevel = data.analysisLevel || data.metadata?.analysis_level |
 const step4TerritoryPluralLabel = step4AnalysisLevel === "nil" ? "Zone NIL" : "Comuni";
 const zoneAllocs = data.zonesAllocation || [];
 const plannedGpsPoints = data.operationalWaypoints || data.gpsPlannedPoints || data.metadata?.operational_waypoints || [];
-const requiredQty = data.fullCoverageFlyers || data.requiredTotalFlyers || kpis.recommendedFlyers || zoneAllocs.reduce((a, z) => a + (z.requiredFlyers || 0), 0);
+const requiredQty = data.searchMode === "municipality"
+  ? (kpis.recommendedFlyers || data.fullCoverageFlyers || data.requiredTotalFlyers || zoneAllocs.reduce((a, z) => a + (z.requiredFlyers || 0), 0))
+  : (data.fullCoverageFlyers || data.requiredTotalFlyers || kpis.recommendedFlyers || zoneAllocs.reduce((a, z) => a + (z.requiredFlyers || 0), 0));
 const rawRemainingQty = flyerQty - requiredQty;
 const remainingQty = data.remainingFlyers ?? data.remainingQuantity ?? Math.max(0, rawRemainingQty);
 const missingQty = Math.max(0, requiredQty - flyerQty);
@@ -5923,14 +6368,19 @@ const selectedZoneNames = data.areaMode === "cap"
         const fromAllocs = zoneAllocs.map(z => z.name).filter(Boolean);
         return fromAllocs.length ? fromAllocs : selZ.map(z => z.name);
       })();
-const radiusZoneRows = !isQuick && data.radius
-    ? S2_ZONES.filter(z => {
-      if (selectedZoneNames.includes(z.name)) return true;
-      if (!data.city?.id && !data.cityName) return false;
-const cityId = data.city?.id || S2_CITIES.find(c => c.name === data.cityName)?.id;
-const dist = cityId ? z.dist?.[cityId] : null;
-      return dist != null && dist <= data.radius + Math.sqrt(z.area / Math.PI);
-    })
+const isMunicipalityMode = data.searchMode === "municipality";
+const radiusZoneRows = !isQuick && data.radius && !isMunicipalityMode
+    ? (zoneAllocs.length > 0
+      // Real allocation rows from Step 2 (API zones) — never fall back to the
+      // hardcoded S2_ZONES demo list when the current payload is available.
+      ? zoneAllocs.map(a => ({ id: a.id, name: a.name }))
+      : S2_ZONES.filter(z => {
+        if (selectedZoneNames.includes(z.name)) return true;
+        if (!data.city?.id && !data.cityName) return false;
+        const cityId = data.city?.id || S2_CITIES.find(c => c.name === data.cityName)?.id;
+        const dist = cityId ? z.dist?.[cityId] : null;
+        return dist != null && dist <= data.radius + Math.sqrt(z.area / Math.PI);
+      }))
     : selZ;
 const breakdownRows = radiusZoneRows.map(z => {
     const isCapZone = (z.id || "").startsWith("cap_");
@@ -5943,9 +6393,24 @@ const breakdownRows = radiusZoneRows.map(z => {
   });
 const mainAreaLabel = data.cityName || data.comune || selectedZoneNames[0] || "l'area selezionata";
 const estimatedFamiliesForSummary = svcType === "d2d" ? (kpis.families ?? totF) : null;
-const coverageForSummary = svcType === "d2d" ? (kpis.coverage ?? avgCov) : null;
+const coverageForSummary = svcType === "d2d"
+  ? (requiredQty > 0 ? Math.min(100, Math.round((flyerQty / requiredQty) * 100)) : (kpis.coverage ?? avgCov))
+  : null;
+// Surplus decision made in Step 2 (municipality mode, quantity > recommended).
+// Display-only override on the sufficient-coverage message — never fed back
+// into families/coverage calculations.
+const coverageStrategy = data.coverageStrategy || null;
+const hasSurplusQty = quantityIsSufficient && remainingQty > 0;
+// Log once per actual value change, not on every render — logging inline in
+// the component body was firing on every re-render (any keystroke/state
+// change in Step 4), making a single legitimate value look like log spam.
+useEffect(() => {
+  if (import.meta.env.DEV && coverageStrategy) console.log("[STEP4_COVERAGE_STRATEGY_RECEIVED]", coverageStrategy);
+}, [coverageStrategy]);
 const operationalSummary = svcType === "d2d" ? (quantityIsSufficient
-    ? `La campagna copre ${mainAreaLabel} con una stima di ${estimatedFamiliesForSummary.toLocaleString("it-IT", { useGrouping: true })} famiglie e ${coverageForSummary}% di copertura. La quantità inserita è sufficiente; restano ${remainingQty.toLocaleString("it-IT", { useGrouping: true })} volantini disponibili per estensione zona o scorta operativa.`
+    ? (coverageStrategy === "extra_frequency" && hasSurplusQty
+        ? `Copertura completa. I volantini extra saranno utilizzati per rinforzo distribuzione / secondo passaggio nelle aree prioritarie.`
+        : `La campagna copre ${mainAreaLabel} con una stima di ${estimatedFamiliesForSummary.toLocaleString("it-IT", { useGrouping: true })} famiglie e ${coverageForSummary}% di copertura. La quantità inserita è sufficiente; restano ${remainingQty.toLocaleString("it-IT", { useGrouping: true })} volantini disponibili per estensione zona o scorta operativa.`)
     : `La quantità inserita non copre completamente l'area selezionata. Mancano ${missingQty.toLocaleString("it-IT", { useGrouping: true })} volantini per raggiungere la copertura stimata.`)
     : svcType === "h2h"
       ? `La campagna Hand to Hand copre ${mainAreaLabel} con ${formatNumber(kpis.poi)} POI rilevanti, ${formatNumber(kpis.operationalZones || kpis.hotspotCount)} hotspot e ${formatNumber(kpis.gpsWaypoints || plannedGpsPoints.length)} waypoint GPS pianificati.`
@@ -6067,15 +6532,32 @@ const serviceSummaryConfig = {
 const slug = value => (value || "preventivo").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 const quoteDate = new Date().toISOString().slice(0, 10);
 const pdfFileName = `volantinipro-preventivo-${slug(tLabel)}-${slug(mainAreaLabel)}-${quoteDate}.pdf`;
-const pdfMunicipalities = breakdownRows.map(row => ({
+const pdfMunicipalities = (() => {
+  if (isMunicipalityMode) {
+    const muns = data.selectedComuni?.length ? data.selectedComuni
+      : data.selectedMunicipalities?.length ? data.selectedMunicipalities
+      : selectedZoneNames.length ? selectedZoneNames
+      : [data.cityName || mainAreaLabel].filter(Boolean);
+    const munRec = kpis.recommendedFlyers || requiredQty || null;
+    const munCov = kpis.coverage ?? (svcType === "d2d" ? 100 : null);
+    return muns.map((name, i) => ({
+      name,
+      status: "Selezionato – copertura completa",
+      estimatedFlyers: munRec != null ? Math.round(munRec / muns.length) : null,
+      coveragePct: munCov,
+      contributionPct: Math.round(100 / muns.length),
+    }));
+  }
+  return breakdownRows.map(row => ({
     name: row.name,
     status: row.selectedRow
       ? row.alloc?.allocationStatus === "full" || row.coveragePercent >= 100 ? "Selezionato – copertura completa" : "Selezionato – copertura parziale"
-      : "Nel raggio, non selezionato",
+      : "Non coperto dal budget attuale",
     estimatedFlyers: row.estimatedFlyers,
     coveragePct: row.coveragePercent,
     contributionPct: row.contribution,
   }));
+})();
 const pdfPlanningRows = selDays.map(k => {
     const p = pairsData[k] || null;
 const pts = k.split("-");
@@ -6106,7 +6588,7 @@ const quotePdfData = {
       areaMode: data.areaMode || "comune",
       selectedCaps: data.selectedCaps || [],
       capAnalysis: data.capAnalysis || [],
-      radiusKm: data.areaMode === "cap" ? null : data.radius,
+      radiusKm: isMunicipalityMode || data.areaMode === "cap" ? null : data.radius,
       coveredAreaKm2: kpis.area || (selZ.length ? Math.round(selZ.reduce((a, z) => a + z.area, 0) * 10) / 10 : null),
       selectedMunicipalities: selectedZoneNames,
       selectionMode: data.allocationMode === "manual" ? "Manuale" : "Auto",
@@ -6122,8 +6604,11 @@ const quotePdfData = {
       missingFlyers: missingQty,
       coverageStatus: quantityIsSufficient ? "sufficient" : "partial",
     },
+    coverageStrategy,
     quantityExplanation: quantityIsSufficient
-      ? "La quantità consigliata copre l'area selezionata. Eventuali volantini residui possono essere usati per ampliare il raggio, aggiungere comuni vicini o mantenere una scorta operativa."
+      ? (coverageStrategy === "extra_frequency" && hasSurplusQty
+          ? "Il comune selezionato risulta coperto al 100%. La quantità eccedente sarà utilizzata per rinforzare la distribuzione nelle zone a maggiore densità o secondo passaggio operativo."
+          : "La quantità consigliata copre l'area selezionata. Eventuali volantini residui possono essere usati per ampliare il raggio, aggiungere comuni vicini o mantenere una scorta operativa.")
       : `La quantità inserita non copre completamente l'area selezionata. Mancano ${missingQty.toLocaleString("it-IT", { useGrouping: true })} volantini per raggiungere la copertura stimata.`,
     municipalities: pdfMunicipalities,
     scores: (serviceSummaryConfig.scores || []).filter(s => s?.v != null).map(s => ({ label: s.l, value: s.v, description: s.d })),
@@ -6163,6 +6648,17 @@ const quotePdfData = {
   };
 function handleDownloadPdf() {
     if (pdfBusy) return;
+    if (import.meta.env.DEV) {
+      console.log("[PDF_QUOTE_DATA_SOURCE]", { mode: data.searchMode, areaMode: data.areaMode });
+      console.log("[PDF_MODE]", isMunicipalityMode ? "municipality" : "radius");
+      console.log("[PDF_FINAL_AREA]", quotePdfData.area?.mainArea);
+      console.log("[PDF_FINAL_COMMUNES]", quotePdfData.area?.selectedMunicipalities);
+      console.log("[PDF_FINAL_FAMILIES]", quotePdfData.outputs?.estimatedFamilies);
+      console.log("[PDF_FINAL_RECOMMENDED_FLYERS]", quotePdfData.outputs?.recommendedFlyers);
+      console.log("[PDF_SELECTED_EXTRAS]", quotePdfData.extras?.map(e => e.id));
+      console.log("[PDF_TOTAL]", quotePdfData.pricing?.total);
+      console.log("[PDF_COVERAGE_STRATEGY]", quotePdfData.coverageStrategy);
+    }
     setPdfBusy(true);
     setPdfError("");
     try {
@@ -6175,13 +6671,29 @@ function handleDownloadPdf() {
   }
 
   async function handleConfirmCampaign() {
-    if (!canConfirm) return;
-    setSent(true);
-    setConfirmSyncStatus(hasSupabaseConfig() ? "Salvataggio campagna in corso..." : "Backend non configurato: puoi scaricare il PDF o inviare una richiesta disponibilità.");
-    if (!hasSupabaseConfig()) {
-      return;
-    }
+    if (!canConfirm || savingCampaign) return;
+    setSavingCampaign(true);
+    setCampaignSaveError(null);
+    setShowLoginRequired(false);
+
     try {
+      const session = typeof getStoredSupabaseSession === "function" ? getStoredSupabaseSession() : null;
+      const hasValidClientSession = Boolean(session?.accessToken || session?.access_token || (cliente?.email && cliente.email !== "dev@volantinipro.local"));
+      if (!hasValidClientSession && hasSupabaseConfig()) {
+        setCampaignSaveError("Per confermare e salvare la campagna devi accedere con email.");
+        setShowLoginRequired(true);
+        setSent(false);
+        setSavingCampaign(false);
+        return;
+      }
+
+      setConfirmSyncStatus(hasSupabaseConfig() ? "Salvataggio campagna in corso..." : "Backend non configurato: puoi scaricare il PDF o inviare una richiesta disponibilità.");
+      if (!hasSupabaseConfig()) {
+        setSent(true);
+        setSavingCampaign(false);
+        return;
+      }
+
       const savedCampaign = await saveCampaign({
         service_type: svcType,
         status: "confermata",
@@ -6203,10 +6715,25 @@ function handleDownloadPdf() {
           source: data.quickSource || "configurator",
         },
       });
-const id = savedCampaign?.[0]?.id;
-const savedRow = savedCampaign?.[0] || {};
+      const savedRow = Array.isArray(savedCampaign) ? savedCampaign[0] : (savedCampaign || {});
+      const id = savedRow?.id;
+      if (!id) {
+        setCampaignSaveError("Campagna non salvata. Riprova.");
+        setSent(false);
+        setSavingCampaign(false);
+        return;
+      }
+
+      setSavedCampaign(savedRow);
+      setSent(true);
+      try {
+        localStorage.removeItem("volantinipro_return_to");
+        localStorage.removeItem("volantinipro_pending_action");
+        localStorage.removeItem("volantinipro_pending_campaign_draft");
+      } catch {}
+      setReturnFromLogin(false);
       sendEmailConferma({
-        cliente: { email: savedRow.metadata?.client_email || "", nome: savedRow.metadata?.client_name || "Cliente" },
+        cliente: { email: savedRow.metadata?.client_email || cliente?.email || "", nome: savedRow.metadata?.client_name || cliente?.nome || "Cliente" },
         campagna: {
           servizio: tLabel,
           zona: mainAreaLabel,
@@ -6214,11 +6741,21 @@ const savedRow = savedCampaign?.[0] || {};
           causale_bonifico: savedRow.causale_bonifico || `VP-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${String(id || "REQ001").slice(0, 6).toUpperCase()}`,
         },
       }).catch(err => console.warn("Email conferma bonifico non inviata", err));
-      setConfirmSyncStatus(id ? `Campagna salvata su Supabase (${id.slice(0, 8)}).` : "Campagna salvata su Supabase.");
-      if (id && onCampaignSaved) onCampaignSaved(id, "payment");
+      setConfirmSyncStatus(`Campagna salvata su Supabase (${id.slice(0, 8)}).`);
+      if (onCampaignSaved) onCampaignSaved(id, "payment");
     } catch (err) {
+      setSent(false);
+      if (String(err?.message || "").includes("Login Supabase richiesto")) {
+        setCampaignSaveError("Per confermare e salvare la campagna devi accedere con email.");
+        setShowLoginRequired(true);
+        setSavingCampaign(false);
+        return;
+      }
       console.warn("Campaign Supabase save failed", err);
+      setCampaignSaveError("Errore durante il salvataggio della campagna: " + (err?.message || "Riprova più tardi."));
       setConfirmSyncStatus("Campagna non salvata: verifica login e variabili ambiente Supabase.");
+    } finally {
+      setSavingCampaign(false);
     }
   }
 
@@ -6564,6 +7101,7 @@ const savedRow = savedCampaign?.[0] || {};
                       )}
                       {ext.id === "ai_analysis" && (
                         <AIOptimizerActivation
+                          isConfirmed={sent && Boolean(savedCampaign?.id)}
                           kpis={kpis} avgFIdx={avgFIdx} totF={totF} avgCov={avgCov}
                           flyerQty={flyerQty} total={total} baseCost={baseCost} disc={disc}
                           quantityIsSufficient={quantityIsSufficient} requiredQty={requiredQty}
@@ -6578,6 +7116,7 @@ const savedRow = savedCampaign?.[0] || {};
                       )}
                       {ext.id === "advanced_report" && (
                         <AdvancedReportActivation
+                          isConfirmed={sent && Boolean(savedCampaign?.id)}
                           kpis={kpis} avgFIdx={avgFIdx} totF={totF} avgCov={avgCov}
                           flyerQty={flyerQty} total={total} baseCost={baseCost} disc={disc}
                           quantityIsSufficient={quantityIsSufficient} requiredQty={requiredQty}
@@ -6615,7 +7154,7 @@ const savedRow = savedCampaign?.[0] || {};
                           </div>
                           {comm.bullets?.[0] && <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)", lineHeight: 1.5, paddingLeft: 32 }}>{comm.bullets[0]}</div>}
                         </div>
-                        <button onClick={() => addOptionalExtra(ext.id)} style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${cardCol}40`, background: `${cardCol}12`, color: cardCol, fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer", transition: "all .2s" }}>
+                        <button onClick={() => addOptionalExtra(ext.addId || ext.id)} style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${cardCol}40`, background: `${cardCol}12`, color: cardCol, fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer", transition: "all .2s" }}>
                           + Aggiungi al preventivo
                         </button>
                       </div>
@@ -6766,7 +7305,7 @@ const savedRow = savedCampaign?.[0] || {};
                             <div>
                               <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: row.selectedRow ? C.white : "rgba(255,255,255,.52)" }}>{row.name}</div>
                               <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.36)" }}>
-                                {row.selectedRow ? (row.alloc?.allocationStatus === "full" || row.coveragePercent >= 100 ? "Copertura completa" : "Copertura parziale") : "Nel raggio – non selezionato"}
+                                {row.selectedRow ? (row.alloc?.allocationStatus === "full" || row.coveragePercent >= 100 ? "Copertura completa" : "Copertura parziale") : "Non coperto dal budget attuale"}
                               </div>
                             </div>
                             <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: row.selectedRow ? col : "rgba(255,255,255,.32)" }}>{row.estimatedFlyers != null ? row.estimatedFlyers.toLocaleString("it-IT", { useGrouping: true }) : "—"}</div>
@@ -6984,14 +7523,94 @@ const savedRow = savedCampaign?.[0] || {};
               </div>
             </div>
 
-            {/* Modificabile badge */}
-            {!sent && (
-              <div style={{ marginBottom: 14, padding: "10px 12px", borderRadius: 10, background: "rgba(46,204,138,.07)", border: "1px solid rgba(46,204,138,.2)", display: "flex", gap: 10, alignItems: "center" }}>
-                <span style={{ color: C.green, fontSize: 16, flexShrink: 0 }}>✓</span>
-                <div>
-                  <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: C.green }}>Configurazione flessibile</div>
-                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)", lineHeight: 1.4, marginTop: 1 }}>Potrai concordare variazioni prima del via operativo.</div>
+            {/* Dashboard ed esecuzione / Modificabile badge */}
+            {!sent ? (
+              <>
+                <div style={{ marginBottom: 14, padding: "14px 16px", borderRadius: 12, background: "rgba(56,189,248,.07)", border: "1px solid rgba(56,189,248,.25)", display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontSize: 22 }}>📊</span>
+                  <div>
+                    <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: "#38BDF8" }}>Dashboard ed esecuzione campagna</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.6)", lineHeight: 1.45, marginTop: 2 }}>
+                      La dashboard sarà disponibile dopo il salvataggio della campagna.
+                    </div>
+                  </div>
                 </div>
+                <div style={{ marginBottom: 14, padding: "10px 12px", borderRadius: 10, background: "rgba(46,204,138,.07)", border: "1px solid rgba(46,204,138,.2)", display: "flex", gap: 10, alignItems: "center" }}>
+                  <span style={{ color: C.green, fontSize: 16, flexShrink: 0 }}>✓</span>
+                  <div>
+                    <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: C.green }}>Configurazione flessibile</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)", lineHeight: 1.4, marginTop: 1 }}>Potrai concordare variazioni prima del via operativo.</div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              savedCampaign?.id && (
+                <div style={{ marginBottom: 14, padding: "16px 18px", borderRadius: 14, background: "rgba(46,204,138,.12)", border: "1px solid rgba(46,204,138,.35)", display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 24 }}>🚀</span>
+                    <div>
+                      <div style={{ fontFamily: F.serif, fontSize: 18, color: C.green }}>Campagna salvata e confermata!</div>
+                      <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.7)", lineHeight: 1.4, marginTop: 2 }}>
+                        ID Campagna: <b style={{ color: C.white }}>{savedCampaign.id}</b>. Puoi accedere alla dashboard di monitoraggio.
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onHome) onHome("campaign", { campaignId: savedCampaign.id });
+                      else window.location.href = `/dashboard/${savedCampaign.id}`;
+                    }}
+                    style={{ width: "100%", padding: "12px", borderRadius: 10, background: C.green, color: "#080F1E", border: "none", fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", textAlign: "center", transition: "all .2s" }}
+                  >
+                    Apri Dashboard Campagna →
+                  </button>
+                </div>
+              )
+            )}
+
+            {returnFromLogin && (
+              <div style={{ marginBottom: 14, padding: "14px 16px", borderRadius: 12, background: "rgba(46,204,138,.1)", border: "1px solid rgba(46,204,138,.35)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#2ECC8A", fontFamily: F.sans, fontSize: 13, fontWeight: 800, marginBottom: 4 }}>
+                    <span>✅</span> Accesso completato
+                  </div>
+                  <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.7)", lineHeight: 1.45 }}>
+                    La tua campagna è pronta. Clicca su "Conferma e avvia" per procedere.
+                  </div>
+                </div>
+                <button type="button" onClick={() => setReturnFromLogin(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,.4)", fontSize: 16, cursor: "pointer", padding: "0 4px", flexShrink: 0 }}>×</button>
+              </div>
+            )}
+
+            {showLoginRequired && (
+              <div style={{ marginBottom: 14, padding: "14px 16px", borderRadius: 12, background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.35)", display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#EF4444", fontFamily: F.sans, fontSize: 13, fontWeight: 800 }}>
+                  <span>🔒</span> Login necessario per salvare la campagna
+                </div>
+                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.7)", lineHeight: 1.45 }}>
+                  Per salvare la tua campagna e accedere alla dashboard operativa, accedi al tuo account o crea un profilo in pochi secondi.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    try {
+                      localStorage.setItem("volantinipro_return_to", "step4");
+                      localStorage.setItem("volantinipro_pending_action", "confirm_campaign");
+                      localStorage.setItem("volantinipro_pending_campaign_draft", JSON.stringify(data));
+                    } catch {}
+                    if (onHome) onHome("login");
+                  }}
+                  style={{ alignSelf: "flex-start", padding: "8px 16px", borderRadius: 8, background: "#EF4444", color: C.white, border: "none", fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer" }}
+                >
+                  Vai al Login →
+                </button>
+              </div>
+            )}
+
+            {campaignSaveError && !showLoginRequired && (
+              <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 10, background: "rgba(239,68,68,.12)", border: "1px solid rgba(239,68,68,.3)", fontFamily: F.sans, fontSize: 12, color: "#EF4444" }}>
+                {campaignSaveError}
               </div>
             )}
 
@@ -7001,8 +7620,8 @@ const savedRow = savedCampaign?.[0] || {};
                 Completa configurazione →
               </button>
             ) : (
-              <button className="btn s4-btn-green" disabled={!canConfirm} onClick={handleConfirmCampaign} style={{ width: "100%", padding: "16px", borderRadius: 12, border: "none", background: !canConfirm ? "rgba(255,255,255,.08)" : sent ? "rgba(46,204,138,.9)" : "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)", color: !canConfirm ? "rgba(255,255,255,.3)" : C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: canConfirm ? "pointer" : "not-allowed", marginBottom: 10, boxShadow: canConfirm && !sent ? "0 8px 24px rgba(232,87,26,0.4)" : "none", transition: "all .2s" }}>
-                {sent ? "✓ Campagna confermata" : "Conferma e avvia la campagna →"}
+              <button className="btn s4-btn-green" disabled={!canConfirm || savingCampaign} onClick={handleConfirmCampaign} style={{ width: "100%", padding: "16px", borderRadius: 12, border: "none", background: !canConfirm ? "rgba(255,255,255,.08)" : sent ? "rgba(46,204,138,.9)" : "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)", color: !canConfirm ? "rgba(255,255,255,.3)" : C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: canConfirm && !savingCampaign ? "pointer" : "not-allowed", marginBottom: 10, boxShadow: canConfirm && !sent ? "0 8px 24px rgba(232,87,26,0.4)" : "none", transition: "all .2s" }}>
+                {savingCampaign ? "Salvataggio in corso..." : sent ? "✓ Campagna confermata" : "Conferma e avvia la campagna →"}
               </button>
             )}
 
@@ -7044,7 +7663,7 @@ const savedRow = savedCampaign?.[0] || {};
 
             <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
               <button className="btn" onClick={onBack} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "1px solid rgba(255,255,255,.1)", background: "transparent", color: "rgba(255,255,255,.4)", fontFamily: F.sans, fontSize: 11, cursor: "pointer" }}>← Modifica</button>
-              <button onClick={onHome} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: "transparent", color: "rgba(255,255,255,.2)", fontFamily: F.sans, fontSize: 11, cursor: "pointer" }}>🏠 Home</button>
+              <button onClick={() => onHome("home")} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: "transparent", color: "rgba(255,255,255,.55)", fontFamily: F.sans, fontSize: 11, cursor: "pointer" }}>🏠 Home</button>
             </div>
           </div>
         </div>
@@ -7133,9 +7752,9 @@ const remaining = campaign.qty - required;
       ],
       scores: [
         { l: "Indice di residenzialità", v: Math.round(zones.reduce((a, z) => a + z.familyIdx, 0) / zones.length) },
-        { l: "Reach Score", v: Math.round(zones.reduce((a, z) => a + z.reachD2D, 0) / zones.length) },
-        { l: "ROI Score", v: Math.round(zones.reduce((a, z) => a + z.roiD2D, 0) / zones.length) },
-        { l: "Confidence Score", v: Math.round(zones.reduce((a, z) => a + z.confD2D, 0) / zones.length) },
+        { l: kpiLabel("reachScore"), v: Math.round(zones.reduce((a, z) => a + z.reachD2D, 0) / zones.length) },
+        { l: kpiLabel("roiScore"), v: Math.round(zones.reduce((a, z) => a + z.roiD2D, 0) / zones.length) },
+        { l: kpiLabel("confidence"), v: Math.round(zones.reduce((a, z) => a + z.confD2D, 0) / zones.length) },
       ],
       notes: [remaining >= 0 ? "quantità sufficiente per copertura stimata" : "quantità insufficiente da verificare"],
     };
@@ -7153,9 +7772,9 @@ const remaining = campaign.qty - required;
         { l: "Fasce orarie consigliate", v: zones[0]?.timeSlots || "Dato non disponibile" },
       ],
       scores: [
-        { l: "Reach Score", v: Math.round(zones.reduce((a, z) => a + z.reachH2H, 0) / zones.length) },
-        { l: "ROI Score", v: Math.round(zones.reduce((a, z) => a + z.roiH2H, 0) / zones.length) },
-        { l: "Confidence Score", v: Math.round(zones.reduce((a, z) => a + z.confH2H, 0) / zones.length) },
+        { l: kpiLabel("reachScore"), v: Math.round(zones.reduce((a, z) => a + z.reachH2H, 0) / zones.length) },
+        { l: kpiLabel("roiScore"), v: Math.round(zones.reduce((a, z) => a + z.roiH2H, 0) / zones.length) },
+        { l: kpiLabel("confidence"), v: Math.round(zones.reduce((a, z) => a + z.confH2H, 0) / zones.length) },
       ],
       notes: ["Priorità a hotspot, transito e fasce orarie operative"],
     };
@@ -7171,9 +7790,9 @@ const remaining = campaign.qty - required;
       { l: "Commercial Density Index", v: `${Math.round(zones.reduce((a, z) => a + z.cdIdx, 0) / zones.length)}/100` },
     ],
     scores: [
-      { l: "Reach Score", v: Math.round(zones.reduce((a, z) => a + z.reachB2B, 0) / zones.length) },
-      { l: "ROI Score", v: Math.round(zones.reduce((a, z) => a + z.roiB2B, 0) / zones.length) },
-      { l: "Confidence Score", v: Math.round(zones.reduce((a, z) => a + z.confB2B, 0) / zones.length) },
+      { l: kpiLabel("reachScore"), v: Math.round(zones.reduce((a, z) => a + z.reachB2B, 0) / zones.length) },
+      { l: kpiLabel("roiScore"), v: Math.round(zones.reduce((a, z) => a + z.roiB2B, 0) / zones.length) },
+      { l: kpiLabel("confidence"), v: Math.round(zones.reduce((a, z) => a + z.confB2B, 0) / zones.length) },
     ],
     notes: ["Priorità a categorie, competitor e cluster commerciali"],
   };
@@ -7774,23 +8393,59 @@ function getSupabaseEnv() {
 
 function LoginPage({ onNav }) {
   const [email, setEmail] = useState("");
-const [status, setStatus] = useState("");
-const [busy, setBusy] = useState(false);
-const { url, anonKey } = getSupabaseEnv();
-const configured = Boolean(url && anonKey);
-const sendMagicLink = async (e) => {
+  const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
+  const { url, anonKey } = getSupabaseEnv();
+  const configured = Boolean(url && anonKey);
+  const demoLogin = () => {
+    const next = {
+      accessToken: "demo-access-token",
+      user: { email: email || "demo@azienda.it" }
+    };
+    localStorage.setItem("vp_supabase_session", JSON.stringify(next));
+    
+    const returnTo = localStorage.getItem("volantinipro_return_to");
+    const pendingCampaignId = localStorage.getItem("volantinipro_pending_campaign_id");
+    
+    if (returnTo === "step4") {
+      onNav("step4");
+    } else if (returnTo === "dashboard" && pendingCampaignId) {
+      localStorage.removeItem("volantinipro_return_to");
+      localStorage.removeItem("volantinipro_pending_campaign_id");
+      onNav("campaign", { campaignId: pendingCampaignId });
+    } else {
+      localStorage.removeItem("volantinipro_return_to");
+      onNav("dashboard");
+    }
+  };
+  const sendMagicLink = async (e) => {
     e.preventDefault();
     if (!email.includes("@")) {
       setStatus("Inserisci una email valida.");
       return;
     }
+    const canUseDemoLogin = import.meta.env.DEV && window.__VOLANTINIPRO_DEMO_LOGIN__ === true;
     if (!configured) {
-      setStatus("Configura VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY in.env.local per inviare magic link reali.");
+      if (canUseDemoLogin) {
+        demoLogin();
+      } else {
+        setStatus("Backend Supabase non configurato. Accesso non disponibile in questo ambiente.");
+      }
       return;
     }
     setBusy(true);
     setStatus("");
     try {
+      // Encode returnTo in the callback URL so cross-device/cross-browser magic links
+      // preserve the destination even when localStorage is not shared.
+      const savedReturnTo = localStorage.getItem("volantinipro_return_to") || "";
+      const savedCampaignId = localStorage.getItem("volantinipro_pending_campaign_id") || "";
+      let callbackUrl = `${window.location.origin}/dashboard`;
+      const cbParams = new URLSearchParams();
+      if (savedReturnTo) cbParams.set("returnTo", savedReturnTo);
+      if (savedCampaignId) cbParams.set("campaignId", savedCampaignId);
+      if (cbParams.toString()) callbackUrl += `?${cbParams.toString()}`;
+      if (import.meta.env.DEV) console.log("[AUTH_EMAIL_REDIRECT_TO]", callbackUrl);
       const res = await fetch(`${url}/auth/v1/otp`, {
         method: "POST",
         headers: {
@@ -7802,7 +8457,7 @@ const sendMagicLink = async (e) => {
           email,
           create_user: true,
           type: "magiclink",
-          options: { email_redirect_to: `${window.location.origin}/dashboard` }
+          options: { email_redirect_to: callbackUrl }
         })
       });
       if (!res.ok) throw new Error("magic_link_failed");
@@ -7825,7 +8480,7 @@ const sendMagicLink = async (e) => {
           <button className="btn" disabled={busy} style={{ minHeight: 46, borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: busy ? "wait" : "pointer" }}>{busy ? "Invio in corso..." : "Invia magic link"}</button>
         </form>
         {status && <div style={{ marginTop: 14, padding: "11px 12px", borderRadius: 10, background: configured ? "rgba(46,204,138,.08)" : "rgba(251,191,36,.08)", border: `1px solid ${configured ? "rgba(46,204,138,.22)" : "rgba(251,191,36,.22)"}`, fontFamily: F.sans, fontSize: 12, color: configured ? C.green : C.yellow, lineHeight: 1.45 }}>{status}</div>}
-        {!configured && <div style={{ marginTop: 12, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.38)", lineHeight: 1.5 }}>Modalità prototipo: la pagina e il flusso sono pronti, l'invio reale parte appena inserisci le variabili ambiente Supabase.</div>}
+        {!configured && <div style={{ marginTop: 12, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.38)", lineHeight: 1.5 }}>Backend Supabase non configurato. Accesso non disponibile in questo ambiente.</div>}
         <button onClick={() => onNav("home")} style={{ marginTop: 18, border: "none", background: "transparent", color: "rgba(255,255,255,.38)", fontFamily: F.sans, fontSize: 12, cursor: "pointer" }}>Torna alla homepage</button>
       </div>
     </div>
@@ -7840,24 +8495,95 @@ const { cliente } = useCliente();
 const { campagne, loading, error } = useCampagne();
 
   useEffect(() => {
+    // Read returnTo from URL params (cross-device) first, fall back to localStorage.
+    function resolveReturnTo() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const fromUrl = urlParams.get("returnTo");
+      const campaignFromUrl = urlParams.get("campaignId");
+      const fromStorage = localStorage.getItem("volantinipro_return_to");
+      const campaignFromStorage = localStorage.getItem("volantinipro_pending_campaign_id");
+      if (import.meta.env.DEV) {
+        console.log("[AUTH_RETURN_TO_URL]", fromUrl);
+        console.log("[AUTH_RETURN_TO_LOCALSTORAGE]", fromStorage);
+        console.log("[AUTH_RETURN_TO_RESOLVED]", fromUrl || fromStorage);
+      }
+      return {
+        returnTo: fromUrl || fromStorage || "",
+        pendingCampaignId: campaignFromUrl || campaignFromStorage || ""
+      };
+    }
+
+    function navigateAfterLogin(sessionObj) {
+      localStorage.setItem("vp_supabase_session", JSON.stringify(sessionObj));
+      setSession(sessionObj);
+      const { returnTo, pendingCampaignId } = resolveReturnTo();
+      localStorage.removeItem("volantinipro_return_to");
+      localStorage.removeItem("volantinipro_pending_campaign_id");
+      window.history.replaceState(null, "", "/dashboard");
+      if (returnTo === "step4") {
+        if (import.meta.env.DEV) console.log("[AUTH_REDIRECT_FINAL_TARGET]", "step4");
+        onNav("step4");
+      } else if ((returnTo === "dashboard_campaign" || returnTo === "dashboard") && pendingCampaignId) {
+        if (import.meta.env.DEV) console.log("[AUTH_REDIRECT_FINAL_TARGET]", "campaign", pendingCampaignId);
+        onNav("campaign", { campaignId: pendingCampaignId });
+      } else if (returnTo === "dashboard") {
+        if (import.meta.env.DEV) console.log("[AUTH_REDIRECT_FINAL_TARGET]", "dashboard");
+        onNav("dashboard");
+      } else {
+        if (import.meta.env.DEV) console.log("[AUTH_REDIRECT_FINAL_TARGET]", "dashboard (default)");
+        onNav("dashboard");
+      }
+    }
+
+    // Implicit flow: Supabase appends #access_token= to the redirect URL
     const hash = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
-const accessToken = hash.get("access_token");
+    const accessToken = hash.get("access_token");
     if (accessToken) {
+      if (import.meta.env.DEV) console.log("[AUTH_HASH_RECEIVED]", "implicit flow, token length:", accessToken.length);
       const next = {
         accessToken,
         refreshToken: hash.get("refresh_token"),
         expiresAt: hash.get("expires_at"),
         tokenType: hash.get("token_type") || "bearer"
       };
-      localStorage.setItem("vp_supabase_session", JSON.stringify(next));
-      setSession(next);
-      window.history.replaceState(null, "", "/dashboard");
+      navigateAfterLogin(next);
+      return;
     }
+
+    // PKCE flow: Supabase SDK automatically exchanges ?code= for a session internally.
+    // Only register the listener when an auth code is actually present in the URL,
+    // so we don't accidentally fire for users who are already logged in.
+    const hasAuthCode = new URLSearchParams(window.location.search).has("code");
+    if (!supabase || !hasAuthCode) return;
+    // The REST-based supabase shim does not implement onAuthStateChange (no PKCE
+    // code exchange). Magic links sent via /auth/v1/otp use the implicit flow
+    // (#access_token), handled above — guard so a stray ?code= can't crash the page.
+    if (typeof supabase.auth?.onAuthStateChange !== "function") {
+      if (import.meta.env.DEV) console.warn("[GLOBAL_AUTH_CODE_PRESENT]", "?code= in URL but PKCE exchange is not supported by this client; expecting implicit flow (#access_token).");
+      return;
+    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, sess) => {
+      if (event === "SIGNED_IN" && sess) {
+        if (import.meta.env.DEV) console.log("[AUTH_HASH_RECEIVED]", "PKCE flow, event:", event);
+        const next = {
+          accessToken: sess.access_token,
+          refreshToken: sess.refresh_token,
+          expiresAt: sess.expires_at,
+          tokenType: sess.token_type || "bearer"
+        };
+        navigateAfterLogin(next);
+        subscription?.unsubscribe();
+      }
+    });
+    return () => subscription?.unsubscribe();
   }, []);
 
   useEffect(() => {
     const hash = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
-    if (hasSupabaseConfig() && !session && !hash.get("access_token")) onNav("login");
+    const qs = new URLSearchParams(window.location.search);
+    // Do not redirect to login while PKCE code exchange is in progress (?code=) or
+    // while implicit token is in hash — the first useEffect handles those cases.
+    if (hasSupabaseConfig() && !session && !hash.get("access_token") && !qs.get("code")) onNav("login");
   }, [session]);
 const logout = () => {
     localStorage.removeItem("vp_supabase_session");
@@ -7875,10 +8601,25 @@ const svcCfg = {
     h2h: ["H2H", C.blue],
     b2b: ["B2B", C.purple],
   };
-const activeCount = campagne.filter(c => ["confermata", "in_preparazione", "in_distribuzione"].includes(c.stato)).length;
-const waitingPaymentCount = campagne.filter(c => c.stato_pagamento !== "pagato").length;
-const totalSpent = campagne.reduce((a, c) => a + Number(c.totale_euro || 0), 0);
-const flyersDone = campagne.reduce((a, c) => a + Number(c.volantini_distribuiti || 0), 0);
+// Display-layer normalization: legacy Italian columns vs. saveCampaign column
+// names (flyer_quantity / city_name / status / total_amount). No query changes.
+const normCampagna = c => ({
+    ...c,
+    stato: c.stato ?? c.status ?? "confermata",
+    zona: c.zona ?? c.city_name ?? c.comune_principale ?? "Zona da confermare",
+    quantita: Number(c.quantita ?? c.flyer_quantity ?? 0),
+    totale_euro: Number(c.totale_euro ?? c.total_amount ?? 0),
+    servizio: c.servizio ?? c.service_type ?? "d2d",
+    service_type: c.service_type ?? c.servizio ?? "d2d",
+    comuni: c.comuni ?? c.comuni_selezionati ?? c.metadata?.selected_comuni ?? [],
+    data_inizio: c.data_inizio ?? c.start_date ?? null,
+    data_fine: c.data_fine ?? c.end_date ?? null,
+  });
+const campagneNorm = campagne.map(normCampagna);
+const activeCount = campagneNorm.filter(c => ["confermata", "in_preparazione", "in_distribuzione"].includes(c.stato)).length;
+const waitingPaymentCount = campagneNorm.filter(c => c.stato_pagamento !== "pagato").length;
+const totalSpent = campagneNorm.reduce((a, c) => a + Number(c.totale_euro || 0), 0);
+const flyersDone = campagneNorm.reduce((a, c) => a + Number(c.volantini_distribuiti || 0), 0);
 
   return (
     <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px" }}>
@@ -7889,7 +8630,7 @@ const flyersDone = campagne.reduce((a, c) => a + Number(c.volantini_distribuiti 
             <h1 style={{ fontFamily: F.serif, fontSize: 34, color: C.white, letterSpacing: "-1px" }}>Ciao {cliente?.nome || cliente?.email || "Cliente"}</h1>
             <div style={{ marginTop: 7, display: "inline-flex", padding: "4px 9px", borderRadius: 999, background: session ? "rgba(46,204,138,.1)" : "rgba(251,191,36,.1)", color: session ? C.green : C.yellow, fontFamily: F.sans, fontSize: 11, fontWeight: 800 }}>{session ? "Sessione attiva" : "Accesso richiesto"}</div>
           </div>
-          <button onClick={session ? logout : () => onNav("login")} style={{ minHeight: 44, padding: "0 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>{session ? "Logout" : "Accedi"}</button>
+          <button onClick={session ? logout : () => { try { localStorage.setItem("volantinipro_return_to", "dashboard"); } catch {} onNav("login"); }} style={{ minHeight: 44, padding: "0 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>{session ? "Logout" : "Accedi"}</button>
         </div>
 
         {error && <div style={{ marginBottom: 14, padding: "11px 13px", borderRadius: 10, background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.22)", color: C.yellow, fontFamily: F.sans, fontSize: 12 }}>Supabase non disponibile: nessuna campagna reale da mostrare.</div>}
@@ -7914,14 +8655,14 @@ const flyersDone = campagne.reduce((a, c) => a + Number(c.volantini_distribuiti 
             <>
               <SkeletonCard /><SkeletonCard /><SkeletonCard />
             </>
-          ) : campagne.length === 0 ? (
+          ) : campagneNorm.length === 0 ? (
             <div style={{ padding: 22, borderRadius: 12, background: "rgba(255,255,255,.035)", textAlign: "center" }}>
               <div style={{ fontFamily: F.serif, fontSize: 24, color: C.white }}>Nessuna campagna ancora</div>
               <button onClick={() => onNav("step1")} style={{ marginTop: 14, minHeight: 44, padding: "0 16px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Nuova campagna </button>
             </div>
           ) : (
             <div style={{ display: "grid", gap: 10 }}>
-              {campagne.map(campagna => {
+              {campagneNorm.map(campagna => {
                 const [svcLabel, svcColor] = svcCfg[campagna.service_type] || [campagna.servizio, C.orange];
 const [statusLabel, statusColor] = statusCfg[campagna.stato] || [campagna.stato, C.white];
                 return (
@@ -7936,7 +8677,7 @@ const [statusLabel, statusColor] = statusCfg[campagna.stato] || [campagna.stato,
                       <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.45)", marginTop: 5 }}>{(campagna.comuni || []).join(" – ") || "Comuni da confermare"} – {campagna.quantita.toLocaleString("it-IT", { useGrouping: true })} volantini – {campagna.data_inizio || "data da definire"}  {campagna.data_fine || "fine da definire"}</div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontFamily: F.serif, fontSize: 24, color: C.green }}>?{Number(campagna.totale_euro || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</div>
+                      <div style={{ fontFamily: F.serif, fontSize: 24, color: C.green }}>€{Number(campagna.totale_euro || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</div>
                       <button onClick={() => onNav("campaign", { campaignId: campagna.id })} style={{ marginTop: 8, minHeight: 38, padding: "0 12px", borderRadius: 9, border: `1px solid ${C.orange}35`, background: `${C.orange}12`, color: C.orange, fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>Vedi dettaglio </button>
                     </div>
                   </div>
@@ -8112,11 +8853,25 @@ function DeliverableReportFooter() {
 
 function DeliverableReportPage({ onNav, campaignId }) {
   const routeId = campaignId || new URLSearchParams(window.location.search).get("campaignId") || "dev-001";
-  const { campagna, loading } = useCampagnaDetail(routeId);
+  const { campagna, loading, error, source } = useCampagnaDetail(routeId);
   if (loading) {
     return <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px" }}><div style={{ maxWidth: 1180, margin: "0 auto" }}><SkeletonCard /><SkeletonCard /></div></div>;
   }
-  const safeCampagna = campagna || { id: routeId, quantita: 10000, zona: "Saronno", copertura_pct: 91 };
+  if (!campagna) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px", color: C.white }}>
+        <div style={{ maxWidth: 800, margin: "0 auto", padding: 28, borderRadius: 14, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", textAlign: "center" }}>
+          <h1 style={{ fontFamily: F.serif, fontSize: 30, color: C.white, letterSpacing: "-1px", marginBottom: 10 }}>Report Deliverable non disponibile</h1>
+          <p style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.52)", lineHeight: 1.6, marginBottom: 20 }}>
+            {error?.message || "Impossibile generare il report esecutivo: campagna non trovata nel database."}
+          </p>
+          <button onClick={() => onNav("dashboard")} style={{ minHeight: 42, padding: "0 18px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+            Torna alla dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="print-page" style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px", color: C.white }}>
       <style>{`
@@ -8130,7 +8885,8 @@ function DeliverableReportPage({ onNav, campaignId }) {
         }
       `}</style>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
-        <DeliverableReportHeader campagna={safeCampagna} onBack={() => onNav("campaign", { campaignId: safeCampagna.id })} />
+        {(source === "demo" || campagna._isDemoData) && <div style={{ marginBottom: 14, padding: "8px 12px", borderRadius: 10, background: "rgba(168,85,247,.12)", border: "1px solid rgba(168,85,247,.3)", color: "#D8B4FE", fontFamily: F.sans, fontSize: 12, fontWeight: 700, display: "inline-block" }}>🧪 Dati demo</div>}
+        <DeliverableReportHeader campagna={campagna} onBack={() => onNav("campaign", { campaignId: campagna.id })} />
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           {DELIVERABLE_CATEGORIES.map(cat => {
             const items = DELIVERABLE_SERVICE_CONFIG.filter(s => s.category === cat);
@@ -8139,7 +8895,7 @@ function DeliverableReportPage({ onNav, campaignId }) {
               <section key={cat}>
                 <h2 style={{ fontFamily: F.serif, fontSize: 22, color: C.white, borderBottom: "1px solid rgba(255,255,255,.1)", paddingBottom: 8, marginBottom: 16 }}>{cat}</h2>
                 <div className="print-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
-                  {items.map(item => <DeliverableServiceCard key={item.id} item={item} campagna={safeCampagna} />)}
+                  {items.map(item => <DeliverableServiceCard key={item.id} item={item} campagna={campagna} />)}
                 </div>
               </section>
             );
@@ -8151,200 +8907,185 @@ function DeliverableReportPage({ onNav, campaignId }) {
   );
 }
 
+function isLatLngPoint(p) {
+  if (!p || typeof p !== "object") return false;
+  if ("lat" in p || "lng" in p || "latitude" in p || "longitude" in p) {
+    const lat = Number(p.lat ?? p.latitude);
+    const lng = Number(p.lng ?? p.longitude);
+    return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  }
+  if (Array.isArray(p) && p.length >= 2) {
+    const lat = Number(p[0]);
+    const lng = Number(p[1]);
+    return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  }
+  return false;
+}
+
+function isSvgPoint(p) {
+  if (!p || typeof p !== "object") return false;
+  if ("lat" in p || "lng" in p || "latitude" in p || "longitude" in p) return false;
+  if ("x" in p || "y" in p) {
+    const x = Number(p.x);
+    const y = Number(p.y);
+    return Number.isFinite(x) && Number.isFinite(y) && x >= 0 && x <= 100 && y >= 0 && y <= 100;
+  }
+  if (Array.isArray(p) && p.length >= 2) {
+    const x = Number(p[0]);
+    const y = Number(p[1]);
+    return Number.isFinite(x) && Number.isFinite(y) && x >= 0 && x <= 100 && y >= 0 && y <= 100;
+  }
+  return false;
+}
+
 function CampaignDashboardPage({ onNav, campaignId }) {
-  const routeCampaignId = campaignId || window.location.pathname.split("/").filter(Boolean).pop() || null;
-const nuovo = new URLSearchParams(window.location.search).get("nuovo") === "true";
-const { campagna, loading, error } = useCampagnaDetail(routeCampaignId);
+  const _rawId = campaignId || window.location.pathname.split("/").filter(Boolean).pop() || null;
+  // Guard against garbage values ("dashboard", "campagna") that leak in when
+  // routing resolves /dashboard without an id segment.
+  const routeCampaignId = _rawId && _rawId !== "dashboard" && _rawId !== "campagna" ? _rawId : null;
+  const nuovo = new URLSearchParams(window.location.search).get("nuovo") === "true";
+  const { campagna, loading, error, source } = useCampagnaDetail(routeCampaignId);
+  // Session guard: if no auth session and Supabase is configured, redirect to login
+  // with returnTo=dashboard_campaign so the magic link brings the user back here.
+  const [_cdSession] = useState(() => { try { return JSON.parse(localStorage.getItem("vp_supabase_session") || "null"); } catch { return null; } });
+  useEffect(() => {
+    if (!hasSupabaseConfig()) return;
+    const hash = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
+    if (!_cdSession && !hash.get("access_token")) {
+      try {
+        if (routeCampaignId) {
+          localStorage.setItem("volantinipro_return_to", "dashboard_campaign");
+          localStorage.setItem("volantinipro_pending_campaign_id", routeCampaignId);
+        } else {
+          localStorage.setItem("volantinipro_return_to", "dashboard");
+        }
+      } catch {}
+      onNav("login");
+    }
+  }, []);
   if (loading) {
     return <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px" }}><div style={{ maxWidth: 1040, margin: "0 auto" }}><SkeletonCard /><SkeletonCard /><SkeletonCard /></div></div>;
   }
-  if (campagna) {
-    const progressSteps = [["confermata", "Confermata"], ["in_preparazione", "In preparazione"], ["in_distribuzione", "Distribuzione"], ["completata", "Completata"]];
-const activeIndex = Math.max(0, progressSteps.findIndex(([key]) => key === campagna.stato));
-const distributedPct = campagna.quantita ? Math.min(100, Math.round((campagna.volantini_distribuiti / campagna.quantita) * 100)) : 0;
-const gpsPoints = campagna.gps_punti?.length ? campagna.gps_punti.map((_, i) => [18 + i * 10, 68 - i * 5]) : [];
-const proof = campagna.foto_proof || [];
-const daysRemaining = campagna.data_fine ? Math.max(0, Math.ceil((new Date(`${campagna.data_fine}T00:00:00`) - new Date()) / 86400000)) : 0;
-const pricing = campagna.pricing || {};
-const extras = (pricing.extras || []).reduce((a, x) => a + Number(x.amount || 0), 0);
-const discounts = (pricing.discounts || []).reduce((a, x) => a + Number(x.amount || 0), 0);
-const base = pricing.subtotal || campagna.totale_euro || 0;
-const total = pricing.total || campagna.totale_euro || 0;
+  if (!campagna) {
+    let title = "Campagna non trovata.";
+    if (source === "invalid_id") title = "ID campagna non valido.";
+    else if (String(routeCampaignId || "").startsWith("VP-")) title = "Codice campagna non collegato al database.";
     return (
       <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px" }}>
-        <div style={{ maxWidth: 1180, margin: "0 auto" }}>
-          {nuovo && <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 11, background: "rgba(46,204,138,.1)", border: "1px solid rgba(46,204,138,.24)", color: C.green, fontFamily: F.sans, fontSize: 13, fontWeight: 800 }}>Campagna confermata! Ti contatteremo entro 24 ore per confermare i dettagli operativi.</div>}
-          {error && <div style={{ marginBottom: 14, padding: "11px 13px", borderRadius: 10, background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.22)", color: C.yellow, fontFamily: F.sans, fontSize: 12 }}>Dettaglio reale non disponibile.</div>}
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 22 }}>
-            <div>
-              <button onClick={() => onNav("dashboard")} style={{ padding: 0, border: "none", background: "transparent", color: "rgba(255,255,255,.45)", fontFamily: F.sans, fontSize: 12, cursor: "pointer", marginBottom: 9 }}>Dashboard  Campagna #{String(campagna.id).slice(0, 8)}</button>
-              <h1 style={{ fontFamily: F.serif, fontSize: 34, color: C.white, letterSpacing: "-1px" }}>Campagna {campagna.servizio} – {campagna.zona}</h1>
-              <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.45)", marginTop: 6 }}>{campagna.quantita.toLocaleString("it-IT", { useGrouping: true })} volantini – Smart Pairing {campagna.smart_pairing_sconto}%</div>
-            </div>
-            <button onClick={() => onNav("report", { campaignId: campagna.id })} style={{ minHeight: 44, padding: "0 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Scarica report PDF</button>
-          </div>
-
-          <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18, marginBottom: 14 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
-              {progressSteps.map(([id, label], i) => {
-                const done = i <= activeIndex;
-                return <div key={id} style={{ padding: 12, borderRadius: 11, background: done ? "rgba(46,204,138,.08)" : "rgba(255,255,255,.035)", border: `1px solid ${done ? "rgba(46,204,138,.24)" : "rgba(255,255,255,.06)"}` }}><div style={{ width: 24, height: 24, borderRadius: "50%", background: done ? C.green : "rgba(255,255,255,.1)", color: C.white, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.sans, fontSize: 12, fontWeight: 800, marginBottom: 8 }}>{i + 1}</div><div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: done ? C.white : "rgba(255,255,255,.42)" }}>{label}</div></div>;
-              })}
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.25fr) minmax(280px,.75fr)", gap: 14 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ padding: 14, borderRadius: 12, background: campagna.stato_pagamento === "pagato" ? "rgba(46,204,138,.08)" : "rgba(251,191,36,.08)", border: `1px solid ${campagna.stato_pagamento === "pagato" ? "rgba(46,204,138,.22)" : "rgba(251,191,36,.22)"}`, color: campagna.stato_pagamento === "pagato" ? C.green : C.yellow, fontFamily: F.sans, fontSize: 13, fontWeight: 800 }}>
-                {campagna.stato_pagamento === "pagato" ? "Pagamento ricevuto" : "In attesa del tuo bonifico"}
-                {campagna.stato_pagamento !== "pagato" && <button onClick={() => onNav("payment", { campaignId: campagna.id })} style={{ marginLeft: 12, minHeight: 34, padding: "0 11px", borderRadius: 8, border: "none", background: C.yellow, color: C.navyDeep, fontFamily: F.sans, fontSize: 11, fontWeight: 900, cursor: "pointer" }}>Vedi istruzioni pagamento </button>}
-              </div>
-              <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}>
-                <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.green, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Statistiche distribuzione</div>
-                {[["Volantini distribuiti", `${campagna.volantini_distribuiti.toLocaleString("it-IT", { useGrouping: true })} / ${campagna.quantita.toLocaleString("it-IT", { useGrouping: true })}`, distributedPct, C.green], ["Copertura raggiunta", `${campagna.copertura_pct}%`, campagna.copertura_pct, C.orange], ["Comuni completati", `${Math.max(1, Math.round((campagna.comuni?.length || 1) * distributedPct / 100))}/${campagna.comuni?.length || 1}`, distributedPct, C.blue], ["Giorni rimanenti", String(daysRemaining), Math.max(0, 100 - daysRemaining * 20), C.purple]].map(([l, v, pct, c]) => <div key={l} style={{ marginBottom: 10 }}><div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: C.white, marginBottom: 5 }}><span>{l}</span><b style={{ color: c }}>{v}</b></div><div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,.08)", overflow: "hidden" }}><div style={{ width: `${Math.max(0, Math.min(100, pct))}%`, height: "100%", background: c }} /></div></div>)}
-              </div>
-
-              <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}>
-                <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.blue, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Percorso GPS live</div>
-                <div style={{ height: 300, borderRadius: 12, background: "linear-gradient(135deg,#173225,#182b42 52%,#2b2648)", border: "1px solid rgba(255,255,255,.08)", position: "relative", overflow: "hidden" }}>
-                  {gpsPoints.length > 0 ? <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0 }}><polyline points={gpsPoints.map(p => p.join(",")).join(" ")} fill="none" stroke={C.green} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />{gpsPoints.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i === gpsPoints.length - 1 ? 2.3 : 1.3} fill={i === gpsPoints.length - 1 ? C.orange : C.green} />)}</svg> : <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.48)" }}>GPS tracking disponibile durante la distribuzione</div>}
-                </div>
-              </div>
-
-              <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}>
-                <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.purple, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Foto proof geolocalizzate</div>
-                {proof.length > 0 ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10 }}>{proof.map((p, i) => <div key={i} style={{ aspectRatio: "4/3", borderRadius: 11, background: `url(${p.url}) center/cover, rgba(255,255,255,.05)`, border: "1px solid rgba(255,255,255,.08)" }} />)}</div> : <div style={{ padding: 22, borderRadius: 11, background: "rgba(255,255,255,.035)", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.48)", textAlign: "center" }}>Le foto verranno caricate durante la distribuzione</div>}
-              </div>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}><div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.green, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Smart Pairing</div><div style={{ fontFamily: F.serif, fontSize: 30, color: C.green, letterSpacing: "-.8px" }}>{campagna.smart_pairing_sconto}%</div><div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.48)", lineHeight: 1.55, marginTop: 6 }}>{(campagna.selected_dates || []).join(" – ") || "Date da confermare"} – sconto applicato al preventivo.</div></div>
-              <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}><div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.orange, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Riepilogo economico</div>{[["Distribuzione base", base], ["Servizi extra", extras], ["Smart Pairing sconto", -discounts], ["Totale pagato", total]].map(([l, v]) => <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.58)" }}><span>{l}</span><b style={{ color: v < 0 ? C.green : C.white }}>?{Number(v || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</b></div>)}</div>
-              <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}><div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.blue, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 10 }}>Fonti dati</div><div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.48)", lineHeight: 1.6 }}>ISTAT – Mapbox – OpenStreetMap – Analisi interna</div><a href="https://wa.me/" style={{ display: "inline-block", marginTop: 12, color: C.green, fontFamily: F.sans, fontSize: 12, fontWeight: 800, textDecoration: "none" }}>Hai domande? Contattaci via WhatsApp </a></div>
-            </div>
-          </div>
+        <div style={{ maxWidth: 920, margin: "0 auto", padding: 24, borderRadius: 14, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", textAlign: "center" }}>
+          <h1 style={{ fontFamily: F.serif, fontSize: 30, color: C.white, letterSpacing: "-1px", marginBottom: 8 }}>{title}</h1>
+          <p style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.52)", lineHeight: 1.6 }}>{error?.message || "Il dettaglio campagna richiede dati reali o un codice campagna esistente nel database."}</p>
+          <button onClick={() => onNav("dashboard")} style={{ marginTop: 16, minHeight: 42, padding: "0 16px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Torna dashboard</button>
         </div>
       </div>
     );
   }
-  return (
-    <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px" }}>
-      <div style={{ maxWidth: 920, margin: "0 auto", padding: 24, borderRadius: 14, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", textAlign: "center" }}>
-        <h1 style={{ fontFamily: F.serif, fontSize: 30, color: C.white, letterSpacing: "-1px", marginBottom: 8 }}>Nessuna campagna presente.</h1>
-        <p style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.52)", lineHeight: 1.6 }}>Il dettaglio campagna richiede dati reali dal database.</p>
-        <button onClick={() => onNav("dashboard")} style={{ marginTop: 16, minHeight: 42, padding: "0 16px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Torna dashboard</button>
-      </div>
-    </div>
-  );
-  const steps = [
-    ["confermata", "Confermata"],
-    ["preparazione", "In preparazione"],
-    ["distribuzione", "Distribuzione"],
-    ["completata", "Completata"],
-  ];
-const activeIdx = 2;
-const gpsPoints = [
-    [18, 68], [28, 58], [38, 62], [48, 45], [58, 50], [70, 36], [82, 42]
-  ];
-const stats = [
-    ["Volantini distribuiti", "7.420", C.green],
-    ["Copertura stimata", "74%", C.orange],
-    ["Zone completate", "3/5", C.blue],
-    ["Proof foto", "12", C.purple],
-  ];
-const history = [
-    ["VP-12052026-001", "Door to Door", "Cormano", "Completata", "386€"],
-    ["VP-18042026-002", "Business Distribution", "Bresso", "Completata", "420€"],
-  ];
 
+  // Display-layer normalization: tolerate both legacy Italian columns and the
+  // saveCampaign column names (status/city_name/flyer_quantity/total_amount).
+  const campagnaView = {
+    ...campagna,
+    stato: campagna.stato ?? campagna.status ?? "confermata",
+    zona: campagna.zona ?? campagna.city_name ?? campagna.comune_principale ?? "Zona da confermare",
+    quantita: Number(campagna.quantita ?? campagna.flyer_quantity ?? 0),
+    totale_euro: Number(campagna.totale_euro ?? campagna.total_amount ?? 0),
+    servizio: campagna.servizio ?? campagna.service_type ?? "d2d",
+    comuni: campagna.comuni ?? campagna.comuni_selezionati ?? campagna.metadata?.selected_comuni ?? [],
+    data_fine: campagna.data_fine ?? campagna.end_date ?? null,
+    smart_pairing_sconto: campagna.smart_pairing_sconto ?? campagna.smart_pairing_discount ?? 0,
+    selected_dates: campagna.selected_dates ?? campagna.metadata?.selected_dates ?? [],
+    pricing: campagna.pricing ?? campagna.metadata?.pricing ?? null,
+  };
+  const progressSteps = [["confermata", "Confermata"], ["in_preparazione", "In preparazione"], ["in_distribuzione", "Distribuzione"], ["completata", "Completata"]];
+  const activeIndex = Math.max(0, progressSteps.findIndex(([key]) => key === campagnaView.stato));
+  const distributedPct = campagnaView.quantita ? Math.min(100, Math.round((campagnaView.volantini_distribuiti / campagnaView.quantita) * 100)) : 0;
+  const rawPoints = Array.isArray(campagna.gps_punti || campagna.gps_points || campagna.tracking_points) ? (campagna.gps_punti || campagna.gps_points || campagna.tracking_points) : [];
+  const isRealLatLng = rawPoints.some(p => p && typeof p === "object" && !Array.isArray(p) && ("lat" in p || "lng" in p || "latitude" in p || "longitude" in p)) || rawPoints.some(p => Array.isArray(p) && p.length >= 2 && ((String(p[0]).split(".")[1] || "").length >= 3 || (String(p[1]).split(".")[1] || "").length >= 3 || p[0] < 0 || p[0] > 100 || p[1] < 0 || p[1] > 100));
+  const isNormalizedSvg = !isRealLatLng && rawPoints.length > 0 && rawPoints.every(p => isSvgPoint(p));
+  const gpsFormat = rawPoints.length === 0 ? "empty" : (isRealLatLng ? "latlng" : (isNormalizedSvg ? "svg" : "latlng"));
+  const svgPoints = gpsFormat === "svg" ? rawPoints.map(p => Array.isArray(p) ? [Number(p[0]), Number(p[1])] : [Number(p.x), Number(p.y)]) : [];
+  const proof = campagna.foto_proof || [];
+  const daysRemaining = campagnaView.data_fine ? Math.max(0, Math.ceil((new Date(`${campagnaView.data_fine}T00:00:00`) - new Date()) / 86400000)) : 0;
+  const pricing = campagnaView.pricing || {};
+  const extras = (pricing.extras || []).reduce((a, x) => a + Number(x.amount || 0), 0);
+  const discounts = (pricing.discounts || []).reduce((a, x) => a + Number(x.amount || 0), 0);
+  const base = pricing.subtotal || campagnaView.totale_euro || 0;
+  const total = pricing.total || campagnaView.totale_euro || 0;
   return (
     <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
+        {nuovo && <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 11, background: "rgba(46,204,138,.1)", border: "1px solid rgba(46,204,138,.24)", color: C.green, fontFamily: F.sans, fontSize: 13, fontWeight: 800 }}>Campagna confermata! Ti contatteremo entro 24 ore per confermare i dettagli operativi.</div>}
+        {error && <div style={{ marginBottom: 14, padding: "11px 13px", borderRadius: 10, background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.22)", color: C.yellow, fontFamily: F.sans, fontSize: 12 }}>Dettaglio reale non disponibile.</div>}
+        {(source === "demo" || campagna._isDemoData) && <div style={{ marginBottom: 14, padding: "8px 12px", borderRadius: 10, background: "rgba(168,85,247,.12)", border: "1px solid rgba(168,85,247,.3)", color: "#D8B4FE", fontFamily: F.sans, fontSize: 12, fontWeight: 700, display: "inline-block" }}>🧪 Dati demo</div>}
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 22 }}>
           <div>
-            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.orange, letterSpacing: ".14em", textTransform: "uppercase", marginBottom: 9 }}>Campagna VP-12052026-001</div>
-            <h1 style={{ fontFamily: F.serif, fontSize: 34, color: C.white, letterSpacing: "-1px" }}>Dashboard campagna</h1>
-            <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.45)", marginTop: 6 }}>Dettaglio campagna non disponibile</div>
+            <button onClick={() => onNav("dashboard")} style={{ padding: 0, border: "none", background: "transparent", color: "rgba(255,255,255,.45)", fontFamily: F.sans, fontSize: 12, cursor: "pointer", marginBottom: 9 }}>Dashboard  Campagna #{String(campagna.id).slice(0, 8)}</button>
+            <h1 style={{ fontFamily: F.serif, fontSize: 34, color: C.white, letterSpacing: "-1px" }}>Campagna {campagnaView.servizio} – {campagnaView.zona}</h1>
+            <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.45)", marginTop: 6 }}>{(campagnaView.quantita || 0).toLocaleString("it-IT", { useGrouping: true })} volantini – Smart Pairing {campagnaView.smart_pairing_sconto || 0}%</div>
           </div>
-          <button onClick={() => onNav("dashboard")} style={{ minHeight: 44, padding: "0 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Torna dashboard</button>
+          <button onClick={() => onNav("report", { campaignId: campagna.id })} style={{ minHeight: 44, padding: "0 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Scarica report PDF</button>
         </div>
 
         <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18, marginBottom: 14 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
-            {steps.map(([id, label], i) => {
-              const done = i <= activeIdx;
-              return (
-                <div key={id} style={{ padding: 12, borderRadius: 11, background: done ? "rgba(46,204,138,.08)" : "rgba(255,255,255,.035)", border: `1px solid ${done ? "rgba(46,204,138,.24)" : "rgba(255,255,255,.06)"}` }}>
-                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: done ? C.green : "rgba(255,255,255,.1)", color: C.white, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.sans, fontSize: 12, fontWeight: 800, marginBottom: 8 }}>{i + 1}</div>
-                  <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: done ? C.white : "rgba(255,255,255,.42)" }}>{label}</div>
-                </div>
-              );
+            {progressSteps.map(([id, label], i) => {
+              const done = i <= activeIndex;
+              return <div key={id} style={{ padding: 12, borderRadius: 11, background: done ? "rgba(46,204,138,.08)" : "rgba(255,255,255,.035)", border: `1px solid ${done ? "rgba(46,204,138,.24)" : "rgba(255,255,255,.06)"}` }}><div style={{ width: 24, height: 24, borderRadius: "50%", background: done ? C.green : "rgba(255,255,255,.1)", color: C.white, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.sans, fontSize: 12, fontWeight: 800, marginBottom: 8 }}>{i + 1}</div><div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: done ? C.white : "rgba(255,255,255,.42)" }}>{label}</div></div>;
             })}
           </div>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.25fr) minmax(280px,.75fr)", gap: 14 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ padding: 14, borderRadius: 12, background: campagna.stato_pagamento === "pagato" ? "rgba(46,204,138,.08)" : "rgba(251,191,36,.08)", border: `1px solid ${campagna.stato_pagamento === "pagato" ? "rgba(46,204,138,.22)" : "rgba(251,191,36,.22)"}`, color: campagna.stato_pagamento === "pagato" ? C.green : C.yellow, fontFamily: F.sans, fontSize: 13, fontWeight: 800 }}>
+              {campagna.stato_pagamento === "pagato" ? "Pagamento ricevuto" : "In attesa del tuo bonifico"}
+              {campagna.stato_pagamento !== "pagato" && <button onClick={() => onNav("payment", { campaignId: campagna.id })} style={{ marginLeft: 12, minHeight: 34, padding: "0 11px", borderRadius: 8, border: "none", background: C.yellow, color: C.navyDeep, fontFamily: F.sans, fontSize: 11, fontWeight: 900, cursor: "pointer" }}>Vedi istruzioni pagamento </button>}
+            </div>
             <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}>
-              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.blue, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Percorso GPS live</div>
-              <div style={{ height: 300, borderRadius: 12, background: "linear-gradient(135deg,#173225,#182b42 52%,#2b2648)", border: "1px solid rgba(255,255,255,.08)", position: "relative", overflow: "hidden" }}>
-                <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0 }}>
-                  <defs><pattern id="vp-grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0H0V10" fill="none" stroke="rgba(255,255,255,.05)" strokeWidth=".35" /></pattern></defs>
-                  <rect width="100" height="100" fill="url(#vp-grid)" />
-                  <polyline points={gpsPoints.map(p => p.join(",")).join(" ")} fill="none" stroke={C.green} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                  {gpsPoints.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i === gpsPoints.length - 1 ? 2.3 : 1.3} fill={i === gpsPoints.length - 1 ? C.orange : C.green} />)}
-                </svg>
-                <div style={{ position: "absolute", left: 12, top: 12, padding: "7px 10px", borderRadius: 8, background: "rgba(15,26,48,.86)", fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.72)", border: "1px solid rgba(255,255,255,.08)" }}>Ultimo ping: 14:32 – Bresso</div>
-              </div>
+              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.green, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Statistiche distribuzione</div>
+              {[["Volantini distribuiti", `${(campagnaView.volantini_distribuiti || 0).toLocaleString("it-IT", { useGrouping: true })} / ${(campagnaView.quantita || 0).toLocaleString("it-IT", { useGrouping: true })}`, distributedPct, C.green], ["Copertura raggiunta", `${campagnaView.copertura_pct || 0}%`, campagnaView.copertura_pct || 0, C.orange], ["Comuni completati", `${Math.max(1, Math.round((campagnaView.comuni?.length || 1) * distributedPct / 100))}/${campagnaView.comuni?.length || 1}`, distributedPct, C.blue], ["Giorni rimanenti", String(daysRemaining), Math.max(0, 100 - daysRemaining * 20), C.purple]].map(([l, v, pct, c]) => <div key={l} style={{ marginBottom: 10 }}><div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: C.white, marginBottom: 5 }}><span>{l}</span><b style={{ color: c }}>{v}</b></div><div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,.08)", overflow: "hidden" }}><div style={{ width: `${Math.max(0, Math.min(100, pct))}%`, height: "100%", background: c }} /></div></div>)}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
-              {stats.map(([l, v, c]) => (
-                <div key={l} style={{ padding: 15, borderRadius: 13, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.08)" }}>
-                  <div style={{ fontFamily: F.serif, fontSize: 28, color: c, letterSpacing: "-.5px" }}>{v}</div>
-                  <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.42)", marginTop: 4 }}>{l}</div>
-                </div>
-              ))}
+            <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}>
+              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.blue, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>
+                {gpsFormat === "svg" ? "Anteprima percorso" : "Percorso GPS live"}
+              </div>
+              <div style={{ height: 300, borderRadius: 12, background: "linear-gradient(135deg,#173225,#182b42 52%,#2b2648)", border: "1px solid rgba(255,255,255,.08)", position: "relative", overflow: "hidden" }}>
+                {gpsFormat === "latlng" && (
+                  <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 20, textAlign: "center", fontFamily: F.sans }}>
+                    <div style={{ fontSize: 24 }}>📍</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.green }}>Tracking GPS disponibile, mappa reale in preparazione.</div>
+                  </div>
+                )}
+                {gpsFormat === "svg" && (
+                  <div style={{ position: "absolute", inset: 0 }}>
+                    <div style={{ position: "absolute", top: 12, left: 12, zIndex: 2, padding: "4px 10px", borderRadius: 6, background: "rgba(0,0,0,.6)", border: "1px solid rgba(255,255,255,.15)", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.yellow }}>
+                      Anteprima percorso (non mappa GPS reale)
+                    </div>
+                    <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0 }}>
+                      <polyline points={svgPoints.map(p => p.slice(0, 2).join(",")).join(" ")} fill="none" stroke={C.green} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                      {svgPoints.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i === svgPoints.length - 1 ? 2.3 : 1.3} fill={i === svgPoints.length - 1 ? C.orange : C.green} />)}
+                    </svg>
+                  </div>
+                )}
+                {gpsFormat === "empty" && (
+                  <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.48)" }}>
+                    Tracking GPS non ancora disponibile per questa campagna.
+                  </div>
+                )}
+              </div>
             </div>
 
             <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}>
               <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.purple, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Foto proof geolocalizzate</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10 }}>
-                {["Cormano centro", "Bresso nord", "Via Roma", "Zona scuole"].map((label, i) => (
-                  <div key={label} style={{ aspectRatio: "4/3", borderRadius: 11, background: `linear-gradient(135deg,rgba(232,87,26,${.16 + i *.03}),rgba(96,165,250,.16))`, border: "1px solid rgba(255,255,255,.08)", padding: 10, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: C.white }}>{label}</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.45)" }}>GPS – oggi</div>
-                  </div>
-                ))}
-              </div>
+              {proof.length > 0 ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10 }}>{proof.map((p, i) => <div key={i} style={{ aspectRatio: "4/3", borderRadius: 11, background: `url(${p.url}) center/cover, rgba(255,255,255,.05)`, border: "1px solid rgba(255,255,255,.08)" }} />)}</div> : <div style={{ padding: 22, borderRadius: 11, background: "rgba(255,255,255,.035)", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.48)", textAlign: "center" }}>Le foto verranno caricate durante la distribuzione</div>}
             </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}>
-              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.green, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Smart Pairing</div>
-              <div style={{ fontFamily: F.serif, fontSize: 30, color: C.green, letterSpacing: "-.8px" }}>-20%</div>
-              <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.48)", lineHeight: 1.55, marginTop: 6 }}>Slot 13 Mag – zona compatibile Bresso – sconto applicato al preventivo.</div>
-            </div>
-
-            <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}>
-              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.orange, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Report finale</div>
-              <button className="btn" style={{ width: "100%", minHeight: 44, borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Download PDF report</button>
-              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.34)", marginTop: 10, lineHeight: 1.45 }}>Il report reale verra generato dai dati `tracking_gps` e proof foto.</div>
-            </div>
-
-            <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}>
-              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.blue, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 10 }}>Storico campagne</div>
-              {history.map(([id, service, zone, status, total]) => (
-                <div key={id} style={{ padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: C.white }}>{id}</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: C.green }}>{total}</div>
-                  </div>
-                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.42)", marginTop: 3 }}>{service} – {zone} – {status}</div>
-                </div>
-              ))}
-            </div>
+            <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}><div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.green, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Smart Pairing</div><div style={{ fontFamily: F.serif, fontSize: 30, color: C.green, letterSpacing: "-.8px" }}>{campagnaView.smart_pairing_sconto || 0}%</div><div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.48)", lineHeight: 1.55, marginTop: 6 }}>{(campagnaView.selected_dates || []).join(" – ") || "Date da confermare"} – sconto applicato al preventivo.</div></div>
+            <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}><div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.orange, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Riepilogo economico</div>{[["Distribuzione base", base], ["Servizi extra", extras], ["Smart Pairing sconto", -discounts], ["Totale pagato", total]].map(([l, v]) => <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.58)" }}><span>{l}</span><b style={{ color: v < 0 ? C.green : C.white }}>€{Number(v || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</b></div>)}</div>
+            <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}><div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.blue, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 10 }}>Fonti dati</div><div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.48)", lineHeight: 1.6 }}>ISTAT – Mapbox – OpenStreetMap – Analisi interna</div><a href="https://wa.me/" style={{ display: "inline-block", marginTop: 12, color: C.green, fontFamily: F.sans, fontSize: 12, fontWeight: 800, textDecoration: "none" }}>Hai domande? Contattaci via WhatsApp </a></div>
           </div>
         </div>
       </div>
@@ -8394,7 +9135,11 @@ const copy = async (label, value) => {
       <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px" }}>
         <div style={{ maxWidth: 720, margin: "0 auto", background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 16, padding: 24 }}>
           <div style={{ fontFamily: F.serif, fontSize: 34, color: C.white, marginBottom: 8 }}>Pagamento non disponibile</div>
-          <div style={{ fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.55)", lineHeight: 1.6 }}>Le istruzioni di bonifico richiedono una campagna reale salvata nel database.</div>
+          <div style={{ fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.55)", lineHeight: 1.6, marginBottom: 18 }}>Le istruzioni di bonifico richiedono una campagna reale salvata nel database.</div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button onClick={() => onNav("dashboard")} style={{ minHeight: 42, padding: "0 16px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Vai alla dashboard →</button>
+            {routeCampaignId && <button onClick={() => onNav("campaign", { campaignId: routeCampaignId })} style={{ minHeight: 42, padding: "0 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Dettaglio campagna</button>}
+          </div>
         </div>
       </div>
     );
@@ -8427,7 +9172,23 @@ const copy = async (label, value) => {
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
           <button onClick={() => copy("IBAN", BONIFICO_IBAN)} style={{ minHeight: 44, padding: "0 14px", borderRadius: 10, border: `1px solid ${C.orange}35`, background: `${C.orange}12`, color: C.orange, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Copia IBAN</button>
           <button onClick={() => copy("Causale", campagna.causale_bonifico)} style={{ minHeight: 44, padding: "0 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Copia causale</button>
-          <button onClick={() => showToast(`Istruzioni inviate a ${cliente?.email || "email"}`)} style={{ minHeight: 44, padding: "0 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: "rgba(255,255,255,.7)", fontFamily: F.sans, fontSize: 13, cursor: "pointer" }}> Invia istruzioni</button>
+          <button onClick={async () => {
+            if (!cliente?.email) { showToast("Email cliente non disponibile: accedi per ricevere le istruzioni."); return; }
+            try {
+              await sendEmailConferma({
+                cliente: { email: cliente.email, nome: cliente.nome || "Cliente" },
+                campagna: {
+                  servizio: campagna.servizio || campagna.service_type || "Campagna",
+                  zona: campagna.zona || campagna.city_name || "Zona",
+                  totale_euro: Number(campagna.totale_euro ?? campagna.total_amount ?? 0),
+                  causale_bonifico: campagna.causale_bonifico || "",
+                },
+              });
+              showToast(`Istruzioni inviate a ${cliente.email}`);
+            } catch {
+              showToast("Invio email non riuscito. Riprova più tardi.");
+            }
+          }} style={{ minHeight: 44, padding: "0 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: "rgba(255,255,255,.7)", fontFamily: F.sans, fontSize: 13, cursor: "pointer" }}> Invia istruzioni</button>
           <button onClick={() => onNav("campaign", { campaignId: campagna.id })} style={{ minHeight: 44, padding: "0 14px", borderRadius: 10, border: "none", background: C.green, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Dashboard </button>
         </div>
         <p style={{ fontSize: 12, color: "rgba(255,255,255,.35)", textAlign: "center", marginTop: 16 }}>
@@ -8583,6 +9344,15 @@ const routeToPage = path => {
     const url = new URL(window.location.href);
     const step = url.searchParams.get("step");
 
+    // Intercept Supabase auth callbacks regardless of path.
+    // If Supabase redirects to "/" instead of "/dashboard" (missing whitelist entry),
+    // we catch the token here so DashboardPage can process it — not the Home Page.
+    const _hash = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
+    if (_hash.get("access_token") || url.searchParams.get("code")) {
+      if (import.meta.env.DEV) console.log("[AUTH_HASH_RECEIVED]", "routeToPage intercepted auth callback on path:", p);
+      return "dashboard";
+    }
+
     if (p === "/home" || p.includes("landing") || p.includes("marketing")) return "home";
     if (p === "/" || p === "/index.html" || p === "/volantinipro-final.jsx") return "home";
     if (p === "/configuratore") {
@@ -8598,8 +9368,19 @@ const routeToPage = path => {
     }
 
     if (p.includes("login")) return "login";
-    if (p.includes("dashboard")) return "dashboard";
+    // /dashboard/:id → campaign detail; /dashboard → campaign list
+    if (/^\/dashboard\/.+/.test(p)) {
+      if (import.meta.env.DEV) console.log("[DASHBOARD_ROUTE_RESOLVED]", { path: p, result: "campaign" });
+      return "campaign";
+    }
+    if (p.includes("dashboard")) {
+      if (import.meta.env.DEV) console.log("[DASHBOARD_ROUTE_RESOLVED]", { path: p, result: "dashboard" });
+      return "dashboard";
+    }
     if (p.includes("pagamento")) return "payment";
+    // /campagna/:id/report must resolve before the generic "campagna" match,
+    // otherwise a refresh on the report URL renders the campaign detail page.
+    if (/^\/campagna\/.+\/report/.test(p)) return "report";
     if (p.includes("campagna")) return "campaign";
     if (p.includes("privacy")) return "privacy";
     if (p.includes("termini") || p.includes("terms")) return "terms";
@@ -8636,6 +9417,52 @@ const [data, setData] = useState({
     aiOptimizer: false, startDate: "", endDate: "",...prefill.patch
   });
 const goTo = (p, prefillPatch = null) => {
+    let targetPage = p;
+    if (targetPage === "campaign" && (!prefillPatch || !prefillPatch.campaignId)) {
+      targetPage = "dashboard";
+      if (import.meta.env.DEV) console.warn("[DASHBOARD_ROUTE_FALLBACK_BLOCKED] goTo('campaign') called without campaignId — routing to /dashboard list");
+    }
+
+    if (import.meta.env.DEV && (targetPage === "dashboard" || targetPage === "campaign")) {
+      console.log("[DASHBOARD_NAV_REQUEST]", targetPage, prefillPatch?.campaignId ?? "no-campaignId");
+      console.log("[DASHBOARD_NAV_CAMPAIGN_ID]", prefillPatch?.campaignId ?? null);
+    }
+    
+    if (targetPage === "step4" && !prefillPatch) {
+      try {
+        const returnTo = localStorage.getItem("volantinipro_return_to");
+        const draftRaw = localStorage.getItem("volantinipro_pending_campaign_draft");
+        // `data` here is the payload Step 2/3 just built for THIS click (setData
+        // from their handleNext runs synchronously before onNext() -> goTo()).
+        // A live selection means this navigation came from the normal
+        // Step2 -> Step3 -> Step4 flow within the current session — never let an
+        // older localStorage draft (saved on a previous "login required" bounce)
+        // overwrite it. Only a genuine cold start (fresh page load after a login
+        // redirect, where `data` is back to its empty defaults) may restore it.
+        const visibleZoneName = data.cityName || "";
+        const hasLiveSelection = Boolean(
+          visibleZoneName ||
+          (data.zones && data.zones.length) ||
+          (data.selectedComuni && data.selectedComuni.length) ||
+          (data.selectedCaps && data.selectedCaps.length)
+        );
+        if (returnTo === "step4" && draftRaw) {
+          if (!hasLiveSelection) {
+            const draft = JSON.parse(draftRaw);
+            setData(d => ({ ...d, ...draft }));
+          } else {
+            const draft = JSON.parse(draftRaw);
+            const draftZoneName = draft.cityName || "";
+            if (draftZoneName && draftZoneName !== visibleZoneName) {
+              console.error("[STEP4_STALE_DRAFT_BLOCKED]", { visibleZoneName, draftZoneName });
+            }
+            // Keep the stored draft in sync with what's actually on screen so a
+            // future cold-start restore can never resurrect an older zone.
+            localStorage.setItem("volantinipro_pending_campaign_draft", JSON.stringify(data));
+          }
+        }
+      } catch {}
+    }
     if (prefillPatch) {
       const service = prefillPatch.service;
 const qty = Number(prefillPatch.qty || 0);
@@ -8647,10 +9474,10 @@ const urgency = prefillPatch.urgency;
         quickSource: prefillPatch.source || d.quickSource || ""
       }));
     }
-    const paths = { home: "/", login: "/login", dashboard: "/dashboard", campaign: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}${prefillPatch?.new ? "?nuovo=true" : ""}` : "/dashboard", payment: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}/pagamento` : "/dashboard", report: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}/report` : "/dashboard", privacy: "/privacy", terms: "/termini", cookie: "/cookie-policy", quick: "/preventivo-rapido", consultant: "/consulente", step1: "/configuratore", step2: "/zona", step3: "/calendario", step4: "/riepilogo", admin: "/admin" };
+    const paths = { home: "/", login: "/login", dashboard: "/dashboard", campaign: prefillPatch?.campaignId ? `/dashboard/${prefillPatch.campaignId}${prefillPatch?.new ? "?nuovo=true" : ""}` : "/dashboard", payment: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}/pagamento` : "/dashboard", report: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}/report` : "/dashboard", privacy: "/privacy", terms: "/termini", cookie: "/cookie-policy", quick: "/preventivo-rapido", consultant: "/consulente", step1: "/configuratore", step2: "/zona", step3: "/calendario", step4: "/riepilogo", admin: "/admin" };
     if (typeof window !== "undefined") {
       const params = new URLSearchParams();
-      if (p.startsWith("step")) {
+      if (targetPage.startsWith("step")) {
         const s = prefillPatch || data;
         if (s.type || s.service) params.set("service", s.type || s.service);
         if (s.cityName || s.comune) params.set("comune", s.cityName || s.comune);
@@ -8662,12 +9489,12 @@ const urgency = prefillPatch.urgency;
         if (s.endDate) params.set("endDate", s.endDate);
         if (s.source || s.quickSource) params.set("source", s.source || s.quickSource);
         
-        window.history.pushState(null, "", `${paths[p] || "/"}?${params.toString()}`);
+        window.history.pushState(null, "", `${paths[targetPage] || "/"}?${params.toString()}`);
       } else {
-        window.history.pushState(null, "", paths[p] || "/");
+        window.history.pushState(null, "", paths[targetPage] || "/");
       }
     }
-    setPage(p);
+    setPage(targetPage);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 const isConfiguratorPage = page === "step1" || page === "step2" || page === "step3" || page === "step4";
@@ -8683,7 +9510,12 @@ const isConfiguratorPage = page === "step1" || page === "step2" || page === "ste
         {page === "consultant" && <ConsultantPage onStart={goTo} />}
         {page === "login" && <LoginPage onNav={goTo} />}
         {page === "dashboard" && <DashboardPage onNav={goTo} />}
-        {page === "campaign" && <CampaignDashboardPage onNav={goTo} campaignId={window.location.pathname.split("/").filter(Boolean).pop() || null} />}
+        {page === "campaign" && <CampaignDashboardPage onNav={goTo} campaignId={(() => {
+          const parts = window.location.pathname.split("/").filter(Boolean);
+          // parts[0] = "campagna" | "dashboard", parts[1] = id (if present)
+          const raw = parts.length > 1 ? parts[parts.length - 1] : null;
+          return raw && raw !== "dashboard" && raw !== "campagna" ? raw : null;
+        })()} />}
         {page === "report" && <DeliverableReportPage onNav={goTo} campaignId={window.location.pathname.split("/").filter(Boolean)[1] || null} />}
         {page === "payment" && <PagamentoBonificoPage onNav={goTo} campaignId={window.location.pathname.split("/").filter(Boolean)[1] || null} />}
         {page === "privacy" && <LegalPage type="privacy" onNav={goTo} />}
@@ -8702,11 +9534,10 @@ const isConfiguratorPage = page === "step1" || page === "step2" || page === "ste
         )}
         {isConfiguratorPage && (
           <>
-            <StepperBar current={page} onGo={goTo} />
             {page === "step1" && <Step1 data={data} setData={setData} onNext={() => goTo("step2")} onHome={() => goTo("home")} />}
             {page === "step2" && <Step2ErrorBoundary><Step2 data={data} setData={setData} onNext={() => goTo("step3")} onBack={() => goTo("step1")} /></Step2ErrorBoundary>}
             {page === "step3" && <Step3 data={data} setData={setData} onNext={() => goTo("step4")} onBack={() => goTo("step2")} />}
-            {page === "step4" && <Step4 data={data} setData={setData} onBack={() => goTo("step3")} onHome={() => goTo("home")} onCampaignSaved={(id) => goTo("payment", { campaignId: id })} />}
+            {page === "step4" && <Step4 data={data} setData={setData} onBack={() => goTo("step3")} onHome={(p, opts) => goTo(p || "home", opts)} onCampaignSaved={(id) => goTo("payment", { campaignId: id })} />}
           </>
         )}
       </div>
