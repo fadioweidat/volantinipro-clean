@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { printQuotePdf } from "./src/lib/pdf/printQuotePdf.js";
-import { supabase, confirmCampaignPayment, hasSupabaseConfig, saveCampaign, saveSmartPairingWaitlist, getStoredSupabaseSession } from "./src/lib/supabaseClient.js";
+import { AUTH_EXPIRED_MESSAGE, supabase, confirmCampaignPayment, hasSupabaseConfig, saveCampaign, saveSmartPairingWaitlist, getStoredSupabaseSession, isAuthTokenExpiredError, isStoredSupabaseSessionExpired, clearExpiredSupabaseSession } from "./src/lib/supabaseClient.js";
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
@@ -3233,28 +3233,15 @@ const zonesInRadius = useMemo(() => {
       matched = filtered.filter(z => normalizeMunicipalityName(z.name) === selectedMunicipalityName).slice(0, 1);
     }
 
-    const finalMismatch = matched.length !== 1 || normalizeMunicipalityName(matched[0]?.name) !== selectedMunicipalityName;
-    // `filtered` può ancora contenere le zone della città PRECEDENTE mentre
-    // `apiLoading` è true per la nuova richiesta (selectedMunicipalityName è
-    // già aggiornato, apiZones no): non è un errore reale, solo dati non
-    // ancora pronti. `apiLoading` da solo non basta: il flag passa a true in
-    // un effect POST-render, quindi per uno o più render subito dopo il
-    // cambio comune resta ancora false mentre apiZones è ancora quello
-    // vecchio — usiamo anche una piccola finestra di grazia dal cambio città
-    // per coprire esattamente quel gap. Logga solo un'attesa, mai
-    // console.error, in questo caso.
+    // Il filtro di correzione qui sopra fa sempre .slice(0,1): dopo di esso
+    // `matched.length` può essere solo 0 o 1, e quando è 1 il nome combacia
+    // per costruzione. Quindi l'unico caso di "mismatch" possibile è array
+    // vuoto — e un array vuoto è SEMPRE un'attesa dati (comune non ancora
+    // arrivato/risolto), MAI un errore reale: non blocchiamo la UI e non
+    // spaventiamo la console con un falso console.error durante il loading.
     const withinSwitchGracePeriod = Date.now() - municipalitySwitchAtRef.current < 800;
-    const dataNotReady = apiLoading || filtered.length === 0 || withinSwitchGracePeriod;
-
-    if (selectedMunicipalityName && finalMismatch) {
-      if (dataNotReady) {
-        debugStep2Log("[STEP2_MUNICIPALITY_WAITING_FOR_AREAS]", { selectedMunicipalityName, apiLoading, filteredCount: filtered.length, withinSwitchGracePeriod });
-      } else {
-        // Dati caricati, filtered.length > 0, e il match finale è comunque
-        // sbagliato o multiplo: qui sì è un errore reale.
-        console.error("[STEP2_MUNICIPALITY_WRONG_AREA_BLOCKED]", { selectedMunicipalityName, finalAreas: matched.map(z => z.name) });
-        matched = []; // blocca del tutto: non scegliere un comune vicino
-      }
+    if (selectedMunicipalityName && matched.length === 0) {
+      debugStep2Log("[STEP2_MUNICIPALITY_WAITING_FOR_AREAS]", { selectedMunicipalityName, apiLoading, filteredCount: filtered.length, withinSwitchGracePeriod });
     }
 
     debugStep2Log("[STEP2_FINAL_MUNICIPALITY_AREA]", matched.map(z => z.name));
@@ -3990,7 +3977,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
         : !coverageDecisionReady
           ? "Scegli la copertura per continuare"
           : coverageDecision === "partial"
-            ? "Continua con copertura parziale →"
+            ? `Continua con ${flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })} volantini →`
             : coverageDecision === "increase"
               ? `Continua con ${requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini →`
               : coverageDecision === "manual"
@@ -4827,7 +4814,7 @@ const isManual = allocationMode === "manual";
                               <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 8 }}>
                                 <button onClick={() => { setCoverageDecision("partial"); setPartialCoverageConfirmed(true); }}
                                   style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: coverageDecision === "partial" ? "rgba(46,204,138,.16)" : "transparent", color: C.white, border: `1px solid ${coverageDecision === "partial" ? "rgba(46,204,138,.45)" : "rgba(255,255,255,.3)"}`, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
-                                  Procedi con copertura parziale
+                                  Mantieni {flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })} volantini
                                 </button>
                                 <button onClick={() => {
                                     setData(d => ({...d, qty: requiredFlyers, flyerQuantity: requiredFlyers }));
@@ -5024,7 +5011,7 @@ const isManual = allocationMode === "manual";
                   </div>
                   <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 9, padding: "10px 12px" }}>
                     <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>Volantini</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: C.blue, lineHeight: 1.1 }}>{(requiredFlyers || flyerQuantityFromStep1).toLocaleString("it-IT", { useGrouping: true })}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: C.blue, lineHeight: 1.1 }}>{flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })}</div>
                   </div>
                   <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 9, padding: "10px 12px" }}>
                     <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>{searchMode === "municipality" ? "Territorio" : "Raggio"}</div>
@@ -5770,25 +5757,39 @@ function toggle(d) {
     return true;
   }
 
-  async function handleRequestSubmit() {
-    if (!validateRequestForm()) return;
-    setFormSent(true);
-    if (hasSupabaseConfig()) {
-      try {
-        const waitlistPayload = {
+	  async function handleRequestSubmit() {
+	    if (!validateRequestForm()) return;
+	    if (hasSupabaseConfig()) {
+	      if (isStoredSupabaseSessionExpired()) {
+	        console.warn("[SMART_PAIRING_BLOCKED_EXPIRED_SESSION]");
+	        console.warn("[AUTH_TOKEN_EXPIRED]", { action: "smart_pairing_submit" });
+	        clearExpiredSupabaseSession();
+	        console.warn("[AUTH_RELOGIN_REQUIRED]", { action: "smart_pairing_submit" });
+	        setFormError(AUTH_EXPIRED_MESSAGE);
+	        return;
+	      }
+	      try {
+	        const waitlistPayload = {
+          nome: form.nome,
           email: form.email,
           telefono: form.telefono,
           zone: zoneLabel,
           note: form.note,
         };
-        if (import.meta.env.DEV) console.log("[SMART_PAIRING_WAITLIST_PAYLOAD]", waitlistPayload);
-        await saveSmartPairingWaitlist(waitlistPayload);
-        if (import.meta.env.DEV) console.log("[SMART_PAIRING_WAITLIST_SAVE_SUCCESS]");
-      } catch (err) {
-        if (import.meta.env.DEV) console.error("[SMART_PAIRING_WAITLIST_SAVE_ERROR]", err);
-        console.warn("Smart Pairing waitlist Supabase save failed", err);
+	        await saveSmartPairingWaitlist(waitlistPayload);
+	      } catch (err) {
+	        if (isAuthTokenExpiredError(err)) {
+	          setFormError(AUTH_EXPIRED_MESSAGE);
+	          return;
+	        }
+	        // Real failure (RLS block or otherwise): show it, don't silently
+        // advance as if the request had been saved.
+        setFormError(err?.message || "Richiesta Smart Pairing non salvata. Riprova.");
+        return;
       }
     }
+    setFormSent(true);
+    setFormError("");
     setData(d => ({...d,
       days: [],
       avgDiscount: 0,
@@ -5807,7 +5808,8 @@ function toggle(d) {
       requiresManualConfirmation: true,
       contactRequestData: form
     }));
-    onNext();
+    // Don't auto-advance: let the user see the confirmation message below,
+    // they can continue via the main "Genera preventivo" action whenever ready.
   }
 
   function handlePrimary() {
@@ -6030,23 +6032,34 @@ function toggle(d) {
 
           {showRequest && (
             <div style={{ marginBottom: 28, borderRadius: 16, padding: "22px", background: "rgba(255,255,255,.05)", border: "2px solid rgba(251,191,36,.3)" }}>
-              <div style={{ fontFamily: F.serif, fontSize: 20, color: C.white, marginBottom: 6 }}>Richiedi avviso Smart Pairing</div>
-              <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)", lineHeight: 1.55, marginBottom: 16 }}>
-                Ti avviseremo via WhatsApp o Email quando lavoriamo nella tua zona o in una zona vicina compatibile.
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 14 }}>
-                <input value={form.nome} onChange={e => setForm(f => ({...f, nome: e.target.value }))} placeholder="Nome e Cognome" style={inputStyle} />
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
-                  <input value={form.telefono} onChange={e => setForm(f => ({...f, telefono: e.target.value }))} placeholder="WhatsApp" type="tel" style={inputStyle} />
-                  <input value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value }))} placeholder="Email" type="email" style={inputStyle} />
+              {formSent ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 4px" }}>
+                  <span style={{ fontSize: 22 }}>✅</span>
+                  <div style={{ fontFamily: F.sans, fontSize: 14, color: C.white, fontWeight: 600, lineHeight: 1.5 }}>
+                    Richiesta registrata. Ti avviseremo appena ci sono slot compatibili.
+                  </div>
                 </div>
-                <input value={form.periodo || ""} onChange={e => setForm(f => ({...f, periodo: e.target.value }))} placeholder="Periodo o giorni preferiti" style={inputStyle} />
-                <textarea value={form.note || ""} onChange={e => setForm(f => ({...f, note: e.target.value }))} placeholder="Note opzionali" rows={3} style={{...inputStyle, resize: "vertical" }} />
-              </div>
-              {formError && <div style={{ padding: "8px 14px", borderRadius: 8, background: "rgba(248,113,113,.15)", border: "1px solid rgba(248,113,113,.3)", fontFamily: F.sans, fontSize: 12, color: C.red, marginBottom: 12 }}>{formError}</div>}
-              <button className="btn" onClick={handleRequestSubmit} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 6px 18px rgba(99,102,241,0.3)" }}>
-                Avvisami appena ci sono slot compatibili
-              </button>
+              ) : (
+                <>
+                  <div style={{ fontFamily: F.serif, fontSize: 20, color: C.white, marginBottom: 6 }}>Richiedi avviso Smart Pairing</div>
+                  <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)", lineHeight: 1.55, marginBottom: 16 }}>
+                    Ti avviseremo via WhatsApp o Email quando lavoriamo nella tua zona o in una zona vicina compatibile.
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 14 }}>
+                    <input value={form.nome} onChange={e => setForm(f => ({...f, nome: e.target.value }))} placeholder="Nome e Cognome" style={inputStyle} />
+                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                      <input value={form.telefono} onChange={e => setForm(f => ({...f, telefono: e.target.value }))} placeholder="WhatsApp" type="tel" style={inputStyle} />
+                      <input value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value }))} placeholder="Email" type="email" style={inputStyle} />
+                    </div>
+                    <input value={form.periodo || ""} onChange={e => setForm(f => ({...f, periodo: e.target.value }))} placeholder="Periodo o giorni preferiti" style={inputStyle} />
+                    <textarea value={form.note || ""} onChange={e => setForm(f => ({...f, note: e.target.value }))} placeholder="Note opzionali" rows={3} style={{...inputStyle, resize: "vertical" }} />
+                  </div>
+                  {formError && <div style={{ padding: "8px 14px", borderRadius: 8, background: "rgba(248,113,113,.15)", border: "1px solid rgba(248,113,113,.3)", fontFamily: F.sans, fontSize: 12, color: C.red, marginBottom: 12 }}>{formError}</div>}
+                  <button className="btn" onClick={handleRequestSubmit} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 6px 18px rgba(99,102,241,0.3)" }}>
+                    Avvisami appena ci sono slot compatibili
+                  </button>
+                </>
+              )}
             </div>
           )}
 
@@ -6668,16 +6681,38 @@ function handleDownloadPdf() {
     } finally {
       setPdfBusy(false);
     }
-  }
+	  }
+	
+	  function redirectToLoginAfterExpiredSession() {
+	    try {
+	      localStorage.setItem("volantinipro_return_to", "step4");
+	      localStorage.setItem("volantinipro_pending_action", "confirm_campaign");
+	      localStorage.setItem("volantinipro_pending_campaign_draft", JSON.stringify(data));
+	    } catch {}
+	    console.warn("[CAMPAIGN_SAVE_BLOCKED_EXPIRED_SESSION]");
+	    console.warn("[AUTH_RELOGIN_REQUIRED]", { returnTo: "step4" });
+	    setCampaignSaveError(AUTH_EXPIRED_MESSAGE);
+	    setConfirmSyncStatus(AUTH_EXPIRED_MESSAGE);
+	    setShowLoginRequired(true);
+	    setSent(false);
+	    setSavingCampaign(false);
+	    if (onHome) onHome("login");
+	  }
 
-  async function handleConfirmCampaign() {
-    if (!canConfirm || savingCampaign) return;
-    setSavingCampaign(true);
+	  async function handleConfirmCampaign() {
+	    if (!canConfirm || savingCampaign) return;
+	    setSavingCampaign(true);
     setCampaignSaveError(null);
     setShowLoginRequired(false);
-
-    try {
-      const session = typeof getStoredSupabaseSession === "function" ? getStoredSupabaseSession() : null;
+	
+	    try {
+	      if (hasSupabaseConfig() && isStoredSupabaseSessionExpired()) {
+	        console.warn("[AUTH_TOKEN_EXPIRED]", { action: "confirm_campaign" });
+	        clearExpiredSupabaseSession();
+	        redirectToLoginAfterExpiredSession();
+	        return;
+	      }
+	      const session = typeof getStoredSupabaseSession === "function" ? getStoredSupabaseSession() : null;
       const hasValidClientSession = Boolean(session?.accessToken || session?.access_token || (cliente?.email && cliente.email !== "dev@volantinipro.local"));
       if (!hasValidClientSession && hasSupabaseConfig()) {
         setCampaignSaveError("Per confermare e salvare la campagna devi accedere con email.");
@@ -6743,9 +6778,13 @@ function handleDownloadPdf() {
       }).catch(err => console.warn("Email conferma bonifico non inviata", err));
       setConfirmSyncStatus(`Campagna salvata su Supabase (${id.slice(0, 8)}).`);
       if (onCampaignSaved) onCampaignSaved(id, "payment");
-    } catch (err) {
-      setSent(false);
-      if (String(err?.message || "").includes("Login Supabase richiesto")) {
+	    } catch (err) {
+	      setSent(false);
+	      if (isAuthTokenExpiredError(err)) {
+	        redirectToLoginAfterExpiredSession();
+	        return;
+	      }
+	      if (String(err?.message || "").includes("Login Supabase richiesto")) {
         setCampaignSaveError("Per confermare e salvare la campagna devi accedere con email.");
         setShowLoginRequired(true);
         setSavingCampaign(false);
@@ -8407,8 +8446,9 @@ function LoginPage({ onNav }) {
     const returnTo = localStorage.getItem("volantinipro_return_to");
     const pendingCampaignId = localStorage.getItem("volantinipro_pending_campaign_id");
     
-    if (returnTo === "step4") {
-      onNav("step4");
+	    if (returnTo === "step4") {
+	      console.info("[AUTH_RETURN_TO_STEP4_AFTER_RELOGIN]");
+	      onNav("step4");
     } else if (returnTo === "dashboard" && pendingCampaignId) {
       localStorage.removeItem("volantinipro_return_to");
       localStorage.removeItem("volantinipro_pending_campaign_id");
@@ -8491,7 +8531,7 @@ function DashboardPage({ onNav }) {
   const [session, setSession] = useState(() => {
     try { return JSON.parse(localStorage.getItem("vp_supabase_session") || "null"); } catch { return null; }
   });
-const { cliente } = useCliente();
+const { cliente, error: clienteError } = useCliente();
 const { campagne, loading, error } = useCampagne();
 
   useEffect(() => {
@@ -8514,14 +8554,15 @@ const { campagne, loading, error } = useCampagne();
     }
 
     function navigateAfterLogin(sessionObj) {
-      localStorage.setItem("vp_supabase_session", JSON.stringify(sessionObj));
-      setSession(sessionObj);
-      const { returnTo, pendingCampaignId } = resolveReturnTo();
-      localStorage.removeItem("volantinipro_return_to");
-      localStorage.removeItem("volantinipro_pending_campaign_id");
+	      localStorage.setItem("vp_supabase_session", JSON.stringify(sessionObj));
+	      setSession(sessionObj);
+	      const { returnTo, pendingCampaignId } = resolveReturnTo();
+	      if (returnTo !== "step4") localStorage.removeItem("volantinipro_return_to");
+	      localStorage.removeItem("volantinipro_pending_campaign_id");
       window.history.replaceState(null, "", "/dashboard");
-      if (returnTo === "step4") {
-        if (import.meta.env.DEV) console.log("[AUTH_REDIRECT_FINAL_TARGET]", "step4");
+	      if (returnTo === "step4") {
+	        console.info("[AUTH_RETURN_TO_STEP4_AFTER_RELOGIN]");
+	        if (import.meta.env.DEV) console.log("[AUTH_REDIRECT_FINAL_TARGET]", "step4");
         onNav("step4");
       } else if ((returnTo === "dashboard_campaign" || returnTo === "dashboard") && pendingCampaignId) {
         if (import.meta.env.DEV) console.log("[AUTH_REDIRECT_FINAL_TARGET]", "campaign", pendingCampaignId);
@@ -8633,6 +8674,7 @@ const flyersDone = campagneNorm.reduce((a, c) => a + Number(c.volantini_distribu
           <button onClick={session ? logout : () => { try { localStorage.setItem("volantinipro_return_to", "dashboard"); } catch {} onNav("login"); }} style={{ minHeight: 44, padding: "0 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>{session ? "Logout" : "Accedi"}</button>
         </div>
 
+        {clienteError && <div style={{ marginBottom: 14, padding: "11px 13px", borderRadius: 10, background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.22)", color: C.yellow, fontFamily: F.sans, fontSize: 12 }}>{clienteError}</div>}
         {error && <div style={{ marginBottom: 14, padding: "11px 13px", borderRadius: 10, background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.22)", color: C.yellow, fontFamily: F.sans, fontSize: 12 }}>Supabase non disponibile: nessuna campagna reale da mostrare.</div>}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, marginBottom: 16 }}>
