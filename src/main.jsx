@@ -16,6 +16,8 @@ const CampaignGroups = React.lazy(() => import("./pages/admin/CampaignGroups.jsx
 const CampaignGroupDetail = React.lazy(() => import("./pages/admin/CampaignGroupDetail.jsx").then((m) => ({ default: m.CampaignGroupDetail })));
 const CampaignOperations = React.lazy(() => import("./pages/admin/CampaignOperations.jsx").then((m) => ({ default: m.CampaignOperations })));
 const CampaignReport = React.lazy(() => import("./pages/admin/CampaignReport.jsx").then((m) => ({ default: m.CampaignReport })));
+const NewCampaign = React.lazy(() => import("./pages/admin/NewCampaign.jsx").then((m) => ({ default: m.NewCampaign })));
+const ClientCampaignReport = React.lazy(() => import("./pages/customer/ClientCampaignReport.jsx").then((m) => ({ default: m.ClientCampaignReport })));
 const FinancialDashboard = React.lazy(() => import("./pages/admin/FinancialDashboard.jsx").then((m) => ({ default: m.FinancialDashboard })));
 const AutomationCenter = React.lazy(() => import("./pages/admin/AutomationCenter.jsx").then((m) => ({ default: m.AutomationCenter })));
 const ClientiCRM = React.lazy(() => import("./pages/admin/ClientiCRM.jsx"));
@@ -36,6 +38,10 @@ function Root() {
 
   const operatorMatch = path.match(/^\/operator(?:\/tracking)?\/([^/]+)$/);
   if (operatorMatch) return <TrackingPage campaignId={operatorMatch[1]} />;
+
+  if (path === "/admin/campaigns/new" || path === "/admin/campaigns/new/") {
+    return <AdminRouteGuard><NewCampaign /></AdminRouteGuard>;
+  }
 
   const groupDetailMatch = path.match(/^\/admin\/campaigns\/([^/]+)\/groups\/([^/]+)$/);
   if (groupDetailMatch) return <AdminRouteGuard><CampaignGroupDetail campaignId={groupDetailMatch[1]} groupId={groupDetailMatch[2]} /></AdminRouteGuard>;
@@ -79,6 +85,12 @@ function Root() {
   if (path === "/admin/anomalie" || path === "/admin/anomalie/" || path === "/admin/ai" || path === "/admin/ai/") {
     return <AdminRouteGuard><AnomalieAI /></AdminRouteGuard>;
   }
+
+  const legacyClientReportMatch = path.match(/^\/client\/campaigns\/([^/]+)\/report$/);
+  if (legacyClientReportMatch) return <ClientCampaignReport campaignId={legacyClientReportMatch[1]} />;
+
+  const customerReportMatch = path.match(/^\/customer\/campaigns\/([^/]+)\/report$/);
+  if (customerReportMatch) return <ClientCampaignReport campaignId={customerReportMatch[1]} />;
 
   const customerMatch = path.match(/^\/customer\/campaigns\/([^/]+)\/tracking$/);
   if (customerMatch) return <CampaignTracking campaignId={customerMatch[1]} />;
