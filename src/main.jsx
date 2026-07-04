@@ -2,7 +2,6 @@ import React, { Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import App from "../volantinipro-final.jsx";
 import { CampaignTracking } from "./pages/customer/CampaignTracking.jsx";
-import { ClientCampaignReport } from "./pages/customer/ClientCampaignReport.jsx";
 import { TrackingPage } from "./pages/driver/TrackingPage.jsx";
 import { AdminRouteGuard } from "./components/admin/AdminGuard.jsx";
 import { warnIfMojibake } from "./lib/mojibakeGuard.js";
@@ -94,9 +93,6 @@ function Root() {
 
   const customerMatch = path.match(/^\/customer\/campaigns\/([^/]+)\/tracking$/);
   if (customerMatch) return <CampaignTracking campaignId={customerMatch[1]} />;
-
-  const clientReportMatch = path.match(/^\/client\/campaigns\/([^/]+)\/report$/);
-  if (clientReportMatch) return <ClientCampaignReport campaignId={clientReportMatch[1]} />;
 
   return <App />;
 }
