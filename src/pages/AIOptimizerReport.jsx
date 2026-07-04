@@ -412,7 +412,10 @@ function TabExecutive({ kpis, avgFIdx, totF, avgCov, flyerQty, total, disc, quan
       </div>
 
       {/* AI Score summary */}
-      <SectionTitle color={C.purple}>Score AI campagna</SectionTitle>
+      <SectionTitle color={C.purple}>Score campagna (analisi automatica su regole interne)</SectionTitle>
+      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)", marginTop: -12, marginBottom: 14, lineHeight: 1.5 }}>
+        Indici calcolati dal sistema sui dati territoriali disponibili per la zona selezionata. Se un dato specifico non è disponibile viene mostrato un valore di riferimento standard.
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16, marginBottom: 28 }}>
         <div style={{ padding: "16px", background: "rgba(255,255,255,.03)", borderRadius: 12, border: "1px solid rgba(255,255,255,.06)" }}>
           <ScoreRow label="Qualità area (Family Index)" value={kpis.familyIndex ?? avgFIdx ?? 70} color={C.green} />
@@ -534,8 +537,9 @@ function TabAnalisi({ kpis, avgFIdx, totF, avgCov, flyerQty, kpisPopulation, kpi
         </div>
       )}
 
-      {/* Heatmap grid representation */}
-      <SectionTitle color={C.indigo}>Heatmap distribuzione (visualizzazione)</SectionTitle>
+      {/* Heatmap grid representation — griglia puramente decorativa (Math.random()
+          ad ogni render): non rappresenta dati di densità reali della zona. */}
+      <SectionTitle color={C.indigo}>Heatmap distribuzione (visualizzazione stilizzata)</SectionTitle>
       <div style={{ padding: "18px", background: "rgba(255,255,255,.02)", borderRadius: 12, border: "1px solid rgba(255,255,255,.06)" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: 4, marginBottom: 10 }}>
           {Array.from({ length: 50 }).map((_, i) => {
@@ -555,6 +559,9 @@ function TabAnalisi({ kpis, avgFIdx, totF, avgCov, flyerQty, kpisPopulation, kpi
             </div>
           ))}
         </div>
+        <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.3)", marginTop: 10, fontStyle: "italic" }}>
+          Griglia illustrativa generata casualmente a scopo grafico — non rappresenta la distribuzione reale dei volantini nell'area.
+        </div>
       </div>
     </div>
   );
@@ -567,9 +574,9 @@ function TabSimulazioni({ flyerQty, requiredQty, avgCov, totF, total, kpis }) {
 
   return (
     <div>
-      <SectionTitle color={C.green}>Simulazioni AI — Scenari a confronto</SectionTitle>
+      <SectionTitle color={C.green}>Simulazioni — Scenari a confronto (stima)</SectionTitle>
       <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.45)", marginBottom: 24, lineHeight: 1.6 }}>
-        L'AI ha generato 3 scenari alternativi basandosi sulla tua configurazione. Confronta costi, copertura e famiglie raggiunte.
+        Il sistema ha calcolato 3 scenari (Base, Ottimizzato, Premium) applicando un'estrapolazione proporzionale alla tua configurazione attuale: sono proiezioni indicative basate su regole interne, non una previsione garantita. Confronta costi, copertura e famiglie raggiunte.
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 32 }}>
@@ -650,9 +657,9 @@ function TabOttimizzazione({ flyerQty, requiredQty, avgCov, totF, kpis }) {
 
   return (
     <div>
-      <SectionTitle color={C.yellow}>Ottimizzazione quantità</SectionTitle>
+      <SectionTitle color={C.yellow}>Ottimizzazione quantità (simulazione)</SectionTitle>
       <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.45)", marginBottom: 24, lineHeight: 1.6 }}>
-        Simulazione AI dell'impatto sulla copertura al variare della quantità di volantini.
+        Simulazione basata su un'estrapolazione proporzionale (non una previsione garantita) dell'impatto sulla copertura al variare della quantità di volantini.
       </div>
 
       {/* Line chart */}
@@ -785,6 +792,9 @@ function TabKpi({ kpis, avgFIdx, totF, avgCov, flyerQty, kpisPopulation, kpisCom
   return (
     <div>
       <SectionTitle color={C.blue}>Dashboard KPI completa</SectionTitle>
+      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)", marginTop: -14, marginBottom: 14, lineHeight: 1.5 }}>
+        Indici calcolati dal sistema sui dati territoriali disponibili; in assenza di dato specifico viene mostrato un valore di riferimento standard.
+      </div>
 
       {/* Score rings */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 20, marginBottom: 28, justifyContent: "flex-start" }}>
@@ -939,7 +949,7 @@ function TabExtra({ selectedExtras, onAddExtra, onClose }) {
           La campagna è configurata e pronta per l'attivazione. Tutti i dati territoriali, i KPI di copertura e le analisi AI sono stati elaborati sulla base delle informazioni inserite. Il sistema ha verificato la coerenza tra zona, quantità e servizio selezionato. Seguendo le raccomandazioni indicate è possibile ottimizzare ulteriormente l'efficacia della distribuzione. Al termine della campagna riceverai automaticamente il report con i dati reali della distribuzione.
         </div>
         <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.28)", lineHeight: 1.6, fontStyle: "italic" }}>
-          Report generato automaticamente dal motore AI di VolantiniPro sulla base della configurazione della campagna e dei dati territoriali disponibili.
+          Report generato automaticamente da un motore a regole interne di VolantiniPro (analisi automatica su dati reali, non intelligenza artificiale generativa) sulla base della configurazione della campagna e dei dati territoriali disponibili.
         </div>
       </div>
 

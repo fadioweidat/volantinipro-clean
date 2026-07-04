@@ -123,28 +123,29 @@ export function FinancialDashboard() {
 
   const revenueCards = [
     { label: "Fatturato oggi", value: data.revenue.available ? euro(data.revenue.today) : EMPTY, sub: data.revenue.available ? "da preventivi/campagne con importo" : data.revenue.reason, color: C.green },
-    { label: "Fatturato settimana", value: data.revenue.available ? euro(data.revenue.week) : EMPTY, sub: "ultimi 7 giorni", color: C.green },
-    { label: "Fatturato mese", value: data.revenue.available ? euro(data.revenue.month) : EMPTY, sub: "mese corrente", color: C.orange },
-    { label: "Fatturato anno", value: data.revenue.available ? euro(data.revenue.year) : EMPTY, sub: "anno corrente", color: C.orange },
+    { label: "Fatturato settimana", value: data.revenue.available ? euro(data.revenue.week) : EMPTY, sub: data.revenue.available ? "ultimi 7 giorni" : data.revenue.reason, color: C.green },
+    { label: "Fatturato mese", value: data.revenue.available ? euro(data.revenue.month) : EMPTY, sub: data.revenue.available ? "mese corrente" : data.revenue.reason, color: C.orange },
+    { label: "Fatturato anno", value: data.revenue.available ? euro(data.revenue.year) : EMPTY, sub: data.revenue.available ? "anno corrente" : data.revenue.reason, color: C.orange },
     { label: "Margine operativo", value: data.margin.available ? euro(data.margin.value) : EMPTY, sub: data.margin.available ? "ricavi meno costi configurati" : data.margin.reason, color: data.margin.available ? C.green : "rgba(255,255,255,.55)" },
     { label: "Valore medio ordine", value: Number.isFinite(data.stats.averageOrder) ? euro(data.stats.averageOrder) : EMPTY, sub: "calcolato solo su importi validi", color: C.blue },
   ];
 
   const quoteCards = [
-    { label: "Preventivi inviati", value: data.stats.quoteStatuses.sent, color: C.blue },
-    { label: "Preventivi accettati", value: data.stats.quoteStatuses.accepted + data.stats.quoteStatuses.converted, color: C.green },
-    { label: "Preventivi rifiutati", value: data.stats.quoteStatuses.refused, color: C.red },
-    { label: "Preventivi in attesa", value: data.stats.quoteStatuses.pending + data.stats.quoteStatuses.draft + data.stats.quoteStatuses.viewed, color: C.yellow },
+    { label: "Preventivi inviati", value: quoteStatusValue(data, data.stats.quoteStatuses.sent), color: C.blue },
+    { label: "Preventivi accettati", value: quoteStatusValue(data, data.stats.quoteStatuses.accepted + data.stats.quoteStatuses.converted), color: C.green },
+    { label: "Preventivi rifiutati", value: quoteStatusValue(data, data.stats.quoteStatuses.refused), color: C.red },
+    { label: "Preventivi in attesa", value: quoteStatusValue(data, data.stats.quoteStatuses.pending + data.stats.quoteStatuses.draft + data.stats.quoteStatuses.viewed), color: C.yellow },
   ];
 
   const paymentCards = [
     { label: "Pagamenti ricevuti", value: paymentValue(data, "paid"), sub: paymentSub(data, "paid"), color: C.green },
     { label: "Pagamenti in attesa", value: paymentValue(data, "pending"), sub: paymentSub(data, "pending"), color: C.yellow },
     { label: "Pagamenti scaduti", value: paymentValue(data, "overdue"), sub: paymentSub(data, "overdue"), color: C.red },
-    { label: "Rimborsi", value: data.availability.payments ? euro(data.stats.refunds || 0) : EMPTY, sub: data.availability.payments ? "da pagamenti rimborsati" : "Tabelle pagamenti non configurate", color: C.purple },
-    { label: "Crediti", value: Number.isFinite(data.stats.credits) ? euro(data.stats.credits) : EMPTY, sub: Number.isFinite(data.stats.credits) ? "da fatture non saldate" : "Tabella fatture o importi non configurati", color: C.blue },
-    { label: "Debiti", value: Number.isFinite(data.stats.debts) ? euro(data.stats.debts) : EMPTY, sub: Number.isFinite(data.stats.debts) ? "da fornitori reali" : "Tabella fornitori o importi non configurati", color: C.orange },
+    { label: "Rimborsi", value: data.availability.payments ? (data.payments.length ? euro(data.stats.refunds || 0) : "Configurato ma senza dati") : EMPTY, sub: data.availability.payments ? (data.payments.length ? "da pagamenti rimborsati" : "tabella pagamenti vuota") : "Tabelle pagamenti non configurate", color: C.purple },
+    { label: "Crediti", value: data.availability.invoices && Number.isFinite(data.stats.credits) ? euro(data.stats.credits) : EMPTY, sub: data.availability.invoices ? "da fatture non saldate" : "Tabella fatture non configurata", color: C.blue },
+    { label: "Debiti", value: data.availability.suppliers && Number.isFinite(data.stats.debts) ? euro(data.stats.debts) : EMPTY, sub: data.availability.suppliers ? "da fornitori reali" : "Tabella fornitori non configurata", color: C.orange },
   ];
+  const financeState = classifyFinancialModule(data);
 
   return (
     <main style={pageStyle}>
@@ -165,6 +166,7 @@ export function FinancialDashboard() {
       {state.loading && <Notice text="Caricamento gestione economica real-time..." />}
       {state.error && <Notice text={state.error} danger />}
       {notice && <Notice text={notice} />}
+      <Notice text={`${financeState.label}: ${financeState.detail}`} danger={financeState.tone === "danger"} />
 
       <section style={gridStyle}>
         {revenueCards.map((card) => <KpiCard key={card.label} {...card} />)}
@@ -384,8 +386,33 @@ function schemaItem(name, available, rows, sampleRows = []) {
   };
 }
 
+function classifyFinancialModule(data) {
+  const hasConfiguredEconomicTables = Boolean(data.availability.payments || data.availability.invoices || data.availability.suppliers);
+  const hasEconomicRows = Boolean(data.payments.length || data.invoices.length || data.suppliers.length);
+  if (!hasConfiguredEconomicTables && !data.revenue.available) {
+    return {
+      label: "Modulo non configurato",
+      detail: "tabelle payments/pagamenti, invoices/fatture e suppliers/fornitori non disponibili; i KPI economici restano non disponibili quando manca un campo reale",
+      tone: "danger",
+    };
+  }
+  if (hasConfiguredEconomicTables && !hasEconomicRows) {
+    return {
+      label: "Configurato ma senza dati",
+      detail: "le tabelle economiche sono leggibili ma non contengono righe operative",
+      tone: "warn",
+    };
+  }
+  return {
+    label: "Operativo",
+    detail: "dashboard calcolata da tabelle economiche e campagne/preventivi reali",
+    tone: "ok",
+  };
+}
+
 function paymentValue(data, status) {
   if (!data.availability.payments) return EMPTY;
+  if (!data.payments.length) return "Configurato ma senza dati";
   const rows = data.payments.filter((item) => item.status === status);
   const total = rows.reduce((sum, item) => sum + (item.amount || 0), 0);
   return rows.length ? euro(total) : euro(0);
@@ -393,8 +420,15 @@ function paymentValue(data, status) {
 
 function paymentSub(data, status) {
   if (!data.availability.payments) return "Tabelle pagamenti non configurate";
+  if (!data.payments.length) return "tabella pagamenti leggibile ma vuota";
   const count = data.payments.filter((item) => item.status === status).length;
   return `${count} record pagamento`;
+}
+
+function quoteStatusValue(data, value) {
+  if (!data.availability.quotes) return EMPTY;
+  if (!data.quotes.length) return "Configurato ma senza dati";
+  return value;
 }
 
 function matchesPeriod(value, selected) {

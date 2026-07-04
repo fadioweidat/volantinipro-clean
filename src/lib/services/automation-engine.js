@@ -40,6 +40,7 @@ export function buildAutomationCenter({
   ticketRows = [],
   webhookRows = [],
   notificationRows = [],
+  backupRows = [],
   availability = {},
   health = {},
 } = {}) {
@@ -79,7 +80,7 @@ export function buildAutomationCenter({
     notificationStats,
     webhookStats,
     stats,
-    schema: buildSchemaSummary({ availability, campaigns, waitlist, sessions, gpsPoints, photos, payments, activityLog, auditLog, ticketRows, webhookRows, notificationRows }),
+    schema: buildSchemaSummary({ availability, campaigns, waitlist, sessions, gpsPoints, photos, payments, activityLog, auditLog, ticketRows, webhookRows, notificationRows, backupRows }),
   };
 }
 
@@ -461,7 +462,7 @@ function buildStats(events, queue, notifications, webhooks) {
   };
 }
 
-function buildSchemaSummary({ availability, campaigns, waitlist, sessions, gpsPoints, photos, payments, activityLog, auditLog, ticketRows, webhookRows, notificationRows }) {
+function buildSchemaSummary({ availability, campaigns, waitlist, sessions, gpsPoints, photos, payments, activityLog, auditLog, ticketRows, webhookRows, notificationRows, backupRows }) {
   return [
     schema("campaigns/campagne/quote_requests", availability.campaigns, campaigns),
     schema("smart_pairing_waitlist", availability.waitlist, waitlist),
@@ -474,6 +475,7 @@ function buildSchemaSummary({ availability, campaigns, waitlist, sessions, gpsPo
     schema("tickets", availability.tickets, ticketRows),
     schema("webhook_logs", availability.webhooks, webhookRows),
     schema("notification_logs", availability.notifications, notificationRows),
+    schema("backup_jobs", availability.backups, backupRows),
   ];
 }
 

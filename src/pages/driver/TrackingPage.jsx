@@ -206,7 +206,7 @@ export function TrackingPage({ campaignId, comuneName }) {
           <Telemetry label="GPS" value={tracking.accuracy != null ? `${Math.round(tracking.accuracy)} m` : 'In attesa'} tone={tracking.accuracy != null && tracking.accuracy <= 50 ? 'good' : 'warn'} />
           <Telemetry label="Batteria" value={battery.supported ? `${battery.level}%${battery.charging ? ' · carica' : ''}` : 'Non disponibile'} tone={battery.supported && battery.level < 20 ? 'bad' : 'good'} />
           <Telemetry label="Rete" value={tracking.networkStatus === 'online' ? 'Online' : 'Offline'} tone={tracking.networkStatus === 'online' ? 'good' : 'warn'} />
-          <Telemetry label="Coda offline" value={tracking.queueSize} tone={tracking.queueSize ? 'warn' : 'good'} />
+          <Telemetry label="Coda offline locale" value={tracking.queueSize} tone={tracking.queueSize ? 'warn' : 'good'} />
         </div>
       </section>
 
@@ -230,6 +230,7 @@ export function TrackingPage({ campaignId, comuneName }) {
         <button type="button" style={secondaryButtonStyle} onClick={() => setSection('help')}>Assistenza</button>
         <button type="button" style={sosButtonStyle} onClick={sendSos}>SOS</button>
       </section>
+      <p style={localStateNoticeStyle}>Coda GPS offline, SOS e controllo duplicati foto sono salvati localmente su questo dispositivo finche non esiste un canale backend dedicato.</p>
 
       {section === 'home' && (
         <section style={cardStyle}>
@@ -269,7 +270,7 @@ export function TrackingPage({ campaignId, comuneName }) {
               {uploadState.loading ? 'Caricamento...' : 'Carica foto'}
             </button>
           </form>
-          <p style={mutedStyle}>La foto viene salvata con posizione, data, ora, operatore, campagna, watermark e hash nel campo note.</p>
+          <p style={mutedStyle}>La foto viene salvata su Supabase Storage con posizione, data, ora, operatore, campagna, watermark e hash nel campo note. Il controllo duplicati usa hash locali del browser.</p>
           {uploadState.message && <Notice text={uploadState.message} />}
           {uploadState.error && <Notice danger text={uploadState.error} />}
         </section>
@@ -466,6 +467,7 @@ const sectionTitleStyle = { margin: '5px 0 0', color: '#fff', fontSize: 20, line
 const mapWrapStyle = { height: 'min(62vh, 520px)', minHeight: 360, width: '100%', borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(255,255,255,.12)', position: 'relative', zIndex: 1 };
 const alertBannerStyle = { position: 'sticky', top: 0, zIndex: 20, maxWidth: 760, margin: '0 auto 10px', borderRadius: 14, padding: 12, background: '#EF4444', color: '#fff', fontWeight: 950, textAlign: 'center' };
 const noticeStyle = { maxWidth: 760, margin: '0 auto 10px', padding: 12, borderRadius: 14, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.12)', fontSize: 13, fontWeight: 750 };
+const localStateNoticeStyle = { maxWidth: 760, margin: '0 auto 12px', color: 'rgba(255,255,255,.5)', fontSize: 12, lineHeight: 1.45, padding: '0 4px' };
 const fileInputStyle = { minHeight: 54, borderRadius: 14, border: '1px solid rgba(255,255,255,.12)', background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.8)', padding: 13 };
 const textareaStyle = { width: '100%', boxSizing: 'border-box', minHeight: 90, borderRadius: 14, border: '1px solid rgba(255,255,255,.12)', background: 'rgba(255,255,255,.05)', color: '#fff', padding: 13, font: 'inherit', resize: 'vertical' };
 const linkButtonStyle = { ...secondaryButtonStyle, display: 'grid', placeItems: 'center', textDecoration: 'none' };

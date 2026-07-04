@@ -18,6 +18,13 @@ const F = {
 };
 
 const EMPTY = "Dato non disponibile";
+const MODULE_STATES = {
+  operative: { label: "Operativo", color: C.green },
+  empty: { label: "Configurato ma senza dati", color: C.blue },
+  notConfigured: { label: "Non configurato", color: C.yellow },
+  preparing: { label: "In preparazione", color: "rgba(255,255,255,.58)" },
+  attention: { label: "Da verificare", color: "#F87171" },
+};
 const STATUSES = {
   active: { label: "In distribuzione", color: C.green },
   pending: { label: "In attesa", color: C.yellow },
@@ -650,10 +657,10 @@ function buildEnterpriseModules({ campaigns, waitlist, activities, latestGpsPoin
     { title: "Fornitori", value: EMPTY, detail: "tabella fornitori non configurata", status: "warn" },
     { title: "Preventivi", value: availability.waitlist ? waitlist.length : EMPTY, detail: availability.waitlist ? "richieste Smart Pairing disponibili" : "tabella richieste non disponibile", status: availability.waitlist ? "ok" : "warn" },
     { title: "Pagamenti", value: EMPTY, detail: "nessuna tabella pagamenti rilevata", status: "warn" },
-    { title: "Documenti", value: EMPTY, detail: "archivio documenti admin non configurato", status: "warn" },
+    { title: "DMS documenti", value: "Operativo", detail: "modulo documentale dedicato con empty state controllati", status: "ok" },
     { title: "Report", value: campaigns.length, detail: "report disponibili per campagne selezionabili", status: campaigns.length ? "ok" : "warn" },
     { title: "Business intelligence", value: campaigns.length ? "Base dati pronta" : EMPTY, detail: campaigns.length ? "KPI da campagne reali" : "nessuna campagna reale", status: campaigns.length ? "ok" : "warn" },
-    { title: "AI copilot", value: EMPTY, detail: "modulo AI admin non configurato", status: "warn" },
+    { title: "AI anomalie", value: "Operativo", detail: "analisi anomalie su dati reali disponibili", status: "ok" },
     { title: "Health check", value: availability.campaigns ? "OK parziale" : EMPTY, detail: "controlla tabelle operative disponibili", status: availability.campaigns ? "ok" : "warn" },
     { title: "Error center", value: enterprise.alarmCount, detail: enterprise.alarmCount ? "allarmi operativi dai dati" : "nessun allarme dai dati disponibili", status: enterprise.alarmCount ? "danger" : "ok" },
     { title: "Notifiche", value: EMPTY, detail: "centro notifiche non configurato", status: "warn" },
@@ -676,13 +683,33 @@ function StatusTile({ item }) {
 
 function ModuleTile({ module }) {
   const color = module.status === "danger" ? "#F87171" : module.status === "ok" ? C.green : "rgba(255,255,255,.52)";
+  const state = getModuleState(module);
   return (
     <div style={{ padding: 14, borderRadius: 12, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.032)", fontFamily: F.sans, minHeight: 112 }}>
-      <p style={{ margin: "0 0 8px", color: C.white, fontSize: 13, fontWeight: 900 }}>{module.title}</p>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start", marginBottom: 8 }}>
+        <p style={{ margin: 0, color: C.white, fontSize: 13, fontWeight: 900 }}>{module.title}</p>
+        <span style={{ flexShrink: 0, color: state.color, border: `1px solid ${state.color}55`, background: `${state.color}12`, borderRadius: 999, padding: "3px 7px", fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".04em" }}>{state.label}</span>
+      </div>
       <strong style={{ display: "block", color, fontSize: 18, marginBottom: 6 }}>{module.value}</strong>
       <span style={mutedTinyStyle}>{module.detail}</span>
     </div>
   );
+}
+
+function getModuleState(module) {
+  if (module.status === "danger") return MODULE_STATES.attention;
+  if (["Fornitori", "Pagamenti", "Notifiche", "Backup"].includes(module.title)) return MODULE_STATES.notConfigured;
+  if (module.title === "DMS documenti" || module.title === "AI anomalie") return MODULE_STATES.operative;
+  if (/non configurat|non disponibile/i.test(module.detail || "")) return MODULE_STATES.notConfigured;
+  if (["Campagne", "Operatori", "GPS", "Photo control", "Clienti", "Preventivi", "Report", "Business intelligence", "Audit log", "Error center"].includes(module.title) && module.status === "warn") {
+    return MODULE_STATES.empty;
+  }
+  if (!module.value || module.value === EMPTY) {
+    if (module.status === "ok") return MODULE_STATES.empty;
+    return MODULE_STATES.notConfigured;
+  }
+  if (module.status === "warn") return MODULE_STATES.empty;
+  return MODULE_STATES.operative;
 }
 
 function matchesPeriod(value, period) {

@@ -2486,6 +2486,8 @@ function apiToZones(apiData, city) {
       municipality_code: c.comune_code || c.municipality_code || null,
       area,
       pop, families: fam, mailboxes: Math.round(fam * 0.93),
+      householdsTotal: Number(c.households_total || 0) || null,
+      householdsInRadius: Number(c.households_in_radius || 0) || null,
       coverage: pct, volantiniNelRaggio: Math.round(vol), familiesInRadius: fam, flyersMin: Math.round(vol), flyersMax: Math.round(vol * 1.1),
       operDays: Math.max(1, Math.ceil(vol / 4000)),
       familyIdx: fi, reachD2D: ri, roiD2D: ro, confD2D: co,
@@ -3386,7 +3388,7 @@ const territorialDataUnavailable = Boolean(city && !apiLoading && !hasUsefulApiZ
     let areas;
     if (gateMode === "municipality") {
       areas = zonesInRadius; // already filtered to 1 zone; bypasses stale `selected`
-      if (areas.length > 1) {
+      if (areas.length > 1 && !isNilAnalysis) {
         debugStep2Warn("[STEP2_MUNICIPALITY_MULTI_AREA_BLOCKED]", areas.length, "→ forcing to 1");
         areas = [areas[0]];
       }
@@ -3395,7 +3397,7 @@ const territorialDataUnavailable = Boolean(city && !apiLoading && !hasUsefulApiZ
     }
     debugStep2Log("[STEP2_FINAL_AREAS_FOR_COVERAGE]", areas.length, areas.map(z => z.name));
     return areas;
-  }, [searchMode, selectedCaps, capDataMap, zonesInRadius, allZones, selected]);
+  }, [searchMode, selectedCaps, capDataMap, zonesInRadius, allZones, selected, isNilAnalysis]);
 
   async function handleCapSelect(capSuggestion) {
     setSearch("");
@@ -3722,6 +3724,25 @@ const serviceKpis = selZones.length > 0 ? {
     roiScore: isResidentialStep2 && selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.roiD2D) || 0), 0) / selZones.length) : null,
     confidenceScore: isResidentialStep2 && selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.confD2D) || 0), 0) / selZones.length) : null,
   } : { area: "0", hotspotStrength: isMovementStep2 ? h2hMetrics.zones : 0, families: 0, pop: 0, population: 0, coverage: 0, recommendedFlyers: 0, selectedComuni: [], selectedNil: [], analysisLevel: activeAnalysisLevel, comuniCount: 0, poi: isMovementStep2 ? h2hMetrics.poi : 0, operationalZones: isMovementStep2 ? h2hMetrics.zones : isBusinessStep2 ? businessMetrics.clusters : 0, hotspotCount: isMovementStep2 ? h2hMetrics.zones : 0, tplStops: isMovementStep2 ? h2hMetrics.tplStops : 0, stations: isMovementStep2 ? h2hMetrics.stations : 0, metro: isMovementStep2 ? h2hMetrics.metro : 0, universities: isMovementStep2 ? h2hMetrics.universities : 0, localAttractors: isMovementStep2 ? h2hMetrics.localAttractors : 0, gpsWaypoints: operationalWaypoints.length, transitStops: isMovementStep2 ? h2hMetrics.transitTotal : 0, flowScore: isMovementStep2 ? h2hMetrics.flowScore : 0, businesses: isBusinessStep2 ? businessMetrics.businesses : 0, competitors: isBusinessStep2 ? businessMetrics.competitors : 0, commercialDensity: isBusinessStep2 ? businessMetrics.commercialDensity : 0, clusters: isBusinessStep2 ? businessMetrics.clusters : 0, targetBusinesses: isBusinessStep2 ? businessMetrics.targetBusinesses : 0, cdIdx: isBusinessStep2 ? businessMetrics.cdIdx : 0, familyIndex: null, reachScore: null, roiScore: null, confidenceScore: null };
+const municipalityTotalFamilies = (() => {
+  if (!isResidentialStep2 || isNilAnalysis) return null;
+  const selectedName = normalizeMunicipalityName(selectedMunicipality);
+  const exactComune = (apiZones || []).find(z => !z.isNil && normalizeMunicipalityName(z.name) === selectedName);
+  const total = Number(exactComune?.householdsTotal);
+  return Number.isFinite(total) && total > 0 ? Math.round(total) : null;
+})();
+const municipalityTotalFamiliesLabel = municipalityTotalFamilies != null
+  ? municipalityTotalFamilies.toLocaleString("it-IT", { useGrouping: true })
+  : "Totale Comune non disponibile";
+const selectedAreaFamiliesLabel = serviceKpis?.families > 0
+  ? serviceKpis.families.toLocaleString("it-IT", { useGrouping: true })
+  : "Dato non disponibile";
+const recommendedFlyersValue = Number(requiredFlyers) > 0
+  ? Math.round(Number(requiredFlyers))
+  : (Number(serviceKpis?.recommendedFlyers) > 0 ? Math.round(Number(serviceKpis.recommendedFlyers)) : null);
+const formattedRecommendedFlyers = recommendedFlyersValue != null
+  ? recommendedFlyersValue.toLocaleString("it-IT", { useGrouping: true })
+  : "N.D.";
 const radiusInsightRows = zonesInRadius.map(z => ({
       id: z.id,
       name: z.name,
@@ -4679,6 +4700,17 @@ const isManual = allocationMode === "manual";
                       : Math.max(1, Math.min(99, Math.round((assignedFlyers / Math.max(1, requiredFlyers)) * 100)));
                   const coverageState = assignedFlyers <= 0 ? "none" : coveragePercent >= 100 ? "full" : "partial";
                   const coverageLabel = coverageState === "none" ? "Copertura 0% - fuori budget attuale" : coverageState === "full" ? "Copertura totale" : "Copertura selettiva";
+                  const zoneTotalFamilies = Number(z.householdsTotal || z.households_total || z.totalFamilies || 0);
+                  const zoneAreaFamilies = Number(z.families || z.famiglie || z.householdsInRadius || z.households_in_radius || 0);
+                  const zoneCoveragePct = Number.isFinite(Number(z.coverage ?? z.pct ?? z.percent_nel_raggio))
+                    ? Math.round(Number(z.coverage ?? z.pct ?? z.percent_nel_raggio))
+                    : null;
+                  const rowMetric = (label, value, tone = "neutral") => (
+                    <div key={label} style={{ minWidth: 118, padding: "7px 8px", borderRadius: 8, background: tone === "accent" ? `${col}12` : "rgba(255,255,255,.032)", border: `1px solid ${tone === "accent" ? `${col}28` : "rgba(255,255,255,.055)"}` }}>
+                      <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.34)", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 3 }}>{label}</div>
+                      <div style={{ fontFamily: F.sans, fontSize: 10, color: tone === "accent" ? col : "rgba(255,255,255,.74)", fontWeight: 800, lineHeight: 1.15 }}>{value}</div>
+                    </div>
+                  );
 
                   return (
                     <div key={z.id} className="town-list-item" style={{
@@ -4717,6 +4749,16 @@ const isManual = allocationMode === "manual";
                                 ? `${z.poi} POI reali - ${z.transit || 0} nodi TPL/metro - score ${z.strength}/100`
                               : z.dist ? `${z.dist.toFixed(1)} km dal centro` : "Zona nel raggio"}
                           </div>
+                          {isResidentialStep2 && (
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(112px,1fr))", gap: 6, marginTop: 8 }}>
+                              {rowMetric("Totale stimato Comune", zoneTotalFamilies > 0 ? zoneTotalFamilies.toLocaleString("it-IT", { useGrouping: true }) : "N.D.")}
+                              {rowMetric("Copertura stimata area selezionata", zoneAreaFamilies > 0 ? zoneAreaFamilies.toLocaleString("it-IT", { useGrouping: true }) : "N.D.")}
+                              {rowMetric("Copertura %", zoneCoveragePct != null ? `${zoneCoveragePct}%` : "N.D.")}
+                              {rowMetric("Volantini inseriti", assignedFlyers.toLocaleString("it-IT", { useGrouping: true }))}
+                              {rowMetric("Volantini consigliati", requiredFlyers > 0 ? requiredFlyers.toLocaleString("it-IT", { useGrouping: true }) : "N.D.", "accent")}
+                              {isNilAnalysis && rowMetric("Zone NIL", "1")}
+                            </div>
+                          )}
                         </div>
 
                         {/* Barra e Copertura */}
@@ -4854,11 +4896,19 @@ const isManual = allocationMode === "manual";
                         <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12, padding: 14 }}>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
                             <div>
+                              <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Totale stimato Comune</div>
+                              <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: municipalityTotalFamilies != null ? C.white : "rgba(255,255,255,.55)" }}>{municipalityTotalFamiliesLabel}</div>
+                            </div>
+                            <div>
+                              <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Copertura stimata area selezionata</div>
+                              <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{selectedAreaFamiliesLabel}</div>
+                            </div>
+                            <div>
                               <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Zona</div>
                               <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{city ? city.name : (activeCampaignZone?.cityName || "Area")} · {searchMode === "municipality" ? "intero comune" : `${radiusKm}km`}</div>
                             </div>
                             <div>
-                              <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Comuni coinvolti</div>
+                              <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>{isNilAnalysis ? "Zone NIL coinvolte" : "Comuni coinvolti"}</div>
                               <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{selZones.length || zonesInRadius.length}</div>
                             </div>
                             <div>
@@ -5089,10 +5139,18 @@ const isManual = allocationMode === "manual";
                   </div>
                 )}
 
+                {isResidentialStep2 && (
+                  <div style={{ padding: 13, borderRadius: 11, background: `${col}12`, border: `1px solid ${col}30`, boxShadow: `0 12px 30px ${col}10` }}>
+                    <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: col, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 5 }}>Volantini consigliati</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 27, fontWeight: 900, color: C.white, lineHeight: 1 }}>{formattedRecommendedFlyers}</div>
+                    <div style={{ marginTop: 6, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.56)", lineHeight: 1.35 }}>Per copertura completa dell'area selezionata</div>
+                  </div>
+                )}
+
                 {/* Comuni, volantini, raggio su 3 colonne */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 9, padding: "10px 12px" }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>Comuni</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>{territoryPluralLabel}</div>
                     <div style={{ fontFamily: F.sans, fontSize: 18, fontWeight: 800, color: C.white }}>{summaryComuniStats?.total || selZones.length || zonesInRadius.length || 1}</div>
                   </div>
                   <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 9, padding: "10px 12px" }}>
@@ -5115,6 +5173,29 @@ const isManual = allocationMode === "manual";
             const profileFam = serviceKpis?.families > 0 ? serviceKpis.families : (aiAgg?.families > 0 ? aiAgg.families : (demoData?.householdsTotal > 0 ? demoData.householdsTotal : 0));
             const profileDens = zoneDensity > 0 ? zoneDensity : (aiAgg?.densita > 0 ? aiAgg.densita : (summaryComuniStats?.densita > 0 ? summaryComuniStats.densita : 0));
             const verdictScore = zoneVerdict?.score || 75;
+            const demographicSource = demoData ? "Fonte: demographic_indicators" : "Fonte: dato non disponibile";
+            const demographicYear = demoData?.referenceYear || 2024;
+            const demographicStatus = demoData ? "Dato verificato internamente" : "Dato non disponibile";
+            const totalHouseholds = demoData?.householdsTotal > 0 ? demoData.householdsTotal : profileFam;
+            const totalPopulation = demoData?.populationTotal > 0 ? demoData.populationTotal : profilePop;
+            const ageRows = demoData ? [
+              { l: "0-14", v: demoData.age_0_14_pct, c: "#A78BFA" },
+              { l: "15-34", v: demoData.age_15_34_pct, c: "#38BDF8" },
+              { l: "35-64", v: demoData.age_35_64_pct, c: "#4ADE80" },
+              { l: "65+", v: demoData.age_65_plus_pct, c: "#FBBF24" },
+            ].filter((row) => Number.isFinite(Number(row.v))) : [];
+            const unavailableTerritorialRows = [
+              { l: "Single", v: "Richiede dataset territoriale dedicato", c: "#A78BFA" },
+              { l: "Coppie", v: "Richiede dataset territoriale dedicato", c: "#F472B6" },
+              { l: "Famiglie con figli", v: "Richiede dataset territoriale dedicato", c: "#34D399" },
+            ];
+            const unavailableLanduseRows = [
+              { l: "Residenziale", v: "Richiede dataset territoriale dedicato", c: "#38BDF8" },
+              { l: "Commerciale", v: "Richiede dataset territoriale dedicato", c: "#FB923C" },
+              { l: "Industriale", v: "Richiede dataset territoriale dedicato", c: "#FBBF24" },
+            ];
+            const omiRows = omiInfo?.available && Array.isArray(omiInfo?.values) ? omiInfo.values.filter((row) => row?.typology && (row.min_value != null || row.max_value != null)) : [];
+            const omiSourceLabel = omiInfo?.available ? "Fonte: Agenzia Entrate - OMI 2025/2" : "Fonte: dato non disponibile";
 
             // Insight Principale
             let insightIcon = "🏘";
@@ -5139,34 +5220,11 @@ const isManual = allocationMode === "manual";
             }
 
             // Dati per Micro Grafici
-            let pctYoung = demoData?.age_15_34_pct || (aiAgg?.eta34 >= 25 ? aiAgg.eta34 : 27);
-            let pctAdult = demoData?.age_35_64_pct || (aiAgg?.eta64 >= 35 ? aiAgg.eta64 : 48);
-            let pctSenior = demoData?.age_65_plus_pct || (aiAgg?.eta65 >= 15 ? aiAgg.eta65 : 25);
-            const totAge = pctYoung + pctAdult + pctSenior || 100;
-            pctYoung = Math.round((pctYoung / totAge) * 100);
-            pctAdult = Math.round((pctAdult / totAge) * 100);
-            pctSenior = 100 - pctYoung - pctAdult;
-
-            let pctSingle = 31;
-            let pctCouples = 28;
-            let pctFamilies = 41;
-            if (demoData?.avgHouseholdSize > 0) {
-              const sz = demoData.avgHouseholdSize;
-              if (sz >= 2.5) { pctSingle = 22; pctCouples = 26; pctFamilies = 52; }
-              else if (sz <= 1.8) { pctSingle = 48; pctCouples = 32; pctFamilies = 20; }
-            }
-
-            let pctRes = isResidentialStep2 ? 76 : isBusinessStep2 ? 24 : 45;
-            let pctCom = isBusinessStep2 ? 64 : isMovementStep2 ? 45 : 18;
-            let pctInd = 100 - pctRes - pctCom;
-            if (pctInd < 6) { pctInd = 6; pctRes = 100 - pctCom - pctInd; }
-
             // Badge territoriali
             const badges = [
               { label: isResidentialStep2 ? "🏘 Residenziale" : isBusinessStep2 ? "🏢 Commerciale" : "📍 Alto transito", color: "#38BDF8", bg: "rgba(56, 189, 248, 0.12)", border: "rgba(56, 189, 248, 0.28)" },
               profileDens >= 2000 ? { label: "📈 Alta densità", color: "#4ADE80", bg: "rgba(74, 222, 128, 0.12)", border: "rgba(74, 222, 128, 0.28)" } : { label: "🏡 Densità equilibrata", color: "#A78BFA", bg: "rgba(167, 139, 250, 0.12)", border: "rgba(167, 139, 250, 0.28)" },
-              { label: "🚇 Ben collegata", color: "#FBBF24", bg: "rgba(251, 191, 36, 0.12)", border: "rgba(251, 191, 36, 0.28)" },
-              pctFamilies >= 38 ? { label: "👨‍👩‍👧 Prevalenza famiglie", color: "#F472B6", bg: "rgba(244, 114, 182, 0.12)", border: "rgba(244, 114, 182, 0.28)" } : { label: "🎯 Target mirato", color: "#FB923C", bg: "rgba(251, 146, 60, 0.12)", border: "rgba(251, 146, 60, 0.28)" },
+              { label: demographicStatus, color: demoData ? "#FBBF24" : "rgba(255,255,255,.55)", bg: "rgba(251, 191, 36, 0.12)", border: "rgba(251, 191, 36, 0.28)" },
             ];
 
             const compatPct = Math.min(99, Math.max(68, Math.round(verdictScore)));
@@ -5174,15 +5232,6 @@ const isManual = allocationMode === "manual";
             const compatColor = compatPct >= 85 ? "#4ADE80" : compatPct >= 72 ? "#60A5FA" : "#FBBF24";
             const formatOmiValue = (value) => Number(value || 0).toLocaleString("it-IT", { useGrouping: true });
             const formatOmiRange = (min, max) => `${formatOmiValue(min)} - ${formatOmiValue(max)} EUR/mq`;
-            const omiFallbackValues = [
-              { t: "Ville", min: 2100, max: 3200 },
-              { t: "Appartamenti", min: 1650, max: 2400 },
-              { t: "Uffici", min: 1400, max: 2100 },
-              { t: "Negozi", min: 1800, max: 2900 },
-              { t: "Magazzini", min: 650, max: 1100 },
-              { t: "Laboratori", min: 800, max: 1350 },
-            ];
-
             return (
               <AnimatePresence mode="wait">
                 {!isAdminView ? (
@@ -5200,7 +5249,7 @@ const isManual = allocationMode === "manual";
                           </div>
                         </div>
                         <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(59, 130, 246, 0.15)", color: "#60A5FA", border: "1px solid rgba(59, 130, 246, 0.3)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, letterSpacing: ".06em" }}>
-                          AI ANALYSIS
+                          DATI DISPONIBILI
                         </span>
                         <span style={{ padding: "3px 8px", borderRadius: 6, background: `${compatColor}18`, color: compatColor, border: `1px solid ${compatColor}33`, fontFamily: F.sans, fontSize: 10, fontWeight: 800, letterSpacing: ".04em" }}>
                           {zoneVerdict?.title || "Zona adatta"}
@@ -5219,7 +5268,7 @@ const isManual = allocationMode === "manual";
                         </div>
                       </div>
 
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginBottom: 16 }}>
                         <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 9, padding: "10px 12px" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                             <span style={{ fontSize: 14 }}>🏙</span>
@@ -5232,29 +5281,37 @@ const isManual = allocationMode === "manual";
                         <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 9, padding: "10px 12px" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                             <span style={{ fontSize: 14 }}>📈</span>
-                            <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Target residenziale</span>
+                            <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Famiglie totali</span>
                           </div>
                           <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: "#38BDF8" }}>
-                            {pctRes}% dell&apos;area
+                            {totalHouseholds > 0 ? formatNumber(totalHouseholds) : "Dato non disponibile"}
                           </div>
                         </div>
+                        <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 9, padding: "10px 12px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                            <span style={{ fontSize: 14 }}>👥</span>
+                            <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Popolazione</span>
+                          </div>
+                          <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: C.white }}>
+                            {totalPopulation > 0 ? formatNumber(totalPopulation) : "Dato non disponibile"}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.5)", marginBottom: 14 }}>
+                        {demographicSource} - Anno: {demographicYear} - Stato dato: {demographicStatus}
                       </div>
 
                       <div style={{ background: "rgba(0,0,0,.18)", border: "1px solid rgba(255,255,255,.06)", borderRadius: 10, padding: "14px", marginBottom: 16, display: "flex", flexDirection: "column", gap: 14 }}>
                         <div>
                           <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.7)", marginBottom: 6 }}>Fasce d&apos;età prevalenti</div>
                           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {[
-                              { l: "Giovani (18-34)", v: pctYoung, c: "#38BDF8" },
-                              { l: "Adulti (35-64)", v: pctAdult, c: "#4ADE80" },
-                              { l: "Senior (65+)", v: pctSenior, c: "#FBBF24" },
-                            ].map((b, idx) => (
+                            {(ageRows.length ? ageRows : [{ l: "Dato non disponibile", v: null, c: "rgba(255,255,255,.45)" }]).map((b, idx) => (
                               <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <span style={{ width: 94, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>{b.l}</span>
                                 <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
-                                  <div style={{ width: `${b.v}%`, height: "100%", background: b.c, borderRadius: 3 }} />
+                                  {Number.isFinite(Number(b.v)) && <div style={{ width: `${b.v}%`, height: "100%", background: b.c, borderRadius: 3 }} />}
                                 </div>
-                                <span style={{ width: 32, textAlign: "right", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: b.c }}>{b.v}%</span>
+                                <span style={{ width: 60, textAlign: "right", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: b.c }}>{Number.isFinite(Number(b.v)) ? `${Math.round(Number(b.v))}%` : "N.D."}</span>
                               </div>
                             ))}
                           </div>
@@ -5263,17 +5320,10 @@ const isManual = allocationMode === "manual";
                         <div style={{ borderTop: "1px solid rgba(255,255,255,.05)", paddingTop: 10 }}>
                           <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.7)", marginBottom: 6 }}>Composizione nuclei</div>
                           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {[
-                              { l: "Single", v: pctSingle, c: "#A78BFA" },
-                              { l: "Coppie", v: pctCouples, c: "#F472B6" },
-                              { l: "Famiglie con figli", v: pctFamilies, c: "#34D399" },
-                            ].map((b, idx) => (
+                            {unavailableTerritorialRows.map((b, idx) => (
                               <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <span style={{ width: 94, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>{b.l}</span>
-                                <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
-                                  <div style={{ width: `${b.v}%`, height: "100%", background: b.c, borderRadius: 3 }} />
-                                </div>
-                                <span style={{ width: 32, textAlign: "right", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: b.c }}>{b.v}%</span>
+                                <span style={{ flex: 1, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.58)" }}>{b.v}</span>
                               </div>
                             ))}
                           </div>
@@ -5282,17 +5332,10 @@ const isManual = allocationMode === "manual";
                         <div style={{ borderTop: "1px solid rgba(255,255,255,.05)", paddingTop: 10 }}>
                           <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.7)", marginBottom: 6 }}>Destinazione area</div>
                           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {[
-                              { l: "Residenziale", v: pctRes, c: "#38BDF8" },
-                              { l: "Commerciale", v: pctCom, c: "#FB923C" },
-                              { l: "Verde / Mista", v: pctInd, c: "#4ADE80" },
-                            ].map((b, idx) => (
+                            {unavailableLanduseRows.map((b, idx) => (
                               <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <span style={{ width: 80, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>{b.l}</span>
-                                <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
-                                  <div style={{ width: `${b.v}%`, height: "100%", background: b.c, borderRadius: 3 }} />
-                                </div>
-                                <span style={{ width: 32, textAlign: "right", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: b.c }}>{b.v}%</span>
+                                <span style={{ flex: 1, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.58)" }}>{b.v}</span>
                               </div>
                             ))}
                           </div>
@@ -5309,13 +5352,16 @@ const isManual = allocationMode === "manual";
 
                       <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 10, padding: "12px 14px", marginBottom: 16 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
-                          <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.65)", textTransform: "uppercase", letterSpacing: ".04em" }}>Compatibilità</span>
+                          <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.65)", textTransform: "uppercase", letterSpacing: ".04em" }}>Score operativo interno</span>
                           <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: compatColor, padding: "2px 8px", borderRadius: 6, background: `${compatColor}18`, border: `1px solid ${compatColor}33` }}>
                             {compatPct}% — {compatLabel}
                           </span>
                         </div>
                         <div style={{ width: "100%", height: 8, background: "rgba(255,255,255,.08)", borderRadius: 4, overflow: "hidden" }}>
                           <div style={{ width: `${compatPct}%`, height: "100%", background: `linear-gradient(90deg, ${compatColor}88 0%, ${compatColor} 100%)`, borderRadius: 4 }} />
+                        </div>
+                        <div style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.5)", marginTop: 8 }}>
+                          Calcolato internamente da copertura, densita e quantita. Non e un dato territoriale ufficiale.
                         </div>
                       </div>
 
@@ -5325,7 +5371,10 @@ const isManual = allocationMode === "manual";
                     <div style={{ background: "rgba(59,130,246,.07)", borderRadius: 12, padding: "14px 16px", border: "1px solid rgba(59,130,246,.22)" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
                         <span style={{ fontSize: 15 }}>🤖</span>
-                        <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "#60A5FA", letterSpacing: ".05em", textTransform: "uppercase" }}>Consiglio AI</span>
+                        <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "#60A5FA", letterSpacing: ".05em", textTransform: "uppercase" }}>Consiglio operativo automatico</span>
+                      </div>
+                      <div style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.5)", marginBottom: 10 }}>
+                        Regole automatiche basate su dati disponibili, non analisi generativa.
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 10, fontFamily: F.sans, fontSize: 12, lineHeight: 1.5 }}>
                         <div style={{ paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,.06)" }}>
@@ -5377,8 +5426,8 @@ const isManual = allocationMode === "manual";
                           { l: "Famiglie", v: profileFam > 0 ? formatNumber(profileFam) : "Dato non disponibile" },
                           { l: "Popolazione", v: profilePop > 0 ? formatNumber(profilePop) : "Dato non disponibile" },
                           { l: "Densità", v: profileDens > 0 ? `${formatNumber(profileDens)} ab./km²` : "Dato non disponibile" },
-                          { l: "Indice residenz.", v: `${pctRes}%` },
-                          { l: "Peso distrib.", v: isResidentialStep2 ? "76% D2D" : isBusinessStep2 ? "84% B2B" : "68% H2H" },
+                          { l: "Fonte demografica", v: demoData ? "demographic_indicators" : "Dato non disponibile" },
+                          { l: "Anno dato", v: demoData ? demographicYear : "Dato non disponibile" },
                         ].map(({ l, v }) => (
                           <div key={l} style={{ minWidth: 0, padding: "8px 10px", borderRadius: 8, background: "rgba(255,255,255,.04)" }}>
                             <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.45)", textTransform: "uppercase", marginBottom: 2 }}>{l}</div>
@@ -5419,17 +5468,13 @@ const isManual = allocationMode === "manual";
                         <div>
                           <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.7)", marginBottom: 6 }}>Età</div>
                           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {[
-                              { l: "18-34", v: pctYoung, c: "#38BDF8" },
-                              { l: "35-64", v: pctAdult, c: "#4ADE80" },
-                              { l: "65+", v: pctSenior, c: "#FBBF24" },
-                            ].map(b => (
+                            {(ageRows.length ? ageRows : [{ l: "Dato non disponibile", v: null, c: "rgba(255,255,255,.45)" }]).map(b => (
                               <div key={b.l} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <span style={{ width: 44, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.6)" }}>{b.l}</span>
                                 <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
-                                  <div style={{ width: `${b.v}%`, height: "100%", background: b.c, borderRadius: 3 }} />
+                                  {Number.isFinite(Number(b.v)) && <div style={{ width: `${b.v}%`, height: "100%", background: b.c, borderRadius: 3 }} />}
                                 </div>
-                                <span style={{ width: 32, textAlign: "right", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: b.c }}>{b.v}%</span>
+                                <span style={{ width: 58, textAlign: "right", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: b.c }}>{Number.isFinite(Number(b.v)) ? `${Math.round(Number(b.v))}%` : "N.D."}</span>
                               </div>
                             ))}
                           </div>
@@ -5438,17 +5483,10 @@ const isManual = allocationMode === "manual";
                         <div style={{ borderTop: "1px solid rgba(255,255,255,.05)", paddingTop: 10 }}>
                           <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.7)", marginBottom: 6 }}>Famiglie</div>
                           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {[
-                              { l: "Single", v: pctSingle, c: "#A78BFA" },
-                              { l: "Coppie", v: pctCouples, c: "#F472B6" },
-                              { l: "Fam. con figli", v: pctFamilies, c: "#34D399" },
-                            ].map(b => (
+                            {unavailableTerritorialRows.map(b => (
                               <div key={b.l} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <span style={{ width: 85, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.6)" }}>{b.l}</span>
-                                <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
-                                  <div style={{ width: `${b.v}%`, height: "100%", background: b.c, borderRadius: 3 }} />
-                                </div>
-                                <span style={{ width: 32, textAlign: "right", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: b.c }}>{b.v}%</span>
+                                <span style={{ flex: 1, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.58)" }}>{b.v}</span>
                               </div>
                             ))}
                           </div>
@@ -5457,17 +5495,10 @@ const isManual = allocationMode === "manual";
                         <div style={{ borderTop: "1px solid rgba(255,255,255,.05)", paddingTop: 10 }}>
                           <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.7)", marginBottom: 6 }}>Destinazione</div>
                           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {[
-                              { l: "Residenziale", v: pctRes, c: "#38BDF8" },
-                              { l: "Commerciale", v: pctCom, c: "#FB923C" },
-                              { l: "Mista", v: pctInd, c: "#4ADE80" },
-                            ].map(b => (
+                            {unavailableLanduseRows.map(b => (
                               <div key={b.l} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <span style={{ width: 85, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.6)" }}>{b.l}</span>
-                                <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
-                                  <div style={{ width: `${b.v}%`, height: "100%", background: b.c, borderRadius: 3 }} />
-                                </div>
-                                <span style={{ width: 32, textAlign: "right", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: b.c }}>{b.v}%</span>
+                                <span style={{ flex: 1, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.58)" }}>{b.v}</span>
                               </div>
                             ))}
                           </div>
@@ -5476,36 +5507,39 @@ const isManual = allocationMode === "manual";
                     </div>
 
                     {/* D. Mercato Immobiliare OMI */}
+                    {omiRows.length > 0 && (
                     <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px 18px", border: "1px solid rgba(34,197,94,.3)" }}>
                       <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: "#22C55E", marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>
                         <span>🏛</span> Mercato Immobiliare OMI
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                        {omiFallbackValues.map(item => {
-                          const omiMatch = (omiInfo?.values || []).find(val => val?.typology?.toLowerCase().includes(item.t.toLowerCase().slice(0, 4)));
-                          const displayVal = omiMatch && omiMatch.min_value != null && omiMatch.max_value != null ? formatOmiRange(omiMatch.min_value, omiMatch.max_value) : formatOmiRange(item.min, item.max);
+                        {omiRows.map(item => {
+                          const displayVal = item.min_value != null && item.max_value != null ? formatOmiRange(item.min_value, item.max_value) : "Dato non disponibile";
                           return (
-                            <div key={item.t} style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(34, 197, 94,.06)", border: "1px solid rgba(34, 197, 94,.14)" }}>
-                              <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.45)", textTransform: "uppercase", marginBottom: 2 }}>{item.t}</div>
+                            <div key={item.typology} style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(34, 197, 94,.06)", border: "1px solid rgba(34, 197, 94,.14)" }}>
+                              <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.45)", textTransform: "uppercase", marginBottom: 2 }}>{item.typology}</div>
                               <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "#22C55E" }}>{displayVal}</div>
                             </div>
                           );
                         })}
                       </div>
+                      <div style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.5)", marginTop: 10 }}>
+                        {omiSourceLabel}
+                      </div>
                     </div>
+                    )}
 
-                    {/* E. Indicatori AI */}
+                    {/* E. Score operativo interno */}
                     <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px 18px", border: "1px solid rgba(251,191,36,.3)" }}>
                       <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: "#FBBF24", marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>
-                        <span>⚡</span> Indicatori AI
+                        <span>⚡</span> Score operativo interno
+                      </div>
+                      <div style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.5)", marginBottom: 10 }}>
+                        Calcolato internamente da copertura, densita e quantita. Non e un dato territoriale ufficiale.
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                         {[
-                          { l: kpiLabel("reachScore"), v: Math.min(99, Math.max(78, Math.round(verdictScore + 6))), fmt: "%", c: "#4ADE80" },
-                          { l: kpiLabel("roiScore"), v: Math.min(98, Math.max(82, Math.round(verdictScore + 4))), fmt: "%", c: "#38BDF8" },
-                          { l: kpiLabel("confidence"), v: 94, fmt: "%", c: "#A855F7" },
-                          { l: "Indice residenzialità", v: pctRes, fmt: "%", c: "#60A5FA" },
-                          { l: "Compatibilità servizio", v: compatPct, fmt: "%", c: "#FBBF24" },
+                          { l: "Score operativo interno", v: compatPct, fmt: "%", c: "#FBBF24" },
                         ].map(ind => (
                           <div key={ind.l} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -5520,17 +5554,19 @@ const isManual = allocationMode === "manual";
                       </div>
                     </div>
 
-                    {/* F. AI Insights */}
+                    {/* F. Consiglio operativo automatico */}
                     <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px 18px", border: "1px solid rgba(96,165,250,.3)" }}>
                       <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: "#60A5FA", marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>
-                        <span>💡</span> AI Insights
+                        <span>💡</span> Consiglio operativo automatico
+                      </div>
+                      <div style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.5)", marginBottom: 10 }}>
+                        Regole automatiche basate su dati disponibili, non analisi generativa.
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         {[
-                          "Zona ad alta densità familiare",
-                          `Compatibile con ${data.serviceType || "Door to Door"}`,
-                          "Bassa presenza industriale",
-                          "Distribuzione consigliata nelle aree centrali",
+                          profileDens > 0 ? `Densita abitativa disponibile: circa ${formatNumber(profileDens)} ab./km².` : "Densita abitativa non disponibile.",
+                          missingFlyers > 0 ? `Copertura parziale: valuta ${(requiredFlyers || flyerQuantityFromStep1).toLocaleString("it-IT", { useGrouping: true })} volantini per copertura ottimale.` : "Quantita coerente con la copertura stimata disponibile.",
+                          totalHouseholds > 0 ? `Famiglie totali disponibili: ${formatNumber(totalHouseholds)}.` : "Famiglie totali non disponibili.",
                         ].map((ins, idx) => (
                           <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: "rgba(59,130,246,.08)", border: "1px solid rgba(59,130,246,.2)" }}>
                             <span style={{ color: "#60A5FA", fontWeight: 900, fontSize: 13 }}>✓</span>
@@ -5546,14 +5582,14 @@ const isManual = allocationMode === "manual";
                         <span>🛡</span> Fonti dati
                       </div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-                        {["ISTAT", "OMI", "OpenStreetMap", "Database Civici", "AI Analysis"].map(src => (
+                        {["demographic_indicators", "Agenzia Entrate - OMI 2025/2", "OpenStreetMap", "Database Civici", "Analisi interna"].map(src => (
                           <span key={src} style={{ padding: "4px 10px", borderRadius: 6, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.12)", fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.8)" }}>
                             {src}
                           </span>
                         ))}
                       </div>
                       <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>
-                        Ultimo aggiornamento: dato non disponibile
+                        Anno dati demografici: {demoData ? demographicYear : "Dato non disponibile"} - OMI: {omiRows.length > 0 ? "Agenzia Entrate - OMI 2025/2" : "Dato non disponibile"}
                       </div>
                     </div>
                   </motion.div>
@@ -9371,9 +9407,9 @@ const statusCfg = {
     completata: ["Completata", C.blue],
   };
 const svcCfg = {
-    d2d: ["D2D", C.orange],
-    h2h: ["H2H", C.blue],
-    b2b: ["B2B", C.purple],
+    d2d: ["Door to Door", C.orange],
+    h2h: ["Hand to Hand", C.blue],
+    b2b: ["Distribuzione Business", C.purple],
   };
 // Display-layer normalization: legacy Italian columns, current base columns and metadata JSON.
 const normCampagna = c => {
@@ -10365,100 +10401,6 @@ function CampaignDashboardPage({ onNav, campaignId }) {
               ))}
             </section>
           </aside>
-        </div>
-      </div>
-    </div>
-  );
-  return (
-    <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px" }}>
-      <div style={{ maxWidth: 1180, margin: "0 auto" }}>
-        {nuovo && <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 11, background: "rgba(46,204,138,.1)", border: "1px solid rgba(46,204,138,.24)", color: C.green, fontFamily: F.sans, fontSize: 13, fontWeight: 800 }}>Campagna confermata! Ti contatteremo entro 24 ore per confermare i dettagli operativi.</div>}
-        {error && <div style={{ marginBottom: 14, padding: "11px 13px", borderRadius: 10, background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.22)", color: C.yellow, fontFamily: F.sans, fontSize: 12 }}>Dettaglio reale non disponibile.</div>}
-        {(source === "demo" || campagna._isDemoData) && <div style={{ marginBottom: 14, padding: "8px 12px", borderRadius: 10, background: "rgba(168,85,247,.12)", border: "1px solid rgba(168,85,247,.3)", color: "#D8B4FE", fontFamily: F.sans, fontSize: 12, fontWeight: 700, display: "inline-block" }}>🧪 Dati demo</div>}
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 22 }}>
-          <div>
-            <NavButton onClick={() => onNav("dashboard")} compact style={{ marginBottom: 10 }}>{"\u2190 Dashboard"}</NavButton>
-            <h1 style={{ fontFamily: F.serif, fontSize: 34, color: C.white, letterSpacing: "-1px" }}>Dashboard campagna</h1>
-            <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.45)", marginTop: 6 }}>{campagnaView.zona} · {serviceLabel} · {(campagnaView.quantita || 0).toLocaleString("it-IT", { useGrouping: true })} volantini{campagnaView.smart_pairing_sconto ? ` · Smart Pairing ${campagnaView.smart_pairing_sconto}%` : ""}</div>
-          </div>
-          <button onClick={() => onNav("report", { campaignId: campagna.id })} style={{ minHeight: 44, padding: "0 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Scarica report campagna</button>
-        </div>
-
-	        <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18, marginBottom: 14 }}>
-	          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
-	            {[["Famiglie", campagnaView.famiglie != null ? campagnaView.famiglie.toLocaleString("it-IT", { useGrouping: true }) : "Dato non disponibile"], ["Copertura", campagnaView.copertura_pct != null ? `${campagnaView.copertura_pct}%` : "Dato non disponibile"], ["Comuni", campagnaView.comuni_count != null ? campagnaView.comuni_count : "Dato non disponibile"], ["Volantini necessari", campagnaView.volantini_necessari != null ? campagnaView.volantini_necessari.toLocaleString("it-IT", { useGrouping: true }) : "Dato non disponibile"]].map(([label, value]) => (
-	              <div key={label} style={{ padding: 12, borderRadius: 11, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.06)" }}>
-	                <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.38)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 5 }}>{label}</div>
-	                <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.white }}>{value}</div>
-	              </div>
-	            ))}
-	            {progressSteps.map(([id, label], i) => {
-              const done = i <= activeIndex;
-              return <div key={id} style={{ padding: 12, borderRadius: 11, background: done ? "rgba(46,204,138,.08)" : "rgba(255,255,255,.035)", border: `1px solid ${done ? "rgba(46,204,138,.24)" : "rgba(255,255,255,.06)"}` }}><div style={{ width: 24, height: 24, borderRadius: "50%", background: done ? C.green : "rgba(255,255,255,.1)", color: C.white, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.sans, fontSize: 12, fontWeight: 800, marginBottom: 8 }}>{i + 1}</div><div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: done ? C.white : "rgba(255,255,255,.42)" }}>{label}</div></div>;
-            })}
-          </div>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.25fr) minmax(280px,.75fr)", gap: 14 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ padding: 14, borderRadius: 12, background: campagna.stato_pagamento === "pagato" ? "rgba(46,204,138,.08)" : "rgba(251,191,36,.08)", border: `1px solid ${campagna.stato_pagamento === "pagato" ? "rgba(46,204,138,.22)" : "rgba(251,191,36,.22)"}`, color: campagna.stato_pagamento === "pagato" ? C.green : C.yellow, fontFamily: F.sans, fontSize: 13, fontWeight: 800 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-                <span>{campagna.stato_pagamento === "pagato" ? "Pagamento ricevuto" : "In attesa del bonifico"}</span>
-                {campagna.stato_pagamento !== "pagato" && <button onClick={() => onNav("payment", { campaignId: campagna.id })} style={{ minHeight: 34, padding: "0 11px", borderRadius: 8, border: "none", background: C.yellow, color: C.navyDeep, fontFamily: F.sans, fontSize: 11, fontWeight: 900, cursor: "pointer" }}>Vedi istruzioni pagamento </button>}
-              </div>
-              {!isExecuting && (
-                <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", fontFamily: F.sans, fontSize: 11, fontWeight: 600 }}>
-                  <span style={{ padding: "3px 9px", borderRadius: 999, background: "rgba(46,204,138,.14)", color: C.green }}>{statoLabel}</span>
-                  <span style={{ padding: "3px 9px", borderRadius: 999, background: "rgba(255,255,255,.08)", color: "rgba(255,255,255,.55)" }}>Distribuzione non ancora avviata</span>
-                </div>
-              )}
-            </div>
-            <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}>
-              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.green, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Statistiche distribuzione</div>
-	              {[["Volantini distribuiti", `${distributedCount.toLocaleString("it-IT", { useGrouping: true })} / ${campagnaView.quantita.toLocaleString("it-IT", { useGrouping: true })}`, distributedPct, C.green], [coverageStatLabel, coverageLabel, coveragePct, C.orange], [comuniStatLabel, comuniStatValue, isExecuting ? distributedPct : 100, C.blue], ["Giorni rimanenti", String(daysRemaining), Math.max(0, 100 - daysRemaining * 20), C.purple]].map(([l, v, pct, c]) => <div key={l} style={{ marginBottom: 10 }}><div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: C.white, marginBottom: 5 }}><span>{l}</span><b style={{ color: c }}>{v}</b></div><div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,.08)", overflow: "hidden" }}><div style={{ width: `${Math.max(0, Math.min(100, finiteNumberOr(pct, 0, "dashboard_stat_pct")))}%`, height: "100%", background: c }} /></div></div>)}
-            </div>
-
-            <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}>
-              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.blue, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>
-                {gpsFormat === "svg" ? "Anteprima percorso" : "Percorso GPS live"}
-              </div>
-              <div style={{ height: 300, borderRadius: 12, background: "linear-gradient(135deg,#173225,#182b42 52%,#2b2648)", border: "1px solid rgba(255,255,255,.08)", position: "relative", overflow: "hidden" }}>
-                {gpsFormat === "latlng" && (
-                  <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 20, textAlign: "center", fontFamily: F.sans }}>
-                    <div style={{ fontSize: 24 }}>📍</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: C.green }}>Tracking GPS disponibile, mappa reale in preparazione.</div>
-                  </div>
-                )}
-                {gpsFormat === "svg" && (
-                  <div style={{ position: "absolute", inset: 0 }}>
-                    <div style={{ position: "absolute", top: 12, left: 12, zIndex: 2, padding: "4px 10px", borderRadius: 6, background: "rgba(0,0,0,.6)", border: "1px solid rgba(255,255,255,.15)", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.yellow }}>
-                      Anteprima percorso (non mappa GPS reale)
-                    </div>
-                    <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0 }}>
-                      <polyline points={svgPoints.map(p => p.slice(0, 2).join(",")).join(" ")} fill="none" stroke={C.green} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                      {svgPoints.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i === svgPoints.length - 1 ? 2.3 : 1.3} fill={i === svgPoints.length - 1 ? C.orange : C.green} />)}
-                    </svg>
-                  </div>
-                )}
-                {gpsFormat === "empty" && (
-                  <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.48)" }}>
-                    Tracking GPS non ancora disponibile per questa campagna.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}>
-              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.purple, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Foto proof geolocalizzate</div>
-              {proof.length > 0 ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10 }}>{proof.map((p, i) => <div key={i} style={{ aspectRatio: "4/3", borderRadius: 11, background: `url(${p.url}) center/cover, rgba(255,255,255,.05)`, border: "1px solid rgba(255,255,255,.08)" }} />)}</div> : <div style={{ padding: 22, borderRadius: 11, background: "rgba(255,255,255,.035)", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.48)", textAlign: "center" }}>Le foto verranno caricate durante la distribuzione</div>}
-            </div>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}><div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.green, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Smart Pairing</div><div style={{ fontFamily: F.serif, fontSize: 30, color: C.green, letterSpacing: "-.8px" }}>{campagnaView.smart_pairing_sconto || 0}%</div><div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.48)", lineHeight: 1.55, marginTop: 6 }}>{(campagnaView.selected_dates || []).join(" – ") || "Date da confermare"} – sconto applicato al preventivo.</div></div>
-            <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}><div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.orange, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Riepilogo economico</div>{[["Distribuzione base", base], ["Servizi extra", extras], ["Smart Pairing sconto", -discounts], ["Totale pagato", total]].map(([l, v]) => <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.58)" }}><span>{l}</span><b style={{ color: v < 0 ? C.green : C.white }}>€{Number(v || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</b></div>)}</div>
-            <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}><div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.blue, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 10 }}>Fonti dati</div><div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.48)", lineHeight: 1.6 }}>ISTAT – Mapbox – OpenStreetMap – Analisi interna</div><a href="https://wa.me/" style={{ display: "inline-block", marginTop: 12, color: C.green, fontFamily: F.sans, fontSize: 12, fontWeight: 800, textDecoration: "none" }}>Hai domande? Contattaci via WhatsApp </a></div>
-          </div>
         </div>
       </div>
     </div>

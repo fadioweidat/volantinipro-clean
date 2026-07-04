@@ -2,14 +2,15 @@ import React, { Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import App from "../volantinipro-final.jsx";
 import { CampaignTracking } from "./pages/customer/CampaignTracking.jsx";
+import { ClientCampaignReport } from "./pages/customer/ClientCampaignReport.jsx";
 import { TrackingPage } from "./pages/driver/TrackingPage.jsx";
 import { AdminRouteGuard } from "./components/admin/AdminGuard.jsx";
 import { warnIfMojibake } from "./lib/mojibakeGuard.js";
 
 // Code splitting: tutte le pagine admin-only sotto sono caricate solo quando
-// un admin apre quella specifica rotta — un cliente normale che apre la home
-// o il configuratore non scarica più questo codice (prima finiva comunque nel
-// bundle principale, perché importato staticamente qui in main.jsx).
+// un admin apre quella specifica rotta: un cliente normale che apre la home
+// o il configuratore non scarica piu questo codice (prima finiva comunque nel
+// bundle principale, perche importato staticamente qui in main.jsx).
 const GpsMonitor = React.lazy(() => import("./pages/admin/GpsMonitor.jsx").then((m) => ({ default: m.GpsMonitor })));
 const CampaignGroups = React.lazy(() => import("./pages/admin/CampaignGroups.jsx").then((m) => ({ default: m.CampaignGroups })));
 const CampaignGroupDetail = React.lazy(() => import("./pages/admin/CampaignGroupDetail.jsx").then((m) => ({ default: m.CampaignGroupDetail })));
@@ -81,6 +82,9 @@ function Root() {
 
   const customerMatch = path.match(/^\/customer\/campaigns\/([^/]+)\/tracking$/);
   if (customerMatch) return <CampaignTracking campaignId={customerMatch[1]} />;
+
+  const clientReportMatch = path.match(/^\/client\/campaigns\/([^/]+)\/report$/);
+  if (clientReportMatch) return <ClientCampaignReport campaignId={clientReportMatch[1]} />;
 
   return <App />;
 }

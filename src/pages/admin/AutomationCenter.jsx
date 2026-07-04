@@ -67,6 +67,17 @@ export function AutomationCenter() {
     const visibleEventIds = new Set(filteredEvents.map((event) => event.id));
     return center.queue.filter((item) => visibleEventIds.has(item.eventId));
   }, [center.queue, filteredEvents]);
+  const automationState = classifyAutomationModule(center);
+  const externalNotificationConfigured = schemaAvailable(center, "notification_logs");
+  const externalWebhookConfigured = schemaAvailable(center, "webhook_logs");
+  const visibleChannels = [
+    "all",
+    "dashboard",
+    "log",
+    "report",
+    ...(externalNotificationConfigured ? ["email", "sms", "whatsapp"] : []),
+    ...(externalWebhookConfigured ? ["webhook"] : []),
+  ];
 
   const exportCsv = () => {
     if (!filteredEvents.length) {
@@ -80,13 +91,13 @@ export function AutomationCenter() {
   };
 
   const kpis = [
-    { label: "Automazioni attive", value: center.stats.activeAutomations, sub: "azioni pronte su dashboard/log/report", color: C.green },
+    { label: "Azioni interne pronte", value: center.stats.activeAutomations, sub: "solo dashboard/log/report senza provider esterni", color: C.green },
     { label: "Automazioni fallite", value: center.stats.failedAutomations, sub: "solo da log reali se presenti", color: center.stats.failedAutomations ? C.red : C.green },
     { label: "Canali non configurati", value: center.stats.notConfigured, sub: "email, SMS, WhatsApp o webhook senza provider", color: center.stats.notConfigured ? C.yellow : C.green },
-    { label: "Notifiche inviate", value: center.stats.notificationsSent, sub: center.notificationStats.total ? "da notification_logs" : "notification_logs non configurata", color: C.blue },
-    { label: "Webhook", value: center.stats.webhooks, sub: center.webhookStats.total ? "da webhook_logs" : "webhook non configurati", color: C.purple },
+    { label: "Notifiche inviate", value: schemaAvailable(center, "notification_logs") ? center.stats.notificationsSent : EMPTY, sub: schemaAvailable(center, "notification_logs") ? "da notification_logs" : "notification_logs non configurata", color: C.blue },
+    { label: "Webhook", value: schemaAvailable(center, "webhook_logs") ? center.stats.webhooks : EMPTY, sub: schemaAvailable(center, "webhook_logs") ? "da webhook_logs" : "webhook_logs non configurata", color: C.purple },
     { label: "Code", value: center.stats.queue, sub: "azioni generate dagli eventi rilevati", color: C.orange },
-    { label: "Email / SMS / WhatsApp", value: `${center.stats.email}/${center.stats.sms}/${center.stats.whatsapp}`, sub: "conteggi reali se log notifiche presente", color: C.blue },
+    { label: "Email / SMS / WhatsApp", value: schemaAvailable(center, "notification_logs") ? `${center.stats.email}/${center.stats.sms}/${center.stats.whatsapp}` : EMPTY, sub: schemaAvailable(center, "notification_logs") ? "conteggi da log notifiche" : "provider/log notifiche non configurati", color: C.blue },
     { label: "Errori critici", value: center.stats.criticalErrors, sub: "API, database, storage, GPS o operatori", color: center.stats.criticalErrors ? C.red : C.green },
   ];
 
@@ -109,6 +120,7 @@ export function AutomationCenter() {
       {state.loading && <Notice text="Caricamento motore automazioni..." />}
       {state.error && <Notice text={state.error} danger />}
       {state.notice && <Notice text={state.notice} />}
+      <Notice text={`${automationState.label}: ${automationState.detail}`} danger={automationState.tone === "danger"} />
 
       <section style={gridStyle}>
         {kpis.map((kpi) => <KpiCard key={kpi.label} {...kpi} />)}
@@ -127,7 +139,7 @@ export function AutomationCenter() {
           {AUTOMATION_EVENTS.map((type) => filterButton(type, eventFilter, setEventFilter, eventLabel(type)))}
         </div>
         <div style={filterRowStyle}>
-          {["all", "dashboard", "log", "email", "sms", "whatsapp", "webhook", "report"].map((channel) => filterButton(channel, channelFilter, setChannelFilter, channel === "all" ? "Tutti i canali" : channelLabel(channel), C.green))}
+          {visibleChannels.map((channel) => filterButton(channel, channelFilter, setChannelFilter, channel === "all" ? "Tutti i canali" : channelLabel(channel), C.green))}
         </div>
       </section>
 
@@ -202,8 +214,9 @@ export function AutomationCenter() {
 
         <Panel title="Provider canali" meta="stato">
           {["dashboard", "log", "email", "sms", "whatsapp", "webhook", "report"].map((channel) => {
-            const ready = filteredQueue.some((item) => item.channel === channel && item.status === "ready");
-            const missing = filteredQueue.some((item) => item.channel === channel && item.status === "not_configured");
+            const configured = displayChannelConfigured(center, channel);
+            const ready = configured && filteredQueue.some((item) => item.channel === channel && item.status === "ready");
+            const missing = !configured || filteredQueue.some((item) => item.channel === channel && item.status === "not_configured");
             return <MiniRow key={channel} title={channelLabel(channel)} subtitle={ready ? "Canale operativo per eventi rilevati" : missing ? "Provider non configurato" : "Nessun evento usa questo canale ora"} tone={ready ? C.green : missing ? C.yellow : C.blue} />;
           })}
         </Panel>
@@ -300,6 +313,7 @@ async function loadAutomationData() {
       ticketRows: tickets.rows,
       webhookRows: webhookLogs.rows,
       notificationRows: notificationLogs.rows,
+      backupRows: backupJobs.rows,
       availability,
       health,
     }),
@@ -313,6 +327,40 @@ function downloadBlob(content, filename, type) {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function schemaAvailable(center, name) {
+  return center.schema.some((item) => item.name === name && item.available);
+}
+
+function displayChannelConfigured(center, channel) {
+  if (["dashboard", "log", "report"].includes(channel)) return true;
+  if (["email", "sms", "whatsapp"].includes(channel)) return schemaAvailable(center, "notification_logs");
+  if (channel === "webhook") return schemaAvailable(center, "webhook_logs");
+  return false;
+}
+
+function classifyAutomationModule(center) {
+  const coreConfigured = ["tickets", "webhook_logs", "notification_logs", "backup_jobs"].some((name) => schemaAvailable(center, name));
+  if (!coreConfigured) {
+    return {
+      label: "Non configurato",
+      detail: "tickets, webhook_logs, notification_logs e backup_jobs non risultano disponibili; restano visibili solo eventi locali da fonti reali",
+      tone: "danger",
+    };
+  }
+  if (!center.events.length && !center.queue.length) {
+    return {
+      label: "Configurato ma senza dati",
+      detail: "le sorgenti automazione sono leggibili ma non ci sono eventi operativi",
+      tone: "warn",
+    };
+  }
+  return {
+    label: "Operativo",
+    detail: "eventi e code sono calcolati da fonti reali configurate",
+    tone: "ok",
+  };
 }
 
 function EventCard({ event }) {

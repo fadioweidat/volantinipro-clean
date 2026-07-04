@@ -53,7 +53,7 @@ export function CampaignTracking({ campaignId }) {
 
       <div style={metricGridStyle}>
         <Metric label="Copertura verificata" value={`${metrics.copertura_finale_cliente_percent}%`} />
-        <Metric label="Validazione qualità admin" value="Area verificata dal responsabile operativo" />
+        <Metric label="Validazione qualita admin" value="Area verificata dal responsabile operativo" />
         <Metric label="Stato campagna" value={status} />
         <Metric label="Punti GPS" value={state.points.length} />
         <Metric label="Tempo registrato" value={formatDuration(activeMs)} />

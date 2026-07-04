@@ -227,7 +227,10 @@ function TabExecutive({ kpis, totF, avgCov, flyerQty, svcType, tLabel, mainAreaL
         {kpiCards.map((k, i) => <KpiCard key={i} {...k} />)}
       </div>
 
-      <SectionTitle icon="📈" color={C.indigo}>Score campagna</SectionTitle>
+      <SectionTitle icon="📈" color={C.indigo}>Score campagna (analisi automatica su regole interne)</SectionTitle>
+      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)", marginTop: -10, marginBottom: 14, lineHeight: 1.5 }}>
+        Indici calcolati dal sistema sui dati territoriali disponibili; in assenza di dato specifico viene mostrato un valore di riferimento standard.
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14 }}>
         {[
           { label: "Qualità area", v: kpis.familyIndex ?? 72, color: C.green },
@@ -332,6 +335,9 @@ function TabGps({ data, kpis, plannedGpsPoints, svcType }) {
           { label: "Copertura GPS", value: hasReal ? pct(mockGpsData.coverage) : "—", color: C.orange, icon: "✅" },
         ].map((k, i) => <KpiCard key={i} {...k} />)}
       </div>
+      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.3)", marginTop: -12, marginBottom: 20, fontStyle: "italic" }}>
+        Km, tempo, soste e copertura sono valori di esempio a scopo illustrativo: non derivano dal tracciamento GPS reale, disponibile solo a campagna conclusa.
+      </div>
 
       <div style={{ padding: "16px 18px", background: "rgba(20,184,166,.06)", borderRadius: 14, border: "1px solid rgba(20,184,166,.15)", marginBottom: 24 }}>
         <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: C.teal, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 12 }}>Percorso pianificato</div>
@@ -387,13 +393,19 @@ function TabFoto({ flyerQty, svcType }) {
     <div style={{ padding: "0 4px" }}>
       <PreviewBanner />
       <SectionTitle icon="📸" color={C.purple}>Report Fotografico</SectionTitle>
+      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)", marginTop: -12, marginBottom: 18, lineHeight: 1.5 }}>
+        Simulazione: quantità, geolocalizzazione e validità mostrate qui sono stime a scopo illustrativo. Le foto reali con GPS e timestamp saranno disponibili al termine della distribuzione.
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 24 }}>
         <KpiCard label="Foto totali stimate" value={fmt(estimatedPhotos)} sub="1 foto ogni ~200 volantini" color={C.purple} icon="📷" />
-        <KpiCard label="Foto geolocalizzate" value={`~${fmt(Math.round(estimatedPhotos * 0.92))}`} sub="con coordinate GPS" color={C.green} icon="📍" />
-        <KpiCard label="Foto valide" value={`~${fmt(Math.round(estimatedPhotos * 0.96))}`} sub="approvate dal sistema" color={C.blue} icon="✅" />
+        <KpiCard label="Foto geolocalizzate" value={`~${fmt(Math.round(estimatedPhotos * 0.92))}`} sub="con coordinate GPS (stima)" color={C.green} icon="📍" />
+        <KpiCard label="Foto valide" value={`~${fmt(Math.round(estimatedPhotos * 0.96))}`} sub="approvate dal sistema (stima)" color={C.blue} icon="✅" />
       </div>
 
+      <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 8 }}>
+        Anteprima illustrativa (foto ed esiti di esempio, non reali)
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 24 }}>
         {mockPhotos.map((ph, i) => (
           <div key={i} style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${ph.valid ? "rgba(34,197,94,.2)" : "rgba(239,68,68,.2)"}`, background: "rgba(255,255,255,.03)", aspectRatio: "4/3", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
@@ -521,7 +533,10 @@ function TabOperatori({ flyerQty, selDays, kpis }) {
   return (
     <div style={{ padding: "0 4px" }}>
       <PreviewBanner />
-      <SectionTitle icon="👷" color={C.orange}>Prestazioni operative</SectionTitle>
+      <SectionTitle icon="👷" color={C.orange}>Prestazioni operative (stima)</SectionTitle>
+      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)", marginTop: -12, marginBottom: 18, lineHeight: 1.5 }}>
+        Numero operatori, orari e punteggi sono una simulazione calcolata dalla quantità configurata, non prestazioni reali misurate. I dati operativi effettivi saranno disponibili a campagna conclusa.
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 12, marginBottom: 24 }}>
         <KpiCard label="Operatori stimati" value={fmt(estimatedOps)} sub="basato su quantità" color={C.orange} icon="👤" />
@@ -664,7 +679,7 @@ function TabDownload({ kpis, totF, avgCov, flyerQty, requiredQty, missingQty, sv
   return (
     <div style={{ padding: "0 4px" }}>
       <PreviewBanner />
-      <SectionTitle icon="🧠" color={C.indigo}>Analisi finale AI</SectionTitle>
+      <SectionTitle icon="🧠" color={C.indigo}>Analisi automatica basata su regole interne</SectionTitle>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 16, marginBottom: 28 }}>
         <div style={{ padding: "16px 18px", background: "rgba(34,197,94,.05)", borderRadius: 14, border: "1px solid rgba(34,197,94,.18)" }}>
@@ -732,7 +747,7 @@ function TabDownload({ kpis, totF, avgCov, flyerQty, requiredQty, missingQty, sv
       <div style={{ padding: "16px 20px", borderRadius: 14, background: "rgba(99,102,241,.07)", border: "1px solid rgba(99,102,241,.2)" }}>
         <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.indigo, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 8 }}>🏅 Certificazione campagna</div>
         <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)", lineHeight: 1.7 }}>
-          Questa anteprima è generata automaticamente dal sistema VolantiniPro sulla base dei parametri configurati in Step 4.<br />
+          Questa anteprima è generata automaticamente da un motore a regole interne di VolantiniPro (analisi automatica su dati reali, non intelligenza artificiale generativa) sulla base dei parametri configurati in Step 4.<br />
           Il report definitivo sarà emesso al termine della distribuzione con dati operativi verificati e firma digitale dell'operatore responsabile.<br />
           <span style={{ color: "rgba(255,255,255,.35)", fontSize: 10 }}>Generato: {stamp} — {mainAreaLabel || "Area configurata"} — {tLabel || "Campagna volantini"}</span>
         </div>

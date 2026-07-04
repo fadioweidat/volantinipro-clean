@@ -87,7 +87,7 @@ export function ClientCampaignReport({ campaignId }) {
 
       <section style={metricGridStyle}>
         <Metric label="Copertura verificata" value={`${metrics.copertura_finale_cliente_percent}%`} />
-        <Metric label="Validazione qualità admin" value="Area verificata dal responsabile operativo" />
+        <Metric label="Validazione qualita admin" value="Area verificata dal responsabile operativo" />
         <Metric label="Stato campagna" value={state.loading ? 'caricamento' : status} />
         <Metric label="Avanzamento stimato" value={estimateProgress(state.sessions)} />
         <Metric label="Date lavoro" value={dateRange} />
