@@ -25,12 +25,19 @@ export function useGpsTracking(campaignId) {
   const [networkStatus, setNetworkStatus] = useState(typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'online');
   const [queueSize, setQueueSize] = useState(0);
   const [wakeLockStatus, setWakeLockStatus] = useState('unsupported');
+  const [path, setPath] = useState([]);
+  const [distanceKm, setDistanceKm] = useState(0);
+  const [speed, setSpeed] = useState(null);
+  const [heading, setHeading] = useState(null);
+  const [altitude, setAltitude] = useState(null);
+  const [battery, setBattery] = useState({ supported: false, level: null, charging: null });
   const watchIdRef = useRef(null);
   const wakeLockRef = useRef(null);
   const highAccuracyRef = useRef(true);
   const sessionRef = useRef(null);
   const statusRef = useRef('idle');
   const lastSentRef = useRef({ at: 0, lat: null, lng: null });
+  const distanceMetersRef = useRef(0);
   const sendingRef = useRef(false);
   const queueKeyRef = useRef('');
 
@@ -91,7 +98,32 @@ export function useGpsTracking(campaignId) {
     queue.push({ ...payload, queuedAt: new Date().toISOString() });
     writeQueue(key, queue);
     setQueueSize(queue.length);
-  }, []);
+    console.info('[OPERATOR_GPS_OFFLINE_QUEUE]', { campaignId, queueSize: queue.length });
+  }, [campaignId]);
+
+  useEffect(() => {
+    if (!navigator.getBattery) return undefined;
+    let managerRef = null;
+    const update = () => {
+      if (!managerRef) return;
+      const next = { supported: true, level: Math.round(managerRef.level * 100), charging: managerRef.charging };
+      setBattery(next);
+      if (next.level <= 15 && !next.charging) {
+        console.warn('[GPS_ALARM_LOW_BATTERY]', { campaignId, battery: next.level });
+      }
+    };
+    navigator.getBattery().then((manager) => {
+      managerRef = manager;
+      update();
+      manager.addEventListener('levelchange', update);
+      manager.addEventListener('chargingchange', update);
+    }).catch(() => setBattery({ supported: false, level: null, charging: null }));
+    return () => {
+      if (!managerRef) return;
+      managerRef.removeEventListener('levelchange', update);
+      managerRef.removeEventListener('chargingchange', update);
+    };
+  }, [campaignId]);
 
   const flushQueue = useCallback(async () => {
     const key = queueKeyRef.current;
@@ -120,6 +152,7 @@ export function useGpsTracking(campaignId) {
       }
       writeQueue(key, remaining);
       setQueueSize(remaining.length);
+      console.info('[OPERATOR_GPS_SYNC]', { sent: queue.length - remaining.length, remaining: remaining.length });
       if (!remaining.length) setError(null);
     } finally {
       sendingRef.current = false;
@@ -152,6 +185,8 @@ export function useGpsTracking(campaignId) {
       accuracy: Number.isFinite(coords.accuracy) ? coords.accuracy : null,
       speed: Number.isFinite(coords.speed) ? coords.speed : null,
       heading: Number.isFinite(coords.heading) ? coords.heading : null,
+      altitude: Number.isFinite(coords.altitude) ? coords.altitude : null,
+      batteryLevel: battery.supported ? battery.level : null,
       recordedAt: new Date(position.timestamp || now).toISOString(),
     };
 
@@ -175,7 +210,7 @@ export function useGpsTracking(campaignId) {
     } finally {
       sendingRef.current = false;
     }
-  }, [campaignId, enqueuePoint]);
+  }, [battery.level, battery.supported, campaignId, enqueuePoint]);
 
   const startWatch = useCallback((forceHighAccuracy = highAccuracyRef.current) => {
     if (!navigator.geolocation) {
@@ -198,7 +233,30 @@ export function useGpsTracking(campaignId) {
           lat: coords.latitude,
           lng: coords.longitude,
           accuracy: coords.accuracy,
+          speed: Number.isFinite(coords.speed) ? coords.speed : null,
+          heading: Number.isFinite(coords.heading) ? coords.heading : null,
+          altitude: Number.isFinite(coords.altitude) ? coords.altitude : null,
           recorded_at: new Date(position.timestamp || Date.now()).toISOString(),
+        });
+        setSpeed(Number.isFinite(coords.speed) ? coords.speed : null);
+        setHeading(Number.isFinite(coords.heading) ? coords.heading : null);
+        setAltitude(Number.isFinite(coords.altitude) ? coords.altitude : null);
+        const pathPoint = {
+          lat: coords.latitude,
+          lng: coords.longitude,
+          accuracy: coords.accuracy,
+          recorded_at: new Date(position.timestamp || Date.now()).toISOString(),
+        };
+        setPath((prev) => {
+          const last = prev[prev.length - 1];
+          if (last) {
+            const meters = distanceMeters(last.lat, last.lng, pathPoint.lat, pathPoint.lng);
+            if (Number.isFinite(meters) && meters > 1) {
+              distanceMetersRef.current += meters;
+              setDistanceKm(Math.round((distanceMetersRef.current / 1000) * 100) / 100);
+            }
+          }
+          return [...prev, pathPoint].slice(-1500);
         });
         sendPosition(position);
       },
@@ -210,6 +268,7 @@ export function useGpsTracking(campaignId) {
           return;
         }
         setError(geoError.message || 'Errore lettura posizione GPS.');
+        console.warn('[GPS_ALARM_READ_ERROR]', { campaignId, code: geoError.code, message: geoError.message });
       },
       { enableHighAccuracy: forceHighAccuracy, maximumAge: forceHighAccuracy ? 5000 : 15000, timeout: 20000 },
     );
@@ -223,6 +282,10 @@ export function useGpsTracking(campaignId) {
     setSession(nextSession);
     setStatus('active');
     lastSentRef.current = { at: 0, lat: null, lng: null };
+    distanceMetersRef.current = 0;
+    setDistanceKm(0);
+    setPath([]);
+    console.info('[OPERATOR_WORK_START]', { campaignId, sessionId: nextSession?.id });
     await requestWakeLock();
     startWatch();
     flushQueue();
@@ -236,10 +299,11 @@ export function useGpsTracking(campaignId) {
     statusRef.current = 'paused';
     setSession(updated);
     setStatus('paused');
+    console.info('[OPERATOR_WORK_PAUSE]', { campaignId, sessionId: updated?.id });
     stopWatch();
     await releaseWakeLock();
     return updated;
-  }, [releaseWakeLock, stopWatch]);
+  }, [campaignId, releaseWakeLock, stopWatch]);
 
   const resume = useCallback(async () => {
     if (!sessionRef.current?.id) return null;
@@ -248,11 +312,12 @@ export function useGpsTracking(campaignId) {
     statusRef.current = 'active';
     setSession(updated);
     setStatus('active');
+    console.info('[OPERATOR_WORK_RESUME]', { campaignId, sessionId: updated?.id });
     await requestWakeLock();
     startWatch();
     flushQueue();
     return updated;
-  }, [flushQueue, requestWakeLock, startWatch]);
+  }, [campaignId, flushQueue, requestWakeLock, startWatch]);
 
   const end = useCallback(async () => {
     if (!sessionRef.current?.id) return null;
@@ -262,9 +327,10 @@ export function useGpsTracking(campaignId) {
     statusRef.current = 'completed';
     setSession(updated);
     setStatus('completed');
+    console.info('[OPERATOR_WORK_STOP]', { campaignId, sessionId: updated?.id, distanceKm });
     await releaseWakeLock();
     return updated;
-  }, [releaseWakeLock, stopWatch]);
+  }, [campaignId, distanceKm, releaseWakeLock, stopWatch]);
 
   useEffect(() => {
     let cancelled = false;
@@ -306,16 +372,20 @@ export function useGpsTracking(campaignId) {
   useEffect(() => {
     const onOnline = () => {
       setNetworkStatus('online');
+      console.info('[OPERATOR_NETWORK_ONLINE]', { campaignId });
       flushQueue();
     };
-    const onOffline = () => setNetworkStatus('offline');
+    const onOffline = () => {
+      setNetworkStatus('offline');
+      console.info('[OPERATOR_NETWORK_OFFLINE]', { campaignId });
+    };
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
     return () => {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
     };
-  }, [flushQueue]);
+  }, [campaignId, flushQueue]);
 
   useEffect(() => {
     const timer = window.setInterval(flushQueue, QUEUE_FLUSH_INTERVAL_MS);
@@ -347,6 +417,12 @@ export function useGpsTracking(campaignId) {
     networkStatus,
     queueSize,
     wakeLockStatus,
+    path,
+    distanceKm,
+    speed,
+    heading,
+    altitude,
+    battery,
     isActive: status === 'active',
     isPaused: status === 'paused',
     start,

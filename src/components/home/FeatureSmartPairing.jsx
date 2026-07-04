@@ -20,7 +20,7 @@ const statuses = [
 
 export default function FeatureSmartPairing({ onConfigure }) {
   return (
-    <section className="section" style={{ background: "#111827", paddingTop: 100, paddingBottom: 100, paddingLeft: 28, paddingRight: 28, boxSizing: "border-box", borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
+    <section id="smart-pairing" className="section" style={{ background: "#111827", paddingTop: 100, paddingBottom: 100, paddingLeft: 28, paddingRight: 28, boxSizing: "border-box", borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
       <div className="smart-pairing-layout" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(320px, 100%), 1fr))", gap: 64, alignItems: "center" }}>
         <motion.div initial={{ opacity: 0, x: -16 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.22 }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", borderRadius: 100, background: "rgba(232, 87, 26, 0.12)", border: "1px solid rgba(232, 87, 26, 0.3)", marginBottom: 16 }}>

@@ -8,6 +8,7 @@ import {
   getSessionGroup,
 } from '../../lib/services/gps-api.js';
 import { getCampaignReport } from '../../lib/services/admin-api.js';
+import { buildPhotoArchiveCsv, enrichProofPhoto, photoSearchMatches } from '../../lib/services/photo-proof.js';
 import {
   REPORT_COLORS,
   buildGpsCsv,
@@ -27,6 +28,7 @@ import {
 export function CampaignReport({ campaignId }) {
   const [state, setState] = useState({ loading: true, error: null, operations: null, campaign: null, notice: '' });
   const [filters, setFilters] = useState({ period: 'all', fromDate: '', toDate: '', group: '', driver: '', status: 'all' });
+  const [photoFilters, setPhotoFilters] = useState({ query: '', status: 'all', gps: 'all' });
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
@@ -58,7 +60,13 @@ export function CampaignReport({ campaignId }) {
   const totalPoints = visibleRows.reduce((sum, item) => sum + item.points.length, 0);
   const operators = new Set(visibleRows.map((item) => displayDriverName(item.session)).filter(Boolean));
   const anomalies = detectAnomalies(visibleRows);
-  const timeline = buildTimeline(visibleRows, state.operations?.photos || []);
+  const enrichedPhotos = (state.operations?.photos || []).map(enrichProofPhoto);
+  const visiblePhotos = enrichedPhotos
+    .filter((photo) => photoSearchMatches(photo, photoFilters.query))
+    .filter((photo) => photoFilters.status === 'all' || photo.proof.status === photoFilters.status)
+    .filter((photo) => photoFilters.gps === 'all' || (photoFilters.gps === 'ok' ? photo.proof.gps?.status === 'ok' : photo.proof.gps?.status !== 'ok'));
+  const photoStats = summarizePhotos(enrichedPhotos);
+  const timeline = buildTimeline(visibleRows, enrichedPhotos);
 
   function exportSessions() {
     if (!visibleRows.length) return setNotice('Nessuna sessione da esportare.');
@@ -87,15 +95,23 @@ export function CampaignReport({ campaignId }) {
         total_ms: totalMs,
         total_points: totalPoints,
         photos: state.operations?.photos?.length || 0,
+        photo_valid: photoStats.valid,
+        photo_alerts: photoStats.alerts,
         anomalies: anomalies.length,
       },
       sessions: visibleRows,
-      photos: state.operations?.photos || [],
+      photos: enrichedPhotos,
       anomalies,
       timeline,
     };
     downloadTextFile(`volantinipro-operativo-${campaignId}.json`, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
     setNotice('JSON operativo esportato.');
+  }
+
+  function exportPhotoArchive() {
+    if (!visiblePhotos.length) return setNotice('Nessuna foto da esportare con i filtri correnti.');
+    downloadTextFile(`volantinipro-foto-${campaignId}.csv`, buildPhotoArchiveCsv(visiblePhotos), 'text/csv;charset=utf-8');
+    setNotice('Archivio foto CSV esportato.');
   }
 
   function setNotice(notice) {
@@ -112,6 +128,7 @@ export function CampaignReport({ campaignId }) {
         <div style={actionGroupStyle}>
           <button style={buttonStyle} type="button" onClick={exportSessions}>CSV sessioni</button>
           <button style={buttonStyle} type="button" onClick={exportGps}>CSV GPS</button>
+          <button style={buttonStyle} type="button" onClick={exportPhotoArchive}>CSV foto</button>
           <button style={buttonStyle} type="button" onClick={exportJson}>JSON operativo</button>
           <button style={disabledButtonStyle} type="button" disabled>PDF disponibile dopo generazione report</button>
         </div>
@@ -126,6 +143,8 @@ export function CampaignReport({ campaignId }) {
         <Kpi label="Tempo totale" value={formatDuration(totalMs)} />
         <Kpi label="Punti GPS" value={totalPoints} />
         <Kpi label="Foto proof" value={state.operations?.photos?.length || 0} />
+        <Kpi label="Foto valide" value={photoStats.valid} />
+        <Kpi label="Alert foto" value={photoStats.alerts} />
       </section>
 
       <section style={cardStyle}>
@@ -170,19 +189,26 @@ export function CampaignReport({ campaignId }) {
       </section>
 
       <section style={cardStyle}>
-        <p style={eyebrowStyle}>Foto proof</p>
-        {state.operations?.photos?.length ? (
-          <div style={photoGridStyle}>
-            {state.operations.photos.map((photo) => (
-              <article key={photo.id} style={photoCardStyle}>
-                {photo.signedUrl ? <img src={photo.signedUrl} alt="Foto proof" style={photoStyle} /> : <div style={photoPlaceholderStyle}>Foto</div>}
-                <strong>{formatDateTime(photo.taken_at || photo.created_at)}</strong>
-                <span>{photo.approved_at ? 'approvata' : 'da verificare'}</span>
-                <small>{photo.note || 'Nessuna nota'}</small>
-              </article>
-            ))}
+        <div style={sectionHeaderStyle}>
+          <div>
+            <p style={eyebrowStyle}>Archivio fotografico</p>
+            <h2 style={sectionTitleStyle}>{visiblePhotos.length}/{enrichedPhotos.length} foto</h2>
           </div>
-        ) : <EmptyState text="Nessuna foto proof caricata." />}
+          <button style={buttonStyle} type="button" onClick={exportPhotoArchive}>Esporta archivio foto</button>
+        </div>
+        <PhotoFilters filters={photoFilters} onChange={setPhotoFilters} />
+        <div style={photoSummaryStyle}>
+          <Metric label="Valide" value={photoStats.valid} />
+          <Metric label="Da verificare" value={photoStats.review} />
+          <Metric label="GPS ok" value={photoStats.gpsOk} />
+          <Metric label="Hash presenti" value={photoStats.hashes} />
+        </div>
+        {visiblePhotos.some(hasPhotoCoordinates) && <PhotoMap photos={visiblePhotos} />}
+        {visiblePhotos.length ? (
+          <div style={photoGridStyle}>
+            {visiblePhotos.map((photo) => <PhotoProofCard key={photo.id} photo={photo} />)}
+          </div>
+        ) : <EmptyState text={state.loading ? 'Caricamento foto proof...' : 'Nessuna foto proof per i filtri selezionati.'} />}
       </section>
     </AdminShell>
   );
@@ -217,6 +243,88 @@ function ReportMap({ rows }) {
         })}
       </MapContainer>
     </div>
+  );
+}
+
+function PhotoFilters({ filters, onChange }) {
+  const patch = (field, value) => onChange((prev) => ({ ...prev, [field]: value }));
+  return (
+    <div style={{ ...filterGridStyle, margin: '14px 0' }}>
+      <label style={labelStyle}>Ricerca foto
+        <input value={filters.query} onChange={(event) => patch('query', event.target.value)} style={inputStyle} placeholder="campagna, comune, operatore, hash, ID foto" />
+      </label>
+      <label style={labelStyle}>Stato verifica
+        <select value={filters.status} onChange={(event) => patch('status', event.target.value)} style={inputStyle}>
+          <option value="all">Tutte</option>
+          <option value="verifica automatica ok">Verifica automatica ok</option>
+          <option value="da verificare">Da verificare</option>
+          <option value="approvata">Approvate</option>
+        </select>
+      </label>
+      <label style={labelStyle}>GPS
+        <select value={filters.gps} onChange={(event) => patch('gps', event.target.value)} style={inputStyle}>
+          <option value="all">Tutto</option>
+          <option value="ok">GPS valido</option>
+          <option value="alert">GPS da verificare</option>
+        </select>
+      </label>
+    </div>
+  );
+}
+
+function PhotoMap({ photos }) {
+  const points = photos.filter(hasPhotoCoordinates);
+  const center = points[0] ? [Number(points[0].lat), Number(points[0].lng)] : [45.4642, 9.19];
+  return (
+    <div style={{ ...mapFrameStyle, height: 360, marginBottom: 14 }}>
+      <MapContainer center={center} zoom={14} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
+        <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        {points.map((photo) => {
+          const color = photo.proof?.alerts?.length ? '#FBBF24' : '#2ECC8A';
+          return (
+            <CircleMarker key={`photo-${photo.id}`} center={[Number(photo.lat), Number(photo.lng)]} radius={8} pathOptions={{ color, fillColor: color, fillOpacity: 0.9 }}>
+              <Popup>
+                Foto {photo.proof.photoId}
+                <br />{photo.proof.operatorName}
+                <br />{photo.proof.comune}
+                <br />{formatDateTime(photo.proof.acquiredAt)}
+              </Popup>
+            </CircleMarker>
+          );
+        })}
+      </MapContainer>
+    </div>
+  );
+}
+
+function PhotoProofCard({ photo }) {
+  const proof = photo.proof;
+  const statusColor = proof.alerts?.some((alert) => alert.level === 'red') ? '#F87171' : proof.alerts?.length ? '#FBBF24' : '#2ECC8A';
+  return (
+    <article style={photoCardStyle}>
+      {photo.signedUrl ? <img src={photo.signedUrl} alt={`Foto proof ${proof.photoId}`} style={photoStyle} /> : <div style={photoPlaceholderStyle}>Foto</div>}
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+        <strong style={{ color: '#fff' }}>{formatDateTime(proof.acquiredAt)}</strong>
+        <span style={{ color: statusColor, fontWeight: 900 }}>{proof.status}</span>
+      </div>
+      <div style={photoMetaGridStyle}>
+        <small>Operatore<br /><b>{proof.operatorName}</b></small>
+        <small>Comune<br /><b>{proof.comune}</b></small>
+        <small>GPS<br /><b>{proof.gps?.status || 'n/d'}</b></small>
+        <small>Qualita<br /><b>{proof.quality?.score ?? 'n/d'}</b></small>
+        <small>Dimensione<br /><b>{proof.size ? `${Math.round(proof.size / 1024)} KB` : 'n/d'}</b></small>
+        <small>ID foto<br /><b>{shortId(proof.photoId)}</b></small>
+      </div>
+      <details style={photoDetailsStyle}>
+        <summary>Dettaglio verifica</summary>
+        <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
+          <small>Hash: {proof.hash || 'n/d'}</small>
+          <small>Coordinate: {hasPhotoCoordinates(photo) ? `${Number(photo.lat).toFixed(6)}, ${Number(photo.lng).toFixed(6)}` : 'n/d'}</small>
+          <small>Dispositivo: {proof.device}</small>
+          {proof.alerts?.length ? proof.alerts.map((alert, index) => <small key={index} style={{ color: alert.level === 'red' ? '#FCA5A5' : '#FDE68A' }}>{alert.label}: {alert.message}</small>) : <small style={{ color: '#86EFAC' }}>Nessun alert automatico.</small>}
+        </div>
+      </details>
+    </article>
   );
 }
 
@@ -333,6 +441,24 @@ function buildTimeline(rows, photos) {
   ].filter((item) => item.at).sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).slice(0, 40);
 }
 
+function summarizePhotos(photos) {
+  return (photos || []).reduce((acc, photo) => {
+    const proof = photo.proof || enrichProofPhoto(photo).proof;
+    const hasAlerts = Boolean(proof.alerts?.length);
+    acc.total += 1;
+    if (!hasAlerts || proof.status === 'approvata') acc.valid += 1;
+    if (hasAlerts && proof.status !== 'approvata') acc.review += 1;
+    if (proof.gps?.status === 'ok') acc.gpsOk += 1;
+    if (proof.hash) acc.hashes += 1;
+    acc.alerts += proof.alerts?.length || 0;
+    return acc;
+  }, { total: 0, valid: 0, review: 0, gpsOk: 0, hashes: 0, alerts: 0 });
+}
+
+function hasPhotoCoordinates(photo) {
+  return Number.isFinite(Number(photo?.lat)) && Number.isFinite(Number(photo?.lng));
+}
+
 async function hydratePhotoUrls(photos) {
   return Promise.all((photos || []).map(async (photo) => ({
     ...photo,
@@ -376,14 +502,17 @@ const sectionTitleStyle = { margin: 0, color: '#fff', fontSize: 22 };
 const navButtonStyle = { alignSelf: 'start', border: '1px solid rgba(255,255,255,.1)', borderRadius: 10, padding: '10px 13px', color: '#fff', textDecoration: 'none', fontWeight: 900 };
 const buttonStyle = { ...navButtonStyle, background: 'rgba(255,255,255,.04)', cursor: 'pointer' };
 const disabledButtonStyle = { ...buttonStyle, color: 'rgba(255,255,255,.38)', cursor: 'not-allowed' };
-const noticeStyle = { padding: 12, border: '1px solid', borderRadius: 10, background: 'rgba(255,255,255,.04)', fontWeight: 800 };
+const noticeStyle = { padding: 12, borderWidth: 1, borderStyle: 'solid', borderRadius: 10, background: 'rgba(255,255,255,.04)', fontWeight: 800 };
 const emptyStyle = { padding: 16, border: '1px dashed rgba(255,255,255,.14)', borderRadius: 10, color: 'rgba(255,255,255,.48)' };
 const mapFrameStyle = { height: 560, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)' };
 const sessionRowStyle = { display: 'grid', gap: 5, padding: '12px 0 12px 12px', borderBottom: '1px solid rgba(255,255,255,.07)', borderLeft: '4px solid', fontSize: 12 };
 const timelineRowStyle = { display: 'grid', gap: 4, padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,.07)', fontSize: 12 };
 const alertStyle = { display: 'grid', gap: 5, padding: 12, marginBottom: 8, borderRadius: 10, border: '1px solid rgba(251,191,36,.35)', background: 'rgba(251,191,36,.08)', color: '#fde68a' };
 const infoNoticeStyle = { padding: 12, marginTop: 10, borderRadius: 10, color: 'rgba(255,255,255,.55)', background: 'rgba(255,255,255,.035)', fontSize: 12 };
+const photoSummaryStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginBottom: 14 };
 const photoGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 };
 const photoCardStyle = { display: 'grid', gap: 7, padding: 10, border: '1px solid rgba(255,255,255,.08)', borderRadius: 10, background: 'rgba(0,0,0,.16)', fontSize: 12 };
 const photoStyle = { width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', borderRadius: 8 };
 const photoPlaceholderStyle = { ...photoStyle, display: 'grid', placeItems: 'center', color: 'rgba(255,255,255,.42)', background: 'rgba(255,255,255,.05)' };
+const photoMetaGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 7, color: 'rgba(255,255,255,.55)' };
+const photoDetailsStyle = { borderTop: '1px solid rgba(255,255,255,.08)', paddingTop: 7, color: 'rgba(255,255,255,.62)' };

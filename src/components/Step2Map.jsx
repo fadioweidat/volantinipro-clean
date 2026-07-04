@@ -49,6 +49,16 @@ function esc(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function normalizeMapMunicipalityName(raw) {
+  return String(raw || '')
+    .split(',')[0]
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/^\s*comune di\s+/i, '')
+    .trim()
+    .toLowerCase();
+}
+
 // CSS applicato globalmente una sola volta
 const MAP_CSS = `
 /* Voyager: nessun filter – strade, nomi comuni e vie sono visibili per default */
@@ -713,8 +723,9 @@ function Step2MapImpl({
     // Non usare il primo elemento di zonesWithCoords: in prossimità di Milano
     // i quartieri milanesi (Bruzzano, Affori, Niguarda…) hanno coordinate
     // sovrapponibili a quelle di comuni autonomi come Cormano o Bresso.
-    const cityName      = (city?.label || city?.name || '').trim().toLowerCase();
-    const cityIsMilano  = cityName.includes('milano');
+    const cityNameRaw   = city?.label || city?.name || '';
+    const cityName      = normalizeMapMunicipalityName(cityNameRaw);
+    const cityIsMilano  = cityName === 'milano';
     // Codice ISTAT del Comune di Milano usato nei settori del DB
     const MILANO_ISTAT  = '015146';
 
@@ -724,7 +735,7 @@ function Step2MapImpl({
     // 1. Match esatto per nome (case-insensitive) — priorità assoluta
     if (!primaryZone && cityName) {
       const found = zonesWithCoords?.find(
-        z => (z.name || '').trim().toLowerCase() === cityName
+        z => normalizeMapMunicipalityName(z.name) === cityName
       );
       if (found) { primaryZone = found; _selReason = 'exact_name'; }
     }
@@ -732,8 +743,8 @@ function Step2MapImpl({
     // 2. Match parziale nome (il nome città è contenuto nel nome zona o viceversa)
     if (!primaryZone && cityName) {
       const found = zonesWithCoords?.find(z => {
-        const zn = (z.name || '').trim().toLowerCase();
-        return zn.includes(cityName) || cityName.includes(zn);
+        const zn = normalizeMapMunicipalityName(z.name);
+        return zn.length >= 4 && cityName.length >= 4 && (zn.includes(cityName) || cityName.includes(zn));
       });
       if (found) { primaryZone = found; _selReason = 'partial_name'; }
     }
@@ -755,37 +766,7 @@ function Step2MapImpl({
       if (best && bestD2 < 0.0004) { primaryZone = best; _selReason = 'closest_coord_non_milan'; }
     }
 
-    const primaryMunCode = primaryZone?.municipality_code || primaryZone?.municipalityCode || null;
-
-    debugStep2('[PRIMARY_ZONE_SELECTION]', {
-      selectedCity:       city?.label || city?.name,
-      selectedCoordinate: { lat: city?.lat, lng: city?.lng },
-      candidateZones: (zonesWithCoords || []).map(z => ({
-        name:    z.name,
-        munCode: z.municipality_code || z.municipalityCode,
-        distM:   Math.round(
-          Math.sqrt(
-            Math.pow((z.lat || 0) - city.lat, 2) +
-            Math.pow((z.lng || 0) - city.lng, 2)
-          ) * 111000
-        ),
-      })),
-      intersections:      (zonesWithCoords || []).map(z => z.name),
-      chosenPrimaryZone:  primaryZone?.name   ?? null,
-      chosenPrimaryComune: primaryMunCode      ?? null,
-      reason:             _selReason,
-    });
-
-    if (zonesWithCoords?.length > 0) {
-      const otherNames = zonesWithCoords
-        .filter(z => z.id !== primaryZone?.id)
-        .map(z => z.name);
-      debugStep2('[MAP_RADIUS_INTERSECTIONS]', {
-        primary:      primaryZone?.name ?? city?.label ?? city?.name,
-        intersecting: otherNames,
-        total:        zonesWithCoords.length,
-      });
-    }
+    const primaryMunCode = city?.municipalityCode || city?.municipality_code || primaryZone?.municipality_code || primaryZone?.municipalityCode || null;
 
     const col = serviceColor || '#ff6b1a';
     const opacityScale = opacityLevel === 'low' ? 0.65 : opacityLevel === 'high' ? 1.25 : 1;
@@ -991,25 +972,21 @@ function Step2MapImpl({
         // quando l'utente ha selezionato Sesto San Giovanni o Cormano.
         const sMunCode = s.municipalityCode || s.municipality_code;
         const sMunZone = sMunCode ? munByCode[sMunCode] : null;
+        const sMunName = normalizeMapMunicipalityName(sMunZone?.name);
+        const matchesPrimaryMunicipality = primaryMunCode && sMunCode
+          ? String(sMunCode) === String(primaryMunCode)
+          : Boolean(cityName && sMunName && sMunName === cityName);
         if (isMunicipalityMode) {
           // In municipality mode: mostra SOLO i settori del comune selezionato
-          if (primaryMunCode && sMunCode && sMunCode !== primaryMunCode) {
-            if (import.meta.env.DEV) console.log('[MAP_MILANO_SECTORS_FILTERED]', {
-              sector: s.id, municipalityCode: sMunCode,
-              municipality: sMunZone?.name, reason: 'municipality_mode_non_primary',
-            });
+          if (!matchesPrimaryMunicipality) {
             return;
           }
         } else {
           // In radius mode: mostra settori del comune primario; aggiungi altri
           // SOLO se il relativo comune è stato esplicitamente selezionato.
-          if (sMunCode && primaryMunCode && sMunCode !== primaryMunCode) {
+          if (!matchesPrimaryMunicipality) {
             const isExplicitlySelected = isD2D && sMunZone && selected?.includes(sMunZone.id);
             if (!isExplicitlySelected) {
-              if (import.meta.env.DEV) console.log('[MAP_MILANO_SECTORS_FILTERED]', {
-                sector: s.id, municipalityCode: sMunCode,
-                municipality: sMunZone?.name, reason: 'radius_mode_not_selected',
-              });
               return;
             }
           }
@@ -1210,18 +1187,6 @@ function Step2MapImpl({
         ).addTo(civiciGroup);
       });
     }
-
-    debugStep2('[MAP_RENDERED_POLYGONS]', {
-      comuniLayerOn: activeLayers?.comuni !== false,
-      comuniRendered: !isMunicipalityMode && (zonesWithCoords?.length ?? 0),
-      settoriTotal: settori?.length ?? 0,
-      settoriForPrimary: settori?.filter(s => {
-        const c = s.municipalityCode || s.municipality_code;
-        return !primaryMunCode || c === primaryMunCode;
-      }).length ?? 0,
-      boundaryDrawn: !!(isMunicipalityMode && municipalityBoundary),
-      primaryComune: primaryZone?.name ?? city?.label ?? city?.name,
-    });
 
     if (activeLayers?.density === true && svcType === 'd2d' && zonesWithCoords?.length > 0) {
       const densityGroup = L.layerGroup().addTo(map);

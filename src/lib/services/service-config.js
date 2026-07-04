@@ -138,7 +138,7 @@ export const DELIVERABLE_SERVICE_CONFIG = [
     tier: "INCLUSO",
     output: "campagna.totale_famiglie o stima comunale",
     getOutput: (c) => {
-      const fam = c?.totale_famiglie || c?.famiglie || (c?.quantita ? Math.round(c.quantita * 1.1) : null);
+      const fam = c?.totale_famiglie || c?.famiglie;
       if (!fam) return null;
       return {
         value: `${Number(fam).toLocaleString("it-IT")} fam.`,
@@ -159,9 +159,10 @@ export const DELIVERABLE_SERVICE_CONFIG = [
     getOutput: (c) => {
       const active = c?.servizi_extra?.includes("ai_analysis") || c?.pricing?.extras?.some(x => x.id === "ai_analysis") || c?.smart_pairing_sconto;
       if (!active && !c?.ai_score) return null;
+      if (!c?.ai_score) return null;
       return {
-        value: c?.ai_score ? `${c.ai_score}/100` : "94/100",
-        sub: c?.ai_raccomandazione || "Assetto distributivo ottimizzato per minimizzare dispersione abitativa."
+        value: `${c.ai_score}/100`,
+        sub: c?.ai_raccomandazione || "Dato AI disponibile per questa campagna."
       };
     },
     plot: "kpi",
@@ -175,14 +176,6 @@ export const DELIVERABLE_SERVICE_CONFIG = [
     output: "campagna.fasce_eta o ripartizione ISTAT",
     getOutput: (c) => {
       if (c?.fasce_eta && Array.isArray(c.fasce_eta)) return c.fasce_eta;
-      if (c?.comune_principale || c?.zona) {
-        return [
-          { label: "0-18 anni", value: 16 },
-          { label: "19-35 anni", value: 22 },
-          { label: "36-65 anni", value: 41 },
-          { label: "Over 65", value: 21 }
-        ];
-      }
       return null;
     },
     plot: "bar",
@@ -196,13 +189,6 @@ export const DELIVERABLE_SERVICE_CONFIG = [
     output: "campagna.omi_data o fasce OMI comunali",
     getOutput: (c) => {
       if (c?.omi_data && Array.isArray(c.omi_data)) return c.omi_data;
-      if (c?.comune_principale || c?.zona) {
-        return [
-          { label: "Economico", value: 18 },
-          { label: "Medio", value: 58 },
-          { label: "Signorile", value: 24 }
-        ];
-      }
       return null;
     },
     plot: "bar",
@@ -220,8 +206,13 @@ export const DELIVERABLE_SERVICE_CONFIG = [
       if (c?.comuni_breakdown && Array.isArray(c.comuni_breakdown) && c.comuni_breakdown.length > 0) return c.comuni_breakdown;
       const list = c?.comuni_selezionati || c?.comuni;
       if (list && Array.isArray(list) && list.length > 0) {
-        const quota = Math.round((c.quantita || 10000) / list.length);
-        return list.map(name => ({ name, coverage: `${c?.copertura_pct || 91}%`, flyers: quota }));
+        const quota = c?.quantita ? Math.round(c.quantita / list.length) : null;
+        const coverage = Number(c?.copertura_pct);
+        return list.map(name => ({
+          name,
+          coverage: Number.isFinite(coverage) ? `${coverage}%` : "Dato non disponibile",
+          flyers: quota
+        }));
       }
       return null;
     },
@@ -252,8 +243,9 @@ export const DELIVERABLE_SERVICE_CONFIG = [
     tier: "INCLUSO",
     output: "campagna.lat, lng, radius",
     getOutput: (c) => {
-      const lat = Number(c?.lat || c?.centerLat || 45.551);
-      const lng = Number(c?.lng || c?.centerLng || 9.163);
+      const lat = Number(c?.lat || c?.centerLat);
+      const lng = Number(c?.lng || c?.centerLng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
       const rad = Number(c?.radius || c?.raggio || 3);
       return { lat, lng, radius: rad, label: c?.zona || c?.comune_principale || "Zona operativa" };
     },
@@ -290,7 +282,7 @@ export const DELIVERABLE_SERVICE_CONFIG = [
       if (!active) return null;
       return {
         text: "Scatti geolocalizzati con marca temporale e di zona a garanzia di recapito",
-        status: `${c?.foto_proof?.length || 12} foto approvate`
+        status: c?.foto_proof?.length ? `${c.foto_proof.length} foto approvate` : "Foto proof non ancora disponibili"
       };
     },
     plot: "none",

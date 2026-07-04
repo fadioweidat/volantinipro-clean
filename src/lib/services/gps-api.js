@@ -257,29 +257,38 @@ export async function uploadProofPhoto({ campaignId, sessionId, file, lat, lng, 
 
   const storagePath = `${campaignId}/${sessionId || 'no-session'}/${Date.now()}-${uuid}.${safeExt}`;
 
-  const upload = await client.storage.from(PROOF_BUCKET).upload(storagePath, file, {
-    cacheControl: '3600',
-    upsert: false,
-  });
+  const upload = await withRetry(async () => {
+    const result = await client.storage.from(PROOF_BUCKET).upload(storagePath, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+    if (result.error) throw result.error;
+    return result;
+  }, 'upload foto proof');
 
   if (upload.error) throw upload.error;
 
-  const { data, error } = await client
-    .from('proof_photos')
-    .insert({
-      campaign_id: campaignId,
-      session_id: sessionId || null,
-      driver_id: driverId,
-      storage_path: storagePath,
-      lat,
-      lng,
-      note: note || null,
-      taken_at: new Date().toISOString(),
-    })
-    .select('*')
-    .single();
+  const { data, error } = await withRetry(async () => {
+    const result = await client
+      .from('proof_photos')
+      .insert({
+        campaign_id: campaignId,
+        session_id: sessionId || null,
+        driver_id: driverId,
+        storage_path: storagePath,
+        lat,
+        lng,
+        note: note || null,
+        taken_at: new Date().toISOString(),
+      })
+      .select('*')
+      .single();
+    if (result.error) throw result.error;
+    return result;
+  }, 'archiviazione foto proof');
 
   if (error) throw error;
+  console.info('[PHOTO_PROOF_ARCHIVED]', { campaignId, sessionId, driverId, storagePath });
   return data;
 }
 
@@ -386,4 +395,35 @@ function haversineKm(lat1, lon1, lat2, lon2) {
 
 function deg2rad(deg) {
   return deg * (Math.PI / 180);
+}
+
+export function isLatLngPoint(p) {
+  if (!p || typeof p !== 'object') return false;
+  if ('lat' in p || 'lng' in p || 'latitude' in p || 'longitude' in p) {
+    const lat = Number(p.lat ?? p.latitude);
+    const lng = Number(p.lng ?? p.longitude);
+    return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  }
+  if (Array.isArray(p) && p.length >= 2) {
+    const lat = Number(p[0]);
+    const lng = Number(p[1]);
+    return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  }
+  return false;
+}
+
+export function isSvgPoint(p) {
+  if (!p || typeof p !== 'object') return false;
+  if ('lat' in p || 'lng' in p || 'latitude' in p || 'longitude' in p) return false;
+  if ('x' in p || 'y' in p) {
+    const x = Number(p.x);
+    const y = Number(p.y);
+    return Number.isFinite(x) && Number.isFinite(y) && x >= 0 && x <= 100 && y >= 0 && y <= 100;
+  }
+  if (Array.isArray(p) && p.length >= 2) {
+    const x = Number(p[0]);
+    const y = Number(p[1]);
+    return Number.isFinite(x) && Number.isFinite(y) && x >= 0 && x <= 100 && y >= 0 && y <= 100;
+  }
+  return false;
 }

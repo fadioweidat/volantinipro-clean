@@ -3,7 +3,7 @@
  * Dashboard post-campagna a 7 tab. Read-only (anteprima).
  * NON modifica: algoritmi, GIS, Supabase, routing, calcoli, database.
  */
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 /* ─── Design tokens ─── */
@@ -462,7 +462,7 @@ function TabStatistiche({ kpis, totF, avgCov, flyerQty, kpisPopulation, kpisComu
         <KpiCard label="Volantini totali" value={fmt(qty)} color={C.orange} icon="📬" />
         <KpiCard label="Comuni" value={fmt(comuni)} color={C.teal} icon="🏙️" />
         {pop > 0 && <KpiCard label="Popolazione" value={fmt(pop)} color={C.purple} icon="👥" />}
-        {area > 0 && <KpiCard label="Area km²" value={`${area.toFixed(1)} km²`} color={C.yellow} icon="🗺️" />}
+        {area > 0 && <KpiCard label="Area km²" value={`${Number(area).toFixed(1)} km²`} color={C.yellow} icon="🗺️" />}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 28 }}>
@@ -755,7 +755,7 @@ const TABS = [
 
 /* ─── Main component ─── */
 
-export default function AdvancedReport({
+function AdvancedReportImpl({
   onClose,
   kpis = {}, avgFIdx, totF, avgCov, flyerQty, total, baseCost, disc,
   quantityIsSufficient, requiredQty, missingQty, remainingQty,
@@ -765,6 +765,12 @@ export default function AdvancedReport({
 }) {
   const [activeTab, setActiveTab] = useState("executive");
   const plannedGpsPoints = data.operationalWaypoints || data.gpsPlannedPoints || data.metadata?.operational_waypoints || [];
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
 
   const sharedProps = {
     kpis, totF, avgCov, flyerQty, svcType, tLabel, mainAreaLabel,
@@ -836,3 +842,5 @@ export default function AdvancedReport({
     </div>
   );
 }
+
+export default React.memo(AdvancedReportImpl);

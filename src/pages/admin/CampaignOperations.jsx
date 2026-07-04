@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { classifyDriverStatus, displayDriverName, getSessionGroup } from '../../lib/services/gps-api.js';
 import { getCampaignReport } from '../../lib/services/admin-api.js';
 import { buildGpsCsv, buildSessionCsv, downloadTextFile, filterOperationalRows, lastActivityAt } from '../../lib/services/report-utils.js';
+import { buildGpsProfessionalSnapshot, formatGpsDuration, formatGpsNumber } from '../../lib/services/gps-professional.js';
 
 const DEFAULT_CENTER = [45.4642, 9.19];
 const COLORS = ['#e8571a', '#2ecc8a', '#60a5fa', '#fbbf24', '#a78bfa', '#ef4444'];
@@ -11,6 +12,9 @@ const COLORS = ['#e8571a', '#2ecc8a', '#60a5fa', '#fbbf24', '#a78bfa', '#ef4444'
 export function CampaignOperations({ campaignId }) {
   const [state, setState] = useState({ loading: true, error: null, operations: null, notice: '' });
   const [filters, setFilters] = useState({ period: 'all', fromDate: '', toDate: '', campaign: campaignId, group: '', driver: '', status: 'all' });
+  const [playbackIndex, setPlaybackIndex] = useState(0);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +49,19 @@ export function CampaignOperations({ campaignId }) {
   const totalKm = visibleSessions.reduce((sum, item) => sum + distanceKm(item.points), 0);
   const totalPoints = visibleSessions.reduce((sum, item) => sum + item.points.length, 0);
   const totalMs = visibleSessions.reduce((sum, item) => sum + sessionDurationMs(item.session), 0);
+  const gpsSnapshot = buildGpsProfessionalSnapshot(visibleSessions, operations?.photos || []);
+  const playbackFrame = gpsSnapshot.playback[playbackIndex] || null;
+
+  useEffect(() => {
+    if (!gpsSnapshot.playback.length) {
+      setPlaybackIndex(0);
+      return undefined;
+    }
+    const timer = window.setInterval(() => {
+      setPlaybackIndex((value) => (value + 1) % gpsSnapshot.playback.length);
+    }, Math.max(180, 1200 / playbackSpeed));
+    return () => window.clearInterval(timer);
+  }, [gpsSnapshot.playback.length, playbackSpeed]);
 
   function exportSessionsCsv() {
     if (!visibleSessions.length) {
@@ -90,6 +107,12 @@ export function CampaignOperations({ campaignId }) {
         <Kpi label="Punti GPS" value={totalPoints} />
         <Kpi label="Foto proof" value={operations?.photos?.length || 0} />
         <Kpi label="Avanzamento stimato" value={progress} />
+        <Kpi label="Online / Offline" value={`${gpsSnapshot.summary.online}/${gpsSnapshot.summary.offline}`} />
+        <Kpi label="In pausa" value={gpsSnapshot.summary.paused} />
+        <Kpi label="Velocita media" value={formatGpsNumber(gpsSnapshot.summary.avgSpeedKmh, ' km/h')} />
+        <Kpi label="Precisione media" value={formatGpsNumber(gpsSnapshot.summary.avgAccuracy, ' m')} />
+        <Kpi label="Tempo fermo" value={formatGpsDuration(gpsSnapshot.summary.stoppedMs)} />
+        <Kpi label="Allarmi GPS" value={gpsSnapshot.alarms.length} />
       </section>
 
       <section style={cardStyle}>
@@ -143,13 +166,34 @@ export function CampaignOperations({ campaignId }) {
             <button style={buttonStyle} type="button" onClick={exportSessionsCsv}>CSV sessioni</button>
             <button style={buttonStyle} type="button" onClick={exportGpsCsv}>CSV GPS</button>
             <button style={buttonStyle} type="button" onClick={exportJson}>JSON operativo</button>
+            <button style={buttonStyle} type="button" onClick={() => setShowHeatmap((value) => !value)}>{showHeatmap ? 'Nascondi heatmap' : 'Heatmap'}</button>
           </div>
         </div>
         {visibleSessions.some((item) => item.points.length) ? (
-          <OperationsMap sessions={visibleSessions} />
+          <OperationsMap sessions={visibleSessions} heatmap={showHeatmap ? gpsSnapshot.heatmap : []} playbackFrame={playbackFrame} />
         ) : (
           <EmptyState text={state.loading ? 'Caricamento operazioni campagna...' : 'Nessun tracking GPS disponibile per questa campagna'} />
         )}
+        {gpsSnapshot.playback.length > 0 && (
+          <div style={playbackStyle}>
+            <span>Playback {playbackIndex + 1}/{gpsSnapshot.playback.length}</span>
+            {[1, 2, 4, 8].map((speed) => (
+              <button key={speed} type="button" onClick={() => setPlaybackSpeed(speed)} style={playbackSpeed === speed ? activeChipStyle : chipStyle}>{speed}x</button>
+            ))}
+            <span>{playbackFrame ? `${playbackFrame.driverName} · ${formatDateTime(playbackFrame.at)}` : 'n/d'}</span>
+          </div>
+        )}
+      </section>
+
+      <section style={gridTwoStyle}>
+        <div style={cardStyle}>
+          <p style={eyebrowStyle}>Allarmi GPS</p>
+          {gpsSnapshot.alarms.length ? gpsSnapshot.alarms.slice(0, 12).map((alarm, index) => <AlarmRow key={`${alarm.type}-${index}`} alarm={alarm} />) : <EmptyState text="Nessun allarme GPS sui dati disponibili." />}
+        </div>
+        <div style={cardStyle}>
+          <p style={eyebrowStyle}>Timeline GPS</p>
+          {gpsSnapshot.timeline.length ? gpsSnapshot.timeline.slice(0, 14).map((item, index) => <TimelineRow key={`${item.type}-${index}`} item={item} />) : <EmptyState text="Timeline non disponibile." />}
+        </div>
       </section>
 
       <section style={cardStyle}>
@@ -162,7 +206,7 @@ export function CampaignOperations({ campaignId }) {
   );
 }
 
-function OperationsMap({ sessions }) {
+function OperationsMap({ sessions, heatmap = [], playbackFrame = null }) {
   const firstPoint = sessions.flatMap((item) => item.points)[0];
   const center = firstPoint ? [Number(firstPoint.lat), Number(firstPoint.lng)] : DEFAULT_CENTER;
 
@@ -190,6 +234,18 @@ function OperationsMap({ sessions }) {
             </FragmentSession>
           );
         })}
+        {heatmap.map((cell) => (
+          <CircleMarker key={`heat-${cell.lat}-${cell.lng}`} center={[cell.lat, cell.lng]} radius={Math.min(24, 5 + cell.count)} pathOptions={{ color: '#fbbf24', fillColor: '#fbbf24', fillOpacity: 0.18, weight: 1 }}>
+            <Popup>Heatmap<br />{cell.count} punti GPS</Popup>
+          </CircleMarker>
+        ))}
+        {playbackFrame && (
+          <CircleMarker center={[playbackFrame.lat, playbackFrame.lng]} radius={12} pathOptions={{ color: '#fff', fillColor: '#e8571a', fillOpacity: 0.95, weight: 3 }}>
+            <Popup>
+              Playback<br />{playbackFrame.driverName}<br />{formatDateTime(playbackFrame.at)}
+            </Popup>
+          </CircleMarker>
+        )}
       </MapContainer>
     </div>
   );
@@ -213,6 +269,27 @@ function SessionRow({ item, color }) {
       <span>Status sessione {item.session.status || 'dato non disponibile'}</span>
       <span>{formatDateTime(item.session.started_at)} - {formatDateTime(item.session.ended_at || item.session.paused_at)}</span>
       <span>{distanceKm(item.points).toFixed(2)} km · {item.points.length} punti GPS · ultimo ping {formatDateTime(lastPing)}</span>
+    </div>
+  );
+}
+
+function AlarmRow({ alarm }) {
+  const color = alarm.level === 'red' ? '#f87171' : '#fbbf24';
+  return (
+    <div style={{ ...alarmRowStyle, borderLeftColor: color }}>
+      <strong style={{ color }}>{alarm.title}</strong>
+      <span>{alarm.detail}</span>
+      <small>{formatDateTime(alarm.at)}</small>
+    </div>
+  );
+}
+
+function TimelineRow({ item }) {
+  return (
+    <div style={timelineRowStyle}>
+      <strong>{item.label}</strong>
+      <span>{item.detail}</span>
+      <small>{formatDateTime(item.at)}</small>
     </div>
   );
 }
@@ -300,6 +377,7 @@ function shortId(value) {
 const shellStyle = { minHeight: '100vh', padding: 24, background: '#07100d', color: 'rgba(255,255,255,.72)', fontFamily: 'Inter, system-ui, sans-serif' };
 const cardStyle = { background: 'rgba(255,255,255,.045)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, padding: 16, boxShadow: '0 16px 42px rgba(0,0,0,.24)' };
 const kpiGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 12 };
+const gridTwoStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 16 };
 const filterGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, alignItems: 'end' };
 const labelStyle = { display: 'grid', gap: 6, fontSize: 12, fontWeight: 900, color: 'rgba(255,255,255,.55)' };
 const inputStyle = { border: '1px solid rgba(255,255,255,.1)', background: 'rgba(0,0,0,.25)', color: '#fff', borderRadius: 9, padding: '10px 11px', font: 'inherit' };
@@ -307,6 +385,11 @@ const eyebrowStyle = { margin: '0 0 8px', fontSize: 11, textTransform: 'uppercas
 const mutedStyle = { color: 'rgba(255,255,255,.48)', fontSize: 12 };
 const navButtonStyle = { alignSelf: 'start', border: '1px solid rgba(255,255,255,.1)', borderRadius: 10, padding: '10px 13px', color: '#fff', textDecoration: 'none', fontWeight: 900 };
 const buttonStyle = { border: '1px solid rgba(255,255,255,.1)', borderRadius: 10, padding: '10px 13px', background: 'rgba(255,255,255,.04)', color: '#fff', textDecoration: 'none', fontWeight: 900, cursor: 'pointer' };
-const noticeStyle = { padding: 12, border: '1px solid', borderRadius: 10, background: 'rgba(255,255,255,.04)', fontWeight: 800 };
+const noticeStyle = { padding: 12, borderWidth: 1, borderStyle: 'solid', borderRadius: 10, background: 'rgba(255,255,255,.04)', fontWeight: 800 };
 const emptyStyle = { padding: 16, border: '1px dashed rgba(255,255,255,.14)', borderRadius: 10, color: 'rgba(255,255,255,.48)' };
 const sessionRowStyle = { display: 'grid', gap: 5, padding: '12px 0 12px 12px', borderBottom: '1px solid rgba(255,255,255,.07)', borderLeft: '4px solid', fontSize: 12 };
+const alarmRowStyle = { display: 'grid', gap: 5, padding: '10px 0 10px 12px', borderBottom: '1px solid rgba(255,255,255,.07)', borderLeft: '4px solid', fontSize: 12 };
+const timelineRowStyle = { display: 'grid', gap: 5, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,.07)', fontSize: 12 };
+const playbackStyle = { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 12, padding: 10, borderRadius: 10, border: '1px solid rgba(255,255,255,.08)', background: 'rgba(255,255,255,.035)', fontSize: 12 };
+const chipStyle = { border: '1px solid rgba(255,255,255,.12)', borderRadius: 999, padding: '5px 10px', background: 'rgba(255,255,255,.04)', color: 'rgba(255,255,255,.7)', cursor: 'pointer' };
+const activeChipStyle = { ...chipStyle, borderColor: '#e8571a', color: '#e8571a', background: 'rgba(232,87,26,.12)' };

@@ -242,7 +242,7 @@ export function CampaignGroupDetail({ campaignId, groupId }) {
             <label style={labelStyle}>Note admin
               <input value={corrForm.notes} onChange={(e) => setCorrForm({ ...corrForm, notes: e.target.value })} placeholder="Dettagli verifica..." style={inputStyle} />
             </label>
-            <button type="submit" style={{ ...buttonStyle, background: '#e8571a', borderColor: '#e8571a' }}>Salva Correzione Copertura</button>
+            <button type="submit" style={{ ...buttonStyle, background: '#e8571a', border: '1px solid #e8571a' }}>Salva Correzione Copertura</button>
           </form>
 
           <p style={{ ...eyebrowStyle, marginTop: 20 }}>Alert</p>
@@ -410,10 +410,10 @@ const eyebrowStyle = { margin: '0 0 8px', fontSize: 11, textTransform: 'uppercas
 const labelStyle = { display: 'grid', gap: 6, fontSize: 12, fontWeight: 900, color: 'rgba(255,255,255,.55)' };
 const inputStyle = { border: '1px solid rgba(255,255,255,.1)', background: 'rgba(0,0,0,.25)', color: '#fff', borderRadius: 9, padding: '10px 11px', font: 'inherit' };
 const textareaStyle = { ...inputStyle, minHeight: 58, resize: 'vertical' };
-const noticeStyle = { padding: 12, border: '1px solid', borderRadius: 10, background: 'rgba(255,255,255,.04)', fontWeight: 800, marginBottom: 12 };
+const noticeStyle = { padding: 12, borderWidth: 1, borderStyle: 'solid', borderRadius: 10, background: 'rgba(255,255,255,.04)', fontWeight: 800, marginBottom: 12 };
 const emptyStyle = { padding: 16, border: '1px dashed rgba(255,255,255,.14)', borderRadius: 10, color: 'rgba(255,255,255,.48)' };
 const mapFrameStyle = { height: 560, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)' };
-const alertStyle = { display: 'grid', gap: 5, padding: 12, marginBottom: 8, borderRadius: 10, border: '1px solid', background: 'rgba(255,255,255,.04)', fontSize: 12 };
+const alertStyle = { display: 'grid', gap: 5, padding: 12, marginBottom: 8, borderRadius: 10, borderWidth: 1, borderStyle: 'solid', background: 'rgba(255,255,255,.04)', fontSize: 12 };
 const infoNoticeStyle = { padding: 12, marginTop: 10, borderRadius: 10, color: 'rgba(255,255,255,.55)', background: 'rgba(255,255,255,.035)', fontSize: 12 };
 const operatorRowStyle = { display: 'grid', gap: 7, padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,.07)', fontSize: 12 };
 const photoRowStyle = { display: 'flex', gap: 12, padding: 12, borderBottom: '1px solid rgba(255,255,255,.07)', alignItems: 'center' };

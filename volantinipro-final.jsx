@@ -4,7 +4,8 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { printQuotePdf } from "./src/lib/pdf/printQuotePdf.js";
-import { AUTH_EXPIRED_MESSAGE, supabase, confirmCampaignPayment, hasSupabaseConfig, saveCampaign, saveSmartPairingWaitlist, getStoredSupabaseSession, isAuthTokenExpiredError, isStoredSupabaseSessionExpired, clearExpiredSupabaseSession } from "./src/lib/supabaseClient.js";
+import { AUTH_EXPIRED_MESSAGE, supabase, confirmCampaignPayment, hasSupabaseConfig, saveCampaign, saveSmartPairingWaitlist, getStoredSupabaseSession, isAuthTokenExpiredError, isStoredSupabaseSessionExpired, clearExpiredSupabaseSession, ensureRestSessionFromSdk } from "./src/lib/supabaseClient.js";
+import { logAuditEvent } from "./src/lib/audit.js";
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
@@ -26,6 +27,7 @@ import ServicesSection from "./src/components/home/ServicesSection.jsx";
 import WhyDifferentSection from "./src/components/home/WhyDifferentSection.jsx";
 import RisultatiSection from "./src/components/home/RisultatiSection.jsx";
 import Footer from "./src/components/home/Footer.jsx";
+import { AdminRouteGuard } from "./src/components/admin/AdminGuard.jsx";
 const VolantiniProAIHub = React.lazy(() => import("./src/components/ai/VolantiniProAIHub.jsx"));
 const RealAdminDashboard = React.lazy(() => import("./src/pages/admin/AdminDashboard.jsx"));
 const ServiceCenter = React.lazy(() => import("./src/pages/ServiceCenter.jsx"));
@@ -144,6 +146,41 @@ const BASE_PRICES  = { d2d: 1.85, h2h: 2.20, b2b: 3.50 };
 const QUOTE_PRICES = { d2d: 18.5, h2h: 22.0, b2b: 35.0 };
 const MONTHS_FULL  = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
 const MONTHS_SHORT = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
+
+// Unified secondary-navigation control (Indietro / Modifica configurazione / Zona e mappa / Home / Dashboard / Preventivo)
+// used across Step1-4, Smart Pairing and the campaign report/dashboard headers.
+function NavButton({ onClick, children, full = false, compact = false, style, ...rest }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="vp-navbtn"
+      style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
+        width: full ? "100%" : undefined,
+        minHeight: compact ? 38 : 42,
+        padding: compact ? "8px 12px" : "10px 18px",
+        borderRadius: 10,
+        border: "1px solid rgba(255,255,255,.16)",
+        background: "linear-gradient(180deg, rgba(18,32,54,.74), rgba(6,15,26,.72))",
+        color: "#F1F5F9",
+        fontFamily: F.sans,
+        fontSize: compact ? 12 : 13,
+        fontWeight: 800,
+        lineHeight: 1,
+        whiteSpace: "nowrap",
+        cursor: "pointer",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,.04), 0 10px 24px rgba(0,0,0,.16)",
+        transition: "border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease, color .18s ease",
+        ...style,
+      }}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}
+
 class Step2ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null, info: null }; }
   static getDerivedStateFromError(error) { return { hasError: true, error }; }
@@ -178,6 +215,7 @@ function Bootstrap() {
       s.textContent = `html,body{overflow-x:hidden}*{box-sizing:border-box;margin:0;padding:0}
       @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
       @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}.fu{animation:fadeUp.5s ease both}.fu1{animation:fadeUp.5s.1s ease both}.fu2{animation:fadeUp.5s.2s ease both}.fu3{animation:fadeUp.5s.3s ease both}.fadein{animation:fadeIn.35s ease both}.vb:hover{filter:brightness(1.1);transform:translateY(-2px);box-shadow:0 8px 24px rgba(232,87,26,0.35)!important}.vb{transition:all 0.3s cubic-bezier(0.16, 1, 0.3, 1)}.btn:hover{filter:brightness(1.09);transform:translateY(-1px)}.btn{transition:all.18s}.vc:hover{transform:translateY(-2px);box-shadow:0 14px 36px rgba(0,0,0,.13)}.vc{transition:all.22s}.nl:hover{color:#fff!important}.nl{transition:color.2s}.rh:hover{background:rgba(255,255,255,.06)!important}
+      .vp-navbtn:hover{background:linear-gradient(180deg,rgba(24,42,70,.86),rgba(10,23,40,.84))!important;border-color:rgba(255,255,255,.30)!important;color:#fff!important;box-shadow:0 14px 30px rgba(0,0,0,.24),0 0 0 3px rgba(96,165,250,.12)!important;transform:translateY(-1px)}.vp-navbtn:active{transform:translateY(0)}.vp-navbtn:focus-visible{outline:2px solid rgba(96,165,250,.86);outline-offset:3px}
       .section{padding-top:128px;padding-bottom:128px}.section-tight{padding-top:64px;padding-bottom:64px}.section-inner-gap{display:flex;flex-direction:column;gap:48px}.trust-bar-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:32px}.trust-bar-logos{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:24px;align-items:center}.trust-bar-logos img{max-width:100%;max-height:42px;filter:grayscale(1);opacity:.6;transition:filter .18s ease,opacity .18s ease}.trust-bar-logos img:hover{filter:grayscale(0);opacity:1}.services-grid,.results-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.servizio-card{min-height:520px;display:flex;flex-direction:column;background:#242424;border-radius:16px;padding:32px 28px;border:.5px solid rgba(255,255,255,.08);transition:border-color .3s ease,transform .3s ease}.servizio-card:hover{border-color:rgba(232,87,26,.4);transform:translateY(-2px)}.faq-layout{display:grid;grid-template-columns:minmax(260px,.75fr) 1.25fr;gap:72px;align-items:start}.faq-sticky{position:sticky;top:96px}.faq-row{border-bottom:.5px solid rgba(0,0,0,.1);transition:background .3s ease}.faq-row:hover{background:rgba(232,87,26,.04)}.testimonial-card{min-height:430px;display:flex;flex-direction:column;background:#242424;border-radius:16px;padding:40px 32px;border:.5px solid rgba(255,255,255,.08)}.footer-grid{display:grid;grid-template-columns:1.35fr repeat(3,1fr);gap:56px}.footer-bottom{margin-top:64px;padding-top:24px;border-top:.5px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:space-between;gap:20px;color:rgba(255,255,255,.45);font-size:12px;font-family:"DM Sans",Inter,system-ui,sans-serif}
       input:focus,select:focus{outline:none!important}
       select option{background:#162238;color:white}
@@ -440,6 +478,14 @@ function Navbar({ onNav, page }) {
   const go = (target) => {
     setMenuOpen(false);
     setPlatformOpen(false);
+    if (target === "login") {
+      try {
+        localStorage.setItem("volantinipro_return_to", "dashboard");
+        localStorage.setItem("volantinipro_return_to_source", "navbar_login");
+        localStorage.removeItem("volantinipro_pending_campaign_id");
+        console.info("[AUTH_RETURN_TO_SOURCE]", { source: "navbar_login", returnTo: "dashboard" });
+      } catch {}
+    }
     onNav(target);
   };
 
@@ -1056,7 +1102,7 @@ const { children,...rest } = props;
   return React.createElement(type, rest, children);
 }
 const _jsxs = _jsx;
-const GEO_DATA=[{id:"cormano",name:"Cormano",lat:45.551,lng:9.163},{id:"sesto",name:"Sesto San Giovanni",lat:45.533,lng:9.237},{id:"bresso",name:"Bresso",lat:45.542,lng:9.192},{id:"cinisello",name:"Cinisello Balsamo",lat:45.559,lng:9.212},{id:"monza",name:"Monza",lat:45.584,lng:9.274},{id:"niguarda",name:"Milano Niguarda",lat:45.507,lng:9.188},{id:"varedo",name:"Varedo",lat:45.574,lng:9.161},{id:"paderno",name:"Paderno Dugnano",lat:45.568,lng:9.163},{id:"cusano",name:"Cusano Milanino",lat:45.551,lng:9.18},{id:"quarto",name:"Quarto Oggiaro",lat:45.5,lng:9.137},{id:"senago",name:"Senago",lat:45.576,lng:9.13}],ZONE_DATA=[{id:"cormano",name:"Cormano",area:6.8,pop:21800,families:8500,mailboxes:7100,coverage:78,flyersMin:1e4,flyersMax:12e3,operDays:3,familyIdx:72,reachD2D:84,roiD2D:68,confD2D:81,eta14:null,eta34:null,eta64:null,eta65:null,genderM:49,genderF:51,areaType:"Residenziale mista",poi:145,nearbyBiz:38,commDens:61,flowScore:74,transitStops:23,trainStations:3,operDaysH2H:2,reachH2H:79,roiH2H:65,confH2H:76,hotspots:"Piazza centrale – Stazione",timeSlots:"08-10 – 12-14",strongPts:7,bizTotal:92,competitors:11,commDensB2B:74,operDaysB2B:2,cdIdx:74,reachB2B:82,roiB2B:71,confB2B:80,clusters:3,topCats:"Retail – Food – Servizi",targetBiz:41,strongZone:"Asse centrale",reddito:24200,densita:3200,stranieri:10.4,indVec:189,occup:65.2,imprese:1240,dist:{cormano:0,sesto:5.8,bresso:3.1,cinisello:3.9,monza:10.1,niguarda:4.8,varedo:2.8,paderno:1.4,cusano:1.8,quarto:5.2,senago:3.8}},{id:"bresso",name:"Bresso",area:3.1,pop:27100,families:11200,mailboxes:9400,coverage:87,flyersMin:13e3,flyersMax:15e3,operDays:2,familyIdx:80,reachD2D:88,roiD2D:74,confD2D:85,eta14:null,eta34:null,eta64:null,eta65:null,genderM:48,genderF:52,areaType:"Urbano residenziale",poi:198,nearbyBiz:54,commDens:71,flowScore:82,transitStops:14,trainStations:1,operDaysH2H:2,reachH2H:83,roiH2H:70,confH2H:80,hotspots:"Corso principale – Metro",timeSlots:"08-10 – 17-19",strongPts:5,bizTotal:120,competitors:18,commDensB2B:79,operDaysB2B:1,cdIdx:79,reachB2B:85,roiB2B:74,confB2B:82,clusters:4,topCats:"Food – Retail – Salute",targetBiz:54,strongZone:"Via principale",reddito:25800,densita:8900,stranieri:12.8,indVec:150,occup:66.8,imprese:1980,dist:{cormano:3.1,sesto:4.2,bresso:0,cinisello:2.8,monza:8.9,niguarda:2.1,varedo:4.8,paderno:4,cusano:2.9,quarto:7.4,senago:6.1}},{id:"cinisello",name:"Cinisello Balsamo",area:12.1,pop:73800,families:29100,mailboxes:24800,coverage:92,flyersMin:3e4,flyersMax:36e3,operDays:6,familyIdx:75,reachD2D:90,roiD2D:72,confD2D:88,eta14:null,eta34:null,eta64:null,eta65:null,genderM:48,genderF:52,areaType:"Misto residenziale",poi:320,nearbyBiz:98,commDens:78,flowScore:88,transitStops:18,trainStations:2,operDaysH2H:3,reachH2H:87,roiH2H:74,confH2H:84,hotspots:"C.C. – Stazione – Piazze",timeSlots:"08-10 – 12-14 – 17-19",strongPts:9,bizTotal:210,competitors:32,commDensB2B:82,operDaysB2B:3,cdIdx:82,reachB2B:88,roiB2B:76,confB2B:85,clusters:7,topCats:"Retail – Food – Uffici",targetBiz:94,strongZone:"C.C. + direzionale",reddito:23400,densita:5800,stranieri:15.2,indVec:154,occup:65.4,imprese:4800,dist:{cormano:3.9,sesto:2.2,bresso:2.8,cinisello:0,monza:5.8,niguarda:3.4,varedo:5.6,paderno:4.8,cusano:3.1,quarto:8.2,senago:4.4}},{id:"varedo",name:"Varedo",area:4.2,pop:13200,families:5400,mailboxes:3800,coverage:100,flyersMin:6e3,flyersMax:7e3,operDays:2,familyIdx:68,reachD2D:76,roiD2D:60,confD2D:78,eta14:null,eta34:null,eta64:null,eta65:null,genderM:49,genderF:51,areaType:"Bassa densità",poi:82,nearbyBiz:22,commDens:44,flowScore:46,transitStops:6,trainStations:1,operDaysH2H:1,reachH2H:62,roiH2H:52,confH2H:68,hotspots:"Piazza municipio",timeSlots:"08-10 – 16-18",strongPts:3,bizTotal:48,competitors:6,commDensB2B:52,operDaysB2B:1,cdIdx:52,reachB2B:64,roiB2B:55,confB2B:70,clusters:2,topCats:"Bar – Retail",targetBiz:21,strongZone:"Centro storico",reddito:22800,densita:3140,stranieri:8.4,indVec:203,occup:62.8,imprese:620,dist:{cormano:2.8,sesto:7.4,bresso:4.8,cinisello:5.6,monza:8.8,niguarda:6.2,varedo:0,paderno:1.8,cusano:3.2,quarto:6.4,senago:2.2}},{id:"paderno",name:"Paderno Dugnano",area:10.8,pop:37800,families:15200,mailboxes:12800,coverage:82,flyersMin:16e3,flyersMax:19e3,operDays:4,familyIdx:71,reachD2D:82,roiD2D:65,confD2D:80,eta14:null,eta34:null,eta64:null,eta65:null,genderM:49,genderF:51,areaType:"Residenziale mista",poi:168,nearbyBiz:48,commDens:62,flowScore:68,transitStops:14,trainStations:1,operDaysH2H:2,reachH2H:76,roiH2H:62,confH2H:74,hotspots:"Stazione – Piazze – Mercato",timeSlots:"08-10 – 12-14",strongPts:5,bizTotal:108,competitors:14,commDensB2B:68,operDaysB2B:2,cdIdx:68,reachB2B:77,roiB2B:64,confB2B:76,clusters:4,topCats:"Food – Retail – Salute",targetBiz:48,strongZone:"Asse ferroviario",reddito:23200,densita:3500,stranieri:11.2,indVec:167,occup:64.2,imprese:2100,dist:{cormano:1.4,sesto:5.2,bresso:4,cinisello:4.8,monza:9.2,niguarda:5.8,varedo:1.8,paderno:0,cusano:2.4,quarto:5.8,senago:3.4}},{id:"sesto",name:"Sesto S. Giovanni",area:11.6,pop:81200,families:33500,mailboxes:28200,coverage:94,flyersMin:34e3,flyersMax:4e4,operDays:6,familyIdx:77,reachD2D:91,roiD2D:75,confD2D:89,eta14:null,eta34:null,eta64:null,eta65:null,genderM:48,genderF:52,areaType:"Urbano denso",poi:380,nearbyBiz:112,commDens:82,flowScore:90,transitStops:22,trainStations:3,operDaysH2H:3,reachH2H:89,roiH2H:77,confH2H:86,hotspots:"Metro M1 – Centro – Stazione",timeSlots:"07-09 – 12-14 – 17-19",strongPts:11,bizTotal:280,competitors:42,commDensB2B:86,operDaysB2B:3,cdIdx:86,reachB2B:91,roiB2B:79,confB2B:88,clusters:8,topCats:"Retail – Food – Uffici",targetBiz:126,strongZone:"P.za Resistenza",reddito:26200,densita:6200,stranieri:14.8,indVec:181,occup:67.2,imprese:6200,dist:{cormano:5.8,sesto:0,bresso:4.2,cinisello:2.2,monza:7.1,niguarda:3.8,varedo:7.4,paderno:5.2,cusano:4.9,quarto:9.4,senago:7.2}},{id:"cusano",name:"Cusano Milanino",area:4,pop:19300,families:7600,mailboxes:6200,coverage:85,flyersMin:8e3,flyersMax:1e4,operDays:2,familyIdx:70,reachD2D:80,roiD2D:64,confD2D:79,eta14:null,eta34:null,eta64:null,eta65:null,genderM:49,genderF:51,areaType:"Medio-alta",poi:124,nearbyBiz:36,commDens:58,flowScore:62,transitStops:8,trainStations:0,operDaysH2H:2,reachH2H:72,roiH2H:60,confH2H:72,hotspots:"Centro – Parco",timeSlots:"08-10 – 16-18",strongPts:4,bizTotal:78,competitors:9,commDensB2B:62,operDaysB2B:1,cdIdx:62,reachB2B:74,roiB2B:62,confB2B:74,clusters:3,topCats:"Retail – Salute",targetBiz:35,strongZone:"Via Roma + centro",reddito:24800,densita:4800,stranieri:9.8,indVec:188,occup:64.8,imprese:980,dist:{cormano:1.8,sesto:4.9,bresso:2.9,cinisello:3.1,monza:9.4,niguarda:4.2,varedo:3.2,paderno:2.4,cusano:0,quarto:6.8,senago:3.2}}],LAYERS={d2d:[{id:"families",label:"Famiglie",field:"families",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"nuclei",src:"ISTAT",lo:"#FFF5F0",hi:"#C2410C"},{id:"pop",label:"Popolazione",field:"pop",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"ab.",src:"ISTAT",lo:"#EFF6FF",hi:"#1E3A8A"},{id:"densita",label:"Densità ab.",field:"densita",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"ab/km²",src:"ISTAT",lo:"#F5F3FF",hi:"#4C1D95"},{id:"coverage",label:"Peso sul totale",field:"coverage",fmt:n=>n+"%",unit:"%",src:"Dati geografici",lo:"#ECFDF5",hi:"#065F3C"},{id:"flyersMin",label:"Volantini consigliati",field:"flyersMin",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true })+"+",unit:"pz.",src:"Analisi interna",lo:"#F0F9FF",hi:"#075985"},{id:"familyIdx",label:"Indice di residenzialità",field:"familyIdx",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#FDF2F8",hi:"#701A75"},{id:"eta65",label:"Età 65+",field:"eta65",fmt:n=>n+"%",unit:"over 65",src:"ISTAT",lo:"#FFFBEB",hi:"#78350F"}],h2h:[{id:"flowScore",label:"Intensità passaggio",field:"flowScore",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#EFF6FF",hi:"#1E3A8A"},{id:"poi",label:"POI concentration",field:"poi",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"POI",src:"Google Places",lo:"#EFF6FF",hi:"#1E3A8A"},{id:"transitStops",label:"Transit proximity",field:"transitStops",fmt:n=>n+" fermate",unit:"fermate",src:"Trasporto pubblico / GTFS",lo:"#F5F3FF",hi:"#4C1D95"},{id:"strongPts",label:"Hotspot operativi",field:"strongPts",fmt:n=>n+" punti",unit:"punti",src:"Analisi interna",lo:"#ECFDF5",hi:"#065F3C"},{id:"commDens",label:"Densità passaggio",field:"commDens",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#FFF5F0",hi:"#C2410C"},{id:"nearbyBiz",label:"Attrattori locali",field:"nearbyBiz",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"att.",src:"Google Places",lo:"#ECFDF5",hi:"#065F3C"}],b2b:[{id:"bizTotal",label:"Attività rilevate",field:"bizTotal",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"att.",src:"Google Places",lo:"#FDF2F8",hi:"#701A75"},{id:"competitors",label:"Competitor",field:"competitors",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"comp.",src:"Google Places",lo:"#FFF5F0",hi:"#C2410C"},{id:"commDensB2B",label:"Densità commerciale",field:"commDensB2B",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#FFFBEB",hi:"#78350F"},{id:"clusters",label:"Forza cluster",field:"clusters",fmt:n=>n+" cluster",unit:"cluster",src:"Analisi interna",lo:"#EFF6FF",hi:"#1E3A8A"},{id:"targetBiz",label:"Rilevanza target",field:"targetBiz",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true })+" att.",unit:"att.",src:"Google Places",lo:"#ECFDF5",hi:"#065F3C"},{id:"reddito",label:"Reddito medio",field:"reddito",fmt:n=>"EUR "+n.toLocaleString("it-IT", { useGrouping: true }),unit:"EUR /anno",src:"Dati territoriali",lo:"#F0FDF4",hi:"#14532D"},{id:"cdIdx",label:"Commercial Density Index",field:"cdIdx",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#F5F3FF",hi:"#4C1D95"}]},SERVICE_META={d2d:{label:"Door to Door",icon:" ",color:"#22C55E",mode:"residential",src:["ISTAT","Mapbox","OpenStreetMap","landuse / buildings","Dati geografici","Analisi interna"],allocationSort:(n,i)=>(i.familyIdx||0)*1.8+(i.coverage||0)*1.2+(i.families||0)*.006-(i.dist||0)*5-((n.familyIdx||0)*1.8+(n.coverage||0)*1.2+(n.families||0)*.006-(n.dist||0)*5),mainKpis:n=>[{l:"Famiglie stimate",v:n.families.toLocaleString("it-IT", { useGrouping: true }),u:"nuclei",src:"ISTAT",c:"#22C55E",icon:""},{l:"Popolazione stimata",v:n.pop.toLocaleString("it-IT", { useGrouping: true }),u:"abitanti",src:"ISTAT",c:"#22C55E",icon:""},{l:"Superficie coperta",v:n.area+" km²",u:"",src:"Dati geografici",c:C.blue,icon:""},{l:"Copertura stimata",v:n.coverage+"%",u:"",src:"ISTAT+GIS",c:C.green,icon:""},{l:"Range operativo",v:n.flyersMin.toLocaleString("it-IT", { useGrouping: true })+" - "+n.flyersMax.toLocaleString("it-IT", { useGrouping: true }),u:"pz.",src:"Calc.",c:C.green,icon:""},{l:"Giorni operativi",v:n.operDays+" giorni",u:"",src:"Operativo",c:C.yellow,icon:""},{l:"Comuni nel raggio",v:"-",u:"",src:"Dati geografici",c:C.blue,icon:""}],advKpis:n=>[{l:"Indice di residenzialità",v:n.familyIdx,c:"#22C55E"},{l:"Reach Score",v:n.reachD2D,c:C.blue},{l:"ROI Score",v:n.roiD2D,c:C.green},{l:"Confidence",v:n.confD2D,c:C.purple}],aiCats:[{group:"Residential profile",l:"Famiglie",v:n=>n.families.toLocaleString("it-IT", { useGrouping: true })+" nuclei"},{group:"Residential profile",l:"Popolazione",v:n=>n.pop.toLocaleString("it-IT", { useGrouping: true })+" ab."},{group:"Residential profile",l:"Densità residenziale",v:n=>n.densita.toLocaleString("it-IT", { useGrouping: true })+" ab/km²"},{group:"Residential profile",l:"Tipologia area",v:n=>n.areaType},{group:"Demographic profile",l:"Età 0-14",v:n=>n.eta14+"%"},{group:"Demographic profile",l:"Età 15-34",v:n=>n.eta34+"%"},{group:"Demographic profile",l:"Età 35-64",v:n=>n.eta64+"%"},{group:"Demographic profile",l:"Età 65+",v:n=>n.eta65+"%"},{group:"Demographic profile",l:"Genere",v:n=>"M "+n.genderM+"% – F "+n.genderF+"%"},{group:"Demographic profile",l:"Indice vecchiaia",v:n=>n.indVec+"/100"},{group:"Demographic profile",l:"% Stranieri",v:n=>n.stranieri+"%"},{group:"Economic context",l:"Reddito medio",v:n=>"EUR "+n.reddito.toLocaleString("it-IT", { useGrouping: true }),c:"green"},{group:"Economic context",l:"Tasso occupazione",v:n=>n.occup+"%",c:"green"},{group:"Economic context",l:"Imprese come contesto",v:n=>n.imprese.toLocaleString("it-IT", { useGrouping: true })},{group:"Operational reading",l:"Residential strength",v:n=>n.familyIdx+"/100"},{group:"Operational reading",l:"Copertura consigliata",v:n=>n.coverage>=88?"Copertura piena":n.coverage>=75?"Copertura selettiva estesa":"Copertura selettiva"},{group:"Operational reading",l:"Suitability campagna",v:n=>n.reachD2D>=86?"Alta":n.reachD2D>=76?"Buona":"Mirata"},{group:"Operational reading",l:"Confidence level",v:n=>n.confD2D+"/100"}]},h2h:{label:"Hand to Hand",icon:"",color:C.blue,mode:"movement",src:["Google Places","Google Places","OpenStreetMap","Overpass","Trasporto pubblico / GTFS","Mapbox","Analisi interna","Dati geografici"],allocationSort:(n,i)=>(i.flowScore||0)*2.4+(i.strongPts||0)*13+(i.transitStops||0)*1.9+(i.poi||0)*.18+(i.commDens||0)*1.2-(i.dist||0)*4-((n.flowScore||0)*2.4+(n.strongPts||0)*13+(n.transitStops||0)*1.9+(n.poi||0)*.18+(n.commDens||0)*1.2-(n.dist||0)*4),mainKpis:n=>{const i=n.flowScore,r=i<40?"Basso":i<60?"Medio":i<80?"Alto":"Molto Alto",l=i<40?C.red:i<60?C.yellow:i<80?C.green:C.purple;return[{l:"POI rilevanti",v:n.poi.toLocaleString("it-IT", { useGrouping: true }),u:"POI",src:"Google Places",c:C.blue,icon:""},{l:"Competitor rilevati",v:Math.round(n.nearbyBiz*.28),u:"comp.",src:"Google Places",c:C.red,icon:"–"},{l:"Densità passaggio",v:n.commDens+"/100",u:"",src:"Analisi interna",c:C.blue,icon:" "},{l:"Flusso potenziale",v:r+" – "+i+"/100",u:"",src:"Analisi interna",c:l,icon:""},{l:"Fermate / stazioni",v:n.transitStops+" fermate – "+n.trainStations+" staz.",u:"",src:"Trasporto pubblico / GTFS",c:C.purple,icon:""},{l:"Hotspot operativi",v:n.strongPts+" punti",u:"",src:"Analisi interna",c:C.green,icon:""},{l:"Giorni operativi",v:n.operDaysH2H+" giorni",u:"",src:"Operativo",c:C.yellow,icon:""}]},advKpis:n=>[{l:"Reach Score",v:n.reachH2H,c:C.blue},{l:"ROI Score",v:n.roiH2H,c:C.green},{l:"Confidence",v:n.confH2H,c:C.purple},{l:"Reddito medio",v:n.reddito,c:C.green}],aiCats:[{group:"Movement profile",l:"Intensità passaggio",v:n=>n.flowScore+"/100"},{group:"Movement profile",l:"Anchor trasporto",v:n=>n.transitStops+" fermate – "+n.trainStations+" staz."},{group:"Movement profile",l:"Scuole / eventi",v:n=>n.strongPts+" punti"},{group:"Movement profile",l:"Rilevanza pedonale",v:n=>n.commDens>=75?"Alta":n.commDens>=58?"Media":"Locale"},{group:"Local attractiveness",l:"POI rilevanti",v:n=>n.poi.toLocaleString("it-IT", { useGrouping: true })},{group:"Local attractiveness",l:"Attività vicine",v:n=>n.nearbyBiz.toLocaleString("it-IT", { useGrouping: true })},{group:"Local attractiveness",l:"Contesto mixed-use",v:n=>n.areaType},{group:"Operational timing",l:"Fasce consigliate",v:n=>n.timeSlots},{group:"Operational timing",l:"opportunità mattina",v:n=>n.timeSlots.includes("08")||n.timeSlots.includes("07")?"Forte":"Media"},{group:"Operational timing",l:"opportunità pranzo",v:n=>n.timeSlots.includes("12")?"Forte":"Da validare"},{group:"Operational reading",l:"Hotspot principale",v:n=>n.hotspots},{group:"Operational reading",l:"Punti operativi",v:n=>n.strongPts+" suggeriti"},{group:"Operational reading",l:"Exposure quality",v:n=>n.flowScore>=80?"Alta":n.flowScore>=65?"Buona":"Mirata"},{group:"Operational reading",l:"Confidence level",v:n=>n.confH2H+"/100"}]},b2b:{label:"Business Distribution",icon:"",color:C.purple,mode:"business",src:["Google Places","Google Places","OpenStreetMap","Mapbox","Analisi interna","Dati geografici","Dati territoriali"],allocationSort:(n,i)=>(i.targetBiz||0)*1.9+(i.commDensB2B||0)*2.2+(i.clusters||0)*10-(i.competitors||0)*.35-(i.dist||0)*3-((n.targetBiz||0)*1.9+(n.commDensB2B||0)*2.2+(n.clusters||0)*10-(n.competitors||0)*.35-(n.dist||0)*3),mainKpis:n=>[{l:"Attività rilevate",v:n.bizTotal.toLocaleString("it-IT", { useGrouping: true }),u:"att.",src:"Google Places",c:C.purple,icon:""},{l:"Competitor rilevati",v:n.competitors,u:"comp.",src:"Google Places",c:C.red,icon:"–"},{l:"Densità commerciale",v:n.commDensB2B+"/100",u:"",src:"Analisi interna",c:C.purple,icon:" "},{l:"Reddito medio stimato",v:"EUR "+n.reddito.toLocaleString("it-IT", { useGrouping: true }),u:"anno",src:"Dati territoriali",c:C.green,icon:""},{l:"Commercial Density Index",v:n.cdIdx+"/100",u:"",src:"Analisi interna",c:C.purple,icon:"-–"},{l:"Giorni operativi",v:n.operDaysB2B+" giorni",u:"",src:"Operativo",c:C.yellow,icon:""}],advKpis:n=>[{l:"Comm. Density",v:n.cdIdx,c:C.purple},{l:"Reach Score",v:n.reachB2B,c:C.blue},{l:"ROI Score",v:n.roiB2B,c:C.green},{l:"Confidence",v:n.confB2B,c:"#6366F1"}],aiCats:[{group:"Commercial profile",l:"Attività rilevate",v:n=>n.bizTotal.toLocaleString("it-IT", { useGrouping: true })+" attività"},{group:"Commercial profile",l:"Categorie dominanti",v:n=>n.topCats},{group:"Commercial profile",l:"Densità commerciale",v:n=>n.commDensB2B+"/100"},{group:"Commercial profile",l:"Attività target",v:n=>n.targetBiz.toLocaleString("it-IT", { useGrouping: true })+" att."},{group:"Economic context",l:"Reddito medio stimato",v:n=>"EUR "+n.reddito.toLocaleString("it-IT", { useGrouping: true }),c:"green"},{group:"Economic context",l:"Tasso occupazione",v:n=>n.occup+"%"},{group:"Economic context",l:"Base imprese locale",v:n=>n.imprese.toLocaleString("it-IT", { useGrouping: true })},{group:"Competitive context",l:"Competitor rilevati",v:n=>n.competitors.toLocaleString("it-IT", { useGrouping: true })},{group:"Competitive context",l:"Livello competizione",v:n=>n.competitors>30?"Alto":n.competitors>12?"Medio":"Contenuto"},{group:"Operational reading",l:"Cluster commerciali",v:n=>n.clusters+" cluster"},{group:"Operational reading",l:"Zona business forte",v:n=>n.strongZone},{group:"Operational reading",l:"Attrattività commerciale",v:n=>n.commDensB2B>=78?"Alta":n.commDensB2B>=62?"Media":"Da validare"},{group:"Operational reading",l:"Confidence level",v:n=>n.confB2B+"/100"}]}};
+const GEO_DATA=[{id:"rho",name:"Rho",lat:45.5325,lng:9.0402},{id:"cormano",name:"Cormano",lat:45.551,lng:9.163},{id:"sesto",name:"Sesto San Giovanni",lat:45.533,lng:9.237},{id:"bresso",name:"Bresso",lat:45.542,lng:9.192},{id:"cinisello",name:"Cinisello Balsamo",lat:45.559,lng:9.212},{id:"monza",name:"Monza",lat:45.584,lng:9.274},{id:"niguarda",name:"Milano Niguarda",lat:45.507,lng:9.188},{id:"varedo",name:"Varedo",lat:45.574,lng:9.161},{id:"paderno",name:"Paderno Dugnano",lat:45.568,lng:9.163},{id:"cusano",name:"Cusano Milanino",lat:45.551,lng:9.18},{id:"quarto",name:"Quarto Oggiaro",lat:45.5,lng:9.137},{id:"senago",name:"Senago",lat:45.576,lng:9.13}],ZONE_DATA=[{id:"cormano",name:"Cormano",area:6.8,pop:21800,families:8500,mailboxes:7100,coverage:78,flyersMin:1e4,flyersMax:12e3,operDays:3,familyIdx:72,reachD2D:84,roiD2D:68,confD2D:81,eta14:null,eta34:null,eta64:null,eta65:null,genderM:49,genderF:51,areaType:"Residenziale mista",poi:145,nearbyBiz:38,commDens:61,flowScore:74,transitStops:23,trainStations:3,operDaysH2H:2,reachH2H:79,roiH2H:65,confH2H:76,hotspots:"Piazza centrale – Stazione",timeSlots:"08-10 – 12-14",strongPts:7,bizTotal:92,competitors:11,commDensB2B:74,operDaysB2B:2,cdIdx:74,reachB2B:82,roiB2B:71,confB2B:80,clusters:3,topCats:"Retail – Food – Servizi",targetBiz:41,strongZone:"Asse centrale",reddito:24200,densita:3200,stranieri:10.4,indVec:189,occup:65.2,imprese:1240,dist:{cormano:0,sesto:5.8,bresso:3.1,cinisello:3.9,monza:10.1,niguarda:4.8,varedo:2.8,paderno:1.4,cusano:1.8,quarto:5.2,senago:3.8}},{id:"bresso",name:"Bresso",area:3.1,pop:27100,families:11200,mailboxes:9400,coverage:87,flyersMin:13e3,flyersMax:15e3,operDays:2,familyIdx:80,reachD2D:88,roiD2D:74,confD2D:85,eta14:null,eta34:null,eta64:null,eta65:null,genderM:48,genderF:52,areaType:"Urbano residenziale",poi:198,nearbyBiz:54,commDens:71,flowScore:82,transitStops:14,trainStations:1,operDaysH2H:2,reachH2H:83,roiH2H:70,confH2H:80,hotspots:"Corso principale – Metro",timeSlots:"08-10 – 17-19",strongPts:5,bizTotal:120,competitors:18,commDensB2B:79,operDaysB2B:1,cdIdx:79,reachB2B:85,roiB2B:74,confB2B:82,clusters:4,topCats:"Food – Retail – Salute",targetBiz:54,strongZone:"Via principale",reddito:25800,densita:8900,stranieri:12.8,indVec:150,occup:66.8,imprese:1980,dist:{cormano:3.1,sesto:4.2,bresso:0,cinisello:2.8,monza:8.9,niguarda:2.1,varedo:4.8,paderno:4,cusano:2.9,quarto:7.4,senago:6.1}},{id:"cinisello",name:"Cinisello Balsamo",area:12.1,pop:73800,families:29100,mailboxes:24800,coverage:92,flyersMin:3e4,flyersMax:36e3,operDays:6,familyIdx:75,reachD2D:90,roiD2D:72,confD2D:88,eta14:null,eta34:null,eta64:null,eta65:null,genderM:48,genderF:52,areaType:"Misto residenziale",poi:320,nearbyBiz:98,commDens:78,flowScore:88,transitStops:18,trainStations:2,operDaysH2H:3,reachH2H:87,roiH2H:74,confH2H:84,hotspots:"C.C. – Stazione – Piazze",timeSlots:"08-10 – 12-14 – 17-19",strongPts:9,bizTotal:210,competitors:32,commDensB2B:82,operDaysB2B:3,cdIdx:82,reachB2B:88,roiB2B:76,confB2B:85,clusters:7,topCats:"Retail – Food – Uffici",targetBiz:94,strongZone:"C.C. + direzionale",reddito:23400,densita:5800,stranieri:15.2,indVec:154,occup:65.4,imprese:4800,dist:{cormano:3.9,sesto:2.2,bresso:2.8,cinisello:0,monza:5.8,niguarda:3.4,varedo:5.6,paderno:4.8,cusano:3.1,quarto:8.2,senago:4.4}},{id:"varedo",name:"Varedo",area:4.2,pop:13200,families:5400,mailboxes:3800,coverage:100,flyersMin:6e3,flyersMax:7e3,operDays:2,familyIdx:68,reachD2D:76,roiD2D:60,confD2D:78,eta14:null,eta34:null,eta64:null,eta65:null,genderM:49,genderF:51,areaType:"Bassa densità",poi:82,nearbyBiz:22,commDens:44,flowScore:46,transitStops:6,trainStations:1,operDaysH2H:1,reachH2H:62,roiH2H:52,confH2H:68,hotspots:"Piazza municipio",timeSlots:"08-10 – 16-18",strongPts:3,bizTotal:48,competitors:6,commDensB2B:52,operDaysB2B:1,cdIdx:52,reachB2B:64,roiB2B:55,confB2B:70,clusters:2,topCats:"Bar – Retail",targetBiz:21,strongZone:"Centro storico",reddito:22800,densita:3140,stranieri:8.4,indVec:203,occup:62.8,imprese:620,dist:{cormano:2.8,sesto:7.4,bresso:4.8,cinisello:5.6,monza:8.8,niguarda:6.2,varedo:0,paderno:1.8,cusano:3.2,quarto:6.4,senago:2.2}},{id:"paderno",name:"Paderno Dugnano",area:10.8,pop:37800,families:15200,mailboxes:12800,coverage:82,flyersMin:16e3,flyersMax:19e3,operDays:4,familyIdx:71,reachD2D:82,roiD2D:65,confD2D:80,eta14:null,eta34:null,eta64:null,eta65:null,genderM:49,genderF:51,areaType:"Residenziale mista",poi:168,nearbyBiz:48,commDens:62,flowScore:68,transitStops:14,trainStations:1,operDaysH2H:2,reachH2H:76,roiH2H:62,confH2H:74,hotspots:"Stazione – Piazze – Mercato",timeSlots:"08-10 – 12-14",strongPts:5,bizTotal:108,competitors:14,commDensB2B:68,operDaysB2B:2,cdIdx:68,reachB2B:77,roiB2B:64,confB2B:76,clusters:4,topCats:"Food – Retail – Salute",targetBiz:48,strongZone:"Asse ferroviario",reddito:23200,densita:3500,stranieri:11.2,indVec:167,occup:64.2,imprese:2100,dist:{cormano:1.4,sesto:5.2,bresso:4,cinisello:4.8,monza:9.2,niguarda:5.8,varedo:1.8,paderno:0,cusano:2.4,quarto:5.8,senago:3.4}},{id:"sesto",name:"Sesto S. Giovanni",area:11.6,pop:81200,families:33500,mailboxes:28200,coverage:94,flyersMin:34e3,flyersMax:4e4,operDays:6,familyIdx:77,reachD2D:91,roiD2D:75,confD2D:89,eta14:null,eta34:null,eta64:null,eta65:null,genderM:48,genderF:52,areaType:"Urbano denso",poi:380,nearbyBiz:112,commDens:82,flowScore:90,transitStops:22,trainStations:3,operDaysH2H:3,reachH2H:89,roiH2H:77,confH2H:86,hotspots:"Metro M1 – Centro – Stazione",timeSlots:"07-09 – 12-14 – 17-19",strongPts:11,bizTotal:280,competitors:42,commDensB2B:86,operDaysB2B:3,cdIdx:86,reachB2B:91,roiB2B:79,confB2B:88,clusters:8,topCats:"Retail – Food – Uffici",targetBiz:126,strongZone:"P.za Resistenza",reddito:26200,densita:6200,stranieri:14.8,indVec:181,occup:67.2,imprese:6200,dist:{cormano:5.8,sesto:0,bresso:4.2,cinisello:2.2,monza:7.1,niguarda:3.8,varedo:7.4,paderno:5.2,cusano:4.9,quarto:9.4,senago:7.2}},{id:"cusano",name:"Cusano Milanino",area:4,pop:19300,families:7600,mailboxes:6200,coverage:85,flyersMin:8e3,flyersMax:1e4,operDays:2,familyIdx:70,reachD2D:80,roiD2D:64,confD2D:79,eta14:null,eta34:null,eta64:null,eta65:null,genderM:49,genderF:51,areaType:"Medio-alta",poi:124,nearbyBiz:36,commDens:58,flowScore:62,transitStops:8,trainStations:0,operDaysH2H:2,reachH2H:72,roiH2H:60,confH2H:72,hotspots:"Centro – Parco",timeSlots:"08-10 – 16-18",strongPts:4,bizTotal:78,competitors:9,commDensB2B:62,operDaysB2B:1,cdIdx:62,reachB2B:74,roiB2B:62,confB2B:74,clusters:3,topCats:"Retail – Salute",targetBiz:35,strongZone:"Via Roma + centro",reddito:24800,densita:4800,stranieri:9.8,indVec:188,occup:64.8,imprese:980,dist:{cormano:1.8,sesto:4.9,bresso:2.9,cinisello:3.1,monza:9.4,niguarda:4.2,varedo:3.2,paderno:2.4,cusano:0,quarto:6.8,senago:3.2}}],LAYERS={d2d:[{id:"families",label:"Famiglie",field:"families",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"nuclei",src:"ISTAT",lo:"#FFF5F0",hi:"#C2410C"},{id:"pop",label:"Popolazione",field:"pop",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"ab.",src:"ISTAT",lo:"#EFF6FF",hi:"#1E3A8A"},{id:"densita",label:"Densità ab.",field:"densita",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"ab/km²",src:"ISTAT",lo:"#F5F3FF",hi:"#4C1D95"},{id:"coverage",label:"Peso sul totale",field:"coverage",fmt:n=>n+"%",unit:"%",src:"Dati geografici",lo:"#ECFDF5",hi:"#065F3C"},{id:"flyersMin",label:"Volantini consigliati",field:"flyersMin",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true })+"+",unit:"pz.",src:"Analisi interna",lo:"#F0F9FF",hi:"#075985"},{id:"familyIdx",label:"Indice di residenzialità",field:"familyIdx",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#FDF2F8",hi:"#701A75"},{id:"eta65",label:"Età 65+",field:"eta65",fmt:n=>n+"%",unit:"over 65",src:"ISTAT",lo:"#FFFBEB",hi:"#78350F"}],h2h:[{id:"flowScore",label:"Intensità passaggio",field:"flowScore",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#EFF6FF",hi:"#1E3A8A"},{id:"poi",label:"POI concentration",field:"poi",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"POI",src:"Google Places",lo:"#EFF6FF",hi:"#1E3A8A"},{id:"transitStops",label:"Transit proximity",field:"transitStops",fmt:n=>n+" fermate",unit:"fermate",src:"Trasporto pubblico / GTFS",lo:"#F5F3FF",hi:"#4C1D95"},{id:"strongPts",label:"Hotspot operativi",field:"strongPts",fmt:n=>n+" punti",unit:"punti",src:"Analisi interna",lo:"#ECFDF5",hi:"#065F3C"},{id:"commDens",label:"Densità passaggio",field:"commDens",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#FFF5F0",hi:"#C2410C"},{id:"nearbyBiz",label:"Attrattori locali",field:"nearbyBiz",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"att.",src:"Google Places",lo:"#ECFDF5",hi:"#065F3C"}],b2b:[{id:"bizTotal",label:"Attività rilevate",field:"bizTotal",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"att.",src:"Google Places",lo:"#FDF2F8",hi:"#701A75"},{id:"competitors",label:"Competitor",field:"competitors",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"comp.",src:"Google Places",lo:"#FFF5F0",hi:"#C2410C"},{id:"commDensB2B",label:"Densità commerciale",field:"commDensB2B",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#FFFBEB",hi:"#78350F"},{id:"clusters",label:"Forza cluster",field:"clusters",fmt:n=>n+" cluster",unit:"cluster",src:"Analisi interna",lo:"#EFF6FF",hi:"#1E3A8A"},{id:"targetBiz",label:"Rilevanza target",field:"targetBiz",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true })+" att.",unit:"att.",src:"Google Places",lo:"#ECFDF5",hi:"#065F3C"},{id:"reddito",label:"Reddito medio",field:"reddito",fmt:n=>"EUR "+n.toLocaleString("it-IT", { useGrouping: true }),unit:"EUR /anno",src:"Dati territoriali",lo:"#F0FDF4",hi:"#14532D"},{id:"cdIdx",label:"Commercial Density Index",field:"cdIdx",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#F5F3FF",hi:"#4C1D95"}]},SERVICE_META={d2d:{label:"Door to Door",icon:" ",color:"#22C55E",mode:"residential",src:["ISTAT","Mapbox","OpenStreetMap","landuse / buildings","Dati geografici","Analisi interna"],allocationSort:(n,i)=>(i.familyIdx||0)*1.8+(i.coverage||0)*1.2+(i.families||0)*.006-(i.dist||0)*5-((n.familyIdx||0)*1.8+(n.coverage||0)*1.2+(n.families||0)*.006-(n.dist||0)*5),mainKpis:n=>[{l:"Famiglie stimate",v:n.families.toLocaleString("it-IT", { useGrouping: true }),u:"nuclei",src:"ISTAT",c:"#22C55E",icon:""},{l:"Popolazione stimata",v:n.pop.toLocaleString("it-IT", { useGrouping: true }),u:"abitanti",src:"ISTAT",c:"#22C55E",icon:""},{l:"Superficie coperta",v:n.area+" km²",u:"",src:"Dati geografici",c:C.blue,icon:""},{l:"Copertura stimata",v:n.coverage+"%",u:"",src:"ISTAT+GIS",c:C.green,icon:""},{l:"Range operativo",v:n.flyersMin.toLocaleString("it-IT", { useGrouping: true })+" - "+n.flyersMax.toLocaleString("it-IT", { useGrouping: true }),u:"pz.",src:"Calc.",c:C.green,icon:""},{l:"Giorni operativi",v:n.operDays+" giorni",u:"",src:"Operativo",c:C.yellow,icon:""},{l:"Comuni nel raggio",v:"-",u:"",src:"Dati geografici",c:C.blue,icon:""}],advKpis:n=>[{l:"Indice di residenzialità",v:n.familyIdx,c:"#22C55E"},{l:"Reach Score",v:n.reachD2D,c:C.blue},{l:"ROI Score",v:n.roiD2D,c:C.green},{l:"Confidence",v:n.confD2D,c:C.purple}],aiCats:[{group:"Residential profile",l:"Famiglie",v:n=>n.families.toLocaleString("it-IT", { useGrouping: true })+" nuclei"},{group:"Residential profile",l:"Popolazione",v:n=>n.pop.toLocaleString("it-IT", { useGrouping: true })+" ab."},{group:"Residential profile",l:"Densità residenziale",v:n=>n.densita.toLocaleString("it-IT", { useGrouping: true })+" ab/km²"},{group:"Residential profile",l:"Tipologia area",v:n=>n.areaType},{group:"Demographic profile",l:"Età 0-14",v:n=>n.eta14+"%"},{group:"Demographic profile",l:"Età 15-34",v:n=>n.eta34+"%"},{group:"Demographic profile",l:"Età 35-64",v:n=>n.eta64+"%"},{group:"Demographic profile",l:"Età 65+",v:n=>n.eta65+"%"},{group:"Demographic profile",l:"Genere",v:n=>"M "+n.genderM+"% – F "+n.genderF+"%"},{group:"Demographic profile",l:"Indice vecchiaia",v:n=>n.indVec+"/100"},{group:"Demographic profile",l:"% Stranieri",v:n=>n.stranieri+"%"},{group:"Economic context",l:"Reddito medio",v:n=>"EUR "+n.reddito.toLocaleString("it-IT", { useGrouping: true }),c:"green"},{group:"Economic context",l:"Tasso occupazione",v:n=>n.occup+"%",c:"green"},{group:"Economic context",l:"Imprese come contesto",v:n=>n.imprese.toLocaleString("it-IT", { useGrouping: true })},{group:"Operational reading",l:"Residential strength",v:n=>n.familyIdx+"/100"},{group:"Operational reading",l:"Copertura consigliata",v:n=>n.coverage>=88?"Copertura piena":n.coverage>=75?"Copertura selettiva estesa":"Copertura selettiva"},{group:"Operational reading",l:"Suitability campagna",v:n=>n.reachD2D>=86?"Alta":n.reachD2D>=76?"Buona":"Mirata"},{group:"Operational reading",l:"Confidence level",v:n=>n.confD2D+"/100"}]},h2h:{label:"Hand to Hand",icon:"",color:C.blue,mode:"movement",src:["Google Places","Google Places","OpenStreetMap","Overpass","Trasporto pubblico / GTFS","Mapbox","Analisi interna","Dati geografici"],allocationSort:(n,i)=>(i.flowScore||0)*2.4+(i.strongPts||0)*13+(i.transitStops||0)*1.9+(i.poi||0)*.18+(i.commDens||0)*1.2-(i.dist||0)*4-((n.flowScore||0)*2.4+(n.strongPts||0)*13+(n.transitStops||0)*1.9+(n.poi||0)*.18+(n.commDens||0)*1.2-(n.dist||0)*4),mainKpis:n=>{const i=n.flowScore,r=i<40?"Basso":i<60?"Medio":i<80?"Alto":"Molto Alto",l=i<40?C.red:i<60?C.yellow:i<80?C.green:C.purple;return[{l:"POI rilevanti",v:n.poi.toLocaleString("it-IT", { useGrouping: true }),u:"POI",src:"Google Places",c:C.blue,icon:""},{l:"Competitor rilevati",v:Math.round(n.nearbyBiz*.28),u:"comp.",src:"Google Places",c:C.red,icon:"–"},{l:"Densità passaggio",v:n.commDens+"/100",u:"",src:"Analisi interna",c:C.blue,icon:" "},{l:"Flusso potenziale",v:r+" – "+i+"/100",u:"",src:"Analisi interna",c:l,icon:""},{l:"Fermate / stazioni",v:n.transitStops+" fermate – "+n.trainStations+" staz.",u:"",src:"Trasporto pubblico / GTFS",c:C.purple,icon:""},{l:"Hotspot operativi",v:n.strongPts+" punti",u:"",src:"Analisi interna",c:C.green,icon:""},{l:"Giorni operativi",v:n.operDaysH2H+" giorni",u:"",src:"Operativo",c:C.yellow,icon:""}]},advKpis:n=>[{l:"Reach Score",v:n.reachH2H,c:C.blue},{l:"ROI Score",v:n.roiH2H,c:C.green},{l:"Confidence",v:n.confH2H,c:C.purple},{l:"Reddito medio",v:n.reddito,c:C.green}],aiCats:[{group:"Movement profile",l:"Intensità passaggio",v:n=>n.flowScore+"/100"},{group:"Movement profile",l:"Anchor trasporto",v:n=>n.transitStops+" fermate – "+n.trainStations+" staz."},{group:"Movement profile",l:"Scuole / eventi",v:n=>n.strongPts+" punti"},{group:"Movement profile",l:"Rilevanza pedonale",v:n=>n.commDens>=75?"Alta":n.commDens>=58?"Media":"Locale"},{group:"Local attractiveness",l:"POI rilevanti",v:n=>n.poi.toLocaleString("it-IT", { useGrouping: true })},{group:"Local attractiveness",l:"Attività vicine",v:n=>n.nearbyBiz.toLocaleString("it-IT", { useGrouping: true })},{group:"Local attractiveness",l:"Contesto mixed-use",v:n=>n.areaType},{group:"Operational timing",l:"Fasce consigliate",v:n=>n.timeSlots},{group:"Operational timing",l:"opportunità mattina",v:n=>n.timeSlots.includes("08")||n.timeSlots.includes("07")?"Forte":"Media"},{group:"Operational timing",l:"opportunità pranzo",v:n=>n.timeSlots.includes("12")?"Forte":"Da validare"},{group:"Operational reading",l:"Hotspot principale",v:n=>n.hotspots},{group:"Operational reading",l:"Punti operativi",v:n=>n.strongPts+" suggeriti"},{group:"Operational reading",l:"Exposure quality",v:n=>n.flowScore>=80?"Alta":n.flowScore>=65?"Buona":"Mirata"},{group:"Operational reading",l:"Confidence level",v:n=>n.confH2H+"/100"}]},b2b:{label:"Business Distribution",icon:"",color:C.purple,mode:"business",src:["Google Places","Google Places","OpenStreetMap","Mapbox","Analisi interna","Dati geografici","Dati territoriali"],allocationSort:(n,i)=>(i.targetBiz||0)*1.9+(i.commDensB2B||0)*2.2+(i.clusters||0)*10-(i.competitors||0)*.35-(i.dist||0)*3-((n.targetBiz||0)*1.9+(n.commDensB2B||0)*2.2+(n.clusters||0)*10-(n.competitors||0)*.35-(n.dist||0)*3),mainKpis:n=>[{l:"Attività rilevate",v:n.bizTotal.toLocaleString("it-IT", { useGrouping: true }),u:"att.",src:"Google Places",c:C.purple,icon:""},{l:"Competitor rilevati",v:n.competitors,u:"comp.",src:"Google Places",c:C.red,icon:"–"},{l:"Densità commerciale",v:n.commDensB2B+"/100",u:"",src:"Analisi interna",c:C.purple,icon:" "},{l:"Reddito medio stimato",v:"EUR "+n.reddito.toLocaleString("it-IT", { useGrouping: true }),u:"anno",src:"Dati territoriali",c:C.green,icon:""},{l:"Commercial Density Index",v:n.cdIdx+"/100",u:"",src:"Analisi interna",c:C.purple,icon:"-–"},{l:"Giorni operativi",v:n.operDaysB2B+" giorni",u:"",src:"Operativo",c:C.yellow,icon:""}],advKpis:n=>[{l:"Comm. Density",v:n.cdIdx,c:C.purple},{l:"Reach Score",v:n.reachB2B,c:C.blue},{l:"ROI Score",v:n.roiB2B,c:C.green},{l:"Confidence",v:n.confB2B,c:"#6366F1"}],aiCats:[{group:"Commercial profile",l:"Attività rilevate",v:n=>n.bizTotal.toLocaleString("it-IT", { useGrouping: true })+" attività"},{group:"Commercial profile",l:"Categorie dominanti",v:n=>n.topCats},{group:"Commercial profile",l:"Densità commerciale",v:n=>n.commDensB2B+"/100"},{group:"Commercial profile",l:"Attività target",v:n=>n.targetBiz.toLocaleString("it-IT", { useGrouping: true })+" att."},{group:"Economic context",l:"Reddito medio stimato",v:n=>"EUR "+n.reddito.toLocaleString("it-IT", { useGrouping: true }),c:"green"},{group:"Economic context",l:"Tasso occupazione",v:n=>n.occup+"%"},{group:"Economic context",l:"Base imprese locale",v:n=>n.imprese.toLocaleString("it-IT", { useGrouping: true })},{group:"Competitive context",l:"Competitor rilevati",v:n=>n.competitors.toLocaleString("it-IT", { useGrouping: true })},{group:"Competitive context",l:"Livello competizione",v:n=>n.competitors>30?"Alto":n.competitors>12?"Medio":"Contenuto"},{group:"Operational reading",l:"Cluster commerciali",v:n=>n.clusters+" cluster"},{group:"Operational reading",l:"Zona business forte",v:n=>n.strongZone},{group:"Operational reading",l:"Attrattività commerciale",v:n=>n.commDensB2B>=78?"Alta":n.commDensB2B>=62?"Media":"Da validare"},{group:"Operational reading",l:"Confidence level",v:n=>n.confB2B+"/100"}]}};
 function getTargetBizMeta(n){const i=n.businessCategory||n.targetBusinessType||n.businessSector||"altro";return BUSINESS_CATEGORIES[i]||BUSINESS_CATEGORIES.altro}function bizCategoryChart(n,i){const r={};n.forEach(u=>(u.topCats||"").split(" – ").filter(Boolean).forEach((h,f)=>{r[h]=(r[h]||0)+Math.max(1,Math.round((u.bizTotal||0)*(f===0?.34:f===1?.24:.16)))}));
 const l=Object.entries(r).map(([u,h])=>({label:u,count:h,target:i.aliases.some(f=>u.toLowerCase().includes(f.toLowerCase()))||u.toLowerCase().includes(i.label.toLowerCase().split(" ")[0])})).sort((u,h)=>h.count-u.count);return l.length?l:[{label:i.label,count:n.reduce((u,h)=>u+(h.targetBiz||0),0),target:!0}]}function businessZoneScore(n){return Math.round(Math.min(100,(n.commDensB2B||0)*.34+(n.reachB2B||0)*.22+(n.roiB2B||0)*.18+(n.targetBiz||0)/Math.max(1,n.bizTotal||1)*100*.16+Math.min(10,(n.clusters||0)*1.2)))}function businessRows(n,i){return[...n].sort((r,l)=>businessZoneScore(l)-businessZoneScore(r)).map(r=>({id:r.id,name:r.strongZone||r.name,zoneName:r.name,score:businessZoneScore(r),activities:r.bizTotal||0,target:r.targetBiz||0,competitors:r.competitors||0,density:r.commDensB2B||0,clusters:r.clusters||0,dominant:(r.topCats||i.label).split(" – ")[0]}))}function h2hHotspotStrength(n){return Math.round(Math.min(100,(n.flowScore||0)*.42+(n.commDens||0)*.2+Math.min(22,(n.transitStops||0)*.9)+Math.min(12,(n.strongPts||0)*1.2)+Math.min(8,(n.poi||0)/38)))}function h2hHotspotRows(n){return[...n].sort((i,r)=>h2hHotspotStrength(r)-h2hHotspotStrength(i)).map(i=>({id:i.id,name:(i.hotspots||i.name).split(" – ")[0],zoneName:i.name,strength:h2hHotspotStrength(i),poi:i.poi||0,transit:(i.transitStops||0)+(i.trainStations||0),anchors:i.strongPts||0,flow:i.flowScore||0,density:i.commDens||0,time:i.timeSlots||"Da validare",reason:i.flowScore>=82?"Alta concentrazione di passaggio vicino ad anchor urbani.":i.transitStops>=14?"Buona opportunità per flussi scuola-lavoro e trasporto.":"Zona utile per distribuzione manuale breve e mirata."}))}function normalizeH2HCategory(n){return String(n||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")}function countPoisByCategory(n,i){return n.filter(r=>i.some(l=>normalizeH2HCategory(r.category).includes(l))).length}function countTransportByType(n,i){return (n?.stops||[]).filter(r=>{const l=[r.stopType,...(r.routes||[]).map(u=>u.routeTypeLabel)].map(normalizeH2HCategory);return l.some(u=>i.includes(u))}).length}function buildH2HOperationalClusters(n,i,r){const l=Array.isArray(n)?n.filter(u=>Number.isFinite(Number(u.lat))&&Number.isFinite(Number(u.lng))):[];if(!l.length)return[];const u=r<=2?.0015:r<=5?.003:.005,h=new Map;l.forEach(f=>{const m=`${Math.round(Number(f.lat)/u)}_${Math.round(Number(f.lng)/u)}`;if(!h.has(m))h.set(m,[]);h.get(m).push(f)});const T=Array.from(h.values()).map((f,m)=>{const y=f.reduce((A,B)=>A+Number(B.lat),0)/f.length,x=f.reduce((A,B)=>A+Number(B.lng),0)/f.length,w=f.reduce((A,B)=>A+(Number(B.priority)||0),0),j=f.filter(A=>(Number(A.priority)||0)>=8).length,z=countPoisByCategory(f,["stazione","metro"]),R=countPoisByCategory(f,["universit","scuola"]),D=countPoisByCategory(f,["centro comm","teatro","cinema","attrazione","mercato","biblioteca","bar","caffe","caff","ristorante"]),W=Math.round(Math.min(100,w*3+j*10+z*8+R*6+Math.min(18,D*2))),A=[...f].sort((B,P)=>(Number(P.priority)||0)-(Number(B.priority)||0))[0];return{id:`h2h_cluster_${m}`,name:A?.name||`Zona operativa ${m+1}`,zoneName:A?.category||"Cluster POI",lat:y,lng:x,poi:f.length,transit:z,anchors:R,attractions:D,strength:W,flow:W,density:Math.min(100,Math.round(f.length*8)),time:"Da validare",reason:`${f.length.toLocaleString("it-IT", { useGrouping: true })} POI reali nel cluster`,items:f}}).sort((f,m)=>m.strength-f.strength);return T.map((f,m)=>({...f,rank:m+1,name:`Zona ${m+1} · ${f.name}`}))}function getH2HMetrics(n,i,r){const l=Array.isArray(n)?n:[],u=Array.isArray(i?.stops)?i.stops:[],h=buildH2HOperationalClusters(l,i,r),f=countPoisByCategory(l,["stazione"]),m=countPoisByCategory(l,["metro"])+countTransportByType(i,["metro"]),y=countTransportByType(i,["train"])+f,x=countPoisByCategory(l,["universit"]),w=countPoisByCategory(l,["centro comm","teatro","cinema","attrazione","mercato","biblioteca","bar","caffe","caff","ristorante"]);return{poi:l.length,zones:h.length,hotspots:h.length,clusters:h,tplStops:u.length,stations:y,metro:m,universities:x,localAttractors:w,transitTotal:u.length+f+m,flowScore:h.length?Math.round(h.reduce((z,R)=>z+R.strength,0)/h.length):0}}function categoryMatchesBusiness(n,i){const r=normalizeH2HCategory(`${n?.category||""} ${n?.name||""}`),l=Array.isArray(i?.aliases)?i.aliases.map(normalizeH2HCategory):[];return l.length?l.some(u=>r.includes(u)):true}function buildBusinessOperationalClusters(n,i,r){const l=Array.isArray(n)?n.filter(u=>Number.isFinite(Number(u.lat))&&Number.isFinite(Number(u.lng))):[];if(!l.length)return[];const u=r<=2?.0015:r<=5?.003:.005,h=new Map;l.forEach(f=>{const m=`${Math.round(Number(f.lat)/u)}_${Math.round(Number(f.lng)/u)}`;if(!h.has(m))h.set(m,[]);h.get(m).push(f)});return Array.from(h.values()).map((f,m)=>{const y=f.reduce((A,B)=>A+Number(B.lat),0)/f.length,x=f.reduce((A,B)=>A+Number(B.lng),0)/f.length,w=f.reduce((A,B)=>A+(Number(B.priority)||0),0),j=f.filter(A=>categoryMatchesBusiness(A,i)).length,z=f.reduce((A,B)=>{const P=B.category||"Altro";A[P]=(A[P]||0)+1;return A},{}),R=Object.entries(z).sort((A,B)=>B[1]-A[1])[0]?.[0]||i?.label||"Business",D=Math.round(Math.min(100,w*3+j*8+f.length*4)),W=[...f].sort((A,B)=>(Number(B.priority)||0)-(Number(A.priority)||0))[0];return{id:`b2b_cluster_${m}`,name:`Zona ${m+1} · ${W?.name||R}`,zoneName:R,lat:y,lng:x,activities:f.length,target:j,competitors:Math.max(0,f.length-j),density:Math.min(100,Math.round(f.length*8)),clusters:1,dominant:R,score:D,items:f}}).sort((f,m)=>m.score-f.score)}function getBusinessMetrics(n,i,r){const l=Array.isArray(n)?n:[],h=buildBusinessOperationalClusters(l,i,r),f=l.filter(m=>categoryMatchesBusiness(m,i)).length,u=l.reduce((m,y)=>{const x=y.category||"Altro";m[x]=(m[x]||0)+1;return m},{}),T=Object.entries(u).map(([m,y])=>({label:m,count:y,target:categoryMatchesBusiness({category:m},i)})).sort((m,y)=>y.count-m.count);return{businesses:l.length,competitors:Math.max(0,l.length-f),commercialDensity:h.length?Math.round(h.reduce((m,y)=>m+y.density,0)/h.length):0,clusters:h.length,targetBusinesses:f,categories:T,clusterRows:h,cdIdx:h.length?Math.round(h.reduce((m,y)=>m+y.score,0)/h.length):0}}function Pv(n){const i=n.reduce((h,f)=>h+(f.poi||0),0),r=n.reduce((h,f)=>h+(f.transitStops||0)+(f.trainStations||0),0),l=n.reduce((h,f)=>h+(f.strongPts||0),0),u=n.reduce((h,f)=>h+(f.nearbyBiz||0),0);return[{label:"POI rilevanti",value:i,color:Qi.pedestrian.color},{label:"Fermate / stazioni",value:r,color:Qi.transit.color},{label:"Scuole / eventi",value:l,color:Qi.school.color},{label:"Attrattori locali",value:u,color:Qi.retail.color}]}function residentialStrength(n){return Math.round(Math.min(100,(n.familyIdx||0)*.34+(n.reachD2D||0)*.22+(n.coverage||0)*.2+Math.min(16,(n.families||0)/1850)+Math.min(8,(n.mailboxes||0)/2400)))}function residentialRows(n){return[...n].sort((i,r)=>residentialStrength(r)-residentialStrength(i)).map((i,r)=>({id:i.id,rank:r+1,name:i.name,strength:residentialStrength(i),families:i.families||0,population:i.pop||0,coverage:i.coverage||0,required:i.families||0,recommended:`${(i.flyersMin||0).toLocaleString("it-IT", { useGrouping: true })}-${(i.flyersMax||0).toLocaleString("it-IT", { useGrouping: true })}`,contribution:n.reduce((l,u)=>l+(u.families||0),0)>0?Math.round((i.families||0)/n.reduce((l,u)=>l+(u.families||0),0)*100):0,areaType:i.areaType}))}const ZONE_COLORS=["#2563EB","#16A34A","#7C3AED","#0891B2","#65A30D","#0F766E","#4F46E5","#0284C7","#15803D","#6D28D9","#0D9488"];
 function getComuneColor(n=""){const p=["#14b8a6","#3b82f6","#8b5cf6","#06b6d4","#22c55e","#6366f1"],i=[...n].reduce((r,l)=>r+l.charCodeAt(0),0);return p[i%p.length]}
@@ -1301,8 +1347,8 @@ function ScoreGauge({ label, value, color }) {
 function MiniDonut({ data, colors, size = 48 }) {
   return <DonutChart data={data} colors={colors} size={size} />;
 }
-function QuickQuotePage({onStart:n,onContact:i}){const[r,l]=useState({service:"d2d",comune:"",qty:1e4,printed:"true",format:"A5",urgency:"standard",startDate:"",endDate:""}),[u,h]=useState({}),f=j=>({width:"100%",padding:"12px 14px",borderRadius:10,border:`1px solid ${j?"#F8717188":"rgba(255,255,255,.12)"}`,background:j?"rgba(248,113,113,.04)":"rgba(255,255,255,.06)",color:C.white,fontFamily:F.sans,fontSize:14,colorScheme:"dark",transition:"all.2s"}),m=()=>{const j={};return r.service||(j.service="Seleziona un servizio"),r.comune.trim()||(j.comune="Inserisci un comune o una zona"),(!r.qty||r.qty<100)&&(j.qty="Inserisci una quantità (min. 100)"),r.format||(j.format="Seleziona un formato"),r.printed||(j.printed="Specifica se già stampato"),r.urgency||(j.urgency="Seleziona urgenza"),h(j),Object.keys(j).length===0},y=()=>{m()&&n("step4",{...r,source:"quick_quote"})},x=({m:j})=>j?_jsx("div",{style:{fontFamily:F.sans,fontSize:10,color:C.red,marginTop:4,fontWeight:600},children:j}):null,w=({children:j})=>_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,color:"rgba(255,255,255,.35)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:8},children:j});return _jsx("div",{style:{minHeight:"100vh",background:C.navyDeep,padding:"72px 28px 120px"},children:_jsxs("div",{style:{maxWidth:720,margin:"0 auto"},children:[_jsx("button",{onClick:()=>n("home"),style:{marginBottom:24,padding:"8px 14px",borderRadius:8,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.04)",color:"rgba(255,255,255,.62)",fontFamily:F.sans,fontSize:12,cursor:"pointer",transition:"all.2s"},className:"vb",children:"Torna alla Home"}),_jsxs("div",{style:{marginBottom:32},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.blue,marginBottom:12},children:"Scorciatoia"}),_jsx("h1",{style:{fontFamily:F.serif,fontSize:48,color:C.white,letterSpacing:"-1.5px",marginBottom:12},children:"Preventivo rapido"}),_jsx("p",{style:{fontFamily:F.sans,fontSize:17,color:"rgba(255,255,255,.52)",lineHeight:1.6},children:"Ricevi una stima immediata in Step 4. Potrai poi completare la configurazione o parlare con un consulente."})]}),_jsxs("div",{style:{background:"rgba(255,255,255,.03)",borderRadius:20,border:"1px solid rgba(255,255,255,.08)",padding:"32px",boxShadow:"0 20px 50px rgba(0,0,0,.3)"},children:[_jsxs("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24,marginBottom:24},children:[_jsxs("div",{children:[_jsx(w,{children:"Tipo di servizio"}),_jsxs("select",{value:r.service,onChange:j=>l(T=>({...T,service:j.target.value})),style:f(u.service),children:[_jsx("option",{value:"d2d",children:"Door to Door (Cassette)"}),_jsx("option",{value:"h2h",children:"Hand to Hand (Promoter)"}),_jsx("option",{value:"b2b",children:"Business Distribution (Attività )"})]}),_jsx(x,{m:u.service})]}),_jsxs("div",{children:[_jsx(w,{children:"Comune o zona target"}),_jsx("input",{value:r.comune,onChange:j=>l(T=>({...T,comune:j.target.value})),placeholder:"Es: Milano, Cormano...",style:f(u.comune)}),_jsx(x,{m:u.comune})]})]}),_jsxs("div",{style:{marginBottom:24},children:[_jsx(w,{children:"quantità volantini"}),_jsx("div",{style:{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12},children:[5e3,1e4,25e3,5e4,1e5].map(j=>_jsx("button",{onClick:()=>l(T=>({...T,qty:j})),style:{padding:"8px 14px",borderRadius:8,border:`1px solid ${r.qty===j?C.blue:"rgba(255,255,255,.12)"}`,background:r.qty===j?`${C.blue}22`:"rgba(255,255,255,.04)",color:r.qty===j?C.blue:"rgba(255,255,255,.6)",fontFamily:F.sans,fontSize:13,fontWeight:700,cursor:"pointer",transition:"all.2s"},children:j.toLocaleString("it-IT", { useGrouping: true })},j))}),_jsxs("div",{style:{position:"relative"},children:[_jsx("input",{type:"number",value:r.qty,onChange:j=>l(T=>({...T,qty:parseInt(j.target.value)||0})),placeholder:"Inserisci quantità manuale",style:f(u.qty)}),_jsx("div",{style:{position:"absolute",right:14,top:12,fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.3)"},children:"pz."})]}),_jsx(x,{m:u.qty})]}),_jsxs("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24,marginBottom:24},children:[_jsxs("div",{children:[_jsx(w,{children:"Formato materiale"}),_jsxs("select",{value:r.format,onChange:j=>l(T=>({...T,format:j.target.value})),style:f(u.format),children:[_jsx("option",{value:"A6",children:"A6 (10x15)"}),_jsx("option",{value:"A5",children:"A5 (15x21)"}),_jsx("option",{value:"A4",children:"A4 (21x29)"}),_jsx("option",{value:"DL",children:"DL (10x21)"})]}),_jsx(x,{m:u.format})]}),_jsxs("div",{children:[_jsx(w,{children:"Stato materiale"}),_jsxs("select",{value:r.printed,onChange:j=>l(T=>({...T,printed:j.target.value})),style:f(u.printed),children:[_jsx("option",{value:"true",children:"Sì, già stampato"}),_jsx("option",{value:"false",children:"No, devo stamparlo"})]}),_jsx(x,{m:u.printed})]})]}),_jsxs("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24,marginBottom:32},children:[_jsxs("div",{children:[_jsx(w,{children:"Urgenza"}),_jsxs("select",{value:r.urgency,onChange:j=>l(T=>({...T,urgency:j.target.value})),style:f(u.urgency),children:[_jsx("option",{value:"standard",children:"Standard"}),_jsx("option",{value:"urgent",children:"Urgente (+30%)"})]}),_jsx(x,{m:u.urgency})]}),_jsxs("div",{children:[_jsx(w,{children:"Periodo (Inizio - Fine)"}),_jsxs("div",{style:{display:"flex",gap:8,alignItems:"center"},children:[_jsx("input",{type:"date",value:r.startDate,onChange:j=>l(T=>({...T,startDate:j.target.value})),style:{...f(),padding:"10px 8px"}}),_jsx("span",{style:{color:"rgba(255,255,255,.2)"},children:"-"}),_jsx("input",{type:"date",value:r.endDate,onChange:j=>l(T=>({...T,endDate:j.target.value})),style:{...f(),padding:"10px 8px"}})]})]})]}),_jsx("div",{style:{padding:"14px",borderRadius:12,background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.07)",marginBottom:24},children:_jsxs("div",{style:{fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.5)",lineHeight:1.5},children:[_jsx("b",{children:"Nota:"})," Il periodo è indicativo. Il preventivo rapido non include lo Smart Pairing. Potrai analizzare le opportunità di risparmio nel configuratore completo."]})}),_jsx("button",{onClick:y,className:"vb",style:{width:"100%",padding:"16px",borderRadius:12,border:"none",background:C.blue,color:C.white,fontFamily:F.sans,fontSize:16,fontWeight:800,cursor:"pointer",boxShadow:`0 10px 30px ${C.blue}33`},children:"Calcola preventivo rapido"})]}),_jsxs("div",{style:{marginTop:32,textAlign:"center"},children:[_jsx("p",{style:{fontFamily:F.sans,fontSize:14,color:"rgba(255,255,255,.65)",marginBottom:12},children:"Preferisci supporto diretto?"}),_jsx("button",{onClick:()=>i("consultant"),style:{padding:"10px 24px",borderRadius:10,border:"1px solid rgba(255,255,255,.15)",background:"transparent",color:C.white,fontFamily:F.sans,fontSize:13,fontWeight:700,cursor:"pointer"},className:"vb",children:"Parla con un consulente"})]})]})})}
-function ConsultantPage({onStart:n}){const[i,r]=useState({nome:"",telefono:"",email:"",comune:"",service:"d2d",qty:1e4,periodo:"",messaggio:""}),[l,u]=useState(!1),h={padding:"11px 13px",borderRadius:9,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.06)",color:C.white,fontFamily:F.sans,fontSize:13,colorScheme:"dark"};return _jsx("div",{style:{minHeight:"100vh",background:C.navyDeep,padding:"72px 28px 120px"},children:_jsxs("div",{style:{maxWidth:860,margin:"0 auto"},children:[_jsx("button",{onClick:()=>n("home"),style:{marginBottom:22,padding:"8px 12px",borderRadius:8,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.04)",color:"rgba(255,255,255,.62)",fontFamily:F.sans,fontSize:12,cursor:"pointer"},children:"Home"}),_jsxs("div",{style:{marginBottom:28},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.green,marginBottom:12},children:"Supporto diretto"}),_jsx("h1",{style:{fontFamily:F.serif,fontSize:46,color:C.white,letterSpacing:"-1.4px",marginBottom:10},children:"Parla con un consulente"}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:"rgba(255,255,255,.52)",maxWidth:660,lineHeight:1.65},children:"Raccontaci la campagna e ti ricontattiamo per costruire una proposta operativa sulla tua zona."})]}),_jsxs("div",{style:{borderRadius:16,padding:"24px",background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.08)"},children:[_jsxs("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:12,marginBottom:12},children:[_jsx("input",{value:i.nome,onChange:f=>r(m=>({...m,nome:f.target.value})),placeholder:"Nome e Cognome",style:h}),_jsx("input",{value:i.telefono,onChange:f=>r(m=>({...m,telefono:f.target.value})),placeholder:"Telefono / WhatsApp",style:h}),_jsx("input",{value:i.email,onChange:f=>r(m=>({...m,email:f.target.value})),placeholder:"Email",style:h}),_jsx("input",{value:i.comune,onChange:f=>r(m=>({...m,comune:f.target.value})),placeholder:"Comune o zona",style:h}),_jsxs("select",{value:i.service,onChange:f=>r(m=>({...m,service:f.target.value})),style:h,children:[_jsx("option",{value:"d2d",children:"Door to Door"}),_jsx("option",{value:"h2h",children:"Hand to Hand"}),_jsx("option",{value:"b2b",children:"Business Distribution"})]}),_jsx("select",{value:i.qty,onChange:f=>r(m=>({...m,qty:+f.target.value})),style:h,children:[5e3,1e4,25e3,5e4,1e5].map(f=>_jsxs("option",{value:f,children:[f.toLocaleString("it-IT", { useGrouping: true })," volantini"]},f))}),_jsx("input",{value:i.periodo,onChange:f=>r(m=>({...m,periodo:f.target.value})),placeholder:"Periodo desiderato",style:h})]}),_jsx("textarea",{value:i.messaggio,onChange:f=>r(m=>({...m,messaggio:f.target.value})),placeholder:"Messaggio opzionale",rows:4,style:{...h,width:"100%",resize:"vertical",marginBottom:12}}),_jsxs("div",{style:{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"},children:[_jsx("button",{onClick:()=>u(!0),className:"vb",style:{padding:"12px 18px",borderRadius:10,border:"none",background:C.green,color:C.white,fontFamily:F.sans,fontSize:14,fontWeight:700,cursor:"pointer"},children:"Invia richiesta "}),_jsx("button",{onClick:()=>n("quick"),style:{padding:"12px 18px",borderRadius:10,border:"1px solid rgba(255,255,255,.14)",background:"rgba(255,255,255,.05)",color:C.white,fontFamily:F.sans,fontSize:14,fontWeight:700,cursor:"pointer"},children:"Preventivo rapido"})]}),l&&_jsx("div",{style:{marginTop:12,padding:"10px 12px",borderRadius:8,background:"rgba(46,204,138,.08)",border:"1px solid rgba(46,204,138,.22)",fontFamily:F.sans,fontSize:12,color:C.green},children:"Richiesta registrata. Ti ricontattiamo per costruire una proposta operativa sulla tua zona."})]})]})})}
+function QuickQuotePage({onStart:n,onContact:i}){const[r,l]=useState({service:"d2d",comune:"",qty:1e4,printed:"true",format:"A5",urgency:"standard",startDate:"",endDate:""}),[u,h]=useState({}),f=j=>({width:"100%",padding:"12px 14px",borderRadius:10,border:`1px solid ${j?"#F8717188":"rgba(255,255,255,.12)"}`,background:j?"rgba(248,113,113,.04)":"rgba(255,255,255,.06)",color:C.white,fontFamily:F.sans,fontSize:14,colorScheme:"dark",transition:"all.2s"}),m=()=>{const j={};return r.service||(j.service="Seleziona un servizio"),r.comune.trim()||(j.comune="Inserisci un comune o una zona"),(!r.qty||r.qty<100)&&(j.qty="Inserisci una quantità (min. 100)"),r.format||(j.format="Seleziona un formato"),r.printed||(j.printed="Specifica se già stampato"),r.urgency||(j.urgency="Seleziona urgenza"),h(j),Object.keys(j).length===0},y=()=>{m()&&n("step4",{...r,source:"quick_quote"})},x=({m:j})=>j?_jsx("div",{style:{fontFamily:F.sans,fontSize:10,color:C.red,marginTop:4,fontWeight:600},children:j}):null,w=({children:j})=>_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,color:"rgba(255,255,255,.35)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:8},children:j});return _jsx("div",{style:{minHeight:"100vh",background:C.navyDeep,padding:"72px 28px 120px"},children:_jsxs("div",{style:{maxWidth:720,margin:"0 auto"},children:[_jsx(NavButton,{onClick:()=>n("home"),style:{marginBottom:24},children:"Home"}),_jsxs("div",{style:{marginBottom:32},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.blue,marginBottom:12},children:"Scorciatoia"}),_jsx("h1",{style:{fontFamily:F.serif,fontSize:48,color:C.white,letterSpacing:"-1.5px",marginBottom:12},children:"Preventivo rapido"}),_jsx("p",{style:{fontFamily:F.sans,fontSize:17,color:"rgba(255,255,255,.52)",lineHeight:1.6},children:"Ricevi una stima immediata in Step 4. Potrai poi completare la configurazione o parlare con un consulente."})]}),_jsxs("div",{style:{background:"rgba(255,255,255,.03)",borderRadius:20,border:"1px solid rgba(255,255,255,.08)",padding:"32px",boxShadow:"0 20px 50px rgba(0,0,0,.3)"},children:[_jsxs("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24,marginBottom:24},children:[_jsxs("div",{children:[_jsx(w,{children:"Tipo di servizio"}),_jsxs("select",{value:r.service,onChange:j=>l(T=>({...T,service:j.target.value})),style:f(u.service),children:[_jsx("option",{value:"d2d",children:"Door to Door (Cassette)"}),_jsx("option",{value:"h2h",children:"Hand to Hand (Promoter)"}),_jsx("option",{value:"b2b",children:"Business Distribution (Attività )"})]}),_jsx(x,{m:u.service})]}),_jsxs("div",{children:[_jsx(w,{children:"Comune o zona target"}),_jsx("input",{value:r.comune,onChange:j=>l(T=>({...T,comune:j.target.value})),placeholder:"Es: Milano, Cormano...",style:f(u.comune)}),_jsx(x,{m:u.comune})]})]}),_jsxs("div",{style:{marginBottom:24},children:[_jsx(w,{children:"quantità volantini"}),_jsx("div",{style:{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12},children:[5e3,1e4,25e3,5e4,1e5].map(j=>_jsx("button",{onClick:()=>l(T=>({...T,qty:j})),style:{padding:"8px 14px",borderRadius:8,border:`1px solid ${r.qty===j?C.blue:"rgba(255,255,255,.12)"}`,background:r.qty===j?`${C.blue}22`:"rgba(255,255,255,.04)",color:r.qty===j?C.blue:"rgba(255,255,255,.6)",fontFamily:F.sans,fontSize:13,fontWeight:700,cursor:"pointer",transition:"all.2s"},children:j.toLocaleString("it-IT", { useGrouping: true })},j))}),_jsxs("div",{style:{position:"relative"},children:[_jsx("input",{type:"number",value:r.qty,onChange:j=>l(T=>({...T,qty:parseInt(j.target.value)||0})),placeholder:"Inserisci quantità manuale",style:f(u.qty)}),_jsx("div",{style:{position:"absolute",right:14,top:12,fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.3)"},children:"pz."})]}),_jsx(x,{m:u.qty})]}),_jsxs("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24,marginBottom:24},children:[_jsxs("div",{children:[_jsx(w,{children:"Formato materiale"}),_jsxs("select",{value:r.format,onChange:j=>l(T=>({...T,format:j.target.value})),style:f(u.format),children:[_jsx("option",{value:"A6",children:"A6 (10x15)"}),_jsx("option",{value:"A5",children:"A5 (15x21)"}),_jsx("option",{value:"A4",children:"A4 (21x29)"}),_jsx("option",{value:"DL",children:"DL (10x21)"})]}),_jsx(x,{m:u.format})]}),_jsxs("div",{children:[_jsx(w,{children:"Stato materiale"}),_jsxs("select",{value:r.printed,onChange:j=>l(T=>({...T,printed:j.target.value})),style:f(u.printed),children:[_jsx("option",{value:"true",children:"Sì, già stampato"}),_jsx("option",{value:"false",children:"No, devo stamparlo"})]}),_jsx(x,{m:u.printed})]})]}),_jsxs("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24,marginBottom:32},children:[_jsxs("div",{children:[_jsx(w,{children:"Urgenza"}),_jsxs("select",{value:r.urgency,onChange:j=>l(T=>({...T,urgency:j.target.value})),style:f(u.urgency),children:[_jsx("option",{value:"standard",children:"Standard"}),_jsx("option",{value:"urgent",children:"Urgente (+30%)"})]}),_jsx(x,{m:u.urgency})]}),_jsxs("div",{children:[_jsx(w,{children:"Periodo (Inizio - Fine)"}),_jsxs("div",{style:{display:"flex",gap:8,alignItems:"center"},children:[_jsx("input",{type:"date",value:r.startDate,onChange:j=>l(T=>({...T,startDate:j.target.value})),style:{...f(),padding:"10px 8px"}}),_jsx("span",{style:{color:"rgba(255,255,255,.2)"},children:"-"}),_jsx("input",{type:"date",value:r.endDate,onChange:j=>l(T=>({...T,endDate:j.target.value})),style:{...f(),padding:"10px 8px"}})]})]})]}),_jsx("div",{style:{padding:"14px",borderRadius:12,background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.07)",marginBottom:24},children:_jsxs("div",{style:{fontFamily:F.sans,fontSize:12,color:"rgba(255,255,255,.5)",lineHeight:1.5},children:[_jsx("b",{children:"Nota:"})," Il periodo è indicativo. Il preventivo rapido non include lo Smart Pairing. Potrai analizzare le opportunità di risparmio nel configuratore completo."]})}),_jsx("button",{onClick:y,className:"vb",style:{width:"100%",padding:"16px",borderRadius:12,border:"none",background:C.blue,color:C.white,fontFamily:F.sans,fontSize:16,fontWeight:800,cursor:"pointer",boxShadow:`0 10px 30px ${C.blue}33`},children:"Calcola preventivo rapido"})]}),_jsxs("div",{style:{marginTop:32,textAlign:"center"},children:[_jsx("p",{style:{fontFamily:F.sans,fontSize:14,color:"rgba(255,255,255,.65)",marginBottom:12},children:"Preferisci supporto diretto?"}),_jsx("button",{onClick:()=>i("consultant"),style:{padding:"10px 24px",borderRadius:10,border:"1px solid rgba(255,255,255,.15)",background:"transparent",color:C.white,fontFamily:F.sans,fontSize:13,fontWeight:700,cursor:"pointer"},className:"vb",children:"Parla con un consulente"})]})]})})}
+function ConsultantPage({onStart:n}){const[i,r]=useState({nome:"",telefono:"",email:"",comune:"",service:"d2d",qty:1e4,periodo:"",messaggio:""}),[l,u]=useState(!1),h={padding:"11px 13px",borderRadius:9,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.06)",color:C.white,fontFamily:F.sans,fontSize:13,colorScheme:"dark"};return _jsx("div",{style:{minHeight:"100vh",background:C.navyDeep,padding:"72px 28px 120px"},children:_jsxs("div",{style:{maxWidth:860,margin:"0 auto"},children:[_jsx(NavButton,{onClick:()=>n("home"),style:{marginBottom:22},children:"Home"}),_jsxs("div",{style:{marginBottom:28},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.green,marginBottom:12},children:"Supporto diretto"}),_jsx("h1",{style:{fontFamily:F.serif,fontSize:46,color:C.white,letterSpacing:"-1.4px",marginBottom:10},children:"Parla con un consulente"}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:"rgba(255,255,255,.52)",maxWidth:660,lineHeight:1.65},children:"Raccontaci la campagna e ti ricontattiamo per costruire una proposta operativa sulla tua zona."})]}),_jsxs("div",{style:{borderRadius:16,padding:"24px",background:"rgba(255,255,255,.04)",border:"1px solid rgba(255,255,255,.08)"},children:[_jsxs("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:12,marginBottom:12},children:[_jsx("input",{value:i.nome,onChange:f=>r(m=>({...m,nome:f.target.value})),placeholder:"Nome e Cognome",style:h}),_jsx("input",{value:i.telefono,onChange:f=>r(m=>({...m,telefono:f.target.value})),placeholder:"Telefono / WhatsApp",style:h}),_jsx("input",{value:i.email,onChange:f=>r(m=>({...m,email:f.target.value})),placeholder:"Email",style:h}),_jsx("input",{value:i.comune,onChange:f=>r(m=>({...m,comune:f.target.value})),placeholder:"Comune o zona",style:h}),_jsxs("select",{value:i.service,onChange:f=>r(m=>({...m,service:f.target.value})),style:h,children:[_jsx("option",{value:"d2d",children:"Door to Door"}),_jsx("option",{value:"h2h",children:"Hand to Hand"}),_jsx("option",{value:"b2b",children:"Business Distribution"})]}),_jsx("select",{value:i.qty,onChange:f=>r(m=>({...m,qty:+f.target.value})),style:h,children:[5e3,1e4,25e3,5e4,1e5].map(f=>_jsxs("option",{value:f,children:[f.toLocaleString("it-IT", { useGrouping: true })," volantini"]},f))}),_jsx("input",{value:i.periodo,onChange:f=>r(m=>({...m,periodo:f.target.value})),placeholder:"Periodo desiderato",style:h})]}),_jsx("textarea",{value:i.messaggio,onChange:f=>r(m=>({...m,messaggio:f.target.value})),placeholder:"Messaggio opzionale",rows:4,style:{...h,width:"100%",resize:"vertical",marginBottom:12}}),_jsxs("div",{style:{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"},children:[_jsx("button",{onClick:()=>u(!0),className:"vb",style:{padding:"12px 18px",borderRadius:10,border:"none",background:C.green,color:C.white,fontFamily:F.sans,fontSize:14,fontWeight:700,cursor:"pointer"},children:"Invia richiesta "}),_jsx("button",{onClick:()=>n("quick"),style:{padding:"12px 18px",borderRadius:10,border:"1px solid rgba(255,255,255,.14)",background:"rgba(255,255,255,.05)",color:C.white,fontFamily:F.sans,fontSize:14,fontWeight:700,cursor:"pointer"},children:"Preventivo rapido"})]}),l&&_jsx("div",{style:{marginTop:12,padding:"10px 12px",borderRadius:8,background:"rgba(46,204,138,.08)",border:"1px solid rgba(46,204,138,.22)",fontFamily:F.sans,fontSize:12,color:C.green},children:"Richiesta registrata. Ti ricontattiamo per costruire una proposta operativa sulla tua zona."})]})]})})}
 const xn=({children})=>_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,color:"rgba(255,255,255,.35)",textTransform:"uppercase",letterSpacing:".05em",marginBottom:8},children});
 const yr="div";
 const Ov=[{value:"ristorazione",label:"Ristorazione"},{value:"retail",label:"Retail"},{value:"immobiliare",label:"Immobiliare"},{value:"fitness",label:"Fitness"},{value:"beauty",label:"Beauty"},{value:"automotive",label:"Automotive"},{value:"sanitario",label:"Sanitario"},{value:"servizi",label:"Servizi"},{value:"altro",label:"Altro"}];
@@ -1321,7 +1367,6 @@ const Gu=[{id:"single",label:"Una sola campagna",icon:"1️⃣",disc:0},{id:"mon
 function Step1({ data, setData, onNext, onHome }) {
   const isMobile = useIsMobile();
   const [showSmartPairingModal, setShowSmartPairingModal] = useState(false);
-  const [showAllExtras, setShowAllExtras] = useState(false);
 
   const updateData = (newVals) => {
     setData((prev) => {
@@ -1331,9 +1376,17 @@ function Step1({ data, setData, onNext, onHome }) {
       const mMult = monthsMult[next.subscription] || 1;
       const pDisc = discountMult[next.subscription] || 0;
       const cPerMonth = next.subscription === "single" ? 1 : next.campaignsPerMonth || 1;
+      // Keep the existing "stampa" extraService (and its Step4 pricing formula,
+      // unchanged) in sync with the new printing module's enabled state —
+      // does not invent a new price, just reuses the one that already exists.
+      const printingEnabled = Boolean(next.printing?.enabled);
+      const extraServicesWithPrint = printingEnabled
+        ? [...new Set([...(next.extraServices || []), "stampa"])]
+        : (next.extraServices || []).filter((s) => s !== "stampa");
 
       return {
         ...next,
+        extraServices: extraServicesWithPrint,
         campaignsPerMonth: cPerMonth,
         selectedService: next.type,
         businessSector: next.activityType,
@@ -1341,10 +1394,10 @@ function Step1({ data, setData, onNext, onHome }) {
         campaignPeriodStart: next.startDate,
         campaignPeriodEnd: next.endDate,
         alreadyPrinted: next.hasFlyers === "yes",
-        printServices: (next.extraServices || []).filter((s) => ["stampa", "grafica"].includes(s)),
-        paperWeight: next.printGramm,
-        printSides: next.printSide,
-        colorMode: next.printColor,
+        printServices: extraServicesWithPrint.filter((s) => ["stampa", "grafica"].includes(s)),
+        paperWeight: next.printing?.grammage || next.printGramm,
+        printSides: next.printing?.sides || next.printSide,
+        colorMode: next.printing?.color || next.printColor,
         campaignPlan: next.subscription,
         totalCampaigns: cPerMonth * mMult,
         planDiscount: pDisc,
@@ -1412,7 +1465,6 @@ function Step1({ data, setData, onNext, onHome }) {
       target: "Famiglie e residenti di quartiere",
       coverage: "Alta densità residenziale",
       time: "5–7 giorni lavorativi",
-      price: "Da €18,50 / 1.000 pz",
       color: "#22C55E",
     },
     {
@@ -1428,7 +1480,6 @@ function Step1({ data, setData, onNext, onHome }) {
       target: "Passanti, studenti, pendolari e shopper",
       coverage: "Piazze, stazioni e vie nevralgiche",
       time: "Giornata / Fascia oraria mirata",
-      price: "Da €22,00 / 1.000 pz",
       color: "#60A5FA",
     },
     {
@@ -1444,7 +1495,6 @@ function Step1({ data, setData, onNext, onHome }) {
       target: "Imprenditori, professionisti e commercianti",
       coverage: "Aree commerciali e centri direzionali",
       time: "3–5 giorni lavorativi",
-      price: "Da €35,00 / 1.000 pz",
       color: "#A78BFA",
     },
   ];
@@ -1470,12 +1520,47 @@ function Step1({ data, setData, onNext, onHome }) {
   ];
 
   const materialOptions = [
-    { id: "yes", icon: "📦", label: "Li ho già stampati", desc: "Fornisci tu il materiale pronto per la distribuzione logistica" },
-    { id: "no", icon: "🖨️", label: "Devo stamparli", desc: "Aggiungi al preventivo il nostro servizio di stampa tipografica professionale ad alta resa" },
+    { id: "yes", icon: "📦", label: "No, ho già i volantini", desc: "Fornisci tu il materiale pronto per la distribuzione logistica" },
+    { id: "no", icon: "🖨️", label: "Sì, voglio anche stampa", desc: "Aggiungiamo la stampa tipografica professionale al preventivo finale" },
   ];
+  const printFormatOptions = [
+    { id: "A6", label: "A6", size: "10x15 cm" },
+    { id: "A5", label: "A5", size: "15x21 cm" },
+    { id: "A4", label: "A4", size: "21x29 cm" },
+  ];
+  const printPaperTypeOptions = [
+    { id: "patinata_lucida", label: "Patinata lucida" },
+    { id: "patinata_opaca", label: "Patinata opaca" },
+    { id: "uso_mano", label: "Uso mano" },
+  ];
+  const printGrammageOptions = [
+    { id: "90", label: "90g" },
+    { id: "115", label: "115g" },
+    { id: "130", label: "130g" },
+    { id: "170", label: "170g" },
+  ];
+  const printSidesOptions = [
+    { id: "fronte", label: "Solo fronte" },
+    { id: "fronte_retro", label: "Fronte/retro" },
+  ];
+  const printColorOptions = [
+    { id: "colori", label: "Colori" },
+    { id: "bianco_nero", label: "Bianco/nero" },
+  ];
+  const printFoldingOptions = [
+    { id: "nessuna", label: "Nessuna" },
+    { id: "meta", label: "Piega a metà" },
+    { id: "tre", label: "Piega a tre" },
+  ];
+  const printArtworkOptions = [
+    { id: "pronto", label: "Già pronto" },
+    { id: "da_creare", label: "Da creare" },
+  ];
+  const printing = data.printing || {};
+  const updatePrinting = (patch) => updateData({ printing: { ...printing, ...patch } });
 
   const priorityOptions = [
-    { id: "normal", label: "Standard", desc: "5–7 giorni lavorativi • Prezzo standard di listino", badge: "" },
+    { id: "normal", label: "Standard", desc: "5–7 giorni lavorativi • Pianificazione ordinaria", badge: "" },
     { id: "urgent", label: "Urgente", desc: "Avvio rapido in 24–48h ove disponibile • Maggiorazione +20%", badge: "Rapido" },
     { id: "express", label: "Express", desc: "Priorità massima immediata e dedicata • Maggiorazione +35%", badge: "Prioritario" },
   ];
@@ -1527,40 +1612,49 @@ function Step1({ data, setData, onNext, onHome }) {
   const isB2B = data.type === "b2b" || data.type === "business-distribution";
   const dateError = !!(data.startDate && data.endDate && data.endDate < data.startDate);
 
-  const mainExtras = [
-    { id: "gps_default", icon: "📍", label: "Tracking GPS", price: "Incluso Gratis", desc: "Monitoraggio satellitare reale di serie su tutte le distribuzioni.", active: true, disabled: true },
-    { id: "photo_report_advanced", icon: "📸", label: "Foto", price: "Extra", desc: "Report fotografico dettagliato con evidenze geolocalizzate per zona.", active: (data.extraServices || []).includes("photo_report_advanced") },
-    { id: "video_report", icon: "🎥", label: "Video", price: "Extra", desc: "Riprese video sul campo per testimoniare l'attività operativa.", active: (data.extraServices || []).includes("video_report") },
-    { id: "report_analytics", icon: "📊", label: "Report", price: "Extra", desc: "Analisi post-campagna con KPI territoriali e tassi di copertura.", active: (data.extraServices || []).includes("report_analytics") },
-  ];
-
   const currentServiceLabel = { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Business Distribution", "business-distribution": "Business Distribution" }[data.type] || "Da selezionare";
   const currentPlanLabel = { single: "Singola", monthly3: "Trimestrale (-5%)", monthly6: "Semestrale (-10%)", monthly12: "Annuale (-15%)" }[data.subscription] || "Da selezionare";
   const currentUrgencyLabel = { normal: "Standard", urgent: "Urgente (+20%)", express: "Express (+35%)" }[data.urgency] || "Da selezionare";
   const currentPrintLabel = data.hasFlyers === "yes" ? "Già stampati" : data.hasFlyers === "no" ? "Da stampare (+stampa)" : "Da selezionare";
   const currentFormatLabel = data.flyerFormat ? String(data.flyerFormat).toUpperCase() : "Da selezionare";
+  const s1Green = "#22C55E";
+  const s1Panel = {
+    background: "linear-gradient(180deg, rgba(18,32,54,.96), rgba(12,24,42,.96))",
+    borderRadius: 22,
+    border: "1px solid rgba(255,255,255,0.105)",
+    padding: isMobile ? 20 : 32,
+    boxShadow: "0 22px 60px rgba(0,0,0,.22)",
+  };
+  const s1Card = (active = false) => ({
+    background: active ? "linear-gradient(180deg, rgba(34,197,94,.13), rgba(34,197,94,.055))" : "rgba(9,18,33,.58)",
+    border: `1.5px solid ${active ? "rgba(34,197,94,.45)" : "rgba(255,255,255,.105)"}`,
+    boxShadow: active ? "0 18px 42px rgba(34,197,94,.13)" : "inset 0 1px 0 rgba(255,255,255,.035)",
+  });
+  const s1EyebrowStyle = { fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,.48)", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 };
+  const s1OptionButton = (active = false) => ({
+    border: `1.5px solid ${active ? "rgba(34,197,94,.46)" : "rgba(255,255,255,.105)"}`,
+    background: active ? "rgba(34,197,94,.12)" : "rgba(9,18,33,.55)",
+    color: active ? s1Green : "#CBD5E1",
+    boxShadow: active ? "0 12px 28px rgba(34,197,94,.11)" : "none",
+  });
 
   return (
-    <div style={{ maxWidth: 1240, margin: "0 auto", padding: isMobile ? "32px 16px 120px" : "48px 28px 140px", color: "#F8FAFC" }}>
+    <div style={{ maxWidth: 1240, margin: "0 auto", padding: isMobile ? "32px 16px 120px" : "48px 28px 140px", color: "#F8FAFC", background: "linear-gradient(180deg,#07111f 0%, #0b182a 52%, #101c2c 100%)" }}>
       <style>{`
         .vp-s1-card-hover { transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
-        .vp-s1-card-hover:hover { transform: translateY(-4px); border-color: rgba(232, 87, 26, 0.4) !important; box-shadow: 0 20px 40px rgba(0,0,0,0.4) !important; background: #122036 !important; }
+        .vp-s1-card-hover:hover { transform: translateY(-3px); border-color: rgba(34,197,94,0.32) !important; box-shadow: 0 20px 42px rgba(0,0,0,0.32) !important; background: rgba(15,29,50,.92) !important; }
         .vp-s1-btn-hover { transition: all 0.2s ease; }
-        .vp-s1-btn-hover:hover { transform: scale(1.02); filter: brightness(1.1); }
-        .vp-s1-input-modern { width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(148,163,184,0.2); background: rgba(15, 23, 42, 0.6); color: #fff; font-family: 'DM Sans', sans-serif; font-size: 14px; transition: all 0.2s; box-sizing: border-box; }
-        .vp-s1-input-modern:focus { border-color: #E8571A; outline: none; box-shadow: 0 0 0 3px rgba(232,87,26,0.15); }
+        .vp-s1-btn-hover:hover { transform: translateY(-1px); filter: brightness(1.06); }
+        .vp-s1-input-modern { width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(148,163,184,0.18); background: rgba(8,17,31,0.68); color: #fff; font-family: 'DM Sans', sans-serif; font-size: 14px; transition: all 0.2s; box-sizing: border-box; }
+        .vp-s1-input-modern:focus { border-color: rgba(34,197,94,.55); outline: none; box-shadow: 0 0 0 3px rgba(34,197,94,0.12); }
         .vp-s1-slider { -webkit-appearance: none; width: 100%; height: 8px; border-radius: 4px; background: rgba(148,163,184,0.15); outline: none; margin: 16px 0; }
         .vp-s1-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #22C55E; cursor: pointer; border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.4); transition: transform 0.15s; }
         .vp-s1-slider::-webkit-slider-thumb:hover { transform: scale(1.18); }
       `}</style>
-
       {onHome && (
-        <button
-          onClick={onHome}
-          style={{ marginBottom: 24, padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(148,163,184,0.2)", background: "rgba(255,255,255,0.03)", color: "#94A3B8", fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}
-        >
-          ← Torna alla Home
-        </button>
+        <NavButton onClick={onHome} style={{ marginBottom: 24 }}>
+          Home
+        </NavButton>
       )}
 
       {/* Hero & Progress Bar */}
@@ -1603,8 +1697,8 @@ function Step1({ data, setData, onNext, onHome }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
           
           {/* Section 1: Tipo di distribuzione */}
-          <div id="section-servizio" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
-            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+          <div id="section-servizio" style={s1Panel}>
+            <div style={s1EyebrowStyle}>
               1 - Tipo di distribuzione
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 24px" }}>
@@ -1613,7 +1707,7 @@ function Step1({ data, setData, onNext, onHome }) {
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))", gap: 20, alignItems: "stretch" }}>
               {distributionTypes.map((t) => {
                 const active = data.type === t.id;
-                const cardCol = t.color || "#E8571A";
+                const cardCol = active ? s1Green : "rgba(255,255,255,.38)";
                 return (
                   <div
                     key={t.id}
@@ -1621,30 +1715,34 @@ function Step1({ data, setData, onNext, onHome }) {
                     className="vp-s1-card-hover"
                     style={{
                       padding: 24,
-                      borderRadius: 20,
-                      background: active ? "rgba(232, 87, 26, 0.12)" : "#122036",
-                      border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
+                      borderRadius: 18,
+                      ...s1Card(active),
                       cursor: "pointer",
                       display: "flex",
                       flexDirection: "column",
                       position: "relative",
-                      boxShadow: active ? "0 16px 40px rgba(232, 87, 26, 0.22)" : "none",
                     }}
                   >
-                    <div style={{ position: "absolute", top: 18, right: 18, padding: "4px 10px", borderRadius: 100, background: active ? "rgba(232, 87, 26, 0.2)" : `${t.badgeColor}20`, border: `1px solid ${active ? "#E8571A" : t.badgeColor}55`, color: active ? "#E8571A" : t.badgeColor, fontFamily: F.sans, fontSize: 11, fontWeight: 800, transition: "all .2s" }}>
-                      {active ? "✓ Selezionato" : t.badge}
-                    </div>
+                    {active ? (
+                      <div style={{ position: "absolute", top: 16, right: 16, padding: "3px 9px", borderRadius: 999, background: "rgba(34,197,94,.14)", border: "1px solid rgba(34,197,94,.36)", color: s1Green, fontFamily: F.sans, fontSize: 10, fontWeight: 800 }}>
+                        ✓ Selezionato
+                      </div>
+                    ) : (
+                      <div style={{ position: "absolute", top: 18, right: 18, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,.055)", border: "1px solid rgba(255,255,255,.1)", color: "rgba(255,255,255,.66)", fontFamily: F.sans, fontSize: 11, fontWeight: 800 }}>
+                        {t.badge}
+                      </div>
+                    )}
                     <div style={{ fontSize: 36, marginBottom: 16 }}>{t.icon}</div>
                     <div style={{ fontFamily: F.serif, fontSize: 22, color: "#F8FAFC", marginBottom: 8 }}>{t.name}</div>
                     <p style={{ fontFamily: F.sans, fontSize: 13, lineHeight: 1.55, color: "#94A3B8", margin: "0 0 18px", minHeight: 40 }}>{t.desc}</p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14, borderRadius: 12, background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.05)", marginBottom: 20, flex: 1 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14, borderRadius: 12, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,0.065)", marginBottom: 20, flex: 1 }}>
                       <div style={{ fontSize: 12, color: "#CBD5E1" }}>💡 <b style={{ color: "#F8FAFC" }}>Casi d'uso:</b> {t.useCases}</div>
                       <div style={{ fontSize: 12, color: "#CBD5E1" }}>🎯 <b style={{ color: "#F8FAFC" }}>Target:</b> {t.target}</div>
                       <div style={{ fontSize: 12, color: "#CBD5E1" }}>⏱️ <b style={{ color: "#F8FAFC" }}>Tempo medio:</b> {t.time}</div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 14, borderTop: `1px solid ${active ? "rgba(232, 87, 26, 0.3)" : "rgba(255,255,255,0.08)"}` }}>
-                      <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: active ? "#E8571A" : "#CBD5E1" }}>{t.price}</span>
-                      <span style={{ width: 24, height: 24, borderRadius: "50%", background: active ? "#E8571A" : "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: active ? "#fff" : "#fff", fontSize: 12, fontWeight: 900, transition: "background .2s" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 14, borderTop: `1px solid ${active ? "rgba(34,197,94,.24)" : "rgba(255,255,255,0.08)"}` }}>
+                      <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 600, color: "#64748B", fontStyle: "italic" }}>Prezzo calcolato nel preventivo finale</span>
+                      <span style={{ width: 26, height: 26, borderRadius: "50%", background: active ? s1Green : "transparent", border: `2px solid ${active ? s1Green : cardCol}`, display: "flex", alignItems: "center", justifyContent: "center", color: active ? "#06131f" : cardCol, fontSize: 13, fontWeight: 900, transition: "all .2s", flexShrink: 0 }}>
                         {active ? "✓" : "+"}
                       </span>
                     </div>
@@ -1655,8 +1753,8 @@ function Step1({ data, setData, onNext, onHome }) {
           </div>
 
           {/* Section 2: Attività cliente */}
-          <div style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
-            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+          <div style={s1Panel}>
+            <div style={s1EyebrowStyle}>
               2 - Settore o Attività
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
@@ -1677,9 +1775,7 @@ function Step1({ data, setData, onNext, onHome }) {
                     style={{
                       padding: "14px 12px",
                       borderRadius: 14,
-                      border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
-                      background: active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.5)",
-                      color: active ? "#E8571A" : "#CBD5E1",
+                      ...s1OptionButton(active),
                       fontFamily: F.sans,
                       fontSize: 14,
                       fontWeight: active ? 800 : 600,
@@ -1812,14 +1908,14 @@ function Step1({ data, setData, onNext, onHome }) {
           </div>
 
           {/* Section 3: Quantità volantini */}
-          <div id="section-quantita" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
-            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+          <div id="section-quantita" style={s1Panel}>
+            <div style={s1EyebrowStyle}>
               3 - Quantità volantini
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
               Quanti volantini desideri distribuire?
             </h2>
-            <div style={{ padding: "12px 18px", borderRadius: 12, background: "rgba(232, 87, 26, 0.1)", border: "1px solid rgba(232, 87, 26, 0.3)", color: "#E8571A", fontSize: 13, fontWeight: 700, marginBottom: 24 }}>
+            <div style={{ padding: "12px 18px", borderRadius: 12, background: "rgba(34,197,94,.08)", border: "1px solid rgba(34,197,94,.22)", color: "#A7F3D0", fontSize: 13, fontWeight: 700, marginBottom: 24 }}>
               💡 La copertura stimata (famiglie raggiunte e percentuale di zona) verrà calcolata automaticamente nello Step 2 in base all'area sulla mappa.
             </div>
 
@@ -1836,9 +1932,7 @@ function Step1({ data, setData, onNext, onHome }) {
                       flex: "1 1 120px",
                       padding: "12px 14px",
                       borderRadius: 12,
-                      border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
-                      background: active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.5)",
-                      color: active ? "#E8571A" : "#F8FAFC",
+                      ...s1OptionButton(active),
                       fontFamily: F.sans,
                       fontSize: 15,
                       fontWeight: 800,
@@ -1863,7 +1957,7 @@ function Step1({ data, setData, onNext, onHome }) {
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.08)", flexWrap: "wrap", gap: 12 }}>
               <div style={{ fontSize: 15, color: "#CBD5E1" }}>
-                Quantità selezionata: <b style={{ color: "#E8571A", fontSize: 22, marginLeft: 8 }}>{new Intl.NumberFormat("it-IT", { useGrouping: true }).format(data.qty || 10000)}</b> <span style={{ fontSize: 14 }}>volantini</span>
+                Quantità selezionata: <b style={{ color: s1Green, fontSize: 22, marginLeft: 8 }}>{new Intl.NumberFormat("it-IT", { useGrouping: true }).format(data.qty || 10000)}</b> <span style={{ fontSize: 14 }}>volantini</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 13, color: "#94A3B8" }}>Inserimento manuale:</span>
@@ -1887,8 +1981,8 @@ function Step1({ data, setData, onNext, onHome }) {
           </div>
 
           {/* Section 4: Periodo distribuzione */}
-          <div id="section-periodo" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
-            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+          <div id="section-periodo" style={s1Panel}>
+            <div style={s1EyebrowStyle}>
               4 - Periodo di distribuzione
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
@@ -1909,12 +2003,11 @@ function Step1({ data, setData, onNext, onHome }) {
                     style={{
                       padding: 20,
                       borderRadius: 16,
-                      background: active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.5)",
-                      border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
+                      ...s1Card(active),
                       cursor: "pointer",
                     }}
                   >
-                    <div style={{ fontFamily: F.sans, fontSize: 16, fontWeight: 800, color: active ? "#E8571A" : "#F8FAFC", marginBottom: 6 }}>{p.label}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 16, fontWeight: 800, color: active ? s1Green : "#F8FAFC", marginBottom: 6 }}>{p.label}</div>
                     <div style={{ fontFamily: F.sans, fontSize: 13, color: "#94A3B8", lineHeight: 1.4 }}>{p.desc}</div>
                   </div>
                 );
@@ -1923,8 +2016,8 @@ function Step1({ data, setData, onNext, onHome }) {
 
             {/* Calendario visualizzato SOLO quando "Scelgo la data" è selezionato */}
             {(data.campaignPeriodPreset === "custom" || !data.campaignPeriodPreset) && (
-              <div style={{ padding: 24, borderRadius: 18, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(148,163,184,0.2)", marginTop: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#CBD5E1", marginBottom: 16 }}>🎯 Seleziona le date desiderate sul calendario:</div>
+              <div style={{ padding: 24, borderRadius: 18, background: "rgba(9,18,33,.58)", border: "1px solid rgba(255,255,255,.105)", marginTop: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#CBD5E1", marginBottom: 16 }}>🎯 Seleziona le date desiderate sul calendario:</div>
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
                   {[
                     { label: "Data preferita di inizio", key: "startDate" },
@@ -1988,12 +2081,12 @@ function Step1({ data, setData, onNext, onHome }) {
           </div>
 
           {/* Section 5: Materiale e Formato */}
-          <div id="section-formato" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
-            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
+          <div id="section-formato" style={s1Panel}>
+            <div style={s1EyebrowStyle}>
               5 - Materiale & Formato
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 24px" }}>
-              Hai già i volantini stampati o dobbiamo stamparli noi?
+              Ti serve anche la stampa dei volantini?
             </h2>
 
             {/* 2 Card Grandi Materiale */}
@@ -2008,13 +2101,13 @@ function Step1({ data, setData, onNext, onHome }) {
                       extraServices: m.id === "yes"
                         ? (data.extraServices || []).filter((s) => !["stampa", "grafica"].includes(s))
                         : data.extraServices || [],
+                      printing: { ...printing, enabled: m.id === "no" },
                     })}
                     className="vp-s1-card-hover"
                     style={{
                       padding: 24,
                       borderRadius: 20,
-                      background: active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.5)",
-                      border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
+                      ...s1Card(active),
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "flex-start",
@@ -2023,13 +2116,74 @@ function Step1({ data, setData, onNext, onHome }) {
                   >
                     <span style={{ fontSize: 36 }}>{m.icon}</span>
                     <div>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: active ? "#E8571A" : "#F8FAFC", marginBottom: 6 }}>{m.label}</div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: active ? s1Green : "#F8FAFC", marginBottom: 6 }}>{m.label}</div>
                       <div style={{ fontSize: 13, color: "#94A3B8", lineHeight: 1.5 }}>{m.desc}</div>
                     </div>
                   </div>
                 );
               })}
             </div>
+
+            {/* Modulo stampa — visibile solo se "Sì, voglio anche stampa" */}
+            {data.hasFlyers === "no" && (
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24, marginBottom: 32, display: "flex", flexDirection: "column", gap: 20 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#F8FAFC" }}>Dettagli di stampa</div>
+
+                {[
+                  { key: "format", label: "Formato di stampa", options: printFormatOptions },
+                  { key: "paperType", label: "Tipo carta", options: printPaperTypeOptions },
+                  { key: "grammage", label: "Grammatura", options: printGrammageOptions },
+                  { key: "sides", label: "Lati", options: printSidesOptions },
+                  { key: "color", label: "Colore", options: printColorOptions },
+                  { key: "folding", label: "Piega", options: printFoldingOptions },
+                  { key: "artworkStatus", label: "File grafico", options: printArtworkOptions },
+                ].map((field) => (
+                  <div key={field.key}>
+                    <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>{field.label}</div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {field.options.map((opt) => {
+                        const active = printing[field.key] === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => updatePrinting({ [field.key]: opt.id })}
+                            className="vp-s1-btn-hover"
+                            style={{
+                              padding: "8px 16px",
+                              borderRadius: 100,
+                              ...s1OptionButton(active),
+                              fontFamily: F.sans,
+                              fontSize: 13,
+                              fontWeight: active ? 800 : 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+
+                <div>
+                  <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>Note di stampa (opzionale)</div>
+                  <textarea
+                    value={printing.notes || ""}
+                    onChange={(e) => updatePrinting({ notes: e.target.value })}
+                    placeholder="Indicazioni particolari per la stampa..."
+                    rows={3}
+                    className="vp-s1-input-modern"
+                    style={{ resize: "vertical" }}
+                  />
+                </div>
+
+                <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(148,163,184,0.08)", border: "1px solid rgba(148,163,184,0.15)", fontSize: 12, color: "#94A3B8", fontStyle: "italic" }}>
+                  Il prezzo di stampa verrà calcolato nel preventivo finale.
+                </div>
+              </div>
+            )}
 
             {/* Formato 4 Card */}
             <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24 }}>
@@ -2047,13 +2201,12 @@ function Step1({ data, setData, onNext, onHome }) {
                       style={{
                         padding: 18,
                         borderRadius: 16,
-                        background: active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.5)",
-                        border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
+                        ...s1Card(active),
                         cursor: "pointer",
                         textAlign: "center",
                       }}
                     >
-                      <div style={{ fontFamily: F.serif, fontSize: 24, color: active ? "#E8571A" : "#F8FAFC", marginBottom: 4 }}>{fmt.label}</div>
+                      <div style={{ fontFamily: F.serif, fontSize: 24, color: active ? s1Green : "#F8FAFC", marginBottom: 4 }}>{fmt.label}</div>
                       <div style={{ fontSize: 12, color: "#94A3B8" }}>{fmt.size}</div>
                     </div>
                   );
@@ -2062,91 +2215,10 @@ function Step1({ data, setData, onNext, onHome }) {
             </div>
           </div>
 
-          {/* Section 6: Servizi extra */}
-          <div style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
-            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
-              6 - Certificazione & Tracking
-            </div>
-            <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
-              Servizi extra per il controllo qualità
-            </h2>
-            <p style={{ fontFamily: F.sans, fontSize: 14, color: "#94A3B8", margin: "0 0 24px" }}>
-              Il monitoraggio satellitare GPS reale è sempre incluso di serie per la massima trasparenza operativa.
-            </p>
-
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 16, marginBottom: 20 }}>
-              {mainExtras.map((ext) => (
-                <div
-                  key={ext.id}
-                  onClick={() => !ext.disabled && toggleExtra(ext.id)}
-                  className={ext.disabled ? "" : "vp-s1-card-hover"}
-                  style={{
-                    padding: 20,
-                    borderRadius: 16,
-                    background: ext.active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.5)",
-                    border: `2px solid ${ext.active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
-                    cursor: ext.disabled ? "default" : "pointer",
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 14,
-                  }}
-                >
-                  <span style={{ fontSize: 28 }}>{ext.icon}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                      <span style={{ fontSize: 16, fontWeight: 800, color: ext.active ? "#E8571A" : "#F8FAFC" }}>{ext.label}</span>
-                      <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 6, background: ext.disabled ? "rgba(232,87,26,0.2)" : "rgba(255,255,255,0.1)", color: ext.disabled ? "#E8571A" : "#CBD5E1" }}>{ext.price}</span>
-                    </div>
-                    <div style={{ fontSize: 13, color: "#94A3B8", lineHeight: 1.4 }}>{ext.desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Pulsante "Scopri tutti i servizi" */}
-            <div style={{ textAlign: "center", marginTop: 16 }}>
-              <button
-                type="button"
-                onClick={() => setShowAllExtras(!showAllExtras)}
-                style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#E8571A", fontSize: 13, fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}
-              >
-                {showAllExtras ? "▲ Nascondi catalogo servizi" : "🔍 Scopri tutti i servizi avanzati"}
-              </button>
-            </div>
-
-            {showAllExtras && (
-              <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.08)", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 16 }}>
-                {Kp.filter((k) => !["photo_report_advanced", "report_analytics"].includes(k.id)).map((ext) => {
-                  const active = (data.extraServices || []).includes(ext.id);
-                  return (
-                    <div
-                      key={ext.id}
-                      onClick={() => toggleExtra(ext.id)}
-                      className="vp-s1-card-hover"
-                      style={{
-                        padding: 18,
-                        borderRadius: 16,
-                        background: active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.4)",
-                        border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
-                        cursor: "pointer",
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                        <span style={{ fontSize: 15, fontWeight: 800, color: active ? "#E8571A" : "#F8FAFC" }}>{ext.label}</span>
-                        <span style={{ fontSize: 11, fontWeight: 800, color: "#E8571A" }}>{ext.price}</span>
-                      </div>
-                      <div style={{ fontSize: 12, color: "#94A3B8" }}>{ext.desc}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
           {/* Section 7: Priorità */}
-          <div id="section-urgenza" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
-            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
-              7 - Priorità operativa
+          <div id="section-urgenza" style={s1Panel}>
+            <div style={s1EyebrowStyle}>
+              6 - Priorità operativa
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 20px" }}>
               Con che urgenza dobbiamo avviare la distribuzione?
@@ -2162,18 +2234,17 @@ function Step1({ data, setData, onNext, onHome }) {
                     style={{
                       padding: 22,
                       borderRadius: 18,
-                      background: active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.5)",
-                      border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
+                      ...s1Card(active),
                       cursor: "pointer",
                       position: "relative",
                     }}
                   >
                     {p.badge && (
-                      <div style={{ position: "absolute", top: 12, right: 12, padding: "3px 8px", borderRadius: 100, background: p.id === "express" ? "rgba(239,68,68,0.2)" : "rgba(245,158,11,0.2)", color: p.id === "express" ? "#EF4444" : "#F59E0B", fontSize: 10, fontWeight: 800 }}>
+                      <div style={{ position: "absolute", top: 12, right: 12, padding: "3px 8px", borderRadius: 100, background: p.id === "express" ? "rgba(239,68,68,0.13)" : "rgba(255,255,255,.06)", color: p.id === "express" ? "#FCA5A5" : "rgba(255,255,255,.66)", fontSize: 10, fontWeight: 800 }}>
                         {p.badge}
                       </div>
                     )}
-                    <div style={{ fontSize: 18, fontWeight: 800, color: active ? "#E8571A" : "#F8FAFC", marginBottom: 8 }}>{p.label}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: active ? s1Green : "#F8FAFC", marginBottom: 8 }}>{p.label}</div>
                     <div style={{ fontSize: 13, color: "#94A3B8", lineHeight: 1.4 }}>{p.desc}</div>
                   </div>
                 );
@@ -2182,9 +2253,9 @@ function Step1({ data, setData, onNext, onHome }) {
           </div>
 
           {/* Section 8: Piano */}
-          <div id="section-piano" style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 32 }}>
-            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>
-              8 - Piano promozionale
+          <div id="section-piano" style={s1Panel}>
+            <div style={s1EyebrowStyle}>
+              7 - Piano promozionale
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
               Vuoi fare una distribuzione singola o continuativa?
@@ -2204,28 +2275,27 @@ function Step1({ data, setData, onNext, onHome }) {
                     style={{
                       padding: 20,
                       borderRadius: 18,
-                      background: active ? "rgba(232, 87, 26, 0.15)" : "rgba(24,34,53,0.5)",
-                      border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.08)"}`,
+                      ...s1Card(active),
                       cursor: "pointer",
                       textAlign: "center",
                       position: "relative",
                     }}
                   >
                     {pl.disc > 0 && (
-                      <div style={{ position: "absolute", top: -10, right: 10, background: "#F59E0B", color: "#000", padding: "2px 8px", borderRadius: 100, fontSize: 11, fontWeight: 900, boxShadow: "0 4px 10px rgba(245,158,11,0.3)" }}>
+                      <div style={{ position: "absolute", top: -10, right: 10, background: "rgba(34,197,94,.16)", color: s1Green, border: "1px solid rgba(34,197,94,.34)", padding: "2px 8px", borderRadius: 100, fontSize: 11, fontWeight: 900, boxShadow: "0 4px 10px rgba(34,197,94,.12)" }}>
                         -{pl.disc}%
                       </div>
                     )}
-                    <div style={{ fontSize: 20, fontWeight: 800, color: active ? "#E8571A" : "#F8FAFC", marginBottom: 4 }}>{pl.label}</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: active ? s1Green : "#F8FAFC", marginBottom: 4 }}>{pl.label}</div>
                     <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: pl.disc > 0 ? 6 : 0 }}>{pl.subtitle}</div>
-                    {pl.disc > 0 && <div style={{ fontSize: 11, color: "#F59E0B", fontWeight: 800 }}>Sconto applicato</div>}
+                    {pl.disc > 0 && <div style={{ fontSize: 11, color: s1Green, fontWeight: 800 }}>Sconto applicato</div>}
                   </div>
                 );
               })}
             </div>
 
             {data.subscription && data.subscription !== "single" && (
-              <div style={{ padding: 20, borderRadius: 16, background: "rgba(232, 87, 26, 0.1)", border: "1px solid rgba(232, 87, 26, 0.3)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+              <div style={{ padding: 20, borderRadius: 16, background: "rgba(9,18,33,.58)", border: "1px solid rgba(255,255,255,.105)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC", marginBottom: 4 }}>Quante uscite/campagne al mese vuoi effettuare?</div>
                   <div style={{ fontSize: 12, color: "#CBD5E1" }}>Ottimizzi la pianificazione logistica su {{ single: 1, monthly3: 3, monthly6: 6, monthly12: 12 }[data.subscription]} mesi</div>
@@ -2238,7 +2308,7 @@ function Step1({ data, setData, onNext, onHome }) {
                         key={cnt}
                         type="button"
                         onClick={() => updateData({ campaignsPerMonth: cnt })}
-                        style={{ width: 44, height: 44, borderRadius: 12, border: `2px solid ${active ? "#E8571A" : "rgba(255,255,255,0.2)"}`, background: active ? "#E8571A" : "transparent", color: active ? "#fff" : "#fff", fontSize: 16, fontWeight: 900, cursor: "pointer" }}
+                        style={{ width: 44, height: 44, borderRadius: 12, border: `2px solid ${active ? s1Green : "rgba(255,255,255,0.2)"}`, background: active ? "rgba(34,197,94,.16)" : "transparent", color: active ? s1Green : "#fff", fontSize: 16, fontWeight: 900, cursor: "pointer" }}
                       >
                         {cnt}
                       </button>
@@ -2250,10 +2320,10 @@ function Step1({ data, setData, onNext, onHome }) {
           </div>
 
           {/* ── Riepilogo Step 1 — inline summary ── */}
-          <div style={{ background: "#122036", borderRadius: 24, border: "1px solid rgba(255,255,255,0.08)", padding: isMobile ? 20 : 28, boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}>
+          <div style={{ ...s1Panel, padding: isMobile ? 20 : 28 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: 20 }}>
-              <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "#E8571A", textTransform: "uppercase", letterSpacing: ".1em" }}>Riepilogo Step 1</span>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#E8571A", boxShadow: "0 0 10px #E8571A" }} />
+              <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,.58)", textTransform: "uppercase", letterSpacing: ".1em" }}>Riepilogo Step 1</span>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: s1Green, boxShadow: "0 0 10px rgba(34,197,94,.45)" }} />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)", gap: isMobile ? "10px 16px" : "10px 40px", marginBottom: 20 }}>
               {[
@@ -2262,7 +2332,7 @@ function Step1({ data, setData, onNext, onHome }) {
                 { label: "Formato", val: currentFormatLabel },
                 { label: "Urgenza", val: currentUrgencyLabel },
                 { label: "Piano", val: currentPlanLabel },
-                { label: "Extra", val: `${(data.extraServices || []).length + 1} inclusi` },
+                { label: "Stampa", val: data.hasFlyers === "no" ? "Inclusa" : "Non inclusa" },
               ].map((row, idx) => (
                 <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                   <span style={{ color: "#94A3B8" }}>{row.label}</span>
@@ -2271,24 +2341,24 @@ function Step1({ data, setData, onNext, onHome }) {
               ))}
             </div>
             <div style={{ display: isMobile ? "flex" : "flex", flexDirection: isMobile ? "column" : "row", gap: 20, alignItems: isMobile ? "stretch" : "center" }}>
-              <div style={{ padding: "14px 20px", borderRadius: 16, background: "rgba(232, 87, 26, 0.08)", border: "1px solid rgba(232, 87, 26, 0.25)", flexShrink: 0 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: "#CBD5E1", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>Prezzo stimato (non definitivo)</div>
-                <div style={{ fontSize: 26, fontWeight: 900, color: "#E8571A", letterSpacing: "-0.5px" }}>€ {totalEstFormatted} <span style={{ fontSize: 14, fontWeight: 600, color: "#94A3B8" }}>+ IVA</span></div>
+              <div style={{ padding: "14px 20px", borderRadius: 16, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.09)", flexShrink: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#CBD5E1", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>Preventivo finale</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#E2E8F0", letterSpacing: "-0.2px" }}>Prezzo calcolato nello Step 4</div>
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.5, marginBottom: 6 }}>Calcolato su listino base. Il preventivo esatto verrà generato in base alle zone scelte nello Step 2.</div>
                 <div style={{ fontSize: 12, color: "#64748B", lineHeight: 1.5 }}>
                   Hai bisogno di aiuto?{" "}
-                  <button type="button" onClick={() => setShowSmartPairingModal(true)} style={{ background: "none", border: "none", color: "#E8571A", textDecoration: "underline", cursor: "pointer", padding: 0, fontWeight: 700 }}>Scopri lo Smart Pairing</button>
+                  <button type="button" onClick={() => setShowSmartPairingModal(true)} style={{ background: "none", border: "none", color: s1Green, textDecoration: "underline", cursor: "pointer", padding: 0, fontWeight: 700 }}>Scopri lo Smart Pairing</button>
                 </div>
               </div>
             </div>
           </div>
 
           {/* NUOVA CARD "PROSSIMO PASSAGGIO" */}
-          <div style={{ background: "#122036", borderRadius: 24, border: "2px solid rgba(232, 87, 26, 0.35)", padding: isMobile ? 24 : 36, boxShadow: "0 24px 64px rgba(0,0,0,0.5)", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(232, 87, 26, 0.15) 0%, transparent 70%)", pointerEvents: "none" }} />
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "4px 12px", borderRadius: 100, background: "rgba(232, 87, 26, 0.15)", color: "#E8571A", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 16 }}>
+          <div style={{ ...s1Panel, padding: isMobile ? 24 : 36, position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(34,197,94,.12) 0%, transparent 70%)", pointerEvents: "none" }} />
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "4px 12px", borderRadius: 100, background: "rgba(34,197,94,.12)", color: s1Green, border: "1px solid rgba(34,197,94,.26)", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 16 }}>
               ⚡ Trasparenza Garantita
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 30, color: "#F8FAFC", margin: "0 0 20px" }}>
@@ -2302,7 +2372,7 @@ function Step1({ data, setData, onNext, onHome }) {
                 "Potrai modificare tutto prima della conferma finale.",
               ].map((pt, idx) => (
                 <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: "rgba(232, 87, 26, 0.2)", border: "1px solid #E8571A", color: "#E8571A", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, flexShrink: 0, marginTop: 2 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: "rgba(34,197,94,.14)", border: "1px solid rgba(34,197,94,.36)", color: s1Green, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, flexShrink: 0, marginTop: 2 }}>
                     ✓
                   </div>
                   <span style={{ fontSize: 15, color: "#E2E8F0", lineHeight: 1.5, fontWeight: 500 }}>{pt}</span>
@@ -2531,12 +2601,18 @@ const targetBusinessMeta = isBusinessStep2 ? getTargetBizMeta(data) : null;
 const [viewMode, setViewMode] = useState("distribuzione");
 const [thLayerId, setThLayerId] = useState(layers[0]?.id || null);
 const resolveStep2City = (value) => {
-  const raw = String(value || "").trim().toLowerCase();
-  if (!raw) return null;
-  if (normalizeTerritoryName(raw) === "milano") return { id: "milano", name: "Milano", label: "Milano", lat: 45.4642, lng: 9.19 };
+  const raw = String(value || "").trim();
+  const normalizedRaw = normalizeTerritoryName(normalizeMunicipalityName(raw));
+  if (!normalizedRaw) return null;
+  if (normalizedRaw === "milano") return { id: "milano", name: "Milano", label: "Milano", lat: 45.4642, lng: 9.19 };
+  const exactKnownCity = GEO_DATA.find(g => {
+    const name = normalizeTerritoryName(normalizeMunicipalityName(g.name || g.label || ""));
+    return name && name === normalizedRaw;
+  });
+  if (exactKnownCity) return exactKnownCity;
   return GEO_DATA.find(g => {
-    const name = String(g.name || g.label || "").trim().toLowerCase();
-    return name && (name === raw || raw.includes(name) || name.includes(raw));
+    const name = normalizeTerritoryName(normalizeMunicipalityName(g.name || g.label || ""));
+    return name && normalizedRaw.length >= 4 && (normalizedRaw.includes(name) || name.includes(normalizedRaw));
   }) || null;
 };
 const initialCity = data.city || resolveStep2City(data.cityName) || null;
@@ -2991,14 +3067,19 @@ const selectedMunicipality = useMemo(
   () => {
     if (searchMode === "cap") return null;
     const raw = city?.label || city?.name || search || data.cityName || null;
-    if (isResidentialStep2 && (isMilanoTerritory(raw) || isMilanoCoordinates(city?.lat, city?.lng))) return "Milano";
+    // Milano scatta SOLO per corrispondenza esatta del nome comune (codice
+    // ISTAT Milano: 015146). In precedenza usava anche un bounding box di
+    // coordinate (isMilanoCoordinates) che includeva per errore comuni
+    // limitrofi come Rho, forzandoli a "Milano" e rompendo il match con
+    // l'API (nessun comune si chiama "Milano" nel breakdown di Rho).
+    if (isResidentialStep2 && normalizeMunicipalityName(raw) === "milano") return "Milano";
     return raw;
   },
-  [searchMode, city?.label, city?.name, city?.lat, city?.lng, search, data.cityName, isResidentialStep2]
+  [searchMode, city?.label, city?.name, search, data.cityName, isResidentialStep2]
 );
 const requestedAnalysisLevel = useMemo(
-  () => isResidentialStep2 && (isMilanoTerritory(selectedMunicipality) || isMilanoCoordinates(city?.lat, city?.lng)) ? "nil" : "comune",
-  [isResidentialStep2, selectedMunicipality, city?.lat, city?.lng]
+  () => isResidentialStep2 && normalizeMunicipalityName(selectedMunicipality) === "milano" ? "nil" : "comune",
+  [isResidentialStep2, selectedMunicipality]
 );
 const analysisScope = useMemo(() => data.activeZoneId || "zone", [data.activeZoneId]);
 // Fix effective radius
@@ -3220,6 +3301,10 @@ const zonesInRadius = useMemo(() => {
     debugStep2Log("[STEP2_SELECTED_MUNICIPALITY_NAME]", selectedMunicipalityName);
     debugStep2Log("[STEP2_MUNICIPALITY_MATCH_CANDIDATES]", filtered.map(z => ({ name: z.name, normalized: normalizeMunicipalityName(z.name), municipality_code: z.municipality_code })));
 
+    if (isResidentialStep2 && requestedAnalysisLevel === "nil") {
+      const nilAreas = filtered.filter(z => z.isNil || z.territoryLevel === "nil" || z.nilCode);
+      filtered = nilAreas.length ? nilAreas : filtered;
+    } else {
     let matched = filtered.filter(z => {
       const nameMatch = normalizeMunicipalityName(z.name) === selectedMunicipalityName;
       const codeMatch = Boolean(primaryMunicipalityCode) && Boolean(z.municipality_code) && String(z.municipality_code) === String(primaryMunicipalityCode);
@@ -3246,6 +3331,7 @@ const zonesInRadius = useMemo(() => {
 
     debugStep2Log("[STEP2_FINAL_MUNICIPALITY_AREA]", matched.map(z => z.name));
     filtered = matched;
+    }
   } else if (gateMode === "radius") {
     // includere solo comuni entro radiusKm + hard guard anti-regressione
     const numRadius = Number(radiusKm) || 3;
@@ -3266,7 +3352,7 @@ const zonesInRadius = useMemo(() => {
   }
 
   return filtered;
-}, [hasUsefulApiZones, apiZones, searchMode, selectedMunicipality, primaryMunicipalityCode, radiusKm, apiLoading]);
+}, [hasUsefulApiZones, apiZones, searchMode, selectedMunicipality, primaryMunicipalityCode, radiusKm, apiLoading, isResidentialStep2, requestedAnalysisLevel]);
 useEffect(() => {
   if (!apiData) return;
   const nilRows = Array.isArray(apiData.nil_breakdown) && apiData.nil_breakdown.length ? apiData.nil_breakdown : (apiData.comuni_breakdown || []).filter(row => row?.territory_level === "nil");
@@ -5519,11 +5605,47 @@ function Step3({ data, setData, onNext, onBack }) {
   const [activeCalZoneId, setActiveCalZoneId] = useState(data.activeZoneId || data.campaignZones?.[0]?.id);
   const [selDays, setSelDays] = useState([]);
   const [showZoneDetails, setShowZoneDetails] = useState(false);
-  
+  const [navError, setNavError] = useState("");
+  const [formSent, setFormSent] = useState(Boolean(data.smartPairingRequestSent));
+  const [smartPairingRegistered, setSmartPairingRegistered] = useState(Boolean(data.smartPairingRequestSent));
+  const shouldShowContinueToStep4 = formSent || smartPairingRegistered;
+
+  useEffect(() => {
+    console.info("[STEP3_STATE_INIT]", { formSent, smartPairingRegistered });
+    console.info("[STEP3_ERROR_BOUNDARY_CHECK]", { mounted: true });
+  }, []);
+
   useEffect(() => {
     if (!data.dateMode) {
       setData(prev => ({ ...prev, dateMode: "global" }));
     }
+  }, []);
+
+  useEffect(() => {
+    if (shouldShowContinueToStep4) console.info("[STEP3_SHOW_CONTINUE_TO_STEP4]", { formSent, smartPairingRegistered });
+  }, [shouldShowContinueToStep4, formSent, smartPairingRegistered]);
+
+  // Diagnostic-only: confirms what's really in these two tables without
+  // altering the calendar/pairing logic above (that logic has no mapping yet
+  // for `smart_pairing_slots`/`availability_slots`' real columns — see report).
+  useEffect(() => {
+    let cancelled = false;
+    if (!supabase) return;
+    (async () => {
+      try {
+        const { data: rows, error } = await supabase.from("smart_pairing_slots").select("id").eq("stato", "attiva");
+        if (!cancelled) console.info("[STEP3_SMART_PAIRING_SLOTS_LOAD]", { count: rows?.length || 0, error: error?.message || null });
+      } catch (err) {
+        if (!cancelled) console.info("[STEP3_SMART_PAIRING_SLOTS_LOAD]", { count: 0, error: err?.message || String(err) });
+      }
+      try {
+        const { data: rows, error } = await supabase.from("availability_slots").select("id");
+        if (!cancelled) console.info("[STEP3_AVAILABILITY_SLOTS_LOAD]", { count: rows?.length || 0, error: error?.message || null });
+      } catch (err) {
+        if (!cancelled) console.info("[STEP3_AVAILABILITY_SLOTS_LOAD]", { count: 0, error: err?.message || String(err) });
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const activeZone = data.dateMode === "per_zone" ? (data.campaignZones || []).find(z => z.id === activeCalZoneId) : null;
@@ -5606,9 +5728,28 @@ function Step3({ data, setData, onNext, onBack }) {
 
   const [month, setMonth] = useState(data.selectedMonth?.month ?? initialCalendarDate.getMonth());
   const [year, setYear] = useState(data.selectedMonth?.year ?? initialCalendarDate.getFullYear());
-  const [form, setForm] = useState(data.contactRequestData || { nome: "", telefono: "", email: "", periodo: "", note: "" });
+  const [form, setForm] = useState(() => {
+    const savedContact = data.contactRequestData || {};
+    const savedPeriod = savedContact.preferred_period || savedContact.preferredPeriod || {};
+    const phoneDigits = String(savedContact.telefono || "").replace(/\D/g, "").replace(/^39(?=\d{9,})/, "");
+    const { telefono: _savedTelefono, preferred_period: _savedPreferredPeriod, preferredPeriod: _savedPreferredPeriodCamel, ...savedContactRest } = savedContact;
+    return {
+      nome: "",
+      email: "",
+      periodo: "",
+      note: "",
+      ...savedContactRest,
+      telefono: phoneDigits,
+      preferredPeriod: {
+        type: savedPeriod.type || "single_date",
+        startDate: savedPeriod.startDate || "",
+        endDate: savedPeriod.endDate || "",
+        weekdays: Array.isArray(savedPeriod.weekdays) ? savedPeriod.weekdays : [],
+        text: savedPeriod.text || savedContact.periodo || "",
+      },
+    };
+  });
   const [showRequest, setShowRequest] = useState(Boolean(data.smartPairingRequestSent));
-  const [formSent, setFormSent] = useState(false);
   const [formError, setFormError] = useState("");
   const DI = ["Lu", "Ma", "Me", "Gi", "Ve", "Sa", "Do"];
   const planMonths = { single: 1, monthly3: 3, monthly6: 6, monthly12: 12 };
@@ -5652,7 +5793,6 @@ function Step3({ data, setData, onNext, onBack }) {
     ? [activeZone.zone_label || activeZone.cityName || `Zona ${activeCalZoneId}`]
     : (data.selectedComuni && data.selectedComuni.length ? data.selectedComuni : (data.zones && data.zones.length ? data.zones : [data.cityName || "Zona da Step 2"]));
   const compactZoneLabel = allZonesList.length > 1 ? `${allZonesList[0]} (+${allZonesList.length - 1} zone)` : (allZonesList[0] || "Zona selezionata");
-  const zoneLabel = allZonesList.join(" – ");
 
   const fmtIsoDate = (v) => {
     if (!v) return "";
@@ -5660,6 +5800,43 @@ function Step3({ data, setData, onNext, onBack }) {
     return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : "";
   };
   const periodLabel = data.startDate && data.endDate ? `${fmtIsoDate(data.startDate)}  ${fmtIsoDate(data.endDate)}` : data.startDate ? `Dal ${fmtIsoDate(data.startDate)}` : "";
+  const sanitizeWhatsAppLocal = (value) => {
+    const digits = String(value || "").replace(/\D/g, "");
+    return digits.replace(/^39(?=\d{9,})/, "").slice(0, 12);
+  };
+  const normalizeWhatsApp = (value) => `+39${sanitizeWhatsAppLocal(value)}`;
+  const updatePreferredPeriod = (patch) => {
+    setForm(f => ({ ...f, preferredPeriod: { ...(f.preferredPeriod || { type: "single_date", startDate: "", endDate: "", weekdays: [], text: "" }), ...patch } }));
+  };
+  const togglePreferredWeekday = (day) => {
+    setForm(f => {
+      const current = f.preferredPeriod || { type: "weekdays", startDate: "", endDate: "", weekdays: [], text: "" };
+      const weekdays = Array.isArray(current.weekdays) ? current.weekdays : [];
+      return {
+        ...f,
+        preferredPeriod: {
+          ...current,
+          type: "weekdays",
+          weekdays: weekdays.includes(day) ? weekdays.filter(d => d !== day) : [...weekdays, day],
+        },
+      };
+    });
+  };
+  const buildPreferredPeriod = () => {
+    const p = form.preferredPeriod || {};
+    if (p.type === "single_date" && p.startDate) return { type: "single_date", startDate: p.startDate, endDate: "", weekdays: [], text: "" };
+    if (p.type === "date_range" && p.startDate) return { type: "date_range", startDate: p.startDate, endDate: p.endDate || "", weekdays: [], text: "" };
+    if (p.type === "weekdays" && Array.isArray(p.weekdays) && p.weekdays.length) return { type: "weekdays", startDate: "", endDate: "", weekdays: p.weekdays, text: "" };
+    if (String(p.text || form.periodo || "").trim()) return { type: "text", startDate: "", endDate: "", weekdays: [], text: String(p.text || form.periodo || "").trim() };
+    return null;
+  };
+  const preferredPeriodToText = (period) => {
+    if (!period) return "";
+    if (period.type === "single_date") return `Data preferita: ${fmtIsoDate(period.startDate) || period.startDate}`;
+    if (period.type === "date_range") return `Intervallo: ${fmtIsoDate(period.startDate) || period.startDate}${period.endDate ? ` - ${fmtIsoDate(period.endDate) || period.endDate}` : ""}`;
+    if (period.type === "weekdays") return `Giorni preferiti: ${(period.weekdays || []).join(", ")}`;
+    return `Periodo: ${period.text}`;
+  };
   const basePrice = BASE_PRICES[currentServiceType] || 1.85;
   const activeQty = activeZone ? Number(activeZone.assigned_flyers || 0) : Number(data.qty || 0);
   const baseCost = activeZone
@@ -5750,15 +5927,26 @@ function toggle(d) {
 
   function validateRequestForm() {
     if (!form.nome.trim()) { setFormError("Inserisci nome e cognome"); return false; }
-    if (!form.telefono.replace(/\s/g, "").match(/^\+?[0-9]{8,}$/)) { setFormError("Inserisci un numero WhatsApp valido"); return false; }
+    if (sanitizeWhatsAppLocal(form.telefono).length < 9) { setFormError("Inserisci un numero WhatsApp valido"); return false; }
     if (!form.email.includes("@")) { setFormError("Inserisci una email valida"); return false; }
-    if (!form.periodo.trim()) { setFormError("Indica il periodo o i giorni preferiti"); return false; }
+    if (!buildPreferredPeriod()) { setFormError("Indica il periodo o i giorni preferiti"); return false; }
     setFormError("");
     return true;
   }
 
 	  async function handleRequestSubmit() {
 	    if (!validateRequestForm()) return;
+	    const preferredPeriod = buildPreferredPeriod();
+	    const preferredPeriodText = preferredPeriodToText(preferredPeriod);
+	    const whatsapp = normalizeWhatsApp(form.telefono);
+	    const comunePrincipale = allZonesList[0] || data.cityName || "Zona da confermare";
+	    console.info("[STEP3_FORM_STATE]", {
+	      nome: form.nome,
+	      email: form.email,
+	      telefono: form.telefono,
+	      preferredPeriod,
+	      note: form.note || "",
+	    });
 	    if (hasSupabaseConfig()) {
 	      if (isStoredSupabaseSessionExpired()) {
 	        console.warn("[SMART_PAIRING_BLOCKED_EXPIRED_SESSION]");
@@ -5768,14 +5956,17 @@ function toggle(d) {
 	        setFormError(AUTH_EXPIRED_MESSAGE);
 	        return;
 	      }
-	      try {
-	        const waitlistPayload = {
+	      const waitlistPayload = {
           nome: form.nome,
           email: form.email,
-          telefono: form.telefono,
-          zone: zoneLabel,
-          note: form.note,
+          whatsapp,
+          comune: comunePrincipale,
+          servizio: currentServiceType,
+          date_preferite: preferredPeriodText,
+          note: form.note || null,
         };
+	      console.info("[STEP3_WAITLIST_PAYLOAD]", waitlistPayload);
+	      try {
 	        await saveSmartPairingWaitlist(waitlistPayload);
 	      } catch (err) {
 	        if (isAuthTokenExpiredError(err)) {
@@ -5788,7 +5979,10 @@ function toggle(d) {
         return;
       }
     }
+    console.info("[STEP3_SMART_PAIRING_REGISTERED]", navSnapshot());
+    console.info("[STEP3_WAITLIST_INSERT_SUCCESS]", navSnapshot());
     setFormSent(true);
+    setSmartPairingRegistered(true);
     setFormError("");
     setData(d => ({...d,
       days: [],
@@ -5806,30 +6000,98 @@ function toggle(d) {
       smartPairingStatus: "request_sent",
       smartPairingRequestSent: true,
       requiresManualConfirmation: true,
-      contactRequestData: form
+      contactRequestData: {
+        ...form,
+        telefono: whatsapp,
+        periodo: preferredPeriodText,
+        preferred_period: preferredPeriod,
+        preferredPeriod,
+      }
     }));
     // Don't auto-advance: let the user see the confirmation message below,
     // they can continue via the main "Genera preventivo" action whenever ready.
   }
 
+  // --- Navigation (Step3 -> Step2 / Step3 -> Step4) ---
+  // Single funnel for every "go back to Step2" request: only handleBackToZone
+  // (wired to the explicit "← Zona e mappa" button) is allowed to pass the
+  // "explicit_back_button" source. Any other caller is blocked and logged —
+  // this is the anti-regression guard against an accidental/implicit step2
+  // redirect from validation logic, waitlist submission, etc.
+  function navSnapshot() {
+    return {
+      service: currentServiceType,
+      zone: compactZoneLabel,
+      quantity: activeQty,
+      smartPairingEnabled: realSmartPairingSlots.length > 0,
+      waitlistRegistered: Boolean(data.smartPairingRequestSent),
+    };
+  }
+
+  function safeGoBackToStep2(source) {
+    if (source !== "explicit_back_button") {
+      console.error("[STEP3_NAV_UNEXPECTED_STEP2_GUARD]", { source, ...navSnapshot() });
+      return;
+    }
+    // TEMPORANEO — solo per individuare il chiamante reale, da rimuovere una
+    // volta chiusa l'indagine. Le variabili elencate nel ticket (selectedMunicipality,
+    // zonesInRadius.length, selZones.length, serviceKpis) non esistono in Step3
+    // (sono di Step2): uso qui l'equivalente reale disponibile in questo scope.
+    console.warn("[STEP3_NAV_BACK_TO_STEP2_REASON]", {
+      source,
+      dateMode: data.dateMode,
+      selDaysCount: selDays.length,
+      realSmartPairingSlotsCount: realSmartPairingSlots.length,
+      smartPairingRequestSent: Boolean(data.smartPairingRequestSent),
+      formSent,
+      showRequest,
+      ...navSnapshot(),
+      callerStack: new Error("STEP3_NAV_BACK_TO_STEP2_TRACE").stack,
+    });
+    console.info("[STEP3_NAV_BACK_TO_STEP2]", navSnapshot());
+    onBack();
+  }
+
+  function handleBackToZone() {
+    safeGoBackToStep2("explicit_back_button");
+  }
+
+  function handleContinueToStep4() {
+    console.info("[STEP3_NAV_TO_STEP4]", navSnapshot());
+    onNext();
+  }
+
   function handlePrimary() {
+    console.info("[STEP3_NAV_CLICK_CONTINUE]", { action: "attivami_e_genera_preventivo" });
+    console.info("[STEP3_NAV_STATE_BEFORE_CHANGE]", navSnapshot());
     if (data.dateMode === "per_zone") {
       const hasUnplanned = (data.campaignZones || []).some(z => !z.selectedDates || z.selectedDates.length === 0);
       if (hasUnplanned) {
         const firstUnplanned = (data.campaignZones || []).find(z => !z.selectedDates || z.selectedDates.length === 0);
         if (firstUnplanned) {
           setActiveCalZoneId(firstUnplanned.id);
-          alert(`Pianifica le date anche per la zona: ${firstUnplanned.zone_label || firstUnplanned.cityName || "successiva"}`);
+          const msg = `Pianifica le date anche per la zona: ${firstUnplanned.zone_label || firstUnplanned.cityName || "successiva"}`;
+          console.warn("[STEP3_NAV_BLOCKED_VALIDATION]", { reason: "unplanned_zone", ...navSnapshot() });
+          setNavError(msg);
+          alert(msg);
           return;
         }
       }
     }
-    if (selDays.length === 0 && data.dateMode !== "per_zone") return;
+    if (selDays.length === 0 && data.dateMode !== "per_zone") {
+      console.warn("[STEP3_NAV_BLOCKED_VALIDATION]", { reason: "no_dates_selected", ...navSnapshot() });
+      setNavError("Seleziona almeno una data compatibile prima di continuare.");
+      return;
+    }
+    setNavError("");
     setData(d => ({...d,...buildFinalPayload(null) }));
-    onNext();
+    handleContinueToStep4();
   }
 
   function handleSkipPairing() {
+    console.info("[STEP3_NAV_CLICK_CONTINUE]", { action: "continua_senza_smart_pairing" });
+    console.info("[STEP3_NAV_STATE_BEFORE_CHANGE]", navSnapshot());
+    setNavError("");
     setData(d => ({...d,...buildFinalPayload(null),
       days: [],
       avgDiscount: 0,
@@ -5846,7 +6108,7 @@ function toggle(d) {
       smartPairingSlots: [],
       smartPairingAvailabilitySource: "none"
     }));
-    onNext();
+    handleContinueToStep4();
   }
 
   const inputStyle = { width: "100%", padding: "10px 14px", borderRadius: 9, border: "1px solid rgba(255,255,255,.14)", background: "rgba(255,255,255,.07)", color: C.white, fontFamily: F.sans, fontSize: 14 };
@@ -5972,9 +6234,11 @@ function toggle(d) {
                 L'AI continua automaticamente la ricerca nelle prossime ore. Riceverai una notifica appena sarà disponibile uno Smart Pairing compatibile con la tua zona.
               </p>
               <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-                <button onClick={() => setShowRequest(true)} style={{ padding: "12px 24px", borderRadius: 10, background: "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 14px rgba(232,87,26,0.4)" }}>
-                  Attivami
-                </button>
+                {!formSent && (
+                  <button onClick={() => setShowRequest(true)} style={{ padding: "12px 24px", borderRadius: 10, background: "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, border: "none", cursor: "pointer", boxShadow: "0 4px 14px rgba(232,87,26,0.4)" }}>
+                    Attivami
+                  </button>
+                )}
                 <button onClick={handleSkipPairing} style={{ padding: "12px 20px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.18)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                   Continua senza Smart Pairing →
                 </button>
@@ -6024,7 +6288,7 @@ function toggle(d) {
                   })}
                 </div>
               </div>
-              <button onClick={() => { setShowRequest(v => !v); setSelDays([]); setFormSent(false); setFormError(""); }} style={{ marginTop: 14, padding: "11px 15px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer", width: "100%" }}>
+              <button onClick={() => { setShowRequest(v => !v); setSelDays([]); setFormSent(false); setSmartPairingRegistered(false); setFormError(""); }} style={{ marginTop: 14, padding: "11px 15px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer", width: "100%" }}>
                 Non trovo il giorno che voglio · Avvisami per date diverse
               </button>
             </div>
@@ -6032,12 +6296,17 @@ function toggle(d) {
 
           {showRequest && (
             <div style={{ marginBottom: 28, borderRadius: 16, padding: "22px", background: "rgba(255,255,255,.05)", border: "2px solid rgba(251,191,36,.3)" }}>
-              {formSent ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 4px" }}>
-                  <span style={{ fontSize: 22 }}>✅</span>
-                  <div style={{ fontFamily: F.sans, fontSize: 14, color: C.white, fontWeight: 600, lineHeight: 1.5 }}>
-                    Richiesta registrata. Ti avviseremo appena ci sono slot compatibili.
+              {shouldShowContinueToStep4 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 4px" }}>
+                    <span style={{ fontSize: 22 }}>✅</span>
+                    <div style={{ fontFamily: F.sans, fontSize: 14, color: C.white, fontWeight: 600, lineHeight: 1.5 }}>
+                      Richiesta registrata. Ti avviseremo appena ci sono slot compatibili.
+                    </div>
                   </div>
+                  <button className="btn" onClick={handleContinueToStep4} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 6px 18px rgba(232,87,26,0.35)" }}>
+                    Continua al preventivo →
+                  </button>
                 </div>
               ) : (
                 <>
@@ -6048,10 +6317,75 @@ function toggle(d) {
                   <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 14 }}>
                     <input value={form.nome} onChange={e => setForm(f => ({...f, nome: e.target.value }))} placeholder="Nome e Cognome" style={inputStyle} />
                     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
-                      <input value={form.telefono} onChange={e => setForm(f => ({...f, telefono: e.target.value }))} placeholder="WhatsApp" type="tel" style={inputStyle} />
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", borderRadius: 10, border: "1px solid rgba(255,255,255,.14)", background: "rgba(255,255,255,.07)", overflow: "hidden", transition: "border-color .2s, box-shadow .2s" }}>
+                          <span style={{ alignSelf: "stretch", display: "inline-flex", alignItems: "center", padding: "0 12px", background: "rgba(46,204,138,.12)", borderRight: "1px solid rgba(255,255,255,.1)", color: C.green, fontFamily: F.sans, fontSize: 14, fontWeight: 900 }}>+39</span>
+                          <input
+                            value={form.telefono}
+                            onChange={e => setForm(f => ({...f, telefono: sanitizeWhatsAppLocal(e.target.value) }))}
+                            placeholder="327 123 4567"
+                            type="tel"
+                            inputMode="numeric"
+                            style={{ ...inputStyle, border: "none", background: "transparent", borderRadius: 0, paddingLeft: 12 }}
+                          />
+                        </div>
+                      </div>
                       <input value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value }))} placeholder="Email" type="email" style={inputStyle} />
                     </div>
-                    <input value={form.periodo || ""} onChange={e => setForm(f => ({...f, periodo: e.target.value }))} placeholder="Periodo o giorni preferiti" style={inputStyle} />
+                    <div style={{ padding: 14, borderRadius: 14, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.09)" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+                        <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.58)", fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase" }}>Periodo preferito</div>
+                        <div style={{ color: "rgba(255,255,255,.48)", fontSize: 16 }}>CAL</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                        {[
+                          ["single_date", "Data singola"],
+                          ["date_range", "Intervallo date"],
+                          ["weekdays", "Giorni preferiti"],
+                          ["text", "Testo libero"],
+                        ].map(([type, label]) => {
+                          const active = (form.preferredPeriod?.type || "single_date") === type;
+                          return (
+                            <button
+                              key={type}
+                              type="button"
+                              onClick={() => updatePreferredPeriod({ type })}
+                              style={{ padding: "7px 10px", borderRadius: 999, border: `1px solid ${active ? "rgba(46,204,138,.45)" : "rgba(255,255,255,.12)"}`, background: active ? "rgba(46,204,138,.13)" : "rgba(255,255,255,.035)", color: active ? C.green : "rgba(255,255,255,.68)", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {(form.preferredPeriod?.type || "single_date") === "single_date" && (
+                        <input type="date" value={form.preferredPeriod?.startDate || ""} onChange={e => updatePreferredPeriod({ startDate: e.target.value })} style={inputStyle} />
+                      )}
+                      {form.preferredPeriod?.type === "date_range" && (
+                        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
+                          <input type="date" value={form.preferredPeriod?.startDate || ""} onChange={e => updatePreferredPeriod({ startDate: e.target.value })} style={inputStyle} />
+                          <input type="date" value={form.preferredPeriod?.endDate || ""} onChange={e => updatePreferredPeriod({ endDate: e.target.value })} style={inputStyle} />
+                        </div>
+                      )}
+                      {form.preferredPeriod?.type === "weekdays" && (
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          {["Lun", "Mar", "Mer", "Gio", "Ven", "Sab"].map(day => {
+                            const active = (form.preferredPeriod?.weekdays || []).includes(day);
+                            return (
+                              <button key={day} type="button" onClick={() => togglePreferredWeekday(day)} style={{ minWidth: 46, padding: "9px 10px", borderRadius: 10, border: `1px solid ${active ? "rgba(46,204,138,.45)" : "rgba(255,255,255,.12)"}`, background: active ? "rgba(46,204,138,.14)" : "rgba(255,255,255,.04)", color: active ? C.green : "rgba(255,255,255,.72)", fontFamily: F.sans, fontSize: 12, fontWeight: 850, cursor: "pointer" }}>{day}</button>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {form.preferredPeriod?.type === "text" && (
+                        <input
+                          value={form.preferredPeriod?.text || ""}
+                          onChange={e => updatePreferredPeriod({ text: e.target.value })}
+                          placeholder="Seleziona una data o scrivi giorni preferiti"
+                          style={inputStyle}
+                        />
+                      )}
+                      <div style={{ marginTop: 8, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.42)" }}>Esempio: 3 agosto, prossima settimana, lun-mar</div>
+                    </div>
                     <textarea value={form.note || ""} onChange={e => setForm(f => ({...f, note: e.target.value }))} placeholder="Note opzionali" rows={3} style={{...inputStyle, resize: "vertical" }} />
                   </div>
                   {formError && <div style={{ padding: "8px 14px", borderRadius: 8, background: "rgba(248,113,113,.15)", border: "1px solid rgba(248,113,113,.3)", fontFamily: F.sans, fontSize: 12, color: C.red, marginBottom: 12 }}>{formError}</div>}
@@ -6186,13 +6520,16 @@ function toggle(d) {
                 Scegli una o più date compatibili per continuare
               </div>
             ) : null}
+            {navError && (
+              <div style={{ padding: "9px 12px", borderRadius: 8, background: "rgba(248,113,113,.12)", border: "1px solid rgba(248,113,113,.3)", fontFamily: F.sans, fontSize: 12, color: C.red }}>
+                {navError}
+              </div>
+            )}
             
             <button className="btn" onClick={handleSkipPairing} style={{ width: "100%", padding: "13px", borderRadius: 12, border: "1px solid rgba(255,255,255,.18)", background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.85)", fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer", transition: "all .2s" }}>
               Continua senza Smart Pairing →
             </button>
-            <button className="btn" onClick={onBack} style={{ width: "100%", padding: "10px", borderRadius: 10, border: "none", background: "transparent", color: "rgba(255,255,255,.45)", fontFamily: F.sans, fontSize: 13, cursor: "pointer" }}>
-              ← Torna a Zona & Mappa
-            </button>
+            <NavButton onClick={handleBackToZone} full>{"\u2190 Zona e mappa"}</NavButton>
           </div>
         </div>
       </div>
@@ -6215,12 +6552,13 @@ const [pdfError, setPdfError] = useState("");
 const [showTechPanel, setShowTechPanel] = useState(false);
 const [showStep4Zones, setShowStep4Zones] = useState(false);
 const [techSections, setTechSections] = useState({});
+const [activeDemoId, setActiveDemoId] = useState(null);
 const toggleTech = key => setTechSections(p => ({...p, [key]: !p[key]}));
 const svcCommercial = {
   tracking_gps:    { icon: "📍", head: "Tracking GPS Live",        col: "#22C55E", badge: "Più scelto",     bullets: ["Segui in tempo reale gli operatori sulla mappa","Storico percorso al termine della distribuzione","Link di condivisione per il tuo team"] },
   photo_proof:     { icon: "📸", head: "Report Fotografico",        col: "#60A5FA", badge: "Massima sicurezza", bullets: ["30 foto geolocalizzate con data e orario","Conferma visiva zona per zona","Archivio scaricabile dal portale cliente"] },
-  ai_analysis:     { icon: "🤖", head: "AI Optimizer",              col: "#2ECC8A", badge: "Premium",        bullets: ["Analisi automatica della copertura dell'area","Segnalazione automatica di eventuali aree scoperte","Raccomandazioni operative post-campagna"] },
-  advanced_report: { icon: "📊", head: "Report Avanzato",           col: "#6366F1", badge: "Consigliato",    bullets: ["Statistiche complete su zone e operatori","Breakdown copertura per comune","PDF professionale scaricabile"] },
+  ai_analysis:     { icon: "🤖", head: "Modulo Ottimizzazione AI",   col: "#2ECC8A", badge: "Premium",        bullets: ["Suggerimenti per migliorare copertura","Identificazione aree deboli","Raccomandazioni quantita e zone"] },
+  advanced_report: { icon: "📊", head: "Report Controllo Qualita",  col: "#6366F1", badge: "Consigliato",    bullets: ["Controllo qualita della distribuzione","Breakdown copertura per comune","Report finale PDF scaricabile"] },
   printing:        { icon: "🖨️", head: "Stampa Materiale",          col: "#60A5FA", badge: "Miglior rapporto qualità/prezzo", bullets: ["Produzione professionale del materiale","Qualità certificata per distribuzione","Consegna prima della campagna"] },
   design:          { icon: "🎨", head: "Preparazione Grafica",      col: "#A78BFA", badge: "Premium",        bullets: ["Adattamento file al formato richiesto","Verifica qualità prima della stampa","Supporto creativo dedicato"] },
   quality_control: { icon: "✅", head: "Controllo Qualità",         col: "#2ECC8A", badge: "Consigliato",    bullets: ["Verifica operativa in campo","Supervisione distribuzione","Report anomalie"] },
@@ -6285,8 +6623,8 @@ const normalizeSelectedExtras = (data) => {
     const mapping = [
       { id: "tracking_gps", oldIds: ["gps", "tracking_gps", "gps_default"], l: "Tracking GPS", d: "Monitoraggio operativo della distribuzione con tracciamento delle attività.", icon: "", p: 25 },
       { id: "photo_proof", oldIds: ["foto", "photo_proof", "foto_localizzate", "photo_report_advanced"], l: "Foto localizzate", d: "Prove fotografiche con data, zona e riferimento operativo.", icon: "", p: 35 },
-      { id: "advanced_report", oldIds: ["report", "advanced_report", "report_avanzato", "report_analytics"], l: "Report avanzato", d: "Report finale più dettagliato con riepilogo operativo e indicatori principali.", icon: " ", p: 19 },
-      { id: "ai_analysis", oldIds: ["ai", "ai_analysis", "analisi_ai"], l: "AI Optimizer", d: "Ottimizzazione AI di zona, copertura e raccomandazioni operative.", icon: "", p: 49 },
+      { id: "advanced_report", oldIds: ["report", "advanced_report", "report_avanzato", "report_analytics"], l: "Report Controllo Qualita", d: "Controllo completo della distribuzione con KPI, comuni, operatori, foto e report finale scaricabile.", icon: " ", p: 19 },
+      { id: "ai_analysis", oldIds: ["ai", "ai_analysis", "analisi_ai"], l: "Modulo Ottimizzazione AI", d: "Analisi AI per migliorare copertura, quantita e priorita operative.", icon: "", p: 49 },
       { id: "printing", oldIds: ["stampa", "printing"], l: "Stampa materiale", d: "Produzione del materiale prima della distribuzione.", icon: "", p: Math.ceil((flyerQty || 10000) / 1000) * 12 },
       { id: "design", oldIds: ["grafica", "design", "preparazione_grafica"], l: "Preparazione grafica", d: "Supporto per preparazione o adattamento del file grafico.", icon: "", p: 49 },
       { id: "quality_control", oldIds: ["quality", "quality_control", "controllo_qualita"], l: "Controllo qualità", d: "Verifica aggiuntiva sulla corretta esecuzione della distribuzione.", icon: "", p: 25 },
@@ -6317,12 +6655,253 @@ const normalizeSelectedExtras = (data) => {
 const selectedExtras = normalizeSelectedExtras(data);
 const selectedExtraIds = selectedExtras.map(s => s.id);
 const optionalExtras = [
-    { id: "tracking_gps", addId: "gps", label: "Tracking GPS", description: "Tracciamento operativo e timeline distributori.", icon: "", price: 25 },
-    { id: "photo_proof", addId: "photo_report_advanced", label: "Foto localizzate", description: "Proof fotografici con data e zona.", icon: "", price: 35 },
-    { id: "advanced_report", addId: "report_analytics", label: "Report avanzato", description: "Report finale con indicatori e riepilogo operativo.", icon: " ", price: 19 },
-    { id: "ai_analysis", addId: "ai", label: "AI Optimizer", description: "Ottimizzazione AI di zona, copertura e raccomandazioni.", icon: "", price: 49 },
-  ].filter(ext => !selectedExtraIds.includes(ext.id));
+    { id: "tracking_gps", addId: "gps", removeIds: ["gps", "tracking_gps", "gps_default"], label: "Tracking GPS Live", description: "Tracciamento operativo e timeline distributori.", micro: "Mostra avanzamento e operatori sulla mappa.", icon: "GPS", price: 25 },
+    { id: "photo_proof", addId: "photo_report_advanced", removeIds: ["foto", "photo_proof", "foto_localizzate", "photo_report_advanced"], label: "Report Fotografico", description: "Proof fotografici con data e zona.", micro: "Foto geolocalizzate con data e ora.", icon: "PHOTO", price: 35 },
+    { id: "advanced_report", addId: "report_analytics", removeIds: ["report", "advanced_report", "report_avanzato", "report_analytics"], label: "Report Controllo Qualita", description: "Controllo completo della distribuzione con KPI, comuni, operatori, foto e report finale scaricabile.", micro: "Controllo qualita, KPI e report finale scaricabile.", icon: "DATA", price: 19 },
+    { id: "ai_analysis", addId: "ai", removeIds: ["ai", "ai_analysis", "analisi_ai"], label: "Modulo Ottimizzazione AI", description: "Analisi AI per migliorare copertura, quantita e priorita operative.", micro: "Suggerimenti AI su copertura, quantita e priorita.", icon: "AI", price: 49 },
+  ];
 const addOptionalExtra = (id) => setData(d => ({...d, extraServices: [...new Set([...(d.extraServices || []), id])] }));
+const removeOptionalExtra = (ext) => setData(d => {
+    const removeSet = new Set([ext.id, ext.addId, ...(ext.removeIds || [])].filter(Boolean));
+    return {
+      ...d,
+      aiOptimizer: ext.id === "ai_analysis" ? false : d.aiOptimizer,
+      aiExtraSelected: ext.id === "ai_analysis" ? false : d.aiExtraSelected,
+      extraServices: (d.extraServices || []).filter(id => !removeSet.has(id)),
+      printServices: (d.printServices || []).filter(id => !removeSet.has(id)),
+    };
+  });
+const isOptionalExtraSelected = (ext) => selectedExtraIds.includes(ext.id);
+const activeDemoExtra = optionalExtras.find(ext => ext.id === activeDemoId) || null;
+const openExtraDemo = (ext) => {
+  if (!ext) return;
+  console.log("[EXTRA_DEMO_OPENED]", { id: ext.id, label: ext.label, area: mainAreaLabel });
+  console.log("[EXTRA_DEMO_DATA_SOURCE]", { id: ext.id, source: "step4_current_configuration", area: mainAreaLabel, quantity: flyerQty, service: tLabel });
+  if (ext.id === "advanced_report") console.log("[REPORT_ADVANCED_DEMO_REAL_DATA]", { area: mainAreaLabel, quantity: flyerQty, families: kpis.families ?? totF, coverage: coverageForSummary ?? kpis.coverage ?? avgCov, comuni: kpisComuniCount });
+  if (ext.id === "ai_analysis") console.log("[AI_OPTIMIZER_DEMO_REAL_DATA]", { area: mainAreaLabel, quantity: flyerQty, families: kpis.families ?? totF, coverage: coverageForSummary ?? kpis.coverage ?? avgCov, total });
+  console.log("[EXTRA_DEMO_NO_MOCK]", { id: ext.id, mock: false });
+  setActiveDemoId(ext.id);
+};
+const renderExtraDemo = (ext) => {
+    if (!ext) return null;
+    const accent = (svcCommercial[ext.id]?.col || C.orange);
+    const demoLabel = { tracking_gps: "Tracking in tempo reale", photo_proof: "Foto geolocalizzata", advanced_report: "Report completo", ai_analysis: "Analisi AI" }[ext.id] || "Anteprima";
+    const realCoverage = coverageForSummary ?? kpis.coverage ?? avgCov ?? null;
+    const realFamilies = kpis.families ?? totF ?? null;
+    const realPopulation = kpisPopulation ?? (realFamilies ? Math.round(realFamilies * 2.4) : null);
+    const realComuniCount = kpisComuniCount ?? selectedZoneNames.length ?? null;
+    const realAreaScore = kpis.familyIndex ?? avgFIdx ?? 0;
+    const realReachScore = kpis.reachScore ?? (selZ.length ? Math.round(selZ.reduce((a, z) => a + (z.reachD2D || 0), 0) / selZ.length) : realCoverage || 0);
+    const realRoiScore = kpis.roiScore ?? (selZ.length ? Math.round(selZ.reduce((a, z) => a + (z.roiD2D || 0), 0) / selZ.length) : realCoverage || 0);
+    const realConfidenceScore = kpis.confidenceScore ?? (selZ.length ? Math.round(selZ.reduce((a, z) => a + (z.confD2D || 0), 0) / selZ.length) : 82);
+    const realDensity = d2dAvgDensity ?? (d2dAreaKm2 && realPopulation ? Math.round(realPopulation / d2dAreaKm2) : null);
+    const aiQualityScore = Math.round(([realAreaScore, realReachScore, realRoiScore, realConfidenceScore].filter(v => Number.isFinite(Number(v)) && Number(v) > 0).reduce((a, v) => a + Number(v), 0) || 0) / Math.max(1, [realAreaScore, realReachScore, realRoiScore, realConfidenceScore].filter(v => Number.isFinite(Number(v)) && Number(v) > 0).length));
+    const aiLevel = aiQualityScore >= 86 ? "ottimo" : aiQualityScore >= 74 ? "avanzato" : aiQualityScore >= 58 ? "buono" : "base";
+    const coveragePartial = realCoverage != null && realCoverage < 100;
+    const realMunicipalityRows = (pdfMunicipalities?.length ? pdfMunicipalities : selectedZoneNames.map((name, index) => ({
+      name,
+      estimatedFlyers: selectedZoneNames.length ? Math.round(flyerQty / selectedZoneNames.length) : flyerQty,
+      coveragePct: realCoverage,
+      status: coveragePartial ? "Copertura parziale" : "Copertura pianificata",
+      contributionPct: selectedZoneNames.length ? Math.round(100 / selectedZoneNames.length) : 100,
+    }))).filter(row => row?.name);
+    const unavailablePanel = (title) => (
+      <div style={{ padding: 18, borderRadius: 16, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", fontFamily: F.sans }}>
+        <div style={{ fontSize: 12, fontWeight: 900, color: C.white, marginBottom: 6 }}>{title}</div>
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,.56)", lineHeight: 1.55 }}>Disponibile dopo avvio campagna.</div>
+      </div>
+    );
+    const demoSelected = isOptionalExtraSelected(ext);
+    const lockedPanel = (title, text = "Disponibile dopo aggiunta al preventivo") => (
+      <div style={{ padding: 16, borderRadius: 15, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.085)", fontFamily: F.sans }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 900, color: C.white }}>{title}</div>
+          <span style={{ padding: "4px 8px", borderRadius: 999, background: "rgba(232,87,26,.12)", border: "1px solid rgba(232,87,26,.26)", color: C.orange, fontSize: 10, fontWeight: 900 }}>LOCKED</span>
+        </div>
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,.58)", lineHeight: 1.55 }}>{text}</div>
+      </div>
+    );
+    const previewKpis = [
+      ["Zona", mainAreaLabel, C.white],
+      ["Volantini", formatNumber(flyerQty), C.orange],
+      ["Famiglie stimate", formatNumber(realFamilies), C.green],
+      ["Copertura stimata", realCoverage != null ? `${realCoverage}%` : "-", C.green],
+      ["Comuni", realComuniCount != null ? formatNumber(realComuniCount) : "-", C.blue],
+      ["Totale", eur(total), C.orange],
+    ];
+    if (ext.id === "tracking_gps") {
+      return (
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.25fr .75fr", gap: 16 }}>
+          <div style={{ minHeight: 300, borderRadius: 18, border: "1px solid rgba(255,255,255,.10)", background: "linear-gradient(135deg,#101f35,#07111f)", position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", inset: 0, opacity: .28, backgroundImage: "linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px)", backgroundSize: "44px 44px" }} />
+            <svg viewBox="0 0 520 300" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} aria-hidden="true">
+              <path d="M58 224 C130 132, 194 198, 248 128 S390 78, 456 150" fill="none" stroke={accent} strokeWidth="5" strokeLinecap="round" strokeDasharray="12 10" />
+              {[["58","224"],["168","178"],["248","128"],["356","102"],["456","150"]].map(([x,y], i) => <circle key={i} cx={x} cy={y} r={i === 4 ? 11 : 7} fill={i === 4 ? C.orange : accent} />)}
+            </svg>
+            <div style={{ position: "absolute", top: 16, left: 16, padding: "7px 11px", borderRadius: 999, background: "rgba(46,204,138,.14)", border: "1px solid rgba(46,204,138,.35)", color: C.green, fontFamily: F.sans, fontSize: 11, fontWeight: 900 }}>{demoLabel}</div>
+            <div style={{ position: "absolute", right: 16, bottom: 16, padding: 14, borderRadius: 14, background: "rgba(7,17,31,.82)", border: "1px solid rgba(255,255,255,.12)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.72)" }}>Operatore 02 - zona nord<br /><b style={{ color: C.white }}>68% percorso completato</b></div>
+          </div>
+          <div style={{ display: "grid", gap: 10 }}>
+            {["Partenza operatore - 09:10", "Zona coperta - 68%", "Completamento stimato - 12:30"].map((row, i) => <div key={row} style={{ padding: 14, borderRadius: 13, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.08)", color: C.white, fontFamily: F.sans, fontSize: 13 }}><span style={{ color: accent, fontWeight: 900, marginRight: 8 }}>{i + 1}</span>{row}</div>)}
+          </div>
+        </div>
+      );
+    }
+    if (ext.id === "photo_proof") {
+      return (
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 12 }}>
+          {[["Via Roma", "10:18"], ["Centro", "10:42"], ["Zona nord", "11:05"], ["Stazione", "11:34"], ["Quartiere est", "12:02"], ["Piazza", "12:21"]].map(([zone, time], i) => (
+            <div key={`${zone}-${time}`} style={{ aspectRatio: "4/3", borderRadius: 14, padding: 12, background: `linear-gradient(135deg, rgba(96,165,250,.22), rgba(232,87,26,.10)), linear-gradient(${135 + i * 22}deg,#102036,#07111f)`, border: "1px solid rgba(255,255,255,.10)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <span style={{ alignSelf: "flex-start", padding: "4px 8px", borderRadius: 999, background: "rgba(46,204,138,.14)", color: C.green, fontFamily: F.sans, fontSize: 10, fontWeight: 900 }}>foto geolocalizzata</span>
+              <div style={{ fontFamily: F.sans, fontSize: 12, color: C.white }}><b>{zone}</b><br /><span style={{ color: "rgba(255,255,255,.58)" }}>Demo - {time}</span></div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    if (ext.id === "advanced_report") {
+      return (
+        <div style={{ display: "grid", gap: 16 }}>
+          <div style={{ position: "relative", overflow: "hidden", borderRadius: 20, padding: isMobile ? 18 : 24, background: "linear-gradient(135deg, rgba(10,18,34,.98), rgba(18,32,54,.94) 58%, rgba(99,102,241,.18))", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 24px 70px rgba(0,0,0,.32)" }}>
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(circle at 82% 18%, rgba(46,204,138,.16), transparent 30%), radial-gradient(circle at 5% 0%, rgba(99,102,241,.20), transparent 28%)" }} />
+            <div style={{ position: "relative", display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
+              <div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                  <span style={{ padding: "5px 10px", borderRadius: 999, background: "rgba(232,87,26,.14)", border: "1px solid rgba(232,87,26,.30)", color: C.orange, fontFamily: F.sans, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".08em" }}>{demoSelected ? "Extra selezionato" : "Anteprima bloccata"}</span>
+                  <span style={{ padding: "5px 10px", borderRadius: 999, background: "rgba(46,204,138,.12)", border: "1px solid rgba(46,204,138,.25)", color: C.green, fontFamily: F.sans, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".08em" }}>Preview basata sulla configurazione attuale</span>
+                </div>
+                <h3 style={{ margin: 0, fontFamily: F.serif, fontSize: isMobile ? 28 : 38, color: C.white, letterSpacing: "-1px" }}>Report Controllo Qualita</h3>
+                <div style={{ marginTop: 8, fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.68)" }}>{tLabel} - {mainAreaLabel} - {formatNumber(flyerQty)} volantini</div>
+                <p style={{ margin: "12px 0 0", maxWidth: 720, fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.66)", lineHeight: 1.6 }}>Controllo completo della distribuzione con KPI, comuni, operatori, foto e report finale scaricabile. Questa e una prima pagina dimostrativa: i dettagli completi restano bloccati.</p>
+              </div>
+              <div style={{ textAlign: isMobile ? "left" : "right" }}>
+                <div style={{ fontFamily: F.serif, fontSize: 34, color: C.orange, lineHeight: 1 }}>{eur(total)}</div>
+                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.48)", textTransform: "uppercase", letterSpacing: ".08em" }}>Totale configurazione</div>
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(6,1fr)", gap: 10 }}>
+            {previewKpis.map(([l, v, c]) => (
+              <div key={l} style={{ padding: 15, borderRadius: 14, background: `${c === C.white ? "rgba(255,255,255,.045)" : `${c}10`}`, border: `1px solid ${c === C.white ? "rgba(255,255,255,.08)" : `${c}2f`}` }}>
+                <div style={{ fontFamily: F.serif, fontSize: isMobile ? 23 : 28, color: c, lineHeight: 1 }}>{v || "-"}</div>
+                <div style={{ marginTop: 7, fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.54)", textTransform: "uppercase", letterSpacing: ".08em" }}>{l}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1.12fr", gap: 14 }}>
+            <div style={{ padding: 16, borderRadius: 16, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.08)" }}>
+              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.46)", textTransform: "uppercase", letterSpacing: ".1em", fontWeight: 900, marginBottom: 12 }}>Sezioni incluse</div>
+              {["Breakdown copertura per comune", "Statistiche operatori e prove campagna", "Report finale PDF scaricabile", "Controllo qualita della distribuzione"].map((row) => (
+                <div key={row} style={{ display: "flex", gap: 9, alignItems: "flex-start", padding: "9px 0", borderTop: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.72)" }}>
+                  <span style={{ color: accent, fontWeight: 900 }}>+</span><span>{row}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.035)" }}>
+              <div style={{ padding: 14, background: "rgba(255,255,255,.055)", fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: "rgba(255,255,255,.48)", textTransform: "uppercase", letterSpacing: ".06em" }}>
+                Breakdown comuni - anteprima limitata
+              </div>
+              {realMunicipalityRows.slice(0, demoSelected ? 4 : 2).map((row, index) => (
+                <div key={`${row.name}-${index}`} style={{ display: "grid", gridTemplateColumns: "1.3fr .8fr .8fr", gap: 8, padding: "11px 12px", borderTop: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.74)", alignItems: "center" }}>
+                  <b style={{ color: C.white, overflow: "hidden", textOverflow: "ellipsis" }}>{row.name}</b>
+                  <span>{row.estimatedFlyers != null ? formatNumber(row.estimatedFlyers) : formatNumber(Math.round(flyerQty / Math.max(1, realMunicipalityRows.length)))}</span>
+                  <span style={{ color: (row.coveragePct ?? realCoverage ?? 0) >= 100 ? C.green : C.orange, fontWeight: 900 }}>{row.coveragePct != null ? `${Math.min(100, Math.round(row.coveragePct))}%` : realCoverage != null ? `${realCoverage}%` : "-"}</span>
+                </div>
+              ))}
+              {!demoSelected && <div style={{ padding: 12, borderTop: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12, color: C.orange, fontWeight: 900 }}>Dettaglio completo disponibile dopo aggiunta al preventivo.</div>}
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 12 }}>
+            {lockedPanel("Operatori e timeline", "Disponibile dopo conferma campagna e avvio operativo.")}
+            {lockedPanel("GPS e foto proof", "Disponibile durante la distribuzione se inclusi nel servizio.")}
+            {lockedPanel("Download PDF premium", "Disponibile dopo aggiunta al preventivo.")}
+          </div>
+        </div>
+      );
+    }
+    if (ext.id === "ai_analysis") {
+      return (
+        <div style={{ display: "grid", gap: 16 }}>
+          <div style={{ position: "relative", overflow: "hidden", borderRadius: 20, padding: isMobile ? 18 : 24, background: "linear-gradient(135deg, rgba(7,17,31,.98), rgba(13,30,48,.96) 54%, rgba(46,204,138,.16))", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 24px 70px rgba(0,0,0,.32)" }}>
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(circle at 78% 18%, rgba(46,204,138,.18), transparent 32%), radial-gradient(circle at 0% 0%, rgba(232,87,26,.14), transparent 28%)" }} />
+            <div style={{ position: "relative", display: "flex", justifyContent: "space-between", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
+              <div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                  <span style={{ padding: "5px 10px", borderRadius: 999, background: "rgba(46,204,138,.12)", border: "1px solid rgba(46,204,138,.28)", color: C.green, fontFamily: F.sans, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".08em" }}>Enterprise edition</span>
+                  <span style={{ padding: "5px 10px", borderRadius: 999, background: "rgba(232,87,26,.12)", border: "1px solid rgba(232,87,26,.28)", color: C.orange, fontFamily: F.sans, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".08em" }}>{demoSelected ? "Extra selezionato" : "Anteprima bloccata"}</span>
+                </div>
+                <h3 style={{ margin: 0, fontFamily: F.serif, fontSize: isMobile ? 28 : 38, color: C.white, letterSpacing: "-1px" }}>Modulo Ottimizzazione AI</h3>
+                <div style={{ marginTop: 8, fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.68)" }}>{tLabel} - {mainAreaLabel} - {formatNumber(flyerQty)} volantini</div>
+                <p style={{ margin: "12px 0 0", maxWidth: 720, fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.66)", lineHeight: 1.6 }}>Analisi AI per migliorare copertura, quantita e priorita operative. Questa preview usa la configurazione attuale, ma raccomandazioni complete e piano operativo restano bloccati.</p>
+              </div>
+              <div style={{ textAlign: isMobile ? "left" : "right" }}>
+                <div style={{ fontFamily: F.serif, fontSize: 42, color: C.green, lineHeight: 1 }}>{aiQualityScore || "-"}</div>
+                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.50)", textTransform: "uppercase", letterSpacing: ".08em" }}>Indice qualita</div>
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : ".74fr 1.26fr", gap: 14 }}>
+            <div style={{ padding: 20, borderRadius: 18, background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.24)", display: "grid", placeItems: "center", minHeight: 260 }}>
+              <div style={{ width: 170, height: 170, borderRadius: "50%", border: "14px solid rgba(46,204,138,.18)", display: "grid", placeItems: "center", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.12)", background: `conic-gradient(${C.green} ${Math.max(0, Math.min(100, aiQualityScore))}%, rgba(255,255,255,.08) 0)` }}>
+                <div style={{ width: 122, height: 122, borderRadius: "50%", background: "#07111f", display: "grid", placeItems: "center", textAlign: "center" }}>
+                  <div><div style={{ fontFamily: F.serif, fontSize: 44, color: C.green, lineHeight: 1 }}>{aiQualityScore || "-"}</div><div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.52)", textTransform: "uppercase", letterSpacing: ".08em" }}>AI score</div></div>
+                </div>
+              </div>
+              <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                <span style={{ padding: "5px 10px", borderRadius: 999, background: "rgba(255,255,255,.07)", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 900 }}>Livello: {aiLevel}</span>
+                <span style={{ padding: "5px 10px", borderRadius: 999, background: "rgba(167,139,250,.12)", color: C.purple, fontFamily: F.sans, fontSize: 11, fontWeight: 900 }}>Affidabilita {realConfidenceScore || "-"}%</span>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3,1fr)", gap: 10 }}>
+              {previewKpis.map(([label, value, color]) => (
+                <div key={label} style={{ padding: 14, borderRadius: 14, background: color === C.white ? "rgba(255,255,255,.045)" : `${color}10`, border: `1px solid ${color === C.white ? "rgba(255,255,255,.08)" : `${color}2f`}` }}>
+                  <div style={{ fontFamily: F.serif, fontSize: 24, color, lineHeight: 1 }}>{value || "-"}</div>
+                  <div style={{ marginTop: 7, fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.54)", textTransform: "uppercase", letterSpacing: ".08em" }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
+            <div style={{ padding: 16, borderRadius: 16, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.08)" }}>
+              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.46)", textTransform: "uppercase", letterSpacing: ".1em", fontWeight: 900, marginBottom: 12 }}>Analisi parziale</div>
+              {[["Qualita zona", realAreaScore, C.green], ["Potenziale copertura", realReachScore, C.green], ["Efficienza quantita", realRoiScore, C.orange]].map(([label, value, color]) => (
+                <div key={label} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center", marginBottom: 11, fontFamily: F.sans, fontSize: 12 }}>
+                  <span style={{ color: "rgba(255,255,255,.72)" }}>{label}</span>
+                  <b style={{ color }}>{Number(value || 0)}/100</b>
+                  <span style={{ gridColumn: "1 / -1", height: 7, borderRadius: 999, background: "rgba(255,255,255,.08)", overflow: "hidden" }}><i style={{ display: "block", width: `${Math.max(0, Math.min(100, Number(value || 0)))}%`, height: "100%", background: color }} /></span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "grid", gap: 10 }}>
+              <div style={{ padding: 15, borderRadius: 15, background: coveragePartial ? "rgba(232,87,26,.08)" : "rgba(46,204,138,.08)", border: `1px solid ${coveragePartial ? "rgba(232,87,26,.24)" : "rgba(46,204,138,.24)"}`, fontFamily: F.sans }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: coveragePartial ? C.orange : C.green, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 7 }}>Executive preview</div>
+                <div style={{ fontSize: 13, color: C.white, lineHeight: 1.55 }}>
+                  {coveragePartial
+                    ? `Copertura stimata al ${realCoverage}%. Il modulo individua priorita e quantita consigliata nel report completo.`
+                    : "Configurazione equilibrata nella preview. La verifica completa resta disponibile nel modulo premium."}
+                </div>
+              </div>
+              {lockedPanel("Raccomandazioni AI complete", "Disponibile dopo aggiunta al preventivo.")}
+              {lockedPanel("Aree deboli e priorita operative", "Disponibile dopo aggiunta al preventivo.")}
+              {lockedPanel("Analisi post-campagna", "Disponibile durante o dopo l'esecuzione della campagna.")}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : ".75fr 1.25fr", gap: 14 }}>
+        <div style={{ padding: 20, borderRadius: 18, background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.24)", display: "grid", placeItems: "center", minHeight: 240 }}>
+          <div style={{ width: 154, height: 154, borderRadius: "50%", border: "14px solid rgba(46,204,138,.18)", display: "grid", placeItems: "center", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.12)" }}>
+            <div style={{ textAlign: "center" }}><div style={{ fontFamily: F.serif, fontSize: 30, color: C.green, lineHeight: 1 }}>Anteprima</div><div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.52)", textTransform: "uppercase", letterSpacing: ".08em" }}>Demo</div></div>
+          </div>
+        </div>
+        <div style={{ display: "grid", gap: 10 }}>
+          {["Anteprima disponibile dalla configurazione corrente.", "Il servizio si attiva solo con Aggiungi al preventivo."].map((row) => <div key={row} style={{ padding: 13, borderRadius: 13, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.08)", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.74)" }}><b style={{ color: C.green }}>Demo</b> {row}</div>)}
+        </div>
+      </div>
+    );
+  };
 const extraCost = selectedExtras.reduce((a, s) => a + (s.price || 0), 0);
 const smartPairingDiscount = baseCost * (disc / 100);
 const urgSurch = data.urgency === "urgent" ? baseCost * 0.3 : 0;
@@ -6544,7 +7123,7 @@ const serviceSummaryConfig = {
   );
 const slug = value => (value || "preventivo").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 const quoteDate = new Date().toISOString().slice(0, 10);
-const pdfFileName = `volantinipro-preventivo-${slug(tLabel)}-${slug(mainAreaLabel)}-${quoteDate}.pdf`;
+const pdfFileName = `Preventivo-VolantiniPro-${slug(mainAreaLabel)}-${quoteDate}.pdf`;
 const pdfMunicipalities = (() => {
   if (isMunicipalityMode) {
     const muns = data.selectedComuni?.length ? data.selectedComuni
@@ -6661,6 +7240,8 @@ const quotePdfData = {
   };
 function handleDownloadPdf() {
     if (pdfBusy) return;
+    console.info("[QUOTE_PDF_BUTTON_CLICKED]", { area: mainAreaLabel });
+    console.info("[QUOTE_PDF_DATA_SOURCE]", { source: "step4_quote_data", areaMode: data.areaMode || data.searchMode || null });
     if (import.meta.env.DEV) {
       console.log("[PDF_QUOTE_DATA_SOURCE]", { mode: data.searchMode, areaMode: data.areaMode });
       console.log("[PDF_MODE]", isMunicipalityMode ? "municipality" : "radius");
@@ -6676,7 +7257,9 @@ function handleDownloadPdf() {
     setPdfError("");
     try {
       printQuotePdf(quotePdfData);
+      console.info("[QUOTE_PDF_GENERATED]", { fileName: pdfFileName, area: quotePdfData.area?.mainArea });
     } catch (err) {
+      console.warn("[QUOTE_PDF_ERROR]", { message: err?.message || String(err) });
       setPdfError("Non è stato possibile aprire il preventivo. Controlla che i popup siano abilitati.");
     } finally {
       setPdfBusy(false);
@@ -6712,14 +7295,22 @@ function handleDownloadPdf() {
 	        redirectToLoginAfterExpiredSession();
 	        return;
 	      }
+	      if (hasSupabaseConfig()) {
+	        await ensureRestSessionFromSdk({ action: "confirm_campaign" });
+	      }
 	      const session = typeof getStoredSupabaseSession === "function" ? getStoredSupabaseSession() : null;
-      const hasValidClientSession = Boolean(session?.accessToken || session?.access_token || (cliente?.email && cliente.email !== "dev@volantinipro.local"));
-      if (!hasValidClientSession && hasSupabaseConfig()) {
-        setCampaignSaveError("Per confermare e salvare la campagna devi accedere con email.");
-        setShowLoginRequired(true);
-        setSent(false);
-        setSavingCampaign(false);
-        return;
+	      const hasValidClientSession = Boolean(session?.accessToken || session?.access_token || (cliente?.email && cliente.email !== "dev@volantinipro.local"));
+	      if (!hasValidClientSession && hasSupabaseConfig()) {
+	        setCampaignSaveError("Per confermare e salvare la campagna devi accedere con email.");
+	        setShowLoginRequired(true);
+	        try {
+	          localStorage.setItem("volantinipro_return_to", "step4");
+	          localStorage.setItem("volantinipro_pending_action", "confirm_campaign");
+	          localStorage.setItem("volantinipro_pending_campaign_draft", JSON.stringify(data));
+	        } catch {}
+	        setSent(false);
+	        setSavingCampaign(false);
+	        return;
       }
 
       setConfirmSyncStatus(hasSupabaseConfig() ? "Salvataggio campagna in corso..." : "Backend non configurato: puoi scaricare il PDF o inviare una richiesta disponibilità.");
@@ -6740,15 +7331,38 @@ function handleDownloadPdf() {
         end_date: data.endDate || data.campaignPeriodEnd || null,
         smart_pairing_discount: disc,
         total_amount: Number(total.toFixed(2)),
-        metadata: {
-          selected_comuni: selectedZoneNames,
-          selected_dates: selDays,
-          extra_services: selectedExtras.map(e => e.id),
-          pricing: quotePdfData.pricing,
-          service_kpis: kpis,
-          operational_waypoints: plannedGpsPoints,
-          source: data.quickSource || "configurator",
-        },
+	        metadata: {
+	          zona: mainAreaLabel,
+	          comune: data.cityName || data.comune || selectedZoneNames[0] || null,
+	          mode: data.searchMode || data.areaMode || "configurator",
+	          famiglie: estimatedFamiliesForSummary,
+	          persone: kpisPopulation,
+	          copertura_pct: coverageForSummary ?? kpis.coverage ?? avgCov ?? null,
+	          comuni_count: kpisComuniCount,
+	          selected_comuni: selectedZoneNames,
+	          volantini_necessari: requiredQty || null,
+	          volantini_inseriti: flyerQty,
+	          volantini_extra: remainingQty,
+	          volantini_mancanti: missingQty,
+	          formato: data.flyerFormat,
+	          materiale: alreadyPrinted ? "già stampato" : "Da produrre",
+	          piano: subL,
+	          servizi_extra: selectedExtras.map(e => ({ id: e.id, label: e.label, price: e.price || 0 })),
+	          selected_dates: selDays,
+	          extra_services: selectedExtras.map(e => e.id),
+	          pricing: quotePdfData.pricing,
+	          service_kpis: kpis,
+	          quote_summary: quotePdfData,
+	          dashboard_kpis: {
+	            families: estimatedFamiliesForSummary,
+	            population: kpisPopulation,
+	            coverage: coverageForSummary ?? kpis.coverage ?? avgCov ?? null,
+	            comuniCount: kpisComuniCount,
+	            requiredFlyers: requiredQty || null,
+	          },
+	          operational_waypoints: plannedGpsPoints,
+	          source: data.quickSource || "configurator",
+	        },
       });
       const savedRow = Array.isArray(savedCampaign) ? savedCampaign[0] : (savedCampaign || {});
       const id = savedRow?.id;
@@ -6818,6 +7432,29 @@ function handleDownloadPdf() {
         .s4-btn-outline:hover { background: rgba(255,255,255,.07) !important; }
         .s4-step-chip { transition: background .15s; }
       `}</style>
+      {activeDemoExtra && (
+        <div role="dialog" aria-modal="true" onClick={() => setActiveDemoId(null)} style={{ position: "fixed", inset: 0, zIndex: 9000, padding: isMobile ? 14 : 28, background: "rgba(3,8,18,.78)", backdropFilter: "blur(14px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div onClick={(event) => event.stopPropagation()} style={{ width: "min(980px, 100%)", maxHeight: "90vh", overflow: "auto", borderRadius: 24, background: "linear-gradient(180deg,#101f35 0%,#07111f 100%)", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 32px 90px rgba(0,0,0,.55)", padding: isMobile ? 18 : 26 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 18, marginBottom: 18 }}>
+              <div>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 10px", borderRadius: 999, background: "rgba(232,87,26,.12)", border: "1px solid rgba(232,87,26,.28)", color: C.orange, fontFamily: F.sans, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 10 }}>Anteprima demo</div>
+                <h2 style={{ margin: 0, fontFamily: F.serif, fontSize: isMobile ? 26 : 34, color: C.white, letterSpacing: "-.8px" }}>{activeDemoExtra.label}</h2>
+                <p style={{ margin: "8px 0 0", maxWidth: 680, fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.64)", lineHeight: 1.6 }}>{svcCommercial[activeDemoExtra.id]?.demoText || activeDemoExtra.description} Preview basata sulla configurazione attuale: non attiva il servizio, non modifica il prezzo e non mostra dati operativi di una distribuzione gia eseguita.</p>
+              </div>
+              <button type="button" onClick={() => setActiveDemoId(null)} style={{ width: 38, height: 38, borderRadius: 12, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 20, cursor: "pointer", flexShrink: 0 }}>x</button>
+            </div>
+            {renderExtraDemo(activeDemoExtra)}
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,.08)" }}>
+              <button type="button" onClick={() => setActiveDemoId(null)} style={{ minHeight: 44, padding: "0 18px", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Chiudi</button>
+              {isOptionalExtraSelected(activeDemoExtra) ? (
+                <button type="button" onClick={() => removeOptionalExtra(activeDemoExtra)} style={{ minHeight: 44, padding: "0 18px", borderRadius: 10, border: "1px solid rgba(255,255,255,.14)", background: "rgba(255,255,255,.06)", color: "rgba(255,255,255,.82)", fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Rimuovi dal preventivo</button>
+              ) : (
+                <button type="button" onClick={() => addOptionalExtra(activeDemoExtra.addId || activeDemoExtra.id)} style={{ minHeight: 44, padding: "0 18px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 900, cursor: "pointer", boxShadow: "0 10px 26px rgba(232,87,26,.32)" }}>Aggiungi al preventivo</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {/* ── HERO DASHBOARD ── */}
       <div style={{ borderRadius: 18, border: `1px solid ${col}2e`, background: `linear-gradient(135deg, ${col}12 0%, rgba(8,15,30,0) 100%)`, padding: isMobile ? "18px 16px" : "26px 28px", marginBottom: 20 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
@@ -6908,6 +7545,14 @@ function handleDownloadPdf() {
                 { icon: "", l: "Materiale", v: alreadyPrinted ? "già stampato" : "Da produrre", c: alreadyPrinted ? C.green : C.blue },
                 !alreadyPrinted && { icon: "", l: "Grammatura", v: flyW, c: C.green },
                 { icon: "", l: "Grafica", v: data.graphicsReady === true || data.designReady === true ? "File già disponibile" : data.needGraphic || productionServices.includes("grafica") ? "File da preparare" : null, c: C.purple },
+                { icon: "🖨️", l: "Stampa", v: data.printing?.enabled ? "Inclusa" : "Non inclusa", c: data.printing?.enabled ? C.green : C.white },
+                data.printing?.enabled && data.printing?.format && { icon: "", l: "Formato stampa", v: data.printing.format, c: C.white },
+                data.printing?.enabled && data.printing?.paperType && { icon: "", l: "Tipo carta", v: { patinata_lucida: "Patinata lucida", patinata_opaca: "Patinata opaca", uso_mano: "Uso mano" }[data.printing.paperType] || data.printing.paperType, c: C.white },
+                data.printing?.enabled && data.printing?.sides && { icon: "", l: "Lati", v: data.printing.sides === "fronte_retro" ? "Fronte/retro" : "Solo fronte", c: C.white },
+                data.printing?.enabled && data.printing?.color && { icon: "", l: "Colore", v: data.printing.color === "bianco_nero" ? "Bianco/nero" : "Colori", c: C.white },
+                data.printing?.enabled && data.printing?.folding && { icon: "", l: "Piega", v: { nessuna: "Nessuna", meta: "A metà", tre: "A tre" }[data.printing.folding] || data.printing.folding, c: C.white },
+                data.printing?.enabled && data.printing?.artworkStatus && { icon: "", l: "File grafico stampa", v: data.printing.artworkStatus === "pronto" ? "Già pronto" : "Da creare", c: C.white },
+                data.printing?.enabled && { icon: "", l: "Prezzo stampa", v: selectedExtras.find(e => e.id === "printing") ? `+${selectedExtras.find(e => e.id === "printing").price}€` : "Da confermare", c: C.orange },
                 isH2H && { icon: "", l: "Luogo", v: data.distributionLocation || "-", c: C.blue },
                 isB2B && { icon: "", l: "Consegna", v: B2B_DELIVERY_TYPES.find(o => o.value === data.deliveryType)?.label || "-", c: C.purple },
                 { icon: "", l: "Piano", v: subL, c: subDiscPct > 0 ? "#6366F1" : C.white },
@@ -7104,6 +7749,7 @@ function handleDownloadPdf() {
                 {selectedExtras.map(ext => {
                   const comm = svcCommercial[ext.id] || {};
                   const cardCol = comm.col || (ext.price === 0 && !ext.isUrgent ? C.green : ext.isUrgent ? C.red : C.blue);
+                  const optionalConfig = optionalExtras.find(opt => opt.id === ext.id);
                   return (
                     <div key={ext.id} className="s4-svc-card" style={{ padding: "16px 18px", borderRadius: 14, background: `${cardCol}08`, border: `1px solid ${cardCol}28`, display: "flex", flexDirection: "column", gap: 12 }}>
                       {/* Header */}
@@ -7138,34 +7784,15 @@ function handleDownloadPdf() {
                       {!comm.bullets && ext.description && (
                         <p style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)", lineHeight: 1.5, margin: 0 }}>{ext.description}</p>
                       )}
-                      {ext.id === "ai_analysis" && (
-                        <AIOptimizerActivation
-                          isConfirmed={sent && Boolean(savedCampaign?.id)}
-                          kpis={kpis} avgFIdx={avgFIdx} totF={totF} avgCov={avgCov}
-                          flyerQty={flyerQty} total={total} baseCost={baseCost} disc={disc}
-                          quantityIsSufficient={quantityIsSufficient} requiredQty={requiredQty}
-                          missingQty={missingQty} remainingQty={remainingQty}
-                          selectedZoneNames={selectedZoneNames} svcType={svcType}
-                          tLabel={tLabel} mainAreaLabel={mainAreaLabel} step4Omi={step4Omi}
-                          kpisPopulation={kpisPopulation} kpisComuniCount={kpisComuniCount}
-                          d2dAreaKm2={d2dAreaKm2} d2dAvgDensity={d2dAvgDensity}
-                          selectedExtras={selectedExtras} selDays={selDays} data={data}
-                          onAddExtra={addOptionalExtra}
-                        />
-                      )}
-                      {ext.id === "advanced_report" && (
-                        <AdvancedReportActivation
-                          isConfirmed={sent && Boolean(savedCampaign?.id)}
-                          kpis={kpis} avgFIdx={avgFIdx} totF={totF} avgCov={avgCov}
-                          flyerQty={flyerQty} total={total} baseCost={baseCost} disc={disc}
-                          quantityIsSufficient={quantityIsSufficient} requiredQty={requiredQty}
-                          missingQty={missingQty} remainingQty={remainingQty}
-                          selectedZoneNames={selectedZoneNames} svcType={svcType}
-                          tLabel={tLabel} mainAreaLabel={mainAreaLabel} step4Omi={step4Omi}
-                          kpisPopulation={kpisPopulation} kpisComuniCount={kpisComuniCount}
-                          d2dAreaKm2={d2dAreaKm2} d2dAvgDensity={d2dAvgDensity}
-                          selectedExtras={selectedExtras} selDays={selDays} data={data}
-                        />
+                      {optionalConfig && (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, paddingTop: 4 }}>
+                          <button type="button" onClick={() => openExtraDemo(ext)} style={{ width: "100%", padding: "10px", borderRadius: 10, border: "1px solid rgba(255,255,255,.14)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
+                            Anteprima
+                          </button>
+                          <button type="button" onClick={() => removeOptionalExtra(optionalConfig)} style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${cardCol}35`, background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.76)", fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
+                            Rimuovi
+                          </button>
+                        </div>
                       )}
                     </div>
                   );
@@ -7181,21 +7808,46 @@ function handleDownloadPdf() {
                   {optionalExtras.map(ext => {
                     const comm = svcCommercial[ext.id] || {};
                     const cardCol = comm.col || C.blue;
+                    const selected = isOptionalExtraSelected(ext);
                     return (
-                      <div key={ext.id} style={{ padding: "16px", borderRadius: 14, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.08)", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 14, transition: "border-color .2s" }}>
+                      <div key={ext.id} style={{ padding: "16px", borderRadius: 14, background: selected ? `${cardCol}0f` : "rgba(255,255,255,.025)", border: `1px solid ${selected ? `${cardCol}45` : "rgba(255,255,255,.08)"}`, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 14, transition: "border-color .2s" }}>
                         <div>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                               <span style={{ fontSize: 22 }}>{comm.icon || ext.icon}</span>
-                              <div style={{ fontFamily: F.serif, fontSize: 16, color: C.white }}>{comm.head || ext.label}</div>
+                              <div>
+                                <div style={{ fontFamily: F.serif, fontSize: 16, color: C.white }}>{comm.head || ext.label}</div>
+                                <div style={{ marginTop: 3, fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.46)", textTransform: "uppercase", letterSpacing: ".08em" }}>Anteprima premium disponibile</div>
+                              </div>
                             </div>
-                            <span style={{ padding: "4px 10px", borderRadius: 8, background: `${cardCol}18`, fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: cardCol }}>+{eur(ext.price)}</span>
+                            <span style={{ padding: "4px 10px", borderRadius: 8, background: `${cardCol}18`, fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: cardCol }}>{selected ? "Extra selezionato" : `+${eur(ext.price)}`}</span>
                           </div>
-                          {comm.bullets?.[0] && <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)", lineHeight: 1.5, paddingLeft: 32 }}>{comm.bullets[0]}</div>}
+                          <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.66)", lineHeight: 1.5, paddingLeft: 32 }}>{ext.micro || comm.bullets?.[0] || ext.description}</div>
+                          {comm.bullets && (
+                            <ul style={{ listStyle: "none", padding: "10px 0 0 32px", margin: 0, display: "grid", gap: 6 }}>
+                              {comm.bullets.slice(0, 3).map((b, i) => (
+                                <li key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.62)", lineHeight: 1.45 }}>
+                                  <span style={{ color: cardCol, fontWeight: 900 }}>+</span>
+                                  <span>{b}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
-                        <button onClick={() => addOptionalExtra(ext.addId || ext.id)} style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${cardCol}40`, background: `${cardCol}12`, color: cardCol, fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer", transition: "all .2s" }}>
-                          + Aggiungi al preventivo
-                        </button>
+                        <div style={{ display: "grid", gridTemplateColumns: selected ? "1fr 1fr" : "1fr 1.15fr", gap: 8 }}>
+                          <button type="button" onClick={() => openExtraDemo(ext)} style={{ width: "100%", padding: "10px", borderRadius: 10, border: "1px solid rgba(255,255,255,.14)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer", transition: "all .2s" }}>
+                            Anteprima
+                          </button>
+                          {selected ? (
+                            <button type="button" onClick={() => removeOptionalExtra(ext)} style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${cardCol}35`, background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.76)", fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer", transition: "all .2s" }}>
+                              Rimuovi
+                            </button>
+                          ) : (
+                            <button type="button" onClick={() => addOptionalExtra(ext.addId || ext.id)} style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${cardCol}40`, background: `${cardCol}12`, color: cardCol, fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer", transition: "all .2s" }}>
+                              Aggiungi al preventivo
+                            </button>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -7676,7 +8328,7 @@ function handleDownloadPdf() {
               <button className="btn" onClick={handleDownloadPdf} disabled={pdfBusy} style={{ width: "100%", padding: "10px", borderRadius: 9, border: `1px solid ${col}40`, background: `${col}0e`, color: col, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: pdfBusy ? "wait" : "pointer" }}>
                 {pdfBusy ? "Generazione PDF…" : "📄 Scarica preventivo PDF"}
               </button>
-              <button className="btn" onClick={() => setEmailSent(true)} style={{ width: "100%", padding: "10px", borderRadius: 9, border: "1px solid rgba(46,204,138,.25)", background: "rgba(46,204,138,.07)", color: C.green, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              <button className="btn" onClick={() => { setEmailSent(false); setPdfError("Invio email non configurato. Scarica il PDF oppure contattaci."); }} style={{ width: "100%", padding: "10px", borderRadius: 9, border: "1px solid rgba(46,204,138,.25)", background: "rgba(46,204,138,.07)", color: C.green, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                 {emailSent ? "✓ Inviato" : "📧 Invia preventivo via email"}
               </button>
               {emailSent && <div style={{ fontFamily: F.sans, fontSize: 10, color: C.green, textAlign: "center" }}>Scarica il PDF per condividere il preventivo.</div>}
@@ -7700,9 +8352,9 @@ function handleDownloadPdf() {
               </div>
             )}
 
-            <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-              <button className="btn" onClick={onBack} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "1px solid rgba(255,255,255,.1)", background: "transparent", color: "rgba(255,255,255,.4)", fontFamily: F.sans, fontSize: 11, cursor: "pointer" }}>← Modifica</button>
-              <button onClick={() => onHome("home")} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: "transparent", color: "rgba(255,255,255,.55)", fontFamily: F.sans, fontSize: 11, cursor: "pointer" }}>🏠 Home</button>
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <NavButton onClick={onBack} compact style={{ flex: 1 }}>{"\u2190 Modifica configurazione"}</NavButton>
+              <NavButton onClick={() => onHome("home")} compact style={{ flex: 1 }}>Home</NavButton>
             </div>
           </div>
         </div>
@@ -7902,9 +8554,19 @@ const btnStyle = {
 
 function AdminDashboard({ onNav }) {
   return (
-    <React.Suspense fallback={<div style={{ minHeight: "100vh", background: "#0B1020", display: "flex", alignItems: "center", justifyContent: "center" }}><SkeletonCard /></div>}>
-      <RealAdminDashboard onNav={onNav} />
-    </React.Suspense>
+    <AdminRouteGuard onLogin={() => {
+      try {
+        localStorage.setItem("volantinipro_return_to", "admin");
+        localStorage.setItem("volantinipro_return_to_source", "admin");
+        localStorage.removeItem("volantinipro_pending_campaign_id");
+        console.info("[AUTH_RETURN_TO_SOURCE]", { source: "admin_guard", returnTo: "admin" });
+      } catch {}
+      onNav("login");
+    }}>
+      <React.Suspense fallback={<div style={{ minHeight: "100vh", background: "#0B1020", display: "flex", alignItems: "center", justifyContent: "center" }}><SkeletonCard /></div>}>
+        <RealAdminDashboard onNav={onNav} />
+      </React.Suspense>
+    </AdminRouteGuard>
   );
   const devAdminCampaigns = allowMockData ? ADMIN_CAMPAIGNS : [];
 const adminWaitlist = allowMockData ? ADMIN_WAITLIST : [];
@@ -8430,12 +9092,34 @@ function getSupabaseEnv() {
   };
 }
 
+const campaignMetadata = c => c?.metadata && typeof c.metadata === "object" && !Array.isArray(c.metadata) ? c.metadata : null;
+const finiteNumberOr = (value, fallback = 0, label = "") => {
+  const n = Number(value);
+  if (Number.isFinite(n)) return n;
+  if (value !== undefined && value !== null && value !== "" && label) console.warn("[DASHBOARD_NAN_GUARD_APPLIED]", { label, value });
+  return fallback;
+};
+const finiteOptionalNumber = (value, label = "") => {
+  const n = Number(value);
+  if (Number.isFinite(n)) return n;
+  if (value !== undefined && value !== null && value !== "" && label) console.warn("[DASHBOARD_NAN_GUARD_APPLIED]", { label, value });
+  return null;
+};
+
 function LoginPage({ onNav }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const { url, anonKey } = getSupabaseEnv();
   const configured = Boolean(url && anonKey);
+  const normalizeAuthReturnTo = (value = "") => {
+    const raw = String(value || "").toLowerCase();
+    if (raw === "admin" || raw === "/admin" || raw.includes("/admin")) return "admin";
+    if (raw === "step4" || raw === "/riepilogo" || raw === "/step4") return "step4";
+    if (raw === "dashboard_campaign") return "dashboard_campaign";
+    if (raw === "dashboard" || raw === "/dashboard" || raw.includes("/dashboard")) return "dashboard";
+    return "";
+  };
   const demoLogin = () => {
     const next = {
       accessToken: "demo-access-token",
@@ -8443,18 +9127,33 @@ function LoginPage({ onNav }) {
     };
     localStorage.setItem("vp_supabase_session", JSON.stringify(next));
     
-    const returnTo = localStorage.getItem("volantinipro_return_to");
+    const returnTo = normalizeAuthReturnTo(localStorage.getItem("volantinipro_return_to"));
     const pendingCampaignId = localStorage.getItem("volantinipro_pending_campaign_id");
+    console.info("[AUTH_RETURN_TO_SOURCE]", { source: "demo_login", returnTo });
     
-	    if (returnTo === "step4") {
-	      console.info("[AUTH_RETURN_TO_STEP4_AFTER_RELOGIN]");
-	      onNav("step4");
-    } else if (returnTo === "dashboard" && pendingCampaignId) {
+    if (returnTo === "admin") {
       localStorage.removeItem("volantinipro_return_to");
+      localStorage.removeItem("volantinipro_return_to_source");
+      console.info("[AUTH_REDIRECT_ADMIN]", { source: "demo_login" });
+      onNav("admin");
+	    } else if (returnTo === "step4") {
+	      console.info("[AUTH_REDIRECT_STEP4]", { source: "demo_login" });
+	      onNav("step4");
+    } else if ((returnTo === "dashboard_campaign" || returnTo === "dashboard") && pendingCampaignId) {
+      localStorage.removeItem("volantinipro_return_to");
+      localStorage.removeItem("volantinipro_return_to_source");
       localStorage.removeItem("volantinipro_pending_campaign_id");
+      console.info("[AUTH_REDIRECT_CLIENT]", { source: "demo_login", target: "campaign", campaignId: pendingCampaignId });
       onNav("campaign", { campaignId: pendingCampaignId });
+    } else if (returnTo === "dashboard") {
+      localStorage.removeItem("volantinipro_return_to");
+      localStorage.removeItem("volantinipro_return_to_source");
+      console.info("[AUTH_REDIRECT_CLIENT]", { source: "demo_login", target: "dashboard" });
+      onNav("dashboard");
     } else {
       localStorage.removeItem("volantinipro_return_to");
+      localStorage.removeItem("volantinipro_return_to_source");
+      console.info("[AUTH_REDIRECT_DEFAULT]", { source: "demo_login", target: "dashboard" });
       onNav("dashboard");
     }
   };
@@ -8478,13 +9177,17 @@ function LoginPage({ onNav }) {
     try {
       // Encode returnTo in the callback URL so cross-device/cross-browser magic links
       // preserve the destination even when localStorage is not shared.
-      const savedReturnTo = localStorage.getItem("volantinipro_return_to") || "";
+      const savedReturnTo = normalizeAuthReturnTo(localStorage.getItem("volantinipro_return_to") || "");
+      const savedReturnToSource = localStorage.getItem("volantinipro_return_to_source") || "";
+      const safeReturnTo = savedReturnTo === "admin" && savedReturnToSource !== "admin" ? "dashboard" : savedReturnTo;
       const savedCampaignId = localStorage.getItem("volantinipro_pending_campaign_id") || "";
-      let callbackUrl = `${window.location.origin}/dashboard`;
+      const callbackPath = safeReturnTo === "admin" ? "/admin" : safeReturnTo === "step4" ? "/riepilogo" : "/dashboard";
+      let callbackUrl = `${window.location.origin}${callbackPath}`;
       const cbParams = new URLSearchParams();
-      if (savedReturnTo) cbParams.set("returnTo", savedReturnTo);
+      if (safeReturnTo) cbParams.set("returnTo", safeReturnTo);
       if (savedCampaignId) cbParams.set("campaignId", savedCampaignId);
       if (cbParams.toString()) callbackUrl += `?${cbParams.toString()}`;
+      console.info("[AUTH_RETURN_TO_SOURCE]", { source: "magic_link_request", returnTo: safeReturnTo || "default", storedReturnTo: savedReturnTo || null, storedSource: savedReturnToSource || null, callbackPath });
       if (import.meta.env.DEV) console.log("[AUTH_EMAIL_REDIRECT_TO]", callbackUrl);
       const res = await fetch(`${url}/auth/v1/otp`, {
         method: "POST",
@@ -8502,8 +9205,10 @@ function LoginPage({ onNav }) {
       });
       if (!res.ok) throw new Error("magic_link_failed");
       setStatus("Magic link inviato. Controlla la tua email per entrare nella dashboard.");
-    } catch {
+      logAuditEvent({ action: "login_requested", metadata: { email } });
+    } catch (err) {
       setStatus("Non sono riuscito a inviare il magic link. Verifica chiavi Supabase e redirect URL.");
+      logAuditEvent({ action: "login_failed", success: false, metadata: { email }, errorMessage: err?.message || String(err) });
     } finally {
       setBusy(false);
     }
@@ -8521,7 +9226,7 @@ function LoginPage({ onNav }) {
         </form>
         {status && <div style={{ marginTop: 14, padding: "11px 12px", borderRadius: 10, background: configured ? "rgba(46,204,138,.08)" : "rgba(251,191,36,.08)", border: `1px solid ${configured ? "rgba(46,204,138,.22)" : "rgba(251,191,36,.22)"}`, fontFamily: F.sans, fontSize: 12, color: configured ? C.green : C.yellow, lineHeight: 1.45 }}>{status}</div>}
         {!configured && <div style={{ marginTop: 12, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.38)", lineHeight: 1.5 }}>Backend Supabase non configurato. Accesso non disponibile in questo ambiente.</div>}
-        <button onClick={() => onNav("home")} style={{ marginTop: 18, border: "none", background: "transparent", color: "rgba(255,255,255,.38)", fontFamily: F.sans, fontSize: 12, cursor: "pointer" }}>Torna alla homepage</button>
+        <NavButton onClick={() => onNav("home")} style={{ marginTop: 18 }}>Home</NavButton>
       </div>
     </div>
   );
@@ -8533,22 +9238,40 @@ function DashboardPage({ onNav }) {
   });
 const { cliente, error: clienteError } = useCliente();
 const { campagne, loading, error } = useCampagne();
+const [clientSearch, setClientSearch] = useState("");
+const [clientFilter, setClientFilter] = useState("all");
 
   useEffect(() => {
     // Read returnTo from URL params (cross-device) first, fall back to localStorage.
+    function normalizeAuthReturnTo(value = "") {
+      const raw = String(value || "").toLowerCase();
+      if (raw === "admin" || raw === "/admin" || raw.includes("/admin")) return "admin";
+      if (raw === "step4" || raw === "/riepilogo" || raw === "/step4") return "step4";
+      if (raw === "dashboard_campaign") return "dashboard_campaign";
+      if (raw === "dashboard" || raw === "/dashboard" || raw.includes("/dashboard")) return "dashboard";
+      return "";
+    }
     function resolveReturnTo() {
       const urlParams = new URLSearchParams(window.location.search);
       const fromUrl = urlParams.get("returnTo");
       const campaignFromUrl = urlParams.get("campaignId");
       const fromStorage = localStorage.getItem("volantinipro_return_to");
       const campaignFromStorage = localStorage.getItem("volantinipro_pending_campaign_id");
+      const fromPath = window.location.pathname.toLowerCase().includes("/admin") ? "admin" : "";
+      const resolved = normalizeAuthReturnTo(fromUrl || fromPath || fromStorage || "");
+      console.info("[AUTH_RETURN_TO_SOURCE]", {
+        fromUrl: fromUrl || null,
+        fromPath: fromPath || null,
+        fromStorage: fromStorage || null,
+        resolved: resolved || "default",
+      });
       if (import.meta.env.DEV) {
         console.log("[AUTH_RETURN_TO_URL]", fromUrl);
         console.log("[AUTH_RETURN_TO_LOCALSTORAGE]", fromStorage);
-        console.log("[AUTH_RETURN_TO_RESOLVED]", fromUrl || fromStorage);
+        console.log("[AUTH_RETURN_TO_RESOLVED]", resolved);
       }
       return {
-        returnTo: fromUrl || fromStorage || "",
+        returnTo: resolved,
         pendingCampaignId: campaignFromUrl || campaignFromStorage || ""
       };
     }
@@ -8557,20 +9280,30 @@ const { campagne, loading, error } = useCampagne();
 	      localStorage.setItem("vp_supabase_session", JSON.stringify(sessionObj));
 	      setSession(sessionObj);
 	      const { returnTo, pendingCampaignId } = resolveReturnTo();
-	      if (returnTo !== "step4") localStorage.removeItem("volantinipro_return_to");
+	      if (returnTo !== "step4") {
+          localStorage.removeItem("volantinipro_return_to");
+          localStorage.removeItem("volantinipro_return_to_source");
+        }
 	      localStorage.removeItem("volantinipro_pending_campaign_id");
-      window.history.replaceState(null, "", "/dashboard");
-	      if (returnTo === "step4") {
-	        console.info("[AUTH_RETURN_TO_STEP4_AFTER_RELOGIN]");
+      window.history.replaceState(null, "", returnTo === "admin" ? "/admin" : returnTo === "step4" ? "/riepilogo" : "/dashboard");
+      if (returnTo === "admin") {
+        console.info("[AUTH_REDIRECT_ADMIN]", { source: "auth_callback" });
+        if (import.meta.env.DEV) console.log("[AUTH_REDIRECT_FINAL_TARGET]", "admin");
+        onNav("admin");
+	      } else if (returnTo === "step4") {
+	        console.info("[AUTH_REDIRECT_STEP4]", { source: "auth_callback" });
 	        if (import.meta.env.DEV) console.log("[AUTH_REDIRECT_FINAL_TARGET]", "step4");
         onNav("step4");
       } else if ((returnTo === "dashboard_campaign" || returnTo === "dashboard") && pendingCampaignId) {
+        console.info("[AUTH_REDIRECT_CLIENT]", { source: "auth_callback", target: "campaign", campaignId: pendingCampaignId });
         if (import.meta.env.DEV) console.log("[AUTH_REDIRECT_FINAL_TARGET]", "campaign", pendingCampaignId);
         onNav("campaign", { campaignId: pendingCampaignId });
       } else if (returnTo === "dashboard") {
+        console.info("[AUTH_REDIRECT_CLIENT]", { source: "auth_callback", target: "dashboard" });
         if (import.meta.env.DEV) console.log("[AUTH_REDIRECT_FINAL_TARGET]", "dashboard");
         onNav("dashboard");
       } else {
+        console.info("[AUTH_REDIRECT_DEFAULT]", { source: "auth_callback", target: "dashboard" });
         if (import.meta.env.DEV) console.log("[AUTH_REDIRECT_FINAL_TARGET]", "dashboard (default)");
         onNav("dashboard");
       }
@@ -8642,25 +9375,63 @@ const svcCfg = {
     h2h: ["H2H", C.blue],
     b2b: ["B2B", C.purple],
   };
-// Display-layer normalization: legacy Italian columns vs. saveCampaign column
-// names (flyer_quantity / city_name / status / total_amount). No query changes.
-const normCampagna = c => ({
+// Display-layer normalization: legacy Italian columns, current base columns and metadata JSON.
+const normCampagna = c => {
+  const meta = campaignMetadata(c);
+  if (meta) console.info("[DASHBOARD_METADATA_LOADED]", { id: c.id });
+  else console.warn("[DASHBOARD_METADATA_MISSING]", { id: c.id });
+  const rawComuni = Array.isArray(meta?.selected_comuni) ? meta.selected_comuni : (Array.isArray(c.comuni ?? c.comuni_selezionati) ? (c.comuni ?? c.comuni_selezionati) : []);
+  const comuniCount = finiteOptionalNumber(meta?.comuni_count ?? c.comuni_count ?? (rawComuni.length ? rawComuni.length : null), "dashboard_list_comuni_count");
+  const comuni = rawComuni.length ? rawComuni : (comuniCount != null ? [`${comuniCount} comuni`] : ["Dato non disponibile"]);
+  return {
     ...c,
+    metadata: meta || c.metadata,
     stato: c.stato ?? c.status ?? "confermata",
-    zona: c.zona ?? c.city_name ?? c.comune_principale ?? "Zona da confermare",
-    quantita: Number(c.quantita ?? c.flyer_quantity ?? 0),
-    totale_euro: Number(c.totale_euro ?? c.total_amount ?? 0),
+    zona: meta?.zona ?? c.zona ?? c.city_name ?? c.comune_principale ?? "Zona non disponibile",
+    quantita: finiteNumberOr(c.quantita ?? c.flyer_quantity ?? meta?.volantini_inseriti, 0, "dashboard_list_quantita"),
+    totale_euro: finiteNumberOr(c.totale_euro ?? c.total_amount, 0, "dashboard_list_totale"),
     servizio: c.servizio ?? c.service_type ?? "d2d",
     service_type: c.service_type ?? c.servizio ?? "d2d",
-    comuni: c.comuni ?? c.comuni_selezionati ?? c.metadata?.selected_comuni ?? [],
+    comuni,
+    comuni_count: comuniCount,
+    famiglie: finiteOptionalNumber(meta?.famiglie ?? c.famiglie, "dashboard_list_famiglie"),
+    copertura_pct: finiteOptionalNumber(meta?.copertura_pct ?? c.copertura_pct, "dashboard_list_copertura"),
+    volantini_necessari: finiteOptionalNumber(meta?.volantini_necessari ?? c.volantini_necessari, "dashboard_list_volantini_necessari"),
     data_inizio: c.data_inizio ?? c.start_date ?? null,
     data_fine: c.data_fine ?? c.end_date ?? null,
-  });
+  };
+};
 const campagneNorm = campagne.map(normCampagna);
 const activeCount = campagneNorm.filter(c => ["confermata", "in_preparazione", "in_distribuzione"].includes(c.stato)).length;
+const completedCount = campagneNorm.filter(c => ["completata", "report_pronto"].includes(c.stato)).length;
 const waitingPaymentCount = campagneNorm.filter(c => c.stato_pagamento !== "pagato").length;
+const paidCount = campagneNorm.filter(c => c.stato_pagamento === "pagato").length;
 const totalSpent = campagneNorm.reduce((a, c) => a + Number(c.totale_euro || 0), 0);
 const flyersDone = campagneNorm.reduce((a, c) => a + Number(c.volantini_distribuiti || 0), 0);
+const quotePendingCount = campagneNorm.filter(c => ["preventivo", "in_preparazione", "inviato"].includes(c.stato) || c.metadata?.quote_summary).length;
+const quoteAcceptedCount = campagneNorm.filter(c => ["confermata", "in_preparazione", "in_distribuzione", "completata"].includes(c.stato)).length;
+const reportAvailableCount = campagneNorm.filter(c => c.stato === "completata" || c.stato === "report_pronto").length;
+const lastUpdated = campagneNorm.map(c => c.updated_at || c.created_at).filter(Boolean).sort().pop();
+const searchNeedle = clientSearch.trim().toLowerCase();
+const filteredCampagne = campagneNorm.filter(c => {
+  const haystack = [c.id, c.zona, c.servizio, c.stato, ...(c.comuni || [])].join(" ").toLowerCase();
+  const matchesSearch = !searchNeedle || haystack.includes(searchNeedle);
+  const matchesFilter =
+    clientFilter === "all" ||
+    (clientFilter === "active" && ["confermata", "in_preparazione", "in_distribuzione"].includes(c.stato)) ||
+    (clientFilter === "completed" && ["completata", "report_pronto"].includes(c.stato)) ||
+    (clientFilter === "pending_payment" && c.stato_pagamento !== "pagato") ||
+    (clientFilter === "paid" && c.stato_pagamento === "pagato") ||
+    (clientFilter === "with_report" && (c.stato === "completata" || c.stato === "report_pronto"));
+  return matchesSearch && matchesFilter;
+});
+const clientCard = (extra = {}) => ({ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.085)", borderRadius: 14, ...extra });
+const clientEmpty = (title, text) => (
+  <div style={{ padding: 16, borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", fontFamily: F.sans }}>
+    <div style={{ fontSize: 13, fontWeight: 900, color: C.white, marginBottom: 6 }}>{title}</div>
+    <div style={{ fontSize: 12, color: "rgba(255,255,255,.56)", lineHeight: 1.5 }}>{text}</div>
+  </div>
+);
 
   return (
     <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px" }}>
@@ -8677,12 +9448,17 @@ const flyersDone = campagneNorm.reduce((a, c) => a + Number(c.volantini_distribu
         {clienteError && <div style={{ marginBottom: 14, padding: "11px 13px", borderRadius: 10, background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.22)", color: C.yellow, fontFamily: F.sans, fontSize: 12 }}>{clienteError}</div>}
         {error && <div style={{ marginBottom: 14, padding: "11px 13px", borderRadius: 10, background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.22)", color: C.yellow, fontFamily: F.sans, fontSize: 12 }}>Supabase non disponibile: nessuna campagna reale da mostrare.</div>}
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10, marginBottom: 16 }}>
           {[
             ["Campagne attive", activeCount, C.green],
+            ["Campagne completate", completedCount, C.blue],
+            ["Preventivi in attesa", quotePendingCount, C.yellow],
+            ["Preventivi accettati", quoteAcceptedCount, C.green],
             ["In attesa pagamento", waitingPaymentCount, C.yellow],
+            ["Pagamenti ricevuti", paidCount, C.green],
+            ["Report disponibili", reportAvailableCount, C.purple],
             ["Totale speso", `€${totalSpent.toLocaleString("it-IT", { minimumFractionDigits: 2 })}`, C.orange],
-            ["Volantini distribuiti", flyersDone.toLocaleString("it-IT", { useGrouping: true }), C.blue],
+            ["Ultimo aggiornamento", lastUpdated ? new Date(lastUpdated).toLocaleDateString("it-IT") : "Dato non disponibile", C.white],
           ].map(([l, v, c]) => (
             <div key={l} style={{ padding: 16, borderRadius: 13, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.08)" }}>
               <div style={{ fontFamily: F.serif, fontSize: 28, color: c, letterSpacing: "-.6px" }}>{v}</div>
@@ -8691,22 +9467,53 @@ const flyersDone = campagneNorm.reduce((a, c) => a + Number(c.volantini_distribu
           ))}
         </div>
 
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12, marginBottom: 16 }}>
+          <div style={{ ...clientCard({ padding: 18 }) }}>
+            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: C.green, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 10 }}>Account</div>
+            <div style={{ fontFamily: F.sans, fontSize: 13, color: C.white, fontWeight: 850 }}>{cliente?.nome || cliente?.email || "Cliente"}</div>
+            <div style={{ marginTop: 6, fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.54)" }}>{cliente?.email || "Email cliente non disponibile"}</div>
+          </div>
+          <div style={{ ...clientCard({ padding: 18 }) }}>
+            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: C.orange, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 10 }}>Privacy dati</div>
+            <div style={{ fontFamily: F.sans, fontSize: 13, color: C.white, lineHeight: 1.5 }}>Mostriamo solo campagne collegate al tuo account tramite email cliente o ID cliente.</div>
+          </div>
+          <div style={{ ...clientCard({ padding: 18 }) }}>
+            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: C.blue, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 10 }}>Area riservata</div>
+            <div style={{ fontFamily: F.sans, fontSize: 13, color: C.white, lineHeight: 1.5 }}>Accesso via magic link e sessione temporanea. Dati admin, fornitori e operatori reali restano nascosti.</div>
+          </div>
+        </div>
+
         <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 20 }}>
-          <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.orange, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Lista campagne</div>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 14 }}>
+            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.orange, letterSpacing: ".12em", textTransform: "uppercase" }}>Campagne e preventivi</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <input value={clientSearch} onChange={e => setClientSearch(e.target.value)} placeholder="Cerca campagna, comune, preventivo" style={{ minHeight: 38, width: 240, borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.055)", color: C.white, padding: "0 12px", fontFamily: F.sans, fontSize: 12 }} />
+              <select value={clientFilter} onChange={e => setClientFilter(e.target.value)} style={{ minHeight: 38, borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "#111b2b", color: C.white, padding: "0 10px", fontFamily: F.sans, fontSize: 12 }}>
+                <option value="all">Tutto</option>
+                <option value="active">Attive</option>
+                <option value="completed">Completate</option>
+                <option value="pending_payment">Da pagare</option>
+                <option value="paid">Pagate</option>
+                <option value="with_report">Con report</option>
+              </select>
+            </div>
+          </div>
           {loading ? (
             <>
               <SkeletonCard /><SkeletonCard /><SkeletonCard />
             </>
-          ) : campagneNorm.length === 0 ? (
+          ) : filteredCampagne.length === 0 ? (
             <div style={{ padding: 22, borderRadius: 12, background: "rgba(255,255,255,.035)", textAlign: "center" }}>
-              <div style={{ fontFamily: F.serif, fontSize: 24, color: C.white }}>Nessuna campagna ancora</div>
+              <div style={{ fontFamily: F.serif, fontSize: 24, color: C.white }}>{campagneNorm.length === 0 ? "Nessuna campagna ancora" : "Nessun risultato"}</div>
+              <div style={{ marginTop: 8, fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.52)" }}>{campagneNorm.length === 0 ? "Non risultano campagne collegate al tuo account cliente." : "Modifica ricerca o filtro per vedere altri elementi."}</div>
               <button onClick={() => onNav("step1")} style={{ marginTop: 14, minHeight: 44, padding: "0 16px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Nuova campagna </button>
             </div>
           ) : (
             <div style={{ display: "grid", gap: 10 }}>
-              {campagneNorm.map(campagna => {
+              {filteredCampagne.map(campagna => {
                 const [svcLabel, svcColor] = svcCfg[campagna.service_type] || [campagna.servizio, C.orange];
-const [statusLabel, statusColor] = statusCfg[campagna.stato] || [campagna.stato, C.white];
+	const [statusLabel, statusColor] = statusCfg[campagna.stato] || [campagna.stato, C.white];
+	                const comuniText = campagna.comuni?.length ? campagna.comuni.join(" – ") : (campagna.comuni_count != null ? `${campagna.comuni_count} comuni` : "Dato non disponibile");
                 return (
                   <div key={campagna.id} style={{ padding: 16, borderRadius: 13, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.07)", display: "grid", gridTemplateColumns: "1fr auto", gap: 14, alignItems: "center" }}>
                     <div>
@@ -8715,8 +9522,16 @@ const [statusLabel, statusColor] = statusCfg[campagna.stato] || [campagna.stato,
                         <span style={{ padding: "3px 8px", borderRadius: 999, background: `${statusColor}18`, color: statusColor, fontFamily: F.sans, fontSize: 10, fontWeight: 900 }}>{statusLabel}</span>
                         <span style={{ padding: "3px 8px", borderRadius: 999, background: campagna.stato_pagamento === "pagato" ? "rgba(46,204,138,.14)" : "rgba(251,191,36,.14)", color: campagna.stato_pagamento === "pagato" ? C.green : C.yellow, fontFamily: F.sans, fontSize: 10, fontWeight: 900 }}>{campagna.stato_pagamento === "pagato" ? "Pagato" : "In attesa pagamento"}</span>
                       </div>
-                      <div style={{ fontFamily: F.serif, fontSize: 22, color: C.white }}>{campagna.zona}</div>
-                      <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.45)", marginTop: 5 }}>{(campagna.comuni || []).join(" – ") || "Comuni da confermare"} – {campagna.quantita.toLocaleString("it-IT", { useGrouping: true })} volantini – {campagna.data_inizio || "data da definire"}  {campagna.data_fine || "fine da definire"}</div>
+	                      <div style={{ fontFamily: F.serif, fontSize: 22, color: C.white }}>{campagna.zona}</div>
+	                      {!campagna.comuni?.length && campagna.comuni_count == null && (
+	                        <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.36)", marginTop: 4 }}>Dato non disponibile</div>
+	                      )}
+	                      {(campagna.famiglie != null || campagna.copertura_pct != null || campagna.volantini_necessari != null) && (
+	                        <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.42)", marginTop: 4 }}>
+	                          {campagna.famiglie != null ? `${campagna.famiglie.toLocaleString("it-IT", { useGrouping: true })} famiglie` : "Famiglie: dato non disponibile"} · {campagna.copertura_pct != null ? `${campagna.copertura_pct}% copertura` : "Copertura: dato non disponibile"} · {campagna.volantini_necessari != null ? `${campagna.volantini_necessari.toLocaleString("it-IT", { useGrouping: true })} necessari` : "Volantini necessari: dato non disponibile"}
+	                        </div>
+	                      )}
+                      <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.45)", marginTop: 5 }}>{comuniText} - {campagna.quantita.toLocaleString("it-IT", { useGrouping: true })} volantini - {campagna.data_inizio || "data da definire"}  {campagna.data_fine || "fine da definire"}</div>
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontFamily: F.serif, fontSize: 24, color: C.green }}>€{Number(campagna.totale_euro || 0).toLocaleString("it-IT", { minimumFractionDigits: 2 })}</div>
@@ -8730,6 +9545,37 @@ const [statusLabel, statusColor] = statusCfg[campagna.stato] || [campagna.stato,
           <div style={{ marginTop: 16 }}>
             <button className="btn" onClick={() => onNav("step1")} style={{ minHeight: 46, padding: "0 16px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Nuova campagna </button>
           </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12, marginTop: 16 }}>
+          <section style={{ ...clientCard({ padding: 18 }) }}>
+            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: C.orange, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 12 }}>Pagamenti</div>
+            <div style={{ fontFamily: F.sans, fontSize: 13, color: C.white, lineHeight: 1.6 }}>Da pagare: <b style={{ color: waitingPaymentCount ? C.yellow : C.green }}>{waitingPaymentCount}</b></div>
+            <div style={{ fontFamily: F.sans, fontSize: 13, color: C.white, lineHeight: 1.6 }}>Pagati: <b style={{ color: C.green }}>{paidCount}</b></div>
+            <div style={{ marginTop: 10, fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.52)", lineHeight: 1.5 }}>Acconti, saldi e fatture vengono mostrati quando presenti nel database cliente.</div>
+          </section>
+          <section style={{ ...clientCard({ padding: 18 }) }}>
+            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: C.blue, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 12 }}>Foto e GPS autorizzati</div>
+            {clientEmpty("Nessun dato GPS/foto recente", "Foto geolocalizzate, tracce semplificate e mappa cliente saranno disponibili solo per campagne autorizzate e avviate.")}
+          </section>
+          <section style={{ ...clientCard({ padding: 18 }) }}>
+            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: C.green, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 12 }}>Report e documenti</div>
+            {reportAvailableCount > 0 ? (
+              <div style={{ fontFamily: F.sans, fontSize: 13, color: C.white, lineHeight: 1.6 }}>{reportAvailableCount} report campagna disponibili nei dettagli campagna.</div>
+            ) : clientEmpty("Nessun report disponibile", "Il report finale sara disponibile quando una campagna sara completata o validata.")}
+          </section>
+          <section style={{ ...clientCard({ padding: 18 }) }}>
+            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: C.purple, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 12 }}>Fatture</div>
+            {clientEmpty("Nessuna fattura disponibile", "Le fatture PDF saranno visibili qui quando collegate al tuo account cliente.")}
+          </section>
+          <section style={{ ...clientCard({ padding: 18 }) }}>
+            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: C.yellow, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 12 }}>Messaggi</div>
+            {clientEmpty("Nessun messaggio registrato", "La comunicazione cliente-admin sara visibile quando esiste una conversazione associata al tuo account.")}
+          </section>
+          <section style={{ ...clientCard({ padding: 18 }) }}>
+            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: C.green, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 12 }}>Notifiche</div>
+            {clientEmpty("Nessuna notifica", "Preventivi pronti, pagamenti e report verranno segnalati quando disponibili.")}
+          </section>
         </div>
       </div>
     </div>
@@ -8784,7 +9630,7 @@ function DeliverablePlotRenderer({ plot, data, color }) {
   }
   if (plot === "donut") {
     const list = Array.isArray(data) ? data : [];
-    const mainVal = list[0]?.value || 91;
+    const mainVal = list[0]?.value || 0;
     return (
       <div style={{ display: "flex", gap: 16, alignItems: "center", padding: "14px 0 8px" }}>
         <div style={{ width: 72, height: 72, borderRadius: "50%", background: `conic-gradient(#2ecc8a 0% ${mainVal}%, rgba(255,255,255,.1) ${mainVal}% 100%)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -8850,10 +9696,10 @@ function DeliverableServiceCard({ item, campagna }) {
     <div className="print-card" style={{ background: "rgba(255,255,255,.015)", border: "1px dashed rgba(255,255,255,.14)", borderRadius: 14, padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", breakInside: "avoid" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <h3 style={{ margin: 0, fontFamily: F.sans, fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,.45)" }}>{item.title}</h3>
-        <span style={{ padding: "3px 8px", borderRadius: 999, background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.3)", fontFamily: F.sans, fontSize: 9, fontWeight: 700 }}>NON CONFIGURATO</span>
+        <span style={{ padding: "3px 8px", borderRadius: 999, background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.3)", fontFamily: F.sans, fontSize: 9, fontWeight: 700 }}>Disponibile dopo avvio</span>
       </div>
       <div style={{ padding: "18px 0", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.38)", fontStyle: "italic" }}>
-        Non ancora configurato · serve fonte {item.fonte}
+        Disponibile durante l'esecuzione · fonte {item.fonte}
       </div>
       <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.04)", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.25)" }}>
         Deliverable opzionale
@@ -8862,22 +9708,65 @@ function DeliverableServiceCard({ item, campagna }) {
   );
 }
 
+function buildReportCampaign(campagna) {
+  const meta = campaignMetadata(campagna);
+  if (!meta) return null;
+  const hasReportMetadata = [
+    meta.zona,
+    meta.comune,
+    meta.famiglie,
+    meta.copertura_pct,
+    meta.comuni_count,
+    meta.volantini_inseriti,
+    meta.volantini_necessari,
+  ].some(value => value !== undefined && value !== null && value !== "");
+  if (!hasReportMetadata) return null;
+  const selectedComuni = Array.isArray(meta.selected_comuni) ? meta.selected_comuni : [];
+  const quantita = finiteNumberOr(campagna?.quantita ?? campagna?.flyer_quantity ?? meta.volantini_inseriti, 0, "report_quantita");
+  const copertura = finiteOptionalNumber(meta.copertura_pct ?? campagna?.copertura_pct, "report_copertura");
+  return {
+    ...campagna,
+    metadata: meta,
+    zona: meta.zona || campagna?.zona || campagna?.city_name || "Zona non disponibile",
+    comune_principale: meta.comune || meta.zona || campagna?.comune_principale || campagna?.zona || "Zona non disponibile",
+    comuni: selectedComuni,
+    comuni_selezionati: selectedComuni,
+    comuni_count: finiteOptionalNumber(meta.comuni_count ?? (selectedComuni.length || null), "report_comuni_count"),
+    famiglie: finiteOptionalNumber(meta.famiglie, "report_famiglie"),
+    totale_famiglie: finiteOptionalNumber(meta.famiglie, "report_totale_famiglie"),
+    persone: finiteOptionalNumber(meta.persone, "report_persone"),
+    copertura_pct: copertura,
+    quantita,
+    volantini_inseriti: finiteNumberOr(meta.volantini_inseriti ?? quantita, quantita, "report_volantini_inseriti"),
+    volantini_necessari: finiteOptionalNumber(meta.volantini_necessari, "report_volantini_necessari"),
+    totale_euro: finiteNumberOr(campagna?.totale_euro ?? campagna?.total_amount, 0, "report_totale"),
+    servizio: campagna?.servizio || campagna?.service_type || "d2d",
+    servizi_extra: meta.servizi_extra || meta.extra_services || [],
+    pricing: meta.pricing || meta.quote_summary?.pricing || null,
+    quote_summary: meta.quote_summary || null,
+    dashboard_kpis: meta.dashboard_kpis || null,
+    operational_waypoints: meta.operational_waypoints || [],
+  };
+}
+
 function DeliverableReportHeader({ campagna, onBack }) {
+  const comuniLabel = campagna?.comuni_selezionati?.length ? campagna.comuni_selezionati.join(" - ") : "Dato non disponibile";
+  const coverageLabel = campagna?.copertura_pct != null ? `${campagna.copertura_pct}%` : "Dato non disponibile";
   return (
     <header style={{ marginBottom: 28 }}>
       <div className="print-hide" style={{ marginBottom: 16 }}>
-        <button onClick={onBack} style={{ background: "transparent", border: "none", color: "rgba(255,255,255,.5)", fontFamily: F.sans, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>‹ Torna alla dashboard campagna</button>
+        <NavButton onClick={onBack} compact>{"\u2190 Dashboard"}</NavButton>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16, padding: 22, borderRadius: 16, background: "linear-gradient(135deg, rgba(232,87,26,.15), rgba(255,255,255,.04))", border: "1px solid rgba(232,87,26,.3)" }}>
         <div>
-          <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: C.orange, letterSpacing: ".14em", textTransform: "uppercase", marginBottom: 8 }}>Deliverable Report Integrale</div>
-          <h1 style={{ margin: 0, fontFamily: F.serif, fontSize: 36, color: C.white, letterSpacing: "-1px" }}>Campagna #{String(campagna?.id || "DEV").slice(0, 8)} · {campagna?.comune_principale || campagna?.zona || "Saronno"}</h1>
+          <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: C.orange, letterSpacing: ".14em", textTransform: "uppercase", marginBottom: 8 }}>Report tecnico campagna</div>
+          <h1 style={{ margin: 0, fontFamily: F.serif, fontSize: 36, color: C.white, letterSpacing: "-1px" }}>Campagna #{String(campagna?.id || "N/D").slice(0, 8)} - {campagna?.comune_principale || campagna?.zona || "Zona non disponibile"}</h1>
           <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.65)", marginTop: 8 }}>
-            {(campagna?.comuni_selezionati || campagna?.comuni || ["Saronno"]).join(" – ")} · {Number(campagna?.quantita || 10000).toLocaleString("it-IT")} volantini · Copertura {campagna?.copertura_pct || 91}%
+            {comuniLabel} - {Number(campagna?.quantita || 0).toLocaleString("it-IT")} volantini - Copertura {coverageLabel}
           </div>
         </div>
         <div className="print-hide" style={{ display: "flex", gap: 10 }}>
-          <button onClick={() => window.print()} style={{ minHeight: 44, padding: "0 18px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer", boxShadow: `0 6px 18px ${C.orangeGlow}` }}>Stampa Report / PDF</button>
+          <button onClick={() => window.print()} style={{ minHeight: 44, padding: "0 18px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer", boxShadow: `0 6px 18px ${C.orangeGlow}` }}>Stampa report campagna</button>
         </div>
       </div>
     </header>
@@ -8890,6 +9779,174 @@ function DeliverableReportFooter() {
       <div><b>Fonti Dati Certificate:</b> PostGIS · ISTAT · Agenzia Entrate – OMI · Analisi interna VolantiniPro</div>
       <div>Documento generato automaticamente · Deliverable esecutivo</div>
     </footer>
+  );
+}
+
+function PremiumCampaignReport({ reportCampaign, campagna, source, onBack }) {
+  const cardStyle = { background: "linear-gradient(180deg, rgba(255,255,255,.065), rgba(255,255,255,.035))", border: "1px solid rgba(255,255,255,.1)", borderRadius: 16, boxShadow: "0 18px 46px rgba(0,0,0,.18)" };
+  const serviceLabels = { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Business", business: "Business" };
+  const formatNumber = value => value == null ? "Dato non disponibile" : Number(value).toLocaleString("it-IT", { useGrouping: true });
+  const formatCurrency = value => `€${Number(value || 0).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const sectionTitle = (eyebrow, title) => (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: C.orange, letterSpacing: ".14em", textTransform: "uppercase", marginBottom: 6 }}>{eyebrow}</div>
+      <h2 style={{ margin: 0, fontFamily: F.serif, fontSize: 28, color: C.white, letterSpacing: "-.6px" }}>{title}</h2>
+    </div>
+  );
+  const plannedFlyers = reportCampaign.volantini_inseriti || reportCampaign.quantita;
+  const selectedComuni = Array.isArray(reportCampaign.comuni_selezionati) ? reportCampaign.comuni_selezionati : [];
+  const comuniCount = reportCampaign.comuni_count ?? (selectedComuni.length || null);
+  const coverageLabel = reportCampaign.copertura_pct != null ? `${reportCampaign.copertura_pct}%` : "Dato non disponibile";
+  const paymentLabel = reportCampaign.stato_pagamento === "pagato" ? "Pagamento ricevuto" : "In attesa bonifico";
+  const serviceLabel = serviceLabels[String(reportCampaign.servizio || "").toLowerCase()] || reportCampaign.servizio || "Servizio";
+  const hasGeoSummary = Boolean(reportCampaign.zona || selectedComuni.length || reportCampaign.copertura_pct != null || comuniCount != null);
+  const documentCards = [["Preventivo originale", "Disponibile in area cliente"], ["Istruzioni pagamento", paymentLabel], ["Report tecnico campagna", "Documento corrente"], ["Foto/GPS", "Disponibile dopo avvio"]];
+
+  return (
+    <div className="print-page" style={{ minHeight: "100vh", background: "linear-gradient(180deg,#07111f 0%, #0b182a 46%, #101c2c 100%)", padding: "105px 24px 80px", color: C.white }}>
+      <style>{`
+        @media print {
+          body, .print-page { background: #fff !important; color: #111 !important; padding: 20px !important; }
+          .print-hide, nav, header nav, footer nav { display: none !important; }
+          .print-card { background: #f8fafc !important; border: 1px solid #cbd5e1 !important; color: #0f172a !important; break-inside: avoid !important; page-break-inside: avoid !important; box-shadow: none !important; }
+          .print-card h2, .print-card h3 { color: #0f172a !important; }
+          .print-card span, .print-card div, .print-card p { color: #334155 !important; }
+          .print-grid { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 14px !important; }
+        }
+        @media (max-width: 920px) {
+          .report-hero, .report-main-grid, .report-geo-grid { grid-template-columns: 1fr !important; }
+          .report-kpi-grid, .report-doc-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+        }
+        @media (max-width: 560px) {
+          .report-kpi-grid, .report-doc-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+      <div style={{ maxWidth: 1180, margin: "0 auto" }}>
+        {(source === "demo" || campagna._isDemoData) && <div style={{ marginBottom: 14, padding: "8px 12px", borderRadius: 10, background: "rgba(168,85,247,.12)", border: "1px solid rgba(168,85,247,.3)", color: "#D8B4FE", fontFamily: F.sans, fontSize: 12, fontWeight: 700, display: "inline-block" }}>Dati demo</div>}
+        <header style={{ marginBottom: 28 }}>
+          <div className="print-hide" style={{ marginBottom: 16 }}>
+            <NavButton onClick={onBack} compact>{"\u2190 Dashboard"}</NavButton>
+          </div>
+          <div className="report-hero" style={{ position: "relative", overflow: "hidden", display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 20, padding: "28px 30px", borderRadius: 18, background: "linear-gradient(135deg, rgba(8,16,30,.98), rgba(18,33,54,.94) 56%, rgba(232,87,26,.14))", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 24px 70px rgba(0,0,0,.34)" }}>
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(circle at 78% 22%, rgba(46,204,138,.14), transparent 34%), radial-gradient(circle at 8% 0%, rgba(232,87,26,.18), transparent 28%)" }} />
+            <div style={{ position: "relative" }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+                {["Confermata", paymentLabel === "Pagamento ricevuto" ? "Pagamento ricevuto" : "In attesa bonifico", "Distribuzione non ancora avviata"].map((label, i) => (
+                  <span key={label} style={{ padding: "5px 10px", borderRadius: 999, background: i === 0 ? "rgba(46,204,138,.13)" : i === 1 ? "rgba(251,191,36,.12)" : "rgba(255,255,255,.07)", border: `1px solid ${i === 0 ? "rgba(46,204,138,.28)" : i === 1 ? "rgba(251,191,36,.26)" : "rgba(255,255,255,.1)"}`, color: i === 0 ? C.green : i === 1 ? C.yellow : "rgba(255,255,255,.72)", fontFamily: F.sans, fontSize: 11, fontWeight: 850 }}>{label}</span>
+                ))}
+              </div>
+              <h1 style={{ margin: 0, fontFamily: F.serif, fontSize: "clamp(34px,5vw,58px)", color: C.white, letterSpacing: "-1px", lineHeight: 1.02 }}>Report tecnico campagna</h1>
+              <div style={{ fontFamily: F.sans, fontSize: 15, color: "rgba(255,255,255,.68)", marginTop: 12, lineHeight: 1.5 }}>{reportCampaign.zona || "Zona non disponibile"} · {serviceLabel} · {formatNumber(plannedFlyers)} volantini</div>
+            </div>
+            <div className="print-hide" style={{ position: "relative", display: "flex", alignItems: "flex-start" }}>
+              <button onClick={() => window.print()} style={{ minHeight: 46, padding: "0 18px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 850, cursor: "pointer", boxShadow: `0 10px 26px ${C.orangeGlow}`, whiteSpace: "nowrap" }}>Stampa report campagna</button>
+            </div>
+          </div>
+        </header>
+
+        <section style={{ marginBottom: 22 }}>
+          {sectionTitle("Executive summary", "Indicatori pianificati")}
+          <div className="report-kpi-grid print-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 14 }}>
+            {[["Volantini pianificati", formatNumber(plannedFlyers), C.orange], ["Famiglie raggiungibili", formatNumber(reportCampaign.famiglie), C.green], ["Copertura pianificata", coverageLabel, C.green], ["Comuni pianificati", comuniCount != null ? String(comuniCount) : "Dato non disponibile", C.blue]].map(([label, value, color]) => (
+              <div key={label} className="print-card" style={{ ...cardStyle, padding: 18, minHeight: 128 }}>
+                <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: "rgba(255,255,255,.44)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 12 }}>{label}</div>
+                <div style={{ fontFamily: F.serif, fontSize: 34, color, letterSpacing: "-.8px", lineHeight: 1 }}>{value}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <div className="report-main-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,1.35fr) minmax(320px,.65fr)", gap: 18, alignItems: "start" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <section className="print-card" style={{ ...cardStyle, padding: 22 }}>
+              {sectionTitle("Stato operativo", "Avanzamento campagna")}
+              <div style={{ padding: 18, borderRadius: 14, background: "rgba(251,191,36,.09)", border: "1px solid rgba(251,191,36,.24)", display: "grid", gap: 8 }}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ padding: "4px 10px", borderRadius: 999, background: "rgba(46,204,138,.13)", color: C.green, border: "1px solid rgba(46,204,138,.28)", fontFamily: F.sans, fontSize: 11, fontWeight: 850 }}>Confermata</span>
+                  <span style={{ padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,.07)", color: "rgba(255,255,255,.72)", border: "1px solid rgba(255,255,255,.1)", fontFamily: F.sans, fontSize: 11, fontWeight: 850 }}>Distribuzione non ancora avviata</span>
+                </div>
+                <p style={{ margin: 0, fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.74)", lineHeight: 1.65 }}>La distribuzione non è ancora avviata. I dati di avanzamento, GPS e foto proof saranno disponibili durante l'esecuzione.</p>
+              </div>
+            </section>
+
+            <section className="print-card" style={{ ...cardStyle, padding: 22 }}>
+              {sectionTitle("Mappa & geomarketing", "Pianificazione territoriale")}
+              {hasGeoSummary && (
+                <div className="report-geo-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,.9fr) minmax(260px,1.1fr)", gap: 14 }}>
+                  <div style={{ padding: 16, borderRadius: 14, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)" }}>
+                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 10 }}>Zona principale</div>
+                    <div style={{ fontFamily: F.serif, fontSize: 30, color: C.white, letterSpacing: "-.7px", marginBottom: 8 }}>{reportCampaign.zona || "Zona non disponibile"}</div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ padding: "5px 10px", borderRadius: 999, background: "rgba(46,204,138,.12)", color: C.green, border: "1px solid rgba(46,204,138,.24)", fontFamily: F.sans, fontSize: 12, fontWeight: 800 }}>{coverageLabel} copertura pianificata</span>
+                      <span style={{ padding: "5px 10px", borderRadius: 999, background: "rgba(96,165,250,.12)", color: "#93c5fd", border: "1px solid rgba(96,165,250,.24)", fontFamily: F.sans, fontSize: 12, fontWeight: 800 }}>{comuniCount != null ? `${comuniCount} comuni pianificati` : "Comuni non disponibili"}</span>
+                    </div>
+                  </div>
+                  <div style={{ padding: 16, borderRadius: 14, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)" }}>
+                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 10 }}>Breakdown comuni</div>
+                    <div style={{ display: "grid", gap: 8 }}>
+                      {(selectedComuni.length ? selectedComuni : [reportCampaign.zona || "Zona non disponibile"]).map((name, index) => (
+                        <div key={`${name}-${index}`} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 13 }}>
+                          <span style={{ color: C.white, fontWeight: 750 }}>{name}</span>
+                          <span style={{ color: C.green, fontWeight: 850 }}>Pianificato</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div style={{ marginTop: 14, padding: 16, borderRadius: 14, background: "linear-gradient(135deg, rgba(96,165,250,.1), rgba(255,255,255,.035))", border: "1px solid rgba(96,165,250,.18)", fontFamily: F.sans, color: "rgba(255,255,255,.7)", fontSize: 13, lineHeight: 1.6 }}>Mappa operativa disponibile dopo avvio o caricamento dati GPS.</div>
+            </section>
+
+            <section className="print-card" style={{ ...cardStyle, padding: 22 }}>
+              {sectionTitle("Tracking & proof", "Esecuzione documentata")}
+              <div style={{ padding: 18, borderRadius: 14, background: "linear-gradient(135deg, rgba(46,204,138,.1), rgba(255,255,255,.035))", border: "1px solid rgba(46,204,138,.2)" }}>
+                <div style={{ fontFamily: F.sans, fontSize: 14, color: C.white, fontWeight: 850, marginBottom: 6 }}>Tracking GPS e prove fotografiche</div>
+                <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.68)", lineHeight: 1.65 }}>Tracking GPS e prove fotografiche saranno disponibili durante la distribuzione se inclusi nel servizio.</div>
+              </div>
+            </section>
+
+            <section className="print-card" style={{ ...cardStyle, padding: 22 }}>
+              {sectionTitle("Documenti campagna", "Archivio operativo")}
+              <div className="report-doc-grid print-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 10 }}>
+                {documentCards.map(([title, text]) => (
+                  <div key={title} style={{ padding: 14, minHeight: 112, borderRadius: 13, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.075)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                    <div style={{ fontFamily: F.sans, fontSize: 13, color: C.white, fontWeight: 850 }}>{title}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.54)", lineHeight: 1.45 }}>{text}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          <aside style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <section className="print-card" style={{ ...cardStyle, padding: 22 }}>
+              {sectionTitle("Economico", "Riepilogo")}
+              <div style={{ display: "grid", gap: 10 }}>
+                {[["Distribuzione base", formatCurrency(reportCampaign.totale_euro)], ["Servizi extra", "Inclusi solo se aggiunti al preventivo"], ["Smart Pairing", "Applicato se presente nel preventivo"], ["Totale", formatCurrency(reportCampaign.totale_euro)], ["Stato pagamento", paymentLabel]].map(([label, value], index) => (
+                  <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 14, alignItems: "flex-start", padding: index === 3 ? "13px 0" : "10px 0", borderTop: index === 3 ? "1px solid rgba(255,255,255,.14)" : "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12 }}>
+                    <span style={{ color: "rgba(255,255,255,.52)" }}>{label}</span>
+                    <b style={{ color: index === 3 ? C.orange : C.white, textAlign: "right", maxWidth: 170 }}>{value}</b>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="print-card" style={{ ...cardStyle, padding: 22 }}>
+              {sectionTitle("Dati campagna", "Fonte metadata")}
+              <div style={{ display: "grid", gap: 10, fontFamily: F.sans, fontSize: 12 }}>
+                {[["Servizio", serviceLabel], ["Quantità", `${formatNumber(reportCampaign.quantita)} volantini`], ["Volantini necessari", formatNumber(reportCampaign.volantini_necessari)], ["Zona", reportCampaign.zona || "Dato non disponibile"]].map(([label, value]) => (
+                  <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 14, paddingBottom: 10, borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+                    <span style={{ color: "rgba(255,255,255,.48)" }}>{label}</span>
+                    <b style={{ color: C.white, textAlign: "right" }}>{value}</b>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </aside>
+        </div>
+        <DeliverableReportFooter />
+      </div>
+    </div>
   );
 }
 
@@ -8907,13 +9964,41 @@ function DeliverableReportPage({ onNav, campaignId }) {
           <p style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.52)", lineHeight: 1.6, marginBottom: 20 }}>
             {error?.message || "Impossibile generare il report esecutivo: campagna non trovata nel database."}
           </p>
-          <button onClick={() => onNav("dashboard")} style={{ minHeight: 42, padding: "0 18px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
-            Torna alla dashboard
-          </button>
+          <NavButton onClick={() => onNav("dashboard")}>{"\u2190 Dashboard"}</NavButton>
         </div>
       </div>
     );
   }
+  console.info("[REPORT_CAMPAIGN_LOADED]", { id: campagna.id, source });
+  if (source === "demo" || campagna._isDemoData) {
+    console.warn("[REPORT_MOCK_BLOCKED]", { id: campagna.id, source });
+    return (
+      <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px", color: C.white }}>
+        <div style={{ maxWidth: 800, margin: "0 auto", padding: 28, borderRadius: 14, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", textAlign: "center" }}>
+          <h1 style={{ fontFamily: F.serif, fontSize: 30, color: C.white, letterSpacing: "-1px", marginBottom: 10 }}>Report Deliverable non disponibile</h1>
+          <p style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.52)", lineHeight: 1.6, marginBottom: 20 }}>Dati report non disponibili per questa campagna</p>
+          <NavButton onClick={() => onNav("campaign", { campaignId: routeId })}>{"\u2190 Dashboard"}</NavButton>
+        </div>
+      </div>
+    );
+  }
+  const reportCampaign = buildReportCampaign(campagna);
+  if (!reportCampaign) {
+    console.warn("[REPORT_METADATA_MISSING]", { id: campagna.id });
+    console.warn("[REPORT_MOCK_BLOCKED]", { id: campagna.id, reason: "metadata_missing" });
+    return (
+      <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px", color: C.white }}>
+        <div style={{ maxWidth: 800, margin: "0 auto", padding: 28, borderRadius: 14, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", textAlign: "center" }}>
+          <h1 style={{ fontFamily: F.serif, fontSize: 30, color: C.white, letterSpacing: "-1px", marginBottom: 10 }}>Report Deliverable non disponibile</h1>
+          <p style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.52)", lineHeight: 1.6, marginBottom: 20 }}>Dati report non disponibili per questa campagna</p>
+          <NavButton onClick={() => onNav("campaign", { campaignId: campagna.id })}>{"\u2190 Dashboard"}</NavButton>
+        </div>
+      </div>
+    );
+  }
+  console.info("[REPORT_METADATA_LOADED]", { id: reportCampaign.id, zona: reportCampaign.zona });
+  console.info("[PDF_REPORT_DATA_SOURCE]", "campaign_metadata");
+  return <PremiumCampaignReport reportCampaign={reportCampaign} campagna={campagna} source={source} onBack={() => onNav("campaign", { campaignId: reportCampaign.id })} />;
   return (
     <div className="print-page" style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px", color: C.white }}>
       <style>{`
@@ -8928,7 +10013,7 @@ function DeliverableReportPage({ onNav, campaignId }) {
       `}</style>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         {(source === "demo" || campagna._isDemoData) && <div style={{ marginBottom: 14, padding: "8px 12px", borderRadius: 10, background: "rgba(168,85,247,.12)", border: "1px solid rgba(168,85,247,.3)", color: "#D8B4FE", fontFamily: F.sans, fontSize: 12, fontWeight: 700, display: "inline-block" }}>🧪 Dati demo</div>}
-        <DeliverableReportHeader campagna={campagna} onBack={() => onNav("campaign", { campaignId: campagna.id })} />
+        <DeliverableReportHeader campagna={reportCampaign} onBack={() => onNav("campaign", { campaignId: reportCampaign.id })} />
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           {DELIVERABLE_CATEGORIES.map(cat => {
             const items = DELIVERABLE_SERVICE_CONFIG.filter(s => s.category === cat);
@@ -8937,7 +10022,7 @@ function DeliverableReportPage({ onNav, campaignId }) {
               <section key={cat}>
                 <h2 style={{ fontFamily: F.serif, fontSize: 22, color: C.white, borderBottom: "1px solid rgba(255,255,255,.1)", paddingBottom: 8, marginBottom: 16 }}>{cat}</h2>
                 <div className="print-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
-                  {items.map(item => <DeliverableServiceCard key={item.id} item={item} campagna={campagna} />)}
+                  {items.map(item => <DeliverableServiceCard key={item.id} item={item} campagna={reportCampaign} />)}
                 </div>
               </section>
             );
@@ -9017,30 +10102,42 @@ function CampaignDashboardPage({ onNav, campaignId }) {
         <div style={{ maxWidth: 920, margin: "0 auto", padding: 24, borderRadius: 14, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", textAlign: "center" }}>
           <h1 style={{ fontFamily: F.serif, fontSize: 30, color: C.white, letterSpacing: "-1px", marginBottom: 8 }}>{title}</h1>
           <p style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.52)", lineHeight: 1.6 }}>{error?.message || "Il dettaglio campagna richiede dati reali o un codice campagna esistente nel database."}</p>
-          <button onClick={() => onNav("dashboard")} style={{ marginTop: 16, minHeight: 42, padding: "0 16px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Torna dashboard</button>
+          <NavButton onClick={() => onNav("dashboard")} style={{ marginTop: 16 }}>{"\u2190 Dashboard"}</NavButton>
         </div>
       </div>
     );
   }
 
-  // Display-layer normalization: tolerate both legacy Italian columns and the
-  // saveCampaign column names (status/city_name/flyer_quantity/total_amount).
-  const campagnaView = {
-    ...campagna,
-    stato: campagna.stato ?? campagna.status ?? "confermata",
-    zona: campagna.zona ?? campagna.city_name ?? campagna.comune_principale ?? "Zona da confermare",
-    quantita: Number(campagna.quantita ?? campagna.flyer_quantity ?? 0),
-    totale_euro: Number(campagna.totale_euro ?? campagna.total_amount ?? 0),
-    servizio: campagna.servizio ?? campagna.service_type ?? "d2d",
-    comuni: campagna.comuni ?? campagna.comuni_selezionati ?? campagna.metadata?.selected_comuni ?? [],
-    data_fine: campagna.data_fine ?? campagna.end_date ?? null,
-    smart_pairing_sconto: campagna.smart_pairing_sconto ?? campagna.smart_pairing_discount ?? 0,
-    selected_dates: campagna.selected_dates ?? campagna.metadata?.selected_dates ?? [],
-    pricing: campagna.pricing ?? campagna.metadata?.pricing ?? null,
-  };
+	  // Display-layer normalization: tolerate both legacy Italian columns, current
+	  // base columns and metadata JSON.
+	  const detailMeta = campaignMetadata(campagna);
+	  if (detailMeta) console.info("[DASHBOARD_METADATA_LOADED]", { id: campagna.id, view: "detail" });
+	  else console.warn("[DASHBOARD_METADATA_MISSING]", { id: campagna.id, view: "detail" });
+	  const detailComuni = Array.isArray(detailMeta?.selected_comuni)
+	    ? detailMeta.selected_comuni
+	    : (Array.isArray(campagna.comuni ?? campagna.comuni_selezionati) ? (campagna.comuni ?? campagna.comuni_selezionati) : []);
+	  const campagnaView = {
+	    ...campagna,
+	    metadata: detailMeta || campagna.metadata,
+	    stato: campagna.stato ?? campagna.status ?? "confermata",
+	    zona: detailMeta?.zona ?? campagna.zona ?? campagna.city_name ?? campagna.comune_principale ?? "Zona non disponibile",
+	    quantita: finiteNumberOr(campagna.quantita ?? campagna.flyer_quantity ?? detailMeta?.volantini_inseriti, 0, "dashboard_detail_quantita"),
+	    totale_euro: finiteNumberOr(campagna.totale_euro ?? campagna.total_amount, 0, "dashboard_detail_totale"),
+	    servizio: campagna.servizio ?? campagna.service_type ?? "d2d",
+	    comuni: detailComuni,
+	    comuni_count: finiteOptionalNumber(detailMeta?.comuni_count ?? campagna.comuni_count ?? detailComuni.length, "dashboard_detail_comuni_count"),
+	    famiglie: finiteOptionalNumber(detailMeta?.famiglie ?? campagna.famiglie, "dashboard_detail_famiglie"),
+	    copertura_pct: finiteOptionalNumber(detailMeta?.copertura_pct ?? campagna.copertura_pct, "dashboard_detail_copertura"),
+	    volantini_necessari: finiteOptionalNumber(detailMeta?.volantini_necessari ?? campagna.volantini_necessari, "dashboard_detail_volantini_necessari"),
+	    data_fine: campagna.data_fine ?? campagna.end_date ?? null,
+	    smart_pairing_sconto: finiteNumberOr(detailMeta?.smart_pairing_discount ?? campagna.smart_pairing_sconto ?? campagna.smart_pairing_discount, 0, "dashboard_detail_smart_pairing"),
+	    selected_dates: campagna.selected_dates ?? detailMeta?.selected_dates ?? [],
+	    pricing: campagna.pricing ?? detailMeta?.pricing ?? detailMeta?.quote_summary?.pricing ?? null,
+	  };
   const progressSteps = [["confermata", "Confermata"], ["in_preparazione", "In preparazione"], ["in_distribuzione", "Distribuzione"], ["completata", "Completata"]];
   const activeIndex = Math.max(0, progressSteps.findIndex(([key]) => key === campagnaView.stato));
-  const distributedPct = campagnaView.quantita ? Math.min(100, Math.round((campagnaView.volantini_distribuiti / campagnaView.quantita) * 100)) : 0;
+	  const distributedCount = finiteNumberOr(campagnaView.volantini_distribuiti, 0, "dashboard_detail_distributed");
+	  const distributedPct = campagnaView.quantita ? Math.min(100, Math.round((distributedCount / campagnaView.quantita) * 100)) : 0;
   const rawPoints = Array.isArray(campagna.gps_punti || campagna.gps_points || campagna.tracking_points) ? (campagna.gps_punti || campagna.gps_points || campagna.tracking_points) : [];
   const isRealLatLng = rawPoints.some(p => p && typeof p === "object" && !Array.isArray(p) && ("lat" in p || "lng" in p || "latitude" in p || "longitude" in p)) || rawPoints.some(p => Array.isArray(p) && p.length >= 2 && ((String(p[0]).split(".")[1] || "").length >= 3 || (String(p[1]).split(".")[1] || "").length >= 3 || p[0] < 0 || p[0] > 100 || p[1] < 0 || p[1] > 100));
   const isNormalizedSvg = !isRealLatLng && rawPoints.length > 0 && rawPoints.every(p => isSvgPoint(p));
@@ -9049,10 +10146,229 @@ function CampaignDashboardPage({ onNav, campaignId }) {
   const proof = campagna.foto_proof || [];
   const daysRemaining = campagnaView.data_fine ? Math.max(0, Math.ceil((new Date(`${campagnaView.data_fine}T00:00:00`) - new Date()) / 86400000)) : 0;
   const pricing = campagnaView.pricing || {};
-  const extras = (pricing.extras || []).reduce((a, x) => a + Number(x.amount || 0), 0);
-  const discounts = (pricing.discounts || []).reduce((a, x) => a + Number(x.amount || 0), 0);
-  const base = pricing.subtotal || campagnaView.totale_euro || 0;
-  const total = pricing.total || campagnaView.totale_euro || 0;
+  const dashboardExtraSource = [
+    ...(Array.isArray(campagnaView.metadata?.servizi_extra) ? campagnaView.metadata.servizi_extra : []),
+    ...(Array.isArray(campagnaView.metadata?.extra_services) ? campagnaView.metadata.extra_services : []),
+    ...(Array.isArray(pricing.extras) ? pricing.extras : []),
+  ];
+  const dashboardExtraTokens = dashboardExtraSource
+    .flatMap(item => {
+      if (!item) return [];
+      if (typeof item === "string") return [item];
+      return [item.id, item.addId, item.label, item.name].filter(Boolean);
+    })
+    .map(value => String(value).toLowerCase());
+  const dashboardHasModule = (keys) => dashboardExtraTokens.some(token => keys.some(key => token.includes(key)));
+  const hasQualityReportModule = dashboardHasModule(["advanced_report", "report_analytics", "report_avanzato", "report controllo", "report avanzato", "controllo qualita"]);
+  const hasAiOptimizerModule = dashboardHasModule(["ai_analysis", "analisi_ai", "modulo ottimizzazione ai", "ai optimizer", "ottimizzazione ai"]);
+	  const extras = (pricing.extras || []).reduce((a, x) => a + Number(x.amount || 0), 0);
+	  const discounts = (pricing.discounts || []).reduce((a, x) => a + Number(x.amount || 0), 0);
+	  const base = pricing.subtotal || campagnaView.totale_euro || 0;
+	  const total = pricing.total || campagnaView.totale_euro || 0;
+	  const comuniTotal = campagnaView.comuni_count ?? (campagnaView.comuni?.length || null);
+	  const coveragePct = campagnaView.copertura_pct ?? 0;
+	  // Distribution hasn't started until "in_distribuzione"/"completata" — labels
+	  // must read as a plan, not as an in-progress/completed result, until then.
+	  const isExecuting = campagnaView.stato === "in_distribuzione" || campagnaView.stato === "completata";
+	  const coverageStatLabel = "Copertura pianificata";
+	  const coverageLabel = campagnaView.copertura_pct != null ? `${campagnaView.copertura_pct}%` : "Dato non disponibile";
+	  const comuniStatLabel = "Comuni pianificati";
+	  const comuniStatValue = isExecuting
+	    ? (comuniTotal ? `${Math.round(comuniTotal * distributedPct / 100)}/${comuniTotal}` : "Dato non disponibile")
+	    : (comuniTotal != null ? String(comuniTotal) : "Dato non disponibile");
+	  const serviceLabels = { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Distribuzione Business", business: "Distribuzione Business", "business-distribution": "Distribuzione Business" };
+	  const serviceLabel = serviceLabels[String(campagnaView.servizio || "").toLowerCase()] || campagnaView.servizio;
+	  const statoLabels = { confermata: "Confermata", in_preparazione: "In preparazione", in_distribuzione: "Distribuzione in corso", completata: "Completata" };
+	  const statoLabel = statoLabels[campagnaView.stato] || campagnaView.stato;
+	  const paymentPaid = campagna.stato_pagamento === "pagato";
+	  const paymentLabel = paymentPaid ? "Pagamento ricevuto" : "In attesa bonifico";
+	  const distributionLabel = isExecuting ? "Distribuzione in corso" : "Distribuzione non ancora avviata";
+	  const plannedFlyers = campagnaView.metadata?.volantini_inseriti ?? campagnaView.quantita;
+	  const requiredFlyers = campagnaView.volantini_necessari ?? plannedFlyers;
+	  const displayComuni = Array.isArray(campagnaView.comuni) && campagnaView.comuni.length ? campagnaView.comuni : [campagnaView.zona].filter(Boolean);
+	  const quoteSummary = campagnaView.metadata?.quote_summary || null;
+	  const dashboardCard = (extra = {}) => ({ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 16, boxShadow: "0 22px 64px rgba(0,0,0,.24)", ...extra });
+	  const smallButton = (variant = "neutral") => ({
+	    minHeight: 42,
+	    padding: "0 14px",
+	    borderRadius: 10,
+	    border: variant === "primary" ? "none" : "1px solid rgba(255,255,255,.14)",
+	    background: variant === "primary" ? "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)" : "rgba(255,255,255,.055)",
+	    color: variant === "primary" ? C.white : "rgba(255,255,255,.86)",
+	    fontFamily: F.sans,
+	    fontSize: 12,
+	    fontWeight: 900,
+	    cursor: "pointer",
+	  });
+	  const handleQuoteOriginal = () => {
+	    if (!quoteSummary) return;
+	    try {
+	      printQuotePdf(quoteSummary);
+	      console.info("[DASHBOARD_QUOTE_ORIGINAL_OPENED]", { id: campagna.id, area: campagnaView.zona });
+	    } catch (err) {
+	      console.warn("[DASHBOARD_QUOTE_ORIGINAL_ERROR]", { message: err?.message || String(err) });
+	    }
+	  };
+	  const timelineSteps = [
+	    ["Confermata", true, C.green],
+	    ["Pagamento", paymentPaid, paymentPaid ? C.green : C.orange],
+	    ["Preparazione", paymentPaid || campagnaView.stato === "in_preparazione" || isExecuting, C.blue],
+	    ["Distribuzione", isExecuting, C.green],
+	    ["Report finale", campagnaView.stato === "completata", C.purple],
+	  ];
+	  const documentCards = [
+	    ["Preventivo originale", quoteSummary ? "Scarica preventivo" : "Disponibile dopo conferma dati", quoteSummary ? handleQuoteOriginal : null],
+	    ["Istruzioni pagamento", paymentPaid ? "Pagamento ricevuto" : "Visualizza istruzioni", () => onNav("payment", { campaignId: campagna.id })],
+	    ["Report campagna", isExecuting || campagnaView.stato === "completata" ? "Scarica report" : "Disponibile dopo avvio", () => onNav("report", { campaignId: campagna.id })],
+	    ["Foto e GPS", isExecuting ? "Disponibili durante distribuzione" : "Disponibile durante distribuzione", null],
+	  ];
+  return (
+    <div style={{ minHeight: "100vh", background: "linear-gradient(180deg,#07111f 0%,#0d1a2d 52%,#07111f 100%)", padding: "105px 24px 80px" }}>
+      <div style={{ maxWidth: 1180, margin: "0 auto" }}>
+        {nuovo && <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 11, background: "rgba(46,204,138,.1)", border: "1px solid rgba(46,204,138,.24)", color: C.green, fontFamily: F.sans, fontSize: 13, fontWeight: 800 }}>Campagna confermata. Ti contatteremo entro 24 ore per confermare i dettagli operativi.</div>}
+        {error && <div style={{ marginBottom: 14, padding: "11px 13px", borderRadius: 10, background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.22)", color: C.yellow, fontFamily: F.sans, fontSize: 12 }}>Dettaglio reale non disponibile.</div>}
+        <section style={{ ...dashboardCard({ padding: 26, marginBottom: 18, background: "linear-gradient(135deg, rgba(8,16,30,.98), rgba(18,33,54,.94) 58%, rgba(232,87,26,.12))" }) }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
+            <div style={{ minWidth: 260, flex: 1 }}>
+              <NavButton onClick={() => onNav("dashboard")} compact style={{ marginBottom: 14 }}>{"\u2190 Dashboard"}</NavButton>
+              <h1 style={{ margin: 0, fontFamily: F.serif, fontSize: 38, color: C.white, letterSpacing: "-1px" }}>Dashboard campagna</h1>
+              <div style={{ marginTop: 8, fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.64)", lineHeight: 1.5 }}>
+                {campagnaView.zona} {"\u00B7"} {serviceLabel} {"\u00B7"} {formatNumber(plannedFlyers)} volantini
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
+                {[[statoLabel, C.green], [paymentLabel, paymentPaid ? C.green : C.orange], [distributionLabel, isExecuting ? C.green : "rgba(255,255,255,.58)"]].map(([label, color]) => (
+                  <span key={label} style={{ padding: "6px 10px", borderRadius: 999, background: color === "rgba(255,255,255,.58)" ? "rgba(255,255,255,.07)" : `${color}16`, border: `1px solid ${color === "rgba(255,255,255,.58)" ? "rgba(255,255,255,.12)" : `${color}30`}`, color, fontFamily: F.sans, fontSize: 11, fontWeight: 900 }}>{label}</span>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 9, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              {!paymentPaid && <button onClick={() => onNav("payment", { campaignId: campagna.id })} style={smallButton("primary")}>Vedi istruzioni pagamento</button>}
+              <button onClick={handleQuoteOriginal} disabled={!quoteSummary} style={{ ...smallButton(), opacity: quoteSummary ? 1 : .48, cursor: quoteSummary ? "pointer" : "not-allowed" }}>Scarica preventivo originale</button>
+              <button onClick={() => onNav("report", { campaignId: campagna.id })} style={smallButton()}>Scarica report campagna</button>
+              <a href="https://wa.me/" style={{ ...smallButton(), display: "inline-flex", alignItems: "center", textDecoration: "none", color: C.green, border: "1px solid rgba(46,204,138,.24)", background: "rgba(46,204,138,.08)" }}>Contatta su WhatsApp</a>
+            </div>
+          </div>
+        </section>
+
+        <section style={{ ...dashboardCard({ padding: 22, marginBottom: 18 }) }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
+            <div>
+              <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: C.green, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 6 }}>Stato campagna</div>
+              <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.58)" }}>
+                {!paymentPaid ? "In attesa del bonifico" : isExecuting ? "La distribuzione e in corso." : "La distribuzione non e ancora avviata."}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
+            {timelineSteps.map(([label, done, color], index) => (
+              <div key={label} style={{ padding: 14, borderRadius: 13, background: done ? `${color}10` : "rgba(255,255,255,.032)", border: `1px solid ${done ? `${color}2f` : "rgba(255,255,255,.075)"}` }}>
+                <div style={{ width: 26, height: 26, borderRadius: 999, display: "grid", placeItems: "center", marginBottom: 9, background: done ? color : "rgba(255,255,255,.08)", color: done ? C.navyDeep : "rgba(255,255,255,.44)", fontFamily: F.sans, fontSize: 12, fontWeight: 900 }}>{index + 1}</div>
+                <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 900, color: done ? C.white : "rgba(255,255,255,.42)" }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12, marginBottom: 18 }}>
+          {[["Famiglie raggiungibili", campagnaView.famiglie != null ? formatNumber(campagnaView.famiglie) : "-", C.green], ["Copertura pianificata", coverageLabel, C.green], ["Comuni pianificati", comuniTotal != null ? formatNumber(comuniTotal) : "-", C.blue], ["Volantini pianificati", formatNumber(plannedFlyers), C.orange]].map(([label, value, color]) => (
+            <div key={label} style={{ ...dashboardCard({ padding: 18, background: `${color}0d`, border: `1px solid ${color}28` }) }}>
+              <div style={{ fontFamily: F.serif, fontSize: 34, color, letterSpacing: "-.8px", lineHeight: 1 }}>{value}</div>
+              <div style={{ marginTop: 9, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.56)", fontWeight: 900, textTransform: "uppercase", letterSpacing: ".08em" }}>{label}</div>
+            </div>
+          ))}
+        </section>
+
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.35fr) minmax(300px,.65fr)", gap: 16 }}>
+          <div style={{ display: "grid", gap: 16 }}>
+            <section style={{ ...dashboardCard({ padding: 22 }) }}>
+              <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: C.blue, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Zona e copertura</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 10, marginBottom: 14 }}>
+                {[["Zona principale", campagnaView.zona], ["Famiglie", campagnaView.famiglie != null ? formatNumber(campagnaView.famiglie) : "-"], ["Copertura", coverageLabel], ["Quantita volantini", formatNumber(plannedFlyers)]].map(([label, value]) => (
+                  <div key={label} style={{ padding: 13, borderRadius: 12, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.07)" }}>
+                    <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.40)", fontWeight: 900, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 6 }}>{label}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 13, color: C.white, fontWeight: 850 }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+                {displayComuni.map(name => <span key={name} style={{ padding: "6px 10px", borderRadius: 999, background: "rgba(96,165,250,.10)", border: "1px solid rgba(96,165,250,.20)", color: "#93c5fd", fontFamily: F.sans, fontSize: 12, fontWeight: 800 }}>{name}</span>)}
+              </div>
+              <div style={{ padding: 16, borderRadius: 14, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.62)", lineHeight: 1.55 }}>
+                La mappa operativa sara disponibile dopo l'avvio della campagna.
+              </div>
+            </section>
+
+            <section style={{ ...dashboardCard({ padding: 22 }) }}>
+              <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: C.purple, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>GPS e foto</div>
+              {isExecuting && (gpsFormat !== "empty" || proof.length > 0) ? (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
+                  <div style={{ padding: 15, borderRadius: 14, background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.22)", fontFamily: F.sans, fontSize: 13, color: C.white }}>Tracking GPS disponibile durante la distribuzione.</div>
+                  <div style={{ padding: 15, borderRadius: 14, background: "rgba(96,165,250,.08)", border: "1px solid rgba(96,165,250,.22)", fontFamily: F.sans, fontSize: 13, color: C.white }}>{proof.length} foto proof caricate</div>
+                </div>
+              ) : (
+                <div style={{ padding: 16, borderRadius: 14, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.62)", lineHeight: 1.55 }}>
+                  GPS e foto proof saranno disponibili durante la distribuzione se inclusi nel servizio.
+                </div>
+              )}
+            </section>
+
+            <section style={{ ...dashboardCard({ padding: 22 }) }}>
+              <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: C.green, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Documenti campagna</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
+                {documentCards.map(([title, text, action]) => (
+                  <button key={title} type="button" onClick={action || undefined} disabled={!action} style={{ textAlign: "left", minHeight: 116, padding: 15, borderRadius: 14, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", cursor: action ? "pointer" : "default", opacity: action ? 1 : .72 }}>
+                    <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 900, color: C.white, marginBottom: 8 }}>{title}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.54)", lineHeight: 1.45 }}>{text}</div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          <aside style={{ display: "grid", gap: 16, alignContent: "start" }}>
+            <section style={{ ...dashboardCard({ padding: 22 }) }}>
+              <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: C.orange, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Riepilogo economico</div>
+              {[["Distribuzione base", base], ["Servizi extra", extras], ["Smart Pairing sconto", -discounts], ["Totale campagna", total]].map(([label, value], index) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 14, padding: index === 3 ? "14px 0 0" : "10px 0", borderTop: index === 3 ? "1px solid rgba(255,255,255,.12)" : index === 0 ? "none" : "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12 }}>
+                  <span style={{ color: "rgba(255,255,255,.54)" }}>{label}</span>
+                  <b style={{ color: value < 0 ? C.green : index === 3 ? C.orange : C.white }}>{`€${Number(value || 0).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</b>
+                </div>
+              ))}
+              <div style={{ marginTop: 14, padding: 12, borderRadius: 12, background: paymentPaid ? "rgba(46,204,138,.08)" : "rgba(232,87,26,.10)", border: `1px solid ${paymentPaid ? "rgba(46,204,138,.22)" : "rgba(232,87,26,.26)"}`, color: paymentPaid ? C.green : C.orange, fontFamily: F.sans, fontSize: 12, fontWeight: 900 }}>{paymentLabel}</div>
+            </section>
+
+            <section style={{ ...dashboardCard({ padding: 22 }) }}>
+              <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: C.green, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Moduli inclusi</div>
+              {[
+                ["Report Controllo Qualita", hasQualityReportModule],
+                ["Modulo Ottimizzazione AI", hasAiOptimizerModule],
+              ].map(([label, included]) => (
+                <div key={label} style={{ padding: "13px 0", borderTop: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 6 }}>
+                    <span style={{ color: C.white, fontSize: 13, fontWeight: 900 }}>{label}</span>
+                    <span style={{ padding: "4px 8px", borderRadius: 999, background: included ? "rgba(46,204,138,.12)" : "rgba(255,255,255,.06)", border: `1px solid ${included ? "rgba(46,204,138,.26)" : "rgba(255,255,255,.12)"}`, color: included ? C.green : "rgba(255,255,255,.52)", fontSize: 10, fontWeight: 900 }}>{included ? "Incluso" : "Non incluso"}</span>
+                  </div>
+                  <div style={{ color: "rgba(255,255,255,.56)", fontSize: 12, lineHeight: 1.5 }}>
+                    {included ? "Disponibile durante o dopo l'esecuzione della campagna." : "Non incluso nel preventivo."}
+                  </div>
+                </div>
+              ))}
+            </section>
+
+            <section style={{ ...dashboardCard({ padding: 22 }) }}>
+              <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: C.blue, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Dettagli campagna</div>
+              {[["Servizio", serviceLabel], ["Stato", statoLabel], ["Volantini necessari", requiredFlyers != null ? formatNumber(requiredFlyers) : "-"], ["Zona", campagnaView.zona]].map(([label, value]) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 14, padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12 }}>
+                  <span style={{ color: "rgba(255,255,255,.48)" }}>{label}</span>
+                  <b style={{ color: C.white, textAlign: "right" }}>{value}</b>
+                </div>
+              ))}
+            </section>
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
   return (
     <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
@@ -9061,16 +10377,22 @@ function CampaignDashboardPage({ onNav, campaignId }) {
         {(source === "demo" || campagna._isDemoData) && <div style={{ marginBottom: 14, padding: "8px 12px", borderRadius: 10, background: "rgba(168,85,247,.12)", border: "1px solid rgba(168,85,247,.3)", color: "#D8B4FE", fontFamily: F.sans, fontSize: 12, fontWeight: 700, display: "inline-block" }}>🧪 Dati demo</div>}
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 22 }}>
           <div>
-            <button onClick={() => onNav("dashboard")} style={{ padding: 0, border: "none", background: "transparent", color: "rgba(255,255,255,.45)", fontFamily: F.sans, fontSize: 12, cursor: "pointer", marginBottom: 9 }}>Dashboard  Campagna #{String(campagna.id).slice(0, 8)}</button>
-            <h1 style={{ fontFamily: F.serif, fontSize: 34, color: C.white, letterSpacing: "-1px" }}>Campagna {campagnaView.servizio} – {campagnaView.zona}</h1>
-            <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.45)", marginTop: 6 }}>{(campagnaView.quantita || 0).toLocaleString("it-IT", { useGrouping: true })} volantini – Smart Pairing {campagnaView.smart_pairing_sconto || 0}%</div>
+            <NavButton onClick={() => onNav("dashboard")} compact style={{ marginBottom: 10 }}>{"\u2190 Dashboard"}</NavButton>
+            <h1 style={{ fontFamily: F.serif, fontSize: 34, color: C.white, letterSpacing: "-1px" }}>Dashboard campagna</h1>
+            <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.45)", marginTop: 6 }}>{campagnaView.zona} · {serviceLabel} · {(campagnaView.quantita || 0).toLocaleString("it-IT", { useGrouping: true })} volantini{campagnaView.smart_pairing_sconto ? ` · Smart Pairing ${campagnaView.smart_pairing_sconto}%` : ""}</div>
           </div>
-          <button onClick={() => onNav("report", { campaignId: campagna.id })} style={{ minHeight: 44, padding: "0 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Scarica report PDF</button>
+          <button onClick={() => onNav("report", { campaignId: campagna.id })} style={{ minHeight: 44, padding: "0 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Scarica report campagna</button>
         </div>
 
-        <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18, marginBottom: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
-            {progressSteps.map(([id, label], i) => {
+	        <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18, marginBottom: 14 }}>
+	          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
+	            {[["Famiglie", campagnaView.famiglie != null ? campagnaView.famiglie.toLocaleString("it-IT", { useGrouping: true }) : "Dato non disponibile"], ["Copertura", campagnaView.copertura_pct != null ? `${campagnaView.copertura_pct}%` : "Dato non disponibile"], ["Comuni", campagnaView.comuni_count != null ? campagnaView.comuni_count : "Dato non disponibile"], ["Volantini necessari", campagnaView.volantini_necessari != null ? campagnaView.volantini_necessari.toLocaleString("it-IT", { useGrouping: true }) : "Dato non disponibile"]].map(([label, value]) => (
+	              <div key={label} style={{ padding: 12, borderRadius: 11, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.06)" }}>
+	                <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.38)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 5 }}>{label}</div>
+	                <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.white }}>{value}</div>
+	              </div>
+	            ))}
+	            {progressSteps.map(([id, label], i) => {
               const done = i <= activeIndex;
               return <div key={id} style={{ padding: 12, borderRadius: 11, background: done ? "rgba(46,204,138,.08)" : "rgba(255,255,255,.035)", border: `1px solid ${done ? "rgba(46,204,138,.24)" : "rgba(255,255,255,.06)"}` }}><div style={{ width: 24, height: 24, borderRadius: "50%", background: done ? C.green : "rgba(255,255,255,.1)", color: C.white, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.sans, fontSize: 12, fontWeight: 800, marginBottom: 8 }}>{i + 1}</div><div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: done ? C.white : "rgba(255,255,255,.42)" }}>{label}</div></div>;
             })}
@@ -9080,12 +10402,20 @@ function CampaignDashboardPage({ onNav, campaignId }) {
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.25fr) minmax(280px,.75fr)", gap: 14 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ padding: 14, borderRadius: 12, background: campagna.stato_pagamento === "pagato" ? "rgba(46,204,138,.08)" : "rgba(251,191,36,.08)", border: `1px solid ${campagna.stato_pagamento === "pagato" ? "rgba(46,204,138,.22)" : "rgba(251,191,36,.22)"}`, color: campagna.stato_pagamento === "pagato" ? C.green : C.yellow, fontFamily: F.sans, fontSize: 13, fontWeight: 800 }}>
-              {campagna.stato_pagamento === "pagato" ? "Pagamento ricevuto" : "In attesa del tuo bonifico"}
-              {campagna.stato_pagamento !== "pagato" && <button onClick={() => onNav("payment", { campaignId: campagna.id })} style={{ marginLeft: 12, minHeight: 34, padding: "0 11px", borderRadius: 8, border: "none", background: C.yellow, color: C.navyDeep, fontFamily: F.sans, fontSize: 11, fontWeight: 900, cursor: "pointer" }}>Vedi istruzioni pagamento </button>}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                <span>{campagna.stato_pagamento === "pagato" ? "Pagamento ricevuto" : "In attesa del bonifico"}</span>
+                {campagna.stato_pagamento !== "pagato" && <button onClick={() => onNav("payment", { campaignId: campagna.id })} style={{ minHeight: 34, padding: "0 11px", borderRadius: 8, border: "none", background: C.yellow, color: C.navyDeep, fontFamily: F.sans, fontSize: 11, fontWeight: 900, cursor: "pointer" }}>Vedi istruzioni pagamento </button>}
+              </div>
+              {!isExecuting && (
+                <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", fontFamily: F.sans, fontSize: 11, fontWeight: 600 }}>
+                  <span style={{ padding: "3px 9px", borderRadius: 999, background: "rgba(46,204,138,.14)", color: C.green }}>{statoLabel}</span>
+                  <span style={{ padding: "3px 9px", borderRadius: 999, background: "rgba(255,255,255,.08)", color: "rgba(255,255,255,.55)" }}>Distribuzione non ancora avviata</span>
+                </div>
+              )}
             </div>
             <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}>
               <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.green, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Statistiche distribuzione</div>
-              {[["Volantini distribuiti", `${(campagnaView.volantini_distribuiti || 0).toLocaleString("it-IT", { useGrouping: true })} / ${(campagnaView.quantita || 0).toLocaleString("it-IT", { useGrouping: true })}`, distributedPct, C.green], ["Copertura raggiunta", `${campagnaView.copertura_pct || 0}%`, campagnaView.copertura_pct || 0, C.orange], ["Comuni completati", `${Math.max(1, Math.round((campagnaView.comuni?.length || 1) * distributedPct / 100))}/${campagnaView.comuni?.length || 1}`, distributedPct, C.blue], ["Giorni rimanenti", String(daysRemaining), Math.max(0, 100 - daysRemaining * 20), C.purple]].map(([l, v, pct, c]) => <div key={l} style={{ marginBottom: 10 }}><div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: C.white, marginBottom: 5 }}><span>{l}</span><b style={{ color: c }}>{v}</b></div><div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,.08)", overflow: "hidden" }}><div style={{ width: `${Math.max(0, Math.min(100, pct))}%`, height: "100%", background: c }} /></div></div>)}
+	              {[["Volantini distribuiti", `${distributedCount.toLocaleString("it-IT", { useGrouping: true })} / ${campagnaView.quantita.toLocaleString("it-IT", { useGrouping: true })}`, distributedPct, C.green], [coverageStatLabel, coverageLabel, coveragePct, C.orange], [comuniStatLabel, comuniStatValue, isExecuting ? distributedPct : 100, C.blue], ["Giorni rimanenti", String(daysRemaining), Math.max(0, 100 - daysRemaining * 20), C.purple]].map(([l, v, pct, c]) => <div key={l} style={{ marginBottom: 10 }}><div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: C.white, marginBottom: 5 }}><span>{l}</span><b style={{ color: c }}>{v}</b></div><div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,.08)", overflow: "hidden" }}><div style={{ width: `${Math.max(0, Math.min(100, finiteNumberOr(pct, 0, "dashboard_stat_pct")))}%`, height: "100%", background: c }} /></div></div>)}
             </div>
 
             <div style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18 }}>
@@ -9297,7 +10627,7 @@ function LegalPage({ type, onNav }) {
             </div>
           ))}
         </div>
-        <button onClick={() => onNav("home")} style={{ marginTop: 22, minHeight: 44, padding: "0 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Torna alla homepage</button>
+        <NavButton onClick={() => onNav("home")} style={{ marginTop: 22 }}>Home</NavButton>
       </div>
     </div>
   );
@@ -9468,6 +10798,26 @@ const goTo = (p, prefillPatch = null) => {
     if (import.meta.env.DEV && (targetPage === "dashboard" || targetPage === "campaign")) {
       console.log("[DASHBOARD_NAV_REQUEST]", targetPage, prefillPatch?.campaignId ?? "no-campaignId");
       console.log("[DASHBOARD_NAV_CAMPAIGN_ID]", prefillPatch?.campaignId ?? null);
+    }
+
+    if (targetPage === "login") {
+      try {
+        const currentPath = window.location.pathname.toLowerCase();
+        const existingReturnTo = localStorage.getItem("volantinipro_return_to");
+        const existingReturnToSource = localStorage.getItem("volantinipro_return_to_source");
+        const nextReturnTo = currentPath.includes("/admin")
+          || (existingReturnTo === "admin" && existingReturnToSource === "admin")
+          ? "admin"
+          : currentPath.includes("/riepilogo") || currentPath.includes("/step4") || existingReturnTo === "step4"
+            ? "step4"
+            : existingReturnTo === "dashboard_campaign"
+              ? "dashboard_campaign"
+              : "dashboard";
+        localStorage.setItem("volantinipro_return_to", nextReturnTo);
+        localStorage.setItem("volantinipro_return_to_source", nextReturnTo === "admin" ? "admin" : "client");
+        if (nextReturnTo !== "dashboard_campaign") localStorage.removeItem("volantinipro_pending_campaign_id");
+        console.info("[AUTH_RETURN_TO_SOURCE]", { source: "go_to_login", returnTo: nextReturnTo, path: currentPath });
+      } catch {}
     }
     
     if (targetPage === "step4" && !prefillPatch) {

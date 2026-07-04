@@ -1,7 +1,7 @@
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
-import { getRealCampaigns, selectOptionalTable } from "../../lib/services/admin-api.js";
+import { getRealCampaigns, selectOptionalTable, markWaitlistHandled } from "../../lib/services/admin-api.js";
 
 const C = {
   orange: "#E8571A",
@@ -28,6 +28,7 @@ const SERVICES = {
   h2h: { label: "H2H", color: C.blue },
   b2b: { label: "B2B", color: C.purple },
 };
+const SERVICE_FULL_LABELS = { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Business Distribution" };
 const QUALITY_BADGES = {
   real: { label: "reale", color: C.green },
   test: { label: "test", color: C.yellow },
@@ -40,6 +41,10 @@ export default function AdminDashboard({ onNav }) {
   const [serviceFilter, setServiceFilter] = useState("all");
   const [showTestCampaigns, setShowTestCampaigns] = useState(false);
   const [notice, setNotice] = useState("");
+  const [waitlistFilter, setWaitlistFilter] = useState("pending");
+  const [waitlistBusyId, setWaitlistBusyId] = useState(null);
+  const [globalSearch, setGlobalSearch] = useState("");
+  const [periodFilter, setPeriodFilter] = useState("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -60,10 +65,66 @@ export default function AdminDashboard({ onNav }) {
   }, []);
 
   const { campaigns, waitlist, activities, latestGpsPoints, activeSessions, availability } = state.data;
+  const filteredWaitlist = waitlist.filter((item) => {
+    if (waitlistFilter === "pending") return !item.gestita;
+    if (waitlistFilter === "handled") return Boolean(item.gestita);
+    return true;
+  });
+
+  useEffect(() => {
+    console.info("[ADMIN_WAITLIST_RENDER]", {
+      total: waitlist.length,
+      filter: waitlistFilter,
+      visible: filteredWaitlist.length,
+    });
+  }, [waitlist, waitlistFilter]);
+
+  const handleMarkWaitlistHandled = async (item) => {
+    console.info("[ADMIN_WAITLIST_MARK_HANDLED_START]", { id: item.id });
+    setWaitlistBusyId(item.id);
+    try {
+      await markWaitlistHandled(item.id);
+      console.info("[ADMIN_WAITLIST_MARK_HANDLED_SUCCESS]", { id: item.id });
+      setState((prev) => ({
+        ...prev,
+        data: {
+          ...prev.data,
+          waitlist: prev.data.waitlist.map((row) => (row.id === item.id ? { ...row, gestita: true, gestita_at: new Date().toISOString() } : row)),
+        },
+      }));
+    } catch (error) {
+      console.error("[ADMIN_WAITLIST_MARK_HANDLED_ERROR]", { id: item.id, error: error?.message || String(error) });
+      setNotice(`Impossibile segnare come gestita la richiesta di ${item.nome || item.email || item.id}: ${error?.message || "errore sconosciuto"}.`);
+    } finally {
+      setWaitlistBusyId(null);
+    }
+  };
+
+  const handleWaitlistWhatsapp = (item) => {
+    const digits = String(item.whatsapp || "").replace(/[^\d]/g, "");
+    if (!digits) return;
+    console.info("[ADMIN_WAITLIST_WHATSAPP_OPEN]", { id: item.id, whatsapp: digits });
+    window.open(`https://wa.me/${digits}`, "_blank", "noopener,noreferrer");
+  };
+
+  const handleWaitlistCreateCampaign = (item) => {
+    console.info("[ADMIN_WAITLIST_CREATE_CAMPAIGN_CLICK]", { id: item.id });
+  };
+
   const visibleCampaigns = campaigns.filter((campaign) => showTestCampaigns || campaign.quality === "real");
+  const searchText = globalSearch.trim().toLowerCase();
   const filteredCampaigns = visibleCampaigns
     .filter((campaign) => statusFilter === "all" || campaign.status === statusFilter)
-    .filter((campaign) => serviceFilter === "all" || campaign.service === serviceFilter);
+    .filter((campaign) => serviceFilter === "all" || campaign.service === serviceFilter)
+    .filter((campaign) => periodFilter === "all" || matchesPeriod(campaign.date, periodFilter))
+    .filter((campaign) => !searchText || [
+      campaign.client,
+      campaign.zone,
+      campaign.id,
+      campaign.source,
+      campaign.rawStatus,
+      SERVICE_FULL_LABELS[campaign.service],
+    ].filter(Boolean).join(" ").toLowerCase().includes(searchText));
   const validCampaigns = campaigns.filter((campaign) => campaign.quality === "real");
   const excludedCampaigns = campaigns.filter((campaign) => campaign.quality !== "real");
   const excludedReasonsMap = excludedCampaigns.reduce((acc, c) => {
@@ -78,14 +139,40 @@ export default function AdminDashboard({ onNav }) {
   const totalRevenue = revenueValues.length ? revenueValues.reduce((sum, value) => sum + value, 0) : null;
   const totalQty = validCampaigns.reduce((sum, campaign) => sum + (campaign.qty || 0), 0);
   const avgCpm = totalRevenue != null && totalQty > 0 ? (totalRevenue / totalQty) * 1000 : null;
+  const enterprise = buildEnterpriseSnapshot({
+    campaigns: validCampaigns,
+    waitlist,
+    activeSessions,
+    latestGpsPoints,
+    activities,
+    availability,
+    totalRevenue,
+    totalQty,
+  });
 
   const kpis = [
     { label: "Campagne in distribuzione", value: validCampaigns.filter((campaign) => campaign.status === "active").length, sub: "campagne operative attive", color: C.green },
+    { label: "Campagne completate", value: enterprise.completedCampaigns, sub: "record reali completati", color: "#94A3B8" },
+    { label: "Campagne in ritardo", value: enterprise.lateCampaigns, sub: enterprise.lateCampaigns ? "fine pianificata superata" : "nessun ritardo rilevato dai dati", color: enterprise.lateCampaigns ? "#F87171" : C.green },
     { label: "Sessioni GPS live", value: activeSessions.length, sub: `${latestGpsPoints.length} tracker rilevati ora`, color: C.blue },
+    { label: "Operatori online/offline", value: `${enterprise.onlineOperators}/${enterprise.offlineOperators}`, sub: availability.sessions ? "da sessioni operative" : "tabella sessioni non disponibile", color: C.green },
     { label: "Campagne in attesa", value: validCampaigns.filter((campaign) => campaign.status === "pending").length, sub: "campagne operative valide", color: C.yellow },
-    { label: "Revenue totale", value: totalRevenue == null ? EMPTY : euro(totalRevenue), sub: revenueValues.length ? "da campagne reali" : "colonna importo mancante", color: C.orange },
-    { label: "CPM medio", value: avgCpm == null ? EMPTY : euro(avgCpm), sub: totalQty > 0 ? "per 1.000 volantini" : "quantità mancante", color: "rgba(255,255,255,.58)" },
+    { label: "Clienti attivi", value: enterprise.activeClients, sub: "deduplicati da campagne reali", color: C.purple },
+    { label: "Nuovi preventivi/richieste", value: enterprise.pendingRequests, sub: availability.waitlist ? "Smart Pairing da gestire" : "tabella richieste non disponibile", color: C.yellow },
+    { label: "Revenue totale", value: totalRevenue == null ? EMPTY : euro(totalRevenue), sub: revenueValues.length ? "da campagne reali" : "Nessun campo economico configurato nel database", color: C.orange },
+    { label: "CPM medio", value: avgCpm == null ? EMPTY : euro(avgCpm), sub: avgCpm == null ? "richiede importo totale e quantita volantini validi" : "per 1.000 volantini", color: "rgba(255,255,255,.58)" },
+    { label: "Allarmi attivi", value: enterprise.alarmCount, sub: enterprise.alarmCount ? "ritardi, operatori offline o problemi" : "nessun allarme dai dati disponibili", color: enterprise.alarmCount ? "#F87171" : C.green },
+    { label: "Ultimo aggiornamento", value: enterprise.lastUpdateText, sub: "da GPS, attivita o campagne", color: C.blue },
   ];
+
+  useEffect(() => {
+    console.info("[ADMIN_DASHBOARD_KPI_LOAD]", {
+      campaigns: validCampaigns.length,
+      revenueAvailable: totalRevenue != null,
+      cpmAvailable: avgCpm != null,
+      alarms: enterprise.alarmCount,
+    });
+  }, [validCampaigns.length, totalRevenue, avgCpm, enterprise.alarmCount]);
 
   const exportCsv = () => {
     if (!filteredCampaigns.length) {
@@ -141,10 +228,34 @@ export default function AdminDashboard({ onNav }) {
           <a style={opsNavItemStyle} href="/admin/live"><strong>Monitor GPS Live</strong><span>Storico, online/offline e ping</span></a>
           <a style={opsNavItemStyle} href="#report-storico"><strong>Report e storico</strong><span>Operations, report finale, export</span></a>
           <a style={opsNavItemStyle} href="#link-operatori"><strong>Link operatori</strong><span>Tracking gruppo per ragazzi</span></a>
+          <a style={opsNavItemStyle} href="/admin/finance"><strong>Gestione economica</strong><span>Preventivi, pagamenti, fatture e analisi</span></a>
+          <a style={opsNavItemStyle} href="/admin/automation"><strong>Motore automazioni</strong><span>Eventi, workflow, code e health check</span></a>
+          <a style={opsNavItemStyle} href="/admin/crm"><strong>CRM Clienti</strong><span>Anagrafica estesa, referenti, ricerca e filtri</span></a>
+          <a style={opsNavItemStyle} href="/admin/documenti"><strong>Archivio documenti</strong><span>Upload, categorie, metadati e download</span></a>
+          <a style={opsNavItemStyle} href="/admin/config"><strong>Centro Configurazione</strong><span>Impostazioni generali della piattaforma</span></a>
+          <a style={opsNavItemStyle} href="/admin/anomalie"><strong>AI Copilot · Anomalie</strong><span>Operatori offline, campagne ferme, insoluti, GPS</span></a>
         </div>
       </section>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 340px", gap: 16 }}>
+      <section style={{ ...cardStyle, marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 14 }}>
+          <div>
+            <p style={eyebrowStyle}>Dashboard live</p>
+            <span style={mutedTinyStyle}>Stato operativo calcolato da tabelle reali o segnato come non configurato.</span>
+          </div>
+          <input
+            value={globalSearch}
+            onChange={(event) => setGlobalSearch(event.target.value)}
+            placeholder="Cerca cliente, zona, ID, servizio..."
+            style={searchInputStyle}
+          />
+        </div>
+        <div style={opsNavStyle}>
+          {buildSystemStatusCards(availability, state.error).map((item) => <StatusTile key={item.label} item={item} />)}
+        </div>
+      </section>
+
+      <div style={dashboardLayoutStyle}>
         <div style={{ display: "grid", gap: 14 }}>
           <section id="campagne-attive" style={cardStyle}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
@@ -161,6 +272,7 @@ export default function AdminDashboard({ onNav }) {
                 </label>
                 {statusFilterButtons(statusFilter, setStatusFilter)}
                 {filterButtons(["all", "d2d", "h2h", "b2b"], serviceFilter, setServiceFilter, { all: "Servizi", d2d: "D2D", h2h: "H2H", b2b: "B2B" }, C.blue)}
+                {filterButtons(["all", "today", "week", "month"], periodFilter, setPeriodFilter, { all: "Periodo", today: "Oggi", week: "7 giorni", month: "30 giorni" }, C.purple)}
               </div>
             </div>
             {!availability.campaigns ? (
@@ -192,6 +304,15 @@ export default function AdminDashboard({ onNav }) {
             ) : <EmptyState text="Nessuna campagna selezionata." />}
           </section>
 
+          <section style={cardStyle}>
+            <p style={eyebrowStyle}>Moduli enterprise</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10, marginTop: 14 }}>
+              {buildEnterpriseModules({ campaigns: validCampaigns, waitlist, activities, latestGpsPoints, activeSessions, availability, enterprise }).map((module) => (
+                <ModuleTile key={module.title} module={module} />
+              ))}
+            </div>
+          </section>
+
           <section style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
             <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,.07)" }}>
               <p style={eyebrowStyle}>Mappa operativa reale</p>
@@ -204,14 +325,20 @@ export default function AdminDashboard({ onNav }) {
 
         <aside style={{ display: "grid", gap: 12, alignContent: "start" }}>
           <SideCard title="Azioni rapide">
-            <ActionButton label="Nuova campagna" onClick={() => { window.location.href = "/admin/campaigns/new"; }} />
-            <ActionButton label="Monitor GPS Live" onClick={() => { window.location.href = "/admin/live"; }} />
-            <ActionButton label={`Gruppi della campagna${filteredCampaigns[0] ? ` (${filteredCampaigns[0].client})` : ""}`} onClick={() => { window.location.href = `/admin/campaigns/${filteredCampaigns[0]?.id}/groups`; }} disabledReason={filteredCampaigns[0]?.id ? "" : "Nessuna campagna selezionata."} />
-            <ActionButton label={`Operazioni GPS della campagna${filteredCampaigns[0] ? ` (${filteredCampaigns[0].client})` : ""}`} onClick={() => { window.location.href = `/admin/campaigns/${filteredCampaigns[0]?.id}/operations`; }} disabledReason={filteredCampaigns[0]?.id ? "" : "Nessuna campagna selezionata."} />
-            <ActionButton label={`Report della campagna${filteredCampaigns[0] ? ` (${filteredCampaigns[0].client})` : ""}`} onClick={() => { window.location.href = `/admin/campaigns/${filteredCampaigns[0]?.id}/report`; }} disabledReason={filteredCampaigns[0]?.id ? "" : "Nessuna campagna selezionata."} />
-            <ActionButton label="Trova Smart Pairing" onClick={() => go("step3")} />
-            <ActionButton label="Apri analisi zona" onClick={() => go("step2")} />
-            <ActionButton label="Genera PDF preventivi" onClick={() => go("step4")} disabledReason="Richiede una campagna configurata nello Step 4." />
+            <ActionButton label="Nuova campagna" route="/admin/campaigns/new" onClick={() => { window.location.href = "/admin/campaigns/new"; }} />
+            <ActionButton label="Monitor GPS Live" route="/admin/live" onClick={() => { window.location.href = "/admin/live"; }} />
+            <ActionButton label={`Gruppi della campagna${filteredCampaigns[0] ? ` (${filteredCampaigns[0].client})` : ""}`} route={`/admin/campaigns/${filteredCampaigns[0]?.id}/groups`} onClick={() => { window.location.href = `/admin/campaigns/${filteredCampaigns[0]?.id}/groups`; }} disabledReason={filteredCampaigns[0]?.id ? "" : "Nessuna campagna selezionata."} />
+            <ActionButton label={`Operazioni GPS della campagna${filteredCampaigns[0] ? ` (${filteredCampaigns[0].client})` : ""}`} route={`/admin/campaigns/${filteredCampaigns[0]?.id}/operations`} onClick={() => { window.location.href = `/admin/campaigns/${filteredCampaigns[0]?.id}/operations`; }} disabledReason={filteredCampaigns[0]?.id ? "" : "Nessuna campagna selezionata."} />
+            <ActionButton label={`Report della campagna${filteredCampaigns[0] ? ` (${filteredCampaigns[0].client})` : ""}`} route={`/admin/campaigns/${filteredCampaigns[0]?.id}/report`} onClick={() => { window.location.href = `/admin/campaigns/${filteredCampaigns[0]?.id}/report`; }} disabledReason={filteredCampaigns[0]?.id ? "" : "Nessuna campagna selezionata."} />
+            <ActionButton label="Trova Smart Pairing" route="step3" onClick={() => go("step3")} />
+            <ActionButton label="Apri analisi zona" route="step2" onClick={() => go("step2")} />
+            <ActionButton label="Genera PDF preventivi" route="step4" onClick={() => go("step4")} disabledReason="Richiede una campagna configurata nello Step 4." />
+            <ActionButton label="Dashboard finanziaria" route="/admin/finance" onClick={() => { window.location.href = "/admin/finance"; }} />
+            <ActionButton label="Motore automazioni" route="/admin/automation" onClick={() => { window.location.href = "/admin/automation"; }} />
+            <ActionButton label="CRM Clienti" route="/admin/crm" onClick={() => { window.location.href = "/admin/crm"; }} />
+            <ActionButton label="Archivio documenti" route="/admin/documenti" onClick={() => { window.location.href = "/admin/documenti"; }} />
+            <ActionButton label="Centro Configurazione" route="/admin/config" onClick={() => { window.location.href = "/admin/config"; }} />
+            <ActionButton label="AI Copilot · Anomalie" route="/admin/anomalie" onClick={() => { window.location.href = "/admin/anomalie"; }} />
             <ActionButton label="Esporta campagne operative" onClick={exportCsv} disabledReason={filteredCampaigns.length ? "" : "Nessuna campagna reale da esportare."} />
           </SideCard>
 
@@ -221,8 +348,26 @@ export default function AdminDashboard({ onNav }) {
               <div style={{ marginTop: 10 }}><EmptyState text="Nessuna richiesta Smart Pairing reale." /></div>
             </details>
           ) : (
-            <SideCard title="Smart Pairing Waitlist" meta={`${waitlist.length} richieste`}>
-              {waitlist.slice(0, 8).map((item) => <SimpleRow key={item.id || item.email || item.created_at} title={item.email || item.nome || "Richiesta"} subtitle={item.zone || item.zona || item.preferred_period || EMPTY} />)}
+            <SideCard title="Smart Pairing Waitlist" meta={`${filteredWaitlist.length} / ${waitlist.length}`}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                {filterButtons(["pending", "handled", "all"], waitlistFilter, setWaitlistFilter, { pending: "Da gestire", handled: "Gestite", all: "Tutte" }, C.orange)}
+              </div>
+              {filteredWaitlist.length === 0 ? (
+                <EmptyState text={waitlistFilter === "pending" ? "Nessuna richiesta da gestire." : "Nessuna richiesta in questa vista."} />
+              ) : (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {filteredWaitlist.map((item) => (
+                    <WaitlistCard
+                      key={item.id}
+                      item={item}
+                      busy={waitlistBusyId === item.id}
+                      onMarkHandled={handleMarkWaitlistHandled}
+                      onWhatsapp={handleWaitlistWhatsapp}
+                      onCreateCampaign={handleWaitlistCreateCampaign}
+                    />
+                  ))}
+                </div>
+              )}
             </SideCard>
           )}
 
@@ -261,30 +406,59 @@ export default function AdminDashboard({ onNav }) {
 }
 
 async function loadAdminData() {
-  const [campaignsResult, sessionsTable, gpsPoints, waitlist, activities] = await Promise.all([
-    getRealCampaigns({ includeTest: true }),
-    selectOptionalTable("delivery_sessions"),
-    selectOptionalTable("gps_tracking_points", "recorded_at"),
-    selectOptionalTable("smart_pairing_waitlist"),
-    selectOptionalTable("activity_log"),
-  ]);
-  const activeSessions = sessionsTable.rows.filter((session) => ["started", "active", "paused"].includes(String(session.status || "").toLowerCase()));
-  return {
-    campaigns: campaignsResult.allRows,
-    waitlist: waitlist.rows,
-    sessions: sessionsTable.rows,
-    activeSessions,
-    latestGpsPoints: latestPointsBySession(gpsPoints.rows),
-    activities: activities.rows,
-    availability: {
+  try {
+    const [campaignsResult, sessionsTable, gpsPoints, waitlist, activities] = await Promise.all([
+      getRealCampaigns({ includeTest: true }),
+      selectOptionalTable("delivery_sessions"),
+      selectOptionalTable("gps_tracking_points", "recorded_at"),
+      selectOptionalTable("smart_pairing_waitlist"),
+      selectOptionalTable("activity_log"),
+    ]);
+    const activeSessions = sessionsTable.rows.filter((session) => ["started", "active", "paused"].includes(String(session.status || "").toLowerCase()));
+    const latestGpsPoints = latestPointsBySession(gpsPoints.rows);
+    const availability = {
       campaigns: campaignsResult.availability.campaigns,
       waitlist: waitlist.available,
       gps: gpsPoints.available,
       sessions: sessionsTable.available,
       photos: campaignsResult.availability.photos,
       activities: activities.available,
-    },
-  };
+    };
+    console.info("[ADMIN_DASHBOARD_SCHEMA_CHECK]", availability);
+    console.info("[ADMIN_DASHBOARD_CAMPAIGNS_LOAD]", {
+      total: campaignsResult.allRows.length,
+      real: campaignsResult.allRows.filter((row) => row.quality === "real").length,
+    });
+    console.info("[ADMIN_DASHBOARD_GPS_LOAD]", {
+      sessions: sessionsTable.rows.length,
+      points: gpsPoints.rows.length,
+      latest: latestGpsPoints.length,
+    });
+    console.info("[ADMIN_WAITLIST_LOAD]", {
+      available: waitlist.available,
+      count: waitlist.rows.length,
+      pending: waitlist.rows.filter((row) => !row.gestita).length,
+    });
+    if (!campaignsResult.allRows.length || !latestGpsPoints.length || !activities.rows.length) {
+      console.info("[ADMIN_DASHBOARD_EMPTY_STATE]", {
+        campaigns: campaignsResult.allRows.length,
+        gps: latestGpsPoints.length,
+        activities: activities.rows.length,
+      });
+    }
+    return {
+      campaigns: campaignsResult.allRows,
+      waitlist: waitlist.rows,
+      sessions: sessionsTable.rows,
+      activeSessions,
+      latestGpsPoints,
+      activities: activities.rows,
+      availability,
+    };
+  } catch (error) {
+    console.error("[ADMIN_DASHBOARD_ERROR]", { error: error?.message || String(error) });
+    throw error;
+  }
 }
 
 function normalizeCampaign(row, source) {
@@ -303,6 +477,7 @@ function normalizeCampaign(row, source) {
     qty: Number.isFinite(qty) && qty > 0 ? qty : 0,
     status: normalizeStatus(rawStatus),
     date: String(row.start_date || row.created_at || row.updated_at || "").slice(0, 10) || EMPTY,
+    endDate: String(row.end_date || row.delivery_end_date || row.completed_by || row.metadata?.end_date || "").slice(0, 10) || null,
     total: Number.isFinite(total) && total > 0 ? total : null,
     lat: Number.isFinite(lat) ? lat : null,
     lng: Number.isFinite(lng) ? lng : null,
@@ -398,7 +573,14 @@ function CampaignRow({ campaign }) {
       <div style={{ display: "flex", flexWrap: "wrap", gap: 18, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.05)", fontFamily: F.sans, fontSize: 12 }}>
         <div><span style={mutedTinyStyle}>Gruppi</span><br /><strong style={{ color: C.orange }}>{campaign.ops?.groups || 0}</strong></div>
         <div><span style={mutedTinyStyle}>Operatori</span><br /><strong style={{ color: C.green }}>{campaign.ops?.online || 0} online</strong> · <span style={{ color: "#ef4444" }}>{campaign.ops?.offline || 0} offline</span></div>
-        <div><span style={mutedTinyStyle}>Avanzamento</span><br /><strong style={{ color: C.blue }}>{campaign.ops?.progress || 0}%</strong></div>
+        <div>
+          <span style={mutedTinyStyle}>Avanzamento</span><br />
+          {campaign.ops?.progressAvailable ? (
+            <strong style={{ color: C.blue }}>{campaign.ops.progress}%</strong>
+          ) : (
+            <strong title={campaign.ops?.progressReason || ""} style={{ color: "rgba(255,255,255,.45)" }}>Nessun gruppo operativo</strong>
+          )}
+        </div>
         <div>
           <span style={mutedTinyStyle}>Anomalie</span><br />
           {(campaign.ops?.problems || 0) > 0 ? (
@@ -413,6 +595,111 @@ function CampaignRow({ campaign }) {
       </div>
     </div>
   );
+}
+
+function buildEnterpriseSnapshot({ campaigns, waitlist, activeSessions, latestGpsPoints, activities, availability }) {
+  const completedCampaigns = campaigns.filter((campaign) => campaign.status === "done").length;
+  const lateCampaigns = campaigns.filter((campaign) => {
+    const date = new Date(campaign.endDate);
+    return campaign.status !== "done" && Number.isFinite(date.getTime()) && date < startOfToday();
+  }).length;
+  const onlineOperators = campaigns.reduce((sum, campaign) => sum + (campaign.ops?.online || 0), 0);
+  const offlineOperators = campaigns.reduce((sum, campaign) => sum + (campaign.ops?.offline || 0), 0);
+  const activeClients = new Set(campaigns.map((campaign) => cleanText(campaign.client)).filter(Boolean)).size;
+  const pendingRequests = availability.waitlist ? waitlist.filter((row) => !row.gestita).length : EMPTY;
+  const opsProblems = campaigns.reduce((sum, campaign) => sum + (campaign.ops?.problems || 0), 0);
+  const alarmCount = lateCampaigns + offlineOperators + opsProblems;
+  const dates = [
+    ...latestGpsPoints.map((point) => point.recorded_at || point.created_at),
+    ...activities.map((activity) => activity.created_at || activity.recorded_at),
+    ...campaigns.map((campaign) => campaign.date),
+  ].map((value) => new Date(value)).filter((date) => Number.isFinite(date.getTime()));
+  const lastUpdate = dates.length ? new Date(Math.max(...dates.map((date) => date.getTime()))) : null;
+  return {
+    completedCampaigns,
+    lateCampaigns,
+    onlineOperators,
+    offlineOperators,
+    activeClients,
+    pendingRequests,
+    alarmCount,
+    liveUsers: activeSessions.length,
+    lastUpdate,
+    lastUpdateText: lastUpdate ? formatDate(lastUpdate) : EMPTY,
+  };
+}
+
+function buildSystemStatusCards(availability, error) {
+  return [
+    { label: "Frontend", value: "Operativo", detail: "app caricata", status: "ok" },
+    { label: "Database", value: availability.campaigns ? "Accessibile" : EMPTY, detail: availability.campaigns ? "campagne leggibili" : "tabelle campagne non disponibili o RLS", status: availability.campaigns ? "ok" : "warn" },
+    { label: "GPS realtime", value: availability.gps ? "Dati leggibili" : EMPTY, detail: availability.gps ? "gps_tracking_points accessibile" : "tabella GPS non disponibile", status: availability.gps ? "ok" : "warn" },
+    { label: "Sessioni operatori", value: availability.sessions ? "Dati leggibili" : EMPTY, detail: availability.sessions ? "delivery_sessions accessibile" : "tabella sessioni non disponibile", status: availability.sessions ? "ok" : "warn" },
+    { label: "Storage foto", value: availability.photos ? "Metadati leggibili" : EMPTY, detail: availability.photos ? "proof_photos accessibile" : "proof_photos non configurata", status: availability.photos ? "ok" : "warn" },
+    { label: "Error center", value: error ? "Errore attivo" : "Nessun errore UI", detail: error || "ultimo load senza eccezioni", status: error ? "danger" : "ok" },
+  ];
+}
+
+function buildEnterpriseModules({ campaigns, waitlist, activities, latestGpsPoints, activeSessions, availability, enterprise }) {
+  return [
+    { title: "Campagne", value: campaigns.length, detail: availability.campaigns ? "monitor operativo reale" : "tabelle campagne non disponibili", status: availability.campaigns ? "ok" : "warn" },
+    { title: "Operatori", value: availability.sessions ? `${enterprise.onlineOperators} online · ${enterprise.offlineOperators} offline` : EMPTY, detail: availability.sessions ? "da delivery_sessions" : "tabella operatori/sessioni non disponibile", status: availability.sessions ? "ok" : "warn" },
+    { title: "GPS", value: latestGpsPoints.length, detail: availability.gps ? "ultimi punti per sessione" : "nessun dato GPS recente", status: availability.gps && latestGpsPoints.length ? "ok" : "warn" },
+    { title: "Photo control", value: availability.photos ? "Configurato" : EMPTY, detail: availability.photos ? "proof_photos leggibile" : "foto proof non configurate", status: availability.photos ? "ok" : "warn" },
+    { title: "Clienti", value: enterprise.activeClients, detail: "deduplicati da campagne reali", status: campaigns.length ? "ok" : "warn" },
+    { title: "Fornitori", value: EMPTY, detail: "tabella fornitori non configurata", status: "warn" },
+    { title: "Preventivi", value: availability.waitlist ? waitlist.length : EMPTY, detail: availability.waitlist ? "richieste Smart Pairing disponibili" : "tabella richieste non disponibile", status: availability.waitlist ? "ok" : "warn" },
+    { title: "Pagamenti", value: EMPTY, detail: "nessuna tabella pagamenti rilevata", status: "warn" },
+    { title: "Documenti", value: EMPTY, detail: "archivio documenti admin non configurato", status: "warn" },
+    { title: "Report", value: campaigns.length, detail: "report disponibili per campagne selezionabili", status: campaigns.length ? "ok" : "warn" },
+    { title: "Business intelligence", value: campaigns.length ? "Base dati pronta" : EMPTY, detail: campaigns.length ? "KPI da campagne reali" : "nessuna campagna reale", status: campaigns.length ? "ok" : "warn" },
+    { title: "AI copilot", value: EMPTY, detail: "modulo AI admin non configurato", status: "warn" },
+    { title: "Health check", value: availability.campaigns ? "OK parziale" : EMPTY, detail: "controlla tabelle operative disponibili", status: availability.campaigns ? "ok" : "warn" },
+    { title: "Error center", value: enterprise.alarmCount, detail: enterprise.alarmCount ? "allarmi operativi dai dati" : "nessun allarme dai dati disponibili", status: enterprise.alarmCount ? "danger" : "ok" },
+    { title: "Notifiche", value: EMPTY, detail: "centro notifiche non configurato", status: "warn" },
+    { title: "Audit log", value: availability.activities ? activities.length : EMPTY, detail: availability.activities ? "activity_log leggibile" : "activity_log non disponibile", status: availability.activities ? "ok" : "warn" },
+    { title: "Sicurezza", value: "AdminGuard", detail: "/admin/dashboard resta protetta dal guard esistente", status: "ok" },
+    { title: "Backup", value: EMPTY, detail: "nessun job backup esposto all'app", status: "warn" },
+  ];
+}
+
+function StatusTile({ item }) {
+  const color = item.status === "danger" ? "#F87171" : item.status === "ok" ? C.green : C.yellow;
+  return (
+    <div style={{ padding: 14, borderRadius: 12, border: `1px solid ${color}33`, background: `${color}0F`, fontFamily: F.sans }}>
+      <p style={{ margin: "0 0 7px", fontSize: 11, fontWeight: 900, color: "rgba(255,255,255,.55)", textTransform: "uppercase", letterSpacing: ".08em" }}>{item.label}</p>
+      <strong style={{ display: "block", color, fontSize: 15 }}>{item.value}</strong>
+      <span style={mutedTinyStyle}>{item.detail}</span>
+    </div>
+  );
+}
+
+function ModuleTile({ module }) {
+  const color = module.status === "danger" ? "#F87171" : module.status === "ok" ? C.green : "rgba(255,255,255,.52)";
+  return (
+    <div style={{ padding: 14, borderRadius: 12, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.032)", fontFamily: F.sans, minHeight: 112 }}>
+      <p style={{ margin: "0 0 8px", color: C.white, fontSize: 13, fontWeight: 900 }}>{module.title}</p>
+      <strong style={{ display: "block", color, fontSize: 18, marginBottom: 6 }}>{module.value}</strong>
+      <span style={mutedTinyStyle}>{module.detail}</span>
+    </div>
+  );
+}
+
+function matchesPeriod(value, period) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return false;
+  const now = new Date();
+  const elapsed = now.getTime() - date.getTime();
+  if (period === "today") return date >= startOfToday();
+  if (period === "week") return elapsed <= 7 * 24 * 60 * 60 * 1000;
+  if (period === "month") return elapsed <= 30 * 24 * 60 * 60 * 1000;
+  return true;
+}
+
+function startOfToday() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
 }
 
 function DashboardMapLifecycle({ pointsCount }) {
@@ -491,13 +778,67 @@ function SideCard({ title, meta, children }) {
   return <section style={cardStyle}><div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 10 }}><p style={eyebrowStyle}>{title}</p>{meta && <span style={{ fontFamily: F.sans, fontSize: 10, color: C.orange }}>{meta}</span>}</div>{children}</section>;
 }
 
-function ActionButton({ label, onClick, disabledReason }) {
+function ActionButton({ label, onClick, disabledReason, route }) {
   const disabled = Boolean(disabledReason);
-  return <button onClick={disabled ? undefined : onClick} disabled={disabled} title={disabledReason || ""} style={{ width: "100%", padding: "9px 11px", borderRadius: 9, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)", color: disabled ? "rgba(255,255,255,.28)" : "rgba(255,255,255,.68)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, textAlign: "left", cursor: disabled ? "not-allowed" : "pointer", marginBottom: 6 }}>{label}{disabled ? ` · ${disabledReason}` : ""}</button>;
+  const handleClick = () => {
+    console.info("[ADMIN_DASHBOARD_ROUTE_ACTION]", { label, route: route || null });
+    onClick?.();
+  };
+  return <button onClick={disabled ? undefined : handleClick} disabled={disabled} title={disabledReason || ""} style={{ width: "100%", padding: "9px 11px", borderRadius: 9, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)", color: disabled ? "rgba(255,255,255,.28)" : "rgba(255,255,255,.68)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, textAlign: "left", cursor: disabled ? "not-allowed" : "pointer", marginBottom: 6 }}>{label}{disabled ? ` · ${disabledReason}` : ""}</button>;
 }
 
 function SimpleRow({ title, subtitle }) {
   return <div style={{ padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,.05)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.62)" }}>{title}<br /><span style={mutedTinyStyle}>{subtitle}</span></div>;
+}
+
+function WaitlistCard({ item, busy, onMarkHandled, onWhatsapp, onCreateCampaign }) {
+  const [expanded, setExpanded] = useState(false);
+  const handled = Boolean(item.gestita);
+  const nome = item.nome || "Nome non disponibile";
+  const email = item.email || "Email non disponibile";
+  const whatsapp = item.whatsapp || "WhatsApp non disponibile";
+  const comune = item.comune || "Comune non disponibile";
+  const servizio = SERVICE_FULL_LABELS[item.servizio] || item.servizio || "Servizio non disponibile";
+  const periodo = item.date_preferite || "Periodo non disponibile";
+  const note = item.note || "—";
+  const richiesta = formatDate(item.created_at);
+
+  return (
+    <div style={{ padding: 12, borderRadius: 12, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.07)", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+        <strong style={{ fontFamily: F.sans, fontSize: 13, color: C.white }}>{nome}</strong>
+        <span style={{ padding: "3px 9px", borderRadius: 100, background: handled ? `${C.green}18` : `${C.yellow}18`, color: handled ? C.green : C.yellow, fontFamily: F.sans, fontSize: 10, fontWeight: 800, whiteSpace: "nowrap" }}>
+          {handled ? "Gestita" : "Da gestire"}
+        </span>
+      </div>
+      <div style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.65)", lineHeight: 1.7 }}>
+        <div>Email: {email}</div>
+        <div>WhatsApp: {whatsapp}</div>
+        <div>Comune: {comune}</div>
+        <div>Servizio: {servizio}</div>
+        <div>Periodo: {periodo}</div>
+        <div>Note: {note}</div>
+        <div style={mutedTinyStyle}>Richiesta: {richiesta}</div>
+      </div>
+      {expanded && (
+        <div style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(0,0,0,.25)", fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.5)", lineHeight: 1.6 }}>
+          <div>ID: {item.id}</div>
+          <div>Cliente ID: {item.cliente_id || "—"}</div>
+          <div>Gestita il: {item.gestita_at ? formatDate(item.gestita_at) : "—"}</div>
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+        <button onClick={() => setExpanded((v) => !v)} style={miniActionButtonStyle}>{expanded ? "Chiudi dettagli" : "Apri dettagli"}</button>
+        {item.whatsapp && <button onClick={() => onWhatsapp(item)} style={{ ...miniActionButtonStyle, color: C.green, borderColor: "rgba(46,204,138,.35)" }}>WhatsApp</button>}
+        <button onClick={() => onMarkHandled(item)} disabled={handled || busy} style={{ ...miniActionButtonStyle, opacity: handled || busy ? 0.45 : 1, cursor: handled || busy ? "not-allowed" : "pointer" }}>
+          {busy ? "Salvataggio…" : handled ? "Già gestita" : "Segna gestita"}
+        </button>
+        <button onClick={() => onCreateCampaign(item)} disabled title="Conversione campagna non ancora configurata" style={{ ...miniActionButtonStyle, opacity: 0.4, cursor: "not-allowed" }}>
+          Crea campagna
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function EmptyState({ text }) {
@@ -505,7 +846,7 @@ function EmptyState({ text }) {
 }
 
 function Notice({ text, danger = false }) {
-  return <div style={{ ...cardStyle, padding: 13, marginBottom: 14, borderColor: danger ? "rgba(248,113,113,.28)" : "rgba(46,204,138,.24)", color: danger ? "#F87171" : C.green, fontFamily: F.sans, fontSize: 12 }}>{text}</div>;
+  return <div style={{ ...cardStyle, padding: 13, marginBottom: 14, border: `1px solid ${danger ? "rgba(248,113,113,.28)" : "rgba(46,204,138,.24)"}`, color: danger ? "#F87171" : C.green, fontFamily: F.sans, fontSize: 12 }}>{text}</div>;
 }
 
 function filterButtons(ids, active, setActive, labels, color = C.orange) {
@@ -559,9 +900,12 @@ const secondaryButtonStyle = { height: 40, padding: "0 18px", borderRadius: 10, 
 const eyebrowStyle = { margin: 0, fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,.45)", letterSpacing: ".12em", textTransform: "uppercase" };
 const mutedTinyStyle = { fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)" };
 const kpiGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14, marginBottom: 24 };
+const dashboardLayoutStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16 };
 const opsNavStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginTop: 16 };
 const opsNavItemStyle = { display: "grid", gap: 6, padding: 16, borderRadius: 12, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.85)", textDecoration: "none", fontFamily: F.sans, fontSize: 13, transition: "all 0.2s ease" };
 const opsCampaignStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: 14, borderRadius: 12, border: "1px solid rgba(255,255,255,.07)", background: "rgba(255,255,255,.03)" };
 const inlineButtonStyle = { border: "1px solid rgba(255,255,255,.12)", borderRadius: 8, padding: "8px 14px", color: C.white, background: "rgba(255,255,255,.06)", textDecoration: "none", fontFamily: F.sans, fontSize: 12, fontWeight: 700 };
 const miniLinkButtonStyle = { ...inlineButtonStyle, padding: "4px 8px", fontSize: 11 };
 const linkStyle = { color: C.orange, textDecoration: "none", fontWeight: 700 };
+const miniActionButtonStyle = { border: "1px solid rgba(255,255,255,.14)", borderRadius: 8, padding: "6px 10px", color: "rgba(255,255,255,.75)", background: "rgba(255,255,255,.04)", fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer" };
+const searchInputStyle = { minWidth: 260, flex: "1 1 280px", maxWidth: 420, height: 40, borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.045)", color: C.white, padding: "0 13px", fontFamily: F.sans, fontSize: 13, outline: "none" };

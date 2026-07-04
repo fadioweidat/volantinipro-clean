@@ -4,7 +4,7 @@
  * della campagna passati come props da Step 4.
  * NON modifica: algoritmi, GIS, Supabase, routing, calcoli, database.
  */
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 /* ─── Design tokens ─── */
@@ -968,7 +968,7 @@ const TABS = [
 ];
 
 /* ─── MAIN REPORT ─── */
-export default function AIOptimizerReport({
+function AIOptimizerReportImpl({
   onClose,
   onAddExtra,
   kpis = {},
@@ -997,6 +997,12 @@ export default function AIOptimizerReport({
   data = {},
 }) {
   const [activeTab, setActiveTab] = useState("summary");
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
 
   const tabProps = { kpis, avgFIdx, totF, avgCov, flyerQty, total, baseCost, disc, quantityIsSufficient, requiredQty, missingQty, remainingQty, selectedZoneNames, svcType, tLabel, mainAreaLabel, step4Omi, kpisPopulation, kpisComuniCount, d2dAreaKm2, d2dAvgDensity, selectedExtras, selDays, data };
 
@@ -1065,3 +1071,5 @@ export default function AIOptimizerReport({
     </div>
   );
 }
+
+export default React.memo(AIOptimizerReportImpl);

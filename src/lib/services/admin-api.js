@@ -14,6 +14,7 @@ import {
 } from './gps-api.js';
 import { buildGroupRows } from './group-ops.js';
 import { lastActivityAt, sessionDurationMs } from './report-utils.js';
+import { logAuditEvent } from '../audit.js';
 
 const EMPTY = 'Dato non disponibile';
 
@@ -208,6 +209,25 @@ export function computeCoverageMetrics(realKm, targetKm, corrections = []) {
   };
 }
 
+export async function markWaitlistHandled(id) {
+  if (!supabase) throw new Error('Supabase non configurato');
+  // No .select() after the update — an admin session can already read every
+  // row (confirmed: the dashboard lists all requests), but RETURNING still
+  // requires a fresh RLS SELECT check on that exact row, which cost us a
+  // silent 42501 in the Step3 public-insert flow. Skipping it here avoids
+  // repeating that bug for a case that doesn't need the row echoed back.
+  const { error } = await supabase
+    .from('smart_pairing_waitlist')
+    .update({ gestita: true, gestita_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) {
+    logAuditEvent({ action: 'waitlist_mark_handled_failed', resourceType: 'smart_pairing_waitlist', resourceId: id, success: false, errorMessage: error.message });
+    throw error;
+  }
+  logAuditEvent({ action: 'waitlist_marked_handled', resourceType: 'smart_pairing_waitlist', resourceId: id });
+  return true;
+}
+
 export async function selectOptionalTable(table, order = 'created_at') {
   if (!supabase) return { rows: [], available: false };
   try {
@@ -238,6 +258,7 @@ export function normalizeCampaign(row, source) {
     qty: Number.isFinite(qty) && qty > 0 ? qty : 0,
     status: normalizeStatus(rawStatus),
     date: String(row.start_date || row.created_at || row.updated_at || '').slice(0, 10) || EMPTY,
+    endDate: String(row.end_date || row.delivery_end_date || row.completed_by || row.metadata?.end_date || '').slice(0, 10) || null,
     total: Number.isFinite(total) && total > 0 ? total : null,
     lat: Number.isFinite(lat) ? lat : null,
     lng: Number.isFinite(lng) ? lng : null,
@@ -261,11 +282,20 @@ function summarizeCampaignOps(campaignId, sessions, points, photos) {
   const online = sessionRows.filter((row) => classifyDriverStatus(row.activityAt) === 'online').length;
   const offline = sessionRows.filter((row) => classifyDriverStatus(row.activityAt) === 'offline').length;
   const completed = campaignSessions.filter((session) => session.status === 'completed').length;
-  const active = campaignSessions.filter((session) => ['started', 'paused'].includes(session.status)).length;
-  const progress = campaignSessions.length ? Math.min(95, Math.round(((completed + active * 0.5) / campaignSessions.length) * 100)) : 0;
+  const progress = campaignSessions.length ? Math.round((completed / campaignSessions.length) * 100) : null;
   const lastPing = sessionRows.map((row) => row.activityAt).filter(Boolean).sort((a, b) => new Date(b) - new Date(a))[0] || null;
   const problems = sessionRows.filter((row) => !row.points.length || classifyDriverStatus(row.activityAt) === 'offline').length;
-  return { groups: groups.length, operators: operators.size, online, offline, problems, progress, lastPing };
+  return {
+    groups: groups.length,
+    operators: operators.size,
+    online,
+    offline,
+    problems,
+    progress,
+    progressAvailable: progress != null,
+    progressReason: progress == null ? 'Nessun gruppo operativo configurato' : 'calcolato da sessioni completate',
+    lastPing,
+  };
 }
 
 function classifyCampaign(campaign, row, serviceSource) {

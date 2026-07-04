@@ -52,9 +52,9 @@ const columns = [
     title: "Prodotto",
     links: [
       ["Come funziona", "how"],
-      ["Prezzi", "step1"],
+      ["Prezzi", "prezzi"],
       ["Configura la tua campagna", "step1"],
-      ["Smart Pairing", "how"],
+      ["Smart Pairing", "smart-pairing"],
       ["API & integrazioni", "consultant"],
     ],
   },
@@ -62,10 +62,10 @@ const columns = [
     title: "Azienda",
     links: [
       ["Chi siamo", "how"],
-      ["Lavora con noi", "consultant"],
-      ["Blog", "home"],
+      ["Lavora con noi (in prep.)", "prep"],
+      ["Blog (in prep.)", "prep"],
       ["Contatti", "consultant"],
-      ["Press kit", "home"],
+      ["Press kit (in prep.)", "prep"],
     ],
   },
   {
@@ -81,8 +81,21 @@ const columns = [
 
 export default function Footer({ onNav, onHowItWorks }) {
   const go = (target) => {
-    if (target === "how") onHowItWorks?.();
-    else onNav?.(target);
+    if (target === "how") {
+      const el = document.getElementById("come-funziona");
+      if (el) el.scrollIntoView({ behavior: "smooth" });
+      else onHowItWorks?.();
+    } else if (target === "prezzi") {
+      const el = document.getElementById("prezzi");
+      if (el) el.scrollIntoView({ behavior: "smooth" });
+      else onNav?.("home");
+    } else if (target === "smart-pairing") {
+      const el = document.getElementById("smart-pairing");
+      if (el) el.scrollIntoView({ behavior: "smooth" });
+      else onHowItWorks?.();
+    } else if (target !== "prep") {
+      onNav?.(target);
+    }
   };
 
   return (
@@ -96,7 +109,14 @@ export default function Footer({ onNav, onHowItWorks }) {
             </p>
             <div style={{ display: "flex", gap: 12 }}>
               {["instagram", "linkedin", "youtube"].map((type) => (
-                <button key={type} type="button" aria-label={type} style={socialButtonStyle}>
+                <button
+                  key={type}
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  title="Canale in preparazione"
+                  style={{ ...socialButtonStyle, cursor: "not-allowed", opacity: 0.45 }}
+                >
                   <SocialIcon type={type} />
                 </button>
               ))}
@@ -107,19 +127,25 @@ export default function Footer({ onNav, onHowItWorks }) {
             <div key={column.title}>
               <div style={columnTitleStyle}>{column.title}</div>
               <div style={{ display: "grid", gap: 12 }}>
-                {column.links.map(([label, target]) => (
-                  <button key={label} type="button" onClick={() => go(target)} style={footerLinkStyle}>
-                    {label}
-                  </button>
-                ))}
+                {column.links.map(([label, target]) =>
+                  target === "prep" ? (
+                    <span key={label} title="Sezione in preparazione" style={{ ...footerLinkStyle, cursor: "default", opacity: 0.45 }}>
+                      {label}
+                    </span>
+                  ) : (
+                    <button key={label} type="button" onClick={() => go(target)} style={footerLinkStyle}>
+                      {label}
+                    </button>
+                  )
+                )}
               </div>
             </div>
           ))}
         </div>
 
         <div className="footer-bottom">
-          <span>© 2026 VolantiniPro · P.IVA 0123456789 · Made in Milano, Italia</span>
-          <button type="button" style={languageStyle}>Lingua: IT ▾</button>
+          <span>© 2026 VolantiniPro · P.IVA in aggiornamento · Made in Milano, Italia</span>
+          <span style={{ ...languageStyle, cursor: "default" }}>Lingua: IT</span>
         </div>
       </div>
     </footer>

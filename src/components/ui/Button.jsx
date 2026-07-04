@@ -1,8 +1,8 @@
 import { useState } from "react";
 
-const GRAD = "linear-gradient(135deg, #6366F1 0%, #06B6D4 100%)";
-const GRAD_HOVER = "linear-gradient(135deg, #4F52D8 0%, #059AB8 100%)";
-const PRIMARY_COLOR = "#6366F1";
+const GRAD = "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)";
+const GRAD_HOVER = "linear-gradient(135deg, #F97316 0%, #D0450B 100%)";
+const PRIMARY_COLOR = "#E8571A";
 
 const baseStyle = {
   minHeight: 44,
@@ -24,7 +24,7 @@ const variantStyles = {
     border: "1.5px solid transparent",
     background: GRAD,
     color: "#fff",
-    boxShadow: "0 10px 28px rgba(99, 102, 241, 0.28)",
+    boxShadow: "0 10px 28px rgba(232, 87, 26, 0.28)",
   },
   secondary: {
     border: `1.5px solid rgba(148, 163, 184, 0.25)`,
@@ -57,7 +57,7 @@ export default function Button({
     safeVariant === "primary"
       ? { background: GRAD_HOVER, transform: "translateY(-1px)" }
       : safeVariant === "secondary"
-        ? { background: "rgba(99,102,241,0.12)", color: "#F8FAFC", borderColor: "rgba(99,102,241,0.5)", transform: "translateY(-1px)" }
+        ? { background: "rgba(232,87,26,0.12)", color: "#F8FAFC", border: `1.5px solid ${PRIMARY_COLOR}`, transform: "translateY(-1px)" }
         : { textDecoration: "underline", textUnderlineOffset: 4 };
 
   return (

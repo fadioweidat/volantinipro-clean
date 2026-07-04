@@ -4,6 +4,7 @@ import { CircleMarker, GeoJSON, MapContainer, Polyline, Popup, TileLayer, useMap
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getCampaignGpsPoints, getCampaignGpsSessions } from '../../lib/services/gps-api.js';
 import { getAdminCoverageCorrections, getAssignedZones, computeCoverageMetrics, getRealGroups } from '../../lib/services/admin-api.js';
+import { buildGpsProfessionalSnapshot, formatGpsDuration, formatGpsNumber } from '../../lib/services/gps-professional.js';
 
 // ─── OSM Nominatim boundary fetch ───────────────────────────────────────────
 async function fetchComuneBoundary(name) {
@@ -175,6 +176,11 @@ export function GpsMonitor({ campaignId }) {
     filteredPoints.filter(p => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng))),
     [filteredPoints]
   );
+  const monitorRows = useMemo(() => filteredSessions.map((session) => ({
+    session,
+    points: validPoints.filter((point) => point.session_id === session.id),
+  })), [filteredSessions, validPoints]);
+  const gpsSnapshot = useMemo(() => buildGpsProfessionalSnapshot(monitorRows, []), [monitorRows]);
 
   // Zones for selected comune
   const filteredZones = useMemo(() => {
@@ -248,6 +254,20 @@ export function GpsMonitor({ campaignId }) {
         <CoveragePanel zones={filteredZones} corrections={filteredCorrections} gpsKm={gpsKm} />
       </section>
 
+      <section style={cardStyle}>
+        <p style={eyebrowStyle}>Monitor live</p>
+        <div style={kpiGridStyle}>
+          <Kpi label="Operatori online" value={gpsSnapshot.summary.online} color="#2ecc8a" />
+          <Kpi label="Operatori offline" value={gpsSnapshot.summary.offline} color="#ef4444" />
+          <Kpi label="In pausa" value={gpsSnapshot.summary.paused} color="#fbbf24" />
+          <Kpi label="Campagne attive" value={gpsSnapshot.summary.active} color="#60a5fa" />
+          <Kpi label="Campagne concluse" value={gpsSnapshot.summary.completed} />
+          <Kpi label="Precisione media" value={formatGpsNumber(gpsSnapshot.summary.avgAccuracy, ' m')} />
+          <Kpi label="Velocita media" value={formatGpsNumber(gpsSnapshot.summary.avgSpeedKmh, ' km/h')} />
+          <Kpi label="Tempo fermo" value={formatGpsDuration(gpsSnapshot.summary.stoppedMs)} />
+        </div>
+      </section>
+
       {/* Mappa */}
       <section style={cardStyle}>
         <p style={eyebrowStyle}>Live Map {validPoints.length > 0 ? `— ${validPoints.length} punti GPS` : ''}</p>
@@ -276,8 +296,20 @@ export function GpsMonitor({ campaignId }) {
                 >
                   <Popup>
                     {formatDateTime(p.recorded_at)}<br />
-                    Accuracy: {p.accuracy != null ? `${Math.round(p.accuracy)} m` : 'n/d'}
+                    Accuracy: {p.accuracy != null ? `${Math.round(p.accuracy)} m` : 'n/d'}<br />
+                    Velocita: {Number.isFinite(Number(p.speed)) ? `${Math.round(Number(p.speed) * 3.6)} km/h` : 'n/d'}<br />
+                    Direzione: {Number.isFinite(Number(p.heading)) ? `${Math.round(Number(p.heading))}°` : 'n/d'}
                   </Popup>
+                </CircleMarker>
+              ))}
+              {gpsSnapshot.heatmap.map(cell => (
+                <CircleMarker
+                  key={`heat-${cell.lat}-${cell.lng}`}
+                  center={[cell.lat, cell.lng]}
+                  radius={Math.min(24, 5 + cell.count)}
+                  pathOptions={{ color: '#fbbf24', fillColor: '#fbbf24', fillOpacity: 0.16, weight: 1 }}
+                >
+                  <Popup>Heatmap<br />{cell.count} punti GPS</Popup>
                 </CircleMarker>
               ))}
               {/* Ultimo punto */}
@@ -295,6 +327,17 @@ export function GpsMonitor({ campaignId }) {
         ) : (
           <EmptyState text={loading ? 'Caricamento...' : 'Nessun punto GPS per i filtri selezionati'} />
         )}
+      </section>
+
+      <section style={gridTwoStyle}>
+        <div style={cardStyle}>
+          <p style={eyebrowStyle}>Allarmi GPS</p>
+          {gpsSnapshot.alarms.length ? gpsSnapshot.alarms.slice(0, 12).map((alarm, index) => <AlarmRow key={`${alarm.type}-${index}`} alarm={alarm} />) : <EmptyState text="Nessun allarme GPS sui dati disponibili." />}
+        </div>
+        <div style={cardStyle}>
+          <p style={eyebrowStyle}>Timeline</p>
+          {gpsSnapshot.timeline.length ? gpsSnapshot.timeline.slice(0, 14).map((item, index) => <TimelineRow key={`${item.type}-${index}`} item={item} />) : <EmptyState text="Timeline non disponibile." />}
+        </div>
       </section>
 
       {/* Sessioni */}
@@ -384,6 +427,27 @@ function EmptyState({ text }) {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
+function AlarmRow({ alarm }) {
+  const color = alarm.level === 'red' ? '#ef4444' : '#fbbf24';
+  return (
+    <div style={{ ...alarmRowStyle, borderLeftColor: color }}>
+      <strong style={{ color }}>{alarm.title}</strong>
+      <span>{alarm.detail}</span>
+      <small>{formatDateTime(alarm.at)}</small>
+    </div>
+  );
+}
+
+function TimelineRow({ item }) {
+  return (
+    <div style={timelineRowStyle}>
+      <strong>{item.label}</strong>
+      <span>{item.detail}</span>
+      <small>{formatDateTime(item.at)}</small>
+    </div>
+  );
+}
+
 const shellStyle = { minHeight: '100vh', padding: 24, background: '#0B192C', color: 'rgba(255,255,255,.82)', fontFamily: "'DM Sans', Inter, system-ui, sans-serif" };
 const headerStyle = { display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 22 };
 const brandStyle = { color: '#e8571a', fontWeight: 900, textDecoration: 'none' };
@@ -392,9 +456,12 @@ const mutedStyle = { margin: 0, color: 'rgba(255,255,255,.45)', fontSize: 12 };
 const cardStyle = { background: 'rgba(18, 32, 54, 0.75)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: '0 16px 42px rgba(0,0,0,.24)' };
 const eyebrowStyle = { margin: '0 0 10px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: 'rgba(255,255,255,.45)', fontWeight: 900 };
 const kpiGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12 };
+const gridTwoStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 16 };
 const kpiCardStyle = { background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, padding: 14 };
 const mapWrapStyle = { height: 500, width: '100%', borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,.12)', position: 'relative', zIndex: 1 };
 const rowStyle = { display: 'flex', gap: 14, padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,.06)', flexWrap: 'wrap', fontSize: 13, alignItems: 'center' };
+const alarmRowStyle = { display: 'grid', gap: 5, padding: '10px 0 10px 12px', borderBottom: '1px solid rgba(255,255,255,.07)', borderLeft: '4px solid', fontSize: 12 };
+const timelineRowStyle = { display: 'grid', gap: 5, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,.07)', fontSize: 12 };
 const labelStyle = { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, color: 'rgba(255,255,255,.55)', fontWeight: 800 };
 const selectStyle = { background: '#122036', border: '1px solid rgba(255,255,255,.15)', borderRadius: 8, padding: '8px 12px', color: '#fff', fontFamily: 'inherit', fontSize: 13, minWidth: 160 };
 const btnStyle = { border: '1px solid rgba(255,255,255,.12)', borderRadius: 10, padding: '10px 14px', color: '#fff', background: 'rgba(255,255,255,.06)', textDecoration: 'none', fontWeight: 700, cursor: 'pointer', fontSize: 13, transition: 'all 0.2s ease' };

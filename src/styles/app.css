@@ -1,25 +1,35 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Serif+Display:ital@0;1&display=swap');
 
 :root {
-  --navy: #0B192C;
-  --navy-light: #1E293B;
+  --navy: #07111f;
+  --navy-light: #122036;
+  --navy-panel: #0d1a2d;
+  --navy-panel-strong: #101f35;
+  --surface-dark: rgba(255, 255, 255, 0.045);
+  --surface-dark-strong: rgba(255, 255, 255, 0.07);
+  --border-dark: rgba(255, 255, 255, 0.095);
+  --border-dark-strong: rgba(255, 255, 255, 0.16);
   --cream: #FDFBF7;
   --cream-dark: #F4F1EA;
   --orange: #E8571A;
   --orange-hover: #D0450B;
+  --green: #2ECC8A;
+  --teal: #2DD4BF;
+  --blue-soft: #60A5FA;
+  --purple-soft: #A78BFA;
   
-  --primary: #0B192C;
-  --secondary: #334155;
+  --primary: #F8FAFC;
+  --secondary: #B9C4D2;
   --accent: #E8571A;
   --accent-hover: #D0450B;
-  --bg-main: #FDFBF7;
-  --bg-card: #FFFFFF;
-  --text-main: #0B192C;
-  --text-muted: #64748B;
-  --border-light: #E2E8F0;
-  --shadow-sm: 0 1px 2px 0 rgba(11, 25, 44, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(11, 25, 44, 0.08), 0 2px 4px -1px rgba(11, 25, 44, 0.04);
-  --shadow-lg: 0 10px 15px -3px rgba(11, 25, 44, 0.1), 0 4px 6px -2px rgba(11, 25, 44, 0.05);
+  --bg-main: #07111f;
+  --bg-card: rgba(255, 255, 255, 0.045);
+  --text-main: #F8FAFC;
+  --text-muted: rgba(248, 250, 252, 0.62);
+  --border-light: rgba(255, 255, 255, 0.095);
+  --shadow-sm: 0 10px 28px rgba(0, 0, 0, 0.20);
+  --shadow-md: 0 18px 46px rgba(0, 0, 0, 0.26);
+  --shadow-lg: 0 28px 76px rgba(0, 0, 0, 0.34);
   
   color: var(--text-main);
   background: var(--bg-main);
@@ -44,6 +54,10 @@ body {
   margin: 0;
   min-width: 320px;
   overflow-x: hidden;
+  background:
+    radial-gradient(circle at 10% -10%, rgba(45, 212, 191, 0.10), transparent 34rem),
+    radial-gradient(circle at 90% 10%, rgba(232, 87, 26, 0.10), transparent 32rem),
+    linear-gradient(180deg, #07111f 0%, #0d1a2d 48%, #07111f 100%);
 }
 
 button,
@@ -55,6 +69,27 @@ textarea {
 
 button {
   cursor: pointer;
+}
+
+.vp-navbtn {
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease, color .18s ease;
+}
+
+.vp-navbtn:hover {
+  background: linear-gradient(180deg, rgba(24, 42, 70, .86), rgba(10, 23, 40, .84)) !important;
+  border-color: rgba(255, 255, 255, .30) !important;
+  color: #fff !important;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, .24), 0 0 0 3px rgba(96, 165, 250, .12) !important;
+  transform: translateY(-1px);
+}
+
+.vp-navbtn:active {
+  transform: translateY(0);
+}
+
+.vp-navbtn:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, .86);
+  outline-offset: 3px;
 }
 
 .section {
@@ -1559,10 +1594,10 @@ h2 {
 .saas-home-refinement nav button[style*="C.orange"],
 .saas-home-refinement nav button[style*="var(--primary)"],
 .saas-home-refinement nav button[style*="E8571A"] {
-  background: linear-gradient(135deg, #6366F1 0%, #06B6D4 100%) !important;
+  background: linear-gradient(135deg, #E8571A 0%, #D0450B 100%) !important;
   color: #FFFFFF !important;
   border: none !important;
-  box-shadow: 0 0 24px rgba(99, 102, 241, 0.40), 0 4px 14px rgba(6, 182, 212, 0.25) !important;
+  box-shadow: 0 0 24px rgba(232, 87, 26, 0.34), 0 4px 14px rgba(232, 87, 26, 0.24) !important;
   text-shadow: none !important;
 }
 
@@ -1573,13 +1608,13 @@ h2 {
   line-height: 1.1 !important;
   letter-spacing: -0.04em !important;
   color: #F8FAFC !important;
-  text-shadow: 0 4px 32px rgba(99, 102, 241, 0.30), 0 2px 10px rgba(0, 0, 0, 0.8) !important;
+  text-shadow: 0 4px 32px rgba(232, 87, 26, 0.18), 0 2px 10px rgba(0, 0, 0, 0.8) !important;
   margin-bottom: 24px !important;
 }
 
 .saas-home-refinement h1 span[style*="C.orange"],
 .saas-home-refinement h1 span[style*="orange"] {
-  background: linear-gradient(135deg, #818CF8 0%, #06B6D4 100%) !important;
+  background: linear-gradient(135deg, #F97316 0%, #E8571A 100%) !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
@@ -1596,24 +1631,24 @@ h2 {
 }
 
 .saas-home-refinement [style*="VOLANTINAGGIO"] {
-  color: #06B6D4 !important;
+  color: #E8571A !important;
   letter-spacing: 0.14em !important;
   font-weight: 800 !important;
-  text-shadow: 0 0 16px rgba(6, 182, 212, 0.40) !important;
+  text-shadow: 0 0 16px rgba(232, 87, 26, 0.30) !important;
 }
 
 /* 4. MAPPA */
 .saas-home-refinement .vp-hero-map-preview {
   background: rgba(11, 16, 32, 0.88) !important;
-  border: 1px solid rgba(6, 182, 212, 0.28) !important;
+  border: 1px solid rgba(232, 87, 26, 0.26) !important;
   border-radius: 24px !important;
-  box-shadow: 0 0 50px rgba(99, 102, 241, 0.22), 0 24px 70px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 0 50px rgba(232, 87, 26, 0.14), 0 24px 70px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
   backdrop-filter: blur(24px) !important;
   position: relative !important;
 }
 
 .saas-home-refinement [style*="Monitor campagna"] {
-  color: #818CF8 !important;
+  color: #E8571A !important;
   letter-spacing: 0.1em !important;
   display: flex !important;
   align-items: center !important;
@@ -1634,10 +1669,10 @@ h2 {
 }
 
 .saas-home-refinement .vp-hero-badge {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(6, 182, 212, 0.22)) !important;
-  border: 1px solid rgba(6, 182, 212, 0.50) !important;
-  color: #06B6D4 !important;
-  box-shadow: 0 0 16px rgba(6, 182, 212, 0.28) !important;
+  background: linear-gradient(135deg, rgba(45, 212, 191, 0.16), rgba(232, 87, 26, 0.12)) !important;
+  border: 1px solid rgba(45, 212, 191, 0.35) !important;
+  color: #2DD4BF !important;
+  box-shadow: 0 0 16px rgba(45, 212, 191, 0.20) !important;
   font-weight: 800 !important;
 }
 
@@ -1653,18 +1688,18 @@ h2 {
 
 .saas-home-refinement [style*="rgba(5, 10, 20, 0.6)"]:hover {
   transform: translateY(-2px) !important;
-  border-color: #06B6D4 !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(6, 182, 212, 0.22) !important;
+  border-color: #E8571A !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(232, 87, 26, 0.20) !important;
 }
 
 /* 6. CTA PRINCIPALI */
 .saas-home-refinement .vb,
 .saas-home-refinement button[style*="C.orange"],
 .saas-home-refinement .primary-action {
-  background: linear-gradient(135deg, #6366F1 0%, #06B6D4 100%) !important;
+  background: linear-gradient(135deg, #E8571A 0%, #D0450B 100%) !important;
   color: #FFFFFF !important;
   border: none !important;
-  box-shadow: 0 8px 28px rgba(99, 102, 241, 0.35) !important;
+  box-shadow: 0 8px 28px rgba(232, 87, 26, 0.35) !important;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
   text-shadow: none !important;
 }
@@ -1672,7 +1707,7 @@ h2 {
 .saas-home-refinement .vb:hover,
 .saas-home-refinement .primary-action:hover {
   transform: translateY(-2px) scale(1.02) !important;
-  box-shadow: 0 12px 36px rgba(6, 182, 212, 0.45) !important;
+  box-shadow: 0 12px 36px rgba(232, 87, 26, 0.45) !important;
 }
 
 /* Dark sections legacy */
@@ -1747,6 +1782,298 @@ h2 {
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 12px;
   box-shadow: 0 8px 32px 0 rgba(11, 25, 44, 0.15);
+}
+
+/* STEP 4 VISUAL SYSTEM - global alignment */
+.site-shell,
+.configurator-shell,
+.planner-shell,
+.step-card,
+.home-shell-dark {
+  color: var(--text-main);
+}
+
+.site-shell,
+.configurator-shell,
+.planner-shell {
+  background:
+    radial-gradient(circle at 8% 4%, rgba(45, 212, 191, 0.10), transparent 30rem),
+    radial-gradient(circle at 92% 12%, rgba(232, 87, 26, 0.10), transparent 30rem),
+    linear-gradient(180deg, #07111f 0%, #0d1a2d 48%, #07111f 100%) !important;
+}
+
+.site-nav,
+.step-tabs,
+.step-card,
+.step-progress-card,
+.calendar-note,
+.quote-box,
+.summary-list,
+.totals,
+.zone-stack,
+.zone-summary,
+.config-summary,
+.addon-panel,
+.quantity-card,
+.breakdown,
+.metric,
+.switch-row,
+.check-row,
+.service-option,
+.clean-card,
+.bento-card,
+.clean-card-dark {
+  background: var(--surface-dark) !important;
+  border: 1px solid var(--border-dark) !important;
+  box-shadow: var(--shadow-sm);
+}
+
+.step-card,
+.quote-box,
+.summary-list,
+.zone-summary,
+.config-summary,
+.addon-panel,
+.quantity-card,
+.calendar-note,
+.clean-card,
+.bento-card,
+.clean-card-dark {
+  border-radius: 16px !important;
+}
+
+.step-card {
+  padding: clamp(20px, 3vw, 30px);
+  gap: 22px;
+  box-shadow: var(--shadow-lg);
+}
+
+.section-heading {
+  gap: 8px;
+}
+
+.section-heading h1,
+.section-heading h2,
+.section-heading h3,
+.step-card h1,
+.step-card h2,
+.step-card h3 {
+  color: #F8FAFC !important;
+  letter-spacing: 0 !important;
+  line-height: 1.04;
+  text-wrap: balance;
+}
+
+.section-heading h2 {
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.eyebrow,
+.step-progress-card span,
+.addon-panel-head span,
+.service-active-note {
+  color: var(--orange) !important;
+  letter-spacing: 0.1em;
+}
+
+.step-tabs button,
+.brand-mark,
+.quick-row button,
+.secondary-action,
+.option-pill,
+.quantity-preset,
+.addon-option,
+.service-option {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: var(--border-dark) !important;
+  color: rgba(248, 250, 252, 0.78) !important;
+}
+
+.step-tabs button span,
+.service-option-head strong,
+.switch-row strong,
+.zone-row b,
+.summary-row b,
+.row b,
+.addon-option strong,
+.step-progress-card b {
+  color: #F8FAFC !important;
+}
+
+.service-option span,
+.field span,
+.summary-row span,
+.row span,
+.zone-row span,
+.zone-summary > div > span,
+.addon-option small,
+.switch-row span,
+.calendar-note,
+.inline-note {
+  color: rgba(248, 250, 252, 0.62) !important;
+}
+
+.field input,
+.field select,
+.field textarea,
+.quantity-manual-input {
+  color: #F8FAFC !important;
+  background: rgba(255, 255, 255, 0.055) !important;
+  border: 1px solid var(--border-dark-strong) !important;
+  border-radius: 10px !important;
+  color-scheme: dark;
+  outline: none;
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+.field input::placeholder,
+.field textarea::placeholder,
+.quantity-manual-input::placeholder {
+  color: rgba(248, 250, 252, 0.42);
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus,
+.quantity-manual-input:focus {
+  border-color: rgba(232, 87, 26, 0.70) !important;
+  box-shadow: 0 0 0 3px rgba(232, 87, 26, 0.16);
+  background: rgba(255, 255, 255, 0.075) !important;
+}
+
+.primary-action,
+.saas-home-refinement .primary-action,
+.saas-home-refinement .vb,
+.saas-home-refinement nav button[style*="E8571A"] {
+  background: linear-gradient(135deg, #E8571A 0%, #D0450B 100%) !important;
+  border: 0 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 10px 28px rgba(232, 87, 26, 0.34) !important;
+}
+
+.primary-action:hover,
+.saas-home-refinement .primary-action:hover,
+.saas-home-refinement .vb:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 14px 36px rgba(232, 87, 26, 0.42) !important;
+}
+
+.secondary-action:hover,
+.quick-row button:hover,
+.option-pill:hover,
+.addon-option:hover,
+.service-option:hover {
+  border-color: rgba(232, 87, 26, 0.50) !important;
+  background: rgba(232, 87, 26, 0.10) !important;
+}
+
+.step-tabs button.active,
+.option-pill.active,
+.quantity-preset.active,
+.addon-option.active,
+.service-option.active {
+  color: #FFFFFF !important;
+  border-color: rgba(232, 87, 26, 0.70) !important;
+  background: rgba(232, 87, 26, 0.14) !important;
+  box-shadow: inset 3px 0 0 var(--orange), 0 16px 36px rgba(0, 0, 0, 0.24) !important;
+}
+
+.service-option-head em {
+  background: var(--orange) !important;
+}
+
+.service-includes small,
+.mini-breakdown span,
+.vp-hero-badge,
+.saas-home-refinement .vp-hero-badge {
+  color: var(--teal) !important;
+  background: rgba(45, 212, 191, 0.10) !important;
+  border: 1px solid rgba(45, 212, 191, 0.22) !important;
+}
+
+.quote-box {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(232, 87, 26, 0.16), transparent 22rem),
+    rgba(255, 255, 255, 0.055) !important;
+  border-color: rgba(232, 87, 26, 0.24) !important;
+}
+
+.quote-box strong,
+.row.strong b,
+.summary-row.strong b,
+.summary-flash b {
+  color: var(--orange) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric strong,
+.zone-kpis b {
+  color: var(--green) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.zone-kpis div {
+  background: rgba(46, 204, 138, 0.06) !important;
+  border: 1px solid rgba(46, 204, 138, 0.16) !important;
+  border-radius: 12px !important;
+}
+
+.breakdown-head,
+.zone-stack-head,
+.config-summary > div:first-child {
+  background: rgba(255, 255, 255, 0.065) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.breakdown-row,
+.summary-row,
+.row,
+.zone-row,
+.config-summary p {
+  border-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+.muted {
+  background: rgba(255, 255, 255, 0.032) !important;
+}
+
+.saas-home-refinement h1 {
+  text-shadow: 0 10px 38px rgba(0, 0, 0, 0.45) !important;
+}
+
+.saas-home-refinement h1 span[style*="C.orange"],
+.saas-home-refinement h1 span[style*="orange"] {
+  background: linear-gradient(135deg, #F97316 0%, #E8571A 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+}
+
+.saas-home-refinement [style*="VOLANTINAGGIO"],
+.saas-home-refinement [style*="Monitor campagna"] {
+  color: var(--orange) !important;
+  text-shadow: 0 0 18px rgba(232, 87, 26, 0.24) !important;
+}
+
+.saas-home-refinement .vp-hero-map-preview,
+.saas-home-refinement .vc {
+  background: var(--surface-dark) !important;
+  border: 1px solid var(--border-dark) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+.footer-grid,
+.footer-bottom {
+  color: rgba(248, 250, 252, 0.74);
+}
+
+@media (max-width: 980px) {
+  .step-with-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .sticky-summary {
+    position: static;
+  }
 }
 
 .map-floating-glass-dark {
@@ -1928,4 +2255,110 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   transform: translateY(-1px);
 }
 
+/* Step 2 Final Scrollbar Polish per la lista comuni */
+.step2-town-list-scroll {
+  color-scheme: dark;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(13, 148, 136, 0.55) rgba(11, 25, 44, 0.45);
+}
+
+.step2-town-list-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.step2-town-list-scroll::-webkit-scrollbar-track {
+  background: rgba(11, 25, 44, 0.45);
+  border-radius: 9999px;
+}
+
+.step2-town-list-scroll::-webkit-scrollbar-thumb {
+  background: rgba(13, 148, 136, 0.55);
+  border-radius: 9999px;
+}
+
+.step2-town-list-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(20, 184, 166, 0.85);
+}
+
+/* FINAL STEP 4 OVERRIDE - wins over legacy SaaS blue refinements */
+.saas-home-refinement {
+  background:
+    radial-gradient(circle at 18% 10%, rgba(232, 87, 26, 0.16), transparent 34rem),
+    radial-gradient(circle at 88% 28%, rgba(45, 212, 191, 0.10), transparent 30rem),
+    linear-gradient(180deg, #07111f 0%, #0d1a2d 46%, #07111f 100%) !important;
+}
+
+.saas-home-refinement nav,
+.saas-home-refinement footer,
+.saas-home-refinement .vp-hero-map-preview,
+.saas-home-refinement .vc,
+.saas-home-refinement [style*="rgba(255,255,255,.045)"],
+.saas-home-refinement [style*="rgba(255,255,255,0.045)"],
+.saas-home-refinement [style*="rgba(255,255,255,.04)"],
+.saas-home-refinement [style*="rgba(255,255,255,0.04)"] {
+  background-color: rgba(255, 255, 255, 0.045) !important;
+  border-color: rgba(255, 255, 255, 0.11) !important;
+  box-shadow: 0 22px 64px rgba(0, 0, 0, 0.28) !important;
+}
+
+.saas-home-refinement .vp-hero-map-preview {
+  border-color: rgba(232, 87, 26, 0.28) !important;
+}
+
+.saas-home-refinement .vb,
+.saas-home-refinement button[class*="btn"],
+.saas-home-refinement button[style*="#E8571A"],
+.saas-home-refinement button[style*="232,87,26"] {
+  background: linear-gradient(135deg, #E8571A 0%, #D0450B 100%) !important;
+  border-color: rgba(232, 87, 26, 0.55) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 12px 30px rgba(232, 87, 26, 0.32) !important;
+}
+
+.saas-home-refinement h1 span,
+.saas-home-refinement [style*="GPS e report"],
+.saas-home-refinement [style*="Monitor campagna"],
+.saas-home-refinement [style*="VOLANTINAGGIO"] {
+  color: #E8571A !important;
+  -webkit-text-fill-color: #E8571A !important;
+  background: none !important;
+}
+
+.saas-home-refinement [style*="#6366F1"],
+.saas-home-refinement [style*="#06B6D4"],
+.saas-home-refinement [style*="99,102,241"],
+.saas-home-refinement [style*="6,182,212"] {
+  border-color: rgba(232, 87, 26, 0.24) !important;
+  box-shadow: 0 14px 36px rgba(232, 87, 26, 0.14) !important;
+}
+
+.saas-home-refinement [style*="#6366F1"]:not(button),
+.saas-home-refinement [style*="#06B6D4"]:not(button),
+.saas-home-refinement [style*="99,102,241"]:not(button),
+.saas-home-refinement [style*="6,182,212"]:not(button) {
+  color: #2DD4BF !important;
+}
+
+.vp-s1-card-hover,
+.vp-card-hero,
+.vp-card-kpi,
+.vp-card-info,
+.vp-card-secondary {
+  background: rgba(255, 255, 255, 0.045) !important;
+  border-color: rgba(255, 255, 255, 0.11) !important;
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.22);
+}
+
+.vp-s1-card-hover:hover {
+  border-color: rgba(232, 87, 26, 0.45) !important;
+}
+
+.vp-s1-slider {
+  background: linear-gradient(to right, #E8571A var(--progress, 0%), rgba(255, 255, 255, 0.12) var(--progress, 0%)) !important;
+}
+
+.vp-s1-slider::-webkit-slider-thumb {
+  background: #E8571A !important;
+}
 

@@ -22,6 +22,18 @@ export const FALLBACK_CIVICI_STATE = {
   points: [],
 };
 
+const debugStep2Enabled = () =>
+  Boolean(
+    import.meta.env.DEV &&
+    (import.meta.env.VITE_DEBUG_STEP2 === 'true' || globalThis.window?.__VOLANTINIPRO_DEBUG_STEP2__ === true)
+  );
+const debugStep2Log = (...args) => {
+  if (debugStep2Enabled()) console.log(...args);
+};
+const debugStep2Warn = (...args) => {
+  if (debugStep2Enabled()) console.warn(...args);
+};
+
 export function makeCiviciState(rows, totalCount = null, metadata = {}) {
   const points = Array.isArray(rows)
     ? rows
@@ -87,7 +99,7 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
 
   // Guard: skip large radii — bbox would contain too many rows and timeout anyway
   if (radiusKm > MAX_CIVICI_RADIUS_KM) {
-    if (import.meta.env.DEV) console.log('[ADDRESS_POINTS_FETCH_SKIPPED_RADIUS]', { radiusKm, maxAllowed: MAX_CIVICI_RADIUS_KM });
+    debugStep2Log('[ADDRESS_POINTS_FETCH_SKIPPED_RADIUS]', { radiusKm, maxAllowed: MAX_CIVICI_RADIUS_KM });
     return { rows: [], count: 0, bboxCount: 0, totalCount: 0, contentRangeCount: 0, renderedCount: 0 };
   }
 
@@ -103,7 +115,7 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
 
   // Guard: skip if this exact bbox already timed out this session
   if (timeoutedKeys.has(requestKey)) {
-    if (import.meta.env.DEV) console.log('[ADDRESS_POINTS_FETCH_SKIPPED_TIMEOUT]', { requestKey });
+    debugStep2Log('[ADDRESS_POINTS_FETCH_SKIPPED_TIMEOUT]', { requestKey });
     return { rows: [], count: 0, bboxCount: 0, totalCount: 0, contentRangeCount: 0, renderedCount: 0, isTimeout: true };
   }
 
@@ -115,7 +127,7 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
     `&lng=gte.${minLng}&lng=lte.${maxLng}` +
     `&limit=${ROW_LIMIT}`;
 
-  if (import.meta.env.DEV) console.log(`[ADDRESS_POINTS_FETCH_BBOX] lat: [${minLat.toFixed(5)}, ${maxLat.toFixed(5)}], lng: [${minLng.toFixed(5)}, ${maxLng.toFixed(5)}], radiusKm: ${radiusKm}`);
+  debugStep2Log(`[ADDRESS_POINTS_FETCH_BBOX] lat: [${minLat.toFixed(5)}, ${maxLat.toFixed(5)}], lng: [${minLng.toFixed(5)}, ${maxLng.toFixed(5)}], radiusKm: ${radiusKm}`);
 
   try {
     const response = await fetch(generatedUrl, {
@@ -135,12 +147,12 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
       let errObj;
       try { errObj = JSON.parse(errText); } catch { /* non-JSON body */ }
       if (errObj?.code === '57014' || String(errObj?.code) === '57014') {
-        if (import.meta.env.DEV) console.log('[ADDRESS_POINTS_FETCH_TIMEOUT]', { requestKey, status: response.status });
+        debugStep2Log('[ADDRESS_POINTS_FETCH_TIMEOUT]', { requestKey, status: response.status });
         timeoutedKeys.add(requestKey);
         return { rows: [], count: 0, bboxCount: 0, totalCount: 0, contentRangeCount: 0, renderedCount: 0, isTimeout: true };
       }
 
-      if (import.meta.env.DEV) console.warn('[ADDRESS_POINTS_ERROR] fetch failed', response.status, errText);
+      debugStep2Warn('[ADDRESS_POINTS_ERROR] fetch failed', response.status, errText);
       throw new Error(errText || 'ADDRESS_POINTS_REST_ERROR');
     }
 
@@ -152,7 +164,7 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
       if (match) contentRangeCount = parseInt(match[1], 10);
     }
 
-    if (import.meta.env.DEV) console.log(`[ADDRESS_POINTS_FETCH_SUCCESS] received ${rows.length} rows, total: ${contentRangeCount}`);
+    debugStep2Log(`[ADDRESS_POINTS_FETCH_SUCCESS] received ${rows.length} rows, total: ${contentRangeCount}`);
 
     const resultRows = rows
       .map((row) => ({
@@ -173,11 +185,11 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
   } catch (err) {
     // AbortError is expected on navigation/component-unmount — not an error
     if (err.name === 'AbortError') {
-      if (import.meta.env.DEV) console.log('[ADDRESS_POINTS_FETCH_ABORTED]');
+      debugStep2Log('[ADDRESS_POINTS_FETCH_ABORTED]');
       throw err;
     }
-    if (import.meta.env.DEV) console.warn('[ADDRESS_POINTS_ERROR]', err?.message || err);
-    if (import.meta.env.DEV) console.log('[ADDRESS_POINTS_FETCH_FALLBACK]');
+    debugStep2Warn('[ADDRESS_POINTS_ERROR]', err?.message || err);
+    debugStep2Log('[ADDRESS_POINTS_FETCH_FALLBACK]');
     throw err;
   }
 }

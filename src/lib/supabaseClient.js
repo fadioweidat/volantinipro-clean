@@ -1,3 +1,6 @@
+import { ensureSupabaseSessionBridge, supabase as sdkSupabase } from "../supabaseClient.js";
+import { logAuditEvent } from "./audit.js";
+
 const SESSION_KEY = "vp_supabase_session";
 export const AUTH_EXPIRED_MESSAGE = "Sessione scaduta. Accedi di nuovo per continuare.";
 
@@ -63,6 +66,47 @@ export function clearExpiredSupabaseSession() {
     window.localStorage.removeItem(SESSION_KEY);
   }
   console.info("[AUTH_SESSION_CLEARED]");
+}
+
+function writeRestSessionFromSdkSession(sdkSession) {
+  if (typeof window === "undefined" || !sdkSession?.access_token) return null;
+  const next = {
+    accessToken: sdkSession.access_token,
+    access_token: sdkSession.access_token,
+    refreshToken: sdkSession.refresh_token || "",
+    refresh_token: sdkSession.refresh_token || "",
+    expires_at: sdkSession.expires_at || null,
+    expires_in: sdkSession.expires_in || null,
+    token_type: sdkSession.token_type || "bearer",
+    user: sdkSession.user || null,
+  };
+  window.localStorage.setItem(SESSION_KEY, JSON.stringify(next));
+  console.info("[AUTH_BRIDGE_REST_SESSION_UPDATED]");
+  return next;
+}
+
+export async function ensureRestSessionFromSdk({ action } = {}) {
+  console.info("[AUTH_BRIDGE_BEFORE_SAVE]", { action: action || null });
+  try {
+    await ensureSupabaseSessionBridge?.();
+  } catch {
+    // Best effort: the direct SDK getSession below is the source of truth here.
+  }
+
+  const stored = getStoredSupabaseSession();
+  if (storedSessionToken(stored) && !isStoredSupabaseSessionExpired(stored)) return stored;
+
+  const { data, error } = sdkSupabase?.auth?.getSession
+    ? await sdkSupabase.auth.getSession()
+    : { data: { session: null }, error: null };
+  const sdkSession = data?.session || null;
+  if (sdkSession?.access_token && !error) {
+    console.info("[AUTH_BRIDGE_SDK_SESSION_FOUND]", { action: action || null });
+    return writeRestSessionFromSdkSession(sdkSession);
+  }
+
+  console.warn("[AUTH_BRIDGE_NO_SESSION]", { action: action || null, error: error?.message || null });
+  return stored || null;
 }
 
 export function requireFreshSupabaseSession({ action } = {}) {
@@ -265,8 +309,12 @@ export const supabase = hasSupabaseConfig()
   : null;
 
 export async function getCurrentSupabaseUser(session = getStoredSupabaseSession()) {
-  if (!session?.accessToken && !session?.access_token) return null;
-  return supabaseRequest("/auth/v1/user", { session, prefer: null });
+  let activeSession = session;
+  if (!storedSessionToken(activeSession)) {
+    activeSession = await ensureRestSessionFromSdk({ action: "get_current_user" });
+  }
+  if (!storedSessionToken(activeSession)) return null;
+  return supabaseRequest("/auth/v1/user", { session: activeSession, prefer: null });
 }
 
 export async function ensureCurrentClient(profile = {}) {
@@ -371,10 +419,9 @@ export async function getCampaignById(id) {
 }
 
 export async function saveSmartPairingWaitlist(payload) {
-  // Live schema for smart_pairing_waitlist has no telefono/status/preferred_period
-  // columns (confirmed against the live REST schema) — only these are real:
-  // id, cliente_id, email, note, created_at, nome, comune. "zone" from the
-  // caller maps to the real "comune" column.
+  // Live schema for smart_pairing_waitlist (verified via REST probe, current
+  // as of the STEP3_WAITLIST fix): id, created_at, cliente_id, nome, email,
+  // whatsapp, comune, servizio, date_preferite, note, gestita, gestita_at.
   const session = getStoredSupabaseSession();
   try {
     requireFreshSupabaseSession({ action: "smart_pairing" });
@@ -408,38 +455,53 @@ export async function saveSmartPairingWaitlist(payload) {
     ...(clienteId ? { cliente_id: clienteId } : {}),
     nome,
     email: payload.email,
-    comune: payload.zone || payload.comune || "Zona da confermare",
+    whatsapp: payload.whatsapp || payload.telefono || null,
+    comune: payload.comune || payload.zone || "Zona da confermare",
+    servizio: payload.servizio || null,
+    date_preferite: payload.date_preferite || payload.periodo || null,
     note: payload.note || null,
+    gestita: false,
   };
-  if (import.meta.env.DEV) console.log("[SMART_PAIRING_WAITLIST_PAYLOAD]", finalPayload);
+  console.info("[STEP3_WAITLIST_INSERT_START]");
   try {
-    const result = await supabaseRequest("/rest/v1/smart_pairing_waitlist", {
+    // return=minimal — no RETURNING, so no implicit SELECT check on the row
+    // right after insert. The waitlist SELECT policy only allows a row back
+    // to its own auth.jwt() email, which is null for anonymous visitors, so
+    // asking PostgREST to return the inserted row would fail RLS even though
+    // the INSERT itself is allowed, rolling back the whole request (42501).
+    await supabaseRequest("/rest/v1/smart_pairing_waitlist", {
       method: "POST",
       session,
-      prefer: "return=representation",
+      prefer: "return=minimal",
       body: finalPayload,
     });
-    if (import.meta.env.DEV) console.log("[SMART_PAIRING_WAITLIST_SAVE_SUCCESS]", result);
-    return result;
+    console.info("[STEP3_WAITLIST_INSERT_SUCCESS]");
+    logAuditEvent({ action: "waitlist_submitted", resourceType: "smart_pairing_waitlist", metadata: { comune: finalPayload.comune, servizio: finalPayload.servizio } });
+    return true;
   } catch (err) {
     const msg = String(err?.message || err || "");
     const isRlsBlocked = /row-level security/i.test(msg) || /42501/.test(msg) || /permission denied/i.test(msg);
     if (isRlsBlocked) {
-      console.error("[SMART_PAIRING_WAITLIST_RLS_BLOCKED]", { payload: finalPayload, error: msg });
+      console.error("[STEP3_WAITLIST_INSERT_ERROR]", { payload: finalPayload, error: msg, reason: "rls_blocked" });
+      logAuditEvent({ action: "waitlist_submit_failed", resourceType: "smart_pairing_waitlist", success: false, errorMessage: msg });
       const rlsError = new Error("Richiesta Smart Pairing non salvata: permessi Supabase da configurare.");
       rlsError.isRlsBlocked = true;
       throw rlsError;
     }
-    if (import.meta.env.DEV) console.error("[SMART_PAIRING_WAITLIST_SAVE_ERROR]", { payload: finalPayload, error: msg });
+    console.error("[STEP3_WAITLIST_INSERT_ERROR]", { payload: finalPayload, error: msg });
+    logAuditEvent({ action: "waitlist_submit_failed", resourceType: "smart_pairing_waitlist", success: false, errorMessage: msg });
     throw err;
   }
 }
 
 export async function saveCampaign(payload) {
   try {
-    return await saveCampaignInternal(payload);
+    const saved = await saveCampaignInternal(payload);
+    logAuditEvent({ action: "campaign_saved", resourceType: "campagne", resourceId: saved?.id, metadata: { servizio: payload?.servizio || payload?.service_type || null } });
+    return saved;
   } catch (err) {
     console.error("[CAMPAIGN_SAVE_ERROR]", err?.message || err);
+    logAuditEvent({ action: "campaign_save_failed", resourceType: "campagne", success: false, errorMessage: err?.message || String(err) });
     throw err;
   }
 }
@@ -501,6 +563,39 @@ function addExistingColumn(body, columns, column, value) {
   body[column] = value;
 }
 
+function firstDefined(...values) {
+  return values.find(value => value !== undefined && value !== null && value !== "");
+}
+
+function buildCampaignMetadata(payload, cliente) {
+  const source = payload.metadata || {};
+  const quote = source.quote_summary || source.quotePdfData || null;
+  const dashboardKpis = source.dashboard_kpis || source.service_kpis || {};
+  return {
+    ...source,
+    zona: firstDefined(source.zona, payload.city_name, payload.cityName, payload.zone),
+    comune: firstDefined(source.comune, payload.comune, payload.city_name, payload.cityName),
+    mode: firstDefined(source.mode, source.areaMode, payload.areaMode, payload.searchMode),
+    famiglie: firstDefined(source.famiglie, source.estimatedFamilies, quote?.outputs?.estimatedFamilies, dashboardKpis.families),
+    persone: firstDefined(source.persone, source.population, quote?.outputs?.estimatedPopulation, dashboardKpis.population),
+    copertura_pct: firstDefined(source.copertura_pct, source.coverage, quote?.outputs?.estimatedCoverage, dashboardKpis.coverage),
+    comuni_count: firstDefined(source.comuni_count, source.comuniCount, quote?.area?.selectedMunicipalities?.length),
+    selected_comuni: source.selected_comuni || quote?.area?.selectedMunicipalities || [],
+    volantini_necessari: firstDefined(source.volantini_necessari, source.requiredFlyers, quote?.outputs?.recommendedFlyers),
+    volantini_inseriti: firstDefined(source.volantini_inseriti, payload.total_flyers, payload.flyer_quantity, quote?.outputs?.insertedFlyers),
+    volantini_extra: firstDefined(source.volantini_extra, quote?.outputs?.remainingFlyers),
+    volantini_mancanti: firstDefined(source.volantini_mancanti, quote?.outputs?.missingFlyers),
+    formato: firstDefined(source.formato, payload.flyer_format, payload.flyerFormat, quote?.campaign?.format),
+    materiale: firstDefined(source.materiale, source.material, quote?.campaign?.materialStatus),
+    piano: firstDefined(source.piano, quote?.campaign?.plan),
+    servizi_extra: source.servizi_extra || source.extra_services || quote?.extras || [],
+    quote_summary: quote,
+    dashboard_kpis: dashboardKpis,
+    client_email: firstDefined(source.client_email, payload.client?.email, cliente?.email),
+    client_name: firstDefined(source.client_name, payload.client?.nome, payload.client?.name, cliente?.nome),
+  };
+}
+
 function buildCampagnePayload(payload, cliente, campId, columns) {
   const body = {};
   const quantity = parseInt(payload.total_flyers ?? payload.flyer_quantity ?? payload.flyerQuantity ?? payload.quantity ?? 0, 10) || 0;
@@ -529,25 +624,15 @@ function buildCampagnePayload(payload, cliente, campId, columns) {
   addExistingColumn(body, columns, "created_at", new Date().toISOString());
 
   if (columns.includes("metadata")) {
-    body.metadata = {
-      ...payload.metadata,
-      is_multi_zone: true,
-      campaign_zones: payload.campaignZones || [],
-      zone_ids: payload.zone_ids || [],
-      flyer_format: payload.flyer_format || payload.flyerFormat || null,
-      start_date: payload.start_date || payload.startDate || null,
-      end_date: payload.end_date || payload.endDate || null,
-      smart_pairing_discount: payload.smart_pairing_discount || 0,
-      stato_pagamento: payload.stato_pagamento || "in_attesa",
-      pagamento_tipo: payload.pagamento_tipo || "bonifico",
-      causale_bonifico: payload.causale_bonifico || null,
-    };
+    body.metadata = buildCampaignMetadata(payload, cliente);
+    console.info("[CAMPAIGN_METADATA_PAYLOAD]", body.metadata);
   }
 
   return body;
 }
 
 async function saveCampaignInternal(payload) {
+  await ensureRestSessionFromSdk({ action: "save_campaign" });
   try {
     requireFreshSupabaseSession({ action: "save_campaign" });
   } catch (err) {
