@@ -900,7 +900,10 @@ const kpis = [
     { l: "Output", v: "Report", c: C.purple }
   ];
   return (
-    <div style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 20, overflow: "hidden", boxShadow: "0 40px 80px rgba(0,0,0,.5)" }}>
+    <div style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 20, overflow: "hidden", boxShadow: "0 40px 80px rgba(0,0,0,.5)", position: "relative" }}>
+      <div style={{ position: "absolute", top: 10, right: 10, zIndex: 2, background: "rgba(0,0,0,.55)", border: "1px solid rgba(255,255,255,.18)", borderRadius: 999, padding: "3px 10px", fontFamily: F.sans, fontSize: 9, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: "rgba(255,255,255,.75)" }}>
+        Esempio dimostrativo
+      </div>
       <div style={{ background: "rgba(255,255,255,.05)", padding: "11px 16px", display: "flex", alignItems: "center", gap: 8, borderBottom: "1px solid rgba(255,255,255,.06)" }}>
         {["#FF5F57", "#FEBC2E", "#28C840"].map(c => <div key={c} style={{ width: 10, height: 10, borderRadius: "50%", background: c }} />)}
         <div style={{ flex: 1, marginLeft: 10, background: "rgba(255,255,255,.06)", borderRadius: 6, padding: "3px 12px", fontFamily: "monospace", fontSize: 10, color: "rgba(255,255,255,.3)" }}>volantinipro.it/configuratore/zona</div>

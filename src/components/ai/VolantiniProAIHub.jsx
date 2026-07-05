@@ -78,7 +78,7 @@ export default function VolantiniProAIHub({ onConfigure }) {
       const res = await AIConsultantService.explainReasoning(whyId || "pre_increment");
       setWhyModal({ title: res.title || title || "Spiegazione Consiglio", text: res.reasoning || res.text || "Consiglio elaborato per massimizzare il ritorno di investimento." });
     } catch (e) {
-      setWhyModal({ title: "Perché ti consigliamo questa scelta?", text: "L'AI analizza la densità abitativa ISTAT e la conformazione delle vie per garantirti che ogni singolo volantino raggiunga una famiglia a target, eliminando dispersioni di budget." });
+      setWhyModal({ title: "Perché ti consigliamo questa scelta?", text: "Suggerimento automatico da regole interne, pensato per aiutarti a evitare dispersioni di budget nella scelta di zona e quantità." });
     } finally {
       setLoadingWhy(false);
     }
@@ -107,7 +107,7 @@ export default function VolantiniProAIHub({ onConfigure }) {
 
           <div style={{ display: "inline-block", padding: "8px 16px", background: "rgba(255, 255, 255, 0.04)", borderRadius: 8, border: "1px dashed rgba(255, 255, 255, 0.15)", maxWidth: 720 }}>
             <p style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255, 255, 255, 0.6)", margin: 0, lineHeight: 1.5 }}>
-              <strong style={{ color: C.orange }}>Nota trasparenza:</strong> Indicazione orientativa basata sulle informazioni inserite. Il preventivo definitivo viene calcolato nel configuratore. L'AI spiega, suggerisce e motiva, ma non prende mai decisioni automatiche al tuo posto.
+              <strong style={{ color: C.orange }}>Nota trasparenza:</strong> Suggerimenti automatici generati da regole interne su testi predefiniti, non da un modello di intelligenza artificiale generativa. Indicazione orientativa basata sulle informazioni inserite; il preventivo definitivo viene calcolato nel configuratore.
             </p>
           </div>
         </div>
@@ -298,11 +298,14 @@ export default function VolantiniProAIHub({ onConfigure }) {
                             <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.orange, textTransform: "uppercase", letterSpacing: ".1em" }}>Valutazione Campagna</span>
                           </div>
                           <h3 style={{ fontFamily: F.serif, fontSize: 32, color: C.white, marginBottom: 8 }}>AI Score di Configurazione</h3>
-                          <p style={{ fontFamily: F.sans, fontSize: 14, color: C.muted, lineHeight: 1.6, marginBottom: 16 }}>
+                          <p style={{ fontFamily: F.sans, fontSize: 14, color: C.muted, lineHeight: 1.6, marginBottom: 8 }}>
                             Il punteggio valuta l'equilibrio tra budget, quantità selezionata e densità territoriale per evitare dispersioni.
                           </p>
+                          <p style={{ fontFamily: F.sans, fontSize: 11, color: "#F59E0B", lineHeight: 1.5, marginBottom: 16, fontStyle: "italic" }}>
+                            Valore dimostrativo a scopo illustrativo: non è calcolato sui dati che inserisci in questa pagina.
+                          </p>
                           <button
-                            onClick={() => handleOpenWhy("score_reasoning", "Analisi AI Score 92/100")}
+                            onClick={() => handleOpenWhy("score_reasoning", "Analisi AI Score 92/100 (esempio)")}
                             style={{ padding: "8px 16px", borderRadius: 8, background: "rgba(232, 87, 26, 0.2)", border: `1px solid ${C.orange}`, color: C.orange, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
                           >
                             Perché questo punteggio? ⓘ
@@ -311,12 +314,15 @@ export default function VolantiniProAIHub({ onConfigure }) {
 
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#0B1020", padding: "20px 32px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)" }}>
                           <div style={{ fontFamily: F.serif, fontSize: 52, color: C.orange, lineHeight: 1 }}>92</div>
-                          <div style={{ fontFamily: F.sans, fontSize: 14, fontWeight: 800, color: C.white }}>su 100</div>
+                          <div style={{ fontFamily: F.sans, fontSize: 14, fontWeight: 800, color: C.white }}>su 100 (esempio)</div>
                           <div style={{ fontSize: 11, color: "#10B981", marginTop: 6, fontWeight: 700 }}>● Campagna Ottimizzata</div>
                         </div>
                       </div>
 
-                      <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.1)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
+                      <div style={{ marginTop: 16, fontSize: 11, color: "rgba(255,255,255,.4)", fontStyle: "italic" }}>
+                        I punti seguenti sono un esempio dimostrativo del formato di analisi, non un risultato calcolato sui tuoi dati:
+                      </div>
+                      <div style={{ marginTop: 8, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.1)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
                         <div style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 13, color: "#D1D5DB" }}>
                           <span style={{ color: "#10B981", fontWeight: 900, fontSize: 16 }}>✓</span>
                           <span><strong>Budget coerente:</strong> In linea con la densità abitativa ISTAT del territorio scelto.</span>
@@ -331,7 +337,7 @@ export default function VolantiniProAIHub({ onConfigure }) {
                         </div>
                         <div style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 13, color: "#FBBF24" }}>
                           <span style={{ fontWeight: 900, fontSize: 16 }}>⚠</span>
-                          <span><strong>Suggerimento AI:</strong> Mancano circa 2.000 volantini per saturare le vie commerciali adiacenti.</span>
+                          <span><strong>Suggerimento automatico:</strong> Mancano circa 2.000 volantini per saturare le vie commerciali adiacenti.</span>
                         </div>
                       </div>
                     </div>
@@ -508,8 +514,8 @@ export default function VolantiniProAIHub({ onConfigure }) {
             {loading && (
               <div style={{ marginTop: 28, padding: 32, background: C.navyCard, borderRadius: 16, border: `1px solid ${C.orange}`, textAlign: "center" }}>
                 <div style={{ fontSize: 32, marginBottom: 12 }}>🤖💭</div>
-                <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 700, color: C.white }}>L'Assistente AI sta analizando i dati territoriali...</div>
-                <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>Calcolo indicatori ISTAT e verifica rotte di distribuzione in corso.</div>
+                <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 700, color: C.white }}>Generazione suggerimento automatico...</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>Testo predefinito da regole interne, non un'elaborazione di dati ISTAT in tempo reale.</div>
               </div>
             )}
 
@@ -618,7 +624,7 @@ export default function VolantiniProAIHub({ onConfigure }) {
             {journeyStep === 2 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <h4 style={{ fontSize: 18, marginBottom: 16 }}>Dove vuoi distribuire i tuoi volantini?</h4>
-                <p style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Inserisci il comune, il CAP o il quartiere target. L'AI stimerà la densità di abitazioni.</p>
+                <p style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Inserisci il comune, il CAP o il quartiere target: la densità reale di abitazioni verrà verificata nel configuratore, con i dati ISTAT effettivi della zona.</p>
                 <input
                   type="text"
                   value={journeyData.location}
@@ -649,12 +655,15 @@ export default function VolantiniProAIHub({ onConfigure }) {
             {journeyStep === 3 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <div style={{ padding: 24, background: "#0B1020", borderRadius: 16, border: `1px solid ${C.orange}`, marginBottom: 24 }}>
-                  <div style={{ fontSize: 11, color: C.orange, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 8 }}>💡 Raccomandazione Su Misura</div>
+                  <div style={{ fontSize: 11, color: C.orange, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 8 }}>💡 Suggerimento automatico (modello di testo)</div>
                   <h4 style={{ fontFamily: F.serif, fontSize: 22, color: C.white, marginBottom: 12 }}>
                     Strategia per {journeyData.activity} a {journeyData.location}
                   </h4>
-                  <p style={{ fontSize: 15, color: "#E2E8F0", lineHeight: 1.6, marginBottom: 16 }}>
+                  <p style={{ fontSize: 15, color: "#E2E8F0", lineHeight: 1.6, marginBottom: 8 }}>
                     "Per un'attività di tipo <strong>{journeyData.activity}</strong> nell'area di <strong>{journeyData.location}</strong> consigliamo una distribuzione <strong>Door to Door</strong> in cassette postali residenziali. Con <strong>{journeyData.qty} volantini</strong> raggiungerai una buona copertura iniziale del bacino di utenza principale."
+                  </p>
+                  <p style={{ fontSize: 11, color: "rgba(255,255,255,.4)", fontStyle: "italic", marginBottom: 16 }}>
+                    Testo generato da un modello a regole con i valori che hai scelto: la copertura reale va verificata nel configuratore con i dati ISTAT della zona.
                   </p>
                   <div style={{ display: "flex", gap: 10 }}>
                     <span style={{ padding: "4px 10px", background: "rgba(16, 185, 129, 0.15)", color: "#10B981", borderRadius: 6, fontSize: 12, fontWeight: 700 }}>✓ Target Ottimale</span>
@@ -755,7 +764,7 @@ export default function VolantiniProAIHub({ onConfigure }) {
                 </p>
                 <div style={{ padding: 14, background: "rgba(255,255,255,0.04)", borderRadius: 10, borderLeft: `3px solid ${C.orange}`, marginBottom: 24 }}>
                   <span style={{ fontSize: 12, color: C.muted }}>
-                    <strong>Principio AI:</strong> L'AI non sostituisce mai la tua decisione. Fornisce spiegazioni basate su dati ISTAT reali per aiutarti a scegliere con consapevolezza.
+                    <strong>Come funziona:</strong> questo assistente non sostituisce mai la tua decisione. I testi che vedi sono suggerimenti automatici da regole interne su testi predefiniti, non un'analisi generativa né una certificazione sui dati ISTAT: servono solo ad aiutarti a scegliere con consapevolezza.
                   </span>
                 </div>
                 <button

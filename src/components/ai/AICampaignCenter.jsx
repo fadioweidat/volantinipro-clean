@@ -76,8 +76,11 @@ export default function AICampaignCenter({ context = "home" }) {
           <h2 style={{ fontFamily: F.serif, fontSize: 44, color: C.white, letterSpacing: "-1.2px", marginBottom: 14 }}>
             Il tuo consulente operativo lungo tutto il ciclo di vita
           </h2>
-          <p style={{ fontFamily: F.sans, fontSize: 17, color: C.muted, maxWidth: 680, margin: "0 auto", lineHeight: 1.6 }}>
-            L'assistente intelligente non prende decisioni al posto tuo: ti spiega i dati, ti suggerisce le opzioni migliori e risponde sempre alla domanda <strong style={{ color: C.white }}>"Perché mi consigli questa scelta?"</strong>.
+          <p style={{ fontFamily: F.sans, fontSize: 17, color: C.muted, maxWidth: 680, margin: "0 auto 10px", lineHeight: 1.6 }}>
+            L'assistente non prende decisioni al posto tuo: ti spiega i dati, ti suggerisce le opzioni migliori e risponde sempre alla domanda <strong style={{ color: C.white }}>"Perché mi consigli questa scelta?"</strong>.
+          </p>
+          <p style={{ fontFamily: F.sans, fontSize: 12, color: "#64748B", maxWidth: 560, margin: "0 auto", lineHeight: 1.6, fontStyle: "italic" }}>
+            Suggerimenti automatici da regole interne su testi predefiniti, non un modello di intelligenza artificiale generativa.
           </p>
         </div>
 
@@ -224,7 +227,7 @@ export default function AICampaignCenter({ context = "home" }) {
                   </div>
 
                   <div style={{ background: "rgba(134, 239, 172, 0.08)", borderLeft: "4px solid #86EFAC", padding: "18px", borderRadius: 10, marginBottom: 24, fontSize: 15, color: "#F8FAFC", lineHeight: 1.6 }}>
-                    💬 <strong>Spiegazione AI: </strong> {duringData.discursive}
+                    💬 <strong>Spiegazione automatica: </strong> {duringData.discursive}
                   </div>
 
                   <button onClick={() => handleOpenWhy(duringData.whyId)} style={whyBtnStyle}>

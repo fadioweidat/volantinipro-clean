@@ -3,7 +3,7 @@
  * Architettura modulare con separazione netta tra fallbackRuleBasedProvider, futureLLMProvider e AIConsultantService.
  */
 
-const ORIENTATIVE_NOTE = "Indicazione orientativa basata sulle informazioni inserite. Il preventivo definitivo viene calcolato nel configuratore.";
+const ORIENTATIVE_NOTE = "Suggerimento automatico generato da regole interne su testi predefiniti, non da un modello di intelligenza artificiale generativa: indicazione orientativa basata sulle informazioni inserite. Il preventivo definitivo viene calcolato nel configuratore.";
 const STORAGE_KEY = "volantinipro_ai_history";
 
 /**
@@ -225,7 +225,7 @@ export const fallbackRuleBasedProvider = {
     return {
       title: res.question,
       checklist: res.reasons,
-      note: "Ogni consiglio AI è motivato per aiutarti a prendere decisioni consapevoli."
+      note: "Motivazione automatica da regole interne (testo predefinito), non da un modello generativo: pensata per aiutarti a prendere decisioni consapevoli."
     };
   },
 

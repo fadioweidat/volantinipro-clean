@@ -100,8 +100,11 @@ export default function AIConsultantSection() {
           <h2 style={{ fontFamily: F.serif, fontSize: 46, lineHeight: 1.1, color: "#F8FAFC", letterSpacing: "-1.2px", marginBottom: 14 }}>
             🤖 Consulente VolantiniPro AI
           </h2>
-          <p style={{ fontFamily: F.sans, fontSize: 17, color: "#94A3B8", maxWidth: 640, margin: "0 auto 32px", lineHeight: 1.6 }}>
+          <p style={{ fontFamily: F.sans, fontSize: 17, color: "#94A3B8", maxWidth: 640, margin: "0 auto 12px", lineHeight: 1.6 }}>
             Lascia che il nostro assistente analizzi automaticamente la tua campagna e ti suggerisca la soluzione più efficace.
+          </p>
+          <p style={{ fontFamily: F.sans, fontSize: 12, color: "#64748B", maxWidth: 560, margin: "0 auto 32px", lineHeight: 1.6, fontStyle: "italic" }}>
+            Suggerimenti automatici da regole interne su testi predefiniti: non è un modello di intelligenza artificiale generativa e non sostituisce un'analisi certificata.
           </p>
           <motion.button
             whileHover={{ scale: 1.03 }}
