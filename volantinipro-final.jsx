@@ -39,8 +39,9 @@ import Button from "./src/components/ui/Button.jsx";
 import { MetricValue } from "./src/components/ui/MetricValue.tsx";
 import { sendEmailConferma } from "./src/api/sendEmailConferma.js";
 import { computeDoorToDoorCoverage, getZoneFullCoverageFlyers } from "./src/lib/doorToDoorCoverage.js";
+import { buildStep2ViewModel } from "./src/lib/step2/buildStep2ViewModel.js";
 import { allowMockData, isProduction } from "./src/lib/runtimeFlags.js";
-import { LAYER_PANEL_CONFIG, defaultLayerState } from "./src/lib/dataSources.js";
+import { defaultLayerState } from "./src/lib/dataSources.js";
 import { GRANDE_CITTA_ZONE_THRESHOLD, isZonaRilevante } from "./src/lib/services/zone-list-config.js";
 import { DELIVERABLE_CATEGORIES, DELIVERABLE_SERVICE_CONFIG } from "./src/lib/services/service-config.js";
 import { kpiLabel } from "./src/lib/services/kpi-definitions.js";
@@ -116,6 +117,18 @@ function formatNumber(value, fallback = "0") {
   }
   return fallback;
 }
+
+const formatIntegerIT = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "N.D.";
+  return new Intl.NumberFormat("it-IT").format(Math.round(n));
+};
+
+const getCoverageStatus = (percent) => {
+  if (percent >= 90) return "coperto";
+  if (percent > 0) return "parziale";
+  return "non_coperto";
+};
 
 function sourceIsConfirmed(source, confirmedSources = []) {
   const normalized = normalizeDataSourceLabel(source);
@@ -2639,6 +2652,12 @@ useEffect(() => {
   }
 }, [data.selectedService, data.activeService, data.type, setData]);
   const [isAdminView, setIsAdminView] = useState(false);
+  // Toolbar GIS a icone su Step2Map (Confini/DUSAF/Densità/OMI/POI/Satellite)
+  // — solo controlli di visualizzazione, nessun impatto su KPI/formule/backend.
+  // ON/OFF, popup e stile vivono in Step2Map; qui restano solo i due stati
+  // che riflettono dati/logica di proprietà di Step2 (confine e basemap).
+  const [mapConfiniOn, setMapConfiniOn] = useState(true);
+  const [mapBasemap, setMapBasemap] = useState("standard");
   const [showLayerMenu, setShowLayerMenu] = useState(false);
   const [partialCoverageConfirmed, setPartialCoverageConfirmed] = useState(false);
   const [coverageDecision, setCoverageDecision] = useState(data.coverageDecision || null);
@@ -2649,7 +2668,17 @@ useEffect(() => {
   const [geocodeSuggestions, setGeocodeSuggestions] = useState([]);
   const [allocationMode, setAllocationMode] = useState(data.allocationMode || "auto");
   const [manualAssignments, setManualAssignments] = useState(data.manualAssignments || {});
+  // Ordine di priorità per la modalità "Priorità" (solo modalità Comuni):
+  // array di zone id nell'ordine scelto dall'utente. Non usato/non mostrato
+  // in modalità Raggio.
+  const [comuniPriorityOrder, setComuniPriorityOrder] = useState(data.comuniPriorityOrder || []);
   const [searchMode, setSearchMode] = useState(data.searchMode || "municipality");
+  // Reset difensivo: "Priorità" esiste solo in modalità Comuni. Se l'utente
+  // passa a Raggio/CAP mentre era attiva, si torna ad "auto" — Raggio non
+  // deve mai vedere/usare questa modalità.
+  useEffect(() => {
+    if (searchMode !== "municipality" && allocationMode === "priority") setAllocationMode("auto");
+  }, [searchMode, allocationMode]);
   // Tracks user-INTENDED mode (only updated via tab clicks or zone switch).
   // Used as the gate in zonesInRadius to block stale "address" results from
   // overriding a municipality session when the user never clicked the Raggio tab.
@@ -2662,6 +2691,17 @@ useEffect(() => {
   // lets zonesInRadius treat that gap as "waiting", not a real mismatch.
   const municipalitySwitchAtRef = useRef(0);
   const [municipalityBoundary, setMunicipalityBoundary] = useState(null);
+  const [hiddenBoundaries, setHiddenBoundaries] = useState([]);
+  const [selectedComuni, setSelectedComuni] = useState(data.selectedComuni || (data.city ? [data.city] : []));
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log("[MULTI_ZONE_STATE]", {
+        selectedComuni: selectedComuni.map(z => ({ id: z.id, name: z.label || z.name }))
+      });
+    }
+  }, [selectedComuni]);
+  const [pendingAddMunicipality, setPendingAddMunicipality] = useState(false);
+  const [duplicateComuneNotice, setDuplicateComuneNotice] = useState("");
   const [capSuggestions, setCapSuggestions] = useState([]);
   const [capSearchLoading, setCapSearchLoading] = useState(false);
 const [selectedCaps, setSelectedCaps] = useState(data.selectedCaps || []);
@@ -2670,7 +2710,17 @@ const [techAccordion, setTechAccordion] = useState({ zonaAttiva: true, telemetri
 const toggleTechAccordion = (key) => setTechAccordion(prev => ({ ...prev, [key]: !prev[key] }));
 const [openOutputPopover, setOpenOutputPopover] = useState(null);
 const activeZoneForRadius = data.campaignZones?.find(z => z.id === data.activeZoneId) || null;
-const radiusKm = Number(radius ?? activeZoneForRadius?.radiusKm ?? activeZoneForRadius?.radius ?? data.radiusKm ?? data.radius ?? 3);
+const activeAreaTab = searchMode === "municipality" ? "comune" : searchMode === "address" ? "raggio" : "cap";
+const selectionMode = activeAreaTab;
+const territoryMode = searchMode === "municipality" ? "full_municipality" : searchMode === "address" ? "radius" : "cap";
+const isComuneMode = activeAreaTab === "comune";
+const isRadiusMode = activeAreaTab === "raggio";
+const isCapMode = activeAreaTab === "cap";
+const selectedComune = city || (selectedComuni && selectedComuni[0]) || null;
+const rawRadiusKm = Number(radius ?? activeZoneForRadius?.radiusKm ?? activeZoneForRadius?.radius ?? data.radiusKm ?? data.radius ?? 3);
+const radiusKm = isComuneMode ? null : (rawRadiusKm || 3);
+const selectedRadius = radiusKm;
+const radiusMeters = radiusKm != null ? radiusKm * 1000 : null;
 const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.qty || 10000);
 
   const prevActiveZoneIdRef = useRef(null);
@@ -2758,6 +2808,8 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
       // Update local states
       setSearch(activeZone.cityName || resolvedCity?.name || "");
       setCity(resolvedCity);
+      setSelectedComuni(activeZone.selectedComuni || (resolvedCity ? [resolvedCity] : []));
+      setPendingAddMunicipality(false);
       setRadius(activeZone.radiusKm || activeZone.radius || 3);
       setSelected(activeZone.selected || []);
       setSelectedCaps(activeZone.selectedCaps || []);
@@ -2791,6 +2843,7 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
         flyerQuantityFromStep1: activeZone.assigned_flyers || 10000,
         cityName: activeZone.cityName || resolvedCity?.label || resolvedCity?.name || "",
         city: resolvedCity,
+        selectedComuni: activeZone.selectedComuni || (resolvedCity ? [resolvedCity] : []),
         radius: activeZone.radiusKm || activeZone.radius || 3,
         radiusKm: activeZone.radiusKm || activeZone.radius || 3,
         zones: activeZone.selected || [],
@@ -2820,6 +2873,7 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
       const changed =
         currentZone.cityName !== search ||
         JSON.stringify(currentZone.city) !== JSON.stringify(city) ||
+        JSON.stringify(currentZone.selectedComuni) !== JSON.stringify(selectedComuni) ||
         Number(currentZone.radiusKm ?? currentZone.radius) !== Number(radiusKm) ||
         JSON.stringify(currentZone.selected) !== JSON.stringify(selected) ||
         JSON.stringify(currentZone.selectedCaps) !== JSON.stringify(selectedCaps) ||
@@ -2838,6 +2892,7 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
         ...currentZone,
         cityName: search,
         city: city,
+        selectedComuni: selectedComuni,
         radius: radiusKm,
         radiusKm: radiusKm,
         selected: selected,
@@ -2856,6 +2911,7 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
         campaignZones: updatedZones,
         cityName: search,
         city: city,
+        selectedComuni: selectedComuni,
         radius: radiusKm,
         radiusKm: radiusKm,
         selectedRadius: radiusKm,
@@ -2871,6 +2927,87 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
     });
   }, [search, city, radiusKm, selected, selectedCaps, capDataMap, manualAssignments, allocationMode, coverageDecision, coverageStrategy, searchMode, activeMapLayers, data.activeZoneId]);
 
+  const switchToRadiusMode = () => {
+    userModeRef.current = "address";
+    setSearchMode("address");
+    const nextRad = radius || 3;
+    setRadius(nextRad);
+    setData(prev => {
+      const updatedZones = (prev.campaignZones || []).map(zone => {
+        if (zone.id === prev.activeZoneId) {
+          return {
+            ...zone,
+            searchMode: "address",
+            mode: "radius",
+            territoryMode: "radius",
+            areaMode: "radius",
+            radius: nextRad,
+            radiusKm: nextRad
+          };
+        }
+        return zone;
+      });
+      return {
+        ...prev,
+        searchMode: "address",
+        radius: nextRad,
+        radiusKm: nextRad,
+        selectedRadius: nextRad,
+        campaignZones: updatedZones
+      };
+    });
+  };
+
+  const switchToComuneMode = () => {
+    userModeRef.current = "municipality";
+    setSearchMode("municipality");
+    setData(prev => {
+      const updatedZones = (prev.campaignZones || []).map(zone => {
+        if (zone.id === prev.activeZoneId) {
+          return {
+            ...zone,
+            searchMode: "municipality",
+            mode: "comune",
+            territoryMode: "full_municipality",
+            areaMode: "full_municipality",
+            radius: null,
+            radiusKm: null
+          };
+        }
+        return zone;
+      });
+      return {
+        ...prev,
+        searchMode: "municipality",
+        campaignZones: updatedZones
+      };
+    });
+  };
+
+  const switchToCapMode = () => {
+    userModeRef.current = "cap";
+    setSearchMode("cap");
+    setData(prev => {
+      const updatedZones = (prev.campaignZones || []).map(zone => {
+        if (zone.id === prev.activeZoneId) {
+          return {
+            ...zone,
+            searchMode: "cap",
+            mode: "cap",
+            territoryMode: "cap",
+            areaMode: "cap"
+          };
+        }
+        return zone;
+      });
+      return {
+        ...prev,
+        searchMode: "cap",
+        campaignZones: updatedZones
+      };
+    });
+  };
+
   const updateActiveRadius = (nextRadiusKm) => {
     setPartialCoverageConfirmed(false);
     const normalizedRadius = Number(nextRadiusKm);
@@ -2879,7 +3016,16 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
     setData(prev => {
       const updatedZones = (prev.campaignZones || []).map(zone => (
         zone.id === prev.activeZoneId
-          ? { ...zone, radius: normalizedRadius, radiusKm: normalizedRadius, selected: [] }
+          ? {
+              ...zone,
+              radius: normalizedRadius,
+              radiusKm: normalizedRadius,
+              selected: [],
+              searchMode: "address",
+              mode: "radius",
+              territoryMode: "radius",
+              areaMode: "radius"
+            }
           : zone
       ));
       return {
@@ -2888,6 +3034,7 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
         radiusKm: normalizedRadius,
         selectedRadius: normalizedRadius,
         zones: [],
+        searchMode: "address",
         campaignZones: updatedZones,
       };
     });
@@ -2896,6 +3043,8 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
   const resetActiveZone = () => {
     setSearch("");
     setCity(null);
+    setSelectedComuni([]);
+    setPendingAddMunicipality(false);
     setRadius(3);
     setSelected([]);
     setSelectedCaps([]);
@@ -2911,9 +3060,10 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
           ? {
               ...zone,
               city: null,
+              selectedComuni: [],
               cityName: "",
-              radius: 3,
-              radiusKm: 3,
+              radius: null,
+              radiusKm: null,
               selected: [],
               selectedCaps: [],
               capDataMap: {},
@@ -2928,12 +3078,12 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
         comune: "",
         cityName: "",
         city: null,
+        selectedComuni: [],
         radius: 3,
         radiusKm: 3,
         selectedRadius: 3,
         zones: [],
         selectedZones: [],
-        selectedComuni: [],
         selectedCaps: [],
         capDataMap: {},
         manualAssignments: {},
@@ -3014,6 +3164,7 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
       recommended_flyers: data.qty || 10000,
       searchMode: "municipality",
       city: null,
+      selectedComuni: [],
       cityName: "",
       radius: 3,
       selected: [],
@@ -3088,9 +3239,15 @@ const requestedAnalysisLevel = useMemo(
 );
 const analysisScope = useMemo(() => data.activeZoneId || "zone", [data.activeZoneId]);
 // Fix effective radius
-const numericRadiusKm = Number(radiusKm) || 3;
-const effectiveRadiusKm = searchMode === "municipality" 
-  ? Math.min(Math.max(numericRadiusKm, 3), 8) 
+const numericRadiusKm = Number(rawRadiusKm) || 3;
+// Raggio tecnico di QUERY al backend (punto+raggio): mai null/0, anche in
+// modalità Comune — il backend non capisce "comune intero", solo punto+
+// raggio. Allargato per sweepare abbastanza comuni_breakdown/nil_breakdown
+// dal centroide del comune scelto (soglia più ampia con più comuni scelti
+// manualmente). Diverso da `radiusKm` (sopra), che è solo per la UI e resta
+// null in modalità Comune perché lì non va mostrato alcun raggio.
+const effectiveRadiusKm = isComuneMode
+  ? ((selectedComuni && selectedComuni.length > 1) ? Math.max(25, numericRadiusKm) : Math.min(Math.max(numericRadiusKm, 3), 8))
   : numericRadiusKm;
 
 debugStep2Log("[STEP2_EFFECTIVE_RADIUS]", { searchMode, radiusKm, effectiveRadiusKm });
@@ -3100,11 +3257,11 @@ const analysisParams = useMemo(() => ({
   lng: city?.lng ?? null,
   radiusKm: effectiveRadiusKm,
   serviceType: svcType,
-  municipality: selectedMunicipality,
+  municipality: isComuneMode ? selectedMunicipality : null,
   analysisLevel: requestedAnalysisLevel,
   quantity: quantityForAnalysis,
   scope: analysisScope,
-}), [city?.lat, city?.lng, effectiveRadiusKm, svcType, selectedMunicipality, requestedAnalysisLevel, quantityForAnalysis, analysisScope]);
+}), [city?.lat, city?.lng, effectiveRadiusKm, svcType, selectedMunicipality, requestedAnalysisLevel, quantityForAnalysis, analysisScope, isComuneMode, selectedComuni]);
 const { data: apiData, loading: apiLoading, error: apiError } = useServiceAnalysis(
   analysisParams.lat,
   analysisParams.lng,
@@ -3124,11 +3281,11 @@ const addressPointParams = useMemo(() => ({
   lng: city?.lng ?? null,
   radiusKm: effectiveRadiusKm,
   serviceType: svcType,
-}), [city?.lat, city?.lng, radiusKm, svcType]);
+}), [city?.lat, city?.lng, effectiveRadiusKm, svcType]);
 const civiciFetchEnabled =
   svcType === "d2d" &&
   activeMapLayers?.civici === true &&
-  Boolean(city?.lat && city?.lng && radiusKm);
+  Boolean(city?.lat && city?.lng && effectiveRadiusKm);
 
 const { civiciState, loading: civiciLoading } = useAddressPoints(
   addressPointParams.lat,
@@ -3161,6 +3318,9 @@ const demographicsParams = useMemo(() => {
   return { geographyRef: primaryMunicipalityCode, year: 2025 };
 }, [city?.lat, city?.lng, primaryMunicipalityCode]);
 const { data: demoData, loading: demoLoading, error: demoError } = useDemographicIndicators(demographicsParams);
+// useTerritorialIndicators era fuori scope (file rimosso) — fallback neutro,
+// la UI già gestisce "Dato non disponibile" quando territorialData è null.
+const territorialData = null;
   const analysisError = apiError;
 const confirmedSources = confirmedSourcesOrFallback(apiData, apiError);
 const confirmedStep2Sources = confirmedSources;
@@ -3172,6 +3332,39 @@ const isNilAnalysis = isResidentialStep2 && activeAnalysisLevel === "nil";
 const nilUnavailable = isResidentialStep2 && requestedAnalysisLevel === "nil" && apiData?.metadata?.nil_unavailable;
 const territoryPluralLabel = isNilAnalysis ? "Zone NIL" : "Comuni";
 const territorySingularLabel = isNilAnalysis ? "NIL" : "Comune";
+const formatTerritoryCount = (count) => `${count} ${count === 1 ? territorySingularLabel : territoryPluralLabel}`;
+// areaMode — concetto unico per distinguere cosa rappresentano davvero i
+// numeri mostrati (non solo il tab attivo):
+// - "radius": modalità Raggio, punto+raggio scelto dall'utente.
+// - "custom_zone": modalità Comune ma l'analisi reale è su sotto-zone NIL
+//   (Milano) — non rappresenta l'intero comune, va etichettato come tale.
+// - "full_municipality": modalità Comune, analisi a livello di comune intero.
+const areaMode = isRadiusMode ? "radius" : isCapMode ? "cap" : (isNilAnalysis ? "custom_zone" : "full_municipality");
+
+useEffect(() => {
+  if (import.meta.env.DEV) {
+    console.log("[AREA_MODE_SWITCH]", {
+      activeAreaTab,
+      areaMode,
+      selectionMode,
+      territoryMode,
+      selectedComune: selectedComune?.name || selectedComune?.label || null,
+      activeZoneId: data.activeZoneId,
+      radiusKm,
+      selectedZones: data.campaignZones?.map(z => ({
+        id: z.id,
+        name: z.cityName || z.zone_label || z.name || "",
+        mode: z.mode || (z.searchMode === "address" ? "radius" : z.searchMode === "cap" ? "cap" : "comune"),
+        radiusKm: z.radiusKm ?? z.radius ?? null
+      }))
+    });
+  }
+}, [activeAreaTab, areaMode, selectionMode, territoryMode, selectedComune?.name, selectedComune?.label, radiusKm, data.activeZoneId, data.campaignZones]);
+const areaContextLabel = areaMode === "radius"
+  ? "nel raggio selezionato"
+  : areaMode === "custom_zone"
+    ? "nell'area selezionata"
+    : "nel comune selezionato";
 const civiciCount =
   Number(civiciState?.count || 0) ||
   Number(civiciState?.bboxCount || 0);
@@ -3231,27 +3424,44 @@ const civiciAvailable =
   }, [search, searchMode]);
 
   // Fetch municipality boundary from OSM Nominatim when city is selected in "municipality" mode
+  const targetComuniList = useMemo(() => {
+    if (searchMode !== "municipality") return [];
+    if (selectedComuni && selectedComuni.length > 0) return selectedComuni;
+    if (city) return [city];
+    return [];
+  }, [searchMode, selectedComuni, city]);
+
   useEffect(() => {
-    if (searchMode !== "municipality" || !city) {
+    if (searchMode !== "municipality" || targetComuniList.length === 0) {
       setMunicipalityBoundary(null);
       return;
     }
-    const name = city.label || city.name;
-    if (!name) return;
     let cancelled = false;
-    debugStep2Log('[LOCATION_SEARCH_TYPE_DETECTED] municipality:', name);
     (async () => {
       try {
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name + ', Italy')}&format=geojson&polygon_geojson=1&limit=1`;
-        const res = await fetch(url, { headers: { 'User-Agent': 'VolantiniPro/1.0' } });
-        const json = await res.json();
-        const geom = json.features?.[0]?.geometry || null;
+        const results = await Promise.all(
+          targetComuniList.map(async (c) => {
+            const name = c.label || c.name;
+            if (!name) return null;
+            try {
+              const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name + ', Italy')}&format=geojson&polygon_geojson=1&limit=1`;
+              const res = await fetch(url, { headers: { 'User-Agent': 'VolantiniPro/1.0' } });
+              const json = await res.json();
+              const geom = json.features?.[0]?.geometry || null;
+              if (geom) {
+                return { name, geometry: geom };
+              }
+            } catch (e) {
+              debugStep2Warn('[MUNICIPALITY_BOUNDARY_ERROR]', name, e);
+            }
+            return null;
+          })
+        );
         if (!cancelled) {
-          setMunicipalityBoundary(geom);
-          if (geom) {
-            debugStep2Log('[MUNICIPALITY_BOUNDARY_LOADED]', name, geom.type);
-            debugStep2Log('[MUNICIPALITY_FULL_AREA_MODE]', name);
-            debugStep2Log('[COVERAGE_CALCULATED_FOR_FULL_MUNICIPALITY]', name);
+          const valid = results.filter(Boolean);
+          setMunicipalityBoundary(valid.length > 0 ? valid : null);
+          if (valid.length > 0) {
+            debugStep2Log('[MUNICIPALITY_BOUNDARIES_LOADED]', valid.map(x => x.name));
           }
         }
       } catch (e) {
@@ -3259,7 +3469,7 @@ const civiciAvailable =
       }
     })();
     return () => { cancelled = true; };
-  }, [city, searchMode]);
+  }, [targetComuniList, searchMode]);
 
 useEffect(() => {
   municipalitySwitchAtRef.current = Date.now();
@@ -3310,34 +3520,25 @@ const zonesInRadius = useMemo(() => {
       const nilAreas = filtered.filter(z => z.isNil || z.territoryLevel === "nil" || z.nilCode);
       filtered = nilAreas.length ? nilAreas : filtered;
     } else {
+    const currComuni = (selectedComuni && selectedComuni.length > 0) ? selectedComuni : (city ? [city] : []);
+    const targetNames = new Set(currComuni.map(c => normalizeMunicipalityName(c.label || c.name)).filter(Boolean));
+    const targetCodes = new Set(currComuni.map(c => c.municipalityCode || c.municipality_code || null).filter(Boolean).map(String));
+
     let matched = filtered.filter(z => {
-      const nameMatch = normalizeMunicipalityName(z.name) === selectedMunicipalityName;
-      const codeMatch = Boolean(primaryMunicipalityCode) && Boolean(z.municipality_code) && String(z.municipality_code) === String(primaryMunicipalityCode);
+      const nameMatch = targetNames.has(normalizeMunicipalityName(z.name));
+      const codeMatch = Boolean(z.municipality_code) && targetCodes.has(String(z.municipality_code));
       return nameMatch || codeMatch;
     });
 
-    // Se il match combinato nome/codice ha prodotto più di 1 area o un'area
-    // che non corrisponde esattamente al nome, prova a correggere filtrando
-    // SOLO per nome esatto (nessun fallback al primo elemento del raggio).
-    if (matched.length !== 1 || normalizeMunicipalityName(matched[0]?.name) !== selectedMunicipalityName) {
-      matched = filtered.filter(z => normalizeMunicipalityName(z.name) === selectedMunicipalityName).slice(0, 1);
-    }
-
-    // Il filtro di correzione qui sopra fa sempre .slice(0,1): dopo di esso
-    // `matched.length` può essere solo 0 o 1, e quando è 1 il nome combacia
-    // per costruzione. Quindi l'unico caso di "mismatch" possibile è array
-    // vuoto — e un array vuoto è SEMPRE un'attesa dati (comune non ancora
-    // arrivato/risolto), MAI un errore reale: non blocchiamo la UI e non
-    // spaventiamo la console con un falso console.error durante il loading.
     const withinSwitchGracePeriod = Date.now() - municipalitySwitchAtRef.current < 800;
-    if (selectedMunicipalityName && matched.length === 0) {
-      debugStep2Log("[STEP2_MUNICIPALITY_WAITING_FOR_AREAS]", { selectedMunicipalityName, apiLoading, filteredCount: filtered.length, withinSwitchGracePeriod });
+    if (targetNames.size > 0 && matched.length === 0) {
+      debugStep2Log("[STEP2_MUNICIPALITY_WAITING_FOR_AREAS]", { targetNames: Array.from(targetNames), apiLoading, filteredCount: filtered.length, withinSwitchGracePeriod });
     }
 
     debugStep2Log("[STEP2_FINAL_MUNICIPALITY_AREA]", matched.map(z => z.name));
     filtered = matched;
     }
-  } else if (gateMode === "radius") {
+  } else if (gateMode === "address" || gateMode === "radius") {
     // includere solo comuni entro radiusKm + hard guard anti-regressione
     const numRadius = Number(radiusKm) || 3;
     if (numRadius <= 3 && filtered.length > 8) {
@@ -3349,15 +3550,55 @@ const zonesInRadius = useMemo(() => {
     }
   }
 
+  // Guardia anti-duplicati: se il backend restituisce due righe per lo stesso
+  // comune/NIL (es. join geografico che duplica un confine), sommare
+  // famiglie/popolazione/volantini due volte falserebbe ogni KPI a valle
+  // (serviceKpis, mappa, riepilogo). Tiene solo la prima occorrenza per
+  // codice ISTAT/NIL, o per nome normalizzato quando il codice manca.
+  const seenZoneKeys = new Set();
+  const dedupedFiltered = filtered.filter(z => {
+    const key = z?.municipality_code || z?.nilCode || z?.nil_code || normalizeMunicipalityName(z?.name || "");
+    if (!key) return true; // nessuna chiave stabile disponibile: non si può giudicare duplicato, si mantiene
+    if (seenZoneKeys.has(key)) {
+      if (isStep2DebugEnabled()) debugStep2Warn("[STEP2_DUPLICATE_ZONE_DROPPED]", { key, name: z?.name });
+      return false;
+    }
+    seenZoneKeys.add(key);
+    return true;
+  });
+
   if (isStep2DebugEnabled()) {
-    debugStep2Log("[STEP2_INCLUDED_COMMUNES]", filtered.length, filtered.map(z => z.name));
-    const totalFam = filtered.reduce((a, b) => a + (b.families || 0), 0);
+    debugStep2Log("[STEP2_INCLUDED_COMMUNES]", dedupedFiltered.length, dedupedFiltered.map(z => z.name));
+    const totalFam = dedupedFiltered.reduce((a, b) => a + (b.families || 0), 0);
     debugStep2Log("[STEP2_FAMILIES_CALC_OUTPUT]", totalFam);
-    debugStep2Log("[STEP2_FINAL_SOURCE_LOCKED]", { gateMode, communes: filtered.length, families: totalFam });
+    debugStep2Log("[STEP2_FINAL_SOURCE_LOCKED]", { gateMode, communes: dedupedFiltered.length, families: totalFam });
   }
 
-  return filtered;
-}, [hasUsefulApiZones, apiZones, searchMode, selectedMunicipality, primaryMunicipalityCode, radiusKm, apiLoading, isResidentialStep2, requestedAnalysisLevel]);
+  return dedupedFiltered;
+}, [hasUsefulApiZones, apiZones, searchMode, selectedMunicipality, selectedComuni, primaryMunicipalityCode, radiusKm, apiLoading, isResidentialStep2, requestedAnalysisLevel]);
+// Comuni realmente coinvolti nella selezione corrente — derivato da
+// zonesInRadius (già filtrato SOLO sui comuni scelti manualmente in modalità
+// Comune, o sui comuni nel raggio con i guard anti-regressione in modalità
+// Raggio), MAI dal dump grezzo apiData.comuni_breakdown (che in modalità
+// Comune multi-selezione può contenere centinaia di comuni per via
+// dell'allargamento tecnico del raggio di query — effectiveRadiusKm —
+// usato solo per recuperare i dati dall'API, non per definire la selezione).
+const allMunicipalityCodesInSelection = useMemo(() => {
+  const rows = zonesInRadius || [];
+  const codes = rows.map((z) => z?.municipality_code || z?.comune_code).filter(Boolean);
+  return Array.from(new Set(codes));
+}, [zonesInRadius]);
+// useDusafLanduse e useDemographicIndicatorsForMunicipalities erano fuori
+// scope (file rimossi) — fallback neutri derivati dai dati già esistenti:
+// dusafLanduse resta "non disponibile" (la UI già gestisce `?.available`
+// ovunque), effectiveDemoData usa demoData (comune singolo, hook ancora
+// presente) invece dell'aggregazione multi-comune rimossa.
+const dusafLanduse = null;
+const dusafLoading = false;
+const dusafError = null;
+const municipalityDemoAgg = null;
+const municipalityDemoLoading = false;
+const effectiveDemoData = demoData;
 useEffect(() => {
   if (!apiData) return;
   const nilRows = Array.isArray(apiData.nil_breakdown) && apiData.nil_breakdown.length ? apiData.nil_breakdown : (apiData.comuni_breakdown || []).filter(row => row?.territory_level === "nil");
@@ -3390,8 +3631,8 @@ const territorialDataUnavailable = Boolean(city && !apiLoading && !hasUsefulApiZ
     debugStep2Log("[STEP2_FINAL_MODE]", gateMode);
     let areas;
     if (gateMode === "municipality") {
-      areas = zonesInRadius; // already filtered to 1 zone; bypasses stale `selected`
-      if (areas.length > 1 && !isNilAnalysis) {
+      areas = zonesInRadius; // already filtered to target zones; bypasses stale `selected`
+      if (areas.length > 1 && !isNilAnalysis && (!selectedComuni || selectedComuni.length <= 1)) {
         debugStep2Warn("[STEP2_MUNICIPALITY_MULTI_AREA_BLOCKED]", areas.length, "→ forcing to 1");
         areas = [areas[0]];
       }
@@ -3400,7 +3641,7 @@ const territorialDataUnavailable = Boolean(city && !apiLoading && !hasUsefulApiZ
     }
     debugStep2Log("[STEP2_FINAL_AREAS_FOR_COVERAGE]", areas.length, areas.map(z => z.name));
     return areas;
-  }, [searchMode, selectedCaps, capDataMap, zonesInRadius, allZones, selected, isNilAnalysis]);
+  }, [searchMode, selectedCaps, capDataMap, zonesInRadius, allZones, selected, isNilAnalysis, selectedComuni]);
 
   async function handleCapSelect(capSuggestion) {
     setSearch("");
@@ -3474,12 +3715,35 @@ const totalCapacity = isResidentialStep2 ? doorCoverage.fullCoverageFlyers : sel
   }, [hasSurplus, surplusFlyers, city?.name, flyerQuantityFromStep1, requiredFlyers]);
 
   let remainingForAuto = flyerQuantityFromStep1;
+  // Modalità "Priorità" (solo Comuni): stesso algoritmo greedy di "auto",
+  // applicato all'ordine scelto dall'utente (comuniPriorityOrder) invece
+  // dell'ordine naturale di selZones. Le zone non ancora ordinate vanno in
+  // coda, nell'ordine originale.
+  let priorityAssignedById = null;
+  if (allocationMode === "priority") {
+    const orderIndex = new Map(comuniPriorityOrder.map((id, i) => [id, i]));
+    const priorityOrderedZones = [...selZones].sort((a, b) => {
+      const ia = orderIndex.has(a.id) ? orderIndex.get(a.id) : Infinity;
+      const ib = orderIndex.has(b.id) ? orderIndex.get(b.id) : Infinity;
+      return ia - ib;
+    });
+    priorityAssignedById = new Map();
+    let remainingForPriority = flyerQuantityFromStep1;
+    for (const z of priorityOrderedZones) {
+      const req = isResidentialStep2 ? getZoneFullCoverageFlyers(z) : zCap(z);
+      const assigned = Math.min(req, remainingForPriority);
+      remainingForPriority -= assigned;
+      priorityAssignedById.set(z.id, assigned);
+    }
+  }
   const zonesAllocation = selZones.map(z => {
     const req = isResidentialStep2 ? getZoneFullCoverageFlyers(z) : zCap(z);
     let assigned = 0;
     if (allocationMode === "auto") {
       assigned = Math.min(req, remainingForAuto);
       remainingForAuto -= assigned;
+    } else if (allocationMode === "priority") {
+      assigned = priorityAssignedById.get(z.id) || 0;
     } else {
       assigned = manualAssignments[z.id] || 0;
     }
@@ -3501,6 +3765,21 @@ const totalCapacity = isResidentialStep2 ? doorCoverage.fullCoverageFlyers : sel
     setManualAssignments(prev => ({...prev, [id]: num }));
   }
 
+  // Riordina un comune nella modalità "Priorità" (solo modalità Comuni).
+  // Se comuniPriorityOrder è ancora vuoto, lo inizializza dall'ordine
+  // corrente delle zone selezionate al primo utilizzo.
+  function movePriorityZone(id, direction) {
+    setComuniPriorityOrder(prev => {
+      const order = prev.length ? [...prev] : selZones.map(z => z.id);
+      const idx = order.indexOf(id);
+      if (idx < 0) return order;
+      const swapWith = idx + direction;
+      if (swapWith < 0 || swapWith >= order.length) return order;
+      [order[idx], order[swapWith]] = [order[swapWith], order[idx]];
+      return order;
+    });
+  }
+
   function handleNext() {
     const isCapMode = searchMode === "cap";
     const finalFlyerQuantity =
@@ -3513,12 +3792,31 @@ const totalCapacity = isResidentialStep2 ? doorCoverage.fullCoverageFlyers : sel
       ? computeDoorToDoorCoverage({ insertedFlyers: finalFlyerQuantity, selectedZones: selZones })
       : null;
     let finalRemainingForAuto = finalFlyerQuantity;
+    let finalPriorityAssignedById = null;
+    if (allocationMode === "priority") {
+      const orderIndex = new Map(comuniPriorityOrder.map((id, i) => [id, i]));
+      const priorityOrderedZones = [...selZones].sort((a, b) => {
+        const ia = orderIndex.has(a.id) ? orderIndex.get(a.id) : Infinity;
+        const ib = orderIndex.has(b.id) ? orderIndex.get(b.id) : Infinity;
+        return ia - ib;
+      });
+      finalPriorityAssignedById = new Map();
+      let finalRemainingForPriority = finalFlyerQuantity;
+      for (const z of priorityOrderedZones) {
+        const req = isResidentialStep2 ? getZoneFullCoverageFlyers(z) : zCap(z);
+        const assigned = Math.min(req, finalRemainingForPriority);
+        finalRemainingForPriority -= assigned;
+        finalPriorityAssignedById.set(z.id, assigned);
+      }
+    }
     const finalZonesAllocation = selZones.map(z => {
       const req = isResidentialStep2 ? getZoneFullCoverageFlyers(z) : zCap(z);
       const assigned = allocationMode === "manual"
         ? (manualAssignments[z.id] || 0)
-        : Math.min(req, finalRemainingForAuto);
-      if (allocationMode !== "manual") finalRemainingForAuto -= assigned;
+        : allocationMode === "priority"
+          ? (finalPriorityAssignedById.get(z.id) || 0)
+          : Math.min(req, finalRemainingForAuto);
+      if (allocationMode === "auto") finalRemainingForAuto -= assigned;
       return {
         id: z.id,
         name: z.name,
@@ -3575,6 +3873,7 @@ const totalCapacity = isResidentialStep2 ? doorCoverage.fullCoverageFlyers : sel
       selectedMunicipalities: isCapMode ? [] : selZones.map(z => z.name),
       cityName: isCapMode ? (selectedCaps.length === 1 ? `CAP ${selectedCaps[0]}` : `${selectedCaps.length} CAP selezionati`) : (city?.label || city?.name || ""),
       allocationMode,
+      comuniPriorityOrder,
       coverageDecision,
       coverageStrategy: finalCoverageStrategy,
       surplusFlyers: hasSurplus ? Math.max(0, finalFlyerQuantity - requiredFlyers) : 0,
@@ -3683,8 +3982,14 @@ const step2FamiliesCalc = useMemo(() => {
   debugStep2Log("[STEP2_FAMILIES_CALC_INPUT]", { rawFam, rawPop, rawRec, rawArea, radiusKm });
 
   const maxPlausibleRadiusFam = Math.max(120000, Math.round(Math.PI * Number(radiusKm || 3) * Number(radiusKm || 3) * 5500));
-  const isOutOfScale = (searchMode !== "cap" && Number(radiusKm) > 0 && rawFam > maxPlausibleRadiusFam) ||
-                       (rawRec > 0 && rawFam > rawRec * 1.6);
+  // Modalità Comuni: comuni scelti manualmente possono legittimamente superare
+  // il tetto pensato per un'area a raggio — si mantiene solo il controllo di
+  // coerenza col recommended, non il tetto ad area-raggio (che qui non ha
+  // senso). Modalità Raggio/CAP: espressione invariata.
+  const isOutOfScale = searchMode === "municipality"
+    ? (rawRec > 0 && rawFam > rawRec * 1.6)
+    : (searchMode !== "cap" && Number(radiusKm) > 0 && rawFam > maxPlausibleRadiusFam) ||
+      (rawRec > 0 && rawFam > rawRec * 1.6);
 
   const finalFam = isOutOfScale ? Math.round((rawRec || flyerQuantityFromStep1 || 20000) / 1.08) : rawFam;
   const finalPop = isOutOfScale || rawPop > finalFam * 4 ? Math.round(finalFam * 2.3) : rawPop;
@@ -3727,16 +4032,34 @@ const serviceKpis = selZones.length > 0 ? {
     roiScore: isResidentialStep2 && selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.roiD2D) || 0), 0) / selZones.length) : null,
     confidenceScore: isResidentialStep2 && selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.confD2D) || 0), 0) / selZones.length) : null,
   } : { area: "0", hotspotStrength: isMovementStep2 ? h2hMetrics.zones : 0, families: 0, pop: 0, population: 0, coverage: 0, recommendedFlyers: 0, selectedComuni: [], selectedNil: [], analysisLevel: activeAnalysisLevel, comuniCount: 0, poi: isMovementStep2 ? h2hMetrics.poi : 0, operationalZones: isMovementStep2 ? h2hMetrics.zones : isBusinessStep2 ? businessMetrics.clusters : 0, hotspotCount: isMovementStep2 ? h2hMetrics.zones : 0, tplStops: isMovementStep2 ? h2hMetrics.tplStops : 0, stations: isMovementStep2 ? h2hMetrics.stations : 0, metro: isMovementStep2 ? h2hMetrics.metro : 0, universities: isMovementStep2 ? h2hMetrics.universities : 0, localAttractors: isMovementStep2 ? h2hMetrics.localAttractors : 0, gpsWaypoints: operationalWaypoints.length, transitStops: isMovementStep2 ? h2hMetrics.transitTotal : 0, flowScore: isMovementStep2 ? h2hMetrics.flowScore : 0, businesses: isBusinessStep2 ? businessMetrics.businesses : 0, competitors: isBusinessStep2 ? businessMetrics.competitors : 0, commercialDensity: isBusinessStep2 ? businessMetrics.commercialDensity : 0, clusters: isBusinessStep2 ? businessMetrics.clusters : 0, targetBusinesses: isBusinessStep2 ? businessMetrics.targetBusinesses : 0, cdIdx: isBusinessStep2 ? businessMetrics.cdIdx : 0, familyIndex: null, reachScore: null, roiScore: null, confidenceScore: null };
+// Somma su SOLO i comuni realmente selezionati (selZones, già filtrato
+// sui chip scelti manualmente) — non un singolo comune "principale":
+// con 1 comune coincide col totale di quel comune, con N comuni è la
+// somma dei loro totali reali.
 const municipalityTotalFamilies = (() => {
-  if (!isResidentialStep2 || isNilAnalysis) return null;
-  const selectedName = normalizeMunicipalityName(selectedMunicipality);
-  const exactComune = (apiZones || []).find(z => !z.isNil && normalizeMunicipalityName(z.name) === selectedName);
-  const total = Number(exactComune?.householdsTotal);
-  return Number.isFinite(total) && total > 0 ? Math.round(total) : null;
+  if (!isResidentialStep2) return null;
+  if (isNilAnalysis) {
+    // Analisi a livello NIL (Milano): ogni zona NIL porta lo stesso totale
+    // comunale nel campo householdsTotal (contesto, non per-zona) — sommare
+    // su più zone NIL lo moltiplicherebbe. Basta un solo valore rappresentativo.
+    const rep = selZones.find(z => Number(z.householdsTotal) > 0);
+    return rep ? Math.round(Number(rep.householdsTotal)) : null;
+  }
+  const total = selZones.reduce((a, z) => a + (Number(z.householdsTotal) || 0), 0);
+  return total > 0 ? Math.round(total) : null;
 })();
 const municipalityTotalFamiliesLabel = municipalityTotalFamilies != null
   ? municipalityTotalFamilies.toLocaleString("it-IT", { useGrouping: true })
-  : "Totale Comune non disponibile";
+  : (searchMode === "municipality" && selectedComuni.length > 1 ? "Totale territorio non disponibile" : "Totale Comune non disponibile");
+const municipalityTotalFamiliesRowLabel = !isComuneMode
+  ? "Totale stimato area selezionata"
+  : (selectedComuni.length > 1 ? "Totale territorio selezionato" : "Totale stimato Comune");
+// Incidenza sul comune (custom_zone/Milano): peso geografico reale delle
+// zone NIL selezionate sul totale del comune — dato secondario, mai
+// mostrato come "copertura" principale (che resta il budget volantini).
+const zoneCoveragePctForBox = isNilAnalysis && selZones.length > 0
+  ? Math.round(selZones.reduce((a, z) => a + (Number(z.coverage) || 0), 0))
+  : null;
 const selectedAreaFamiliesLabel = serviceKpis?.families > 0
   ? serviceKpis.families.toLocaleString("it-IT", { useGrouping: true })
   : "Dato non disponibile";
@@ -3831,9 +4154,11 @@ const radiusInsightRows = zonesInRadius.map(z => ({
       const alloc = zonesAllocation.find(a => a.id === z.id) || { requiredFlyers: zCap(z), assignedFlyers: 0 };
       const assigned = Math.max(0, Math.round(Number(alloc.assignedFlyers || alloc.assigned || alloc.allocated || alloc.volantini_assegnati || 0)));
       const required = Math.max(0, Math.round(Number(alloc.requiredFlyers || alloc.needed || alloc.volantini_necessari || zCap(z) || 0)));
-      if (assigned <= 0) esclusi++;
-      else if (assigned >= required) coperti++;
-      else parziali++;
+      const pct = required > 0 ? (assigned / required) * 100 : (assigned > 0 ? 100 : 0);
+      const status = getCoverageStatus(pct);
+      if (status === "coperto") coperti++;
+      else if (status === "parziale") parziali++;
+      else esclusi++;
     });
     return { total: zoneRows.length, coperti, parziali, esclusi };
   }, [zoneRowsForList, zonesAllocation]);
@@ -3888,6 +4213,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     background: active ? `${c}18` : "rgba(255,255,255,.04)",
     color: active ? c : "rgba(255,255,255,.48)", transition: "all.15s", whiteSpace: "nowrap",
   });
+  // Riga controllo mappa nel pannello "Vista avanzata" (solo visualizzazione, no KPI).
   const MAP_H_PX = 420;
 
   const _totalFamiliesInRadius = zonesInRadius.reduce((a, z) => a + (z.families || 0), 0);
@@ -3948,13 +4274,13 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     }
   };
   const residentialMainOutputs = d2dKpiZone ? safeMainKpis(SERVICE_META.d2d, d2dKpiZone).map(k =>
-    k.l === "Comuni nel raggio" ? { ...k, v: String(zonesInRadius.length) } : k
+    k.l === "Comuni nel raggio" ? { ...k, l: isComuneMode ? territoryPluralLabel : k.l, v: String(zonesInRadius.length) } : k
   ) : [];
   const h2hMainOutputs = isMovementStep2 && firstZ ? safeMainKpis(SERVICE_META.h2h, firstZ) : [];
   const businessMainOutputs = isBusinessStep2 && firstZ ? safeMainKpis(SERVICE_META.b2b, firstZ) : [];
   const serviceOutputRows = firstZ ? safeMainKpis(serviceMeta, firstZ) : [];
   const residentialMainOutputsNormalized = residentialMainOutputs.map(k =>
-    k.l === "Comuni nel raggio" ? { ...k, l: `${territoryPluralLabel} nel raggio`, v: String(zonesInRadius.length) } : k
+    k.l === "Comuni nel raggio" || k.l === territoryPluralLabel ? { ...k, l: isComuneMode ? territoryPluralLabel : `${territoryPluralLabel} nel raggio`, v: String(zonesInRadius.length) } : k
   );
   const residentialScores = aiAgg ? SERVICE_META.d2d.advKpis(aiAgg) : [];
   const h2hScores = aiAgg ? SERVICE_META.h2h.advKpis(aiAgg) : [];
@@ -4094,6 +4420,24 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 ? "Continua con distribuzione manuale →"
                 : "Continua al preventivo →";
 
+  // Fonte unica per le label/valori "primari" di Comune/Raggio/NIL — vedi
+  // src/lib/step2/buildStep2ViewModel.js. Non ricalcola KPI: legge solo
+  // valori già calcolati sopra (serviceKpis, requiredFlyers, areaMode, ecc.).
+  const step2ViewModel = buildStep2ViewModel({
+    areaMode,
+    cityName: city?.label || city?.name || activeCampaignZone?.cityName || null,
+    radiusKm: radiusKm || radius || null,
+    isResidentialStep2,
+    isMovementStep2,
+    serviceKpis,
+    requiredFlyers,
+    flyerQuantityFromStep1,
+    missingFlyers,
+    zoneCount: summaryComuniStats?.total || selZones.length || zonesInRadius.length || 1,
+    isNilAnalysis,
+    territoryPluralLabel,
+  });
+
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto", padding: "34px clamp(16px, 4vw, 32px) 160px", background: C.navyMid, minHeight: "100vh", overflow: "visible" }}>
 
@@ -4131,7 +4475,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
         )}
 
         {/* Vista Cliente / Vista Tecnica link discreto */}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", flexShrink: 0 }}>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           <button onClick={() => setIsAdminView(v => !v)} style={{ padding: "6px 12px", borderRadius: 8, background: isAdminView ? "rgba(56,189,248,.12)" : "rgba(255,255,255,.03)", border: isAdminView ? "1px solid rgba(56,189,248,.35)" : "1px solid rgba(255,255,255,.08)", color: isAdminView ? "#38BDF8" : "rgba(255,255,255,.65)", fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all .2s ease", display: "flex", alignItems: "center", gap: 6 }}>
             <span>{isAdminView ? "←" : "📊"}</span> {isAdminView ? "Torna alla Vista Cliente" : "Analisi Avanzata"}
           </button>
@@ -4157,24 +4501,56 @@ const radiusInsightRows = zonesInRadius.map(z => ({
         <div style={{ position: "relative", flex: "0 0 340px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 0, padding: 0, borderRadius: 10, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.12)", overflow: "hidden" }}>
             <div style={{ display: "flex", background: "rgba(255,255,255,.03)", borderRight: "1px solid rgba(255,255,255,.12)" }}>
-              <button onClick={() => { userModeRef.current = "municipality"; setSearchMode("municipality"); setSearch(""); setMunicipalityBoundary(null); setSelected([]); }} style={{ padding: "9px 10px", background: searchMode === "municipality" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>Comune</button>
-              <button onClick={() => { userModeRef.current = "address"; setSearchMode("address"); setSearch(""); setMunicipalityBoundary(null); }} style={{ padding: "9px 10px", background: searchMode === "address" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>Raggio</button>
-              <button onClick={() => { userModeRef.current = "cap"; setSearchMode("cap"); setSearch(""); setMunicipalityBoundary(null); }} style={{ padding: "9px 10px", background: searchMode === "cap" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>CAP</button>
+              <button onClick={switchToComuneMode} style={{ padding: "9px 10px", background: activeAreaTab === "comune" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>Comune</button>
+              <button onClick={switchToRadiusMode} style={{ padding: "9px 10px", background: activeAreaTab === "raggio" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>Raggio</button>
+              <button onClick={switchToCapMode} style={{ padding: "9px 10px", background: activeAreaTab === "cap" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>CAP</button>
             </div>
             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "0 12px" }}>
               <span style={{ fontSize: 13 }}>{searchMode === "cap" ? "" : ""} </span>
               <input value={search} onChange={e => { setSearch(e.target.value); setDropOpen(true); }} onFocus={() => setDropOpen(true)}
-                placeholder={searchMode === "cap" ? "Inserisci CAP (es. 20121)..." : "Cerca comune o CAP"}
+                placeholder={searchMode === "cap" ? "Inserisci CAP (es. 20121)..." : (searchMode === "municipality" ? (pendingAddMunicipality ? "Aggiungi comune (es. Meda, Cesano...)" : "Cerca comune") : "Cerca comune o CAP")}
                 style={{ flex: 1, background: "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 13, height: 38 }} />
               {search && <button onClick={() => { setSearch(""); setDropOpen(false); }} style={{ background: "none", border: "none", color: "rgba(255,255,255,.4)", cursor: "pointer", fontSize: 16 }}>-</button>}
             </div>
           </div>
+          {duplicateComuneNotice && (
+            <div style={{ marginTop: 6, padding: "6px 10px", borderRadius: 8, background: "rgba(251,191,36,.1)", border: "1px solid rgba(251,191,36,.3)", fontFamily: F.sans, fontSize: 11, color: "#FBBF24" }}>
+              {duplicateComuneNotice}
+            </div>
+          )}
           {dropOpen && search.length > 0 && (
             <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "#1a2a40", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10, zIndex: 80, overflow: "hidden", boxShadow: "0 14px 36px rgba(0,0,0,.55)" }}>
               {searchMode === "municipality" ? (
                 geocodeSuggestions.length === 0 && search.length >= 2 ? <div style={{ padding: "9px 14px", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.35)" }}>Nessun risultato...</div> :
                 geocodeSuggestions.map(c => (
-                  <div key={c.id} onClick={() => { setCity(c); setSearch(c.label || c.name); setDropOpen(false); setSelected([]); setCoverageDecision(null); setCoverageStrategy(null); setPartialCoverageConfirmed(false); }}
+                  <div key={c.id} onClick={() => {
+                    if (searchMode === "municipality" && pendingAddMunicipality) {
+                      const normNew = normalizeMunicipalityName(c.label || c.name);
+                      const currList = selectedComuni.length > 0 ? selectedComuni : (city ? [city] : []);
+                      const already = currList.some(x => normalizeMunicipalityName(x.label || x.name) === normNew || (x.id && c.id && x.id === c.id));
+                      if (!already) {
+                        const nextComuni = [...currList, c];
+                        setSelectedComuni(nextComuni);
+                        if (!city) setCity(c);
+                        setDuplicateComuneNotice("");
+                      } else {
+                        setDuplicateComuneNotice(`${c.label || c.name} è già stato aggiunto.`);
+                      }
+                      setSearch("");
+                      setDropOpen(false);
+                      setPendingAddMunicipality(false);
+                    } else {
+                      setCity(c);
+                      setSelectedComuni([c]);
+                      setSearch(c.label || c.name);
+                      setDropOpen(false);
+                      setSelected([]);
+                      setCoverageDecision(null);
+                      setCoverageStrategy(null);
+                      setPartialCoverageConfirmed(false);
+                      setPendingAddMunicipality(false);
+                    }
+                  }}
                     style={{ padding: "9px 14px", cursor: "pointer", fontFamily: F.sans, fontSize: 13, color: C.white, borderBottom: "1px solid rgba(255,255,255,.05)" }}
                     onMouseEnter={e => e.currentTarget.style.background = "rgba(34, 197, 94,.12)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
@@ -4197,36 +4573,149 @@ const radiusInsightRows = zonesInRadius.map(z => ({
           )}
         </div>
 
-        {/* Comune selezionato badge — solo in modalità comune */}
-        {searchMode === "municipality" && city && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 14px", borderRadius: 8, background: "rgba(34,197,94,.09)", border: "1px solid rgba(34,197,94,.22)", fontFamily: F.sans, fontSize: 12, flexWrap: "wrap" }}>
-            <span style={{ color: "#22C55E", fontWeight: 900 }}>Comune selezionato: {city.label || city.name}</span>
-            <span style={{ color: "rgba(255,255,255,.45)" }}>— Modalità: intero comune</span>
-            {municipalityBoundary && <span style={{ color: "#22C55E", fontSize: 10, fontWeight: 800 }}>✓ confine caricato</span>}
+        {/* Comune selezionato badge / lista — in modalità comune */}
+        {searchMode === "municipality" && (selectedComuni.length > 0 || city) && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", marginBottom: 4 }}>
+            {selectedComuni.length > 1 && (
+              <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,.7)", textTransform: "uppercase", letterSpacing: ".04em" }}>
+                Territorio selezionato
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>
+                {selectedComuni.length > 1 ? `${selectedComuni.length} Comuni selezionati:` : "Comune selezionato:"}
+              </span>
+              {(selectedComuni.length > 0 ? selectedComuni : [city]).filter(Boolean).map((c, idx) => {
+                const normName = normalizeMunicipalityName(c.label || c.name);
+                const zoneData = (zonesInRadius || []).find(z => normalizeMunicipalityName(z.name) === normName);
+                const fam = zoneData?.families || zoneData?.householdsTotal || 0;
+                const pop = zoneData?.pop || zoneData?.population || zoneData?.populationTotal || 0;
+                const rec = zoneData?.flyersMin || zoneData?.recommendedFlyers || 0;
+                const cov = zoneData?.coverage || 100;
+                // In analisi NIL (Milano), z.coverage è il peso della singola
+                // zona NIL sul totale comune (es. 1%) — NON una copertura
+                // geografica parziale del confine. Usarlo qui creerebbe un
+                // falso badge "Parziale (1%)" fuori contesto: il badge resta
+                // sul solo stato di caricamento del confine.
+                const isPart = !isNilAnalysis && cov < 95;
+                const hasBound = municipalityBoundary && (Array.isArray(municipalityBoundary) ? municipalityBoundary.some(b => normalizeMunicipalityName(b.name) === normName) : true);
+                const isHidden = hiddenBoundaries.includes(normName);
+
+                return (
+                  <div key={c.id || idx} style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    background: isHidden ? "rgba(255,255,255,.03)" : "rgba(34,197,94,.09)",
+                    border: isHidden ? "1px dashed rgba(255,255,255,.18)" : "1px solid rgba(34,197,94,.22)",
+                    fontFamily: F.sans,
+                    fontSize: 12,
+                    flexWrap: "wrap",
+                    opacity: isHidden ? 0.65 : 1,
+                    transition: "all 0.2s ease"
+                  }}>
+                    <span style={{ color: isHidden ? "rgba(255,255,255,.6)" : "#22C55E", fontWeight: 900 }}>✓ {c.label || c.name}</span>
+                    {hasBound && <span style={{ color: isHidden ? "rgba(255,255,255,.45)" : "#22C55E", fontSize: 10, fontWeight: 800 }}>✓ confine</span>}
+                    {fam > 0 && <span style={{ color: "rgba(255,255,255,.7)", fontSize: 11 }}><b>{formatNumber(fam)}</b> fam.</span>}
+                    {pop > 0 && <span style={{ color: "rgba(255,255,255,.6)", fontSize: 11 }}>({formatNumber(pop)} ab.)</span>}
+                    {rec > 0 && <span style={{ color: col, fontSize: 11, fontWeight: 700 }}>{formatNumber(rec)} vol.</span>}
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: isPart ? "rgba(234,179,8,.15)" : (isHidden ? "rgba(255,255,255,.08)" : "rgba(34,197,94,.15)"), color: isPart ? "#FACC15" : (isHidden ? "rgba(255,255,255,.6)" : "#22C55E"), border: `1px solid ${isPart ? "rgba(234,179,8,.3)" : (isHidden ? "rgba(255,255,255,.15)" : "rgba(34,197,94,.3)")}` }}>
+                      {isPart ? `Parziale (${cov}%)` : "Confine OK/Caricato"}
+                    </span>
+                    {/* Toggle Visibilità Confine ON/OFF (Solo Visivo - NON RIMUOVI IL COMUNE NE' I KPI) */}
+                    {hasBound && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setHiddenBoundaries(prev =>
+                            prev.includes(normName)
+                              ? prev.filter(n => n !== normName)
+                              : [...prev, normName]
+                          );
+                        }}
+                        title={isHidden ? "Mostra confine sulla mappa (i KPI restano invariati)" : "Nascondi confine dalla mappa (solo visivo, i KPI restano invariati)"}
+                        style={{
+                          background: isHidden ? "rgba(255,255,255,.08)" : "rgba(34,197,94,.18)",
+                          border: `1px solid ${isHidden ? "rgba(255,255,255,.18)" : "rgba(34,197,94,.35)"}`,
+                          borderRadius: 6,
+                          color: isHidden ? "rgba(255,255,255,.6)" : "#22C55E",
+                          cursor: "pointer",
+                          padding: "3px 7px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          marginLeft: 4,
+                          transition: "all 0.15s ease"
+                        }}
+                      >
+                        <span style={{ fontSize: 13 }}>{isHidden ? "👁️‍🗨️" : "👁️"}</span>
+                        <span>{isHidden ? "Confine OFF" : "Confine ON"}</span>
+                      </button>
+                    )}
+                    <button onClick={(e) => {
+                      e.stopPropagation();
+                      const currList = selectedComuni.length > 0 ? selectedComuni : [city];
+                      const next = currList.filter(x => normalizeMunicipalityName(x.label || x.name) !== normName);
+                      setSelectedComuni(next);
+                      if (next.length > 0 && normalizeMunicipalityName(city?.label || city?.name) === normName) {
+                        setCity(next[0]);
+                      } else if (next.length === 0) {
+                        setCity(null);
+                        setMunicipalityBoundary(null);
+                      }
+                    }}
+                      title="Rimuovi comune dalla selezione (cambia i KPI)"
+                      style={{ background: "none", border: "none", color: "rgba(255,255,255,.5)", cursor: "pointer", fontSize: 14, fontWeight: 800, padding: "0 4px", marginLeft: 2 }}>
+                      ✕
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {/* Radius pills - solo in modalità raggio o per indirizzi */}
-        {searchMode === "address" && (
-          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>Aumentando il raggio aumentano copertura, comuni coinvolti e quantità consigliata.</div>
-              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.35)", marginRight: 4, whiteSpace: "nowrap" }}>Raggio:</span>
-            {S2_RADII.map(r => (
-              <button key={r} onClick={() => updateActiveRadius(r)}
-                style={{
-                  padding: "7px 10px", borderRadius: 7, border: `1px solid ${radiusKm === r ? "#22C55E" : "rgba(255,255,255,.1)"}`,
-                  background: radiusKm === r ? "rgba(34, 197, 94,.18)" : "rgba(255,255,255,.04)",
-                  color: radiusKm === r ? "#22C55E" : "rgba(255,255,255,.5)",
-                  fontFamily: F.sans, fontSize: 11, fontWeight: radiusKm === r ? 700 : 400, cursor: "pointer", transition: "all.15s"
-                }}>
-                {r < 1 ? `${r * 1000}m` : `${r}km`}
-              </button>
-            ))}
-            <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white, marginLeft: 6 }}>Raggio selezionato: {radiusKm < 1 ? `${radiusKm * 1000}m` : `${radiusKm}km`}</span>
+        {/* Radius pills & info - in modalità raggio */}
+        {activeAreaTab === "raggio" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", marginBottom: 6 }}>
+            {(selectedComuni.length > 0 || city || searchedLocation) ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>Comune/punto di riferimento:</span>
+                <div style={{ padding: "6px 12px", borderRadius: 8, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white }}>
+                  📍 {city?.label || city?.name || (selectedComuni[0]?.label || selectedComuni[0]?.name) || searchedLocation}
+                </div>
+                <div style={{ padding: "6px 12px", borderRadius: 8, background: "rgba(34,197,94,.12)", border: "1px solid rgba(34,197,94,.3)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "#22C55E" }}>
+                  Raggio selezionato: {radiusKm < 1 ? `${radiusKm * 1000}m` : `${radiusKm}km`}
+                </div>
+                <div style={{ padding: "6px 12px", borderRadius: 8, background: "rgba(59,130,246,.12)", border: "1px solid rgba(59,130,246,.3)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "#60A5FA" }}>
+                  Area operativa: raggio {radiusKm < 1 ? `${radiusKm * 1000}m` : `${radiusKm}km`}
+                </div>
               </div>
+            ) : (
+              <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(234,179,8,.12)", border: "1px solid rgba(234,179,8,.3)", fontFamily: F.sans, fontSize: 12, color: "#FACC15" }}>
+                Seleziona un comune o un punto di partenza per applicare il raggio.
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.35)", marginRight: 4, whiteSpace: "nowrap" }}>Raggio:</span>
+              {S2_RADII.map(r => (
+                <button key={r} onClick={() => updateActiveRadius(r)}
+                  style={{
+                    padding: "7px 10px", borderRadius: 7, border: `1px solid ${radiusKm === r ? "#22C55E" : "rgba(255,255,255,.1)"}`,
+                    background: radiusKm === r ? "rgba(34, 197, 94,.18)" : "rgba(255,255,255,.04)",
+                    color: radiusKm === r ? "#22C55E" : "rgba(255,255,255,.5)",
+                    fontFamily: F.sans, fontSize: 11, fontWeight: radiusKm === r ? 700 : 400, cursor: "pointer", transition: "all.15s"
+                  }}>
+                  {r < 1 ? `${r * 1000}m` : `${r}km`}
+                </button>
+              ))}
             </div>
+            <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>Aumentando il raggio aumentano copertura, comuni coinvolti e quantità consigliata.</div>
           </div>
         )}
         {searchMode === "cap" && selectedCaps.length > 0 && (
@@ -4273,7 +4762,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
         {campaignZones.map((z, idx) => {
           const isActive = z.id === data.activeZoneId;
           const zoneSvcColor = "#22C55E";
-          const configured = z.searchMode === "cap" ? (z.selectedCaps || []).length > 0 : !!z.city;
+          const configured = z.searchMode === "cap" ? (z.selectedCaps || []).length > 0 : ((z.selectedComuni && z.selectedComuni.length > 0) || !!z.city);
           return (
             <button key={z.id} onClick={() => selectCampaignZone(z.id)}
               style={{
@@ -4306,7 +4795,15 @@ const radiusInsightRows = zonesInRadius.map(z => ({
           style={{ minHeight: 32, padding: "0 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.58)", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
           Reset zona
         </button>
-        <button onClick={handleAddZone}
+        <button onClick={() => {
+          if (searchMode === "municipality") {
+            setPendingAddMunicipality(true);
+            setDropOpen(true);
+            setSearch("");
+          } else {
+            handleAddZone();
+          }
+        }}
           style={{ minHeight: 32, padding: "0 10px", borderRadius: 8, border: `1px dashed ${col}`, background: `${col}0f`, color: col, fontFamily: F.sans, fontSize: 11, fontWeight: 900, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
           + Aggiungi un'altra zona / comune
         </button>
@@ -4343,14 +4840,25 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 if (id === "settori" && !sectors) return;
                 setActiveMapLayers(prev => ({ ...prev, [id]: !prev[id] }));
               }}
-              layerPanelConfig={isAdminView ? (LAYER_PANEL_CONFIG[svcType] || LAYER_PANEL_CONFIG.d2d) : []}
               campaignZones={data.campaignZones}
               activeZoneId={data.activeZoneId}
               onSelectZone={selectCampaignZone}
-              municipalityBoundary={searchMode === "municipality" ? municipalityBoundary : null}
-              isMunicipalityMode={searchMode === "municipality"}
+              municipalityBoundary={
+                mapConfiniOn && (searchMode === "municipality" || searchMode === "address") && municipalityBoundary
+                  ? (Array.isArray(municipalityBoundary)
+                      ? municipalityBoundary.filter(b => !hiddenBoundaries.includes(normalizeMunicipalityName(b?.name || "")))
+                      : (hiddenBoundaries.includes(normalizeMunicipalityName(municipalityBoundary?.name || city?.label || city?.name || "")) ? null : municipalityBoundary))
+                  : null
+              }
+              isMunicipalityMode={isComuneMode}
               themeMode={viewMode !== "distribuzione"}
               activeLayerId={activeLay?.id || null}
+              basemap={mapBasemap}
+              mapConfiniOn={mapConfiniOn}
+              onToggleConfini={() => setMapConfiniOn(v => !v)}
+              dusafLanduse={dusafLanduse}
+              omiInfo={omiInfo}
+              onBasemapToggle={() => setMapBasemap(b => (b === "standard" ? "satellite" : "standard"))}
             />
             {(gisLoading || gisTimedOut) && (
               <div style={{
@@ -4468,6 +4976,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 <div style={{ fontFamily: F.sans, fontSize: 7, color: "rgba(255,255,255,.22)", marginTop: 2 }}>Fonte: {truthfulSourceLabel(activeLay.src)}</div>
               </div>
             )}
+
           </div>
 
           {/* CAP MODE: CAP selezionati */}
@@ -4552,7 +5061,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
             <div style={{ position: "sticky", top: 12, zIndex: 30, display: "flex", gap: 10, padding: "12px 16px", background: "rgba(11, 25, 44, 0.88)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderRadius: 12, border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 8px 32px rgba(0, 0, 0, 0.35)", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
               <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.white, display: "flex", alignItems: "center", gap: 8 }}>
                 <span>📊 Riepilogo territorio:</span>
-                <span style={{ padding: "3px 9px", borderRadius: 6, background: "rgba(255,255,255,.1)", fontSize: 12 }}>{summaryComuniStats.total} {territoryPluralLabel}</span>
+                <span style={{ padding: "3px 9px", borderRadius: 6, background: "rgba(255,255,255,.1)", fontSize: 12 }}>{formatTerritoryCount(summaryComuniStats.total)}</span>
                 {allocationMode === "manual" && <span style={{ padding: "3px 9px", borderRadius: 6, background: "rgba(168,85,247,.2)", color: "#C084FC", fontSize: 11, fontWeight: 800 }}>🟣 Manuale</span>}
               </div>
               <div style={{ display: "flex", gap: 14, fontFamily: F.sans, fontSize: 12, fontWeight: 700, flexWrap: "wrap" }}>
@@ -4563,13 +5072,34 @@ const radiusInsightRows = zonesInRadius.map(z => ({
             </div>
           )}
 
+          {/* DASHBOARD RIEPILOGO TERRITORIO — solo modalità Comuni, additivo,
+              non sostituisce la barra sticky sopra (condivisa con Raggio). */}
+          {searchMode === "municipality" && (selZones.length > 0 || zonesInRadius.length > 0) && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8, padding: "14px 16px", background: "rgba(255,255,255,.03)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)" }}>
+              {[
+                { l: "Comuni selezionati", v: selectedComuni.length },
+                { l: "Famiglie totali", v: serviceKpis?.families > 0 ? formatNumber(serviceKpis.families) : "N.D." },
+                { l: "Popolazione totale", v: serviceKpis?.population > 0 ? formatNumber(serviceKpis.population) : "N.D." },
+                { l: "Area totale", v: serviceKpis?.area > 0 ? `${serviceKpis.area} km²` : "N.D." },
+                { l: "Copertura totale", v: Number.isFinite(Number(serviceKpis?.coverage)) ? `${serviceKpis.coverage}%` : "N.D." },
+                { l: "Volantini disponibili", v: formatNumber(flyerQuantityFromStep1) },
+                { l: "Volantini consigliati", v: requiredFlyers > 0 ? formatNumber(requiredFlyers) : "N.D." },
+              ].map((k) => (
+                <div key={k.l} style={{ minWidth: 0 }}>
+                  <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 3 }}>{k.l}</div>
+                  <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: C.white, overflowWrap: "anywhere" }}>{k.v}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* COMUNE MODE: Zone di distribuzione */}
           {searchMode !== "cap" && city && (
             <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)", overflow: "hidden" }}>
               {/* Header */}
               <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,.06)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
                 <div>
-                  <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white, marginBottom: 2 }}>{isNilAnalysis ? `Zone NIL nel raggio: ${zoneListSourceCount}` : `Zone di distribuzione: ${zoneListSourceCount}`}</div>
+                  <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white, marginBottom: 2 }}>{isNilAnalysis ? (isComuneMode ? `Zone NIL in comune: ${zoneListSourceCount}` : `Zone NIL nel raggio: ${zoneListSourceCount}`) : `Zone di distribuzione: ${zoneListSourceCount}`}</div>
                   <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)" }}>
                     Budget disponibile: <b style={{ color: col }}>{flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })}</b> volantini
                   </div>
@@ -4577,6 +5107,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 <div style={{ display: "flex", background: "rgba(0,0,0,.2)", padding: 3, borderRadius: 9, border: "1px solid rgba(255,255,255,.05)" }}>
                   {[
                     { id: "auto", l: "Auto", icon: "" },
+                    ...(searchMode === "municipality" ? [{ id: "priority", l: "Priorità", icon: "" }] : []),
                     { id: "manual", l: "Manuale", icon: "" }
                   ].map(m => (
                     <button key={m.id} onClick={() => setAllocationMode(m.id)}
@@ -4597,7 +5128,9 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               <div style={{ padding: "10px 14px", background: "rgba(255,255,255,.02)", borderBottom: "1px solid rgba(255,255,255,.05)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)", lineHeight: 1.4, maxWidth: 400 }}>
                   {allocationMode === "auto"
-                    ? "Il sistema distribuisce automaticamente i volantini partendo dalle zone più vicine e più coerenti."
+                    ? `Con ${formatIntegerIT(flyerQuantityFromStep1)} volantini il sistema copre prima le zone con priorità più alta. Le zone non coperte verranno incluse aumentando la quantità o modificando la distribuzione manuale.`
+                    : allocationMode === "priority"
+                    ? "Scegli l'ordine dei comuni con le frecce: il sistema distribuisce i volantini seguendo quell'ordine."
                     : `Modalità manuale: scegli tu quanti volantini assegnare a ogni ${territorySingularLabel.toLowerCase()}.`
                   }
                 </div>
@@ -4621,7 +5154,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                     ))}
                   </div>
                 )}
-                {allocationMode === "manual" && (
+                {(allocationMode === "manual" || allocationMode === "priority") && (
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)", marginBottom: 2 }}>Riepilogo assegnazione</div>
                     <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: isInvalid ? C.red : C.green }}>
@@ -4643,7 +5176,11 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 {nilUnavailable && (
                   <div style={{ padding: 14, textAlign: "center", color: C.yellow, background: "rgba(251,191,36,.08)", border: `1px solid ${C.yellow}33`, borderRadius: 10, fontFamily: F.sans, fontSize: 12 }}>
                     <div style={{ fontWeight: 800, marginBottom: 4 }}>Dati NIL non disponibili</div>
-                    <div style={{ opacity: 0.82 }}>Milano viene analizzata con il comportamento comunale attuale.</div>
+                    <div style={{ opacity: 0.82 }}>
+                      {isComuneMode
+                        ? "Milano viene analizzata con il comportamento comunale attuale."
+                        : `Milano viene usata come centro di riferimento. L'analisi è calcolata sul raggio selezionato di ${radiusKm}km.`}
+                    </div>
                   </div>
                 )}
                 {territorialDataUnavailable && analysisError !== "TERRITORIAL_DATA_NOT_AVAILABLE" && (
@@ -4656,17 +5193,21 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 {shouldGroupMarginalZones && (
                   <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(34, 197, 94,.08)", border: "1px solid rgba(34, 197, 94,.22)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                     <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.62)", lineHeight: 1.45 }}>
-                      {searchMode === "municipality" ? (
-                        <b style={{ color: C.white }}>{city.name || city.label} è una città grande:</b>
+                      {isComuneMode ? (
+                        <>
+                          <b style={{ color: C.white }}>{city.label || city.name || "Il comune selezionato"}:</b> con {formatIntegerIT(flyerQuantityFromStep1)} volantini coprirai principalmente {primaryCoveredZones.length > 0 ? <b style={{ color: col }}>{primaryCoveredZones.join(", ")}</b> : "alcune zone del comune"}. Per copertura completa del comune servono circa {formatIntegerIT(requiredFlyers)} volantini.
+                        </>
                       ) : (
-                        <><b style={{ color: C.white }}>{city.name || city.label} è una città grande:</b> con un raggio di 1km la campagna sarà più mirata.</>
+                        <>
+                          <><b style={{ color: C.white }}>Con un raggio di {radiusKm || radius} km la campagna copre circa il {serviceKpis?.coverage || 0}% dell’area selezionata.</b> Per una campagna più mirata puoi ridurre il raggio.</>
+                          {primaryCoveredZones.length > 0 && <> Con {formatIntegerIT(flyerQuantityFromStep1)} volantini coprirai principalmente: <b style={{ color: col }}>{primaryCoveredZones.join(", ")}</b>.</>}
+                        </>
                       )}
-                      {primaryCoveredZones.length > 0 && <> Con {flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })} volantini coprirai principalmente: <b style={{ color: col }}>{primaryCoveredZones.join(", ")}</b>.</>}
                     </div>
                     {searchMode !== "municipality" && (
-                      <button onClick={() => updateActiveRadius(1)}
+                      <button onClick={() => updateActiveRadius(Math.max(1, Math.round((radiusKm || radius) > 3 ? 3 : 1)))}
                         style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${col}55`, background: `${col}16`, color: col, fontFamily: F.sans, fontSize: 10, fontWeight: 900, cursor: "pointer" }}>
-                        Riduci a 1km
+                        Riduci raggio
                       </button>
                     )}
                   </div>
@@ -4701,8 +5242,9 @@ const isManual = allocationMode === "manual";
                     : assignedFlyers >= requiredFlyers
                       ? 100
                       : Math.max(1, Math.min(99, Math.round((assignedFlyers / Math.max(1, requiredFlyers)) * 100)));
-                  const coverageState = assignedFlyers <= 0 ? "none" : coveragePercent >= 100 ? "full" : "partial";
-                  const coverageLabel = coverageState === "none" ? "Copertura 0% - fuori budget attuale" : coverageState === "full" ? "Copertura totale" : "Copertura selettiva";
+                  const statusCalc = getCoverageStatus(coveragePercent);
+                  const coverageState = assignedFlyers <= 0 ? "none" : statusCalc === "coperto" ? "full" : "partial";
+                  const coverageLabel = coverageState === "none" ? "Copertura 0% - fuori budget attuale" : (z.isNil ? "Copertura zona" : (isRadiusMode ? `Copertura area ${radiusKm || radius} km` : (coverageState === "full" ? "Copertura totale" : "Copertura selettiva")));
                   const zoneTotalFamilies = Number(z.householdsTotal || z.households_total || z.totalFamilies || 0);
                   const zoneAreaFamilies = Number(z.families || z.famiglie || z.householdsInRadius || z.households_in_radius || 0);
                   const zoneCoveragePct = Number.isFinite(Number(z.coverage ?? z.pct ?? z.percent_nel_raggio))
@@ -4735,6 +5277,25 @@ const isManual = allocationMode === "manual";
                         {/* Nome & Info */}
                         <div onClick={() => { if (!isMovementStep2 && !(isBusinessStep2 && businessMetrics.clusterRows.length)) toggleZone(z.id); }} style={{ cursor: isMovementStep2 || (isBusinessStep2 && businessMetrics.clusterRows.length) ? "default" : "pointer", flex: 1 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            {allocationMode === "priority" && searchMode === "municipality" && (() => {
+                              const order = comuniPriorityOrder.length ? comuniPriorityOrder : selZones.map(zz => zz.id);
+                              const pos = order.indexOf(z.id);
+                              return (
+                                <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", gap: 1, marginRight: 2 }}>
+                                  <button onClick={() => movePriorityZone(z.id, -1)} disabled={pos <= 0}
+                                    style={{ padding: 0, width: 16, height: 12, lineHeight: "10px", fontSize: 9, border: "1px solid rgba(255,255,255,.15)", borderRadius: 3, background: "rgba(255,255,255,.05)", color: pos <= 0 ? "rgba(255,255,255,.2)" : "rgba(255,255,255,.7)", cursor: pos <= 0 ? "default" : "pointer" }}
+                                    title="Sposta su">▲</button>
+                                  <button onClick={() => movePriorityZone(z.id, 1)} disabled={pos < 0 || pos >= order.length - 1}
+                                    style={{ padding: 0, width: 16, height: 12, lineHeight: "10px", fontSize: 9, border: "1px solid rgba(255,255,255,.15)", borderRadius: 3, background: "rgba(255,255,255,.05)", color: (pos < 0 || pos >= order.length - 1) ? "rgba(255,255,255,.2)" : "rgba(255,255,255,.7)", cursor: (pos < 0 || pos >= order.length - 1) ? "default" : "pointer" }}
+                                    title="Sposta giù">▼</button>
+                                </div>
+                              );
+                            })()}
+                            {allocationMode === "priority" && searchMode === "municipality" && (
+                              <span style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: col, minWidth: 14 }}>
+                                {(comuniPriorityOrder.length ? comuniPriorityOrder : selZones.map(zz => zz.id)).indexOf(z.id) + 1}
+                              </span>
+                            )}
                             <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: coverageState !== "none" ? 700 : 400, color: coverageState !== "none" ? C.white : "rgba(255,255,255,.45)" }}>{z.name}</div>
                             {coverageState === "full" && <span style={{ padding: "2px 6px", borderRadius: 4, background: "rgba(34,197,94,.15)", border: "1px solid rgba(34,197,94,.35)", fontFamily: F.sans, fontSize: 8, color: "#22C55E", fontWeight: 800 }}>🟢 COPERTO</span>}
                             {coverageState === "partial" && <span style={{ padding: "2px 6px", borderRadius: 4, background: "rgba(250,204,21,.15)", border: "1px solid rgba(250,204,21,.35)", fontFamily: F.sans, fontSize: 8, color: "#FACC15", fontWeight: 800 }}>🟡 PARZIALE</span>}
@@ -4754,12 +5315,12 @@ const isManual = allocationMode === "manual";
                           </div>
                           {isResidentialStep2 && (
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(112px,1fr))", gap: 6, marginTop: 8 }}>
-                              {rowMetric("Totale stimato Comune", zoneTotalFamilies > 0 ? zoneTotalFamilies.toLocaleString("it-IT", { useGrouping: true }) : "N.D.")}
-                              {rowMetric("Copertura stimata area selezionata", zoneAreaFamilies > 0 ? zoneAreaFamilies.toLocaleString("it-IT", { useGrouping: true }) : "N.D.")}
-                              {rowMetric("Copertura %", zoneCoveragePct != null ? `${zoneCoveragePct}%` : "N.D.")}
-                              {rowMetric("Volantini inseriti", assignedFlyers.toLocaleString("it-IT", { useGrouping: true }))}
-                              {rowMetric("Volantini consigliati", requiredFlyers > 0 ? requiredFlyers.toLocaleString("it-IT", { useGrouping: true }) : "N.D.", "accent")}
-                              {isNilAnalysis && rowMetric("Zone NIL", "1")}
+                              {rowMetric(z.isNil ? `Famiglie comune ${city?.label || city?.name || ""} (contesto)` : (isRadiusMode ? `Famiglie comune ${z.name} (contesto)` : (isComuneMode ? "Totale stimato Comune" : `Dati comune ${city?.label || city?.name || ""} (contesto)`)), zoneTotalFamilies > 0 ? formatIntegerIT(zoneTotalFamilies) : "N.D.")}
+                              {rowMetric(z.isNil ? "Famiglie coperte" : (isRadiusMode ? "Famiglie nel raggio" : "Copertura stimata area selezionata"), zoneAreaFamilies > 0 ? formatIntegerIT(z.isNil && assignedFlyers > 0 ? Math.min(zoneAreaFamilies, Math.round(zoneAreaFamilies * (coveragePercent / 100))) : zoneAreaFamilies) : "N.D.")}
+                              {rowMetric(z.isNil ? "Copertura zona" : (isRadiusMode ? `Copertura area ${radiusKm || radius} km` : "Copertura comune"), `${coveragePercent}%`)}
+                              {rowMetric(z.isNil ? "Peso sull'area" : (isRadiusMode ? "Peso sul raggio" : "Peso sul comune"), zoneCoveragePct != null ? `${zoneCoveragePct}%` : "N.D.")}
+                              {rowMetric("Volantini assegnati", formatIntegerIT(assignedFlyers))}
+                              {rowMetric(z.isNil ? "Volantini consigliati zona" : "Volantini consigliati", requiredFlyers > 0 ? formatIntegerIT(requiredFlyers) : "N.D.", "accent")}
                             </div>
                           )}
                         </div>
@@ -4898,40 +5459,77 @@ const isManual = allocationMode === "manual";
                         <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: C.white, letterSpacing: ".05em", textTransform: "uppercase" }}>Copertura stimata</div>
                         <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12, padding: 14 }}>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-                            <div>
-                              <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Totale stimato Comune</div>
-                              <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: municipalityTotalFamilies != null ? C.white : "rgba(255,255,255,.55)" }}>{municipalityTotalFamiliesLabel}</div>
-                            </div>
-                            <div>
-                              <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Copertura stimata area selezionata</div>
-                              <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{selectedAreaFamiliesLabel}</div>
-                            </div>
-                            <div>
-                              <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Zona</div>
-                              <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{city ? city.name : (activeCampaignZone?.cityName || "Area")} · {searchMode === "municipality" ? "intero comune" : `${radiusKm}km`}</div>
-                            </div>
-                            <div>
-                              <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>{isNilAnalysis ? "Zone NIL coinvolte" : "Comuni coinvolti"}</div>
-                              <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{selZones.length || zonesInRadius.length}</div>
-                            </div>
-                            <div>
-                              <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini inseriti</div>
-                              <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })}</div>
-                            </div>
-                            <div>
-                              <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Copertura stimata</div>
-                              <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: isPartial ? "#22C55E" : C.green }}>{serviceKpis?.coverage || 0}%</div>
-                            </div>
-                            {isPartial && (
+                            {isRadiusMode ? (
                               <>
                                 <div>
-                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini consigliati</div>
-                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{requiredFlyers.toLocaleString("it-IT", { useGrouping: true })}</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Area selezionata</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{city ? city.name : (activeCampaignZone?.cityName || "Area")} · raggio {radiusKm || radius} km</div>
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Famiglie totali area {radiusKm || radius} km</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{formatIntegerIT(serviceKpis?.families || 0)}</div>
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini inseriti</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{formatIntegerIT(flyerQuantityFromStep1)}</div>
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini consigliati area {radiusKm || radius} km</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{formatIntegerIT(requiredFlyers > 0 ? requiredFlyers : serviceKpis?.recommendedFlyers || 0)}</div>
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Copertura area {radiusKm || radius} km</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: isPartial ? "#22C55E" : C.green }}>{serviceKpis?.coverage || 0}%</div>
                                 </div>
                                 <div>
                                   <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Quantità mancante</div>
-                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: "#22C55E" }}>{missingFlyers.toLocaleString("it-IT", { useGrouping: true })}</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: "#22C55E" }}>{formatIntegerIT(missingFlyers > 0 ? missingFlyers : Math.max(0, (requiredFlyers || serviceKpis?.recommendedFlyers || 0) - flyerQuantityFromStep1))}</div>
                                 </div>
+                              </>
+                            ) : (
+                              <>
+                                <div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>{municipalityTotalFamiliesRowLabel}</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: municipalityTotalFamilies != null ? C.white : "rgba(255,255,255,.55)" }}>{municipalityTotalFamiliesLabel}</div>
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Copertura stimata area selezionata</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{selectedAreaFamiliesLabel}</div>
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Zona</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{city ? city.name : (activeCampaignZone?.cityName || "Area")} · {areaMode === "radius" ? `${radiusKm}km` : areaMode === "custom_zone" ? "area operativa" : "intero comune"}</div>
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>{isNilAnalysis ? "Zone NIL coinvolte" : "Comuni coinvolti"}</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{selZones.length || zonesInRadius.length}</div>
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini inseriti</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{formatIntegerIT(flyerQuantityFromStep1)}</div>
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>{areaMode === "full_municipality" ? "Copertura comune" : "Copertura area selezionata"}</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: isPartial ? "#22C55E" : C.green }}>{serviceKpis?.coverage || 0}%</div>
+                                </div>
+                                {areaMode === "custom_zone" && zoneCoveragePctForBox != null && (
+                                  <div>
+                                    <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Incidenza sul comune</div>
+                                    <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,.6)" }}>{zoneCoveragePctForBox}%</div>
+                                  </div>
+                                )}
+                                {isPartial && (
+                                  <>
+                                    <div>
+                                      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini consigliati</div>
+                                      <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{formatIntegerIT(requiredFlyers)}</div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Quantità mancante</div>
+                                      <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: "#22C55E" }}>{formatIntegerIT(missingFlyers)}</div>
+                                    </div>
+                                  </>
+                                )}
                               </>
                             )}
                           </div>
@@ -5009,7 +5607,7 @@ const isManual = allocationMode === "manual";
                                     debugStep2Log("[STEP2_COVERAGE_STRATEGY_SELECTED]", "reduce_to_recommended");
                                   }}
                                   style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: coverageStrategy === "reduce_to_recommended" ? col : `${col}22`, color: C.white, border: `1px solid ${col}66`, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
-                                  Riduci a {requiredFlyers.toLocaleString("it-IT", { useGrouping: true })}
+                                  Adatta a {requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini
                                 </button>
                                 <button onClick={() => {
                                     setCoverageStrategy("extra_frequency");
@@ -5032,7 +5630,7 @@ const isManual = allocationMode === "manual";
                                   <div style={{ flex: 1, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.6)" }}>
                                     Passa a modalità Raggio per includere i comuni vicini, oppure resta su Comune.
                                   </div>
-                                  <button onClick={() => { userModeRef.current = "address"; setSearchMode("address"); setSearch(""); setMunicipalityBoundary(null); }}
+                                  <button onClick={switchToRadiusMode}
                                     style={{ padding: "8px 14px", borderRadius: 8, background: col, color: C.white, border: "none", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}>
                                     Passa a modalità Raggio
                                   </button>
@@ -5122,47 +5720,47 @@ const isManual = allocationMode === "manual";
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-                {/* Famiglie / POI / Aziende */}
+                {/* Famiglie / POI / Aziende — da step2ViewModel (fonte unica) */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingBottom: 10, borderBottom: "1px solid rgba(255,255,255,.05)" }}>
                   <div>
-                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", marginBottom: 2 }}>{isResidentialStep2 ? "Famiglie raggiungibili" : isMovementStep2 ? "Punti di interesse" : "Aziende raggiungibili"}</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 28, fontWeight: 800, color: C.white, lineHeight: 1 }}>{formatNumber(isResidentialStep2 ? (serviceKpis?.families || 0) : isMovementStep2 ? (serviceKpis?.poi || 0) : (serviceKpis?.businesses || 0))}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", marginBottom: 2 }}>{step2ViewModel.primaryFamiliesLabel}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 28, fontWeight: 800, color: C.white, lineHeight: 1 }}>{formatIntegerIT(step2ViewModel.primaryFamiliesValue)}</div>
                   </div>
                   <span style={{ fontSize: 24, opacity: .65 }}>{isResidentialStep2 ? "👨‍👩‍👧" : isMovementStep2 ? "📍" : "🏢"}</span>
                 </div>
 
                 {/* Copertura */}
-                {serviceKpis?.coverage != null && (
+                {step2ViewModel.primaryCoverageValue != null && (
                   <div style={{ paddingBottom: 12, borderBottom: "1px solid rgba(255,255,255,.05)" }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", marginBottom: 4 }}>Copertura</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", marginBottom: 4 }}>{step2ViewModel.primaryCoverageLabel}</div>
                     <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 26, fontWeight: 800, color: C.green, lineHeight: 1 }}>{serviceKpis.coverage}%</div>
-                      <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.45)", lineHeight: 1 }}>≈ 1 {isResidentialStep2 ? "famiglia" : isMovementStep2 ? "punto" : "azienda"} su {Math.max(1, Math.round(100 / (serviceKpis.coverage || 1)))}</div>
+                      <div style={{ fontFamily: F.sans, fontSize: 26, fontWeight: 800, color: C.green, lineHeight: 1 }}>{step2ViewModel.primaryCoverageValue}%</div>
+                      <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.45)", lineHeight: 1 }}>≈ 1 {isResidentialStep2 ? "famiglia" : isMovementStep2 ? "punto" : "azienda"} su {Math.max(1, Math.round(100 / (step2ViewModel.primaryCoverageValue || 1)))}</div>
                     </div>
                   </div>
                 )}
 
                 {isResidentialStep2 && (
                   <div style={{ padding: 13, borderRadius: 11, background: `${col}12`, border: `1px solid ${col}30`, boxShadow: `0 12px 30px ${col}10` }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: col, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 5 }}>Volantini consigliati</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 27, fontWeight: 900, color: C.white, lineHeight: 1 }}>{formattedRecommendedFlyers}</div>
-                    <div style={{ marginTop: 6, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.56)", lineHeight: 1.35 }}>Per copertura completa dell'area selezionata</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: col, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 5 }}>{step2ViewModel.recommendedFlyersLabel}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 27, fontWeight: 900, color: C.white, lineHeight: 1 }}>{formatIntegerIT(step2ViewModel.recommendedFlyersValue)}</div>
+                    <div style={{ marginTop: 6, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.56)", lineHeight: 1.35 }}>Per copertura completa {areaMode === "radius" ? `dell'area ${radiusKm || radius} km` : (areaMode === "full_municipality" ? "del comune" : "dell'area selezionata")}</div>
                   </div>
                 )}
 
                 {/* Comuni, volantini, raggio su 3 colonne */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 9, padding: "10px 12px" }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>{territoryPluralLabel}</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 18, fontWeight: 800, color: C.white }}>{summaryComuniStats?.total || selZones.length || zonesInRadius.length || 1}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>{step2ViewModel.zoneCountLabel}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 18, fontWeight: 800, color: C.white }}>{step2ViewModel.zoneCountValue}</div>
                   </div>
                   <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 9, padding: "10px 12px" }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>Volantini</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: C.blue, lineHeight: 1.1 }}>{flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>Volantini inseriti</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: C.blue, lineHeight: 1.1 }}>{formatIntegerIT(step2ViewModel.insertedFlyersValue)}</div>
                   </div>
                   <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 9, padding: "10px 12px" }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>{searchMode === "municipality" ? "Territorio" : "Raggio"}</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 18, fontWeight: 800, color: C.white }}>{searchMode === "municipality" ? "Comune completo" : `${radiusKm || radius} km`}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>{areaMode === "radius" ? "Raggio" : "Territorio"}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 18, fontWeight: 800, color: C.white }}>{areaMode === "radius" ? `${radiusKm || radius} km` : step2ViewModel.primaryAreaLabel}</div>
                   </div>
                 </div>
 
@@ -5172,31 +5770,64 @@ const isManual = allocationMode === "manual";
 
           {/* SEZIONE DINAMICA: VISTA CLIENTE / ANALISI AVANZATA */}
           {(selZones.length > 0 || zonesInRadius.length > 0 || activeCampaignZone) && (() => {
-            const profilePop = serviceKpis?.population > 0 ? serviceKpis.population : (serviceKpis?.pop > 0 ? serviceKpis.pop : (aiAgg?.pop > 0 ? aiAgg.pop : (demoData?.populationTotal > 0 ? demoData.populationTotal : 0)));
-            const profileFam = serviceKpis?.families > 0 ? serviceKpis.families : (aiAgg?.families > 0 ? aiAgg.families : (demoData?.householdsTotal > 0 ? demoData.householdsTotal : 0));
+            const profilePop = serviceKpis?.population > 0 ? serviceKpis.population : (serviceKpis?.pop > 0 ? serviceKpis.pop : (aiAgg?.pop > 0 ? aiAgg.pop : (effectiveDemoData?.populationTotal > 0 ? effectiveDemoData.populationTotal : 0)));
+            const profileFam = serviceKpis?.families > 0 ? serviceKpis.families : (aiAgg?.families > 0 ? aiAgg.families : (effectiveDemoData?.householdsTotal > 0 ? effectiveDemoData.householdsTotal : 0));
             const profileDens = zoneDensity > 0 ? zoneDensity : (aiAgg?.densita > 0 ? aiAgg.densita : (summaryComuniStats?.densita > 0 ? summaryComuniStats.densita : 0));
             const verdictScore = zoneVerdict?.score || 75;
-            const demographicSource = demoData ? "Fonte: demographic_indicators" : "Fonte: dato non disponibile";
-            const demographicYear = demoData?.referenceYear || 2024;
-            const demographicStatus = demoData ? "Dato verificato internamente" : "Dato non disponibile";
-            const totalHouseholds = demoData?.householdsTotal > 0 ? demoData.householdsTotal : profileFam;
-            const totalPopulation = demoData?.populationTotal > 0 ? demoData.populationTotal : profilePop;
-            const ageRows = demoData ? [
-              { l: "0-14", v: demoData.age_0_14_pct, c: "#A78BFA" },
-              { l: "15-34", v: demoData.age_15_34_pct, c: "#38BDF8" },
-              { l: "35-64", v: demoData.age_35_64_pct, c: "#4ADE80" },
-              { l: "65+", v: demoData.age_65_plus_pct, c: "#FBBF24" },
+            const isAggregatedTerritory = searchMode === "municipality" && (municipalityDemoAgg?.matchedCount || 0) > 1;
+            const demographicSource = effectiveDemoData
+              ? (isAggregatedTerritory
+                  ? "ISTAT • demographic_indicators (aggregato)"
+                  : (!isComuneMode ? `ISTAT • demographic_indicators (dati comune ${city?.label || city?.name || ""}, usati come contesto)` : "ISTAT • demographic_indicators"))
+              : "Dato non disponibile";
+            const demographicYear = Number.isFinite(Number(effectiveDemoData?.referenceYear)) ? effectiveDemoData.referenceYear : null;
+            const demographicYearLabel = demographicYear != null ? demographicYear : "Non disponibile";
+            const demographicStatus = effectiveDemoData ? "Dato verificato internamente" : "Dato non disponibile";
+            const totalHouseholds = effectiveDemoData?.householdsTotal > 0 ? effectiveDemoData.householdsTotal : profileFam;
+            const totalPopulation = effectiveDemoData?.populationTotal > 0 ? effectiveDemoData.populationTotal : profilePop;
+            const ageRows = effectiveDemoData ? [
+              { l: "0-14", v: effectiveDemoData.age_0_14_pct, c: "#A78BFA" },
+              { l: "15-34", v: effectiveDemoData.age_15_34_pct, c: "#38BDF8" },
+              { l: "35-64", v: effectiveDemoData.age_35_64_pct, c: "#4ADE80" },
+              { l: "65+", v: effectiveDemoData.age_65_plus_pct, c: "#FBBF24" },
             ].filter((row) => Number.isFinite(Number(row.v))) : [];
-            const unavailableTerritorialRows = [
-              { l: "Single", v: "Richiede dataset territoriale dedicato", c: "#A78BFA" },
-              { l: "Coppie", v: "Richiede dataset territoriale dedicato", c: "#F472B6" },
-              { l: "Famiglie con figli", v: "Richiede dataset territoriale dedicato", c: "#34D399" },
+            const ageAggregationNote = isAggregatedTerritory
+              ? `Fasce età aggregate su ${municipalityDemoAgg.matchedCount} comuni (somma popolazione, percentuali ricalcolate).`
+              : null;
+            const ageMissingNote = searchMode === "municipality" && municipalityDemoAgg?.missingMunicipalities?.length > 0
+              ? `${municipalityDemoAgg.missingMunicipalities.length} comune/i senza dato demografico, escluso/i dall'aggregazione.`
+              : null;
+            const territorialRows = territorialData ? [
+              { l: "Single", v: territorialData.single_households_pct, c: "#A78BFA" },
+              { l: "Coppie", v: territorialData.couples_no_children_pct, c: "#F472B6" },
+              { l: "Con figli", v: territorialData.families_with_children_pct, c: "#34D399" },
+              { l: "Monoparent.", v: territorialData.single_parent_households_pct, c: "#60A5FA" },
+              { l: "Altro", v: territorialData.other_households_pct, c: "#94A3B8" },
+            ].filter((row) => Number.isFinite(Number(row.v))) : [];
+            const unavailableTerritorialRows = territorialRows.length > 0 ? territorialRows : [
+              { l: "Stato dato", v: "Dato non disponibile da fonte comunale ufficiale", c: "#A78BFA" },
             ];
-            const unavailableLanduseRows = [
-              { l: "Residenziale", v: "Richiede dataset territoriale dedicato", c: "#38BDF8" },
-              { l: "Commerciale", v: "Richiede dataset territoriale dedicato", c: "#FB923C" },
-              { l: "Industriale", v: "Richiede dataset territoriale dedicato", c: "#FBBF24" },
+            const landuseRows = dusafLanduse?.available ? [
+              { l: "Residenziale", v: dusafLanduse.residential_area_pct, c: "#38BDF8" },
+              { l: "Commerciale/produttivo", v: dusafLanduse.commercial_industrial_area_pct, c: "#FB923C" },
+              { l: "Verde/agricolo", v: dusafLanduse.green_agricultural_area_pct, c: "#4ADE80" },
+              { l: "Altro/infrastrutture/acqua", v: dusafLanduse.other_infrastructure_water_area_pct, c: "#94A3B8" },
+            ].filter((row) => Number.isFinite(Number(row.v))) : [];
+            const unavailableLanduseRows = landuseRows.length > 0 ? landuseRows : [
+              { l: "Stato dato", v: "Dato non disponibile", c: "#38BDF8" },
             ];
+            const landuseSourceLabel = dusafLanduse?.available
+              ? `Fonte dati: ${dusafLanduse.source}`
+              : "Fonte dati: Dato non disponibile";
+            const landuseYearLabel = dusafLanduse?.available && dusafLanduse.referenceYear != null
+              ? `Anno di riferimento: ${dusafLanduse.referenceYear}`
+              : "Anno di riferimento: Non disponibile";
+            const landuseMultiComuneNote = dusafLanduse?.available && dusafLanduse.matchedCount > 1
+              ? `Valori aggregati su ${dusafLanduse.matchedCount} comuni, ponderati per area comunale reale.`
+              : null;
+            const landuseMissingNote = dusafLanduse?.available && dusafLanduse.missingMunicipalities?.length > 0
+              ? `${dusafLanduse.missingMunicipalities.length} comune/i nell'area selezionata senza dato DUSAF, escluso/i dal calcolo.`
+              : null;
             const omiRows = omiInfo?.available && Array.isArray(omiInfo?.values) ? omiInfo.values.filter((row) => row?.typology && (row.min_value != null || row.max_value != null)) : [];
             const omiSourceLabel = omiInfo?.available ? "Fonte: Agenzia Entrate - OMI 2025/2" : "Fonte: dato non disponibile";
 
@@ -5245,10 +5876,10 @@ const isManual = allocationMode === "manual";
                         <div>
                           <div style={{ fontFamily: F.sans, fontSize: 14, fontWeight: 800, color: C.white, display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
                             <span>👥</span>
-                            <span>Profilo della zona</span>
+                            <span>{step2ViewModel.contextDemographyLabel || (searchMode === "municipality" ? "Profilo Territorio" : "Profilo della zona")}</span>
                           </div>
                           <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>
-                            Analisi territoriale basata sui dati disponibili.
+                            {step2ViewModel.contextDemographyNote || "Analisi territoriale basata sui dati disponibili."}
                           </div>
                         </div>
                         <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(59, 130, 246, 0.15)", color: "#60A5FA", border: "1px solid rgba(59, 130, 246, 0.3)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, letterSpacing: ".06em" }}>
@@ -5278,7 +5909,7 @@ const isManual = allocationMode === "manual";
                             <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Densità abitativa</span>
                           </div>
                           <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: C.white }}>
-                            {profileDens ? `${profileDens.toLocaleString("it-IT", { useGrouping: true })} ab./km²` : "Dato in calcolo"}
+                            {profileDens ? `${formatIntegerIT(profileDens)} ab./km²` : "Dato in calcolo"}
                           </div>
                         </div>
                         <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 9, padding: "10px 12px" }}>
@@ -5287,7 +5918,7 @@ const isManual = allocationMode === "manual";
                             <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Famiglie totali</span>
                           </div>
                           <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: "#38BDF8" }}>
-                            {totalHouseholds > 0 ? formatNumber(totalHouseholds) : "Dato non disponibile"}
+                            {totalHouseholds > 0 ? formatIntegerIT(totalHouseholds) : "Dato non disponibile"}
                           </div>
                         </div>
                         <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 9, padding: "10px 12px" }}>
@@ -5296,12 +5927,16 @@ const isManual = allocationMode === "manual";
                             <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Popolazione</span>
                           </div>
                           <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: C.white }}>
-                            {totalPopulation > 0 ? formatNumber(totalPopulation) : "Dato non disponibile"}
+                            {totalPopulation > 0 ? formatIntegerIT(totalPopulation) : "Dato non disponibile"}
                           </div>
                         </div>
                       </div>
                       <div style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.5)", marginBottom: 14 }}>
-                        {demographicSource} - Anno: {demographicYear} - Stato dato: {demographicStatus}
+                        <div>Fonte dati: {demographicSource}</div>
+                        <div>Anno di riferimento: {demographicYearLabel} - Stato dato: {demographicStatus}</div>
+                        {isRadiusMode && <div style={{ color: "rgba(255,255,255,.7)", marginTop: 2 }}>Nota: I dati demografici sopra si riferiscono all&apos;intero comune di contesto.</div>}
+                        {ageAggregationNote && <div>{ageAggregationNote}</div>}
+                        {ageMissingNote && <div>{ageMissingNote}</div>}
                       </div>
 
                       <div style={{ background: "rgba(0,0,0,.18)", border: "1px solid rgba(255,255,255,.06)", borderRadius: 10, padding: "14px", marginBottom: 16, display: "flex", flexDirection: "column", gap: 14 }}>
@@ -5326,7 +5961,16 @@ const isManual = allocationMode === "manual";
                             {unavailableTerritorialRows.map((b, idx) => (
                               <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <span style={{ width: 94, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>{b.l}</span>
-                                <span style={{ flex: 1, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.58)" }}>{b.v}</span>
+                                {Number.isFinite(Number(b.v)) ? (
+                                  <>
+                                    <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
+                                      <div style={{ width: `${b.v}%`, height: "100%", background: b.c, borderRadius: 3 }} />
+                                    </div>
+                                    <span style={{ width: 60, textAlign: "right", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: b.c }}>{Math.round(Number(b.v))}%</span>
+                                  </>
+                                ) : (
+                                  <span style={{ flex: 1, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.58)" }}>{b.v}</span>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -5337,10 +5981,25 @@ const isManual = allocationMode === "manual";
                           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                             {unavailableLanduseRows.map((b, idx) => (
                               <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ width: 80, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>{b.l}</span>
-                                <span style={{ flex: 1, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.58)" }}>{b.v}</span>
+                                <span style={{ width: 150, flexShrink: 0, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>{b.l}</span>
+                                {Number.isFinite(Number(b.v)) ? (
+                                  <>
+                                    <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
+                                      <div style={{ width: `${b.v}%`, height: "100%", background: b.c, borderRadius: 3 }} />
+                                    </div>
+                                    <span style={{ width: 60, textAlign: "right", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: b.c }}>{Math.round(Number(b.v))}%</span>
+                                  </>
+                                ) : (
+                                  <span style={{ flex: 1, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.58)" }}>{b.v}</span>
+                                )}
                               </div>
                             ))}
+                          </div>
+                          <div style={{ marginTop: 8, fontFamily: F.sans, fontSize: 9.5, color: "rgba(255,255,255,.4)", lineHeight: 1.5 }}>
+                            <div>{landuseSourceLabel}</div>
+                            <div>{landuseYearLabel}</div>
+                            {landuseMultiComuneNote && <div>{landuseMultiComuneNote}</div>}
+                            {landuseMissingNote && <div>{landuseMissingNote}</div>}
                           </div>
                         </div>
                       </div>
@@ -5384,7 +6043,7 @@ const isManual = allocationMode === "manual";
                           <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "#93C5FD", marginBottom: 5 }}>✓ Perché</div>
                           <div style={{ color: "rgba(255,255,255,.78)" }}>
                             {isResidentialStep2
-                              ? "Buona densità abitativa nel raggio selezionato, compatibile con la distribuzione porta a porta."
+                              ? `Buona densità abitativa ${areaContextLabel}, compatibile con la distribuzione porta a porta.`
                               : isBusinessStep2
                               ? "Presenza significativa di attività commerciali coerenti con il profilo target."
                               : "Flussi pedonali e punti strategici idonei alla distribuzione diretta."}
@@ -5413,55 +6072,6 @@ const isManual = allocationMode === "manual";
                   </motion.div>
                 ) : (
                   <motion.div key="analisi-avanzata" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    {/* A. Layer cartografici */}
-                    <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px 18px", border: "1px solid rgba(56,189,248,.3)" }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: "#38BDF8", marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>
-                        <span>🗺</span> Layer cartografici
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-                        {[
-                          searchMode === "municipality"
-                            ? { l: "Territorio", v: "Comune completo" }
-                            : { l: "Raggio", v: radiusKm < 1 ? `${radiusKm * 1000}m` : `${radiusKm}km` },
-                          { l: "Comuni", v: selZones.length || zonesInRadius.length || 1 },
-                          { l: "Settori", v: serviceKpis?.sectors || Math.max(3, (selZones.length || 1) * 4) },
-                          { l: "Civici", v: serviceKpis?.buildings ? formatNumber(serviceKpis.buildings) : "Dato non disponibile" },
-                          { l: "Famiglie", v: profileFam > 0 ? formatNumber(profileFam) : "Dato non disponibile" },
-                          { l: "Popolazione", v: profilePop > 0 ? formatNumber(profilePop) : "Dato non disponibile" },
-                          { l: "Densità", v: profileDens > 0 ? `${formatNumber(profileDens)} ab./km²` : "Dato non disponibile" },
-                          { l: "Fonte demografica", v: demoData ? "demographic_indicators" : "Dato non disponibile" },
-                          { l: "Anno dato", v: demoData ? demographicYear : "Dato non disponibile" },
-                        ].map(({ l, v }) => (
-                          <div key={l} style={{ minWidth: 0, padding: "8px 10px", borderRadius: 8, background: "rgba(255,255,255,.04)" }}>
-                            <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.45)", textTransform: "uppercase", marginBottom: 2 }}>{l}</div>
-                            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white, lineHeight: 1.25, overflowWrap: "anywhere" }}>{v}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* B. Analisi GIS */}
-                    <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px 18px", border: "1px solid rgba(74,222,128,.3)" }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: "#4ADE80", marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>
-                        <span>🛰</span> Analisi GIS
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                        {[
-                          { l: "Superficie", v: serviceKpis?.area ? formatAreaKm2(serviceKpis.area) : "Dato non disponibile" },
-                          { l: "Area coperta", v: `${serviceKpis?.coverage || 100}%` },
-                          { l: "Area non coperta", v: `${Math.max(0, 100 - (serviceKpis?.coverage || 100))}%` },
-                          { l: "Numero comuni", v: selZones.length || zonesInRadius.length || 1 },
-                          { l: "Numero civici", v: serviceKpis?.buildings ? formatNumber(serviceKpis.buildings) : "Dato non disponibile" },
-                          { l: "Copertura reale", v: `${serviceKpis?.coverage || 100}% (civici)` },
-                        ].map(({ l, v }) => (
-                          <div key={l} style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(255,255,255,.04)" }}>
-                            <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.45)", textTransform: "uppercase", marginBottom: 2 }}>{l}</div>
-                            <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white }}>{v}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
                     {/* C. Analisi ISTAT */}
                     <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px 18px", border: "1px solid rgba(168,85,247,.3)" }}>
                       <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: "#A855F7", marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>
@@ -5592,7 +6202,7 @@ const isManual = allocationMode === "manual";
                         ))}
                       </div>
                       <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>
-                        Anno dati demografici: {demoData ? demographicYear : "Dato non disponibile"} - OMI: {omiRows.length > 0 ? "Agenzia Entrate - OMI 2025/2" : "Dato non disponibile"}
+                        Anno di riferimento (demographic_indicators): {demographicYearLabel} - OMI: {omiRows.length > 0 ? "Agenzia Entrate - OMI 2025/2" : "Dato non disponibile"}
                       </div>
                     </div>
                   </motion.div>
@@ -7165,6 +7775,23 @@ const quoteDate = new Date().toISOString().slice(0, 10);
 const pdfFileName = `Preventivo-VolantiniPro-${slug(mainAreaLabel)}-${quoteDate}.pdf`;
 const pdfMunicipalities = (() => {
   if (isMunicipalityMode) {
+    // Dati reali già calcolati per comune in Step2 (data.zonesAllocation),
+    // non una divisione uniforme in parti uguali — vedi zoneAllocs sopra.
+    if (zoneAllocs.length > 0) {
+      const totalReq = zoneAllocs.reduce((a, z) => a + (z.requiredFlyers || 0), 0);
+      return zoneAllocs.map(alloc => ({
+        name: alloc.name,
+        status: alloc.allocationStatus === "full" ? "Selezionato – copertura completa"
+          : alloc.allocationStatus === "partial" ? "Selezionato – copertura parziale"
+          : "Non coperto dal budget attuale",
+        estimatedFlyers: alloc.assignedFlyers,
+        coveragePct: alloc.coveragePercent,
+        contributionPct: totalReq > 0 ? Math.round((alloc.requiredFlyers / totalReq) * 100) : null,
+      }));
+    }
+    // Fallback solo per campagne salvate prima che zonesAllocation fosse
+    // valorizzato in modalità Comuni: nessun dato reale disponibile, si
+    // dichiara una stima equamente distribuita invece di ometterla.
     const muns = data.selectedComuni?.length ? data.selectedComuni
       : data.selectedMunicipalities?.length ? data.selectedMunicipalities
       : selectedZoneNames.length ? selectedZoneNames
@@ -8044,7 +8671,7 @@ function handleDownloadPdf() {
                           </div>
                         ))}
                       </div>
-                    ) : <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.35)" }}>Nessun comune nel raggio disponibile.</div>,
+                    ) : <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.35)" }}>{isComuneMode ? "Nessun comune disponibile." : "Nessun comune nel raggio disponibile."}</div>,
                   },
                   {
                     key: "indicatori", label: "Indicatori", icon: "🎯",
@@ -8607,521 +9234,6 @@ function AdminDashboard({ onNav }) {
       </React.Suspense>
     </AdminRouteGuard>
   );
-  const devAdminCampaigns = allowMockData ? ADMIN_CAMPAIGNS : [];
-const adminWaitlist = allowMockData ? ADMIN_WAITLIST : [];
-const adminMonthly = allowMockData ? ADMIN_MONTHLY : [];
-  const [campaigns, setCampaigns] = useState(devAdminCampaigns);
-const [filterStatus, setFilterStatus] = useState("all");
-const [filterSvc, setFilterSvc] = useState("all");
-const [filterOp, setFilterOp] = useState("all");
-const [expandedCampaign, setExpandedCampaign] = useState(null);
-const [showNewForm, setShowNewForm] = useState(false);
-const [newCamp, setNewCamp] = useState({ client: "", svc: "d2d", zone: "", qty: 10000 });
-const [adminNotice, setAdminNotice] = useState("");
-const totalRev = campaigns.reduce((a, c) => a + c.total, 0);
-const activeCount = campaigns.filter(c => c.status === "active").length;
-const doneCount = campaigns.filter(c => c.status === "done").length;
-const totalQty = campaigns.reduce((a, c) => a + c.qty, 0);
-const avgCPM = totalQty > 0 ? (totalRev / totalQty * 1000).toFixed(2) : "0.00";
-const maxRev = Math.max(1,...adminMonthly.map(m => m.rev));
-const filtered = campaigns.filter(c => filterStatus === "all" || c.status === filterStatus).filter(c => filterSvc === "all" || c.svc === filterSvc).filter(c => filterOp === "all"
-      || (filterOp === "pairing" && c.discount > 0)
-      || (filterOp === "confirm" && c.status === "pending")
-      || (filterOp === "compatible" && adminCampaignHasCompatibleZone(c)));
-const box = (e = {}) => ({ background: "rgba(255,255,255,.04)", borderRadius: 13, border: "1px solid rgba(255,255,255,.08)",...e });
-const pill = (active, c = "#E8571A") => ({
-    padding: "5px 12px", borderRadius: 100, cursor: "pointer", fontFamily: F.sans, fontSize: 11, fontWeight: active ? 700 : 400,
-    border: `1px solid ${active ? c : "rgba(255,255,255,.1)"}`, background: active ? `${c}18` : "rgba(255,255,255,.04)",
-    color: active ? c : "rgba(255,255,255,.45)", transition: "all.15s",
-  });
-const resetAdminFilters = () => {
-    setFilterStatus("all");
-    setFilterSvc("all");
-    setFilterOp("all");
-  };
-const saveNewCampaign = () => {
-    if (!newCamp.client.trim() || !newCamp.zone.trim() || !(Number(newCamp.qty) > 0)) {
-      setAdminNotice("Compila cliente, zona e quantità prima di salvare.");
-      return;
-    }
-    const qty = Number(newCamp.qty);
-const price = QUOTE_PRICES[newCamp.svc] || 18.5;
-const next = {
-      id: `C${String(campaigns.length + 1).padStart(3, "0")}`,
-      client: newCamp.client.trim(),
-      svc: newCamp.svc,
-      zone: newCamp.zone.trim(),
-      qty,
-      status: "pending",
-      date: new Date().toISOString().slice(0, 10),
-      total: Math.round((qty / 1000) * price * 100) / 100,
-      days: Math.max(1, Math.ceil(qty / 5000)),
-      discount: 0,
-      stato_pagamento: "in_attesa"
-    };
-    setCampaigns(prev => [next,...prev]);
-    setShowNewForm(false);
-    setNewCamp({ client: "", svc: "d2d", zone: "", qty: 10000 });
-    resetAdminFilters();
-    setAdminNotice(`Campagna ${next.id} salvata in stato In attesa.`);
-  };
-const downloadAdminCsv = () => {
-    const rows = [["id", "cliente", "servizio", "zona", "quantità", "status", "data", "totale", "sconto"],...filtered.map(c => [c.id, c.client, c.svc, c.zone, c.qty, c.status, c.date, c.total.toFixed(2), c.discount])];
-const csv = rows.map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-const url = URL.createObjectURL(blob);
-const a = document.createElement("a");
-    a.href = url;
-    a.download = "volantinipro-campagne.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-    setAdminNotice(`CSV esportato con ${filtered.length} campagne.`);
-  };
-const confermaPagamentoAdmin = async (id) => {
-    setCampaigns(prev => prev.map(c => c.id === id ? {...c, stato_pagamento: "pagato", status: "active" } : c));
-    try {
-      await confirmCampaignPayment(id);
-      setAdminNotice(`Pagamento ${id} confermato.`);
-    } catch {
-      setAdminNotice(`Pagamento ${id} non sincronizzato: Supabase non configurato o non disponibile.`);
-    }
-  };
-const exportAdminPdfMock = () => {
-    setAdminNotice("PDF preventivi disponibile dallo Step 4 per le campagne configurate.");
-  };
-
-  return (
-    <div style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 24px 60px", minHeight: "100vh" }}>
-
-      {/* HEADER */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 22, flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <div style={{ padding: "3px 10px", borderRadius: 100, background: "rgba(232,87,26,.15)", border: "1px solid rgba(232,87,26,.3)", fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: C.orange }}>
-              ADMIN
-            </div>
-            <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.3)" }}>
-              VolantiniPro – Dashboard operativa
-            </div>
-          </div>
-          <h2 style={{ fontFamily: F.serif, fontSize: 28, color: C.white, letterSpacing: "-1px", marginBottom: 3 }}>Dashboard Admin</h2>
-          <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.38)" }}>
-            Campagne – Revenue – Smart Pairing Waitlist – Gestione zona
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => setShowNewForm(v => !v)}
-            style={{ padding: "9px 18px", borderRadius: 10, border: `1px solid ${showNewForm ? C.orange : "rgba(255,255,255,.1)"}`, background: showNewForm ? `${C.orange}18` : "rgba(255,255,255,.04)", color: showNewForm ? C.orange : "rgba(255,255,255,.6)", fontFamily: F.sans, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-            {showNewForm ? "Chiudi" : "+ Nuova campagna"}
-          </button>
-          <button onClick={() => onNav("home")}
-            style={{ padding: "9px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.5)", fontFamily: F.sans, fontSize: 12, cursor: "pointer" }}>
-              Home
-          </button>
-        </div>
-      </div>
-
-      {adminNotice && (
-        <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 10, background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.2)", fontFamily: F.sans, fontSize: 12, color: C.green }}>
-          {adminNotice}
-        </div>
-      )}
-
-      {/* KPI STRIP */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 10, marginBottom: 18 }}>
-        {[
-          { icon: "", label: "Revenue totale", value: `€${totalRev.toFixed(2)}`, sub: `${campaigns.length} campagne`, col: C.orange },
-          { icon: "", label: "In distribuzione", value: activeCount, sub: "campagne attive oggi", col: C.green },
-          { icon: "", label: "In attesa", value: campaigns.filter(c => c.status === "pending").length, sub: "da confermare", col: C.yellow },
-          { icon: "", label: "Completate", value: doneCount, sub: "questo mese", col: "rgba(255,255,255,.5)" },
-          { icon: " ", label: "CPM medio", value: `€${avgCPM}`, sub: "per 1.000 volantini", col: C.blue },
-        ].map(({ icon, label, value, sub, col }) => (
-          <div key={label} style={{...box(), padding: "16px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
-              <span style={{ fontSize: 16 }}>{icon}</span>
-              <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em" }}>{label}</span>
-            </div>
-            <div style={{ fontFamily: F.serif, fontSize: 26, color: col, letterSpacing: "-1px", marginBottom: 3 }}>{value}</div>
-            <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.3)" }}>{sub}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* NUOVA CAMPAGNA FORM */}
-      {showNewForm && (
-        <div style={{...box(), padding: "18px", marginBottom: 18, border: "1px solid rgba(232,87,26,.25)", background: "rgba(232,87,26,.05)" }}>
-          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.orange, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 14 }}>+ Inserisci nuova campagna</div>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: 10, alignItems: "flex-end" }}>
-            {[
-              { l: "Cliente", type: "text", key: "client", ph: "es. Farmacia Centrale" },
-              { l: "Zona", type: "text", key: "zone", ph: "es. Cormano – Bresso" },
-              { l: "quantità", type: "number", key: "qty", ph: "10000" },
-            ].map(({ l, type, key, ph }) => (
-              <div key={key}>
-                <label style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.4)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".06em" }}>{l}</label>
-                <input type={type} value={newCamp[key]} onChange={e => setNewCamp(p => ({...p, [key]: e.target.value }))}
-                  placeholder={ph}
-                  style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.07)", color: C.white, fontFamily: F.sans, fontSize: 13 }} />
-              </div>
-            ))}
-            <div>
-              <label style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.4)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: ".06em" }}>Servizio</label>
-              <select value={newCamp.svc} onChange={e => setNewCamp(p => ({...p, svc: e.target.value }))}
-                style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(255,255,255,.12)", background: "#1a2a40", color: C.white, fontFamily: F.sans, fontSize: 13 }}>
-                <option value="d2d">  Door to Door</option>
-                <option value="h2h"> Hand to Hand</option>
-                <option value="b2b"> Business</option>
-              </select>
-            </div>
-            <button onClick={saveNewCampaign}
-              style={{ padding: "9px 16px", borderRadius: 9, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-              Salva 
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 16 }}>
-
-        {/* Section */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-
-          {/* REVENUE CHART */}
-          <div style={{...box(), padding: "18px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.35)", letterSpacing: ".1em", textTransform: "uppercase" }}>Revenue mensile 2025</div>
-              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)" }}>Tot. ?{totalRev.toFixed(0)}</div>
-            </div>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 90 }}>
-              {adminMonthly.length === 0 ? (
-                <div style={{ gridColumn: "1 / -1", padding: 18, textAlign: "center", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.45)" }}>Nessuna campagna presente.</div>
-              ) : adminMonthly.map(({ m, rev, camp }) => (
-                <div key={m} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                  <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)" }}>
-                    {rev > 0 ? `€${rev}` : ""}</div>
-                  <div style={{
-                    width: "100%", borderRadius: "4px 4px 0 0", background: rev > 0 ? C.orange : "rgba(255,255,255,.06)",
-                    height: `${rev > 0 ? Math.round((rev / maxRev) * 70) + 10 : 8}px`, transition: "height.3s", position: "relative"
-                  }}>
-                    {camp > 0 && <div style={{ position: "absolute", top: -16, left: "50%", transform: "translateX(-50%)", fontFamily: F.sans, fontSize: 8, color: C.orange, fontWeight: 700 }}>{camp}</div>}
-                  </div>
-                  <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)" }}>{m}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <div style={{ width: 10, height: 10, borderRadius: 2, background: C.orange }} />
-                <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.35)" }}>Revenue EUR </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.35)" }}>Numero sopra barra = campagne</span>
-              </div>
-            </div>
-          </div>
-
-          {/* CAMPAGNE LIST */}
-          <div style={{...box(), overflow: "hidden" }}>
-            <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.35)", letterSpacing: ".1em", textTransform: "uppercase" }}>
-                Campagne – {filtered.length} risultati
-              </div>
-              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                {[{ id: "all", l: "Tutte" }, { id: "active", l: "Attive" }, { id: "pending", l: "In attesa" }, { id: "done", l: "Completate" }].map(({ id, l }) => (
-                  <button key={id} onClick={() => setFilterStatus(id)} style={pill(filterStatus === id)}>
-                    {STATUS_CFG[id] ? <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: STATUS_CFG[id].dot, marginRight: 4 }} /> : null}{l}
-                  </button>
-                ))}
-                <div style={{ width: 1, height: 20, background: "rgba(255,255,255,.1)", margin: "0 2px" }} />
-                {[{ id: "all", l: "Tutti" }, { id: "d2d", l: "D2D" }, { id: "h2h", l: "H2H" }, { id: "b2b", l: "B2B" }].map(({ id, l }) => (
-                  <button key={id} onClick={() => setFilterSvc(id)} style={pill(filterSvc === id, id === "d2d" ? C.orange : id === "h2h" ? C.blue : C.purple)}>
-                    {id !== "all" && SVC_BADGE[id]?.icon + " "}{l}
-                  </button>
-                ))}
-                <div style={{ width: 1, height: 20, background: "rgba(255,255,255,.1)", margin: "0 2px" }} />
-                <button onClick={resetAdminFilters} style={pill(filterOp === "all" && filterStatus === "all" && filterSvc === "all", C.green)}>Reset filtri</button>
-                {ADMIN_OP_FILTERS.map(({ id, label }) => (
-                  <button key={id} onClick={() => setFilterOp(id)} style={pill(filterOp === id, id === "pairing" ? C.green : id === "confirm" ? C.yellow : C.blue)}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Table header */}
-            <div style={{ display: "grid", gridTemplateColumns: "70px 1fr 82px 118px 80px 90px 116px 96px 84px", gap: 0, padding: "8px 16px", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
-              {["ID", "Cliente", "Servizio", "Zona", "Quantità", "Totale EUR", "Pagamento", "Stato", "Analisi"].map(h => (
-                <div key={h} style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,.28)", textTransform: "uppercase", letterSpacing: ".07em" }}>{h}</div>
-              ))}
-            </div>
-
-            {/* Table rows */}
-            {filtered.map(c => {
-              const svc = SVC_BADGE[c.svc];
-const sts = STATUS_CFG[c.status];
-const analysis = adminServiceAnalysis(c);
-const expanded = expandedCampaign === c.id;
-const paymentStatus = c.stato_pagamento || (c.status === "done" ? "pagato" : "in_attesa");
-              return (
-                <div key={c.id} style={{ borderBottom: "1px solid rgba(255,255,255,.04)" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "70px 1fr 82px 118px 80px 90px 116px 96px 84px", gap: 0, padding: "11px 16px", transition: "background.14s", background: expanded ? "rgba(255,255,255,.035)" : "transparent" }}
-                    onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,.03)"}
-                    onMouseLeave={e => e.currentTarget.style.background = expanded ? "rgba(255,255,255,.035)" : "transparent"}>
-                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)", fontWeight: 600 }}>{c.id}</div>
-                    <div>
-                      <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 600, color: C.white }}>{c.client}</div>
-                      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)" }}>{c.date} – {c.days}gg – {adminOperationalStatus(c)}</div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center" }}>
-                      <span style={{ padding: "2px 8px", borderRadius: 5, background: `${svc.col}18`, fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: svc.col }}>{svc.icon} {svc.label}</span>
-                    </div>
-                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.6)", display: "flex", alignItems: "center" }}>{c.zone}</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 600, color: C.white, display: "flex", alignItems: "center" }}>{c.qty.toLocaleString("it-IT", { useGrouping: true })}</div>
-                    <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                      <div style={{ fontFamily: F.serif, fontSize: 15, color: C.orange }}>?{c.total.toFixed(2)}</div>
-                      {c.discount > 0 && <div style={{ fontFamily: F.sans, fontSize: 9, color: C.green }}>-{c.discount}% pairing</div>}
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center" }}>
-                      {paymentStatus === "pagato" ? (
-                        <div style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(95,194,124,.12)", color: C.green, border: "1px solid rgba(95,194,124,.22)", fontFamily: F.sans, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" }}>Pagato</div>
-                      ) : (
-                        <ButtonConfermaPagamento campagnaId={c.id} clienteEmail={c.email || ""} clienteNome={c.client} zona={c.zone} onConfirmed={(id) => confermaPagamentoAdmin(id)} />
-                      )}
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center" }}>
-                      <div style={{ padding: "3px 8px", borderRadius: 6, background: sts.bg, display: "flex", alignItems: "center", gap: 4 }}>
-                        <div style={{ width: 5, height: 5, borderRadius: "50%", background: sts.dot, flexShrink: 0 }} />
-                        <span style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 600, color: sts.col, whiteSpace: "nowrap" }}>{sts.label}</span>
-                      </div>
-                    </div>
-                    <button onClick={() => setExpandedCampaign(expanded ? null : c.id)}
-                      style={{ alignSelf: "center", justifySelf: "start", padding: "5px 8px", borderRadius: 7, border: `1px solid ${svc.col}35`, background: expanded ? `${svc.col}18` : "rgba(255,255,255,.035)", color: expanded ? svc.col : "rgba(255,255,255,.55)", fontFamily: F.sans, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                      {expanded ? "Chiudi" : "Dettagli"}
-                    </button>
-                  </div>
-                  {expanded && (
-                    <div style={{ margin: "0 16px 14px 86px", padding: "13px", borderRadius: 11, background: "rgba(255,255,255,.035)", border: `1px solid ${svc.col}24` }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 10 }}>
-                        <div>
-                          <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: svc.col, letterSpacing: ".08em", textTransform: "uppercase" }}>Dettagli analisi Step 2</div>
-                          <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.42)", marginTop: 3 }}>{adminAnalysisPreview(c)}</div>
-                        </div>
-                        <button disabled style={{ padding: "5px 9px", borderRadius: 7, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.28)", fontFamily: F.sans, fontSize: 10, cursor: "not-allowed" }}>Apri campagna – non disponibile</button>
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1.15fr.85fr", gap: 10 }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 7 }}>
-                          {analysis.rows.map(({ l, v }) => (
-                            <div key={l} style={{ padding: "8px", borderRadius: 8, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.05)" }}>
-                              <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.33)", textTransform: "uppercase", letterSpacing: ".04em" }}>{l}</div>
-                              <div style={{ fontFamily: F.sans, fontSize: 12, color: C.white, fontWeight: 700, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis" }}>{v || "Dato non disponibile"}</div>
-                            </div>
-                          ))}
-                        </div>
-                        <div>
-                          <div style={{ display: "grid", gap: 6, marginBottom: 8 }}>
-                            {analysis.scores.map(({ l, v }) => (
-                              <div key={l} style={{ display: "grid", gridTemplateColumns: "1fr 46px", gap: 8, alignItems: "center" }}>
-                                <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.48)" }}>{l}</span>
-                                <span style={{ fontFamily: F.sans, fontSize: 11, color: svc.col, fontWeight: 800, textAlign: "right" }}>{v}/100</span>
-                                <div style={{ gridColumn: "1 / -1", height: 4, borderRadius: 4, background: "rgba(255,255,255,.07)", overflow: "hidden" }}>
-                                  <div style={{ width: `${Math.max(0, Math.min(100, v))}%`, height: "100%", background: svc.col }} />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                          {analysis.notes.map(n => (
-                            <div key={n} style={{ padding: "8px 9px", borderRadius: 8, background: `${svc.col}10`, border: `1px solid ${svc.col}20`, fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.62)", lineHeight: 1.35 }}>{n}</div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* MAPPA LIVE ZONE */}
-          <div style={{...box(), overflow: "hidden" }}>
-            <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.35)", letterSpacing: ".1em", textTransform: "uppercase" }}>Mappa operativa – campagne e compatibilità</div>
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                {[{ c: C.green, l: "In distribuzione" }, { c: C.yellow, l: "In attesa" }, { c: C.blue, l: "Smart Pairing" }, { c: "rgba(255,255,255,.2)", l: "Completata" }].map(({ c, l }) => (
-                  <div key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: c }} />
-                    <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)" }}>{l}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div style={{ background: "linear-gradient(135deg,#081610,#080f1e)", position: "relative" }}>
-              <svg viewBox="0 0 580 280" width="100%" style={{ display: "block" }}>
-                <defs><pattern id="adm-grid" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M 30 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,.03)" strokeWidth=".5" /></pattern></defs>
-                <rect width="100%" height="100%" fill="url(#adm-grid)" />
-                {S2_ZONES.map(z => {
-                  const cr = S2_CITIES.find(c => c.id === z.id); if (!cr) return null;
-const p = { x: 580 / 2 + (cr.lng - 9.175) * 2800, y: 280 / 2 - (cr.lat - 45.548) * 4200 * (280 / 360) };
-const activeC = campaigns.find(c => c.zone.toLowerCase().includes(z.name.split(" ")[0].toLowerCase()) && c.status === "active");
-const pendC = campaigns.find(c => c.zone.toLowerCase().includes(z.name.split(" ")[0].toLowerCase()) && c.status === "pending");
-const doneC = campaigns.find(c => c.zone.toLowerCase().includes(z.name.split(" ")[0].toLowerCase()) && c.status === "done");
-const camp = activeC || pendC || doneC;
-const compatible = adminWaitlist.some(w => z.name.toLowerCase().includes(w.zone.toLowerCase().split(" ")[0]));
-const dotCol = activeC ? C.green : pendC ? C.yellow : "rgba(255,255,255,.2)";
-const r = activeC ? 8 : pendC ? 6 : doneC ? 5 : 4;
-const markerTitle = camp
-                    ? `${camp.id} – ${camp.client}\n${SVC_BADGE[camp.svc].label} – ${camp.zone}\n${camp.qty.toLocaleString("it-IT", { useGrouping: true })} volantini – ${STATUS_CFG[camp.status].label}\nData: ${camp.date}${camp.discount > 0 ? `\nSmart Pairing: -${camp.discount}%` : ""}`
-                    : `${z.name}\nNessuna campagna attiva`;
-                  return (
-                    <g key={z.id}>
-                      <title>{markerTitle}</title>
-                      {compatible && <circle cx={p.x} cy={p.y} r={r + 12} fill="none" stroke={C.blue} strokeWidth="1.2" strokeDasharray="3 3" opacity=".75" />}
-                      {(activeC || pendC) && <circle cx={p.x} cy={p.y} r={r + 6} fill={dotCol} fillOpacity=".12" />}
-                      <circle cx={p.x} cy={p.y} r={r} fill={dotCol} opacity={activeC || pendC ? 1 :.4} />
-                      <text x={p.x} y={p.y - 11} textAnchor="middle" fontFamily={F.sans} fontSize="8.5"
-                        fill={activeC ? C.green : pendC ? C.yellow : "rgba(255,255,255,.3)"} fontWeight={activeC || pendC ? "700" : "400"}>
-                        {z.name.split(" ")[0]}
-                      </text>
-                      {camp && (
-                        <text x={p.x} y={p.y + 14} textAnchor="middle" fontFamily={F.sans} fontSize="7.5" fill={SVC_BADGE[camp.svc].col}>
-                          {SVC_BADGE[camp.svc].icon} {camp.id}
-                        </text>
-                      )}
-                    </g>
-                  );
-                })}
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* Section */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-
-          {/* SMART PAIRING WAITLIST */}
-          <div style={{...box(), overflow: "hidden" }}>
-            <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.35)", letterSpacing: ".1em", textTransform: "uppercase" }}>Smart Pairing Waitlist</div>
-                <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.3)", marginTop: 1 }}>{adminWaitlist.length} richieste in attesa</div>
-              </div>
-              <div style={{ padding: "3px 9px", borderRadius: 100, background: "rgba(232,87,26,.18)", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.orange }}>{adminWaitlist.length}</div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-              {adminWaitlist.length === 0 ? (
-                <div style={{ padding: 18, textAlign: "center", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.45)" }}>Nessuna richiesta Smart Pairing presente.</div>
-              ) : adminWaitlist.map((w, i) => {
-                const match = adminCompatibleCampaign(w);
-const svc = match ? SVC_BADGE[match.svc] : null;
-                return (
-                  <div key={i} style={{ padding: "11px 14px", borderBottom: "1px solid rgba(255,255,255,.04)", transition: "background.12s" }}
-                    onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,.03)"}
-                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 600, color: C.white }}>{w.name}</div>
-                      <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.3)" }}>{w.date}</div>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
-                      <span style={{ padding: "2px 7px", borderRadius: 5, background: "rgba(167,139,250,.1)", border: "1px solid rgba(167,139,250,.2)", fontFamily: F.sans, fontSize: 9, color: C.purple }}> {w.days}</span>
-                      <span style={{ padding: "2px 7px", borderRadius: 5, background: `${C.orange}12`, border: `1px solid ${C.orange}28`, fontFamily: F.sans, fontSize: 9, color: C.orange }}> {w.zone}</span>
-                      {svc && <span style={{ padding: "2px 7px", borderRadius: 5, background: `${svc.col}12`, border: `1px solid ${svc.col}25`, fontFamily: F.sans, fontSize: 9, color: svc.col }}>{svc.icon} {svc.label}</span>}
-                    </div>
-                    <div style={{ padding: "7px 8px", borderRadius: 8, background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.16)", marginBottom: 7 }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 10, color: C.green, fontWeight: 800 }}>Compatibilità operativa</div>
-                      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.55)", lineHeight: 1.35, marginTop: 2 }}>
-                        {match ? `Compatibile con ${match.id} – ${match.zone} – ${match.qty.toLocaleString("it-IT", { useGrouping: true })} volantini${match.discount > 0 ? ` – potenziale -${match.discount}%` : ""}` : "Dato non disponibile"}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                      <a href={`https://wa.me/${w.tel.replace(/\s/g, "")}`} style={{ padding: "4px 9px", borderRadius: 7, background: "rgba(37,211,102,.12)", border: "1px solid rgba(37,211,102,.25)", fontFamily: F.sans, fontSize: 10, fontWeight: 600, color: "#25D366", textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
-                         WhatsApp
-                      </a>
-                      <a href={`mailto:${w.email}`} style={{ padding: "4px 9px", borderRadius: 7, background: "rgba(96,165,250,.1)", border: "1px solid rgba(96,165,250,.2)", fontFamily: F.sans, fontSize: 10, fontWeight: 600, color: C.blue, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
-                         Email
-                      </a>
-                      <button onClick={() => { setFilterOp("compatible"); setFilterStatus("all"); setFilterSvc("all"); }}
-                        style={{ padding: "4px 9px", borderRadius: 7, border: `1px solid ${C.orange}25`, background: `${C.orange}10`, color: C.orange, fontFamily: F.sans, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>Apri compatibilità</button>
-                      <button disabled style={{ padding: "4px 9px", borderRadius: 7, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.28)", fontFamily: F.sans, fontSize: 10, cursor: "not-allowed" }}>Abbina – non disponibile</button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* STATISTICHE SERVIZI */}
-          <div style={{...box(), padding: "14px" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.35)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 12 }}>Mix servizi</div>
-            {["d2d", "h2h", "b2b"].map(svc => {
-              const svcCamps = campaigns.filter(c => c.svc === svc);
-const svcRev = svcCamps.reduce((a, c) => a + c.total, 0);
-const pct = Math.round((svcCamps.length / campaigns.length) * 100);
-const { icon, label, col } = SVC_BADGE[svc];
-              return (
-                <div key={svc} style={{ marginBottom: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      <span style={{ fontSize: 13 }}>{icon}</span>
-                      <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 600, color: C.white }}>{label}</span>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: col }}>?{svcRev.toFixed(0)}</span>
-                      <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)", marginLeft: 6 }}>{svcCamps.length} camp.</span>
-                    </div>
-                  </div>
-                  <div style={{ height: 5, borderRadius: 3, background: "rgba(255,255,255,.08)", overflow: "hidden" }}>
-                    <div style={{ width: `${pct}%`, height: "100%", background: col, borderRadius: 3, transition: "width.4s" }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* AZIONI RAPIDE */}
-          <div style={{...box(), padding: "14px" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.35)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 10 }}>Azioni rapide</div>
-            {[
-              { icon: "", l: "Nuova campagna", action: () => setShowNewForm(true), col: C.orange },
-              { icon: "", l: "Trova Smart Pairing", action: () => { setFilterOp("compatible"); setFilterStatus("all"); setFilterSvc("all"); }, col: C.green },
-              { icon: "", l: "Apri analisi zona", action: () => onNav("step2"), col: C.orange },
-              { icon: " ", l: "Esporta campagne operative", action: downloadAdminCsv, hint: "CSV", col: C.blue },
-              { icon: "", l: "Genera PDF preventivi", action: exportAdminPdfMock, hint: "Step 4", col: C.purple },
-              { icon: "", l: "Ricalcola compatibilità", disabled: true, hint: "Non ancora disponibile", col: C.green },
-              { icon: "", l: "Invia avvisi batch", disabled: true, hint: "Non ancora disponibile", col: C.yellow },
-            ].map(({ icon, l, action, disabled, hint, col }) => (
-              <button key={l} onClick={disabled ? undefined : action} disabled={disabled}
-                style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(255,255,255,.07)", background: "rgba(255,255,255,.03)", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ?.55 : 1, marginBottom: 5, transition: "all.15s" }}
-                onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = `${col}10`; }}
-                onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,.03)"}>
-                <span style={{ fontSize: 14 }}>{icon}</span>
-                <span style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)", fontWeight: 500, flex: 1, textAlign: "left" }}>{l}</span>
-                <span style={{ fontFamily: F.sans, fontSize: 9, color: disabled ? "rgba(255,255,255,.35)" : "rgba(255,255,255,.25)" }}>{hint || ""}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* ULTIME NOTIFICHE */}
-          <div style={{...box(), padding: "14px" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.35)", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 10 }}>Ultime attività</div>
-            {[
-              { icon: "", msg: "Campagna C007 avviata - Varedo – Senago", t: "09:14" },
-              { icon: "", msg: "Compatibilità zona trovata - Paolo Greco → C007", t: "08:52" },
-              { icon: "", msg: "PDF preventivo generato - C004 Pizzeria Napoli", t: "ieri" },
-              { icon: "", msg: "Campagna C003 completata - Studio Rossi", t: "ieri" },
-              { icon: "", msg: "quantità da verificare - C002 in attesa", t: "ieri" },
-              { icon: "", msg: "Pagamento ricevuto C004 277,50€", t: "ieri" },
-              { icon: "", msg: "WhatsApp inviato a 3 clienti waitlist", t: "2gg fa" },
-            ].map(({ icon, msg, t }, i) => (
-              <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", paddingBottom: 8, marginBottom: 8, borderBottom: "1px solid rgba(255,255,255,.04)" }}>
-                <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }}>{icon}</span>
-                <div style={{ flex: 1, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)", lineHeight: 1.4 }}>{msg}</div>
-                <span style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.25)", flexShrink: 0 }}>{t}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function getSupabaseEnv() {
@@ -9581,8 +9693,9 @@ const clientEmpty = (title, text) => (
               })}
             </div>
           )}
-          <div style={{ marginTop: 16 }}>
+          <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button className="btn" onClick={() => onNav("step1")} style={{ minHeight: 46, padding: "0 16px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Nuova campagna </button>
+            <a href="/gis" style={{ minHeight: 46, padding: "0 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,.14)", background: "rgba(255,255,255,.04)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", textDecoration: "none" }}>🗺️ Apri Mappa Avanzata GIS</a>
           </div>
         </div>
 
