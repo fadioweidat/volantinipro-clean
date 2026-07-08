@@ -1124,6 +1124,98 @@ const l=Object.entries(r).map(([u,h])=>({label:u,count:h,target:i.aliases.some(f
 function getComuneColor(n=""){const p=["#14b8a6","#3b82f6","#8b5cf6","#06b6d4","#22c55e","#6366f1"],i=[...n].reduce((r,l)=>r+l.charCodeAt(0),0);return p[i%p.length]}
 function normalizeTerritoryName(value=""){return String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();}
 function isMilanoTerritory(value){return /\bmilano\b/.test(normalizeTerritoryName(value));}function isMilanoCoordinates(lat,lng){const nLat=Number(lat),nLng=Number(lng);if(!Number.isFinite(nLat)||!Number.isFinite(nLng))return false;return nLat>=45.38&&nLat<=45.56&&nLng>=9.04&&nLng<=9.31;}
+// Point-in-polygon (ray casting) su geometrie GeoJSON — serve a validare che
+// il confine restituito da Nominatim contenga davvero il centroide del comune
+// cercato: per "Milano" Nominatim può restituire come primo risultato la
+// località "Milano" nel comune di Rodano (poligono sbagliato/piccolo), non il
+// Comune di Milano. Solo anelli esterni, i buchi sono irrilevanti qui.
+function ringContainsPoint(ring, lat, lng) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1];
+    const xj = ring[j][0], yj = ring[j][1];
+    const intersect = ((yi > lat) !== (yj > lat)) && (lng < ((xj - xi) * (lat - yi)) / (((yj - yi) || 1e-12)) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+function geoJsonContainsPoint(geometry, lat, lng) {
+  if (!geometry || !Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  if (geometry.type === "Polygon") return ringContainsPoint(geometry.coordinates?.[0] || [], lat, lng);
+  if (geometry.type === "MultiPolygon") return (geometry.coordinates || []).some(poly => ringContainsPoint(poly?.[0] || [], lat, lng));
+  return false;
+}
+
+// Distanza haversine (km) — usata SOLO per il log dev [STEP2_RADIUS_NIL_CHECK]
+// (verifica manuale "le NIL mostrate sono davvero dentro il raggio?"), non
+// per nessuna formula di copertura/KPI.
+function haversineKm(lat1, lng1, lat2, lng2) {
+  if (![lat1, lng1, lat2, lng2].every(Number.isFinite)) return null;
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+// Centroide approssimato (media dei vertici del primo anello) — sufficiente
+// per una stima di distanza in un log dev, non per rendering/geometria reale.
+function geoJsonApproxCentroid(geometry) {
+  const ring = geometry?.type === "Polygon" ? geometry.coordinates?.[0] : geometry?.type === "MultiPolygon" ? geometry.coordinates?.[0]?.[0] : null;
+  if (!ring || !ring.length) return null;
+  let sumLng = 0, sumLat = 0;
+  ring.forEach(([lng, lat]) => { sumLng += lng; sumLat += lat; });
+  return { lat: sumLat / ring.length, lng: sumLng / ring.length };
+}
+
+// Tipi di risultato geocoder che indicano un quartiere/frazione/NIL, MAI un
+// comune. Mapbox v5 classifica i comuni italiani come "place": i quartieri
+// milanesi (Brera, Duomo, ...) arrivano come "locality" o "neighborhood" —
+// entrambi bloccati (verificato su screenshot reale: Brera passava proprio
+// perché "locality" non era in lista). Nominatim usa addresstype
+// "suburb"/"quarter"/"neighbourhood"/"hamlet" per quartieri e frazioni.
+const NIL_LIKE_PLACE_TYPES = new Set([
+  "neighborhood", "neighbourhood", "suburb", "quarter", "quartiere",
+  "district", "city_district", "residential", "borough", "hamlet",
+  "locality", "isolated_dwelling", "croft",
+]);
+function isNilLikePlaceType(placeType) {
+  return NIL_LIKE_PLACE_TYPES.has(String(placeType || "").toLowerCase());
+}
+
+// Intent della ricerca: "milano via como" è un INDIRIZZO dentro Milano, non
+// il comune Como né (fuzzy) Cormano. Se l'input contiene un odonimo (via/
+// corso/piazza/...) l'intent è "address"; se contiene anche "milano" il
+// comune di riferimento è Milano e nessun altro comune va selezionato
+// automaticamente.
+const ADDRESS_INTENT_RE = /\b(via|viale|corso|piazza|piazzale|largo|strada|vicolo|galleria|alzaia|bastioni|ripa|foro)\b/i;
+function detectSearchIntent(input) {
+  const raw = String(input || "").trim();
+  const isAddress = ADDRESS_INTENT_RE.test(raw);
+  const inMilano = /\bmilano\b/i.test(raw);
+  return {
+    intent: isAddress ? "address" : "municipality",
+    parentComune: isAddress && inMilano ? "Milano" : null,
+  };
+}
+// Tipi geocoder che identificano un indirizzo/punto (Mapbox: address, poi;
+// Nominatim addresstype: road/highway/house/building/amenity ecc.).
+const ADDRESS_LIKE_PLACE_TYPES = new Set([
+  "address", "poi", "road", "street", "highway", "house", "building", "amenity", "tourism",
+]);
+function isAddressLikePlaceType(placeType) {
+  return ADDRESS_LIKE_PLACE_TYPES.has(String(placeType || "").toLowerCase());
+}
+// La classificazione placeType del geocoder non è affidabile per luoghi
+// ambigui (es. "Corso Como" a Milano è insieme una via E un'area/quartiere
+// nightlife nota — Mapbox/Nominatim possono taggarla "locality"/"neighborhood"
+// invece di "address"/"road"). Se il TESTO del suggerimento contiene un
+// odonimo, trattalo come indirizzo A PRESCINDERE dal placeType — priorità al
+// pattern testuale, non al tag di terze parti, per non far scivolare un
+// indirizzo dentro il ramo "seleziona come NIL" o peggio nel comune diretto.
+function looksLikeAddressResult(s) {
+  return isAddressLikePlaceType(s?.placeType) || ADDRESS_INTENT_RE.test(s?.name || s?.label || "");
+}
+
 function pickRealComuneGeometry(z) {
   const geomRaw = z?.geometry_geojson || z?.geometry || z?.geojson || z?.geom || z?.feature?.geometry || null;
   if (!geomRaw) return null;
@@ -2601,6 +2693,10 @@ function normalizeMunicipalityName(raw) {
   return String(raw || "")
     .split(",")[0]
     .replace(/^\s*comune di\s+/i, "")
+    // Normalize hyphens to spaces: "Bovisio-Masciago" → "Bovisio Masciago"
+    // so the API name (which may use hyphens) matches the user-selected name (which uses spaces)
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
 }
@@ -2645,6 +2741,27 @@ const [omiExpanded, setOmiExpanded] = useState(false);
 const [detailExpanded, setDetailExpanded] = useState(false);
 const [zoneListSort, setZoneListSort] = useState("relevance");
 const [showMarginalZones, setShowMarginalZones] = useState(false);
+// Comune Milano vista principale: 88 card NIL sono un dettaglio tecnico, non
+// la vista di default — collassate dietro un bottone. In Raggio (dove la
+// lista NIL è parte diretta del calcolo del raggio) e in NIL manuale (dove
+// l'utente sta scegliendo proprio le NIL) la lista resta sempre visibile.
+const [showMilanoNilList, setShowMilanoNilList] = useState(false);
+// Nome NIL da pre-selezionare non appena la modalità NIL manuale carica le
+// 88 zone di Milano — usato dal flusso "Brera non è un comune → seleziona
+// come NIL" (bottone nel dropdown ricerca Comune).
+const [pendingNilPreselectName, setPendingNilPreselectName] = useState(null);
+// Punto cercato PIÙ PRECISO del centroide comune ({label, lat, lng, type:
+// "nil"|"address", parentComune}). Quando presente, la modalità Raggio centra
+// cerchio/marker/query su questo punto invece che sul centroide del comune
+// (es. "Milano via Brera" → raggio da Brera, non dal Duomo). Azzerato quando
+// l'utente seleziona un nuovo comune dalla ricerca.
+const [selectedSearchPoint, setSelectedSearchPoint] = useState(null);
+// Un indirizzo/punto (type "address") NON deve far calcolare in automatico
+// il comune completo (88 NIL/744.299 famiglie) — solo un click esplicito su
+// "Usa Milano comune completo" lo abilita. Azzerato ogni volta che cambia il
+// punto cercato (vedi selectAddressPointInMilano), così il prossimo indirizzo
+// richiede una nuova conferma esplicita.
+const [addressFullCoverageConfirmed, setAddressFullCoverageConfirmed] = useState(false);
 const [activeMapLayers, setActiveMapLayers] = useState(() => defaultLayerState(svcType));
 useEffect(() => {
   if (!data.selectedService && !data.activeService && !data.type) {
@@ -2691,6 +2808,10 @@ useEffect(() => {
   // lets zonesInRadius treat that gap as "waiting", not a real mismatch.
   const municipalitySwitchAtRef = useRef(0);
   const [municipalityBoundary, setMunicipalityBoundary] = useState(null);
+  // Cache dei confini già scaricati da Nominatim, per nome comune normalizzato:
+  // evita di ripetere la fetch di rete ogni volta che si torna alla modalità
+  // Comune dopo essere passati per Raggio (vedi effect sotto).
+  const municipalityBoundaryCacheRef = useRef(new Map());
   const [hiddenBoundaries, setHiddenBoundaries] = useState([]);
   const [selectedComuni, setSelectedComuni] = useState(data.selectedComuni || (data.city ? [data.city] : []));
   useEffect(() => {
@@ -2716,7 +2837,50 @@ const territoryMode = searchMode === "municipality" ? "full_municipality" : sear
 const isComuneMode = activeAreaTab === "comune";
 const isRadiusMode = activeAreaTab === "raggio";
 const isCapMode = activeAreaTab === "cap";
+// Modalità "NIL / Quartieri" manuale (solo Milano, tab Comune): quando attiva,
+// le NIL scelte manualmente diventano l'area principale (areaMode "custom_zone").
+// Quando spenta, Comune Milano = comune completo (aggregato di TUTTE le NIL),
+// mai la prima NIL (es. DUOMO) come fallback silenzioso.
+const [nilManualMode, setNilManualMode] = useState(false);
+// Indirizzo/punto selezionato (Corso Como, Via Brera-come-indirizzo, ecc.)
+// mentre si è sul tab Comune: NON deve calcolare automaticamente il comune
+// completo (88 NIL/744.299 famiglie) finché l'utente non conferma
+// esplicitamente "Usa Milano comune completo" — vedi box dedicato in JSX.
+// nilManualMode ESCLUSO apposta: cliccando "Seleziona NIL/quartiere vicino"
+// si passa a quella modalità, che ha già la sua UI di selezione dedicata.
+// Safety net indipendente dal placeType del geocoder (inaffidabile per
+// luoghi ambigui, es. "Corso Como" taggato come area/locality invece che
+// indirizzo): se il testo cercato contiene ancora un odonimo + "milano" ED
+// è stato selezionato proprio il comune Milano, tratta comunque come
+// indirizzo non confermato — anche se selectedSearchPoint non fosse stato
+// valorizzato per qualche motivo lato geocoder.
+const searchLooksLikeMilanoAddress = ADDRESS_INTENT_RE.test(search) && /\bmilano\b/i.test(search)
+  && normalizeMunicipalityName(city?.label || city?.name) === "milano";
+const hasUnconfirmedAddressPoint = isComuneMode
+  && !addressFullCoverageConfirmed
+  && !nilManualMode
+  && (selectedSearchPoint?.type === "address" || searchLooksLikeMilanoAddress);
+const usingMunicipalityFullCoverage = isComuneMode && !hasUnconfirmedAddressPoint;
 const selectedComune = city || (selectedComuni && selectedComuni[0]) || null;
+// Centro del raggio, con priorità: punto/indirizzo/NIL cercato → centroide
+// comune. Usato SOLO in modalità Raggio: Comune resta sul confine comunale,
+// e la query tecnica NIL Milano resta sul centroide (sweep 15km completo).
+const hasSearchPoint = Boolean(selectedSearchPoint && Number.isFinite(Number(selectedSearchPoint.lat)) && Number.isFinite(Number(selectedSearchPoint.lng)));
+const radiusCenterSource = isRadiusMode ? (hasSearchPoint ? (selectedSearchPoint.type || "address") : "municipality") : null;
+const radiusCenter = isRadiusMode && hasSearchPoint
+  ? { lat: Number(selectedSearchPoint.lat), lng: Number(selectedSearchPoint.lng), label: selectedSearchPoint.label || null }
+  : (city ? { lat: city.lat, lng: city.lng, label: city.label || city.name || null } : null);
+// "city" per la mappa: in Raggio col punto cercato, marker e cerchio si
+// centrano sul punto (Via Brera / NIL Brera); in Comune con indirizzo NON
+// ancora confermato, il marker resta sul punto cercato invece che sul
+// centroide Milano — evita di mostrare il confine comunale come "scelta
+// finale" mentre l'utente non ha ancora deciso comune/raggio/NIL.
+const mapCenterOverride = isRadiusMode
+  ? (hasSearchPoint ? radiusCenter : null)
+  : (hasUnconfirmedAddressPoint && hasSearchPoint ? { lat: Number(selectedSearchPoint.lat), lng: Number(selectedSearchPoint.lng), label: selectedSearchPoint.label || null } : null);
+const mapCityForStep2 = (mapCenterOverride && city)
+  ? { ...city, lat: mapCenterOverride.lat, lng: mapCenterOverride.lng, label: mapCenterOverride.label || city.label, name: mapCenterOverride.label || city.name }
+  : city;
 const rawRadiusKm = Number(radius ?? activeZoneForRadius?.radiusKm ?? activeZoneForRadius?.radius ?? data.radiusKm ?? data.radius ?? 3);
 const radiusKm = isComuneMode ? null : (rawRadiusKm || 3);
 const selectedRadius = radiusKm;
@@ -3044,6 +3208,7 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
     setSearch("");
     setCity(null);
     setSelectedComuni([]);
+    setSelectedSearchPoint(null);
     setPendingAddMunicipality(false);
     setRadius(3);
     setSelected([]);
@@ -3247,21 +3412,40 @@ const numericRadiusKm = Number(rawRadiusKm) || 3;
 // manualmente). Diverso da `radiusKm` (sopra), che è solo per la UI e resta
 // null in modalità Comune perché lì non va mostrato alcun raggio.
 const effectiveRadiusKm = isComuneMode
-  ? ((selectedComuni && selectedComuni.length > 1) ? Math.max(25, numericRadiusKm) : Math.min(Math.max(numericRadiusKm, 3), 8))
+  ? ((selectedComuni && selectedComuni.length > 1)
+      ? Math.max(25, numericRadiusKm)
+      // Milano comune completo (analisi NIL): il clamp 3-8km sweepava solo le
+      // NIL intorno al centroide (di fatto DUOMO e poco altro) — servono ~15km
+      // dal centroide per coprire l'intero territorio comunale e recuperare
+      // tutte le NIL dal nil_breakdown.
+      : requestedAnalysisLevel === "nil"
+        ? Math.max(15, numericRadiusKm)
+        : Math.min(Math.max(numericRadiusKm, 3), 8))
   : numericRadiusKm;
 
 debugStep2Log("[STEP2_EFFECTIVE_RADIUS]", { searchMode, radiusKm, effectiveRadiusKm });
 
+// Centro delle query backend/GIS: in Raggio col punto cercato usa il punto
+// (via/NIL), altrimenti il centroide comune — stessa priorità di radiusCenter.
+const queryCenterLat = (isRadiusMode && hasSearchPoint) ? radiusCenter.lat : (city?.lat ?? null);
+const queryCenterLng = (isRadiusMode && hasSearchPoint) ? radiusCenter.lng : (city?.lng ?? null);
+
 const analysisParams = useMemo(() => ({
-  lat: city?.lat ?? null,
-  lng: city?.lng ?? null,
+  lat: queryCenterLat,
+  lng: queryCenterLng,
   radiusKm: effectiveRadiusKm,
   serviceType: svcType,
-  municipality: isComuneMode ? selectedMunicipality : null,
+  // municipality va passato ANCHE in modalità Raggio: useServiceAnalysis
+  // scarta la richiesta se municipality è null (hasValidZone), quindi con
+  // `isComuneMode ? ... : null` in Raggio la fetch non partiva MAI e la UI
+  // riusava i dati stantii dell'ultima query Comune (es. le 88 NIL dello
+  // sweep 15km di Milano mostrate come "raggio 3 km"). In Raggio il backend
+  // interseca comunque per punto+radiusKm: municipality è il riferimento.
+  municipality: selectedMunicipality,
   analysisLevel: requestedAnalysisLevel,
   quantity: quantityForAnalysis,
   scope: analysisScope,
-}), [city?.lat, city?.lng, effectiveRadiusKm, svcType, selectedMunicipality, requestedAnalysisLevel, quantityForAnalysis, analysisScope, isComuneMode, selectedComuni]);
+}), [queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType, selectedMunicipality, requestedAnalysisLevel, quantityForAnalysis, analysisScope, isComuneMode, selectedComuni]);
 const { data: apiData, loading: apiLoading, error: apiError } = useServiceAnalysis(
   analysisParams.lat,
   analysisParams.lng,
@@ -3273,15 +3457,15 @@ const { data: apiData, loading: apiLoading, error: apiError } = useServiceAnalys
   analysisParams.analysisLevel
 );
 const omiInfo = apiData?.metadata?.omi ?? null;
-const { sectors, loading: sectorsLoading } = useSectors(city?.lat, city?.lng, effectiveRadiusKm, svcType);
-const { pois, loading: poiLoading }    = usePoi(city?.lat, city?.lng, effectiveRadiusKm, svcType);
-const { transportState, loading: transportLoading } = useTransportStops(city?.lat, city?.lng, effectiveRadiusKm, svcType);
+const { sectors, loading: sectorsLoading } = useSectors(queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType);
+const { pois, loading: poiLoading }    = usePoi(queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType);
+const { transportState, loading: transportLoading } = useTransportStops(queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType);
 const addressPointParams = useMemo(() => ({
-  lat: city?.lat ?? null,
-  lng: city?.lng ?? null,
+  lat: queryCenterLat,
+  lng: queryCenterLng,
   radiusKm: effectiveRadiusKm,
   serviceType: svcType,
-}), [city?.lat, city?.lng, effectiveRadiusKm, svcType]);
+}), [queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType]);
 const civiciFetchEnabled =
   svcType === "d2d" &&
   activeMapLayers?.civici === true &&
@@ -3336,10 +3520,16 @@ const formatTerritoryCount = (count) => `${count} ${count === 1 ? territorySingu
 // areaMode — concetto unico per distinguere cosa rappresentano davvero i
 // numeri mostrati (non solo il tab attivo):
 // - "radius": modalità Raggio, punto+raggio scelto dall'utente.
-// - "custom_zone": modalità Comune ma l'analisi reale è su sotto-zone NIL
-//   (Milano) — non rappresenta l'intero comune, va etichettato come tale.
-// - "full_municipality": modalità Comune, analisi a livello di comune intero.
-const areaMode = isRadiusMode ? "radius" : isCapMode ? "cap" : (isNilAnalysis ? "custom_zone" : "full_municipality");
+// - "custom_zone": SOLO modalità NIL manuale (toggle "NIL / Quartieri" attivo
+//   su Milano): l'utente ha scelto esplicitamente una o più NIL come area.
+// - "full_municipality": modalità Comune, comune intero. Per Milano i numeri
+//   sono l'aggregato di TUTTE le NIL (selZones = tutte le NIL) — l'analisi
+//   NIL è dettaglio, MAI la fonte dell'area principale (niente fallback DUOMO).
+const isNilManualMode = isComuneMode && isNilAnalysis && nilManualMode;
+// Comune Milano "vista principale" (non Raggio, non NIL manuale): qui la
+// lista card NIL va collassata di default dietro un bottone.
+const isMilanoComuneCollapsible = isComuneMode && isNilAnalysis && !nilManualMode;
+const areaMode = isRadiusMode ? "radius" : isCapMode ? "cap" : (isNilManualMode ? "custom_zone" : "full_municipality");
 
 useEffect(() => {
   if (import.meta.env.DEV) {
@@ -3403,21 +3593,43 @@ const civiciAvailable =
         }
         return;
       }
+      // Intent indirizzo ("milano via como"): chiedi al geocoder ANCHE gli
+      // indirizzi/POI, altrimenti Mapbox fuzzy-matcha solo nomi di comuni e
+      // "via como" diventa Cormano/Como — la causa esatta del bug.
+      const searchIntent = detectSearchIntent(search);
       const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
       if (mapboxToken) {
         try {
-          const r = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(search)}.json?access_token=${mapboxToken}&country=IT&types=place,locality,neighborhood&language=it&limit=6`);
+          const mapboxTypes = searchIntent.intent === "address"
+            ? "address,poi,place,locality,neighborhood"
+            : "place,locality,neighborhood";
+          const r = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(search)}.json?access_token=${mapboxToken}&country=IT&types=${mapboxTypes}&language=it&limit=8`);
           const d = await r.json();
           if (d.features?.length) {
-            setGeocodeSuggestions(d.features.map(f => ({ id: f.id, name: f.place_name_it || f.place_name || f.text, label: f.text, lat: f.center[1], lng: f.center[0] })));
+            // placeType conservato per la validazione tab Comune (vedi
+            // NIL_LIKE_PLACE_TYPES): "neighborhood" per Brera/Duomo/ecc. NON
+            // va rimosso dal filtro `types` sopra — la modalità Raggio usa
+            // la STESSA ricerca e lì un quartiere è un centro valido.
+            setGeocodeSuggestions(d.features.map(f => ({ id: f.id, name: f.place_name_it || f.place_name || f.text, label: f.text, lat: f.center[1], lng: f.center[0], placeType: f.place_type?.[0] || null })));
             return;
           }
         } catch {}
       }
       try {
-        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&format=json&limit=6&featuretype=city`);
+        const nominatimFeatureType = searchIntent.intent === "address" ? "" : "&featuretype=city";
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&format=json&limit=6${nominatimFeatureType}`);
         const d = await r.json();
-        setGeocodeSuggestions(d.map(f => ({ id: f.place_id, name: f.display_name.split(',').slice(0,2).join(', '), label: f.display_name.split(',')[0], lat: parseFloat(f.lat), lng: parseFloat(f.lon) })));
+        // addresstype è il campo Nominatim affidabile per il tipo di luogo
+        // (per "Brera, Milano" type/class valgono "census"/"boundary" — non
+        // identificano nulla — mentre addresstype vale correttamente
+        // "quarter"). type/class restano come fallback se addresstype manca.
+        setGeocodeSuggestions(d.map(f => {
+          const pt = f.addresstype || f.type || f.class || null;
+          // Per le righe indirizzo servono più componenti (via, quartiere,
+          // comune) e il display_name completo per il check "dentro Milano".
+          const parts = isAddressLikePlaceType(pt) ? 3 : 2;
+          return { id: f.place_id, name: f.display_name.split(',').slice(0, parts).join(', '), fullName: f.display_name, label: f.display_name.split(',')[0], lat: parseFloat(f.lat), lng: parseFloat(f.lon), placeType: pt };
+        }));
       } catch { setGeocodeSuggestions([]); }
     }, 350);
     return () => clearTimeout(t);
@@ -3433,7 +3645,22 @@ const civiciAvailable =
 
   useEffect(() => {
     if (searchMode !== "municipality" || targetComuniList.length === 0) {
-      setMunicipalityBoundary(null);
+      // Non azzerare municipalityBoundary qui: la mappa lo mostra solo quando
+      // isMunicipalityMode è true, quindi lasciarlo valorizzato mentre si è in
+      // Raggio non disegna nulla di sbagliato — ma azzerarlo forzava un nuovo
+      // giro completo su Nominatim (rete esterna, senza cache) ogni volta che
+      // si tornava su Comune, e se quella singola richiesta falliva/andava in
+      // rate-limit il confine restava vuoto finché non si ricambiava comune.
+      return;
+    }
+    const cacheKey = targetComuniList
+      .map(c => normalizeMunicipalityName(c.label || c.name))
+      .filter(Boolean)
+      .sort()
+      .join('|');
+    const cached = cacheKey ? municipalityBoundaryCacheRef.current.get(cacheKey) : null;
+    if (cached) {
+      setMunicipalityBoundary(cached);
       return;
     }
     let cancelled = false;
@@ -3443,25 +3670,80 @@ const civiciAvailable =
           targetComuniList.map(async (c) => {
             const name = c.label || c.name;
             if (!name) return null;
+            const cLat = Number(c.lat), cLng = Number(c.lng);
+            const hasCenter = Number.isFinite(cLat) && Number.isFinite(cLng) && (cLat !== 0 || cLng !== 0);
+            // 1) Nominatim, multi-risultato + VALIDAZIONE: il poligono deve
+            // (a) essere Polygon/MultiPolygon, (b) non essere provincia/regione,
+            // (c) contenere il centroide del comune. Senza questa validazione
+            // per "Milano" veniva disegnata la località Milano di Rodano.
             try {
-              const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name + ', Italy')}&format=geojson&polygon_geojson=1&limit=1`;
+              const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name + ', Italy')}&format=geojson&polygon_geojson=1&limit=10&dedupe=0`;
               const res = await fetch(url, { headers: { 'User-Agent': 'VolantiniPro/1.0' } });
               const json = await res.json();
-              const geom = json.features?.[0]?.geometry || null;
-              if (geom) {
-                return { name, geometry: geom };
+              const candidates = (json.features || []).filter(f => {
+                const g = f?.geometry;
+                if (!g || (g.type !== 'Polygon' && g.type !== 'MultiPolygon')) return false;
+                const at = f?.properties?.addresstype;
+                if (['county', 'state', 'region', 'province'].includes(at)) return false;
+                return true;
+              });
+              const valid = hasCenter
+                ? candidates.find(f => geoJsonContainsPoint(f.geometry, cLat, cLng))
+                : candidates[0];
+              if (valid) {
+                return { name, geometry: valid.geometry };
               }
+              debugStep2Warn('[MUNICIPALITY_BOUNDARY_REJECTED]', {
+                name,
+                reason: candidates.length ? 'nessun poligono contiene il centroide' : 'nessun poligono valido da Nominatim',
+                candidates: (json.features || []).map(f => f?.properties?.display_name).slice(0, 5),
+              });
             } catch (e) {
               debugStep2Warn('[MUNICIPALITY_BOUNDARY_ERROR]', name, e);
             }
+            // 2) Fallback: geometria comunale REALE dal nostro backend
+            // (analysis-istat, analysisLevel=comune — stessa fonte ISTAT dei KPI).
+            // Nessun fallback silenzioso alla prima NIL: se anche questo
+            // fallisce, il confine resta assente e viene loggato.
+            try {
+              if (hasCenter) {
+                const baseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_SUPABASE_URL;
+                const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+                const apiUrl = import.meta.env.VITE_ANALYSIS_ISTAT_URL || (baseUrl ? `${baseUrl}/functions/v1/analysis-istat` : null);
+                if (apiUrl) {
+                  const headers = {};
+                  if (anonKey && apiUrl.includes('/functions/v1/')) {
+                    headers.Authorization = `Bearer ${anonKey}`;
+                    headers.apikey = anonKey;
+                  }
+                  const r = await fetch(`${apiUrl}?lat=${encodeURIComponent(cLat)}&lng=${encodeURIComponent(cLng)}&radius=3&service=d2d&municipality=${encodeURIComponent(name)}&analysisLevel=comune`, { headers });
+                  const j = await r.json();
+                  const row = (j?.comuni_breakdown || []).find(x =>
+                    normalizeMunicipalityName(x?.comune_name || x?.municipality_name) === normalizeMunicipalityName(name) && x?.geometry_geojson
+                  );
+                  if (row) {
+                    const geom = typeof row.geometry_geojson === 'string' ? JSON.parse(row.geometry_geojson) : row.geometry_geojson;
+                    if (geom && (geom.type === 'Polygon' || geom.type === 'MultiPolygon')) {
+                      debugStep2Log('[MUNICIPALITY_BOUNDARY_FALLBACK_BACKEND]', name);
+                      return { name, geometry: geom };
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              debugStep2Warn('[MUNICIPALITY_BOUNDARY_FALLBACK_ERROR]', name, e);
+            }
+            debugStep2Warn('[MUNICIPALITY_BOUNDARY_UNAVAILABLE]', { name, note: 'nessuna geometria comunale valida — confine non mostrato (nessuna sostituzione con NIL)' });
             return null;
           })
         );
         if (!cancelled) {
           const valid = results.filter(Boolean);
-          setMunicipalityBoundary(valid.length > 0 ? valid : null);
-          if (valid.length > 0) {
-            debugStep2Log('[MUNICIPALITY_BOUNDARIES_LOADED]', valid.map(x => x.name));
+          const resolved = valid.length > 0 ? valid : null;
+          if (resolved && cacheKey) municipalityBoundaryCacheRef.current.set(cacheKey, resolved);
+          setMunicipalityBoundary(resolved);
+          if (resolved) {
+            debugStep2Log('[MUNICIPALITY_BOUNDARIES_LOADED]', resolved.map(x => x.name));
           }
         }
       } catch (e) {
@@ -3506,6 +3788,15 @@ const zonesInRadius = useMemo(() => {
   }
 
   if (gateMode === "municipality") {
+    // Indirizzo/punto non confermato (es. "Corso Como, Milano"): NON
+    // calcolare il comune completo finché l'utente non clicca esplicitamente
+    // "Usa Milano comune completo" — vedi hasUnconfirmedAddressPoint e il box
+    // dedicato in JSX. Azzera qui, a monte di ogni calcolo NIL/comune, così
+    // nessun pannello (KPI, lista zone, mappa) mostra dati del comune intero.
+    if (hasUnconfirmedAddressPoint) {
+      if (isStep2DebugEnabled()) debugStep2Log("[STEP2_ADDRESS_POINT_UNCONFIRMED_MUNICIPALITY_BLOCKED]", { selectedSearchPoint });
+      filtered = [];
+    } else {
     // Match SOLO il comune selezionato: nome normalizzato (lowercase, trim,
     // niente "comune di", niente suffisso provincia/regione dopo la virgola),
     // oppure codice ISTAT identico e non vuoto su entrambi i lati. Nessun
@@ -3521,6 +3812,9 @@ const zonesInRadius = useMemo(() => {
       filtered = nilAreas.length ? nilAreas : filtered;
     } else {
     const currComuni = (selectedComuni && selectedComuni.length > 0) ? selectedComuni : (city ? [city] : []);
+    // Build both space-normalized and hyphen-normalized name sets for fuzzy matching:
+    // the API may return "Bovisio-Masciago" (hyphen) while the user selected "Bovisio Masciago" (space).
+    // normalizeMunicipalityName already normalizes hyphens to spaces, so a single set is enough.
     const targetNames = new Set(currComuni.map(c => normalizeMunicipalityName(c.label || c.name)).filter(Boolean));
     const targetCodes = new Set(currComuni.map(c => c.municipalityCode || c.municipality_code || null).filter(Boolean).map(String));
 
@@ -3535,29 +3829,88 @@ const zonesInRadius = useMemo(() => {
       debugStep2Log("[STEP2_MUNICIPALITY_WAITING_FOR_AREAS]", { targetNames: Array.from(targetNames), apiLoading, filteredCount: filtered.length, withinSwitchGracePeriod });
     }
 
+    // BUG FIX – Multi-comune: ensure every selected comune appears in the result
+    // even if the API returned no matching zone (no data yet, or name mismatch
+    // not covered by normalization). Create a minimal "dati parziali" stub so
+    // the comune still shows in cards/riepilogo without disappearing silently.
+    if (currComuni.length > 1 && !apiLoading && !withinSwitchGracePeriod) {
+      const matchedNames = new Set(matched.map(z => normalizeMunicipalityName(z.name)));
+      const matchedCodes = new Set(matched.map(z => z.municipality_code).filter(Boolean).map(String));
+      const unmatched = currComuni.filter(c => {
+        const normalizedName = normalizeMunicipalityName(c.label || c.name);
+        const code = String(c.municipalityCode || c.municipality_code || "");
+        return !matchedNames.has(normalizedName) && !(code && matchedCodes.has(code));
+      });
+      if (unmatched.length > 0) {
+        debugStep2Log("[STEP2_MULTI_COMUNE_UNMATCHED]", unmatched.map(c => c.label || c.name));
+        // Build synthetic fallback zones for unmatched comuni so they appear in UI
+        const fallbackZones = unmatched.map((c, fi) => {
+          const name = c.label || c.name || `Comune ${fi + 1}`;
+          return {
+            id: `fallback_comune_${normalizeMunicipalityName(name).replace(/\s+/g, '_')}_${fi}`,
+            name,
+            municipality_code: c.municipalityCode || c.municipality_code || null,
+            area: 0, pop: 0, families: 0, mailboxes: 0,
+            coverage: 0, volantiniNelRaggio: 0, familiesInRadius: 0, flyersMin: 0, flyersMax: 0,
+            operDays: 1, familyIdx: 0, reachD2D: 0, roiD2D: 0, confD2D: 0,
+            eta14: null, eta34: null, eta64: null, eta65: null, genderM: 49, genderF: 51,
+            stranieri: null, indVec: null, densita: 0, reddito: null, occup: null, imprese: null,
+            areaType: 'Dati parziali', poi: 0, nearbyBiz: 0, commDens: 0, flowScore: 0,
+            transitStops: 0, trainStations: 0, operDaysH2H: 1, reachH2H: 0, roiH2H: 0, confH2H: 0,
+            hotspots: name, timeSlots: null, strongPts: 0,
+            bizTotal: 0, competitors: 0, commDensB2B: 0, operDaysB2B: 1, cdIdx: 0,
+            reachB2B: 0, roiB2B: 0, confB2B: 0, clusters: 0, topCats: null,
+            targetBiz: 0, strongZone: name, dist: {},
+            geometry: null, geometry_geojson: null,
+            lat: c.lat || null, lng: c.lng || null,
+            isFallback: true,
+            source_flags: ['Comune selezionato — dati non ancora disponibili'],
+          };
+        });
+        matched = [...matched, ...fallbackZones];
+        debugStep2Log("[STEP2_MULTI_COMUNE_FALLBACK_STUBS]", fallbackZones.map(z => z.name));
+      }
+    }
+
     debugStep2Log("[STEP2_FINAL_MUNICIPALITY_AREA]", matched.map(z => z.name));
     filtered = matched;
     }
+    }
   } else if (gateMode === "address" || gateMode === "radius") {
-    // includere solo comuni entro radiusKm + hard guard anti-regressione
-    const numRadius = Number(radiusKm) || 3;
-    if (numRadius <= 3 && filtered.length > 8) {
-      debugStep2Warn("[STEP2_RADIUS_GUARD_TRIGGERED] radius <= 3 but got", filtered.length, "communes. Truncating to 8.");
-      filtered = filtered.slice(0, 8);
-    } else if (numRadius <= 5 && filtered.length > 12) {
-      debugStep2Warn("[STEP2_RADIUS_GUARD_TRIGGERED] radius <= 5 but got", filtered.length, "communes. Truncating to 12.");
-      filtered = filtered.slice(0, 12);
+    // Hard guard anti-regressione: un raggio piccolo non può coinvolgere
+    // decine di COMUNI interi. Vale SOLO per righe a livello comune — le NIL
+    // sono micro-zone (~1-3 km²) e un raggio di 3 km su Milano ne interseca
+    // legittimamente ~37: troncarle a 8 nascondeva NIL reali del raggio.
+    const nilRowsCount = filtered.filter(z => z?.isNil || z?.territoryLevel === "nil" || z?.nilCode).length;
+    const isNilLevelResult = nilRowsCount > 0 && nilRowsCount >= filtered.length / 2;
+    if (!isNilLevelResult) {
+      const numRadius = Number(radiusKm) || 3;
+      if (numRadius <= 3 && filtered.length > 8) {
+        debugStep2Warn("[STEP2_RADIUS_GUARD_TRIGGERED] radius <= 3 but got", filtered.length, "communes. Truncating to 8.");
+        filtered = filtered.slice(0, 8);
+      } else if (numRadius <= 5 && filtered.length > 12) {
+        debugStep2Warn("[STEP2_RADIUS_GUARD_TRIGGERED] radius <= 5 but got", filtered.length, "communes. Truncating to 12.");
+        filtered = filtered.slice(0, 12);
+      }
+    } else if (isStep2DebugEnabled()) {
+      debugStep2Log("[STEP2_RADIUS_GUARD_SKIPPED_NIL_LEVEL]", { nilRows: nilRowsCount, total: filtered.length });
     }
   }
 
   // Guardia anti-duplicati: se il backend restituisce due righe per lo stesso
   // comune/NIL (es. join geografico che duplica un confine), sommare
   // famiglie/popolazione/volantini due volte falserebbe ogni KPI a valle
-  // (serviceKpis, mappa, riepilogo). Tiene solo la prima occorrenza per
-  // codice ISTAT/NIL, o per nome normalizzato quando il codice manca.
+  // (serviceKpis, mappa, riepilogo). Tiene solo la prima occorrenza.
+  // ATTENZIONE: per le NIL la chiave deve essere il nil_code, MAI il
+  // municipality_code — tutte le 88 NIL di Milano condividono lo stesso
+  // municipality_code (015146): usarlo come chiave scartava tutte le NIL
+  // tranne la prima (DUOMO), riducendo il comune completo a una sola NIL.
   const seenZoneKeys = new Set();
   const dedupedFiltered = filtered.filter(z => {
-    const key = z?.municipality_code || z?.nilCode || z?.nil_code || normalizeMunicipalityName(z?.name || "");
+    const isNilRow = Boolean(z?.isNil || z?.territoryLevel === "nil" || z?.nilCode || z?.nil_code);
+    const key = isNilRow
+      ? `nil_${z?.nilCode || z?.nil_code || normalizeMunicipalityName(z?.name || "")}`
+      : (z?.municipality_code || normalizeMunicipalityName(z?.name || ""));
     if (!key) return true; // nessuna chiave stabile disponibile: non si può giudicare duplicato, si mantiene
     if (seenZoneKeys.has(key)) {
       if (isStep2DebugEnabled()) debugStep2Warn("[STEP2_DUPLICATE_ZONE_DROPPED]", { key, name: z?.name });
@@ -3575,7 +3928,13 @@ const zonesInRadius = useMemo(() => {
   }
 
   return dedupedFiltered;
-}, [hasUsefulApiZones, apiZones, searchMode, selectedMunicipality, selectedComuni, primaryMunicipalityCode, radiusKm, apiLoading, isResidentialStep2, requestedAnalysisLevel]);
+}, [hasUsefulApiZones, apiZones, searchMode, selectedMunicipality, selectedComuni, primaryMunicipalityCode, radiusKm, apiLoading, isResidentialStep2, requestedAnalysisLevel, hasUnconfirmedAddressPoint]);
+// Blocco di sicurezza Comune Milano: è VIETATO usare una sola NIL come
+// "comune completo". Se l'analisi NIL in modalità Comune (toggle manuale
+// spento) produce 0-1 NIL a caricamento finito, i dati comune completo NON
+// sono disponibili: niente DUOMO/9.589/10.548 come totali comunali — la UI
+// mostra il messaggio esplicito e i KPI degradano a "dato non disponibile".
+const milanoComuneNilInsufficient = isComuneMode && isNilAnalysis && !nilManualMode && !hasUnconfirmedAddressPoint && !apiLoading && zonesInRadius.length <= 1;
 // Comuni realmente coinvolti nella selezione corrente — derivato da
 // zonesInRadius (già filtrato SOLO sui comuni scelti manualmente in modalità
 // Comune, o sui comuni nel raggio con i guard anti-regressione in modalità
@@ -3632,16 +3991,74 @@ const territorialDataUnavailable = Boolean(city && !apiLoading && !hasUsefulApiZ
     let areas;
     if (gateMode === "municipality") {
       areas = zonesInRadius; // already filtered to target zones; bypasses stale `selected`
-      if (areas.length > 1 && !isNilAnalysis && (!selectedComuni || selectedComuni.length <= 1)) {
-        debugStep2Warn("[STEP2_MUNICIPALITY_MULTI_AREA_BLOCKED]", areas.length, "→ forcing to 1");
+      // Modalità NIL manuale (Milano): l'utente sceglie esplicitamente le NIL —
+      // solo qui la selezione manuale (`selected`) filtra l'area principale.
+      // Con toggle spento, tutte le NIL restano incluse (comune completo).
+      if (isNilAnalysis && nilManualMode) {
+        const picked = areas.filter(z => selected.includes(z.id));
+        if (picked.length > 0) areas = picked;
+      }
+      // Blocco di sicurezza: 0-1 NIL non è un comune completo — degrada a
+      // "dati non disponibili" invece di mostrare DUOMO come totale Milano.
+      if (milanoComuneNilInsufficient) {
+        debugStep2Warn("[STEP2_MILANO_COMUNE_NIL_INSUFFICIENT]", { nilCount: areas.length });
+        areas = [];
+      }
+      // Guard: block multi-zone result ONLY when the user is in genuine single-comune mode
+      // (no selectedComuni, or exactly 1 comune). With 2+ comuni selected, the multi-zone
+      // result is intentional — do NOT cap to [areas[0]].
+      const multiComuneSelected = selectedComuni && selectedComuni.length > 1;
+      if (areas.length > 1 && !isNilAnalysis && !multiComuneSelected) {
+        debugStep2Warn("[STEP2_MUNICIPALITY_MULTI_AREA_BLOCKED]", areas.length, "→ forcing to 1 (single-comune mode)");
         areas = [areas[0]];
       }
     } else {
       areas = allZones.filter(z => selected.includes(z.id));
     }
+
+    // Required debug log — [STEP2_MULTI_COMUNE_DEBUG]
+    if (import.meta.env.DEV && gateMode === "municipality") {
+      const distributionZones = areas;
+      console.log("[STEP2_MULTI_COMUNE_DEBUG]", {
+        selectedComuni: (selectedComuni || []).map(c => ({
+          id: c.id,
+          name: c.name || c.label,
+          istatCode: c.municipalityCode || c.municipality_code || null,
+          hasBoundary: Boolean(c.boundary || c.geometry),
+          families: c.families || c.households || c.householdsTotal || 0,
+        })),
+        distributionZones: distributionZones.map(z => ({
+          id: z.id,
+          name: z.name,
+          hasBoundary: Boolean(z.geometry || z.geometry_geojson),
+          families: z.families || z.households || z.householdsTotal || 0,
+          isFallback: Boolean(z.isFallback),
+          reasonIncluded: z.isFallback ? 'fallback_stub_comune_selezionato_senza_dati_api' : 'matched_api_zone',
+        })),
+        selectedCount: (selectedComuni || []).length,
+        distributionCount: distributionZones.length,
+        multiComuneSelected: Boolean(selectedComuni && selectedComuni.length > 1),
+        isNilAnalysis,
+      });
+    }
+
     debugStep2Log("[STEP2_FINAL_AREAS_FOR_COVERAGE]", areas.length, areas.map(z => z.name));
     return areas;
-  }, [searchMode, selectedCaps, capDataMap, zonesInRadius, allZones, selected, isNilAnalysis, selectedComuni]);
+  }, [searchMode, selectedCaps, capDataMap, zonesInRadius, allZones, selected, isNilAnalysis, selectedComuni, nilManualMode, milanoComuneNilInsufficient]);
+
+  // Risolve pendingNilPreselectName (vedi selectMilanoAsNil) non appena le
+  // 88 NIL di Milano sono caricate: seleziona SOLO quella cliccata dal
+  // dropdown ("Brera" ecc.), non tutte.
+  useEffect(() => {
+    if (!pendingNilPreselectName || !nilManualMode) return;
+    const target = normalizeMunicipalityName(pendingNilPreselectName);
+    const match = zonesInRadius.find(z => normalizeMunicipalityName(z.name) === target);
+    if (match) {
+      setSelected([match.id]);
+      setPendingNilPreselectName(null);
+      debugStep2Log("[NIL_SUGGESTION_PRESELECT_APPLIED]", { name: match.name, id: match.id });
+    }
+  }, [pendingNilPreselectName, nilManualMode, zonesInRadius]);
 
   async function handleCapSelect(capSuggestion) {
     setSearch("");
@@ -3683,6 +4100,123 @@ function zCap(z) { return svcType === "d2d" ? z.families : svcType === "h2h" ? z
       setSelectedCaps(prev => prev.includes(cp) ? prev.filter(x => x !== cp) : [...prev, cp]);
     } else {
       setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    }
+  }
+
+  // "Brera non è un comune, è una NIL di Milano" → seleziona Milano come
+  // comune (unico comune con dataset NIL) e attiva la modalità NIL manuale,
+  // pre-selezionando la NIL cliccata non appena la lista delle 88 NIL carica.
+  // Geocoding dedicato a "Milano" (stessi endpoint già usati dalla ricerca
+  // sopra) invece di riusare le coordinate del quartiere cliccato: servono
+  // le coordinate del COMUNE per il raggio tecnico ≥15km che recupera tutte
+  // le NIL, non quelle di un singolo quartiere.
+  async function resolveMilanoCity() {
+    let milano = null;
+    const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
+    if (mapboxToken) {
+      const r = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/Milano.json?access_token=${mapboxToken}&country=IT&types=place&language=it&limit=1`);
+      const d = await r.json();
+      const f = d.features?.[0];
+      if (f) milano = { id: f.id, name: "Milano", label: "Milano", lat: f.center[1], lng: f.center[0] };
+    }
+    if (!milano) {
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent("Milano, Italy")}&countrycodes=it&format=json&limit=1&featuretype=city`);
+      const d = await r.json();
+      const f = d[0];
+      if (f) milano = { id: f.place_id, name: "Milano", label: "Milano", lat: parseFloat(f.lat), lng: parseFloat(f.lon) };
+    }
+    return milano;
+  }
+
+  // Indirizzo/punto dentro Milano ("Milano via Como", "Piazza Duomo Milano"):
+  // il comune resta Milano (comune completo), ma il punto cercato diventa il
+  // centro preferito della modalità Raggio (radiusCenterSource = "address").
+  async function selectAddressPointInMilano(pointLabel, point) {
+    try {
+      const milano = await resolveMilanoCity();
+      if (!milano) {
+        debugStep2Warn("[ADDRESS_POINT_MILANO_RESOLVE_FAILED]", { pointLabel });
+        return;
+      }
+      setCity(milano);
+      setSelectedComuni([milano]);
+      setSearch(pointLabel);
+      setDropOpen(false);
+      setPendingAddMunicipality(false);
+      setSelected([]);
+      setCoverageDecision(null);
+      setCoverageStrategy(null);
+      setPartialCoverageConfirmed(false);
+      setNilManualMode(false);
+      setPendingNilPreselectName(null);
+      // Nuovo punto cercato: richiede una nuova conferma esplicita prima di
+      // calcolare il comune completo (§1) — mai ereditare la conferma di un
+      // indirizzo precedente.
+      setAddressFullCoverageConfirmed(false);
+      // type:"address" va impostato SEMPRE (non solo se le coordinate sono
+      // valide): il gate hasUnconfirmedAddressPoint deve scattare comunque —
+      // senza coordinate precise il centro raggio degrada al centroide
+      // Milano (fallback in radiusCenter), ma il blocco "non è ancora comune
+      // completo" resta valido lo stesso.
+      const hasValidCoords = point && Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lng));
+      setSelectedSearchPoint({
+        label: pointLabel,
+        lat: hasValidCoords ? Number(point.lat) : milano.lat,
+        lng: hasValidCoords ? Number(point.lng) : milano.lng,
+        type: "address",
+        parentComune: "Milano",
+      });
+      if (import.meta.env.DEV) {
+        console.log("[STEP2_SEARCH_SELECTION_DEBUG]", {
+          inputValue: search,
+          detectedSearchIntent: "address",
+          selectedResultName: pointLabel,
+          selectedResultType: "address",
+          parentComune: "Milano",
+          selectedComune: "Milano",
+          selectedAddressPoint: point,
+          radiusCenterSource: "address",
+          blockedReason: null,
+        });
+      }
+    } catch (e) {
+      debugStep2Warn("[ADDRESS_POINT_MILANO_RESOLVE_ERROR]", e);
+    }
+  }
+
+  async function selectMilanoAsNil(nilName, nilPoint = null) {
+    try {
+      const milano = await resolveMilanoCity();
+      if (!milano) {
+        debugStep2Warn("[NIL_SUGGESTION_MILANO_RESOLVE_FAILED]", { nilName });
+        return;
+      }
+      setCity(milano);
+      setSelectedComuni([milano]);
+      setSearch("Milano");
+      setDropOpen(false);
+      setPendingAddMunicipality(false);
+      setSelected([]);
+      setCoverageDecision(null);
+      setCoverageStrategy(null);
+      setPartialCoverageConfirmed(false);
+      setNilManualMode(true);
+      setPendingNilPreselectName(nilName);
+      // Il punto cercato (coordinate del quartiere dal geocoder) diventa il
+      // centro preferito della modalità Raggio: "Milano via Brera" → il
+      // cerchio parte da Brera, non dal centroide di Milano.
+      if (nilPoint && Number.isFinite(Number(nilPoint.lat)) && Number.isFinite(Number(nilPoint.lng))) {
+        setSelectedSearchPoint({
+          label: `${nilName}, Milano`,
+          lat: Number(nilPoint.lat),
+          lng: Number(nilPoint.lng),
+          type: "nil",
+          parentComune: "Milano",
+        });
+      }
+      debugStep2Log("[NIL_SUGGESTION_SELECTED_AS_NIL]", { nilName, nilPoint });
+    } catch (e) {
+      debugStep2Warn("[NIL_SUGGESTION_MILANO_RESOLVE_ERROR]", e);
     }
   }
 
@@ -3756,6 +4290,32 @@ const totalCapacity = isResidentialStep2 ? doorCoverage.fullCoverageFlyers : sel
       allocationStatus: assigned >= req ? "full" : assigned > 0 ? "partial" : "none"
     };
   });
+  // Stato copertura per comune/NIL, stessa soglia della legenda (getCoverageStatus,
+  // ≥90% coperto / >0% parziale / 0% non_coperto) — passato alla mappa così i
+  // poligoni usano ESATTAMENTE gli stessi colori della legenda sotto la mappa.
+  // zonesAllocation è ricreato a ogni render (const inline): per non far
+  // ridisegnare i layer Leaflet ad ogni render React, i memo derivati usano
+  // una chiave serializzata stabile invece dell'identità dell'array.
+  const zonesAllocationKey = JSON.stringify(zonesAllocation);
+  // Dati allocazione per i tooltip mappa (famiglie/volantini assegnati/
+  // consigliati/stato per zona) — stessa fonte di zoneCoverageById.
+  const zoneAllocationById = useMemo(() => {
+    const map = {};
+    zonesAllocation.forEach(a => {
+      map[a.id] = {
+        assignedFlyers: a.assignedFlyers,
+        requiredFlyers: a.requiredFlyers,
+        coveragePercent: a.coveragePercent,
+        status: getCoverageStatus(a.coveragePercent),
+      };
+    });
+    return map;
+  }, [zonesAllocationKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const zoneCoverageById = useMemo(() => {
+    const map = {};
+    zonesAllocation.forEach(a => { map[a.id] = getCoverageStatus(a.coveragePercent); });
+    return map;
+  }, [zonesAllocation]);
 
   const totalAssigned = zonesAllocation.reduce((a, v) => a + v.assignedFlyers, 0);
   const isInvalid = allocationMode === "manual" && totalAssigned > flyerQuantityFromStep1;
@@ -4036,17 +4596,14 @@ const serviceKpis = selZones.length > 0 ? {
 // sui chip scelti manualmente) — non un singolo comune "principale":
 // con 1 comune coincide col totale di quel comune, con N comuni è la
 // somma dei loro totali reali.
+// Box "Copertura stimata": DEVE leggere la stessa fonte primaria del
+// pannello destro/viewModel (serviceKpis.families → step2FamiliesCalc, somma
+// su tutte le zone selezionate), mai un valore ricalcolato a parte o la
+// prima riga (DUOMO/9.589) — quella era la causa esatta del box sbagliato.
 const municipalityTotalFamilies = (() => {
   if (!isResidentialStep2) return null;
-  if (isNilAnalysis) {
-    // Analisi a livello NIL (Milano): ogni zona NIL porta lo stesso totale
-    // comunale nel campo householdsTotal (contesto, non per-zona) — sommare
-    // su più zone NIL lo moltiplicherebbe. Basta un solo valore rappresentativo.
-    const rep = selZones.find(z => Number(z.householdsTotal) > 0);
-    return rep ? Math.round(Number(rep.householdsTotal)) : null;
-  }
-  const total = selZones.reduce((a, z) => a + (Number(z.householdsTotal) || 0), 0);
-  return total > 0 ? Math.round(total) : null;
+  const areaFam = Number(serviceKpis?.families) || 0;
+  return areaFam > 0 ? Math.round(areaFam) : null;
 })();
 const municipalityTotalFamiliesLabel = municipalityTotalFamilies != null
   ? municipalityTotalFamilies.toLocaleString("it-IT", { useGrouping: true })
@@ -4054,6 +4611,18 @@ const municipalityTotalFamiliesLabel = municipalityTotalFamilies != null
 const municipalityTotalFamiliesRowLabel = !isComuneMode
   ? "Totale stimato area selezionata"
   : (selectedComuni.length > 1 ? "Totale territorio selezionato" : "Totale stimato Comune");
+// Rete di sicurezza (§5): una zona accettata in modalità Comune con dati
+// interamente a zero non deve passare per "comune valido" — copre sia il
+// caso residuo di un risultato non-comune sfuggito al filtro tipo (es.
+// quartiere geocodificato con tipo inatteso: zonesInRadius resta VUOTO
+// perché nessun comune ha quel nome — per questo NON si richiede
+// zonesInRadius.length > 0), sia un vero comune ISTAT senza dati.
+const activeComuneZeroData = isComuneMode && isResidentialStep2 && Boolean(city) && !apiLoading
+  && !milanoComuneNilInsufficient
+  && !hasUnconfirmedAddressPoint
+  && (Date.now() - municipalitySwitchAtRef.current >= 800)
+  && (Number(serviceKpis?.families) || 0) === 0
+  && (Number(requiredFlyers) || 0) === 0;
 // Incidenza sul comune (custom_zone/Milano): peso geografico reale delle
 // zone NIL selezionate sul totale del comune — dato secondario, mai
 // mostrato come "copertura" principale (che resta il budget volantini).
@@ -4063,6 +4632,14 @@ const zoneCoveragePctForBox = isNilAnalysis && selZones.length > 0
 const selectedAreaFamiliesLabel = serviceKpis?.families > 0
   ? serviceKpis.families.toLocaleString("it-IT", { useGrouping: true })
   : "Dato non disponibile";
+// KPI per il tooltip del confine comune attivo sulla mappa — memoizzato su
+// primitivi per non far ri-renderizzare i layer Leaflet a ogni render React.
+const boundaryKpisForMap = useMemo(() => ({
+  families: Number(serviceKpis?.families) || 0,
+  coveragePercent: Number(serviceKpis?.coverage) || 0,
+  insertedFlyers: Number(flyerQuantityFromStep1) || 0,
+  recommendedFlyers: Number(requiredFlyers) || 0,
+}), [serviceKpis?.families, serviceKpis?.coverage, flyerQuantityFromStep1, requiredFlyers]);
 const recommendedFlyersValue = Number(requiredFlyers) > 0
   ? Math.round(Number(requiredFlyers))
   : (Number(serviceKpis?.recommendedFlyers) > 0 ? Math.round(Number(serviceKpis.recommendedFlyers)) : null);
@@ -4145,7 +4722,12 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     .filter(Boolean);
 
   const summaryComuniStats = useMemo(() => {
-    const zoneRows = zoneRowsForList.filter(r => r.type === "zone");
+    // Fonte: TUTTE le zone realmente coinvolte (stessa sorgente di
+    // zoneListSourceCount), MAI zoneRowsForList — quella esclude le zone
+    // "marginali" quando la lista card è collassata/raggruppata (soglia
+    // isZonaRilevante), il che faceva mostrare "27 NIL coinvolte" invece
+    // delle 37 reali intersecate dal raggio 3km (bug segnalato nel ticket).
+    const zoneRows = (isMovementStep2 ? h2hMetrics.clusters : (isBusinessStep2 && businessMetrics.clusterRows.length) ? businessMetrics.clusterRows : sortedResidentialZones).map(z => ({ zone: z }));
     let coperti = 0;
     let parziali = 0;
     let esclusi = 0;
@@ -4161,7 +4743,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
       else esclusi++;
     });
     return { total: zoneRows.length, coperti, parziali, esclusi };
-  }, [zoneRowsForList, zonesAllocation]);
+  }, [isMovementStep2, isBusinessStep2, h2hMetrics.clusters, businessMetrics.clusterRows, sortedResidentialZones, zonesAllocation]);
 
   const aiAgg = selZones.length > 0 ? {
     pop: selZones.reduce((a, z) => a + (z.pop || 0), 0),
@@ -4425,7 +5007,12 @@ const radiusInsightRows = zonesInRadius.map(z => ({
   // valori già calcolati sopra (serviceKpis, requiredFlyers, areaMode, ecc.).
   const step2ViewModel = buildStep2ViewModel({
     areaMode,
-    cityName: city?.label || city?.name || activeCampaignZone?.cityName || null,
+    // In Raggio da punto cercato (indirizzo/NIL), il nome mostrato è il
+    // punto ("Corso Como"), non il comune contenitore — coerente col centro
+    // raggio reale (radiusCenter/mapCityForStep2).
+    cityName: (isRadiusMode && hasSearchPoint && selectedSearchPoint?.label)
+      ? selectedSearchPoint.label.split(",")[0]
+      : (city?.label || city?.name || (selectedComuni?.[0]?.label || selectedComuni?.[0]?.name) || (selZones?.[0]?.name) || activeCampaignZone?.cityName || null),
     radiusKm: radiusKm || radius || null,
     isResidentialStep2,
     isMovementStep2,
@@ -4436,7 +5023,112 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     zoneCount: summaryComuniStats?.total || selZones.length || zonesInRadius.length || 1,
     isNilAnalysis,
     territoryPluralLabel,
+    selectedComuniCount: Math.max((selectedComuni || []).length, (searchMode === "municipality" && !isNilAnalysis ? selZones.length : 0), (targetComuniList || []).length),
+    selectedNilNames: areaMode === "custom_zone" ? selZones.map(z => z.name) : [],
+    // §5: "municipality" solo se comune vero o confermato esplicitamente;
+    // "address_radius" per raggio centrato su un indirizzo cercato.
+    radiusCenterSource,
+    usingMunicipalityFullCoverage,
   });
+
+  if (import.meta.env.DEV && isResidentialStep2 && normalizeMunicipalityName(selectedMunicipality) === "milano") {
+    const nilCards = isNilAnalysis ? selZones : [];
+    console.log("[STEP2_MILANO_AREA_MODE]", {
+      activeAreaTab,
+      areaMode,
+      selectedComune: selectedComune?.name || selectedComune?.label || null,
+      radiusKm,
+      isLargeCity: requestedAnalysisLevel === "nil",
+      isNilAnalysis,
+      primarySource: step2ViewModel.primarySource,
+      primaryAreaLabel: step2ViewModel.primaryAreaLabel,
+      nilCount: nilCards.length,
+      nilNames: nilCards.map(n => n.name),
+      firstNilName: nilCards[0]?.name || null,
+      firstNilFamilies: nilCards[0]?.families ?? null,
+      firstNilRecommendedFlyers: nilCards[0]?.flyersMin ?? null,
+    });
+    console.log("[MILANO_COMUNE_COMPLETE_CHECK]", {
+      activeAreaTab,
+      areaMode,
+      selectedComune: selectedComune?.name || selectedComune?.label || null,
+      requestedAnalysisLevel,
+      effectiveRadiusKm,
+      nilBreakdownLength: Array.isArray(apiData?.nil_breakdown) ? apiData.nil_breakdown.length : null,
+      selZonesLength: selZones?.length ?? 0,
+      nilNames: (apiData?.nil_breakdown || []).slice(0, 20).map(z => z.nil_name || z.comune_name),
+      primarySource: step2ViewModel.primarySource,
+      primaryFamiliesValue: step2ViewModel.primaryFamiliesValue,
+      recommendedFlyersValue: step2ViewModel.recommendedFlyersValue,
+      milanoComuneNilInsufficient,
+    });
+    console.log("[MILANO_MODE_SOURCE_DEBUG]", {
+      activeAreaTab,
+      areaMode,
+      radiusKm,
+      effectiveRadiusKm,
+      selectedComune: selectedComune?.name || selectedComune?.label || null,
+      nilBreakdownLength: Array.isArray(apiData?.nil_breakdown) ? apiData.nil_breakdown.length : null,
+      selZonesLength: selZones?.length ?? 0,
+      primarySource: step2ViewModel.primarySource,
+      primaryFamiliesValue: step2ViewModel.primaryFamiliesValue,
+      recommendedFlyersValue: step2ViewModel.recommendedFlyersValue,
+      coverageBoxTotalValue: municipalityTotalFamilies,
+      nilNames: (selZones || []).slice(0, 10).map(z => z.name),
+    });
+    if (isRadiusMode) {
+      const distances = (selZones || []).map(z => {
+        const centroid = geoJsonApproxCentroid(z.geometry);
+        return centroid && radiusCenter ? haversineKm(radiusCenter.lat, radiusCenter.lng, centroid.lat, centroid.lng) : null;
+      }).filter(Number.isFinite);
+      console.log("[STEP2_RADIUS_NIL_CHECK]", {
+        radiusKm,
+        nilCount: selZones?.length ?? 0,
+        totalFamilies: serviceKpis?.families ?? 0,
+        recommendedFlyers: step2ViewModel.recommendedFlyersValue,
+        nilNames: (selZones || []).slice(0, 20).map(z => z.name),
+        maxDistanceKm: distances.length ? Math.round(Math.max(...distances) * 10) / 10 : null,
+        source: "radius",
+      });
+      console.log("[STEP2_RADIUS_CENTER_DEBUG]", {
+        inputValue: search,
+        activeAreaTab,
+        areaMode,
+        selectedComune: selectedComune?.name || selectedComune?.label || null,
+        selectedSearchPoint,
+        selectedComuneCenter: city ? { lat: city.lat, lng: city.lng } : null,
+        resolvedRadiusCenter: radiusCenter,
+        radiusCenterSource,
+        radiusKm,
+      });
+    }
+    if (selectedSearchPoint) {
+      console.log("[STEP2_ADDRESS_MODE_DEBUG]", {
+        activeAreaTab,
+        selectedComune: selectedComune?.name || selectedComune?.label || null,
+        selectedSearchPoint,
+        selectedSearchPointType: selectedSearchPoint?.type || null,
+        radiusKm,
+        radiusCenterSource,
+        primarySource: step2ViewModel.primarySource,
+        primaryAreaLabel: step2ViewModel.primaryAreaLabel,
+        usingMunicipalityFullCoverage,
+      });
+    }
+    if (isComuneMode) {
+      console.log("[STEP2_ADDRESS_GATE_CHECK]", {
+        activeAreaTab,
+        selectedSearchPoint,
+        selectedSearchPointType: selectedSearchPoint?.type || null,
+        addressFullCoverageConfirmed,
+        nilMode: nilManualMode,
+        hasUnconfirmedAddressPoint,
+        zonesInRadiusLength: zonesInRadius?.length ?? 0,
+        primarySource: step2ViewModel.primarySource,
+        shouldShowAddressDecisionBox: hasUnconfirmedAddressPoint,
+      });
+    }
+  }
 
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto", padding: "34px clamp(16px, 4vw, 32px) 160px", background: C.navyMid, minHeight: "100vh", overflow: "visible" }}>
@@ -4460,19 +5152,10 @@ const radiusInsightRows = zonesInRadius.map(z => ({
           ))}
         </div>
 
-        {/* VIEW PILLS — solo Vista Tecnica */}
-        {isAdminView && (
-          <>
-            <div style={{ width: 1, height: 28, background: "rgba(255,255,255,.1)", flexShrink: 0 }} />
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {[{ id: "distribuzione", icon: "", l: "Distribuzione" }, { id: "tematica", icon: "", l: "Heatmap" }, { id: "admininfo", icon: " ", l: "Demografia" }].map(({ id, icon, l }) => (
-                <button key={id} onClick={() => setViewMode(id)} style={pill(viewMode === id, col)}>
-                  {icon} {l}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
+        {/* VIEW PILLS (Distribuzione/Heatmap/Demografia) rimossi: erano
+            controlli dei layer MAPPA in vista tecnica, ma in 📊 Analisi
+            Avanzata la mappa non viene più mostrata (è un report dati, non
+            una vista GIS) — sarebbero rimasti comandi senza effetto. */}
 
         {/* Vista Cliente / Vista Tecnica link discreto */}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -4488,9 +5171,9 @@ const radiusInsightRows = zonesInRadius.map(z => ({
         <span style={{ fontSize: 16, flexShrink: 0 }}></span>
         <div style={{ flex: 1 }}>
           <span style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
-            Stai configurando la zona. Tutti i dati dettagliati (KPI, ISTAT, profilo demografico, output servizi) saranno visibili nel
+            Configura qui solo zona e copertura. KPI, dati ISTAT, profilo demografico e output servizi saranno visibili in
           </span>
-          <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: col }}> Riepilogo completo nel preventivo finale</span>
+          <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: col }}> 📊 Analisi Avanzata</span>
           <span style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>.</span>
         </div>
       </div>
@@ -4520,9 +5203,104 @@ const radiusInsightRows = zonesInRadius.map(z => ({
           )}
           {dropOpen && search.length > 0 && (
             <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "#1a2a40", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10, zIndex: 80, overflow: "hidden", boxShadow: "0 14px 36px rgba(0,0,0,.55)" }}>
-              {searchMode === "municipality" ? (
-                geocodeSuggestions.length === 0 && search.length >= 2 ? <div style={{ padding: "9px 14px", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.35)" }}>Nessun risultato...</div> :
-                geocodeSuggestions.map(c => (
+              {searchMode === "municipality" ? (() => {
+                if (geocodeSuggestions.length === 0 && search.length >= 2) {
+                  return <div style={{ padding: "9px 14px", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.35)" }}>Nessun risultato...</div>;
+                }
+                const searchIntent = detectSearchIntent(search);
+                const addressIntentInMilano = searchIntent.intent === "address" && searchIntent.parentComune === "Milano";
+                // Ordine (§ticket): indirizzi/punti → Milano → altri comuni
+                // (solo come alternativa esplicita, mai scelta principale).
+                const rankSuggestion = (s) => {
+                  if (!addressIntentInMilano) return 1;
+                  if (looksLikeAddressResult(s)) return 0;
+                  if (normalizeMunicipalityName(s.label || s.name) === "milano") return 1;
+                  return 2;
+                };
+                const orderedSuggestions = addressIntentInMilano
+                  ? [...geocodeSuggestions].sort((a, b) => rankSuggestion(a) - rankSuggestion(b))
+                  : geocodeSuggestions;
+                const hasAddressRow = orderedSuggestions.some(s => looksLikeAddressResult(s));
+                return (
+                <>
+                {addressIntentInMilano && !hasAddressRow && (
+                  <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,.05)", background: "rgba(251,191,36,.06)", fontFamily: F.sans, fontSize: 11, color: "#FBBF24" }}>
+                    Indirizzo non trovato a Milano. Puoi selezionare un comune qui sotto in modo esplicito.
+                  </div>
+                )}
+                {orderedSuggestions.map(c => {
+                  // Intent indirizzo-in-Milano: righe indirizzo/POI cliccabili
+                  // come PUNTO dentro Milano; i comuni fuzzy (Cormano, Como)
+                  // restano solo alternative esplicite, mai auto-selezione.
+                  if (addressIntentInMilano && looksLikeAddressResult(c)) {
+                    const inMilano = String(c.fullName || c.name || "").toLowerCase().includes("milano");
+                    if (!inMilano) return null;
+                    return (
+                      <div key={c.id} onClick={() => selectAddressPointInMilano(c.name, { lat: c.lat, lng: c.lng })}
+                        style={{ padding: "9px 14px", cursor: "pointer", fontFamily: F.sans, fontSize: 13, color: C.white, borderBottom: "1px solid rgba(255,255,255,.05)" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "rgba(34, 197, 94,.12)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                        📍 {c.name} <span style={{ fontSize: 10, color: "rgba(255,255,255,.45)", marginLeft: 6 }}>indirizzo/punto · Milano</span>
+                      </div>
+                    );
+                  }
+                  if (addressIntentInMilano && !isNilLikePlaceType(c.placeType) && normalizeMunicipalityName(c.label || c.name) !== "milano") {
+                    // §5: comune diverso da Milano con intent indirizzo — non
+                    // è la scelta principale; selezione solo esplicita.
+                    return (
+                      <div key={c.id} style={{ padding: "8px 14px", borderBottom: "1px solid rgba(255,255,255,.05)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                        <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)" }}>
+                          {c.label || c.name} <span style={{ color: "#FBBF24" }}>— hai cercato un indirizzo a Milano, non verrà selezionato automaticamente</span>
+                        </span>
+                        <button
+                          onClick={() => {
+                            if (import.meta.env.DEV) console.log("[STEP2_SEARCH_SELECTION_DEBUG]", { inputValue: search, detectedSearchIntent: "address", selectedResultName: c.label || c.name, selectedResultType: "municipality_explicit", parentComune: "Milano", selectedComune: c.label || c.name, selectedAddressPoint: null, radiusCenterSource: "municipality", blockedReason: "explicit_override" });
+                            setCity(c);
+                            setSelectedComuni([c]);
+                            setSearch(c.label || c.name);
+                            setDropOpen(false);
+                            setSelected([]);
+                            setCoverageDecision(null);
+                            setCoverageStrategy(null);
+                            setPartialCoverageConfirmed(false);
+                            setPendingAddMunicipality(false);
+                            setSelectedSearchPoint(null);
+                          }}
+                          style={{ padding: "4px 9px", borderRadius: 6, border: "1px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.05)", color: "rgba(255,255,255,.6)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}>
+                          Seleziona comunque
+                        </button>
+                      </div>
+                    );
+                  }
+                  // Tab Comune accetta solo risultati amministrativi comunali.
+                  // "Brera"/"Duomo"/ecc. arrivano dal geocoder taggati come
+                  // locality/neighborhood/suburb/quarter — MAI creati come
+                  // comune. La CTA "Seleziona come NIL" appare solo se il
+                  // quartiere appartiene a Milano (il dataset NIL esiste solo
+                  // lì); per frazioni di altri comuni si invita a cercare il
+                  // comune di appartenenza.
+                  if (isNilLikePlaceType(c.placeType)) {
+                    const nilName = c.label || c.name;
+                    const isMilanoArea = String(c.name || "").toLowerCase().includes("milano");
+                    return (
+                      <div key={c.id} style={{ padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,.05)", background: "rgba(251,191,36,.05)" }}>
+                        <div style={{ fontFamily: F.sans, fontSize: 13, color: C.white, marginBottom: 3 }}>{nilName}</div>
+                        <div style={{ fontFamily: F.sans, fontSize: 11, color: "#FBBF24", marginBottom: isMilanoArea ? 6 : 0 }}>
+                          {isMilanoArea
+                            ? `${nilName} non è un comune. È una zona/quartiere di Milano.`
+                            : `${nilName} non è un comune. È una zona/frazione: cerca il comune di appartenenza.`}
+                        </div>
+                        {isMilanoArea && (
+                          <button
+                            onClick={() => { selectMilanoAsNil(nilName, { lat: c.lat, lng: c.lng }); }}
+                            style={{ padding: "5px 10px", borderRadius: 7, border: "1px solid rgba(34,197,94,.4)", background: "rgba(34,197,94,.14)", color: "#22C55E", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                            Seleziona {nilName} come NIL
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+                  return (
                   <div key={c.id} onClick={() => {
                     if (searchMode === "municipality" && pendingAddMunicipality) {
                       const normNew = normalizeMunicipalityName(c.label || c.name);
@@ -4549,6 +5327,22 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                       setCoverageStrategy(null);
                       setPartialCoverageConfirmed(false);
                       setPendingAddMunicipality(false);
+                      // Nuovo comune scelto esplicitamente: il punto cercato
+                      // precedente (via/NIL) non è più il riferimento raggio.
+                      setSelectedSearchPoint(null);
+                      if (import.meta.env.DEV) {
+                        console.log("[STEP2_SEARCH_SELECTION_DEBUG]", {
+                          inputValue: search,
+                          detectedSearchIntent: detectSearchIntent(search).intent,
+                          selectedResultName: c.label || c.name,
+                          selectedResultType: c.placeType || "municipality",
+                          parentComune: null,
+                          selectedComune: c.label || c.name,
+                          selectedAddressPoint: null,
+                          radiusCenterSource: "municipality",
+                          blockedReason: null,
+                        });
+                      }
                     }
                   }}
                     style={{ padding: "9px 14px", cursor: "pointer", fontFamily: F.sans, fontSize: 13, color: C.white, borderBottom: "1px solid rgba(255,255,255,.05)" }}
@@ -4556,8 +5350,11 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                      {c.label || c.name}
                   </div>
-                ))
-              ) : (
+                  );
+                })}
+                </>
+                );
+              })() : (
                 capSearchLoading ? <div style={{ padding: "9px 14px", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.35)" }}>Ricerca CAP in corso––</div> :
                 capSuggestions.length === 0 && search.length >= 2 ? <div style={{ padding: "9px 14px", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.35)" }}>Nessun CAP trovato</div> :
                 capSuggestions.map(c => (
@@ -4667,6 +5464,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                       } else if (next.length === 0) {
                         setCity(null);
                         setMunicipalityBoundary(null);
+                        setSelectedSearchPoint(null);
                       }
                     }}
                       title="Rimuovi comune dalla selezione (cambia i KPI)"
@@ -4687,13 +5485,13 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>Comune/punto di riferimento:</span>
                 <div style={{ padding: "6px 12px", borderRadius: 8, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white }}>
-                  📍 {city?.label || city?.name || (selectedComuni[0]?.label || selectedComuni[0]?.name) || searchedLocation}
+                  📍 {hasSearchPoint ? selectedSearchPoint.label : (city?.label || city?.name || (selectedComuni[0]?.label || selectedComuni[0]?.name) || searchedLocation)}
                 </div>
                 <div style={{ padding: "6px 12px", borderRadius: 8, background: "rgba(34,197,94,.12)", border: "1px solid rgba(34,197,94,.3)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "#22C55E" }}>
                   Raggio selezionato: {radiusKm < 1 ? `${radiusKm * 1000}m` : `${radiusKm}km`}
                 </div>
                 <div style={{ padding: "6px 12px", borderRadius: 8, background: "rgba(59,130,246,.12)", border: "1px solid rgba(59,130,246,.3)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "#60A5FA" }}>
-                  Area operativa: raggio {radiusKm < 1 ? `${radiusKm * 1000}m` : `${radiusKm}km`}
+                  Area operativa: raggio {radiusKm < 1 ? `${radiusKm * 1000}m` : `${radiusKm}km`} da {hasSearchPoint ? (selectedSearchPoint.label || "punto cercato").split(",")[0] : ((city?.label || city?.name) ? `${city.label || city.name} centro` : (searchedLocation || "centro selezionato"))}
                 </div>
               </div>
             ) : (
@@ -4731,30 +5529,9 @@ const radiusInsightRows = zonesInRadius.map(z => ({
           </div>
         )}
 
-        {/* Layer mappa — dropdown (solo Vista Tecnica) */}
-        {isAdminView && (viewMode === "tematica" || viewMode === "distribuzione") && layers.length > 0 && (
-          <div style={{ position: "relative" }}>
-            <button onClick={() => setShowLayerMenu(v => !v)}
-              style={{ padding: "7px 12px", borderRadius: 8, border: `1px solid ${showLayerMenu ? col : "rgba(255,255,255,.12)"}`, background: showLayerMenu ? `${col}18` : "rgba(255,255,255,.05)", color: showLayerMenu ? col : "rgba(255,255,255,.65)", fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
-              Layer mappa {showLayerMenu ? "▲" : "▼"}
-            </button>
-            {showLayerMenu && (
-              <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: "#0f1d30", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, zIndex: 90, overflow: "hidden", boxShadow: "0 12px 32px rgba(0,0,0,.5)", minWidth: 180 }}>
-                {layers.map(lay => {
-                  const active = activeLay?.id === lay.id;
-                  return (
-                    <button key={lay.id} onClick={() => { setThLayerId(lay.id); setViewMode("tematica"); setShowLayerMenu(false); }}
-                      style={{ display: "block", width: "100%", padding: "9px 14px", background: active ? `${col}18` : "transparent", border: "none", borderBottom: "1px solid rgba(255,255,255,.05)", color: active ? col : "rgba(255,255,255,.7)", fontFamily: F.sans, fontSize: 12, fontWeight: active ? 700 : 400, cursor: "pointer", textAlign: "left" }}
-                      onMouseEnter={e => { if (!active) e.currentTarget.style.background = "rgba(255,255,255,.06)"; }}
-                      onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}>
-                      {active ? "✓ " : ""}{lay.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
+        {/* Dropdown "Layer mappa" (heatmap tematica) rimosso: era visibile
+            solo in Analisi Avanzata, dove ora la mappa non viene più mostrata
+            — un selettore di layer mappa senza mappa sarebbe un comando morto. */}
       </div>
 
       {/* Section */}
@@ -4815,14 +5592,25 @@ const radiusInsightRows = zonesInRadius.map(z => ({
         {/* Section */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
 
-          {/* MAPPA GRANDE */}
+          {/* MAPPA GRANDE — solo Vista Cliente. In 📊 Analisi Avanzata la mappa
+              NON viene mostrata (né duplicata): quella vista è un report
+              tecnico (KPI, ISTAT, demografia, output servizi). La mappa
+              operativa resta esclusivamente nello Step 2 / Vista Cliente. */}
+          {isAdminView ? (
+            <div style={{ borderRadius: 12, padding: "12px 16px", background: "rgba(56,189,248,.05)", border: "1px solid rgba(56,189,248,.2)", display: "flex", alignItems: "center", gap: 9 }}>
+              <span style={{ fontSize: 15, flexShrink: 0 }}>🗺</span>
+              <span style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.6)", lineHeight: 1.45 }}>
+                La mappa operativa è nella <b style={{ color: "#38BDF8" }}>Vista Cliente</b>. Qui sotto trovi il riepilogo territorio e le tabelle NIL/comuni; nel pannello a destra KPI, dati ISTAT, profilo demografico e output servizi.
+              </span>
+            </div>
+          ) : (
           <div style={{
             borderRadius: 14, overflow: "hidden", position: "relative",
             background: "linear-gradient(135deg,#081610 0%,#080f1e 60%,#100819 100%)",
             border: "1px solid rgba(255,255,255,.08)"
           }}>
             <Step2Map
-              city={city}
+              city={mapCityForStep2}
               radius={radiusKm}
               svcType={svcType}
               serviceColor={col}
@@ -4844,15 +5632,24 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               activeZoneId={data.activeZoneId}
               onSelectZone={selectCampaignZone}
               municipalityBoundary={
-                mapConfiniOn && (searchMode === "municipality" || searchMode === "address") && municipalityBoundary
+                // In Comune mode (isComuneMode): always pass the boundary — it is the territory itself.
+                // mapConfiniOn does NOT gate the Comune polygon; it only gates the boundary in Raggio/address mode.
+                // hiddenBoundaries (per-comune toggle from the UI) still applies.
+                // Indirizzo non confermato: il confine comune NON è ancora la
+                // scelta finale — non disegnarlo come se lo fosse.
+                (isComuneMode || (mapConfiniOn && searchMode === "address")) && municipalityBoundary && !hasUnconfirmedAddressPoint
                   ? (Array.isArray(municipalityBoundary)
                       ? municipalityBoundary.filter(b => !hiddenBoundaries.includes(normalizeMunicipalityName(b?.name || "")))
                       : (hiddenBoundaries.includes(normalizeMunicipalityName(municipalityBoundary?.name || city?.label || city?.name || "")) ? null : municipalityBoundary))
                   : null
               }
-              isMunicipalityMode={isComuneMode}
+              isMunicipalityMode={isComuneMode && !hasUnconfirmedAddressPoint}
+              nilMode={isNilManualMode}
+              zoneAllocationById={zoneAllocationById}
+              boundaryKpis={boundaryKpisForMap}
               themeMode={viewMode !== "distribuzione"}
               activeLayerId={activeLay?.id || null}
+              zoneCoverageById={zoneCoverageById}
               basemap={mapBasemap}
               mapConfiniOn={mapConfiniOn}
               onToggleConfini={() => setMapConfiniOn(v => !v)}
@@ -4904,13 +5701,25 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 {selZones.length} {selZones.length === 1 ? "zona" : "zone"} selezionate
               </div>
             )}
-            {/* Badge "Intero comune" — visibile solo in modalità comune */}
-            {searchMode === "municipality" && city && (
+            {/* Badge "Intero comune" — visibile solo in modalità comune, e
+                solo dopo conferma: mentre un indirizzo non è confermato non
+                è ancora vero che la distribuzione è "limitata al confine
+                comunale" (potrebbe diventare un raggio o una NIL). */}
+            {searchMode === "municipality" && city && !hasUnconfirmedAddressPoint && (
               <div style={{ position: "absolute", top: 10, right: 10, pointerEvents: "none", background: "rgba(8,22,12,.92)", border: "1px solid rgba(34,197,94,.45)", borderRadius: 8, padding: "6px 12px", display: "flex", alignItems: "center", gap: 7 }}>
                 <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22C55E", flexShrink: 0 }} />
                 <div>
                   <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: "#22C55E" }}>Intero comune: {city.label || city.name}</div>
                   <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.5)", marginTop: 1 }}>Distribuzione limitata al confine comunale</div>
+                </div>
+              </div>
+            )}
+            {hasUnconfirmedAddressPoint && (
+              <div style={{ position: "absolute", top: 10, right: 10, pointerEvents: "none", background: "rgba(8,15,30,.92)", border: "1px solid rgba(59,130,246,.45)", borderRadius: 8, padding: "6px 12px", display: "flex", alignItems: "center", gap: 7 }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#60A5FA", flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: "#60A5FA" }}>📍 Indirizzo selezionato</div>
+                  <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.5)", marginTop: 1 }}>{selectedSearchPoint?.label || "Scegli raggio o comune completo"}</div>
                 </div>
               </div>
             )}
@@ -4978,6 +5787,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
             )}
 
           </div>
+          )}
 
           {/* CAP MODE: CAP selezionati */}
           {searchMode === "cap" && (
@@ -5099,11 +5909,33 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               {/* Header */}
               <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,.06)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
                 <div>
-                  <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white, marginBottom: 2 }}>{isNilAnalysis ? (isComuneMode ? `Zone NIL in comune: ${zoneListSourceCount}` : `Zone NIL nel raggio: ${zoneListSourceCount}`) : `Zone di distribuzione: ${zoneListSourceCount}`}</div>
+                  <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white, marginBottom: 2 }}>{isNilAnalysis ? (isComuneMode ? (nilManualMode ? `NIL selezionate: ${selZones.length} di ${zonesInRadius.length}` : `NIL disponibili ${city?.label || city?.name || ""}: ${zoneListSourceCount}`) : `NIL intersecate dal raggio: ${summaryComuniStats.total}`) : `Zone di distribuzione: ${zoneListSourceCount}`}</div>
                   <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)" }}>
                     Budget disponibile: <b style={{ color: col }}>{flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })}</b> volantini
                   </div>
                 </div>
+                {isComuneMode && isNilAnalysis && (
+                  <button
+                    onClick={() => {
+                      setNilManualMode(v => {
+                        const next = !v;
+                        // Uscendo dalla modalità manuale si torna al comune completo:
+                        // tutte le NIL rientrano nell'aggregato.
+                        if (!next) setSelected(zonesInRadius.map(z => z.id));
+                        return next;
+                      });
+                    }}
+                    title={nilManualMode ? "Torna al comune completo (tutte le NIL)" : "Seleziona manualmente una o più NIL / quartieri"}
+                    style={{
+                      padding: "6px 12px", borderRadius: 8,
+                      border: `1px solid ${nilManualMode ? `${col}66` : "rgba(255,255,255,.12)"}`,
+                      background: nilManualMode ? `${col}1e` : "rgba(255,255,255,.04)",
+                      color: nilManualMode ? col : "rgba(255,255,255,.55)",
+                      fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer"
+                    }}>
+                    NIL / Quartieri: {nilManualMode ? "selezione manuale" : "comune completo"}
+                  </button>
+                )}
                 <div style={{ display: "flex", background: "rgba(0,0,0,.2)", padding: 3, borderRadius: 9, border: "1px solid rgba(255,255,255,.05)" }}>
                   {[
                     { id: "auto", l: "Auto", icon: "" },
@@ -5173,12 +6005,46 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                     <div style={{ opacity: 0.8, fontSize: 12 }}>La copertura dati reale e attualmente attiva per la Lombardia.</div>
                   </div>
                 )}
+                {hasUnconfirmedAddressPoint && (
+                  <div style={{ padding: 16, borderRadius: 10, background: "rgba(59,130,246,.08)", border: "1px solid rgba(59,130,246,.3)" }}>
+                    <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "#60A5FA", marginBottom: 6 }}>📍 Hai selezionato un indirizzo dentro Milano</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)", lineHeight: 1.45, marginBottom: 12 }}>
+                      <b style={{ color: C.white }}>{selectedSearchPoint?.label}</b>. Per calcolare la copertura puoi usare un raggio dal punto oppure selezionare Milano comune completo.
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button onClick={switchToRadiusMode}
+                        style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid rgba(34,197,94,.4)", background: "rgba(34,197,94,.14)", color: "#22C55E", fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
+                        Usa raggio da {(selectedSearchPoint?.label || "").split(",")[0]}
+                      </button>
+                      <button onClick={() => setAddressFullCoverageConfirmed(true)}
+                        style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,.18)", background: "rgba(255,255,255,.05)", color: "rgba(255,255,255,.8)", fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
+                        Usa Milano comune completo
+                      </button>
+                      <button onClick={() => setNilManualMode(true)}
+                        style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,.18)", background: "rgba(255,255,255,.05)", color: "rgba(255,255,255,.8)", fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
+                        Seleziona NIL/quartiere vicino
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {milanoComuneNilInsufficient && !nilUnavailable && (
+                  <div style={{ padding: 14, textAlign: "center", color: C.yellow, background: "rgba(251,191,36,.08)", border: `1px solid ${C.yellow}33`, borderRadius: 10, fontFamily: F.sans, fontSize: 12 }}>
+                    <div style={{ fontWeight: 800, marginBottom: 4 }}>Dati comune completo non disponibili</div>
+                    <div style={{ opacity: 0.82 }}>Seleziona raggio o NIL specifica.</div>
+                  </div>
+                )}
+                {activeComuneZeroData && (
+                  <div style={{ padding: 14, textAlign: "center", color: C.yellow, background: "rgba(251,191,36,.08)", border: `1px solid ${C.yellow}33`, borderRadius: 10, fontFamily: F.sans, fontSize: 12 }}>
+                    <div style={{ fontWeight: 800, marginBottom: 4 }}>Dati non disponibili o area non valida per la modalità Comune</div>
+                    <div style={{ opacity: 0.82 }}>Prova un altro comune, oppure usa Raggio o NIL/Quartieri se disponibile.</div>
+                  </div>
+                )}
                 {nilUnavailable && (
                   <div style={{ padding: 14, textAlign: "center", color: C.yellow, background: "rgba(251,191,36,.08)", border: `1px solid ${C.yellow}33`, borderRadius: 10, fontFamily: F.sans, fontSize: 12 }}>
                     <div style={{ fontWeight: 800, marginBottom: 4 }}>Dati NIL non disponibili</div>
                     <div style={{ opacity: 0.82 }}>
                       {isComuneMode
-                        ? "Milano viene analizzata con il comportamento comunale attuale."
+                        ? "Dati comune completo non disponibili. Seleziona raggio o NIL specifica."
                         : `Milano viene usata come centro di riferimento. L'analisi è calcolata sul raggio selezionato di ${radiusKm}km.`}
                     </div>
                   </div>
@@ -5213,7 +6079,31 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                   </div>
                 )}
                 
+                {isMilanoComuneCollapsible && !showMilanoNilList ? (
+                  <button onClick={() => setShowMilanoNilList(true)}
+                    style={{
+                      width: "100%", padding: "12px 14px", borderRadius: 10,
+                      border: "1px dashed rgba(255,255,255,.18)", background: "rgba(255,255,255,.025)",
+                      display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
+                      cursor: "pointer", textAlign: "left"
+                    }}>
+                    <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: "rgba(255,255,255,.72)" }}>
+                      + Mostra dettagli NIL / quartieri <span style={{ color: "rgba(255,255,255,.38)", fontWeight: 700 }}>({zoneListSourceCount} zone)</span>
+                    </span>
+                    <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.42)" }}>espandi</span>
+                  </button>
+                ) : (
                 <div style={{ maxHeight: "560px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 4 }}>
+                {isMilanoComuneCollapsible && (
+                  <button onClick={() => setShowMilanoNilList(false)}
+                    style={{
+                      alignSelf: "flex-start", padding: "5px 10px", borderRadius: 7,
+                      border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)",
+                      color: "rgba(255,255,255,.55)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, cursor: "pointer"
+                    }}>
+                    − Nascondi dettagli NIL / quartieri
+                  </button>
+                )}
                 {zoneRowsForList.map(row => {
                   if (row.type === "marginal-summary") {
                     return (
@@ -5303,9 +6193,12 @@ const isManual = allocationMode === "manual";
                             {z.isNil && <span style={{ padding: "1px 5px", borderRadius: 4, background: `${getComuneColor(z.id)}22`, border: `1px solid ${getComuneColor(z.id)}55`, fontFamily: F.sans, fontSize: 8, color: getComuneColor(z.id), fontWeight: 800 }}>NIL</span>}
                             {z.isCap && <span style={{ padding: "1px 5px", borderRadius: 4, background: "rgba(255,255,255,.1)", fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.4)", fontWeight: 700 }}>CAP</span>}
                             {z.source_flags?.includes('Stima territoriale') && <span style={{ padding: "1px 5px", borderRadius: 4, background: "rgba(251,191,36,.15)", border: "1px solid rgba(251,191,36,.3)", fontFamily: F.sans, fontSize: 8, color: C.yellow, fontWeight: 700 }}>Stima territoriale</span>}
+                            {z.isFallback && <span style={{ padding: "2px 6px", borderRadius: 4, background: "rgba(251,191,36,.18)", border: "1px solid rgba(251,191,36,.4)", fontFamily: F.sans, fontSize: 8, color: "#FACC15", fontWeight: 800 }}>⏳ Dati parziali</span>}
                           </div>
                           <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.25)", marginTop: 2 }}>
-                            {isResidentialStep2
+                            {z.isFallback
+                              ? "Dati non disponibili — comune selezionato, in attesa dei dati API"
+                              : isResidentialStep2
                               ? `${z.families.toLocaleString("it-IT", { useGrouping: true })} famiglie – ${z.pop.toLocaleString("it-IT", { useGrouping: true })} ab. – ${z.area} km² – ${z.coverage}% ${searchMode === "municipality" ? "di copertura" : "nel raggio"}`
                               : isBusinessStep2
                               ? `${z.targetBiz} target – ${z.competitors} competitor – ${z.clusters} cluster – ${z.topCats}`
@@ -5387,6 +6280,7 @@ const isManual = allocationMode === "manual";
                   );
                 })}
                 </div>
+                )}
               </div>
 
               {/* Footer Avvisi */}
@@ -5466,9 +6360,15 @@ const isManual = allocationMode === "manual";
                                   <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{city ? city.name : (activeCampaignZone?.cityName || "Area")} · raggio {radiusKm || radius} km</div>
                                 </div>
                                 <div>
-                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Famiglie totali area {radiusKm || radius} km</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>{isNilAnalysis ? `Famiglie nell'area ${radiusKm || radius} km` : `Famiglie totali area ${radiusKm || radius} km`}</div>
                                   <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{formatIntegerIT(serviceKpis?.families || 0)}</div>
                                 </div>
+                                {isNilAnalysis && (
+                                  <div>
+                                    <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>NIL intersecate</div>
+                                    <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{summaryComuniStats.total}</div>
+                                  </div>
+                                )}
                                 <div>
                                   <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini inseriti</div>
                                   <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{formatIntegerIT(flyerQuantityFromStep1)}</div>
@@ -5498,7 +6398,7 @@ const isManual = allocationMode === "manual";
                                 </div>
                                 <div>
                                   <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Zona</div>
-                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{city ? city.name : (activeCampaignZone?.cityName || "Area")} · {areaMode === "radius" ? `${radiusKm}km` : areaMode === "custom_zone" ? "area operativa" : "intero comune"}</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{city ? city.name : (activeCampaignZone?.cityName || "Area")} · {areaMode === "radius" ? `${radiusKm}km` : areaMode === "custom_zone" ? "NIL / quartieri" : "intero comune"}</div>
                                 </div>
                                 <div>
                                   <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>{isNilAnalysis ? "Zone NIL coinvolte" : "Comuni coinvolti"}</div>
@@ -5872,23 +6772,36 @@ const isManual = allocationMode === "manual";
                   <motion.div key="vista-cliente" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     {/* PROFILO DELLA ZONA */}
                     <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "18px 20px", border: `1px solid ${col}30` }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                        <div>
-                          <div style={{ fontFamily: F.sans, fontSize: 14, fontWeight: 800, color: C.white, display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
-                            <span>👥</span>
-                            <span>{step2ViewModel.contextDemographyLabel || (searchMode === "municipality" ? "Profilo Territorio" : "Profilo della zona")}</span>
+                      {(() => {
+                        const isMultiComuneDemo = (selectedComuni?.length > 1) || (searchMode === "municipality" && selZones?.length > 1);
+                        const demoTitle = isMultiComuneDemo ? "Contesto demografico comune attivo" : (step2ViewModel.contextDemographyLabel || (searchMode === "municipality" ? "Profilo Territorio" : "Profilo della zona"));
+                        const demoSub = isMultiComuneDemo ? (city?.label || city?.name || (selectedComuni?.[0]?.label || selectedComuni?.[0]?.name) || (selZones?.[0]?.name) || "") : step2ViewModel.contextDemographySubtitle;
+                        const demoNote = isMultiComuneDemo ? "Dati riferiti al comune attivo. Il calcolo copertura usa tutti i comuni selezionati." : (step2ViewModel.contextDemographyNote || "Analisi territoriale basata sui dati disponibili.");
+                        return (
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                            <div>
+                              <div style={{ fontFamily: F.sans, fontSize: 14, fontWeight: 800, color: C.white, display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
+                                <span>👥</span>
+                                <span>{demoTitle}</span>
+                              </div>
+                              {demoSub && (
+                                <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: col, marginBottom: 2 }}>
+                                  {demoSub}
+                                </div>
+                              )}
+                              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>
+                                {demoNote}
+                              </div>
+                            </div>
+                            <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(59, 130, 246, 0.15)", color: "#60A5FA", border: "1px solid rgba(59, 130, 246, 0.3)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, letterSpacing: ".06em" }}>
+                              DATI DISPONIBILI
+                            </span>
+                            <span style={{ padding: "3px 8px", borderRadius: 6, background: `${compatColor}18`, color: compatColor, border: `1px solid ${compatColor}33`, fontFamily: F.sans, fontSize: 10, fontWeight: 800, letterSpacing: ".04em" }}>
+                              {zoneVerdict?.title || "Zona adatta"}
+                            </span>
                           </div>
-                          <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>
-                            {step2ViewModel.contextDemographyNote || "Analisi territoriale basata sui dati disponibili."}
-                          </div>
-                        </div>
-                        <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(59, 130, 246, 0.15)", color: "#60A5FA", border: "1px solid rgba(59, 130, 246, 0.3)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, letterSpacing: ".06em" }}>
-                          DATI DISPONIBILI
-                        </span>
-                        <span style={{ padding: "3px 8px", borderRadius: 6, background: `${compatColor}18`, color: compatColor, border: `1px solid ${compatColor}33`, fontFamily: F.sans, fontSize: 10, fontWeight: 800, letterSpacing: ".04em" }}>
-                          {zoneVerdict?.title || "Zona adatta"}
-                        </span>
-                      </div>
+                        );
+                      })()}
 
                       <div style={{ background: "linear-gradient(135deg, rgba(232, 87, 26, 0.12) 0%, rgba(232, 87, 26, 0.03) 100%)", border: "1px solid rgba(232, 87, 26, 0.3)", borderRadius: 10, padding: "14px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
                         <span style={{ fontSize: 26, lineHeight: 1 }}>{insightIcon}</span>
@@ -6072,6 +6985,15 @@ const isManual = allocationMode === "manual";
                   </motion.div>
                 ) : (
                   <motion.div key="analisi-avanzata" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    {/* Header Analisi Avanzata */}
+                    <div style={{ background: "rgba(56,189,248,.06)", borderRadius: 12, padding: "12px 16px", border: "1px solid rgba(56,189,248,.25)" }}>
+                      <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "#38BDF8", display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
+                        <span>📊</span> Analisi Avanzata
+                      </div>
+                      <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.6)", lineHeight: 1.4 }}>
+                        KPI, dati ISTAT, profilo demografico e output servizi della zona selezionata.
+                      </div>
+                    </div>
                     {/* C. Analisi ISTAT */}
                     <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px 18px", border: "1px solid rgba(168,85,247,.3)" }}>
                       <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: "#A855F7", marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>

@@ -28,6 +28,9 @@ export function getCoverageStatus(percent) {
  * @param {number} input.zoneCount
  * @param {boolean} input.isNilAnalysis
  * @param {string} input.territoryPluralLabel
+ * @param {string[]} [input.selectedNilNames] - nomi NIL scelte manualmente (solo areaMode "custom_zone")
+ * @param {"address"|"nil"|"municipality"|null} [input.radiusCenterSource] - da dove arriva il centro del raggio
+ * @param {boolean} [input.usingMunicipalityFullCoverage] - false se un indirizzo è selezionato ma non confermato come comune completo
  */
 export function buildStep2ViewModel({
   areaMode,
@@ -42,9 +45,26 @@ export function buildStep2ViewModel({
   zoneCount,
   isNilAnalysis,
   territoryPluralLabel,
+  selectedComuniCount,
+  selectedNilNames,
+  radiusCenterSource,
+  usingMunicipalityFullCoverage,
 }) {
   const unitWord = isResidentialStep2 ? "Famiglie" : isMovementStep2 ? "Punti di interesse" : "Aziende";
   const cleanCityName = (cityName || "").trim();
+
+  // Da dove arrivano i numeri primari — MAI "first_nil" come fallback, e MAI
+  // "municipality" per un indirizzo non confermato (usingMunicipalityFullCoverage
+  // false): "custom_zone" (→ selected_nil) esiste solo quando l'utente ha
+  // scelto esplicitamente la modalità NIL / Quartieri; "address_radius" solo
+  // quando il raggio è centrato su un punto/indirizzo cercato.
+  const primarySource = areaMode === "radius"
+    ? (radiusCenterSource === "address" ? "address_radius" : "radius")
+    : areaMode === "custom_zone"
+      ? "selected_nil"
+      : areaMode === "cap"
+        ? "cap"
+        : (usingMunicipalityFullCoverage === false ? "unconfirmed_address" : "municipality");
 
   const primaryFamiliesValue = isResidentialStep2
     ? (serviceKpis?.families || 0)
@@ -52,25 +72,34 @@ export function buildStep2ViewModel({
       ? (serviceKpis?.poi || 0)
       : (serviceKpis?.businesses || 0);
 
+  const nilNames = Array.isArray(selectedNilNames) ? selectedNilNames.filter(Boolean) : [];
+  const nilListLabel = nilNames.length === 0
+    ? "NIL selezionate"
+    : nilNames.length <= 2
+      ? `NIL ${nilNames.join(", ")}`
+      : `${nilNames.length} NIL selezionate`;
+
   const primaryAreaLabel = areaMode === "radius"
-    ? `Area selezionata: raggio ${radiusKm} km`
+    ? (cleanCityName ? `${cleanCityName} · raggio ${radiusKm} km` : `Area selezionata: raggio ${radiusKm} km`)
     : areaMode === "custom_zone"
-      ? `Area operativa${cleanCityName ? ` ${cleanCityName}` : ""}`
+      ? (cleanCityName ? `${cleanCityName} · ${nilListLabel}` : nilListLabel)
       : areaMode === "cap"
         ? "CAP selezionati"
-        : "Comune completo";
+        : (usingMunicipalityFullCoverage === false
+            ? "Indirizzo selezionato — scegli raggio o comune completo"
+            : (cleanCityName ? `${cleanCityName} · comune completo` : "Comune completo"));
 
   const primaryFamiliesLabel = areaMode === "radius"
     ? `${unitWord} nell'area ${radiusKm} km`
     : areaMode === "custom_zone"
-      ? `${unitWord} area operativa`
+      ? `${unitWord} NIL selezionate`
       : (isResidentialStep2 ? "Famiglie raggiungibili" : isMovementStep2 ? "Punti di interesse" : "Aziende raggiungibili");
 
   const primaryCoverageValue = Number.isFinite(Number(serviceKpis?.coverage)) ? Number(serviceKpis.coverage) : null;
   const primaryCoverageLabel = areaMode === "radius"
     ? `Copertura area ${radiusKm} km`
     : areaMode === "custom_zone"
-      ? "Copertura area operativa"
+      ? "Copertura NIL selezionate"
       : areaMode === "full_municipality"
         ? "Copertura comune"
         : "Copertura";
@@ -79,7 +108,7 @@ export function buildStep2ViewModel({
   const recommendedFlyersLabel = areaMode === "radius"
     ? `Volantini consigliati per area ${radiusKm} km`
     : areaMode === "custom_zone"
-      ? "Volantini consigliati per area operativa"
+      ? "Volantini consigliati per NIL selezionate"
       : "Volantini consigliati";
 
   const insertedFlyersValue = Number(flyerQuantityFromStep1) || 0;
@@ -88,15 +117,33 @@ export function buildStep2ViewModel({
     : Math.max(0, recommendedFlyersValue - insertedFlyersValue);
   const surplusFlyersValue = Math.max(0, insertedFlyersValue - recommendedFlyersValue);
 
-  const territoryLabel = areaMode === "radius" ? `Raggio ${radiusKm} km` : primaryAreaLabel;
-  const zoneCountLabel = isNilAnalysis ? "Zone NIL coinvolte" : territoryPluralLabel;
+  const territoryLabel = areaMode === "radius"
+    ? (radiusCenterSource === "address" || radiusCenterSource === "nil" ? `Raggio da punto (${radiusKm} km)` : `Raggio ${radiusKm} km`)
+    : areaMode === "custom_zone"
+      ? "NIL / quartiere"
+      : areaMode === "cap"
+        ? "CAP selezionati"
+        : (usingMunicipalityFullCoverage === false ? "Indirizzo selezionato — scegli raggio o comune completo" : "Comune completo");
+  const zoneCountLabel = isNilAnalysis
+    ? (areaMode === "full_municipality" ? "NIL disponibili" : areaMode === "radius" ? "NIL intersecate dal raggio" : "Zone NIL coinvolte")
+    : territoryPluralLabel;
 
-  const contextDemographyLabel = areaMode !== "full_municipality" && cleanCityName
-    ? `Contesto demografico comune ${cleanCityName}`
-    : null;
-  const contextDemographyNote = areaMode !== "full_municipality"
-    ? `Dati comunali usati come riferimento. La copertura viene calcolata sull'area selezionata${areaMode === "radius" && radiusKm ? ` di ${radiusKm} km` : ""}.`
-    : null;
+  const isMultiComune = Number(selectedComuniCount) > 1;
+  let contextDemographyLabel = null;
+  let contextDemographySubtitle = null;
+  let contextDemographyNote = null;
+
+  if (isMultiComune) {
+    contextDemographyLabel = "Contesto demografico comune attivo";
+    contextDemographySubtitle = cleanCityName || null;
+    contextDemographyNote = "Dati riferiti al comune attivo. Il calcolo copertura usa tutti i comuni selezionati.";
+  } else if (areaMode !== "full_municipality") {
+    contextDemographyLabel = cleanCityName ? `Contesto demografico comune ${cleanCityName}` : null;
+    contextDemographyNote = `Dati comunali usati come riferimento. La copertura viene calcolata sull'area selezionata${areaMode === "radius" && radiusKm ? ` di ${radiusKm} km` : ""}.`;
+  } else {
+    contextDemographyLabel = "Profilo Territorio";
+    contextDemographyNote = null;
+  }
 
   const coverageStatus = getCoverageStatus(primaryCoverageValue);
 
@@ -110,6 +157,7 @@ export function buildStep2ViewModel({
 
   return {
     areaMode,
+    primarySource,
     primaryAreaLabel,
     primaryFamiliesLabel,
     primaryFamiliesValue,
@@ -124,6 +172,7 @@ export function buildStep2ViewModel({
     zoneCountLabel,
     zoneCountValue: zoneCount,
     contextDemographyLabel,
+    contextDemographySubtitle,
     contextDemographyNote,
     coverageStatus,
     cta,
