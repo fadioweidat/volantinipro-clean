@@ -7,11 +7,11 @@ const warnStep2 = (...args) => {
   if (import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || window.__VOLANTINIPRO_DEBUG_STEP2__)) console.warn(...args);
 };
 
-// CartoDB Voyager – leggibile, strade visibili, aspetto GIS operativo
+// CartoDB Voyager â€“ leggibile, strade visibili, aspetto GIS operativo
 const CARTO_VOYAGER = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 const CARTO_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
-// ── POI categories: palette GIS professionale, toni desaturati ──────────────
+// â”€â”€ POI categories: palette GIS professionale, toni desaturati â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const CATEGORY_COLORS = {
   subway_station: '#7C9EC4', train_station: '#7C9EC4', light_rail_station: '#7C9EC4',
   bus_station: '#8BAFC8', bus_stop: '#8BAFC8', tram_stop: '#8BAFC8', transit_station: '#7C9EC4',
@@ -61,7 +61,20 @@ function normalizeMapMunicipalityName(raw) {
 
 // CSS applicato globalmente una sola volta
 const MAP_CSS = `
-/* Voyager: nessun filter – strade, nomi comuni e vie sono visibili per default */
+.vp-step2-map-shell {
+  height: clamp(420px, 42vw, 480px);
+}
+@media (max-width: 900px) {
+  .vp-step2-map-shell {
+    height: clamp(400px, 55vw, 440px);
+  }
+}
+@media (max-width: 640px) {
+  .vp-step2-map-shell {
+    height: clamp(320px, 75vw, 360px);
+  }
+}
+/* Voyager: nessun filter â€“ strade, nomi comuni e vie sono visibili per default */
 .leaflet-container {
   background: #f1eee7 !important;
   pointer-events: auto !important;
@@ -130,7 +143,7 @@ const MAP_CSS = `
 }
 `;
 
-// ── Marker icons ─────────────────────────────────────────────────────────────
+// â”€â”€ Marker icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // POI dot: visible on light map
 function dotIcon(L, color, size, selected) {
@@ -147,7 +160,7 @@ function dotIcon(L, color, size, selected) {
   });
 }
 
-// Centro città: discreto, brand color
+// Centro cittÃ : discreto, brand color
 function pinIcon(L, color) {
   return L.divIcon({
     html: `<div style="width:11px;height:11px;border-radius:50%;background:${color};border:2px solid rgba(0,0,0,0.28);box-shadow:0 1px 5px rgba(0,0,0,0.35);pointer-events:none;"></div>`,
@@ -157,23 +170,23 @@ function pinIcon(L, color) {
   });
 }
 
-// ── Colori e icone del layer panel ───────────────────────────────────────────
+// â”€â”€ Colori e icone del layer panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Toni GIS professionali, nessun neon
 const LAYER_META = {
   // Base
-  radius:   { color: '#C4852A', icon: '○', label: 'Raggio'        },
+  radius:   { color: '#C4852A', icon: 'â—‹', label: 'Raggio'        },
   // Territory
-  comuni:   { color: '#5B7FA6', icon: '▭', label: 'Comuni'        },
-  settori:  { color: '#4A6E8A', icon: '▤', label: 'Settori'       },
+  comuni:   { color: '#5B7FA6', icon: 'â–­', label: 'Comuni'        },
+  settori:  { color: '#4A6E8A', icon: 'â–¤', label: 'Settori'       },
   // Points
-  poi:      { color: '#4E8E6E', icon: '⊙', label: 'POI'           },
-  civici:   { color: '#4B5568', icon: '▦', label: 'Civici'        },
-  // Phase 2 overlays (structure — future: true, no live data yet)
-  density:  { color: '#3B82F6', icon: '▒', label: 'Densità fam.'  },
-  hotspot:  { color: '#A855F7', icon: '◉', label: 'Hotspot H2H'   },
-  cluster:  { color: '#F59E0B', icon: '⬡', label: 'Cluster B2B'  },
+  poi:      { color: '#4E8E6E', icon: 'âŠ™', label: 'POI'           },
+  civici:   { color: '#4B5568', icon: 'â–¦', label: 'Civici'        },
+  // Phase 2 overlays (structure â€” future: true, no live data yet)
+  density:  { color: '#3B82F6', icon: 'â–’', label: 'DensitÃ  fam.'  },
+  hotspot:  { color: '#A855F7', icon: 'â—‰', label: 'Hotspot H2H'   },
+  cluster:  { color: '#F59E0B', icon: 'â¬¡', label: 'Cluster B2B'  },
   // Live
-  tracking: { color: '#4B5568', icon: '◎', label: 'Tracking GPS'  },
+  tracking: { color: '#4B5568', icon: 'â—Ž', label: 'Tracking GPS'  },
 };
 
 function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opacityLevel, onOpacityChange, onReset }) {
@@ -221,19 +234,19 @@ function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opac
           userSelect: 'none',
         }}
       >
-        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>▦</span>
+        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>â–¦</span>
         <span style={{ fontSize: 8.5, fontWeight: 700, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em', textTransform: 'uppercase', flex: 1 }}>
           Layer
         </span>
         <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.2)' }}>
-          {collapsed ? '▾' : '▴'}
+          {collapsed ? 'â–¾' : 'â–´'}
         </span>
       </div>
 
       {!collapsed && (
         <div style={{ padding: '4px 0 3px' }}>
           {primaryLayers.map(layer => {
-            const meta = LAYER_META[layer.id] || { color: '#5B7FA6', icon: '○' };
+            const meta = LAYER_META[layer.id] || { color: '#5B7FA6', icon: 'â—‹' };
             const civiciDisabled = layer.id === 'civici' && !civiciAvailable;
             const settoriDisabled = layer.id === 'settori' && !settori;
             const isDisabled = civiciDisabled || settoriDisabled;
@@ -261,7 +274,7 @@ function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opac
                 onMouseEnter={e => { if (!layer.future && !isDisabled) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
               >
-                {/* Left color stripe – GIS layer indicator */}
+                {/* Left color stripe â€“ GIS layer indicator */}
                 <div style={{
                   width: 3,
                   alignSelf: 'stretch',
@@ -393,7 +406,7 @@ function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opac
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', marginTop: 4, padding: '7px 8px 8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
               <span style={{ fontSize: 8.5, fontWeight: 700, color: 'rgba(255,255,255,0.38)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                Opacità
+                OpacitÃ 
               </span>
               <button
                 type="button"
@@ -452,19 +465,21 @@ function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opac
   );
 }
 
-// ── Colori GIS per le zone non selezionate ───────────────────────────────────
+// â”€â”€ Colori GIS per le zone non selezionate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const ZONE_UNSEL = { color: '#2D5A8E', fill: '#3A72A8' };
 
 // Colori coerenti con la legenda "Coperti / Parziali / Non coperti" (stessa
 // soglia getCoverageStatus di src/lib/step2/buildStep2ViewModel.js, passata
-// via prop zoneCoverageById — nessuna soglia duplicata qui).
+// via prop zoneCoverageById â€” nessuna soglia duplicata qui).
 const COVERAGE_MAP_COLORS = {
   coperto:     { border: '#22C55E', fill: '#22C55E' },
   parziale:    { border: '#FACC15', fill: '#FACC15' },
   non_coperto: { border: '#F87171', fill: '#94A3B8' },
+  preview_main:   { border: '#3B82F6', fill: '#3B82F6' },
+  preview_nearby: { border: '#64748B', fill: '#94A3B8' },
 };
 
-// ── Multi-zona accordion sidebar ─────────────────────────────────────────────
+// â”€â”€ Multi-zona accordion sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ZoneSidebar({ zones, activeZoneId, onSelectZone }) {
   if (!zones || zones.length <= 1) return null;
 
@@ -492,7 +507,7 @@ function ZoneSidebar({ zones, activeZoneId, onSelectZone }) {
         alignItems: 'center',
         gap: 6,
       }}>
-        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>⬡</span>
+        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>â¬¡</span>
         <span style={{ fontSize: 8.5, fontWeight: 700, color: 'rgba(255,255,255,0.40)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
           Zone ({zones.length})
         </span>
@@ -518,7 +533,7 @@ function ZoneSidebar({ zones, activeZoneId, onSelectZone }) {
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 9, color: 'rgba(196,133,42,0.85)', fontWeight: 600 }}>
-                    ◎ {rad} km
+                    â—Ž {rad} km
                   </span>
                   {z.service_type && (
                     <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.30)', fontWeight: 500 }}>
@@ -548,7 +563,7 @@ function ZoneSidebar({ zones, activeZoneId, onSelectZone }) {
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
             >
-              <span style={{ fontSize: 8, color: 'rgba(127,155,176,0.60)', padding: '6px 7px 6px 10px', flexShrink: 0 }}>○</span>
+              <span style={{ fontSize: 8, color: 'rgba(127,155,176,0.60)', padding: '6px 7px 6px 10px', flexShrink: 0 }}>â—‹</span>
               <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.48)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: 4 }}>
                 {esc(label)}
               </span>
@@ -563,9 +578,9 @@ function ZoneSidebar({ zones, activeZoneId, onSelectZone }) {
   );
 }
 
-// ── Grid-clustering helper for POI markers ────────────────────────────────────
+// â”€â”€ Grid-clustering helper for POI markers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Groups nearby POI into clusters without a CDN plugin.
-// cellDeg ≈ 0.003° ≈ 250m at Italian latitudes.
+// cellDeg â‰ˆ 0.003Â° â‰ˆ 250m at Italian latitudes.
 function gridCluster(pois, cellDeg = 0.003) {
   const cells = {};
   for (const p of pois) {
@@ -622,23 +637,38 @@ function Step2MapImpl({
   onLayerReset,
   municipalityBoundary, // GeoJSON geometry del confine comunale (da OSM Nominatim)
   isMunicipalityMode,   // true = mostra intero comune, non cerchio raggio
-  nilMode,              // true = modalità NIL manuale (Milano): poligoni NIL visibili/cliccabili anche in municipality mode
-  activeLayerId,        // id layer attivo — incluso nei dep per re-trigger del render
-  zoneCoverageById,     // { [zoneId]: "coperto"|"parziale"|"non_coperto" } — da getCoverageStatus, stessa soglia della legenda
-  zoneAllocationById,   // { [zoneId]: {assignedFlyers, requiredFlyers, coveragePercent, status} } — per i tooltip
-  boundaryKpis,         // { families, coveragePercent, insertedFlyers, recommendedFlyers } — tooltip confine comune attivo
+  nilMode,              // true = modalitÃ  NIL manuale (Milano): poligoni NIL visibili/cliccabili anche in municipality mode
+  coveragePolygons,     // Array<{id,name,type,status,geometry,lat,lng,families,assignedFlyers,recommendedFlyers,coveragePct}> â€” territori REALI usati nel calcolo Raggio (comuni o NIL secondo zonesInRadius), SOLO tab Raggio
+  activeLayerId,        // id layer attivo â€” incluso nei dep per re-trigger del render
+  zoneCoverageById,     // { [zoneId]: "coperto"|"parziale"|"non_coperto" } â€” da getCoverageStatus, stessa soglia della legenda
+  zoneAllocationById,   // { [zoneId]: {assignedFlyers, requiredFlyers, coveragePercent, status} } â€” per i tooltip
+  boundaryKpis,         // { families, coveragePercent, insertedFlyers, recommendedFlyers } â€” tooltip confine comune attivo
+  unconfirmedAddressMode, // true = indirizzo dentro Milano ma non confermato: preview NIL attive, confine leggero
+  onMapClick,
 }) {
+  const hasConfirmedRadius = Number.isFinite(Number(radius)) && Number(radius) > 0;
+  const effectiveMapRadius = hasConfirmedRadius ? Number(radius) : 3;
   const containerRef = useRef(null);
+  const onMapClickRef = useRef(onMapClick);
+  useEffect(() => {
+    onMapClickRef.current = onMapClick;
+  }, [onMapClick]);
   const mapRef = useRef(null);
   const layersRef = useRef({});
   const viewRef = useRef({ lat: null, lng: null, radius: null });
   const [leafletLoaded, setLeafletLoaded] = useState(!!window.L);
   const [selectedSectorId, setSelectedSectorId] = useState(null);
   const [mapZoom, setMapZoom] = useState(null);
+  // Territori nel calcolo Raggio senza geometry disponibile â€” mostrati come
+  // avviso opzionale in UI, senza nascondere i poligoni disponibili.
+  const [missingPolygonNames, setMissingPolygonNames] = useState([]);
 
-  // Carica Leaflet JS + CSS una sola volta
+  // Carica Leaflet JS + CSS e inizializza mappa
   useEffect(() => {
-    if (window.L) { setLeafletLoaded(true); return; }
+    if (window.L) {
+      setLeafletLoaded(true);
+      return;
+    }
 
     if (!document.getElementById('vp-leaflet-css')) {
       const link = document.createElement('link');
@@ -653,12 +683,11 @@ function Step2MapImpl({
       script.id = 'vp-leaflet-js';
       script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
       script.onload = () => setLeafletLoaded(true);
-      script.onerror = () => { if (import.meta.env.DEV) console.warn('[Step2Map] Leaflet non caricato'); };
+      script.onerror = () => { warnStep2('[Step2Map] Leaflet non caricato'); };
       document.head.appendChild(script);
     }
   }, []);
 
-  // CSS mappa – iniettato una sola volta (rimuove il vecchio stile se presente)
   useEffect(() => {
     document.getElementById('vp-leaflet-dark')?.remove();
     if (document.getElementById('vp-map-css')) return;
@@ -668,7 +697,6 @@ function Step2MapImpl({
     document.head.appendChild(style);
   }, []);
 
-  // Inizializza mappa
   useEffect(() => {
     if (!leafletLoaded || !containerRef.current || mapRef.current) return;
     const L = window.L;
@@ -682,7 +710,7 @@ function Step2MapImpl({
 
     const map = L.map(containerRef.current, {
       center: city ? [city.lat, city.lng] : [41.9, 12.5],
-      zoom: city ? getZoomForRadius(radius) : 6,
+      zoom: city ? getZoomForRadius(effectiveMapRadius) : 6,
       zoomControl: true,
       attributionControl: true,
       preferCanvas: true,
@@ -694,13 +722,13 @@ function Step2MapImpl({
       keyboard: true,
     });
     mapRef.current = map;
-    map.scrollWheelZoom.enable();
-    map.doubleClickZoom.enable();
-    map.dragging.enable();
-    map.touchZoom.enable();
-    map.boxZoom.enable();
-    map.keyboard.enable();
-    map.on('zoomend', () => { setMapZoom(map.getZoom()); });
+
+    try {
+      const p1 = map.createPane('nilPolygonsPane'); p1.style.zIndex = 410;
+      const p2 = map.createPane('municipalityBoundaryPane'); p2.style.zIndex = 415;
+      const p3 = map.createPane('radiusCirclePane'); p3.style.zIndex = 430;
+      const p4 = map.createPane('radiusCenterPane'); p4.style.zIndex = 620;
+    } catch (_e) {}
 
     const mbToken = typeof import.meta !== 'undefined' && import.meta.env?.VITE_MAPBOX_TOKEN;
     if (mbToken && mbToken.startsWith('pk.')) {
@@ -712,10 +740,25 @@ function Step2MapImpl({
       L.tileLayer(CARTO_VOYAGER, { attribution: CARTO_ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
     }
 
-    return () => { map.remove(); mapRef.current = null; };
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(() => map.invalidateSize());
+    });
+    resizeObserver.observe(containerRef.current);
+
+    map.on('zoomend', () => { setMapZoom(map.getZoom()); });
+    map.on('click', (e) => {
+      if (onMapClickRef.current) {
+        onMapClickRef.current({ lat: e.latlng.lat, lng: e.latlng.lng });
+      }
+    });
+    return () => {
+      resizeObserver.disconnect();
+      map.remove();
+      mapRef.current = null;
+    };
   }, [leafletLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Ridisegna tutti i layer quando i dati o la visibilità cambiano
+  // Ridisegna tutti i layer quando i dati o la visibilitÃ  cambiano
   useEffect(() => {
     const L = window.L;
     const map = mapRef.current;
@@ -731,10 +774,10 @@ function Step2MapImpl({
     const showAllLabels  = currentZoom >= 15;
     const showSomeLabels = currentZoom >= 12;
 
-    // ── Rileva il comune primario ──────────────────────────────────────────────
-    // REGOLA: la zona primaria è SEMPRE il comune scelto dall'utente (city).
-    // Non usare il primo elemento di zonesWithCoords: in prossimità di Milano
-    // i quartieri milanesi (Bruzzano, Affori, Niguarda…) hanno coordinate
+    // â”€â”€ Rileva il comune primario â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // REGOLA: la zona primaria Ã¨ SEMPRE il comune scelto dall'utente (city).
+    // Non usare il primo elemento di zonesWithCoords: in prossimitÃ  di Milano
+    // i quartieri milanesi (Bruzzano, Affori, Niguardaâ€¦) hanno coordinate
     // sovrapponibili a quelle di comuni autonomi come Cormano o Bresso.
     const cityNameRaw   = city?.label || city?.name || '';
     const cityName      = normalizeMapMunicipalityName(cityNameRaw);
@@ -745,7 +788,7 @@ function Step2MapImpl({
     let primaryZone    = null;
     let _selReason     = 'no_match';
 
-    // 1. Match esatto per nome (case-insensitive) — priorità assoluta
+    // 1. Match esatto per nome (case-insensitive) â€” prioritÃ  assoluta
     if (!primaryZone && cityName) {
       const found = zonesWithCoords?.find(
         z => normalizeMapMunicipalityName(z.name) === cityName
@@ -753,7 +796,7 @@ function Step2MapImpl({
       if (found) { primaryZone = found; _selReason = 'exact_name'; }
     }
 
-    // 2. Match parziale nome (il nome città è contenuto nel nome zona o viceversa)
+    // 2. Match parziale nome (il nome cittÃ  Ã¨ contenuto nel nome zona o viceversa)
     if (!primaryZone && cityName) {
       const found = zonesWithCoords?.find(z => {
         const zn = normalizeMapMunicipalityName(z.name);
@@ -762,7 +805,7 @@ function Step2MapImpl({
       if (found) { primaryZone = found; _selReason = 'partial_name'; }
     }
 
-    // 3. Coordinata più vicina — escludendo quartieri di Milano se city ≠ Milano
+    // 3. Coordinata piÃ¹ vicina â€” escludendo quartieri di Milano se city â‰  Milano
     if (!primaryZone && zonesWithCoords?.length > 0) {
       let best = null;
       let bestD2 = Infinity;
@@ -775,7 +818,7 @@ function Step2MapImpl({
                    Math.pow((z.lng || 0) - city.lng, 2);
         if (d2 < bestD2) { bestD2 = d2; best = z; }
       });
-      // Accettare solo se < ~2 km (d² < 0.0004 in gradi ≈ ~2.2 km)
+      // Accettare solo se < ~2 km (dÂ² < 0.0004 in gradi â‰ˆ ~2.2 km)
       if (best && bestD2 < 0.0004) { primaryZone = best; _selReason = 'closest_coord_non_milan'; }
     }
 
@@ -783,7 +826,7 @@ function Step2MapImpl({
 
     const col = serviceColor || '#ff6b1a';
     const opacityScale = opacityLevel === 'low' ? 0.65 : opacityLevel === 'high' ? 1.25 : 1;
-    const nextView = { lat: Number(city.lat), lng: Number(city.lng), radius: Number(radius), boundary: municipalityBoundary };
+    const nextView = { lat: Number(city.lat), lng: Number(city.lng), radius: hasConfirmedRadius ? Number(radius) : null, boundary: municipalityBoundary };
     const viewChanged =
       viewRef.current.lat !== nextView.lat ||
       viewRef.current.lng !== nextView.lng ||
@@ -793,7 +836,7 @@ function Step2MapImpl({
       viewRef.current = nextView;
       // In municipality mode with boundary: fitBounds to the polygon(s)
       // municipalityBoundary can be:
-      //   - [{name, geometry}, ...]  (array from Nominatim fetch — the canonical format)
+      //   - [{name, geometry}, ...]  (array from Nominatim fetch â€” the canonical format)
       //   - a raw GeoJSON geometry (legacy / direct pass)
       if (isMunicipalityMode && municipalityBoundary) {
         try {
@@ -804,33 +847,33 @@ function Step2MapImpl({
             const combinedGj = L.geoJSON({ type: 'FeatureCollection', features: boundaryEntries.map(b => ({ type: 'Feature', geometry: b.geometry, properties: { name: b.name } })) });
             map.fitBounds(combinedGj.getBounds(), { padding: [24, 24], animate: false });
           } else {
-            map.setView([city.lat, city.lng], getZoomForRadius(radius), { animate: false });
+            map.setView([city.lat, city.lng], getZoomForRadius(effectiveMapRadius), { animate: false });
           }
         } catch {
-          map.setView([city.lat, city.lng], getZoomForRadius(radius), { animate: false });
+          map.setView([city.lat, city.lng], getZoomForRadius(effectiveMapRadius), { animate: false });
         }
       } else {
-        map.setView([city.lat, city.lng], getZoomForRadius(radius), { animate: false });
+        map.setView([city.lat, city.lng], getZoomForRadius(effectiveMapRadius), { animate: false });
       }
     }
 
     const group = L.layerGroup().addTo(map);
     layersRef.current.group = group;
 
-    // Ordine layer (dal basso in alto): 1. tile base (gestita a parte) →
-    // 2. confini comuni/NIL coinvolti → 3. cerchio raggio → 4. marker centro
-    // → 5. tooltip. Cerchio e marker vengono aggiunti DOPO i poligoni comuni
-    // più sotto (non qui) proprio per restare sempre visibili sopra di essi
-    // — prima erano disegnati per primi e i poligoni comuni li coprivano.
+    // Ordine layer (dal basso in alto): 1. tile base (gestita a parte) â†’
+    // 2. confini comuni/NIL coinvolti â†’ 3. cerchio raggio â†’ 4. marker centro
+    // â†’ 5. tooltip. Cerchio e marker vengono aggiunti DOPO i poligoni comuni
+    // piÃ¹ sotto (non qui) proprio per restare sempre visibili sopra di essi
+    // â€” prima erano disegnati per primi e i poligoni comuni li coprivano.
     const activeZone = (campaignZones || []).find(z => z.id === activeZoneId);
-    const zonesList = activeZone ? [activeZone] : [{ id: 'active_zone', city, radiusKm: radius }];
+    const zonesList = activeZone ? [activeZone] : [{ id: 'active_zone', city, radiusKm: hasConfirmedRadius ? radius : null }];
     (campaignZones || []).forEach(z => {
       if (!zonesList.find(x => x.id === z.id)) {
         zonesList.push(z);
       }
     });
 
-    // ── Confine comunale (municipality boundary from OSM Nominatim) ─────────
+    // â”€â”€ Confine comunale (municipality boundary from OSM Nominatim) â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // municipalityBoundary format: [{name: string, geometry: GeoJSONGeometry}, ...]
     // Each entry represents one comune. We render all of them.
     // The active city comune gets a strong green border; additional comuni get
@@ -869,9 +912,17 @@ function Step2MapImpl({
           .trim()
           .toLowerCase() === activeComuneName;
 
-        // Active comune: strong green border, light green fill
+        // Active comune: strong green border, light green fill (or faint context when unconfirmedAddressMode)
         // Additional comuni in multi-mode: slightly different shade, still visible
-        const polyStyle = isActiveComuneEntry ? {
+        const polyStyle = unconfirmedAddressMode ? {
+          color: '#8A9EA7',
+          weight: 1.5,
+          fillColor: 'transparent',
+          fillOpacity: 0,
+          dashArray: '4 4',
+          opacity: 0.35,
+          interactive: false,
+        } : isActiveComuneEntry ? {
           color: '#22C55E',
           weight: 2.5,
           fillColor: '#22C55E',
@@ -889,7 +940,7 @@ function Step2MapImpl({
           interactive: true,
         };
 
-        // Tooltip informativo (§ticket): tipo, famiglie, copertura, volantini.
+        // Tooltip informativo (Â§ticket): tipo, famiglie, copertura, volantini.
         // Per il comune attivo usa i KPI aggregati (boundaryKpis); per gli
         // altri comuni multi-selezione usa i dati della zona corrispondente.
         const normEntry = entryName.split(',')[0].trim().toLowerCase();
@@ -919,9 +970,9 @@ function Step2MapImpl({
         try {
           // Build a GeoJSON Feature so L.geoJSON can render it correctly
           const feature = { type: 'Feature', geometry: entry.geometry, properties: { name: entryName } };
-          const boundaryLayer = L.geoJSON(feature, { style: polyStyle })
+          const boundaryLayer = L.geoJSON(feature, { style: polyStyle, pane: 'municipalityBoundaryPane' })
             .bindTooltip(tip, { direction: 'center', opacity: 1, sticky: true });
-          // Highlight hover: bordo più spesso + fill più visibile, ripristino su mouseout.
+          // Highlight hover: bordo piÃ¹ spesso + fill piÃ¹ visibile, ripristino su mouseout.
           boundaryLayer.on('mouseover', () => boundaryLayer.setStyle({ weight: polyStyle.weight + 1, fillOpacity: Math.min(0.18, (polyStyle.fillOpacity || 0.06) * 2.2) }));
           boundaryLayer.on('mouseout', () => boundaryLayer.setStyle({ weight: polyStyle.weight, fillOpacity: polyStyle.fillOpacity }));
           boundaryLayer.addTo(group);
@@ -987,7 +1038,9 @@ function Step2MapImpl({
         hasRadiusCircle,
         activeLayerMode: isMunicipalityMode ? 'comune' : 'raggio',
       });
-      const willRenderNilPolygons = (activeLayers?.comuni !== false && (zonesWithCoords?.length || 0) > 0 && (!isMunicipalityMode || nilMode));
+      const isMilanoCityMap = Boolean(city && (String(city.name || city.label || '').toLowerCase() === 'milano'));
+      const hasNilZones = Boolean((zonesWithCoords || []).some(z => z.isNil || z.territoryLevel === 'nil'));
+      const willRenderNilPolygons = (activeLayers?.comuni !== false && (zonesWithCoords?.length || 0) > 0 && (!isMunicipalityMode || nilMode || (isMunicipalityMode && isMilanoCityMap && hasNilZones)));
       console.log('[STEP2_MAP_GEOMETRY_DEBUG]', {
         activeAreaTab: isMunicipalityMode ? 'comune' : 'raggio',
         areaMode: isMunicipalityMode ? (nilMode ? 'custom_zone' : 'full_municipality') : 'radius',
@@ -1003,13 +1056,17 @@ function Step2MapImpl({
       });
     }
 
-    // ── 2. Comuni (confini comunali) ─────────────────────────────────────────
-    // In municipality mode the municipalityBoundary polygon already shows the
-    // selected comune — skip zonesWithCoords to avoid rendering neighboring
-    // comuni polygons that confuse the client view. Eccezione: nilMode (NIL
-    // manuale Milano) — lì i poligoni NIL vanno mostrati e resi cliccabili,
-    // col confine comune che resta come contesto.
-    if (activeLayers?.comuni !== false && zonesWithCoords?.length > 0 && (!isMunicipalityMode || nilMode)) {
+    // â”€â”€ 2. Comuni (confini comunali) â€” SOLO NIL manuale (Comune tab) â”€â”€â”€â”€â”€â”€â”€
+    // In municipality mode il poligono municipalityBoundary mostra giÃ  il
+    // comune selezionato. Il caso "Raggio" (!isMunicipalityMode) NON passa
+    // piÃ¹ da qui: usa il blocco dedicato coveragePolygons subito sotto,
+    // per non confondere confine comunale (contesto singolo) con i territori
+    // realmente coinvolti nel calcolo raggio (Â§ticket "non confondere
+    // municipality boundary con radius polygons").
+    const isMilanoCityMap = Boolean(city && (String(city.name || city.label || '').toLowerCase() === 'milano'));
+    const hasNilZones = Boolean((zonesWithCoords || []).some(z => z.isNil || z.territoryLevel === 'nil'));
+    let renderedZonePolygonLayers = 0;
+    if (activeLayers?.comuni !== false && zonesWithCoords?.length > 0 && (!isMunicipalityMode || nilMode || (isMunicipalityMode && isMilanoCityMap && hasNilZones))) {
       zonesWithCoords.forEach(z => {
         const sel = isD2D && selected?.includes(z.id);
         const coverageStatus = zoneCoverageById?.[z.id] || null;
@@ -1017,11 +1074,11 @@ function Step2MapImpl({
         const comuneFill = coverageColors
           ? coverageColors.fill
           : (themeMode ? (z.metricColor || z.color || '#7F9BB0') : (z.color || '#7F9BB0'));
-        // Intensità per stato: "non coperto" è di gran lunga il caso più
-        // frequente su Milano (fino a 87 NIL su 88) — un bordo/fill uguali a
+        // IntensitÃ  per stato: "non coperto" Ã¨ di gran lunga il caso piÃ¹
+        // frequente su Milano (fino a 87 NIL su 88) â€” un bordo/fill uguali a
         // "coperto" lo fa dominare visivamente l'intera mappa. Bordo rosso
-        // leggero + fill quasi trasparente, "coperto" resta il più marcato
-        // (è il caso raro/interessante da individuare a colpo d'occhio).
+        // leggero + fill quasi trasparente, "coperto" resta il piÃ¹ marcato
+        // (Ã¨ il caso raro/interessante da individuare a colpo d'occhio).
         const coverageIntensity = coverageStatus === 'non_coperto'
           ? { fillOpacity: 0.05, weight: 0.9, opacity: 0.45 }
           : coverageStatus === 'parziale'
@@ -1059,14 +1116,14 @@ function Step2MapImpl({
             const gj = typeof z.geometry === 'string' ? JSON.parse(z.geometry) : z.geometry;
             // interactive sempre true: il tooltip hover deve funzionare per ogni
             // servizio, non solo D2D (il click di toggle resta gated su isD2D).
-            const zoneLayer = L.geoJSON(gj, { style: gisStyle, interactive: true })
+            const zoneLayer = L.geoJSON(gj, { style: gisStyle, interactive: true, pane: 'nilPolygonsPane' })
               .bindTooltip(tip, { direction: 'center', opacity: 1, sticky: true })
               .on('click', () => {
                 if (!isD2D) return;
                 if (import.meta.env.DEV) console.log('[LAYER_ZONE_CLICKED]', { zone: z.name, metricLabel: z.metricLabel, metricFmt: z.metricFmt, families: z.families });
                 onToggleZone?.(z.id);
               });
-            // Highlight hover (§ticket): bordo più spesso, fill più visibile,
+            // Highlight hover (Â§ticket): bordo piÃ¹ spesso, fill piÃ¹ visibile,
             // poligono sopra gli altri; stile originale ripristinato su mouseout.
             // I colori di stato (verde/giallo/rosso) NON cambiano.
             zoneLayer.on('mouseover', () => {
@@ -1075,33 +1132,89 @@ function Step2MapImpl({
             });
             zoneLayer.on('mouseout', () => zoneLayer.setStyle(gisStyle));
             zoneLayer.addTo(group);
+            renderedZonePolygonLayers += 1;
           } catch (_e) {
-            // In modalità comune: non mostrare cerchi fallback che sconfinano
+            // In modalitÃ  comune: non mostrare cerchi fallback che sconfinano
             if (isD2D && !isMunicipalityMode) _renderD2DCircle(L, z, col, sel, tip, group, onToggleZone, styleUnsel, styleSel);
           }
         } else if (isD2D && !isMunicipalityMode) {
-          // In modalità comune: senza geometry reale non disegnare cerchi nei comuni vicini
+          // In modalitÃ  comune: senza geometry reale non disegnare cerchi nei comuni vicini
           _renderD2DCircle(L, z, col, sel, tip, group, onToggleZone, styleUnsel, styleSel);
         }
       });
     }
 
-    // ── Cerchio raggio + marker centro — disegnati DOPO i poligoni comuni
-    // (sopra nell'ordine dei layer) così il cerchio resta sempre visibile e
-    // non finisce coperto dai fill dei comuni coinvolti. ───────────────────
+    // â”€â”€ 2b. Poligoni di copertura Raggio (coveragePolygons) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Territori REALMENTE usati nel calcolo (comuni o NIL, secondo
+    // zonesInRadius) passati da volantinipro-final.jsx â€” sostituisce il
+    // confine comunale come contenuto principale in modalitÃ  Raggio.
+    const shouldRenderCoveragePolygons = (!isMunicipalityMode || unconfirmedAddressMode) && Array.isArray(coveragePolygons) && coveragePolygons.length > 0;
+    let missingGeometryNames = [];
+    let renderedCoveragePolygonLayers = 0;
+    if (shouldRenderCoveragePolygons) {
+      coveragePolygons.forEach(z => {
+        const coverageColors = COVERAGE_MAP_COLORS[z.status] || COVERAGE_MAP_COLORS.non_coperto;
+        const coverageIntensity = z.status === 'preview_main'
+          ? { fillOpacity: 0.28, weight: 2.4, opacity: 0.95 }
+          : z.status === 'preview_nearby'
+            ? { fillOpacity: 0.10, weight: 1.3, opacity: 0.60 }
+            : z.status === 'non_coperto'
+              ? { fillOpacity: 0.05, weight: 0.9, opacity: 0.45 }
+              : z.status === 'parziale'
+                ? { fillOpacity: 0.16, weight: 1.3, opacity: 0.75 }
+                : { fillOpacity: 0.22, weight: 1.6, opacity: 0.9 };
+        const fillOpacity = Math.max(0.006, Math.min(0.32, coverageIntensity.fillOpacity * opacityScale));
+        const gisStyle = {
+          color: coverageColors.border,
+          fillColor: coverageColors.fill,
+          fillOpacity,
+          weight: coverageIntensity.weight,
+          opacity: coverageIntensity.opacity,
+          lineCap: 'round',
+          lineJoin: 'round',
+        };
+        const tip = _buildCoveragePolygonTip(z);
+
+        if (z.geometry) {
+          try {
+            const gj = typeof z.geometry === 'string' ? JSON.parse(z.geometry) : z.geometry;
+            const zoneLayer = L.geoJSON(gj, { style: gisStyle, interactive: true, pane: 'nilPolygonsPane' })
+              .bindTooltip(tip, { direction: 'center', opacity: 1, sticky: true });
+            zoneLayer.on('mouseover', () => {
+              zoneLayer.setStyle({ weight: gisStyle.weight + 1.2, fillOpacity: Math.min(0.42, gisStyle.fillOpacity + 0.12) });
+              zoneLayer.bringToFront?.();
+            });
+            zoneLayer.on('mouseout', () => zoneLayer.setStyle(gisStyle));
+            zoneLayer.addTo(group);
+            renderedCoveragePolygonLayers += 1;
+          } catch (e) {
+            missingGeometryNames.push(z.name);
+            warnStep2('[STEP2_RADIUS_POLYGON_MISSING]', { zone: z.name, reason: 'geometry_parse_error', error: e });
+          }
+        } else {
+          missingGeometryNames.push(z.name);
+          if (import.meta.env.DEV) console.warn('[STEP2_RADIUS_POLYGON_MISSING]', { zone: z.name, reason: 'no_geometry' });
+        }
+      });
+    }
+    setMissingPolygonNames(missingGeometryNames);
+
+    // â”€â”€ Cerchio raggio + marker centro â€” disegnati DOPO i poligoni comuni
+    // (sopra nell'ordine dei layer) cosÃ¬ il cerchio resta sempre visibile e
+    // non finisce coperto dai fill dei comuni coinvolti. â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     zonesList.forEach(z => {
       const isActive = z.id === activeZoneId || z.id === 'active_zone';
       const zCity = isActive ? city : (z.city || null);
       if (!zCity || !zCity.lat || !zCity.lng) return;
 
-      const zRadius = parseFloat((isActive ? radius : null) ?? z.radiusKm ?? z.radius ?? z.radius_km ?? 3);
+      const zRadius = parseFloat((isActive ? (hasConfirmedRadius ? radius : null) : null) ?? z.radiusKm ?? z.radius ?? z.radius_km ?? 3);
       const zCol = isActive ? col : '#7F9BB0';
       const isRingOn = isActive ? (activeLayers?.radius !== false) : true;
 
-      // ── 1. Raggio / Circle — sempre nascosto in modalità comune intero,
-      // sempre verde tratteggiato (area attiva) quando la zona attiva è in
-      // modalità raggio, coerente con lo stile del confine comunale. ──────
-      const showCircle = isRingOn && !isMunicipalityMode;
+      // â”€â”€ 1. Raggio / Circle â€” sempre nascosto in modalitÃ  comune intero,
+      // sempre verde tratteggiato (area attiva) quando la zona attiva Ã¨ in
+      // modalitÃ  raggio, coerente con lo stile del confine comunale. â”€â”€â”€â”€â”€â”€
+      const showCircle = isRingOn && !isMunicipalityMode && (!isActive || hasConfirmedRadius);
       if (showCircle) {
         L.circle([zCity.lat, zCity.lng], {
           radius: zRadius * 1000,
@@ -1113,18 +1226,21 @@ function Step2MapImpl({
           opacity: isActive ? 0.9 : 0.18,
           className: isActive ? 'gis-radius-glow' : '',
           interactive: false,
+          pane: 'radiusCirclePane',
         }).addTo(group);
       }
 
-      // ── 2. Center Pin ──
+      // â”€â”€ 2. Center Pin â”€â”€
       const tooltipContent = isActive
         ? (isMunicipalityMode
             ? `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:#22C55E;opacity:0.85">Intero comune</span>`
-            : `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:${zCol};opacity:0.85">${zRadius} km raggio (Attiva)</span>`)
+            : hasConfirmedRadius
+              ? `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:${zCol};opacity:0.85">${zRadius} km raggio (Attiva)</span>`
+              : `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:${zCol};opacity:0.85">Punto confermato - scegli raggio</span>`)
         : `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:${zCol};opacity:0.75">${zRadius} km raggio<br><i>Clicca per attivare</i></span>`;
 
       const marker = L.marker([zCity.lat, zCity.lng], {
-        icon: pinIcon(L, zCol), zIndexOffset: isActive ? 2000 : 1000,
+        icon: pinIcon(L, zCol), zIndexOffset: isActive ? 2000 : 1000, pane: 'radiusCenterPane',
       }).bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10], opacity: 1 }).addTo(group);
 
       if (!isActive) {
@@ -1135,8 +1251,8 @@ function Step2MapImpl({
       }
     });
 
-    // ── 3. Settori operativi ──────────────────────────────────────────────────
-    // Micro-zone inside municipalities — from map_sectors via useSectors.
+    // â”€â”€ 3. Settori operativi â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Micro-zone inside municipalities â€” from map_sectors via useSectors.
     // The layer panel shows "n/d" when settori prop is null/empty.
     if (settoriActive) {
       const settoriGroup = L.layerGroup().addTo(map);
@@ -1160,7 +1276,7 @@ function Step2MapImpl({
       settori.forEach((s, idx) => {
         if (!s.geometry) return;
 
-        // ── Filtra settori per comune appartenente ────────────────────────────
+        // â”€â”€ Filtra settori per comune appartenente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // Mostra solo settori del comune primario (o dei comuni esplicitamente
         // selezionati in radius mode). Impedisce che settori di Milano appaiano
         // quando l'utente ha selezionato Sesto San Giovanni o Cormano.
@@ -1177,7 +1293,7 @@ function Step2MapImpl({
           }
         } else {
           // In radius mode: mostra settori del comune primario; aggiungi altri
-          // SOLO se il relativo comune è stato esplicitamente selezionato.
+          // SOLO se il relativo comune Ã¨ stato esplicitamente selezionato.
           if (!matchesPrimaryMunicipality) {
             const isExplicitlySelected = isD2D && sMunZone && selected?.includes(sMunZone.id);
             if (!isExplicitlySelected) {
@@ -1234,7 +1350,7 @@ function Step2MapImpl({
             { direction: 'top', opacity: 1, sticky: false, offset: [0, -4] }
           ).addTo(settoriGroup);
 
-          // Labels: zoom-dependent — none <12, active only 12-14, all ≥15
+          // Labels: zoom-dependent â€” none <12, active only 12-14, all â‰¥15
           if (showSomeLabels && (showAllLabels || isSel)) {
             const bounds = poly.getBounds();
             const center = bounds.getCenter();
@@ -1263,11 +1379,11 @@ function Step2MapImpl({
             }).addTo(settoriGroup);
           }
 
-        } catch (_e) { if (import.meta.env.DEV) console.debug('[Step2Map] settore error', _e); }
+        } catch (_e) { debugStep2('[Step2Map] settore error', _e); }
       });
     }
 
-    // ── 4. POI reali (Overpass) ───────────────────────────────────────────────
+    // â”€â”€ 4. POI reali (Overpass) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Uses pois prop (Overpass data) when available; falls back to apiData metadata.
     const poiActive = activeLayers?.poi !== false;
 
@@ -1275,8 +1391,8 @@ function Step2MapImpl({
       const poiGroup = L.layerGroup().addTo(map);
       layersRef.current.poiGroup = poiGroup;
 
-      // Cell size scales with radius: bigger area → coarser clustering
-      const cellDeg = radius <= 2 ? 0.0015 : radius <= 5 ? 0.003 : 0.005;
+      // Cell size scales with radius: bigger area â†’ coarser clustering
+      const cellDeg = effectiveMapRadius <= 2 ? 0.0015 : effectiveMapRadius <= 5 ? 0.003 : 0.005;
       const clusters = gridCluster(pois, cellDeg);
 
       clusters.forEach(item => {
@@ -1303,7 +1419,7 @@ function Step2MapImpl({
           const tipLines = Object.entries(catCounts)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 5)
-            .map(([cat, n]) => `${n}× ${esc(cat)}`);
+            .map(([cat, n]) => `${n}Ã— ${esc(cat)}`);
           L.marker([item.lat, item.lng], { icon: clusterIcon, zIndexOffset: 300 })
             .bindTooltip(
               `<b>${item.count} POI</b><br>${tipLines.join('<br>')}`,
@@ -1355,13 +1471,13 @@ function Step2MapImpl({
       });
     }
 
-    // ── 5. Density choropleth (D2D) ──────────────────────────────────────────
-    // Colored comuni polygons by family count — CartoDB blue sequential scale.
+    // â”€â”€ 5. Density choropleth (D2D) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Colored comuni polygons by family count â€” CartoDB blue sequential scale.
     const civiciPoints = Array.isArray(civiciState?.points) ? civiciState.points : [];
     if (activeLayers?.civici === true && civiciPoints.length > 0) {
       const civiciGroup = L.layerGroup().addTo(map);
       layersRef.current.civiciGroup = civiciGroup;
-      const maxPoints = radius <= 2 ? 500 : radius <= 5 ? 350 : 200;
+        const maxPoints = effectiveMapRadius <= 2 ? 500 : effectiveMapRadius <= 5 ? 350 : 200;
 
       civiciPoints.slice(0, maxPoints).forEach((point) => {
         if (!Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return;
@@ -1409,17 +1525,51 @@ function Step2MapImpl({
               { direction: 'center', sticky: true, opacity: 1 }
             ).addTo(densityGroup);
           } catch (_e) {
-            if (import.meta.env.DEV) console.debug('[Step2Map] density polygon parse error', _e);
+            debugStep2('[Step2Map] density polygon parse error', _e);
           }
         });
       }
     }
 
-  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, civiciState, mapZoom, campaignZones, activeZoneId, municipalityBoundary, isMunicipalityMode, nilMode, themeMode, activeLayerId, zoneCoverageById, zoneAllocationById, boundaryKpis]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || window.__VOLANTINIPRO_DEBUG_STEP2__)) {
+      let groupLayerCount = 0;
+      let totalLeafletLayerCount = 0;
+      try { group.eachLayer(() => { groupLayerCount += 1; }); } catch (_e) {}
+      try { map.eachLayer(() => { totalLeafletLayerCount += 1; }); } catch (_e) {}
+      window.__VOLANTINIPRO_STEP2_MAP_STATE__ = {
+        zonesWithCoordsCount: Array.isArray(zonesWithCoords) ? zonesWithCoords.length : 0,
+        zonesWithCoordsNilCount: Array.isArray(zonesWithCoords) ? zonesWithCoords.filter(z => z?.isNil || z?.territoryLevel === 'nil').length : 0,
+        zonesWithCoordsGeometryCount: Array.isArray(zonesWithCoords) ? zonesWithCoords.filter(z => Boolean(z?.geometry)).length : 0,
+        renderedZonePolygonLayers,
+        coveragePolygonsCount: Array.isArray(coveragePolygons) ? coveragePolygons.length : 0,
+        renderedCoveragePolygonLayers,
+        missingCoveragePolygonCount: missingGeometryNames.length,
+        groupLayerCount,
+        totalLeafletLayerCount,
+        isMunicipalityMode,
+        nilMode,
+        unconfirmedAddressMode,
+      };
+    }
+
+  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, civiciState, mapZoom, campaignZones, activeZoneId, municipalityBoundary, isMunicipalityMode, nilMode, coveragePolygons, themeMode, activeLayerId, zoneCoverageById, zoneAllocationById, boundaryKpis, unconfirmedAddressMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: 420 }}>
-      <div ref={containerRef} style={{ width: '100%', height: '100%', pointerEvents: 'auto' }} />
+    <div className="vp-step2-map-shell" style={{ position: 'relative', width: '100%' }}>
+      <div ref={containerRef} style={{ width: '100%', height: '100%', pointerEvents: 'auto', cursor: onMapClick ? 'crosshair' : 'default' }} />
+
+      {/* Avviso opzionale: alcuni territori nel calcolo raggio non hanno una
+          geometry disponibile â€” non nasconde i poligoni giÃ  renderizzati. */}
+      {missingPolygonNames.length > 0 && (
+        <div style={{
+          position: 'absolute', bottom: 10, left: 10, zIndex: 640,
+          background: 'rgba(8,15,30,.9)', border: '1px solid rgba(251,191,36,.4)',
+          borderRadius: 6, padding: '5px 9px', fontFamily: 'system-ui,sans-serif',
+          fontSize: 10, color: '#FBBF24', maxWidth: 220,
+        }}>
+          Alcuni confini non disponibili ({missingPolygonNames.length})
+        </div>
+      )}
 
       {/* Schermata di caricamento */}
       {!leafletLoaded && (
@@ -1436,7 +1586,7 @@ function Step2MapImpl({
         </div>
       )}
 
-      {/* Prompt iniziale senza città */}
+      {/* Prompt iniziale senza cittÃ  */}
       {leafletLoaded && !city && (
         <div style={{
           position: 'absolute', inset: 0,
@@ -1459,7 +1609,7 @@ function Step2MapImpl({
         </div>
       )}
 
-      {/* Layer Panel GIS – visibile quando city è impostata e il config è disponibile */}
+      {/* Layer Panel GIS â€“ visibile quando city Ã¨ impostata e il config Ã¨ disponibile */}
       {leafletLoaded && city && layerPanelConfig && (
         <LayerPanel
           config={layerPanelConfig}
@@ -1473,7 +1623,7 @@ function Step2MapImpl({
         />
       )}
 
-      {/* Multi-zona accordion sidebar – solo con 2+ zone */}
+      {/* Multi-zona accordion sidebar â€“ solo con 2+ zone */}
       {leafletLoaded && city && (
         <ZoneSidebar
           zones={campaignZones}
@@ -1482,7 +1632,7 @@ function Step2MapImpl({
         />
       )}
 
-      {/* Density legend – shown when density layer is active for D2D */}
+      {/* Density legend â€“ shown when density layer is active for D2D */}
       {leafletLoaded && city && activeLayers?.density && svcType === 'd2d' && (
         <div style={{
           position: 'absolute', bottom: 22, left: 10, zIndex: 900,
@@ -1515,12 +1665,14 @@ function Step2MapImpl({
 
 export const Step2Map = React.memo(Step2MapImpl);
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Riga "Stato: coperto/parziale/non coperto" con gli stessi colori della
-// legenda (COVERAGE_MAP_COLORS) — usata sia dai tooltip zona che dal confine.
+// legenda (COVERAGE_MAP_COLORS) â€” usata sia dai tooltip zona che dal confine.
 function _coverageStatusRow(status) {
   if (!status) return null;
+  if (status === 'preview_main') return `Stato: <b style="color:#3B82F6">Preview (NIL principale)</b>`;
+  if (status === 'preview_nearby') return `Stato: <b style="color:#64748B">Preview (NIL adiacente)</b>`;
   const label = status === 'coperto' ? 'Coperto' : status === 'parziale' ? 'Parziale' : 'Non coperto';
   const color = status === 'coperto' ? '#22C55E' : status === 'parziale' ? '#FACC15' : '#F87171';
   return `Stato: <b style="color:${color}">${label}</b>`;
@@ -1541,16 +1693,37 @@ function _buildD2DTip(z, col, sel, alloc = null, coverageStatus = null) {
     tipoRow,
     layerRow,
     `Famiglie: <b>${(z.families || 0).toLocaleString("it-IT", { useGrouping: true })}</b>`,
-    density ? `Densità: <b>${density.toLocaleString("it-IT", { useGrouping: true })} fam/km²</b>` : null,
+    density ? `DensitÃ : <b>${density.toLocaleString("it-IT", { useGrouping: true })} fam/kmÂ²</b>` : null,
     alloc ? `Volantini assegnati: <b>${Number(alloc.assignedFlyers || 0).toLocaleString("it-IT", { useGrouping: true })}</b>` : null,
     `Volantini consigliati: <b>${flyers.toLocaleString("it-IT", { useGrouping: true })}</b>`,
     alloc ? `Copertura: <b>${Math.round(alloc.coveragePercent || 0)}%</b>` : `Copertura: ${_wPct}%`,
     _coverageStatusRow(coverageStatus),
-    sel ? `<span style="color:#6EC4A0">✓ Selezionata</span>` : `<span style="color:rgba(255,255,255,0.32)">○ Non inclusa</span>`,
+    sel ? `<span style="color:#6EC4A0">âœ“ Selezionata</span>` : `<span style="color:rgba(255,255,255,0.32)">â—‹ Non inclusa</span>`,
   ].filter(Boolean).join('<br>');
 }
 
-// Tooltip per un POI Overpass — nome, categoria, indirizzo reali.
+// Tooltip per i poligoni di copertura Raggio (coveragePolygons) â€” nome,
+// tipo Comune/NIL, famiglie, volantini assegnati/consigliati, copertura%,
+// stato â€” esattamente i campi richiesti dal ticket "TOOLTIP / HOVER".
+function _buildCoveragePolygonTip(z) {
+  if (z.status === 'preview_main' || z.status === 'preview_nearby') {
+    return [
+      `<b style="color:rgba(255,255,255,0.95)">${esc(z.name)} â€” ${z.status === 'preview_main' ? 'NIL Principale' : 'NIL Adiacente'}</b>`,
+      `Famiglie: <b>${Number(z.families || 0).toLocaleString("it-IT", { useGrouping: true })}</b>`,
+      `<i>Preview territoriale â€” seleziona raggio o comune per il calcolo</i>`,
+    ].join('<br>');
+  }
+  return [
+    `<b style="color:rgba(255,255,255,0.95)">${esc(z.name)} â€” ${z.type === 'nil' ? 'NIL' : 'Comune'}</b>`,
+    `Famiglie: <b>${Number(z.families || 0).toLocaleString("it-IT", { useGrouping: true })}</b>`,
+    `Volantini assegnati: <b>${Number(z.assignedFlyers || 0).toLocaleString("it-IT", { useGrouping: true })}</b>`,
+    `Volantini consigliati: <b>${Number(z.recommendedFlyers || 0).toLocaleString("it-IT", { useGrouping: true })}</b>`,
+    `Copertura: <b>${Math.round(z.coveragePct || 0)}%</b>`,
+    _coverageStatusRow(z.status),
+  ].filter(Boolean).join('<br>');
+}
+
+// Tooltip per un POI Overpass â€” nome, categoria, indirizzo reali.
 function _buildPoiTip(poi) {
   return [
     `<b>${esc(poi.name)}</b>`,
@@ -1560,23 +1733,23 @@ function _buildPoiTip(poi) {
   ].filter(Boolean).join('<br>');
 }
 
-// Tooltip per un settore operativo — dati reali dal lookup comunale.
+// Tooltip per un settore operativo â€” dati reali dal lookup comunale.
 function _buildSectorTip(s, num, munByCode, svcType, city, munSectorCounts, selected, isD2D) {
   const munCode  = s.municipalityCode || s.municipality_code;
   const mun      = munCode && munByCode[munCode];
-  const munName  = mun?.name || city?.label || city?.name || '—';
+  const munName  = mun?.name || city?.label || city?.name || 'â€”';
   const nSectors = (munCode && munSectorCounts?.[munCode]) || 1;
   const famTot   = mun?.families || 0;
   const flyTot   = mun?.volantiniNelRaggio || mun?.flyersMin || famTot;
   const famSec   = famTot > 0 ? Math.round(famTot / nSectors).toLocaleString("it-IT", { useGrouping: true }) : null;
   const flySec   = flyTot > 0 ? Math.round(flyTot / nSectors).toLocaleString("it-IT", { useGrouping: true }) : null;
   const isMunSel = isD2D && mun && selected?.includes(mun.id);
-  const name     = s.name ? ` — ${esc(s.name)}` : '';
+  const name     = s.name ? ` â€” ${esc(s.name)}` : '';
 
   const statusLine = isD2D
     ? (isMunSel
-        ? `<span style="color:#5DBE8A">✓ Comune incluso nella campagna</span>`
-        : `<span style="color:rgba(255,255,255,0.38)">○ Comune non selezionato</span>`)
+        ? `<span style="color:#5DBE8A">âœ“ Comune incluso nella campagna</span>`
+        : `<span style="color:rgba(255,255,255,0.38)">â—‹ Comune non selezionato</span>`)
     : null;
 
   return [
@@ -1588,7 +1761,7 @@ function _buildSectorTip(s, num, munByCode, svcType, city, munSectorCounts, sele
   ].filter(Boolean).join('<br>');
 }
 
-// Fallback circolare quando la geometria GeoJSON non è disponibile
+// Fallback circolare quando la geometria GeoJSON non Ã¨ disponibile
 function _renderD2DCircle(L, z, col, sel, tip, group, onToggleZone, styleUnsel, styleSel) {
   const r = Math.max(350, Math.sqrt((z.area || 1) * 1e6 / Math.PI) * 0.4);
   const cs = sel ? styleSel : styleUnsel;
