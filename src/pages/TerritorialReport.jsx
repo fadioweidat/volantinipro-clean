@@ -411,6 +411,17 @@ function SectionCopertura({ p, isMobile }) {
       </div>
     );
   }
+  if (q.available === false) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <SectionHeader title="Copertura e quantità" eyebrow="Bilancio operativo" tone={SERVICE_COLOR[p.service.key]} />
+        <div style={{ padding: 18, borderRadius: 12, background: "rgba(251,191,36,.07)", border: "1px solid rgba(251,191,36,.25)", color: "rgba(255,255,255,.82)", fontSize: 12, lineHeight: 1.65 }}>
+          I dati territoriali necessari non sono disponibili. Il sistema non calcola copertura, fabbisogno, quantità mancante o quantità residua finché la fonte territoriale non restituisce un risultato valido.
+        </div>
+        <KpiCard label="Quantità inserita" value={fmtInt(q.inserted)} unit="pz." color="#38BDF8" unavailable={!q.inserted} />
+      </div>
+    );
+  }
   const zoneStats = p.territory.zoneStats || { available: p.territory.zoneCount || 0, involved: p.territory.zoneCount || 0, full: 0, partial: 0, excluded: 0 };
   const max = Math.max(q.inserted || 0, q.recommended || 0, q.maximum || 0, 1);
   return (

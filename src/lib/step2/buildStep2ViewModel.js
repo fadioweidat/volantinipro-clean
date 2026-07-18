@@ -304,6 +304,13 @@ export function buildStep2ViewModel(params = {}) {
     hasPositiveReach &&
     hasPositiveRecommended
   );
+  const hasUsableCoverageData = Boolean(
+    !hasCalculationError &&
+    isCalculationComplete &&
+    hasPositiveArea &&
+    hasPositiveReach &&
+    hasPositiveRecommended
+  );
 
   const isCoverageDecisionValid = Boolean(
     coverageDecision === "keepCurrent" ||
@@ -370,7 +377,7 @@ export function buildStep2ViewModel(params = {}) {
   } else if (isGeographicCoverageValid && (!isCoverageDecisionValid && coverageDecisionRequired)) {
     ctaLabel = "Seleziona la quantita per continuare";
   } else if (isCoverageConfigurationValid) {
-    ctaLabel = "Continua al preventivo";
+    ctaLabel = "Continua allo Step 3";
   }
 
   const ctaDisabled = !isCoverageConfigurationValid || gisLoading || gisTimedOut;
@@ -407,6 +414,7 @@ export function buildStep2ViewModel(params = {}) {
     coverageStatus,
     coverageStatusLabel: coverageStatusReason,
     coverageStatusReason,
+    hasUsableCoverageData,
     isGeographicCoverageValid,
     isCoverageDecisionValid,
     isCoverageConfigurationValid,

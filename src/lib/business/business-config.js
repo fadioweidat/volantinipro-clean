@@ -14,6 +14,13 @@ export const BUSINESS_TARGET_OPTIONS = [
   { value: 'altro', label: 'Altro', categories: [] },
 ];
 
+export function resolveVerifiedCompetitorCount(values = {}) {
+  const raw = values?.competitor_count;
+  if (raw == null || raw === "") return null;
+  const count = Number(raw);
+  return Number.isFinite(count) && count >= 0 ? Math.round(count) : null;
+}
+
 export const BUSINESS_OBJECTIVES = [
   ['information', 'Consegnare materiale informativo'],
   ['service_presentation', 'Presentare un servizio o una fornitura'],

@@ -229,19 +229,25 @@ function TabExecutive({ kpis, totF, avgCov, flyerQty, svcType, tLabel, mainAreaL
 
       <SectionTitle icon="📈" color={C.indigo}>Score campagna (analisi automatica su regole interne)</SectionTitle>
       <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)", marginTop: -10, marginBottom: 14, lineHeight: 1.5 }}>
-        Indici calcolati dal sistema sui dati territoriali disponibili; in assenza di dato specifico viene mostrato un valore di riferimento standard.
+        Indici calcolati dal sistema sui dati territoriali disponibili. Quando una fonte non restituisce il dato, l'indicatore viene dichiarato non disponibile.
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14 }}>
         {[
           { label: "Qualità area", v: kpis.familyIndex ?? 72, color: C.green },
           { label: "Potenziale copertura", v: kpis.reachScore ?? 68, color: C.blue },
-          { label: "Efficienza campagna", v: kpis.roiScore ?? 74, color: C.teal },
+          { label: "Efficienza campagna", v: kpis.roiScore != null && Number.isFinite(Number(kpis.roiScore)) ? Number(kpis.roiScore) : null, color: C.teal },
           { label: "Confidenza statistica", v: kpis.confidenceScore ?? 80, color: C.purple },
         ].map((s, i) => (
           <div key={i} style={{ padding: "14px 16px", background: "rgba(255,255,255,.03)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)" }}>
             <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.4)", marginBottom: 8 }}>{s.label}</div>
-            <MiniProgress value={s.v} color={s.color} />
-            <div style={{ fontFamily: F.serif, fontSize: 20, fontWeight: 700, color: s.color, marginTop: 6 }}>{s.v}<span style={{ fontSize: 11, fontFamily: F.sans, color: "rgba(255,255,255,.35)" }}>/100</span></div>
+            {s.v == null ? (
+              <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,.5)", marginTop: 8 }}>Dato non disponibile</div>
+            ) : (
+              <>
+                <MiniProgress value={s.v} color={s.color} />
+                <div style={{ fontFamily: F.serif, fontSize: 20, fontWeight: 700, color: s.color, marginTop: 6 }}>{s.v}<span style={{ fontSize: 11, fontFamily: F.sans, color: "rgba(255,255,255,.35)" }}>/100</span></div>
+              </>
+            )}
           </div>
         ))}
       </div>
@@ -452,7 +458,7 @@ function TabStatistiche({ kpis, totF, avgCov, flyerQty, kpisPopulation, kpisComu
   const scoreBars = [
     { label: "Qualità area", v: kpis.familyIndex ?? 72, c: C.green },
     { label: "Potenziale reach", v: kpis.reachScore ?? 68, c: C.blue },
-    { label: "Efficienza ROI", v: kpis.roiScore ?? 74, c: C.teal },
+    { label: "Efficienza ROI", v: kpis.roiScore != null && Number.isFinite(Number(kpis.roiScore)) ? Number(kpis.roiScore) : null, c: C.teal },
     { label: "Confidenza", v: kpis.confidenceScore ?? 80, c: C.purple },
     { label: "Densità operativa", v: density ? Math.min(100, Math.round(density / 50)) : 62, c: C.orange },
   ];
@@ -485,9 +491,9 @@ function TabStatistiche({ kpis, totF, avgCov, flyerQty, kpisPopulation, kpisComu
               <div key={i}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
                   <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.6)" }}>{s.label}</span>
-                  <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: s.c }}>{s.v}</span>
+                  <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: s.c }}>{s.v == null ? "Dato non disponibile" : s.v}</span>
                 </div>
-                <MiniProgress value={s.v} color={s.c} />
+                {s.v != null && <MiniProgress value={s.v} color={s.c} />}
               </div>
             ))}
           </div>
@@ -506,7 +512,9 @@ function TabStatistiche({ kpis, totF, avgCov, flyerQty, kpisPopulation, kpisComu
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
           <GaugeChart value={kpis.familyIndex ?? 72} max={100} color={C.green} size={90} label="Qualità area" />
           <GaugeChart value={kpis.reachScore ?? 68} max={100} color={C.blue} size={90} label="Reach score" />
-          <GaugeChart value={kpis.roiScore ?? 74} max={100} color={C.teal} size={90} label="ROI score" />
+          {kpis.roiScore != null && Number.isFinite(Number(kpis.roiScore))
+            ? <GaugeChart value={Number(kpis.roiScore)} max={100} color={C.teal} size={90} label="ROI score" />
+            : <KpiCard label="ROI score" value="Dato non disponibile" color={C.teal} />}
         </div>
       )}
     </div>
@@ -589,10 +597,10 @@ function generateStrengths(kpis, avgCov, flyerQty, requiredQty) {
   const items = [];
   const coverage = kpis.coverage ?? avgCov ?? 0;
   const familyIndex = kpis.familyIndex ?? 72;
-  const roiScore = kpis.roiScore ?? 74;
+  const roiScore = kpis.roiScore != null && Number.isFinite(Number(kpis.roiScore)) ? Number(kpis.roiScore) : null;
   if (coverage >= 70) items.push(`Alta copertura stimata (${Math.round(coverage)}%) sull'area configurata.`);
   if (familyIndex >= 70) items.push(`Qualità dell'area elevata (indice ${familyIndex}/100): zona con alta densità abitativa residenziale.`);
-  if (roiScore >= 70) items.push(`Buon rapporto qualità/costo stimato per l'area selezionata.`);
+  if (roiScore != null && roiScore >= 70) items.push(`Buon rapporto qualità/costo stimato per l'area selezionata.`);
   if (flyerQty >= (requiredQty || 0)) items.push("Quantità volantini sufficiente a coprire l'intera area selezionata.");
   if (kpis.reachScore >= 70) items.push("Potenziale di raggiungimento famiglie superiore alla media delle campagne analoghe.");
   if (items.length === 0) items.push("Campagna configurata nei parametri operativi standard.");

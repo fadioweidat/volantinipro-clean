@@ -3,6 +3,7 @@ import {
   calculateBusinessMaterials,
   calculateBusinessOperationalPlan,
   getBusinessCopiesForPoi,
+  resolveVerifiedCompetitorCount,
 } from '../src/lib/business/business-config.js';
 import { getPoiTagsForTargets } from '../src/lib/services/poi-api.js';
 
@@ -69,5 +70,9 @@ assert.equal(plan.recommendedOperators, 1);
 
 const unknownPlan = calculateBusinessOperationalPlan(12, { businessDeliveryMethod: 'other' });
 assert.equal(unknownPlan.calculable, false);
+
+assert.equal(resolveVerifiedCompetitorCount({ competitor_count: 12 }), 12);
+assert.equal(resolveVerifiedCompetitorCount({ competitors: 86 }), null, 'un totale POI generico non deve diventare un conteggio competitor');
+assert.equal(resolveVerifiedCompetitorCount({}), null);
 
 console.log('business_distribution.test.mjs: ok');
