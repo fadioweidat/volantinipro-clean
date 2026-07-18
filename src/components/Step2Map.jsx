@@ -49,6 +49,10 @@ function esc(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function formatItNumber(value) {
+  return Number(value || 0).toLocaleString('it-IT', { useGrouping: true });
+}
+
 function normalizeMapMunicipalityName(raw) {
   return String(raw || '')
     .split(',')[0]
@@ -124,6 +128,36 @@ const MAP_CSS = `
 .leaflet-tooltip::before { display: none !important; }
 .leaflet-tooltip b { color: rgba(255,255,255,0.95); }
 
+.leaflet-tooltip.vp-promoter-tooltip {
+  width: 270px;
+  padding: 0 !important;
+  overflow: hidden;
+  white-space: normal;
+  border-radius: 12px !important;
+}
+.leaflet-popup.vp-promoter-popup .leaflet-popup-content-wrapper {
+  padding: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  background: rgba(12,20,35,.98);
+  border: 1px solid rgba(255,255,255,.14);
+  color: #fff;
+  box-shadow: 0 16px 38px rgba(0,0,0,.5);
+}
+.leaflet-popup.vp-promoter-popup .leaflet-popup-content { margin: 0; width: 270px !important; }
+.leaflet-popup.vp-promoter-popup .leaflet-popup-tip { background: rgba(12,20,35,.98); }
+.leaflet-popup.vp-promoter-popup .leaflet-popup-close-button { color: rgba(255,255,255,.7); top: 5px; right: 6px; z-index: 2; }
+.vp-promoter-map-card { font-family: system-ui,-apple-system,sans-serif; }
+.vp-promoter-map-card__head { display:flex; align-items:center; gap:9px; padding:11px 13px; background:rgba(255,255,255,.045); border-bottom:1px solid rgba(255,255,255,.09); }
+.vp-promoter-map-card__number { width:25px; height:25px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:850; flex:0 0 auto; }
+.vp-promoter-map-card__title { color:#fff; font-size:12px; font-weight:800; }
+.vp-promoter-map-card__subtitle { color:rgba(255,255,255,.48); font-size:9px; margin-top:1px; }
+.vp-promoter-map-card__body { padding:10px 13px 12px; display:grid; gap:7px; }
+.vp-promoter-map-card__address { color:#fff; font-size:11px; line-height:1.45; font-weight:650; }
+.vp-promoter-map-card__row { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; font-size:10px; line-height:1.35; }
+.vp-promoter-map-card__label { color:rgba(255,255,255,.43); }
+.vp-promoter-map-card__value { color:rgba(255,255,255,.88); text-align:right; font-weight:650; }
+
 .leaflet-control-zoom {
   border: 1px solid rgba(0,0,0,0.14) !important;
   border-radius: 7px !important;
@@ -157,6 +191,47 @@ function dotIcon(L, color, size, selected) {
     className: '',
     iconSize: [s, s],
     iconAnchor: [s / 2, s / 2],
+  });
+}
+
+// Marker operativo: deve restare chiaramente cliccabile anche con la mappa scura.
+function poiCategorySymbol(category) {
+  const value = String(category || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (value.includes('palestra') || value.includes('fitness') || value.includes('sport') || value.includes('gym')) return '🏋';
+  if (value.includes('scuol') || value.includes('istitut') || value.includes('liceo')) return '🎓';
+  if (value.includes('universit') || value.includes('college') || value.includes('bibliotec')) return '📚';
+  if (value.includes('stazion') || value.includes('metro') || value.includes('railway') || value.includes('transit') || value.includes('fermata')) return '🚉';
+  if (value.includes('supermerc') || value.includes('negozio') || value.includes('retail') || value.includes('mall') || value.includes('centro comm')) return '🛒';
+  if (value.includes('ristor') || value.includes('bar') || value.includes('caff') || value.includes('pub')) return '🍽';
+  if (value.includes('farmac') || value.includes('clinic') || value.includes('ospedal') || value.includes('sanit')) return '⚕';
+  if (value.includes('beauty') || value.includes('estetic') || value.includes('parrucch')) return '✂';
+  if (value.includes('auto') || value.includes('officina') || value.includes('concession')) return '🚗';
+  if (value.includes('immob') || value.includes('estate')) return '🏠';
+  if (value.includes('ufficio') || value.includes('azienda') || value.includes('business') || value.includes('hotel')) return '🏢';
+  if (value.includes('teatro') || value.includes('cinema') || value.includes('evento')) return '🎭';
+  if (value.includes('parco')) return '🌳';
+  return '📍';
+}
+
+function selectablePoiIcon(L, color, selected, operatorNumber = null, category = '') {
+  const size = selected ? 30 : 26;
+  const label = selected && operatorNumber ? `P${operatorNumber}` : selected ? '&#10003;' : poiCategorySymbol(category);
+  return L.divIcon({
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${selected ? '#16A34A' : color};border:3px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;color:#fff;font:900 ${selected && operatorNumber ? 10 : selected ? 15 : 18}px/1 system-ui,sans-serif;cursor:pointer">${label}</div>`,
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
+// Marker di contesto per Door to Door: visibile ma non assegnabile.
+function informationalPoiIcon(L, color, category = '') {
+  const size = 20;
+  return L.divIcon({
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:#fff;font:900 11px/1 system-ui,sans-serif;cursor:help">${poiCategorySymbol(category)}</div>`,
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
@@ -625,6 +700,11 @@ function Step2MapImpl({
   activeLayers,
   settori,       // Array<{id, numero, name?, geometry}> | null
   pois,          // Array<{id, lat, lng, name, category, color, priority, address}> from usePoi
+  loadingPois,
+  operationalPoints, // Punti assegnati ai promoter H2H, geocodificati in Step 1
+  poiAssignments,
+  onTogglePoi,
+  businessConfig,
   civiciState,
   onLayerToggle,
   layerPanelConfig,
@@ -656,6 +736,7 @@ function Step2MapImpl({
   const mapRef = useRef(null);
   const layersRef = useRef({});
   const viewRef = useRef({ lat: null, lng: null, radius: null });
+  const autoFitRef = useRef({ operational: '', assignments: '' });
   const [leafletLoaded, setLeafletLoaded] = useState(!!window.L);
   const [selectedSectorId, setSelectedSectorId] = useState(null);
   const [mapZoom, setMapZoom] = useState(null);
@@ -724,10 +805,35 @@ function Step2MapImpl({
     mapRef.current = map;
 
     try {
-      const p1 = map.createPane('nilPolygonsPane'); p1.style.zIndex = 410;
-      const p2 = map.createPane('municipalityBoundaryPane'); p2.style.zIndex = 415;
-      const p3 = map.createPane('radiusCirclePane'); p3.style.zIndex = 430;
-      const p4 = map.createPane('radiusCenterPane'); p4.style.zIndex = 620;
+      const p0 = map.createPane('municipalityFillPane');
+      p0.style.zIndex = 390;
+      p0.style.pointerEvents = 'none';
+
+      const p1 = map.createPane('nilPolygonsPane');
+      p1.style.zIndex = 410;
+      p1.style.pointerEvents = 'auto';
+
+      const p2 = map.createPane('municipalityBoundaryPane');
+      p2.style.zIndex = 415;
+      p2.style.pointerEvents = 'none';
+
+      const p3 = map.createPane('radiusCirclePane');
+      p3.style.zIndex = 430;
+      p3.style.pointerEvents = 'none';
+
+      const p4 = map.createPane('radiusCenterPane');
+      p4.style.zIndex = 620;
+      p4.style.pointerEvents = 'auto';
+
+      const poiPane = map.createPane('poiSelectionPane');
+      poiPane.style.zIndex = 630;
+      poiPane.style.pointerEvents = 'auto';
+
+      const tipPane = map.getPane('tooltipPane');
+      if (tipPane) {
+        tipPane.style.zIndex = 650;
+        tipPane.style.pointerEvents = 'none';
+      }
     } catch (_e) {}
 
     const mbToken = typeof import.meta !== 'undefined' && import.meta.env?.VITE_MAPBOX_TOKEN;
@@ -845,7 +951,22 @@ function Step2MapImpl({
             : (municipalityBoundary?.type ? [{ name: city?.label || city?.name || 'Comune', geometry: municipalityBoundary }] : []);
           if (boundaryEntries.length > 0) {
             const combinedGj = L.geoJSON({ type: 'FeatureCollection', features: boundaryEntries.map(b => ({ type: 'Feature', geometry: b.geometry, properties: { name: b.name } })) });
-            map.fitBounds(combinedGj.getBounds(), { padding: [24, 24], animate: false });
+            const selectedBounds = combinedGj.getBounds();
+            const fitSelectedBoundary = () => {
+              const mapContainer = map.getContainer?.();
+              if (!mapContainer || !mapContainer.isConnected || !map._loaded || !map._mapPane) return;
+              map.invalidateSize({ pan: false });
+              const mapSize = map.getSize();
+              const horizontalPadding = Math.max(28, Math.min(72, Math.round(mapSize.x * 0.08)));
+              const verticalPadding = Math.max(28, Math.min(58, Math.round(mapSize.y * 0.09)));
+              map.fitBounds(selectedBounds, {
+                paddingTopLeft: [horizontalPadding + 6, verticalPadding],
+                paddingBottomRight: [horizontalPadding, verticalPadding + 6],
+                animate: false,
+              });
+            };
+            fitSelectedBoundary();
+            requestAnimationFrame(() => fitSelectedBoundary());
           } else {
             map.setView([city.lat, city.lng], getZoomForRadius(effectiveMapRadius), { animate: false });
           }
@@ -903,14 +1024,25 @@ function Step2MapImpl({
         .trim()
         .toLowerCase();
 
+      const isMilanoCityMapForBoundary = Boolean(city && (String(city.name || city.label || '').toLowerCase().includes('milano')));
+      const hasNilZonesForBoundary = Boolean((zonesWithCoords || []).some(z => z && (z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')) || (typeof z.type === 'string' && z.type === 'nil'))));
+      const willRenderNilPolygonsForBoundary = activeLayers?.comuni !== false && (zonesWithCoords?.length || 0) > 0 && (!isMunicipalityMode || nilMode || hasNilZonesForBoundary || isMilanoCityMapForBoundary);
+      const shouldRenderCoveragePolygonsForBoundary = (!isMunicipalityMode || unconfirmedAddressMode) && Array.isArray(coveragePolygons) && coveragePolygons.length > 0;
+
       boundaryEntries.forEach((entry, idx) => {
         const entryName = String(entry.name || `Comune ${idx + 1}`);
-        const isActiveComuneEntry = idx === 0 || entryName
-          .split(',')[0]
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .trim()
-          .toLowerCase() === activeComuneName;
+        const normEntry = entryName.split(',')[0].trim().toLowerCase();
+        const normEntryClean = normEntry.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const isActiveComuneEntry = idx === 0 || normEntryClean === activeComuneName;
+
+        const entryHasNils = (zonesWithCoords || []).some(z => {
+          if (!z) return false;
+          const isNilLike = Boolean(z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')) || (typeof z.type === 'string' && z.type === 'nil'));
+          if (!isNilLike) return false;
+          return isMilanoCityMapForBoundary ? normEntry.includes('milano') : true;
+        });
+        const hasInteractiveSubZones = willRenderNilPolygonsForBoundary ? (entryHasNils || ((zonesWithCoords?.length || 0) > 0 && (isActiveComuneEntry || !isMunicipalityMode))) : shouldRenderCoveragePolygonsForBoundary;
+        const isBoundaryInteractive = !hasInteractiveSubZones && !unconfirmedAddressMode;
 
         // Active comune: strong green border, light green fill (or faint context when unconfirmedAddressMode)
         // Additional comuni in multi-mode: slightly different shade, still visible
@@ -926,24 +1058,23 @@ function Step2MapImpl({
           color: '#22C55E',
           weight: 2.5,
           fillColor: '#22C55E',
-          fillOpacity: 0.06 * (opacityScale || 1),
+          fillOpacity: isBoundaryInteractive ? (0.06 * (opacityScale || 1)) : 0,
           dashArray: '8 5',
           opacity: 0.88,
-          interactive: true,
+          interactive: isBoundaryInteractive,
         } : {
           color: '#34D399',
           weight: 1.8,
           fillColor: '#34D399',
-          fillOpacity: 0.04 * (opacityScale || 1),
+          fillOpacity: isBoundaryInteractive ? (0.04 * (opacityScale || 1)) : 0,
           dashArray: '6 4',
           opacity: 0.65,
-          interactive: true,
+          interactive: isBoundaryInteractive,
         };
 
         // Tooltip informativo (Â§ticket): tipo, famiglie, copertura, volantini.
         // Per il comune attivo usa i KPI aggregati (boundaryKpis); per gli
         // altri comuni multi-selezione usa i dati della zona corrispondente.
-        const normEntry = entryName.split(',')[0].trim().toLowerCase();
         const zoneForEntry = (zonesWithCoords || []).find(z => String(z.name || '').trim().toLowerCase() === normEntry) || null;
         const allocForEntry = zoneForEntry ? zoneAllocationById?.[zoneForEntry.id] : null;
         const fmtIT = n => Number(n || 0).toLocaleString('it-IT', { useGrouping: true });
@@ -953,8 +1084,8 @@ function Step2MapImpl({
               `<span style="color:rgba(255,255,255,.6);font-size:11px">Tipo: Comune completo</span>`,
               `Famiglie: <b>${fmtIT(boundaryKpis.families)}</b>`,
               `Copertura: <b>${Math.round(boundaryKpis.coveragePercent || 0)}%</b>`,
-              `Volantini inseriti: <b>${fmtIT(boundaryKpis.insertedFlyers)}</b>`,
-              `Volantini consigliati: <b>${fmtIT(boundaryKpis.recommendedFlyers)}</b>`,
+              `Quantità inserita: <b>${fmtIT(boundaryKpis.insertedFlyers)}</b>`,
+              `Quantità consigliata: <b>${fmtIT(boundaryKpis.recommendedFlyers)}</b>`,
             ]
           : [
               `<b style="color:#22C55E">${esc(entryName)}</b>`,
@@ -962,23 +1093,25 @@ function Step2MapImpl({
               zoneForEntry ? `Famiglie: <b>${fmtIT(zoneForEntry.families)}</b>` : null,
               allocForEntry ? `Copertura: <b>${Math.round(allocForEntry.coveragePercent || 0)}%</b>` : null,
               allocForEntry ? `Volantini assegnati: <b>${fmtIT(allocForEntry.assignedFlyers)}</b>` : null,
-              allocForEntry ? `Volantini consigliati: <b>${fmtIT(allocForEntry.requiredFlyers)}</b>` : null,
+              allocForEntry ? `Quantità consigliata: <b>${fmtIT(allocForEntry.requiredFlyers)}</b>` : null,
               allocForEntry ? _coverageStatusRow(allocForEntry.status) : null,
             ];
         const tip = tipRows.filter(Boolean).join('<br>');
 
         try {
-          // Build a GeoJSON Feature so L.geoJSON can render it correctly
+          const p2 = map.getPane('municipalityBoundaryPane');
+          if (p2) p2.style.pointerEvents = isBoundaryInteractive ? 'auto' : 'none';
           const feature = { type: 'Feature', geometry: entry.geometry, properties: { name: entryName } };
-          const boundaryLayer = L.geoJSON(feature, { style: polyStyle, pane: 'municipalityBoundaryPane' })
-            .bindTooltip(tip, { direction: 'center', opacity: 1, sticky: true });
-          // Highlight hover: bordo piÃ¹ spesso + fill piÃ¹ visibile, ripristino su mouseout.
-          boundaryLayer.on('mouseover', () => boundaryLayer.setStyle({ weight: polyStyle.weight + 1, fillOpacity: Math.min(0.18, (polyStyle.fillOpacity || 0.06) * 2.2) }));
-          boundaryLayer.on('mouseout', () => boundaryLayer.setStyle({ weight: polyStyle.weight, fillOpacity: polyStyle.fillOpacity }));
+          const boundaryLayer = L.geoJSON(feature, { style: polyStyle, pane: 'municipalityBoundaryPane', interactive: isBoundaryInteractive });
+          if (isBoundaryInteractive) {
+            boundaryLayer.bindTooltip(tip, { direction: 'auto', opacity: 1, sticky: true, interactive: false, pane: 'tooltipPane' });
+            boundaryLayer.on('mouseover', () => boundaryLayer.setStyle({ weight: polyStyle.weight + 1, fillOpacity: Math.min(0.18, (polyStyle.fillOpacity || 0.06) * 2.2) }));
+            boundaryLayer.on('mouseout', () => boundaryLayer.setStyle({ weight: polyStyle.weight, fillOpacity: polyStyle.fillOpacity }));
+          }
           boundaryLayer.addTo(group);
           layersRef.current[`municipalityBoundary_${idx}`] = boundaryLayer;
           renderedBoundaryCount++;
-          debugStep2(`[MUNICIPALITY_BOUNDARY_DRAWN] ${entryName} (entry ${idx})`);
+          debugStep2(`[MUNICIPALITY_BOUNDARY_DRAWN] ${entryName} (entry ${idx}, interactive: ${isBoundaryInteractive})`);
         } catch (e) {
           warnStep2(`[MUNICIPALITY_BOUNDARY_ERROR] draw failed for ${entryName}`, e);
         }
@@ -1038,9 +1171,9 @@ function Step2MapImpl({
         hasRadiusCircle,
         activeLayerMode: isMunicipalityMode ? 'comune' : 'raggio',
       });
-      const isMilanoCityMap = Boolean(city && (String(city.name || city.label || '').toLowerCase() === 'milano'));
-      const hasNilZones = Boolean((zonesWithCoords || []).some(z => z.isNil || z.territoryLevel === 'nil'));
-      const willRenderNilPolygons = (activeLayers?.comuni !== false && (zonesWithCoords?.length || 0) > 0 && (!isMunicipalityMode || nilMode || (isMunicipalityMode && isMilanoCityMap && hasNilZones)));
+      const isMilanoCityMap = Boolean(city && (String(city.name || city.label || '').toLowerCase().includes('milano')));
+      const hasNilZones = Boolean((zonesWithCoords || []).some(z => z && (z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')) || (typeof z.type === 'string' && z.type === 'nil'))));
+      const willRenderNilPolygons = activeLayers?.comuni !== false && (zonesWithCoords?.length || 0) > 0 && (!isMunicipalityMode || nilMode || hasNilZones || isMilanoCityMap);
       console.log('[STEP2_MAP_GEOMETRY_DEBUG]', {
         activeAreaTab: isMunicipalityMode ? 'comune' : 'raggio',
         areaMode: isMunicipalityMode ? (nilMode ? 'custom_zone' : 'full_municipality') : 'radius',
@@ -1048,7 +1181,7 @@ function Step2MapImpl({
         radiusKm: radius,
         hasMunicipalityGeometry: boundaryCount > 0,
         municipalityGeometryName: boundaryEntriesArr[0]?.name || null,
-        nilGeometryCount: (zonesWithCoords || []).filter(z => z.geometry && (z.isNil || z.territoryLevel === 'nil')).length,
+        nilGeometryCount: (zonesWithCoords || []).filter(z => z.geometry && (z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')))).length,
         renderedMunicipalityBoundary: isMunicipalityMode && boundaryCount > 0,
         renderedNilPolygons: willRenderNilPolygons ? coveragePolygonsCount : 0,
         renderedRadiusCircle: hasRadiusCircle,
@@ -1063,10 +1196,11 @@ function Step2MapImpl({
     // per non confondere confine comunale (contesto singolo) con i territori
     // realmente coinvolti nel calcolo raggio (Â§ticket "non confondere
     // municipality boundary con radius polygons").
-    const isMilanoCityMap = Boolean(city && (String(city.name || city.label || '').toLowerCase() === 'milano'));
-    const hasNilZones = Boolean((zonesWithCoords || []).some(z => z.isNil || z.territoryLevel === 'nil'));
+    const isMilanoCityMap = Boolean(city && (String(city.name || city.label || '').toLowerCase().includes('milano')));
+    const hasNilZones = Boolean((zonesWithCoords || []).some(z => z && (z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')) || (typeof z.type === 'string' && z.type === 'nil'))));
     let renderedZonePolygonLayers = 0;
-    if (activeLayers?.comuni !== false && zonesWithCoords?.length > 0 && (!isMunicipalityMode || nilMode || (isMunicipalityMode && isMilanoCityMap && hasNilZones))) {
+    const shouldRenderCoveragePolygonsEarly = (!isMunicipalityMode || unconfirmedAddressMode) && Array.isArray(coveragePolygons) && coveragePolygons.length > 0;
+    if (!shouldRenderCoveragePolygonsEarly && activeLayers?.comuni !== false && zonesWithCoords?.length > 0 && (!isMunicipalityMode || nilMode || hasNilZones || isMilanoCityMap)) {
       zonesWithCoords.forEach(z => {
         const sel = isD2D && selected?.includes(z.id);
         const coverageStatus = zoneCoverageById?.[z.id] || null;
@@ -1088,49 +1222,53 @@ function Step2MapImpl({
               : null;
         const baseFill = settoriActive ? 0.010 : (coverageIntensity ? coverageIntensity.fillOpacity : (themeMode ? 0.16 : 0.055));
         const fillOpacity = Math.max(0.006, Math.min(0.32, baseFill * opacityScale));
+        const isNilZone = Boolean(z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')));
 
         const styleUnsel = {
           color:       coverageColors ? coverageColors.border : 'rgba(15,23,42,0.40)',
           fillColor:   comuneFill,
           fillOpacity,
-          weight:      coverageIntensity ? coverageIntensity.weight : (settoriActive ? 0.55 : 0.85),
-          opacity:     coverageIntensity ? coverageIntensity.opacity : (settoriActive ? 0.18 : 0.45),
+          weight:      coverageIntensity ? Math.max(isNilZone ? 1.3 : 0.85, coverageIntensity.weight) : (isNilZone ? 1.3 : (settoriActive ? 0.55 : 0.85)),
+          opacity:     coverageIntensity ? Math.max(isNilZone ? 0.85 : 0.45, coverageIntensity.opacity) : (isNilZone ? 0.85 : (settoriActive ? 0.18 : 0.45)),
           dashArray:   coverageColors ? null : (themeMode ? null : '5 5'),
         };
         const styleSel = {
           color: coverageColors ? coverageColors.border : (z.color || col),
           fillColor: comuneFill,
           fillOpacity: Math.max(fillOpacity, Math.min(0.34, 0.12 * opacityScale)),
-          weight: coverageIntensity ? coverageIntensity.weight + 0.4 : 1.1,
-          opacity: coverageIntensity ? Math.min(0.95, coverageIntensity.opacity + 0.1) : 0.62,
+          weight: coverageIntensity ? Math.max(isNilZone ? 1.7 : 1.1, coverageIntensity.weight + 0.4) : (isNilZone ? 1.7 : 1.1),
+          opacity: coverageIntensity ? Math.min(0.95, coverageIntensity.opacity + 0.1) : 0.85,
           dashArray: null,
           lineCap: 'round',
           lineJoin: 'round',
         };
         const gisStyle = sel ? styleSel : styleUnsel;
         const alloc = zoneAllocationById?.[z.id] || null;
-        const tip = isD2D ? _buildD2DTip(z, col, sel, alloc, coverageStatus) : `<b>${esc(z.name)}</b>`;
+        const tip = _buildZoneOrNilTooltip(z, col, sel, alloc, coverageStatus, false);
 
         if (z.geometry) {
           try {
+            const p1 = map.getPane('nilPolygonsPane');
+            if (p1) p1.style.pointerEvents = 'auto';
             const gj = typeof z.geometry === 'string' ? JSON.parse(z.geometry) : z.geometry;
-            // interactive sempre true: il tooltip hover deve funzionare per ogni
-            // servizio, non solo D2D (il click di toggle resta gated su isD2D).
-            const zoneLayer = L.geoJSON(gj, { style: gisStyle, interactive: true, pane: 'nilPolygonsPane' })
-              .bindTooltip(tip, { direction: 'center', opacity: 1, sticky: true })
-              .on('click', () => {
-                if (!isD2D) return;
-                if (import.meta.env.DEV) console.log('[LAYER_ZONE_CLICKED]', { zone: z.name, metricLabel: z.metricLabel, metricFmt: z.metricFmt, families: z.families });
-                onToggleZone?.(z.id);
-              });
-            // Highlight hover (Â§ticket): bordo piÃ¹ spesso, fill piÃ¹ visibile,
-            // poligono sopra gli altri; stile originale ripristinato su mouseout.
-            // I colori di stato (verde/giallo/rosso) NON cambiano.
-            zoneLayer.on('mouseover', () => {
-              zoneLayer.setStyle({ weight: (gisStyle.weight || 1) + 1.2, fillOpacity: Math.min(0.42, (gisStyle.fillOpacity || 0.1) + 0.12) });
-              zoneLayer.bringToFront?.();
+            const zoneLayer = L.geoJSON(gj, {
+              style: gisStyle,
+              interactive: true,
+              pane: 'nilPolygonsPane',
+              onEachFeature: (feature, layer) => {
+                layer.bindTooltip(tip, { direction: 'auto', opacity: 1, sticky: true, interactive: false, pane: 'tooltipPane' });
+                layer.on('click', () => {
+                  if (!isD2D) return;
+                  if (import.meta.env.DEV) console.log('[LAYER_ZONE_CLICKED]', { zone: z.name, metricLabel: z.metricLabel, metricFmt: z.metricFmt, families: z.families });
+                  onToggleZone?.(z.id);
+                });
+                layer.on('mouseover', () => {
+                  layer.setStyle({ weight: (gisStyle.weight || 1) + 1.4, fillOpacity: Math.min(0.5, (gisStyle.fillOpacity || 0.18) + 0.18) });
+                  layer.bringToFront?.();
+                });
+                layer.on('mouseout', () => layer.setStyle(gisStyle));
+              }
             });
-            zoneLayer.on('mouseout', () => zoneLayer.setStyle(gisStyle));
             zoneLayer.addTo(group);
             renderedZonePolygonLayers += 1;
           } catch (_e) {
@@ -1173,18 +1311,26 @@ function Step2MapImpl({
           lineCap: 'round',
           lineJoin: 'round',
         };
-        const tip = _buildCoveragePolygonTip(z);
+        const tip = _buildZoneOrNilTooltip(z, '#34D399', false, null, z.status, true);
 
         if (z.geometry) {
           try {
+            const p1 = map.getPane('nilPolygonsPane');
+            if (p1) p1.style.pointerEvents = 'auto';
             const gj = typeof z.geometry === 'string' ? JSON.parse(z.geometry) : z.geometry;
-            const zoneLayer = L.geoJSON(gj, { style: gisStyle, interactive: true, pane: 'nilPolygonsPane' })
-              .bindTooltip(tip, { direction: 'center', opacity: 1, sticky: true });
-            zoneLayer.on('mouseover', () => {
-              zoneLayer.setStyle({ weight: gisStyle.weight + 1.2, fillOpacity: Math.min(0.42, gisStyle.fillOpacity + 0.12) });
-              zoneLayer.bringToFront?.();
+            const zoneLayer = L.geoJSON(gj, {
+              style: gisStyle,
+              interactive: true,
+              pane: 'nilPolygonsPane',
+              onEachFeature: (feature, layer) => {
+                layer.bindTooltip(tip, { direction: 'auto', opacity: 1, sticky: true, interactive: false, pane: 'tooltipPane' });
+                layer.on('mouseover', () => {
+                  layer.setStyle({ weight: gisStyle.weight + 1.4, fillOpacity: Math.min(0.5, gisStyle.fillOpacity + 0.18) });
+                  layer.bringToFront?.();
+                });
+                layer.on('mouseout', () => layer.setStyle(gisStyle));
+              }
             });
-            zoneLayer.on('mouseout', () => zoneLayer.setStyle(gisStyle));
             zoneLayer.addTo(group);
             renderedCoveragePolygonLayers += 1;
           } catch (e) {
@@ -1231,6 +1377,8 @@ function Step2MapImpl({
       }
 
       // â”€â”€ 2. Center Pin â”€â”€
+      if (isActive && svcType === 'h2h' && operationalPoints?.length > 0) return;
+
       const tooltipContent = isActive
         ? (isMunicipalityMode
             ? `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:#22C55E;opacity:0.85">Intero comune</span>`
@@ -1254,6 +1402,85 @@ function Step2MapImpl({
     // â”€â”€ 3. Settori operativi â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Micro-zone inside municipalities â€” from map_sectors via useSectors.
     // The layer panel shows "n/d" when settori prop is null/empty.
+    // Un pin numerato e una micro-zona per ogni promoter configurato.
+    const validOperationalPoints = svcType === 'h2h'
+      ? (operationalPoints || []).filter((point) => Number.isFinite(Number(point?.lat)) && Number.isFinite(Number(point?.lng)))
+      : [];
+    const promoterColors = ['#2563EB', '#8B5CF6', '#0891B2', '#D97706', '#DB2777', '#16A34A'];
+    const pointTypeLabels = {
+      stazione: 'Stazione treno / metro', piazza: 'Piazza / via principale',
+      centro_commerciale: 'Centro commerciale', universita: 'Università / scuola',
+      fiera_evento: 'Fiera / evento',
+    };
+    const coordinateGroups = new Map();
+    validOperationalPoints.forEach((point, index) => {
+      const key = `${Number(point.lat).toFixed(5)}_${Number(point.lng).toFixed(5)}`;
+      coordinateGroups.set(key, [...(coordinateGroups.get(key) || []), index]);
+    });
+    validOperationalPoints.forEach((point, index) => {
+      const markerNumber = Number(point.promoterNumber || index + 1);
+      const markerColor = promoterColors[index % promoterColors.length];
+      const lat = Number(point.lat);
+      const lng = Number(point.lng);
+      const microRadius = Math.max(150, Number(point.microRadiusMeters || 400));
+      const assignedQuantity = Number(point.assignedQuantity || 0);
+      const coordinateKey = `${lat.toFixed(5)}_${lng.toFixed(5)}`;
+      const colocatedIndexes = coordinateGroups.get(coordinateKey) || [index];
+      const colocatedPosition = colocatedIndexes.indexOf(index);
+      const overlapAngle = (Math.PI * 2 * colocatedPosition) / colocatedIndexes.length;
+      const overlapOffset = colocatedIndexes.length > 1 ? 0.00013 : 0;
+      const displayLat = lat + Math.sin(overlapAngle) * overlapOffset;
+      const displayLng = lng + Math.cos(overlapAngle) * overlapOffset;
+
+      L.circle([lat, lng], {
+        radius: microRadius, color: markerColor, fillColor: markerColor,
+        fillOpacity: 0.07, weight: 1.5, dashArray: '6 6', opacity: 0.85,
+        interactive: false, pane: 'radiusCirclePane',
+      }).addTo(group);
+
+      const promoterIcon = L.divIcon({
+        html: `<div style="width:30px;height:30px;border-radius:50%;background:${markerColor};border:3px solid #fff;box-shadow:0 5px 16px rgba(0,0,0,.42);display:flex;align-items:center;justify-content:center;color:#fff;font:800 13px/1 system-ui,sans-serif">${markerNumber}</div>`,
+        className: '', iconSize: [30, 30], iconAnchor: [15, 15],
+      });
+      const pointLabel = esc(point.label || point.location || `Punto operativo ${markerNumber}`);
+      const pointTypeLabel = esc(pointTypeLabels[point.pointType] || String(point.pointType || 'Punto ad alto flusso').replace(/_/g, ' '));
+      const timeSlot = esc(point.timeSlot || 'Da definire');
+      const durationHours = Math.max(1, Number(point.serviceDurationHours || 4));
+      const overlapNote = colocatedIndexes.length > 1
+        ? '<div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Posizione</span><span class="vp-promoter-map-card__value">Pin separato per leggibilità</span></div>'
+        : '';
+      const cardHtml = `<div class="vp-promoter-map-card">
+        <div class="vp-promoter-map-card__head">
+          <span class="vp-promoter-map-card__number" style="background:${markerColor}">${markerNumber}</span>
+          <div><div class="vp-promoter-map-card__title">Promoter ${markerNumber}</div><div class="vp-promoter-map-card__subtitle">Postazione operativa pianificata</div></div>
+        </div>
+        <div class="vp-promoter-map-card__body">
+          <div class="vp-promoter-map-card__address">${pointLabel}</div>
+          <div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Tipo punto</span><span class="vp-promoter-map-card__value" style="color:${markerColor}">${pointTypeLabel}</span></div>
+          <div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Fascia oraria</span><span class="vp-promoter-map-card__value">${timeSlot}</span></div>
+          <div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Durata</span><span class="vp-promoter-map-card__value">${durationHours} ore</span></div>
+          <div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Capacità stimata</span><span class="vp-promoter-map-card__value">${formatItNumber(assignedQuantity)} pz.</span></div>
+          <div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Micro-zona</span><span class="vp-promoter-map-card__value">${formatItNumber(microRadius)} m</span></div>
+          ${overlapNote}
+        </div>
+      </div>`;
+      L.marker([displayLat, displayLng], { icon: promoterIcon, zIndexOffset: 2600 + index, pane: 'radiusCenterPane', title: `Promoter ${markerNumber}: ${pointLabel}` })
+        .bindTooltip(cardHtml, { className: 'vp-promoter-tooltip', direction: 'top', offset: [0, -13], opacity: 1 })
+        .bindPopup(cardHtml, { className: 'vp-promoter-popup', offset: [0, -10], maxWidth: 280, closeButton: true })
+        .addTo(group);
+    });
+
+    const operationalFitSignature = validOperationalPoints
+      .map((point) => `${point.id || point.promoterNumber || ''}:${Number(point.lat).toFixed(6)}:${Number(point.lng).toFixed(6)}`)
+      .sort()
+      .join('|');
+    if (validOperationalPoints.length > 1 && autoFitRef.current.operational !== operationalFitSignature) {
+      autoFitRef.current.operational = operationalFitSignature;
+      map.fitBounds(validOperationalPoints.map((point) => [Number(point.lat), Number(point.lng)]), { padding: [55, 55], maxZoom: 14 });
+    } else if (validOperationalPoints.length <= 1) {
+      autoFitRef.current.operational = operationalFitSignature;
+    }
+
     if (settoriActive) {
       const settoriGroup = L.layerGroup().addTo(map);
       layersRef.current.settoriGroup = settoriGroup;
@@ -1384,21 +1611,29 @@ function Step2MapImpl({
     }
 
     // â”€â”€ 4. POI reali (Overpass) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // Uses pois prop (Overpass data) when available; falls back to apiData metadata.
-    const poiActive = activeLayers?.poi !== false;
+    // Uses only the already filtered POI prop. Raw analysis metadata must not
+    // appear here: it contains mixed categories and creates misleading dots
+    // while the selected activity (for example Fitness) is being resolved.
+    // Se la ricerca ha restituito attivitÃ  coerenti con la campagna, queste
+    // restano visibili anche quando una vecchia configurazione aveva il layer off.
+    const poiActive = pois?.length > 0 || activeLayers?.poi !== false;
 
     if (poiActive && pois?.length > 0) {
       const poiGroup = L.layerGroup().addTo(map);
       layersRef.current.poiGroup = poiGroup;
 
       // Cell size scales with radius: bigger area â†’ coarser clustering
-      const cellDeg = effectiveMapRadius <= 2 ? 0.0015 : effectiveMapRadius <= 5 ? 0.003 : 0.005;
-      const clusters = gridCluster(pois, cellDeg);
+      const cellDeg = mapZoom >= 15 ? 0.00001 : effectiveMapRadius <= 2 ? 0.0015 : effectiveMapRadius <= 5 ? 0.003 : 0.005;
+      // Con pochi risultati mostriamo sempre ogni singolo punto: sono scelte operative,
+      // non semplici indicatori statistici. Il clustering resta utile solo su liste grandi.
+      const clusters = pois.length <= 30
+        ? pois.map((poi) => ({ ...poi, isCluster: false }))
+        : gridCluster(pois, cellDeg);
 
       clusters.forEach(item => {
         if (item.isCluster) {
           // Cluster bubble: size grows with count, color from dominant category
-          const s = Math.min(22, 12 + Math.log2(item.count) * 3);
+          const s = Math.min(34, 24 + Math.log2(item.count) * 3);
           const clusterIcon = L.divIcon({
             html: `<div style="
               width:${s}px;height:${s}px;border-radius:50%;
@@ -1420,55 +1655,65 @@ function Step2MapImpl({
             .sort((a, b) => b[1] - a[1])
             .slice(0, 5)
             .map(([cat, n]) => `${n}Ã— ${esc(cat)}`);
-          L.marker([item.lat, item.lng], { icon: clusterIcon, zIndexOffset: 300 })
+          L.marker([item.lat, item.lng], { icon: clusterIcon, zIndexOffset: 300, pane: 'poiSelectionPane' })
             .bindTooltip(
-              `<b>${item.count} POI</b><br>${tipLines.join('<br>')}`,
+              `<b>${item.count} POI</b><br>${tipLines.join('<br>')}<br><span style="color:#7DD3FC">Clicca per vedere i singoli punti</span>`,
               { direction: 'top', offset: [0, -4], opacity: 1 }
-            ).addTo(poiGroup);
-        } else {
-          // Individual marker: size by priority
-          const sz = item.priority >= 9 ? 8 : item.priority >= 7 ? 6 : 5;
-          const isSel = item.priority >= 9;
-          const tip = _buildPoiTip(item);
-          L.marker([item.lat, item.lng], {
-            icon: dotIcon(L, item.color, sz, isSel),
-            zIndexOffset: isSel ? 500 : 200,
-          }).bindTooltip(tip, { direction: 'top', offset: [0, -sz / 2 - 2], opacity: 1 })
+            )
+            .on('click', () => map.setView([item.lat, item.lng], Math.max(15, map.getZoom() + 2), { animate: true }))
             .addTo(poiGroup);
+        } else {
+          // Punto selezionabile: marker grande, sopra gli altri layer operativi.
+          const assignment = poiAssignments?.[item.id] || null;
+          const isSel = Boolean(assignment);
+          const businessDetails = svcType === 'b2b'
+            ? [
+                item.distanceKm != null ? `<span>Distanza: ${Number(item.distanceKm).toFixed(1)} km</span>` : null,
+                `<span>Fonte: ${esc(item.source || 'OpenStreetMap / Overpass')}</span>`,
+                assignment ? `<span>Copie: ${Number(assignment.copies || 1)}</span>` : null,
+                businessConfig?.deliveryLabel ? `<span>Consegna: ${esc(businessConfig.deliveryLabel)}</span>` : null,
+                businessConfig?.recipientLabel ? `<span>Referente: ${esc(businessConfig.recipientLabel)}</span>` : null,
+              ].filter(Boolean).join('<br>')
+            : '';
+          const assignmentLabel = assignment
+            ? (svcType === 'b2b'
+                ? `<br><span style="color:#4ADE80;font-weight:700">✓ Attività selezionata</span>${businessDetails ? `<br>${businessDetails}` : ''}`
+                : `<br><span style="color:#4ADE80;font-weight:700">Assegnato a Promoter ${Number(assignment.operatorNumber || 1)}</span>`)
+            : (svcType === 'b2b'
+                ? `<br>${businessDetails ? `${businessDetails}<br>` : ''}<span style="color:#7DD3FC">Clicca per selezionare l'attività</span>`
+                : '<br><span style="color:#7DD3FC">Clicca per aggiungere e assegnare</span>');
+          const contextLabel = svcType === 'd2d'
+            ? '<br><span style="color:#7DD3FC">AttivitÃ  presente dentro il raggio selezionato</span>'
+            : assignmentLabel;
+          const tip = `${_buildPoiTip(item)}${contextLabel}`;
+          const poiMarker = L.marker([item.lat, item.lng], {
+            icon: svcType === 'd2d'
+              ? informationalPoiIcon(L, item.color || categoryColor(item.category), item.category)
+              : selectablePoiIcon(L, item.color || categoryColor(item.category), isSel, assignment?.operatorNumber, item.category),
+            zIndexOffset: isSel ? 500 : 200,
+            pane: 'poiSelectionPane',
+          }).bindTooltip(tip, { direction: 'top', offset: [0, -16], opacity: 1 });
+          if (svcType !== 'd2d') poiMarker.on('click', () => onTogglePoi?.(item));
+          poiMarker.addTo(poiGroup);
         }
       });
 
-    } else if (poiActive && (svcType === 'h2h' || svcType === 'b2b') && apiData?.metadata) {
-      // Fallback: use existing apiData metadata hotspots (legacy path)
-      const hotspots = apiData.metadata.hotspots || [];
-      const nearby   = apiData.metadata.nearby_activities || [];
-      const seen = new Set();
+      const assignedPoiPoints = pois.filter((poi) => poiAssignments?.[poi.id]);
+      const assignmentFitSignature = assignedPoiPoints
+        .map((poi) => `${poi.id}:${Number(poi.lat).toFixed(6)}:${Number(poi.lng).toFixed(6)}:${Number(poiAssignments?.[poi.id]?.operatorNumber || 1)}`)
+        .sort()
+        .join('|');
+      if (assignedPoiPoints.length > 0 && autoFitRef.current.assignments !== assignmentFitSignature) {
+        autoFitRef.current.assignments = assignmentFitSignature;
+        const boundsPoints = assignedPoiPoints.map((poi) => [Number(poi.lat), Number(poi.lng)]);
+        if (city && Number.isFinite(Number(city.lat)) && Number.isFinite(Number(city.lng))) {
+          boundsPoints.push([Number(city.lat), Number(city.lng)]);
+        }
+        map.fitBounds(boundsPoints, { padding: [55, 55], maxZoom: 14 });
+      } else if (assignedPoiPoints.length === 0) {
+        autoFitRef.current.assignments = '';
+      }
 
-      nearby.slice(0, 60).forEach(poi => {
-        if (!poi.lat || !poi.lng) return;
-        const key = `${poi.lat.toFixed(5)}_${poi.lng.toFixed(5)}`;
-        if (seen.has(key)) return;
-        seen.add(key);
-        const pCol = categoryColor(poi.category);
-        L.marker([poi.lat, poi.lng], { icon: dotIcon(L, pCol, 6, false), zIndexOffset: -50 })
-          .bindTooltip(
-            `<b>${esc(poi.name || 'POI')}</b>${poi.category ? `<br><span style="color:${pCol};opacity:0.8">${poi.category.replace(/_/g, ' ')}</span>` : ''}`,
-            { direction: 'top', offset: [0, -5], opacity: 1 }
-          ).addTo(group);
-      });
-
-      hotspots.forEach(poi => {
-        if (!poi.lat || !poi.lng) return;
-        seen.add(`${poi.lat.toFixed(5)}_${poi.lng.toFixed(5)}`);
-        const pCol = categoryColor(poi.category);
-        const dist = poi.distance_km != null
-          ? `<br><span style="color:rgba(255,255,255,0.35)">${poi.distance_km} km dal centro</span>` : '';
-        L.marker([poi.lat, poi.lng], { icon: dotIcon(L, pCol, 10, true), zIndexOffset: 500 })
-          .bindTooltip(
-            `<b>${esc(poi.name || 'Hotspot')}</b>${poi.category ? `<br><span style="color:${pCol};opacity:0.8">${poi.category.replace(/_/g, ' ')}</span>` : ''}${dist}`,
-            { direction: 'top', offset: [0, -8], opacity: 1 }
-          ).addTo(group);
-      });
     }
 
     // â”€â”€ 5. Density choropleth (D2D) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1552,7 +1797,7 @@ function Step2MapImpl({
       };
     }
 
-  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, civiciState, mapZoom, campaignZones, activeZoneId, municipalityBoundary, isMunicipalityMode, nilMode, coveragePolygons, themeMode, activeLayerId, zoneCoverageById, zoneAllocationById, boundaryKpis, unconfirmedAddressMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, operationalPoints, poiAssignments, onTogglePoi, businessConfig, civiciState, mapZoom, campaignZones, activeZoneId, municipalityBoundary, isMunicipalityMode, nilMode, coveragePolygons, themeMode, activeLayerId, zoneCoverageById, zoneAllocationById, boundaryKpis, unconfirmedAddressMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="vp-step2-map-shell" style={{ position: 'relative', width: '100%' }}>
@@ -1583,6 +1828,32 @@ function Step2MapImpl({
           pointerEvents: 'none',
         }}>
           Caricamento mappa...
+        </div>
+      )}
+
+      {/* La base geografica puÃ² essere pronta prima dei POI reali. Durante
+          questa fase copriamo la vista provvisoria e spieghiamo l'aggiornamento. */}
+      {leafletLoaded && city && loadingPois && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 1100,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(8,15,30,.62)', backdropFilter: 'blur(2px)',
+          pointerEvents: 'auto',
+        }}>
+          <div style={{
+            minWidth: 250, maxWidth: '82%', padding: '16px 18px', borderRadius: 12,
+            background: 'rgba(8,15,30,.95)', border: '1px solid rgba(34,197,94,.34)',
+            boxShadow: '0 14px 38px rgba(0,0,0,.42)', textAlign: 'center',
+            fontFamily: 'system-ui,sans-serif',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, color: '#4ADE80', fontSize: 13, fontWeight: 800 }}>
+              <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 0 5px rgba(34,197,94,.13)' }} />
+              Ricerca attivitÃ  nel raggio...
+            </div>
+            <div style={{ marginTop: 7, color: 'rgba(255,255,255,.58)', fontSize: 11, lineHeight: 1.45 }}>
+              Stiamo caricando i punti reali. La mappa si aggiornerÃ  automaticamente.
+            </div>
+          </div>
         </div>
       )}
 
@@ -1678,49 +1949,76 @@ function _coverageStatusRow(status) {
   return `Stato: <b style="color:${color}">${label}</b>`;
 }
 
-function _buildD2DTip(z, col, sel, alloc = null, coverageStatus = null) {
-  const _wPct  = z.weightPct === 0 && (z.families || 0) > 0 ? '<1' : (z.weightPct || 0);
-  const flyers = alloc?.requiredFlyers || z.volantiniNelRaggio || z.flyersMin || z.families || 0;
-  const density = z.area > 0 ? Math.round((z.families || 0) / z.area) : null;
-  const tipoRow = `<span style="color:rgba(255,255,255,.6);font-size:11px">Tipo: ${z.isNil || z.territoryLevel === 'nil' ? 'NIL / quartiere' : 'Comune'}</span>`;
+function _buildZoneOrNilTooltip(z, col, sel, alloc = null, coverageStatus = null, isRadiusOrPreview = false) {
+  const isNil = Boolean(z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')) || (typeof z.type === 'string' && z.type === 'nil'));
+  
+  if (z.status === 'preview_main' || z.status === 'preview_nearby') {
+    return [
+      `<b style="color:rgba(255,255,255,0.95)">${esc(z.name)} — ${z.status === 'preview_main' ? 'NIL Principale' : 'NIL Adiacente'}</b>`,
+      `Famiglie: <b>${Number(z.families || 0).toLocaleString("it-IT", { useGrouping: true })}</b>`,
+      `<i>Preview territoriale — seleziona raggio o comune per il calcolo</i>`,
+    ].join('<br>');
+  }
+
+  const fmtIT = n => Number(n || 0).toLocaleString('it-IT', { useGrouping: true });
+  const familiesVal = Number(z.families || 0);
+  const codeRaw = z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_') ? z.id.replace(/^nil_/, '') : null);
+  const codeStr = codeRaw != null && codeRaw !== '' ? String(codeRaw) : null;
+  const hasValidCode = codeStr && codeStr.toLowerCase() !== String(z.name || '').toLowerCase() && !codeStr.startsWith('comune_') && !codeStr.startsWith('api_');
+
+  const covPct = alloc?.coveragePercent ?? z.coveragePct ?? z.coverage ?? (alloc ? 100 : 0);
+  const assignedVal = alloc?.assignedFlyers ?? z.assignedFlyers ?? (covPct > 0 ? Math.round(familiesVal * (covPct / 100)) : 0);
+  const recommendedVal = alloc?.requiredFlyers ?? z.recommendedFlyers ?? z.volantiniNelRaggio ?? z.flyersMin ?? familiesVal;
+  const statusVal = coverageStatus ?? z.status ?? (alloc?.status || null);
+  const priorityRow = Number(alloc?.priorityRank) === 1 && Number(assignedVal) > 0
+    ? '<span style="color:#FBBF24;font-weight:700">Prima zona prioritaria con la quantit\u00e0 attuale</span>'
+    : null;
+
   const layerRow = z.metricLabel
     ? (z.metricFmt
         ? `<span style="color:${z.metricColor || col}">${esc(z.metricLabel)}: <b>${esc(z.metricFmt)}</b></span>`
         : `<span style="color:rgba(255,255,255,.35)">${esc(z.metricLabel)}: dato non disponibile</span>`)
     : null;
+
+  if (isNil) {
+    return [
+      `<b style="color:rgba(255,255,255,0.95)">${esc(z.name)}</b>`,
+      hasValidCode ? `Codice NIL: <b>${esc(codeStr)}</b>` : null,
+      layerRow,
+      priorityRow,
+      `Famiglie: <b>${fmtIT(familiesVal)}</b>`,
+      `Copertura: <b>${Math.round(covPct)}%</b>`,
+      `Volantini assegnati: <b>${fmtIT(assignedVal)}</b>`,
+      `Quantità consigliata: <b>${fmtIT(recommendedVal)}</b>`,
+      _coverageStatusRow(statusVal),
+      !isRadiusOrPreview ? (sel ? `<span style="color:#6EC4A0">✓ Selezionata</span>` : `<span style="color:rgba(255,255,255,0.32)">○ Non inclusa</span>`) : null,
+    ].filter(Boolean).join('<br>');
+  }
+
+  const _wPct = z.weightPct === 0 && familiesVal > 0 ? '<1' : (z.weightPct || 0);
+  const density = z.area > 0 ? Math.round(familiesVal / z.area) : null;
+  const tipoRow = `<span style="color:rgba(255,255,255,.6);font-size:11px">Tipo: Comune</span>`;
   return [
     `<b style="color:rgba(255,255,255,0.95)">${esc(z.name)}</b>`,
     tipoRow,
     layerRow,
-    `Famiglie: <b>${(z.families || 0).toLocaleString("it-IT", { useGrouping: true })}</b>`,
-    density ? `DensitÃ : <b>${density.toLocaleString("it-IT", { useGrouping: true })} fam/kmÂ²</b>` : null,
-    alloc ? `Volantini assegnati: <b>${Number(alloc.assignedFlyers || 0).toLocaleString("it-IT", { useGrouping: true })}</b>` : null,
-    `Volantini consigliati: <b>${flyers.toLocaleString("it-IT", { useGrouping: true })}</b>`,
-    alloc ? `Copertura: <b>${Math.round(alloc.coveragePercent || 0)}%</b>` : `Copertura: ${_wPct}%`,
-    _coverageStatusRow(coverageStatus),
-    sel ? `<span style="color:#6EC4A0">âœ“ Selezionata</span>` : `<span style="color:rgba(255,255,255,0.32)">â—‹ Non inclusa</span>`,
+    priorityRow,
+    `Famiglie: <b>${fmtIT(familiesVal)}</b>`,
+    density ? `Densità: <b>${fmtIT(density)} fam/km²</b>` : null,
+    alloc || z.assignedFlyers != null ? `Volantini assegnati: <b>${fmtIT(assignedVal)}</b>` : null,
+    `Quantità consigliata: <b>${fmtIT(recommendedVal)}</b>`,
+    alloc || z.coveragePct != null ? `Copertura: <b>${Math.round(covPct)}%</b>` : `Copertura: ${_wPct}%`,
+    _coverageStatusRow(statusVal),
+    !isRadiusOrPreview ? (sel ? `<span style="color:#6EC4A0">✓ Selezionata</span>` : `<span style="color:rgba(255,255,255,0.32)">○ Non inclusa</span>`) : null,
   ].filter(Boolean).join('<br>');
 }
 
-// Tooltip per i poligoni di copertura Raggio (coveragePolygons) â€” nome,
-// tipo Comune/NIL, famiglie, volantini assegnati/consigliati, copertura%,
-// stato â€” esattamente i campi richiesti dal ticket "TOOLTIP / HOVER".
+function _buildD2DTip(z, col, sel, alloc = null, coverageStatus = null) {
+  return _buildZoneOrNilTooltip(z, col, sel, alloc, coverageStatus, false);
+}
+
 function _buildCoveragePolygonTip(z) {
-  if (z.status === 'preview_main' || z.status === 'preview_nearby') {
-    return [
-      `<b style="color:rgba(255,255,255,0.95)">${esc(z.name)} â€” ${z.status === 'preview_main' ? 'NIL Principale' : 'NIL Adiacente'}</b>`,
-      `Famiglie: <b>${Number(z.families || 0).toLocaleString("it-IT", { useGrouping: true })}</b>`,
-      `<i>Preview territoriale â€” seleziona raggio o comune per il calcolo</i>`,
-    ].join('<br>');
-  }
-  return [
-    `<b style="color:rgba(255,255,255,0.95)">${esc(z.name)} â€” ${z.type === 'nil' ? 'NIL' : 'Comune'}</b>`,
-    `Famiglie: <b>${Number(z.families || 0).toLocaleString("it-IT", { useGrouping: true })}</b>`,
-    `Volantini assegnati: <b>${Number(z.assignedFlyers || 0).toLocaleString("it-IT", { useGrouping: true })}</b>`,
-    `Volantini consigliati: <b>${Number(z.recommendedFlyers || 0).toLocaleString("it-IT", { useGrouping: true })}</b>`,
-    `Copertura: <b>${Math.round(z.coveragePct || 0)}%</b>`,
-    _coverageStatusRow(z.status),
-  ].filter(Boolean).join('<br>');
+  return _buildZoneOrNilTooltip(z, '#34D399', false, null, z.status, true);
 }
 
 // Tooltip per un POI Overpass â€” nome, categoria, indirizzo reali.
@@ -1756,7 +2054,7 @@ function _buildSectorTip(s, num, munByCode, svcType, city, munSectorCounts, sele
     `<b style="color:rgba(255,255,255,0.95)">S${num}${name}</b>`,
     `<span style="color:rgba(255,255,255,0.45);font-size:9px">${esc(munName)}</span>`,
     famSec ? `Famiglie stimate: <b>~${famSec}</b>` : null,
-    flySec ? `Volantini consigliati: <b>~${flySec}</b>` : null,
+    flySec ? `Quantità consigliata: <b>~${flySec}</b>` : null,
     statusLine,
   ].filter(Boolean).join('<br>');
 }

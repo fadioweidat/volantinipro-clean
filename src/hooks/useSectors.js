@@ -22,7 +22,12 @@ export function useSectors(lat, lng, radiusKm, serviceType) {
   const radR = radiusKm != null ? Math.round(radiusKm * 10)  / 10   : null;
 
   useEffect(() => {
-    if (!latR || !lngR || !serviceType) return;
+    if (!latR || !lngR || !serviceType) {
+      setSectors(null);
+      setLoading(false);
+      setError(null);
+      return undefined;
+    }
     
     const controller = new AbortController();
     let cancelled = false;

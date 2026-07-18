@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
+import { buildServiceAnalysisRequest } from '../lib/step2/buildServiceAnalysisRequest.js';
 
 const debugStep2 = (...args) => {
-  if (import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || window.__VOLANTINIPRO_DEBUG_STEP2__)) console.log(...args);
+  if (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || (typeof window !== "undefined" && window.__VOLANTINIPRO_DEBUG_STEP2__))) console.log(...args);
 };
 
 let hasLoggedInvalidZone = false;
 
-export function useServiceAnalysis(lat, lng, radius, service, municipality = null, quantity = null, scope = null, analysisLevel = null) {
+export function useServiceAnalysis(lat, lng, radius, service, municipality = null, quantity = null, scope = null, analysisLevel = null, selectionScope = null, selectedMunicipalityCodes = null) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -41,13 +42,18 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
       return undefined;
     }
 
-    const requestKey = [
+    const { requestKey, url, canonicalCodes } = buildServiceAnalysisRequest({
+      lat: centerLat,
+      lng: centerLng,
+      radius: radiusKm,
       service,
-      municipality || "",
-      Number(centerLat).toFixed(6),
-      Number(centerLng).toFixed(6),
-      radiusKm
-    ].join("|");
+      municipality,
+      quantity,
+      scope,
+      analysisLevel,
+      selectionScope,
+      selectedMunicipalityCodes
+    });
 
     if (lastRequestKeyRef.current === requestKey && data !== null && error === null) {
       debugStep2("[ZONE_ANALYSIS_SKIPPED_DUPLICATE]", { requestKey });
@@ -63,28 +69,18 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
     const fetchData = async () => {
       lastRequestKeyRef.current = requestKey;
 
-      debugStep2('[ZONE_CHANGE]', { municipality, centerLat, centerLng, radiusKm, service });
+      debugStep2('[ZONE_CHANGE]', { municipality, centerLat, centerLng, radiusKm, service, selectionScope, selectedMunicipalityCodes: canonicalCodes });
 
       setError(null);
 
       try {
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_SUPABASE_URL;
-        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-        const endpoint = service === 'd2d' ? 'analysis-istat' : 'analysis-poi-search';
-        const explicitUrl = service === 'd2d' ? import.meta.env.VITE_ANALYSIS_ISTAT_URL : import.meta.env.VITE_ANALYSIS_POI_URL;
-        const functionUrl = baseUrl ? `${baseUrl}/functions/v1/${endpoint}` : null;
-        const apiUrl = explicitUrl || functionUrl;
+        const anonKey = (typeof import.meta !== "undefined" && import.meta.env ? import.meta.env.VITE_SUPABASE_ANON_KEY : null) || (typeof process !== "undefined" && process.env ? process.env.VITE_SUPABASE_ANON_KEY : null);
 
-        if (!apiUrl) {
+        if (!url) {
           setError("ANALYSIS_BACKEND_NOT_CONFIGURED");
           setData({ values: {}, comuni_breakdown: [], metadata: { isEstimated: false }, sources: [], error: "ANALYSIS_BACKEND_NOT_CONFIGURED" });
           return;
         }
-
-        const municipalityParam = municipality ? `&municipality=${encodeURIComponent(municipality)}` : '';
-        const quantityParam = quantity ? `&quantity=${encodeURIComponent(quantity)}` : '';
-        const analysisLevelParam = analysisLevel ? `&analysisLevel=${encodeURIComponent(analysisLevel)}` : '';
-        const url = `${apiUrl}?lat=${encodeURIComponent(centerLat)}&lng=${encodeURIComponent(centerLng)}&radius=${encodeURIComponent(radiusKm)}&service=${encodeURIComponent(service)}${municipalityParam}${quantityParam}${analysisLevelParam}`;
 
         debugStep2('[ZONE_ANALYSIS_REQUEST]', {
           requestId,
@@ -92,13 +88,15 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
           service,
           center: { lat: centerLat, lng: centerLng },
           radiusKm,
-          municipality
+          municipality,
+          selectionScope,
+          selectedMunicipalityCodes: canonicalCodes
         });
 
         const headers = { 'Content-Type': 'application/json' };
-        if (anonKey && apiUrl.includes('/functions/v1/')) {
-          headers.Authorization = `Bearer ${anonKey}`;
-          headers.apikey = anonKey;
+        if (anonKey) {
+          headers['apikey'] = anonKey;
+          headers['Authorization'] = `Bearer ${anonKey}`;
         }
 
         const response = await fetch(url, { headers, signal: controller.signal });
@@ -147,7 +145,7 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
       clearTimeout(timerId);
       controller.abort();
     };
-  }, [lat, lng, radius, service, municipality, quantity, scope, analysisLevel]);
+  }, [lat, lng, radius, service, municipality, quantity, scope, analysisLevel, selectionScope, selectedMunicipalityCodes]);
 
   return { data, loading, error };
 }

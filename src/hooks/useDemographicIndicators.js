@@ -23,7 +23,12 @@ export function useDemographicIndicators(params) {
     geographyRef.trim().length > 0;
 
   useEffect(() => {
-    if (!canLoadDemographics) return undefined;
+    if (!canLoadDemographics) {
+      setData(null);
+      setLoading(false);
+      setError(null);
+      return undefined;
+    }
 
     let cancelled = false;
 

@@ -10,7 +10,7 @@ export const SERVICE_LAYERS = {
       { id: 'settori',  label: 'Settori censuari', defaultOn: false, available: true,  future: false, category: 'territory' },
       { id: 'civici',   label: 'Civici',           defaultOn: false, available: true,  future: false, category: 'points'    },
       { id: 'density',  label: 'Densità fam.',     defaultOn: false, available: true,  future: false, category: 'overlay'   },
-      { id: 'poi',      label: 'POI',              defaultOn: false, available: true,  future: false, category: 'points'    },
+      { id: 'poi',      label: 'AttivitÃ  nel raggio', defaultOn: true, available: true, future: false, category: 'points'    },
       { id: 'tracking', label: 'Tracking GPS',     defaultOn: false, available: false, future: true,  category: 'live'      },
     ],
   },
@@ -19,7 +19,7 @@ export const SERVICE_LAYERS = {
     layers: [
       { id: 'radius',   label: 'Raggio',        defaultOn: true,  available: true,  future: false, category: 'base'      },
       { id: 'comuni',   label: 'Comuni',         defaultOn: true,  available: true,  future: false, category: 'territory' },
-      { id: 'poi',      label: 'POI',            defaultOn: false, available: true,  future: false, category: 'points'    },
+      { id: 'poi',      label: 'Punti operativi', defaultOn: true, available: true,  future: false, category: 'points'    },
       { id: 'civici',   label: 'Civici',         defaultOn: false, available: true,  future: false, category: 'points'    },
       { id: 'hotspot',  label: 'Hotspot H2H',   defaultOn: false, available: false, future: true,  category: 'overlay'   },
       { id: 'settori',  label: 'Settori',        defaultOn: false, available: true,  future: false, category: 'territory' },
@@ -31,7 +31,7 @@ export const SERVICE_LAYERS = {
     layers: [
       { id: 'radius',   label: 'Raggio',        defaultOn: true,  available: true,  future: false, category: 'base'      },
       { id: 'comuni',   label: 'Comuni',         defaultOn: true,  available: true,  future: false, category: 'territory' },
-      { id: 'poi',      label: 'POI',            defaultOn: false, available: true,  future: false, category: 'points'    },
+      { id: 'poi',      label: 'AttivitÃ  target', defaultOn: true, available: true, future: false, category: 'points'    },
       { id: 'civici',   label: 'Civici',         defaultOn: false, available: true,  future: false, category: 'points'    },
       { id: 'cluster',  label: 'Cluster B2B',   defaultOn: false, available: false, future: true,  category: 'overlay'   },
       { id: 'settori',  label: 'Settori',        defaultOn: false, available: true,  future: false, category: 'territory' },

@@ -117,3 +117,8 @@ backups/
 # Agents
 .agent/
 .agents/
+
+# ── E2E Temporary Artifacts & Standalone files ──
+e2e-artifacts*/
+e2e-*.png
+InteractiveRadiusSlider.jsx

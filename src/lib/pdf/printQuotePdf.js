@@ -47,6 +47,8 @@ export function printQuotePdf(rawData) {
   const outputs = d.outputs || {};
   const planning = d.planning || {};
   const pricing = d.pricing || {};
+  const business = d.business || null;
+  const isBusiness = Boolean(business);
   const ins = Number(outputs.insertedFlyers || 0);
   const rec = Number(outputs.recommendedFlyers || 0);
   const covPct = rec && ins ? Math.min(100, Math.round((ins / rec) * 100)) : null;
@@ -220,7 +222,7 @@ export function printQuotePdf(rawData) {
       ${kv("Servizio", d.service)}
       ${kv("Variante", campaign.variant)}
       ${kv("Zona principale", area.mainArea)}
-      ${kv("Quantità volantini", fmt(campaign.quantity))}
+      ${kv(isBusiness ? "Materiali disponibili" : "Quantità volantini", fmt(campaign.quantity))}
       ${kv("Formato", campaign.format)}
       ${kv("Grammatura", campaign.grammage)}
       ${kv("Materiale", campaign.materialStatus)}
@@ -229,17 +231,24 @@ export function printQuotePdf(rawData) {
       ${campaign.campaignsPerMonth ? kv("Campagne/mese", fmt(campaign.campaignsPerMonth)) : ""}
       ${campaign.duration ? kv("Durata", campaign.duration) : ""}
       ${kv("Modalità area", area.areaMode)}
+      ${isBusiness ? kv("Target Business", (business.targets || []).join(", ")) : ""}
+      ${isBusiness ? kv("Obiettivo", business.objective) : ""}
+      ${isBusiness ? kv("Consegna", business.deliveryMethod) : ""}
+      ${isBusiness ? kv("Referente preferito", business.preferredRecipient) : ""}
     </div>
   </div>
 
   <!-- 2. Analisi zona -->
   <div class="section">
-    ${secHeader(nextSec(), "Analisi zona e output servizio", "Dati territoriali e operativi")}
+    ${secHeader(nextSec(), isBusiness ? "Piano attività e materiali" : "Analisi zona e output servizio", isBusiness ? "Selezione reale e calcolo operativo" : "Dati territoriali e operativi")}
     <div class="stat-strip">
+      ${isBusiness ? `<div class="stat-item"><div class="stat-label">Attività selezionate</div><div class="stat-value">${fmt(outputs.selectedActivities)}</div></div>` : ""}
+      ${isBusiness && outputs.materialsRequired != null ? `<div class="stat-item"><div class="stat-label">Materiali necessari</div><div class="stat-value">${fmt(outputs.materialsRequired)}</div></div>` : ""}
+      ${isBusiness && business.operationalPlan?.operatorDays != null ? `<div class="stat-item"><div class="stat-label">Giornate-addetto</div><div class="stat-value">${fmt(business.operationalPlan.operatorDays)}</div></div>` : ""}
       ${outputs.estimatedFamilies ? `<div class="stat-item"><div class="stat-label">Famiglie stimate</div><div class="stat-value">${fmt(outputs.estimatedFamilies)}</div></div>` : ""}
       ${outputs.estimatedPopulation ? `<div class="stat-item"><div class="stat-label">Popolazione stimata</div><div class="stat-value">${fmt(outputs.estimatedPopulation)}</div></div>` : ""}
       ${covPct != null ? `<div class="stat-item"><div class="stat-label">Copertura con quantità</div><div class="stat-value">${pct(covPct)}</div></div>` : ""}
-      ${campaign.quantity ? `<div class="stat-item"><div class="stat-label">Quantità volantini</div><div class="stat-value">${fmt(campaign.quantity)}</div></div>` : ""}
+      ${campaign.quantity && !isBusiness ? `<div class="stat-item"><div class="stat-label">Quantità volantini</div><div class="stat-value">${fmt(campaign.quantity)}</div></div>` : ""}
     </div>
     <div class="kv-grid">
       ${kv("Comune / zona", area.mainArea)}
@@ -248,19 +257,33 @@ export function printQuotePdf(rawData) {
       ${kv("Superficie coperta", area.coveredAreaKm2 ? `${fmt(area.coveredAreaKm2, 1)} km²` : null)}
       ${kv("Comuni selezionati", (area.selectedMunicipalities || []).join(", ") || null)}
       ${kv("Modalità selezione", area.selectionMode)}
-      ${kv("Copertura potenziale", pct(outputs.estimatedCoverage))}
-      ${kv("Volantini consigliati", fmt(outputs.recommendedFlyers))}
-      ${kv("Stato copertura", outputs.coverageStatus === "sufficient" ? "Sufficiente" : "Parziale")}
+      ${isBusiness ? kv("Materiali residui", outputs.materialsRemaining != null ? fmt(outputs.materialsRemaining) : "Da definire") : kv("Copertura potenziale", pct(outputs.estimatedCoverage))}
+      ${isBusiness ? kv("Materiali mancanti", outputs.materialsMissing != null ? fmt(outputs.materialsMissing) : "Da definire") : kv("Volantini consigliati", fmt(outputs.recommendedFlyers))}
+      ${isBusiness ? kv("Addetti consigliati", business.operationalPlan?.recommendedOperators != null ? fmt(business.operationalPlan.recommendedOperators) : "Da definire") : kv("Stato copertura", outputs.coverageStatus === "sufficient" ? "Sufficiente" : "Parziale")}
     </div>
-    ${ins && rec ? `<div class="callout" style="margin-top:10px">${
+    ${!isBusiness && ins && rec ? `<div class="callout" style="margin-top:10px">${
       ins >= rec
         ? `La quantità inserita di <strong>${fmt(ins)}</strong> volantini è sufficiente rispetto ai <strong>${fmt(rec)}</strong> consigliati. Restano <strong>${fmt(ins - rec)}</strong> volantini disponibili.`
         : `La quantità inserita di <strong>${fmt(ins)}</strong> copre solo parte dell'area. Mancano <strong>${fmt(rec - ins)}</strong> volantini per la copertura stimata.`
     }</div>` : ""}
   </div>
 
+  ${isBusiness && (business.selectedActivities || []).length ? `
+  <div class="section">
+    ${secHeader(nextSec(), "Attività selezionate", "Copie previste e fonte del dato")}
+    <table class="data-table">
+      <thead><tr><th>Attività</th><th>Categoria</th><th>Indirizzo</th><th>Copie</th><th>Fonte</th></tr></thead>
+      <tbody>${business.selectedActivities.map(item => `<tr><td><strong>${item.name || "Nome non disponibile"}</strong></td><td>${item.category || "—"}</td><td>${item.address || "Non disponibile"}</td><td>${item.copies != null ? fmt(item.copies) : "Da definire"}</td><td>${item.source || "Fonte collegata"}</td></tr>`).join("")}</tbody>
+    </table>
+    <div class="kv-grid" style="margin-top:8px">
+      ${kv("Prove richieste", (business.proofs || []).join(", ") || "Nessuna prova aggiuntiva")}
+      ${kv("Posizione materiale", business.materialLocation)}
+      ${kv("Periodo preferito", business.preferredPeriod || "Da concordare")}
+    </div>
+  </div>` : ""}
+
   <!-- 3. Comuni -->
-  ${(d.municipalities || []).length ? `
+  ${!isBusiness && (d.municipalities || []).length ? `
   <div class="section">
     ${secHeader(nextSec(), "Comuni nel raggio", "Selezione e copertura territoriale")}
     <table class="data-table">
@@ -295,7 +318,7 @@ export function printQuotePdf(rawData) {
   <!-- 5. Admin info -->
   ${(d.adminInfo || []).length ? `
   <div class="section">
-    ${secHeader(nextSec(), "Sintesi demografica ed economica")}
+    ${secHeader(nextSec(), isBusiness ? "Dettagli operativi Business" : "Sintesi demografica ed economica")}
     <div class="kv-grid kv-grid-4">
       ${(d.adminInfo || []).slice(0, 8).map(i => kv(i.label, i.value)).join("")}
     </div>
@@ -321,7 +344,7 @@ export function printQuotePdf(rawData) {
       <tbody>
         ${(pricing.lines || []).map(l => `<tr>
           <td>${l.label}</td>
-          <td>${l.quantity ? fmt(l.quantity) + " volantini" : "—"}</td>
+          <td>${l.quantity ? fmt(l.quantity) + (isBusiness ? " materiali" : " volantini") : "—"}</td>
           <td>${l.unitPrice ? cur(l.unitPrice, 4) : "—"}</td>
           <td>${cur(l.total)}</td>
         </tr>`).join("")}

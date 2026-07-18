@@ -1,9 +1,11 @@
 import "./src/styles/app.css";
 import React, { Component, Fragment, useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { printQuotePdf } from "./src/lib/pdf/printQuotePdf.js";
+import { printTerritorialReportPdf } from "./src/lib/pdf/printTerritorialReportPdf.js";
+import TerritorialReport from "./src/pages/TerritorialReport.jsx";
 import { AUTH_EXPIRED_MESSAGE, supabase, confirmCampaignPayment, hasSupabaseConfig, saveCampaign, saveSmartPairingWaitlist, getStoredSupabaseSession, isAuthTokenExpiredError, isStoredSupabaseSessionExpired, clearExpiredSupabaseSession, ensureRestSessionFromSdk } from "./src/lib/supabaseClient.js";
 import { logAuditEvent } from "./src/lib/audit.js";
 import { useCampagne } from "./src/hooks/useCampagne.js";
@@ -17,6 +19,8 @@ import { useTransportStops } from "./src/hooks/useTransportStops.js";
 import { useDemographicIndicators } from "./src/hooks/useDemographicIndicators.js";
 import { SkeletonCard } from "./src/components/SkeletonCard.jsx";
 import { Step2Map } from "./src/components/Step2Map.jsx";
+import BusinessStep1Config from "./src/components/business/BusinessStep1Config.jsx";
+import { calculateBusinessMaterials, calculateBusinessOperationalPlan, getBusinessCopiesForPoi, BUSINESS_DELIVERY_METHODS, BUSINESS_RECIPIENTS, BUSINESS_PROOF_OPTIONS, BUSINESS_MATERIAL_LOCATIONS, BUSINESS_OBJECTIVES, businessCategoryLabel, businessOptionLabel } from "./src/lib/business/business-config.js";
 import { VolantiniProHeroMap } from "./src/components/home/VolantiniProHeroMap.jsx";
 import FeatureZonaMappa from "./src/components/home/FeatureZonaMappa.jsx";
 import FeatureSmartPairing from "./src/components/home/FeatureSmartPairing.jsx";
@@ -39,13 +43,17 @@ import Button from "./src/components/ui/Button.jsx";
 import { MetricValue } from "./src/components/ui/MetricValue.tsx";
 import { sendEmailConferma } from "./src/api/sendEmailConferma.js";
 import { computeDoorToDoorCoverage, getZoneFullCoverageFlyers } from "./src/lib/doorToDoorCoverage.js";
-import { buildStep2ViewModel } from "./src/lib/step2/buildStep2ViewModel.js";
+import { buildStep2ViewModel, formatCoverageProportion } from "./src/lib/step2/buildStep2ViewModel.js";
+import { buildStep2TruthModel } from "./src/lib/step2/buildStep2TruthModel.js";
+import { checkMilanoTerritory } from "./src/lib/step2/milanoTerritoryHelper.js";
 import { allowMockData, isProduction } from "./src/lib/runtimeFlags.js";
 import { defaultLayerState } from "./src/lib/dataSources.js";
 import { geoJsonApproxCentroid, geoJsonContainsPoint } from "./src/lib/geo/pointInPolygon.js";
 import { GRANDE_CITTA_ZONE_THRESHOLD, isZonaRilevante } from "./src/lib/services/zone-list-config.js";
 import { DELIVERABLE_CATEGORIES, DELIVERABLE_SERVICE_CONFIG } from "./src/lib/services/service-config.js";
 import { kpiLabel } from "./src/lib/services/kpi-definitions.js";
+import { formatIntegerIT, formatPercentIT, formatAreaIT } from "./src/lib/utils/format.js";
+import { D2D_DAILY_CAPACITY, calculateOperationalScore, estimateOperationalDays, buildOperationalAdvice, resolveAssignedQuantity } from "./src/lib/step2/operationalMetrics.js";
 const isStep2DebugEnabled = () =>
   Boolean(
     import.meta.env.DEV &&
@@ -118,12 +126,6 @@ function formatNumber(value, fallback = "0") {
   }
   return fallback;
 }
-
-const formatIntegerIT = (value) => {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "N.D.";
-  return new Intl.NumberFormat("it-IT").format(Math.round(n));
-};
 
 const getCoverageStatus = (percent) => {
   if (percent >= 90) return "coperto";
@@ -1122,6 +1124,22 @@ const _jsxs = _jsx;
 const GEO_DATA=[{id:"rho",name:"Rho",lat:45.5325,lng:9.0402},{id:"cormano",name:"Cormano",lat:45.551,lng:9.163},{id:"sesto",name:"Sesto San Giovanni",lat:45.533,lng:9.237},{id:"bresso",name:"Bresso",lat:45.542,lng:9.192},{id:"cinisello",name:"Cinisello Balsamo",lat:45.559,lng:9.212},{id:"monza",name:"Monza",lat:45.584,lng:9.274},{id:"niguarda",name:"Milano Niguarda",lat:45.507,lng:9.188},{id:"varedo",name:"Varedo",lat:45.574,lng:9.161},{id:"paderno",name:"Paderno Dugnano",lat:45.568,lng:9.163},{id:"cusano",name:"Cusano Milanino",lat:45.551,lng:9.18},{id:"quarto",name:"Quarto Oggiaro",lat:45.5,lng:9.137},{id:"senago",name:"Senago",lat:45.576,lng:9.13}],ZONE_DATA=[{id:"cormano",name:"Cormano",area:6.8,pop:21800,families:8500,mailboxes:7100,coverage:78,flyersMin:1e4,flyersMax:12e3,operDays:3,familyIdx:72,reachD2D:84,roiD2D:68,confD2D:81,eta14:null,eta34:null,eta64:null,eta65:null,genderM:49,genderF:51,areaType:"Residenziale mista",poi:145,nearbyBiz:38,commDens:61,flowScore:74,transitStops:23,trainStations:3,operDaysH2H:2,reachH2H:79,roiH2H:65,confH2H:76,hotspots:"Piazza centrale – Stazione",timeSlots:"08-10 – 12-14",strongPts:7,bizTotal:92,competitors:11,commDensB2B:74,operDaysB2B:2,cdIdx:74,reachB2B:82,roiB2B:71,confB2B:80,clusters:3,topCats:"Retail – Food – Servizi",targetBiz:41,strongZone:"Asse centrale",reddito:24200,densita:3200,stranieri:10.4,indVec:189,occup:65.2,imprese:1240,dist:{cormano:0,sesto:5.8,bresso:3.1,cinisello:3.9,monza:10.1,niguarda:4.8,varedo:2.8,paderno:1.4,cusano:1.8,quarto:5.2,senago:3.8}},{id:"bresso",name:"Bresso",area:3.1,pop:27100,families:11200,mailboxes:9400,coverage:87,flyersMin:13e3,flyersMax:15e3,operDays:2,familyIdx:80,reachD2D:88,roiD2D:74,confD2D:85,eta14:null,eta34:null,eta64:null,eta65:null,genderM:48,genderF:52,areaType:"Urbano residenziale",poi:198,nearbyBiz:54,commDens:71,flowScore:82,transitStops:14,trainStations:1,operDaysH2H:2,reachH2H:83,roiH2H:70,confH2H:80,hotspots:"Corso principale – Metro",timeSlots:"08-10 – 17-19",strongPts:5,bizTotal:120,competitors:18,commDensB2B:79,operDaysB2B:1,cdIdx:79,reachB2B:85,roiB2B:74,confB2B:82,clusters:4,topCats:"Food – Retail – Salute",targetBiz:54,strongZone:"Via principale",reddito:25800,densita:8900,stranieri:12.8,indVec:150,occup:66.8,imprese:1980,dist:{cormano:3.1,sesto:4.2,bresso:0,cinisello:2.8,monza:8.9,niguarda:2.1,varedo:4.8,paderno:4,cusano:2.9,quarto:7.4,senago:6.1}},{id:"cinisello",name:"Cinisello Balsamo",area:12.1,pop:73800,families:29100,mailboxes:24800,coverage:92,flyersMin:3e4,flyersMax:36e3,operDays:6,familyIdx:75,reachD2D:90,roiD2D:72,confD2D:88,eta14:null,eta34:null,eta64:null,eta65:null,genderM:48,genderF:52,areaType:"Misto residenziale",poi:320,nearbyBiz:98,commDens:78,flowScore:88,transitStops:18,trainStations:2,operDaysH2H:3,reachH2H:87,roiH2H:74,confH2H:84,hotspots:"C.C. – Stazione – Piazze",timeSlots:"08-10 – 12-14 – 17-19",strongPts:9,bizTotal:210,competitors:32,commDensB2B:82,operDaysB2B:3,cdIdx:82,reachB2B:88,roiB2B:76,confB2B:85,clusters:7,topCats:"Retail – Food – Uffici",targetBiz:94,strongZone:"C.C. + direzionale",reddito:23400,densita:5800,stranieri:15.2,indVec:154,occup:65.4,imprese:4800,dist:{cormano:3.9,sesto:2.2,bresso:2.8,cinisello:0,monza:5.8,niguarda:3.4,varedo:5.6,paderno:4.8,cusano:3.1,quarto:8.2,senago:4.4}},{id:"varedo",name:"Varedo",area:4.2,pop:13200,families:5400,mailboxes:3800,coverage:100,flyersMin:6e3,flyersMax:7e3,operDays:2,familyIdx:68,reachD2D:76,roiD2D:60,confD2D:78,eta14:null,eta34:null,eta64:null,eta65:null,genderM:49,genderF:51,areaType:"Bassa densità",poi:82,nearbyBiz:22,commDens:44,flowScore:46,transitStops:6,trainStations:1,operDaysH2H:1,reachH2H:62,roiH2H:52,confH2H:68,hotspots:"Piazza municipio",timeSlots:"08-10 – 16-18",strongPts:3,bizTotal:48,competitors:6,commDensB2B:52,operDaysB2B:1,cdIdx:52,reachB2B:64,roiB2B:55,confB2B:70,clusters:2,topCats:"Bar – Retail",targetBiz:21,strongZone:"Centro storico",reddito:22800,densita:3140,stranieri:8.4,indVec:203,occup:62.8,imprese:620,dist:{cormano:2.8,sesto:7.4,bresso:4.8,cinisello:5.6,monza:8.8,niguarda:6.2,varedo:0,paderno:1.8,cusano:3.2,quarto:6.4,senago:2.2}},{id:"paderno",name:"Paderno Dugnano",area:10.8,pop:37800,families:15200,mailboxes:12800,coverage:82,flyersMin:16e3,flyersMax:19e3,operDays:4,familyIdx:71,reachD2D:82,roiD2D:65,confD2D:80,eta14:null,eta34:null,eta64:null,eta65:null,genderM:49,genderF:51,areaType:"Residenziale mista",poi:168,nearbyBiz:48,commDens:62,flowScore:68,transitStops:14,trainStations:1,operDaysH2H:2,reachH2H:76,roiH2H:62,confH2H:74,hotspots:"Stazione – Piazze – Mercato",timeSlots:"08-10 – 12-14",strongPts:5,bizTotal:108,competitors:14,commDensB2B:68,operDaysB2B:2,cdIdx:68,reachB2B:77,roiB2B:64,confB2B:76,clusters:4,topCats:"Food – Retail – Salute",targetBiz:48,strongZone:"Asse ferroviario",reddito:23200,densita:3500,stranieri:11.2,indVec:167,occup:64.2,imprese:2100,dist:{cormano:1.4,sesto:5.2,bresso:4,cinisello:4.8,monza:9.2,niguarda:5.8,varedo:1.8,paderno:0,cusano:2.4,quarto:5.8,senago:3.4}},{id:"sesto",name:"Sesto S. Giovanni",area:11.6,pop:81200,families:33500,mailboxes:28200,coverage:94,flyersMin:34e3,flyersMax:4e4,operDays:6,familyIdx:77,reachD2D:91,roiD2D:75,confD2D:89,eta14:null,eta34:null,eta64:null,eta65:null,genderM:48,genderF:52,areaType:"Urbano denso",poi:380,nearbyBiz:112,commDens:82,flowScore:90,transitStops:22,trainStations:3,operDaysH2H:3,reachH2H:89,roiH2H:77,confH2H:86,hotspots:"Metro M1 – Centro – Stazione",timeSlots:"07-09 – 12-14 – 17-19",strongPts:11,bizTotal:280,competitors:42,commDensB2B:86,operDaysB2B:3,cdIdx:86,reachB2B:91,roiB2B:79,confB2B:88,clusters:8,topCats:"Retail – Food – Uffici",targetBiz:126,strongZone:"P.za Resistenza",reddito:26200,densita:6200,stranieri:14.8,indVec:181,occup:67.2,imprese:6200,dist:{cormano:5.8,sesto:0,bresso:4.2,cinisello:2.2,monza:7.1,niguarda:3.8,varedo:7.4,paderno:5.2,cusano:4.9,quarto:9.4,senago:7.2}},{id:"cusano",name:"Cusano Milanino",area:4,pop:19300,families:7600,mailboxes:6200,coverage:85,flyersMin:8e3,flyersMax:1e4,operDays:2,familyIdx:70,reachD2D:80,roiD2D:64,confD2D:79,eta14:null,eta34:null,eta64:null,eta65:null,genderM:49,genderF:51,areaType:"Medio-alta",poi:124,nearbyBiz:36,commDens:58,flowScore:62,transitStops:8,trainStations:0,operDaysH2H:2,reachH2H:72,roiH2H:60,confH2H:72,hotspots:"Centro – Parco",timeSlots:"08-10 – 16-18",strongPts:4,bizTotal:78,competitors:9,commDensB2B:62,operDaysB2B:1,cdIdx:62,reachB2B:74,roiB2B:62,confB2B:74,clusters:3,topCats:"Retail – Salute",targetBiz:35,strongZone:"Via Roma + centro",reddito:24800,densita:4800,stranieri:9.8,indVec:188,occup:64.8,imprese:980,dist:{cormano:1.8,sesto:4.9,bresso:2.9,cinisello:3.1,monza:9.4,niguarda:4.2,varedo:3.2,paderno:2.4,cusano:0,quarto:6.8,senago:3.2}}],LAYERS={d2d:[{id:"families",label:"Famiglie",field:"families",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"nuclei",src:"ISTAT",lo:"#FFF5F0",hi:"#C2410C"},{id:"pop",label:"Popolazione",field:"pop",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"ab.",src:"ISTAT",lo:"#EFF6FF",hi:"#1E3A8A"},{id:"densita",label:"Densità ab.",field:"densita",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"ab/km²",src:"ISTAT",lo:"#F5F3FF",hi:"#4C1D95"},{id:"coverage",label:"Peso sul totale",field:"coverage",fmt:n=>n+"%",unit:"%",src:"Dati geografici",lo:"#ECFDF5",hi:"#065F3C"},{id:"flyersMin",label:"Volantini consigliati",field:"flyersMin",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true })+"+",unit:"pz.",src:"Analisi interna",lo:"#F0F9FF",hi:"#075985"},{id:"familyIdx",label:"Indice di residenzialità",field:"familyIdx",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#FDF2F8",hi:"#701A75"},{id:"eta65",label:"Età 65+",field:"eta65",fmt:n=>n+"%",unit:"over 65",src:"ISTAT",lo:"#FFFBEB",hi:"#78350F"}],h2h:[{id:"flowScore",label:"Intensità passaggio",field:"flowScore",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#EFF6FF",hi:"#1E3A8A"},{id:"poi",label:"POI concentration",field:"poi",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"POI",src:"Google Places",lo:"#EFF6FF",hi:"#1E3A8A"},{id:"transitStops",label:"Transit proximity",field:"transitStops",fmt:n=>n+" fermate",unit:"fermate",src:"Trasporto pubblico / GTFS",lo:"#F5F3FF",hi:"#4C1D95"},{id:"strongPts",label:"Hotspot operativi",field:"strongPts",fmt:n=>n+" punti",unit:"punti",src:"Analisi interna",lo:"#ECFDF5",hi:"#065F3C"},{id:"commDens",label:"Densità passaggio",field:"commDens",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#FFF5F0",hi:"#C2410C"},{id:"nearbyBiz",label:"Attrattori locali",field:"nearbyBiz",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"att.",src:"Google Places",lo:"#ECFDF5",hi:"#065F3C"}],b2b:[{id:"bizTotal",label:"Attività rilevate",field:"bizTotal",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"att.",src:"Google Places",lo:"#FDF2F8",hi:"#701A75"},{id:"competitors",label:"Competitor",field:"competitors",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true }),unit:"comp.",src:"Google Places",lo:"#FFF5F0",hi:"#C2410C"},{id:"commDensB2B",label:"Densità commerciale",field:"commDensB2B",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#FFFBEB",hi:"#78350F"},{id:"clusters",label:"Forza cluster",field:"clusters",fmt:n=>n+" cluster",unit:"cluster",src:"Analisi interna",lo:"#EFF6FF",hi:"#1E3A8A"},{id:"targetBiz",label:"Rilevanza target",field:"targetBiz",fmt:n=>n.toLocaleString("it-IT", { useGrouping: true })+" att.",unit:"att.",src:"Google Places",lo:"#ECFDF5",hi:"#065F3C"},{id:"reddito",label:"Reddito medio",field:"reddito",fmt:n=>"EUR "+n.toLocaleString("it-IT", { useGrouping: true }),unit:"EUR /anno",src:"Dati territoriali",lo:"#F0FDF4",hi:"#14532D"},{id:"cdIdx",label:"Commercial Density Index",field:"cdIdx",fmt:n=>n+"/100",unit:"/100",src:"Analisi interna",lo:"#F5F3FF",hi:"#4C1D95"}]},SERVICE_META={d2d:{label:"Door to Door",icon:" ",color:"#22C55E",mode:"residential",src:["ISTAT","Mapbox","OpenStreetMap","landuse / buildings","Dati geografici","Analisi interna"],allocationSort:(n,i)=>(i.familyIdx||0)*1.8+(i.coverage||0)*1.2+(i.families||0)*.006-(i.dist||0)*5-((n.familyIdx||0)*1.8+(n.coverage||0)*1.2+(n.families||0)*.006-(n.dist||0)*5),mainKpis:n=>[{l:"Famiglie stimate",v:n.families.toLocaleString("it-IT", { useGrouping: true }),u:"nuclei",src:"ISTAT",c:"#22C55E",icon:""},{l:"Popolazione stimata",v:n.pop.toLocaleString("it-IT", { useGrouping: true }),u:"abitanti",src:"ISTAT",c:"#22C55E",icon:""},{l:"Superficie coperta",v:n.area+" km²",u:"",src:"Dati geografici",c:C.blue,icon:""},{l:"Copertura stimata",v:n.coverage+"%",u:"",src:"ISTAT+GIS",c:C.green,icon:""},{l:"Range operativo",v:n.flyersMin.toLocaleString("it-IT", { useGrouping: true })+" - "+n.flyersMax.toLocaleString("it-IT", { useGrouping: true }),u:"pz.",src:"Calc.",c:C.green,icon:""},{l:"Giorni operativi",v:n.operDays+" giorni",u:"",src:"Operativo",c:C.yellow,icon:""},{l:"Comuni nel raggio",v:"-",u:"",src:"Dati geografici",c:C.blue,icon:""}],advKpis:n=>[{l:"Indice di residenzialità",v:n.familyIdx,c:"#22C55E"},{l:"Reach Score",v:n.reachD2D,c:C.blue},{l:"ROI Score",v:n.roiD2D,c:C.green},{l:"Confidence",v:n.confD2D,c:C.purple}],aiCats:[{group:"Residential profile",l:"Famiglie",v:n=>n.families.toLocaleString("it-IT", { useGrouping: true })+" nuclei"},{group:"Residential profile",l:"Popolazione",v:n=>n.pop.toLocaleString("it-IT", { useGrouping: true })+" ab."},{group:"Residential profile",l:"Densità residenziale",v:n=>n.densita.toLocaleString("it-IT", { useGrouping: true })+" ab/km²"},{group:"Residential profile",l:"Tipologia area",v:n=>n.areaType},{group:"Demographic profile",l:"Età 0-14",v:n=>n.eta14+"%"},{group:"Demographic profile",l:"Età 15-34",v:n=>n.eta34+"%"},{group:"Demographic profile",l:"Età 35-64",v:n=>n.eta64+"%"},{group:"Demographic profile",l:"Età 65+",v:n=>n.eta65+"%"},{group:"Demographic profile",l:"Genere",v:n=>"M "+n.genderM+"% – F "+n.genderF+"%"},{group:"Demographic profile",l:"Indice vecchiaia",v:n=>n.indVec+"/100"},{group:"Demographic profile",l:"% Stranieri",v:n=>n.stranieri+"%"},{group:"Economic context",l:"Reddito medio",v:n=>"EUR "+n.reddito.toLocaleString("it-IT", { useGrouping: true }),c:"green"},{group:"Economic context",l:"Tasso occupazione",v:n=>n.occup+"%",c:"green"},{group:"Economic context",l:"Imprese come contesto",v:n=>n.imprese.toLocaleString("it-IT", { useGrouping: true })},{group:"Operational reading",l:"Residential strength",v:n=>n.familyIdx+"/100"},{group:"Operational reading",l:"Copertura consigliata",v:n=>n.coverage>=88?"Copertura piena":n.coverage>=75?"Copertura selettiva estesa":"Copertura selettiva"},{group:"Operational reading",l:"Suitability campagna",v:n=>n.reachD2D>=86?"Alta":n.reachD2D>=76?"Buona":"Mirata"},{group:"Operational reading",l:"Confidence level",v:n=>n.confD2D+"/100"}]},h2h:{label:"Hand to Hand",icon:"",color:C.blue,mode:"movement",src:["Google Places","Google Places","OpenStreetMap","Overpass","Trasporto pubblico / GTFS","Mapbox","Analisi interna","Dati geografici"],allocationSort:(n,i)=>(i.flowScore||0)*2.4+(i.strongPts||0)*13+(i.transitStops||0)*1.9+(i.poi||0)*.18+(i.commDens||0)*1.2-(i.dist||0)*4-((n.flowScore||0)*2.4+(n.strongPts||0)*13+(n.transitStops||0)*1.9+(n.poi||0)*.18+(n.commDens||0)*1.2-(n.dist||0)*4),mainKpis:n=>{const i=n.flowScore,r=i<40?"Basso":i<60?"Medio":i<80?"Alto":"Molto Alto",l=i<40?C.red:i<60?C.yellow:i<80?C.green:C.purple;return[{l:"POI rilevanti",v:n.poi.toLocaleString("it-IT", { useGrouping: true }),u:"POI",src:"Google Places",c:C.blue,icon:""},{l:"Competitor rilevati",v:Math.round(n.nearbyBiz*.28),u:"comp.",src:"Google Places",c:C.red,icon:"–"},{l:"Densità passaggio",v:n.commDens+"/100",u:"",src:"Analisi interna",c:C.blue,icon:" "},{l:"Flusso potenziale",v:r+" – "+i+"/100",u:"",src:"Analisi interna",c:l,icon:""},{l:"Fermate / stazioni",v:n.transitStops+" fermate – "+n.trainStations+" staz.",u:"",src:"Trasporto pubblico / GTFS",c:C.purple,icon:""},{l:"Hotspot operativi",v:n.strongPts+" punti",u:"",src:"Analisi interna",c:C.green,icon:""},{l:"Giorni operativi",v:n.operDaysH2H+" giorni",u:"",src:"Operativo",c:C.yellow,icon:""}]},advKpis:n=>[{l:"Reach Score",v:n.reachH2H,c:C.blue},{l:"ROI Score",v:n.roiH2H,c:C.green},{l:"Confidence",v:n.confH2H,c:C.purple},{l:"Reddito medio",v:n.reddito,c:C.green}],aiCats:[{group:"Movement profile",l:"Intensità passaggio",v:n=>n.flowScore+"/100"},{group:"Movement profile",l:"Anchor trasporto",v:n=>n.transitStops+" fermate – "+n.trainStations+" staz."},{group:"Movement profile",l:"Scuole / eventi",v:n=>n.strongPts+" punti"},{group:"Movement profile",l:"Rilevanza pedonale",v:n=>n.commDens>=75?"Alta":n.commDens>=58?"Media":"Locale"},{group:"Local attractiveness",l:"POI rilevanti",v:n=>n.poi.toLocaleString("it-IT", { useGrouping: true })},{group:"Local attractiveness",l:"Attività vicine",v:n=>n.nearbyBiz.toLocaleString("it-IT", { useGrouping: true })},{group:"Local attractiveness",l:"Contesto mixed-use",v:n=>n.areaType},{group:"Operational timing",l:"Fasce consigliate",v:n=>n.timeSlots},{group:"Operational timing",l:"opportunità mattina",v:n=>n.timeSlots.includes("08")||n.timeSlots.includes("07")?"Forte":"Media"},{group:"Operational timing",l:"opportunità pranzo",v:n=>n.timeSlots.includes("12")?"Forte":"Da validare"},{group:"Operational reading",l:"Hotspot principale",v:n=>n.hotspots},{group:"Operational reading",l:"Punti operativi",v:n=>n.strongPts+" suggeriti"},{group:"Operational reading",l:"Exposure quality",v:n=>n.flowScore>=80?"Alta":n.flowScore>=65?"Buona":"Mirata"},{group:"Operational reading",l:"Confidence level",v:n=>n.confH2H+"/100"}]},b2b:{label:"Business Distribution",icon:"",color:C.purple,mode:"business",src:["Google Places","Google Places","OpenStreetMap","Mapbox","Analisi interna","Dati geografici","Dati territoriali"],allocationSort:(n,i)=>(i.targetBiz||0)*1.9+(i.commDensB2B||0)*2.2+(i.clusters||0)*10-(i.competitors||0)*.35-(i.dist||0)*3-((n.targetBiz||0)*1.9+(n.commDensB2B||0)*2.2+(n.clusters||0)*10-(n.competitors||0)*.35-(n.dist||0)*3),mainKpis:n=>[{l:"Attività rilevate",v:n.bizTotal.toLocaleString("it-IT", { useGrouping: true }),u:"att.",src:"Google Places",c:C.purple,icon:""},{l:"Competitor rilevati",v:n.competitors,u:"comp.",src:"Google Places",c:C.red,icon:"–"},{l:"Densità commerciale",v:n.commDensB2B+"/100",u:"",src:"Analisi interna",c:C.purple,icon:" "},{l:"Reddito medio stimato",v:"EUR "+n.reddito.toLocaleString("it-IT", { useGrouping: true }),u:"anno",src:"Dati territoriali",c:C.green,icon:""},{l:"Commercial Density Index",v:n.cdIdx+"/100",u:"",src:"Analisi interna",c:C.purple,icon:"-–"},{l:"Giorni operativi",v:n.operDaysB2B+" giorni",u:"",src:"Operativo",c:C.yellow,icon:""}],advKpis:n=>[{l:"Comm. Density",v:n.cdIdx,c:C.purple},{l:"Reach Score",v:n.reachB2B,c:C.blue},{l:"ROI Score",v:n.roiB2B,c:C.green},{l:"Confidence",v:n.confB2B,c:"#6366F1"}],aiCats:[{group:"Commercial profile",l:"Attività rilevate",v:n=>n.bizTotal.toLocaleString("it-IT", { useGrouping: true })+" attività"},{group:"Commercial profile",l:"Categorie dominanti",v:n=>n.topCats},{group:"Commercial profile",l:"Densità commerciale",v:n=>n.commDensB2B+"/100"},{group:"Commercial profile",l:"Attività target",v:n=>n.targetBiz.toLocaleString("it-IT", { useGrouping: true })+" att."},{group:"Economic context",l:"Reddito medio stimato",v:n=>"EUR "+n.reddito.toLocaleString("it-IT", { useGrouping: true }),c:"green"},{group:"Economic context",l:"Tasso occupazione",v:n=>n.occup+"%"},{group:"Economic context",l:"Base imprese locale",v:n=>n.imprese.toLocaleString("it-IT", { useGrouping: true })},{group:"Competitive context",l:"Competitor rilevati",v:n=>n.competitors.toLocaleString("it-IT", { useGrouping: true })},{group:"Competitive context",l:"Livello competizione",v:n=>n.competitors>30?"Alto":n.competitors>12?"Medio":"Contenuto"},{group:"Operational reading",l:"Cluster commerciali",v:n=>n.clusters+" cluster"},{group:"Operational reading",l:"Zona business forte",v:n=>n.strongZone},{group:"Operational reading",l:"Attrattività commerciale",v:n=>n.commDensB2B>=78?"Alta":n.commDensB2B>=62?"Media":"Da validare"},{group:"Operational reading",l:"Confidence level",v:n=>n.confB2B+"/100"}]}};
 function getTargetBizMeta(n){const i=n.businessCategory||n.targetBusinessType||n.businessSector||"altro";return BUSINESS_CATEGORIES[i]||BUSINESS_CATEGORIES.altro}function bizCategoryChart(n,i){const r={};n.forEach(u=>(u.topCats||"").split(" – ").filter(Boolean).forEach((h,f)=>{r[h]=(r[h]||0)+Math.max(1,Math.round((u.bizTotal||0)*(f===0?.34:f===1?.24:.16)))}));
 const l=Object.entries(r).map(([u,h])=>({label:u,count:h,target:i.aliases.some(f=>u.toLowerCase().includes(f.toLowerCase()))||u.toLowerCase().includes(i.label.toLowerCase().split(" ")[0])})).sort((u,h)=>h.count-u.count);return l.length?l:[{label:i.label,count:n.reduce((u,h)=>u+(h.targetBiz||0),0),target:!0}]}function businessZoneScore(n){return Math.round(Math.min(100,(n.commDensB2B||0)*.34+(n.reachB2B||0)*.22+(n.roiB2B||0)*.18+(n.targetBiz||0)/Math.max(1,n.bizTotal||1)*100*.16+Math.min(10,(n.clusters||0)*1.2)))}function businessRows(n,i){return[...n].sort((r,l)=>businessZoneScore(l)-businessZoneScore(r)).map(r=>({id:r.id,name:r.strongZone||r.name,zoneName:r.name,score:businessZoneScore(r),activities:r.bizTotal||0,target:r.targetBiz||0,competitors:r.competitors||0,density:r.commDensB2B||0,clusters:r.clusters||0,dominant:(r.topCats||i.label).split(" – ")[0]}))}function h2hHotspotStrength(n){return Math.round(Math.min(100,(n.flowScore||0)*.42+(n.commDens||0)*.2+Math.min(22,(n.transitStops||0)*.9)+Math.min(12,(n.strongPts||0)*1.2)+Math.min(8,(n.poi||0)/38)))}function h2hHotspotRows(n){return[...n].sort((i,r)=>h2hHotspotStrength(r)-h2hHotspotStrength(i)).map(i=>({id:i.id,name:(i.hotspots||i.name).split(" – ")[0],zoneName:i.name,strength:h2hHotspotStrength(i),poi:i.poi||0,transit:(i.transitStops||0)+(i.trainStations||0),anchors:i.strongPts||0,flow:i.flowScore||0,density:i.commDens||0,time:i.timeSlots||"Da validare",reason:i.flowScore>=82?"Alta concentrazione di passaggio vicino ad anchor urbani.":i.transitStops>=14?"Buona opportunità per flussi scuola-lavoro e trasporto.":"Zona utile per distribuzione manuale breve e mirata."}))}function normalizeH2HCategory(n){return String(n||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")}function countPoisByCategory(n,i){return n.filter(r=>i.some(l=>normalizeH2HCategory(r.category).includes(l))).length}function countTransportByType(n,i){return (n?.stops||[]).filter(r=>{const l=[r.stopType,...(r.routes||[]).map(u=>u.routeTypeLabel)].map(normalizeH2HCategory);return l.some(u=>i.includes(u))}).length}function buildH2HOperationalClusters(n,i,r){const l=Array.isArray(n)?n.filter(u=>Number.isFinite(Number(u.lat))&&Number.isFinite(Number(u.lng))):[];if(!l.length)return[];const u=r<=2?.0015:r<=5?.003:.005,h=new Map;l.forEach(f=>{const m=`${Math.round(Number(f.lat)/u)}_${Math.round(Number(f.lng)/u)}`;if(!h.has(m))h.set(m,[]);h.get(m).push(f)});const T=Array.from(h.values()).map((f,m)=>{const y=f.reduce((A,B)=>A+Number(B.lat),0)/f.length,x=f.reduce((A,B)=>A+Number(B.lng),0)/f.length,w=f.reduce((A,B)=>A+(Number(B.priority)||0),0),j=f.filter(A=>(Number(A.priority)||0)>=8).length,z=countPoisByCategory(f,["stazione","metro"]),R=countPoisByCategory(f,["universit","scuola"]),D=countPoisByCategory(f,["centro comm","teatro","cinema","attrazione","mercato","biblioteca","bar","caffe","caff","ristorante"]),W=Math.round(Math.min(100,w*3+j*10+z*8+R*6+Math.min(18,D*2))),A=[...f].sort((B,P)=>(Number(P.priority)||0)-(Number(B.priority)||0))[0];return{id:`h2h_cluster_${m}`,name:A?.name||`Zona operativa ${m+1}`,zoneName:A?.category||"Cluster POI",lat:y,lng:x,poi:f.length,transit:z,anchors:R,attractions:D,strength:W,flow:W,density:Math.min(100,Math.round(f.length*8)),time:"Da validare",reason:`${f.length.toLocaleString("it-IT", { useGrouping: true })} POI reali nel cluster`,items:f}}).sort((f,m)=>m.strength-f.strength);return T.map((f,m)=>({...f,rank:m+1,name:`Zona ${m+1} · ${f.name}`}))}function getH2HMetrics(n,i,r){const l=Array.isArray(n)?n:[],u=Array.isArray(i?.stops)?i.stops:[],h=buildH2HOperationalClusters(l,i,r),f=countPoisByCategory(l,["stazione"]),m=countPoisByCategory(l,["metro"])+countTransportByType(i,["metro"]),y=countTransportByType(i,["train"])+f,x=countPoisByCategory(l,["universit"]),w=countPoisByCategory(l,["centro comm","teatro","cinema","attrazione","mercato","biblioteca","bar","caffe","caff","ristorante"]);return{poi:l.length,zones:h.length,hotspots:h.length,clusters:h,tplStops:u.length,stations:y,metro:m,universities:x,localAttractors:w,transitTotal:u.length+f+m,flowScore:h.length?Math.round(h.reduce((z,R)=>z+R.strength,0)/h.length):0}}function categoryMatchesBusiness(n,i){const r=normalizeH2HCategory(`${n?.category||""} ${n?.name||""}`),l=Array.isArray(i?.aliases)?i.aliases.map(normalizeH2HCategory):[];return l.length?l.some(u=>r.includes(u)):true}function buildBusinessOperationalClusters(n,i,r){const l=Array.isArray(n)?n.filter(u=>Number.isFinite(Number(u.lat))&&Number.isFinite(Number(u.lng))):[];if(!l.length)return[];const u=r<=2?.0015:r<=5?.003:.005,h=new Map;l.forEach(f=>{const m=`${Math.round(Number(f.lat)/u)}_${Math.round(Number(f.lng)/u)}`;if(!h.has(m))h.set(m,[]);h.get(m).push(f)});return Array.from(h.values()).map((f,m)=>{const y=f.reduce((A,B)=>A+Number(B.lat),0)/f.length,x=f.reduce((A,B)=>A+Number(B.lng),0)/f.length,w=f.reduce((A,B)=>A+(Number(B.priority)||0),0),j=f.filter(A=>categoryMatchesBusiness(A,i)).length,z=f.reduce((A,B)=>{const P=B.category||"Altro";A[P]=(A[P]||0)+1;return A},{}),R=Object.entries(z).sort((A,B)=>B[1]-A[1])[0]?.[0]||i?.label||"Business",D=Math.round(Math.min(100,w*3+j*8+f.length*4)),W=[...f].sort((A,B)=>(Number(B.priority)||0)-(Number(A.priority)||0))[0];return{id:`b2b_cluster_${m}`,name:`Zona ${m+1} · ${W?.name||R}`,zoneName:R,lat:y,lng:x,activities:f.length,target:j,competitors:Math.max(0,f.length-j),density:Math.min(100,Math.round(f.length*8)),clusters:1,dominant:R,score:D,items:f}}).sort((f,m)=>m.score-f.score)}function getBusinessMetrics(n,i,r){const l=Array.isArray(n)?n:[],h=buildBusinessOperationalClusters(l,i,r),f=l.filter(m=>categoryMatchesBusiness(m,i)).length,u=l.reduce((m,y)=>{const x=y.category||"Altro";m[x]=(m[x]||0)+1;return m},{}),T=Object.entries(u).map(([m,y])=>({label:m,count:y,target:categoryMatchesBusiness({category:m},i)})).sort((m,y)=>y.count-m.count);return{businesses:l.length,competitors:Math.max(0,l.length-f),commercialDensity:h.length?Math.round(h.reduce((m,y)=>m+y.density,0)/h.length):0,clusters:h.length,targetBusinesses:f,categories:T,clusterRows:h,cdIdx:h.length?Math.round(h.reduce((m,y)=>m+y.score,0)/h.length):0}}function Pv(n){const i=n.reduce((h,f)=>h+(f.poi||0),0),r=n.reduce((h,f)=>h+(f.transitStops||0)+(f.trainStations||0),0),l=n.reduce((h,f)=>h+(f.strongPts||0),0),u=n.reduce((h,f)=>h+(f.nearbyBiz||0),0);return[{label:"POI rilevanti",value:i,color:Qi.pedestrian.color},{label:"Fermate / stazioni",value:r,color:Qi.transit.color},{label:"Scuole / eventi",value:l,color:Qi.school.color},{label:"Attrattori locali",value:u,color:Qi.retail.color}]}function residentialStrength(n){return Math.round(Math.min(100,(n.familyIdx||0)*.34+(n.reachD2D||0)*.22+(n.coverage||0)*.2+Math.min(16,(n.families||0)/1850)+Math.min(8,(n.mailboxes||0)/2400)))}function residentialRows(n){return[...n].sort((i,r)=>residentialStrength(r)-residentialStrength(i)).map((i,r)=>({id:i.id,rank:r+1,name:i.name,strength:residentialStrength(i),families:i.families||0,population:i.pop||0,coverage:i.coverage||0,required:i.families||0,recommended:`${(i.flyersMin||0).toLocaleString("it-IT", { useGrouping: true })}-${(i.flyersMax||0).toLocaleString("it-IT", { useGrouping: true })}`,contribution:n.reduce((l,u)=>l+(u.families||0),0)>0?Math.round((i.families||0)/n.reduce((l,u)=>l+(u.families||0),0)*100):0,areaType:i.areaType}))}const ZONE_COLORS=["#2563EB","#16A34A","#7C3AED","#0891B2","#65A30D","#0F766E","#4F46E5","#0284C7","#15803D","#6D28D9","#0D9488"];
+// Business POIs are loaded from the live OpenStreetMap/Overpass query. The
+// legacy demo metadata must not claim that Google Places is connected.
+const businessLegacyMainKpis = SERVICE_META.b2b.mainKpis;
+LAYERS.b2b = LAYERS.b2b.map((layer) => ({
+  ...layer,
+  src: layer.src === "Google Places" ? "OpenStreetMap / Overpass" : layer.src,
+}));
+SERVICE_META.b2b = {
+  ...SERVICE_META.b2b,
+  src: ["OpenStreetMap", "Overpass", "Mapbox", "Analisi interna", "Dati geografici"],
+  mainKpis: (zone) => businessLegacyMainKpis(zone).map((kpi) => ({
+    ...kpi,
+    src: kpi.src === "Google Places" ? "OpenStreetMap / Overpass" : kpi.src,
+  })),
+};
+
 function getComuneColor(n=""){const p=["#14b8a6","#3b82f6","#8b5cf6","#06b6d4","#22c55e","#6366f1"],i=[...n].reduce((r,l)=>r+l.charCodeAt(0),0);return p[i%p.length]}
 function normalizeTerritoryName(value=""){return String(value||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();}
 function isMilanoTerritory(value){return /\bmilano\b/.test(normalizeTerritoryName(value));}function isMilanoCoordinates(lat,lng){const nLat=Number(lat),nLng=Number(lng);if(!Number.isFinite(nLat)||!Number.isFinite(nLng))return false;return nLat>=45.38&&nLat<=45.56&&nLng>=9.04&&nLng<=9.31;}
@@ -1221,7 +1239,16 @@ function isGeocoderResultInMilanoComune(result) {
 }
 
 function pickRealComuneGeometry(z) {
-  const geomRaw = z?.geometry_geojson || z?.geometry || z?.geojson || z?.geom || z?.feature?.geometry || null;
+  let geomRaw = z?.geometry_geojson || z?.geometry || z?.geojson || z?.geom || z?.feature?.geometry || null;
+  if (!geomRaw && z?.id) {
+    const geo = typeof GEO_DATA !== 'undefined' ? GEO_DATA.find(c => c.id === z.id) : null;
+    if (geo) geomRaw = geo.geometry_geojson || geo.geometry || geo.geojson || null;
+  }
+  if (!geomRaw && z?.name && typeof normalizeMunicipalityName === 'function') {
+    const norm = normalizeMunicipalityName(z.name);
+    const geo = typeof GEO_DATA !== 'undefined' ? GEO_DATA.find(c => normalizeMunicipalityName(c.name || c.label || "") === norm) : null;
+    if (geo) geomRaw = geo.geometry_geojson || geo.geometry || geo.geojson || null;
+  }
   if (!geomRaw) return null;
   if (typeof geomRaw === 'object') return geomRaw;
   try {
@@ -1468,6 +1495,209 @@ const Bv=[{value:1,label:"1 Promoter"},{value:2,label:"2 Promoter"},{value:3,lab
 const Mv=[{value:"07:30-11:30",label:"Mattina Presto (7:30 - 11:30)"},{value:"09:00-13:00",label:"Mattina (9:00 - 13:00)"},{value:"11:30-15:30",label:"Pranzo (11:30 - 15:30)"},{value:"15:00-19:00",label:"Pomeriggio (15:00 - 19:00)"},{value:"18:00-22:00",label:"Sera / Aperitivo (18:00 - 22:00)"}];
 const Fv=[{value:4,label:"4 Ore (Mezza giornata)"},{value:8,label:"8 Ore (Giornata intera)"}];
 const Nv=[{value:"stazione",label:"Stazione Treno / Metro"},{value:"piazza",label:"Piazza / Via Principale"},{value:"centro_commerciale",label:"Centro Commerciale (Esterno)"},{value:"universita",label:"Universita / Scuole"},{value:"fiera_evento",label:"Fiera / Evento"}];
+const H2H_FLYERS_PER_PROMOTER_HOUR = 200;
+const BUSINESS_STOPS_PER_OPERATOR_HOUR = 10;
+const POI_TARGET_TERMS = {
+  all: [],
+  ristorazione: ["ristorante", "bar", "caff", "pub", "mercato"],
+  retail: ["negozio", "supermercato", "centro comm", "abbigliamento", "tabacchi"],
+  sanitario: ["farmacia", "clinica", "ospedale", "studio medico", "medic", "dentist"],
+  automotive: ["officina", "concessionaria", "auto"],
+  business: ["ufficio", "azienda", "company"],
+  hospitality: ["hotel", "struttura ricettiva", "guest house", "albergo"],
+  professional_services: ["studio professionale", "studio legale", "commercialista", "consulenza", "assicurazione", "finanz"],
+  industrial: ["industria", "industriale", "capannone", "magazzino"],
+  scuole: ["scuola", "istituto", "liceo", "elementare", "media"],
+  universita: ["universit", "college", "biblioteca"],
+  stazioni: ["stazione", "fermata", "metro", "railway", "transit"],
+  centri_commerciali: ["centro comm", "shopping", "mall"],
+  immobiliare: ["immobiliare", "estate"],
+  beauty: ["parrucchiere", "estetico", "beauty"],
+  fitness: ["palestra", "sportivo", "fitness", "gym"],
+};
+const ACTIVITY_TARGET_LABELS = {
+  all: "Qualsiasi luogo",
+  ristorazione: "Ristorazione", retail: "Retail", sanitario: "Sanitario",
+  automotive: "Automotive", business: "Business", scuole: "Scuole",
+  universita: "Università e biblioteche", stazioni: "Stazioni e fermate",
+  centri_commerciali: "Centri commerciali", immobiliare: "Immobiliare",
+  beauty: "Beauty", fitness: "Palestre e sport", altro: "Altro",
+};
+
+const DISTRIBUTION_TARGET_OPTIONS = [
+  { value: "all", label: "Qualsiasi luogo" },
+  { value: "scuole", label: "Scuole" },
+  { value: "fitness", label: "Palestre e sport" },
+  { value: "stazioni", label: "Stazioni e fermate" },
+  { value: "universita", label: "Università e biblioteche" },
+  { value: "centri_commerciali", label: "Centri commerciali" },
+  { value: "retail", label: "Negozi" },
+  { value: "sanitario", label: "Sanità" },
+  { value: "ristorazione", label: "Ristorazione" },
+  { value: "business", label: "Aziende e uffici" },
+];
+
+function filterPoisForCampaignTarget(pois, targetSelection, activityNote = "") {
+  const source = Array.isArray(pois) ? pois : [];
+  const selectedTargets = Array.isArray(targetSelection)
+    ? targetSelection.filter(Boolean)
+    : [targetSelection].filter(Boolean);
+  if (selectedTargets.includes("all")) return source;
+  const terms = selectedTargets.flatMap((target) => POI_TARGET_TERMS[target] || (target === "altro"
+    ? normalizeTerritoryName(activityNote).split(/\s+/).filter((term) => term.length > 3)
+    : []));
+  if (terms.length === 0) return source;
+  const normalizedTerms = terms.map(normalizeTerritoryName);
+  return source.filter((poi) => {
+    const haystack = normalizeTerritoryName(`${poi?.category || ""} ${poi?.name || ""}`);
+    return normalizedTerms.some((term) => haystack.includes(term));
+  });
+}
+const H2H_POINT_TYPE_TERMS = {
+  stazione: "stazione",
+  piazza: "piazza",
+  centro_commerciale: "centro commerciale",
+  universita: "università scuola",
+  fiera_evento: "fiera evento",
+};
+
+function buildPromoterAssignments(data, requestedCount = null) {
+  const count = Math.max(1, Number(requestedCount ?? data?.promoterCount ?? 1) || 1);
+  const saved = Array.isArray(data?.promoterAssignments) ? data.promoterAssignments : [];
+  return Array.from({ length: count }, (_, index) => {
+    const existing = saved[index] || {};
+    const legacyLocation = index === 0 ? String(data?.distributionLocation || "") : "";
+    const legacyType = index === 0 ? String(data?.distributionPointType || "") : "";
+    return {
+      id: existing.id || `promoter_${index + 1}`,
+      promoterNumber: index + 1,
+      location: existing.location ?? legacyLocation,
+      pointType: existing.pointType ?? legacyType,
+      label: existing.label || null,
+      lat: Number.isFinite(Number(existing.lat)) ? Number(existing.lat) : null,
+      lng: Number.isFinite(Number(existing.lng)) ? Number(existing.lng) : null,
+      parentComune: existing.parentComune || null,
+      assignedQuantity: Number(existing.assignedQuantity || 0) || null,
+      timeSlot: existing.timeSlot || data?.timeSlot || "",
+      serviceDurationHours: Number(existing.serviceDurationHours || data?.serviceDurationHours || 4),
+    };
+  });
+}
+
+async function geocodePromoterAssignment(assignment) {
+  const location = String(assignment?.location || "").trim();
+  const pointType = String(assignment?.pointType || "").trim();
+  const normalizedLocation = normalizeTerritoryName(location);
+  const knownLocationCity = GEO_DATA.find((known) => {
+    const normalizedKnown = normalizeTerritoryName(known.name || known.label || "");
+    return normalizedLocation === normalizedKnown
+      || normalizedLocation.startsWith(`${normalizedKnown} `)
+      || normalizedLocation.includes(` ${normalizedKnown} `);
+  });
+  const municipalityFallback = (precision = "municipality") => {
+    if (!knownLocationCity) return null;
+    const parentCity = { ...knownLocationCity, label: knownLocationCity.label || knownLocationCity.name };
+    return {
+      parentCity,
+      point: {
+        ...assignment,
+        label: precision === "municipality" ? (parentCity.label || parentCity.name) : `${location} (posizione indicativa)`,
+        lat: Number(parentCity.lat),
+        lng: Number(parentCity.lng),
+        type: "operational_point",
+        parentComune: parentCity.label || parentCity.name,
+        city: parentCity.label || parentCity.name,
+        postcode: null,
+        province: null,
+        providerPlaceId: null,
+        precision,
+        unconfirmed: precision !== "municipality",
+        source: precision === "municipality" ? "known_municipality" : "municipality_fallback",
+      },
+    };
+  };
+
+  // Per un comune esatto non serve interrogare Nominatim una volta per ogni
+  // promoter: il punto preciso verrÃ  scelto tra i POI reali nello Step 2.
+  if (knownLocationCity && normalizedLocation === normalizeTerritoryName(knownLocationCity.name || knownLocationCity.label || "")) {
+    return municipalityFallback("municipality");
+  }
+  const pointTypeTerm = H2H_POINT_TYPE_TERMS[pointType] || "";
+  const query = pointTypeTerm && !normalizeTerritoryName(location).includes(normalizeTerritoryName(pointTypeTerm))
+    ? `${location} ${pointTypeTerm}`
+    : location;
+  const runGeocode = async (searchQuery) => {
+    const params = new URLSearchParams({ q: searchQuery, countrycodes: "it", format: "json", addressdetails: "1", limit: "6" });
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`);
+    if (!response.ok) throw new Error(`GEOCODER_HTTP_${response.status}`);
+    const result = await response.json();
+    return Array.isArray(result) ? result : [];
+  };
+  // Il tipo di target non deve invalidare una via reale: prima cerchiamo il
+  // POI specifico, poi l'indirizzo/comune puro come fallback operativo.
+  let rows;
+  try {
+    rows = await runGeocode(query);
+    if (rows.length === 0 && query !== location) rows = await runGeocode(location);
+  } catch (error) {
+    const fallback = municipalityFallback("municipality_fallback");
+    if (fallback) return fallback;
+    throw error;
+  }
+  if (!Array.isArray(rows) || rows.length === 0) {
+    const fallback = municipalityFallback("municipality_fallback");
+    if (fallback) return fallback;
+    throw new Error("OPERATIONAL_POINT_NOT_FOUND");
+  }
+
+  const wantsStation = pointType === "stazione" || /\b(stazione|station|fermata|metro)\b/i.test(query);
+  const ranked = [...rows].sort((a, b) => {
+    const score = (row) => {
+      const typeText = `${row.type || ""} ${row.addresstype || ""} ${row.class || ""} ${row.display_name || ""}`;
+      const municipalityRank = /\b(city|town|village|municipality)\b/i.test(typeText) ? 30 : 0;
+      const countyPenalty = /\b(county|province|state)\b/i.test(`${row.type || ""} ${row.addresstype || ""}`) ? -20 : 0;
+      const exactNameRank = normalizeTerritoryName(row.name || "") === normalizeTerritoryName(location.split(",")[0] || location) ? 8 : 0;
+      return municipalityRank
+        + countyPenalty
+        + exactNameRank
+        + (wantsStation && /station|railway|halt|stop|stazione/i.test(typeText) ? 40 : 0)
+        + Number(row.importance || 0);
+    };
+    return score(b) - score(a);
+  });
+  const best = ranked[0];
+  const lat = Number(best.lat);
+  const lng = Number(best.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error("OPERATIONAL_POINT_INVALID_COORDINATES");
+
+  const address = best.address || {};
+  const parentName = address.city || address.town || address.village || address.municipality || GEO_DATA.find((known) =>
+    normalizeTerritoryName(best.display_name || "").includes(normalizeTerritoryName(known.name || known.label || ""))
+  )?.name;
+  if (!parentName) throw new Error("OPERATIONAL_POINT_MUNICIPALITY_NOT_FOUND");
+  const knownParent = GEO_DATA.find((known) => normalizeMunicipalityName(known.name || known.label) === normalizeMunicipalityName(parentName));
+  const parentCity = knownParent
+    ? { ...knownParent, label: knownParent.label || knownParent.name }
+    : { id: `operational_${normalizeMunicipalityName(parentName).replace(/\s+/g, "_")}`, name: parentName, label: parentName, lat, lng };
+  const pointLabel = best.display_name?.split(",").slice(0, 2).join(",") || query;
+  return {
+    parentCity,
+    point: {
+      ...assignment,
+      label: pointLabel,
+      lat,
+      lng,
+      type: "operational_point",
+      parentComune: parentCity.label || parentCity.name,
+      city: parentCity.label || parentCity.name,
+      postcode: address.postcode || null,
+      province: address.county || null,
+      providerPlaceId: best.place_id || null,
+      precision: best.addresstype || best.type || best.class || "poi",
+      source: "step1_promoter_assignment",
+    },
+  };
+}
 const $v=[{value:"negozi",label:"Negozi al dettaglio"},{value:"uffici",label:"Uffici e Studi"},{value:"ristoranti",label:"Ristoranti e Bar"},{value:"aziende",label:"Aziende / B2B puro"}];
 const Lv=[{value:"abbigliamento",label:"Abbigliamento / Moda"},{value:"tecnologia",label:"Tecnologia / Elettronica"},{value:"servizi_professionali",label:"Servizi Professionali"},{value:"horeca",label:"Ho.Re.Ca."},{value:"tutte",label:"Qualsiasi categoria locale"}];
 const Iv=[{value:50,label:"Circa 50 attività"},{value:100,label:"Circa 100 attività"},{value:200,label:"Circa 200 attività"},{value:500,label:"Circa 500 attività"}];
@@ -1476,11 +1706,55 @@ const Uv=[{id:"A6",label:"A6",size:"10x15 cm"},{id:"A5",label:"A5",size:"15x21 c
 const Kp=[{id:"photo_report_advanced",icon:"📸",label:"Report fotografico avanzato",price:"Extra",desc:"Report fotografico più dettagliato con evidenze ordinate per zona.",col:C.purple},{id:"report_analytics",icon:"📊",label:"Report Analytics",price:"Extra",desc:"Analisi post-campagna con KPI operativi e riepilogo territoriale.",col:C.green},{id:"photo_certification",icon:"🏅",label:"Certificazione fotografica",price:"Extra",desc:"Validazione fotografica con prove organizzate e verificabili.",col:C.orange},{id:"supervision",icon:"👁️",label:"Supervisione",price:"Extra",desc:"Controllo operativo aggiuntivo sul campo durante la campagna.",col:C.blue}];
 const Gu=[{id:"single",label:"Una sola campagna",icon:"1️⃣",disc:0},{id:"monthly3",label:"Trimestrale",icon:"📅",disc:5},{id:"monthly6",label:"Semestrale",icon:"🗓️",disc:10},{id:"monthly12",label:"Annuale",icon:"👑",disc:15}];
 
+function Step1Help({ label, children }) {
+  return (
+    <span className="vp-s1-help-wrap">
+      <button type="button" className="vp-s1-help" aria-label={`Aiuto: ${label}`}>?</button>
+      <span role="tooltip" className="vp-s1-help-tip">{children}</span>
+    </span>
+  );
+}
+
+const Step1Summary = React.memo(function Step1Summary({ rows, issues, isMobile }) {
+  const content = (
+    <div className="vp-s1-summary-body">
+      <div className="vp-s1-summary-status">
+        <span className={issues.length ? "is-pending" : "is-ready"} />
+        {issues.length ? `${issues.length} scelte da completare` : "Configurazione pronta"}
+      </div>
+      <div className="vp-s1-summary-rows">
+        {rows.map((row) => (
+          <div key={row.label} className="vp-s1-summary-row">
+            <span>{row.label}</span><strong className={String(row.val).includes("Da selezionare") ? "is-empty" : ""}>{row.val}</strong>
+          </div>
+        ))}
+      </div>
+      <div className="vp-s1-estimate">
+        <span>Preventivo</span>
+        <strong>In preparazione</strong>
+        <small>Il prezzo verrà calcolato dopo l'analisi territoriale.</small>
+      </div>
+      {issues.length > 0 && <div className="vp-s1-summary-next"><b>Prossima scelta:</b> {issues[0].label}</div>}
+    </div>
+  );
+  if (isMobile) {
+    return (
+      <details className="vp-s1-summary vp-s1-summary-mobile">
+        <summary>Riepilogo · {rows[0]?.val} · {rows[3]?.val}<span>{issues.length ? `${issues.length} da completare` : "Pronto"}</span></summary>
+        {content}
+      </details>
+    );
+  }
+  return <div className="vp-s1-summary"><div className="vp-s1-summary-title">Riepilogo Step 1</div>{content}</div>;
+});
+
 function Step1({ data, setData, onNext, onHome }) {
   const isMobile = useIsMobile();
   const [showSmartPairingModal, setShowSmartPairingModal] = useState(false);
+  const [resolvingOperationalLocation, setResolvingOperationalLocation] = useState(false);
+  const [operationalLocationError, setOperationalLocationError] = useState("");
 
-  const updateData = (newVals) => {
+  const updateData = useCallback((newVals) => {
     setData((prev) => {
       const next = { ...prev, ...newVals };
       const monthsMult = { single: 1, monthly3: 3, monthly6: 6, monthly12: 12 };
@@ -1526,7 +1800,7 @@ function Step1({ data, setData, onNext, onHome }) {
         deliveryType: next.deliveryType,
       };
     });
-  };
+  }, [setData]);
 
   const toggleExtra = (serviceId) => {
     const current = data.extraServices || [];
@@ -1616,7 +1890,7 @@ function Step1({ data, setData, onNext, onHome }) {
     { value: "retail", label: "🛍 Retail" },
     { value: "sanitario", label: "🏥 Sanitario" },
     { value: "automotive", label: "🚗 Automotive" },
-    { value: "servizi", label: "🏢 Business" },
+    { value: "servizi", label: "🏢 Servizi professionali" },
     { value: "scuole", label: "🎓 Scuole" },
     { value: "immobiliare", label: "🏠 Immobiliare" },
     { value: "beauty", label: "💄 Beauty" },
@@ -1668,7 +1942,15 @@ function Step1({ data, setData, onNext, onHome }) {
     { id: "pronto", label: "Già pronto" },
     { id: "da_creare", label: "Da creare" },
   ];
-  const printing = data.printing || {};
+  const printing = {
+    format: String(data.flyerFormat || "A5").toUpperCase(),
+    grammage: String(data.paperWeight || data.printGramm || "115"),
+    sides: data.printSides || data.printSide || "fronte",
+    color: data.colorMode === "cmyk" ? "colori" : (data.colorMode || data.printColor || "colori"),
+    folding: "nessuna",
+    artworkStatus: "pronto",
+    ...(data.printing || {}),
+  };
   const updatePrinting = (patch) => updateData({ printing: { ...printing, ...patch } });
 
   const priorityOptions = [
@@ -1695,40 +1977,388 @@ function Step1({ data, setData, onNext, onHome }) {
   if (discPct > 0) subtotalEst = subtotalEst * (1 - discPct / 100);
   const totalEstFormatted = Math.round(subtotalEst).toLocaleString("it-IT");
 
-  const handleContinue = () => {
-    const checks = [
-      { fail: !data.type, id: "section-servizio" },
-      { fail: !data.qty || data.qty < 1000, id: "section-quantita" },
-      { fail: !data.hasFlyers || !data.flyerFormat, id: "section-formato" },
-      { fail: !data.urgency, id: "section-urgenza" },
-      { fail: !data.subscription, id: "section-piano" },
-    ];
-    for (const c of checks) {
-      if (c.fail) {
-        const el = document.getElementById(c.id);
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
-          el.style.outline = "2px solid #EF4444";
-          el.style.borderRadius = "16px";
-          setTimeout(() => {
-            el.style.outline = "";
-          }, 2500);
-        }
+  const handleContinue = async () => {
+    const isBusinessService = data.type === "b2b" || data.type === "business-distribution";
+    if (step1Issues.length > 0) {
+      const firstIssue = step1Issues[0];
+      setOperationalLocationError(firstIssue.label);
+      document.getElementById(firstIssue.id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (data.type === "h2h") {
+      if (!Array.isArray(data.distributionTargets) || data.distributionTargets.length === 0) {
+        setOperationalLocationError("Seleziona almeno un tipo di luogo dove distribuire.");
+        document.getElementById("section-distribution-targets")?.scrollIntoView({ behavior: "smooth", block: "center" });
         return;
       }
+      if (!data.promoterCount || !data.timeSlot || !data.serviceDurationHours) {
+        setOperationalLocationError("Seleziona numero promoter, fascia oraria e durata del servizio.");
+        document.getElementById("section-h2h-config")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (!String(promoterAssignments[0]?.location || "").trim()) {
+        setOperationalLocationError("Inserisci almeno il comune o il punto di partenza del Promoter 1.");
+        document.getElementById("section-h2h-config")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+
+      setResolvingOperationalLocation(true);
+      setOperationalLocationError("");
+      try {
+        const resolvedAssignments = [];
+        const savedAssignments = promoterAssignments.map((assignment) => ({ ...assignment }));
+        const parentCities = [];
+        const resolvedLocationCache = new Map();
+        for (let index = 0; index < promoterAssignments.length; index += 1) {
+          if (!String(promoterAssignments[index]?.location || "").trim()) continue;
+          try {
+            const currentAssignment = promoterAssignments[index];
+            const locationCacheKey = `${normalizeTerritoryName(currentAssignment.location)}|${normalizeTerritoryName(currentAssignment.pointType)}`;
+            let resolved = resolvedLocationCache.get(locationCacheKey);
+            if (!resolved) {
+              resolved = await geocodePromoterAssignment(currentAssignment);
+              resolvedLocationCache.set(locationCacheKey, resolved);
+            }
+            const resolvedPoint = {
+              ...resolved.point,
+              ...currentAssignment,
+              label: resolved.point.label,
+              lat: resolved.point.lat,
+              lng: resolved.point.lng,
+              parentComune: resolved.point.parentComune,
+              city: resolved.point.city,
+              precision: resolved.point.precision,
+              unconfirmed: resolved.point.unconfirmed,
+              source: resolved.point.source,
+              promoterNumber: index + 1,
+              assignedQuantity: Math.max(1, Number(promoterAssignments[index]?.serviceDurationHours || serviceDurationHours)) * H2H_FLYERS_PER_PROMOTER_HOUR,
+              microRadiusMeters: 400,
+              timeSlot: promoterAssignments[index]?.timeSlot || data.timeSlot,
+              serviceDurationHours: Math.max(1, Number(promoterAssignments[index]?.serviceDurationHours || serviceDurationHours)),
+            };
+            resolvedAssignments.push(resolvedPoint);
+            savedAssignments[index] = resolvedPoint;
+            parentCities.push(resolved.parentCity);
+          } catch (error) {
+            error.promoterNumber = index + 1;
+            throw error;
+          }
+        }
+
+        const primaryPoint = resolvedAssignments[0];
+        const primaryCity = parentCities[0];
+        flushSync(() => {
+          setData((prev) => ({
+            ...prev,
+            city: primaryCity,
+            cityName: primaryCity.label || primaryCity.name,
+            searchedLocation: primaryPoint.label,
+            selectedComuni: Array.from(new Map(parentCities.map((item) => [getMunicipalityDedupKey(item), item])).values()),
+            selectedSearchPoint: primaryPoint,
+            promoterAssignments: savedAssignments,
+            operationalPoints: resolvedAssignments,
+            h2hEstimatedCapacity: promoterAssignments.reduce((total, assignment) => total + Math.max(1, Number(assignment.serviceDurationHours || serviceDurationHours)) * H2H_FLYERS_PER_PROMOTER_HOUR, 0),
+            distributionLocation: primaryPoint.location,
+            distributionPointType: primaryPoint.pointType,
+            searchMode: "address",
+            radius: Number(prev.radius || 3),
+            radiusKm: Number(prev.radius || 3),
+            selectedRadius: Number(prev.radius || 3),
+            radiusSelectionConfirmed: true,
+            zones: [],
+            selectedZones: [],
+            coverageDecision: null,
+            coverageStrategy: null,
+          }));
+        });
+      } catch (error) {
+        const promoterLabel = error?.promoterNumber ? ` del Promoter ${error.promoterNumber}` : "";
+        const firstLocation = String(promoterAssignments[0]?.location || "").trim();
+        const normalizedFirstLocation = normalizeTerritoryName(firstLocation);
+        const fallbackCity = GEO_DATA.find((known) => {
+          const normalizedKnown = normalizeTerritoryName(known.name || known.label || "");
+          return normalizedFirstLocation === normalizedKnown
+            || normalizedFirstLocation.startsWith(`${normalizedKnown} `)
+            || normalizedFirstLocation.includes(` ${normalizedKnown} `);
+        }) || (Number.isFinite(Number(data.city?.lat)) && Number.isFinite(Number(data.city?.lng)) ? data.city : null);
+
+        if (fallbackCity) {
+          const recoveredCity = { ...fallbackCity, label: fallbackCity.label || fallbackCity.name };
+          const recoveredPoint = {
+            ...promoterAssignments[0],
+            label: `${firstLocation || recoveredCity.label} (centro area indicativo)`,
+            lat: Number(recoveredCity.lat),
+            lng: Number(recoveredCity.lng),
+            type: "operational_point",
+            parentComune: recoveredCity.label || recoveredCity.name,
+            city: recoveredCity.label || recoveredCity.name,
+            precision: "municipality_recovery",
+            unconfirmed: true,
+            source: "step1_recovery",
+            promoterNumber: 1,
+            assignedQuantity: Math.max(1, Number(promoterAssignments[0]?.serviceDurationHours || serviceDurationHours)) * H2H_FLYERS_PER_PROMOTER_HOUR,
+            microRadiusMeters: 400,
+          };
+          setData((prev) => ({
+            ...prev,
+            city: recoveredCity,
+            cityName: recoveredCity.label || recoveredCity.name,
+            searchedLocation: recoveredPoint.label,
+            selectedComuni: [recoveredCity],
+            selectedSearchPoint: recoveredPoint,
+            promoterAssignments: promoterAssignments.map((assignment, index) => index === 0 ? recoveredPoint : assignment),
+            operationalPoints: [recoveredPoint],
+            h2hEstimatedCapacity: promoterAssignments.reduce((total, assignment) => total + Math.max(1, Number(assignment.serviceDurationHours || serviceDurationHours)) * H2H_FLYERS_PER_PROMOTER_HOUR, 0),
+            distributionLocation: firstLocation,
+            distributionPointType: promoterAssignments[0]?.pointType || "",
+            searchMode: "address",
+            radius: Number(prev.radius || 3),
+            radiusKm: Number(prev.radius || 3),
+            selectedRadius: Number(prev.radius || 3),
+            radiusSelectionConfirmed: true,
+            zones: [],
+            selectedZones: [],
+            coverageDecision: null,
+            coverageStrategy: null,
+          }));
+          setOperationalLocationError("");
+          if (import.meta.env.DEV) console.info(`[STEP1_PROMOTER_LOCATION_RECOVERED] ${error?.message || "UNKNOWN_ERROR"} -> ${recoveredCity.label || recoveredCity.name}`);
+          setResolvingOperationalLocation(false);
+          onNext();
+          return;
+        }
+
+        const diagnosticCode = error?.message || "UNKNOWN_GEOCODING_ERROR";
+        setOperationalLocationError(`Non riesco a trovare il punto${promoterLabel}. Inserisci anche il comune (es. Varedo, Via Roma). Codice: ${diagnosticCode}`);
+        if (import.meta.env.DEV) console.warn(`[STEP1_PROMOTER_LOCATION_BLOCKED] promoter=${error?.promoterNumber || "?"} error=${diagnosticCode}`);
+        setResolvingOperationalLocation(false);
+        return;
+      }
+      setResolvingOperationalLocation(false);
+    }
+    if (data.type === "b2b" || data.type === "business-distribution") {
+      if (!String(data.businessZone || "").trim()) {
+        setOperationalLocationError("Inserisci il comune o la zona di partenza della campagna Business.");
+        document.getElementById("business-starting-area")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        document.getElementById("business-starting-area")?.focus();
+        return;
+      }
+      if (!Array.isArray(data.distributionTargets) || data.distributionTargets.length === 0) {
+        setOperationalLocationError("Seleziona almeno un tipo di attività o luogo da visitare.");
+        document.getElementById("section-business-config")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (!data.businessCampaignObjective) {
+        setOperationalLocationError("Seleziona l’obiettivo della campagna Business.");
+        document.getElementById("section-business-config")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      const definitionMode = data.businessDefinitionMode || "materials";
+      const usesMaterials = definitionMode === "materials" || definitionMode === "both";
+      const usesActivities = definitionMode === "activities" || definitionMode === "both";
+      if (usesMaterials && Number(data.businessMaterialQuantity || data.qty || 0) < 1) {
+        setOperationalLocationError("Indica quante copie o materiali sono disponibili.");
+        document.getElementById("section-business-config")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (usesActivities && Number(data.businessTargetCount || 0) < 1) {
+        setOperationalLocationError("Indica quante attività vuoi raggiungere.");
+        document.getElementById("section-business-config")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (!data.businessDeliveryMethod) {
+        setOperationalLocationError("Seleziona la modalità di consegna Business.");
+        document.getElementById("section-business-config")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (!data.businessMaterialLocation) {
+        setOperationalLocationError("Indica dove si trova il materiale da distribuire.");
+        document.getElementById("section-business-config")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (data.businessMaterialLocation === "pickup_client" && !String(data.businessPickup?.address || "").trim()) {
+        setOperationalLocationError("Inserisci l’indirizzo per il ritiro del materiale.");
+        document.getElementById("section-business-config")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      setOperationalLocationError("");
+      const materialQuantity = Math.max(0, Number(data.businessMaterialQuantity || data.qty || 0));
+      setResolvingOperationalLocation(true);
+      let resolvedBusinessArea;
+      try {
+        resolvedBusinessArea = await geocodePromoterAssignment({
+          location: String(data.businessZone || "").trim(),
+          pointType: "",
+        });
+      } catch (error) {
+        const diagnosticCode = error?.message || "BUSINESS_AREA_NOT_FOUND";
+        setOperationalLocationError(`Non riesco a trovare il comune o la zona Business. Controlla il nome e riprova. Codice: ${diagnosticCode}`);
+        document.getElementById("business-starting-area")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        setResolvingOperationalLocation(false);
+        return;
+      }
+      const businessCity = {
+        ...resolvedBusinessArea.parentCity,
+        label: resolvedBusinessArea.parentCity?.label || resolvedBusinessArea.parentCity?.name,
+      };
+      flushSync(() => {
+        setData((prev) => ({
+          ...prev,
+          qty: materialQuantity,
+          flyerQuantity: materialQuantity,
+          promoterCount: null,
+          businessOperatorCount: null,
+          businessEstimatedStops: null,
+          timeSlot: null,
+          serviceDurationHours: null,
+          city: businessCity,
+          cityName: businessCity.label || businessCity.name || "",
+          searchedLocation: businessCity.label || businessCity.name || "",
+          selectedComuni: [businessCity],
+          selectedSearchPoint: null,
+          searchMode: "municipality",
+          zones: [],
+          selectedZones: [],
+          coverageDecision: null,
+          coverageStrategy: null,
+        }));
+      });
+      setResolvingOperationalLocation(false);
     }
     onNext();
+  };
+
+  const promoterAssignments = buildPromoterAssignments(data);
+  const promoterCount = Math.max(1, Number(data.promoterCount || 1));
+  const serviceDurationHours = Math.max(1, Number(data.serviceDurationHours || 4));
+  const estimatedH2HCapacity = promoterAssignments.reduce(
+    (total, assignment) => total + Math.max(1, Number(assignment.serviceDurationHours || serviceDurationHours)) * H2H_FLYERS_PER_PROMOTER_HOUR,
+    0,
+  );
+  const selectedDistributionTargets = Array.isArray(data.distributionTargets) ? data.distributionTargets : [];
+
+  const toggleDistributionTarget = (target) => {
+    if (target === "all") {
+      updateData({
+        distributionTargets: selectedDistributionTargets.includes("all") ? [] : ["all"],
+        distributionTargetsExplicit: true,
+      });
+      return;
+    }
+    const withoutAll = selectedDistributionTargets.filter((item) => item !== "all");
+    updateData({
+      distributionTargets: withoutAll.includes(target)
+        ? withoutAll.filter((item) => item !== target)
+        : [...withoutAll, target],
+      distributionTargetsExplicit: true,
+    });
+  };
+
+  const updateTeamSchedule = (patch) => {
+    const assignments = buildPromoterAssignments({ ...data, ...patch }).map((assignment) => ({ ...assignment, ...patch }));
+    updateData({ ...patch, promoterAssignments: assignments });
+  };
+
+  const updatePromoterCount = (value) => {
+    const count = Math.max(1, Number(value) || 1);
+    const assignments = buildPromoterAssignments(data, count);
+    updateData({
+      promoterCount: count,
+      promoterAssignments: assignments,
+      distributionLocation: assignments[0]?.location || "",
+      distributionPointType: assignments[0]?.pointType || "",
+    });
+  };
+
+  const updatePromoterAssignment = (index, patch) => {
+    const assignments = buildPromoterAssignments(data).map((assignment, assignmentIndex) =>
+      assignmentIndex === index
+        ? { ...assignment, ...patch, label: null, lat: null, lng: null, parentComune: null }
+        : assignment
+    );
+    updateData({
+      promoterAssignments: assignments,
+      distributionLocation: assignments[0]?.location || "",
+      distributionPointType: assignments[0]?.pointType || "",
+    });
+  };
+
+  const copyFirstPromoterPoint = () => {
+    const assignments = buildPromoterAssignments(data);
+    const first = assignments[0];
+    updateData({
+      promoterAssignments: assignments.map((assignment, index) => index === 0 ? assignment : {
+        ...assignment,
+        location: first.location,
+        pointType: first.pointType,
+        label: null,
+        lat: null,
+        lng: null,
+        parentComune: null,
+      }),
+    });
   };
 
   const isH2H = data.type === "h2h";
   const isB2B = data.type === "b2b" || data.type === "business-distribution";
   const dateError = !!(data.startDate && data.endDate && data.endDate < data.startDate);
 
-  const currentServiceLabel = { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Business Distribution", "business-distribution": "Business Distribution" }[data.type] || "Da selezionare";
+  const currentServiceLabel = { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Distribuzione presso attività e aziende", "business-distribution": "Distribuzione presso attività e aziende" }[data.type] || "Da selezionare";
   const currentPlanLabel = { single: "Singola", monthly3: "Trimestrale (-5%)", monthly6: "Semestrale (-10%)", monthly12: "Annuale (-15%)" }[data.subscription] || "Da selezionare";
   const currentUrgencyLabel = { normal: "Standard", urgent: "Urgente (+20%)", express: "Express (+35%)" }[data.urgency] || "Da selezionare";
   const currentPrintLabel = data.hasFlyers === "yes" ? "Già stampati" : data.hasFlyers === "no" ? "Da stampare (+stampa)" : "Da selezionare";
   const currentFormatLabel = data.flyerFormat ? String(data.flyerFormat).toUpperCase() : "Da selezionare";
+  const businessDefinitionMode = data.businessDefinitionMode || "materials";
+  const step1Issues = [
+    !data.type && { id: "section-servizio", label: "Scegli il servizio" },
+    !data.activityType && { id: "section-settore", label: "Indica il settore dell'attività" },
+    !isB2B && (!data.qty || Number(data.qty) < 1000) && { id: "section-quantita", label: "Inserisci almeno 1.000 volantini" },
+    !isB2B && !data.hasFlyers && { id: "section-formato", label: "Indica se il materiale è già stampato" },
+    !data.flyerFormat && { id: "section-formato", label: "Scegli il formato" },
+    !isB2B && !data.urgency && { id: "section-urgenza", label: "Scegli la priorità" },
+    !data.subscription && { id: "section-piano", label: "Scegli il piano" },
+    isH2H && selectedDistributionTargets.length === 0 && { id: "section-distribution-targets", label: "Scegli almeno un luogo Hand to Hand" },
+    isH2H && (!data.promoterCount || !data.timeSlot || !data.serviceDurationHours) && { id: "section-h2h-config", label: "Completa squadra, orario e durata" },
+    isH2H && !String(promoterAssignments[0]?.location || "").trim() && { id: "section-h2h-config", label: "Inserisci il centro dell'area Hand to Hand" },
+    isB2B && !String(data.businessZone || "").trim() && { id: "section-business-config", label: "Inserisci il comune Business" },
+    isB2B && selectedDistributionTargets.length === 0 && { id: "section-business-config", label: "Scegli le attività Business" },
+    isB2B && !data.businessCampaignObjective && { id: "section-business-config", label: "Scegli l'obiettivo Business" },
+    isB2B && ["materials", "both"].includes(businessDefinitionMode) && Number(data.businessMaterialQuantity || data.qty || 0) < 1 && { id: "section-business-config", label: "Inserisci la quantità di materiali" },
+    isB2B && ["activities", "both"].includes(businessDefinitionMode) && Number(data.businessTargetCount || 0) < 1 && { id: "section-business-config", label: "Inserisci il numero di attività" },
+    isB2B && !data.businessDeliveryMethod && { id: "section-business-config", label: "Scegli la modalità di consegna" },
+    isB2B && !data.businessMaterialLocation && { id: "section-business-config", label: "Indica dove si trova il materiale" },
+    isB2B && data.businessMaterialLocation === "pickup_client" && !String(data.businessPickup?.address || "").trim() && { id: "section-business-config", label: "Inserisci l'indirizzo di ritiro" },
+    dateError && { id: "section-periodo", label: "Correggi il periodo selezionato" },
+  ].filter(Boolean);
+  const canContinueStep1 = step1Issues.length === 0 && !resolvingOperationalLocation;
+  const quantityValue = Math.max(0, Number(data.businessMaterialQuantity ?? data.qty ?? 0) || 0);
+  const quantityFeedback = quantityValue >= 1000
+    ? { label: "Quantità valida per procedere", text: "La copertura reale verrà calcolata automaticamente nello Step 2.", color: "#86EFAC" }
+    : { label: "Quantità da completare", text: "Inserisci almeno 1.000 materiali per procedere.", color: "#FCD34D" };
+  const summaryRows = [
+    { label: "Servizio", val: currentServiceLabel },
+    { label: "Zona", val: isB2B ? (data.businessZone || "Da selezionare") : "Da selezionare nello Step 2" },
+    { label: "Formato", val: currentFormatLabel },
+    { label: "Quantità", val: `${new Intl.NumberFormat("it-IT").format(quantityValue || 0)} pz` },
+    { label: "Piano", val: currentPlanLabel },
+    { label: "Stampa", val: currentPrintLabel },
+    { label: "Urgenza", val: currentUrgencyLabel },
+  ];
+  const ctaChecklist = [
+    { label: "Servizio", complete: Boolean(data.type) },
+    { label: "Settore e target", complete: Boolean(data.activityType) && (!isH2H && !isB2B ? true : selectedDistributionTargets.length > 0) },
+    { label: "Quantità", complete: isB2B ? Number(data.businessMaterialQuantity || data.qty || 0) >= 1 : Number(data.qty || 0) >= 1000 },
+    { label: "Materiale", complete: Boolean(data.flyerFormat) && (isB2B ? Boolean(data.businessMaterialLocation) : Boolean(data.hasFlyers)) },
+    { label: "Piano", complete: Boolean(data.subscription) },
+    {
+      label: "Configurazione operativa",
+      complete: isH2H
+        ? Boolean(data.promoterCount && data.timeSlot && data.serviceDurationHours && String(promoterAssignments[0]?.location || "").trim())
+        : isB2B
+          ? Boolean(String(data.businessZone || "").trim() && data.businessCampaignObjective && data.businessDeliveryMethod && (data.businessMaterialLocation !== "pickup_client" || String(data.businessPickup?.address || "").trim()))
+          : Boolean(data.urgency) && !dateError,
+    },
+  ];
   const s1Green = "#22C55E";
   const s1Panel = {
     background: "linear-gradient(180deg, rgba(18,32,54,.96), rgba(12,24,42,.96))",
@@ -1751,7 +2381,7 @@ function Step1({ data, setData, onNext, onHome }) {
   });
 
   return (
-    <div style={{ maxWidth: 1240, margin: "0 auto", padding: isMobile ? "32px 16px 120px" : "48px 28px 140px", color: "#F8FAFC", background: "linear-gradient(180deg,#07111f 0%, #0b182a 52%, #101c2c 100%)" }}>
+    <div className="vp-s1-root" style={{ maxWidth: 1440, margin: "0 auto", padding: isMobile ? "32px 16px 120px" : "48px 28px 140px", color: "#F8FAFC", background: "linear-gradient(180deg,#07111f 0%, #0b182a 52%, #101c2c 100%)" }}>
       <style>{`
         .vp-s1-card-hover { transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
         .vp-s1-card-hover:hover { transform: translateY(-3px); border-color: rgba(34,197,94,0.32) !important; box-shadow: 0 20px 42px rgba(0,0,0,0.32) !important; background: rgba(15,29,50,.92) !important; }
@@ -1762,6 +2392,27 @@ function Step1({ data, setData, onNext, onHome }) {
         .vp-s1-slider { -webkit-appearance: none; width: 100%; height: 8px; border-radius: 4px; background: rgba(148,163,184,0.15); outline: none; margin: 16px 0; }
         .vp-s1-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #22C55E; cursor: pointer; border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.4); transition: transform 0.15s; }
         .vp-s1-slider::-webkit-slider-thumb:hover { transform: scale(1.18); }
+        .vp-s1-root { overflow-x: clip; }
+        .vp-s1-root button:focus-visible, .vp-s1-root input:focus-visible, .vp-s1-root select:focus-visible, .vp-s1-root textarea:focus-visible, .vp-s1-root summary:focus-visible { outline: 3px solid rgba(56,189,248,.72); outline-offset: 3px; }
+        .vp-s1-help-wrap { position: relative; display: inline-flex; margin-left: 8px; vertical-align: middle; }
+        .vp-s1-help { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(148,163,184,.38); background: rgba(15,29,50,.9); color: #CBD5E1; cursor: help; font: 900 12px/1 'DM Sans',sans-serif; }
+        .vp-s1-help-tip { position: absolute; z-index: 20; left: 28px; top: -8px; width: 230px; padding: 10px 12px; border-radius: 10px; background: #16263d; border: 1px solid rgba(148,163,184,.28); color: #E2E8F0; font: 500 12px/1.45 'DM Sans',sans-serif; box-shadow: 0 12px 30px rgba(0,0,0,.35); opacity: 0; pointer-events: none; transform: translateY(4px); transition: .16s ease; }
+        .vp-s1-help-wrap:hover .vp-s1-help-tip, .vp-s1-help-wrap:focus-within .vp-s1-help-tip { opacity: 1; transform: translateY(0); }
+        .vp-s1-summary { border-radius: 20px; border: 1px solid rgba(34,197,94,.24); background: rgba(15,29,50,.94); box-shadow: 0 20px 48px rgba(0,0,0,.24); padding: 22px; }
+        .vp-s1-summary-title { color: #22C55E; font: 900 12px/1 'DM Sans',sans-serif; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 18px; }
+        .vp-s1-summary-row { display: flex; justify-content: space-between; gap: 14px; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,.06); font: 600 12px/1.35 'DM Sans',sans-serif; }
+        .vp-s1-summary-row span:first-child { color: #94A3B8; }
+        .vp-s1-summary-row strong { color: #F8FAFC; text-align: right; overflow-wrap: anywhere; }
+        .vp-s1-summary-status { margin-top: 16px; padding: 12px; border-radius: 12px; background: rgba(34,197,94,.09); color: #BBF7D0; font: 700 12px/1.45 'DM Sans',sans-serif; }
+        .vp-s1-estimate { display: grid; gap: 4px; margin-top: 16px; padding: 13px; border-radius: 12px; background: rgba(255,255,255,.04); }
+        .vp-s1-estimate span { color: #94A3B8; font: 800 10px/1.2 'DM Sans',sans-serif; text-transform: uppercase; letter-spacing: .08em; }
+        .vp-s1-estimate strong { color: #F8FAFC; font: 900 16px/1.3 'DM Sans',sans-serif; }
+        .vp-s1-estimate small { color: #94A3B8; font: 500 10px/1.45 'DM Sans',sans-serif; }
+        .vp-s1-summary-next { margin-top: 12px; color: #FCD34D; font: 650 11px/1.45 'DM Sans',sans-serif; }
+        .vp-s1-summary-mobile { padding: 0; margin-bottom: 22px; overflow: hidden; }
+        .vp-s1-summary-mobile summary { cursor: pointer; padding: 16px 18px; color: #22C55E; font: 900 13px/1.2 'DM Sans',sans-serif; }
+        .vp-s1-summary-mobile summary span { float: right; color: #CBD5E1; font-size: 11px; }
+        .vp-s1-summary-mobile > div { padding: 0 18px 18px; }
       `}</style>
       {onHome && (
         <NavButton onClick={onHome} style={{ marginBottom: 24 }}>
@@ -1804,9 +2455,12 @@ function Step1({ data, setData, onNext, onHome }) {
       </div>
 
       {/* Main Layout Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 0 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr)" : "minmax(0,1fr) 310px", gap: isMobile ? 0 : 28, alignItems: "start" }}>
+        <aside style={{ gridColumn: isMobile ? 1 : 2, gridRow: 1, position: isMobile ? "static" : "sticky", top: 22, zIndex: 8 }} aria-label="Riepilogo configurazione">
+          <Step1Summary rows={summaryRows} issues={step1Issues} isMobile={isMobile} />
+        </aside>
         {/* Left Column: Configuration Sections */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 36, gridColumn: 1, gridRow: isMobile ? 2 : 1, minWidth: 0 }}>
           
           {/* Section 1: Tipo di distribuzione */}
           <div id="section-servizio" style={s1Panel}>
@@ -1815,13 +2469,17 @@ function Step1({ data, setData, onNext, onHome }) {
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 24px" }}>
               Come vuoi distribuire i tuoi volantini?
+              <Step1Help label="Differenze tra i servizi">La scelta cambia il tipo di area e le attività disponibili nello Step 2. Potrai ancora verificare tutto sulla mappa.</Step1Help>
             </h2>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))", gap: 20, alignItems: "stretch" }}>
+            <div role="radiogroup" aria-label="Tipo di distribuzione" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))", gap: 20, alignItems: "stretch" }}>
               {distributionTypes.map((t) => {
                 const active = data.type === t.id;
                 const cardCol = active ? s1Green : "rgba(255,255,255,.38)";
                 return (
-                  <div
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
                     key={t.id}
                     onClick={() => updateData({ type: t.id })}
                     className="vp-s1-card-hover"
@@ -1833,6 +2491,8 @@ function Step1({ data, setData, onNext, onHome }) {
                       display: "flex",
                       flexDirection: "column",
                       position: "relative",
+                      textAlign: "left",
+                      color: "inherit",
                     }}
                   >
                     {active ? (
@@ -1858,19 +2518,20 @@ function Step1({ data, setData, onNext, onHome }) {
                         {active ? "✓" : "+"}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
           </div>
 
           {/* Section 2: Attività cliente */}
-          <div style={s1Panel}>
+          <div id="section-settore" style={s1Panel}>
             <div style={s1EyebrowStyle}>
               2 - Settore o Attività
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
               Che tipo di attività devi pubblicizzare?
+              <Step1Help label="Come viene usato il settore">Per Hand to Hand e Business orienta le attività proposte sulla mappa. Per Door to Door resta un contesto della campagna.</Step1Help>
             </h2>
             <p style={{ fontFamily: F.sans, fontSize: 14, color: "#94A3B8", margin: "0 0 24px" }}>
               Selezionando il tuo settore, l'AI ottimizzerà le zone e le fasce di distribuzione suggerite nello Step 2.
@@ -1882,7 +2543,12 @@ function Step1({ data, setData, onNext, onHome }) {
                   <button
                     key={btn.value}
                     type="button"
-                    onClick={() => updateData({ activityType: btn.value, businessSector: btn.value })}
+                    onClick={() => updateData({
+                      activityType: btn.value,
+                      businessSector: btn.value,
+                      distributionTargets: [btn.value],
+                      distributionTargetsExplicit: false,
+                    })}
                     className="vp-s1-btn-hover"
                     style={{
                       padding: "14px 12px",
@@ -1911,10 +2577,35 @@ function Step1({ data, setData, onNext, onHome }) {
               />
             )}
 
+            {isH2H && (
+              <div id="section-distribution-targets" style={{ marginTop: 24, padding: isMobile ? 16 : 20, borderRadius: 16, background: "rgba(5,12,24,.42)", border: "1px solid rgba(34,197,94,.20)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 14 }}>
+                  <div>
+                    <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 850, color: C.white }}>Dove vuoi distribuire?</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.48)", marginTop: 4, lineHeight: 1.45 }}>Puoi scegliere più categorie. Nello Step 2 vedrai tutti i luoghi realmente disponibili dentro il raggio.</div>
+                  </div>
+                  <span style={{ padding: "5px 8px", borderRadius: 8, background: selectedDistributionTargets.length ? "rgba(34,197,94,.12)" : "rgba(245,158,11,.10)", color: selectedDistributionTargets.length ? "#86EFAC" : "#FCD34D", fontFamily: F.sans, fontSize: 9, fontWeight: 800 }}>
+                    {selectedDistributionTargets.length ? `${selectedDistributionTargets.length} selezionati` : "Selezione richiesta"}
+                  </span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, minmax(0,1fr))" : "repeat(5, minmax(0,1fr))", gap: 9 }}>
+                  {DISTRIBUTION_TARGET_OPTIONS.map((target) => {
+                    const active = selectedDistributionTargets.includes(target.value);
+                    return (
+                      <button key={target.value} type="button" onClick={() => toggleDistributionTarget(target.value)} className="vp-s1-btn-hover" style={{ minHeight: 44, padding: "9px 10px", borderRadius: 11, border: `1px solid ${active ? "rgba(34,197,94,.65)" : "rgba(255,255,255,.10)"}`, background: active ? "rgba(34,197,94,.13)" : "rgba(255,255,255,.035)", color: active ? "#86EFAC" : "#CBD5E1", fontFamily: F.sans, fontSize: 11, fontWeight: active ? 800 : 650, cursor: "pointer", textAlign: "center" }}>
+                        {active ? "✓ " : ""}{target.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Pannelli dinamici H2H / B2B */}
             <AnimatePresence mode="wait">
             {isH2H && (
               <motion.div
+                id="section-h2h-config"
                 key="panel-h2h"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1929,44 +2620,85 @@ function Step1({ data, setData, onNext, onHome }) {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginBottom: 16 }}>
                   <div>
                     <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Numero Promoter</label>
-                    <select value={data.promoterCount || ""} onChange={(e) => updateData({ promoterCount: e.target.value })} className="vp-s1-input-modern">
+                    <select value={data.promoterCount || ""} onChange={(e) => updatePromoterCount(e.target.value)} className="vp-s1-input-modern">
                       <option value="">Seleziona...</option>
                       {Bv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                     </select>
                   </div>
                   <div>
                     <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Fascia Oraria</label>
-                    <select value={data.timeSlot || ""} onChange={(e) => updateData({ timeSlot: e.target.value })} className="vp-s1-input-modern">
+                    <select value={data.timeSlot || ""} onChange={(e) => updateTeamSchedule({ timeSlot: e.target.value })} className="vp-s1-input-modern">
                       <option value="">Seleziona...</option>
                       {Mv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                     </select>
                   </div>
                   <div>
                     <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Durata Servizio</label>
-                    <select value={data.serviceDurationHours || ""} onChange={(e) => updateData({ serviceDurationHours: e.target.value })} className="vp-s1-input-modern">
+                    <select value={data.serviceDurationHours || ""} onChange={(e) => updateTeamSchedule({ serviceDurationHours: Number(e.target.value) })} className="vp-s1-input-modern">
                       <option value="">Seleziona...</option>
                       {Fv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                     </select>
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
                   <div>
-                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Luogo principale / Piazza</label>
-                    <input type="text" placeholder="es. Duomo, Stazione Centrale..." value={data.distributionLocation || ""} onChange={(e) => updateData({ distributionLocation: e.target.value })} className="vp-s1-input-modern" />
+                    <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 850, color: C.white }}>Area di ricerca</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)", marginTop: 3 }}>Questo indirizzo definisce solo il centro del raggio. Le postazioni dei promoter saranno le scuole, palestre o attività scelte nello Step 2.</div>
                   </div>
-                  <div>
-                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Tipo Punto ad alto flusso</label>
-                    <select value={data.distributionPointType || ""} onChange={(e) => updateData({ distributionPointType: e.target.value })} className="vp-s1-input-modern">
-                      <option value="">Seleziona...</option>
-                      {Nv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                    </select>
-                  </div>
+                </div>
+                <div style={{ padding: 14, borderRadius: 12, background: "rgba(5,12,24,.42)", border: "1px solid rgba(96,165,250,.18)", marginBottom: 10 }}>
+                  <label style={{ fontSize: 11, color: "#CBD5E1", display: "block", marginBottom: 5 }}>Comune, via o punto centrale del raggio</label>
+                  <input type="text" placeholder="es. Varedo oppure Varedo, Via Roma" value={promoterAssignments[0]?.location || ""} onChange={(e) => updatePromoterAssignment(0, { location: e.target.value })} className="vp-s1-input-modern" />
+                </div>
+                <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "#93C5FD", margin: "14px 0 8px" }}>Promoter e orari</div>
+                <div style={{ display: "grid", gap: 10 }}>
+                  {promoterAssignments.map((assignment, index) => (
+                    <div key={assignment.id} style={{ padding: 14, borderRadius: 12, background: "rgba(5,12,24,.42)", border: "1px solid rgba(96,165,250,.18)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10 }}>
+                        <span style={{ width: 25, height: 25, borderRadius: "50%", display: "grid", placeItems: "center", background: "#2563EB", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 900 }}>{index + 1}</span>
+                        <strong style={{ fontFamily: F.sans, fontSize: 12, color: C.white }}>Promoter {index + 1}</strong>
+                        <span style={{ marginLeft: "auto", fontFamily: F.sans, fontSize: 10, color: "#4ADE80" }}>Capacità stimata: {(Math.max(1, Number(assignment.serviceDurationHours || serviceDurationHours)) * H2H_FLYERS_PER_PROMOTER_HOUR).toLocaleString("it-IT")} pz.</span>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
+                        <div style={{ display: "none" }}>
+                          <label style={{ fontSize: 11, color: "#CBD5E1", display: "block", marginBottom: 5 }}>{index === 0 ? "Comune o punto di partenza" : "Punto già conosciuto (facoltativo)"}</label>
+                          <input type="text" placeholder={index === 0 ? "es. Varedo oppure Varedo, Via Roma" : "Puoi assegnarlo nello Step 2"} value={assignment.location || ""} onChange={(e) => updatePromoterAssignment(index, { location: e.target.value })} className="vp-s1-input-modern" />
+                        </div>
+                        <div style={{ display: "none" }}>
+                          <label style={{ fontSize: 11, color: "#CBD5E1", display: "block", marginBottom: 5 }}>Preferenza punto (facoltativa)</label>
+                          <select value={assignment.pointType || ""} onChange={(e) => updatePromoterAssignment(index, { pointType: e.target.value })} className="vp-s1-input-modern">
+                            <option value="">Seleziona...</option>
+                            {Nv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, color: "#CBD5E1", display: "block", marginBottom: 5 }}>Orario Promoter {index + 1}</label>
+                          <select value={assignment.timeSlot || data.timeSlot || ""} onChange={(e) => updatePromoterAssignment(index, { timeSlot: e.target.value })} className="vp-s1-input-modern">
+                            <option value="">Seleziona...</option>
+                            {Mv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, color: "#CBD5E1", display: "block", marginBottom: 5 }}>Durata Promoter {index + 1}</label>
+                          <select value={assignment.serviceDurationHours || data.serviceDurationHours || ""} onChange={(e) => updatePromoterAssignment(index, { serviceDurationHours: Number(e.target.value) })} className="vp-s1-input-modern">
+                            <option value="">Seleziona...</option>
+                            {Fv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 10, background: data.qty > estimatedH2HCapacity ? "rgba(251,191,36,.08)" : "rgba(34,197,94,.08)", border: `1px solid ${data.qty > estimatedH2HCapacity ? "rgba(251,191,36,.25)" : "rgba(34,197,94,.25)"}`, fontFamily: F.sans, fontSize: 11, color: data.qty > estimatedH2HCapacity ? "#FDE68A" : "#86EFAC", lineHeight: 1.45 }}>
+                  Capacità squadra stimata: <b>{estimatedH2HCapacity.toLocaleString("it-IT")} volantini</b> (somma degli orari dei {promoterCount} promoter × {H2H_FLYERS_PER_PROMOTER_HOUR}/ora).
+                  {data.qty > estimatedH2HCapacity ? ` Per distribuire ${Number(data.qty || 0).toLocaleString("it-IT")} volantini serviranno più ore, promoter o giornate.` : " La configurazione è coerente con la quantità inserita."}
                 </div>
               </motion.div>
             )}
 
-            {isB2B && (
+            {isB2B && false && (
               <motion.div
+                id="section-b2b-config"
                 key="panel-b2b"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1978,7 +2710,7 @@ function Step1({ data, setData, onNext, onHome }) {
                   <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#A78BFA", flexShrink: 0 }} />
                   Configurazione Distribuzione Business
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                <div style={{ display: "none" }}>
                   <div>
                     <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Tipo Attività Target</label>
                     <select value={data.targetBusinessType || ""} onChange={(e) => updateData({ targetBusinessType: e.target.value })} className="vp-s1-input-modern">
@@ -1994,8 +2726,31 @@ function Step1({ data, setData, onNext, onHome }) {
                     </select>
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginBottom: 16 }}>
                   <div>
+                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Numero Addetti</label>
+                    <select value={data.promoterCount || ""} onChange={(e) => updatePromoterCount(e.target.value)} className="vp-s1-input-modern">
+                      <option value="">Seleziona...</option>
+                      {Bv.map((opt) => <option key={opt.value} value={opt.value}>{opt.value === 1 ? "1 Addetto" : `${opt.value} Addetti`}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Fascia Oraria</label>
+                    <select value={data.timeSlot || ""} onChange={(e) => updateTeamSchedule({ timeSlot: e.target.value })} className="vp-s1-input-modern">
+                      <option value="">Seleziona...</option>
+                      {Mv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Durata Servizio</label>
+                    <select value={data.serviceDurationHours || ""} onChange={(e) => updateTeamSchedule({ serviceDurationHours: Number(e.target.value) })} className="vp-s1-input-modern">
+                      <option value="">Seleziona...</option>
+                      {Fv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
+                  <div style={{ display: "none" }}>
                     <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Numero Attività Target</label>
                     <select value={data.targetBusinessCount || ""} onChange={(e) => updateData({ targetBusinessCount: e.target.value })} className="vp-s1-input-modern">
                       <option value="">Seleziona...</option>
@@ -2003,8 +2758,8 @@ function Step1({ data, setData, onNext, onHome }) {
                     </select>
                   </div>
                   <div>
-                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Zona Commerciale / Comune</label>
-                    <input type="text" placeholder="es. Zona Industriale, Centro Uffici..." value={data.businessZone || ""} onChange={(e) => updateData({ businessZone: e.target.value })} className="vp-s1-input-modern" />
+                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Comune o punto di partenza</label>
+                    <input type="text" placeholder="es. Varedo oppure Varedo, Via Roma" value={data.businessZone || ""} onChange={(e) => updateData({ businessZone: e.target.value })} className="vp-s1-input-modern" />
                   </div>
                   <div>
                     <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Modalità di Consegna</label>
@@ -2014,13 +2769,17 @@ function Step1({ data, setData, onNext, onHome }) {
                     </select>
                   </div>
                 </div>
+                <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(167,139,250,.08)", border: "1px solid rgba(167,139,250,.24)", fontFamily: F.sans, fontSize: 11, color: "#DDD6FE" }}>
+                  Capacità indicativa: <b>{(promoterCount * serviceDurationHours * BUSINESS_STOPS_PER_OPERATOR_HOUR).toLocaleString("it-IT")} attività per turno</b>. Nello Step 2 potrai selezionare le aziende e assegnarle agli addetti.
+                </div>
               </motion.div>
             )}
+            {isB2B && <BusinessStep1Config data={data} updateData={updateData} isMobile={isMobile} />}
             </AnimatePresence>
           </div>
 
           {/* Section 3: Quantità volantini */}
-          <div id="section-quantita" style={s1Panel}>
+          <div id="section-quantita" style={{ ...s1Panel, display: isB2B ? "none" : undefined }}>
             <div style={s1EyebrowStyle}>
               3 - Quantità volantini
             </div>
@@ -2059,10 +2818,10 @@ function Step1({ data, setData, onNext, onHome }) {
 
             <input
               type="range"
-              min={5000}
+              min={1000}
               max={100000}
               step={1000}
-              value={Math.max(5000, Math.min(100000, data.qty || 10000))}
+              value={Math.max(1000, Math.min(100000, data.qty || 10000))}
               onChange={(e) => updateData({ qty: Number(e.target.value) })}
               className="vp-s1-slider"
             />
@@ -2083,17 +2842,20 @@ function Step1({ data, setData, onNext, onHome }) {
                   }}
                   onBlur={(e) => {
                     const v = e.target.value.replace(/\D/g, "");
-                    updateData({ qty: Math.max(5000, Math.min(100000, v ? parseInt(v, 10) : 10000)) });
+                    updateData({ qty: Math.max(1000, Math.min(100000, v ? parseInt(v, 10) : 10000)) });
                   }}
                   className="vp-s1-input-modern"
                   style={{ width: 130, textAlign: "right", fontWeight: 800, fontSize: 16 }}
                 />
               </div>
             </div>
+            <div role="status" style={{ marginTop: 14, padding: "12px 14px", borderRadius: 12, background: "rgba(148,163,184,.07)", border: `1px solid ${quantityFeedback.color}55`, color: quantityFeedback.color, fontSize: 13, lineHeight: 1.45 }}>
+              <strong>{quantityFeedback.label}:</strong> {quantityFeedback.text}
+            </div>
           </div>
 
           {/* Section 4: Periodo distribuzione */}
-          <div id="section-periodo" style={s1Panel}>
+          <div id="section-periodo" style={{ ...s1Panel, display: isB2B ? "none" : undefined }}>
             <div style={s1EyebrowStyle}>
               4 - Periodo di distribuzione
             </div>
@@ -2108,7 +2870,9 @@ function Step1({ data, setData, onNext, onHome }) {
               {periodPresets.map((p) => {
                 const active = (data.campaignPeriodPreset || "custom") === p.id;
                 return (
-                  <div
+                  <button
+                    type="button"
+                    aria-pressed={active}
                     key={p.id}
                     onClick={() => updateData({ campaignPeriodPreset: p.id, ...(p.id !== "custom" ? { startDate: "", endDate: "", startDateDraft: "", endDateDraft: "" } : {}) })}
                     className="vp-s1-card-hover"
@@ -2121,7 +2885,7 @@ function Step1({ data, setData, onNext, onHome }) {
                   >
                     <div style={{ fontFamily: F.sans, fontSize: 16, fontWeight: 800, color: active ? s1Green : "#F8FAFC", marginBottom: 6 }}>{p.label}</div>
                     <div style={{ fontFamily: F.sans, fontSize: 13, color: "#94A3B8", lineHeight: 1.4 }}>{p.desc}</div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -2204,9 +2968,11 @@ function Step1({ data, setData, onNext, onHome }) {
             {/* 2 Card Grandi Materiale */}
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20, marginBottom: 32 }}>
               {materialOptions.map((m) => {
-                const active = (data.hasFlyers || "no") === m.id;
+                const active = data.hasFlyers === m.id;
                 return (
-                  <div
+                  <button
+                    type="button"
+                    aria-pressed={active}
                     key={m.id}
                     onClick={() => updateData({
                       hasFlyers: m.id,
@@ -2224,6 +2990,8 @@ function Step1({ data, setData, onNext, onHome }) {
                       display: "flex",
                       alignItems: "flex-start",
                       gap: 16,
+                      textAlign: "left",
+                      color: "inherit",
                     }}
                   >
                     <span style={{ fontSize: 36 }}>{m.icon}</span>
@@ -2231,7 +2999,7 @@ function Step1({ data, setData, onNext, onHome }) {
                       <div style={{ fontSize: 18, fontWeight: 800, color: active ? s1Green : "#F8FAFC", marginBottom: 6 }}>{m.label}</div>
                       <div style={{ fontSize: 13, color: "#94A3B8", lineHeight: 1.5 }}>{m.desc}</div>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -2300,13 +3068,15 @@ function Step1({ data, setData, onNext, onHome }) {
             {/* Formato 4 Card */}
             <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24 }}>
               <div style={{ fontSize: 15, fontWeight: 800, color: "#F8FAFC", marginBottom: 14 }}>
-                Seleziona il formato del volantino <span style={{ fontSize: 13, color: "#94A3B8", fontWeight: 500 }}>(per ottimizzare il carico e il peso logistico)</span>
+                Seleziona il formato del materiale da distribuire <span style={{ fontSize: 13, color: "#94A3B8", fontWeight: 500 }}>(indipendente dalle opzioni di stampa)</span>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 14 }}>
                 {Uv.map((fmt) => {
                   const active = data.flyerFormat === fmt.id;
                   return (
-                    <div
+                    <button
+                      type="button"
+                      aria-pressed={active}
                       key={fmt.id}
                       onClick={() => updateData({ flyerFormat: fmt.id })}
                       className="vp-s1-card-hover"
@@ -2320,7 +3090,7 @@ function Step1({ data, setData, onNext, onHome }) {
                     >
                       <div style={{ fontFamily: F.serif, fontSize: 24, color: active ? s1Green : "#F8FAFC", marginBottom: 4 }}>{fmt.label}</div>
                       <div style={{ fontSize: 12, color: "#94A3B8" }}>{fmt.size}</div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -2328,7 +3098,7 @@ function Step1({ data, setData, onNext, onHome }) {
           </div>
 
           {/* Section 7: Priorità */}
-          <div id="section-urgenza" style={s1Panel}>
+          <div id="section-urgenza" style={{ ...s1Panel, display: isB2B ? "none" : undefined }}>
             <div style={s1EyebrowStyle}>
               6 - Priorità operativa
             </div>
@@ -2339,7 +3109,9 @@ function Step1({ data, setData, onNext, onHome }) {
               {priorityOptions.map((p) => {
                 const active = data.urgency === p.id;
                 return (
-                  <div
+                  <button
+                    type="button"
+                    aria-pressed={active}
                     key={p.id}
                     onClick={() => updateData({ urgency: p.id })}
                     className="vp-s1-card-hover"
@@ -2358,7 +3130,7 @@ function Step1({ data, setData, onNext, onHome }) {
                     )}
                     <div style={{ fontSize: 18, fontWeight: 800, color: active ? s1Green : "#F8FAFC", marginBottom: 8 }}>{p.label}</div>
                     <div style={{ fontSize: 13, color: "#94A3B8", lineHeight: 1.4 }}>{p.desc}</div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -2380,7 +3152,9 @@ function Step1({ data, setData, onNext, onHome }) {
               {planOptions.map((pl) => {
                 const active = data.subscription === pl.id;
                 return (
-                  <div
+                  <button
+                    type="button"
+                    aria-pressed={active}
                     key={pl.id}
                     onClick={() => updateData({ subscription: pl.id, campaignsPerMonth: pl.id === "single" ? 1 : data.campaignsPerMonth || 1 })}
                     className="vp-s1-card-hover"
@@ -2401,7 +3175,7 @@ function Step1({ data, setData, onNext, onHome }) {
                     <div style={{ fontSize: 20, fontWeight: 800, color: active ? s1Green : "#F8FAFC", marginBottom: 4 }}>{pl.label}</div>
                     <div style={{ fontSize: 12, color: "#94A3B8", marginBottom: pl.disc > 0 ? 6 : 0 }}>{pl.subtitle}</div>
                     {pl.disc > 0 && <div style={{ fontSize: 11, color: s1Green, fontWeight: 800 }}>Sconto applicato</div>}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -2431,8 +3205,8 @@ function Step1({ data, setData, onNext, onHome }) {
             )}
           </div>
 
-          {/* ── Riepilogo Step 1 — inline summary ── */}
-          <div style={{ ...s1Panel, padding: isMobile ? 20 : 28 }}>
+          {/* Riepilogo precedente mantenuto fuori dal DOM: sostituito dal riepilogo persistente. */}
+          {false && <div style={{ ...s1Panel, padding: isMobile ? 20 : 28 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: 20 }}>
               <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,.58)", textTransform: "uppercase", letterSpacing: ".1em" }}>Riepilogo Step 1</span>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: s1Green, boxShadow: "0 0 10px rgba(34,197,94,.45)" }} />
@@ -2440,6 +3214,7 @@ function Step1({ data, setData, onNext, onHome }) {
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)", gap: isMobile ? "10px 16px" : "10px 40px", marginBottom: 20 }}>
               {[
                 { label: "Servizio", val: currentServiceLabel },
+                { label: "Zona", val: isB2B ? (data.businessZone || "Da selezionare") : "Da selezionare nello Step 2" },
                 { label: "Quantità", val: `${new Intl.NumberFormat("it-IT").format(data.qty || 10000)} pz` },
                 { label: "Formato", val: currentFormatLabel },
                 { label: "Urgenza", val: currentUrgencyLabel },
@@ -2465,7 +3240,7 @@ function Step1({ data, setData, onNext, onHome }) {
                 </div>
               </div>
             </div>
-          </div>
+          </div>}
 
           {/* NUOVA CARD "PROSSIMO PASSAGGIO" */}
           <div style={{ ...s1Panel, padding: isMobile ? 24 : 36, position: "relative", overflow: "hidden" }}>
@@ -2494,9 +3269,23 @@ function Step1({ data, setData, onNext, onHome }) {
 
             {/* CTA Button & Note */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+              {!canContinueStep1 && (
+                <div role="status" aria-label="Stato compilazione Step 1" style={{ width: "100%", padding: isMobile ? 16 : 18, borderRadius: 14, background: "rgba(5,12,24,.42)", border: "1px solid rgba(245,158,11,.24)" }}>
+                  <div style={{ fontSize: 13, fontWeight: 850, color: "#F8FAFC", marginBottom: 10 }}>Completa le voci indicate prima di continuare</div>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))", gap: "8px 16px" }}>
+                    {ctaChecklist.map((item) => (
+                      <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 8, color: item.complete ? "#86EFAC" : "#FCD34D", fontSize: 12, fontWeight: 750 }}>
+                        <span aria-hidden="true">{item.complete ? "✓" : "⚠"}</span>
+                        <span>{item.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={handleContinue}
+                disabled={resolvingOperationalLocation || !canContinueStep1}
                 className="vp-s1-btn-hover"
                 style={{
                   width: "100%",
@@ -2508,7 +3297,8 @@ function Step1({ data, setData, onNext, onHome }) {
                   fontFamily: F.sans,
                   fontSize: 18,
                   fontWeight: 900,
-                  cursor: "pointer",
+                  cursor: resolvingOperationalLocation ? "wait" : canContinueStep1 ? "pointer" : "not-allowed",
+                  opacity: resolvingOperationalLocation ? .72 : canContinueStep1 ? 1 : .48,
                   boxShadow: "0 12px 32px rgba(232, 87, 26, 0.4)",
                   display: "flex",
                   alignItems: "center",
@@ -2516,9 +3306,14 @@ function Step1({ data, setData, onNext, onHome }) {
                   gap: 12,
                 }}
               >
-                <span>Continua allo Step 2</span>
+                <span>{resolvingOperationalLocation ? (isB2B ? "Localizzo il comune..." : "Localizzo il punto operativo...") : "Continua allo Step 2"}</span>
                 <span style={{ fontSize: 22 }}>➔</span>
               </button>
+              {operationalLocationError && (
+                <div role="alert" style={{ width: "100%", padding: "10px 14px", borderRadius: 10, background: "rgba(245,158,11,.1)", border: "1px solid rgba(245,158,11,.35)", color: "#FCD34D", fontSize: 13, fontWeight: 700 }}>
+                  {operationalLocationError}
+                </div>
+              )}
               <div style={{ fontSize: 13, color: "#94A3B8", display: "flex", alignItems: "center", gap: 6 }}>
                 <span>🔒</span> <b>Nessun pagamento richiesto in questa fase.</b> Potrai personalizzare ogni dettaglio.
               </div>
@@ -2555,7 +3350,17 @@ function Step1({ data, setData, onNext, onHome }) {
   );
 }
 
-function apiToZones(apiData, city, requestedAnalysisLevel) {
+function extractOfficialNilCode(z) {
+  if (!z) return null;
+  const raw = z.nilCode ?? z.nil_code ?? z.NIL_CODE ?? z.properties?.ID_NIL ?? z.properties?.id_nil ?? z.properties?.nil_code ?? z.properties?.NIL_CODE ?? null;
+  if (raw !== null && raw !== undefined && raw !== "") {
+    const s = String(raw).trim();
+    if (s !== "" && s !== "null" && s !== "undefined") return s;
+  }
+  return null;
+}
+
+function apiToZones(apiData, city, requestedAnalysisLevel, serviceType = "d2d", radiusKm = 3) {
   if (isStep2DebugEnabled()) {
     debugStep2Log('[DBG apiToZones normalized]', apiData
       ? { error: apiData.error, hasValues: !!apiData.values, breakdownLen: apiData.comuni_breakdown?.length, firstKeys: apiData.comuni_breakdown?.[0] ? Object.keys(apiData.comuni_breakdown[0]) : [] }
@@ -2565,25 +3370,53 @@ function apiToZones(apiData, city, requestedAnalysisLevel) {
   const v = apiData.values;
   const analysisLevel = requestedAnalysisLevel || apiData.metadata?.analysis_level || apiData.values?.analysis_level || "comune";
   const isMilanoCity = Boolean(city && normalizeMunicipalityName(city.name || city.label) === "milano");
-  const useNil = (analysisLevel === "nil" || isMilanoCity) && Array.isArray(apiData.nil_breakdown) && apiData.nil_breakdown.length > 0;
+  const hasMilanoInComuni = Array.isArray(apiData.comuni_breakdown) && apiData.comuni_breakdown.some(c => 
+    normalizeMunicipalityName(c.comune_name || c.municipality_name) === "milano" || 
+    String(c.municipality_code || "") === "015146" ||
+    String(c.comune_code || "") === "015146"
+  );
+  const useNil = (analysisLevel === "nil" || isMilanoCity || hasMilanoInComuni || Boolean(apiData.metadata?.nil_available)) && Array.isArray(apiData.nil_breakdown) && apiData.nil_breakdown.length > 0;
   let breakdown = [];
   if (useNil) {
-    breakdown = [...apiData.nil_breakdown];
-    if (Array.isArray(apiData.comuni_breakdown)) {
-      const nonMilanoComuni = apiData.comuni_breakdown.filter(c => normalizeMunicipalityName(c.comune_name || c.municipality_name) !== "milano");
-      breakdown = [...breakdown, ...nonMilanoComuni];
-    }
+    const nilItems = [...apiData.nil_breakdown];
+    const nonMilanoComuni = Array.isArray(apiData.comuni_breakdown)
+      ? apiData.comuni_breakdown.filter(c => normalizeMunicipalityName(c.comune_name || c.municipality_name) !== "milano" && String(c.municipality_code || "") !== "015146" && c.territory_level !== "nil" && !c.nil_code && !c.isNil)
+      : [];
+    breakdown = [...nonMilanoComuni, ...nilItems];
   } else {
     breakdown = apiData.comuni_breakdown || [];
+  }
+  if (useNil || breakdown.some(c => c.nil_code || c.isNil || c.territory_level === "nil")) {
+    const dedupMap = new Map();
+    const resultList = [];
+    for (const item of breakdown) {
+      const code = item.nil_code || item.nilCode || item.id_nil || extractOfficialNilCode(item);
+      if (code) {
+        const key = `nil_${String(code).trim()}`;
+        if (!dedupMap.has(key)) {
+          dedupMap.set(key, true);
+          resultList.push(item);
+        }
+      } else {
+        resultList.push(item);
+      }
+    }
+    breakdown = resultList;
   }
   const totF = v.famiglie_stimate || v.families || v.households || 0;
   const totP = v.popolazione_stimata || v.population || 0;
   const totV = v.volantini_consigliati || v.volantini_stimati || v.recommended_flyers || 0;
   const nC = breakdown.length || 1;
-  const items = breakdown.length > 0 ? breakdown : [{ comune_name: city?.name || 'Area', pct_copertura: v.copertura_stimata || 80, volantini_nel_raggio: totV }];
+  const items = breakdown.length > 0 ? breakdown : [{
+    comune_name: city?.name || city?.label || 'Area',
+    comune_code: city?.municipalityCode || city?.municipality_code || city?.istat_code || null,
+    pct_copertura: v.copertura_stimata || 100,
+    volantini_nel_raggio: totV,
+    area_km2: Math.PI * Math.max(0.1, Number(radiusKm) || 3) ** 2,
+  }];
   return items.map((c, idx) => {
     const territoryLevel = c.territory_level || analysisLevel;
-    const isNil = territoryLevel === "nil";
+    const isNil = territoryLevel === "nil" || Boolean(c.nil_code) || Boolean(c.isNil);
     const territoryName = c.nil_name || c.comune_name || c.municipality_name || `Zona ${idx + 1}`;
     const territoryCode = c.nil_code || c.comune_code || c.municipality_code || null;
     const pct = c.pct_copertura || c.percentuale || Math.round(100 / nC);
@@ -2597,7 +3430,17 @@ function apiToZones(apiData, city, requestedAnalysisLevel) {
       if (pop > fam * 4) pop = Math.round(fam * 2.3);
     }
     const ri = v.reach_score || 70, ro = v.roi_score || 70, co = v.confidence_score || 75, fi = v.family_index || 70;
-    const area = c.area_km2 > 0 ? Math.round(c.area_km2 * ratio * 10) / 10 : Math.round((v.area_km2 || 0) * ratio * 10) / 10;
+    const fallbackAreaKm2 = Math.PI * Math.max(0.1, Number(radiusKm) || 3) ** 2;
+    const area = c.area_km2 > 0
+      ? Math.round(c.area_km2 * ratio * 10) / 10
+      : Math.round((Number(v.area_km2) || fallbackAreaKm2) * ratio * 10) / 10;
+    const poiCount = Number(c.poi_count ?? c.poi_rilevati ?? v.poi_count ?? v.poi_rilevati ?? 0);
+    const businessCount = Number(c.detected_activities ?? c.businesses ?? v.detected_activities ?? v.businesses ?? 0);
+    const competitorCount = Number(c.competitor_count ?? c.competitors ?? v.competitor_count ?? v.competitors ?? 0);
+    const targetBusinessCount = Number(c.target_activities_count ?? c.target_businesses ?? v.target_activities_count ?? v.target_businesses ?? 0);
+    const clusterCount = Number(c.cluster_count ?? c.clusters ?? v.cluster_count ?? v.clusters ?? 0);
+    const commercialDensity = Number(c.commercial_density ?? v.commercial_density ?? 0);
+    const commercialDensityIndex = Number(c.commercial_density_index ?? c.cdIdx ?? v.commercial_density_index ?? v.cdIdx ?? 0);
     return {
       id: isNil
         ? `nil_${String(territoryCode || territoryName).toLowerCase().replace(/\s+/g, '_')}`
@@ -2614,26 +3457,28 @@ function apiToZones(apiData, city, requestedAnalysisLevel) {
       householdsTotal: Number(c.households_total || 0) || null,
       householdsInRadius: Number(c.households_in_radius || 0) || null,
       coverage: pct, volantiniNelRaggio: Math.round(vol), familiesInRadius: fam, flyersMin: Math.round(vol), flyersMax: Math.round(vol * 1.1),
-      operDays: Math.max(1, Math.ceil(vol / 4000)),
+      operDays: Math.max(1, Math.ceil(vol / D2D_DAILY_CAPACITY)),
       familyIdx: fi, reachD2D: ri, roiD2D: ro, confD2D: co,
       eta14: null, eta34: null, eta64: null, eta65: null, genderM: 49, genderF: 51,
       stranieri: null, indVec: c.old_age_index ?? null, densita: c.density_per_km2 > 0 ? Math.round(c.density_per_km2) : Math.round(pop / Math.max(0.1, area || 1)),
       reddito: c.average_income ?? null, occup: null, imprese: c.businesses_total ?? null, areaType: isNil ? 'NIL Milano' : 'Territoriale',
-      poi: 0, nearbyBiz: 0,
-      commDens: Math.min(100, Math.round(fi * 0.72)),
-      flowScore: Math.min(100, Math.round(ri * 0.82)),
-      transitStops: Math.max(2, Math.round((v.area_km2||5)*ratio*2)), trainStations: 0,
+      poi: serviceType === "h2h" ? poiCount : 0,
+      nearbyBiz: Number(v.nearby_activities ?? poiCount),
+      commDens: Number(v.passage_density ?? Math.min(100, Math.round(fi * 0.72))),
+      flowScore: Number(v.potential_flow ?? v.flow_score ?? Math.min(100, Math.round(ri * 0.82))),
+      transitStops: Number(v.transit_points ?? v.transit_stops ?? Math.max(2, Math.round((v.area_km2||5)*ratio*2))), trainStations: 0,
       operDaysH2H: Math.max(1, Math.ceil(vol/8000)),
       reachH2H: Math.round(ri*0.85), roiH2H: Math.round(ro*0.8), confH2H: Math.round(co*0.85),
       hotspots: territoryName, timeSlots: null, strongPts: 0,
-      bizTotal: 0, competitors: 0,
-      commDensB2B: Math.min(100, Math.round(fi*0.65)),
+      bizTotal: serviceType === "b2b" ? businessCount : 0,
+      competitors: serviceType === "b2b" ? competitorCount : 0,
+      commDensB2B: serviceType === "b2b" ? commercialDensity : Math.min(100, Math.round(fi*0.65)),
       operDaysB2B: Math.max(1, Math.ceil(vol/10000)),
-      cdIdx: Math.min(100, Math.round(fi*0.65)),
+      cdIdx: serviceType === "b2b" ? commercialDensityIndex : Math.min(100, Math.round(fi*0.65)),
       reachB2B: Math.round(ri*0.8), roiB2B: Math.round(ro*0.75), confB2B: Math.round(co*0.8),
-      clusters: Math.max(1, Math.round((area || 0)/3)),
-      topCats: null,
-      targetBiz: 0, strongZone: territoryName, dist: {},
+      clusters: serviceType === "b2b" ? clusterCount : Math.max(1, Math.round((area || 0)/3)),
+      topCats: Array.isArray(v.top_categories) ? v.top_categories.join(" - ") : (v.categories || null),
+      targetBiz: serviceType === "b2b" ? targetBusinessCount : 0, strongZone: territoryName, dist: {},
       geometry_geojson: pickRealComuneGeometry(c),
       geometry: pickRealComuneGeometry(c),
       source_flags: isNil ? ['NIL ufficiale Comune di Milano', 'ISTAT ripartito su geometria'] : [],
@@ -2663,7 +3508,7 @@ function capToZone(capData, idx) {
     municipalityName: capData.municipality_name,
     area, pop, families: fam, mailboxes: Math.round(fam * 0.93),
     coverage: 100, volantiniNelRaggio: Math.round(vol), familiesInRadius: fam, flyersMin: Math.round(vol), flyersMax: Math.round(vol * 1.05),
-    operDays: Math.max(1, Math.ceil(vol / 4000)),
+    operDays: Math.max(1, Math.ceil(vol / D2D_DAILY_CAPACITY)),
     familyIdx: 75, reachD2D: 80, roiD2D: 75, confD2D: 85,
     eta14: null, eta34: null, eta64: null, eta65: null, genderM: 49, genderF: 51,
     stranieri: 10, indVec: 170, densita: area > 0 ? Math.round(pop / area) : 0,
@@ -2691,15 +3536,44 @@ const ZONE_VERDICT_RULES = [
   { min: 0, title: "Zona da valutare", tone: "watch", text: "Area utilizzabile, ma conviene controllare quantità e copertura prima di confermare." },
 ];
 
-function getZoneVerdict({ families = 0, density = 0, coverage = 0, comuniCount = 0 }) {
-  const score = Math.round(
-    Math.min(34, families / 900) +
-    Math.min(26, density / 180) +
-    Math.min(24, coverage / 4) +
-    Math.min(16, comuniCount * 4)
+function getZoneVerdict(input) {
+  const result = calculateOperationalScore(input);
+  const rule = ZONE_VERDICT_RULES.find(item => result.score >= item.min) || ZONE_VERDICT_RULES[ZONE_VERDICT_RULES.length - 1];
+  return { ...rule, ...result };
+}
+
+function AccessibleAccordion({ title, eyebrow, children, defaultOpen = false, tone = "#60A5FA" }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const panelId = React.useId();
+  return (
+    <section className="vp-report-accordion" style={{ borderColor: `${tone}38` }}>
+      <button
+        type="button"
+        className="vp-report-accordion__trigger"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen(value => !value)}
+      >
+        <span>
+          {eyebrow && <span className="vp-report-accordion__eyebrow" style={{ color: tone }}>{eyebrow}</span>}
+          <span className="vp-report-accordion__title">{title}</span>
+        </span>
+        <span aria-hidden="true" className="vp-report-accordion__icon">{open ? "−" : "+"}</span>
+      </button>
+      <div id={panelId} hidden={!open} className="vp-report-accordion__panel">
+        {children}
+      </div>
+    </section>
   );
-  const rule = ZONE_VERDICT_RULES.find(item => score >= item.min) || ZONE_VERDICT_RULES[ZONE_VERDICT_RULES.length - 1];
-  return { ...rule, score };
+}
+
+function DataEmptyState({ kind = "unavailable", children }) {
+  const copy = kind === "not-applicable"
+    ? "Questa suddivisione non si applica al territorio selezionato."
+    : kind === "error"
+      ? "Impossibile caricare il dato. Riprova."
+      : "Dato non disponibile per questo comune nella fonte attualmente collegata.";
+  return <div className={`vp-data-empty vp-data-empty--${kind}`}>{children || copy}</div>;
 }
 
 // Normalizes a municipality name for exact matching in municipality mode:
@@ -2747,7 +3621,56 @@ const layers = LAYERS[svcType] || LAYERS.d2d;
 const isResidentialStep2 = serviceMeta.mode === "residential";
 const isBusinessStep2 = serviceMeta.mode === "business";
 const isMovementStep2 = serviceMeta.mode === "movement";
+const flyerQuantityFromStep1 = isBusinessStep2
+  ? Number(data.businessMaterialQuantity ?? data.insertedFlyersOriginal ?? data.originalFlyerQuantity ?? data.flyerQuantity ?? data.qty ?? 0)
+  : Number(data.insertedFlyersOriginal || data.originalFlyerQuantity || data.flyerQuantity || data.qty || 10000);
 const targetBusinessMeta = isBusinessStep2 ? getTargetBizMeta(data) : null;
+const step1OperationalLocation = isMovementStep2 ? String(data.distributionLocation || "").trim() : "";
+const step1OperationalPointType = isMovementStep2 ? String(data.distributionPointType || "").trim() : "";
+const step1OperationalPoints = isMovementStep2
+  ? (Array.isArray(data.operationalPoints) && data.operationalPoints.length > 0
+      ? data.operationalPoints
+      : Array.isArray(data.promoterAssignments) && data.promoterAssignments.length > 0
+        ? data.promoterAssignments
+        : data.selectedSearchPoint
+          ? [data.selectedSearchPoint]
+          : [])
+      .filter((point) => Number.isFinite(Number(point?.lat)) && Number.isFinite(Number(point?.lng)))
+      .map((point, index) => ({
+        ...point,
+        promoterNumber: Number(point.promoterNumber || index + 1),
+        label: point.label || point.location || `Punto operativo ${index + 1}`,
+        pointType: point.pointType || point.distributionPointType || step1OperationalPointType,
+        timeSlot: point.timeSlot || data.timeSlot || null,
+        serviceDurationHours: Number(point.serviceDurationHours || data.serviceDurationHours || 4),
+      }))
+  : [];
+const promoterCountForStep2 = isMovementStep2
+  ? Math.max(1, Number(data.promoterCount || step1OperationalPoints.length || 1))
+  : 0;
+const serviceDurationForStep2 = isMovementStep2
+  ? Math.max(1, Number(data.serviceDurationHours || 4))
+  : 0;
+const configuredH2HCapacity = isMovementStep2
+  ? Math.max(
+      0,
+      Number(data.h2hEstimatedCapacity || 0),
+      step1OperationalPoints.reduce((total, point) => total + Number(point.assignedQuantity || 0), 0),
+      promoterCountForStep2 * serviceDurationForStep2 * H2H_FLYERS_PER_PROMOTER_HOUR,
+    )
+  : 0;
+const step1PointTypeSearchTerm = ({
+  stazione: "stazione",
+  piazza: "piazza",
+  centro_commerciale: "centro commerciale",
+  universita: "università scuola",
+  fiera_evento: "fiera evento",
+})[step1OperationalPointType] || "";
+const step1OperationalQuery = step1PointTypeSearchTerm && !normalizeTerritoryName(step1OperationalLocation).includes(normalizeTerritoryName(step1PointTypeSearchTerm))
+  ? `${step1OperationalLocation} ${step1PointTypeSearchTerm}`.trim()
+  : step1OperationalLocation;
+const hasSavedStep2Point = Boolean(data.selectedSearchPoint);
+const shouldUseStep1OperationalLocation = Boolean(step1OperationalLocation && !hasSavedStep2Point);
 const [viewMode, setViewMode] = useState("distribuzione");
 const [thLayerId, setThLayerId] = useState(layers[0]?.id || null);
 const resolveStep2City = (value) => {
@@ -2788,7 +3711,7 @@ const resolveStep2City = (value) => {
   return fuzzyCity;
 };
 const initialCity = data.city || resolveStep2City(data.cityName) || null;
-const [search, setSearch] = useState(data.cityName || "");
+const [search, setSearch] = useState(data.selectedSearchPoint?.label || (shouldUseStep1OperationalLocation ? step1OperationalLocation : data.cityName) || "");
 const [city, setCity] = useState(initialCity);
 const [radius, setRadius] = useState(data.radius || 3);
 const [selected, setSelected] = useState(data.zones || []);
@@ -2798,6 +3721,7 @@ const [showAdv, setShowAdv] = useState(false);
 const [omiExpanded, setOmiExpanded] = useState(false);
 const [detailExpanded, setDetailExpanded] = useState(false);
 const [zoneListSort, setZoneListSort] = useState("relevance");
+const [showClientZoneDetails, setShowClientZoneDetails] = useState(false);
 const [showMarginalZones, setShowMarginalZones] = useState(false);
 // Comune Milano vista principale: 88 card NIL sono un dettaglio tecnico, non
 // la vista di default — collassate dietro un bottone. In Raggio (dove la
@@ -2825,6 +3749,7 @@ const [radiusSelectionConfirmed, setRadiusSelectionConfirmed] = useState(Boolean
   (data.searchMode === "address" && ((data.zones || []).length > 0 || (data.zonesAllocation || []).length > 0))
 ));
 const [activeMapLayers, setActiveMapLayers] = useState(() => defaultLayerState(svcType));
+const [dismissedAdvisoryRadius, setDismissedAdvisoryRadius] = useState(null);
 useEffect(() => {
   if (!data.selectedService && !data.activeService && !data.type) {
     setData(d => ({ ...d, type: "d2d", selectedService: "d2d", activeService: "d2d" }));
@@ -2840,7 +3765,9 @@ useEffect(() => {
   const [showLayerMenu, setShowLayerMenu] = useState(false);
   const [partialCoverageConfirmed, setPartialCoverageConfirmed] = useState(false);
   const [coverageDecision, setCoverageDecision] = useState(normalizeCoverageDecision(data.coverageDecision));
-  const [availableFlyers, setAvailableFlyers] = useState(Number(data.availableFlyers || data.flyerQuantity || data.qty || 10000));
+const [availableFlyers, setAvailableFlyers] = useState(() => isBusinessStep2
+  ? Number(data.businessMaterialQuantity ?? data.availableFlyers ?? data.flyerQuantity ?? data.qty ?? 0)
+  : Number(data.availableFlyers || data.flyerQuantity || data.qty || 10000));
   const [manualFlyers, setManualFlyers] = useState(Number(data.manualFlyers || 0) || "");
   // Surplus decision (quantity > recommendedFlyers with 100% municipality coverage):
   // "reduce_to_recommended" | "extra_frequency" | "expand_area". Independent of
@@ -2855,7 +3782,8 @@ useEffect(() => {
   // array di zone id nell'ordine scelto dall'utente. Non usato/non mostrato
   // in modalità Raggio.
   const [comuniPriorityOrder, setComuniPriorityOrder] = useState(data.comuniPriorityOrder || []);
-  const [searchMode, setSearchMode] = useState(data.searchMode || "municipality");
+  const initialSearchMode = shouldUseStep1OperationalLocation ? "address" : (data.searchMode || "municipality");
+  const [searchMode, setSearchMode] = useState(initialSearchMode);
   // Reset difensivo: "Priorità" esiste solo in modalità Comuni. Se l'utente
   // passa a Raggio/CAP mentre era attiva, si torna ad "auto" — Raggio non
   // deve mai vedere/usare questa modalità.
@@ -2865,7 +3793,8 @@ useEffect(() => {
   // Tracks user-INTENDED mode (only updated via tab clicks or zone switch).
   // Used as the gate in zonesInRadius to block stale "address" results from
   // overriding a municipality session when the user never clicked the Raggio tab.
-  const userModeRef = useRef(data.searchMode || "municipality");
+  const userModeRef = useRef(initialSearchMode);
+  const step1LocationBootstrapRef = useRef("");
   // Timestamp of the last municipality (city) change. React commits the new
   // `city`/`selectedMunicipality` synchronously during render, but the API
   // hook's `loading` flag only flips to true in a *subsequent* effect pass —
@@ -2968,6 +3897,112 @@ useEffect(() => {
     setAddressSearchError("");
     setPendingAddMunicipality(false);
   }, []);
+
+  const selectOperationalPoint = useCallback((pointLabel, point, source = "step2_search") => {
+    if (!point || !Number.isFinite(Number(point.lat)) || !Number.isFinite(Number(point.lng))) return false;
+
+    const fullText = `${point.city || point.comune || point.municipality || ""} ${point.fullName || point.name || ""} ${pointLabel || ""}`;
+    const parentName = point.city || point.comune || point.municipality || GEO_DATA.find((known) => {
+      const normalizedKnown = normalizeMunicipalityName(known.name || known.label || "");
+      return normalizedKnown && normalizeMunicipalityName(fullText).includes(normalizedKnown);
+    })?.name || null;
+    const knownParent = resolveStep2City(parentName);
+    const parentCity = knownParent || (parentName ? {
+      id: `operational_${normalizeMunicipalityName(parentName).replace(/\s+/g, "_")}`,
+      name: parentName,
+      label: parentName,
+      lat: Number(point.lat),
+      lng: Number(point.lng),
+    } : null);
+    if (!parentCity) return false;
+
+    const operationalPoint = {
+      label: pointLabel || point.label || point.name || "Punto operativo",
+      lat: Number(point.lat),
+      lng: Number(point.lng),
+      type: "operational_point",
+      parentComune: parentCity.label || parentCity.name,
+      city: parentCity.label || parentCity.name,
+      postcode: point.postcode || null,
+      province: point.province || null,
+      providerPlaceId: point.providerPlaceId || point.id || null,
+      precision: point.placeType || point.type || "poi",
+      source,
+    };
+
+    userModeRef.current = "address";
+    setSearchMode("address");
+    setCity(parentCity);
+    setSelectedComuni([parentCity]);
+    setSearch(operationalPoint.label);
+    setSelectedSearchPoint(operationalPoint);
+    setSelected([]);
+    setDropOpen(false);
+    setAddressFullCoverageConfirmed(false);
+    setRadiusSelectionConfirmed(true);
+    setCoverageDecision(null);
+    setCoverageStrategy(null);
+    setPartialCoverageConfirmed(false);
+    setAddressSearchError("");
+    setPendingAddMunicipality(false);
+    return true;
+  }, []);
+
+  useEffect(() => {
+    if (!isMovementStep2 || !step1OperationalLocation || hasSavedStep2Point) return undefined;
+    const bootstrapKey = normalizeMunicipalityName(step1OperationalQuery);
+    if (!bootstrapKey || step1LocationBootstrapRef.current === bootstrapKey) return undefined;
+    step1LocationBootstrapRef.current = bootstrapKey;
+    let cancelled = false;
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const params = new URLSearchParams({
+          q: step1OperationalQuery,
+          countrycodes: "it",
+          format: "json",
+          addressdetails: "1",
+          limit: "6",
+        });
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, { signal: controller.signal });
+        const rows = await response.json();
+        if (cancelled || !Array.isArray(rows) || rows.length === 0) return;
+        const wantsStation = /\b(stazione|station|fermata|metro)\b/i.test(step1OperationalQuery) || step1OperationalPointType === "stazione";
+        const ranked = [...rows].sort((a, b) => {
+          const score = (row) => {
+            const typeText = `${row.type || ""} ${row.addresstype || ""} ${row.class || ""} ${row.display_name || ""}`;
+            return (wantsStation && /station|railway|halt|stop|stazione/i.test(typeText) ? 10 : 0) + (row.importance || 0);
+          };
+          return score(b) - score(a);
+        });
+        const best = ranked[0];
+        const address = best.address || {};
+        const label = best.display_name?.split(",").slice(0, 2).join(",") || step1OperationalQuery;
+        selectOperationalPoint(label, {
+          id: best.place_id,
+          lat: Number(best.lat),
+          lng: Number(best.lon),
+          name: best.display_name,
+          fullName: best.display_name,
+          city: address.city || address.town || address.village || address.municipality || null,
+          postcode: address.postcode || null,
+          province: address.county || null,
+          placeType: best.addresstype || best.type || best.class || "poi",
+        }, "step1_distribution_location");
+      } catch (error) {
+        if (error?.name !== "AbortError") {
+          step1LocationBootstrapRef.current = "";
+          debugStep2Warn("[STEP1_OPERATIONAL_LOCATION_GEOCODE_FAILED]", { location: step1OperationalLocation, pointType: step1OperationalPointType, query: step1OperationalQuery, error: error?.message });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [isMovementStep2, step1OperationalLocation, step1OperationalPointType, step1OperationalQuery, hasSavedStep2Point, selectOperationalPoint]);
 
   const appendMunicipalityToActiveZone = useCallback((comune) => {
     if (!comune) return;
@@ -3331,10 +4366,11 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
       setGeocodeSuggestions([]);
     }
     const nextRad = radius || 3;
+    const centerPoint = selectedSearchPoint || city;
     const shouldConfirmRadius = Boolean(
-      selectedSearchPoint &&
-      Number.isFinite(Number(selectedSearchPoint.lat)) &&
-      Number.isFinite(Number(selectedSearchPoint.lng)) &&
+      centerPoint &&
+      Number.isFinite(Number(centerPoint.lat)) &&
+      Number.isFinite(Number(centerPoint.lng)) &&
       Number(nextRad) > 0
     );
     setRadius(nextRad);
@@ -3459,6 +4495,7 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
 
   const updateActiveRadius = (nextRadiusKm) => {
     setPartialCoverageConfirmed(false);
+    setDismissedAdvisoryRadius(null);
     const normalizedRadius = Number(nextRadiusKm);
     setRadiusSelectionConfirmed(Number.isFinite(normalizedRadius) && normalizedRadius > 0);
     setRadius(normalizedRadius);
@@ -3513,6 +4550,10 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
     setCapSuggestions([]);
     setDropOpen(false);
     setSearchMode("municipality");
+    setNilManualMode(false);
+    setCoverageDecision(null);
+    setCoverageStrategy(null);
+    setPartialCoverageConfirmed(false);
     setData(prev => {
       const updatedZones = (prev.campaignZones || []).map(zone => (
         zone.id === prev.activeZoneId
@@ -3530,7 +4571,10 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
               coverageDecision: null,
               coverageStrategy: null,
               radiusSelectionConfirmed: false,
-              searchMode: "municipality"
+              searchMode: "municipality",
+              nilManualMode: false,
+              selectedSearchPoint: null,
+              addressFullCoverageConfirmed: false
             }
           : zone
       ));
@@ -3553,6 +4597,9 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
         coverageStrategy: null,
         radiusSelectionConfirmed: false,
         searchMode: "municipality",
+        nilManualMode: false,
+        selectedSearchPoint: null,
+        addressFullCoverageConfirmed: false,
         campaignZones: updatedZones,
       };
     });
@@ -3684,22 +4731,23 @@ const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.
     });
   };
 
+const hasMilanoTerritory = useMemo(
+  () => checkMilanoTerritory({ city, selectedComuni, selectedSearchPoint, searchMode }),
+  [city, selectedComuni, selectedSearchPoint, searchMode]
+);
+
 const selectedMunicipality = useMemo(
   () => {
     if (searchMode === "cap") return null;
     const raw = city?.label || city?.name || (selectedComuni?.[0]?.label || selectedComuni?.[0]?.name) || null;
-    const hasMilanoSelected = Boolean(
-      normalizeMunicipalityName(raw) === "milano" ||
-      (selectedComuni && selectedComuni.some(c => normalizeMunicipalityName(c.label || c.name) === "milano"))
-    );
-    if (isResidentialStep2 && hasMilanoSelected) return "Milano";
+    if (isResidentialStep2 && hasMilanoTerritory) return "Milano";
     return raw;
   },
-  [searchMode, city?.label, city?.name, selectedComuni, isResidentialStep2]
+  [searchMode, city?.label, city?.name, selectedComuni, isResidentialStep2, hasMilanoTerritory]
 );
 const requestedAnalysisLevel = useMemo(
-  () => isResidentialStep2 && (normalizeMunicipalityName(selectedMunicipality) === "milano" || (selectedComuni && selectedComuni.some(c => normalizeMunicipalityName(c.label || c.name) === "milano"))) ? "nil" : "comune",
-  [isResidentialStep2, selectedMunicipality, selectedComuni]
+  () => isResidentialStep2 && hasMilanoTerritory ? "nil" : "comune",
+  [isResidentialStep2, hasMilanoTerritory]
 );
 const analysisScope = useMemo(() => data.activeZoneId || "zone", [data.activeZoneId]);
 // Fix effective radius
@@ -3729,22 +4777,41 @@ debugStep2Log("[STEP2_EFFECTIVE_RADIUS]", { searchMode, radiusKm, effectiveRadiu
 const queryCenterLat = (isRadiusMode && hasSearchPoint) ? radiusCenter.lat : (city?.lat ?? null);
 const queryCenterLng = (isRadiusMode && hasSearchPoint) ? radiusCenter.lng : (city?.lng ?? null);
 
+const computedSelectionScope = useMemo(() => {
+  if (searchMode === "cap") return "cap";
+  if (isComuneMode && selectedComuni && selectedComuni.length > 1) return "multi";
+  if (isComuneMode || searchMode === "municipality") return "municipality";
+  if (selectedSearchPoint && radiusCenterSource === "address") return "address";
+  return "radius";
+}, [searchMode, isComuneMode, selectedComuni, selectedSearchPoint, radiusCenterSource]);
+
+const selectedMunicipalityCodes = useMemo(() => {
+  if (computedSelectionScope !== "multi" && computedSelectionScope !== "municipality") return null;
+  const sourceList = Array.isArray(selectedComuni) && selectedComuni.length > 0
+    ? selectedComuni
+    : (city ? [city] : []);
+  const codes = sourceList
+    .map(item => item.municipality_code || item.istat_code || item.comune_code || (item.label === "Milano" || item.name === "Milano" ? "015146" : null))
+    .filter(Boolean)
+    .map(String)
+    .map(s => s.trim())
+    .filter(s => /^[0-9A-Za-z_-]+$/.test(s));
+  if (codes.length > 0) return Array.from(new Set(codes)).sort().join(",");
+  return null;
+}, [computedSelectionScope, selectedComuni, city]);
+
 const analysisParams = useMemo(() => ({
   lat: queryCenterLat,
   lng: queryCenterLng,
   radiusKm: effectiveRadiusKm,
   serviceType: svcType,
-  // municipality va passato ANCHE in modalità Raggio: useServiceAnalysis
-  // scarta la richiesta se municipality è null (hasValidZone), quindi con
-  // `isComuneMode ? ... : null` in Raggio la fetch non partiva MAI e la UI
-  // riusava i dati stantii dell'ultima query Comune (es. le 88 NIL dello
-  // sweep 15km di Milano mostrate come "raggio 3 km"). In Raggio il backend
-  // interseca comunque per punto+radiusKm: municipality è il riferimento.
   municipality: selectedMunicipality,
   analysisLevel: requestedAnalysisLevel,
   quantity: quantityForAnalysis,
   scope: analysisScope,
-}), [queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType, selectedMunicipality, requestedAnalysisLevel, quantityForAnalysis, analysisScope, isComuneMode, selectedComuni]);
+  selectionScope: computedSelectionScope,
+  selectedMunicipalityCodes: selectedMunicipalityCodes,
+}), [queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType, selectedMunicipality, requestedAnalysisLevel, quantityForAnalysis, analysisScope, computedSelectionScope, selectedMunicipalityCodes]);
 const { data: apiData, loading: apiLoading, error: apiError } = useServiceAnalysis(
   analysisParams.lat,
   analysisParams.lng,
@@ -3753,12 +4820,218 @@ const { data: apiData, loading: apiLoading, error: apiError } = useServiceAnalys
   analysisParams.municipality,
   analysisParams.quantity,
   analysisParams.scope,
-  analysisParams.analysisLevel
+  analysisParams.analysisLevel,
+  analysisParams.selectionScope,
+  analysisParams.selectedMunicipalityCodes
 );
 const omiInfo = apiData?.metadata?.omi ?? null;
 const { sectors, loading: sectorsLoading } = useSectors(queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType);
-const { pois, loading: poiLoading }    = usePoi(queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType);
-const { transportState, loading: transportLoading } = useTransportStops(queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType);
+const savedDistributionTargets = Array.isArray(data.distributionTargets) ? data.distributionTargets.filter(Boolean) : [];
+const shouldMigrateLegacyAllTarget = savedDistributionTargets.includes("all")
+  && Boolean(data.activityType);
+const distributionTargetSelection = shouldMigrateLegacyAllTarget
+  ? [data.activityType]
+  : savedDistributionTargets.length > 0
+    ? savedDistributionTargets
+    : [data.activityType].filter(Boolean);
+const { pois: fetchedPois, loading: poiLoading, error: poiError } = usePoi(
+  queryCenterLat,
+  queryCenterLng,
+  effectiveRadiusKm,
+  svcType,
+  distributionTargetSelection
+);
+const backendPois = useMemo(() => {
+  if (!['d2d', 'h2h', 'b2b'].includes(svcType)) return [];
+  const arr = apiData?.metadata?.nearby_activities;
+  if (!Array.isArray(arr) || arr.length === 0) return [];
+  return arr
+    .map((a, idx) => ({
+      id: `backend_poi_${idx}`,
+      lat: Number(a.lat ?? 0),
+      lng: Number(a.lng ?? 0),
+      name: a.name || a.category || 'POI',
+      category: a.category || 'Altro',
+      color: '#7B9EC5',
+      priority: 5,
+      address: a.address || a.vicinity || null,
+      source: a.source || 'Analisi territoriale collegata',
+      dataCompleteness: a.name && (a.address || a.vicinity) ? 'name_address' : a.name ? 'name_only' : 'category_only',
+    }))
+    .filter(p => Number.isFinite(p.lat) && p.lat !== 0 && Number.isFinite(p.lng) && p.lng !== 0);
+}, [svcType, apiData]);
+const pois = useMemo(() => {
+  if (poiLoading) return [];
+  const liveMatches = filterPoisForCampaignTarget(fetchedPois, distributionTargetSelection, data.activityNote);
+  const backendMatches = filterPoisForCampaignTarget(backendPois, distributionTargetSelection, data.activityNote);
+  const seenNames = new Set();
+  const seenCoordinates = new Set();
+  return [...liveMatches, ...backendMatches].filter((poi) => {
+    const normalizedName = normalizeTerritoryName(poi?.name || "");
+    const normalizedCategory = normalizeTerritoryName(poi?.category || "");
+    const hasSpecificName = normalizedName && normalizedName !== normalizedCategory;
+    if (isBusinessStep2 && !hasSpecificName) return false;
+    const coordinateKey = Number.isFinite(Number(poi?.lat)) && Number.isFinite(Number(poi?.lng))
+      ? `${Number(poi.lat).toFixed(4)},${Number(poi.lng).toFixed(4)},${normalizedCategory}`
+      : "";
+    if ((hasSpecificName && seenNames.has(normalizedName)) || (coordinateKey && seenCoordinates.has(coordinateKey))) return false;
+    if (hasSpecificName) seenNames.add(normalizedName);
+    if (coordinateKey) seenCoordinates.add(coordinateKey);
+    return true;
+  });
+}, [poiLoading, fetchedPois, backendPois, distributionTargetSelection.join("|"), data.activityNote, isBusinessStep2]);
+const [poiListSearch, setPoiListSearch] = useState("");
+const [businessPoiFilter, setBusinessPoiFilter] = useState("all");
+const [poiAssignments, setPoiAssignments] = useState(() => data.poiAssignments || {});
+const visiblePoisForAssignment = useMemo(() => {
+  const query = normalizeTerritoryName(poiListSearch);
+  const categoryTerms = {
+    shops: ["negozio", "retail", "shop"],
+    food: ["ristor", "bar", "cafe", "food"],
+    offices: ["ufficio", "azienda", "profession"],
+    health: ["farmac", "medic", "clinic", "dent"],
+    automotive: ["auto", "officina", "concession"],
+    industry: ["industrial", "capannone", "warehouse"],
+    other: [],
+  };
+  return pois.filter((poi) => {
+    const haystack = normalizeTerritoryName(`${poi.name || ""} ${poi.category || ""} ${poi.address || ""}`);
+    if (query && !haystack.includes(query)) return false;
+    if (!isBusinessStep2 || businessPoiFilter === "all") return true;
+    if (businessPoiFilter === "selected") return Boolean(poiAssignments[poi.id]);
+    if (businessPoiFilter === "priority") return Number(poi.priority || 0) >= 8;
+    if (businessPoiFilter === "other") {
+      const knownTerms = Object.entries(categoryTerms).filter(([key]) => key !== "other").flatMap(([, terms]) => terms);
+      return !knownTerms.some((term) => haystack.includes(term));
+    }
+    return (categoryTerms[businessPoiFilter] || []).some((term) => haystack.includes(term));
+  });
+}, [pois, poiListSearch, isBusinessStep2, businessPoiFilter, poiAssignments]);
+const [operatorCountForPoiAssignment, setOperatorCountForPoiAssignment] = useState(() => Math.max(1, Number(data.promoterCount || data.businessOperatorCount || 1)));
+const [operatorSchedules, setOperatorSchedules] = useState(() => buildPromoterAssignments(data, Math.max(1, Number(data.promoterCount || data.businessOperatorCount || 1))));
+const selectedOperationalPois = useMemo(() => pois
+  .filter((poi) => poiAssignments[poi.id])
+  .map((poi) => {
+    const assignment = poiAssignments[poi.id] || {};
+    const operatorNumber = assignment.operatorNumber ? Number(assignment.operatorNumber) : null;
+    const schedule = operatorNumber ? operatorSchedules[Math.max(0, operatorNumber - 1)] : null;
+    return {
+      ...poi,
+      operatorNumber: isBusinessStep2 ? operatorNumber : Number(operatorNumber || 1),
+      copies: isBusinessStep2
+        ? getBusinessCopiesForPoi(poi, data, assignment)
+        : Math.max(1, Number(assignment.copies || 1)),
+      timeSlot: schedule?.timeSlot || (isBusinessStep2 ? null : data.timeSlot || null),
+      serviceDurationHours: schedule?.serviceDurationHours
+        ? Number(schedule.serviceDurationHours)
+        : (isBusinessStep2 ? null : Number(data.serviceDurationHours || 4)),
+    };
+  }), [pois, poiAssignments, operatorSchedules, data, isBusinessStep2]);
+const businessMaterialPlan = useMemo(
+  () => isBusinessStep2 ? calculateBusinessMaterials(selectedOperationalPois, poiAssignments, data) : null,
+  [isBusinessStep2, selectedOperationalPois, poiAssignments, data],
+);
+const businessOperationalPlan = useMemo(
+  () => isBusinessStep2 ? calculateBusinessOperationalPlan(selectedOperationalPois.length, data) : null,
+  [isBusinessStep2, selectedOperationalPois.length, data],
+);
+const togglePoiAssignment = useCallback((poi) => {
+  setPoiAssignments((current) => {
+    if (current[poi.id]) {
+      const next = { ...current };
+      delete next[poi.id];
+      return next;
+    }
+    if (isBusinessStep2) {
+      return {
+        ...current,
+        [poi.id]: {
+          selected: true,
+          copies: getBusinessCopiesForPoi(poi, data, null),
+        },
+      };
+    }
+    const counts = Array.from({ length: operatorCountForPoiAssignment }, () => 0);
+    Object.values(current).forEach((assignment) => {
+      const idx = Math.max(0, Math.min(counts.length - 1, Number(assignment?.operatorNumber || 1) - 1));
+      counts[idx] += 1;
+    });
+    const leastLoadedIndex = counts.indexOf(Math.min(...counts));
+    return { ...current, [poi.id]: { operatorNumber: leastLoadedIndex + 1, copies: 1 } };
+  });
+}, [operatorCountForPoiAssignment, isBusinessStep2, data]);
+const assignPoiToOperator = useCallback((poiId, operatorNumber) => {
+  setPoiAssignments((current) => ({
+    ...current,
+    [poiId]: { ...(current[poiId] || { copies: 1 }), operatorNumber: Number(operatorNumber) },
+  }));
+}, []);
+const updatePoiCopies = useCallback((poiId, copies) => {
+  setPoiAssignments((current) => current[poiId]
+    ? { ...current, [poiId]: { ...current[poiId], copies: Math.max(1, Number(copies) || 1) } }
+    : current);
+}, []);
+const selectAndBalanceAllPois = useCallback(() => {
+  const next = {};
+  if (isBusinessStep2) {
+    const materialLimit = Math.max(0, Number(data.businessMaterialQuantity ?? data.qty ?? 0) || 0);
+    const activityLimit = Math.max(0, Number(data.businessTargetCount || 0) || 0);
+    let usedMaterials = 0;
+    [...pois]
+      .sort((a, b) => {
+        const addressDelta = Number(Boolean(b.address)) - Number(Boolean(a.address));
+        if (addressDelta) return addressDelta;
+        const priorityDelta = Number(b.priority || 0) - Number(a.priority || 0);
+        if (priorityDelta) return priorityDelta;
+        return Number(a.distanceKm ?? Infinity) - Number(b.distanceKm ?? Infinity);
+      })
+      .some((poi) => {
+        if (activityLimit > 0 && Object.keys(next).length >= activityLimit) return true;
+        const copies = getBusinessCopiesForPoi(poi, data, null);
+        if (materialLimit > 0 && copies != null && usedMaterials + copies > materialLimit) return false;
+        if (materialLimit > 0 && copies == null) return true;
+        next[poi.id] = { selected: true, copies };
+        if (copies != null) usedMaterials += copies;
+        return false;
+      });
+  } else {
+    pois.forEach((poi, index) => {
+      next[poi.id] = { operatorNumber: (index % operatorCountForPoiAssignment) + 1, copies: 1 };
+    });
+  }
+  setPoiAssignments(next);
+}, [pois, operatorCountForPoiAssignment, isBusinessStep2, data]);
+const rebalanceSelectedPois = useCallback(() => {
+  setPoiAssignments((current) => {
+    const next = {};
+    Object.keys(current).filter((poiId) => pois.some((poi) => poi.id === poiId)).forEach((poiId, index) => {
+      next[poiId] = { ...current[poiId], operatorNumber: (index % operatorCountForPoiAssignment) + 1 };
+    });
+    return next;
+  });
+}, [pois, operatorCountForPoiAssignment]);
+const clearPoiAssignments = useCallback(() => setPoiAssignments({}), []);
+const changeOperatorCountInStep2 = useCallback((value) => {
+  const nextCount = Math.max(1, Math.min(5, Number(value) || 1));
+  setOperatorCountForPoiAssignment(nextCount);
+  setOperatorSchedules((current) => Array.from({ length: nextCount }, (_, index) => current[index] || {
+    id: `promoter_${index + 1}`,
+    promoterNumber: index + 1,
+    timeSlot: data.timeSlot || "",
+    serviceDurationHours: Number(data.serviceDurationHours || 4),
+  }));
+  setPoiAssignments((current) => Object.fromEntries(Object.entries(current).map(([poiId, assignment]) => [poiId, {
+    ...assignment,
+    operatorNumber: Math.min(nextCount, Number(assignment.operatorNumber || 1)),
+  }])));
+  setData((prev) => ({ ...prev, promoterCount: nextCount, businessOperatorCount: isBusinessStep2 ? nextCount : prev.businessOperatorCount }));
+}, [data.timeSlot, data.serviceDurationHours, isBusinessStep2, setData]);
+const updateOperatorScheduleInStep2 = useCallback((index, patch) => {
+  setOperatorSchedules((current) => current.map((schedule, scheduleIndex) => scheduleIndex === index ? { ...schedule, ...patch } : schedule));
+}, []);
+const { transportState, loading: transportLoading, error: transportError } = useTransportStops(queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType);
+// backendPois: POI individuali già estratti dal backend (analysis-poi-search → metadata.nearby_activities).
+// Usati come fallback quando usePoi (Overpass frontend) restituisce array vuoto per H2H/B2B.
 const addressPointParams = useMemo(() => ({
   lat: queryCenterLat,
   lng: queryCenterLng,
@@ -3903,10 +5176,11 @@ const civiciAvailable =
       // indirizzi/POI, altrimenti Mapbox fuzzy-matcha solo nomi di comuni e
       // "via como" diventa Cormano/Como — la causa esatta del bug.
       const searchIntent = detectSearchIntent(search);
+      const pointSearchIntent = searchMode === "address" && isMovementStep2;
       const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
       if (mapboxToken) {
         try {
-          const mapboxTypes = searchIntent.intent === "address"
+          const mapboxTypes = searchIntent.intent === "address" || pointSearchIntent
             ? "address,poi,place,locality,neighborhood"
             : "place,locality,neighborhood";
           const r = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(search)}.json?access_token=${mapboxToken}&country=IT&types=${mapboxTypes}&language=it&limit=8`);
@@ -3949,7 +5223,7 @@ const civiciAvailable =
             // non ha restituito nessuna riga indirizzo, prova anche
             // Nominatim e unisci i risultati — Via Antonio Oroboni potrebbe
             // non essere nel dataset Mapbox ma Nominatim la trova.
-            if (searchIntent.intent === "address" && !mapboxSuggestions.some(s => looksLikeAddressResult(s))) {
+            if ((searchIntent.intent === "address" || pointSearchIntent) && !mapboxSuggestions.some(s => looksLikeAddressResult(s) || s.placeType === "poi")) {
               try {
                 const nr = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&format=json&addressdetails=1&limit=4`);
                 const nd = await nr.json();
@@ -3973,7 +5247,7 @@ const civiciAvailable =
         } catch {}
       }
       try {
-        const nominatimFeatureType = searchIntent.intent === "address" ? "" : "&featuretype=city";
+        const nominatimFeatureType = searchIntent.intent === "address" || pointSearchIntent ? "" : "&featuretype=city";
         const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&format=json&addressdetails=1&limit=6${nominatimFeatureType}`);
         const d = await r.json();
         // addresstype è il campo Nominatim affidabile per il tipo di luogo
@@ -3994,7 +5268,7 @@ const civiciAvailable =
       } catch { setGeocodeSuggestions([]); }
     }, 350);
     return () => clearTimeout(t);
-  }, [search, searchMode]);
+  }, [search, searchMode, isMovementStep2]);
 
   // Fetch municipality boundary from OSM Nominatim when city is selected in "municipality" mode
   const targetComuniList = useMemo(() => {
@@ -4119,12 +5393,16 @@ useEffect(() => {
 }, [city?.lat, city?.lng]);
 const activeLay = layers.find(l => l.id === thLayerId) || layers[0];
 const apiZones = useMemo(
-  () => (apiData && !apiData.error && apiData.values) ? apiToZones(apiData, city, requestedAnalysisLevel) : null,
-  [apiData, city, requestedAnalysisLevel]
+  () => (apiData && !apiData.error && apiData.values) ? apiToZones(apiData, city, requestedAnalysisLevel, svcType, effectiveRadiusKm) : null,
+  [apiData, city, requestedAnalysisLevel, svcType, effectiveRadiusKm]
 );
 const hasUsefulApiZones = useMemo(
-  () => Array.isArray(apiZones) && apiZones.length > 0 && apiZones.some(z => Number(z.families || z.familiesInRadius || z.flyersMin || 0) > 0),
-  [apiZones]
+  () => Array.isArray(apiZones) && apiZones.length > 0 && apiZones.some(z => {
+    if (svcType === "h2h") return Number(z.poi || 0) > 0;
+    if (svcType === "b2b") return Number(z.bizTotal || 0) > 0;
+    return Number(z.families || z.familiesInRadius || z.flyersMin || 0) > 0;
+  }),
+  [apiZones, svcType]
 );
 const apiZonesByName = useMemo(
   () => new Map((apiZones || []).map(z => [String(z.name || "").trim().toLowerCase(), z])),
@@ -4279,13 +5557,17 @@ const zonesInRadius = useMemo(() => {
     }
   } else if (gateMode === "address" || gateMode === "radius") {
     // Hard guard anti-regressione: un raggio piccolo non può coinvolgere
-    // decine di COMUNI interi. Vale SOLO per righe a livello comune — le NIL
-    // sono micro-zone (~1-3 km²) e un raggio di 3 km su Milano ne interseca
-    // legittimamente ~37: troncarle a 8 nascondeva NIL reali del raggio.
-    const nilRowsCount = filtered.filter(z => z?.isNil || z?.territoryLevel === "nil" || z?.nilCode).length;
-    const isNilLevelResult = nilRowsCount > 0 && nilRowsCount >= filtered.length / 2;
-    if (!isNilLevelResult) {
-      const numRadius = Number(radiusKm) || 3;
+    // decine di COMUNI interi. MA le NIL sono micro-zone (~1-3 km²) e non vanno mai troncate.
+    const nilRows = filtered.filter(z => z?.isNil || z?.territoryLevel === "nil" || z?.nilCode);
+    const comuneRows = filtered.filter(z => !z?.isNil && z?.territoryLevel !== "nil" && !z?.nilCode);
+    const numRadius = Number(radiusKm) || 3;
+    if (nilRows.length > 0) {
+      const maxComuni = numRadius <= 3 ? 8 : numRadius <= 5 ? 12 : 20;
+      filtered = [...comuneRows.slice(0, maxComuni), ...nilRows];
+      if (isStep2DebugEnabled()) {
+        debugStep2Log("[STEP2_RADIUS_GUARD_WITH_NIL]", { nilRows: nilRows.length, comuneRows: Math.min(comuneRows.length, maxComuni) });
+      }
+    } else {
       if (numRadius <= 3 && filtered.length > 8) {
         debugStep2Warn("[STEP2_RADIUS_GUARD_TRIGGERED] radius <= 3 but got", filtered.length, "communes. Truncating to 8.");
         filtered = filtered.slice(0, 8);
@@ -4293,8 +5575,6 @@ const zonesInRadius = useMemo(() => {
         debugStep2Warn("[STEP2_RADIUS_GUARD_TRIGGERED] radius <= 5 but got", filtered.length, "communes. Truncating to 12.");
         filtered = filtered.slice(0, 12);
       }
-    } else if (isStep2DebugEnabled()) {
-      debugStep2Log("[STEP2_RADIUS_GUARD_SKIPPED_NIL_LEVEL]", { nilRows: nilRowsCount, total: filtered.length });
     }
   }
 
@@ -4308,9 +5588,10 @@ const zonesInRadius = useMemo(() => {
   // tranne la prima (DUOMO), riducendo il comune completo a una sola NIL.
   const seenZoneKeys = new Set();
   const dedupedFiltered = filtered.filter(z => {
-    const isNilRow = Boolean(z?.isNil || z?.territoryLevel === "nil" || z?.nilCode || z?.nil_code);
+    const isNilRow = Boolean(z?.isNil || z?.territoryLevel === "nil" || extractOfficialNilCode(z) !== null);
+    const officialCode = extractOfficialNilCode(z);
     const key = isNilRow
-      ? `nil_${z?.nilCode || z?.nil_code || normalizeMunicipalityName(z?.name || "")}`
+      ? (officialCode !== null ? `nil_code_${officialCode}` : `nil_${normalizeMunicipalityName(z?.name || "")}`)
       : (z?.municipality_code || normalizeMunicipalityName(z?.name || ""));
     if (!key) return true; // nessuna chiave stabile disponibile: non si può giudicare duplicato, si mantiene
     if (seenZoneKeys.has(key)) {
@@ -4379,6 +5660,133 @@ const territorialDataUnavailable = Boolean(city && !apiLoading && !hasUsefulApiZ
     }
   }, [city?.id, radius, hasUsefulApiZones, zonesInRadius]);
 
+  // Anteprima NIL per indirizzo Milano non ancora confermato (es. Via Brera):
+  // calcolata prima di selZones per consentire al calcolo coperture/KPI e alla
+  // mappa di agganciare istantaneamente la zona corrispondente all'indirizzo o alla scelta manuale.
+  const addressPreviewNilZones = useMemo(() => {
+    if (!hasUnconfirmedAddressPoint || !selectedSearchPoint || !Number.isFinite(Number(selectedSearchPoint.lat)) || !Number.isFinite(Number(selectedSearchPoint.lng))) {
+      return null;
+    }
+    const ptLat = Number(selectedSearchPoint.lat);
+    const ptLng = Number(selectedSearchPoint.lng);
+
+    const pool = new Map();
+    const addCandidates = (arr) => {
+      if (!Array.isArray(arr)) return;
+      arr.forEach(z => {
+        if (z && (z.isNil || z.territoryLevel === "nil" || extractOfficialNilCode(z) !== null)) {
+          const code = extractOfficialNilCode(z);
+          const name = z.name ?? z.nil_name ?? z.comune_name;
+          const key = code !== null ? `nil_code_${code}` : (z.id ? `id_${String(z.id).toLowerCase()}` : normalizeMunicipalityName(name || ""));
+          const hasReadableNilIdentity = Boolean(name || code || z.id);
+          if (key && hasReadableNilIdentity && !pool.has(key)) {
+            const fam = Number(z.families ?? z.households ?? z.households_in_radius ?? z.households_total ?? z.famiglie ?? 0);
+            const pop = Number(z.pop ?? z.population ?? z.population_in_radius ?? z.population_total ?? 0);
+            const area = Number(z.area ?? z.area_km2 ?? 1);
+            const coverage = Number(z.coverage ?? z.pct_copertura ?? 100);
+            const vol = Number(z.volantiniNelRaggio ?? z.volantini_nel_raggio ?? z.volantini_consigliati ?? z.flyersMin ?? 0);
+            pool.set(key, {
+              ...z,
+              id: z.id ?? (code ? `nil_${String(code).toLowerCase().replace(/\s+/g, '_')}` : `nil_${String(name).toLowerCase().replace(/\s+/g, '_')}`),
+              name: name ?? "NIL",
+              nilCode: code ?? null,
+              isNil: true,
+              territoryLevel: "nil",
+              families: fam,
+              pop: pop,
+              area: area,
+              coverage: coverage,
+              volantiniNelRaggio: vol,
+              flyersMin: Number(z.flyersMin ?? vol),
+              flyersMax: Number(z.flyersMax ?? vol * 1.1)
+            });
+          }
+        }
+      });
+    };
+    addCandidates(apiZones);
+    addCandidates(allZones);
+    addCandidates(apiData?.nil_breakdown);
+
+    const candidates = Array.from(pool.values()).filter(z => Boolean(z?.name || extractOfficialNilCode(z) !== null || z?.id));
+    if (candidates.length === 0) return { main: null, nearby: [], all: [] };
+
+    const withDist = candidates.map(z => {
+      const geom = pickRealComuneGeometry(z);
+      const contains = geoJsonContainsPoint(geom, ptLat, ptLng);
+      let dist = contains ? 0 : null;
+      if (dist === null) {
+        if (Number.isFinite(Number(z.lat)) && Number.isFinite(Number(z.lng))) {
+          dist = haversineKm(ptLat, ptLng, Number(z.lat), Number(z.lng));
+        } else {
+          const c = geoJsonApproxCentroid(geom);
+          if (c) dist = haversineKm(ptLat, ptLng, c.lat, c.lng);
+        }
+      }
+      return { z, geom, contains, dist: dist != null ? dist : 9999 };
+    });
+
+    const containing = withDist.filter(item => item.contains);
+    const seenContainingCodes = new Set();
+    const containingCandidates = [];
+    containing.forEach(item => {
+      if (!item?.z) return;
+      const code = extractOfficialNilCode(item.z);
+      const dedupKey = code !== null ? `nil_code_${code}` : (item.z.id ? `id_${String(item.z.id).toLowerCase()}` : normalizeMunicipalityName(item.z.name || ""));
+      if (!seenContainingCodes.has(dedupKey)) {
+        seenContainingCodes.add(dedupKey);
+        containingCandidates.push(item.z);
+      }
+    });
+
+    let mainNil = null;
+    if (containingCandidates.length > 0) {
+      mainNil = containingCandidates.length === 1 ? containingCandidates[0] : null;
+    } else {
+      withDist.sort((a, b) => a.dist - b.dist);
+      if (withDist[0] && withDist[0].dist <= 3) {
+        mainNil = withDist[0].z;
+      }
+    }
+
+    withDist.sort((a, b) => a.dist - b.dist);
+    const seenNearbyCodes = new Set(containingCandidates.map(z => {
+      const c = extractOfficialNilCode(z);
+      return c !== null ? `nil_code_${c}` : (z.id ? `id_${String(z.id).toLowerCase()}` : normalizeMunicipalityName(z.name || ""));
+    }));
+    const nearby = [];
+    withDist.forEach(item => {
+      if (!item?.z || item.dist > 2.5) return;
+      const c = extractOfficialNilCode(item.z);
+      const dedupKey = c !== null ? `nil_code_${c}` : (item.z.id ? `id_${String(item.z.id).toLowerCase()}` : normalizeMunicipalityName(item.z.name || ""));
+      if (!seenNearbyCodes.has(dedupKey)) {
+        seenNearbyCodes.add(dedupKey);
+        nearby.push(item.z);
+      }
+    });
+
+    const seenAllCodes = new Set();
+    const all = [];
+    [...(containingCandidates.length > 1 ? containingCandidates : [mainNil]), ...nearby].filter(Boolean).forEach(z => {
+      const code = extractOfficialNilCode(z);
+      const dedupKey = code !== null ? `nil_code_${code}` : (z.id ? `id_${String(z.id).toLowerCase()}` : normalizeMunicipalityName(z.name || ""));
+      if (!seenAllCodes.has(dedupKey)) {
+        seenAllCodes.add(dedupKey);
+        all.push(z);
+      }
+    });
+
+    if (isStep2DebugEnabled()) {
+      debugStep2Log("[STEP2_ADDRESS_PREVIEW_NILS]", {
+        ptLat, ptLng,
+        main: mainNil?.name || null,
+        containingCandidates: containingCandidates.map(z => ({ id: z.id, code: extractOfficialNilCode(z), name: z.name })),
+        nearby: nearby.map(z => z.name),
+      });
+    }
+    return { main: mainNil, containingCandidates, requiresExplicitNilChoice: containingCandidates.length > 1, nearby, all };
+  }, [hasUnconfirmedAddressPoint, selectedSearchPoint, apiData, apiZones, allZones]);
+
   // getFinalAreasForMode: in municipality mode, bypass stale `selected` state and use
   // zonesInRadius directly (already gated to 1 zone by userModeRef). In radius/address
   // mode, filter allZones by `selected` to preserve per-zone toggle behaviour.
@@ -4392,12 +5800,36 @@ const territorialDataUnavailable = Boolean(city && !apiLoading && !hasUsefulApiZ
     let areas;
     if (gateMode === "municipality") {
       areas = zonesInRadius; // already filtered to target zones; bypasses stale `selected`
-      // Modalità NIL manuale (Milano): l'utente sceglie esplicitamente le NIL —
-      // solo qui la selezione manuale (`selected`) filtra l'area principale.
-      // Con toggle spento, tutte le NIL restano incluse (comune completo).
-      if (isNilAnalysis && nilManualMode) {
-        const picked = areas.filter(z => selected.includes(z.id));
+      // Modalità NIL manuale o selezione esplicita NIL:
+      if ((isNilAnalysis || nilManualMode || requestedAnalysisLevel === "nil") && selected.length > 0) {
+        const picked = areas.filter(z => selected.includes(z.id) || selected.includes(String(z.nilCode || z.nil_code)));
         if (picked.length > 0) areas = picked;
+      } else if (hasUnconfirmedAddressPoint && !addressFullCoverageConfirmed && !nilManualMode) {
+        // Se l'utente ha selezionato un indirizzo all'interno di Milano (es. Via Brera 5) e non ha confermato
+        // "Usa Milano comune completo", mostriamo le famiglie e i KPI del NIL intersecato (es. BRERA: 6.705)
+        // anziché l'aggregato dell'intero comune di Milano (744.299).
+        const targetNil = addressPreviewNilZones?.main || addressPreviewNilZones?.containingCandidates?.[0] || addressPreviewNilZones?.all?.[0];
+        if (targetNil) {
+          const targetCode = targetNil.nilCode ?? targetNil.nil_code;
+          const targetName = targetNil.name ?? targetNil.nil_name ?? targetNil.comune_name;
+          const matched = areas.find(z => 
+            (targetCode != null && (String(z.nilCode ?? z.nil_code) === String(targetCode) || String(z.id) === `nil_${String(targetCode).toLowerCase().replace(/\s+/g, '_')}`)) ||
+            (targetName && normalizeMunicipalityName(z.name ?? "") === normalizeMunicipalityName(targetName))
+          ) || {
+            ...targetNil,
+            id: targetNil.id ?? (targetCode ? `nil_${String(targetCode).toLowerCase().replace(/\s+/g, '_')}` : `nil_${String(targetName).toLowerCase().replace(/\s+/g, '_')}`),
+            name: targetName ?? "NIL selezionato",
+            nilCode: targetCode ?? null,
+            isNil: true,
+            families: Number(targetNil.families ?? targetNil.households ?? targetNil.households_in_radius ?? targetNil.households_total ?? 0),
+            pop: Number(targetNil.pop ?? targetNil.population ?? targetNil.population_in_radius ?? targetNil.population_total ?? 0),
+            area: Number(targetNil.area ?? targetNil.area_km2 ?? 1),
+            coverage: Number(targetNil.coverage ?? targetNil.pct_copertura ?? 100),
+            volantiniNelRaggio: Number(targetNil.volantiniNelRaggio ?? targetNil.volantini_nel_raggio ?? targetNil.volantini_consigliati ?? 0),
+            flyersMin: Number(targetNil.flyersMin ?? targetNil.volantiniNelRaggio ?? targetNil.volantini_consigliati ?? 0)
+          };
+          areas = [matched];
+        }
       }
       // Blocco di sicurezza: 0-1 NIL non è un comune completo — degrada a
       // "dati non disponibili" invece di mostrare DUOMO come totale Milano.
@@ -4446,7 +5878,7 @@ const territorialDataUnavailable = Boolean(city && !apiLoading && !hasUsefulApiZ
 
     debugStep2Log("[STEP2_FINAL_AREAS_FOR_COVERAGE]", areas.length, areas.map(z => z.name));
     return areas;
-  }, [searchMode, selectedCaps, capDataMap, zonesInRadius, allZones, selected, isNilAnalysis, selectedComuni, nilManualMode, milanoComuneNilInsufficient]);
+  }, [searchMode, selectedCaps, capDataMap, zonesInRadius, allZones, selected, isNilAnalysis, selectedComuni, nilManualMode, milanoComuneNilInsufficient, hasUnconfirmedAddressPoint, addressFullCoverageConfirmed, addressPreviewNilZones, requestedAnalysisLevel]);
 
   // Risolve pendingNilPreselectName (vedi selectMilanoAsNil) non appena le
   // 88 NIL di Milano sono caricate: seleziona SOLO quella cliccata dal
@@ -4491,7 +5923,6 @@ const territorialDataUnavailable = Boolean(city && !apiLoading && !hasUsefulApiZ
     }
     setSelectedCaps(prev => [...prev, capSuggestion.postalCode]);
   }
-const flyerQuantityFromStep1 = data.flyerQuantity || data.qty || 10000;
 function zCap(z) { return svcType === "d2d" ? z.families : svcType === "h2h" ? z.poi * 2 : z.bizTotal * 3; }
   function toggleZone(id) {
     setPartialCoverageConfirmed(false);
@@ -4699,31 +6130,59 @@ function zoneColor(z) { return activeLay ? thColor(z[activeLay.field], thMin, th
   const center = city ? localProj(city.lat, city.lng) : { x: MW / 2, y: MH / 2 };
 const rPx = kmToPx(radius);
 const businessMapZones = isBusinessStep2 ? zonesInRadius.map(z => ({...z, businessScore: businessZoneScore(z), clusterRows: businessRows([z], targetBusinessMeta)})).sort((a, b) => businessZoneScore(b) - businessZoneScore(a)) : [];
+  const liveServicePointCount = pois.length > 0 ? pois.length : backendPois.length;
+  const liveNonResidentialRequirement = svcType === "h2h" && configuredH2HCapacity > 0
+    ? configuredH2HCapacity
+    : svcType === "h2h" && liveServicePointCount > 0
+      ? liveServicePointCount * 2
+    : svcType === "b2b" && selectedOperationalPois.length > 0
+      ? selectedOperationalPois.reduce((total, point) => total + Math.max(1, Number(point.copies || 1)), 0)
+    : svcType === "b2b" && liveServicePointCount > 0
+      ? liveServicePointCount * 3
+      : selZones.reduce((a, z) => a + zCap(z), 0);
   const recommendedFlyersForSelection = isResidentialStep2
-  ? selZones.reduce((a, z) => a + getZoneFullCoverageFlyers(z), 0)
-  : selZones.reduce((a, z) => a + zCap(z), 0);
+    ? selZones.reduce((a, z) => a + getZoneFullCoverageFlyers(z), 0)
+    : liveNonResidentialRequirement;
+const availableNils = isNilAnalysis
+  ? (Array.isArray(apiData?.nil_breakdown) && apiData.nil_breakdown.length > 0
+      ? apiData.nil_breakdown
+      : (Array.isArray(allZones) ? allZones : []).filter(z => z.isNil || z.territoryLevel === "nil" || isNilAnalysis))
+      .map(z => ({ code: z.nilCode || z.nil_code || z.id, name: z.name }))
+  : [];
+const containingNil = addressPreviewNilZones?.main
+  ? { code: addressPreviewNilZones.main.id || addressPreviewNilZones.main.nilCode, name: addressPreviewNilZones.main.name }
+  : (hasUnconfirmedAddressPoint && Array.isArray(zonesInRadius) && zonesInRadius.length === 1
+      ? { code: zonesInRadius[0].nilCode || zonesInRadius[0].nil_code || zonesInRadius[0].id, name: zonesInRadius[0].name }
+      : null);
 const intersectedNils = isNilAnalysis && areaMode === "radius"
   ? (zonesInRadius || [])
-      .filter(z => z.isNil || z.territoryLevel === "nil")
+      .filter(z => z.isNil || z.territoryLevel === "nil" || isNilAnalysis)
       .map(z => ({ code: z.nilCode || z.nil_code || z.id, name: z.name }))
   : [];
-const selectedNils = isNilAnalysis && areaMode === "custom_zone"
-  ? (selZones || [])
-      .filter(z => z.isNil || z.territoryLevel === "nil")
-      .map(z => ({ code: z.nilCode || z.nil_code || z.id, name: z.name }))
+const selectedNils = isNilAnalysis
+  ? (hasUnconfirmedAddressPoint
+      ? []
+      : areaMode === "custom_zone" || nilManualMode
+        ? (selZones || []).filter(z => z.isNil || z.territoryLevel === "nil" || isNilAnalysis).map(z => ({ code: z.nilCode || z.nil_code || z.id, name: z.name }))
+        : areaMode === "radius"
+          ? intersectedNils
+          : isComuneMode && !hasUnconfirmedAddressPoint
+            ? availableNils
+            : [])
   : [];
 const manualFlyersNumber = Number(manualFlyers);
-const finalFlyers = coverageDecision === "useRecommended" && recommendedFlyersForSelection > 0
-  ? recommendedFlyersForSelection
-  : coverageDecision === "manual" && Number.isFinite(manualFlyersNumber) && manualFlyersNumber > 0
-    ? manualFlyersNumber
-    : Number(availableFlyers || flyerQuantityFromStep1 || 0);
+const finalFlyers = resolveAssignedQuantity({
+  insertedQuantity: availableFlyers || flyerQuantityFromStep1,
+  recommendedQuantity: recommendedFlyersForSelection,
+  manualQuantity: manualFlyersNumber,
+  decision: coverageDecision,
+});
 const allocationFlyers = Math.max(0, Math.round(Number(finalFlyers || availableFlyers || flyerQuantityFromStep1 || 0)));
 const doorCoverage = isResidentialStep2
     ? computeDoorToDoorCoverage({ insertedFlyers: allocationFlyers, selectedZones: selZones })
     : null;
-const totalCapacity = isResidentialStep2 ? recommendedFlyersForSelection : selZones.reduce((a, z) => a + zCap(z), 0);
-  const requiredFlyers = isResidentialStep2 ? recommendedFlyersForSelection : selZones.reduce((a, z) => a + zCap(z), 0);
+const totalCapacity = recommendedFlyersForSelection;
+  const requiredFlyers = recommendedFlyersForSelection;
   const isPartial = isResidentialStep2 ? allocationFlyers < requiredFlyers : allocationFlyers < requiredFlyers;
 
   // Surplus (business/UX layer only — does not touch families/coverage calc):
@@ -4754,14 +6213,18 @@ const totalCapacity = isResidentialStep2 ? recommendedFlyersForSelection : selZo
     priorityAssignedById = new Map();
     let remainingForPriority = allocationFlyers;
     for (const z of priorityOrderedZones) {
-      const req = isResidentialStep2 ? getZoneFullCoverageFlyers(z) : zCap(z);
+      const req = isResidentialStep2
+        ? getZoneFullCoverageFlyers(z)
+        : (selZones.length === 1 ? requiredFlyers : zCap(z));
       const assigned = Math.min(req, remainingForPriority);
       remainingForPriority -= assigned;
       priorityAssignedById.set(z.id, assigned);
     }
   }
-  const zonesAllocation = selZones.map(z => {
-    const req = isResidentialStep2 ? getZoneFullCoverageFlyers(z) : zCap(z);
+  let zonesAllocation = selZones.map((z, index) => {
+    const req = isResidentialStep2
+      ? getZoneFullCoverageFlyers(z)
+      : (selZones.length === 1 ? requiredFlyers : zCap(z));
     let assigned = 0;
     if (allocationMode === "auto") {
       assigned = Math.min(req, remainingForAuto);
@@ -4777,9 +6240,22 @@ const totalCapacity = isResidentialStep2 ? recommendedFlyersForSelection : selZo
       requiredFlyers: req,
       assignedFlyers: assigned,
       coveragePercent: req > 0 ? Math.round((assigned / req) * 100) : 0,
-      allocationStatus: assigned >= req ? "full" : assigned > 0 ? "partial" : "none"
+      allocationStatus: assigned >= req ? "full" : assigned > 0 ? "partial" : "none",
+      priorityRank: index + 1,
     };
   });
+  // Keep the scenario quantity reconcilable with the zone allocation. When all
+  // requirements are already full, the extra copies stay assigned to the first
+  // priority zone as explicit operational surplus; coverage remains capped at 100%.
+  if ((allocationMode === "auto" || allocationMode === "priority") && zonesAllocation.length > 0) {
+    const allocated = zonesAllocation.reduce((sum, zone) => sum + zone.assignedFlyers, 0);
+    const surplusToAssign = Math.max(0, allocationFlyers - allocated);
+    if (surplusToAssign > 0) {
+      zonesAllocation = zonesAllocation.map((zone, index) => index === 0
+        ? { ...zone, assignedFlyers: zone.assignedFlyers + surplusToAssign, coveragePercent: zone.requiredFlyers > 0 ? 100 : 0, allocationStatus: zone.requiredFlyers > 0 ? "full" : zone.allocationStatus, surplusFlyers: surplusToAssign }
+        : zone);
+    }
+  }
   // Stato copertura per comune/NIL, stessa soglia della legenda (getCoverageStatus,
   // ≥90% coperto / >0% parziale / 0% non_coperto) — passato alla mappa così i
   // poligoni usano ESATTAMENTE gli stessi colori della legenda sotto la mappa.
@@ -4797,6 +6273,7 @@ const totalCapacity = isResidentialStep2 ? recommendedFlyersForSelection : selZo
         requiredFlyers: a.requiredFlyers,
         coveragePercent: a.coveragePercent,
         status: getCoverageStatus(a.coveragePercent),
+        priorityRank: a.priorityRank,
       };
     });
     return map;
@@ -4841,6 +6318,8 @@ const totalCapacity = isResidentialStep2 ? recommendedFlyersForSelection : selZo
       const nextZones = [...zones];
       nextZones[zoneIndex] = {
         ...currentZone,
+        assigned_flyers: finalFlyersRounded,
+        recommended_flyers: requiredFlyers,
         coverageMode,
         coverageDecision,
         availableFlyers,
@@ -4901,23 +6380,23 @@ const totalCapacity = isResidentialStep2 ? recommendedFlyersForSelection : selZo
     }
     if (normalized === "manual") {
       const initialManualFlyers = Number(manualFlyers || allocationFlyers || availableFlyers || flyerQuantityFromStep1 || 0);
-      setAllocationMode("manual");
+      setAllocationMode("auto");
       setManualFlyers(initialManualFlyers > 0 ? initialManualFlyers : "");
-      setManualAssignments(buildAutoAssignmentsForQuantity(initialManualFlyers));
+      setManualAssignments({});
     }
   }
 
   function updateManualFlyersQuantity(value) {
     const num = parseInt(value, 10);
     setCoverageDecision("manual");
-    setAllocationMode("manual");
+    setAllocationMode("auto");
     if (!Number.isFinite(num) || num <= 0) {
       setManualFlyers(value);
       setManualAssignments({});
       return;
     }
     setManualFlyers(num);
-    setManualAssignments(buildAutoAssignmentsForQuantity(num));
+    setManualAssignments({});
   }
 
   // Riordina un comune nella modalità "Priorità" (solo modalità Comuni).
@@ -4976,7 +6455,7 @@ const totalCapacity = isResidentialStep2 ? recommendedFlyersForSelection : selZo
         finalPriorityAssignedById.set(z.id, assigned);
       }
     }
-    const finalZonesAllocation = selZones.map(z => {
+    let finalZonesAllocation = selZones.map(z => {
       const req = isResidentialStep2 ? getZoneFullCoverageFlyers(z) : zCap(z);
       const assigned = allocationMode === "manual"
         ? (manualAssignments[z.id] || 0)
@@ -4993,12 +6472,63 @@ const totalCapacity = isResidentialStep2 ? recommendedFlyersForSelection : selZo
         allocationStatus: assigned >= req ? "full" : assigned > 0 ? "partial" : "none"
       };
     });
+    if ((isMovementStep2 || isBusinessStep2) && selectedOperationalPois.length > 0) {
+      finalZonesAllocation = selectedOperationalPois.map((point, index) => {
+        const sameOperatorPoints = isMovementStep2
+          ? (selectedOperationalPois.filter((item) => item.operatorNumber === point.operatorNumber).length || 1)
+          : 1;
+        const quantity = isMovementStep2
+          ? Math.round((Math.max(1, Number(point.serviceDurationHours || serviceDurationForStep2)) * H2H_FLYERS_PER_PROMOTER_HOUR) / sameOperatorPoints)
+          : Math.max(1, Number(point.copies || 1));
+        return {
+          id: point.id,
+          name: isBusinessStep2 ? point.name : `Promoter ${point.operatorNumber} · ${point.name}`,
+          requiredFlyers: quantity,
+          assignedFlyers: quantity,
+          coveragePercent: 100,
+          allocationStatus: "full",
+        };
+      });
+    } else if (isMovementStep2 && step1OperationalPoints.length > 0) {
+      finalZonesAllocation = step1OperationalPoints.map((point, index) => {
+        const quantity = Number(point.assignedQuantity || serviceDurationForStep2 * H2H_FLYERS_PER_PROMOTER_HOUR);
+        return {
+          id: point.id || `promoter_${index + 1}`,
+          name: `Promoter ${point.promoterNumber || index + 1} · ${point.label || point.location || "Punto operativo"}`,
+          requiredFlyers: quantity,
+          assignedFlyers: quantity,
+          coveragePercent: 100,
+          allocationStatus: "full",
+        };
+      });
+    }
     const finalServiceKpis = {
       ...serviceKpis,
       coverage: isResidentialStep2
         ? (finalDoorCoverage?.coveragePercent ?? serviceKpis.coverage)
         : serviceKpis.coverage,
-      recommendedFlyers: isResidentialStep2 ? requiredFlyers : serviceKpis.recommendedFlyers,
+      recommendedFlyers: isResidentialStep2 ? requiredFlyers : requiredFlyers,
+      ...(isMovementStep2 ? {
+        promoterCount: operatorCountForPoiAssignment,
+        serviceDurationHours: serviceDurationForStep2,
+        estimatedCapacity: operatorSchedules.reduce((total, schedule) => total + Math.max(1, Number(schedule.serviceDurationHours || serviceDurationForStep2)) * H2H_FLYERS_PER_PROMOTER_HOUR, 0),
+        operationalPoints: step1OperationalPoints,
+        operatorSchedules,
+      } : {}),
+      ...((isMovementStep2 || isBusinessStep2) ? {
+        operatorCount: isBusinessStep2 ? businessOperationalPlan?.recommendedOperators : operatorCountForPoiAssignment,
+        selectedPointCount: selectedOperationalPois.length,
+        selectedOperationalPois,
+        poiAssignments,
+        distributionTargets: distributionTargetSelection,
+        ...(isBusinessStep2 ? {
+          businessMaterialPlan,
+          businessOperationalPlan,
+          materialsRequired: businessMaterialPlan?.materialsRequired,
+          materialsRemaining: businessMaterialPlan?.materialsRemaining,
+          materialsMissing: businessMaterialPlan?.materialsMissing,
+        } : {}),
+      } : {}),
     };
     // Difensivo: non propagare a Step 4 un coverageStrategy residuo di una
     // configurazione precedente (es. "expand_area" scelto per un altro
@@ -5031,13 +6561,23 @@ const totalCapacity = isResidentialStep2 ? recommendedFlyersForSelection : selZo
             selectedNil: selectedNils,
             zonesAllocation: finalZonesAllocation,
             serviceKpis: finalServiceKpis,
+            operationalPoints: step1OperationalPoints,
+            promoterAssignments: isBusinessStep2 ? [] : operatorSchedules,
+            promoterCount: isBusinessStep2 ? null : operatorCountForPoiAssignment,
+            serviceDurationHours: serviceDurationForStep2,
+            h2hEstimatedCapacity: operatorSchedules.reduce((total, schedule) => total + Math.max(1, Number(schedule.serviceDurationHours || serviceDurationForStep2)) * H2H_FLYERS_PER_PROMOTER_HOUR, 0),
+            poiAssignments,
+            selectedOperationalPois,
             totalAssigned: finalZonesAllocation.reduce((a, v) => a + v.assignedFlyers, 0),
             coverageStatus: isResidentialStep2 ? finalDoorCoverage.status : (finalFlyerQuantity < requiredFlyers ? "partial" : "sufficient"),
           } : zone)
         : prev.campaignZones,
       qty: finalFlyerQuantity,
       flyerQuantity: finalFlyerQuantity,
-      flyerQuantityFromStep1: finalFlyerQuantity,
+      flyerQuantityFromStep1: flyerQuantityFromStep1,
+      insertedFlyersOriginal: flyerQuantityFromStep1,
+      originalFlyerQuantity: flyerQuantityFromStep1,
+      assignedFlyers: finalFlyerQuantity,
       zones: isCapMode ? [] : selZones.map(z => z.id),
       selectedCaps,
       capDataMap,
@@ -5084,6 +6624,16 @@ const totalCapacity = isResidentialStep2 ? recommendedFlyersForSelection : selZo
       coverageStatus: isResidentialStep2 ? finalDoorCoverage.status : (finalFlyerQuantity < requiredFlyers ? "partial" : "sufficient"),
       zonesAllocation: finalZonesAllocation,
       serviceKpis: finalServiceKpis,
+      operationalPoints: step1OperationalPoints,
+      promoterAssignments: isBusinessStep2 ? [] : operatorSchedules,
+      promoterCount: isBusinessStep2 ? null : operatorCountForPoiAssignment,
+      businessOperatorCount: isBusinessStep2 ? businessOperationalPlan?.recommendedOperators : data.businessOperatorCount,
+      businessMaterialPlan: isBusinessStep2 ? businessMaterialPlan : data.businessMaterialPlan,
+      businessOperationalPlan: isBusinessStep2 ? businessOperationalPlan : data.businessOperationalPlan,
+      serviceDurationHours: serviceDurationForStep2,
+      h2hEstimatedCapacity: operatorSchedules.reduce((total, schedule) => total + Math.max(1, Number(schedule.serviceDurationHours || serviceDurationForStep2)) * H2H_FLYERS_PER_PROMOTER_HOUR, 0),
+      poiAssignments,
+      selectedOperationalPois,
       radius,
       city,
       sources: confirmedStep2Sources,
@@ -5102,15 +6652,53 @@ const totalCapacity = isResidentialStep2 ? recommendedFlyersForSelection : selZo
 
 const coverageStatus = selZones.length === 0 && !isMovementStep2 && !isBusinessStep2 ? "empty" : isPartial ? "partial" : "sufficient";
 const remainingFlyers = isResidentialStep2 && doorCoverage ? doorCoverage.remainingFlyers : (coverageStatus === "sufficient" ? flyerQuantityFromStep1 - requiredFlyers : 0);
-const canGo = searchMode === "cap" ? selectedCaps.length > 0 : (selZones.length > 0 || ((isMovementStep2 || isBusinessStep2) && pois.length > 0));
-const h2hMetrics = useMemo(
-  () => getH2HMetrics(pois, transportState, radiusKm),
-  [pois, transportState, radiusKm]
-);
-const businessMetrics = useMemo(
-  () => getBusinessMetrics(pois, targetBusinessMeta, radiusKm),
-  [pois, targetBusinessMeta, radiusKm]
-);
+const canGo = searchMode === "cap"
+  ? selectedCaps.length > 0
+  : isMovementStep2
+    ? (pois.length > 0 ? selectedOperationalPois.length > 0 : step1OperationalPoints.length > 0)
+    : isBusinessStep2
+      ? selectedOperationalPois.length > 0
+      : selZones.length > 0;
+const h2hMetrics = useMemo(() => {
+  // Preferisce i POI real-time (Overpass via usePoi); usa i POI del backend come fallback.
+  const poisForCalc = pois.length > 0 ? pois : backendPois;
+  const m = getH2HMetrics(poisForCalc, transportState, radiusKm);
+  // Se i POI vengono dal backend, integra i KPI scalari già aggregati lato server.
+  if (isMovementStep2 && poisForCalc === backendPois && backendPois.length > 0 && apiData?.values) {
+    const v = apiData.values;
+    return {
+      ...m,
+      poi: v.poi_count ?? v.poi_rilevati ?? m.poi,
+      tplStops: v.transit_points ?? v.transit_stops ?? m.tplStops,
+      stations: v.transit_points ?? m.stations,
+      metro: m.metro,
+      universities: v.schools_events_count ?? v.schools_events ?? m.universities,
+      localAttractors: m.localAttractors,
+      transitTotal: v.transit_points ?? m.transitTotal,
+      flowScore: v.potential_flow ?? v.flow_score ?? m.flowScore,
+      hotspots: v.hotspot_count ?? m.hotspots,
+      zones: m.clusters.length || v.hotspot_count || 0,
+    };
+  }
+  return m;
+}, [pois, backendPois, transportState, radiusKm, isMovementStep2, apiData]);
+const businessMetrics = useMemo(() => {
+  const poisForCalc = pois.length > 0 ? pois : backendPois;
+  const m = getBusinessMetrics(poisForCalc, targetBusinessMeta, radiusKm);
+  if (isBusinessStep2 && poisForCalc === backendPois && backendPois.length > 0 && apiData?.values) {
+    const v = apiData.values;
+    return {
+      ...m,
+      businesses: v.detected_activities ?? v.businesses ?? m.businesses,
+      competitors: v.competitor_count ?? v.competitors ?? m.competitors,
+      commercialDensity: v.commercial_density ?? m.commercialDensity,
+      cdIdx: v.commercial_density_index ?? v.cdIdx ?? m.cdIdx,
+      targetBusinesses: v.target_activities_count ?? v.target_businesses ?? m.targetBusinesses,
+      clusters: m.clusterRows.length || v.cluster_count || 0,
+    };
+  }
+  return m;
+}, [pois, backendPois, targetBusinessMeta, radiusKm, isBusinessStep2, apiData]);
 const operationalWaypoints = useMemo(() => {
   if (isMovementStep2) {
     return h2hMetrics.clusters.slice(0, 24).map((point) => ({
@@ -5245,7 +6833,7 @@ const municipalityTotalFamiliesLabel = municipalityTotalFamilies != null
   : (searchMode === "municipality" && selectedComuni.length > 1 ? "Totale territorio non disponibile" : "Totale Comune non disponibile");
 const municipalityTotalFamiliesRowLabel = !isComuneMode
   ? "Totale stimato area selezionata"
-  : (selectedComuni.length > 1 ? "Totale territorio selezionato" : "Totale stimato Comune");
+  : (hasUnconfirmedAddressPoint ? "Totale stimato Indirizzo / NIL" : ((nilManualMode || isNilAnalysis || areaMode === "custom_zone") && selZones.length < allZones.length ? "Totale stimato NIL selezionate" : (selectedComuni.length > 1 ? "Totale territorio selezionato" : "Totale stimato Comune")));
 // Rete di sicurezza (§5): una zona accettata in modalità Comune con dati
 // interamente a zero non deve passare per "comune valido" — copre sia il
 // caso residuo di un risultato non-comune sfuggito al filtro tipo (es.
@@ -5281,6 +6869,47 @@ const recommendedFlyersValue = Number(requiredFlyers) > 0
 const formattedRecommendedFlyers = recommendedFlyersValue != null
   ? recommendedFlyersValue.toLocaleString("it-IT", { useGrouping: true })
   : "N.D.";
+
+  useEffect(() => {
+    setDismissedAdvisoryRadius(null);
+  }, [flyerQuantityFromStep1, city?.id, city?.lat, city?.lng, selectedSearchPoint?.label]);
+
+  const recommendedRadiusForSlider = useMemo(() => {
+    if (!isRadiusMode || !S2_RADII || S2_RADII.length === 0) return null;
+    const currentRadius = Number(radiusKm) || Number(radius) || 3;
+    const currReq = Number(requiredFlyers > 0 ? requiredFlyers : (serviceKpis?.recommendedFlyers || 0));
+    const currQty = Number(flyerQuantityFromStep1 || allocationFlyers || 0);
+    if (currReq <= 0 || currQty <= 0 || !Number.isFinite(currentRadius) || currentRadius <= 0) {
+      return currentRadius;
+    }
+    const idealRadius = currentRadius * Math.sqrt(currQty / currReq);
+    return S2_RADII.reduce((closest, option) =>
+      Math.abs(option - idealRadius) < Math.abs(closest - idealRadius) ? option : closest
+    );
+  }, [isRadiusMode, radiusKm, radius, requiredFlyers, serviceKpis?.recommendedFlyers, flyerQuantityFromStep1, allocationFlyers]);
+
+  const radiusAdvisoryData = useMemo(() => {
+    if (!isRadiusMode || (!city && selectedComuni.length === 0 && !searchedLocation) || apiLoading) return null;
+    const currentRadius = Number(radiusKm) || Number(radius) || 3;
+    if (!Number.isFinite(currentRadius) || currentRadius <= 0) return null;
+    const currReq = Number(requiredFlyers > 0 ? requiredFlyers : (serviceKpis?.recommendedFlyers || 0));
+    const currQty = Number(flyerQuantityFromStep1 || allocationFlyers || 0);
+    const covPct = Number(serviceKpis?.coverage ?? (currReq > 0 ? Math.min(100, Math.round((currQty / currReq) * 100)) : 100));
+    const status = getCoverageStatus(covPct);
+    const recRadius = recommendedRadiusForSlider || currentRadius;
+    const isDismissed = dismissedAdvisoryRadius === currentRadius;
+
+    return {
+      currentRadius,
+      recRadius,
+      currReq,
+      currQty,
+      covPct,
+      status,
+      isDismissed
+    };
+  }, [isRadiusMode, city, selectedComuni.length, searchedLocation, apiLoading, radiusKm, radius, requiredFlyers, serviceKpis?.recommendedFlyers, serviceKpis?.coverage, flyerQuantityFromStep1, allocationFlyers, recommendedRadiusForSlider, dismissedAdvisoryRadius]);
+
 const radiusInsightRows = zonesInRadius.map(z => ({
       id: z.id,
       name: z.name,
@@ -5314,8 +6943,15 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     if (assigned >= required) return 0;
     return 1;
   };
+  const effectiveZonesForResidentialList = useMemo(() => {
+    if (selZones.length > 0 && selZones.length !== allZones.length && (hasUnconfirmedAddressPoint || isNilAnalysis || nilManualMode || requestedAnalysisLevel === "nil" || (selectedComuni && selectedComuni.length > 1) || areaMode === "custom_zone" || areaMode === "unconfirmed_address")) {
+      return selZones;
+    }
+    return allZones;
+  }, [allZones, selZones, hasUnconfirmedAddressPoint, isNilAnalysis, nilManualMode, requestedAnalysisLevel, selectedComuni, areaMode]);
+
   const sortedResidentialZones = useMemo(
-    () => [...allZones].sort((a, b) => {
+    () => [...effectiveZonesForResidentialList].sort((a, b) => {
       if (zoneListSort === "relevance") {
         const groupDiff = zoneCoverageSortGroup(a) - zoneCoverageSortGroup(b);
         if (groupDiff) return groupDiff;
@@ -5323,7 +6959,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
       const diff = zoneSortValue(b, zoneListSort) - zoneSortValue(a, zoneListSort);
       return diff || String(a.name || "").localeCompare(String(b.name || ""), "it");
     }),
-    [allZones, zoneListSort, zonesAllocation]
+    [effectiveZonesForResidentialList, zoneListSort, zonesAllocation]
   );
   const shouldGroupMarginalZones = isResidentialStep2 && searchMode !== "cap" && sortedResidentialZones.length > GRANDE_CITTA_ZONE_THRESHOLD;
   const relevantResidentialZones = useMemo(() => {
@@ -5459,79 +7095,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     debugStep2Log('[LAYER_DATA_LOADED]', { layer: activeLay.id, label: activeLay.label, zones: zonesWithCoords.length, hasData: zonesWithCoords.filter(z => z.metricColor).length });
   }
 
-  // Anteprima NIL per indirizzo Milano non ancora confermato (es. Via Brera):
-  // non attiva il preventivo definitivo, ma individua la NIL che contiene il
-  // punto (o le più vicine entro 2.5 km) per dare all'utente un contesto visivo
-  // immediato su mappa e UI.
-  const addressPreviewNilZones = useMemo(() => {
-    if (!hasUnconfirmedAddressPoint || !selectedSearchPoint || !Number.isFinite(Number(selectedSearchPoint.lat)) || !Number.isFinite(Number(selectedSearchPoint.lng))) {
-      return null;
-    }
-    const ptLat = Number(selectedSearchPoint.lat);
-    const ptLng = Number(selectedSearchPoint.lng);
-
-    const pool = new Map();
-    const addCandidates = (arr) => {
-      if (!Array.isArray(arr)) return;
-      arr.forEach(z => {
-        if (z && (z.isNil || z.territoryLevel === "nil" || z.nilCode || z.nil_code)) {
-          const key = z.id || z.nilCode || z.nil_code || normalizeMunicipalityName(z.name || "");
-          const hasReadableNilIdentity = Boolean(z.name || z.nilCode || z.nil_code || z.id);
-          if (key && hasReadableNilIdentity && !pool.has(key)) pool.set(key, z);
-        }
-      });
-    };
-    addCandidates(apiData?.nil_breakdown);
-    addCandidates(apiZones);
-    addCandidates(allZones);
-
-    const candidates = Array.from(pool.values()).filter(z => Boolean(z?.name || z?.nilCode || z?.nil_code || z?.id));
-    if (candidates.length === 0) return { main: null, nearby: [], all: [] };
-
-    const withDist = candidates.map(z => {
-      const geom = pickRealComuneGeometry(z);
-      const contains = geoJsonContainsPoint(geom, ptLat, ptLng);
-      let dist = contains ? 0 : null;
-      if (dist === null) {
-        if (Number.isFinite(Number(z.lat)) && Number.isFinite(Number(z.lng))) {
-          dist = haversineKm(ptLat, ptLng, Number(z.lat), Number(z.lng));
-        } else {
-          const c = geoJsonApproxCentroid(geom);
-          if (c) dist = haversineKm(ptLat, ptLng, c.lat, c.lng);
-        }
-      }
-      return { z, geom, contains, dist: dist != null ? dist : 9999 };
-    });
-
-    const containing = withDist.filter(item => item.contains);
-    let mainNil = null;
-    if (containing.length > 0) {
-      mainNil = containing.length === 1 ? containing[0].z : null;
-    } else {
-      withDist.sort((a, b) => a.dist - b.dist);
-      if (withDist[0] && withDist[0].dist <= 3) {
-        mainNil = withDist[0].z;
-      }
-    }
-
-    withDist.sort((a, b) => a.dist - b.dist);
-    const nearby = withDist
-      .filter(item => item.z !== mainNil && item.dist <= 2.5)
-      .slice(0, 4)
-      .map(item => item.z);
-
-    const containingCandidates = containing.map(item => item.z);
-    const all = [...(containingCandidates.length > 1 ? containingCandidates : [mainNil]), ...nearby].filter(Boolean);
-    if (isStep2DebugEnabled()) {
-      debugStep2Log("[STEP2_ADDRESS_PREVIEW_NILS]", {
-        ptLat, ptLng,
-        main: mainNil?.name || null,
-        containingCandidates: containingCandidates.map(z => ({ id: z.id, code: z.nilCode || z.nil_code, name: z.name })),
-        nearby: nearby.map(z => z.name),
-      });
-    }
-    return { main: mainNil, containingCandidates, requiresExplicitNilChoice: containingCandidates.length > 1, nearby, all };
-  }, [hasUnconfirmedAddressPoint, selectedSearchPoint, apiData, apiZones, allZones]);
+  // addressPreviewNilZones calcolato prima di selZones per consentire al calcolo coperture di risolvere direttamente la zona.
 
   // Territori realmente usati nel calcolo Raggio (comuni o NIL, secondo
   // zonesInRadius/zonesWithCoords) — SOLO dati già calcolati, nessuna nuova
@@ -5618,11 +7182,40 @@ const radiusInsightRows = zonesInRadius.map(z => ({
       return [];
     }
   };
-  const residentialMainOutputs = d2dKpiZone ? safeMainKpis(SERVICE_META.d2d, d2dKpiZone).map(k =>
-    k.l === "Comuni nel raggio" ? { ...k, l: isComuneMode ? territoryPluralLabel : k.l, v: String(zonesInRadius.length) } : k
-  ) : [];
-  const h2hMainOutputs = isMovementStep2 && firstZ ? safeMainKpis(SERVICE_META.h2h, firstZ) : [];
-  const businessMainOutputs = isBusinessStep2 && firstZ ? safeMainKpis(SERVICE_META.b2b, firstZ) : [];
+  const h2hPassageDensity = selZones.length
+    ? Math.round(selZones.reduce((sum, zone) => sum + (Number(zone.commDens) || 0), 0) / selZones.length)
+    : 0;
+  // Use the same live POI/GTFS aggregate in the map, summary and report.
+  // Territorial fallback rows may contain older synthetic H2H values.
+  const h2hKpiZone = isMovementStep2 ? {
+    ...(selZones[0] || firstZ || {}),
+    poi: Number(serviceKpis?.poi || 0),
+    nearbyBiz: Number(serviceKpis?.localAttractors || 0),
+    commDens: h2hPassageDensity,
+    flowScore: Number(serviceKpis?.flowScore || 0),
+    transitStops: Number(serviceKpis?.tplStops || 0),
+    trainStations: Number(serviceKpis?.stations || 0),
+    strongPts: Number(serviceKpis?.hotspotCount || 0),
+    operDaysH2H: selZones.reduce((a, z) => a + (z.operDaysH2H || 2), 0) || firstZ?.operDaysH2H || 2,
+  } : firstZ;
+  const b2bKpiZone = selZones.length > 0 ? {
+    ...selZones[0],
+    ...(aiAgg || {}),
+    bizTotal: selZones.reduce((a, z) => a + (z.bizTotal || 0), 0) || aiAgg?.bizTotal || firstZ?.bizTotal || 0,
+    competitors: selZones.reduce((a, z) => a + (z.competitors || 0), 0) || aiAgg?.competitors || firstZ?.competitors || 0,
+    commDensB2B: aiAgg?.commDensB2B || firstZ?.commDensB2B || 0,
+    reddito: aiAgg?.reddito || firstZ?.reddito || 0,
+    cdIdx: aiAgg?.cdIdx || firstZ?.cdIdx || 0,
+    operDaysB2B: selZones.reduce((a, z) => a + (z.operDaysB2B || 2), 0) || firstZ?.operDaysB2B || 2,
+  } : firstZ;
+  const residentialMainOutputs = d2dKpiZone ? safeMainKpis(SERVICE_META.d2d, d2dKpiZone).map(k => {
+    if (k.l === "Comuni nel raggio") return { ...k, l: isComuneMode ? territoryPluralLabel : k.l, v: String(zonesInRadius.length) };
+    if (k.l === "Superficie coperta") return { ...k, v: formatAreaIT(d2dKpiZone.area), u: "" };
+    if (k.l === "Range operativo") return { ...k, v: `${formatIntegerIT(d2dKpiZone.flyersMin)} – ${formatIntegerIT(d2dKpiZone.flyersMax)}`, u: "pz." };
+    return k;
+	  }).filter(k => k.l !== "Giorni operativi") : [];
+  const h2hMainOutputs = isMovementStep2 && (h2hKpiZone || firstZ) ? safeMainKpis(SERVICE_META.h2h, h2hKpiZone || firstZ).filter(k => k.l !== "Giorni operativi") : [];
+  const businessMainOutputs = isBusinessStep2 && (b2bKpiZone || firstZ) ? safeMainKpis(SERVICE_META.b2b, b2bKpiZone || firstZ).filter(k => k.l !== "Giorni operativi") : [];
   const serviceOutputRows = firstZ ? safeMainKpis(serviceMeta, firstZ) : [];
   const residentialMainOutputsNormalized = residentialMainOutputs.map(k =>
     k.l === "Comuni nel raggio" || k.l === territoryPluralLabel ? { ...k, l: isComuneMode ? territoryPluralLabel : `${territoryPluralLabel} nel raggio`, v: String(zonesInRadius.length) } : k
@@ -5679,6 +7272,8 @@ const radiusInsightRows = zonesInRadius.map(z => ({
       {label: "Attrattori locali", value: h2hMetrics.localAttractors, color: "#F59E0B"}
     ] : [];
   const h2hHotspotSummary = isMovementStep2 ? h2hMetrics.clusters.slice(0, 6) : [];
+  const businessRadiusRows = isBusinessStep2 && targetBusinessMeta ? businessRows(zonesInRadius, targetBusinessMeta) : [];
+  const h2hHotspotRadiusRows = isMovementStep2 ? h2hHotspotRows(zonesInRadius) : [];
   const campaignZones = data.campaignZones || [];
   const totalCampaignFlyers = campaignZones.reduce((sum, z) => sum + Number(z.assigned_flyers || 0), 0);
   const totalCampaignBudget = campaignZones.reduce((sum, z) => sum + Number(z.assigned_budget || 0), 0);
@@ -5688,10 +7283,61 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     [campaignZones, data.activeZoneId]
   );
   const zoneDensity = serviceKpis.area && serviceKpis.population ? Math.round(serviceKpis.population / Number(serviceKpis.area)) : 0;
-  const zoneVerdict = getZoneVerdict({ families: serviceKpis.families, density: zoneDensity, coverage: serviceKpis.coverage || 0, comuniCount: zonesInRadius.length });
+  const operationalCoveragePercent = requiredFlyers > 0
+    ? Math.min(100, Math.round((finalFlyersRounded / requiredFlyers) * 100))
+    : 0;
+  const serviceScoreInput = isMovementStep2
+    ? {
+        flowScore: serviceKpis.flowScore,
+        commDens: h2hPassageDensity,
+        transitStops: serviceKpis.transitStops,
+        strongPts: serviceKpis.hotspotCount,
+        poi: serviceKpis.poi,
+      }
+    : isBusinessStep2
+      ? {
+          commDensB2B: serviceKpis.commercialDensity,
+          reachB2B: serviceKpis.cdIdx,
+          roiB2B: serviceKpis.cdIdx,
+          targetBiz: serviceKpis.targetBusinesses,
+          bizTotal: serviceKpis.businesses,
+          clusters: serviceKpis.clusters,
+        }
+      : null;
+  const serviceScore = isMovementStep2
+    ? h2hHotspotStrength(serviceScoreInput)
+    : isBusinessStep2
+      ? businessZoneScore(serviceScoreInput)
+      : null;
+  const serviceScoreComponents = isMovementStep2
+    ? ["Flusso potenziale", "Densità di passaggio", "Trasporto pubblico", "Hotspot operativi", "POI rilevanti"]
+    : ["Densità commerciale", "Reach business", "ROI business", "Attività target", "Cluster commerciali"];
+  const zoneVerdict = isResidentialStep2
+    ? getZoneVerdict({ families: serviceKpis.families, density: zoneDensity, coverage: serviceKpis.coverage || 0, comuniCount: zonesInRadius.length })
+    : {
+        score: serviceScore,
+        classification: serviceScore >= 78 ? "high" : serviceScore >= 58 ? "medium" : "low",
+        components: serviceScoreComponents.map(name => ({ name })),
+      };
+  const operationalEstimate = estimateOperationalDays(finalFlyersRounded, D2D_DAILY_CAPACITY);
+  const operationalAdvice = buildOperationalAdvice({
+    score: zoneVerdict.score,
+    coverage: isResidentialStep2
+      ? (doorCoverage?.coveragePercent ?? serviceKpis.coverage ?? 0)
+      : operationalCoveragePercent,
+    assignedQuantity: finalFlyersRounded,
+    recommendedQuantity: requiredFlyers,
+    density: zoneDensity || null,
+    territoryCount: zonesInRadius.length,
+    hasPartialTerritorialData: selZones.some(zone => zone?.isFallback),
+  });
   const zoneHumanTitle = city?.label || city?.name || activeCampaignZone?.cityName || search || "Zona selezionata";
   const resolveCampaignZoneCity = useCallback((zone) => zone?.city || resolveStep2City(zone?.cityName || zone?.zone_label) || null, []);
   const getCampaignZoneLabel = useCallback((zone, index) => {
+    const isZUnconfirmed = zone?.searchMode === "municipality" && !zone?.addressFullCoverageConfirmed && !zone?.nilManualMode && !zone?.addressSearchError && zone?.selectedSearchPoint?.type === "address";
+    if (isZUnconfirmed) {
+      return `Zona ${index + 1} · Modalità da scegliere`;
+    }
     const zoneMunicipalities = Array.isArray(zone?.selectedMunicipalities) && zone.selectedMunicipalities.length
       ? zone.selectedMunicipalities
       : (Array.isArray(zone?.selectedComuni) ? zone.selectedComuni : []);
@@ -5755,7 +7401,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
   const hasConfirmedZoneForActiveSelection = searchMode === "cap"
     ? selectedCaps.length > 0
     : searchMode === "municipality"
-      ? selectedMunicipalityItems.length > 0
+      ? Boolean(city || selectedMunicipalityItems.length > 0)
       : Boolean(city && (selectedComuni.length > 0 || selectedComune));
   const hasConfirmedCoverageMode = areaMode === "radius"
     ? radiusSelectionConfirmed
@@ -5773,6 +7419,11 @@ const radiusInsightRows = zonesInRadius.map(z => ({
         : Boolean(municipalityBoundary || selZones.some(z => z.geometry || z.geometry_geojson || pickRealComuneGeometry(z)));
   const isCoverageCalculationComplete = hasConfirmedCoverageMode && !gisLoading && !apiLoading && !gisTimedOut;
   const hasCoverageCalculationError = Boolean(apiError || activeComuneZeroData || milanoComuneNilInsufficient || addressSearchError);
+  const primaryReachForGeometry = isResidentialStep2
+    ? Number(serviceKpis?.families || 0)
+    : isMovementStep2
+      ? Number(serviceKpis?.poi || 0)
+      : Number(serviceKpis?.businesses || 0);
   const isRadiusGeometryValid = areaMode !== "radius" || Boolean(
     radiusSelectionConfirmed &&
     radiusCenter &&
@@ -5781,14 +7432,18 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     Number(radiusKm) > 0 &&
     hasValidCoverageGeometry &&
     isCoverageCalculationComplete &&
-    Number(serviceKpis?.families || 0) > 0 &&
+    primaryReachForGeometry > 0 &&
     Number(requiredFlyers || 0) > 0 &&
     !hasCoverageCalculationError
   );
-  const step2ZonesReady = (data.campaignZones || []).length > 0 && (data.campaignZones || []).every(z =>
-    (z.searchMode === "cap" ? (z.selectedCaps && z.selectedCaps.length > 0) : (z.city !== null)) &&
-    (z.assigned_flyers || 0) > 0
-  );
+  const step2ZonesReady = (data.campaignZones || []).length > 0 && (data.campaignZones || []).every(z => {
+    if (z.id === data.activeZoneId) {
+      const activeTerritoryReady = searchMode === "cap" ? selectedCaps.length > 0 : Boolean(city);
+      return activeTerritoryReady && (isBusinessStep2 ? selectedOperationalPois.length > 0 : finalFlyersRounded > 0);
+    }
+    const savedTerritoryReady = z.searchMode === "cap" ? Boolean(z.selectedCaps?.length) : Boolean(z.city);
+    return savedTerritoryReady && (isBusinessStep2 ? selectedOperationalPois.length > 0 : Number(z.assigned_flyers || z.finalFlyers || 0) > 0);
+  });
   const isAvailableQuantityPartial = Number(availableFlyers) > 0 && Number(requiredFlyers) > 0 && Number(availableFlyers) < Number(requiredFlyers);
   const coverageDecisionRequired = isAvailableQuantityPartial && !isMultiMunicipalitySelection;
   const coverageDecisionReady = !coverageDecisionRequired || isCoverageDecisionValid;
@@ -5796,7 +7451,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
   const step2ViewModel = buildStep2ViewModel({
     areaMode,
     cityName: (isRadiusMode && hasSearchPoint && selectedSearchPoint?.label)
-      ? selectedSearchPoint.label.split(",")[0]
+      ? selectedSearchPoint.label.trim()
       : (isMultiMunicipalitySelection
           ? selectedMunicipalityDisplayLabel
           : (city?.label || city?.name || (selectedComuni?.[0]?.label || selectedComuni?.[0]?.name) || (selZones?.[0]?.name) || activeCampaignZone?.cityName || null)),
@@ -5805,7 +7460,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     isMovementStep2,
     serviceKpis,
     requiredFlyers,
-    flyerQuantityFromStep1: allocationFlyers,
+    flyerQuantityFromStep1,
     missingFlyers,
     zoneCount: summaryComuniStats?.total || selZones.length || zonesInRadius.length || 1,
     isNilAnalysis,
@@ -5831,14 +7486,105 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     allocationStatus,
     gisTimedOut,
     gisLoading,
-    availableNilCount: isNilAnalysis ? ((apiData?.nil_breakdown || []).length) : 0,
-    containingNil: addressPreviewNilZones?.main || null,
+    availableNilCount: availableNils.length || (isNilAnalysis ? (apiData?.nil_breakdown || []).length : 0),
+    containingNil: containingNil || addressPreviewNilZones?.main || null,
     containingNilCandidates: addressPreviewNilZones?.containingCandidates || [],
     intersectedNilCount: intersectedNils.length,
     selectedNilCount: selectedNils.length,
   });
+  const canonicalOmiRows = omiInfo?.available && Array.isArray(omiInfo?.values)
+    ? omiInfo.values.filter((row) => row?.typology && (row.min_value != null || row.max_value != null))
+    : [];
+  const demographicReference = effectiveDemoData?.referenceYear ?? effectiveDemoData?.reference_year ?? null;
+  const omiReference = canonicalOmiRows.find((row) => row?.reference_period || row?.reference_year || row?.semester);
+  const canonicalSourceRegistry = [
+    {
+      name: "Popolazione e famiglie residenti", source: effectiveDemoData?.source || "ISTAT / demographic_indicators",
+      level: "Comune", year: demographicReference || "Non restituito", kind: "Dato ufficiale aggregato",
+      method: "Lettura del record comunale più recente restituito dal dataset", reliability: effectiveDemoData ? "Alta" : "Non valutabile",
+      limitation: "Non descrive il singolo NIL, civico o edificio.", connected: Boolean(effectiveDemoData),
+    },
+    {
+      name: "Famiglie/cassette distributibili", source: "Modello operativo VolantiniPro",
+      level: isNilAnalysis ? "NIL/zona selezionata" : "Area selezionata", year: "Non applicabile", kind: "Stima interna",
+      method: "Somma dei fabbisogni delle zone selezionate", reliability: requiredFlyers > 0 ? "Media" : "Non valutabile",
+      limitation: "Stima operativa, non censimento di cassette postali.", connected: requiredFlyers > 0,
+    },
+    {
+      name: "Edifici e destinazione d'uso", source: "Nessun dataset collegato", level: "—", year: "—", kind: "Non disponibile",
+      method: "Nessun calcolo eseguito", reliability: "Non valutabile", limitation: "Non sono supportate affermazioni su condomini, villette, uffici o capannoni.", connected: false,
+    },
+    {
+      name: "Quotazioni immobiliari OMI", source: "Agenzia delle Entrate — OMI", level: "Zona OMI",
+      year: omiReference?.reference_period || omiReference?.reference_year || omiReference?.semester || "Non restituito",
+      kind: "Dato ufficiale aggregato", method: "Valori distinti per ciascuna zona e tipologia restituita",
+      reliability: canonicalOmiRows.length ? "Alta" : "Non valutabile",
+      limitation: "Una zona OMI non rappresenta automaticamente l'intero comune.", connected: canonicalOmiRows.length > 0,
+    },
+    {
+      name: "POI", source: "OpenStreetMap / Overpass", level: "Raggio/area interrogata", year: "Non restituito",
+      kind: "Community data", method: "Conteggio dei POI restituiti dalla query corrente",
+      reliability: pois.length > 0 ? "Media" : "Non valutabile", limitation: "I POI indicano attrazione potenziale, non flussi pedonali misurati.",
+      connected: (isMovementStep2 || isBusinessStep2) && pois.length > 0,
+    },
+    {
+      name: "Fermate e linee TPL", source: transportState?.sources?.length ? `GTFS programmato — ${transportState.sources.join(", ")}` : "Nessun feed GTFS restituito",
+      level: "Raggio/area interrogata", year: "Non restituito", kind: "Orario programmato",
+      method: "Fermate e linee restituite dal dataset GTFS configurato", reliability: transportState?.available ? "Alta" : "Non valutabile",
+      limitation: "Non è un feed real-time e non misura presenze o ritardi.", connected: isMovementStep2 && Boolean(transportState?.available),
+    },
+    {
+      name: "Attività e aree produttive", source: isBusinessStep2 && pois.length > 0 ? "OpenStreetMap / Overpass (tag POI)" : "Nessun censimento imprese/ATECO collegato",
+      level: "Raggio/area interrogata", year: "Non restituito", kind: isBusinessStep2 && pois.length > 0 ? "Stima da POI" : "Non disponibile",
+      method: isBusinessStep2 && pois.length > 0 ? "Conteggio tag commerciali restituiti" : "Nessun calcolo eseguito",
+      reliability: isBusinessStep2 && pois.length > 0 ? "Bassa" : "Non valutabile",
+      limitation: "Non è un censimento ATECO e non identifica in modo completo uffici, aree industriali o punti di consegna.",
+      connected: isBusinessStep2 && pois.length > 0,
+    },
+    {
+      name: "Score operativo", source: "Algoritmo interno VolantiniPro", level: "Configurazione corrente", year: "Non applicabile",
+      kind: "Indicatore interno", method: "Somma pesata di componenti esplicitate nella sezione Score",
+      reliability: Number.isFinite(Number(zoneVerdict?.score)) ? "Media" : "Non valutabile",
+      limitation: "Non è un dato ufficiale né una previsione certa di risultato.", connected: Number.isFinite(Number(zoneVerdict?.score)),
+    },
+  ];
+  const step2TruthModel = buildStep2TruthModel({
+    territory: { label: step2ViewModel.primaryAreaLabel, modeLabel: step2ViewModel.coverageContextLabel },
+    service: { key: isResidentialStep2 ? "d2d" : isMovementStep2 ? "h2h" : "b2b", title: isResidentialStep2 ? "Door to Door" : isMovementStep2 ? "Hand to Hand" : "Distribuzione presso attività e aziende" },
+    insertedQuantity: step2ViewModel.insertedFlyersValue,
+    currentQuantity: finalFlyersRounded,
+    baseRequirement: isResidentialStep2 ? step2ViewModel.primaryFamiliesValue : step2ViewModel.recommendedFlyersValue,
+    recommendedRequirement: step2ViewModel.recommendedFlyersValue,
+    zones: zonesAllocation,
+    availableZoneCount: isResidentialStep2
+      ? (step2ViewModel.availableNilCount || summaryComuniStats?.total || zonesAllocation.length)
+      : zonesAllocation.length,
+    dailyCapacity: isResidentialStep2 ? D2D_DAILY_CAPACITY : null,
+    operatorCount: null,
+    score: zoneVerdict?.score,
+    sources: canonicalSourceRegistry,
+    confidenceInputs: {
+      coverage: { available: requiredFlyers > 0 && zonesAllocation.length > 0 ? 3 : 0, total: 3, limitation: requiredFlyers > 0 ? null : "Fabbisogno o allocazione non disponibili." },
+      demographics: { available: effectiveDemoData ? 1 : 0, total: 1 },
+      buildings: { available: 0, total: 1, limitation: "Dataset edifici e DUSAF non collegati." },
+      economy: { available: canonicalOmiRows.length > 0 ? 1 : 0, total: 2, limitation: "La copertura economica dipende dai dati OMI effettivamente restituiti; reddito e OMI hanno livelli distinti." },
+      mobility: { available: (pois.length > 0 ? 1 : 0) + (transportState?.available ? 1 : 0), total: 2, limitation: "POI e GTFS programmato non equivalgono a flussi pedonali misurati." },
+      business: { available: isBusinessStep2 && pois.length > 0 ? 1 : 0, total: 3, limitation: "Censimento ATECO, aree produttive e punti di consegna non sono collegati." },
+      recommendation: { available: canonicalSourceRegistry.filter((source) => source.connected).length, total: canonicalSourceRegistry.length },
+    },
+  });
+  const step2CoveragePctLabel = step2TruthModel.coverage.operationalPct == null
+    ? null
+    : formatPercentIT(step2TruthModel.coverage.operationalPct, Number.isInteger(step2TruthModel.coverage.operationalPct) ? 0 : 1);
+  const step2CoverageFullLabel = step2CoveragePctLabel ? `${step2CoveragePctLabel} del fabbisogno operativo` : null;
+  const step2RequirementContextLabel = step2TruthModel.territory.modeLabel || "fabbisogno operativo delle zone selezionate";
   const isCoverageConfigurationValid = step2ViewModel.isCoverageConfigurationValid;
-  const canContinueCalendar = !step2ViewModel.ctaDisabled && step2ZonesReady && coverageDecisionReady && (!coverageDecisionRequired || allocationStatus === "success");
+  const operationalSelectionReady = isResidentialStep2
+    || (isMovementStep2 && (pois.length > 0 ? selectedOperationalPois.length > 0 : step1OperationalPoints.length > 0))
+    || (isBusinessStep2 && selectedOperationalPois.length > 0);
+  const canContinueCalendar = isBusinessStep2
+    ? step2ZonesReady && operationalSelectionReady && !gisLoading && !gisTimedOut
+    : !step2ViewModel.ctaDisabled && step2ZonesReady && operationalSelectionReady && coverageDecisionReady && (!coverageDecisionRequired || allocationStatus === "success");
   const continueLabel = step2ViewModel.ctaLabel || "Continua al preventivo";
 
   if (isStep2DebugEnabled() && typeof window !== "undefined") {
@@ -5858,10 +7604,12 @@ const radiusInsightRows = zonesInRadius.map(z => ({
       availableFlyers,
       requiredFlyers,
       allocation: zonesAllocation,
+      truthModel: step2TruthModel,
+      availableNils,
       intersectedNils,
       selectedNils,
       selectedNil: selectedNils,
-      containingNil: addressPreviewNilZones?.main || null,
+      containingNil: containingNil || addressPreviewNilZones?.main || null,
       containingNilCandidates: addressPreviewNilZones?.containingCandidates || [],
       requiresExplicitNilChoice: Boolean(addressPreviewNilZones?.requiresExplicitNilChoice),
       apiNilCount: apiNils.length,
@@ -5872,6 +7620,16 @@ const radiusInsightRows = zonesInRadius.map(z => ({
         : 0,
       zonesInRadiusCount: Array.isArray(zonesInRadius) ? zonesInRadius.length : 0,
       selZonesCount: Array.isArray(selZones) ? selZones.length : 0,
+      cityReady: Boolean(city),
+      activeZoneId: data.activeZoneId,
+      campaignZones: (data.campaignZones || []).map(zone => ({ id: zone.id, cityReady: Boolean(zone.city), assigned: zone.assigned_flyers, finalFlyers: zone.finalFlyers })),
+      step2ZonesReady,
+      hasConfirmedZoneForActiveSelection,
+      hasConfirmedCoverageMode,
+      hasValidCoverageGeometry,
+      isCoverageCalculationComplete,
+      hasCoverageCalculationError,
+      viewModelCoverageReason: step2ViewModel.coverageStatusReason,
       canContinueCalendar,
       ctaDisabled: step2ViewModel.ctaDisabled,
       ctaLabel: continueLabel,
@@ -5983,12 +7741,35 @@ const radiusInsightRows = zonesInRadius.map(z => ({
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto", padding: "34px clamp(16px, 4vw, 32px) 160px", background: C.navyMid, minHeight: "100vh", overflow: "visible" }}>
 
+      {!isAdminView && (
+      <>
       {/* Section */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Torna allo Step 1"
+          style={{
+            minHeight: 38,
+            padding: "0 14px",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,.18)",
+            background: "rgba(255,255,255,.06)",
+            color: C.white,
+            fontFamily: F.sans,
+            fontSize: 13,
+            fontWeight: 800,
+            cursor: "pointer",
+            flexShrink: 0,
+          }}
+        >
+          ← Torna allo Step 1
+        </button>
+
         {/* Titolo */}
         <div style={{ flexShrink: 0 }}>
-          <div style={{ fontFamily: F.serif, fontSize: 22, color: C.white, letterSpacing: "-.5px" }}>Scegli la zona di distribuzione</div>
-          <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.55)", marginTop: 4 }}>Cerca un comune o CAP, scegli il raggio e verifica la copertura stimata dei tuoi volantini.</div>
+          <div style={{ fontFamily: F.serif, fontSize: 22, color: C.white, letterSpacing: "-.5px" }}>{isBusinessStep2 ? "Seleziona le attività e le aziende da raggiungere" : "Scegli la zona di distribuzione"}</div>
+          <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.55)", marginTop: 4 }}>{isBusinessStep2 ? "Definisci l’area, verifica le attività reali disponibili e costruisci il piano di visita Business." : "Cerca un comune o CAP, scegli il raggio e verifica la copertura stimata dei tuoi volantini."}</div>
         </div>
 
         <div style={{ width: 1, height: 28, background: "rgba(255,255,255,.1)", flexShrink: 0 }} />
@@ -6007,25 +7788,6 @@ const radiusInsightRows = zonesInRadius.map(z => ({
             Avanzata la mappa non viene più mostrata (è un report dati, non
             una vista GIS) — sarebbero rimasti comandi senza effetto. */}
 
-        {/* Vista Cliente / Vista Tecnica link discreto */}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          <button onClick={() => setIsAdminView(v => !v)} style={{ padding: "6px 12px", borderRadius: 8, background: isAdminView ? "rgba(56,189,248,.12)" : "rgba(255,255,255,.03)", border: isAdminView ? "1px solid rgba(56,189,248,.35)" : "1px solid rgba(255,255,255,.08)", color: isAdminView ? "#38BDF8" : "rgba(255,255,255,.65)", fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all .2s ease", display: "flex", alignItems: "center", gap: 6 }}>
-            <span>{isAdminView ? "←" : "📊"}</span> {isAdminView ? "Torna alla Vista Cliente" : "Analisi Avanzata"}
-          </button>
-        </div>
-
-      </div>
-
-      {/* INFO BANNER */}
-      <div style={{ marginBottom: 12, padding: "9px 14px", borderRadius: 10, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ fontSize: 16, flexShrink: 0 }}></span>
-        <div style={{ flex: 1 }}>
-          <span style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
-            Configura qui solo zona e copertura. KPI, dati ISTAT, profilo demografico e output servizi saranno visibili in
-          </span>
-          <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: col }}> 📊 Analisi Avanzata</span>
-          <span style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>.</span>
-        </div>
       </div>
 
       {/* Section */}
@@ -6035,7 +7797,6 @@ const radiusInsightRows = zonesInRadius.map(z => ({
           <div style={{ display: "flex", alignItems: "center", gap: 0, padding: 0, borderRadius: 10, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.12)", overflow: "hidden" }}>
             <div style={{ display: "flex", background: "rgba(255,255,255,.03)", borderRight: "1px solid rgba(255,255,255,.12)" }}>
               <button onClick={switchToComuneMode} style={{ padding: "9px 10px", background: activeAreaTab === "comune" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>Comune</button>
-              <button onClick={switchToRadiusMode} style={{ padding: "9px 10px", background: activeAreaTab === "raggio" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>Raggio</button>
               <button onClick={switchToCapMode} style={{ padding: "9px 10px", background: activeAreaTab === "cap" ? col : "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all.2s" }}>CAP</button>
             </div>
             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "0 12px" }}>
@@ -6165,6 +7926,18 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                   // poi/place/locality anziché address, ma se il nome contiene
                   // un odonimo È un indirizzo a prescindere dal tag.
                   const textLooksLikeAddress = ADDRESS_INTENT_RE.test(c?.name || c?.label || "");
+                  const hasPointCoordinates = Number.isFinite(Number(c?.lat)) && Number.isFinite(Number(c?.lng));
+                  const isOperationalPointResult = searchMode === "address" && isMovementStep2 && hasPointCoordinates && c?.placeType !== "place";
+                  if (isOperationalPointResult) {
+                    return (
+                      <div key={c.id} onClick={() => selectOperationalPoint(c.label || c.name, c)}
+                        style={{ padding: "9px 14px", cursor: "pointer", fontFamily: F.sans, fontSize: 13, color: C.white, borderBottom: "1px solid rgba(255,255,255,.05)" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "rgba(34, 197, 94,.12)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                        📍 {c.label || c.name} <span style={{ fontSize: 10, color: "rgba(255,255,255,.45)", marginLeft: 6 }}>punto operativo</span>
+                      </div>
+                    );
+                  }
                   if (addressIntentInMilano && (looksLikeAddressResult(c) || textLooksLikeAddress)) {
                     const inMilano = isGeocoderResultInMilanoComune(c);
                     if (!inMilano) return null;
@@ -6310,7 +8083,11 @@ const radiusInsightRows = zonesInRadius.map(z => ({
             )}
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>
-                {selectedComuni.length > 1 ? `${selectedComuni.length} Comuni selezionati:` : "Comune selezionato:"}
+                {isMovementStep2
+                  ? (selectedComuni.length > 1 ? `${selectedComuni.length} zone operative:` : 'Zona operativa:')
+                  : isBusinessStep2
+                    ? (selectedComuni.length > 1 ? `${selectedComuni.length} cluster attività:` : 'Cluster attività:')
+                    : (selectedComuni.length > 1 ? `${selectedComuni.length} Comuni selezionati:` : 'Comune selezionato:')}
               </span>
               {(selectedComuni.length > 0 ? selectedComuni : [city]).filter(Boolean).map((c, idx) => {
                 const normName = normalizeMunicipalityName(c.label || c.name);
@@ -6426,6 +8203,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 options={S2_RADII}
                 disabled={(!city && selectedComuni.length === 0 && !searchedLocation) || apiLoading}
                 onCommit={updateActiveRadius}
+                recommendedValue={recommendedRadiusForSlider}
               />
             </div>
             <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>Aumentando il raggio aumentano copertura, comuni coinvolti e quantità consigliata.</div>
@@ -6449,12 +8227,125 @@ const radiusInsightRows = zonesInRadius.map(z => ({
             — un selettore di layer mappa senza mappa sarebbe un comando morto. */}
       </div>
 
+      {/* BARRA COMPATTA DI CONSIGLIO SUL RAGGIO */}
+      {radiusAdvisoryData && (
+        <div style={{
+          margin: "0 0 16px",
+          padding: "12px 16px",
+          borderRadius: 12,
+          background: radiusAdvisoryData.status === "coperto" || radiusAdvisoryData.isDismissed
+            ? "rgba(34, 197, 94, 0.08)"
+            : "rgba(234, 179, 8, 0.1)",
+          border: `1px solid ${radiusAdvisoryData.status === "coperto" || radiusAdvisoryData.isDismissed
+            ? "rgba(34, 197, 94, 0.28)"
+            : "rgba(234, 179, 8, 0.35)"}`,
+          display: "flex",
+          flexDirection: isMobile ? "column" : "row",
+          alignItems: isMobile ? "flex-start" : "center",
+          justifyContent: "space-between",
+          gap: 12,
+          transition: "all .2s ease"
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 4,
+              fontFamily: F.sans,
+              fontSize: 12,
+              fontWeight: 800,
+              color: radiusAdvisoryData.status === "coperto" || radiusAdvisoryData.isDismissed ? "#22C55E" : "#FACC15"
+            }}>
+              <span>{radiusAdvisoryData.status === "coperto" || radiusAdvisoryData.isDismissed ? "✓" : "⚠️"}</span>
+              <span>
+                {radiusAdvisoryData.isDismissed
+                  ? `Raggio confermato (${formatRadiusLabel(radiusAdvisoryData.currentRadius)})`
+                  : radiusAdvisoryData.status === "coperto"
+                    ? "Raggio coerente con la quantità"
+                    : radiusAdvisoryData.covPct < 25 || radiusAdvisoryData.status === "non_coperto"
+                      ? "Raggio ampio rispetto alla quantità"
+                      : "Copertura parziale dell'area"}
+              </span>
+            </div>
+            <div style={{
+              fontFamily: F.sans,
+              fontSize: 11,
+              color: "rgba(255,255,255,.76)",
+              lineHeight: 1.45
+            }}>
+              {radiusAdvisoryData.isDismissed ? (
+                `Raggio di ${formatRadiusLabel(radiusAdvisoryData.currentRadius)} mantenuto per la distribuzione (${formatIntegerIT(radiusAdvisoryData.currQty)} volantini per una copertura stimata del ${radiusAdvisoryData.covPct}%).`
+              ) : radiusAdvisoryData.status === "coperto" ? (
+                `Con ${formatIntegerIT(radiusAdvisoryData.currQty)} volantini, il raggio selezionato (${formatRadiusLabel(radiusAdvisoryData.currentRadius)}) è coerente con il fabbisogno stimato dell'area (copertura al ${radiusAdvisoryData.covPct}%).`
+              ) : radiusAdvisoryData.covPct < 25 || radiusAdvisoryData.status === "non_coperto" ? (
+                `Con ${formatIntegerIT(radiusAdvisoryData.currQty)} volantini, il raggio selezionato copre circa il ${radiusAdvisoryData.covPct}% del fabbisogno stimato dell'area. Per una distribuzione più concentrata puoi usare il raggio consigliato.`
+              ) : (
+                `Con ${formatIntegerIT(radiusAdvisoryData.currQty)} volantini, il raggio selezionato copre circa il ${radiusAdvisoryData.covPct}% del fabbisogno stimato dell'area (${formatIntegerIT(radiusAdvisoryData.currReq)} volantini per copertura completa). Puoi mantenere la selezione o concentrare la distribuzione sul raggio consigliato.`
+              )}
+            </div>
+          </div>
+
+          {!radiusAdvisoryData.isDismissed && radiusAdvisoryData.status !== "coperto" && radiusAdvisoryData.recRadius !== radiusAdvisoryData.currentRadius && (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              flexShrink: 0,
+              width: isMobile ? "100%" : "auto",
+              justifyContent: isMobile ? "flex-start" : "flex-end"
+            }}>
+              <button
+                type="button"
+                onClick={() => updateActiveRadius(radiusAdvisoryData.recRadius)}
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: 8,
+                  border: "1px solid #22C55E",
+                  background: "#22C55E",
+                  color: "#000",
+                  fontFamily: F.sans,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  boxShadow: "0 2px 8px rgba(34,197,94,.35)",
+                  transition: "all .15s ease"
+                }}
+              >
+                Usa raggio consigliato ({formatRadiusLabel(radiusAdvisoryData.recRadius)})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDismissedAdvisoryRadius(radiusAdvisoryData.currentRadius)}
+                style={{
+                  padding: "7px 12px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,.22)",
+                  background: "rgba(255,255,255,.06)",
+                  color: C.white,
+                  fontFamily: F.sans,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  transition: "all .15s ease"
+                }}
+              >
+                Mantieni {formatRadiusLabel(radiusAdvisoryData.currentRadius)}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Section */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "-4px 0 12px", overflowX: "auto", paddingBottom: 2 }}>
         {campaignZones.map((z, idx) => {
           const isActive = z.id === data.activeZoneId;
           const zoneSvcColor = "#22C55E";
-          const configured = z.searchMode === "cap" ? (z.selectedCaps || []).length > 0 : ((z.selectedComuni && z.selectedComuni.length > 0) || !!z.city);
+          const zUnconfirmed = z.searchMode === "municipality" && !z.addressFullCoverageConfirmed && !z.nilManualMode && !z.addressSearchError && z.selectedSearchPoint?.type === "address";
+          const configured = zUnconfirmed ? false : (z.searchMode === "cap" ? (z.selectedCaps || []).length > 0 : ((z.selectedComuni && z.selectedComuni.length > 0) || !!z.city));
           return (
             <button key={z.id} onClick={() => selectCampaignZone(z.id)}
               style={{
@@ -6475,7 +8366,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 flexShrink: 0
               }}>
               <span>{getCampaignZoneLabel(z, idx)}</span>
-              <span style={{ fontSize: 9, color: configured ? C.green : C.yellow }}>{configured ? "OK" : "Da configurare"}</span>
+              <span style={{ fontSize: 9, color: zUnconfirmed ? "#FBBF24" : (configured ? C.green : C.yellow) }}>{zUnconfirmed ? "Anteprima" : (configured ? "OK" : "Da configurare")}</span>
             </button>
           );
         })}
@@ -6483,6 +8374,32 @@ const radiusInsightRows = zonesInRadius.map(z => ({
           style={{ minHeight: 32, padding: "0 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.72)", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
           Modifica zona
         </button>
+        {!isRadiusMode && (() => {
+          const hasValidSearchPoint = Boolean(selectedSearchPoint && Number.isFinite(Number(selectedSearchPoint.lat)) && Number.isFinite(Number(selectedSearchPoint.lng)));
+          const hasValidCityPoint = Boolean(!hasValidSearchPoint && city && Number.isFinite(Number(city.lat)) && Number.isFinite(Number(city.lng)));
+          if (!hasValidSearchPoint && !hasValidCityPoint) return null;
+          if (hasUnconfirmedAddressPoint) return null;
+
+          let ctaLabel = "Usa raggio da questo punto";
+          if (hasValidSearchPoint) {
+            const rawAddr = String(selectedSearchPoint.name || selectedSearchPoint.label || selectedSearchPoint.fullName || "").split(',')[0].trim();
+            if (rawAddr && rawAddr.length <= 28) {
+              ctaLabel = `Usa raggio da ${rawAddr}`;
+            }
+          } else if (hasValidCityPoint) {
+            const rawCity = String(city.name || city.label || "").split(',')[0].trim();
+            if (rawCity) {
+              ctaLabel = `Usa raggio dal centro di ${rawCity}`;
+            }
+          }
+          return (
+            <button type="button" onClick={switchToRadiusMode}
+              style={{ minHeight: 32, padding: "0 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.82)", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <span aria-hidden="true" style={{ fontSize: 12 }}>📍</span>
+              <span>{ctaLabel}</span>
+            </button>
+          );
+        })()}
         <button type="button" onClick={resetActiveZone}
           style={{ minHeight: 32, padding: "0 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.58)", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
           Reset zona
@@ -6500,25 +8417,275 @@ const radiusInsightRows = zonesInRadius.map(z => ({
           + Aggiungi un'altra zona / comune
         </button>
       </div>
+      </>
+      )}
 
+      {/* ========================================================= */}
+      {/* REPORT TERRITORIALE AVANZATO — dashboard modulare, service-adaptive */}
+      {/* Vedi src/pages/TerritorialReport.jsx per l'implementazione UI.       */}
+      {/* ========================================================= */}
+      {isAdminView && (() => {
+        const svcKey = isResidentialStep2 ? "d2d" : isMovementStep2 ? "h2h" : "b2b";
+        const activeServiceTitle = isResidentialStep2 ? "Door to Door" : isMovementStep2 ? "Hand to Hand" : "Distribuzione presso attività e aziende";
+
+        const totalHouseholds = effectiveDemoData?.householdsTotal > 0 ? effectiveDemoData.householdsTotal : (serviceKpis?.families || 0);
+        const totalPopulation = effectiveDemoData?.populationTotal > 0 ? effectiveDemoData.populationTotal : (serviceKpis?.population || 0);
+        const profileDens = zoneDensity > 0 ? zoneDensity : (aiAgg?.densita > 0 ? aiAgg.densita : (summaryComuniStats?.densita > 0 ? summaryComuniStats.densita : 0));
+        const ageRows = effectiveDemoData ? [
+          { l: "0-14", v: effectiveDemoData.age_0_14_pct, c: "#A78BFA" },
+          { l: "15-34", v: effectiveDemoData.age_15_34_pct, c: "#38BDF8" },
+          { l: "35-64", v: effectiveDemoData.age_35_64_pct, c: "#4ADE80" },
+          { l: "65+", v: effectiveDemoData.age_65_plus_pct, c: "#FBBF24" },
+        ].filter((row) => Number.isFinite(Number(row.v))) : [];
+
+        const hasRealNilBreakdown = Boolean(isNilAnalysis && selZones.some(zone => zone?.isNil || zone?.territoryLevel === "nil"));
+        const hasSectorBreakdown = Boolean(!hasRealNilBreakdown && selZones.length > 1 && selZones.some(zone => zone?.territoryLevel === "sector" || zone?.isSector));
+        const hasMunicipalityBreakdown = Boolean(selectedComuni?.length > 1 && selZones.length > 1);
+        const familyBreakdownTitle = hasRealNilBreakdown
+          ? "Ripartizione famiglie per NIL"
+          : hasSectorBreakdown
+            ? "Ripartizione famiglie per settore"
+            : hasMunicipalityBreakdown
+              ? "Ripartizione famiglie per comune"
+              : "Comune analizzato come territorio unico";
+        const familyBreakdownItems = (hasRealNilBreakdown || hasSectorBreakdown || hasMunicipalityBreakdown) ? selZones : [];
+
+        const omiRows = omiInfo?.available && Array.isArray(omiInfo?.values) ? omiInfo.values.filter((row) => row?.typology && (row.min_value != null || row.max_value != null)) : [];
+        const omiZones = Array.isArray(omiInfo?.zones) ? omiInfo.zones : [];
+        const omiZoneNames = omiZones
+          .map((zone) => zone?.codice_zona || zone?.zone_code || zone?.name || zone?.description)
+          .filter(Boolean);
+        const omiMeta = {
+          zoneCount: Number.isFinite(Number(omiInfo?.values?.omi_zone_count)) ? Number(omiInfo.values.omi_zone_count) : (omiZones.length || null),
+          zoneNames: omiZoneNames.length ? omiZoneNames.slice(0, 8).join(", ") : null,
+          aggregationLabel: (Number(omiInfo?.values?.omi_zone_count) || omiZones.length || 0) > 1
+            ? "Valori aggregati da piu zone OMI; min/max derivano dagli estremi restituiti dal backend"
+            : "Valori single-zone quando una sola zona OMI e restituita",
+          period: omiReference?.reference_period || omiReference?.reference_year || omiReference?.semester || null,
+        };
+        const operationalRequirementExplanation = isResidentialStep2
+          ? `Le famiglie residenti (${formatIntegerIT(totalHouseholds)}) provengono dal record comunale ISTAT/demographic_indicators al livello geografico Comune. Il fabbisogno operativo (${formatIntegerIT(step2TruthModel.quantity.baseRequirement)} pz.) proviene dal modello operativo VolantiniPro al livello ${step2TruthModel.territory.modeLabel}: somma i fabbisogni delle zone selezionate e viene poi trasformato nel consigliato (${formatIntegerIT(step2TruthModel.quantity.recommendedRequirement)} pz.) aggiungendo il margine operativo (${formatIntegerIT(step2TruthModel.quantity.operationalMargin)} pz.). I due valori differiscono perche il primo e un dato demografico residente, il secondo e una quantita operativa per cassette/fabbisogno distributivo, non un censimento ufficiale di famiglie.`
+          : null;
+
+        const operationalRecommended = Math.round(Number(step2ViewModel.recommendedFlyersValue || 0));
+        const operationalMaximum = isResidentialStep2 ? Math.round(Number(d2dKpiZone?.flyersMax || 0)) : 0;
+        const operationalDays = isResidentialStep2 ? operationalEstimate.days : null;
+        const operationalQuantity = isResidentialStep2 ? operationalEstimate.quantity : 0;
+
+        const modeLabelMap = { municipality: "Comune completo", multi_municipality: "Multi-comune", radius: "Raggio da indirizzo", custom_zone: "Multi-zona", cap: "Selezione per CAP" };
+        const modeLabel = modeLabelMap[step2ViewModel.primarySource] || "Territorio selezionato";
+        const zoneCount = step2TruthModel.zones.involved;
+
+        // Zone e priorità — righe normalizzate per servizio (nessun dato inventato: usa solo le funzioni di ranking già esistenti)
+        const zoneEyebrow = isResidentialStep2 ? "Allocazione NIL / zone" : isMovementStep2 ? "Assegnazione promoter e punti" : "Attività selezionate e materiali";
+        const zoneColumns = [
+          { key: "priorityRank", label: "Priorità", align: "right", render: (r) => `#${r.priorityRank}` },
+          { key: "name", label: "Zona" },
+          { key: "assignedFlyers", label: "Assegnati", align: "right", render: (r) => `${formatIntegerIT(r.assignedFlyers)} pz.` },
+          { key: "requiredFlyers", label: "Fabbisogno zona", align: "right", render: (r) => `${formatIntegerIT(r.requiredFlyers)} pz.` },
+          { key: "coveragePct", label: "Copertura fabbisogno zona", align: "right", render: (r) => r.coveragePct == null ? "Dato non disponibile" : formatPercentIT(r.coveragePct, Number.isInteger(r.coveragePct) ? 0 : 1) },
+          { key: "status", label: "Stato", render: (r) => r.status === "full" ? "Completa" : r.status === "partial" ? "Parziale" : "Esclusa" },
+        ];
+        const selectedPointRows = selectedOperationalPois.map((point, index) => {
+          const sameOperatorPoints = selectedOperationalPois.filter((item) => item.operatorNumber === point.operatorNumber).length || 1;
+          const assigned = isMovementStep2
+            ? Math.round((serviceDurationForStep2 * H2H_FLYERS_PER_PROMOTER_HOUR) / sameOperatorPoints)
+            : Math.max(1, Number(point.copies || 1));
+          return {
+            id: point.id,
+            name: isBusinessStep2 ? point.name : `Promoter ${point.operatorNumber} · ${point.name}`,
+            priorityRank: index + 1,
+            assignedFlyers: assigned,
+            requiredFlyers: assigned,
+            coveragePct: 100,
+            status: "full",
+            priorityValue: Math.max(1, selectedOperationalPois.length - index),
+            priorityLabel: `${point.category} · ${formatIntegerIT(assigned)} pz.`,
+          };
+        });
+        const zoneRows = selectedPointRows.length > 0
+          ? selectedPointRows
+          : isMovementStep2 && step1OperationalPoints.length > 0
+          ? step1OperationalPoints.map((point, index) => {
+              const assigned = Number(point.assignedQuantity || serviceDurationForStep2 * H2H_FLYERS_PER_PROMOTER_HOUR);
+              return {
+                id: point.id || `promoter_${index + 1}`,
+                name: `Promoter ${point.promoterNumber || index + 1} · ${point.label || point.location || "Punto operativo"}`,
+                priorityRank: point.promoterNumber || index + 1,
+                assignedFlyers: assigned,
+                requiredFlyers: assigned,
+                coveragePct: 100,
+                status: "full",
+                priorityValue: Math.max(1, step1OperationalPoints.length - index),
+                priorityLabel: `${formatIntegerIT(assigned)} pz.`,
+              };
+            })
+          : step2TruthModel.zones.rows.map((row) => ({ ...row, priorityValue: Math.max(1, step2TruthModel.zones.rows.length - row.priorityRank + 1), priorityLabel: `Priorità #${row.priorityRank}` }));
+        const priorityMax = Math.max(...zoneRows.map((r) => r.priorityValue || 0), 1);
+
+        // Panoramica — max 6 KPI per servizio, mai valori inventati (unavailable quando manca una vera fonte)
+        let overviewKpis = [];
+        if (isResidentialStep2) {
+          const territorialFamiliesLabel = areaMode === "radius" ? "Famiglie/cassette stimate nel raggio" : "Famiglie/cassette stimate nel territorio";
+          overviewKpis = [
+            { label: territorialFamiliesLabel, value: formatIntegerIT(step2ViewModel.primaryFamiliesValue), color: "#4ADE80", unavailable: !(step2ViewModel.primaryFamiliesValue > 0), source: areaMode === "radius" ? "Modello operativo VolantiniPro — raggio selezionato" : "Modello operativo VolantiniPro" },
+            { label: "Fabbisogno operativo consigliato", value: formatIntegerIT(step2TruthModel.quantity.recommendedRequirement), unit: "pz.", color: "#4ADE80", unavailable: !(step2TruthModel.quantity.recommendedRequirement > 0) },
+            { label: "Copertura scenario corrente", value: step2CoverageFullLabel, color: "#38BDF8", unavailable: step2CoverageFullLabel == null },
+            { label: "Zone coinvolte / disponibili", value: `${step2TruthModel.zones.involved} / ${step2TruthModel.zones.available}`, color: "#60A5FA", unavailable: !step2TruthModel.zones.available },
+            { label: "Durata calendario", value: step2TruthModel.duration.calculable ? step2TruthModel.duration.days : "Durata calendario non calcolabile", unit: step2TruthModel.duration.calculable ? "giorni" : "", color: "#FBBF24", unavailable: false, source: step2TruthModel.duration.calculable ? null : "Numero operatori non disponibile" },
+            { label: "Score D2D", value: `${Math.round(Number(zoneVerdict?.score || 0))}/100`, color: "#4ADE80" },
+          ];
+        } else if (isMovementStep2) {
+          const rawTimeSlots = data.timeSlot || h2hHotspotRadiusRows[0]?.time;
+          const timeSlotsOk = rawTimeSlots && rawTimeSlots !== "Da validare";
+          overviewKpis = [
+            { label: "Flusso potenziale (indice)", value: serviceKpis?.flowScore ?? 0, unit: "/100", color: "#38BDF8", unavailable: serviceKpis?.flowScore == null },
+            { label: "Punti strategici", value: serviceKpis?.hotspotCount || serviceKpis?.operationalZones || 0, color: "#38BDF8", unavailable: !(serviceKpis?.hotspotCount || serviceKpis?.operationalZones) },
+            { label: "Quantità operativa", value: formatIntegerIT(operationalRecommended), unit: "pz.", color: "#4ADE80", unavailable: !(operationalRecommended > 0) },
+            { label: "Promoter assegnati", value: promoterCountForStep2, color: "#38BDF8", unavailable: promoterCountForStep2 < 1 },
+            { label: "Fasce orarie consigliate", value: timeSlotsOk ? rawTimeSlots : null, color: "#A855F7", unavailable: !timeSlotsOk },
+            { label: "Score H2H", value: `${Math.round(Number(zoneVerdict?.score || 0))}/100`, color: "#38BDF8" },
+          ];
+        } else {
+          overviewKpis = [
+            { label: "Attività disponibili", value: formatIntegerIT(serviceKpis?.businesses || pois.length || 0), color: "#FB923C", unavailable: !(serviceKpis?.businesses > 0 || pois.length > 0) },
+            { label: "Attività selezionate", value: selectedOperationalPois.length, color: "#A78BFA", unavailable: selectedOperationalPois.length < 1 },
+            { label: "Materiali necessari", value: businessMaterialPlan?.materialsRequired == null ? null : formatIntegerIT(businessMaterialPlan.materialsRequired), unit: businessMaterialPlan?.materialsRequired == null ? "" : "pz.", color: "#4ADE80", unavailable: businessMaterialPlan?.materialsRequired == null },
+            { label: "Materiali residui", value: businessMaterialPlan?.materialsRemaining == null ? null : formatIntegerIT(businessMaterialPlan.materialsRemaining), unit: businessMaterialPlan?.materialsRemaining == null ? "" : "pz.", color: "#38BDF8", unavailable: businessMaterialPlan?.materialsRemaining == null },
+            { label: "Giornate-addetto", value: businessOperationalPlan?.calculable ? businessOperationalPlan.operatorDays : null, color: "#FBBF24", unavailable: !businessOperationalPlan?.calculable },
+            { label: "Addetti consigliati", value: businessOperationalPlan?.recommendedOperators ?? null, color: "#A78BFA", unavailable: businessOperationalPlan?.recommendedOperators == null },
+          ];
+        }
+
+        const topZonesPreview = zoneRows.slice(0, 3).map((r) => ({ id: r.id, name: r.name, value: r.priorityValue, valueLabel: r.priorityLabel }));
+
+        const recommendationConfidence = step2TruthModel.confidence.recommendation;
+        const reliability = {
+          label: recommendationConfidence.label,
+          detail: `${recommendationConfidence.available}/${recommendationConfidence.total} fonti e modelli disponibili. ${recommendationConfidence.limitation || ""}`.trim(),
+        };
+
+        // Mobilità e POI (H2H)
+        const poiCounts = {};
+        (pois || []).forEach((poi) => { const key = poi.category || "Altro"; poiCounts[key] = (poiCounts[key] || 0) + 1; });
+        const poiByCategory = Object.entries(poiCounts).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([label, value]) => ({ label, value }));
+        const poiMax = Math.max(...poiByCategory.map((c) => c.value), 1);
+
+        // Imprese e aree produttive (Business) — topCatsReal: FIX del bug SEZIONE 2 originale (nessun fallback hardcoded)
+        const topCatsReal = Array.isArray(b2bKpiZone?.topCats) ? b2bKpiZone.topCats.map((c) => ({ label: c.label || c.name, pct: c.pct || 0 })) : [];
+
+        const sourceRegistry = step2TruthModel.sources;
+        const connectedSources = sourceRegistry.filter((s) => s.connected).length;
+
+        const recommendation = {
+          strategy: requiredFlyers <= 0 || selZones.length === 0
+            ? "Selezione area non ancora finalizzata."
+            : isResidentialStep2
+              ? "Seguire l'ordine di priorità dell'allocazione corrente, basato sul fabbisogno stimato delle zone selezionate."
+              : isMovementStep2
+                ? (pois.length > 0 || transportState?.available
+                    ? "Valutare per prime le zone con POI o nodi TPL effettivamente restituiti; il dato indica attrazione potenziale, non flusso pedonale misurato."
+                    : "Analisi parziale: POI e trasporto non sono collegati, quindi non viene proposta una priorità di attrazione.")
+                : (pois.length > 0
+                    ? "Valutare per prime le zone con attività POI effettivamente restituite; aree produttive, ATECO e punti di consegna non sono disponibili."
+                    : "Analisi parziale: non è collegato un censimento imprese, ATECO o aree produttive; non viene simulata una priorità B2B completa."),
+          priorityZones: zoneRows.slice(0, 2).map((r) => r.name).join(", ") || "Nessuna zona prioritaria disponibile.",
+          criticalities: operationalAdvice.shortage > 0
+            ? `Quantità insufficiente per copertura completa (mancano ${formatIntegerIT(operationalAdvice.shortage)} pz.).`
+            : (operationalAdvice.factors.length ? operationalAdvice.factors.join("; ") : "Nessuna criticità operativa rilevata."),
+          alternative: coverageDecision === "manual" && manualFlyers
+            ? `Scenario personalizzato: ${formatIntegerIT(Number(manualFlyers))} pz.`
+            : `Scenario consigliato: ${formatIntegerIT(step2ViewModel.recommendedFlyersValue)} pz.`,
+        };
+        const scoreComponentNames = Array.isArray(zoneVerdict?.components)
+          ? zoneVerdict.components.map((component) => component?.name).filter(Boolean)
+          : [];
+        const scoreDescription = scoreComponentNames.length
+          ? `Indicatore interno calcolato da: ${scoreComponentNames.join(", ")}. Non e un dato ufficiale ISTAT.`
+          : "Indicatore interno calcolato dalle componenti effettivamente disponibili per questa configurazione. Non e un dato ufficiale ISTAT.";
+
+        const reportProps = {
+          service: { key: svcKey, title: activeServiceTitle },
+          territory: { label: step2TruthModel.territory.label, modeLabel, zoneCount, zoneStats: step2TruthModel.zones },
+          dataStatusLabel: `${connectedSources}/${sourceRegistry.length} fonti e modelli disponibili`,
+          lastUpdateLabel: "riferimenti restituiti indicati nella sezione Fonti",
+          onBack: () => setIsAdminView(false),
+          quantity: {
+            inserted: step2TruthModel.quantity.current,
+            originalInserted: step2TruthModel.quantity.inserted,
+            baseRequirement: step2TruthModel.quantity.baseRequirement,
+            operationalMargin: step2TruthModel.quantity.operationalMargin,
+            recommended: step2TruthModel.quantity.recommendedRequirement,
+            manual: manualFlyers,
+            decision: coverageDecision,
+            onSelectDecision: selectCoverageQuantityDecision,
+            onManualChange: updateManualFlyersQuantity,
+            maximum: operationalMaximum,
+            days: step2TruthModel.duration.days,
+            operatorCount: step2TruthModel.duration.operatorCount,
+            showOperators: isResidentialStep2,
+            dailyCapacity: D2D_DAILY_CAPACITY,
+            showDailyCapacity: isResidentialStep2,
+            quantityForDays: step2TruthModel.duration.scenarioQuantity,
+            quotient: step2TruthModel.duration.operatorDays,
+            coveragePctLabel: step2CoverageFullLabel,
+            coverageFormula: step2TruthModel.coverage.formula,
+            shortage: step2TruthModel.quantity.missing,
+            surplus: step2TruthModel.quantity.surplus,
+          },
+          coverage: { value: step2TruthModel.coverage.operationalPct, label: step2CoverageFullLabel, denominator: step2TruthModel.coverage.denominator },
+          overviewKpis,
+          topZonesPreview,
+          topZonesMax: Math.max(...topZonesPreview.map((z) => z.value || 0), 1),
+          advice: operationalAdvice,
+          reliability,
+          confidence: step2TruthModel.confidence,
+          zoneRows, zoneColumns, zoneEyebrow, priorityMax,
+          isMilanoNil: isNilAnalysis && step2ViewModel.availableNilCount > 0,
+          nilShowCount: 10,
+          nilTotal: step2ViewModel.availableNilCount,
+          demographics: { totalPopulation, totalHouseholds, profileDens, ageRows, familyBreakdownTitle, familyBreakdownItems, operationalRequirementExplanation },
+          economy: { reddito: aiAgg?.reddito ?? null, omiRows, omiMeta },
+          mobility: { poiByCategory, poiMax, transport: transportState, hotspotRows: h2hHotspotRadiusRows },
+          business: { bizTotal: serviceKpis?.businesses ?? aiAgg?.bizTotal ?? null, competitors: serviceKpis?.competitors ?? null, cdIdx: serviceKpis?.cdIdx ?? null, topCatsReal, rankedRows: businessRadiusRows.map((r) => ({ ...r, zoneName: r.zoneName || r.name })) },
+          score: { pct: Math.max(0, Math.min(100, Math.round(Number(zoneVerdict?.score || 0)))), label: zoneVerdict?.score >= 78 ? "ALTA" : zoneVerdict?.score >= 58 ? "MEDIA" : "BASSA", color: zoneVerdict?.score >= 78 ? "#4ADE80" : zoneVerdict?.score >= 58 ? "#60A5FA" : "#FBBF24", components: Array.isArray(zoneVerdict?.components) ? zoneVerdict.components : [], description: scoreDescription },
+          recommendation,
+          sourceRegistry,
+          pdf: {
+            busy: false,
+            onExport: () => printTerritorialReportPdf({
+              generatedAt: Date.now(),
+              service: activeServiceTitle,
+              territoryLabel: step2TruthModel.territory.label || step2ViewModel.primaryAreaLabel || "Territorio selezionato",
+              modeLabel,
+              overviewKpis: overviewKpis.map((k) => ({ label: k.label, value: k.unavailable ? "Dato non disponibile" : k.value, unit: k.unavailable ? "" : k.unit })),
+              quantity: { subtitle: "Bilancio operativo", bars: [
+                { label: "Quantità scenario corrente", value: step2TruthModel.quantity.current, valueLabel: `${formatIntegerIT(step2TruthModel.quantity.current)} pz.` },
+                { label: "Fabbisogno base", value: step2TruthModel.quantity.baseRequirement, valueLabel: `${formatIntegerIT(step2TruthModel.quantity.baseRequirement)} pz.` },
+                { label: "Margine operativo", value: step2TruthModel.quantity.operationalMargin, valueLabel: `+${formatIntegerIT(step2TruthModel.quantity.operationalMargin)} pz.` },
+                { label: "Fabbisogno operativo consigliato", value: step2TruthModel.quantity.recommendedRequirement, valueLabel: `${formatIntegerIT(step2TruthModel.quantity.recommendedRequirement)} pz.` },
+              ] },
+              topZones: zoneRows.length ? { columns: zoneColumns.map((c) => ({ key: c.key, label: c.label, render: c.render })), rows: zoneRows.slice(0, 10) } : null,
+              demographics: { totalPopulation, totalHouseholds, profileDens, operationalRequirementExplanation },
+              economy: { omiRows, omiMeta },
+              score: { pct: Math.round(Number(zoneVerdict?.score || 0)), serviceTitle: activeServiceTitle, note: scoreDescription },
+              recommendation,
+              sources: sourceRegistry.map((s) => ({ ...s, status: s.connected ? "Collegato" : "Non collegato" })),
+            }),
+          },
+        };
+
+        return <TerritorialReport p={reportProps} isMobile={isMobile} />;
+      })()}
       {/* Section */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) clamp(300px, 22vw, 340px)", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isAdminView ? "1fr" : (isMobile ? "1fr" : "minmax(0, 1fr) clamp(300px, 22vw, 340px)"), gap: 16 }}>
+        {isAdminView ? null : (
+        <>
 
         {/* Section */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
 
-          {/* MAPPA GRANDE — solo Vista Cliente. In 📊 Analisi Avanzata la mappa
-              NON viene mostrata (né duplicata): quella vista è un report
-              tecnico (KPI, ISTAT, demografia, output servizi). La mappa
-              operativa resta esclusivamente nello Step 2 / Vista Cliente. */}
-          {isAdminView ? (
-            <div style={{ borderRadius: 12, padding: "12px 16px", background: "rgba(56,189,248,.05)", border: "1px solid rgba(56,189,248,.2)", display: "flex", alignItems: "center", gap: 9 }}>
-              <span style={{ fontSize: 15, flexShrink: 0 }}>🗺</span>
-              <span style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.6)", lineHeight: 1.45 }}>
-                La mappa operativa è nella <b style={{ color: "#38BDF8" }}>Vista Cliente</b>. Qui sotto trovi il riepilogo territorio e le tabelle NIL/comuni; nel pannello a destra KPI, dati ISTAT, profilo demografico e output servizi.
-              </span>
-            </div>
-          ) : (
+          {/* MAPPA GRANDE — solo Vista Cliente. */}
           <div style={{
             borderRadius: 14, overflow: "hidden", position: "relative",
             background: "linear-gradient(135deg,#081610 0%,#080f1e 60%,#100819 100%)",
@@ -6537,9 +8704,37 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 </button>
               </div>
             )}
+            {isRadiusMode && radiusKm > 0 && serviceKpis?.coverage != null && (
+              <div style={{
+                position: "absolute",
+                top: 14,
+                right: 14,
+                zIndex: 999,
+                pointerEvents: "none",
+                padding: "6px 12px",
+                borderRadius: 20,
+                background: "rgba(15, 23, 42, 0.85)",
+                border: "1px solid rgba(255, 255, 255, 0.18)",
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
+                backdropFilter: "blur(6px)",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontFamily: F.sans,
+                fontSize: 11,
+                fontWeight: 800,
+                color: C.white
+              }}>
+                <span style={{ color: "#38BDF8" }}>{formatRadiusLabel(radiusKm)}</span>
+                <span style={{ color: "rgba(255,255,255,0.4)" }}>·</span>
+                <span style={{ color: getCoverageStatus(serviceKpis.coverage) === "coperto" ? "#22C55E" : getCoverageStatus(serviceKpis.coverage) === "parziale" ? "#FACC15" : "#F87171" }}>
+                  {serviceKpis.coverage}% copertura
+                </span>
+              </div>
+            )}
             <Step2Map
               city={mapCityForStep2}
-              radius={isRadiusMode && !radiusSelectionConfirmed ? null : radiusKm}
+              radius={isRadiusMode ? (Number(radiusKm) || Number(radius) || 3) : radiusKm}
               svcType={svcType}
               serviceColor={col}
               zonesWithCoords={zonesWithCoords}
@@ -6550,6 +8745,14 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               activeLayers={activeMapLayers}
               settori={sectors}
               pois={pois}
+              loadingPois={poiLoading}
+              operationalPoints={step1OperationalPoints}
+              poiAssignments={poiAssignments}
+              onTogglePoi={togglePoiAssignment}
+              businessConfig={isBusinessStep2 ? {
+                deliveryLabel: businessOptionLabel(BUSINESS_DELIVERY_METHODS, data.businessDeliveryMethod),
+                recipientLabel: businessOptionLabel(BUSINESS_RECIPIENTS, data.businessPreferredRecipient),
+              } : null}
               civiciState={civiciState}
               onLayerToggle={(id) => {
                 if (id === "civici" && !civiciAvailable) return;
@@ -6587,7 +8790,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               onBasemapToggle={() => setMapBasemap(b => (b === "standard" ? "satellite" : "standard"))}
               onMapClick={manualPinMode ? handleManualMapClick : null}
             />
-            {(gisLoading || gisTimedOut) && (
+            {isResidentialStep2 && (gisLoading || gisTimedOut) && (
               <div style={{
                 position: "absolute",
                 inset: 0,
@@ -6717,6 +8920,139 @@ const radiusInsightRows = zonesInRadius.map(z => ({
             )}
 
           </div>
+
+          {(isMovementStep2 || isBusinessStep2) && city && (
+            <div style={{ marginTop: 12, background: "rgba(255,255,255,.035)", border: `1px solid ${isBusinessStep2 ? "rgba(167,139,250,.24)" : "rgba(56,189,248,.24)"}`, borderRadius: 12, overflow: "hidden" }}>
+              <div style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", borderBottom: "1px solid rgba(255,255,255,.07)" }}>
+                <div>
+                  <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 850, color: C.white }}>{isBusinessStep2 ? "Attività e aziende da visitare" : "POI da presidiare"}</div>
+                  <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.45)", marginTop: 3 }}>
+                    Target: {distributionTargetSelection.map((target) => isBusinessStep2 ? businessCategoryLabel(target) : (ACTIVITY_TARGET_LABELS[target] || target)).join(", ") || "Tutte le categorie compatibili"}. Clicca un pin oppure usa la selezione automatica.
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <span style={{ padding: "5px 8px", borderRadius: 8, background: "rgba(255,255,255,.05)", color: "rgba(255,255,255,.62)", fontFamily: F.sans, fontSize: 9, fontWeight: 750 }}>{pois.length} trovati</span>
+                  <span style={{ padding: "5px 8px", borderRadius: 8, background: isBusinessStep2 ? "rgba(167,139,250,.12)" : "rgba(56,189,248,.12)", color: isBusinessStep2 ? "#C4B5FD" : "#7DD3FC", fontFamily: F.sans, fontSize: 9, fontWeight: 800 }}>{selectedOperationalPois.length} selezionati</span>
+                </div>
+              </div>
+              <div style={{ padding: "10px 14px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", borderBottom: "1px solid rgba(255,255,255,.07)", background: "rgba(5,12,24,.25)" }}>
+                {!isBusinessStep2 && <label style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.55)" }}>
+                  Promoter
+                  <select value={operatorCountForPoiAssignment} onChange={(event) => changeOperatorCountInStep2(event.target.value)} style={{ padding: "7px 9px", borderRadius: 8, background: "#0B1526", border: "1px solid rgba(255,255,255,.14)", color: C.white, fontFamily: F.sans, fontSize: 9 }}>
+                    {Bv.map((option) => <option key={option.value} value={option.value}>{option.value}</option>)}
+                  </select>
+                </label>}
+                <button type="button" onClick={selectAndBalanceAllPois} disabled={pois.length === 0} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(34,197,94,.28)", background: "rgba(34,197,94,.10)", color: "#86EFAC", fontFamily: F.sans, fontSize: 9, fontWeight: 800, cursor: pois.length ? "pointer" : "not-allowed", opacity: pois.length ? 1 : .45 }}>{isBusinessStep2 ? "Seleziona automaticamente" : "Seleziona tutti e assegna"}</button>
+                {!isBusinessStep2 && <button type="button" onClick={rebalanceSelectedPois} disabled={selectedOperationalPois.length === 0} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(96,165,250,.25)", background: "rgba(96,165,250,.08)", color: "#93C5FD", fontFamily: F.sans, fontSize: 9, fontWeight: 750, cursor: selectedOperationalPois.length ? "pointer" : "not-allowed", opacity: selectedOperationalPois.length ? 1 : .45 }}>Bilancia tra operatori</button>}
+                <button type="button" onClick={clearPoiAssignments} disabled={selectedOperationalPois.length === 0} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(248,113,113,.20)", background: "rgba(248,113,113,.07)", color: "#FCA5A5", fontFamily: F.sans, fontSize: 9, fontWeight: 750, cursor: selectedOperationalPois.length ? "pointer" : "not-allowed", opacity: selectedOperationalPois.length ? 1 : .45 }}>Rimuovi tutti</button>
+              </div>
+              {!isBusinessStep2 && <div style={{ padding: "10px 14px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(210px,1fr))", gap: 8, borderBottom: "1px solid rgba(255,255,255,.07)" }}>
+                {operatorSchedules.slice(0, operatorCountForPoiAssignment).map((schedule, index) => (
+                  <div key={schedule.id || index} style={{ padding: 9, borderRadius: 9, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.07)" }}>
+                    <div style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: C.white, marginBottom: 7 }}>{isBusinessStep2 ? "Addetto" : "Promoter"} {index + 1}</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 82px", gap: 6 }}>
+                      <select value={schedule.timeSlot || ""} onChange={(event) => updateOperatorScheduleInStep2(index, { timeSlot: event.target.value })} style={{ minWidth: 0, padding: "7px 6px", borderRadius: 7, background: "#0B1526", border: "1px solid rgba(255,255,255,.10)", color: C.white, fontFamily: F.sans, fontSize: 8 }}>
+                        {Mv.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
+                      <select value={schedule.serviceDurationHours || 4} onChange={(event) => updateOperatorScheduleInStep2(index, { serviceDurationHours: Number(event.target.value) })} style={{ padding: "7px 6px", borderRadius: 7, background: "#0B1526", border: "1px solid rgba(255,255,255,.10)", color: C.white, fontFamily: F.sans, fontSize: 8 }}>
+                        {Fv.map((option) => <option key={option.value} value={option.value}>{option.value} ore</option>)}
+                      </select>
+                    </div>
+                  </div>
+                ))}
+              </div>}
+              <div style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}>
+                <div style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 850, color: C.white }}>{isBusinessStep2 ? "Attività trovate nell'area" : "Luoghi trovati dentro il raggio"}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.42)", marginTop: 2 }}>{isBusinessStep2 ? "Seleziona le attività da includere. Gli addetti saranno stimati nel piano operativo." : "Scegli il promoter direttamente accanto al nome del luogo."}</div>
+                  </div>
+                  <input aria-label={isBusinessStep2 ? "Cerca attività, indirizzo o categoria" : "Cerca nome, via o categoria"} value={poiListSearch} onChange={(event) => setPoiListSearch(event.target.value)} placeholder={isBusinessStep2 ? "Cerca attività, indirizzo o categoria" : "Cerca nome, via o categoria"} style={{ width: isMobile ? "100%" : 240, padding: "8px 10px", borderRadius: 8, background: "#0B1526", border: "1px solid rgba(255,255,255,.12)", color: C.white, fontFamily: F.sans, fontSize: 9 }} />
+                </div>
+                {isBusinessStep2 && (
+                  <div role="group" aria-label="Filtri attività Business" style={{ padding: "0 14px 10px", display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {[
+                      ["all", "Tutte"], ["selected", "Selezionate"], ["priority", "Prioritarie"],
+                      ["shops", "Negozi"], ["food", "Ristorazione"], ["offices", "Uffici"],
+                      ["health", "Sanitario"], ["automotive", "Automotive"], ["industry", "Industria"], ["other", "Altro"],
+                    ].map(([value, label]) => {
+                      const active = businessPoiFilter === value;
+                      return <button key={value} type="button" aria-pressed={active} onClick={() => setBusinessPoiFilter(value)} style={{ padding: "6px 9px", borderRadius: 999, border: `1px solid ${active ? "rgba(167,139,250,.58)" : "rgba(255,255,255,.10)"}`, background: active ? "rgba(167,139,250,.14)" : "rgba(255,255,255,.025)", color: active ? "#DDD6FE" : "#94A3B8", fontFamily: F.sans, fontSize: 8.5, fontWeight: 800, cursor: "pointer" }}>{label}</button>;
+                    })}
+                  </div>
+                )}
+                {visiblePoisForAssignment.length === 0 ? (
+                  <div role="status" style={{ padding: "12px 14px", fontFamily: F.sans, fontSize: 9, color: "#FCD34D", background: "rgba(245,158,11,.05)" }}>{isBusinessStep2 ? "Nessuna attività compatibile trovata nel raggio selezionato. Riduci i filtri o amplia l'area." : "Nessun luogo compatibile trovato. Controlla il target scelto oppure aumenta il raggio."}</div>
+                ) : (
+                  <div style={{ maxHeight: 320, overflowY: "auto" }}>
+                    {visiblePoisForAssignment.map((poi, index) => {
+                      const assignment = poiAssignments[poi.id] || null;
+                      return (
+                        <div key={poi.id} style={{ padding: "9px 14px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1fr) 155px", gap: 10, alignItems: "center", borderTop: index ? "1px solid rgba(255,255,255,.05)" : "none", background: assignment ? "rgba(34,197,94,.045)" : "transparent" }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 780, color: C.white }}>{poi.name || "Luogo senza nome"}</div>
+                            <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.43)", marginTop: 3 }}>{poi.category || "Categoria non indicata"}{poi.address ? ` · ${poi.address}` : " · indirizzo non disponibile"}</div>
+                            {isBusinessStep2 && <div style={{ fontFamily: F.sans, fontSize: 7.5, color: "rgba(167,139,250,.72)", marginTop: 3 }}>Fonte: {poi.source || "Fonte territoriale collegata"}{poi.openingHours ? ` · Orari: ${poi.openingHours}` : ""}</div>}
+                          </div>
+                          {isBusinessStep2 ? (
+                            <button type="button" onClick={() => togglePoiAssignment(poi)} aria-pressed={Boolean(assignment)} style={{ width: "100%", padding: "8px", borderRadius: 8, background: assignment ? "rgba(34,197,94,.10)" : "#0B1526", border: `1px solid ${assignment ? "rgba(34,197,94,.30)" : "rgba(255,255,255,.12)"}`, color: assignment ? "#86EFAC" : C.white, fontFamily: F.sans, fontSize: 9, fontWeight: 800, cursor: "pointer" }}>{assignment ? "✓ Selezionata" : "Seleziona attività"}</button>
+                          ) : (
+                            <select value={assignment?.operatorNumber || ""} onChange={(event) => event.target.value ? assignPoiToOperator(poi.id, event.target.value) : togglePoiAssignment(poi)} style={{ width: "100%", padding: "8px", borderRadius: 8, background: assignment ? "rgba(34,197,94,.10)" : "#0B1526", border: `1px solid ${assignment ? "rgba(34,197,94,.30)" : "rgba(255,255,255,.12)"}`, color: assignment ? "#86EFAC" : C.white, fontFamily: F.sans, fontSize: 9 }}>
+                              <option value="">{assignment ? "Rimuovi assegnazione" : "Assegna a..."}</option>
+                              {Array.from({ length: operatorCountForPoiAssignment }, (_, operatorIndex) => <option key={operatorIndex + 1} value={operatorIndex + 1}>Promoter {operatorIndex + 1}</option>)}
+                            </select>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              {isBusinessStep2 && (selectedOperationalPois.length === 0 ? (
+                <div style={{ padding: "14px", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.48)" }}>
+                  Nessuna attività selezionata. Seleziona i marker sulla mappa oppure usa “Seleziona automaticamente”.
+                </div>
+              ) : (
+                <div style={{ maxHeight: 230, overflowY: "auto" }}>
+                  {selectedOperationalPois.map((poi, index) => (
+                    <div key={poi.id} style={{ padding: "10px 14px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1fr) 110px 74px", gap: 10, alignItems: "center", borderTop: index ? "1px solid rgba(255,255,255,.055)" : "none" }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 750, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{poi.name}</div>
+                        <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.42)", marginTop: 2 }}>{poi.category}{poi.address ? ` · ${poi.address}` : ""}</div>
+                      </div>
+                      <label style={{ display: "flex", alignItems: "center", gap: 5, color: "rgba(255,255,255,.45)", fontFamily: F.sans, fontSize: 8 }}>
+                          Copie
+                          <input type="number" min="1" value={poi.copies ?? ""} placeholder="Da definire" onChange={(event) => updatePoiCopies(poi.id, event.target.value)} style={{ width: 58, padding: "7px 5px", borderRadius: 8, background: "#0B1526", border: "1px solid rgba(255,255,255,.12)", color: C.white, fontFamily: F.sans, fontSize: 9 }} />
+                      </label>
+                      <button type="button" onClick={() => togglePoiAssignment(poi)} style={{ padding: "7px 8px", borderRadius: 8, background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.2)", color: "#FCA5A5", fontFamily: F.sans, fontSize: 8, fontWeight: 750, cursor: "pointer" }}>Rimuovi</button>
+                    </div>
+                  ))}
+                </div>
+              ))}
+              {isBusinessStep2 && selectedOperationalPois.length > 0 && (
+                <div style={{ padding: 14, borderTop: "1px solid rgba(167,139,250,.18)", background: "rgba(76,29,149,.08)" }}>
+                  <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: "#DDD6FE", marginBottom: 10 }}>Riepilogo materiali e piano operativo</div>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,minmax(0,1fr))", gap: 8 }}>
+                    {[
+                      ["Attività selezionate", businessMaterialPlan?.selectedActivities ?? 0],
+                      ["Materiali necessari", businessMaterialPlan?.materialsRequired == null ? "Da definire" : `${businessMaterialPlan.materialsRequired.toLocaleString("it-IT")} pz.`],
+                      ["Materiali residui", businessMaterialPlan?.materialsRemaining == null ? "Da definire" : `${businessMaterialPlan.materialsRemaining.toLocaleString("it-IT")} pz.`],
+                      ["Materiali mancanti", businessMaterialPlan?.materialsMissing == null ? "Da definire" : `${businessMaterialPlan.materialsMissing.toLocaleString("it-IT")} pz.`],
+                    ].map(([label, value]) => (
+                      <div key={label} style={{ padding: 10, borderRadius: 9, background: "rgba(5,12,24,.45)", border: "1px solid rgba(255,255,255,.07)" }}>
+                        <div style={{ fontFamily: F.sans, fontSize: 7.5, color: "rgba(255,255,255,.42)", textTransform: "uppercase", letterSpacing: ".05em" }}>{label}</div>
+                        <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 900, color: label === "Materiali mancanti" && Number(businessMaterialPlan?.materialsMissing) > 0 ? "#FCA5A5" : "#F8FAFC", marginTop: 4 }}>{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 10, padding: 10, borderRadius: 9, background: "rgba(5,12,24,.38)", color: "#CBD5E1", fontFamily: F.sans, fontSize: 9, lineHeight: 1.55 }}>
+                    {businessOperationalPlan?.calculable ? (
+                      <>Stima: <b>{businessOperationalPlan.minutesPerVisit} min/visita</b>, <b>{businessOperationalPlan.visitsPerOperatorDay} visite per addetto/giorno</b>, <b>{businessOperationalPlan.operatorDays} giornate-addetto</b>{businessOperationalPlan.recommendedOperators ? ` e ${businessOperationalPlan.recommendedOperators} addetti consigliati nel periodo indicato` : ". Indica un periodo completo per stimare gli addetti."}</>
+                    ) : "Il piano operativo sarà calcolato appena la modalità di consegna e le attività selezionate consentono una stima attendibile."}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {/* CAP MODE: CAP selezionati */}
@@ -6798,50 +9134,106 @@ const radiusInsightRows = zonesInRadius.map(z => ({
 
           {/* BARRA RIASSUNTIVA COMUNI (Coerente con stato locale) */}
           {(selZones.length > 0 || zonesInRadius.length > 0) && (
-            <div style={{ position: "sticky", top: 12, zIndex: 30, display: "flex", gap: 10, padding: "12px 16px", background: "rgba(11, 25, 44, 0.88)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderRadius: 12, border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 8px 32px rgba(0, 0, 0, 0.35)", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
-              <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.white, display: "flex", alignItems: "center", gap: 8 }}>
-                <span>📊 Riepilogo territorio:</span>
-                <span style={{ padding: "3px 9px", borderRadius: 6, background: "rgba(255,255,255,.1)", fontSize: 12 }}>{formatTerritoryCount(summaryComuniStats.total)}</span>
-                {allocationMode === "manual" && <span style={{ padding: "3px 9px", borderRadius: 6, background: "rgba(168,85,247,.2)", color: "#C084FC", fontSize: 11, fontWeight: 800 }}>🟣 Manuale</span>}
-              </div>
-              <div style={{ display: "flex", gap: 14, fontFamily: F.sans, fontSize: 12, fontWeight: 700, flexWrap: "wrap" }}>
-                <span style={{ color: "#22C55E", display: "flex", alignItems: "center", gap: 5 }}>🟢 {summaryComuniStats.coperti} Coperti</span>
-                <span style={{ color: "#FACC15", display: "flex", alignItems: "center", gap: 5 }}>🟡 {summaryComuniStats.parziali} Parziali</span>
-                <span style={{ color: "#F87171", display: "flex", alignItems: "center", gap: 5 }}>🔴 {summaryComuniStats.esclusi} Non coperti</span>
-              </div>
-            </div>
-          )}
-
-          {/* DASHBOARD RIEPILOGO TERRITORIO — solo modalità Comuni, additivo,
-              non sostituisce la barra sticky sopra (condivisa con Raggio). */}
-          {searchMode === "municipality" && (selZones.length > 0 || zonesInRadius.length > 0) && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8, padding: "14px 16px", background: "rgba(255,255,255,.03)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)" }}>
+            <div className="vp-step2-map-summary" aria-label="Riepilogo della configurazione territoriale">
               {[
-                { l: "Comuni selezionati", v: selectedComuni.length },
-                { l: "Famiglie totali", v: serviceKpis?.families > 0 ? formatNumber(serviceKpis.families) : "N.D." },
-                { l: "Popolazione totale", v: serviceKpis?.population > 0 ? formatNumber(serviceKpis.population) : "N.D." },
-                { l: "Area totale", v: serviceKpis?.area > 0 ? `${serviceKpis.area} km²` : "N.D." },
-                { l: "Copertura totale", v: Number.isFinite(Number(serviceKpis?.coverage)) ? `${serviceKpis.coverage}%` : "N.D." },
-                { l: "Volantini disponibili", v: formatNumber(flyerQuantityFromStep1) },
-                { l: "Volantini consigliati", v: requiredFlyers > 0 ? formatNumber(requiredFlyers) : "N.D." },
-              ].map((k) => (
-                <div key={k.l} style={{ minWidth: 0 }}>
-                  <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 3 }}>{k.l}</div>
-                  <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: C.white, overflowWrap: "anywhere" }}>{k.v}</div>
+                ["Territorio selezionato", step2ViewModel.primaryAreaLabel],
+                [step2ViewModel.primaryFamiliesLabel, formatIntegerIT(step2ViewModel.primaryFamiliesValue)],
+                ["Quantità inserita", formatIntegerIT(step2ViewModel.insertedFlyersValue)],
+                ["Quantità consigliata", formatIntegerIT(step2ViewModel.recommendedFlyersValue)],
+                [step2ViewModel.primaryCoverageLabel, step2CoverageFullLabel || "Dato non disponibile"],
+              ].map(([label, value], index) => (
+                <div className="vp-step2-map-summary__item" key={label}>
+                  <span>{label}</span>
+                  <strong className="vp-data-number" style={{ color: index === 3 ? C.green : C.white }}>{value}</strong>
                 </div>
               ))}
             </div>
           )}
 
+          {isResidentialStep2 && (selZones.length > 0 || zonesInRadius.length > 0) && (
+            <section className="vp-step2-zone-details" aria-labelledby="vp-step2-zone-details-title">
+              <button
+                type="button"
+                className="vp-step2-zone-details__trigger"
+                onClick={() => setShowClientZoneDetails(value => !value)}
+                aria-expanded={showClientZoneDetails}
+                aria-controls="vp-step2-zone-details-panel"
+              >
+                <span>
+                  <strong id="vp-step2-zone-details-title">{showClientZoneDetails ? "Nascondi dettagli zone" : "Mostra dettagli zone"}</strong>
+                  <small>{zoneListSourceCount} {isNilAnalysis ? "NIL" : territoryPluralLabel.toLowerCase()} · dati della configurazione corrente</small>
+                </span>
+                <span aria-hidden="true">{showClientZoneDetails ? "−" : "+"}</span>
+              </button>
+              {showClientZoneDetails && (() => {
+                const detailZones = isMovementStep2
+                  ? h2hMetrics.clusters
+                  : (isBusinessStep2 && businessMetrics.clusterRows.length ? businessMetrics.clusterRows : sortedResidentialZones);
+                return (
+                  <div id="vp-step2-zone-details-panel" className="vp-step2-zone-details__panel">
+                    {isResidentialStep2 && (
+                      <div className="vp-step2-zone-details__sort" aria-label="Ordina dettaglio zone">
+                        <span>Ordina per</span>
+                        {[
+                          ["relevance", "Priorità"],
+                          ["families", "Target"],
+                          ["coverage", "Copertura"],
+                        ].map(([id, label]) => (
+                          <button type="button" key={id} aria-pressed={zoneListSort === id} onClick={() => setZoneListSort(id)}>{label}</button>
+                        ))}
+                      </div>
+                    )}
+                    <table className="vp-step2-zone-table">
+                      <thead>
+                        <tr>
+                          <th>Zona / NIL</th>
+                          <th>{isResidentialStep2 ? "Famiglie / target" : isMovementStep2 ? "Pubblico / punti" : "Attività / target"}</th>
+                          <th>Quantità assegnata</th>
+                          <th>Copertura del fabbisogno</th>
+                          <th>Priorità</th>
+                          <th>Stato</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detailZones.map((zone, index) => {
+                          const allocation = zoneAllocationById?.[zone.id] || null;
+                          const assigned = Math.max(0, Number(allocation?.assignedFlyers || 0));
+                          const required = Math.max(0, Number(allocation?.requiredFlyers || zCap(zone) || 0));
+                          const coverage = required > 0 ? Math.min(100, (assigned / required) * 100) : null;
+                          const status = assigned <= 0 ? "Esclusa" : coverage >= 99.5 ? "Inclusa" : "Parziale";
+                          const target = isResidentialStep2
+                            ? Number(zone.families || zone.famiglie || zone.households || 0)
+                            : isMovementStep2
+                              ? Number(zone.poi || zone.points || zone.transitStops || 0)
+                              : Number(zone.targetBiz || zone.businesses || zone.value || 0);
+                          return (
+                            <tr key={zone.id || zone.name || index}>
+                              <th scope="row">{zone.name || zone.label || `Zona ${index + 1}`}</th>
+                              <td className="vp-data-number">{target > 0 ? formatIntegerIT(target) : "Dato non disponibile"}</td>
+                              <td className="vp-data-number">{formatIntegerIT(assigned)}</td>
+                              <td className="vp-data-number">{coverage != null ? formatPercentIT(coverage, Number.isInteger(coverage) ? 0 : 1) : "Dato non disponibile"}</td>
+                              <td>{allocation?.priorityRank === 1 ? "1 · prima" : (allocation?.priorityRank || index + 1)}</td>
+                              <td><span className={`vp-step2-zone-status vp-step2-zone-status--${status.toLowerCase()}`}>{status}</span></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </section>
+          )}
+
           {/* COMUNE MODE: Zone di distribuzione */}
-          {searchMode !== "cap" && city && (
+          {isResidentialStep2 && searchMode !== "cap" && city && (
             <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)", overflow: "hidden" }}>
               {/* Header */}
               <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255,255,255,.06)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
                 <div>
-                  <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white, marginBottom: 2 }}>{isNilAnalysis ? (isComuneMode ? (nilManualMode ? `NIL selezionate: ${selZones.length} di ${zonesInRadius.length}` : `NIL disponibili ${city?.label || city?.name || ""}: ${zoneListSourceCount}`) : `NIL intersecate dal raggio: ${summaryComuniStats.total}`) : `Zone di distribuzione: ${zoneListSourceCount}`}</div>
+                  <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: C.white, marginBottom: 2 }}>{isNilAnalysis ? (isComuneMode ? (nilManualMode ? `NIL selezionate: ${selZones.length} di ${zonesInRadius.length}` : `NIL disponibili ${city?.label || city?.name || ""}: ${zoneListSourceCount}`) : `NIL intersecate dal raggio: ${summaryComuniStats.total}`) : isMovementStep2 ? `Cluster operativi rilevati: ${zoneListSourceCount}` : isBusinessStep2 ? `Cluster commerciali rilevati: ${zoneListSourceCount}` : `Zone di distribuzione: ${zoneListSourceCount}`}</div>
                   <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)" }}>
-                    Budget disponibile: <b style={{ color: col }}>{flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })}</b> volantini
+                    Quantità inserita: <b style={{ color: col }}>{flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })}</b> volantini
                   </div>
                 </div>
                 {isComuneMode && isNilAnalysis && (
@@ -6863,7 +9255,9 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                       color: nilManualMode ? col : "rgba(255,255,255,.55)",
                       fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer"
                     }}>
-                    NIL / Quartieri: {nilManualMode ? "selezione manuale" : "comune completo"}
+	                    {hasUnconfirmedAddressPoint
+	                      ? `NIL selezionati: ${selectedNils.length} · Anteprima: ${containingNil?.name || addressPreviewNilZones?.main?.name || "zona vicina"}`
+	                      : `NIL / Quartieri: ${nilManualMode ? "selezione manuale" : "comune completo"}`}
                   </button>
                 )}
                 <div style={{ display: "flex", background: "rgba(0,0,0,.2)", padding: 3, borderRadius: 9, border: "1px solid rgba(255,255,255,.05)" }}>
@@ -7088,7 +9482,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                   </div>
                 )}
                 
-                {isMilanoComuneCollapsible && !showMilanoNilList ? (
+                {allocationMode !== "auto" && (isMilanoComuneCollapsible && !showMilanoNilList ? (
                   <button onClick={() => setShowMilanoNilList(true)}
                     style={{
                       width: "100%", padding: "12px 14px", borderRadius: 10,
@@ -7125,7 +9519,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                           <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.42)" }}>{showMarginalZones ? "nascondi" : "espandi"}</span>
                         </button>
                         <div style={{ marginTop: 5, fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.42)" }}>
-                          totale aggregato: <b style={{ color: C.white }}>{marginalZoneFamilies.toLocaleString("it-IT", { useGrouping: true })}</b> famiglie · <b style={{ color: C.white }}>{marginalZoneCoverage}%</b> del raggio
+                          totale aggregato: <b style={{ color: C.white }}>{Number(marginalZoneFamilies || 0).toLocaleString("it-IT", { useGrouping: true })}</b> famiglie · <b style={{ color: C.white }}>{marginalZoneCoverage}%</b> del raggio
                         </div>
                       </div>
                     );
@@ -7208,12 +9602,12 @@ const isManual = allocationMode === "manual";
                             {z.isFallback
                               ? "Dati non disponibili — comune selezionato, in attesa dei dati API"
                               : isResidentialStep2
-                              ? `${z.families.toLocaleString("it-IT", { useGrouping: true })} famiglie – ${z.pop.toLocaleString("it-IT", { useGrouping: true })} ab. – ${z.area} km² – ${z.coverage}% ${searchMode === "municipality" ? "di copertura" : "nel raggio"}`
+                              ? `${Number(z.families ?? z.households ?? 0).toLocaleString("it-IT", { useGrouping: true })} famiglie – ${Number(z.pop ?? z.population ?? 0).toLocaleString("it-IT", { useGrouping: true })} ab. – ${Number(z.area ?? z.area_km2 ?? 0)} km² – ${Number(z.coverage ?? z.pct_copertura ?? 0)}% ${searchMode === "municipality" ? "di copertura" : "nel raggio"}`
                               : isBusinessStep2
-                              ? `${z.targetBiz} target – ${z.competitors} competitor – ${z.clusters} cluster – ${z.topCats}`
+                              ? `${Number(z.targetBiz ?? 0)} target – ${Number(z.competitors ?? 0)} competitor – ${Number(z.clusters ?? 0)} cluster – ${z.topCats ?? ""}`
                               : isMovementStep2
-                                ? `${z.poi} POI reali - ${z.transit || 0} nodi TPL/metro - score ${z.strength}/100`
-                              : z.dist ? `${z.dist.toFixed(1)} km dal centro` : "Zona nel raggio"}
+                                ? `${Number(z.poi ?? 0)} POI reali - ${Number(z.transit || 0)} nodi TPL/metro - score ${Number(z.strength ?? 0)}/100`
+                              : z.dist ? `${Number(z.dist).toFixed(1)} km dal centro` : "Zona nel raggio"}
                           </div>
                           {isResidentialStep2 && (
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(112px,1fr))", gap: 6, marginTop: 8 }}>
@@ -7222,7 +9616,7 @@ const isManual = allocationMode === "manual";
                               {rowMetric(z.isNil ? "Copertura fabbisogno zona" : (isRadiusMode ? "Copertura del fabbisogno della zona" : "Copertura comune"), `${coveragePercent}%`)}
                               {rowMetric(z.isNil ? "Peso sull'area" : (isRadiusMode ? "Peso sul raggio" : "Peso sul comune"), zoneCoveragePct != null ? `${zoneCoveragePct}%` : "N.D.")}
                               {rowMetric("Volantini assegnati", formatIntegerIT(assignedFlyers))}
-                              {rowMetric(z.isNil ? "Volantini consigliati zona" : "Volantini consigliati", requiredFlyers > 0 ? formatIntegerIT(requiredFlyers) : "N.D.", "accent")}
+                              {rowMetric(z.isNil ? "Quantità consigliata zona" : "Quantità consigliata", requiredFlyers > 0 ? formatIntegerIT(requiredFlyers) : "N.D.", "accent")}
                             </div>
                           )}
                         </div>
@@ -7289,25 +9683,27 @@ const isManual = allocationMode === "manual";
                   );
                 })}
                 </div>
-                )}
+                ))}
               </div>
 
               {/* Footer Avvisi */}
               {selZones.length > 0 && (() => {
+                const formulaFamilies = Math.max(0, Math.round(Number(step2ViewModel.primaryFamiliesValue || 0)));
+                const formulaRecommended = Math.max(0, Math.round(Number(step2ViewModel.recommendedFlyersValue || 0)));
+                const formulaMarginFlyers = Math.max(0, formulaRecommended - formulaFamilies);
+                const formulaMarginPct = formulaFamilies > 0 ? (formulaMarginFlyers / formulaFamilies) * 100 : null;
                 const DASHBOARD_PREVIEW_CARDS = [
-                  { icon: "📍", title: "Monitoraggio Live", desc: "Tracking GPS, timeline e avanzamento.", color: "#38BDF8" },
-                  { icon: "📊", title: "KPI", desc: "Copertura, Reach, ROI e statistiche.", color: "#4ADE80" },
-                  { icon: "🗺", title: "Analisi Territoriale", desc: "Heatmap, layer GIS e copertura.", color: "#FBBF24" },
-                  { icon: "👥", title: "Analisi Demografica", desc: "ISTAT, popolazione e famiglie.", color: "#A855F7" },
-                  { icon: "📷", title: "Report", desc: "Foto geolocalizzate, PDF ed export.", color: "#F87171" },
-                  { icon: "🤖", title: "AI Optimizer", desc: "Suggerimenti automatici e analisi.", color: "#60A5FA" },
+                  { icon: "📍", title: "Monitoraggio live", color: "#38BDF8" },
+                  { icon: "📊", title: "KPI e copertura", color: "#4ADE80" },
+                  { icon: "📷", title: "Foto e report", color: "#F87171" },
+                  { icon: "🗺", title: "Analisi territoriale", color: "#FBBF24" },
                 ];
 
                 const dashboardPreviewBox = (
                   <div style={{
                     background: "linear-gradient(180deg, rgba(56,189,248,.07) 0%, rgba(255,255,255,.02) 100%)",
                     borderRadius: 14,
-                    padding: isMobile ? "16px" : "20px",
+                    padding: isMobile ? "14px" : "16px 18px",
                     border: "1px solid rgba(56,189,248,.35)",
                     boxShadow: "0 10px 30px rgba(0,0,0,.3)",
                   }}>
@@ -7315,18 +9711,18 @@ const isManual = allocationMode === "manual";
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
                         <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 900, color: C.white, display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ fontSize: 18 }}>📊</span>
-                          <span>Dashboard Campagna</span>
+                          <span>Dashboard Campagna inclusa dopo la conferma</span>
                         </div>
                         <span style={{ padding: "3px 10px", borderRadius: 100, background: "rgba(56, 189, 248, .18)", color: "#38BDF8", border: "1px solid rgba(56, 189, 248, .35)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase" }}>
                           Preview
                         </span>
                       </div>
                       <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.68)", lineHeight: 1.5 }}>
-                        La Dashboard Campagna sarà disponibile dopo la conferma della campagna. Da lì potrai monitorare in tempo reale l&apos;avanzamento della distribuzione, consultare KPI, report, mappe e analisi AI.
+                        Monitora avanzamento, GPS, foto, KPI e report della distribuzione.
                       </div>
                     </div>
 
-                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, marginBottom: 16 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(0, 1fr))", gap: 8 }}>
                       {DASHBOARD_PREVIEW_CARDS.map((card) => (
                         <div key={card.title} style={{
                           background: "rgba(255,255,255,.03)",
@@ -7334,23 +9730,13 @@ const isManual = allocationMode === "manual";
                           padding: "12px 14px",
                           border: "1px solid rgba(255,255,255,.07)",
                           display: "flex",
-                          flexDirection: "column",
-                          gap: 5
+                          gap: 7,
+                          alignItems: "center"
                         }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                            <span style={{ fontSize: 15 }}>{card.icon}</span>
-                            <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: card.color }}>{card.title}</span>
-                          </div>
-                          <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.6)", lineHeight: 1.35 }}>
-                            {card.desc}
-                          </div>
+                          <span style={{ fontSize: 15 }}>{card.icon}</span>
+                          <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: card.color }}>{card.title}</span>
                         </div>
                       ))}
-                    </div>
-
-                    <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(15, 23, 42, .6)", border: "1px solid rgba(255,255,255,.08)", fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.65)", lineHeight: 1.5, display: "flex", alignItems: "center", gap: 8 }}>
-                      <span>🔒</span>
-                      <span>La Dashboard verrà attivata automaticamente dopo la conferma della campagna e si aggiornerà durante tutta l&apos;esecuzione del servizio.</span>
                     </div>
                   </div>
                 );
@@ -7359,8 +9745,49 @@ const isManual = allocationMode === "manual";
                   <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "12px", background: "rgba(0,0,0,.15)", borderTop: "1px solid rgba(255,255,255,.05)" }}>
                     {allocationMode === "auto" ? (
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: C.white, letterSpacing: ".05em", textTransform: "uppercase" }}>Copertura stimata</div>
+                        <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: C.white, letterSpacing: ".05em", textTransform: "uppercase" }}>Copertura e scelta quantità</div>
+                        <div className="vp-step2-scenario-grid">
+                          <article className="vp-step2-scenario-card">
+                            <span>Scenario attuale</span>
+                            <strong className="vp-data-number">{formatIntegerIT(step2TruthModel.quantity.current)} volantini</strong>
+                            <dl>
+                              <div><dt>Copertura scenario corrente</dt><dd className="vp-data-number">{step2CoverageFullLabel || "Dato non disponibile"}</dd></div>
+                              <div><dt>Zone coinvolte / disponibili</dt><dd className="vp-data-number">{step2TruthModel.zones.involved} / {step2TruthModel.zones.available}</dd></div>
+                            </dl>
+                          </article>
+                          <article className="vp-step2-scenario-card vp-step2-scenario-card--recommended">
+                            <span>Scenario consigliato</span>
+                            <strong className="vp-data-number">{formatIntegerIT(step2TruthModel.quantity.recommendedRequirement)} volantini</strong>
+                            <dl>
+                              <div><dt>Margine operativo</dt><dd className="vp-data-number">{step2TruthModel.quantity.operationalMargin > 0 ? `+${formatIntegerIT(step2TruthModel.quantity.operationalMargin)} pz.` : "Nessun margine aggiuntivo"}</dd></div>
+                              <div><dt>Copertura prevista</dt><dd>{step2TruthModel.quantity.recommendedRequirement > 0 ? "100% del fabbisogno operativo" : "Dato non disponibile"}</dd></div>
+                            </dl>
+                          </article>
+                        </div>
+                        <div hidden>
                         <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12, padding: 14 }}>
+                          {isResidentialStep2 && formulaFamilies > 0 && formulaRecommended > 0 && (
+                            <div style={{ padding: "12px 14px", borderRadius: 10, background: `${col}10`, border: `1px solid ${col}2f`, marginBottom: 14 }}>
+                              <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.88)", lineHeight: 1.55 }}>
+                                <strong className="vp-data-number">{formatIntegerIT(formulaFamilies)}</strong> famiglie
+                                {formulaMarginPct != null && formulaMarginFlyers > 0 && <> + <strong>{formatPercentIT(formulaMarginPct, Math.abs(formulaMarginPct - Math.round(formulaMarginPct)) < 0.05 ? 0 : 1)}</strong> margine operativo (<strong className="vp-data-number">+{formatIntegerIT(formulaMarginFlyers)}</strong>)</>}
+                                {formulaMarginFlyers === 0 && <> + nessun margine aggiuntivo</>}
+                                {' = '}<strong className="vp-data-number" style={{ color: col }}>{formatIntegerIT(formulaRecommended)} volantini consigliati</strong>
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginTop: 10 }}>
+                                {[
+                                  ["Famiglie stimate", formatIntegerIT(formulaFamilies)],
+                                  ["Margine operativo", `+${formatIntegerIT(formulaMarginFlyers)}`],
+                                  ["Quantità consigliata", formatIntegerIT(formulaRecommended)],
+                                ].map(([label, value]) => (
+                                  <div key={label} style={{ padding: "8px 9px", borderRadius: 8, background: "rgba(255,255,255,.04)" }}>
+                                    <div style={{ fontSize: 9, color: "rgba(255,255,255,.45)", marginBottom: 3 }}>{label}</div>
+                                    <div className="vp-data-number" style={{ fontSize: 13, fontWeight: 800, color: C.white }}>{value}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
                             {isRadiusMode ? (
                               <>
@@ -7379,11 +9806,11 @@ const isManual = allocationMode === "manual";
                                   </div>
                                 )}
                                 <div>
-                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini inseriti</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Quantità inserita</div>
                                   <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{formatIntegerIT(flyerQuantityFromStep1)}</div>
                                 </div>
                                 <div>
-                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini consigliati area {radiusKm || radius} km</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Quantità consigliata area {radiusKm || radius} km</div>
                                   <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{formatIntegerIT(requiredFlyers > 0 ? requiredFlyers : serviceKpis?.recommendedFlyers || 0)}</div>
                                 </div>
                                 <div>
@@ -7414,7 +9841,7 @@ const isManual = allocationMode === "manual";
                                   <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{selZones.length || zonesInRadius.length}</div>
                                 </div>
                                 <div>
-                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini inseriti</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Quantità inserita</div>
                                   <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{formatIntegerIT(flyerQuantityFromStep1)}</div>
                                 </div>
                                 <div>
@@ -7430,7 +9857,7 @@ const isManual = allocationMode === "manual";
                                 {isPartial && (
                                   <>
                                     <div>
-                                      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini consigliati</div>
+                                      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Quantità consigliata</div>
                                       <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{formatIntegerIT(requiredFlyers)}</div>
                                     </div>
                                     <div>
@@ -7442,13 +9869,15 @@ const isManual = allocationMode === "manual";
                               </>
                             )}
                           </div>
+                        </div>
+                        </div>
 
                           {isPartial ? (
                             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                               <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(34, 197, 94,.08)", border: "1px solid rgba(34, 197, 94,.28)", display: "flex", alignItems: "flex-start", gap: 10 }}>
                                 <span style={{ padding: "4px 8px", borderRadius: 6, background: `${"#22C55E"}22`, color: "#22C55E", fontFamily: F.sans, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>Copertura parziale</span>
                                 <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.8)", lineHeight: 1.4 }}>
-                                  Con {Number(availableFlyers || 0).toLocaleString("it-IT", { useGrouping: true })} volantini puoi coprire circa il {requiredFlyers > 0 ? Math.round((Number(availableFlyers || 0) / requiredFlyers) * 100) : 0}% del fabbisogno del raggio. Per copertura completa stimiamo {requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini. Scegli la quantita finale da portare al preventivo.
+                                  Con {Number(availableFlyers || 0).toLocaleString("it-IT", { useGrouping: true })} volantini puoi coprire {step2CoverageFullLabel || "una quota non calcolabile del fabbisogno operativo"}. Denominatore: {step2RequirementContextLabel}. Per copertura completa stimiamo {requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini. Scegli la quantita finale da portare al preventivo.
                                 </div>
                               </div>
 
@@ -7506,19 +9935,19 @@ const isManual = allocationMode === "manual";
                                   <span style={{ padding: "4px 8px", borderRadius: 6, background: `${C.green}22`, color: C.green, fontFamily: F.sans, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>Copertura completa raggiunta</span>
                                 </div>
                                 <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,.8)", lineHeight: 1.5 }}>
-                                  Hai inserito {flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })} volantini. Per coprire {city?.name || "l'area selezionata"} stimiamo necessari circa {requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini. Restano {surplusFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini disponibili.
+                                  Hai inserito {flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })} volantini. Per coprire {city?.name || "l'area selezionata"} la quantità consigliata è circa {requiredFlyers.toLocaleString("it-IT", { useGrouping: true })}. I volantini residui sono {surplusFlyers.toLocaleString("it-IT", { useGrouping: true })}.
                                 </div>
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
                                   <div>
-                                    <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini inseriti</div>
+                                    <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Quantità inserita</div>
                                     <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })}</div>
                                   </div>
                                   <div>
-                                    <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini necessari</div>
+                                    <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Quantità consigliata</div>
                                     <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{requiredFlyers.toLocaleString("it-IT", { useGrouping: true })}</div>
                                   </div>
                                   <div>
-                                    <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini extra</div>
+                                    <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Volantini residui</div>
                                     <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.orange }}>{surplusFlyers.toLocaleString("it-IT", { useGrouping: true })}</div>
                                   </div>
                                 </div>
@@ -7534,11 +9963,12 @@ const isManual = allocationMode === "manual";
 
                               <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 8 }}>
                                   <button onClick={() => {
-                                     setData(d => ({...d, qty: requiredFlyers, flyerQuantity: requiredFlyers }));
                                      selectCoverageQuantityDecision("useRecommended");
                                      setCoverageStrategy("reduce_to_recommended");
                                      debugStep2Log("[STEP2_COVERAGE_STRATEGY_SELECTED]", "reduce_to_recommended");
                                    }}
+                                  aria-pressed={coverageStrategy === "reduce_to_recommended"}
+                                  data-selected={coverageStrategy === "reduce_to_recommended" ? "true" : "false"}
                                   style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: coverageStrategy === "reduce_to_recommended" ? col : `${col}22`, color: C.white, border: `1px solid ${col}66`, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
                                   Adatta a {requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini
                                 </button>
@@ -7547,6 +9977,8 @@ const isManual = allocationMode === "manual";
                                      selectCoverageQuantityDecision("keepCurrent");
                                      debugStep2Log("[STEP2_COVERAGE_STRATEGY_SELECTED]", "extra_frequency");
                                    }}
+                                  aria-pressed={coverageStrategy === "extra_frequency"}
+                                  data-selected={coverageStrategy === "extra_frequency" ? "true" : "false"}
                                   style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: coverageStrategy === "extra_frequency" ? "rgba(46,204,138,.16)" : "transparent", color: C.white, border: `1px solid ${coverageStrategy === "extra_frequency" ? "rgba(46,204,138,.45)" : "rgba(255,255,255,.3)"}`, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
                                   Mantieni {flyerQuantityFromStep1.toLocaleString("it-IT", { useGrouping: true })}
                                 </button>
@@ -7555,6 +9987,8 @@ const isManual = allocationMode === "manual";
                                      selectCoverageQuantityDecision("keepCurrent");
                                      debugStep2Log("[STEP2_COVERAGE_STRATEGY_SELECTED]", "expand_area");
                                    }}
+                                  aria-pressed={coverageStrategy === "expand_area"}
+                                  data-selected={coverageStrategy === "expand_area" ? "true" : "false"}
                                   style={{ flex: 1, padding: "9px 12px", borderRadius: 8, background: coverageStrategy === "expand_area" ? `${col}22` : "transparent", color: col, border: `1px solid ${col}45`, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
                                   Espandi area
                                 </button>
@@ -7581,7 +10015,6 @@ const isManual = allocationMode === "manual";
                             </div>
                           )}
                         </div>
-                      </div>
                     ) : (
                       /* Manual Mode Footer */
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -7598,7 +10031,7 @@ const isManual = allocationMode === "manual";
                             <div>
                               <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.green }}>Assegnazione manuale valida.</div>
                               <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.4)", marginTop: 2 }}>
-                                {remainingFlyers > 0 ? `Rimanenti: ${remainingFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini` : "Tutti i volantini sono stati assegnati."}
+                                {remainingFlyers > 0 ? `Volantini residui: ${remainingFlyers.toLocaleString("it-IT", { useGrouping: true })}` : "Tutti i volantini sono stati assegnati."}
                               </div>
                             </div>
                           </div>
@@ -7624,8 +10057,6 @@ const isManual = allocationMode === "manual";
                       </div>
                     )}
 
-                    {/* Dashboard Campagna Preview - Sezione autonoma fuori da Copertura stimata */}
-                    {dashboardPreviewBox}
                   </div>
                 );
               })()}
@@ -7643,7 +10074,7 @@ const isManual = allocationMode === "manual";
               </div>
               <div style={{ fontFamily: F.serif, fontSize: 22, color: C.white, lineHeight: 1, marginBottom: 4 }}>{activeCampaignZone.zone_label || "Zona"}</div>
               <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.46)", lineHeight: 1.45 }}>
-                {step2ViewModel.primaryAreaLabel} · {(activeCampaignZone.assigned_flyers || data.qty || 0).toLocaleString("it-IT", { useGrouping: true })} volantini
+                {step2ViewModel.primaryAreaLabel} · {isBusinessStep2 ? `${selectedOperationalPois.length} attività selezionate` : `Quantità assegnata: ${formatIntegerIT(finalFlyersRounded)} volantini`}
               </div>
             </div>
           )}
@@ -7651,7 +10082,7 @@ const isManual = allocationMode === "manual";
           {(selZones.length > 0 || zonesInRadius.length > 0 || activeCampaignZone) && (
             <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "18px 20px", border: `1px solid ${col}30` }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 14 }}>
-                <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: col, letterSpacing: ".06em", textTransform: "uppercase" }}>Risultati della configurazione</span>
+                <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: col, letterSpacing: ".06em", textTransform: "uppercase" }}>{hasUnconfirmedAddressPoint ? "Anteprima del NIL vicino" : "Risultato della configurazione"}</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
@@ -7665,13 +10096,15 @@ const isManual = allocationMode === "manual";
                 </div>
 
                 {/* Copertura */}
-                {step2ViewModel.primaryCoverageValue != null && (
+                {!isBusinessStep2 && step2TruthModel.coverage.operationalPct != null && (
                   <div style={{ paddingBottom: 12, borderBottom: "1px solid rgba(255,255,255,.05)" }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", marginBottom: 4 }}>{step2ViewModel.primaryCoverageLabel}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", marginBottom: 4 }}>Copertura operativa dello scenario corrente</div>
                     <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 26, fontWeight: 800, color: C.green, lineHeight: 1 }}>{step2ViewModel.primaryCoverageValue}%</div>
-                      <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.45)", lineHeight: 1 }}>≈ 1 {isResidentialStep2 ? "famiglia" : isMovementStep2 ? "punto" : "azienda"} su {Math.max(1, Math.round(100 / (step2ViewModel.primaryCoverageValue || 1)))}</div>
+                      <div className="vp-data-number" style={{ fontFamily: F.sans, fontSize: 26, fontWeight: 800, color: C.green, lineHeight: 1 }}>{step2CoveragePctLabel}</div>
+                      <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.62)", lineHeight: 1.35 }}>del fabbisogno operativo</div>
+                      <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)", lineHeight: 1.35 }}>{formatIntegerIT(step2TruthModel.quantity.current)} ÷ {formatIntegerIT(step2TruthModel.quantity.recommendedRequirement)} pz.</div>
                     </div>
+                    <div style={{ marginTop: 5, fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.38)" }}>Denominatore: {step2RequirementContextLabel}.</div>
                   </div>
                 )}
 
@@ -7687,498 +10120,109 @@ const isManual = allocationMode === "manual";
                 {/* Comuni, volantini, raggio su 3 colonne */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 9, padding: "10px 12px" }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>{step2ViewModel.zoneCountLabel}</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 18, fontWeight: 800, color: C.white }}>{step2ViewModel.zoneCountValue}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>{isBusinessStep2 ? "Attività selezionate" : (step2ViewModel.availableNilCount > 0 ? "Zone coinvolte / disponibili" : step2ViewModel.zoneCountLabel)}</div>
+                    <div className="vp-data-number" style={{ fontFamily: F.sans, fontSize: 18, fontWeight: 800, color: C.white }}>{isBusinessStep2 ? selectedOperationalPois.length : `${step2TruthModel.zones.involved} / ${step2TruthModel.zones.available}`}</div>
                   </div>
                   <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 9, padding: "10px 12px" }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>Volantini inseriti</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: C.blue, lineHeight: 1.1 }}>{formatIntegerIT(step2ViewModel.insertedFlyersValue)}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>{isBusinessStep2 ? "Materiali necessari" : "Quantità inserita"}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: C.blue, lineHeight: 1.1 }}>{isBusinessStep2 ? (businessMaterialPlan?.materialsRequired == null ? "Da definire" : formatIntegerIT(businessMaterialPlan.materialsRequired)) : formatIntegerIT(step2TruthModel.quantity.current)}</div>
                   </div>
                   <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 9, padding: "10px 12px" }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>{areaMode === "radius" ? "Raggio" : "Territorio"}</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 18, fontWeight: 800, color: C.white }}>{areaMode === "radius" ? `${radiusKm || radius} km` : step2ViewModel.primaryAreaLabel}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.4)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 5 }}>{isBusinessStep2 ? (Number(businessMaterialPlan?.materialsMissing) > 0 ? "Materiali mancanti" : "Materiali residui") : (step2TruthModel.quantity.missing > 0 ? "Quantità mancante" : "Quantità oltre fabbisogno")}</div>
+                    <div className="vp-data-number" style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: (isBusinessStep2 ? Number(businessMaterialPlan?.materialsMissing) > 0 : step2TruthModel.quantity.missing > 0) ? "#FBBF24" : C.green }}>{isBusinessStep2 ? (businessMaterialPlan?.materialsRequired == null ? "Da definire" : `${formatIntegerIT(Number(businessMaterialPlan.materialsMissing) > 0 ? businessMaterialPlan.materialsMissing : businessMaterialPlan.materialsRemaining)} pz.`) : `${formatIntegerIT(step2TruthModel.quantity.missing > 0 ? step2TruthModel.quantity.missing : step2TruthModel.quantity.surplus)} pz.`}</div>
                   </div>
                 </div>
+
+                {/* 7. Messaggio umano di sintesi (Fase 1) */}
+                {(() => {
+                  const insQty = step2TruthModel.quantity.current;
+                  const recQty = step2TruthModel.quantity.recommendedRequirement;
+                  const covPct = step2TruthModel.coverage.operationalPct || 0;
+                  const insFmt = formatIntegerIT(insQty);
+                  const areaLbl = step2ViewModel.primaryAreaLabel || "questa zona";
+                  let summaryMsg = "";
+                  if (isResidentialStep2) {
+                    if (missingFlyers > 0) {
+                      summaryMsg = `Con ${insFmt} volantini il sistema concentrera la distribuzione nelle zone con maggiore priorita e coprira ${step2CoverageFullLabel || "una quota non calcolabile del fabbisogno operativo"}. Denominatore: ${step2RequirementContextLabel}. Per una copertura completa del territorio sono stimati ${formatIntegerIT(recQty)} volantini.`;
+                    } else if (insQty > recQty && recQty > 0) {
+                      const surplus = insQty - recQty;
+                      summaryMsg = `Con ${insFmt} volantini copri interamente ${areaLbl}. Restano ${formatIntegerIT(surplus)} volantini che puoi utilizzare per ampliare l'area.`;
+                    } else {
+                      summaryMsg = `Con ${insFmt} volantini copri interamente ${areaLbl}.`;
+                    }
+                  } else if (isMovementStep2) {
+                    summaryMsg = pois.length > 0 || transportState?.available
+                      ? `Lo scenario da ${insFmt} volantini considera i POI e i nodi TPL effettivamente restituiti in ${areaLbl}; non rappresenta un conteggio di passanti.`
+                      : `Lo scenario da ${insFmt} volantini è parziale: POI e trasporto non sono disponibili per ${areaLbl}.`;
+                  } else {
+                    summaryMsg = pois.length > 0
+                      ? `Lo scenario da ${insFmt} volantini usa le attività POI restituite per ${areaLbl}; non equivale a un censimento completo di imprese o uffici.`
+                      : `Lo scenario da ${insFmt} volantini è parziale: censimento imprese, uffici e aree produttive non disponibile.`;
+                  }
+                  return (
+                    <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: 10, background: "rgba(56,189,248,.08)", border: "1px solid rgba(56,189,248,.22)", fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.88)", lineHeight: 1.45 }}>
+                      <div>{summaryMsg}</div>
+                      {step2TruthModel.zones.firstPriority && (
+                        <div style={{ marginTop: 7, color: "rgba(255,255,255,.62)" }}>
+                          Prima priorità: <b style={{ color: C.white }}>{step2TruthModel.zones.firstPriority.name}</b>. Criterio: ordine di allocazione corrente condiviso con il Report Avanzato.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
               </div>
             </div>
           )}
 
-          {/* SEZIONE DINAMICA: VISTA CLIENTE / ANALISI AVANZATA */}
+          {/* GRUPPO B: OUTPUT DEL SERVIZIO SELEZIONATO (SINTETICO MAX 4 KPI) */}
           {(selZones.length > 0 || zonesInRadius.length > 0 || activeCampaignZone) && (() => {
-            const profilePop = serviceKpis?.population > 0 ? serviceKpis.population : (serviceKpis?.pop > 0 ? serviceKpis.pop : (aiAgg?.pop > 0 ? aiAgg.pop : (effectiveDemoData?.populationTotal > 0 ? effectiveDemoData.populationTotal : 0)));
-            const profileFam = serviceKpis?.families > 0 ? serviceKpis.families : (aiAgg?.families > 0 ? aiAgg.families : (effectiveDemoData?.householdsTotal > 0 ? effectiveDemoData.householdsTotal : 0));
-            const profileDens = zoneDensity > 0 ? zoneDensity : (aiAgg?.densita > 0 ? aiAgg.densita : (summaryComuniStats?.densita > 0 ? summaryComuniStats.densita : 0));
-            const verdictScore = zoneVerdict?.score || 75;
-            const isAggregatedTerritory = searchMode === "municipality" && (municipalityDemoAgg?.matchedCount || 0) > 1;
-            const demographicSource = effectiveDemoData
-              ? (isAggregatedTerritory
-                  ? "ISTAT • demographic_indicators (aggregato)"
-                  : (!isComuneMode ? `ISTAT • demographic_indicators (dati comune ${city?.label || city?.name || ""}, usati come contesto)` : "ISTAT • demographic_indicators"))
-              : "Dato non disponibile";
-            const demographicYear = Number.isFinite(Number(effectiveDemoData?.referenceYear)) ? effectiveDemoData.referenceYear : null;
-            const demographicYearLabel = demographicYear != null ? demographicYear : "Non disponibile";
-            const demographicStatus = effectiveDemoData ? "Dato verificato internamente" : "Dato non disponibile";
-            const totalHouseholds = effectiveDemoData?.householdsTotal > 0 ? effectiveDemoData.householdsTotal : profileFam;
-            const totalPopulation = effectiveDemoData?.populationTotal > 0 ? effectiveDemoData.populationTotal : profilePop;
-            const ageRows = effectiveDemoData ? [
-              { l: "0-14", v: effectiveDemoData.age_0_14_pct, c: "#A78BFA" },
-              { l: "15-34", v: effectiveDemoData.age_15_34_pct, c: "#38BDF8" },
-              { l: "35-64", v: effectiveDemoData.age_35_64_pct, c: "#4ADE80" },
-              { l: "65+", v: effectiveDemoData.age_65_plus_pct, c: "#FBBF24" },
-            ].filter((row) => Number.isFinite(Number(row.v))) : [];
-            const ageAggregationNote = isAggregatedTerritory
-              ? `Fasce età aggregate su ${municipalityDemoAgg.matchedCount} comuni (somma popolazione, percentuali ricalcolate).`
-              : null;
-            const ageMissingNote = searchMode === "municipality" && municipalityDemoAgg?.missingMunicipalities?.length > 0
-              ? `${municipalityDemoAgg.missingMunicipalities.length} comune/i senza dato demografico, escluso/i dall'aggregazione.`
-              : null;
-            const territorialRows = territorialData ? [
-              { l: "Single", v: territorialData.single_households_pct, c: "#A78BFA" },
-              { l: "Coppie", v: territorialData.couples_no_children_pct, c: "#F472B6" },
-              { l: "Con figli", v: territorialData.families_with_children_pct, c: "#34D399" },
-              { l: "Monoparent.", v: territorialData.single_parent_households_pct, c: "#60A5FA" },
-              { l: "Altro", v: territorialData.other_households_pct, c: "#94A3B8" },
-            ].filter((row) => Number.isFinite(Number(row.v))) : [];
-            const unavailableTerritorialRows = territorialRows.length > 0 ? territorialRows : [
-              { l: "Stato dato", v: "Dato non disponibile da fonte comunale ufficiale", c: "#A78BFA" },
+            const activeServiceOutputs = isResidentialStep2 ? residentialMainOutputsNormalized : isMovementStep2 ? h2hMainOutputs : [
+              { l: "Attività disponibili", v: formatIntegerIT(pois.length), u: "att.", src: "OpenStreetMap / fonti collegate", c: "#A78BFA" },
+              { l: "Attività selezionate", v: formatIntegerIT(selectedOperationalPois.length), u: "att.", src: "Selezione cliente", c: "#4ADE80" },
+              { l: "Materiali necessari", v: businessMaterialPlan?.materialsRequired == null ? "Da definire" : formatIntegerIT(businessMaterialPlan.materialsRequired), u: businessMaterialPlan?.materialsRequired == null ? "" : "pz.", src: "Copie per attività", c: "#38BDF8" },
+              { l: "Giornate-addetto", v: businessOperationalPlan?.calculable ? businessOperationalPlan.operatorDays : "Da calcolare", u: "", src: "Tempo medio per visita", c: "#FBBF24" },
             ];
-            const landuseRows = dusafLanduse?.available ? [
-              { l: "Residenziale", v: dusafLanduse.residential_area_pct, c: "#38BDF8" },
-              { l: "Commerciale/produttivo", v: dusafLanduse.commercial_industrial_area_pct, c: "#FB923C" },
-              { l: "Verde/agricolo", v: dusafLanduse.green_agricultural_area_pct, c: "#4ADE80" },
-              { l: "Altro/infrastrutture/acqua", v: dusafLanduse.other_infrastructure_water_area_pct, c: "#94A3B8" },
-            ].filter((row) => Number.isFinite(Number(row.v))) : [];
-            const unavailableLanduseRows = landuseRows.length > 0 ? landuseRows : [
-              { l: "Stato dato", v: "Dato non disponibile", c: "#38BDF8" },
-            ];
-            const landuseSourceLabel = dusafLanduse?.available
-              ? `Fonte dati: ${dusafLanduse.source}`
-              : "Fonte dati: Dato non disponibile";
-            const landuseYearLabel = dusafLanduse?.available && dusafLanduse.referenceYear != null
-              ? `Anno di riferimento: ${dusafLanduse.referenceYear}`
-              : "Anno di riferimento: Non disponibile";
-            const landuseMultiComuneNote = dusafLanduse?.available && dusafLanduse.matchedCount > 1
-              ? `Valori aggregati su ${dusafLanduse.matchedCount} comuni, ponderati per area comunale reale.`
-              : null;
-            const landuseMissingNote = dusafLanduse?.available && dusafLanduse.missingMunicipalities?.length > 0
-              ? `${dusafLanduse.missingMunicipalities.length} comune/i nell'area selezionata senza dato DUSAF, escluso/i dal calcolo.`
-              : null;
-            const omiRows = omiInfo?.available && Array.isArray(omiInfo?.values) ? omiInfo.values.filter((row) => row?.typology && (row.min_value != null || row.max_value != null)) : [];
-            const omiSourceLabel = omiInfo?.available ? "Fonte: Agenzia Entrate - OMI 2025/2" : "Fonte: dato non disponibile";
-
-            // Insight Principale
-            let insightIcon = "🏘";
-            let insightTitle = "Area residenziale ad alta densità";
-            let insightSub = "Concentrazione ottimale di nuclei familiari per campagne di volantinaggio capillarmente mirate.";
-            if (!isCoverageConfigurationValid) {
-              insightIcon = "📍";
-              insightTitle = "Copertura da configurare";
-              insightSub = "Seleziona una modalità di copertura per calcolare risultati e consiglio operativo.";
-            } else if (isBusinessStep2) {
-              insightIcon = "🏢";
-              insightTitle = "Area commerciale e ad alta densità aziendale";
-              insightSub = "Elevata presenza di attività commerciali, uffici e servizi B2B idonei al contatto professionale.";
-            } else if (isMovementStep2) {
-              insightIcon = "🏫";
-              insightTitle = "Area ad alto transito e punti di interesse (POI)";
-              insightSub = "Snodi pedonali, poli scolastici/universitari, fermate e centri ad elevato passaggio quotidiano.";
-            } else if (profileDens > 3500) {
-              insightIcon = "🏘";
-              insightTitle = "Area residenziale ad altissima densità";
-              insightSub = "Prevalenza di condomini verticali e complessi strutturati: alta efficienza di distribuzione Door to Door.";
-            } else if (profileDens < 500 && profileDens > 0) {
-              insightIcon = "🏡";
-              insightTitle = "Area residenziale estesa a bassa densità";
-              insightSub = "Prevalenza di villette e abitazioni indipendenti distribuite sul territorio comunale.";
-            }
-
-            // Dati per Micro Grafici
-            // Badge territoriali
-            const badges = [
-              { label: isResidentialStep2 ? "🏘 Residenziale" : isBusinessStep2 ? "🏢 Commerciale" : "📍 Alto transito", color: "#38BDF8", bg: "rgba(56, 189, 248, 0.12)", border: "rgba(56, 189, 248, 0.28)" },
-              profileDens >= 2000 ? { label: "📈 Alta densità", color: "#4ADE80", bg: "rgba(74, 222, 128, 0.12)", border: "rgba(74, 222, 128, 0.28)" } : { label: "🏡 Densità equilibrata", color: "#A78BFA", bg: "rgba(167, 139, 250, 0.12)", border: "rgba(167, 139, 250, 0.28)" },
-              { label: demographicStatus, color: demoData ? "#FBBF24" : "rgba(255,255,255,.55)", bg: "rgba(251, 191, 36, 0.12)", border: "rgba(251, 191, 36, 0.28)" },
-            ];
-
-            const compatPct = Math.min(99, Math.max(68, Math.round(verdictScore)));
-            const compatLabel = compatPct >= 85 ? "ECCELLENTE" : compatPct >= 72 ? "ALTA" : "MEDIA";
-            const compatColor = compatPct >= 85 ? "#4ADE80" : compatPct >= 72 ? "#60A5FA" : "#FBBF24";
-            const formatOmiValue = (value) => Number(value || 0).toLocaleString("it-IT", { useGrouping: true });
-            const formatOmiRange = (min, max) => `${formatOmiValue(min)} - ${formatOmiValue(max)} EUR/mq`;
+            const activeServiceTitle = isResidentialStep2 ? "Output Door to Door" : isMovementStep2 ? "Output Hand to Hand" : "Output Business Distribution";
+	            const baseDisplayOutputs = Array.isArray(activeServiceOutputs) ? activeServiceOutputs : [];
+	            const displayOutputs = [
+	              ...baseDisplayOutputs.map(item => item.l === "Copertura stimata" ? { ...item, l: "Copertura operativa", v: step2CoverageFullLabel || item.v, u: "", src: "Fabbisogno operativo" } : item),
+	              ...(isResidentialStep2 ? [{ l: "Durata calendario", v: "non calcolabile", u: "", src: "Numero operatori non disponibile", c: C.yellow }] : []),
+	            ];
             return (
-              <AnimatePresence mode="wait">
-                {!isAdminView ? (
-                  <motion.div key="vista-cliente" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    {/* PROFILO DELLA ZONA */}
-                    <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "18px 20px", border: `1px solid ${col}30` }}>
-                      {(() => {
-                        const isMultiComuneDemo = (selectedComuni?.length > 1) || (searchMode === "municipality" && selZones?.length > 1);
-                        const radiusReferenceName = city?.label || city?.name || selectedSearchPoint?.label || "";
-                        const demoTitle = isRadiusMode && radiusReferenceName
-                          ? `Contesto demografico del punto di partenza: ${radiusReferenceName}`
-                          : isMultiComuneDemo ? (step2ViewModel.contextDemographyLabel || "Contesto demografico - territorio selezionato") : (step2ViewModel.contextDemographyLabel || (searchMode === "municipality" ? "Profilo Territorio" : "Profilo della zona"));
-                        const demoSub = isRadiusMode
-                          ? `Comune di riferimento - ${radiusReferenceName || "punto selezionato"}`
-                          : isMultiComuneDemo ? (step2ViewModel.contextDemographySubtitle || selectedMunicipalityDisplayLabel) : step2ViewModel.contextDemographySubtitle;
-                        const demoNote = isRadiusMode
-                          ? `La campagna interessa un'area di ${radiusKm || radius} km che interseca ${selZones.length || zonesInRadius.length || 0} comuni. I dati mostrati in questa scheda si riferiscono al comune di ${radiusReferenceName || "riferimento"}.`
-                          : isMultiComuneDemo ? (step2ViewModel.contextDemographyNote || `Dati aggregati sui ${selectedMunicipalityNames.length} comuni selezionati.`) : (step2ViewModel.contextDemographyNote || "Analisi territoriale basata sui dati disponibili.");
-                        return (
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                            <div>
-                              <div style={{ fontFamily: F.sans, fontSize: 14, fontWeight: 800, color: C.white, display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
-                                <span>👥</span>
-                                <span>{demoTitle}</span>
-                              </div>
-                              {demoSub && (
-                                <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: col, marginBottom: 2 }}>
-                                  {demoSub}
-                                </div>
-                              )}
-                              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>
-                                {demoNote}
-                              </div>
-                            </div>
-                            <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(59, 130, 246, 0.15)", color: "#60A5FA", border: "1px solid rgba(59, 130, 246, 0.3)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, letterSpacing: ".06em" }}>
-                              DATI DISPONIBILI
-                            </span>
-                            <span style={{ padding: "3px 8px", borderRadius: 6, background: `${compatColor}18`, color: compatColor, border: `1px solid ${compatColor}33`, fontFamily: F.sans, fontSize: 10, fontWeight: 800, letterSpacing: ".04em" }}>
-                              {zoneVerdict?.title || "Zona adatta"}
-                            </span>
-                          </div>
-                        );
-                      })()}
-
-                      <div style={{ background: "linear-gradient(135deg, rgba(232, 87, 26, 0.12) 0%, rgba(232, 87, 26, 0.03) 100%)", border: "1px solid rgba(232, 87, 26, 0.3)", borderRadius: 10, padding: "14px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
-                        <span style={{ fontSize: 26, lineHeight: 1 }}>{insightIcon}</span>
-                        <div>
-                          <div style={{ fontFamily: F.sans, fontSize: 13.5, fontWeight: 800, color: C.white, marginBottom: 3 }}>
-                            {insightTitle}
-                          </div>
-                          <div style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255, 255, 255, 0.72)", lineHeight: 1.4 }}>
-                            {insightSub}
-                          </div>
-                        </div>
+              <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "18px 20px", border: `1px solid ${col}30` }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 14 }}>
+                  <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: col, letterSpacing: ".06em", textTransform: "uppercase" }}>Report Territoriale Avanzato</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.62)", lineHeight: 1.45 }}>
+                    Approfondisci demografia, NIL, mobilità, attività, mercato immobiliare, score e fonti realmente disponibili per la zona selezionata.
+                  </div>
+                  {displayOutputs.map((item, idx) => (
+                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", paddingBottom: idx < displayOutputs.length - 1 ? 8 : 0, borderBottom: idx < displayOutputs.length - 1 ? "1px solid rgba(255,255,255,.05)" : "none" }}>
+                      <div>
+                        <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,.82)" }}>{item.l}</div>
+                        {item.src && <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.4)" }}>Fonte: {item.src}</div>}
                       </div>
-
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginBottom: 16 }}>
-                        <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 9, padding: "10px 12px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                            <span style={{ fontSize: 14 }}>🏙</span>
-                            <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Densità abitativa</span>
-                          </div>
-                          <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: C.white }}>
-                            {profileDens ? `${formatIntegerIT(profileDens)} ab./km²` : "Dato in calcolo"}
-                          </div>
-                        </div>
-                        <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 9, padding: "10px 12px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                            <span style={{ fontSize: 14 }}>📈</span>
-                            <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Famiglie totali</span>
-                          </div>
-                          <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: "#38BDF8" }}>
-                            {totalHouseholds > 0 ? formatIntegerIT(totalHouseholds) : "Dato non disponibile"}
-                          </div>
-                        </div>
-                        <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 9, padding: "10px 12px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                            <span style={{ fontSize: 14 }}>👥</span>
-                            <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Popolazione</span>
-                          </div>
-                          <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 800, color: C.white }}>
-                            {totalPopulation > 0 ? formatIntegerIT(totalPopulation) : "Dato non disponibile"}
-                          </div>
-                        </div>
-                      </div>
-                      <div style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.5)", marginBottom: 14 }}>
-                        <div>Fonte dati: {demographicSource}</div>
-                        <div>Anno di riferimento: {demographicYearLabel} - Stato dato: {demographicStatus}</div>
-                        {isRadiusMode && <div style={{ color: "rgba(255,255,255,.7)", marginTop: 2 }}>Nota: I dati demografici sopra si riferiscono all&apos;intero comune di contesto.</div>}
-                        {ageAggregationNote && <div>{ageAggregationNote}</div>}
-                        {ageMissingNote && <div>{ageMissingNote}</div>}
-                      </div>
-
-                      <div style={{ background: "rgba(0,0,0,.18)", border: "1px solid rgba(255,255,255,.06)", borderRadius: 10, padding: "14px", marginBottom: 16, display: "flex", flexDirection: "column", gap: 14 }}>
-                        <div>
-                          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.7)", marginBottom: 6 }}>Fasce d&apos;età prevalenti</div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {(ageRows.length ? ageRows : [{ l: "Dato non disponibile", v: null, c: "rgba(255,255,255,.45)" }]).map((b, idx) => (
-                              <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ width: 94, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>{b.l}</span>
-                                <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
-                                  {Number.isFinite(Number(b.v)) && <div style={{ width: `${b.v}%`, height: "100%", background: b.c, borderRadius: 3 }} />}
-                                </div>
-                                <span style={{ width: 60, textAlign: "right", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: b.c }}>{Number.isFinite(Number(b.v)) ? `${Math.round(Number(b.v))}%` : "N.D."}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div style={{ borderTop: "1px solid rgba(255,255,255,.05)", paddingTop: 10 }}>
-                          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.7)", marginBottom: 6 }}>Composizione nuclei</div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {unavailableTerritorialRows.map((b, idx) => (
-                              <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ width: 94, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>{b.l}</span>
-                                {Number.isFinite(Number(b.v)) ? (
-                                  <>
-                                    <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
-                                      <div style={{ width: `${b.v}%`, height: "100%", background: b.c, borderRadius: 3 }} />
-                                    </div>
-                                    <span style={{ width: 60, textAlign: "right", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: b.c }}>{Math.round(Number(b.v))}%</span>
-                                  </>
-                                ) : (
-                                  <span style={{ flex: 1, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.58)" }}>{b.v}</span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div style={{ borderTop: "1px solid rgba(255,255,255,.05)", paddingTop: 10 }}>
-                          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.7)", marginBottom: 6 }}>Destinazione area</div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {unavailableLanduseRows.map((b, idx) => (
-                              <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ width: 150, flexShrink: 0, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>{b.l}</span>
-                                {Number.isFinite(Number(b.v)) ? (
-                                  <>
-                                    <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
-                                      <div style={{ width: `${b.v}%`, height: "100%", background: b.c, borderRadius: 3 }} />
-                                    </div>
-                                    <span style={{ width: 60, textAlign: "right", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: b.c }}>{Math.round(Number(b.v))}%</span>
-                                  </>
-                                ) : (
-                                  <span style={{ flex: 1, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.58)" }}>{b.v}</span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                          <div style={{ marginTop: 8, fontFamily: F.sans, fontSize: 9.5, color: "rgba(255,255,255,.4)", lineHeight: 1.5 }}>
-                            <div>{landuseSourceLabel}</div>
-                            <div>{landuseYearLabel}</div>
-                            {landuseMultiComuneNote && <div>{landuseMultiComuneNote}</div>}
-                            {landuseMissingNote && <div>{landuseMissingNote}</div>}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
-                        {badges.map((bdg, idx) => (
-                          <span key={idx} style={{ padding: "4px 10px", borderRadius: 20, background: bdg.bg, border: `1px solid ${bdg.border}`, color: bdg.color, fontFamily: F.sans, fontSize: 11, fontWeight: 700 }}>
-                            {bdg.label}
-                          </span>
-                        ))}
-                      </div>
-
-                      <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 10, padding: "12px 14px", marginBottom: 16 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
-                          <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.65)", textTransform: "uppercase", letterSpacing: ".04em" }}>Score operativo interno</span>
-                          <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: compatColor, padding: "2px 8px", borderRadius: 6, background: `${compatColor}18`, border: `1px solid ${compatColor}33` }}>
-                            {compatPct}% — {compatLabel}
-                          </span>
-                        </div>
-                        <div style={{ width: "100%", height: 8, background: "rgba(255,255,255,.08)", borderRadius: 4, overflow: "hidden" }}>
-                          <div style={{ width: `${compatPct}%`, height: "100%", background: `linear-gradient(90deg, ${compatColor}88 0%, ${compatColor} 100%)`, borderRadius: 4 }} />
-                        </div>
-                        <div style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.5)", marginTop: 8 }}>
-                          Calcolato internamente da copertura, densita e quantita. Non e un dato territoriale ufficiale.
-                        </div>
-                      </div>
-
-                    </div>
-
-                    {/* CONSIGLIO AI */}
-                    <div style={{ background: "rgba(59,130,246,.07)", borderRadius: 12, padding: "14px 16px", border: "1px solid rgba(59,130,246,.22)" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
-                        <span style={{ fontSize: 15 }}>🤖</span>
-                        <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "#60A5FA", letterSpacing: ".05em", textTransform: "uppercase" }}>Consiglio operativo automatico</span>
-                      </div>
-                      <div style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.5)", marginBottom: 10 }}>
-                        Regole automatiche basate su dati disponibili, non analisi generativa.
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10, fontFamily: F.sans, fontSize: 12, lineHeight: 1.5 }}>
-                        <div style={{ paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,.06)" }}>
-                          <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "#93C5FD", marginBottom: 5 }}>✓ Perché</div>
-                          <div style={{ color: "rgba(255,255,255,.78)" }}>
-                            {isResidentialStep2
-                              ? `Buona densità abitativa ${areaContextLabel}, compatibile con la distribuzione porta a porta.`
-                              : isBusinessStep2
-                              ? "Presenza significativa di attività commerciali coerenti con il profilo target."
-                              : "Flussi pedonali e punti strategici idonei alla distribuzione diretta."}
-                          </div>
-                        </div>
-
-                        <div style={{ paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,.06)" }}>
-                          <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "#FCD34D", marginBottom: 5 }}>⚠ Da sapere</div>
-                          <div style={{ color: "rgba(255,255,255,.78)" }}>
-                            {missingFlyers > 0
-                              ? `La copertura attuale è parziale (${serviceKpis?.coverage ?? 0}%).${profileDens ? ` Densità rilevata: circa ${profileDens.toLocaleString("it-IT", { useGrouping: true })} ab./km².` : ""} Valuta di aumentare la tiratura per saturare l'area.`
-                              : `La distribuzione copre in modo uniforme tutte le zone selezionate.${profileDens ? ` Densità rilevata: circa ${profileDens.toLocaleString("it-IT", { useGrouping: true })} ab./km².` : ""}`}
-                          </div>
-                        </div>
-
-                        <div>
-                          <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "#4ADE80", marginBottom: 5 }}>💡 Consiglio</div>
-                          <div style={{ color: "rgba(255,255,255,.78)" }}>
-                            {!isCoverageConfigurationValid
-                              ? "Seleziona una modalità di copertura per calcolare risultati e consiglio operativo."
-                              : missingFlyers > 0
-                              ? `Porta la tiratura a ${(requiredFlyers || flyerQuantityFromStep1).toLocaleString("it-IT", { useGrouping: true })} volantini per la copertura ottimale.`
-                              : "Configurazione equilibrata. Puoi procedere direttamente al preventivo."}
-                          </div>
-                        </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontFamily: F.sans, fontSize: 14, fontWeight: 800, color: item.c || C.white }}>{item.v != null && item.v !== "" ? `${item.v}${item.u && item.u !== "" && !String(item.v).includes(item.u) ? ` ${item.u}` : ""}` : "—"}</div>
                       </div>
                     </div>
-                  </motion.div>
-                ) : (
-                  <motion.div key="analisi-avanzata" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    {/* Header Analisi Avanzata */}
-                    <div style={{ background: "rgba(56,189,248,.06)", borderRadius: 12, padding: "12px 16px", border: "1px solid rgba(56,189,248,.25)" }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "#38BDF8", display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
-                        <span>📊</span> Analisi Avanzata
-                      </div>
-                      <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.6)", lineHeight: 1.4 }}>
-                        KPI, dati ISTAT, profilo demografico e output servizi della zona selezionata.
-                      </div>
-                    </div>
-                    {/* C. Analisi ISTAT */}
-                    <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px 18px", border: "1px solid rgba(168,85,247,.3)" }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: "#A855F7", marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>
-                        <span>📊</span> Analisi ISTAT
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                        <div>
-                          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.7)", marginBottom: 6 }}>Età</div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {(ageRows.length ? ageRows : [{ l: "Dato non disponibile", v: null, c: "rgba(255,255,255,.45)" }]).map(b => (
-                              <div key={b.l} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ width: 44, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.6)" }}>{b.l}</span>
-                                <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
-                                  {Number.isFinite(Number(b.v)) && <div style={{ width: `${b.v}%`, height: "100%", background: b.c, borderRadius: 3 }} />}
-                                </div>
-                                <span style={{ width: 58, textAlign: "right", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: b.c }}>{Number.isFinite(Number(b.v)) ? `${Math.round(Number(b.v))}%` : "N.D."}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div style={{ borderTop: "1px solid rgba(255,255,255,.05)", paddingTop: 10 }}>
-                          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.7)", marginBottom: 6 }}>Famiglie</div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {unavailableTerritorialRows.map(b => (
-                              <div key={b.l} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ width: 85, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.6)" }}>{b.l}</span>
-                                <span style={{ flex: 1, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.58)" }}>{b.v}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div style={{ borderTop: "1px solid rgba(255,255,255,.05)", paddingTop: 10 }}>
-                          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.7)", marginBottom: 6 }}>Destinazione</div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {unavailableLanduseRows.map(b => (
-                              <div key={b.l} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ width: 85, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.6)" }}>{b.l}</span>
-                                <span style={{ flex: 1, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.58)" }}>{b.v}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* D. Mercato Immobiliare OMI */}
-                    {omiRows.length > 0 && (
-                    <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px 18px", border: "1px solid rgba(34,197,94,.3)" }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: "#22C55E", marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>
-                        <span>🏛</span> Mercato Immobiliare OMI
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                        {omiRows.map(item => {
-                          const displayVal = item.min_value != null && item.max_value != null ? formatOmiRange(item.min_value, item.max_value) : "Dato non disponibile";
-                          return (
-                            <div key={item.typology} style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(34, 197, 94,.06)", border: "1px solid rgba(34, 197, 94,.14)" }}>
-                              <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.45)", textTransform: "uppercase", marginBottom: 2 }}>{item.typology}</div>
-                              <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "#22C55E" }}>{displayVal}</div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.5)", marginTop: 10 }}>
-                        {omiSourceLabel}
-                      </div>
-                    </div>
-                    )}
-
-                    {/* E. Score operativo interno */}
-                    <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px 18px", border: "1px solid rgba(251,191,36,.3)" }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: "#FBBF24", marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>
-                        <span>⚡</span> Score operativo interno
-                      </div>
-                      <div style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.5)", marginBottom: 10 }}>
-                        Calcolato internamente da copertura, densita e quantita. Non e un dato territoriale ufficiale.
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        {[
-                          { l: "Score operativo interno", v: compatPct, fmt: "%", c: "#FBBF24" },
-                        ].map(ind => (
-                          <div key={ind.l} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.7)" }}>{ind.l}</span>
-                              <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: ind.c }}>{ind.v}{ind.fmt}</span>
-                            </div>
-                            <div style={{ width: "100%", height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
-                              <div style={{ width: `${ind.v}%`, height: "100%", background: ind.c, borderRadius: 3 }} />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* F. Consiglio operativo automatico */}
-                    <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px 18px", border: "1px solid rgba(96,165,250,.3)" }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: "#60A5FA", marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>
-                        <span>💡</span> Consiglio operativo automatico
-                      </div>
-                      <div style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.5)", marginBottom: 10 }}>
-                        Regole automatiche basate su dati disponibili, non analisi generativa.
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {[
-                          profileDens > 0 ? `Densita abitativa disponibile: circa ${formatNumber(profileDens)} ab./km².` : "Densita abitativa non disponibile.",
-                          missingFlyers > 0 ? `Copertura parziale: valuta ${(requiredFlyers || flyerQuantityFromStep1).toLocaleString("it-IT", { useGrouping: true })} volantini per copertura ottimale.` : "Quantita coerente con la copertura stimata disponibile.",
-                          totalHouseholds > 0 ? `Famiglie totali disponibili: ${formatNumber(totalHouseholds)}.` : "Famiglie totali non disponibili.",
-                        ].map((ins, idx) => (
-                          <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: "rgba(59,130,246,.08)", border: "1px solid rgba(59,130,246,.2)" }}>
-                            <span style={{ color: "#60A5FA", fontWeight: 900, fontSize: 13 }}>✓</span>
-                            <span style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.85)" }}>{ins}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* G. Fonti dati */}
-                    <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "16px 18px", border: "1px solid rgba(255,255,255,.12)" }}>
-                      <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,.7)", marginBottom: 10, display: "flex", alignItems: "center", gap: 7 }}>
-                        <span>🛡</span> Fonti dati
-                      </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-                        {["demographic_indicators", "Agenzia Entrate - OMI 2025/2", "OpenStreetMap", "Database Civici", "Analisi interna"].map(src => (
-                          <span key={src} style={{ padding: "4px 10px", borderRadius: 6, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.12)", fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.8)" }}>
-                            {src}
-                          </span>
-                        ))}
-                      </div>
-                      <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>
-                        Anno di riferimento (demographic_indicators): {demographicYearLabel} - OMI: {omiRows.length > 0 ? "Agenzia Entrate - OMI 2025/2" : "Dato non disponibile"}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setIsAdminView(true)}
+                  style={{
+                    marginTop: 14, width: "100%", padding: "10px 14px", borderRadius: 10,
+                    background: "rgba(56,189,248,.12)", border: "1px solid rgba(56,189,248,.35)",
+                    color: "#38BDF8", fontFamily: F.sans, fontSize: 12, fontWeight: 800,
+                    cursor: "pointer", transition: "all .2s ease", display: "flex",
+                    alignItems: "center", justifyContent: "center", gap: 8
+                  }}
+                >
+                  <span aria-hidden="true">📊</span> Apri Analisi Avanzata
+                </button>
+              </div>
             );
           })()}
 
@@ -8190,25 +10234,31 @@ const isManual = allocationMode === "manual";
                 Scegli come gestire la copertura parziale.
               </div>
             )}
-            {canContinueCalendar && (
+            {step2ZonesReady && (
               <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(34,197,94,.07)", border: "1px solid rgba(34,197,94,.18)", fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.65)", lineHeight: 1.5, textAlign: "center" }}>
-                La configurazione è pronta. Procedi al preventivo per scegliere eventuali servizi aggiuntivi e confermare la campagna.
+                La quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.
               </div>
             )}
             <button className="btn" onClick={handleNext} disabled={!canContinueCalendar}
               style={{ width: "100%", minHeight: 52, padding: "0 16px", borderRadius: 12, border: canContinueCalendar ? "1px solid rgba(255,255,255,0.18)" : "none", background: canContinueCalendar ? "linear-gradient(135deg, #22C55E 0%, #15803D 100%)" : "rgba(255,255,255,.08)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 900, cursor: canContinueCalendar ? "pointer" : "not-allowed", boxShadow: canContinueCalendar ? "0 4px 16px rgba(21,128,61,.4)" : "none", textAlign: "center", transition: "all .2s ease" }}>
               {continueLabel}
             </button>
+            {step2ZonesReady && !operationalSelectionReady && (isMovementStep2 || isBusinessStep2) && (
+              <div style={{ padding: "9px 11px", borderRadius: 9, background: "rgba(245,158,11,.08)", border: "1px solid rgba(245,158,11,.22)", fontFamily: F.sans, fontSize: 10, color: "#FCD34D", lineHeight: 1.45, textAlign: "center" }}>
+                {isBusinessStep2
+                  ? "Seleziona almeno un’attività sulla mappa e assegnala a un addetto."
+                  : "Seleziona almeno un punto sulla mappa e assegnalo a un promoter."}
+              </div>
+            )}
             {!step2ZonesReady && (
               <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)", textAlign: "center", lineHeight: 1.5, padding: "0 4px" }}>
                 Assicurati che tutte le zone abbiano un'area geografica e una quantità di volantini valida.
               </div>
             )}
-            <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.18)", textAlign: "center" }}>
-              Nessun pagamento ora.
-            </div>
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );
@@ -8220,6 +10270,9 @@ function Step3({ data, setData, onNext, onBack }) {
   }
 
   const isMobile = useIsMobile();
+  const isBusinessStep3 = data.type === "b2b" || data.type === "business-distribution";
+  const businessStep3MaterialPlan = data.businessMaterialPlan || calculateBusinessMaterials(data.selectedOperationalPois || [], data.poiAssignments || {}, data);
+  const businessStep3OperationalPlan = data.businessOperationalPlan || calculateBusinessOperationalPlan((data.selectedOperationalPois || []).length, data);
   const initialCalendarDate = (() => {
     const raw = data.startDate || data.campaignPeriodStart;
     const parsed = raw ? new Date(`${raw}T00:00:00`) : new Date();
@@ -8411,7 +10464,7 @@ function Step3({ data, setData, onNext, onBack }) {
   const calendarStatus = pairingDays.length === 0 ? "empty" : "smart_pairing_selected";
 
   const currentServiceType = activeZone ? activeZone.service_type : (data.type || "d2d");
-  const svcLabel = { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Business Distribution" }[currentServiceType] || "Servizio";
+  const svcLabel = { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Distribuzione presso attività e aziende" }[currentServiceType] || "Servizio";
   const toZoneDisplayName = (zone) => {
     if (typeof zone === "string") return zone;
     if (!zone || typeof zone !== "object") return "";
@@ -8754,6 +10807,22 @@ function toggle(d) {
         }
       `}</style>
 
+      {isBusinessStep3 && (
+        <div style={{ marginBottom: 24, padding: isMobile ? 18 : 24, borderRadius: 20, background: "linear-gradient(135deg,rgba(76,29,149,.20),rgba(15,23,42,.96))", border: "1px solid rgba(167,139,250,.32)" }}>
+          <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: "#C4B5FD", letterSpacing: ".1em", textTransform: "uppercase" }}>Piano Business confermato nello Step 2</div>
+          <h2 style={{ fontFamily: F.serif, fontSize: isMobile ? 25 : 31, color: C.white, margin: "8px 0 14px" }}>Attività, materiali e capacità operativa</h2>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,minmax(0,1fr))", gap: 10 }}>
+            {[
+              ["Attività selezionate", businessStep3MaterialPlan.selectedActivities],
+              ["Materiali necessari", businessStep3MaterialPlan.materialsRequired == null ? "Da definire" : `${formatIntegerIT(businessStep3MaterialPlan.materialsRequired)} pz.`],
+              ["Giornate-addetto", businessStep3OperationalPlan.calculable ? businessStep3OperationalPlan.operatorDays : "Da calcolare"],
+              ["Addetti consigliati", businessStep3OperationalPlan.recommendedOperators ?? "Da definire"],
+            ].map(([label, value]) => <div key={label} style={{ padding: 12, borderRadius: 11, background: "rgba(5,12,24,.48)", border: "1px solid rgba(255,255,255,.07)" }}><div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.45)", textTransform: "uppercase" }}>{label}</div><div style={{ fontFamily: F.sans, fontSize: 16, fontWeight: 900, color: C.white, marginTop: 5 }}>{value}</div></div>)}
+          </div>
+          <div style={{ marginTop: 12, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.6)", lineHeight: 1.5 }}>Lo Smart Pairing può ottimizzare il calendario e la logistica. Non modifica le aziende selezionate, le copie per attività o le prove richieste.</div>
+        </div>
+      )}
+
       {/* 1. HERO CARD */}
       <div style={{ background: "linear-gradient(135deg, rgba(30,41,59,0.85) 0%, rgba(15,23,42,0.95) 100%)", borderRadius: 24, padding: isMobile ? "28px 20px" : "36px 40px", border: "1px solid rgba(99,102,241,0.3)", boxShadow: "0 20px 50px rgba(0,0,0,0.4)", marginBottom: 32, position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: -40, right: -40, width: 220, height: 220, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%)", pointerEvents: "none" }} />
@@ -8823,12 +10892,17 @@ function toggle(d) {
 
       {/* 3. KPI CARDS */}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 14, marginBottom: 32 }}>
-        {[
+        {(isBusinessStep3 ? [
+          { label: "Attività selezionate", val: businessStep3MaterialPlan.selectedActivities, sub: "Piano di visita", color: C.purple, tip: "Attività realmente selezionate nello Step 2." },
+          { label: "Materiali necessari", val: businessStep3MaterialPlan.materialsRequired == null ? "—" : formatIntegerIT(businessStep3MaterialPlan.materialsRequired), sub: "Copie calcolate", color: C.green, tip: "Somma delle copie previste per tutte le attività selezionate." },
+          { label: "Giornate-addetto", val: businessStep3OperationalPlan.calculable ? businessStep3OperationalPlan.operatorDays : "—", sub: "Stima operativa", color: C.cyan, tip: "Giornate complessive stimate dal tempo medio per visita." },
+          { label: "Possibile risparmio", val: "40%", sub: "Solo con abbinamento confermato", color: C.yellow, tip: "Risparmio massimo potenziale, applicabile soltanto quando il backend conferma uno Smart Pairing compatibile." },
+        ] : [
           { label: "Possibile risparmio", val: "40%", sub: "Fino a -40% in zona", color: C.green, tip: "Percentuale di risparmio ottenibile condividendo il percorso con un'altra campagna nella stessa zona." },
           { label: "Campagne compatibili", val: realSmartPairingSlots.length > 0 ? realSmartPairingSlots.length : "0", sub: realSmartPairingSlots.length > 0 ? "In quest'area" : "In ricerca continua", color: C.cyan, tip: "Numero di campagne attive nell'area che possono essere abbinate alla tua per ridurre i costi." },
           { label: "Operatori disponibili", val: realSmartPairingSlots.length > 0 ? Math.max(4, Math.round((activeQty || 10000) / 2500)) : "4+", sub: "Squadra di zona", color: C.purple, tip: "Numero di operatori già attivi nella zona che possono gestire anche la tua distribuzione." },
           { label: "Tempo medio attesa", val: realSmartPairingSlots.length > 0 ? "0 giorni" : "2 giorni", sub: realSmartPairingSlots.length > 0 ? "Disponibile ora" : "Notifica prioritaria", color: C.yellow, tip: "Tempo stimato prima di poter iniziare la distribuzione condividendo le risorse operative." }
-        ].map((kpi, i) => (
+        ]).map((kpi, i) => (
           <div key={i} style={{ background: "rgba(255,255,255,0.035)", borderRadius: 16, padding: "20px", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", justifyContent: "space-between", boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}>
             <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10, display: "flex", alignItems: "center", gap: 4 }}>
               {kpi.label}
@@ -9205,7 +11279,7 @@ const svcType = data.type || "d2d";
 const isQuick = data.quickSource === "quick_quote";
 const cfg = SERVICE_META[svcType] || SERVICE_META.d2d;
 const col = cfg.color;
-const tLabel = { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Business Distribution" }[svcType] || "N/D";
+const tLabel = { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Distribuzione presso attività e aziende" }[svcType] || "N/D";
 const rawFlyerQty = data.flyerQuantity || data.qty || 0;
 const flyerQty = (data.coverageDecision === "increase" || data.coverageDecision === "useRecommended") && data.fullCoverageFlyers
   ? Math.max(rawFlyerQty, data.fullCoverageFlyers)
@@ -9545,10 +11619,16 @@ const flyW = flyWRaw ? `${flyWRaw} g/m²` : (data.printGramm || data.flyerWeight
 const subL = { single: "Singola", monthly3: "3 mesi", monthly6: "6 mesi", monthly12: "12 mesi" }[data.campaignPlan || data.subscription] || "-";
 const isH2H = svcType === "h2h";
 const isB2B = svcType === "b2b" || svcType === "business-distribution";
+const step4BusinessMaterialPlan = isB2B
+  ? (data.businessMaterialPlan || calculateBusinessMaterials(data.selectedOperationalPois || [], data.poiAssignments || {}, data))
+  : null;
+const step4BusinessOperationalPlan = isB2B
+  ? (data.businessOperationalPlan || calculateBusinessOperationalPlan((data.selectedOperationalPois || []).length, data))
+  : null;
 const hasOperationalWaypoints = (data.operationalWaypoints?.length || data.gpsPlannedPoints?.length || data.metadata?.operational_waypoints?.length || 0) > 0;
-const hasZones = (data.selectedCaps && data.selectedCaps.length > 0) || (data.selectedComuni && data.selectedComuni.length > 0) || zones.length > 0 || ((isH2H || isB2B) && hasOperationalWaypoints);
+const hasZones = (data.selectedCaps && data.selectedCaps.length > 0) || (data.selectedComuni && data.selectedComuni.length > 0) || zones.length > 0 || ((isH2H || isB2B) && hasOperationalWaypoints) || (isB2B && (data.selectedOperationalPois?.length || 0) > 0);
 const coverageBlocked = false;
-const canConfirm = Boolean(svcType && flyerQty > 0 && data.flyerFormat && hasZones && Number.isFinite(total) && !coverageBlocked);
+const canConfirm = Boolean(svcType && (isB2B ? (data.selectedOperationalPois?.length || 0) > 0 : flyerQty > 0) && data.flyerFormat && hasZones && Number.isFinite(total) && !coverageBlocked);
 const confirmProblem = !hasZones ? "Completa la zona" : coverageBlocked ? "quantità volantini insufficiente" : !Number.isFinite(total) ? "Totale non calcolabile" : "";
 const pairingMonth = data.selectedMonth?.month ?? (data.startDate ? new Date(`${data.startDate}T00:00:00`).getMonth() : new Date().getMonth());
 const pairingYear = data.selectedMonth?.year ?? (data.startDate ? new Date(`${data.startDate}T00:00:00`).getFullYear() : new Date().getFullYear());
@@ -9556,16 +11636,7 @@ const pairsData = realStep3Pairs;
 const box = (e = {}) => ({ background: "rgba(255,255,255,.04)", borderRadius: 13, border: "1px solid rgba(255,255,255,.08)",...e });
 const eur = n => `€${(n || 0).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const eur4 = n => `€${(n || 0).toLocaleString("it-IT", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
-const pctToFraction = pct => {
-  const p = Number(pct);
-  if (!p) return "";
-  if (p <= 12) return `circa 1 su ${Math.round(100 / p)}`;
-  if (p <= 28) return `circa 1 famiglia su ${Math.round(100 / p)}`;
-  if (p <= 55) return "quasi metà dell'area";
-  if (p <= 78) return "più della metà dell'area";
-  if (p <= 90) return "gran parte dell'area";
-  return "quasi tutta l'area";
-};
+const pctToFraction = (pct, unitWord = "famiglia", pluralWord = "famiglie") => formatCoverageProportion(pct, unitWord, pluralWord);
 const cleanSource = s => truthfulSourceLabel(s || "");
 const nonEmpty = arr => arr.filter(x => x && x.v !== undefined && x.v !== null && x.v !== "" && x.v !== "-");
 const kpis = data.serviceKpis || {};
@@ -9581,15 +11652,21 @@ const rawRemainingQty = flyerQty - requiredQty;
 const remainingQty = data.remainingFlyers ?? data.remainingQuantity ?? Math.max(0, rawRemainingQty);
 const missingQty = Math.max(0, requiredQty - flyerQty);
 const quantityIsSufficient = rawRemainingQty >= 0;
+const step4AreaLabel = value => {
+  if (value == null || value === false) return "";
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (Array.isArray(value)) return value.map(step4AreaLabel).filter(Boolean).join(", ");
+  return value.label || value.name || value.comune_name || value.cityName || value.display_name || "";
+};
 const selectedZoneNames = data.areaMode === "cap"
     ? (data.selectedCaps || []).map(cap => `CAP ${cap}`)
     : (() => {
         const fromData = data.selectedComuni?.length ? data.selectedComuni
           : data.selectedMunicipalities?.length ? data.selectedMunicipalities
           : null;
-        if (fromData) return fromData;
-        const fromAllocs = zoneAllocs.map(z => z.name).filter(Boolean);
-        return fromAllocs.length ? fromAllocs : selZ.map(z => z.name);
+        if (fromData) return fromData.map(step4AreaLabel).filter(Boolean);
+        const fromAllocs = zoneAllocs.map(z => step4AreaLabel(z.name)).filter(Boolean);
+        return fromAllocs.length ? fromAllocs : selZ.map(z => step4AreaLabel(z.name)).filter(Boolean);
       })();
 const isMunicipalityMode = data.searchMode === "municipality";
 const radiusZoneRows = !isQuick && data.radius && !isMunicipalityMode
@@ -9614,7 +11691,7 @@ const breakdownRows = radiusZoneRows.map(z => {
     const contribution = requiredQty > 0 && selectedRow ? Math.round(((alloc?.requiredFlyers || estimatedFlyers || 0) / requiredQty) * 100) : null;
     return {...z, alloc, selectedRow, estimatedFlyers, coveragePercent, contribution };
   });
-const mainAreaLabel = data.cityName || data.comune || selectedZoneNames[0] || "l'area selezionata";
+const mainAreaLabel = step4AreaLabel(data.cityName) || step4AreaLabel(data.comune) || selectedZoneNames[0] || "l'area selezionata";
 const estimatedFamiliesForSummary = svcType === "d2d" ? (kpis.families ?? totF) : null;
 const coverageForSummary = svcType === "d2d"
   ? (requiredQty > 0 ? Math.min(100, Math.round((flyerQty / requiredQty) * 100)) : (kpis.coverage ?? avgCov))
@@ -9636,9 +11713,9 @@ const operationalSummary = svcType === "d2d" ? (quantityIsSufficient
         : `La campagna copre ${mainAreaLabel} con una stima di ${estimatedFamiliesForSummary.toLocaleString("it-IT", { useGrouping: true })} famiglie e ${coverageForSummary}% di copertura. La quantità inserita è sufficiente; restano ${remainingQty.toLocaleString("it-IT", { useGrouping: true })} volantini disponibili per estensione zona o scorta operativa.`)
     : `La quantità inserita non copre completamente l'area selezionata. Mancano ${missingQty.toLocaleString("it-IT", { useGrouping: true })} volantini per raggiungere la copertura stimata.`)
     : svcType === "h2h"
-      ? `La campagna Hand to Hand copre ${mainAreaLabel} con ${formatNumber(kpis.poi)} POI rilevanti, ${formatNumber(kpis.operationalZones || kpis.hotspotCount)} hotspot e ${formatNumber(kpis.gpsWaypoints || plannedGpsPoints.length)} waypoint GPS pianificati.`
+      ? `La campagna Hand to Hand assegna ${formatNumber(kpis.promoterCount || data.promoterCount || 1)} promoter a ${formatNumber(kpis.selectedPointCount || data.selectedOperationalPois?.length || data.operationalPoints?.length || 1)} punti operativi, con una capacità stimata di ${formatNumber(kpis.estimatedCapacity || data.h2hEstimatedCapacity || requiredQty)} volantini per turno.`
       : isB2B
-        ? `La campagna Business copre ${mainAreaLabel} con ${formatNumber(kpis.businesses)} attività rilevate, ${formatNumber(kpis.clusters)} cluster commerciali e ${formatNumber(kpis.targetBusinesses)} attività target.`
+        ? `La campagna Business comprende ${formatNumber(step4BusinessMaterialPlan?.selectedActivities || data.selectedOperationalPois?.length || 0)} attività selezionate nell'area di ${mainAreaLabel}, ${step4BusinessMaterialPlan?.materialsRequired == null ? "materiali da definire" : `${formatNumber(step4BusinessMaterialPlan.materialsRequired)} materiali necessari`} e ${step4BusinessOperationalPlan?.calculable ? `${formatNumber(step4BusinessOperationalPlan.operatorDays)} giornate-addetto stimate` : "capacità operativa da definire"}.`
         : `La campagna copre ${mainAreaLabel} con i dati operativi disponibili per il servizio selezionato.`;
 const selectedDatesLabel = selDays.length
     ? selDays.map(k => { const pts = k.split("-"); return `${pts[2]} ${MONTHS_SHORT[parseInt(pts[1])]}`; }).join(" – ")
@@ -9666,7 +11743,7 @@ const serviceSummaryConfig = {
     d2d: {
       title: "Output Door to Door",
       fields: [
-        { l: "Famiglie raggiungibili", v: formatNumber(kpis.families ?? totF), src: "ISTAT", c: "#22C55E" },
+        { l: "Famiglie operative stimate", v: formatNumber(kpis.families ?? totF), src: "Stima territoriale GIS/NIL", c: "#22C55E" },
         { l: "Popolazione stimata", v: formatNumber(kpisPopulation) || "—", src: "ISTAT", c: "#22C55E" },
         { l: "Copertura dell'area", v: `${kpis.coverage ?? avgCov}%`, src: "Dati geografici", c: C.green },
         { l: "Quantità consigliata", v: formatNumber(requiredQty || flyerQty), src: "Analisi interna", c: C.green },
@@ -9690,6 +11767,9 @@ const serviceSummaryConfig = {
     h2h: {
       title: "Output Hand to Hand",
       fields: [
+        { l: "Promoter assegnati", v: formatNumber(kpis.promoterCount || data.promoterCount || 1), src: "Configurazione Step 1", c: C.blue },
+        { l: "Punti operativi", v: formatNumber(kpis.selectedPointCount || data.selectedOperationalPois?.length || data.operationalPoints?.length || 1), src: "Selezione Step 2", c: C.blue },
+        { l: "Capacità del turno", v: formatNumber(kpis.estimatedCapacity || data.h2hEstimatedCapacity || requiredQty), src: "Promoter × ore × 200/ora", c: C.green },
         { l: "POI rilevanti", v: formatNumber(kpis.poi), src: "Google Places", c: C.blue },
         { l: "Fermate / stazioni", v: formatNumber(kpis.transitStops), src: "Trasporto pubblico / GTFS", c: C.purple },
         { l: "Scuole / eventi", v: formatNumber(kpis.schoolsEvents), src: "Analisi interna", c: C.green },
@@ -9712,12 +11792,15 @@ const serviceSummaryConfig = {
     b2b: {
       title: "Output Business Distribution",
       fields: [
-        { l: "Attività rilevate", v: formatNumber(kpis.businesses), src: "Google Places", c: C.purple },
-        { l: "Categorie principali", v: kpis.categories || kpis.dominantProfile, src: "Google Places", c: C.blue },
-        { l: "Competitor presenti", v: formatNumber(kpis.competitors), src: "Google Places", c: C.red },
-        { l: "Aree commerciali", v: formatNumber(kpis.clusters), src: "Analisi interna", c: C.purple },
-        { l: "Densità commerciale", v: kpis.cdIdx != null ? `${kpis.cdIdx}/100` : null, src: "Analisi interna", c: C.purple },
-        { l: "Attività target", v: formatNumber(kpis.targetBusinesses), src: "Google Places", c: C.green },
+        { l: "Attività selezionate", v: formatNumber(step4BusinessMaterialPlan?.selectedActivities || 0), src: "Selezione cliente — Step 2", c: C.green },
+        { l: "Materiali disponibili", v: formatNumber(step4BusinessMaterialPlan?.inserted || 0), src: "Configurazione Business — Step 1", c: C.white },
+        { l: "Materiali necessari", v: step4BusinessMaterialPlan?.materialsRequired == null ? "Da definire" : formatNumber(step4BusinessMaterialPlan.materialsRequired), src: "Copie per attività", c: C.blue },
+        { l: "Materiali residui", v: step4BusinessMaterialPlan?.materialsRemaining == null ? "Da definire" : formatNumber(step4BusinessMaterialPlan.materialsRemaining), src: "Calcolo materiali", c: C.green },
+        { l: "Materiali mancanti", v: step4BusinessMaterialPlan?.materialsMissing == null ? "Da definire" : formatNumber(step4BusinessMaterialPlan.materialsMissing), src: "Calcolo materiali", c: Number(step4BusinessMaterialPlan?.materialsMissing) > 0 ? C.red : C.green },
+        { l: "Giornate-addetto", v: step4BusinessOperationalPlan?.calculable ? formatNumber(step4BusinessOperationalPlan.operatorDays) : "Da calcolare", src: "Tempo medio per visita", c: C.yellow },
+        { l: "Addetti consigliati", v: step4BusinessOperationalPlan?.recommendedOperators == null ? "Da definire" : formatNumber(step4BusinessOperationalPlan.recommendedOperators), src: "Periodo e carico operativo", c: C.purple },
+        { l: "Modalità di consegna", v: businessOptionLabel(BUSINESS_DELIVERY_METHODS, data.businessDeliveryMethod), src: "Configurazione Business", c: C.white },
+        { l: "Referente preferito", v: businessOptionLabel(BUSINESS_RECIPIENTS, data.businessPreferredRecipient), src: "Configurazione Business", c: C.white },
       ],
       scores: [
         { l: "Potenziale copertura", v: kpis.reachScore, c: C.blue, d: "Stima di quante attività puoi raggiungere." },
@@ -9725,9 +11808,10 @@ const serviceSummaryConfig = {
         { l: "Affidabilità stima", v: kpis.confidenceScore, c: "#6366F1", d: "Precisione dei dati. Più alto = stime più accurate." },
       ],
       admin: [
-        { l: "Profilo commerciale", v: kpis.dominantProfile },
-        { l: "Zona più forte", v: kpis.strongestZone },
-        { l: "Reddito medio stimato", v: kpis.avgIncome ? eur(kpis.avgIncome).replace(",00", "") : null },
+        { l: "Obiettivo", v: businessOptionLabel(BUSINESS_OBJECTIVES, data.businessCampaignObjective) },
+        { l: "Prove richieste", v: (data.businessProofs || []).map(value => businessOptionLabel(BUSINESS_PROOF_OPTIONS, value)).join(", ") || "Nessuna prova aggiuntiva selezionata" },
+        { l: "Posizione materiale", v: businessOptionLabel(BUSINESS_MATERIAL_LOCATIONS, data.businessMaterialLocation) },
+        { l: "Periodo preferito", v: [data.businessPreferredStartDate, data.businessCompleteBy].filter(Boolean).join(" → ") || "Da concordare" },
       ],
       sources: data.sources?.length ? data.sources : [],
     },
@@ -9781,7 +11865,7 @@ const pdfMunicipalities = (() => {
     const munRec = kpis.recommendedFlyers || requiredQty || null;
     const munCov = kpis.coverage ?? (svcType === "d2d" ? 100 : null);
     return muns.map((name, i) => ({
-      name,
+      name: step4AreaLabel(name),
       status: "Selezionato – copertura completa",
       estimatedFlyers: munRec != null ? Math.round(munRec / muns.length) : null,
       coveragePct: munCov,
@@ -9823,6 +11907,25 @@ const quotePdfData = {
       duration: data.subscription && data.subscription !== "single" ? subL : null,
       areaMode: data.areaMode || null,
     },
+    business: isB2B ? {
+      targets: (data.distributionTargets || []).map(businessCategoryLabel),
+      objective: businessOptionLabel(BUSINESS_OBJECTIVES, data.businessCampaignObjective),
+      deliveryMethod: businessOptionLabel(BUSINESS_DELIVERY_METHODS, data.businessDeliveryMethod),
+      preferredRecipient: businessOptionLabel(BUSINESS_RECIPIENTS, data.businessPreferredRecipient),
+      selectedActivities: (data.selectedOperationalPois || []).map(point => ({
+        name: point.name,
+        category: point.category,
+        address: point.address || null,
+        copies: point.copies ?? null,
+        source: point.source || null,
+      })),
+      materialPlan: step4BusinessMaterialPlan,
+      operationalPlan: step4BusinessOperationalPlan,
+      proofs: (data.businessProofs || []).map(value => businessOptionLabel(BUSINESS_PROOF_OPTIONS, value)),
+      materialLocation: businessOptionLabel(BUSINESS_MATERIAL_LOCATIONS, data.businessMaterialLocation),
+      preferredPeriod: [data.businessPreferredStartDate, data.businessCompleteBy].filter(Boolean).join(" → ") || null,
+      notes: data.businessNotes || null,
+    } : null,
     area: {
       mainArea: mainAreaLabel,
       areaMode: data.areaMode || "comune",
@@ -9843,6 +11946,10 @@ const quotePdfData = {
       remainingFlyers: quantityIsSufficient ? remainingQty : 0,
       missingFlyers: missingQty,
       coverageStatus: quantityIsSufficient ? "sufficient" : "partial",
+      selectedActivities: isB2B ? step4BusinessMaterialPlan?.selectedActivities : null,
+      materialsRequired: isB2B ? step4BusinessMaterialPlan?.materialsRequired : null,
+      materialsRemaining: isB2B ? step4BusinessMaterialPlan?.materialsRemaining : null,
+      materialsMissing: isB2B ? step4BusinessMaterialPlan?.materialsMissing : null,
     },
     coverageStrategy,
     quantityExplanation: quantityIsSufficient
@@ -9875,7 +11982,7 @@ const quotePdfData = {
       compatibleZone: pdfPlanningRows.find(r => r.pair)?.pair ? `${pdfPlanningRows.find(r => r.pair).pair.zone} – ${pdfPlanningRows.find(r => r.pair).pair.type === "same" ? "stessa zona" : "zona vicina"}` : null,
     },
     pricing: {
-      lines: [{ label: `Distribuzione ${tLabel}`, detail: `${flyerQty.toLocaleString("it-IT", { useGrouping: true })} volantini  - ${eur4(unitPricePerFlyer)}`, quantity: flyerQty, unitPrice: unitPricePerFlyer, total: baseCost }],
+      lines: [{ label: `Distribuzione ${tLabel}`, detail: `${flyerQty.toLocaleString("it-IT", { useGrouping: true })} ${isB2B ? "materiali" : "volantini"}  - ${eur4(unitPricePerFlyer)}`, quantity: flyerQty, unitPrice: unitPricePerFlyer, total: baseCost }],
       subtotal: baseCost,
       extras: selectedExtras.map(e => ({ label: e.label, amount: e.price, status: e.status })),
       discounts: [
@@ -10187,7 +12294,7 @@ function handleDownloadPdf() {
               {nonEmpty([
                 { icon: cfg.icon, l: "Servizio", v: tLabel, c: col },
                 svcType === "d2d" && { icon: "", l: "Variante", v: data.distributionVariant || data.residentialType || data.coverageType || "Copertura residenziale", c: "#6366F1" },
-                { icon: "", l: "Zona/Comune", v: data.comune || data.cityName || "-", c: C.white },
+                { icon: "", l: "Zona/Comune", v: mainAreaLabel || "-", c: C.white },
                 { icon: "", l: "quantità", v: flyerQty.toLocaleString("it-IT", { useGrouping: true }) + " pz.", c: C.white },
                 { icon: "", l: "Formato", v: (data.flyerFormat || data.format || "-").toUpperCase(), c: C.green },
                 { icon: "", l: "Materiale", v: alreadyPrinted ? "già stampato" : "Da produrre", c: alreadyPrinted ? C.green : C.blue },
@@ -10201,7 +12308,9 @@ function handleDownloadPdf() {
                 data.printing?.enabled && data.printing?.folding && { icon: "", l: "Piega", v: { nessuna: "Nessuna", meta: "A metà", tre: "A tre" }[data.printing.folding] || data.printing.folding, c: C.white },
                 data.printing?.enabled && data.printing?.artworkStatus && { icon: "", l: "File grafico stampa", v: data.printing.artworkStatus === "pronto" ? "Già pronto" : "Da creare", c: C.white },
                 data.printing?.enabled && { icon: "", l: "Prezzo stampa", v: selectedExtras.find(e => e.id === "printing") ? `+${selectedExtras.find(e => e.id === "printing").price}€` : "Da confermare", c: C.orange },
-                isH2H && { icon: "", l: "Luogo", v: data.distributionLocation || "-", c: C.blue },
+                isH2H && { icon: "", l: "Promoter", v: data.promoterCount || 1, c: C.blue },
+                isH2H && { icon: "", l: "Punti operativi", v: data.operationalPoints?.length || 1, c: C.blue },
+                isH2H && { icon: "", l: "Capacità turno", v: `${Number(data.h2hEstimatedCapacity || kpis.estimatedCapacity || 0).toLocaleString("it-IT")} pz.`, c: C.green },
                 isB2B && { icon: "", l: "Consegna", v: B2B_DELIVERY_TYPES.find(o => o.value === data.deliveryType)?.label || "-", c: C.purple },
                 { icon: "", l: "Piano", v: subL, c: subDiscPct > 0 ? "#6366F1" : C.white },
                 (data.subscription && data.subscription !== "single") && { icon: "", l: "Campagne/mese", v: data.campaignsPerMonth || 1, c: "#6366F1" },
@@ -10233,7 +12342,7 @@ function handleDownloadPdf() {
                 {/* ── KPI essenziali ── */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10 }}>
                   {svcType === "d2d" && [
-                    { icon: "🏠", l: "Famiglie raggiungibili", sub: "Recapiti residenziali nell'area", v: formatNumber(kpis.families ?? totF), c: C.green },
+                    { icon: "🏠", l: "Famiglie stimate nell'area", sub: "Stima territoriale GIS/NIL", v: formatNumber(kpis.families ?? totF), c: C.green },
                     { icon: "👥", l: "Persone stimate", sub: "Stima su base ISTAT", v: formatNumber(Math.round((kpis.families ?? totF) * 2.4)), c: C.white },
                     { icon: "📍", l: "Comuni coinvolti", sub: selectedZoneNames.slice(0, 2).join(", ") + (selectedZoneNames.length > 2 ? ` +${selectedZoneNames.length - 2}` : ""), v: `${selectedZoneNames.length || "—"}`, c: col },
                     { icon: "📦", l: "Copertura dell'area", sub: pctToFraction(kpis.coverage ?? avgCov) || `${flyerQty.toLocaleString("it-IT", { useGrouping: true })} volantini`, v: `${kpis.coverage ?? avgCov}%`, c: C.green },
@@ -10249,7 +12358,7 @@ function handleDownloadPdf() {
                     { icon: "", l: "POI rilevanti", v: formatNumber(kpis.poi), c: C.blue },
                     { icon: "", l: "Hotspot", v: formatNumber(kpis.operationalZones || kpis.hotspotCount), c: C.purple },
                     { icon: "", l: "Waypoint GPS", v: formatNumber(kpis.gpsWaypoints || plannedGpsPoints.length), c: col },
-                    { icon: "", l: "Volantini inseriti", v: flyerQty.toLocaleString("it-IT", { useGrouping: true }) + " pz.", c: C.white },
+                    { icon: "", l: "Quantità assegnata", v: flyerQty.toLocaleString("it-IT", { useGrouping: true }) + " pz.", c: C.white },
                   ].map(({ icon, l, v, c }) => (
                     <div key={l} style={{ padding: "14px 13px", background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)" }}>
                       <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.36)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 5 }}>{icon} {l}</div>
@@ -10260,7 +12369,7 @@ function handleDownloadPdf() {
                     { icon: "", l: "Attività rilevate", v: formatNumber(kpis.businesses), c: C.purple },
                     { icon: "", l: "Cluster commerciali", v: formatNumber(kpis.clusters), c: col },
                     { icon: "", l: "Attività target", v: formatNumber(kpis.targetBusinesses), c: C.green },
-                    { icon: "", l: "Volantini inseriti", v: flyerQty.toLocaleString("it-IT", { useGrouping: true }) + " pz.", c: C.white },
+                    { icon: "", l: "Quantità assegnata", v: flyerQty.toLocaleString("it-IT", { useGrouping: true }) + " pz.", c: C.white },
                   ].map(({ icon, l, v, c }) => (
                     <div key={l} style={{ padding: "14px 13px", background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)" }}>
                       <div style={{ fontFamily: F.sans, fontSize: 9, color: "rgba(255,255,255,.36)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 5 }}>{icon} {l}</div>
@@ -10595,7 +12704,7 @@ function handleDownloadPdf() {
               {!showTechPanel && (
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: 10 }}>
                   {[
-                    { label: "Famiglie raggiungibili", val: formatNumber(kpis.families ?? totF) || "—", sub: "Stima famiglie target", c: C.green, tip: "Stima delle famiglie che possono ricevere il tuo volantino nell'area selezionata." },
+                    { label: "Famiglie operative stimate", val: formatNumber(kpis.families ?? totF) || "—", sub: "Stima territoriale GIS/NIL", c: C.green, tip: "Stima del fabbisogno e delle famiglie raggiungibili nell'area selezionata su base geografica." },
                     { label: "Copertura zona", val: `${kpis.coverage ?? avgCov}%`, sub: "Percentuale dell'area coperta", c: col, tip: "Percentuale dell'area raggiungibile con la quantità di volantini scelta. 100% = nessuna famiglia esclusa." },
                     { label: "Zone selezionate", val: `${selectedZoneNames.length || "—"}`, sub: "Aree nella campagna", c: C.white, tip: "Numero di aree geografiche incluse nella distribuzione. Ogni zona è verificata su mappa." },
                     { label: "Affidabilità dati", val: "99.4%", sub: "Dati territoriali verificati", c: C.purple, tip: "Indica la precisione dei dati mostrati, basata su fonti ufficiali aggiornate." }
@@ -12742,8 +14851,9 @@ function normalizeRadius(value, options) {
   );
 }
 
-function InteractiveRadiusSlider({ value, options, disabled = false, onCommit }) {
+function InteractiveRadiusSlider({ value, options, disabled = false, onCommit, recommendedValue = null }) {
   const normalizedValue = normalizeRadius(value, options);
+  const normalizedRecommended = recommendedValue != null && Number.isFinite(Number(recommendedValue)) ? normalizeRadius(recommendedValue, options) : null;
   const confirmedIndex = options.indexOf(normalizedValue);
 
   const [previewIndex, setPreviewIndex] = useState(confirmedIndex);
@@ -12874,9 +14984,33 @@ function InteractiveRadiusSlider({ value, options, disabled = false, onCommit })
           const leftPercent = (i / (options.length - 1)) * 100;
           const isActive = i === previewIndex;
           const isPast = i <= previewIndex;
+          const isRecommended = opt === normalizedRecommended;
 
           return (
             <div key={i} style={{ position: 'absolute', left: `${leftPercent}%`, top: '50%', transform: 'translate(-50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              {isRecommended && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: 18,
+                    background: 'rgba(34, 197, 94, 0.16)',
+                    border: '1px solid rgba(34, 197, 94, 0.45)',
+                    color: '#22C55E',
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: 9,
+                    fontWeight: 700,
+                    padding: '1px 6px',
+                    borderRadius: 10,
+                    whiteSpace: 'nowrap',
+                    lineHeight: 1.3,
+                    pointerEvents: 'none',
+                    zIndex: 3,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                  }}
+                >
+                  Consigliato
+                </div>
+              )}
               <div
                 style={{
                   width: isActive ? 16 : 10,
@@ -13003,8 +15137,8 @@ const [page, setPage] = useState(routeToPage(window.location.pathname));
     return () => window.removeEventListener("popstate", handlePop);
   }, []);
 const [data, setData] = useState({
-    type: null, activityType: "", activityNote: "", qty: 10000,
-    hasFlyers: "no", flyerFormat: "a5", flyerWeight: "115", extraServices: [], printGramm: "115", printSide: "fronte", printColor: "cmyk",
+    type: null, activityType: "", activityNote: "", distributionTargets: [], qty: 10000,
+    hasFlyers: "", flyerFormat: "A5", flyerWeight: "115", extraServices: [], printGramm: "115", printSide: "fronte", printColor: "cmyk",
     urgency: "normal", subscription: "single", campaignsPerMonth: 1,
     selectedService: null, activeService: null, businessSector: "", flyerQuantity: 10000,
     campaignPeriodStart: "", campaignPeriodEnd: "", alreadyPrinted: false,

@@ -14,7 +14,7 @@ const _cache = {};
  *   loading — bool
  *   error   — string | null  (OVERPASS_TIMEOUT | network error)
  */
-export function usePoi(lat, lng, radiusKm, serviceType) {
+export function usePoi(lat, lng, radiusKm, serviceType, targetSelection = []) {
   const [pois,    setPois]    = useState([]);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState(null);
@@ -23,14 +23,19 @@ export function usePoi(lat, lng, radiusKm, serviceType) {
   const latR = lat    != null ? Math.round(lat    * 1000) / 1000 : null;
   const lngR = lng    != null ? Math.round(lng    * 1000) / 1000 : null;
   const radR = radiusKm != null ? Math.round(Number(radiusKm) * 10) / 10 : null;
+  const targetKey = Array.isArray(targetSelection)
+    ? [...targetSelection].filter(Boolean).sort().join('|')
+    : String(targetSelection || '');
 
   useEffect(() => {
-    if (!latR || !lngR || !serviceType) return;
-    // POI are operationally relevant for H2H/B2B. D2D uses ISTAT/GIS/civici and
-    // should not hit public Overpass endpoints in the client-facing flow.
-    if (!['h2h', 'b2b'].includes(serviceType)) return;
+    if (!latR || !lngR || !serviceType || !['d2d', 'h2h', 'b2b'].includes(serviceType)) {
+      setPois([]);
+      setLoading(false);
+      setError(null);
+      return undefined;
+    }
 
-    const cacheKey = `${latR},${lngR},${radR},${serviceType}`;
+    const cacheKey = `${latR},${lngR},${radR},${serviceType},${targetKey}`;
 
     if (_cache[cacheKey]) {
       setPois(_cache[cacheKey]);
@@ -42,10 +47,13 @@ export function usePoi(lat, lng, radiusKm, serviceType) {
     let cancelled = false;
     let timerId;
 
+    // Mostra subito lo stato di caricamento durante il debounce: in questo
+    // intervallo non deve sembrare che i risultati provvisori siano definitivi.
+    setLoading(true);
+    setError(null);
+
     timerId = setTimeout(async () => {
       if (cancelled) return;
-      setLoading(true);
-      setError(null);
       setPois([]);
 
       try {
@@ -54,6 +62,7 @@ export function usePoi(lat, lng, radiusKm, serviceType) {
           centerLng:   lngR,
           radiusKm:    radR ?? 5,
           serviceType,
+          targetSelection: targetKey ? targetKey.split('|') : [],
         });
         if (!cancelled) {
           _cache[cacheKey] = result;
@@ -76,7 +85,7 @@ export function usePoi(lat, lng, radiusKm, serviceType) {
       cancelled = true;
       clearTimeout(timerId);
     };
-  }, [latR, lngR, radR, serviceType]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [latR, lngR, radR, serviceType, targetKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { pois, loading, error };
 }
