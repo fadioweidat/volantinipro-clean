@@ -22,7 +22,6 @@ import { Step2Map } from "./src/components/Step2Map.jsx";
 import BusinessStep1Config from "./src/components/business/BusinessStep1Config.jsx";
 import { calculateBusinessMaterials, calculateBusinessOperationalPlan, getBusinessCopiesForPoi, resolveVerifiedCompetitorCount, BUSINESS_DELIVERY_METHODS, BUSINESS_RECIPIENTS, BUSINESS_PROOF_OPTIONS, BUSINESS_MATERIAL_LOCATIONS, BUSINESS_OBJECTIVES, businessCategoryLabel, businessOptionLabel } from "./src/lib/business/business-config.js";
 import { VolantiniProHeroMap } from "./src/components/home/VolantiniProHeroMap.jsx";
-import FeatureZonaMappa from "./src/components/home/FeatureZonaMappa.jsx";
 import FeatureSmartPairing from "./src/components/home/FeatureSmartPairing.jsx";
 import FAQSection from "./src/components/home/FAQSection.jsx";
 import PricingSection from "./src/components/home/PricingSection.jsx";
@@ -1110,7 +1109,7 @@ const x=[{value:"Famiglie",l:"Abitazioni stimate",src:"Fonti territoriali",term:
       }))
     })
   ]
-})]})}),_jsx(Footer,{onNav:n,onHowItWorks:i})]})}
+})]})}),_jsx(RisultatiSection,{}),_jsx(FAQSection,{onContact:()=>n("consultant")}),_jsx(PricingSection,{onConfigure:()=>n("step1"),onConsultant:()=>n("consultant")}),_jsx(Footer,{onNav:n,onHowItWorks:i})]})}
 
 // JSX runtime shim for reconstructed bundle code
 function _jsx(type, props, key) {
