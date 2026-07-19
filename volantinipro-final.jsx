@@ -2982,10 +2982,7 @@ function Step1({ data, setData, onNext, onHome }) {
               className="vp-s1-slider"
             />
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.08)", flexWrap: "wrap", gap: 12 }}>
-              <div style={{ fontSize: 15, color: "#CBD5E1" }}>
-                Quantità selezionata: <b style={{ color: s1Green, fontSize: 22, marginLeft: 8 }}>{new Intl.NumberFormat("it-IT", { useGrouping: true }).format(data.qty || 10000)}</b> <span style={{ fontSize: 14 }}>volantini</span>
-              </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.08)", flexWrap: "wrap", gap: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 13, color: "#94A3B8" }}>Inserimento manuale:</span>
                 <input
