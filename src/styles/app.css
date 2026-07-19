@@ -2497,3 +2497,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .vp-step2-scenario-grid { grid-template-columns:1fr; }
 }
 
+.vp-geocode-suggestion:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: -3px;
+  background: rgba(59, 130, 246, 0.16) !important;
+}
