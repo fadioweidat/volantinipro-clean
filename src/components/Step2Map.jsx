@@ -1,4 +1,37 @@
 import React, { useEffect, useRef, useState } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
+
+const leafletCanvasRedraw = L.Canvas.prototype._redraw;
+L.Canvas.include({
+  _redraw() {
+    if (!this._ctx || !this._container) {
+      this._redrawRequest = null;
+      this._redrawBounds = null;
+      return;
+    }
+    return leafletCanvasRedraw.call(this);
+  },
+});
+
+function cancelPendingLeafletRedraw(layer) {
+  if (!layer) return;
+  if (typeof layer.eachLayer === 'function') layer.eachLayer(cancelPendingLeafletRedraw);
+  const renderer = layer._renderer;
+  if (renderer?._redrawRequest != null) {
+    L.Util.cancelAnimFrame(renderer._redrawRequest);
+    renderer._redrawRequest = null;
+  }
+}
 
 const debugStep2 = (...args) => {
   if (import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || window.__VOLANTINIPRO_DEBUG_STEP2__)) console.log(...args);
@@ -737,37 +770,13 @@ function Step2MapImpl({
   const layersRef = useRef({});
   const viewRef = useRef({ lat: null, lng: null, radius: null });
   const autoFitRef = useRef({ operational: '', assignments: '' });
-  const [leafletLoaded, setLeafletLoaded] = useState(!!window.L);
+  const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const [mapInitError, setMapInitError] = useState(false);
   const [selectedSectorId, setSelectedSectorId] = useState(null);
   const [mapZoom, setMapZoom] = useState(null);
   // Territori nel calcolo Raggio senza geometry disponibile â€” mostrati come
   // avviso opzionale in UI, senza nascondere i poligoni disponibili.
   const [missingPolygonNames, setMissingPolygonNames] = useState([]);
-
-  // Carica Leaflet JS + CSS e inizializza mappa
-  useEffect(() => {
-    if (window.L) {
-      setLeafletLoaded(true);
-      return;
-    }
-
-    if (!document.getElementById('vp-leaflet-css')) {
-      const link = document.createElement('link');
-      link.id = 'vp-leaflet-css';
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-    }
-
-    if (!document.getElementById('vp-leaflet-js')) {
-      const script = document.createElement('script');
-      script.id = 'vp-leaflet-js';
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = () => setLeafletLoaded(true);
-      script.onerror = () => { warnStep2('[Step2Map] Leaflet non caricato'); };
-      document.head.appendChild(script);
-    }
-  }, []);
 
   useEffect(() => {
     document.getElementById('vp-leaflet-dark')?.remove();
@@ -779,17 +788,46 @@ function Step2MapImpl({
   }, []);
 
   useEffect(() => {
-    if (!leafletLoaded || !containerRef.current || mapRef.current) return;
-    const L = window.L;
+    if (!containerRef.current || mapRef.current) return undefined;
 
-    delete L.Icon.Default.prototype._getIconUrl;
-    L.Icon.Default.mergeOptions({
-      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-    });
+    let map = null;
+    let resizeObserver = null;
+    let resizeFrame = null;
+    let readyFrame = null;
+    let active = true;
 
-    const map = L.map(containerRef.current, {
+    const handleZoomEnd = () => {
+      if (active && mapRef.current === map) setMapZoom(map.getZoom());
+    };
+    const handleMapClick = (event) => {
+      if (active && onMapClickRef.current) {
+        onMapClickRef.current({ lat: event.latlng.lat, lng: event.latlng.lng });
+      }
+    };
+    const cleanup = () => {
+      active = false;
+      if (resizeFrame != null) cancelAnimationFrame(resizeFrame);
+      if (readyFrame != null) cancelAnimationFrame(readyFrame);
+      resizeObserver?.disconnect();
+      if (map) {
+        try { map.off('zoomend', handleZoomEnd); } catch (_error) {}
+        try { map.off('click', handleMapClick); } catch (_error) {}
+        try { map.stop(); } catch (_error) {}
+        try {
+          map.eachLayer(layer => {
+            cancelPendingLeafletRedraw(layer);
+            map.removeLayer(layer);
+          });
+        } catch (_error) {}
+        try { map.remove(); } catch (_error) {}
+      }
+      if (mapRef.current === map) mapRef.current = null;
+      layersRef.current = {};
+    };
+
+    try {
+      setMapInitError(false);
+      map = L.map(containerRef.current, {
       center: city ? [city.lat, city.lng] : [41.9, 12.5],
       zoom: city ? getZoomForRadius(effectiveMapRadius) : 6,
       zoomControl: true,
@@ -801,8 +839,8 @@ function Step2MapImpl({
       touchZoom: true,
       boxZoom: true,
       keyboard: true,
-    });
-    mapRef.current = map;
+      });
+      mapRef.current = map;
 
     try {
       const p0 = map.createPane('municipalityFillPane');
@@ -846,31 +884,43 @@ function Step2MapImpl({
       L.tileLayer(CARTO_VOYAGER, { attribution: CARTO_ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
     }
 
-    const resizeObserver = new ResizeObserver(() => {
-      requestAnimationFrame(() => map.invalidateSize());
-    });
-    resizeObserver.observe(containerRef.current);
+      resizeObserver = new ResizeObserver(() => {
+        if (!active || mapRef.current !== map || !containerRef.current?.isConnected) return;
+        if (resizeFrame != null) cancelAnimationFrame(resizeFrame);
+        resizeFrame = requestAnimationFrame(() => {
+          resizeFrame = null;
+          if (active && mapRef.current === map && containerRef.current?.isConnected) map.invalidateSize();
+        });
+      });
+      resizeObserver.observe(containerRef.current);
 
-    map.on('zoomend', () => { setMapZoom(map.getZoom()); });
-    map.on('click', (e) => {
-      if (onMapClickRef.current) {
-        onMapClickRef.current({ lat: e.latlng.lat, lng: e.latlng.lng });
-      }
-    });
-    return () => {
-      resizeObserver.disconnect();
-      map.remove();
-      mapRef.current = null;
-    };
-  }, [leafletLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+      map.on('zoomend', handleZoomEnd);
+      map.on('click', handleMapClick);
+      readyFrame = requestAnimationFrame(() => {
+        readyFrame = null;
+        if (active && mapRef.current === map) setLeafletLoaded(true);
+      });
+    } catch (error) {
+      cleanup();
+      setLeafletLoaded(false);
+      setMapInitError(true);
+      warnStep2('[Step2Map] inizializzazione Leaflet non riuscita', error?.message || 'LEAFLET_INIT_ERROR');
+    }
+
+    return cleanup;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ridisegna tutti i layer quando i dati o la visibilitÃ  cambiano
   useEffect(() => {
-    const L = window.L;
     const map = mapRef.current;
-    if (!L || !map) return;
+    if (!map) return;
 
-    Object.values(layersRef.current).forEach(l => { try { map.removeLayer(l); } catch {} });
+    Object.values(layersRef.current).forEach(layer => {
+      try {
+        cancelPendingLeafletRedraw(layer);
+        map.removeLayer(layer);
+      } catch (_error) {}
+    });
     layersRef.current = {};
 
     if (!city) return;
@@ -1817,8 +1867,8 @@ function Step2MapImpl({
       )}
 
       {/* Schermata di caricamento */}
-      {!leafletLoaded && (
-        <div style={{
+      {!leafletLoaded && !mapInitError && (
+        <div role="status" aria-live="polite" style={{
           position: 'absolute', inset: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: '#e8e4dc',
@@ -1828,6 +1878,18 @@ function Step2MapImpl({
           pointerEvents: 'none',
         }}>
           Caricamento mappa...
+        </div>
+      )}
+
+      {mapInitError && (
+        <div role="alert" style={{
+          position: 'absolute', inset: 0, zIndex: 1100,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          gap: 5, padding: 18, textAlign: 'center', background: '#e8e4dc',
+          color: '#374151', fontFamily: 'system-ui,sans-serif', fontSize: 12,
+        }}>
+          <strong>La mappa non è temporaneamente disponibile.</strong>
+          <span>I dati della zona restano disponibili.</span>
         </div>
       )}
 

@@ -217,7 +217,7 @@ async function installOfflineRoutes(page, ledger, { failPoi = false, failTranspo
     if (url.includes('/rest/v1/')) return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'content-range': '0-0/0' }, body: '[]' });
     if (url.startsWith(projectUrl)) return route.continue();
     if (url.includes('fonts.')) return route.fulfill({ status: 200, contentType: 'text/css', body: '' });
-    if (url.includes('/tiles/') || url.includes('mapbox')) return route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64') });
+    if (url.includes('/tiles/') || url.includes('basemaps.cartocdn.com') || url.includes('mapbox')) return route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64') });
     ledger.unhandled.push({ method: request.method(), url });
     return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });
@@ -301,6 +301,12 @@ async function main() {
   const browser = await chromium.launch(browserLaunchOptions());
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const consoleErrors = [];
+  const leafletRequests = { local: [], cdn: [] };
+  context.on('request', request => {
+    const url = request.url();
+    if (/(?:unpkg\.com|cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com).*leaflet/i.test(url)) leafletRequests.cdn.push(url);
+    if (url.startsWith(projectUrl) && /leaflet/i.test(url)) leafletRequests.local.push(url);
+  });
   context.on('page', observedPage => observedPage.on('console', message => {
     if (message.type() === 'error') consoleErrors.push(message.text());
   }));
@@ -318,7 +324,19 @@ async function main() {
     assert(d2d.truthModel.quantity.recommendedRequirement === 6794, `D2D recommended inatteso: ${d2d.truthModel.quantity.recommendedRequirement}`, 'fixture');
     assert(d2d.truthModel.coverage.operationalPct != null, 'D2D coverage non disponibile');
     assert(d2d.truthModel.rawData?.territorialAnalysis?.values?.famiglie_stimate === 6176, 'Raw data D2D non persistiti', 'fixture');
+    await page.locator('.leaflet-container').waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForFunction(() => window.__VOLANTINIPRO_STEP2_MAP_STATE__?.totalLeafletLayerCount > 1, null, { timeout: 10000 });
+    const tileErrorSimulated = await page.evaluate(() => {
+      const tile = document.querySelector('.leaflet-tile');
+      if (!tile) return false;
+      tile.dispatchEvent(new Event('error'));
+      return true;
+    });
+    assert(tileErrorSimulated, 'Nessuna tile disponibile per simulare tileerror', 'infrastructure');
+    assert(!(await page.getByRole('alert').filter({ hasText: /mappa non è temporaneamente disponibile/i }).isVisible().catch(() => false)), 'Una singola tile fallita ha prodotto errore globale mappa');
+    assert((await page.evaluate(() => window.__VOLANTINIPRO_STEP2_MAP_STATE__?.totalLeafletLayerCount || 0)) > 1, 'Il tileerror ha rimosso i layer territoriali');
     results.push({ scenario: 'D2D Varedo', status: 'PASS', canonical: { territory: d2d.truthModel.territory.label, quantity: d2d.truthModel.quantity, coverage: d2d.truthModel.coverage } });
+    results.push({ scenario: 'Leaflet locale e tileerror', status: 'PASS', mapVisible: true, territorialLayersPreserved: true, tileErrorNonBlocking: true });
 
     const beforeStep3 = structuredClone(d2d.truthModel);
     const continueButton = page.locator('button.btn').last();
@@ -336,7 +354,29 @@ async function main() {
     assert(returned.truthModel.quantity.recommendedRequirement === beforeStep3.quantity.recommendedRequirement, 'Quantità consigliata cambiata al ritorno');
     assert(returned.truthModel.coverage.operationalPct === beforeStep3.coverage.operationalPct, 'Copertura cambiata al ritorno');
     assert(returned.truthModel.userSelections.coverageDecision === beforeStep3.userSelections.coverageDecision, 'Decisione di copertura cambiata al ritorno');
+    await page.locator('.leaflet-container').waitFor({ state: 'visible', timeout: 10000 });
+    assert(!pageErrors.some(message => /Map container is already initialized/i.test(message)), 'Leaflet duplicato dopo Step 3 → Step 2');
     results.push({ scenario: 'Step 3 → Step 2 e persistenza', status: 'PASS', canonicalStable: true });
+
+    const initErrorPage = await context.newPage();
+    initErrorPage.on('pageerror', error => pageErrors.push(`[leaflet-init-error] ${error.stack || error.message}`));
+    await initErrorPage.addInitScript(() => {
+      window.ResizeObserver = class ControlledResizeObserverFailure {
+        constructor() { throw new Error('CONTROLLED_LEAFLET_INIT_FAILURE'); }
+      };
+    });
+    await installOfflineRoutes(initErrorPage, ledger);
+    await gotoStep2(initErrorPage, 'd2d');
+    await selectMunicipality(initErrorPage, 'Varedo');
+    await chooseKeep(initErrorPage);
+    const initErrorTruth = await waitForTruth(initErrorPage, 'd2d', 'Varedo');
+    const mapAlert = initErrorPage.getByRole('alert').filter({ hasText: /La mappa non è temporaneamente disponibile/i });
+    await mapAlert.waitFor({ state: 'visible', timeout: 10000 });
+    assert(/I dati della zona restano disponibili/i.test(await mapAlert.innerText()), 'Errore mappa senza conferma disponibilità dati');
+    assert(!/CONTROLLED_|Error:|at Step2Map/i.test(await mapAlert.innerText()), 'Stack o dettaglio tecnico visibile nello stato errore mappa');
+    assert(initErrorTruth.truthModel.rawData?.territorialAnalysis?.values?.famiglie_stimate === 6176, 'Errore Leaflet ha cancellato dati territoriali validi');
+    results.push({ scenario: 'Errore inizializzazione Leaflet', status: 'PASS', accessibleAlert: true, territorialDataPreserved: true, unhandledError: false });
+    await initErrorPage.close();
 
     const keyboardPage = await context.newPage();
     keyboardPage.on('pageerror', error => pageErrors.push(`[keyboard] ${error.stack || error.message}`));
@@ -488,13 +528,16 @@ async function main() {
     assert(ledger.analysisIstat > 0, 'Fixture analysis-istat non utilizzata', 'infrastructure');
     assert(ledger.analysisPoi >= 2, 'Fixture analysis-poi-search non utilizzata per H2H e Business', 'infrastructure');
     assert(ledger.overpass >= 2, 'Fixture Overpass non utilizzata', 'infrastructure');
+    assert(leafletRequests.local.length > 0, 'Leaflet non è stato richiesto dal server locale del progetto', 'infrastructure');
+    assert(leafletRequests.cdn.length === 0, `Richieste CDN Leaflet: ${leafletRequests.cdn.join(' | ')}`);
+    assert(ledger.unhandled.length === 0, `Fixture request non gestite: ${JSON.stringify(ledger.unhandled)}`, 'infrastructure');
     assert(pageErrors.length === 0, `Errori pagina: ${pageErrors.join(' | ')}`);
     assert(consoleErrors.length === 0, `Errori console: ${consoleErrors.join(' | ')}`);
-    console.log(JSON.stringify({ status: 'PASS', results, ledger, pageErrors, consoleErrors }, null, 2));
+    console.log(JSON.stringify({ status: 'PASS', results, ledger, pageErrors, consoleErrors, leafletRequests }, null, 2));
   } catch (error) {
     const state = await page.evaluate(() => window.__VOLANTINIPRO_STEP2_STATE__ ? structuredClone(window.__VOLANTINIPRO_STEP2_STATE__) : null).catch(() => null);
     const classification = error.classification || (/locator\.|waitFor|Timeout/i.test(error.message) ? 'infrastructure' : 'application');
-    console.error(JSON.stringify({ status: 'FAIL', classification, message: error.message, results, ledger, pageErrors, consoleErrors, state }, null, 2));
+    console.error(JSON.stringify({ status: 'FAIL', classification, message: error.message, results, ledger, pageErrors, consoleErrors, leafletRequests, state }, null, 2));
     process.exitCode = 1;
   } finally {
     await context.close();
