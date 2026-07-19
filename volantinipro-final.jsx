@@ -14567,7 +14567,7 @@ const BONIFICO_INTESTATARIO  = import.meta.env.VITE_INTESTATARIO  || "VolantiniP
 const BONIFICO_BANCA         = import.meta.env.VITE_BANCA         || "Banca Sella";
 function PagamentoBonificoPage({ onNav, campaignId }) {
   const routeCampaignId = campaignId || window.location.pathname.split("/").filter(Boolean)[1] || null;
-const { campagna, loading } = useCampagnaDetail(routeCampaignId);
+const { campagna, loading, error: campagnaError, source: campagnaSource } = useCampagnaDetail(routeCampaignId);
 const { cliente } = useCliente();
 const [toast, setToast] = useState(null);
 const [paid, setPaid] = useState(false);
@@ -14581,9 +14581,15 @@ const showToast = (msg) => {
     const poll = async () => {
       try {
         if (!supabase || !routeCampaignId) return;
-const { data } = await supabase.from("campagne").select("stato_pagamento").eq("id", routeCampaignId).single();
+const { data, error: pollError } = await supabase.from("campagne").select("stato_pagamento").eq("id", routeCampaignId).single();
+        if (pollError) {
+          if (import.meta.env.DEV) console.warn("[PAGAMENTO_BONIFICO_POLL_ERROR]", pollError);
+          return;
+        }
         if (data?.stato_pagamento === "pagato") setPaid(true);
-      } catch { /* silently skip */ }
+      } catch (e) {
+        if (import.meta.env.DEV) console.warn("[PAGAMENTO_BONIFICO_POLL_ERROR]", e);
+      }
     };
     poll();
 const t = setInterval(poll, 30000);
@@ -14600,11 +14606,13 @@ const copy = async (label, value) => {
 
   if (loading) return <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px" }}><div style={{ maxWidth: 720, margin: "0 auto" }}><SkeletonCard /></div></div>;
   if (!campagna) {
+    const isBackendError = campagnaSource === "error";
+    if (isBackendError && import.meta.env.DEV) console.warn("[PAGAMENTO_BONIFICO_LOAD_ERROR]", campagnaError);
     return (
       <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px" }}>
         <div style={{ maxWidth: 720, margin: "0 auto", background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 16, padding: 24 }}>
           <div style={{ fontFamily: F.serif, fontSize: 34, color: C.white, marginBottom: 8 }}>Pagamento non disponibile</div>
-          <div style={{ fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.55)", lineHeight: 1.6, marginBottom: 18 }}>Le istruzioni di bonifico richiedono una campagna reale salvata nel database.</div>
+          <div style={{ fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.55)", lineHeight: 1.6, marginBottom: 18 }}>{isBackendError ? "Non riusciamo a recuperare i dati della campagna in questo momento. Riprova tra qualche minuto." : "Le istruzioni di bonifico richiedono una campagna reale salvata nel database."}</div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button onClick={() => onNav("dashboard")} style={{ minHeight: 42, padding: "0 16px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Vai alla dashboard →</button>
             {routeCampaignId && <button onClick={() => onNav("campaign", { campaignId: routeCampaignId })} style={{ minHeight: 42, padding: "0 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Dettaglio campagna</button>}
