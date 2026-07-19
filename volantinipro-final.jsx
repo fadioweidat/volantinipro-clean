@@ -43,6 +43,7 @@ import Button from "./src/components/ui/Button.jsx";
 import { MetricValue } from "./src/components/ui/MetricValue.tsx";
 import { sendEmailConferma } from "./src/api/sendEmailConferma.js";
 import { computeDoorToDoorCoverage, getZoneFullCoverageFlyers } from "./src/lib/doorToDoorCoverage.js";
+import { normalizeNominatimGeocodeResult } from "./src/lib/geocoding/canonicalizeItalianMunicipalityName.js";
 import { buildStep2ViewModel, formatCoverageProportion } from "./src/lib/step2/buildStep2ViewModel.js";
 import { buildStep2TruthModel, buildStep2ToStep3Payload } from "./src/lib/step2/buildStep2TruthModel.js";
 import { checkMilanoTerritory } from "./src/lib/step2/milanoTerritoryHelper.js";
@@ -5239,12 +5240,7 @@ const civiciAvailable =
                 const nr = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&format=json&addressdetails=1&limit=4`);
                 const nd = await nr.json();
                 const nomAddresses = nd.filter(f => isAddressLikePlaceType(f.addresstype || f.type || f.class)).map(f => {
-                  const pt = f.addresstype || f.type || f.class || null;
-                  const addr = f.address || {};
-                  const street = addr.road || addr.pedestrian || addr.footway || addr.path || f.display_name.split(',')[0];
-                  const houseNumber = addr.house_number || null;
-                  const label = [street, houseNumber].filter(Boolean).join(" ") || f.display_name.split(',')[0];
-                  return { id: f.place_id, name: f.display_name.split(',').slice(0, 3).join(', '), fullName: f.display_name, label, street, houseNumber, postcode: addr.postcode || null, city: addr.city || addr.town || addr.village || null, province: addr.county || null, lat: parseFloat(f.lat), lng: parseFloat(f.lon), placeType: pt, providerPlaceId: f.place_id, precision: pt };
+                  return normalizeNominatimGeocodeResult(f, { addressLike: true });
                 });
                 if (nomAddresses.length > 0) {
                   setGeocodeSuggestions([...nomAddresses, ...mapboxSuggestions]);
@@ -5267,14 +5263,7 @@ const civiciAvailable =
         // "quarter"). type/class restano come fallback se addresstype manca.
         setGeocodeSuggestions(d.map(f => {
           const pt = f.addresstype || f.type || f.class || null;
-          // Per le righe indirizzo servono più componenti (via, quartiere,
-          // comune) e il display_name completo per il check "dentro Milano".
-          const parts = isAddressLikePlaceType(pt) ? 3 : 2;
-          const addr = f.address || {};
-          const street = addr.road || addr.pedestrian || addr.footway || addr.path || f.display_name.split(',')[0];
-          const houseNumber = addr.house_number || null;
-          const label = isAddressLikePlaceType(pt) ? ([street, houseNumber].filter(Boolean).join(" ") || f.display_name.split(',')[0]) : f.display_name.split(',')[0];
-          return { id: f.place_id, name: f.display_name.split(',').slice(0, parts).join(', '), fullName: f.display_name, label, street, houseNumber, postcode: addr.postcode || null, city: addr.city || addr.town || addr.village || null, province: addr.county || null, lat: parseFloat(f.lat), lng: parseFloat(f.lon), placeType: pt, providerPlaceId: f.place_id, precision: pt };
+          return normalizeNominatimGeocodeResult(f, { addressLike: isAddressLikePlaceType(pt) });
         }));
       } catch { setGeocodeSuggestions([]); }
     }, 350);
