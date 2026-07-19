@@ -1,5 +1,5 @@
 import "./src/styles/app.css";
-import React, { Component, Fragment, useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { Fragment, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -19,6 +19,7 @@ import { useTransportStops } from "./src/hooks/useTransportStops.js";
 import { useDemographicIndicators } from "./src/hooks/useDemographicIndicators.js";
 import { SkeletonCard } from "./src/components/SkeletonCard.jsx";
 import { Step2Map } from "./src/components/Step2Map.jsx";
+import { Step2ErrorBoundary } from "./src/components/Step2ErrorBoundary.jsx";
 import BusinessStep1Config from "./src/components/business/BusinessStep1Config.jsx";
 import { calculateBusinessMaterials, calculateBusinessOperationalPlan, getBusinessCopiesForPoi, resolveVerifiedCompetitorCount, BUSINESS_DELIVERY_METHODS, BUSINESS_RECIPIENTS, BUSINESS_PROOF_OPTIONS, BUSINESS_MATERIAL_LOCATIONS, BUSINESS_OBJECTIVES, businessCategoryLabel, businessOptionLabel } from "./src/lib/business/business-config.js";
 import { VolantiniProHeroMap } from "./src/components/home/VolantiniProHeroMap.jsx";
@@ -199,28 +200,6 @@ function NavButton({ onClick, children, full = false, compact = false, style, ..
   );
 }
 
-class Step2ErrorBoundary extends Component {
-  constructor(props) { super(props); this.state = { hasError: false, error: null, info: null }; }
-  static getDerivedStateFromError(error) { return { hasError: true, error }; }
-  componentDidCatch(error, info) { this.setState({ info }); console.error('[Step2ErrorBoundary]', error, info); }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{ padding: 40, background: '#0F1A30', minHeight: '100vh', fontFamily: 'monospace' }}>
-          <h2 style={{ color: '#F87171', marginBottom: 16 }}> Step2 Runtime Error</h2>
-          <pre style={{ color: '#FBBF24', background: '#1a2a40', padding: 20, borderRadius: 8, overflow: 'auto', fontSize: 13, lineHeight: 1.5 }}>
-            {this.state.error?.toString()}{'\n\n'}
-            {this.state.error?.stack}
-          </pre>
-          <pre style={{ color: '#60A5FA', background: '#1a2a40', padding: 20, borderRadius: 8, marginTop: 16, overflow: 'auto', fontSize: 11, lineHeight: 1.5 }}>
-            {this.state.info?.componentStack}
-          </pre>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 function Bootstrap() {
   useEffect(() => {
     if (!document.getElementById("vp-f")) {
@@ -3610,6 +3589,23 @@ function normalizeCoverageDecision(value) {
   if (value === "increase") return "useRecommended";
   if (value === "keepCurrent" || value === "useRecommended" || value === "manual") return value;
   return null;
+}
+
+function Step2BoundaryTestProbe({ children }) {
+  const [, requestTestRender] = useState(0);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return undefined;
+    const handleControlledRender = () => requestTestRender(value => value + 1);
+    window.addEventListener('volantinipro:test-step2-render', handleControlledRender);
+    return () => window.removeEventListener('volantinipro:test-step2-render', handleControlledRender);
+  }, []);
+
+  if (import.meta.env.DEV && window.__VOLANTINIPRO_TEST_STEP2_THROW__ === true) {
+    throw new Error('CONTROLLED_STEP2_RENDER_FAILURE');
+  }
+
+  return children;
 }
 
 
@@ -15265,7 +15261,13 @@ const isConfiguratorPage = page === "step1" || page === "step2" || page === "ste
         {isConfiguratorPage && (
           <>
             {page === "step1" && <Step1 data={data} setData={setData} onNext={() => goTo("step2")} onHome={() => goTo("home")} />}
-            {page === "step2" && <Step2ErrorBoundary><Step2 data={data} setData={setData} onNext={() => goTo("step3")} onBack={() => goTo("step1")} /></Step2ErrorBoundary>}
+            {page === "step2" && (
+              <Step2ErrorBoundary onBack={() => goTo("step1")}>
+                <Step2BoundaryTestProbe>
+                  <Step2 data={data} setData={setData} onNext={() => goTo("step3")} onBack={() => goTo("step1")} />
+                </Step2BoundaryTestProbe>
+              </Step2ErrorBoundary>
+            )}
             {page === "step3" && <Step3 data={data} setData={setData} onNext={() => goTo("step4")} onBack={() => goTo("step2")} />}
             {page === "step4" && <Step4 data={data} setData={setData} onBack={() => goTo("step3")} onHome={(p, opts) => goTo(p || "home", opts)} onCampaignSaved={(id) => goTo("payment", { campaignId: id })} />}
           </>

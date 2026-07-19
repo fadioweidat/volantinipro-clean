@@ -301,6 +301,7 @@ async function main() {
   const browser = await chromium.launch(browserLaunchOptions());
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const consoleErrors = [];
+  const expectedBoundaryConsoleErrors = [];
   const leafletRequests = { local: [], cdn: [] };
   context.on('request', request => {
     const url = request.url();
@@ -308,7 +309,10 @@ async function main() {
     if (url.startsWith(projectUrl) && /leaflet/i.test(url)) leafletRequests.local.push(url);
   });
   context.on('page', observedPage => observedPage.on('console', message => {
-    if (message.type() === 'error') consoleErrors.push(message.text());
+    if (message.type() !== 'error') return;
+    const text = message.text();
+    if (/CONTROLLED_STEP2_RENDER_FAILURE/.test(text)) expectedBoundaryConsoleErrors.push(text);
+    else consoleErrors.push(text);
   }));
   await context.addInitScript(() => { window.__VOLANTINIPRO_DEBUG_STEP2__ = true; });
   const page = await context.newPage();
@@ -357,6 +361,68 @@ async function main() {
     await page.locator('.leaflet-container').waitFor({ state: 'visible', timeout: 10000 });
     assert(!pageErrors.some(message => /Map container is already initialized/i.test(message)), 'Leaflet duplicato dopo Step 3 → Step 2');
     results.push({ scenario: 'Step 3 → Step 2 e persistenza', status: 'PASS', canonicalStable: true });
+
+    const boundaryStateBefore = {
+      service: returned.truthModel.service.key,
+      municipality: returned.truthModel.userSelections.selectedMunicipalities[0]?.name,
+      radiusKm: returned.truthModel.userSelections.radiusKm,
+      quantity: returned.truthModel.quantity.current,
+      coverageDecision: returned.truthModel.userSelections.coverageDecision,
+    };
+    const pageIdentity = await page.evaluate(() => {
+      window.__VOLANTINIPRO_P2D_PAGE_ID__ ||= Math.random().toString(36).slice(2);
+      return window.__VOLANTINIPRO_P2D_PAGE_ID__;
+    });
+    await page.evaluate(() => {
+      window.__VOLANTINIPRO_TEST_STEP2_THROW__ = true;
+      window.dispatchEvent(new Event('volantinipro:test-step2-render'));
+    });
+    const boundaryFallback = page.locator('.vp-step2-error-fallback');
+    await boundaryFallback.waitFor({ state: 'visible', timeout: 10000 });
+    assert(await boundaryFallback.getAttribute('role') === 'alert', 'Fallback Step 2 privo di role=alert');
+    assert(await boundaryFallback.getAttribute('aria-live') === 'assertive', 'Fallback Step 2 privo di aria-live=assertive');
+    assert(await page.locator('#root').isVisible(), 'Shell applicazione non visibile dopo il crash Step 2');
+    const fallbackText = await boundaryFallback.innerText();
+    assert(!/CONTROLLED_|Error:|\.jsx|componentStack|\s+at\s+/i.test(fallbackText), 'Fallback Step 2 espone dettagli tecnici');
+    assert(await boundaryFallback.locator('h2').evaluate(element => element === document.activeElement), 'Focus non spostato sul titolo del fallback');
+    const firstErrorId = (await page.getByTestId('step2-error-id').innerText()).trim();
+    assert(/^S2-[A-HJ-NP-Z2-9]{6}$/.test(firstErrorId), `ID errore Step 2 non sicuro: ${firstErrorId}`);
+
+    await page.evaluate(() => { window.__VOLANTINIPRO_TEST_STEP2_THROW__ = false; });
+    await page.getByRole('button', { name: 'Riprova', exact: true }).click();
+    await boundaryFallback.waitFor({ state: 'detached', timeout: 10000 });
+    const afterRetry = await waitForTruth(page, 'd2d', 'Varedo');
+    const boundaryStateAfter = {
+      service: afterRetry.truthModel.service.key,
+      municipality: afterRetry.truthModel.userSelections.selectedMunicipalities[0]?.name,
+      radiusKm: afterRetry.truthModel.userSelections.radiusKm,
+      quantity: afterRetry.truthModel.quantity.current,
+      coverageDecision: afterRetry.truthModel.userSelections.coverageDecision,
+    };
+    assert(
+      JSON.stringify(boundaryStateAfter) === JSON.stringify(boundaryStateBefore),
+      `Retry ErrorBoundary ha modificato lo stato parent Step 2: prima=${JSON.stringify(boundaryStateBefore)} dopo=${JSON.stringify(boundaryStateAfter)}`,
+      'infrastructure',
+    );
+
+    await page.evaluate(() => {
+      window.__VOLANTINIPRO_TEST_STEP2_THROW__ = true;
+      window.dispatchEvent(new Event('volantinipro:test-step2-render'));
+    });
+    await boundaryFallback.waitFor({ state: 'visible', timeout: 10000 });
+    const secondErrorId = (await page.getByTestId('step2-error-id').innerText()).trim();
+    assert(secondErrorId !== firstErrorId, 'Due crash distinti hanno prodotto lo stesso error ID');
+    await page.evaluate(() => { window.__VOLANTINIPRO_TEST_STEP2_THROW__ = false; });
+    await page.getByRole('button', { name: 'Torna allo Step 1', exact: true }).click();
+    await page.waitForURL(/\/configuratore/);
+    assert(await page.evaluate(() => window.__VOLANTINIPRO_P2D_PAGE_ID__) === pageIdentity, 'Torna allo Step 1 ha ricaricato la pagina');
+    const returnToStep2 = page.getByRole('button', { name: /Continua allo Step 2/i });
+    await returnToStep2.waitFor({ state: 'visible', timeout: 10000 });
+    assert(await returnToStep2.isEnabled(), 'Step 1 non conserva una configurazione valida dopo il fallback');
+    await returnToStep2.click();
+    await page.waitForURL(/\/zona/);
+    await waitForTruth(page, 'd2d', 'Varedo');
+    results.push({ scenario: 'ErrorBoundary Step 2', status: 'PASS', fallbackAccessible: true, retryPreservesState: true, backWithoutReload: true, returnToStep2: true, distinctErrorIds: true });
 
     const initErrorPage = await context.newPage();
     initErrorPage.on('pageerror', error => pageErrors.push(`[leaflet-init-error] ${error.stack || error.message}`));
@@ -533,11 +599,12 @@ async function main() {
     assert(ledger.unhandled.length === 0, `Fixture request non gestite: ${JSON.stringify(ledger.unhandled)}`, 'infrastructure');
     assert(pageErrors.length === 0, `Errori pagina: ${pageErrors.join(' | ')}`);
     assert(consoleErrors.length === 0, `Errori console: ${consoleErrors.join(' | ')}`);
-    console.log(JSON.stringify({ status: 'PASS', results, ledger, pageErrors, consoleErrors, leafletRequests }, null, 2));
+    assert(expectedBoundaryConsoleErrors.length > 0, 'Errore React controllato non osservato dal browser contract', 'infrastructure');
+    console.log(JSON.stringify({ status: 'PASS', results, ledger, pageErrors, consoleErrors, expectedBoundaryConsoleErrors, leafletRequests }, null, 2));
   } catch (error) {
     const state = await page.evaluate(() => window.__VOLANTINIPRO_STEP2_STATE__ ? structuredClone(window.__VOLANTINIPRO_STEP2_STATE__) : null).catch(() => null);
     const classification = error.classification || (/locator\.|waitFor|Timeout/i.test(error.message) ? 'infrastructure' : 'application');
-    console.error(JSON.stringify({ status: 'FAIL', classification, message: error.message, results, ledger, pageErrors, consoleErrors, leafletRequests, state }, null, 2));
+    console.error(JSON.stringify({ status: 'FAIL', classification, message: error.message, results, ledger, pageErrors, consoleErrors, expectedBoundaryConsoleErrors, leafletRequests, state }, null, 2));
     process.exitCode = 1;
   } finally {
     await context.close();

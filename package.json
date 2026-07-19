@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "test": "node tests/step2_territorial_pipeline.test.mjs && node tests/step2_operational_metrics.test.mjs && node tests/step2_truth_model.test.mjs && node tests/step2_view_model.test.mjs && node tests/business_distribution.test.mjs && node tests/step2_p1_contract.test.mjs && node tests/nominatim_municipality_canonicalization.test.mjs && node tests/h2h_bootstrap_canonicalization.test.mjs && node tests/step2_service_availability_message.test.mjs && node tests/step2_p2a_ui_contract.test.mjs && node tests/step2_request_cancellation.test.mjs && node tests/step2_leaflet_runtime.test.mjs",
+    "test": "node tests/step2_territorial_pipeline.test.mjs && node tests/step2_operational_metrics.test.mjs && node tests/step2_truth_model.test.mjs && node tests/step2_view_model.test.mjs && node tests/business_distribution.test.mjs && node tests/step2_p1_contract.test.mjs && node tests/nominatim_municipality_canonicalization.test.mjs && node tests/h2h_bootstrap_canonicalization.test.mjs && node tests/step2_service_availability_message.test.mjs && node tests/step2_p2a_ui_contract.test.mjs && node tests/step2_request_cancellation.test.mjs && node tests/step2_leaflet_runtime.test.mjs && node tests/step2_error_boundary.test.mjs",
     "test:browser:offline": "node tests/browser_step2_offline_contract.cjs",
     "dev": "vite --host 0.0.0.0 --port 5173 --strictPort",
     "build": "vite build",
