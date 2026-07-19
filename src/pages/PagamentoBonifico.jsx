@@ -16,7 +16,7 @@ const C = {
 const F = { sans: "'DM Sans',sans-serif", serif: "'DM Serif Display',serif" };
 
 export function PagamentoBonificoPage({ campaignId, onNav }) {
-  const { campagna, loading } = useCampagnaDetail(campaignId)
+  const { campagna, loading, error, source } = useCampagnaDetail(campaignId)
   const [copied, setCopied] = useState(null)
   const [statoPagamento, setStatoPagamento] = useState('in_attesa')
 
@@ -29,7 +29,11 @@ export function PagamentoBonificoPage({ campaignId, onNav }) {
   useEffect(() => {
     if (!supabase || !campaignId) return
     const interval = setInterval(async () => {
-      const { data } = await supabase.from('campagne').select('stato_pagamento').eq('id', campaignId).single()
+      const { data, error: pollError } = await supabase.from('campagne').select('stato_pagamento').eq('id', campaignId).single()
+      if (pollError) {
+        if (import.meta.env.DEV) console.warn('[PAGAMENTO_BONIFICO_POLL_ERROR]', pollError)
+        return
+      }
       if (data?.stato_pagamento === 'pagato') {
         setStatoPagamento('pagato')
         clearInterval(interval)
@@ -41,10 +45,16 @@ export function PagamentoBonificoPage({ campaignId, onNav }) {
   if (loading) return <div style={{ color: C.white, padding: 40 }}>Caricamento istruzioni...</div>
 
   if (!campagna) {
+    const isBackendError = source === 'error'
+    if (isBackendError && import.meta.env.DEV) console.warn('[PAGAMENTO_BONIFICO_LOAD_ERROR]', error)
     return (
       <div style={{ maxWidth: 600, margin: '60px auto', padding: '0 20px', color: C.white, fontFamily: F.sans }}>
         <h1 style={{ fontFamily: F.serif, fontSize: 32, marginBottom: 10 }}>Pagamento non disponibile</h1>
-        <p style={{ opacity: 0.6, lineHeight: 1.6 }}>Le istruzioni di bonifico richiedono una campagna reale salvata nel database.</p>
+        <p style={{ opacity: 0.6, lineHeight: 1.6 }}>
+          {isBackendError
+            ? 'Non riusciamo a recuperare i dati della campagna in questo momento. Riprova tra qualche minuto.'
+            : 'Le istruzioni di bonifico richiedono una campagna reale salvata nel database.'}
+        </p>
       </div>
     )
   }
