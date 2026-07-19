@@ -488,7 +488,24 @@ async function main() {
     assert(h2h.truthModel.territory.pois.length > 0, 'POI H2H non persistiti');
     assert(h2h.truthModel.quantity.recommendedRequirement != null, 'Quantità H2H non normalizzata');
     assert(h2h.truthModel.rawData.transport != null, 'Stato TPL H2H non persistito', 'fixture');
-    results.push({ scenario: 'H2H offline', status: 'PASS', canonical: { points: h2h.truthModel.territory.pois.length, quantity: h2h.truthModel.quantity, mobility: h2h.truthModel.availability.mobility } });
+    const h2hKpis = h2h.truthModel.h2h.kpis;
+    assert(Number(h2hKpis.poi) === Number(h2hKpis.usablePoi) + Number(h2hKpis.excludedPoi), 'Conteggio POI H2H non riconciliato');
+    const h2hSurplusTitle = h2hPage.getByText('Quantità superiore al fabbisogno stimato', { exact: true });
+    await h2hSurplusTitle.waitFor({ state: 'visible', timeout: 10000 });
+    assert(!(await h2hPage.getByText('Raggio coerente con la quantità', { exact: true }).isVisible().catch(() => false)), 'H2H in eccedenza classificato come coerente');
+    assert(await h2hPage.getByText('Quantità inserita dal cliente', { exact: true }).first().isVisible(), 'Label quantità cliente H2H assente');
+    assert(await h2hPage.getByText('Fabbisogno operativo stimato', { exact: true }).first().isVisible(), 'Label fabbisogno H2H assente');
+    assert(await h2hPage.getByText('Eccedenza stimata', { exact: true }).first().isVisible(), 'Label eccedenza H2H assente');
+    await h2hPage.locator('.leaflet-container').waitFor({ state: 'visible', timeout: 10000 });
+    await h2hPage.waitForTimeout(800);
+    await h2hPage.getByRole('button', { name: /Apri Analisi Avanzata/i }).click();
+    await h2hPage.getByText('Assegnazione operativa principale', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+    await h2hPage.getByRole('button', { name: /Copertura e quantità/i }).click();
+    assert(await h2hPage.getByText('Quantità inserita dal cliente', { exact: true }).first().isVisible(), 'Report H2H non distingue quantità cliente');
+    assert(await h2hPage.getByText('Fabbisogno operativo stimato', { exact: true }).first().isVisible(), 'Report H2H non distingue fabbisogno');
+    assert(await h2hPage.getByText('Eccedenza stimata', { exact: true }).first().isVisible(), 'Report H2H non distingue eccedenza');
+    await h2hPage.getByRole('button', { name: /Torna alla configurazione/i }).click();
+    results.push({ scenario: 'H2H offline', status: 'PASS', canonical: { points: h2h.truthModel.territory.pois.length, poiDetected: h2hKpis.poi, poiUsable: h2hKpis.usablePoi, poiExcluded: h2hKpis.excludedPoi, quantity: h2h.truthModel.quantity, mobility: h2h.truthModel.availability.mobility }, semantics: { surplusMessage: true, zonePromoterSeparated: true, quantityLabels: true } });
 
     const racePage = await context.newPage();
     racePage.on('pageerror', error => pageErrors.push(`[race] ${error.stack || error.message}`));
@@ -582,6 +599,13 @@ async function main() {
     businessPage.on('pageerror', error => pageErrors.push(`[business] ${error.stack || error.message}`));
     await installOfflineRoutes(businessPage, ledger);
     await gotoStep2(businessPage, 'b2b');
+    await businessPage.waitForFunction(() => (window.__VOLANTINIPRO_STEP2_STATE__?.truthModel?.rawData?.pois || []).length > 0, null, { timeout: 15000 });
+    const businessGate = businessPage.getByRole('button', { name: 'Seleziona almeno un’attività per continuare', exact: true });
+    await businessGate.waitFor({ state: 'visible', timeout: 10000 });
+    assert(await businessGate.isDisabled(), 'Gate Business abilitato senza attività selezionate');
+    assert(!(await businessPage.getByRole('button', { name: 'Seleziona la zona per continuare', exact: true }).isVisible().catch(() => false)), 'Gate Business confonde attività mancanti e zona');
+    assert(await businessPage.getByText('Materiali necessari per le attività selezionate', { exact: true }).isVisible(), 'Label materiali Business a zero assente');
+    assert(!(await businessPage.getByText('Copertura comune', { exact: true }).isVisible().catch(() => false)), 'Metrica D2D Copertura comune presente nel Business');
     await selectOperationalPois(businessPage, 'b2b');
     const business = await waitForTruth(businessPage, 'b2b', 'Bergamo');
     const materialPlan = business.truthModel.business.materialPlan;
@@ -589,7 +613,11 @@ async function main() {
     assert(materialPlan?.materialsRequired === materialPlan.rows.reduce((sum, row) => sum + row.copies, 0), 'Formula materiali Business non canonica');
     assert(business.truthModel.business.competitorCount === null, 'Competitor sintetico presente');
     assert(business.truthModel.territory.nils.length === 0, 'NIL presenti nel Business');
-    results.push({ scenario: 'Business Bergamo', status: 'PASS', canonical: { territory: business.truthModel.territory.label, activities: business.truthModel.territory.activities.length, materialsRequired: materialPlan.materialsRequired, competitorCount: business.truthModel.business.competitorCount } });
+    const businessContinue = businessPage.getByRole('button', { name: 'Continua allo Step 3', exact: true });
+    await businessContinue.waitFor({ state: 'visible', timeout: 10000 });
+    assert(await businessContinue.isEnabled(), 'Gate Business non abilitato con attività e materiali validi');
+    assert(!(await businessPage.getByText('Quantità consigliata', { exact: true }).isVisible().catch(() => false)), 'Label Quantità consigliata ambigua presente nel Business');
+    results.push({ scenario: 'Business Bergamo', status: 'PASS', canonical: { territory: business.truthModel.territory.label, activities: business.truthModel.territory.activities.length, materialsRequired: materialPlan.materialsRequired, competitorCount: business.truthModel.business.competitorCount }, gate: { zeroSelectionMessage: true, enabledAfterSelection: true, serviceSpecificMetrics: true } });
 
     assert(ledger.analysisIstat > 0, 'Fixture analysis-istat non utilizzata', 'infrastructure');
     assert(ledger.analysisPoi >= 2, 'Fixture analysis-poi-search non utilizzata per H2H e Business', 'infrastructure');

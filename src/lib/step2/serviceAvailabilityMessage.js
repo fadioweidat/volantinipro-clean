@@ -10,7 +10,10 @@ function availabilityDetail(error) {
   return "Il servizio è temporaneamente non disponibile.";
 }
 
-export function getStep2ServiceAvailabilityMessage(service, error) {
+export function getStep2ServiceAvailabilityMessage(service, error, { hasUsableData = false } = {}) {
   if (!error || !SERVICE_COPY[service]) return null;
+  if (service === "poi" && hasUsableData) {
+    return `L’aggiornamento non è riuscito. Stiamo mostrando gli ultimi risultati disponibili. ${availabilityDetail(error)}`;
+  }
   return `${SERVICE_COPY[service]} ${availabilityDetail(error)}`;
 }

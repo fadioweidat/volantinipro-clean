@@ -20,6 +20,7 @@ import { useDemographicIndicators } from "./src/hooks/useDemographicIndicators.j
 import { SkeletonCard } from "./src/components/SkeletonCard.jsx";
 import { Step2Map } from "./src/components/Step2Map.jsx";
 import { Step2ErrorBoundary } from "./src/components/Step2ErrorBoundary.jsx";
+import { getBusinessContinuationState, getH2HPoiAccounting, getH2HQuantityMessage } from "./src/lib/step2/nonResidentialPresentation.js";
 import BusinessStep1Config from "./src/components/business/BusinessStep1Config.jsx";
 import { calculateBusinessMaterials, calculateBusinessOperationalPlan, getBusinessCopiesForPoi, resolveVerifiedCompetitorCount, BUSINESS_DELIVERY_METHODS, BUSINESS_RECIPIENTS, BUSINESS_PROOF_OPTIONS, BUSINESS_MATERIAL_LOCATIONS, BUSINESS_OBJECTIVES, businessCategoryLabel, businessOptionLabel } from "./src/lib/business/business-config.js";
 import { VolantiniProHeroMap } from "./src/components/home/VolantiniProHeroMap.jsx";
@@ -5040,7 +5041,7 @@ const updateOperatorScheduleInStep2 = useCallback((index, patch) => {
   setOperatorSchedules((current) => current.map((schedule, scheduleIndex) => scheduleIndex === index ? { ...schedule, ...patch } : schedule));
 }, []);
 const { transportState, loading: transportLoading, error: transportError } = useTransportStops(queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType);
-const poiAvailabilityMessage = getStep2ServiceAvailabilityMessage("poi", poiError);
+const poiAvailabilityMessage = getStep2ServiceAvailabilityMessage("poi", poiError, { hasUsableData: pois.length > 0 });
 const transportAvailabilityMessage = getStep2ServiceAvailabilityMessage("transport", transportError);
 // backendPois: POI individuali già estratti dal backend (analysis-poi-search → metadata.nearby_activities).
 // Usati come fallback quando usePoi (Overpass frontend) restituisce array vuoto per H2H/B2B.
@@ -6578,9 +6579,16 @@ const h2hMetrics = useMemo(() => {
   // Se i POI vengono dal backend, integra i KPI scalari già aggregati lato server.
   if (isMovementStep2 && poisForCalc === backendPois && backendPois.length > 0 && apiData?.values) {
     const v = apiData.values;
+    const poiAccounting = getH2HPoiAccounting({
+      detected: v.poi_count ?? v.poi_rilevati ?? m.poi,
+      usable: m.poi,
+    });
     return {
       ...m,
-      poi: v.poi_count ?? v.poi_rilevati ?? m.poi,
+      poi: poiAccounting.detected,
+      usablePoi: poiAccounting.usable,
+      excludedPoi: poiAccounting.excluded,
+      poiExclusionReason: poiAccounting.exclusionReason,
       tplStops: v.transit_points ?? v.transit_stops ?? m.tplStops,
       stations: v.transit_points ?? m.stations,
       metro: m.metro,
@@ -6592,7 +6600,8 @@ const h2hMetrics = useMemo(() => {
       zones: m.clusters.length || v.hotspot_count || 0,
     };
   }
-  return m;
+  const poiAccounting = getH2HPoiAccounting({ detected: m.poi, usable: m.poi });
+  return { ...m, usablePoi: poiAccounting.usable, excludedPoi: 0, poiExclusionReason: null };
 }, [pois, backendPois, transportState, radiusKm, isMovementStep2, apiData]);
 const businessMetrics = useMemo(() => {
   const poisForCalc = pois.length > 0 ? pois : backendPois;
@@ -6706,6 +6715,9 @@ const serviceKpis = selZones.length > 0 ? {
     analysisLevel: activeAnalysisLevel,
     comuniCount: selZones.length,
     poi: isMovementStep2 ? h2hMetrics.poi : selZones.reduce((a, z) => a + (Number(z.poi) || 0), 0),
+    usablePoi: isMovementStep2 ? h2hMetrics.usablePoi : null,
+    excludedPoi: isMovementStep2 ? h2hMetrics.excludedPoi : null,
+    poiExclusionReason: isMovementStep2 ? h2hMetrics.poiExclusionReason : null,
     operationalZones: isMovementStep2 ? h2hMetrics.zones : selZones.length,
     hotspotCount: isMovementStep2 ? h2hMetrics.zones : 0,
     tplStops: isMovementStep2 ? h2hMetrics.tplStops : 0,
@@ -6726,7 +6738,7 @@ const serviceKpis = selZones.length > 0 ? {
     reachScore: isResidentialStep2 && selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.reachD2D) || 0), 0) / selZones.length) : null,
     roiScore: isResidentialStep2 && selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.roiD2D) || 0), 0) / selZones.length) : null,
     confidenceScore: isResidentialStep2 && selZones.length ? Math.round(selZones.reduce((a, z) => a + (Number(z.confD2D) || 0), 0) / selZones.length) : null,
-  } : { area: "0", hotspotStrength: isMovementStep2 ? h2hMetrics.zones : 0, families: 0, pop: 0, population: 0, coverage: 0, recommendedFlyers: 0, selectedComuni: [], intersectedNils: [], selectedNil: [], selectedNils: [], analysisLevel: activeAnalysisLevel, comuniCount: 0, poi: isMovementStep2 ? h2hMetrics.poi : 0, operationalZones: isMovementStep2 ? h2hMetrics.zones : isBusinessStep2 ? businessMetrics.clusters : 0, hotspotCount: isMovementStep2 ? h2hMetrics.zones : 0, tplStops: isMovementStep2 ? h2hMetrics.tplStops : 0, stations: isMovementStep2 ? h2hMetrics.stations : 0, metro: isMovementStep2 ? h2hMetrics.metro : 0, universities: isMovementStep2 ? h2hMetrics.universities : 0, localAttractors: isMovementStep2 ? h2hMetrics.localAttractors : 0, gpsWaypoints: operationalWaypoints.length, transitStops: isMovementStep2 ? h2hMetrics.transitTotal : 0, flowScore: isMovementStep2 ? h2hMetrics.flowScore : 0, businesses: isBusinessStep2 ? businessMetrics.businesses : 0, competitors: isBusinessStep2 ? businessMetrics.competitors : 0, commercialDensity: isBusinessStep2 ? businessMetrics.commercialDensity : 0, clusters: isBusinessStep2 ? businessMetrics.clusters : 0, targetBusinesses: isBusinessStep2 ? businessMetrics.targetBusinesses : 0, cdIdx: isBusinessStep2 ? businessMetrics.cdIdx : 0, familyIndex: null, reachScore: null, roiScore: null, confidenceScore: null };
+  } : { area: "0", hotspotStrength: isMovementStep2 ? h2hMetrics.zones : 0, families: 0, pop: 0, population: 0, coverage: 0, recommendedFlyers: 0, selectedComuni: [], intersectedNils: [], selectedNil: [], selectedNils: [], analysisLevel: activeAnalysisLevel, comuniCount: 0, poi: isMovementStep2 ? h2hMetrics.poi : 0, usablePoi: isMovementStep2 ? h2hMetrics.usablePoi : null, excludedPoi: isMovementStep2 ? h2hMetrics.excludedPoi : null, poiExclusionReason: isMovementStep2 ? h2hMetrics.poiExclusionReason : null, operationalZones: isMovementStep2 ? h2hMetrics.zones : isBusinessStep2 ? businessMetrics.clusters : 0, hotspotCount: isMovementStep2 ? h2hMetrics.zones : 0, tplStops: isMovementStep2 ? h2hMetrics.tplStops : 0, stations: isMovementStep2 ? h2hMetrics.stations : 0, metro: isMovementStep2 ? h2hMetrics.metro : 0, universities: isMovementStep2 ? h2hMetrics.universities : 0, localAttractors: isMovementStep2 ? h2hMetrics.localAttractors : 0, gpsWaypoints: operationalWaypoints.length, transitStops: isMovementStep2 ? h2hMetrics.transitTotal : 0, flowScore: isMovementStep2 ? h2hMetrics.flowScore : 0, businesses: isBusinessStep2 ? businessMetrics.businesses : 0, competitors: isBusinessStep2 ? businessMetrics.competitors : 0, commercialDensity: isBusinessStep2 ? businessMetrics.commercialDensity : 0, clusters: isBusinessStep2 ? businessMetrics.clusters : 0, targetBusinesses: isBusinessStep2 ? businessMetrics.targetBusinesses : 0, cdIdx: isBusinessStep2 ? businessMetrics.cdIdx : 0, familyIndex: null, reachScore: null, roiScore: null, confidenceScore: null };
 // Somma su SOLO i comuni realmente selezionati (selZones, già filtrato
 // sui chip scelti manualmente) — non un singolo comune "principale":
 // con 1 comune coincide col totale di quel comune, con N comuni è la
@@ -6808,6 +6820,9 @@ const formattedRecommendedFlyers = recommendedFlyersValue != null
     const currQty = Number(flyerQuantityFromStep1 || allocationFlyers || 0);
     const covPct = Number(serviceKpis?.coverage ?? (currReq > 0 ? Math.min(100, Math.round((currQty / currReq) * 100)) : 100));
     const status = getCoverageStatus(covPct);
+    const h2hQuantityMessage = isMovementStep2
+      ? getH2HQuantityMessage({ inserted: currQty, requirement: currReq })
+      : null;
     const recRadius = recommendedRadiusForSlider || currentRadius;
     const isDismissed = dismissedAdvisoryRadius === currentRadius;
 
@@ -6818,9 +6833,16 @@ const formattedRecommendedFlyers = recommendedFlyersValue != null
       currQty,
       covPct,
       status,
+      quantityStatus: h2hQuantityMessage?.status || null,
+      quantityTitle: h2hQuantityMessage?.title || null,
+      quantityDetail: h2hQuantityMessage?.detail || null,
       isDismissed
     };
-  }, [isRadiusMode, city, selectedComuni.length, searchedLocation, apiLoading, radiusKm, radius, requiredFlyers, serviceKpis?.recommendedFlyers, serviceKpis?.coverage, flyerQuantityFromStep1, allocationFlyers, recommendedRadiusForSlider, dismissedAdvisoryRadius]);
+  }, [isRadiusMode, city, selectedComuni.length, searchedLocation, apiLoading, radiusKm, radius, requiredFlyers, serviceKpis?.recommendedFlyers, serviceKpis?.coverage, flyerQuantityFromStep1, allocationFlyers, recommendedRadiusForSlider, dismissedAdvisoryRadius, isMovementStep2]);
+  const radiusAdvisoryIsPositive = Boolean(radiusAdvisoryData && (
+    radiusAdvisoryData.isDismissed ||
+    (isMovementStep2 ? radiusAdvisoryData.quantityStatus === "coherent" : radiusAdvisoryData.status === "coperto")
+  ));
 
 const radiusInsightRows = zonesInRadius.map(z => ({
       id: z.id,
@@ -7350,7 +7372,11 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     Number(requiredFlyers || 0) > 0 &&
     !hasCoverageCalculationError
   );
-  const step2ZonesReady = (data.campaignZones || []).length > 0 && (data.campaignZones || []).every(z => {
+  const geographicZonesReady = (data.campaignZones || []).length > 0 && (data.campaignZones || []).every(z => {
+    if (z.id === data.activeZoneId) return searchMode === "cap" ? selectedCaps.length > 0 : Boolean(city);
+    return z.searchMode === "cap" ? Boolean(z.selectedCaps?.length) : Boolean(z.city);
+  });
+  const step2ZonesReady = geographicZonesReady && (data.campaignZones || []).every(z => {
     if (z.id === data.activeZoneId) {
       const activeTerritoryReady = searchMode === "cap" ? selectedCaps.length > 0 : Boolean(city);
       return activeTerritoryReady && (isBusinessStep2 ? selectedOperationalPois.length > 0 : finalFlyersRounded > 0);
@@ -7527,7 +7553,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     coverageDecision: coverageDecision || "keepCurrent",
     manualFlyers: manualFlyersNumber || allocationFlyers || null,
     assignedFlyersTotal: assignedFlyersTotal || allocationFlyers || null,
-    step2ZonesReady,
+    step2ZonesReady: isBusinessStep2 ? geographicZonesReady : step2ZonesReady,
     coverageDecisionReady,
     coverageDecisionRequired,
     allocationStatus,
@@ -7548,10 +7574,40 @@ const radiusInsightRows = zonesInRadius.map(z => ({
   const operationalSelectionReady = isResidentialStep2
     || (isMovementStep2 && (pois.length > 0 ? selectedOperationalPois.length > 0 : step1OperationalPoints.length > 0))
     || (isBusinessStep2 && selectedOperationalPois.length > 0);
+  const businessContinuation = getBusinessContinuationState({
+    hasValidZone: geographicZonesReady,
+    selectedActivities: selectedOperationalPois.length,
+    materialsRequired: businessMaterialPlan?.materialsRequired,
+    materialsMissing: businessMaterialPlan?.materialsMissing,
+  });
   const canContinueCalendar = isBusinessStep2
-    ? step2ZonesReady && operationalSelectionReady && !gisLoading && !gisTimedOut
+    ? businessContinuation.canContinue && !gisLoading && (!gisTimedOut || pois.length > 0)
     : !step2ViewModel.ctaDisabled && step2ZonesReady && operationalSelectionReady && coverageDecisionReady && (!coverageDecisionRequired || allocationStatus === "success");
-  const continueLabel = step2ViewModel.ctaLabel || "Continua allo Step 3";
+  const continueLabel = isBusinessStep2
+    ? (gisLoading ? "Aggiornamento attività..." : gisTimedOut && pois.length === 0 ? "Attività non disponibili" : businessContinuation.label)
+    : step2ViewModel.ctaLabel || "Continua allo Step 3";
+  const h2hQuantityPresentation = isMovementStep2
+    ? getH2HQuantityMessage({ inserted: step2TruthModel.quantity.inserted, requirement: step2TruthModel.quantity.recommendedRequirement })
+    : null;
+  const clientMapSummaryRows = isBusinessStep2 ? [
+    ["Territorio selezionato", step2ViewModel.primaryAreaLabel],
+    ["Attività disponibili", formatIntegerIT(pois.length)],
+    ["Attività selezionate / disponibili", `${formatIntegerIT(selectedOperationalPois.length)} / ${formatIntegerIT(pois.length)}`],
+    ["Materiali necessari per le attività selezionate", formatIntegerIT(businessMaterialPlan?.materialsRequired ?? 0)],
+    [Number(businessMaterialPlan?.materialsMissing) > 0 ? "Materiali mancanti" : "Materiali residui", formatIntegerIT(Number(businessMaterialPlan?.materialsMissing) > 0 ? businessMaterialPlan.materialsMissing : businessMaterialPlan?.materialsRemaining ?? 0)],
+  ] : isMovementStep2 ? [
+    ["Territorio selezionato", step2ViewModel.primaryAreaLabel],
+    ["POI rilevati / utilizzabili", `${formatIntegerIT(serviceKpis?.poi ?? 0)} / ${formatIntegerIT(serviceKpis?.usablePoi ?? serviceKpis?.poi ?? 0)}`],
+    ["Quantità inserita dal cliente", formatIntegerIT(step2TruthModel.quantity.inserted)],
+    ["Fabbisogno operativo stimato", formatIntegerIT(step2TruthModel.quantity.recommendedRequirement)],
+    [h2hQuantityPresentation?.status === "insufficient" ? "Quantità mancante" : "Eccedenza stimata", formatIntegerIT(h2hQuantityPresentation?.status === "insufficient" ? h2hQuantityPresentation.shortage : h2hQuantityPresentation?.surplus ?? 0)],
+  ] : [
+    ["Territorio selezionato", step2ViewModel.primaryAreaLabel],
+    [step2ViewModel.primaryFamiliesLabel, formatIntegerIT(step2ViewModel.primaryFamiliesValue)],
+    ["Quantità inserita", formatIntegerIT(step2ViewModel.insertedFlyersValue)],
+    ["Quantità consigliata", formatIntegerIT(step2ViewModel.recommendedFlyersValue)],
+    [step2ViewModel.primaryCoverageLabel, step2CoverageFullLabel || "Dato non disponibile"],
+  ];
 
   if (isStep2DebugEnabled() && typeof window !== "undefined") {
     const apiNils = Array.isArray(apiData?.nil_breakdown) ? apiData.nil_breakdown : [];
@@ -8203,10 +8259,10 @@ const radiusInsightRows = zonesInRadius.map(z => ({
           margin: "0 0 16px",
           padding: "12px 16px",
           borderRadius: 12,
-          background: radiusAdvisoryData.status === "coperto" || radiusAdvisoryData.isDismissed
+          background: radiusAdvisoryIsPositive
             ? "rgba(34, 197, 94, 0.08)"
             : "rgba(234, 179, 8, 0.1)",
-          border: `1px solid ${radiusAdvisoryData.status === "coperto" || radiusAdvisoryData.isDismissed
+          border: `1px solid ${radiusAdvisoryIsPositive
             ? "rgba(34, 197, 94, 0.28)"
             : "rgba(234, 179, 8, 0.35)"}`,
           display: "flex",
@@ -8225,12 +8281,14 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               fontFamily: F.sans,
               fontSize: 12,
               fontWeight: 800,
-              color: radiusAdvisoryData.status === "coperto" || radiusAdvisoryData.isDismissed ? "#22C55E" : "#FACC15"
+              color: radiusAdvisoryIsPositive ? "#22C55E" : "#FACC15"
             }}>
-              <span>{radiusAdvisoryData.status === "coperto" || radiusAdvisoryData.isDismissed ? "✓" : "⚠️"}</span>
+              <span>{radiusAdvisoryIsPositive ? "✓" : "⚠️"}</span>
               <span>
                 {radiusAdvisoryData.isDismissed
                   ? `Raggio confermato (${formatRadiusLabel(radiusAdvisoryData.currentRadius)})`
+                  : isMovementStep2
+                    ? radiusAdvisoryData.quantityTitle
                   : radiusAdvisoryData.status === "coperto"
                     ? "Raggio coerente con la quantità"
                     : radiusAdvisoryData.covPct < 25 || radiusAdvisoryData.status === "non_coperto"
@@ -8246,6 +8304,8 @@ const radiusInsightRows = zonesInRadius.map(z => ({
             }}>
               {radiusAdvisoryData.isDismissed ? (
                 `Raggio di ${formatRadiusLabel(radiusAdvisoryData.currentRadius)} mantenuto per la distribuzione (${formatIntegerIT(radiusAdvisoryData.currQty)} volantini per una copertura stimata del ${radiusAdvisoryData.covPct}%).`
+              ) : isMovementStep2 ? (
+                radiusAdvisoryData.quantityDetail
               ) : radiusAdvisoryData.status === "coperto" ? (
                 `Con ${formatIntegerIT(radiusAdvisoryData.currQty)} volantini, il raggio selezionato (${formatRadiusLabel(radiusAdvisoryData.currentRadius)}) è coerente con il fabbisogno stimato dell'area (copertura al ${radiusAdvisoryData.covPct}%).`
               ) : radiusAdvisoryData.covPct < 25 || radiusAdvisoryData.status === "non_coperto" ? (
@@ -8448,7 +8508,25 @@ const radiusInsightRows = zonesInRadius.map(z => ({
 
         // Zone e priorità — righe normalizzate per servizio (nessun dato inventato: usa solo le funzioni di ranking già esistenti)
         const zoneEyebrow = isResidentialStep2 ? "Allocazione NIL / zone" : isMovementStep2 ? "Assegnazione promoter e punti" : "Attività selezionate e materiali";
-        const zoneColumns = [
+        const zoneRows = step2TruthModel.allocation.rows.map((row) => ({
+          ...row,
+          displayZoneName: isMovementStep2
+            ? String(row.name || "Punto operativo").replace(/^Promoter\s+\d+\s*·\s*/i, "")
+            : row.name,
+          operatorLabel: isMovementStep2
+            ? `Promoter ${row.operatorNumber || row.promoterNumber || row.priorityRank}`
+            : null,
+          priorityValue: Math.max(1, step2TruthModel.allocation.rows.length - row.priorityRank + 1),
+          priorityLabel: `Priorità #${row.priorityRank}`,
+        }));
+        const zoneColumns = isMovementStep2 ? [
+          { key: "priorityRank", label: "Priorità", align: "right", render: (r) => `#${r.priorityRank}` },
+          { key: "displayZoneName", label: "Zona prioritaria" },
+          { key: "operatorLabel", label: "Promoter assegnato" },
+          { key: "assignedFlyers", label: "Quantità assegnata", align: "right", render: (r) => `${formatIntegerIT(r.assignedFlyers)} pz.` },
+          { key: "requiredFlyers", label: "Fabbisogno operativo", align: "right", render: (r) => `${formatIntegerIT(r.requiredFlyers)} pz.` },
+          { key: "status", label: "Stato", render: (r) => r.status === "full" ? "Completa" : r.status === "partial" ? "Parziale" : "Esclusa" },
+        ] : [
           { key: "priorityRank", label: "Priorità", align: "right", render: (r) => `#${r.priorityRank}` },
           { key: "name", label: "Zona" },
           { key: "assignedFlyers", label: "Assegnati", align: "right", render: (r) => `${formatIntegerIT(r.assignedFlyers)} pz.` },
@@ -8456,11 +8534,6 @@ const radiusInsightRows = zonesInRadius.map(z => ({
           { key: "coveragePct", label: "Copertura fabbisogno zona", align: "right", render: (r) => r.coveragePct == null ? "Dato non disponibile" : formatPercentIT(r.coveragePct, Number.isInteger(r.coveragePct) ? 0 : 1) },
           { key: "status", label: "Stato", render: (r) => r.status === "full" ? "Completa" : r.status === "partial" ? "Parziale" : "Esclusa" },
         ];
-        const zoneRows = step2TruthModel.allocation.rows.map((row) => ({
-          ...row,
-          priorityValue: Math.max(1, step2TruthModel.allocation.rows.length - row.priorityRank + 1),
-          priorityLabel: `Priorità #${row.priorityRank}`,
-        }));
         const priorityMax = Math.max(...zoneRows.map((r) => r.priorityValue || 0), 1);
 
         // Panoramica — max 6 KPI per servizio, mai valori inventati (unavailable quando manca una vera fonte)
@@ -8476,14 +8549,12 @@ const radiusInsightRows = zonesInRadius.map(z => ({
             { label: "Score D2D", value: `${Math.round(Number(zoneVerdict?.score || 0))}/100`, color: "#4ADE80" },
           ];
         } else if (isMovementStep2) {
-          const rawTimeSlots = data.timeSlot || h2hHotspotRadiusRows[0]?.time;
-          const timeSlotsOk = rawTimeSlots && rawTimeSlots !== "Da validare";
           overviewKpis = [
-            { label: "Flusso potenziale (indice)", value: serviceKpis?.flowScore ?? 0, unit: "/100", color: "#38BDF8", unavailable: serviceKpis?.flowScore == null },
-            { label: "Punti strategici", value: serviceKpis?.hotspotCount || serviceKpis?.operationalZones || 0, color: "#38BDF8", unavailable: !(serviceKpis?.hotspotCount || serviceKpis?.operationalZones) },
-            { label: "Quantità operativa", value: formatIntegerIT(operationalRecommended), unit: "pz.", color: "#4ADE80", unavailable: !(operationalRecommended > 0) },
+            { label: "POI rilevati", value: serviceKpis?.poi ?? 0, color: "#38BDF8", unavailable: !(serviceKpis?.poi > 0) },
+            { label: "POI utilizzabili", value: serviceKpis?.usablePoi ?? serviceKpis?.poi ?? 0, color: "#4ADE80", unavailable: !((serviceKpis?.usablePoi ?? serviceKpis?.poi) > 0) },
+            { label: "POI esclusi", value: serviceKpis?.excludedPoi ?? 0, color: serviceKpis?.excludedPoi > 0 ? "#FBBF24" : "#4ADE80", unavailable: false, source: serviceKpis?.poiExclusionReason || "Nessuna esclusione operativa" },
+            { label: "Fabbisogno operativo stimato", value: formatIntegerIT(operationalRecommended), unit: "pz.", color: "#4ADE80", unavailable: !(operationalRecommended > 0) },
             { label: "Promoter assegnati", value: promoterCountForStep2, color: "#38BDF8", unavailable: promoterCountForStep2 < 1 },
-            { label: "Fasce orarie consigliate", value: timeSlotsOk ? rawTimeSlots : null, color: "#A855F7", unavailable: !timeSlotsOk },
             { label: "Score H2H", value: `${Math.round(Number(zoneVerdict?.score || 0))}/100`, color: "#38BDF8" },
           ];
         } else {
@@ -8497,7 +8568,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
           ];
         }
 
-        const topZonesPreview = zoneRows.slice(0, 3).map((r) => ({ id: r.id, name: r.name, value: r.priorityValue, valueLabel: r.priorityLabel }));
+        const topZonesPreview = zoneRows.slice(0, 3).map((r) => ({ id: r.id, name: r.displayZoneName || r.name, value: r.priorityValue, valueLabel: isMovementStep2 ? r.operatorLabel : r.priorityLabel }));
 
         const recommendationConfidence = step2TruthModel.confidence.recommendation;
         const reliability = {
@@ -8529,7 +8600,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 : (pois.length > 0
                     ? "Valutare per prime le zone con attività POI effettivamente restituite; aree produttive, ATECO e punti di consegna non sono disponibili."
                     : "Analisi parziale: non è collegato un censimento imprese, ATECO o aree produttive; non viene simulata una priorità B2B completa."),
-          priorityZones: zoneRows.slice(0, 2).map((r) => r.name).join(", ") || "Nessuna zona prioritaria disponibile.",
+          priorityZones: zoneRows.slice(0, 2).map((r) => r.displayZoneName || r.name).join(", ") || "Nessuna zona prioritaria disponibile.",
           criticalities: operationalAdvice.shortage > 0
             ? `Quantità insufficiente per copertura completa (mancano ${formatIntegerIT(operationalAdvice.shortage)} pz.).`
             : (operationalAdvice.factors.length ? operationalAdvice.factors.join("; ") : "Nessuna criticità operativa rilevata."),
@@ -8588,7 +8659,13 @@ const radiusInsightRows = zonesInRadius.map(z => ({
           nilTotal: step2ViewModel.availableNilCount,
           demographics: { totalPopulation, totalHouseholds, profileDens, ageRows, familyBreakdownTitle, familyBreakdownItems, operationalRequirementExplanation },
           economy: { reddito: aiAgg?.reddito ?? null, omiRows, omiMeta },
-          mobility: { poiByCategory, poiMax, transport: transportState, hotspotRows: h2hHotspotRadiusRows },
+          mobility: {
+            poiByCategory,
+            poiMax,
+            transport: transportState,
+            hotspotRows: h2hHotspotRadiusRows,
+            poiAccounting: getH2HPoiAccounting({ detected: serviceKpis?.poi, usable: serviceKpis?.usablePoi ?? pois.length }),
+          },
           business: { bizTotal: serviceKpis?.businesses ?? aiAgg?.bizTotal ?? null, competitors: serviceKpis?.competitors ?? null, cdIdx: serviceKpis?.cdIdx ?? null, topCatsReal, rankedRows: businessRadiusRows.map((r) => ({ ...r, zoneName: r.zoneName || r.name })) },
           score: { pct: Math.max(0, Math.min(100, Math.round(Number(zoneVerdict?.score || 0)))), label: zoneVerdict?.score >= 78 ? "ALTA" : zoneVerdict?.score >= 58 ? "MEDIA" : "BASSA", color: zoneVerdict?.score >= 78 ? "#4ADE80" : zoneVerdict?.score >= 58 ? "#60A5FA" : "#FBBF24", components: Array.isArray(zoneVerdict?.components) ? zoneVerdict.components : [], description: scoreDescription },
           recommendation,
@@ -9092,13 +9169,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
           {/* BARRA RIASSUNTIVA COMUNI (Coerente con stato locale) */}
           {(selZones.length > 0 || zonesInRadius.length > 0) && (
             <div className="vp-step2-map-summary" aria-label="Riepilogo della configurazione territoriale">
-              {[
-                ["Territorio selezionato", step2ViewModel.primaryAreaLabel],
-                [step2ViewModel.primaryFamiliesLabel, formatIntegerIT(step2ViewModel.primaryFamiliesValue)],
-                ["Quantità inserita", formatIntegerIT(step2ViewModel.insertedFlyersValue)],
-                ["Quantità consigliata", formatIntegerIT(step2ViewModel.recommendedFlyersValue)],
-                [step2ViewModel.primaryCoverageLabel, step2CoverageFullLabel || "Dato non disponibile"],
-              ].map(([label, value], index) => (
+              {clientMapSummaryRows.map(([label, value], index) => (
                 <div className="vp-step2-map-summary__item" key={label}>
                   <span>{label}</span>
                   <strong className="vp-data-number" style={{ color: index === 3 ? C.green : C.white }}>{value}</strong>
@@ -10119,7 +10190,7 @@ const isManual = allocationMode === "manual";
                     }
                   } else if (isMovementStep2) {
                     summaryMsg = pois.length > 0 || transportState?.available
-                      ? `Lo scenario da ${insFmt} volantini considera i POI e i nodi TPL effettivamente restituiti in ${areaLbl}; non rappresenta un conteggio di passanti.`
+                      ? h2hQuantityPresentation.detail
                       : `Lo scenario da ${insFmt} volantini è parziale: POI e trasporto non sono disponibili per ${areaLbl}.`;
                   } else {
                     summaryMsg = pois.length > 0

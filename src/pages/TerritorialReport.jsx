@@ -212,7 +212,7 @@ function ReportHeader({ p, isMobile, onOpenQuantity, onToggleScenario, onExportP
           <div style={{ maxWidth: 760, fontFamily: F.sans, fontSize: 12.5, color: "rgba(255,255,255,.68)", lineHeight: 1.45, marginBottom: 12 }}>{p.service.key === "b2b" ? "Analizza attività, categorie commerciali, concentrazione territoriale, materiali necessari, priorità e capacità operativa." : REPORT_SUBTITLE}</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             <ContextChip label="Servizio" value={p.service.title} tone={svcColor} />
-            <ContextChip label="Quantità" value={`${fmtInt(p.quantity.inserted) ?? "—"} pz.`} tone="#38BDF8" />
+            <ContextChip label={p.service.key === "b2b" ? "Materiali disponibili" : p.service.key === "h2h" ? "Quantità inserita dal cliente" : "Quantità"} value={`${fmtInt(p.quantity.originalInserted ?? p.quantity.inserted) ?? "—"} pz.`} tone="#38BDF8" />
             <ContextChip label="Copertura operativa" value={p.coverage.label || "Dato non disponibile"} tone="#4ADE80" />
             <ContextChip label={p.service.key === "b2b" ? "Attività selezionate / disponibili" : "Zone coinvolte / disponibili"} value={areaCountLabel} tone="#60A5FA" />
             <ContextChip label="Fonti e modelli disponibili" value={p.dataStatusLabel || "Dato non disponibile"} tone="#FBBF24" />
@@ -338,7 +338,7 @@ function SectionPanoramica({ p, isMobile }) {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
         <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12, padding: 18 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 800, color: C.white, marginBottom: 10 }}>Top zone</div>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: C.white, marginBottom: 10 }}>{p.service.key === "h2h" ? "Assegnazione operativa principale" : "Top zone"}</div>
           {p.topZonesPreview.length === 0 ? <NA compact>Nessuna zona classificata disponibile.</NA> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {p.topZonesPreview.map((z, i) => <HBar key={z.id || i} label={z.name} value={z.value} max={p.topZonesMax} color={svcColor} valueLabel={z.valueLabel} />)}
@@ -418,6 +418,27 @@ function SectionCopertura({ p, isMobile }) {
       </div>
     );
   }
+  if (p.service.key === "h2h") {
+    const inserted = Number(q.originalInserted ?? q.inserted ?? 0);
+    const required = Number(q.recommended ?? 0);
+    const shortage = Math.max(0, required - inserted);
+    const surplus = Math.max(0, inserted - required);
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+        <SectionHeader title="Copertura e quantità" eyebrow="Bilancio operativo Hand to Hand" tone={SERVICE_COLOR.h2h} />
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
+          <KpiCard label="Quantità inserita dal cliente" value={fmtInt(inserted)} unit="pz." color="#38BDF8" unavailable={!inserted} />
+          <KpiCard label="Fabbisogno operativo stimato" value={required > 0 ? fmtInt(required) : null} unit="pz." color="#4ADE80" unavailable={required <= 0} />
+          <KpiCard label="Eccedenza stimata" value={fmtInt(surplus)} unit="pz." color={surplus > 0 ? "#FBBF24" : "#4ADE80"} unavailable={required <= 0} />
+          <KpiCard label="Quantità mancante" value={fmtInt(shortage)} unit="pz." color={shortage > 0 ? CRITICAL : "#4ADE80"} unavailable={required <= 0} />
+          <KpiCard label="Copertura del fabbisogno operativo" value={q.coveragePctLabel} color="#4ADE80" unavailable={q.coveragePctLabel == null} />
+        </div>
+        <div style={{ padding: 16, borderRadius: 12, background: "rgba(56,189,248,.07)", border: "1px solid rgba(56,189,248,.22)", color: "rgba(255,255,255,.8)", fontSize: 12, lineHeight: 1.6 }}>
+          Il fabbisogno operativo deriva dalla configurazione di promoter, punti e durata. L’eccedenza è la differenza tra la quantità inserita dal cliente e il fabbisogno stimato; non rappresenta ulteriore copertura oltre il 100%.
+        </div>
+      </div>
+    );
+  }
   if (q.available === false) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -490,7 +511,7 @@ function SectionZone({ p, isMobile }) {
         </div>
       )}
       <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12, padding: 18 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 800, color: C.white, marginBottom: 10 }}>Top zone per priorità</div>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: C.white, marginBottom: 10 }}>{svc === "h2h" ? "Assegnazioni operative per priorità" : "Top zone per priorità"}</div>
         {rows.length === 0 ? <NA>Nessuna zona classificata per questa configurazione.</NA> : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {visibleRows.slice(0, showAll ? visibleRows.length : nilShowCount).map((z, i) => (
@@ -591,9 +612,15 @@ function SectionEconomia({ p }) {
 
 function SectionMobilita({ p, isMobile }) {
   const m = p.mobility;
+  const poiAccounting = m.poiAccounting || { detected: 0, usable: 0, excluded: 0, exclusionReason: null };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
       <SectionHeader title="Mobilità e POI" eyebrow="Potenziale di attrazione territoriale" tone="#38BDF8" />
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,minmax(160px,1fr))", gap: 12 }}>
+        <KpiCard label="POI rilevati" value={fmtInt(poiAccounting.detected)} color="#38BDF8" unavailable={poiAccounting.detected <= 0} />
+        <KpiCard label="POI utilizzabili" value={fmtInt(poiAccounting.usable)} color="#4ADE80" unavailable={poiAccounting.usable <= 0} />
+        <KpiCard label="POI esclusi" value={fmtInt(poiAccounting.excluded)} color={poiAccounting.excluded > 0 ? "#FBBF24" : "#4ADE80"} source={poiAccounting.exclusionReason} />
+      </div>
       <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12, padding: 18 }}>
         <div style={{ fontSize: 12.5, fontWeight: 800, color: C.white, marginBottom: 10 }}>POI per categoria (OpenStreetMap, raggio selezionato)</div>
         {m.poiByCategory.length === 0 ? <NA>Nessun POI rilevato in questo raggio o fonte non disponibile.</NA> : (
