@@ -46,6 +46,7 @@ import { computeDoorToDoorCoverage, getZoneFullCoverageFlyers } from "./src/lib/
 import { normalizeNominatimGeocodeResult, normalizeNominatimH2HBootstrapPoint } from "./src/lib/geocoding/canonicalizeItalianMunicipalityName.js";
 import { buildStep2ViewModel, formatCoverageProportion } from "./src/lib/step2/buildStep2ViewModel.js";
 import { buildStep2TruthModel, buildStep2ToStep3Payload } from "./src/lib/step2/buildStep2TruthModel.js";
+import { getStep2ServiceAvailabilityMessage } from "./src/lib/step2/serviceAvailabilityMessage.js";
 import { checkMilanoTerritory } from "./src/lib/step2/milanoTerritoryHelper.js";
 import { allowMockData, isProduction } from "./src/lib/runtimeFlags.js";
 import { defaultLayerState } from "./src/lib/dataSources.js";
@@ -5043,6 +5044,8 @@ const updateOperatorScheduleInStep2 = useCallback((index, patch) => {
   setOperatorSchedules((current) => current.map((schedule, scheduleIndex) => scheduleIndex === index ? { ...schedule, ...patch } : schedule));
 }, []);
 const { transportState, loading: transportLoading, error: transportError } = useTransportStops(queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType);
+const poiAvailabilityMessage = getStep2ServiceAvailabilityMessage("poi", poiError);
+const transportAvailabilityMessage = getStep2ServiceAvailabilityMessage("transport", transportError);
 // backendPois: POI individuali già estratti dal backend (analysis-poi-search → metadata.nearby_activities).
 // Usati come fallback quando usePoi (Overpass frontend) restituisce array vuoto per H2H/B2B.
 const addressPointParams = useMemo(() => ({
@@ -7770,6 +7773,10 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               <span style={{ fontSize: 13 }}>{searchMode === "cap" ? "" : ""} </span>
               <input value={search} onChange={e => { setSearch(e.target.value); setDropOpen(true); setAddressSearchError(""); }} onFocus={() => setDropOpen(true)}
                 onKeyDown={e => {
+                  if (e.key === "Escape") {
+                    setDropOpen(false);
+                    return;
+                  }
                   if (e.key === "Enter" && searchMode !== "cap") {
                     const sIntent = detectSearchIntent(search);
                     if (sIntent.intent === "address" && sIntent.parentComune === "Milano") {
@@ -7897,24 +7904,24 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                   const isOperationalPointResult = searchMode === "address" && isMovementStep2 && hasPointCoordinates && c?.placeType !== "place";
                   if (isOperationalPointResult) {
                     return (
-                      <div key={c.id} onClick={() => selectOperationalPoint(c.label || c.name, c)}
-                        style={{ padding: "9px 14px", cursor: "pointer", fontFamily: F.sans, fontSize: 13, color: C.white, borderBottom: "1px solid rgba(255,255,255,.05)" }}
+                      <button key={c.id} type="button" className="vp-geocode-suggestion" onClick={() => selectOperationalPoint(c.label || c.name, c)}
+                        style={{ width: "100%", display: "block", textAlign: "left", padding: "9px 14px", cursor: "pointer", fontFamily: F.sans, fontSize: 13, color: C.white, border: "none", borderBottom: "1px solid rgba(255,255,255,.05)", background: "transparent" }}
                         onMouseEnter={e => e.currentTarget.style.background = "rgba(34, 197, 94,.12)"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                         📍 {c.label || c.name} <span style={{ fontSize: 10, color: "rgba(255,255,255,.45)", marginLeft: 6 }}>punto operativo</span>
-                      </div>
+                      </button>
                     );
                   }
                   if (addressIntentInMilano && (looksLikeAddressResult(c) || textLooksLikeAddress)) {
                     const inMilano = isGeocoderResultInMilanoComune(c);
                     if (!inMilano) return null;
                     return (
-                      <div key={c.id} onClick={() => selectAddressPointInMilano(c.name, c)}
-                        style={{ padding: "9px 14px", cursor: "pointer", fontFamily: F.sans, fontSize: 13, color: C.white, borderBottom: "1px solid rgba(255,255,255,.05)" }}
+                      <button key={c.id} type="button" className="vp-geocode-suggestion" onClick={() => selectAddressPointInMilano(c.name, c)}
+                        style={{ width: "100%", display: "block", textAlign: "left", padding: "9px 14px", cursor: "pointer", fontFamily: F.sans, fontSize: 13, color: C.white, border: "none", borderBottom: "1px solid rgba(255,255,255,.05)", background: "transparent" }}
                         onMouseEnter={e => e.currentTarget.style.background = "rgba(34, 197, 94,.12)"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                         📍 {c.name} <span style={{ fontSize: 10, color: "rgba(255,255,255,.45)", marginLeft: 6 }}>indirizzo/punto · Milano</span>
-                      </div>
+                      </button>
                     );
                   }
                   if (addressIntentInMilano && !isNilLikePlaceType(c.placeType) && normalizeMunicipalityName(c.label || c.name) !== "milano") {
@@ -7974,7 +7981,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                     );
                   }
                   return (
-                  <div key={c.id} onClick={() => {
+                  <button key={c.id} type="button" className="vp-geocode-suggestion" onClick={() => {
                     if (searchMode === "municipality" && pendingAddMunicipality) {
                       appendMunicipalityToActiveZone(c);
                     } else if (searchMode === "address") {
@@ -8015,11 +8022,11 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                       }
                     }
                   }}
-                    style={{ padding: "9px 14px", cursor: "pointer", fontFamily: F.sans, fontSize: 13, color: C.white, borderBottom: "1px solid rgba(255,255,255,.05)" }}
+                    style={{ width: "100%", display: "block", textAlign: "left", padding: "9px 14px", cursor: "pointer", fontFamily: F.sans, fontSize: 13, color: C.white, border: "none", borderBottom: "1px solid rgba(255,255,255,.05)", background: "transparent" }}
                     onMouseEnter={e => e.currentTarget.style.background = "rgba(34, 197, 94,.12)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                      {c.label || c.name}
-                  </div>
+                  </button>
                   );
                 })}
                 </>
@@ -8028,12 +8035,12 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 capSearchLoading ? <div style={{ padding: "9px 14px", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.35)" }}>Ricerca CAP in corso––</div> :
                 capSuggestions.length === 0 && search.length >= 2 ? <div style={{ padding: "9px 14px", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.35)" }}>Nessun CAP trovato</div> :
                 capSuggestions.map(c => (
-                  <div key={c.id} onClick={() => handleCapSelect(c)}
-                    style={{ padding: "9px 14px", cursor: "pointer", fontFamily: F.sans, fontSize: 13, color: C.white, borderBottom: "1px solid rgba(255,255,255,.05)" }}
+                  <button key={c.id} type="button" className="vp-geocode-suggestion" onClick={() => handleCapSelect(c)}
+                    style={{ width: "100%", display: "block", textAlign: "left", padding: "9px 14px", cursor: "pointer", fontFamily: F.sans, fontSize: 13, color: C.white, border: "none", borderBottom: "1px solid rgba(255,255,255,.05)", background: "transparent" }}
                     onMouseEnter={e => e.currentTarget.style.background = "rgba(34, 197, 94,.12)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                      {c.name}
-                  </div>
+                  </button>
                 ))
               )}
             </div>
@@ -8860,6 +8867,21 @@ const radiusInsightRows = zonesInRadius.map(z => ({
 
           </div>
 
+          {city && (poiAvailabilityMessage || (isMovementStep2 && transportAvailabilityMessage)) && (
+            <div aria-live="polite" style={{ marginTop: 12, display: "grid", gap: 8 }}>
+              {poiAvailabilityMessage && (
+                <div role="status" aria-live="polite" data-testid="poi-availability-warning" style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(245,158,11,.28)", background: "rgba(245,158,11,.07)", color: "#FDE68A", fontFamily: F.sans, fontSize: 10, lineHeight: 1.5 }}>
+                  {poiAvailabilityMessage}
+                </div>
+              )}
+              {isMovementStep2 && transportAvailabilityMessage && (
+                <div role="status" aria-live="polite" data-testid="transport-availability-warning" style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(56,189,248,.28)", background: "rgba(56,189,248,.07)", color: "#BAE6FD", fontFamily: F.sans, fontSize: 10, lineHeight: 1.5 }}>
+                  {transportAvailabilityMessage}
+                </div>
+              )}
+            </div>
+          )}
+
           {(isMovementStep2 || isBusinessStep2) && city && (
             <div style={{ marginTop: 12, background: "rgba(255,255,255,.035)", border: `1px solid ${isBusinessStep2 ? "rgba(167,139,250,.24)" : "rgba(56,189,248,.24)"}`, borderRadius: 12, overflow: "hidden" }}>
               <div style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", borderBottom: "1px solid rgba(255,255,255,.07)" }}>
@@ -8920,9 +8942,9 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                     })}
                   </div>
                 )}
-                {visiblePoisForAssignment.length === 0 ? (
+                {visiblePoisForAssignment.length === 0 && !poiError ? (
                   <div role="status" style={{ padding: "12px 14px", fontFamily: F.sans, fontSize: 9, color: "#FCD34D", background: "rgba(245,158,11,.05)" }}>{isBusinessStep2 ? "Nessuna attività compatibile trovata nel raggio selezionato. Riduci i filtri o amplia l'area." : "Nessun luogo compatibile trovato. Controlla il target scelto oppure aumenta il raggio."}</div>
-                ) : (
+                ) : visiblePoisForAssignment.length > 0 ? (
                   <div style={{ maxHeight: 320, overflowY: "auto" }}>
                     {visiblePoisForAssignment.map((poi, index) => {
                       const assignment = poiAssignments[poi.id] || null;
@@ -8945,7 +8967,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                       );
                     })}
                   </div>
-                )}
+                ) : null}
               </div>
               {isBusinessStep2 && (selectedOperationalPois.length === 0 ? (
                 <div style={{ padding: "14px", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.48)" }}>

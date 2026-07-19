@@ -1,7 +1,7 @@
-const { chromium } = require('C:/Users/fady/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/.pnpm/playwright@1.61.1/node_modules/playwright');
+const { browserLaunchOptions, loadPlaywright } = require('./helpers/loadPlaywright.cjs');
+const { chromium } = loadPlaywright();
 
-const projectUrl = 'http://localhost:5173/';
-const chromePath = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+const projectUrl = process.env.STEP2_OFFLINE_BASE_URL || 'http://localhost:5173/';
 
 function assert(condition, message, classification = 'application') {
   if (!condition) {
@@ -137,7 +137,7 @@ const businessElements = [
   { type: 'node', id: 204, lat: 45.696, lon: 9.681, tags: { amenity: 'restaurant', name: 'Ristorante Città Alta', 'addr:city': 'Bergamo' } },
 ];
 
-async function installOfflineRoutes(page, ledger) {
+async function installOfflineRoutes(page, ledger, { failPoi = false, failTransport = false, emptyPoi = false } = {}) {
   await page.route('**/*', async route => {
     const request = route.request();
     const url = request.url();
@@ -152,12 +152,15 @@ async function installOfflineRoutes(page, ledger) {
     }
     if (/overpass/i.test(url)) {
       ledger.overpass += 1;
+      if (failPoi) return route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: 'rate limited' }) });
+      if (emptyPoi) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ version: 0.6, elements: [] }) });
       const body = request.postData() || '';
       const elements = /office|pharmacy|tobacco|company|restaurant/i.test(decodeURIComponent(body)) && ledger.activeService === 'b2b' ? businessElements : h2hElements;
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ version: 0.6, elements }) });
     }
     if (url.includes('/rest/v1/rpc/get_transport_stops_in_radius')) {
       ledger.transport += 1;
+      if (failTransport) return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'temporarily unavailable' }) });
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
         { source: 'gtfs_test', stop_id: 'V1', stop_name: 'Stazione Varedo', stop_type: 'train', distance_m: 120, lat: 45.576, lng: 9.161, routes: [{ route_id: 'S9', route_short_name: 'S9', route_type_label: 'train' }] },
       ]) });
@@ -257,7 +260,7 @@ async function selectOperationalPois(page, service) {
 async function main() {
   const results = [];
   const ledger = { activeService: 'd2d', analysisIstat: 0, analysisPoi: 0, overpass: 0, transport: 0, geocode: 0, nominatim: 0, demographics: 0, unhandled: [] };
-  const browser = await chromium.launch({ executablePath: chromePath, headless: true });
+  const browser = await chromium.launch(browserLaunchOptions());
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   await context.addInitScript(() => { window.__VOLANTINIPRO_DEBUG_STEP2__ = true; });
   const page = await context.newPage();
@@ -292,6 +295,38 @@ async function main() {
     assert(returned.truthModel.userSelections.coverageDecision === beforeStep3.userSelections.coverageDecision, 'Decisione di copertura cambiata al ritorno');
     results.push({ scenario: 'Step 3 → Step 2 e persistenza', status: 'PASS', canonicalStable: true });
 
+    const keyboardPage = await context.newPage();
+    keyboardPage.on('pageerror', error => pageErrors.push(error.stack || error.message));
+    await installOfflineRoutes(keyboardPage, ledger);
+    await gotoStep2(keyboardPage, 'd2d');
+    const keyboardSearch = keyboardPage.locator('input[placeholder="Cerca comune"]').first();
+    await keyboardSearch.fill('Varedo');
+    const keyboardSuggestion = keyboardPage.getByRole('button', { name: 'Varedo', exact: true }).last();
+    await keyboardSuggestion.waitFor({ state: 'visible', timeout: 10000 });
+    await keyboardSearch.press('Tab');
+    await keyboardPage.keyboard.press('Tab');
+    assert(await keyboardSuggestion.evaluate(element => element === document.activeElement), 'Tab non raggiunge il suggerimento comune');
+    assert(await keyboardSuggestion.evaluate(element => getComputedStyle(element).outlineStyle !== 'none'), 'Focus del suggerimento non visibile');
+    await keyboardPage.keyboard.press('Enter');
+    const keyboardEnterState = await waitForTruth(keyboardPage, 'd2d', 'Varedo');
+    assert(/\/zona\/?$/.test(new URL(keyboardPage.url()).pathname), 'Enter sul suggerimento ha causato un submit/navigazione inattesa');
+    assert(keyboardEnterState.truthModel.userSelections.selectedMunicipalities[0]?.name === d2d.truthModel.userSelections.selectedMunicipalities[0]?.name, 'Enter e click producono comuni canonici diversi');
+
+    await keyboardSearch.fill('Varedo');
+    await keyboardSuggestion.waitFor({ state: 'visible', timeout: 10000 });
+    await keyboardSuggestion.focus();
+    await keyboardPage.keyboard.press('Space');
+    const keyboardSpaceState = await waitForTruth(keyboardPage, 'd2d', 'Varedo');
+    assert(keyboardSpaceState.truthModel.userSelections.selectedMunicipalities[0]?.name === 'Varedo', 'Space non seleziona lo stesso comune canonico');
+    assert(/\/zona\/?$/.test(new URL(keyboardPage.url()).pathname), 'Space sul suggerimento ha causato un submit/navigazione inattesa');
+
+    await keyboardSearch.fill('Bergamo');
+    await keyboardPage.getByRole('button', { name: 'Bergamo', exact: true }).last().waitFor({ state: 'visible', timeout: 10000 });
+    await keyboardSearch.press('Escape');
+    assert(!(await keyboardPage.getByRole('button', { name: 'Bergamo', exact: true }).last().isVisible()), 'Escape non chiude la lista suggerimenti');
+    results.push({ scenario: 'Geocoding accessibile', status: 'PASS', tab: true, enter: true, space: true, escape: true, canonicalStable: true });
+    await keyboardPage.close();
+
     ledger.activeService = 'h2h';
     const h2hPage = await context.newPage();
     h2hPage.on('pageerror', error => pageErrors.push(error.stack || error.message));
@@ -304,6 +339,35 @@ async function main() {
     assert(h2h.truthModel.quantity.recommendedRequirement != null, 'Quantità H2H non normalizzata');
     assert(h2h.truthModel.rawData.transport != null, 'Stato TPL H2H non persistito', 'fixture');
     results.push({ scenario: 'H2H offline', status: 'PASS', canonical: { points: h2h.truthModel.territory.pois.length, quantity: h2h.truthModel.quantity, mobility: h2h.truthModel.availability.mobility } });
+
+    const errorPage = await context.newPage();
+    errorPage.on('pageerror', error => pageErrors.push(error.stack || error.message));
+    await installOfflineRoutes(errorPage, ledger, { failPoi: true, failTransport: true });
+    await gotoStep2(errorPage, 'h2h');
+    const poiWarning = errorPage.getByTestId('poi-availability-warning');
+    const transportWarning = errorPage.getByTestId('transport-availability-warning');
+    await poiWarning.waitFor({ state: 'visible', timeout: 15000 });
+    await transportWarning.waitFor({ state: 'visible', timeout: 15000 });
+    assert(await poiWarning.getAttribute('role') === 'status', 'Warning POI privo di role=status');
+    assert(await transportWarning.getAttribute('role') === 'status', 'Warning TPL privo di role=status');
+    assert(!/OVERPASS|TRANSPORT_RPC/i.test(await poiWarning.innerText()), 'Warning POI espone codice tecnico');
+    assert(!/OVERPASS|TRANSPORT_RPC/i.test(await transportWarning.innerText()), 'Warning TPL espone codice tecnico');
+    const errorState = await waitForTruth(errorPage, 'h2h', 'Varedo', { ready: false });
+    assert(errorState.truthModel.userSelections.selectedMunicipalities[0]?.name === 'Varedo', 'Gli errori servizi hanno modificato il comune canonico');
+    assert(errorState.truthModel.rawData?.territorialAnalysis?.values?.famiglie_stimate === 6176, 'Gli errori servizi hanno nascosto dati territoriali validi');
+    assert(!(await errorPage.getByText(/Nessun luogo compatibile trovato/i).isVisible().catch(() => false)), 'Empty state POI mostrato insieme allo stato di errore');
+    results.push({ scenario: 'Errori POI/TPL visibili', status: 'PASS', nonBlocking: true, canonicalStable: true, territorialDataPreserved: true });
+    await errorPage.close();
+
+    const emptyPage = await context.newPage();
+    emptyPage.on('pageerror', error => pageErrors.push(error.stack || error.message));
+    await installOfflineRoutes(emptyPage, ledger, { emptyPoi: true });
+    await gotoStep2(emptyPage, 'h2h');
+    const emptyState = emptyPage.getByText(/Nessun luogo compatibile trovato/i);
+    await emptyState.waitFor({ state: 'visible', timeout: 15000 });
+    assert(!(await emptyPage.getByTestId('poi-availability-warning').isVisible().catch(() => false)), 'Warning POI mostrato con risposta valida vuota');
+    results.push({ scenario: 'POI empty state distinto', status: 'PASS' });
+    await emptyPage.close();
 
     ledger.activeService = 'b2b';
     const businessPage = await context.newPage();

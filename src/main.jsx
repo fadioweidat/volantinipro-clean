@@ -27,7 +27,11 @@ const AnomalieAI = React.lazy(() => import("./pages/admin/AnomalieAI.jsx"));
 warnIfMojibake(document.documentElement?.innerHTML || "", "initial document");
 
 function RouteFallback() {
-  return <div style={{ minHeight: "100vh", background: "#0B1020" }} />;
+  return (
+    <div role="status" aria-live="polite" aria-label="Caricamento pagina" style={{ minHeight: "100vh", background: "#0B1020", display: "grid", placeItems: "center", color: "rgba(255,255,255,.76)", fontFamily: "system-ui, sans-serif" }}>
+      <span>Caricamento pagina in corso...</span>
+    </div>
+  );
 }
 
 function Root() {
