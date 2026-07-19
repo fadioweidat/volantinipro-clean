@@ -141,47 +141,7 @@ export default function ServicesSection({ onConfigure }) {
           ))}
         </div>
 
-        {/* Come funziona VolantiniPro */}
-        <div style={{ marginTop: 80, paddingTop: 64, borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-          <div style={{ textAlign: "center", marginBottom: 48 }}>
-            <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".15em", textTransform: "uppercase", color: C.primary, marginBottom: 14 }}>
-              6 passi semplici
-            </div>
-            <h2 style={{ fontFamily: F.serif, fontSize: 38, color: C.white, letterSpacing: "-1px", marginBottom: 12, lineHeight: 1.1 }}>
-              Come funziona VolantiniPro
-            </h2>
-            <p style={{ fontFamily: F.sans, fontSize: 15, color: "#94A3B8", maxWidth: 500, margin: "0 auto", lineHeight: 1.65 }}>
-              Dalla scelta del servizio alla ricezione del report: tutto in un'unica piattaforma.
-            </p>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
-            {HOW_STEPS.map((step, idx) => (
-              <motion.div
-                key={step.n}
-                initial={{ opacity: 0, y: 14 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.18, delay: idx * 0.05 }}
-                style={{ padding: "24px 22px", borderRadius: 16, background: "#0D1929", border: "1px solid rgba(255,255,255,0.07)", display: "flex", flexDirection: "column", gap: 12 }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ fontSize: 24, lineHeight: 1 }}>{step.icon}</span>
-                  <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: C.primary, letterSpacing: ".1em" }}>{step.n}</span>
-                </div>
-                <div style={{ fontFamily: F.serif, fontSize: 18, color: C.white, letterSpacing: "-.2px", lineHeight: 1.2 }}>{step.title}</div>
-                <div style={{ fontFamily: F.sans, fontSize: 13, color: "#94A3B8", lineHeight: 1.6 }}>{step.desc}</div>
-              </motion.div>
-            ))}
-          </div>
-          <div style={{ textAlign: "center", marginTop: 40 }}>
-            <button
-              onClick={onConfigure}
-              style={{ padding: "13px 32px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)", color: "#F8FAFC", fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 6px 20px rgba(232,87,26,0.3)" }}
-            >
-              Calcola la tua copertura →
-            </button>
-          </div>
-        </div>
+
 
       </div>
     </section>
