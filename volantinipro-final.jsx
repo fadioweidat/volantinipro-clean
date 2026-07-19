@@ -43,7 +43,7 @@ import Button from "./src/components/ui/Button.jsx";
 import { MetricValue } from "./src/components/ui/MetricValue.tsx";
 import { sendEmailConferma } from "./src/api/sendEmailConferma.js";
 import { computeDoorToDoorCoverage, getZoneFullCoverageFlyers } from "./src/lib/doorToDoorCoverage.js";
-import { normalizeNominatimGeocodeResult } from "./src/lib/geocoding/canonicalizeItalianMunicipalityName.js";
+import { normalizeNominatimGeocodeResult, normalizeNominatimH2HBootstrapPoint } from "./src/lib/geocoding/canonicalizeItalianMunicipalityName.js";
 import { buildStep2ViewModel, formatCoverageProportion } from "./src/lib/step2/buildStep2ViewModel.js";
 import { buildStep2TruthModel, buildStep2ToStep3Payload } from "./src/lib/step2/buildStep2TruthModel.js";
 import { checkMilanoTerritory } from "./src/lib/step2/milanoTerritoryHelper.js";
@@ -3633,6 +3633,17 @@ const layers = LAYERS[svcType] || LAYERS.d2d;
 const isResidentialStep2 = serviceMeta.mode === "residential";
 const isBusinessStep2 = serviceMeta.mode === "business";
 const isMovementStep2 = serviceMeta.mode === "movement";
+const normalizeSavedH2HPoint = (point) => {
+  if (!isMovementStep2 || !point) return point;
+  const countryCode = point.countryCode || point.country_code || (point.source === "step1_promoter_assignment" ? "it" : null);
+  return normalizeNominatimH2HBootstrapPoint(point, { countryCode });
+};
+const hydratedH2HSearchPoint = normalizeSavedH2HPoint(data.selectedSearchPoint || null);
+const hydratedH2HMunicipalityName = hydratedH2HSearchPoint?.parentComune || null;
+const hydratedH2HCity = hydratedH2HMunicipalityName
+  ? { ...(data.city || {}), name: hydratedH2HMunicipalityName, label: hydratedH2HMunicipalityName, lat: Number(data.city?.lat ?? hydratedH2HSearchPoint.lat), lng: Number(data.city?.lng ?? hydratedH2HSearchPoint.lng) }
+  : null;
+const hydratedH2HSelectedComuni = hydratedH2HCity ? [hydratedH2HCity] : data.selectedComuni;
 const flyerQuantityFromStep1 = isBusinessStep2
   ? Number(data.businessMaterialQuantity ?? data.insertedFlyersOriginal ?? data.originalFlyerQuantity ?? data.flyerQuantity ?? data.qty ?? 0)
   : Number(data.insertedFlyersOriginal || data.originalFlyerQuantity || data.flyerQuantity || data.qty || 10000);
@@ -3647,6 +3658,7 @@ const step1OperationalPoints = isMovementStep2
         : data.selectedSearchPoint
           ? [data.selectedSearchPoint]
           : [])
+      .map(normalizeSavedH2HPoint)
       .filter((point) => Number.isFinite(Number(point?.lat)) && Number.isFinite(Number(point?.lng)))
       .map((point, index) => ({
         ...point,
@@ -3681,7 +3693,7 @@ const step1PointTypeSearchTerm = ({
 const step1OperationalQuery = step1PointTypeSearchTerm && !normalizeTerritoryName(step1OperationalLocation).includes(normalizeTerritoryName(step1PointTypeSearchTerm))
   ? `${step1OperationalLocation} ${step1PointTypeSearchTerm}`.trim()
   : step1OperationalLocation;
-const hasSavedStep2Point = Boolean(data.selectedSearchPoint);
+const hasSavedStep2Point = Boolean(hydratedH2HSearchPoint);
 const shouldUseStep1OperationalLocation = Boolean(step1OperationalLocation && !hasSavedStep2Point);
 const [viewMode, setViewMode] = useState("distribuzione");
 const [thLayerId, setThLayerId] = useState(layers[0]?.id || null);
@@ -3722,8 +3734,8 @@ const resolveStep2City = (value) => {
   }
   return fuzzyCity;
 };
-const initialCity = data.city || resolveStep2City(data.cityName) || null;
-const [search, setSearch] = useState(data.selectedSearchPoint?.label || (shouldUseStep1OperationalLocation ? step1OperationalLocation : data.cityName) || "");
+const initialCity = hydratedH2HCity || data.city || resolveStep2City(data.cityName) || null;
+const [search, setSearch] = useState(hydratedH2HSearchPoint?.label || (shouldUseStep1OperationalLocation ? step1OperationalLocation : data.cityName) || "");
 const [city, setCity] = useState(initialCity);
 const [radius, setRadius] = useState(data.radius || 3);
 const [selected, setSelected] = useState(data.zones || []);
@@ -3749,7 +3761,7 @@ const [pendingNilPreselectName, setPendingNilPreselectName] = useState(null);
 // cerchio/marker/query su questo punto invece che sul centroide del comune
 // (es. "Milano via Brera" → raggio da Brera, non dal Duomo). Azzerato quando
 // l'utente seleziona un nuovo comune dalla ricerca.
-const [selectedSearchPoint, setSelectedSearchPoint] = useState(data.selectedSearchPoint || null);
+const [selectedSearchPoint, setSelectedSearchPoint] = useState(hydratedH2HSearchPoint || null);
 // Un indirizzo/punto (type "address") NON deve far calcolare in automatico
 // il comune completo (88 NIL/744.299 famiglie) — solo un click esplicito su
 // "Usa Milano comune completo" lo abilita. Azzerato ogni volta che cambia il
@@ -3820,7 +3832,7 @@ const [availableFlyers, setAvailableFlyers] = useState(() => isBusinessStep2
   // Comune dopo essere passati per Raggio (vedi effect sotto).
   const municipalityBoundaryCacheRef = useRef(new Map());
   const [hiddenBoundaries, setHiddenBoundaries] = useState([]);
-  const [selectedComuni, setSelectedComuni] = useState(data.selectedComuni || (data.city ? [data.city] : []));
+  const [selectedComuni, setSelectedComuni] = useState(hydratedH2HSelectedComuni || (initialCity ? [initialCity] : []));
   useEffect(() => {
     if (isStep2DebugEnabled()) {
       debugStep2Log("[MULTI_ZONE_STATE]", {
@@ -3988,20 +4000,9 @@ const [availableFlyers, setAvailableFlyers] = useState(() => isBusinessStep2
           };
           return score(b) - score(a);
         });
-        const best = ranked[0];
-        const address = best.address || {};
-        const label = best.display_name?.split(",").slice(0, 2).join(",") || step1OperationalQuery;
-        selectOperationalPoint(label, {
-          id: best.place_id,
-          lat: Number(best.lat),
-          lng: Number(best.lon),
-          name: best.display_name,
-          fullName: best.display_name,
-          city: address.city || address.town || address.village || address.municipality || null,
-          postcode: address.postcode || null,
-          province: address.county || null,
-          placeType: best.addresstype || best.type || best.class || "poi",
-        }, "step1_distribution_location");
+        const best = normalizeNominatimH2HBootstrapPoint(ranked[0]);
+        const label = best.name || step1OperationalQuery;
+        selectOperationalPoint(label, best, "step1_distribution_location");
       } catch (error) {
         if (error?.name !== "AbortError") {
           step1LocationBootstrapRef.current = "";

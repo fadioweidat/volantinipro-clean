@@ -81,3 +81,21 @@ export function normalizeNominatimGeocodeResult(result = {}, { addressLike = fal
   };
 }
 
+// Adapter for the Step 1 -> Step 2 H2H bootstrap. Municipality aliases are
+// still resolved exclusively by canonicalizeItalianMunicipalityName through
+// normalizeNominatimGeocodeResult; this only exposes the canonical value on
+// the fields consumed by selectOperationalPoint.
+export function normalizeNominatimH2HBootstrapPoint(result = {}, context = {}) {
+  const isRawNominatimResult = result.lon != null || result.address != null || result.display_name != null;
+  const normalized = isRawNominatimResult
+    ? normalizeNominatimGeocodeResult(result, { addressLike: true })
+    : { ...result };
+  const rawMunicipality = normalized.parentComune || normalized.city || normalized.municipality || normalized.comune || null;
+  const municipality = canonicalizeItalianMunicipalityName(rawMunicipality, { ...result, ...context });
+  return {
+    ...normalized,
+    city: municipality,
+    parentComune: municipality,
+    municipality,
+  };
+}
