@@ -1,3 +1,5 @@
+import { createAbortError, createTimeoutSignal, isAbortError, throwIfAborted } from './request-cancellation.js';
+
 // Real POI data from OpenStreetMap via Overpass API.
 // No API key required. Respects the /api/analysis/poi-search GeoJSON contract.
 
@@ -203,7 +205,7 @@ function dedup(pois) {
  * Returns Array<{id, lat, lng, name, category, color, priority, address, ...}>
  * Throws on timeout / network failure — caller (usePoi) handles errors.
  */
-export async function fetchPois({ centerLat, centerLng, radiusKm = 5, serviceType, targetSelection = [] }) {
+export async function fetchPois({ centerLat, centerLng, radiusKm = 5, serviceType, targetSelection = [] }, { signal, timeoutMs = 18_000 } = {}) {
   const tags       = getPoiTagsForTargets(serviceType, targetSelection);
   const radiusM    = radiusKm * 1000;
   const maxResults = serviceType === 'd2d' ? 80 : 150;
@@ -211,15 +213,15 @@ export async function fetchPois({ centerLat, centerLng, radiusKm = 5, serviceTyp
 
   let lastError = null;
   for (const endpoint of OVERPASS_ENDPOINTS) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 18_000);
+    throwIfAborted(signal);
+    const timeout = createTimeoutSignal(signal, timeoutMs);
 
     try {
       const res = await fetch(endpoint, {
         method:  'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body:    `data=${encodeURIComponent(query)}`,
-        signal:  ctrl.signal,
+        signal:  timeout.signal,
       });
       if (!res.ok) throw new Error(res.status === 504 ? 'OVERPASS_TIMEOUT' : `OVERPASS_HTTP_${res.status}`);
 
@@ -228,9 +230,10 @@ export async function fetchPois({ centerLat, centerLng, radiusKm = 5, serviceTyp
 
       return dedup(raw).sort((a, b) => b.priority - a.priority);
     } catch (err) {
-      lastError = err.name === 'AbortError' ? new Error('OVERPASS_TIMEOUT') : err;
+      if (signal?.aborted) throw isAbortError(err) ? err : (isAbortError(signal.reason) ? signal.reason : createAbortError());
+      lastError = timeout.didTimeout() ? new Error('OVERPASS_TIMEOUT') : err;
     } finally {
-      clearTimeout(timer);
+      timeout.cleanup();
     }
   }
 
@@ -241,8 +244,8 @@ export async function fetchPois({ centerLat, centerLng, radiusKm = 5, serviceTyp
  * GeoJSON FeatureCollection wrapper — matches the /api/analysis/poi-search contract.
  * Optionally filter by category names.
  */
-export async function fetchPoisGeoJSON({ centerLat, centerLng, radiusKm, serviceType, categories }) {
-  const pois     = await fetchPois({ centerLat, centerLng, radiusKm, serviceType });
+export async function fetchPoisGeoJSON({ centerLat, centerLng, radiusKm, serviceType, categories }, options) {
+  const pois     = await fetchPois({ centerLat, centerLng, radiusKm, serviceType }, options);
   const filtered = categories?.length
     ? pois.filter(p => categories.includes(p.category))
     : pois;

@@ -1,3 +1,5 @@
+import { createAbortError, createTimeoutSignal, isAbortError, throwIfAborted } from './request-cancellation.js';
+
 export const EMPTY_TRANSPORT_STATE = {
   available: false,
   count: 0,
@@ -92,26 +94,38 @@ function makeTransportLabel(sources, count = 0) {
   return `TPL · ${SOURCE_LABELS[sources[0]] || sources[0]}`;
 }
 
-export async function fetchTransportStopsInRadius({ centerLat, centerLng, radiusKm }) {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+export async function fetchTransportStopsInRadius({ centerLat, centerLng, radiusKm }, { signal, timeoutMs = 15_000 } = {}) {
+  throwIfAborted(signal);
+  const runtimeEnv = import.meta.env || (typeof process !== 'undefined' ? process.env : {});
+  const url = runtimeEnv.VITE_SUPABASE_URL;
+  const anonKey = runtimeEnv.VITE_SUPABASE_ANON_KEY;
   if (!url || !anonKey) return { rows: [] };
 
-  const response = await fetch(`${url}/rest/v1/rpc/get_transport_stops_in_radius`, {
-    method: 'POST',
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      center_lat: centerLat,
-      center_lng: centerLng,
-      radius_km: radiusKm,
-    }),
-  });
+  const timeout = createTimeoutSignal(signal, timeoutMs);
+  try {
+    const response = await fetch(`${url}/rest/v1/rpc/get_transport_stops_in_radius`, {
+      method: 'POST',
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        center_lat: centerLat,
+        center_lng: centerLng,
+        radius_km: radiusKm,
+      }),
+      signal: timeout.signal,
+    });
 
-  const rows = await response.json();
-  if (!response.ok) throw new Error(rows?.message || 'TRANSPORT_RPC_ERROR');
-  return { rows: Array.isArray(rows) ? rows : [] };
+    const rows = await response.json();
+    if (!response.ok) throw new Error(rows?.message || 'TRANSPORT_RPC_ERROR');
+    return { rows: Array.isArray(rows) ? rows : [] };
+  } catch (error) {
+    if (signal?.aborted) throw isAbortError(error) ? error : (isAbortError(signal.reason) ? signal.reason : createAbortError());
+    if (timeout.didTimeout()) throw new Error('TRANSPORT_TIMEOUT');
+    throw error;
+  } finally {
+    timeout.cleanup();
+  }
 }

@@ -26,18 +26,21 @@ function polygon(lng, lat, scale = 1) {
 
 const territories = {
   Varedo: { code: '108045', lat: 45.575, lng: 9.16, households: 6176, population: 13914, area: 4.8, recommended: 6794 },
+  Milano: { code: '015146', lat: 45.4642, lng: 9.1896, households: 604000, population: 1370000, area: 181.8, recommended: 664400 },
   Bergamo: { code: '016024', lat: 45.6983, lng: 9.6773, households: 52500, population: 120580, area: 40.2, recommended: 57750 },
 };
 
 function territoryFromUrl(url) {
   const parsed = new URL(url);
   const municipality = decodeURIComponent(parsed.searchParams.get('municipality') || '');
-  return /bergamo/i.test(municipality) ? territories.Bergamo : territories.Varedo;
+  if (/bergamo/i.test(municipality)) return territories.Bergamo;
+  if (/milano/i.test(municipality)) return territories.Milano;
+  return territories.Varedo;
 }
 
 function analysisFixture(url, service) {
   const territory = territoryFromUrl(url);
-  const name = territory === territories.Bergamo ? 'Bergamo' : 'Varedo';
+  const name = territory === territories.Bergamo ? 'Bergamo' : territory === territories.Milano ? 'Milano' : 'Varedo';
   const row = {
     municipality_code: territory.code,
     comune_name: name,
@@ -99,7 +102,9 @@ function mapboxFixture(url) {
   const decoded = decodeURIComponent(url).toLowerCase();
   const item = decoded.includes('bergamo')
     ? { name: 'Bergamo', id: 'place.bergamo', ...territories.Bergamo }
-    : { name: 'Varedo', id: 'place.varedo', ...territories.Varedo };
+    : decoded.includes('milano')
+      ? { name: 'Milano', id: 'place.milano', ...territories.Milano }
+      : { name: 'Varedo', id: 'place.varedo', ...territories.Varedo };
   return {
     type: 'FeatureCollection',
     features: [{
@@ -117,7 +122,11 @@ function mapboxFixture(url) {
 
 function nominatimFixture(url) {
   const decoded = decodeURIComponent(url).toLowerCase();
-  const item = decoded.includes('bergamo') ? { name: 'Bergamo', ...territories.Bergamo } : { name: 'Varedo', ...territories.Varedo };
+  const item = decoded.includes('bergamo')
+    ? { name: 'Bergamo', ...territories.Bergamo }
+    : decoded.includes('milano')
+      ? { name: 'Milano', ...territories.Milano }
+      : { name: 'Varedo', ...territories.Varedo };
   if (url.includes('format=geojson')) {
     return { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: polygon(item.lng, item.lat, item.name === 'Bergamo' ? 1.8 : 1), properties: { display_name: `${item.name}, Lombardia, Italia`, addresstype: 'town' } }] };
   }
@@ -130,6 +139,18 @@ const h2hElements = [
   { type: 'node', id: 103, lat: 45.577, lon: 9.164, tags: { leisure: 'fitness_centre', name: 'Palestra Varedo', 'addr:city': 'Varedo' } },
 ];
 
+const milanoElements = [
+  { type: 'node', id: 151, lat: 45.465, lon: 9.19, tags: { railway: 'station', name: 'Stazione Milano Centro', 'addr:city': 'Milano' } },
+  { type: 'node', id: 152, lat: 45.463, lon: 9.187, tags: { amenity: 'school', name: 'Istituto Milano', 'addr:city': 'Milano' } },
+  { type: 'node', id: 153, lat: 45.467, lon: 9.192, tags: { leisure: 'fitness_centre', name: 'Palestra Milano', 'addr:city': 'Milano' } },
+];
+
+const bergamoH2hElements = [
+  { type: 'node', id: 161, lat: 45.699, lon: 9.678, tags: { railway: 'station', name: 'Stazione Bergamo', 'addr:city': 'Bergamo' } },
+  { type: 'node', id: 162, lat: 45.697, lon: 9.675, tags: { amenity: 'school', name: 'Istituto Bergamo', 'addr:city': 'Bergamo' } },
+  { type: 'node', id: 163, lat: 45.701, lon: 9.68, tags: { leisure: 'fitness_centre', name: 'Palestra Bergamo', 'addr:city': 'Bergamo' } },
+];
+
 const businessElements = [
   { type: 'node', id: 201, lat: 45.699, lon: 9.678, tags: { shop: 'convenience', name: 'Bottega Bergamo', 'addr:street': 'Via Roma', 'addr:housenumber': '1', 'addr:city': 'Bergamo' } },
   { type: 'node', id: 202, lat: 45.697, lon: 9.675, tags: { amenity: 'pharmacy', name: 'Farmacia Centrale', 'addr:street': 'Via XX Settembre', 'addr:city': 'Bergamo' } },
@@ -137,12 +158,14 @@ const businessElements = [
   { type: 'node', id: 204, lat: 45.696, lon: 9.681, tags: { amenity: 'restaurant', name: 'Ristorante Città Alta', 'addr:city': 'Bergamo' } },
 ];
 
-async function installOfflineRoutes(page, ledger, { failPoi = false, failTransport = false, emptyPoi = false } = {}) {
+async function installOfflineRoutes(page, ledger, { failPoi = false, failTransport = false, emptyPoi = false, staleRace = false } = {}) {
+  const raceEnabled = () => typeof staleRace === 'object' ? staleRace.active === true : staleRace === true;
   await page.route('**/*', async route => {
     const request = route.request();
     const url = request.url();
     if (url.includes('/functions/v1/analysis-istat')) {
       ledger.analysisIstat += 1;
+      if (raceEnabled() && /municipality=Milano/i.test(url)) await new Promise(resolve => setTimeout(resolve, 1400));
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(analysisFixture(url, 'd2d')) });
     }
     if (url.includes('/functions/v1/analysis-poi-search')) {
@@ -152,15 +175,29 @@ async function installOfflineRoutes(page, ledger, { failPoi = false, failTranspo
     }
     if (/overpass/i.test(url)) {
       ledger.overpass += 1;
-      if (failPoi) return route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: 'rate limited' }) });
+      if (failPoi) return route.fulfill({ status: 200, contentType: 'application/json', body: '{invalid-json' });
       if (emptyPoi) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ version: 0.6, elements: [] }) });
       const body = request.postData() || '';
-      const elements = /office|pharmacy|tobacco|company|restaurant/i.test(decodeURIComponent(body)) && ledger.activeService === 'b2b' ? businessElements : h2hElements;
+      const decodedBody = decodeURIComponent(body);
+      const isMilanoRequest = /45\.46[3-7]/.test(decodedBody);
+      if (raceEnabled() && isMilanoRequest) await new Promise(resolve => setTimeout(resolve, 1400));
+      const elements = raceEnabled()
+        ? isMilanoRequest ? milanoElements : bergamoH2hElements
+        : /office|pharmacy|tobacco|company|restaurant/i.test(decodedBody) && ledger.activeService === 'b2b' ? businessElements : h2hElements;
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ version: 0.6, elements }) });
     }
     if (url.includes('/rest/v1/rpc/get_transport_stops_in_radius')) {
       ledger.transport += 1;
-      if (failTransport) return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'temporarily unavailable' }) });
+      if (failTransport) return route.fulfill({ status: 200, contentType: 'application/json', body: '{invalid-json' });
+      const transportBody = request.postData() || '';
+      const isMilanoTransport = /45\.46[3-7]/.test(transportBody);
+      if (raceEnabled() && isMilanoTransport) await new Promise(resolve => setTimeout(resolve, 1400));
+      if (raceEnabled() && !isMilanoTransport) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+        { source: 'gtfs_test', stop_id: 'B1', stop_name: 'Stazione Bergamo', stop_type: 'train', distance_m: 90, lat: 45.699, lng: 9.678, routes: [{ route_id: 'R2', route_short_name: 'R2', route_type_label: 'train' }] },
+      ]) });
+      if (raceEnabled()) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+        { source: 'gtfs_test', stop_id: 'M1', stop_name: 'Stazione Milano Centro', stop_type: 'train', distance_m: 80, lat: 45.465, lng: 9.19, routes: [{ route_id: 'M1', route_short_name: 'M1', route_type_label: 'metro' }] },
+      ]) });
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
         { source: 'gtfs_test', stop_id: 'V1', stop_name: 'Stazione Varedo', stop_type: 'train', distance_m: 120, lat: 45.576, lng: 9.161, routes: [{ route_id: 'S9', route_short_name: 'S9', route_type_label: 'train' }] },
       ]) });
@@ -179,7 +216,8 @@ async function installOfflineRoutes(page, ledger, { failPoi = false, failTranspo
     }
     if (url.includes('/rest/v1/')) return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'content-range': '0-0/0' }, body: '[]' });
     if (url.startsWith(projectUrl)) return route.continue();
-    if (url.includes('fonts.') || url.includes('/tiles/') || url.includes('mapbox')) return route.abort();
+    if (url.includes('fonts.')) return route.fulfill({ status: 200, contentType: 'text/css', body: '' });
+    if (url.includes('/tiles/') || url.includes('mapbox')) return route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64') });
     ledger.unhandled.push({ method: request.method(), url });
     return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });
@@ -262,10 +300,14 @@ async function main() {
   const ledger = { activeService: 'd2d', analysisIstat: 0, analysisPoi: 0, overpass: 0, transport: 0, geocode: 0, nominatim: 0, demographics: 0, unhandled: [] };
   const browser = await chromium.launch(browserLaunchOptions());
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const consoleErrors = [];
+  context.on('page', observedPage => observedPage.on('console', message => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  }));
   await context.addInitScript(() => { window.__VOLANTINIPRO_DEBUG_STEP2__ = true; });
   const page = await context.newPage();
   const pageErrors = [];
-  page.on('pageerror', error => pageErrors.push(error.stack || error.message));
+  page.on('pageerror', error => pageErrors.push(`[d2d] ${error.stack || error.message}`));
   await installOfflineRoutes(page, ledger);
 
   try {
@@ -281,6 +323,7 @@ async function main() {
     const beforeStep3 = structuredClone(d2d.truthModel);
     const continueButton = page.locator('button.btn').last();
     assert(await continueButton.isEnabled(), `CTA Step 3 disabilitata: ${await continueButton.innerText()}`);
+    await page.waitForTimeout(800);
     await continueButton.click();
     await page.waitForURL(/\/calendario/);
     results.push({ scenario: 'Step 2 → Step 3', status: 'PASS', route: page.url() });
@@ -296,7 +339,7 @@ async function main() {
     results.push({ scenario: 'Step 3 → Step 2 e persistenza', status: 'PASS', canonicalStable: true });
 
     const keyboardPage = await context.newPage();
-    keyboardPage.on('pageerror', error => pageErrors.push(error.stack || error.message));
+    keyboardPage.on('pageerror', error => pageErrors.push(`[keyboard] ${error.stack || error.message}`));
     await installOfflineRoutes(keyboardPage, ledger);
     await gotoStep2(keyboardPage, 'd2d');
     const keyboardSearch = keyboardPage.locator('input[placeholder="Cerca comune"]').first();
@@ -325,11 +368,12 @@ async function main() {
     await keyboardSearch.press('Escape');
     assert(!(await keyboardPage.getByRole('button', { name: 'Bergamo', exact: true }).last().isVisible()), 'Escape non chiude la lista suggerimenti');
     results.push({ scenario: 'Geocoding accessibile', status: 'PASS', tab: true, enter: true, space: true, escape: true, canonicalStable: true });
+    await keyboardPage.waitForTimeout(800);
     await keyboardPage.close();
 
     ledger.activeService = 'h2h';
     const h2hPage = await context.newPage();
-    h2hPage.on('pageerror', error => pageErrors.push(error.stack || error.message));
+    h2hPage.on('pageerror', error => pageErrors.push(`[h2h] ${error.stack || error.message}`));
     await installOfflineRoutes(h2hPage, ledger);
     await gotoStep2(h2hPage, 'h2h');
     await selectOperationalPois(h2hPage, 'h2h');
@@ -340,8 +384,66 @@ async function main() {
     assert(h2h.truthModel.rawData.transport != null, 'Stato TPL H2H non persistito', 'fixture');
     results.push({ scenario: 'H2H offline', status: 'PASS', canonical: { points: h2h.truthModel.territory.pois.length, quantity: h2h.truthModel.quantity, mobility: h2h.truthModel.availability.mobility } });
 
+    const racePage = await context.newPage();
+    racePage.on('pageerror', error => pageErrors.push(`[race] ${error.stack || error.message}`));
+    const raceControl = { active: false };
+    await installOfflineRoutes(racePage, ledger, { staleRace: raceControl });
+    await gotoStep2(racePage, 'h2h');
+    await waitForTruth(racePage, 'h2h', 'Varedo');
+    raceControl.active = true;
+    const overpassBeforeRace = ledger.overpass;
+    const transportBeforeRace = ledger.transport;
+
+    const raceSearch = racePage.locator('input[placeholder="Cerca comune o CAP"]').first();
+    await raceSearch.fill('Milano');
+    const milanoSuggestion = racePage.getByRole('button', { name: 'Milano', exact: true }).last();
+    await milanoSuggestion.waitFor({ state: 'visible', timeout: 10000 });
+    await milanoSuggestion.click();
+    for (let attempt = 0; attempt < 40 && (ledger.overpass === overpassBeforeRace || ledger.transport === transportBeforeRace); attempt += 1) {
+      await racePage.waitForTimeout(50);
+    }
+    assert(ledger.overpass > overpassBeforeRace && ledger.transport > transportBeforeRace, 'Le richieste lente della prima zona non sono partite', 'infrastructure');
+
+    await raceSearch.fill('Bergamo');
+    const bergamoSuggestion = racePage.getByRole('button', { name: 'Bergamo', exact: true }).last();
+    await bergamoSuggestion.waitFor({ state: 'visible', timeout: 10000 });
+    await bergamoSuggestion.click();
+    await racePage.waitForFunction(() => /Bergamo/i.test(window.__VOLANTINIPRO_STEP2_STATE__?.truthModel?.territory?.label || ''), null, { timeout: 10000 });
+    try {
+      await racePage.waitForFunction(() => {
+        const truth = window.__VOLANTINIPRO_STEP2_STATE__?.truthModel;
+        const poiText = JSON.stringify(truth?.rawData?.pois || []);
+        const transportText = JSON.stringify(truth?.rawData?.transport || {});
+        return /Bergamo/i.test(poiText) && /Bergamo/i.test(transportText);
+      }, null, { timeout: 20000 });
+    } catch (error) {
+      const debugState = await racePage.evaluate(() => {
+        const truth = window.__VOLANTINIPRO_STEP2_STATE__?.truthModel;
+        return { territory: truth?.territory?.label, pois: truth?.rawData?.pois, transport: truth?.rawData?.transport };
+      });
+      throw new Error(`Race POI/TPL non stabilizzata: ${JSON.stringify(debugState)}`);
+    }
+    const raceState = await racePage.evaluate(() => structuredClone(window.__VOLANTINIPRO_STEP2_STATE__));
+    const finalServiceData = JSON.stringify({ pois: raceState.truthModel.rawData.pois, transport: raceState.truthModel.rawData.transport });
+    assert(!/Milano/i.test(finalServiceData), 'POI/TPL della prima zona sono stati applicati dopo Bergamo');
+    assert(!(await racePage.getByTestId('poi-availability-warning').isVisible().catch(() => false)), 'Abort intenzionale ha mostrato warning POI');
+    assert(!(await racePage.getByTestId('transport-availability-warning').isVisible().catch(() => false)), 'Abort intenzionale ha mostrato warning TPL');
+
+    await selectOperationalPois(racePage, 'h2h');
+    await waitForTruth(racePage, 'h2h', 'Bergamo');
+    await racePage.waitForTimeout(800);
+    const raceContinue = racePage.locator('button.btn').last();
+    await raceContinue.click();
+    await racePage.waitForURL(/\/calendario/);
+    await racePage.getByRole('button', { name: /Zona e mappa|Indietro/i }).first().click();
+    await racePage.waitForURL(/\/zona/);
+    await waitForTruth(racePage, 'h2h', 'Bergamo');
+    await racePage.waitForTimeout(800);
+    results.push({ scenario: 'Richieste obsolete Milano/Bergamo', status: 'PASS', finalMunicipality: 'Bergamo', stalePoiTplApplied: false, warningsFromAbort: false, roundTrip: true });
+    await racePage.close();
+
     const errorPage = await context.newPage();
-    errorPage.on('pageerror', error => pageErrors.push(error.stack || error.message));
+    errorPage.on('pageerror', error => pageErrors.push(`[error] ${error.stack || error.message}`));
     await installOfflineRoutes(errorPage, ledger, { failPoi: true, failTransport: true });
     await gotoStep2(errorPage, 'h2h');
     const poiWarning = errorPage.getByTestId('poi-availability-warning');
@@ -360,7 +462,7 @@ async function main() {
     await errorPage.close();
 
     const emptyPage = await context.newPage();
-    emptyPage.on('pageerror', error => pageErrors.push(error.stack || error.message));
+    emptyPage.on('pageerror', error => pageErrors.push(`[empty] ${error.stack || error.message}`));
     await installOfflineRoutes(emptyPage, ledger, { emptyPoi: true });
     await gotoStep2(emptyPage, 'h2h');
     const emptyState = emptyPage.getByText(/Nessun luogo compatibile trovato/i);
@@ -371,7 +473,7 @@ async function main() {
 
     ledger.activeService = 'b2b';
     const businessPage = await context.newPage();
-    businessPage.on('pageerror', error => pageErrors.push(error.stack || error.message));
+    businessPage.on('pageerror', error => pageErrors.push(`[business] ${error.stack || error.message}`));
     await installOfflineRoutes(businessPage, ledger);
     await gotoStep2(businessPage, 'b2b');
     await selectOperationalPois(businessPage, 'b2b');
@@ -387,11 +489,12 @@ async function main() {
     assert(ledger.analysisPoi >= 2, 'Fixture analysis-poi-search non utilizzata per H2H e Business', 'infrastructure');
     assert(ledger.overpass >= 2, 'Fixture Overpass non utilizzata', 'infrastructure');
     assert(pageErrors.length === 0, `Errori pagina: ${pageErrors.join(' | ')}`);
-    console.log(JSON.stringify({ status: 'PASS', results, ledger, pageErrors }, null, 2));
+    assert(consoleErrors.length === 0, `Errori console: ${consoleErrors.join(' | ')}`);
+    console.log(JSON.stringify({ status: 'PASS', results, ledger, pageErrors, consoleErrors }, null, 2));
   } catch (error) {
     const state = await page.evaluate(() => window.__VOLANTINIPRO_STEP2_STATE__ ? structuredClone(window.__VOLANTINIPRO_STEP2_STATE__) : null).catch(() => null);
     const classification = error.classification || (/locator\.|waitFor|Timeout/i.test(error.message) ? 'infrastructure' : 'application');
-    console.error(JSON.stringify({ status: 'FAIL', classification, message: error.message, results, ledger, pageErrors, state }, null, 2));
+    console.error(JSON.stringify({ status: 'FAIL', classification, message: error.message, results, ledger, pageErrors, consoleErrors, state }, null, 2));
     process.exitCode = 1;
   } finally {
     await context.close();

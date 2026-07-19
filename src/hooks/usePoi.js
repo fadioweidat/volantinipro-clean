@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { fetchPois } from '../lib/services/poi-api.js';
+import { beginLatestRequest, isAbortError } from '../lib/services/request-cancellation.js';
 
 // In-module cache: keyed by "lat,lng,radiusKm,svcType".
 // Survives re-renders within the session; cleared on page reload.
@@ -18,6 +19,7 @@ export function usePoi(lat, lng, radiusKm, serviceType, targetSelection = []) {
   const [pois,    setPois]    = useState([]);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState(null);
+  const latestRequestRef = useRef(0);
 
   // Stable rounded key avoids micro-precision re-fetches from geocoder
   const latR = lat    != null ? Math.round(lat    * 1000) / 1000 : null;
@@ -29,6 +31,7 @@ export function usePoi(lat, lng, radiusKm, serviceType, targetSelection = []) {
 
   useEffect(() => {
     if (!latR || !lngR || !serviceType || !['d2d', 'h2h', 'b2b'].includes(serviceType)) {
+      latestRequestRef.current += 1;
       setPois([]);
       setLoading(false);
       setError(null);
@@ -38,13 +41,14 @@ export function usePoi(lat, lng, radiusKm, serviceType, targetSelection = []) {
     const cacheKey = `${latR},${lngR},${radR},${serviceType},${targetKey}`;
 
     if (_cache[cacheKey]) {
+      latestRequestRef.current += 1;
       setPois(_cache[cacheKey]);
       setLoading(false);
       setError(null);
       return;
     }
 
-    let cancelled = false;
+    const request = beginLatestRequest(latestRequestRef);
     let timerId;
 
     // Mostra subito lo stato di caricamento durante il debounce: in questo
@@ -53,8 +57,7 @@ export function usePoi(lat, lng, radiusKm, serviceType, targetSelection = []) {
     setError(null);
 
     timerId = setTimeout(async () => {
-      if (cancelled) return;
-      setPois([]);
+      if (!request.isCurrent() || request.signal.aborted) return;
 
       try {
         const result = await fetchPois({
@@ -63,13 +66,14 @@ export function usePoi(lat, lng, radiusKm, serviceType, targetSelection = []) {
           radiusKm:    radR ?? 5,
           serviceType,
           targetSelection: targetKey ? targetKey.split('|') : [],
-        });
-        if (!cancelled) {
+        }, { signal: request.signal });
+        if (request.isCurrent() && !request.signal.aborted) {
           _cache[cacheKey] = result;
           setPois(result);
         }
       } catch (err) {
-        if (!cancelled) {
+        if (isAbortError(err) || request.signal.aborted) return;
+        if (request.isCurrent()) {
           const msg = err?.message ?? 'POI_ERROR';
           setError(msg);
           // Keep existing pois on timeout so map doesn't go blank
@@ -77,13 +81,13 @@ export function usePoi(lat, lng, radiusKm, serviceType, targetSelection = []) {
           if (import.meta.env.DEV) console.debug('[usePoi] error:', msg);
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (request.isCurrent() && !request.signal.aborted) setLoading(false);
       }
     }, 700);
 
     return () => {
-      cancelled = true;
       clearTimeout(timerId);
+      request.controller.abort();
     };
   }, [latR, lngR, radR, serviceType, targetKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
