@@ -1706,6 +1706,157 @@ const Uv=[{id:"A6",label:"A6",size:"10x15 cm"},{id:"A5",label:"A5",size:"15x21 c
 const Kp=[{id:"photo_report_advanced",icon:"📸",label:"Report fotografico avanzato",price:"Extra",desc:"Report fotografico più dettagliato con evidenze ordinate per zona.",col:C.purple},{id:"report_analytics",icon:"📊",label:"Report Analytics",price:"Extra",desc:"Analisi post-campagna con KPI operativi e riepilogo territoriale.",col:C.green},{id:"photo_certification",icon:"🏅",label:"Certificazione fotografica",price:"Extra",desc:"Validazione fotografica con prove organizzate e verificabili.",col:C.orange},{id:"supervision",icon:"👁️",label:"Supervisione",price:"Extra",desc:"Controllo operativo aggiuntivo sul campo durante la campagna.",col:C.blue}];
 const Gu=[{id:"single",label:"Una sola campagna",icon:"1️⃣",disc:0},{id:"monthly3",label:"Trimestrale",icon:"📅",disc:5},{id:"monthly6",label:"Semestrale",icon:"🗓️",disc:10},{id:"monthly12",label:"Annuale",icon:"👑",disc:15}];
 
+/* Flat line icons for Step 1 (replace emoji). Same treatment as the
+   existing site icon set (see ServicesSection.jsx Mailbox/Users/Briefcase):
+   stroke-based, currentColor by default, sized via width/height. */
+function Step1Icon({ name, size = 24, color = "currentColor", style }) {
+  const svgProps = { width: size, height: size, fill: "none", "aria-hidden": true, style };
+  const strokeProps = { stroke: color, strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" };
+  switch (name) {
+    case "mailbox":
+      return (
+        <svg {...svgProps} viewBox="0 0 32 32">
+          <path d="M6 26V13.5A7.5 7.5 0 0 1 13.5 6h5A7.5 7.5 0 0 1 26 13.5V26" stroke={color} strokeWidth="2" strokeLinecap="round" />
+          <path d="M6 14h20M16 6v20M20 11h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+          <path d="M10 26h12" stroke={color} strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      );
+    case "handshake":
+      return (
+        <svg {...svgProps} viewBox="0 0 32 32">
+          <path d="M12 15a5 5 0 1 0 0-10 5 5 0 0 0 0 10ZM4 26c.8-5 3.7-8 8-8s7.2 3 8 8" stroke={color} strokeWidth="2" strokeLinecap="round" />
+          <path d="M22 14a4 4 0 1 0 0-8M21 18c3.4.4 5.7 3 6.3 7" stroke={color} strokeWidth="2" strokeLinecap="round" opacity=".65" />
+        </svg>
+      );
+    case "building":
+      return (
+        <svg {...svgProps} viewBox="0 0 32 32">
+          <path d="M10 11V8.5A2.5 2.5 0 0 1 12.5 6h7A2.5 2.5 0 0 1 22 8.5V11" stroke={color} strokeWidth="2" strokeLinecap="round" />
+          <path d="M6 12h20v14H6V12Z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+          <path d="M6 17h20M14 17v2h4v-2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case "lightbulb":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.45 1 1.15 1 1.9V16h5v-.2c0-.75.4-1.45 1-1.9A6 6 0 0 0 12 3Z" />
+        </svg>
+      );
+    case "target":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <circle {...strokeProps} cx="12" cy="12" r="8" /><circle {...strokeProps} cx="12" cy="12" r="4.5" /><circle {...strokeProps} cx="12" cy="12" r="1" />
+        </svg>
+      );
+    case "clock":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <circle {...strokeProps} cx="12" cy="12" r="8.5" /><path {...strokeProps} d="M12 7.5V12l3 2" />
+        </svg>
+      );
+    case "utensils":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M7 3v6a2 2 0 0 0 2 2v10M7 3v5M9 3v5M7 11h2M17 3c-1.6 0-3 1.7-3 4.5S15.4 12 17 12v9" />
+        </svg>
+      );
+    case "bag":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M6 8h12l-1 12H7L6 8Z" /><path {...strokeProps} d="M9 8V6a3 3 0 0 1 6 0v2" />
+        </svg>
+      );
+    case "medical":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <rect {...strokeProps} x="4" y="4" width="16" height="16" rx="3" /><path {...strokeProps} d="M12 8v8M8 12h8" />
+        </svg>
+      );
+    case "car":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M4 16V12l2-5h12l2 5v4" /><path {...strokeProps} d="M4 16h16M7 16v2M17 16v2" />
+          <circle cx="7.5" cy="16" r="1.4" fill={color} stroke="none" /><circle cx="16.5" cy="16" r="1.4" fill={color} stroke="none" />
+        </svg>
+      );
+    case "graduation":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M2 9 12 4l10 5-10 5-10-5Z" /><path {...strokeProps} d="M6 11.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5" />
+        </svg>
+      );
+    case "home":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M4 11 12 4l8 7" /><path {...strokeProps} d="M6 10v9h12v-9" />
+        </svg>
+      );
+    case "droplet":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M12 3s6 7 6 11a6 6 0 1 1-12 0c0-4 6-11 6-11Z" />
+        </svg>
+      );
+    case "dumbbell":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M4 10v4M20 10v4M2 12h2M20 12h2M7 8v8M17 8v8M7 12h10" />
+        </svg>
+      );
+    case "sparkles":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M12 3v4M12 17v4M3 12h4M17 12h4M6.5 6.5l2 2M15.5 15.5l2 2M17.5 6.5l-2 2M8.5 15.5l-2 2" />
+        </svg>
+      );
+    case "lightning":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} strokeLinejoin="round" d="M13 3 5 14h6l-1 7 8-11h-6l1-7Z" />
+        </svg>
+      );
+    case "calendar":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <rect {...strokeProps} x="4" y="5" width="16" height="15" rx="2" /><path {...strokeProps} d="M4 9h16M8 3v4M16 3v4" />
+        </svg>
+      );
+    case "calendarDays":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <rect {...strokeProps} x="4" y="5" width="16" height="15" rx="2" /><path {...strokeProps} d="M4 9h16M8 3v4M16 3v4" />
+          <circle cx="8.5" cy="13.2" r=".9" fill={color} stroke="none" /><circle cx="12" cy="13.2" r=".9" fill={color} stroke="none" /><circle cx="15.5" cy="13.2" r=".9" fill={color} stroke="none" />
+        </svg>
+      );
+    case "package":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M21 8 12 3 3 8l9 5 9-5Z" /><path {...strokeProps} d="M3 8v8l9 5 9-5V8" /><path {...strokeProps} d="M12 13v8" />
+        </svg>
+      );
+    case "printer":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M6 9V4h12v5" /><rect {...strokeProps} x="4" y="9" width="16" height="8" rx="2" /><path {...strokeProps} d="M6 14h12v7H6v-7Z" />
+        </svg>
+      );
+    case "lock":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <rect {...strokeProps} x="5" y="11" width="14" height="9" rx="2" /><path {...strokeProps} d="M8 11V7a4 4 0 0 1 8 0v4" />
+        </svg>
+      );
+    case "warning":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} strokeLinejoin="round" d="M12 4 21.5 20H2.5L12 4Z" /><path {...strokeProps} d="M12 10v4" /><circle cx="12" cy="17" r=".9" fill={color} stroke="none" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
 function Step1Help({ label, children }) {
   return (
     <span className="vp-s1-help-wrap">
@@ -1842,7 +1993,7 @@ function Step1({ data, setData, onNext, onHome }) {
       id: "d2d",
       name: "Door to Door",
       code: "D2D",
-      icon: "📬",
+      icon: "mailbox",
       badge: "Più richiesto",
       badgeColor: "#22C55E",
       desc: "Distribuzione capillare in cassette postali, condomini, palazzi, villette e zone residenziali.",
@@ -1857,7 +2008,7 @@ function Step1({ data, setData, onNext, onHome }) {
       id: "h2h",
       name: "Hand to Hand",
       code: "H2H",
-      icon: "🤝",
+      icon: "handshake",
       badge: "Alta Conversione",
       badgeColor: "#60A5FA",
       desc: "Distribuzione manuale e diretta da parte di promoter qualificati in punti ad alto flusso pedonale.",
@@ -1872,7 +2023,7 @@ function Step1({ data, setData, onNext, onHome }) {
       id: "b2b",
       name: "Distribuzione Business",
       code: "B2B",
-      icon: "🏢",
+      icon: "building",
       badge: "Mirato B2B",
       badgeColor: "#A78BFA",
       desc: "Consegna professionale e selezionata presso attività commerciali, uffici, studi e aziende.",
@@ -1886,28 +2037,28 @@ function Step1({ data, setData, onNext, onHome }) {
   ];
 
   const activityButtons = [
-    { value: "ristorazione", label: "🍕 Ristorazione" },
-    { value: "retail", label: "🛍 Retail" },
-    { value: "sanitario", label: "🏥 Sanitario" },
-    { value: "automotive", label: "🚗 Automotive" },
-    { value: "servizi", label: "🏢 Servizi professionali" },
-    { value: "scuole", label: "🎓 Scuole" },
-    { value: "immobiliare", label: "🏠 Immobiliare" },
-    { value: "beauty", label: "💄 Beauty" },
-    { value: "fitness", label: "🏋 Fitness" },
-    { value: "altro", label: "✨ Altro" },
+    { value: "ristorazione", icon: "utensils", label: "Ristorazione" },
+    { value: "retail", icon: "bag", label: "Retail" },
+    { value: "sanitario", icon: "medical", label: "Sanitario" },
+    { value: "automotive", icon: "car", label: "Automotive" },
+    { value: "servizi", icon: "building", label: "Servizi professionali" },
+    { value: "scuole", icon: "graduation", label: "Scuole" },
+    { value: "immobiliare", icon: "home", label: "Immobiliare" },
+    { value: "beauty", icon: "droplet", label: "Beauty" },
+    { value: "fitness", icon: "dumbbell", label: "Fitness" },
+    { value: "altro", icon: "sparkles", label: "Altro" },
   ];
 
   const periodPresets = [
-    { id: "asap", label: "⚡ Prima possibile", desc: "Avvio appena ultimata la preparazione logistica" },
-    { id: "within7", label: "📅 Entro 7 giorni", desc: "Distribuzione programmata nella prossima settimana" },
-    { id: "within15", label: "🗓️ Entro 15 giorni", desc: "Pianificazione strategica a breve termine" },
-    { id: "custom", label: "🎯 Scelgo la data", desc: "Definisci tu il periodo esatto di inizio e fine" },
+    { id: "asap", icon: "lightning", label: "Prima possibile", desc: "Avvio appena ultimata la preparazione logistica" },
+    { id: "within7", icon: "calendar", label: "Entro 7 giorni", desc: "Distribuzione programmata nella prossima settimana" },
+    { id: "within15", icon: "calendarDays", label: "Entro 15 giorni", desc: "Pianificazione strategica a breve termine" },
+    { id: "custom", icon: "target", label: "Scelgo la data", desc: "Definisci tu il periodo esatto di inizio e fine" },
   ];
 
   const materialOptions = [
-    { id: "yes", icon: "📦", label: "No, ho già i volantini", desc: "Fornisci tu il materiale pronto per la distribuzione logistica" },
-    { id: "no", icon: "🖨️", label: "Sì, voglio anche stampa", desc: "Aggiungiamo la stampa tipografica professionale al preventivo finale" },
+    { id: "yes", icon: "package", label: "No, ho già i volantini", desc: "Fornisci tu il materiale pronto per la distribuzione logistica" },
+    { id: "no", icon: "printer", label: "Sì, voglio anche stampa", desc: "Aggiungiamo la stampa tipografica professionale al preventivo finale" },
   ];
   const printFormatOptions = [
     { id: "A6", label: "A6", size: "10x15 cm" },
@@ -2504,13 +2655,13 @@ function Step1({ data, setData, onNext, onHome }) {
                         {t.badge}
                       </div>
                     )}
-                    <div style={{ fontSize: 36, marginBottom: 16 }}>{t.icon}</div>
+                    <div style={{ marginBottom: 16 }}><Step1Icon name={t.icon} size={36} color={active ? s1Green : "rgba(255,255,255,.82)"} /></div>
                     <div style={{ fontFamily: F.serif, fontSize: 22, color: "#F8FAFC", marginBottom: 8 }}>{t.name}</div>
                     <p style={{ fontFamily: F.sans, fontSize: 13, lineHeight: 1.55, color: "#94A3B8", margin: "0 0 18px", minHeight: 40 }}>{t.desc}</p>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14, borderRadius: 12, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,0.065)", marginBottom: 20, flex: 1 }}>
-                      <div style={{ fontSize: 12, color: "#CBD5E1" }}>💡 <b style={{ color: "#F8FAFC" }}>Casi d'uso:</b> {t.useCases}</div>
-                      <div style={{ fontSize: 12, color: "#CBD5E1" }}>🎯 <b style={{ color: "#F8FAFC" }}>Target:</b> {t.target}</div>
-                      <div style={{ fontSize: 12, color: "#CBD5E1" }}>⏱️ <b style={{ color: "#F8FAFC" }}>Tempo medio:</b> {t.time}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#CBD5E1" }}><Step1Icon name="lightbulb" size={14} /> <b style={{ color: "#F8FAFC" }}>Casi d'uso:</b> {t.useCases}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#CBD5E1" }}><Step1Icon name="target" size={14} /> <b style={{ color: "#F8FAFC" }}>Target:</b> {t.target}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#CBD5E1" }}><Step1Icon name="clock" size={14} /> <b style={{ color: "#F8FAFC" }}>Tempo medio:</b> {t.time}</div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 14, borderTop: `1px solid ${active ? "rgba(34,197,94,.24)" : "rgba(255,255,255,0.08)"}` }}>
                       <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 600, color: "#64748B", fontStyle: "italic" }}>Prezzo calcolato nel preventivo finale</span>
@@ -2559,9 +2710,14 @@ function Step1({ data, setData, onNext, onHome }) {
                       fontWeight: active ? 800 : 600,
                       cursor: "pointer",
                       textAlign: "center",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 8,
                     }}
                   >
-                    {btn.label}
+                    <Step1Icon name={btn.icon} size={22} />
+                    <span>{btn.label}</span>
                   </button>
                 );
               })}
@@ -2786,8 +2942,8 @@ function Step1({ data, setData, onNext, onHome }) {
             <h2 style={{ fontFamily: F.serif, fontSize: 26, color: "#F8FAFC", margin: "0 0 10px" }}>
               Quanti volantini desideri distribuire?
             </h2>
-            <div style={{ padding: "12px 18px", borderRadius: 12, background: "rgba(34,197,94,.08)", border: "1px solid rgba(34,197,94,.22)", color: "#A7F3D0", fontSize: 13, fontWeight: 700, marginBottom: 24 }}>
-              💡 La copertura stimata (famiglie raggiunte e percentuale di zona) verrà calcolata automaticamente nello Step 2 in base all'area sulla mappa.
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 18px", borderRadius: 12, background: "rgba(34,197,94,.08)", border: "1px solid rgba(34,197,94,.22)", color: "#A7F3D0", fontSize: 13, fontWeight: 700, marginBottom: 24 }}>
+              <Step1Icon name="lightbulb" size={16} style={{ flexShrink: 0 }} /> La copertura stimata (famiglie raggiunte e percentuale di zona) verrà calcolata automaticamente nello Step 2 in base all'area sulla mappa.
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24 }}>
@@ -2881,10 +3037,17 @@ function Step1({ data, setData, onNext, onHome }) {
                       borderRadius: 16,
                       ...s1Card(active),
                       cursor: "pointer",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 14,
+                      textAlign: "left",
                     }}
                   >
-                    <div style={{ fontFamily: F.sans, fontSize: 16, fontWeight: 800, color: active ? s1Green : "#F8FAFC", marginBottom: 6 }}>{p.label}</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 13, color: "#94A3B8", lineHeight: 1.4 }}>{p.desc}</div>
+                    <Step1Icon name={p.icon} size={26} color={active ? s1Green : "#F8FAFC"} style={{ flexShrink: 0, marginTop: 2 }} />
+                    <div>
+                      <div style={{ fontFamily: F.sans, fontSize: 16, fontWeight: 800, color: active ? s1Green : "#F8FAFC", marginBottom: 6 }}>{p.label}</div>
+                      <div style={{ fontFamily: F.sans, fontSize: 13, color: "#94A3B8", lineHeight: 1.4 }}>{p.desc}</div>
+                    </div>
                   </button>
                 );
               })}
@@ -2893,7 +3056,7 @@ function Step1({ data, setData, onNext, onHome }) {
             {/* Calendario visualizzato SOLO quando "Scelgo la data" è selezionato */}
             {(data.campaignPeriodPreset === "custom" || !data.campaignPeriodPreset) && (
               <div style={{ padding: 24, borderRadius: 18, background: "rgba(9,18,33,.58)", border: "1px solid rgba(255,255,255,.105)", marginTop: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: "#CBD5E1", marginBottom: 16 }}>🎯 Seleziona le date desiderate sul calendario:</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 800, color: "#CBD5E1", marginBottom: 16 }}><Step1Icon name="target" size={16} /> Seleziona le date desiderate sul calendario:</div>
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
                   {[
                     { label: "Data preferita di inizio", key: "startDate" },
@@ -2937,9 +3100,9 @@ function Step1({ data, setData, onNext, onHome }) {
                                 try { el.showPicker(); } catch { el.click(); }
                               }
                             }}
-                            style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", cursor: "pointer", fontSize: 18 }}
+                            style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", cursor: "pointer", display: "flex", color: "#94A3B8" }}
                           >
-                            📅
+                            <Step1Icon name="calendar" size={18} />
                           </span>
                         </div>
                         {val && <div style={{ fontSize: 11, color: "#22C55E", marginTop: 4, fontWeight: 700 }}>✓ Confermato: {formatDateDisplay(val)}</div>}
@@ -2948,8 +3111,8 @@ function Step1({ data, setData, onNext, onHome }) {
                   })}
                 </div>
                 {dateError && (
-                  <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "rgba(239,68,68,0.15)", border: "1px solid #EF4444", color: "#EF4444", fontSize: 12, fontWeight: 700 }}>
-                    ⚠️ La data di fine precede la data di inizio. Per favore correggila.
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "rgba(239,68,68,0.15)", border: "1px solid #EF4444", color: "#EF4444", fontSize: 12, fontWeight: 700 }}>
+                    <Step1Icon name="warning" size={14} /> La data di fine precede la data di inizio. Per favore correggila.
                   </div>
                 )}
               </div>
@@ -2994,7 +3157,7 @@ function Step1({ data, setData, onNext, onHome }) {
                       color: "inherit",
                     }}
                   >
-                    <span style={{ fontSize: 36 }}>{m.icon}</span>
+                    <Step1Icon name={m.icon} size={36} color={active ? s1Green : "#F8FAFC"} style={{ flexShrink: 0 }} />
                     <div>
                       <div style={{ fontSize: 18, fontWeight: 800, color: active ? s1Green : "#F8FAFC", marginBottom: 6 }}>{m.label}</div>
                       <div style={{ fontSize: 13, color: "#94A3B8", lineHeight: 1.5 }}>{m.desc}</div>
@@ -3246,7 +3409,7 @@ function Step1({ data, setData, onNext, onHome }) {
           <div style={{ ...s1Panel, padding: isMobile ? 24 : 36, position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(34,197,94,.12) 0%, transparent 70%)", pointerEvents: "none" }} />
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "4px 12px", borderRadius: 100, background: "rgba(34,197,94,.12)", color: s1Green, border: "1px solid rgba(34,197,94,.26)", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 16 }}>
-              ⚡ Trasparenza Garantita
+              <Step1Icon name="lightning" size={13} /> Trasparenza Garantita
             </div>
             <h2 style={{ fontFamily: F.serif, fontSize: 30, color: "#F8FAFC", margin: "0 0 20px" }}>
               Prossimo passaggio
@@ -3275,7 +3438,7 @@ function Step1({ data, setData, onNext, onHome }) {
                   <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))", gap: "8px 16px" }}>
                     {ctaChecklist.map((item) => (
                       <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 8, color: item.complete ? "#86EFAC" : "#FCD34D", fontSize: 12, fontWeight: 750 }}>
-                        <span aria-hidden="true">{item.complete ? "✓" : "⚠"}</span>
+                        <span aria-hidden="true">{item.complete ? "✓" : <Step1Icon name="warning" size={12} />}</span>
                         <span>{item.label}</span>
                       </div>
                     ))}
@@ -3315,7 +3478,7 @@ function Step1({ data, setData, onNext, onHome }) {
                 </div>
               )}
               <div style={{ fontSize: 13, color: "#94A3B8", display: "flex", alignItems: "center", gap: 6 }}>
-                <span>🔒</span> <b>Nessun pagamento richiesto in questa fase.</b> Potrai personalizzare ogni dettaglio.
+                <Step1Icon name="lock" size={14} /> <b>Nessun pagamento richiesto in questa fase.</b> Potrai personalizzare ogni dettaglio.
               </div>
             </div>
           </div>
@@ -3331,7 +3494,7 @@ function Step1({ data, setData, onNext, onHome }) {
           <div style={{ position: "relative", width: "100%", maxWidth: 460, background: "#0F172A", border: "1px solid rgba(148,163,184,0.2)", borderRadius: 24, padding: 28, boxShadow: "0 24px 64px rgba(0,0,0,0.6)", zIndex: 1 }}>
             <button onClick={() => setShowSmartPairingModal(false)} style={{ position: "absolute", top: 20, right: 20, background: "none", border: "none", color: "#94A3B8", fontSize: 24, cursor: "pointer" }}>×</button>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <span style={{ fontSize: 24 }}>✨</span>
+              <Step1Icon name="sparkles" size={24} color={s1Green} />
               <h3 style={{ fontFamily: F.serif, fontSize: 22, color: "#F8FAFC", margin: 0 }}>Smart Pairing AI</h3>
             </div>
             <p style={{ fontSize: 14, color: "#CBD5E1", lineHeight: 1.6, marginBottom: 14 }}>
