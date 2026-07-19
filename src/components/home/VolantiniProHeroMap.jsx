@@ -264,7 +264,7 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.22, ease: "easeOut" }}
-          style={{ paddingTop: compact ? 0 : 16 }}
+          style={{ paddingTop: compact ? 0 : 16, position: "relative", zIndex: 10 }}
         >
           <div style={heroEyebrowStyle}>VOLANTINAGGIO &middot; DISTRIBUZIONE &middot; CONTROLLO GPS</div>
 
