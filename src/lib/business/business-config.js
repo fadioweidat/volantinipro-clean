@@ -119,13 +119,15 @@ export function calculateBusinessMaterials(selectedPois = [], assignments = {}, 
   const materialsRequired = calculableRows.length === rows.length
     ? calculableRows.reduce((total, row) => total + row.copies, 0)
     : null;
-  const inserted = Math.max(0, Number(data.businessMaterialQuantity ?? data.qty ?? 0) || 0);
+  const insertedRaw = data.businessMaterialQuantity ?? data.qty ?? null;
+  const insertedNumber = insertedRaw == null || insertedRaw === "" ? null : Number(insertedRaw);
+  const inserted = Number.isFinite(insertedNumber) ? Math.max(0, insertedNumber) : null;
   return {
     rows,
     inserted,
     materialsRequired,
-    materialsRemaining: materialsRequired == null ? null : Math.max(0, inserted - materialsRequired),
-    materialsMissing: materialsRequired == null ? null : Math.max(0, materialsRequired - inserted),
+    materialsRemaining: materialsRequired == null || inserted == null ? null : Math.max(0, inserted - materialsRequired),
+    materialsMissing: materialsRequired == null || inserted == null ? null : Math.max(0, materialsRequired - inserted),
     selectedActivities: rows.length,
   };
 }

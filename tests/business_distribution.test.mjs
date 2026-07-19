@@ -56,6 +56,11 @@ const undefinedCopies = calculateBusinessMaterials(pois, {}, {
 });
 assert.equal(undefinedCopies.materialsRequired, null);
 
+const unavailableInserted = calculateBusinessMaterials(pois, {}, { businessCopiesMode: 'fixed_1' });
+assert.equal(unavailableInserted.inserted, null);
+assert.equal(unavailableInserted.materialsRemaining, null);
+assert.equal(unavailableInserted.materialsMissing, null);
+
 const plan = calculateBusinessOperationalPlan(84, {
   businessDeliveryMethod: 'owner',
   businessPreferredStartDate: '2026-07-20',

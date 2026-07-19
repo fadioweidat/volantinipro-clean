@@ -16,17 +16,24 @@ const COMPARE = "#A855F7";
 
 const NAV_SECTIONS = [
   { id: "panoramica", label: "Panoramica", services: ["d2d", "h2h", "b2b"] },
-  { id: "copertura", label: "Copertura e quantità", businessLabel: "Copertura e materiali", services: ["d2d", "h2h", "b2b"] },
-  { id: "zone", label: "Zone e priorità", businessLabel: "Zone commerciali", services: ["d2d", "h2h", "b2b"] },
-  { id: "demografia", label: "Demografia e target", services: ["d2d", "h2h"] },
-  { id: "edifici", label: "Edifici e territorio", services: ["d2d"] },
-  { id: "economia", label: "Economia e immobili", services: ["d2d", "h2h"] },
-  { id: "mobilita", label: "Mobilità e POI", services: ["h2h"] },
-  { id: "imprese", label: "Attività, categorie e aree produttive", services: ["b2b"] },
-  { id: "operativo", label: "Percorso e capacità operativa", services: ["b2b"] },
+  { id: "copertura", label: "Copertura e quantità", businessLabel: "Copertura e materiali", services: ["d2d", "h2h", "b2b"], availability: "coverage" },
+  { id: "zone", label: "Zone e priorità", businessLabel: "Zone commerciali", services: ["d2d", "h2h", "b2b"], availability: "allocation" },
+  { id: "demografia", label: "Demografia e target", services: ["d2d"], availability: "demographics" },
+  { id: "edifici", label: "Edifici e territorio", services: ["d2d"], availability: "buildings" },
+  { id: "economia", label: "Economia e immobili", services: ["d2d", "h2h"], availability: "economy" },
+  { id: "mobilita", label: "Mobilità e POI", services: ["h2h"], availability: "mobility" },
+  { id: "imprese", label: "Attività, categorie e aree produttive", services: ["b2b"], availability: "business" },
+  { id: "operativo", label: "Percorso e capacità operativa", services: ["b2b"], availability: "business" },
   { id: "score", label: "Score e raccomandazioni", businessLabel: "Score Business e raccomandazioni", services: ["d2d", "h2h", "b2b"] },
   { id: "fonti", label: "Fonti e metodologia", services: ["d2d", "h2h", "b2b"] },
 ];
+
+export function getVisibleTerritorialSections(truthModel) {
+  const serviceKey = truthModel?.service?.key;
+  return NAV_SECTIONS.filter((section) => section.services.includes(serviceKey)
+    && (!section.availability || truthModel?.availability?.[section.availability] === true)
+    && (section.id !== "score" || truthModel?.score != null));
+}
 
 function fmtInt(v) {
   if (v == null || !Number.isFinite(Number(v))) return null;
@@ -786,14 +793,42 @@ function SectionFonti({ p, isMobile }) {
 // ---------------------------------------------------------------------------
 
 export default function TerritorialReport(props) {
-  const { p, isMobile } = props;
+  const { p: presentation, truthModel: inputTruthModel, isMobile } = props;
+  const truthModel = inputTruthModel || presentation?.truthModel;
+  if (!truthModel) throw new TypeError("TerritorialReport requires truthModel");
+  const p = useMemo(() => ({
+    ...presentation,
+    truthModel,
+    service: truthModel.service,
+    territory: { ...presentation.territory, ...truthModel.territory, zoneStats: truthModel.zones },
+    quantity: {
+      ...presentation.quantity,
+      available: truthModel.availability?.quantity === true,
+      inserted: truthModel.quantity.current,
+      originalInserted: truthModel.quantity.inserted,
+      baseRequirement: truthModel.quantity.baseRequirement,
+      operationalMargin: truthModel.quantity.operationalMargin,
+      recommended: truthModel.quantity.recommendedRequirement,
+      days: truthModel.duration.days,
+      operatorCount: truthModel.duration.operatorCount,
+      quantityForDays: truthModel.duration.scenarioQuantity,
+      quotient: truthModel.duration.operatorDays,
+      shortage: truthModel.quantity.shortage,
+      surplus: truthModel.quantity.surplus,
+      coverageFormula: truthModel.coverage.formula,
+    },
+    coverage: { value: truthModel.coverage.operationalPct, label: presentation.coverage?.label, denominator: truthModel.coverage.denominator },
+    zoneRows: truthModel.allocation.rows,
+    confidence: truthModel.confidence,
+    sourceRegistry: truthModel.sourceMetadata,
+  }), [presentation, truthModel]);
   const [activeSection, setActiveSection] = useState("panoramica");
   const [showQuantity, setShowQuantity] = useState(false);
   const [showScenario, setShowScenario] = useState(false);
 
   const visibleSections = useMemo(
-    () => NAV_SECTIONS.filter((s) => s.services.includes(p.service.key)),
-    [p.service.key]
+    () => getVisibleTerritorialSections(truthModel),
+    [p.service.key, truthModel.availability]
   );
 
   const handleExportPdf = useCallback(() => {

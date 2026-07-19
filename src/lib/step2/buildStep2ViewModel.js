@@ -60,13 +60,9 @@ export function formatCoverageProportion(pct, unitWord = "famiglia", pluralWord 
  * @param {"full_municipality"|"radius"|"custom_zone"|"cap"|"unconfirmed_address"} input.areaMode
  * @param {string|null} input.cityName - nome del comune/ancora selezionato
  * @param {number|null} input.radiusKm - valorizzato solo se areaMode === "radius"
- * @param {boolean} input.isResidentialStep2
- * @param {boolean} input.isMovementStep2
- * @param {object} input.serviceKpis - { families, poi, businesses, coverage, recommendedFlyers, area }
- * @param {number} input.requiredFlyers
- * @param {number} input.flyerQuantityFromStep1
- * @param {number} input.missingFlyers
- * @param {number} input.zoneCount
+ * @param {object} input.truthModel - fonte canonica di quantità, copertura,
+ * disponibilità, durata e allocazione; questa funzione aggiunge solo label e
+ * stato visuale.
  * @param {boolean} input.isNilAnalysis
  * @param {string} input.territoryPluralLabel
  * @param {number} [input.selectedComuniCount]
@@ -99,17 +95,11 @@ export function formatCoverageProportion(pct, unitWord = "famiglia", pluralWord 
  */
 export function buildStep2ViewModel(params = {}) {
   const {
+    truthModel,
     areaMode = "municipality",
     primarySource: inputPrimarySource = null,
     cityName = null,
     radiusKm = null,
-    isResidentialStep2 = true,
-    isMovementStep2 = false,
-    serviceKpis = {},
-    requiredFlyers = 0,
-    flyerQuantityFromStep1 = 0,
-    missingFlyers = 0,
-    zoneCount = 1,
     isNilAnalysis = false,
     territoryPluralLabel = "comuni",
     selectedComuniCount = 0,
@@ -139,6 +129,18 @@ export function buildStep2ViewModel(params = {}) {
     intersectedNilCount = 0,
     selectedNilCount = 0,
   } = params;
+
+  if (!truthModel) throw new TypeError("truthModel is required");
+  const serviceKey = truthModel.service?.key || "d2d";
+  const isResidentialStep2 = serviceKey === "d2d";
+  const isMovementStep2 = serviceKey === "h2h";
+  const activeServiceData = isResidentialStep2
+    ? truthModel.d2d
+    : isMovementStep2
+      ? truthModel.h2h
+      : truthModel.business;
+  const serviceKpis = activeServiceData?.kpis || {};
+  const zoneCount = truthModel.zones?.available ?? truthModel.zones?.involved ?? null;
 
   const cleanCityName = typeof cityName === "string" ? cityName.trim() : "";
   const unitWord = isResidentialStep2 ? "famiglia" : isMovementStep2 ? "punto" : "azienda";
@@ -199,13 +201,11 @@ export function buildStep2ViewModel(params = {}) {
   // Il KPI primario dipende dal servizio. Usare sempre `families` azzerava
   // Hand to Hand e Business anche quando POI/aziende erano disponibili,
   // bloccando inoltre la validazione geografica e la CTA dello Step 2.
-  const primaryFamiliesValue = Number(
-    isResidentialStep2
-      ? serviceKpis?.families
-      : isMovementStep2
-        ? serviceKpis?.poi
-        : serviceKpis?.businesses
-  ) || 0;
+  const primaryFamiliesValue = isResidentialStep2
+    ? (serviceKpis?.families ?? null)
+    : isMovementStep2
+      ? (serviceKpis?.poi ?? null)
+      : (serviceKpis?.businesses ?? null);
   const primaryAreaLabel = areaMode === "radius"
     ? `Raggio ${radiusKm} km ${radiusOriginLabel}`
     : areaMode === "custom_zone"
@@ -222,12 +222,12 @@ export function buildStep2ViewModel(params = {}) {
       ? (isResidentialStep2 ? "Famiglie/cassette stimate nel territorio" : `${unitWord} NIL selezionate`)
       : (isResidentialStep2 ? "Famiglie/cassette stimate nel territorio" : isMovementStep2 ? "Punti di interesse" : "Aziende raggiungibili");
 
-  const primaryCoverageValue = Number.isFinite(Number(serviceKpis?.coverage)) ? Number(serviceKpis.coverage) : null;
+  const primaryCoverageValue = truthModel.coverage?.operationalPct ?? null;
   const primaryCoverageProportionLabel = primaryCoverageValue != null
     ? formatCoverageProportion(primaryCoverageValue, unitWord, pluralWord)
     : null;
 
-  const recommendedFlyersValue = Number(requiredFlyers) > 0 ? Number(requiredFlyers) : Number(serviceKpis?.recommendedFlyers || 0);
+  const recommendedFlyersValue = truthModel.quantity?.recommendedRequirement ?? null;
   const primaryCoverageLabel = (recommendedFlyersValue > 0 && (recommendedFlyersValue !== primaryFamiliesValue || areaMode === "radius" || areaMode === "custom_zone" || usingMunicipalityFullCoverage === false))
     ? "Copertura del fabbisogno operativo"
     : areaMode === "radius"
@@ -244,11 +244,9 @@ export function buildStep2ViewModel(params = {}) {
       ? "Quantità consigliata per NIL selezionate"
       : "Quantità consigliata";
 
-  const insertedFlyersValue = Number(flyerQuantityFromStep1) || 0;
-  const missingFlyersValue = Number(missingFlyers) > 0
-    ? Number(missingFlyers)
-    : Math.max(0, recommendedFlyersValue - insertedFlyersValue);
-  const surplusFlyersValue = Math.max(0, insertedFlyersValue - recommendedFlyersValue);
+  const insertedFlyersValue = truthModel.quantity?.inserted ?? null;
+  const missingFlyersValue = truthModel.quantity?.shortage ?? null;
+  const surplusFlyersValue = truthModel.quantity?.surplus ?? null;
 
   const territoryLabel = areaMode === "radius"
     ? `Raggio ${radiusKm} km ${radiusOriginLabel}`
@@ -294,6 +292,7 @@ export function buildStep2ViewModel(params = {}) {
         : Boolean(usingMunicipalityFullCoverage !== false && hasSelectedMunicipality);
 
   const isGeographicCoverageValid = Boolean(
+    truthModel.calculation?.status === "ready" &&
     hasConfirmedZone &&
     hasConfirmedCoverageMode &&
     modeIsConfirmed &&
@@ -305,11 +304,8 @@ export function buildStep2ViewModel(params = {}) {
     hasPositiveRecommended
   );
   const hasUsableCoverageData = Boolean(
-    !hasCalculationError &&
-    isCalculationComplete &&
-    hasPositiveArea &&
-    hasPositiveReach &&
-    hasPositiveRecommended
+    truthModel.availability?.coverage &&
+    truthModel.calculation?.status === "ready"
   );
 
   const isCoverageDecisionValid = Boolean(

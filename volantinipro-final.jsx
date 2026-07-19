@@ -44,7 +44,7 @@ import { MetricValue } from "./src/components/ui/MetricValue.tsx";
 import { sendEmailConferma } from "./src/api/sendEmailConferma.js";
 import { computeDoorToDoorCoverage, getZoneFullCoverageFlyers } from "./src/lib/doorToDoorCoverage.js";
 import { buildStep2ViewModel, formatCoverageProportion } from "./src/lib/step2/buildStep2ViewModel.js";
-import { buildStep2TruthModel } from "./src/lib/step2/buildStep2TruthModel.js";
+import { buildStep2TruthModel, buildStep2ToStep3Payload } from "./src/lib/step2/buildStep2TruthModel.js";
 import { checkMilanoTerritory } from "./src/lib/step2/milanoTerritoryHelper.js";
 import { allowMockData, isProduction } from "./src/lib/runtimeFlags.js";
 import { defaultLayerState } from "./src/lib/dataSources.js";
@@ -6141,16 +6141,17 @@ function zoneColor(z) { return activeLay ? thColor(z[activeLay.field], thMin, th
   const center = city ? localProj(city.lat, city.lng) : { x: MW / 2, y: MH / 2 };
 const rPx = kmToPx(radius);
 const businessMapZones = isBusinessStep2 ? zonesInRadius.map(z => ({...z, businessScore: businessZoneScore(z), clusterRows: businessRows([z], targetBusinessMeta)})).sort((a, b) => businessZoneScore(b) - businessZoneScore(a)) : [];
-  const liveServicePointCount = pois.length > 0 ? pois.length : backendPois.length;
   const liveNonResidentialRequirement = svcType === "h2h" && configuredH2HCapacity > 0
     ? configuredH2HCapacity
-    : svcType === "h2h" && liveServicePointCount > 0
-      ? liveServicePointCount * 2
-    : svcType === "b2b" && selectedOperationalPois.length > 0
-      ? selectedOperationalPois.reduce((total, point) => total + Math.max(1, Number(point.copies || 1)), 0)
-    : svcType === "b2b" && liveServicePointCount > 0
-      ? liveServicePointCount * 3
-      : selZones.reduce((a, z) => a + zCap(z), 0);
+    : svcType === "h2h" && selectedOperationalPois.length > 0
+      ? selectedOperationalPois.reduce((total, point) => total + Math.round(Math.max(1, Number(point.serviceDurationHours || serviceDurationForStep2)) * H2H_FLYERS_PER_PROMOTER_HOUR), 0)
+      : svcType === "h2h" && step1OperationalPoints.length > 0
+        ? step1OperationalPoints.every((point) => Number.isFinite(Number(point.assignedQuantity)))
+          ? step1OperationalPoints.reduce((total, point) => total + Number(point.assignedQuantity), 0)
+          : null
+        : svcType === "b2b"
+          ? businessMaterialPlan?.materialsRequired ?? null
+          : null;
   const recommendedFlyersForSelection = isResidentialStep2
     ? selZones.reduce((a, z) => a + getZoneFullCoverageFlyers(z), 0)
     : liveNonResidentialRequirement;
@@ -6451,109 +6452,17 @@ const totalCapacity = recommendedFlyersForSelection;
       return;
     }
     const isCapMode = searchMode === "cap";
-    const finalFlyerQuantity = finalFlyersRounded;
-    const finalDoorCoverage = isResidentialStep2
-      ? computeDoorToDoorCoverage({ insertedFlyers: finalFlyerQuantity, selectedZones: selZones })
-      : null;
-    let finalRemainingForAuto = finalFlyerQuantity;
-    let finalPriorityAssignedById = null;
-    if (allocationMode === "priority") {
-      const orderIndex = new Map(comuniPriorityOrder.map((id, i) => [id, i]));
-      const priorityOrderedZones = [...selZones].sort((a, b) => {
-        const ia = orderIndex.has(a.id) ? orderIndex.get(a.id) : Infinity;
-        const ib = orderIndex.has(b.id) ? orderIndex.get(b.id) : Infinity;
-        return ia - ib;
-      });
-      finalPriorityAssignedById = new Map();
-      let finalRemainingForPriority = finalFlyerQuantity;
-      for (const z of priorityOrderedZones) {
-        const req = isResidentialStep2 ? getZoneFullCoverageFlyers(z) : zCap(z);
-        const assigned = Math.min(req, finalRemainingForPriority);
-        finalRemainingForPriority -= assigned;
-        finalPriorityAssignedById.set(z.id, assigned);
-      }
-    }
-    let finalZonesAllocation = selZones.map(z => {
-      const req = isResidentialStep2 ? getZoneFullCoverageFlyers(z) : zCap(z);
-      const assigned = allocationMode === "manual"
-        ? (manualAssignments[z.id] || 0)
-        : allocationMode === "priority"
-          ? (finalPriorityAssignedById.get(z.id) || 0)
-          : Math.min(req, finalRemainingForAuto);
-      if (allocationMode === "auto") finalRemainingForAuto -= assigned;
-      return {
-        id: z.id,
-        name: z.name,
-        requiredFlyers: req,
-        assignedFlyers: assigned,
-        coveragePercent: req > 0 ? Math.round((assigned / req) * 100) : 0,
-        allocationStatus: assigned >= req ? "full" : assigned > 0 ? "partial" : "none"
-      };
-    });
-    if ((isMovementStep2 || isBusinessStep2) && selectedOperationalPois.length > 0) {
-      finalZonesAllocation = selectedOperationalPois.map((point, index) => {
-        const sameOperatorPoints = isMovementStep2
-          ? (selectedOperationalPois.filter((item) => item.operatorNumber === point.operatorNumber).length || 1)
-          : 1;
-        const quantity = isMovementStep2
-          ? Math.round((Math.max(1, Number(point.serviceDurationHours || serviceDurationForStep2)) * H2H_FLYERS_PER_PROMOTER_HOUR) / sameOperatorPoints)
-          : Math.max(1, Number(point.copies || 1));
-        return {
-          id: point.id,
-          name: isBusinessStep2 ? point.name : `Promoter ${point.operatorNumber} · ${point.name}`,
-          requiredFlyers: quantity,
-          assignedFlyers: quantity,
-          coveragePercent: 100,
-          allocationStatus: "full",
-        };
-      });
-    } else if (isMovementStep2 && step1OperationalPoints.length > 0) {
-      finalZonesAllocation = step1OperationalPoints.map((point, index) => {
-        const quantity = Number(point.assignedQuantity || serviceDurationForStep2 * H2H_FLYERS_PER_PROMOTER_HOUR);
-        return {
-          id: point.id || `promoter_${index + 1}`,
-          name: `Promoter ${point.promoterNumber || index + 1} · ${point.label || point.location || "Punto operativo"}`,
-          requiredFlyers: quantity,
-          assignedFlyers: quantity,
-          coveragePercent: 100,
-          allocationStatus: "full",
-        };
-      });
-    }
-    const finalServiceKpis = {
-      ...serviceKpis,
-      coverage: isResidentialStep2
-        ? (finalDoorCoverage?.coveragePercent ?? serviceKpis.coverage)
-        : serviceKpis.coverage,
-      recommendedFlyers: isResidentialStep2 ? requiredFlyers : requiredFlyers,
-      ...(isMovementStep2 ? {
-        promoterCount: operatorCountForPoiAssignment,
-        serviceDurationHours: serviceDurationForStep2,
-        estimatedCapacity: operatorSchedules.reduce((total, schedule) => total + Math.max(1, Number(schedule.serviceDurationHours || serviceDurationForStep2)) * H2H_FLYERS_PER_PROMOTER_HOUR, 0),
-        operationalPoints: step1OperationalPoints,
-        operatorSchedules,
-      } : {}),
-      ...((isMovementStep2 || isBusinessStep2) ? {
-        operatorCount: isBusinessStep2 ? businessOperationalPlan?.recommendedOperators : operatorCountForPoiAssignment,
-        selectedPointCount: selectedOperationalPois.length,
-        selectedOperationalPois,
-        poiAssignments,
-        distributionTargets: distributionTargetSelection,
-        ...(isBusinessStep2 ? {
-          businessMaterialPlan,
-          businessOperationalPlan,
-          materialsRequired: businessMaterialPlan?.materialsRequired,
-          materialsRemaining: businessMaterialPlan?.materialsRemaining,
-          materialsMissing: businessMaterialPlan?.materialsMissing,
-        } : {}),
-      } : {}),
-    };
+    const canonicalPayload = buildStep2ToStep3Payload(step2TruthModel);
+    const finalFlyerQuantity = step2TruthModel.quantity.current;
+    const finalZonesAllocation = step2TruthModel.allocation.rows;
+    const finalServiceKpis = canonicalPayload.serviceKpis;
     // Difensivo: non propagare a Step 4 un coverageStrategy residuo di una
     // configurazione precedente (es. "expand_area" scelto per un altro
     // comune). Valido solo se la situazione di surplus è ancora quella
     // corrente per il comune/raggio appena confermato.
     const finalCoverageStrategy = hasSurplus ? coverageStrategy : null;
     setData(prev => ({...prev,
+      ...canonicalPayload,
       campaignZones: Array.isArray(prev.campaignZones)
         ? prev.campaignZones.map(zone => zone.id === prev.activeZoneId ? {
             ...zone,
@@ -6586,8 +6495,8 @@ const totalCapacity = recommendedFlyersForSelection;
             h2hEstimatedCapacity: operatorSchedules.reduce((total, schedule) => total + Math.max(1, Number(schedule.serviceDurationHours || serviceDurationForStep2)) * H2H_FLYERS_PER_PROMOTER_HOUR, 0),
             poiAssignments,
             selectedOperationalPois,
-            totalAssigned: finalZonesAllocation.reduce((a, v) => a + v.assignedFlyers, 0),
-            coverageStatus: isResidentialStep2 ? finalDoorCoverage.status : (finalFlyerQuantity < requiredFlyers ? "partial" : "sufficient"),
+            totalAssigned: step2TruthModel.quantity.allocatedQuantity,
+            coverageStatus: step2TruthModel.quantity.shortage > 0 ? "partial" : "sufficient",
           } : zone)
         : prev.campaignZones,
       qty: finalFlyerQuantity,
@@ -6627,26 +6536,26 @@ const totalCapacity = recommendedFlyersForSelection;
       comuniPriorityOrder,
       coverageDecision,
       coverageStrategy: finalCoverageStrategy,
-      surplusFlyers: hasSurplus ? Math.max(0, finalFlyerQuantity - requiredFlyers) : 0,
+      surplusFlyers: step2TruthModel.quantity.surplus,
       manualAssignments,
-      totalAssigned: finalZonesAllocation.reduce((a, v) => a + v.assignedFlyers, 0),
+      totalAssigned: step2TruthModel.quantity.allocatedQuantity,
       totalCapacity,
-      isPartial: isResidentialStep2 ? finalDoorCoverage?.status === "partial" : finalFlyerQuantity < requiredFlyers,
-      requiredFlyers,
+      isPartial: step2TruthModel.quantity.shortage > 0,
+      requiredFlyers: canonicalPayload.requiredFlyers,
       operationalWaypoints,
       gpsPlannedPoints: operationalWaypoints,
-      requiredTotalFlyers: requiredFlyers,
-      fullCoverageFlyers: requiredFlyers,
-      missingFlyers: isResidentialStep2 ? finalDoorCoverage.missingFlyers : Math.max(0, requiredFlyers - finalFlyerQuantity),
-      remainingFlyers: isResidentialStep2 ? finalDoorCoverage.remainingFlyers : Math.max(0, finalFlyerQuantity - requiredFlyers),
-      coverageStatus: isResidentialStep2 ? finalDoorCoverage.status : (finalFlyerQuantity < requiredFlyers ? "partial" : "sufficient"),
+      requiredTotalFlyers: canonicalPayload.requiredFlyers,
+      fullCoverageFlyers: canonicalPayload.requiredFlyers,
+      missingFlyers: canonicalPayload.missingFlyers,
+      remainingFlyers: canonicalPayload.remainingFlyers,
+      coverageStatus: step2TruthModel.quantity.shortage > 0 ? "partial" : "sufficient",
       zonesAllocation: finalZonesAllocation,
       serviceKpis: finalServiceKpis,
       operationalPoints: step1OperationalPoints,
       promoterAssignments: isBusinessStep2 ? [] : operatorSchedules,
       promoterCount: isBusinessStep2 ? null : operatorCountForPoiAssignment,
       businessOperatorCount: isBusinessStep2 ? businessOperationalPlan?.recommendedOperators : data.businessOperatorCount,
-      businessMaterialPlan: isBusinessStep2 ? businessMaterialPlan : data.businessMaterialPlan,
+      businessMaterialPlan: canonicalPayload.businessMaterialPlan,
       businessOperationalPlan: isBusinessStep2 ? businessOperationalPlan : data.businessOperationalPlan,
       serviceDurationHours: serviceDurationForStep2,
       h2hEstimatedCapacity: operatorSchedules.reduce((total, schedule) => total + Math.max(1, Number(schedule.serviceDurationHours || serviceDurationForStep2)) * H2H_FLYERS_PER_PROMOTER_HOUR, 0),
@@ -6660,11 +6569,7 @@ const totalCapacity = recommendedFlyersForSelection;
       comuniNelRaggio: zonesInRadius.length,
       metadata: { omi: omiInfo, operational_waypoints: operationalWaypoints, analysis_level: activeAnalysisLevel, nil_unavailable: nilUnavailable },
     }));
-    debugStep2Log("[STEP2_TO_STEP4_PAYLOAD]", { mode: isCapMode ? "cap" : userModeRef.current, searchMode });
-    debugStep2Log("[STEP2_TO_STEP4_ZONE]", isCapMode ? selectedCaps : (city?.label || city?.name || ""));
-    debugStep2Log("[STEP2_TO_STEP4_COMMUNES]", selZones.map(z => z.name));
-    debugStep2Log("[STEP2_TO_STEP4_FAMILIES]", finalServiceKpis?.families);
-    debugStep2Log("[STEP2_TO_STEP4_RECOMMENDED_FLYERS]", finalServiceKpis?.recommendedFlyers);
+    debugStep2Log("[STEP2_TO_STEP3_PAYLOAD]", canonicalPayload);
     onNext();
   }
 
@@ -7468,50 +7373,6 @@ const radiusInsightRows = zonesInRadius.map(z => ({
   const coverageDecisionRequired = isAvailableQuantityPartial && !isMultiMunicipalitySelection;
   const coverageDecisionReady = !coverageDecisionRequired || isCoverageDecisionValid;
 
-  const step2ViewModel = buildStep2ViewModel({
-    areaMode,
-    cityName: (isRadiusMode && hasSearchPoint && selectedSearchPoint?.label)
-      ? selectedSearchPoint.label.trim()
-      : (isMultiMunicipalitySelection
-          ? selectedMunicipalityDisplayLabel
-          : (city?.label || city?.name || (selectedComuni?.[0]?.label || selectedComuni?.[0]?.name) || (selZones?.[0]?.name) || activeCampaignZone?.cityName || null)),
-    radiusKm: radiusKm || radius || null,
-    isResidentialStep2,
-    isMovementStep2,
-    serviceKpis,
-    requiredFlyers,
-    flyerQuantityFromStep1,
-    missingFlyers,
-    zoneCount: summaryComuniStats?.total || selZones.length || zonesInRadius.length || 1,
-    isNilAnalysis,
-    territoryPluralLabel,
-    selectedComuniCount: Math.max((selectedComuni || []).length, (searchMode === "municipality" && !isNilAnalysis ? selZones.length : 0), (targetComuniList || []).length),
-    selectedMunicipalities: selectedMunicipalitySummary,
-    selectedNilNames: areaMode === "custom_zone" ? selZones.map(z => z.name) : [],
-    radiusCenterSource,
-    usingMunicipalityFullCoverage,
-    hasConfirmedZone: hasConfirmedZoneForActiveSelection,
-    hasValidGeometry: areaMode === "radius" ? isRadiusGeometryValid : hasValidCoverageGeometry,
-    isCalculationComplete: isCoverageCalculationComplete,
-    hasCalculationError: hasCoverageCalculationError,
-    hasConfirmedCoverageMode,
-    hasConfirmedRadius: radiusSelectionConfirmed,
-    selectedSearchPoint: selectedSearchPoint || null,
-    coverageDecision: coverageDecision || "keepCurrent",
-    manualFlyers: manualFlyersNumber || allocationFlyers || null,
-    assignedFlyersTotal: assignedFlyersTotal || allocationFlyers || null,
-    step2ZonesReady,
-    coverageDecisionReady,
-    coverageDecisionRequired,
-    allocationStatus,
-    gisTimedOut,
-    gisLoading,
-    availableNilCount: availableNils.length || (isNilAnalysis ? (apiData?.nil_breakdown || []).length : 0),
-    containingNil: containingNil || addressPreviewNilZones?.main || null,
-    containingNilCandidates: addressPreviewNilZones?.containingCandidates || [],
-    intersectedNilCount: intersectedNils.length,
-    selectedNilCount: selectedNils.length,
-  });
   const canonicalOmiRows = omiInfo?.available && Array.isArray(omiInfo?.values)
     ? omiInfo.values.filter((row) => row?.typology && (row.min_value != null || row.max_value != null))
     : [];
@@ -7568,21 +7429,83 @@ const radiusInsightRows = zonesInRadius.map(z => ({
       limitation: "Non è un dato ufficiale né una previsione certa di risultato.", connected: Number.isFinite(Number(zoneVerdict?.score)),
     },
   ];
+  const canonicalCityName = (isRadiusMode && hasSearchPoint && selectedSearchPoint?.label)
+    ? selectedSearchPoint.label.trim()
+    : (isMultiMunicipalitySelection ? selectedMunicipalityDisplayLabel : (city?.label || city?.name || selectedComuni?.[0]?.label || selectedComuni?.[0]?.name || selZones?.[0]?.name || activeCampaignZone?.cityName || null));
+  const canonicalTerritoryLabel = areaMode === "radius"
+    ? `Raggio ${radiusKm || radius} km${canonicalCityName ? ` da ${canonicalCityName}` : ""}`
+    : areaMode === "custom_zone"
+      ? (canonicalCityName ? `${canonicalCityName} - ${selZones.map((zone) => zone.name).filter(Boolean).join(", ")}` : "NIL / quartiere")
+      : areaMode === "cap" ? "CAP selezionati" : (isMultiMunicipalitySelection ? selectedMunicipalityDisplayLabel : (canonicalCityName ? `${canonicalCityName} · comune completo` : "Comune completo"));
+  const canonicalCoverageContext = areaMode === "radius" ? "fabbisogno operativo del raggio" : areaMode === "full_municipality" && !isMultiMunicipalitySelection ? "fabbisogno operativo del Comune" : "fabbisogno operativo delle zone selezionate";
+  const canonicalAllocationRows = isResidentialStep2
+    ? zonesAllocation
+    : isMovementStep2
+      ? (selectedOperationalPois.length > 0 ? selectedOperationalPois.map((point, index) => {
+          const sameOperatorPoints = selectedOperationalPois.filter((item) => item.operatorNumber === point.operatorNumber).length || 1;
+          const assignedQuantity = Math.round((Math.max(1, Number(point.serviceDurationHours || serviceDurationForStep2)) * H2H_FLYERS_PER_PROMOTER_HOUR) / sameOperatorPoints);
+          return { ...point, id: point.id, name: `Promoter ${point.operatorNumber} · ${point.name}`, priorityRank: index + 1, requiredQuantity: assignedQuantity, assignedQuantity };
+        }) : step1OperationalPoints.map((point, index) => ({
+          ...point, id: point.id || `promoter_${index + 1}`, name: `Promoter ${point.promoterNumber || index + 1} · ${point.label || point.location || "Punto operativo"}`,
+          priorityRank: point.promoterNumber || index + 1,
+          requiredQuantity: Number.isFinite(Number(point.assignedQuantity)) ? Number(point.assignedQuantity) : null,
+          assignedQuantity: Number.isFinite(Number(point.assignedQuantity)) ? Number(point.assignedQuantity) : null,
+        })))
+      : (businessMaterialPlan?.rows || []).map((activity, index) => ({ ...activity, id: activity.id || `activity_${index + 1}`, name: activity.name || activity.label || `Attività ${index + 1}`, priorityRank: index + 1, requiredQuantity: activity.copies, assignedQuantity: activity.copies }));
+  const canonicalServiceData = {
+    available: isResidentialStep2 ? Number(serviceKpis?.families) > 0 : isMovementStep2 ? canonicalAllocationRows.length > 0 : selectedOperationalPois.length > 0,
+    kpis: {
+      ...serviceKpis,
+      coverage: operationalCoveragePercent,
+      recommendedFlyers: requiredFlyers,
+      operatorCount: isBusinessStep2 ? businessOperationalPlan?.recommendedOperators ?? null : isMovementStep2 ? operatorCountForPoiAssignment : null,
+      selectedPointCount: selectedOperationalPois.length,
+      selectedOperationalPois,
+      poiAssignments,
+      distributionTargets: distributionTargetSelection,
+      operationalPoints: isMovementStep2 ? step1OperationalPoints : [],
+      operatorSchedules: isMovementStep2 ? operatorSchedules : [],
+      businessMaterialPlan: isBusinessStep2 ? businessMaterialPlan : null,
+      businessOperationalPlan: isBusinessStep2 ? businessOperationalPlan : null,
+      materialsRequired: isBusinessStep2 ? businessMaterialPlan?.materialsRequired ?? null : null,
+      materialsRemaining: isBusinessStep2 ? businessMaterialPlan?.materialsRemaining ?? null : null,
+      materialsMissing: isBusinessStep2 ? businessMaterialPlan?.materialsMissing ?? null : null,
+    },
+    operationalPoints: isMovementStep2 ? step1OperationalPoints : [],
+    operatorSchedules: isMovementStep2 ? operatorSchedules : [],
+    selectedPois: isMovementStep2 ? selectedOperationalPois : [],
+    materialPlan: isBusinessStep2 ? businessMaterialPlan : null,
+    operationalPlan: isBusinessStep2 ? businessOperationalPlan : null,
+    competitorCount: isBusinessStep2 ? (serviceKpis?.competitors ?? null) : null,
+  };
   const step2TruthModel = buildStep2TruthModel({
-    territory: { label: step2ViewModel.primaryAreaLabel, modeLabel: step2ViewModel.coverageContextLabel },
+    rawData: { territorialAnalysis: apiData || null, demographics: effectiveDemoData || null, omi: canonicalOmiRows, pois: (isMovementStep2 || isBusinessStep2) ? pois : [], transport: isMovementStep2 ? transportState : null },
+    userSelections: { areaMode, searchMode, radiusKm: radiusKm || radius || null, coverageDecision: coverageDecision || "keepCurrent", manualFlyers: coverageDecision === "manual" ? manualFlyersNumber : null, selectedMunicipalities: selectedMunicipalitySummary, selectedNils, selectedCaps, selectedPoiIds: selectedOperationalPois.map((point) => point.id) },
+    availability: { territorialData: hasUsableAllocationData, demographics: Boolean(effectiveDemoData), economy: canonicalOmiRows.length > 0, mobility: isMovementStep2 && Boolean(pois.length > 0 || transportState?.available), business: isBusinessStep2 && selectedOperationalPois.length > 0, nil: isResidentialStep2 && selectedNils.length > 0, pois: (isMovementStep2 || isBusinessStep2) && pois.length > 0 },
+    sourceMetadata: canonicalSourceRegistry,
+    territory: { label: canonicalTerritoryLabel, modeLabel: canonicalCoverageContext, areaMode },
+    territories: selectedMunicipalitySummary,
     service: { key: isResidentialStep2 ? "d2d" : isMovementStep2 ? "h2h" : "b2b", title: isResidentialStep2 ? "Door to Door" : isMovementStep2 ? "Hand to Hand" : "Distribuzione presso attività e aziende" },
-    insertedQuantity: step2ViewModel.insertedFlyersValue,
-    currentQuantity: finalFlyersRounded,
-    baseRequirement: isResidentialStep2 ? step2ViewModel.primaryFamiliesValue : step2ViewModel.recommendedFlyersValue,
-    recommendedRequirement: step2ViewModel.recommendedFlyersValue,
-    zones: zonesAllocation,
+    serviceData: canonicalServiceData,
+    insertedQuantity: Number.isFinite(Number(flyerQuantityFromStep1)) ? Number(flyerQuantityFromStep1) : null,
+    currentQuantity: Number.isFinite(Number(finalFlyers)) ? Number(finalFlyers) : null,
+    baseRequirement: isResidentialStep2 ? (Number.isFinite(Number(serviceKpis?.families)) ? Number(serviceKpis.families) : null) : requiredFlyers,
+    recommendedRequirement: requiredFlyers,
+    allocation: canonicalAllocationRows,
+    zones: selZones,
+    nils: selectedNils,
+    pois: isMovementStep2 ? selectedOperationalPois : [],
+    activities: isBusinessStep2 ? selectedOperationalPois : [],
     availableZoneCount: isResidentialStep2
-      ? (step2ViewModel.availableNilCount || summaryComuniStats?.total || zonesAllocation.length)
-      : zonesAllocation.length,
+      ? (availableNils.length || summaryComuniStats?.total || canonicalAllocationRows.length || null)
+      : (canonicalAllocationRows.length || null),
     dailyCapacity: isResidentialStep2 ? D2D_DAILY_CAPACITY : null,
-    operatorCount: null,
+    operatorCount: isBusinessStep2 ? businessOperationalPlan?.recommendedOperators ?? null : null,
+    operatorDays: isBusinessStep2 ? businessOperationalPlan?.operatorDays ?? null : null,
+    calendarDays: isBusinessStep2 ? businessOperationalPlan?.calendarDuration ?? null : null,
+    calculationStatus: isCoverageCalculationComplete && !hasCoverageCalculationError && hasUsableAllocationData && requiredFlyers != null ? "ready" : "unavailable",
+    unavailableReason: !hasUsableAllocationData ? "Dati territoriali o selezione operativa non disponibili." : hasCoverageCalculationError ? "Calcolo territoriale non disponibile." : null,
     score: zoneVerdict?.score,
-    sources: canonicalSourceRegistry,
     confidenceInputs: {
       coverage: { available: requiredFlyers > 0 && zonesAllocation.length > 0 ? 3 : 0, total: 3, limitation: requiredFlyers > 0 ? null : "Fabbisogno o allocazione non disponibili." },
       demographics: { available: effectiveDemoData ? 1 : 0, total: 1 },
@@ -7592,6 +7515,40 @@ const radiusInsightRows = zonesInRadius.map(z => ({
       business: { available: isBusinessStep2 && pois.length > 0 ? 1 : 0, total: 3, limitation: "Censimento ATECO, aree produttive e punti di consegna non sono collegati." },
       recommendation: { available: canonicalSourceRegistry.filter((source) => source.connected).length, total: canonicalSourceRegistry.length },
     },
+  });
+  const step2ViewModel = buildStep2ViewModel({
+    truthModel: step2TruthModel,
+    areaMode,
+    cityName: canonicalCityName,
+    radiusKm: radiusKm || radius || null,
+    isNilAnalysis,
+    territoryPluralLabel,
+    selectedComuniCount: Math.max((selectedComuni || []).length, (searchMode === "municipality" && !isNilAnalysis ? selZones.length : 0), (targetComuniList || []).length),
+    selectedMunicipalities: selectedMunicipalitySummary,
+    selectedNilNames: areaMode === "custom_zone" ? selZones.map(z => z.name) : [],
+    radiusCenterSource,
+    usingMunicipalityFullCoverage,
+    hasConfirmedZone: hasConfirmedZoneForActiveSelection,
+    hasValidGeometry: areaMode === "radius" ? isRadiusGeometryValid : hasValidCoverageGeometry,
+    isCalculationComplete: isCoverageCalculationComplete,
+    hasCalculationError: hasCoverageCalculationError,
+    hasConfirmedCoverageMode,
+    hasConfirmedRadius: radiusSelectionConfirmed,
+    selectedSearchPoint: selectedSearchPoint || null,
+    coverageDecision: coverageDecision || "keepCurrent",
+    manualFlyers: manualFlyersNumber || allocationFlyers || null,
+    assignedFlyersTotal: assignedFlyersTotal || allocationFlyers || null,
+    step2ZonesReady,
+    coverageDecisionReady,
+    coverageDecisionRequired,
+    allocationStatus,
+    gisTimedOut,
+    gisLoading,
+    availableNilCount: step2TruthModel.zones.available,
+    containingNil: containingNil || addressPreviewNilZones?.main || null,
+    containingNilCandidates: addressPreviewNilZones?.containingCandidates || [],
+    intersectedNilCount: intersectedNils.length,
+    selectedNilCount: selectedNils.length,
   });
   const step2CoveragePctLabel = step2TruthModel.coverage.operationalPct == null
     ? null
@@ -8506,41 +8463,11 @@ const radiusInsightRows = zonesInRadius.map(z => ({
           { key: "coveragePct", label: "Copertura fabbisogno zona", align: "right", render: (r) => r.coveragePct == null ? "Dato non disponibile" : formatPercentIT(r.coveragePct, Number.isInteger(r.coveragePct) ? 0 : 1) },
           { key: "status", label: "Stato", render: (r) => r.status === "full" ? "Completa" : r.status === "partial" ? "Parziale" : "Esclusa" },
         ];
-        const selectedPointRows = selectedOperationalPois.map((point, index) => {
-          const sameOperatorPoints = selectedOperationalPois.filter((item) => item.operatorNumber === point.operatorNumber).length || 1;
-          const assigned = isMovementStep2
-            ? Math.round((serviceDurationForStep2 * H2H_FLYERS_PER_PROMOTER_HOUR) / sameOperatorPoints)
-            : Math.max(1, Number(point.copies || 1));
-          return {
-            id: point.id,
-            name: isBusinessStep2 ? point.name : `Promoter ${point.operatorNumber} · ${point.name}`,
-            priorityRank: index + 1,
-            assignedFlyers: assigned,
-            requiredFlyers: assigned,
-            coveragePct: 100,
-            status: "full",
-            priorityValue: Math.max(1, selectedOperationalPois.length - index),
-            priorityLabel: `${point.category} · ${formatIntegerIT(assigned)} pz.`,
-          };
-        });
-        const zoneRows = selectedPointRows.length > 0
-          ? selectedPointRows
-          : isMovementStep2 && step1OperationalPoints.length > 0
-          ? step1OperationalPoints.map((point, index) => {
-              const assigned = Number(point.assignedQuantity || serviceDurationForStep2 * H2H_FLYERS_PER_PROMOTER_HOUR);
-              return {
-                id: point.id || `promoter_${index + 1}`,
-                name: `Promoter ${point.promoterNumber || index + 1} · ${point.label || point.location || "Punto operativo"}`,
-                priorityRank: point.promoterNumber || index + 1,
-                assignedFlyers: assigned,
-                requiredFlyers: assigned,
-                coveragePct: 100,
-                status: "full",
-                priorityValue: Math.max(1, step1OperationalPoints.length - index),
-                priorityLabel: `${formatIntegerIT(assigned)} pz.`,
-              };
-            })
-          : step2TruthModel.zones.rows.map((row) => ({ ...row, priorityValue: Math.max(1, step2TruthModel.zones.rows.length - row.priorityRank + 1), priorityLabel: `Priorità #${row.priorityRank}` }));
+        const zoneRows = step2TruthModel.allocation.rows.map((row) => ({
+          ...row,
+          priorityValue: Math.max(1, step2TruthModel.allocation.rows.length - row.priorityRank + 1),
+          priorityLabel: `Priorità #${row.priorityRank}`,
+        }));
         const priorityMax = Math.max(...zoneRows.map((r) => r.priorityValue || 0), 1);
 
         // Panoramica — max 6 KPI per servizio, mai valori inventati (unavailable quando manca una vera fonte)
@@ -8625,6 +8552,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
           : "Indicatore interno calcolato dalle componenti effettivamente disponibili per questa configurazione. Non e un dato ufficiale ISTAT.";
 
         const reportProps = {
+          truthModel: step2TruthModel,
           service: { key: svcKey, title: activeServiceTitle },
           territory: { label: step2TruthModel.territory.label, modeLabel, zoneCount, zoneStats: step2TruthModel.zones },
           dataStatusLabel: `${connectedSources}/${sourceRegistry.length} fonti e modelli disponibili`,
@@ -8696,7 +8624,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
           },
         };
 
-        return <TerritorialReport p={reportProps} isMobile={isMobile} />;
+        return <TerritorialReport p={reportProps} truthModel={step2TruthModel} isMobile={isMobile} />;
       })()}
       {/* Section */}
       <div style={{ display: "grid", gridTemplateColumns: isAdminView ? "1fr" : (isMobile ? "1fr" : "minmax(0, 1fr) clamp(300px, 22vw, 340px)"), gap: 16 }}>

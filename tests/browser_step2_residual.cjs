@@ -68,7 +68,10 @@ async function main() {
   await page.waitForTimeout(400);
   await page.getByText('Door to Door', { exact: true }).first().click();
   await page.getByText('Retail').first().click();
+  await page.getByText(/Sì, voglio anche stampa/i).first().click();
+  await page.getByText(/^A5$/i).first().click();
   await page.getByText('Prima possibile').first().click();
+  await page.getByText(/^Singola$/i).first().click();
   await page.getByRole('button', { name: /Continua allo Step 2/i }).click();
   await page.waitForTimeout(700);
   console.log('[STEP2 DEBUG]', page.url(), (await page.locator('body').innerText()).slice(0, 1200));
@@ -111,15 +114,8 @@ async function main() {
   await page.getByRole('button', { name: /Demografia e target/i }).click();
   const demoText = await page.locator('body').innerText();
   assert(/famiglie residenti e fabbisogno operativo differiscono/i.test(demoText), 'Spiegazione famiglie residenti vs fabbisogno operativo assente');
-  await page.getByRole('button', { name: /Edifici e territorio/i }).click();
-  const buildingsText = await page.locator('body').innerText();
-  assert(/Dato non disponibile/i.test(buildingsText) && /N\/D/i.test(buildingsText), 'Badge/stato edifici non disponibile assente');
-  await page.screenshot({ path: `${outDir}/08-edifici-non-disponibile.png`, fullPage: true });
-  await page.getByRole('button', { name: /Economia e immobili/i }).click();
-  const omiText = await page.locator('body').innerText();
-  assert(!/Area con elevato valore immobiliare/i.test(omiText), 'Classificazione OMI non supportata ancora presente');
-  assert(/zone OMI|Numero zone OMI non restituito/i.test(omiText), 'Contesto geografico OMI assente');
-  await page.screenshot({ path: `${outDir}/08b-omi-contesto.png`, fullPage: true });
+  assert(await page.getByRole('button', { name: /Edifici e territorio/i }).count() === 0, 'Sezione edifici priva di dati non nascosta');
+  assert(await page.getByRole('button', { name: /Economia e immobili/i }).count() === 0, 'Sezione OMI priva di dati non nascosta');
   await page.getByRole('button', { name: /Score e raccomandazioni/i }).click();
   const scoreText = await page.locator('body').innerText();
   assert(!/famiglie\/POI raggiungibili/i.test(scoreText), 'Score D2D cita ancora POI non disponibili');
