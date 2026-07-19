@@ -2482,7 +2482,7 @@ function Step1({ data, setData, onNext, onHome }) {
                     aria-checked={active}
                     key={t.id}
                     onClick={() => updateData({ type: t.id })}
-                    className="vp-s1-card-hover"
+                    className={`vp-s1-card-hover${active ? " vp-s1-card-selected" : ""}`}
                     style={{
                       padding: 24,
                       borderRadius: 18,
@@ -2875,7 +2875,7 @@ function Step1({ data, setData, onNext, onHome }) {
                     aria-pressed={active}
                     key={p.id}
                     onClick={() => updateData({ campaignPeriodPreset: p.id, ...(p.id !== "custom" ? { startDate: "", endDate: "", startDateDraft: "", endDateDraft: "" } : {}) })}
-                    className="vp-s1-card-hover"
+                    className={`vp-s1-card-hover${active ? " vp-s1-card-selected" : ""}`}
                     style={{
                       padding: 20,
                       borderRadius: 16,
@@ -2981,7 +2981,7 @@ function Step1({ data, setData, onNext, onHome }) {
                         : data.extraServices || [],
                       printing: { ...printing, enabled: m.id === "no" },
                     })}
-                    className="vp-s1-card-hover"
+                    className={`vp-s1-card-hover${active ? " vp-s1-card-selected" : ""}`}
                     style={{
                       padding: 24,
                       borderRadius: 20,
@@ -3079,7 +3079,7 @@ function Step1({ data, setData, onNext, onHome }) {
                       aria-pressed={active}
                       key={fmt.id}
                       onClick={() => updateData({ flyerFormat: fmt.id })}
-                      className="vp-s1-card-hover"
+                      className={`vp-s1-card-hover${active ? " vp-s1-card-selected" : ""}`}
                       style={{
                         padding: 18,
                         borderRadius: 16,
@@ -3114,7 +3114,7 @@ function Step1({ data, setData, onNext, onHome }) {
                     aria-pressed={active}
                     key={p.id}
                     onClick={() => updateData({ urgency: p.id })}
-                    className="vp-s1-card-hover"
+                    className={`vp-s1-card-hover${active ? " vp-s1-card-selected" : ""}`}
                     style={{
                       padding: 22,
                       borderRadius: 18,
@@ -3157,7 +3157,7 @@ function Step1({ data, setData, onNext, onHome }) {
                     aria-pressed={active}
                     key={pl.id}
                     onClick={() => updateData({ subscription: pl.id, campaignsPerMonth: pl.id === "single" ? 1 : data.campaignsPerMonth || 1 })}
-                    className="vp-s1-card-hover"
+                    className={`vp-s1-card-hover${active ? " vp-s1-card-selected" : ""}`}
                     style={{
                       padding: 20,
                       borderRadius: 18,

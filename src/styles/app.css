@@ -2340,7 +2340,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   color: #2DD4BF !important;
 }
 
-.vp-s1-card-hover,
 .vp-card-hero,
 .vp-card-kpi,
 .vp-card-info,
@@ -2350,16 +2349,19 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   box-shadow: 0 20px 54px rgba(0, 0, 0, 0.22);
 }
 
-.vp-s1-card-hover:hover {
+/* Selected cards (.vp-s1-card-selected) keep their inline green treatment —
+   the orange hover affordance below only applies to unselected cards, so
+   confirmed/selected state never gets overridden to orange on hover. */
+.vp-s1-card-hover:not(.vp-s1-card-selected):hover {
   border-color: rgba(232, 87, 26, 0.45) !important;
 }
 
 .vp-s1-slider {
-  background: linear-gradient(to right, #E8571A var(--progress, 0%), rgba(255, 255, 255, 0.12) var(--progress, 0%)) !important;
+  background: linear-gradient(to right, #22C55E var(--progress, 0%), rgba(255, 255, 255, 0.12) var(--progress, 0%)) !important;
 }
 
 .vp-s1-slider::-webkit-slider-thumb {
-  background: #E8571A !important;
+  background: #22C55E !important;
 }
 
 /* Step 2 / Analisi avanzata: progressive disclosure e dati leggibili */
