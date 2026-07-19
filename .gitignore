@@ -122,3 +122,9 @@ backups/
 e2e-artifacts*/
 e2e-*.png
 InteractiveRadiusSlider.jsx
+
+# ── Verification screenshots (evidence lives in docs/*.md) ──
+/artifacts/
+/landing-*.png
+/step1-*.png
+/step2-*.png
