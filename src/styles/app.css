@@ -2439,6 +2439,13 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .vp-step2-zone-status--inclusa { color:#86EFAC; background:rgba(34,197,94,.11); }
 .vp-step2-zone-status--parziale { color:#FDE68A; background:rgba(251,191,36,.11); }
 .vp-step2-zone-status--esclusa { color:#FDA4AF; background:rgba(244,63,94,.1); }
+
+/* Click da lista H2H/Business -> centra ed evidenzia il marker sulla mappa */
+.vp-step2-poi-focus-pulse { animation: vp-step2-poi-pulse 0.8s ease-in-out 2; }
+@keyframes vp-step2-poi-pulse {
+  0%, 100% { filter: drop-shadow(0 0 0 rgba(125, 211, 252, 0)); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 10px rgba(125, 211, 252, 0.95)); transform: scale(1.18); }
+}
 .vp-step2-scenario-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 .vp-step2-scenario-card { padding:14px; border:1px solid rgba(255,255,255,.09); border-radius:12px; background:rgba(255,255,255,.025); }
 .vp-step2-scenario-card--recommended { border-color:rgba(34,197,94,.25); background:rgba(34,197,94,.055); }
