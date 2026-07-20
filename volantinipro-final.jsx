@@ -3989,6 +3989,12 @@ const [omiExpanded, setOmiExpanded] = useState(false);
 const [detailExpanded, setDetailExpanded] = useState(false);
 const [zoneListSort, setZoneListSort] = useState("relevance");
 const [showClientZoneDetails, setShowClientZoneDetails] = useState(false);
+const [expandedZoneRows, setExpandedZoneRows] = useState(() => new Set());
+const toggleZoneRowDetail = (rowKey) => setExpandedZoneRows((prev) => {
+  const next = new Set(prev);
+  if (next.has(rowKey)) next.delete(rowKey); else next.add(rowKey);
+  return next;
+});
 const [showMarginalZones, setShowMarginalZones] = useState(false);
 // Comune Milano vista principale: 88 card NIL sono un dettaglio tecnico, non
 // la vista di default — collassate dietro un bottone. In Raggio (dove la
@@ -5138,31 +5144,92 @@ const pois = useMemo(() => {
 }, [poiLoading, fetchedPois, backendPois, distributionTargetSelection.join("|"), data.activityNote, isBusinessStep2]);
 const [poiListSearch, setPoiListSearch] = useState("");
 const [businessPoiFilter, setBusinessPoiFilter] = useState("all");
+const [h2hPoiFilter, setH2hPoiFilter] = useState("all");
 const [poiAssignments, setPoiAssignments] = useState(() => data.poiAssignments || {});
+const [focusedPoiId, setFocusedPoiId] = useState(null);
+const [focusedPoiNonce, setFocusedPoiNonce] = useState(0);
+const focusPoiRow = useCallback((poiId) => {
+  setFocusedPoiId(poiId);
+  setFocusedPoiNonce((n) => n + 1);
+}, []);
+const BUSINESS_POI_CATEGORY_TERMS = {
+  shops: ["negozio", "retail", "shop"],
+  food: ["ristor", "bar", "cafe", "food"],
+  offices: ["ufficio", "azienda", "profession"],
+  health: ["farmac", "medic", "clinic", "dent"],
+  automotive: ["auto", "officina", "concession"],
+  industry: ["industrial", "capannone", "warehouse"],
+  other: [],
+};
+const H2H_POI_CATEGORY_TERMS = {
+  scuole: ["scuola"],
+  universita: ["universita"],
+  palestre: ["palestra", "centro sportivo"],
+  stazioni: ["stazione", "metro"],
+  commerciale: ["centro comm", "supermercato", "bar", "ristorante", "parrucchiere", "centro estetico", "farmacia", "clinica", "mercato"],
+  altro: [],
+};
+const h2hPoiCategoryCounts = useMemo(() => {
+  if (!isMovementStep2) return {};
+  const counts = {};
+  const knownTerms = Object.entries(H2H_POI_CATEGORY_TERMS).filter(([key]) => key !== "altro").flatMap(([, terms]) => terms);
+  pois.forEach((poi) => {
+    const haystack = normalizeTerritoryName(`${poi.name || ""} ${poi.category || ""}`);
+    const bucket = Object.entries(H2H_POI_CATEGORY_TERMS).find(([key, terms]) => key !== "altro" && terms.some((term) => haystack.includes(term)));
+    const key = bucket ? bucket[0] : (knownTerms.some((term) => haystack.includes(term)) ? null : "altro");
+    if (key) counts[key] = (counts[key] || 0) + 1;
+  });
+  return counts;
+}, [pois, isMovementStep2]);
+const businessPoiCategoryCounts = useMemo(() => {
+  if (!isBusinessStep2) return {};
+  const counts = {};
+  const knownTerms = Object.entries(BUSINESS_POI_CATEGORY_TERMS).filter(([key]) => key !== "other").flatMap(([, terms]) => terms);
+  pois.forEach((poi) => {
+    const haystack = normalizeTerritoryName(`${poi.name || ""} ${poi.category || ""} ${poi.address || ""}`);
+    const bucket = Object.entries(BUSINESS_POI_CATEGORY_TERMS).find(([key, terms]) => key !== "other" && terms.some((term) => haystack.includes(term)));
+    const key = bucket ? bucket[0] : (knownTerms.some((term) => haystack.includes(term)) ? null : "other");
+    if (key) counts[key] = (counts[key] || 0) + 1;
+  });
+  return counts;
+}, [pois, isBusinessStep2]);
+const poiComuneResolver = useMemo(() => {
+  const boundaries = Array.isArray(municipalityBoundary)
+    ? municipalityBoundary.filter(b => b?.geometry)
+    : (municipalityBoundary?.geometry ? [municipalityBoundary] : []);
+  const singleComuneLabel = (isComuneMode && (city?.label || city?.name)) || (boundaries.length === 1 ? boundaries[0]?.name : null) || null;
+  return (poi) => {
+    if (boundaries.length > 1 && Number.isFinite(Number(poi?.lat)) && Number.isFinite(Number(poi?.lng))) {
+      const match = boundaries.find((b) => geoJsonContainsPoint(b.geometry, Number(poi.lat), Number(poi.lng)));
+      if (match?.name) return match.name;
+    }
+    return singleComuneLabel;
+  };
+}, [municipalityBoundary, isComuneMode, city]);
 const visiblePoisForAssignment = useMemo(() => {
   const query = normalizeTerritoryName(poiListSearch);
-  const categoryTerms = {
-    shops: ["negozio", "retail", "shop"],
-    food: ["ristor", "bar", "cafe", "food"],
-    offices: ["ufficio", "azienda", "profession"],
-    health: ["farmac", "medic", "clinic", "dent"],
-    automotive: ["auto", "officina", "concession"],
-    industry: ["industrial", "capannone", "warehouse"],
-    other: [],
-  };
   return pois.filter((poi) => {
     const haystack = normalizeTerritoryName(`${poi.name || ""} ${poi.category || ""} ${poi.address || ""}`);
     if (query && !haystack.includes(query)) return false;
-    if (!isBusinessStep2 || businessPoiFilter === "all") return true;
-    if (businessPoiFilter === "selected") return Boolean(poiAssignments[poi.id]);
-    if (businessPoiFilter === "priority") return Number(poi.priority || 0) >= 8;
-    if (businessPoiFilter === "other") {
-      const knownTerms = Object.entries(categoryTerms).filter(([key]) => key !== "other").flatMap(([, terms]) => terms);
-      return !knownTerms.some((term) => haystack.includes(term));
+    if (isBusinessStep2 && businessPoiFilter !== "all") {
+      if (businessPoiFilter === "selected") return Boolean(poiAssignments[poi.id]);
+      if (businessPoiFilter === "priority") return Number(poi.priority || 0) >= 8;
+      if (businessPoiFilter === "other") {
+        const knownTerms = Object.entries(BUSINESS_POI_CATEGORY_TERMS).filter(([key]) => key !== "other").flatMap(([, terms]) => terms);
+        return !knownTerms.some((term) => haystack.includes(term));
+      }
+      return (BUSINESS_POI_CATEGORY_TERMS[businessPoiFilter] || []).some((term) => haystack.includes(term));
     }
-    return (categoryTerms[businessPoiFilter] || []).some((term) => haystack.includes(term));
+    if (isMovementStep2 && h2hPoiFilter !== "all") {
+      if (h2hPoiFilter === "altro") {
+        const knownTerms = Object.entries(H2H_POI_CATEGORY_TERMS).filter(([key]) => key !== "altro").flatMap(([, terms]) => terms);
+        return !knownTerms.some((term) => haystack.includes(term));
+      }
+      return (H2H_POI_CATEGORY_TERMS[h2hPoiFilter] || []).some((term) => haystack.includes(term));
+    }
+    return true;
   });
-}, [pois, poiListSearch, isBusinessStep2, businessPoiFilter, poiAssignments]);
+}, [pois, poiListSearch, isBusinessStep2, businessPoiFilter, isMovementStep2, h2hPoiFilter, poiAssignments]);
 const [operatorCountForPoiAssignment, setOperatorCountForPoiAssignment] = useState(() => Math.max(1, Number(data.promoterCount || data.businessOperatorCount || 1)));
 const [operatorSchedules, setOperatorSchedules] = useState(() => buildPromoterAssignments(data, Math.max(1, Number(data.promoterCount || data.businessOperatorCount || 1))));
 const selectedOperationalPois = useMemo(() => pois
@@ -7787,6 +7854,12 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     ? null
     : formatPercentIT(step2TruthModel.coverage.operationalPct, Number.isInteger(step2TruthModel.coverage.operationalPct) ? 0 : 1);
   const step2CoverageFullLabel = step2CoveragePctLabel ? `${step2CoveragePctLabel} del fabbisogno operativo` : null;
+  // Shared, single-decimal, formatPercentIT-formatted coverage percentage —
+  // every banner/sentence in Step 2 reads this instead of re-deriving its own
+  // (previously mismatched, e.g. "22%" here vs "21,6%" in the sidebar).
+  const sharedCoveragePctText = step2CoveragePctLabel
+    || (radiusAdvisoryData ? formatPercentIT(radiusAdvisoryData.covPct, Number.isInteger(radiusAdvisoryData.covPct) ? 0 : 1) : null)
+    || formatPercentIT(serviceKpis?.coverage || 0, Number.isInteger(serviceKpis?.coverage || 0) ? 0 : 1);
   const step2RequirementContextLabel = step2TruthModel.territory.modeLabel || "fabbisogno operativo delle zone selezionate";
   const isCoverageConfigurationValid = step2ViewModel.isCoverageConfigurationValid;
   const operationalSelectionReady = isResidentialStep2
@@ -8486,13 +8559,13 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               lineHeight: 1.45
             }}>
               {radiusAdvisoryData.isDismissed ? (
-                `Raggio di ${formatRadiusLabel(radiusAdvisoryData.currentRadius)} mantenuto per la distribuzione (${formatIntegerIT(radiusAdvisoryData.currQty)} volantini per una copertura stimata del ${radiusAdvisoryData.covPct}%).`
+                `Raggio di ${formatRadiusLabel(radiusAdvisoryData.currentRadius)} mantenuto per la distribuzione (${formatIntegerIT(radiusAdvisoryData.currQty)} volantini per una copertura stimata del ${sharedCoveragePctText}).`
               ) : radiusAdvisoryData.status === "coperto" ? (
-                `Con ${formatIntegerIT(radiusAdvisoryData.currQty)} volantini, il raggio selezionato (${formatRadiusLabel(radiusAdvisoryData.currentRadius)}) è coerente con il fabbisogno stimato dell'area (copertura al ${radiusAdvisoryData.covPct}%).`
+                `Con ${formatIntegerIT(radiusAdvisoryData.currQty)} volantini, il raggio selezionato (${formatRadiusLabel(radiusAdvisoryData.currentRadius)}) è coerente con il fabbisogno stimato dell'area (copertura al ${sharedCoveragePctText}).`
               ) : radiusAdvisoryData.covPct < 25 || radiusAdvisoryData.status === "non_coperto" ? (
-                `Con ${formatIntegerIT(radiusAdvisoryData.currQty)} volantini, il raggio selezionato copre circa il ${radiusAdvisoryData.covPct}% del fabbisogno stimato dell'area. Per una distribuzione più concentrata puoi usare il raggio consigliato.`
+                `Con ${formatIntegerIT(radiusAdvisoryData.currQty)} volantini, il raggio selezionato copre circa il ${sharedCoveragePctText} del fabbisogno stimato dell'area. Per una distribuzione più concentrata puoi usare il raggio consigliato.`
               ) : (
-                `Con ${formatIntegerIT(radiusAdvisoryData.currQty)} volantini, il raggio selezionato copre circa il ${radiusAdvisoryData.covPct}% del fabbisogno stimato dell'area (${formatIntegerIT(radiusAdvisoryData.currReq)} volantini per copertura completa). Puoi mantenere la selezione o concentrare la distribuzione sul raggio consigliato.`
+                `Con ${formatIntegerIT(radiusAdvisoryData.currQty)} volantini, il raggio selezionato copre circa il ${sharedCoveragePctText} del fabbisogno stimato dell'area (${formatIntegerIT(radiusAdvisoryData.currReq)} volantini per copertura completa). Puoi mantenere la selezione o concentrare la distribuzione sul raggio consigliato.`
               )}
             </div>
           </div>
@@ -8709,22 +8782,20 @@ const radiusInsightRows = zonesInRadius.map(z => ({
         if (isResidentialStep2) {
           const territorialFamiliesLabel = areaMode === "radius" ? "Famiglie/cassette stimate nel raggio" : "Famiglie/cassette stimate nel territorio";
           overviewKpis = [
+            { label: `${territoryPluralLabel} coinvolti`, value: step2TruthModel.zones.involved, color: "#60A5FA", unavailable: !(step2TruthModel.zones.involved > 0) },
             { label: territorialFamiliesLabel, value: formatIntegerIT(step2ViewModel.primaryFamiliesValue), color: "#4ADE80", unavailable: !(step2ViewModel.primaryFamiliesValue > 0), source: areaMode === "radius" ? "Modello operativo VolantiniPro — raggio selezionato" : "Modello operativo VolantiniPro" },
-            { label: "Fabbisogno operativo consigliato", value: formatIntegerIT(step2TruthModel.quantity.recommendedRequirement), unit: "pz.", color: "#4ADE80", unavailable: !(step2TruthModel.quantity.recommendedRequirement > 0) },
+            { label: "Quantità inserita", value: step2TruthModel.quantity.inserted == null ? null : formatIntegerIT(step2TruthModel.quantity.inserted), unit: "pz.", color: "#38BDF8", unavailable: step2TruthModel.quantity.inserted == null },
+            { label: "Quantità consigliata", value: formatIntegerIT(step2TruthModel.quantity.recommendedRequirement), unit: "pz.", color: "#4ADE80", unavailable: !(step2TruthModel.quantity.recommendedRequirement > 0) },
             { label: "Copertura scenario corrente", value: step2CoverageFullLabel, color: "#38BDF8", unavailable: step2CoverageFullLabel == null },
-            { label: "Zone coinvolte / disponibili", value: `${step2TruthModel.zones.involved} / ${step2TruthModel.zones.available}`, color: "#60A5FA", unavailable: !step2TruthModel.zones.available },
-            { label: "Durata calendario", value: step2TruthModel.duration.calculable ? step2TruthModel.duration.days : "Durata calendario non calcolabile", unit: step2TruthModel.duration.calculable ? "giorni" : "", color: "#FBBF24", unavailable: false, source: step2TruthModel.duration.calculable ? null : "Numero operatori non disponibile" },
             { label: "Score D2D", value: `${Math.round(Number(zoneVerdict?.score || 0))}/100`, color: "#4ADE80" },
           ];
         } else if (isMovementStep2) {
-          const rawTimeSlots = data.timeSlot || h2hHotspotRadiusRows[0]?.time;
-          const timeSlotsOk = rawTimeSlots && rawTimeSlots !== "Da validare";
           overviewKpis = [
-            { label: "Flusso potenziale (indice)", value: serviceKpis?.flowScore ?? 0, unit: "/100", color: "#38BDF8", unavailable: serviceKpis?.flowScore == null },
-            { label: "Punti strategici", value: serviceKpis?.hotspotCount || serviceKpis?.operationalZones || 0, color: "#38BDF8", unavailable: !(serviceKpis?.hotspotCount || serviceKpis?.operationalZones) },
-            { label: "Quantità operativa", value: formatIntegerIT(operationalRecommended), unit: "pz.", color: "#4ADE80", unavailable: !(operationalRecommended > 0) },
-            { label: "Promoter assegnati", value: promoterCountForStep2, color: "#38BDF8", unavailable: promoterCountForStep2 < 1 },
-            { label: "Fasce orarie consigliate", value: timeSlotsOk ? rawTimeSlots : null, color: "#A855F7", unavailable: !timeSlotsOk },
+            { label: "POI rilevati", value: fetchedPois.length, color: "#38BDF8", unavailable: !(fetchedPois.length > 0) },
+            { label: "POI utilizzabili", value: pois.length, color: "#38BDF8", unavailable: !(pois.length > 0) },
+            { label: "POI selezionati", value: selectedOperationalPois.length, color: "#A855F7", unavailable: selectedOperationalPois.length < 1 },
+            { label: "Quantità inserita", value: step2TruthModel.quantity.inserted == null ? null : formatIntegerIT(step2TruthModel.quantity.inserted), unit: "pz.", color: "#4ADE80", unavailable: step2TruthModel.quantity.inserted == null },
+            { label: "Fabbisogno operativo", value: formatIntegerIT(operationalRecommended), unit: "pz.", color: "#4ADE80", unavailable: !(operationalRecommended > 0) },
             { label: "Score H2H", value: `${Math.round(Number(zoneVerdict?.score || 0))}/100`, color: "#38BDF8" },
           ];
         } else {
@@ -8733,7 +8804,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
             { label: "Attività selezionate", value: selectedOperationalPois.length, color: "#A78BFA", unavailable: selectedOperationalPois.length < 1 },
             { label: "Materiali necessari", value: businessMaterialPlan?.materialsRequired == null ? null : formatIntegerIT(businessMaterialPlan.materialsRequired), unit: businessMaterialPlan?.materialsRequired == null ? "" : "pz.", color: "#4ADE80", unavailable: businessMaterialPlan?.materialsRequired == null },
             { label: "Materiali residui", value: businessMaterialPlan?.materialsRemaining == null ? null : formatIntegerIT(businessMaterialPlan.materialsRemaining), unit: businessMaterialPlan?.materialsRemaining == null ? "" : "pz.", color: "#38BDF8", unavailable: businessMaterialPlan?.materialsRemaining == null },
-            { label: "Giornate-addetto", value: businessOperationalPlan?.calculable ? businessOperationalPlan.operatorDays : null, color: "#FBBF24", unavailable: !businessOperationalPlan?.calculable },
+            { label: "Materiali mancanti", value: businessMaterialPlan?.materialsMissing == null ? null : formatIntegerIT(businessMaterialPlan.materialsMissing), unit: businessMaterialPlan?.materialsMissing == null ? "" : "pz.", color: "#FCA5A5", unavailable: businessMaterialPlan?.materialsMissing == null },
             { label: "Addetti consigliati", value: businessOperationalPlan?.recommendedOperators ?? null, color: "#A78BFA", unavailable: businessOperationalPlan?.recommendedOperators == null },
           ];
         }
@@ -8911,7 +8982,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 <span style={{ color: "#38BDF8" }}>{formatRadiusLabel(radiusKm)}</span>
                 <span style={{ color: "rgba(255,255,255,0.4)" }}>·</span>
                 <span style={{ color: getCoverageStatus(serviceKpis.coverage) === "coperto" ? "#22C55E" : getCoverageStatus(serviceKpis.coverage) === "parziale" ? "#FACC15" : "#F87171" }}>
-                  {serviceKpis.coverage}% copertura
+                  {sharedCoveragePctText} copertura
                 </span>
               </div>
             )}
@@ -8932,6 +9003,8 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               operationalPoints={step1OperationalPoints}
               poiAssignments={poiAssignments}
               onTogglePoi={togglePoiAssignment}
+              focusPoiId={focusedPoiId}
+              focusPoiNonce={focusedPoiNonce}
               businessConfig={isBusinessStep2 ? {
                 deliveryLabel: businessOptionLabel(BUSINESS_DELIVERY_METHODS, data.businessDeliveryMethod),
                 recipientLabel: businessOptionLabel(BUSINESS_RECIPIENTS, data.businessPreferredRecipient),
@@ -9155,12 +9228,35 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 {isBusinessStep2 && (
                   <div role="group" aria-label="Filtri attività Business" style={{ padding: "0 14px 10px", display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {[
-                      ["all", "Tutte"], ["selected", "Selezionate"], ["priority", "Prioritarie"],
-                      ["shops", "Negozi"], ["food", "Ristorazione"], ["offices", "Uffici"],
-                      ["health", "Sanitario"], ["automotive", "Automotive"], ["industry", "Industria"], ["other", "Altro"],
-                    ].map(([value, label]) => {
+                      ["all", "Tutte", pois.length],
+                      ["selected", "Selezionate", selectedOperationalPois.length],
+                      ["priority", "Prioritarie", pois.filter(p => Number(p.priority || 0) >= 8).length],
+                      ["shops", "Negozi", businessPoiCategoryCounts.shops || 0],
+                      ["food", "Ristorazione", businessPoiCategoryCounts.food || 0],
+                      ["offices", "Uffici", businessPoiCategoryCounts.offices || 0],
+                      ["health", "Sanitario", businessPoiCategoryCounts.health || 0],
+                      ["automotive", "Automotive", businessPoiCategoryCounts.automotive || 0],
+                      ["industry", "Industria", businessPoiCategoryCounts.industry || 0],
+                      ["other", "Altro", businessPoiCategoryCounts.other || 0],
+                    ].filter(([value, , count]) => value === "all" || value === "selected" || value === "priority" || count > 0).map(([value, label, count]) => {
                       const active = businessPoiFilter === value;
-                      return <button key={value} type="button" aria-pressed={active} onClick={() => setBusinessPoiFilter(value)} style={{ padding: "6px 9px", borderRadius: 999, border: `1px solid ${active ? "rgba(167,139,250,.58)" : "rgba(255,255,255,.10)"}`, background: active ? "rgba(167,139,250,.14)" : "rgba(255,255,255,.025)", color: active ? "#DDD6FE" : "#94A3B8", fontFamily: F.sans, fontSize: 8.5, fontWeight: 800, cursor: "pointer" }}>{label}</button>;
+                      return <button key={value} type="button" aria-pressed={active} onClick={() => setBusinessPoiFilter(value)} style={{ padding: "6px 9px", borderRadius: 999, border: `1px solid ${active ? "rgba(167,139,250,.58)" : "rgba(255,255,255,.10)"}`, background: active ? "rgba(167,139,250,.14)" : "rgba(255,255,255,.025)", color: active ? "#DDD6FE" : "#94A3B8", fontFamily: F.sans, fontSize: 8.5, fontWeight: 800, cursor: "pointer" }}>{label}{value !== "all" && value !== "selected" && value !== "priority" ? ` (${count})` : ""}</button>;
+                    })}
+                  </div>
+                )}
+                {isMovementStep2 && (
+                  <div role="group" aria-label="Filtri categoria POI" style={{ padding: "0 14px 10px", display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {[
+                      ["all", "Tutti", pois.length],
+                      ["scuole", "Scuole", h2hPoiCategoryCounts.scuole || 0],
+                      ["universita", "Università", h2hPoiCategoryCounts.universita || 0],
+                      ["palestre", "Palestre e sport", h2hPoiCategoryCounts.palestre || 0],
+                      ["stazioni", "Stazioni e fermate", h2hPoiCategoryCounts.stazioni || 0],
+                      ["commerciale", "Commerciale", h2hPoiCategoryCounts.commerciale || 0],
+                      ["altro", "Altro", h2hPoiCategoryCounts.altro || 0],
+                    ].filter(([value, , count]) => value === "all" || count > 0).map(([value, label, count]) => {
+                      const active = h2hPoiFilter === value;
+                      return <button key={value} type="button" aria-pressed={active} onClick={() => setH2hPoiFilter(value)} style={{ padding: "6px 9px", borderRadius: 999, border: `1px solid ${active ? "rgba(56,189,248,.58)" : "rgba(255,255,255,.10)"}`, background: active ? "rgba(56,189,248,.14)" : "rgba(255,255,255,.025)", color: active ? "#BAE6FD" : "#94A3B8", fontFamily: F.sans, fontSize: 8.5, fontWeight: 800, cursor: "pointer" }}>{label}{value !== "all" ? ` (${count})` : ""}</button>;
                     })}
                   </div>
                 )}
@@ -9170,17 +9266,22 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                   <div style={{ maxHeight: 320, overflowY: "auto" }}>
                     {visiblePoisForAssignment.map((poi, index) => {
                       const assignment = poiAssignments[poi.id] || null;
+                      const comuneLabel = poiComuneResolver(poi);
+                      const isFocused = focusedPoiId === poi.id;
                       return (
-                        <div key={poi.id} style={{ padding: "9px 14px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1fr) 155px", gap: 10, alignItems: "center", borderTop: index ? "1px solid rgba(255,255,255,.05)" : "none", background: assignment ? "rgba(34,197,94,.045)" : "transparent" }}>
+                        <div key={poi.id} role="button" tabIndex={0} aria-pressed={isFocused}
+                          onClick={() => focusPoiRow(poi.id)}
+                          onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); focusPoiRow(poi.id); } }}
+                          style={{ padding: "9px 14px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1fr) 155px", gap: 10, alignItems: "center", borderTop: index ? "1px solid rgba(255,255,255,.05)" : "none", background: assignment ? "rgba(34,197,94,.045)" : "transparent", outline: isFocused ? "1px solid rgba(125,211,252,.55)" : "none", cursor: "pointer" }}>
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 780, color: C.white }}>{poi.name || "Luogo senza nome"}</div>
-                            <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.43)", marginTop: 3 }}>{poi.category || "Categoria non indicata"}{poi.address ? ` · ${poi.address}` : " · indirizzo non disponibile"}</div>
+                            <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.43)", marginTop: 3 }}>{poi.category || "Categoria non indicata"}{poi.address ? ` · ${poi.address}` : " · indirizzo non disponibile"} · {comuneLabel || "Comune non determinato"}</div>
                             {isBusinessStep2 && <div style={{ fontFamily: F.sans, fontSize: 7.5, color: "rgba(167,139,250,.72)", marginTop: 3 }}>Fonte: {poi.source || "Fonte territoriale collegata"}{poi.openingHours ? ` · Orari: ${poi.openingHours}` : ""}</div>}
                           </div>
                           {isBusinessStep2 ? (
-                            <button type="button" onClick={() => togglePoiAssignment(poi)} aria-pressed={Boolean(assignment)} style={{ width: "100%", padding: "8px", borderRadius: 8, background: assignment ? "rgba(34,197,94,.10)" : "#0B1526", border: `1px solid ${assignment ? "rgba(34,197,94,.30)" : "rgba(255,255,255,.12)"}`, color: assignment ? "#86EFAC" : C.white, fontFamily: F.sans, fontSize: 9, fontWeight: 800, cursor: "pointer" }}>{assignment ? "✓ Selezionata" : "Seleziona attività"}</button>
+                            <button type="button" onClick={(event) => { event.stopPropagation(); togglePoiAssignment(poi); }} aria-pressed={Boolean(assignment)} style={{ width: "100%", padding: "8px", borderRadius: 8, background: assignment ? "rgba(34,197,94,.10)" : "#0B1526", border: `1px solid ${assignment ? "rgba(34,197,94,.30)" : "rgba(255,255,255,.12)"}`, color: assignment ? "#86EFAC" : C.white, fontFamily: F.sans, fontSize: 9, fontWeight: 800, cursor: "pointer" }}>{assignment ? "✓ Selezionata" : "Seleziona attività"}</button>
                           ) : (
-                            <select value={assignment?.operatorNumber || ""} onChange={(event) => event.target.value ? assignPoiToOperator(poi.id, event.target.value) : togglePoiAssignment(poi)} style={{ width: "100%", padding: "8px", borderRadius: 8, background: assignment ? "rgba(34,197,94,.10)" : "#0B1526", border: `1px solid ${assignment ? "rgba(34,197,94,.30)" : "rgba(255,255,255,.12)"}`, color: assignment ? "#86EFAC" : C.white, fontFamily: F.sans, fontSize: 9 }}>
+                            <select value={assignment?.operatorNumber || ""} onClick={(event) => event.stopPropagation()} onChange={(event) => event.target.value ? assignPoiToOperator(poi.id, event.target.value) : togglePoiAssignment(poi)} style={{ width: "100%", padding: "8px", borderRadius: 8, background: assignment ? "rgba(34,197,94,.10)" : "#0B1526", border: `1px solid ${assignment ? "rgba(34,197,94,.30)" : "rgba(255,255,255,.12)"}`, color: assignment ? "#86EFAC" : C.white, fontFamily: F.sans, fontSize: 9 }}>
                               <option value="">{assignment ? "Rimuovi assegnazione" : "Assegna a..."}</option>
                               {Array.from({ length: operatorCountForPoiAssignment }, (_, operatorIndex) => <option key={operatorIndex + 1} value={operatorIndex + 1}>Promoter {operatorIndex + 1}</option>)}
                             </select>
@@ -9371,15 +9472,61 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                             : isMovementStep2
                               ? Number(zone.poi || zone.points || zone.transitStops || 0)
                               : Number(zone.targetBiz || zone.businesses || zone.value || 0);
+                          const rowKey = zone.id || zone.name || index;
+                          const isRowExpanded = expandedZoneRows.has(rowKey);
+                          const comuneLabel = zone.municipality_name || zone.comune || zone.parentComune || zone.comuneName || city?.label || city?.name || "Dato non disponibile";
+                          const priorityLabel = allocation?.priorityRank === 1 ? "1 · prima" : (allocation?.priorityRank || index + 1);
                           return (
-                            <tr key={zone.id || zone.name || index}>
-                              <th scope="row">{zone.name || zone.label || `Zona ${index + 1}`}</th>
+                            <React.Fragment key={rowKey}>
+                            <tr>
+                              <th scope="row">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleZoneRowDetail(rowKey)}
+                                  aria-expanded={isRowExpanded}
+                                  aria-controls={`vp-zone-detail-${rowKey}`}
+                                  style={{ display: "flex", alignItems: "center", gap: 7, background: "none", border: "none", padding: 0, margin: 0, color: "inherit", font: "inherit", cursor: "pointer", textAlign: "left" }}
+                                >
+                                  <span aria-hidden="true" style={{ fontSize: 9, color: col, flexShrink: 0 }}>{isRowExpanded ? "▼" : "▶"}</span>
+                                  <span>{zone.name || zone.label || `Zona ${index + 1}`}</span>
+                                  {assigned > 0 && (
+                                    <span style={{ marginLeft: 4, padding: "1px 6px", borderRadius: 5, fontSize: 8, fontWeight: 800, color: "#86EFAC", background: "rgba(34,197,94,.11)", flexShrink: 0 }}>
+                                      Distribuzione assegnata
+                                    </span>
+                                  )}
+                                </button>
+                              </th>
                               <td className="vp-data-number">{target > 0 ? formatIntegerIT(target) : "Dato non disponibile"}</td>
                               <td className="vp-data-number">{formatIntegerIT(assigned)}</td>
                               <td className="vp-data-number">{coverage != null ? formatPercentIT(coverage, Number.isInteger(coverage) ? 0 : 1) : "Dato non disponibile"}</td>
-                              <td>{allocation?.priorityRank === 1 ? "1 · prima" : (allocation?.priorityRank || index + 1)}</td>
+                              <td>{priorityLabel}</td>
                               <td><span className={`vp-step2-zone-status vp-step2-zone-status--${status.toLowerCase()}`}>{status}</span></td>
                             </tr>
+                            {isRowExpanded && (
+                              <tr id={`vp-zone-detail-${rowKey}`}>
+                                <td colSpan={6} style={{ background: "rgba(255,255,255,.02)", padding: "12px 14px" }}>
+                                  <dl style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, minmax(0,1fr))", gap: "8px 18px", margin: 0 }}>
+                                    {[
+                                      ["Comune", comuneLabel],
+                                      ["Famiglie/cassette stimate", target > 0 ? formatIntegerIT(target) : "Dato non disponibile"],
+                                      ["Quantità assegnata", formatIntegerIT(assigned)],
+                                      ["Copertura", coverage != null ? formatPercentIT(coverage, Number.isInteger(coverage) ? 0 : 1) : "Dato non disponibile"],
+                                      ["Priorità", priorityLabel],
+                                      ["Stato", status],
+                                    ].map(([dt, dd]) => (
+                                      <div key={dt}>
+                                        <dt style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.42)", textTransform: "uppercase", letterSpacing: ".05em", margin: 0 }}>{dt}</dt>
+                                        <dd style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.85)", margin: "2px 0 0" }}>{dd}</dd>
+                                      </div>
+                                    ))}
+                                  </dl>
+                                  <div style={{ marginTop: 10, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)", fontStyle: "italic" }}>
+                                    Dettaglio strade non disponibile per questa zona.
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                            </React.Fragment>
                           );
                         })}
                       </tbody>
@@ -9638,7 +9785,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                         </>
                       ) : (
                         <>
-                          <><b style={{ color: C.white }}>Con un raggio di {radiusKm || radius} km la campagna copre circa il {serviceKpis?.coverage || 0}% dell’area selezionata.</b> Per una campagna più mirata puoi ridurre il raggio.</>
+                          <><b style={{ color: C.white }}>Con un raggio di {radiusKm || radius} km la campagna copre circa il {sharedCoveragePctText} dell’area selezionata.</b> Per una campagna più mirata puoi ridurre il raggio.</>
                           {primaryCoveredZones.length > 0 && <> Con {formatIntegerIT(flyerQuantityFromStep1)} volantini coprirai principalmente: <b style={{ color: col }}>{primaryCoveredZones.join(", ")}</b>.</>}
                         </>
                       )}
@@ -9985,7 +10132,7 @@ const isManual = allocationMode === "manual";
                                 </div>
                                 <div>
                                   <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Copertura complessiva del raggio</div>
-                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: isPartial ? "#22C55E" : C.green }}>{serviceKpis?.coverage || 0}%</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: isPartial ? "#22C55E" : C.green }}>{sharedCoveragePctText}</div>
                                 </div>
                                 <div>
                                   <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Quantità mancante</div>
@@ -10016,7 +10163,7 @@ const isManual = allocationMode === "manual";
                                 </div>
                                 <div>
                                   <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>{step2ViewModel.primaryCoverageLabel || (areaMode === "full_municipality" ? "Copertura comune" : "Copertura area selezionata")}</div>
-                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: isPartial ? "#22C55E" : C.green }}>{serviceKpis?.coverage || 0}%</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: isPartial ? "#22C55E" : C.green }}>{sharedCoveragePctText}</div>
                                 </div>
                                 {areaMode === "custom_zone" && zoneCoveragePctForBox != null && (
                                   <div>

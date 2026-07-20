@@ -242,6 +242,16 @@ async function chooseKeep(page) {
   if (await keep.count()) await keep.click();
 }
 
+async function readCoveragePercents(page) {
+  return page.evaluate(() => {
+    const matches = [];
+    const re = /(\d{1,3}(?:[.,]\d)?)\s*%\s*del fabbisogno operativo/g;
+    let m;
+    while ((m = re.exec(document.body.innerText)) !== null) matches.push(m[1].replace(',', '.'));
+    return matches;
+  });
+}
+
 async function selectOperationalPois(page, service) {
   const name = service === 'b2b' ? /Seleziona automaticamente/i : /Seleziona tutti e assegna/i;
   const select = page.getByRole('button', { name }).first();
@@ -260,9 +270,21 @@ async function main() {
   const browser = await chromium.launch({ executablePath: chromePath, headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   await context.addInitScript(() => { window.__VOLANTINIPRO_DEBUG_STEP2__ = true; });
+  const consoleErrors = [];
+  function trackPage(p) {
+    p.on('pageerror', error => pageErrors.push(error.stack || error.message));
+    p.on('console', msg => {
+      if (msg.type() !== 'error') return;
+      const text = msg.text();
+      // "Failed to load resource" is the browser's own log for requests this harness
+      // intentionally aborts (fonts/tiles/mapbox, see installOfflineRoutes) — expected noise, not an app bug.
+      if (/Failed to load resource/i.test(text)) return;
+      consoleErrors.push(text);
+    });
+  }
   const page = await context.newPage();
   const pageErrors = [];
-  page.on('pageerror', error => pageErrors.push(error.stack || error.message));
+  trackPage(page);
   await installOfflineRoutes(page, ledger);
 
   try {
@@ -273,7 +295,33 @@ async function main() {
     assert(d2d.truthModel.quantity.recommendedRequirement === 6794, `D2D recommended inatteso: ${d2d.truthModel.quantity.recommendedRequirement}`, 'fixture');
     assert(d2d.truthModel.coverage.operationalPct != null, 'D2D coverage non disponibile');
     assert(d2d.truthModel.rawData?.territorialAnalysis?.values?.famiglie_stimate === 6176, 'Raw data D2D non persistiti', 'fixture');
-    results.push({ scenario: 'D2D Varedo', status: 'PASS', canonical: { territory: d2d.truthModel.territory.label, quantity: d2d.truthModel.quantity, coverage: d2d.truthModel.coverage } });
+
+    const zoneDetailsTrigger = page.locator('.vp-step2-zone-details__trigger').first();
+    if (await zoneDetailsTrigger.count() && (await zoneDetailsTrigger.getAttribute('aria-expanded')) !== 'true') {
+      await zoneDetailsTrigger.click();
+    }
+    const zoneToggle = page.locator('.vp-step2-zone-table button[aria-expanded]').first();
+    await zoneToggle.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+    let zoneDetailChecked = false;
+    if (await zoneToggle.count()) {
+      assert((await zoneToggle.getAttribute('aria-expanded')) === 'false', 'Riga zona già espansa inaspettatamente');
+      await zoneToggle.click();
+      assert((await zoneToggle.getAttribute('aria-expanded')) === 'true', 'Espansione riga zona D2D non riuscita');
+      const detailId = await zoneToggle.getAttribute('aria-controls');
+      const detailRow = page.locator(`#${detailId}`);
+      await detailRow.waitFor({ state: 'visible', timeout: 5000 });
+      assert(await detailRow.count() > 0, 'Riga dettaglio zona D2D non renderizzata');
+      zoneDetailChecked = true;
+    }
+    assert(zoneDetailChecked, 'Nessuna riga zona D2D disponibile per verificare il dettaglio espandibile', 'infrastructure');
+
+    const coveragePercents = await readCoveragePercents(page);
+    if (coveragePercents.length > 1) {
+      const distinct = new Set(coveragePercents.map(Number));
+      assert(distinct.size === 1, `Percentuali di copertura non uniformi nella UI D2D: ${coveragePercents.join(', ')}`);
+    }
+
+    results.push({ scenario: 'D2D Varedo', status: 'PASS', canonical: { territory: d2d.truthModel.territory.label, quantity: d2d.truthModel.quantity, coverage: d2d.truthModel.coverage }, uiChecks: { zoneDetailChecked, coveragePercents } });
 
     const beforeStep3 = structuredClone(d2d.truthModel);
     const continueButton = page.locator('button.btn').last();
@@ -294,7 +342,7 @@ async function main() {
 
     ledger.activeService = 'h2h';
     const h2hPage = await context.newPage();
-    h2hPage.on('pageerror', error => pageErrors.push(error.stack || error.message));
+    trackPage(h2hPage);
     await installOfflineRoutes(h2hPage, ledger);
     await gotoStep2(h2hPage, 'h2h');
     await selectOperationalPois(h2hPage, 'h2h');
@@ -303,11 +351,44 @@ async function main() {
     assert(h2h.truthModel.territory.pois.length > 0, 'POI H2H non persistiti');
     assert(h2h.truthModel.quantity.recommendedRequirement != null, 'Quantità H2H non normalizzata');
     assert(h2h.truthModel.rawData.transport != null, 'Stato TPL H2H non persistito', 'fixture');
-    results.push({ scenario: 'H2H offline', status: 'PASS', canonical: { points: h2h.truthModel.territory.pois.length, quantity: h2h.truthModel.quantity, mobility: h2h.truthModel.availability.mobility } });
+
+    const clusterLabels = await h2hPage.evaluate(() => [...document.querySelectorAll('[role="img"][aria-label]')]
+      .filter(el => /punt[oi] raggruppat/i.test(el.getAttribute('aria-label') || ''))
+      .map(el => el.getAttribute('aria-label')));
+    clusterLabels.forEach(label => assert(/^\d+ punt[oi] raggruppat[oi]$/i.test(label), `Etichetta cluster non accessibile: ${label}`));
+
+    const h2hFilterGroup = h2hPage.getByRole('group', { name: 'Filtri categoria POI' });
+    let h2hFilterChecked = false;
+    if (await h2hFilterGroup.count()) {
+      const scuoleFilter = h2hFilterGroup.getByRole('button', { name: /^Scuole/i });
+      assert((await scuoleFilter.count()) === 0, 'Filtro categoria H2H "Scuole" mostrato senza POI corrispondenti (target campagna limitato a Stazioni)');
+      const stazioniFilter = h2hFilterGroup.getByRole('button', { name: /^Stazioni e fermate/i });
+      assert(await stazioniFilter.count() > 0, 'Filtro categoria H2H "Stazioni e fermate" mancante nonostante Stazione Varedo in elenco');
+      assert(/\(\d+\)/.test(await stazioniFilter.innerText()), 'Filtro categoria H2H "Stazioni e fermate" senza conteggio');
+      await stazioniFilter.click();
+      await h2hPage.getByText('Stazione Varedo', { exact: false }).first().waitFor({ state: 'visible', timeout: 5000 });
+      const tuttiFilter = h2hFilterGroup.getByRole('button', { name: /^Tutti/i });
+      await tuttiFilter.click();
+      await h2hPage.getByText('Stazione Varedo', { exact: false }).first().waitFor({ state: 'visible', timeout: 5000 });
+      h2hFilterChecked = true;
+    }
+    assert(h2hFilterChecked, 'Filtro categoria H2H non disponibile per la verifica', 'infrastructure');
+
+    const poiRow = h2hPage.locator('div[role="button"]').filter({ hasText: 'Stazione Varedo' }).first();
+    let focusChecked = false;
+    if (await poiRow.count()) {
+      assert((await poiRow.getAttribute('aria-pressed')) === 'false', 'Riga POI H2H già focalizzata inaspettatamente');
+      await poiRow.click();
+      assert((await poiRow.getAttribute('aria-pressed')) === 'true', 'Click su riga POI H2H non ha attivato il focus mappa');
+      focusChecked = true;
+    }
+    assert(focusChecked, 'Nessuna riga POI H2H disponibile per verificare il click-to-center', 'infrastructure');
+
+    results.push({ scenario: 'H2H offline', status: 'PASS', canonical: { points: h2h.truthModel.territory.pois.length, quantity: h2h.truthModel.quantity, mobility: h2h.truthModel.availability.mobility }, uiChecks: { clusterLabels, h2hFilterChecked, focusChecked } });
 
     ledger.activeService = 'b2b';
     const businessPage = await context.newPage();
-    businessPage.on('pageerror', error => pageErrors.push(error.stack || error.message));
+    trackPage(businessPage);
     await installOfflineRoutes(businessPage, ledger);
     await gotoStep2(businessPage, 'b2b');
     await selectOperationalPois(businessPage, 'b2b');
@@ -317,17 +398,42 @@ async function main() {
     assert(materialPlan?.materialsRequired === materialPlan.rows.reduce((sum, row) => sum + row.copies, 0), 'Formula materiali Business non canonica');
     assert(business.truthModel.business.competitorCount === null, 'Competitor sintetico presente');
     assert(business.truthModel.territory.nils.length === 0, 'NIL presenti nel Business');
-    results.push({ scenario: 'Business Bergamo', status: 'PASS', canonical: { territory: business.truthModel.territory.label, activities: business.truthModel.territory.activities.length, materialsRequired: materialPlan.materialsRequired, competitorCount: business.truthModel.business.competitorCount } });
+
+    const businessFilterGroup = businessPage.getByRole('group', { name: 'Filtri attività Business' });
+    let businessFilterChecked = false;
+    if (await businessFilterGroup.count()) {
+      const healthButton = businessFilterGroup.getByRole('button', { name: /^Sanitario/i });
+      assert((await healthButton.count()) === 0, 'Filtro Business "Sanitario" mostrato senza attività corrispondenti (categorie vuote non nascoste, target campagna limitato a Retail)');
+      const shopsButton = businessFilterGroup.getByRole('button', { name: /^Negozi/i });
+      assert(await shopsButton.count() > 0, 'Filtro Business "Negozi" mancante nonostante Bottega Bergamo in elenco');
+      assert(/\(\d+\)/.test(await shopsButton.innerText()), 'Filtro Business "Negozi" senza conteggio categoria');
+      await shopsButton.click();
+      await businessPage.getByText('Bottega Bergamo', { exact: false }).first().waitFor({ state: 'visible', timeout: 5000 });
+      await businessFilterGroup.getByRole('button', { name: /^Tutte$/i }).click();
+      await businessPage.getByText('Bottega Bergamo', { exact: false }).first().waitFor({ state: 'visible', timeout: 5000 });
+      businessFilterChecked = true;
+    }
+    assert(businessFilterChecked, 'Gruppo filtri Business non disponibile per la verifica', 'infrastructure');
+
+    const businessRow = businessPage.locator('div[role="button"]').filter({ hasText: 'Bottega Bergamo' }).first();
+    assert(await businessRow.count() > 0, 'Riga attività Business non trovata per verifica selezione');
+    const businessSelectedButton = businessRow.getByRole('button', { name: /Selezionata/i });
+    assert(await businessSelectedButton.count() > 0, 'Attività Business selezionata via "Seleziona automaticamente" non è visivamente distinta');
+    assert((await businessSelectedButton.getAttribute('aria-pressed')) === 'true', 'Bottone selezione attività Business non riflette lo stato selezionato');
+
+    results.push({ scenario: 'Business Bergamo', status: 'PASS', canonical: { territory: business.truthModel.territory.label, activities: business.truthModel.territory.activities.length, materialsRequired: materialPlan.materialsRequired, competitorCount: business.truthModel.business.competitorCount }, uiChecks: { businessFilterChecked } });
 
     assert(ledger.analysisIstat > 0, 'Fixture analysis-istat non utilizzata', 'infrastructure');
     assert(ledger.analysisPoi >= 2, 'Fixture analysis-poi-search non utilizzata per H2H e Business', 'infrastructure');
     assert(ledger.overpass >= 2, 'Fixture Overpass non utilizzata', 'infrastructure');
     assert(pageErrors.length === 0, `Errori pagina: ${pageErrors.join(' | ')}`);
-    console.log(JSON.stringify({ status: 'PASS', results, ledger, pageErrors }, null, 2));
+    assert(consoleErrors.length === 0, `Errori console: ${consoleErrors.join(' | ')}`);
+    assert(ledger.unhandled.length === 0, `Richieste fixture non gestite: ${ledger.unhandled.map(u => `${u.method} ${u.url}`).join(' | ')}`, 'infrastructure');
+    console.log(JSON.stringify({ status: 'PASS', results, ledger, pageErrors, consoleErrors }, null, 2));
   } catch (error) {
     const state = await page.evaluate(() => window.__VOLANTINIPRO_STEP2_STATE__ ? structuredClone(window.__VOLANTINIPRO_STEP2_STATE__) : null).catch(() => null);
     const classification = error.classification || (/locator\.|waitFor|Timeout/i.test(error.message) ? 'infrastructure' : 'application');
-    console.error(JSON.stringify({ status: 'FAIL', classification, message: error.message, results, ledger, pageErrors, state }, null, 2));
+    console.error(JSON.stringify({ status: 'FAIL', classification, message: error.message, results, ledger, pageErrors, consoleErrors, state }, null, 2));
     process.exitCode = 1;
   } finally {
     await context.close();

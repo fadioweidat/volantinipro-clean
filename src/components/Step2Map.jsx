@@ -725,10 +725,13 @@ function Step2MapImpl({
   boundaryKpis,         // { families, coveragePercent, insertedFlyers, recommendedFlyers } â€” tooltip confine comune attivo
   unconfirmedAddressMode, // true = indirizzo dentro Milano ma non confermato: preview NIL attive, confine leggero
   onMapClick,
+  focusPoiId,   // id del POI su cui centrare/evidenziare la mappa (click dalla lista H2H/Business)
+  focusPoiNonce, // incrementato ad ogni click, anche se si riclicca lo stesso POI
 }) {
   const hasConfirmedRadius = Number.isFinite(Number(radius)) && Number(radius) > 0;
   const effectiveMapRadius = hasConfirmedRadius ? Number(radius) : 3;
   const containerRef = useRef(null);
+  const poiMarkersByIdRef = useRef(new Map());
   const onMapClickRef = useRef(onMapClick);
   useEffect(() => {
     onMapClickRef.current = onMapClick;
@@ -1619,6 +1622,7 @@ function Step2MapImpl({
     const poiActive = pois?.length > 0 || activeLayers?.poi !== false;
 
     if (poiActive && pois?.length > 0) {
+      poiMarkersByIdRef.current.clear();
       const poiGroup = L.layerGroup().addTo(map);
       layersRef.current.poiGroup = poiGroup;
 
@@ -1634,8 +1638,9 @@ function Step2MapImpl({
         if (item.isCluster) {
           // Cluster bubble: size grows with count, color from dominant category
           const s = Math.min(34, 24 + Math.log2(item.count) * 3);
+          const clusterLabel = item.count === 1 ? '1 punto raggruppato' : `${item.count} punti raggruppati`;
           const clusterIcon = L.divIcon({
-            html: `<div style="
+            html: `<div role="img" aria-label="${esc(clusterLabel)}" title="${esc(clusterLabel)}" style="
               width:${s}px;height:${s}px;border-radius:50%;
               background:${item.color};opacity:0.74;
               border:1px solid rgba(255,255,255,0.38);
@@ -1655,9 +1660,9 @@ function Step2MapImpl({
             .sort((a, b) => b[1] - a[1])
             .slice(0, 5)
             .map(([cat, n]) => `${n}Ã— ${esc(cat)}`);
-          L.marker([item.lat, item.lng], { icon: clusterIcon, zIndexOffset: 300, pane: 'poiSelectionPane' })
+          L.marker([item.lat, item.lng], { icon: clusterIcon, zIndexOffset: 300, pane: 'poiSelectionPane', alt: clusterLabel })
             .bindTooltip(
-              `<b>${item.count} POI</b><br>${tipLines.join('<br>')}<br><span style="color:#7DD3FC">Clicca per vedere i singoli punti</span>`,
+              `<b>${esc(clusterLabel)}</b><br>${tipLines.join('<br>')}<br><span style="color:#7DD3FC">Clicca per vedere i singoli punti</span>`,
               { direction: 'top', offset: [0, -4], opacity: 1 }
             )
             .on('click', () => map.setView([item.lat, item.lng], Math.max(15, map.getZoom() + 2), { animate: true }))
@@ -1695,6 +1700,7 @@ function Step2MapImpl({
           }).bindTooltip(tip, { direction: 'top', offset: [0, -16], opacity: 1 });
           if (svcType !== 'd2d') poiMarker.on('click', () => onTogglePoi?.(item));
           poiMarker.addTo(poiGroup);
+          if (item.id != null) poiMarkersByIdRef.current.set(item.id, poiMarker);
         }
       });
 
@@ -1798,6 +1804,27 @@ function Step2MapImpl({
     }
 
   }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, operationalPoints, poiAssignments, onTogglePoi, businessConfig, civiciState, mapZoom, campaignZones, activeZoneId, municipalityBoundary, isMunicipalityMode, nilMode, coveragePolygons, themeMode, activeLayerId, zoneCoverageById, zoneAllocationById, boundaryKpis, unconfirmedAddressMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Click da lista H2H/Business: centra la mappa sul POI ed evidenzia il
+  // marker, senza toccare assegnazione/selezione (nessuna chiamata a
+  // onTogglePoi qui).
+  useEffect(() => {
+    if (focusPoiId == null) return;
+    const map = mapRef.current;
+    const marker = poiMarkersByIdRef.current.get(focusPoiId);
+    if (!map || !marker) return;
+    const latLng = marker.getLatLng();
+    map.setView(latLng, Math.max(16, map.getZoom()), { animate: true });
+    marker.openTooltip();
+    const el = marker.getElement?.();
+    if (el) {
+      el.classList.add('vp-step2-poi-focus-pulse');
+      const timer = setTimeout(() => el.classList.remove('vp-step2-poi-focus-pulse'), 1600);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusPoiId, focusPoiNonce]);
 
   return (
     <div className="vp-step2-map-shell" style={{ position: 'relative', width: '100%' }}>
