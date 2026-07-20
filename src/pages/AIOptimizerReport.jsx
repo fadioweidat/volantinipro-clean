@@ -949,7 +949,7 @@ function TabExtra({ selectedExtras, onAddExtra, onClose }) {
           La campagna è configurata e pronta per l'attivazione. Tutti i dati territoriali, i KPI di copertura e le analisi AI sono stati elaborati sulla base delle informazioni inserite. Il sistema ha verificato la coerenza tra zona, quantità e servizio selezionato. Seguendo le raccomandazioni indicate è possibile ottimizzare ulteriormente l'efficacia della distribuzione. Al termine della campagna riceverai automaticamente il report con i dati reali della distribuzione.
         </div>
         <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.28)", lineHeight: 1.6, fontStyle: "italic" }}>
-          Report generato automaticamente da un motore a regole interne di VolantiniPro (analisi automatica su dati reali, non intelligenza artificiale generativa) sulla base della configurazione della campagna e dei dati territoriali disponibili.
+          Report generato automaticamente da un motore a regole interne di VolantiniPro sulla base della configurazione della campagna e dei dati territoriali disponibili. La nostra AI combina queste regole interne e, per le sintesi del report territoriale avanzato, un modello di intelligenza artificiale generativa che interpreta esclusivamente i dati territoriali reali della zona: i valori numerici e il preventivo definitivo vengono sempre calcolati nel configuratore, mai generati dall'AI.
         </div>
       </div>
 

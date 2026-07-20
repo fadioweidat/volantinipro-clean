@@ -1,10 +1,13 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { getServiceAccent } from "../lib/services/service-config.js";
+import { supabase as sdkSupabase, ensureSupabaseSessionBridge } from "../supabaseClient.js";
 
 /**
  * Report Territoriale Avanzato — dashboard modulare, service-adaptive (D2D / H2H / Business).
  * Pure presentational component: riceve tutti i dati già calcolati da Step2 via props.
- * Nessuna chiamata API qui dentro (Step2 resta l'unica fonte di dati / fetch).
+ * Unica chiamata di rete qui dentro: la Edge Function analyze-territory-summary
+ * (sintesi AI del box "Raccomandazione principale" in Panoramica) — l'AI interpreta
+ * solo i numeri già calcolati altrove, non ne calcola di nuovi.
  */
 
 const F = { serif: "'DM Serif Display',Georgia,serif", sans: "'DM Sans',sans-serif" };
@@ -17,6 +20,96 @@ const SERVICE_COLOR = { d2d: "#4ADE80", h2h: "#38BDF8", b2b: "#FB923C" };
 const GRAY = "rgba(255,255,255,.45)";
 const CRITICAL = "#F87171";
 const COMPARE = "#A855F7";
+
+// ---------------------------------------------------------------------------
+// SINTESI AI (FASE B) — costruzione payload + hook di fetch
+// ---------------------------------------------------------------------------
+
+// Solo dati già calcolati altrove: nessun nuovo calcolo di business logic qui.
+// Le percentuali per-zona sono una semplice divisione presentazionale (come
+// già fa TopZoneBar), non una nuova formula.
+function buildAiTerritorySummaryPayload(p) {
+  const zones = p.territory?.zoneStats || {};
+  const comuniBreakdown = (p.zoneRows || []).map((z) => ({
+    name: z.name,
+    assignedQuantity: z.assignedFlyers ?? null,
+    requiredQuantity: z.requiredFlyers ?? null,
+    coveragePercent: z.requiredFlyers > 0 ? Math.round((z.assignedFlyers / z.requiredFlyers) * 1000) / 10 : null,
+    priorityRank: z.priorityRank ?? null,
+  }));
+  return {
+    service: p.service?.key || null,
+    centerMunicipality: p.territory?.label || null,
+    territoryMode: p.territory?.modeLabel || null,
+    zonesInvolved: zones.involved ?? null,
+    zonesAvailable: zones.available ?? null,
+    quantityInserted: p.quantity?.inserted ?? null,
+    quantityRecommended: p.quantity?.recommended ?? null,
+    coveragePercent: p.coverage?.value ?? null,
+    coverageLabel: p.coverage?.label || null,
+    score: p.score
+      ? {
+          pct: p.score.pct,
+          scoreScale: 100,
+          label: p.score.label,
+          components: Array.isArray(p.score.components)
+            ? p.score.components.map((c) => ({
+                key: c.key,
+                name: c.name,
+                contribution: c.contribution,
+                max: c.max,
+                inputValue: c.inputValue,
+                inputLabel: c.inputLabel,
+              }))
+            : [],
+        }
+      : null,
+    comuniBreakdown,
+    shortage: p.advice?.shortage ?? null,
+  };
+}
+
+// status: 'loading' | 'ai' | 'fallback'. Il fallback statico esistente resta
+// sempre disponibile: mai testo AI non verificato mostrato al cliente.
+function useAiTerritorySummary(p) {
+  const [state, setState] = useState({ status: "loading", summary: null, scoreExplanation: null });
+  const territoryLabel = p.territory?.label;
+  const serviceKey = p.service?.key;
+  const quantityInserted = p.quantity?.inserted;
+
+  useEffect(() => {
+    let cancelled = false;
+    setState({ status: "loading", summary: null, scoreExplanation: null });
+
+    if (!sdkSupabase) {
+      setState({ status: "fallback", summary: null, scoreExplanation: null });
+      return undefined;
+    }
+
+    (async () => {
+      try {
+        await ensureSupabaseSessionBridge();
+        const payload = buildAiTerritorySummaryPayload(p);
+        const { data, error } = await sdkSupabase.functions.invoke("analyze-territory-summary", { body: { payload } });
+        if (cancelled) return;
+        if (error || !data || data.status !== "ai" || !data.summary) {
+          setState({ status: "fallback", summary: null, scoreExplanation: null });
+          return;
+        }
+        setState({ status: "ai", summary: data.summary, scoreExplanation: data.scoreExplanation ?? null });
+      } catch {
+        if (!cancelled) setState({ status: "fallback", summary: null, scoreExplanation: null });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [territoryLabel, serviceKey, quantityInserted]);
+
+  return state;
+}
 
 const NAV_SECTIONS = [
   { id: "panoramica", label: "Panoramica", services: ["d2d", "h2h", "b2b"] },
@@ -350,12 +443,19 @@ function SectionPanoramica({ p, isMobile }) {
   const serviceExplanation = SERVICE_EXPLANATIONS[p.service.key] || SERVICE_EXPLANATIONS.d2d;
   const topZones = (p.zoneRows || []).slice(0, 3);
   const topZonesMax = Math.max(...topZones.map((z) => z.requiredFlyers || 0), 1);
+  const aiState = useAiTerritorySummary(p);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
       <SectionHeader title="Panoramica" eyebrow="Sintesi in 20 secondi" tone={accent} />
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
         {kpis.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
+      {aiState.scoreExplanation && (
+        <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12, padding: "12px 16px" }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,.6)", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".04em" }}>Perché questo punteggio (Score {p.service.key.toUpperCase()})</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,.82)", lineHeight: 1.5 }}>{aiState.scoreExplanation}</div>
+        </div>
+      )}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
         <div style={{ background: `${accent}10`, border: `1px solid ${accent}35`, borderRadius: 12, padding: 16 }}>
           <div style={{ fontSize: 12.5, fontWeight: 900, color: accent, marginBottom: 8 }}>Come viene analizzato il servizio</div>
@@ -380,7 +480,24 @@ function SectionPanoramica({ p, isMobile }) {
         <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12, padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
           <div>
             <div style={{ fontSize: 11.5, fontWeight: 800, color: "#60A5FA", marginBottom: 4 }}>Raccomandazione principale</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,.85)", lineHeight: 1.45 }}>{p.advice.summary || "Selezione area non ancora finalizzata."}</div>
+            {aiState.status === "loading" ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }} aria-live="polite" aria-busy="true">
+                <div style={{ height: 10, borderRadius: 5, width: "94%", background: "rgba(255,255,255,.08)" }} />
+                <div style={{ height: 10, borderRadius: 5, width: "82%", background: "rgba(255,255,255,.08)" }} />
+                <div style={{ height: 10, borderRadius: 5, width: "60%", background: "rgba(255,255,255,.08)" }} />
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,.85)", lineHeight: 1.45 }}>
+                  {aiState.status === "ai" ? aiState.summary : (p.advice.summary || "Selezione area non ancora finalizzata.")}
+                </div>
+                {aiState.status === "ai" && (
+                  <div style={{ fontSize: 10.5, color: "rgba(255,255,255,.4)", lineHeight: 1.4, marginTop: 8 }}>
+                    Sintesi generata da AI sui dati territoriali reali di questa zona. Tutti i valori numerici provengono dalle fonti indicate nella sezione Fonti.
+                  </div>
+                )}
+              </>
+            )}
           </div>
           <div>
             <div style={{ fontSize: 11.5, fontWeight: 800, color: p.advice.shortage > 0 ? CRITICAL : "#4ADE80", marginBottom: 4 }}>{p.advice.shortage > 0 ? "Criticità" : "Opportunità"}</div>

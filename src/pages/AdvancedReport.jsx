@@ -755,7 +755,7 @@ function TabDownload({ kpis, totF, avgCov, flyerQty, requiredQty, missingQty, sv
       <div style={{ padding: "16px 20px", borderRadius: 14, background: "rgba(99,102,241,.07)", border: "1px solid rgba(99,102,241,.2)" }}>
         <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.indigo, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 8 }}>🏅 Certificazione campagna</div>
         <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)", lineHeight: 1.7 }}>
-          Questa anteprima è generata automaticamente da un motore a regole interne di VolantiniPro (analisi automatica su dati reali, non intelligenza artificiale generativa) sulla base dei parametri configurati in Step 4.<br />
+          Questa anteprima è generata automaticamente da un motore a regole interne di VolantiniPro sulla base dei parametri configurati in Step 4. La nostra AI combina queste regole interne e, per le sintesi del report territoriale avanzato, un modello di intelligenza artificiale generativa che interpreta esclusivamente i dati territoriali reali della zona: i valori numerici e il preventivo definitivo vengono sempre calcolati nel configuratore, mai generati dall'AI.<br />
           Il report definitivo sarà emesso al termine della distribuzione con dati operativi verificati e firma digitale dell'operatore responsabile.<br />
           <span style={{ color: "rgba(255,255,255,.35)", fontSize: 10 }}>Generato: {stamp} — {mainAreaLabel || "Area configurata"} — {tLabel || "Campagna volantini"}</span>
         </div>
