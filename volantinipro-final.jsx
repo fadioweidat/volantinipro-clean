@@ -11752,9 +11752,9 @@ const normalizeSelectedExtras = (data) => {
 const selectedExtras = normalizeSelectedExtras(data);
 const selectedExtraIds = selectedExtras.map(s => s.id);
 const optionalExtras = [
+    { id: "graphic_design", addId: "graphic_design", removeIds: ["graphic_design", "grafica_progetto"], label: "Grafica", description: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", micro: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", icon: "GRAPHIC", price: 79 },
     { id: "tracking_gps", addId: "gps", removeIds: ["gps", "tracking_gps", "gps_default"], label: "Tracking GPS Live", description: "Tracciamento operativo e timeline distributori.", micro: "Mostra avanzamento e operatori sulla mappa.", icon: "GPS", price: 25 },
     { id: "photo_proof", addId: "photo_report_advanced", removeIds: ["foto", "photo_proof", "foto_localizzate", "photo_report_advanced"], label: "Report Fotografico", description: "Proof fotografici con data e zona.", micro: "Foto geolocalizzate con data e ora.", icon: "PHOTO", price: 35 },
-    { id: "graphic_design", addId: "graphic_design", removeIds: ["graphic_design", "grafica_progetto"], label: "Grafica", description: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", micro: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", icon: "GRAPHIC", price: 79 },
     { id: "dedicated_supervision", addId: "dedicated_supervision", removeIds: ["dedicated_supervision", "supervisione_dedicata"], label: "Supervisione Dedicata", description: "Un referente segue la tua campagna e interviene in caso di anomalie. Contattalo direttamente se hai bisogno.", micro: campaignDurationKnown ? "Consigliato se attivi anche Tracking GPS Live." : "Consigliato se attivi anche Tracking GPS Live. Prezzo indicativo, confermato in base alla durata effettiva.", icon: "SUPERVISION", price: dedicatedSupervisionPrice },
   ];
 const addOptionalExtra = (id) => setData(d => ({...d, extraServices: [...new Set([...(d.extraServices || []), id])] }));
