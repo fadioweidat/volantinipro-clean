@@ -1852,6 +1852,54 @@ function Step1Icon({ name, size = 24, color = "currentColor", style }) {
           <path {...strokeProps} strokeLinejoin="round" d="M12 4 21.5 20H2.5L12 4Z" /><path {...strokeProps} d="M12 10v4" /><circle cx="12" cy="17" r=".9" fill={color} stroke="none" />
         </svg>
       );
+    case "pin":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M12 21s7-7.58 7-12A7 7 0 0 0 5 9c0 4.42 7 12 7 12Z" /><circle {...strokeProps} cx="12" cy="9" r="2.4" />
+        </svg>
+      );
+    case "eye":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle {...strokeProps} cx="12" cy="12" r="3" />
+        </svg>
+      );
+    case "eyeOff":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M3 3l18 18" /><path {...strokeProps} d="M10.6 5.1A10.6 10.6 0 0 1 12 5c6.5 0 10 7 10 7a17.9 17.9 0 0 1-3.1 4.1M6.2 6.2C3.6 8 2 12 2 12s3.5 7 10 7c1.5 0 2.9-.3 4.1-.9" /><path {...strokeProps} d="M9.5 9.8a3 3 0 0 0 4.2 4.2" />
+        </svg>
+      );
+    case "compass":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <circle {...strokeProps} cx="12" cy="12" r="9" /><path {...strokeProps} strokeLinejoin="round" d="M15 9l-2 6-6 2 2-6 6-2Z" />
+        </svg>
+      );
+    case "camera":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} strokeLinejoin="round" d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" /><circle {...strokeProps} cx="12" cy="13" r="3.5" />
+        </svg>
+      );
+    case "family":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <circle {...strokeProps} cx="8" cy="8" r="3" /><path {...strokeProps} d="M2 20c0-3.3 2.7-6 6-6s6 2.7 6 6" /><circle {...strokeProps} cx="17.5" cy="9" r="2.3" /><path {...strokeProps} d="M15.3 20c.2-2.8 2-5 4.5-5.6" />
+        </svg>
+      );
+    case "chart":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M4 20V10M10 20V4M16 20v-7M4 20h16" />
+        </svg>
+      );
+    case "map":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} strokeLinejoin="round" d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" /><path {...strokeProps} d="M9 4v14M15 6v14" />
+        </svg>
+      );
     default:
       return null;
   }
@@ -8060,7 +8108,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                         style={{ padding: "9px 14px", cursor: "pointer", fontFamily: F.sans, fontSize: 13, color: C.white, borderBottom: "1px solid rgba(255,255,255,.05)" }}
                         onMouseEnter={e => e.currentTarget.style.background = "rgba(34, 197, 94,.12)"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                        📍 {c.label || c.name} <span style={{ fontSize: 10, color: "rgba(255,255,255,.45)", marginLeft: 6 }}>punto operativo</span>
+                        <Step1Icon name="pin" size={12} style={{ verticalAlign: -1, marginRight: 4 }} />{c.label || c.name} <span style={{ fontSize: 10, color: "rgba(255,255,255,.45)", marginLeft: 6 }}>punto operativo</span>
                       </div>
                     );
                   }
@@ -8072,7 +8120,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                         style={{ padding: "9px 14px", cursor: "pointer", fontFamily: F.sans, fontSize: 13, color: C.white, borderBottom: "1px solid rgba(255,255,255,.05)" }}
                         onMouseEnter={e => e.currentTarget.style.background = "rgba(34, 197, 94,.12)"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                        📍 {c.name} <span style={{ fontSize: 10, color: "rgba(255,255,255,.45)", marginLeft: 6 }}>indirizzo/punto · Milano</span>
+                        <Step1Icon name="pin" size={12} style={{ verticalAlign: -1, marginRight: 4 }} />{c.name} <span style={{ fontSize: 10, color: "rgba(255,255,255,.45)", marginLeft: 6 }}>indirizzo/punto · Milano</span>
                       </div>
                     );
                   }
@@ -8283,7 +8331,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                           transition: "all 0.15s ease"
                         }}
                       >
-                        <span style={{ fontSize: 13 }}>{isHidden ? "👁️‍🗨️" : "👁️"}</span>
+                        <span style={{ display: "inline-flex" }}><Step1Icon name={isHidden ? "eyeOff" : "eye"} size={13} /></span>
                         <span>{isHidden ? "Confine OFF" : "Confine ON"}</span>
                       </button>
                     )}
@@ -8308,8 +8356,8 @@ const radiusInsightRows = zonesInRadius.map(z => ({
             {(selectedComuni.length > 0 || city || searchedLocation) ? (
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>Comune/punto di riferimento:</span>
-                <div style={{ padding: "6px 12px", borderRadius: 8, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white }}>
-                  📍 {hasSearchPoint ? selectedSearchPoint.label : (city?.label || city?.name || (selectedComuni[0]?.label || selectedComuni[0]?.name) || searchedLocation)}
+                <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white }}>
+                  <Step1Icon name="pin" size={12} /> {hasSearchPoint ? selectedSearchPoint.label : (city?.label || city?.name || (selectedComuni[0]?.label || selectedComuni[0]?.name) || searchedLocation)}
                 </div>
                 <div style={{ padding: "6px 12px", borderRadius: 8, background: "rgba(34,197,94,.12)", border: "1px solid rgba(34,197,94,.3)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "#22C55E" }}>
                   Raggio selezionato: {radiusKm < 1 ? `${radiusKm * 1000}m` : `${radiusKm}km`}
@@ -8384,7 +8432,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               fontWeight: 800,
               color: radiusAdvisoryData.status === "coperto" || radiusAdvisoryData.isDismissed ? "#22C55E" : "#FACC15"
             }}>
-              <span>{radiusAdvisoryData.status === "coperto" || radiusAdvisoryData.isDismissed ? "✓" : "⚠️"}</span>
+              <span style={{ display: "inline-flex" }}>{radiusAdvisoryData.status === "coperto" || radiusAdvisoryData.isDismissed ? "✓" : <Step1Icon name="warning" size={13} />}</span>
               <span>
                 {radiusAdvisoryData.isDismissed
                   ? `Raggio confermato (${formatRadiusLabel(radiusAdvisoryData.currentRadius)})`
@@ -8522,7 +8570,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
           return (
             <button type="button" onClick={switchToRadiusMode}
               style={{ minHeight: 32, padding: "0 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.82)", fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5 }}>
-              <span aria-hidden="true" style={{ fontSize: 12 }}>📍</span>
+              <Step1Icon name="pin" size={12} />
               <span>{ctaLabel}</span>
             </button>
           );
@@ -8797,7 +8845,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700,
                 boxShadow: "0 8px 24px rgba(0,0,0,.6)", display: "flex", alignItems: "center", gap: 10
               }}>
-                <span>📍 Clicca su un punto qualsiasi della mappa per calcolare il raggio</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Step1Icon name="pin" size={14} /> Clicca su un punto qualsiasi della mappa per calcolare il raggio</span>
                 <button onClick={() => setManualPinMode(false)} style={{ padding: "4px 10px", borderRadius: 14, border: "none", background: "rgba(255,255,255,.2)", color: C.white, fontSize: 11, cursor: "pointer" }}>
                   Annulla
                 </button>
@@ -8950,7 +8998,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               <div style={{ position: "absolute", top: 10, right: 10, pointerEvents: "none", background: "rgba(8,15,30,.92)", border: "1px solid rgba(59,130,246,.45)", borderRadius: 8, padding: "6px 12px", display: "flex", alignItems: "center", gap: 7 }}>
                 <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#60A5FA", flexShrink: 0 }} />
                 <div>
-                  <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: "#60A5FA" }}>📍 Indirizzo selezionato</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: "#60A5FA" }}><Step1Icon name="pin" size={11} /> Indirizzo selezionato</div>
                   <div style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.5)", marginTop: 1 }}>{selectedSearchPoint?.label || "Scegli raggio o comune completo"}</div>
                 </div>
               </div>
@@ -9430,8 +9478,8 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 )}
                 {(addressSearchError || (isRadiusMode && !hasSearchPoint && (!city || !Number.isFinite(Number(city?.lat)) || !Number.isFinite(Number(city?.lng))))) && (
                   <div style={{ padding: 16, borderRadius: 10, background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.3)" }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "#FBBF24", marginBottom: 6 }}>
-                      {addressSearchError ? "📍 Indirizzo non trovato a Milano" : "📍 Coordinate necessarie per il raggio"}
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "#FBBF24", marginBottom: 6 }}>
+                      <Step1Icon name="pin" size={14} /> {addressSearchError ? "Indirizzo non trovato a Milano" : "Coordinate necessarie per il raggio"}
                     </div>
                     <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)", lineHeight: 1.45, marginBottom: 12 }}>
                       {addressSearchError || "Seleziona prima un indirizzo valido o un punto sulla mappa per calcolare il raggio di copertura."}
@@ -9471,7 +9519,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 )}
                 {hasUnconfirmedAddressPoint && (
                   <div style={{ padding: 16, borderRadius: 10, background: "rgba(59,130,246,.08)", border: "1px solid rgba(59,130,246,.3)" }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "#60A5FA", marginBottom: 6 }}>📍 Hai selezionato un indirizzo dentro Milano</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: "#60A5FA", marginBottom: 6 }}><Step1Icon name="pin" size={14} /> Hai selezionato un indirizzo dentro Milano</div>
                     <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)", lineHeight: 1.45, marginBottom: 10 }}>
                       <b style={{ color: C.white }}>{selectedSearchPoint?.label}</b>. Per calcolare la copertura puoi usare un raggio dal punto oppure selezionare Milano comune completo.
                     </div>
@@ -9496,7 +9544,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                       </div>
                     ) : addressPreviewNilZones?.main?.name ? (
                       <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "#93C5FD", marginBottom: 12, padding: "8px 10px", background: "rgba(59,130,246,.12)", borderRadius: 8, display: "flex", alignItems: "center", gap: 6 }}>
-                        <span>🧭</span>
+                        <Step1Icon name="compass" size={14} />
                         <span>Quartiere/NIL più vicino: <b style={{ color: C.white }}>{addressPreviewNilZones.main.name}</b></span>
                       </div>
                     ) : (
@@ -9689,9 +9737,9 @@ const isManual = allocationMode === "manual";
                               </span>
                             )}
                             <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: coverageState !== "none" ? 700 : 400, color: coverageState !== "none" ? C.white : "rgba(255,255,255,.45)" }}>{z.name}</div>
-                            {coverageState === "full" && <span style={{ padding: "2px 6px", borderRadius: 4, background: "rgba(34,197,94,.15)", border: "1px solid rgba(34,197,94,.35)", fontFamily: F.sans, fontSize: 8, color: "#22C55E", fontWeight: 800 }}>🟢 COPERTO</span>}
-                            {coverageState === "partial" && <span style={{ padding: "2px 6px", borderRadius: 4, background: "rgba(250,204,21,.15)", border: "1px solid rgba(250,204,21,.35)", fontFamily: F.sans, fontSize: 8, color: "#FACC15", fontWeight: 800 }}>🟡 PARZIALE</span>}
-                            {coverageState === "none" && <span style={{ padding: "2px 6px", borderRadius: 4, background: "rgba(248,113,113,.15)", border: "1px solid rgba(248,113,113,.35)", fontFamily: F.sans, fontSize: 8, color: "#F87171", fontWeight: 800 }}>🔴 NON COPERTO</span>}
+                            {coverageState === "full" && <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 6px", borderRadius: 4, background: "rgba(34,197,94,.15)", border: "1px solid rgba(34,197,94,.35)", fontFamily: F.sans, fontSize: 8, color: "#22C55E", fontWeight: 800 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22C55E", flexShrink: 0 }} /> COPERTO</span>}
+                            {coverageState === "partial" && <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 6px", borderRadius: 4, background: "rgba(250,204,21,.15)", border: "1px solid rgba(250,204,21,.35)", fontFamily: F.sans, fontSize: 8, color: "#FACC15", fontWeight: 800 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#FACC15", flexShrink: 0 }} /> PARZIALE</span>}
+                            {coverageState === "none" && <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 6px", borderRadius: 4, background: "rgba(248,113,113,.15)", border: "1px solid rgba(248,113,113,.35)", fontFamily: F.sans, fontSize: 8, color: "#F87171", fontWeight: 800 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#F87171", flexShrink: 0 }} /> NON COPERTO</span>}
                             {z.isNil && <span style={{ padding: "1px 5px", borderRadius: 4, background: `${getComuneColor(z.id)}22`, border: `1px solid ${getComuneColor(z.id)}55`, fontFamily: F.sans, fontSize: 8, color: getComuneColor(z.id), fontWeight: 800 }}>NIL</span>}
                             {z.isCap && <span style={{ padding: "1px 5px", borderRadius: 4, background: "rgba(255,255,255,.1)", fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.4)", fontWeight: 700 }}>CAP</span>}
                             {z.source_flags?.includes('Stima territoriale') && <span style={{ padding: "1px 5px", borderRadius: 4, background: "rgba(251,191,36,.15)", border: "1px solid rgba(251,191,36,.3)", fontFamily: F.sans, fontSize: 8, color: C.yellow, fontWeight: 700 }}>Stima territoriale</span>}
@@ -9792,10 +9840,10 @@ const isManual = allocationMode === "manual";
                 const formulaMarginFlyers = Math.max(0, formulaRecommended - formulaFamilies);
                 const formulaMarginPct = formulaFamilies > 0 ? (formulaMarginFlyers / formulaFamilies) * 100 : null;
                 const DASHBOARD_PREVIEW_CARDS = [
-                  { icon: "📍", title: "Monitoraggio live", color: "#38BDF8" },
-                  { icon: "📊", title: "KPI e copertura", color: "#4ADE80" },
-                  { icon: "📷", title: "Foto e report", color: "#F87171" },
-                  { icon: "🗺", title: "Analisi territoriale", color: "#FBBF24" },
+                  { icon: "pin", title: "Monitoraggio live", color: "#38BDF8" },
+                  { icon: "chart", title: "KPI e copertura", color: "#4ADE80" },
+                  { icon: "camera", title: "Foto e report", color: "#F87171" },
+                  { icon: "map", title: "Analisi territoriale", color: "#FBBF24" },
                 ];
 
                 const dashboardPreviewBox = (
@@ -9809,7 +9857,7 @@ const isManual = allocationMode === "manual";
                     <div style={{ marginBottom: 16 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
                         <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 900, color: C.white, display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontSize: 18 }}>📊</span>
+                          <Step1Icon name="chart" size={18} />
                           <span>Dashboard Campagna inclusa dopo la conferma</span>
                         </div>
                         <span style={{ padding: "3px 10px", borderRadius: 100, background: "rgba(56, 189, 248, .18)", color: "#38BDF8", border: "1px solid rgba(56, 189, 248, .35)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase" }}>
@@ -9832,7 +9880,7 @@ const isManual = allocationMode === "manual";
                           gap: 7,
                           alignItems: "center"
                         }}>
-                          <span style={{ fontSize: 15 }}>{card.icon}</span>
+                          <Step1Icon name={card.icon} size={15} color={card.color} />
                           <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: card.color }}>{card.title}</span>
                         </div>
                       ))}
@@ -10193,7 +10241,7 @@ const isManual = allocationMode === "manual";
                       {isResidentialStep2 && !step2ViewModel.hasUsableCoverageData ? "Dato non disponibile" : formatIntegerIT(step2ViewModel.primaryFamiliesValue)}
                     </div>
                   </div>
-                  <span style={{ fontSize: 24, opacity: .65 }}>{isResidentialStep2 ? "👨‍👩‍👧" : isMovementStep2 ? "📍" : "🏢"}</span>
+                  <span style={{ opacity: .65 }}><Step1Icon name={isResidentialStep2 ? "family" : isMovementStep2 ? "pin" : "building"} size={24} /></span>
                 </div>
 
                 {/* Copertura */}
@@ -10329,7 +10377,7 @@ const isManual = allocationMode === "manual";
                     alignItems: "center", justifyContent: "center", gap: 8
                   }}
                 >
-                  <span aria-hidden="true">📊</span> Apri Analisi Avanzata
+                  <Step1Icon name="chart" size={14} /> Apri Analisi Avanzata
                 </button>
               </div>
             );
