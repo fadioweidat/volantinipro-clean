@@ -11649,6 +11649,7 @@ const toggleTech = key => setTechSections(p => ({...p, [key]: !p[key]}));
 const svcCommercial = {
   tracking_gps:    { icon: "pin", head: "Tracking GPS Live",        col: "#22C55E", badge: "Più scelto",     bullets: ["Segui in tempo reale gli operatori sulla mappa","Storico percorso al termine della distribuzione","Link di condivisione per il tuo team"] },
   photo_proof:     { icon: "camera", head: "Report Fotografico",        col: "#60A5FA", badge: "Massima sicurezza", bullets: ["30 foto geolocalizzate con data e orario","Conferma visiva zona per zona","Archivio scaricabile dal portale cliente"] },
+  graphic_design:  { icon: "palette", head: "Grafica",               col: "#F472B6", badge: null,             bullets: ["2 bozze incluse","Consegna in 48h","File pronto per la stampa"] },
   puntiVetrina:    { icon: "shop", head: "Punti Vetrina",             col: C.orange,  badge: "Door to Door",   bullets: ["Fino a 5 punti vetrina inclusi (bar/negozi)","Selezionati e gestiti dal nostro team operativo","Punto di appoggio extra per i tuoi volantini"] },
   printing:        { icon: "printer", head: "Stampa Materiale",          col: "#60A5FA", badge: "Miglior rapporto qualità/prezzo", bullets: ["Produzione professionale del materiale","Qualità certificata per distribuzione","Consegna prima della campagna"] },
   design:          { icon: "palette", head: "Preparazione Grafica",      col: "#A78BFA", badge: "Premium",        bullets: ["Adattamento file al formato richiesto","Verifica qualità prima della stampa","Supporto creativo dedicato"] },
@@ -11716,6 +11717,7 @@ const normalizeSelectedExtras = (data) => {
       { id: "tracking_gps", oldIds: ["gps", "tracking_gps", "gps_default"], l: "Tracking GPS", d: "Monitoraggio operativo della distribuzione con tracciamento delle attività.", icon: "", p: 25 },
       { id: "photo_proof", oldIds: ["foto", "photo_proof", "foto_localizzate", "photo_report_advanced"], l: "Foto localizzate", d: "Prove fotografiche con data, zona e riferimento operativo.", icon: "", p: 35 },
       { id: "printing", oldIds: ["stampa", "printing"], l: "Stampa materiale", d: "Produzione del materiale prima della distribuzione.", icon: "", p: Math.ceil((flyerQty || 10000) / 1000) * 12 },
+      { id: "graphic_design", oldIds: ["graphic_design", "grafica_progetto"], l: "Grafica", d: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", icon: "palette", p: 79 },
       { id: "design", oldIds: ["grafica", "design", "preparazione_grafica"], l: "Preparazione grafica", d: "Supporto per preparazione o adattamento del file grafico.", icon: "", p: 49 },
       { id: "quality_control", oldIds: ["quality", "quality_control", "controllo_qualita"], l: "Controllo qualità", d: "Verifica aggiuntiva sulla corretta esecuzione della distribuzione.", icon: "", p: 25 },
       { id: "operator_support", oldIds: ["operator", "operator_support", "supporto_operatore"], l: "Supporto operatore", d: "Assistenza diretta per configurazione, pianificazione o conferma campagna.", icon: "", p: 39 },
@@ -11746,6 +11748,7 @@ const selectedExtraIds = selectedExtras.map(s => s.id);
 const optionalExtras = [
     { id: "tracking_gps", addId: "gps", removeIds: ["gps", "tracking_gps", "gps_default"], label: "Tracking GPS Live", description: "Tracciamento operativo e timeline distributori.", micro: "Mostra avanzamento e operatori sulla mappa.", icon: "GPS", price: 25 },
     { id: "photo_proof", addId: "photo_report_advanced", removeIds: ["foto", "photo_proof", "foto_localizzate", "photo_report_advanced"], label: "Report Fotografico", description: "Proof fotografici con data e zona.", micro: "Foto geolocalizzate con data e ora.", icon: "PHOTO", price: 35 },
+    { id: "graphic_design", addId: "graphic_design", removeIds: ["graphic_design", "grafica_progetto"], label: "Grafica", description: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", micro: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", icon: "GRAPHIC", price: 79 },
   ];
 const addOptionalExtra = (id) => setData(d => ({...d, extraServices: [...new Set([...(d.extraServices || []), id])] }));
 const removeOptionalExtra = (ext) => setData(d => {
@@ -11768,7 +11771,7 @@ const openExtraDemo = (ext) => {
 const renderExtraDemo = (ext) => {
     if (!ext) return null;
     const accent = (svcCommercial[ext.id]?.col || C.orange);
-    const demoLabel = { tracking_gps: "Tracking in tempo reale", photo_proof: "Foto geolocalizzata" }[ext.id] || "Anteprima";
+    const demoLabel = { tracking_gps: "Tracking in tempo reale", photo_proof: "Foto geolocalizzata", graphic_design: "Anteprima grafica" }[ext.id] || "Anteprima";
     const realCoverage = coverageForSummary ?? kpis.coverage ?? avgCov ?? null;
     const realFamilies = kpis.families ?? totF ?? null;
     const realPopulation = kpisPopulation ?? (realFamilies ? Math.round(realFamilies * 2.4) : null);
