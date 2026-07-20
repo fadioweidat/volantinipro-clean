@@ -225,10 +225,14 @@ function selectablePoiIcon(L, color, selected, operatorNumber = null, category =
 }
 
 // Marker di contesto per Door to Door: visibile ma non assegnabile.
-function informationalPoiIcon(L, color, category = '') {
+// Icona fissa "cassetta postale" (punto di consegna) invece del simbolo per
+// categoria: per D2D ogni punto rappresenta un'attività nel raggio di
+// consegna, non va confuso con le icone per categoria di H2H/Business.
+function informationalPoiIcon(L, color) {
   const size = 20;
+  const mailboxSvg = `<svg width="13" height="13" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M6 26V13.5A7.5 7.5 0 0 1 13.5 6h5A7.5 7.5 0 0 1 26 13.5V26" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M6 14h20M16 6v20M20 11h4" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M10 26h12" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>`;
   return L.divIcon({
-    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:#fff;font:900 11px/1 system-ui,sans-serif;cursor:help">${poiCategorySymbol(category)}</div>`,
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;cursor:help">${mailboxSvg}</div>`,
     className: '',
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
@@ -1693,7 +1697,7 @@ function Step2MapImpl({
           const tip = `${_buildPoiTip(item)}${contextLabel}`;
           const poiMarker = L.marker([item.lat, item.lng], {
             icon: svcType === 'd2d'
-              ? informationalPoiIcon(L, item.color || categoryColor(item.category), item.category)
+              ? informationalPoiIcon(L, item.color || categoryColor(item.category))
               : selectablePoiIcon(L, item.color || categoryColor(item.category), isSel, assignment?.operatorNumber, item.category),
             zIndexOffset: isSel ? 500 : 200,
             pane: 'poiSelectionPane',
