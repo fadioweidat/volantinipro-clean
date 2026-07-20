@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback } from "react";
+import { getServiceAccent } from "../lib/services/service-config.js";
 
 /**
  * Report Territoriale Avanzato — dashboard modulare, service-adaptive (D2D / H2H / Business).
@@ -9,6 +10,9 @@ import React, { useMemo, useState, useCallback } from "react";
 const F = { serif: "'DM Serif Display',Georgia,serif", sans: "'DM Sans',sans-serif" };
 const C = { white: "#FFFFFF", navy: "#060D18" };
 
+// SERVICE_COLOR resta per le sezioni topic-colored (Demografia/Economia/Mobilità/ecc.,
+// ciascuna con un colore di argomento indipendente dal servizio). L'accent di brand per
+// servizio (kicker, tab attiva, CTA) usa invece getServiceAccent, come nel resto del sito.
 const SERVICE_COLOR = { d2d: "#4ADE80", h2h: "#38BDF8", b2b: "#FB923C" };
 const GRAY = "rgba(255,255,255,.45)";
 const CRITICAL = "#F87171";
@@ -95,11 +99,31 @@ function HBar({ label, value, max, color, valueLabel }) {
   );
 }
 
+// Barra a doppio livello: fabbisogno totale (neutro) con sovrapposta la quota assegnata (accent).
+// Implementazione CSS/SVG custom: nessuna libreria di grafici presente nel progetto (package.json verificato).
+function TopZoneBar({ rank, label, required, assigned, max, accent }) {
+  const requiredPct = max > 0 ? Math.min(100, Math.max(0, Math.round((required / max) * 100))) : 0;
+  const assignedPct = required > 0 ? Math.min(100, Math.max(0, Math.round((assigned / required) * 100))) : 0;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <span style={{ width: 22, flexShrink: 0, textAlign: "center", fontSize: 10.5, fontWeight: 900, color: rank <= 3 ? accent : "rgba(255,255,255,.45)" }}>#{rank}</span>
+      <span title={label} style={{ width: "clamp(150px, 22%, 220px)", flexShrink: 0, fontSize: 11.5, color: "rgba(255,255,255,.72)", lineHeight: 1.25, overflowWrap: "anywhere" }}>{label}</span>
+      <div style={{ flex: 1, height: 10, background: "rgba(255,255,255,.06)", borderRadius: 5, overflow: "hidden", position: "relative" }}>
+        <div style={{ width: `${requiredPct}%`, height: "100%", background: "rgba(255,255,255,.16)", borderRadius: 5 }} />
+        <div style={{ width: `${(requiredPct * assignedPct) / 100}%`, height: "100%", background: accent, borderRadius: 5, position: "absolute", top: 0, left: 0 }} />
+      </div>
+      <span style={{ width: 150, flexShrink: 0, textAlign: "right", fontSize: 11, fontWeight: 800, color: accent }} className="vp-data-number">
+        {fmtInt(assigned) ?? "—"} <span style={{ color: "rgba(255,255,255,.4)", fontWeight: 600 }}>/ {fmtInt(required) ?? "—"} pz.</span>
+      </span>
+    </div>
+  );
+}
+
 function KpiCard({ label, value, unit, source, color, unavailable }) {
   return (
     <div style={{ background: "rgba(255,255,255,.03)", border: `1px solid ${unavailable ? "rgba(255,255,255,.08)" : "rgba(255,255,255,.1)"}`, borderRadius: 12, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8, minHeight: 84 }}>
       <div style={{ fontFamily: F.sans, fontSize: 11.5, fontWeight: 600, color: "rgba(255,255,255,.72)" }}>{label}</div>
-      <div style={{ fontFamily: F.sans, fontSize: 21, fontWeight: 800, color: unavailable ? GRAY : (color || C.white) }}>
+      <div style={{ fontFamily: F.sans, fontSize: 21, fontWeight: 800, color: unavailable ? GRAY : C.white }}>
         {unavailable ? "Dato non disponibile" : `${value}${unit ? ` ${unit}` : ""}`}
       </div>
       {source && !unavailable && <div style={{ fontSize: 10, color: "rgba(255,255,255,.4)" }}>Fonte: {source}</div>}
@@ -191,7 +215,7 @@ function ContextChip({ label, value, tone }) {
 }
 
 function ReportHeader({ p, isMobile, onOpenQuantity, onToggleScenario, onExportPdf, pdfBusy }) {
-  const svcColor = SERVICE_COLOR[p.service.key] || SERVICE_COLOR.d2d;
+  const accent = getServiceAccent(p.service.key);
   const title = reportTerritoryTitle(p);
   const zones = p.territory.zoneStats || {};
   const businessSelected = (p.overviewKpis || []).find((item) => item.label?.toLowerCase().includes("selezionate"))?.value;
@@ -199,48 +223,31 @@ function ReportHeader({ p, isMobile, onOpenQuantity, onToggleScenario, onExportP
   const areaCountLabel = p.service.key === "b2b"
     ? `${businessSelected ?? "—"} / ${businessAvailable ?? "—"}`
     : `${zones.involved ?? p.territory.zoneCount ?? "—"} / ${zones.available ?? p.territory.zoneCount ?? "—"}`;
+  const connectedSourceNames = (p.sourceRegistry || []).filter((s) => s.connected).map((s) => s.name).filter(Boolean);
+  const sourcesChipValue = connectedSourceNames.length
+    ? connectedSourceNames.slice(0, 3).join(", ") + (connectedSourceNames.length > 3 ? " e altre" : "")
+    : "Nessuna fonte collegata al momento";
   return (
     <div style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(6,13,24,.97)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,.08)", padding: isMobile ? "16px 4px 18px" : "20px 4px 22px", marginBottom: 4 }}>
       <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", justifyContent: "space-between", alignItems: isMobile ? "flex-start" : "flex-start", gap: 16 }}>
         <div style={{ minWidth: 0, flex: "1 1 auto" }}>
-          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: svcColor, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 7 }}>{p.service.key === "b2b" ? "REPORT TERRITORIALE BUSINESS" : "ANALISI TERRITORIALE AVANZATA"}</div>
-          <div style={{ display: "none", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 20 }}>📊</span>
-            <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: svcColor, textTransform: "uppercase", letterSpacing: ".08em" }}>Report Territoriale · {p.service.title}</span>
-          </div>
+          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: accent, textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 7 }}>{p.service.key === "b2b" ? "REPORT TERRITORIALE BUSINESS" : "ANALISI TERRITORIALE AVANZATA"}</div>
           <h2 style={{ fontFamily: F.serif, fontSize: isMobile ? 24 : 31, fontWeight: 700, color: C.white, margin: "0 0 8px 0", lineHeight: 1.12 }}>{title}</h2>
           <div style={{ maxWidth: 760, fontFamily: F.sans, fontSize: 12.5, color: "rgba(255,255,255,.68)", lineHeight: 1.45, marginBottom: 12 }}>{p.service.key === "b2b" ? "Analizza attività, categorie commerciali, concentrazione territoriale, materiali necessari, priorità e capacità operativa." : REPORT_SUBTITLE}</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            <ContextChip label="Servizio" value={p.service.title} tone={svcColor} />
+            <ContextChip label="Servizio" value={p.service.title} tone={accent} />
             <ContextChip label="Quantità" value={`${fmtInt(p.quantity.inserted) ?? "—"} pz.`} tone="#38BDF8" />
             <ContextChip label="Copertura operativa" value={p.coverage.label || "Dato non disponibile"} tone="#4ADE80" />
             <ContextChip label={p.service.key === "b2b" ? "Attività selezionate / disponibili" : "Zone coinvolte / disponibili"} value={areaCountLabel} tone="#60A5FA" />
-            <ContextChip label="Fonti e modelli disponibili" value={p.dataStatusLabel || "Dato non disponibile"} tone="#FBBF24" />
-          </div>
-          <div style={{ display: "none", flexWrap: "wrap", gap: 8 }}>
-            {[
-              p.territory.modeLabel,
-              `${fmtInt(p.quantity.inserted) ?? "—"} pz.`,
-              p.coverage.label ? `Copertura ${p.coverage.label}` : null,
-              `${p.territory.zoneCount} zone`,
-              p.dataStatusLabel,
-            ].filter(Boolean).map((chip, i) => (
-              <span key={i} style={{ padding: "4px 10px", borderRadius: 7, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", fontSize: 11, color: "rgba(255,255,255,.75)" }}>{chip}</span>
-            ))}
+            <ContextChip label="Fonti" value={sourcesChipValue} tone="#FBBF24" />
           </div>
           <div style={{ fontSize: 10.5, color: "rgba(255,255,255,.4)", marginTop: 8 }}>Ultimo aggiornamento fonti: {p.lastUpdateLabel}</div>
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, flexShrink: 0 }}>
           <button onClick={p.onBack} style={btnStyle("rgba(255,255,255,.06)", "rgba(255,255,255,.16)", "rgba(255,255,255,.85)")}>← Torna alla configurazione</button>
-          <button onClick={onOpenQuantity} style={btnStyle("rgba(56,189,248,.1)", "rgba(56,189,248,.35)", "#38BDF8")}>Modifica quantità</button>
-          <button onClick={onToggleScenario} style={btnStyle(`rgba(168,85,247,.1)`, "rgba(168,85,247,.35)", COMPARE)}>Confronta scenari</button>
-          <button onClick={onExportPdf} disabled={pdfBusy} style={btnStyle("rgba(232,87,26,.12)", "rgba(232,87,26,.4)", "#E8571A", pdfBusy)}>{pdfBusy ? "Generazione…" : "Esporta PDF"}</button>
-        </div>
-        <div style={{ display: "none", flexWrap: "wrap", gap: 8, flexShrink: 0 }}>
-          <button onClick={p.onBack} style={btnStyle("rgba(255,255,255,.06)", "rgba(255,255,255,.16)", "rgba(255,255,255,.85)")}>← Vista Cliente</button>
-          <button onClick={onOpenQuantity} style={btnStyle("rgba(56,189,248,.1)", "rgba(56,189,248,.35)", "#38BDF8")}>Modifica quantità</button>
-          <button onClick={onToggleScenario} style={btnStyle(`rgba(168,85,247,.1)`, "rgba(168,85,247,.35)", COMPARE)}>Confronta scenario</button>
-          <button onClick={onExportPdf} disabled={pdfBusy} style={btnStyle("rgba(232,87,26,.12)", "rgba(232,87,26,.4)", "#E8571A", pdfBusy)}>{pdfBusy ? "Generazione…" : "Esporta PDF"}</button>
+          <button onClick={onOpenQuantity} style={btnStyle("rgba(255,255,255,.06)", "rgba(255,255,255,.16)", "rgba(255,255,255,.85)")}>Modifica quantità</button>
+          <button onClick={onToggleScenario} style={btnStyle("rgba(255,255,255,.06)", "rgba(255,255,255,.16)", "rgba(255,255,255,.85)")}>Confronta scenari</button>
+          <button onClick={onExportPdf} disabled={pdfBusy} style={primaryBtnStyle(accent, pdfBusy)}>{pdfBusy ? "Generazione…" : "Esporta PDF"}</button>
         </div>
       </div>
     </div>
@@ -250,6 +257,15 @@ function ReportHeader({ p, isMobile, onOpenQuantity, onToggleScenario, onExportP
 function btnStyle(bg, border, color, disabled) {
   return {
     padding: "9px 14px", borderRadius: 10, background: bg, border: `1px solid ${border}`, color,
+    fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: disabled ? "default" : "pointer",
+    opacity: disabled ? 0.55 : 1, whiteSpace: "nowrap",
+  };
+}
+
+function primaryBtnStyle(accent, disabled) {
+  return {
+    padding: "9px 16px", borderRadius: 10, background: `linear-gradient(135deg, ${accent} 0%, ${accent}CC 100%)`,
+    border: `1px solid ${accent}`, color: "#fff",
     fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: disabled ? "default" : "pointer",
     opacity: disabled ? 0.55 : 1, whiteSpace: "nowrap",
   };
@@ -317,18 +333,32 @@ function ScenarioComparePanel({ p, onClose }) {
 // ---------------------------------------------------------------------------
 
 function SectionPanoramica({ p, isMobile }) {
-  const svcColor = SERVICE_COLOR[p.service.key];
-  const kpis = p.overviewKpis;
+  const accent = getServiceAccent(p.service.key);
+  const zoneStats = p.territory.zoneStats;
+  const kpis = (p.overviewKpis || []).map((k) => {
+    if (zoneStats && /coinvolt/i.test(k.label || "")) {
+      return {
+        ...k,
+        label: "Zone coinvolte",
+        value: `${fmtInt(zoneStats.involved) ?? "—"} / ${fmtInt(zoneStats.available) ?? "—"}`,
+        unit: "",
+        unavailable: !(zoneStats.involved > 0),
+      };
+    }
+    return k;
+  });
   const serviceExplanation = SERVICE_EXPLANATIONS[p.service.key] || SERVICE_EXPLANATIONS.d2d;
+  const topZones = (p.zoneRows || []).slice(0, 3);
+  const topZonesMax = Math.max(...topZones.map((z) => z.requiredFlyers || 0), 1);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-      <SectionHeader title="Panoramica" eyebrow="Sintesi in 20 secondi" tone={svcColor} />
+      <SectionHeader title="Panoramica" eyebrow="Sintesi in 20 secondi" tone={accent} />
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
         {kpis.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
-        <div style={{ background: `${svcColor}10`, border: `1px solid ${svcColor}35`, borderRadius: 12, padding: 16 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 900, color: svcColor, marginBottom: 8 }}>Come viene analizzato il servizio</div>
+        <div style={{ background: `${accent}10`, border: `1px solid ${accent}35`, borderRadius: 12, padding: 16 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 900, color: accent, marginBottom: 8 }}>Come viene analizzato il servizio</div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,.82)", lineHeight: 1.55 }}>{serviceExplanation}</div>
         </div>
         <div style={{ background: "rgba(96,165,250,.08)", border: "1px solid rgba(96,165,250,.24)", borderRadius: 12, padding: 16 }}>
@@ -339,9 +369,11 @@ function SectionPanoramica({ p, isMobile }) {
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
         <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12, padding: 18 }}>
           <div style={{ fontSize: 12.5, fontWeight: 800, color: C.white, marginBottom: 10 }}>Top zone</div>
-          {p.topZonesPreview.length === 0 ? <NA compact>Nessuna zona classificata disponibile.</NA> : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {p.topZonesPreview.map((z, i) => <HBar key={z.id || i} label={z.name} value={z.value} max={p.topZonesMax} color={svcColor} valueLabel={z.valueLabel} />)}
+          {topZones.length === 0 ? <NA compact>Nessuna zona classificata disponibile.</NA> : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {topZones.map((z, i) => (
+                <TopZoneBar key={z.id || i} rank={z.priorityRank || i + 1} label={z.name} required={z.requiredFlyers} assigned={z.assignedFlyers} max={topZonesMax} accent={accent} />
+              ))}
             </div>
           )}
         </div>
@@ -358,7 +390,7 @@ function SectionPanoramica({ p, isMobile }) {
           </div>
           <div>
             <div style={{ fontSize: 11.5, fontWeight: 800, color: "rgba(255,255,255,.6)", marginBottom: 4 }}>Affidabilità del risultato</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,.85)" }}>{p.reliability.label} — {p.reliability.detail}</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,.85)" }}>{p.reliability.label} — Analisi basata sulle fonti attualmente collegate. Alcune sezioni potrebbero essere sintetiche dove una fonte specifica non è disponibile.</div>
           </div>
         </div>
       </div>
@@ -835,6 +867,8 @@ export default function TerritorialReport(props) {
     if (p.pdf?.onExport) p.pdf.onExport();
   }, [p.pdf]);
 
+  const accent = getServiceAccent(p.service.key);
+
   const SectionBody = () => {
     switch (activeSection) {
       case "panoramica": return <SectionPanoramica p={p} isMobile={isMobile} />;
@@ -873,9 +907,9 @@ export default function TerritorialReport(props) {
             {visibleSections.map((s) => (
               <button key={s.id} onClick={() => setActiveSection(s.id)} style={{
                 padding: "8px 12px", borderRadius: 999,
-                background: activeSection === s.id ? "rgba(56,189,248,.18)" : "rgba(255,255,255,.04)",
-                border: `1px solid ${activeSection === s.id ? "rgba(56,189,248,.5)" : "rgba(255,255,255,.12)"}`,
-                color: activeSection === s.id ? "#38BDF8" : "rgba(255,255,255,.7)",
+                background: activeSection === s.id ? `${accent}2E` : "rgba(255,255,255,.04)",
+                border: `1px solid ${activeSection === s.id ? `${accent}80` : "rgba(255,255,255,.12)"}`,
+                color: activeSection === s.id ? accent : "rgba(255,255,255,.7)",
                 fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer",
               }}>{p.service.key === "b2b" && s.businessLabel ? s.businessLabel : s.label}{s.id === "edifici" && <span style={{ marginLeft: 6, color: "#F87171", fontSize: 10, fontWeight: 800 }}>N/D</span>}</button>
             ))}
@@ -886,10 +920,10 @@ export default function TerritorialReport(props) {
               {visibleSections.map((s) => (
                 <button key={s.id} onClick={() => setActiveSection(s.id)} style={{
                   textAlign: "left", padding: "10px 14px", borderRadius: 9, border: "none", cursor: "pointer",
-                  background: activeSection === s.id ? "rgba(56,189,248,.14)" : "transparent",
-                  color: activeSection === s.id ? "#38BDF8" : "rgba(255,255,255,.68)",
+                  background: activeSection === s.id ? `${accent}24` : "transparent",
+                  color: activeSection === s.id ? accent : "rgba(255,255,255,.68)",
                   fontFamily: F.sans, fontSize: 12.5, fontWeight: activeSection === s.id ? 800 : 600,
-                  borderLeft: activeSection === s.id ? "3px solid #38BDF8" : "3px solid transparent",
+                  borderLeft: activeSection === s.id ? `3px solid ${accent}` : "3px solid transparent",
                 }}>{p.service.key === "b2b" && s.businessLabel ? s.businessLabel : s.label}{s.id === "edifici" && <span style={{ float: "right", color: "#F87171", fontSize: 10, fontWeight: 800 }}>N/D</span>}</button>
               ))}
             </div>
