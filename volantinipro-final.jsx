@@ -2721,6 +2721,37 @@ function Step1({ data, setData, onNext, onHome }) {
                 );
               })}
             </div>
+            {data.type === "d2d" && (
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 12,
+                  marginTop: 16,
+                  padding: "14px 16px",
+                  borderRadius: 14,
+                  background: data.puntiVetrina ? `${C.orange}14` : "rgba(255,255,255,.035)",
+                  border: `1.5px solid ${data.puntiVetrina ? `${C.orange}55` : "rgba(255,255,255,.105)"}`,
+                  cursor: "pointer",
+                  transition: "all .2s",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={Boolean(data.puntiVetrina)}
+                  onChange={(e) => updateData({ puntiVetrina: e.target.checked })}
+                  style={{ width: 20, height: 20, marginTop: 2, accentColor: C.orange, cursor: "pointer", flexShrink: 0 }}
+                />
+                <div>
+                  <div style={{ fontFamily: F.sans, fontSize: 14, fontWeight: 800, color: data.puntiVetrina ? C.orange : "#F8FAFC", marginBottom: 4 }}>
+                    Aggiungi Punti Vetrina (bar/negozi zona) — +€35
+                  </div>
+                  <div style={{ fontFamily: F.sans, fontSize: 12, color: "#94A3B8", lineHeight: 1.45 }}>
+                    Lasciamo pile di volantini in punti vetrina selezionati dal nostro team, fino a 5 punti inclusi.
+                  </div>
+                </div>
+              </label>
+            )}
           </div>
 
           {/* Section 2: Attività cliente */}
