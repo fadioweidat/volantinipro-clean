@@ -10,6 +10,15 @@ import { AUTH_EXPIRED_MESSAGE, supabase, confirmCampaignPayment, hasSupabaseConf
 import { logAuditEvent } from "./src/lib/audit.js";
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
+import { buildClientCampaignInsights, confirmClientCampaignOwnership, filterApprovedClientPhotos, isClientTrackingEnabled, projectClientCampaignSourceData } from "./src/lib/ai/buildClientCampaignInsights.js";
+import { ClientCampaignDetailAI } from "./src/components/ai/client/ClientCampaignDetailAI.jsx";
+import { buildClientDashboardInsights } from "./src/lib/ai/buildClientInsights.js";
+import { buildClientNotifications } from "./src/lib/ai/buildClientNotifications.js";
+import { ClientCampaignBrief } from "./src/components/ai/client/ClientCampaignBrief.jsx";
+import { AINotificationCenter } from "./src/components/ai/AINotificationCenter.jsx";
+import { buildClientCampaignReportInsights, projectClientCampaignReportSourceData } from "./src/lib/ai/buildClientCampaignReportInsights.js";
+import { buildClientHistoricalSuggestions, filterOwnedCompletedClientCampaigns } from "./src/lib/ai/buildClientHistoricalSuggestions.js";
+import { ClientCampaignReportAI } from "./src/components/ai/client/ClientCampaignReportAI.jsx";
 import { useCliente } from "./src/hooks/useCliente.js";
 import { useServiceAnalysis } from "./src/hooks/useServiceAnalysis.js";
 import { useSectors } from "./src/hooks/useSectors.js";
@@ -13913,6 +13922,24 @@ const quotePendingCount = campagneNorm.filter(c => ["preventivo", "in_preparazio
 const quoteAcceptedCount = campagneNorm.filter(c => ["confermata", "in_preparazione", "in_distribuzione", "completata"].includes(c.stato)).length;
 const reportAvailableCount = campagneNorm.filter(c => c.stato === "completata" || c.stato === "report_pronto").length;
 const lastUpdated = campagneNorm.map(c => c.updated_at || c.created_at).filter(Boolean).sort().pop();
+const clientAiDashboard = buildClientDashboardInsights({
+  sources: {
+    campaigns: loading
+      ? { status: "missing", reason: "Caricamento campagne in corso." }
+      : error
+        ? { status: "error", reason: "La fonte campagne non e disponibile." }
+        : { status: "ready", data: campagne, observedAt: lastUpdated || null, staleAfterMs: 24 * 60 * 60 * 1000 },
+  },
+  context: { ownershipConfirmed: Boolean(session && (cliente?.id || cliente?.email) && !clienteError) },
+});
+const clientNotificationCenter = buildClientNotifications({
+  insights: clientAiDashboard,
+  context: {
+    authorized: Boolean(session),
+    role: "cliente",
+    ownershipConfirmed: Boolean(session && (cliente?.id || cliente?.email) && !clienteError),
+  },
+});
 const searchNeedle = clientSearch.trim().toLowerCase();
 const filteredCampagne = campagneNorm.filter(c => {
   const haystack = [c.id, c.zona, c.servizio, c.stato, ...(c.comuni || [])].join(" ").toLowerCase();
@@ -13949,24 +13976,14 @@ const clientEmpty = (title, text) => (
         {clienteError && <div style={{ marginBottom: 14, padding: "11px 13px", borderRadius: 10, background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.22)", color: C.yellow, fontFamily: F.sans, fontSize: 12 }}>{clienteError}</div>}
         {error && <div style={{ marginBottom: 14, padding: "11px 13px", borderRadius: 10, background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.22)", color: C.yellow, fontFamily: F.sans, fontSize: 12 }}>Supabase non disponibile: nessuna campagna reale da mostrare.</div>}
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10, marginBottom: 16 }}>
-          {[
-            ["Campagne attive", activeCount, C.green],
-            ["Campagne completate", completedCount, C.blue],
-            ["Preventivi in attesa", quotePendingCount, C.yellow],
-            ["Preventivi accettati", quoteAcceptedCount, C.green],
-            ["In attesa pagamento", waitingPaymentCount, C.yellow],
-            ["Pagamenti ricevuti", paidCount, C.green],
-            ["Report disponibili", reportAvailableCount, C.purple],
-            ["Totale speso", `€${totalSpent.toLocaleString("it-IT", { minimumFractionDigits: 2 })}`, C.orange],
-            ["Ultimo aggiornamento", lastUpdated ? new Date(lastUpdated).toLocaleDateString("it-IT") : "Dato non disponibile", C.white],
-          ].map(([l, v, c]) => (
-            <div key={l} style={{ padding: 16, borderRadius: 13, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.08)" }}>
-              <div style={{ fontFamily: F.serif, fontSize: 28, color: c, letterSpacing: "-.6px" }}>{v}</div>
-              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.42)", marginTop: 5 }}>{l}</div>
-            </div>
-          ))}
-        </div>
+        <ClientCampaignBrief
+          items={clientAiDashboard.items}
+          attention={clientAiDashboard.attention}
+          loading={loading}
+          error={error}
+        />
+
+        <AINotificationCenter center={clientNotificationCenter} loading={loading} error={error} />
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12, marginBottom: 16 }}>
           <div style={{ ...clientCard({ padding: 18 }) }}>
@@ -13988,8 +14005,8 @@ const clientEmpty = (title, text) => (
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 14 }}>
             <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.orange, letterSpacing: ".12em", textTransform: "uppercase" }}>Campagne e preventivi</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <input value={clientSearch} onChange={e => setClientSearch(e.target.value)} placeholder="Cerca campagna, comune, preventivo" style={{ minHeight: 38, width: 240, borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.055)", color: C.white, padding: "0 12px", fontFamily: F.sans, fontSize: 12 }} />
-              <select value={clientFilter} onChange={e => setClientFilter(e.target.value)} style={{ minHeight: 38, borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "#111b2b", color: C.white, padding: "0 10px", fontFamily: F.sans, fontSize: 12 }}>
+              <input aria-label="Cerca campagne e preventivi" value={clientSearch} onChange={e => setClientSearch(e.target.value)} placeholder="Cerca campagna, comune, preventivo" style={{ minHeight: 38, width: 240, borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.055)", color: C.white, padding: "0 12px", fontFamily: F.sans, fontSize: 12 }} />
+              <select aria-label="Filtra campagne e preventivi" value={clientFilter} onChange={e => setClientFilter(e.target.value)} style={{ minHeight: 38, borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "#111b2b", color: C.white, padding: "0 10px", fontFamily: F.sans, fontSize: 12 }}>
                 <option value="all">Tutto</option>
                 <option value="active">Attive</option>
                 <option value="completed">Completate</option>
@@ -14076,7 +14093,7 @@ const clientEmpty = (title, text) => (
           </section>
           <section style={{ ...clientCard({ padding: 18 }) }}>
             <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: C.green, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 12 }}>Notifiche</div>
-            {clientEmpty("Nessuna notifica", "Preventivi pronti, pagamenti e report verranno segnalati quando disponibili.")}
+            {clientEmpty("Centro Notifiche AI", "Gli aggiornamenti autorizzati sono mostrati nel Centro Notifiche consultivo sopra. Nessuno stato letto o dato persistente.")}
           </section>
         </div>
       </div>
@@ -14284,7 +14301,7 @@ function DeliverableReportFooter() {
   );
 }
 
-function PremiumCampaignReport({ reportCampaign, campagna, source, onBack }) {
+function PremiumCampaignReport({ reportCampaign, campagna, source, onBack, aiReportInsights, aiHistoricalSuggestions, aiLoading = false, aiError = null }) {
   const cardStyle = { background: "linear-gradient(180deg, rgba(255,255,255,.065), rgba(255,255,255,.035))", border: "1px solid rgba(255,255,255,.1)", borderRadius: 16, boxShadow: "0 18px 46px rgba(0,0,0,.18)" };
   const serviceLabels = { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Business", business: "Business" };
   const formatNumber = value => value == null ? "Dato non disponibile" : Number(value).toLocaleString("it-IT", { useGrouping: true });
@@ -14345,6 +14362,8 @@ function PremiumCampaignReport({ reportCampaign, campagna, source, onBack }) {
             </div>
           </div>
         </header>
+
+        <ClientCampaignReportAI reportInsights={aiReportInsights} historicalSuggestions={aiHistoricalSuggestions} loading={aiLoading} error={aiError} />
 
         <section style={{ marginBottom: 22 }}>
           {sectionTitle("Executive summary", "Indicatori pianificati")}
@@ -14455,6 +14474,7 @@ function PremiumCampaignReport({ reportCampaign, campagna, source, onBack }) {
 function DeliverableReportPage({ onNav, campaignId }) {
   const routeId = campaignId || new URLSearchParams(window.location.search).get("campaignId") || "dev-001";
   const { campagna, loading, error, source } = useCampagnaDetail(routeId);
+  const { campagne: clientCampaignHistory, loading: historyLoading, error: historyError } = useCampagne();
   if (loading) {
     return <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px" }}><div style={{ maxWidth: 1180, margin: "0 auto" }}><SkeletonCard /><SkeletonCard /></div></div>;
   }
@@ -14498,9 +14518,36 @@ function DeliverableReportPage({ onNav, campaignId }) {
       </div>
     );
   }
+  const clientSession = typeof getStoredSupabaseSession === "function" ? getStoredSupabaseSession() : null;
+  const ownershipConfirmed = confirmClientCampaignOwnership(campagna, clientSession);
+  const reportSource = projectClientCampaignReportSourceData(campagna);
+  const approvedReportPhotos = Array.isArray(reportSource.photos) ? filterApprovedClientPhotos(reportSource.photos) : null;
+  const ownedCompletedHistory = filterOwnedCompletedClientCampaigns(clientCampaignHistory, { session: clientSession, currentCampaignId: campagna.id });
+  const reportObservedAt = campagna.updated_at || campagna.created_at || null;
+  const historyObservedAt = ownedCompletedHistory.map((item) => item.updated_at || item.created_at).filter(Boolean).sort().pop() || null;
+  const aiReportInsights = buildClientCampaignReportInsights({
+    sources: {
+      campaign: { status: "ready", data: reportSource, observedAt: reportObservedAt, staleAfterMs: 24 * 60 * 60 * 1000 },
+      gpsPoints: Array.isArray(reportSource.gpsPoints) ? { status: "ready", data: reportSource.gpsPoints, observedAt: reportSource.gpsPoints.at(-1)?.recorded_at || reportSource.gpsPoints.at(-1)?.created_at || null, staleAfterMs: 24 * 60 * 60 * 1000 } : { status: "missing", reason: "La campagna non espone punti GPS autorizzati." },
+      approvedPhotos: Array.isArray(approvedReportPhotos) ? { status: "ready", data: approvedReportPhotos, observedAt: approvedReportPhotos[0]?.approved_at || approvedReportPhotos[0]?.created_at || null, staleAfterMs: 24 * 60 * 60 * 1000 } : { status: "missing", reason: "La campagna non espone una collezione di foto approvate." },
+      finalCoverage: reportSource.finalCoveragePercent !== null && reportSource.finalCoveragePercent !== undefined && reportSource.finalCoveragePercent !== "" ? { status: "ready", data: reportSource.finalCoveragePercent, observedAt: reportObservedAt, staleAfterMs: 24 * 60 * 60 * 1000 } : { status: "missing", reason: "La copertura finale non e presente nella campagna." },
+    },
+    context: { ownershipConfirmed, approvedOnly: true, campaignId: campagna.id },
+  });
+  const aiHistoricalSuggestions = buildClientHistoricalSuggestions({
+    currentCampaign: campagna,
+    sources: {
+      history: historyLoading
+        ? { status: "missing", reason: "Caricamento dello storico Cliente in corso." }
+        : historyError
+          ? { status: "error", reason: "Lo storico Cliente non e disponibile." }
+          : { status: "ready", data: ownedCompletedHistory, observedAt: historyObservedAt, staleAfterMs: 24 * 60 * 60 * 1000 },
+    },
+    context: { ownershipConfirmed, historyOwnershipConfirmed: ownershipConfirmed },
+  });
   console.info("[REPORT_METADATA_LOADED]", { id: reportCampaign.id, zona: reportCampaign.zona });
   console.info("[PDF_REPORT_DATA_SOURCE]", "campaign_metadata");
-  return <PremiumCampaignReport reportCampaign={reportCampaign} campagna={campagna} source={source} onBack={() => onNav("campaign", { campaignId: reportCampaign.id })} />;
+  return <PremiumCampaignReport reportCampaign={reportCampaign} campagna={campagna} source={source} onBack={() => onNav("campaign", { campaignId: reportCampaign.id })} aiReportInsights={aiReportInsights} aiHistoricalSuggestions={aiHistoricalSuggestions} aiLoading={historyLoading} aiError={historyError} />;
   return (
     <div className="print-page" style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px", color: C.white }}>
       <style>{`
@@ -14640,7 +14687,8 @@ function CampaignDashboardPage({ onNav, campaignId }) {
   const activeIndex = Math.max(0, progressSteps.findIndex(([key]) => key === campagnaView.stato));
 	  const distributedCount = finiteNumberOr(campagnaView.volantini_distribuiti, 0, "dashboard_detail_distributed");
 	  const distributedPct = campagnaView.quantita ? Math.min(100, Math.round((distributedCount / campagnaView.quantita) * 100)) : 0;
-  const rawPoints = Array.isArray(campagna.gps_punti || campagna.gps_points || campagna.tracking_points) ? (campagna.gps_punti || campagna.gps_points || campagna.tracking_points) : [];
+  const rawGpsCollection = campagna.gps_punti ?? campagna.gps_points ?? campagna.tracking_points;
+  const rawPoints = Array.isArray(rawGpsCollection) ? rawGpsCollection : [];
   const isRealLatLng = rawPoints.some(p => p && typeof p === "object" && !Array.isArray(p) && ("lat" in p || "lng" in p || "latitude" in p || "longitude" in p)) || rawPoints.some(p => Array.isArray(p) && p.length >= 2 && ((String(p[0]).split(".")[1] || "").length >= 3 || (String(p[1]).split(".")[1] || "").length >= 3 || p[0] < 0 || p[0] > 100 || p[1] < 0 || p[1] > 100));
   const isNormalizedSvg = !isRealLatLng && rawPoints.length > 0 && rawPoints.every(p => isSvgPoint(p));
   const gpsFormat = rawPoints.length === 0 ? "empty" : (isRealLatLng ? "latlng" : (isNormalizedSvg ? "svg" : "latlng"));
@@ -14689,6 +14737,22 @@ function CampaignDashboardPage({ onNav, campaignId }) {
 	  const requiredFlyers = campagnaView.volantini_necessari ?? plannedFlyers;
 	  const displayComuni = Array.isArray(campagnaView.comuni) && campagnaView.comuni.length ? campagnaView.comuni : [campagnaView.zona].filter(Boolean);
 	  const quoteSummary = campagnaView.metadata?.quote_summary || null;
+	  const clientCampaignOwnership = confirmClientCampaignOwnership(campagna, _cdSession);
+	  const clientCampaignTrackingEnabled = isClientTrackingEnabled(campagna);
+	  const approvedProof = filterApprovedClientPhotos(proof);
+	  const detectedCoverageRaw = campagna.copertura_rilevata_pct ?? campagna.copertura_finale_cliente_percent ?? campagna.detected_coverage_percent;
+	  const detectedCoverage = detectedCoverageRaw !== null && detectedCoverageRaw !== undefined && detectedCoverageRaw !== "" && Number.isFinite(Number(detectedCoverageRaw)) ? Number(detectedCoverageRaw) : null;
+	  const campaignObservedAt = campagna.updated_at || campagna.created_at || null;
+	  const detailGpsObservedAt = rawPoints[rawPoints.length - 1]?.recorded_at || rawPoints[rawPoints.length - 1]?.created_at || null;
+	  const clientCampaignAi = buildClientCampaignInsights({
+	    sources: {
+	      campaign: { status: "ready", data: projectClientCampaignSourceData(campagna), observedAt: campaignObservedAt, staleAfterMs: 24 * 60 * 60 * 1000 },
+	      gpsPoints: Array.isArray(rawGpsCollection) ? { status: "ready", data: rawPoints, observedAt: detailGpsObservedAt, staleAfterMs: 5 * 60 * 1000 } : { status: "missing", reason: "La campagna non espone una collezione GPS autorizzata." },
+	      approvedPhotos: Array.isArray(campagna.foto_proof) ? { status: "ready", data: approvedProof, observedAt: approvedProof[0]?.approved_at || approvedProof[0]?.created_at || null, staleAfterMs: 24 * 60 * 60 * 1000 } : { status: "missing", reason: "La campagna non espone una collezione di foto approvate." },
+	      coverageMetrics: detectedCoverage !== null ? { status: "ready", data: { coveragePercent: detectedCoverage, inputs: ["campaign.detectedCoverage"], assumptions: ["Valore preesistente riutilizzato senza ricalcolo AI."] }, observedAt: detailGpsObservedAt || campaignObservedAt, staleAfterMs: 5 * 60 * 1000 } : { status: "missing", reason: "La copertura rilevata non è disponibile nella campagna." },
+	    },
+	    context: { campaignId: campagna.id, ownershipConfirmed: clientCampaignOwnership, clientTrackingEnabled: clientCampaignTrackingEnabled, approvedOnly: true },
+	  });
 	  const dashboardCard = (extra = {}) => ({ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 16, boxShadow: "0 22px 64px rgba(0,0,0,.24)", ...extra });
 	  const smallButton = (variant = "neutral") => ({
 	    minHeight: 42,
@@ -14751,6 +14815,8 @@ function CampaignDashboardPage({ onNav, campaignId }) {
             </div>
           </div>
         </section>
+
+        <ClientCampaignDetailAI insights={clientCampaignAi} />
 
         <section style={{ ...dashboardCard({ padding: 22, marginBottom: 18 }) }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>

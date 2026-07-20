@@ -2,6 +2,11 @@ import 'leaflet/dist/leaflet.css';
 import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import { getRealCampaigns, selectOptionalTable, markWaitlistHandled } from "../../lib/services/admin-api.js";
+import { buildAdminDashboardInsights } from "../../lib/ai/buildAdminInsights.js";
+import { buildAdminDecisionItems } from "../../lib/ai/buildAdminDecisionItems.js";
+import { buildAdminNotifications } from "../../lib/ai/buildAdminNotifications.js";
+import { AdminOperationalBrief } from "../../components/ai/admin/AdminOperationalBrief.jsx";
+import { AINotificationCenter } from "../../components/ai/AINotificationCenter.jsx";
 
 const C = {
   orange: "#E8571A",
@@ -71,7 +76,7 @@ export default function AdminDashboard({ onNav }) {
     };
   }, []);
 
-  const { campaigns, waitlist, activities, latestGpsPoints, activeSessions, availability } = state.data;
+  const { campaigns, waitlist, sessions, activities, latestGpsPoints, activeSessions, availability } = state.data;
   const filteredWaitlist = waitlist.filter((item) => {
     if (waitlistFilter === "pending") return !item.gestita;
     if (waitlistFilter === "handled") return Boolean(item.gestita);
@@ -156,20 +161,53 @@ export default function AdminDashboard({ onNav }) {
     totalRevenue,
     totalQty,
   });
-
-  const kpis = [
-    { label: "Campagne in distribuzione", value: validCampaigns.filter((campaign) => campaign.status === "active").length, sub: "campagne operative attive", color: C.green },
-    { label: "Campagne completate", value: enterprise.completedCampaigns, sub: "record reali completati", color: "#94A3B8" },
-    { label: "Campagne in ritardo", value: enterprise.lateCampaigns, sub: enterprise.lateCampaigns ? "fine pianificata superata" : "nessun ritardo rilevato dai dati", color: enterprise.lateCampaigns ? "#F87171" : C.green },
-    { label: "Sessioni GPS live", value: activeSessions.length, sub: `${latestGpsPoints.length} tracker rilevati ora`, color: C.blue },
-    { label: "Operatori online/offline", value: `${enterprise.onlineOperators}/${enterprise.offlineOperators}`, sub: availability.sessions ? "da sessioni operative" : "tabella sessioni non disponibile", color: C.green },
-    { label: "Campagne in attesa", value: validCampaigns.filter((campaign) => campaign.status === "pending").length, sub: "campagne operative valide", color: C.yellow },
-    { label: "Clienti attivi", value: enterprise.activeClients, sub: "deduplicati da campagne reali", color: C.purple },
-    { label: "Nuovi preventivi/richieste", value: enterprise.pendingRequests, sub: availability.waitlist ? "Smart Pairing da gestire" : "tabella richieste non disponibile", color: C.yellow },
-    { label: "Revenue totale", value: totalRevenue == null ? EMPTY : euro(totalRevenue), sub: revenueValues.length ? "da campagne reali" : "Nessun campo economico configurato nel database", color: C.orange },
-    { label: "CPM medio", value: avgCpm == null ? EMPTY : euro(avgCpm), sub: avgCpm == null ? "richiede importo totale e quantita volantini validi" : "per 1.000 volantini", color: "rgba(255,255,255,.58)" },
-    { label: "Allarmi attivi", value: enterprise.alarmCount, sub: enterprise.alarmCount ? "ritardi, operatori offline o problemi" : "nessun allarme dai dati disponibili", color: enterprise.alarmCount ? "#F87171" : C.green },
-    { label: "Ultimo aggiornamento", value: enterprise.lastUpdateText, sub: "da GPS, attivita o campagne", color: C.blue },
+  const observedAt = enterprise.lastUpdate?.toISOString() || null;
+  const sourceState = (available, data, missingReason) => state.loading
+    ? { status: "missing", reason: "Caricamento dati Admin in corso." }
+    : state.error
+      ? { status: "error", reason: state.error }
+      : available
+        ? { status: "ready", data, observedAt, staleAfterMs: 5 * 60 * 1000 }
+        : { status: "missing", reason: missingReason };
+  const adminAiDashboard = buildAdminDashboardInsights({
+    sources: {
+      campaigns: sourceState(availability.campaigns, validCampaigns, "Tabelle campagne non disponibili."),
+      sessions: sourceState(availability.sessions, sessions, "Sessioni operative non disponibili."),
+      gpsPoints: sourceState(availability.gps, latestGpsPoints, "Punti GPS non disponibili."),
+      proofPhotos: sourceState(availability.photos, null, "Metadati foto non disponibili."),
+      waitlist: sourceState(availability.waitlist, waitlist, "Waitlist non disponibile."),
+      activities: sourceState(availability.activities, activities, "Registro attivita non disponibile."),
+    },
+    snapshot: {
+      activeCampaigns: validCampaigns.filter((campaign) => campaign.status === "active").length,
+      completedCampaigns: enterprise.completedCampaigns,
+      lateCampaigns: enterprise.lateCampaigns,
+      liveSessions: activeSessions.length,
+      operatorStatus: availability.sessions ? `${enterprise.onlineOperators}/${enterprise.offlineOperators}` : null,
+      onlineOperators: enterprise.onlineOperators,
+      offlineOperators: enterprise.offlineOperators,
+      pendingCampaigns: validCampaigns.filter((campaign) => campaign.status === "pending").length,
+      activeClients: enterprise.activeClients,
+      pendingRequests: Number.isFinite(enterprise.pendingRequests) ? enterprise.pendingRequests : null,
+      totalRevenue,
+      avgCpm,
+      alarmCount: enterprise.alarmCount,
+      opsProblems: enterprise.opsProblems,
+      lastUpdate: observedAt,
+    },
+  });
+  const adminDecisionCenter = buildAdminDecisionItems({
+    insights: adminAiDashboard,
+    context: { authorized: true, role: "admin" },
+  });
+  const adminNotificationCenter = buildAdminNotifications({
+    decisionCenter: adminDecisionCenter,
+    context: { authorized: true, role: "admin" },
+  });
+  const adminOperationalLinks = [
+    { href: "/admin/live", label: "Monitor GPS Live", description: "Sessioni, tracker e ultimo ping" },
+    { href: "/admin/anomalie", label: "Anomalie esistenti", description: "Dettagli prodotti dai controlli correnti" },
+    { href: "/admin/finance", label: "Gestione economica", description: "Preventivi, pagamenti e fatture" },
   ];
 
   useEffect(() => {
@@ -217,15 +255,17 @@ export default function AdminDashboard({ onNav }) {
       {state.error && <Notice text={state.error} danger />}
       {notice && <Notice text={notice} />}
 
-      <section style={kpiGridStyle}>
-        {kpis.map((kpi) => (
-          <div key={kpi.label} style={cardStyle}>
-            <p style={eyebrowStyle}>{kpi.label}</p>
-            <strong style={{ display: "block", fontFamily: F.serif, fontSize: 25, color: kpi.color, letterSpacing: "-.8px", marginBottom: 3 }}>{kpi.value}</strong>
-            <span style={mutedTinyStyle}>{kpi.sub}</span>
-          </div>
-        ))}
-      </section>
+      <AdminOperationalBrief
+        items={adminAiDashboard.items}
+        attention={adminAiDashboard.attention}
+        attentionState={adminAiDashboard.attentionState}
+        decisionCenter={adminDecisionCenter}
+        links={adminOperationalLinks}
+        loading={state.loading}
+        error={state.error}
+      />
+
+      <AINotificationCenter center={adminNotificationCenter} loading={state.loading} error={state.error} />
 
       <section style={{ ...cardStyle, marginBottom: 16 }}>
         <p style={eyebrowStyle}>Centrale operativa</p>
@@ -251,6 +291,7 @@ export default function AdminDashboard({ onNav }) {
             <span style={mutedTinyStyle}>Stato operativo calcolato da tabelle reali o segnato come non configurato.</span>
           </div>
           <input
+            aria-label="Cerca nella Dashboard Admin"
             value={globalSearch}
             onChange={(event) => setGlobalSearch(event.target.value)}
             placeholder="Cerca cliente, zona, ID, servizio..."
@@ -630,6 +671,7 @@ function buildEnterpriseSnapshot({ campaigns, waitlist, activeSessions, latestGp
     activeClients,
     pendingRequests,
     alarmCount,
+    opsProblems,
     liveUsers: activeSessions.length,
     lastUpdate,
     lastUpdateText: lastUpdate ? formatDate(lastUpdate) : EMPTY,
@@ -926,7 +968,6 @@ const adminBadgeStyle = { display: "inline-flex", padding: "4px 12px", borderRad
 const secondaryButtonStyle = { height: 40, padding: "0 18px", borderRadius: 10, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" };
 const eyebrowStyle = { margin: 0, fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,.45)", letterSpacing: ".12em", textTransform: "uppercase" };
 const mutedTinyStyle = { fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)" };
-const kpiGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14, marginBottom: 24 };
 const dashboardLayoutStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16 };
 const opsNavStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginTop: 16 };
 const opsNavItemStyle = { display: "grid", gap: 6, padding: 16, borderRadius: 12, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)", color: "rgba(255,255,255,.85)", textDecoration: "none", fontFamily: F.sans, fontSize: 13, transition: "all 0.2s ease" };

@@ -3,9 +3,14 @@ import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-le
 import { useEffect, useMemo, useState } from 'react';
 import { createProofPhotoSignedUrl, getCampaignGpsPoints, getCampaignGpsSessions, getCampaignProofPhotos, calculateDistanceKm } from '../../lib/services/gps-api.js';
 import { getAdminCoverageCorrections, getAssignedZones, computeCoverageMetrics } from '../../lib/services/admin-api.js';
+import { useCampagnaDetail } from '../../hooks/useCampagnaDetail.js';
+import { buildClientCampaignInsights, confirmClientCampaignOwnership, filterApprovedClientPhotos, isClientTrackingEnabled, projectClientCampaignSourceData } from '../../lib/ai/buildClientCampaignInsights.js';
+import { ClientTrackingAI } from '../../components/ai/client/ClientTrackingAI.jsx';
 
 export function CampaignTracking({ campaignId }) {
   const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], corrections: [], zones: [] });
+  const { campagna, loading: campaignLoading, error: campaignError } = useCampagnaDetail(campaignId);
+  const [clientSession] = useState(() => { try { return JSON.parse(localStorage.getItem('vp_supabase_session') || 'null'); } catch { return null; } });
 
   useEffect(() => {
     let cancelled = false;
@@ -40,6 +45,21 @@ export function CampaignTracking({ campaignId }) {
   const totalKm = calculateDistanceKm(state.points);
   const targetKm = state.zones.reduce((s, z) => s + (Number(z.target_km) || 0), 0) || Math.max(10, totalKm || 10);
   const metrics = computeCoverageMetrics(totalKm, targetKm, state.corrections);
+  const ownershipConfirmed = confirmClientCampaignOwnership(campagna, clientSession);
+  const trackingEnabled = isClientTrackingEnabled(campagna);
+  const campaignObservedAt = campagna?.updated_at || campagna?.created_at || null;
+  const lastPoint = state.points[state.points.length - 1] || null;
+  const gpsObservedAt = lastPoint?.recorded_at || lastPoint?.created_at || null;
+  const approvedPhotos = filterApprovedClientPhotos(state.photos);
+  const trackingAi = buildClientCampaignInsights({
+    sources: {
+      campaign: campaignLoading ? { status: 'missing', reason: 'Caricamento campagna in corso.' } : campaignError || !campagna ? { status: 'error', reason: campaignError?.message || 'Campagna non disponibile.' } : { status: 'ready', data: projectClientCampaignSourceData(campagna), observedAt: campaignObservedAt, staleAfterMs: 24 * 60 * 60 * 1000 },
+      gpsPoints: state.loading ? { status: 'missing', reason: 'Caricamento GPS in corso.' } : state.error ? { status: 'error', reason: state.error } : { status: 'ready', data: state.points, observedAt: gpsObservedAt, staleAfterMs: 5 * 60 * 1000 },
+      approvedPhotos: state.loading ? { status: 'missing', reason: 'Caricamento foto in corso.' } : state.error ? { status: 'error', reason: state.error } : { status: 'ready', data: approvedPhotos, observedAt: approvedPhotos[0]?.approved_at || approvedPhotos[0]?.created_at || null, staleAfterMs: 24 * 60 * 60 * 1000 },
+      coverageMetrics: state.loading ? { status: 'missing', reason: 'Caricamento copertura in corso.' } : state.error ? { status: 'error', reason: state.error } : { status: 'ready', data: { coveragePercent: metrics.copertura_finale_cliente_percent, formula: 'computeCoverageMetrics esistente', inputs: ['metrics.copertura_finale_cliente_percent'], assumptions: ['Valore riutilizzato senza ricalcolo AI.'] }, observedAt: gpsObservedAt, staleAfterMs: 5 * 60 * 1000 },
+    },
+    context: { campaignId, ownershipConfirmed, clientTrackingEnabled: trackingEnabled, approvedOnly: true },
+  });
 
   return (
     <main style={shellStyle}>
@@ -50,6 +70,8 @@ export function CampaignTracking({ campaignId }) {
       </header>
 
       {state.error && <div style={errorStyle}>{state.error}</div>}
+
+      <ClientTrackingAI insights={trackingAi} loading={state.loading || campaignLoading} error={state.error || campaignError?.message || null} />
 
       <div style={metricGridStyle}>
         <Metric label="Copertura verificata" value={`${metrics.copertura_finale_cliente_percent}%`} />
