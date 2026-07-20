@@ -1080,7 +1080,7 @@ function Step2MapImpl({
         const fmtIT = n => Number(n || 0).toLocaleString('it-IT', { useGrouping: true });
         const tipRows = isActiveComuneEntry && boundaryKpis
           ? [
-              `<b style="color:#22C55E">${esc(entryName)}</b>`,
+              `<b style="color:${col}">${esc(entryName)}</b>`,
               `<span style="color:rgba(255,255,255,.6);font-size:11px">Tipo: Comune completo</span>`,
               `Famiglie: <b>${fmtIT(boundaryKpis.families)}</b>`,
               `Copertura: <b>${Math.round(boundaryKpis.coveragePercent || 0)}%</b>`,
@@ -1088,7 +1088,7 @@ function Step2MapImpl({
               `Quantità consigliata: <b>${fmtIT(boundaryKpis.recommendedFlyers)}</b>`,
             ]
           : [
-              `<b style="color:#22C55E">${esc(entryName)}</b>`,
+              `<b style="color:${col}">${esc(entryName)}</b>`,
               `<span style="color:rgba(255,255,255,.6);font-size:11px">Tipo: Comune</span>`,
               zoneForEntry ? `Famiglie: <b>${fmtIT(zoneForEntry.families)}</b>` : null,
               allocForEntry ? `Copertura: <b>${Math.round(allocForEntry.coveragePercent || 0)}%</b>` : null,
@@ -1364,11 +1364,11 @@ function Step2MapImpl({
       if (showCircle) {
         L.circle([zCity.lat, zCity.lng], {
           radius: zRadius * 1000,
-          color: isActive ? '#22C55E' : zCol,
-          fillColor: isActive ? '#22C55E' : 'transparent',
+          color: isActive ? col : zCol,
+          fillColor: isActive ? col : 'transparent',
           fillOpacity: isActive ? 0.05 : 0,
-          weight: isActive ? 2.2 : 0.7,
-          dashArray: isActive ? '9 7' : '4 6',
+          weight: isActive ? 2 : 0.7,
+          dashArray: isActive ? '8 4' : '4 6',
           opacity: isActive ? 0.9 : 0.18,
           className: isActive ? 'gis-radius-glow' : '',
           interactive: false,
@@ -1381,7 +1381,7 @@ function Step2MapImpl({
 
       const tooltipContent = isActive
         ? (isMunicipalityMode
-            ? `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:#22C55E;opacity:0.85">Intero comune</span>`
+            ? `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:${col};opacity:0.85">Intero comune</span>`
             : hasConfirmedRadius
               ? `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:${zCol};opacity:0.85">${zRadius} km raggio (Attiva)</span>`
               : `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:${zCol};opacity:0.85">Punto confermato - scegli raggio</span>`)

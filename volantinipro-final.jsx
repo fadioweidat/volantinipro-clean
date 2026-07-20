@@ -50,7 +50,7 @@ import { allowMockData, isProduction } from "./src/lib/runtimeFlags.js";
 import { defaultLayerState } from "./src/lib/dataSources.js";
 import { geoJsonApproxCentroid, geoJsonContainsPoint } from "./src/lib/geo/pointInPolygon.js";
 import { GRANDE_CITTA_ZONE_THRESHOLD, isZonaRilevante } from "./src/lib/services/zone-list-config.js";
-import { DELIVERABLE_CATEGORIES, DELIVERABLE_SERVICE_CONFIG } from "./src/lib/services/service-config.js";
+import { DELIVERABLE_CATEGORIES, DELIVERABLE_SERVICE_CONFIG, getServiceAccent } from "./src/lib/services/service-config.js";
 import { kpiLabel } from "./src/lib/services/kpi-definitions.js";
 import { formatIntegerIT, formatPercentIT, formatAreaIT } from "./src/lib/utils/format.js";
 import { D2D_DAILY_CAPACITY, calculateOperationalScore, estimateOperationalDays, buildOperationalAdvice, resolveAssignedQuantity } from "./src/lib/step2/operationalMetrics.js";
@@ -3787,7 +3787,7 @@ function Step2({ data, setData, onNext, onBack }) {
 const svcRaw = data.selectedService || data.activeService || data.type || "d2d";
 const svcType = ({door_to_door:"d2d","door-to-door":"d2d",door:"d2d",hand_to_hand:"h2h","hand-to-hand":"h2h",business:"b2b","business-distribution":"b2b",business_b2b:"b2b"})[svcRaw] || svcRaw;
 const serviceMeta = SERVICE_META[svcType] || SERVICE_META.d2d;
-const col = "#22C55E";
+const col = getServiceAccent(svcType);
 const layers = LAYERS[svcType] || LAYERS.d2d;
 const isResidentialStep2 = serviceMeta.mode === "residential";
 const isBusinessStep2 = serviceMeta.mode === "business";
@@ -7902,8 +7902,8 @@ const radiusInsightRows = zonesInRadius.map(z => ({
 
         {/* SERVICE PILLS - cambiano il servizio */}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {[{ id: "d2d", icon: " ", l: "Door to Door", c: "#22C55E" }, { id: "h2h", icon: "", l: "Hand to Hand", c: C.blue }, { id: "b2b", icon: "", l: "Business", c: C.green }].map(({ id, icon, l, c }) => (
-            <button key={id} onClick={() => setData(d => ({...d, type: id, selectedService: id, activeService: id }))} style={pill(svcType === id, c)}>
+          {[{ id: "d2d", icon: " ", l: "Door to Door" }, { id: "h2h", icon: "", l: "Hand to Hand" }, { id: "b2b", icon: "", l: "Business" }].map(({ id, icon, l }) => (
+            <button key={id} onClick={() => setData(d => ({...d, type: id, selectedService: id, activeService: id }))} style={pill(svcType === id, getServiceAccent(id))}>
               {icon} {l}
             </button>
           ))}
@@ -8330,6 +8330,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 disabled={(!city && selectedComuni.length === 0 && !searchedLocation) || apiLoading}
                 onCommit={updateActiveRadius}
                 recommendedValue={recommendedRadiusForSlider}
+                accent={col}
               />
             </div>
             <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>Aumentando il raggio aumentano copertura, comuni coinvolti e quantità consigliata.</div>
@@ -10167,7 +10168,7 @@ const isManual = allocationMode === "manual";
           {activeCampaignZone && (
             <div style={{ background: "rgba(255,255,255,.025)", borderRadius: 10, padding: "10px 12px", border: `1px solid rgba(255,255,255,.06)` }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
-                <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: "rgba(255,255,255,.45)", letterSpacing: ".08em", textTransform: "uppercase" }}>Zona attiva</div>
+                <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: col, letterSpacing: ".08em", textTransform: "uppercase" }}>Zona attiva</div>
                 
               </div>
               <div style={{ fontFamily: F.serif, fontSize: 22, color: C.white, lineHeight: 1, marginBottom: 4 }}>{activeCampaignZone.zone_label || "Zona"}</div>
@@ -10322,8 +10323,8 @@ const isManual = allocationMode === "manual";
                   onClick={() => setIsAdminView(true)}
                   style={{
                     marginTop: 14, width: "100%", padding: "10px 14px", borderRadius: 10,
-                    background: "rgba(56,189,248,.12)", border: "1px solid rgba(56,189,248,.35)",
-                    color: "#38BDF8", fontFamily: F.sans, fontSize: 12, fontWeight: 800,
+                    background: `${col}1F`, border: `1px solid ${col}59`,
+                    color: col, fontFamily: F.sans, fontSize: 12, fontWeight: 800,
                     cursor: "pointer", transition: "all .2s ease", display: "flex",
                     alignItems: "center", justifyContent: "center", gap: 8
                   }}
@@ -10348,7 +10349,7 @@ const isManual = allocationMode === "manual";
               </div>
             )}
             <button className="btn" onClick={handleNext} disabled={!canContinueCalendar}
-              style={{ width: "100%", minHeight: 52, padding: "0 16px", borderRadius: 12, border: canContinueCalendar ? "1px solid rgba(255,255,255,0.18)" : "none", background: canContinueCalendar ? "linear-gradient(135deg, #22C55E 0%, #15803D 100%)" : "rgba(255,255,255,.08)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 900, cursor: canContinueCalendar ? "pointer" : "not-allowed", boxShadow: canContinueCalendar ? "0 4px 16px rgba(21,128,61,.4)" : "none", textAlign: "center", transition: "all .2s ease" }}>
+              style={{ width: "100%", minHeight: 52, padding: "0 16px", borderRadius: 12, border: canContinueCalendar ? "1px solid rgba(255,255,255,0.18)" : "none", background: canContinueCalendar ? col : "rgba(255,255,255,.08)", color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 900, cursor: canContinueCalendar ? "pointer" : "not-allowed", boxShadow: canContinueCalendar ? `0 4px 16px ${col}66` : "none", textAlign: "center", transition: "all .2s ease" }}>
               {continueLabel}
             </button>
             {step2ZonesReady && !operationalSelectionReady && (isMovementStep2 || isBusinessStep2) && (
@@ -14967,7 +14968,7 @@ function normalizeRadius(value, options) {
   );
 }
 
-function InteractiveRadiusSlider({ value, options, disabled = false, onCommit, recommendedValue = null }) {
+function InteractiveRadiusSlider({ value, options, disabled = false, onCommit, recommendedValue = null, accent = "#22C55E" }) {
   const normalizedValue = normalizeRadius(value, options);
   const normalizedRecommended = recommendedValue != null && Number.isFinite(Number(recommendedValue)) ? normalizeRadius(recommendedValue, options) : null;
   const confirmedIndex = options.indexOf(normalizedValue);
@@ -15090,7 +15091,7 @@ function InteractiveRadiusSlider({ value, options, disabled = false, onCommit, r
             top: 0,
             bottom: 0,
             width: `${fillPercentage}%`,
-            background: '#22C55E',
+            background: accent,
             borderRadius: 4,
             transition: isDragging ? 'none' : 'width 0.15s ease-out',
           }}
@@ -15132,9 +15133,9 @@ function InteractiveRadiusSlider({ value, options, disabled = false, onCommit, r
                   width: isActive ? 16 : 10,
                   height: isActive ? 16 : 10,
                   borderRadius: '50%',
-                  background: isActive ? '#fff' : (isPast ? '#22C55E' : 'rgba(255,255,255,0.3)'),
-                  border: isActive ? '3px solid #22C55E' : 'none',
-                  boxShadow: isActive ? '0 0 10px rgba(34,197,94,0.5)' : 'none',
+                  background: isActive ? '#fff' : (isPast ? accent : 'rgba(255,255,255,0.3)'),
+                  border: isActive ? `3px solid ${accent}` : 'none',
+                  boxShadow: isActive ? `0 0 10px ${accent}80` : 'none',
                   transition: 'all 0.15s',
                   zIndex: 2,
                 }}
@@ -15147,7 +15148,7 @@ function InteractiveRadiusSlider({ value, options, disabled = false, onCommit, r
                   fontFamily: 'Inter, sans-serif',
                   fontSize: 11,
                   fontWeight: isActive ? 700 : 400,
-                  color: isActive ? '#22C55E' : 'rgba(255,255,255,0.5)',
+                  color: isActive ? accent : 'rgba(255,255,255,0.5)',
                   whiteSpace: 'nowrap',
                   transition: 'color 0.15s',
                 }}

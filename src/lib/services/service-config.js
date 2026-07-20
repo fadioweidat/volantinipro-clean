@@ -1,6 +1,20 @@
 // Single source of truth for per-service GIS layer configuration.
 // Import from here — no if(svcType) scattered in components or hooks.
 
+// Accent color per service — governs Step 2 chrome (active service chip,
+// radius circle, radius slider, sidebar card kickers, primary CTAs).
+// Values are the existing design tokens (brand orange / teal / green);
+// confirmation-green stays reserved for validation states only.
+export const SERVICE_ACCENTS = {
+  d2d: '#E8571A',
+  h2h: '#2DD4BF',
+  b2b: '#2ECC8A',
+};
+
+export function getServiceAccent(svcType) {
+  return SERVICE_ACCENTS[svcType] ?? SERVICE_ACCENTS.d2d;
+}
+
 export const SERVICE_LAYERS = {
   d2d: {
     label: 'Door to Door',
