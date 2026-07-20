@@ -1968,10 +1968,14 @@ function Step1({ data, setData, onNext, onHome }) {
       const extraServicesWithPrint = printingEnabled
         ? [...new Set([...(next.extraServices || []), "stampa"])]
         : (next.extraServices || []).filter((s) => s !== "stampa");
+      // Punti Vetrina only makes sense on Door to Door — force it off the
+      // moment the service changes away from d2d, however that happens.
+      const puntiVetrinaForService = next.type === "d2d" ? Boolean(next.puntiVetrina) : false;
 
       return {
         ...next,
         extraServices: extraServicesWithPrint,
+        puntiVetrina: puntiVetrinaForService,
         campaignsPerMonth: cPerMonth,
         selectedService: next.type,
         businessSector: next.activityType,
