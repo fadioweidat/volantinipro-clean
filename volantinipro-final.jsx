@@ -10337,14 +10337,14 @@ const isManual = allocationMode === "manual";
             const activeServiceOutputs = isResidentialStep2 ? residentialMainOutputsNormalized : isMovementStep2 ? h2hMainOutputs : [
               { l: "Attività disponibili", v: formatIntegerIT(pois.length), u: "att.", src: "OpenStreetMap / fonti collegate", c: "#A78BFA" },
               { l: "Attività selezionate", v: formatIntegerIT(selectedOperationalPois.length), u: "att.", src: "Selezione cliente", c: "#4ADE80" },
-              { l: "Materiali necessari", v: businessMaterialPlan?.materialsRequired == null ? "Da definire" : formatIntegerIT(businessMaterialPlan.materialsRequired), u: businessMaterialPlan?.materialsRequired == null ? "" : "pz.", src: "Copie per attività", c: "#38BDF8" },
-              { l: "Giornate-addetto", v: businessOperationalPlan?.calculable ? businessOperationalPlan.operatorDays : "Da calcolare", u: "", src: "Tempo medio per visita", c: "#FBBF24" },
-            ];
+              businessMaterialPlan?.materialsRequired != null ? { l: "Materiali necessari", v: formatIntegerIT(businessMaterialPlan.materialsRequired), u: "pz.", src: "Copie per attività", c: "#38BDF8" } : null,
+              businessOperationalPlan?.calculable ? { l: "Giornate-addetto", v: businessOperationalPlan.operatorDays, u: "", src: "Tempo medio per visita", c: "#FBBF24" } : null,
+            ].filter(Boolean);
             const activeServiceTitle = isResidentialStep2 ? "Output Door to Door" : isMovementStep2 ? "Output Hand to Hand" : "Output Business Distribution";
 	            const baseDisplayOutputs = Array.isArray(activeServiceOutputs) ? activeServiceOutputs : [];
 	            const displayOutputs = [
 	              ...baseDisplayOutputs.map(item => item.l === "Copertura stimata" ? { ...item, l: "Copertura operativa", v: step2CoverageFullLabel || item.v, u: "", src: "Fabbisogno operativo" } : item),
-	              ...(isResidentialStep2 ? [{ l: "Durata calendario", v: "non calcolabile", u: "", src: "Numero operatori non disponibile", c: C.yellow }] : []),
+	              ...(isResidentialStep2 && step2TruthModel.duration.calculable ? [{ l: "Durata calendario", v: step2TruthModel.duration.days, u: "giorni", src: null }] : []),
 	            ];
             return (
               <div style={{ background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "18px 20px", border: `1px solid ${col}30` }}>
