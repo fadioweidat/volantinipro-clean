@@ -11407,6 +11407,7 @@ const svcCommercial = {
   tracking_gps:    { icon: "📍", head: "Tracking GPS Live",        col: "#22C55E", badge: "Più scelto",     bullets: ["Segui in tempo reale gli operatori sulla mappa","Storico percorso al termine della distribuzione","Link di condivisione per il tuo team"] },
   photo_proof:     { icon: "📸", head: "Report Fotografico",        col: "#60A5FA", badge: "Massima sicurezza", bullets: ["30 foto geolocalizzate con data e orario","Conferma visiva zona per zona","Archivio scaricabile dal portale cliente"] },
   ai_analysis:     { icon: "🤖", head: "Modulo Ottimizzazione AI",   col: "#2ECC8A", badge: "Premium",        bullets: ["Suggerimenti per migliorare copertura","Identificazione aree deboli","Raccomandazioni quantita e zone"] },
+  puntiVetrina:    { icon: "🏪", head: "Punti Vetrina",             col: C.orange,  badge: "Door to Door",   bullets: ["Fino a 5 punti vetrina inclusi (bar/negozi)","Selezionati e gestiti dal nostro team operativo","Punto di appoggio extra per i tuoi volantini"] },
   advanced_report: { icon: "📊", head: "Report Controllo Qualita",  col: "#6366F1", badge: "Consigliato",    bullets: ["Controllo qualita della distribuzione","Breakdown copertura per comune","Report finale PDF scaricabile"] },
   printing:        { icon: "🖨️", head: "Stampa Materiale",          col: "#60A5FA", badge: "Miglior rapporto qualità/prezzo", bullets: ["Produzione professionale del materiale","Qualità certificata per distribuzione","Consegna prima della campagna"] },
   design:          { icon: "🎨", head: "Preparazione Grafica",      col: "#A78BFA", badge: "Premium",        bullets: ["Adattamento file al formato richiesto","Verifica qualità prima della stampa","Supporto creativo dedicato"] },
@@ -11478,7 +11479,8 @@ const normalizeSelectedExtras = (data) => {
       { id: "design", oldIds: ["grafica", "design", "preparazione_grafica"], l: "Preparazione grafica", d: "Supporto per preparazione o adattamento del file grafico.", icon: "", p: 49 },
       { id: "quality_control", oldIds: ["quality", "quality_control", "controllo_qualita"], l: "Controllo qualità", d: "Verifica aggiuntiva sulla corretta esecuzione della distribuzione.", icon: "", p: 25 },
       { id: "operator_support", oldIds: ["operator", "operator_support", "supporto_operatore"], l: "Supporto operatore", d: "Assistenza diretta per configurazione, pianificazione o conferma campagna.", icon: "", p: 39 },
-      { id: "urgent_distribution", oldIds: ["urgent", "urgent_distribution", "distribuzione_urgente"], l: "Distribuzione urgente", d: "Gestione prioritaria della campagna in tempi ridotti.", icon: "", p: 0, isUrgent: true }
+      { id: "urgent_distribution", oldIds: ["urgent", "urgent_distribution", "distribuzione_urgente"], l: "Distribuzione urgente", d: "Gestione prioritaria della campagna in tempi ridotti.", icon: "", p: 0, isUrgent: true },
+      { id: "puntiVetrina", oldIds: [], l: "Punti Vetrina", d: "Punti vetrina (bar/negozi) selezionati dal nostro team, fino a 5 punti inclusi.", icon: "🏪", p: 35 }
     ];
     const currentServices = [
       ...(data.extraServices || []),
