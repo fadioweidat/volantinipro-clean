@@ -11632,7 +11632,6 @@ function toggle(d) {
 
 function Step4({ data, setData, onBack, onHome, onCampaignSaved }) {
   const isMobile = useIsMobile();
-const [aiOn, setAiOn] = useState(data.aiOptimizer || false);
 const [sent, setSent] = useState(false);
 const [savingCampaign, setSavingCampaign] = useState(false);
 const [campaignSaveError, setCampaignSaveError] = useState(null);
@@ -11650,9 +11649,7 @@ const toggleTech = key => setTechSections(p => ({...p, [key]: !p[key]}));
 const svcCommercial = {
   tracking_gps:    { icon: "pin", head: "Tracking GPS Live",        col: "#22C55E", badge: "Più scelto",     bullets: ["Segui in tempo reale gli operatori sulla mappa","Storico percorso al termine della distribuzione","Link di condivisione per il tuo team"] },
   photo_proof:     { icon: "camera", head: "Report Fotografico",        col: "#60A5FA", badge: "Massima sicurezza", bullets: ["30 foto geolocalizzate con data e orario","Conferma visiva zona per zona","Archivio scaricabile dal portale cliente"] },
-  ai_analysis:     { icon: "robot", head: "Modulo Ottimizzazione AI",   col: "#2ECC8A", badge: "Premium",        bullets: ["Suggerimenti per migliorare copertura","Identificazione aree deboli","Raccomandazioni quantita e zone"] },
   puntiVetrina:    { icon: "shop", head: "Punti Vetrina",             col: C.orange,  badge: "Door to Door",   bullets: ["Fino a 5 punti vetrina inclusi (bar/negozi)","Selezionati e gestiti dal nostro team operativo","Punto di appoggio extra per i tuoi volantini"] },
-  advanced_report: { icon: "chart", head: "Report Controllo Qualita",  col: "#6366F1", badge: "Consigliato",    bullets: ["Controllo qualita della distribuzione","Breakdown copertura per comune","Report finale PDF scaricabile"] },
   printing:        { icon: "printer", head: "Stampa Materiale",          col: "#60A5FA", badge: "Miglior rapporto qualità/prezzo", bullets: ["Produzione professionale del materiale","Qualità certificata per distribuzione","Consegna prima della campagna"] },
   design:          { icon: "palette", head: "Preparazione Grafica",      col: "#A78BFA", badge: "Premium",        bullets: ["Adattamento file al formato richiesto","Verifica qualità prima della stampa","Supporto creativo dedicato"] },
   quality_control: { icon: "checkCircle", head: "Controllo Qualità",         col: "#2ECC8A", badge: "Consigliato",    bullets: ["Verifica operativa in campo","Supervisione distribuzione","Report anomalie"] },
@@ -11718,8 +11715,6 @@ const normalizeSelectedExtras = (data) => {
     const mapping = [
       { id: "tracking_gps", oldIds: ["gps", "tracking_gps", "gps_default"], l: "Tracking GPS", d: "Monitoraggio operativo della distribuzione con tracciamento delle attività.", icon: "", p: 25 },
       { id: "photo_proof", oldIds: ["foto", "photo_proof", "foto_localizzate", "photo_report_advanced"], l: "Foto localizzate", d: "Prove fotografiche con data, zona e riferimento operativo.", icon: "", p: 35 },
-      { id: "advanced_report", oldIds: ["report", "advanced_report", "report_avanzato", "report_analytics"], l: "Report Controllo Qualita", d: "Controllo completo della distribuzione con KPI, comuni, operatori, foto e report finale scaricabile.", icon: " ", p: 19 },
-      { id: "ai_analysis", oldIds: ["ai", "ai_analysis", "analisi_ai"], l: "Modulo Ottimizzazione AI", d: "Analisi AI per migliorare copertura, quantita e priorita operative.", icon: "", p: 49 },
       { id: "printing", oldIds: ["stampa", "printing"], l: "Stampa materiale", d: "Produzione del materiale prima della distribuzione.", icon: "", p: Math.ceil((flyerQty || 10000) / 1000) * 12 },
       { id: "design", oldIds: ["grafica", "design", "preparazione_grafica"], l: "Preparazione grafica", d: "Supporto per preparazione o adattamento del file grafico.", icon: "", p: 49 },
       { id: "quality_control", oldIds: ["quality", "quality_control", "controllo_qualita"], l: "Controllo qualità", d: "Verifica aggiuntiva sulla corretta esecuzione della distribuzione.", icon: "", p: 25 },
@@ -11730,14 +11725,12 @@ const normalizeSelectedExtras = (data) => {
     const currentServices = [
       ...(data.extraServices || []),
       ...(data.printServices || []),
-      ...(data.aiOptimizer ? ["ai"] : []),
       ...(data.urgency === "urgent" ? ["urgent"] : [])
     ];
 
     return mapping.filter(ext =>
       ext.oldIds.some(oid => currentServices.includes(oid)) ||
-      data[ext.id] === true ||
-      (ext.id === "ai_analysis" && (data.aiOptimizer || data.aiExtraSelected))
+      data[ext.id] === true
     ).map(ext => ({
       id: ext.id,
       label: ext.l,
@@ -11753,16 +11746,12 @@ const selectedExtraIds = selectedExtras.map(s => s.id);
 const optionalExtras = [
     { id: "tracking_gps", addId: "gps", removeIds: ["gps", "tracking_gps", "gps_default"], label: "Tracking GPS Live", description: "Tracciamento operativo e timeline distributori.", micro: "Mostra avanzamento e operatori sulla mappa.", icon: "GPS", price: 25 },
     { id: "photo_proof", addId: "photo_report_advanced", removeIds: ["foto", "photo_proof", "foto_localizzate", "photo_report_advanced"], label: "Report Fotografico", description: "Proof fotografici con data e zona.", micro: "Foto geolocalizzate con data e ora.", icon: "PHOTO", price: 35 },
-    { id: "advanced_report", addId: "report_analytics", removeIds: ["report", "advanced_report", "report_avanzato", "report_analytics"], label: "Report Controllo Qualita", description: "Controllo completo della distribuzione con KPI, comuni, operatori, foto e report finale scaricabile.", micro: "Controllo qualita, KPI e report finale scaricabile.", icon: "DATA", price: 19 },
-    { id: "ai_analysis", addId: "ai", removeIds: ["ai", "ai_analysis", "analisi_ai"], label: "Modulo Ottimizzazione AI", description: "Analisi AI per migliorare copertura, quantita e priorita operative.", micro: "Suggerimenti AI su copertura, quantita e priorita.", icon: "AI", price: 49 },
   ];
 const addOptionalExtra = (id) => setData(d => ({...d, extraServices: [...new Set([...(d.extraServices || []), id])] }));
 const removeOptionalExtra = (ext) => setData(d => {
     const removeSet = new Set([ext.id, ext.addId, ...(ext.removeIds || [])].filter(Boolean));
     return {
       ...d,
-      aiOptimizer: ext.id === "ai_analysis" ? false : d.aiOptimizer,
-      aiExtraSelected: ext.id === "ai_analysis" ? false : d.aiExtraSelected,
       extraServices: (d.extraServices || []).filter(id => !removeSet.has(id)),
       printServices: (d.printServices || []).filter(id => !removeSet.has(id)),
     };
@@ -11773,15 +11762,13 @@ const openExtraDemo = (ext) => {
   if (!ext) return;
   console.log("[EXTRA_DEMO_OPENED]", { id: ext.id, label: ext.label, area: mainAreaLabel });
   console.log("[EXTRA_DEMO_DATA_SOURCE]", { id: ext.id, source: "step4_current_configuration", area: mainAreaLabel, quantity: flyerQty, service: tLabel });
-  if (ext.id === "advanced_report") console.log("[REPORT_ADVANCED_DEMO_REAL_DATA]", { area: mainAreaLabel, quantity: flyerQty, families: kpis.families ?? totF, coverage: coverageForSummary ?? kpis.coverage ?? avgCov, comuni: kpisComuniCount });
-  if (ext.id === "ai_analysis") console.log("[AI_OPTIMIZER_DEMO_REAL_DATA]", { area: mainAreaLabel, quantity: flyerQty, families: kpis.families ?? totF, coverage: coverageForSummary ?? kpis.coverage ?? avgCov, total });
   console.log("[EXTRA_DEMO_NO_MOCK]", { id: ext.id, mock: false });
   setActiveDemoId(ext.id);
 };
 const renderExtraDemo = (ext) => {
     if (!ext) return null;
     const accent = (svcCommercial[ext.id]?.col || C.orange);
-    const demoLabel = { tracking_gps: "Tracking in tempo reale", photo_proof: "Foto geolocalizzata", advanced_report: "Report completo", ai_analysis: "Analisi AI" }[ext.id] || "Anteprima";
+    const demoLabel = { tracking_gps: "Tracking in tempo reale", photo_proof: "Foto geolocalizzata" }[ext.id] || "Anteprima";
     const realCoverage = coverageForSummary ?? kpis.coverage ?? avgCov ?? null;
     const realFamilies = kpis.families ?? totF ?? null;
     const realPopulation = kpisPopulation ?? (realFamilies ? Math.round(realFamilies * 2.4) : null);
@@ -11852,136 +11839,6 @@ const renderExtraDemo = (ext) => {
               <div style={{ fontFamily: F.sans, fontSize: 12, color: C.white }}><b>{zone}</b><br /><span style={{ color: "rgba(255,255,255,.58)" }}>Demo - {time}</span></div>
             </div>
           ))}
-        </div>
-      );
-    }
-    if (ext.id === "advanced_report") {
-      return (
-        <div style={{ display: "grid", gap: 16 }}>
-          <div style={{ position: "relative", overflow: "hidden", borderRadius: 20, padding: isMobile ? 18 : 24, background: "linear-gradient(135deg, rgba(10,18,34,.98), rgba(18,32,54,.94) 58%, rgba(99,102,241,.18))", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 24px 70px rgba(0,0,0,.32)" }}>
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(circle at 82% 18%, rgba(46,204,138,.16), transparent 30%), radial-gradient(circle at 5% 0%, rgba(99,102,241,.20), transparent 28%)" }} />
-            <div style={{ position: "relative", display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
-              <div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                  <span style={{ padding: "5px 10px", borderRadius: 999, background: "rgba(232,87,26,.14)", border: "1px solid rgba(232,87,26,.30)", color: C.orange, fontFamily: F.sans, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".08em" }}>{demoSelected ? "Extra selezionato" : "Anteprima bloccata"}</span>
-                  <span style={{ padding: "5px 10px", borderRadius: 999, background: "rgba(46,204,138,.12)", border: "1px solid rgba(46,204,138,.25)", color: C.green, fontFamily: F.sans, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".08em" }}>Preview basata sulla configurazione attuale</span>
-                </div>
-                <h3 style={{ margin: 0, fontFamily: F.serif, fontSize: isMobile ? 28 : 38, color: C.white, letterSpacing: "-1px" }}>Report Controllo Qualita</h3>
-                <div style={{ marginTop: 8, fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.68)" }}>{tLabel} - {mainAreaLabel} - {formatNumber(flyerQty)} volantini</div>
-                <p style={{ margin: "12px 0 0", maxWidth: 720, fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.66)", lineHeight: 1.6 }}>Controllo completo della distribuzione con KPI, comuni, operatori, foto e report finale scaricabile. Questa e una prima pagina dimostrativa: i dettagli completi restano bloccati.</p>
-              </div>
-              <div style={{ textAlign: isMobile ? "left" : "right" }}>
-                <div style={{ fontFamily: F.serif, fontSize: 34, color: C.orange, lineHeight: 1 }}>{eur(total)}</div>
-                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.48)", textTransform: "uppercase", letterSpacing: ".08em" }}>Totale configurazione</div>
-              </div>
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(6,1fr)", gap: 10 }}>
-            {previewKpis.map(([l, v, c]) => (
-              <div key={l} style={{ padding: 15, borderRadius: 14, background: `${c === C.white ? "rgba(255,255,255,.045)" : `${c}10`}`, border: `1px solid ${c === C.white ? "rgba(255,255,255,.08)" : `${c}2f`}` }}>
-                <div style={{ fontFamily: F.serif, fontSize: isMobile ? 23 : 28, color: c, lineHeight: 1 }}>{v || "-"}</div>
-                <div style={{ marginTop: 7, fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.54)", textTransform: "uppercase", letterSpacing: ".08em" }}>{l}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1.12fr", gap: 14 }}>
-            <div style={{ padding: 16, borderRadius: 16, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.08)" }}>
-              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.46)", textTransform: "uppercase", letterSpacing: ".1em", fontWeight: 900, marginBottom: 12 }}>Sezioni incluse</div>
-              {["Breakdown copertura per comune", "Statistiche operatori e prove campagna", "Report finale PDF scaricabile", "Controllo qualita della distribuzione"].map((row) => (
-                <div key={row} style={{ display: "flex", gap: 9, alignItems: "flex-start", padding: "9px 0", borderTop: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.72)" }}>
-                  <span style={{ color: accent, fontWeight: 900 }}>+</span><span>{row}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.035)" }}>
-              <div style={{ padding: 14, background: "rgba(255,255,255,.055)", fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: "rgba(255,255,255,.48)", textTransform: "uppercase", letterSpacing: ".06em" }}>
-                Breakdown comuni - anteprima limitata
-              </div>
-              {realMunicipalityRows.slice(0, demoSelected ? 4 : 2).map((row, index) => (
-                <div key={`${row.name}-${index}`} style={{ display: "grid", gridTemplateColumns: "1.3fr .8fr .8fr", gap: 8, padding: "11px 12px", borderTop: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.74)", alignItems: "center" }}>
-                  <b style={{ color: C.white, overflow: "hidden", textOverflow: "ellipsis" }}>{row.name}</b>
-                  <span>{row.estimatedFlyers != null ? formatNumber(row.estimatedFlyers) : formatNumber(Math.round(flyerQty / Math.max(1, realMunicipalityRows.length)))}</span>
-                  <span style={{ color: (row.coveragePct ?? realCoverage ?? 0) >= 100 ? C.green : C.orange, fontWeight: 900 }}>{row.coveragePct != null ? `${Math.min(100, Math.round(row.coveragePct))}%` : realCoverage != null ? `${realCoverage}%` : "-"}</span>
-                </div>
-              ))}
-              {!demoSelected && <div style={{ padding: 12, borderTop: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12, color: C.orange, fontWeight: 900 }}>Dettaglio completo disponibile dopo aggiunta al preventivo.</div>}
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 12 }}>
-            {lockedPanel("Operatori e timeline", "Disponibile dopo conferma campagna e avvio operativo.")}
-            {lockedPanel("GPS e foto proof", "Disponibile durante la distribuzione se inclusi nel servizio.")}
-            {lockedPanel("Download PDF premium", "Disponibile dopo aggiunta al preventivo.")}
-          </div>
-        </div>
-      );
-    }
-    if (ext.id === "ai_analysis") {
-      return (
-        <div style={{ display: "grid", gap: 16 }}>
-          <div style={{ position: "relative", overflow: "hidden", borderRadius: 20, padding: isMobile ? 18 : 24, background: "linear-gradient(135deg, rgba(7,17,31,.98), rgba(13,30,48,.96) 54%, rgba(46,204,138,.16))", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 24px 70px rgba(0,0,0,.32)" }}>
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(circle at 78% 18%, rgba(46,204,138,.18), transparent 32%), radial-gradient(circle at 0% 0%, rgba(232,87,26,.14), transparent 28%)" }} />
-            <div style={{ position: "relative", display: "flex", justifyContent: "space-between", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
-              <div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                  <span style={{ padding: "5px 10px", borderRadius: 999, background: "rgba(46,204,138,.12)", border: "1px solid rgba(46,204,138,.28)", color: C.green, fontFamily: F.sans, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".08em" }}>Enterprise edition</span>
-                  <span style={{ padding: "5px 10px", borderRadius: 999, background: "rgba(232,87,26,.12)", border: "1px solid rgba(232,87,26,.28)", color: C.orange, fontFamily: F.sans, fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".08em" }}>{demoSelected ? "Extra selezionato" : "Anteprima bloccata"}</span>
-                </div>
-                <h3 style={{ margin: 0, fontFamily: F.serif, fontSize: isMobile ? 28 : 38, color: C.white, letterSpacing: "-1px" }}>Modulo Ottimizzazione AI</h3>
-                <div style={{ marginTop: 8, fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.68)" }}>{tLabel} - {mainAreaLabel} - {formatNumber(flyerQty)} volantini</div>
-                <p style={{ margin: "12px 0 0", maxWidth: 720, fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.66)", lineHeight: 1.6 }}>Analisi AI per migliorare copertura, quantita e priorita operative. Questa preview usa la configurazione attuale, ma raccomandazioni complete e piano operativo restano bloccati.</p>
-              </div>
-              <div style={{ textAlign: isMobile ? "left" : "right" }}>
-                <div style={{ fontFamily: F.serif, fontSize: 42, color: C.green, lineHeight: 1 }}>{aiQualityScore || "-"}</div>
-                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.50)", textTransform: "uppercase", letterSpacing: ".08em" }}>Indice qualita</div>
-              </div>
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : ".74fr 1.26fr", gap: 14 }}>
-            <div style={{ padding: 20, borderRadius: 18, background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.24)", display: "grid", placeItems: "center", minHeight: 260 }}>
-              <div style={{ width: 170, height: 170, borderRadius: "50%", border: "14px solid rgba(46,204,138,.18)", display: "grid", placeItems: "center", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.12)", background: `conic-gradient(${C.green} ${Math.max(0, Math.min(100, aiQualityScore))}%, rgba(255,255,255,.08) 0)` }}>
-                <div style={{ width: 122, height: 122, borderRadius: "50%", background: "#07111f", display: "grid", placeItems: "center", textAlign: "center" }}>
-                  <div><div style={{ fontFamily: F.serif, fontSize: 44, color: C.green, lineHeight: 1 }}>{aiQualityScore || "-"}</div><div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.52)", textTransform: "uppercase", letterSpacing: ".08em" }}>AI score</div></div>
-                </div>
-              </div>
-              <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-                <span style={{ padding: "5px 10px", borderRadius: 999, background: "rgba(255,255,255,.07)", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 900 }}>Livello: {aiLevel}</span>
-                <span style={{ padding: "5px 10px", borderRadius: 999, background: "rgba(167,139,250,.12)", color: C.purple, fontFamily: F.sans, fontSize: 11, fontWeight: 900 }}>Affidabilita {realConfidenceScore || "-"}%</span>
-              </div>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3,1fr)", gap: 10 }}>
-              {previewKpis.map(([label, value, color]) => (
-                <div key={label} style={{ padding: 14, borderRadius: 14, background: color === C.white ? "rgba(255,255,255,.045)" : `${color}10`, border: `1px solid ${color === C.white ? "rgba(255,255,255,.08)" : `${color}2f`}` }}>
-                  <div style={{ fontFamily: F.serif, fontSize: 24, color, lineHeight: 1 }}>{value || "-"}</div>
-                  <div style={{ marginTop: 7, fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.54)", textTransform: "uppercase", letterSpacing: ".08em" }}>{label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
-            <div style={{ padding: 16, borderRadius: 16, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.08)" }}>
-              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.46)", textTransform: "uppercase", letterSpacing: ".1em", fontWeight: 900, marginBottom: 12 }}>Analisi parziale</div>
-              {[["Qualita zona", realAreaScore, C.green], ["Potenziale copertura", realReachScore, C.green], ["Efficienza quantita", realRoiScore, C.orange]].map(([label, value, color]) => (
-                <div key={label} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center", marginBottom: 11, fontFamily: F.sans, fontSize: 12 }}>
-                  <span style={{ color: "rgba(255,255,255,.72)" }}>{label}</span>
-                  <b style={{ color }}>{Number(value || 0)}/100</b>
-                  <span style={{ gridColumn: "1 / -1", height: 7, borderRadius: 999, background: "rgba(255,255,255,.08)", overflow: "hidden" }}><i style={{ display: "block", width: `${Math.max(0, Math.min(100, Number(value || 0)))}%`, height: "100%", background: color }} /></span>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: "grid", gap: 10 }}>
-              <div style={{ padding: 15, borderRadius: 15, background: coveragePartial ? "rgba(232,87,26,.08)" : "rgba(46,204,138,.08)", border: `1px solid ${coveragePartial ? "rgba(232,87,26,.24)" : "rgba(46,204,138,.24)"}`, fontFamily: F.sans }}>
-                <div style={{ fontSize: 11, fontWeight: 900, color: coveragePartial ? C.orange : C.green, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 7 }}>Executive preview</div>
-                <div style={{ fontSize: 13, color: C.white, lineHeight: 1.55 }}>
-                  {coveragePartial
-                    ? `Copertura stimata al ${realCoverage}%. Il modulo individua priorita e quantita consigliata nel report completo.`
-                    : "Configurazione equilibrata nella preview. La verifica completa resta disponibile nel modulo premium."}
-                </div>
-              </div>
-              {lockedPanel("Raccomandazioni AI complete", "Disponibile dopo aggiunta al preventivo.")}
-              {lockedPanel("Aree deboli e priorita operative", "Disponibile dopo aggiunta al preventivo.")}
-              {lockedPanel("Analisi post-campagna", "Disponibile durante o dopo l'esecuzione della campagna.")}
-            </div>
-          </div>
         </div>
       );
     }
