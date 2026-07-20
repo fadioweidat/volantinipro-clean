@@ -7793,6 +7793,12 @@ const radiusInsightRows = zonesInRadius.map(z => ({
     ? null
     : formatPercentIT(step2TruthModel.coverage.operationalPct, Number.isInteger(step2TruthModel.coverage.operationalPct) ? 0 : 1);
   const step2CoverageFullLabel = step2CoveragePctLabel ? `${step2CoveragePctLabel} del fabbisogno operativo` : null;
+  // Shared, single-decimal, formatPercentIT-formatted coverage percentage —
+  // every banner/sentence in Step 2 reads this instead of re-deriving its own
+  // (previously mismatched, e.g. "22%" here vs "21,6%" in the sidebar).
+  const sharedCoveragePctText = step2CoveragePctLabel
+    || (radiusAdvisoryData ? formatPercentIT(radiusAdvisoryData.covPct, Number.isInteger(radiusAdvisoryData.covPct) ? 0 : 1) : null)
+    || formatPercentIT(serviceKpis?.coverage || 0, Number.isInteger(serviceKpis?.coverage || 0) ? 0 : 1);
   const step2RequirementContextLabel = step2TruthModel.territory.modeLabel || "fabbisogno operativo delle zone selezionate";
   const isCoverageConfigurationValid = step2ViewModel.isCoverageConfigurationValid;
   const operationalSelectionReady = isResidentialStep2
@@ -8492,13 +8498,13 @@ const radiusInsightRows = zonesInRadius.map(z => ({
               lineHeight: 1.45
             }}>
               {radiusAdvisoryData.isDismissed ? (
-                `Raggio di ${formatRadiusLabel(radiusAdvisoryData.currentRadius)} mantenuto per la distribuzione (${formatIntegerIT(radiusAdvisoryData.currQty)} volantini per una copertura stimata del ${radiusAdvisoryData.covPct}%).`
+                `Raggio di ${formatRadiusLabel(radiusAdvisoryData.currentRadius)} mantenuto per la distribuzione (${formatIntegerIT(radiusAdvisoryData.currQty)} volantini per una copertura stimata del ${sharedCoveragePctText}).`
               ) : radiusAdvisoryData.status === "coperto" ? (
-                `Con ${formatIntegerIT(radiusAdvisoryData.currQty)} volantini, il raggio selezionato (${formatRadiusLabel(radiusAdvisoryData.currentRadius)}) è coerente con il fabbisogno stimato dell'area (copertura al ${radiusAdvisoryData.covPct}%).`
+                `Con ${formatIntegerIT(radiusAdvisoryData.currQty)} volantini, il raggio selezionato (${formatRadiusLabel(radiusAdvisoryData.currentRadius)}) è coerente con il fabbisogno stimato dell'area (copertura al ${sharedCoveragePctText}).`
               ) : radiusAdvisoryData.covPct < 25 || radiusAdvisoryData.status === "non_coperto" ? (
-                `Con ${formatIntegerIT(radiusAdvisoryData.currQty)} volantini, il raggio selezionato copre circa il ${radiusAdvisoryData.covPct}% del fabbisogno stimato dell'area. Per una distribuzione più concentrata puoi usare il raggio consigliato.`
+                `Con ${formatIntegerIT(radiusAdvisoryData.currQty)} volantini, il raggio selezionato copre circa il ${sharedCoveragePctText} del fabbisogno stimato dell'area. Per una distribuzione più concentrata puoi usare il raggio consigliato.`
               ) : (
-                `Con ${formatIntegerIT(radiusAdvisoryData.currQty)} volantini, il raggio selezionato copre circa il ${radiusAdvisoryData.covPct}% del fabbisogno stimato dell'area (${formatIntegerIT(radiusAdvisoryData.currReq)} volantini per copertura completa). Puoi mantenere la selezione o concentrare la distribuzione sul raggio consigliato.`
+                `Con ${formatIntegerIT(radiusAdvisoryData.currQty)} volantini, il raggio selezionato copre circa il ${sharedCoveragePctText} del fabbisogno stimato dell'area (${formatIntegerIT(radiusAdvisoryData.currReq)} volantini per copertura completa). Puoi mantenere la selezione o concentrare la distribuzione sul raggio consigliato.`
               )}
             </div>
           </div>
@@ -8917,7 +8923,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                 <span style={{ color: "#38BDF8" }}>{formatRadiusLabel(radiusKm)}</span>
                 <span style={{ color: "rgba(255,255,255,0.4)" }}>·</span>
                 <span style={{ color: getCoverageStatus(serviceKpis.coverage) === "coperto" ? "#22C55E" : getCoverageStatus(serviceKpis.coverage) === "parziale" ? "#FACC15" : "#F87171" }}>
-                  {serviceKpis.coverage}% copertura
+                  {sharedCoveragePctText} copertura
                 </span>
               </div>
             )}
@@ -9690,7 +9696,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                         </>
                       ) : (
                         <>
-                          <><b style={{ color: C.white }}>Con un raggio di {radiusKm || radius} km la campagna copre circa il {serviceKpis?.coverage || 0}% dell’area selezionata.</b> Per una campagna più mirata puoi ridurre il raggio.</>
+                          <><b style={{ color: C.white }}>Con un raggio di {radiusKm || radius} km la campagna copre circa il {sharedCoveragePctText} dell’area selezionata.</b> Per una campagna più mirata puoi ridurre il raggio.</>
                           {primaryCoveredZones.length > 0 && <> Con {formatIntegerIT(flyerQuantityFromStep1)} volantini coprirai principalmente: <b style={{ color: col }}>{primaryCoveredZones.join(", ")}</b>.</>}
                         </>
                       )}
@@ -10037,7 +10043,7 @@ const isManual = allocationMode === "manual";
                                 </div>
                                 <div>
                                   <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Copertura complessiva del raggio</div>
-                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: isPartial ? "#22C55E" : C.green }}>{serviceKpis?.coverage || 0}%</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: isPartial ? "#22C55E" : C.green }}>{sharedCoveragePctText}</div>
                                 </div>
                                 <div>
                                   <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>Quantità mancante</div>
@@ -10068,7 +10074,7 @@ const isManual = allocationMode === "manual";
                                 </div>
                                 <div>
                                   <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.45)" }}>{step2ViewModel.primaryCoverageLabel || (areaMode === "full_municipality" ? "Copertura comune" : "Copertura area selezionata")}</div>
-                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: isPartial ? "#22C55E" : C.green }}>{serviceKpis?.coverage || 0}%</div>
+                                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: isPartial ? "#22C55E" : C.green }}>{sharedCoveragePctText}</div>
                                 </div>
                                 {areaMode === "custom_zone" && zoneCoveragePctForBox != null && (
                                   <div>
