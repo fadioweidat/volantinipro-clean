@@ -1900,6 +1900,66 @@ function Step1Icon({ name, size = 24, color = "currentColor", style }) {
           <path {...strokeProps} strokeLinejoin="round" d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" /><path {...strokeProps} d="M9 4v14M15 6v14" />
         </svg>
       );
+    case "search":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <circle {...strokeProps} cx="10.5" cy="10.5" r="6.5" /><path {...strokeProps} d="m20 20-4.8-4.8" />
+        </svg>
+      );
+    case "robot":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <rect {...strokeProps} x="4" y="8" width="16" height="12" rx="3" /><path {...strokeProps} d="M12 8V4M9 3.5h6" /><circle {...strokeProps} cx="9" cy="14" r="1.2" /><circle {...strokeProps} cx="15" cy="14" r="1.2" /><path {...strokeProps} d="M9 17.5h6" />
+        </svg>
+      );
+    case "link":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M10 14a4 4 0 0 0 5.66 0l2.83-2.83a4 4 0 0 0-5.66-5.66l-1.5 1.5" /><path {...strokeProps} d="M14 10a4 4 0 0 0-5.66 0L5.51 12.83a4 4 0 0 0 5.66 5.66l1.5-1.5" />
+        </svg>
+      );
+    case "user":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <circle {...strokeProps} cx="12" cy="8" r="3.5" /><path {...strokeProps} d="M5 20c1-4 4-6 7-6s6 2 7 6" />
+        </svg>
+      );
+    case "hourglass":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M6 3.5h12M6 20.5h12" /><path {...strokeProps} strokeLinejoin="round" d="M7 3.5v3.2c0 1.6 1.9 3.5 5 5.3 3.1-1.8 5-3.7 5-5.3V3.5M7 20.5v-3.2c0-1.6 1.9-3.5 5-5.3 3.1 1.8 5 3.7 5 5.3v3.2" />
+        </svg>
+      );
+    case "palette":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M12 3a9 8.2 0 1 0 0 16.4c1 0 1.8-.8 1.8-1.8 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7H16a5 4.5 0 0 0 5-4.5C21 5.6 16.9 3 12 3Z" /><circle cx="8" cy="10.5" r="1.1" fill={color} /><circle cx="12" cy="8" r="1.1" fill={color} /><circle cx="16" cy="10.5" r="1.1" fill={color} />
+        </svg>
+      );
+    case "shop":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M4 9.5 5 4h14l1 5.5" /><path {...strokeProps} strokeLinejoin="round" d="M4 9.5a2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0" /><path {...strokeProps} d="M5.5 11.5V20h13v-8.5" />
+        </svg>
+      );
+    case "book":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} strokeLinejoin="round" d="M4 5.5A2.5 2.5 0 0 1 6.5 3H12v18H6.5A2.5 2.5 0 0 1 4 18.5v-13ZM20 5.5A2.5 2.5 0 0 0 17.5 3H12v18h5.5a2.5 2.5 0 0 0 2.5-2.5v-13Z" />
+        </svg>
+      );
+    case "mail":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <rect {...strokeProps} x="3" y="5" width="18" height="14" rx="2.5" /><path {...strokeProps} d="m4 6.5 8 6.5 8-6.5" />
+        </svg>
+      );
+    case "checkCircle":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <circle {...strokeProps} cx="12" cy="12" r="8.5" /><path {...strokeProps} d="m8.2 12.3 2.5 2.5 5.1-5.6" />
+        </svg>
+      );
     default:
       return null;
   }
@@ -11154,11 +11214,11 @@ function toggle(d) {
       <div style={{ background: "linear-gradient(135deg, rgba(30,41,59,0.85) 0%, rgba(15,23,42,0.95) 100%)", borderRadius: 24, padding: isMobile ? "28px 20px" : "36px 40px", border: "1px solid rgba(99,102,241,0.3)", boxShadow: "0 20px 50px rgba(0,0,0,0.4)", marginBottom: 32, position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: -40, right: -40, width: 220, height: 220, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%)", pointerEvents: "none" }} />
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-          <span style={{ padding: "5px 12px", borderRadius: 100, background: "linear-gradient(135deg, #6366F1, #06B6D4)", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", boxShadow: "0 0 20px rgba(6,182,212,0.4)", animation: "pulseGlow 2.5s infinite" }}>
-            ✨ SMART PAIRING AI
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 100, background: "linear-gradient(135deg, #6366F1, #06B6D4)", color: C.white, fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", boxShadow: "0 0 20px rgba(6,182,212,0.4)", animation: "pulseGlow 2.5s infinite" }}>
+            <Step1Icon name="sparkles" size={13} color={C.white} /> SMART PAIRING AI
           </span>
           {/* 8. STATO RICERCA BADGE */}
-          <span style={{ padding: "4px 10px", borderRadius: 100, background: realSmartPairingSlots.length > 0 ? "rgba(46,204,138,0.15)" : "rgba(251,191,36,0.15)", border: `1px solid ${realSmartPairingSlots.length > 0 ? "rgba(46,204,138,0.4)" : "rgba(251,191,36,0.4)"}`, color: realSmartPairingSlots.length > 0 ? C.green : C.yellow, fontFamily: F.sans, fontSize: 11, fontWeight: 700 }}>
+          <span style={{ padding: "4px 10px", borderRadius: 100, background: realSmartPairingSlots.length > 0 ? "rgba(46,204,138,0.15)" : "rgba(255,255,255,.07)", border: `1px solid ${realSmartPairingSlots.length > 0 ? "rgba(46,204,138,0.4)" : "rgba(255,255,255,.15)"}`, color: realSmartPairingSlots.length > 0 ? C.green : "rgba(255,255,255,.7)", fontFamily: F.sans, fontSize: 11, fontWeight: 700 }}>
             {realSmartPairingSlots.length > 0 ? (selDays.length > 0 ? "● Confermato" : "● Campagne compatibili") : "● Ricerca in corso"}
           </span>
         </div>
@@ -11227,8 +11287,8 @@ function toggle(d) {
         ] : [
           { label: "Possibile risparmio", val: "40%", sub: "Fino a -40% in zona", color: C.green, tip: "Percentuale di risparmio ottenibile condividendo il percorso con un'altra campagna nella stessa zona." },
           { label: "Campagne compatibili", val: realSmartPairingSlots.length > 0 ? realSmartPairingSlots.length : "0", sub: realSmartPairingSlots.length > 0 ? "In quest'area" : "In ricerca continua", color: C.cyan, tip: "Numero di campagne attive nell'area che possono essere abbinate alla tua per ridurre i costi." },
-          { label: "Operatori disponibili", val: realSmartPairingSlots.length > 0 ? Math.max(4, Math.round((activeQty || 10000) / 2500)) : "4+", sub: "Squadra di zona", color: C.purple, tip: "Numero di operatori già attivi nella zona che possono gestire anche la tua distribuzione." },
-          { label: "Tempo medio attesa", val: realSmartPairingSlots.length > 0 ? "0 giorni" : "2 giorni", sub: realSmartPairingSlots.length > 0 ? "Disponibile ora" : "Notifica prioritaria", color: C.yellow, tip: "Tempo stimato prima di poter iniziare la distribuzione condividendo le risorse operative." }
+          { label: "Operatori disponibili", val: realSmartPairingSlots.length > 0 ? Math.max(4, Math.round((activeQty || 10000) / 2500)) : "4+", sub: "Squadra di zona", color: C.white, tip: "Numero di operatori già attivi nella zona che possono gestire anche la tua distribuzione." },
+          { label: "Tempo medio attesa", val: realSmartPairingSlots.length > 0 ? "0 giorni" : "2 giorni", sub: realSmartPairingSlots.length > 0 ? "Disponibile ora" : "Notifica prioritaria", color: C.white, tip: "Tempo stimato prima di poter iniziare la distribuzione condividendo le risorse operative." }
         ]).map((kpi, i) => (
           <div key={i} style={{ background: "rgba(255,255,255,0.035)", borderRadius: 16, padding: "20px", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", justifyContent: "space-between", boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}>
             <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10, display: "flex", alignItems: "center", gap: 4 }}>
@@ -11260,7 +11320,7 @@ function toggle(d) {
           {/* 4 & 9. CALENDARIO COMPATTO OPPURE CASO "NESSUNO SLOT" */}
           {realSmartPairingSlots.length === 0 ? (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.08) 0%, rgba(245,158,11,0.03) 100%)", borderRadius: 20, padding: "32px 26px", border: "1px solid rgba(251,191,36,0.25)", textAlign: "center", marginBottom: 28, boxShadow: "0 10px 30px rgba(0,0,0,0.2)" }}>
-              <div style={{ width: 54, height: 54, borderRadius: "50%", background: "rgba(251,191,36,0.15)", color: C.yellow, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, margin: "0 auto 16px" }}>🔍</div>
+              <div style={{ width: 54, height: 54, borderRadius: "50%", background: "rgba(251,191,36,0.15)", color: C.yellow, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}><Step1Icon name="search" size={26} color={C.yellow} /></div>
               <h3 style={{ fontFamily: F.serif, fontSize: 24, color: C.white, marginBottom: 8 }}>Nessuna campagna compatibile al momento.</h3>
               <p style={{ fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,0.7)", maxWidth: 520, margin: "0 auto 24px", lineHeight: 1.6 }}>
                 L'AI continua automaticamente la ricerca nelle prossime ore. Riceverai una notifica appena sarà disponibile uno Smart Pairing compatibile con la tua zona.
@@ -11331,7 +11391,7 @@ function toggle(d) {
               {shouldShowContinueToStep4 ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 4px" }}>
-                    <span style={{ fontSize: 22 }}>✅</span>
+                    <span style={{ color: C.green, fontWeight: 900, fontSize: 22 }}>✓</span>
                     <div style={{ fontFamily: F.sans, fontSize: 14, color: C.white, fontWeight: 600, lineHeight: 1.5 }}>
                       Richiesta registrata. Ti avviseremo appena ci sono slot compatibili.
                     </div>
@@ -11457,15 +11517,15 @@ function toggle(d) {
             </p>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)", gap: 10, marginBottom: 18 }}>
               {[
-                { icon: "📍", label: "Zona" },
-                { icon: "📦", label: "Quantità" },
-                { icon: "📅", label: "Periodo" },
-                { icon: "👥", label: "Operatori" },
-                { icon: "⚡", label: "Disponibilità" },
-                { icon: "🛣️", label: "Itinerari" }
+                { icon: "pin", label: "Zona" },
+                { icon: "package", label: "Quantità" },
+                { icon: "calendar", label: "Periodo" },
+                { icon: "family", label: "Operatori" },
+                { icon: "lightning", label: "Disponibilità" },
+                { icon: "map", label: "Itinerari" }
               ].map((param, idx) => (
                 <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", fontFamily: F.sans, fontSize: 13, color: C.white, fontWeight: 600 }}>
-                  <span>{param.icon}</span>
+                  <Step1Icon name={param.icon} size={16} color={C.white} />
                   <span>{param.label}</span>
                 </div>
               ))}
@@ -11481,8 +11541,9 @@ function toggle(d) {
             <p style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,0.65)", lineHeight: 1.6, marginBottom: 14 }}>
               Il sistema confronta automaticamente: <b style={{ color: C.white }}>stessa zona, stesso periodo, quantità, disponibilità operatori e percorsi stradali</b>.
             </p>
-            <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(46,204,138,0.08)", borderLeft: `3px solid ${C.green}`, fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,0.85)", lineHeight: 1.55 }}>
-              🔒 <b>Garanzia trasparenza:</b> Il risparmio mostrato deriva esclusivamente da campagne realmente compatibili. <b>Non vengono utilizzati dati casuali.</b>
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "14px 16px", borderRadius: 12, background: "rgba(46,204,138,0.08)", borderLeft: `3px solid ${C.green}`, fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,0.85)", lineHeight: 1.55 }}>
+              <Step1Icon name="lock" size={15} color="rgba(255,255,255,0.85)" style={{ flexShrink: 0, marginTop: 2 }} />
+              <span><b>Garanzia trasparenza:</b> Il risparmio mostrato deriva esclusivamente da campagne realmente compatibili. <b>Non vengono utilizzati dati casuali.</b></span>
             </div>
           </div>
         </div>
@@ -11530,7 +11591,7 @@ function toggle(d) {
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ color: "rgba(255,255,255,.5)" }}>Stato ricerca</span>
-                <span style={{ padding: "3px 8px", borderRadius: 6, background: realSmartPairingSlots.length > 0 ? (selDays.length > 0 ? "rgba(46,204,138,0.15)" : "rgba(6,182,212,0.15)") : "rgba(251,191,36,0.15)", color: realSmartPairingSlots.length > 0 ? (selDays.length > 0 ? C.green : C.cyan) : C.yellow, fontSize: 11, fontWeight: 700 }}>
+                <span style={{ padding: "3px 8px", borderRadius: 6, background: realSmartPairingSlots.length > 0 ? (selDays.length > 0 ? "rgba(46,204,138,0.15)" : "rgba(6,182,212,0.15)") : "rgba(255,255,255,.07)", color: realSmartPairingSlots.length > 0 ? (selDays.length > 0 ? C.green : C.cyan) : "rgba(255,255,255,.7)", fontSize: 11, fontWeight: 700 }}>
                   {realSmartPairingSlots.length > 0 ? (selDays.length > 0 ? "Confermato" : "Compatibili") : "Ricerca in corso"}
                 </span>
               </div>
@@ -11587,16 +11648,16 @@ const [techSections, setTechSections] = useState({});
 const [activeDemoId, setActiveDemoId] = useState(null);
 const toggleTech = key => setTechSections(p => ({...p, [key]: !p[key]}));
 const svcCommercial = {
-  tracking_gps:    { icon: "📍", head: "Tracking GPS Live",        col: "#22C55E", badge: "Più scelto",     bullets: ["Segui in tempo reale gli operatori sulla mappa","Storico percorso al termine della distribuzione","Link di condivisione per il tuo team"] },
-  photo_proof:     { icon: "📸", head: "Report Fotografico",        col: "#60A5FA", badge: "Massima sicurezza", bullets: ["30 foto geolocalizzate con data e orario","Conferma visiva zona per zona","Archivio scaricabile dal portale cliente"] },
-  ai_analysis:     { icon: "🤖", head: "Modulo Ottimizzazione AI",   col: "#2ECC8A", badge: "Premium",        bullets: ["Suggerimenti per migliorare copertura","Identificazione aree deboli","Raccomandazioni quantita e zone"] },
-  puntiVetrina:    { icon: "🏪", head: "Punti Vetrina",             col: C.orange,  badge: "Door to Door",   bullets: ["Fino a 5 punti vetrina inclusi (bar/negozi)","Selezionati e gestiti dal nostro team operativo","Punto di appoggio extra per i tuoi volantini"] },
-  advanced_report: { icon: "📊", head: "Report Controllo Qualita",  col: "#6366F1", badge: "Consigliato",    bullets: ["Controllo qualita della distribuzione","Breakdown copertura per comune","Report finale PDF scaricabile"] },
-  printing:        { icon: "🖨️", head: "Stampa Materiale",          col: "#60A5FA", badge: "Miglior rapporto qualità/prezzo", bullets: ["Produzione professionale del materiale","Qualità certificata per distribuzione","Consegna prima della campagna"] },
-  design:          { icon: "🎨", head: "Preparazione Grafica",      col: "#A78BFA", badge: "Premium",        bullets: ["Adattamento file al formato richiesto","Verifica qualità prima della stampa","Supporto creativo dedicato"] },
-  quality_control: { icon: "✅", head: "Controllo Qualità",         col: "#2ECC8A", badge: "Consigliato",    bullets: ["Verifica operativa in campo","Supervisione distribuzione","Report anomalie"] },
-  operator_support:{ icon: "👤", head: "Supporto Operatore",        col: "#60A5FA", badge: "Consigliato",    bullets: ["Assistenza diretta alla pianificazione","Contatto dedicato per la campagna","Conferma operativa rapida"] },
-  urgent_distribution:{ icon: "⚡", head: "Distribuzione Urgente",  col: "#FF6666", badge: null,             bullets: ["Gestione prioritaria della campagna","Attivazione entro 48h","Team dedicato"] },
+  tracking_gps:    { icon: "pin", head: "Tracking GPS Live",        col: "#22C55E", badge: "Più scelto",     bullets: ["Segui in tempo reale gli operatori sulla mappa","Storico percorso al termine della distribuzione","Link di condivisione per il tuo team"] },
+  photo_proof:     { icon: "camera", head: "Report Fotografico",        col: "#60A5FA", badge: "Massima sicurezza", bullets: ["30 foto geolocalizzate con data e orario","Conferma visiva zona per zona","Archivio scaricabile dal portale cliente"] },
+  ai_analysis:     { icon: "robot", head: "Modulo Ottimizzazione AI",   col: "#2ECC8A", badge: "Premium",        bullets: ["Suggerimenti per migliorare copertura","Identificazione aree deboli","Raccomandazioni quantita e zone"] },
+  puntiVetrina:    { icon: "shop", head: "Punti Vetrina",             col: C.orange,  badge: "Door to Door",   bullets: ["Fino a 5 punti vetrina inclusi (bar/negozi)","Selezionati e gestiti dal nostro team operativo","Punto di appoggio extra per i tuoi volantini"] },
+  advanced_report: { icon: "chart", head: "Report Controllo Qualita",  col: "#6366F1", badge: "Consigliato",    bullets: ["Controllo qualita della distribuzione","Breakdown copertura per comune","Report finale PDF scaricabile"] },
+  printing:        { icon: "printer", head: "Stampa Materiale",          col: "#60A5FA", badge: "Miglior rapporto qualità/prezzo", bullets: ["Produzione professionale del materiale","Qualità certificata per distribuzione","Consegna prima della campagna"] },
+  design:          { icon: "palette", head: "Preparazione Grafica",      col: "#A78BFA", badge: "Premium",        bullets: ["Adattamento file al formato richiesto","Verifica qualità prima della stampa","Supporto creativo dedicato"] },
+  quality_control: { icon: "checkCircle", head: "Controllo Qualità",         col: "#2ECC8A", badge: "Consigliato",    bullets: ["Verifica operativa in campo","Supervisione distribuzione","Report anomalie"] },
+  operator_support:{ icon: "user", head: "Supporto Operatore",        col: "#60A5FA", badge: "Consigliato",    bullets: ["Assistenza diretta alla pianificazione","Contatto dedicato per la campagna","Conferma operativa rapida"] },
+  urgent_distribution:{ icon: "lightning", head: "Distribuzione Urgente",  col: "#FF6666", badge: null,             bullets: ["Gestione prioritaria della campagna","Attivazione entro 48h","Team dedicato"] },
 };
 const [confirmSyncStatus, setConfirmSyncStatus] = useState("");
 const [returnFromLogin, setReturnFromLogin] = useState(() =>
@@ -11607,6 +11668,7 @@ const svcType = data.type || "d2d";
 const isQuick = data.quickSource === "quick_quote";
 const cfg = SERVICE_META[svcType] || SERVICE_META.d2d;
 const col = cfg.color;
+const sectionAccent = getServiceAccent(svcType);
 const tLabel = { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Distribuzione presso attività e aziende" }[svcType] || "N/D";
 const rawFlyerQty = data.flyerQuantity || data.qty || 0;
 const flyerQty = (data.coverageDecision === "increase" || data.coverageDecision === "useRecommended") && data.fullCoverageFlyers
@@ -11663,7 +11725,7 @@ const normalizeSelectedExtras = (data) => {
       { id: "quality_control", oldIds: ["quality", "quality_control", "controllo_qualita"], l: "Controllo qualità", d: "Verifica aggiuntiva sulla corretta esecuzione della distribuzione.", icon: "", p: 25 },
       { id: "operator_support", oldIds: ["operator", "operator_support", "supporto_operatore"], l: "Supporto operatore", d: "Assistenza diretta per configurazione, pianificazione o conferma campagna.", icon: "", p: 39 },
       { id: "urgent_distribution", oldIds: ["urgent", "urgent_distribution", "distribuzione_urgente"], l: "Distribuzione urgente", d: "Gestione prioritaria della campagna in tempi ridotti.", icon: "", p: 0, isUrgent: true },
-      { id: "puntiVetrina", oldIds: [], l: "Punti Vetrina", d: "Punti vetrina (bar/negozi) selezionati dal nostro team, fino a 5 punti inclusi.", icon: "🏪", p: 35 }
+      { id: "puntiVetrina", oldIds: [], l: "Punti Vetrina", d: "Punti vetrina (bar/negozi) selezionati dal nostro team, fino a 5 punti inclusi.", icon: "shop", p: 35 }
     ];
     const currentServices = [
       ...(data.extraServices || []),
@@ -12607,10 +12669,10 @@ function handleDownloadPdf() {
         {(selectedExtras.length > 0 || disc > 0) && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {selectedExtras.map(e => (
-              <span key={e.id} style={{ padding: "4px 10px", borderRadius: 100, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)", fontFamily: F.sans, fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,.72)" }}>{e.icon} {e.label}</span>
+              <span key={e.id} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 100, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)", fontFamily: F.sans, fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,.72)" }}>{e.icon && <Step1Icon name={e.icon} size={11} color="rgba(255,255,255,.72)" />} {e.label}</span>
             ))}
-            {disc > 0 && <span style={{ padding: "4px 10px", borderRadius: 100, background: "rgba(46,204,138,.1)", border: "1px solid rgba(46,204,138,.25)", fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: C.green }}>🔗 Smart Pairing -{disc}%</span>}
-            {selDays.length > 0 && <span style={{ padding: "4px 10px", borderRadius: 100, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.09)", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.55)" }}>📅 {selectedDatesLabel}</span>}
+            {disc > 0 && <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 100, background: "rgba(46,204,138,.1)", border: "1px solid rgba(46,204,138,.25)", fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: C.green }}><Step1Icon name="link" size={11} color={C.green} /> Smart Pairing -{disc}%</span>}
+            {selDays.length > 0 && <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 100, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.09)", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.55)" }}><Step1Icon name="calendar" size={11} color="rgba(255,255,255,.55)" /> {selectedDatesLabel}</span>}
           </div>
         )}
       </div>
@@ -12618,7 +12680,7 @@ function handleDownloadPdf() {
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 290px", gap: 16, paddingBottom: isMobile ? 96 : 0 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{...box(), padding: "18px" }}>
-            {secHead("1", "Tipo campagna", "Servizio, volantino, quantità, piano", "#6366F1")}
+            {secHead("1", "Tipo campagna", "Servizio, volantino, quantità, piano", sectionAccent)}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(155px,1fr))", gap: 8 }}>
               {nonEmpty([
                 { icon: cfg.icon, l: "Servizio", v: tLabel, c: col },
@@ -12629,7 +12691,7 @@ function handleDownloadPdf() {
                 { icon: "", l: "Materiale", v: alreadyPrinted ? "già stampato" : "Da produrre", c: alreadyPrinted ? C.green : C.blue },
                 !alreadyPrinted && { icon: "", l: "Grammatura", v: flyW, c: C.green },
                 { icon: "", l: "Grafica", v: data.graphicsReady === true || data.designReady === true ? "File già disponibile" : data.needGraphic || productionServices.includes("grafica") ? "File da preparare" : null, c: C.purple },
-                { icon: "🖨️", l: "Stampa", v: data.printing?.enabled ? "Inclusa" : "Non inclusa", c: data.printing?.enabled ? C.green : C.white },
+                { icon: "printer", l: "Stampa", v: data.printing?.enabled ? "Inclusa" : "Non inclusa", c: data.printing?.enabled ? C.green : C.white },
                 data.printing?.enabled && data.printing?.format && { icon: "", l: "Formato stampa", v: data.printing.format, c: C.white },
                 data.printing?.enabled && data.printing?.paperType && { icon: "", l: "Tipo carta", v: { patinata_lucida: "Patinata lucida", patinata_opaca: "Patinata opaca", uso_mano: "Uso mano" }[data.printing.paperType] || data.printing.paperType, c: C.white },
                 data.printing?.enabled && data.printing?.sides && { icon: "", l: "Lati", v: data.printing.sides === "fronte_retro" ? "Fronte/retro" : "Solo fronte", c: C.white },
@@ -12650,7 +12712,7 @@ function handleDownloadPdf() {
               ]).map(({ icon, l, v, c }) => (
                 <div key={l} style={{ padding: "10px 11px", background: "rgba(255,255,255,.04)", borderRadius: 10, border: "1px solid rgba(255,255,255,.055)" }}>
                   <div style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 4 }}>
-                    <span style={{ fontSize: 11 }}>{icon}</span>
+                    <Step1Icon name={icon} size={11} color={c} />
                     <span style={{ fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,.3)", textTransform: "uppercase" }}>{l}</span>
                   </div>
                   <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 600, color: c }}>{v}</div>
@@ -12660,7 +12722,7 @@ function handleDownloadPdf() {
           </div>
 
           <div style={{...box(), padding: "18px" }}>
-            {secHead("2", "Famiglie e copertura", "Quante persone raggiungerai con questa campagna", col)}
+            {secHead("2", "Famiglie e copertura", "Quante persone raggiungerai con questa campagna", sectionAccent)}
             {isQuick ? (
               <div style={{ padding: "14px", borderRadius: 10, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.42)", lineHeight: 1.55 }}>
                 Preventivo rapido: il dettaglio completo sarà disponibile dopo l'analisi zona completa.
@@ -12671,13 +12733,13 @@ function handleDownloadPdf() {
                 {/* ── KPI essenziali ── */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10 }}>
                   {svcType === "d2d" && [
-                    { icon: "🏠", l: "Famiglie stimate nell'area", sub: "Stima territoriale GIS/NIL", v: formatNumber(kpis.families ?? totF), c: C.green },
-                    { icon: "👥", l: "Persone stimate", sub: "Stima su base ISTAT", v: formatNumber(Math.round((kpis.families ?? totF) * 2.4)), c: C.white },
-                    { icon: "📍", l: "Comuni coinvolti", sub: selectedZoneNames.slice(0, 2).join(", ") + (selectedZoneNames.length > 2 ? ` +${selectedZoneNames.length - 2}` : ""), v: `${selectedZoneNames.length || "—"}`, c: col },
-                    { icon: "📦", l: "Copertura dell'area", sub: pctToFraction(kpis.coverage ?? avgCov) || `${flyerQty.toLocaleString("it-IT", { useGrouping: true })} volantini`, v: `${kpis.coverage ?? avgCov}%`, c: C.green },
+                    { icon: "home", l: "Famiglie stimate nell'area", sub: "Stima territoriale GIS/NIL", v: formatNumber(kpis.families ?? totF), c: C.green },
+                    { icon: "family", l: "Persone stimate", sub: "Stima su base ISTAT", v: formatNumber(Math.round((kpis.families ?? totF) * 2.4)), c: C.white },
+                    { icon: "pin", l: "Comuni coinvolti", sub: selectedZoneNames.slice(0, 2).join(", ") + (selectedZoneNames.length > 2 ? ` +${selectedZoneNames.length - 2}` : ""), v: `${selectedZoneNames.length || "—"}`, c: col },
+                    { icon: "chart", l: "Copertura dell'area", sub: pctToFraction(kpis.coverage ?? avgCov) || `${flyerQty.toLocaleString("it-IT", { useGrouping: true })} volantini`, v: `${kpis.coverage ?? avgCov}%`, c: C.green },
                   ].map(({ icon, l, sub, v, c }) => (
                     <div key={l} className="s4-kpi-card" style={{ padding: "16px 14px", background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.07)", transition: "background .18s, border-color .18s", cursor: "default" }}>
-                      <div style={{ fontSize: 22, marginBottom: 9 }}>{icon}</div>
+                      <div style={{ marginBottom: 9 }}><Step1Icon name={icon} size={22} color={c} /></div>
                       <div style={{ fontFamily: F.serif, fontSize: 24, color: c, letterSpacing: "-.5px", marginBottom: 3 }}>{v || "—"}</div>
                       <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.75)", marginBottom: 3 }}>{l}</div>
                       <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.32)", lineHeight: 1.4 }}>{sub}</div>
@@ -12711,7 +12773,7 @@ function handleDownloadPdf() {
                 {selectedZoneNames.length > 0 && (
                   <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <span style={{ fontSize: 18 }}>📍</span>
+                      <Step1Icon name="pin" size={18} color={C.white} />
                       <div>
                         <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>
                           {selectedZoneNames.length === 1 ? selectedZoneNames[0] : `${selectedZoneNames[0]} · ${selectedZoneNames.length} aree`}
@@ -12738,7 +12800,7 @@ function handleDownloadPdf() {
                 {svcType === "d2d" && requiredQty > 0 && (
                   quantityIsSufficient ? (
                     <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.25)", display: "flex", gap: 12, alignItems: "center" }}>
-                      <span style={{ fontSize: 22 }}>✅</span>
+                      <span style={{ color: C.green, fontWeight: 900, fontSize: 22 }}>✓</span>
                       <div>
                         <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.green, marginBottom: 2 }}>Copertura completa</div>
                         <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)", lineHeight: 1.45 }}>
@@ -12749,7 +12811,7 @@ function handleDownloadPdf() {
                   ) : (
                     <div style={{ padding: "20px", borderRadius: 16, background: "linear-gradient(135deg, rgba(232,87,26,0.12) 0%, rgba(180,60,10,0.04) 100%)", border: "2px solid #E8571A", boxShadow: "0 8px 24px rgba(232,87,26,0.2)" }}>
                       <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 16 }}>
-                        <span style={{ fontSize: 26, lineHeight: "1", flexShrink: 0 }}>📊</span>
+                        <Step1Icon name="chart" size={26} color={C.white} style={{ flexShrink: 0 }} />
                         <div>
                           <div style={{ fontFamily: F.sans, fontSize: 15, fontWeight: 900, color: C.white, marginBottom: 6, textTransform: "uppercase", letterSpacing: ".04em" }}>Copertura parziale stimata al {kpis.coverage ?? avgCov}%</div>
                           <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.8)", lineHeight: 1.6 }}>
@@ -12786,7 +12848,9 @@ function handleDownloadPdf() {
                   `Budget adeguato per ${selectedZoneNames.length > 1 ? `${selectedZoneNames.length} comuni selezionati` : mainAreaLabel}.`,
                   disc > 0
                     ? `Smart Pairing attivo: stai risparmiando il ${disc}% grazie a campagne compatibili in zona.`
-                    : "Smart Pairing non disponibile per questo periodo — la data scelta non ha campagne compatibili.",
+                    : selDays.length > 0
+                      ? "Smart Pairing non disponibile per questo periodo — la data scelta non ha campagne compatibili."
+                      : "Smart Pairing: nessuna campagna compatibile al momento nella tua zona.",
                   flyersFor40 > 0
                     ? `Per superare il 40% di copertura servono circa ${flyersFor40.toLocaleString("it-IT", { useGrouping: true })} volantini aggiuntivi.`
                     : cov >= 40
@@ -12799,7 +12863,7 @@ function handleDownloadPdf() {
                     style={{ padding: "18px", borderRadius: 14, background: "linear-gradient(135deg, rgba(46,204,138,0.07) 0%, rgba(99,102,241,0.04) 100%)", border: "1px solid rgba(46,204,138,0.2)", marginTop: 4 }}
                   >
                     <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}>
-                      <span style={{ fontSize: 20 }}>🤖</span>
+                      <Step1Icon name="robot" size={20} color={C.white} />
                       <div style={{ fontFamily: F.serif, fontSize: 17, color: C.white, letterSpacing: "-.2px" }}>Consiglio VolantiniPro AI</div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
@@ -12823,7 +12887,7 @@ function handleDownloadPdf() {
           </div>
 
           <div style={{...box(), padding: "18px" }}>
-            {secHead("3", "Servizi inclusi", "Cosa ricevi con questa campagna", C.purple)}
+            {secHead("3", "Servizi inclusi", "Cosa ricevi con questa campagna", sectionAccent)}
 
             {/* ── Servizi già inclusi — commercial cards ── */}
             {selectedExtras.length === 0 ? (
@@ -12841,7 +12905,7 @@ function handleDownloadPdf() {
                       {/* Header */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                          <span style={{ fontSize: 22 }}>{comm.icon || ext.icon}</span>
+                          <Step1Icon name={comm.icon || ext.icon} size={22} color={cardCol} />
                           <div>
                             <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
                               <div style={{ fontFamily: F.serif, fontSize: 16, color: C.white, letterSpacing: "-.2px" }}>{comm.head || ext.label}</div>
@@ -12900,13 +12964,13 @@ function handleDownloadPdf() {
                         <div>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                              <span style={{ fontSize: 22 }}>{comm.icon || ext.icon}</span>
+                              <Step1Icon name={comm.icon || ext.icon} size={22} color={cardCol} />
                               <div>
                                 <div style={{ fontFamily: F.serif, fontSize: 16, color: C.white }}>{comm.head || ext.label}</div>
                                 <div style={{ marginTop: 3, fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.46)", textTransform: "uppercase", letterSpacing: ".08em" }}>Anteprima premium disponibile</div>
                               </div>
                             </div>
-                            <span style={{ padding: "4px 10px", borderRadius: 8, background: `${cardCol}18`, fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: cardCol }}>{selected ? "Extra selezionato" : `+${eur(ext.price)}`}</span>
+                            <span style={{ padding: "4px 10px", borderRadius: 8, background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.16)", fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,.85)" }}>{selected ? "Extra selezionato" : `+${eur(ext.price)}`}</span>
                           </div>
                           <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.66)", lineHeight: 1.5, paddingLeft: 32 }}>{ext.micro || comm.bullets?.[0] || ext.description}</div>
                           {comm.bullets && (
@@ -12943,7 +13007,7 @@ function handleDownloadPdf() {
           </div>
 
           <div style={{...box(), padding: "18px" }}>
-            {secHead("4", "Pianificazione", "Date, Smart Pairing e stato operativo", C.green)}
+            {secHead("4", "Pianificazione", "Date, Smart Pairing e stato operativo", sectionAccent)}
             {data.smartPairingRequestSent ? (
               <div style={{ padding: "14px", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.58)", background: "rgba(251,191,36,.06)", border: "1px solid rgba(251,191,36,.2)", borderRadius: 10, lineHeight: 1.6 }}>
                 <b style={{ color: C.yellow }}>Richiesta data diversa inviata.</b><br />
@@ -12955,16 +13019,16 @@ function handleDownloadPdf() {
                 {/* Status chips con evidenza su Priorità, Periodo, Operatore, Stato */}
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)", gap: 10 }}>
                   {nonEmpty([
-                    { icon: "📅", l: "Periodo", v: selDays.length > 0 ? selectedDatesLabel : "Da definire con il team", c: selDays.length > 0 ? C.white : "#A5B4FC", highlight: true },
-                    { icon: "⚡", l: "Priorità", v: data.urgency === "urgent" ? "URGENTE (+30%)" : "Standard operativa", c: data.urgency === "urgent" ? C.red : C.white, highlight: data.urgency === "urgent" },
-                    { icon: "📦", l: "Stato", v: sent ? "CONFERMATA" : "PRONTA PER ATTIVAZIONE", c: sent ? C.green : "#E8571A", highlight: true },
-                    { icon: "👤", l: "Operatore", v: "Assegnazione in zona", c: C.white, highlight: false },
-                    { icon: "🔗", l: "Smart Pairing", v: disc > 0 ? `Attivo (-${disc}%)` : "Non richiesto", c: disc > 0 ? C.green : "rgba(255,255,255,.5)", highlight: false },
-                    selDays.length > 0 && { icon: "📍", l: "Giornate", v: `${selDays.length} ${selDays.length === 1 ? "data confermata" : "date confermate"}`, c: col, highlight: false },
+                    { icon: "calendar", l: "Periodo", v: selDays.length > 0 ? selectedDatesLabel : "Da definire con il team", c: selDays.length > 0 ? C.white : "#A5B4FC", highlight: true },
+                    { icon: "lightning", l: "Priorità", v: data.urgency === "urgent" ? "URGENTE (+30%)" : "Standard operativa", c: data.urgency === "urgent" ? C.red : C.white, highlight: data.urgency === "urgent" },
+                    { icon: "package", l: "Stato", v: sent ? "CONFERMATA" : "PRONTA PER ATTIVAZIONE", c: sent ? C.green : "#E8571A", highlight: true },
+                    { icon: "user", l: "Operatore", v: "Assegnazione in zona", c: C.white, highlight: false },
+                    { icon: "link", l: "Smart Pairing", v: disc > 0 ? `Attivo (-${disc}%)` : "Non richiesto", c: disc > 0 ? C.green : "rgba(255,255,255,.5)", highlight: false },
+                    selDays.length > 0 && { icon: "pin", l: "Giornate", v: `${selDays.length} ${selDays.length === 1 ? "data confermata" : "date confermate"}`, c: col, highlight: false },
                   ]).map(({ icon, l, v, c, highlight }) => (
                     <div key={l} style={{ padding: "14px 16px", background: highlight ? "rgba(255,255,255,.05)" : "rgba(255,255,255,.025)", borderRadius: 14, border: `1px solid ${highlight ? "rgba(255,255,255,.14)" : "rgba(255,255,255,.06)"}`, boxShadow: highlight ? "0 4px 12px rgba(0,0,0,0.15)" : "none" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                        <span style={{ fontSize: 14 }}>{icon}</span>
+                        <Step1Icon name={icon} size={14} color={c} />
                         <span style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,.45)", textTransform: "uppercase", letterSpacing: ".06em" }}>{l}</span>
                       </div>
                       <div style={{ fontFamily: F.sans, fontSize: highlight ? 14 : 13, fontWeight: highlight ? 800 : 600, color: c }}>{v}</div>
@@ -13001,7 +13065,7 @@ function handleDownloadPdf() {
 
                 {selDays.length === 0 && (
                   <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(46,204,138,.05)", border: "1px solid rgba(46,204,138,.15)", display: "flex", gap: 12, alignItems: "flex-start" }}>
-                    <span style={{ fontSize: 24, lineHeight: "1", flexShrink: 0 }}>📅</span>
+                    <Step1Icon name="calendar" size={24} color={C.white} style={{ flexShrink: 0 }} />
                     <div>
                       <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: C.white, marginBottom: 4 }}>Data da confermare</div>
                       <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)", lineHeight: 1.55 }}>
@@ -13020,7 +13084,7 @@ function handleDownloadPdf() {
             {/* Card introduttiva — sempre visibile */}
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(99,102,241,.14)", border: "1px solid rgba(99,102,241,.28)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📊</div>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(99,102,241,.14)", border: "1px solid rgba(99,102,241,.28)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Step1Icon name="chart" size={22} color="#818CF8" /></div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontFamily: F.serif, fontSize: 19, color: C.white, letterSpacing: "-.2px", marginBottom: 4 }}>Approfondimenti tecnici</div>
                   <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.52)", lineHeight: 1.55 }}>
@@ -13066,7 +13130,7 @@ function handleDownloadPdf() {
                 {/* Helper: collapsible sub-section */}
                 {[
                   {
-                    key: "kpi", label: "KPI", icon: "📈",
+                    key: "kpi", label: "KPI", icon: "chart",
                     content: (
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 8 }}>
                         {nonEmpty(serviceSummaryConfig.fields || []).map(fieldCard)}
@@ -13074,7 +13138,7 @@ function handleDownloadPdf() {
                     ),
                   },
                   {
-                    key: "comuni", label: step4TerritoryPluralLabel + " nel raggio", icon: "🗺️",
+                    key: "comuni", label: step4TerritoryPluralLabel + " nel raggio", icon: "map",
                     content: breakdownRows.length > 0 ? (
                       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                         {breakdownRows.map(row => (
@@ -13094,7 +13158,7 @@ function handleDownloadPdf() {
                     ) : <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.35)" }}>{isComuneMode ? "Nessun comune disponibile." : "Nessun comune nel raggio disponibile."}</div>,
                   },
                   {
-                    key: "indicatori", label: "Indicatori", icon: "🎯",
+                    key: "indicatori", label: "Indicatori", icon: "target",
                     content: nonEmpty(serviceSummaryConfig.scores || []).length > 0 ? (
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(148px,1fr))", gap: 8 }}>
                         {nonEmpty(serviceSummaryConfig.scores || []).map(s => (
@@ -13113,7 +13177,7 @@ function handleDownloadPdf() {
                     ) : <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.35)" }}>Indicatori non disponibili per questo servizio.</div>,
                   },
                   {
-                    key: "demo", label: "Profilo demografico ISTAT", icon: "👥",
+                    key: "demo", label: "Profilo demografico ISTAT", icon: "family",
                     content: (
                       <div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 8 }}>
@@ -13128,7 +13192,7 @@ function handleDownloadPdf() {
                     ),
                   },
                   svcType === "d2d" && step4Omi?.available ? {
-                    key: "omi", label: "Mercato immobiliare OMI", icon: "🏠",
+                    key: "omi", label: "Mercato immobiliare OMI", icon: "home",
                     content: (
                       <div style={{ padding: "12px 13px", borderRadius: 10, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.07)" }}>
                         <div style={{ display: "flex", gap: 7, marginBottom: 10, flexWrap: "wrap" }}>
@@ -13147,7 +13211,7 @@ function handleDownloadPdf() {
                     ),
                   } : null,
                   {
-                    key: "fonti", label: "Fonti dati", icon: "📚",
+                    key: "fonti", label: "Fonti dati", icon: "book",
                     content: (
                       <div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 10 }}>
@@ -13168,7 +13232,7 @@ function handleDownloadPdf() {
                       onClick={() => toggleTech(key)}
                       style={{ width: "100%", padding: "11px 14px", background: techSections[key] ? "rgba(255,255,255,.045)" : "rgba(255,255,255,.025)", border: "none", color: techSections[key] ? C.white : "rgba(255,255,255,.52)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left" }}
                     >
-                      <span>{icon} {label}</span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><Step1Icon name={icon} size={13} color="currentColor" /> {label}</span>
                       <span style={{ fontSize: 10, opacity: .6 }}>{techSections[key] ? "▲" : "▼"}</span>
                     </button>
                     <AnimatePresence>
@@ -13190,8 +13254,8 @@ function handleDownloadPdf() {
                   </div>
                 ))}
 
-                <button onClick={handleDownloadPdf} disabled={pdfBusy} style={{ marginTop: 6, padding: "10px 16px", borderRadius: 10, border: `1px solid ${col}40`, background: `${col}0e`, color: col, fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: pdfBusy ? "wait" : "pointer", width: "100%" }}>
-                  {pdfBusy ? "Generazione PDF..." : "📄 Scarica analisi completa PDF"}
+                <button onClick={handleDownloadPdf} disabled={pdfBusy} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, marginTop: 6, padding: "10px 16px", borderRadius: 10, border: `1px solid ${col}40`, background: `${col}0e`, color: col, fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: pdfBusy ? "wait" : "pointer", width: "100%" }}>
+                  {pdfBusy ? "Generazione PDF..." : <><Step1Icon name="printer" size={14} color={col} /> Scarica analisi completa PDF</>}
                 </button>
               </div>
             )}
@@ -13204,8 +13268,8 @@ function handleDownloadPdf() {
 
             {/* Status pill */}
             <div style={{ marginBottom: 14, display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <div style={{ padding: "4px 10px", borderRadius: 100, background: sent ? "rgba(46,204,138,.15)" : "rgba(255,255,255,.07)", border: `1px solid ${sent ? "rgba(46,204,138,.35)" : "rgba(255,255,255,.12)"}`, fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: sent ? C.green : "rgba(255,255,255,.52)" }}>
-                {sent ? "✓ Confermata" : "⏳ In attesa conferma"}
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 100, background: sent ? "rgba(46,204,138,.15)" : "rgba(255,255,255,.07)", border: `1px solid ${sent ? "rgba(46,204,138,.35)" : "rgba(255,255,255,.12)"}`, fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: sent ? C.green : "rgba(255,255,255,.52)" }}>
+                {sent ? "✓ Confermata" : <><Step1Icon name="hourglass" size={11} color="rgba(255,255,255,.52)" /> In attesa conferma</>}
               </div>
               {isQuick && <div style={{ padding: "4px 10px", borderRadius: 100, background: "rgba(251,191,36,.1)", border: "1px solid rgba(251,191,36,.28)", fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: C.yellow }}>Stima rapida</div>}
             </div>
@@ -13230,7 +13294,7 @@ function handleDownloadPdf() {
                   <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.38)", marginBottom: 5 }}>Servizi</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                     {selectedExtras.map(e => (
-                      <span key={e.id} style={{ padding: "2px 7px", borderRadius: 5, background: "rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,.65)" }}>{e.icon} {e.label}</span>
+                      <span key={e.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 5, background: "rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,.65)" }}>{e.icon && <Step1Icon name={e.icon} size={9} color="rgba(255,255,255,.65)" />} {e.label}</span>
                     ))}
                   </div>
                 </div>
@@ -13251,13 +13315,13 @@ function handleDownloadPdf() {
               ))}
               {disc > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 5, borderBottom: "1px solid rgba(255,255,255,.04)" }}>
-                  <span style={{ fontFamily: F.sans, fontSize: 11, color: C.green }}>🔗 Smart Pairing -{disc}%</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: F.sans, fontSize: 11, color: C.green }}><Step1Icon name="link" size={11} color={C.green} /> Smart Pairing -{disc}%</span>
                   <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 600, color: C.green }}>-{eur(smartPairingDiscount)}</span>
                 </div>
               )}
               {data.urgency === "urgent" && (
                 <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 5, borderBottom: "1px solid rgba(255,255,255,.04)" }}>
-                  <span style={{ fontFamily: F.sans, fontSize: 11, color: C.red }}>⚡ Urgenza +30%</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: F.sans, fontSize: 11, color: C.red }}><Step1Icon name="lightning" size={11} color={C.red} /> Urgenza +30%</span>
                   <span style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 600, color: C.red }}>+{eur(urgSurch)}</span>
                 </div>
               )}
@@ -13304,8 +13368,7 @@ function handleDownloadPdf() {
             {!sent ? (
               <>
                 <div style={{ marginBottom: 14, padding: "14px 16px", borderRadius: 12, background: "rgba(56,189,248,.07)", border: "1px solid rgba(56,189,248,.25)", display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ fontSize: 22 }}>📊</span>
-                  <div>
+                  <Step1Icon name="chart" size={22} color="#38BDF8" /><div>
                     <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: "#38BDF8" }}>Dashboard ed esecuzione campagna</div>
                     <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.6)", lineHeight: 1.45, marginTop: 2 }}>
                       La dashboard sarà disponibile dopo il salvataggio della campagna.
@@ -13324,7 +13387,7 @@ function handleDownloadPdf() {
               savedCampaign?.id && (
                 <div style={{ marginBottom: 14, padding: "16px 18px", borderRadius: 14, background: "rgba(46,204,138,.12)", border: "1px solid rgba(46,204,138,.35)", display: "flex", flexDirection: "column", gap: 12 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 24 }}>🚀</span>
+                    <span style={{ color: C.green, fontWeight: 900, fontSize: 24 }}>✓</span>
                     <div>
                       <div style={{ fontFamily: F.serif, fontSize: 18, color: C.green }}>Campagna salvata e confermata!</div>
                       <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.7)", lineHeight: 1.4, marginTop: 2 }}>
@@ -13350,7 +13413,7 @@ function handleDownloadPdf() {
               <div style={{ marginBottom: 14, padding: "14px 16px", borderRadius: 12, background: "rgba(46,204,138,.1)", border: "1px solid rgba(46,204,138,.35)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#2ECC8A", fontFamily: F.sans, fontSize: 13, fontWeight: 800, marginBottom: 4 }}>
-                    <span>✅</span> Accesso completato
+                    <span style={{ color: "#2ECC8A", fontWeight: 900 }}>✓</span> Campagna pronta
                   </div>
                   <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.7)", lineHeight: 1.45 }}>
                     La tua campagna è pronta. Clicca su "Conferma e avvia" per procedere.
@@ -13363,7 +13426,7 @@ function handleDownloadPdf() {
             {showLoginRequired && (
               <div style={{ marginBottom: 14, padding: "14px 16px", borderRadius: 12, background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.35)", display: "flex", flexDirection: "column", gap: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#EF4444", fontFamily: F.sans, fontSize: 13, fontWeight: 800 }}>
-                  <span>🔒</span> Login necessario per salvare la campagna
+                  <Step1Icon name="lock" size={13} color="#EF4444" /> Login necessario per salvare la campagna
                 </div>
                 <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.7)", lineHeight: 1.45 }}>
                   Per salvare la tua campagna e accedere alla dashboard operativa, accedi al tuo account o crea un profilo in pochi secondi.
@@ -13411,11 +13474,11 @@ function handleDownloadPdf() {
             {!canConfirm && confirmProblem && !isQuick && <div style={{ fontFamily: F.sans, fontSize: 10, color: C.red, textAlign: "center", marginBottom: 8 }}>{confirmProblem}</div>}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
-              <button className="btn" onClick={handleDownloadPdf} disabled={pdfBusy} style={{ width: "100%", padding: "10px", borderRadius: 9, border: `1px solid ${col}40`, background: `${col}0e`, color: col, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: pdfBusy ? "wait" : "pointer" }}>
-                {pdfBusy ? "Generazione PDF…" : "📄 Scarica preventivo PDF"}
+              <button className="btn" onClick={handleDownloadPdf} disabled={pdfBusy} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, width: "100%", padding: "10px", borderRadius: 9, border: `1px solid ${col}40`, background: `${col}0e`, color: col, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: pdfBusy ? "wait" : "pointer" }}>
+                {pdfBusy ? "Generazione PDF…" : <><Step1Icon name="printer" size={15} color={col} /> Scarica preventivo PDF</>}
               </button>
-              <button className="btn" onClick={() => { setEmailSent(false); setPdfError("Invio email non configurato. Scarica il PDF oppure contattaci."); }} style={{ width: "100%", padding: "10px", borderRadius: 9, border: "1px solid rgba(46,204,138,.25)", background: "rgba(46,204,138,.07)", color: C.green, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                {emailSent ? "✓ Inviato" : "📧 Invia preventivo via email"}
+              <button className="btn" onClick={() => { setEmailSent(false); setPdfError("Invio email non configurato. Scarica il PDF oppure contattaci."); }} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, width: "100%", padding: "10px", borderRadius: 9, border: "1px solid rgba(46,204,138,.25)", background: "rgba(46,204,138,.07)", color: C.green, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                {emailSent ? "✓ Inviato" : <><Step1Icon name="mail" size={15} color={C.green} /> Invia preventivo via email</>}
               </button>
               {emailSent && <div style={{ fontFamily: F.sans, fontSize: 10, color: C.green, textAlign: "center" }}>Scarica il PDF per condividere il preventivo.</div>}
               {pdfError && <div style={{ fontFamily: F.sans, fontSize: 10, color: C.red, textAlign: "center" }}>{pdfError}</div>}
