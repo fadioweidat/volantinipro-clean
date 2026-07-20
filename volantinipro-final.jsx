@@ -9279,24 +9279,6 @@ const radiusInsightRows = zonesInRadius.map(z => ({
             </div>
           )}
 
-          {/* BARRA RIASSUNTIVA COMUNI (Coerente con stato locale) */}
-          {(selZones.length > 0 || zonesInRadius.length > 0) && (
-            <div className="vp-step2-map-summary" aria-label="Riepilogo della configurazione territoriale">
-              {[
-                ["Territorio selezionato", step2ViewModel.primaryAreaLabel],
-                [step2ViewModel.primaryFamiliesLabel, formatIntegerIT(step2ViewModel.primaryFamiliesValue)],
-                ["Quantità inserita", formatIntegerIT(step2ViewModel.insertedFlyersValue)],
-                ["Quantità consigliata", formatIntegerIT(step2ViewModel.recommendedFlyersValue)],
-                [step2ViewModel.primaryCoverageLabel, step2CoverageFullLabel || "Dato non disponibile"],
-              ].map(([label, value], index) => (
-                <div className="vp-step2-map-summary__item" key={label}>
-                  <span>{label}</span>
-                  <strong className="vp-data-number" style={{ color: index === 3 ? C.green : C.white }}>{value}</strong>
-                </div>
-              ))}
-            </div>
-          )}
-
           {isResidentialStep2 && (selZones.length > 0 || zonesInRadius.length > 0) && (
             <section className="vp-step2-zone-details" aria-labelledby="vp-step2-zone-details-title">
               <button
@@ -9366,6 +9348,11 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                         })}
                       </tbody>
                     </table>
+                    {isResidentialStep2 && (
+                      <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)", fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)", lineHeight: 1.5 }}>
+                        L'allocazione automatica parte dalle zone a maggiore densità di famiglie. Puoi coprire il tuo comune aumentando la quantità o passando alla modalità Manuale.
+                      </div>
+                    )}
                   </div>
                 );
               })()}
