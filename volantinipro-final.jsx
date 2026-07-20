@@ -2542,6 +2542,7 @@ function Step1({ data, setData, onNext, onHome }) {
     { label: "Piano", val: currentPlanLabel },
     { label: "Stampa", val: currentPrintLabel },
     { label: "Urgenza", val: currentUrgencyLabel },
+    ...(data.puntiVetrina ? [{ label: "Punti Vetrina", val: "Inclusi (+€35)" }] : []),
   ];
   const ctaChecklist = [
     { label: "Servizio", complete: Boolean(data.type) },
