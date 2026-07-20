@@ -1634,8 +1634,9 @@ function Step2MapImpl({
         if (item.isCluster) {
           // Cluster bubble: size grows with count, color from dominant category
           const s = Math.min(34, 24 + Math.log2(item.count) * 3);
+          const clusterLabel = item.count === 1 ? '1 punto raggruppato' : `${item.count} punti raggruppati`;
           const clusterIcon = L.divIcon({
-            html: `<div style="
+            html: `<div role="img" aria-label="${esc(clusterLabel)}" title="${esc(clusterLabel)}" style="
               width:${s}px;height:${s}px;border-radius:50%;
               background:${item.color};opacity:0.74;
               border:1px solid rgba(255,255,255,0.38);
@@ -1655,9 +1656,9 @@ function Step2MapImpl({
             .sort((a, b) => b[1] - a[1])
             .slice(0, 5)
             .map(([cat, n]) => `${n}Ã— ${esc(cat)}`);
-          L.marker([item.lat, item.lng], { icon: clusterIcon, zIndexOffset: 300, pane: 'poiSelectionPane' })
+          L.marker([item.lat, item.lng], { icon: clusterIcon, zIndexOffset: 300, pane: 'poiSelectionPane', alt: clusterLabel })
             .bindTooltip(
-              `<b>${item.count} POI</b><br>${tipLines.join('<br>')}<br><span style="color:#7DD3FC">Clicca per vedere i singoli punti</span>`,
+              `<b>${esc(clusterLabel)}</b><br>${tipLines.join('<br>')}<br><span style="color:#7DD3FC">Clicca per vedere i singoli punti</span>`,
               { direction: 'top', offset: [0, -4], opacity: 1 }
             )
             .on('click', () => map.setView([item.lat, item.lng], Math.max(15, map.getZoom() + 2), { animate: true }))
