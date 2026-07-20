@@ -11650,6 +11650,7 @@ const svcCommercial = {
   tracking_gps:    { icon: "pin", head: "Tracking GPS Live",        col: "#22C55E", badge: "Più scelto",     bullets: ["Segui in tempo reale gli operatori sulla mappa","Storico percorso al termine della distribuzione","Link di condivisione per il tuo team"] },
   photo_proof:     { icon: "camera", head: "Report Fotografico",        col: "#60A5FA", badge: "Massima sicurezza", bullets: ["30 foto geolocalizzate con data e orario","Conferma visiva zona per zona","Archivio scaricabile dal portale cliente"] },
   graphic_design:  { icon: "palette", head: "Grafica",               col: "#F472B6", badge: null,             bullets: ["2 bozze incluse","Consegna in 48h","File pronto per la stampa"] },
+  dedicated_supervision: { icon: "eye", head: "Supervisione Dedicata", col: "#38BDF8", badge: "Consigliato con GPS Live", bullets: ["Monitoraggio attivo GPS e foto","Intervento diretto sugli operatori in caso di problemi","Contatto diretto dedicato"] },
   puntiVetrina:    { icon: "shop", head: "Punti Vetrina",             col: C.orange,  badge: "Door to Door",   bullets: ["Fino a 5 punti vetrina inclusi (bar/negozi)","Selezionati e gestiti dal nostro team operativo","Punto di appoggio extra per i tuoi volantini"] },
   printing:        { icon: "printer", head: "Stampa Materiale",          col: "#60A5FA", badge: "Miglior rapporto qualità/prezzo", bullets: ["Produzione professionale del materiale","Qualità certificata per distribuzione","Consegna prima della campagna"] },
   design:          { icon: "palette", head: "Preparazione Grafica",      col: "#A78BFA", badge: "Premium",        bullets: ["Adattamento file al formato richiesto","Verifica qualità prima della stampa","Supporto creativo dedicato"] },
@@ -11692,6 +11693,10 @@ const avgGM = selZ.length > 0 ? Math.round(selZ.reduce((a, z) => a + (z.genderM 
 const avgGF = 100 - avgGM;
 const maxOpDays = { d2d: selZ.reduce((a, z) => Math.max(a, z.operDays), 0), h2h: selZ.reduce((a, z) => Math.max(a, z.operDaysH2H), 0), b2b: selZ.reduce((a, z) => Math.max(a, z.operDaysB2B), 0) };
 const selDays = data.selectedDates || data.days || [];
+// Durata campagna letta dallo stato esistente (giornate confermate in Step 3).
+// Nessuna data confermata -> "Da definire con il team": si usa la fascia base come prezzo indicativo.
+const campaignDurationKnown = selDays.length > 0;
+const dedicatedSupervisionPrice = campaignDurationKnown && selDays.length > 7 ? 70 : 45;
 const realStep3Slots = Array.isArray(data.smartPairingSlots) ? data.smartPairingSlots : [];
 const realStep3Pairs = Object.fromEntries(realStep3Slots.map(slot => {
       const key = slot.date || slot.day || slot.giorno;
@@ -11722,7 +11727,8 @@ const normalizeSelectedExtras = (data) => {
       { id: "quality_control", oldIds: ["quality", "quality_control", "controllo_qualita"], l: "Controllo qualità", d: "Verifica aggiuntiva sulla corretta esecuzione della distribuzione.", icon: "", p: 25 },
       { id: "operator_support", oldIds: ["operator", "operator_support", "supporto_operatore"], l: "Supporto operatore", d: "Assistenza diretta per configurazione, pianificazione o conferma campagna.", icon: "", p: 39 },
       { id: "urgent_distribution", oldIds: ["urgent", "urgent_distribution", "distribuzione_urgente"], l: "Distribuzione urgente", d: "Gestione prioritaria della campagna in tempi ridotti.", icon: "", p: 0, isUrgent: true },
-      { id: "puntiVetrina", oldIds: [], l: "Punti Vetrina", d: "Punti vetrina (bar/negozi) selezionati dal nostro team, fino a 5 punti inclusi.", icon: "shop", p: 35 }
+      { id: "puntiVetrina", oldIds: [], l: "Punti Vetrina", d: "Punti vetrina (bar/negozi) selezionati dal nostro team, fino a 5 punti inclusi.", icon: "shop", p: 35 },
+      { id: "dedicated_supervision", oldIds: ["dedicated_supervision", "supervisione_dedicata"], l: "Supervisione Dedicata", d: "Un referente segue la tua campagna e interviene in caso di anomalie. Contattalo direttamente se hai bisogno.", icon: "eye", p: dedicatedSupervisionPrice }
     ];
     const currentServices = [
       ...(data.extraServices || []),
@@ -11749,6 +11755,7 @@ const optionalExtras = [
     { id: "tracking_gps", addId: "gps", removeIds: ["gps", "tracking_gps", "gps_default"], label: "Tracking GPS Live", description: "Tracciamento operativo e timeline distributori.", micro: "Mostra avanzamento e operatori sulla mappa.", icon: "GPS", price: 25 },
     { id: "photo_proof", addId: "photo_report_advanced", removeIds: ["foto", "photo_proof", "foto_localizzate", "photo_report_advanced"], label: "Report Fotografico", description: "Proof fotografici con data e zona.", micro: "Foto geolocalizzate con data e ora.", icon: "PHOTO", price: 35 },
     { id: "graphic_design", addId: "graphic_design", removeIds: ["graphic_design", "grafica_progetto"], label: "Grafica", description: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", micro: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", icon: "GRAPHIC", price: 79 },
+    { id: "dedicated_supervision", addId: "dedicated_supervision", removeIds: ["dedicated_supervision", "supervisione_dedicata"], label: "Supervisione Dedicata", description: "Un referente segue la tua campagna e interviene in caso di anomalie. Contattalo direttamente se hai bisogno.", micro: campaignDurationKnown ? "Consigliato se attivi anche Tracking GPS Live." : "Consigliato se attivi anche Tracking GPS Live. Prezzo indicativo, confermato in base alla durata effettiva.", icon: "SUPERVISION", price: dedicatedSupervisionPrice },
   ];
 const addOptionalExtra = (id) => setData(d => ({...d, extraServices: [...new Set([...(d.extraServices || []), id])] }));
 const removeOptionalExtra = (ext) => setData(d => {
@@ -11771,7 +11778,7 @@ const openExtraDemo = (ext) => {
 const renderExtraDemo = (ext) => {
     if (!ext) return null;
     const accent = (svcCommercial[ext.id]?.col || C.orange);
-    const demoLabel = { tracking_gps: "Tracking in tempo reale", photo_proof: "Foto geolocalizzata", graphic_design: "Anteprima grafica" }[ext.id] || "Anteprima";
+    const demoLabel = { tracking_gps: "Tracking in tempo reale", photo_proof: "Foto geolocalizzata", graphic_design: "Anteprima grafica", dedicated_supervision: "Anteprima supervisione" }[ext.id] || "Anteprima";
     const realCoverage = coverageForSummary ?? kpis.coverage ?? avgCov ?? null;
     const realFamilies = kpis.families ?? totF ?? null;
     const realPopulation = kpisPopulation ?? (realFamilies ? Math.round(realFamilies * 2.4) : null);
