@@ -8782,22 +8782,20 @@ const radiusInsightRows = zonesInRadius.map(z => ({
         if (isResidentialStep2) {
           const territorialFamiliesLabel = areaMode === "radius" ? "Famiglie/cassette stimate nel raggio" : "Famiglie/cassette stimate nel territorio";
           overviewKpis = [
+            { label: `${territoryPluralLabel} coinvolti`, value: step2TruthModel.zones.involved, color: "#60A5FA", unavailable: !(step2TruthModel.zones.involved > 0) },
             { label: territorialFamiliesLabel, value: formatIntegerIT(step2ViewModel.primaryFamiliesValue), color: "#4ADE80", unavailable: !(step2ViewModel.primaryFamiliesValue > 0), source: areaMode === "radius" ? "Modello operativo VolantiniPro — raggio selezionato" : "Modello operativo VolantiniPro" },
-            { label: "Fabbisogno operativo consigliato", value: formatIntegerIT(step2TruthModel.quantity.recommendedRequirement), unit: "pz.", color: "#4ADE80", unavailable: !(step2TruthModel.quantity.recommendedRequirement > 0) },
+            { label: "Quantità inserita", value: step2TruthModel.quantity.inserted == null ? null : formatIntegerIT(step2TruthModel.quantity.inserted), unit: "pz.", color: "#38BDF8", unavailable: step2TruthModel.quantity.inserted == null },
+            { label: "Quantità consigliata", value: formatIntegerIT(step2TruthModel.quantity.recommendedRequirement), unit: "pz.", color: "#4ADE80", unavailable: !(step2TruthModel.quantity.recommendedRequirement > 0) },
             { label: "Copertura scenario corrente", value: step2CoverageFullLabel, color: "#38BDF8", unavailable: step2CoverageFullLabel == null },
-            { label: "Zone coinvolte / disponibili", value: `${step2TruthModel.zones.involved} / ${step2TruthModel.zones.available}`, color: "#60A5FA", unavailable: !step2TruthModel.zones.available },
-            { label: "Durata calendario", value: step2TruthModel.duration.calculable ? step2TruthModel.duration.days : "Durata calendario non calcolabile", unit: step2TruthModel.duration.calculable ? "giorni" : "", color: "#FBBF24", unavailable: false, source: step2TruthModel.duration.calculable ? null : "Numero operatori non disponibile" },
             { label: "Score D2D", value: `${Math.round(Number(zoneVerdict?.score || 0))}/100`, color: "#4ADE80" },
           ];
         } else if (isMovementStep2) {
-          const rawTimeSlots = data.timeSlot || h2hHotspotRadiusRows[0]?.time;
-          const timeSlotsOk = rawTimeSlots && rawTimeSlots !== "Da validare";
           overviewKpis = [
-            { label: "Flusso potenziale (indice)", value: serviceKpis?.flowScore ?? 0, unit: "/100", color: "#38BDF8", unavailable: serviceKpis?.flowScore == null },
-            { label: "Punti strategici", value: serviceKpis?.hotspotCount || serviceKpis?.operationalZones || 0, color: "#38BDF8", unavailable: !(serviceKpis?.hotspotCount || serviceKpis?.operationalZones) },
-            { label: "Quantità operativa", value: formatIntegerIT(operationalRecommended), unit: "pz.", color: "#4ADE80", unavailable: !(operationalRecommended > 0) },
-            { label: "Promoter assegnati", value: promoterCountForStep2, color: "#38BDF8", unavailable: promoterCountForStep2 < 1 },
-            { label: "Fasce orarie consigliate", value: timeSlotsOk ? rawTimeSlots : null, color: "#A855F7", unavailable: !timeSlotsOk },
+            { label: "POI rilevati", value: fetchedPois.length, color: "#38BDF8", unavailable: !(fetchedPois.length > 0) },
+            { label: "POI utilizzabili", value: pois.length, color: "#38BDF8", unavailable: !(pois.length > 0) },
+            { label: "POI selezionati", value: selectedOperationalPois.length, color: "#A855F7", unavailable: selectedOperationalPois.length < 1 },
+            { label: "Quantità inserita", value: step2TruthModel.quantity.inserted == null ? null : formatIntegerIT(step2TruthModel.quantity.inserted), unit: "pz.", color: "#4ADE80", unavailable: step2TruthModel.quantity.inserted == null },
+            { label: "Fabbisogno operativo", value: formatIntegerIT(operationalRecommended), unit: "pz.", color: "#4ADE80", unavailable: !(operationalRecommended > 0) },
             { label: "Score H2H", value: `${Math.round(Number(zoneVerdict?.score || 0))}/100`, color: "#38BDF8" },
           ];
         } else {
@@ -8806,7 +8804,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
             { label: "Attività selezionate", value: selectedOperationalPois.length, color: "#A78BFA", unavailable: selectedOperationalPois.length < 1 },
             { label: "Materiali necessari", value: businessMaterialPlan?.materialsRequired == null ? null : formatIntegerIT(businessMaterialPlan.materialsRequired), unit: businessMaterialPlan?.materialsRequired == null ? "" : "pz.", color: "#4ADE80", unavailable: businessMaterialPlan?.materialsRequired == null },
             { label: "Materiali residui", value: businessMaterialPlan?.materialsRemaining == null ? null : formatIntegerIT(businessMaterialPlan.materialsRemaining), unit: businessMaterialPlan?.materialsRemaining == null ? "" : "pz.", color: "#38BDF8", unavailable: businessMaterialPlan?.materialsRemaining == null },
-            { label: "Giornate-addetto", value: businessOperationalPlan?.calculable ? businessOperationalPlan.operatorDays : null, color: "#FBBF24", unavailable: !businessOperationalPlan?.calculable },
+            { label: "Materiali mancanti", value: businessMaterialPlan?.materialsMissing == null ? null : formatIntegerIT(businessMaterialPlan.materialsMissing), unit: businessMaterialPlan?.materialsMissing == null ? "" : "pz.", color: "#FCA5A5", unavailable: businessMaterialPlan?.materialsMissing == null },
             { label: "Addetti consigliati", value: businessOperationalPlan?.recommendedOperators ?? null, color: "#A78BFA", unavailable: businessOperationalPlan?.recommendedOperators == null },
           ];
         }
