@@ -3989,6 +3989,12 @@ const [omiExpanded, setOmiExpanded] = useState(false);
 const [detailExpanded, setDetailExpanded] = useState(false);
 const [zoneListSort, setZoneListSort] = useState("relevance");
 const [showClientZoneDetails, setShowClientZoneDetails] = useState(false);
+const [expandedZoneRows, setExpandedZoneRows] = useState(() => new Set());
+const toggleZoneRowDetail = (rowKey) => setExpandedZoneRows((prev) => {
+  const next = new Set(prev);
+  if (next.has(rowKey)) next.delete(rowKey); else next.add(rowKey);
+  return next;
+});
 const [showMarginalZones, setShowMarginalZones] = useState(false);
 // Comune Milano vista principale: 88 card NIL sono un dettaglio tecnico, non
 // la vista di default — collassate dietro un bottone. In Raggio (dove la
@@ -9371,15 +9377,61 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                             : isMovementStep2
                               ? Number(zone.poi || zone.points || zone.transitStops || 0)
                               : Number(zone.targetBiz || zone.businesses || zone.value || 0);
+                          const rowKey = zone.id || zone.name || index;
+                          const isRowExpanded = expandedZoneRows.has(rowKey);
+                          const comuneLabel = zone.municipality_name || zone.comune || zone.parentComune || zone.comuneName || city?.label || city?.name || "Dato non disponibile";
+                          const priorityLabel = allocation?.priorityRank === 1 ? "1 · prima" : (allocation?.priorityRank || index + 1);
                           return (
-                            <tr key={zone.id || zone.name || index}>
-                              <th scope="row">{zone.name || zone.label || `Zona ${index + 1}`}</th>
+                            <React.Fragment key={rowKey}>
+                            <tr>
+                              <th scope="row">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleZoneRowDetail(rowKey)}
+                                  aria-expanded={isRowExpanded}
+                                  aria-controls={`vp-zone-detail-${rowKey}`}
+                                  style={{ display: "flex", alignItems: "center", gap: 7, background: "none", border: "none", padding: 0, margin: 0, color: "inherit", font: "inherit", cursor: "pointer", textAlign: "left" }}
+                                >
+                                  <span aria-hidden="true" style={{ fontSize: 9, color: col, flexShrink: 0 }}>{isRowExpanded ? "▼" : "▶"}</span>
+                                  <span>{zone.name || zone.label || `Zona ${index + 1}`}</span>
+                                  {assigned > 0 && (
+                                    <span style={{ marginLeft: 4, padding: "1px 6px", borderRadius: 5, fontSize: 8, fontWeight: 800, color: "#86EFAC", background: "rgba(34,197,94,.11)", flexShrink: 0 }}>
+                                      Distribuzione assegnata
+                                    </span>
+                                  )}
+                                </button>
+                              </th>
                               <td className="vp-data-number">{target > 0 ? formatIntegerIT(target) : "Dato non disponibile"}</td>
                               <td className="vp-data-number">{formatIntegerIT(assigned)}</td>
                               <td className="vp-data-number">{coverage != null ? formatPercentIT(coverage, Number.isInteger(coverage) ? 0 : 1) : "Dato non disponibile"}</td>
-                              <td>{allocation?.priorityRank === 1 ? "1 · prima" : (allocation?.priorityRank || index + 1)}</td>
+                              <td>{priorityLabel}</td>
                               <td><span className={`vp-step2-zone-status vp-step2-zone-status--${status.toLowerCase()}`}>{status}</span></td>
                             </tr>
+                            {isRowExpanded && (
+                              <tr id={`vp-zone-detail-${rowKey}`}>
+                                <td colSpan={6} style={{ background: "rgba(255,255,255,.02)", padding: "12px 14px" }}>
+                                  <dl style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, minmax(0,1fr))", gap: "8px 18px", margin: 0 }}>
+                                    {[
+                                      ["Comune", comuneLabel],
+                                      ["Famiglie/cassette stimate", target > 0 ? formatIntegerIT(target) : "Dato non disponibile"],
+                                      ["Quantità assegnata", formatIntegerIT(assigned)],
+                                      ["Copertura", coverage != null ? formatPercentIT(coverage, Number.isInteger(coverage) ? 0 : 1) : "Dato non disponibile"],
+                                      ["Priorità", priorityLabel],
+                                      ["Stato", status],
+                                    ].map(([dt, dd]) => (
+                                      <div key={dt}>
+                                        <dt style={{ fontFamily: F.sans, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,.42)", textTransform: "uppercase", letterSpacing: ".05em", margin: 0 }}>{dt}</dt>
+                                        <dd style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.85)", margin: "2px 0 0" }}>{dd}</dd>
+                                      </div>
+                                    ))}
+                                  </dl>
+                                  <div style={{ marginTop: 10, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)", fontStyle: "italic" }}>
+                                    Dettaglio strade non disponibile per questa zona.
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                            </React.Fragment>
                           );
                         })}
                       </tbody>

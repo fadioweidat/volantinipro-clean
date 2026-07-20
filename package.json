@@ -4,6 +4,7 @@
     "dev": "vite --host 0.0.0.0 --port 5173 --strictPort",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
+    "test:browser:offline": "node tests/browser_step2_offline_contract.cjs",
     "import:istat": "node data/istat/import_data.mjs --scope=lombardia",
     "import:istat:italy": "node data/istat/import_data.mjs --scope=italy",
     "import:istat:dry-run": "node data/istat/import_data.mjs --scope=lombardia --dry-run=true",
