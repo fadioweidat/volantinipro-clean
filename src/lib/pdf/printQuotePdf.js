@@ -133,6 +133,21 @@ export function printQuotePdf(rawData) {
   .meta-table { font-size: 10px; color: #6b7280; border-collapse: collapse; }
   .meta-table td { padding: 1px 0 1px 14px; }
   .meta-table td:first-child { color: #9ca3af; }
+  .validity-note { font-size: 9px; color: #9ca3af; margin-top: 4px; }
+
+  /* Come procedere */
+  .steps-box {
+    background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;
+    padding: 14px 16px; margin: 14px 0;
+  }
+  .steps-title { font-size: 11px; font-weight: 700; color: #111827; margin-bottom: 8px; }
+  .steps-list { display: flex; flex-direction: column; gap: 6px; }
+  .step-item { display: flex; gap: 8px; align-items: flex-start; font-size: 10.5px; color: #374151; line-height: 1.4; }
+  .step-num {
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 17px; height: 17px; background: #E8571A; color: #fff;
+    font-size: 9px; font-weight: 800; border-radius: 50%;
+  }
 
   /* Title */
   .doc-title { margin-bottom: 14px; }
@@ -260,6 +275,7 @@ export function printQuotePdf(rawData) {
         <tr><td>Data</td><td>${genDate}</td></tr>
         <tr><td>Servizio</td><td>${d.service || "—"}</td></tr>
       </table>
+      <div class="validity-note">Preventivo valido 30 giorni dalla data di emissione</div>
     </div>
   </div>
 
@@ -430,6 +446,7 @@ export function printQuotePdf(rawData) {
         <div class="total-amount">${cur(totalWithIva)}</div>
       </div>
     </div>
+    <div class="differentiator-row">Ogni distribuzione è tracciata GPS e documentata nel report finale.</div>
   </div>
 
   <!-- Fonti -->
@@ -438,6 +455,18 @@ export function printQuotePdf(rawData) {
     ${secHeader(nextSec(), "Fonti dati", "Origine dei dati utilizzati")}
     <div class="sources-list">${(d.sources || []).map(s => `<span>${s}</span>`).join("")}</div>
   </div>` : ""}
+
+  <!-- Come procedere -->
+  <div class="steps-box">
+    <div class="steps-title">Come procedere</div>
+    <div class="steps-list">
+      <div class="step-item"><span class="step-num">1</span><span>Conferma il preventivo via email o dal portale</span></div>
+      <div class="step-item"><span class="step-num">2</span><span>Concordiamo insieme le date operative entro 24 ore</span></div>
+      <div class="step-item"><span class="step-num">3</span><span>A fine campagna ricevi il report con tracciamento GPS${
+        (d.extras || []).some(e => e.id === "photo_proof") ? " e prove fotografiche" : ""
+      }</span></div>
+    </div>
+  </div>
 
   <!-- Footer -->
   <div class="doc-footer">
