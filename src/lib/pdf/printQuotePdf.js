@@ -76,6 +76,11 @@ export function printQuotePdf(rawData) {
   const ins = Number(outputs.insertedFlyers || 0);
   const rec = Number(outputs.recommendedFlyers || 0);
   const covPct = rec && ins ? Math.min(100, Math.round((ins / rec) * 100)) : null;
+  // Stessa aliquota/formula gia usata nel box "Il tuo investimento" dello
+  // Step 4 (total * 0.22): pricing.total e il medesimo valore "total" che
+  // alimenta quel box, nessuna formula duplicata o ricalcolata qui.
+  const ivaAmount = Number(pricing.total || 0) * 0.22;
+  const totalWithIva = Number(pricing.total || 0) + ivaAmount;
   let secIdx = 0;
   const nextSec = () => ++secIdx;
 
@@ -186,11 +191,20 @@ export function printQuotePdf(rawData) {
   .price-table .row-extra td { color: #6b7280; font-style: italic; }
   .total-box {
     background: #FFF8F5; border: 1.5px solid #FFDCC8; border-radius: 8px;
-    padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; margin-top: 10px;
+    padding: 14px 18px; margin-top: 10px;
+  }
+  .total-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; color: #6b7280; padding: 3px 0; }
+  .total-row-final {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 8px; padding-top: 10px; border-top: 1px solid #FFDCC8;
   }
   .total-label { font-size: 13px; font-weight: 700; color: #374151; }
   .total-note { font-size: 9px; color: #9ca3af; margin-top: 2px; }
   .total-amount { font-size: 32px; font-weight: 900; color: #E8571A; }
+  .differentiator-row {
+    display: flex; align-items: center; gap: 6px; margin-top: 8px;
+    font-size: 9.5px; color: #6b7280; font-style: italic;
+  }
 
   /* Sources */
   .sources-list { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -382,11 +396,15 @@ export function printQuotePdf(rawData) {
       </tbody>
     </table>
     <div class="total-box">
-      <div>
-        <div class="total-label">Totale stimato</div>
-        <div class="total-note">IVA esclusa · soggetto a conferma finale · nessun pagamento anticipato</div>
+      <div class="total-row"><span>Imponibile</span><span>${cur(pricing.total)}</span></div>
+      <div class="total-row"><span>IVA 22%</span><span>${cur(ivaAmount)}</span></div>
+      <div class="total-row-final">
+        <div>
+          <div class="total-label">Totale (IVA inclusa)</div>
+          <div class="total-note">soggetto a conferma finale · nessun pagamento anticipato</div>
+        </div>
+        <div class="total-amount">${cur(totalWithIva)}</div>
       </div>
-      <div class="total-amount">${cur(pricing.total)}</div>
     </div>
   </div>
 
