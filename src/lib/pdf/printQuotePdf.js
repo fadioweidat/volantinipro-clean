@@ -360,23 +360,31 @@ export function printQuotePdf(rawData) {
     </table>
   </div>` : ""}
 
-  <!-- 4. KPI -->
-  ${(d.scores || []).length ? `
-  <div class="section">
-    ${secHeader(nextSec(), "Indicatori servizio")}
-    <div class="kv-grid kv-grid-${Math.min(d.scores.length, 4)}">
-      ${(d.scores || []).map(s => kv(s.label, `${s.value}/100`)).join("")}
-    </div>
-  </div>` : ""}
+  <!-- Indicatori interni /100 (Qualita area, Potenziale copertura,
+       Efficienza campagna, Affidabilita stima) rimossi dal PDF: sono
+       metriche senza contesto in un documento di vendita, restano
+       disponibili nel Report Territoriale Avanzato online. -->
 
-  <!-- 5. Admin info -->
-  ${(d.adminInfo || []).length ? `
+  <!-- 4. Admin info: solo i dati NON gia mostrati nella sezione 2
+       (Analisi zona / Piano attivita e materiali), per evitare la
+       duplicazione di famiglie/popolazione/superficie tra le due sezioni. -->
+  ${(() => {
+    const shownInSection2 = new Set(
+      [area.mainArea, (area.selectedCaps || []).join(", "), area.radiusKm ? `${fmt(area.radiusKm, 1)} km` : null,
+        area.coveredAreaKm2 ? `${fmt(area.coveredAreaKm2, 1)} km²` : null, (area.selectedMunicipalities || []).join(", "),
+        area.selectionMode, outputs.estimatedFamilies ? fmt(outputs.estimatedFamilies) : null,
+        outputs.estimatedPopulation ? fmt(outputs.estimatedPopulation) : null]
+        .filter(Boolean)
+    );
+    const adminRows = (d.adminInfo || []).filter(i => i?.value != null && !shownInSection2.has(String(i.value)));
+    return adminRows.length ? `
   <div class="section">
     ${secHeader(nextSec(), isBusiness ? "Dettagli operativi Business" : "Sintesi demografica ed economica")}
     <div class="kv-grid kv-grid-4">
-      ${(d.adminInfo || []).slice(0, 8).map(i => kv(i.label, i.value)).join("")}
+      ${adminRows.slice(0, 8).map(i => kv(i.label, i.value)).join("")}
     </div>
-  </div>` : ""}
+  </div>` : "";
+  })()}
 
   <!-- Pianificazione: sezione omessa del tutto quando non c'è nulla di
        disponibile da mostrare (mai la frase negativa "Smart Pairing non
