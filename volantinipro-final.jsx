@@ -5186,11 +5186,17 @@ const { sectors, loading: sectorsLoading } = useSectors(queryCenterLat, queryCen
 const savedDistributionTargets = Array.isArray(data.distributionTargets) ? data.distributionTargets.filter(Boolean) : [];
 const shouldMigrateLegacyAllTarget = savedDistributionTargets.includes("all")
   && Boolean(data.activityType);
-const distributionTargetSelection = shouldMigrateLegacyAllTarget
-  ? [data.activityType]
-  : savedDistributionTargets.length > 0
-    ? savedDistributionTargets
-    : [data.activityType].filter(Boolean);
+// In D2D il settore Step1 resta un contesto della campagna (suggerisce zone/fasce
+// orarie), non un filtro sui marker: i marker D2D rappresentano punti di consegna
+// residenziale, indipendenti dal settore. Solo H2H/Business usano il settore per
+// selezionare le attività da mostrare/assegnare sulla mappa.
+const distributionTargetSelection = svcType === "d2d"
+  ? ["all"]
+  : shouldMigrateLegacyAllTarget
+    ? [data.activityType]
+    : savedDistributionTargets.length > 0
+      ? savedDistributionTargets
+      : [data.activityType].filter(Boolean);
 const { pois: fetchedPois, loading: poiLoading, error: poiError } = usePoi(
   queryCenterLat,
   queryCenterLng,
