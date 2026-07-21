@@ -1,3 +1,27 @@
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+const AREA_MODE_LABELS = {
+  full_municipality: "Comune completo",
+  comune: "Comune completo",
+  radius: "Raggio da centro",
+  cap: "Ricerca per CAP",
+};
+
+function areaModeLabel(mode) {
+  if (!mode) return null;
+  if (AREA_MODE_LABELS[mode]) return AREA_MODE_LABELS[mode];
+  // Valore interno non ancora mappato: mostralo in forma leggibile invece
+  // del token tecnico grezzo, senza inventare un'etichetta specifica.
+  return escapeHtml(String(mode).replace(/_/g, " ")).replace(/^\w/, (c) => c.toUpperCase());
+}
+
 function fmt(n, dec = 0) {
   if (n == null || n === "") return null;
   const num = Number(n);
@@ -226,11 +250,11 @@ export function printQuotePdf(rawData) {
       ${kv("Formato", campaign.format)}
       ${kv("Grammatura", campaign.grammage)}
       ${kv("Materiale", campaign.materialStatus)}
-      ${kv("Grafica", campaign.graphicStatus)}
+      ${kv("Grafica", campaign.graphicStatus === "Non specificato" ? "Materiale fornito dal cliente" : campaign.graphicStatus)}
       ${kv("Piano", campaign.plan)}
       ${campaign.campaignsPerMonth ? kv("Campagne/mese", fmt(campaign.campaignsPerMonth)) : ""}
       ${campaign.duration ? kv("Durata", campaign.duration) : ""}
-      ${kv("Modalità area", area.areaMode)}
+      ${kv("Modalità area", areaModeLabel(area.areaMode))}
       ${isBusiness ? kv("Target Business", (business.targets || []).join(", ")) : ""}
       ${isBusiness ? kv("Obiettivo", business.objective) : ""}
       ${isBusiness ? kv("Consegna", business.deliveryMethod) : ""}
@@ -324,15 +348,16 @@ export function printQuotePdf(rawData) {
     </div>
   </div>` : ""}
 
-  <!-- Pianificazione -->
-  ${((planning.selectedDates || []).length || planning.smartPairingApplied || planning.compatibleZone || planning.availabilityLabel) ? `
+  <!-- Pianificazione: sezione omessa del tutto quando non c'è nulla di
+       disponibile da mostrare (mai la frase negativa "Smart Pairing non
+       disponibile"), mostrata normalmente quando c'è contenuto reale. -->
+  ${((planning.selectedDates || []).length || planning.smartPairingApplied) ? `
   <div class="section">
     ${secHeader(nextSec(), "Pianificazione campagna", planning.smartPairingApplied ? "Date e vantaggi disponibili" : "Date selezionate")}
     <div class="kv-grid kv-grid-2">
       ${kv("Date selezionate", (planning.selectedDates || []).join(", ") || null)}
       ${planning.smartPairingApplied ? kv("Smart Pairing", `Sconto −${pct(planning.smartPairingDiscountPct)}`) : ""}
-      ${kv("Zona compatibile", planning.compatibleZone)}
-      ${kv("Disponibilità", planning.availabilityLabel)}
+      ${planning.smartPairingApplied ? kv("Zona compatibile", planning.compatibleZone) : ""}
     </div>
   </div>` : ""}
 
