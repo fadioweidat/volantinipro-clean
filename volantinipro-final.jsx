@@ -12051,6 +12051,8 @@ const serviceSummaryConfig = {
       ],
       scores: d2dScores,
       admin: [
+        { l: "Densità media", v: d2dAvgDensity ? `${formatNumber(d2dAvgDensity)} ab./km²` : null },
+        { l: "Comuni nel raggio", v: kpisComuniCount ? formatNumber(kpisComuniCount) : null },
         { l: "Età 0-14", v: (() => { const vs = selZ.map(z => z.eta14).filter(n => n != null); return vs.length ? `${Math.round(vs.reduce((a,n) => a+n, 0)/vs.length*10)/10}%` : null; })() },
         { l: "Età 15-34", v: (() => { const vs = selZ.map(z => z.eta34).filter(n => n != null); return vs.length ? `${Math.round(vs.reduce((a,n) => a+n, 0)/vs.length*10)/10}%` : null; })() },
         { l: "Età 35-64", v: (() => { const vs = selZ.map(z => z.eta64).filter(n => n != null); return vs.length ? `${Math.round(vs.reduce((a,n) => a+n, 0)/vs.length*10)/10}%` : null; })() },

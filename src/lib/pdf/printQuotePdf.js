@@ -1,3 +1,41 @@
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+const AREA_MODE_LABELS = {
+  full_municipality: "Comune completo",
+  comune: "Comune completo",
+  radius: "Raggio da centro",
+  cap: "Ricerca per CAP",
+};
+
+function areaModeLabel(mode) {
+  if (!mode) return null;
+  if (AREA_MODE_LABELS[mode]) return AREA_MODE_LABELS[mode];
+  // Valore interno non ancora mappato: mostralo in forma leggibile invece
+  // del token tecnico grezzo, senza inventare un'etichetta specifica.
+  return escapeHtml(String(mode).replace(/_/g, " ")).replace(/^\w/, (c) => c.toUpperCase());
+}
+
+// Dati aziendali per il footer: solo valori reali gia usati altrove nel
+// prodotto (VITE_INTESTATARIO e' la stessa variabile usata per il
+// bonifico bancario; email/sito sono il dominio gia in uso in altri punti
+// dell'app, es. "info@volantinipro.it"). Nessun dato inventato: dove non
+// esiste una fonte reale, placeholder marcato esplicitamente da compilare.
+const COMPANY = {
+  name: (typeof import.meta !== "undefined" && import.meta.env?.VITE_INTESTATARIO) || "VolantiniPro Srl",
+  vat: "[DA COMPILARE: P.IVA]",
+  address: "[DA COMPILARE: Indirizzo sede legale]",
+  phone: "[DA COMPILARE: Telefono]",
+  email: "info@volantinipro.it",
+  website: "www.volantinipro.it",
+};
+
 function fmt(n, dec = 0) {
   if (n == null || n === "") return null;
   const num = Number(n);
@@ -52,6 +90,11 @@ export function printQuotePdf(rawData) {
   const ins = Number(outputs.insertedFlyers || 0);
   const rec = Number(outputs.recommendedFlyers || 0);
   const covPct = rec && ins ? Math.min(100, Math.round((ins / rec) * 100)) : null;
+  // Stessa aliquota/formula gia usata nel box "Il tuo investimento" dello
+  // Step 4 (total * 0.22): pricing.total e il medesimo valore "total" che
+  // alimenta quel box, nessuna formula duplicata o ricalcolata qui.
+  const ivaAmount = Number(pricing.total || 0) * 0.22;
+  const totalWithIva = Number(pricing.total || 0) + ivaAmount;
   let secIdx = 0;
   const nextSec = () => ++secIdx;
 
@@ -90,6 +133,21 @@ export function printQuotePdf(rawData) {
   .meta-table { font-size: 10px; color: #6b7280; border-collapse: collapse; }
   .meta-table td { padding: 1px 0 1px 14px; }
   .meta-table td:first-child { color: #9ca3af; }
+  .validity-note { font-size: 9px; color: #9ca3af; margin-top: 4px; }
+
+  /* Come procedere */
+  .steps-box {
+    background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;
+    padding: 14px 16px; margin: 14px 0;
+  }
+  .steps-title { font-size: 11px; font-weight: 700; color: #111827; margin-bottom: 8px; }
+  .steps-list { display: flex; flex-direction: column; gap: 6px; }
+  .step-item { display: flex; gap: 8px; align-items: flex-start; font-size: 10.5px; color: #374151; line-height: 1.4; }
+  .step-num {
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 17px; height: 17px; background: #E8571A; color: #fff;
+    font-size: 9px; font-weight: 800; border-radius: 50%;
+  }
 
   /* Title */
   .doc-title { margin-bottom: 14px; }
@@ -162,11 +220,20 @@ export function printQuotePdf(rawData) {
   .price-table .row-extra td { color: #6b7280; font-style: italic; }
   .total-box {
     background: #FFF8F5; border: 1.5px solid #FFDCC8; border-radius: 8px;
-    padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; margin-top: 10px;
+    padding: 14px 18px; margin-top: 10px;
+  }
+  .total-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; color: #6b7280; padding: 3px 0; }
+  .total-row-final {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 8px; padding-top: 10px; border-top: 1px solid #FFDCC8;
   }
   .total-label { font-size: 13px; font-weight: 700; color: #374151; }
   .total-note { font-size: 9px; color: #9ca3af; margin-top: 2px; }
   .total-amount { font-size: 32px; font-weight: 900; color: #E8571A; }
+  .differentiator-row {
+    display: flex; align-items: center; gap: 6px; margin-top: 8px;
+    font-size: 9.5px; color: #6b7280; font-style: italic;
+  }
 
   /* Sources */
   .sources-list { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -174,6 +241,8 @@ export function printQuotePdf(rawData) {
 
   /* Footer */
   .doc-footer { margin-top: 18px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 9px; color: #9ca3af; line-height: 1.6; }
+  .company-footer { margin-top: 8px; padding-top: 8px; border-top: 1px solid #f3f4f6; font-size: 9px; color: #9ca3af; line-height: 1.6; }
+  .company-footer strong { color: #6b7280; }
 
   /* Print bar */
   .print-bar {
@@ -206,6 +275,7 @@ export function printQuotePdf(rawData) {
         <tr><td>Data</td><td>${genDate}</td></tr>
         <tr><td>Servizio</td><td>${d.service || "—"}</td></tr>
       </table>
+      <div class="validity-note">Preventivo valido 30 giorni dalla data di emissione</div>
     </div>
   </div>
 
@@ -226,11 +296,11 @@ export function printQuotePdf(rawData) {
       ${kv("Formato", campaign.format)}
       ${kv("Grammatura", campaign.grammage)}
       ${kv("Materiale", campaign.materialStatus)}
-      ${kv("Grafica", campaign.graphicStatus)}
+      ${kv("Grafica", campaign.graphicStatus === "Non specificato" ? "Materiale fornito dal cliente" : campaign.graphicStatus)}
       ${kv("Piano", campaign.plan)}
       ${campaign.campaignsPerMonth ? kv("Campagne/mese", fmt(campaign.campaignsPerMonth)) : ""}
       ${campaign.duration ? kv("Durata", campaign.duration) : ""}
-      ${kv("Modalità area", area.areaMode)}
+      ${kv("Modalità area", areaModeLabel(area.areaMode))}
       ${isBusiness ? kv("Target Business", (business.targets || []).join(", ")) : ""}
       ${isBusiness ? kv("Obiettivo", business.objective) : ""}
       ${isBusiness ? kv("Consegna", business.deliveryMethod) : ""}
@@ -306,33 +376,42 @@ export function printQuotePdf(rawData) {
     </table>
   </div>` : ""}
 
-  <!-- 4. KPI -->
-  ${(d.scores || []).length ? `
-  <div class="section">
-    ${secHeader(nextSec(), "Indicatori servizio")}
-    <div class="kv-grid kv-grid-${Math.min(d.scores.length, 4)}">
-      ${(d.scores || []).map(s => kv(s.label, `${s.value}/100`)).join("")}
-    </div>
-  </div>` : ""}
+  <!-- Indicatori interni /100 (Qualita area, Potenziale copertura,
+       Efficienza campagna, Affidabilita stima) rimossi dal PDF: sono
+       metriche senza contesto in un documento di vendita, restano
+       disponibili nel Report Territoriale Avanzato online. -->
 
-  <!-- 5. Admin info -->
-  ${(d.adminInfo || []).length ? `
+  <!-- 4. Admin info: solo i dati NON gia mostrati nella sezione 2
+       (Analisi zona / Piano attivita e materiali), per evitare la
+       duplicazione di famiglie/popolazione/superficie tra le due sezioni. -->
+  ${(() => {
+    const shownInSection2 = new Set(
+      [area.mainArea, (area.selectedCaps || []).join(", "), area.radiusKm ? `${fmt(area.radiusKm, 1)} km` : null,
+        area.coveredAreaKm2 ? `${fmt(area.coveredAreaKm2, 1)} km²` : null, (area.selectedMunicipalities || []).join(", "),
+        area.selectionMode, outputs.estimatedFamilies ? fmt(outputs.estimatedFamilies) : null,
+        outputs.estimatedPopulation ? fmt(outputs.estimatedPopulation) : null]
+        .filter(Boolean)
+    );
+    const adminRows = (d.adminInfo || []).filter(i => i?.value != null && !shownInSection2.has(String(i.value)));
+    return adminRows.length ? `
   <div class="section">
     ${secHeader(nextSec(), isBusiness ? "Dettagli operativi Business" : "Sintesi demografica ed economica")}
     <div class="kv-grid kv-grid-4">
-      ${(d.adminInfo || []).slice(0, 8).map(i => kv(i.label, i.value)).join("")}
+      ${adminRows.slice(0, 8).map(i => kv(i.label, i.value)).join("")}
     </div>
-  </div>` : ""}
+  </div>` : "";
+  })()}
 
-  <!-- Pianificazione -->
-  ${((planning.selectedDates || []).length || planning.smartPairingApplied || planning.compatibleZone || planning.availabilityLabel) ? `
+  <!-- Pianificazione: sezione omessa del tutto quando non c'è nulla di
+       disponibile da mostrare (mai la frase negativa "Smart Pairing non
+       disponibile"), mostrata normalmente quando c'è contenuto reale. -->
+  ${((planning.selectedDates || []).length || planning.smartPairingApplied) ? `
   <div class="section">
     ${secHeader(nextSec(), "Pianificazione campagna", planning.smartPairingApplied ? "Date e vantaggi disponibili" : "Date selezionate")}
     <div class="kv-grid kv-grid-2">
       ${kv("Date selezionate", (planning.selectedDates || []).join(", ") || null)}
       ${planning.smartPairingApplied ? kv("Smart Pairing", `Sconto −${pct(planning.smartPairingDiscountPct)}`) : ""}
-      ${kv("Zona compatibile", planning.compatibleZone)}
-      ${kv("Disponibilità", planning.availabilityLabel)}
+      ${planning.smartPairingApplied ? kv("Zona compatibile", planning.compatibleZone) : ""}
     </div>
   </div>` : ""}
 
@@ -357,12 +436,17 @@ export function printQuotePdf(rawData) {
       </tbody>
     </table>
     <div class="total-box">
-      <div>
-        <div class="total-label">Totale stimato</div>
-        <div class="total-note">IVA esclusa · soggetto a conferma finale · nessun pagamento anticipato</div>
+      <div class="total-row"><span>Imponibile</span><span>${cur(pricing.total)}</span></div>
+      <div class="total-row"><span>IVA 22%</span><span>${cur(ivaAmount)}</span></div>
+      <div class="total-row-final">
+        <div>
+          <div class="total-label">Totale (IVA inclusa)</div>
+          <div class="total-note">soggetto a conferma finale · nessun pagamento anticipato</div>
+        </div>
+        <div class="total-amount">${cur(totalWithIva)}</div>
       </div>
-      <div class="total-amount">${cur(pricing.total)}</div>
     </div>
+    <div class="differentiator-row">Ogni distribuzione è tracciata GPS e documentata nel report finale.</div>
   </div>
 
   <!-- Fonti -->
@@ -372,10 +456,26 @@ export function printQuotePdf(rawData) {
     <div class="sources-list">${(d.sources || []).map(s => `<span>${s}</span>`).join("")}</div>
   </div>` : ""}
 
+  <!-- Come procedere -->
+  <div class="steps-box">
+    <div class="steps-title">Come procedere</div>
+    <div class="steps-list">
+      <div class="step-item"><span class="step-num">1</span><span>Conferma il preventivo via email o dal portale</span></div>
+      <div class="step-item"><span class="step-num">2</span><span>Concordiamo insieme le date operative entro 24 ore</span></div>
+      <div class="step-item"><span class="step-num">3</span><span>A fine campagna ricevi il report con tracciamento GPS${
+        (d.extras || []).some(e => e.id === "photo_proof") ? " e prove fotografiche" : ""
+      }</span></div>
+    </div>
+  </div>
+
   <!-- Footer -->
   <div class="doc-footer">
     Il presente documento è una stima operativa generata da VolantiniPro sulla base dei dati inseriti e delle analisi territoriali disponibili.
-    Il preventivo può essere soggetto a conferma operativa. · info@volantinipro.it · ${quoteId}
+    Il preventivo può essere soggetto a conferma operativa. · ${quoteId}
+    <div class="company-footer">
+      <strong>${escapeHtml(COMPANY.name)}</strong> · P.IVA ${escapeHtml(COMPANY.vat)} · ${escapeHtml(COMPANY.address)}<br>
+      Tel. ${escapeHtml(COMPANY.phone)} · ${escapeHtml(COMPANY.email)} · ${escapeHtml(COMPANY.website)}
+    </div>
   </div>
 
 </div>
