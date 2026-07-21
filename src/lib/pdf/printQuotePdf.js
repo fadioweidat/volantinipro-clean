@@ -22,6 +22,20 @@ function areaModeLabel(mode) {
   return escapeHtml(String(mode).replace(/_/g, " ")).replace(/^\w/, (c) => c.toUpperCase());
 }
 
+// Dati aziendali per il footer: solo valori reali gia usati altrove nel
+// prodotto (VITE_INTESTATARIO e' la stessa variabile usata per il
+// bonifico bancario; email/sito sono il dominio gia in uso in altri punti
+// dell'app, es. "info@volantinipro.it"). Nessun dato inventato: dove non
+// esiste una fonte reale, placeholder marcato esplicitamente da compilare.
+const COMPANY = {
+  name: (typeof import.meta !== "undefined" && import.meta.env?.VITE_INTESTATARIO) || "VolantiniPro Srl",
+  vat: "[DA COMPILARE: P.IVA]",
+  address: "[DA COMPILARE: Indirizzo sede legale]",
+  phone: "[DA COMPILARE: Telefono]",
+  email: "info@volantinipro.it",
+  website: "www.volantinipro.it",
+};
+
 function fmt(n, dec = 0) {
   if (n == null || n === "") return null;
   const num = Number(n);
@@ -212,6 +226,8 @@ export function printQuotePdf(rawData) {
 
   /* Footer */
   .doc-footer { margin-top: 18px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 9px; color: #9ca3af; line-height: 1.6; }
+  .company-footer { margin-top: 8px; padding-top: 8px; border-top: 1px solid #f3f4f6; font-size: 9px; color: #9ca3af; line-height: 1.6; }
+  .company-footer strong { color: #6b7280; }
 
   /* Print bar */
   .print-bar {
@@ -418,7 +434,11 @@ export function printQuotePdf(rawData) {
   <!-- Footer -->
   <div class="doc-footer">
     Il presente documento è una stima operativa generata da VolantiniPro sulla base dei dati inseriti e delle analisi territoriali disponibili.
-    Il preventivo può essere soggetto a conferma operativa. · info@volantinipro.it · ${quoteId}
+    Il preventivo può essere soggetto a conferma operativa. · ${quoteId}
+    <div class="company-footer">
+      <strong>${escapeHtml(COMPANY.name)}</strong> · P.IVA ${escapeHtml(COMPANY.vat)} · ${escapeHtml(COMPANY.address)}<br>
+      Tel. ${escapeHtml(COMPANY.phone)} · ${escapeHtml(COMPANY.email)} · ${escapeHtml(COMPANY.website)}
+    </div>
   </div>
 
 </div>
