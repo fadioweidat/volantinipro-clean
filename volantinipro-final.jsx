@@ -1523,6 +1523,9 @@ const POI_TARGET_TERMS = {
   immobiliare: ["immobiliare", "estate"],
   beauty: ["parrucchiere", "estetico", "beauty"],
   fitness: ["palestra", "sportivo", "fitness", "gym"],
+  eventi: ["evento", "fiera", "sagra", "festival", "spettacolo"],
+  farmacie: ["farmacia", "parafarmacia"],
+  alimentari: ["alimentari", "supermercato", "minimarket", "market", "gastronomia"],
 };
 const ACTIVITY_TARGET_LABELS = {
   all: "Qualsiasi luogo",
@@ -1530,7 +1533,8 @@ const ACTIVITY_TARGET_LABELS = {
   automotive: "Automotive", business: "Business", scuole: "Scuole",
   universita: "Università e biblioteche", stazioni: "Stazioni e fermate",
   centri_commerciali: "Centri commerciali", immobiliare: "Immobiliare",
-  beauty: "Beauty", fitness: "Palestre e sport", altro: "Altro",
+  beauty: "Beauty", fitness: "Palestre e sport",
+  eventi: "Eventi", farmacie: "Farmacie", alimentari: "Alimentari", altro: "Altro",
 };
 
 const DISTRIBUTION_TARGET_OPTIONS = [
@@ -1969,6 +1973,25 @@ function Step1Icon({ name, size = 24, color = "currentColor", style }) {
           <circle {...strokeProps} cx="12" cy="12" r="8.5" /><path {...strokeProps} d="m8.2 12.3 2.5 2.5 5.1-5.6" />
         </svg>
       );
+    case "star":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} strokeLinejoin="round" d="m12 3 2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7L12 3Z" />
+        </svg>
+      );
+    case "pharmacy":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <circle {...strokeProps} cx="12" cy="12" r="9" /><path {...strokeProps} d="M12 8v8M8 12h8" />
+        </svg>
+      );
+    case "cart":
+      return (
+        <svg {...svgProps} viewBox="0 0 24 24">
+          <path {...strokeProps} d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.6L21 8H6" />
+          <circle cx="9.5" cy="20" r="1.3" fill={color} stroke="none" /><circle cx="17" cy="20" r="1.3" fill={color} stroke="none" />
+        </svg>
+      );
     default:
       return null;
   }
@@ -2167,6 +2190,9 @@ function Step1({ data, setData, onNext, onHome }) {
     { value: "immobiliare", icon: "home", label: "Immobiliare" },
     { value: "beauty", icon: "droplet", label: "Beauty" },
     { value: "fitness", icon: "dumbbell", label: "Fitness" },
+    { value: "eventi", icon: "star", label: "Eventi" },
+    { value: "farmacie", icon: "pharmacy", label: "Farmacie" },
+    { value: "alimentari", icon: "cart", label: "Alimentari" },
     { value: "altro", icon: "sparkles", label: "Altro" },
   ];
 
