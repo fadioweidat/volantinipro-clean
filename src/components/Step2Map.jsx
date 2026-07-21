@@ -1004,8 +1004,9 @@ function Step2MapImpl({
     // â”€â”€ Confine comunale (municipality boundary from OSM Nominatim) â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // municipalityBoundary format: [{name: string, geometry: GeoJSONGeometry}, ...]
     // Each entry represents one comune. We render all of them.
-    // The active city comune gets a strong green border; additional comuni get
-    // a slightly lighter style so multi-comune is immediately readable.
+    // The active city comune gets a strong accent border (col, same brand color
+    // as the radius circle); additional comuni get a neutral style so
+    // multi-comune is immediately readable.
     let renderedBoundaryCount = 0;
     if (isMunicipalityMode && municipalityBoundary) {
       // Normalize to array-of-{name,geometry} regardless of input shape
@@ -1062,17 +1063,17 @@ function Step2MapImpl({
           opacity: 0.35,
           interactive: false,
         } : isActiveComuneEntry ? {
-          color: '#22C55E',
-          weight: 2.5,
-          fillColor: '#22C55E',
+          color: col,
+          weight: 2,
+          fillColor: col,
           fillOpacity: isBoundaryInteractive ? (0.06 * (opacityScale || 1)) : 0,
-          dashArray: '8 5',
-          opacity: 0.88,
+          dashArray: '8 4',
+          opacity: 0.9,
           interactive: isBoundaryInteractive,
         } : {
-          color: '#34D399',
+          color: '#7F9BB0',
           weight: 1.8,
-          fillColor: '#34D399',
+          fillColor: '#7F9BB0',
           fillOpacity: isBoundaryInteractive ? (0.04 * (opacityScale || 1)) : 0,
           dashArray: '6 4',
           opacity: 0.65,
