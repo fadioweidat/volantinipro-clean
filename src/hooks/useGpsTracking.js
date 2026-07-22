@@ -4,6 +4,7 @@ import {
   getActiveGpsSession,
   heartbeatGpsSession,
   insertGpsPoint,
+  isPermanentGpsWriteError,
   pauseGpsSession,
   resumeGpsSession,
   startGpsSession,
@@ -101,6 +102,13 @@ export function useGpsTracking(campaignId) {
     console.info('[OPERATOR_GPS_OFFLINE_QUEUE]', { campaignId, queueSize: queue.length });
   }, [campaignId]);
 
+  const clearQueuedPoints = useCallback(() => {
+    const key = queueKeyRef.current;
+    if (!key) return;
+    writeQueue(key, []);
+    setQueueSize(0);
+  }, []);
+
   useEffect(() => {
     if (!navigator.getBattery) return undefined;
     let managerRef = null;
@@ -146,8 +154,24 @@ export function useGpsTracking(campaignId) {
           setLastPosition(point);
           setAccuracy(point.accuracy ?? payload.accuracy ?? null);
         } catch (err) {
+          if (isPermanentGpsWriteError(err)) {
+            clearQueuedPoints();
+            setStatus('permission_error');
+            setError(err?.message || 'Accesso operatore richiesto per inviare il tracking GPS.');
+            stopWatch();
+            await releaseWakeLock();
+            console.warn('[OPERATOR_GPS_WRITE_BLOCKED]', {
+              campaignId,
+              reason: 'auth_or_rls',
+              queuedPointsDiscarded: queue.length,
+            });
+            return;
+          }
           remaining.push(queuedPoint);
-          console.warn('Punto GPS rimasto in coda', err);
+          console.warn('[OPERATOR_GPS_QUEUE_RETRY]', {
+            campaignId,
+            reason: err?.code || err?.status || 'transient_error',
+          });
         }
       }
       writeQueue(key, remaining);
@@ -157,7 +181,7 @@ export function useGpsTracking(campaignId) {
     } finally {
       sendingRef.current = false;
     }
-  }, []);
+  }, [campaignId, clearQueuedPoints, releaseWakeLock, stopWatch]);
 
   const sendPosition = useCallback(async (position) => {
     const activeSession = sessionRef.current;
@@ -205,12 +229,20 @@ export function useGpsTracking(campaignId) {
       setAccuracy(point.accuracy ?? coords.accuracy ?? null);
       setError(null);
     } catch (err) {
+      if (isPermanentGpsWriteError(err)) {
+        clearQueuedPoints();
+        setStatus('permission_error');
+        setError(err?.message || 'Accesso operatore richiesto per inviare il tracking GPS.');
+        stopWatch();
+        await releaseWakeLock();
+        return;
+      }
       enqueuePoint(payload);
       setError(`${err?.message || 'Errore invio posizione GPS.'} Punto salvato in coda locale.`);
     } finally {
       sendingRef.current = false;
     }
-  }, [battery.level, battery.supported, campaignId, enqueuePoint]);
+  }, [battery.level, battery.supported, campaignId, clearQueuedPoints, enqueuePoint, releaseWakeLock, stopWatch]);
 
   const startWatch = useCallback((forceHighAccuracy = highAccuracyRef.current) => {
     if (!navigator.geolocation) {
