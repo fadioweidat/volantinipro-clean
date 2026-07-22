@@ -3031,84 +3031,6 @@ function Step1({ data, setData, onNext, onHome }) {
               </motion.div>
             )}
 
-            {isB2B && false && (
-              <motion.div
-                id="section-b2b-config"
-                key="panel-b2b"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-                style={{ marginTop: 24, padding: isMobile ? 18 : 24, borderRadius: 20, background: "#122036", border: "1px solid rgba(255,255,255,0.08)", borderTop: "2px solid #A78BFA" }}
-              >
-                <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: "#A78BFA", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 18, display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#A78BFA", flexShrink: 0 }} />
-                  Configurazione Distribuzione Business
-                </div>
-                <div style={{ display: "none" }}>
-                  <div>
-                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Tipo Attività Target</label>
-                    <select value={data.targetBusinessType || ""} onChange={(e) => updateData({ targetBusinessType: e.target.value })} className="vp-s1-input-modern">
-                      <option value="">Seleziona...</option>
-                      {$v.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Categoria Commerciale</label>
-                    <select value={data.businessCategory || ""} onChange={(e) => updateData({ businessCategory: e.target.value })} className="vp-s1-input-modern">
-                      <option value="">Seleziona...</option>
-                      {Lv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginBottom: 16 }}>
-                  <div>
-                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Numero Addetti</label>
-                    <select value={data.promoterCount || ""} onChange={(e) => updatePromoterCount(e.target.value)} className="vp-s1-input-modern">
-                      <option value="">Seleziona...</option>
-                      {Bv.map((opt) => <option key={opt.value} value={opt.value}>{opt.value === 1 ? "1 Addetto" : `${opt.value} Addetti`}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Fascia Oraria</label>
-                    <select value={data.timeSlot || ""} onChange={(e) => updateTeamSchedule({ timeSlot: e.target.value })} className="vp-s1-input-modern">
-                      <option value="">Seleziona...</option>
-                      {Mv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Durata Servizio</label>
-                    <select value={data.serviceDurationHours || ""} onChange={(e) => updateTeamSchedule({ serviceDurationHours: Number(e.target.value) })} className="vp-s1-input-modern">
-                      <option value="">Seleziona...</option>
-                      {Fv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
-                  <div style={{ display: "none" }}>
-                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Numero Attività Target</label>
-                    <select value={data.targetBusinessCount || ""} onChange={(e) => updateData({ targetBusinessCount: e.target.value })} className="vp-s1-input-modern">
-                      <option value="">Seleziona...</option>
-                      {Iv.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Comune o punto di partenza</label>
-                    <input type="text" placeholder="es. Varedo oppure Varedo, Via Roma" value={data.businessZone || ""} onChange={(e) => updateData({ businessZone: e.target.value })} className="vp-s1-input-modern" />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12, color: "#CBD5E1", display: "block", marginBottom: 6 }}>Modalità di Consegna</label>
-                    <select value={data.deliveryType || ""} onChange={(e) => updateData({ deliveryType: e.target.value })} className="vp-s1-input-modern">
-                      <option value="">Seleziona...</option>
-                      {km.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(167,139,250,.08)", border: "1px solid rgba(167,139,250,.24)", fontFamily: F.sans, fontSize: 11, color: "#DDD6FE" }}>
-                  Capacità indicativa: <b>{(promoterCount * serviceDurationHours * BUSINESS_STOPS_PER_OPERATOR_HOUR).toLocaleString("it-IT")} attività per turno</b>. Nello Step 2 potrai selezionare le aziende e assegnarle agli addetti.
-                </div>
-              </motion.div>
-            )}
             {isB2B && <BusinessStep1Config data={data} updateData={updateData} isMobile={isMobile} />}
             </AnimatePresence>
           </div>
@@ -3543,43 +3465,6 @@ function Step1({ data, setData, onNext, onHome }) {
               </div>
             )}
           </div>
-
-          {/* Riepilogo precedente mantenuto fuori dal DOM: sostituito dal riepilogo persistente. */}
-          {false && <div style={{ ...s1Panel, padding: isMobile ? 20 : 28 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: 20 }}>
-              <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,.58)", textTransform: "uppercase", letterSpacing: ".1em" }}>Riepilogo Step 1</span>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: s1Green, boxShadow: "0 0 10px rgba(34,197,94,.45)" }} />
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)", gap: isMobile ? "10px 16px" : "10px 40px", marginBottom: 20 }}>
-              {[
-                { label: "Servizio", val: currentServiceLabel },
-                { label: "Zona", val: isB2B ? (data.businessZone || "Da selezionare") : "Da selezionare nello Step 2" },
-                { label: "Quantità", val: `${new Intl.NumberFormat("it-IT").format(data.qty || 10000)} pz` },
-                { label: "Formato", val: currentFormatLabel },
-                { label: "Urgenza", val: currentUrgencyLabel },
-                { label: "Piano", val: currentPlanLabel },
-                { label: "Stampa", val: data.hasFlyers === "no" ? "Inclusa" : "Non inclusa" },
-              ].map((row, idx) => (
-                <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                  <span style={{ color: "#94A3B8" }}>{row.label}</span>
-                  <span style={{ fontWeight: 800, color: row.val.includes("Da selezionare") ? "#64748B" : "#F8FAFC" }}>{row.val}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: isMobile ? "flex" : "flex", flexDirection: isMobile ? "column" : "row", gap: 20, alignItems: isMobile ? "stretch" : "center" }}>
-              <div style={{ padding: "14px 20px", borderRadius: 16, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.09)", flexShrink: 0 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: "#CBD5E1", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>Preventivo finale</div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: "#E2E8F0", letterSpacing: "-0.2px" }}>Prezzo calcolato nello Step 4</div>
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.5, marginBottom: 6 }}>Calcolato su listino base. Il preventivo esatto verrà generato in base alle zone scelte nello Step 2.</div>
-                <div style={{ fontSize: 12, color: "#64748B", lineHeight: 1.5 }}>
-                  Hai bisogno di aiuto?{" "}
-                  <button type="button" onClick={() => setShowSmartPairingModal(true)} style={{ background: "none", border: "none", color: s1Green, textDecoration: "underline", cursor: "pointer", padding: 0, fontWeight: 700 }}>Scopri lo Smart Pairing</button>
-                </div>
-              </div>
-            </div>
-          </div>}
 
           {/* NUOVA CARD "PROSSIMO PASSAGGIO" */}
           <div style={{ ...s1Panel, padding: isMobile ? 24 : 36, position: "relative", overflow: "hidden" }}>
