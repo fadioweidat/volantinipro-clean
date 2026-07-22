@@ -111,6 +111,8 @@ data/**/*.sqlite
 
 # SQL / BACKUPS
 *.sql
+!supabase/migrations/
+!supabase/migrations/*.sql
 backup/
 backups/
 
