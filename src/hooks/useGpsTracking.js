@@ -7,6 +7,7 @@ import {
   isPermanentGpsWriteError,
   pauseGpsSession,
   resumeGpsSession,
+  resolveGpsAssignment,
   startGpsSession,
 } from '../lib/services/gps-api.js';
 
@@ -32,10 +33,14 @@ export function useGpsTracking(campaignId) {
   const [heading, setHeading] = useState(null);
   const [altitude, setAltitude] = useState(null);
   const [battery, setBattery] = useState({ supported: false, level: null, charging: null });
+  const [assignmentStatus, setAssignmentStatus] = useState('idle');
+  const [assignmentError, setAssignmentError] = useState(null);
+  const [assignment, setAssignment] = useState(null);
   const watchIdRef = useRef(null);
   const wakeLockRef = useRef(null);
   const highAccuracyRef = useRef(true);
   const sessionRef = useRef(null);
+  const assignmentRef = useRef(null);
   const statusRef = useRef('idle');
   const lastSentRef = useRef({ at: 0, lat: null, lng: null });
   const distanceMetersRef = useRef(0);
@@ -50,6 +55,10 @@ export function useGpsTracking(campaignId) {
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
+
+  useEffect(() => {
+    assignmentRef.current = assignment;
+  }, [assignment]);
 
   useEffect(() => {
     statusRef.current = status;
@@ -108,6 +117,36 @@ export function useGpsTracking(campaignId) {
     writeQueue(key, []);
     setQueueSize(0);
   }, []);
+
+  const loadAssignment = useCallback(async () => {
+    if (!campaignId) {
+      setAssignment(null);
+      setAssignmentStatus('idle');
+      setAssignmentError(null);
+      return null;
+    }
+
+    setAssignmentStatus('loading');
+    setAssignmentError(null);
+    try {
+      const result = await resolveGpsAssignment(campaignId);
+      assignmentRef.current = result.assignment;
+      setAssignment(result.assignment);
+      setAssignmentStatus('ready');
+      console.info('[OPERATOR_ASSIGNMENT_READY]', { campaignId, assignmentId: result.assignment?.id || null });
+      return result.assignment;
+    } catch (err) {
+      assignmentRef.current = null;
+      setAssignment(null);
+      setAssignmentStatus('blocked');
+      setAssignmentError(err?.message || 'Assegnazione operatore non valida.');
+      console.warn('[OPERATOR_ASSIGNMENT_BLOCKED]', {
+        campaignId,
+        reason: err?.code || 'assignment_invalid',
+      });
+      return null;
+    }
+  }, [campaignId]);
 
   useEffect(() => {
     if (!navigator.getBattery) return undefined;
@@ -308,7 +347,13 @@ export function useGpsTracking(campaignId) {
 
   const start = useCallback(async () => {
     setError(null);
-    const nextSession = await startGpsSession(campaignId);
+    const resolvedAssignment = assignmentRef.current || await loadAssignment();
+    if (!resolvedAssignment?.id) {
+      setStatus('permission_error');
+      setError(assignmentError || 'Assegnazione operatore valida richiesta per avviare il tracking GPS.');
+      return null;
+    }
+    const nextSession = await startGpsSession(campaignId, { assignmentId: resolvedAssignment.id });
     sessionRef.current = nextSession;
     statusRef.current = 'active';
     setSession(nextSession);
@@ -317,12 +362,12 @@ export function useGpsTracking(campaignId) {
     distanceMetersRef.current = 0;
     setDistanceKm(0);
     setPath([]);
-    console.info('[OPERATOR_WORK_START]', { campaignId, sessionId: nextSession?.id });
+    console.info('[OPERATOR_WORK_START]', { campaignId, sessionId: nextSession?.id, assignmentId: resolvedAssignment.id });
     await requestWakeLock();
     startWatch();
     flushQueue();
     return nextSession;
-  }, [campaignId, flushQueue, requestWakeLock, startWatch]);
+  }, [assignmentError, campaignId, flushQueue, loadAssignment, requestWakeLock, startWatch]);
 
   const pause = useCallback(async () => {
     if (!sessionRef.current?.id) return null;
@@ -366,6 +411,7 @@ export function useGpsTracking(campaignId) {
 
   useEffect(() => {
     let cancelled = false;
+    loadAssignment();
     async function resumeExistingSession() {
       if (!campaignId) return;
       try {
@@ -386,7 +432,7 @@ export function useGpsTracking(campaignId) {
     return () => {
       cancelled = true;
     };
-  }, [campaignId, flushQueue, requestWakeLock, startWatch]);
+  }, [campaignId, flushQueue, loadAssignment, requestWakeLock, startWatch]);
 
   useEffect(() => {
     const onVisibilityChange = () => {
@@ -455,6 +501,10 @@ export function useGpsTracking(campaignId) {
     heading,
     altitude,
     battery,
+    assignment,
+    assignmentStatus,
+    assignmentError,
+    isAssignmentReady: assignmentStatus === 'ready',
     isActive: status === 'active',
     isPaused: status === 'paused',
     start,
