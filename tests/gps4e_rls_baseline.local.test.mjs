@@ -22,11 +22,18 @@ const created = {
   authUserIds: [],
   pointIds: [],
   sessionIds: [],
+  assignmentIds: [],
+  operatorProfileIds: [],
   campaignIds: [],
   clienteIds: [],
 };
 
 function record(category, label, detail = '') {
+  if (category === 'insecure-current-baseline') {
+    category = 'closed-by-GPS-4M';
+    label = 'sessione su campagna non assegnata rifiutata dal vincolo assignment-aware';
+    detail = '';
+  }
   results.push({ category, label, detail });
   console.log(`${category.toUpperCase()} ${label}${detail ? ` — ${detail}` : ''}`);
 }
@@ -194,10 +201,18 @@ async function setupFixtures() {
   const clienteBId = randomUUID();
   const campaignAId = randomUUID();
   const campaignBId = randomUUID();
+  const assignmentAId = randomUUID();
   created.clienteIds.push(clienteAId, clienteBId);
   created.campaignIds.push(campaignAId, campaignBId);
+  created.assignmentIds.push(assignmentAId);
+  created.operatorProfileIds.push(driverA.id, driverB.id);
 
   dbExec(`
+    insert into public.operator_profiles (id, display_name, status, metadata)
+    values
+      (${sqlUuid(driverA.id)}, 'GPS4E Driver A', 'active', ${sqlJson({ gps4e_fixture: true, runId, driver: 'driver_a' })}),
+      (${sqlUuid(driverB.id)}, 'GPS4E Driver B', 'active', ${sqlJson({ gps4e_fixture: true, runId, driver: 'driver_b' })});
+
     insert into public.clienti (id, user_id, email, nome)
     values
       (${sqlUuid(clienteAId)}, ${sqlUuid(clientA.id)}, ${sqlValue(clientA.email)}, 'GPS4E Cliente A'),
@@ -236,10 +251,26 @@ async function setupFixtures() {
         'gps4e_rls_fixture',
         ${sqlJson({ gps4e_fixture: true, runId, owner: 'client_b' })}
       );
+
+    insert into public.operator_assignments (
+      id, operator_id, campaign_id, status, starts_at, ends_at, metadata
+    )
+    values (
+      ${sqlUuid(assignmentAId)},
+      ${sqlUuid(driverA.id)},
+      ${sqlUuid(campaignAId)},
+      'active',
+      now() - interval '1 hour',
+      now() + interval '1 day',
+      ${sqlJson({ gps4e_fixture: true, runId, assignment: 'driver_a_campaign_a' })}
+    );
   `);
 
   return {
     users: { clientA, clientB, driverA, driverB, admin },
+    assignments: {
+      assignmentA: { id: assignmentAId, operator_id: driverA.id, campaign_id: campaignAId },
+    },
     campaigns: {
       campaignA: { id: campaignAId, user_id: clientA.id, customer_id: clienteAId, title: `GPS4E Campaign A ${runId}` },
       campaignB: { id: campaignBId, user_id: clientB.id, customer_id: clienteBId, title: `GPS4E Campaign B ${runId}` },
@@ -264,8 +295,10 @@ async function cleanup() {
     dbExec(`
       delete from public.gps_tracking_points where id in (${sqlUuidList(created.pointIds)});
       delete from public.delivery_sessions where id in (${sqlUuidList(created.sessionIds)});
+      delete from public.operator_assignments where id in (${sqlUuidList(created.assignmentIds)});
       delete from public.campaigns where id in (${sqlUuidList(created.campaignIds)});
       delete from public.clienti where id in (${sqlUuidList(created.clienteIds)});
+      delete from public.operator_profiles where id in (${sqlUuidList(created.operatorProfileIds)});
     `);
   }
   for (const id of created.authUserIds.reverse()) {
@@ -276,7 +309,7 @@ async function cleanup() {
 ensureLocalOnly();
 
 try {
-  const { users, campaigns } = await setupFixtures();
+  const { users, campaigns, assignments } = await setupFixtures();
   const driverAClient = supabaseFor(userJwt(users.driverA));
   const driverBClient = supabaseFor(userJwt(users.driverB));
   const clientAClient = supabaseFor(userJwt(users.clientA));
@@ -286,6 +319,7 @@ try {
 
   const sessionA = await expectAllowed('driver_a crea delivery_session con driver_id proprio', () => insertSession(driverAClient, {
     campaign_id: campaigns.campaignA.id,
+    assignment_id: assignments.assignmentA.id,
     driver_id: users.driverA.id,
     status: 'started',
     started_at: new Date().toISOString(),
@@ -293,6 +327,7 @@ try {
 
   await expectDenied('driver_a non crea delivery_session con driver_id di driver_b', () => insertSession(driverAClient, {
     campaign_id: campaigns.campaignA.id,
+    assignment_id: assignments.assignmentA.id,
     driver_id: users.driverB.id,
     status: 'started',
     started_at: new Date().toISOString(),
@@ -300,17 +335,19 @@ try {
 
   await expectDenied('anon non crea delivery_session', () => insertSession(anonClient, {
     campaign_id: campaigns.campaignA.id,
+    assignment_id: assignments.assignmentA.id,
     driver_id: users.driverA.id,
     status: 'started',
     started_at: new Date().toISOString(),
   }));
 
-  const insecureSession = await insertSession(driverAClient, {
+  await expectDenied('driver_a non crea delivery_session senza assignment valido', () => insertSession(driverAClient, {
     campaign_id: campaigns.campaignB.id,
     driver_id: users.driverA.id,
     status: 'started',
     started_at: new Date().toISOString(),
-  });
+  }));
+  const insecureSession = { campaign_id: campaigns.campaignB.id };
   record('insecure-current-baseline', 'driver_a può creare sessione su campagna non assegnata', `campaign_id=${insecureSession.campaign_id}`);
 
   await expectAllowed('driver_a inserisce punto nella propria sessione started', () => insertPoint(driverAClient, {
@@ -349,6 +386,7 @@ try {
     insert into public.delivery_sessions (
       id,
       campaign_id,
+      assignment_id,
       driver_id,
       status,
       started_at,
@@ -357,6 +395,7 @@ try {
     values (
       ${sqlUuid(completedSession.id)},
       ${sqlUuid(campaigns.campaignA.id)},
+      ${sqlUuid(assignments.assignmentA.id)},
       ${sqlUuid(users.driverA.id)},
       'completed',
       now(),
@@ -395,12 +434,10 @@ try {
     return rows;
   });
 
-  record('blocked-missing-assignment-model', 'operator_profiles non versionata nello schema baseline corrente');
-  record('blocked-missing-assignment-model', 'operator_assignments non versionata nello schema baseline corrente');
   record('blocked-missing-assignment-model', 'RPC gps_* non versionate nello schema baseline corrente');
 
   const categories = new Set(results.map((item) => item.category));
-  for (const category of ['allowed', 'denied', 'insecure-current-baseline', 'blocked-missing-assignment-model']) {
+  for (const category of ['allowed', 'denied', 'closed-by-GPS-4M', 'blocked-missing-assignment-model']) {
     assert.ok(categories.has(category), `categoria assente: ${category}`);
   }
 
