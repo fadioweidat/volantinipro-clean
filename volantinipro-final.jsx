@@ -14020,132 +14020,6 @@ const clientEmpty = (title, text) => (
   );
 }
 
-function DeliverablePlotRenderer({ plot, data, color }) {
-  if (plot === "kpi") {
-    return (
-      <div style={{ padding: "14px 0 6px" }}>
-        <div style={{ fontFamily: F.serif, fontSize: 32, color: color || C.orange, letterSpacing: "-1px" }}>{data?.value || data?.kpi || "N/D"}</div>
-        <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.58)", marginTop: 4, lineHeight: 1.5 }}>{data?.sub || data?.detail || ""}</div>
-      </div>
-    );
-  }
-  if (plot === "bar") {
-    const list = Array.isArray(data) ? data : [];
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "12px 0 6px" }}>
-        {list.map((item, i) => {
-          const val = Number(item.value || item.pct || 0);
-          return (
-            <div key={i}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: C.white, marginBottom: 4 }}>
-                <span>{item.label || item.name}</span>
-                <b style={{ color: color || C.orange }}>{val}%</b>
-              </div>
-              <div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,.08)", overflow: "hidden" }}>
-                <div style={{ width: `${Math.max(0, Math.min(100, val))}%`, height: "100%", background: color || C.orange }} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-  if (plot === "lista") {
-    const list = Array.isArray(data) ? data : [];
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "10px 0 6px" }}>
-        {list.map((item, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", borderRadius: 8, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12 }}>
-            <span style={{ color: C.white, fontWeight: 600 }}>{item.name || item.comune}</span>
-            <div style={{ display: "flex", gap: 12, color: "rgba(255,255,255,.55)" }}>
-              <span>{item.flyers ? `${Number(item.flyers).toLocaleString("it-IT")} vol.` : ""}</span>
-              <b style={{ color: C.green }}>{item.coverage || "Coperto"}</b>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  if (plot === "donut") {
-    const list = Array.isArray(data) ? data : [];
-    const mainVal = list[0]?.value || 0;
-    return (
-      <div style={{ display: "flex", gap: 16, alignItems: "center", padding: "14px 0 8px" }}>
-        <div style={{ width: 72, height: 72, borderRadius: "50%", background: `conic-gradient(#2ecc8a 0% ${mainVal}%, rgba(255,255,255,.1) ${mainVal}% 100%)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#111b2b", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.white }}>{mainVal}%</div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {list.map((item, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.7)" }}>
-              <div style={{ width: 10, height: 10, borderRadius: 3, background: item.color }} />
-              <span>{item.label}: <b style={{ color: C.white }}>{item.value}%</b></span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  if (plot === "mappa") {
-    return (
-      <div style={{ padding: "12px 0 6px" }}>
-        <div style={{ height: 160, borderRadius: 10, background: "linear-gradient(135deg,#182b42,#111b2b)", border: "1px solid rgba(255,255,255,.08)", position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ position: "absolute", inset: 0, opacity: 0.15, background: "radial-gradient(circle at 50% 50%, #2ecc8a 0%, transparent 70%)" }} />
-          <div style={{ zIndex: 1, textAlign: "center", fontFamily: F.sans }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.white }}>{data?.label || "Zona operativa"}</div>
-            <div style={{ fontSize: 11, color: C.green, marginTop: 4 }}>{data?.radius || 3} km di raggio · Geometria PostGIS</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div style={{ padding: "14px 0 6px", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.7)", lineHeight: 1.6 }}>
-      {data?.text || data?.status || "Servizio operativo attivo."}
-    </div>
-  );
-}
-
-function DeliverableServiceCard({ item, campagna }) {
-  const output = item.getOutput ? item.getOutput(campagna) : null;
-  const tierStyle = {
-    INCLUSO: { bg: "rgba(255,255,255,.08)", col: "rgba(255,255,255,.7)", border: "rgba(255,255,255,.15)" },
-    PRO: { bg: "rgba(96,165,250,.12)", col: "#60a5fa", border: "rgba(96,165,250,.3)" },
-    AI: { bg: "rgba(46,204,138,.14)", col: C.green, border: "rgba(46,204,138,.35)" }
-  }[item.tier] || { bg: "rgba(255,255,255,.08)", col: "rgba(255,255,255,.7)", border: "rgba(255,255,255,.15)" };
-
-  if (output) {
-    return (
-      <div className="print-card" style={{ background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.09)", borderRadius: 14, padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", breakInside: "avoid" }}>
-        <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <h3 style={{ margin: 0, fontFamily: F.sans, fontSize: 14, fontWeight: 700, color: C.white }}>{item.title}</h3>
-            <span style={{ padding: "3px 8px", borderRadius: 999, background: tierStyle.bg, color: tierStyle.col, border: `1px solid ${tierStyle.border}`, fontFamily: F.sans, fontSize: 9, fontWeight: 800, letterSpacing: ".08em" }}>{item.tier}</span>
-          </div>
-          <DeliverablePlotRenderer plot={item.plot} data={output} />
-        </div>
-        <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.4)" }}>
-          Dato reale · {item.fonte}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="print-card" style={{ background: "rgba(255,255,255,.015)", border: "1px dashed rgba(255,255,255,.14)", borderRadius: 14, padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", breakInside: "avoid" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <h3 style={{ margin: 0, fontFamily: F.sans, fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,.45)" }}>{item.title}</h3>
-        <span style={{ padding: "3px 8px", borderRadius: 999, background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.3)", fontFamily: F.sans, fontSize: 9, fontWeight: 700 }}>Disponibile dopo avvio</span>
-      </div>
-      <div style={{ padding: "18px 0", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.38)", fontStyle: "italic" }}>
-        Disponibile durante l'esecuzione · fonte {item.fonte}
-      </div>
-      <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.04)", fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.25)" }}>
-        Deliverable opzionale
-      </div>
-    </div>
-  );
-}
-
 function buildReportCampaign(campagna) {
   const meta = campaignMetadata(campagna);
   if (!meta) return null;
@@ -14185,30 +14059,6 @@ function buildReportCampaign(campagna) {
     dashboard_kpis: meta.dashboard_kpis || null,
     operational_waypoints: meta.operational_waypoints || [],
   };
-}
-
-function DeliverableReportHeader({ campagna, onBack }) {
-  const comuniLabel = campagna?.comuni_selezionati?.length ? campagna.comuni_selezionati.join(" - ") : "Dato non disponibile";
-  const coverageLabel = campagna?.copertura_pct != null ? `${campagna.copertura_pct}%` : "Dato non disponibile";
-  return (
-    <header style={{ marginBottom: 28 }}>
-      <div className="print-hide" style={{ marginBottom: 16 }}>
-        <NavButton onClick={onBack} compact>{"\u2190 Dashboard"}</NavButton>
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16, padding: 22, borderRadius: 16, background: "linear-gradient(135deg, rgba(232,87,26,.15), rgba(255,255,255,.04))", border: "1px solid rgba(232,87,26,.3)" }}>
-        <div>
-          <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 900, color: C.orange, letterSpacing: ".14em", textTransform: "uppercase", marginBottom: 8 }}>Report tecnico campagna</div>
-          <h1 style={{ margin: 0, fontFamily: F.serif, fontSize: 36, color: C.white, letterSpacing: "-1px" }}>Campagna #{String(campagna?.id || "N/D").slice(0, 8)} - {campagna?.comune_principale || campagna?.zona || "Zona non disponibile"}</h1>
-          <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.65)", marginTop: 8 }}>
-            {comuniLabel} - {Number(campagna?.quantita || 0).toLocaleString("it-IT")} volantini - Copertura {coverageLabel}
-          </div>
-        </div>
-        <div className="print-hide" style={{ display: "flex", gap: 10 }}>
-          <button onClick={() => window.print()} style={{ minHeight: 44, padding: "0 18px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer", boxShadow: `0 6px 18px ${C.orangeGlow}` }}>Stampa report campagna</button>
-        </div>
-      </div>
-    </header>
-  );
 }
 
 function DeliverableReportFooter() {
@@ -14467,39 +14317,6 @@ function DeliverableReportPage({ onNav, campaignId }) {
   console.info("[REPORT_METADATA_LOADED]", { id: reportCampaign.id, zona: reportCampaign.zona });
   console.info("[PDF_REPORT_DATA_SOURCE]", "campaign_metadata");
   return <PremiumCampaignReport reportCampaign={reportCampaign} campagna={campagna} source={source} onBack={() => onNav("campaign", { campaignId: reportCampaign.id })} aiReportInsights={aiReportInsights} aiHistoricalSuggestions={aiHistoricalSuggestions} aiLoading={historyLoading} aiError={historyError} />;
-  return (
-    <div className="print-page" style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px", color: C.white }}>
-      <style>{`
-        @media print {
-          body, .print-page { background: #fff !important; color: #111 !important; padding: 20px !important; }
-          .print-hide, nav, header nav, footer nav { display: none !important; }
-          .print-card { background: #f8fafc !important; border: 1px solid #cbd5e1 !important; color: #0f172a !important; break-inside: avoid !important; page-break-inside: avoid !important; }
-          .print-card h3 { color: #0f172a !important; }
-          .print-card span, .print-card div { color: #334155 !important; }
-          .print-grid { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 14px !important; }
-        }
-      `}</style>
-      <div style={{ maxWidth: 1180, margin: "0 auto" }}>
-        {(source === "demo" || campagna._isDemoData) && <div style={{ marginBottom: 14, padding: "8px 12px", borderRadius: 10, background: "rgba(168,85,247,.12)", border: "1px solid rgba(168,85,247,.3)", color: "#D8B4FE", fontFamily: F.sans, fontSize: 12, fontWeight: 700, display: "inline-block" }}>🧪 Dati demo</div>}
-        <DeliverableReportHeader campagna={reportCampaign} onBack={() => onNav("campaign", { campaignId: reportCampaign.id })} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-          {DELIVERABLE_CATEGORIES.map(cat => {
-            const items = DELIVERABLE_SERVICE_CONFIG.filter(s => s.category === cat);
-            if (items.length === 0) return null;
-            return (
-              <section key={cat}>
-                <h2 style={{ fontFamily: F.serif, fontSize: 22, color: C.white, borderBottom: "1px solid rgba(255,255,255,.1)", paddingBottom: 8, marginBottom: 16 }}>{cat}</h2>
-                <div className="print-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
-                  {items.map(item => <DeliverableServiceCard key={item.id} item={item} campagna={reportCampaign} />)}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-        <DeliverableReportFooter />
-      </div>
-    </div>
-  );
 }
 
 function isLatLngPoint(p) {
