@@ -11572,18 +11572,6 @@ const [showStep4Zones, setShowStep4Zones] = useState(false);
 const [techSections, setTechSections] = useState({});
 const [activeDemoId, setActiveDemoId] = useState(null);
 const toggleTech = key => setTechSections(p => ({...p, [key]: !p[key]}));
-const svcCommercial = {
-  tracking_gps:    { icon: "pin", head: "Tracking GPS Live",        col: "#22C55E", badge: "Più scelto",     bullets: ["Segui in tempo reale gli operatori sulla mappa","Storico percorso al termine della distribuzione","Link di condivisione per il tuo team"] },
-  photo_proof:     { icon: "camera", head: "Report Fotografico",        col: "#60A5FA", badge: "Massima sicurezza", bullets: ["30 foto geolocalizzate con data e orario","Conferma visiva zona per zona","Archivio scaricabile dal portale cliente"] },
-  graphic_design:  { icon: "palette", head: "Grafica",               col: "#F472B6", badge: null,             bullets: ["2 bozze incluse","Consegna in 48h","File pronto per la stampa"] },
-  dedicated_supervision: { icon: "eye", head: "Supervisione Dedicata", col: "#38BDF8", badge: "Consigliato con GPS Live", bullets: ["Monitoraggio attivo GPS e foto","Intervento diretto sugli operatori in caso di problemi","Contatto diretto dedicato"] },
-  puntiVetrina:    { icon: "shop", head: "Punti Vetrina",             col: C.orange,  badge: "Door to Door",   bullets: ["Fino a 5 punti vetrina inclusi (bar/negozi)","Selezionati e gestiti dal nostro team operativo","Punto di appoggio extra per i tuoi volantini"] },
-  printing:        { icon: "printer", head: "Stampa Materiale",          col: "#60A5FA", badge: "Miglior rapporto qualità/prezzo", bullets: ["Produzione professionale del materiale","Qualità certificata per distribuzione","Consegna prima della campagna"] },
-  design:          { icon: "palette", head: "Preparazione Grafica",      col: "#A78BFA", badge: "Premium",        bullets: ["Adattamento file al formato richiesto","Verifica qualità prima della stampa","Supporto creativo dedicato"] },
-  quality_control: { icon: "checkCircle", head: "Controllo Qualità",         col: "#2ECC8A", badge: "Consigliato",    bullets: ["Verifica operativa in campo","Supervisione distribuzione","Report anomalie"] },
-  operator_support:{ icon: "user", head: "Supporto Operatore",        col: "#60A5FA", badge: "Consigliato",    bullets: ["Assistenza diretta alla pianificazione","Contatto dedicato per la campagna","Conferma operativa rapida"] },
-  urgent_distribution:{ icon: "lightning", head: "Distribuzione Urgente",  col: "#FF6666", badge: null,             bullets: ["Gestione prioritaria della campagna","Attivazione entro 48h","Team dedicato"] },
-};
 const [confirmSyncStatus, setConfirmSyncStatus] = useState("");
 const [returnFromLogin, setReturnFromLogin] = useState(() =>
   localStorage.getItem("volantinipro_return_to") === "step4" &&
@@ -11643,46 +11631,131 @@ const baseCost = flyerQty * unitPricePerFlyer;
 const afterDisc = baseCost * (1 - disc / 100);
 const alreadyPrinted = data.alreadyPrinted ?? data.hasFlyers === "yes";
 const productionServices = [...new Set([...(data.printServices || []),...(data.extraServices || [])])].filter(s => ["stampa", "grafica"].includes(s));
+// Unica fonte dati per i servizi extra Step4: prima erano sparsi su 3
+// elenchi scritti a mano (svcCommercial, il `mapping` di
+// normalizeSelectedExtras, optionalExtras), a rischio di disallineamento.
+// Estrazione pura: ogni valore (prezzo, label, bullet, icona) e identico
+// a prima; i campi che divergevano gia tra le 3 fonti originali (es. la
+// label breve di `mapping` vs quella estesa di svcCommercial/optionalExtras)
+// restano separati per non alterare nulla di renderizzato.
+const EXTRA_SERVICES_REGISTRY = [
+  {
+    id: "tracking_gps", legacyIds: ["gps", "tracking_gps", "gps_default"], addId: "gps",
+    commercialIcon: "pin", head: "Tracking GPS Live", col: "#22C55E", badge: "Più scelto",
+    bullets: ["Segui in tempo reale gli operatori sulla mappa", "Storico percorso al termine della distribuzione", "Link di condivisione per il tuo team"],
+    mappingLabel: "Tracking GPS", mappingDescription: "Monitoraggio operativo della distribuzione con tracciamento delle attività.", mappingIcon: "",
+    optionalDescription: "Tracciamento operativo e timeline distributori.", optionalMicro: "Mostra avanzamento e operatori sulla mappa.", optionalIcon: "GPS",
+    price: 25, optional: true,
+  },
+  {
+    id: "photo_proof", legacyIds: ["foto", "photo_proof", "foto_localizzate", "photo_report_advanced"], addId: "photo_report_advanced",
+    commercialIcon: "camera", head: "Report Fotografico", col: "#60A5FA", badge: "Massima sicurezza",
+    bullets: ["30 foto geolocalizzate con data e orario", "Conferma visiva zona per zona", "Archivio scaricabile dal portale cliente"],
+    mappingLabel: "Foto localizzate", mappingDescription: "Prove fotografiche con data, zona e riferimento operativo.", mappingIcon: "",
+    optionalDescription: "Proof fotografici con data e zona.", optionalMicro: "Foto geolocalizzate con data e ora.", optionalIcon: "PHOTO",
+    price: 35, optional: true,
+  },
+  {
+    id: "graphic_design", legacyIds: ["graphic_design", "grafica_progetto"], addId: "graphic_design",
+    commercialIcon: "palette", head: "Grafica", col: "#F472B6", badge: null,
+    bullets: ["2 bozze incluse", "Consegna in 48h", "File pronto per la stampa"],
+    mappingLabel: "Grafica", mappingDescription: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", mappingIcon: "palette",
+    optionalDescription: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", optionalMicro: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", optionalIcon: "GRAPHIC",
+    price: 79, optional: true,
+  },
+  {
+    id: "dedicated_supervision", legacyIds: ["dedicated_supervision", "supervisione_dedicata"], addId: "dedicated_supervision",
+    commercialIcon: "eye", head: "Supervisione Dedicata", col: "#38BDF8", badge: "Consigliato con GPS Live",
+    bullets: ["Monitoraggio attivo GPS e foto", "Intervento diretto sugli operatori in caso di problemi", "Contatto diretto dedicato"],
+    mappingLabel: "Supervisione Dedicata", mappingDescription: "Un referente segue la tua campagna e interviene in caso di anomalie. Contattalo direttamente se hai bisogno.", mappingIcon: "eye",
+    optionalDescription: "Un referente segue la tua campagna e interviene in caso di anomalie. Contattalo direttamente se hai bisogno.",
+    optionalMicro: campaignDurationKnown ? "Consigliato se attivi anche Tracking GPS Live." : "Consigliato se attivi anche Tracking GPS Live. Prezzo indicativo, confermato in base alla durata effettiva.",
+    optionalIcon: "SUPERVISION",
+    price: dedicatedSupervisionPrice, optional: true,
+  },
+  {
+    id: "puntiVetrina", legacyIds: [],
+    commercialIcon: "shop", head: "Punti Vetrina", col: C.orange, badge: "Door to Door",
+    bullets: ["Fino a 5 punti vetrina inclusi (bar/negozi)", "Selezionati e gestiti dal nostro team operativo", "Punto di appoggio extra per i tuoi volantini"],
+    mappingLabel: "Punti Vetrina", mappingDescription: "Punti vetrina (bar/negozi) selezionati dal nostro team, fino a 5 punti inclusi.", mappingIcon: "shop",
+    price: 35, optional: false,
+  },
+  {
+    id: "printing", legacyIds: ["stampa", "printing"],
+    commercialIcon: "printer", head: "Stampa Materiale", col: "#60A5FA", badge: "Miglior rapporto qualità/prezzo",
+    bullets: ["Produzione professionale del materiale", "Qualità certificata per distribuzione", "Consegna prima della campagna"],
+    mappingLabel: "Stampa materiale", mappingDescription: "Produzione del materiale prima della distribuzione.", mappingIcon: "",
+    price: Math.ceil((flyerQty || 10000) / 1000) * 12, optional: false,
+  },
+  {
+    id: "design", legacyIds: ["grafica", "design", "preparazione_grafica"],
+    commercialIcon: "palette", head: "Preparazione Grafica", col: "#A78BFA", badge: "Premium",
+    bullets: ["Adattamento file al formato richiesto", "Verifica qualità prima della stampa", "Supporto creativo dedicato"],
+    mappingLabel: "Preparazione grafica", mappingDescription: "Supporto per preparazione o adattamento del file grafico.", mappingIcon: "",
+    price: 49, optional: false,
+  },
+  {
+    id: "quality_control", legacyIds: ["quality", "quality_control", "controllo_qualita"],
+    commercialIcon: "checkCircle", head: "Controllo Qualità", col: "#2ECC8A", badge: "Consigliato",
+    bullets: ["Verifica operativa in campo", "Supervisione distribuzione", "Report anomalie"],
+    mappingLabel: "Controllo qualità", mappingDescription: "Verifica aggiuntiva sulla corretta esecuzione della distribuzione.", mappingIcon: "",
+    price: 25, optional: false,
+  },
+  {
+    id: "operator_support", legacyIds: ["operator", "operator_support", "supporto_operatore"],
+    commercialIcon: "user", head: "Supporto Operatore", col: "#60A5FA", badge: "Consigliato",
+    bullets: ["Assistenza diretta alla pianificazione", "Contatto dedicato per la campagna", "Conferma operativa rapida"],
+    mappingLabel: "Supporto operatore", mappingDescription: "Assistenza diretta per configurazione, pianificazione o conferma campagna.", mappingIcon: "",
+    price: 39, optional: false,
+  },
+  {
+    id: "urgent_distribution", legacyIds: ["urgent", "urgent_distribution", "distribuzione_urgente"],
+    commercialIcon: "lightning", head: "Distribuzione Urgente", col: "#FF6666", badge: null,
+    bullets: ["Gestione prioritaria della campagna", "Attivazione entro 48h", "Team dedicato"],
+    mappingLabel: "Distribuzione urgente", mappingDescription: "Gestione prioritaria della campagna in tempi ridotti.", mappingIcon: "",
+    price: 0, optional: false, isUrgent: true,
+  },
+];
+const svcCommercial = Object.fromEntries(EXTRA_SERVICES_REGISTRY.map(s => [s.id, { icon: s.commercialIcon, head: s.head, col: s.col, badge: s.badge, bullets: s.bullets }]));
+const EXTRA_SERVICES_BY_ID = Object.fromEntries(EXTRA_SERVICES_REGISTRY.map(s => [s.id, s]));
+// Ordine esplicito e indipendente per ciascun consumatore: preserva
+// esattamente l'ordine di rendering originale dei due elenchi (erano gia
+// diversi tra loro prima di questa unificazione), indipendente dall'ordine
+// di dichiarazione in EXTRA_SERVICES_REGISTRY.
+const SELECTED_EXTRAS_ORDER = ["tracking_gps", "photo_proof", "printing", "graphic_design", "design", "quality_control", "operator_support", "urgent_distribution", "puntiVetrina", "dedicated_supervision"];
+const OPTIONAL_EXTRAS_ORDER = ["graphic_design", "tracking_gps", "photo_proof", "dedicated_supervision"];
 const normalizeSelectedExtras = (data) => {
-    const mapping = [
-      { id: "tracking_gps", oldIds: ["gps", "tracking_gps", "gps_default"], l: "Tracking GPS", d: "Monitoraggio operativo della distribuzione con tracciamento delle attività.", icon: "", p: 25 },
-      { id: "photo_proof", oldIds: ["foto", "photo_proof", "foto_localizzate", "photo_report_advanced"], l: "Foto localizzate", d: "Prove fotografiche con data, zona e riferimento operativo.", icon: "", p: 35 },
-      { id: "printing", oldIds: ["stampa", "printing"], l: "Stampa materiale", d: "Produzione del materiale prima della distribuzione.", icon: "", p: Math.ceil((flyerQty || 10000) / 1000) * 12 },
-      { id: "graphic_design", oldIds: ["graphic_design", "grafica_progetto"], l: "Grafica", d: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", icon: "palette", p: 79 },
-      { id: "design", oldIds: ["grafica", "design", "preparazione_grafica"], l: "Preparazione grafica", d: "Supporto per preparazione o adattamento del file grafico.", icon: "", p: 49 },
-      { id: "quality_control", oldIds: ["quality", "quality_control", "controllo_qualita"], l: "Controllo qualità", d: "Verifica aggiuntiva sulla corretta esecuzione della distribuzione.", icon: "", p: 25 },
-      { id: "operator_support", oldIds: ["operator", "operator_support", "supporto_operatore"], l: "Supporto operatore", d: "Assistenza diretta per configurazione, pianificazione o conferma campagna.", icon: "", p: 39 },
-      { id: "urgent_distribution", oldIds: ["urgent", "urgent_distribution", "distribuzione_urgente"], l: "Distribuzione urgente", d: "Gestione prioritaria della campagna in tempi ridotti.", icon: "", p: 0, isUrgent: true },
-      { id: "puntiVetrina", oldIds: [], l: "Punti Vetrina", d: "Punti vetrina (bar/negozi) selezionati dal nostro team, fino a 5 punti inclusi.", icon: "shop", p: 35 },
-      { id: "dedicated_supervision", oldIds: ["dedicated_supervision", "supervisione_dedicata"], l: "Supervisione Dedicata", d: "Un referente segue la tua campagna e interviene in caso di anomalie. Contattalo direttamente se hai bisogno.", icon: "eye", p: dedicatedSupervisionPrice }
-    ];
     const currentServices = [
       ...(data.extraServices || []),
       ...(data.printServices || []),
       ...(data.urgency === "urgent" ? ["urgent"] : [])
     ];
 
-    return mapping.filter(ext =>
-      ext.oldIds.some(oid => currentServices.includes(oid)) ||
+    return SELECTED_EXTRAS_ORDER.map(id => EXTRA_SERVICES_BY_ID[id]).filter(ext =>
+      ext.legacyIds.some(oid => currentServices.includes(oid)) ||
       data[ext.id] === true
     ).map(ext => ({
       id: ext.id,
-      label: ext.l,
-      description: ext.d,
-      price: ext.p,
-      icon: ext.icon,
-      status: ext.isUrgent ? "selected" : (ext.p === 0 ? "included" : "selected"),
+      label: ext.mappingLabel,
+      description: ext.mappingDescription,
+      price: ext.price,
+      icon: ext.mappingIcon,
+      status: ext.isUrgent ? "selected" : (ext.price === 0 ? "included" : "selected"),
       isUrgent: ext.isUrgent
     }));
   };
 const selectedExtras = normalizeSelectedExtras(data);
 const selectedExtraIds = selectedExtras.map(s => s.id);
-const optionalExtras = [
-    { id: "graphic_design", addId: "graphic_design", removeIds: ["graphic_design", "grafica_progetto"], label: "Grafica", description: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", micro: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", icon: "GRAPHIC", price: 79 },
-    { id: "tracking_gps", addId: "gps", removeIds: ["gps", "tracking_gps", "gps_default"], label: "Tracking GPS Live", description: "Tracciamento operativo e timeline distributori.", micro: "Mostra avanzamento e operatori sulla mappa.", icon: "GPS", price: 25 },
-    { id: "photo_proof", addId: "photo_report_advanced", removeIds: ["foto", "photo_proof", "foto_localizzate", "photo_report_advanced"], label: "Report Fotografico", description: "Proof fotografici con data e zona.", micro: "Foto geolocalizzate con data e ora.", icon: "PHOTO", price: 35 },
-    { id: "dedicated_supervision", addId: "dedicated_supervision", removeIds: ["dedicated_supervision", "supervisione_dedicata"], label: "Supervisione Dedicata", description: "Un referente segue la tua campagna e interviene in caso di anomalie. Contattalo direttamente se hai bisogno.", micro: campaignDurationKnown ? "Consigliato se attivi anche Tracking GPS Live." : "Consigliato se attivi anche Tracking GPS Live. Prezzo indicativo, confermato in base alla durata effettiva.", icon: "SUPERVISION", price: dedicatedSupervisionPrice },
-  ];
+const optionalExtras = OPTIONAL_EXTRAS_ORDER.map(id => EXTRA_SERVICES_BY_ID[id]).map(ext => ({
+    id: ext.id,
+    addId: ext.addId,
+    removeIds: ext.legacyIds,
+    label: ext.head,
+    description: ext.optionalDescription,
+    micro: ext.optionalMicro,
+    icon: ext.optionalIcon,
+    price: ext.price,
+  }));
 const addOptionalExtra = (id) => setData(d => ({...d, extraServices: [...new Set([...(d.extraServices || []), id])] }));
 const removeOptionalExtra = (ext) => setData(d => {
     const removeSet = new Set([ext.id, ext.addId, ...(ext.removeIds || [])].filter(Boolean));
