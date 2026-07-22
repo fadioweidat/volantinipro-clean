@@ -103,8 +103,12 @@ export function TrackingPage({ campaignId, comuneName }) {
 
   useEffect(() => {
     if (!outOfZone) return;
-    console.warn('[OPERATOR_OUT_OF_ZONE]', { campaignId, lat: currentPos?.lat, lng: currentPos?.lng });
-  }, [campaignId, currentPos?.lat, currentPos?.lng, outOfZone]);
+    console.warn('[OPERATOR_OUT_OF_ZONE]', {
+      campaignId,
+      hasPosition: Boolean(currentPos),
+      accuracy: currentPos?.accuracy ?? null,
+    });
+  }, [campaignId, currentPos, outOfZone]);
 
   async function runAction(label, fn) {
     setActionError(null);
@@ -166,11 +170,17 @@ export function TrackingPage({ campaignId, comuneName }) {
     const key = 'volantinipro:operator-events';
     const events = readJson(key, []);
     window.localStorage.setItem(key, JSON.stringify([...events, event].slice(-100)));
-    console.warn('[OPERATOR_SOS]', event);
+    console.warn('[OPERATOR_SOS]', {
+      campaignId,
+      operatorName,
+      hasPosition: Boolean(currentPos),
+      recordedAt: event.recordedAt,
+    });
     setSosState('SOS registrato localmente con ultima posizione disponibile.');
   }
 
-  const primaryAction = actionLoading ? `${actionLoading}...` : tracking.isActive ? 'Pausa' : tracking.isPaused ? 'Riprendi' : 'Start lavoro';
+  const assignmentBlocksStart = !tracking.isActive && !tracking.isPaused && tracking.assignmentStatus !== 'ready';
+  const primaryAction = actionLoading ? `${actionLoading}...` : tracking.isActive ? 'Pausa' : tracking.isPaused ? 'Riprendi' : tracking.assignmentStatus === 'loading' ? 'Verifica...' : 'Start lavoro';
 
   return (
     <main style={shellStyle}>
@@ -187,6 +197,7 @@ export function TrackingPage({ campaignId, comuneName }) {
       </header>
 
       {campaignError && <Notice danger text={campaignError} />}
+      {tracking.assignmentError && <Notice id="operator-assignment-error" danger text={tracking.assignmentError} />}
       {tracking.error && <Notice danger text={tracking.error} />}
       {actionError && <Notice danger text={actionError} />}
       {sosState && <Notice text={sosState} />}
@@ -206,6 +217,7 @@ export function TrackingPage({ campaignId, comuneName }) {
           <Telemetry label="GPS" value={tracking.accuracy != null ? `${Math.round(tracking.accuracy)} m` : 'In attesa'} tone={tracking.accuracy != null && tracking.accuracy <= 50 ? 'good' : 'warn'} />
           <Telemetry label="Batteria" value={battery.supported ? `${battery.level}%${battery.charging ? ' · carica' : ''}` : 'Non disponibile'} tone={battery.supported && battery.level < 20 ? 'bad' : 'good'} />
           <Telemetry label="Rete" value={tracking.networkStatus === 'online' ? 'Online' : 'Offline'} tone={tracking.networkStatus === 'online' ? 'good' : 'warn'} />
+          <Telemetry label="Assegnazione" value={assignmentLabel(tracking.assignmentStatus)} tone={tracking.assignmentStatus === 'ready' ? 'good' : tracking.assignmentStatus === 'loading' ? 'warn' : 'bad'} />
           <Telemetry label="Coda offline locale" value={tracking.queueSize} tone={tracking.queueSize ? 'warn' : 'good'} />
         </div>
       </section>
@@ -214,7 +226,8 @@ export function TrackingPage({ campaignId, comuneName }) {
         <button
           type="button"
           style={primaryButtonStyle}
-          disabled={Boolean(actionLoading)}
+          disabled={Boolean(actionLoading) || assignmentBlocksStart}
+          aria-describedby={assignmentBlocksStart && tracking.assignmentError ? 'operator-assignment-error' : undefined}
           onClick={() => runAction(primaryAction, tracking.isActive ? tracking.pause : tracking.isPaused ? tracking.resume : tracking.start)}
         >
           {primaryAction}
@@ -374,8 +387,15 @@ function Telemetry({ label, value, tone }) {
   );
 }
 
-function Notice({ text, danger = false }) {
-  return <div style={{ ...noticeStyle, color: danger ? '#FCA5A5' : '#86EFAC', borderColor: danger ? 'rgba(248,113,113,.35)' : 'rgba(46,204,138,.32)' }}>{text}</div>;
+function Notice({ text, danger = false, id }) {
+  return <div id={id} role={danger ? 'alert' : 'status'} style={{ ...noticeStyle, color: danger ? '#FCA5A5' : '#86EFAC', borderColor: danger ? 'rgba(248,113,113,.35)' : 'rgba(46,204,138,.32)' }}>{text}</div>;
+}
+
+function assignmentLabel(status) {
+  if (status === 'ready') return 'Valida';
+  if (status === 'loading') return 'Verifica';
+  if (status === 'blocked') return 'Bloccata';
+  return 'In attesa';
 }
 
 function normalizeCampaignDetails(campaign, campaignId, fallbackComune) {
