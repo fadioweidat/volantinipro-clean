@@ -103,8 +103,12 @@ export function TrackingPage({ campaignId, comuneName }) {
 
   useEffect(() => {
     if (!outOfZone) return;
-    console.warn('[OPERATOR_OUT_OF_ZONE]', { campaignId, lat: currentPos?.lat, lng: currentPos?.lng });
-  }, [campaignId, currentPos?.lat, currentPos?.lng, outOfZone]);
+    console.warn('[OPERATOR_OUT_OF_ZONE]', {
+      campaignId,
+      hasPosition: Boolean(currentPos),
+      accuracy: currentPos?.accuracy ?? null,
+    });
+  }, [campaignId, currentPos, outOfZone]);
 
   async function runAction(label, fn) {
     setActionError(null);
@@ -166,7 +170,12 @@ export function TrackingPage({ campaignId, comuneName }) {
     const key = 'volantinipro:operator-events';
     const events = readJson(key, []);
     window.localStorage.setItem(key, JSON.stringify([...events, event].slice(-100)));
-    console.warn('[OPERATOR_SOS]', event);
+    console.warn('[OPERATOR_SOS]', {
+      campaignId,
+      operatorName,
+      hasPosition: Boolean(currentPos),
+      recordedAt: event.recordedAt,
+    });
     setSosState('SOS registrato localmente con ultima posizione disponibile.');
   }
 

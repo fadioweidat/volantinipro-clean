@@ -1,8 +1,32 @@
 import { supabase } from '../../supabaseClient.js';
 
 const PROOF_BUCKET = 'proof-photos';
-const DEV_DRIVER_ID = '22222222-2222-2222-2222-222222222222';
 const RETRY_DELAYS_MS = [800, 1800, 4000];
+export const GPS_AUTH_REQUIRED_MESSAGE = 'Accesso operatore richiesto per usare il tracking GPS.';
+export const GPS_DRIVER_MISMATCH_MESSAGE = 'Sessione GPS non coerente con l’utente autenticato.';
+
+export function isPermanentGpsWriteError(error) {
+  if (!error) return false;
+  const status = Number(error.status || error.statusCode || error.code);
+  const code = String(error.code || '').toUpperCase();
+  const message = String(error.message || error.details || error.hint || '').toLowerCase();
+
+  return (
+    status === 401 ||
+    status === 403 ||
+    code === '42501' ||
+    code === 'PGRST301' ||
+    code === 'AUTH_SESSION_MISSING' ||
+    code === 'AUTH_TOKEN_EXPIRED' ||
+    message.includes('accesso operatore richiesto') ||
+    message.includes('sessione gps non coerente') ||
+    message.includes('not authenticated') ||
+    message.includes('auth session missing') ||
+    message.includes('jwt') ||
+    message.includes('permission denied') ||
+    message.includes('row-level security')
+  );
+}
 
 export function isValidUuid(value) {
   return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -18,10 +42,20 @@ async function getCurrentUserId() {
   const { data, error } = await client.auth.getUser();
 
   if (error) {
-    if (import.meta.env.DEV) console.warn('Auth non disponibile, uso driver test.', error);
+    if (import.meta.env.DEV) {
+      console.warn('[GPS_AUTH_USER_ERROR]', {
+        code: error.code || null,
+        status: error.status || null,
+      });
+    }
+    throw new Error(GPS_AUTH_REQUIRED_MESSAGE);
   }
 
-  return data?.user?.id || DEV_DRIVER_ID;
+  if (!data?.user?.id) {
+    throw new Error(GPS_AUTH_REQUIRED_MESSAGE);
+  }
+
+  return data.user.id;
 }
 
 async function withRetry(operation, label = 'operazione Supabase') {
@@ -31,6 +65,7 @@ async function withRetry(operation, label = 'operazione Supabase') {
       return await operation();
     } catch (error) {
       lastError = error;
+      if (isPermanentGpsWriteError(error)) break;
       if (attempt >= RETRY_DELAYS_MS.length) break;
       await sleep(RETRY_DELAYS_MS[attempt]);
     }
@@ -138,7 +173,12 @@ export async function insertGpsPoint({
   recordedAt,
 }) {
   const client = await requireSupabase();
-  const resolvedDriverId = driverId || (await getCurrentUserId());
+  const authenticatedDriverId = await getCurrentUserId();
+  const resolvedDriverId = driverId || authenticatedDriverId;
+
+  if (resolvedDriverId !== authenticatedDriverId) {
+    throw new Error(GPS_DRIVER_MISMATCH_MESSAGE);
+  }
 
   const { data, error } = await withRetry(async () => {
     const result = await client
@@ -160,7 +200,14 @@ export async function insertGpsPoint({
     return result;
   }, 'invio punto GPS');
 
-  if (import.meta.env.DEV) console.log('SUPABASE GPS POINT RESULT', { data, error });
+  if (import.meta.env.DEV) {
+    console.log('SUPABASE GPS POINT RESULT', {
+      success: !error,
+      pointId: data?.id || null,
+      errorCode: error?.code || null,
+      errorStatus: error?.status || null,
+    });
+  }
 
   if (error) throw error;
   return data;
