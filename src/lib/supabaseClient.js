@@ -181,11 +181,26 @@ export async function getCampaignById(id) {
   }
 
   if (!campagna) return null;
-  const gps = await supabaseRequest(`/rest/v1/tracking_gps?campagna_id=eq.${encodeURIComponent(id)}&select=*&order=recorded_at.asc`, {
-    session: getStoredSupabaseSession(),
-    prefer: null,
-  }).catch(() => []);
-  return {...campagna, gps_punti: gps || [] };
+
+  let gps = null;
+  let gpsError = null;
+  try {
+    gps = await supabaseRequest(`/rest/v1/gps_tracking_points?campaign_id=eq.${encodeURIComponent(id)}&select=*&order=recorded_at.asc`, {
+      session: getStoredSupabaseSession(),
+      prefer: null,
+    });
+  } catch (err) {
+    gpsError = err;
+  }
+
+  const gpsRows = Array.isArray(gps) ? gps : [];
+  return {
+    ...campagna,
+    gps_punti: gpsRows,
+    gps_points_source: "gps_tracking_points",
+    gps_points_unavailable: Boolean(gpsError),
+    gps_points_error: gpsError ? gpsError.message || "GPS non disponibile." : null,
+  };
 }
 
 export async function saveSmartPairingWaitlist(payload) {

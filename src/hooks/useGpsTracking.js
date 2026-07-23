@@ -4,8 +4,10 @@ import {
   getActiveGpsSession,
   heartbeatGpsSession,
   insertGpsPoint,
+  isPermanentGpsWriteError,
   pauseGpsSession,
   resumeGpsSession,
+  resolveGpsAssignment,
   startGpsSession,
 } from '../lib/services/gps-api.js';
 
@@ -25,6 +27,12 @@ export function useGpsTracking(campaignId) {
   const [networkStatus, setNetworkStatus] = useState(typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'online');
   const [queueSize, setQueueSize] = useState(0);
   const [wakeLockStatus, setWakeLockStatus] = useState('unsupported');
+  const [assignmentState, setAssignmentState] = useState({
+    status: 'unknown',
+    assignment: null,
+    campaign: null,
+    error: null,
+  });
   const watchIdRef = useRef(null);
   const wakeLockRef = useRef(null);
   const highAccuracyRef = useRef(true);
@@ -114,8 +122,12 @@ export function useGpsTracking(campaignId) {
           setLastPosition(point);
           setAccuracy(point.accuracy ?? payload.accuracy ?? null);
         } catch (err) {
-          remaining.push(queuedPoint);
-          console.warn('Punto GPS rimasto in coda', err);
+          if (!isPermanentGpsWriteError(err)) {
+            remaining.push(queuedPoint);
+            console.warn('Punto GPS rimasto in coda', err);
+          } else {
+            setError(err?.message || 'Invio GPS non autorizzato.');
+          }
         }
       }
       writeQueue(key, remaining);
@@ -170,6 +182,10 @@ export function useGpsTracking(campaignId) {
       setAccuracy(point.accuracy ?? coords.accuracy ?? null);
       setError(null);
     } catch (err) {
+      if (isPermanentGpsWriteError(err)) {
+        setError(err?.message || 'Invio GPS non autorizzato.');
+        return;
+      }
       enqueuePoint(payload);
       setError(`${err?.message || 'Errore invio posizione GPS.'} Punto salvato in coda locale.`);
     } finally {
@@ -217,7 +233,22 @@ export function useGpsTracking(campaignId) {
 
   const start = useCallback(async () => {
     setError(null);
-    const nextSession = await startGpsSession(campaignId);
+    setAssignmentState((prev) => ({ ...prev, status: 'checking', error: null }));
+    let resolved;
+    try {
+      resolved = await resolveGpsAssignment(campaignId);
+    } catch (err) {
+      const message = err?.message || 'Assegnazione GPS non valida.';
+      setAssignmentState({ status: 'invalid', assignment: null, campaign: null, error: message });
+      throw err;
+    }
+    setAssignmentState({
+      status: 'valid',
+      assignment: resolved.assignment,
+      campaign: resolved.campaign,
+      error: null,
+    });
+    const nextSession = await startGpsSession(campaignId, { assignmentId: resolved.assignment.id });
     sessionRef.current = nextSession;
     statusRef.current = 'active';
     setSession(nextSession);
@@ -228,6 +259,32 @@ export function useGpsTracking(campaignId) {
     flushQueue();
     return nextSession;
   }, [campaignId, flushQueue, requestWakeLock, startWatch]);
+
+  const refreshAssignment = useCallback(async () => {
+    if (!campaignId) {
+      setAssignmentState({ status: 'missing', assignment: null, campaign: null, error: 'Campagna non disponibile.' });
+      return null;
+    }
+    setAssignmentState((prev) => ({ ...prev, status: 'checking', error: null }));
+    try {
+      const resolved = await resolveGpsAssignment(campaignId);
+      setAssignmentState({
+        status: 'valid',
+        assignment: resolved.assignment,
+        campaign: resolved.campaign,
+        error: null,
+      });
+      return resolved;
+    } catch (err) {
+      setAssignmentState({
+        status: 'invalid',
+        assignment: null,
+        campaign: null,
+        error: err?.message || 'Assegnazione GPS non valida.',
+      });
+      return null;
+    }
+  }, [campaignId]);
 
   const pause = useCallback(async () => {
     if (!sessionRef.current?.id) return null;
@@ -291,6 +348,10 @@ export function useGpsTracking(campaignId) {
   }, [campaignId, flushQueue, requestWakeLock, startWatch]);
 
   useEffect(() => {
+    refreshAssignment();
+  }, [refreshAssignment]);
+
+  useEffect(() => {
     const onVisibilityChange = () => {
       console.info('GPS visibilitychange', document.visibilityState);
       if (document.visibilityState === 'visible' && statusRef.current === 'active') {
@@ -347,6 +408,8 @@ export function useGpsTracking(campaignId) {
     networkStatus,
     queueSize,
     wakeLockStatus,
+    assignmentState,
+    canStart: assignmentState.status === 'valid',
     isActive: status === 'active',
     isPaused: status === 'paused',
     start,
