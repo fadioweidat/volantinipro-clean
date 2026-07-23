@@ -1,11 +1,8 @@
 import { useMemo, useState } from 'react';
-import { uploadProofPhoto } from '../../lib/services/gps-api.js';
 import { useGpsTracking } from '../../hooks/useGpsTracking.js';
 
 export function TrackingPage({ campaignId }) {
   const tracking = useGpsTracking(campaignId);
-  const [note, setNote] = useState('');
-  const [file, setFile] = useState(null);
   const [uploadState, setUploadState] = useState({ loading: false, message: null, error: null });
 
   const statusLabel = useMemo(() => {
@@ -16,37 +13,19 @@ export function TrackingPage({ campaignId }) {
     return 'Non iniziata';
   }, [tracking.status]);
 
+  const assignmentLabel = useMemo(() => {
+    if (tracking.assignmentState.status === 'valid') return 'Assegnazione valida';
+    if (tracking.assignmentState.status === 'checking') return 'Verifica assegnazione...';
+    if (tracking.assignmentState.status === 'invalid') return 'Assegnazione non valida';
+    return 'Assegnazione da verificare';
+  }, [tracking.assignmentState.status]);
+
   async function handle(action) {
     try {
       setUploadState((prev) => ({ ...prev, error: null }));
       await action();
     } catch (err) {
       setUploadState({ loading: false, message: null, error: err?.message || 'Operazione non riuscita.' });
-    }
-  }
-
-  async function submitProofPhoto(event) {
-    event.preventDefault();
-    if (!file) {
-      setUploadState({ loading: false, message: null, error: 'Seleziona una foto prova.' });
-      return;
-    }
-    setUploadState({ loading: true, message: null, error: null });
-    try {
-      await uploadProofPhoto({
-        campaignId,
-        sessionId: tracking.session?.id,
-        file,
-        lat: tracking.lastPosition?.lat,
-        lng: tracking.lastPosition?.lng,
-        note,
-      });
-      setFile(null);
-      setNote('');
-      event.currentTarget.reset();
-      setUploadState({ loading: false, message: 'Foto prova caricata.', error: null });
-    } catch (err) {
-      setUploadState({ loading: false, message: null, error: err?.message || 'Upload foto non riuscito.' });
     }
   }
 
@@ -62,8 +41,10 @@ export function TrackingPage({ campaignId }) {
         </div>
 
         {tracking.error && <div style={errorStyle}>{tracking.error}</div>}
+        {tracking.assignmentState.error && <div style={errorStyle}>{tracking.assignmentState.error}</div>}
 
         <div style={metricGridStyle}>
+          <Metric label="Assignment" value={assignmentLabel} />
           <Metric label="Accuracy" value={tracking.accuracy != null ? `${Math.round(tracking.accuracy)} m` : 'n/d'} />
           <Metric label="Ultimo invio" value={tracking.lastSentAt ? new Date(tracking.lastSentAt).toLocaleTimeString('it-IT') : 'nessuno'} />
           <Metric label="Sessione" value={tracking.session?.id ? tracking.session.id.slice(0, 8) : 'non avviata'} />
@@ -74,7 +55,7 @@ export function TrackingPage({ campaignId }) {
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {tracking.status === 'idle' || tracking.status === 'completed' || tracking.status === 'permission_error' ? (
-            <button style={primaryButtonStyle} type="button" onClick={() => handle(tracking.start)}>
+            <button style={primaryButtonStyle} type="button" onClick={() => handle(tracking.start)} disabled={!tracking.canStart}>
               Inizia distribuzione
             </button>
           ) : null}
@@ -109,24 +90,7 @@ export function TrackingPage({ campaignId }) {
         )}
       </section>
 
-      <section style={cardStyle}>
-        <p style={eyebrowStyle}>Foto prova e note operative</p>
-        <form onSubmit={submitProofPhoto} style={{ display: 'grid', gap: 12 }}>
-          <input type="file" accept="image/*" capture="environment" onChange={(event) => setFile(event.target.files?.[0] || null)} />
-          <textarea
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            placeholder="Note operative"
-            rows={4}
-            style={inputStyle}
-          />
-          <button style={primaryButtonStyle} type="submit" disabled={uploadState.loading}>
-            {uploadState.loading ? 'Caricamento...' : 'Carica foto prova'}
-          </button>
-        </form>
-        {uploadState.message && <div style={successStyle}>{uploadState.message}</div>}
-        {uploadState.error && <div style={errorStyle}>{uploadState.error}</div>}
-      </section>
+      {uploadState.error && <div style={errorStyle}>{uploadState.error}</div>}
     </GpsShell>
   );
 }
@@ -175,10 +139,8 @@ const cardStyle = { background: '#fff', border: '1px solid #d7ded9', borderRadiu
 const eyebrowStyle = { margin: '0 0 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: '#64748b', fontWeight: 900 };
 const metricGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10, margin: '14px 0' };
 const metricStyle = { display: 'grid', gap: 4, padding: 12, background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0' };
-const inputStyle = { width: '100%', border: '1px solid #cbd5e1', borderRadius: 10, padding: 12, font: 'inherit' };
 const primaryButtonStyle = { border: 'none', borderRadius: 10, padding: '12px 16px', background: '#e8571a', color: '#fff', fontWeight: 900, cursor: 'pointer' };
 const secondaryButtonStyle = { border: '1px solid #cbd5e1', borderRadius: 10, padding: '12px 16px', background: '#fff', color: '#17211f', fontWeight: 900, cursor: 'pointer' };
 const dangerButtonStyle = { border: 'none', borderRadius: 10, padding: '12px 16px', background: '#b91c1c', color: '#fff', fontWeight: 900, cursor: 'pointer' };
 const pillStyle = { display: 'inline-flex', border: '1px solid', borderRadius: 999, padding: '6px 10px', fontSize: 12, fontWeight: 900 };
 const errorStyle = { marginTop: 12, padding: 12, borderRadius: 10, color: '#991b1b', background: '#fee2e2', border: '1px solid #fecaca' };
-const successStyle = { marginTop: 12, padding: 12, borderRadius: 10, color: '#166534', background: '#dcfce7', border: '1px solid #bbf7d0' };
