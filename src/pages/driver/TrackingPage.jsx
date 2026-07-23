@@ -16,6 +16,19 @@ export function TrackingPage({ campaignId }) {
     return 'Non iniziata';
   }, [tracking.status]);
 
+  const assignmentLabel = useMemo(() => {
+    if (tracking.assignmentStatus === 'ready') return 'Assegnazione valida';
+    if (tracking.assignmentStatus === 'loading') return 'Verifica assegnazione...';
+    if (tracking.assignmentStatus === 'blocked') return 'Assegnazione bloccata';
+    return 'Assegnazione non verificata';
+  }, [tracking.assignmentStatus]);
+
+  const canStart = tracking.isAssignmentReady && (
+    tracking.status === 'idle' ||
+    tracking.status === 'completed' ||
+    tracking.status === 'permission_error'
+  );
+
   async function handle(action) {
     try {
       setUploadState((prev) => ({ ...prev, error: null }));
@@ -62,8 +75,11 @@ export function TrackingPage({ campaignId }) {
         </div>
 
         {tracking.error && <div style={errorStyle}>{tracking.error}</div>}
+        {tracking.assignmentError && <div style={errorStyle}>{tracking.assignmentError}</div>}
 
         <div style={metricGridStyle}>
+          <Metric label="Assignment" value={assignmentLabel} />
+          <Metric label="ID assignment" value={tracking.assignment?.id ? tracking.assignment.id.slice(0, 8) : 'n/d'} />
           <Metric label="Accuracy" value={tracking.accuracy != null ? `${Math.round(tracking.accuracy)} m` : 'n/d'} />
           <Metric label="Ultimo invio" value={tracking.lastSentAt ? new Date(tracking.lastSentAt).toLocaleTimeString('it-IT') : 'nessuno'} />
           <Metric label="Sessione" value={tracking.session?.id ? tracking.session.id.slice(0, 8) : 'non avviata'} />
@@ -74,8 +90,8 @@ export function TrackingPage({ campaignId }) {
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {tracking.status === 'idle' || tracking.status === 'completed' || tracking.status === 'permission_error' ? (
-            <button style={primaryButtonStyle} type="button" onClick={() => handle(tracking.start)}>
-              Inizia distribuzione
+            <button style={primaryButtonStyle} type="button" onClick={() => handle(tracking.start)} disabled={!canStart}>
+              {tracking.assignmentStatus === 'loading' ? 'Verifica assegnazione...' : 'Inizia distribuzione'}
             </button>
           ) : null}
           {tracking.status === 'active' && (

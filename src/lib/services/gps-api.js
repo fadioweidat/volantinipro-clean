@@ -1,8 +1,55 @@
 import { supabase } from '../../supabaseClient.js';
 
 const PROOF_BUCKET = 'proof-photos';
-const DEV_DRIVER_ID = '22222222-2222-2222-2222-222222222222';
 const RETRY_DELAYS_MS = [800, 1800, 4000];
+export const GPS_AUTH_REQUIRED_MESSAGE = 'Accesso operatore richiesto per usare il tracking GPS.';
+export const GPS_DRIVER_MISMATCH_MESSAGE = 'Sessione GPS non coerente con l’utente autenticato.';
+export const GPS_ASSIGNMENT_REQUIRED_MESSAGE = 'Assegnazione operatore valida richiesta per avviare il tracking GPS.';
+
+export const GPS_ASSIGNMENT_ERROR_MESSAGES = {
+  operator_auth_required: GPS_AUTH_REQUIRED_MESSAGE,
+  operator_profile_missing: 'Profilo operatore non trovato.',
+  operator_suspended: 'Profilo operatore sospeso.',
+  operator_archived: 'Profilo operatore archiviato.',
+  assignment_missing: 'Nessuna assegnazione attiva per questa campagna.',
+  assignment_revoked: 'Assegnazione revocata.',
+  assignment_completed: 'Assegnazione completata.',
+  assignment_not_started: 'La finestra operativa non è ancora iniziata.',
+  assignment_expired: 'La finestra operativa è scaduta.',
+  assignment_ambiguous: 'Più assegnazioni valide trovate: contatta un amministratore.',
+  assignment_access_denied: 'Assegnazione non leggibile per questo operatore.',
+  assignment_invalid_campaign: 'Campagna non valida per il tracking GPS.',
+};
+
+export function isPermanentGpsWriteError(error) {
+  if (!error) return false;
+  const status = Number(error.status || error.statusCode || error.code);
+  const code = String(error.code || '').toUpperCase();
+  const message = String(error.message || error.details || error.hint || '').toLowerCase();
+
+  return (
+    status === 401 ||
+    status === 403 ||
+    code === '42501' ||
+    code === 'PGRST301' ||
+    code === 'AUTH_SESSION_MISSING' ||
+    code === 'AUTH_TOKEN_EXPIRED' ||
+    message.includes('accesso operatore richiesto') ||
+    message.includes('sessione gps non coerente') ||
+    message.includes('assegnazione operatore valida richiesta') ||
+    message.includes('assegnazione non leggibile') ||
+    message.includes('nessuna assegnazione attiva') ||
+    message.includes('not authenticated') ||
+    message.includes('auth session missing') ||
+    message.includes('jwt') ||
+    message.includes('permission denied') ||
+    message.includes('row-level security')
+  );
+}
+
+export function isValidUuid(value) {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
 
 async function requireSupabase() {
   if (!supabase) throw new Error('Supabase non configurato.');
@@ -14,10 +61,27 @@ async function getCurrentUserId() {
   const { data, error } = await client.auth.getUser();
 
   if (error) {
-    console.warn('Auth non disponibile, uso driver test.', error);
+    if (import.meta.env.DEV) {
+      console.warn('[GPS_AUTH_USER_ERROR]', {
+        code: error.code || null,
+        status: error.status || null,
+      });
+    }
+    throw new Error(GPS_AUTH_REQUIRED_MESSAGE);
   }
 
-  return data?.user?.id || DEV_DRIVER_ID;
+  if (!data?.user?.id) {
+    throw new Error(GPS_AUTH_REQUIRED_MESSAGE);
+  }
+
+  return data.user.id;
+}
+
+function assignmentError(code, detail = {}) {
+  const error = new Error(GPS_ASSIGNMENT_ERROR_MESSAGES[code] || GPS_ASSIGNMENT_REQUIRED_MESSAGE);
+  error.code = code;
+  error.detail = detail;
+  return error;
 }
 
 async function withRetry(operation, label = 'operazione Supabase') {
@@ -27,6 +91,7 @@ async function withRetry(operation, label = 'operazione Supabase') {
       return await operation();
     } catch (error) {
       lastError = error;
+      if (isPermanentGpsWriteError(error)) break;
       if (attempt >= RETRY_DELAYS_MS.length) break;
       await sleep(RETRY_DELAYS_MS[attempt]);
     }
@@ -38,25 +103,121 @@ function sleep(ms) {
   return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
 }
 
-export async function startGpsSession(campaignId) {
+export async function getCurrentOperatorProfile() {
+  const client = await requireSupabase();
+  const operatorId = await getCurrentUserId();
+
+  const { data, error } = await client
+    .from('operator_profiles')
+    .select('*')
+    .eq('id', operatorId)
+    .maybeSingle();
+
+  if (error) {
+    const nextError = assignmentError('assignment_access_denied', {
+      status: error.status || null,
+      code: error.code || null,
+    });
+    nextError.cause = error;
+    throw nextError;
+  }
+
+  if (!data) throw assignmentError('operator_profile_missing');
+  return data;
+}
+
+export async function getValidOperatorAssignments(campaignId) {
+  if (!isValidUuid(campaignId)) throw assignmentError('assignment_invalid_campaign');
+
+  const client = await requireSupabase();
+  const operatorId = await getCurrentUserId();
+
+  const { data, error } = await client
+    .from('operator_assignments')
+    .select('*')
+    .eq('operator_id', operatorId)
+    .eq('campaign_id', campaignId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    const nextError = assignmentError('assignment_access_denied', {
+      status: error.status || null,
+      code: error.code || null,
+    });
+    nextError.cause = error;
+    throw nextError;
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
+export async function resolveGpsAssignment(campaignId) {
+  if (!isValidUuid(campaignId)) throw assignmentError('assignment_invalid_campaign');
+
+  const profile = await getCurrentOperatorProfile();
+  if (profile.status === 'suspended') throw assignmentError('operator_suspended');
+  if (profile.status === 'archived') throw assignmentError('operator_archived');
+  if (profile.status && profile.status !== 'active') {
+    throw assignmentError('operator_profile_missing', { status: profile.status });
+  }
+
+  const assignments = await getValidOperatorAssignments(campaignId);
+  if (!assignments.length) throw assignmentError('assignment_missing');
+
+  const now = Date.now();
+  const active = assignments.filter((assignment) => assignment.status === 'active');
+  const valid = active.filter((assignment) => {
+    const startsAt = assignment.starts_at ? Date.parse(assignment.starts_at) : null;
+    const endsAt = assignment.ends_at ? Date.parse(assignment.ends_at) : null;
+    return (!Number.isFinite(startsAt) || startsAt <= now) && (!Number.isFinite(endsAt) || endsAt > now);
+  });
+
+  if (valid.length === 1) {
+    return { profile, assignment: valid[0], assignments };
+  }
+  if (valid.length > 1) throw assignmentError('assignment_ambiguous', { count: valid.length });
+
+  if (assignments.every((assignment) => assignment.status === 'revoked')) throw assignmentError('assignment_revoked');
+  if (assignments.every((assignment) => assignment.status === 'completed')) throw assignmentError('assignment_completed');
+  if (active.length && active.every((assignment) => assignment.starts_at && Date.parse(assignment.starts_at) > now)) {
+    throw assignmentError('assignment_not_started');
+  }
+  if (active.length && active.every((assignment) => assignment.ends_at && Date.parse(assignment.ends_at) <= now)) {
+    throw assignmentError('assignment_expired');
+  }
+
+  throw assignmentError('assignment_missing');
+}
+
+export async function startGpsSession(campaignId, { assignmentId } = {}) {
   const client = await requireSupabase();
   const driverId = await getCurrentUserId();
   const now = new Date().toISOString();
 
-  console.log('START GPS SESSION', { campaignId, driverId });
+  if (!isValidUuid(assignmentId)) throw assignmentError('assignment_missing');
+
+  if (import.meta.env.DEV) console.log('START GPS SESSION', { campaignId, hasAssignment: true });
 
   const { data, error } = await client
     .from('delivery_sessions')
     .insert({
       campaign_id: campaignId,
       driver_id: driverId,
+      assignment_id: assignmentId,
       status: 'started',
       started_at: now,
     })
     .select('*')
     .single();
 
-  console.log('SUPABASE SESSION RESULT', { data, error });
+  if (import.meta.env.DEV) {
+    console.log('SUPABASE SESSION RESULT', {
+      success: !error,
+      sessionId: data?.id || null,
+      errorCode: error?.code || null,
+      errorStatus: error?.status || null,
+    });
+  }
 
   if (error) throw error;
   return data;
@@ -66,16 +227,18 @@ export async function getActiveGpsSession(campaignId) {
   const client = await requireSupabase();
   const driverId = await getCurrentUserId();
 
-  const { data, error } = await client
-    .from('delivery_sessions')
-    .select('*')
-    .eq('campaign_id', campaignId)
+  let query = client.from('delivery_sessions').select('*');
+  if (campaignId && campaignId !== 'all' && isValidUuid(campaignId)) {
+    query = query.eq('campaign_id', campaignId);
+  }
+  query = query
     .eq('driver_id', driverId)
     .in('status', ['started', 'paused'])
     .order('started_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) throw error;
   return data || null;
@@ -128,7 +291,12 @@ export async function insertGpsPoint({
   recordedAt,
 }) {
   const client = await requireSupabase();
-  const resolvedDriverId = driverId || (await getCurrentUserId());
+  const authenticatedDriverId = await getCurrentUserId();
+  const resolvedDriverId = driverId || authenticatedDriverId;
+
+  if (resolvedDriverId !== authenticatedDriverId) {
+    throw new Error(GPS_DRIVER_MISMATCH_MESSAGE);
+  }
 
   const { data, error } = await withRetry(async () => {
     const result = await client
@@ -150,7 +318,14 @@ export async function insertGpsPoint({
     return result;
   }, 'invio punto GPS');
 
-  console.log('SUPABASE GPS POINT RESULT', { data, error });
+  if (import.meta.env.DEV) {
+    console.log('SUPABASE GPS POINT RESULT', {
+      success: !error,
+      pointId: data?.id || null,
+      errorCode: error?.code || null,
+      errorStatus: error?.status || null,
+    });
+  }
 
   if (error) throw error;
   return data;
@@ -179,10 +354,14 @@ export async function getCampaignGpsPoints(campaignId, { sessionId } = {}) {
   let query = client
     .from('gps_tracking_points')
     .select('*')
-    .eq('campaign_id', campaignId)
     .order('recorded_at', { ascending: true });
 
-  if (sessionId) query = query.eq('session_id', sessionId);
+  if (campaignId && campaignId !== 'all' && isValidUuid(campaignId)) {
+    query = query.eq('campaign_id', campaignId);
+  }
+  if (sessionId && sessionId !== 'all' && isValidUuid(sessionId)) {
+    query = query.eq('session_id', sessionId);
+  }
 
   const { data, error } = await query;
 
@@ -193,11 +372,16 @@ export async function getCampaignGpsPoints(campaignId, { sessionId } = {}) {
 export async function getCampaignGpsSessions(campaignId) {
   const client = await requireSupabase();
 
-  const { data, error } = await client
+  let query = client
     .from('delivery_sessions')
     .select('*')
-    .eq('campaign_id', campaignId)
     .order('created_at', { ascending: false });
+
+  if (campaignId && campaignId !== 'all' && isValidUuid(campaignId)) {
+    query = query.eq('campaign_id', campaignId);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data || [];
@@ -209,8 +393,11 @@ export async function getCampaignProofPhotos(campaignId, { approvedOnly = false 
   let query = client
     .from('proof_photos')
     .select('*')
-    .eq('campaign_id', campaignId)
     .order('created_at', { ascending: false });
+
+  if (campaignId && campaignId !== 'all' && isValidUuid(campaignId)) {
+    query = query.eq('campaign_id', campaignId);
+  }
 
   if (approvedOnly) query = query.not('approved_at', 'is', null);
 
@@ -286,7 +473,7 @@ function safeJson(value) {
 
 export async function getSessionPath(sessionId) {
   const client = await requireSupabase();
-  if (!sessionId) return [];
+  if (!sessionId || sessionId === 'all' || !isValidUuid(sessionId)) return [];
   const { data, error } = await client
     .from('gps_tracking_points')
     .select('*')
@@ -298,8 +485,8 @@ export async function getSessionPath(sessionId) {
 
 export async function getCampaignRecord(campaignId) {
   const client = await requireSupabase();
-  if (!campaignId) return null;
-  const tables = ['campaigns', 'campagne', 'quote_requests'];
+  if (!campaignId || campaignId === 'all' || !isValidUuid(campaignId)) return null;
+  const tables = ['campaigns', 'campagne'];
   for (const table of tables) {
     const { data, error } = await client.from(table).select('*').eq('id', campaignId).maybeSingle();
     if (!error && data) return data;

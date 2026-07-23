@@ -181,11 +181,28 @@ export async function getCampaignById(id) {
   }
 
   if (!campagna) return null;
-  const gps = await supabaseRequest(`/rest/v1/tracking_gps?campagna_id=eq.${encodeURIComponent(id)}&select=*&order=recorded_at.asc`, {
-    session: getStoredSupabaseSession(),
-    prefer: null,
-  }).catch(() => []);
-  return {...campagna, gps_punti: gps || [] };
+  let gps = null;
+  let gpsError = null;
+  try {
+    gps = await supabaseRequest(`/rest/v1/gps_tracking_points?campaign_id=eq.${encodeURIComponent(id)}&select=*&order=recorded_at.asc`, {
+      session: getStoredSupabaseSession(),
+      prefer: null,
+    });
+  } catch (err) {
+    gpsError = {
+      message: err?.message || "Tracking GPS non disponibile.",
+      status: err?.status || null,
+      code: err?.code || null,
+    };
+    console.warn("Errore caricamento tracking GPS moderno:", gpsError);
+  }
+  return {
+    ...campagna,
+    gps_punti: Array.isArray(gps) ? gps : null,
+    gps_points_source: "gps_tracking_points",
+    gps_points_unavailable: !Array.isArray(gps),
+    gps_points_error: gpsError,
+  };
 }
 
 export async function saveSmartPairingWaitlist(payload) {

@@ -4,8 +4,10 @@ import {
   getActiveGpsSession,
   heartbeatGpsSession,
   insertGpsPoint,
+  isPermanentGpsWriteError,
   pauseGpsSession,
   resumeGpsSession,
+  resolveGpsAssignment,
   startGpsSession,
 } from '../lib/services/gps-api.js';
 
@@ -25,10 +27,14 @@ export function useGpsTracking(campaignId) {
   const [networkStatus, setNetworkStatus] = useState(typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'online');
   const [queueSize, setQueueSize] = useState(0);
   const [wakeLockStatus, setWakeLockStatus] = useState('unsupported');
+  const [assignmentStatus, setAssignmentStatus] = useState('idle');
+  const [assignmentError, setAssignmentError] = useState(null);
+  const [assignment, setAssignment] = useState(null);
   const watchIdRef = useRef(null);
   const wakeLockRef = useRef(null);
   const highAccuracyRef = useRef(true);
   const sessionRef = useRef(null);
+  const assignmentRef = useRef(null);
   const statusRef = useRef('idle');
   const lastSentRef = useRef({ at: 0, lat: null, lng: null });
   const sendingRef = useRef(false);
@@ -42,6 +48,10 @@ export function useGpsTracking(campaignId) {
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
+
+  useEffect(() => {
+    assignmentRef.current = assignment;
+  }, [assignment]);
 
   useEffect(() => {
     statusRef.current = status;
@@ -93,6 +103,43 @@ export function useGpsTracking(campaignId) {
     setQueueSize(queue.length);
   }, []);
 
+  const clearQueuedPoints = useCallback(() => {
+    const key = queueKeyRef.current;
+    if (!key) return;
+    writeQueue(key, []);
+    setQueueSize(0);
+  }, []);
+
+  const loadAssignment = useCallback(async () => {
+    if (!campaignId) {
+      setAssignment(null);
+      setAssignmentStatus('idle');
+      setAssignmentError(null);
+      return null;
+    }
+
+    setAssignmentStatus('loading');
+    setAssignmentError(null);
+    try {
+      const result = await resolveGpsAssignment(campaignId);
+      assignmentRef.current = result.assignment;
+      setAssignment(result.assignment);
+      setAssignmentStatus('ready');
+      console.info('[OPERATOR_ASSIGNMENT_READY]', { campaignId, assignmentId: result.assignment?.id || null });
+      return result.assignment;
+    } catch (err) {
+      assignmentRef.current = null;
+      setAssignment(null);
+      setAssignmentStatus('blocked');
+      setAssignmentError(err?.message || 'Assegnazione operatore non valida.');
+      console.warn('[OPERATOR_ASSIGNMENT_BLOCKED]', {
+        campaignId,
+        reason: err?.code || 'assignment_invalid',
+      });
+      return null;
+    }
+  }, [campaignId]);
+
   const flushQueue = useCallback(async () => {
     const key = queueKeyRef.current;
     if (!key || sendingRef.current || navigator.onLine === false) return;
@@ -114,8 +161,24 @@ export function useGpsTracking(campaignId) {
           setLastPosition(point);
           setAccuracy(point.accuracy ?? payload.accuracy ?? null);
         } catch (err) {
+          if (isPermanentGpsWriteError(err)) {
+            clearQueuedPoints();
+            setStatus('permission_error');
+            setError(err?.message || 'Accesso operatore richiesto per inviare il tracking GPS.');
+            stopWatch();
+            await releaseWakeLock();
+            console.warn('[OPERATOR_GPS_WRITE_BLOCKED]', {
+              campaignId,
+              reason: 'auth_or_rls',
+              queuedPointsDiscarded: queue.length,
+            });
+            return;
+          }
           remaining.push(queuedPoint);
-          console.warn('Punto GPS rimasto in coda', err);
+          console.warn('[OPERATOR_GPS_QUEUE_RETRY]', {
+            campaignId,
+            reason: err?.code || err?.status || 'transient_error',
+          });
         }
       }
       writeQueue(key, remaining);
@@ -124,7 +187,7 @@ export function useGpsTracking(campaignId) {
     } finally {
       sendingRef.current = false;
     }
-  }, []);
+  }, [campaignId, clearQueuedPoints, releaseWakeLock, stopWatch]);
 
   const sendPosition = useCallback(async (position) => {
     const activeSession = sessionRef.current;
@@ -170,12 +233,20 @@ export function useGpsTracking(campaignId) {
       setAccuracy(point.accuracy ?? coords.accuracy ?? null);
       setError(null);
     } catch (err) {
+      if (isPermanentGpsWriteError(err)) {
+        clearQueuedPoints();
+        setStatus('permission_error');
+        setError(err?.message || 'Accesso operatore richiesto per inviare il tracking GPS.');
+        stopWatch();
+        await releaseWakeLock();
+        return;
+      }
       enqueuePoint(payload);
       setError(`${err?.message || 'Errore invio posizione GPS.'} Punto salvato in coda locale.`);
     } finally {
       sendingRef.current = false;
     }
-  }, [campaignId, enqueuePoint]);
+  }, [campaignId, clearQueuedPoints, enqueuePoint, releaseWakeLock, stopWatch]);
 
   const startWatch = useCallback((forceHighAccuracy = highAccuracyRef.current) => {
     if (!navigator.geolocation) {
@@ -217,17 +288,24 @@ export function useGpsTracking(campaignId) {
 
   const start = useCallback(async () => {
     setError(null);
-    const nextSession = await startGpsSession(campaignId);
+    const resolvedAssignment = assignmentRef.current || await loadAssignment();
+    if (!resolvedAssignment?.id) {
+      setStatus('permission_error');
+      setError(assignmentError || 'Assegnazione operatore valida richiesta per avviare il tracking GPS.');
+      return null;
+    }
+    const nextSession = await startGpsSession(campaignId, { assignmentId: resolvedAssignment.id });
     sessionRef.current = nextSession;
     statusRef.current = 'active';
     setSession(nextSession);
     setStatus('active');
     lastSentRef.current = { at: 0, lat: null, lng: null };
+    console.info('[OPERATOR_WORK_START]', { campaignId, sessionId: nextSession?.id, assignmentId: resolvedAssignment.id });
     await requestWakeLock();
     startWatch();
     flushQueue();
     return nextSession;
-  }, [campaignId, flushQueue, requestWakeLock, startWatch]);
+  }, [assignmentError, campaignId, flushQueue, loadAssignment, requestWakeLock, startWatch]);
 
   const pause = useCallback(async () => {
     if (!sessionRef.current?.id) return null;
@@ -236,10 +314,11 @@ export function useGpsTracking(campaignId) {
     statusRef.current = 'paused';
     setSession(updated);
     setStatus('paused');
+    console.info('[OPERATOR_WORK_PAUSE]', { campaignId, sessionId: updated?.id });
     stopWatch();
     await releaseWakeLock();
     return updated;
-  }, [releaseWakeLock, stopWatch]);
+  }, [campaignId, releaseWakeLock, stopWatch]);
 
   const resume = useCallback(async () => {
     if (!sessionRef.current?.id) return null;
@@ -248,11 +327,12 @@ export function useGpsTracking(campaignId) {
     statusRef.current = 'active';
     setSession(updated);
     setStatus('active');
+    console.info('[OPERATOR_WORK_RESUME]', { campaignId, sessionId: updated?.id });
     await requestWakeLock();
     startWatch();
     flushQueue();
     return updated;
-  }, [flushQueue, requestWakeLock, startWatch]);
+  }, [campaignId, flushQueue, requestWakeLock, startWatch]);
 
   const end = useCallback(async () => {
     if (!sessionRef.current?.id) return null;
@@ -262,12 +342,14 @@ export function useGpsTracking(campaignId) {
     statusRef.current = 'completed';
     setSession(updated);
     setStatus('completed');
+    console.info('[OPERATOR_WORK_STOP]', { campaignId, sessionId: updated?.id });
     await releaseWakeLock();
     return updated;
-  }, [releaseWakeLock, stopWatch]);
+  }, [campaignId, releaseWakeLock, stopWatch]);
 
   useEffect(() => {
     let cancelled = false;
+    loadAssignment();
     async function resumeExistingSession() {
       if (!campaignId) return;
       try {
@@ -288,7 +370,7 @@ export function useGpsTracking(campaignId) {
     return () => {
       cancelled = true;
     };
-  }, [campaignId, flushQueue, requestWakeLock, startWatch]);
+  }, [campaignId, flushQueue, loadAssignment, requestWakeLock, startWatch]);
 
   useEffect(() => {
     const onVisibilityChange = () => {
@@ -347,6 +429,10 @@ export function useGpsTracking(campaignId) {
     networkStatus,
     queueSize,
     wakeLockStatus,
+    assignment,
+    assignmentStatus,
+    assignmentError,
+    isAssignmentReady: assignmentStatus === 'ready',
     isActive: status === 'active',
     isPaused: status === 'paused',
     start,
