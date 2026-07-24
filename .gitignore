@@ -111,5 +111,10 @@ data/**/*.sqlite
 
 # SQL / BACKUPS
 *.sql
+!supabase/migrations/202607230001_campaign_zone_progress.sql
+!tests/fixtures/gps_prod_zone_progress_baseline.sql
+!tests/gps_prod_zone_progress_schema_contract.sql
+!tests/gps_prod_zone_progress_rpc_contract.sql
+!tests/gps_prod_zone_progress_behavior_contract.sql
 backup/
 backups/
