@@ -972,8 +972,8 @@ const kpis = [
 
 
 
-function HomePage({onStart:n}){const i=()=>document.getElementById("come-funziona")?.scrollIntoView({behavior:"smooth",block:"start"}),[r,l]=useState(!1),[u,h]=useState({city:"",qty:"5000",service:"Door to Door"}),f=Math.max(180,Math.round((Number(u.qty)||0)*(u.service==="Door to Door" ?.13 : u.service==="Hand to Hand" ?.18 :.22))),m=[{t:"Piattaforma",items:[["Configuratore","step1"],["Preventivo rapido","quick"],["Come funziona","home"],["Tracking GPS","campaign"]]},{t:"Servizi",items:[["Door to Door","step1"],["Hand to Hand","step1"],["Business Distribution","step1"],["Report campagna","campaign"]]},{t:"Risorse",items:[["Servizi","home"],["Supporto","consultant"],["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]]}];useEffect(()=>{const D=()=>l(window.innerWidth<760);return D(),window.addEventListener("resize",D),()=>window.removeEventListener("resize",D)},[]);const[kpiBandVisible,setKpiBandVisible]=useState(!0),kpiBandRef=useRef(null);useEffect(()=>{const D=kpiBandRef.current;if(!D)return;const W=new IntersectionObserver(([A])=>{A.isIntersecting&&(setKpiBandVisible(!0),W.disconnect())},{threshold:.25});return W.observe(D),()=>W.disconnect()},[]);
-const x=[{value:"Famiglie",l:"Abitazioni stimate",src:"Fonti territoriali",term:"Famiglie"},{value:"Zone",l:"Aree coperte",src:"Mappa e raggio",term:"Zone"},{value:"GPS",l:"Monitoraggio stradale",src:"Verifica campo",term:"GPS"},{value:"Report",l:"Documento finale",src:"Output verificabile",term:"Report PDF"}],w=["Dati ISTAT ufficiali","GPS certificato","No vincoli mensili"],j=["Retail locale","Food locale","Casa e servizi","Fitness locale","Attività locale"],T=[{n:"01",t:"Configura campagna",d:"Scegli servizio, quantità, formato, stampa e frequenza della distribuzione.",b:"Servizio + quantità",c:"#E8571A"},{n:"02",t:"Zona e mappa",d:"Imposta comune e raggio, poi verifica famiglie ISTAT, comuni coinvolti, copertura e volantini consigliati.",b:"Analisi territoriale",c:"#E8571A"},{n:"03",t:"Pianificazione",d:"Scegli il periodo desiderato. Smart Pairing resta opzionale quando esistono campagne compatibili.",b:"Date + opzioni",c:"#E8571A"},{n:"04",t:"Preventivo completo",d:"Controlla il preventivo finale e avvia la campagna. Include tracking GPS live degli operatori e report finale con foto.",b:"Riepilogo + prezzo",c:"#E8571A"}],z=[{name:"Door to Door",icon:"D2D",desc:"Distribuzione nelle cassette postali di condomini, palazzi, villette e zone residenziali.",features:["attività locali","promozioni zona","grande copertura territoriale"],c:C.orange},{name:"Hand to Hand",icon:"H2H",desc:"Distribuzione a mano in punti ad alto passaggio.",features:["POI rilevanti","Fermate metro/bus/treno","Scuole, università, eventi","Flusso potenziale","Smart Pairing"],c:C.orange},{name:"Business Distribution",icon:"B2B",desc:"Distribuzione mirata ad attività commerciali, uffici e zone business.",features:["B2B","fornitori","servizi professionali","attività locali"],c:C.orange}],R=[{n:"01",t:"Configura campagna",d:"Percorso completo in 4 step: campagna, zona, pianificazione e preventivo finale.",benefits:["Analisi ISTAT zona","Mappa e copertura","GPS e report verificabili","Smart Pairing opzionale"],cta:"Configura la tua campagna",c:C.orange,fn:()=>n("step1")},{n:"02",t:"Preventivo rapido",d:"Inserisci pochi dati e passa a un prezzo personalizzato calcolato su zona, quantità e servizio.",benefits:["3 campi essenziali","Prezzo personalizzato","Nessun account richiesto"],cta:"Preventivo rapido",c:C.orange,fn:()=>n("quick"),quick:!0},{n:"03",t:"Parla con un consulente",d:"Preferisci supporto diretto? Invia una richiesta e ti ricontattiamo.",benefits:["Brief gratuito","Scelta servizio guidata","Richiamo operativo","Tempo: immediato"],cta:"Parla con un consulente",c:C.orange,fn:()=>n("consultant")}];return _jsxs("div",{className:"home-shell-dark saas-home-refinement",style:{background:"#0B1020",paddingBottom:0,minHeight:"100vh"},children:[_jsx("style",{children:`
+function HomePage({onStart:n}){const i=()=>document.getElementById("come-funziona")?.scrollIntoView({behavior:"smooth",block:"start"}),scrollOptions=()=>document.getElementById("scegli-percorso")?.scrollIntoView({behavior:"smooth",block:"start"}),[r,l]=useState(!1),[u,h]=useState({city:"",qty:"5000",service:"Door to Door"}),f=Math.max(180,Math.round((Number(u.qty)||0)*(u.service==="Door to Door" ?.13 : u.service==="Hand to Hand" ?.18 :.22))),m=[{t:"Piattaforma",items:[["Configuratore","step1"],["Preventivo rapido","quick"],["Come funziona","home"],["Tracking GPS","campaign"]]},{t:"Servizi",items:[["Door to Door","step1"],["Hand to Hand","step1"],["Business Distribution","step1"],["Report campagna","campaign"]]},{t:"Risorse",items:[["Servizi","home"],["Supporto","consultant"],["Privacy","privacy"],["Termini","terms"],["Cookie","cookie"]]}];useEffect(()=>{const D=()=>l(window.innerWidth<760);return D(),window.addEventListener("resize",D),()=>window.removeEventListener("resize",D)},[]);const[kpiBandVisible,setKpiBandVisible]=useState(!0),kpiBandRef=useRef(null);useEffect(()=>{const D=kpiBandRef.current;if(!D)return;const W=new IntersectionObserver(([A])=>{A.isIntersecting&&(setKpiBandVisible(!0),W.disconnect())},{threshold:.25});return W.observe(D),()=>W.disconnect()},[]);
+const x=[{value:"Famiglie",l:"Abitazioni stimate",src:"Fonti territoriali",term:"Famiglie"},{value:"Zone",l:"Aree coperte",src:"Mappa e raggio",term:"Zone"},{value:"GPS",l:"Monitoraggio stradale",src:"Verifica campo",term:"GPS"},{value:"Report",l:"Documento finale",src:"Output verificabile",term:"Report PDF"}],w=["Dati ISTAT ufficiali","GPS certificato","No vincoli mensili"],j=["Retail locale","Food locale","Casa e servizi","Fitness locale","Attività locale"],T=[{n:"01",t:"Configura campagna",d:"Scegli servizio, quantità, formato, stampa e frequenza della distribuzione.",b:"Servizio + quantità",c:"#E8571A"},{n:"02",t:"Zona e mappa",d:"Imposta comune e raggio, poi verifica famiglie ISTAT, comuni coinvolti, copertura e volantini consigliati.",b:"Analisi territoriale",c:"#E8571A"},{n:"03",t:"Pianificazione",d:"Scegli il periodo desiderato. Smart Pairing resta opzionale quando esistono campagne compatibili.",b:"Date + opzioni",c:"#E8571A"},{n:"04",t:"Preventivo completo",d:"Controlla il preventivo finale e avvia la campagna. Include tracking GPS live degli operatori e report finale con foto.",b:"Riepilogo + prezzo",c:"#E8571A"}],z=[{name:"Door to Door",icon:"D2D",desc:"Distribuzione nelle cassette postali di condomini, palazzi, villette e zone residenziali.",features:["attività locali","promozioni zona","grande copertura territoriale"],c:C.orange},{name:"Hand to Hand",icon:"H2H",desc:"Distribuzione a mano in punti ad alto passaggio.",features:["POI rilevanti","Fermate metro/bus/treno","Scuole, università, eventi","Flusso potenziale","Smart Pairing"],c:C.orange},{name:"Business Distribution",icon:"B2B",desc:"Distribuzione mirata ad attività commerciali, uffici e zone business.",features:["B2B","fornitori","servizi professionali","attività locali"],c:C.orange}],R=[{n:"01",t:"Preventivo Guidato",d:"Analisi completa e configurazione step-by-step.",benefits:["Analisi ISTAT zona","Mappa e copertura","GPS e report verificabili","Smart Pairing opzionale"],cta:"Preventivo Guidato",c:C.orange,fn:()=>n("step1")},{n:"02",t:"Preventivo Rapido",d:"Configurazione base e stima costi immediata.",benefits:["3 campi essenziali","Prezzo personalizzato","Nessun account richiesto"],cta:"Preventivo Rapido",c:C.orange,fn:()=>n("step1", { quickMode: true }),quick:!1},{n:"03",t:"Parla con un Consulente",d:"Preferisci supporto diretto? Invia una richiesta e ti ricontattiamo.",benefits:["Brief gratuito","Scelta servizio guidata","Richiamo operativo","Tempo: immediato"],cta:"Parla con un Consulente",c:C.orange,fn:()=>n("consultant")}];return _jsxs("div",{className:"home-shell-dark saas-home-refinement",style:{background:"#0B1020",paddingBottom:0,minHeight:"100vh"},children:[_jsx("style",{children:`
   .home-shell-dark { background-color: #0B1020 !important; color: #F8FAFC !important; }
   .home-shell-dark section, .home-shell-dark article { background: transparent !important; }
   .home-shell-dark section[style*="cream"], .home-shell-dark div[style*="cream"] { background: #111827 !important; border-top: 1px solid rgba(148, 163, 184, 0.18) !important; color: #F8FAFC !important; }
@@ -990,135 +990,173 @@ const x=[{value:"Famiglie",l:"Abitazioni stimate",src:"Fonti territoriali",term:
   .home-shell-dark .vp-start-secondary:hover { border-color: rgba(232, 87, 26, 0.4) !important; }
   .home-shell-dark .vp-start-secondary h3, .home-shell-dark .vp-start-secondary p { color: #CBD5E1 !important; }
   .home-shell-dark .vp-start-primary { background: #0f1a2e !important; }
-`}),_jsx(VolantiniProHeroMap,{onConfigure:()=>n("step1"),onLogin:()=>n("login"),onAdmin:()=>n("admin"),onHowItWorks:i}),_jsx(TrustBar,{metrics:[{value:"ISTAT",label:"Dati territoriali"},{value:"GIS",label:"Analisi zona"},{value:"GPS",label:"Tracking operativo"},{value:"PDF",label:"Report verificabili"}]}),_jsx(WhyDifferentSection,{}),_jsx("section",{ref:kpiBandRef,className:"section-tight",style:{display:"none",background:C.navy,paddingLeft:28,paddingRight:28,borderTop:`3px solid ${C.orange}`,opacity:kpiBandVisible?1:0,transform:kpiBandVisible?"none":"translateY(22px)",transition:"opacity .5s ease, transform .7s cubic-bezier(.2,.8,.2,1)",willChange:"transform, opacity"},children:_jsx("div",{style:{maxWidth:1200,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2},children:x.map(({value:D,l:W,src:A,term:TM},F)=>_jsxs("div",{style:{padding:"34px 26px",borderLeft:F>0?"1px solid rgba(255,255,255,.07)":"none"},children:[_jsx("div",{style:{width:26,height:3,background:C.orange,borderRadius:2,marginBottom:16}}),_jsx("div",{style:{fontFamily:F.serif,fontSize:typeof D=="string"&&D.length>8?34:50,color:C.white,letterSpacing:"-1.4px",lineHeight:1,marginBottom:10,fontVariantNumeric:"tabular-nums"},children:D}),_jsxs("div",{style:{display:"flex",alignItems:"center",fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.8)",lineHeight:1.4,marginBottom:8},children:[W,_jsx(KpiTooltip,{term:TM||D})]}),_jsx("div",{style:{display:"inline-flex",padding:"3px 7px",borderRadius:4,background:"rgba(232,87,26,.12)",fontFamily:F.sans,fontSize:9,color:C.orange},children:A})]},W))})}),_jsx("section",{id:"come-funziona",className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,scrollMarginTop:80},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:64},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Dall'idea al volantino in mano"}),_jsxs("h2",{style:{fontFamily:F.serif,fontSize:48,color:C.navy,letterSpacing:"-1.5px",marginBottom:14,lineHeight:1.06},children:["Dall'idea alla campagna",_jsx("br",{}),"in 4 step misurabili."]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:520,lineHeight:1.65},children:"Un flusso unico per definire servizio, zona, date operative e preventivo finale."})]}),_jsx("div",{className:"steps-grid",style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12},children:T.map(({n:D,t:W,d:A,b:badge,c:B},P)=>_jsxs("div",{className:"vc",style:{padding:"34px 28px",background:C.white,borderRadius:16,border:"1px solid rgba(0,0,0,.1)",boxShadow:"0 12px 32px rgba(0,0,0,.06)",position:"relative",overflow:"hidden"},children:[_jsx("div",{style:{position:"absolute",top:-8,right:12,fontFamily:F.sans,fontWeight:900,fontSize:94,color:"#F4F6F8",lineHeight:1,userSelect:"none"},children:D}),_jsx("div",{style:{width:24,height:3,borderRadius:2,background:B,marginBottom:24}}),_jsx("h3",{style:{fontFamily:F.serif,fontSize:22,color:C.navy,marginBottom:12,letterSpacing:"-.3px"},children:W}),_jsx("p",{style:{fontFamily:F.sans,fontSize:14,color:C.muted,lineHeight:1.6,marginBottom:20},children:A}),_jsx("div",{style:{display:"inline-flex",padding:"4px 10px",borderRadius:6,background:`${B}12`,fontFamily:F.sans,fontSize:11,fontWeight:700,color:B},children:badge})]},D))}),_jsx("div",{style:{textAlign:"center",marginTop:56},children:_jsx("button",{className:"vb",onClick:()=>n("step1"),style:{padding:"14px 34px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#E8571A 0%,#D0450B 100%)",color:C.white,fontFamily:F.sans,fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 6px 16px rgba(232,87,26,0.28)"},children:"Calcola la tua copertura →"})})]})}),_jsx(ServicesSection,{onConfigure:()=>n("step1")}),_jsx(React.Suspense,{fallback:_jsx("div",{style:{minHeight:200,background:"#0B1020"}}),children:_jsx(VolantiniProAIHub,{onConfigure:()=>n("step1")})}),_jsx(FeatureSmartPairing,{onConfigure:()=>n("step1")}),_jsx("section",{className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,borderTop:"1px solid rgba(0,0,0,.06)"},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:34},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Tre modi per iniziare"}),_jsx("h2",{style:{fontFamily:F.serif,fontSize:46,color:C.navy,letterSpacing:"-1.4px",marginBottom:10},children:"Scegli il tuo punto di partenza."}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:660,lineHeight:1.65},children:"Configurazione completa, stima rapida o supporto diretto: tre percorsi per ogni esigenza."})]}),_jsx("div", {
-  className: "vp-start-grid",
-  children: [
-    _jsx("style", {
-      children: `
-        .vp-start-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 20px;
-          margin-bottom: 28px;
-        }
-        @media (min-width: 980px) {
-          .vp-start-grid {
-            grid-template-columns: 1.1fr 0.9fr;
-          }
-        }
-        .vp-start-primary {
-          background: #050a14;
-          border-radius: 20px;
-          padding: 44px 40px;
-          display: flex;
-          flex-direction: column;
-          box-shadow: 0 24px 64px rgba(0,0,0,.12);
-          transition: transform 0.4s ease;
-        }
-        .vp-start-primary:hover {
-          transform: translateY(-4px);
-        }
-        .vp-start-stack {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-        .vp-start-secondary {
-          background: #fff;
-          border-radius: 16px;
-          padding: 24px 28px;
-          border: 1px solid rgba(0,0,0,.04);
-          box-shadow: 0 8px 24px rgba(0,0,0,.02);
-          display: flex;
-          flex-direction: column;
-          transition: transform 0.3s ease;
-        }
-        .vp-start-secondary:hover {
-          transform: translateY(-2px);
-          border-color: rgba(99,102,241,.2);
-        }
-      `
-    }),
-    _jsx("div", {
-      className: "vp-start-primary",
-      children: R.filter(c => c.n === "01").map(({ n: D, t: W, d: A, benefits: F, cta: B, c: P, fn: J }) => _jsxs("div", {
-        key: W,
-        style: { display: "flex", flexDirection: "column", height: "100%" },
+`}),_jsx(VolantiniProHeroMap,{onConfigure:scrollOptions,onLogin:()=>n("login"),onAdmin:()=>n("admin"),onHowItWorks:i}),_jsx(TrustBar,{metrics:[{value:"ISTAT",label:"Dati territoriali"},{value:"GIS",label:"Analisi zona"},{value:"GPS",label:"Tracking operativo"},{value:"PDF",label:"Report verificabili"}]}),_jsx(WhyDifferentSection,{}),_jsx("section",{ref:kpiBandRef,className:"section-tight",style:{display:"none",background:C.navy,paddingLeft:28,paddingRight:28,borderTop:`3px solid ${C.orange}`,opacity:kpiBandVisible?1:0,transform:kpiBandVisible?"none":"translateY(22px)",transition:"opacity .5s ease, transform .7s cubic-bezier(.2,.8,.2,1)",willChange:"transform, opacity"},children:_jsx("div",{style:{maxWidth:1200,margin:"0 auto",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:2},children:x.map(({value:D,l:W,src:A,term:TM},F)=>_jsxs("div",{style:{padding:"34px 26px",borderLeft:F>0?"1px solid rgba(255,255,255,.07)":"none"},children:[_jsx("div",{style:{width:26,height:3,background:C.orange,borderRadius:2,marginBottom:16}}),_jsx("div",{style:{fontFamily:F.serif,fontSize:typeof D=="string"&&D.length>8?34:50,color:C.white,letterSpacing:"-1.4px",lineHeight:1,marginBottom:10,fontVariantNumeric:"tabular-nums"},children:D}),_jsxs("div",{style:{display:"flex",alignItems:"center",fontFamily:F.sans,fontSize:13,color:"rgba(255,255,255,.8)",lineHeight:1.4,marginBottom:8},children:[W,_jsx(KpiTooltip,{term:TM||D})]}),_jsx("div",{style:{display:"inline-flex",padding:"3px 7px",borderRadius:4,background:"rgba(232,87,26,.12)",fontFamily:F.sans,fontSize:9,color:C.orange},children:A})]},W))})}),_jsx("section",{id:"come-funziona",className:"section",style:{background:C.cream,paddingLeft:28,paddingRight:28,scrollMarginTop:80},children:_jsxs("div",{style:{maxWidth:1200,margin:"0 auto"},children:[_jsxs("div",{style:{marginBottom:64},children:[_jsx("div",{style:{fontFamily:F.sans,fontSize:11,fontWeight:700,letterSpacing:".15em",textTransform:"uppercase",color:C.orange,marginBottom:12},children:"Dall'idea al volantino in mano"}),_jsxs("h2",{style:{fontFamily:F.serif,fontSize:48,color:C.navy,letterSpacing:"-1.5px",marginBottom:14,lineHeight:1.06},children:["Dall'idea alla campagna",_jsx("br",{}),"in 4 step misurabili."]}),_jsx("p",{style:{fontFamily:F.sans,fontSize:16,color:C.muted,maxWidth:520,lineHeight:1.65},children:"Un flusso unico per definire servizio, zona, date operative e preventivo finale."})]}),_jsx("div",{className:"steps-grid",style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12},children:T.map(({n:D,t:W,d:A,b:badge,c:B},P)=>_jsxs("div",{className:"vc",style:{padding:"34px 28px",background:C.white,borderRadius:16,border:"1px solid rgba(0,0,0,.1)",boxShadow:"0 12px 32px rgba(0,0,0,.06)",position:"relative",overflow:"hidden"},children:[_jsx("div",{style:{position:"absolute",top:-8,right:12,fontFamily:F.sans,fontWeight:900,fontSize:94,color:"#F4F6F8",lineHeight:1,userSelect:"none"},children:D}),_jsx("div",{style:{width:24,height:3,borderRadius:2,background:B,marginBottom:24}}),_jsx("h3",{style:{fontFamily:F.serif,fontSize:22,color:C.navy,marginBottom:12,letterSpacing:"-.3px"},children:W}),_jsx("p",{style:{fontFamily:F.sans,fontSize:14,color:C.muted,lineHeight:1.6,marginBottom:20},children:A}),_jsx("div",{style:{display:"inline-flex",padding:"4px 10px",borderRadius:6,background:`${B}12`,fontFamily:F.sans,fontSize:11,fontWeight:700,color:B},children:badge})]},D))}),_jsx("div",{style:{textAlign:"center",marginTop:56},children:_jsx("button",{className:"vb",onClick:scrollOptions,style:{padding:"14px 34px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#E8571A 0%,#D0450B 100%)",color:C.white,fontFamily:F.sans,fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:"0 6px 16px rgba(232,87,26,0.28)"},children:"Calcola la tua copertura →"})})]})}),_jsx(ServicesSection,{onConfigure:scrollOptions}),_jsx(React.Suspense,{fallback:_jsx("div",{style:{minHeight:200,background:"#0B1020"}}),children:_jsx(VolantiniProAIHub,{onConfigure:scrollOptions})}),_jsx(FeatureSmartPairing,{onConfigure:scrollOptions}),
+_jsx("section", {
+  id: "scegli-percorso",
+  className: "section",
+  style: { background: "#0B1020", paddingLeft: 28, paddingRight: 28, borderTop: "1px solid rgba(255,255,255,.05)", scrollMarginTop: 80 },
+  children: _jsxs("div", {
+    style: { maxWidth: 1200, margin: "0 auto" },
+    children: [
+      _jsxs("div", {
+        style: { display: "flex", flexDirection: window.innerWidth < 900 ? "column" : "row", alignItems: window.innerWidth < 900 ? "flex-start" : "center", justifyContent: "space-between", marginBottom: 50, gap: 20 },
         children: [
-          _jsxs("div", {
-            style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 },
-            children: [
-              _jsx("div", { style: { width: 32, height: 4, borderRadius: 2, background: "linear-gradient(90deg,#E8571A,#D0450B)" } }),
-              _jsx("div", { style: { fontFamily: F.sans, fontWeight: 900, fontSize: 42, color: "rgba(255,255,255,.05)", lineHeight: 1 }, children: D })
-            ]
-          }),
-          _jsx("h3", { style: { fontFamily: F.serif, fontSize: 34, color: "#fff", letterSpacing: "-.5px", marginBottom: 16 }, children: W }),
-          _jsx("p", { style: { fontFamily: F.sans, fontSize: 16, color: "rgba(255,255,255,.65)", lineHeight: 1.6, marginBottom: 32 }, children: A }),
           _jsx("div", {
-            style: { display: "grid", gap: 10, marginBottom: 40 },
-            children: F.map(H => _jsxs("div", {
-              key: H,
-              style: { display: "flex", alignItems: "center", gap: 10, fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.7)" },
-              children: [
-                _jsx("span", { style: { width: 18, height: 18, borderRadius: "50%", background: "rgba(232,87,26,0.15)", color: "#E8571A", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, flexShrink: 0 }, children: "✓" }),
-                H
-              ]
-            }))
+            children: _jsxs("h2", {
+              style: { fontFamily: F.serif, fontSize: "clamp(40px, 5vw, 64px)", color: "#fff", letterSpacing: "-1.5px", lineHeight: 1.05, margin: 0 },
+              children: ["Richiedi un", _jsx("br", {}), "Preventivo"]
+            })
           }),
-          _jsx("button", {
-            className: "vb",
-            onClick: J,
-            style: { marginTop: "auto", width: "100%", minHeight: 54, padding: "0 24px", borderRadius: 12, fontFamily: F.sans, fontSize: 16, fontWeight: 700, border: "none", background: "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)", color: C.white, boxShadow: "0 8px 24px rgba(232,87,26,.3)", cursor: "pointer", textAlign: "center", transition: "all 0.3s ease" },
-            children: B
+          _jsx("div", {
+            style: { maxWidth: 400 },
+            children: _jsx("p", {
+              style: { fontFamily: F.sans, fontSize: 18, color: "rgba(255,255,255,.6)", margin: 0, lineHeight: 1.5 },
+              children: "Scegli il percorso più adatto alle esigenze della tua campagna."
+            })
           })
         ]
-      }))
-    }),
-    _jsx("div", {
-      className: "vp-start-stack",
-      children: R.filter(c => c.n !== "01").map(({ n: D, t: W, d: A, benefits: Fb, cta: B, c: P, fn: J, quick: V }) => _jsxs("div", {
-        key: W,
-        className: "vp-start-secondary",
+      }),
+      _jsxs("div", {
+        style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 24 },
         children: [
           _jsxs("div", {
-            style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
+            style: { background: "#121B2A", borderRadius: 20, padding: 32, display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,.06)", position: "relative" },
             children: [
-              _jsx("h3", { style: { fontFamily: F.serif, fontSize: 20, color: C.navy, letterSpacing: "-.3px", margin: 0 }, children: W }),
-              _jsx("div", { style: { fontFamily: F.sans, fontWeight: 900, fontSize: 22, color: "rgba(0,0,0,.04)", lineHeight: 1 }, children: D })
-            ]
-          }),
-          _jsx("p", { style: { fontFamily: F.sans, fontSize: 13, color: C.muted, lineHeight: 1.5, marginBottom: 16 }, children: A }),
-          V ? _jsxs("div", {
-            style: { display: "grid", gap: 8, marginBottom: 16 },
-            children: [
-              _jsx("input", { value: u.city, onChange: H => h({ ...u, city: H.target.value }), placeholder: "Comune", style: { width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(0,0,0,.08)", background: "#f8fafc", color: C.navy, fontFamily: F.sans, fontSize: 13 } }),
               _jsxs("div", {
-                style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 },
+                style: { position: "absolute", top: 24, right: 24, background: "rgba(34,197,94,.15)", color: "#4ADE80", padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 },
+                children: [_jsx("span", { children: "★" }), " Consigliato"]
+              }),
+              _jsx("h3", { style: { fontFamily: F.serif, fontSize: 26, color: "#fff", margin: "0 0 16px 0" }, children: "Preventivo Guidato" }),
+              _jsx("p", { style: { fontFamily: F.sans, fontSize: 15, color: "rgba(255,255,255,.65)", lineHeight: 1.6, margin: "0 0 32px 0" }, children: "Configurazione completa in 4 Step con analisi territoriale, suggerimenti intelligenti e configurazione professionale." }),
+              _jsxs("div", {
+                style: { background: "#0B101E", borderRadius: 16, padding: 24, marginBottom: 32, flex: 1 },
                 children: [
-                  _jsxs("select", {
-                    value: u.service, onChange: H => h({ ...u, service: H.target.value }), style: { width: "100%", padding: "8px 8px", borderRadius: 8, border: "1px solid rgba(0,0,0,.08)", background: "#f8fafc", color: C.navy, fontFamily: F.sans, fontSize: 13 },
+                  _jsx("div", { style: { fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 8 }, children: "IDEALE PER" }),
+                  _jsx("div", { style: { fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 24 }, children: "Campagne complete e personalizzate" }),
+                  _jsx("div", { style: { fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 12 }, children: "INCLUDE" }),
+                  _jsx("ul", {
+                    style: { listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 },
+                    children: ["Analisi territoriale", "Quantità consigliata", "Copertura stimata", "Servizi extra", "Configurazione completa"].map(item =>
+                      _jsxs("li", { key: item, style: { display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "rgba(255,255,255,.8)" }, children: [
+                        _jsx("div", { style: { width: 4, height: 4, borderRadius: "50%", background: C.orange } }),
+                        " ", item
+                      ] })
+                    )
+                  })
+                ]
+              }),
+              _jsxs("div", {
+                style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto" },
+                children: [
+                  _jsxs("div", {
                     children: [
-                      _jsx("option", { children: "Door to Door" }),
-                      _jsx("option", { children: "Hand to Hand" }),
-                      _jsx("option", { children: "Business Distribution" })
+                      _jsx("div", { style: { fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 4 }, children: "TEMPO MEDIO" }),
+                      _jsx("div", { style: { fontSize: 14, fontWeight: 700, color: "#fff" }, children: "3-5 minuti" })
                     ]
                   }),
-                  _jsx("input", { value: u.qty, onChange: H => h({ ...u, qty: H.target.value.replace(/\D/g, "") }), placeholder: "Volantini", inputMode: "numeric", style: { width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(0,0,0,.08)", background: "#f8fafc", color: C.navy, fontFamily: F.sans, fontSize: 13 } })
+                  _jsx("button", {
+                    onClick: () => n("step1"),
+                    style: { background: C.orange, color: "#fff", border: "none", padding: "12px 24px", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 14px rgba(232,87,26,.3)" },
+                    children: "Inizia il percorso"
+                  })
                 ]
               })
             ]
-          }) : null,
-          _jsx("button", {
-            className: "vb",
-            onClick: J,
-            style: { marginTop: "auto", width: "100%", minHeight: 44, padding: "0 20px", borderRadius: 8, fontFamily: F.sans, fontSize: 14, fontWeight: 700, border: V ? "1px solid rgba(0,0,0,.15)" : "none", background: V ? C.white : "rgba(0,0,0,.03)", color: C.navy, cursor: "pointer", textAlign: "center", transition: "all 0.3s ease" },
-            children: B
+          }),
+          _jsxs("div", {
+            style: { background: "#121B2A", borderRadius: 20, padding: 32, display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,.06)", position: "relative" },
+            children: [
+              _jsxs("div", {
+                style: { position: "absolute", top: 24, right: 24, background: "rgba(232,87,26,.15)", color: C.orange, padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 },
+                children: [_jsx("span", { children: "⚡" }), " Più veloce"]
+              }),
+              _jsx("h3", { style: { fontFamily: F.serif, fontSize: 26, color: "#fff", margin: "0 0 16px 0" }, children: "Preventivo Rapido" }),
+              _jsx("p", { style: { fontFamily: F.sans, fontSize: 15, color: "rgba(255,255,255,.65)", lineHeight: 1.6, margin: "0 0 32px 0" }, children: "Ricevi una stima immediata inserendo solo le informazioni essenziali." }),
+              _jsxs("div", {
+                style: { background: "#0B101E", borderRadius: 16, padding: 24, marginBottom: 32, flex: 1 },
+                children: [
+                  _jsx("div", { style: { fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 8 }, children: "IDEALE PER" }),
+                  _jsx("div", { style: { fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 24 }, children: "Chi conosce già servizio, zona e quantità." }),
+                  _jsx("div", { style: { fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 12 }, children: "INCLUDE" }),
+                  _jsx("ul", {
+                    style: { listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 },
+                    children: ["Prezzo stimato", "Tempo indicativo", "Preventivo immediato"].map(item =>
+                      _jsxs("li", { key: item, style: { display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "rgba(255,255,255,.8)" }, children: [
+                        _jsx("div", { style: { width: 4, height: 4, borderRadius: "50%", background: C.orange } }),
+                        " ", item
+                      ] })
+                    )
+                  })
+                ]
+              }),
+              _jsxs("div", {
+                style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto" },
+                children: [
+                  _jsxs("div", {
+                    children: [
+                      _jsx("div", { style: { fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 4 }, children: "TEMPO MEDIO" }),
+                      _jsx("div", { style: { fontSize: 14, fontWeight: 700, color: "#fff" }, children: "Meno di 1 minuto" })
+                    ]
+                  }),
+                  _jsx("button", {
+                    onClick: () => n("step1", { quickMode: true }),
+                    style: { background: "transparent", color: "#fff", border: "1px solid rgba(255,255,255,.2)", padding: "12px 24px", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer" },
+                    children: "Calcola subito"
+                  })
+                ]
+              })
+            ]
+          }),
+          _jsxs("div", {
+            style: { background: "#121B2A", borderRadius: 20, padding: 32, display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,.06)", position: "relative" },
+            children: [
+              _jsx("div", {
+                style: { position: "absolute", top: 24, right: 24, background: "rgba(255,255,255,.05)", color: "rgba(255,255,255,.8)", padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 },
+                children: "Supporto dedicato"
+              }),
+              _jsx("h3", { style: { fontFamily: F.serif, fontSize: 26, color: "#fff", margin: "0 0 16px 0" }, children: "Consulenza Personalizzata" }),
+              _jsx("p", { style: { fontFamily: F.sans, fontSize: 15, color: "rgba(255,255,255,.65)", lineHeight: 1.6, margin: "0 0 32px 0" }, children: "Parla con un consulente VolantiniPro per costruire la soluzione migliore per la tua campagna." }),
+              _jsxs("div", {
+                style: { background: "#0B101E", borderRadius: 16, padding: 24, marginBottom: 32, flex: 1 },
+                children: [
+                  _jsx("div", { style: { fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 8 }, children: "IDEALE PER" }),
+                  _jsx("div", { style: { fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 24 }, children: "Aziende, Franchising, Multi città, Campagne personalizzate" }),
+                  _jsx("div", { style: { fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 12 }, children: "INCLUDE" }),
+                  _jsx("ul", {
+                    style: { listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 },
+                    children: ["Preventivo su misura", "Analisi della richiesta", "Pianificazione campagna", "Supporto dedicato", "WhatsApp, Email, Telefono"].map(item =>
+                      _jsxs("li", { key: item, style: { display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "rgba(255,255,255,.8)" }, children: [
+                        _jsx("div", { style: { width: 4, height: 4, borderRadius: "50%", background: C.orange, marginTop: 8 } }),
+                        " ", item
+                      ] })
+                    )
+                  })
+                ]
+              }),
+              _jsxs("div", {
+                style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto" },
+                children: [
+                  _jsxs("div", {
+                    children: [
+                      _jsx("div", { style: { fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 4 }, children: "TEMPO MEDIO" }),
+                      _jsx("div", { style: { fontSize: 14, fontWeight: 700, color: "#fff" }, children: "Ricontatto in breve" })
+                    ]
+                  }),
+                  _jsx("button", {
+                    onClick: () => n("consultant"),
+                    style: { background: "transparent", color: "#fff", border: "1px solid rgba(255,255,255,.2)", padding: "12px 24px", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer" },
+                    children: "Parla con noi"
+                  })
+                ]
+              })
+            ]
           })
         ]
-      }))
-    })
-  ]
-})]})}),_jsx(RisultatiSection,{}),_jsx(FAQSection,{onContact:()=>n("consultant")}),_jsx(PricingSection,{onConfigure:()=>n("step1"),onConsultant:()=>n("consultant")}),_jsx(Footer,{onNav:n,onHowItWorks:i})]})}
+      })
+    ]
+  })
+})
+,_jsx(RisultatiSection,{}),_jsx(FAQSection,{onContact:()=>n("consultant")}),_jsx(PricingSection,{onConfigure:scrollOptions,onConsultant:()=>n("consultant")}),_jsx(Footer,{onNav:n,onHowItWorks:i})]})}
 
 // JSX runtime shim for reconstructed bundle code
 function _jsx(type, props, key) {
