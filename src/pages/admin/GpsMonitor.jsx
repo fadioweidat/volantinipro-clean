@@ -1,10 +1,13 @@
 import 'leaflet/dist/leaflet.css';
 import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-leaflet';
 import { useEffect, useMemo, useState } from 'react';
+import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
+import { useZoneProgress } from '../../hooks/useZoneProgress.js';
 import { createProofPhotoSignedUrl, getCampaignGpsPoints, getCampaignGpsSessions, getCampaignProofPhotos } from '../../lib/services/gps-api.js';
 
 export function GpsMonitor({ campaignId }) {
   const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], activeSession: null });
+  const zoneProgress = useZoneProgress({ campaignId, includeHistory: true });
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +53,20 @@ export function GpsMonitor({ campaignId }) {
         <Metric label="Driver" value={driverOnline ? 'online' : 'offline'} />
         <Metric label="Tempo attivo" value={formatDuration(activeMs)} />
       </div>
+
+      <ZoneProgressPanel
+        zones={zoneProgress.zones}
+        history={zoneProgress.history}
+        loading={zoneProgress.loading}
+        refreshing={zoneProgress.refreshing}
+        error={zoneProgress.error}
+        notice={zoneProgress.notice}
+        isAdmin
+        mutatingZoneId={zoneProgress.mutatingZoneId}
+        onRefresh={zoneProgress.refresh}
+        onSetManual={zoneProgress.setManualProgress}
+        onClearManual={zoneProgress.clearManualProgress}
+      />
 
       <section style={cardStyle}>
         <p style={eyebrowStyle}>Live map</p>
