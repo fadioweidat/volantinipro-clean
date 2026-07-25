@@ -1023,8 +1023,8 @@ _jsx("section", {
             style: { background: "#121B2A", borderRadius: 20, padding: 32, display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,.06)", position: "relative" },
             children: [
               _jsxs("div", {
-                style: { position: "absolute", top: 24, right: 24, background: "rgba(34,197,94,.15)", color: "#4ADE80", padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 },
-                children: [_jsx("span", { children: "★" }), " Consigliato"]
+                style: { position: "absolute", top: 24, right: 24, background: `${C.green}26`, color: C.green, padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 },
+                children: [_jsx(Step1Icon, { name: "star", size: 12 }), " Consigliato"]
               }),
               _jsx("h3", { style: { fontFamily: F.serif, fontSize: 26, color: "#fff", margin: "0 0 16px 0" }, children: "Preventivo Guidato" }),
               _jsx("p", { style: { fontFamily: F.sans, fontSize: 15, color: "rgba(255,255,255,.65)", lineHeight: 1.6, margin: "0 0 32px 0" }, children: "Configurazione completa in 4 Step con analisi territoriale, suggerimenti intelligenti e configurazione professionale." }),
@@ -1067,8 +1067,8 @@ _jsx("section", {
             style: { background: "#121B2A", borderRadius: 20, padding: 32, display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,.06)", position: "relative" },
             children: [
               _jsxs("div", {
-                style: { position: "absolute", top: 24, right: 24, background: "rgba(232,87,26,.15)", color: C.orange, padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 },
-                children: [_jsx("span", { children: "⚡" }), " Più veloce"]
+                style: { position: "absolute", top: 24, right: 24, background: `${C.orange}26`, color: C.orange, padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 },
+                children: [_jsx(Step1Icon, { name: "lightning", size: 12 }), " Più veloce"]
               }),
               _jsx("h3", { style: { fontFamily: F.serif, fontSize: 26, color: "#fff", margin: "0 0 16px 0" }, children: "Preventivo Rapido" }),
               _jsx("p", { style: { fontFamily: F.sans, fontSize: 15, color: "rgba(255,255,255,.65)", lineHeight: 1.6, margin: "0 0 32px 0" }, children: "Ricevi una stima immediata inserendo solo le informazioni essenziali." }),
@@ -1080,7 +1080,7 @@ _jsx("section", {
                   _jsx("div", { style: { fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 12 }, children: "INCLUDE" }),
                   _jsx("ul", {
                     style: { listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 },
-                    children: ["Prezzo stimato", "Tempo indicativo", "Preventivo immediato"].map(item =>
+                    children: ["Prezzo stimato", "Tempo indicativo", "Preventivo immediato", "Fino a 3 comuni", "Servizi extra opzionali"].map(item =>
                       _jsxs("li", { key: item, style: { display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "rgba(255,255,255,.8)" }, children: [
                         _jsx("div", { style: { width: 4, height: 4, borderRadius: "50%", background: C.orange } }),
                         " ", item
@@ -1110,9 +1110,9 @@ _jsx("section", {
           _jsxs("div", {
             style: { background: "#121B2A", borderRadius: 20, padding: 32, display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,.06)", position: "relative" },
             children: [
-              _jsx("div", {
-                style: { position: "absolute", top: 24, right: 24, background: "rgba(255,255,255,.05)", color: "rgba(255,255,255,.8)", padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 },
-                children: "Supporto dedicato"
+              _jsxs("div", {
+                style: { position: "absolute", top: 24, right: 24, background: `${C.blue}26`, color: C.blue, padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 },
+                children: [_jsx(Step1Icon, { name: "user", size: 12 }), " Supporto dedicato"]
               }),
               _jsx("h3", { style: { fontFamily: F.serif, fontSize: 26, color: "#fff", margin: "0 0 16px 0" }, children: "Consulenza Personalizzata" }),
               _jsx("p", { style: { fontFamily: F.sans, fontSize: 15, color: "rgba(255,255,255,.65)", lineHeight: 1.6, margin: "0 0 32px 0" }, children: "Parla con un consulente VolantiniPro per costruire la soluzione migliore per la tua campagna." }),
@@ -1142,10 +1142,10 @@ _jsx("section", {
                       _jsx("div", { style: { fontSize: 14, fontWeight: 700, color: "#fff" }, children: "Ricontatto in breve" })
                     ]
                   }),
-                  _jsx("button", {
+                  _jsxs("button", {
                     onClick: () => n("consultant"),
-                    style: { background: "transparent", color: "#fff", border: "1px solid rgba(255,255,255,.2)", padding: "12px 24px", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer" },
-                    children: "Parla con noi"
+                    style: { background: `${C.orange}14`, color: "#fff", border: `1.5px solid ${C.orange}`, padding: "12px 24px", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 },
+                    children: [_jsx(Step1Icon, { name: "handshake", size: 15 }), "Parla con noi"]
                   })
                 ]
               })
