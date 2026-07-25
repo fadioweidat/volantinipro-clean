@@ -16,7 +16,8 @@
     "import:addresses:dry-run": "node data/osm/import_address_points.mjs --dry-run=true",
     "download:dbgt": "node data/dbgt/download_dbgt_lombardia.mjs",
     "import:dbgt": "node data/dbgt/import_dbgt_address_points.mjs",
-    "import:dbgt:dry-run": "node data/dbgt/import_dbgt_address_points.mjs --dry-run=true"
+    "import:dbgt:dry-run": "node data/dbgt/import_dbgt_address_points.mjs --dry-run=true",
+    "test": "node --import tsx --test tests/gps_prod_rpc_frontend_contract.test.mjs tests/gps_prod_client_reader_contract.test.mjs tests/gps_prod_browser_privacy_contract.test.cjs tests/zone_progress_client.test.mjs tests/zone_progress_ui_integration.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
@@ -31,5 +32,10 @@
     "shapefile": "^0.6.6",
     "vite": "^7.0.0",
     "xlsx": "^0.18.5"
-  }
+  },
+  "devDependencies": {
+    "react-test-renderer": "^19.2.6",
+    "tsx": "^4.23.1"
+  },
+  "type": "module"
 }

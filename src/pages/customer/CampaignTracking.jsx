@@ -1,10 +1,13 @@
 import 'leaflet/dist/leaflet.css';
 import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-leaflet';
 import { useEffect, useMemo, useState } from 'react';
+import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
+import { useZoneProgress } from '../../hooks/useZoneProgress.js';
 import { createProofPhotoSignedUrl, getCampaignGpsPoints, getCampaignGpsSessions, getCampaignProofPhotos } from '../../lib/services/gps-api.js';
 
 export function CampaignTracking({ campaignId }) {
   const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [] });
+  const zoneProgress = useZoneProgress({ campaignId });
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +53,17 @@ export function CampaignTracking({ campaignId }) {
         <Metric label="Punti GPS" value={state.points.length} />
         <Metric label="Tempo registrato" value={formatDuration(activeMs)} />
         <Metric label="Foto approvate" value={state.photos.length} />
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        <ZoneProgressPanel
+          zones={zoneProgress.zones}
+          loading={zoneProgress.loading}
+          refreshing={zoneProgress.refreshing}
+          error={zoneProgress.error}
+          notice={zoneProgress.notice}
+          onRefresh={zoneProgress.refresh}
+        />
       </div>
 
       <section style={cardStyle}>
