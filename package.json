@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "test": "node tests/step2_territorial_pipeline.test.mjs && node tests/step2_operational_metrics.test.mjs && node tests/step2_truth_model.test.mjs && node tests/step2_view_model.test.mjs && node tests/business_distribution.test.mjs && node tests/step2_p1_contract.test.mjs && node tests/nominatim_municipality_canonicalization.test.mjs && node tests/h2h_bootstrap_canonicalization.test.mjs && node tests/ai_territory_summary_verification.test.mjs",
+    "test": "node tests/step2_territorial_pipeline.test.mjs && node tests/step2_operational_metrics.test.mjs && node tests/step2_truth_model.test.mjs && node tests/step2_view_model.test.mjs && node tests/business_distribution.test.mjs && node tests/step2_p1_contract.test.mjs && node tests/nominatim_municipality_canonicalization.test.mjs && node tests/h2h_bootstrap_canonicalization.test.mjs && node tests/ai_territory_summary_verification.test.mjs && node tests/ai_territorial_step2_integration.test.mjs && node tests/ai_territorial_panel.render.test.mjs",
     "dev": "vite --host 0.0.0.0 --port 5173 --strictPort",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
@@ -24,6 +24,7 @@
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@vitejs/plugin-react": "^5.0.0",
+    "@vitejs/plugin-react-swc": "^4.3.2",
     "adm-zip": "^0.5.17",
     "framer-motion": "^12.42.0",
     "leaflet": "^1.9.4",

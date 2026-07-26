@@ -47,6 +47,7 @@ import RisultatiSection from "./src/components/home/RisultatiSection.jsx";
 import Footer from "./src/components/home/Footer.jsx";
 import { AdminRouteGuard } from "./src/components/admin/AdminGuard.jsx";
 const VolantiniProAIHub = React.lazy(() => import("./src/components/ai/VolantiniProAIHub.jsx"));
+const CustomerAiAssistantPanel = React.lazy(() => import("./src/components/ai/customer/CustomerAiAssistantPanel.jsx"));
 const RealAdminDashboard = React.lazy(() => import("./src/pages/admin/AdminDashboard.jsx"));
 const ServiceCenter = React.lazy(() => import("./src/pages/ServiceCenter.jsx"));
 const OutputLibrary = React.lazy(() => import("./src/pages/OutputLibrary.jsx"));
@@ -61,7 +62,7 @@ import { normalizeNominatimGeocodeResult, normalizeNominatimH2HBootstrapPoint } 
 import { buildStep2ViewModel, formatCoverageProportion } from "./src/lib/step2/buildStep2ViewModel.js";
 import { buildStep2TruthModel, buildStep2ToStep3Payload } from "./src/lib/step2/buildStep2TruthModel.js";
 import { checkMilanoTerritory } from "./src/lib/step2/milanoTerritoryHelper.js";
-import { allowMockData, isProduction } from "./src/lib/runtimeFlags.js";
+import { allowMockData, isCustomerAiDashboardEnabled, isProduction } from "./src/lib/runtimeFlags.js";
 import { defaultLayerState } from "./src/lib/dataSources.js";
 import { geoJsonApproxCentroid, geoJsonContainsPoint } from "./src/lib/geo/pointInPolygon.js";
 import { GRANDE_CITTA_ZONE_THRESHOLD, isZonaRilevante } from "./src/lib/services/zone-list-config.js";
@@ -13275,6 +13276,11 @@ const [clientFilter, setClientFilter] = useState("all");
     if (hasSupabaseConfig() && !session && !hash.get("access_token") && !qs.get("code")) onNav("login");
   }, [session]);
 const logout = () => {
+    if (isCustomerAiDashboardEnabled) {
+      void import("./src/ai-foundation/integrations/customer-dashboard/customerDashboardFoundation.mjs")
+        .then(({ clearCustomerDashboardAiContext }) => clearCustomerDashboardAiContext())
+        .catch(() => {});
+    }
     localStorage.removeItem("vp_supabase_session");
     setSession(null);
     onNav("login");
@@ -13389,6 +13395,18 @@ const clientEmpty = (title, text) => (
         />
 
         <AINotificationCenter center={clientNotificationCenter} loading={loading} error={error} />
+
+        {isCustomerAiDashboardEnabled && (
+          <React.Suspense fallback={<div style={{ minHeight: 90, marginBottom: 16 }} aria-label="Caricamento Assistente VolantiniPro" />}>
+            <CustomerAiAssistantPanel
+              session={session}
+              customer={cliente}
+              campaigns={campagne}
+              dataLoading={loading}
+              dataError={error || clienteError}
+            />
+          </React.Suspense>
+        )}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12, marginBottom: 16 }}>
           <div style={{ ...clientCard({ padding: 18 }) }}>
