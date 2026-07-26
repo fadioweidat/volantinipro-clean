@@ -42,14 +42,18 @@ function money(value) {
   return `€${Number(value || 0).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export default function QuickQuotePage({ onStart, onContact }) {
-  const [service, setService] = useState("d2d");
+export default function QuickQuotePage({ onStart, onContact, data }) {
+  const [service, setService] = useState(data?.type || data?.selectedService || "d2d");
   const [comuni, setComuni] = useState([]); // [{ name, lat, lng }]
-  const [comuneInput, setComuneInput] = useState("");
+  // Il comune arrivato da un'altra pagina (es. "Parla con un consulente") non
+  // e' geocodificato: si precompila solo il testo di ricerca, l'utente lo
+  // conferma dal suggerimento come qualunque altro comune (mai un chip con
+  // coordinate finte).
+  const [comuneInput, setComuneInput] = useState(data?.cityName || data?.searchedLocation || "");
   const [suggestions, setSuggestions] = useState([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [dropOpen, setDropOpen] = useState(false);
-  const [qty, setQty] = useState(10000);
+  const [qty, setQty] = useState(data?.qty || data?.flyerQuantity || 10000);
   const [format, setFormat] = useState("A5");
   const [printed, setPrinted] = useState("true");
   const [timing, setTiming] = useState("asap");
@@ -260,7 +264,14 @@ export default function QuickQuotePage({ onStart, onContact }) {
             )}
             {comuneCapReached && (
               <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.4)", marginTop: 4 }}>
-                Massimo {MAX_COMUNI} comuni per il preventivo rapido.
+                Massimo {MAX_COMUNI} comuni per il preventivo rapido.{" "}
+                <button
+                  type="button"
+                  onClick={() => onContact("consultant", { comune: comuni.map((c) => c.name).join(", "), service, qty })}
+                  style={{ border: "none", background: "transparent", color: C.blue, fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                >
+                  Hai più comuni? Parla con un consulente
+                </button>
               </div>
             )}
 
@@ -453,7 +464,7 @@ export default function QuickQuotePage({ onStart, onContact }) {
 
             <button
               type="button"
-              onClick={() => onContact("consultant")}
+              onClick={() => onContact("consultant", { comune: anchor?.name || comuneInput || "", service, qty })}
               style={{ width: "100%", padding: "15px", borderRadius: 12, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", marginBottom: 12 }}
             >
               Richiedi questo preventivo
