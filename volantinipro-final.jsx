@@ -1103,7 +1103,7 @@ _jsx("section", {
                     ]
                   }),
                   _jsx("button", {
-                    onClick: () => n("step1", { quickMode: true }),
+                    onClick: () => n("quick"),
                     style: { background: "transparent", color: "#fff", border: "1px solid rgba(255,255,255,.2)", padding: "12px 24px", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer" },
                     children: "Calcola subito"
                   })
