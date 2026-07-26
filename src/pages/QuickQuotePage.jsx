@@ -3,6 +3,7 @@ import { Step1Icon } from "../components/Step1Icon.jsx";
 import { useServiceAnalysis } from "../hooks/useServiceAnalysis.js";
 import { normalizeNominatimGeocodeResult, canonicalizeItalianMunicipalityName } from "../lib/geocoding/canonicalizeItalianMunicipalityName.js";
 import { buildExtraServicesRegistry, buildExtraServicesById, buildOptionalExtras, OPTIONAL_EXTRAS_ORDER } from "../lib/extraServicesRegistry.js";
+import { TIMING_OPTIONS, TimingUrgencyPicker } from "../components/TimingUrgencyPicker.jsx";
 
 const F = { serif: "'DM Serif Display',Georgia,serif", sans: "'DM Sans',sans-serif" };
 const C = {
@@ -27,18 +28,6 @@ const FORMAT_OPTIONS = [
   { id: "A5", label: "A5", size: "15x21 cm" },
   { id: "A4", label: "A4", size: "21x29 cm" },
   { id: "DL", label: "DL", size: "10x21 cm" },
-];
-
-// 4 pill che fondono tempistica e urgenza. Il sovrapprezzo +30% e' lo stesso
-// applicato realmente da Step4 (data.urgency === "urgent" -> baseCost*0.3);
-// Step1 mostra soglie diverse (20%/35%) solo nella propria stima locale, ma
-// quella non e' la cifra che arriva in fattura, quindi qui si dichiara solo
-// il numero che verra' davvero applicato.
-const TIMING_OPTIONS = [
-  { id: "asap", label: "Appena possibile", desc: "Pianificazione ordinaria", urgency: "normal" },
-  { id: "2weeks", label: "Entro 2 settimane", desc: "Nessuna maggiorazione", urgency: "normal" },
-  { id: "urgent", label: "Urgente", desc: "Attivazione prioritaria", urgency: "urgent", surchargeLabel: "+30%" },
-  { id: "custom", label: "Scegli una data", desc: "Data di inizio specifica", urgency: "normal" },
 ];
 
 function FieldLabel({ children }) {
@@ -392,33 +381,11 @@ export default function QuickQuotePage({ onStart, onContact }) {
 
             <div style={{ marginBottom: 24 }}>
               <FieldLabel>Quando parte la campagna</FieldLabel>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
-                {TIMING_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id} type="button" onClick={() => setTiming(opt.id)}
-                    style={{
-                      display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4, textAlign: "left",
-                      padding: "12px 14px", borderRadius: 10, cursor: "pointer",
-                      border: `1.5px solid ${timing === opt.id ? (opt.urgency === "urgent" ? C.red : C.blue) : "rgba(255,255,255,.12)"}`,
-                      background: timing === opt.id ? `${opt.urgency === "urgent" ? C.red : C.blue}18` : "rgba(255,255,255,.03)",
-                    }}
-                  >
-                    <span style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: timing === opt.id ? (opt.urgency === "urgent" ? C.red : C.blue) : C.white }}>
-                      {opt.label}
-                      {opt.surchargeLabel && (
-                        <span style={{ fontSize: 10, fontWeight: 800, color: C.red }}>{opt.surchargeLabel}</span>
-                      )}
-                    </span>
-                    <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)" }}>{opt.desc}</span>
-                  </button>
-                ))}
-              </div>
-              {timing === "custom" && (
-                <input
-                  type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)}
-                  style={{ ...inputStyle, marginTop: 10 }}
-                />
-              )}
+              <TimingUrgencyPicker
+                timing={timing} onTimingChange={setTiming}
+                customDate={customDate} onCustomDateChange={setCustomDate}
+                inputStyle={inputStyle}
+              />
             </div>
 
             <div>
