@@ -4,6 +4,7 @@ import { useServiceAnalysis } from "../hooks/useServiceAnalysis.js";
 import { normalizeNominatimGeocodeResult, canonicalizeItalianMunicipalityName } from "../lib/geocoding/canonicalizeItalianMunicipalityName.js";
 import { buildExtraServicesRegistry, buildExtraServicesById, buildOptionalExtras, OPTIONAL_EXTRAS_ORDER } from "../lib/extraServicesRegistry.js";
 import { TIMING_OPTIONS, TimingUrgencyPicker } from "../components/TimingUrgencyPicker.jsx";
+import { printQuotePdf } from "../lib/pdf/printQuotePdf.js";
 
 const F = { serif: "'DM Serif Display',Georgia,serif", sans: "'DM Sans',sans-serif" };
 const C = {
@@ -165,6 +166,101 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
       service, comune: anchor?.name || "", qty, format,
       urgency: urgency === "urgent" ? "urgent" : "normal",
     });
+  };
+
+  const serviceLabel = SERVICE_OPTIONS.find((s) => s.id === service)?.label || service;
+
+  // Riusa la stessa funzione di generazione PDF di Step4 (printQuotePdf),
+  // mappando solo i campi realmente disponibili nel Rapido. Le sezioni che
+  // richiedono dati non raccolti qui (pianificazione date, business plan,
+  // punteggi Step2) restano vuote/null cosi' printQuotePdf le omette da
+  // sola — mai un valore inventato per riempirle.
+  const handleRequestQuote = () => {
+    const mainArea = comuni.map((c) => c.name).join(", ") || comuneInput || "Zona da definire";
+    const quotePdfData = {
+      generatedAt: new Date().toISOString(),
+      status: "Stima indicativa",
+      service: serviceLabel,
+      campaign: {
+        variant: null,
+        quantity: qty,
+        format: format,
+        grammage: null,
+        materialStatus: printed === "true" ? "già stampato" : "Da produrre",
+        graphicStatus: null,
+        plan: "Singola",
+        campaignsPerMonth: null,
+        duration: null,
+        areaMode: comuni.length > 1 ? "multi" : "comune",
+      },
+      business: null,
+      area: {
+        mainArea,
+        areaMode: comuni.length > 1 ? "multi" : "comune",
+        selectedCaps: [],
+        capAnalysis: [],
+        radiusKm: null,
+        coveredAreaKm2: null,
+        selectedMunicipalities: comuni.map((c) => c.name),
+        selectionMode: "Auto",
+      },
+      outputs: {
+        estimatedFamilies: allMatched ? totalFamilies : null,
+        estimatedPopulation: null,
+        estimatedCoverage: null,
+        recommendedFlyers: recommendedQty,
+        fullCoverageFlyers: recommendedQty,
+        insertedFlyers: qty,
+        remainingFlyers: recommendedQty && qty > recommendedQty ? qty - recommendedQty : 0,
+        missingFlyers: recommendedQty && qty < recommendedQty ? recommendedQty - qty : 0,
+        coverageStatus: recommendedQty ? (qty >= recommendedQty ? "sufficient" : "partial") : null,
+      },
+      coverageStrategy: null,
+      municipalities: comuniBreakdown.map((c) => ({
+        name: c.name,
+        status: c.matched ? "Dato disponibile" : "In elaborazione",
+        estimatedFlyers: c.matched && totalFamilies > 0 ? Math.round((c.families / totalFamilies) * qty) : null,
+        coveragePct: null,
+        contributionPct: c.matched && totalFamilies > 0 ? Math.round((c.families / totalFamilies) * 100) : null,
+      })),
+      scores: [],
+      adminInfo: [],
+      omi: null,
+      extras: extraIds.map((id) => ({
+        id,
+        label: registryById[id]?.head,
+        description: registryById[id]?.optionalDescription || null,
+        price: registryById[id]?.price || 0,
+        status: "Selezionato",
+      })),
+      aiAnalysis: { enabled: false, serviceType: service, mainArea },
+      planning: {
+        selectedDates: timing === "custom" && customDate ? [customDate] : [],
+        availabilityLabel: null,
+        smartPairingApplied: false,
+        smartPairingDiscountPct: null,
+        operationalWaypoints: [],
+        compatibleZone: null,
+      },
+      pricing: {
+        lines: [
+          {
+            label: `Distribuzione ${serviceLabel}`,
+            detail: `${qty.toLocaleString("it-IT", { useGrouping: true })} volantini`,
+            quantity: qty,
+            unitPrice: pricePerThousand / 1000,
+            total: baseCost,
+          },
+          ...(urgencySurcharge > 0 ? [{ label: "Maggiorazione urgenza (+30%)", quantity: null, unitPrice: null, total: urgencySurcharge }] : []),
+        ],
+        subtotal: baseCost,
+        extras: extraIds.map((id) => ({ label: registryById[id]?.head, amount: registryById[id]?.price || 0, status: "Selezionato" })),
+        discounts: [],
+        total,
+      },
+      sources: allMatched ? ["Analisi territoriale GIS/NIL"] : [],
+    };
+    printQuotePdf(quotePdfData);
   };
 
   return (
@@ -464,7 +560,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
 
             <button
               type="button"
-              onClick={() => onContact("consultant", { comune: anchor?.name || comuneInput || "", service, qty })}
+              onClick={handleRequestQuote}
               style={{ width: "100%", padding: "15px", borderRadius: 12, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", marginBottom: 12 }}
             >
               Richiedi questo preventivo
