@@ -5,6 +5,7 @@ import { normalizeNominatimGeocodeResult, canonicalizeItalianMunicipalityName } 
 import { buildExtraServicesRegistry, buildExtraServicesById, buildOptionalExtras, OPTIONAL_EXTRAS_ORDER } from "../lib/extraServicesRegistry.js";
 import { TIMING_OPTIONS, TimingUrgencyPicker } from "../components/TimingUrgencyPicker.jsx";
 import { printQuotePdf } from "../lib/pdf/printQuotePdf.js";
+import { distributionTypes } from "../lib/distributionTypes.js";
 
 const F = { serif: "'DM Serif Display',Georgia,serif", sans: "'DM Sans',sans-serif" };
 const C = {
@@ -295,21 +296,30 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
 
             <FieldLabel>Tipo di servizio</FieldLabel>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 24 }}>
-              {SERVICE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.id} type="button" onClick={() => setService(opt.id)}
-                  style={{
-                    display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6,
-                    padding: "14px", borderRadius: 12, cursor: "pointer", textAlign: "left",
-                    border: `1.5px solid ${service === opt.id ? opt.color : "rgba(255,255,255,.12)"}`,
-                    background: service === opt.id ? `${opt.color}18` : "rgba(255,255,255,.03)",
-                  }}
-                >
-                  <Step1Icon name={opt.icon} size={20} color={service === opt.id ? opt.color : "rgba(255,255,255,.6)"} />
-                  <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: service === opt.id ? opt.color : C.white }}>{opt.label}</span>
-                  <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)" }}>{opt.sub}</span>
-                </button>
-              ))}
+              {SERVICE_OPTIONS.map((opt) => {
+                const badgeLabel = distributionTypes.find((t) => t.id === opt.id)?.badge;
+                return (
+                  <button
+                    key={opt.id} type="button" onClick={() => setService(opt.id)}
+                    style={{
+                      position: "relative",
+                      display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6,
+                      padding: "14px", borderRadius: 12, cursor: "pointer", textAlign: "left",
+                      border: `1.5px solid ${service === opt.id ? opt.color : "rgba(255,255,255,.12)"}`,
+                      background: service === opt.id ? `${opt.color}18` : "rgba(255,255,255,.03)",
+                    }}
+                  >
+                    {badgeLabel && (
+                      <div style={{ position: "absolute", top: 8, right: 8, padding: "3px 8px", borderRadius: 999, background: "rgba(255,255,255,.055)", border: "1px solid rgba(255,255,255,.1)", color: "rgba(255,255,255,.66)", fontFamily: F.sans, fontSize: 9, fontWeight: 800 }}>
+                        {badgeLabel}
+                      </div>
+                    )}
+                    <Step1Icon name={opt.icon} size={20} color={service === opt.id ? opt.color : "rgba(255,255,255,.6)"} />
+                    <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: service === opt.id ? opt.color : C.white }}>{opt.label}</span>
+                    <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)" }}>{opt.sub}</span>
+                  </button>
+                );
+              })}
             </div>
 
             <FieldLabel>Comuni o zone target (fino a {MAX_COMUNI})</FieldLabel>
