@@ -300,7 +300,8 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
             <FieldLabel>Tipo di servizio</FieldLabel>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 24 }}>
               {SERVICE_OPTIONS.map((opt) => {
-                const badgeLabel = distributionTypes.find((t) => t.id === opt.id)?.badge;
+                const dt = distributionTypes.find((t) => t.id === opt.id);
+                const active = service === opt.id;
                 return (
                   <button
                     key={opt.id} type="button" onClick={() => setService(opt.id)}
@@ -308,18 +309,26 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                       position: "relative",
                       display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6,
                       padding: "14px", borderRadius: 12, cursor: "pointer", textAlign: "left",
-                      border: `1.5px solid ${service === opt.id ? opt.color : "rgba(255,255,255,.12)"}`,
-                      background: service === opt.id ? `${opt.color}18` : "rgba(255,255,255,.03)",
+                      border: `${active ? 2 : 1.5}px solid ${active ? opt.color : "rgba(255,255,255,.12)"}`,
+                      background: active ? `${opt.color}22` : "rgba(255,255,255,.03)",
+                      boxShadow: active ? `0 10px 26px ${opt.color}28` : "none",
                     }}
                   >
-                    {badgeLabel && (
+                    {active ? (
+                      <div style={{ position: "absolute", top: 8, right: 8, padding: "3px 8px", borderRadius: 999, background: "rgba(34,197,94,.14)", border: "1px solid rgba(34,197,94,.36)", color: C.green, fontFamily: F.sans, fontSize: 9, fontWeight: 800 }}>
+                        ✓ Selezionato
+                      </div>
+                    ) : dt?.badge && (
                       <div style={{ position: "absolute", top: 8, right: 8, padding: "3px 8px", borderRadius: 999, background: "rgba(255,255,255,.055)", border: "1px solid rgba(255,255,255,.1)", color: "rgba(255,255,255,.66)", fontFamily: F.sans, fontSize: 9, fontWeight: 800 }}>
-                        {badgeLabel}
+                        {dt.badge}
                       </div>
                     )}
-                    <Step1Icon name={opt.icon} size={20} color={service === opt.id ? opt.color : "rgba(255,255,255,.6)"} />
-                    <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: service === opt.id ? opt.color : C.white }}>{opt.label}</span>
+                    <Step1Icon name={opt.icon} size={20} color={active ? opt.color : "rgba(255,255,255,.6)"} />
+                    <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: active ? opt.color : C.white }}>{opt.label}</span>
                     <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)" }}>{opt.sub}</span>
+                    {dt?.target && (
+                      <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.32)", lineHeight: 1.3 }}>{dt.target}</span>
+                    )}
                   </button>
                 );
               })}
