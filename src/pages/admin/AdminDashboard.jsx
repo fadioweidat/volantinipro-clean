@@ -1,5 +1,5 @@
 import 'leaflet/dist/leaflet.css';
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import { getRealCampaigns, selectOptionalTable, markWaitlistHandled } from "../../lib/services/admin-api.js";
 import { buildAdminDashboardInsights } from "../../lib/ai/buildAdminInsights.js";
@@ -7,6 +7,10 @@ import { buildAdminDecisionItems } from "../../lib/ai/buildAdminDecisionItems.js
 import { buildAdminNotifications } from "../../lib/ai/buildAdminNotifications.js";
 import { AdminOperationalBrief } from "../../components/ai/admin/AdminOperationalBrief.jsx";
 import { AINotificationCenter } from "../../components/ai/AINotificationCenter.jsx";
+import { useAdminIdentity } from "../../components/admin/AdminGuard.jsx";
+import { isAdminAiDashboardEnabled } from "../../lib/runtimeFlags.js";
+
+const AdminCentralAiPanel = lazy(() => import("../../components/ai/admin/AdminCentralAiPanel.jsx"));
 
 const C = {
   orange: "#E8571A",
@@ -48,6 +52,7 @@ const QUALITY_BADGES = {
 };
 
 export default function AdminDashboard({ onNav }) {
+  const adminIdentity = useAdminIdentity();
   const [state, setState] = useState({ loading: true, error: null, data: emptyData() });
   const [statusFilter, setStatusFilter] = useState("all");
   const [serviceFilter, setServiceFilter] = useState("all");
@@ -266,6 +271,10 @@ export default function AdminDashboard({ onNav }) {
       />
 
       <AINotificationCenter center={adminNotificationCenter} loading={state.loading} error={state.error} />
+
+      {isAdminAiDashboardEnabled && <Suspense fallback={<Notice text="Inizializzazione Assistente Operativo..." />}>
+        <AdminCentralAiPanel adminIdentity={adminIdentity} campaigns={campaigns} availability={availability} dataLoading={state.loading} dataError={state.error} />
+      </Suspense>}
 
       <section style={{ ...cardStyle, marginBottom: 16 }}>
         <p style={eyebrowStyle}>Centrale operativa</p>

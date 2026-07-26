@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { supabase, ensureSupabaseSessionBridge } from "../../supabaseClient.js";
 import { logAuditEvent } from "../../lib/audit.js";
 
@@ -12,6 +12,10 @@ import { logAuditEvent } from "../../lib/audit.js";
 // notes reported alongside this fix. Nothing is hardcoded/mocked: with no
 // matching row, every user is denied (fail-closed).
 const ADMIN_ROLES = ["admin", "super_admin"];
+const AdminAccessContext = createContext(null);
+
+/** Identita proveniente esclusivamente dalla guardia autenticata. */
+export function useAdminIdentity() { return useContext(AdminAccessContext); }
 
 export async function checkAdminAccess() {
   console.info("[ADMIN_GUARD_CHECK_STARTED]");
@@ -108,17 +112,22 @@ export function AdminAccessScreen({ mode, onLogin }) {
 const defaultOnLogin = () => {
   try {
     if (typeof window !== "undefined" && window.location.pathname.toLowerCase().includes("/admin")) {
+      const adminPath = window.location.pathname.startsWith("/admin") ? `${window.location.pathname}${window.location.search || ""}` : "/admin";
       window.localStorage.setItem("volantinipro_return_to", "admin");
       window.localStorage.setItem("volantinipro_return_to_source", "admin");
+      window.localStorage.setItem("volantinipro_return_path", adminPath);
       window.localStorage.removeItem("volantinipro_pending_campaign_id");
-      console.info("[AUTH_RETURN_TO_SOURCE]", { source: "admin_guard_default", returnTo: "admin" });
+      console.info("[AUTH_RETURN_TO_SOURCE]", { source: "admin_guard_default", returnTo: "admin", adminPath });
+      window.location.href = `/login?returnTo=admin&adminPath=${encodeURIComponent(adminPath)}`;
+      return;
     }
   } catch {}
   window.location.href = "/login";
 };
 
 export function AdminRouteGuard({ children, onLogin = defaultOnLogin }) {
-  const { status } = useAdminAccess();
+  const access = useAdminAccess();
+  const { status } = access;
 
   if (status === "checking") {
     return (
@@ -133,5 +142,5 @@ export function AdminRouteGuard({ children, onLogin = defaultOnLogin }) {
     return <AdminAccessScreen mode={status} onLogin={onLogin} />;
   }
 
-  return children;
+  return <AdminAccessContext.Provider value={Object.freeze({ user: access.user, role: access.role })}>{children}</AdminAccessContext.Provider>;
 }
