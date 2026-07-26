@@ -9,6 +9,7 @@ import { buildExtraServicesRegistry, buildExtraServicesById, buildSvcCommercial,
 
 import { printQuotePdf } from "./src/lib/pdf/printQuotePdf.js";
 import { distributionTypes } from "./src/lib/distributionTypes.js";
+import { activityButtons } from "./src/lib/activityButtons.js";
 import { printTerritorialReportPdf } from "./src/lib/pdf/printTerritorialReportPdf.js";
 import TerritorialReport from "./src/pages/TerritorialReport.jsx";
 import { AUTH_EXPIRED_MESSAGE, supabase, confirmCampaignPayment, hasSupabaseConfig, saveCampaign, saveSmartPairingWaitlist, getStoredSupabaseSession, isAuthTokenExpiredError, isStoredSupabaseSessionExpired, clearExpiredSupabaseSession, ensureRestSessionFromSdk } from "./src/lib/supabaseClient.js";
@@ -1895,22 +1896,6 @@ function Step1({ data, setData, onNext, onHome }) {
       return "";
     return `${y}-${m}-${d}`;
   };
-
-  const activityButtons = [
-    { value: "ristorazione", icon: "utensils", label: "Ristorazione" },
-    { value: "retail", icon: "bag", label: "Retail" },
-    { value: "sanitario", icon: "medical", label: "Sanitario" },
-    { value: "automotive", icon: "car", label: "Automotive" },
-    { value: "servizi", icon: "building", label: "Servizi professionali" },
-    { value: "scuole", icon: "graduation", label: "Scuole" },
-    { value: "immobiliare", icon: "home", label: "Immobiliare" },
-    { value: "beauty", icon: "droplet", label: "Beauty" },
-    { value: "fitness", icon: "dumbbell", label: "Fitness" },
-    { value: "eventi", icon: "star", label: "Eventi" },
-    { value: "farmacie", icon: "pharmacy", label: "Farmacie" },
-    { value: "alimentari", icon: "cart", label: "Alimentari" },
-    { value: "altro", icon: "sparkles", label: "Altro" },
-  ];
 
   const periodPresets = [
     { id: "asap", icon: "lightning", label: "Prima possibile", desc: "Avvio appena ultimata la preparazione logistica" },
@@ -14799,7 +14784,9 @@ const comune = prefillPatch.comune || "";
 const printed = prefillPatch.printed;
 const format = prefillPatch.format;
 const urgency = prefillPatch.urgency;
+const activityType = prefillPatch.activityType;
       setData(d => ({...d,...(service ? { type: service, selectedService: service, activeService: service } : {}),...(qty > 0 ? { qty, flyerQuantity: qty, flyerQuantityFromStep1: qty } : {}),...(comune ? { cityName: comune, searchedLocation: comune } : {}),...(printed ? { hasFlyers: printed === "true" ? "yes" : "no", alreadyPrinted: printed === "true" } : {}),...(format ? { flyerFormat: format.toLowerCase() } : {}),...(urgency ? { urgency: urgency === "urgent" ? "urgent" : "normal" } : {}),
+...(activityType ? { activityType, businessSector: activityType, distributionTargets: [activityType], distributionTargetsExplicit: false } : {}),
         quickSource: prefillPatch.source || d.quickSource || ""
       }));
     }

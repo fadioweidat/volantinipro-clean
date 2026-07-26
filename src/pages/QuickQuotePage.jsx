@@ -6,6 +6,7 @@ import { buildExtraServicesRegistry, buildExtraServicesById, buildOptionalExtras
 import { TIMING_OPTIONS, TimingUrgencyPicker } from "../components/TimingUrgencyPicker.jsx";
 import { printQuotePdf } from "../lib/pdf/printQuotePdf.js";
 import { distributionTypes } from "../lib/distributionTypes.js";
+import { activityButtons } from "../lib/activityButtons.js";
 
 const F = { serif: "'DM Serif Display',Georgia,serif", sans: "'DM Sans',sans-serif" };
 const C = {
@@ -46,6 +47,7 @@ function money(value) {
 
 export default function QuickQuotePage({ onStart, onContact, data }) {
   const [service, setService] = useState(data?.type || data?.selectedService || "d2d");
+  const [activityType, setActivityType] = useState(data?.activityType || data?.businessSector || "");
   const [comuni, setComuni] = useState([]); // [{ name, lat, lng }]
   // Il comune arrivato da un'altra pagina (es. "Parla con un consulente") non
   // e' geocodificato: si precompila solo il testo di ricerca, l'utente lo
@@ -166,6 +168,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
     onStart("step1", {
       service, comune: anchor?.name || "", qty, format,
       urgency: urgency === "urgent" ? "urgent" : "normal",
+      activityType,
     });
   };
 
@@ -322,6 +325,16 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
               })}
             </div>
 
+            <div style={{ marginBottom: 24 }}>
+              <FieldLabel>Settore o attività</FieldLabel>
+              <select value={activityType} onChange={(e) => setActivityType(e.target.value)} style={inputStyle}>
+                <option value="">Seleziona settore (opzionale)</option>
+                {activityButtons.map((btn) => (
+                  <option key={btn.value} value={btn.value}>{btn.label}</option>
+                ))}
+              </select>
+            </div>
+
             <FieldLabel>Comuni o zone target (fino a {MAX_COMUNI})</FieldLabel>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: comuni.length ? 12 : 0 }}>
               {comuni.map((c) => (
@@ -373,7 +386,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                 Massimo {MAX_COMUNI} comuni per il preventivo rapido.{" "}
                 <button
                   type="button"
-                  onClick={() => onContact("consultant", { comune: comuni.map((c) => c.name).join(", "), service, qty })}
+                  onClick={() => onContact("consultant", { comune: comuni.map((c) => c.name).join(", "), service, qty, activityType })}
                   style={{ border: "none", background: "transparent", color: C.blue, fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0, textDecoration: "underline" }}
                 >
                   Hai più comuni? Parla con un consulente
