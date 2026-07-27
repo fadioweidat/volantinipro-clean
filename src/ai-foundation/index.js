@@ -8,3 +8,5 @@ export * from "./security/AiPermissionPolicy.js";
 export * from "./state/AiStateManager.js";
 export * from "./tools/AiToolRegistry.js";
 export * from "./tools/toolManifest.js";
+export * from "./integrations/customer-dashboard/customerDashboardAdapters.mjs";
+export * from "./integrations/customer-dashboard/CustomerDashboardReadOnlyRuntime.mjs";
