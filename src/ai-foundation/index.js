@@ -10,3 +10,5 @@ export * from "./tools/AiToolRegistry.js";
 export * from "./tools/toolManifest.js";
 export * from "./integrations/customer-dashboard/customerDashboardAdapters.mjs";
 export * from "./integrations/customer-dashboard/CustomerDashboardReadOnlyRuntime.mjs";
+
+export * from "./integrations/territorial-step2/territorialStep2Foundation.mjs";

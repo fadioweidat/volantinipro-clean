@@ -27,10 +27,11 @@ import Button from "./src/components/ui/Button.jsx";
 import { MetricValue } from "./src/components/ui/MetricValue.tsx";
 import { sendEmailConferma } from "./src/api/sendEmailConferma.js";
 import { computeDoorToDoorCoverage, getZoneFullCoverageFlyers } from "./src/lib/doorToDoorCoverage.js";
-import { allowMockData, isProduction, isCustomerAiDashboardEnabled } from "./src/lib/runtimeFlags.js";
+import { allowMockData, isProduction, isCustomerAiDashboardEnabled, isTerritorialStep2AiEnabled } from "./src/lib/runtimeFlags.js";
 import { LAYER_PANEL_CONFIG, defaultLayerState } from "./src/lib/dataSources.js";
 
 const CustomerAiAssistantPanel = React.lazy(() => import("./src/components/ai/customer/CustomerAiAssistantPanel.jsx"));
+const TerritorialAiAssistantPanel = React.lazy(() => import("./src/components/ai/territory/TerritorialAiAssistantPanel.jsx"));
 const SOURCE_ALIASES = {
   Backend: "Analisi interna",
   "Backend scoring": "Analisi interna",
@@ -1808,6 +1809,15 @@ const radiusInsightRows = zonesInRadius.map(z => ({
 
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto", padding: "34px clamp(16px, 4vw, 32px) 160px", background: C.navyMid, minHeight: "100vh", overflow: "visible" }}>
+
+      {isTerritorialStep2AiEnabled && (
+        <React.Suspense fallback={<div style={{ minHeight: 90, marginBottom: 16 }} aria-label="Caricamento Assistente Territoriale" />}>
+          <TerritorialAiAssistantPanel
+            step2State={data}
+            step2Actions={{ setStep2State: setData }}
+          />
+        </React.Suspense>
+      )}
 
       {/* Section */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14, flexWrap: "wrap" }}>
