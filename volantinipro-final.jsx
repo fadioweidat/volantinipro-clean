@@ -48,6 +48,7 @@ import Footer from "./src/components/home/Footer.jsx";
 import { AdminRouteGuard } from "./src/components/admin/AdminGuard.jsx";
 const VolantiniProAIHub = React.lazy(() => import("./src/components/ai/VolantiniProAIHub.jsx"));
 const CustomerAiAssistantPanel = React.lazy(() => import("./src/components/ai/customer/CustomerAiAssistantPanel.jsx"));
+const TerritorialStep2AiBoundary = React.lazy(() => import("./src/ai-foundation/integrations/territorial-step2/TerritorialStep2AiBoundary.jsx"));
 const RealAdminDashboard = React.lazy(() => import("./src/pages/admin/AdminDashboard.jsx"));
 const ServiceCenter = React.lazy(() => import("./src/pages/ServiceCenter.jsx"));
 const OutputLibrary = React.lazy(() => import("./src/pages/OutputLibrary.jsx"));
@@ -62,7 +63,7 @@ import { normalizeNominatimGeocodeResult, normalizeNominatimH2HBootstrapPoint } 
 import { buildStep2ViewModel, formatCoverageProportion } from "./src/lib/step2/buildStep2ViewModel.js";
 import { buildStep2TruthModel, buildStep2ToStep3Payload } from "./src/lib/step2/buildStep2TruthModel.js";
 import { checkMilanoTerritory } from "./src/lib/step2/milanoTerritoryHelper.js";
-import { allowMockData, isCustomerAiDashboardEnabled, isProduction } from "./src/lib/runtimeFlags.js";
+import { allowMockData, isCustomerAiDashboardEnabled, isProduction, isTerritorialStep2AiEnabled } from "./src/lib/runtimeFlags.js";
 import { defaultLayerState } from "./src/lib/dataSources.js";
 import { geoJsonApproxCentroid, geoJsonContainsPoint } from "./src/lib/geo/pointInPolygon.js";
 import { GRANDE_CITTA_ZONE_THRESHOLD, isZonaRilevante } from "./src/lib/services/zone-list-config.js";
@@ -3548,7 +3549,7 @@ function getVerifiedBusinessMetrics(pois, targetMeta, radiusKm) {
   };
 }
 
-function Step2({ data, setData, onNext, onBack }) {
+function Step2({ data, setData, onNext, onBack, aiIdentity, aiContextId }) {
   const isMobile = useIsMobile();
 const svcRaw = data.selectedService || data.activeService || data.type || "d2d";
 const svcType = ({door_to_door:"d2d","door-to-door":"d2d",door:"d2d",hand_to_hand:"h2h","hand-to-hand":"h2h",business:"b2b","business-distribution":"b2b",business_b2b:"b2b"})[svcRaw] || svcRaw;
@@ -10274,6 +10275,20 @@ const isManual = allocationMode === "manual";
         </div>
         </>
         )}
+      {!isAdminView && isTerritorialStep2AiEnabled && (
+        <React.Suspense fallback={<div style={{ marginTop: 16, padding: 14, borderRadius: 12, background: "rgba(56,189,248,.07)", color: "rgba(255,255,255,.62)", fontFamily: F.sans, fontSize: 11 }}>Inizializzazione Assistente Territoriale...</div>}>
+          <TerritorialStep2AiBoundary
+            truthModel={step2TruthModel}
+            viewModel={step2ViewModel}
+            loading={Boolean(apiLoading || gisLoading)}
+            error={Boolean(apiError || gisTimedOut || hasCoverageCalculationError)}
+            identity={aiIdentity}
+            contextId={aiContextId}
+            activeCampaignRef={data.campaignId || null}
+            activeQuoteRef={data.quoteId || data.quoteRequestId || null}
+          />
+        </React.Suspense>
+      )}
       </div>
     </div>
   );
@@ -14630,7 +14645,7 @@ function InteractiveRadiusSlider({ value, options, disabled = false, onCommit, r
   );
 }
 
-export default function App() {
+export default function App({ verifiedAiIdentity = null } = {}) {
   const readPrefill = () => {
     if (typeof window === "undefined") return { has: false, patch: {} };
 const p = new URLSearchParams(window.location.search);
@@ -14703,6 +14718,8 @@ const routeToPage = path => {
     return "step1";
   };
 const [page, setPage] = useState(routeToPage(window.location.pathname));
+const [territorialAiContextId] = useState(() => globalThis.crypto?.randomUUID?.() ?? `step2-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+const territorialAiIdentity = useMemo(() => verifiedAiIdentity ?? Object.freeze({ status: "anonymous" }), [verifiedAiIdentity]);
 
   useEffect(() => {
     const handlePop = () => setPage(routeToPage(window.location.pathname));
@@ -14869,7 +14886,7 @@ const isConfiguratorPage = page === "step1" || page === "step2" || page === "ste
         {isConfiguratorPage && (
           <>
             {page === "step1" && <Step1 data={data} setData={setData} onNext={() => goTo("step2")} onHome={() => goTo("home")} />}
-            {page === "step2" && <Step2ErrorBoundary><Step2 data={data} setData={setData} onNext={() => goTo("step3")} onBack={() => goTo("step1")} /></Step2ErrorBoundary>}
+            {page === "step2" && <Step2ErrorBoundary><Step2 data={data} setData={setData} onNext={() => goTo("step3")} onBack={() => goTo("step1")} aiIdentity={territorialAiIdentity} aiContextId={territorialAiContextId} /></Step2ErrorBoundary>}
             {page === "step3" && <Step3 data={data} setData={setData} onNext={() => goTo("step4")} onBack={() => goTo("step2")} />}
             {page === "step4" && <Step4 data={data} setData={setData} onBack={() => goTo("step3")} onHome={(p, opts) => goTo(p || "home", opts)} onCampaignSaved={(id) => goTo("payment", { campaignId: id })} />}
           </>
