@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { getRealCampaigns, selectOptionalTable } from "../../lib/services/admin-api.js";
+import { isAdminAiDashboardEnabled } from "../../lib/runtimeFlags.js";
+
+const AdminCentralAiPanel = React.lazy(() => import("../../components/ai/admin/AdminCentralAiPanel.jsx"));
 
 const C = {
   orange: "#E8571A",
@@ -111,6 +114,16 @@ export default function AdminDashboard({ onNav }) {
       {state.loading && <Notice text="Caricamento dati admin reali..." />}
       {state.error && <Notice text={state.error} danger />}
       {notice && <Notice text={notice} />}
+
+      {isAdminAiDashboardEnabled && (
+        <React.Suspense fallback={<div style={{ minHeight: 90, marginBottom: 16 }} aria-label="Caricamento Assistente Admin" />}>
+          <AdminCentralAiPanel 
+            adminData={state.data}
+            loading={state.loading}
+            error={state.error}
+          />
+        </React.Suspense>
+      )}
 
       <section style={kpiGridStyle}>
         {kpis.map((kpi) => (
