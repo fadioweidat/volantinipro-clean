@@ -151,8 +151,9 @@ export function AppRouter() {
       <SeoMeta page={page} />
       {!isConfiguratorPage && page !== "home" && <Navbar onNav={goTo} page={page} />}
       <div style={{ paddingTop: 0 }}>
-        
+
         {/* PUBLIC ROUTES */}
+        {isConfiguratorPage && <StepperBar current={page} onGo={goTo} />}
         <PublicRoutes page={page} data={data} setData={setData} goTo={goTo} prefillPatch={prefill.patch} />
 
         {/* CUSTOMER ROUTES */}
@@ -177,14 +178,6 @@ export function AppRouter() {
           <AdminGuard>
             <AdminDashboard onNav={goTo} />
           </AdminGuard>
-        )}
-
-        {/* CONFIGURATOR (PUBLIC) */}
-        {isConfiguratorPage && (
-          <>
-            <StepperBar current={page} onGo={goTo} />
-            <PublicRoutes page={page} data={data} setData={setData} goTo={goTo} prefillPatch={prefill.patch} />
-          </>
         )}
 
       </div>
