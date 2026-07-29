@@ -1,9 +1,19 @@
 export const C = {
   orange: "#E8571A",
+  orangeGlow: "rgba(232,87,26,.35)",
+  navy: "#1A2744",
+  navyDeep: "#0F1A30",
+  navyMid: "#162238",
+  cream: "#FAF9F7",
+  steelDark: "#E2E6EC",
   green: "#2ECC8A",
-  yellow: "#FBBF24",
   blue: "#60A5FA",
   purple: "#A78BFA",
+  yellow: "#FBBF24",
+  red: "#F87171",
+  teal: "#2DD4BF",
+  text: "#1A1A1A",
+  muted: "#6B7280",
   white: "#FFFFFF",
 };
 
