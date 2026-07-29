@@ -13,6 +13,8 @@ import Footer from "../../components/home/Footer.jsx";
 import VolantiniProHeroMap from "../../components/home/VolantiniProHeroMap.jsx";
 import WhyDifferentSection from "../../components/home/WhyDifferentSection.jsx";
 
+const VolantiniProAIHub = React.lazy(() => import("../../components/ai/VolantiniProAIHub.jsx"));
+
 export function HomePage({
   onStart: n
 }) {
