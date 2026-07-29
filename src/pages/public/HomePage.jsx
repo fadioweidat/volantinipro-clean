@@ -10,6 +10,7 @@ import FAQSection from "../../components/home/FAQSection.jsx";
 import PricingSection from "../../components/home/PricingSection.jsx";
 import Footer from "../../components/home/Footer.jsx";
 import VolantiniProHeroMap from "../../components/home/VolantiniProHeroMap.jsx";
+import WhyDifferentSection from "../../components/home/WhyDifferentSection.jsx";
 
 export function HomePage({
   onStart: n
