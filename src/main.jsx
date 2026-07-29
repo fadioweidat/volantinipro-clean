@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import App from "../volantinipro-final.jsx";
+import { AppRouter } from "./app/AppRouter.jsx";
 import { GpsMonitor } from "./pages/admin/GpsMonitor.jsx";
 import { CampaignTracking } from "./pages/customer/CampaignTracking.jsx";
 import { TrackingPage } from "./pages/driver/TrackingPage.jsx";
@@ -19,7 +19,7 @@ function Root() {
   const customerMatch = path.match(/^\/customer\/campaigns\/([^/]+)\/tracking$/);
   if (customerMatch) return <CampaignTracking campaignId={customerMatch[1]} />;
 
-  return <App />;
+  return <AppRouter />;
 }
 
 createRoot(document.getElementById("root")).render(
