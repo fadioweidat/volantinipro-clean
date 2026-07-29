@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from "react";
 import {
-  HomePage, QuickQuotePage, ConsultantPage, LoginPage, DashboardPage,
-  CampaignDashboardPage, PagamentoBonificoPage, LegalPage, AdminDashboard,
-  Step1, Step2, Step3, Step4, StepperBar, Bootstrap, SeoMeta, Navbar, F, C
+  LoginPage, DashboardPage, CampaignDashboardPage, PagamentoBonificoPage, AdminDashboard
 } from "../../volantinipro-final.jsx";
+import { PublicRoutes } from "./PublicRoutes.jsx";
+import { Bootstrap } from "../layouts/public/Bootstrap.jsx";
+import { SeoMeta } from "../layouts/public/SeoMeta.jsx";
+import { Navbar } from "../layouts/public/Navbar.jsx";
+import { StepperBar } from "../layouts/public/StepperBar.jsx";
+import { F, C } from "../lib/constants.js";
 import { CustomerGuard } from "../auth/guards/CustomerGuard.jsx";
 import { AdminGuard } from "../auth/guards/AdminGuard.jsx";
 
@@ -149,13 +153,7 @@ export function AppRouter() {
       <div style={{ paddingTop: 0 }}>
         
         {/* PUBLIC ROUTES */}
-        {page === "home" && <HomePage onStart={goTo} />}
-        {page === "quick" && <QuickQuotePage onStart={goTo} onContact={goTo} />}
-        {page === "consultant" && <ConsultantPage onStart={goTo} />}
-        {page === "login" && <LoginPage onNav={goTo} />}
-        {page === "privacy" && <LegalPage type="privacy" onNav={goTo} />}
-        {page === "terms" && <LegalPage type="terms" onNav={goTo} />}
-        {page === "cookie" && <LegalPage type="cookie" onNav={goTo} />}
+        <PublicRoutes page={page} data={data} setData={setData} goTo={goTo} prefillPatch={prefill.patch} />
 
         {/* CUSTOMER ROUTES */}
         {page === "dashboard" && (
@@ -185,12 +183,10 @@ export function AppRouter() {
         {isConfiguratorPage && (
           <>
             <StepperBar current={page} onGo={goTo} />
-            {page === "step1" && <Step1 data={data} setData={setData} onNext={() => goTo("step2")} />}
-            {page === "step2" && <Step2 data={data} setData={setData} onNext={() => goTo("step3")} onBack={() => goTo("step1")} />}
-            {page === "step3" && <Step3 data={data} setData={setData} onNext={() => goTo("step4")} onBack={() => goTo("step2")} />}
-            {page === "step4" && <Step4 data={data} setData={setData} onNav={goTo} onBack={() => goTo("step3")} />}
+            <PublicRoutes page={page} data={data} setData={setData} goTo={goTo} prefillPatch={prefill.patch} />
           </>
         )}
+
       </div>
     </div>
   );

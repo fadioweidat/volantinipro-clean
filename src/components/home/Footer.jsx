@@ -1,19 +1,20 @@
 import React from "react";
 
 const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
-const C = { orange: "#E8571A", white: "#ffffff" };
+const C_ORANGE = "#E8571A";
+const GRAD = "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)";
 
 function Logo() {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, color: C.white }}>
-      <div style={{ width: 32, height: 32, borderRadius: 8, background: C.orange, display: "grid", placeItems: "center" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#F8FAFC" }}>
+      <div style={{ width: 32, height: 32, borderRadius: 8, background: GRAD, display: "grid", placeItems: "center" }}>
         <svg width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden="true">
           <path d="M10 2.5 17 17H3L10 2.5Z" fill="white" />
           <circle cx="10" cy="12" r="2" fill="white" opacity=".7" />
         </svg>
       </div>
       <span style={{ fontFamily: F.serif, fontSize: 22, letterSpacing: "-.02em" }}>
-        Volantini<span style={{ color: C.orange }}>Pro</span>
+        Volantini<span style={{ color: C_ORANGE }}>Pro</span>
       </span>
     </div>
   );
@@ -51,9 +52,9 @@ const columns = [
     title: "Prodotto",
     links: [
       ["Come funziona", "how"],
-      ["Prezzi", "step1"],
+      ["Prezzi", "prezzi"],
       ["Configura la tua campagna", "step1"],
-      ["Smart Pairing", "how"],
+      ["Smart Pairing", "smart-pairing"],
       ["API & integrazioni", "consultant"],
     ],
   },
@@ -61,10 +62,10 @@ const columns = [
     title: "Azienda",
     links: [
       ["Chi siamo", "how"],
-      ["Lavora con noi", "consultant"],
-      ["Blog", "home"],
+      ["Lavora con noi (in prep.)", "prep"],
+      ["Blog (in prep.)", "prep"],
       ["Contatti", "consultant"],
-      ["Press kit", "home"],
+      ["Press kit (in prep.)", "prep"],
     ],
   },
   {
@@ -80,22 +81,42 @@ const columns = [
 
 export default function Footer({ onNav, onHowItWorks }) {
   const go = (target) => {
-    if (target === "how") onHowItWorks?.();
-    else onNav?.(target);
+    if (target === "how") {
+      const el = document.getElementById("come-funziona");
+      if (el) el.scrollIntoView({ behavior: "smooth" });
+      else onHowItWorks?.();
+    } else if (target === "prezzi") {
+      const el = document.getElementById("prezzi");
+      if (el) el.scrollIntoView({ behavior: "smooth" });
+      else onNav?.("home");
+    } else if (target === "smart-pairing") {
+      const el = document.getElementById("smart-pairing");
+      if (el) el.scrollIntoView({ behavior: "smooth" });
+      else onHowItWorks?.();
+    } else if (target !== "prep") {
+      onNav?.(target);
+    }
   };
 
   return (
-    <footer style={{ background: "#0F0F0F", padding: "80px 28px 32px", color: C.white }}>
+    <footer style={{ background: "#0B1020", padding: "80px 28px 32px", color: "#F8FAFC", borderTop: "1px solid rgba(148,163,184,0.12)" }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div className="footer-grid">
           <div>
             <Logo />
-            <p style={{ margin: "18px 0 24px", maxWidth: 280, fontFamily: F.sans, fontSize: 14, lineHeight: 1.65, color: "rgba(255,255,255,.5)" }}>
+            <p style={{ margin: "18px 0 24px", maxWidth: 280, fontFamily: F.sans, fontSize: 14, lineHeight: 1.65, color: "#94A3B8" }}>
               Distribuzione volantini intelligente per il B2B italiano.
             </p>
             <div style={{ display: "flex", gap: 12 }}>
               {["instagram", "linkedin", "youtube"].map((type) => (
-                <button key={type} type="button" aria-label={type} style={socialButtonStyle}>
+                <button
+                  key={type}
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  title="Canale in preparazione"
+                  style={{ ...socialButtonStyle, cursor: "not-allowed", opacity: 0.45 }}
+                >
                   <SocialIcon type={type} />
                 </button>
               ))}
@@ -106,19 +127,25 @@ export default function Footer({ onNav, onHowItWorks }) {
             <div key={column.title}>
               <div style={columnTitleStyle}>{column.title}</div>
               <div style={{ display: "grid", gap: 12 }}>
-                {column.links.map(([label, target]) => (
-                  <button key={label} type="button" onClick={() => go(target)} style={footerLinkStyle}>
-                    {label}
-                  </button>
-                ))}
+                {column.links.map(([label, target]) =>
+                  target === "prep" ? (
+                    <span key={label} title="Sezione in preparazione" style={{ ...footerLinkStyle, cursor: "default", opacity: 0.45 }}>
+                      {label}
+                    </span>
+                  ) : (
+                    <button key={label} type="button" onClick={() => go(target)} style={footerLinkStyle}>
+                      {label}
+                    </button>
+                  )
+                )}
               </div>
             </div>
           ))}
         </div>
 
         <div className="footer-bottom">
-          <span>© 2026 VolantiniPro · P.IVA 0123456789 · Made in Milano, Italia</span>
-          <button type="button" style={languageStyle}>Lingua: IT ▾</button>
+          <span>© 2026 VolantiniPro · P.IVA in aggiornamento · Made in Milano, Italia</span>
+          <span style={{ ...languageStyle, cursor: "default" }}>Lingua: IT</span>
         </div>
       </div>
     </footer>
@@ -129,9 +156,9 @@ const socialButtonStyle = {
   width: 38,
   height: 38,
   borderRadius: 10,
-  border: "1px solid rgba(255,255,255,.1)",
-  background: "rgba(255,255,255,.04)",
-  color: "rgba(255,255,255,.72)",
+  border: "1px solid rgba(148,163,184,0.15)",
+  background: "rgba(255,255,255,0.04)",
+  color: "rgba(248,250,252,0.65)",
   display: "grid",
   placeItems: "center",
   cursor: "pointer",
@@ -143,7 +170,7 @@ const columnTitleStyle = {
   fontWeight: 800,
   letterSpacing: ".06em",
   textTransform: "uppercase",
-  color: "rgba(255,255,255,.5)",
+  color: "#94A3B8",
   marginBottom: 18,
 };
 
@@ -154,16 +181,16 @@ const footerLinkStyle = {
   textAlign: "left",
   fontFamily: F.sans,
   fontSize: 14,
-  color: "rgba(255,255,255,.8)",
+  color: "rgba(248,250,252,0.75)",
   cursor: "pointer",
 };
 
 const languageStyle = {
   padding: "8px 12px",
   borderRadius: 10,
-  border: "1px solid rgba(255,255,255,.1)",
-  background: "rgba(255,255,255,.04)",
-  color: "rgba(255,255,255,.72)",
+  border: "1px solid rgba(148,163,184,0.15)",
+  background: "rgba(255,255,255,0.04)",
+  color: "rgba(248,250,252,0.65)",
   fontFamily: F.sans,
   fontSize: 12,
   cursor: "pointer",
