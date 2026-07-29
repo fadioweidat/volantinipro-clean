@@ -2,6 +2,21 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { C, F, x, w, j, T, z, R } from "../../../lib/constants.js";
 import { useIsMobile } from "../../../hooks/useIsMobile.js";
+import { AnimatePresence, motion } from "framer-motion";
+import { flushSync } from "react-dom";
+import BusinessStep1Config from "../../../components/business/BusinessStep1Config.jsx";
+import { activityButtons } from "../../../lib/activityButtons.js";
+import { buildPromoterAssignments, geocodePromoterAssignment } from "../../../lib/step1/promoterAssignments.js";
+import { DISTRIBUTION_TARGET_OPTIONS } from "../../../lib/step2/activityTargets.js";
+import { distributionTypes } from "../../../lib/distributionTypes.js";
+import { FLYER_FORMAT_OPTIONS, PROMOTER_COUNT_OPTIONS, PROMOTER_LOCATION_TYPE_OPTIONS, PROMOTER_SHIFT_DURATION_OPTIONS, PROMOTER_TIME_SLOT_OPTIONS } from "../../../lib/step1/step1OptionLists.js";
+import { GEO_DATA } from "../../../lib/geoData.js";
+import { getMunicipalityDedupKey, normalizeTerritoryName } from "../../../lib/step2/addressIntent.js";
+import { H2H_FLYERS_PER_PROMOTER_HOUR } from "../../../lib/step2/operationalMetrics.js";
+import { NavButton } from "../../../components/NavButton.jsx";
+import { Step1Help } from "../../../components/Step1Help.jsx";
+import { Step1Icon } from "../../../components/Step1Icon.jsx";
+import { Step1Summary } from "../../../components/Step1Summary.jsx";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
 export function Step1({
@@ -1359,7 +1374,7 @@ export function Step1({
                   }}>Numero Promoter</label>
                     <select value={data.promoterCount || ""} onChange={e => updatePromoterCount(e.target.value)} className="vp-s1-input-modern">
                       <option value="">Seleziona...</option>
-                      {Bv.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                      {PROMOTER_COUNT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                     </select>
                   </div>
                   <div>
@@ -1373,7 +1388,7 @@ export function Step1({
                     timeSlot: e.target.value
                   })} className="vp-s1-input-modern">
                       <option value="">Seleziona...</option>
-                      {Mv.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                      {PROMOTER_TIME_SLOT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                     </select>
                   </div>
                   <div>
@@ -1387,7 +1402,7 @@ export function Step1({
                     serviceDurationHours: Number(e.target.value)
                   })} className="vp-s1-input-modern">
                       <option value="">Seleziona...</option>
-                      {Fv.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                      {PROMOTER_SHIFT_DURATION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                     </select>
                   </div>
                 </div>
@@ -1509,7 +1524,7 @@ export function Step1({
                         pointType: e.target.value
                       })} className="vp-s1-input-modern">
                             <option value="">Seleziona...</option>
-                            {Nv.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                            {PROMOTER_LOCATION_TYPE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                           </select>
                         </div>
                         <div>
@@ -1523,7 +1538,7 @@ export function Step1({
                         timeSlot: e.target.value
                       })} className="vp-s1-input-modern">
                             <option value="">Seleziona...</option>
-                            {Mv.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                            {PROMOTER_TIME_SLOT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                           </select>
                         </div>
                         <div>
@@ -1537,7 +1552,7 @@ export function Step1({
                         serviceDurationHours: Number(e.target.value)
                       })} className="vp-s1-input-modern">
                             <option value="">Seleziona...</option>
-                            {Fv.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                            {PROMOTER_SHIFT_DURATION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                           </select>
                         </div>
                       </div>
@@ -2063,7 +2078,7 @@ export function Step1({
               gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
               gap: 14
             }}>
-                {Uv.map(fmt => {
+                {FLYER_FORMAT_OPTIONS.map(fmt => {
                 const active = data.flyerFormat === fmt.id;
                 return <button type="button" aria-pressed={active} key={fmt.id} onClick={() => updateData({
                   flyerFormat: fmt.id

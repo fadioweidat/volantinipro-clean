@@ -1,4 +1,5 @@
 export const D2D_DAILY_CAPACITY = 4000;
+export const H2H_FLYERS_PER_PROMOTER_HOUR = 200;
 
 export const OPERATIONAL_SCORE_THRESHOLDS = Object.freeze({ high: 78, medium: 58 });
 

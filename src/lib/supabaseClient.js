@@ -1,4 +1,7 @@
+import { ensureSupabaseSessionBridge, supabase as sdkSupabase } from "../supabaseClient.js";
+
 const SESSION_KEY = "vp_supabase_session";
+export const AUTH_EXPIRED_MESSAGE = "Sessione scaduta. Accedi di nuovo per continuare.";
 
 function supabaseEnv() {
   return {
@@ -19,6 +22,83 @@ export function getStoredSupabaseSession() {
   } catch {
     return null;
   }
+}
+
+function storedSessionToken(session = getStoredSupabaseSession()) {
+  return session?.accessToken || session?.access_token || null;
+}
+
+function decodeJwtPayload(token) {
+  if (!token || typeof token !== "string" || token.split(".").length < 2) return null;
+  try {
+    const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+}
+
+export function isStoredSupabaseSessionExpired(session = getStoredSupabaseSession()) {
+  const payload = decodeJwtPayload(storedSessionToken(session));
+  if (!payload?.exp) return false;
+  return payload.exp * 1000 <= Date.now();
+}
+
+function isAuthTokenExpiredMessage(message = "") {
+  return /jwt expired|invalid jwt|token is expired|token has invalid claims|unable to parse or verify signature|401 unauthorized|403 invalid jwt/i.test(String(message));
+}
+
+export function isAuthTokenExpiredError(error) {
+  return Boolean(error?.code === "AUTH_TOKEN_EXPIRED" || error?.isAuthTokenExpired || isAuthTokenExpiredMessage(error?.message));
+}
+
+export function clearExpiredSupabaseSession() {
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(SESSION_KEY);
+  }
+  console.info("[AUTH_SESSION_CLEARED]");
+}
+
+function writeRestSessionFromSdkSession(sdkSession) {
+  if (typeof window === "undefined" || !sdkSession?.access_token) return null;
+  const next = {
+    accessToken: sdkSession.access_token,
+    access_token: sdkSession.access_token,
+    refreshToken: sdkSession.refresh_token || "",
+    refresh_token: sdkSession.refresh_token || "",
+    expires_at: sdkSession.expires_at || null,
+    expires_in: sdkSession.expires_in || null,
+    token_type: sdkSession.token_type || "bearer",
+    user: sdkSession.user || null,
+  };
+  window.localStorage.setItem(SESSION_KEY, JSON.stringify(next));
+  console.info("[AUTH_BRIDGE_REST_SESSION_UPDATED]");
+  return next;
+}
+
+export async function ensureRestSessionFromSdk({ action } = {}) {
+  console.info("[AUTH_BRIDGE_BEFORE_SAVE]", { action: action || null });
+  try {
+    await ensureSupabaseSessionBridge?.();
+  } catch {
+    // Best effort: the direct SDK getSession below is the source of truth here.
+  }
+
+  const stored = getStoredSupabaseSession();
+  if (storedSessionToken(stored) && !isStoredSupabaseSessionExpired(stored)) return stored;
+
+  const { data, error } = sdkSupabase?.auth?.getSession
+    ? await sdkSupabase.auth.getSession()
+    : { data: { session: null }, error: null };
+  const sdkSession = data?.session || null;
+  if (sdkSession?.access_token && !error) {
+    console.info("[AUTH_BRIDGE_SDK_SESSION_FOUND]", { action: action || null });
+    return writeRestSessionFromSdkSession(sdkSession);
+  }
+
+  console.warn("[AUTH_BRIDGE_NO_SESSION]", { action: action || null, error: error?.message || null });
+  return stored || null;
 }
 
 async function supabaseRequest(path, { method = "GET", body, session, prefer = "return=representation" } = {}) {

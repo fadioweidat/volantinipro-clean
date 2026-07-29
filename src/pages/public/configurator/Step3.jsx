@@ -3,6 +3,14 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 import { C, F, x, w, j, T, z, R } from "../../../lib/constants.js";
 import KpiTooltip from "../../../components/ui/KpiTooltip.jsx";
 import { useIsMobile } from "../../../hooks/useIsMobile.js";
+import { motion } from "framer-motion";
+import { AUTH_EXPIRED_MESSAGE, clearExpiredSupabaseSession, hasSupabaseConfig, isAuthTokenExpiredError, isStoredSupabaseSessionExpired, saveSmartPairingWaitlist, supabase } from "../../../lib/supabaseClient.js";
+import { BASE_PRICES, MONTHS_FULL } from "../../../lib/appConstants.js";
+import { calculateBusinessMaterials, calculateBusinessOperationalPlan } from "../../../lib/business/business-config.js";
+import { formatIntegerIT } from "../../../lib/utils/format.js";
+import { isStep2DebugEnabled } from "../../../lib/step2/debugStep2.js";
+import { NavButton } from "../../../components/NavButton.jsx";
+import { Step1Icon } from "../../../components/Step1Icon.jsx";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
 export function Step3({

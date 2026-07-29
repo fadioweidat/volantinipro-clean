@@ -3,6 +3,23 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 import { C, F, x, w, j, T, z, R } from "../../../lib/constants.js";
 import KpiTooltip from "../../../components/ui/KpiTooltip.jsx";
 import { useIsMobile } from "../../../hooks/useIsMobile.js";
+import { AnimatePresence, motion } from "framer-motion";
+import { AUTH_EXPIRED_MESSAGE, clearExpiredSupabaseSession, ensureRestSessionFromSdk, getStoredSupabaseSession, hasSupabaseConfig, isAuthTokenExpiredError, isStoredSupabaseSessionExpired, saveCampaign } from "../../../lib/supabaseClient.js";
+import { buildExtraServicesById, buildExtraServicesRegistry, buildOptionalExtras, buildSvcCommercial, normalizeSelectedExtras } from "../../../lib/extraServicesRegistry.js";
+import { BUSINESS_DELIVERY_METHODS, BUSINESS_MATERIAL_LOCATIONS, BUSINESS_OBJECTIVES, BUSINESS_PROOF_OPTIONS, BUSINESS_RECIPIENTS, businessCategoryLabel, businessOptionLabel, calculateBusinessMaterials, calculateBusinessOperationalPlan } from "../../../lib/business/business-config.js";
+import { formatAreaKm2, formatNumber, formatPaperWeight } from "../../../lib/utils/format.js";
+import { formatCoverageProportion } from "../../../lib/step2/buildStep2ViewModel.js";
+import { getServiceAccent } from "../../../lib/services/service-config.js";
+import { getZoneFullCoverageFlyers } from "../../../lib/doorToDoorCoverage.js";
+import { MONTHS_SHORT, QUOTE_PRICES } from "../../../lib/appConstants.js";
+import { NavButton } from "../../../components/NavButton.jsx";
+import { printQuotePdf } from "../../../lib/pdf/printQuotePdf.js";
+import { S2_CITIES, S2_ZONES } from "../../../lib/step2/s2Constants.js";
+import { sendEmailConferma } from "../../../api/sendEmailConferma.js";
+import { SERVICE_META } from "../../../lib/services/serviceMeta.js";
+import { Step1Icon } from "../../../components/Step1Icon.jsx";
+import { truthfulSourceLabel } from "../../../lib/step2/truthfulSourceLabel.js";
+import { useCliente } from "../../../hooks/useCliente.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
 export function Step4({
@@ -476,6 +493,10 @@ export function Step4({
     return fromAllocs.length ? fromAllocs : selZ.map(z => step4AreaLabel(z.name)).filter(Boolean);
   })();
   const isMunicipalityMode = data.searchMode === "municipality";
+  // Same "Comune" vs "Raggio" concept Step2 derives locally as isComuneMode
+  // (activeAreaTab === "comune"); Step4 has no activeAreaTab of its own, so
+  // it reuses the equivalent data.searchMode-based check computed above.
+  const isComuneMode = isMunicipalityMode;
   const radiusZoneRows = !isQuick && data.radius && !isMunicipalityMode ? zoneAllocs.length > 0
   // Real allocation rows from Step 2 (API zones) — never fall back to the
   // hardcoded S2_ZONES demo list when the current payload is available.

@@ -2,6 +2,48 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { C, F, x, w, j, T, z, R } from "../../../lib/constants.js";
 import { useIsMobile } from "../../../hooks/useIsMobile.js";
+import TerritorialReport from "../../TerritorialReport.jsx";
+import TerritorialStep2AiBoundary from "../../../ai-foundation/integrations/territorial-step2/TerritorialStep2AiBoundary.jsx";
+import { ACTIVITY_TARGET_LABELS } from "../../../lib/step2/activityTargets.js";
+import { ADDRESS_INTENT_RE, detectSearchIntent, extractOfficialNilCode, getMunicipalityDedupKey, getVerifiedBusinessMetrics, getZoneVerdict, isAddressLikePlaceType, isGeocoderResultInMilanoComune, isNilLikePlaceType, logAddressVsMunicipalityDebug, looksLikeAddressResult, normalizeCoverageDecision, normalizeMunicipalityName, normalizeTerritoryName } from "../../../lib/step2/addressIntent.js";
+import { apiToZones, capToZone, getZoneCoords, haversineKm, pickRealComuneGeometry } from "../../../lib/step2/zoneGeoHelpers.js";
+import { bizCategoryChart, businessRows, businessZoneScore, getComuneColor, getH2HMetrics, getTargetBizMeta, H2H_HOTSPOT_META, h2hHotspotRows, h2hHotspotStrength, residentialRows, residentialStrength } from "../../../lib/step2/businessZoneHelpers.js";
+import { buildOperationalAdvice, D2D_DAILY_CAPACITY, estimateOperationalDays, H2H_FLYERS_PER_PROMOTER_HOUR, resolveAssignedQuantity } from "../../../lib/step2/operationalMetrics.js";
+import { buildPromoterAssignments } from "../../../lib/step1/promoterAssignments.js";
+import { buildStep2ToStep3Payload, buildStep2TruthModel } from "../../../lib/step2/buildStep2TruthModel.js";
+import { buildStep2ViewModel, getCoverageStatus } from "../../../lib/step2/buildStep2ViewModel.js";
+import { BUSINESS_DELIVERY_METHODS, BUSINESS_RECIPIENTS, businessCategoryLabel, businessOptionLabel, calculateBusinessMaterials, calculateBusinessOperationalPlan, getBusinessCopiesForPoi, resolveVerifiedCompetitorCount } from "../../../lib/business/business-config.js";
+import { CAP_LOMBARDIA } from "../../../lib/step2/capLombardia.js";
+import { checkMilanoTerritory } from "../../../lib/step2/milanoTerritoryHelper.js";
+import { computeDoorToDoorCoverage, getZoneFullCoverageFlyers } from "../../../lib/doorToDoorCoverage.js";
+import { confirmedSourcesOrFallback, defaultLayerState, normalizeDataSourceLabel, sourceIsConfirmed } from "../../../lib/dataSources.js";
+import { debugStep2Log, debugStep2Warn, isStep2DebugEnabled } from "../../../lib/step2/debugStep2.js";
+import { filterPoisForCampaignTarget } from "../../../lib/step2/poiFiltering.js";
+import { formatAreaIT, formatIntegerIT, formatNumber, formatPercentIT, formatRadiusLabel } from "../../../lib/utils/format.js";
+import { GEO_DATA } from "../../../lib/geoData.js";
+import { geoJsonApproxCentroid, geoJsonContainsPoint } from "../../../lib/geo/pointInPolygon.js";
+import { getServiceAccent } from "../../../lib/services/service-config.js";
+import { GRANDE_CITTA_ZONE_THRESHOLD, isZonaRilevante } from "../../../lib/services/zone-list-config.js";
+import { InteractiveRadiusSlider } from "../../../components/InteractiveRadiusSlider.jsx";
+import { isTerritorialStep2AiEnabled } from "../../../lib/runtimeFlags.js";
+import { kmToPx, MH, MW, s2proj, SCALE_X, SCALE_Y, thColor } from "../../../lib/step2/miniMapProjection.js";
+import { kpiLabel } from "../../../lib/services/kpi-definitions.js";
+import { LAYERS, SERVICE_META } from "../../../lib/services/serviceMeta.js";
+import { normalizeNominatimGeocodeResult, normalizeNominatimH2HBootstrapPoint } from "../../../lib/geocoding/canonicalizeItalianMunicipalityName.js";
+import { printTerritorialReportPdf } from "../../../lib/pdf/printTerritorialReportPdf.js";
+import { PROMOTER_COUNT_OPTIONS, PROMOTER_SHIFT_DURATION_OPTIONS, PROMOTER_TIME_SLOT_OPTIONS } from "../../../lib/step1/step1OptionLists.js";
+import { QUOTE_PRICES } from "../../../lib/appConstants.js";
+import { S2_RADII } from "../../../lib/step2/s2Constants.js";
+import { Step1Icon } from "../../../components/Step1Icon.jsx";
+import { Step2Map } from "../../../components/Step2Map.jsx";
+import { supabase } from "../../../lib/supabaseClient.js";
+import { truthfulSourceLabel } from "../../../lib/step2/truthfulSourceLabel.js";
+import { useAddressPoints } from "../../../hooks/useAddressPoints.js";
+import { useDemographicIndicators } from "../../../hooks/useDemographicIndicators.js";
+import { usePoi } from "../../../hooks/usePoi.js";
+import { useSectors } from "../../../hooks/useSectors.js";
+import { useServiceAnalysis } from "../../../hooks/useServiceAnalysis.js";
+import { useTransportStops } from "../../../hooks/useTransportStops.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
 export function Step2({
@@ -6395,7 +6437,7 @@ export function Step2({
                   fontFamily: F.sans,
                   fontSize: 9
                 }}>
-                    {Bv.map(option => <option key={option.value} value={option.value}>{option.value}</option>)}
+                    {PROMOTER_COUNT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.value}</option>)}
                   </select>
                 </label>}
                 <button type="button" onClick={selectAndBalanceAllPois} disabled={pois.length === 0} style={{
@@ -6472,7 +6514,7 @@ export function Step2({
                     fontFamily: F.sans,
                     fontSize: 8
                   }}>
-                        {Mv.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        {PROMOTER_TIME_SLOT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                       </select>
                       <select value={schedule.serviceDurationHours || 4} onChange={event => updateOperatorScheduleInStep2(index, {
                     serviceDurationHours: Number(event.target.value)
@@ -6485,7 +6527,7 @@ export function Step2({
                     fontFamily: F.sans,
                     fontSize: 8
                   }}>
-                        {Fv.map(option => <option key={option.value} value={option.value}>{option.value} ore</option>)}
+                        {PROMOTER_SHIFT_DURATION_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.value} ore</option>)}
                       </select>
                     </div>
                   </div>)}
