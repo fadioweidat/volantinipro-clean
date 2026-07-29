@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { C, F, x, w, j, T, z, R } from "../../lib/constants.js";
+import KpiTooltip from "../../components/ui/KpiTooltip.jsx";
 import TrustBar from "../../components/home/TrustBar.jsx";
 import ServicesSection from "../../components/home/ServicesSection.jsx";
 import FeatureZonaMappa from "../../components/home/FeatureZonaMappa.jsx";
