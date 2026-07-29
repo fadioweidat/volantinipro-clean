@@ -590,7 +590,6 @@ export function HomePage({
                   gap: 10
                 },
                 children: ["Analisi territoriale", "Quantità consigliata", "Copertura stimata", "Servizi extra", "Configurazione completa"].map(item => _jsxs("li", {
-                  key: item,
                   style: {
                     display: "flex",
                     alignItems: "center",
@@ -606,7 +605,7 @@ export function HomePage({
                       background: C.orange
                     }
                   }), " ", item]
-                }))
+                }, item))
               })]
             }), _jsxs("div", {
               style: {
@@ -740,7 +739,6 @@ export function HomePage({
                   gap: 10
                 },
                 children: ["Prezzo stimato", "Tempo indicativo", "Preventivo immediato", "Fino a 3 comuni", "Servizi extra opzionali"].map(item => _jsxs("li", {
-                  key: item,
                   style: {
                     display: "flex",
                     alignItems: "center",
@@ -756,7 +754,7 @@ export function HomePage({
                       background: C.orange
                     }
                   }), " ", item]
-                }))
+                }, item))
               })]
             }), _jsxs("div", {
               style: {
@@ -889,7 +887,6 @@ export function HomePage({
                   gap: 10
                 },
                 children: ["Preventivo su misura", "Analisi della richiesta", "Pianificazione campagna", "Supporto dedicato", "WhatsApp, Email, Telefono"].map(item => _jsxs("li", {
-                  key: item,
                   style: {
                     display: "flex",
                     alignItems: "flex-start",
@@ -906,7 +903,7 @@ export function HomePage({
                       marginTop: 8
                     }
                   }), " ", item]
-                }))
+                }, item))
               })]
             }), _jsxs("div", {
               style: {
