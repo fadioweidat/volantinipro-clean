@@ -22,7 +22,14 @@ export function useSectors(lat, lng, radiusKm, serviceType) {
   const radR = radiusKm != null ? Math.round(radiusKm * 10)  / 10   : null;
 
   useEffect(() => {
-    if (!latR || !lngR || !serviceType) return;
+    if (!latR || !lngR || !serviceType) {
+      setSectors(null);
+      setLoading(false);
+      setError(null);
+      return undefined;
+    }
+    
+    const controller = new AbortController();
     let cancelled = false;
 
     (async () => {
@@ -35,6 +42,7 @@ export function useSectors(lat, lng, radiusKm, serviceType) {
           centerLat: latR,
           centerLng: lngR,
           radiusKm:  radR ?? 5,
+          signal: controller.signal
         });
         if (!cancelled) {
           // null  → RPC not available (table missing) → show 'n/d'
@@ -43,17 +51,21 @@ export function useSectors(lat, lng, radiusKm, serviceType) {
           setSectors(raw ? parseSectorsGeoJSON(raw) : null);
         }
       } catch (err) {
+        if (err.name === 'AbortError') return;
         if (import.meta.env.DEV) console.debug('[useSectors] error:', err?.message);
         if (!cancelled) {
           setError(err?.message ?? 'SECTORS_ERROR');
-          setSectors(null);
+          setSectors(null); // fallback handled correctly
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [latR, lngR, radR, serviceType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { sectors, loading, error };
