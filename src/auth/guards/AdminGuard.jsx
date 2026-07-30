@@ -4,35 +4,92 @@ import {
   getStoredSupabaseSession,
   consumeSupabaseAuthHash,
   isStoredSupabaseSessionValid,
-  clearStoredSupabaseSession
+  clearStoredSupabaseSession,
+  verifySupabaseAdminRole
 } from "../session.js";
 
+const PANEL_STYLE = {
+  minHeight: "60vh",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "110px 24px 80px",
+  fontFamily: "'DM Sans', Inter, system-ui, sans-serif",
+  color: "rgba(255,255,255,.72)",
+  textAlign: "center"
+};
+
+function AdminRoleCheckingPlaceholder() {
+  return <div style={PANEL_STYLE}>Verifica ruolo Admin in corso...</div>;
+}
+
+function AdminAccessDeniedPanel({ onNav }) {
+  return (
+    <div style={PANEL_STYLE}>
+      <div>
+        <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>Accesso negato</div>
+        <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 16 }}>
+          Sei autenticato ma il tuo account non ha i permessi Admin.
+        </div>
+        <button
+          onClick={() => onNav?.("home")}
+          style={{
+            border: "none",
+            background: "transparent",
+            color: "rgba(255,255,255,.5)",
+            fontFamily: "inherit",
+            fontSize: 12,
+            cursor: "pointer",
+            textDecoration: "underline"
+          }}
+        >
+          Torna alla homepage
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Verifica reale (non piu' pass-through): richiede una sessione Supabase
-// autenticata, con lo stesso meccanismo gia' usato da CustomerGuard/DashboardPage
-// (localStorage "vp_supabase_session" + consumo dell'hash #access_token del
-// magic link). La sessione viene letta/consumata in modo sincrono nel primo
-// render (useState lazy init), cosi' children non viene mai dipinto per un
-// utente non autenticato, nemmeno per un frame.
-//
-// RISCHIO RESIDUO DOCUMENTATO: in questo progetto non esiste una verifica di
-// ruolo Admin (nessuna tabella/claim ruolo lato Supabase, nessun controllo
-// backend). Questo guard blocca quindi l'accesso ANONIMO, ma qualunque
-// sessione Supabase autenticata (anche una sessione cliente) supera il
-// controllo. Non inventiamo un ruolo ne' un token finto: i dati reali restano
-// protetti solo da Supabase RLS, invariata.
+// autenticata (stesso meccanismo di CustomerGuard/DashboardPage) E un ruolo
+// Admin confermato dal backend tramite l'RPC jwt_is_admin() gia' esistente in
+// produzione (vedi session.js:verifySupabaseAdminRole). Distingue tre stati:
+//   - anonimo (nessuna sessione valida)      -> redirect a /login?context=admin
+//   - autenticato ma jwt_is_admin() = false   -> pannello "Accesso negato", nessun redirect
+//   - autenticato e jwt_is_admin() = true     -> children (Dashboard Admin)
+// La sessione viene letta/consumata in modo sincrono nel primo render
+// (useState lazy init): children non viene mai dipinto prima che sessione e
+// ruolo siano entrambi verificati, nemmeno per un frame.
 export function AdminGuard({ onNav, children }) {
   const [session, setSession] = useState(
     () => consumeSupabaseAuthHash("/admin") || getStoredSupabaseSession()
   );
+  const [roleStatus, setRoleStatus] = useState("checking"); // checking | admin | denied
 
-  const authorized = !hasSupabaseConfig() || isStoredSupabaseSessionValid(session);
+  const sessionValid = !hasSupabaseConfig() || isStoredSupabaseSessionValid(session);
 
   useEffect(() => {
-    if (authorized) return;
-    if (session) clearStoredSupabaseSession();
-    onNav?.("login", { context: "admin" });
-  }, [authorized, session, onNav]);
+    if (!sessionValid) {
+      if (session) clearStoredSupabaseSession();
+      onNav?.("login", { context: "admin" });
+      return undefined;
+    }
+    if (!hasSupabaseConfig()) {
+      setRoleStatus("admin");
+      return undefined;
+    }
+    let cancelled = false;
+    setRoleStatus("checking");
+    verifySupabaseAdminRole(session).then((isAdmin) => {
+      if (!cancelled) setRoleStatus(isAdmin ? "admin" : "denied");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [session, sessionValid, onNav]);
 
-  if (!authorized) return null;
+  if (!sessionValid) return null;
+  if (roleStatus === "checking") return <AdminRoleCheckingPlaceholder />;
+  if (roleStatus === "denied") return <AdminAccessDeniedPanel onNav={onNav} />;
   return <>{children}</>;
 }
