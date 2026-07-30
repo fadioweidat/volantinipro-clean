@@ -294,6 +294,58 @@ export async function getCampaignProofPhotos(campaignId, { approvedOnly = false 
   return data || [];
 }
 
+// Path deterministico per campagna/sessione: chiunque conosca solo l'id
+// campagna non puo' indovinare quello di un'altra sessione/autista, e due
+// scatti dello stesso autista non si sovrascrivono mai (timestamp + id
+// casuale). Nessuna service-role qui: usa la stessa sessione client-side
+// gia' autenticata di tutto il resto di questo modulo.
+export function buildProofPhotoStoragePath({ campaignId, sessionId, driverId }) {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const randomId = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`).slice(0, 8);
+  const sessionSegment = sessionId && isValidUuid(sessionId) ? sessionId : 'no-session';
+  const driverSegment = driverId || 'unknown-driver';
+  return `${campaignId}/${sessionSegment}/${driverSegment}/${stamp}-${randomId}.jpg`;
+}
+
+// Carica una foto POD gia' compressa/watermarkata (blob JPEG) nel bucket
+// privato "proof-photos" e salva il record in proof_photos. Fallisce chiuso:
+// se l'insert della riga fallisce dopo l'upload del file, l'oggetto caricato
+// resta orfano nello storage (nessun record) ma non viene mai mostrato da
+// nessuna vista, perche' tutte le letture passano da proof_photos.
+export async function uploadProofPhoto({ campaignId, sessionId, blob, lat, lng, takenAt, note }) {
+  if (!isValidUuid(campaignId)) throw permanentGpsError('assignment_invalid_campaign');
+  if (!blob) throw permanentGpsError('gps_auth_required', new Error('Nessun file da caricare.'));
+
+  const client = await requireSupabase();
+  const driverId = await getCurrentUserId();
+  const storagePath = buildProofPhotoStoragePath({ campaignId, sessionId, driverId });
+
+  await withRetry(async () => {
+    const { error: uploadError } = await client.storage
+      .from('proof-photos')
+      .upload(storagePath, blob, { contentType: 'image/jpeg', upsert: false });
+    if (uploadError) throw mapRpcError(uploadError);
+  }, 'upload foto POD');
+
+  const { data, error } = await client
+    .from('proof_photos')
+    .insert({
+      campaign_id: campaignId,
+      session_id: sessionId && isValidUuid(sessionId) ? sessionId : null,
+      driver_id: driverId,
+      storage_path: storagePath,
+      lat: Number.isFinite(Number(lat)) ? Number(lat) : null,
+      lng: Number.isFinite(Number(lng)) ? Number(lng) : null,
+      note: note || null,
+      taken_at: takenAt || new Date().toISOString(),
+    })
+    .select('*')
+    .single();
+
+  if (error) throw mapRpcError(error);
+  return data;
+}
+
 export async function createProofPhotoSignedUrl(storagePath) {
   const client = await requireSupabase();
   if (!storagePath) return null;

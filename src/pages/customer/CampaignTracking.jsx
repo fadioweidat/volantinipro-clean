@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
 import { createProofPhotoSignedUrl, getCampaignGpsPoints, getCampaignGpsSessions, getCampaignProofPhotos } from '../../lib/services/gps-api.js';
+import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
 
 export function CampaignTracking({ campaignId }) {
   const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [] });
@@ -88,15 +89,23 @@ export function CampaignTracking({ campaignId }) {
 
         <div style={cardStyle}>
           <p style={eyebrowStyle}>Foto prova approvate</p>
-          {state.photos.length ? state.photos.map((photo) => (
-            <div key={photo.id} style={rowStyle}>
-              {photo.signedUrl ? <img src={photo.signedUrl} alt="Foto prova approvata" style={{ width: 110, height: 82, objectFit: 'cover', borderRadius: 8 }} /> : null}
-              <div>
-                <strong>{formatDateTime(photo.taken_at || photo.created_at)}</strong>
-                <p style={{ margin: '4px 0', color: '#64748b' }}>{photo.note || 'Foto prova'}</p>
+          {state.photos.length ? state.photos.map((photo) => {
+            const meta = parseProofPhotoNote(photo.note);
+            return (
+              <div key={photo.id} style={rowStyle}>
+                {photo.signedUrl ? <img src={photo.signedUrl} alt="Foto prova approvata" style={{ width: 110, height: 82, objectFit: 'cover', borderRadius: 8 }} /> : null}
+                <div>
+                  <strong>{formatDateTime(photo.taken_at || photo.created_at)}</strong>
+                  {meta.outcome && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 800, color: '#0f766e' }}>{podOutcomeLabel(meta.outcome)}</span>}
+                  <p style={{ margin: '4px 0', color: '#64748b' }}>{meta.client || 'Cliente non specificato'}{meta.address ? ` · ${meta.address}` : ''}</p>
+                  {(meta.ddt || meta.colli) && (
+                    <p style={{ margin: '2px 0', color: '#94a3b8', fontSize: 12 }}>{meta.ddt ? `DDT ${meta.ddt}` : ''}{meta.ddt && meta.colli ? ' · ' : ''}{meta.colli ? `${meta.colli} colli` : ''}</p>
+                  )}
+                  {meta.note && <p style={{ margin: '2px 0', color: '#94a3b8', fontSize: 12 }}>{meta.note}</p>}
+                </div>
               </div>
-            </div>
-          )) : <EmptyState text="Nessuna foto prova approvata disponibile" />}
+            );
+          }) : <EmptyState text="Nessuna foto prova approvata disponibile" />}
         </div>
       </section>
     </main>

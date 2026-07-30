@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
 import { createProofPhotoSignedUrl, getCampaignGpsPoints, getCampaignGpsSessions, getCampaignProofPhotos } from '../../lib/services/gps-api.js';
+import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
 
 export function GpsMonitor({ campaignId }) {
   const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], activeSession: null });
@@ -148,12 +149,21 @@ function GpsMap({ points, latest }) {
 }
 
 function ProofPhoto({ photo }) {
+  const meta = parseProofPhotoNote(photo.note);
   return (
     <div style={rowStyle}>
       {photo.signedUrl ? <img src={photo.signedUrl} alt="Foto prova" style={{ width: 96, height: 72, objectFit: 'cover', borderRadius: 8 }} /> : null}
       <div>
-        <strong>{formatDateTime(photo.taken_at || photo.created_at)}</strong>
-        <p style={{ margin: '4px 0', color: '#64748b' }}>{photo.note || 'Nessuna nota'}</p>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <strong>{formatDateTime(photo.taken_at || photo.created_at)}</strong>
+          {meta.outcome && <span style={{ fontSize: 11, fontWeight: 800, color: '#0f766e' }}>{podOutcomeLabel(meta.outcome)}</span>}
+          <span style={{ fontSize: 11, color: photo.approved_at ? '#0f766e' : '#b45309' }}>{photo.approved_at ? 'Approvata' : 'In attesa di approvazione'}</span>
+        </div>
+        <p style={{ margin: '4px 0', color: '#64748b' }}>{meta.client || 'Cliente non specificato'}{meta.address ? ` · ${meta.address}` : ''}</p>
+        {(meta.ddt || meta.colli) && (
+          <p style={{ margin: '2px 0', color: '#94a3b8', fontSize: 12 }}>{meta.ddt ? `DDT ${meta.ddt}` : ''}{meta.ddt && meta.colli ? ' · ' : ''}{meta.colli ? `${meta.colli} colli` : ''}</p>
+        )}
+        {meta.note && <p style={{ margin: '2px 0', color: '#94a3b8', fontSize: 12 }}>{meta.note}</p>}
         <span style={{ fontSize: 12, color: '#64748b' }}>{photo.lat && photo.lng ? `${Number(photo.lat).toFixed(5)}, ${Number(photo.lng).toFixed(5)}` : 'Coordinate non disponibili'}</span>
       </div>
     </div>
