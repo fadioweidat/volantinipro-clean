@@ -8,8 +8,14 @@ export function CustomerGuard({ onNav, children }) {
     const hash = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
     const accessToken = hash.get("access_token");
 
-    // Mantieni il comportamento esatto: se c'è config ma non c'è sessione e neanche token nell'hash, redirect a login.
-    if (hasSupabaseConfig() && !session && !accessToken) {
+    // React esegue prima gli effect dei figli (es. DashboardPage), poi quelli
+    // del genitore: se il figlio ha appena consumato l'hash del magic link e
+    // salvato la sessione, a questo punto e' gia' in localStorage anche se la
+    // variabile "session" catturata al render (prima che il figlio agisse) e'
+    // ancora null. Rileggerla qui evita il redirect a login sulla sessione
+    // appena creata (race condition al primo caricamento del magic link).
+    const currentSession = getStoredSupabaseSession();
+    if (hasSupabaseConfig() && !currentSession && !accessToken) {
       onNav("login");
     }
   }, [session, onNav]);

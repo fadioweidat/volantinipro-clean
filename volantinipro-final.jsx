@@ -1,6 +1,6 @@
 import React, { Component, Fragment, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { printQuotePdf } from "./src/lib/pdf/printQuotePdf.js";
-import { supabase, confirmCampaignPayment, hasSupabaseConfig, saveCampaign, saveSmartPairingWaitlist } from "./src/lib/supabaseClient.js";
+import { supabase, confirmCampaignPayment, hasSupabaseConfig, saveCampaign, saveSmartPairingWaitlist, getStoredSupabaseSession } from "./src/lib/supabaseClient.js";
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
@@ -5131,8 +5131,15 @@ export function DashboardPage({
     }
   }, []);
   useEffect(() => {
+    // Non usare la variabile "session" catturata al render: l'effect qui sopra
+    // (stesso componente, stesso passaggio di effect) puo' aver appena salvato
+    // la sessione dell'hash del magic link in localStorage senza che questo
+    // closure se ne accorga ancora (setSession() si riflette solo al prossimo
+    // render). Rileggerla fresca evita il redirect a /login sulla sessione
+    // appena creata al primo caricamento del magic link.
     const hash = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
-    if (hasSupabaseConfig() && !session && !hash.get("access_token")) onNav("login");
+    const currentSession = getStoredSupabaseSession();
+    if (hasSupabaseConfig() && !currentSession && !hash.get("access_token")) onNav("login");
   }, [session]);
   const logout = () => {
     localStorage.removeItem("vp_supabase_session");
