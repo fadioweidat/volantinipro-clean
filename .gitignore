@@ -114,6 +114,7 @@ data/**/*.sqlite
 !supabase/migrations/202607230001_campaign_zone_progress.sql
 !supabase/migrations/20260724101527_campaign_zone_progress_predeploy_fixes.sql
 !supabase/migrations/030_reconcile_gps_session_rpc.sql
+!supabase/migrations/031_fix_gps_geom_trigger_search_path.sql
 !tests/fixtures/gps_prod_zone_progress_baseline.sql
 !tests/gps_prod_zone_progress_schema_contract.sql
 !tests/gps_prod_zone_progress_rpc_contract.sql
