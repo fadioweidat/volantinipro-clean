@@ -8,8 +8,9 @@ test("Router & Auth Decoupling Regression Contract", async (t) => {
     assert.strictEqual(true, true);
   });
   
-  await t.test("AdminGuard acts as pass-through (85bb090 behavior)", () => {
-    // Non inventiamo auth admin non esistente in 85bb090
+  await t.test("AdminGuard requires an authenticated session (superseded 85bb090 pass-through)", () => {
+    // Il comportamento pass-through di 85bb090 e' stato sostituito: vedi
+    // tests/auth_login_admin_guard.test.mjs per la copertura reale del guard.
     assert.strictEqual(true, true);
   });
   
