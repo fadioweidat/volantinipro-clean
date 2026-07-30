@@ -123,6 +123,7 @@ data/**/*.sqlite
 !tests/gps_prod_zone_progress_predeploy_rpc_contract.sql
 !tests/gps_prod_zone_progress_retention_contract.sql
 !tests/gps_rpc_reconciliation_schema_contract.sql
+!tests/gps_geom_trigger_schema_contract.sql
 !tests/run_gps_prod_zone_progress_predeploy_contracts.ps1
 backup/
 backups/
