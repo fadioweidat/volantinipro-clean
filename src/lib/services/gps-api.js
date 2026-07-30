@@ -357,6 +357,14 @@ export function displayDriverName(session) {
   return `Operatore ${String(id).slice(0, 6)}`;
 }
 
+export function displayDeviceId(session) {
+  if (!session) return '';
+  const metadata = safeJson(session.metadata || session.session_metadata);
+  const explicit = session.device_id || session.deviceId || metadata.device_id || metadata.deviceId;
+  if (!explicit) return 'Dato non disponibile';
+  return String(explicit).slice(0, 10);
+}
+
 export function classifyDriverStatus(lastPingIso) {
   if (!lastPingIso) return 'offline';
   const lastMs = new Date(lastPingIso).getTime();
