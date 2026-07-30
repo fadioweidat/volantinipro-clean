@@ -8408,21 +8408,21 @@ export function Step2({
                     letterSpacing: ".05em",
                     textTransform: "uppercase"
                   }}>Copertura e scelta quantità</div>
-                        <div className="vp-step2-scenario-grid">
-                          <article className="vp-step2-scenario-card">
-                            <span>Scenario attuale</span>
-                            <strong className="vp-data-number">{formatIntegerIT(step2TruthModel.quantity.current)} volantini</strong>
-                            <dl>
-                              <div><dt>Copertura scenario corrente</dt><dd className="vp-data-number">{step2CoverageFullLabel || "Dato non disponibile"}</dd></div>
-                              <div><dt>Zone coinvolte / disponibili</dt><dd className="vp-data-number">{step2TruthModel.zones.involved} / {step2TruthModel.zones.available}</dd></div>
+                        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,minmax(0,1fr))", gap: 10 }}>
+                          <article style={{ padding: 14, border: "1px solid rgba(255,255,255,.09)", borderRadius: 12, background: "rgba(255,255,255,.025)" }}>
+                            <span style={{ display: "block", marginBottom: 5, color: "rgba(255,255,255,.48)", fontFamily: F.sans, fontSize: 9, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase" }}>Scenario attuale</span>
+                            <strong className="vp-data-number" style={{ display: "block", color: C.white, fontFamily: F.sans, fontSize: 19, fontWeight: 900 }}>{formatIntegerIT(step2TruthModel.quantity.current)} volantini</strong>
+                            <dl style={{ display: "grid", gap: 7, margin: "13px 0 0", padding: 0 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, paddingTop: 7, borderTop: "1px solid rgba(255,255,255,.06)" }}><dt style={{ margin: 0, color: "rgba(255,255,255,.47)", fontSize: 10, fontWeight: 400 }}>Copertura scenario corrente</dt><dd className="vp-data-number" style={{ margin: 0, color: "rgba(255,255,255,.86)", fontSize: 10, fontWeight: 800, textAlign: "right" }}>{step2CoverageFullLabel || "Dato non disponibile"}</dd></div>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, paddingTop: 7, borderTop: "1px solid rgba(255,255,255,.06)" }}><dt style={{ margin: 0, color: "rgba(255,255,255,.47)", fontSize: 10, fontWeight: 400 }}>Zone coinvolte / disponibili</dt><dd className="vp-data-number" style={{ margin: 0, color: "rgba(255,255,255,.86)", fontSize: 10, fontWeight: 800, textAlign: "right" }}>{step2TruthModel.zones.involved} / {step2TruthModel.zones.available}</dd></div>
                             </dl>
                           </article>
-                          <article className="vp-step2-scenario-card vp-step2-scenario-card--recommended">
-                            <span>Scenario consigliato</span>
-                            <strong className="vp-data-number">{formatIntegerIT(step2TruthModel.quantity.recommendedRequirement)} volantini</strong>
-                            <dl>
-                              <div><dt>Margine operativo</dt><dd className="vp-data-number">{step2TruthModel.quantity.operationalMargin > 0 ? `+${formatIntegerIT(step2TruthModel.quantity.operationalMargin)} pz.` : "Nessun margine aggiuntivo"}</dd></div>
-                              <div><dt>Copertura prevista</dt><dd>{step2TruthModel.quantity.recommendedRequirement > 0 ? "100% del fabbisogno operativo" : "Dato non disponibile"}</dd></div>
+                          <article style={{ padding: 14, border: "1px solid rgba(34,197,94,.25)", borderRadius: 12, background: "rgba(34,197,94,.055)" }}>
+                            <span style={{ display: "block", marginBottom: 5, color: "rgba(255,255,255,.48)", fontFamily: F.sans, fontSize: 9, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase" }}>Scenario consigliato</span>
+                            <strong className="vp-data-number" style={{ display: "block", color: "#4ADE80", fontFamily: F.sans, fontSize: 19, fontWeight: 900 }}>{formatIntegerIT(step2TruthModel.quantity.recommendedRequirement)} volantini</strong>
+                            <dl style={{ display: "grid", gap: 7, margin: "13px 0 0", padding: 0 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, paddingTop: 7, borderTop: "1px solid rgba(255,255,255,.06)" }}><dt style={{ margin: 0, color: "rgba(255,255,255,.47)", fontSize: 10, fontWeight: 400 }}>Margine operativo</dt><dd className="vp-data-number" style={{ margin: 0, color: "rgba(255,255,255,.86)", fontSize: 10, fontWeight: 800, textAlign: "right" }}>{step2TruthModel.quantity.operationalMargin > 0 ? `+${formatIntegerIT(step2TruthModel.quantity.operationalMargin)} pz.` : "Nessun margine aggiuntivo"}</dd></div>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, paddingTop: 7, borderTop: "1px solid rgba(255,255,255,.06)" }}><dt style={{ margin: 0, color: "rgba(255,255,255,.47)", fontSize: 10, fontWeight: 400 }}>Copertura prevista</dt><dd style={{ margin: 0, color: "rgba(255,255,255,.86)", fontSize: 10, fontWeight: 800, textAlign: "right" }}>{step2TruthModel.quantity.recommendedRequirement > 0 ? "100% del fabbisogno operativo" : "Dato non disponibile"}</dd></div>
                             </dl>
                           </article>
                         </div>
