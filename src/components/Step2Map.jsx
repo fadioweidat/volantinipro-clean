@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+
+const debugStep2 = (...args) => {
+  if (import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || window.__VOLANTINIPRO_DEBUG_STEP2__)) console.log(...args);
+};
+const warnStep2 = (...args) => {
+  if (import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || window.__VOLANTINIPRO_DEBUG_STEP2__)) console.warn(...args);
+};
 
 // CartoDB Voyager – leggibile, strade visibili, aspetto GIS operativo
 const CARTO_VOYAGER = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
@@ -42,8 +49,35 @@ function esc(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function formatItNumber(value) {
+  return Number(value || 0).toLocaleString('it-IT', { useGrouping: true });
+}
+
+function normalizeMapMunicipalityName(raw) {
+  return String(raw || '')
+    .split(',')[0]
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/^\s*comune di\s+/i, '')
+    .trim()
+    .toLowerCase();
+}
+
 // CSS applicato globalmente una sola volta
 const MAP_CSS = `
+.vp-step2-map-shell {
+  height: clamp(420px, 42vw, 480px);
+}
+@media (max-width: 900px) {
+  .vp-step2-map-shell {
+    height: clamp(400px, 55vw, 440px);
+  }
+}
+@media (max-width: 640px) {
+  .vp-step2-map-shell {
+    height: clamp(320px, 75vw, 360px);
+  }
+}
 /* Voyager: nessun filter – strade, nomi comuni e vie sono visibili per default */
 .leaflet-container {
   background: #f1eee7 !important;
@@ -94,6 +128,36 @@ const MAP_CSS = `
 .leaflet-tooltip::before { display: none !important; }
 .leaflet-tooltip b { color: rgba(255,255,255,0.95); }
 
+.leaflet-tooltip.vp-promoter-tooltip {
+  width: 270px;
+  padding: 0 !important;
+  overflow: hidden;
+  white-space: normal;
+  border-radius: 12px !important;
+}
+.leaflet-popup.vp-promoter-popup .leaflet-popup-content-wrapper {
+  padding: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  background: rgba(12,20,35,.98);
+  border: 1px solid rgba(255,255,255,.14);
+  color: #fff;
+  box-shadow: 0 16px 38px rgba(0,0,0,.5);
+}
+.leaflet-popup.vp-promoter-popup .leaflet-popup-content { margin: 0; width: 270px !important; }
+.leaflet-popup.vp-promoter-popup .leaflet-popup-tip { background: rgba(12,20,35,.98); }
+.leaflet-popup.vp-promoter-popup .leaflet-popup-close-button { color: rgba(255,255,255,.7); top: 5px; right: 6px; z-index: 2; }
+.vp-promoter-map-card { font-family: system-ui,-apple-system,sans-serif; }
+.vp-promoter-map-card__head { display:flex; align-items:center; gap:9px; padding:11px 13px; background:rgba(255,255,255,.045); border-bottom:1px solid rgba(255,255,255,.09); }
+.vp-promoter-map-card__number { width:25px; height:25px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:850; flex:0 0 auto; }
+.vp-promoter-map-card__title { color:#fff; font-size:12px; font-weight:800; }
+.vp-promoter-map-card__subtitle { color:rgba(255,255,255,.48); font-size:9px; margin-top:1px; }
+.vp-promoter-map-card__body { padding:10px 13px 12px; display:grid; gap:7px; }
+.vp-promoter-map-card__address { color:#fff; font-size:11px; line-height:1.45; font-weight:650; }
+.vp-promoter-map-card__row { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; font-size:10px; line-height:1.35; }
+.vp-promoter-map-card__label { color:rgba(255,255,255,.43); }
+.vp-promoter-map-card__value { color:rgba(255,255,255,.88); text-align:right; font-weight:650; }
+
 .leaflet-control-zoom {
   border: 1px solid rgba(0,0,0,0.14) !important;
   border-radius: 7px !important;
@@ -127,6 +191,51 @@ function dotIcon(L, color, size, selected) {
     className: '',
     iconSize: [s, s],
     iconAnchor: [s / 2, s / 2],
+  });
+}
+
+// Marker operativo: deve restare chiaramente cliccabile anche con la mappa scura.
+function poiCategorySymbol(category) {
+  const value = String(category || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (value.includes('palestra') || value.includes('fitness') || value.includes('sport') || value.includes('gym')) return '🏋';
+  if (value.includes('scuol') || value.includes('istitut') || value.includes('liceo')) return '🎓';
+  if (value.includes('universit') || value.includes('college') || value.includes('bibliotec')) return '📚';
+  if (value.includes('stazion') || value.includes('metro') || value.includes('railway') || value.includes('transit') || value.includes('fermata')) return '🚉';
+  if (value.includes('supermerc') || value.includes('negozio') || value.includes('retail') || value.includes('mall') || value.includes('centro comm')) return '🛒';
+  if (value.includes('ristor') || value.includes('bar') || value.includes('caff') || value.includes('pub')) return '🍽';
+  if (value.includes('farmac') || value.includes('clinic') || value.includes('ospedal') || value.includes('sanit')) return '⚕';
+  if (value.includes('beauty') || value.includes('estetic') || value.includes('parrucch')) return '✂';
+  if (value.includes('auto') || value.includes('officina') || value.includes('concession')) return '🚗';
+  if (value.includes('immob') || value.includes('estate')) return '🏠';
+  if (value.includes('ufficio') || value.includes('azienda') || value.includes('business') || value.includes('hotel')) return '🏢';
+  if (value.includes('teatro') || value.includes('cinema') || value.includes('evento')) return '🎭';
+  if (value.includes('parco')) return '🌳';
+  return '📍';
+}
+
+function selectablePoiIcon(L, color, selected, operatorNumber = null, category = '') {
+  const size = selected ? 30 : 26;
+  const label = selected && operatorNumber ? `P${operatorNumber}` : selected ? '&#10003;' : poiCategorySymbol(category);
+  return L.divIcon({
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${selected ? '#16A34A' : color};border:3px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;color:#fff;font:900 ${selected && operatorNumber ? 10 : selected ? 15 : 18}px/1 system-ui,sans-serif;cursor:pointer">${label}</div>`,
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
+// Marker di contesto per Door to Door: visibile ma non assegnabile.
+// Icona fissa "cassetta postale" (punto di consegna) invece del simbolo per
+// categoria: per D2D ogni punto rappresenta un'attività nel raggio di
+// consegna, non va confuso con le icone per categoria di H2H/Business.
+function informationalPoiIcon(L, color) {
+  const size = 20;
+  const mailboxSvg = `<svg width="13" height="13" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M6 26V13.5A7.5 7.5 0 0 1 13.5 6h5A7.5 7.5 0 0 1 26 13.5V26" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M6 14h20M16 6v20M20 11h4" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M10 26h12" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>`;
+  return L.divIcon({
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;cursor:help">${mailboxSvg}</div>`,
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
@@ -172,6 +281,8 @@ function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opac
     'Layer previsto per Door to Door, non ancora popolato',
   ];
   const hasCiviciLayer = primaryLayers.some((layer) => layer.id === 'civici');
+  const settoriUnavailable = primaryLayers.some((layer) => layer.id === 'settori' && !layer.future)
+    && (!settori || settori.length === 0);
 
   return (
     <div style={{
@@ -216,9 +327,11 @@ function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opac
           {primaryLayers.map(layer => {
             const meta = LAYER_META[layer.id] || { color: '#5B7FA6', icon: '○' };
             const civiciDisabled = layer.id === 'civici' && !civiciAvailable;
-            const isOn = civiciDisabled ? false : (activeLayers?.[layer.id] ?? layer.defaultOn ?? false);
-            const active = isOn && !layer.future && !civiciDisabled;
-            const settoriNoData = layer.id === 'settori' && !layer.future && isOn
+            const settoriDisabled = layer.id === 'settori' && !settori;
+            const isDisabled = civiciDisabled || settoriDisabled;
+            const isOn = isDisabled ? false : (activeLayers?.[layer.id] ?? layer.defaultOn ?? false);
+            const active = isOn && !layer.future && !isDisabled;
+            const settoriNoData = layer.id === 'settori' && !layer.future && (isOn || settoriDisabled)
               && (!settori || settori.length === 0);
             const civiciTag = layer.id === 'civici'
               ? (civiciAvailable ? { bg: 'rgba(22,163,74,0.14)', fg: 'rgba(34,197,94,0.82)', txt: 'disponibili' } : { bg: 'rgba(148,163,184,0.14)', fg: 'rgba(148,163,184,0.82)', txt: 'non disponibili' })
@@ -227,17 +340,17 @@ function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opac
             return (
               <div
                 key={layer.id}
-                onClick={!layer.future && !civiciDisabled ? () => onToggle?.(layer.id) : undefined}
+                onClick={!layer.future && !isDisabled ? () => onToggle?.(layer.id) : undefined}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 0,
-                  cursor: layer.future || civiciDisabled ? 'default' : 'pointer',
-                  opacity: layer.future ? 0.32 : (civiciDisabled ? 0.45 : 1),
+                  cursor: layer.future || isDisabled ? 'default' : 'pointer',
+                  opacity: layer.future ? 0.32 : (isDisabled ? 0.45 : 1),
                   transition: 'background 0.12s',
                   position: 'relative',
                 }}
-                onMouseEnter={e => { if (!layer.future && !civiciDisabled) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                onMouseEnter={e => { if (!layer.future && !isDisabled) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
               >
                 {/* Left color stripe – GIS layer indicator */}
@@ -328,6 +441,16 @@ function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opac
               </div>
             );
           })}
+          {settoriUnavailable && (
+            <div style={{
+              padding: '6px 10px 4px',
+              fontSize: 9,
+              color: 'rgba(255,255,255,0.36)',
+              borderTop: '1px solid rgba(255,255,255,0.05)',
+            }}>
+              Settori: dato non disponibile
+            </div>
+          )}
           {!civiciAvailable && hasCiviciLayer && (
             <div style={{
               padding: '6px 10px 4px',
@@ -423,6 +546,17 @@ function LayerPanel({ config, activeLayers, settori, civiciState, onToggle, opac
 
 // ── Colori GIS per le zone non selezionate ───────────────────────────────────
 const ZONE_UNSEL = { color: '#2D5A8E', fill: '#3A72A8' };
+
+// Colori coerenti con la legenda "Coperti / Parziali / Non coperti" (stessa
+// soglia getCoverageStatus di src/lib/step2/buildStep2ViewModel.js, passata
+// via prop zoneCoverageById — nessuna soglia duplicata qui).
+const COVERAGE_MAP_COLORS = {
+  coperto:     { border: '#22C55E', fill: '#22C55E' },
+  parziale:    { border: '#FACC15', fill: '#FACC15' },
+  non_coperto: { border: '#F87171', fill: '#94A3B8' },
+  preview_main:   { border: '#3B82F6', fill: '#3B82F6' },
+  preview_nearby: { border: '#64748B', fill: '#94A3B8' },
+};
 
 // ── Multi-zona accordion sidebar ─────────────────────────────────────────────
 function ZoneSidebar({ zones, activeZoneId, onSelectZone }) {
@@ -557,7 +691,7 @@ function computeBreaks(values) {
   return [q(0.2), q(0.4), q(0.6), q(0.8), Infinity];
 }
 
-export function Step2Map({
+function Step2MapImpl({
   city,
   radius,
   svcType,
@@ -570,6 +704,11 @@ export function Step2Map({
   activeLayers,
   settori,       // Array<{id, numero, name?, geometry}> | null
   pois,          // Array<{id, lat, lng, name, category, color, priority, address}> from usePoi
+  loadingPois,
+  operationalPoints, // Punti assegnati ai promoter H2H, geocodificati in Step 1
+  poiAssignments,
+  onTogglePoi,
+  businessConfig,
   civiciState,
   onLayerToggle,
   layerPanelConfig,
@@ -580,18 +719,44 @@ export function Step2Map({
   opacityLevel,
   onOpacityChange,
   onLayerReset,
+  municipalityBoundary, // GeoJSON geometry del confine comunale (da OSM Nominatim)
+  isMunicipalityMode,   // true = mostra intero comune, non cerchio raggio
+  nilMode,              // true = modalità NIL manuale (Milano): poligoni NIL visibili/cliccabili anche in municipality mode
+  coveragePolygons,     // Array<{id,name,type,status,geometry,lat,lng,families,assignedFlyers,recommendedFlyers,coveragePct}> — territori REALI usati nel calcolo Raggio (comuni o NIL secondo zonesInRadius), SOLO tab Raggio
+  activeLayerId,        // id layer attivo — incluso nei dep per re-trigger del render
+  zoneCoverageById,     // { [zoneId]: "coperto"|"parziale"|"non_coperto" } — da getCoverageStatus, stessa soglia della legenda
+  zoneAllocationById,   // { [zoneId]: {assignedFlyers, requiredFlyers, coveragePercent, status} } — per i tooltip
+  boundaryKpis,         // { families, coveragePercent, insertedFlyers, recommendedFlyers } — tooltip confine comune attivo
+  unconfirmedAddressMode, // true = indirizzo dentro Milano ma non confermato: preview NIL attive, confine leggero
+  onMapClick,
+  focusPoiId,   // id del POI su cui centrare/evidenziare la mappa (click dalla lista H2H/Business)
+  focusPoiNonce, // incrementato ad ogni click, anche se si riclicca lo stesso POI
 }) {
+  const hasConfirmedRadius = Number.isFinite(Number(radius)) && Number(radius) > 0;
+  const effectiveMapRadius = hasConfirmedRadius ? Number(radius) : 3;
   const containerRef = useRef(null);
+  const poiMarkersByIdRef = useRef(new Map());
+  const onMapClickRef = useRef(onMapClick);
+  useEffect(() => {
+    onMapClickRef.current = onMapClick;
+  }, [onMapClick]);
   const mapRef = useRef(null);
   const layersRef = useRef({});
   const viewRef = useRef({ lat: null, lng: null, radius: null });
+  const autoFitRef = useRef({ operational: '', assignments: '' });
   const [leafletLoaded, setLeafletLoaded] = useState(!!window.L);
   const [selectedSectorId, setSelectedSectorId] = useState(null);
   const [mapZoom, setMapZoom] = useState(null);
+  // Territori nel calcolo Raggio senza geometry disponibile — mostrati come
+  // avviso opzionale in UI, senza nascondere i poligoni disponibili.
+  const [missingPolygonNames, setMissingPolygonNames] = useState([]);
 
-  // Carica Leaflet JS + CSS una sola volta
+  // Carica Leaflet JS + CSS e inizializza mappa
   useEffect(() => {
-    if (window.L) { setLeafletLoaded(true); return; }
+    if (window.L) {
+      setLeafletLoaded(true);
+      return;
+    }
 
     if (!document.getElementById('vp-leaflet-css')) {
       const link = document.createElement('link');
@@ -606,12 +771,11 @@ export function Step2Map({
       script.id = 'vp-leaflet-js';
       script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
       script.onload = () => setLeafletLoaded(true);
-      script.onerror = () => console.warn('[Step2Map] Leaflet non caricato');
+      script.onerror = () => { warnStep2('[Step2Map] Leaflet non caricato'); };
       document.head.appendChild(script);
     }
   }, []);
 
-  // CSS mappa – iniettato una sola volta (rimuove il vecchio stile se presente)
   useEffect(() => {
     document.getElementById('vp-leaflet-dark')?.remove();
     if (document.getElementById('vp-map-css')) return;
@@ -621,7 +785,6 @@ export function Step2Map({
     document.head.appendChild(style);
   }, []);
 
-  // Inizializza mappa
   useEffect(() => {
     if (!leafletLoaded || !containerRef.current || mapRef.current) return;
     const L = window.L;
@@ -635,7 +798,7 @@ export function Step2Map({
 
     const map = L.map(containerRef.current, {
       center: city ? [city.lat, city.lng] : [41.9, 12.5],
-      zoom: city ? getZoomForRadius(radius) : 6,
+      zoom: city ? getZoomForRadius(effectiveMapRadius) : 6,
       zoomControl: true,
       attributionControl: true,
       preferCanvas: true,
@@ -647,13 +810,38 @@ export function Step2Map({
       keyboard: true,
     });
     mapRef.current = map;
-    map.scrollWheelZoom.enable();
-    map.doubleClickZoom.enable();
-    map.dragging.enable();
-    map.touchZoom.enable();
-    map.boxZoom.enable();
-    map.keyboard.enable();
-    map.on('zoomend', () => { setMapZoom(map.getZoom()); });
+
+    try {
+      const p0 = map.createPane('municipalityFillPane');
+      p0.style.zIndex = 390;
+      p0.style.pointerEvents = 'none';
+
+      const p1 = map.createPane('nilPolygonsPane');
+      p1.style.zIndex = 410;
+      p1.style.pointerEvents = 'auto';
+
+      const p2 = map.createPane('municipalityBoundaryPane');
+      p2.style.zIndex = 415;
+      p2.style.pointerEvents = 'none';
+
+      const p3 = map.createPane('radiusCirclePane');
+      p3.style.zIndex = 430;
+      p3.style.pointerEvents = 'none';
+
+      const p4 = map.createPane('radiusCenterPane');
+      p4.style.zIndex = 620;
+      p4.style.pointerEvents = 'auto';
+
+      const poiPane = map.createPane('poiSelectionPane');
+      poiPane.style.zIndex = 630;
+      poiPane.style.pointerEvents = 'auto';
+
+      const tipPane = map.getPane('tooltipPane');
+      if (tipPane) {
+        tipPane.style.zIndex = 650;
+        tipPane.style.pointerEvents = 'none';
+      }
+    } catch (_e) {}
 
     const mbToken = typeof import.meta !== 'undefined' && import.meta.env?.VITE_MAPBOX_TOKEN;
     if (mbToken && mbToken.startsWith('pk.')) {
@@ -665,7 +853,22 @@ export function Step2Map({
       L.tileLayer(CARTO_VOYAGER, { attribution: CARTO_ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
     }
 
-    return () => { map.remove(); mapRef.current = null; };
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(() => map.invalidateSize());
+    });
+    resizeObserver.observe(containerRef.current);
+
+    map.on('zoomend', () => { setMapZoom(map.getZoom()); });
+    map.on('click', (e) => {
+      if (onMapClickRef.current) {
+        onMapClickRef.current({ lat: e.latlng.lat, lng: e.latlng.lng });
+      }
+    });
+    return () => {
+      resizeObserver.disconnect();
+      map.remove();
+      mapRef.current = null;
+    };
   }, [leafletLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ridisegna tutti i layer quando i dati o la visibilità cambiano
@@ -684,58 +887,517 @@ export function Step2Map({
     const showAllLabels  = currentZoom >= 15;
     const showSomeLabels = currentZoom >= 12;
 
+    // ── Rileva il comune primario ──────────────────────────────────────────────
+    // REGOLA: la zona primaria è SEMPRE il comune scelto dall'utente (city).
+    // Non usare il primo elemento di zonesWithCoords: in prossimità di Milano
+    // i quartieri milanesi (Bruzzano, Affori, Niguarda…) hanno coordinate
+    // sovrapponibili a quelle di comuni autonomi come Cormano o Bresso.
+    const cityNameRaw   = city?.label || city?.name || '';
+    const cityName      = normalizeMapMunicipalityName(cityNameRaw);
+    const cityIsMilano  = cityName === 'milano';
+    // Codice ISTAT del Comune di Milano usato nei settori del DB
+    const MILANO_ISTAT  = '015146';
+
+    let primaryZone    = null;
+    let _selReason     = 'no_match';
+
+    // 1. Match esatto per nome (case-insensitive) — priorità assoluta
+    if (!primaryZone && cityName) {
+      const found = zonesWithCoords?.find(
+        z => normalizeMapMunicipalityName(z.name) === cityName
+      );
+      if (found) { primaryZone = found; _selReason = 'exact_name'; }
+    }
+
+    // 2. Match parziale nome (il nome città è contenuto nel nome zona o viceversa)
+    if (!primaryZone && cityName) {
+      const found = zonesWithCoords?.find(z => {
+        const zn = normalizeMapMunicipalityName(z.name);
+        return zn.length >= 4 && cityName.length >= 4 && (zn.includes(cityName) || cityName.includes(zn));
+      });
+      if (found) { primaryZone = found; _selReason = 'partial_name'; }
+    }
+
+    // 3. Coordinata più vicina — escludendo quartieri di Milano se city ≠ Milano
+    if (!primaryZone && zonesWithCoords?.length > 0) {
+      let best = null;
+      let bestD2 = Infinity;
+      zonesWithCoords.forEach(z => {
+        if (!cityIsMilano) {
+          const mc = String(z.municipality_code || z.municipalityCode || '');
+          if (mc.includes(MILANO_ISTAT)) return; // salta i settori/quartieri milanesi
+        }
+        const d2 = Math.pow((z.lat || 0) - city.lat, 2) +
+                   Math.pow((z.lng || 0) - city.lng, 2);
+        if (d2 < bestD2) { bestD2 = d2; best = z; }
+      });
+      // Accettare solo se < ~2 km (d² < 0.0004 in gradi ≈ ~2.2 km)
+      if (best && bestD2 < 0.0004) { primaryZone = best; _selReason = 'closest_coord_non_milan'; }
+    }
+
+    const primaryMunCode = city?.municipalityCode || city?.municipality_code || primaryZone?.municipality_code || primaryZone?.municipalityCode || null;
+
     const col = serviceColor || '#ff6b1a';
     const opacityScale = opacityLevel === 'low' ? 0.65 : opacityLevel === 'high' ? 1.25 : 1;
-    const nextView = { lat: Number(city.lat), lng: Number(city.lng), radius: Number(radius) };
+    const nextView = { lat: Number(city.lat), lng: Number(city.lng), radius: hasConfirmedRadius ? Number(radius) : null, boundary: municipalityBoundary };
     const viewChanged =
       viewRef.current.lat !== nextView.lat ||
       viewRef.current.lng !== nextView.lng ||
-      viewRef.current.radius !== nextView.radius;
+      viewRef.current.radius !== nextView.radius ||
+      viewRef.current.boundary !== nextView.boundary;
     if (viewChanged) {
-      map.setView([city.lat, city.lng], getZoomForRadius(radius), { animate: false });
       viewRef.current = nextView;
+      // In municipality mode with boundary: fitBounds to the polygon(s)
+      // municipalityBoundary can be:
+      //   - [{name, geometry}, ...]  (array from Nominatim fetch — the canonical format)
+      //   - a raw GeoJSON geometry (legacy / direct pass)
+      if (isMunicipalityMode && municipalityBoundary) {
+        try {
+          const boundaryEntries = Array.isArray(municipalityBoundary)
+            ? municipalityBoundary.filter(b => b?.geometry)
+            : (municipalityBoundary?.type ? [{ name: city?.label || city?.name || 'Comune', geometry: municipalityBoundary }] : []);
+          if (boundaryEntries.length > 0) {
+            const combinedGj = L.geoJSON({ type: 'FeatureCollection', features: boundaryEntries.map(b => ({ type: 'Feature', geometry: b.geometry, properties: { name: b.name } })) });
+            const selectedBounds = combinedGj.getBounds();
+            const fitSelectedBoundary = () => {
+              const mapContainer = map.getContainer?.();
+              if (!mapContainer || !mapContainer.isConnected || !map._loaded || !map._mapPane) return;
+              map.invalidateSize({ pan: false });
+              const mapSize = map.getSize();
+              const horizontalPadding = Math.max(28, Math.min(72, Math.round(mapSize.x * 0.08)));
+              const verticalPadding = Math.max(28, Math.min(58, Math.round(mapSize.y * 0.09)));
+              map.fitBounds(selectedBounds, {
+                paddingTopLeft: [horizontalPadding + 6, verticalPadding],
+                paddingBottomRight: [horizontalPadding, verticalPadding + 6],
+                animate: false,
+              });
+            };
+            fitSelectedBoundary();
+            requestAnimationFrame(() => fitSelectedBoundary());
+          } else {
+            map.setView([city.lat, city.lng], getZoomForRadius(effectiveMapRadius), { animate: false });
+          }
+        } catch {
+          map.setView([city.lat, city.lng], getZoomForRadius(effectiveMapRadius), { animate: false });
+        }
+      } else {
+        map.setView([city.lat, city.lng], getZoomForRadius(effectiveMapRadius), { animate: false });
+      }
     }
 
     const group = L.layerGroup().addTo(map);
     layersRef.current.group = group;
 
-    // Draw only the active campaign center on the main map. Inactive zones stay
-    // selectable from the sidebar, but stale centers must not create extra rings.
+    // Ordine layer (dal basso in alto): 1. tile base (gestita a parte) →
+    // 2. confini comuni/NIL coinvolti → 3. cerchio raggio → 4. marker centro
+    // → 5. tooltip. Cerchio e marker vengono aggiunti DOPO i poligoni comuni
+    // più sotto (non qui) proprio per restare sempre visibili sopra di essi
+    // — prima erano disegnati per primi e i poligoni comuni li coprivano.
     const activeZone = (campaignZones || []).find(z => z.id === activeZoneId);
-    const zonesList = activeZone ? [activeZone] : [{ id: 'active_zone', city, radiusKm: radius }];
+    const zonesList = activeZone ? [activeZone] : [{ id: 'active_zone', city, radiusKm: hasConfirmedRadius ? radius : null }];
+    (campaignZones || []).forEach(z => {
+      if (!zonesList.find(x => x.id === z.id)) {
+        zonesList.push(z);
+      }
+    });
+
+    // ── Confine comunale (municipality boundary from OSM Nominatim) ─────────
+    // municipalityBoundary format: [{name: string, geometry: GeoJSONGeometry}, ...]
+    // Each entry represents one comune. We render all of them.
+    // The active city comune gets a strong accent border (col, same brand color
+    // as the radius circle); additional comuni get a neutral style so
+    // multi-comune is immediately readable.
+    let renderedBoundaryCount = 0;
+    if (isMunicipalityMode && municipalityBoundary) {
+      // Normalize to array-of-{name,geometry} regardless of input shape
+      const cityLabel = city?.label || city?.name || 'Comune';
+      let boundaryEntries = [];
+      if (Array.isArray(municipalityBoundary)) {
+        // Canonical format: [{name, geometry}, ...]
+        boundaryEntries = municipalityBoundary.filter(b => b?.geometry);
+      } else if (municipalityBoundary?.type) {
+        // Legacy: raw GeoJSON geometry passed directly
+        boundaryEntries = [{ name: cityLabel, geometry: municipalityBoundary }];
+      }
+
+      if (boundaryEntries.length === 0) {
+        warnStep2('[MUNICIPALITY_BOUNDARY_WARN] isMunicipalityMode=true but no valid boundary entries found', municipalityBoundary);
+      }
+
+      // Detect the active comune name for styling
+      const activeComuneName = (cityLabel)
+        .split(',')[0]
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase();
+
+      const isMilanoCityMapForBoundary = Boolean(city && (String(city.name || city.label || '').toLowerCase().includes('milano')));
+      const hasNilZonesForBoundary = Boolean((zonesWithCoords || []).some(z => z && (z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')) || (typeof z.type === 'string' && z.type === 'nil'))));
+      const willRenderNilPolygonsForBoundary = activeLayers?.comuni !== false && (zonesWithCoords?.length || 0) > 0 && (!isMunicipalityMode || nilMode || hasNilZonesForBoundary || isMilanoCityMapForBoundary);
+      const shouldRenderCoveragePolygonsForBoundary = (!isMunicipalityMode || unconfirmedAddressMode) && Array.isArray(coveragePolygons) && coveragePolygons.length > 0;
+
+      boundaryEntries.forEach((entry, idx) => {
+        const entryName = String(entry.name || `Comune ${idx + 1}`);
+        const normEntry = entryName.split(',')[0].trim().toLowerCase();
+        const normEntryClean = normEntry.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const isActiveComuneEntry = idx === 0 || normEntryClean === activeComuneName;
+
+        const entryHasNils = (zonesWithCoords || []).some(z => {
+          if (!z) return false;
+          const isNilLike = Boolean(z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')) || (typeof z.type === 'string' && z.type === 'nil'));
+          if (!isNilLike) return false;
+          return isMilanoCityMapForBoundary ? normEntry.includes('milano') : true;
+        });
+        const hasInteractiveSubZones = willRenderNilPolygonsForBoundary ? (entryHasNils || ((zonesWithCoords?.length || 0) > 0 && (isActiveComuneEntry || !isMunicipalityMode))) : shouldRenderCoveragePolygonsForBoundary;
+        const isBoundaryInteractive = !hasInteractiveSubZones && !unconfirmedAddressMode;
+
+        // Active comune: strong green border, light green fill (or faint context when unconfirmedAddressMode)
+        // Additional comuni in multi-mode: slightly different shade, still visible
+        const polyStyle = unconfirmedAddressMode ? {
+          color: '#8A9EA7',
+          weight: 1.5,
+          fillColor: 'transparent',
+          fillOpacity: 0,
+          dashArray: '4 4',
+          opacity: 0.35,
+          interactive: false,
+        } : isActiveComuneEntry ? {
+          color: col,
+          weight: 2,
+          fillColor: col,
+          fillOpacity: isBoundaryInteractive ? (0.06 * (opacityScale || 1)) : 0,
+          dashArray: '8 4',
+          opacity: 0.9,
+          interactive: isBoundaryInteractive,
+        } : {
+          color: '#7F9BB0',
+          weight: 1.8,
+          fillColor: '#7F9BB0',
+          fillOpacity: isBoundaryInteractive ? (0.04 * (opacityScale || 1)) : 0,
+          dashArray: '6 4',
+          opacity: 0.65,
+          interactive: isBoundaryInteractive,
+        };
+
+        // Tooltip informativo (§ticket): tipo, famiglie, copertura, volantini.
+        // Per il comune attivo usa i KPI aggregati (boundaryKpis); per gli
+        // altri comuni multi-selezione usa i dati della zona corrispondente.
+        const zoneForEntry = (zonesWithCoords || []).find(z => String(z.name || '').trim().toLowerCase() === normEntry) || null;
+        const allocForEntry = zoneForEntry ? zoneAllocationById?.[zoneForEntry.id] : null;
+        const fmtIT = n => Number(n || 0).toLocaleString('it-IT', { useGrouping: true });
+        const tipRows = isActiveComuneEntry && boundaryKpis
+          ? [
+              `<b style="color:${col}">${esc(entryName)}</b>`,
+              `<span style="color:rgba(255,255,255,.6);font-size:11px">Tipo: Comune completo</span>`,
+              `Famiglie: <b>${fmtIT(boundaryKpis.families)}</b>`,
+              `Copertura: <b>${Math.round(boundaryKpis.coveragePercent || 0)}%</b>`,
+              `Quantità inserita: <b>${fmtIT(boundaryKpis.insertedFlyers)}</b>`,
+              `Quantità consigliata: <b>${fmtIT(boundaryKpis.recommendedFlyers)}</b>`,
+            ]
+          : [
+              `<b style="color:${col}">${esc(entryName)}</b>`,
+              `<span style="color:rgba(255,255,255,.6);font-size:11px">Tipo: Comune</span>`,
+              zoneForEntry ? `Famiglie: <b>${fmtIT(zoneForEntry.families)}</b>` : null,
+              allocForEntry ? `Copertura: <b>${Math.round(allocForEntry.coveragePercent || 0)}%</b>` : null,
+              allocForEntry ? `Volantini assegnati: <b>${fmtIT(allocForEntry.assignedFlyers)}</b>` : null,
+              allocForEntry ? `Quantità consigliata: <b>${fmtIT(allocForEntry.requiredFlyers)}</b>` : null,
+              allocForEntry ? _coverageStatusRow(allocForEntry.status) : null,
+            ];
+        const tip = tipRows.filter(Boolean).join('<br>');
+
+        try {
+          const p2 = map.getPane('municipalityBoundaryPane');
+          if (p2) p2.style.pointerEvents = isBoundaryInteractive ? 'auto' : 'none';
+          const feature = { type: 'Feature', geometry: entry.geometry, properties: { name: entryName } };
+          const boundaryLayer = L.geoJSON(feature, { style: polyStyle, pane: 'municipalityBoundaryPane', interactive: isBoundaryInteractive });
+          if (isBoundaryInteractive) {
+            boundaryLayer.bindTooltip(tip, { direction: 'auto', opacity: 1, sticky: true, interactive: false, pane: 'tooltipPane' });
+            boundaryLayer.on('mouseover', () => boundaryLayer.setStyle({ weight: polyStyle.weight + 1, fillOpacity: Math.min(0.18, (polyStyle.fillOpacity || 0.06) * 2.2) }));
+            boundaryLayer.on('mouseout', () => boundaryLayer.setStyle({ weight: polyStyle.weight, fillOpacity: polyStyle.fillOpacity }));
+          }
+          boundaryLayer.addTo(group);
+          layersRef.current[`municipalityBoundary_${idx}`] = boundaryLayer;
+          renderedBoundaryCount++;
+          debugStep2(`[MUNICIPALITY_BOUNDARY_DRAWN] ${entryName} (entry ${idx}, interactive: ${isBoundaryInteractive})`);
+        } catch (e) {
+          warnStep2(`[MUNICIPALITY_BOUNDARY_ERROR] draw failed for ${entryName}`, e);
+        }
+      });
+
+      debugStep2('[MUNICIPALITY_BOUNDARY_LOADED] total drawn:', renderedBoundaryCount);
+    }
+
+    debugStep2('[Step2Map] svcType:', svcType,
+      '| zones:', zonesWithCoords?.length ?? 0,
+      '| settori:', settori?.length ?? 'null',
+      '| isMunicipalityMode:', isMunicipalityMode,
+      '| hasBoundary:', !!municipalityBoundary,
+      '| layers:', JSON.stringify(activeLayers));
+    if (activeLayerId) {
+      const zonesWithColor = zonesWithCoords?.filter(z => z.metricColor)?.length ?? 0;
+      debugStep2('[LAYER_RENDER_UPDATED]', { layerId: activeLayerId, themeMode, zonesColored: zonesWithColor, total: zonesWithCoords?.length ?? 0 });
+    }
+
+    // settoriActive: settori layer is on AND data is available
+    const settoriActive = activeLayers?.settori !== false && settori?.length > 0;
+
+    if (import.meta.env.DEV) {
+      const boundaryEntriesArr = Array.isArray(municipalityBoundary)
+        ? municipalityBoundary.filter(b => b?.geometry)
+        : (municipalityBoundary?.type ? [municipalityBoundary] : []);
+      const boundaryCount = boundaryEntriesArr.length;
+      const coveragePolygonsCount = (zonesWithCoords || []).filter(z => z.geometry).length;
+      const involvedMunicipalitiesCount = isMunicipalityMode ? boundaryCount : (zonesWithCoords?.length || 0);
+      const hasRadiusCircle = !isMunicipalityMode && (activeLayers?.radius !== false);
+      // Required debug log per spec
+      console.log('[STEP2_MAP_BOUNDARIES]', {
+        areaMode: isMunicipalityMode ? 'full_municipality' : 'radius',
+        selectionMode: isMunicipalityMode ? 'comune' : 'raggio',
+        searchMode: isMunicipalityMode ? 'municipality' : 'address',
+        radiusKm: radius,
+        selectedComuneName: city?.label || city?.name || null,
+        selectedComuniCount: boundaryEntriesArr.length,
+        selectedZonesCount: zonesWithCoords?.length || 0,
+        activeZoneId,
+        hasSelectedComuneBoundary: Boolean(municipalityBoundary),
+        selectedComuniWithBoundary: boundaryEntriesArr.length,
+        renderedBoundaryCount,
+        renderedRadiusCircle: hasRadiusCircle,
+        // raw boundary format for debugging
+        boundaryIsArray: Array.isArray(municipalityBoundary),
+        boundaryEntryNames: boundaryEntriesArr.map(b => b?.name || '?'),
+      });
+      console.log('[STEP2_MAP_RENDER]', {
+        areaMode: isMunicipalityMode ? 'full_municipality' : 'radius',
+        selectionMode: isMunicipalityMode ? 'comune' : 'raggio',
+        radiusKm: radius,
+        center: city ? { lat: city.lat, lng: city.lng } : null,
+        boundaryCount,
+        coveragePolygonsCount,
+        involvedMunicipalitiesCount,
+        hasRadiusCircle,
+        activeLayerMode: isMunicipalityMode ? 'comune' : 'raggio',
+      });
+      const isMilanoCityMap = Boolean(city && (String(city.name || city.label || '').toLowerCase().includes('milano')));
+      const hasNilZones = Boolean((zonesWithCoords || []).some(z => z && (z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')) || (typeof z.type === 'string' && z.type === 'nil'))));
+      const willRenderNilPolygons = activeLayers?.comuni !== false && (zonesWithCoords?.length || 0) > 0 && (!isMunicipalityMode || nilMode || hasNilZones || isMilanoCityMap);
+      console.log('[STEP2_MAP_GEOMETRY_DEBUG]', {
+        activeAreaTab: isMunicipalityMode ? 'comune' : 'raggio',
+        areaMode: isMunicipalityMode ? (nilMode ? 'custom_zone' : 'full_municipality') : 'radius',
+        selectedComuneName: city?.label || city?.name || null,
+        radiusKm: radius,
+        hasMunicipalityGeometry: boundaryCount > 0,
+        municipalityGeometryName: boundaryEntriesArr[0]?.name || null,
+        nilGeometryCount: (zonesWithCoords || []).filter(z => z.geometry && (z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')))).length,
+        renderedMunicipalityBoundary: isMunicipalityMode && boundaryCount > 0,
+        renderedNilPolygons: willRenderNilPolygons ? coveragePolygonsCount : 0,
+        renderedRadiusCircle: hasRadiusCircle,
+        tooltipPolygonsCount: (isMunicipalityMode ? boundaryCount : 0) + (willRenderNilPolygons ? coveragePolygonsCount : 0),
+      });
+    }
+
+    // ── 2. Comuni (confini comunali) — SOLO NIL manuale (Comune tab) ───────
+    // In municipality mode il poligono municipalityBoundary mostra già il
+    // comune selezionato. Il caso "Raggio" (!isMunicipalityMode) NON passa
+    // più da qui: usa il blocco dedicato coveragePolygons subito sotto,
+    // per non confondere confine comunale (contesto singolo) con i territori
+    // realmente coinvolti nel calcolo raggio (§ticket "non confondere
+    // municipality boundary con radius polygons").
+    const isMilanoCityMap = Boolean(city && (String(city.name || city.label || '').toLowerCase().includes('milano')));
+    const hasNilZones = Boolean((zonesWithCoords || []).some(z => z && (z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')) || (typeof z.type === 'string' && z.type === 'nil'))));
+    let renderedZonePolygonLayers = 0;
+    const shouldRenderCoveragePolygonsEarly = (!isMunicipalityMode || unconfirmedAddressMode) && Array.isArray(coveragePolygons) && coveragePolygons.length > 0;
+    if (!shouldRenderCoveragePolygonsEarly && activeLayers?.comuni !== false && zonesWithCoords?.length > 0 && (!isMunicipalityMode || nilMode || hasNilZones || isMilanoCityMap)) {
+      zonesWithCoords.forEach(z => {
+        const sel = isD2D && selected?.includes(z.id);
+        const coverageStatus = zoneCoverageById?.[z.id] || null;
+        const coverageColors = coverageStatus ? COVERAGE_MAP_COLORS[coverageStatus] : null;
+        const comuneFill = coverageColors
+          ? coverageColors.fill
+          : (themeMode ? (z.metricColor || z.color || '#7F9BB0') : (z.color || '#7F9BB0'));
+        // Intensità per stato: "non coperto" è di gran lunga il caso più
+        // frequente su Milano (fino a 87 NIL su 88) — un bordo/fill uguali a
+        // "coperto" lo fa dominare visivamente l'intera mappa. Bordo rosso
+        // leggero + fill quasi trasparente, "coperto" resta il più marcato
+        // (è il caso raro/interessante da individuare a colpo d'occhio).
+        const coverageIntensity = coverageStatus === 'non_coperto'
+          ? { fillOpacity: 0.05, weight: 0.9, opacity: 0.45 }
+          : coverageStatus === 'parziale'
+            ? { fillOpacity: 0.16, weight: 1.3, opacity: 0.75 }
+            : coverageStatus === 'coperto'
+              ? { fillOpacity: 0.22, weight: 1.6, opacity: 0.9 }
+              : null;
+        const baseFill = settoriActive ? 0.010 : (coverageIntensity ? coverageIntensity.fillOpacity : (themeMode ? 0.16 : 0.055));
+        const fillOpacity = Math.max(0.006, Math.min(0.32, baseFill * opacityScale));
+        const isNilZone = Boolean(z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')));
+
+        const styleUnsel = {
+          color:       coverageColors ? coverageColors.border : 'rgba(15,23,42,0.40)',
+          fillColor:   comuneFill,
+          fillOpacity,
+          weight:      coverageIntensity ? Math.max(isNilZone ? 1.3 : 0.85, coverageIntensity.weight) : (isNilZone ? 1.3 : (settoriActive ? 0.55 : 0.85)),
+          opacity:     coverageIntensity ? Math.max(isNilZone ? 0.85 : 0.45, coverageIntensity.opacity) : (isNilZone ? 0.85 : (settoriActive ? 0.18 : 0.45)),
+          dashArray:   coverageColors ? null : (themeMode ? null : '5 5'),
+        };
+        const styleSel = {
+          color: coverageColors ? coverageColors.border : (z.color || col),
+          fillColor: comuneFill,
+          fillOpacity: Math.max(fillOpacity, Math.min(0.34, 0.12 * opacityScale)),
+          weight: coverageIntensity ? Math.max(isNilZone ? 1.7 : 1.1, coverageIntensity.weight + 0.4) : (isNilZone ? 1.7 : 1.1),
+          opacity: coverageIntensity ? Math.min(0.95, coverageIntensity.opacity + 0.1) : 0.85,
+          dashArray: null,
+          lineCap: 'round',
+          lineJoin: 'round',
+        };
+        const gisStyle = sel ? styleSel : styleUnsel;
+        const alloc = zoneAllocationById?.[z.id] || null;
+        const tip = _buildZoneOrNilTooltip(z, col, sel, alloc, coverageStatus, false);
+
+        if (z.geometry) {
+          try {
+            const p1 = map.getPane('nilPolygonsPane');
+            if (p1) p1.style.pointerEvents = 'auto';
+            const gj = typeof z.geometry === 'string' ? JSON.parse(z.geometry) : z.geometry;
+            const zoneLayer = L.geoJSON(gj, {
+              style: gisStyle,
+              interactive: true,
+              pane: 'nilPolygonsPane',
+              onEachFeature: (feature, layer) => {
+                layer.bindTooltip(tip, { direction: 'auto', opacity: 1, sticky: true, interactive: false, pane: 'tooltipPane' });
+                layer.on('click', () => {
+                  if (!isD2D) return;
+                  if (import.meta.env.DEV) console.log('[LAYER_ZONE_CLICKED]', { zone: z.name, metricLabel: z.metricLabel, metricFmt: z.metricFmt, families: z.families });
+                  onToggleZone?.(z.id);
+                });
+                layer.on('mouseover', () => {
+                  layer.setStyle({ weight: (gisStyle.weight || 1) + 1.4, fillOpacity: Math.min(0.5, (gisStyle.fillOpacity || 0.18) + 0.18) });
+                  layer.bringToFront?.();
+                });
+                layer.on('mouseout', () => layer.setStyle(gisStyle));
+              }
+            });
+            zoneLayer.addTo(group);
+            renderedZonePolygonLayers += 1;
+          } catch (_e) {
+            // In modalità comune: non mostrare cerchi fallback che sconfinano
+            if (isD2D && !isMunicipalityMode) _renderD2DCircle(L, z, col, sel, tip, group, onToggleZone, styleUnsel, styleSel);
+          }
+        } else if (isD2D && !isMunicipalityMode) {
+          // In modalità comune: senza geometry reale non disegnare cerchi nei comuni vicini
+          _renderD2DCircle(L, z, col, sel, tip, group, onToggleZone, styleUnsel, styleSel);
+        }
+      });
+    }
+
+    // ── 2b. Poligoni di copertura Raggio (coveragePolygons) ─────────────────
+    // Territori REALMENTE usati nel calcolo (comuni o NIL, secondo
+    // zonesInRadius) passati da volantinipro-final.jsx — sostituisce il
+    // confine comunale come contenuto principale in modalità Raggio.
+    const shouldRenderCoveragePolygons = (!isMunicipalityMode || unconfirmedAddressMode) && Array.isArray(coveragePolygons) && coveragePolygons.length > 0;
+    let missingGeometryNames = [];
+    let renderedCoveragePolygonLayers = 0;
+    if (shouldRenderCoveragePolygons) {
+      coveragePolygons.forEach(z => {
+        const coverageColors = COVERAGE_MAP_COLORS[z.status] || COVERAGE_MAP_COLORS.non_coperto;
+        const coverageIntensity = z.status === 'preview_main'
+          ? { fillOpacity: 0.28, weight: 2.4, opacity: 0.95 }
+          : z.status === 'preview_nearby'
+            ? { fillOpacity: 0.10, weight: 1.3, opacity: 0.60 }
+            : z.status === 'non_coperto'
+              ? { fillOpacity: 0.05, weight: 0.9, opacity: 0.45 }
+              : z.status === 'parziale'
+                ? { fillOpacity: 0.16, weight: 1.3, opacity: 0.75 }
+                : { fillOpacity: 0.22, weight: 1.6, opacity: 0.9 };
+        const fillOpacity = Math.max(0.006, Math.min(0.32, coverageIntensity.fillOpacity * opacityScale));
+        const gisStyle = {
+          color: coverageColors.border,
+          fillColor: coverageColors.fill,
+          fillOpacity,
+          weight: coverageIntensity.weight,
+          opacity: coverageIntensity.opacity,
+          lineCap: 'round',
+          lineJoin: 'round',
+        };
+        const tip = _buildZoneOrNilTooltip(z, '#34D399', false, null, z.status, true);
+
+        if (z.geometry) {
+          try {
+            const p1 = map.getPane('nilPolygonsPane');
+            if (p1) p1.style.pointerEvents = 'auto';
+            const gj = typeof z.geometry === 'string' ? JSON.parse(z.geometry) : z.geometry;
+            const zoneLayer = L.geoJSON(gj, {
+              style: gisStyle,
+              interactive: true,
+              pane: 'nilPolygonsPane',
+              onEachFeature: (feature, layer) => {
+                layer.bindTooltip(tip, { direction: 'auto', opacity: 1, sticky: true, interactive: false, pane: 'tooltipPane' });
+                layer.on('mouseover', () => {
+                  layer.setStyle({ weight: gisStyle.weight + 1.4, fillOpacity: Math.min(0.5, gisStyle.fillOpacity + 0.18) });
+                  layer.bringToFront?.();
+                });
+                layer.on('mouseout', () => layer.setStyle(gisStyle));
+              }
+            });
+            zoneLayer.addTo(group);
+            renderedCoveragePolygonLayers += 1;
+          } catch (e) {
+            missingGeometryNames.push(z.name);
+            warnStep2('[STEP2_RADIUS_POLYGON_MISSING]', { zone: z.name, reason: 'geometry_parse_error', error: e });
+          }
+        } else {
+          missingGeometryNames.push(z.name);
+          if (import.meta.env.DEV) console.warn('[STEP2_RADIUS_POLYGON_MISSING]', { zone: z.name, reason: 'no_geometry' });
+        }
+      });
+    }
+    setMissingPolygonNames(missingGeometryNames);
+
+    // ── Cerchio raggio + marker centro — disegnati DOPO i poligoni comuni
+    // (sopra nell'ordine dei layer) così il cerchio resta sempre visibile e
+    // non finisce coperto dai fill dei comuni coinvolti. ───────────────────
     zonesList.forEach(z => {
-      const isActive = z.id === activeZoneId;
-      const zCity = city || z.city || null;
+      const isActive = z.id === activeZoneId || z.id === 'active_zone';
+      const zCity = isActive ? city : (z.city || null);
       if (!zCity || !zCity.lat || !zCity.lng) return;
 
-      const zRadius = parseFloat((isActive ? radius : null) ?? z.radiusKm ?? z.radius ?? z.radius_km ?? 3);
-      const zSvc = z.service_type || 'd2d';
+      const zRadius = parseFloat((isActive ? (hasConfirmedRadius ? radius : null) : null) ?? z.radiusKm ?? z.radius ?? z.radius_km ?? 3);
       const zCol = isActive ? col : '#7F9BB0';
       const isRingOn = isActive ? (activeLayers?.radius !== false) : true;
 
-      // ── 1. Raggio / Circle ──
-      if (isRingOn) {
+      // ── 1. Raggio / Circle — sempre nascosto in modalità comune intero,
+      // sempre verde tratteggiato (area attiva) quando la zona attiva è in
+      // modalità raggio, coerente con lo stile del confine comunale. ──────
+      const showCircle = isRingOn && !isMunicipalityMode && (!isActive || hasConfirmedRadius);
+      if (showCircle) {
         L.circle([zCity.lat, zCity.lng], {
           radius: zRadius * 1000,
-          color: zCol,
-          fillColor: 'transparent',
-          fillOpacity: 0,
-          weight: isActive ? 1.6 : 0.7,
-          dashArray: isActive ? '9 7' : '4 6',
-          opacity: isActive ? 0.72 : 0.18,
+          color: isActive ? col : zCol,
+          fillColor: isActive ? col : 'transparent',
+          fillOpacity: isActive ? 0.05 : 0,
+          weight: isActive ? 2 : 0.7,
+          dashArray: isActive ? '8 4' : '4 6',
+          opacity: isActive ? 0.9 : 0.18,
           className: isActive ? 'gis-radius-glow' : '',
           interactive: false,
-        }).addTo(isActive ? map : group);
+          pane: 'radiusCirclePane',
+        }).addTo(group);
       }
 
       // ── 2. Center Pin ──
-      const tooltipContent = isActive 
-        ? `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:${zCol};opacity:0.85">${zRadius} km raggio (Attiva)</span>`
+      if (isActive && svcType === 'h2h' && operationalPoints?.length > 0) return;
+
+      const tooltipContent = isActive
+        ? (isMunicipalityMode
+            ? `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:${col};opacity:0.85">Intero comune</span>`
+            : hasConfirmedRadius
+              ? `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:${zCol};opacity:0.85">${zRadius} km raggio (Attiva)</span>`
+              : `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:${zCol};opacity:0.85">Punto confermato - scegli raggio</span>`)
         : `<b>${esc(zCity.label || zCity.name || 'Centro')}</b><br><span style="color:${zCol};opacity:0.75">${zRadius} km raggio<br><i>Clicca per attivare</i></span>`;
 
       const marker = L.marker([zCity.lat, zCity.lng], {
-        icon: pinIcon(L, zCol), zIndexOffset: isActive ? 2000 : 1000,
-      }).bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10], opacity: 1 }).addTo(isActive ? map : group);
+        icon: pinIcon(L, zCol), zIndexOffset: isActive ? 2000 : 1000, pane: 'radiusCenterPane',
+      }).bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10], opacity: 1 }).addTo(group);
 
       if (!isActive) {
         // Cliccando su una zona inattiva, la attiva!
@@ -745,65 +1407,88 @@ export function Step2Map({
       }
     });
 
-    if (import.meta.env.DEV) {
-      console.debug('[Step2Map] svcType:', svcType,
-        '| zones:', zonesWithCoords?.length ?? 0,
-        '| settori:', settori?.length ?? 'null',
-        '| layers:', JSON.stringify(activeLayers));
-    }
-
-    // settoriActive: settori layer is on AND data is available
-    const settoriActive = activeLayers?.settori !== false && settori?.length > 0;
-
-    // ── 2. Comuni (confini comunali) ─────────────────────────────────────────
-    // When settori are active, comuni become secondary (reduced opacity).
-    if (activeLayers?.comuni !== false && zonesWithCoords?.length > 0) {
-      zonesWithCoords.forEach(z => {
-        const sel = isD2D && selected?.includes(z.id);
-        const comuneFill = themeMode ? (z.metricColor || z.color || '#7F9BB0') : (z.color || '#7F9BB0');
-        const baseFill = settoriActive ? 0.010 : (themeMode ? 0.16 : 0.055);
-        const fillOpacity = Math.max(0.006, Math.min(0.26, baseFill * opacityScale));
-
-        const styleUnsel = {
-          color:       'rgba(15,23,42,0.40)',
-          fillColor:   comuneFill,
-          fillOpacity,
-          weight:      settoriActive ? 0.55 : 0.85,
-          opacity:     settoriActive ? 0.18 : 0.45,
-          dashArray:   themeMode ? null : '5 5',
-        };
-        const styleSel = {
-          color: col,
-          fillColor: comuneFill,
-          fillOpacity: Math.max(fillOpacity, Math.min(0.28, 0.09 * opacityScale)),
-          weight: 1.1,
-          opacity: 0.62,
-          dashArray: null,
-          lineCap: 'round',
-          lineJoin: 'round',
-        };
-        const gisStyle = sel ? styleSel : styleUnsel;
-        const tip = isD2D ? _buildD2DTip(z, col, sel) : `<b>${esc(z.name)}</b>`;
-
-        if (z.geometry) {
-          try {
-            const gj = typeof z.geometry === 'string' ? JSON.parse(z.geometry) : z.geometry;
-            L.geoJSON(gj, { style: gisStyle, interactive: isD2D })
-              .bindTooltip(tip, { direction: 'center', opacity: 1, sticky: true })
-              .on('click', () => isD2D && onToggleZone?.(z.id))
-              .addTo(group);
-          } catch (_e) {
-            if (isD2D) _renderD2DCircle(L, z, col, sel, tip, group, onToggleZone, styleUnsel, styleSel);
-          }
-        } else if (isD2D) {
-          _renderD2DCircle(L, z, col, sel, tip, group, onToggleZone, styleUnsel, styleSel);
-        }
-      });
-    }
-
     // ── 3. Settori operativi ──────────────────────────────────────────────────
     // Micro-zone inside municipalities — from map_sectors via useSectors.
     // The layer panel shows "n/d" when settori prop is null/empty.
+    // Un pin numerato e una micro-zona per ogni promoter configurato.
+    const validOperationalPoints = svcType === 'h2h'
+      ? (operationalPoints || []).filter((point) => Number.isFinite(Number(point?.lat)) && Number.isFinite(Number(point?.lng)))
+      : [];
+    const promoterColors = ['#2563EB', '#8B5CF6', '#0891B2', '#D97706', '#DB2777', '#16A34A'];
+    const pointTypeLabels = {
+      stazione: 'Stazione treno / metro', piazza: 'Piazza / via principale',
+      centro_commerciale: 'Centro commerciale', universita: 'Università / scuola',
+      fiera_evento: 'Fiera / evento',
+    };
+    const coordinateGroups = new Map();
+    validOperationalPoints.forEach((point, index) => {
+      const key = `${Number(point.lat).toFixed(5)}_${Number(point.lng).toFixed(5)}`;
+      coordinateGroups.set(key, [...(coordinateGroups.get(key) || []), index]);
+    });
+    validOperationalPoints.forEach((point, index) => {
+      const markerNumber = Number(point.promoterNumber || index + 1);
+      const markerColor = promoterColors[index % promoterColors.length];
+      const lat = Number(point.lat);
+      const lng = Number(point.lng);
+      const microRadius = Math.max(150, Number(point.microRadiusMeters || 400));
+      const assignedQuantity = Number(point.assignedQuantity || 0);
+      const coordinateKey = `${lat.toFixed(5)}_${lng.toFixed(5)}`;
+      const colocatedIndexes = coordinateGroups.get(coordinateKey) || [index];
+      const colocatedPosition = colocatedIndexes.indexOf(index);
+      const overlapAngle = (Math.PI * 2 * colocatedPosition) / colocatedIndexes.length;
+      const overlapOffset = colocatedIndexes.length > 1 ? 0.00013 : 0;
+      const displayLat = lat + Math.sin(overlapAngle) * overlapOffset;
+      const displayLng = lng + Math.cos(overlapAngle) * overlapOffset;
+
+      L.circle([lat, lng], {
+        radius: microRadius, color: markerColor, fillColor: markerColor,
+        fillOpacity: 0.07, weight: 1.5, dashArray: '6 6', opacity: 0.85,
+        interactive: false, pane: 'radiusCirclePane',
+      }).addTo(group);
+
+      const promoterIcon = L.divIcon({
+        html: `<div style="width:30px;height:30px;border-radius:50%;background:${markerColor};border:3px solid #fff;box-shadow:0 5px 16px rgba(0,0,0,.42);display:flex;align-items:center;justify-content:center;color:#fff;font:800 13px/1 system-ui,sans-serif">${markerNumber}</div>`,
+        className: '', iconSize: [30, 30], iconAnchor: [15, 15],
+      });
+      const pointLabel = esc(point.label || point.location || `Punto operativo ${markerNumber}`);
+      const pointTypeLabel = esc(pointTypeLabels[point.pointType] || String(point.pointType || 'Punto ad alto flusso').replace(/_/g, ' '));
+      const timeSlot = esc(point.timeSlot || 'Da definire');
+      const durationHours = Math.max(1, Number(point.serviceDurationHours || 4));
+      const overlapNote = colocatedIndexes.length > 1
+        ? '<div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Posizione</span><span class="vp-promoter-map-card__value">Pin separato per leggibilità</span></div>'
+        : '';
+      const cardHtml = `<div class="vp-promoter-map-card">
+        <div class="vp-promoter-map-card__head">
+          <span class="vp-promoter-map-card__number" style="background:${markerColor}">${markerNumber}</span>
+          <div><div class="vp-promoter-map-card__title">Promoter ${markerNumber}</div><div class="vp-promoter-map-card__subtitle">Postazione operativa pianificata</div></div>
+        </div>
+        <div class="vp-promoter-map-card__body">
+          <div class="vp-promoter-map-card__address">${pointLabel}</div>
+          <div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Tipo punto</span><span class="vp-promoter-map-card__value" style="color:${markerColor}">${pointTypeLabel}</span></div>
+          <div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Fascia oraria</span><span class="vp-promoter-map-card__value">${timeSlot}</span></div>
+          <div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Durata</span><span class="vp-promoter-map-card__value">${durationHours} ore</span></div>
+          <div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Capacità stimata</span><span class="vp-promoter-map-card__value">${formatItNumber(assignedQuantity)} pz.</span></div>
+          <div class="vp-promoter-map-card__row"><span class="vp-promoter-map-card__label">Micro-zona</span><span class="vp-promoter-map-card__value">${formatItNumber(microRadius)} m</span></div>
+          ${overlapNote}
+        </div>
+      </div>`;
+      L.marker([displayLat, displayLng], { icon: promoterIcon, zIndexOffset: 2600 + index, pane: 'radiusCenterPane', title: `Promoter ${markerNumber}: ${pointLabel}` })
+        .bindTooltip(cardHtml, { className: 'vp-promoter-tooltip', direction: 'top', offset: [0, -13], opacity: 1 })
+        .bindPopup(cardHtml, { className: 'vp-promoter-popup', offset: [0, -10], maxWidth: 280, closeButton: true })
+        .addTo(group);
+    });
+
+    const operationalFitSignature = validOperationalPoints
+      .map((point) => `${point.id || point.promoterNumber || ''}:${Number(point.lat).toFixed(6)}:${Number(point.lng).toFixed(6)}`)
+      .sort()
+      .join('|');
+    if (validOperationalPoints.length > 1 && autoFitRef.current.operational !== operationalFitSignature) {
+      autoFitRef.current.operational = operationalFitSignature;
+      map.fitBounds(validOperationalPoints.map((point) => [Number(point.lat), Number(point.lng)]), { padding: [55, 55], maxZoom: 14 });
+    } else if (validOperationalPoints.length <= 1) {
+      autoFitRef.current.operational = operationalFitSignature;
+    }
+
     if (settoriActive) {
       const settoriGroup = L.layerGroup().addTo(map);
       layersRef.current.settoriGroup = settoriGroup;
@@ -825,14 +1510,41 @@ export function Step2Map({
 
       settori.forEach((s, idx) => {
         if (!s.geometry) return;
+
+        // ── Filtra settori per comune appartenente ────────────────────────────
+        // Mostra solo settori del comune primario (o dei comuni esplicitamente
+        // selezionati in radius mode). Impedisce che settori di Milano appaiano
+        // quando l'utente ha selezionato Sesto San Giovanni o Cormano.
+        const sMunCode = s.municipalityCode || s.municipality_code;
+        const sMunZone = sMunCode ? munByCode[sMunCode] : null;
+        const sMunName = normalizeMapMunicipalityName(sMunZone?.name);
+        const matchesPrimaryMunicipality = primaryMunCode && sMunCode
+          ? String(sMunCode) === String(primaryMunCode)
+          : Boolean(cityName && sMunName && sMunName === cityName);
+        if (isMunicipalityMode) {
+          // In municipality mode: mostra SOLO i settori del comune selezionato
+          if (!matchesPrimaryMunicipality) {
+            return;
+          }
+        } else {
+          // In radius mode: mostra settori del comune primario; aggiungi altri
+          // SOLO se il relativo comune è stato esplicitamente selezionato.
+          if (!matchesPrimaryMunicipality) {
+            const isExplicitlySelected = isD2D && sMunZone && selected?.includes(sMunZone.id);
+            if (!isExplicitlySelected) {
+              return;
+            }
+          }
+        }
+
         try {
           const gj     = typeof s.geometry === 'string' ? JSON.parse(s.geometry) : s.geometry;
           const num    = s.numero || (idx + 1);
           const sId    = s.id ?? `s_${idx}`;
           const isSel  = selectedSectorId === sId;
 
-          const munCode  = s.municipalityCode || s.municipality_code;
-          const munZone  = munByCode[munCode];
+          const munCode  = sMunCode;
+          const munZone  = sMunZone;
           const isMunSel = isD2D && munZone && selected?.includes(munZone.id);
 
           const styleDef = {
@@ -902,28 +1614,38 @@ export function Step2Map({
             }).addTo(settoriGroup);
           }
 
-        } catch (_e) { if (import.meta.env.DEV) console.debug('[Step2Map] settore error', _e); }
+        } catch (_e) { debugStep2('[Step2Map] settore error', _e); }
       });
     }
 
     // ── 4. POI reali (Overpass) ───────────────────────────────────────────────
-    // Uses pois prop (Overpass data) when available; falls back to apiData metadata.
-    const poiActive = activeLayers?.poi !== false;
+    // Uses only the already filtered POI prop. Raw analysis metadata must not
+    // appear here: it contains mixed categories and creates misleading dots
+    // while the selected activity (for example Fitness) is being resolved.
+    // Se la ricerca ha restituito attività coerenti con la campagna, queste
+    // restano visibili anche quando una vecchia configurazione aveva il layer off.
+    const poiActive = pois?.length > 0 || activeLayers?.poi !== false;
 
     if (poiActive && pois?.length > 0) {
+      poiMarkersByIdRef.current.clear();
       const poiGroup = L.layerGroup().addTo(map);
       layersRef.current.poiGroup = poiGroup;
 
       // Cell size scales with radius: bigger area → coarser clustering
-      const cellDeg = radius <= 2 ? 0.0015 : radius <= 5 ? 0.003 : 0.005;
-      const clusters = gridCluster(pois, cellDeg);
+      const cellDeg = mapZoom >= 15 ? 0.00001 : effectiveMapRadius <= 2 ? 0.0015 : effectiveMapRadius <= 5 ? 0.003 : 0.005;
+      // Con pochi risultati mostriamo sempre ogni singolo punto: sono scelte operative,
+      // non semplici indicatori statistici. Il clustering resta utile solo su liste grandi.
+      const clusters = pois.length <= 30
+        ? pois.map((poi) => ({ ...poi, isCluster: false }))
+        : gridCluster(pois, cellDeg);
 
       clusters.forEach(item => {
         if (item.isCluster) {
           // Cluster bubble: size grows with count, color from dominant category
-          const s = Math.min(22, 12 + Math.log2(item.count) * 3);
+          const s = Math.min(34, 24 + Math.log2(item.count) * 3);
+          const clusterLabel = item.count === 1 ? '1 punto raggruppato' : `${item.count} punti raggruppati`;
           const clusterIcon = L.divIcon({
-            html: `<div style="
+            html: `<div role="img" aria-label="${esc(clusterLabel)}" title="${esc(clusterLabel)}" style="
               width:${s}px;height:${s}px;border-radius:50%;
               background:${item.color};opacity:0.74;
               border:1px solid rgba(255,255,255,0.38);
@@ -943,55 +1665,66 @@ export function Step2Map({
             .sort((a, b) => b[1] - a[1])
             .slice(0, 5)
             .map(([cat, n]) => `${n}× ${esc(cat)}`);
-          L.marker([item.lat, item.lng], { icon: clusterIcon, zIndexOffset: 300 })
+          L.marker([item.lat, item.lng], { icon: clusterIcon, zIndexOffset: 300, pane: 'poiSelectionPane', alt: clusterLabel })
             .bindTooltip(
-              `<b>${item.count} POI</b><br>${tipLines.join('<br>')}`,
+              `<b>${esc(clusterLabel)}</b><br>${tipLines.join('<br>')}<br><span style="color:#7DD3FC">Clicca per vedere i singoli punti</span>`,
               { direction: 'top', offset: [0, -4], opacity: 1 }
-            ).addTo(poiGroup);
-        } else {
-          // Individual marker: size by priority
-          const sz = item.priority >= 9 ? 8 : item.priority >= 7 ? 6 : 5;
-          const isSel = item.priority >= 9;
-          const tip = _buildPoiTip(item);
-          L.marker([item.lat, item.lng], {
-            icon: dotIcon(L, item.color, sz, isSel),
-            zIndexOffset: isSel ? 500 : 200,
-          }).bindTooltip(tip, { direction: 'top', offset: [0, -sz / 2 - 2], opacity: 1 })
+            )
+            .on('click', () => map.setView([item.lat, item.lng], Math.max(15, map.getZoom() + 2), { animate: true }))
             .addTo(poiGroup);
+        } else {
+          // Punto selezionabile: marker grande, sopra gli altri layer operativi.
+          const assignment = poiAssignments?.[item.id] || null;
+          const isSel = Boolean(assignment);
+          const businessDetails = svcType === 'b2b'
+            ? [
+                item.distanceKm != null ? `<span>Distanza: ${Number(item.distanceKm).toFixed(1)} km</span>` : null,
+                `<span>Fonte: ${esc(item.source || 'OpenStreetMap / Overpass')}</span>`,
+                assignment ? `<span>Copie: ${Number(assignment.copies || 1)}</span>` : null,
+                businessConfig?.deliveryLabel ? `<span>Consegna: ${esc(businessConfig.deliveryLabel)}</span>` : null,
+                businessConfig?.recipientLabel ? `<span>Referente: ${esc(businessConfig.recipientLabel)}</span>` : null,
+              ].filter(Boolean).join('<br>')
+            : '';
+          const assignmentLabel = assignment
+            ? (svcType === 'b2b'
+                ? `<br><span style="color:#4ADE80;font-weight:700">✓ Attività selezionata</span>${businessDetails ? `<br>${businessDetails}` : ''}`
+                : `<br><span style="color:#4ADE80;font-weight:700">Assegnato a Promoter ${Number(assignment.operatorNumber || 1)}</span>`)
+            : (svcType === 'b2b'
+                ? `<br>${businessDetails ? `${businessDetails}<br>` : ''}<span style="color:#7DD3FC">Clicca per selezionare l'attività</span>`
+                : '<br><span style="color:#7DD3FC">Clicca per aggiungere e assegnare</span>');
+          const contextLabel = svcType === 'd2d'
+            ? '<br><span style="color:#7DD3FC">Attività presente dentro il raggio selezionato</span>'
+            : assignmentLabel;
+          const tip = `${_buildPoiTip(item)}${contextLabel}`;
+          const poiMarker = L.marker([item.lat, item.lng], {
+            icon: svcType === 'd2d'
+              ? informationalPoiIcon(L, item.color || categoryColor(item.category))
+              : selectablePoiIcon(L, item.color || categoryColor(item.category), isSel, assignment?.operatorNumber, item.category),
+            zIndexOffset: isSel ? 500 : 200,
+            pane: 'poiSelectionPane',
+          }).bindTooltip(tip, { direction: 'top', offset: [0, -16], opacity: 1 });
+          if (svcType !== 'd2d') poiMarker.on('click', () => onTogglePoi?.(item));
+          poiMarker.addTo(poiGroup);
+          if (item.id != null) poiMarkersByIdRef.current.set(item.id, poiMarker);
         }
       });
 
-    } else if (poiActive && (svcType === 'h2h' || svcType === 'b2b') && apiData?.metadata) {
-      // Fallback: use existing apiData metadata hotspots (legacy path)
-      const hotspots = apiData.metadata.hotspots || [];
-      const nearby   = apiData.metadata.nearby_activities || [];
-      const seen = new Set();
+      const assignedPoiPoints = pois.filter((poi) => poiAssignments?.[poi.id]);
+      const assignmentFitSignature = assignedPoiPoints
+        .map((poi) => `${poi.id}:${Number(poi.lat).toFixed(6)}:${Number(poi.lng).toFixed(6)}:${Number(poiAssignments?.[poi.id]?.operatorNumber || 1)}`)
+        .sort()
+        .join('|');
+      if (assignedPoiPoints.length > 0 && autoFitRef.current.assignments !== assignmentFitSignature) {
+        autoFitRef.current.assignments = assignmentFitSignature;
+        const boundsPoints = assignedPoiPoints.map((poi) => [Number(poi.lat), Number(poi.lng)]);
+        if (city && Number.isFinite(Number(city.lat)) && Number.isFinite(Number(city.lng))) {
+          boundsPoints.push([Number(city.lat), Number(city.lng)]);
+        }
+        map.fitBounds(boundsPoints, { padding: [55, 55], maxZoom: 14 });
+      } else if (assignedPoiPoints.length === 0) {
+        autoFitRef.current.assignments = '';
+      }
 
-      nearby.slice(0, 60).forEach(poi => {
-        if (!poi.lat || !poi.lng) return;
-        const key = `${poi.lat.toFixed(5)}_${poi.lng.toFixed(5)}`;
-        if (seen.has(key)) return;
-        seen.add(key);
-        const pCol = categoryColor(poi.category);
-        L.marker([poi.lat, poi.lng], { icon: dotIcon(L, pCol, 6, false), zIndexOffset: -50 })
-          .bindTooltip(
-            `<b>${esc(poi.name || 'POI')}</b>${poi.category ? `<br><span style="color:${pCol};opacity:0.8">${poi.category.replace(/_/g, ' ')}</span>` : ''}`,
-            { direction: 'top', offset: [0, -5], opacity: 1 }
-          ).addTo(group);
-      });
-
-      hotspots.forEach(poi => {
-        if (!poi.lat || !poi.lng) return;
-        seen.add(`${poi.lat.toFixed(5)}_${poi.lng.toFixed(5)}`);
-        const pCol = categoryColor(poi.category);
-        const dist = poi.distance_km != null
-          ? `<br><span style="color:rgba(255,255,255,0.35)">${poi.distance_km} km dal centro</span>` : '';
-        L.marker([poi.lat, poi.lng], { icon: dotIcon(L, pCol, 10, true), zIndexOffset: 500 })
-          .bindTooltip(
-            `<b>${esc(poi.name || 'Hotspot')}</b>${poi.category ? `<br><span style="color:${pCol};opacity:0.8">${poi.category.replace(/_/g, ' ')}</span>` : ''}${dist}`,
-            { direction: 'top', offset: [0, -8], opacity: 1 }
-          ).addTo(group);
-      });
     }
 
     // ── 5. Density choropleth (D2D) ──────────────────────────────────────────
@@ -1000,7 +1733,7 @@ export function Step2Map({
     if (activeLayers?.civici === true && civiciPoints.length > 0) {
       const civiciGroup = L.layerGroup().addTo(map);
       layersRef.current.civiciGroup = civiciGroup;
-      const maxPoints = radius <= 2 ? 500 : radius <= 5 ? 350 : 200;
+        const maxPoints = effectiveMapRadius <= 2 ? 500 : effectiveMapRadius <= 5 ? 350 : 200;
 
       civiciPoints.slice(0, maxPoints).forEach((point) => {
         if (!Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return;
@@ -1044,19 +1777,76 @@ export function Step2Map({
               },
               interactive: true,
             }).bindTooltip(
-              `<b>${esc(z.name)}</b><br>Famiglie: <b>${(fam).toLocaleString('it-IT')}</b>`,
+              `<b>${esc(z.name)}</b><br>Famiglie: <b>${(fam).toLocaleString("it-IT", { useGrouping: true })}</b>`,
               { direction: 'center', sticky: true, opacity: 1 }
             ).addTo(densityGroup);
-          } catch (_e) {}
+          } catch (_e) {
+            debugStep2('[Step2Map] density polygon parse error', _e);
+          }
         });
       }
     }
 
-  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, civiciState, mapZoom, campaignZones, activeZoneId]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || window.__VOLANTINIPRO_DEBUG_STEP2__)) {
+      let groupLayerCount = 0;
+      let totalLeafletLayerCount = 0;
+      try { group.eachLayer(() => { groupLayerCount += 1; }); } catch (_e) {}
+      try { map.eachLayer(() => { totalLeafletLayerCount += 1; }); } catch (_e) {}
+      window.__VOLANTINIPRO_STEP2_MAP_STATE__ = {
+        zonesWithCoordsCount: Array.isArray(zonesWithCoords) ? zonesWithCoords.length : 0,
+        zonesWithCoordsNilCount: Array.isArray(zonesWithCoords) ? zonesWithCoords.filter(z => z?.isNil || z?.territoryLevel === 'nil').length : 0,
+        zonesWithCoordsGeometryCount: Array.isArray(zonesWithCoords) ? zonesWithCoords.filter(z => Boolean(z?.geometry)).length : 0,
+        renderedZonePolygonLayers,
+        coveragePolygonsCount: Array.isArray(coveragePolygons) ? coveragePolygons.length : 0,
+        renderedCoveragePolygonLayers,
+        missingCoveragePolygonCount: missingGeometryNames.length,
+        groupLayerCount,
+        totalLeafletLayerCount,
+        isMunicipalityMode,
+        nilMode,
+        unconfirmedAddressMode,
+      };
+    }
+
+  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, operationalPoints, poiAssignments, onTogglePoi, businessConfig, civiciState, mapZoom, campaignZones, activeZoneId, municipalityBoundary, isMunicipalityMode, nilMode, coveragePolygons, themeMode, activeLayerId, zoneCoverageById, zoneAllocationById, boundaryKpis, unconfirmedAddressMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Click da lista H2H/Business: centra la mappa sul POI ed evidenzia il
+  // marker, senza toccare assegnazione/selezione (nessuna chiamata a
+  // onTogglePoi qui).
+  useEffect(() => {
+    if (focusPoiId == null) return;
+    const map = mapRef.current;
+    const marker = poiMarkersByIdRef.current.get(focusPoiId);
+    if (!map || !marker) return;
+    const latLng = marker.getLatLng();
+    map.setView(latLng, Math.max(16, map.getZoom()), { animate: true });
+    marker.openTooltip();
+    const el = marker.getElement?.();
+    if (el) {
+      el.classList.add('vp-step2-poi-focus-pulse');
+      const timer = setTimeout(() => el.classList.remove('vp-step2-poi-focus-pulse'), 1600);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusPoiId, focusPoiNonce]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: 420 }}>
-      <div ref={containerRef} style={{ width: '100%', height: '100%', pointerEvents: 'auto' }} />
+    <div className="vp-step2-map-shell" style={{ position: 'relative', width: '100%' }}>
+      <div ref={containerRef} style={{ width: '100%', height: '100%', pointerEvents: 'auto', cursor: onMapClick ? 'crosshair' : 'default' }} />
+
+      {/* Avviso opzionale: alcuni territori nel calcolo raggio non hanno una
+          geometry disponibile — non nasconde i poligoni già renderizzati. */}
+      {missingPolygonNames.length > 0 && (
+        <div style={{
+          position: 'absolute', bottom: 10, left: 10, zIndex: 640,
+          background: 'rgba(8,15,30,.9)', border: '1px solid rgba(251,191,36,.4)',
+          borderRadius: 6, padding: '5px 9px', fontFamily: 'system-ui,sans-serif',
+          fontSize: 10, color: '#FBBF24', maxWidth: 220,
+        }}>
+          Alcuni confini non disponibili ({missingPolygonNames.length})
+        </div>
+      )}
 
       {/* Schermata di caricamento */}
       {!leafletLoaded && (
@@ -1070,6 +1860,32 @@ export function Step2Map({
           pointerEvents: 'none',
         }}>
           Caricamento mappa...
+        </div>
+      )}
+
+      {/* La base geografica può essere pronta prima dei POI reali. Durante
+          questa fase copriamo la vista provvisoria e spieghiamo l'aggiornamento. */}
+      {leafletLoaded && city && loadingPois && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 1100,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(8,15,30,.62)', backdropFilter: 'blur(2px)',
+          pointerEvents: 'auto',
+        }}>
+          <div style={{
+            minWidth: 250, maxWidth: '82%', padding: '16px 18px', borderRadius: 12,
+            background: 'rgba(8,15,30,.95)', border: '1px solid rgba(34,197,94,.34)',
+            boxShadow: '0 14px 38px rgba(0,0,0,.42)', textAlign: 'center',
+            fontFamily: 'system-ui,sans-serif',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, color: '#4ADE80', fontSize: 13, fontWeight: 800 }}>
+              <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 0 5px rgba(34,197,94,.13)' }} />
+              Ricerca attività nel raggio...
+            </div>
+            <div style={{ marginTop: 7, color: 'rgba(255,255,255,.58)', fontSize: 11, lineHeight: 1.45 }}>
+              Stiamo caricando i punti reali. La mappa si aggiornerà automaticamente.
+            </div>
+          </div>
         </div>
       )}
 
@@ -1150,20 +1966,91 @@ export function Step2Map({
   );
 }
 
+export const Step2Map = React.memo(Step2MapImpl);
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function _buildD2DTip(z, col, sel) {
-  const _wPct  = z.weightPct === 0 && (z.families || 0) > 0 ? '<1' : (z.weightPct || 0);
-  const flyers = z.volantiniNelRaggio || z.flyersMin || z.families || 0;
-  const density = z.area > 0 ? Math.round((z.families || 0) / z.area) : null;
+// Riga "Stato: coperto/parziale/non coperto" con gli stessi colori della
+// legenda (COVERAGE_MAP_COLORS) — usata sia dai tooltip zona che dal confine.
+function _coverageStatusRow(status) {
+  if (!status) return null;
+  if (status === 'preview_main') return `Stato: <b style="color:#3B82F6">Preview (NIL principale)</b>`;
+  if (status === 'preview_nearby') return `Stato: <b style="color:#64748B">Preview (NIL adiacente)</b>`;
+  const label = status === 'coperto' ? 'Coperto' : status === 'parziale' ? 'Parziale' : 'Non coperto';
+  const color = status === 'coperto' ? '#22C55E' : status === 'parziale' ? '#FACC15' : '#F87171';
+  return `Stato: <b style="color:${color}">${label}</b>`;
+}
+
+function _buildZoneOrNilTooltip(z, col, sel, alloc = null, coverageStatus = null, isRadiusOrPreview = false) {
+  const isNil = Boolean(z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')) || (typeof z.type === 'string' && z.type === 'nil'));
+
+  if (z.status === 'preview_main' || z.status === 'preview_nearby') {
+    return [
+      `<b style="color:rgba(255,255,255,0.95)">${esc(z.name)} — ${z.status === 'preview_main' ? 'NIL Principale' : 'NIL Adiacente'}</b>`,
+      `Famiglie: <b>${Number(z.families || 0).toLocaleString("it-IT", { useGrouping: true })}</b>`,
+      `<i>Preview territoriale — seleziona raggio o comune per il calcolo</i>`,
+    ].join('<br>');
+  }
+
+  const fmtIT = n => Number(n || 0).toLocaleString('it-IT', { useGrouping: true });
+  const familiesVal = Number(z.families || 0);
+  const codeRaw = z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_') ? z.id.replace(/^nil_/, '') : null);
+  const codeStr = codeRaw != null && codeRaw !== '' ? String(codeRaw) : null;
+  const hasValidCode = codeStr && codeStr.toLowerCase() !== String(z.name || '').toLowerCase() && !codeStr.startsWith('comune_') && !codeStr.startsWith('api_');
+
+  const covPct = alloc?.coveragePercent ?? z.coveragePct ?? z.coverage ?? (alloc ? 100 : 0);
+  const assignedVal = alloc?.assignedFlyers ?? z.assignedFlyers ?? (covPct > 0 ? Math.round(familiesVal * (covPct / 100)) : 0);
+  const recommendedVal = alloc?.requiredFlyers ?? z.recommendedFlyers ?? z.volantiniNelRaggio ?? z.flyersMin ?? familiesVal;
+  const statusVal = coverageStatus ?? z.status ?? (alloc?.status || null);
+  const priorityRow = Number(alloc?.priorityRank) === 1 && Number(assignedVal) > 0
+    ? '<span style="color:#FBBF24;font-weight:700">Prima zona prioritaria con la quantit\u00e0 attuale</span>'
+    : null;
+
+  const layerRow = z.metricLabel
+    ? (z.metricFmt
+        ? `<span style="color:${z.metricColor || col}">${esc(z.metricLabel)}: <b>${esc(z.metricFmt)}</b></span>`
+        : `<span style="color:rgba(255,255,255,.35)">${esc(z.metricLabel)}: dato non disponibile</span>`)
+    : null;
+
+  if (isNil) {
+    return [
+      `<b style="color:rgba(255,255,255,0.95)">${esc(z.name)}</b>`,
+      hasValidCode ? `Codice NIL: <b>${esc(codeStr)}</b>` : null,
+      layerRow,
+      priorityRow,
+      `Famiglie: <b>${fmtIT(familiesVal)}</b>`,
+      `Copertura: <b>${Math.round(covPct)}%</b>`,
+      `Volantini assegnati: <b>${fmtIT(assignedVal)}</b>`,
+      `Quantità consigliata: <b>${fmtIT(recommendedVal)}</b>`,
+      _coverageStatusRow(statusVal),
+      !isRadiusOrPreview ? (sel ? `<span style="color:#6EC4A0">✓ Selezionata</span>` : `<span style="color:rgba(255,255,255,0.32)">○ Non inclusa</span>`) : null,
+    ].filter(Boolean).join('<br>');
+  }
+
+  const _wPct = z.weightPct === 0 && familiesVal > 0 ? '<1' : (z.weightPct || 0);
+  const density = z.area > 0 ? Math.round(familiesVal / z.area) : null;
+  const tipoRow = `<span style="color:rgba(255,255,255,.6);font-size:11px">Tipo: Comune</span>`;
   return [
     `<b style="color:rgba(255,255,255,0.95)">${esc(z.name)}</b>`,
-    `Famiglie: <b>${(z.families || 0).toLocaleString('it-IT')}</b>`,
-    density ? `Densità: <b>${density.toLocaleString('it-IT')} fam/km²</b>` : null,
-    `Volantini consigliati: <b>${flyers.toLocaleString('it-IT')}</b>`,
-    `Copertura: ${_wPct}%`,
-    sel ? `<span style="color:#6EC4A0">✓ Selezionata</span>` : `<span style="color:rgba(255,255,255,0.32)">○ Non inclusa</span>`,
+    tipoRow,
+    layerRow,
+    priorityRow,
+    `Famiglie: <b>${fmtIT(familiesVal)}</b>`,
+    density ? `Densità: <b>${fmtIT(density)} fam/km²</b>` : null,
+    alloc || z.assignedFlyers != null ? `Volantini assegnati: <b>${fmtIT(assignedVal)}</b>` : null,
+    `Quantità consigliata: <b>${fmtIT(recommendedVal)}</b>`,
+    alloc || z.coveragePct != null ? `Copertura: <b>${Math.round(covPct)}%</b>` : `Copertura: ${_wPct}%`,
+    _coverageStatusRow(statusVal),
+    !isRadiusOrPreview ? (sel ? `<span style="color:#6EC4A0">✓ Selezionata</span>` : `<span style="color:rgba(255,255,255,0.32)">○ Non inclusa</span>`) : null,
   ].filter(Boolean).join('<br>');
+}
+
+function _buildD2DTip(z, col, sel, alloc = null, coverageStatus = null) {
+  return _buildZoneOrNilTooltip(z, col, sel, alloc, coverageStatus, false);
+}
+
+function _buildCoveragePolygonTip(z) {
+  return _buildZoneOrNilTooltip(z, '#34D399', false, null, z.status, true);
 }
 
 // Tooltip per un POI Overpass — nome, categoria, indirizzo reali.
@@ -1184,8 +2071,8 @@ function _buildSectorTip(s, num, munByCode, svcType, city, munSectorCounts, sele
   const nSectors = (munCode && munSectorCounts?.[munCode]) || 1;
   const famTot   = mun?.families || 0;
   const flyTot   = mun?.volantiniNelRaggio || mun?.flyersMin || famTot;
-  const famSec   = famTot > 0 ? Math.round(famTot / nSectors).toLocaleString('it-IT') : null;
-  const flySec   = flyTot > 0 ? Math.round(flyTot / nSectors).toLocaleString('it-IT') : null;
+  const famSec   = famTot > 0 ? Math.round(famTot / nSectors).toLocaleString("it-IT", { useGrouping: true }) : null;
+  const flySec   = flyTot > 0 ? Math.round(flyTot / nSectors).toLocaleString("it-IT", { useGrouping: true }) : null;
   const isMunSel = isD2D && mun && selected?.includes(mun.id);
   const name     = s.name ? ` — ${esc(s.name)}` : '';
 
@@ -1199,7 +2086,7 @@ function _buildSectorTip(s, num, munByCode, svcType, city, munSectorCounts, sele
     `<b style="color:rgba(255,255,255,0.95)">S${num}${name}</b>`,
     `<span style="color:rgba(255,255,255,0.45);font-size:9px">${esc(munName)}</span>`,
     famSec ? `Famiglie stimate: <b>~${famSec}</b>` : null,
-    flySec ? `Volantini consigliati: <b>~${flySec}</b>` : null,
+    flySec ? `Quantità consigliata: <b>~${flySec}</b>` : null,
     statusLine,
   ].filter(Boolean).join('<br>');
 }
