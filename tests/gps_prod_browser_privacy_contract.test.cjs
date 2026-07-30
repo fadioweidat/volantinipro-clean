@@ -15,7 +15,10 @@ assert.doesNotMatch(combined, /service_role/, 'no browser service_role');
 assert.doesNotMatch(combined, /https?:\/\/(?!127\.0\.0\.1|localhost)/, 'no hardcoded remote endpoint');
 assert.doesNotMatch(combined, /mqkelrsvksrzrpmbstvd|pooler\.supabase\.com/, 'no project ref or pooler reference');
 assert.doesNotMatch(combined, /public\.profiles|quote_requests|campaigns\.user_id|customer_id\s*=\s*auth\.uid/, 'no schema fallback from non-production GPS designs');
-assert.doesNotMatch(files.page, /react-leaflet|leaflet|Nominatim|photo-proof|Foto prova|uploadProofPhoto/, 'no map/geocoding/photo-proof in this porting block');
+// Il POD/foto e' stato autorizzato ed e' entrato in scope con GPS PHASE 2
+// (upload proof-photos): non e' piu' un limite di questo contratto. Mappa e
+// geocoding sul lato Autista restano fuori scope, invariato.
+assert.doesNotMatch(files.page, /react-leaflet|leaflet|Nominatim/, 'no map/geocoding in the driver tracking page');
 assert.doesNotMatch(files.page, /\/operator|\/ai|Dashboard AI|terza dashboard/i, 'no new route or third dashboard');
 
 assert.match(files.hook, /queuedAt/, 'offline retry queue is preserved');
