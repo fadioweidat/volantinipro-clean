@@ -56,7 +56,7 @@ test("migration 030: nessun GRANT ad anon o public su alcuna RPC (nessun allarga
       .split("\n")
       .find((line) => line.trim().startsWith("grant execute on function public." + fn + "("));
     assert.ok(grantLine, `manca il GRANT per ${fn}`);
-    const grantees = grantLine.slice(grantLine.indexOf(" to ") + 4);
+    const grantees = grantLine.slice(grantLine.indexOf(" to ") + 4).trimEnd();
     assert.match(grantees, /^authenticated, service_role;$/);
     assert.doesNotMatch(grantees, /anon/i);
 
