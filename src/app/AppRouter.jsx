@@ -122,7 +122,10 @@ export function AppRouter() {
     };
     if (typeof window !== "undefined") {
       const params = new URLSearchParams();
-      if (p.startsWith("step")) {
+      if (p === "login") {
+        const ctx = prefillPatch?.context === "admin" ? "?context=admin" : "";
+        window.history.pushState(null, "", `/login${ctx}`);
+      } else if (p.startsWith("step")) {
         const s = prefillPatch || data;
         if (s.type || s.service) params.set("service", s.type || s.service);
         if (s.cityName || s.comune) params.set("comune", s.cityName || s.comune);
@@ -144,6 +147,9 @@ export function AppRouter() {
   };
 
   const isConfiguratorPage = page === "step1" || page === "step2" || page === "step3" || page === "step4";
+  const loginContext = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("context") === "admin"
+    ? "admin"
+    : "customer";
 
   return (
     <div style={{ fontFamily: F.sans, minHeight: "100vh", background: C.navyMid }}>
@@ -155,6 +161,9 @@ export function AppRouter() {
         {/* PUBLIC ROUTES */}
         {isConfiguratorPage && <StepperBar current={page} onGo={goTo} />}
         <PublicRoutes page={page} data={data} setData={setData} goTo={goTo} prefillPatch={prefill.patch} />
+
+        {/* AUTH */}
+        {page === "login" && <LoginPage onNav={goTo} context={loginContext} />}
 
         {/* CUSTOMER ROUTES */}
         {page === "dashboard" && (
@@ -175,7 +184,7 @@ export function AppRouter() {
 
         {/* ADMIN ROUTES */}
         {page === "admin" && (
-          <AdminGuard>
+          <AdminGuard onNav={goTo}>
             <AdminDashboard onNav={goTo} />
           </AdminGuard>
         )}

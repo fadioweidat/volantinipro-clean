@@ -4953,7 +4953,8 @@ function getSupabaseEnv() {
   };
 }
 export function LoginPage({
-  onNav
+  onNav,
+  context
 }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("");
@@ -4963,6 +4964,8 @@ export function LoginPage({
     anonKey
   } = getSupabaseEnv();
   const configured = Boolean(url && anonKey);
+  const isAdminContext = context === "admin";
+  const redirectPath = isAdminContext ? "/admin" : "/dashboard";
   const sendMagicLink = async e => {
     e.preventDefault();
     if (!email.includes("@")) {
@@ -4988,12 +4991,12 @@ export function LoginPage({
           create_user: true,
           type: "magiclink",
           options: {
-            email_redirect_to: `${window.location.origin}/dashboard`
+            email_redirect_to: `${window.location.origin}${redirectPath}`
           }
         })
       });
       if (!res.ok) throw new Error("magic_link_failed");
-      setStatus("Magic link inviato. Controlla la tua email per entrare nella dashboard.");
+      setStatus(isAdminContext ? "Magic link inviato. Controlla la tua email per entrare nella dashboard admin." : "Magic link inviato. Controlla la tua email per entrare nella dashboard.");
     } catch {
       setStatus("Non sono riuscito a inviare il magic link. Verifica chiavi Supabase e redirect URL.");
     } finally {
@@ -5022,7 +5025,7 @@ export function LoginPage({
         letterSpacing: ".14em",
         textTransform: "uppercase",
         marginBottom: 12
-      }}>Accesso cliente</div>
+      }}>{isAdminContext ? "Accesso admin" : "Accesso cliente"}</div>
         <h1 style={{
         fontFamily: F.serif,
         fontSize: 34,
