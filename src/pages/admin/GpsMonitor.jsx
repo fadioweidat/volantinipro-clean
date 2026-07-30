@@ -3,11 +3,12 @@ import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-le
 import { useEffect, useMemo, useState } from 'react';
 import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
-import { createProofPhotoSignedUrl, getCampaignGpsPoints, getCampaignGpsSessions, getCampaignProofPhotos } from '../../lib/services/gps-api.js';
+import { createProofPhotoSignedUrl, getCampaignGpsPoints, getCampaignGpsSessions, getCampaignProofPhotos, getCampaignRecord } from '../../lib/services/gps-api.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
+import { normalizeZonesFromCampaign, summarizeGeofencePoints } from '../../lib/geofence/geofenceEngine.js';
 
 export function GpsMonitor({ campaignId }) {
-  const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], activeSession: null });
+  const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], activeSession: null, campaign: null });
   const zoneProgress = useZoneProgress({ campaignId, includeHistory: true });
 
   useEffect(() => {
@@ -16,12 +17,13 @@ export function GpsMonitor({ campaignId }) {
       try {
         const sessions = await getCampaignGpsSessions(campaignId);
         const activeSession = getLatestTrackableSession(sessions);
-        const [points, photos] = await Promise.all([
+        const [points, photos, campaign] = await Promise.all([
           activeSession ? getCampaignGpsPoints(campaignId, { sessionId: activeSession.id }) : Promise.resolve([]),
           getCampaignProofPhotos(campaignId),
+          getCampaignRecord(campaignId).catch(() => null),
         ]);
         const photosWithUrls = await hydratePhotoUrls(photos);
-        if (!cancelled) setState({ loading: false, error: null, points, sessions, photos: photosWithUrls, activeSession });
+        if (!cancelled) setState({ loading: false, error: null, points, sessions, photos: photosWithUrls, activeSession, campaign });
       } catch (err) {
         if (!cancelled) setState((prev) => ({ ...prev, loading: false, error: err?.message || 'Errore caricamento GPS.' }));
       }
@@ -33,6 +35,9 @@ export function GpsMonitor({ campaignId }) {
       window.clearInterval(timer);
     };
   }, [campaignId]);
+
+  const geofenceZones = useMemo(() => normalizeZonesFromCampaign(state.campaign), [state.campaign]);
+  const geofence = useMemo(() => summarizeGeofencePoints(state.points, geofenceZones), [state.points, geofenceZones]);
 
   const status = deriveCampaignStatus(state.sessions);
   const activeMs = state.sessions.reduce((sum, session) => sum + sessionDurationMs(session), 0);
@@ -53,6 +58,7 @@ export function GpsMonitor({ campaignId }) {
         <Metric label="Sessione mappa" value={activeSessionLabel} />
         <Metric label="Driver" value={driverOnline ? 'online' : 'offline'} />
         <Metric label="Tempo attivo" value={formatDuration(activeMs)} />
+        <Metric label="Geofence" value={<GeofenceBadge status={geofence.status} />} />
       </div>
 
       <ZoneProgressPanel
@@ -75,6 +81,25 @@ export function GpsMonitor({ campaignId }) {
           <GpsMap points={state.points} latest={latest} />
         ) : (
           <EmptyState text={state.loading ? 'Caricamento tracking GPS...' : 'Nessun tracking GPS disponibile'} />
+        )}
+      </section>
+
+      <section style={cardStyle}>
+        <p style={eyebrowStyle}>Storico geofence (sessione mappa)</p>
+        {geofence.events.length ? (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {geofence.events.map((event, index) => (
+              <div key={index} style={rowStyle}>
+                <span style={{ fontSize: 11, fontWeight: 900, color: event.type === 'exited' ? '#b91c1c' : '#0f766e' }}>
+                  {event.type === 'exited' ? 'Uscita confermata' : 'Rientro confermato'}
+                </span>
+                <span>{formatDateTime(new Date(event.at).toISOString())}</span>
+                <span style={{ fontSize: 12, color: '#64748b' }}>{event.lat.toFixed(5)}, {event.lng.toFixed(5)}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState text={geofenceZones.length ? 'Nessuna uscita dalla zona rilevata sui punti disponibili.' : 'Zona campagna non ancora configurata: verifica non disponibile.'} />
         )}
       </section>
 
@@ -101,6 +126,19 @@ export function GpsMonitor({ campaignId }) {
       </section>
     </GpsShell>
   );
+}
+
+const GEOFENCE_LABELS = {
+  inside: 'In zona',
+  outside: 'Fuori zona',
+  zone_unavailable: 'Zona non configurata',
+  stale: 'Posizione non aggiornata',
+  unknown: 'Verifica in corso',
+};
+
+function GeofenceBadge({ status }) {
+  const color = status === 'outside' ? '#b91c1c' : status === 'inside' ? '#0f766e' : '#b45309';
+  return <span style={{ display: 'inline-flex', border: '1px solid', borderRadius: 999, padding: '4px 10px', fontSize: 12, fontWeight: 900, color, borderColor: `${color}44`, background: `${color}14` }}>{GEOFENCE_LABELS[status] || GEOFENCE_LABELS.unknown}</span>;
 }
 
 function sessionOnlineLabel(session, activeSession, latestPoint) {

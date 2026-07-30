@@ -95,6 +95,15 @@ export function TrackingPage({ campaignId }) {
           <Metric label="Wake lock" value={tracking.wakeLockStatus} />
         </div>
 
+        {(tracking.status === 'active' || tracking.status === 'paused') && (
+          <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
+            <GeofenceBadge status={tracking.geofenceState.status} />
+            {tracking.geofenceState.status === 'outside' && (
+              <div style={geofenceAlertStyle}>Sei fuori dalla zona assegnata. Rientra per continuare la distribuzione regolarmente.</div>
+            )}
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {tracking.status === 'idle' || tracking.status === 'completed' || tracking.status === 'permission_error' ? (
             <button style={primaryButtonStyle} type="button" onClick={() => handle(tracking.start)} disabled={!tracking.canStart}>
@@ -177,6 +186,19 @@ function RecentPhotoRow({ photo }) {
   );
 }
 
+const GEOFENCE_LABELS = {
+  inside: 'In zona',
+  outside: 'Fuori zona',
+  zone_unavailable: 'Zona non configurata',
+  stale: 'Posizione non aggiornata',
+  unknown: 'Verifica zona in corso',
+};
+
+function GeofenceBadge({ status }) {
+  const color = status === 'outside' ? '#b91c1c' : status === 'inside' ? '#0f766e' : '#b45309';
+  return <span style={{ ...pillStyle, color, borderColor: `${color}44`, background: `${color}14` }}>{GEOFENCE_LABELS[status] || GEOFENCE_LABELS.unknown}</span>;
+}
+
 function OutcomeBadge({ outcome }) {
   if (!outcome) return null;
   const color = outcome === 'consegnato' ? '#0f766e' : outcome === 'rifiutato' ? '#b91c1c' : '#b45309';
@@ -232,5 +254,6 @@ const secondaryButtonStyle = { border: '1px solid #cbd5e1', borderRadius: 10, pa
 const dangerButtonStyle = { border: 'none', borderRadius: 10, padding: '12px 16px', background: '#b91c1c', color: '#fff', fontWeight: 900, cursor: 'pointer' };
 const pillStyle = { display: 'inline-flex', border: '1px solid', borderRadius: 999, padding: '6px 10px', fontSize: 12, fontWeight: 900 };
 const errorStyle = { marginTop: 12, padding: 12, borderRadius: 10, color: '#991b1b', background: '#fee2e2', border: '1px solid #fecaca' };
+const geofenceAlertStyle = { padding: 12, borderRadius: 10, color: '#991b1b', background: '#fee2e2', border: '1px solid #fecaca', fontWeight: 700 };
 const photoRowStyle = { display: 'flex', gap: 12, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #eef2ef' };
 const photoThumbStyle = { width: 56, height: 56, borderRadius: 8, objectFit: 'cover', border: '1px solid #e2e8f0', flexShrink: 0 };

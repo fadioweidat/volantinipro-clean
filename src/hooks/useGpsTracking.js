@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   endGpsSession,
   getActiveGpsSession,
@@ -10,12 +10,19 @@ import {
   resolveGpsAssignment,
   startGpsSession,
 } from '../lib/services/gps-api.js';
+import {
+  applyStaleness,
+  createGeofenceState,
+  evaluateGeofencePoint,
+  normalizeZonesFromCampaign,
+} from '../lib/geofence/geofenceEngine.js';
 
 const SEND_INTERVAL_MS = 15000;
 const MIN_DISTANCE_METERS = 8;
 const HEARTBEAT_INTERVAL_MS = 20000;
 const QUEUE_FLUSH_INTERVAL_MS = 10000;
 const HIGH_SPEED_MPS = 2.2;
+const GEOFENCE_STALENESS_CHECK_MS = 30000;
 
 export function useGpsTracking(campaignId) {
   const [session, setSession] = useState(null);
@@ -33,6 +40,8 @@ export function useGpsTracking(campaignId) {
     campaign: null,
     error: null,
   });
+  const [geofenceState, setGeofenceState] = useState(createGeofenceState());
+  const geofenceStateRef = useRef(geofenceState);
   const watchIdRef = useRef(null);
   const wakeLockRef = useRef(null);
   const highAccuracyRef = useRef(true);
@@ -54,6 +63,23 @@ export function useGpsTracking(campaignId) {
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
+
+  const geofenceZones = useMemo(
+    () => normalizeZonesFromCampaign(assignmentState.campaign),
+    [assignmentState.campaign],
+  );
+  const geofenceZonesRef = useRef(geofenceZones);
+  useEffect(() => {
+    geofenceZonesRef.current = geofenceZones;
+  }, [geofenceZones]);
+
+  const evaluateGeofence = useCallback((point) => {
+    const next = evaluateGeofencePoint(geofenceStateRef.current, point, geofenceZonesRef.current);
+    if (next !== geofenceStateRef.current) {
+      geofenceStateRef.current = next;
+      setGeofenceState(next);
+    }
+  }, []);
 
   const stopWatch = useCallback(() => {
     if (watchIdRef.current != null && navigator.geolocation) {
@@ -216,6 +242,12 @@ export function useGpsTracking(campaignId) {
           accuracy: coords.accuracy,
           recorded_at: new Date(position.timestamp || Date.now()).toISOString(),
         });
+        evaluateGeofence({
+          lat: coords.latitude,
+          lng: coords.longitude,
+          accuracy: Number.isFinite(coords.accuracy) ? coords.accuracy : null,
+          recordedAt: new Date(position.timestamp || Date.now()).toISOString(),
+        });
         sendPosition(position);
       },
       (geoError) => {
@@ -229,7 +261,7 @@ export function useGpsTracking(campaignId) {
       },
       { enableHighAccuracy: forceHighAccuracy, maximumAge: forceHighAccuracy ? 5000 : 15000, timeout: 20000 },
     );
-  }, [sendPosition, stopWatch]);
+  }, [evaluateGeofence, sendPosition, stopWatch]);
 
   const start = useCallback(async () => {
     setError(null);
@@ -254,6 +286,8 @@ export function useGpsTracking(campaignId) {
     setSession(nextSession);
     setStatus('active');
     lastSentRef.current = { at: 0, lat: null, lng: null };
+    geofenceStateRef.current = createGeofenceState();
+    setGeofenceState(geofenceStateRef.current);
     await requestWakeLock();
     startWatch();
     flushQueue();
@@ -393,6 +427,18 @@ export function useGpsTracking(campaignId) {
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (statusRef.current !== 'active') return;
+      const next = applyStaleness(geofenceStateRef.current);
+      if (next !== geofenceStateRef.current) {
+        geofenceStateRef.current = next;
+        setGeofenceState(next);
+      }
+    }, GEOFENCE_STALENESS_CHECK_MS);
+    return () => window.clearInterval(timer);
+  }, []);
+
   useEffect(() => () => {
     stopWatch();
     releaseWakeLock();
@@ -409,6 +455,7 @@ export function useGpsTracking(campaignId) {
     queueSize,
     wakeLockStatus,
     assignmentState,
+    geofenceState,
     canStart: assignmentState.status === 'valid',
     isActive: status === 'active',
     isPaused: status === 'paused',
