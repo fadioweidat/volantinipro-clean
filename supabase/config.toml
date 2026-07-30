@@ -1,0 +1,60 @@
+# Local-only Supabase configuration per il replay isolato di GPS PHASE 4
+# (reconciliation delle RPC di sessione GPS). Nessun project ref, pooler URL
+# o endpoint di produzione: solo porte locali dedicate per non collidere con
+# altri stack locali gia' in esecuzione su questa macchina.
+
+project_id = "volantinipro-gps-rpc-reconcile-local"
+
+[api]
+enabled = true
+port = 54340
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54341
+shadow_port = 54342
+health_timeout = "2m"
+major_version = 17
+
+[db.pooler]
+enabled = false
+port = 54339
+pool_mode = "transaction"
+default_pool_size = 20
+max_client_conn = 100
+
+[db.migrations]
+enabled = true
+schema_paths = []
+
+[db.seed]
+enabled = false
+sql_paths = ["./seed.sql"]
+
+[realtime]
+enabled = false
+
+[studio]
+enabled = false
+port = 54343
+api_url = "http://127.0.0.1:54340"
+
+[inbucket]
+enabled = true
+port = 54344
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = ["http://127.0.0.1:3000"]
+jwt_expiry = 3600
+enable_signup = true
+
+[analytics]
+enabled = false
