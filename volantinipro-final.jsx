@@ -1,7 +1,13 @@
 import React, { Component, Fragment, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { printQuotePdf } from "./src/lib/pdf/printQuotePdf.js";
 import { supabase, confirmCampaignPayment, hasSupabaseConfig, saveCampaign, saveSmartPairingWaitlist, getStoredSupabaseSession } from "./src/lib/supabaseClient.js";
-import { consumeSupabaseAuthHash } from "./src/auth/session.js";
+import {
+  consumeSupabaseAuthHash,
+  parseSupabaseAuthHashError,
+  clearSupabaseAuthHashError,
+  rememberPendingAuthContext,
+  clearPendingAuthContext
+} from "./src/auth/session.js";
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
@@ -4960,6 +4966,7 @@ export function LoginPage({
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const [authError, setAuthError] = useState(() => parseSupabaseAuthHashError());
   const {
     url,
     anonKey
@@ -4973,8 +4980,16 @@ export function LoginPage({
       const cleanPath = isAdminContext ? "/admin" : "/dashboard";
       const session = consumeSupabaseAuthHash(cleanPath);
       if (session) {
+        clearPendingAuthContext();
         onNav(isAdminContext ? "admin" : "dashboard");
       }
+      return;
+    }
+    const hashError = parseSupabaseAuthHashError();
+    if (hashError) {
+      setAuthError(hashError);
+      clearSupabaseAuthHashError(isAdminContext ? "/login?context=admin" : "/login?context=customer");
+      clearPendingAuthContext();
     }
   }, [isAdminContext, onNav]);
 
@@ -4990,6 +5005,12 @@ export function LoginPage({
     }
     setBusy(true);
     setStatus("");
+    setAuthError(null);
+    // L'esito di errore del magic link (vedi useEffect sopra) atterra su
+    // {SITE_URL}#error=... senza onorare redirect_to: memorizza qui il
+    // context scelto ora, cosi' la pagina di login puo' ripristinarlo anche
+    // in quel caso.
+    rememberPendingAuthContext(isAdminContext ? "admin" : "customer");
     try {
       const res = await fetch(`${url}/auth/v1/otp`, {
         method: "POST",
@@ -5052,6 +5073,17 @@ export function LoginPage({
         lineHeight: 1.6,
         marginBottom: 20
       }}>Niente password: inserisci la tua email e riceverai un link sicuro per aprire la dashboard campagna.</p>
+        {authError && <div style={{
+        marginBottom: 16,
+        padding: "11px 12px",
+        borderRadius: 10,
+        background: "rgba(239,68,68,.1)",
+        border: "1px solid rgba(239,68,68,.28)",
+        fontFamily: F.sans,
+        fontSize: 12,
+        color: "#fecaca",
+        lineHeight: 1.45
+      }}>{authError.message}</div>}
         <form onSubmit={sendMagicLink} style={{
         display: "flex",
         flexDirection: "column",
@@ -5077,7 +5109,7 @@ export function LoginPage({
           fontSize: 14,
           fontWeight: 800,
           cursor: busy ? "wait" : "pointer"
-        }}>{busy ? "Invio in corso..." : "Invia magic link"}</button>
+        }}>{busy ? "Invio in corso..." : authError ? "Invia un nuovo magic link" : "Invia magic link"}</button>
         </form>
         {status && <div style={{
         marginTop: 14,

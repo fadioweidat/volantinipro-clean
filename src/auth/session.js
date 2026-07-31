@@ -85,3 +85,73 @@ export function consumeSupabaseAuthHash(cleanPath) {
   window.history.replaceState(null, "", cleanPath || window.location.pathname);
   return session;
 }
+
+// Supabase reindirizza un magic link scaduto/gia' usato/non valido a
+// {SITE_URL}#error=...&error_code=...&error_description=..., senza onorare il
+// redirect_to originale (a differenza del caso di successo, che porta invece
+// su {redirect_to}#access_token=...). Per questo il pathname puo' essere "/"
+// invece di "/login": va rilevato indipendentemente dal path corrente, prima
+// che il routing basato su pathname decida quale pagina mostrare.
+export function hasSupabaseAuthHashError() {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams((window.location.hash || "").replace(/^#/, "")).has("error");
+}
+
+// Messaggio unico e leggibile per qualunque codice di errore restituito da
+// Supabase per un magic link (scaduto, gia' usato, non valido, accesso
+// negato): dal punto di vista dell'utente l'azione da fare e' sempre la
+// stessa, richiedere un nuovo link.
+export function parseSupabaseAuthHashError() {
+  if (typeof window === "undefined") return null;
+  const hash = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
+  const error = hash.get("error");
+  if (!error) return null;
+  return {
+    error,
+    errorCode: hash.get("error_code") || "",
+    description: hash.get("error_description") || "",
+    message: "Il magic link è scaduto o non è più valido."
+  };
+}
+
+// Ripulisce l'hash di errore dalla barra indirizzi/history una volta letto,
+// con lo stesso pattern di consumeSupabaseAuthHash.
+export function clearSupabaseAuthHashError(cleanPath) {
+  if (typeof window === "undefined") return;
+  window.history.replaceState(null, "", cleanPath || window.location.pathname);
+}
+
+// Preserva l'intento (login Admin vs Cliente) attraverso il round-trip del
+// magic link: per il caso di errore Supabase non onora redirect_to (vedi
+// sopra), quindi il parametro ?context=admin nella query non arriva indietro.
+// sessionStorage (non localStorage) perche' l'intento vale solo per il
+// tentativo di login corrente in questa tab.
+const PENDING_AUTH_CONTEXT_KEY = "vp_pending_auth_context";
+
+export function rememberPendingAuthContext(context) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(PENDING_AUTH_CONTEXT_KEY, context);
+  } catch {
+    // sessionStorage non disponibile (es. modalita' privata): degrada
+    // silenziosamente, il fallback restera' "customer".
+  }
+}
+
+export function readPendingAuthContext() {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.sessionStorage.getItem(PENDING_AUTH_CONTEXT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingAuthContext() {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(PENDING_AUTH_CONTEXT_KEY);
+  } catch {
+    // no-op
+  }
+}
