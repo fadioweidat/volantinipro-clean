@@ -13,7 +13,7 @@ import { StepperBar } from "../layouts/public/StepperBar.jsx";
 import { F, C } from "../lib/constants.js";
 import { CustomerGuard } from "../auth/guards/CustomerGuard.jsx";
 import { AdminGuard } from "../auth/guards/AdminGuard.jsx";
-import { hasSupabaseAuthHashError, readPendingAuthContext } from "../auth/session.js";
+import { hasSupabaseAuthHashError, hasSupabaseAuthHashToken, readPendingAuthContext } from "../auth/session.js";
 
 export function AppRouter() {
   const readPrefill = () => {
@@ -51,12 +51,14 @@ export function AppRouter() {
     const url = new URL(window.location.href);
     const step = url.searchParams.get("step");
 
-    // Un magic link Supabase scaduto/gia' usato/non valido reindirizza a
-    // {SITE_URL}#error=... (spesso il solo "/", non "/login"): senza questo
-    // controllo il pathname-based routing sotto risolverebbe "home",
-    // mostrando la homepage pubblica invece della pagina di login con
-    // l'errore leggibile.
-    if (hasSupabaseAuthHashError()) return "login";
+    // Un magic link Supabase puo' atterrare su {SITE_URL} (spesso il solo
+    // "/", non "/login") sia per un ERRORE (#error=..., link scaduto/gia'
+    // usato) sia per un SUCCESSO il cui redirect_to non e' nell'allowlist
+    // Redirect URLs del progetto (#access_token=..., fallback su SITE_URL).
+    // Senza questo controllo il pathname-based routing sotto risolverebbe
+    // "home", mostrando la homepage con il token/errore mai gestito: la
+    // LoginPage e' l'unico componente che consuma entrambi gli hash.
+    if (hasSupabaseAuthHashError() || hasSupabaseAuthHashToken()) return "login";
 
     if (p === "/" || p === "/index.html" || p === "/volantinipro-final.jsx") return "home";
     if (p.includes("login")) return "login";
@@ -167,9 +169,9 @@ export function AppRouter() {
   };
 
   const isConfiguratorPage = page === "step1" || page === "step2" || page === "step3" || page === "step4";
-  // ?context=admin nella query e' l'indicazione primaria (caso di successo:
-  // Supabase onora redirect_to). Se manca ma l'hash porta un errore Supabase,
-  // il tentativo potrebbe comunque venire da Admin: il redirect di errore non
+  // ?context=admin nella query e' l'indicazione primaria (redirect_to
+  // onorato). Se manca ma l'hash porta un errore O un token Supabase, il
+  // tentativo potrebbe comunque venire da Admin: il fallback su SITE_URL non
   // porta la query originale, quindi si ricade sul context "ricordato" al
   // momento dell'invio del magic link (vedi rememberPendingAuthContext).
   const queryContext = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("context") : null;
@@ -177,7 +179,7 @@ export function AppRouter() {
     ? "admin"
     : queryContext === "customer"
       ? "customer"
-      : (hasSupabaseAuthHashError() && readPendingAuthContext() === "admin") ? "admin" : "customer";
+      : ((hasSupabaseAuthHashError() || hasSupabaseAuthHashToken()) && readPendingAuthContext() === "admin") ? "admin" : "customer";
 
   return (
     <div style={{ fontFamily: F.sans, minHeight: "100vh", background: C.navyMid }}>

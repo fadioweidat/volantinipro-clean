@@ -97,6 +97,17 @@ export function hasSupabaseAuthHashError() {
   return new URLSearchParams((window.location.hash || "").replace(/^#/, "")).has("error");
 }
 
+// Anche il caso di SUCCESSO puo' atterrare su "/" invece che sul redirect_to
+// richiesto: se l'URL di redirect non e' nell'allowlist "Redirect URLs" del
+// progetto Supabase, il verify ripiega su SITE_URL e il token arriva come
+// {SITE_URL}#access_token=.... Senza questo rilevamento il routing basato su
+// pathname mostrerebbe la Homepage con il token ancora nell'hash, mai
+// consumato (verificato dal vivo: e' esattamente il sintomo osservato).
+export function hasSupabaseAuthHashToken() {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams((window.location.hash || "").replace(/^#/, "")).has("access_token");
+}
+
 // Messaggio unico e leggibile per qualunque codice di errore restituito da
 // Supabase per un magic link (scaduto, gia' usato, non valido, accesso
 // negato): dal punto di vista dell'utente l'azione da fare e' sempre la
@@ -122,18 +133,21 @@ export function clearSupabaseAuthHashError(cleanPath) {
 }
 
 // Preserva l'intento (login Admin vs Cliente) attraverso il round-trip del
-// magic link: per il caso di errore Supabase non onora redirect_to (vedi
-// sopra), quindi il parametro ?context=admin nella query non arriva indietro.
-// sessionStorage (non localStorage) perche' l'intento vale solo per il
-// tentativo di login corrente in questa tab.
+// magic link, quando Supabase atterra su SITE_URL senza la query
+// ?context=... originale (errore, oppure successo con redirect_to fuori
+// allowlist). localStorage e non sessionStorage: il link nella email si apre
+// in una NUOVA tab, dove sessionStorage e' sempre vuoto — solo localStorage
+// sopravvive al passaggio di tab sulla stessa origin. Il valore viene
+// comunque pulito appena consumato (successo o errore) e la query
+// ?context=..., quando presente, ha sempre la precedenza.
 const PENDING_AUTH_CONTEXT_KEY = "vp_pending_auth_context";
 
 export function rememberPendingAuthContext(context) {
   if (typeof window === "undefined") return;
   try {
-    window.sessionStorage.setItem(PENDING_AUTH_CONTEXT_KEY, context);
+    window.localStorage.setItem(PENDING_AUTH_CONTEXT_KEY, context);
   } catch {
-    // sessionStorage non disponibile (es. modalita' privata): degrada
+    // storage non disponibile (es. modalita' privata): degrada
     // silenziosamente, il fallback restera' "customer".
   }
 }
@@ -141,7 +155,7 @@ export function rememberPendingAuthContext(context) {
 export function readPendingAuthContext() {
   if (typeof window === "undefined") return null;
   try {
-    return window.sessionStorage.getItem(PENDING_AUTH_CONTEXT_KEY);
+    return window.localStorage.getItem(PENDING_AUTH_CONTEXT_KEY);
   } catch {
     return null;
   }
@@ -150,7 +164,7 @@ export function readPendingAuthContext() {
 export function clearPendingAuthContext() {
   if (typeof window === "undefined") return;
   try {
-    window.sessionStorage.removeItem(PENDING_AUTH_CONTEXT_KEY);
+    window.localStorage.removeItem(PENDING_AUTH_CONTEXT_KEY);
   } catch {
     // no-op
   }
