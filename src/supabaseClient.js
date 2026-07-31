@@ -1,7 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL
-const supabaseKey = import.meta.env?.VITE_SUPABASE_ANON_KEY
+// import.meta.env is always a real object under Vite (dev server and build),
+// so reading .VITE_SUPABASE_URL directly off it is deterministic there. It is
+// undefined when this module loads under the plain Node test runner (no Vite
+// present), which the `env` fallback below accounts for.
+const env = (typeof import.meta !== 'undefined' && import.meta.env) || {}
+const supabaseUrl = env.VITE_SUPABASE_URL
+const supabaseKey = env.VITE_SUPABASE_ANON_KEY
 
 export const supabase = (supabaseUrl && supabaseKey)
   ? createClient(supabaseUrl, supabaseKey)
