@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { classifyDriverStatus, displayDriverName, getSessionGroup } from '../../lib/services/gps-api.js';
 import { getCampaignReport } from '../../lib/services/admin-api.js';
 import { buildGpsCsv, buildSessionCsv, downloadTextFile, filterOperationalRows, lastActivityAt } from '../../lib/services/report-utils.js';
+import { AdminLayout } from './AdminLayout.jsx';
 
 const DEFAULT_CENTER = [45.4642, 9.19];
 const COLORS = ['#e8571a', '#2ecc8a', '#60a5fa', '#fbbf24', '#a78bfa', '#ef4444'];
 
-export function CampaignOperations({ campaignId }) {
+export function CampaignOperations({ campaignId, onNav }) {
   const [state, setState] = useState({ loading: true, error: null, operations: null, notice: '' });
   const [filters, setFilters] = useState({ period: 'all', fromDate: '', toDate: '', campaign: campaignId, group: '', driver: '', status: 'all' });
 
@@ -76,8 +77,14 @@ export function CampaignOperations({ campaignId }) {
     setState((prev) => ({ ...prev, notice: 'JSON operativo esportato.' }));
   }
 
+  const breadcrumbs = [
+    { label: "Dashboard", href: "/admin" },
+    { label: "Campagne", href: "/admin" },
+    { label: `Campagna ${campaignId}` }
+  ];
+
   return (
-    <AdminShell title="Operazioni campagna" subtitle={`Campagna ${campaignId}`}>
+    <AdminLayout title="Operazioni campagna" subtitle={`Campagna ${campaignId}`} breadcrumbs={breadcrumbs} onNav={onNav}>
       {state.error && <Notice danger text={state.error} />}
       {state.notice && <Notice text={state.notice} />}
 
@@ -158,7 +165,7 @@ export function CampaignOperations({ campaignId }) {
           <SessionRow key={item.session.id} item={item} color={COLORS[index % COLORS.length]} />
         )) : <EmptyState text="Nessuna sessione delivery registrata." />}
       </section>
-    </AdminShell>
+    </AdminLayout>
   );
 }
 
@@ -214,22 +221,6 @@ function SessionRow({ item, color }) {
       <span>{formatDateTime(item.session.started_at)} - {formatDateTime(item.session.ended_at || item.session.paused_at)}</span>
       <span>{distanceKm(item.points).toFixed(2)} km · {item.points.length} punti GPS · ultimo ping {formatDateTime(lastPing)}</span>
     </div>
-  );
-}
-
-function AdminShell({ title, subtitle, children }) {
-  return (
-    <main style={shellStyle}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 22 }}>
-        <div>
-          <a href="/admin" style={{ color: '#e8571a', fontWeight: 900, textDecoration: 'none' }}>VolantiniPro Admin</a>
-          <h1 style={{ margin: '8px 0 4px', fontSize: 34, color: '#fff' }}>{title}</h1>
-          <p style={{ margin: 0, color: 'rgba(255,255,255,.55)' }}>{subtitle}</p>
-        </div>
-        <a href="/admin/live" style={navButtonStyle}>Monitor GPS Live</a>
-      </header>
-      <div style={{ display: 'grid', gap: 16 }}>{children}</div>
-    </main>
   );
 }
 
@@ -297,7 +288,6 @@ function shortId(value) {
   return value ? String(value).slice(0, 8) : 'n/d';
 }
 
-const shellStyle = { minHeight: '100vh', padding: 24, background: '#07100d', color: 'rgba(255,255,255,.72)', fontFamily: 'Inter, system-ui, sans-serif' };
 const cardStyle = { background: 'rgba(255,255,255,.045)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, padding: 16, boxShadow: '0 16px 42px rgba(0,0,0,.24)' };
 const kpiGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 12 };
 const filterGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, alignItems: 'end' };
@@ -305,7 +295,6 @@ const labelStyle = { display: 'grid', gap: 6, fontSize: 12, fontWeight: 900, col
 const inputStyle = { border: '1px solid rgba(255,255,255,.1)', background: 'rgba(0,0,0,.25)', color: '#fff', borderRadius: 9, padding: '10px 11px', font: 'inherit' };
 const eyebrowStyle = { margin: '0 0 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: 'rgba(255,255,255,.42)', fontWeight: 900 };
 const mutedStyle = { color: 'rgba(255,255,255,.48)', fontSize: 12 };
-const navButtonStyle = { alignSelf: 'start', border: '1px solid rgba(255,255,255,.1)', borderRadius: 10, padding: '10px 13px', color: '#fff', textDecoration: 'none', fontWeight: 900 };
 const buttonStyle = { border: '1px solid rgba(255,255,255,.1)', borderRadius: 10, padding: '10px 13px', background: 'rgba(255,255,255,.04)', color: '#fff', textDecoration: 'none', fontWeight: 900, cursor: 'pointer' };
 const noticeStyle = { padding: 12, border: '1px solid', borderRadius: 10, background: 'rgba(255,255,255,.04)', fontWeight: 800 };
 const emptyStyle = { padding: 16, border: '1px dashed rgba(255,255,255,.14)', borderRadius: 10, color: 'rgba(255,255,255,.48)' };

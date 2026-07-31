@@ -1,6 +1,7 @@
 import React, { Component, Fragment, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { printQuotePdf } from "./src/lib/pdf/printQuotePdf.js";
 import { supabase, confirmCampaignPayment, hasSupabaseConfig, saveCampaign, saveSmartPairingWaitlist, getStoredSupabaseSession } from "./src/lib/supabaseClient.js";
+import { consumeSupabaseAuthHash } from "./src/auth/session.js";
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
@@ -4965,7 +4966,18 @@ export function LoginPage({
   } = getSupabaseEnv();
   const configured = Boolean(url && anonKey);
   const isAdminContext = context === "admin";
-  const redirectPath = isAdminContext ? "/admin" : "/dashboard";
+  const redirectPath = isAdminContext ? "/login?context=admin" : "/login?context=customer";
+
+  useEffect(() => {
+    if (window.location.hash.includes("access_token")) {
+      const cleanPath = isAdminContext ? "/admin" : "/dashboard";
+      const session = consumeSupabaseAuthHash(cleanPath);
+      if (session) {
+        onNav(isAdminContext ? "admin" : "dashboard");
+      }
+    }
+  }, [isAdminContext, onNav]);
+
   const sendMagicLink = async e => {
     e.preventDefault();
     if (!email.includes("@")) {

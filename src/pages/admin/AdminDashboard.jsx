@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { getRealCampaigns, selectOptionalTable } from "../../lib/services/admin-api.js";
 import { isAdminAiDashboardEnabled } from "../../lib/runtimeFlags.js";
+import { AdminLayout } from "./AdminLayout.jsx";
 
 const AdminCentralAiPanel = React.lazy(() => import("../../components/ai/admin/AdminCentralAiPanel.jsx"));
 
@@ -101,16 +102,7 @@ export default function AdminDashboard({ onNav }) {
   const go = (page) => onNav?.(page);
 
   return (
-    <main style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 24px 60px", minHeight: "100vh" }}>
-      <header style={{ display: "flex", justifyContent: "space-between", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
-        <div>
-          <div style={adminBadgeStyle}>ADMIN</div>
-          <h1 style={{ fontFamily: F.serif, fontSize: 30, color: C.white, letterSpacing: "-1px", margin: "8px 0 4px" }}>Dashboard Admin</h1>
-          <p style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.42)", margin: 0 }}>Dati reali Supabase. Nessun dato demo.</p>
-        </div>
-        <button onClick={() => go("home")} style={secondaryButtonStyle}>Home</button>
-      </header>
-
+    <AdminLayout onNav={onNav}>
       {state.loading && <Notice text="Caricamento dati admin reali..." />}
       {state.error && <Notice text={state.error} danger />}
       {notice && <Notice text={notice} />}
@@ -250,7 +242,7 @@ export default function AdminDashboard({ onNav }) {
           </SideCard>
         </aside>
       </div>
-    </main>
+    </AdminLayout>
   );
 }
 
@@ -444,13 +436,9 @@ function formatDate(value) {
   return value ? new Date(value).toLocaleString("it-IT") : EMPTY;
 }
 
-function emptyData() {
-  return { campaigns: [], waitlist: [], sessions: [], activeSessions: [], latestGpsPoints: [], activities: [], availability: {} };
-}
+const emptyData = () => ({ campaigns: [], waitlist: [], sessions: [], activeSessions: [], latestGpsPoints: [], activities: [], availability: {} });
 
 const cardStyle = { background: "rgba(255,255,255,.04)", borderRadius: 13, border: "1px solid rgba(255,255,255,.08)", padding: 16 };
-const adminBadgeStyle = { display: "inline-flex", padding: "3px 10px", borderRadius: 100, background: "rgba(232,87,26,.15)", border: "1px solid rgba(232,87,26,.3)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.orange };
-const secondaryButtonStyle = { height: 38, padding: "0 15px", borderRadius: 10, border: "1px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.58)", fontFamily: F.sans, fontSize: 12, cursor: "pointer" };
 const eyebrowStyle = { margin: 0, fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.36)", letterSpacing: ".1em", textTransform: "uppercase" };
 const mutedTinyStyle = { fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.34)" };
 const kpiGridStyle = { display: "grid", gridTemplateColumns: "repeat(5, minmax(0,1fr))", gap: 10, marginBottom: 18 };

@@ -23,6 +23,7 @@ import {
   sessionDurationMs,
   shortId,
 } from '../../lib/services/report-utils.js';
+import { AdminLayout } from './AdminLayout.jsx';
 
 export function CampaignReport({ campaignId }) {
   const [state, setState] = useState({ loading: true, error: null, operations: null, campaign: null, notice: '' });
@@ -102,8 +103,14 @@ export function CampaignReport({ campaignId }) {
     setState((prev) => ({ ...prev, notice }));
   }
 
+  const breadcrumbs = [
+    { label: "Dashboard", href: "/admin" },
+    { label: "Campagne", href: "/admin" },
+    { label: `Report Campagna ${campaignId}` }
+  ];
+
   return (
-    <AdminShell title="Report finale campagna" subtitle={`Campagna ${campaignId}`} campaignId={campaignId}>
+    <AdminLayout title="Report finale campagna" subtitle={`Campagna ${campaignId}`} breadcrumbs={breadcrumbs}>
       {state.error && <Notice danger text={state.error} />}
       {state.notice && <Notice text={state.notice} />}
 
@@ -184,7 +191,7 @@ export function CampaignReport({ campaignId }) {
           </div>
         ) : <EmptyState text="Nessuna foto proof caricata." />}
       </section>
-    </AdminShell>
+    </AdminLayout>
   );
 }
 
@@ -331,26 +338,6 @@ async function hydratePhotoUrls(photos) {
   })));
 }
 
-function AdminShell({ title, subtitle, campaignId, children }) {
-  return (
-    <main style={shellStyle}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 22 }}>
-        <div>
-          <a href="/admin" style={{ color: '#e8571a', fontWeight: 900, textDecoration: 'none' }}>VolantiniPro Admin</a>
-          <h1 style={{ margin: '8px 0 4px', fontSize: 34, color: '#fff' }}>{title}</h1>
-          <p style={{ margin: 0, color: 'rgba(255,255,255,.55)' }}>{subtitle}</p>
-        </div>
-        <div style={actionGroupStyle}>
-          <a href="/admin/live" style={navButtonStyle}>Storico live</a>
-          <a href={`/admin/campaigns/${campaignId}/operations`} style={navButtonStyle}>Operazioni</a>
-        </div>
-      </header>
-      <div style={{ display: 'grid', gap: 16 }}>{children}</div>
-    </main>
-  );
-}
-
-const shellStyle = { minHeight: '100vh', padding: 24, background: '#07100d', color: 'rgba(255,255,255,.72)', fontFamily: 'Inter, system-ui, sans-serif' };
 const cardStyle = { background: 'rgba(255,255,255,.045)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, padding: 16, boxShadow: '0 16px 42px rgba(0,0,0,.24)' };
 const toolbarStyle = { ...cardStyle, display: 'grid', gap: 14 };
 const kpiGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 12 };

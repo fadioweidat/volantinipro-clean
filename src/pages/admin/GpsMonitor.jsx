@@ -6,8 +6,9 @@ import { useZoneProgress } from '../../hooks/useZoneProgress.js';
 import { createProofPhotoSignedUrl, getCampaignGpsPoints, getCampaignGpsSessions, getCampaignProofPhotos, getCampaignRecord } from '../../lib/services/gps-api.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
 import { normalizeZonesFromCampaign, summarizeGeofencePoints } from '../../lib/geofence/geofenceEngine.js';
+import { AdminLayout } from './AdminLayout.jsx';
 
-export function GpsMonitor({ campaignId }) {
+export function GpsMonitor({ campaignId, onNav }) {
   const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], activeSession: null, campaign: null });
   const zoneProgress = useZoneProgress({ campaignId, includeHistory: true });
 
@@ -48,8 +49,14 @@ export function GpsMonitor({ campaignId }) {
     ? `${state.activeSession.status} · ${formatDateTime(state.activeSession.started_at || state.activeSession.created_at)}`
     : 'nessuna sessione';
 
+  const breadcrumbs = [
+    { label: "Dashboard", href: "/admin" },
+    { label: "Campagne", href: "/admin" },
+    { label: `Campagna ${campaignId}` }
+  ];
+
   return (
-    <GpsShell title="Admin GPS Monitor" subtitle={`Campagna ${campaignId}`}>
+    <AdminLayout title="Admin GPS Monitor" subtitle={`Campagna ${campaignId}`} breadcrumbs={breadcrumbs} onNav={onNav}>
       {state.error && <div style={errorStyle}>{state.error}</div>}
       <div style={metricGridStyle}>
         <Metric label="Stato campagna" value={status} />
@@ -124,7 +131,7 @@ export function GpsMonitor({ campaignId }) {
           )) : <EmptyState text="Nessuna foto prova caricata" />}
         </div>
       </section>
-    </GpsShell>
+    </AdminLayout>
   );
 }
 
@@ -163,7 +170,7 @@ function GpsMap({ points, latest }) {
   const center = useMemo(() => [Number(latest.lat), Number(latest.lng)], [latest]);
   const path = points.map((point) => [Number(point.lat), Number(point.lng)]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
   return (
-    <div style={{ height: 460, borderRadius: 12, overflow: 'hidden', border: '1px solid #d7ded9' }}>
+    <div style={{ height: 460, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)' }}>
       <MapContainer center={center} zoom={15} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
         <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {path.length > 1 && <Polyline positions={path} pathOptions={{ color: '#e8571a', weight: 4, opacity: 0.82 }} />}
@@ -197,12 +204,12 @@ function ProofPhoto({ photo }) {
           {meta.outcome && <span style={{ fontSize: 11, fontWeight: 800, color: '#0f766e' }}>{podOutcomeLabel(meta.outcome)}</span>}
           <span style={{ fontSize: 11, color: photo.approved_at ? '#0f766e' : '#b45309' }}>{photo.approved_at ? 'Approvata' : 'In attesa di approvazione'}</span>
         </div>
-        <p style={{ margin: '4px 0', color: '#64748b' }}>{meta.client || 'Cliente non specificato'}{meta.address ? ` · ${meta.address}` : ''}</p>
+        <p style={{ margin: '4px 0', color: 'rgba(255,255,255,.55)' }}>{meta.client || 'Cliente non specificato'}{meta.address ? ` · ${meta.address}` : ''}</p>
         {(meta.ddt || meta.colli) && (
-          <p style={{ margin: '2px 0', color: '#94a3b8', fontSize: 12 }}>{meta.ddt ? `DDT ${meta.ddt}` : ''}{meta.ddt && meta.colli ? ' · ' : ''}{meta.colli ? `${meta.colli} colli` : ''}</p>
+          <p style={{ margin: '2px 0', color: 'rgba(255,255,255,.4)', fontSize: 12 }}>{meta.ddt ? `DDT ${meta.ddt}` : ''}{meta.ddt && meta.colli ? ' · ' : ''}{meta.colli ? `${meta.colli} colli` : ''}</p>
         )}
-        {meta.note && <p style={{ margin: '2px 0', color: '#94a3b8', fontSize: 12 }}>{meta.note}</p>}
-        <span style={{ fontSize: 12, color: '#64748b' }}>{photo.lat && photo.lng ? `${Number(photo.lat).toFixed(5)}, ${Number(photo.lng).toFixed(5)}` : 'Coordinate non disponibili'}</span>
+        {meta.note && <p style={{ margin: '2px 0', color: 'rgba(255,255,255,.4)', fontSize: 12 }}>{meta.note}</p>}
+        <span style={{ fontSize: 12, color: 'rgba(255,255,255,.55)' }}>{photo.lat && photo.lng ? `${Number(photo.lat).toFixed(5)}, ${Number(photo.lng).toFixed(5)}` : 'Coordinate non disponibili'}</span>
       </div>
     </div>
   );
@@ -230,25 +237,12 @@ function sessionDurationMs(session) {
   return Math.max(0, end - start);
 }
 
-function GpsShell({ title, subtitle, children }) {
-  return (
-    <main style={shellStyle}>
-      <header style={{ marginBottom: 22 }}>
-        <a href="/" style={{ color: '#e8571a', fontWeight: 900, textDecoration: 'none' }}>VolantiniPro</a>
-        <p style={eyebrowStyle}>{subtitle}</p>
-        <h1 style={{ margin: 0, fontSize: 34 }}>{title}</h1>
-      </header>
-      <div style={{ display: 'grid', gap: 16 }}>{children}</div>
-    </main>
-  );
-}
-
 function Metric({ label, value }) {
-  return <div style={metricStyle}><span>{label}</span><strong>{value}</strong></div>;
+  return <div style={metricStyle}><span>{label}</span><strong style={{ color: '#fff' }}>{value}</strong></div>;
 }
 
 function EmptyState({ text }) {
-  return <div style={{ padding: 20, border: '1px dashed #cbd5e1', borderRadius: 10, color: '#64748b' }}>{text}</div>;
+  return <div style={{ padding: 20, border: '1px dashed rgba(255,255,255,.14)', borderRadius: 10, color: 'rgba(255,255,255,.48)' }}>{text}</div>;
 }
 
 function formatDateTime(value) {
@@ -262,13 +256,12 @@ function formatDuration(ms) {
   return hours ? `${hours}h ${rest}m` : `${rest}m`;
 }
 
-const shellStyle = { minHeight: '100vh', padding: 24, background: '#eef2ef', color: '#17211f', fontFamily: 'Inter, system-ui, sans-serif' };
-const cardStyle = { background: '#fff', border: '1px solid #d7ded9', borderRadius: 14, padding: 18, boxShadow: '0 10px 26px rgba(15,23,42,.07)' };
-const eyebrowStyle = { margin: '0 0 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: '#64748b', fontWeight: 900 };
+const cardStyle = { background: 'rgba(255,255,255,.045)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 14, padding: 18, boxShadow: '0 10px 26px rgba(0,0,0,.24)', color: '#fff' };
+const eyebrowStyle = { margin: '0 0 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: 'rgba(255,255,255,.42)', fontWeight: 900 };
 const metricGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 };
-const metricStyle = { display: 'grid', gap: 4, padding: 12, background: '#fff', borderRadius: 10, border: '1px solid #d7ded9' };
+const metricStyle = { display: 'grid', gap: 4, padding: 12, background: 'rgba(255,255,255,.03)', borderRadius: 10, border: '1px solid rgba(255,255,255,.07)', color: 'rgba(255,255,255,.62)' };
 const gridTwoStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 16 };
-const rowStyle = { display: 'flex', gap: 12, padding: 12, borderBottom: '1px solid #e2e8f0', alignItems: 'center', flexWrap: 'wrap' };
-const activeSessionRowStyle = { ...rowStyle, background: '#fff7ed', borderRadius: 10, borderBottom: '1px solid #fed7aa' };
+const rowStyle = { display: 'flex', gap: 12, padding: 12, borderBottom: '1px solid rgba(255,255,255,.07)', alignItems: 'center', flexWrap: 'wrap', color: 'rgba(255,255,255,.75)' };
+const activeSessionRowStyle = { ...rowStyle, background: 'rgba(249,115,22,.08)', borderRadius: 10, borderBottom: '1px solid rgba(249,115,22,.2)' };
 const activeBadgeStyle = { padding: '3px 8px', borderRadius: 999, background: '#e8571a', color: '#fff', fontSize: 11, fontWeight: 900 };
-const errorStyle = { padding: 12, borderRadius: 10, color: '#991b1b', background: '#fee2e2', border: '1px solid #fecaca' };
+const errorStyle = { padding: 12, borderRadius: 10, color: '#fecaca', background: 'rgba(239,68,68,.15)', border: '1px solid rgba(239,68,68,.3)' };

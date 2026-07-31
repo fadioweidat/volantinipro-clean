@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import {
   LoginPage, DashboardPage, CampaignDashboardPage, PagamentoBonificoPage, AdminDashboard
 } from "../../volantinipro-final.jsx";
+import { AdminLiveDashboard } from "../pages/admin/AdminLiveDashboard.jsx";
+import { GpsMonitor } from "../pages/admin/GpsMonitor.jsx";
+import { CampaignOperations } from "../pages/admin/CampaignOperations.jsx";
 import { PublicRoutes } from "./PublicRoutes.jsx";
 import { Bootstrap } from "../layouts/public/Bootstrap.jsx";
 import { SeoMeta } from "../layouts/public/SeoMeta.jsx";
@@ -61,6 +64,11 @@ export function AppRouter() {
       if (step) return `step${step}`;
       return "step1";
     }
+    if (p === "/admin/live") return "admin-live";
+    const adminGpsMatch = p.match(/^\/admin\/campaigns\/([^/]+)\/gps$/);
+    if (adminGpsMatch) return `admin-gps:${adminGpsMatch[1]}`;
+    const adminOpsMatch = p.match(/^\/admin\/campaigns\/([^/]+)\/operations$/);
+    if (adminOpsMatch) return `admin-operations:${adminOpsMatch[1]}`;
     if (p.includes("admin")) return "admin";
     return "home";
   };
@@ -118,7 +126,7 @@ export function AppRouter() {
       payment: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}/pagamento` : "/dashboard",
       privacy: "/privacy", terms: "/termini", cookie: "/cookie-policy", quick: "/preventivo-rapido",
       consultant: "/consulente", step1: "/configuratore", step2: "/configuratore", step3: "/configuratore",
-      step4: "/configuratore", admin: "/admin"
+      step4: "/configuratore", admin: "/admin", "admin-live": "/admin/live"
     };
     if (typeof window !== "undefined") {
       const params = new URLSearchParams();
@@ -138,6 +146,10 @@ export function AppRouter() {
         if (s.source || s.quickSource) params.set("source", s.source || s.quickSource);
         params.set("step", p.replace("step", ""));
         window.history.pushState(null, "", `/configuratore?${params.toString()}`);
+      } else if (p.startsWith("admin-gps:")) {
+        window.history.pushState(null, "", `/admin/campaigns/${p.split(":")[1]}/gps`);
+      } else if (p.startsWith("admin-operations:")) {
+        window.history.pushState(null, "", `/admin/campaigns/${p.split(":")[1]}/operations`);
       } else {
         window.history.pushState(null, "", paths[p] || "/");
       }
@@ -183,9 +195,12 @@ export function AppRouter() {
         )}
 
         {/* ADMIN ROUTES */}
-        {page === "admin" && (
+        {page.startsWith("admin") && (
           <AdminGuard onNav={goTo}>
-            <AdminDashboard onNav={goTo} />
+            {page === "admin" && <AdminDashboard onNav={goTo} />}
+            {page === "admin-live" && <AdminLiveDashboard onNav={goTo} />}
+            {page.startsWith("admin-gps:") && <GpsMonitor campaignId={page.split(":")[1]} onNav={goTo} />}
+            {page.startsWith("admin-operations:") && <CampaignOperations campaignId={page.split(":")[1]} onNav={goTo} />}
           </AdminGuard>
         )}
 

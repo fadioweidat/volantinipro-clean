@@ -7,8 +7,9 @@ import {
 } from '../../lib/services/gps-api.js';
 import { getLiveDrivers } from '../../lib/services/admin-api.js';
 import { filterOperationalRows } from '../../lib/services/report-utils.js';
+import { AdminLayout } from './AdminLayout.jsx';
 
-export function AdminLiveDashboard() {
+export function AdminLiveDashboard({ onNav }) {
   const [state, setState] = useState({ loading: true, error: null, drivers: [] });
   const [filters, setFilters] = useState({ period: 'today', fromDate: '', toDate: '', campaign: 'all', group: '', status: 'all', driver: '' });
 
@@ -36,8 +37,13 @@ export function AdminLiveDashboard() {
   const offlineCount = visibleDrivers.filter((item) => item.status === 'offline').length;
   const activeCount = visibleDrivers.filter((item) => ['started', 'paused'].includes(item.session.status)).length;
 
+  const breadcrumbs = [
+    { label: "Dashboard", href: "/admin" },
+    { label: "GPS Live" }
+  ];
+
   return (
-    <AdminShell title="Monitor GPS Live" subtitle="Driver, campagne attive e storico operativo">
+    <AdminLayout title="Monitor GPS Live" subtitle="Driver, campagne attive e storico operativo" breadcrumbs={breadcrumbs} onNav={onNav}>
       {state.error && <Notice danger text={state.error} />}
       {offlineCount > 0 && <Notice danger text={`${offlineCount} driver offline o senza ping recente.`} />}
 
@@ -115,7 +121,7 @@ export function AdminLiveDashboard() {
           )) : <EmptyState text="Nessuna sessione attiva reale." />}
         </aside>
       </div>
-    </AdminShell>
+    </AdminLayout>
   );
 }
 
@@ -168,22 +174,6 @@ function DriverRow({ item }) {
   );
 }
 
-function AdminShell({ title, subtitle, children }) {
-  return (
-    <main style={shellStyle}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 22 }}>
-        <div>
-          <a href="/admin" style={{ color: '#e8571a', fontWeight: 900, textDecoration: 'none' }}>VolantiniPro Admin</a>
-          <h1 style={{ margin: '8px 0 4px', fontSize: 34, color: '#fff' }}>{title}</h1>
-          <p style={{ margin: 0, color: 'rgba(255,255,255,.55)' }}>{subtitle}</p>
-        </div>
-        <a href="/admin" style={navButtonStyle}>Dashboard Admin</a>
-      </header>
-      <div style={{ display: 'grid', gap: 16 }}>{children}</div>
-    </main>
-  );
-}
-
 function Kpi({ label, value, tone = 'orange' }) {
   return (
     <div style={cardStyle}>
@@ -226,7 +216,6 @@ function formatDateTime(value) {
   return value ? new Date(value).toLocaleString('it-IT') : 'n/d';
 }
 
-const shellStyle = { minHeight: '100vh', padding: 24, background: '#07100d', color: 'rgba(255,255,255,.72)', fontFamily: 'Inter, system-ui, sans-serif' };
 const cardStyle = { background: 'rgba(255,255,255,.045)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, padding: 16, boxShadow: '0 16px 42px rgba(0,0,0,.24)' };
 const kpiGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 };
 const layoutStyle = { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 340px', gap: 16 };
@@ -234,7 +223,6 @@ const filterGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit
 const labelStyle = { display: 'grid', gap: 6, fontSize: 12, fontWeight: 900, color: 'rgba(255,255,255,.55)' };
 const inputStyle = { border: '1px solid rgba(255,255,255,.1)', background: 'rgba(0,0,0,.25)', color: '#fff', borderRadius: 9, padding: '10px 11px', font: 'inherit' };
 const eyebrowStyle = { margin: '0 0 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: 'rgba(255,255,255,.42)', fontWeight: 900 };
-const navButtonStyle = { alignSelf: 'start', border: '1px solid rgba(255,255,255,.1)', borderRadius: 10, padding: '10px 13px', color: '#fff', textDecoration: 'none', fontWeight: 900 };
 const noticeStyle = { padding: 12, border: '1px solid', borderRadius: 10, background: 'rgba(255,255,255,.04)', fontWeight: 800 };
 const emptyStyle = { padding: 16, border: '1px dashed rgba(255,255,255,.14)', borderRadius: 10, color: 'rgba(255,255,255,.48)' };
 const badgeStyle = { border: '1px solid', borderRadius: 999, padding: '4px 8px', fontSize: 11, fontWeight: 900 };
