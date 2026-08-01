@@ -118,6 +118,8 @@ data/**/*.sqlite
 !supabase/migrations/20260731000001_reconcile_jwt_is_admin_profiles_role.sql
 !supabase/migrations/20260731010001_seed_driver_lan_test_assignment.sql
 !supabase/migrations/20260731020001_fix_proof_photos_rls.sql
+!supabase/migrations/20260801000001_add_zone_geometry_to_operator_campaign.sql
+!supabase/migrations/20260801000002_seed_driver_map_test_zone.sql
 !tests/fixtures/gps_prod_zone_progress_baseline.sql
 !tests/gps_prod_zone_progress_schema_contract.sql
 !tests/gps_prod_zone_progress_rpc_contract.sql
@@ -130,3 +132,4 @@ data/**/*.sqlite
 !tests/run_gps_prod_zone_progress_predeploy_contracts.ps1
 backup/
 backups/
+.vercel
