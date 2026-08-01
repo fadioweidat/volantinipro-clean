@@ -21,9 +21,9 @@ const QUOTE_PRICES = { d2d: 18.5, h2h: 22.0, b2b: 35.0 };
 const MAX_COMUNI = 3;
 
 const SERVICE_OPTIONS = [
-  { id: "d2d", label: "Door to Door", sub: "Cassette postali", icon: "mailbox", color: C.green },
-  { id: "h2h", label: "Hand to Hand", sub: "Promoter in strada", icon: "handshake", color: C.blue },
-  { id: "b2b", label: "Business Distribution", sub: "Attività ed uffici", icon: "building", color: C.purple },
+  { id: "d2d", label: "Door to Door", sub: "Cassette postali", icon: "mailbox" },
+  { id: "h2h", label: "Hand to Hand", sub: "Promoter in strada", icon: "handshake" },
+  { id: "b2b", label: "Business Distribution", sub: "Attività ed uffici", icon: "building" },
 ];
 
 const FORMAT_OPTIONS = [
@@ -302,6 +302,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
               {SERVICE_OPTIONS.map((opt) => {
                 const dt = distributionTypes.find((t) => t.id === opt.id);
                 const active = service === opt.id;
+                const svcColor = dt?.color || C.orange;
                 return (
                   <button
                     key={opt.id} type="button" onClick={() => setService(opt.id)}
@@ -309,13 +310,13 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                       position: "relative",
                       display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6,
                       padding: "14px", borderRadius: 12, cursor: "pointer", textAlign: "left",
-                      border: `${active ? 2 : 1.5}px solid ${active ? opt.color : "rgba(255,255,255,.12)"}`,
-                      background: active ? `${opt.color}22` : "rgba(255,255,255,.03)",
-                      boxShadow: active ? `0 10px 26px ${opt.color}28` : "none",
+                      border: `${active ? 2 : 1.5}px solid ${active ? svcColor : "rgba(255,255,255,.12)"}`,
+                      background: active ? `${svcColor}22` : "rgba(255,255,255,.03)",
+                      boxShadow: active ? `0 10px 26px ${svcColor}28` : "none",
                     }}
                   >
                     {active ? (
-                      <div style={{ position: "absolute", top: 8, right: 8, padding: "3px 8px", borderRadius: 999, background: "rgba(34,197,94,.14)", border: "1px solid rgba(34,197,94,.36)", color: C.green, fontFamily: F.sans, fontSize: 9, fontWeight: 800 }}>
+                      <div style={{ position: "absolute", top: 8, right: 8, padding: "3px 8px", borderRadius: 999, background: `${C.green}24`, border: `1px solid ${C.green}55`, color: C.green, fontFamily: F.sans, fontSize: 9, fontWeight: 800 }}>
                         ✓ Selezionato
                       </div>
                     ) : dt?.badge && (
@@ -323,8 +324,8 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                         {dt.badge}
                       </div>
                     )}
-                    <Step1Icon name={opt.icon} size={20} color={active ? opt.color : "rgba(255,255,255,.6)"} />
-                    <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: active ? opt.color : C.white }}>{opt.label}</span>
+                    <Step1Icon name={opt.icon} size={20} color={active ? svcColor : "rgba(255,255,255,.6)"} />
+                    <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: active ? svcColor : C.white }}>{opt.label}</span>
                     <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)" }}>{opt.sub}</span>
                     {dt?.target && (
                       <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.32)", lineHeight: 1.3 }}>{dt.target}</span>

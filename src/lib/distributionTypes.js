@@ -1,3 +1,5 @@
+import { C } from "./constants.js";
+
 // Unica fonte per i 3 tipi di distribuzione (Step1 e Preventivo Rapido).
 // Estratta da Step1 senza cambiare nessun valore.
 export const distributionTypes = [
@@ -7,14 +9,13 @@ export const distributionTypes = [
     code: "D2D",
     icon: "mailbox",
     badge: "Più richiesto",
-    badgeColor: "#22C55E",
     desc: "Distribuzione capillare in cassette postali, condomini, palazzi, villette e zone residenziali.",
     useCases: "Attività locali, nuove aperture, promozioni stagionali e volantini offerte.",
     benefits: "Copertura sistematica di tutte le famiglie della zona per un impatto visivo duraturo.",
     target: "Famiglie e residenti di quartiere",
     coverage: "Alta densità residenziale",
     time: "5–7 giorni lavorativi",
-    color: "#22C55E",
+    color: C.orange,
   },
   {
     id: "h2h",
@@ -22,14 +23,13 @@ export const distributionTypes = [
     code: "H2H",
     icon: "handshake",
     badge: "Alta Conversione",
-    badgeColor: "#60A5FA",
     desc: "Distribuzione manuale e diretta da parte di promoter qualificati in punti ad alto flusso pedonale.",
     useCases: "Eventi, inaugurazioni di negozi, palestre, promozioni immediate e flash.",
     benefits: "Contatto umano immediato e selezione visiva del target ideale.",
     target: "Passanti, studenti, pendolari e shopper",
     coverage: "Piazze, stazioni e vie nevralgiche",
     time: "Giornata / Fascia oraria mirata",
-    color: "#60A5FA",
+    color: C.teal,
   },
   {
     id: "b2b",
@@ -37,13 +37,12 @@ export const distributionTypes = [
     code: "B2B",
     icon: "building",
     badge: "Mirato B2B",
-    badgeColor: "#A78BFA",
     desc: "Consegna professionale e selezionata presso attività commerciali, uffici, studi e aziende.",
     useCases: "Servizi professionali, forniture B2B, convenzioni aziendali e settore Ho.Re.Ca.",
     benefits: "Consegna qualificata a reception o direttamente ai responsabili decisionali.",
     target: "Imprenditori, professionisti e commercianti",
     coverage: "Aree commerciali e centri direzionali",
     time: "3–5 giorni lavorativi",
-    color: "#A78BFA",
+    color: C.green,
   },
 ];
