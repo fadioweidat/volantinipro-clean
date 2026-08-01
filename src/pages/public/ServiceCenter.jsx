@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Step1Icon } from "../../components/Step1Icon.jsx";
 
 const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter, system-ui, sans-serif" };
 const C = {
@@ -364,6 +365,177 @@ function OutputCard({ out, svcCol, index }) {
   );
 }
 
+/* ─── QUOTE SELECTION HEADER ─── */
+function QuoteSelectionHeader({ onNav }) {
+  return (
+    <div style={{ background: `linear-gradient(180deg, #0B1020 0%, ${C.navy} 100%)`, padding: "52px 28px 64px", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <button
+          onClick={() => onNav("home")}
+          style={{ border: "none", background: "transparent", color: "rgba(255,255,255,.35)", fontFamily: F.sans, fontSize: 12, cursor: "pointer", padding: 0, marginBottom: 28 }}
+        >
+          ← Home
+        </button>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 50, gap: 20 }}>
+          <div>
+            <h1 style={{ fontFamily: F.serif, fontSize: "clamp(40px, 5vw, 64px)", color: C.white, letterSpacing: "-1.5px", lineHeight: 1.05, margin: 0 }}>
+              Richiedi un<br/>Preventivo
+            </h1>
+          </div>
+          <div style={{ maxWidth: 400 }}>
+            <p style={{ fontFamily: F.sans, fontSize: 18, color: "rgba(255,255,255,.6)", margin: 0, lineHeight: 1.5 }}>
+              Scegli il percorso più adatto alle esigenze della tua campagna.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 24 }}>
+          {/* Card 1: Preventivo Guidato */}
+          <motion.div
+            whileHover={{ y: -4, borderColor: "rgba(255,255,255,.15)" }}
+            transition={{ duration: 0.2 }}
+            style={{
+              background: "#121B2A",
+              borderRadius: 20,
+              padding: 32,
+              display: "flex",
+              flexDirection: "column",
+              border: "1px solid rgba(255,255,255,.06)",
+              position: "relative"
+            }}
+          >
+            <div style={{ position: "absolute", top: 24, right: 24, background: `${C.green}26`, color: C.green, padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 }}>
+              <Step1Icon name="star" size={12} /> Consigliato
+            </div>
+            <h3 style={{ fontFamily: F.serif, fontSize: 26, color: C.white, margin: "0 0 16px 0" }}>Preventivo Guidato</h3>
+            <p style={{ fontFamily: F.sans, fontSize: 15, color: "rgba(255,255,255,.65)", lineHeight: 1.6, margin: "0 0 32px 0" }}>
+              Configurazione completa in 4 Step con analisi territoriale, suggerimenti intelligenti e configurazione professionale.
+            </p>
+            <div style={{ background: "#0B101E", borderRadius: 16, padding: 24, marginBottom: 32, flex: 1 }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 8 }}>IDEALE PER</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 24 }}>Campagne complete e personalizzate</div>
+              <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 12 }}>INCLUDE</div>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+                {["Analisi territoriale", "Quantità consigliata", "Copertura stimata", "Servizi extra", "Configurazione completa"].map(item => (
+                  <li key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "rgba(255,255,255,.8)" }}>
+                    <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.green }} /> {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto" }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 4 }}>TEMPO MEDIO</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>3-5 minuti</div>
+              </div>
+              <button
+                onClick={() => onNav("step1")}
+                style={{ background: C.green, color: C.white, border: "none", padding: "12px 24px", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: `0 4px 14px ${C.green}30` }}
+              >
+                Inizia il percorso
+              </button>
+            </div>
+          </motion.div>
+
+          {/* Card 2: Preventivo Rapido */}
+          <motion.div
+            whileHover={{ y: -4, borderColor: "rgba(255,255,255,.15)" }}
+            transition={{ duration: 0.2 }}
+            style={{
+              background: "#121B2A",
+              borderRadius: 20,
+              padding: 32,
+              display: "flex",
+              flexDirection: "column",
+              border: "1px solid rgba(255,255,255,.06)",
+              position: "relative"
+            }}
+          >
+            <div style={{ position: "absolute", top: 24, right: 24, background: `${C.orange}26`, color: C.orange, padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 }}>
+              <Step1Icon name="lightning" size={12} /> Più veloce
+            </div>
+            <h3 style={{ fontFamily: F.serif, fontSize: 26, color: C.white, margin: "0 0 16px 0" }}>Preventivo Rapido</h3>
+            <p style={{ fontFamily: F.sans, fontSize: 15, color: "rgba(255,255,255,.65)", lineHeight: 1.6, margin: "0 0 32px 0" }}>
+              Ricevi una stima immediata inserendo solo le informazioni essenziali.
+            </p>
+            <div style={{ background: "#0B101E", borderRadius: 16, padding: 24, marginBottom: 32, flex: 1 }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 8 }}>IDEALE PER</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 24 }}>Chi conosce già servizio, zona e quantità.</div>
+              <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 12 }}>INCLUDE</div>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+                {["Prezzo stimato", "Tempo indicativo", "Preventivo immediato", "Fino a 3 comuni", "Servizi extra opzionali"].map(item => (
+                  <li key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "rgba(255,255,255,.8)" }}>
+                    <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.orange }} /> {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto" }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 4 }}>TEMPO MEDIO</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>Meno di 1 minuto</div>
+              </div>
+              <button
+                onClick={() => onNav("quick")}
+                style={{ background: "transparent", color: C.white, border: "1px solid rgba(255,255,255,.2)", padding: "12px 24px", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer" }}
+              >
+                Calcola subito
+              </button>
+            </div>
+          </motion.div>
+
+          {/* Card 3: Consulenza Personalizzata */}
+          <motion.div
+            whileHover={{ y: -4, borderColor: "rgba(255,255,255,.15)" }}
+            transition={{ duration: 0.2 }}
+            style={{
+              background: "#121B2A",
+              borderRadius: 20,
+              padding: 32,
+              display: "flex",
+              flexDirection: "column",
+              border: "1px solid rgba(255,255,255,.06)",
+              position: "relative"
+            }}
+          >
+            <div style={{ position: "absolute", top: 24, right: 24, background: `${C.blue}26`, color: C.blue, padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 }}>
+              <Step1Icon name="user" size={12} /> Supporto dedicato
+            </div>
+            <h3 style={{ fontFamily: F.serif, fontSize: 26, color: C.white, margin: "0 0 16px 0" }}>Consulenza Personalizzata</h3>
+            <p style={{ fontFamily: F.sans, fontSize: 15, color: "rgba(255,255,255,.65)", lineHeight: 1.6, margin: "0 0 32px 0" }}>
+              Parla con un consulente VolantiniPro per costruire la soluzione migliore per la tua campagna.
+            </p>
+            <div style={{ background: "#0B101E", borderRadius: 16, padding: 24, marginBottom: 32, flex: 1 }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 8 }}>IDEALE PER</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 24 }}>Aziende, Franchising, Multi città, Campagne personalizzate</div>
+              <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 12 }}>INCLUDE</div>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+                {["Preventivo su misura", "Analisi della richiesta", "Pianificazione campagna", "Supporto dedicato", "WhatsApp, Email, Telefono"].map(item => (
+                  <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "rgba(255,255,255,.8)" }}>
+                    <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.blue, marginTop: 8 }} /> {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto" }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px", marginBottom: 4 }}>TEMPO MEDIO</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>Risposta in 24h</div>
+              </div>
+              <button
+                onClick={() => onNav("consultant")}
+                style={{ background: "transparent", color: C.white, border: "1px solid rgba(255,255,255,.2)", padding: "12px 24px", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer" }}
+              >
+                Contattaci
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── MAIN PAGE ─── */
 export default function ServiceCenter({ onNav }) {
   const [active, setActive] = useState("d2d");
@@ -373,21 +545,17 @@ export default function ServiceCenter({ onNav }) {
   return (
     <div style={{ minHeight: "100vh", background: C.navy, paddingBottom: 80 }}>
 
-      {/* HEADER */}
-      <div style={{ background: `linear-gradient(180deg, #080E1A 0%, ${C.navy} 100%)`, padding: "52px 28px 44px", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
+      <QuoteSelectionHeader onNav={onNav} />
+
+      {/* HEADER - ORIGINAL (Service Center features) */}
+      <div style={{ background: C.navy, padding: "52px 28px 44px", borderBottom: "1px solid rgba(255,255,255,.05)", borderTop: "1px solid rgba(255,255,255,.05)" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <button
-            onClick={() => onNav("home")}
-            style={{ border: "none", background: "transparent", color: "rgba(255,255,255,.35)", fontFamily: F.sans, fontSize: 12, cursor: "pointer", padding: 0, marginBottom: 28 }}
-          >
-            ← Home
-          </button>
           <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, color: C.orange, textTransform: "uppercase", letterSpacing: ".12em", marginBottom: 14 }}>
             Servizi VolantiniPro
           </div>
-          <h1 style={{ fontFamily: F.serif, fontSize: "clamp(26px,5vw,46px)", color: C.white, letterSpacing: "-1.5px", lineHeight: 1.06, margin: "0 0 14px" }}>
+          <h2 style={{ fontFamily: F.serif, fontSize: "clamp(26px,5vw,46px)", color: C.white, letterSpacing: "-1.5px", lineHeight: 1.06, margin: "0 0 14px" }}>
             Cosa ricevi con ogni servizio
-          </h1>
+          </h2>
           <p style={{ fontFamily: F.sans, fontSize: 15, color: "rgba(255,255,255,.5)", lineHeight: 1.65, maxWidth: 580, margin: 0 }}>
             Seleziona un servizio per vedere tutti gli output reali che produce: report, mappe, GPS, foto, heatmap e tutto ciò che trovi nel tuo portale cliente.
           </p>
