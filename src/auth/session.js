@@ -1,10 +1,16 @@
 export function getSupabaseEnv() {
-  const env = (typeof import.meta !== "undefined" && import.meta.env) || {};
-  const nodeEnv = (typeof process !== "undefined" && process.env) || {};
-  return {
-    url: env.VITE_SUPABASE_URL || nodeEnv.VITE_SUPABASE_URL || "",
-    anonKey: env.VITE_SUPABASE_ANON_KEY || nodeEnv.VITE_SUPABASE_ANON_KEY || ""
-  };
+  let url = "";
+  let anonKey = "";
+  try {
+    url = import.meta.env.VITE_SUPABASE_URL || "";
+    anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+  } catch (e) {
+    if (typeof process !== "undefined" && process.env) {
+      url = process.env.VITE_SUPABASE_URL || "";
+      anonKey = process.env.VITE_SUPABASE_ANON_KEY || "";
+    }
+  }
+  return { url, anonKey };
 }
 
 export function hasSupabaseConfig() {

@@ -32,14 +32,19 @@ export function buildServiceAnalysisRequest({
     canonicalCodes
   ].join("|");
 
-  const baseUrl = (typeof import.meta !== "undefined" && import.meta.env ? (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_SUPABASE_URL) : null) ||
-    (typeof process !== "undefined" && process.env ? (process.env.VITE_API_BASE_URL || process.env.VITE_SUPABASE_URL) : null);
-    
+  let baseUrl = null;
+  let explicitUrl = null;
+  try {
+    baseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_SUPABASE_URL;
+    explicitUrl = service === 'd2d' ? import.meta.env.VITE_ANALYSIS_ISTAT_URL : import.meta.env.VITE_ANALYSIS_POI_URL;
+  } catch (e) {
+    if (typeof process !== "undefined" && process.env) {
+      baseUrl = process.env.VITE_API_BASE_URL || process.env.VITE_SUPABASE_URL;
+      explicitUrl = service === 'd2d' ? process.env.VITE_ANALYSIS_ISTAT_URL : process.env.VITE_ANALYSIS_POI_URL;
+    }
+  }
+
   const endpoint = service === 'd2d' ? 'analysis-istat' : 'analysis-poi-search';
-  
-  const explicitUrl = (typeof import.meta !== "undefined" && import.meta.env ? (service === 'd2d' ? import.meta.env.VITE_ANALYSIS_ISTAT_URL : import.meta.env.VITE_ANALYSIS_POI_URL) : null) ||
-    (typeof process !== "undefined" && process.env ? (service === 'd2d' ? process.env.VITE_ANALYSIS_ISTAT_URL : process.env.VITE_ANALYSIS_POI_URL) : null);
-    
   const functionUrl = baseUrl ? `${baseUrl}/functions/v1/${endpoint}` : null;
   const apiUrl = explicitUrl || functionUrl;
 

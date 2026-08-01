@@ -74,7 +74,14 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
       setError(null);
 
       try {
-        const anonKey = (typeof import.meta !== "undefined" && import.meta.env ? import.meta.env.VITE_SUPABASE_ANON_KEY : null) || (typeof process !== "undefined" && process.env ? process.env.VITE_SUPABASE_ANON_KEY : null);
+        let anonKey = null;
+        try {
+          anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        } catch (e) {
+          if (typeof process !== "undefined" && process.env) {
+            anonKey = process.env.VITE_SUPABASE_ANON_KEY;
+          }
+        }
 
         if (!url) {
           setError("ANALYSIS_BACKEND_NOT_CONFIGURED");

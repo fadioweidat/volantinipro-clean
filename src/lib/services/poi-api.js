@@ -1,8 +1,17 @@
 // Real POI data from OpenStreetMap via Overpass API.
 // No API key required. Respects the /api/analysis/poi-search GeoJSON contract.
 
+let overpassEnv = null;
+try {
+  overpassEnv = import.meta.env.VITE_OVERPASS_ENDPOINT;
+} catch (e) {
+  if (typeof process !== "undefined" && process.env) {
+    overpassEnv = process.env.VITE_OVERPASS_ENDPOINT;
+  }
+}
+
 const OVERPASS_ENDPOINTS = [
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_OVERPASS_ENDPOINT) || null,
+  overpassEnv || null,
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass-api.de/api/interpreter',
 ].filter(Boolean);
