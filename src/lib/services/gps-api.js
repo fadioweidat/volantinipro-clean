@@ -1,11 +1,27 @@
-import { supabase } from '../../supabaseClient.js';
+import { supabase, ensureSupabaseSessionBridge } from '../../supabaseClient.js';
 
 const RETRY_DELAYS_MS = [800, 1800, 4000];
 const GPS_DRIVER_MISMATCH_MESSAGE = 'Il driver autenticato non corrisponde alla sessione GPS.';
 
+// Il login (LoginPage/consumeSupabaseAuthHash) salva la sessione nel formato
+// REST leggero (localStorage "vp_supabase_session"), non nel client SDK
+// ufficiale usato da questo modulo: senza bridge esplicito client.auth.getUser()
+// resta sempre non autenticato anche subito dopo un login riuscito, con lo
+// stesso identico sintomo "Autenticazione Supabase non disponibile" osservato
+// sul flusso Driver. Stesso bridge gia' usato da TerritorialReport.jsx.
 async function requireSupabase() {
   if (!supabase) throw new Error('Supabase non configurato.');
+  await ensureSupabaseSessionBridge();
   return supabase;
+}
+
+// Verifica leggera "c'e' una sessione Supabase?" senza sollevare eccezioni:
+// usata dalla UI (TrackingPage) per distinguere "nessun login" (mostra CTA di
+// accesso) da altri errori (assegnazione mancante, operatore sospeso, ...).
+export async function hasSupabaseSession() {
+  const client = await requireSupabase();
+  const { data, error } = await client.auth.getUser();
+  return Boolean(!error && data?.user?.id);
 }
 
 async function getCurrentUser() {
@@ -294,17 +310,21 @@ export async function getCampaignProofPhotos(campaignId, { approvedOnly = false 
   return data || [];
 }
 
-// Path deterministico per campagna/sessione: chiunque conosca solo l'id
-// campagna non puo' indovinare quello di un'altra sessione/autista, e due
-// scatti dello stesso autista non si sovrascrivono mai (timestamp + id
-// casuale). Nessuna service-role qui: usa la stessa sessione client-side
-// gia' autenticata di tutto il resto di questo modulo.
-export function buildProofPhotoStoragePath({ campaignId, sessionId, driverId }) {
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const randomId = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`).slice(0, 8);
-  const sessionSegment = sessionId && isValidUuid(sessionId) ? sessionId : 'no-session';
-  const driverSegment = driverId || 'unknown-driver';
-  return `${campaignId}/${sessionSegment}/${driverSegment}/${stamp}-${randomId}.jpg`;
+// Path che deve combaciare ESATTAMENTE con la policy RLS
+// proof_photos_storage_insert_authorized su storage.objects (gia' in
+// produzione): campaign/<campaignId>/session/<sessionId>/photo/<uuid>.ext.
+// La policy risolve <sessionId> su delivery_sessions per verificare
+// driver_id/status/assignment validi, quindi una sessione GPS attiva e'
+// obbligatoria per caricare una foto — qualunque altro formato di path
+// (incluso quello precedente, senza i segmenti letterali "campaign"/
+// "session"/"photo") viene negato dalla policy con 403, indipendentemente
+// dai permessi sulla riga proof_photos.
+export function buildProofPhotoStoragePath({ campaignId, sessionId }) {
+  if (!isValidUuid(sessionId)) {
+    throw permanentGpsError('assignment_missing', new Error('Sessione GPS attiva richiesta per caricare una foto prova.'));
+  }
+  const photoId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `campaign/${campaignId}/session/${sessionId}/photo/${photoId}.jpg`;
 }
 
 // Carica una foto POD gia' compressa/watermarkata (blob JPEG) nel bucket

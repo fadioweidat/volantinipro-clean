@@ -6,7 +6,10 @@ import {
   parseSupabaseAuthHashError,
   clearSupabaseAuthHashError,
   rememberPendingAuthContext,
-  clearPendingAuthContext
+  clearPendingAuthContext,
+  rememberPendingAuthReturnPath,
+  readPendingAuthReturnPath,
+  clearPendingAuthReturnPath
 } from "./src/auth/session.js";
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
@@ -4973,14 +4976,24 @@ export function LoginPage({
   } = getSupabaseEnv();
   const configured = Boolean(url && anonKey);
   const isAdminContext = context === "admin";
-  const redirectPath = isAdminContext ? "/login?context=admin" : "/login?context=customer";
+  const isDriverContext = context === "driver";
+  const redirectPath = isAdminContext ? "/login?context=admin" : isDriverContext ? "/login?context=driver" : "/login?context=customer";
 
   useEffect(() => {
     if (window.location.hash.includes("access_token")) {
-      const cleanPath = isAdminContext ? "/admin" : "/dashboard";
+      const driverReturnPath = isDriverContext ? (readPendingAuthReturnPath() || "/") : null;
+      const cleanPath = isAdminContext ? "/admin" : isDriverContext ? driverReturnPath : "/dashboard";
       const session = consumeSupabaseAuthHash(cleanPath);
       if (session) {
         clearPendingAuthContext();
+        if (isDriverContext) {
+          // /driver/tracking/* e' un entry point standalone fuori da
+          // AppRouter (src/main.jsx), quindi il ritorno richiede una
+          // navigazione reale del browser e non onNav/goTo.
+          clearPendingAuthReturnPath();
+          window.location.href = driverReturnPath;
+          return;
+        }
         onNav(isAdminContext ? "admin" : "dashboard");
       }
       return;
@@ -4988,10 +5001,12 @@ export function LoginPage({
     const hashError = parseSupabaseAuthHashError();
     if (hashError) {
       setAuthError(hashError);
-      clearSupabaseAuthHashError(isAdminContext ? "/login?context=admin" : "/login?context=customer");
+      clearSupabaseAuthHashError(isAdminContext ? "/login?context=admin" : isDriverContext ? "/login?context=driver" : "/login?context=customer");
       clearPendingAuthContext();
+      // vp_pending_auth_return_path resta: un nuovo tentativo di magic link
+      // deve ancora sapere dove tornare (vedi sendMagicLink sotto).
     }
-  }, [isAdminContext, onNav]);
+  }, [isAdminContext, isDriverContext, onNav]);
 
   const sendMagicLink = async e => {
     e.preventDefault();
@@ -5010,7 +5025,11 @@ export function LoginPage({
     // {SITE_URL}#error=... senza onorare redirect_to: memorizza qui il
     // context scelto ora, cosi' la pagina di login puo' ripristinarlo anche
     // in quel caso.
-    rememberPendingAuthContext(isAdminContext ? "admin" : "customer");
+    rememberPendingAuthContext(isAdminContext ? "admin" : isDriverContext ? "driver" : "customer");
+    if (isDriverContext) {
+      const returnTo = new URLSearchParams(window.location.search).get("returnTo");
+      if (returnTo) rememberPendingAuthReturnPath(returnTo);
+    }
     try {
       const res = await fetch(`${url}/auth/v1/otp`, {
         method: "POST",
@@ -5029,7 +5048,7 @@ export function LoginPage({
         })
       });
       if (!res.ok) throw new Error("magic_link_failed");
-      setStatus(isAdminContext ? "Magic link inviato. Controlla la tua email per entrare nella dashboard admin." : "Magic link inviato. Controlla la tua email per entrare nella dashboard.");
+      setStatus(isAdminContext ? "Magic link inviato. Controlla la tua email per entrare nella dashboard admin." : isDriverContext ? "Magic link inviato. Controlla la tua email per accedere come operatore." : "Magic link inviato. Controlla la tua email per entrare nella dashboard.");
     } catch {
       setStatus("Non sono riuscito a inviare il magic link. Verifica chiavi Supabase e redirect URL.");
     } finally {
@@ -5058,7 +5077,7 @@ export function LoginPage({
         letterSpacing: ".14em",
         textTransform: "uppercase",
         marginBottom: 12
-      }}>{isAdminContext ? "Accesso admin" : "Accesso cliente"}</div>
+      }}>{isAdminContext ? "Accesso admin" : isDriverContext ? "Accesso operatore" : "Accesso cliente"}</div>
         <h1 style={{
         fontFamily: F.serif,
         fontSize: 34,

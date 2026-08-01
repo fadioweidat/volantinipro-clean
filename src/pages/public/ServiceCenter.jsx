@@ -193,7 +193,7 @@ const SERVICES = [
     id: "h2h",
     name: "Hand to Hand",
     icon: "🤝",
-    col: C.blue,
+    col: C.teal,
     sub: "Distribuzione diretta mano a mano",
     outputs: [
       {
@@ -258,7 +258,7 @@ const SERVICES = [
     id: "biz",
     name: "Business Distribution",
     icon: "🏢",
-    col: C.purple,
+    col: C.green,
     sub: "Distribuzione mirata a imprese e attività",
     outputs: [
       {
@@ -351,12 +351,12 @@ function OutputCard({ out, svcCol, index }) {
 
       {/* Chart */}
       <div style={{ display: "flex", justifyContent: "center", padding: "4px 0" }}>
-        <MiniChart type={out.chart} col={out.col} id={`${out.name}-${index}`} />
+        <MiniChart type={out.chart} col={svcCol} id={`${out.name}-${index}`} />
       </div>
 
       {/* Benefit */}
-      <div style={{ padding: "12px 14px", borderRadius: 10, background: `${out.col}0d`, border: `1px solid ${out.col}28`, display: "flex", gap: 10, alignItems: "flex-start" }}>
-        <span style={{ color: out.col, fontSize: 14, lineHeight: 1, flexShrink: 0, marginTop: 1 }}>💡</span>
+      <div style={{ padding: "12px 14px", borderRadius: 10, background: `${svcCol}0d`, border: `1px solid ${svcCol}28`, display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <span style={{ color: svcCol, fontSize: 14, lineHeight: 1, flexShrink: 0, marginTop: 1 }}>💡</span>
         <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.72)", lineHeight: 1.6 }}>
           {out.benefit}
         </div>
@@ -376,17 +376,13 @@ function QuoteSelectionHeader({ onNav }) {
         >
           ← Home
         </button>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 50, gap: 20 }}>
-          <div>
-            <h1 style={{ fontFamily: F.serif, fontSize: "clamp(40px, 5vw, 64px)", color: C.white, letterSpacing: "-1.5px", lineHeight: 1.05, margin: 0 }}>
-              Richiedi un<br/>Preventivo
-            </h1>
-          </div>
-          <div style={{ maxWidth: 400 }}>
-            <p style={{ fontFamily: F.sans, fontSize: 18, color: "rgba(255,255,255,.6)", margin: 0, lineHeight: 1.5 }}>
-              Scegli il percorso più adatto alle esigenze della tua campagna.
-            </p>
-          </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: 50, gap: 16 }}>
+          <h1 style={{ fontFamily: F.serif, fontSize: "clamp(40px, 5vw, 64px)", color: C.white, letterSpacing: "-1.5px", lineHeight: 1.05, margin: 0 }}>
+            Richiedi un Preventivo
+          </h1>
+          <p style={{ fontFamily: F.sans, fontSize: 18, color: "rgba(255,255,255,.6)", margin: 0, lineHeight: 1.5, maxWidth: 500 }}>
+            Scegli il percorso più adatto alle esigenze della tua campagna.
+          </p>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 24 }}>
@@ -404,7 +400,7 @@ function QuoteSelectionHeader({ onNav }) {
               position: "relative"
             }}
           >
-            <div style={{ position: "absolute", top: 24, right: 24, background: `${C.green}26`, color: C.green, padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ position: "absolute", top: 24, right: 24, background: "transparent", color: "rgba(255,255,255,.7)", border: "1px solid rgba(255,255,255,.2)", padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 }}>
               <Step1Icon name="star" size={12} /> Consigliato
             </div>
             <h3 style={{ fontFamily: F.serif, fontSize: 26, color: C.white, margin: "0 0 16px 0" }}>Preventivo Guidato</h3>
@@ -430,7 +426,7 @@ function QuoteSelectionHeader({ onNav }) {
               </div>
               <button
                 onClick={() => onNav("step1")}
-                style={{ background: C.green, color: C.white, border: "none", padding: "12px 24px", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: `0 4px 14px ${C.green}30` }}
+                style={{ background: C.indigo, color: C.white, border: "none", padding: "12px 24px", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: `0 4px 14px ${C.indigo}40` }}
               >
                 Inizia il percorso
               </button>
@@ -451,7 +447,7 @@ function QuoteSelectionHeader({ onNav }) {
               position: "relative"
             }}
           >
-            <div style={{ position: "absolute", top: 24, right: 24, background: `${C.orange}26`, color: C.orange, padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ position: "absolute", top: 24, right: 24, background: "transparent", color: "rgba(255,255,255,.7)", border: "1px solid rgba(255,255,255,.2)", padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 }}>
               <Step1Icon name="lightning" size={12} /> Più veloce
             </div>
             <h3 style={{ fontFamily: F.serif, fontSize: 26, color: C.white, margin: "0 0 16px 0" }}>Preventivo Rapido</h3>
@@ -498,7 +494,7 @@ function QuoteSelectionHeader({ onNav }) {
               position: "relative"
             }}
           >
-            <div style={{ position: "absolute", top: 24, right: 24, background: `${C.blue}26`, color: C.blue, padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ position: "absolute", top: 24, right: 24, background: "transparent", color: "rgba(255,255,255,.7)", border: "1px solid rgba(255,255,255,.2)", padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, fontFamily: F.sans, display: "flex", alignItems: "center", gap: 6 }}>
               <Step1Icon name="user" size={12} /> Supporto dedicato
             </div>
             <h3 style={{ fontFamily: F.serif, fontSize: 26, color: C.white, margin: "0 0 16px 0" }}>Consulenza Personalizzata</h3>
@@ -633,7 +629,7 @@ export default function ServiceCenter({ onNav }) {
         </AnimatePresence>
 
         {/* CTA */}
-        <div style={{ padding: "36px 32px", borderRadius: 18, background: "linear-gradient(135deg, rgba(232,87,26,.1) 0%, rgba(99,102,241,.07) 100%)", border: "1px solid rgba(232,87,26,.2)", display: "flex", flexDirection: "column", alignItems: "center", gap: 14, textAlign: "center" }}>
+        <div style={{ padding: "36px 32px", borderRadius: 18, background: `linear-gradient(135deg, ${svc.col}1a 0%, rgba(99,102,241,.07) 100%)`, border: `1px solid ${svc.col}33`, display: "flex", flexDirection: "column", alignItems: "center", gap: 14, textAlign: "center" }}>
           <div style={{ fontFamily: F.serif, fontSize: "clamp(18px,3.5vw,28px)", color: C.white, letterSpacing: "-1px" }}>
             Pronto a ricevere questi output?
           </div>
@@ -642,7 +638,7 @@ export default function ServiceCenter({ onNav }) {
           </div>
           <button
             onClick={() => onNav("step1")}
-            style={{ padding: "14px 36px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)", color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: "0 6px 24px rgba(232,87,26,.32)" }}
+            style={{ padding: "14px 36px", borderRadius: 10, border: "none", background: svc.col, color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: `0 6px 24px ${svc.col}50` }}
           >
             Configura {svc.name} →
           </button>

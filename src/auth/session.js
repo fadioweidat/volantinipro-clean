@@ -169,3 +169,39 @@ export function clearPendingAuthContext() {
     // no-op
   }
 }
+
+// Percorso a cui tornare dopo il login (es. /driver/tracking/<campaignId>):
+// necessario perche' /driver/tracking/* e' un entry point standalone fuori
+// da AppRouter (vedi src/main.jsx), quindi il ritorno dopo il magic link non
+// puo' passare per goTo/onNav ma richiede una navigazione reale del browser.
+// Stesso motivo e stesso storage di rememberPendingAuthContext: localStorage,
+// non sessionStorage, per sopravvivere all'apertura del link email in una
+// nuova tab.
+const PENDING_AUTH_RETURN_PATH_KEY = "vp_pending_auth_return_path";
+
+export function rememberPendingAuthReturnPath(path) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(PENDING_AUTH_RETURN_PATH_KEY, path);
+  } catch {
+    // storage non disponibile: degrada al fallback "/" del chiamante.
+  }
+}
+
+export function readPendingAuthReturnPath() {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(PENDING_AUTH_RETURN_PATH_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingAuthReturnPath() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(PENDING_AUTH_RETURN_PATH_KEY);
+  } catch {
+    // no-op
+  }
+}

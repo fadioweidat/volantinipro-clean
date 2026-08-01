@@ -5,26 +5,29 @@ import test from "node:test";
 import { buildProofPhotoStoragePath } from "../src/lib/services/gps-api.js";
 
 test("buildProofPhotoStoragePath", async (t) => {
-  await t.test("include campagna, sessione e autista nel path (deterministico)", () => {
+  // Il path deve combaciare ESATTAMENTE con la policy RLS
+  // proof_photos_storage_insert_authorized su storage.objects: segmenti
+  // letterali "campaign"/"session"/"photo" e un uuid v4 come nome file,
+  // altrimenti la policy nega l'upload con 403 indipendentemente dai
+  // permessi sulla riga proof_photos.
+  await t.test("segue il formato campaign/<id>/session/<id>/photo/<uuid>.jpg richiesto dalla policy storage", () => {
     const path = buildProofPhotoStoragePath({
       campaignId: "11111111-1111-4111-8111-111111111111",
       sessionId: "22222222-2222-4222-8222-222222222222",
-      driverId: "33333333-3333-4333-8333-333333333333",
     });
-    assert.ok(path.startsWith("11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222/33333333-3333-4333-8333-333333333333/"));
-    assert.match(path, /\.jpg$/);
+    assert.match(
+      path,
+      /^campaign\/11111111-1111-4111-8111-111111111111\/session\/22222222-2222-4222-8222-222222222222\/photo\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.jpg$/,
+    );
   });
 
-  await t.test("sessionId assente o non valido -> segmento 'no-session', mai vuoto", () => {
-    const withoutSession = buildProofPhotoStoragePath({ campaignId: "11111111-1111-4111-8111-111111111111", sessionId: null, driverId: "d1" });
-    assert.match(withoutSession, /^11111111-1111-4111-8111-111111111111\/no-session\/d1\//);
-
-    const withInvalidSession = buildProofPhotoStoragePath({ campaignId: "11111111-1111-4111-8111-111111111111", sessionId: "not-a-uuid", driverId: "d1" });
-    assert.match(withInvalidSession, /^11111111-1111-4111-8111-111111111111\/no-session\/d1\//);
+  await t.test("sessionId assente o non valido -> fallisce chiuso (nessuna sessione GPS attiva = nessun upload possibile)", () => {
+    assert.throws(() => buildProofPhotoStoragePath({ campaignId: "11111111-1111-4111-8111-111111111111", sessionId: null }));
+    assert.throws(() => buildProofPhotoStoragePath({ campaignId: "11111111-1111-4111-8111-111111111111", sessionId: "not-a-uuid" }));
   });
 
   await t.test("due chiamate ravvicinate producono path diversi (nessuna sovrascrittura silenziosa)", () => {
-    const args = { campaignId: "11111111-1111-4111-8111-111111111111", sessionId: "22222222-2222-4222-8222-222222222222", driverId: "d1" };
+    const args = { campaignId: "11111111-1111-4111-8111-111111111111", sessionId: "22222222-2222-4222-8222-222222222222" };
     const first = buildProofPhotoStoragePath(args);
     const second = buildProofPhotoStoragePath(args);
     assert.notEqual(first, second);

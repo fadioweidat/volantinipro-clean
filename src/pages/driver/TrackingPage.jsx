@@ -5,19 +5,53 @@ import {
   createProofPhotoSignedUrl,
   getCampaignProofPhotos,
   getCurrentOperatorProfile,
+  hasSupabaseSession,
 } from '../../lib/services/gps-api.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
+import { rememberPendingAuthContext, rememberPendingAuthReturnPath } from '../../auth/session.js';
 
 function resolveOperatorDisplayName(profile) {
   if (!profile) return null;
   return profile.full_name || profile.fullName || profile.name || profile.display_name || profile.displayName || null;
 }
 
+function goToDriverLogin(campaignId) {
+  rememberPendingAuthContext('driver');
+  rememberPendingAuthReturnPath(`/driver/tracking/${campaignId}`);
+  // /driver/tracking/* e' un entry point standalone fuori da AppRouter
+  // (src/main.jsx): serve una navigazione reale, non goTo/onNav.
+  window.location.href = '/login?context=driver';
+}
+
+function DriverLoginGate({ campaignId }) {
+  return (
+    <GpsShell title="Accesso operatore richiesto" subtitle={`Campagna ${campaignId}`}>
+      <section style={cardStyle}>
+        <p style={{ margin: '0 0 14px', color: '#475569' }}>
+          Per usare il tracking GPS e caricare le foto prova devi accedere con il tuo account operatore.
+        </p>
+        <button style={primaryButtonStyle} type="button" onClick={() => goToDriverLogin(campaignId)}>
+          Accedi come operatore
+        </button>
+      </section>
+    </GpsShell>
+  );
+}
+
 export function TrackingPage({ campaignId }) {
+  const [authState, setAuthState] = useState({ checking: true, authenticated: false });
   const tracking = useGpsTracking(campaignId);
   const [uploadState, setUploadState] = useState({ loading: false, message: null, error: null });
   const [driverName, setDriverName] = useState(null);
   const [photosState, setPhotosState] = useState({ loading: true, error: null, photos: [] });
+
+  useEffect(() => {
+    let cancelled = false;
+    hasSupabaseSession()
+      .then((authenticated) => { if (!cancelled) setAuthState({ checking: false, authenticated }); })
+      .catch(() => { if (!cancelled) setAuthState({ checking: false, authenticated: false }); });
+    return () => { cancelled = true; };
+  }, [campaignId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +103,20 @@ export function TrackingPage({ campaignId }) {
     } catch (err) {
       setUploadState({ loading: false, message: null, error: err?.message || 'Operazione non riuscita.' });
     }
+  }
+
+  if (authState.checking) {
+    return (
+      <GpsShell title="Tracking distribuzione" subtitle={`Campagna ${campaignId}`}>
+        <section style={cardStyle}>
+          <p style={{ margin: 0, color: '#64748b' }}>Verifica accesso in corso...</p>
+        </section>
+      </GpsShell>
+    );
+  }
+
+  if (!authState.authenticated) {
+    return <DriverLoginGate campaignId={campaignId} />;
   }
 
   return (

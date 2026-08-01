@@ -68,6 +68,7 @@ export function AppRouter() {
     if (p.includes("privacy")) return "privacy";
     if (p.includes("termini") || p.includes("terms")) return "terms";
     if (p.includes("cookie-policy") || p.includes("cookie")) return "cookie";
+    if (p.includes("preventivo") && !p.includes("preventivo-rapido")) return "preventivo";
     if (p.includes("preventivo-rapido")) return "quick";
     if (p.includes("consulente")) return "consultant";
     if (p.includes("configuratore") || prefill.has) {
@@ -134,7 +135,7 @@ export function AppRouter() {
       home: "/", login: "/login", dashboard: "/dashboard",
       campaign: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}${prefillPatch?.new ? "?nuovo=true" : ""}` : "/dashboard",
       payment: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}/pagamento` : "/dashboard",
-      privacy: "/privacy", terms: "/termini", cookie: "/cookie-policy", quick: "/preventivo-rapido",
+      privacy: "/privacy", terms: "/termini", cookie: "/cookie-policy", quick: "/preventivo-rapido", preventivo: "/preventivo",
       consultant: "/consulente", step1: "/configuratore", step2: "/configuratore", step3: "/configuratore",
       step4: "/configuratore", admin: "/admin", "admin-live": "/admin/live"
     };
@@ -175,11 +176,18 @@ export function AppRouter() {
   // porta la query originale, quindi si ricade sul context "ricordato" al
   // momento dell'invio del magic link (vedi rememberPendingAuthContext).
   const queryContext = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("context") : null;
+  const pendingAuthContext = (hasSupabaseAuthHashError() || hasSupabaseAuthHashToken()) ? readPendingAuthContext() : null;
   const loginContext = queryContext === "admin"
     ? "admin"
     : queryContext === "customer"
       ? "customer"
-      : ((hasSupabaseAuthHashError() || hasSupabaseAuthHashToken()) && readPendingAuthContext() === "admin") ? "admin" : "customer";
+      : queryContext === "driver"
+        ? "driver"
+        : pendingAuthContext === "admin"
+          ? "admin"
+          : pendingAuthContext === "driver"
+            ? "driver"
+            : "customer";
 
   return (
     <div style={{ fontFamily: F.sans, minHeight: "100vh", background: C.navyMid }}>

@@ -16,7 +16,7 @@ export function PublicRoutes({ page, data, setData, goTo, prefillPatch }) {
   if (page === "cookie") return <LegalPage type="cookie" onNav={goTo} />;
   if (page === "quick") return <QuickQuotePage onStart={goTo} onContact={goTo} />;
   if (page === "consultant") return <ConsultantPage onStart={goTo} />;
-  if (page === "service-center") return <ServiceCenter onNav={goTo} />;
+  if (page === "preventivo") return <ServiceCenter onNav={goTo} />;
   
   if (page === "step1") return <Step1 data={data} setData={setData} onNext={() => goTo("step2")} />;
   if (page === "step2") return <Step2 data={data} setData={setData} onNext={() => goTo("step3")} onBack={() => goTo("step1")} />;
