@@ -117,6 +117,7 @@ data/**/*.sqlite
 !supabase/migrations/031_fix_gps_geom_trigger_search_path.sql
 !supabase/migrations/20260731000001_reconcile_jwt_is_admin_profiles_role.sql
 !supabase/migrations/20260731010001_seed_driver_lan_test_assignment.sql
+!supabase/migrations/20260731020001_fix_proof_photos_rls.sql
 !tests/fixtures/gps_prod_zone_progress_baseline.sql
 !tests/gps_prod_zone_progress_schema_contract.sql
 !tests/gps_prod_zone_progress_rpc_contract.sql
