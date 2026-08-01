@@ -127,61 +127,61 @@ const SERVICES = [
   {
     id: "d2d",
     name: "Door to Door",
-    icon: "📬",
+    icon: "mailbox",
     col: C.orange,
     sub: "Distribuzione residenziale in cassetta",
     outputs: [
       {
-        icon: "📄",
+        icon: "book",
         name: "Report PDF",
         desc: "Documento completo della campagna: zona distribuita, quantità, percorso operatori e riepilogo dati.",
         chart: "line", col: C.indigo,
         benefit: "Hai la prova documentale completa da conservare o condividere con il tuo team.",
       },
       {
-        icon: "📍",
+        icon: "pin",
         name: "Tracking GPS percorso",
         desc: "Mappa interattiva con il percorso reale degli operatori, waypoint certificati e orari di passaggio.",
         chart: "heat", col: C.green,
         benefit: "Vedi esattamente dove e quando è avvenuta ogni consegna, senza possibilità di errore.",
       },
       {
-        icon: "👨‍👩‍👧",
+        icon: "family",
         name: "Famiglie raggiungibili",
         desc: "Stima certificata del numero di nuclei familiari presenti nell'area selezionata, elaborata su dati ufficiali.",
         chart: "donut", col: C.orange,
         benefit: "Sai quante famiglie riceveranno il tuo volantino prima ancora di iniziare la campagna.",
       },
       {
-        icon: "🗺️",
+        icon: "map",
         name: "Mappa di distribuzione",
         desc: "Visualizzazione geografica della zona coperta: comuni, quartieri e aree incluse nella campagna.",
         chart: "heat", col: C.blue,
         benefit: "Vedi la tua campagna disegnata sulla mappa, zona per zona.",
       },
       {
-        icon: "📊",
+        icon: "chart",
         name: "Copertura dell'area",
         desc: "Percentuale dell'area selezionata effettivamente raggiunta rispetto al totale delle abitazioni presenti.",
         chart: "gauge", col: C.orange,
         benefit: "Conosci in numeri chiari quanta parte del territorio hai realmente coperto.",
       },
       {
-        icon: "🏙️",
+        icon: "building",
         name: "Comuni coinvolti",
         desc: "Elenco dettagliato di tutti i comuni inclusi nella distribuzione, con dati per singolo territorio.",
         chart: "bars", col: C.blue,
         benefit: "Pianifichi campagne successive sapendo già dove hai distribuito e con quali risultati.",
       },
       {
-        icon: "📸",
+        icon: "camera",
         name: "Foto geolocalizzate",
         desc: "30 o più fotografie scattate durante la distribuzione, ciascuna con coordinate GPS e timestamp certificato.",
         chart: "ring", col: C.blue,
         benefit: "Hai la prova visiva del lavoro svolto: ogni foto è georeferenziata e non modificabile.",
       },
       {
-        icon: "🔗",
+        icon: "link",
         name: "Smart Pairing",
         desc: "Risparmio automatico quando la tua area coincide con un'altra campagna già programmata nella stessa data.",
         chart: "gauge", col: C.green,
@@ -192,61 +192,61 @@ const SERVICES = [
   {
     id: "h2h",
     name: "Hand to Hand",
-    icon: "🤝",
+    icon: "handshake",
     col: C.teal,
     sub: "Distribuzione diretta mano a mano",
     outputs: [
       {
-        icon: "📄",
+        icon: "book",
         name: "Report PDF",
         desc: "Documento completo con punti di distribuzione, orari, contatti stimati e riepilogo operativo.",
         chart: "line", col: C.indigo,
         benefit: "Hai un documento professionale da condividere con clienti o stakeholder.",
       },
       {
-        icon: "📍",
+        icon: "pin",
         name: "Tracking GPS percorso",
         desc: "Mappa del percorso degli operatori con i punti di sosta, i tempi di distribuzione e i movimenti certificati.",
         chart: "heat", col: C.green,
         benefit: "Verifica dove si sono fermati gli operatori e quanto tempo hanno dedicato a ogni punto.",
       },
       {
-        icon: "👥",
+        icon: "user",
         name: "Contatti stimati",
         desc: "Stima del numero di persone fisicamente raggiunte dagli operatori in base ai flussi pedonali dell'area.",
         chart: "gauge", col: C.blue,
         benefit: "Conosci il pubblico effettivamente contattato, non solo la zona coperta.",
       },
       {
-        icon: "📌",
+        icon: "pin",
         name: "Mappa hotspot",
         desc: "Visualizzazione dei punti ad alto passaggio pedonale selezionati per la distribuzione: piazze, ingressi, fermate.",
         chart: "heat", col: C.blue,
         benefit: "Vedi esattamente i luoghi dove il tuo volantino è stato distribuito con maggiore intensità.",
       },
       {
-        icon: "🕐",
+        icon: "clock",
         name: "Fasce orarie distribuzione",
         desc: "Dettaglio delle ore in cui è avvenuta la distribuzione, con indicazione del traffico pedonale per fascia.",
         chart: "bars", col: C.orange,
         benefit: "Distribuisci quando il tuo pubblico è presente: massimizzi ogni volantino consegnato.",
       },
       {
-        icon: "📸",
+        icon: "camera",
         name: "Foto geolocalizzate",
         desc: "Fotografie scattate in ogni punto di distribuzione, con GPS e timestamp certificato per ogni immagine.",
         chart: "ring", col: C.blue,
         benefit: "Documenti il lavoro con prove visive che non possono essere contestate.",
       },
       {
-        icon: "🌡️",
+        icon: "target",
         name: "Heatmap pedonale",
         desc: "Mappa a colori che mostra la densità di passaggio nelle aree selezionate nelle ore di distribuzione.",
         chart: "heat", col: C.orange,
         benefit: "Visualizzi in un colpo d'occhio dove la tua campagna ha avuto più impatto.",
       },
       {
-        icon: "📋",
+        icon: "chart",
         name: "Report operativo finale",
         desc: "Riepilogo completo dell'intera operazione: ore, punti, operatori, contatti, anomalie e note.",
         chart: "bars", col: C.indigo,
@@ -257,61 +257,61 @@ const SERVICES = [
   {
     id: "biz",
     name: "Business Distribution",
-    icon: "🏢",
+    icon: "building",
     col: C.green,
     sub: "Distribuzione mirata a imprese e attività",
     outputs: [
       {
-        icon: "📄",
+        icon: "book",
         name: "Report PDF",
         desc: "Documento professionale con attività visitate, categorie, zone coperte e dati aggregati per comune.",
         chart: "line", col: C.indigo,
         benefit: "Hai una reportistica strutturata da consegnare a chi ha commissionato la campagna.",
       },
       {
-        icon: "📍",
+        icon: "pin",
         name: "Tracking GPS percorso",
         desc: "Mappa del percorso con le attività commerciali visitate, gli indirizzi e gli orari di passaggio certificati.",
         chart: "heat", col: C.green,
         benefit: "Verifica la copertura reale delle attività commerciali visitate dagli operatori.",
       },
       {
-        icon: "🏪",
+        icon: "shop",
         name: "Aziende raggiungibili",
         desc: "Elenco e conta delle attività commerciali, uffici e imprese presenti nella zona selezionata.",
         chart: "bars", col: C.purple,
         benefit: "Sai quante e quali aziende puoi contattare ancora prima di avviare la campagna.",
       },
       {
-        icon: "🗂️",
+        icon: "bag",
         name: "Categorie commerciali",
         desc: "Segmentazione delle attività per settore: ristorazione, retail, servizi, artigianato, uffici, ecc.",
         chart: "radar", col: C.purple,
         benefit: "Selezioni solo le categorie rilevanti per il tuo prodotto, eliminando gli sprechi.",
       },
       {
-        icon: "🗺️",
+        icon: "map",
         name: "Mappa zone business",
         desc: "Visualizzazione geografica delle aree commerciali con concentrazione di attività per quartiere o comune.",
         chart: "heat", col: C.purple,
         benefit: "Vedi dove si concentra il tessuto commerciale prima di scegliere dove distribuire.",
       },
       {
-        icon: "🏆",
+        icon: "star",
         name: "Business score",
         desc: "Punteggio di priorità per ogni area o categoria di attività, basato su densità e potenziale commerciale.",
         chart: "gauge", col: C.purple,
         benefit: "Sai quali zone e quali tipologie di attività vale più la pena raggiungere per prime.",
       },
       {
-        icon: "🔍",
+        icon: "search",
         name: "Competitor mappati",
         desc: "Mappa delle attività dello stesso settore nella zona, utile per capire la saturazione del mercato locale.",
         chart: "radar", col: C.orange,
         benefit: "Conosci la concorrenza sul territorio prima ancora di distribuire il tuo volantino.",
       },
       {
-        icon: "📸",
+        icon: "camera",
         name: "Foto geolocalizzate",
         desc: "Fotografie di ogni consegna con GPS e timestamp: prova documentale per ogni attività visitata.",
         chart: "ring", col: C.purple,
@@ -340,7 +340,9 @@ function OutputCard({ out, svcCol, index }) {
     >
       {/* Top: icon + name */}
       <div style={{ display: "flex", gap: 11, alignItems: "flex-start" }}>
-        <span style={{ fontSize: 24, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>{out.icon}</span>
+        <span style={{ flexShrink: 0, marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Step1Icon name={out.icon} size={24} color={svcCol} />
+        </span>
         <div style={{ fontFamily: F.serif, fontSize: 17, color: C.white, letterSpacing: "-.2px", lineHeight: 1.2 }}>{out.name}</div>
       </div>
 
@@ -575,7 +577,9 @@ export default function ServiceCenter({ onNav }) {
                   cursor: "pointer", transition: "all .15s", display: "flex", alignItems: "center", gap: 8,
                 }}
               >
-                <span style={{ fontSize: 18 }}>{s.icon}</span>
+                <span style={{ display: "flex", alignItems: "center" }}>
+                  <Step1Icon name={s.icon} size={18} color={isActive ? s.col : "currentColor"} />
+                </span>
                 <span>{s.name}</span>
               </button>
             );
@@ -597,8 +601,8 @@ export default function ServiceCenter({ onNav }) {
             style={{ marginBottom: 32 }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 11, background: `${svc.col}18`, border: `1px solid ${svc.col}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
-                {svc.icon}
+              <div style={{ width: 44, height: 44, borderRadius: 11, background: `${svc.col}18`, border: `1px solid ${svc.col}40`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Step1Icon name={svc.icon} size={22} color={svc.col} />
               </div>
               <div>
                 <div style={{ fontFamily: F.serif, fontSize: 24, color: C.white, letterSpacing: "-.3px" }}>{svc.name}</div>
