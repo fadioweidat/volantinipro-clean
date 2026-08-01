@@ -120,6 +120,7 @@ data/**/*.sqlite
 !supabase/migrations/20260731020001_fix_proof_photos_rls.sql
 !supabase/migrations/20260801000001_add_zone_geometry_to_operator_campaign.sql
 !supabase/migrations/20260801000002_seed_driver_map_test_zone.sql
+!supabase/migrations/20260801010001_seed_driver_lebanon_test_zone.sql
 !tests/fixtures/gps_prod_zone_progress_baseline.sql
 !tests/gps_prod_zone_progress_schema_contract.sql
 !tests/gps_prod_zone_progress_rpc_contract.sql
