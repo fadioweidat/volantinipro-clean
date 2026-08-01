@@ -8,7 +8,12 @@ import {
   hasSupabaseSession,
 } from '../../lib/services/gps-api.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
-import { rememberPendingAuthContext, rememberPendingAuthReturnPath, rememberPendingAuthOrigin } from '../../auth/session.js';
+import { rememberPendingAuthContext, rememberPendingAuthReturnPath, rememberPendingAuthOrigin, saveStoredSupabaseSession } from '../../auth/session.js';
+
+// Unica campagna per cui il bypass DEV puo' funzionare: hardcoded, non
+// accettata da query/prop, cosi' il pulsante non puo' mai essere puntato su
+// una campagna reale anche se qualcuno ne alterasse l'URL.
+const DEV_BYPASS_TEST_CAMPAIGN_ID = '59a27968-3e3d-4bc0-9635-74d9235e1463';
 
 function resolveOperatorDisplayName(profile) {
   if (!profile) return null;
@@ -28,7 +33,64 @@ function goToDriverLogin(campaignId) {
   window.location.href = '/login?context=driver';
 }
 
-function DriverLoginGate({ campaignId }) {
+function isLocalOrLanHostname(hostname) {
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return true;
+  return /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname);
+}
+
+// Pulsante visibile ESCLUSIVAMENTE quando tutte queste condizioni sono vere
+// insieme: import.meta.env.DEV e' false (letterale, dead-code-eliminato) in
+// qualunque build di produzione, quindi questo intero componente sparisce
+// dal bundle prod indipendentemente dalle altre condizioni. Non emula una
+// sessione: chiama un endpoint SOLO del dev server (dev/driverTestSessionPlugin.js)
+// che minta un token Supabase reale per l'utente di test via Admin API +
+// verify pubblico — auth.uid() lato RPC risolve davvero, RLS invariata.
+function DriverDevBypassButton({ campaignId, onSessionReady }) {
+  const [state, setState] = useState({ busy: false, error: null });
+
+  const eligible = import.meta.env.DEV
+    && import.meta.env.VITE_ENABLE_DRIVER_DEV_BYPASS === 'true'
+    && typeof window !== 'undefined'
+    && isLocalOrLanHostname(window.location.hostname)
+    && campaignId === DEV_BYPASS_TEST_CAMPAIGN_ID;
+
+  if (!eligible) return null;
+
+  async function handleClick() {
+    setState({ busy: true, error: null });
+    try {
+      const res = await fetch('/__dev/driver-test-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body?.accessToken) {
+        throw new Error(body?.error || 'Bypass DEV non disponibile.');
+      }
+      saveStoredSupabaseSession(body);
+      onSessionReady();
+    } catch (err) {
+      setState({ busy: false, error: err?.message || 'Bypass DEV fallito.' });
+      return;
+    }
+    setState({ busy: false, error: null });
+  }
+
+  return (
+    <div style={devBypassBoxStyle}>
+      <p style={{ margin: '0 0 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.08em', color: '#92400e', fontWeight: 900 }}>
+        Solo sviluppo — mai in produzione
+      </p>
+      <button type="button" style={devBypassButtonStyle} onClick={handleClick} disabled={state.busy}>
+        {state.busy ? 'Attivazione…' : 'Entra in modalità test GPS'}
+      </button>
+      {state.error && <div style={{ marginTop: 8, fontSize: 12, color: '#b91c1c' }}>{state.error}</div>}
+    </div>
+  );
+}
+
+function DriverLoginGate({ campaignId, onDevSessionReady }) {
   return (
     <GpsShell title="Accesso operatore richiesto" subtitle={`Campagna ${campaignId}`}>
       <section style={cardStyle}>
@@ -38,6 +100,7 @@ function DriverLoginGate({ campaignId }) {
         <button style={primaryButtonStyle} type="button" onClick={() => goToDriverLogin(campaignId)}>
           Accedi come operatore
         </button>
+        <DriverDevBypassButton campaignId={campaignId} onSessionReady={onDevSessionReady} />
       </section>
     </GpsShell>
   );
@@ -121,7 +184,17 @@ export function TrackingPage({ campaignId }) {
   }
 
   if (!authState.authenticated) {
-    return <DriverLoginGate campaignId={campaignId} />;
+    return (
+      <DriverLoginGate
+        campaignId={campaignId}
+        onDevSessionReady={() => {
+          // Ricarica come dopo un login reale: rimonta la pagina con la
+          // sessione appena salvata gia' in localStorage, stesso percorso
+          // di consumeSupabaseAuthHash dopo un magic link vero.
+          window.location.reload();
+        }}
+      />
+    );
   }
 
   return (
@@ -305,6 +378,8 @@ const metricStyle = { display: 'grid', gap: 4, padding: 12, background: '#f8fafc
 const primaryButtonStyle = { border: 'none', borderRadius: 10, padding: '12px 16px', background: '#e8571a', color: '#fff', fontWeight: 900, cursor: 'pointer' };
 const secondaryButtonStyle = { border: '1px solid #cbd5e1', borderRadius: 10, padding: '12px 16px', background: '#fff', color: '#17211f', fontWeight: 900, cursor: 'pointer' };
 const dangerButtonStyle = { border: 'none', borderRadius: 10, padding: '12px 16px', background: '#b91c1c', color: '#fff', fontWeight: 900, cursor: 'pointer' };
+const devBypassBoxStyle = { marginTop: 16, padding: 12, border: '1px dashed #f59e0b', borderRadius: 10, background: '#fffbeb' };
+const devBypassButtonStyle = { border: 'none', borderRadius: 10, padding: '10px 14px', background: '#f59e0b', color: '#1c1917', fontWeight: 900, cursor: 'pointer' };
 const pillStyle = { display: 'inline-flex', border: '1px solid', borderRadius: 999, padding: '6px 10px', fontSize: 12, fontWeight: 900 };
 const errorStyle = { marginTop: 12, padding: 12, borderRadius: 10, color: '#991b1b', background: '#fee2e2', border: '1px solid #fecaca' };
 const geofenceAlertStyle = { padding: 12, borderRadius: 10, color: '#991b1b', background: '#fee2e2', border: '1px solid #fecaca', fontWeight: 700 };
