@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useGpsTracking } from '../../hooks/useGpsTracking.js';
 import { PodCapture } from '../../components/driver/PodCapture.jsx';
+import { DriverZoneMap } from '../../components/driver/DriverZoneMap.jsx';
 import {
   createProofPhotoSignedUrl,
   getCampaignProofPhotos,
@@ -9,6 +10,7 @@ import {
 } from '../../lib/services/gps-api.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
 import { rememberPendingAuthContext, rememberPendingAuthReturnPath, rememberPendingAuthOrigin, saveStoredSupabaseSession } from '../../auth/session.js';
+import { normalizeZonesFromCampaign } from '../../lib/geofence/geofenceEngine.js';
 
 // Unica campagna per cui il bypass DEV puo' funzionare: hardcoded, non
 // accettata da query/prop, cosi' il pulsante non puo' mai essere puntato su
@@ -164,6 +166,13 @@ export function TrackingPage({ campaignId }) {
     return 'Assegnazione da verificare';
   }, [tracking.assignmentState.status]);
 
+  // Stessa funzione pura gia' usata da useGpsTracking per calcolare
+  // geofenceState: nessuna zona/logica nuova, solo lettura per la mappa.
+  const zones = useMemo(
+    () => normalizeZonesFromCampaign(tracking.assignmentState.campaign),
+    [tracking.assignmentState.campaign],
+  );
+
   async function handle(action) {
     try {
       setUploadState((prev) => ({ ...prev, error: null }));
@@ -253,6 +262,13 @@ export function TrackingPage({ campaignId }) {
           )}
         </div>
       </section>
+
+      <DriverZoneMap
+        campaignId={campaignId}
+        sessionId={tracking.session?.id || null}
+        position={tracking.lastPosition}
+        zones={zones}
+      />
 
       <section style={cardStyle}>
         <p style={eyebrowStyle}>Ultima posizione inviata</p>

@@ -91,6 +91,78 @@ export function isPointInAnyZone(zones, lat, lng) {
   );
 }
 
+// Proiezione piatta locale (equirettangolare, centrata sul punto stesso):
+// sufficiente per distanze a scala urbana come quelle di una zona di
+// distribuzione, evita di importare una libreria geo solo per questo.
+function projectMeters(lat, lng, refLatRad) {
+  const R = 6371000;
+  return [
+    (lng * Math.PI) / 180 * R * Math.cos(refLatRad),
+    (lat * Math.PI) / 180 * R,
+  ];
+}
+
+function pointToSegmentDistanceMeters(lat, lng, [lngA, latA], [lngB, latB]) {
+  const refLatRad = (lat * Math.PI) / 180;
+  const [px, py] = projectMeters(lat, lng, refLatRad);
+  const [ax, ay] = projectMeters(latA, lngA, refLatRad);
+  const [bx, by] = projectMeters(latB, lngB, refLatRad);
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  const t = lenSq > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq)) : 0;
+  const projX = ax + t * dx;
+  const projY = ay + t * dy;
+  return Math.hypot(px - projX, py - projY);
+}
+
+function ringMinDistanceMeters(ring, lat, lng) {
+  if (!Array.isArray(ring) || ring.length < 2) return null;
+  let min = Infinity;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i];
+    const b = ring[j];
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length < 2 || b.length < 2) continue;
+    const d = pointToSegmentDistanceMeters(lat, lng, a, b);
+    if (d < min) min = d;
+  }
+  return Number.isFinite(min) ? min : null;
+}
+
+// Distanza (metri) dal confine della zona usabile piu' vicina, indipendente
+// dall'essere dentro o fuori — usata SOLO per una sfumatura visiva ("vicino
+// al confine") sulla mappa Driver, mai per il debounce inside/outside
+// ufficiale (quello resta esclusivamente evaluateGeofencePoint/applyStaleness).
+// null = nessuna zona con geometria utilizzabile.
+export function estimateDistanceToZoneBoundaryMeters(zones, lat, lng) {
+  const usable = Array.isArray(zones) ? zones.filter((z) => z.kind !== 'unusable') : [];
+  if (!usable.length) return null;
+  const nLat = toFiniteNumber(lat);
+  const nLng = toFiniteNumber(lng);
+  if (nLat == null || nLng == null) return null;
+
+  let min = Infinity;
+  for (const zone of usable) {
+    if (zone.kind === 'circle') {
+      const distanceM = haversineMeters(zone.centerLat, zone.centerLng, nLat, nLng);
+      const d = Math.abs(distanceM - zone.radiusKm * 1000);
+      if (d < min) min = d;
+    } else if (zone.kind === 'polygon') {
+      const coords = zone.geometry?.type === 'Polygon'
+        ? zone.geometry.coordinates
+        : zone.geometry?.type === 'MultiPolygon'
+          ? (zone.geometry.coordinates || []).flat()
+          : null;
+      if (!Array.isArray(coords)) continue;
+      for (const ring of coords) {
+        const d = ringMinDistanceMeters(ring, nLat, nLng);
+        if (d != null && d < min) min = d;
+      }
+    }
+  }
+  return Number.isFinite(min) ? min : null;
+}
+
 export function createGeofenceState() {
   return {
     status: 'unknown', // unknown | zone_unavailable | inside | outside | stale
