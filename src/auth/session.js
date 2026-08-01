@@ -205,3 +205,39 @@ export function clearPendingAuthReturnPath() {
     // no-op
   }
 }
+
+// Origin (es. http://192.168.0.105:5173) da cui e' partito il login Driver,
+// salvato insieme a pendingAuthReturnPath: history.replaceState non puo' mai
+// cambiare origin (solo path/query/hash), quindi se Supabase atterra su un
+// origin DIVERSO da quello di partenza (SITE_URL configurato su un IP LAN
+// diverso, o su localhost se raggiungibile), solo una navigazione reale verso
+// origin+returnPath — non un semplice path relativo, che resterebbe
+// sull'origin sbagliato — puo' riportare l'utente sull'host giusto.
+const PENDING_AUTH_ORIGIN_KEY = "vp_pending_auth_origin";
+
+export function rememberPendingAuthOrigin(origin) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(PENDING_AUTH_ORIGIN_KEY, origin);
+  } catch {
+    // no-op
+  }
+}
+
+export function readPendingAuthOrigin() {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(PENDING_AUTH_ORIGIN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingAuthOrigin() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(PENDING_AUTH_ORIGIN_KEY);
+  } catch {
+    // no-op
+  }
+}

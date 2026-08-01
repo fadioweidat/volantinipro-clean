@@ -8,7 +8,7 @@ import {
   hasSupabaseSession,
 } from '../../lib/services/gps-api.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
-import { rememberPendingAuthContext, rememberPendingAuthReturnPath } from '../../auth/session.js';
+import { rememberPendingAuthContext, rememberPendingAuthReturnPath, rememberPendingAuthOrigin } from '../../auth/session.js';
 
 function resolveOperatorDisplayName(profile) {
   if (!profile) return null;
@@ -18,6 +18,11 @@ function resolveOperatorDisplayName(profile) {
 function goToDriverLogin(campaignId) {
   rememberPendingAuthContext('driver');
   rememberPendingAuthReturnPath(`/driver/tracking/${campaignId}`);
+  // window.location.origin, MAI hardcoded: e' l'host che ha davvero avviato
+  // il login (localhost sul PC, IP LAN sul telefono). Salvato insieme al
+  // returnPath per poter tornare sull'host giusto anche se Supabase atterra
+  // su un origin diverso (vedi commento su PENDING_AUTH_ORIGIN_KEY).
+  rememberPendingAuthOrigin(window.location.origin);
   // /driver/tracking/* e' un entry point standalone fuori da AppRouter
   // (src/main.jsx): serve una navigazione reale, non goTo/onNav.
   window.location.href = '/login?context=driver';

@@ -9,7 +9,10 @@ import {
   clearPendingAuthContext,
   rememberPendingAuthReturnPath,
   readPendingAuthReturnPath,
-  clearPendingAuthReturnPath
+  clearPendingAuthReturnPath,
+  rememberPendingAuthOrigin,
+  readPendingAuthOrigin,
+  clearPendingAuthOrigin
 } from "./src/auth/session.js";
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
@@ -5005,8 +5008,17 @@ export function LoginPage({
           // separata e si e' dimostrato piu' affidabile di una semplice
           // assegnazione a location.href per una navigazione innescata da
           // codice subito dopo un replaceState sulla stessa pagina.
+          //
+          // Origin esplicito (non un path relativo): history.replaceState non
+          // puo' mai cambiare origin, quindi se Supabase e' atterrato su un
+          // origin diverso da quello che ha avviato il login (es. SITE_URL su
+          // un altro IP LAN o su localhost, se quell'host e' raggiungibile),
+          // un path relativo resterebbe sull'origin sbagliato. Fallback
+          // sull'origin corrente solo se non era stato salvato.
+          const driverOrigin = readPendingAuthOrigin() || window.location.origin;
           clearPendingAuthReturnPath();
-          window.location.replace(driverReturnPath);
+          clearPendingAuthOrigin();
+          window.location.replace(`${driverOrigin}${driverReturnPath}`);
           return;
         }
         onNav(isAdminContext ? "admin" : "dashboard");
@@ -5044,6 +5056,11 @@ export function LoginPage({
     if (isDriverContext) {
       const returnTo = new URLSearchParams(window.location.search).get("returnTo");
       if (returnTo) rememberPendingAuthReturnPath(returnTo);
+      // window.location.origin dell'host che sta davvero inviando la
+      // richiesta ORA (localhost sul PC, IP LAN sul telefono) — mai
+      // hardcoded, riaffermato qui per coprire anche l'arrivo diretto su
+      // /login?context=driver senza passare dalla CTA di TrackingPage.
+      rememberPendingAuthOrigin(window.location.origin);
     }
     try {
       const res = await fetch(`${url}/auth/v1/otp`, {
