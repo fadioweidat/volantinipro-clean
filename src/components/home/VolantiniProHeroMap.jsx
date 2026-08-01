@@ -70,7 +70,7 @@ function BenefitIcon({ type }) {
   );
 }
 
-export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWorks }) {
+export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, onHowItWorks }) {
   const compact = useCompact();
   const [menuOpen, setMenuOpen] = useState(false);
   const [platformOpen, setPlatformOpen] = useState(false);
@@ -278,7 +278,7 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
 
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, marginBottom: 20 }}>
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.15 }}>
-              <Button variant="primary" className="vb" onClick={onConfigure} style={heroPrimaryButtonStyle}>
+              <Button variant="primary" className="vb" onClick={onQuote || (() => window.location.href = "/preventivo")} style={heroPrimaryButtonStyle}>
                 Calcola la tua copertura
               </Button>
             </motion.div>

@@ -843,15 +843,16 @@ function Step2MapImpl({
       }
     } catch (_e) {}
 
-    const mbToken = typeof import.meta !== 'undefined' && import.meta.env?.VITE_MAPBOX_TOKEN;
-    if (mbToken && mbToken.startsWith('pk.')) {
-      L.tileLayer(
-        `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${mbToken}`,
-        { tileSize: 512, zoomOffset: -1, attribution: 'Mapbox OpenStreetMap', maxZoom: 19 }
-      ).addTo(map);
-    } else {
-      L.tileLayer(CARTO_VOYAGER, { attribution: CARTO_ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map);
-    }
+    const mbToken = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_MAPBOX_TOKEN : '';
+    const tileLayer = L.tileLayer(
+      `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${mbToken || ''}`,
+      { tileSize: 512, zoomOffset: -1, attribution: 'Mapbox OpenStreetMap', maxZoom: 19 }
+    );
+    tileLayer.on('tileerror', () => {
+      const errEl = document.getElementById('vp-map-error-msg');
+      if (errEl) errEl.style.display = 'flex';
+    });
+    tileLayer.addTo(map);
 
     const resizeObserver = new ResizeObserver(() => {
       requestAnimationFrame(() => map.invalidateSize());
@@ -1847,6 +1848,17 @@ function Step2MapImpl({
           Alcuni confini non disponibili ({missingPolygonNames.length})
         </div>
       )}
+
+      {/* Mapbox tile error message */}
+      <div id="vp-map-error-msg" style={{
+        display: 'none', position: 'absolute', inset: 0, zIndex: 1200,
+        backgroundColor: '#080C14', color: '#E2E8F0', padding: 24,
+        flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'system-ui,sans-serif'
+      }}>
+        <strong style={{ fontSize: 16, color: '#E8571A' }}>Mappa temporaneamente non disponibile</strong>
+        <span style={{ fontSize: 13, marginTop: 8 }}>Impossibile caricare i dati cartografici.</span>
+      </div>
 
       {/* Schermata di caricamento */}
       {!leafletLoaded && (
