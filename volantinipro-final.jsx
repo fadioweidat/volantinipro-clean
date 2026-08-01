@@ -4982,16 +4982,31 @@ export function LoginPage({
   useEffect(() => {
     if (window.location.hash.includes("access_token")) {
       const driverReturnPath = isDriverContext ? (readPendingAuthReturnPath() || "/") : null;
-      const cleanPath = isAdminContext ? "/admin" : isDriverContext ? driverReturnPath : "/dashboard";
+      // Per il Driver NON si passa driverReturnPath come cleanPath qui: se
+      // consumeSupabaseAuthHash facesse gia' un replaceState verso
+      // driverReturnPath, la successiva window.location.href = driverReturnPath
+      // diventerebbe un'assegnazione verso un URL identico a quello gia'
+      // mostrato dalla barra indirizzi (il replaceState non ricarica la
+      // pagina, ma AGGIORNA silenziosamente window.location.pathname) — Chrome
+      // tratta l'assegnazione a un href gia' corrente come no-op e non naviga
+      // mai davvero verso /driver/tracking/*, che restando fuori da AppRouter
+      // (src/main.jsx) richiede un caricamento di pagina reale. Restando su
+      // "/login?context=driver" qui, la successiva navigazione e' verso un URL
+      // genuinamente diverso e Chrome la esegue per davvero.
+      const cleanPath = isAdminContext ? "/admin" : isDriverContext ? "/login?context=driver" : "/dashboard";
       const session = consumeSupabaseAuthHash(cleanPath);
       if (session) {
         clearPendingAuthContext();
         if (isDriverContext) {
           // /driver/tracking/* e' un entry point standalone fuori da
           // AppRouter (src/main.jsx), quindi il ritorno richiede una
-          // navigazione reale del browser e non onNav/goTo.
+          // navigazione reale del browser e non onNav/goTo. location.replace
+          // (non href=) evita che il redirect resti come voce di history
+          // separata e si e' dimostrato piu' affidabile di una semplice
+          // assegnazione a location.href per una navigazione innescata da
+          // codice subito dopo un replaceState sulla stessa pagina.
           clearPendingAuthReturnPath();
-          window.location.href = driverReturnPath;
+          window.location.replace(driverReturnPath);
           return;
         }
         onNav(isAdminContext ? "admin" : "dashboard");
