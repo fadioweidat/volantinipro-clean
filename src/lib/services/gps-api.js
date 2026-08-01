@@ -1,4 +1,5 @@
 import { supabase, ensureSupabaseSessionBridge } from '../../supabaseClient.js';
+import { calculateFilteredDistanceKm } from '../gps/pointQuality.js';
 
 const RETRY_DELAYS_MS = [800, 1800, 4000];
 const GPS_DRIVER_MISMATCH_MESSAGE = 'Il driver autenticato non corrisponde alla sessione GPS.';
@@ -447,33 +448,30 @@ export function classifyDriverStatus(lastPingIso) {
   return 'offline';
 }
 
+const SESSION_RECENT_OFFLINE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+// Estende classifyDriverStatus con la distinzione richiesta dal Monitor Admin
+// tra "problema attuale" e "storico": una sessione gia' completata/annullata
+// non e' mai un driver offline adesso, e una sessione 'started' abbandonata
+// da giorni (mai chiusa correttamente) e' storico, non un'emergenza di oggi.
+// live | warning | offline_recent | history
+export function classifySessionLifecycle(session, lastPingIso) {
+  if (session?.status === 'completed' || session?.status === 'cancelled') return 'history';
+  const liveStatus = classifyDriverStatus(lastPingIso);
+  if (liveStatus === 'online') return 'live';
+  if (liveStatus === 'warning') return 'warning';
+  const lastMs = lastPingIso ? new Date(lastPingIso).getTime() : null;
+  const isRecent = lastMs != null && Number.isFinite(lastMs) && (Date.now() - lastMs) <= SESSION_RECENT_OFFLINE_WINDOW_MS;
+  return isRecent ? 'offline_recent' : 'history';
+}
+
+// Somma haversine sui soli punti che superano il filtro di qualita' GPS
+// (src/lib/gps/pointQuality.js): nessun nuovo algoritmo di distanza, solo il
+// filtro applicato prima della stessa formula gia' in uso. Applicato qui
+// (non nei singoli chiamanti) cosi' ogni vista che gia' usa questa funzione
+// (CampaignReport, GpsMonitor, AdminLiveDashboard, gruppi) mostra la
+// distanza corretta senza ulteriori modifiche.
 export function calculateDistanceKm(points = []) {
   if (!Array.isArray(points) || points.length < 2) return 0;
-  let km = 0;
-  for (let i = 1; i < points.length; i += 1) {
-    const a = points[i - 1];
-    const b = points[i];
-    const aLat = Number(a?.lat);
-    const aLng = Number(a?.lng);
-    const bLat = Number(b?.lat);
-    const bLng = Number(b?.lng);
-    if (![aLat, aLng, bLat, bLng].every(Number.isFinite)) continue;
-    km += haversineKm(aLat, aLng, bLat, bLng);
-  }
-  return Math.round(km * 100) / 100;
-}
-
-function haversineKm(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = deg2rad(lat2 - lat1);
-  const dLon = deg2rad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-function deg2rad(deg) {
-  return deg * (Math.PI / 180);
+  return calculateFilteredDistanceKm(points);
 }

@@ -17,7 +17,7 @@
     "download:dbgt": "node data/dbgt/download_dbgt_lombardia.mjs",
     "import:dbgt": "node data/dbgt/import_dbgt_address_points.mjs",
     "import:dbgt:dry-run": "node data/dbgt/import_dbgt_address_points.mjs --dry-run=true",
-    "test": "node --import tsx --test tests/gps_prod_rpc_frontend_contract.test.mjs tests/gps_prod_client_reader_contract.test.mjs tests/gps_prod_browser_privacy_contract.test.cjs tests/zone_progress_client.test.mjs tests/zone_progress_ui_integration.test.mjs tests/router_auth.test.mjs tests/auth_login_admin_guard.test.mjs tests/pod_photo_processing.test.mjs tests/pod_upload_permissions.test.mjs tests/geofence_engine.test.mjs tests/gps_rpc_reconciliation_contract.test.mjs tests/gps_geom_trigger_contract.test.mjs"
+    "test": "node --import tsx --test tests/gps_prod_rpc_frontend_contract.test.mjs tests/gps_prod_client_reader_contract.test.mjs tests/gps_prod_browser_privacy_contract.test.cjs tests/zone_progress_client.test.mjs tests/zone_progress_ui_integration.test.mjs tests/router_auth.test.mjs tests/auth_login_admin_guard.test.mjs tests/pod_photo_processing.test.mjs tests/pod_upload_permissions.test.mjs tests/geofence_engine.test.mjs tests/gps_rpc_reconciliation_contract.test.mjs tests/gps_geom_trigger_contract.test.mjs tests/gps_point_quality.test.mjs tests/gps_session_lifecycle.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

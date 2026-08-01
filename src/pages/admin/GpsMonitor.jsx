@@ -6,6 +6,7 @@ import { useZoneProgress } from '../../hooks/useZoneProgress.js';
 import { createProofPhotoSignedUrl, getCampaignGpsPoints, getCampaignGpsSessions, getCampaignProofPhotos, getCampaignRecord } from '../../lib/services/gps-api.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
 import { normalizeZonesFromCampaign, summarizeGeofencePoints } from '../../lib/geofence/geofenceEngine.js';
+import { filterValidGpsPoints } from '../../lib/gps/pointQuality.js';
 import { AdminLayout } from './AdminLayout.jsx';
 
 export function GpsMonitor({ campaignId, onNav }) {
@@ -168,7 +169,11 @@ function getLatestTrackableSession(sessions) {
 
 function GpsMap({ points, latest }) {
   const center = useMemo(() => [Number(latest.lat), Number(latest.lng)], [latest]);
-  const path = points.map((point) => [Number(point.lat), Number(point.lng)]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+  // Solo i punti che superano il filtro qualita' (stesso modulo condiviso di
+  // AdminLiveDashboard) finiscono nella polilinea: un punto anomalo isolato
+  // non deve piu' disegnare un salto impossibile sulla mappa.
+  const validPoints = useMemo(() => filterValidGpsPoints(points).valid, [points]);
+  const path = validPoints.map((point) => [Number(point.lat), Number(point.lng)]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
   return (
     <div style={{ height: 460, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)' }}>
       <MapContainer center={center} zoom={15} scrollWheelZoom style={{ height: '100%', width: '100%' }}>

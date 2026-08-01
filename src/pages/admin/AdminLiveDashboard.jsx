@@ -1,17 +1,54 @@
 import 'leaflet/dist/leaflet.css';
-import { CircleMarker, MapContainer, Popup, TileLayer } from 'react-leaflet';
+import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  classifySessionLifecycle,
   displayDeviceId,
   displayDriverName,
 } from '../../lib/services/gps-api.js';
 import { getLiveDrivers } from '../../lib/services/admin-api.js';
 import { filterOperationalRows } from '../../lib/services/report-utils.js';
+import { EXCLUSION_LABELS, filterValidGpsPoints, calculateFilteredDistanceKm, summarizeGpsQuality } from '../../lib/gps/pointQuality.js';
 import { AdminLayout } from './AdminLayout.jsx';
+
+const LIFECYCLE_LABELS = {
+  live: 'Live',
+  warning: 'Warning',
+  offline_recent: 'Offline recente',
+  history: 'Storico terminato',
+};
+
+// Un operatore con piu' sessioni non chiuse (es. sessione abbandonata senza
+// Termina) non deve comparire piu' volte nel banner/lista "driver offline":
+// tiene una sola riga per operatore, la piu' rilevante (live > warning >
+// offline_recent > history, a parita' quella con ping piu' recente).
+const LIFECYCLE_PRIORITY = { live: 0, warning: 1, offline_recent: 2, history: 3 };
+function dedupeByOperator(items) {
+  const byOperator = new Map();
+  for (const item of items) {
+    const key = item.session.driver_id || item.driverName || item.session.id;
+    const current = byOperator.get(key);
+    if (!current) {
+      byOperator.set(key, item);
+      continue;
+    }
+    const currentRank = LIFECYCLE_PRIORITY[current.lifecycle] ?? 9;
+    const itemRank = LIFECYCLE_PRIORITY[item.lifecycle] ?? 9;
+    if (itemRank < currentRank) {
+      byOperator.set(key, item);
+    } else if (itemRank === currentRank) {
+      const currentTime = current.activityAt ? new Date(current.activityAt).getTime() : 0;
+      const itemTime = item.activityAt ? new Date(item.activityAt).getTime() : 0;
+      if (itemTime > currentTime) byOperator.set(key, item);
+    }
+  }
+  return Array.from(byOperator.values());
+}
 
 export function AdminLiveDashboard({ onNav }) {
   const [state, setState] = useState({ loading: true, error: null, drivers: [] });
   const [filters, setFilters] = useState({ period: 'today', fromDate: '', toDate: '', campaign: 'all', group: '', status: 'all', driver: '' });
+  const [selectedSessionId, setSelectedSessionId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,10 +69,32 @@ export function AdminLiveDashboard({ onNav }) {
   }, []);
 
   const campaigns = useMemo(() => Array.from(new Set(state.drivers.map((item) => item.session.campaign_id).filter(Boolean))), [state.drivers]);
-  const visibleDrivers = filterOperationalRows(state.drivers, filters);
 
-  const offlineCount = visibleDrivers.filter((item) => item.status === 'offline').length;
-  const activeCount = visibleDrivers.filter((item) => ['started', 'paused'].includes(item.session.status)).length;
+  const withLifecycle = useMemo(
+    () => filterOperationalRows(state.drivers, filters).map((item) => ({
+      ...item,
+      lifecycle: classifySessionLifecycle(item.session, item.activityAt),
+    })),
+    [state.drivers, filters],
+  );
+
+  const currentRows = useMemo(() => dedupeByOperator(withLifecycle.filter((item) => item.lifecycle !== 'history')), [withLifecycle]);
+  const historyCount = withLifecycle.length - withLifecycle.filter((item) => item.lifecycle !== 'history').length;
+
+  const liveCount = currentRows.filter((item) => item.lifecycle === 'live').length;
+  const warningCount = currentRows.filter((item) => item.lifecycle === 'warning').length;
+  const offlineRecentCount = currentRows.filter((item) => item.lifecycle === 'offline_recent').length;
+
+  // Selezione di default: la prima riga corrente con almeno un punto, cosi'
+  // al primo caricamento (e dopo un refresh pagina) la mappa mostra subito
+  // una traccia reale e non solo il marker (vedi FASE 5, punto 7).
+  useEffect(() => {
+    if (selectedSessionId && currentRows.some((item) => item.session.id === selectedSessionId)) return;
+    const withPoints = currentRows.find((item) => item.points?.length > 0) || currentRows[0] || null;
+    setSelectedSessionId(withPoints?.session.id || null);
+  }, [currentRows, selectedSessionId]);
+
+  const selectedItem = currentRows.find((item) => item.session.id === selectedSessionId) || null;
 
   const breadcrumbs = [
     { label: "Dashboard", href: "/admin" },
@@ -45,14 +104,14 @@ export function AdminLiveDashboard({ onNav }) {
   return (
     <AdminLayout title="Monitor GPS Live" subtitle="Driver, campagne attive e storico operativo" breadcrumbs={breadcrumbs} onNav={onNav}>
       {state.error && <Notice danger text={state.error} />}
-      {offlineCount > 0 && <Notice danger text={`${offlineCount} driver offline o senza ping recente.`} />}
+      {offlineRecentCount > 0 && <Notice danger text={`${offlineRecentCount} driver offline o senza ping recente.`} />}
 
       <section style={kpiGridStyle}>
-        <Kpi label="Sessioni filtrate" value={visibleDrivers.length} />
-        <Kpi label="Sessioni live" value={activeCount} tone="green" />
-        <Kpi label="Online" value={visibleDrivers.filter((item) => item.status === 'online').length} tone="green" />
-        <Kpi label="Warning" value={visibleDrivers.filter((item) => item.status === 'warning').length} tone="yellow" />
-        <Kpi label="Offline" value={offlineCount} tone="red" />
+        <Kpi label="Sessioni filtrate" value={currentRows.length} />
+        <Kpi label="Live" value={liveCount} tone="green" />
+        <Kpi label="Warning" value={warningCount} tone="yellow" />
+        <Kpi label="Offline recente" value={offlineRecentCount} tone="red" />
+        <Kpi label="Storico terminato" value={historyCount} />
       </section>
 
       <section style={cardStyle}>
@@ -106,18 +165,24 @@ export function AdminLiveDashboard({ onNav }) {
 
       <div style={layoutStyle}>
         <section style={cardStyle}>
-          <p style={eyebrowStyle}>Mappa live</p>
-          {visibleDrivers.some((item) => item.latest) ? (
-            <LiveMap drivers={visibleDrivers} />
+          <p style={eyebrowStyle}>Mappa live {selectedItem ? `— traccia: ${displayDriverName(selectedItem.session)} (${shortId(selectedItem.session.id)})` : ''}</p>
+          {currentRows.some((item) => item.latest) ? (
+            <LiveMap drivers={currentRows} selectedSessionId={selectedSessionId} />
           ) : (
             <EmptyState text={state.loading ? 'Caricamento tracking GPS...' : 'Nessun tracking GPS disponibile'} />
           )}
+          <SessionQualityPanel item={selectedItem} />
         </section>
 
         <aside style={cardStyle}>
           <p style={eyebrowStyle}>Driver live</p>
-          {visibleDrivers.length ? visibleDrivers.map((item) => (
-            <DriverRow key={item.session.id} item={item} />
+          {currentRows.length ? currentRows.map((item) => (
+            <DriverRow
+              key={item.session.id}
+              item={item}
+              selected={item.session.id === selectedSessionId}
+              onSelect={() => setSelectedSessionId(item.session.id)}
+            />
           )) : <EmptyState text="Nessuna sessione attiva reale." />}
         </aside>
       </div>
@@ -125,22 +190,58 @@ export function AdminLiveDashboard({ onNav }) {
   );
 }
 
-function LiveMap({ drivers }) {
+// Ricentra sull'INTERA traccia (fitBounds), non solo sull'ultimo punto: va
+// rieseguito ogni volta che cambiano sessione selezionata o punti validi.
+function FitBoundsToTrack({ positions }) {
+  const map = useMap();
+  useEffect(() => {
+    if (positions.length >= 2) {
+      map.fitBounds(positions, { padding: [32, 32], maxZoom: 17 });
+    } else if (positions.length === 1) {
+      map.setView(positions[0], Math.max(map.getZoom(), 15));
+    }
+  }, [positions, map]);
+  return null;
+}
+
+function LiveMap({ drivers, selectedSessionId }) {
   const first = drivers.find((item) => item.latest)?.latest;
   const center = first ? [Number(first.lat), Number(first.lng)] : [45.4642, 9.19];
+
+  const selected = drivers.find((item) => item.session.id === selectedSessionId) || null;
+  const { valid: selectedValidPoints } = useMemo(
+    () => filterValidGpsPoints(selected?.points || []),
+    [selected],
+  );
+  const trackPositions = selectedValidPoints
+    .map((point) => [Number(point.lat), Number(point.lng)])
+    .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+  const startPoint = trackPositions[0] || null;
 
   return (
     <div style={{ height: 560, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)' }}>
       <MapContainer center={center} zoom={12} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
         <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        {trackPositions.length >= 2 && (
+          <>
+            <Polyline positions={trackPositions} pathOptions={{ color: '#e8571a', weight: 5, opacity: 0.85 }} />
+            <FitBoundsToTrack positions={trackPositions} />
+          </>
+        )}
+        {startPoint && trackPositions.length >= 2 && (
+          <CircleMarker center={startPoint} radius={7} pathOptions={{ color: '#0f766e', fillColor: '#2ecc8a', fillOpacity: 0.95, weight: 2 }}>
+            <Tooltip direction="top">Partenza sessione</Tooltip>
+          </CircleMarker>
+        )}
         {drivers.filter((item) => item.latest).map((item) => {
+          const isSelected = item.session.id === selectedSessionId;
           const color = statusColor(item.status);
           return (
             <CircleMarker
               key={item.session.id}
               center={[Number(item.latest.lat), Number(item.latest.lng)]}
-              radius={10}
-              pathOptions={{ color, fillColor: color, fillOpacity: 0.82, weight: 3 }}
+              radius={isSelected ? 12 : 9}
+              pathOptions={{ color: isSelected ? '#1d4ed8' : color, fillColor: color, fillOpacity: 0.85, weight: isSelected ? 4 : 2 }}
             >
               <Popup>
                 <strong>{item.status}</strong>
@@ -157,20 +258,66 @@ function LiveMap({ drivers }) {
           );
         })}
       </MapContainer>
+      {selected && trackPositions.length === 0 && (
+        <div style={{ padding: '10px 4px 0', color: 'rgba(255,255,255,.5)', fontSize: 12 }}>Nessuna traccia disponibile per la sessione selezionata.</div>
+      )}
     </div>
   );
 }
 
-function DriverRow({ item }) {
+function SessionQualityPanel({ item }) {
+  if (!item) return null;
+  const rawKm = (() => {
+    const points = [...(item.points || [])].sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at));
+    let km = 0;
+    for (let i = 1; i < points.length; i += 1) {
+      const a = points[i - 1];
+      const b = points[i];
+      if (![a?.lat, a?.lng, b?.lat, b?.lng].every((v) => Number.isFinite(Number(v)))) continue;
+      const R = 6371;
+      const dLat = ((Number(b.lat) - Number(a.lat)) * Math.PI) / 180;
+      const dLng = ((Number(b.lng) - Number(a.lng)) * Math.PI) / 180;
+      const x = Math.sin(dLat / 2) ** 2 + Math.cos((Number(a.lat) * Math.PI) / 180) * Math.cos((Number(b.lat) * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+      km += R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+    }
+    return Math.round(km * 100) / 100;
+  })();
+  const filteredKm = calculateFilteredDistanceKm(item.points || []);
+  const quality = summarizeGpsQuality(item.points || []);
+
   return (
-    <div style={driverRowStyle}>
+    <div style={qualityPanelStyle}>
+      <p style={eyebrowStyle}>Qualita' traccia — sessione {shortId(item.session.id)}</p>
+      <div style={metricRowStyle}>
+        <Metric label="Punti totali" value={quality.total} />
+        <Metric label="Punti validi" value={quality.validCount} />
+        <Metric label="Punti esclusi" value={quality.excludedCount} />
+        <Metric label="Qualita' GPS" value={quality.quality} />
+        <Metric label="Distanza grezza" value={`${rawKm.toFixed(2)} km`} />
+        <Metric label="Distanza corretta" value={`${filteredKm.toFixed(2)} km`} />
+      </div>
+      {quality.excludedCount > 0 && (
+        <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(255,255,255,.55)' }}>
+          {Object.entries(quality.excludedByReason).map(([reason, count]) => (
+            <div key={reason}>{EXCLUSION_LABELS[reason] || reason}: {count}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DriverRow({ item, selected, onSelect }) {
+  return (
+    <button type="button" onClick={onSelect} style={{ ...driverRowStyle, ...(selected ? driverRowSelectedStyle : null) }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
         <strong style={{ color: '#fff', fontSize: 16 }}>{displayDriverName(item.session)}</strong>
+        <span style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', fontWeight: 900 }}>{LIFECYCLE_LABELS[item.lifecycle] || item.lifecycle}</span>
       </div>
       <span><StatusBadge status={item.status} /> · ping {formatDateTime(item.lastPing)} · {item.km.toFixed(2)} km · {item.points.length} punti</span>
       <span>Campagna {shortId(item.session.campaign_id)}</span>
       <span style={{ color: 'rgba(255,255,255,.34)', fontSize: 11 }}>Device {displayDeviceId(item.session)}</span>
-    </div>
+    </button>
   );
 }
 
@@ -179,6 +326,15 @@ function Kpi({ label, value, tone = 'orange' }) {
     <div style={cardStyle}>
       <p style={eyebrowStyle}>{label}</p>
       <strong style={{ color: toneColor(tone), fontSize: 28 }}>{value}</strong>
+    </div>
+  );
+}
+
+function Metric({ label, value }) {
+  return (
+    <div style={metricStyle}>
+      <span style={{ fontSize: 11, color: 'rgba(255,255,255,.5)', fontWeight: 800 }}>{label}</span>
+      <strong style={{ color: '#fff', fontSize: 15 }}>{value}</strong>
     </div>
   );
 }
@@ -226,4 +382,8 @@ const eyebrowStyle = { margin: '0 0 8px', fontSize: 11, textTransform: 'uppercas
 const noticeStyle = { padding: 12, border: '1px solid', borderRadius: 10, background: 'rgba(255,255,255,.04)', fontWeight: 800 };
 const emptyStyle = { padding: 16, border: '1px dashed rgba(255,255,255,.14)', borderRadius: 10, color: 'rgba(255,255,255,.48)' };
 const badgeStyle = { border: '1px solid', borderRadius: 999, padding: '4px 8px', fontSize: 11, fontWeight: 900 };
-const driverRowStyle = { display: 'grid', gap: 5, padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,.07)', fontSize: 12 };
+const driverRowStyle = { display: 'grid', gap: 5, width: '100%', textAlign: 'left', padding: '12px 8px', borderBottom: '1px solid rgba(255,255,255,.07)', fontSize: 12, background: 'transparent', border: 'none', borderRadius: 8, cursor: 'pointer', font: 'inherit', color: 'inherit' };
+const driverRowSelectedStyle = { background: 'rgba(232,87,26,.12)', boxShadow: 'inset 0 0 0 1px rgba(232,87,26,.4)' };
+const qualityPanelStyle = { marginTop: 14, padding: 14, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 10 };
+const metricRowStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 10 };
+const metricStyle = { display: 'grid', gap: 4, padding: 10, background: 'rgba(255,255,255,.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,.06)' };
