@@ -414,7 +414,7 @@ function QuoteSelectionHeader({ onNav }) {
               <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
                 {["Analisi territoriale", "Quantità consigliata", "Copertura stimata", "Servizi extra", "Configurazione completa"].map(item => (
                   <li key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "rgba(255,255,255,.8)" }}>
-                    <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.green }} /> {item}
+                    <div style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,.4)" }} /> {item}
                   </li>
                 ))}
               </ul>
@@ -461,7 +461,7 @@ function QuoteSelectionHeader({ onNav }) {
               <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
                 {["Prezzo stimato", "Tempo indicativo", "Preventivo immediato", "Fino a 3 comuni", "Servizi extra opzionali"].map(item => (
                   <li key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "rgba(255,255,255,.8)" }}>
-                    <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.orange }} /> {item}
+                    <div style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,.4)" }} /> {item}
                   </li>
                 ))}
               </ul>
@@ -508,7 +508,7 @@ function QuoteSelectionHeader({ onNav }) {
               <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
                 {["Preventivo su misura", "Analisi della richiesta", "Pianificazione campagna", "Supporto dedicato", "WhatsApp, Email, Telefono"].map(item => (
                   <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "rgba(255,255,255,.8)" }}>
-                    <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.blue, marginTop: 8 }} /> {item}
+                    <div style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,.4)", marginTop: 8 }} /> {item}
                   </li>
                 ))}
               </ul>
