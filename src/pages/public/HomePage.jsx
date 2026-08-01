@@ -180,6 +180,9 @@ export function HomePage({
   .home-shell-dark .vp-start-secondary:hover { border-color: rgba(232, 87, 26, 0.4) !important; }
   .home-shell-dark .vp-start-secondary h3, .home-shell-dark .vp-start-secondary p { color: #CBD5E1 !important; }
   .home-shell-dark .vp-start-primary { background: #0f1a2e !important; }
+  @media (min-width: 1025px) { .home-shell-dark .steps-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 16px !important; } }
+  @media (max-width: 1024px) and (min-width: 641px) { .home-shell-dark .steps-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 16px !important; } }
+  @media (max-width: 640px) { .home-shell-dark .steps-grid { grid-template-columns: 1fr !important; gap: 16px !important; } }
 `
     }), _jsx(VolantiniProHeroMap, {
       onConfigure: scrollOptions,
@@ -332,8 +335,7 @@ export function HomePage({
           className: "steps-grid",
           style: {
             display: "grid",
-            gridTemplateColumns: "repeat(4,1fr)",
-            gap: 12
+            gap: 16
           },
           children: T.map(({
             n: D,
@@ -344,22 +346,25 @@ export function HomePage({
           }, P) => _jsxs("div", {
             className: "vc",
             style: {
-              padding: "34px 28px",
+              padding: "24px 20px",
               background: C.white,
               borderRadius: 16,
               border: "1px solid rgba(0,0,0,.1)",
               boxShadow: "0 12px 32px rgba(0,0,0,.06)",
               position: "relative",
-              overflow: "hidden"
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              height: "100%"
             },
             children: [_jsx("div", {
               style: {
                 position: "absolute",
-                top: -8,
+                top: 0,
                 right: 12,
                 fontFamily: F.sans,
                 fontWeight: 900,
-                fontSize: 94,
+                fontSize: 64,
                 color: "#F4F6F8",
                 lineHeight: 1,
                 userSelect: "none"
@@ -371,24 +376,25 @@ export function HomePage({
                 height: 3,
                 borderRadius: 2,
                 background: B,
-                marginBottom: 24
+                marginBottom: 16
               }
             }), _jsx("h3", {
               style: {
                 fontFamily: F.serif,
-                fontSize: 22,
+                fontSize: 20,
                 color: C.navy,
-                marginBottom: 12,
+                marginBottom: 10,
                 letterSpacing: "-.3px"
               },
               children: W
             }), _jsx("p", {
               style: {
                 fontFamily: F.sans,
-                fontSize: 14,
+                fontSize: 13,
                 color: C.muted,
-                lineHeight: 1.6,
-                marginBottom: 20
+                lineHeight: 1.5,
+                marginBottom: 16,
+                flex: 1
               },
               children: A
             }), _jsx("div", {
@@ -398,9 +404,12 @@ export function HomePage({
                 borderRadius: 6,
                 background: `${B}12`,
                 fontFamily: F.sans,
-                fontSize: 11,
-                fontWeight: 700,
-                color: B
+                fontSize: 10,
+                fontWeight: 800,
+                color: B,
+                letterSpacing: ".05em",
+                textTransform: "uppercase",
+                alignSelf: "flex-start"
               },
               children: badge
             })]

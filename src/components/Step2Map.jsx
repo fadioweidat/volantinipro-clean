@@ -843,7 +843,7 @@ function Step2MapImpl({
       }
     } catch (_e) {}
 
-    const mbToken = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_MAPBOX_TOKEN : '';
+    const mbToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
     const tileLayer = L.tileLayer(
       `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${mbToken || ''}`,
       { tileSize: 512, zoomOffset: -1, attribution: 'Mapbox OpenStreetMap', maxZoom: 19 }
