@@ -7,7 +7,7 @@ import {
   displayDriverName,
 } from '../../lib/services/gps-api.js';
 import { getLiveDrivers } from '../../lib/services/admin-api.js';
-import { filterOperationalRows } from '../../lib/services/report-utils.js';
+import { dedupeSessionsByOperator, filterOperationalRows } from '../../lib/services/report-utils.js';
 import { EXCLUSION_LABELS, filterValidGpsPoints, calculateFilteredDistanceKm, summarizeGpsQuality } from '../../lib/gps/pointQuality.js';
 import { AdminLayout } from './AdminLayout.jsx';
 
@@ -17,33 +17,6 @@ const LIFECYCLE_LABELS = {
   offline_recent: 'Offline recente',
   history: 'Storico terminato',
 };
-
-// Un operatore con piu' sessioni non chiuse (es. sessione abbandonata senza
-// Termina) non deve comparire piu' volte nel banner/lista "driver offline":
-// tiene una sola riga per operatore, la piu' rilevante (live > warning >
-// offline_recent > history, a parita' quella con ping piu' recente).
-const LIFECYCLE_PRIORITY = { live: 0, warning: 1, offline_recent: 2, history: 3 };
-function dedupeByOperator(items) {
-  const byOperator = new Map();
-  for (const item of items) {
-    const key = item.session.driver_id || item.driverName || item.session.id;
-    const current = byOperator.get(key);
-    if (!current) {
-      byOperator.set(key, item);
-      continue;
-    }
-    const currentRank = LIFECYCLE_PRIORITY[current.lifecycle] ?? 9;
-    const itemRank = LIFECYCLE_PRIORITY[item.lifecycle] ?? 9;
-    if (itemRank < currentRank) {
-      byOperator.set(key, item);
-    } else if (itemRank === currentRank) {
-      const currentTime = current.activityAt ? new Date(current.activityAt).getTime() : 0;
-      const itemTime = item.activityAt ? new Date(item.activityAt).getTime() : 0;
-      if (itemTime > currentTime) byOperator.set(key, item);
-    }
-  }
-  return Array.from(byOperator.values());
-}
 
 export function AdminLiveDashboard({ onNav }) {
   const [state, setState] = useState({ loading: true, error: null, drivers: [] });
@@ -78,7 +51,7 @@ export function AdminLiveDashboard({ onNav }) {
     [state.drivers, filters],
   );
 
-  const currentRows = useMemo(() => dedupeByOperator(withLifecycle.filter((item) => item.lifecycle !== 'history')), [withLifecycle]);
+  const currentRows = useMemo(() => dedupeSessionsByOperator(withLifecycle.filter((item) => item.lifecycle !== 'history')), [withLifecycle]);
   const historyCount = withLifecycle.length - withLifecycle.filter((item) => item.lifecycle !== 'history').length;
 
   const liveCount = currentRows.filter((item) => item.lifecycle === 'live').length;

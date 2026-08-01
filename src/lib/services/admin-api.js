@@ -2,6 +2,7 @@ import { supabase } from '../../supabaseClient.js';
 import {
   calculateDistanceKm,
   classifyDriverStatus,
+  classifySessionLifecycle,
   createProofPhotoSignedUrl,
   displayDriverName,
   getCampaignGpsPoints,
@@ -12,7 +13,7 @@ import {
   getSessionPath,
 } from './gps-api.js';
 import { buildGroupRows } from './group-ops.js';
-import { lastActivityAt, sessionDurationMs } from './report-utils.js';
+import { dedupeSessionsByOperator, lastActivityAt, sessionDurationMs } from './report-utils.js';
 
 const EMPTY = 'Dato non disponibile';
 
@@ -79,6 +80,29 @@ export async function getLiveDrivers() {
     };
   }));
   return drivers;
+}
+
+// Fonte unica di verita' per "chi e' davvero operativo adesso", condivisa da
+// AdminLiveDashboard e dalla Dashboard Admin principale: stessa
+// classificazione lifecycle (completed/cancelled -> mai offline attuale;
+// 'started' abbandonata da giorni -> storico, non un problema di oggi) e
+// stessa deduplicazione per operatore, cosi' i due conteggi coincidono
+// sempre — nessuna seconda logica riscritta altrove.
+export async function getLiveOperatorsSummary() {
+  const drivers = await getLiveDrivers();
+  const withLifecycle = drivers.map((item) => ({
+    ...item,
+    lifecycle: classifySessionLifecycle(item.session, item.activityAt),
+  }));
+  const current = dedupeSessionsByOperator(withLifecycle.filter((item) => item.lifecycle !== 'history'));
+  return {
+    all: withLifecycle,
+    current,
+    liveCount: current.filter((item) => item.lifecycle === 'live').length,
+    warningCount: current.filter((item) => item.lifecycle === 'warning').length,
+    offlineRecentCount: current.filter((item) => item.lifecycle === 'offline_recent').length,
+    historyCount: withLifecycle.length - withLifecycle.filter((item) => item.lifecycle !== 'history').length,
+  };
 }
 
 export async function getCampaignReport(campaignId) {
@@ -164,13 +188,20 @@ function summarizeCampaignOps(campaignId, sessions, points, photos) {
   });
   const groups = buildGroupRows({ sessions: sessionRows, photos: photos.filter((photo) => photo.campaign_id === campaignId) });
   const operators = new Set(campaignSessions.map((session) => session.driver_id || session.driver_name).filter(Boolean));
-  const online = sessionRows.filter((row) => classifyDriverStatus(row.activityAt) === 'online').length;
-  const offline = sessionRows.filter((row) => classifyDriverStatus(row.activityAt) === 'offline').length;
+  // online/offline/problemi: stessa classificazione lifecycle e stessa
+  // deduplicazione per operatore di AdminLiveDashboard/getLiveOperatorsSummary
+  // — una sessione 'completed' non e' mai "offline", una sessione 'started'
+  // abbandonata da giorni e' storico (non conta), e un operatore con piu'
+  // sessioni non chiuse conta una volta sola.
+  const rowsWithLifecycle = sessionRows.map((row) => ({ ...row, lifecycle: classifySessionLifecycle(row.session, row.activityAt) }));
+  const currentRows = dedupeSessionsByOperator(rowsWithLifecycle.filter((row) => row.lifecycle !== 'history'));
+  const online = currentRows.filter((row) => row.lifecycle === 'live').length;
+  const offline = currentRows.filter((row) => row.lifecycle === 'offline_recent').length;
   const completed = campaignSessions.filter((session) => session.status === 'completed').length;
   const active = campaignSessions.filter((session) => ['started', 'paused'].includes(session.status)).length;
   const progress = campaignSessions.length ? Math.min(95, Math.round(((completed + active * 0.5) / campaignSessions.length) * 100)) : 0;
   const lastPing = sessionRows.map((row) => row.activityAt).filter(Boolean).sort((a, b) => new Date(b) - new Date(a))[0] || null;
-  const problems = sessionRows.filter((row) => !row.points.length || classifyDriverStatus(row.activityAt) === 'offline').length;
+  const problems = currentRows.filter((row) => !row.points.length || row.lifecycle === 'offline_recent').length;
   return { groups: groups.length, operators: operators.size, online, offline, problems, progress, lastPing };
 }
 

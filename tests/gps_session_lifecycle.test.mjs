@@ -44,17 +44,26 @@ test("classifySessionLifecycle", async (t) => {
 
 // Contratto sorgente: verifica che AdminLiveDashboard deduplichi per
 // operatore prima di contare/mostrare i driver "offline recente", cosi' un
-// singolo operatore con piu' sessioni abbandonate non gonfia il banner.
+// singolo operatore con piu' sessioni abbandonate non gonfia il banner. La
+// deduplicazione vive in report-utils.js (dedupeSessionsByOperator),
+// condivisa anche dalla Dashboard Admin principale — nessuna logica
+// duplicata tra le due pagine.
 test("AdminLiveDashboard: dedup per operatore nel banner offline", async (t) => {
   const source = readFileSync("src/pages/admin/AdminLiveDashboard.jsx", "utf8");
+  const reportUtilsSource = readFileSync("src/lib/services/report-utils.js", "utf8");
 
   await t.test("filtra esplicitamente le sessioni storiche prima di contare i driver correnti", () => {
     assert.match(source, /lifecycle !== 'history'/);
   });
 
-  await t.test("deduplica per driver_id prima del banner/lista", () => {
-    assert.match(source, /dedupeByOperator/);
-    assert.match(source, /item\.session\.driver_id \|\| item\.driverName/);
+  await t.test("usa la deduplicazione condivisa, non una copia locale", () => {
+    assert.match(source, /dedupeSessionsByOperator/);
+    assert.doesNotMatch(source, /function dedupeByOperator/);
+  });
+
+  await t.test("la deduplicazione condivisa raggruppa per driver_id (fallback nome/sessione)", () => {
+    assert.match(reportUtilsSource, /export function dedupeSessionsByOperator/);
+    assert.match(reportUtilsSource, /item\.session\.driver_id \|\| item\.driverName/);
   });
 
   await t.test("il banner offline usa il conteggio deduplicato, non il totale grezzo delle sessioni", () => {

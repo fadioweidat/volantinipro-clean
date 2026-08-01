@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { getRealCampaigns, selectOptionalTable } from "../../lib/services/admin-api.js";
+import { getRealCampaigns, getLiveOperatorsSummary, selectOptionalTable } from "../../lib/services/admin-api.js";
 import { isAdminAiDashboardEnabled } from "../../lib/runtimeFlags.js";
+import { AdminOperationalMap } from "../../components/admin/AdminOperationalMap.jsx";
 import { AdminLayout } from "./AdminLayout.jsx";
 
 const AdminCentralAiPanel = React.lazy(() => import("../../components/ai/admin/AdminCentralAiPanel.jsx"));
@@ -61,7 +62,7 @@ export default function AdminDashboard({ onNav }) {
     };
   }, []);
 
-  const { campaigns, waitlist, activities, latestGpsPoints, activeSessions, availability } = state.data;
+  const { campaigns, waitlist, activities, liveOperators, liveCount, warningCount, availability } = state.data;
   const visibleCampaigns = campaigns.filter((campaign) => showTestCampaigns || campaign.quality === "real");
   const filteredCampaigns = visibleCampaigns
     .filter((campaign) => statusFilter === "all" || campaign.status === statusFilter)
@@ -74,7 +75,7 @@ export default function AdminDashboard({ onNav }) {
 
   const kpis = [
     { label: "Revenue totale", value: totalRevenue == null ? EMPTY : euro(totalRevenue), sub: revenueValues.length ? "da campagne reali" : "colonna importo mancante", color: C.orange },
-    { label: "In distribuzione", value: validCampaigns.filter((campaign) => campaign.status === "active").length, sub: `${activeSessions.length} sessioni GPS attive`, color: C.green },
+    { label: "In distribuzione", value: validCampaigns.filter((campaign) => campaign.status === "active").length, sub: `${liveCount + warningCount} sessioni GPS attive`, color: C.green },
     { label: "In attesa", value: validCampaigns.filter((campaign) => campaign.status === "pending").length, sub: "campagne valide", color: C.yellow },
     { label: "Completate", value: validCampaigns.filter((campaign) => campaign.status === "done").length, sub: "campagne valide", color: "rgba(255,255,255,.58)" },
     { label: "CPM medio", value: avgCpm == null ? EMPTY : euro(avgCpm), sub: totalQty > 0 ? "per 1.000 volantini" : "quantita mancante", color: C.blue },
@@ -188,17 +189,7 @@ export default function AdminDashboard({ onNav }) {
             <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,.07)" }}>
               <p style={eyebrowStyle}>Mappa operativa reale</p>
             </div>
-            <div style={{ minHeight: 280, background: "linear-gradient(135deg,#081610,#080f1e)" }}>
-              {validCampaigns.some(hasCoordinates) || latestGpsPoints.length > 0 ? (
-                <svg viewBox="0 0 580 280" width="100%" style={{ display: "block" }}>
-                  <rect width="100%" height="100%" fill="rgba(255,255,255,.015)" />
-                  {validCampaigns.filter(hasCoordinates).map((campaign) => <CampaignMapPoint key={campaign.id} campaign={campaign} />)}
-                  {latestGpsPoints.map((point) => <GpsMapPoint key={point.id || point.session_id} point={point} />)}
-                </svg>
-              ) : (
-                <div style={{ padding: 16 }}><EmptyState text="Nessuna coordinata reale campagna o GPS live disponibile." /></div>
-              )}
-            </div>
+            <AdminOperationalMap operators={liveOperators} />
           </section>
         </div>
 
@@ -247,26 +238,29 @@ export default function AdminDashboard({ onNav }) {
 }
 
 async function loadAdminData() {
-  const [campaignsResult, sessionsTable, gpsPoints, waitlist, activities] = await Promise.all([
+  const [campaignsResult, liveSummary, waitlist, activities] = await Promise.all([
     getRealCampaigns({ includeTest: true }),
-    selectOptionalTable("delivery_sessions"),
-    selectOptionalTable("gps_tracking_points", "recorded_at"),
+    // Stessa fonte/logica di AdminLiveDashboard (getLiveDrivers +
+    // classifySessionLifecycle + dedupeSessionsByOperator): i due KPI
+    // "sessioni GPS attive" coincidono sempre, nessuna seconda logica.
+    getLiveOperatorsSummary().catch(() => ({ current: [], liveCount: 0, warningCount: 0 })),
     selectOptionalTable("smart_pairing_waitlist"),
     selectOptionalTable("activity_log"),
   ]);
-  const activeSessions = sessionsTable.rows.filter((session) => ["started", "active", "paused"].includes(String(session.status || "").toLowerCase()));
   return {
     campaigns: campaignsResult.allRows,
     waitlist: waitlist.rows,
-    sessions: sessionsTable.rows,
-    activeSessions,
-    latestGpsPoints: latestPointsBySession(gpsPoints.rows),
+    // Solo operatori davvero live/warning: mai completed/cancelled o
+    // sessioni 'started' abbandonate da giorni (gia' escluse da lifecycle
+    // 'history' dentro getLiveOperatorsSummary), mai lo stesso operatore
+    // due volte.
+    liveOperators: liveSummary.current.filter((item) => item.lifecycle === "live" || item.lifecycle === "warning"),
+    liveCount: liveSummary.liveCount,
+    warningCount: liveSummary.warningCount,
     activities: activities.rows,
     availability: {
       campaigns: campaignsResult.availability.campaigns,
       waitlist: waitlist.available,
-      gps: gpsPoints.available,
-      sessions: sessionsTable.available,
       photos: campaignsResult.availability.photos,
       activities: activities.available,
     },
@@ -341,18 +335,6 @@ function normalizeStatus(value) {
   return "pending";
 }
 
-function latestPointsBySession(points) {
-  const bySession = new Map();
-  points.forEach((point) => {
-    if (!point.session_id) return;
-    const previous = bySession.get(point.session_id);
-    if (!previous || new Date(point.recorded_at || point.created_at || 0) > new Date(previous.recorded_at || previous.created_at || 0)) {
-      bySession.set(point.session_id, point);
-    }
-  });
-  return Array.from(bySession.values());
-}
-
 function uniqueById(rows) {
   return Array.from(new Map(rows.filter((row) => row.id).map((row) => [String(row.id), row])).values());
 }
@@ -381,17 +363,6 @@ function CampaignRow({ campaign }) {
   );
 }
 
-function CampaignMapPoint({ campaign }) {
-  const point = projectPoint(campaign.lat, campaign.lng);
-  const service = SERVICES[campaign.service] || { color: "rgba(255,255,255,.45)" };
-  return <g><title>{`${campaign.client} · ${campaign.zone}`}</title><circle cx={point.x} cy={point.y} r="7" fill={service.color} /><text x={point.x} y={point.y - 11} textAnchor="middle" fontFamily={F.sans} fontSize="8" fill={service.color}>{String(campaign.id).slice(0, 6)}</text></g>;
-}
-
-function GpsMapPoint({ point }) {
-  const projected = projectPoint(point.lat, point.lng);
-  return <g><title>{`GPS live · sessione ${point.session_id || ""}`}</title><circle cx={projected.x} cy={projected.y} r="9" fill="none" stroke={C.green} strokeWidth="2" /><circle cx={projected.x} cy={projected.y} r="4" fill={C.green} /></g>;
-}
-
 function SideCard({ title, meta, children }) {
   return <section style={cardStyle}><div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 10 }}><p style={eyebrowStyle}>{title}</p>{meta && <span style={{ fontFamily: F.sans, fontSize: 10, color: C.orange }}>{meta}</span>}</div>{children}</section>;
 }
@@ -417,13 +388,6 @@ function filterButtons(ids, active, setActive, labels, color = C.orange) {
   return ids.map((id) => <button key={id} onClick={() => setActive(id)} style={{ padding: "5px 11px", borderRadius: 100, border: `1px solid ${active === id ? color : "rgba(255,255,255,.1)"}`, background: active === id ? `${color}18` : "rgba(255,255,255,.04)", color: active === id ? color : "rgba(255,255,255,.48)", fontFamily: F.sans, fontSize: 11, cursor: "pointer" }}>{labels[id]}</button>);
 }
 
-function projectPoint(lat, lng) {
-  return {
-    x: Math.max(20, Math.min(560, 580 / 2 + (Number(lng) - 9.19) * 2600)),
-    y: Math.max(20, Math.min(260, 280 / 2 - (Number(lat) - 45.46) * 3300)),
-  };
-}
-
 function hasCoordinates(campaign) {
   return Number.isFinite(campaign.lat) && Number.isFinite(campaign.lng);
 }
@@ -436,7 +400,7 @@ function formatDate(value) {
   return value ? new Date(value).toLocaleString("it-IT") : EMPTY;
 }
 
-const emptyData = () => ({ campaigns: [], waitlist: [], sessions: [], activeSessions: [], latestGpsPoints: [], activities: [], availability: {} });
+const emptyData = () => ({ campaigns: [], waitlist: [], liveOperators: [], liveCount: 0, warningCount: 0, activities: [], availability: {} });
 
 const cardStyle = { background: "rgba(255,255,255,.04)", borderRadius: 13, border: "1px solid rgba(255,255,255,.08)", padding: 16 };
 const eyebrowStyle = { margin: 0, fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.36)", letterSpacing: ".1em", textTransform: "uppercase" };

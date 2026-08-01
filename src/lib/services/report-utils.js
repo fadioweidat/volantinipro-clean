@@ -1,5 +1,34 @@
 export const REPORT_COLORS = ['#e8571a', '#2ecc8a', '#60a5fa', '#fbbf24', '#a78bfa', '#ef4444', '#14b8a6'];
 
+// Un operatore con piu' sessioni non chiuse (es. sessione abbandonata senza
+// Termina) non deve comparire piu' volte come driver distinto in nessuna
+// vista Admin: tiene una sola riga per operatore, la piu' rilevante (live >
+// warning > offline_recent > history, a parita' quella con ping piu'
+// recente). Condivisa da AdminLiveDashboard e dalla Dashboard Admin
+// principale, cosi' i conteggi coincidono ovunque (stessa fonte di verita').
+const LIFECYCLE_PRIORITY = { live: 0, warning: 1, offline_recent: 2, history: 3 };
+export function dedupeSessionsByOperator(items) {
+  const byOperator = new Map();
+  for (const item of items) {
+    const key = item.session.driver_id || item.driverName || item.session.id;
+    const current = byOperator.get(key);
+    if (!current) {
+      byOperator.set(key, item);
+      continue;
+    }
+    const currentRank = LIFECYCLE_PRIORITY[current.lifecycle] ?? 9;
+    const itemRank = LIFECYCLE_PRIORITY[item.lifecycle] ?? 9;
+    if (itemRank < currentRank) {
+      byOperator.set(key, item);
+    } else if (itemRank === currentRank) {
+      const currentTime = current.activityAt ? new Date(current.activityAt).getTime() : 0;
+      const itemTime = item.activityAt ? new Date(item.activityAt).getTime() : 0;
+      if (itemTime > currentTime) byOperator.set(key, item);
+    }
+  }
+  return Array.from(byOperator.values());
+}
+
 export function deriveCampaignStatus(sessions) {
   if (!sessions?.length) return 'non iniziata';
   if (sessions.some((session) => session.status === 'started')) return 'in corso';
