@@ -71,6 +71,8 @@ export function Step2({
   const layers = LAYERS[svcType] || LAYERS.d2d;
   const isResidentialStep2 = serviceMeta.mode === "residential";
   const isBusinessStep2 = serviceMeta.mode === "business";
+  const isFitnessSector = isBusinessStep2 && ((data.distributionTargets || []).includes('fitness') || data.businessCategory === 'fitness' || data.activityType === 'fitness' || data.targetBusiness === 'fitness');
+  const showTerritoryData = isResidentialStep2 || isFitnessSector;
   const isMovementStep2 = serviceMeta.mode === "movement";
   const normalizeSavedH2HPoint = point => {
     if (!isMovementStep2 || !point) return point;
@@ -5985,7 +5987,7 @@ export function Step2({
             // hiddenBoundaries (per-comune toggle from the UI) still applies.
             // Indirizzo non confermato: il confine comune viene passato come contesto leggero tratteggiato.
             (isComuneMode || mapConfiniOn && searchMode === "address") && municipalityBoundary ? Array.isArray(municipalityBoundary) ? municipalityBoundary.filter(b => !hiddenBoundaries.includes(normalizeMunicipalityName(b?.name || ""))) : hiddenBoundaries.includes(normalizeMunicipalityName(municipalityBoundary?.name || city?.label || city?.name || "")) ? null : municipalityBoundary : null} isMunicipalityMode={isComuneMode && !hasUnconfirmedAddressPoint} unconfirmedAddressMode={hasUnconfirmedAddressPoint} nilMode={isNilManualMode} coveragePolygons={mapCoverageZones} zoneAllocationById={zoneAllocationById} boundaryKpis={boundaryKpisForMap} themeMode={viewMode !== "distribuzione"} activeLayerId={activeLay?.id || null} zoneCoverageById={zoneCoverageById} basemap={mapBasemap} mapConfiniOn={mapConfiniOn} onToggleConfini={() => setMapConfiniOn(v => !v)} dusafLanduse={dusafLanduse} omiInfo={omiInfo} onBasemapToggle={() => setMapBasemap(b => b === "standard" ? "satellite" : "standard")} onMapClick={manualPinMode ? handleManualMapClick : null} />
-            {isResidentialStep2 && (gisLoading || gisTimedOut) && <div style={{
+            {showTerritoryData && (gisLoading || gisTimedOut) && <div style={{
               position: "absolute",
               inset: 0,
               zIndex: 760,
@@ -6138,7 +6140,7 @@ export function Step2({
                 }}>{selectedSearchPoint?.label || "Scegli raggio o comune completo"}</div>
                 </div>
               </div>}
-            {isResidentialStep2 && city && <div style={{
+            {showTerritoryData && city && <div style={{
               position: "absolute",
               top: 10,
               left: 10,
@@ -7069,7 +7071,7 @@ export function Step2({
                 </div>}
             </div>}
 
-          {isResidentialStep2 && (selZones.length > 0 || zonesInRadius.length > 0) && <section className="vp-step2-zone-details" aria-labelledby="vp-step2-zone-details-title">
+          {showTerritoryData && (selZones.length > 0 || zonesInRadius.length > 0) && <section className="vp-step2-zone-details" aria-labelledby="vp-step2-zone-details-title">
               <button type="button" className="vp-step2-zone-details__trigger" onClick={() => setShowClientZoneDetails(value => !value)} aria-expanded={showClientZoneDetails} aria-controls="vp-step2-zone-details-panel">
                 <span>
                   <strong id="vp-step2-zone-details-title">{showClientZoneDetails ? "Nascondi dettagli zone" : "Mostra dettagli zone"}</strong>
@@ -7080,7 +7082,7 @@ export function Step2({
               {showClientZoneDetails && (() => {
               const detailZones = isMovementStep2 ? h2hMetrics.clusters : isBusinessStep2 && businessMetrics.clusterRows.length ? businessMetrics.clusterRows : sortedResidentialZones;
               return <div id="vp-step2-zone-details-panel" className="vp-step2-zone-details__panel">
-                    {isResidentialStep2 && <div className="vp-step2-zone-details__sort" aria-label="Ordina dettaglio zone">
+                    {showTerritoryData && <div className="vp-step2-zone-details__sort" aria-label="Ordina dettaglio zone">
                         <span>Ordina per</span>
                         {[["relevance", "Priorità"], ["families", "Target"], ["coverage", "Copertura"]].map(([id, label]) => <button type="button" key={id} aria-pressed={zoneListSort === id} onClick={() => setZoneListSort(id)}>{label}</button>)}
                       </div>}
@@ -7193,7 +7195,7 @@ export function Step2({
                     })}
                       </tbody>
                     </table>
-                    {isResidentialStep2 && <div style={{
+                    {showTerritoryData && <div style={{
                   marginTop: 10,
                   padding: "10px 12px",
                   borderRadius: 8,
@@ -7211,7 +7213,7 @@ export function Step2({
             </section>}
 
           {/* COMUNE MODE: Zone di distribuzione */}
-          {isResidentialStep2 && searchMode !== "cap" && city && <div style={{
+          {showTerritoryData && searchMode !== "cap" && city && <div style={{
             background: "rgba(255,255,255,.04)",
             borderRadius: 12,
             border: "1px solid rgba(255,255,255,.07)",
@@ -7327,7 +7329,7 @@ export function Step2({
               }}>
                   {allocationMode === "auto" ? `Con ${formatIntegerIT(flyerQuantityFromStep1)} volantini il sistema copre prima le zone con priorità più alta. Le zone non coperte verranno incluse aumentando la quantità o modificando la distribuzione manuale.` : allocationMode === "priority" ? "Scegli l'ordine dei comuni con le frecce: il sistema distribuisce i volantini seguendo quell'ordine." : `Modalità manuale: scegli tu quanti volantini assegnare a ogni ${territorySingularLabel.toLowerCase()}.`}
                 </div>
-                {isResidentialStep2 && <div style={{
+                {showTerritoryData && <div style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
@@ -8144,7 +8146,7 @@ export function Step2({
                             useGrouping: true
                           })} ab. – ${Number(z.area ?? z.area_km2 ?? 0)} km² – ${Number(z.coverage ?? z.pct_copertura ?? 0)}% ${searchMode === "municipality" ? "di copertura" : "nel raggio"}` : isBusinessStep2 ? `${Number(z.targetBiz ?? 0)} target – ${Number(z.competitors ?? 0)} competitor – ${Number(z.clusters ?? 0)} cluster – ${z.topCats ?? ""}` : isMovementStep2 ? `${Number(z.poi ?? 0)} POI reali - ${Number(z.transit || 0)} nodi TPL/metro - score ${Number(z.strength ?? 0)}/100` : z.dist ? `${Number(z.dist).toFixed(1)} km dal centro` : "Zona nel raggio"}
                           </div>
-                          {isResidentialStep2 && <div style={{
+                          {showTerritoryData && <div style={{
                           display: "grid",
                           gridTemplateColumns: "repeat(auto-fit,minmax(112px,1fr))",
                           gap: 6,
@@ -8433,7 +8435,7 @@ export function Step2({
                       borderRadius: 12,
                       padding: 14
                     }}>
-                          {isResidentialStep2 && formulaFamilies > 0 && formulaRecommended > 0 && <div style={{
+                          {showTerritoryData && formulaFamilies > 0 && formulaRecommended > 0 && <div style={{
                         padding: "12px 14px",
                         borderRadius: 10,
                         background: `${col}10`,
@@ -9296,7 +9298,7 @@ export function Step2({
                     color: C.white,
                     lineHeight: 1.2
                   }}>
-                      {isResidentialStep2 && !step2ViewModel.hasUsableCoverageData ? "Dato non disponibile" : formatIntegerIT(step2ViewModel.primaryFamiliesValue)}
+                      {showTerritoryData && !step2ViewModel.hasUsableCoverageData ? "Dato non disponibile" : formatIntegerIT(step2ViewModel.primaryFamiliesValue)}
                     </div>
                   </div>
                   <span style={{
@@ -9348,7 +9350,7 @@ export function Step2({
                 }}>Denominatore: {step2RequirementContextLabel}.</div>
                   </div>}
 
-                {isResidentialStep2 && <div style={{
+                {showTerritoryData && <div style={{
                 padding: 13,
                 borderRadius: 11,
                 background: `${col}12`,
@@ -9416,10 +9418,10 @@ export function Step2({
                   }}>{isBusinessStep2 ? "Attività selezionate" : step2ViewModel.availableNilCount > 0 ? "Zone coinvolte / disponibili" : step2ViewModel.zoneCountLabel}</div>
                     <div className="vp-data-number" style={{
                     fontFamily: F.sans,
-                    fontSize: isResidentialStep2 && !step2ViewModel.hasUsableCoverageData ? 12 : 18,
+                    fontSize: showTerritoryData && !step2ViewModel.hasUsableCoverageData ? 12 : 18,
                     fontWeight: 800,
                     color: C.white
-                  }}>{isBusinessStep2 ? selectedOperationalPois.length : isResidentialStep2 && !step2ViewModel.hasUsableCoverageData ? "Dato non disponibile" : `${step2TruthModel.zones.involved} / ${step2TruthModel.zones.available}`}</div>
+                  }}>{isBusinessStep2 ? selectedOperationalPois.length : showTerritoryData && !step2ViewModel.hasUsableCoverageData ? "Dato non disponibile" : `${step2TruthModel.zones.involved} / ${step2TruthModel.zones.available}`}</div>
                   </div>
                   <div style={{
                   background: "rgba(255,255,255,.05)",
