@@ -193,9 +193,13 @@ export function useGpsTracking(campaignId) {
       recordedAt: new Date(position.timestamp || now).toISOString(),
     };
 
-    if (navigator.onLine === false || sendingRef.current) {
+    if (navigator.onLine === false) {
       enqueuePoint(payload);
       setNetworkStatus('offline');
+      return;
+    }
+    if (sendingRef.current) {
+      enqueuePoint(payload);
       return;
     }
 

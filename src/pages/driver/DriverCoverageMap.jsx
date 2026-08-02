@@ -3,10 +3,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { CircleMarker, Circle, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import { useGpsTracking } from '../../hooks/useGpsTracking.js';
 import { getCampaignGpsPoints } from '../../lib/services/gps-api.js';
-import { estimateDistanceToZoneBoundaryMeters, isPointInAnyZone, normalizeZonesFromCampaign } from '../../lib/geofence/geofenceEngine.js';
+import { deriveInstantZoneStatus, normalizeZonesFromCampaign } from '../../lib/geofence/geofenceEngine.js';
 import { calculateFilteredDistanceKm } from '../../lib/gps/pointQuality.js';
 
-const NEAR_BORDER_THRESHOLD_M = 40;
 const PATH_REFRESH_MIN_INTERVAL_MS = 8000;
 
 const ZONE_STATUS_LABELS = {
@@ -14,6 +13,7 @@ const ZONE_STATUS_LABELS = {
   near_border: 'Vicino al confine',
   outside: 'Fuori zona',
   zone_unavailable: 'Zona non disponibile',
+  unknown: 'Verifica in corso',
 };
 
 const ZONE_STATUS_COLORS = {
@@ -21,18 +21,8 @@ const ZONE_STATUS_COLORS = {
   near_border: '#b45309',
   outside: '#b91c1c',
   zone_unavailable: '#64748b',
+  unknown: '#b45309',
 };
-
-function deriveMapZoneStatus(zones, position) {
-  const lat = Number(position?.lat);
-  const lng = Number(position?.lng);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return 'zone_unavailable';
-  const inside = isPointInAnyZone(zones, lat, lng);
-  if (inside === null) return 'zone_unavailable';
-  const distance = estimateDistanceToZoneBoundaryMeters(zones, lat, lng);
-  if (distance != null && distance <= NEAR_BORDER_THRESHOLD_M) return 'near_border';
-  return inside ? 'inside' : 'outside';
-}
 
 function ZoneShape({ zone, index }) {
   if (zone.kind === 'polygon') {
@@ -118,7 +108,11 @@ export function DriverCoverageMap({ campaignId }) {
     return () => { cancelled = true; };
   }, [campaignId, sessionId, position?.recorded_at]);
 
-  const zoneStatus = useMemo(() => deriveMapZoneStatus(zones, position), [zones, position]);
+  const zoneStatus = useMemo(() => {
+    if (tracking.status !== 'active' && tracking.status !== 'paused') return 'unknown';
+    if (!position) return 'unknown';
+    return deriveInstantZoneStatus(zones, position);
+  }, [zones, position, tracking.status]);
   const statusColor = ZONE_STATUS_COLORS[zoneStatus] || ZONE_STATUS_COLORS.zone_unavailable;
   const lat = Number(position?.lat);
   const lng = Number(position?.lng);

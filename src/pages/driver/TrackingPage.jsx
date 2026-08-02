@@ -10,7 +10,7 @@ import {
 } from '../../lib/services/gps-api.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
 import { rememberPendingAuthContext, rememberPendingAuthReturnPath, rememberPendingAuthOrigin, saveStoredSupabaseSession } from '../../auth/session.js';
-import { normalizeZonesFromCampaign } from '../../lib/geofence/geofenceEngine.js';
+import { normalizeZonesFromCampaign, deriveInstantZoneStatus } from '../../lib/geofence/geofenceEngine.js';
 
 // Unica campagna per cui il bypass DEV puo' funzionare: hardcoded, non
 // accettata da query/prop, cosi' il pulsante non puo' mai essere puntato su
@@ -173,6 +173,12 @@ export function TrackingPage({ campaignId }) {
     [tracking.assignmentState.campaign],
   );
 
+  const instantZoneStatus = useMemo(() => {
+    if (tracking.status !== 'active' && tracking.status !== 'paused') return 'unknown';
+    if (!tracking.lastPosition) return 'unknown';
+    return deriveInstantZoneStatus(zones, tracking.lastPosition);
+  }, [tracking.status, tracking.lastPosition, zones]);
+
   async function handle(action) {
     try {
       setUploadState((prev) => ({ ...prev, error: null }));
@@ -225,15 +231,15 @@ export function TrackingPage({ campaignId }) {
           <Metric label="Accuracy" value={tracking.accuracy != null ? `${Math.round(tracking.accuracy)} m` : 'n/d'} />
           <Metric label="Ultimo invio" value={tracking.lastSentAt ? new Date(tracking.lastSentAt).toLocaleTimeString('it-IT') : 'nessuno'} />
           <Metric label="Sessione" value={tracking.session?.id ? tracking.session.id.slice(0, 8) : 'non avviata'} />
-          <Metric label="Rete" value={tracking.networkStatus} />
+          <Metric label="Rete" value={tracking.queueSize > 0 && tracking.networkStatus === 'online' ? 'Online (invio in coda...)' : tracking.networkStatus === 'online' ? 'Online' : 'Offline'} />
           <Metric label="Coda locale" value={tracking.queueSize} />
           <Metric label="Wake lock" value={tracking.wakeLockStatus} />
         </div>
 
         {(tracking.status === 'active' || tracking.status === 'paused') && (
           <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
-            <GeofenceBadge status={tracking.geofenceState.status} />
-            {tracking.geofenceState.status === 'outside' && (
+            <GeofenceBadge status={instantZoneStatus} />
+            {instantZoneStatus === 'outside' && (
               <div style={geofenceAlertStyle}>Sei fuori dalla zona assegnata. Rientra per continuare la distribuzione regolarmente.</div>
             )}
           </div>
@@ -266,7 +272,7 @@ export function TrackingPage({ campaignId }) {
       <section style={cardStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <p style={eyebrowStyle}>Copertura e Mappa</p>
-          <GeofenceBadge status={tracking.geofenceState.status} />
+          <GeofenceBadge status={instantZoneStatus} />
         </div>
         <div style={metricGridStyle}>
           <Metric label="Copertura" value="Copertura non ancora calcolabile" />
@@ -339,11 +345,11 @@ function RecentPhotoRow({ photo }) {
 }
 
 const GEOFENCE_LABELS = {
-  inside: 'In zona',
+  inside: 'Dentro zona',
+  near_border: 'Vicino al confine',
   outside: 'Fuori zona',
-  zone_unavailable: 'Zona non configurata',
-  stale: 'Posizione non aggiornata',
-  unknown: 'Verifica zona in corso',
+  zone_unavailable: 'Zona non disponibile',
+  unknown: 'Verifica in corso',
 };
 
 function GeofenceBadge({ status }) {
