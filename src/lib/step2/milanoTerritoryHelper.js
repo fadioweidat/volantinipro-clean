@@ -14,7 +14,9 @@ export function checkMilanoTerritory({ city, selectedComuni, selectedSearchPoint
   const checkStringMilano = (s) => {
     if (!s) return false;
     const str = String(s).normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
-    return str === "milano" || /\bmilano\b/.test(str);
+    if (str === "milano" || str === "comune di milano") return true;
+    if (str.startsWith("milano,") || str.startsWith("milano ")) return true;
+    return false;
   };
 
   // 1. Source of truth principale: codice ISTAT comune 015146 o parentComune Milano
