@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useGpsTracking } from '../../hooks/useGpsTracking.js';
 import { PodCapture } from '../../components/driver/PodCapture.jsx';
-import { DriverZoneMap } from '../../components/driver/DriverZoneMap.jsx';
+
 import {
   createProofPhotoSignedUrl,
   getCampaignProofPhotos,
@@ -263,12 +263,22 @@ export function TrackingPage({ campaignId }) {
         </div>
       </section>
 
-      <DriverZoneMap
-        campaignId={campaignId}
-        sessionId={tracking.session?.id || null}
-        position={tracking.lastPosition}
-        zones={zones}
-      />
+      <section style={cardStyle}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <p style={eyebrowStyle}>Copertura e Mappa</p>
+          <GeofenceBadge status={tracking.geofenceState.status} />
+        </div>
+        <div style={metricGridStyle}>
+          <Metric label="Copertura" value="Copertura non ancora calcolabile" />
+        </div>
+        <button
+          style={{ ...primaryButtonStyle, width: '100%', marginTop: 8 }}
+          type="button"
+          onClick={() => window.location.href = `/driver/tracking/${campaignId}/map`}
+        >
+          Apri mappa copertura
+        </button>
+      </section>
 
       <section style={cardStyle}>
         <p style={eyebrowStyle}>Ultima posizione inviata</p>
