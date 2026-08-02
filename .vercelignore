@@ -1,0 +1,6 @@
+data/
+supabase/
+backup/
+backups/
+*.png
+!public/**/*.png
