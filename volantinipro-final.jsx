@@ -5079,10 +5079,27 @@ export function LoginPage({
           }
         })
       });
-      if (!res.ok) throw new Error("magic_link_failed");
+      if (!res.ok) {
+        if (res.status === 429) {
+          throw new Error("Troppi magic link richiesti. Attendi prima di riprovare.");
+        }
+        const errData = await res.json().catch(() => null);
+        if (errData && errData.error_description) {
+          throw new Error(errData.error_description);
+        } else if (errData && errData.msg) {
+          throw new Error(errData.msg);
+        } else if (errData && errData.message) {
+          throw new Error(errData.message);
+        }
+        throw new Error("magic_link_failed");
+      }
       setStatus(isAdminContext ? "Magic link inviato. Controlla la tua email per entrare nella dashboard admin." : isDriverContext ? "Magic link inviato. Controlla la tua email per accedere come operatore." : "Magic link inviato. Controlla la tua email per entrare nella dashboard.");
-    } catch {
-      setStatus("Non sono riuscito a inviare il magic link. Verifica chiavi Supabase e redirect URL.");
+    } catch (err) {
+      if (err.message !== "magic_link_failed" && err.message !== "Failed to fetch") {
+        setStatus(err.message);
+      } else {
+        setStatus("Non sono riuscito a inviare il magic link. Verifica chiavi Supabase e redirect URL.");
+      }
     } finally {
       setBusy(false);
     }
