@@ -23,10 +23,6 @@ export function HomePage({
       behavior: "smooth",
       block: "start"
     }),
-    scrollOptions = () => document.getElementById("scegli-percorso")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    }),
     [r, l] = useState(!1),
     [u, h] = useState({
       city: "",
@@ -185,7 +181,7 @@ export function HomePage({
   @media (max-width: 640px) { .home-shell-dark .steps-grid { grid-template-columns: 1fr !important; gap: 16px !important; } }
 `
     }), _jsx(VolantiniProHeroMap, {
-      onConfigure: scrollOptions,
+      onConfigure: () => n("preventivo"),
       onQuote: () => n("preventivo"),
       onLogin: () => n("login"),
       onAdmin: () => n("admin"),
@@ -439,7 +435,7 @@ export function HomePage({
         })]
       })
     }), _jsx(ServicesSection, {
-      onConfigure: scrollOptions
+      onConfigure: () => n("preventivo")
     }), _jsx(React.Suspense, {
       fallback: _jsx("div", {
         style: {
@@ -448,12 +444,12 @@ export function HomePage({
         }
       }),
       children: _jsx(VolantiniProAIHub, {
-        onConfigure: scrollOptions
+        onConfigure: () => n("preventivo")
       })
     }), _jsx(RisultatiSection, {}), _jsx(FAQSection, {
       onContact: () => n("consultant")
     }), _jsx(PricingSection, {
-      onConfigure: scrollOptions,
+      onConfigure: () => n("preventivo"),
       onConsultant: () => n("consultant")
     }), _jsx(Footer, {
       onNav: n,
