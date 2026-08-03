@@ -92,24 +92,34 @@ export function AppRouter() {
     return () => window.removeEventListener("popstate", handlePop);
   }, []);
 
-  const [data, setData] = useState({
-    type: null, activityType: "", activityNote: "", qty: 10000,
-    hasFlyers: "no", flyerFormat: "a5", flyerWeight: "115", extraServices: [], printGramm: "115", printSide: "fronte", printColor: "cmyk",
-    urgency: "normal", subscription: "single", campaignsPerMonth: 1,
-    selectedService: null, activeService: null, businessSector: "", flyerQuantity: 10000,
-    campaignPeriodStart: "", campaignPeriodEnd: "", alreadyPrinted: false,
-    printServices: [], paperWeight: "115", printSides: "fronte", colorMode: "cmyk",
-    campaignPlan: "single", totalCampaigns: 1, planDiscount: 0,
-    redistExtra: null, zoneMode: "auto", zoneCountIntent: "single",
-    city: null, cityName: "", radius: 3, selectedRadius: 3, searchedLocation: "", zones: [], selectedZones: [], selectedComuni: [],
-    layerValues: {}, adminInfoSummary: null, serviceKpis: null, requiredFlyers: 0,
-    flyerQuantityFromStep1: 10000, missingFlyers: 0, coverageStatus: "empty", recommendations: [],
-    days: [], avgDiscount: 0, selectedDates: [], selectedMonth: null, selectedDaysCount: 0,
-    pairingDays: [], normalDays: [], requestOnlyDays: [], pairingType: {}, pairingDiscountPercent: {},
-    averagePairingDiscount: 0, maxPairingDiscount: 0, calendarStatus: "empty",
-    smartPairingStatus: "none", smartPairingRequestSent: false,
-    requiresManualConfirmation: false, contactRequestData: null,
-    aiOptimizer: false, startDate: "", endDate: "", ...prefill.patch
+  const [data, setData] = useState(() => {
+    let draft = {};
+    if (typeof window !== "undefined" && localStorage.getItem("volantinipro_return_to") === "step4") {
+      try {
+        const raw = localStorage.getItem("volantinipro_pending_campaign_draft");
+        if (raw) draft = JSON.parse(raw);
+      } catch (e) {}
+    }
+    return {
+      type: null, activityType: "", activityNote: "", qty: 10000,
+      hasFlyers: "no", flyerFormat: "a5", flyerWeight: "115", extraServices: [], printGramm: "115", printSide: "fronte", printColor: "cmyk",
+      urgency: "normal", subscription: "single", campaignsPerMonth: 1,
+      selectedService: null, activeService: null, businessSector: "", flyerQuantity: 10000,
+      campaignPeriodStart: "", campaignPeriodEnd: "", alreadyPrinted: false,
+      printServices: [], paperWeight: "115", printSides: "fronte", colorMode: "cmyk",
+      campaignPlan: "single", totalCampaigns: 1, planDiscount: 0,
+      redistExtra: null, zoneMode: "auto", zoneCountIntent: "single",
+      city: null, cityName: "", radius: 3, selectedRadius: 3, searchedLocation: "", zones: [], selectedZones: [], selectedComuni: [],
+      layerValues: {}, adminInfoSummary: null, serviceKpis: null, requiredFlyers: 0,
+      flyerQuantityFromStep1: 10000, missingFlyers: 0, coverageStatus: "empty", recommendations: [],
+      days: [], avgDiscount: 0, selectedDates: [], selectedMonth: null, selectedDaysCount: 0,
+      pairingDays: [], normalDays: [], requestOnlyDays: [], pairingType: {}, pairingDiscountPercent: {},
+      averagePairingDiscount: 0, maxPairingDiscount: 0, calendarStatus: "empty",
+      smartPairingStatus: "none", smartPairingRequestSent: false,
+      requiresManualConfirmation: false, contactRequestData: null,
+      aiOptimizer: false, startDate: "", endDate: "", ...prefill.patch,
+      ...draft
+    };
   });
 
   const goTo = (p, prefillPatch = null) => {
@@ -141,7 +151,10 @@ export function AppRouter() {
     };
     if (typeof window !== "undefined") {
       const params = new URLSearchParams();
-      if (p === "login") {
+      if (p.startsWith("login?")) {
+        window.history.pushState(null, "", "/" + p);
+        p = "login";
+      } else if (p === "login") {
         const ctx = prefillPatch?.context === "admin" ? "?context=admin" : "";
         window.history.pushState(null, "", `/login${ctx}`);
       } else if (p.startsWith("step")) {
