@@ -3,7 +3,7 @@ import { MapContainer, Polyline, Popup, TileLayer, CircleMarker } from 'react-le
 import { useEffect, useMemo, useState } from 'react';
 import { classifyDriverStatus, displayDriverName, getSessionGroup } from '../../lib/services/gps-api.js';
 import { getCampaignReport } from '../../lib/services/admin-api.js';
-import { buildGpsCsv, buildSessionCsv, downloadTextFile, filterOperationalRows, lastActivityAt } from '../../lib/services/report-utils.js';
+import { buildGpsCsv, buildSessionCsv, downloadTextFile, filterOperationalRows, lastActivityAt, sessionDurationMs } from '../../lib/services/report-utils.js';
 import { AdminLayout } from './AdminLayout.jsx';
 import { ZoneAssignmentsPanel } from './ZoneAssignmentsPanel.jsx';
 
