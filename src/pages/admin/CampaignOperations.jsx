@@ -5,6 +5,7 @@ import { classifyDriverStatus, displayDriverName, getSessionGroup } from '../../
 import { getCampaignReport } from '../../lib/services/admin-api.js';
 import { buildGpsCsv, buildSessionCsv, downloadTextFile, filterOperationalRows, lastActivityAt } from '../../lib/services/report-utils.js';
 import { AdminLayout } from './AdminLayout.jsx';
+import { ZoneAssignmentsPanel } from './ZoneAssignmentsPanel.jsx';
 
 const DEFAULT_CENTER = [45.4642, 9.19];
 const COLORS = ['#e8571a', '#2ecc8a', '#60a5fa', '#fbbf24', '#a78bfa', '#ef4444'];
@@ -158,6 +159,8 @@ export function CampaignOperations({ campaignId, onNav }) {
           <EmptyState text={state.loading ? 'Caricamento operazioni campagna...' : 'Nessun tracking GPS disponibile per questa campagna'} />
         )}
       </section>
+
+      <ZoneAssignmentsPanel campaignId={campaignId} />
 
       <section style={cardStyle}>
         <p style={eyebrowStyle}>Sessioni driver</p>

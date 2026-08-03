@@ -2,7 +2,7 @@ import 'leaflet/dist/leaflet.css';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CircleMarker, Circle, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import { useGpsTracking } from '../../hooks/useGpsTracking.js';
-import { getCampaignGpsPoints } from '../../lib/services/gps-api.js';
+import { getCampaignGpsPoints, calculateGpsCoverage } from '../../lib/services/gps-api.js';
 import { deriveInstantZoneStatus, normalizeZonesFromCampaign } from '../../lib/geofence/geofenceEngine.js';
 import { calculateFilteredDistanceKm } from '../../lib/gps/pointQuality.js';
 
@@ -74,12 +74,21 @@ export function DriverCoverageMap({ campaignId }) {
   const [distanceKm, setDistanceKm] = useState(0);
   const [centerMap, setCenterMap] = useState(null);
   const lastFetchRef = useRef(0);
+  const lastCoverageFetchRef = useRef(0);
   const [panelExpanded, setPanelExpanded] = useState(false);
+  const [spatialCoverage, setSpatialCoverage] = useState(null);
 
-  const zones = useMemo(
-    () => normalizeZonesFromCampaign(tracking.assignmentState.campaign),
-    [tracking.assignmentState.campaign],
-  );
+  const zones = useMemo(() => {
+    if (!tracking.assignmentState.campaign) return [];
+    const activeZoneId = tracking.session?.campaign_zone_id;
+    if (activeZoneId) {
+      const activeZone = tracking.assignmentState.campaign.campaign_zones?.find(z => z.id === activeZoneId);
+      if (activeZone) {
+        return normalizeZonesFromCampaign({ ...tracking.assignmentState.campaign, campaign_zones: [activeZone] });
+      }
+    }
+    return normalizeZonesFromCampaign(tracking.assignmentState.campaign);
+  }, [tracking.assignmentState.campaign, tracking.session?.campaign_zone_id]);
 
   const sessionId = tracking.session?.id || null;
   const position = tracking.lastPosition;
@@ -105,8 +114,19 @@ export function DriverCoverageMap({ campaignId }) {
         setDistanceKm(dist);
       })
       .catch(() => {});
+      
+    // Polling per la copertura spaziale ogni 60 secondi o quando lo stato cambia
+    if (now - lastCoverageFetchRef.current >= 60000 || !lastCoverageFetchRef.current) {
+      lastCoverageFetchRef.current = now;
+      calculateGpsCoverage(sessionId)
+        .then((result) => {
+          if (!cancelled) setSpatialCoverage(result);
+        })
+        .catch(() => {});
+    }
+      
     return () => { cancelled = true; };
-  }, [campaignId, sessionId, position?.recorded_at]);
+  }, [campaignId, sessionId, position?.recorded_at, tracking.status]);
 
   const zoneStatus = useMemo(() => {
     if (tracking.status !== 'active' && tracking.status !== 'paused') return 'unknown';
@@ -133,6 +153,25 @@ export function DriverCoverageMap({ campaignId }) {
       setCenterMap({ lat: zones[0].centerLat, lng: zones[0].centerLng, ts: Date.now() });
     }
   };
+
+  useEffect(() => {
+    if (campaignId === '59a27968-3e3d-4bc0-9635-74d9235e1463') {
+      console.log("[DEV_COVERAGE_CHECK]", {
+        campaignZoneId: tracking.session?.campaign_zone_id,
+        sessionId,
+        geometryAvailable: zones[0]?.geometry ? true : false,
+        geometryType: zones[0]?.geometry?.type || zones[0]?.kind,
+        totalGpsPoints: 'unknown (path used instead)',
+        validGpsPoints: path.length,
+        bufferUsed: null,
+        totalZoneArea: null,
+        coveredArea: null,
+        calculatedPercentage: null,
+        percentageDenominator: null,
+        reasonNotCalculable: "Nessun calcolo spaziale implementato nel componente (manca Turf.js o un'intersezione tra la traccia bufferizzata e il poligono della zona)."
+      });
+    }
+  }, [campaignId, tracking.session?.campaign_zone_id, sessionId, zones, path.length]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden', background: '#eef2ef', fontFamily: 'Inter, system-ui, sans-serif' }}>
@@ -172,7 +211,15 @@ export function DriverCoverageMap({ campaignId }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div>
               <h2 style={{ margin: 0, fontSize: 18, color: '#17211f' }}>Copertura sessione</h2>
-              <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Copertura non ancora calcolabile</p>
+              {spatialCoverage ? (
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: spatialCoverage.calculation_status === 'ready' ? '#0f766e' : '#b45309', fontWeight: 600 }}>
+                  {spatialCoverage.calculation_status === 'ready' 
+                    ? `${spatialCoverage.coverage_percent}% (${spatialCoverage.covered_area_m2} / ${spatialCoverage.total_area_m2} m²)` 
+                    : spatialCoverage.reason_not_calculable || 'Calcolo non riuscito'}
+                </p>
+              ) : (
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Elaborazione copertura spaziale in corso...</p>
+              )}
             </div>
             <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 12px', borderRadius: 999, fontSize: 13, fontWeight: 700, color: statusColor, background: `${statusColor}14`, border: `1px solid ${statusColor}44` }}>
               {ZONE_STATUS_LABELS[zoneStatus]}

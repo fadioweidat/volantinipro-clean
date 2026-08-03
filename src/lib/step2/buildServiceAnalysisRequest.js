@@ -10,7 +10,8 @@ export function buildServiceAnalysisRequest({
   scope = null,
   analysisLevel = null,
   selectionScope = null,
-  selectedMunicipalityCodes = null
+  selectedMunicipalityCodes = null,
+  targetSelection = null
 }) {
   const centerLat = Number(lat);
   const centerLng = Number(lng);
@@ -18,6 +19,10 @@ export function buildServiceAnalysisRequest({
 
   const normalized = normalizeMunicipalityCodes(selectedMunicipalityCodes);
   const canonicalCodes = normalized.canonical;
+
+  const targetKey = Array.isArray(targetSelection)
+    ? [...targetSelection].filter(Boolean).sort().join('|')
+    : String(targetSelection || '');
 
   const requestKey = [
     service || "",
@@ -29,7 +34,8 @@ export function buildServiceAnalysisRequest({
     scope || "",
     analysisLevel || "",
     selectionScope || "",
-    canonicalCodes
+    canonicalCodes,
+    targetKey
   ].join("|");
 
   let baseUrl = null;

@@ -151,6 +151,33 @@ export async function selectOptionalTable(table, order = 'created_at') {
   }
 }
 
+export async function getCampaignZonesWithGroups(campaignId) {
+  const [zonesRes, groupsRes] = await Promise.all([
+    supabase.from('campaign_zones').select('*').eq('campaign_id', campaignId).order('priority', { ascending: true, nullsFirst: false }).order('zone_name'),
+    supabase.from('operational_groups').select('id, name, status').eq('campaign_id', campaignId).order('name')
+  ]);
+  
+  if (zonesRes.error) throw new Error(zonesRes.error.message);
+  if (groupsRes.error) throw new Error(groupsRes.error.message);
+  
+  return {
+    zones: zonesRes.data || [],
+    groups: groupsRes.data || []
+  };
+}
+
+export async function updateCampaignZoneAssignment(zoneId, updates) {
+  const { data, error } = await supabase
+    .from('campaign_zones')
+    .update(updates)
+    .eq('id', zoneId)
+    .select()
+    .single();
+    
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 export function normalizeCampaign(row, source) {
   const rawStatus = String(row.status || row.stato || row.state || row.stato_pagamento || '').toLowerCase();
   const serviceSource = row.service_type || row.campaign_type || row.type || row.servizio || row.selected_service || row.service;

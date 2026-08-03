@@ -134,3 +134,4 @@ data/**/*.sqlite
 backup/
 backups/
 .vercel
+.env*

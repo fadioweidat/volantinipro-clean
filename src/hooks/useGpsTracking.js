@@ -267,7 +267,7 @@ export function useGpsTracking(campaignId) {
     );
   }, [evaluateGeofence, sendPosition, stopWatch]);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (zoneId = null) => {
     setError(null);
     setAssignmentState((prev) => ({ ...prev, status: 'checking', error: null }));
     let resolved;
@@ -284,7 +284,7 @@ export function useGpsTracking(campaignId) {
       campaign: resolved.campaign,
       error: null,
     });
-    const nextSession = await startGpsSession(campaignId, { assignmentId: resolved.assignment.id });
+    const nextSession = await startGpsSession(campaignId, { assignmentId: resolved.assignment.id, zoneId });
     sessionRef.current = nextSession;
     statusRef.current = 'active';
     setSession(nextSession);

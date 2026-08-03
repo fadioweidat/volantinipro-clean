@@ -220,6 +220,23 @@ export function evaluateGeofencePoint(prevState, point, zones) {
   return { status, confirmedAt, candidate, lastValidPointAt: nowMs, events };
 }
 
+// Stato zona SOLO visivo, calcolato istantaneamente sull'ultima posizione
+// nota — usato dalla card compatta Driver e dalla pagina mappa copertura.
+// Distinto di proposito dallo stato debounced (evaluateGeofencePoint), che
+// resta l'unica fonte per l'alert ufficiale "Sei fuori dalla zona".
+export const INSTANT_ZONE_NEAR_BORDER_M = 40;
+
+export function deriveInstantZoneStatus(zones, position, nearBorderM = INSTANT_ZONE_NEAR_BORDER_M) {
+  const lat = toFiniteNumber(position?.lat);
+  const lng = toFiniteNumber(position?.lng);
+  if (lat == null || lng == null) return 'zone_unavailable';
+  const inside = isPointInAnyZone(zones, lat, lng);
+  if (inside === null) return 'zone_unavailable';
+  const distance = estimateDistanceToZoneBoundaryMeters(zones, lat, lng);
+  if (distance != null && distance <= nearBorderM) return 'near_border';
+  return inside ? 'inside' : 'outside';
+}
+
 // Da chiamare periodicamente (non ad ogni punto) per rilevare l'assenza
 // prolungata di punti validi (GPS fermo, app in background, offline esteso):
 // lo stato passa a 'stale' finche' non arriva un nuovo punto valido.

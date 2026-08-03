@@ -3,7 +3,7 @@ import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-le
 import { useEffect, useMemo, useState } from 'react';
 import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
-import { createProofPhotoSignedUrl, getCampaignGpsPoints, getCampaignGpsSessions, getCampaignProofPhotos, getCampaignRecord } from '../../lib/services/gps-api.js';
+import { createProofPhotoSignedUrl, getCampaignGpsPoints, getCampaignGpsSessions, getCampaignProofPhotos, getCampaignRecord, calculateGpsCoverage } from '../../lib/services/gps-api.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
 import { normalizeZonesFromCampaign, summarizeGeofencePoints } from '../../lib/geofence/geofenceEngine.js';
 import { filterValidGpsPoints } from '../../lib/gps/pointQuality.js';
@@ -11,6 +11,7 @@ import { AdminLayout } from './AdminLayout.jsx';
 
 export function GpsMonitor({ campaignId, onNav }) {
   const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], activeSession: null, campaign: null });
+  const [coverage, setCoverage] = useState(null);
   const zoneProgress = useZoneProgress({ campaignId, includeHistory: true });
 
   useEffect(() => {
@@ -37,6 +38,25 @@ export function GpsMonitor({ campaignId, onNav }) {
       window.clearInterval(timer);
     };
   }, [campaignId]);
+
+  const handleRecalculateCoverage = () => {
+    if (state.activeSession?.id) {
+      setCoverage(prev => ({ ...prev, calculating: true }));
+      calculateGpsCoverage(state.activeSession.id)
+        .then(res => setCoverage(res))
+        .catch(err => console.error('Error fetching coverage', err));
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    if (state.activeSession?.id) {
+      calculateGpsCoverage(state.activeSession.id)
+        .then(res => { if (!cancelled) setCoverage(res); })
+        .catch(err => { console.error('Error fetching coverage', err); });
+    }
+    return () => { cancelled = true; };
+  }, [state.activeSession?.id, state.points.length, state.activeSession?.status]);
 
   const geofenceZones = useMemo(() => normalizeZonesFromCampaign(state.campaign), [state.campaign]);
   const geofence = useMemo(() => summarizeGeofencePoints(state.points, geofenceZones), [state.points, geofenceZones]);
@@ -67,6 +87,24 @@ export function GpsMonitor({ campaignId, onNav }) {
         <Metric label="Driver" value={driverOnline ? 'online' : 'offline'} />
         <Metric label="Tempo attivo" value={formatDuration(activeMs)} />
         <Metric label="Geofence" value={<GeofenceBadge status={geofence.status} />} />
+        {coverage && coverage.calculation_status === 'ready' && (
+          <Metric 
+            label="Copertura calcolata" 
+            value={
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {coverage.coverage_percent}%
+                <button 
+                  onClick={handleRecalculateCoverage}
+                  disabled={coverage.calculating}
+                  style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 4, color: '#fff', fontSize: 10, padding: '2px 6px', cursor: 'pointer' }}
+                  title="Ricalcola manualmente"
+                >
+                  {coverage.calculating ? '...' : 'Ricalcola'}
+                </button>
+              </div>
+            } 
+          />
+        )}
       </div>
 
       <ZoneProgressPanel

@@ -182,7 +182,7 @@ export async function resolveGpsAssignment(campaignId) {
   return { assignment: active[0], campaign };
 }
 
-export async function startGpsSession(campaignId, { assignmentId, deviceId } = {}) {
+export async function startGpsSession(campaignId, { assignmentId, deviceId, zoneId } = {}) {
   const resolved = assignmentId
     ? { assignment: { id: assignmentId } }
     : await resolveGpsAssignment(campaignId);
@@ -191,6 +191,15 @@ export async function startGpsSession(campaignId, { assignmentId, deviceId } = {
   return callGpsRpc('gps_start_session', {
     p_assignment_id: resolved.assignment.id,
     p_device_id: deviceId || null,
+    p_campaign_zone_id: zoneId || null,
+  });
+}
+
+export async function transitionZone(zoneId, action) {
+  if (!isValidUuid(zoneId)) throw permanentGpsError('assignment_missing');
+  return callGpsRpc('gps_transition_zone', {
+    p_campaign_zone_id: zoneId,
+    p_action: action,
   });
 }
 
@@ -226,6 +235,11 @@ export async function resumeGpsSession(sessionId) {
 
 export async function endGpsSession(sessionId) {
   return callGpsRpc('gps_transition_session', { p_session_id: sessionId, p_action: 'complete' });
+}
+
+export async function calculateGpsCoverage(sessionId, bufferMeters = 30) {
+  if (!isValidUuid(sessionId)) throw permanentGpsError('assignment_missing');
+  return callGpsRpc('gps_calculate_zone_coverage', { p_session_id: sessionId, p_buffer_meters: bufferMeters });
 }
 
 export async function insertGpsPoint({

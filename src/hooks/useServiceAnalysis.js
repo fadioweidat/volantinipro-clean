@@ -7,7 +7,7 @@ const debugStep2 = (...args) => {
 
 let hasLoggedInvalidZone = false;
 
-export function useServiceAnalysis(lat, lng, radius, service, municipality = null, quantity = null, scope = null, analysisLevel = null, selectionScope = null, selectedMunicipalityCodes = null) {
+export function useServiceAnalysis(lat, lng, radius, service, municipality = null, quantity = null, scope = null, analysisLevel = null, selectionScope = null, selectedMunicipalityCodes = null, targetSelection = null) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -52,7 +52,8 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
       scope,
       analysisLevel,
       selectionScope,
-      selectedMunicipalityCodes
+      selectedMunicipalityCodes,
+      targetSelection
     });
 
     if (lastRequestKeyRef.current === requestKey && data !== null && error === null) {
@@ -69,7 +70,7 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
     const fetchData = async () => {
       lastRequestKeyRef.current = requestKey;
 
-      debugStep2('[ZONE_CHANGE]', { municipality, centerLat, centerLng, radiusKm, service, selectionScope, selectedMunicipalityCodes: canonicalCodes });
+      debugStep2('[ZONE_CHANGE]', { municipality, centerLat, centerLng, radiusKm, service, selectionScope, selectedMunicipalityCodes: canonicalCodes, targetSelection });
 
       setError(null);
 
@@ -97,7 +98,8 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
           radiusKm,
           municipality,
           selectionScope,
-          selectedMunicipalityCodes: canonicalCodes
+          selectedMunicipalityCodes: canonicalCodes,
+          targetSelection
         });
 
         const headers = { 'Content-Type': 'application/json' };
@@ -152,7 +154,7 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
       clearTimeout(timerId);
       controller.abort();
     };
-  }, [lat, lng, radius, service, municipality, quantity, scope, analysisLevel, selectionScope, selectedMunicipalityCodes]);
+  }, [lat, lng, radius, service, municipality, quantity, scope, analysisLevel, selectionScope, selectedMunicipalityCodes, targetSelection ? (Array.isArray(targetSelection) ? [...targetSelection].sort().join('|') : targetSelection) : null]);
 
   return { data, loading, error };
 }

@@ -114,6 +114,7 @@ export function TrackingPage({ campaignId }) {
   const [uploadState, setUploadState] = useState({ loading: false, message: null, error: null });
   const [driverName, setDriverName] = useState(null);
   const [photosState, setPhotosState] = useState({ loading: true, error: null, photos: [] });
+  const [selectedZoneId, setSelectedZoneId] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -166,12 +167,34 @@ export function TrackingPage({ campaignId }) {
     return 'Assegnazione da verificare';
   }, [tracking.assignmentState.status]);
 
+  const availableZones = useMemo(
+    () => tracking.assignmentState?.campaign?.campaign_zones || [],
+    [tracking.assignmentState?.campaign]
+  );
+
+  useEffect(() => {
+    if (tracking.session?.campaign_zone_id) {
+      setSelectedZoneId(tracking.session.campaign_zone_id);
+    } else if (availableZones.length > 0 && !selectedZoneId) {
+      setSelectedZoneId(availableZones[0].id);
+    }
+  }, [tracking.session?.campaign_zone_id, availableZones, selectedZoneId]);
+
+  const activeZoneRecord = useMemo(
+    () => availableZones.find((z) => z.id === selectedZoneId) || null,
+    [availableZones, selectedZoneId]
+  );
+
   // Stessa funzione pura gia' usata da useGpsTracking per calcolare
   // geofenceState: nessuna zona/logica nuova, solo lettura per la mappa.
-  const zones = useMemo(
-    () => normalizeZonesFromCampaign(tracking.assignmentState.campaign),
-    [tracking.assignmentState.campaign],
-  );
+  // Filtriamo per la zona selezionata se presente.
+  const zones = useMemo(() => {
+    if (!tracking.assignmentState.campaign) return [];
+    if (activeZoneRecord) {
+      return normalizeZonesFromCampaign({ ...tracking.assignmentState.campaign, campaign_zones: [activeZoneRecord] });
+    }
+    return normalizeZonesFromCampaign(tracking.assignmentState.campaign);
+  }, [tracking.assignmentState.campaign, activeZoneRecord]);
 
   const instantZoneStatus = useMemo(() => {
     if (tracking.status !== 'active' && tracking.status !== 'paused') return 'unknown';
@@ -245,11 +268,27 @@ export function TrackingPage({ campaignId }) {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           {tracking.status === 'idle' || tracking.status === 'completed' || tracking.status === 'permission_error' ? (
-            <button style={primaryButtonStyle} type="button" onClick={() => handle(tracking.start)} disabled={!tracking.canStart}>
-              Inizia distribuzione
-            </button>
+            <>
+              {availableZones.length > 0 && (
+                <select
+                  value={selectedZoneId}
+                  onChange={(e) => setSelectedZoneId(e.target.value)}
+                  style={{ padding: '12px 16px', borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff' }}
+                  disabled={tracking.status === 'active' || tracking.status === 'paused'}
+                >
+                  {availableZones.map((z) => (
+                    <option key={z.id} value={z.id}>
+                      {z.zone_name} {z.status && z.status !== 'Da iniziare' ? `(${z.status})` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button style={primaryButtonStyle} type="button" onClick={() => handle(() => tracking.start(selectedZoneId))} disabled={!tracking.canStart || !selectedZoneId}>
+                Inizia zona
+              </button>
+            </>
           ) : null}
           {tracking.status === 'active' && (
             <button style={secondaryButtonStyle} type="button" onClick={() => handle(tracking.pause)}>
@@ -262,8 +301,18 @@ export function TrackingPage({ campaignId }) {
             </button>
           )}
           {(tracking.status === 'active' || tracking.status === 'paused') && (
-            <button style={dangerButtonStyle} type="button" onClick={() => handle(tracking.end)}>
-              Termina distribuzione
+            <button style={dangerButtonStyle} type="button" onClick={async () => {
+              handle(async () => {
+                await tracking.end();
+                if (selectedZoneId) {
+                  const { transitionZone } = await import('../../lib/services/gps-api.js');
+                  await transitionZone(selectedZoneId, 'complete').catch(() => {});
+                  // refresh assignment is handled internally or on reload
+                  window.location.reload();
+                }
+              });
+            }}>
+              Termina e Completa Zona
             </button>
           )}
         </div>
