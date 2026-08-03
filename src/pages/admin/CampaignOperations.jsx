@@ -193,7 +193,7 @@ function OperationsMap({ sessions }) {
                     Sessione {item.session.id}
                     <br />Driver {displayDriverName(item.session)}
                     <br />Punti {item.points.length}
-                    <br />Km {distanceKm(item.points).toFixed(2)}
+                    <br />Km {calculateDistanceKm(item.points).toFixed(2)}
                   </Popup>
                 </CircleMarker>
               )}
@@ -222,7 +222,7 @@ function SessionRow({ item, color }) {
       <span>Driver {displayDriverName(item.session)}</span>
       <span>Status sessione {item.session.status || 'dato non disponibile'}</span>
       <span>{formatDateTime(item.session.started_at)} - {formatDateTime(item.session.ended_at || item.session.paused_at)}</span>
-      <span>{distanceKm(item.points).toFixed(2)} km · {item.points.length} punti GPS · ultimo ping {formatDateTime(lastPing)}</span>
+      <span>{calculateDistanceKm(item.points).toFixed(2)} km · {item.points.length} punti GPS · ultimo ping {formatDateTime(lastPing)}</span>
     </div>
   );
 }
