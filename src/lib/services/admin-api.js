@@ -111,6 +111,7 @@ export async function getCampaignReport(campaignId) {
     getCampaignGpsSessions(campaignId).catch(() => []),
     getCampaignGpsPoints(campaignId).catch(() => []),
     getCampaignProofPhotos(campaignId).catch(() => []),
+    supabase.from('operator_assignments').select('operator_id, operational_groups!inner(id)').eq('operational_groups.campaign_id', campaignId).catch(() => ({ data: [] })),
   ]);
   const paths = sessions.map((session) => ({
     session,
@@ -127,6 +128,7 @@ export async function getCampaignReport(campaignId) {
     totalPoints: paths.reduce((sum, item) => sum + item.points.length, 0),
     totalKm: paths.reduce((sum, item) => sum + calculateDistanceKm(item.points), 0),
     totalMs: paths.reduce((sum, item) => sum + sessionDurationMs(item.session), 0),
+    assignedDriversCount: new Set((assignmentsRes?.data || []).map(a => a.operator_id)).size,
   };
 }
 

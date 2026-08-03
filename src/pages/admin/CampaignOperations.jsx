@@ -2,6 +2,7 @@ import 'leaflet/dist/leaflet.css';
 import { MapContainer, Polyline, Popup, TileLayer, CircleMarker } from 'react-leaflet';
 import { useEffect, useMemo, useState } from 'react';
 import { calculateDistanceKm, classifyDriverStatus, displayDriverName, getSessionGroup } from '../../lib/services/gps-api.js';
+import { filterValidGpsPoints } from '../../lib/gps/pointQuality.js';
 import { getCampaignReport } from '../../lib/services/admin-api.js';
 import { buildGpsCsv, buildSessionCsv, downloadTextFile, filterOperationalRows, lastActivityAt, sessionDurationMs } from '../../lib/services/report-utils.js';
 import { AdminLayout } from './AdminLayout.jsx';
@@ -42,7 +43,6 @@ export function CampaignOperations({ campaignId, onNav }) {
   }));
   const visibleSessions = filterOperationalRows(sessions, filters);
   const status = deriveCampaignStatus(visibleSessions.map((item) => item.session));
-  const drivers = new Set(visibleSessions.map((item) => item.session.driver_id).filter(Boolean));
   const progress = estimateProgress(visibleSessions);
   const totalKm = visibleSessions.reduce((sum, item) => sum + calculateDistanceKm(item.points), 0);
   const totalPoints = visibleSessions.reduce((sum, item) => sum + item.points.length, 0);
@@ -91,10 +91,10 @@ export function CampaignOperations({ campaignId, onNav }) {
 
       <section style={kpiGridStyle}>
         <Kpi label="Status campagna" value={status} />
-        <Kpi label="Driver assegnati" value={drivers.size || 'dato non disponibile'} />
+        <Kpi label="Driver assegnati" value={operations?.assignedDriversCount ?? 'dato non disponibile'} />
         <Kpi label="Sessioni" value={`${visibleSessions.length}/${sessions.length}`} />
-        <Kpi label="Tempo totale" value={formatDuration(totalMs)} />
-        <Kpi label="Km totali" value={`${Number(totalKm || 0).toFixed(2)} km`} />
+        <Kpi label={filters.status === 'all_history' || filters.status === 'history' ? "Tempo totale (inc. storico)" : "Tempo totale"} value={formatDuration(totalMs)} />
+        <Kpi label={filters.status === 'all_history' || filters.status === 'history' ? "Km totali (inc. storico)" : "Km totali"} value={`${Number(totalKm || 0).toFixed(2)} km`} />
         <Kpi label="Punti GPS" value={totalPoints} />
         <Kpi label="Foto proof" value={operations?.photos?.length || 0} />
         <Kpi label="Avanzamento stimato" value={progress} />
@@ -129,11 +129,14 @@ export function CampaignOperations({ campaignId, onNav }) {
           </label>
           <label style={labelStyle}>Stato sessione
             <select value={filters.status} onChange={(event) => setFilters((prev) => ({ ...prev, status: event.target.value }))} style={inputStyle}>
-              <option value="all">Tutti</option>
+              <option value="all">Filtra storiche (default)</option>
+              <option value="all_history">Tutte (incluso storico)</option>
+              <option value="live">Live (in corso)</option>
               <option value="started">Started</option>
               <option value="paused">Paused</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
+              <option value="history">Solo Storiche/Test</option>
             </select>
           </label>
         </div>
@@ -181,8 +184,9 @@ function OperationsMap({ sessions }) {
       <MapContainer center={center} zoom={13} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
         <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {sessions.map((item, index) => {
-          const path = item.points.map((point) => [Number(point.lat), Number(point.lng)]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
-          const latest = item.points[item.points.length - 1];
+          const { valid: validPoints } = filterValidGpsPoints(item.points || []);
+          const path = validPoints.map((point) => [Number(point.lat), Number(point.lng)]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+          const latest = validPoints[validPoints.length - 1] || item.points[item.points.length - 1];
           const color = COLORS[index % COLORS.length];
           return (
             <FragmentSession key={item.session.id}>
@@ -222,7 +226,7 @@ function SessionRow({ item, color }) {
       <span>Driver {displayDriverName(item.session)}</span>
       <span>Status sessione {item.session.status || 'dato non disponibile'}</span>
       <span>{formatDateTime(item.session.started_at)} - {formatDateTime(item.session.ended_at || item.session.paused_at)}</span>
-      <span>{calculateDistanceKm(item.points).toFixed(2)} km · {item.points.length} punti GPS · ultimo ping {formatDateTime(lastPing)}</span>
+      <span>{calculateDistanceKm(item.points).toFixed(2)} km · {formatDuration(sessionDurationMs(item.session))} · {item.points.length} punti GPS · ultimo ping {formatDateTime(lastPing)}</span>
     </div>
   );
 }

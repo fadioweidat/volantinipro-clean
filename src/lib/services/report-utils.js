@@ -1,3 +1,6 @@
+import { buildGroupRows } from './group-ops.js';
+import { classifySessionLifecycle } from './gps-api.js';
+
 export const REPORT_COLORS = ['#e8571a', '#2ecc8a', '#60a5fa', '#fbbf24', '#a78bfa', '#ef4444', '#14b8a6'];
 
 // Un operatore con piu' sessioni non chiuse (es. sessione abbandonata senza
@@ -48,21 +51,22 @@ export function estimateProgress(sessions) {
 export function sessionDurationMs(session) {
   if (!session?.started_at) return 0;
   const start = new Date(session.started_at).getTime();
+  const MAX_DURATION_MS = 14 * 60 * 60 * 1000;
   
   if (session.status === 'completed' || session.status === 'cancelled') {
-    return Math.max(0, new Date(session.ended_at || session.updated_at || session.started_at).getTime() - start);
+    return Math.min(MAX_DURATION_MS, Math.max(0, new Date(session.ended_at || session.updated_at || session.started_at).getTime() - start));
   }
   if (session.status === 'paused') {
-    return Math.max(0, new Date(session.paused_at || session.updated_at || session.started_at).getTime() - start);
+    return Math.min(MAX_DURATION_MS, Math.max(0, new Date(session.paused_at || session.updated_at || session.started_at).getTime() - start));
   }
   
   const lastUpdate = new Date(session.updated_at || session.started_at).getTime();
   const now = Date.now();
   if (now - lastUpdate > 12 * 60 * 60 * 1000) {
-    return Math.max(0, lastUpdate - start);
+    return Math.min(MAX_DURATION_MS, Math.max(0, lastUpdate - start));
   }
   
-  return Math.max(0, now - start);
+  return Math.min(MAX_DURATION_MS, Math.max(0, now - start));
 }
 
 export function lastActivityAt(session, points = []) {
@@ -76,7 +80,14 @@ export function filterOperationalRows(rows, filters = {}) {
   const groupQuery = String(filters.group || '').trim().toLowerCase();
   return (rows || [])
     .filter((item) => !filters.campaign || filters.campaign === 'all' || item.session?.campaign_id === filters.campaign)
-    .filter((item) => !filters.status || filters.status === 'all' || item.session?.status === filters.status || item.status === filters.status)
+    .filter((item) => {
+      const lifecycle = classifySessionLifecycle(item.session, item.activityAt || lastActivityAt(item.session, item.points));
+      if (filters.status === 'history') return lifecycle === 'history';
+      if (filters.status === 'live') return lifecycle === 'live';
+      if (!filters.status || filters.status === 'all') return lifecycle !== 'history'; // Default excludes history unless specified
+      if (filters.status === 'all_history') return true; // Include everything
+      return item.session?.status === filters.status || item.status === filters.status;
+    })
     .filter((item) => !driverQuery || String(item.driverName || item.session?.driver_name || item.session?.driver_id || '').toLowerCase().includes(driverQuery))
     .filter((item) => !groupQuery || String(item.groupName || item.group?.name || item.group?.id || item.session?.group_name || item.session?.group_id || '').toLowerCase().includes(groupQuery))
     .filter((item) => {
