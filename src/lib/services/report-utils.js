@@ -48,8 +48,21 @@ export function estimateProgress(sessions) {
 export function sessionDurationMs(session) {
   if (!session?.started_at) return 0;
   const start = new Date(session.started_at).getTime();
-  const end = new Date(session.ended_at || session.paused_at || Date.now()).getTime();
-  return Math.max(0, end - start);
+  
+  if (session.status === 'completed' || session.status === 'cancelled') {
+    return Math.max(0, new Date(session.ended_at || session.updated_at || session.started_at).getTime() - start);
+  }
+  if (session.status === 'paused') {
+    return Math.max(0, new Date(session.paused_at || session.updated_at || session.started_at).getTime() - start);
+  }
+  
+  const lastUpdate = new Date(session.updated_at || session.started_at).getTime();
+  const now = Date.now();
+  if (now - lastUpdate > 12 * 60 * 60 * 1000) {
+    return Math.max(0, lastUpdate - start);
+  }
+  
+  return Math.max(0, now - start);
 }
 
 export function lastActivityAt(session, points = []) {

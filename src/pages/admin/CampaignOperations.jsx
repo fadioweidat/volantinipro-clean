@@ -1,7 +1,7 @@
 import 'leaflet/dist/leaflet.css';
 import { MapContainer, Polyline, Popup, TileLayer, CircleMarker } from 'react-leaflet';
 import { useEffect, useMemo, useState } from 'react';
-import { classifyDriverStatus, displayDriverName, getSessionGroup } from '../../lib/services/gps-api.js';
+import { calculateDistanceKm, classifyDriverStatus, displayDriverName, getSessionGroup } from '../../lib/services/gps-api.js';
 import { getCampaignReport } from '../../lib/services/admin-api.js';
 import { buildGpsCsv, buildSessionCsv, downloadTextFile, filterOperationalRows, lastActivityAt, sessionDurationMs } from '../../lib/services/report-utils.js';
 import { AdminLayout } from './AdminLayout.jsx';
@@ -42,9 +42,9 @@ export function CampaignOperations({ campaignId, onNav }) {
   }));
   const visibleSessions = filterOperationalRows(sessions, filters);
   const status = deriveCampaignStatus(visibleSessions.map((item) => item.session));
-  const drivers = new Set(visibleSessions.map((item) => displayDriverName(item.session)).filter(Boolean));
+  const drivers = new Set(visibleSessions.map((item) => item.session.driver_id).filter(Boolean));
   const progress = estimateProgress(visibleSessions);
-  const totalKm = visibleSessions.reduce((sum, item) => sum + distanceKm(item.points), 0);
+  const totalKm = visibleSessions.reduce((sum, item) => sum + calculateDistanceKm(item.points), 0);
   const totalPoints = visibleSessions.reduce((sum, item) => sum + item.points.length, 0);
   const totalMs = visibleSessions.reduce((sum, item) => sum + sessionDurationMs(item.session), 0);
 
@@ -53,7 +53,7 @@ export function CampaignOperations({ campaignId, onNav }) {
       setState((prev) => ({ ...prev, notice: 'Nessuna sessione reale da esportare.' }));
       return;
     }
-    downloadTextFile(`volantinipro-sessioni-${campaignId}.csv`, buildSessionCsv(campaignId, visibleSessions, displayDriverName, distanceKm), 'text/csv;charset=utf-8');
+    downloadTextFile(`volantinipro-sessioni-${campaignId}.csv`, buildSessionCsv(campaignId, visibleSessions, displayDriverName, calculateDistanceKm), 'text/csv;charset=utf-8');
     setState((prev) => ({ ...prev, notice: 'CSV sessioni esportato.' }));
   }
 
@@ -258,24 +258,6 @@ function estimateProgress(sessions) {
   return `${Math.round((completed / sessions.length) * 100)}%`;
 }
 
-function distanceKm(points) {
-  let meters = 0;
-  for (let index = 1; index < (points || []).length; index += 1) {
-    const a = points[index - 1];
-    const b = points[index];
-    const lat1 = Number(a.lat);
-    const lng1 = Number(a.lng);
-    const lat2 = Number(b.lat);
-    const lng2 = Number(b.lng);
-    if (![lat1, lng1, lat2, lng2].every(Number.isFinite)) continue;
-    const toRad = (value) => (value * Math.PI) / 180;
-    const dLat = toRad(lat2 - lat1);
-    const dLng = toRad(lng2 - lng1);
-    const x = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-    meters += 6371000 * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
-  }
-  return meters / 1000;
-}
 
 function formatDuration(ms) {
   const minutes = Math.floor((ms || 0) / 60000);

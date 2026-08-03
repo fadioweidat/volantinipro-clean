@@ -154,7 +154,7 @@ export async function selectOptionalTable(table, order = 'created_at') {
 export async function getCampaignZonesWithGroups(campaignId) {
   const [zonesRes, groupsRes] = await Promise.all([
     supabase.from('campaign_zones').select('*').eq('campaign_id', campaignId).order('priority', { ascending: true, nullsFirst: false }).order('zone_name'),
-    supabase.from('operational_groups').select('id, name, status').eq('campaign_id', campaignId).order('name')
+    supabase.from('operational_groups').select('id, name, lead_name').eq('campaign_id', campaignId).order('name')
   ]);
   
   if (zonesRes.error) throw new Error(zonesRes.error.message);
