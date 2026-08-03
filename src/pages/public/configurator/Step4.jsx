@@ -26,6 +26,7 @@ export function Step4({
   data,
   setData,
   onBack,
+  onNav,
   onHome,
   onCampaignSaved
 }) {
@@ -1128,7 +1129,10 @@ export function Step4({
     setShowLoginRequired(true);
     setSent(false);
     setSavingCampaign(false);
-    if (onHome) onHome("login");
+    const u = "login?context=customer&returnTo=" + encodeURIComponent("/configuratore?step=4");
+    if (onNav) onNav(u);
+    else if (onHome) onHome(u);
+    else window.location.href = "/" + u;
   }
   async function handleConfirmCampaign() {
     if (!canConfirm || savingCampaign) return;
@@ -4036,7 +4040,10 @@ export function Step4({
                 localStorage.setItem("volantinipro_pending_action", "confirm_campaign");
                 localStorage.setItem("volantinipro_pending_campaign_draft", JSON.stringify(data));
               } catch {}
-              if (onHome) onHome("login");
+              const u = "login?context=customer&returnTo=" + encodeURIComponent("/configuratore?step=4");
+              if (onNav) onNav(u);
+              else if (onHome) onHome(u);
+              else window.location.href = "/" + u;
             }} style={{
               alignSelf: "flex-start",
               padding: "8px 16px",
