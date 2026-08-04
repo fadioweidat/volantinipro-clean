@@ -108,15 +108,13 @@ export default function AdminDashboard({ onNav }) {
       {state.error && <Notice text={state.error} danger />}
       {notice && <Notice text={notice} />}
 
-      {isAdminAiDashboardEnabled && (
-        <React.Suspense fallback={<div style={{ minHeight: 90, marginBottom: 16 }} aria-label="Caricamento Assistente Admin" />}>
-          <AdminCentralAiPanel 
-            adminData={state.data}
-            loading={state.loading}
-            error={state.error}
-          />
-        </React.Suspense>
-      )}
+      <React.Suspense fallback={<div style={{ minHeight: 90, marginBottom: 16 }} aria-label="Caricamento Assistente Admin" />}>
+        <AdminCentralAiPanel
+          adminData={state.data}
+          loading={state.loading}
+          error={state.error}
+        />
+      </React.Suspense>
 
       <section style={kpiGridStyle}>
         {kpis.map((kpi) => (

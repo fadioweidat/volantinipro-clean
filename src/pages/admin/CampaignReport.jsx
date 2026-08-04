@@ -270,6 +270,14 @@ function ReportFilters({ filters, onChange, operators }) {
   );
 }
 
+function Metric({ label, value }) {
+  return (
+    <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
+      <p style={{ margin: 0, fontSize: 11, color: '#A1A1AA', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</p>
+      <p style={{ margin: '4px 0 0 0', color: '#fff', fontWeight: 500 }}>{value}</p>
+    </div>
+  );
+}
 function Summary({ campaign, campaignId }) {
   const rows = [
     ['ID campagna', campaignId],
