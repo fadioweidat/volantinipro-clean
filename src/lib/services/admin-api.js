@@ -18,13 +18,15 @@ import { dedupeSessionsByOperator, lastActivityAt, sessionDurationMs } from './r
 const EMPTY = 'Dato non disponibile';
 
 export async function getRealCampaigns({ includeTest = false } = {}) {
-  const [campaignsTable, legacyCampaigns, quoteRequests, sessions, points, photos] = await Promise.all([
+  const [campaignsTable, legacyCampaigns, quoteRequests, sessions, points, photos, groups, assignments] = await Promise.all([
     selectOptionalTable('campaigns'),
     selectOptionalTable('campagne'),
     selectOptionalTable('quote_requests'),
     selectOptionalTable('delivery_sessions'),
     selectOptionalTable('gps_tracking_points', 'recorded_at'),
     selectOptionalTable('proof_photos'),
+    selectOptionalTable('operational_groups'),
+    selectOptionalTable('operator_assignments'),
   ]);
 
   const rows = uniqueById([
@@ -33,7 +35,7 @@ export async function getRealCampaigns({ includeTest = false } = {}) {
     ...quoteRequests.rows.map((row) => normalizeCampaign(row, 'quote_requests')),
   ]).map((campaign) => ({
     ...campaign,
-    ops: summarizeCampaignOps(campaign.id, sessions.rows, points.rows, photos.rows),
+    ops: summarizeCampaignOps(campaign.id, sessions.rows, points.rows, photos.rows, groups.rows, assignments.rows),
   }));
 
   return {
@@ -209,14 +211,24 @@ export function normalizeCampaign(row, source) {
   return { ...campaign, quality: quality.kind, qualityReason: quality.reason };
 }
 
-function summarizeCampaignOps(campaignId, sessions, points, photos) {
+function summarizeCampaignOps(campaignId, sessions, points, photos, opGroups = [], opAssignments = []) {
   const campaignSessions = sessions.filter((session) => session.campaign_id === campaignId);
   const sessionRows = campaignSessions.map((session) => {
     const sessionPoints = points.filter((point) => point.session_id === session.id);
     return { session, points: sessionPoints, activityAt: lastActivityAt(session, sessionPoints) };
   });
-  const groups = buildGroupRows({ sessions: sessionRows, photos: photos.filter((photo) => photo.campaign_id === campaignId) });
-  const operators = new Set(campaignSessions.map((session) => session.driver_id || session.driver_name).filter(Boolean));
+  
+  const derivedGroups = buildGroupRows({ sessions: sessionRows, photos: photos.filter((photo) => photo.campaign_id === campaignId) });
+  const realGroups = opGroups.filter((g) => g.campaign_id === campaignId);
+  const realGroupIds = new Set(realGroups.map((g) => g.id));
+  const realAssignments = opAssignments.filter((a) => realGroupIds.has(a.group_id));
+  
+  const realOperators = new Set(realAssignments.map((a) => a.operator_id));
+  const derivedOperators = new Set(campaignSessions.map((session) => session.driver_id || session.driver_name).filter(Boolean));
+
+  const finalGroupsCount = realGroups.length > 0 ? realGroups.length : derivedGroups.length;
+  const finalOperatorsCount = realOperators.size > 0 ? realOperators.size : derivedOperators.size;
+
   // online/offline/problemi: stessa classificazione lifecycle e stessa
   // deduplicazione per operatore di AdminLiveDashboard/getLiveOperatorsSummary
   // — una sessione 'completed' non e' mai "offline", una sessione 'started'
@@ -231,7 +243,7 @@ function summarizeCampaignOps(campaignId, sessions, points, photos) {
   const progress = campaignSessions.length ? Math.min(95, Math.round(((completed + active * 0.5) / campaignSessions.length) * 100)) : 0;
   const lastPing = sessionRows.map((row) => row.activityAt).filter(Boolean).sort((a, b) => new Date(b) - new Date(a))[0] || null;
   const problems = currentRows.filter((row) => !row.points.length || row.lifecycle === 'offline_recent').length;
-  return { groups: groups.length, operators: operators.size, online, offline, problems, progress, lastPing };
+  return { groups: finalGroupsCount, operators: finalOperatorsCount, online, offline, problems, progress, lastPing };
 }
 
 function classifyCampaign(campaign, row, serviceSource) {

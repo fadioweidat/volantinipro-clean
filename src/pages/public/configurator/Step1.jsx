@@ -3,7 +3,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 import { C, F, x, w, j, T, z, R } from "../../../lib/constants.js";
 import { useIsMobile } from "../../../hooks/useIsMobile.js";
 import { AnimatePresence, motion } from "framer-motion";
-import { flushSync } from "react-dom";
+
 import BusinessStep1Config from "../../../components/business/BusinessStep1Config.jsx";
 import { activityButtons } from "../../../lib/activityButtons.js";
 import { buildPromoterAssignments, geocodePromoterAssignment } from "../../../lib/step1/promoterAssignments.js";
@@ -369,30 +369,28 @@ export function Step1({
         }
         const primaryPoint = resolvedAssignments[0];
         const primaryCity = parentCities[0];
-        flushSync(() => {
-          setData(prev => ({
-            ...prev,
-            city: primaryCity,
-            cityName: primaryCity.label || primaryCity.name,
-            searchedLocation: primaryPoint.label,
-            selectedComuni: Array.from(new Map(parentCities.map(item => [getMunicipalityDedupKey(item), item])).values()),
-            selectedSearchPoint: primaryPoint,
-            promoterAssignments: savedAssignments,
-            operationalPoints: resolvedAssignments,
-            h2hEstimatedCapacity: promoterAssignments.reduce((total, assignment) => total + Math.max(1, Number(assignment.serviceDurationHours || serviceDurationHours)) * H2H_FLYERS_PER_PROMOTER_HOUR, 0),
-            distributionLocation: primaryPoint.location,
-            distributionPointType: primaryPoint.pointType,
-            searchMode: "address",
-            radius: Number(prev.radius || 3),
-            radiusKm: Number(prev.radius || 3),
-            selectedRadius: Number(prev.radius || 3),
-            radiusSelectionConfirmed: true,
-            zones: [],
-            selectedZones: [],
-            coverageDecision: null,
-            coverageStrategy: null
-          }));
-        });
+        setData(prev => ({
+          ...prev,
+          city: primaryCity,
+          cityName: primaryCity.label || primaryCity.name,
+          searchedLocation: primaryPoint.label,
+          selectedComuni: Array.from(new Map(parentCities.map(item => [getMunicipalityDedupKey(item), item])).values()),
+          selectedSearchPoint: primaryPoint,
+          promoterAssignments: savedAssignments,
+          operationalPoints: resolvedAssignments,
+          h2hEstimatedCapacity: promoterAssignments.reduce((total, assignment) => total + Math.max(1, Number(assignment.serviceDurationHours || serviceDurationHours)) * H2H_FLYERS_PER_PROMOTER_HOUR, 0),
+          distributionLocation: primaryPoint.location,
+          distributionPointType: primaryPoint.pointType,
+          searchMode: "address",
+          radius: Number(prev.radius || 3),
+          radiusKm: Number(prev.radius || 3),
+          selectedRadius: Number(prev.radius || 3),
+          radiusSelectionConfirmed: true,
+          zones: [],
+          selectedZones: [],
+          coverageDecision: null,
+          coverageStrategy: null
+        }));
       } catch (error) {
         const promoterLabel = error?.promoterNumber ? ` del Promoter ${error.promoterNumber}` : "";
         const firstLocation = String(promoterAssignments[0]?.location || "").trim();
@@ -549,28 +547,26 @@ export function Step1({
         ...resolvedBusinessArea.parentCity,
         label: resolvedBusinessArea.parentCity?.label || resolvedBusinessArea.parentCity?.name
       };
-      flushSync(() => {
-        setData(prev => ({
-          ...prev,
-          qty: materialQuantity,
-          flyerQuantity: materialQuantity,
-          promoterCount: null,
-          businessOperatorCount: null,
-          businessEstimatedStops: null,
-          timeSlot: null,
-          serviceDurationHours: null,
-          city: businessCity,
-          cityName: businessCity.label || businessCity.name || "",
-          searchedLocation: businessCity.label || businessCity.name || "",
-          selectedComuni: [businessCity],
-          selectedSearchPoint: null,
-          searchMode: "municipality",
-          zones: [],
-          selectedZones: [],
-          coverageDecision: null,
-          coverageStrategy: null
-        }));
-      });
+      setData(prev => ({
+        ...prev,
+        qty: materialQuantity,
+        flyerQuantity: materialQuantity,
+        promoterCount: null,
+        businessOperatorCount: null,
+        businessEstimatedStops: null,
+        timeSlot: null,
+        serviceDurationHours: null,
+        city: businessCity,
+        cityName: businessCity.label || businessCity.name || "",
+        searchedLocation: businessCity.label || businessCity.name || "",
+        selectedComuni: [businessCity],
+        selectedSearchPoint: null,
+        searchMode: "municipality",
+        zones: [],
+        selectedZones: [],
+        coverageDecision: null,
+        coverageStrategy: null
+      }));
       setResolvingOperationalLocation(false);
     }
     onNext();
