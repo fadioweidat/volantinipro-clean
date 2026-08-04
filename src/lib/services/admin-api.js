@@ -108,12 +108,12 @@ export async function getLiveOperatorsSummary() {
 }
 
 export async function getCampaignReport(campaignId) {
-  const [campaign, sessions, points, photos] = await Promise.all([
+  const [campaign, sessions, points, photos, assignmentsRes] = await Promise.all([
     getCampaignRecord(campaignId).catch(() => null),
     getCampaignGpsSessions(campaignId).catch(() => []),
     getCampaignGpsPoints(campaignId).catch(() => []),
     getCampaignProofPhotos(campaignId).catch(() => []),
-    supabase.from('operator_assignments').select('operator_id, operational_groups!inner(id)').eq('operational_groups.campaign_id', campaignId).catch(() => ({ data: [] })),
+    supabase.from('operator_assignments').select('operator_id, operational_groups!inner(id)').eq('operational_groups.campaign_id', campaignId).then(res => res.error ? { data: [] } : res),
   ]);
   const paths = sessions.map((session) => ({
     session,
@@ -186,8 +186,8 @@ export function normalizeCampaign(row, source) {
   const rawStatus = String(row.status || row.stato || row.state || row.stato_pagamento || '').toLowerCase();
   const serviceSource = row.service_type || row.campaign_type || row.type || row.servizio || row.selected_service || row.service;
   const serviceRaw = String(serviceSource || '').toLowerCase();
-  const total = Number(row.total_budget ?? row.total_amount ?? row.amount ?? row.price ?? row.totale);
-  const qty = Number(row.total_flyers ?? row.flyer_quantity ?? row.qty ?? row.quantita ?? row.quantity);
+  const total = Number(row.total_amount);
+  const qty = Number(row.quantity ?? row.target_quantity);
   const lat = Number(row.center_lat ?? row.lat ?? row.latitude ?? row.metadata?.center_lat ?? row.metadata?.lat);
   const lng = Number(row.center_lng ?? row.lng ?? row.longitude ?? row.metadata?.center_lng ?? row.metadata?.lng);
   const campaign = {
