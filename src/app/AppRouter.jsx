@@ -5,6 +5,8 @@ import {
 import { AdminLiveDashboard } from "../pages/admin/AdminLiveDashboard.jsx";
 import { GpsMonitor } from "../pages/admin/GpsMonitor.jsx";
 import { CampaignOperations } from "../pages/admin/CampaignOperations.jsx";
+import { CampaignGroups } from "../pages/admin/CampaignGroups.jsx";
+import { CampaignReport } from "../pages/admin/CampaignReport.jsx";
 import { PublicRoutes } from "./PublicRoutes.jsx";
 import { Bootstrap } from "../layouts/public/Bootstrap.jsx";
 import { SeoMeta } from "../layouts/public/SeoMeta.jsx";
@@ -60,6 +62,19 @@ export function AppRouter() {
     // LoginPage e' l'unico componente che consuma entrambi gli hash.
     if (hasSupabaseAuthHashError() || hasSupabaseAuthHashToken()) return "login";
 
+    // Move admin checks before generic dashboard/login checks
+    if (p === "/admin" || p === "/admin/dashboard") return "admin";
+    if (p === "/admin/live") return "admin-live";
+    const adminGpsMatch = p.match(/^\/admin\/campaigns\/([^/]+)\/gps$/);
+    if (adminGpsMatch) return `admin-gps:${adminGpsMatch[1]}`;
+    const adminOpsMatch = p.match(/^\/admin\/campaigns\/([^/]+)\/operations$/);
+    if (adminOpsMatch) return `admin-operations:${adminOpsMatch[1]}`;
+    const adminGroupsMatch = p.match(/^\/admin\/campaigns\/([^/]+)\/groups$/);
+    if (adminGroupsMatch) return `admin-groups:${adminGroupsMatch[1]}`;
+    const adminReportMatch = p.match(/^\/admin\/campaigns\/([^/]+)\/report$/);
+    if (adminReportMatch) return `admin-report:${adminReportMatch[1]}`;
+    if (p.startsWith("/admin")) return "admin";
+
     if (p === "/" || p === "/index.html" || p === "/volantinipro-final.jsx") return "home";
     if (p.includes("login")) return "login";
     if (p.includes("dashboard")) return "dashboard";
@@ -75,12 +90,6 @@ export function AppRouter() {
       if (step) return `step${step}`;
       return "step1";
     }
-    if (p === "/admin/live") return "admin-live";
-    const adminGpsMatch = p.match(/^\/admin\/campaigns\/([^/]+)\/gps$/);
-    if (adminGpsMatch) return `admin-gps:${adminGpsMatch[1]}`;
-    const adminOpsMatch = p.match(/^\/admin\/campaigns\/([^/]+)\/operations$/);
-    if (adminOpsMatch) return `admin-operations:${adminOpsMatch[1]}`;
-    if (p.includes("admin")) return "admin";
     return "home";
   };
 
@@ -174,6 +183,10 @@ export function AppRouter() {
         window.history.pushState(null, "", `/admin/campaigns/${p.split(":")[1]}/gps`);
       } else if (p.startsWith("admin-operations:")) {
         window.history.pushState(null, "", `/admin/campaigns/${p.split(":")[1]}/operations`);
+      } else if (p.startsWith("admin-groups:")) {
+        window.history.pushState(null, "", `/admin/campaigns/${p.split(":")[1]}/groups`);
+      } else if (p.startsWith("admin-report:")) {
+        window.history.pushState(null, "", `/admin/campaigns/${p.split(":")[1]}/report`);
       } else {
         window.history.pushState(null, "", paths[p] || "/");
       }
@@ -240,6 +253,8 @@ export function AppRouter() {
             {page === "admin-live" && <AdminLiveDashboard onNav={goTo} />}
             {page.startsWith("admin-gps:") && <GpsMonitor campaignId={page.split(":")[1]} onNav={goTo} />}
             {page.startsWith("admin-operations:") && <CampaignOperations campaignId={page.split(":")[1]} onNav={goTo} />}
+            {page.startsWith("admin-groups:") && <CampaignGroups campaignId={page.split(":")[1]} onNav={goTo} />}
+            {page.startsWith("admin-report:") && <CampaignReport campaignId={page.split(":")[1]} onNav={goTo} />}
           </AdminGuard>
         )}
 
