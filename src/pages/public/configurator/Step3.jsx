@@ -11,6 +11,7 @@ import { formatIntegerIT } from "../../../lib/utils/format.js";
 import { isStep2DebugEnabled } from "../../../lib/step2/debugStep2.js";
 import { NavButton } from "../../../components/NavButton.jsx";
 import { Step1Icon } from "../../../components/Step1Icon.jsx";
+import { calendarDateKey, fetchSmartPairingAvailability, isSelectableCalendarDate } from "../../../lib/smartPairingAvailability.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
 export function Step3({
@@ -62,48 +63,27 @@ export function Step3({
     });
   }, [shouldShowContinueToStep4, formSent, smartPairingRegistered]);
 
-  // Diagnostic-only: confirms what's really in these two tables without
-  // altering the calendar/pairing logic above (that logic has no mapping yet
-  // for `smart_pairing_slots`/`availability_slots`' real columns — see report).
   useEffect(() => {
     let cancelled = false;
     if (!supabase) return;
     (async () => {
       try {
-        const {
-          data: rows,
-          error
-        } = await supabase.from("smart_pairing_slots").select("id").eq("stato", "attiva");
-        if (!cancelled) console.info("[STEP3_SMART_PAIRING_SLOTS_LOAD]", {
-          count: rows?.length || 0,
-          error: error?.message || null
+        const availability = await fetchSmartPairingAvailability(supabase, {
+          service: data.type || "d2d",
+          zone: data.cityName || (typeof data.selectedComuni?.[0] === "string" ? data.selectedComuni[0] : data.selectedComuni?.[0]?.name || data.selectedComuni?.[0]?.label) || "",
+          lat: data.city?.lat ?? data.selectedSearchPoint?.lat ?? null,
+          lng: data.city?.lng ?? data.selectedSearchPoint?.lng ?? null,
+          startDate: data.startDate || data.campaignPeriodStart || null
         });
+        if (!cancelled) setData(prev => ({ ...prev, ...availability, smartPairingAvailabilitySource: availability.source }));
       } catch (err) {
-        if (!cancelled) console.info("[STEP3_SMART_PAIRING_SLOTS_LOAD]", {
-          count: 0,
-          error: err?.message || String(err)
-        });
-      }
-      try {
-        const {
-          data: rows,
-          error
-        } = await supabase.from("availability_slots").select("id");
-        if (!cancelled) console.info("[STEP3_AVAILABILITY_SLOTS_LOAD]", {
-          count: rows?.length || 0,
-          error: error?.message || null
-        });
-      } catch (err) {
-        if (!cancelled) console.info("[STEP3_AVAILABILITY_SLOTS_LOAD]", {
-          count: 0,
-          error: err?.message || String(err)
-        });
+        if (!cancelled) console.warn("[STEP3_AVAILABILITY_LOAD_FAILED]", { code: err?.message || "SMART_PAIRING_DATA_UNAVAILABLE" });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [data.type, data.cityName, data.city?.lat, data.city?.lng, data.selectedSearchPoint?.lat, data.selectedSearchPoint?.lng, data.campaignPeriodStart, setData]);
   const activeZone = data.dateMode === "per_zone" ? (data.campaignZones || []).find(z => z.id === activeCalZoneId) : null;
   useEffect(() => {
     if (data.dateMode === "per_zone" && activeCalZoneId) {
@@ -250,14 +230,14 @@ export function Step3({
   };
   const fmtDay = k => {
     const [y, m, d] = k.split("-");
-    return `${d} ${MONTHS_FULL[parseInt(m)]} ${y}`;
+    return `${d} ${MONTHS_FULL[parseInt(m, 10) - 1]} ${y}`;
   };
   const selectedInfo = selDays.filter(k => pairs[k]).map(k => ({
     key: k,
     pair: pairs[k]
   }));
   const pairingDays = selectedInfo.filter(x => x.pair).map(x => x.key);
-  const normalDays = [];
+  const normalDays = selDays.filter(k => !pairs[k]);
   const requestOnlyDays = [];
   const totalPairDisc = pairingDays.reduce((a, k) => a + (pairs[k]?.disc || 0), 0);
   const averagePairingDiscount = pairingDays.length ? Math.round(totalPairDisc / pairingDays.length) : 0;
@@ -367,8 +347,8 @@ export function Step3({
   const baseCost = activeZone ? activeQty / 1000 * basePrice : activeQty / 1000 * basePrice * ((data.campaignZones || []).length || 1);
   const saved = baseCost * (averagePairingDiscount / 100);
   function toggle(d) {
-    const k = `${year}-${month}-${d}`;
-    if (!pairs[k]) return;
+    const k = calendarDateKey(year, month, d);
+    if (!isSelectableCalendarDate(k, availableDates, pairs[k])) return;
     const newDays = selDays.includes(k) ? selDays.filter(x => x !== k) : [...selDays, k];
     updateDays(newDays);
     setShowRequest(false);
@@ -643,24 +623,23 @@ export function Step3({
       action: "continua_senza_smart_pairing"
     });
     console.info("[STEP3_NAV_STATE_BEFORE_CHANGE]", navSnapshot());
+    if (selDays.length === 0) {
+      setNavError("Seleziona almeno una data disponibile prima di continuare.");
+      return;
+    }
     setNavError("");
     setData(d => ({
       ...d,
       ...buildFinalPayload(null),
-      days: [],
       avgDiscount: 0,
-      selectedDates: [],
-      selectedDaysCount: 0,
       pairingDays: [],
+      normalDays: selDays,
       pairingType: {},
       pairingDiscountPercent: {},
       averagePairingDiscount: 0,
       maxPairingDiscount: 0,
       calendarStatus: "no_smart_pairing",
-      smartPairingStatus: "request_based",
-      availableDates: [],
-      smartPairingSlots: [],
-      smartPairingAvailabilitySource: "none"
+      smartPairingStatus: "none"
     }));
     handleContinueToStep4();
   }
@@ -1104,7 +1083,7 @@ export function Step3({
             </div>}
 
           {/* 4 & 9. CALENDARIO COMPATTO OPPURE CASO "NESSUNO SLOT" */}
-          {realSmartPairingSlots.length === 0 ? <motion.div initial={{
+          {realSmartPairingSlots.length === 0 && availableDates.size === 0 ? <motion.div initial={{
           opacity: 0,
           y: 10
         }} animate={{
@@ -1299,9 +1278,10 @@ export function Step3({
                   {Array(fdow(month, year)).fill(null).map((_, i) => <div key={`e${i}`} />)}
                   {Array(dim(month, year)).fill(null).map((_, i) => {
                 const d = i + 1,
-                  k = `${year}-${month}-${d}`,
+                  k = calendarDateKey(year, month, d),
                   pair = pairs[k];
                 const sel = selDays.includes(k);
+                const selectable = isSelectableCalendarDate(k, availableDates, pair);
                 let bg = "rgba(255,255,255,.025)",
                   border = "1px solid rgba(255,255,255,.04)",
                   tc = "rgba(255,255,255,.22)";
@@ -1317,13 +1297,17 @@ export function Step3({
                   bg = "rgba(167,139,250,.1)";
                   border = "1px solid rgba(167,139,250,.3)";
                   tc = C.purple;
+                } else if (selectable) {
+                  bg = "rgba(46,204,138,.08)";
+                  border = "1px solid rgba(46,204,138,.24)";
+                  tc = C.green;
                 }
                 return <div key={d} onClick={() => toggle(d)} style={{
                   minHeight: isMobile ? 44 : 52,
                   borderRadius: 8,
                   padding: "6px 2px",
                   textAlign: "center",
-                  cursor: pair ? "pointer" : "default",
+                  cursor: selectable ? "pointer" : "default",
                   background: bg,
                   border,
                   transition: "all .15s"
@@ -2048,4 +2032,3 @@ export function Step3({
       </div>
     </div>;
 }
-
