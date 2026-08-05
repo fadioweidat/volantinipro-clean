@@ -14,7 +14,7 @@ const metadataOf = (row) => {
 const dateValue = (value) => text(value) && !Number.isNaN(Date.parse(value)) ? value : null;
 const newestFirst = (left, right) => Date.parse(right.createdAt || 0) - Date.parse(left.createdAt || 0);
 
-function campaignBelongsToScope(row, snapshot, scope) {
+export function campaignBelongsToScope(row, snapshot, scope) {
   const metadata = metadataOf(row);
   const customerId = String(scope.customerId);
   const email = snapshot.authUser?.email;
@@ -22,7 +22,7 @@ function campaignBelongsToScope(row, snapshot, scope) {
   return [row?.email, row?.client_email, row?.cliente_email, metadata.client_email, metadata.email, metadata.cliente_email].some((candidate) => same(candidate, email));
 }
 
-function safeCampaign(row) {
+export function safeCampaign(row) {
   const metadata = metadataOf(row);
   const selectedMunicipalities = Array.isArray(metadata.selected_comuni)
     ? metadata.selected_comuni.map(text).filter(Boolean)

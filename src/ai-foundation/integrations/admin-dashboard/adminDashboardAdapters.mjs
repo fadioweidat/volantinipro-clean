@@ -6,9 +6,9 @@ export const ADMIN_TOOL_DATA_STATES = Object.freeze({ AVAILABLE: "available", EM
 const clean = (value) => typeof value === "string" && value.trim() && value !== "Dato non disponibile" ? value.trim() : null;
 const validDate = (value) => clean(value) && !Number.isNaN(Date.parse(value)) ? value : null;
 const done = (row) => row.status === "done";
-const active = (row) => row.status === "active";
+export const active = (row) => row.status === "active";
 const startOfToday = () => { const date = new Date(); date.setHours(0, 0, 0, 0); return date; };
-const isLate = (row) => !done(row) && validDate(row.endDate) && new Date(row.endDate) < startOfToday();
+export const isLate = (row) => !done(row) && validDate(row.endDate) && new Date(row.endDate) < startOfToday();
 const safeLabel = (value) => {
   const label = clean(value);
   if (!label || label.includes("@") || /(?:\+?39)?[\s.-]*\d(?:[\s.-]*\d){7,}/.test(label)) return "Cliente non nominato";
@@ -16,7 +16,7 @@ const safeLabel = (value) => {
 };
 const reference = (value) => clean(String(value ?? ""))?.slice(0, 8) ?? "n/d";
 
-function safeCampaign(row) {
+export function safeCampaign(row) {
   const operationalProblems = Number.isFinite(Number(row?.ops?.problems)) ? Math.max(0, Number(row.ops.problems)) : null;
   const rules = [];
   if (isLate(row)) rules.push("fine prevista antecedente a oggi e stato non completato");
@@ -74,11 +74,11 @@ function authorizedSnapshot(provider, scope, arguments_) {
   return snapshot;
 }
 
-const nonTestCampaigns = (snapshot) => (Array.isArray(snapshot.campaigns) ? snapshot.campaigns : []).filter((row) => row?.quality !== "test");
-const safeCampaigns = (snapshot) => nonTestCampaigns(snapshot).map(safeCampaign);
-const realCampaigns = (snapshot) => safeCampaigns(snapshot).filter((row) => row.quality === "real");
-const openQuotes = (snapshot) => safeCampaigns(snapshot).filter((row) => row.source === "quote_requests" && !done(row));
-const attention = (snapshot) => safeCampaigns(snapshot).filter((row) => row.attentionRules.length > 0);
+export const nonTestCampaigns = (snapshot) => (Array.isArray(snapshot.campaigns) ? snapshot.campaigns : []).filter((row) => row?.quality !== "test");
+export const safeCampaigns = (snapshot) => nonTestCampaigns(snapshot).map(safeCampaign);
+export const realCampaigns = (snapshot) => safeCampaigns(snapshot).filter((row) => row.quality === "real");
+export const openQuotes = (snapshot) => safeCampaigns(snapshot).filter((row) => row.source === "quote_requests" && !done(row));
+export const attention = (snapshot) => safeCampaigns(snapshot).filter((row) => row.attentionRules.length > 0);
 
 export function createAdminCampaignToolAdapter(provider) {
   const operations = new Set(["active", "late", "attention", "incomplete", "open_quotes"]);
