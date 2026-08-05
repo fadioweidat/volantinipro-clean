@@ -18,42 +18,8 @@ import { AdminGuard } from "../auth/guards/AdminGuard.jsx";
 import { CampaignTracking } from "../pages/customer/CampaignTracking.jsx";
 import { ClientCampaignReport } from "../pages/customer/ClientCampaignReport.jsx";
 import { hasSupabaseAuthHashError, hasSupabaseAuthHashToken, readPendingAuthContext } from "../auth/session.js";
-
-export function resolveAppRoute(path, { hasAuthHash = false, prefillHas = false, step = null } = {}) {
-  const p = String(path || '/').toLowerCase();
-  if (hasAuthHash) return 'login';
-  if (p === '/admin' || p === '/admin/dashboard') return 'admin';
-  if (p === '/admin/live') return 'admin-live';
-  const adminRoute = p.match(/^\/admin\/campaigns\/([^/]+)\/(gps|operations|groups|report)$/);
-  if (adminRoute) return `admin-${adminRoute[2]}:${adminRoute[1]}`;
-  if (p.startsWith('/admin')) return 'admin';
-
-  const customerCampaignRoute = p.match(/^\/customer\/campaigns\/([^/]+)\/(tracking|report|payment)$/);
-  if (customerCampaignRoute) return `customer-${customerCampaignRoute[2]}:${customerCampaignRoute[1]}`;
-  const dashboardCampaignRoute = p.match(/^\/dashboard\/([^/]+)$/);
-  if (dashboardCampaignRoute) return `campaign:${dashboardCampaignRoute[1]}`;
-  const dashboardPaymentRoute = p.match(/^\/dashboard\/([^/]+)\/payment$/);
-  if (dashboardPaymentRoute) return `customer-payment:${dashboardPaymentRoute[1]}`;
-  const legacyReportRoute = p.match(/^\/campagna\/([^/]+)\/report$/);
-  if (legacyReportRoute) return `customer-report:${legacyReportRoute[1]}`;
-  const legacyPaymentRoute = p.match(/^\/campagna\/([^/]+)\/pagamento$/);
-  if (legacyPaymentRoute) return `customer-payment:${legacyPaymentRoute[1]}`;
-  const legacyCampaignRoute = p.match(/^\/campagna\/([^/]+)$/);
-  if (legacyCampaignRoute) return `campaign:${legacyCampaignRoute[1]}`;
-  if (p.startsWith('/customer/') || p.startsWith('/dashboard/') || p.startsWith('/campagna/')) return 'not-found';
-
-  if (p === '/' || p === '/index.html' || p === '/volantinipro-final.jsx') return 'home';
-  if (p === '/login') return 'login';
-  if (p === '/dashboard') return 'dashboard';
-  if (p === '/privacy') return 'privacy';
-  if (p === '/termini' || p === '/terms') return 'terms';
-  if (p === '/cookie-policy' || p === '/cookie') return 'cookie';
-  if (p === '/preventivo') return 'preventivo';
-  if (p === '/preventivo-rapido') return 'quick';
-  if (p === '/consulente') return 'consultant';
-  if (p === '/configuratore' || prefillHas) return step ? `step${step}` : 'step1';
-  return 'not-found';
-}
+import { resolveAppRoute } from "./routeResolution.js";
+export { resolveAppRoute } from "./routeResolution.js";
 
 export function AppRouter() {
   const readPrefill = () => {

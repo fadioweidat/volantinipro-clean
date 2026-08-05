@@ -1,0 +1,33 @@
+export function resolveAppRoute(path, { hasAuthHash = false, prefillHas = false, step = null } = {}) {
+  const p = String(path || '/').toLowerCase();
+  if (hasAuthHash) return 'login';
+  if (p === '/admin' || p === '/admin/dashboard') return 'admin';
+  if (p === '/admin/live') return 'admin-live';
+  const adminRoute = p.match(/^\/admin\/campaigns\/([^/]+)\/(gps|operations|groups|report)$/);
+  if (adminRoute) return `admin-${adminRoute[2]}:${adminRoute[1]}`;
+  if (p.startsWith('/admin')) return 'admin';
+  const customerRoute = p.match(/^\/customer\/campaigns\/([^/]+)\/(tracking|report|payment)$/);
+  if (customerRoute) return `customer-${customerRoute[2]}:${customerRoute[1]}`;
+  const dashboardPayment = p.match(/^\/dashboard\/([^/]+)\/payment$/);
+  if (dashboardPayment) return `customer-payment:${dashboardPayment[1]}`;
+  const dashboardCampaign = p.match(/^\/dashboard\/([^/]+)$/);
+  if (dashboardCampaign) return `campaign:${dashboardCampaign[1]}`;
+  const legacyReport = p.match(/^\/campagna\/([^/]+)\/report$/);
+  if (legacyReport) return `customer-report:${legacyReport[1]}`;
+  const legacyPayment = p.match(/^\/campagna\/([^/]+)\/pagamento$/);
+  if (legacyPayment) return `customer-payment:${legacyPayment[1]}`;
+  const legacyCampaign = p.match(/^\/campagna\/([^/]+)$/);
+  if (legacyCampaign) return `campaign:${legacyCampaign[1]}`;
+  if (p.startsWith('/customer/') || p.startsWith('/dashboard/') || p.startsWith('/campagna/')) return 'not-found';
+  if (p === '/' || p === '/index.html' || p === '/volantinipro-final.jsx') return 'home';
+  if (p === '/login') return 'login';
+  if (p === '/dashboard') return 'dashboard';
+  if (p === '/privacy') return 'privacy';
+  if (p === '/termini' || p === '/terms') return 'terms';
+  if (p === '/cookie-policy' || p === '/cookie') return 'cookie';
+  if (p === '/preventivo') return 'preventivo';
+  if (p === '/preventivo-rapido') return 'quick';
+  if (p === '/consulente') return 'consultant';
+  if (p === '/configuratore' || prefillHas) return step ? `step${step}` : 'step1';
+  return 'not-found';
+}
