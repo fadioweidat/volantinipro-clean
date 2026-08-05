@@ -9,6 +9,7 @@ import {
   updateTerritorialSnapshot,
 } from "../../../ai-foundation/integrations/territorial-step2/territorialStep2Foundation.mjs";
 import { territorialToolSourceLabel } from "../../../ai-foundation/integrations/territorial-step2/TerritorialStep2ReadOnlyRuntime.mjs";
+import { supabase } from "../../../supabaseClient.js";
 import "./territorial-ai-assistant.css";
 
 const identityRoles = new Set(["cliente", "client", "customer", "fornitore", "supplier", "admin", "super_admin"]);
@@ -113,20 +114,31 @@ export default function TerritorialAiAssistantPanel({ snapshot, identity = null,
     setMessage("");
     setError(null);
     updateTerritorialSnapshot(sessionId, snapshot, resolvedIdentity.principalId);
+
+    // Add user message to history immediately
+    const userMessage = { role: "user", content: question, at: Date.now() };
+    setHistory(prev => [...prev, userMessage]);
+
     try {
-      const response = await getTerritorialStep2Foundation().agent.reply({
-        sessionId,
-        authUser: resolvedIdentity.authUser,
-        profile: resolvedIdentity.profile,
-        location: window.location.href,
-        activeCampaign: activeCampaignRef ? { reference: String(activeCampaignRef).slice(0, 32) } : null,
-        activeQuote: activeQuoteRef ? { reference: String(activeQuoteRef).slice(0, 32) } : null,
-        message: question,
+      const { data, error: invokeError } = await supabase.functions.invoke('ai-assistant-territory', {
+        body: { snapshot, question }
       });
-      setHistory(response.state.history);
+
+      if (invokeError) throw invokeError;
+      if (data?.error) throw new Error(data.error);
+
+      // Add AI response to history
+      const assistantMessage = {
+        role: "assistant",
+        content: data?.answer || "Nessuna risposta dal modello.",
+        at: Date.now(),
+        metadata: { sources: [{ name: "OpenAI GPT-4o-mini", kind: "provider" }] }
+      };
+      setHistory(prev => [...prev, assistantMessage]);
       setVersionNotice(null);
-    } catch {
-      setError("Non e stato possibile leggere lo snapshot territoriale. Riprova dopo il completamento dell'analisi.");
+    } catch (err) {
+      console.error("AI invocation error:", err);
+      setError("Errore nella comunicazione con l'Assistente AI. Riprova più tardi.");
     } finally {
       setSending(false);
     }

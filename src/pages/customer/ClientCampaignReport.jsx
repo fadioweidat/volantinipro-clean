@@ -15,9 +15,11 @@ import {
   formatDuration,
   sessionDurationMs,
 } from '../../lib/services/report-utils.js';
+import { supabase } from '../../supabaseClient.js';
 
 export function ClientCampaignReport({ campaignId }) {
   const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], campaign: null, notice: '' });
+  const [aiReport, setAiReport] = useState({ loading: false, summary: null, suggestions: [] });
   const token = new URLSearchParams(window.location.search).get('token') || '';
 
   useEffect(() => {
@@ -57,6 +59,36 @@ export function ClientCampaignReport({ campaignId }) {
     setState((prev) => ({ ...prev, notice: 'CSV GPS scaricato.' }));
   }
 
+  async function handleGenerateAiReport() {
+    setAiReport((prev) => ({ ...prev, loading: true }));
+    setState((prev) => ({ ...prev, notice: '', error: null }));
+    try {
+      // Pass the summary stats as campaign data
+      const campaignData = {
+        totalKm: totalKm.toFixed(2),
+        totalTimeFormatted: formatDuration(totalMs),
+        progress: estimateProgress(state.sessions),
+        dateRange: dateRange,
+        operatorCount: operatorCount,
+        gpsPointsCount: state.points.length,
+        status: status,
+      };
+
+      const { data, error: invokeError } = await supabase.functions.invoke('ai-campaign-report', {
+        body: { campaignId, campaignData }
+      });
+
+      if (invokeError) throw invokeError;
+      if (data?.error) throw new Error(data.error);
+
+      setAiReport({ loading: false, summary: data.summary, suggestions: data.suggestions });
+    } catch (err) {
+      console.error("AI Report generation failed:", err);
+      setState((prev) => ({ ...prev, error: "Impossibile generare il report AI al momento." }));
+      setAiReport((prev) => ({ ...prev, loading: false }));
+    }
+  }
+
   return (
     <main style={shellStyle}>
       <header style={headerStyle}>
@@ -67,7 +99,9 @@ export function ClientCampaignReport({ campaignId }) {
           <p style={subtitleStyle}>Avanzamento, prove fotografiche approvate e dati di consegna della campagna.</p>
         </div>
         <div style={actionGroupStyle}>
-          <button style={disabledButtonStyle} type="button" disabled>PDF disponibile dopo generazione report</button>
+          <button style={buttonStyle} type="button" onClick={handleGenerateAiReport} disabled={aiReport.loading || !hasData}>
+            {aiReport.loading ? "Generazione AI..." : "Genera Report AI"}
+          </button>
           <button style={buttonStyle} type="button" onClick={exportGpsCsv}>Scarica CSV GPS</button>
         </div>
       </header>
@@ -92,6 +126,29 @@ export function ClientCampaignReport({ campaignId }) {
         <Metric label="Punti GPS" value={state.points.length} />
         <Metric label="Ultima attivita" value={formatDateTime(lastActivity)} />
       </section>
+
+      {aiReport.summary && (
+        <section style={cardStyle}>
+          <div style={sectionHeaderStyle}>
+            <div>
+              <p style={eyebrowStyle}>Sintesi Analitica</p>
+              <h2 style={sectionTitleStyle}>Report Finale AI</h2>
+            </div>
+            <span style={pillStyle}>Generato da OpenAI GPT-4o-mini</span>
+          </div>
+          <div style={{ background: '#f8fafc', padding: 16, borderRadius: 10, border: '1px solid #e2e8f0', marginBottom: 16 }}>
+            <p style={{ margin: 0, lineHeight: 1.6, color: '#334155' }}>{aiReport.summary}</p>
+          </div>
+          {aiReport.suggestions?.length > 0 && (
+            <div>
+              <p style={eyebrowStyle}>Suggerimenti Operativi per il futuro</p>
+              <ul style={{ margin: '8px 0 0', paddingLeft: 20, color: '#334155', lineHeight: 1.6 }}>
+                {aiReport.suggestions.map((s, i) => <li key={i} style={{ marginBottom: 4 }}>{s}</li>)}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
 
       <section style={cardStyle}>
         <div style={sectionHeaderStyle}>

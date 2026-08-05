@@ -7,15 +7,12 @@ import {
   getCampaignProofPhotos,
   getCurrentOperatorProfile,
   hasSupabaseSession,
+  calculateGpsCoverage,
 } from '../../lib/services/gps-api.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
 import { rememberPendingAuthContext, rememberPendingAuthReturnPath, rememberPendingAuthOrigin, saveStoredSupabaseSession } from '../../auth/session.js';
 import { normalizeZonesFromCampaign, deriveInstantZoneStatus } from '../../lib/geofence/geofenceEngine.js';
 
-// Unica campagna per cui il bypass DEV puo' funzionare: hardcoded, non
-// accettata da query/prop, cosi' il pulsante non puo' mai essere puntato su
-// una campagna reale anche se qualcuno ne alterasse l'URL.
-const DEV_BYPASS_TEST_CAMPAIGN_ID = '59a27968-3e3d-4bc0-9635-74d9235e1463';
 
 function resolveOperatorDisplayName(profile) {
   if (!profile) return null;
@@ -40,59 +37,9 @@ function isLocalOrLanHostname(hostname) {
   return /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname);
 }
 
-// Pulsante visibile ESCLUSIVAMENTE quando tutte queste condizioni sono vere
-// insieme: import.meta.env.DEV e' false (letterale, dead-code-eliminato) in
-// qualunque build di produzione, quindi questo intero componente sparisce
-// dal bundle prod indipendentemente dalle altre condizioni. Non emula una
-// sessione: chiama un endpoint SOLO del dev server (dev/driverTestSessionPlugin.js)
-// che minta un token Supabase reale per l'utente di test via Admin API +
-// verify pubblico — auth.uid() lato RPC risolve davvero, RLS invariata.
-function DriverDevBypassButton({ campaignId, onSessionReady }) {
-  const [state, setState] = useState({ busy: false, error: null });
 
-  const eligible = import.meta.env.DEV
-    && import.meta.env.VITE_ENABLE_DRIVER_DEV_BYPASS === 'true'
-    && typeof window !== 'undefined'
-    && isLocalOrLanHostname(window.location.hostname)
-    && campaignId === DEV_BYPASS_TEST_CAMPAIGN_ID;
 
-  if (!eligible) return null;
-
-  async function handleClick() {
-    setState({ busy: true, error: null });
-    try {
-      const res = await fetch('/__dev/driver-test-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaignId }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok || !body?.accessToken) {
-        throw new Error(body?.error || 'Bypass DEV non disponibile.');
-      }
-      saveStoredSupabaseSession(body);
-      onSessionReady();
-    } catch (err) {
-      setState({ busy: false, error: err?.message || 'Bypass DEV fallito.' });
-      return;
-    }
-    setState({ busy: false, error: null });
-  }
-
-  return (
-    <div style={devBypassBoxStyle}>
-      <p style={{ margin: '0 0 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.08em', color: '#92400e', fontWeight: 900 }}>
-        Solo sviluppo — mai in produzione
-      </p>
-      <button type="button" style={devBypassButtonStyle} onClick={handleClick} disabled={state.busy}>
-        {state.busy ? 'Attivazione…' : 'Entra in modalità test GPS'}
-      </button>
-      {state.error && <div style={{ marginTop: 8, fontSize: 12, color: '#b91c1c' }}>{state.error}</div>}
-    </div>
-  );
-}
-
-function DriverLoginGate({ campaignId, onDevSessionReady }) {
+function DriverLoginGate({ campaignId }) {
   return (
     <GpsShell title="Accesso operatore richiesto" subtitle={`Campagna ${campaignId}`}>
       <section style={cardStyle}>
@@ -102,7 +49,6 @@ function DriverLoginGate({ campaignId, onDevSessionReady }) {
         <button style={primaryButtonStyle} type="button" onClick={() => goToDriverLogin(campaignId)}>
           Accedi come operatore
         </button>
-        <DriverDevBypassButton campaignId={campaignId} onSessionReady={onDevSessionReady} />
       </section>
     </GpsShell>
   );
@@ -115,6 +61,19 @@ export function TrackingPage({ campaignId }) {
   const [driverName, setDriverName] = useState(null);
   const [photosState, setPhotosState] = useState({ loading: true, error: null, photos: [] });
   const [selectedZoneId, setSelectedZoneId] = useState('');
+  const [coverage, setCoverage] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (tracking.session?.id && (tracking.status === 'active' || tracking.status === 'paused')) {
+      calculateGpsCoverage(tracking.session.id).then(res => {
+        if (!cancelled && res?.coverage_percentage != null) {
+          setCoverage(res.coverage_percentage);
+        }
+      }).catch(err => console.warn('Errore calcolo copertura', err));
+    }
+    return () => { cancelled = true; };
+  }, [tracking.session?.id, tracking.status, tracking.lastPosition]);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,7 +166,11 @@ export function TrackingPage({ campaignId }) {
       setUploadState((prev) => ({ ...prev, error: null }));
       await action();
     } catch (err) {
-      setUploadState({ loading: false, message: null, error: err?.message || 'Operazione non riuscita.' });
+      if (err?.message?.includes('SESSIONE_GIA_ATTIVA') || err?.code === '23505') {
+        setUploadState({ loading: false, message: null, error: 'Hai già una sessione attiva o in pausa. Torna alla Dashboard per chiuderla o aggiorna la pagina.' });
+      } else {
+        setUploadState({ loading: false, message: null, error: err?.message || 'Operazione non riuscita.' });
+      }
     }
   }
 
@@ -223,15 +186,7 @@ export function TrackingPage({ campaignId }) {
 
   if (!authState.authenticated) {
     return (
-      <DriverLoginGate
-        campaignId={campaignId}
-        onDevSessionReady={() => {
-          // Ricarica come dopo un login reale: rimonta la pagina con la
-          // sessione appena salvata gia' in localStorage, stesso percorso
-          // di consumeSupabaseAuthHash dopo un magic link vero.
-          window.location.reload();
-        }}
-      />
+      <DriverLoginGate campaignId={campaignId} />
     );
   }
 
@@ -280,7 +235,7 @@ export function TrackingPage({ campaignId }) {
                 >
                   {availableZones.map((z) => (
                     <option key={z.id} value={z.id}>
-                      {z.zone_name} {z.status && z.status !== 'Da iniziare' ? `(${z.status})` : ''}
+                      {z.zone_name} - Qtà: {z.quantity_assigned || 'N/D'} - {z.status || 'Da iniziare'} {z.priority ? `(Priorità ${z.priority})` : ''}
                     </option>
                   ))}
                 </select>
@@ -324,7 +279,7 @@ export function TrackingPage({ campaignId }) {
           <GeofenceBadge status={instantZoneStatus} />
         </div>
         <div style={metricGridStyle}>
-          <Metric label="Copertura" value="Copertura non ancora calcolabile" />
+          <Metric label="Copertura" value={coverage != null ? `${Math.round(coverage)}%` : 'Calcolo in corso...'} />
         </div>
         <button
           style={{ ...primaryButtonStyle, width: '100%', marginTop: 8 }}

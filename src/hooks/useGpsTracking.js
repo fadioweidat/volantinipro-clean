@@ -367,14 +367,18 @@ export function useGpsTracking(campaignId) {
       if (!campaignId) return;
       try {
         const existing = await getActiveGpsSession(campaignId);
-        if (cancelled || !existing || existing.status !== 'started') return;
+        if (cancelled || !existing || (existing.status !== 'started' && existing.status !== 'paused')) return;
         sessionRef.current = existing;
-        statusRef.current = 'active';
+        const newStatus = existing.status === 'paused' ? 'paused' : 'active';
+        statusRef.current = newStatus;
         setSession(existing);
-        setStatus('active');
-        await requestWakeLock();
-        startWatch();
-        flushQueue();
+        setStatus(newStatus);
+
+        if (newStatus === 'active') {
+          await requestWakeLock();
+          startWatch();
+          flushQueue();
+        }
       } catch (err) {
         console.warn('Resume session GPS non riuscito', err);
       }
