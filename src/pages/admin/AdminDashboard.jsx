@@ -68,13 +68,15 @@ export default function AdminDashboard({ onNav }) {
     .filter((campaign) => statusFilter === "all" || campaign.status === statusFilter)
     .filter((campaign) => serviceFilter === "all" || campaign.service === serviceFilter);
   const validCampaigns = campaigns.filter((campaign) => campaign.quality === "real");
-  const revenueValues = validCampaigns.map((campaign) => campaign.total).filter(Number.isFinite);
-  const totalRevenue = revenueValues.length ? revenueValues.reduce((sum, value) => sum + value, 0) : null;
+  const revenueValues = validCampaigns.map((campaign) => campaign.total).filter((val) => val != null);
+  const totalRevenue = validCampaigns.every((campaign) => campaign.total != null) && validCampaigns.length > 0
+    ? validCampaigns.reduce((sum, campaign) => sum + campaign.total, 0)
+    : null;
   const totalQty = validCampaigns.reduce((sum, campaign) => sum + (campaign.qty || 0), 0);
   const avgCpm = totalRevenue != null && totalQty > 0 ? (totalRevenue / totalQty) * 1000 : null;
 
   const kpis = [
-    { label: "Revenue totale", value: totalRevenue == null ? EMPTY : euro(totalRevenue), sub: revenueValues.length ? "da campagne reali" : "colonna importo mancante", color: C.orange },
+    { label: "Revenue totale", value: totalRevenue == null ? EMPTY : euro(totalRevenue), sub: totalRevenue != null ? "da campagne reali" : "dati importo parziali o mancanti", color: C.orange },
     { label: "In distribuzione", value: validCampaigns.filter((campaign) => campaign.status === "active").length, sub: `${liveCount + warningCount} sessioni GPS attive`, color: C.green },
     { label: "In attesa", value: validCampaigns.filter((campaign) => campaign.status === "pending").length, sub: "campagne valide", color: C.yellow },
     { label: "Completate", value: validCampaigns.filter((campaign) => campaign.status === "done").length, sub: "campagne valide", color: "rgba(255,255,255,.58)" },
@@ -269,7 +271,14 @@ function normalizeCampaign(row, source) {
   const rawStatus = String(row.status || row.stato || row.state || row.stato_pagamento || "").toLowerCase();
   const serviceSource = row.service_type || row.campaign_type || row.type || row.servizio || row.selected_service || row.service;
   const serviceRaw = String(serviceSource || "").toLowerCase();
-  const total = Number(row.total_budget ?? row.total_amount ?? row.amount ?? row.price ?? row.totale);
+  const rawTotal = row.total_budget ?? row.total_amount ?? row.amount ?? row.price ?? row.totale;
+  let parsedTotal = null;
+  if (rawTotal != null && String(rawTotal).trim() !== '') {
+    const maybeNumber = Number(rawTotal);
+    if (Number.isFinite(maybeNumber)) {
+      parsedTotal = maybeNumber;
+    }
+  }
   const qty = Number(row.total_flyers ?? row.flyer_quantity ?? row.qty ?? row.quantita ?? row.quantity);
   const lat = Number(row.center_lat ?? row.lat ?? row.latitude ?? row.metadata?.center_lat ?? row.metadata?.lat);
   const lng = Number(row.center_lng ?? row.lng ?? row.longitude ?? row.metadata?.center_lng ?? row.metadata?.lng);
@@ -281,7 +290,7 @@ function normalizeCampaign(row, source) {
     qty: Number.isFinite(qty) && qty > 0 ? qty : 0,
     status: normalizeStatus(rawStatus),
     date: String(row.start_date || row.created_at || row.updated_at || "").slice(0, 10) || EMPTY,
-    total: Number.isFinite(total) && total > 0 ? total : null,
+    total: parsedTotal,
     lat: Number.isFinite(lat) ? lat : null,
     lng: Number.isFinite(lng) ? lng : null,
     rawStatus,
