@@ -15,7 +15,45 @@ import { StepperBar } from "../layouts/public/StepperBar.jsx";
 import { F, C } from "../lib/constants.js";
 import { CustomerGuard } from "../auth/guards/CustomerGuard.jsx";
 import { AdminGuard } from "../auth/guards/AdminGuard.jsx";
+import { CampaignTracking } from "../pages/customer/CampaignTracking.jsx";
+import { ClientCampaignReport } from "../pages/customer/ClientCampaignReport.jsx";
 import { hasSupabaseAuthHashError, hasSupabaseAuthHashToken, readPendingAuthContext } from "../auth/session.js";
+
+export function resolveAppRoute(path, { hasAuthHash = false, prefillHas = false, step = null } = {}) {
+  const p = String(path || '/').toLowerCase();
+  if (hasAuthHash) return 'login';
+  if (p === '/admin' || p === '/admin/dashboard') return 'admin';
+  if (p === '/admin/live') return 'admin-live';
+  const adminRoute = p.match(/^\/admin\/campaigns\/([^/]+)\/(gps|operations|groups|report)$/);
+  if (adminRoute) return `admin-${adminRoute[2]}:${adminRoute[1]}`;
+  if (p.startsWith('/admin')) return 'admin';
+
+  const customerCampaignRoute = p.match(/^\/customer\/campaigns\/([^/]+)\/(tracking|report|payment)$/);
+  if (customerCampaignRoute) return `customer-${customerCampaignRoute[2]}:${customerCampaignRoute[1]}`;
+  const dashboardCampaignRoute = p.match(/^\/dashboard\/([^/]+)$/);
+  if (dashboardCampaignRoute) return `campaign:${dashboardCampaignRoute[1]}`;
+  const dashboardPaymentRoute = p.match(/^\/dashboard\/([^/]+)\/payment$/);
+  if (dashboardPaymentRoute) return `customer-payment:${dashboardPaymentRoute[1]}`;
+  const legacyReportRoute = p.match(/^\/campagna\/([^/]+)\/report$/);
+  if (legacyReportRoute) return `customer-report:${legacyReportRoute[1]}`;
+  const legacyPaymentRoute = p.match(/^\/campagna\/([^/]+)\/pagamento$/);
+  if (legacyPaymentRoute) return `customer-payment:${legacyPaymentRoute[1]}`;
+  const legacyCampaignRoute = p.match(/^\/campagna\/([^/]+)$/);
+  if (legacyCampaignRoute) return `campaign:${legacyCampaignRoute[1]}`;
+  if (p.startsWith('/customer/') || p.startsWith('/dashboard/') || p.startsWith('/campagna/')) return 'not-found';
+
+  if (p === '/' || p === '/index.html' || p === '/volantinipro-final.jsx') return 'home';
+  if (p === '/login') return 'login';
+  if (p === '/dashboard') return 'dashboard';
+  if (p === '/privacy') return 'privacy';
+  if (p === '/termini' || p === '/terms') return 'terms';
+  if (p === '/cookie-policy' || p === '/cookie') return 'cookie';
+  if (p === '/preventivo') return 'preventivo';
+  if (p === '/preventivo-rapido') return 'quick';
+  if (p === '/consulente') return 'consultant';
+  if (p === '/configuratore' || prefillHas) return step ? `step${step}` : 'step1';
+  return 'not-found';
+}
 
 export function AppRouter() {
   const readPrefill = () => {
@@ -53,44 +91,11 @@ export function AppRouter() {
     const url = new URL(window.location.href);
     const step = url.searchParams.get("step");
 
-    // Un magic link Supabase puo' atterrare su {SITE_URL} (spesso il solo
-    // "/", non "/login") sia per un ERRORE (#error=..., link scaduto/gia'
-    // usato) sia per un SUCCESSO il cui redirect_to non e' nell'allowlist
-    // Redirect URLs del progetto (#access_token=..., fallback su SITE_URL).
-    // Senza questo controllo il pathname-based routing sotto risolverebbe
-    // "home", mostrando la homepage con il token/errore mai gestito: la
-    // LoginPage e' l'unico componente che consuma entrambi gli hash.
-    if (hasSupabaseAuthHashError() || hasSupabaseAuthHashToken()) return "login";
-
-    // Move admin checks before generic dashboard/login checks
-    if (p === "/admin" || p === "/admin/dashboard") return "admin";
-    if (p === "/admin/live") return "admin-live";
-    const adminGpsMatch = p.match(/^\/admin\/campaigns\/([^/]+)\/gps$/);
-    if (adminGpsMatch) return `admin-gps:${adminGpsMatch[1]}`;
-    const adminOpsMatch = p.match(/^\/admin\/campaigns\/([^/]+)\/operations$/);
-    if (adminOpsMatch) return `admin-operations:${adminOpsMatch[1]}`;
-    const adminGroupsMatch = p.match(/^\/admin\/campaigns\/([^/]+)\/groups$/);
-    if (adminGroupsMatch) return `admin-groups:${adminGroupsMatch[1]}`;
-    const adminReportMatch = p.match(/^\/admin\/campaigns\/([^/]+)\/report$/);
-    if (adminReportMatch) return `admin-report:${adminReportMatch[1]}`;
-    if (p.startsWith("/admin")) return "admin";
-
-    if (p === "/" || p === "/index.html" || p === "/volantinipro-final.jsx") return "home";
-    if (p.includes("login")) return "login";
-    if (p.includes("dashboard")) return "dashboard";
-    if (p.includes("pagamento")) return "payment";
-    if (p.includes("campagna")) return "campaign";
-    if (p.includes("privacy")) return "privacy";
-    if (p.includes("termini") || p.includes("terms")) return "terms";
-    if (p.includes("cookie-policy") || p.includes("cookie")) return "cookie";
-    if (p.includes("preventivo") && !p.includes("preventivo-rapido")) return "preventivo";
-    if (p.includes("preventivo-rapido")) return "quick";
-    if (p.includes("consulente")) return "consultant";
-    if (p.includes("configuratore") || prefill.has) {
-      if (step) return `step${step}`;
-      return "step1";
-    }
-    return "home";
+    return resolveAppRoute(p, {
+      hasAuthHash: hasSupabaseAuthHashError() || hasSupabaseAuthHashToken(),
+      prefillHas: prefill.has,
+      step,
+    });
   };
 
   const [page, setPage] = useState(routeToPage(window.location.pathname));
@@ -191,7 +196,7 @@ export function AppRouter() {
         window.history.pushState(null, "", paths[p] || "/");
       }
     }
-    setPage(p);
+    setPage(routeToPage(window.location.pathname));
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -235,16 +240,27 @@ export function AppRouter() {
             <DashboardPage onNav={goTo} />
           </CustomerGuard>
         )}
-        {page === "campaign" && (
+        {page.startsWith("campaign:") && (
           <CustomerGuard onNav={goTo}>
-            <CampaignDashboardPage onNav={goTo} campaignId={window.location.pathname.split("/").filter(Boolean).pop() || null} />
+            <CampaignDashboardPage onNav={goTo} campaignId={page.split(":")[1]} />
           </CustomerGuard>
         )}
-        {page === "payment" && (
+        {page.startsWith("customer-payment:") && (
           <CustomerGuard onNav={goTo}>
-            <PagamentoBonificoPage onNav={goTo} campaignId={window.location.pathname.split("/").filter(Boolean)[1] || null} />
+            <PagamentoBonificoPage onNav={goTo} campaignId={page.split(":")[1]} />
           </CustomerGuard>
         )}
+        {page.startsWith("customer-tracking:") && (
+          <CustomerGuard onNav={goTo}>
+            <CampaignTracking campaignId={page.split(":")[1]} />
+          </CustomerGuard>
+        )}
+        {page.startsWith("customer-report:") && (
+          <CustomerGuard onNav={goTo}>
+            <ClientCampaignReport campaignId={page.split(":")[1]} />
+          </CustomerGuard>
+        )}
+        {page === "not-found" && <NotFoundPage />}
 
         {/* ADMIN ROUTES */}
         {page.startsWith("admin") && (
@@ -261,4 +277,12 @@ export function AppRouter() {
       </div>
     </div>
   );
+}
+
+function NotFoundPage() {
+  return <main style={{ minHeight: '70vh', padding: '140px 24px 80px', color: '#fff', textAlign: 'center' }}>
+    <p style={{ color: '#e8571a', fontWeight: 900 }}>404</p>
+    <h1>Pagina non trovata</h1>
+    <p>La route richiesta non esiste.</p>
+  </main>;
 }
