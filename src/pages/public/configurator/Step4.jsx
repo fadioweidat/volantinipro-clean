@@ -20,6 +20,7 @@ import { SERVICE_META } from "../../../lib/services/serviceMeta.js";
 import { Step1Icon } from "../../../components/Step1Icon.jsx";
 import { truthfulSourceLabel } from "../../../lib/step2/truthfulSourceLabel.js";
 import { useCliente } from "../../../hooks/useCliente.js";
+import { calculateQuotePricing, formatQuoteCurrency, resolveQuoteQuantity } from "../../../lib/quotePricing.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
 export function Step4({
@@ -62,8 +63,8 @@ export function Step4({
     h2h: "Hand to Hand",
     b2b: "Distribuzione presso attività e aziende"
   }[svcType] || "N/D";
-  const rawFlyerQty = data.flyerQuantity || data.qty || 0;
-  const flyerQty = (data.coverageDecision === "increase" || data.coverageDecision === "useRecommended") && data.fullCoverageFlyers ? Math.max(rawFlyerQty, data.fullCoverageFlyers) : rawFlyerQty;
+  const rawFlyerQty = resolveQuoteQuantity(data);
+  const flyerQty = (data.coverageDecision === "increase" || data.coverageDecision === "useRecommended") && data.fullCoverageFlyers != null && rawFlyerQty != null ? Math.max(rawFlyerQty, Number(data.fullCoverageFlyers)) : rawFlyerQty;
   const pricePerThousand = QUOTE_PRICES[svcType] || 18.5;
   const unitPricePerFlyer = pricePerThousand / 1000;
   const zones = data.zones || [];
@@ -107,8 +108,6 @@ export function Step4({
   }).filter(Boolean));
   const realSelectedPairingDiscounts = selDays.map(k => realStep3Pairs[k]?.disc).filter(v => Number(v) > 0);
   const disc = realSelectedPairingDiscounts.length ? Math.round(realSelectedPairingDiscounts.reduce((a, v) => a + v, 0) / realSelectedPairingDiscounts.length) : 0;
-  const baseCost = flyerQty * unitPricePerFlyer;
-  const afterDisc = baseCost * (1 - disc / 100);
   const alreadyPrinted = data.alreadyPrinted ?? data.hasFlyers === "yes";
   const productionServices = [...new Set([...(data.printServices || []), ...(data.extraServices || [])])].filter(s => ["stampa", "grafica"].includes(s));
   // Unica fonte dati per i servizi extra: estratta in
@@ -415,18 +414,14 @@ export function Step4({
         </div>
       </div>;
   };
-  const extraCost = selectedExtras.reduce((a, s) => a + (s.price || 0), 0);
-  const smartPairingDiscount = baseCost * (disc / 100);
-  const urgSurch = data.urgency === "urgent" ? baseCost * 0.3 : 0;
   const subDiscPct = data.planDiscount || {
     single: 0,
     monthly3: 5,
     monthly6: 10,
     monthly12: 15
   }[data.subscription] || 0;
-  const subtotalBeforePlan = baseCost - smartPairingDiscount + urgSurch;
-  const planDiscountAmount = subtotalBeforePlan * (subDiscPct / 100);
-  const total = subtotalBeforePlan - planDiscountAmount + extraCost;
+  const pricing = calculateQuotePricing({ quantity: flyerQty, pricePerThousand, smartPairingDiscountPct: disc, urgency: data.urgency, planDiscountPct: subDiscPct, extras: selectedExtras });
+  const { baseCost, smartPairingDiscount, urgencySurcharge: urgSurch, subtotalBeforePlan, planDiscountAmount, extraCost, total } = pricing;
   const flyWRaw = {
     80: 80,
     115: 115,
@@ -448,7 +443,7 @@ export function Step4({
   const hasOperationalWaypoints = (data.operationalWaypoints?.length || data.gpsPlannedPoints?.length || data.metadata?.operational_waypoints?.length || 0) > 0;
   const hasZones = data.selectedCaps && data.selectedCaps.length > 0 || data.selectedComuni && data.selectedComuni.length > 0 || zones.length > 0 || (isH2H || isB2B) && hasOperationalWaypoints || isB2B && (data.selectedOperationalPois?.length || 0) > 0;
   const coverageBlocked = false;
-  const canConfirm = Boolean(svcType && (isB2B ? (data.selectedOperationalPois?.length || 0) > 0 : flyerQty > 0) && data.flyerFormat && hasZones && Number.isFinite(total) && !coverageBlocked);
+  const canConfirm = Boolean(svcType && (isB2B ? (data.selectedOperationalPois?.length || 0) > 0 : flyerQty != null && flyerQty > 0) && data.flyerFormat && hasZones && Number.isFinite(total) && !coverageBlocked);
   const confirmProblem = !hasZones ? "Completa la zona" : coverageBlocked ? "quantità volantini insufficiente" : !Number.isFinite(total) ? "Totale non calcolabile" : "";
   const pairingMonth = data.selectedMonth?.month ?? (data.startDate ? new Date(`${data.startDate}T00:00:00`).getMonth() : new Date().getMonth());
   const pairingYear = data.selectedMonth?.year ?? (data.startDate ? new Date(`${data.startDate}T00:00:00`).getFullYear() : new Date().getFullYear());
@@ -459,14 +454,8 @@ export function Step4({
     border: "1px solid rgba(255,255,255,.08)",
     ...e
   });
-  const eur = n => `€${(n || 0).toLocaleString("it-IT", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  })}`;
-  const eur4 = n => `€${(n || 0).toLocaleString("it-IT", {
-    minimumFractionDigits: 4,
-    maximumFractionDigits: 4
-  })}`;
+  const eur = n => formatQuoteCurrency(n, 2);
+  const eur4 = n => formatQuoteCurrency(n, 4);
   const pctToFraction = (pct, unitWord = "famiglia", pluralWord = "famiglie") => formatCoverageProportion(pct, unitWord, pluralWord);
   const cleanSource = s => truthfulSourceLabel(s || "");
   const nonEmpty = arr => arr.filter(x => x && x.v !== undefined && x.v !== null && x.v !== "" && x.v !== "-");
@@ -476,11 +465,12 @@ export function Step4({
   const step4TerritoryPluralLabel = step4AnalysisLevel === "nil" ? "Zone NIL" : "Comuni";
   const zoneAllocs = data.zonesAllocation || [];
   const plannedGpsPoints = data.operationalWaypoints || data.gpsPlannedPoints || data.metadata?.operational_waypoints || [];
-  const requiredQty = data.searchMode === "municipality" ? kpis.recommendedFlyers || data.fullCoverageFlyers || data.requiredTotalFlyers || zoneAllocs.reduce((a, z) => a + (z.requiredFlyers || 0), 0) : data.fullCoverageFlyers || data.requiredTotalFlyers || kpis.recommendedFlyers || zoneAllocs.reduce((a, z) => a + (z.requiredFlyers || 0), 0);
-  const rawRemainingQty = flyerQty - requiredQty;
+  const allocatedRequirement = zoneAllocs.length ? zoneAllocs.reduce((a, z) => a + Number(z.requiredFlyers ?? 0), 0) : null;
+  const requiredQty = data.searchMode === "municipality" ? kpis.recommendedFlyers ?? data.fullCoverageFlyers ?? data.requiredTotalFlyers ?? allocatedRequirement : data.fullCoverageFlyers ?? data.requiredTotalFlyers ?? kpis.recommendedFlyers ?? allocatedRequirement;
+  const rawRemainingQty = flyerQty == null || requiredQty == null ? null : flyerQty - requiredQty;
   const remainingQty = data.remainingFlyers ?? data.remainingQuantity ?? Math.max(0, rawRemainingQty);
-  const missingQty = Math.max(0, requiredQty - flyerQty);
-  const quantityIsSufficient = rawRemainingQty >= 0;
+  const missingQty = rawRemainingQty == null ? null : Math.max(0, -rawRemainingQty);
+  const quantityIsSufficient = rawRemainingQty == null ? null : rawRemainingQty >= 0;
   const step4AreaLabel = value => {
     if (value == null || value === false) return "";
     if (typeof value === "string" || typeof value === "number") return String(value);
@@ -940,7 +930,7 @@ export function Step4({
     const p = pairsData[k] || null;
     const pts = k.split("-");
     return {
-      date: `${pts[2]} ${MONTHS_SHORT[parseInt(pts[1])]}`,
+      date: `${pts[2]} ${MONTHS_SHORT[parseInt(pts[1], 10) - 1]}`,
       pair: p
     };
   });
@@ -994,8 +984,8 @@ export function Step4({
       estimatedFamilies: svcType === "d2d" ? kpis.families ?? totF : null,
       estimatedPopulation: svcType === "d2d" ? kpisPopulation : null,
       estimatedCoverage: svcType === "d2d" ? kpis.coverage ?? avgCov : null,
-      recommendedFlyers: svcType === "d2d" ? requiredQty || null : null,
-      fullCoverageFlyers: svcType === "d2d" ? requiredQty || null : null,
+      recommendedFlyers: svcType === "d2d" ? requiredQty ?? null : null,
+      fullCoverageFlyers: svcType === "d2d" ? requiredQty ?? null : null,
       insertedFlyers: flyerQty,
       remainingFlyers: quantityIsSufficient ? remainingQty : 0,
       missingFlyers: missingQty,
@@ -4382,4 +4372,3 @@ export function Step4({
         </div>}
     </div>;
 }
-

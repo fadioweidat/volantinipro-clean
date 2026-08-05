@@ -6,7 +6,8 @@ function fmt(n, dec = 0) {
 }
 
 function cur(n, dec = 2) {
-  return `€ ${Number(n || 0).toLocaleString("it-IT", { minimumFractionDigits: dec, maximumFractionDigits: dec })}`;
+  if (n == null || n === "" || !Number.isFinite(Number(n))) return "—";
+  return `€ ${Number(n).toLocaleString("it-IT", { minimumFractionDigits: dec, maximumFractionDigits: dec })}`;
 }
 
 function pct(n) {

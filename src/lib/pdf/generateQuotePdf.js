@@ -44,7 +44,8 @@ function formatNumberIT(value, decimals = 0) {
 }
 
 function formatCurrencyIT(value, decimals = 2) {
-  const n = Number(value || 0);
+  if (value === undefined || value === null || value === "" || !Number.isFinite(Number(value))) return "—";
+  const n = Number(value);
   return `\u20ac${n.toLocaleString("it-IT", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
 }
 

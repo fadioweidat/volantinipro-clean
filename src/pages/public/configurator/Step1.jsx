@@ -276,7 +276,7 @@ export function Step1({
   const distEst = activeQty / 1000 * baseRate;
   const printEst = data.hasFlyers === "no" ? Math.round(activeQty / 1000 * 29) : 0;
   let subtotalEst = distEst + printEst;
-  if (data.urgency === "urgent") subtotalEst *= 1.2;
+  if (data.urgency === "urgent") subtotalEst *= 1.3;
   if (data.urgency === "express") subtotalEst *= 1.35;
   const discPct = {
     single: 0,
@@ -659,7 +659,7 @@ export function Step1({
   }[data.subscription] || "Da selezionare";
   const currentUrgencyLabel = {
     normal: "Standard",
-    urgent: "Urgente (+20%)",
+    urgent: "Urgente (+30%)",
     express: "Express (+35%)"
   }[data.urgency] || "Da selezionare";
   const currentPrintLabel = data.hasFlyers === "yes" ? "Già stampati" : data.hasFlyers === "no" ? "Da stampare (+stampa)" : "Da selezionare";
