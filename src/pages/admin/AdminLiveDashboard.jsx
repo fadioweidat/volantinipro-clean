@@ -20,7 +20,7 @@ const LIFECYCLE_LABELS = {
 
 export function AdminLiveDashboard({ onNav }) {
   const [state, setState] = useState({ loading: true, error: null, drivers: [] });
-  const [filters, setFilters] = useState({ period: 'today', fromDate: '', toDate: '', campaign: 'all', group: '', status: 'all', driver: '' });
+  const [filters, setFilters] = useState({ period: 'today', fromDate: '', toDate: '', campaign: 'all', group: '', status: 'all_history', driver: '' });
   const [selectedSessionId, setSelectedSessionId] = useState(null);
 
   useEffect(() => {
@@ -58,16 +58,16 @@ export function AdminLiveDashboard({ onNav }) {
   const warningCount = currentRows.filter((item) => item.lifecycle === 'warning').length;
   const offlineRecentCount = currentRows.filter((item) => item.lifecycle === 'offline_recent').length;
 
-  // Selezione di default: la prima riga corrente con almeno un punto, cosi'
-  // al primo caricamento (e dopo un refresh pagina) la mappa mostra subito
-  // una traccia reale e non solo il marker (vedi FASE 5, punto 7).
+  // La lista e la mappa rispettano anche il filtro storico: i KPI live/offline
+  // restano calcolati su currentRows, ma una sessione completata oggi non deve
+  // sparire proprio quando il filtro dichiara di includere lo storico.
   useEffect(() => {
-    if (selectedSessionId && currentRows.some((item) => item.session.id === selectedSessionId)) return;
-    const withPoints = currentRows.find((item) => item.points?.length > 0) || currentRows[0] || null;
+    if (selectedSessionId && withLifecycle.some((item) => item.session.id === selectedSessionId)) return;
+    const withPoints = withLifecycle.find((item) => item.points?.length > 0) || withLifecycle[0] || null;
     setSelectedSessionId(withPoints?.session.id || null);
-  }, [currentRows, selectedSessionId]);
+  }, [withLifecycle, selectedSessionId]);
 
-  const selectedItem = currentRows.find((item) => item.session.id === selectedSessionId) || null;
+  const selectedItem = withLifecycle.find((item) => item.session.id === selectedSessionId) || null;
 
   const breadcrumbs = [
     { label: "Dashboard", href: "/admin" },
@@ -118,7 +118,8 @@ export function AdminLiveDashboard({ onNav }) {
           <label style={labelStyle}>
             Stato sessione
             <select value={filters.status} onChange={(event) => setFilters((prev) => ({ ...prev, status: event.target.value }))} style={inputStyle}>
-              <option value="all">Tutti</option>
+              <option value="all_history">Tutti (incl. storico)</option>
+              <option value="all">Solo operativi correnti</option>
               <option value="started">Started</option>
               <option value="paused">Paused</option>
               <option value="completed">Completed</option>
@@ -139,8 +140,8 @@ export function AdminLiveDashboard({ onNav }) {
       <div style={layoutStyle}>
         <section style={cardStyle}>
           <p style={eyebrowStyle}>Mappa live {selectedItem ? `— traccia: ${displayDriverName(selectedItem.session)} (${shortId(selectedItem.session.id)})` : ''}</p>
-          {currentRows.some((item) => item.latest) ? (
-            <LiveMap drivers={currentRows} selectedSessionId={selectedSessionId} />
+          {withLifecycle.some((item) => item.latest) ? (
+            <LiveMap drivers={withLifecycle} selectedSessionId={selectedSessionId} />
           ) : (
             <EmptyState text={state.loading ? 'Caricamento tracking GPS...' : 'Nessun tracking GPS disponibile'} />
           )}
@@ -148,8 +149,8 @@ export function AdminLiveDashboard({ onNav }) {
         </section>
 
         <aside style={cardStyle}>
-          <p style={eyebrowStyle}>Driver live</p>
-          {currentRows.length ? currentRows.map((item) => (
+          <p style={eyebrowStyle}>Driver e storico</p>
+          {withLifecycle.length ? withLifecycle.map((item) => (
             <DriverRow
               key={item.session.id}
               item={item}
