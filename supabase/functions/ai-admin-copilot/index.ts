@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.105.4";
+import { isAdminProfile } from "../_shared/aiAuthorization.ts";
 
 declare const Deno: any;
 
@@ -93,6 +94,26 @@ serve(async (req: Request) => {
   try {
     const user = await getAuthedUser(req);
     if (!user) return json({ alerts: [], status: "error", error: "UNAUTHENTICATED" }, 401);
+
+    const supabase = supabaseAdmin();
+    if (!supabase) {
+      return json({ alerts: [], status: "error", error: "SERVER_AUTH_NOT_CONFIGURED" }, 500);
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error("[ai-admin-copilot] PROFILE_LOOKUP_FAILED", profileError.message);
+      return json({ alerts: [], status: "error", error: "AUTHORIZATION_CHECK_FAILED" }, 500);
+    }
+
+    if (!isAdminProfile(profile)) {
+      return json({ alerts: [], status: "error", error: "FORBIDDEN" }, 403);
+    }
 
     const body = await req.json().catch(() => null);
     const dashboardData = body?.dashboardData;
