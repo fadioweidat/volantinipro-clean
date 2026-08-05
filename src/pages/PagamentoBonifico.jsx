@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { useCampagnaDetail } from '../hooks/useCampagnaDetail'
+import { customerValue } from '../lib/customerCampaigns.js'
 
 const IBAN          = import.meta.env.VITE_IBAN || 'IT60 X0000 0000 0000 0000 0000 000'
 const INTESTATARIO  = import.meta.env.VITE_INTESTATARIO || 'VolantiniPro Srl'
@@ -29,8 +30,8 @@ export function PagamentoBonificoPage({ campaignId, onNav }) {
   useEffect(() => {
     if (!supabase || !campaignId) return
     const interval = setInterval(async () => {
-      const { data } = await supabase.from('campagne').select('stato_pagamento').eq('id', campaignId).single()
-      if (data?.stato_pagamento === 'pagato') {
+      const { data } = await supabase.from('campaigns').select('metadata').eq('id', campaignId).single()
+      if (data?.metadata?.payment_status === 'pagato') {
         setStatoPagamento('pagato')
         clearInterval(interval)
       }
@@ -74,8 +75,8 @@ export function PagamentoBonificoPage({ campaignId, onNav }) {
             { label: 'Intestatario', value: INTESTATARIO },
             { label: 'Banca', value: BANCA },
             { label: 'IBAN', value: IBAN, copy: true },
-            { label: 'Importo', value: `€${info.totale_euro?.toFixed(2)}`, copy: true, valueToCopy: info.totale_euro?.toFixed(2) },
-            { label: 'Causale', value: info.causale_bonifico, copy: true, bold: true },
+            { label: 'Importo', value: info.totale_euro == null ? customerValue(null) : `€${info.totale_euro.toFixed(2)}`, copy: info.totale_euro != null, valueToCopy: info.totale_euro?.toFixed(2) },
+            { label: 'Causale', value: customerValue(info.causale_bonifico), copy: Boolean(info.causale_bonifico), bold: true },
           ].map((row, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: i === 4 ? 'none' : '1px solid rgba(255,255,255,.04)' }}>
               <div style={{ opacity: 0.5, fontSize: 14 }}>{row.label}</div>

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   calculateDistanceKm,
 } from '../../lib/services/gps-api.js';
-import { getApprovedProofPhotos, getCampaignReport } from '../../lib/services/admin-api.js';
+import { getOwnedCustomerReport } from '../../lib/services/customer-api.js';
 import {
   buildGpsCsv,
   deriveCampaignStatus,
@@ -20,23 +20,18 @@ import { supabase } from '../../supabaseClient.js';
 export function ClientCampaignReport({ campaignId }) {
   const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], campaign: null, notice: '' });
   const [aiReport, setAiReport] = useState({ loading: false, summary: null, suggestions: [] });
-  const token = new URLSearchParams(window.location.search).get('token') || '';
-
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const [report, photosWithUrls] = await Promise.all([
-          getCampaignReport(campaignId),
-          getApprovedProofPhotos(campaignId),
-        ]);
-        if (!cancelled) setState({ loading: false, error: null, points: report.points, sessions: report.sessions.map((item) => item.session), photos: photosWithUrls, campaign: report.campaign, notice: '' });
+        const report = await getOwnedCustomerReport(campaignId);
+        if (!cancelled) setState({ loading: false, error: null, points: report.points, sessions: report.sessions, photos: report.photos, campaign: report.campaign, notice: '' });
       } catch (err) {
         if (!cancelled) setState((prev) => ({ ...prev, loading: false, error: err?.message || 'Report campagna non disponibile.' }));
       }
     }
     load();
-  }, [campaignId, token]);
+  }, [campaignId]);
 
   const totalKm = calculateDistanceKm(state.points);
   const totalMs = state.sessions.reduce((sum, session) => sum + sessionDurationMs(session), 0);
@@ -103,6 +98,7 @@ export function ClientCampaignReport({ campaignId }) {
             {aiReport.loading ? "Generazione AI..." : "Genera Report AI"}
           </button>
           <button style={buttonStyle} type="button" onClick={exportGpsCsv}>Scarica CSV GPS</button>
+          <button style={buttonStyle} type="button" onClick={() => window.print()}>Stampa / salva PDF</button>
         </div>
       </header>
 

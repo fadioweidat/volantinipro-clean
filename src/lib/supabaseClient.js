@@ -194,16 +194,15 @@ export async function ensureCurrentClient(profile = {}) {
   const user = await getCurrentSupabaseUser(session);
   if (!user?.id) throw new Error("Login Supabase richiesto per salvare la campagna.");
   const email = profile.email || user.email;
-  const rows = await supabaseRequest("/rest/v1/clienti?on_conflict=user_id&select=*", {
+  const rows = await supabaseRequest("/rest/v1/profiles?on_conflict=id&select=*", {
     method: "POST",
     session,
     prefer: "resolution=merge-duplicates,return=representation",
     body: {
-      user_id: user.id,
-      email,
-      nome: profile.nome || null,
-      telefono: profile.telefono || null,
-      azienda: profile.azienda || null,
+      id: user.id,
+      full_name: profile.nome || email || null,
+      phone: profile.telefono || null,
+      company_name: profile.azienda || null,
       updated_at: new Date().toISOString(),
     },
   });
@@ -213,17 +212,18 @@ export async function ensureCurrentClient(profile = {}) {
 export async function getCurrentClientProfile() {
   if (!hasSupabaseConfig()) return null;
   const user = await getCurrentSupabaseUser();
-  if (!user?.email) return null;
-  const rows = await supabaseRequest(`/rest/v1/clienti?email=eq.${encodeURIComponent(user.email)}&select=*`, {
+  if (!user?.id) return null;
+  const rows = await supabaseRequest(`/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=*`, {
     session: getStoredSupabaseSession(),
     prefer: null,
   });
-  return rows?.[0] || { nome: user.email, email: user.email };
+  const row = rows?.[0] || null;
+  return row ? { ...row, nome: row.full_name || row.company_name || null, email: user.email } : { nome: null, email: user.email };
 }
 
 export async function listCampaigns() {
   if (!hasSupabaseConfig()) return [];
-  return supabaseRequest("/rest/v1/campagne?select=*&order=created_at.desc", {
+  return supabaseRequest("/rest/v1/campaigns?select=*&order=created_at.desc", {
     session: getStoredSupabaseSession(),
     prefer: null,
   });
@@ -231,34 +231,10 @@ export async function listCampaigns() {
 
 export async function getCampaignById(id) {
   if (!hasSupabaseConfig() || !id || id === "demo") return null;
-  let campagna = null;
-  try {
-    const rows = await supabaseRequest(`/rest/v1/campaigns?id=eq.${encodeURIComponent(id)}&select=*`, {
-      session: getStoredSupabaseSession(),
-      prefer: null,
-    });
-    campagna = rows?.[0] || null;
-    if (campagna) {
-      const zones = await supabaseRequest(`/rest/v1/campaign_zones?campaign_id=eq.${encodeURIComponent(id)}&select=*&order=zone_order.asc`, {
-        session: getStoredSupabaseSession(),
-        prefer: null,
-      }).catch(() => []);
-      campagna.campaignZones = zones || [];
-    }
-  } catch (err) {
-    console.warn("Errore caricamento da tabella campaigns, fallback su legacy:", err);
-  }
-
-  if (!campagna) {
-    const rows = await supabaseRequest(`/rest/v1/campagne?id=eq.${encodeURIComponent(id)}&select=*`, {
-      session: getStoredSupabaseSession(),
-      prefer: null,
-    });
-    campagna = rows?.[0] || null;
-    if (campagna && campagna.metadata?.campaign_zones) {
-      campagna.campaignZones = campagna.metadata.campaign_zones;
-    }
-  }
+  const rows = await supabaseRequest(`/rest/v1/campaigns?id=eq.${encodeURIComponent(id)}&select=*`, {
+    session: getStoredSupabaseSession(), prefer: null,
+  });
+  const campagna = rows?.[0] || null;
 
   if (!campagna) return null;
 
@@ -299,108 +275,53 @@ export async function saveSmartPairingWaitlist(payload) {
 }
 
 export async function saveCampaign(payload) {
-  const cliente = await ensureCurrentClient(payload.client || {});
-  if (!cliente?.id) throw new Error("Cliente Supabase non disponibile.");
-
-  let campId = null;
-  let camp = null;
-  try {
-    const cRows = await supabaseRequest("/rest/v1/campaigns", {
+  const profile = await ensureCurrentClient(payload.client || {});
+  if (!profile?.id) throw new Error("Profilo Cliente Supabase non disponibile.");
+  const metadata = {
+    ...(payload.metadata || {}),
+    campaign_zones: payload.campaignZones || [],
+    payment_status: payload.stato_pagamento || null,
+    payment_reference: payload.causale_bonifico || null,
+    smart_pairing_discount: payload.smart_pairing_discount ?? null,
+  };
+  const canonicalStatus = ({ confermata: 'approved', in_preparazione: 'scheduled', in_distribuzione: 'in_progress', completata: 'completed' })[payload.status] || payload.status || 'draft';
+  const cRows = await supabaseRequest("/rest/v1/campaigns", {
       method: "POST",
       session: getStoredSupabaseSession(),
       prefer: "return=representation",
       body: {
-        customer_id: cliente.id,
+        user_id: profile.id,
         title: payload.title || `Campagna ${payload.city_name || "Multi-zona"}`,
-        campaign_type: payload.campaign_type || "standard",
-        total_flyers: payload.total_flyers || payload.flyer_quantity || 0,
-        total_budget: payload.total_budget || payload.total_amount || 0,
+        service_type: payload.service_type || payload.type || "d2d",
+        status: canonicalStatus,
+        city: payload.city_name || null,
+        zone_name: payload.city_name || null,
+        quantity: payload.total_flyers ?? payload.flyer_quantity ?? null,
+        total_amount: payload.total_budget ?? payload.total_amount ?? null,
+        start_date: payload.start_date || payload.startDate || null,
+        end_date: payload.end_date || payload.endDate || null,
+        client_name: payload.client?.nome || null,
+        client_phone: payload.client?.telefono || null,
+        client_email: payload.client?.email || null,
+        metadata,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }
     });
-    camp = cRows?.[0] || null;
-    campId = camp?.id;
-
-    if (campId && payload.campaignZones && payload.campaignZones.length > 0) {
-      const zonesToInsert = payload.campaignZones.map((z, idx) => ({
-        campaign_id: campId,
-        zone_order: idx + 1,
-        service_type: z.service_type || z.serviceType || "d2d",
-        service_variant: z.service_variant || z.serviceVariant || z.flyerFormat || "a5",
-        zone_label: z.zone_label || z.zoneLabel || z.municipality_name || `Zona ${idx + 1}`,
-        store_name: z.store_name || z.storeName || "",
-        center_lat: z.city?.lat || z.center_lat || null,
-        center_lng: z.city?.lng || z.center_lng || null,
-        radius_km: parseFloat(z.radius ?? z.radius_km ?? z.selectedRadius ?? 3),
-        municipality_code: z.municipality_code || z.municipalityCode || null,
-        municipality_name: z.municipality_name || z.municipalityName || z.cityName || "",
-        assigned_flyers: parseInt(z.assigned_flyers ?? z.assignedFlyers ?? z.flyerQuantity ?? z.qty ?? 0),
-        assigned_budget: parseFloat(z.assigned_budget ?? z.assignedBudget ?? 0),
-        coverage_percent: parseFloat(z.coverage_percent ?? z.coveragePercent ?? z.coverage ?? 0),
-        recommended_flyers: parseInt(z.recommended_flyers ?? z.recommendedFlyers ?? 0),
-        start_date: z.start_date || z.startDate || payload.start_date || null,
-        end_date: z.end_date || z.endDate || payload.end_date || null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }));
-
-      await supabaseRequest("/rest/v1/campaign_zones", {
-        method: "POST",
-        session: getStoredSupabaseSession(),
-        body: zonesToInsert,
-      });
-    }
-  } catch (err) {
-    console.error("Errore scrittura tabelle campaigns/campaign_zones:", err);
-  }
-
-  const legacyBody = {
-    cliente_id: cliente.id,
-    service_type: payload.service_type || payload.type || "d2d",
-    status: payload.status || "confermata",
-    city_name: payload.city_name || "Multi-zona",
-    zone_ids: payload.zone_ids || [],
-    flyer_quantity: payload.total_flyers || payload.flyer_quantity || 0,
-    flyer_format: payload.flyer_format || payload.flyerFormat || null,
-    start_date: payload.start_date || payload.startDate || null,
-    end_date: payload.end_date || payload.endDate || null,
-    smart_pairing_discount: payload.smart_pairing_discount || 0,
-    total_amount: payload.total_budget || payload.total_amount || 0,
-    stato_pagamento: payload.stato_pagamento || "in_attesa",
-    pagamento_tipo: payload.pagamento_tipo || "bonifico",
-    causale_bonifico: payload.causale_bonifico || null,
-    metadata: {
-      ...payload.metadata,
-      is_multi_zone: true,
-      campaign_zones: payload.campaignZones || [],
-    },
-  };
-
-  if (campId) {
-    legacyBody.id = campId;
-  }
-
-  const legacyCamp = await supabaseRequest("/rest/v1/campagne", {
-    method: "POST",
-    session: getStoredSupabaseSession(),
-    prefer: "return=representation",
-    body: legacyBody,
-  });
-
-  return legacyCamp?.[0] || camp;
+  return cRows?.[0] || null;
 }
 
 export async function confirmCampaignPayment(campagnaId) {
   if (!hasSupabaseConfig()) return null;
-  return supabaseRequest(`/rest/v1/campagne?id=eq.${encodeURIComponent(campagnaId)}`, {
+  const existing = await getCampaignById(campagnaId);
+  if (!existing) return null;
+  return supabaseRequest(`/rest/v1/campaigns?id=eq.${encodeURIComponent(campagnaId)}`, {
     method: "PATCH",
     session: getStoredSupabaseSession(),
     prefer: "return=representation",
     body: {
-      stato_pagamento: "pagato",
-      pagamento_confermato_at: new Date().toISOString(),
-      status: "confermata",
+      metadata: { ...(existing.metadata || {}), payment_status: "pagato", payment_confirmed_at: new Date().toISOString() },
+      status: existing.status === 'draft' ? 'approved' : existing.status,
       updated_at: new Date().toISOString(),
     },
   });

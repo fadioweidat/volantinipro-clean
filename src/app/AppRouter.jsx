@@ -192,6 +192,12 @@ export function AppRouter() {
         window.history.pushState(null, "", `/admin/campaigns/${p.split(":")[1]}/groups`);
       } else if (p.startsWith("admin-report:")) {
         window.history.pushState(null, "", `/admin/campaigns/${p.split(":")[1]}/report`);
+      } else if (p.startsWith("customer-tracking:")) {
+        window.history.pushState(null, "", `/customer/campaigns/${p.split(":")[1]}/tracking`);
+      } else if (p.startsWith("customer-report:")) {
+        window.history.pushState(null, "", `/customer/campaigns/${p.split(":")[1]}/report`);
+      } else if (p.startsWith("customer-payment:")) {
+        window.history.pushState(null, "", `/customer/campaigns/${p.split(":")[1]}/payment`);
       } else {
         window.history.pushState(null, "", paths[p] || "/");
       }

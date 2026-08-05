@@ -3,27 +3,19 @@ import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-le
 import { useEffect, useMemo, useState } from 'react';
 import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
-import { createProofPhotoSignedUrl, getCampaignGpsPoints, getCampaignGpsSessions, getCampaignProofPhotos } from '../../lib/services/gps-api.js';
+import { calculateDistanceKm } from '../../lib/services/gps-api.js';
+import { getOwnedCustomerTracking } from '../../lib/services/customer-api.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
 
 export function CampaignTracking({ campaignId }) {
-  const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [] });
-  const zoneProgress = useZoneProgress({ campaignId });
+  const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], campaign: null });
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const [points, sessions, photos] = await Promise.all([
-          getCampaignGpsPoints(campaignId),
-          getCampaignGpsSessions(campaignId),
-          getCampaignProofPhotos(campaignId, { approvedOnly: true }),
-        ]);
-        const photosWithUrls = await Promise.all((photos || []).map(async (photo) => ({
-          ...photo,
-          signedUrl: await createProofPhotoSignedUrl(photo.storage_path).catch(() => null),
-        })));
-        if (!cancelled) setState({ loading: false, error: null, points, sessions, photos: photosWithUrls });
+        const tracking = await getOwnedCustomerTracking(campaignId);
+        if (!cancelled) setState({ loading: false, error: null, ...tracking });
       } catch (err) {
         if (!cancelled) setState((prev) => ({ ...prev, loading: false, error: err?.message || 'Tracking non disponibile.' }));
       }
@@ -38,13 +30,18 @@ export function CampaignTracking({ campaignId }) {
 
   const status = deriveCampaignStatus(state.sessions);
   const activeMs = state.sessions.reduce((sum, session) => sum + sessionDurationMs(session), 0);
+  const distanceKm = calculateDistanceKm(state.points);
+  const latestPing = [...state.points].reverse().find((point) => point.recorded_at || point.created_at)?.recorded_at
+    || [...state.sessions].sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))[0]?.updated_at
+    || null;
+  const connectionStatus = latestPing && Date.now() - new Date(latestPing).getTime() <= 5 * 60 * 1000 ? 'online' : 'offline';
 
   return (
     <main style={shellStyle}>
       <header style={{ marginBottom: 22 }}>
         <a href="/" style={{ color: '#e8571a', fontWeight: 900, textDecoration: 'none' }}>VolantiniPro</a>
         <p style={eyebrowStyle}>Tracking cliente</p>
-        <h1 style={{ margin: 0, fontSize: 34 }}>Stato distribuzione</h1>
+        <h1 style={{ margin: 0, fontSize: 34 }}>{state.campaign?.titolo || 'Stato distribuzione'}</h1>
       </header>
 
       {state.error && <div style={errorStyle}>{state.error}</div>}
@@ -53,19 +50,13 @@ export function CampaignTracking({ campaignId }) {
         <Metric label="Stato campagna" value={status} />
         <Metric label="Punti GPS" value={state.points.length} />
         <Metric label="Tempo registrato" value={formatDuration(activeMs)} />
+        <Metric label="Distanza" value={`${distanceKm.toFixed(2)} km`} />
+        <Metric label="Ultimo ping" value={formatDateTime(latestPing)} />
+        <Metric label="Connessione" value={connectionStatus} />
         <Metric label="Foto approvate" value={state.photos.length} />
       </div>
 
-      <div style={{ marginTop: 16 }}>
-        <ZoneProgressPanel
-          zones={zoneProgress.zones}
-          loading={zoneProgress.loading}
-          refreshing={zoneProgress.refreshing}
-          error={zoneProgress.error}
-          notice={zoneProgress.notice}
-          onRefresh={zoneProgress.refresh}
-        />
-      </div>
+      {state.campaign && <AuthorizedZoneProgress campaignId={campaignId} />}
 
       <section style={cardStyle}>
         <p style={eyebrowStyle}>Percorso distribuzione</p>
@@ -110,6 +101,20 @@ export function CampaignTracking({ campaignId }) {
       </section>
     </main>
   );
+}
+
+function AuthorizedZoneProgress({ campaignId }) {
+  const zoneProgress = useZoneProgress({ campaignId });
+  return <div style={{ marginTop: 16 }}>
+    <ZoneProgressPanel
+      zones={zoneProgress.zones}
+      loading={zoneProgress.loading}
+      refreshing={zoneProgress.refreshing}
+      error={zoneProgress.error}
+      notice={zoneProgress.notice}
+      onRefresh={zoneProgress.refresh}
+    />
+  </div>;
 }
 
 function TrackingMap({ points }) {

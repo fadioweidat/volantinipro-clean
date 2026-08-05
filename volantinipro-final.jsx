@@ -5631,7 +5631,7 @@ export function CampaignDashboardPage({
               marginTop: 6
             }}>{campagna.quantita == null ? customerValue(null) : `${campagna.quantita.toLocaleString("it-IT")} volantini`}  Smart Pairing {campagna.smart_pairing_sconto == null ? customerValue(null) : `${campagna.smart_pairing_sconto}%`}</div>
             </div>
-            <button style={{
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button onClick={() => onNav(`customer-tracking:${campagna.id}`)} style={{
             minHeight: 44,
             padding: "0 16px",
             borderRadius: 10,
@@ -5642,7 +5642,18 @@ export function CampaignDashboardPage({
             fontSize: 13,
             fontWeight: 700,
             cursor: "pointer"
-          }}>Scarica report PDF</button>
+          }}>Tracking live</button><button onClick={() => onNav(`customer-report:${campagna.id}`)} style={{
+            minHeight: 44,
+            padding: "0 16px",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,.12)",
+            background: "rgba(255,255,255,.05)",
+            color: C.white,
+            fontFamily: F.sans,
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: "pointer"
+          }}>Apri report</button></div>
           </div>
 
           <div style={{
@@ -6336,23 +6347,24 @@ export function PagamentoBonificoPage({
     cliente
   } = useCliente();
   const [toast, setToast] = useState(null);
-  const [paid, setPaid] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState(null);
   const showToast = msg => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
   };
   useEffect(() => {
     if (campagna?.stato_pagamento === "pagato") {
-      setPaid(true);
+      setPaymentStatus("pagato");
       return;
     }
+    setPaymentStatus(campagna?.stato_pagamento || null);
     const poll = async () => {
       try {
         if (!supabase || !routeCampaignId) return;
         const {
           data
-        } = await supabase.from("campagne").select("stato_pagamento").eq("id", routeCampaignId).single();
-        if (data?.stato_pagamento === "pagato") setPaid(true);
+        } = await supabase.from("campaigns").select("metadata").eq("id", routeCampaignId).single();
+        setPaymentStatus(data?.metadata?.payment_status || null);
       } catch {/* silently skip */}
     };
     poll();
@@ -6430,7 +6442,7 @@ export function PagamentoBonificoPage({
         lineHeight: 1.6,
         marginBottom: 18
       }}>Completa il pagamento per avviare la distribuzione.</div>
-        {paid ? <div style={{
+        {paymentStatus === "pagato" ? <div style={{
         marginBottom: 14,
         padding: 12,
         borderRadius: 10,
@@ -6442,7 +6454,7 @@ export function PagamentoBonificoPage({
         fontWeight: 800
       }}>
              Pagamento ricevuto &mdash; la distribuzione partira entro 24 ore.
-          </div> : <div style={{
+          </div> : paymentStatus === "in_attesa" ? <div style={{
         marginBottom: 14,
         padding: 12,
         borderRadius: 10,
@@ -6454,7 +6466,7 @@ export function PagamentoBonificoPage({
         fontWeight: 800
       }}>
              In attesa del bonifico
-          </div>}
+          </div> : <div style={{ marginBottom: 14, padding: 12, borderRadius: 10, background: 'rgba(255,255,255,.05)', color: 'rgba(255,255,255,.7)', fontFamily: F.sans }}>Stato pagamento: {customerValue(null)}</div>}
         <div style={{
         padding: 18,
         borderRadius: 13,
@@ -6471,9 +6483,9 @@ export function PagamentoBonificoPage({
           textTransform: "uppercase",
           marginBottom: 14
         }}>Istruzioni bonifico</div>
-          {[["Intestatario", BONIFICO_INTESTATARIO], ["Banca", BONIFICO_BANCA], ["IBAN", BONIFICO_IBAN], ["Importo", `${Number(campagna.totale_euro || 0).toLocaleString("it-IT", {
+          {[["Intestatario", BONIFICO_INTESTATARIO], ["Banca", BONIFICO_BANCA], ["IBAN", BONIFICO_IBAN], ["Importo", campagna.totale_euro == null ? customerValue(null) : `€${Number(campagna.totale_euro).toLocaleString("it-IT", {
           minimumFractionDigits: 2
-        })}`], ["Causale", campagna.causale_bonifico]].map(([l, v]) => <div key={l} style={{
+        })}`], ["Causale", customerValue(campagna.causale_bonifico)]].map(([l, v]) => <div key={l} style={{
           display: "grid",
           gridTemplateColumns: "130px 1fr",
           gap: 10,
@@ -6516,7 +6528,7 @@ export function PagamentoBonificoPage({
           fontWeight: 800,
           cursor: "pointer"
         }}>Copia IBAN</button>
-          <button onClick={() => copy("Causale", campagna.causale_bonifico)} style={{
+          <button disabled={!campagna.causale_bonifico} onClick={() => copy("Causale", campagna.causale_bonifico)} style={{
           minHeight: 44,
           padding: "0 14px",
           borderRadius: 10,
