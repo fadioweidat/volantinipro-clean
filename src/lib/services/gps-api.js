@@ -56,6 +56,7 @@ export function isPermanentGpsWriteError(error) {
       message.includes('assegnazione_non_autorizzata') ||
       message.includes('sessione_non_autorizzata') ||
       message.includes('sessione_gia_attiva') ||
+      message.includes('zona_non_autorizzata') ||
       message.includes('coordinate_non_valide') ||
       message.includes('transizione_sessione_non_valida'),
   );
@@ -88,6 +89,7 @@ function mapRpcError(error) {
     normalized.includes('ASSEGNAZIONE_NON_AUTORIZZATA') ||
     normalized.includes('SESSIONE_NON_AUTORIZZATA') ||
     normalized.includes('SESSIONE_GIA_ATTIVA') ||
+    normalized.includes('ZONA_NON_AUTORIZZATA') ||
     normalized.includes('COORDINATE_NON_VALIDE') ||
     normalized.includes('TRANSIZIONE_SESSIONE_NON_VALIDA')
   ) {
@@ -188,6 +190,7 @@ export async function startGpsSession(campaignId, { assignmentId, deviceId, zone
     : await resolveGpsAssignment(campaignId);
 
   if (!isValidUuid(resolved.assignment?.id)) throw permanentGpsError('assignment_missing');
+  if (zoneId != null && !isValidUuid(zoneId)) throw permanentGpsError('assignment_missing');
   return callGpsRpc('gps_start_session', {
     p_assignment_id: resolved.assignment.id,
     p_device_id: deviceId || null,

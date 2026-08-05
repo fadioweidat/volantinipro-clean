@@ -67,8 +67,8 @@ export function TrackingPage({ campaignId }) {
     let cancelled = false;
     if (tracking.session?.id && (tracking.status === 'active' || tracking.status === 'paused')) {
       calculateGpsCoverage(tracking.session.id).then(res => {
-        if (!cancelled && res?.coverage_percentage != null) {
-          setCoverage(res.coverage_percentage);
+        if (!cancelled && res?.coverage_percent != null) {
+          setCoverage(res.coverage_percent);
         }
       }).catch(err => console.warn('Errore calcolo copertura', err));
     }
