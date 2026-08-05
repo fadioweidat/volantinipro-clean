@@ -12,7 +12,11 @@
 
 insert into public.campaign_zones (campaign_id, zone_name, center_lat, center_lng, radius_m)
 select '59a27968-3e3d-4bc0-9635-74d9235e1463', 'Zona test geofence Libano', 33.636490, 35.476185, 300
-where not exists (
+where exists (
+  select 1 from public.campaigns
+  where id = '59a27968-3e3d-4bc0-9635-74d9235e1463'
+)
+and not exists (
   select 1 from public.campaign_zones
   where campaign_id = '59a27968-3e3d-4bc0-9635-74d9235e1463' and zone_name = 'Zona test geofence Libano'
 );

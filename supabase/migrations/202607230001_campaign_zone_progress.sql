@@ -135,6 +135,17 @@ execute function public.set_campaign_zone_progress_campaign_id();
 drop trigger if exists set_campaign_zone_progress_updated_at
   on public.campaign_zone_progress;
 
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+set search_path to ''
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
 create trigger set_campaign_zone_progress_updated_at
 before update on public.campaign_zone_progress
 for each row

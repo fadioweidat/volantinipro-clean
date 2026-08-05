@@ -102,8 +102,8 @@ drop policy if exists territorial_profile_indicators_admin_write on public.terri
 create policy territorial_profile_indicators_admin_write
   on public.territorial_profile_indicators for all
   to authenticated
-  using (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role in ('admin','super_admin')))
-  with check (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role in ('admin','super_admin')));
+  using (public.jwt_is_admin())
+  with check (public.jwt_is_admin());
 
 -- Verifica finale (solo lettura, nessun dato inserito):
 select to_regclass('public.territorial_profile_indicators') as territorial_profile_indicators_creata;

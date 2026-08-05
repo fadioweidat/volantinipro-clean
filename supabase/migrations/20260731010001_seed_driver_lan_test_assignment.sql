@@ -19,14 +19,20 @@
 
 insert into public.operator_profiles (user_id, display_name, active)
 select 'a41339f3-d0b1-4a52-95b1-aa964ba85ec5', 'Fenice (test operatore LAN)', true
-where not exists (
+where exists (
+  select 1 from auth.users where id = 'a41339f3-d0b1-4a52-95b1-aa964ba85ec5'
+)
+and not exists (
   select 1 from public.operator_profiles where user_id = 'a41339f3-d0b1-4a52-95b1-aa964ba85ec5'
 );
 
 insert into public.operational_groups (campaign_id, name, notes)
 select '59a27968-3e3d-4bc0-9635-74d9235e1463', 'Gruppo test LAN driver',
   'Creato per verificare end-to-end il flusso /driver/tracking via LAN.'
-where not exists (
+where exists (
+  select 1 from public.campaigns where id = '59a27968-3e3d-4bc0-9635-74d9235e1463'
+)
+and not exists (
   select 1 from public.operational_groups
   where campaign_id = '59a27968-3e3d-4bc0-9635-74d9235e1463' and name = 'Gruppo test LAN driver'
 );
@@ -41,6 +47,14 @@ select
 from public.operational_groups g
 where g.campaign_id = '59a27968-3e3d-4bc0-9635-74d9235e1463'
   and g.name = 'Gruppo test LAN driver'
+  and exists (
+    select 1 from public.operator_profiles op
+    where op.user_id = 'a41339f3-d0b1-4a52-95b1-aa964ba85ec5'
+  )
+  and exists (
+    select 1 from public.profiles p
+    where p.id = 'a41339f3-d0b1-4a52-95b1-aa964ba85ec5'
+  )
   and not exists (
     select 1 from public.operator_assignments a
     where a.operator_id = 'a41339f3-d0b1-4a52-95b1-aa964ba85ec5'
