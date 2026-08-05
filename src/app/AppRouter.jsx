@@ -19,6 +19,7 @@ import { CampaignTracking } from "../pages/customer/CampaignTracking.jsx";
 import { ClientCampaignReport } from "../pages/customer/ClientCampaignReport.jsx";
 import { hasSupabaseAuthHashError, hasSupabaseAuthHashToken, readPendingAuthContext } from "../auth/session.js";
 import { resolveAppRoute } from "./routeResolution.js";
+import { configuratorHistoryState, readConfiguratorDraft, readConfiguratorHistoryState, writeConfiguratorDraft } from "../lib/configuratorState.js";
 export { resolveAppRoute } from "./routeResolution.js";
 
 export function AppRouter() {
@@ -67,13 +68,18 @@ export function AppRouter() {
   const [page, setPage] = useState(routeToPage(window.location.pathname));
 
   useEffect(() => {
-    const handlePop = () => setPage(routeToPage(window.location.pathname));
+    const handlePop = event => {
+      const restored = readConfiguratorHistoryState(event.state);
+      if (restored) setData(current => ({ ...current, ...restored }));
+      setPage(routeToPage(window.location.pathname));
+    };
     window.addEventListener("popstate", handlePop);
     return () => window.removeEventListener("popstate", handlePop);
   }, []);
 
   const [data, setData] = useState(() => {
     let draft = {};
+    const persistedDraft = typeof window !== "undefined" ? readConfiguratorDraft(window.localStorage) || {} : {};
     if (typeof window !== "undefined" && localStorage.getItem("volantinipro_return_to") === "step4") {
       try {
         const raw = localStorage.getItem("volantinipro_pending_campaign_draft");
@@ -97,10 +103,18 @@ export function AppRouter() {
       averagePairingDiscount: 0, maxPairingDiscount: 0, calendarStatus: "empty",
       smartPairingStatus: "none", smartPairingRequestSent: false,
       requiresManualConfirmation: false, contactRequestData: null,
-      aiOptimizer: false, startDate: "", endDate: "", ...prefill.patch,
-      ...draft
+      aiOptimizer: false, startDate: "", endDate: "",
+      ...persistedDraft,
+      ...draft,
+      ...prefill.patch
     };
   });
+
+  useEffect(() => {
+    if (!isConfiguratorPagePath(window.location.pathname)) return;
+    writeConfiguratorDraft(window.localStorage, data);
+    window.history.replaceState(configuratorHistoryState(data), "", window.location.href);
+  }, [data]);
 
   const goTo = (p, prefillPatch = null) => {
     if (prefillPatch) {
@@ -149,7 +163,8 @@ export function AppRouter() {
         if (s.endDate) params.set("endDate", s.endDate);
         if (s.source || s.quickSource) params.set("source", s.source || s.quickSource);
         params.set("step", p.replace("step", ""));
-        window.history.pushState(null, "", `/configuratore?${params.toString()}`);
+        window.history.replaceState(configuratorHistoryState(data), "", window.location.href);
+        window.history.pushState(configuratorHistoryState(s), "", `/configuratore?${params.toString()}`);
       } else if (p.startsWith("admin-gps:")) {
         window.history.pushState(null, "", `/admin/campaigns/${p.split(":")[1]}/gps`);
       } else if (p.startsWith("admin-operations:")) {
@@ -249,6 +264,10 @@ export function AppRouter() {
       </div>
     </div>
   );
+}
+
+function isConfiguratorPagePath(pathname) {
+  return String(pathname || "").toLowerCase() === "/configuratore";
 }
 
 function NotFoundPage() {
