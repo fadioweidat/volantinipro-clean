@@ -91,5 +91,10 @@ export function AdminGuard({ onNav, children }) {
   if (!sessionValid) return null;
   if (roleStatus === "checking") return <AdminRoleCheckingPlaceholder />;
   if (roleStatus === "denied") return <AdminAccessDeniedPanel onNav={onNav} />;
-  return <>{children}</>;
+  // roleStatus === "admin" qui sotto: jwt_is_admin() e' gia' stato verificato
+  // dal backend. Il render-prop espone la sessione verificata ai children che
+  // ne hanno bisogno (es. AdminDashboard per costruire l'identita' AI Admin)
+  // SOLO dopo questo controllo, mai prima. I children che restano JSX semplice
+  // (invariati) continuano a funzionare esattamente come prima.
+  return typeof children === "function" ? children({ session, role: "admin" }) : children;
 }

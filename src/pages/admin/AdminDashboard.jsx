@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { getRealCampaigns, getLiveOperatorsSummary, selectOptionalTable } from "../../lib/services/admin-api.js";
 import { isAdminAiDashboardEnabled } from "../../lib/runtimeFlags.js";
+import { getCurrentSupabaseUser } from "../../lib/supabaseClient.js";
 import { AdminOperationalMap } from "../../components/admin/AdminOperationalMap.jsx";
 import { AdminLayout } from "./AdminLayout.jsx";
 
@@ -37,12 +38,18 @@ const QUALITY_BADGES = {
   incomplete: { label: "incompleta", color: "rgba(255,255,255,.45)" },
 };
 
-export default function AdminDashboard({ onNav }) {
+export default function AdminDashboard({ onNav, adminSession = null }) {
   const [state, setState] = useState({ loading: true, error: null, data: emptyData() });
   const [statusFilter, setStatusFilter] = useState("all");
   const [serviceFilter, setServiceFilter] = useState("all");
   const [showTestCampaigns, setShowTestCampaigns] = useState(false);
   const [notice, setNotice] = useState("");
+  // Identita' Admin per l'Assistente AI: costruita SOLO qui, DOPO che
+  // AdminGuard ha gia' verificato jwt_is_admin() === true (adminSession
+  // arriva dal render-prop di AdminGuard, mai da location/query/props del
+  // Cliente). role e' fissato ad "admin": jwt_is_admin() copre sia admin
+  // che super_admin, non serve una seconda query a profiles per distinguerli.
+  const [adminIdentity, setAdminIdentity] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,6 +68,22 @@ export default function AdminDashboard({ onNav }) {
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!adminSession) {
+      setAdminIdentity(null);
+      return undefined;
+    }
+    getCurrentSupabaseUser(adminSession)
+      .then((user) => {
+        if (cancelled) return;
+        if (!user?.id) { setAdminIdentity(null); return; }
+        setAdminIdentity({ user: { id: String(user.id), email: user.email || null }, role: "admin" });
+      })
+      .catch(() => { if (!cancelled) setAdminIdentity(null); });
+    return () => { cancelled = true; };
+  }, [adminSession]);
 
   const { campaigns, waitlist, activities, liveOperators, liveCount, warningCount, availability } = state.data;
   const visibleCampaigns = campaigns.filter((campaign) => showTestCampaigns || campaign.quality === "real");
@@ -112,9 +135,13 @@ export default function AdminDashboard({ onNav }) {
 
       <React.Suspense fallback={<div style={{ minHeight: 90, marginBottom: 16 }} aria-label="Caricamento Assistente Admin" />}>
         <AdminCentralAiPanel
-          adminData={state.data}
-          loading={state.loading}
-          error={state.error}
+          adminIdentity={adminIdentity}
+          campaigns={campaigns}
+          availability={availability}
+          operators={liveOperators}
+          operatorsSummary={{ liveCount, warningCount }}
+          dataLoading={state.loading}
+          dataError={state.error}
         />
       </React.Suspense>
 

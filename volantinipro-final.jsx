@@ -3467,9 +3467,10 @@ function ButtonConfermaPagamento({
     </div>;
 }
 export function AdminDashboard({
-  onNav
+  onNav,
+  adminSession
 }) {
-  return <RealAdminDashboard onNav={onNav} />;
+  return <RealAdminDashboard onNav={onNav} adminSession={adminSession} />;
   const devAdminCampaigns = allowMockData ? ADMIN_CAMPAIGNS : [];
   const adminWaitlist = allowMockData ? ADMIN_WAITLIST : [];
   const adminMonthly = allowMockData ? ADMIN_MONTHLY : [];

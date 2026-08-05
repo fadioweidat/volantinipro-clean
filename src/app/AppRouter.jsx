@@ -252,12 +252,14 @@ export function AppRouter() {
         {/* ADMIN ROUTES */}
         {page.startsWith("admin") && (
           <AdminGuard onNav={goTo}>
-            {page === "admin" && <AdminDashboard onNav={goTo} />}
-            {page === "admin-live" && <AdminLiveDashboard onNav={goTo} />}
-            {page.startsWith("admin-gps:") && <GpsMonitor campaignId={page.split(":")[1]} onNav={goTo} />}
-            {page.startsWith("admin-operations:") && <CampaignOperations campaignId={page.split(":")[1]} onNav={goTo} />}
-            {page.startsWith("admin-groups:") && <CampaignGroups campaignId={page.split(":")[1]} onNav={goTo} />}
-            {page.startsWith("admin-report:") && <CampaignReport campaignId={page.split(":")[1]} onNav={goTo} />}
+            {({ session }) => <>
+              {page === "admin" && <AdminDashboard onNav={goTo} adminSession={session} />}
+              {page === "admin-live" && <AdminLiveDashboard onNav={goTo} />}
+              {page.startsWith("admin-gps:") && <GpsMonitor campaignId={page.split(":")[1]} onNav={goTo} />}
+              {page.startsWith("admin-operations:") && <CampaignOperations campaignId={page.split(":")[1]} onNav={goTo} />}
+              {page.startsWith("admin-groups:") && <CampaignGroups campaignId={page.split(":")[1]} onNav={goTo} />}
+              {page.startsWith("admin-report:") && <CampaignReport campaignId={page.split(":")[1]} onNav={goTo} />}
+            </>}
           </AdminGuard>
         )}
 
