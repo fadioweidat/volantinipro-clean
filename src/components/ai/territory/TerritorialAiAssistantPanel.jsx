@@ -9,7 +9,8 @@ import {
   updateTerritorialSnapshot,
 } from "../../../ai-foundation/integrations/territorial-step2/territorialStep2Foundation.mjs";
 import { territorialToolSourceLabel } from "../../../ai-foundation/integrations/territorial-step2/TerritorialStep2ReadOnlyRuntime.mjs";
-import { supabase } from "../../../supabaseClient.js";
+import { runTerritorialAssistant } from "../../../ai/adapters/territorialAssistantAdapter.js";
+import { AI_RESPONSE_STATUSES } from "../../../ai/schema/aiResponseSchema.js";
 import "./territorial-ai-assistant.css";
 
 const identityRoles = new Set(["cliente", "client", "customer", "fornitore", "supplier", "admin", "super_admin"]);
@@ -120,19 +121,15 @@ export default function TerritorialAiAssistantPanel({ snapshot, identity = null,
     setHistory(prev => [...prev, userMessage]);
 
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('ai-assistant-territory', {
-        body: { snapshot, question }
-      });
-
-      if (invokeError) throw invokeError;
-      if (data?.error) throw new Error(data.error);
+      const response = await runTerritorialAssistant({ snapshot, question, role: resolvedIdentity.role });
 
       // Add AI response to history
       const assistantMessage = {
         role: "assistant",
-        content: data?.answer || "Nessuna risposta dal modello.",
+        content: response.answer,
         at: Date.now(),
-        metadata: { sources: [{ name: "OpenAI GPT-4o-mini", kind: "provider" }] }
+        aiResponse: response,
+        metadata: { sources: [{ name: response.status === AI_RESPONSE_STATUSES.AI ? "OpenAI GPT-4o-mini" : "Fallback controllato", kind: "provider" }] }
       };
       setHistory(prev => [...prev, assistantMessage]);
       setVersionNotice(null);
@@ -151,7 +148,7 @@ export default function TerritorialAiAssistantPanel({ snapshot, identity = null,
       {versionNotice && <div className="territorial-central-ai__state" role="status">{versionNotice}</div>}
       {!resolvedIdentity.enabled ? <div className="territorial-central-ai__state" role="status">Sessione AI territoriale non disponibile.</div> : snapshot.state === "loading" ? <div className="territorial-central-ai__state" role="status">Analisi territoriale in corso...</div> : <>
         <div className="territorial-central-ai__suggestions" aria-label="Domande territoriali suggerite">{suggestions(snapshot).map((suggestion) => <button type="button" key={suggestion} disabled={sending} onClick={() => submit(suggestion)}>{suggestion}</button>)}</div>
-        <div className="territorial-central-ai__history" aria-live="polite" aria-label="Cronologia Assistente Analisi Territoriale">{history.length === 0 ? <p className="territorial-central-ai__empty">Chiedi una spiegazione dei risultati gia prodotti dallo Step 2.</p> : history.map((item, index) => <article key={`${item.at}-${index}`} className={`territorial-central-ai__message territorial-central-ai__message--${item.role}`}><strong>{item.role === "user" ? "Tu" : "Assistente Territoriale"}</strong><p>{item.content}</p>{item.role === "assistant" && item.metadata?.sources?.length > 0 && <span className="territorial-central-ai__source">Provenienza verificata tramite {[...new Set(item.metadata.sources.map(territorialToolSourceLabel))].join(", ")}; provider, dataset/fonte e stato sono riportati nella risposta.</span>}</article>)}{sending && <div className="territorial-central-ai__loading" role="status">Lettura dello snapshot in corso...</div>}</div>
+        <div className="territorial-central-ai__history" aria-live="polite" aria-label="Cronologia Assistente Analisi Territoriale">{history.length === 0 ? <p className="territorial-central-ai__empty">Chiedi una spiegazione dei risultati gia prodotti dallo Step 2.</p> : history.map((item, index) => <article key={`${item.at}-${index}`} className={`territorial-central-ai__message territorial-central-ai__message--${item.role}`}><strong>{item.role === "user" ? "Tu" : "Assistente Territoriale"}</strong><p>{item.content}</p>{item.role === "assistant" && item.aiResponse?.evidence?.length > 0 && <ul className="territorial-central-ai__evidence">{item.aiResponse.evidence.map((evidenceItem, evidenceIndex) => <li key={`${evidenceItem.label}-${evidenceIndex}`}>{evidenceItem.label}: {evidenceItem.value == null ? "NON DISPONIBILE" : String(evidenceItem.value)} <em>({evidenceItem.type.toLowerCase()}, {evidenceItem.confidence}, {evidenceItem.updatedAt ? new Date(evidenceItem.updatedAt).toLocaleTimeString("it-IT") : "n/d"})</em></li>)}</ul>}{item.role === "assistant" && item.metadata?.sources?.length > 0 && <span className="territorial-central-ai__source">Provenienza verificata tramite {[...new Set(item.metadata.sources.map(territorialToolSourceLabel))].join(", ")}; provider, dataset/fonte e stato sono riportati nella risposta.</span>}</article>)}{sending && <div className="territorial-central-ai__loading" role="status">Lettura dello snapshot in corso...</div>}</div>
         {error && <div className="territorial-central-ai__state territorial-central-ai__state--error" role="alert">{error}</div>}
         <form className="territorial-central-ai__form" onSubmit={(event) => { event.preventDefault(); submit(); }}><label htmlFor="territorial-central-ai-message">Messaggio</label><div><input id="territorial-central-ai-message" value={message} onChange={(event) => setMessage(event.target.value)} disabled={sending} placeholder="Chiedi di spiegare l'analisi" autoComplete="off" /><button type="submit" disabled={sending || !message.trim()}>{sending ? "Invio..." : "Invia"}</button></div></form>
         <p className="territorial-central-ai__notice">Non modifica quantita, zone, raggio o mappa e non esegue nuovi calcoli territoriali.</p>

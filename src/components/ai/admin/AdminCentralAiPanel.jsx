@@ -1,56 +1,40 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "../../../supabaseClient.js";
+import { runAdminCopilot } from "../../../ai/adapters/adminCopilotAdapter.js";
+import { AI_RESPONSE_STATUSES } from "../../../ai/schema/aiResponseSchema.js";
 import "./admin-central-ai.css";
 
-export default function AdminCentralAiPanel({ adminIdentity, campaigns = [], availability = {}, dataLoading = false, dataError = null }) {
+const INTENT_LABELS = {
+  daily_operations_summary: "Riepilogo operativo",
+  critical_campaigns: "Campagne critiche",
+  inactive_operators: "Operatori inattivi",
+  stale_gps_sessions: "Sessioni GPS stantie",
+  campaigns_without_photos: "Campagne senza foto",
+  unassigned_groups: "Gruppi non assegnati",
+};
+
+export default function AdminCentralAiPanel({ adminIdentity, campaigns = [], availability = {}, operators = [], operatorsSummary = {}, dataLoading = false, dataError = null }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [alerts, setAlerts] = useState([]);
-  const [fetched, setFetched] = useState(false);
+  const [response, setResponse] = useState(null);
+  const [fetchedFor, setFetchedFor] = useState(null);
 
   const identityReady = Boolean(adminIdentity?.user?.id && ["admin", "super_admin"].includes(adminIdentity?.role));
   const unavailable = !identityReady || Boolean(dataError) || availability?.campaigns !== true;
 
-  async function fetchCopilotData() {
-    if (loading || fetched || unavailable || dataLoading) return;
+  async function fetchCopilotData(nextIntent = "daily_operations_summary") {
+    if (loading || unavailable || dataLoading) return;
     setLoading(true);
-    setError(null);
     try {
-      // Aggregiamo i dati rilevanti delle campagne attive per l'AI
-      const activeCampaigns = campaigns.filter(c => c.status === "active");
-      const dashboardData = {
-        activeCampaignsCount: activeCampaigns.length,
-        campaigns: activeCampaigns.map(c => ({
-          id: c.id,
-          name: c.title || c.company || "Campagna",
-          progress: c.progress || 0,
-          end_date: c.end_date,
-          status: c.status
-        }))
-      };
-
-      const { data, error: invokeError } = await supabase.functions.invoke('ai-admin-copilot', {
-        body: { dashboardData }
-      });
-
-      if (invokeError) throw invokeError;
-      if (data?.error) throw new Error(data.error);
-
-      setAlerts(data?.alerts || []);
-      setFetched(true);
-    } catch (err) {
-      console.error("AI Admin Copilot error:", err);
-      setError("Impossibile generare l'analisi AI della Dashboard.");
+      const result = await runAdminCopilot({ adminIdentity, campaigns, availability, operators, operatorsSummary, intentName: nextIntent });
+      setResponse(result);
+      setFetchedFor(nextIntent);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (open && !fetched) {
-      fetchCopilotData();
-    }
+    if (open && fetchedFor === null) fetchCopilotData();
   }, [open]);
 
   return (
@@ -66,21 +50,32 @@ export default function AdminCentralAiPanel({ adminIdentity, campaigns = [], ava
       {open && <div id="admin-central-ai-body" className="admin-central-ai__body">
         {dataLoading ? <div className="admin-central-ai__state" role="status">Caricamento dei dati Admin autorizzati...</div>
           : unavailable ? <div className="admin-central-ai__state admin-central-ai__state--error" role="alert">Assistente non disponibile: identità Admin o fonte dati non verificata.</div>
-            : loading ? <div className="admin-central-ai__loading" role="status">L'AI sta analizzando la dashboard...</div>
-              : error ? <div className="admin-central-ai__state admin-central-ai__state--error" role="alert">{error}</div>
-                : alerts.length > 0 ? (
-                  <div className="admin-central-ai__history" aria-live="polite">
-                    {alerts.map((alert, idx) => (
-                      <article key={idx} className={`admin-central-ai__message admin-central-ai__message--assistant`} style={{ borderLeft: `4px solid ${alert.type === 'warning' ? '#eab308' : alert.type === 'error' ? '#ef4444' : '#3b82f6'}` }}>
-                        <strong>{alert.type === 'warning' ? 'Attenzione' : alert.type === 'error' ? 'Problema' : 'Suggerimento'}</strong>
-                        <p>{alert.message}</p>
+            : <>
+              <div className="admin-central-ai__suggestions" aria-label="Domande Admin suggerite">
+                {Object.entries(INTENT_LABELS).map(([id, label]) => (
+                  <button key={id} type="button" disabled={loading} onClick={() => fetchCopilotData(id)}>{label}</button>
+                ))}
+              </div>
+              {loading ? <div className="admin-central-ai__loading" role="status">L'AI sta analizzando la dashboard...</div>
+                : !response ? null
+                  : (
+                    <div className="admin-central-ai__history" aria-live="polite">
+                      <article className="admin-central-ai__message admin-central-ai__message--assistant" style={{ borderLeft: `4px solid ${response.status === AI_RESPONSE_STATUSES.AI ? "#3b82f6" : response.status === AI_RESPONSE_STATUSES.FALLBACK ? "#eab308" : "#ef4444"}` }}>
+                        <strong>{INTENT_LABELS[response.intent] || "Analisi"}</strong>
+                        <p>{response.answer}</p>
+                        {response.evidence.length > 0 && (
+                          <ul className="admin-central-ai__evidence">
+                            {response.evidence.map((item, index) => (
+                              <li key={`${item.label}-${index}`}>{item.label}: {String(item.value)} <em>({item.type.toLowerCase()}, {item.confidence}, {item.source})</em></li>
+                            ))}
+                          </ul>
+                        )}
+                        {response.limitations.length > 0 && <p className="admin-central-ai__source">Limiti: {response.limitations.join(" ")}</p>}
                       </article>
-                    ))}
-                    <span className="admin-central-ai__source">Generato da OpenAI su dati reali. Non produce testi statici predefiniti.</span>
-                  </div>
-                ) : (
-                  <div className="admin-central-ai__empty">Nessun alert generato dall'AI. Tutte le campagne sembrano in regola.</div>
-                )}
+                      <span className="admin-central-ai__source">{response.status === AI_RESPONSE_STATUSES.AI ? "Generato da OpenAI su dati reali autorizzati." : "Risposta di fallback controllata: nessun testo grezzo del modello mostrato."}</span>
+                    </div>
+                  )}
+            </>}
       </div>}
     </section>
   );

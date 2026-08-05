@@ -8,8 +8,9 @@ import {
 } from "../../../ai-foundation/integrations/customer-dashboard/customerDashboardFoundation.mjs";
 import {
   CUSTOMER_DASHBOARD_SUPPORTED_QUESTIONS,
-  customerToolSourceLabel,
 } from "../../../ai-foundation/integrations/customer-dashboard/CustomerDashboardReadOnlyRuntime.mjs";
+import { runCustomerAssistant, classifyCustomerIntent } from "../../../ai/adapters/customerAssistantAdapter.js";
+import { AI_RESPONSE_STATUSES } from "../../../ai/schema/aiResponseSchema.js";
 import "./customer-ai-assistant.css";
 
 const SUGGESTIONS = Object.freeze([
@@ -67,7 +68,7 @@ export default function CustomerAiAssistantPanel({ session, customer, campaigns 
     registerCustomerAiSession(sessionId);
     updateCustomerDashboardData({ authUser, customer, campaigns, loading: dataLoading, error: Boolean(dataError) });
     const stateManager = getCustomerDashboardFoundation().stateManager;
-    try { setHistory(stateManager.snapshot(sessionId).history); } catch { setHistory([]); }
+    try { setHistory(stateManager.snapshot(sessionId).history.map((item) => ({ ...item, aiResponse: null }))); } catch { setHistory([]); }
   }, [sessionId, authUser, customer, campaigns, dataLoading, dataError]);
 
   async function submit(value = message) {
@@ -76,25 +77,19 @@ export default function CustomerAiAssistantPanel({ session, customer, campaigns 
     setSending(true);
     setError(null);
     setMessage("");
+    setHistory((prev) => [...prev, { role: "user", content: question, at: new Date().toISOString(), aiResponse: null }]);
     try {
-      updateCustomerDashboardData({ authUser, customer, campaigns, loading: dataLoading, error: Boolean(dataError) });
-      const { agent } = getCustomerDashboardFoundation();
       const activeQuote = campaigns.find((campaign) => {
         const status = campaign?.stato ?? campaign?.status;
         const metadata = campaign?.metadata && typeof campaign.metadata === "object" ? campaign.metadata : {};
         return Boolean(metadata.quote_summary) || ["preventivo", "inviato", "in_preparazione"].includes(status);
       }) ?? null;
-      const response = await agent.reply({
-        sessionId,
-        authUser,
-        customerId: String(customer.id),
-        profile: { role: "cliente" },
-        location: window.location.href,
-        activeCampaign: campaigns[0] ?? null,
-        activeQuote,
-        message: question,
+      const intentName = classifyCustomerIntent(question);
+      const response = await runCustomerAssistant({
+        sessionId, authUser, customer, campaigns, dataLoading, dataError,
+        activeCampaign: campaigns[0] ?? null, activeQuote, location: window.location.href, intentName,
       });
-      setHistory(response.state.history);
+      setHistory((prev) => [...prev, { role: "assistant", content: response.answer, at: new Date().toISOString(), aiResponse: response }]);
     } catch {
       setError("Non e stato possibile consultare i dati autorizzati. Riprova tra poco.");
     } finally {
@@ -134,8 +129,15 @@ export default function CustomerAiAssistantPanel({ session, customer, campaigns 
                   <article key={`${item.at}-${index}`} className={`customer-central-ai__message customer-central-ai__message--${item.role}`}>
                     <strong>{item.role === "user" ? "Tu" : "Assistente VolantiniPro"}</strong>
                     <p>{item.content}</p>
-                    {item.role === "assistant" && item.metadata?.sources?.length > 0 && (
-                      <span className="customer-central-ai__source">Fonte interna: {[...new Set(item.metadata.sources.map(customerToolSourceLabel))].join(", ")} · {item.metadata.kind === "fact" ? "fatto letto" : "spiegazione dei dati"}</span>
+                    {item.role === "assistant" && item.aiResponse?.evidence?.length > 0 && (
+                      <ul className="customer-central-ai__evidence">
+                        {item.aiResponse.evidence.map((evidenceItem, evidenceIndex) => (
+                          <li key={`${evidenceItem.label}-${evidenceIndex}`}>{evidenceItem.label}: {evidenceItem.value == null ? "NON DISPONIBILE" : String(evidenceItem.value)} <em>({evidenceItem.type.toLowerCase()}, {evidenceItem.confidence})</em></li>
+                        ))}
+                      </ul>
+                    )}
+                    {item.role === "assistant" && (
+                      <span className="customer-central-ai__source">{item.aiResponse?.status === AI_RESPONSE_STATUSES.AI ? "Fonte interna verificata" : "Risposta di fallback controllata"}</span>
                     )}
                   </article>
                 ))}
