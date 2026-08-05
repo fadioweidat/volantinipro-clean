@@ -134,10 +134,10 @@ export function TrackingPage({ campaignId }) {
   useEffect(() => {
     if (tracking.session?.campaign_zone_id) {
       setSelectedZoneId(tracking.session.campaign_zone_id);
-    } else if (availableZones.length > 0 && !selectedZoneId) {
-      setSelectedZoneId(availableZones[0].id);
+    } else if (availableZones.length > 0) {
+      setSelectedZoneId((current) => current || availableZones[0].id);
     }
-  }, [tracking.session?.campaign_zone_id, availableZones, selectedZoneId]);
+  }, [tracking.session?.campaign_zone_id, availableZones]);
 
   const activeZoneRecord = useMemo(
     () => availableZones.find((z) => z.id === selectedZoneId) || null,
@@ -255,18 +255,32 @@ export function TrackingPage({ campaignId }) {
               Riprendi
             </button>
           )}
+          {(tracking.status === 'active' || tracking.status === 'paused') && availableZones.length > 1 && (
+            <>
+              <select
+                value={selectedZoneId}
+                onChange={(event) => setSelectedZoneId(event.target.value)}
+                style={{ padding: '12px 16px', borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff' }}
+              >
+                {availableZones.map((zone) => (
+                  <option key={zone.id} value={zone.id}>{zone.zone_name} - {zone.status || 'Da iniziare'}</option>
+                ))}
+              </select>
+              <button
+                style={secondaryButtonStyle}
+                type="button"
+                disabled={!selectedZoneId || selectedZoneId === tracking.session?.campaign_zone_id}
+                onClick={() => handle(() => tracking.changeZone(selectedZoneId))}
+              >
+                Passa alla zona
+              </button>
+            </>
+          )}
           {(tracking.status === 'active' || tracking.status === 'paused') && (
-            <button style={dangerButtonStyle} type="button" onClick={async () => {
-              handle(async () => {
-                await tracking.end();
-                if (selectedZoneId) {
-                  const { transitionZone } = await import('../../lib/services/gps-api.js');
-                  await transitionZone(selectedZoneId, 'complete').catch(() => {});
-                  // refresh assignment is handled internally or on reload
-                  window.location.reload();
-                }
-              });
-            }}>
+            <button style={dangerButtonStyle} type="button" onClick={() => handle(async () => {
+              await tracking.completeZone(tracking.session?.campaign_zone_id);
+              await tracking.end();
+            })}>
               Termina e Completa Zona
             </button>
           )}

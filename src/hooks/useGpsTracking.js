@@ -9,6 +9,7 @@ import {
   resumeGpsSession,
   resolveGpsAssignment,
   startGpsSession,
+  transitionZone,
 } from '../lib/services/gps-api.js';
 import {
   applyStaleness,
@@ -16,6 +17,7 @@ import {
   evaluateGeofencePoint,
   normalizeZonesFromCampaign,
 } from '../lib/geofence/geofenceEngine.js';
+import { dedupeGpsPointQueue, gpsPointQueueKey } from '../lib/gps/offlineQueue.js';
 
 const SEND_INTERVAL_MS = 15000;
 const MIN_DISTANCE_METERS = 8;
@@ -49,6 +51,7 @@ export function useGpsTracking(campaignId) {
   const statusRef = useRef('idle');
   const lastSentRef = useRef({ at: 0, lat: null, lng: null });
   const sendingRef = useRef(false);
+  const pendingPointKeyRef = useRef(null);
   const queueKeyRef = useRef('');
 
   useEffect(() => {
@@ -122,6 +125,8 @@ export function useGpsTracking(campaignId) {
     const key = queueKeyRef.current;
     if (!key) return;
     const queue = readQueue(key);
+    const pointKey = gpsPointQueueKey(payload);
+    if (queue.some((point) => gpsPointQueueKey(point) === pointKey)) return;
     queue.push({ ...payload, queuedAt: new Date().toISOString() });
     writeQueue(key, queue);
     setQueueSize(queue.length);
@@ -130,7 +135,7 @@ export function useGpsTracking(campaignId) {
   const flushQueue = useCallback(async () => {
     const key = queueKeyRef.current;
     if (!key || sendingRef.current || navigator.onLine === false) return;
-    const queue = readQueue(key);
+    const queue = dedupeGpsPointQueue(readQueue(key));
     if (!queue.length) {
       setQueueSize(0);
       return;
@@ -192,6 +197,8 @@ export function useGpsTracking(campaignId) {
       heading: Number.isFinite(coords.heading) ? coords.heading : null,
       recordedAt: new Date(position.timestamp || now).toISOString(),
     };
+    const pointKey = gpsPointQueueKey(payload);
+    if (pendingPointKeyRef.current === pointKey) return;
 
     if (navigator.onLine === false) {
       enqueuePoint(payload);
@@ -204,6 +211,7 @@ export function useGpsTracking(campaignId) {
     }
 
     sendingRef.current = true;
+    pendingPointKeyRef.current = pointKey;
     try {
       const point = await insertGpsPoint(payload);
       lastSentRef.current = { at: now, lat, lng };
@@ -220,6 +228,7 @@ export function useGpsTracking(campaignId) {
       setError(`${err?.message || 'Errore invio posizione GPS.'} Punto salvato in coda locale.`);
     } finally {
       sendingRef.current = false;
+      if (pendingPointKeyRef.current === pointKey) pendingPointKeyRef.current = null;
     }
   }, [campaignId, enqueuePoint]);
 
@@ -349,6 +358,22 @@ export function useGpsTracking(campaignId) {
     return updated;
   }, [flushQueue, requestWakeLock, startWatch]);
 
+  const changeZone = useCallback(async (zoneId) => {
+    if (!sessionRef.current?.id || !['active', 'paused'].includes(statusRef.current)) return null;
+    const updated = await transitionZone(zoneId, 'start');
+    sessionRef.current = updated;
+    setSession(updated);
+    return updated;
+  }, []);
+
+  const completeZone = useCallback(async (zoneId) => {
+    if (!sessionRef.current?.id || !['active', 'paused'].includes(statusRef.current)) return null;
+    const updated = await transitionZone(zoneId, 'complete');
+    sessionRef.current = updated;
+    setSession(updated);
+    return updated;
+  }, []);
+
   const end = useCallback(async () => {
     if (!sessionRef.current?.id) return null;
     stopWatch();
@@ -470,6 +495,8 @@ export function useGpsTracking(campaignId) {
     start,
     pause,
     resume,
+    changeZone,
+    completeZone,
     end,
   };
 }
