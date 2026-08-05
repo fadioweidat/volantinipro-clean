@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { chromium } = require('C:/Users/fady/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/.pnpm/playwright@1.61.1/node_modules/playwright');
+const { chromium } = require('C:/Users/fady/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 
 const baseUrl = process.env.STEP2_ONLINE_BASE_URL || 'http://127.0.0.1:5173';
 const chromePath = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -60,6 +60,10 @@ function recordPage(page, scenario) {
   return evidence;
 }
 
+async function waitConfiguratorStep(page, step, timeout = 30000) {
+  await page.waitForFunction(expected => new URLSearchParams(window.location.search).get('step') === String(expected), step, { timeout });
+}
+
 async function screenshot(page, evidence, name) {
   const file = path.join(outputDir, `${evidence.scenario}-${name}.png`);
   await page.screenshot({ path: file, fullPage: true });
@@ -71,9 +75,11 @@ async function configureStep1(page, service = 'd2d') {
   const cookie = page.getByRole('button', { name: /^Accetta$/i });
   if (await cookie.count()) await cookie.click();
   await page.getByText('Calcola la tua copertura', { exact: true }).click();
+  await page.getByRole('button', { name: /Inizia il percorso/i }).click();
+  await page.waitForFunction(() => window.location.pathname === '/configuratore', null, { timeout: 30000 });
   const serviceLabel = service === 'h2h' ? 'Hand to Hand' : service === 'b2b' ? 'Distribuzione Business' : 'Door to Door';
   await page.getByText(serviceLabel, { exact: true }).first().click();
-  await page.locator('#section-settore button').filter({ hasText: 'Retail' }).click();
+  await page.getByText('Retail', { exact: true }).first().click();
   if (service !== 'b2b') {
     await page.getByText('Prima possibile').first().click();
     await page.getByText(/Sì, voglio anche stampa/i).first().click();
@@ -86,7 +92,7 @@ async function configureStep1(page, service = 'd2d') {
   await next.waitFor({ state: 'visible' });
   if (!(await next.isEnabled())) throw new Error(`Step 1 incompleto: ${await page.getByRole('status').last().innerText().catch(() => 'stato non disponibile')}`);
   await next.click();
-  await page.waitForURL(/\/zona/, { timeout: 30000 });
+  await waitConfiguratorStep(page, 2);
 }
 
 async function selectMunicipality(page, name) {
@@ -143,11 +149,11 @@ async function scenarioA(browser) {
     const continueButton = page.locator('button.btn').last();
     if (!(await continueButton.isEnabled())) throw new Error(`CTA Step 3 disabilitata: ${await continueButton.innerText()}`);
     await continueButton.click();
-    await page.waitForURL(/\/calendario/, { timeout: 20000 });
+    await waitConfiguratorStep(page, 3, 20000);
     evidence.payloads.step3Url = page.url();
     await screenshot(page, evidence, 'step3');
     await page.getByRole('button', { name: /Zona e mappa|Indietro/i }).first().click();
-    await page.waitForURL(/\/zona/, { timeout: 20000 });
+    await waitConfiguratorStep(page, 2, 20000);
     const returned = await waitForTerritory(page, 'd2d', 'Varedo');
     evidence.payloads.returned = returned;
     evidence.persistence = {
@@ -208,11 +214,11 @@ async function scenarioB(browser) {
     const continueButton = page.locator('button.btn').last();
     if (!(await continueButton.isEnabled())) throw new Error(`CTA Step 3 disabilitata: ${await continueButton.innerText()}`);
     await continueButton.click();
-    await page.waitForURL(/\/calendario/, { timeout: 20000 });
+    await waitConfiguratorStep(page, 3, 20000);
     evidence.payloads.step3Url = page.url();
     await screenshot(page, evidence, 'step3');
     await page.getByRole('button', { name: /Zona e mappa|Indietro/i }).first().click();
-    await page.waitForURL(/\/zona/, { timeout: 20000 });
+    await waitConfiguratorStep(page, 2, 20000);
     const returned = await waitForTerritory(page, 'd2d', 'Milano', 90000);
     evidence.payloads.returned = returned;
     evidence.persistence = {

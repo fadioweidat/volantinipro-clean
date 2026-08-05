@@ -518,8 +518,8 @@ export function Step4({
     };
   });
   const mainAreaLabel = step4AreaLabel(data.cityName) || step4AreaLabel(data.comune) || selectedZoneNames[0] || "l'area selezionata";
-  const estimatedFamiliesForSummary = svcType === "d2d" ? kpis.families ?? totF : null;
-  const coverageForSummary = svcType === "d2d" ? requiredQty > 0 ? Math.min(100, Math.round(flyerQty / requiredQty * 100)) : kpis.coverage ?? avgCov : null;
+  const estimatedFamiliesForSummary = svcType === "d2d" ? kpis.families ?? (selZ.length ? totF : null) : null;
+  const coverageForSummary = svcType === "d2d" ? requiredQty > 0 ? Math.min(100, Math.round(flyerQty / requiredQty * 100)) : kpis.coverage ?? (selZ.length ? avgCov : null) : null;
   // Surplus decision made in Step 2 (municipality mode, quantity > recommended).
   // Display-only override on the sufficient-coverage message — never fed back
   // into families/coverage calculations.
@@ -531,7 +531,7 @@ export function Step4({
   useEffect(() => {
     if (import.meta.env.DEV && coverageStrategy) console.log("[STEP4_COVERAGE_STRATEGY_RECEIVED]", coverageStrategy);
   }, [coverageStrategy]);
-  const operationalSummary = svcType === "d2d" ? quantityIsSufficient ? coverageStrategy === "extra_frequency" && hasSurplusQty ? `Copertura completa. I volantini extra saranno utilizzati per rinforzo distribuzione / secondo passaggio nelle aree prioritarie.` : `La campagna copre ${mainAreaLabel} con una stima di ${estimatedFamiliesForSummary.toLocaleString("it-IT", {
+  const operationalSummary = svcType === "d2d" ? quantityIsSufficient == null ? `Copertura e fabbisogno per ${mainAreaLabel} non disponibili: completa l'analisi territoriale nello Step 2.` : quantityIsSufficient ? coverageStrategy === "extra_frequency" && hasSurplusQty ? `Copertura completa. I volantini extra saranno utilizzati per rinforzo distribuzione / secondo passaggio nelle aree prioritarie.` : `La campagna copre ${mainAreaLabel} con una stima di ${estimatedFamiliesForSummary.toLocaleString("it-IT", {
     useGrouping: true
   })} famiglie e ${coverageForSummary}% di copertura. La quantità inserita è sufficiente; restano ${remainingQty.toLocaleString("it-IT", {
     useGrouping: true
@@ -585,7 +585,7 @@ export function Step4({
       title: "Output Door to Door",
       fields: [{
         l: "Famiglie operative stimate",
-        v: formatNumber(kpis.families ?? totF),
+        v: formatNumber(estimatedFamiliesForSummary, "—"),
         src: "Stima territoriale GIS/NIL",
         c: "#22C55E"
       }, {
@@ -595,7 +595,7 @@ export function Step4({
         c: "#22C55E"
       }, {
         l: "Copertura dell'area",
-        v: `${kpis.coverage ?? avgCov}%`,
+        v: coverageForSummary == null ? "—" : `${coverageForSummary}%`,
         src: "Dati geografici",
         c: C.green
       }, {
@@ -827,7 +827,7 @@ export function Step4({
   if (svcType === "d2d") {
     serviceSummaryConfig.admin = [{
       l: "Famiglie stimate",
-      v: formatNumber(kpis.families ?? totF),
+      v: formatNumber(estimatedFamiliesForSummary, "—"),
       src: "ISTAT"
     }, {
       l: "Popolazione stimata",
@@ -981,22 +981,22 @@ export function Step4({
       selectionMode: data.allocationMode === "manual" ? "Manuale" : "Auto"
     },
     outputs: {
-      estimatedFamilies: svcType === "d2d" ? kpis.families ?? totF : null,
+      estimatedFamilies: svcType === "d2d" ? estimatedFamiliesForSummary : null,
       estimatedPopulation: svcType === "d2d" ? kpisPopulation : null,
-      estimatedCoverage: svcType === "d2d" ? kpis.coverage ?? avgCov : null,
+      estimatedCoverage: svcType === "d2d" ? coverageForSummary : null,
       recommendedFlyers: svcType === "d2d" ? requiredQty ?? null : null,
       fullCoverageFlyers: svcType === "d2d" ? requiredQty ?? null : null,
       insertedFlyers: flyerQty,
-      remainingFlyers: quantityIsSufficient ? remainingQty : 0,
+      remainingFlyers: quantityIsSufficient == null ? null : quantityIsSufficient ? remainingQty : 0,
       missingFlyers: missingQty,
-      coverageStatus: quantityIsSufficient ? "sufficient" : "partial",
+      coverageStatus: quantityIsSufficient == null ? "unavailable" : quantityIsSufficient ? "sufficient" : "partial",
       selectedActivities: isB2B ? step4BusinessMaterialPlan?.selectedActivities : null,
       materialsRequired: isB2B ? step4BusinessMaterialPlan?.materialsRequired : null,
       materialsRemaining: isB2B ? step4BusinessMaterialPlan?.materialsRemaining : null,
       materialsMissing: isB2B ? step4BusinessMaterialPlan?.materialsMissing : null
     },
     coverageStrategy,
-    quantityExplanation: quantityIsSufficient ? coverageStrategy === "extra_frequency" && hasSurplusQty ? "Il comune selezionato risulta coperto al 100%. La quantità eccedente sarà utilizzata per rinforzare la distribuzione nelle zone a maggiore densità o secondo passaggio operativo." : "La quantità consigliata copre l'area selezionata. Eventuali volantini residui possono essere usati per ampliare il raggio, aggiungere comuni vicini o mantenere una scorta operativa." : `La quantità inserita non copre completamente l'area selezionata. Mancano ${missingQty.toLocaleString("it-IT", {
+    quantityExplanation: quantityIsSufficient == null ? "Copertura e fabbisogno non disponibili: completa l'analisi territoriale nello Step 2." : quantityIsSufficient ? coverageStrategy === "extra_frequency" && hasSurplusQty ? "Il comune selezionato risulta coperto al 100%. La quantità eccedente sarà utilizzata per rinforzare la distribuzione nelle zone a maggiore densità o secondo passaggio operativo." : "La quantità consigliata copre l'area selezionata. Eventuali volantini residui possono essere usati per ampliare il raggio, aggiungere comuni vicini o mantenere una scorta operativa." : `La quantità inserita non copre completamente l'area selezionata. Mancano ${missingQty.toLocaleString("it-IT", {
       useGrouping: true
     })} volantini per raggiungere la copertura stimata.`,
     municipalities: pdfMunicipalities,
@@ -1180,7 +1180,7 @@ export function Step4({
           mode: data.searchMode || data.areaMode || "configurator",
           famiglie: estimatedFamiliesForSummary,
           persone: kpisPopulation,
-          copertura_pct: coverageForSummary ?? kpis.coverage ?? avgCov ?? null,
+          copertura_pct: coverageForSummary,
           comuni_count: kpisComuniCount,
           selected_comuni: selectedZoneNames,
           volantini_necessari: requiredQty || null,
@@ -1203,7 +1203,7 @@ export function Step4({
           dashboard_kpis: {
             families: estimatedFamiliesForSummary,
             population: kpisPopulation,
-            coverage: coverageForSummary ?? kpis.coverage ?? avgCov ?? null,
+            coverage: coverageForSummary,
             comuniCount: kpisComuniCount,
             requiredFlyers: requiredQty || null
           },
@@ -1506,19 +1506,19 @@ export function Step4({
             Con questa configurazione raggiungerai circa{" "}
             <strong style={{
           color: C.green
-        }}>{formatNumber(kpis.families ?? totF)} famiglie</strong>
+        }}>{formatNumber(estimatedFamiliesForSummary, "—")} famiglie</strong>
             {selectedZoneNames.length > 1 && <>{" "}distribuite in <strong style={{
             color: col
           }}>{selectedZoneNames.length} comuni</strong></>}
             {", "}coprendo{" "}
             <strong style={{
           color: C.green
-        }}>{pctToFraction(kpis.coverage ?? avgCov)}</strong>
+        }}>{pctToFraction(coverageForSummary) || "dato non disponibile"}</strong>
             {" "}dell'area selezionata{" "}
             <span style={{
           color: "rgba(255,255,255,.45)",
           fontSize: isMobile ? 12 : 13
-        }}>({kpis.coverage ?? avgCov}%)</span>.
+        }}>({coverageForSummary == null ? "—" : `${coverageForSummary}%`})</span>.
           </div> : svcType === "h2h" ? <div style={{
         fontFamily: F.sans,
         fontSize: isMobile ? 13 : 15,
@@ -1579,7 +1579,7 @@ export function Step4({
               color: C.green,
               letterSpacing: "-1px",
               lineHeight: 1
-            }}>{formatNumber(kpis.families ?? totF) || "—"}</div>
+            }}>{formatNumber(estimatedFamiliesForSummary, "—")}</div>
             </div>
             <div style={{
             padding: "16px 14px",
@@ -1604,7 +1604,7 @@ export function Step4({
               color: col,
               letterSpacing: "-1px",
               lineHeight: 1
-            }}>{kpis.coverage ?? avgCov}%</div>
+            }}>{coverageForSummary == null ? "—" : `${coverageForSummary}%`}</div>
             </div>
           </>}
           {isH2H && <>
@@ -2007,7 +2007,7 @@ export function Step4({
                 icon: "home",
                 l: "Famiglie stimate nell'area",
                 sub: "Stima territoriale GIS/NIL",
-                v: formatNumber(kpis.families ?? totF),
+                v: formatNumber(estimatedFamiliesForSummary, "—"),
                 c: C.green
               }, {
                 icon: "family",
@@ -2024,10 +2024,10 @@ export function Step4({
               }, {
                 icon: "chart",
                 l: "Copertura dell'area",
-                sub: pctToFraction(kpis.coverage ?? avgCov) || `${flyerQty.toLocaleString("it-IT", {
+                sub: pctToFraction(coverageForSummary) || `${flyerQty.toLocaleString("it-IT", {
                   useGrouping: true
                 })} volantini`,
-                v: `${kpis.coverage ?? avgCov}%`,
+                v: coverageForSummary == null ? "—" : `${coverageForSummary}%`,
                 c: C.green
               }].map(({
                 icon,
@@ -2362,7 +2362,7 @@ export function Step4({
               const flyersFor40 = requiredQty > 0 && cov < 40 ? Math.max(0, Math.round(requiredQty * 0.4) - flyerQty) : 0;
               const rating = quantityIsSufficient && cov >= 70 ? "★★★★★ Ottima" : quantityIsSufficient || cov >= 40 ? "★★★★☆ Buona" : "★★★☆☆ Base";
               const ratingCol = quantityIsSufficient && cov >= 70 ? C.green : quantityIsSufficient || cov >= 40 ? "#F59E0B" : col;
-              const tips = [quantityIsSufficient ? `Configurazione coerente: la quantità copre l'intera area selezionata.` : `Copertura parziale: ${missingQty.toLocaleString("it-IT", {
+              const tips = [quantityIsSufficient == null ? "Copertura non disponibile: completa l'analisi territoriale nello Step 2." : quantityIsSufficient ? `Configurazione coerente: la quantità copre l'intera area selezionata.` : `Copertura parziale: ${missingQty.toLocaleString("it-IT", {
                 useGrouping: true
               })} volantini aggiuntivi porterebbero alla copertura completa.`, `Budget adeguato per ${selectedZoneNames.length > 1 ? `${selectedZoneNames.length} comuni selezionati` : mainAreaLabel}.`, disc > 0 ? `Smart Pairing attivo: stai risparmiando il ${disc}% grazie a campagne compatibili in zona.` : selDays.length > 0 ? "Smart Pairing non disponibile per questo periodo — la data scelta non ha campagne compatibili." : "Smart Pairing: nessuna campagna compatibile al momento nella tua zona.", flyersFor40 > 0 ? `Per superare il 40% di copertura servono circa ${flyersFor40.toLocaleString("it-IT", {
                 useGrouping: true
@@ -3049,13 +3049,13 @@ export function Step4({
             }}>
                   {[{
                 label: "Famiglie operative stimate",
-                val: formatNumber(kpis.families ?? totF) || "—",
+                val: formatNumber(estimatedFamiliesForSummary, "—"),
                 sub: "Stima territoriale GIS/NIL",
                 c: C.green,
                 tip: "Stima del fabbisogno e delle famiglie raggiungibili nell'area selezionata su base geografica."
               }, {
                 label: "Copertura zona",
-                val: `${kpis.coverage ?? avgCov}%`,
+                val: coverageForSummary == null ? "—" : `${coverageForSummary}%`,
                 sub: "Percentuale dell'area coperta",
                 c: col,
                 tip: "Percentuale dell'area raggiungibile con la quantità di volantini scelta. 100% = nessuna famiglia esclusa."

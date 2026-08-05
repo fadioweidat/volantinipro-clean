@@ -237,7 +237,7 @@ export function Step1({
   }, {
     id: "urgent",
     label: "Urgente",
-    desc: "Avvio rapido in 24–48h ove disponibile • Maggiorazione +20%",
+    desc: "Avvio rapido in 24–48h ove disponibile • Maggiorazione +30%",
     badge: "Rapido"
   }, {
     id: "express",

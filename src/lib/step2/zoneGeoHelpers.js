@@ -1,7 +1,7 @@
 import { GEO_DATA } from "../geoData.js";
 
 export function apiToZones(apiData, city) {
-  if (import.meta.env.DEV) {
+  if (import.meta.env?.DEV) {
     console.debug('[DBG apiToZones normalized]', apiData ? {
       error: apiData.error,
       hasValues: !!apiData.values,

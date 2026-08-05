@@ -1,5 +1,7 @@
-export function formatNumber(value) {
-  const n = Number(value || 0);
+export function formatNumber(value, fallback = "0") {
+  if (value === null || value === undefined || value === "") return fallback;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
   return new Intl.NumberFormat("it-IT").format(n).replace(/[\s\u202F\u00A0]/g, ".");
 }
 
