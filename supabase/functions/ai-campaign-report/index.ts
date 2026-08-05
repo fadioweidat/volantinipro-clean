@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.105.4";
+import { canAccessCampaign } from "../_shared/aiAuthorization.ts";
 
 declare const Deno: any;
 
@@ -98,48 +99,74 @@ serve(async (req: Request) => {
 
     const body = await req.json().catch(() => null);
     const campaignId = body?.campaignId;
-    const campaignData = body?.campaignData;
     
-    if (!campaignId || typeof campaignId !== "string" || !campaignData || typeof campaignData !== "object") {
+    if (!campaignId || typeof campaignId !== "string") {
       return json({ summary: null, suggestions: [], status: "error", error: "INVALID_PAYLOAD" }, 400);
     }
 
     const supabase = supabaseAdmin();
+    if (!supabase) {
+      return json({ summary: null, suggestions: [], status: "error", error: "SERVER_AUTH_NOT_CONFIGURED" }, 500);
+    }
 
-    if (supabase) {
-      // Controlla se esiste gia un report salvato
-      const { data: campaign } = await supabase
-        .from("campaigns")
-        .select("ai_summary, ai_suggestions")
-        .eq("id", campaignId)
+    const { data: campaign, error: campaignError } = await supabase
+      .from("campaigns")
+      .select("*")
+      .eq("id", campaignId)
+      .maybeSingle();
+
+    if (campaignError) {
+      console.error("[ai-campaign-report] CAMPAIGN_LOOKUP_FAILED", campaignError.message);
+      return json({ summary: null, suggestions: [], status: "error", error: "CAMPAIGN_LOOKUP_FAILED" }, 500);
+    }
+    if (!campaign) {
+      return json({ summary: null, suggestions: [], status: "error", error: "CAMPAIGN_NOT_FOUND" }, 404);
+    }
+
+    let profile = null;
+    if (campaign.user_id !== user.id) {
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
         .maybeSingle();
-        
-      if (campaign?.ai_summary) {
-        return json({ 
-          summary: campaign.ai_summary, 
-          suggestions: Array.isArray(campaign.ai_suggestions) ? campaign.ai_suggestions : [], 
-          status: "ai_cached" 
-        });
+      if (profileError) {
+        console.error("[ai-campaign-report] PROFILE_LOOKUP_FAILED", profileError.message);
+        return json({ summary: null, suggestions: [], status: "error", error: "AUTHORIZATION_CHECK_FAILED" }, 500);
       }
+      profile = profileData;
+    }
+
+    if (!canAccessCampaign(user.id, campaign, profile)) {
+      return json({ summary: null, suggestions: [], status: "error", error: "FORBIDDEN" }, 403);
+    }
+
+    if (campaign.ai_summary) {
+      return json({
+        summary: campaign.ai_summary,
+        suggestions: Array.isArray(campaign.ai_suggestions) ? campaign.ai_suggestions : [],
+        status: "ai_cached"
+      });
     }
 
     const warnings: string[] = [];
-    const aiResult = await callOpenAi(campaignData, warnings);
+    const aiResult = await callOpenAi(campaign, warnings);
     
     if (!aiResult || !aiResult.summary) {
       return json({ summary: null, suggestions: [], status: "error", warnings });
     }
 
-    if (supabase) {
-      const { error: updateError } = await supabase
-        .from("campaigns")
-        .update({
-          ai_summary: aiResult.summary,
-          ai_suggestions: aiResult.suggestions
-        })
-        .eq("id", campaignId);
-        
-      if (updateError) console.error("[ai-campaign-report] UPDATE_FAILED", updateError.message);
+    const { error: updateError } = await supabase
+      .from("campaigns")
+      .update({
+        ai_summary: aiResult.summary,
+        ai_suggestions: aiResult.suggestions
+      })
+      .eq("id", campaignId);
+
+    if (updateError) {
+      console.error("[ai-campaign-report] UPDATE_FAILED", updateError.message);
+      return json({ summary: null, suggestions: [], status: "error", error: "PERSISTENCE_FAILED" }, 500);
     }
 
     return json({ summary: aiResult.summary, suggestions: aiResult.suggestions, status: "ai" });
