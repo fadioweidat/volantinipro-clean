@@ -1,0 +1,57 @@
+const TERRITORY_AND_PLANNING_FIELDS = {
+  city: null,
+  cityName: "",
+  searchedLocation: "",
+  selectedSearchPoint: null,
+  searchMode: null,
+  areaMode: null,
+  radiusSelectionConfirmed: false,
+  zones: [],
+  selectedZones: [],
+  selectedComuni: [],
+  selectedMunicipalities: [],
+  selectedNils: [],
+  selectedCaps: [],
+  zonesAllocation: [],
+  campaignZones: [],
+  territorialAnalysis: null,
+  territorialTruthModel: null,
+  serviceKpis: null,
+  selectedOperationalPois: [],
+  poiAssignments: {},
+  operationalWaypoints: [],
+  gpsPlannedPoints: [],
+  requiredFlyers: null,
+  fullCoverageFlyers: null,
+  missingFlyers: null,
+  remainingFlyers: null,
+  coverageDecision: null,
+  coverageStrategy: null,
+  selectedDates: [],
+  days: [],
+  pairingDays: [],
+  normalDays: [],
+  requestOnlyDays: [],
+  pairingType: {},
+  pairingDiscountPercent: {},
+  averagePairingDiscount: 0,
+  maxPairingDiscount: 0,
+  calendarStatus: "empty",
+  smartPairingStatus: "none",
+  smartPairingRequestSent: false,
+  smartPairingSlots: [],
+  availableDates: [],
+  startDate: "",
+  endDate: ""
+};
+
+export function applyConfiguratorServiceChange(current, nextService) {
+  if (!nextService || current?.type === nextService) return { ...current, type: nextService || current?.type };
+  return {
+    ...current,
+    ...TERRITORY_AND_PLANNING_FIELDS,
+    type: nextService,
+    selectedService: nextService,
+    activeService: nextService
+  };
+}

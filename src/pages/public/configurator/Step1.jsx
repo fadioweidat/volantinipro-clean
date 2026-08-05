@@ -17,6 +17,7 @@ import { NavButton } from "../../../components/NavButton.jsx";
 import { Step1Help } from "../../../components/Step1Help.jsx";
 import { Step1Icon } from "../../../components/Step1Icon.jsx";
 import { Step1Summary } from "../../../components/Step1Summary.jsx";
+import { applyConfiguratorServiceChange } from "../../../lib/configuratorServiceTransition.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
 export function Step1({
@@ -31,10 +32,8 @@ export function Step1({
   const [operationalLocationError, setOperationalLocationError] = useState("");
   const updateData = useCallback(newVals => {
     setData(prev => {
-      const next = {
-        ...prev,
-        ...newVals
-      };
+      const serviceBase = newVals.type && newVals.type !== prev.type ? applyConfiguratorServiceChange(prev, newVals.type) : prev;
+      const next = { ...serviceBase, ...newVals };
       const monthsMult = {
         single: 1,
         monthly3: 3,
@@ -2544,4 +2543,3 @@ export function Step1({
         </div>}
     </div>;
 }
-

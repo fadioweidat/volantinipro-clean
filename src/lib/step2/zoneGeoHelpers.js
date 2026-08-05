@@ -16,12 +16,12 @@ export function apiToZones(apiData, city) {
   const totF = v.famiglie_stimate || v.families || v.households || 0;
   const totP = v.popolazione_stimata || v.population || 0;
   const totV = v.volantini_consigliati || v.volantini_stimati || v.recommended_flyers || 0;
-  const nC = breakdown.length || 1;
-  const items = breakdown.length > 0 ? breakdown : [{
-    comune_name: city?.name || 'Area',
-    pct_copertura: v.copertura_stimata || 80,
-    volantini_nel_raggio: totV
-  }];
+  // Without a territorial breakdown there is no real geometry or territorial
+  // row to put on the map. Returning an empty result makes the UI expose
+  // "Dato non disponibile" instead of manufacturing a generic area.
+  if (breakdown.length === 0) return [];
+  const nC = breakdown.length;
+  const items = breakdown;
   return items.map((c, idx) => {
     const territoryLevel = c.territory_level || analysisLevel;
     const isNil = territoryLevel === "nil";

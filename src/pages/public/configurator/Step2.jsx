@@ -43,6 +43,7 @@ import { useDemographicIndicators } from "../../../hooks/useDemographicIndicator
 import { usePoi } from "../../../hooks/usePoi.js";
 import { useSectors } from "../../../hooks/useSectors.js";
 import { useServiceAnalysis } from "../../../hooks/useServiceAnalysis.js";
+import { applyConfiguratorServiceChange } from "../../../lib/configuratorServiceTransition.js";
 import { useTransportStops } from "../../../hooks/useTransportStops.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
@@ -4500,12 +4501,7 @@ export function Step2({
             id,
             icon,
             l
-          }) => <button key={id} onClick={() => setData(d => ({
-            ...d,
-            type: id,
-            selectedService: id,
-            activeService: id
-          }))} style={pill(svcType === id, getServiceAccent(id))}>
+          }) => <button key={id} onClick={() => setData(d => applyConfiguratorServiceChange(d, id))} style={pill(svcType === id, getServiceAccent(id))}>
               {icon} {l}
             </button>)}
         </div>
