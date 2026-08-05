@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../supabaseClient'
-import { allowMockData } from '../lib/runtimeFlags'
+import { ensureSupabaseSessionBridge, supabase } from '../supabaseClient'
 
 export function useCliente() {
   const [cliente, setCliente] = useState(null)
@@ -8,18 +7,19 @@ export function useCliente() {
 
   useEffect(() => {
     async function load() {
-      if (!supabase) {
-        setCliente(allowMockData ? { nome: 'Cliente Dev', email: 'dev@volantinipro.local' } : null)
-        setLoading(false)
-        return
-      }
+      if (!supabase) { setLoading(false); return }
       try {
-        const { data: { user } } = await supabase.auth.getUser()
+        await ensureSupabaseSessionBridge()
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        if (authError) throw authError
         if (!user) { setLoading(false); return }
-        const { data } = await supabase.from('clienti').select('*').eq('email', user.email).single()
-        setCliente(data || { nome: user.email, email: user.email })
-      } catch {
-        setCliente(allowMockData ? { nome: 'Cliente Dev', email: 'dev@volantinipro.local' } : null)
+        const { data, error } = await supabase.from('profiles').select('id, full_name, company_name, role').eq('id', user.id).maybeSingle()
+        if (error) throw error
+        setCliente({ ...data, nome: data?.full_name || data?.company_name || null, email: user.email })
+      } catch (loadError) {
+        const log = /auth session missing/i.test(loadError?.message || '') ? console.warn : console.error
+        log('[CUSTOMER_PROFILE_LOAD_FAILED]', { code: loadError?.code || null, message: loadError?.message || 'Errore sconosciuto' })
+        setCliente(null)
       } finally {
         setLoading(false)
       }

@@ -1,44 +1,31 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../supabaseClient'
-import { allowMockData } from '../lib/runtimeFlags'
-
-function getDevCampaign(id) {
-  return {
-    id,
-    servizio: 'd2d',
-    comune_principale: 'Varedo',
-    comuni_selezionati: ['Varedo', 'Paderno Dugnano'],
-    quantita: 10000,
-    stato: 'in_distribuzione',
-    stato_pagamento: 'pagato',
-    totale_euro: 386.00,
-    subtotale_distribuzione: 350.00,
-    smart_pairing_sconto: -40,
-    smart_pairing_zona: 'Bresso · zona vicina',
-    data_inizio: '2026-05-13',
-    data_fine: '2026-05-15',
-    copertura_pct: 91,
-    causale_bonifico: 'VP-20260513-DEV01',
-    servizi_extra: ['stampa'],
-  }
-}
+import { ensureSupabaseSessionBridge, supabase } from '../supabaseClient'
+import { normalizeCustomerCampaign } from '../lib/customerCampaigns.js'
 
 export function useCampagnaDetail(id) {
   const [campagna, setCampagna] = useState(null)
-  const [loading, setLoading]   = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     async function load() {
-      if (!supabase || !id || id === 'demo') {
-        setCampagna(allowMockData ? getDevCampaign(id || 'dev') : null)
-        setLoading(false)
-        return
-      }
+      if (!supabase || !id || id === 'demo') { setLoading(false); return }
       try {
-        const { data } = await supabase.from('campagne').select('*, clienti(*)').eq('id', id).single()
-        setCampagna(data || (allowMockData ? getDevCampaign(id) : null))
-      } catch {
-        setCampagna(allowMockData ? getDevCampaign(id) : null)
+        await ensureSupabaseSessionBridge()
+        const { data: authData, error: authError } = await supabase.auth.getUser()
+        if (authError || !authData?.user?.id) throw authError || new Error('Autenticazione Cliente richiesta.')
+        const { data, error: queryError } = await supabase
+          .from('campaigns')
+          .select('*, campaign_zones(*)')
+          .eq('id', id)
+          .eq('user_id', authData.user.id)
+          .maybeSingle()
+        if (queryError) throw queryError
+        setCampagna(data ? normalizeCustomerCampaign(data, data.campaign_zones) : null)
+      } catch (loadError) {
+        console.error('[CUSTOMER_CAMPAIGN_DETAIL_LOAD_FAILED]', { code: loadError?.code || null, message: loadError?.message || 'Errore sconosciuto' })
+        setError(loadError?.message || 'Dettaglio campagna non disponibile.')
+        setCampagna(null)
       } finally {
         setLoading(false)
       }
@@ -46,5 +33,5 @@ export function useCampagnaDetail(id) {
     load()
   }, [id])
 
-  return { campagna, loading }
+  return { campagna, loading, error }
 }

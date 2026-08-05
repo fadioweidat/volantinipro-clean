@@ -29,6 +29,7 @@ export const supabase = (supabaseUrl && supabaseKey)
 // any RLS-scoped select silently returns zero rows (dashboard looks empty
 // even though saveCampaign just inserted the row via the other client).
 let bridgedAccessToken = null
+let bridgeInFlight = null
 export async function ensureSupabaseSessionBridge() {
   if (!supabase) return
   try {
@@ -38,11 +39,17 @@ export async function ensureSupabaseSessionBridge() {
     const accessToken = stored?.accessToken || stored?.access_token
     const refreshToken = stored?.refreshToken || stored?.refresh_token
     if (!accessToken || accessToken === bridgedAccessToken) return
-    const { error } = await supabase.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken || '',
-    })
-    if (!error) bridgedAccessToken = accessToken
+    if (!bridgeInFlight) {
+      bridgeInFlight = supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken || '',
+      }).then(({ error }) => {
+        if (!error) bridgedAccessToken = accessToken
+      }).finally(() => {
+        bridgeInFlight = null
+      })
+    }
+    await bridgeInFlight
   } catch {
     // best-effort bridge — queries fall back to anon/RLS-empty behavior
   }

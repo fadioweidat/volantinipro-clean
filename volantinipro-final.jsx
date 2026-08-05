@@ -17,6 +17,7 @@ import {
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
+import { customerValue } from "./src/lib/customerCampaigns.js";
 import { useServiceAnalysis } from "./src/hooks/useServiceAnalysis.js";
 import { useSectors } from "./src/hooks/useSectors.js";
 import { usePoi } from "./src/hooks/usePoi.js";
@@ -5270,8 +5271,9 @@ export function DashboardPage({
     b2b: ["B2B", C.purple]
   };
   const activeCount = campagne.filter(c => ["confermata", "in_preparazione", "in_distribuzione"].includes(c.stato)).length;
-  const waitingPaymentCount = campagne.filter(c => c.stato_pagamento !== "pagato").length;
-  const totalSpent = campagne.reduce((a, c) => a + Number(c.totale_euro || 0), 0);
+  const waitingPaymentCount = campagne.filter(c => c.stato_pagamento === "in_attesa").length;
+  const knownTotals = campagne.map(c => c.totale_euro).filter(value => value != null);
+  const totalSpent = knownTotals.length ? knownTotals.reduce((a, value) => a + Number(value), 0) : null;
   const flyersDone = campagne.reduce((a, c) => a + Number(c.volantini_distribuiti || 0), 0);
   return <div style={{
     minHeight: "100vh",
@@ -5349,9 +5351,9 @@ export function DashboardPage({
         gap: 10,
         marginBottom: 16
       }}>
-          {[["Campagne attive", activeCount, C.green], ["In attesa pagamento", waitingPaymentCount, C.yellow], ["Totale speso", `${totalSpent.toLocaleString("it-IT", {
+          {[["Campagne attive", activeCount, C.green], ["In attesa pagamento", waitingPaymentCount, C.yellow], ["Totale speso", totalSpent == null ? customerValue(null) : `€${totalSpent.toLocaleString("it-IT", {
           minimumFractionDigits: 2
-        })}`, C.orange], ["Volantini distribuiti", flyersDone.toLocaleString("it-IT"), C.blue]].map(([l, v, c]) => <div key={l} style={{
+          })}`, C.orange], ["Volantini distribuiti", flyersDone.toLocaleString("it-IT"), C.blue]].map(([l, v, c]) => <div key={l} style={{
           padding: 16,
           borderRadius: 13,
           background: "rgba(255,255,255,.045)",
@@ -5483,7 +5485,7 @@ export function DashboardPage({
                   fontSize: 12,
                   color: "rgba(255,255,255,.45)",
                   marginTop: 5
-                }}>{(campagna.comuni || []).join("  ") || "Comuni da confermare"}  {campagna.quantita.toLocaleString("it-IT")} volantini  {campagna.data_inizio || "data da definire"}  {campagna.data_fine || "fine da definire"}</div>
+                }}>{(campagna.comuni || []).join("  ") || customerValue(campagna.zona)}  {campagna.quantita == null ? customerValue(null) : `${campagna.quantita.toLocaleString("it-IT")} volantini`}  {customerValue(campagna.data_inizio)}  {customerValue(campagna.data_fine)}</div>
                     </div>
                     <div style={{
                 textAlign: "right"
@@ -5492,9 +5494,9 @@ export function DashboardPage({
                   fontFamily: F.serif,
                   fontSize: 24,
                   color: C.green
-                }}>?{Number(campagna.totale_euro || 0).toLocaleString("it-IT", {
+                }}>{campagna.totale_euro == null ? customerValue(null) : `€${Number(campagna.totale_euro).toLocaleString("it-IT", {
                     minimumFractionDigits: 2
-                  })}</div>
+                  })}`}</div>
                       <button onClick={() => onNav("campaign", {
                   campaignId: campagna.id
                 })} style={{
@@ -5558,7 +5560,7 @@ export function CampaignDashboardPage({
   if (campagna) {
     const progressSteps = [["confermata", "Confermata"], ["in_preparazione", "In preparazione"], ["in_distribuzione", "Distribuzione"], ["completata", "Completata"]];
     const activeIndex = Math.max(0, progressSteps.findIndex(([key]) => key === campagna.stato));
-    const distributedPct = campagna.quantita ? Math.min(100, Math.round(campagna.volantini_distribuiti / campagna.quantita * 100)) : 0;
+    const distributedPct = campagna.quantita && campagna.volantini_distribuiti != null ? Math.min(100, Math.round(campagna.volantini_distribuiti / campagna.quantita * 100)) : null;
     const gpsPoints = campagna.gps_punti?.length ? campagna.gps_punti.map((_, i) => [18 + i * 10, 68 - i * 5]) : [];
     const proof = campagna.foto_proof || [];
     const daysRemaining = campagna.data_fine ? Math.max(0, Math.ceil((new Date(`${campagna.data_fine}T00:00:00`) - new Date()) / 86400000)) : 0;
@@ -5627,7 +5629,7 @@ export function CampaignDashboardPage({
               fontSize: 13,
               color: "rgba(255,255,255,.45)",
               marginTop: 6
-            }}>{campagna.quantita.toLocaleString("it-IT")} volantini  Smart Pairing {campagna.smart_pairing_sconto}%</div>
+            }}>{campagna.quantita == null ? customerValue(null) : `${campagna.quantita.toLocaleString("it-IT")} volantini`}  Smart Pairing {campagna.smart_pairing_sconto == null ? customerValue(null) : `${campagna.smart_pairing_sconto}%`}</div>
             </div>
             <button style={{
             minHeight: 44,
@@ -5737,7 +5739,7 @@ export function CampaignDashboardPage({
                 textTransform: "uppercase",
                 marginBottom: 12
               }}>Statistiche distribuzione</div>
-                {[["Volantini distribuiti", `${campagna.volantini_distribuiti.toLocaleString("it-IT")} / ${campagna.quantita.toLocaleString("it-IT")}`, distributedPct, C.green], ["Copertura raggiunta", `${campagna.copertura_pct}%`, campagna.copertura_pct, C.orange], ["Comuni completati", `${Math.max(1, Math.round((campagna.comuni?.length || 1) * distributedPct / 100))}/${campagna.comuni?.length || 1}`, distributedPct, C.blue], ["Giorni rimanenti", String(daysRemaining), Math.max(0, 100 - daysRemaining * 20), C.purple]].map(([l, v, pct, c]) => <div key={l} style={{
+                {[["Volantini distribuiti", campagna.volantini_distribuiti == null || campagna.quantita == null ? customerValue(null) : `${campagna.volantini_distribuiti.toLocaleString("it-IT")} / ${campagna.quantita.toLocaleString("it-IT")}`, distributedPct, C.green], ["Copertura raggiunta", campagna.copertura_pct == null ? customerValue(null) : `${campagna.copertura_pct}%`, campagna.copertura_pct, C.orange], ["Comuni completati", distributedPct == null ? customerValue(null) : `${Math.max(1, Math.round((campagna.comuni?.length || 1) * distributedPct / 100))}/${campagna.comuni?.length || 1}`, distributedPct, C.blue], ["Giorni rimanenti", campagna.data_fine ? String(daysRemaining) : customerValue(null), campagna.data_fine ? Math.max(0, 100 - daysRemaining * 20) : null, C.purple]].map(([l, v, pct, c]) => <div key={l} style={{
                 marginBottom: 10
               }}><div style={{
                   display: "flex",
@@ -5754,7 +5756,7 @@ export function CampaignDashboardPage({
                   background: "rgba(255,255,255,.08)",
                   overflow: "hidden"
                 }}><div style={{
-                    width: `${Math.max(0, Math.min(100, pct))}%`,
+                    width: `${pct == null ? 0 : Math.max(0, Math.min(100, pct))}%`,
                     height: "100%",
                     background: c
                   }} /></div></div>)}
@@ -5857,7 +5859,7 @@ export function CampaignDashboardPage({
                 fontSize: 30,
                 color: C.green,
                 letterSpacing: "-.8px"
-              }}>{campagna.smart_pairing_sconto}%</div><div style={{
+              }}>{campagna.smart_pairing_sconto == null ? customerValue(null) : `${campagna.smart_pairing_sconto}%`}</div><div style={{
                 fontFamily: F.sans,
                 fontSize: 12,
                 color: "rgba(255,255,255,.48)",
