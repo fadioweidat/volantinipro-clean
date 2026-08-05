@@ -267,7 +267,7 @@ async function loadAdminData() {
   };
 }
 
-function normalizeCampaign(row, source) {
+export function normalizeCampaign(row, source) {
   const rawStatus = String(row.status || row.stato || row.state || row.stato_pagamento || "").toLowerCase();
   const serviceSource = row.service_type || row.campaign_type || row.type || row.servizio || row.selected_service || row.service;
   const serviceRaw = String(serviceSource || "").toLowerCase();
@@ -326,7 +326,10 @@ function classifyCampaign(campaign, row, serviceSource) {
 }
 
 function hasQuoteLikeData(row) {
-  return Boolean(row.quote_id || row.preventivo_id || row.quote_pdf_url || row.total_budget || row.total_amount || row.amount || row.price || row.totale);
+  const hasQuoteReference = Boolean(row.quote_id || row.preventivo_id || row.quote_pdf_url);
+  const hasRevenueValue = [row.total_budget, row.total_amount, row.amount, row.price, row.totale]
+    .some((value) => value != null && String(value).trim() !== "");
+  return hasQuoteReference || hasRevenueValue;
 }
 
 function cleanText(value) {
