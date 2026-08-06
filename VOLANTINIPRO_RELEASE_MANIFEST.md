@@ -14,6 +14,8 @@ Nessuna azione remota eseguita. Nessun deploy eseguito. Nessun push Git (né di 
 >
 > **Verdetto**: **RELEASE FREEZE AND RESTORE READY — GO**
 
+> **Aggiornamento — RC2-FIX-1 (2026-08-06).** Durante PRODUCTION-DEPLOY-1, il worktree taggato `volantinipro-rc-2026-08-06` (commit `2b2fa8e`, sopra) è stato trovato modificato da attività concorrente non coordinata prima che potesse essere applicato al remoto — deploy fermato correttamente, nessuna migrazione toccata il remoto. Audit forense: [RC2_FORENSIC_AUDIT_REPORT.md](RC2_FORENSIC_AUDIT_REPORT.md) (verdetto PARTIAL — modifiche reali ma con bug SQL confermati contro lo schema remoto vero). Questo ticket ha creato un **nuovo worktree separato e pulito** (`D:\cloaude volantini\volantinipro-rc2-clean`, HEAD detached dallo stesso `2b2fa8e`, **il worktree originale taggato non è mai stato toccato**), riscritto la migrazione problematica e portato il frontend corrispondente. 3 commit locali ordinati creati su questo nuovo worktree (`0dd9409` migrazione, `afb445b` frontend, `3ca2994` test). `npm test` 280/280, `npm run build` OK, `git diff --check` pulito. Verdetto: [ADMIN_DRIVER_LINK_FLOW_RC2_FIX_REPORT.md](ADMIN_DRIVER_LINK_FLOW_RC2_FIX_REPORT.md). **Tag proposto (non creato, richiede autorizzazione esplicita)**: `volantinipro-rc2-2026-08-06`, da puntare sul commit `3ca2994` di questo nuovo worktree. Nessun push.
+
 ## Fase 6 (RELEASE-FREEZE-2) — Riepilogo release candidate finale
 
 | Campo | Valore |
