@@ -85,8 +85,6 @@ const timeoutedKeys = new Set();
 const MAX_CIVICI_RADIUS_KM = 3;
 
 // Fields actually needed — never use select=*
-const SELECT_FIELDS = 'id,lat,lng,source';
-
 // Hard cap on rows returned from PostgREST
 const ROW_LIMIT = 1500;
 
@@ -103,15 +101,7 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
     return { rows: [], count: 0, bboxCount: 0, totalCount: 0, contentRangeCount: 0, renderedCount: 0 };
   }
 
-  // Calculate bbox (1 degree lat ≈ 111 km)
-  const latDelta = radiusKm / 111.0;
-  const lngDelta = radiusKm / (111.0 * Math.cos((centerLat * Math.PI) / 180));
-  const minLat = centerLat - latDelta;
-  const maxLat = centerLat + latDelta;
-  const minLng = centerLng - lngDelta;
-  const maxLng = centerLng + lngDelta;
-
-  const requestKey = `osm_${minLat.toFixed(5)}_${maxLat.toFixed(5)}_${minLng.toFixed(5)}_${maxLng.toFixed(5)}_r${radiusKm}`;
+  const requestKey = `osm_${centerLat.toFixed(5)}_${centerLng.toFixed(5)}_r${radiusKm}`;
 
   // Guard: skip if this exact bbox already timed out this session
   if (timeoutedKeys.has(requestKey)) {
@@ -119,24 +109,19 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
     return { rows: [], count: 0, bboxCount: 0, totalCount: 0, contentRangeCount: 0, renderedCount: 0, isTimeout: true };
   }
 
-  const generatedUrl =
-    `${url}/rest/v1/address_points` +
-    `?select=${SELECT_FIELDS}` +
-    `&source=eq.osm` +
-    `&lat=gte.${minLat}&lat=lte.${maxLat}` +
-    `&lng=gte.${minLng}&lng=lte.${maxLng}` +
-    `&limit=${ROW_LIMIT}`;
+  const generatedUrl = `${url}/rest/v1/rpc/get_address_points_radius_summary`;
 
-  debugStep2Log(`[ADDRESS_POINTS_FETCH_BBOX] lat: [${minLat.toFixed(5)}, ${maxLat.toFixed(5)}], lng: [${minLng.toFixed(5)}, ${maxLng.toFixed(5)}], radiusKm: ${radiusKm}`);
+  debugStep2Log('[ADDRESS_POINTS_FETCH_RADIUS]', { centerLat, centerLng, radiusKm });
 
   try {
     const response = await fetch(generatedUrl, {
-      method: 'GET',
+      method: 'POST',
       headers: {
         apikey: anonKey,
         Authorization: `Bearer ${anonKey}`,
-        'Prefer': 'count=exact',
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ center_lat: centerLat, center_lng: centerLng, radius_km: radiusKm, max_rows: ROW_LIMIT }),
       signal,
     });
 
@@ -156,23 +141,15 @@ export async function fetchAddressPointsInRadius({ centerLat, centerLng, radiusK
       throw new Error(errText || 'ADDRESS_POINTS_REST_ERROR');
     }
 
-    const rows = await response.json();
-    const contentRange = response.headers.get('content-range');
-    let contentRangeCount = rows.length;
-    if (contentRange) {
-      const match = contentRange.match(/\/(\d+)/);
-      if (match) contentRangeCount = parseInt(match[1], 10);
-    }
+    const payload = await response.json();
+    const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+    const contentRangeCount = Number.isFinite(Number(payload?.count)) ? Number(payload.count) : rows.length;
 
     debugStep2Log(`[ADDRESS_POINTS_FETCH_SUCCESS] received ${rows.length} rows, total: ${contentRangeCount}`);
 
     const resultRows = rows
-      .map((row) => ({
-        ...row,
-        distance_m: distanceMeters(centerLat, centerLng, Number(row.lat), Number(row.lng)),
-      }))
-      .filter((row) => Number.isFinite(row.distance_m) && row.distance_m <= radiusKm * 1000)
-      .sort((a, b) => a.distance_m - b.distance_m);
+      .filter((row) => String(row.source || '').toLowerCase() === 'osm')
+      .sort((a, b) => Number(a.distance_m) - Number(b.distance_m));
 
     return {
       rows: resultRows,
@@ -201,16 +178,4 @@ function firstFiniteNumber(...values) {
     if (Number.isFinite(number)) return number;
   }
   return 0;
-}
-
-function distanceMeters(lat1, lng1, lat2, lng2) {
-  if (![lat1, lng1, lat2, lng2].every(Number.isFinite)) return null;
-  const toRad = (value) => (value * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

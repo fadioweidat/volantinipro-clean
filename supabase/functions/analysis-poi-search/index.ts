@@ -433,6 +433,40 @@ async function gtfsDbProvider(
   }
 }
 
+async function cachedPoiDbProvider(
+  supabase: ReturnType<typeof supabaseAdmin>,
+  lat: number,
+  lng: number,
+  context: SearchContext,
+  warnings: string[],
+): Promise<ProviderResult | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc("get_cached_pois_in_radius", {
+    p_lat: lat,
+    p_lng: lng,
+    p_radius_km: context.radiusKm,
+    p_service: context.service,
+  });
+  if (error) {
+    warnings.push(`POI_CACHE_UNAVAILABLE:${error.message}`);
+    return null;
+  }
+  const items = (Array.isArray(data) ? data : []).filter((row) => row.provider === "overpass").map((row) => ({
+    provider: "overpass" as const,
+    externalId: String(row.external_id),
+    name: String(row.name || row.category || "OSM point"),
+    category: row.category ? String(row.category) : null,
+    categories: Object.entries(row.raw_json?.tags || {}).map(([key, value]) => `${key}:${String(value)}`),
+    lat: Number(row.lat),
+    lng: Number(row.lng),
+    address: null,
+    raw: row.raw_json || {},
+    score: 62,
+    tags: Object.entries(row.raw_json?.tags || {}).map(([key, value]) => `${normalizeText(key)}:${normalizeText(value)}`),
+  })).filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng));
+  return items.length ? { provider: "overpass", items: dedupeById(items) } : null;
+}
+
 async function makeBboxHash(service: string, provider: string, lat: number, lng: number, radiusKm: number): Promise<string> {
   const input = `${service}:${provider}:${Math.round(lat * 100)}:${Math.round(lng * 100)}:${Math.round(radiusKm * 10)}`;
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
@@ -548,10 +582,12 @@ serve(async (req) => {
     };
 
     const supabase = supabaseAdmin();
+    const cachedPoiResult = await cachedPoiDbProvider(supabase, lat, lng, context, warnings);
     const providerResults = [
       await googlePlacesProvider(lat, lng, context, warnings),
       await foursquareProvider(lat, lng, context, warnings),
-      await overpassProvider(lat, lng, context, warnings),
+      cachedPoiResult ? null : await overpassProvider(lat, lng, context, warnings),
+      cachedPoiResult,
       await gtfsDbProvider(supabase, lat, lng, context, warnings),
     ].filter((result): result is ProviderResult => Boolean(result));
 

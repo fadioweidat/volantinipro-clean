@@ -810,6 +810,7 @@ function Step2MapImpl({
       keyboard: true,
     });
     mapRef.current = map;
+    if (import.meta.env.DEV) window.__VOLANTINIPRO_STEP2_MAP__ = map;
 
     try {
       const p0 = map.createPane('municipalityFillPane');
@@ -845,8 +846,10 @@ function Step2MapImpl({
 
     const mbToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
     const tileLayer = L.tileLayer(
-      `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${mbToken || ''}`,
-      { tileSize: 512, zoomOffset: -1, attribution: 'Mapbox OpenStreetMap', maxZoom: 19 }
+      mbToken ? `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${mbToken}` : CARTO_VOYAGER,
+      mbToken
+        ? { tileSize: 512, zoomOffset: -1, attribution: 'Mapbox OpenStreetMap', maxZoom: 19 }
+        : { attribution: CARTO_ATTR, maxZoom: 19 }
     );
     tileLayer.on('tileerror', () => {
       const errEl = document.getElementById('vp-map-error-msg');
@@ -867,6 +870,9 @@ function Step2MapImpl({
     });
     return () => {
       resizeObserver.disconnect();
+      if (import.meta.env.DEV && window.__VOLANTINIPRO_STEP2_MAP__ === map) {
+        delete window.__VOLANTINIPRO_STEP2_MAP__;
+      }
       map.remove();
       mapRef.current = null;
     };

@@ -10,14 +10,14 @@
     "import:economic:dry-run": "node data/istat/import_economic_indicators.mjs --scope=lombardia --dry-run=true",
     "import:omi": "node data/omi/import_omi_zones.mjs",
     "import:omi:dry-run": "node data/omi/import_omi_zones.mjs --dry-run=true",
-    "import:gtfs": "node data/gtfs/import_stops.mjs",
-    "import:gtfs:dry-run": "node data/gtfs/import_stops.mjs --dry-run=true",
-    "import:addresses": "node data/osm/import_address_points.mjs",
-    "import:addresses:dry-run": "node data/osm/import_address_points.mjs --dry-run=true",
+    "import:gtfs": "node scripts/import_gtfs.mjs",
+    "import:gtfs:dry-run": "node scripts/import_gtfs.mjs --dry-run=true",
+    "import:addresses": "node scripts/import_osm_addresses.mjs",
+    "import:addresses:dry-run": "node scripts/import_osm_addresses.mjs --dry-run=true",
     "download:dbgt": "node data/dbgt/download_dbgt_lombardia.mjs",
     "import:dbgt": "node data/dbgt/import_dbgt_address_points.mjs",
     "import:dbgt:dry-run": "node data/dbgt/import_dbgt_address_points.mjs --dry-run=true",
-    "test": "node --import tsx --test tests/configurator_step1_4.test.mjs tests/step2_operational_metrics.test.mjs tests/step2_truth_model.test.mjs tests/step2_view_model.test.mjs tests/step2_territorial_pipeline.test.mjs tests/customer_dashboard_contract.test.mjs tests/admin_revenue.test.mjs tests/ai_edge_security.test.mjs tests/gps_prod_rpc_frontend_contract.test.mjs tests/gps_prod_client_reader_contract.test.mjs tests/gps_prod_browser_privacy_contract.test.cjs tests/zone_progress_client.test.mjs tests/zone_progress_ui_integration.test.mjs tests/router_auth.test.mjs tests/auth_login_admin_guard.test.mjs tests/pod_photo_processing.test.mjs tests/pod_upload_permissions.test.mjs tests/geofence_engine.test.mjs tests/gps_rpc_reconciliation_contract.test.mjs tests/gps_geom_trigger_contract.test.mjs tests/gps_point_quality.test.mjs tests/gps_session_lifecycle.test.mjs tests/gps_authorization_lifecycle.test.mjs tests/ai_brain_context_layer.test.mjs tests/ai_brain_intent_router.test.mjs tests/ai_brain_response_schema.test.mjs tests/ai_brain_authorization_grounding.test.mjs"
+    "test": "node --import tsx --test tests/territorial_data_import.test.mjs tests/configurator_step1_4.test.mjs tests/step2_operational_metrics.test.mjs tests/step2_truth_model.test.mjs tests/step2_view_model.test.mjs tests/step2_territorial_pipeline.test.mjs tests/customer_dashboard_contract.test.mjs tests/admin_revenue.test.mjs tests/ai_edge_security.test.mjs tests/gps_prod_rpc_frontend_contract.test.mjs tests/gps_prod_client_reader_contract.test.mjs tests/gps_prod_browser_privacy_contract.test.cjs tests/zone_progress_client.test.mjs tests/zone_progress_ui_integration.test.mjs tests/router_auth.test.mjs tests/auth_login_admin_guard.test.mjs tests/pod_photo_processing.test.mjs tests/pod_upload_permissions.test.mjs tests/geofence_engine.test.mjs tests/gps_rpc_reconciliation_contract.test.mjs tests/gps_geom_trigger_contract.test.mjs tests/gps_point_quality.test.mjs tests/gps_session_lifecycle.test.mjs tests/gps_authorization_lifecycle.test.mjs tests/ai_brain_context_layer.test.mjs tests/ai_brain_intent_router.test.mjs tests/ai_brain_response_schema.test.mjs tests/ai_brain_authorization_grounding.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
