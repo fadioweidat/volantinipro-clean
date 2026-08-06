@@ -1,5 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  getCurrentClientProfile,
+  getCurrentSupabaseUser,
+  getStoredSupabaseSession,
+  isStoredSupabaseSessionExpired,
+} from "../../../lib/supabaseClient.js";
+import {
   buildTerritorialSessionContextKey,
   clearTerritorialAiContext,
   clearTerritorialAiPrincipal,
@@ -49,11 +55,68 @@ function removeBaseSessionId(principalId) {
   if (typeof window !== "undefined" && principalId) window.sessionStorage.removeItem(`vp_ai_territory_session:${shortHash(principalId)}`);
 }
 
+// buildTerritorialSessionContextKey richiede sempre un differenziatore oltre a
+// principalId+fingerprint (campaignRef, quoteRef o contextId): nessuno dei
+// chiamanti reali di questo pannello passa oggi un `contextId` esplicito, quindi
+// senza un fallback la chiave di sessione resterebbe sempre null e ogni invio
+// verrebbe scartato in silenzio (nessun sessionId). Il fallback e' stabile per
+// tab/browser (sessionStorage), non lega mai a un altro utente o contesto.
+function fallbackContextId() {
+  if (typeof window === "undefined") return null;
+  const key = "vp_ai_territory_context";
+  let value = window.sessionStorage.getItem(key);
+  if (!value) {
+    value = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    window.sessionStorage.setItem(key, value);
+  }
+  return value;
+}
+
 function suggestions(snapshot) {
   const common = ["Spiegami questa analisi.", "Quali dati risultano mancanti?", "Spiegamelo in modo semplice."];
   if (snapshot.service.key === "d2d") return [common[0], "La quantita e sufficiente?", "Qual e la copertura stimata?", common[1], common[2]];
   if (snapshot.quantity.recommended != null) return [common[0], "La quantita e sufficiente?", common[1], common[2]];
   return common;
+}
+
+// Risolve l'identita' territoriale dalla sessione Supabase reale gia' usata dal
+// resto dell'app (stesso storage/verifica di AdminGuard, CustomerGuard e
+// CustomerAiAssistantPanel): il ruolo non arriva mai libero dal frontend, viene
+// letto dal proprio profilo via RLS solo dopo che /auth/v1/user ha verificato il
+// token. Se il chiamante passa esplicitamente una prop `identity` (es. test), quella
+// ha priorita' e la risoluzione automatica viene saltata.
+function useTerritorialSessionIdentity(explicitIdentity) {
+  const [sessionIdentity, setSessionIdentity] = useState({ status: "checking", authUser: null, profile: null });
+
+  useEffect(() => {
+    if (explicitIdentity) return undefined;
+    let cancelled = false;
+    const session = getStoredSupabaseSession();
+    if (!session || isStoredSupabaseSessionExpired(session)) {
+      setSessionIdentity({ status: "signed_out", authUser: null, profile: null });
+      return undefined;
+    }
+    getCurrentSupabaseUser(session)
+      .then((user) => {
+        if (cancelled) return null;
+        if (!user?.id) {
+          setSessionIdentity({ status: "invalid", authUser: null, profile: null });
+          return null;
+        }
+        return getCurrentClientProfile().then((profile) => {
+          if (cancelled) return;
+          setSessionIdentity({
+            status: "authenticated",
+            authUser: { id: String(user.id), email: user.email ?? null },
+            profile: { role: profile?.role ? String(profile.role).trim().toLowerCase() : null },
+          });
+        });
+      })
+      .catch(() => { if (!cancelled) setSessionIdentity({ status: "invalid", authUser: null, profile: null }); });
+    return () => { cancelled = true; };
+  }, [explicitIdentity]);
+
+  return explicitIdentity ?? sessionIdentity;
 }
 
 export default function TerritorialAiAssistantPanel({ snapshot, identity = null, contextId = null, activeCampaignRef = null, activeQuoteRef = null }) {
@@ -66,16 +129,18 @@ export default function TerritorialAiAssistantPanel({ snapshot, identity = null,
   const previousSession = useRef(null);
   const previousPrincipal = useRef(null);
 
-  const resolvedIdentity = useMemo(() => normalizeTerritorialIdentity(identity, contextId), [identity, contextId]);
+  const effectiveIdentity = useTerritorialSessionIdentity(identity);
+  const effectiveContextId = useMemo(() => contextId ?? fallbackContextId(), [contextId]);
+  const resolvedIdentity = useMemo(() => normalizeTerritorialIdentity(effectiveIdentity, effectiveContextId), [effectiveIdentity, effectiveContextId]);
   const baseId = useMemo(() => resolvedIdentity.enabled ? baseSessionId(resolvedIdentity.principalId) : null, [resolvedIdentity.enabled, resolvedIdentity.principalId]);
   const contextKey = useMemo(() => buildTerritorialSessionContextKey({
     principalId: resolvedIdentity.principalId,
     role: resolvedIdentity.role,
-    contextId,
+    contextId: effectiveContextId,
     campaignRef: activeCampaignRef,
     quoteRef: activeQuoteRef,
     fingerprint: snapshot.fingerprint,
-  }), [resolvedIdentity.principalId, resolvedIdentity.role, contextId, activeCampaignRef, activeQuoteRef, snapshot.fingerprint]);
+  }), [resolvedIdentity.principalId, resolvedIdentity.role, effectiveContextId, activeCampaignRef, activeQuoteRef, snapshot.fingerprint]);
   const sessionId = baseId && contextKey ? `${baseId}:${contextKey}` : null;
 
   useEffect(() => {

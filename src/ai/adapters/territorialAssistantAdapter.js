@@ -1,4 +1,4 @@
-import { supabase } from "../../supabaseClient.js";
+import { supabase, ensureSupabaseSessionBridge } from "../../supabaseClient.js";
 import { AI_ROLES } from "../../ai-foundation/contracts.js";
 import { buildConfiguratorAiContext } from "../context/buildConfiguratorAiContext.js";
 import { resolveIntent } from "../router/intentRouter.js";
@@ -53,6 +53,11 @@ export async function runTerritorialAssistant({ snapshot, question, role = "visi
   if (!authorization.ok) return buildFallbackResponse(authorization.reason, { intent: intentName });
 
   try {
+    // Senza il bridge il client SDK usato da functions.invoke resta con la sola
+    // anon key: la Edge Function verifica il Bearer token come utente reale e
+    // risponde 401 anche con una sessione vp_supabase_session valida (stesso
+    // bug gia' noto e risolto per gli altri chiamanti in supabaseClient.js).
+    await ensureSupabaseSessionBridge();
     const { data, error: invokeError } = await supabase.functions.invoke("ai-assistant-territory", { body: { snapshot, question } });
     if (invokeError) throw invokeError;
     if (data?.error) throw new Error(data.error);

@@ -43,7 +43,6 @@ import { computeDoorToDoorCoverage, getZoneFullCoverageFlyers } from "./src/lib/
 import { allowMockData, isProduction, isCustomerAiDashboardEnabled, isTerritorialStep2AiEnabled } from "./src/lib/runtimeFlags.js";
 import { LAYER_PANEL_CONFIG, defaultLayerState } from "./src/lib/dataSources.js";
 const CustomerAiAssistantPanel = React.lazy(() => import("./src/components/ai/customer/CustomerAiAssistantPanel.jsx"));
-const TerritorialAiAssistantPanel = React.lazy(() => import("./src/components/ai/territory/TerritorialAiAssistantPanel.jsx"));
 const SOURCE_ALIASES = {
   Backend: "Analisi interna",
   "Backend scoring": "Analisi interna",
