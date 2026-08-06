@@ -1,5 +1,5 @@
 import 'leaflet/dist/leaflet.css';
-import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-leaflet';
+import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, Polygon } from 'react-leaflet';
 import { useEffect, useMemo, useState } from 'react';
 import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
@@ -8,6 +8,7 @@ import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProc
 import { normalizeZonesFromCampaign, summarizeGeofencePoints } from '../../lib/geofence/geofenceEngine.js';
 import { filterValidGpsPoints } from '../../lib/gps/pointQuality.js';
 import { AdminLayout } from './AdminLayout.jsx';
+import { CoverageAdjustmentPanel } from '../../components/admin/CoverageAdjustmentPanel.jsx';
 
 export function GpsMonitor({ campaignId, onNav }) {
   const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], activeSession: null, campaign: null });
@@ -123,12 +124,14 @@ export function GpsMonitor({ campaignId, onNav }) {
 
       <section style={cardStyle}>
         <p style={eyebrowStyle}>Live map</p>
-        {state.points.length > 0 ? (
-          <GpsMap points={state.points} latest={latest} />
+        {state.points.length > 0 || zoneProgress.zones.length > 0 ? (
+          <GpsMap points={state.points} latest={latest} zones={zoneProgress.zones} />
         ) : (
           <EmptyState text={state.loading ? 'Caricamento tracking GPS...' : 'Nessun tracking GPS disponibile'} />
         )}
       </section>
+
+      <CoverageAdjustmentPanel campaignId={campaignId} points={state.points} zones={geofenceZones} />
 
       <section style={cardStyle}>
         <p style={eyebrowStyle}>Storico geofence (sessione mappa)</p>
@@ -205,17 +208,57 @@ function getLatestTrackableSession(sessions) {
     })[0] || null;
 }
 
-function GpsMap({ points, latest }) {
-  const center = useMemo(() => [Number(latest.lat), Number(latest.lng)], [latest]);
+function GpsMap({ points, latest, zones = [] }) {
+  const center = useMemo(() => {
+    if (latest) return [Number(latest.lat), Number(latest.lng)];
+    if (zones.length > 0 && zones[0].geometry?.coordinates?.[0]?.[0]) {
+      const coord = zones[0].geometry.coordinates[0][0];
+      return [coord[1], coord[0]];
+    }
+    return [45.4642, 9.1900]; // Milano default
+  }, [latest, zones]);
   // Solo i punti che superano il filtro qualita' (stesso modulo condiviso di
   // AdminLiveDashboard) finiscono nella polilinea: un punto anomalo isolato
   // non deve piu' disegnare un salto impossibile sulla mappa.
   const validPoints = useMemo(() => filterValidGpsPoints(points).valid, [points]);
   const path = validPoints.map((point) => [Number(point.lat), Number(point.lng)]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+
+  function getZoneStyle(zone) {
+    if (zone.adjustment_type === 'inaccessible') {
+      return { color: '#f97316', fillColor: '#f97316', fillOpacity: 0.2, dashArray: '5, 10', weight: 2 };
+    }
+    if (zone.adjustment_type === 'manual_covered' || zone.adjustment_type === 'partially_covered') {
+      return { color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.2, weight: 2 };
+    }
+    return { color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.1, weight: 2 };
+  }
+
   return (
     <div style={{ height: 460, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)' }}>
       <MapContainer center={center} zoom={15} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
         <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        
+        {zones.map((zone) => {
+          if (!zone.geometry || !zone.geometry.coordinates) return null;
+          // Leaflet expects [lat, lng], GeoJSON is [lng, lat]
+          let coords = [];
+          if (zone.geometry.type === 'Polygon') {
+            coords = zone.geometry.coordinates.map(ring => ring.map(p => [p[1], p[0]]));
+          } else if (zone.geometry.type === 'MultiPolygon') {
+            coords = zone.geometry.coordinates.map(poly => poly.map(ring => ring.map(p => [p[1], p[0]])));
+          }
+          if (!coords.length) return null;
+          return (
+            <Polygon key={zone.campaign_zone_id} positions={coords} pathOptions={getZoneStyle(zone)}>
+              <Popup>
+                <strong>{zone.zone_name}</strong><br/>
+                Copertura: {zone.effective_percent}%<br/>
+                {zone.adjustment_type && <span>Correzione: {zone.adjustment_type}</span>}
+              </Popup>
+            </Polygon>
+          );
+        })}
+
         {path.length > 1 && <Polyline positions={path} pathOptions={{ color: '#e8571a', weight: 4, opacity: 0.82 }} />}
         {points.map((point) => (
           <CircleMarker key={point.id} center={[point.lat, point.lng]} radius={4} pathOptions={{ color: '#0f766e', fillColor: '#0f766e', fillOpacity: 0.65 }}>
