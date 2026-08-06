@@ -7,6 +7,8 @@ import { GpsMonitor } from "../pages/admin/GpsMonitor.jsx";
 import { CampaignOperations } from "../pages/admin/CampaignOperations.jsx";
 import { CampaignGroups } from "../pages/admin/CampaignGroups.jsx";
 import { CampaignReport } from "../pages/admin/CampaignReport.jsx";
+import { AssignWork } from "../pages/admin/AssignWork.jsx";
+import { CampaignAssignments } from "../pages/admin/CampaignAssignments.jsx";
 import { PublicRoutes } from "./PublicRoutes.jsx";
 import { Bootstrap } from "../layouts/public/Bootstrap.jsx";
 import { SeoMeta } from "../layouts/public/SeoMeta.jsx";
@@ -173,6 +175,10 @@ export function AppRouter() {
         window.history.pushState(null, "", `/admin/campaigns/${p.split(":")[1]}/groups`);
       } else if (p.startsWith("admin-report:")) {
         window.history.pushState(null, "", `/admin/campaigns/${p.split(":")[1]}/report`);
+      } else if (p.startsWith("admin-assignments-new:")) {
+        window.history.pushState(null, "", `/admin/campaigns/${p.split(":")[1]}/assignments/new`);
+      } else if (p.startsWith("admin-assignments:")) {
+        window.history.pushState(null, "", `/admin/campaigns/${p.split(":")[1]}/assignments`);
       } else if (p.startsWith("customer-tracking:")) {
         window.history.pushState(null, "", `/customer/campaigns/${p.split(":")[1]}/tracking`);
       } else if (p.startsWith("customer-report:")) {
@@ -259,6 +265,8 @@ export function AppRouter() {
               {page.startsWith("admin-operations:") && <CampaignOperations campaignId={page.split(":")[1]} onNav={goTo} />}
               {page.startsWith("admin-groups:") && <CampaignGroups campaignId={page.split(":")[1]} onNav={goTo} />}
               {page.startsWith("admin-report:") && <CampaignReport campaignId={page.split(":")[1]} onNav={goTo} />}
+              {page.startsWith("admin-assignments-new:") && <AssignWork campaignId={page.split(":")[1]} />}
+              {page.startsWith("admin-assignments:") && <CampaignAssignments campaignId={page.split(":")[1]} />}
             </>}
           </AdminGuard>
         )}

@@ -3,7 +3,9 @@ export function resolveAppRoute(path, { hasAuthHash = false, prefillHas = false,
   if (hasAuthHash) return 'login';
   if (p === '/admin' || p === '/admin/dashboard') return 'admin';
   if (p === '/admin/live') return 'admin-live';
-  const adminRoute = p.match(/^\/admin\/campaigns\/([^/]+)\/(gps|operations|groups|report)$/);
+  const adminAssignmentsNew = p.match(/^\/admin\/campaigns\/([^/]+)\/assignments\/new$/);
+  if (adminAssignmentsNew) return `admin-assignments-new:${adminAssignmentsNew[1]}`;
+  const adminRoute = p.match(/^\/admin\/campaigns\/([^/]+)\/(gps|operations|groups|report|assignments)$/);
   if (adminRoute) return `admin-${adminRoute[2]}:${adminRoute[1]}`;
   if (p.startsWith('/admin')) return 'admin';
   const customerRoute = p.match(/^\/customer\/campaigns\/([^/]+)\/(tracking|report|payment)$/);

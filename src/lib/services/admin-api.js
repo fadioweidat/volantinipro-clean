@@ -285,3 +285,215 @@ function cleanText(value) {
   if (['null', 'undefined', 'n/a', '-'].includes(text.toLowerCase())) return '';
   return text;
 }
+
+// --- Assignment Management -- Admin Only (ADMIN-DRIVER-LINK-2, RC2-FIX-1) ---
+// Tutte queste funzioni chiamano RPC Supabase protette che verificano
+// jwt_is_admin() server-side (supabase/migrations_production_safe/
+// 20260806150009_admin_driver_assignment_flow.sql). Nessun INSERT diretto su
+// operator_assignments dal browser: la tabella ha RLS che lo impedisce
+// comunque. L'audit trail e' scritto server-side dentro ciascuna RPC
+// (public.audit_log, via SECURITY DEFINER) -- non c'e' una chiamata
+// client-side a logAuditEvent qui perche' quella scrittura diretta dal
+// browser e' deliberatamente disabilitata in questo progetto (vedi
+// src/lib/audit.js, "P0 security hardening: direct browser INSERT is
+// disabled") e le nuove azioni admin_* non fanno comunque parte della sua
+// whitelist client-side.
+
+function isValidUuid(value) {
+  return typeof value === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
+// Dipendenza pre-esistente di AssignWork.jsx/CampaignAssignments.jsx (usata
+// per popolare il selettore zone allo step 2). Non esisteva ancora in questo
+// worktree; portata qui invariata. Legge public.assigned_zones, tabella gia'
+// esistente e verificata sullo schema remoto reale (id/campaign_id/group_id/
+// driver_id/label/target_km/target_poi/geom/created_at).
+export async function getAssignedZones(campaignId, { groupId } = {}) {
+  if (!supabase) return [];
+  try {
+    let query = supabase.from('assigned_zones').select('*');
+    if (campaignId && campaignId !== 'all' && isValidUuid(campaignId)) {
+      query = query.eq('campaign_id', campaignId);
+    }
+    if (groupId && groupId !== 'all' && isValidUuid(groupId)) {
+      query = query.eq('group_id', groupId);
+    }
+    const { data, error } = await query;
+    if (error) return [];
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function listAssignableOperators() {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase.rpc('admin_list_operators');
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.error('[ADMIN_LIST_OPERATORS_ERROR]', err?.message);
+    throw err;
+  }
+}
+
+export async function listCampaignAssignments(campaignId) {
+  if (!supabase) return [];
+  if (!isValidUuid(campaignId)) return [];
+  try {
+    const { data, error } = await supabase.rpc('admin_list_campaign_assignments', {
+      p_campaign_id: campaignId,
+    });
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.error('[ADMIN_LIST_ASSIGNMENTS_ERROR]', err?.message);
+    throw err;
+  }
+}
+
+export async function createOperatorAssignment({
+  campaignId,
+  operatorId,
+  groupId = null,
+  zoneId = null,
+  startsAt = null,
+  endsAt = null,
+  metadata = {},
+  notes = null,
+}) {
+  if (!supabase) throw new Error('Supabase non configurato.');
+  if (!isValidUuid(campaignId)) throw new Error('campaign_id non valido.');
+  if (!isValidUuid(operatorId)) throw new Error('operator_id non valido.');
+
+  const { data, error } = await supabase.rpc('admin_create_operator_assignment', {
+    p_campaign_id: campaignId,
+    p_operator_id: operatorId,
+    p_group_id:    groupId   || null,
+    p_zone_id:     zoneId    || null,
+    p_starts_at:   startsAt  || null,
+    p_ends_at:     endsAt    || null,
+    p_metadata:    metadata  || {},
+    p_notes:       notes     || null,
+  });
+
+  if (error) {
+    console.error('[ADMIN_CREATE_ASSIGNMENT_ERROR]', error?.message);
+    throw error;
+  }
+
+  return data;
+}
+
+export async function updateOperatorAssignment(id, patch) {
+  if (!supabase) throw new Error('Supabase non configurato.');
+  if (!isValidUuid(id)) throw new Error('id assegnazione non valido.');
+
+  const { data, error } = await supabase.rpc('admin_update_operator_assignment', {
+    p_id:    id,
+    p_patch: patch,
+  });
+
+  if (error) {
+    console.error('[ADMIN_UPDATE_ASSIGNMENT_ERROR]', error?.message);
+    throw error;
+  }
+
+  return data;
+}
+
+export async function revokeOperatorAssignment(id) {
+  if (!supabase) throw new Error('Supabase non configurato.');
+  if (!isValidUuid(id)) throw new Error('id assegnazione non valido.');
+
+  const { data, error } = await supabase.rpc('admin_revoke_operator_assignment', {
+    p_id: id,
+  });
+
+  if (error) {
+    console.error('[ADMIN_REVOKE_ASSIGNMENT_ERROR]', error?.message);
+    throw error;
+  }
+
+  return data;
+}
+
+export async function listAssignmentZones(assignmentId) {
+  if (!supabase) return [];
+  if (!isValidUuid(assignmentId)) return [];
+  try {
+    const { data, error } = await supabase.rpc('list_assignment_zones', {
+      p_assignment_id: assignmentId,
+    });
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.error('[LIST_ASSIGNMENT_ZONES_ERROR]', err?.message);
+    return [];
+  }
+}
+
+export async function setAssignmentZones(assignmentId, zones) {
+  if (!supabase) throw new Error('Supabase non configurato.');
+  if (!isValidUuid(assignmentId)) throw new Error('assignment_id non valido.');
+
+  const { data, error } = await supabase.rpc('admin_set_assignment_zones', {
+    p_assignment_id: assignmentId,
+    p_zones: zones || [],
+  });
+
+  if (error) {
+    console.error('[ADMIN_SET_ASSIGNMENT_ZONES_ERROR]', error?.message);
+    throw error;
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
+export async function getOperatorAssignment(id) {
+  if (!supabase) return null;
+  if (!isValidUuid(id)) return null;
+  try {
+    const { data, error } = await supabase
+      .from('operator_assignments')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data || null;
+  } catch (err) {
+    console.error('[ADMIN_GET_ASSIGNMENT_ERROR]', err?.message);
+    return null;
+  }
+}
+
+export function generateDriverAssignmentLink(assignmentId) {
+  if (!assignmentId) return '';
+  return `${window.location.origin}/driver/assignment/${assignmentId}`;
+}
+
+export function buildDriverWhatsAppMessage({ operatorName, campaignTitle, date, comuni, zone, qty, link }) {
+  const nomeDisplay = operatorName || 'Operatore';
+  const comuniText = (comuni || []).length ? comuni.join(', ') : 'Da definire';
+  const zoneText = (zone || []).length ? zone.join(', ') : 'Da definire';
+  const qtyText = qty ? `${Number(qty).toLocaleString('it-IT')} volantini` : 'Quantita da definire';
+  const dateText = date || 'Da definire';
+  const titleText = campaignTitle || 'Campagna VolantiniPro';
+
+  return `Ciao ${nomeDisplay},
+
+ti e' stato assegnato questo lavoro:
+
+Campagna: ${titleText}
+Data: ${dateText}
+Comuni: ${comuniText}
+Zone: ${zoneText}
+Quantita: ${qtyText}
+
+Apri il link per vedere il lavoro e avviare il GPS:
+${link}
+
+Quando inizi, premi "Inizia tracciamento".`;
+}
