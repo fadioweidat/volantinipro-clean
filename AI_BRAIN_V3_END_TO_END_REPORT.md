@@ -112,12 +112,11 @@ Nessun mock usato come prova finale per i test 1-3: tutti eseguiti con sessione 
 
 ## 10. Commit locali (Fase 10)
 
-Nessun push. Messaggi adattati ai diff reali di questa sessione (non è stato scritto nuovo codice di test automatico: la verifica dei percorsi positivi è stata eseguita dal vivo — browser + curl — non con nuovi file `*.test.mjs`, per rispettare "no mock come prova finale"):
+Nessun push. Messaggi adattati ai diff reali di questa sessione (non è stato scritto nuovo codice di test automatico: la verifica dei percorsi positivi è stata eseguita dal vivo — browser + curl — non con nuovi file `*.test.mjs`, per rispettare "no mock come prova finale"; il file di launch del dev server locale vive fuori da questo repository, nella working directory superiore, quindi non genera un commit qui):
 
-1. `fix(ai-territory): resolve authenticated territorial identity` — identità, contextId, session bridge, rimozione import morto
-2. `fix(ai-admin): bridge Supabase session before invoking ai-admin-copilot`
-3. `chore(ai): add local dev launch config for full-site-final`
-4. `docs(ai): add AI BRAIN V3 end-to-end report`
+1. `fix(ai-territory): resolve authenticated territorial identity` — identità, contextId, session bridge, rimozione import morto (`128dff2`)
+2. `fix(ai-admin): bridge Supabase session before invoking ai-admin-copilot` (`b08eb69`)
+3. `docs(ai): add AI BRAIN V3 end-to-end report` (`07ce7fb`)
 
 ## 11. Limiti residui
 
