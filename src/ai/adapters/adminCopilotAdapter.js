@@ -1,4 +1,4 @@
-import { supabase } from "../../supabaseClient.js";
+import { supabase, ensureSupabaseSessionBridge } from "../../supabaseClient.js";
 import { buildAdminAiContext } from "../context/buildAdminAiContext.js";
 import { resolveIntent } from "../router/intentRouter.js";
 import { buildAiResponse, buildFallbackResponse, validateAiResponse, sanitizeErrorForLog, AI_RESPONSE_STATUSES } from "../schema/aiResponseSchema.js";
@@ -56,6 +56,11 @@ export async function runAdminCopilot({ adminIdentity, campaigns, availability, 
         status: row.status,
       })),
     };
+    // Stesso bridge richiesto per l'assistente territoriale: senza, il client SDK
+    // usato da functions.invoke resta con la sola anon key (o con la sessione di
+    // un altro utente ancora bridgata in memoria dalla SPA) e la Edge Function
+    // rifiuta la richiesta come non autenticata o non autorizzata.
+    await ensureSupabaseSessionBridge();
     const { data, error: invokeError } = await supabase.functions.invoke("ai-admin-copilot", { body: { dashboardData } });
     if (invokeError) throw invokeError;
     if (data?.error) throw new Error(data.error);
