@@ -81,7 +81,20 @@ export function DriverAssignmentPage({ assignmentId }) {
 
         // Check status client-side (RLS already enforces operator_id = auth.uid())
         if (data.status === 'revoked') {
-          throw new Error('Questa assegnazione è stata revocata. Contatta il tuo amministratore.');
+          // Un'assegnazione revocata blocca l'accesso, tranne quando esiste
+          // già una sessione GPS attiva/in pausa: in quel caso la pagina resta
+          // raggiungibile solo per permettere il Termina (gps_transition_session
+          // lato backend applica la stessa regola ed è la source of truth:
+          // blocca resume/pause, consente solo complete/cancel).
+          const { data: liveSession } = await supabase
+            .from('delivery_sessions')
+            .select('id')
+            .eq('assignment_id', assignmentId)
+            .in('status', ['started', 'paused'])
+            .maybeSingle();
+          if (!liveSession) {
+            throw new Error('Questa assegnazione è stata revocata. Contatta il tuo amministratore.');
+          }
         }
         if (data.status === 'completed') {
           throw new Error('Questa assegnazione è già stata completata.');
@@ -200,7 +213,12 @@ function DriverTracker({ campaignId, assignmentId, assignmentData }) {
   const outOfZone = Boolean(currentPos && boundary && tracking.isActive && !pointInPolygon(currentPos.lat, currentPos.lng, boundary));
   const completion = estimateCompletion(tracking.distanceKm, qty);
 
-  const assignmentBlocksStart = !tracking.isActive && !tracking.isPaused && tracking.assignmentStatus !== 'ready';
+  // Assegnazione revocata con sessione già in corso: Start/Pausa/Riprendi
+  // restano bloccati lato UI (il backend li rifiuta comunque — è la
+  // source of truth), solo Termina/Annulla restano permessi.
+  const isRevoked = assignmentData?.status === 'revoked';
+  const assignmentBlocksStart = isRevoked
+    || (!tracking.isActive && !tracking.isPaused && tracking.assignmentStatus !== 'ready');
   const primaryAction = actionLoading
     ? `${actionLoading}...`
     : tracking.isActive ? 'Pausa'
