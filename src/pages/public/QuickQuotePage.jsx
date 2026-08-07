@@ -7,6 +7,11 @@ import { TIMING_OPTIONS, TimingUrgencyPicker } from "../../components/TimingUrge
 import { printQuotePdf } from "../../lib/pdf/printQuotePdf.js";
 import { distributionTypes } from "../../lib/distributionTypes.js";
 import { activityButtons } from "../../lib/activityButtons.js";
+import {
+  extractMunicipalityTerritorialData,
+  computeTerritorialCampaign,
+  buildQuickQuoteExplanation,
+} from "../../lib/quickQuote/territorialCampaignCalculator.js";
 
 const F = { serif: "'DM Serif Display',Georgia,serif", sans: "'DM Sans',sans-serif" };
 const C = {
@@ -45,6 +50,10 @@ function money(value) {
   return `€${Number(value || 0).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function n(value) {
+  return Number(value || 0).toLocaleString("it-IT", { useGrouping: true });
+}
+
 export default function QuickQuotePage({ onStart, onContact, data }) {
   const [service, setService] = useState(data?.type || data?.selectedService || "d2d");
   const [activityType, setActivityType] = useState(data?.activityType || data?.businessSector || "");
@@ -57,13 +66,18 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   const [suggestions, setSuggestions] = useState([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [dropOpen, setDropOpen] = useState(false);
-  const [qty, setQty] = useState(data?.qty || data?.flyerQuantity || 10000);
+  // La quantita' e' ora opzionale per costruzione: null = "calcola
+  // automaticamente" (CASO A del ticket). Deliberatamente NON precompilata da
+  // data?.qty/flyerQuantity (che puo' arrivare da un'altra pagina/draft
+  // salvato) — il Preventivo Rapido deve partire sempre pulito, senza una
+  // quantita' ereditata che sembrerebbe gia' "decisa" dal territorio.
+  const [qty, setQty] = useState(null);
   const [format, setFormat] = useState("A5");
   const [printed, setPrinted] = useState("true");
   const [timing, setTiming] = useState("asap");
   const [customDate, setCustomDate] = useState("");
   const [extraIds, setExtraIds] = useState([]);
-  const [shortfallAcknowledged, setShortfallAcknowledged] = useState(false);
+  const [quantityAcknowledged, setQuantityAcknowledged] = useState(false);
   const debounceRef = useRef(null);
 
   useEffect(() => {
@@ -96,13 +110,22 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
     setComuneInput("");
     setSuggestions([]);
     setDropOpen(false);
-    setShortfallAcknowledged(false);
+    setQuantityAcknowledged(false);
   };
 
   const removeComune = (name) => {
     setComuni((prev) => prev.filter((c) => c.name !== name));
-    setShortfallAcknowledged(false);
+    setQuantityAcknowledged(false);
   };
+
+  // Cambio servizio: la raccomandazione territoriale automatica esiste solo
+  // per Door to Door (vedi territorialCampaignCalculator.js — nessuna fonte
+  // dati reale per H2H/B2B). Non azzeriamo la quantita' gia' inserita
+  // dall'utente (sarebbe una perdita di dato non richiesta), ricalcoliamo
+  // solo cosa deriva dal territorio.
+  useEffect(() => {
+    setQuantityAcknowledged(false);
+  }, [service]);
 
   // Stessa formula di Step2 per il raggio tecnico "comune intero"
   // (volantinipro-final.jsx, effectiveRadiusKm): singolo comune -> clamp
@@ -114,32 +137,48 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
 
   const { data: apiData, loading: territorialLoading, error: territorialError } = useServiceAnalysis(
     anchor?.lat, anchor?.lng, effectiveRadiusKm, service,
-    anchor?.name || null, qty, "comune", null, selectionScope, null
+    anchor?.name || null, qty || null, "comune", null, selectionScope, null
   );
 
-  const comuniBreakdown = useMemo(() => {
+  // CALCOLO TERRITORIALE — deterministico, riusa Step2 (vedi
+  // territorialCampaignCalculator.js). Durante il caricamento non calcoliamo
+  // affatto: niente stima precedente mostrata come valida (sez. 9 del ticket).
+  const municipalityRows = useMemo(() => {
     const rows = Array.isArray(apiData?.comuni_breakdown) ? apiData.comuni_breakdown : [];
     return comuni.map((c) => {
       const match = rows.find((row) => {
         const rowName = row.comune_name || row.municipality_name || row.comune || row.name || "";
         return canonicalizeItalianMunicipalityName(rowName, row).toLowerCase() === c.name.toLowerCase();
       });
-      const families = match ? Number(match.families || match.households || match.householdsTotal || match.households_total || 0) : null;
-      return { name: c.name, families, matched: Boolean(match) };
+      const { households, population } = extractMunicipalityTerritorialData(match);
+      return { municipality: c.name, households, population, matched: Boolean(match) && households != null };
     });
   }, [comuni, apiData]);
 
-  const totalFamilies = comuniBreakdown.reduce((sum, c) => sum + (c.families || 0), 0);
-  const allMatched = comuni.length > 0 && comuniBreakdown.every((c) => c.matched);
-  const recommendedQty = allMatched && totalFamilies > 0 ? totalFamilies : null;
-  const showShortfall = recommendedQty && qty < recommendedQty && !shortfallAcknowledged;
-  const coveragePctAtCurrentQty = recommendedQty ? Math.min(100, Math.round((qty / recommendedQty) * 100)) : null;
+  const campaign = useMemo(
+    () => computeTerritorialCampaign({ municipalityRows, requestedQuantity: qty, service }),
+    [municipalityRows, qty, service]
+  );
+
+  const hasComuni = comuni.length > 0;
+  const territorialReady = hasComuni && !territorialLoading && !territorialError;
+  const recommendedQty = campaign.supported && campaign.hasData && campaign.allMatched ? campaign.recommendedQuantity : null;
+  const showShortfall = recommendedQty != null && qty != null && qty < recommendedQty && !quantityAcknowledged;
+  const showSurplus = recommendedQty != null && qty != null && qty >= recommendedQty;
+  const coveragePctAtCurrentQty = campaign.estimatedCoverage;
+
+  // Quantita' effettivamente utilizzata per il prezzo (sez. 12: il prezzo non
+  // va calcolato prima di aver determinato questa quantita'). Se il cliente
+  // non ha inserito nulla ed e' disponibile una raccomandazione D2D, si usa
+  // quella (CASO A). Altrimenti la quantita' inserita manualmente.
+  const effectiveQuantity = qty != null ? qty : recommendedQty;
+  const canPrice = !territorialLoading && effectiveQuantity != null && effectiveQuantity > 0 && (!hasComuni || !territorialError);
 
   const urgency = TIMING_OPTIONS.find((t) => t.id === timing)?.urgency || "normal";
 
   const registry = useMemo(
-    () => buildExtraServicesRegistry({ flyerQty: qty, dedicatedSupervisionPrice: 45, campaignDurationKnown: false }),
-    [qty]
+    () => buildExtraServicesRegistry({ flyerQty: effectiveQuantity || 0, dedicatedSupervisionPrice: 45, campaignDurationKnown: false }),
+    [effectiveQuantity]
   );
   const registryById = useMemo(() => buildExtraServicesById(registry), [registry]);
   const optionalExtras = useMemo(() => buildOptionalExtras(registryById), [registryById]);
@@ -148,13 +187,29 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
     setExtraIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  // Stessa formula di Step4 (QUOTE_PRICES-based): base + sovrapprezzo urgenza
-  // (+30% reale, non i valori 20/35% mostrati solo in Step1) + extra.
+  // PREZZO — stessa formula di Step4 (QUOTE_PRICES-based): base +
+  // sovrapprezzo urgenza (+30% reale) + extra. Calcolato solo su
+  // effectiveQuantity, mai sulla quantita' grezza inserita prima che sia
+  // stata risolta (sez. 12).
   const pricePerThousand = QUOTE_PRICES[service] || 18.5;
-  const baseCost = qty * (pricePerThousand / 1000);
+  const pricingQty = effectiveQuantity || 0;
+  const baseCost = pricingQty * (pricePerThousand / 1000);
   const urgencySurcharge = urgency === "urgent" ? baseCost * 0.3 : 0;
   const extrasCost = extraIds.reduce((sum, id) => sum + (registryById[id]?.price || 0), 0);
   const total = baseCost + urgencySurcharge + extrasCost;
+
+  // PRESENTAZIONE / CONSIGLIO — testo deterministico sempre disponibile
+  // (nessuna dipendenza da AI, sez. 7 del ticket).
+  const explanation = hasComuni
+    ? buildQuickQuoteExplanation({
+        service,
+        municipalities: comuni.map((c) => c.name),
+        requestedQuantity: qty,
+        recommendedQuantity: recommendedQty,
+        estimatedCoverage: coveragePctAtCurrentQty,
+        status: campaign.status,
+      })
+    : null;
 
   const comuneCapReached = comuni.length >= MAX_COMUNI;
 
@@ -166,7 +221,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
 
   const goToGuidedPath = () => {
     onStart("step1", {
-      service, comune: anchor?.name || "", qty, format,
+      service, comune: anchor?.name || "", qty: effectiveQuantity || undefined, format,
       urgency: urgency === "urgent" ? "urgent" : "normal",
       activityType,
     });
@@ -180,6 +235,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   // punteggi Step2) restano vuote/null cosi' printQuotePdf le omette da
   // sola — mai un valore inventato per riempirle.
   const handleRequestQuote = () => {
+    if (!canPrice) return;
     const mainArea = comuni.map((c) => c.name).join(", ") || comuneInput || "Zona da definire";
     const quotePdfData = {
       generatedAt: new Date().toISOString(),
@@ -187,7 +243,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
       service: serviceLabel,
       campaign: {
         variant: null,
-        quantity: qty,
+        quantity: effectiveQuantity,
         format: format,
         grammage: null,
         materialStatus: printed === "true" ? "già stampato" : "Da produrre",
@@ -209,23 +265,23 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
         selectionMode: "Auto",
       },
       outputs: {
-        estimatedFamilies: allMatched ? totalFamilies : null,
+        estimatedFamilies: campaign.allMatched ? campaign.breakdown.reduce((s, b) => s + (b.households || 0), 0) : null,
         estimatedPopulation: null,
-        estimatedCoverage: null,
+        estimatedCoverage: coveragePctAtCurrentQty,
         recommendedFlyers: recommendedQty,
         fullCoverageFlyers: recommendedQty,
-        insertedFlyers: qty,
-        remainingFlyers: recommendedQty && qty > recommendedQty ? qty - recommendedQty : 0,
-        missingFlyers: recommendedQty && qty < recommendedQty ? recommendedQty - qty : 0,
-        coverageStatus: recommendedQty ? (qty >= recommendedQty ? "sufficient" : "partial") : null,
+        insertedFlyers: effectiveQuantity,
+        remainingFlyers: recommendedQty && effectiveQuantity > recommendedQty ? effectiveQuantity - recommendedQty : 0,
+        missingFlyers: recommendedQty && effectiveQuantity < recommendedQty ? recommendedQty - effectiveQuantity : 0,
+        coverageStatus: recommendedQty ? (effectiveQuantity >= recommendedQty ? "sufficient" : "partial") : null,
       },
       coverageStrategy: null,
-      municipalities: comuniBreakdown.map((c) => ({
-        name: c.name,
-        status: c.matched ? "Dato disponibile" : "In elaborazione",
-        estimatedFlyers: c.matched && totalFamilies > 0 ? Math.round((c.families / totalFamilies) * qty) : null,
-        coveragePct: null,
-        contributionPct: c.matched && totalFamilies > 0 ? Math.round((c.families / totalFamilies) * 100) : null,
+      municipalities: campaign.breakdown.map((b) => ({
+        name: b.municipality,
+        status: b.households != null ? "Dato disponibile" : "In elaborazione",
+        estimatedFlyers: b.requestedQuantity,
+        coveragePct: b.estimatedCoverage,
+        contributionPct: recommendedQty && b.recommendedQuantity ? Math.round((b.recommendedQuantity / recommendedQty) * 100) : null,
       })),
       scores: [],
       adminInfo: [],
@@ -250,8 +306,8 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
         lines: [
           {
             label: `Distribuzione ${serviceLabel}`,
-            detail: `${qty.toLocaleString("it-IT", { useGrouping: true })} volantini`,
-            quantity: qty,
+            detail: `${n(effectiveQuantity)} volantini`,
+            quantity: effectiveQuantity,
             unitPrice: pricePerThousand / 1000,
             total: baseCost,
           },
@@ -262,7 +318,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
         discounts: [],
         total,
       },
-      sources: allMatched ? ["Analisi territoriale GIS/NIL"] : [],
+      sources: campaign.allMatched ? ["Analisi territoriale GIS/NIL"] : [],
     };
     printQuotePdf(quotePdfData);
   };
@@ -290,7 +346,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
             Preventivo rapido
           </h1>
           <p style={{ fontFamily: F.sans, fontSize: 16, color: "rgba(255,255,255,.52)", lineHeight: 1.6, maxWidth: 640 }}>
-            Configura fino a 3 comuni e ricevi una stima con dati territoriali reali. Potrai completare l'analisi nel percorso guidato o parlare con un consulente.
+            Scegli il servizio e i comuni: calcoliamo automaticamente la quantità consigliata dai dati territoriali reali. Nessuna mappa da configurare qui.
           </p>
         </div>
 
@@ -396,7 +452,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                 Massimo {MAX_COMUNI} comuni per il preventivo rapido.{" "}
                 <button
                   type="button"
-                  onClick={() => onContact("consultant", { comune: comuni.map((c) => c.name).join(", "), service, qty, activityType })}
+                  onClick={() => onContact("consultant", { comune: comuni.map((c) => c.name).join(", "), service, qty: effectiveQuantity, activityType })}
                   style={{ border: "none", background: "transparent", color: C.blue, fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0, textDecoration: "underline" }}
                 >
                   Hai più comuni? Parla con un consulente
@@ -404,26 +460,56 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
               </div>
             )}
 
-            {comuni.length > 0 && (
+            {/* STATO DI CARICAMENTO — nessun risultato precedente mostrato come valido */}
+            {hasComuni && territorialLoading && (
               <div style={{ marginTop: 16, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
-                {territorialLoading || (!allMatched && !territorialError) ? (
+                <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.5)" }}>
+                  Calcolo dati territoriali…
+                </div>
+              </div>
+            )}
+
+            {hasComuni && !territorialLoading && territorialError && (
+              <div style={{ marginTop: 16, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
+                <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.5)" }}>
+                  Dati territoriali non disponibili al momento. Riprova o continua nel percorso guidato.
+                </div>
+              </div>
+            )}
+
+            {territorialReady && campaign.breakdown.length > 0 && (
+              <div style={{ marginTop: 16, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
+                {!campaign.supported ? (
                   <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.45)" }}>
-                    Calcolo dati territoriali...
+                    Quantità consigliata automatica non disponibile per questo servizio: inserisci la quantità desiderata qui sotto.
                   </div>
-                ) : territorialError ? (
-                  <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.45)" }}>
-                    Dato non disponibile al momento. Verrà ricalcolato nello Step 2.
-                  </div>
-                ) : (
+                ) : campaign.allMatched ? (
                   <>
                     <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.green, marginBottom: 8 }}>
-                      {comuni.length} {comuni.length === 1 ? "comune" : "comuni"} · {totalFamilies.toLocaleString("it-IT", { useGrouping: true })} famiglie totali · stima territoriale GIS/NIL
+                      {qty == null ? "Quantità consigliata" : "Quantità consigliata"} · {n(recommendedQty)} volantini
+                    </div>
+                    <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)", marginBottom: 8 }}>
+                      Copertura stimata: {qty == null ? "100%" : `${coveragePctAtCurrentQty}%`}
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {comuniBreakdown.map((c) => (
-                        <div key={c.name} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
-                          <span>{c.name}</span>
-                          <span>{c.matched ? `${c.families.toLocaleString("it-IT", { useGrouping: true })} famiglie` : "dato non disponibile"}</span>
+                      {campaign.breakdown.map((b) => (
+                        <div key={b.municipality} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
+                          <span>{b.municipality}</span>
+                          <span>{b.households != null ? `${n(qty == null ? b.recommendedQuantity : b.requestedQuantity)} volantini` : "dato non disponibile"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,.6)", marginBottom: 6 }}>
+                      Dati territoriali disponibili solo per alcuni comuni
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {campaign.breakdown.map((b) => (
+                        <div key={b.municipality} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
+                          <span>{b.municipality}</span>
+                          <span>{b.households != null ? `${n(b.households)} famiglie` : "Dati territoriali non disponibili per questo comune"}</span>
                         </div>
                       ))}
                     </div>
@@ -433,11 +519,23 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
             )}
 
             <div style={{ marginTop: 24, marginBottom: 24 }}>
-              <FieldLabel>Quantità volantini</FieldLabel>
+              <FieldLabel>Quantità volantini (opzionale)</FieldLabel>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                <button
+                  type="button" onClick={() => { setQty(null); setQuantityAcknowledged(false); }}
+                  style={{
+                    padding: "8px 14px", borderRadius: 8,
+                    border: `1px solid ${qty === null ? C.green : "rgba(255,255,255,.12)"}`,
+                    background: qty === null ? `${C.green}22` : "rgba(255,255,255,.04)",
+                    color: qty === null ? C.green : "rgba(255,255,255,.6)",
+                    fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  }}
+                >
+                  Automatica (consigliata)
+                </button>
                 {[5000, 10000, 25000, 50000, 100000].map((value) => (
                   <button
-                    key={value} type="button" onClick={() => { setQty(value); setShortfallAcknowledged(false); }}
+                    key={value} type="button" onClick={() => { setQty(value); setQuantityAcknowledged(false); }}
                     style={{
                       padding: "8px 14px", borderRadius: 8,
                       border: `1px solid ${qty === value ? C.blue : "rgba(255,255,255,.12)"}`,
@@ -446,46 +544,70 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                       fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer",
                     }}
                   >
-                    {value.toLocaleString("it-IT", { useGrouping: true })}
+                    {n(value)}
                   </button>
                 ))}
               </div>
               <div style={{ position: "relative" }}>
                 <input
-                  type="number" value={qty}
-                  onChange={(e) => { setQty(parseInt(e.target.value, 10) || 0); setShortfallAcknowledged(false); }}
-                  placeholder="Inserisci quantità manuale" style={inputStyle}
+                  type="number" value={qty ?? ""}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setQty(raw === "" ? null : (parseInt(raw, 10) || 0));
+                    setQuantityAcknowledged(false);
+                  }}
+                  placeholder="Lascia vuoto per il calcolo automatico" style={inputStyle}
                 />
                 <div style={{ position: "absolute", right: 14, top: 12, fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.3)" }}>pz.</div>
               </div>
-              {recommendedQty && (
-                <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.45)", marginTop: 6 }}>
-                  Consigliati ~{recommendedQty.toLocaleString("it-IT", { useGrouping: true })} pz per coprire l'area selezionata.
-                </div>
-              )}
+
+              {/* CASO B — quantità insufficiente: warning + due CTA (sez. 4) */}
               {showShortfall && (
                 <div style={{ marginTop: 12, padding: "14px", borderRadius: 12, background: `${C.yellow}14`, border: `1px solid ${C.yellow}55` }}>
                   <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.yellow, marginBottom: 6 }}>
-                    Quantità insufficiente per l'area scelta
+                    La quantità indicata non è sufficiente per coprire completamente i comuni selezionati.
                   </div>
                   <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.6)", marginBottom: 10, lineHeight: 1.5 }}>
-                    Con {qty.toLocaleString("it-IT", { useGrouping: true })} pz copri circa il {coveragePctAtCurrentQty}% dell'area richiesta
-                    {comuni.length > 1 ? " (allocazione proporzionale alle famiglie stimate per comune)." : "."}
+                    Quantità inserita: {n(qty)} · Quantità consigliata: {n(recommendedQty)} · Copertura stimata: {coveragePctAtCurrentQty}%
+                    {comuni.length > 1 ? " (ripartizione proporzionale ai dati territoriali per comune)." : "."}
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
                       type="button" onClick={() => setQty(recommendedQty)}
                       style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: C.yellow, color: C.navyDeep, fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer" }}
                     >
-                      Porta a {recommendedQty.toLocaleString("it-IT", { useGrouping: true })} pz
+                      Aumenta a {n(recommendedQty)} volantini
                     </button>
                     <button
-                      type="button" onClick={() => setShortfallAcknowledged(true)}
+                      type="button" onClick={() => setQuantityAcknowledged(true)}
                       style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,.2)", background: "transparent", color: "rgba(255,255,255,.7)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                     >
-                      Procedi con quantità attuale
+                      Mantieni {n(qty)}
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* CASO B risolto con "Mantieni": copertura parziale spiegata (sez. 5) */}
+              {recommendedQty != null && qty != null && qty < recommendedQty && quantityAcknowledged && (
+                <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.1)" }}>
+                  <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.6)", lineHeight: 1.5 }}>
+                    Con {n(qty)} volantini la campagna coprirà circa il {coveragePctAtCurrentQty}% del fabbisogno territoriale selezionato.
+                  </div>
+                </div>
+              )}
+
+              {/* Sez. 6 — quantità adeguata/superiore: nessun warning, stato positivo */}
+              {showSurplus && (
+                <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10, background: `${C.green}14`, border: `1px solid ${C.green}55` }}>
+                  <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.green }}>
+                    Quantità adeguata per la copertura selezionata.
+                  </div>
+                  {qty > recommendedQty && (
+                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", marginTop: 4 }}>
+                      La quantità indicata supera quella necessaria per la copertura territoriale stimata.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -556,48 +678,99 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
               La tua stima
             </div>
 
-            <div style={{ fontFamily: F.serif, fontSize: 36, color: C.white, marginBottom: 4 }}>{money(total)}</div>
-            <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.4)", marginBottom: 20 }}>IVA 22% esclusa</div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 16, marginBottom: 16, borderBottom: "1px solid rgba(255,255,255,.08)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)" }}>
-                <span>{SERVICE_OPTIONS.find((s) => s.id === service)?.label} · {qty.toLocaleString("it-IT", { useGrouping: true })} pz</span>
-                <span>{money(baseCost)}</span>
+            {hasComuni && territorialLoading ? (
+              <div style={{ padding: "24px 0", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.5)" }}>
+                Calcolo dati territoriali…
               </div>
-              {urgencySurcharge > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: C.red }}>
-                  <span>Urgenza (+30%)</span>
-                  <span>+{money(urgencySurcharge)}</span>
+            ) : (
+              <>
+                <div style={{ fontFamily: F.serif, fontSize: 36, color: C.white, marginBottom: 4 }}>
+                  {canPrice ? money(total) : "—"}
                 </div>
-              )}
-              {extraIds.map((id) => (
-                <div key={id} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)" }}>
-                  <span>{registryById[id]?.head}</span>
-                  <span>+{money(registryById[id]?.price)}</span>
-                </div>
-              ))}
-            </div>
+                <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.4)", marginBottom: 4 }}>+ IVA</div>
+                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.35)", marginBottom: 20 }}>Stima indicativa</div>
 
-            {comuni.length > 0 && (
-              <div style={{ marginBottom: 16, padding: "12px", borderRadius: 10, background: allMatched ? `${C.green}14` : "rgba(255,255,255,.04)", border: `1px solid ${allMatched ? C.green + "55" : "rgba(255,255,255,.1)"}` }}>
-                <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: allMatched ? C.green : "rgba(255,255,255,.5)" }}>
-                  {allMatched ? `${totalFamilies.toLocaleString("it-IT", { useGrouping: true })} famiglie stimate · ${comuni.length} comuni` : "Dati territoriali in elaborazione..."}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 16, marginBottom: 16, borderBottom: "1px solid rgba(255,255,255,.08)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)" }}>
+                    <span>{serviceLabel} · {comuni.length} {comuni.length === 1 ? "comune" : "comuni"}</span>
+                  </div>
+                  {canPrice && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)" }}>
+                      <span>{n(effectiveQuantity)} pz</span>
+                      <span>{money(baseCost)}</span>
+                    </div>
+                  )}
+                  {urgencySurcharge > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: C.red }}>
+                      <span>Urgenza (+30%)</span>
+                      <span>+{money(urgencySurcharge)}</span>
+                    </div>
+                  )}
+                  {extraIds.map((id) => (
+                    <div key={id} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)" }}>
+                      <span>{registryById[id]?.head}</span>
+                      <span>+{money(registryById[id]?.price)}</span>
+                    </div>
+                  ))}
                 </div>
-                {recommendedQty && (
-                  <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)", marginTop: 4 }}>
-                    Copertura con quantità attuale: {coveragePctAtCurrentQty}%
+
+                {campaign.supported && recommendedQty != null && (
+                  <div style={{ marginBottom: 16, padding: "12px", borderRadius: 10, background: showShortfall ? `${C.yellow}14` : `${C.green}14`, border: `1px solid ${showShortfall ? C.yellow + "55" : C.green + "55"}` }}>
+                    {showShortfall ? (
+                      <>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.6)" }}>
+                          <span>Quantità selezionata</span><span>{n(qty)}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.6)" }}>
+                          <span>Quantità consigliata</span><span>{n(recommendedQty)}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.yellow }}>
+                          <span>Copertura stimata</span><span>{coveragePctAtCurrentQty}%</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                          <button type="button" onClick={() => setQty(recommendedQty)} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "none", background: C.yellow, color: C.navyDeep, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                            Aumenta a {n(recommendedQty)}
+                          </button>
+                          <button type="button" onClick={() => setQuantityAcknowledged(true)} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,.2)", background: "transparent", color: "rgba(255,255,255,.7)", fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                            Mantieni {n(qty)}
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.green }}>
+                          Quantità consigliata: {n(recommendedQty)} volantini
+                        </div>
+                        <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", marginTop: 4 }}>
+                          Copertura stimata: {qty == null ? 100 : coveragePctAtCurrentQty}%
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
-              </div>
-            )}
 
-            <button
-              type="button"
-              onClick={handleRequestQuote}
-              style={{ width: "100%", padding: "15px", borderRadius: 12, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", marginBottom: 12 }}
-            >
-              Richiedi questo preventivo
-            </button>
+                {explanation && (
+                  <div style={{ marginBottom: 16, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", lineHeight: 1.5 }}>
+                    {explanation}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleRequestQuote}
+                  disabled={!canPrice}
+                  style={{
+                    width: "100%", padding: "15px", borderRadius: 12, border: "none",
+                    background: canPrice ? C.orange : "rgba(255,255,255,.08)",
+                    color: canPrice ? C.white : "rgba(255,255,255,.35)",
+                    fontFamily: F.sans, fontSize: 15, fontWeight: 800,
+                    cursor: canPrice ? "pointer" : "not-allowed", marginBottom: 12,
+                  }}
+                >
+                  Ricevi il preventivo
+                </button>
+              </>
+            )}
 
             <div style={{ padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.07)", marginBottom: 12 }}>
               <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white, marginBottom: 6 }}>
@@ -630,5 +803,3 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
     </div>
   );
 }
-
-
