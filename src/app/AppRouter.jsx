@@ -1,28 +1,41 @@
-import React, { useState, useEffect } from "react";
-import {
-  LoginPage, DashboardPage, CampaignDashboardPage, PagamentoBonificoPage, AdminDashboard
-} from "../../volantinipro-final.jsx";
-import { AdminLiveDashboard } from "../pages/admin/AdminLiveDashboard.jsx";
-import { GpsMonitor } from "../pages/admin/GpsMonitor.jsx";
-import { CampaignOperations } from "../pages/admin/CampaignOperations.jsx";
-import { CampaignGroups } from "../pages/admin/CampaignGroups.jsx";
-import { CampaignReport } from "../pages/admin/CampaignReport.jsx";
-import { AssignWork } from "../pages/admin/AssignWork.jsx";
-import { CampaignAssignments } from "../pages/admin/CampaignAssignments.jsx";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import { PublicRoutes } from "./PublicRoutes.jsx";
 import { Bootstrap } from "../layouts/public/Bootstrap.jsx";
 import { SeoMeta } from "../layouts/public/SeoMeta.jsx";
 import { Navbar } from "../layouts/public/Navbar.jsx";
 import { StepperBar } from "../layouts/public/StepperBar.jsx";
+import { RouteLoadingFallback } from "../layouts/public/RouteLoadingFallback.jsx";
 import { F, C } from "../lib/constants.js";
 import { CustomerGuard } from "../auth/guards/CustomerGuard.jsx";
 import { AdminGuard } from "../auth/guards/AdminGuard.jsx";
-import { CampaignTracking } from "../pages/customer/CampaignTracking.jsx";
-import { ClientCampaignReport } from "../pages/customer/ClientCampaignReport.jsx";
 import { hasSupabaseAuthHashError, hasSupabaseAuthHashToken, readPendingAuthContext } from "../auth/session.js";
 import { resolveAppRoute } from "./routeResolution.js";
 import { configuratorHistoryState, readConfiguratorDraft, readConfiguratorHistoryState, writeConfiguratorDraft } from "../lib/configuratorState.js";
 export { resolveAppRoute } from "./routeResolution.js";
+
+// BUNDLE-OPTIMIZE-1: nessuna di queste route serve al bootstrap pubblico
+// (homepage/configuratore, gestiti da PublicRoutes qui sotto restano
+// import statici, invariati). "volantinipro-final.jsx" e' un unico modulo
+// legacy che esporta Login/Dashboard Cliente/Pagamento/wrapper Admin insieme
+// — i 5 lazy() qui sotto puntano tutti allo stesso specifier, quindi Vite li
+// raggruppa in un solo chunk condiviso, scaricato solo quando serve una di
+// queste pagine (mai per homepage/configuratore).
+const LoginPage = lazy(() => import("../../volantinipro-final.jsx").then(m => ({ default: m.LoginPage })));
+const DashboardPage = lazy(() => import("../../volantinipro-final.jsx").then(m => ({ default: m.DashboardPage })));
+const CampaignDashboardPage = lazy(() => import("../../volantinipro-final.jsx").then(m => ({ default: m.CampaignDashboardPage })));
+const PagamentoBonificoPage = lazy(() => import("../../volantinipro-final.jsx").then(m => ({ default: m.PagamentoBonificoPage })));
+const AdminDashboard = lazy(() => import("../../volantinipro-final.jsx").then(m => ({ default: m.AdminDashboard })));
+
+const AdminLiveDashboard = lazy(() => import("../pages/admin/AdminLiveDashboard.jsx").then(m => ({ default: m.AdminLiveDashboard })));
+const GpsMonitor = lazy(() => import("../pages/admin/GpsMonitor.jsx").then(m => ({ default: m.GpsMonitor })));
+const CampaignOperations = lazy(() => import("../pages/admin/CampaignOperations.jsx").then(m => ({ default: m.CampaignOperations })));
+const CampaignGroups = lazy(() => import("../pages/admin/CampaignGroups.jsx").then(m => ({ default: m.CampaignGroups })));
+const CampaignReport = lazy(() => import("../pages/admin/CampaignReport.jsx").then(m => ({ default: m.CampaignReport })));
+const AssignWork = lazy(() => import("../pages/admin/AssignWork.jsx").then(m => ({ default: m.AssignWork })));
+const CampaignAssignments = lazy(() => import("../pages/admin/CampaignAssignments.jsx").then(m => ({ default: m.CampaignAssignments })));
+
+const CampaignTracking = lazy(() => import("../pages/customer/CampaignTracking.jsx").then(m => ({ default: m.CampaignTracking })));
+const ClientCampaignReport = lazy(() => import("../pages/customer/ClientCampaignReport.jsx").then(m => ({ default: m.ClientCampaignReport })));
 
 export function AppRouter() {
   const readPrefill = () => {
@@ -225,32 +238,46 @@ export function AppRouter() {
         <PublicRoutes page={page} data={data} setData={setData} goTo={goTo} prefillPatch={prefill.patch} />
 
         {/* AUTH */}
-        {page === "login" && <LoginPage onNav={goTo} context={loginContext} />}
+        {page === "login" && (
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <LoginPage onNav={goTo} context={loginContext} />
+          </Suspense>
+        )}
 
         {/* CUSTOMER ROUTES */}
         {page === "dashboard" && (
           <CustomerGuard onNav={goTo}>
-            <DashboardPage onNav={goTo} />
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <DashboardPage onNav={goTo} />
+            </Suspense>
           </CustomerGuard>
         )}
         {page.startsWith("campaign:") && (
           <CustomerGuard onNav={goTo}>
-            <CampaignDashboardPage onNav={goTo} campaignId={page.split(":")[1]} />
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <CampaignDashboardPage onNav={goTo} campaignId={page.split(":")[1]} />
+            </Suspense>
           </CustomerGuard>
         )}
         {page.startsWith("customer-payment:") && (
           <CustomerGuard onNav={goTo}>
-            <PagamentoBonificoPage onNav={goTo} campaignId={page.split(":")[1]} />
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <PagamentoBonificoPage onNav={goTo} campaignId={page.split(":")[1]} />
+            </Suspense>
           </CustomerGuard>
         )}
         {page.startsWith("customer-tracking:") && (
           <CustomerGuard onNav={goTo}>
-            <CampaignTracking campaignId={page.split(":")[1]} />
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <CampaignTracking campaignId={page.split(":")[1]} />
+            </Suspense>
           </CustomerGuard>
         )}
         {page.startsWith("customer-report:") && (
           <CustomerGuard onNav={goTo}>
-            <ClientCampaignReport campaignId={page.split(":")[1]} />
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <ClientCampaignReport campaignId={page.split(":")[1]} />
+            </Suspense>
           </CustomerGuard>
         )}
         {page === "not-found" && <NotFoundPage />}
@@ -258,7 +285,7 @@ export function AppRouter() {
         {/* ADMIN ROUTES */}
         {page.startsWith("admin") && (
           <AdminGuard onNav={goTo}>
-            {({ session }) => <>
+            {({ session }) => <Suspense fallback={<RouteLoadingFallback />}>
               {page === "admin" && <AdminDashboard onNav={goTo} adminSession={session} />}
               {page === "admin-live" && <AdminLiveDashboard onNav={goTo} />}
               {page.startsWith("admin-gps:") && <GpsMonitor campaignId={page.split(":")[1]} onNav={goTo} />}
@@ -267,7 +294,7 @@ export function AppRouter() {
               {page.startsWith("admin-report:") && <CampaignReport campaignId={page.split(":")[1]} onNav={goTo} />}
               {page.startsWith("admin-assignments-new:") && <AssignWork campaignId={page.split(":")[1]} />}
               {page.startsWith("admin-assignments:") && <CampaignAssignments campaignId={page.split(":")[1]} />}
-            </>}
+            </Suspense>}
           </AdminGuard>
         )}
 
