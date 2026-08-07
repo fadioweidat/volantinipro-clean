@@ -87,6 +87,20 @@
 --   admin_revoke_operator_assignment marca operator_assignments.metadata
 --   con '_revoked_pending_stop: true' se al momento della revoca esiste una
 --   sessione 'started'/'paused' collegata — visibile all'Admin.
+--
+-- VERIFICA POST-MIGRAZIONE (da eseguire manualmente dopo --apply)
+--   select exists (select 1 from information_schema.tables
+--     where table_name = 'operator_assignment_zones');  -- deve essere true
+--
+--   select count(*) from public.operator_assignment_zones;  -- deve essere 0
+--
+--   select proname from pg_proc
+--   where proname in (
+--     'admin_list_operators', 'admin_list_campaign_assignments',
+--     'admin_create_operator_assignment', 'admin_update_operator_assignment',
+--     'admin_revoke_operator_assignment', 'get_driver_assignment',
+--     'list_assignment_zones', 'admin_set_assignment_zones'
+--   );  -- deve restituire 8 righe
 -- =============================================================================
 
 begin;
@@ -906,20 +920,3 @@ end;
 $function$;
 
 commit;
-
--- =============================================================================
--- VERIFICA POST-MIGRAZIONE (da eseguire manualmente dopo --apply)
--- =============================================================================
--- select exists (select 1 from information_schema.tables
---   where table_name = 'operator_assignment_zones');  -- deve essere true
---
--- select count(*) from public.operator_assignment_zones;  -- deve essere 0
---
--- select proname from pg_proc
--- where proname in (
---   'admin_list_operators', 'admin_list_campaign_assignments',
---   'admin_create_operator_assignment', 'admin_update_operator_assignment',
---   'admin_revoke_operator_assignment', 'get_driver_assignment',
---   'list_assignment_zones', 'admin_set_assignment_zones'
--- );  -- deve restituire 8 righe
--- =============================================================================
