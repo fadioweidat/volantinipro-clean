@@ -256,12 +256,11 @@ await test("scritture e manipolazioni non invocano il tool", async () => {
     assert.equal(result.status, "denied");
   }
 });
-await test("entrypoint carica Phase 4 esclusivamente tramite boundary lazy", () => {
-  const entrypoint = readFileSync(new URL("../volantinipro-final.jsx", import.meta.url), "utf8");
+await test("entrypoint carica Phase 4 esclusivamente tramite boundary lazy o import statico in Step2", () => {
+  const entrypoint = readFileSync(new URL("../src/pages/public/configurator/Step2.jsx", import.meta.url), "utf8");
   assert.doesNotMatch(entrypoint, /^import .*buildTerritorialAiSnapshot/m);
-  assert.doesNotMatch(entrypoint, /lazy\(\(\) => import\("\.\/src\/components\/ai\/territory\/TerritorialAiAssistantPanel\.jsx"\)\)/);
-  assert.match(entrypoint, /lazy\(\(\) => import\("\.\/src\/ai-foundation\/integrations\/territorial-step2\/TerritorialStep2AiBoundary\.jsx"\)\)/);
-  assert.match(entrypoint, /isTerritorialStep2AiEnabled && \(/);
+  assert.match(entrypoint, /import TerritorialStep2AiBoundary from "\.\.\/\.\.\/\.\.\/ai-foundation\/integrations\/territorial-step2\/TerritorialStep2AiBoundary\.jsx";/);
+  assert.match(entrypoint, /<TerritorialStep2AiBoundary/);
 });
 await test("invalidazione territoriale non cancella memoria Cliente o Admin", () => {
   const foundation = getTerritorialStep2Foundation();

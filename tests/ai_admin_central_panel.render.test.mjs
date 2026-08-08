@@ -10,7 +10,7 @@ try {
   const { default: AdminCentralAiPanel } = await vite.ssrLoadModule("/src/components/ai/admin/AdminCentralAiPanel.jsx");
   const html = renderToStaticMarkup(React.createElement(AdminCentralAiPanel, { adminIdentity: { user: { id: "admin-1", email: "admin@test.local" }, role: "admin" }, campaigns: [], availability: {} }));
   test("pannello Admin discreto e accessibile da chiuso", () => {
-    assert.match(html, /Assistente Operativo VolantiniPro/); assert.match(html, /CentralAiAgent/); assert.match(html, /aria-expanded="false"/); assert.match(html, /Apri assistente/);
+    assert.match(html, /Analisi Operativa Dashboard/); assert.match(html, /admin-central-ai-title/); assert.match(html, /aria-expanded="false"/); assert.match(html, /Genera Analisi AI/);
   });
   test("da chiuso non monta form o cronologia", () => {
     assert.doesNotMatch(html, /id="admin-central-ai-message"/); assert.doesNotMatch(html, /Cronologia Assistente Operativo/);
