@@ -25,6 +25,24 @@ const C = {
 const QUOTE_PRICES = { d2d: 18.5, h2h: 22.0, b2b: 35.0 };
 const MAX_COMUNI = 3;
 
+// Ranking client-side dei suggerimenti Nominatim: il provider ordina per
+// "importance" (popolazione/rilevanza OSM), non per aderenza al testo
+// digitato — per query brevi questo puo' mettere un capoluogo (es. "Varese")
+// prima del comune con corrispondenza esatta/prefisso (es. "Varedo").
+// Riordina soltanto i risultati gia' restituiti dal provider: nessun comune
+// inventato o aggiunto.
+function rankMunicipalitySuggestions(list, query) {
+  const q = String(query || "").trim().toLowerCase();
+  const rank = (s) => {
+    const name = String(s.name || "").toLowerCase();
+    if (name === q) return 0;
+    if (name.startsWith(q)) return 1;
+    if (name.includes(q)) return 2;
+    return 3;
+  };
+  return [...list].sort((a, b) => rank(a) - rank(b));
+}
+
 const SERVICE_OPTIONS = [
   { id: "d2d", label: "Door to Door", sub: "Cassette postali", icon: "mailbox" },
   { id: "h2h", label: "Hand to Hand", sub: "Promoter in strada", icon: "handshake" },
@@ -66,6 +84,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   const [suggestions, setSuggestions] = useState([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [dropOpen, setDropOpen] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState(false);
   // La quantita' e' ora opzionale per costruzione: null = "calcola
   // automaticamente" (CASO A del ticket). Deliberatamente NON precompilata da
   // data?.qty/flyerQuantity (che puo' arrivare da un'altra pagina/draft
@@ -86,31 +105,47 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
       return undefined;
     }
     setSuggestLoading(true);
+    // Le risposte Nominatim possono arrivare fuori ordine rispetto alle
+    // richieste (rete non deterministica): senza questo flag, una risposta
+    // lenta per un prefisso piu' corto digitato in precedenza (es. "va") puo'
+    // sovrascrivere quella corretta e piu' recente per il testo attuale
+    // (es. "varedo"), mostrando un comune sbagliato. Il flag scarta ogni
+    // risposta che non appartiene piu' all'esecuzione corrente dell'effetto.
+    let stale = false;
     const t = setTimeout(async () => {
       try {
         const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(comuneInput)}&countrycodes=it&format=json&addressdetails=1&limit=6&featuretype=city`);
         const d = await r.json();
-        setSuggestions(d.map((f) => normalizeNominatimGeocodeResult(f, { addressLike: false })));
+        if (stale) return;
+        const normalized = d.map((f) => normalizeNominatimGeocodeResult(f, { addressLike: false }));
+        setSuggestions(rankMunicipalitySuggestions(normalized, comuneInput));
       } catch {
-        setSuggestions([]);
+        if (!stale) setSuggestions([]);
       } finally {
-        setSuggestLoading(false);
+        if (!stale) setSuggestLoading(false);
       }
     }, 350);
     debounceRef.current = t;
-    return () => clearTimeout(t);
+    return () => {
+      stale = true;
+      clearTimeout(t);
+    };
   }, [comuneInput, comuni.length]);
 
   const addComune = (suggestion) => {
     if (comuni.length >= MAX_COMUNI) return;
     const canonicalName = canonicalizeItalianMunicipalityName(suggestion.name, suggestion);
     const alreadyAdded = comuni.some((c) => c.name.toLowerCase() === canonicalName.toLowerCase());
-    if (alreadyAdded) return;
+    if (alreadyAdded) {
+      setDuplicateWarning(true);
+      return;
+    }
     setComuni((prev) => [...prev, { name: canonicalName, lat: suggestion.lat, lng: suggestion.lng }]);
     setComuneInput("");
     setSuggestions([]);
     setDropOpen(false);
     setQuantityAcknowledged(false);
+    setDuplicateWarning(false);
   };
 
   const removeComune = (name) => {
@@ -422,11 +457,16 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
               <div style={{ position: "relative" }}>
                 <input
                   value={comuneInput}
-                  onChange={(e) => { setComuneInput(e.target.value); setDropOpen(true); }}
+                  onChange={(e) => { setComuneInput(e.target.value); setDropOpen(true); setDuplicateWarning(false); }}
                   onFocus={() => setDropOpen(true)}
-                  placeholder={comuni.length === 0 ? "Es: Milano, Cormano..." : "Aggiungi un altro comune..."}
+                  placeholder={comuni.length === 0 ? "Es: Milano, Cormano..." : "Cerca un altro comune..."}
                   style={inputStyle}
                 />
+                {duplicateWarning && (
+                  <div style={{ fontFamily: F.sans, fontSize: 12, color: C.yellow, marginTop: 6 }}>
+                    Comune già selezionato.
+                  </div>
+                )}
                 {dropOpen && comuneInput.length >= 2 && (
                   <div style={{ position: "absolute", zIndex: 5, top: "calc(100% + 4px)", left: 0, right: 0, background: C.navy, border: "1px solid rgba(255,255,255,.14)", borderRadius: 10, overflow: "hidden", boxShadow: "0 12px 30px rgba(0,0,0,.4)" }}>
                     {suggestLoading && (
@@ -440,7 +480,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                         key={s.id} type="button" onClick={() => addComune(s)}
                         style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", color: C.white, fontFamily: F.sans, fontSize: 13, cursor: "pointer" }}
                       >
-                        {s.name}
+                        {s.name}{s.province ? ` · ${s.province}` : ""}
                       </button>
                     ))}
                   </div>
@@ -449,7 +489,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
             )}
             {comuneCapReached && (
               <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.4)", marginTop: 4 }}>
-                Massimo {MAX_COMUNI} comuni per il preventivo rapido.{" "}
+                Hai raggiunto il massimo di {MAX_COMUNI} comuni.{" "}
                 <button
                   type="button"
                   onClick={() => onContact("consultant", { comune: comuni.map((c) => c.name).join(", "), service, qty: effectiveQuantity, activityType })}
