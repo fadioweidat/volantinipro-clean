@@ -60,6 +60,8 @@ export function CampaignGroups({ campaignId }) {
           <p style={mutedStyle}>{campaignTitle(state.campaign, campaignId)}</p>
         </div>
         <div style={actionsStyle}>
+          <a style={{ ...buttonStyle, background: '#e8571a', border: '1px solid #e8571a', color: '#fff' }} href={`/admin/campaigns/${campaignId}/assignments/new`}>+ Assegna lavoro</a>
+          <a style={buttonStyle} href={`/admin/campaigns/${campaignId}/assignments`}>Assegnazioni</a>
           <a style={buttonStyle} href={`/admin/campaigns/${campaignId}/operations`}>Operazioni</a>
           <a style={buttonStyle} href={`/admin/campaigns/${campaignId}/report`}>Report</a>
           <a style={buttonStyle} href="/admin/live">GPS Live</a>

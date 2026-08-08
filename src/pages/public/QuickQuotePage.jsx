@@ -7,6 +7,14 @@ import { TIMING_OPTIONS, TimingUrgencyPicker } from "../../components/TimingUrge
 import { printQuotePdf } from "../../lib/pdf/printQuotePdf.js";
 import { distributionTypes } from "../../lib/distributionTypes.js";
 import { activityButtons } from "../../lib/activityButtons.js";
+import {
+  extractMunicipalityTerritorialData,
+  computeTerritorialCampaign,
+  buildQuickQuoteExplanation,
+  computeH2HTerritorialSummary,
+  computeBusinessTerritorialEstimate,
+} from "../../lib/quickQuote/territorialCampaignCalculator.js";
+import { getBusinessDefaultCopies } from "../../lib/business/business-config.js";
 
 const F = { serif: "'DM Serif Display',Georgia,serif", sans: "'DM Sans',sans-serif" };
 const C = {
@@ -19,6 +27,41 @@ const C = {
 // letterale perche' non e' un modulo importabile, ma il valore e' identico.
 const QUOTE_PRICES = { d2d: 18.5, h2h: 22.0, b2b: 35.0 };
 const MAX_COMUNI = 3;
+// Stesso raggio "singolo comune" gia' usato altrove in questo file
+// (Math.min(Math.max(3, 3), 8) == 3) — riusato qui per interrogare
+// analysis-poi-search una volta per ciascun comune selezionato (H2H/B2B):
+// l'endpoint restituisce un unico aggregato per l'area interrogata, senza
+// breakdown per comune, quindi l'unico modo corretto di ottenere un dato
+// reale per-comune e' un fetch per comune con un raggio stretto, mai
+// un'unica chiamata ad ampio raggio che mescolerebbe zone diverse.
+const POI_SINGLE_COMUNE_RADIUS_KM = 3;
+// Timeout client-side per singolo comune, solo H2H/B2B nel Preventivo
+// Rapido. useServiceAnalysis.js (condiviso con Step2) non espone alcun
+// timeout parametrico ne' altrove nel progetto esiste una configurazione
+// riusabile per questo — verificato prima di introdurlo, per non duplicare
+// funzionalita' gia' presenti (AbortController e stale-request protection
+// sono gia' nell'hook e vengono riusati cosi' come sono). Il limite non
+// tocca lo Step2 in alcun modo: e' applicato solo qui, sui 3 fetch
+// per-comune sotto.
+const POI_PER_COMUNE_TIMEOUT_MS = 25000;
+
+// Ranking client-side dei suggerimenti Nominatim: il provider ordina per
+// "importance" (popolazione/rilevanza OSM), non per aderenza al testo
+// digitato — per query brevi questo puo' mettere un capoluogo (es. "Varese")
+// prima del comune con corrispondenza esatta/prefisso (es. "Varedo").
+// Riordina soltanto i risultati gia' restituiti dal provider: nessun comune
+// inventato o aggiunto.
+function rankMunicipalitySuggestions(list, query) {
+  const q = String(query || "").trim().toLowerCase();
+  const rank = (s) => {
+    const name = String(s.name || "").toLowerCase();
+    if (name === q) return 0;
+    if (name.startsWith(q)) return 1;
+    if (name.includes(q)) return 2;
+    return 3;
+  };
+  return [...list].sort((a, b) => rank(a) - rank(b));
+}
 
 const SERVICE_OPTIONS = [
   { id: "d2d", label: "Door to Door", sub: "Cassette postali", icon: "mailbox" },
@@ -45,6 +88,10 @@ function money(value) {
   return `€${Number(value || 0).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function n(value) {
+  return Number(value || 0).toLocaleString("it-IT", { useGrouping: true });
+}
+
 export default function QuickQuotePage({ onStart, onContact, data }) {
   const [service, setService] = useState(data?.type || data?.selectedService || "d2d");
   const [activityType, setActivityType] = useState(data?.activityType || data?.businessSector || "");
@@ -57,13 +104,31 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   const [suggestions, setSuggestions] = useState([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [dropOpen, setDropOpen] = useState(false);
-  const [qty, setQty] = useState(data?.qty || data?.flyerQuantity || 10000);
+  const [duplicateWarning, setDuplicateWarning] = useState(false);
+  // La quantita' e' ora opzionale per costruzione: null = "calcola
+  // automaticamente" (CASO A del ticket). Deliberatamente NON precompilata da
+  // data?.qty/flyerQuantity (che puo' arrivare da un'altra pagina/draft
+  // salvato) — il Preventivo Rapido deve partire sempre pulito, senza una
+  // quantita' ereditata che sembrerebbe gia' "decisa" dal territorio.
+  const [qty, setQty] = useState(null);
   const [format, setFormat] = useState("A5");
   const [printed, setPrinted] = useState("true");
   const [timing, setTiming] = useState("asap");
   const [customDate, setCustomDate] = useState("");
   const [extraIds, setExtraIds] = useState([]);
-  const [shortfallAcknowledged, setShortfallAcknowledged] = useState(false);
+  const [quantityAcknowledged, setQuantityAcknowledged] = useState(false);
+  // Timeout client-side per-comune (H2H/B2B) — indice true quando lo slot ha
+  // superato POI_PER_COMUNE_TIMEOUT_MS senza risolvere. Una volta true resta
+  // "sticky" per quel comune (sez. 3: "mantieni i dati... mostra Bresso come
+  // non disponibile"), anche se il fetch di sfondo risolvesse piu' tardi.
+  const [poiTimedOut, setPoiTimedOut] = useState([false, false, false]);
+  const poiTimeoutTimersRef = useRef([null, null, null]);
+  // Snapshot della stima Business esplicitamente accettata dal cliente
+  // (click "Usa X copie"): finche' resta null, il prezzo segue liberamente
+  // la stima live (nessuna scelta esplicita ancora fatta); dopo un click,
+  // resta fissa a quel valore anche se arrivano nuovi dati — sez. 8: mai
+  // cambiare silenziosamente una quantita' gia' accettata.
+  const [acceptedBusinessEstimate, setAcceptedBusinessEstimate] = useState(null);
   const debounceRef = useRef(null);
 
   useEffect(() => {
@@ -72,37 +137,62 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
       return undefined;
     }
     setSuggestLoading(true);
+    // Le risposte Nominatim possono arrivare fuori ordine rispetto alle
+    // richieste (rete non deterministica): senza questo flag, una risposta
+    // lenta per un prefisso piu' corto digitato in precedenza (es. "va") puo'
+    // sovrascrivere quella corretta e piu' recente per il testo attuale
+    // (es. "varedo"), mostrando un comune sbagliato. Il flag scarta ogni
+    // risposta che non appartiene piu' all'esecuzione corrente dell'effetto.
+    let stale = false;
     const t = setTimeout(async () => {
       try {
         const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(comuneInput)}&countrycodes=it&format=json&addressdetails=1&limit=6&featuretype=city`);
         const d = await r.json();
-        setSuggestions(d.map((f) => normalizeNominatimGeocodeResult(f, { addressLike: false })));
+        if (stale) return;
+        const normalized = d.map((f) => normalizeNominatimGeocodeResult(f, { addressLike: false }));
+        setSuggestions(rankMunicipalitySuggestions(normalized, comuneInput));
       } catch {
-        setSuggestions([]);
+        if (!stale) setSuggestions([]);
       } finally {
-        setSuggestLoading(false);
+        if (!stale) setSuggestLoading(false);
       }
     }, 350);
     debounceRef.current = t;
-    return () => clearTimeout(t);
+    return () => {
+      stale = true;
+      clearTimeout(t);
+    };
   }, [comuneInput, comuni.length]);
 
   const addComune = (suggestion) => {
     if (comuni.length >= MAX_COMUNI) return;
     const canonicalName = canonicalizeItalianMunicipalityName(suggestion.name, suggestion);
     const alreadyAdded = comuni.some((c) => c.name.toLowerCase() === canonicalName.toLowerCase());
-    if (alreadyAdded) return;
+    if (alreadyAdded) {
+      setDuplicateWarning(true);
+      return;
+    }
     setComuni((prev) => [...prev, { name: canonicalName, lat: suggestion.lat, lng: suggestion.lng }]);
     setComuneInput("");
     setSuggestions([]);
     setDropOpen(false);
-    setShortfallAcknowledged(false);
+    setQuantityAcknowledged(false);
+    setDuplicateWarning(false);
   };
 
   const removeComune = (name) => {
     setComuni((prev) => prev.filter((c) => c.name !== name));
-    setShortfallAcknowledged(false);
+    setQuantityAcknowledged(false);
   };
+
+  // Cambio servizio: la raccomandazione territoriale automatica esiste solo
+  // per Door to Door (vedi territorialCampaignCalculator.js — nessuna fonte
+  // dati reale per H2H/B2B). Non azzeriamo la quantita' gia' inserita
+  // dall'utente (sarebbe una perdita di dato non richiesta), ricalcoliamo
+  // solo cosa deriva dal territorio.
+  useEffect(() => {
+    setQuantityAcknowledged(false);
+  }, [service]);
 
   // Stessa formula di Step2 per il raggio tecnico "comune intero"
   // (volantinipro-final.jsx, effectiveRadiusKm): singolo comune -> clamp
@@ -112,34 +202,173 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   const anchor = comuni[0] || null;
   const selectionScope = comuni.length > 1 ? "multi" : (comuni.length === 1 ? "municipality" : null);
 
+  // Il fetch anchor-based (fino a 25km per il multi-comune) resta valido solo
+  // per D2D, dove analysis-istat restituisce comuni_breakdown e i singoli
+  // comuni richiesti vengono filtrati per nome (vedi municipalityRows sotto).
+  // Per H2H/B2B analysis-poi-search restituisce invece UN SOLO aggregato per
+  // l'area interrogata (nessun comuni_breakdown): usare qui lo stesso fetch
+  // ad ampio raggio produrrebbe un numero impreciso, mescolando POI/attivita'
+  // di zone estranee ai comuni scelti. Percio' questo fetch viene disabilitato
+  // (municipality: null) per H2H/B2B, sostituito dai fetch per-comune sotto.
   const { data: apiData, loading: territorialLoading, error: territorialError } = useServiceAnalysis(
     anchor?.lat, anchor?.lng, effectiveRadiusKm, service,
-    anchor?.name || null, qty, "comune", null, selectionScope, null
+    service === "d2d" ? (anchor?.name || null) : null, qty || null, "comune", null, selectionScope, null
   );
 
-  const comuniBreakdown = useMemo(() => {
+  // H2H/B2B — un fetch analysis-poi-search per ciascuno slot comune (fino a
+  // MAX_COMUNI), sempre chiamati (regole degli hook) ma attivi solo quando
+  // service !== "d2d" e lo slot ha un comune reale: useServiceAnalysis stesso
+  // salta il fetch quando municipality e' null (hasValidZone diventa false).
+  const poiSlot0 = useServiceAnalysis(
+    comuni[0]?.lat, comuni[0]?.lng, POI_SINGLE_COMUNE_RADIUS_KM, service,
+    service !== "d2d" && comuni[0] ? comuni[0].name : null, null, "comune", null, "municipality", null
+  );
+  const poiSlot1 = useServiceAnalysis(
+    comuni[1]?.lat, comuni[1]?.lng, POI_SINGLE_COMUNE_RADIUS_KM, service,
+    service !== "d2d" && comuni[1] ? comuni[1].name : null, null, "comune", null, "municipality", null
+  );
+  const poiSlot2 = useServiceAnalysis(
+    comuni[2]?.lat, comuni[2]?.lng, POI_SINGLE_COMUNE_RADIUS_KM, service,
+    service !== "d2d" && comuni[2] ? comuni[2].name : null, null, "comune", null, "municipality", null
+  );
+  const poiSlots = [poiSlot0, poiSlot1, poiSlot2];
+  const poiSlotsLoading = [poiSlot0.loading, poiSlot1.loading, poiSlot2.loading];
+
+  // Invalidazione immediata (sez. 7): cambio comuni/servizio azzera i
+  // timeout precedenti e la stima Business esplicitamente accettata — un
+  // risultato "timeout" o una quantita' "usata" non devono sopravvivere a un
+  // input diverso da quello per cui erano stati calcolati.
+  useEffect(() => {
+    setPoiTimedOut([false, false, false]);
+    setAcceptedBusinessEstimate(null);
+    poiTimeoutTimersRef.current.forEach((t) => t && clearTimeout(t));
+    poiTimeoutTimersRef.current = [null, null, null];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [service, comuni]);
+
+  // Timeout per-comune: un timer parte quando lo slot inizia a caricare, si
+  // annulla se lo slot risolve prima del limite, altrimenti marca quel
+  // comune come "timeout" — senza toccare gli altri slot ne' bloccare la UI
+  // in attesa (sez. 2). Nessuna modifica a useServiceAnalysis.js: il fetch di
+  // sfondo continua, ma la UI smette di aspettarlo.
+  useEffect(() => {
+    if (service === "d2d") return undefined;
+    poiSlotsLoading.forEach((loading, i) => {
+      if (loading && !poiTimeoutTimersRef.current[i]) {
+        poiTimeoutTimersRef.current[i] = setTimeout(() => {
+          setPoiTimedOut((prev) => {
+            if (prev[i]) return prev;
+            const next = [...prev];
+            next[i] = true;
+            return next;
+          });
+        }, POI_PER_COMUNE_TIMEOUT_MS);
+      }
+      if (!loading && poiTimeoutTimersRef.current[i]) {
+        clearTimeout(poiTimeoutTimersRef.current[i]);
+        poiTimeoutTimersRef.current[i] = null;
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [service, poiSlotsLoading[0], poiSlotsLoading[1], poiSlotsLoading[2]]);
+
+  useEffect(() => () => poiTimeoutTimersRef.current.forEach((t) => t && clearTimeout(t)), []);
+
+  // Risultati progressivi (sez. 3): ogni comune ha uno status indipendente,
+  // mai un'attesa collettiva su tutti e 3 prima di mostrare qualcosa.
+  const poiMunicipalityResults = useMemo(() => {
+    if (service === "d2d") return [];
+    return comuni.map((c, i) => {
+      const slot = poiSlots[i];
+      if (poiTimedOut[i]) return { municipality: c.name, status: "timeout", values: null };
+      if (slot?.loading) return { municipality: c.name, status: "pending", values: null };
+      const hasValues = Boolean(slot?.data?.values) && Object.keys(slot.data.values).length > 0;
+      const matched = hasValues && !slot?.error;
+      return { municipality: c.name, status: matched ? "matched" : "unavailable", values: matched ? slot.data.values : null };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [service, comuni, poiTimedOut, poiSlot0.data, poiSlot1.data, poiSlot2.data, poiSlot0.error, poiSlot1.error, poiSlot2.error, poiSlotsLoading[0], poiSlotsLoading[1], poiSlotsLoading[2]]);
+
+  // Nessun gate su "tutti caricati": l'aggregato si ricalcola man mano che i
+  // singoli comuni completano (matched/timeout/unavailable), sez. 3.
+  const h2hSummary = useMemo(
+    () => (service === "h2h" && comuni.length > 0 ? computeH2HTerritorialSummary({ municipalityResults: poiMunicipalityResults }) : null),
+    [service, comuni.length, poiMunicipalityResults]
+  );
+  const businessDefaultCopies = useMemo(() => getBusinessDefaultCopies({}), []);
+  const businessEstimate = useMemo(
+    () => (service === "b2b" && comuni.length > 0
+      ? computeBusinessTerritorialEstimate({ municipalityResults: poiMunicipalityResults, defaultCopies: businessDefaultCopies })
+      : null),
+    [service, comuni.length, poiMunicipalityResults, businessDefaultCopies]
+  );
+  // true solo mentre NESSUN comune ha ancora risolto (evita di mostrare un
+  // pannello vuoto per una frazione di secondo prima del primo risultato).
+  const poiAllPending = service !== "d2d" && comuni.length > 0 && poiMunicipalityResults.every((r) => r.status === "pending");
+
+  // CALCOLO TERRITORIALE — deterministico, riusa Step2 (vedi
+  // territorialCampaignCalculator.js). Durante il caricamento non calcoliamo
+  // affatto: niente stima precedente mostrata come valida (sez. 9 del ticket).
+  const municipalityRows = useMemo(() => {
     const rows = Array.isArray(apiData?.comuni_breakdown) ? apiData.comuni_breakdown : [];
     return comuni.map((c) => {
       const match = rows.find((row) => {
         const rowName = row.comune_name || row.municipality_name || row.comune || row.name || "";
         return canonicalizeItalianMunicipalityName(rowName, row).toLowerCase() === c.name.toLowerCase();
       });
-      const families = match ? Number(match.families || match.households || match.householdsTotal || match.households_total || 0) : null;
-      return { name: c.name, families, matched: Boolean(match) };
+      const { households, population } = extractMunicipalityTerritorialData(match);
+      return { municipality: c.name, households, population, matched: Boolean(match) && households != null };
     });
   }, [comuni, apiData]);
 
-  const totalFamilies = comuniBreakdown.reduce((sum, c) => sum + (c.families || 0), 0);
-  const allMatched = comuni.length > 0 && comuniBreakdown.every((c) => c.matched);
-  const recommendedQty = allMatched && totalFamilies > 0 ? totalFamilies : null;
-  const showShortfall = recommendedQty && qty < recommendedQty && !shortfallAcknowledged;
-  const coveragePctAtCurrentQty = recommendedQty ? Math.min(100, Math.round((qty / recommendedQty) * 100)) : null;
+  const campaign = useMemo(
+    () => computeTerritorialCampaign({ municipalityRows, requestedQuantity: qty, service }),
+    [municipalityRows, qty, service]
+  );
+
+  const hasComuni = comuni.length > 0;
+  const territorialReady = hasComuni && !territorialLoading && !territorialError;
+  // recommendedQty generalizzato: D2D invariato (stessa condizione di prima).
+  // B2B usa la STIMA parziale-consentita (sez. 5: "NON presentare 154 come
+  // totale dei tre comuni" ma comunque USABILE come stima su quelli
+  // completati) — se il cliente ha gia' accettato un valore esplicitamente
+  // (click "Usa X copie"), quel valore resta fisso finche' non lo riaccetta
+  // (sez. 8); altrimenti segue la stima live man mano che i comuni
+  // completano. H2H resta sempre null: nessuna formula affidabile esiste per
+  // derivare una quantita' da POI/score senza promoter e ore (vedi analisi).
+  const recommendedQty = service === "d2d"
+    ? (campaign.supported && campaign.hasData && campaign.allMatched ? campaign.recommendedQuantity : null)
+    : service === "b2b"
+      ? (acceptedBusinessEstimate ?? businessEstimate?.estimatedMaterials ?? null)
+      : null;
+  // Stima live piu' recente, per confrontarla con quella eventualmente gia'
+  // accettata e proporre l'aggiornamento senza sostituirla di nascosto.
+  const businessEstimateOutdated = service === "b2b"
+    && acceptedBusinessEstimate != null
+    && businessEstimate?.estimatedMaterials != null
+    && businessEstimate.estimatedMaterials !== acceptedBusinessEstimate;
+  const showShortfall = service === "d2d" && recommendedQty != null && qty != null && qty < recommendedQty && !quantityAcknowledged;
+  const showSurplus = service === "d2d" && recommendedQty != null && qty != null && qty >= recommendedQty;
+  const coveragePctAtCurrentQty = campaign.estimatedCoverage;
+
+  // Quantita' effettivamente utilizzata per il prezzo (sez. 12: il prezzo non
+  // va calcolato prima di aver determinato questa quantita'). Se il cliente
+  // non ha inserito nulla ed e' disponibile una raccomandazione D2D o una
+  // stima B2B, si usa quella. Altrimenti la quantita' inserita manualmente
+  // (unico caso possibile per H2H, dato che recommendedQty resta sempre null).
+  const effectiveQuantity = qty != null ? qty : recommendedQty;
+  // canPrice: D2D invariato. B2B/H2H non attendono piu' il completamento di
+  // tutti i comuni (progressive loading, sez. 3): basta una quantita'
+  // effettiva valida, gia' derivata solo da comuni "matched" a monte.
+  const canPrice = service === "d2d"
+    ? (!territorialLoading && effectiveQuantity != null && effectiveQuantity > 0 && (!hasComuni || !territorialError))
+    : (effectiveQuantity != null && effectiveQuantity > 0);
 
   const urgency = TIMING_OPTIONS.find((t) => t.id === timing)?.urgency || "normal";
 
   const registry = useMemo(
-    () => buildExtraServicesRegistry({ flyerQty: qty, dedicatedSupervisionPrice: 45, campaignDurationKnown: false }),
-    [qty]
+    () => buildExtraServicesRegistry({ flyerQty: effectiveQuantity || 0, dedicatedSupervisionPrice: 45, campaignDurationKnown: false }),
+    [effectiveQuantity]
   );
   const registryById = useMemo(() => buildExtraServicesById(registry), [registry]);
   const optionalExtras = useMemo(() => buildOptionalExtras(registryById), [registryById]);
@@ -148,13 +377,31 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
     setExtraIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  // Stessa formula di Step4 (QUOTE_PRICES-based): base + sovrapprezzo urgenza
-  // (+30% reale, non i valori 20/35% mostrati solo in Step1) + extra.
+  // PREZZO — stessa formula di Step4 (QUOTE_PRICES-based): base +
+  // sovrapprezzo urgenza (+30% reale) + extra. Calcolato solo su
+  // effectiveQuantity, mai sulla quantita' grezza inserita prima che sia
+  // stata risolta (sez. 12).
   const pricePerThousand = QUOTE_PRICES[service] || 18.5;
-  const baseCost = qty * (pricePerThousand / 1000);
+  const pricingQty = effectiveQuantity || 0;
+  const baseCost = pricingQty * (pricePerThousand / 1000);
   const urgencySurcharge = urgency === "urgent" ? baseCost * 0.3 : 0;
   const extrasCost = extraIds.reduce((sum, id) => sum + (registryById[id]?.price || 0), 0);
   const total = baseCost + urgencySurcharge + extrasCost;
+
+  // PRESENTAZIONE / CONSIGLIO — testo deterministico sempre disponibile
+  // (nessuna dipendenza da AI, sez. 7 del ticket). Solo D2D: H2H e B2B hanno
+  // testi di trasparenza propri (vedi pannelli dedicati sotto), diversi da
+  // quello generico D2D-oriented di buildQuickQuoteExplanation.
+  const explanation = hasComuni && service === "d2d"
+    ? buildQuickQuoteExplanation({
+        service,
+        municipalities: comuni.map((c) => c.name),
+        requestedQuantity: qty,
+        recommendedQuantity: recommendedQty,
+        estimatedCoverage: coveragePctAtCurrentQty,
+        status: campaign.status,
+      })
+    : null;
 
   const comuneCapReached = comuni.length >= MAX_COMUNI;
 
@@ -166,7 +413,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
 
   const goToGuidedPath = () => {
     onStart("step1", {
-      service, comune: anchor?.name || "", qty, format,
+      service, comune: anchor?.name || "", qty: effectiveQuantity || undefined, format,
       urgency: urgency === "urgent" ? "urgent" : "normal",
       activityType,
     });
@@ -180,6 +427,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   // punteggi Step2) restano vuote/null cosi' printQuotePdf le omette da
   // sola — mai un valore inventato per riempirle.
   const handleRequestQuote = () => {
+    if (!canPrice) return;
     const mainArea = comuni.map((c) => c.name).join(", ") || comuneInput || "Zona da definire";
     const quotePdfData = {
       generatedAt: new Date().toISOString(),
@@ -187,7 +435,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
       service: serviceLabel,
       campaign: {
         variant: null,
-        quantity: qty,
+        quantity: effectiveQuantity,
         format: format,
         grammage: null,
         materialStatus: printed === "true" ? "già stampato" : "Da produrre",
@@ -209,23 +457,23 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
         selectionMode: "Auto",
       },
       outputs: {
-        estimatedFamilies: allMatched ? totalFamilies : null,
+        estimatedFamilies: campaign.allMatched ? campaign.breakdown.reduce((s, b) => s + (b.households || 0), 0) : null,
         estimatedPopulation: null,
-        estimatedCoverage: null,
+        estimatedCoverage: coveragePctAtCurrentQty,
         recommendedFlyers: recommendedQty,
         fullCoverageFlyers: recommendedQty,
-        insertedFlyers: qty,
-        remainingFlyers: recommendedQty && qty > recommendedQty ? qty - recommendedQty : 0,
-        missingFlyers: recommendedQty && qty < recommendedQty ? recommendedQty - qty : 0,
-        coverageStatus: recommendedQty ? (qty >= recommendedQty ? "sufficient" : "partial") : null,
+        insertedFlyers: effectiveQuantity,
+        remainingFlyers: recommendedQty && effectiveQuantity > recommendedQty ? effectiveQuantity - recommendedQty : 0,
+        missingFlyers: recommendedQty && effectiveQuantity < recommendedQty ? recommendedQty - effectiveQuantity : 0,
+        coverageStatus: recommendedQty ? (effectiveQuantity >= recommendedQty ? "sufficient" : "partial") : null,
       },
       coverageStrategy: null,
-      municipalities: comuniBreakdown.map((c) => ({
-        name: c.name,
-        status: c.matched ? "Dato disponibile" : "In elaborazione",
-        estimatedFlyers: c.matched && totalFamilies > 0 ? Math.round((c.families / totalFamilies) * qty) : null,
-        coveragePct: null,
-        contributionPct: c.matched && totalFamilies > 0 ? Math.round((c.families / totalFamilies) * 100) : null,
+      municipalities: campaign.breakdown.map((b) => ({
+        name: b.municipality,
+        status: b.households != null ? "Dato disponibile" : "In elaborazione",
+        estimatedFlyers: b.requestedQuantity,
+        coveragePct: b.estimatedCoverage,
+        contributionPct: recommendedQty && b.recommendedQuantity ? Math.round((b.recommendedQuantity / recommendedQty) * 100) : null,
       })),
       scores: [],
       adminInfo: [],
@@ -250,8 +498,8 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
         lines: [
           {
             label: `Distribuzione ${serviceLabel}`,
-            detail: `${qty.toLocaleString("it-IT", { useGrouping: true })} volantini`,
-            quantity: qty,
+            detail: `${n(effectiveQuantity)} volantini`,
+            quantity: effectiveQuantity,
             unitPrice: pricePerThousand / 1000,
             total: baseCost,
           },
@@ -262,7 +510,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
         discounts: [],
         total,
       },
-      sources: allMatched ? ["Analisi territoriale GIS/NIL"] : [],
+      sources: campaign.allMatched ? ["Analisi territoriale GIS/NIL"] : [],
     };
     printQuotePdf(quotePdfData);
   };
@@ -290,7 +538,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
             Preventivo rapido
           </h1>
           <p style={{ fontFamily: F.sans, fontSize: 16, color: "rgba(255,255,255,.52)", lineHeight: 1.6, maxWidth: 640 }}>
-            Configura fino a 3 comuni e ricevi una stima con dati territoriali reali. Potrai completare l'analisi nel percorso guidato o parlare con un consulente.
+            Scegli il servizio e i comuni: calcoliamo automaticamente la quantità consigliata dai dati territoriali reali. Nessuna mappa da configurare qui.
           </p>
         </div>
 
@@ -366,11 +614,16 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
               <div style={{ position: "relative" }}>
                 <input
                   value={comuneInput}
-                  onChange={(e) => { setComuneInput(e.target.value); setDropOpen(true); }}
+                  onChange={(e) => { setComuneInput(e.target.value); setDropOpen(true); setDuplicateWarning(false); }}
                   onFocus={() => setDropOpen(true)}
-                  placeholder={comuni.length === 0 ? "Es: Milano, Cormano..." : "Aggiungi un altro comune..."}
+                  placeholder={comuni.length === 0 ? "Es: Milano, Cormano..." : "Cerca un altro comune..."}
                   style={inputStyle}
                 />
+                {duplicateWarning && (
+                  <div style={{ fontFamily: F.sans, fontSize: 12, color: C.yellow, marginTop: 6 }}>
+                    Comune già selezionato.
+                  </div>
+                )}
                 {dropOpen && comuneInput.length >= 2 && (
                   <div style={{ position: "absolute", zIndex: 5, top: "calc(100% + 4px)", left: 0, right: 0, background: C.navy, border: "1px solid rgba(255,255,255,.14)", borderRadius: 10, overflow: "hidden", boxShadow: "0 12px 30px rgba(0,0,0,.4)" }}>
                     {suggestLoading && (
@@ -384,7 +637,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                         key={s.id} type="button" onClick={() => addComune(s)}
                         style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", color: C.white, fontFamily: F.sans, fontSize: 13, cursor: "pointer" }}
                       >
-                        {s.name}
+                        {s.name}{s.province ? ` · ${s.province}` : ""}
                       </button>
                     ))}
                   </div>
@@ -393,10 +646,10 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
             )}
             {comuneCapReached && (
               <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.4)", marginTop: 4 }}>
-                Massimo {MAX_COMUNI} comuni per il preventivo rapido.{" "}
+                Hai raggiunto il massimo di {MAX_COMUNI} comuni.{" "}
                 <button
                   type="button"
-                  onClick={() => onContact("consultant", { comune: comuni.map((c) => c.name).join(", "), service, qty, activityType })}
+                  onClick={() => onContact("consultant", { comune: comuni.map((c) => c.name).join(", "), service, qty: effectiveQuantity, activityType })}
                   style={{ border: "none", background: "transparent", color: C.blue, fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0, textDecoration: "underline" }}
                 >
                   Hai più comuni? Parla con un consulente
@@ -404,26 +657,56 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
               </div>
             )}
 
-            {comuni.length > 0 && (
+            {/* STATO DI CARICAMENTO — nessun risultato precedente mostrato come valido */}
+            {service === "d2d" && hasComuni && territorialLoading && (
               <div style={{ marginTop: 16, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
-                {territorialLoading || (!allMatched && !territorialError) ? (
+                <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.5)" }}>
+                  Calcolo dati territoriali…
+                </div>
+              </div>
+            )}
+
+            {service === "d2d" && hasComuni && !territorialLoading && territorialError && (
+              <div style={{ marginTop: 16, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
+                <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.5)" }}>
+                  Dati territoriali non disponibili al momento. Riprova o continua nel percorso guidato.
+                </div>
+              </div>
+            )}
+
+            {service === "d2d" && territorialReady && campaign.breakdown.length > 0 && (
+              <div style={{ marginTop: 16, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
+                {!campaign.supported ? (
                   <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.45)" }}>
-                    Calcolo dati territoriali...
+                    Quantità consigliata automatica non disponibile per questo servizio: inserisci la quantità desiderata qui sotto.
                   </div>
-                ) : territorialError ? (
-                  <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.45)" }}>
-                    Dato non disponibile al momento. Verrà ricalcolato nello Step 2.
-                  </div>
-                ) : (
+                ) : campaign.allMatched ? (
                   <>
                     <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.green, marginBottom: 8 }}>
-                      {comuni.length} {comuni.length === 1 ? "comune" : "comuni"} · {totalFamilies.toLocaleString("it-IT", { useGrouping: true })} famiglie totali · stima territoriale GIS/NIL
+                      {qty == null ? "Quantità consigliata" : "Quantità consigliata"} · {n(recommendedQty)} volantini
+                    </div>
+                    <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)", marginBottom: 8 }}>
+                      Copertura stimata: {qty == null ? "100%" : `${coveragePctAtCurrentQty}%`}
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {comuniBreakdown.map((c) => (
-                        <div key={c.name} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
-                          <span>{c.name}</span>
-                          <span>{c.matched ? `${c.families.toLocaleString("it-IT", { useGrouping: true })} famiglie` : "dato non disponibile"}</span>
+                      {campaign.breakdown.map((b) => (
+                        <div key={b.municipality} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
+                          <span>{b.municipality}</span>
+                          <span>{b.households != null ? `${n(qty == null ? b.recommendedQuantity : b.requestedQuantity)} volantini` : "dato non disponibile"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,.6)", marginBottom: 6 }}>
+                      Dati territoriali disponibili solo per alcuni comuni
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {campaign.breakdown.map((b) => (
+                        <div key={b.municipality} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
+                          <span>{b.municipality}</span>
+                          <span>{b.households != null ? `${n(b.households)} famiglie` : "Dati territoriali non disponibili per questo comune"}</span>
                         </div>
                       ))}
                     </div>
@@ -432,12 +715,176 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
               </div>
             )}
 
+            {/* HAND TO HAND — solo indicatori territoriali reali, mai una
+                quantita' automatica (nessuna formula affidabile esiste per
+                derivarla da POI/score senza promoter e ore). Caricamento
+                progressivo: si mostra ogni comune non appena completa, senza
+                aspettare gli altri (sez. 3). */}
+            {service === "h2h" && hasComuni && poiAllPending && (
+              <div style={{ marginTop: 16, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
+                <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.5)" }}>
+                  Analisi territoriale in corso…
+                </div>
+              </div>
+            )}
+            {service === "h2h" && hasComuni && !poiAllPending && h2hSummary && (
+              <div style={{ marginTop: 16, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
+                <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.white, marginBottom: 2 }}>
+                  Analisi rapida della zona
+                </div>
+                {h2hSummary.totalCount > 1 && (
+                  <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)", marginBottom: 8 }}>
+                    Analisi disponibile per {h2hSummary.completedCount} di {h2hSummary.totalCount} comuni selezionati.
+                  </div>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {h2hSummary.poiCount != null && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
+                      <span>Punti rilevati</span><span>{n(h2hSummary.poiCount)}</span>
+                    </div>
+                  )}
+                  {h2hSummary.transitPoints != null && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
+                      <span>Fermate / stazioni</span><span>{n(h2hSummary.transitPoints)}</span>
+                    </div>
+                  )}
+                  {h2hSummary.schoolsEventsCount != null && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
+                      <span>Scuole / università / eventi</span><span>{n(h2hSummary.schoolsEventsCount)}</span>
+                    </div>
+                  )}
+                  {h2hSummary.hotspotCount != null && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
+                      <span>Hotspot rilevati</span><span>{n(h2hSummary.hotspotCount)}</span>
+                    </div>
+                  )}
+                  {h2hSummary.poiCount == null && h2hSummary.transitPoints == null && h2hSummary.schoolsEventsCount == null && h2hSummary.hotspotCount == null && (
+                    <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.45)" }}>Dato non disponibile</div>
+                  )}
+                  {h2hSummary.pendingMunicipalities.length > 0 && (
+                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)", marginTop: 4 }}>
+                      Analisi in corso per: {h2hSummary.pendingMunicipalities.join(", ")}.
+                    </div>
+                  )}
+                  {h2hSummary.timedOutMunicipalities.length > 0 && (
+                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)", marginTop: 4 }}>
+                      Analisi non disponibile per questo comune nei tempi previsti: {h2hSummary.timedOutMunicipalities.join(", ")}.
+                    </div>
+                  )}
+                  {h2hSummary.unmatchedMunicipalities.length > 0 && h2hSummary.pendingMunicipalities.length === 0 && h2hSummary.timedOutMunicipalities.length === 0 && (
+                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)", marginTop: 4 }}>
+                      Dati non disponibili per: {h2hSummary.unmatchedMunicipalities.join(", ")}. I KPI sopra riguardano solo i comuni analizzati correttamente.
+                    </div>
+                  )}
+                </div>
+                <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.5)", marginTop: 12, lineHeight: 1.5 }}>
+                  La quantità dipende dalla durata dell'attività e dal numero di promoter. Inserisci la quantità desiderata per ricevere la stima immediata.
+                </div>
+              </div>
+            )}
+
+            {/* BUSINESS DISTRIBUTION — attivita' target reali + stima
+                materiali (1 copia/attivita', default esistente in
+                business-config.js), mai presentata come dato territoriale
+                completo. Anche qui caricamento progressivo per-comune. */}
+            {service === "b2b" && hasComuni && poiAllPending && (
+              <div style={{ marginTop: 16, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
+                <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.5)" }}>
+                  Analisi territoriale in corso…
+                </div>
+              </div>
+            )}
+            {service === "b2b" && hasComuni && !poiAllPending && businessEstimate && (
+              <div style={{ marginTop: 16, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
+                <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.green, marginBottom: 4 }}>
+                  Attività target rilevate · {businessEstimate.targetActivitiesCount != null ? n(businessEstimate.targetActivitiesCount) : "dato non disponibile"}
+                </div>
+                {businessEstimate.estimatedMaterials != null && (
+                  <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)", marginBottom: 8 }}>
+                    Stima minima materiali · {n(businessEstimate.estimatedMaterials)} copie
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,.4)", marginTop: 2 }}>
+                      Calcolata considerando {businessEstimate.defaultCopies} {businessEstimate.defaultCopies === 1 ? "copia" : "copie"} per ogni attività target rilevata.
+                    </div>
+                  </div>
+                )}
+                {businessEstimate.breakdown.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
+                    {businessEstimate.breakdown.map((b) => (
+                      <div key={b.municipality} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
+                        <span>{b.municipality}</span>
+                        <span>
+                          {b.status === "matched" ? `${n(b.targetActivitiesCount)} attività`
+                            : b.status === "pending" ? "Analisi in corso…"
+                            : b.status === "timeout" ? "Tempo di analisi superato"
+                            : "Dati non disponibili"}
+                        </span>
+                      </div>
+                    ))}
+                    {businessEstimate.targetActivitiesCount != null && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,.75)", borderTop: "1px solid rgba(255,255,255,.08)", paddingTop: 4, marginTop: 2 }}>
+                        <span>Totale</span><span>{n(businessEstimate.targetActivitiesCount)} attività</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {businessEstimate.totalCount > 1 && businessEstimate.completedCount < businessEstimate.totalCount && (
+                  <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)", marginTop: 8 }}>
+                    Stima basata su {businessEstimate.completedCount} dei {businessEstimate.totalCount} comuni selezionati. Il totale riguarda solo i comuni analizzati correttamente.
+                  </div>
+                )}
+                {businessEstimateOutdated && (
+                  <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: `${C.blue}14`, border: `1px solid ${C.blue}44` }}>
+                    <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.75)", marginBottom: 6 }}>
+                      È disponibile una stima aggiornata: {n(businessEstimate.estimatedMaterials)} copie.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setQty(null); setAcceptedBusinessEstimate(businessEstimate.estimatedMaterials); setQuantityAcknowledged(false); }}
+                      style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: C.blue, color: C.navyDeep, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}
+                    >
+                      Usa la stima aggiornata
+                    </button>
+                  </div>
+                )}
+                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)", marginTop: 10, lineHeight: 1.5 }}>
+                  La stima si basa sulle attività target rilevate dalle fonti territoriali disponibili. Il numero effettivo di attività può variare.
+                </div>
+              </div>
+            )}
+
             <div style={{ marginTop: 24, marginBottom: 24 }}>
-              <FieldLabel>Quantità volantini</FieldLabel>
+              <FieldLabel>Quantità volantini (opzionale)</FieldLabel>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                {/* H2H non ha mai una quantita' automatica (nessuna formula
+                    affidabile la produce): il pulsante non viene mostrato,
+                    resta solo l'inserimento manuale sotto. */}
+                {service !== "h2h" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQty(null);
+                      if (service === "b2b") setAcceptedBusinessEstimate(businessEstimate?.estimatedMaterials ?? null);
+                      setQuantityAcknowledged(false);
+                    }}
+                    disabled={service === "b2b" && recommendedQty == null}
+                    style={{
+                      padding: "8px 14px", borderRadius: 8,
+                      border: `1px solid ${qty === null ? C.green : "rgba(255,255,255,.12)"}`,
+                      background: qty === null ? `${C.green}22` : "rgba(255,255,255,.04)",
+                      color: qty === null ? C.green : "rgba(255,255,255,.6)",
+                      fontFamily: F.sans, fontSize: 13, fontWeight: 700,
+                      cursor: service === "b2b" && recommendedQty == null ? "not-allowed" : "pointer",
+                      opacity: service === "b2b" && recommendedQty == null ? 0.5 : 1,
+                    }}
+                  >
+                    {service === "b2b"
+                      ? (recommendedQty != null ? `Usa ${n(recommendedQty)} copie` : "Usa stima automatica")
+                      : "Automatica (consigliata)"}
+                  </button>
+                )}
                 {[5000, 10000, 25000, 50000, 100000].map((value) => (
                   <button
-                    key={value} type="button" onClick={() => { setQty(value); setShortfallAcknowledged(false); }}
+                    key={value} type="button" onClick={() => { setQty(value); setQuantityAcknowledged(false); }}
                     style={{
                       padding: "8px 14px", borderRadius: 8,
                       border: `1px solid ${qty === value ? C.blue : "rgba(255,255,255,.12)"}`,
@@ -446,46 +893,70 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                       fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer",
                     }}
                   >
-                    {value.toLocaleString("it-IT", { useGrouping: true })}
+                    {n(value)}
                   </button>
                 ))}
               </div>
               <div style={{ position: "relative" }}>
                 <input
-                  type="number" value={qty}
-                  onChange={(e) => { setQty(parseInt(e.target.value, 10) || 0); setShortfallAcknowledged(false); }}
-                  placeholder="Inserisci quantità manuale" style={inputStyle}
+                  type="number" value={qty ?? ""}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setQty(raw === "" ? null : (parseInt(raw, 10) || 0));
+                    setQuantityAcknowledged(false);
+                  }}
+                  placeholder="Lascia vuoto per il calcolo automatico" style={inputStyle}
                 />
                 <div style={{ position: "absolute", right: 14, top: 12, fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.3)" }}>pz.</div>
               </div>
-              {recommendedQty && (
-                <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.45)", marginTop: 6 }}>
-                  Consigliati ~{recommendedQty.toLocaleString("it-IT", { useGrouping: true })} pz per coprire l'area selezionata.
-                </div>
-              )}
+
+              {/* CASO B — quantità insufficiente: warning + due CTA (sez. 4) */}
               {showShortfall && (
                 <div style={{ marginTop: 12, padding: "14px", borderRadius: 12, background: `${C.yellow}14`, border: `1px solid ${C.yellow}55` }}>
                   <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.yellow, marginBottom: 6 }}>
-                    Quantità insufficiente per l'area scelta
+                    La quantità indicata non è sufficiente per coprire completamente i comuni selezionati.
                   </div>
                   <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.6)", marginBottom: 10, lineHeight: 1.5 }}>
-                    Con {qty.toLocaleString("it-IT", { useGrouping: true })} pz copri circa il {coveragePctAtCurrentQty}% dell'area richiesta
-                    {comuni.length > 1 ? " (allocazione proporzionale alle famiglie stimate per comune)." : "."}
+                    Quantità inserita: {n(qty)} · Quantità consigliata: {n(recommendedQty)} · Copertura stimata: {coveragePctAtCurrentQty}%
+                    {comuni.length > 1 ? " (ripartizione proporzionale ai dati territoriali per comune)." : "."}
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
                       type="button" onClick={() => setQty(recommendedQty)}
                       style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: C.yellow, color: C.navyDeep, fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer" }}
                     >
-                      Porta a {recommendedQty.toLocaleString("it-IT", { useGrouping: true })} pz
+                      Aumenta a {n(recommendedQty)} volantini
                     </button>
                     <button
-                      type="button" onClick={() => setShortfallAcknowledged(true)}
+                      type="button" onClick={() => setQuantityAcknowledged(true)}
                       style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,.2)", background: "transparent", color: "rgba(255,255,255,.7)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                     >
-                      Procedi con quantità attuale
+                      Mantieni {n(qty)}
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* CASO B risolto con "Mantieni": copertura parziale spiegata (sez. 5) */}
+              {recommendedQty != null && qty != null && qty < recommendedQty && quantityAcknowledged && (
+                <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.1)" }}>
+                  <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.6)", lineHeight: 1.5 }}>
+                    Con {n(qty)} volantini la campagna coprirà circa il {coveragePctAtCurrentQty}% del fabbisogno territoriale selezionato.
+                  </div>
+                </div>
+              )}
+
+              {/* Sez. 6 — quantità adeguata/superiore: nessun warning, stato positivo */}
+              {showSurplus && (
+                <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10, background: `${C.green}14`, border: `1px solid ${C.green}55` }}>
+                  <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.green }}>
+                    Quantità adeguata per la copertura selezionata.
+                  </div>
+                  {qty > recommendedQty && (
+                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", marginTop: 4 }}>
+                      La quantità indicata supera quella necessaria per la copertura territoriale stimata.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -556,48 +1027,99 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
               La tua stima
             </div>
 
-            <div style={{ fontFamily: F.serif, fontSize: 36, color: C.white, marginBottom: 4 }}>{money(total)}</div>
-            <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.4)", marginBottom: 20 }}>IVA 22% esclusa</div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 16, marginBottom: 16, borderBottom: "1px solid rgba(255,255,255,.08)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)" }}>
-                <span>{SERVICE_OPTIONS.find((s) => s.id === service)?.label} · {qty.toLocaleString("it-IT", { useGrouping: true })} pz</span>
-                <span>{money(baseCost)}</span>
+            {(service === "d2d" && hasComuni && territorialLoading) || (service === "b2b" && hasComuni && poiAllPending) ? (
+              <div style={{ padding: "24px 0", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.5)" }}>
+                {service === "d2d" ? "Calcolo dati territoriali…" : "Analisi territoriale in corso…"}
               </div>
-              {urgencySurcharge > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: C.red }}>
-                  <span>Urgenza (+30%)</span>
-                  <span>+{money(urgencySurcharge)}</span>
+            ) : (
+              <>
+                <div style={{ fontFamily: F.serif, fontSize: 36, color: C.white, marginBottom: 4 }}>
+                  {canPrice ? money(total) : "—"}
                 </div>
-              )}
-              {extraIds.map((id) => (
-                <div key={id} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)" }}>
-                  <span>{registryById[id]?.head}</span>
-                  <span>+{money(registryById[id]?.price)}</span>
-                </div>
-              ))}
-            </div>
+                <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.4)", marginBottom: 4 }}>+ IVA</div>
+                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.35)", marginBottom: 20 }}>Stima indicativa</div>
 
-            {comuni.length > 0 && (
-              <div style={{ marginBottom: 16, padding: "12px", borderRadius: 10, background: allMatched ? `${C.green}14` : "rgba(255,255,255,.04)", border: `1px solid ${allMatched ? C.green + "55" : "rgba(255,255,255,.1)"}` }}>
-                <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: allMatched ? C.green : "rgba(255,255,255,.5)" }}>
-                  {allMatched ? `${totalFamilies.toLocaleString("it-IT", { useGrouping: true })} famiglie stimate · ${comuni.length} comuni` : "Dati territoriali in elaborazione..."}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 16, marginBottom: 16, borderBottom: "1px solid rgba(255,255,255,.08)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)" }}>
+                    <span>{serviceLabel} · {comuni.length} {comuni.length === 1 ? "comune" : "comuni"}</span>
+                  </div>
+                  {canPrice && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)" }}>
+                      <span>{n(effectiveQuantity)} pz</span>
+                      <span>{money(baseCost)}</span>
+                    </div>
+                  )}
+                  {urgencySurcharge > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: C.red }}>
+                      <span>Urgenza (+30%)</span>
+                      <span>+{money(urgencySurcharge)}</span>
+                    </div>
+                  )}
+                  {extraIds.map((id) => (
+                    <div key={id} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)" }}>
+                      <span>{registryById[id]?.head}</span>
+                      <span>+{money(registryById[id]?.price)}</span>
+                    </div>
+                  ))}
                 </div>
-                {recommendedQty && (
-                  <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)", marginTop: 4 }}>
-                    Copertura con quantità attuale: {coveragePctAtCurrentQty}%
+
+                {campaign.supported && recommendedQty != null && (
+                  <div style={{ marginBottom: 16, padding: "12px", borderRadius: 10, background: showShortfall ? `${C.yellow}14` : `${C.green}14`, border: `1px solid ${showShortfall ? C.yellow + "55" : C.green + "55"}` }}>
+                    {showShortfall ? (
+                      <>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.6)" }}>
+                          <span>Quantità selezionata</span><span>{n(qty)}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.6)" }}>
+                          <span>Quantità consigliata</span><span>{n(recommendedQty)}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.yellow }}>
+                          <span>Copertura stimata</span><span>{coveragePctAtCurrentQty}%</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                          <button type="button" onClick={() => setQty(recommendedQty)} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "none", background: C.yellow, color: C.navyDeep, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                            Aumenta a {n(recommendedQty)}
+                          </button>
+                          <button type="button" onClick={() => setQuantityAcknowledged(true)} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,.2)", background: "transparent", color: "rgba(255,255,255,.7)", fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                            Mantieni {n(qty)}
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.green }}>
+                          Quantità consigliata: {n(recommendedQty)} volantini
+                        </div>
+                        <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", marginTop: 4 }}>
+                          Copertura stimata: {qty == null ? 100 : coveragePctAtCurrentQty}%
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
-              </div>
-            )}
 
-            <button
-              type="button"
-              onClick={handleRequestQuote}
-              style={{ width: "100%", padding: "15px", borderRadius: 12, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", marginBottom: 12 }}
-            >
-              Richiedi questo preventivo
-            </button>
+                {explanation && (
+                  <div style={{ marginBottom: 16, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", lineHeight: 1.5 }}>
+                    {explanation}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleRequestQuote}
+                  disabled={!canPrice}
+                  style={{
+                    width: "100%", padding: "15px", borderRadius: 12, border: "none",
+                    background: canPrice ? C.orange : "rgba(255,255,255,.08)",
+                    color: canPrice ? C.white : "rgba(255,255,255,.35)",
+                    fontFamily: F.sans, fontSize: 15, fontWeight: 800,
+                    cursor: canPrice ? "pointer" : "not-allowed", marginBottom: 12,
+                  }}
+                >
+                  Ricevi il preventivo
+                </button>
+              </>
+            )}
 
             <div style={{ padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.07)", marginBottom: 12 }}>
               <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white, marginBottom: 6 }}>
@@ -630,5 +1152,3 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
     </div>
   );
 }
-
-

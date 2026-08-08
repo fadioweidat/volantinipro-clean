@@ -33,6 +33,12 @@ export function useGpsTracking(campaignId) {
   const [accuracy, setAccuracy] = useState(null);
   const [lastPosition, setLastPosition] = useState(null);
   const [lastSentAt, setLastSentAt] = useState(null);
+  const [path, setPath] = useState([]);
+  const [distanceKm, setDistanceKm] = useState(0);
+  const [speed, setSpeed] = useState(null);
+  const [heading, setHeading] = useState(null);
+  const distanceMetersRef = useRef(0);
+  const lastPathPointRef = useRef(null);
   const [networkStatus, setNetworkStatus] = useState(typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'online');
   const [queueSize, setQueueSize] = useState(0);
   const [wakeLockStatus, setWakeLockStatus] = useState('unsupported');
@@ -249,12 +255,21 @@ export function useGpsTracking(campaignId) {
           window.setTimeout(() => startWatch(shouldUseHighAccuracy), 0);
         }
         setAccuracy(Number.isFinite(coords.accuracy) ? coords.accuracy : null);
+        setSpeed(Number.isFinite(coords.speed) ? coords.speed : null);
+        setHeading(Number.isFinite(coords.heading) ? coords.heading : null);
         setLastPosition({
           lat: coords.latitude,
           lng: coords.longitude,
           accuracy: coords.accuracy,
           recorded_at: new Date(position.timestamp || Date.now()).toISOString(),
         });
+        const prevPoint = lastPathPointRef.current;
+        if (prevPoint) {
+          distanceMetersRef.current += distanceMeters(prevPoint.lat, prevPoint.lng, coords.latitude, coords.longitude);
+          setDistanceKm(distanceMetersRef.current / 1000);
+        }
+        lastPathPointRef.current = { lat: coords.latitude, lng: coords.longitude };
+        setPath((prev) => [...prev, { lat: coords.latitude, lng: coords.longitude }]);
         evaluateGeofence({
           lat: coords.latitude,
           lng: coords.longitude,
@@ -301,6 +316,10 @@ export function useGpsTracking(campaignId) {
     lastSentRef.current = { at: 0, lat: null, lng: null };
     geofenceStateRef.current = createGeofenceState();
     setGeofenceState(geofenceStateRef.current);
+    distanceMetersRef.current = 0;
+    lastPathPointRef.current = null;
+    setDistanceKm(0);
+    setPath([]);
     await requestWakeLock();
     startWatch();
     flushQueue();
@@ -488,10 +507,19 @@ export function useGpsTracking(campaignId) {
     queueSize,
     wakeLockStatus,
     assignmentState,
+    assignmentStatus: assignmentState.status === 'valid' ? 'ready'
+      : assignmentState.status === 'checking' ? 'loading'
+      : assignmentState.status === 'unknown' ? 'loading'
+      : 'blocked',
+    assignmentError: assignmentState.error,
     geofenceState,
     canStart: assignmentState.status === 'valid',
     isActive: status === 'active',
     isPaused: status === 'paused',
+    path,
+    distanceKm,
+    speed,
+    heading,
     start,
     pause,
     resume,
