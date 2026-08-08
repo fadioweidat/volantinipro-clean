@@ -845,16 +845,42 @@ function Step2MapImpl({
     } catch (_e) {}
 
     const mbToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
-    const tileLayer = L.tileLayer(
-      mbToken ? `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${mbToken}` : CARTO_VOYAGER,
-      mbToken
-        ? { tileSize: 512, zoomOffset: -1, attribution: 'Mapbox OpenStreetMap', maxZoom: 19 }
-        : { attribution: CARTO_ATTR, maxZoom: 19 }
-    );
-    tileLayer.on('tileerror', () => {
+    const showMapErrorMsg = () => {
       const errEl = document.getElementById('vp-map-error-msg');
       if (errEl) errEl.style.display = 'flex';
-    });
+    };
+    const hideMapErrorMsg = () => {
+      const errEl = document.getElementById('vp-map-error-msg');
+      if (errEl) errEl.style.display = 'none';
+    };
+    const buildCartoLayer = () => L.tileLayer(CARTO_VOYAGER, { attribution: CARTO_ATTR, maxZoom: 19 });
+
+    let tileLayer;
+    if (mbToken) {
+      tileLayer = L.tileLayer(
+        `https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${mbToken}`,
+        { tileSize: 512, zoomOffset: -1, attribution: 'Mapbox OpenStreetMap', maxZoom: 19 }
+      );
+      // Token presente ma rifiutato da Mapbox (401/403, tipicamente per
+      // restrizione di dominio su un token con URL allowlist): un solo
+      // fallback automatico a CARTO, mai un retry su Mapbox nella stessa
+      // sessione mappa. Il flag e' locale a questo effect (non stato React)
+      // perche' 'tileerror' scatta una volta per ogni tile fallita — senza
+      // guardia, lo swap verrebbe ripetuto per ciascuna di esse.
+      let fallbackTriggered = false;
+      tileLayer.on('tileerror', () => {
+        if (fallbackTriggered) return;
+        fallbackTriggered = true;
+        map.removeLayer(tileLayer);
+        const cartoFallback = buildCartoLayer();
+        cartoFallback.on('tileload', hideMapErrorMsg);
+        cartoFallback.on('tileerror', showMapErrorMsg);
+        cartoFallback.addTo(map);
+      });
+    } else {
+      tileLayer = buildCartoLayer();
+      tileLayer.on('tileerror', showMapErrorMsg);
+    }
     tileLayer.addTo(map);
 
     const resizeObserver = new ResizeObserver(() => {

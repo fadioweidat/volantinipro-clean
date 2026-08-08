@@ -18,9 +18,13 @@ test("official test pipeline includes territorial data import contracts", () => 
   assert.equal(fs.existsSync(new URL("../scripts/import_gtfs.mjs", import.meta.url)), true);
 });
 
-test("Step 2 map uses a real tokenless CARTO/OSM tile fallback", () => {
-  assert.match(step2Map, /mbToken \?[^\n]+mapbox[\s\S]+: CARTO_VOYAGER/);
+test("Step 2 map uses a real tokenless CARTO/OSM tile fallback, with automatic runtime fallback from Mapbox to CARTO on tile errors", () => {
+  assert.match(step2Map, /if \(mbToken\)[\s\S]+mapbox[\s\S]+else[\s\S]+buildCartoLayer/);
   assert.match(step2Map, /attribution: CARTO_ATTR/);
+  // Fallback automatico Mapbox -> CARTO a runtime (401/403 su token con
+  // restrizione di dominio): un solo swap per sessione mappa, mai un loop.
+  assert.match(step2Map, /fallbackTriggered/);
+  assert.match(step2Map, /cartoFallback\.on\('tileerror', showMapErrorMsg\)/);
 });
 
 test("POI provider reads real cached coordinates in radius without D2D substitution", () => {
