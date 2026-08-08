@@ -137,6 +137,31 @@ function fmtInt(v) {
   return Math.round(Number(v)).toLocaleString("it-IT");
 }
 
+// Badge di trasparenza sullo stato della sintesi AI del box "Raccomandazione
+// principale" (Panoramica). Non tocca calcoli/dati: solo etichetta lo stato
+// già presente in aiState.status ('loading' | 'ai' | 'fallback').
+function AiStatusBadge({ status }) {
+  const cfg = {
+    ai: { label: "AI attiva", bg: "rgba(139,92,246,.16)", border: "rgba(139,92,246,.4)", color: "#C4B5FD" },
+    loading: { label: "AI in elaborazione…", bg: "rgba(96,165,250,.12)", border: "rgba(96,165,250,.35)", color: "#93C5FD" },
+    fallback: { label: "Analisi locale", bg: "rgba(255,255,255,.06)", border: "rgba(255,255,255,.18)", color: "rgba(255,255,255,.65)" },
+  }[status] || null;
+  if (!cfg) return null;
+  return (
+    <span
+      title={status === "ai" ? "Raccomandazione generata dal modello AI sulla base dei dati territoriali disponibili." : status === "fallback" ? "L'AI non è disponibile in questo momento. La raccomandazione mostrata è generata automaticamente dai dati e dalle regole operative disponibili." : "Richiesta AI in corso."}
+      style={{
+        display: "inline-flex", alignItems: "center", fontFamily: F.sans,
+        fontSize: 9.5, fontWeight: 800, letterSpacing: ".03em", textTransform: "uppercase",
+        padding: "2px 8px", borderRadius: 999, whiteSpace: "nowrap",
+        background: cfg.bg, border: `1px solid ${cfg.border}`, color: cfg.color,
+      }}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
 function NA({ compact = false, children }) {
   return (
     <div
@@ -464,6 +489,9 @@ function SectionPanoramica({ p, isMobile }) {
         <div style={{ background: "rgba(96,165,250,.08)", border: "1px solid rgba(96,165,250,.24)", borderRadius: 12, padding: 16 }}>
           <div style={{ fontSize: 12.5, fontWeight: 900, color: "#60A5FA", marginBottom: 8 }}>Analisi supportata da AI</div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,.82)", lineHeight: 1.55 }}>{AI_EXPLANATION}</div>
+          <div style={{ fontSize: 10.5, color: "rgba(255,255,255,.45)", lineHeight: 1.4, marginTop: 8 }}>
+            I dati territoriali e i calcoli di copertura sono deterministici. L'AI interviene solo nell'interpretazione e nella raccomandazione.
+          </div>
         </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
@@ -479,7 +507,10 @@ function SectionPanoramica({ p, isMobile }) {
         </div>
         <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12, padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
           <div>
-            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#60A5FA", marginBottom: 4 }}>Raccomandazione principale</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 11.5, fontWeight: 800, color: "#60A5FA" }}>Raccomandazione principale</div>
+              <AiStatusBadge status={aiState.status} />
+            </div>
             {aiState.status === "loading" ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }} aria-live="polite" aria-busy="true">
                 <div style={{ height: 10, borderRadius: 5, width: "94%", background: "rgba(255,255,255,.08)" }} />
@@ -493,7 +524,12 @@ function SectionPanoramica({ p, isMobile }) {
                 </div>
                 {aiState.status === "ai" && (
                   <div style={{ fontSize: 10.5, color: "rgba(255,255,255,.4)", lineHeight: 1.4, marginTop: 8 }}>
-                    Sintesi generata da AI sui dati territoriali reali di questa zona. Tutti i valori numerici provengono dalle fonti indicate nella sezione Fonti.
+                    Raccomandazione generata dal modello AI sulla base dei dati territoriali disponibili.
+                  </div>
+                )}
+                {aiState.status === "fallback" && (
+                  <div style={{ fontSize: 10.5, color: "rgba(255,255,255,.4)", lineHeight: 1.4, marginTop: 8 }}>
+                    L'AI non è disponibile in questo momento. La raccomandazione mostrata è generata automaticamente dai dati e dalle regole operative disponibili.
                   </div>
                 )}
               </>
