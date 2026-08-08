@@ -2508,7 +2508,7 @@ export function Step1({
             fontSize: 22,
             color: "#F8FAFC",
             margin: 0
-          }}>Smart Pairing AI</h3>
+          }}>Smart Pairing</h3>
             </div>
             <p style={{
           fontSize: 14,

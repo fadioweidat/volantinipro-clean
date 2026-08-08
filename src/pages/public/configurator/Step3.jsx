@@ -763,7 +763,7 @@ export function Step3({
           boxShadow: "0 0 20px rgba(6,182,212,0.4)",
           animation: "pulseGlow 2.5s infinite"
         }}>
-            <Step1Icon name="sparkles" size={13} color={C.white} /> SMART PAIRING AI
+            <Step1Icon name="sparkles" size={13} color={C.white} /> SMART PAIRING
           </span>
           {/* 8. STATO RICERCA BADGE */}
           <span style={{
@@ -776,7 +776,7 @@ export function Step3({
           fontSize: 11,
           fontWeight: 700
         }}>
-            {realSmartPairingSlots.length > 0 ? selDays.length > 0 ? "● Confermato" : "● Campagne compatibili" : "● Ricerca in corso"}
+            {realSmartPairingSlots.length > 0 ? selDays.length > 0 ? "● Confermato" : "● Campagne compatibili" : (formSent ? "● Richiesta registrata" : "● Nessun match")}
           </span>
         </div>
         <h2 style={{
@@ -797,7 +797,7 @@ export function Step3({
         maxWidth: 720,
         marginBottom: 24
       }}>
-          L'intelligenza artificiale raggruppa automaticamente campagne compatibili nella stessa zona. Quando troviamo campagne compatibili ricevi una notifica e distribuiamo ottimizzando logistica e mezzi.
+          Il sistema cerca automaticamente campagne compatibili nella stessa zona o nelle vicinanze, per condividere parte della logistica e ridurre i costi.
         </p>
         <button onClick={() => document.getElementById("smart-pairing-how")?.scrollIntoView({
         behavior: "smooth"
@@ -839,33 +839,54 @@ export function Step3({
         gap: isMobile ? 12 : 16,
         alignItems: "center"
       }}>
-          {[{
+          {(realSmartPairingSlots.length > 0 ? [{
           step: "1",
-          title: "Hai scelto la zona",
+          title: "Zona selezionata",
           desc: compactZoneLabel,
           status: "completed"
         }, {
           step: "2",
-          title: "L'AI cerca",
+          title: "Ricerca compatibilità",
           desc: "Campagne compatibili",
           status: "completed"
         }, {
           step: "3",
-          title: "Slot proposti",
+          title: "Slot disponibili",
           desc: "Finestre disponibili",
           status: "active"
         }, {
           step: "4",
-          title: "Confermi",
+          title: "Conferma data",
           desc: "Scegli le date",
           status: "future"
         }, {
           step: "5",
-          title: "Risparmi",
+          title: "Applica risparmio",
           desc: "Fino al 40%",
           status: selDays.length > 0 ? "completed" : "future",
           highlight: true
-        }].map(item => {
+        }] : [{
+          step: "1",
+          title: "Zona selezionata",
+          desc: compactZoneLabel,
+          status: "completed"
+        }, {
+          step: "2",
+          title: "Compatibilità verificata",
+          desc: "Nessun match",
+          status: "completed"
+        }, {
+          step: "3",
+          title: "Nessun slot compatibile",
+          desc: "Finestre non trovate",
+          status: "active"
+        }, {
+          step: "4",
+          title: "Registra richiesta",
+          desc: "Verifica futura",
+          status: formSent ? "completed" : "future",
+          highlight: true
+        }]).map(item => {
           let bg = "rgba(255,255,255,0.03)";
           let border = "1px solid rgba(255,255,255,0.07)";
           let stepBg = "rgba(255,255,255,0.12)";
@@ -950,37 +971,45 @@ export function Step3({
         sub: "Stima operativa",
         color: C.cyan,
         tip: "Giornate complessive stimate dal tempo medio per visita."
-      }, {
-        label: "Possibile risparmio",
-        val: "40%",
-        sub: "Solo con abbinamento confermato",
-        color: C.yellow,
-        tip: "Risparmio massimo potenziale, applicabile soltanto quando il backend conferma uno Smart Pairing compatibile."
-      }] : [{
-        label: "Possibile risparmio",
-        val: "40%",
-        sub: "Fino a -40% in zona",
-        color: C.green,
-        tip: "Percentuale di risparmio ottenibile condividendo il percorso con un'altra campagna nella stessa zona."
-      }, {
-        label: "Campagne compatibili",
-        val: realSmartPairingSlots.length > 0 ? realSmartPairingSlots.length : "0",
-        sub: realSmartPairingSlots.length > 0 ? "In quest'area" : "In ricerca continua",
-        color: C.cyan,
-        tip: "Numero di campagne attive nell'area che possono essere abbinate alla tua per ridurre i costi."
-      }, {
-        label: "Operatori disponibili",
-        val: realSmartPairingSlots.length > 0 ? Math.max(4, Math.round((activeQty || 10000) / 2500)) : "4+",
-        sub: "Squadra di zona",
-        color: C.white,
-        tip: "Numero di operatori già attivi nella zona che possono gestire anche la tua distribuzione."
-      }, {
-        label: "Tempo medio attesa",
-        val: realSmartPairingSlots.length > 0 ? "0 giorni" : "2 giorni",
-        sub: realSmartPairingSlots.length > 0 ? "Disponibile ora" : "Notifica prioritaria",
-        color: C.white,
-        tip: "Tempo stimato prima di poter iniziare la distribuzione condividendo le risorse operative."
-      }]).map((kpi, i) => <div key={i} style={{
+      }, (() => {
+        const hasMatch = realSmartPairingSlots.length > 0;
+        const bestDiscount = hasMatch ? Math.max(...realSmartPairingSlots.map(s => s.discountPercent)) : 0;
+        return {
+          label: hasMatch ? "Risparmio applicato" : "Risparmio disponibile",
+          val: hasMatch ? `${bestDiscount}%` : "Fino al 40%",
+          sub: hasMatch ? (bestDiscount === 40 ? "Stessa zona" : "Zona vicina") : "Da verificare",
+          color: hasMatch ? C.green : C.yellow,
+          tip: hasMatch ? "Risparmio assegnato dall'abbinamento confermato." : "Risparmio massimo previsto dalle regole Smart Pairing."
+        };
+      })()] : (() => {
+        const hasMatch = realSmartPairingSlots.length > 0;
+        const bestDiscount = hasMatch ? Math.max(...realSmartPairingSlots.map(s => s.discountPercent)) : 0;
+        return [{
+          label: hasMatch ? "Risparmio applicato" : "Risparmio disponibile",
+          val: hasMatch ? `${bestDiscount}%` : "Fino al 40%",
+          sub: hasMatch ? (bestDiscount === 40 ? "Stessa zona" : "Zona vicina") : "Da verificare",
+          color: hasMatch ? C.green : C.yellow,
+          tip: hasMatch ? "Risparmio assegnato dall'abbinamento confermato." : "Risparmio massimo previsto dalle regole Smart Pairing."
+        }, {
+          label: "Campagne compatibili",
+          val: hasMatch ? realSmartPairingSlots.length : "0",
+          sub: hasMatch ? "In quest'area" : "Nessuna campagna compatibile al momento.",
+          color: C.cyan,
+          tip: "Numero di campagne attive nell'area che possono essere abbinate alla tua per ridurre i costi."
+        }, {
+          label: "Slot operativi",
+          val: hasMatch ? "Disponibile" : "Nessuno",
+          sub: hasMatch ? "Slot libero" : "Slot esauriti",
+          color: C.white,
+          tip: "Disponibilità logistica per l'abbinamento in base alla capacità giornaliera."
+        }, {
+          label: "Stato ricerca",
+          val: hasMatch ? "Match disponibile" : "Nessun match",
+          sub: hasMatch ? "Pronto per l'abbinamento" : "Richiesta registrabile",
+          color: C.white,
+          tip: "Stato dell'abbinamento per la zona selezionata."
+        }];
+      })()).map((kpi, i) => <div key={i} style={{
         background: "rgba(255,255,255,0.035)",
         borderRadius: 16,
         padding: "20px",
@@ -1125,7 +1154,7 @@ export function Step3({
             margin: "0 auto 24px",
             lineHeight: 1.6
           }}>
-                L'AI continua automaticamente la ricerca nelle prossime ore. Riceverai una notifica appena sarà disponibile uno Smart Pairing compatibile con la tua zona.
+                Al momento non ci sono campagne compatibili. Puoi registrare la richiesta Smart Pairing; la disponibilità potrà essere verificata nuovamente quando saranno presenti nuove campagne compatibili.
               </p>
               <div style={{
             display: "flex",
@@ -1331,7 +1360,7 @@ export function Step3({
                     marginTop: 2,
                     color: C.white,
                     fontWeight: 800
-                  }}>-{pair.disc}%</div>}
+                  }}>{pair ? `-${pair.disc}%` : "✓"}</div>}
                       </div>;
               })}
                 </div>
@@ -1413,7 +1442,7 @@ export function Step3({
               fontSize: 20,
               color: C.white,
               marginBottom: 6
-            }}>Richiedi avviso Smart Pairing</div>
+            }}>Registrami per Smart Pairing</div>
                   <div style={{
               fontFamily: F.sans,
               fontSize: 13,
@@ -1676,7 +1705,7 @@ export function Step3({
             fontSize: 22,
             color: C.white,
             marginBottom: 14
-          }}>Come funziona l'AI</h3>
+          }}>Come funziona Smart Pairing</h3>
             <p style={{
             fontFamily: F.sans,
             fontSize: 13,
@@ -1684,7 +1713,7 @@ export function Step3({
             lineHeight: 1.6,
             marginBottom: 16
           }}>
-              L'AI confronta costantemente i flussi di distribuzione analizzando i seguenti parametri:
+              Il sistema calcola il risparmio in base alla corrispondenza della zona analizzando i seguenti parametri:
             </p>
             <div style={{
             display: "grid",
@@ -1696,20 +1725,14 @@ export function Step3({
               icon: "pin",
               label: "Zona"
             }, {
-              icon: "package",
-              label: "Quantità"
+              icon: "truck",
+              label: "Distanza"
             }, {
               icon: "calendar",
-              label: "Periodo"
+              label: "Slot disponibili"
             }, {
-              icon: "family",
-              label: "Operatori"
-            }, {
-              icon: "lightning",
-              label: "Disponibilità"
-            }, {
-              icon: "map",
-              label: "Itinerari"
+              icon: "briefcase",
+              label: "Servizio compatibile"
             }].map((param, idx) => <div key={idx} style={{
               display: "flex",
               alignItems: "center",
@@ -1763,9 +1786,9 @@ export function Step3({
             lineHeight: 1.6,
             marginBottom: 14
           }}>
-              Il sistema confronta automaticamente: <b style={{
+              Il sistema calcola il risparmio in base alla corrispondenza territoriale: <b style={{
               color: C.white
-            }}>stessa zona, stesso periodo, quantità, disponibilità operatori e percorsi stradali</b>.
+            }}>Stessa zona (fino al 40%) o Zona vicina entro 5 km (fino al 20%)</b>.
             </p>
             <div style={{
             display: "flex",
@@ -1949,7 +1972,7 @@ export function Step3({
                 fontSize: 11,
                 fontWeight: 700
               }}>
-                  {realSmartPairingSlots.length > 0 ? selDays.length > 0 ? "Confermato" : "Compatibili" : "Ricerca in corso"}
+                  {realSmartPairingSlots.length > 0 ? selDays.length > 0 ? "Confermato" : "Compatibili" : (formSent ? "Richiesta registrata" : "Nessun match")}
                 </span>
               </div>
               <div style={{

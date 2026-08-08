@@ -11,6 +11,8 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 });
 const DAY_MS = 86_400_000;
 const PAIRING_OFFSETS = new Set([5, 6, 7, 12, 13, 14]);
+// NOTA BENE: DAILY_CAPACITY è una capacità logica di campagne per giorno (soglia hardcoded), 
+// NON rappresenta il numero reale di operatori sul campo.
 const DAILY_CAPACITY = 4;
 
 function isoDate(value: Date) {
