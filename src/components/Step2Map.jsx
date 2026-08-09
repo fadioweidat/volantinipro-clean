@@ -705,6 +705,7 @@ function Step2MapImpl({
   settori,       // Array<{id, numero, name?, geometry}> | null
   pois,          // Array<{id, lat, lng, name, category, color, priority, address}> from usePoi
   loadingPois,
+  poiEmptySectorLabel, // string|null — label del settore (es. "Palestre e sport") quando D2D e' filtrato per settore ma non trova POI nell'area
   operationalPoints, // Punti assegnati ai promoter H2H, geocodificati in Step 1
   poiAssignments,
   onTogglePoi,
@@ -1930,6 +1931,22 @@ function Step2MapImpl({
               Stiamo caricando i punti reali. La mappa si aggiornerà automaticamente.
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Nessun POI del settore selezionato nell'area (solo D2D: h2h/b2b hanno
+          gia' un messaggio equivalente nel pannello attivita'). Non blocca la
+          mappa — il confine/copertura restano interamente visibili e usabili. */}
+      {leafletLoaded && city && !loadingPois && poiEmptySectorLabel && (
+        <div style={{
+          position: 'absolute', left: '50%', bottom: 14, transform: 'translateX(-50%)',
+          zIndex: 1050, maxWidth: '86%', padding: '9px 14px', borderRadius: 10,
+          background: 'rgba(8,15,30,.9)', border: '1px solid rgba(255,255,255,.14)',
+          boxShadow: '0 8px 24px rgba(0,0,0,.35)', textAlign: 'center',
+          fontFamily: 'system-ui,sans-serif', fontSize: 11.5, color: 'rgba(255,255,255,.72)',
+          pointerEvents: 'none',
+        }}>
+          Nessuna attività {poiEmptySectorLabel} rilevata in questa zona.
         </div>
       )}
 

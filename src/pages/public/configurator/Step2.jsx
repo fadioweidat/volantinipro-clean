@@ -1208,7 +1208,7 @@ export function Step2({
   }, [computedSelectionScope, selectedComuni, city]);
   const savedDistributionTargets = Array.isArray(data.distributionTargets) ? data.distributionTargets.filter(Boolean) : [];
   const shouldMigrateLegacyAllTarget = savedDistributionTargets.includes("all") && Boolean(data.activityType);
-  const distributionTargetSelection = svcType === "d2d" ? ["all"] : shouldMigrateLegacyAllTarget ? [data.activityType] : savedDistributionTargets.length > 0 ? savedDistributionTargets : [data.activityType].filter(Boolean);
+  const distributionTargetSelection = shouldMigrateLegacyAllTarget ? [data.activityType] : savedDistributionTargets.length > 0 ? savedDistributionTargets : [data.activityType].filter(Boolean);
   const analysisParams = useMemo(() => ({
     lat: queryCenterLat,
     lng: queryCenterLng,
@@ -1232,10 +1232,11 @@ export function Step2({
     sectors,
     loading: sectorsLoading
   } = useSectors(queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType);
-  // In D2D il settore Step1 resta un contesto della campagna (suggerisce zone/fasce
-  // orarie), non un filtro sui marker: i marker D2D rappresentano punti di consegna
-  // residenziale, indipendenti dal settore. Solo H2H/Business usano il settore per
-  // selezionare le attività da mostrare/assegnare sulla mappa.
+  // Il settore Step1 (data.activityType/businessSector) filtra i marker POI
+  // mostrati sulla mappa per tutti i servizi, incluso D2D: la mappa D2D non
+  // assegna cassette/promoter sui POI (quello resta un contesto di campagna),
+  // ma i marker visibili devono comunque restare coerenti col settore scelto
+  // invece di mostrare categorie estranee.
   const {
     pois: fetchedPois,
     loading: poiLoading,
@@ -1276,6 +1277,14 @@ export function Step2({
       return true;
     });
   }, [poiLoading, fetchedPois, backendPois, distributionTargetSelection.join("|"), data.activityNote, isBusinessStep2]);
+  // Solo per D2D: h2h/b2b hanno gia' un proprio messaggio dedicato nel
+  // pannello attivita' quando la selezione filtrata risulta vuota. Il layer
+  // POI sulla mappa D2D non ha un pannello equivalente, quindi qui evitiamo
+  // di lasciare la mappa silenziosa (che sembrerebbe un errore) quando un
+  // settore reale e' selezionato ma non produce risultati nell'area.
+  const poiEmptySectorLabel = svcType === "d2d" && !poiLoading && city && pois.length === 0 && distributionTargetSelection.length > 0 && !distributionTargetSelection.includes("all")
+    ? distributionTargetSelection.map(target => ACTIVITY_TARGET_LABELS[target] || target).join(", ")
+    : null;
   const [poiListSearch, setPoiListSearch] = useState("");
   const [businessPoiFilter, setBusinessPoiFilter] = useState("all");
   const [h2hPoiFilter, setH2hPoiFilter] = useState("all");
@@ -5972,7 +5981,7 @@ export function Step2({
                   {sharedCoveragePctText} copertura
                 </span>
               </div>}
-            <Step2Map city={mapCityForStep2} radius={isRadiusMode ? Number(radiusKm) || Number(radius) || 3 : radiusKm} svcType={svcType} serviceColor={col} zonesWithCoords={zonesWithCoords} selected={selected} onToggleZone={toggleZone} apiData={apiData} targetColor={targetBusinessMeta?.color || '#a78bfa'} activeLayers={activeMapLayers} settori={sectors} pois={pois} loadingPois={poiLoading} operationalPoints={step1OperationalPoints} poiAssignments={poiAssignments} onTogglePoi={togglePoiAssignment} focusPoiId={focusedPoiId} focusPoiNonce={focusedPoiNonce} businessConfig={isBusinessStep2 ? {
+            <Step2Map city={mapCityForStep2} radius={isRadiusMode ? Number(radiusKm) || Number(radius) || 3 : radiusKm} svcType={svcType} serviceColor={col} zonesWithCoords={zonesWithCoords} selected={selected} onToggleZone={toggleZone} apiData={apiData} targetColor={targetBusinessMeta?.color || '#a78bfa'} activeLayers={activeMapLayers} settori={sectors} pois={pois} loadingPois={poiLoading} poiEmptySectorLabel={poiEmptySectorLabel} operationalPoints={step1OperationalPoints} poiAssignments={poiAssignments} onTogglePoi={togglePoiAssignment} focusPoiId={focusedPoiId} focusPoiNonce={focusedPoiNonce} businessConfig={isBusinessStep2 ? {
               deliveryLabel: businessOptionLabel(BUSINESS_DELIVERY_METHODS, data.businessDeliveryMethod),
               recipientLabel: businessOptionLabel(BUSINESS_RECIPIENTS, data.businessPreferredRecipient)
             } : null} civiciState={civiciState} onLayerToggle={id => {
