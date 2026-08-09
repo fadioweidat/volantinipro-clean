@@ -39,6 +39,12 @@ export function Step3({
   const [formSent, setFormSent] = useState(Boolean(data.smartPairingRequestSent));
   const [smartPairingRegistered, setSmartPairingRegistered] = useState(Boolean(data.smartPairingRequestSent));
   const shouldShowContinueToStep4 = formSent || smartPairingRegistered;
+  // availabilityStatus distingue: loading | success | error
+  // "loading"  → richiesta in corso (nessun dato ancora)
+  // "success"  → risposta 200 ricevuta (slots può essere [] = zero match reali)
+  // "error"    → fetch/invoke fallita (network, 5xx, auth) — NON equivale a zero match
+  const [availabilityStatus, setAvailabilityStatus] = useState("loading");
+  const [availabilityRetryCount, setAvailabilityRetryCount] = useState(0);
   useEffect(() => {
     console.info("[STEP3_STATE_INIT]", {
       formSent,
@@ -65,7 +71,11 @@ export function Step3({
 
   useEffect(() => {
     let cancelled = false;
-    if (!supabase) return;
+    if (!supabase) {
+      // Supabase non configurato: non è un errore di rete, non cambiamo stato
+      return;
+    }
+    setAvailabilityStatus("loading");
     (async () => {
       try {
         const availability = await fetchSmartPairingAvailability(supabase, {
@@ -75,15 +85,22 @@ export function Step3({
           lng: data.city?.lng ?? data.selectedSearchPoint?.lng ?? null,
           startDate: data.startDate || data.campaignPeriodStart || null
         });
-        if (!cancelled) setData(prev => ({ ...prev, ...availability, smartPairingAvailabilitySource: availability.source }));
+        if (!cancelled) {
+          setData(prev => ({ ...prev, ...availability, smartPairingAvailabilitySource: availability.source }));
+          setAvailabilityStatus("success");
+        }
       } catch (err) {
-        if (!cancelled) console.warn("[STEP3_AVAILABILITY_LOAD_FAILED]", { code: err?.message || "SMART_PAIRING_DATA_UNAVAILABLE" });
+        if (!cancelled) {
+          console.warn("[STEP3_AVAILABILITY_LOAD_FAILED]", { code: err?.message || "SMART_PAIRING_DATA_UNAVAILABLE" });
+          setAvailabilityStatus("error");
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [data.type, data.cityName, data.city?.lat, data.city?.lng, data.selectedSearchPoint?.lat, data.selectedSearchPoint?.lng, data.campaignPeriodStart, setData]);
+    // availabilityRetryCount è incluso per permettere il retry manuale
+  }, [data.type, data.cityName, data.city?.lat, data.city?.lng, data.selectedSearchPoint?.lat, data.selectedSearchPoint?.lng, data.campaignPeriodStart, setData, availabilityRetryCount]);
   const activeZone = data.dateMode === "per_zone" ? (data.campaignZones || []).find(z => z.id === activeCalZoneId) : null;
   useEffect(() => {
     if (data.dateMode === "per_zone" && activeCalZoneId) {
@@ -623,24 +640,45 @@ export function Step3({
       action: "continua_senza_smart_pairing"
     });
     console.info("[STEP3_NAV_STATE_BEFORE_CHANGE]", navSnapshot());
-    if (selDays.length === 0) {
+    // Se la disponibilità non è stata verificata (errore tecnico), avvisiamo
+    // esplicitamente con smartPairingStatus = "skipped_unverified" anziché "none",
+    // in modo che Step 4 possa mostrare un avviso appropriato.
+    const skipStatus = availabilityStatus === "error" ? "skipped_unverified" : "none";
+    if (selDays.length === 0 && availabilityStatus !== "error") {
       setNavError("Seleziona almeno una data disponibile prima di continuare.");
       return;
     }
     setNavError("");
-    setData(d => ({
-      ...d,
-      ...buildFinalPayload(null),
-      avgDiscount: 0,
-      pairingDays: [],
-      normalDays: selDays,
-      pairingType: {},
-      pairingDiscountPercent: {},
-      averagePairingDiscount: 0,
-      maxPairingDiscount: 0,
-      calendarStatus: "no_smart_pairing",
-      smartPairingStatus: "none"
-    }));
+    // In caso di errore, non c'è un payload di date da buildFinalPayload
+    // (non ci sono date selezionabili). Aggiorniamo solo lo stato Smart Pairing.
+    if (availabilityStatus === "error") {
+      setData(d => ({
+        ...d,
+        avgDiscount: 0,
+        pairingDays: [],
+        normalDays: [],
+        pairingType: {},
+        pairingDiscountPercent: {},
+        averagePairingDiscount: 0,
+        maxPairingDiscount: 0,
+        calendarStatus: "no_smart_pairing",
+        smartPairingStatus: skipStatus
+      }));
+    } else {
+      setData(d => ({
+        ...d,
+        ...buildFinalPayload(null),
+        avgDiscount: 0,
+        pairingDays: [],
+        normalDays: selDays,
+        pairingType: {},
+        pairingDiscountPercent: {},
+        averagePairingDiscount: 0,
+        maxPairingDiscount: 0,
+        calendarStatus: "no_smart_pairing",
+        smartPairingStatus: skipStatus
+      }));
+    }
     handleContinueToStep4();
   }
   const inputStyle = {
@@ -769,14 +807,22 @@ export function Step3({
           <span style={{
           padding: "4px 10px",
           borderRadius: 100,
-          background: realSmartPairingSlots.length > 0 ? "rgba(46,204,138,0.15)" : "rgba(255,255,255,.07)",
-          border: `1px solid ${realSmartPairingSlots.length > 0 ? "rgba(46,204,138,0.4)" : "rgba(255,255,255,.15)"}`,
-          color: realSmartPairingSlots.length > 0 ? C.green : "rgba(255,255,255,.7)",
+          background: availabilityStatus === "error"
+            ? "rgba(239,68,68,0.15)"
+            : realSmartPairingSlots.length > 0 ? "rgba(46,204,138,0.15)" : "rgba(255,255,255,.07)",
+          border: `1px solid ${availabilityStatus === "error" ? "rgba(239,68,68,0.4)" : realSmartPairingSlots.length > 0 ? "rgba(46,204,138,0.4)" : "rgba(255,255,255,.15)"}`,
+          color: availabilityStatus === "error" ? "#F87171" : realSmartPairingSlots.length > 0 ? C.green : "rgba(255,255,255,.7)",
           fontFamily: F.sans,
           fontSize: 11,
           fontWeight: 700
         }}>
-            {realSmartPairingSlots.length > 0 ? selDays.length > 0 ? "● Confermato" : "● Campagne compatibili" : (formSent ? "● Richiesta registrata" : "● Nessun match")}
+            {availabilityStatus === "loading"
+              ? "● Verifica in corso…"
+              : availabilityStatus === "error"
+                ? "● Verifica non riuscita"
+                : realSmartPairingSlots.length > 0
+                  ? (selDays.length > 0 ? "● Confermato" : "● Campagne compatibili")
+                  : (formSent ? "● Richiesta registrata" : "● Nessun match")}
           </span>
         </div>
         <h2 style={{
@@ -872,18 +918,18 @@ export function Step3({
           status: "completed"
         }, {
           step: "2",
-          title: "Compatibilità verificata",
-          desc: "Nessun match",
-          status: "completed"
+          title: availabilityStatus === "error" ? "Verifica non riuscita" : "Compatibilità verificata",
+          desc: availabilityStatus === "error" ? "Errore di rete/backend" : "Nessun match",
+          status: availabilityStatus === "error" ? "active" : "completed"
         }, {
           step: "3",
-          title: "Nessun slot compatibile",
-          desc: "Finestre non trovate",
-          status: "active"
+          title: availabilityStatus === "error" ? "Slot non verificati" : "Nessun slot compatibile",
+          desc: availabilityStatus === "error" ? "Impossibile verificare" : "Finestre non trovate",
+          status: availabilityStatus === "error" ? "future" : "active"
         }, {
           step: "4",
-          title: "Registra richiesta",
-          desc: "Verifica futura",
+          title: availabilityStatus === "error" ? "Riprova o continua" : "Registra richiesta",
+          desc: availabilityStatus === "error" ? "Riprova verifica" : "Verifica futura",
           status: formSent ? "completed" : "future",
           highlight: true
         }]).map(item => {
@@ -983,30 +1029,32 @@ export function Step3({
         };
       })()] : (() => {
         const hasMatch = realSmartPairingSlots.length > 0;
+        const isLoading = availabilityStatus === "loading";
+        const isError = availabilityStatus === "error";
         const bestDiscount = hasMatch ? Math.max(...realSmartPairingSlots.map(s => s.discountPercent)) : 0;
         return [{
           label: hasMatch ? "Risparmio applicato" : "Risparmio disponibile",
-          val: hasMatch ? `${bestDiscount}%` : "Fino al 40%",
-          sub: hasMatch ? (bestDiscount === 40 ? "Stessa zona" : "Zona vicina") : "Da verificare",
-          color: hasMatch ? C.green : C.yellow,
+          val: isLoading ? "…" : isError ? "—" : hasMatch ? `${bestDiscount}%` : "Fino al 40%",
+          sub: isLoading ? "Verifica in corso" : isError ? "Non verificabile" : hasMatch ? (bestDiscount === 40 ? "Stessa zona" : "Zona vicina") : "Da verificare",
+          color: isError ? "rgba(255,255,255,0.4)" : hasMatch ? C.green : C.yellow,
           tip: hasMatch ? "Risparmio assegnato dall'abbinamento confermato." : "Risparmio massimo previsto dalle regole Smart Pairing."
         }, {
           label: "Campagne compatibili",
-          val: hasMatch ? realSmartPairingSlots.length : "0",
-          sub: hasMatch ? "In quest'area" : "Nessuna campagna compatibile al momento.",
-          color: C.cyan,
+          val: isLoading ? "…" : isError ? "—" : hasMatch ? realSmartPairingSlots.length : "0",
+          sub: isLoading ? "Verifica in corso" : isError ? "Verifica non riuscita" : hasMatch ? "In quest'area" : "Nessuna campagna compatibile al momento.",
+          color: isError ? "rgba(255,255,255,0.4)" : C.cyan,
           tip: "Numero di campagne attive nell'area che possono essere abbinate alla tua per ridurre i costi."
         }, {
           label: "Slot operativi",
-          val: hasMatch ? "Disponibile" : "Nessuno",
-          sub: hasMatch ? "Slot libero" : "Slot esauriti",
-          color: C.white,
+          val: isLoading ? "…" : isError ? "Non disponibile" : hasMatch ? "Disponibile" : "Nessuno",
+          sub: isLoading ? "Verifica in corso" : isError ? "Impossibile verificare" : hasMatch ? "Slot libero" : "Slot esauriti",
+          color: isError ? "rgba(255,255,255,0.4)" : C.white,
           tip: "Disponibilità logistica per l'abbinamento in base alla capacità giornaliera."
         }, {
           label: "Stato ricerca",
-          val: hasMatch ? "Match disponibile" : "Nessun match",
-          sub: hasMatch ? "Pronto per l'abbinamento" : "Richiesta registrabile",
-          color: C.white,
+          val: isLoading ? "…" : isError ? "Verifica non riuscita" : hasMatch ? "Match disponibile" : "Nessun match",
+          sub: isLoading ? "Richiesta in corso" : isError ? "Riprova per verificare" : hasMatch ? "Pronto per l'abbinamento" : "Richiesta registrabile",
+          color: isError ? "#F87171" : C.white,
           tip: "Stato dell'abbinamento per la zona selezionata."
         }];
       })()).map((kpi, i) => <div key={i} style={{
@@ -1111,8 +1159,67 @@ export function Step3({
               </div>
             </div>}
 
-          {/* 4 & 9. CALENDARIO COMPATTO OPPURE CASO "NESSUNO SLOT" */}
-          {realSmartPairingSlots.length === 0 && availableDates.size === 0 ? <motion.div initial={{
+          {/* 4 & 9. CALENDARIO COMPATTO OPPURE CASO "NESSUNO SLOT" / ERRORE */}
+          {/* STATO ERROR: errore di rete/backend — NON equivale a zero match */}
+          {availabilityStatus === "error" ? <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{
+              background: "linear-gradient(135deg, rgba(239,68,68,0.10) 0%, rgba(239,68,68,0.03) 100%)",
+              borderRadius: 20,
+              padding: "32px 26px",
+              border: "1px solid rgba(239,68,68,0.30)",
+              textAlign: "center",
+              marginBottom: 28,
+              boxShadow: "0 10px 30px rgba(0,0,0,0.2)"
+            }}
+          >
+            <div style={{
+              width: 54, height: 54, borderRadius: "50%",
+              background: "rgba(239,68,68,0.15)",
+              color: "#F87171",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              margin: "0 auto 16px"
+            }}><Step1Icon name="alert" size={26} color="#F87171" /></div>
+            <h3 style={{ fontFamily: F.serif, fontSize: 24, color: C.white, marginBottom: 8 }}>
+              Impossibile verificare la disponibilità Smart Pairing.
+            </h3>
+            <p style={{
+              fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,0.7)",
+              maxWidth: 520, margin: "0 auto 24px", lineHeight: 1.6
+            }}>
+              Si è verificato un errore durante il controllo delle campagne compatibili.
+              Non possiamo confermare se ci siano o meno slot disponibili.
+              Riprova oppure continua senza Smart Pairing: il matching non è stato verificato.
+            </p>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+              <button
+                id="step3-retry-availability"
+                onClick={() => { setAvailabilityStatus("loading"); setAvailabilityRetryCount(c => c + 1); }}
+                style={{
+                  padding: "12px 24px", borderRadius: 10,
+                  background: "linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)",
+                  color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 800,
+                  border: "none", cursor: "pointer",
+                  boxShadow: "0 4px 14px rgba(99,102,241,0.4)"
+                }}
+              >↺ Riprova verifica</button>
+              <button
+                id="step3-skip-unverified"
+                onClick={handleSkipPairing}
+                style={{
+                  padding: "12px 20px", borderRadius: 10,
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.18)",
+                  color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700,
+                  cursor: "pointer"
+                }}
+              >Continua senza Smart Pairing →</button>
+            </div>
+          </motion.div>
+          /* STATO SUCCESS + ZERO MATCH: risposta 200 confermata con 0 slot */
+          : realSmartPairingSlots.length === 0 && availableDates.size === 0 ? <motion.div initial={{
           opacity: 0,
           y: 10
         }} animate={{
