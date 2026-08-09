@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { isValidGeoJsonGeometry, parseAndValidateGeoJsonGeometry, isFiniteLatLng, isUsableLatLngBounds } from '../lib/map/geometryValidation.js';
 
 const debugStep2 = (...args) => {
   if (import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || window.__VOLANTINIPRO_DEBUG_STEP2__)) console.log(...args);
@@ -987,27 +988,38 @@ function Step2MapImpl({
       //   - a raw GeoJSON geometry (legacy / direct pass)
       if (isMunicipalityMode && municipalityBoundary) {
         try {
+          // Geometrie non valide (ring vuoti/incompleti, coordinate NaN o
+          // mancanti) superano JSON.parse/L.geoJSON senza errore ma fanno
+          // crashare il Canvas renderer durante un redraw successivo (vedi
+          // src/lib/map/geometryValidation.js): filtrate qui, alla sorgente.
           const boundaryEntries = Array.isArray(municipalityBoundary)
-            ? municipalityBoundary.filter(b => b?.geometry)
-            : (municipalityBoundary?.type ? [{ name: city?.label || city?.name || 'Comune', geometry: municipalityBoundary }] : []);
+            ? municipalityBoundary.filter(b => b?.geometry && isValidGeoJsonGeometry(b.geometry))
+            : (municipalityBoundary?.type && isValidGeoJsonGeometry(municipalityBoundary)
+                ? [{ name: city?.label || city?.name || 'Comune', geometry: municipalityBoundary }]
+                : []);
           if (boundaryEntries.length > 0) {
             const combinedGj = L.geoJSON({ type: 'FeatureCollection', features: boundaryEntries.map(b => ({ type: 'Feature', geometry: b.geometry, properties: { name: b.name } })) });
             const selectedBounds = combinedGj.getBounds();
-            const fitSelectedBoundary = () => {
-              const mapContainer = map.getContainer?.();
-              if (!mapContainer || !mapContainer.isConnected || !map._loaded || !map._mapPane) return;
-              map.invalidateSize({ pan: false });
-              const mapSize = map.getSize();
-              const horizontalPadding = Math.max(28, Math.min(72, Math.round(mapSize.x * 0.08)));
-              const verticalPadding = Math.max(28, Math.min(58, Math.round(mapSize.y * 0.09)));
-              map.fitBounds(selectedBounds, {
-                paddingTopLeft: [horizontalPadding + 6, verticalPadding],
-                paddingBottomRight: [horizontalPadding, verticalPadding + 6],
-                animate: false,
-              });
-            };
-            fitSelectedBoundary();
-            requestAnimationFrame(() => fitSelectedBoundary());
+            if (isUsableLatLngBounds(selectedBounds)) {
+              const fitSelectedBoundary = () => {
+                const mapContainer = map.getContainer?.();
+                if (!mapContainer || !mapContainer.isConnected || !map._loaded || !map._mapPane) return;
+                map.invalidateSize({ pan: false });
+                const mapSize = map.getSize();
+                const horizontalPadding = Math.max(28, Math.min(72, Math.round(mapSize.x * 0.08)));
+                const verticalPadding = Math.max(28, Math.min(58, Math.round(mapSize.y * 0.09)));
+                map.fitBounds(selectedBounds, {
+                  paddingTopLeft: [horizontalPadding + 6, verticalPadding],
+                  paddingBottomRight: [horizontalPadding, verticalPadding + 6],
+                  animate: false,
+                });
+              };
+              fitSelectedBoundary();
+              requestAnimationFrame(() => fitSelectedBoundary());
+            } else {
+              warnStep2('[MUNICIPALITY_BOUNDARY_WARN] combined bounds not valid, falling back to setView', boundaryEntries);
+              map.setView([city.lat, city.lng], getZoomForRadius(effectiveMapRadius), { animate: false });
+            }
           } else {
             map.setView([city.lat, city.lng], getZoomForRadius(effectiveMapRadius), { animate: false });
           }
@@ -1048,8 +1060,8 @@ function Step2MapImpl({
       let boundaryEntries = [];
       if (Array.isArray(municipalityBoundary)) {
         // Canonical format: [{name, geometry}, ...]
-        boundaryEntries = municipalityBoundary.filter(b => b?.geometry);
-      } else if (municipalityBoundary?.type) {
+        boundaryEntries = municipalityBoundary.filter(b => b?.geometry && isValidGeoJsonGeometry(b.geometry));
+      } else if (municipalityBoundary?.type && isValidGeoJsonGeometry(municipalityBoundary)) {
         // Legacy: raw GeoJSON geometry passed directly
         boundaryEntries = [{ name: cityLabel, geometry: municipalityBoundary }];
       }
@@ -1288,11 +1300,12 @@ function Step2MapImpl({
         const alloc = zoneAllocationById?.[z.id] || null;
         const tip = _buildZoneOrNilTooltip(z, col, sel, alloc, coverageStatus, false);
 
-        if (z.geometry) {
+        const validZoneGeometry = z.geometry ? parseAndValidateGeoJsonGeometry(z.geometry) : null;
+        if (validZoneGeometry) {
           try {
             const p1 = map.getPane('nilPolygonsPane');
             if (p1) p1.style.pointerEvents = 'auto';
-            const gj = typeof z.geometry === 'string' ? JSON.parse(z.geometry) : z.geometry;
+            const gj = validZoneGeometry;
             const zoneLayer = L.geoJSON(gj, {
               style: gisStyle,
               interactive: true,
@@ -1355,11 +1368,12 @@ function Step2MapImpl({
         };
         const tip = _buildZoneOrNilTooltip(z, '#34D399', false, null, z.status, true);
 
-        if (z.geometry) {
+        const validCoverageGeometry = z.geometry ? parseAndValidateGeoJsonGeometry(z.geometry) : null;
+        if (validCoverageGeometry) {
           try {
             const p1 = map.getPane('nilPolygonsPane');
             if (p1) p1.style.pointerEvents = 'auto';
-            const gj = typeof z.geometry === 'string' ? JSON.parse(z.geometry) : z.geometry;
+            const gj = validCoverageGeometry;
             const zoneLayer = L.geoJSON(gj, {
               style: gisStyle,
               interactive: true,
@@ -1572,7 +1586,8 @@ function Step2MapImpl({
         }
 
         try {
-          const gj     = typeof s.geometry === 'string' ? JSON.parse(s.geometry) : s.geometry;
+          const gj = parseAndValidateGeoJsonGeometry(s.geometry);
+          if (!gj) throw new Error('invalid settore geometry');
           const num    = s.numero || (idx + 1);
           const sId    = s.id ?? `s_${idx}`;
           const isSel  = selectedSectorId === sId;
@@ -1659,8 +1674,14 @@ function Step2MapImpl({
     // Se la ricerca ha restituito attività coerenti con la campagna, queste
     // restano visibili anche quando una vecchia configurazione aveva il layer off.
     const poiActive = pois?.length > 0 || activeLayers?.poi !== false;
+    // Scarta POI con lat/lng non finite prima del clustering/render: un
+    // aggiornamento parziale (risultati Overpass a metà, cambio comune in
+    // corso) può includere punti senza coordinate valide.
+    const validPois = poiActive && pois?.length > 0
+      ? pois.filter((poi) => isFiniteLatLng(poi?.lat, poi?.lng))
+      : [];
 
-    if (poiActive && pois?.length > 0) {
+    if (poiActive && validPois.length > 0) {
       poiMarkersByIdRef.current.clear();
       const poiGroup = L.layerGroup().addTo(map);
       layersRef.current.poiGroup = poiGroup;
@@ -1669,9 +1690,9 @@ function Step2MapImpl({
       const cellDeg = mapZoom >= 15 ? 0.00001 : effectiveMapRadius <= 2 ? 0.0015 : effectiveMapRadius <= 5 ? 0.003 : 0.005;
       // Con pochi risultati mostriamo sempre ogni singolo punto: sono scelte operative,
       // non semplici indicatori statistici. Il clustering resta utile solo su liste grandi.
-      const clusters = pois.length <= 30
-        ? pois.map((poi) => ({ ...poi, isCluster: false }))
-        : gridCluster(pois, cellDeg);
+      const clusters = validPois.length <= 30
+        ? validPois.map((poi) => ({ ...poi, isCluster: false }))
+        : gridCluster(validPois, cellDeg);
 
       clusters.forEach(item => {
         if (item.isCluster) {
@@ -1743,7 +1764,7 @@ function Step2MapImpl({
         }
       });
 
-      const assignedPoiPoints = pois.filter((poi) => poiAssignments?.[poi.id]);
+      const assignedPoiPoints = validPois.filter((poi) => poiAssignments?.[poi.id]);
       const assignmentFitSignature = assignedPoiPoints
         .map((poi) => `${poi.id}:${Number(poi.lat).toFixed(6)}:${Number(poi.lng).toFixed(6)}:${Number(poiAssignments?.[poi.id]?.operatorNumber || 1)}`)
         .sort()
@@ -1796,9 +1817,9 @@ function Step2MapImpl({
       if (famValues.length > 0) {
         const breaks = computeBreaks(famValues);
         zonesWithCoords.forEach(z => {
-          if (!z.geometry) return;
+          const gj = z.geometry ? parseAndValidateGeoJsonGeometry(z.geometry) : null;
+          if (!gj) return;
           try {
-            const gj  = typeof z.geometry === 'string' ? JSON.parse(z.geometry) : z.geometry;
             const fam = z.families || 0;
             const fillCol = choroplethColor(fam, breaks);
             L.geoJSON(gj, {
@@ -2154,6 +2175,7 @@ function _buildSectorTip(s, num, munByCode, svcType, city, munSectorCounts, sele
 
 // Fallback circolare quando la geometria GeoJSON non è disponibile
 function _renderD2DCircle(L, z, col, sel, tip, group, onToggleZone, styleUnsel, styleSel) {
+  if (!Number.isFinite(Number(z?.lat)) || !Number.isFinite(Number(z?.lng))) return;
   const r = Math.max(350, Math.sqrt((z.area || 1) * 1e6 / Math.PI) * 0.4);
   const cs = sel ? styleSel : styleUnsel;
   L.circle([z.lat, z.lng], {
