@@ -3682,7 +3682,13 @@ export function Step2({
   const flyerSurplus = remainingFlyers;
   const missingFlyers = isResidentialStep2 && doorCoverage ? doorCoverage.missingFlyers : Math.max(0, requiredFlyers - flyerQuantityFromStep1);
   if (import.meta.env.DEV && isResidentialStep2 && doorCoverage) {
-    const _legacyMissing = Math.max(0, requiredFlyers - flyerQuantityFromStep1);
+    // Guardia diagnostica: confronta contro la stessa quantita' "vissuta"
+    // usata dal modello canonico (allocationFlyers, post Mantieni/Aumenta a
+    // X/Manuale), non contro flyerQuantityFromStep1 (istantanea pre-decisione
+    // dello Step1, che resta intenzionalmente congelata). Confrontare contro
+    // flyerQuantityFromStep1 produceva un falso positivo persistente ogni
+    // volta che l'utente sceglieva una quantita' diversa da quella di Step1.
+    const _legacyMissing = Math.max(0, requiredFlyers - allocationFlyers);
     if (_legacyMissing !== doorCoverage.missingFlyers) {
       console.warn("[Phase5] missingFlyers divergence", {
         canonical: doorCoverage.missingFlyers,
