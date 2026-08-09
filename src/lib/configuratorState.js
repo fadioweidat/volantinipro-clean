@@ -27,6 +27,19 @@ export function writeConfiguratorDraft(storage, data) {
   }
 }
 
+// Rimuove solo il draft del configuratore (Step1-4): usata quando l'utente
+// avvia esplicitamente una NUOVA campagna, per non riproporre dati di una
+// configurazione precedente. Non tocca auth, preferenze o altre chiavi.
+export function clearConfiguratorDraft(storage) {
+  if (!storage) return false;
+  try {
+    storage.removeItem(CONFIGURATOR_DRAFT_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function configuratorHistoryState(data) {
   return isRecord(data) ? { [CONFIGURATOR_HISTORY_KEY]: data } : null;
 }

@@ -146,7 +146,7 @@ export default function StartOptionsSection({ onStart }) {
                 ))}
               </div>
 
-              <Button variant="primary" onClick={() => onStart("step1")} className="vb" style={{
+              <Button variant="primary" onClick={() => onStart("step1", null, { newCampaign: true })} className="vb" style={{
                 marginTop: "auto",
                 width: "100%",
                 minHeight: 52,

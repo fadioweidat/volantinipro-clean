@@ -33,6 +33,14 @@ export function Navbar({
         });
       } catch {}
     }
+    if (target === "step1") {
+      // Navbar e' renderizzata solo fuori dal configuratore (mai durante
+      // Step1-4): ogni link "Configuratore Campagna" qui e' un ingresso da
+      // fuori del flusso, quindi deve avviare una campagna nuova, non
+      // riproporre l'ultima configurazione salvata.
+      onNav(target, null, { newCampaign: true });
+      return;
+    }
     onNav(target);
   };
   const scrollToSection = id => {

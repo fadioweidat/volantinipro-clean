@@ -427,7 +427,7 @@ function QuoteSelectionHeader({ onNav }) {
                 <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>3-5 minuti</div>
               </div>
               <button
-                onClick={() => onNav("step1")}
+                onClick={() => onNav("step1", null, { newCampaign: true })}
                 style={{ background: C.indigo, color: C.white, border: "none", padding: "12px 24px", borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: `0 4px 14px ${C.indigo}40` }}
               >
                 Inizia il percorso
@@ -641,7 +641,7 @@ export default function ServiceCenter({ onNav }) {
             Configura la tua campagna {svc.name}: scegli la zona, calcola quante famiglie raggiungi e ricevi tutti gli output sopra nel tuo portale.
           </div>
           <button
-            onClick={() => onNav("step1")}
+            onClick={() => onNav("step1", null, { newCampaign: true })}
             style={{ padding: "14px 36px", borderRadius: 10, border: "none", background: svc.col, color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: `0 6px 24px ${svc.col}50` }}
           >
             Configura {svc.name} →

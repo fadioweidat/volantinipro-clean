@@ -10,7 +10,7 @@ import { CustomerGuard } from "../auth/guards/CustomerGuard.jsx";
 import { AdminGuard } from "../auth/guards/AdminGuard.jsx";
 import { hasSupabaseAuthHashError, hasSupabaseAuthHashToken, readPendingAuthContext } from "../auth/session.js";
 import { resolveAppRoute } from "./routeResolution.js";
-import { configuratorHistoryState, readConfiguratorDraft, readConfiguratorHistoryState, writeConfiguratorDraft } from "../lib/configuratorState.js";
+import { clearConfiguratorDraft, configuratorHistoryState, readConfiguratorDraft, readConfiguratorHistoryState, writeConfiguratorDraft } from "../lib/configuratorState.js";
 export { resolveAppRoute } from "./routeResolution.js";
 
 // BUNDLE-OPTIMIZE-1: nessuna di queste route serve al bootstrap pubblico
@@ -36,6 +36,32 @@ const CampaignAssignments = lazy(() => import("../pages/admin/CampaignAssignment
 
 const CampaignTracking = lazy(() => import("../pages/customer/CampaignTracking.jsx").then(m => ({ default: m.CampaignTracking })));
 const ClientCampaignReport = lazy(() => import("../pages/customer/ClientCampaignReport.jsx").then(m => ({ default: m.ClientCampaignReport })));
+
+// Stato iniziale di una campagna nuova (nessun dato di sessione precedente).
+// Usata sia per il primo mount sia per il reset esplicito "nuova campagna":
+// un oggetto fresco ad ogni chiamata cosi' array/oggetti non sono condivisi
+// per riferimento tra una campagna e l'altra.
+function createEmptyConfiguratorData() {
+  return {
+    type: null, activityType: "", activityNote: "", qty: 10000,
+    hasFlyers: "no", flyerFormat: "a5", flyerWeight: "115", extraServices: [], printGramm: "115", printSide: "fronte", printColor: "cmyk",
+    urgency: "normal", subscription: "single", campaignsPerMonth: 1,
+    selectedService: null, activeService: null, businessSector: "", flyerQuantity: 10000,
+    campaignPeriodStart: "", campaignPeriodEnd: "", alreadyPrinted: false,
+    printServices: [], paperWeight: "115", printSides: "fronte", colorMode: "cmyk",
+    campaignPlan: "single", totalCampaigns: 1, planDiscount: 0,
+    redistExtra: null, zoneMode: "auto", zoneCountIntent: "single",
+    city: null, cityName: "", radius: 3, selectedRadius: 3, searchedLocation: "", zones: [], selectedZones: [], selectedComuni: [],
+    layerValues: {}, adminInfoSummary: null, serviceKpis: null, requiredFlyers: 0,
+    flyerQuantityFromStep1: 10000, missingFlyers: 0, coverageStatus: "empty", recommendations: [],
+    days: [], avgDiscount: 0, selectedDates: [], selectedMonth: null, selectedDaysCount: 0,
+    pairingDays: [], normalDays: [], requestOnlyDays: [], pairingType: {}, pairingDiscountPercent: {},
+    averagePairingDiscount: 0, maxPairingDiscount: 0, calendarStatus: "empty",
+    smartPairingStatus: "none", smartPairingRequestSent: false,
+    requiresManualConfirmation: false, contactRequestData: null,
+    aiOptimizer: false, startDate: "", endDate: ""
+  };
+}
 
 export function AppRouter() {
   const readPrefill = () => {
@@ -102,23 +128,7 @@ export function AppRouter() {
       } catch (e) {}
     }
     return {
-      type: null, activityType: "", activityNote: "", qty: 10000,
-      hasFlyers: "no", flyerFormat: "a5", flyerWeight: "115", extraServices: [], printGramm: "115", printSide: "fronte", printColor: "cmyk",
-      urgency: "normal", subscription: "single", campaignsPerMonth: 1,
-      selectedService: null, activeService: null, businessSector: "", flyerQuantity: 10000,
-      campaignPeriodStart: "", campaignPeriodEnd: "", alreadyPrinted: false,
-      printServices: [], paperWeight: "115", printSides: "fronte", colorMode: "cmyk",
-      campaignPlan: "single", totalCampaigns: 1, planDiscount: 0,
-      redistExtra: null, zoneMode: "auto", zoneCountIntent: "single",
-      city: null, cityName: "", radius: 3, selectedRadius: 3, searchedLocation: "", zones: [], selectedZones: [], selectedComuni: [],
-      layerValues: {}, adminInfoSummary: null, serviceKpis: null, requiredFlyers: 0,
-      flyerQuantityFromStep1: 10000, missingFlyers: 0, coverageStatus: "empty", recommendations: [],
-      days: [], avgDiscount: 0, selectedDates: [], selectedMonth: null, selectedDaysCount: 0,
-      pairingDays: [], normalDays: [], requestOnlyDays: [], pairingType: {}, pairingDiscountPercent: {},
-      averagePairingDiscount: 0, maxPairingDiscount: 0, calendarStatus: "empty",
-      smartPairingStatus: "none", smartPairingRequestSent: false,
-      requiresManualConfirmation: false, contactRequestData: null,
-      aiOptimizer: false, startDate: "", endDate: "",
+      ...createEmptyConfiguratorData(),
       ...persistedDraft,
       ...draft,
       ...prefill.patch
@@ -131,7 +141,21 @@ export function AppRouter() {
     window.history.replaceState(configuratorHistoryState(data), "", window.location.href);
   }, [data]);
 
-  const goTo = (p, prefillPatch = null) => {
+  const goTo = (p, prefillPatch = null, options = {}) => {
+    // Reset esplicito "nuova campagna": ignora lo stato del configuratore
+    // corrente (in-memory e localStorage) cosi' Step1/Step2 partono vuoti.
+    // Usato SOLO dalle CTA che dichiarano esplicitamente l'intento di
+    // avviare una nuova configurazione (Home, Preventivo Guidato, nav
+    // globale) — mai dalla navigazione interna Step1<->Step2<->Step3<->Step4,
+    // che deve continuare a condividere `data` normalmente.
+    const isNewCampaign = Boolean(options.newCampaign);
+    const baseData = isNewCampaign ? createEmptyConfiguratorData() : data;
+    if (isNewCampaign) {
+      setData(baseData);
+      if (typeof window !== "undefined") {
+        clearConfiguratorDraft(window.localStorage);
+      }
+    }
     if (prefillPatch) {
       const service = prefillPatch.service;
       const qty = Number(prefillPatch.qty || 0);
@@ -167,7 +191,7 @@ export function AppRouter() {
         const ctx = prefillPatch?.context === "admin" ? "?context=admin" : "";
         window.history.pushState(null, "", `/login${ctx}`);
       } else if (p.startsWith("step")) {
-        const s = prefillPatch || data;
+        const s = prefillPatch || baseData;
         if (s.type || s.service) params.set("service", s.type || s.service);
         if (s.cityName || s.comune) params.set("comune", s.cityName || s.comune);
         if (s.qty) params.set("qty", String(s.qty));
@@ -178,7 +202,7 @@ export function AppRouter() {
         if (s.endDate) params.set("endDate", s.endDate);
         if (s.source || s.quickSource) params.set("source", s.source || s.quickSource);
         params.set("step", p.replace("step", ""));
-        window.history.replaceState(configuratorHistoryState(data), "", window.location.href);
+        window.history.replaceState(configuratorHistoryState(baseData), "", window.location.href);
         window.history.pushState(configuratorHistoryState(s), "", `/configuratore?${params.toString()}`);
       } else if (p.startsWith("admin-gps:")) {
         window.history.pushState(null, "", `/admin/campaigns/${p.split(":")[1]}/gps`);
