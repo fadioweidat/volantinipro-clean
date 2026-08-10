@@ -7,10 +7,12 @@ import { calculateDistanceKm } from '../../lib/services/gps-api.js';
 import { getOwnedCustomerTracking } from '../../lib/services/customer-api.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
 import { listCoverageAdjustments } from '../../lib/services/coverage-adjustments-api.js';
+import { C, F } from '../../lib/constants.js';
 
 export function CampaignTracking({ campaignId }) {
   const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], campaign: null });
   const [adjustments, setAdjustments] = useState([]);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const zoneProgress = useZoneProgress({ campaignId });
 
   useEffect(() => {
@@ -41,7 +43,10 @@ export function CampaignTracking({ campaignId }) {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [campaignId]);
+    // refreshNonce forza un reload immediato dal pulsante "Aggiorna", senza
+    // attendere l'intervallo di 30s — stessa query, stessa logica, nessun
+    // cambiamento a getOwnedCustomerTracking.
+  }, [campaignId, refreshNonce]);
 
   const status = deriveCampaignStatus(state.sessions);
   const activeMs = state.sessions.reduce((sum, session) => sum + sessionDurationMs(session), 0);
@@ -50,81 +55,110 @@ export function CampaignTracking({ campaignId }) {
     || [...state.sessions].sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))[0]?.updated_at
     || null;
   const connectionStatus = latestPing && Date.now() - new Date(latestPing).getTime() <= 5 * 60 * 1000 ? 'online' : 'offline';
+  // zona (es. "Saronno") evita la ridondanza "Campagna Campagna X": titolo
+  // in DB e' gia' salvato come "Campagna {citta}" (vedi Step4.jsx saveCampaign).
+  const campaignTitle = state.campaign?.zona || state.campaign?.titolo || 'Campagna';
+  const backHref = `/campagna/${campaignId}`;
 
   return (
     <main style={shellStyle}>
-      <header style={{ marginBottom: 22 }}>
-        <a href="/" style={{ color: '#e8571a', fontWeight: 900, textDecoration: 'none' }}>VolantiniPro</a>
-        <p style={eyebrowStyle}>Tracking cliente</p>
-        <h1 style={{ margin: 0, fontSize: 34 }}>{state.campaign?.titolo || 'Stato distribuzione'}</h1>
-      </header>
-
-      {state.error && <div style={errorStyle}>{state.error}</div>}
-
-      <div style={metricGridStyle}>
-        <Metric label="Stato campagna" value={status} />
-        <Metric label="Punti GPS" value={state.points.length} />
-        <Metric label="Tempo registrato" value={formatDuration(activeMs)} />
-        <Metric label="Distanza" value={`${distanceKm.toFixed(2)} km`} />
-        <Metric label="Ultimo ping" value={formatDateTime(latestPing)} />
-        <Metric label="Connessione" value={connectionStatus} />
-        <Metric label="Foto approvate" value={state.photos.length} />
-      </div>
-
-      {state.campaign && <AuthorizedZoneProgress zoneProgress={zoneProgress} />}
-
-      <section style={cardStyle}>
-        <p style={eyebrowStyle}>Percorso distribuzione</p>
-        {state.points.length > 0 || zoneProgress.zones.length > 0 ? (
-          <TrackingMap points={state.points} zones={zoneProgress.zones} adjustments={adjustments} />
-        ) : (
-          <EmptyState text={state.loading ? 'Caricamento tracking GPS...' : 'Nessun tracking GPS disponibile'} />
-        )}
-        {adjustments.length > 0 && (
-          <p style={{ margin: '10px 0 0', fontSize: 12, color: '#64748b' }}>
-            Copertura finale composta da rilevamento GPS e verifiche operative approvate.
-          </p>
-        )}
-      </section>
-
-      <section style={gridTwoStyle}>
-        <div style={cardStyle}>
-          <p style={eyebrowStyle}>Riepilogo orari</p>
-          {state.sessions.length ? state.sessions.map((session) => (
-            <div key={session.id} style={rowStyle}>
-              <strong>{session.status}</strong>
-              <span>{formatDateTime(session.started_at)} - {formatDateTime(session.ended_at || session.paused_at)}</span>
+      <style>{`
+        .vp-tracking-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        @media (max-width: 900px) { .vp-tracking-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 480px) { .vp-tracking-kpi-grid { grid-template-columns: 1fr; } }
+        .vp-tracking-two-col { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+        @media (max-width: 760px) { .vp-tracking-two-col { grid-template-columns: 1fr; } }
+      `}</style>
+      <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+        <header style={{ marginBottom: 22 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div>
+              <a href={backHref} style={breadcrumbStyle}>
+                Dashboard Cliente <span style={{ color: 'rgba(255,255,255,.3)' }}>›</span> Campagna {campaignTitle} <span style={{ color: 'rgba(255,255,255,.3)' }}>›</span> Tracking
+              </a>
+              <h1 style={titleStyle}>Tracking Campagna {campaignTitle}</h1>
             </div>
-          )) : <EmptyState text="Nessuna sessione registrata" />}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <a href={backHref} style={secondaryBtnStyle}>Torna alla campagna</a>
+              <button
+                type="button"
+                onClick={() => setRefreshNonce((n) => n + 1)}
+                disabled={state.loading}
+                style={{ ...secondaryBtnStyle, opacity: state.loading ? 0.6 : 1, cursor: state.loading ? 'default' : 'pointer' }}
+              >
+                {state.loading ? 'Aggiornamento…' : 'Aggiorna'}
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {state.error && <div style={errorStyle}>{state.error}</div>}
+
+        <div className="vp-tracking-kpi-grid" style={{ marginBottom: 16 }}>
+          <Metric label="Stato campagna" value={status} color={C.green} />
+          <Metric label="Punti GPS" value={state.points.length} color={C.blue} />
+          <Metric label="Tempo registrato" value={formatDuration(activeMs)} color={C.orange} />
+          <Metric label="Distanza" value={`${distanceKm.toFixed(2)} km`} color={C.orange} />
+          <Metric label="Ultimo ping" value={formatDateTime(latestPing)} color={C.purple} />
+          <Metric label="Connessione" value={connectionStatus === 'online' ? 'Online' : 'Offline'} color={connectionStatus === 'online' ? C.green : 'rgba(255,255,255,.45)'} />
+          <Metric label="Foto approvate" value={state.photos.length} color={C.blue} />
         </div>
 
-        <div style={cardStyle}>
-          <p style={eyebrowStyle}>Foto prova approvate</p>
-          {state.photos.length ? state.photos.map((photo) => {
-            const meta = parseProofPhotoNote(photo.note);
-            return (
-              <div key={photo.id} style={rowStyle}>
-                {photo.signedUrl ? <img src={photo.signedUrl} alt="Foto prova approvata" style={{ width: 110, height: 82, objectFit: 'cover', borderRadius: 8 }} /> : null}
-                <div>
-                  <strong>{formatDateTime(photo.taken_at || photo.created_at)}</strong>
-                  {meta.outcome && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 800, color: '#0f766e' }}>{podOutcomeLabel(meta.outcome)}</span>}
-                  <p style={{ margin: '4px 0', color: '#64748b' }}>{meta.client || 'Cliente non specificato'}{meta.address ? ` · ${meta.address}` : ''}</p>
-                  {(meta.ddt || meta.colli) && (
-                    <p style={{ margin: '2px 0', color: '#94a3b8', fontSize: 12 }}>{meta.ddt ? `DDT ${meta.ddt}` : ''}{meta.ddt && meta.colli ? ' · ' : ''}{meta.colli ? `${meta.colli} colli` : ''}</p>
-                  )}
-                  {meta.note && <p style={{ margin: '2px 0', color: '#94a3b8', fontSize: 12 }}>{meta.note}</p>}
-                </div>
+        {state.campaign && <AuthorizedZoneProgress zoneProgress={zoneProgress} />}
+
+        <section style={{ ...cardStyle, marginBottom: 16 }}>
+          <p style={eyebrowStyle}>Percorso distribuzione</p>
+          {state.points.length > 0 || zoneProgress.zones.length > 0 ? (
+            <TrackingMap points={state.points} zones={zoneProgress.zones} adjustments={adjustments} />
+          ) : (
+            <EmptyState text={state.loading ? 'Caricamento tracking GPS…' : 'Il percorso GPS sarà disponibile quando inizierà la distribuzione.'} tall />
+          )}
+          {adjustments.length > 0 && (
+            <p style={{ margin: '10px 0 0', fontSize: 12, color: 'rgba(255,255,255,.45)', fontFamily: F.sans }}>
+              Copertura finale composta da rilevamento GPS e verifiche operative approvate.
+            </p>
+          )}
+        </section>
+
+        <div className="vp-tracking-two-col">
+          <section style={cardStyle}>
+            <p style={eyebrowStyle}>Riepilogo orari</p>
+            {state.sessions.length ? state.sessions.map((session) => (
+              <div key={session.id} style={rowStyle}>
+                <strong style={{ color: C.white, fontFamily: F.sans, fontSize: 13 }}>{session.status}</strong>
+                <span style={{ color: 'rgba(255,255,255,.5)', fontFamily: F.sans, fontSize: 12 }}>{formatDateTime(session.started_at)} – {formatDateTime(session.ended_at || session.paused_at)}</span>
               </div>
-            );
-          }) : <EmptyState text="Nessuna foto prova approvata disponibile" />}
+            )) : <EmptyState text="Nessuna sessione registrata." />}
+          </section>
+
+          <section style={cardStyle}>
+            <p style={eyebrowStyle}>Foto prova approvate</p>
+            {state.photos.length ? state.photos.map((photo) => {
+              const meta = parseProofPhotoNote(photo.note);
+              return (
+                <div key={photo.id} style={rowStyle}>
+                  {photo.signedUrl ? <img src={photo.signedUrl} alt="Foto prova approvata" style={{ width: 110, height: 82, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(255,255,255,.08)' }} /> : null}
+                  <div>
+                    <strong style={{ color: C.white, fontFamily: F.sans, fontSize: 13 }}>{formatDateTime(photo.taken_at || photo.created_at)}</strong>
+                    {meta.outcome && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 800, color: C.green, fontFamily: F.sans }}>{podOutcomeLabel(meta.outcome)}</span>}
+                    <p style={{ margin: '4px 0', color: 'rgba(255,255,255,.5)', fontFamily: F.sans, fontSize: 12 }}>{meta.client || 'Cliente non specificato'}{meta.address ? ` · ${meta.address}` : ''}</p>
+                    {(meta.ddt || meta.colli) && (
+                      <p style={{ margin: '2px 0', color: 'rgba(255,255,255,.35)', fontSize: 11, fontFamily: F.sans }}>{meta.ddt ? `DDT ${meta.ddt}` : ''}{meta.ddt && meta.colli ? ' · ' : ''}{meta.colli ? `${meta.colli} colli` : ''}</p>
+                    )}
+                    {meta.note && <p style={{ margin: '2px 0', color: 'rgba(255,255,255,.35)', fontSize: 11, fontFamily: F.sans }}>{meta.note}</p>}
+                  </div>
+                </div>
+              );
+            }) : <EmptyState text="Nessuna foto prova approvata disponibile." />}
+          </section>
         </div>
-      </section>
+      </div>
     </main>
   );
 }
 
 function AuthorizedZoneProgress({ zoneProgress }) {
-  return <div style={{ marginTop: 16 }}>
+  return <div style={{ marginBottom: 16 }}>
     <ZoneProgressPanel
       zones={zoneProgress.zones}
       loading={zoneProgress.loading}
@@ -132,6 +166,7 @@ function AuthorizedZoneProgress({ zoneProgress }) {
       error={zoneProgress.error}
       notice={zoneProgress.notice}
       onRefresh={zoneProgress.refresh}
+      theme="dark"
     />
   </div>;
 }
@@ -172,7 +207,7 @@ function TrackingMap({ points, zones = [], adjustments = [] }) {
   }
 
   return (
-    <div style={{ height: 460, borderRadius: 12, overflow: 'hidden', border: '1px solid #d7ded9' }}>
+    <div style={{ height: 460, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)' }}>
       <MapContainer center={center} zoom={15} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
         <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {zones.map((zone) => {
@@ -224,7 +259,7 @@ function TrackingMap({ points, zones = [], adjustments = [] }) {
         )}
       </MapContainer>
       {(zones.length > 0 || adjustments.length > 0) && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, padding: '8px 4px 0', fontSize: 11, color: '#64748b' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, padding: '8px 4px 0', fontSize: 11, color: 'rgba(255,255,255,.5)', background: C.navyMid }}>
           <LegendItem color="#2563eb" label="Traccia GPS reale" line />
           <LegendItem color="#22c55e" label="Copertura GPS" />
           <LegendItem color="#8b5cf6" label="Correzione manuale Admin" />
@@ -262,12 +297,32 @@ function sessionDurationMs(session) {
   return Math.max(0, end - start);
 }
 
-function Metric({ label, value }) {
-  return <div style={metricStyle}><span>{label}</span><strong>{value}</strong></div>;
+function Metric({ label, value, color }) {
+  return (
+    <div style={metricStyle}>
+      <div style={{ fontFamily: F.serif, fontSize: 22, color: color || C.white, letterSpacing: '-.5px', wordBreak: 'break-word' }}>{value}</div>
+      <div style={{ fontFamily: F.sans, fontSize: 11, color: 'rgba(255,255,255,.42)', marginTop: 6 }}>{label}</div>
+    </div>
+  );
 }
 
-function EmptyState({ text }) {
-  return <div style={{ padding: 20, border: '1px dashed #cbd5e1', borderRadius: 10, color: '#64748b' }}>{text}</div>;
+function EmptyState({ text, tall = false }) {
+  return (
+    <div style={{
+      padding: tall ? '60px 20px' : 20,
+      minHeight: tall ? 200 : undefined,
+      display: tall ? 'flex' : 'block',
+      alignItems: tall ? 'center' : undefined,
+      justifyContent: tall ? 'center' : undefined,
+      textAlign: 'center',
+      border: '1px dashed rgba(255,255,255,.14)',
+      borderRadius: 12,
+      background: 'rgba(255,255,255,.02)',
+      color: 'rgba(255,255,255,.45)',
+      fontFamily: F.sans,
+      fontSize: 13,
+    }}>{text}</div>
+  );
 }
 
 function formatDateTime(value) {
@@ -281,11 +336,12 @@ function formatDuration(ms) {
   return hours ? `${hours}h ${rest}m` : `${rest}m`;
 }
 
-const shellStyle = { minHeight: '100vh', padding: 24, background: '#eef2ef', color: '#17211f', fontFamily: 'Inter, system-ui, sans-serif' };
-const cardStyle = { background: '#fff', border: '1px solid #d7ded9', borderRadius: 14, padding: 18, boxShadow: '0 10px 26px rgba(15,23,42,.07)', marginTop: 16 };
-const eyebrowStyle = { margin: '0 0 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: '#64748b', fontWeight: 900 };
-const metricGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 };
-const metricStyle = { display: 'grid', gap: 4, padding: 12, background: '#fff', borderRadius: 10, border: '1px solid #d7ded9' };
-const gridTwoStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 16 };
-const rowStyle = { display: 'flex', gap: 12, padding: 12, borderBottom: '1px solid #e2e8f0', alignItems: 'center', flexWrap: 'wrap' };
-const errorStyle = { padding: 12, borderRadius: 10, color: '#991b1b', background: '#fee2e2', border: '1px solid #fecaca', marginBottom: 16 };
+const shellStyle = { minHeight: '100vh', background: C.navyMid, padding: '32px 24px 80px', color: C.white, fontFamily: F.sans };
+const breadcrumbStyle = { display: 'inline-block', color: 'rgba(255,255,255,.45)', fontFamily: F.sans, fontSize: 12, textDecoration: 'none', marginBottom: 10 };
+const titleStyle = { margin: 0, fontFamily: F.serif, fontSize: 32, color: C.white, letterSpacing: '-1px' };
+const secondaryBtnStyle = { display: 'inline-flex', alignItems: 'center', minHeight: 40, padding: '0 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,.12)', background: 'rgba(255,255,255,.05)', color: C.white, fontFamily: F.sans, fontSize: 13, fontWeight: 700, textDecoration: 'none', cursor: 'pointer' };
+const cardStyle = { background: 'rgba(255,255,255,.045)', border: '1px solid rgba(255,255,255,.09)', borderRadius: 14, padding: 18 };
+const eyebrowStyle = { margin: '0 0 12px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.12em', color: C.green, fontWeight: 800, fontFamily: F.sans };
+const metricStyle = { padding: 14, background: 'rgba(255,255,255,.045)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 13 };
+const rowStyle = { display: 'flex', gap: 12, padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,.06)', alignItems: 'center', flexWrap: 'wrap' };
+const errorStyle = { padding: 12, borderRadius: 10, color: C.red, background: 'rgba(248,113,113,.1)', border: '1px solid rgba(248,113,113,.25)', marginBottom: 16, fontFamily: F.sans, fontSize: 13 };

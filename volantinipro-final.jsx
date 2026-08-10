@@ -17,7 +17,24 @@ import {
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
-import { customerValue } from "./src/lib/customerCampaigns.js";
+import { customerValue, CUSTOMER_DATA_UNAVAILABLE } from "./src/lib/customerCampaigns.js";
+
+// Badge neutro per "Dato non disponibile": usato al posto del rendering
+// grande/colorato di un valore reale, cosi' un dato mancante non sembra un
+// numero vero (es. "0" o un colore acceso) ma resta visivamente distinto
+// come stato neutro. Nessun impatto sui dati: solo su come vengono mostrati.
+function MissingValueBadge() {
+  return <span style={{
+    display: "inline-block",
+    padding: "3px 9px",
+    borderRadius: 999,
+    background: "rgba(255,255,255,.06)",
+    color: "rgba(255,255,255,.4)",
+    fontFamily: F.sans,
+    fontSize: 11,
+    fontWeight: 800
+  }}>{CUSTOMER_DATA_UNAVAILABLE}</span>;
+}
 import { useServiceAnalysis } from "./src/hooks/useServiceAnalysis.js";
 import { useSectors } from "./src/hooks/useSectors.js";
 import { usePoi } from "./src/hooks/usePoi.js";
@@ -5022,7 +5039,24 @@ export function LoginPage({
           window.location.replace(`${driverOrigin}${driverReturnPath}`);
           return;
         }
-        onNav(isAdminContext ? "admin" : "dashboard");
+        if (isAdminContext) {
+          onNav("admin");
+        } else {
+          // Se il login e' stato richiesto da Step4 (vedi handleConfirmCampaign
+          // in Step4.jsx, che imposta volantinipro_return_to prima di mandare
+          // qui l'utente), torna a Step4 invece che alla Dashboard generica:
+          // Step4 rilegge da solo il draft/pending action da localStorage
+          // (vedi useState di "data" in AppRouter.jsx) e mostra il banner
+          // "Campagna pronta" per completare la conferma. NON pulire qui
+          // volantinipro_return_to/pending_action/pending_campaign_draft:
+          // restano a Step4.jsx, che li rimuove solo dopo un salvataggio
+          // riuscito (o li lascia intatti in caso di errore, cosi' il draft
+          // non si perde).
+          const pendingReturnToStep4 = (() => {
+            try { return localStorage.getItem("volantinipro_return_to") === "step4"; } catch { return false; }
+          })();
+          onNav(pendingReturnToStep4 ? "step4" : "dashboard");
+        }
       }
       return;
     }
@@ -5351,7 +5385,7 @@ export function DashboardPage({
         gap: 10,
         marginBottom: 16
       }}>
-          {[["Campagne attive", activeCount, C.green], ["In attesa pagamento", waitingPaymentCount, C.yellow], ["Totale speso", totalSpent == null ? customerValue(null) : `€${totalSpent.toLocaleString("it-IT", {
+          {[["Campagne attive", activeCount, C.green], ["In attesa pagamento", waitingPaymentCount, C.yellow], ["Totale speso", totalSpent == null ? null : `€${totalSpent.toLocaleString("it-IT", {
           minimumFractionDigits: 2
           })}`, C.orange], ["Volantini distribuiti", flyersDone.toLocaleString("it-IT"), C.blue]].map(([l, v, c]) => <div key={l} style={{
           padding: 16,
@@ -5359,12 +5393,12 @@ export function DashboardPage({
           background: "rgba(255,255,255,.045)",
           border: "1px solid rgba(255,255,255,.08)"
         }}>
-              <div style={{
+              {v == null ? <MissingValueBadge /> : <div style={{
             fontFamily: F.serif,
             fontSize: 28,
             color: c,
             letterSpacing: "-.6px"
-          }}>{v}</div>
+          }}>{v}</div>}
               <div style={{
             fontFamily: F.sans,
             fontSize: 11,
@@ -5490,13 +5524,13 @@ export function DashboardPage({
                     <div style={{
                 textAlign: "right"
               }}>
-                      <div style={{
+                      {campagna.totale_euro == null ? <MissingValueBadge /> : <div style={{
                   fontFamily: F.serif,
                   fontSize: 24,
                   color: C.green
-                }}>{campagna.totale_euro == null ? customerValue(null) : `€${Number(campagna.totale_euro).toLocaleString("it-IT", {
+                }}>{`€${Number(campagna.totale_euro).toLocaleString("it-IT", {
                     minimumFractionDigits: 2
-                  })}`}</div>
+                  })}`}</div>}
                       <button onClick={() => onNav("campaign", {
                   campaignId: campagna.id
                 })} style={{
@@ -5760,7 +5794,8 @@ export function CampaignDashboardPage({
                   color: C.white,
                   marginBottom: 5
                 }}><span>{l}</span><b style={{
-                    color: c
+                    color: v === CUSTOMER_DATA_UNAVAILABLE ? "rgba(255,255,255,.4)" : c,
+                    fontWeight: v === CUSTOMER_DATA_UNAVAILABLE ? 700 : 900
                   }}>{v}</b></div><div style={{
                   height: 6,
                   borderRadius: 999,
@@ -5865,12 +5900,12 @@ export function CampaignDashboardPage({
                 letterSpacing: ".12em",
                 textTransform: "uppercase",
                 marginBottom: 12
-              }}>Smart Pairing</div><div style={{
+              }}>Smart Pairing</div>{campagna.smart_pairing_sconto == null ? <MissingValueBadge /> : <div style={{
                 fontFamily: F.serif,
                 fontSize: 30,
                 color: C.green,
                 letterSpacing: "-.8px"
-              }}>{campagna.smart_pairing_sconto == null ? customerValue(null) : `${campagna.smart_pairing_sconto}%`}</div><div style={{
+              }}>{`${campagna.smart_pairing_sconto}%`}</div>}<div style={{
                 fontFamily: F.sans,
                 fontSize: 12,
                 color: "rgba(255,255,255,.48)",
@@ -5900,7 +5935,7 @@ export function CampaignDashboardPage({
                 color: "rgba(255,255,255,.58)"
               }}><span>{l}</span><b style={{
                   color: v < 0 ? C.green : C.white
-                }}>?{Number(v || 0).toLocaleString("it-IT", {
+                }}>€{Number(v || 0).toLocaleString("it-IT", {
                     minimumFractionDigits: 2
                   })}</b></div>)}</div>
               <div style={{
