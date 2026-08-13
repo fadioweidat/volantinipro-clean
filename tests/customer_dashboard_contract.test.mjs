@@ -60,9 +60,10 @@ test('Tracking, report and payment expose required privacy-safe flows', () => {
   assert.match(tracking, /getOwnedCustomerTracking/);
   assert.match(tracking, /Ultimo ping/);
   assert.match(tracking, /AuthorizedZoneProgress/);
-  assert.match(report, /getOwnedCustomerReport/);
-  assert.match(report, /Scarica CSV GPS/);
-  assert.match(report, /Stampa \/ salva PDF/);
+  assert.match(report, /getFinalDistributionReport/);
+  assert.match(report, /customerOwned:\s*true/);
+  assert.match(report, /Scarica certificazione PDF/);
+  assert.match(report, /FinalDistributionReportView/);
   assert.doesNotMatch(report, /driver_email|driver_phone|disciplin/i);
   assert.match(payment, /from\("campaigns"\)\.select\("metadata"\)/);
   assert.doesNotMatch(payment, /from\("campagne"\)/);
