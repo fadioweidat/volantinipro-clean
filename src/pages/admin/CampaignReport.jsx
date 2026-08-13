@@ -24,13 +24,19 @@ import {
   shortId,
 } from '../../lib/services/report-utils.js';
 import { AdminLayout } from './AdminLayout.jsx';
+import { FinalDistributionReportView } from '../../components/reports/FinalDistributionReportView.jsx';
+import { downloadFinalDistributionPdf } from '../../lib/pdf/generateFinalDistributionPdf.js';
+import { getFinalDistributionReport } from '../../lib/services/final-report-api.js';
 
 export function CampaignReport({ campaignId }) {
+  const [viewMode, setViewMode] = useState('cliente');
+  const [finalState, setFinalState] = useState({ loading: true, report: null, error: null, notice: '' });
   const [state, setState] = useState({ loading: true, error: null, operations: null, campaign: null, notice: '' });
   const [filters, setFilters] = useState({ period: 'all', fromDate: '', toDate: '', group: '', driver: '', status: 'all' });
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
+    if (viewMode !== 'admin') return undefined;
     let cancelled = false;
     async function load() {
       try {
@@ -42,6 +48,15 @@ export function CampaignReport({ campaignId }) {
       }
     }
     load();
+    return () => { cancelled = true; };
+  }, [campaignId, viewMode]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getFinalDistributionReport(campaignId)
+      .then((report) => { if (!cancelled) setFinalState({ loading: false, report, error: null, notice: '' }); })
+      .catch((error) => { if (!cancelled) setFinalState({ loading: false, report: null, error: error?.message || 'Report finale non disponibile.', notice: '' }); });
+    return () => { cancelled = true; };
   }, [campaignId]);
 
   const rows = (state.operations?.sessions || []).map((item) => ({
@@ -103,11 +118,39 @@ export function CampaignReport({ campaignId }) {
     setState((prev) => ({ ...prev, notice }));
   }
 
+  async function exportFinalPdf() {
+    if (!finalState.report) return;
+    try {
+      setFinalState((previous) => ({ ...previous, notice: 'Generazione PDF in corso...' }));
+      await downloadFinalDistributionPdf(finalState.report, 'certificazione-distribuzione-volantinipro.pdf');
+      setFinalState((previous) => ({ ...previous, notice: 'PDF scaricato.' }));
+    } catch (error) {
+      setFinalState((previous) => ({ ...previous, error: error?.message || 'Impossibile generare il PDF.', notice: '' }));
+    }
+  }
+
   const breadcrumbs = [
     { label: "Dashboard", href: "/admin" },
     { label: "Campagne", href: "/admin" },
     { label: `Report Campagna ${campaignId}` }
   ];
+
+  if (viewMode === 'cliente') {
+    return (
+      <AdminLayout title="Report finale campagna" subtitle="Vista Cliente / Finale" breadcrumbs={breadcrumbs}>
+        <section style={toolbarStyle}>
+          <div style={actionGroupStyle}>
+            <button style={buttonStyle} type="button" onClick={() => setViewMode('admin')}>Admin operativo</button>
+            <button style={buttonStyle} type="button" onClick={exportFinalPdf} disabled={!finalState.report || finalState.loading}>Scarica PDF cliente</button>
+            <a style={navButtonStyle} href={`/customer/campaigns/${campaignId}/report`}>Apri Area Cliente</a>
+          </div>
+        </section>
+        {finalState.error && <Notice danger text={finalState.error} />}
+        {finalState.notice && <Notice text={finalState.notice} />}
+        <FinalDistributionReportView report={finalState.report} loading={finalState.loading} />
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout title="Report finale campagna" subtitle={`Campagna ${campaignId}`} breadcrumbs={breadcrumbs}>
@@ -117,6 +160,7 @@ export function CampaignReport({ campaignId }) {
       <section style={toolbarStyle}>
         <ReportFilters filters={filters} onChange={setFilters} operators={Array.from(new Set(rows.map((item) => item.driverName).filter(Boolean)))} />
         <div style={actionGroupStyle}>
+          <button style={buttonStyle} type="button" onClick={() => setViewMode('cliente')}>Cliente / Finale</button>
           <button style={buttonStyle} type="button" onClick={exportSessions}>CSV sessioni</button>
           <button style={buttonStyle} type="button" onClick={exportGps}>CSV GPS</button>
           <button style={buttonStyle} type="button" onClick={exportJson}>JSON operativo</button>
@@ -141,7 +185,7 @@ export function CampaignReport({ campaignId }) {
             <p style={eyebrowStyle}>Riepilogo campagna</p>
             <h2 style={sectionTitleStyle}>{campaignTitle(state.campaign, campaignId)}</h2>
           </div>
-          <a style={navButtonStyle} href={`/client/campaigns/${campaignId}/report`}>Vista cliente</a>
+          <a style={navButtonStyle} href={`/customer/campaigns/${campaignId}/report`}>Vista cliente</a>
         </div>
         <Summary campaign={state.campaign} campaignId={campaignId} />
       </section>
