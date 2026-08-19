@@ -16,8 +16,27 @@ try {
   }
 }
 
+// detectSessionInUrl: false — questo client non e' mai il consumatore
+// previsto dell'hash #access_token=... del magic link (vedi commento sotto:
+// il flusso reale e' interamente manuale via vp_supabase_session, bridgeato
+// qui SOLO dopo il fatto). Lasciato al default (true), la sua detection
+// automatica del GoTrue-js interno intercetta l'hash per conto proprio,
+// prima o in corsa con consumeSupabaseAuthHash() in LoginPage: se vince lei,
+// salva la sessione sotto la propria chiave sb-<ref>-auth-token (mai letta
+// dall'app) e ripulisce l'hash dall'URL, lasciando l'app senza nulla da
+// consumare — la route ricade quindi su Home invece che su /dashboard.
+// Riprodotto dal vivo: risolve il bug "magic link torna alla Home".
 export const supabase = (supabaseUrl && supabaseKey)
-  ? createClient(supabaseUrl, supabaseKey)
+  ? createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        // Esplicitati per rendere il contratto di sessione verificabile: nel
+        // browser la SDK persiste nella sua chiave standard
+        // sb-<project-ref>-auth-token e rinnova il JWT prima della scadenza.
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+      },
+    })
   : null
 
 // The main app (volantinipro-final.jsx) authenticates via a separate
@@ -53,4 +72,21 @@ export async function ensureSupabaseSessionBridge() {
   } catch {
     // best-effort bridge — queries fall back to anon/RLS-empty behavior
   }
+}
+
+// P0: quando supabase.auth.getUser() rifiuta il token bridgeato (access_token
+// scaduto E refresh_token non piu' valido — /auth/v1/user 403 seguito da
+// /auth/v1/token?grant_type=refresh_token 400, riprodotto dal vivo), il blob
+// "vp_supabase_session" resta comunque in localStorage: nessun meccanismo lo
+// invalidava, quindi DashboardPage continuava a mostrare "Sessione attiva"
+// (badge basato solo sulla presenza del blob, mai sulla sua validita') mentre
+// ogni query reale falliva silenziosamente. I chiamanti (useCliente,
+// useCampagne) invocano questa funzione SOLO quando supabase.auth.getUser()
+// restituisce un errore reale, cosi' da:
+//   - ripulire la sessione bridgeata stale (mai il pending campaign claim,
+//     che vive sotto una chiave separata e deve sopravvivere al logout)
+//   - azzerare la cache in-memory cosi' un login successivo bridgea pulito
+export function clearBridgedSupabaseSession() {
+  try { localStorage.removeItem('vp_supabase_session') } catch {}
+  bridgedAccessToken = null
 }

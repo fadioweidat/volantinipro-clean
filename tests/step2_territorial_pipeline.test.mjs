@@ -320,6 +320,73 @@ runAssert("resolveTerritorialBreakdown: nilRows=[] e comuni=[] -> NO_TERRITORIAL
   assert.ok(warnings.includes("NO_TERRITORIAL_DATA_IN_RADIUS"));
 });
 
+// -------------------------------------------------------------
+// PART 5: BUGFIX — selectionScope "municipality" per un comune confinante
+// con Milano (es. Cormano) non deve MAI propagare le NIL di Milano/comuni
+// esterni intercettati incidentalmente dallo sweep RPC interno. Bug reale
+// osservato in produzione: Cormano (9.297 famiglie reali) mostrava 73.272
+// famiglie / 100% copertura perche' lo sweep RPC (fino a 8km) intercettava
+// anche Milano, e il ramo "mixed" (pensato solo per Raggio/Address)
+// veniva raggiunto comunque per selectionScope="municipality".
+// -------------------------------------------------------------
+console.log("\n--- PART 5: BUGFIX selectionScope municipality vicino a Milano ---");
+
+runAssert("resolveTerritorialBreakdown: Cormano (municipality scope) esclude Milano intercettata dallo sweep", () => {
+  const warnings = [];
+  const res = resolveTerritorialBreakdown({
+    rawSelectionScope: "municipality",
+    requestedAnalysisLevel: null,
+    specificMunicipality: "Cormano",
+    // Lo sweep RPC interno (lat/lng/raggio tecnico fino a 8km) ha
+    // intercettato sia Cormano (il comune realmente richiesto) sia Milano
+    // (confinante) — esattamente lo scenario del bug reale.
+    comuni: [
+      { municipality_code: "015086", comune_name: "Cormano", households: 9297, population: 20744 },
+      { municipality_code: "015146", comune_name: "Milano", households: 700000, population: 1400000 },
+    ],
+    nilRows: [
+      { nil_code: "9", nil_name: "Bruzzano", households: 12000 },
+    ],
+    warnings,
+  });
+  assert.strictEqual(res.analysisLevel, "comune");
+  assert.strictEqual(res.territorialRows.length, 1);
+  assert.strictEqual(res.territorialRows[0].comune_name, "Cormano");
+  assert.strictEqual(res.territorialRows[0].households, 9297);
+  assert.ok(!res.territorialRows.some(r => r.comune_name === "Milano"), "Milano non deve mai comparire per uno scope municipality su Cormano");
+  assert.ok(!res.territorialRows.some(r => r.nil_name === "Bruzzano"), "le NIL di Milano intercettate incidentalmente non devono mai essere propagate");
+});
+
+runAssert("resolveTerritorialBreakdown: municipality scope su comune non trovato nello sweep -> nessun dato inventato", () => {
+  const warnings = [];
+  const res = resolveTerritorialBreakdown({
+    rawSelectionScope: "municipality",
+    requestedAnalysisLevel: null,
+    specificMunicipality: "Barasso",
+    comuni: [
+      { municipality_code: "015146", comune_name: "Milano", households: 700000 },
+    ],
+    nilRows: [],
+    warnings,
+  });
+  assert.strictEqual(res.territorialRows.length, 0);
+  assert.ok(warnings.some(w => w.includes("MUNICIPALITY_SCOPE_REQUESTED_COMUNE_NOT_IN_SWEEP")));
+});
+
+runAssert("resolveTerritorialBreakdown: Milano stessa (municipality scope) resta invariata — usa le 88 NIL", () => {
+  const warnings = [];
+  const res = resolveTerritorialBreakdown({
+    rawSelectionScope: "municipality",
+    requestedAnalysisLevel: null,
+    specificMunicipality: "Milano",
+    comuni: [{ municipality_code: "015146", comune_name: "Milano", households: 700000 }],
+    nilRows: Array.from({ length: 88 }, (_, i) => ({ nil_code: String(i + 1), nil_name: `NIL${i + 1}`, households: 1000 })),
+    warnings,
+  });
+  assert.strictEqual(res.analysisLevel, "nil");
+  assert.strictEqual(res.territorialRows.length, 88);
+});
+
 console.log(`\n======================================================`);
 console.log(`RISULTATO TEST SUITE: ${passCount} PASS | ${failCount} FAIL`);
 console.log(`======================================================`);

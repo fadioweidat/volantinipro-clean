@@ -26,18 +26,27 @@ const shortHash = (value) => {
   return (result >>> 0).toString(16).padStart(8, "0");
 };
 
-export function normalizeTerritorialIdentity(identity, contextId) {
-  if (identity?.status === "signed_out" || identity?.status === "invalid") return Object.freeze({ enabled: false, principalId: null, role: "visitatore", authUser: null, profile: null });
+export function normalizeTerritorialIdentity(identity, contextId = null) {
   const role = typeof identity?.profile?.role === "string" ? identity.profile.role.trim().toLowerCase() : "";
-  if (identity?.authUser?.id && identityRoles.has(role)) return Object.freeze({
-    enabled: true,
-    principalId: String(identity.authUser.id),
-    role,
-    authUser: Object.freeze({ id: String(identity.authUser.id), email: identity.authUser.email ?? null }),
-    profile: Object.freeze({ role }),
+  if (identity?.authUser?.id && identityRoles.has(role)) {
+    return Object.freeze({
+      enabled: true,
+      principalId: String(identity.authUser.id),
+      role,
+      authUser: Object.freeze({ id: String(identity.authUser.id), email: identity.authUser.email ?? null }),
+      profile: Object.freeze({ role }),
+    });
+  }
+  // territorial_report e' pubblico per contratto. L'anonimo usa un principal
+  // tecnico isolato per tab/contesto; non eredita identita o permessi Customer.
+  const visitorContext = typeof contextId === "string" && contextId.trim() ? contextId.trim() : null;
+  return Object.freeze({
+    enabled: Boolean(visitorContext),
+    principalId: visitorContext ? `visitor:${shortHash(visitorContext)}` : null,
+    role: "visitatore",
+    authUser: null,
+    profile: null,
   });
-  if (identity?.status === "anonymous" && contextId) return Object.freeze({ enabled: true, principalId: `visitor:${contextId}`, role: "visitatore", authUser: null, profile: null });
-  return Object.freeze({ enabled: false, principalId: null, role: "visitatore", authUser: null, profile: null });
 }
 
 function baseSessionId(principalId) {
@@ -211,7 +220,7 @@ export default function TerritorialAiAssistantPanel({ snapshot, identity = null,
     <div className="territorial-central-ai__topline"><div><p className="territorial-central-ai__eyebrow">CentralAiAgent · Territory Tool · sola lettura</p><h2 id="territorial-central-ai-title">Assistente Analisi Territoriale</h2><p>Ti aiuta a comprendere copertura, quantita e dati della zona selezionata.</p></div><div className="territorial-central-ai__actions">{stateLabel && <span className={`territorial-central-ai__badge territorial-central-ai__badge--${snapshot.state}`}>{stateLabel}</span>}<button type="button" className="territorial-central-ai__toggle" aria-expanded={open} aria-controls="territorial-central-ai-body" onClick={() => setOpen((value) => !value)}>{open ? "Chiudi" : "Apri assistente"}</button></div></div>
     {open && <div id="territorial-central-ai-body" className="territorial-central-ai__body">
       {versionNotice && <div className="territorial-central-ai__state" role="status">{versionNotice}</div>}
-      {!resolvedIdentity.enabled ? <div className="territorial-central-ai__state" role="status">Sessione AI territoriale non disponibile.</div> : snapshot.state === "loading" ? <div className="territorial-central-ai__state" role="status">Analisi territoriale in corso...</div> : <>
+      {!resolvedIdentity.enabled ? <div className="territorial-central-ai__state" role="status">Assistente territoriale non disponibile in questo contesto.</div> : snapshot.state === "loading" ? <div className="territorial-central-ai__state" role="status">Analisi territoriale in corso...</div> : <>
         <div className="territorial-central-ai__suggestions" aria-label="Domande territoriali suggerite">{suggestions(snapshot).map((suggestion) => <button type="button" key={suggestion} disabled={sending} onClick={() => submit(suggestion)}>{suggestion}</button>)}</div>
         <div className="territorial-central-ai__history" aria-live="polite" aria-label="Cronologia Assistente Analisi Territoriale">{history.length === 0 ? <p className="territorial-central-ai__empty">Chiedi una spiegazione dei risultati gia prodotti dallo Step 2.</p> : history.map((item, index) => <article key={`${item.at}-${index}`} className={`territorial-central-ai__message territorial-central-ai__message--${item.role}`}><strong>{item.role === "user" ? "Tu" : "Assistente Territoriale"}</strong><p>{item.content}</p>{item.role === "assistant" && item.aiResponse?.evidence?.length > 0 && <ul className="territorial-central-ai__evidence">{item.aiResponse.evidence.map((evidenceItem, evidenceIndex) => <li key={`${evidenceItem.label}-${evidenceIndex}`}>{evidenceItem.label}: {evidenceItem.value == null ? "NON DISPONIBILE" : String(evidenceItem.value)} <em>({evidenceItem.type.toLowerCase()}, {evidenceItem.confidence}, {evidenceItem.updatedAt ? new Date(evidenceItem.updatedAt).toLocaleTimeString("it-IT") : "n/d"})</em></li>)}</ul>}{item.role === "assistant" && item.metadata?.sources?.length > 0 && <span className="territorial-central-ai__source">Provenienza verificata tramite {[...new Set(item.metadata.sources.map(territorialToolSourceLabel))].join(", ")}; provider, dataset/fonte e stato sono riportati nella risposta.</span>}</article>)}{sending && <div className="territorial-central-ai__loading" role="status">Lettura dello snapshot in corso...</div>}</div>
         {error && <div className="territorial-central-ai__state territorial-central-ai__state--error" role="alert">{error}</div>}

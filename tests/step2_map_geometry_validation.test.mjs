@@ -81,13 +81,45 @@ test("E. lat/lng POI non finite vengono rifiutate senza lanciare", () => {
 });
 
 // F. Bounds non validi (es. da FeatureGroup vuoto dopo il filtro geometrie)
-// non devono mai essere passati a map.fitBounds.
+// non devono mai essere passati a map.fitBounds. Il mock replica la shape
+// reale di un L.LatLngBounds (isValid + i 4 getter), non solo isValid().
+function mockBounds({ valid = true, north = 45.61, south = 45.60, east = 9.11, west = 9.10 } = {}) {
+  return {
+    isValid: () => valid,
+    getNorth: () => north,
+    getSouth: () => south,
+    getEast: () => east,
+    getWest: () => west,
+  };
+}
 test("F. bounds non validi vengono rilevati prima di fitBounds", () => {
   assert.equal(isUsableLatLngBounds(null), false);
   assert.equal(isUsableLatLngBounds(undefined), false);
   assert.equal(isUsableLatLngBounds({}), false);
-  assert.equal(isUsableLatLngBounds({ isValid: () => false }), false);
-  assert.equal(isUsableLatLngBounds({ isValid: () => true }), true);
+  assert.equal(isUsableLatLngBounds(mockBounds({ valid: false })), false);
+  assert.equal(isUsableLatLngBounds(mockBounds()), true);
+});
+
+// G. Bounds degeneri (area a superficie zero: north===south o east===west)
+// vengono rifiutati anche se isValid() e' true — fitBounds su un'area
+// piatta produce uno zoom non finito che il redraw successivo legge come
+// coordinata pixel indefinita ("Cannot read properties of undefined").
+test("G. bounds degeneri (north===south o east===west) vengono rifiutati", () => {
+  assert.equal(isUsableLatLngBounds(mockBounds({ north: 45.60, south: 45.60 })), false);
+  assert.equal(isUsableLatLngBounds(mockBounds({ east: 9.10, west: 9.10 })), false);
+  assert.equal(isUsableLatLngBounds(mockBounds({ north: NaN })), false);
+});
+
+// H. Ring poligonale non chiuso (prima coordinata !== ultima) viene
+// rifiutato: Leaflet lo accetta silenziosamente ma produce un edge mancante
+// che puo' rompere il calcolo interno dei bounds al primo redraw.
+test("H. ring poligonale non chiuso viene rifiutato", () => {
+  const openRingPolygon = {
+    type: "Polygon",
+    coordinates: [[[9.10, 45.60], [9.11, 45.60], [9.11, 45.61], [9.10, 45.61]]], // manca il punto di chiusura
+  };
+  assert.equal(isValidGeoJsonGeometry(openRingPolygon), false);
+  assert.equal(isValidGeoJsonGeometry(VALID_POLYGON), true); // il ring chiuso resta valido
 });
 
 console.log(`Step2Map geometry validation tests: ${passed} passed`);

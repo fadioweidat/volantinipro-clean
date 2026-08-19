@@ -71,3 +71,51 @@ test('il link Admin usa la route Cliente canonica', async () => {
   assert.match(source, /\/customer\/campaigns\/\$\{campaignId\}\/report/);
   assert.doesNotMatch(source, /\/client\/campaigns\/\$\{campaignId\}\/report/);
 });
+
+// Sezione "Tracciamento GPS e Copertura": la scomposizione GPS/manuale/finale
+// deve venire SOLO da calculate_zone_final_coverage (via zoneExtras), mai un
+// 100% mostrato quando in realta' e' 65% GPS + 35% manuale, e mai un dato
+// fake quando il calcolo non e' 'ready'.
+test('zoneExtras: GPS/manuale/finale restano distinti, mai un 100% muto', () => {
+  const zoneExtras = new Map([
+    ['zone-1', { calculationStatus: 'ready', gpsCoveragePercent: 65, manualCoveragePercent: 35, finalCoveragePercent: 100, gpsDistanceKm: 4.2, validGpsPoints: 210, excludedGpsPoints: 3, boundaryAvailable: true, traceAvailable: true, boundaryGeometry: { type: 'Polygon', coordinates: [[[9, 45], [9.01, 45], [9.01, 45.01], [9, 45]]] }, tracePoints: [{ lat: 45, lng: 9 }] }],
+    ['zone-2', { calculationStatus: 'zone_geometry_missing' }],
+  ]);
+  const report = buildFinalDistributionReport({ campaign, zones: zones.slice(0, 2), sessions, telemetry, photos: [], generatedAt: '2026-08-13T09:00:00Z', zoneExtras });
+
+  const [zoneA, zoneB] = report.zones;
+  assert.equal(zoneA.gpsCoveragePercent, 65);
+  assert.equal(zoneA.manualCoveragePercent, 35);
+  assert.equal(zoneA.finalCoveragePercent, 100);
+  assert.equal(zoneA.finalStatus, 'Completata con integrazione manuale', 'un 100% con quota manuale non deve mai sembrare un 100% GPS puro');
+  assert.equal(zoneA.boundaryAvailable, true);
+  assert.equal(zoneA.traceAvailable, true);
+
+  // Zona senza calcolo pronto: nessun dato fake, tutto null/false, mai 0 finto.
+  assert.equal(zoneB.gpsCoveragePercent, null);
+  assert.equal(zoneB.manualCoveragePercent, null);
+  assert.equal(zoneB.finalCoveragePercent, null);
+  assert.equal(zoneB.finalStatus, 'Non disponibile');
+  assert.equal(zoneB.boundaryAvailable, false);
+  assert.equal(zoneB.traceAvailable, false);
+});
+
+test('PDF: sezione GPS separa esplicitamente copertura GPS/manuale/finale e non inventa una mappa senza screenshot', () => {
+  const zoneExtras = new Map([
+    ['zone-1', { calculationStatus: 'ready', gpsCoveragePercent: 65, manualCoveragePercent: 35, finalCoveragePercent: 100, gpsDistanceKm: 4.2, validGpsPoints: 210, boundaryAvailable: true, traceAvailable: true, tracePoints: [] }],
+    ['zone-3', { calculationStatus: 'not_available' }],
+  ]);
+  const report = buildFinalDistributionReport({ campaign, zones, sessions, telemetry, photos: [], generatedAt: '2026-08-13T09:00:00Z', zoneExtras });
+  const bytes = generateFinalDistributionPdfBytes(report, { photos: [], zoneSnapshots: [] });
+  const source = Buffer.from(bytes).toString('latin1');
+  assert.match(source, /TRACCIAMENTO GPS E COPERTURA/);
+  assert.match(source, /Copertura GPS reale: 65%/);
+  assert.match(source, /Integrazione manuale Admin: 35%/);
+  assert.match(source, /Copertura finale certificata: 100%/);
+  // Nessuno screenshot passato (zoneSnapshots: []): deve comparire il
+  // placeholder onesto, mai un'immagine finta o rotta.
+  assert.match(source, /Mappa non disponibile per questa zona\.|Nessun tracciamento GPS disponibile per questa zona\./);
+  // Zona senza calcolo: percentuali esplicitamente "Non disponibile", mai 0%.
+  assert.match(source, /Copertura GPS reale: Non disponibile/);
+  assert.doesNotMatch(source, /Copertura GPS reale: 0%/);
+});

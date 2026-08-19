@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   endGpsSession,
   getActiveGpsSession,
+  getActiveGpsSessionByToken,
   heartbeatGpsSession,
   insertGpsPoint,
   isPermanentGpsWriteError,
@@ -26,7 +27,24 @@ const QUEUE_FLUSH_INTERVAL_MS = 10000;
 const HIGH_SPEED_MPS = 2.2;
 const GEOFENCE_STALENESS_CHECK_MS = 30000;
 
-export function useGpsTracking(campaignId) {
+// assignmentContext (opzionale, retro-compatibile): { assignment, campaign }
+// gia' recuperati e validati da un chiamante che ha gia' fatto il proprio
+// giro (es. DriverWorkMapPage/DriverAssignmentPage via useDriverAssignment).
+// Se omesso il comportamento e' identico a prima — vedi resolveGpsAssignment
+// in gps-api.js per la logica di fallback e il controllo server-side che
+// resta sempre obbligatorio in entrambi i casi.
+//
+// accessToken/assignmentId (opzionali, per il link Driver pubblico senza
+// login — vedi migrazione 20260816160000_driver_gps_access_token.sql):
+// quando presenti, questo hook NON chiama piu' resolveGpsAssignment (che
+// richiede auth.uid() tramite getCurrentOperatorProfile) per determinare se
+// l'assegnazione e' "pronta" — l'assignmentId e' gia' noto e gia' validato
+// dal caricamento pubblico del programma (useDriverAssignment), e la vera
+// autorizzazione per ogni singola scrittura avviene comunque lato server
+// dentro le RPC gps_* tramite il token. Nessuna RPC GPS diventa anonima "in
+// generale": resta negata senza un token valido esattamente come oggi nega
+// un auth.uid() nullo.
+export function useGpsTracking(campaignId, { assignmentContext = null, accessToken = null, assignmentId = null } = {}) {
   const [session, setSession] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
@@ -202,6 +220,7 @@ export function useGpsTracking(campaignId) {
       speed: Number.isFinite(coords.speed) ? coords.speed : null,
       heading: Number.isFinite(coords.heading) ? coords.heading : null,
       recordedAt: new Date(position.timestamp || now).toISOString(),
+      accessToken,
     };
     const pointKey = gpsPointQueueKey(payload);
     if (pendingPointKeyRef.current === pointKey) return;
@@ -236,7 +255,7 @@ export function useGpsTracking(campaignId) {
       sendingRef.current = false;
       if (pendingPointKeyRef.current === pointKey) pendingPointKeyRef.current = null;
     }
-  }, [campaignId, enqueuePoint]);
+  }, [campaignId, enqueuePoint, accessToken]);
 
   const startWatch = useCallback((forceHighAccuracy = highAccuracyRef.current) => {
     if (!navigator.geolocation) {
@@ -295,12 +314,25 @@ export function useGpsTracking(campaignId) {
     setError(null);
     setAssignmentState((prev) => ({ ...prev, status: 'checking', error: null }));
     let resolved;
-    try {
-      resolved = await resolveGpsAssignment(campaignId);
-    } catch (err) {
-      const message = err?.message || 'Assegnazione GPS non valida.';
-      setAssignmentState({ status: 'invalid', assignment: null, campaign: null, error: message });
-      throw err;
+    if (accessToken && assignmentId) {
+      // Link Driver pubblico: l'assignment e' gia' noto e gia' validato dal
+      // caricamento del programma (useDriverAssignment) — nessuna chiamata
+      // resolveGpsAssignment qui (richiederebbe auth.uid()). L'autorizzazione
+      // reale resta comunque obbligatoria lato server, dentro
+      // gps_start_session, tramite il token passato sotto.
+      resolved = { assignment: { id: assignmentId }, campaign: null };
+    } else {
+      try {
+        // Verifica pre-Start: puo' riusare assignmentContext (nulla e' ancora
+        // cambiato lato server a questo punto). Il refresh POST-Start qualche
+        // riga sotto resta invece sempre una risoluzione fresca — vedi
+        // commento li' sotto, invariato.
+        resolved = await resolveGpsAssignment(campaignId, assignmentContext);
+      } catch (err) {
+        const message = err?.message || 'Assegnazione GPS non valida.';
+        setAssignmentState({ status: 'invalid', assignment: null, campaign: null, error: message });
+        throw err;
+      }
     }
     setAssignmentState({
       status: 'valid',
@@ -308,7 +340,7 @@ export function useGpsTracking(campaignId) {
       campaign: resolved.campaign,
       error: null,
     });
-    const nextSession = await startGpsSession(campaignId, { assignmentId: resolved.assignment.id, zoneId });
+    const nextSession = await startGpsSession(campaignId, { assignmentId: resolved.assignment.id, zoneId, accessToken });
     sessionRef.current = nextSession;
     statusRef.current = 'active';
     setSession(nextSession);
@@ -323,17 +355,47 @@ export function useGpsTracking(campaignId) {
     await requestWakeLock();
     startWatch();
     flushQueue();
+    // startGpsSession() sopra fa passare la zona a "In corso" lato server,
+    // ma assignmentState.campaign era stato impostato PRIMA (dalla
+    // resolveGpsAssignment() a inizio funzione, eseguita per validare
+    // l'assegnazione) e non veniva piu' aggiornato: la lista zone restava
+    // "congelata" sullo snapshot pre-Start (root cause del bug in cui, dopo
+    // uno Start riuscito, la UI mostrava ancora "Da iniziare" mentre il
+    // server aveva gia' una sessione attiva — inducendo un secondo tentativo
+    // di Start e il conseguente errore SESSIONE_GIA_ATTIVA). Ri-risolvere
+    // l'assegnazione qui aggiorna assignmentState.campaign.campaign_zones
+    // con lo stato reale, senza toccare session/status gia' impostati sopra.
+    if (!accessToken) {
+      try {
+        const refreshed = await resolveGpsAssignment(campaignId);
+        setAssignmentState({ status: 'valid', assignment: refreshed.assignment, campaign: refreshed.campaign, error: null });
+      } catch {
+        // Non fatale: la sessione e' comunque partita correttamente: se il
+        // refresh fallisce la lista zone restera' solo temporaneamente stale.
+      }
+    }
+    // In modalita' token non c'e' un refresh RPC pubblico equivalente: la
+    // lista zone visualizzata resta quella gia' nota da useDriverAssignment
+    // (assignmentZones, aggiornata alla prossima apertura del link).
     return nextSession;
-  }, [campaignId, flushQueue, requestWakeLock, startWatch]);
+  }, [campaignId, assignmentContext, accessToken, assignmentId, flushQueue, requestWakeLock, startWatch]);
 
   const refreshAssignment = useCallback(async () => {
     if (!campaignId) {
       setAssignmentState({ status: 'missing', assignment: null, campaign: null, error: 'Campagna non disponibile.' });
       return null;
     }
+    if (accessToken && assignmentId) {
+      // Nessuna chiamata auth-dipendente in modalita' token: l'assignment e'
+      // gia' considerato valido (validato dal caricamento pubblico del
+      // programma) — Start/GPS restano comunque soggetti alla verifica
+      // server-side del token ad ogni scrittura.
+      setAssignmentState({ status: 'valid', assignment: { id: assignmentId }, campaign: null, error: null });
+      return { assignment: { id: assignmentId }, campaign: null };
+    }
     setAssignmentState((prev) => ({ ...prev, status: 'checking', error: null }));
     try {
-      const resolved = await resolveGpsAssignment(campaignId);
+      const resolved = await resolveGpsAssignment(campaignId, assignmentContext);
       setAssignmentState({
         status: 'valid',
         assignment: resolved.assignment,
@@ -350,11 +412,11 @@ export function useGpsTracking(campaignId) {
       });
       return null;
     }
-  }, [campaignId]);
+  }, [campaignId, assignmentContext, accessToken, assignmentId]);
 
   const pause = useCallback(async () => {
     if (!sessionRef.current?.id) return null;
-    const updated = await pauseGpsSession(sessionRef.current.id);
+    const updated = await pauseGpsSession(sessionRef.current.id, accessToken);
     sessionRef.current = updated;
     statusRef.current = 'paused';
     setSession(updated);
@@ -362,11 +424,11 @@ export function useGpsTracking(campaignId) {
     stopWatch();
     await releaseWakeLock();
     return updated;
-  }, [releaseWakeLock, stopWatch]);
+  }, [releaseWakeLock, stopWatch, accessToken]);
 
   const resume = useCallback(async () => {
     if (!sessionRef.current?.id) return null;
-    const updated = await resumeGpsSession(sessionRef.current.id);
+    const updated = await resumeGpsSession(sessionRef.current.id, accessToken);
     sessionRef.current = updated;
     statusRef.current = 'active';
     setSession(updated);
@@ -375,19 +437,31 @@ export function useGpsTracking(campaignId) {
     startWatch();
     flushQueue();
     return updated;
-  }, [flushQueue, requestWakeLock, startWatch]);
+  }, [flushQueue, requestWakeLock, startWatch, accessToken]);
 
   const changeZone = useCallback(async (zoneId) => {
     if (!sessionRef.current?.id || !['active', 'paused'].includes(statusRef.current)) return null;
-    const updated = await transitionZone(zoneId, 'start');
+    const updated = await transitionZone(zoneId, 'start', { accessToken, assignmentId });
     sessionRef.current = updated;
     setSession(updated);
+    // Stessa staleness di start() sopra: la zona appena attivata non si
+    // rifletteva in assignmentState.campaign.campaign_zones finche' non si
+    // ricaricava la pagina. In modalita' token non c'e' refresh RPC
+    // pubblico equivalente (vedi start()).
+    if (!accessToken) {
+      try {
+        const refreshed = await resolveGpsAssignment(campaignId);
+        setAssignmentState({ status: 'valid', assignment: refreshed.assignment, campaign: refreshed.campaign, error: null });
+      } catch {
+        // Non fatale: la sessione/zona e' comunque cambiata correttamente lato server.
+      }
+    }
     return updated;
-  }, []);
+  }, [campaignId, accessToken, assignmentId]);
 
   const completeZone = useCallback(async (zoneId) => {
     if (!sessionRef.current?.id || !['active', 'paused'].includes(statusRef.current)) return null;
-    const updated = await transitionZone(zoneId, 'complete');
+    const updated = await transitionZone(zoneId, 'complete', { accessToken, assignmentId });
     sessionRef.current = updated;
     setSession(updated);
     return updated;
@@ -396,21 +470,32 @@ export function useGpsTracking(campaignId) {
   const end = useCallback(async () => {
     if (!sessionRef.current?.id) return null;
     stopWatch();
-    const updated = await endGpsSession(sessionRef.current.id);
+    const updated = await endGpsSession(sessionRef.current.id, accessToken);
     sessionRef.current = updated;
     statusRef.current = 'completed';
     setSession(updated);
     setStatus('completed');
     await releaseWakeLock();
     return updated;
-  }, [releaseWakeLock, stopWatch]);
+  }, [releaseWakeLock, stopWatch, accessToken]);
 
   useEffect(() => {
     let cancelled = false;
     async function resumeExistingSession() {
       if (!campaignId) return;
+      // Link Driver pubblico: getActiveGpsSession (select diretta su
+      // delivery_sessions via client SDK, RLS su driver_id = auth.uid()) non
+      // funziona senza sessione Supabase — usa invece la RPC dedicata
+      // get_active_driver_session, scoped a QUESTA sola assignment tramite
+      // assignment_id+access_token (vedi migrazione
+      // 20260816190000_driver_gps_resume_and_confirm_status.sql). Se
+      // assignmentId manca (link vecchio senza token) non c'e' nulla da
+      // recuperare: Start rifiuta comunque un doppio avvio
+      // (SESSIONE_GIA_ATTIVA) invece di crearne uno secondo.
       try {
-        const existing = await getActiveGpsSession(campaignId);
+        const existing = accessToken
+          ? (assignmentId ? await getActiveGpsSessionByToken(assignmentId, accessToken) : null)
+          : await getActiveGpsSession(campaignId);
         if (cancelled || !existing || (existing.status !== 'started' && existing.status !== 'paused')) return;
         sessionRef.current = existing;
         const newStatus = existing.status === 'paused' ? 'paused' : 'active';
@@ -431,7 +516,7 @@ export function useGpsTracking(campaignId) {
     return () => {
       cancelled = true;
     };
-  }, [campaignId, flushQueue, requestWakeLock, startWatch]);
+  }, [campaignId, accessToken, assignmentId, flushQueue, requestWakeLock, startWatch]);
 
   useEffect(() => {
     refreshAssignment();
@@ -472,12 +557,12 @@ export function useGpsTracking(campaignId) {
   useEffect(() => {
     const timer = window.setInterval(() => {
       if (statusRef.current !== 'active' || !sessionRef.current?.id) return;
-      heartbeatGpsSession(sessionRef.current.id).catch((err) => {
+      heartbeatGpsSession(sessionRef.current.id, accessToken).catch((err) => {
         console.warn('Heartbeat GPS non riuscito', err);
       });
     }, HEARTBEAT_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [accessToken]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {

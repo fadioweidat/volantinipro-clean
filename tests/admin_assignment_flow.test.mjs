@@ -18,6 +18,7 @@
 
 import { test, describe, mock, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import './operation_alerts.test.mjs';
 
 // ─── Helpers sotto test (estratti senza import React) ─────────────────────────
 

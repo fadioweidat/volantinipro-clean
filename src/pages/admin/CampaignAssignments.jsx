@@ -108,7 +108,7 @@ export function CampaignAssignments({ campaignId }) {
   }
 
   async function handleCopyLink(assignment) {
-    const link = generateDriverAssignmentLink(assignment.id);
+    const link = generateDriverAssignmentLink(assignment.id, assignment.access_token);
     await navigator.clipboard?.writeText(link);
     setCopiedId(assignment.id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -116,7 +116,7 @@ export function CampaignAssignments({ campaignId }) {
 
   function handleWhatsApp(assignment) {
     const meta = safeJson(assignment.metadata);
-    const link = generateDriverAssignmentLink(assignment.id);
+    const link = generateDriverAssignmentLink(assignment.id, assignment.access_token);
     const phone = assignment.operator_phone?.replace(/[^\d+]/g, '') || '';
     const msg = buildDriverWhatsAppMessage({
       operatorName: assignment.operator_name || 'Operatore',
@@ -196,7 +196,7 @@ export function CampaignAssignments({ campaignId }) {
           <div style={{ display: 'grid', gap: 12 }}>
             {filteredAssignments.map(a => {
               const meta = safeJson(a.metadata);
-              const link = generateDriverAssignmentLink(a.id);
+              const link = generateDriverAssignmentLink(a.id, a.access_token);
               const isExpired = a.ends_at && new Date(a.ends_at) < new Date();
               const effectiveStatus = a.status === 'active' && isExpired ? 'expired' : a.status;
 

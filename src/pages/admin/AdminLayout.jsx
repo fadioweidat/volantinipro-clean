@@ -37,12 +37,16 @@ const breadcrumbLinkStyle = {
 /**
  * AdminLayout - Unified shell for all Admin pages.
  */
-export function AdminLayout({ 
-  children, 
-  title = "Dashboard Admin", 
-  subtitle = "Dati reali Supabase. Nessun dato demo.", 
-  breadcrumbs = [], 
-  onNav 
+export function AdminLayout({
+  children,
+  title = "Dashboard Admin",
+  subtitle = "Dati reali Supabase. Nessun dato demo.",
+  breadcrumbs = [],
+  onNav,
+  // Slot opzionale per azioni header specifiche della pagina (es. Admin
+  // Dashboard: "+ Nuovo programma" / "Altri strumenti"). Default vuoto:
+  // nessun'altra pagina Admin che non lo passa cambia aspetto.
+  actions = null,
 }) {
   const go = (page) => {
     if (onNav) {
@@ -72,7 +76,8 @@ export function AdminLayout({
           <h1 style={{ fontFamily: F.serif, fontSize: 30, color: C.white, letterSpacing: "-1px", margin: "8px 0 4px" }}>{title}</h1>
           <p style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.42)", margin: 0 }}>{subtitle}</p>
         </div>
-        <div style={{ display: "flex", gap: 10, alignSelf: "flex-start" }}>
+        <div style={{ display: "flex", gap: 10, alignSelf: "flex-start", alignItems: "center", flexWrap: "wrap" }}>
+          {actions}
           {breadcrumbs.length > 0 && (
             <a href="/admin" style={secondaryButtonStyle}>Dashboard Admin</a>
           )}

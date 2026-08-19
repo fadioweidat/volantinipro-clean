@@ -706,7 +706,9 @@ function Step2MapImpl({
   settori,       // Array<{id, numero, name?, geometry}> | null
   pois,          // Array<{id, lat, lng, name, category, color, priority, address}> from usePoi
   loadingPois,
-  poiEmptySectorLabel, // string|null — label del settore (es. "Palestre e sport") quando D2D e' filtrato per settore ma non trova POI nell'area
+  poiEmptySectorLabel, // string|null — label del settore (es. "Palestre e sport") quando D2D e' filtrato per settore, la richiesta POI e' andata a buon fine, ma non ci sono risultati nell'area
+  poiFetchFailed, // bool — la richiesta POI (Overpass) e' fallita/andata in timeout: NON e' uno zero risultati confermato, va mostrato un messaggio distinto
+  onRetryPoi, // () => void — ritenta la sola query POI senza ricaricare il resto di Step2
   operationalPoints, // Punti assegnati ai promoter H2H, geocodificati in Step 1
   poiAssignments,
   onTogglePoi,
@@ -733,6 +735,7 @@ function Step2MapImpl({
   onMapClick,
   focusPoiId,   // id del POI su cui centrare/evidenziare la mappa (click dalla lista H2H/Business)
   focusPoiNonce, // incrementato ad ogni click, anche se si riclicca lo stesso POI
+  interactive = true, // false = disabilita drag/zoom/pan (solo preview statica, es. hero homepage); default invariato per Step2/Tracking/Admin/Driver
 }) {
   const hasConfirmedRadius = Number.isFinite(Number(radius)) && Number(radius) > 0;
   const effectiveMapRadius = hasConfirmedRadius ? Number(radius) : 3;
@@ -801,15 +804,15 @@ function Step2MapImpl({
     const map = L.map(containerRef.current, {
       center: city ? [city.lat, city.lng] : [41.9, 12.5],
       zoom: city ? getZoomForRadius(effectiveMapRadius) : 6,
-      zoomControl: true,
+      zoomControl: interactive,
       attributionControl: true,
       preferCanvas: true,
-      scrollWheelZoom: true,
-      doubleClickZoom: true,
-      dragging: true,
-      touchZoom: true,
-      boxZoom: true,
-      keyboard: true,
+      scrollWheelZoom: interactive,
+      doubleClickZoom: interactive,
+      dragging: interactive,
+      touchZoom: interactive,
+      boxZoom: interactive,
+      keyboard: interactive,
     });
     mapRef.current = map;
     if (import.meta.env.DEV) window.__VOLANTINIPRO_STEP2_MAP__ = map;
@@ -1188,7 +1191,17 @@ function Step2MapImpl({
     // settoriActive: settori layer is on AND data is available
     const settoriActive = activeLayers?.settori !== false && settori?.length > 0;
 
-    if (import.meta.env.DEV) {
+    // STEP2_MAP_BOUNDARIES/RENDER/GEOMETRY_DEBUG: allineati alla stessa
+    // convenzione di debugStep2/warnStep2 sopra (VITE_DEBUG_STEP2 o
+    // window.__VOLANTINIPRO_DEBUG_STEP2__), non piu' solo import.meta.env.DEV.
+    // Misurato dal vivo: l'effect che li contiene si riesegue legittimamente
+    // 11-12 volte durante un burst di dati asincroni indipendenti (POI,
+    // settori, confine, analisi territoriale che arrivano separatamente) e
+    // 0 volte a mappa stabile — non e' un loop — ma questi 3 log, a differenza
+    // di debugStep2/warnStep2, stampavano sempre in dev, triplicando il
+    // rumore in console ad ogni esecuzione reale e dando l'impressione di un
+    // loop che non esiste.
+    if (import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || window.__VOLANTINIPRO_DEBUG_STEP2__)) {
       const boundaryEntriesArr = Array.isArray(municipalityBoundary)
         ? municipalityBoundary.filter(b => b?.geometry)
         : (municipalityBoundary?.type ? [municipalityBoundary] : []);
@@ -1308,7 +1321,7 @@ function Step2MapImpl({
             const gj = validZoneGeometry;
             const zoneLayer = L.geoJSON(gj, {
               style: gisStyle,
-              interactive: true,
+              interactive,
               pane: 'nilPolygonsPane',
               onEachFeature: (feature, layer) => {
                 layer.bindTooltip(tip, { direction: 'auto', opacity: 1, sticky: true, interactive: false, pane: 'tooltipPane' });
@@ -1376,7 +1389,7 @@ function Step2MapImpl({
             const gj = validCoverageGeometry;
             const zoneLayer = L.geoJSON(gj, {
               style: gisStyle,
-              interactive: true,
+              interactive,
               pane: 'nilPolygonsPane',
               onEachFeature: (feature, layer) => {
                 layer.bindTooltip(tip, { direction: 'auto', opacity: 1, sticky: true, interactive: false, pane: 'tooltipPane' });
@@ -1407,7 +1420,9 @@ function Step2MapImpl({
     zonesList.forEach(z => {
       const isActive = z.id === activeZoneId || z.id === 'active_zone';
       const zCity = isActive ? city : (z.city || null);
-      if (!zCity || !zCity.lat || !zCity.lng) return;
+      // isFiniteLatLng, non un truthy-check: quest'ultimo lascia passare
+      // Infinity (truthy) prima del L.circle/L.marker piu' sotto.
+      if (!zCity || !isFiniteLatLng(zCity.lat, zCity.lng)) return;
 
       const zRadius = parseFloat((isActive ? (hasConfirmedRadius ? radius : null) : null) ?? z.radiusKm ?? z.radius ?? z.radius_km ?? 3);
       const zCol = isActive ? col : '#7F9BB0';
@@ -1957,8 +1972,10 @@ function Step2MapImpl({
 
       {/* Nessun POI del settore selezionato nell'area (solo D2D: h2h/b2b hanno
           gia' un messaggio equivalente nel pannello attivita'). Non blocca la
-          mappa — il confine/copertura restano interamente visibili e usabili. */}
-      {leafletLoaded && city && !loadingPois && poiEmptySectorLabel && (
+          mappa — il confine/copertura restano interamente visibili e usabili.
+          Mostrato SOLO quando la richiesta POI e' andata a buon fine (vedi
+          poiFetchFailed sotto): zero risultati confermati, non un errore. */}
+      {leafletLoaded && city && !loadingPois && !poiFetchFailed && poiEmptySectorLabel && (
         <div style={{
           position: 'absolute', left: '50%', bottom: 14, transform: 'translateX(-50%)',
           zIndex: 1050, maxWidth: '86%', padding: '9px 14px', borderRadius: 10,
@@ -1968,6 +1985,33 @@ function Step2MapImpl({
           pointerEvents: 'none',
         }}>
           Nessuna attività {poiEmptySectorLabel} rilevata in questa zona.
+        </div>
+      )}
+
+      {/* La richiesta POI (Overpass) e' fallita/andata in timeout: NON e' uno
+          zero risultati confermato, quindi NON riusa il badge "Nessuna
+          attività" sopra (mostrerebbe come vero un dato in realta' mai
+          arrivato). Retry mirato alla sola query POI, senza ricaricare il
+          resto di Step2 (confine/copertura/quantita' restano intatti). */}
+      {leafletLoaded && city && !loadingPois && poiFetchFailed && (
+        <div style={{
+          position: 'absolute', left: '50%', bottom: 14, transform: 'translateX(-50%)',
+          zIndex: 1050, maxWidth: '86%', padding: '9px 14px', borderRadius: 10,
+          background: 'rgba(8,15,30,.9)', border: '1px solid rgba(248,113,113,.32)',
+          boxShadow: '0 8px 24px rgba(0,0,0,.35)', textAlign: 'center',
+          fontFamily: 'system-ui,sans-serif', fontSize: 11.5, color: 'rgba(255,255,255,.78)',
+          display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'auto',
+        }}>
+          <span>Impossibile verificare le attività in questa zona.</span>
+          {onRetryPoi && (
+            <button type="button" onClick={onRetryPoi} style={{
+              padding: '4px 10px', borderRadius: 7, border: '1px solid rgba(248,113,113,.45)',
+              background: 'rgba(248,113,113,.14)', color: '#FCA5A5', fontFamily: 'system-ui,sans-serif',
+              fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+            }}>
+              Riprova
+            </button>
+          )}
         </div>
       )}
 

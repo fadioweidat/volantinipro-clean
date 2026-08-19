@@ -321,8 +321,24 @@ export async function confirmCampaignPayment(campagnaId) {
     prefer: "return=representation",
     body: {
       metadata: { ...(existing.metadata || {}), payment_status: "pagato", payment_confirmed_at: new Date().toISOString() },
-      status: existing.status === 'draft' ? 'approved' : existing.status,
+      // submit-campaign-request (Step4) crea sempre le campagne con status
+      // "pending_review", mai "draft": senza includerlo qui la conferma
+      // pagamento non promuoveva mai lo stato delle campagne reali arrivate
+      // dallo Step4, bloccando l'intero flusso admin-grant-access a valle.
+      status: (existing.status === 'draft' || existing.status === 'pending_review') ? 'approved' : existing.status,
       updated_at: new Date().toISOString(),
     },
   });
+}
+
+export async function submitPublicCampaign(payload) {
+  // La sessione dell'app vive nel client REST legacy. Prima di invocare la
+  // function la replichiamo nel client SDK, cosi' il JWT autenticato arriva
+  // nell'Authorization header e il backend puo' assegnare l'ownership reale.
+  await ensureSupabaseSessionBridge();
+  return sdkSupabase.functions.invoke('submit-campaign-request', { body: payload });
+}
+
+export async function adminGrantAccess(campaignId) {
+  return sdkSupabase.functions.invoke('admin-grant-access', { body: { campaignId } });
 }

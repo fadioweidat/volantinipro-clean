@@ -12,8 +12,14 @@ function isFiniteCoordinatePair(pos) {
 }
 
 function isValidLinearRing(ring) {
-  // Un ring GeoJSON valido ha almeno 4 posizioni (chiuso: primo === ultimo).
-  return Array.isArray(ring) && ring.length >= 4 && ring.every(isFiniteCoordinatePair);
+  // Un ring GeoJSON valido ha almeno 4 posizioni e dev'essere chiuso (prima
+  // coordinata === ultima): un ring aperto produce un poligono con un edge
+  // mancante che Leaflet accetta silenziosamente ma il cui bounding-box
+  // interno può risultare indefinito al primo redraw/fitBounds.
+  if (!Array.isArray(ring) || ring.length < 4 || !ring.every(isFiniteCoordinatePair)) return false;
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  return first[0] === last[0] && first[1] === last[1];
 }
 
 function isValidPolygonCoordinates(coords) {
@@ -87,7 +93,20 @@ export function isFiniteLatLng(lat, lng) {
   return Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
 }
 
-/** True se un L.LatLngBounds (o equivalente con isValid()) è utilizzabile per fitBounds. */
+/**
+ * True se un L.LatLngBounds (o equivalente con isValid()) è utilizzabile per
+ * fitBounds. Oltre a isValid() (che Leaflet considera vera anche per un
+ * bounds collassato in un punto), scarta anche i bounds degeneri
+ * (north===south o east===west): fitBounds su un'area a superficie zero
+ * produce uno zoom infinito/non finito che il redraw successivo può leggere
+ * come coordinata pixel indefinita.
+ */
 export function isUsableLatLngBounds(bounds) {
-  return Boolean(bounds) && typeof bounds.isValid === 'function' && bounds.isValid();
+  if (!bounds || typeof bounds.isValid !== 'function' || !bounds.isValid()) return false;
+  const north = bounds.getNorth?.();
+  const south = bounds.getSouth?.();
+  const east = bounds.getEast?.();
+  const west = bounds.getWest?.();
+  if (![north, south, east, west].every(Number.isFinite)) return false;
+  return north !== south && east !== west;
 }

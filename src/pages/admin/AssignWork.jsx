@@ -1,12 +1,16 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   listAssignableOperators,
+  createOperationalGroup,
   createOperatorAssignment,
   updateOperatorAssignment,
   revokeOperatorAssignment,
   generateDriverAssignmentLink,
   buildDriverWhatsAppMessage,
-  getAssignedZones,
+  getCampaignZonesWithGroups,
+  setAssignmentZones,
+  listAssignmentZones,
+  updateCampaignZoneAssignment,
 } from '../../lib/services/admin-api.js';
 import { getCampaignRecord } from '../../lib/services/gps-api.js';
 
@@ -20,39 +24,41 @@ import { getCampaignRecord } from '../../lib/services/gps-api.js';
 //   onClose      — callback per chiudere (se usato come modale)
 //   existingAssignment — se passato, entra in modalità "modifica"
 
-export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = null }) {
+export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = null, initialGroupId = null, initialOperatorId = null }) {
   const isEdit = Boolean(existingAssignment);
 
-  // Step 1=operatore, 2=gruppo/zone, 3=dettagli, 4=preview
+  // Step 1=operatore, 2=programma, 3=prewiew, 4=risultato
   const [step, setStep] = useState(1);
   const [operators, setOperators] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [zones, setZones] = useState([]);
   const [campaign, setCampaign] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [groupCreatorOpen, setGroupCreatorOpen] = useState(false);
+  const [groupSaving, setGroupSaving] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupLeadId, setNewGroupLeadId] = useState(initialOperatorId || '');
 
   // Form state
-  const [selectedOperatorId, setSelectedOperatorId] = useState(existingAssignment?.operator_id || '');
-  const [selectedGroupId, setSelectedGroupId] = useState(existingAssignment?.group_id || '');
-  const [selectedComuni, setSelectedComuni] = useState(
-    () => existingAssignment?.metadata?.comuni || []
-  );
-  const [selectedZoneLabels, setSelectedZoneLabels] = useState(
-    () => existingAssignment?.metadata?.zone_labels || []
-  );
-  const [customComune, setCustomComune] = useState('');
-  const [qty, setQty] = useState(existingAssignment?.metadata?.qty || '');
+  const [selectedOperatorId, setSelectedOperatorId] = useState(existingAssignment?.operator_id || initialOperatorId || '');
+  const [selectedGroupId, setSelectedGroupId] = useState(existingAssignment?.group_id || initialGroupId || '');
+
   const [startsAt, setStartsAt] = useState(
     existingAssignment?.starts_at
-      ? existingAssignment.starts_at.slice(0, 16)
+      ? toLocalDatetimeInputValue(existingAssignment.starts_at)
       : todayIso()
   );
   const [endsAt, setEndsAt] = useState(
-    existingAssignment?.ends_at ? existingAssignment.ends_at.slice(0, 16) : ''
+    existingAssignment?.ends_at ? toLocalDatetimeInputValue(existingAssignment.ends_at) : ''
   );
   const [notes, setNotes] = useState(existingAssignment?.metadata?.notes || '');
+
+  // Zone specific state
+  const [zonePriorities, setZonePriorities] = useState({}); // { zoneId: newPriority }
+  const [selectedZonesState, setSelectedZonesState] = useState({}); // { zoneId: { selected: true, qty: '' } }
 
   // Result state
   const [savedAssignment, setSavedAssignment] = useState(null);
@@ -67,15 +73,25 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       setLoading(true);
       setError(null);
       try {
-        const [ops, zns, camp] = await Promise.all([
+        const [ops, zonesData, camp, existingZones] = await Promise.all([
           listAssignableOperators().catch(() => []),
-          getAssignedZones(campaignId).catch(() => []),
+          getCampaignZonesWithGroups(campaignId),
           getCampaignRecord(campaignId).catch(() => null),
+          isEdit ? listAssignmentZones(existingAssignment.id).catch(() => []) : Promise.resolve([]),
         ]);
         if (!cancelled) {
           setOperators(ops);
-          setZones(zns);
+          setZones(zonesData.zones || []);
+          setGroups(zonesData.groups || []);
           setCampaign(camp);
+
+          if (isEdit && existingZones.length > 0) {
+             const initObj = {};
+             existingZones.forEach(z => {
+               initObj[z.zone_id] = { selected: true, qty: z.quantity || '' };
+             });
+             setSelectedZonesState(initObj);
+          }
         }
       } catch (err) {
         if (!cancelled) setError(err?.message || 'Errore caricamento dati.');
@@ -85,41 +101,74 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
     }
     load();
     return () => { cancelled = true; };
-  }, [campaignId]);
+  }, [campaignId, isEdit, existingAssignment]);
 
   const selectedOperator = operators.find(op => op.id === selectedOperatorId) || null;
+  const selectedGroup = groups.find(group => group.id === selectedGroupId) || null;
   const campaignTitle = campaign?.title || campaign?.campaign_name || campaign?.nome || `Campagna ${String(campaignId).slice(0, 8)}`;
 
-  // Comuni unici dalle zone in DB + eventuali custom
-  const dbComuni = Array.from(new Set(
-    zones.map(z => z.municipality_name || z.comune || z.label).filter(Boolean)
-  )).sort();
-
-  function toggleComune(c) {
-    setSelectedComuni(prev =>
-      prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]
-    );
+  async function handleCreateGroup(event) {
+    event.preventDefault();
+    if (groupSaving) return;
+    const lead = operators.find((operator) => operator.id === newGroupLeadId);
+    if (!lead) {
+      setError('Seleziona il primo membro e referente WhatsApp.');
+      return;
+    }
+    setGroupSaving(true);
+    setError(null);
+    try {
+      const group = await createOperationalGroup({
+        campaignId,
+        name: newGroupName,
+        leadName: lead.display_name,
+      });
+      setGroups((current) => [...current, group].sort((left, right) => String(left.name).localeCompare(String(right.name), 'it')));
+      setSelectedGroupId(group.id);
+      setSelectedOperatorId(lead.id);
+      setNewGroupName('');
+      setGroupCreatorOpen(false);
+      setNotice('Gruppo creato e selezionato. Completa il programma per salvare la persona come membro reale.');
+    } catch (err) {
+      setError(err?.message || 'Impossibile creare il gruppo.');
+    } finally {
+      setGroupSaving(false);
+    }
   }
 
-  function addCustomComune() {
-    const c = customComune.trim();
-    if (!c || selectedComuni.includes(c)) { setCustomComune(''); return; }
-    setSelectedComuni(prev => [...prev, c]);
-    setCustomComune('');
+  function handleToggleZone(zoneId) {
+    setSelectedZonesState(prev => {
+      const isSelected = prev[zoneId]?.selected;
+      if (isSelected) {
+        const next = { ...prev };
+        delete next[zoneId];
+        return next;
+      } else {
+        const zone = zones.find(item => item.id === zoneId);
+        return { ...prev, [zoneId]: { selected: true, qty: zone?.quantity_assigned ?? '' } };
+      }
+    });
   }
 
-  function toggleZone(label) {
-    setSelectedZoneLabels(prev =>
-      prev.includes(label) ? prev.filter(x => x !== label) : [...prev, label]
-    );
+  function handleZoneQtyChange(zoneId, val) {
+    setSelectedZonesState(prev => ({
+      ...prev,
+      [zoneId]: { ...prev[zoneId], qty: val }
+    }));
+  }
+
+  function handleZonePriorityChange(zoneId, val) {
+    setZonePriorities(prev => ({
+      ...prev,
+      [zoneId]: val
+    }));
   }
 
   const canGoNext = useCallback(() => {
-    if (step === 1) return Boolean(selectedOperatorId);
-    if (step === 2) return true; // gruppo e zone opzionali
-    if (step === 3) return Boolean(startsAt);
+    if (step === 1) return Boolean(selectedGroupId && selectedOperatorId);
+    if (step === 2) return Boolean(startsAt && Object.keys(selectedZonesState).some(id => selectedZonesState[id]?.selected));
     return true;
-  }, [step, selectedOperatorId, startsAt]);
+  }, [step, selectedGroupId, selectedOperatorId, startsAt, selectedZonesState]);
 
   async function handleSave() {
     if (saving) return; // guard doppio click
@@ -127,9 +176,6 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
     setError(null);
     try {
       const metadata = {
-        comuni: selectedComuni,
-        zone_labels: selectedZoneLabels,
-        qty: qty && Number(qty) > 0 ? Number(qty) : null,
         notes,
         campaign_title: campaignTitle,
         operator_display_name: selectedOperator?.display_name || null,
@@ -142,12 +188,18 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
         return;
       }
 
+      // startsAt/endsAt sono stringhe locali senza offset (dagli input
+      // date+time): convertite qui in istanti UTC reali prima dell'invio,
+      // mai la stringa grezza (vedi fromLocalDatetimeInputValue).
+      const startsAtUtc = fromLocalDatetimeInputValue(startsAt);
+      const endsAtUtc = fromLocalDatetimeInputValue(endsAt);
+
       let result;
       if (isEdit) {
         result = await updateOperatorAssignment(existingAssignment.id, {
           group_id: selectedGroupId || null,
-          starts_at: startsAt || null,
-          ends_at: endsAt || null,
+          starts_at: startsAtUtc,
+          ends_at: endsAtUtc,
           metadata: { metadata },
         });
       } else {
@@ -155,17 +207,42 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           campaignId,
           operatorId: selectedOperatorId,
           groupId: selectedGroupId || null,
-          startsAt: startsAt || null,
-          endsAt: endsAt || null,
+          startsAt: startsAtUtc,
+          endsAt: endsAtUtc,
           metadata,
           notes,
         });
       }
 
-      const link = generateDriverAssignmentLink(result.id);
+      // Update Zones priorities
+      const priorityPromises = Object.entries(zonePriorities).map(([zId, priorityVal]) => {
+         const p = priorityVal === '' ? 0 : Number(priorityVal);
+         const orig = zones.find(z => z.id === zId);
+         if (orig && Number(orig.priority || 0) !== p) {
+           return updateCampaignZoneAssignment(zId, { priority: p }).catch(e => console.error("Priority update err", e));
+         }
+         return Promise.resolve();
+      });
+      await Promise.all(priorityPromises);
+
+      // Set operator_assignment_zones
+      const selectedZIds = Object.keys(selectedZonesState).filter(k => selectedZonesState[k].selected);
+      const zonesToSet = selectedZIds.map(zId => {
+        const orig = zones.find(z => z.id === zId);
+        const q = selectedZonesState[zId].qty;
+        return {
+          zone_id: zId,
+          municipality_name: orig?.zone_name || orig?.municipality_name || 'Sconosciuto',
+          quantity: q ? Number(q) : null
+        };
+      });
+
+      await setAssignmentZones(result.id, zonesToSet);
+
+      const link = generateDriverAssignmentLink(result.id, result.access_token);
       setSavedAssignment(result);
       setGeneratedLink(link);
-      setStep(5); // step finale: card risultato
+      setStep(4); // step finale: card risultato
 
       if (onSaved) onSaved({ assignment: result, link });
     } catch (err) {
@@ -191,15 +268,44 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
     }
   }
 
+  function getSelectedZoneNames() {
+    return Object.keys(selectedZonesState)
+       .filter(k => selectedZonesState[k].selected)
+       .map(k => zones.find(z => z.id === k)?.zone_name || zones.find(z => z.id === k)?.municipality_name)
+       .filter(Boolean);
+  }
+
+  function getSelectedProgramRows() {
+    return Object.keys(selectedZonesState)
+      .filter(id => selectedZonesState[id].selected)
+      .map(id => {
+        const zone = zones.find(item => item.id === id);
+        return {
+          id,
+          name: zone?.zone_name || zone?.municipality_name || 'Zona',
+          quantity: Number(selectedZonesState[id].qty) || null,
+          priority: Number(zonePriorities[id] ?? zone?.priority ?? 0),
+        };
+      })
+      .sort((a, b) => a.priority - b.priority);
+  }
+
   function buildWhatsAppMsg() {
     const op = selectedOperator || { display_name: existingAssignment?.operator_name };
+    const programRows = getSelectedProgramRows();
+    const selZones = programRows.map(row => row.name);
+    const totalQty = programRows.reduce((sum, row) => sum + (row.quantity || 0), 0);
+
     return buildDriverWhatsAppMessage({
       operatorName: op?.display_name || 'Operatore',
+      groupName: selectedGroup?.name || null,
       campaignTitle,
       date: startsAt ? new Date(startsAt).toLocaleDateString('it-IT') : 'Da definire',
-      comuni: selectedComuni,
-      zone: selectedZoneLabels,
-      qty: qty ? Number(qty) : null,
+      startTime: startsAt ? new Date(startsAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : null,
+      comuni: selZones,
+      zone: selZones,
+      programRows,
+      qty: totalQty || null,
       link: generatedLink,
     });
   }
@@ -220,9 +326,13 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
 
   function handleWhatsApp() {
     const phone = selectedOperator?.phone?.replace(/[^\d+]/g, '') || '';
+    if (!phone) {
+      setNotice('Numero WhatsApp non disponibile. Puoi copiare il messaggio senza segnare il programma come inviato.');
+      return;
+    }
     const msg = buildWhatsAppMsg();
-    const base = phone ? `https://wa.me/${phone}` : 'https://wa.me/';
-    window.open(`${base}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
+    setNotice('Programma preparato in WhatsApp. Lo stato inviato verra mostrato solo dopo un evento reale.');
   }
 
   if (loading) {
@@ -242,9 +352,9 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       {notice && <Notice text={notice} />}
 
       {/* ── Step indicator ── */}
-      {step < 5 && (
+      {step < 4 && (
         <div style={stepBarStyle}>
-          {['Operatore', 'Zone', 'Dettagli', 'Anteprima'].map((label, idx) => (
+          {['Gruppo e persona', 'Programma', 'Anteprima'].map((label, idx) => (
             <div key={label} style={{
               ...stepItemStyle,
               color: step === idx + 1 ? '#e8571a' : step > idx + 1 ? '#2ecc8a' : 'rgba(255,255,255,.4)',
@@ -265,8 +375,41 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       {/* ── STEP 1: Scegli operatore ── */}
       {step === 1 && (
         <div style={cardStyle}>
-          <p style={eyebrowStyle}>Step 1 — Scegli operatore</p>
-          <h2 style={sectionTitleStyle}>Chi esegue questo lavoro?</h2>
+          <p style={eyebrowStyle}>Step 1 — Scegli gruppo e persona</p>
+          <h2 style={sectionTitleStyle}>A quale gruppo assegni il programma?</h2>
+          {groups.length === 0 ? (
+            <Notice text="Nessun gruppo configurato." />
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8, marginBottom: 18 }}>
+              {groups.map(group => (
+                <button key={group.id} type="button" style={{ ...operatorCardStyle, border: selectedGroupId === group.id ? '2px solid #e8571a' : '1px solid rgba(255,255,255,.1)', background: selectedGroupId === group.id ? 'rgba(232,87,26,.1)' : 'rgba(255,255,255,.03)' }} onClick={() => setSelectedGroupId(group.id)}>
+                  <div><strong style={{ color: '#fff' }}>{group.name}</strong><p style={{ margin: '3px 0 0', fontSize: 11, color: 'rgba(255,255,255,.48)' }}>{group.lead_name || 'Referente non disponibile'}</p></div>
+                  {selectedGroupId === group.id && <span style={checkStyle}>✓</span>}
+                </button>
+              ))}
+            </div>
+          )}
+          <button type="button" style={secondaryBtnStyle} onClick={() => setGroupCreatorOpen((open) => !open)}>+ Crea gruppo</button>
+          {groupCreatorOpen && (
+            <form onSubmit={handleCreateGroup} style={{ ...formGridStyle, marginTop: 14, padding: 14, border: '1px solid rgba(232,87,26,.28)', borderRadius: 12, background: 'rgba(232,87,26,.06)' }}>
+              <label style={labelStyle}>
+                Nome gruppo
+                <input required value={newGroupName} onChange={(event) => setNewGroupName(event.target.value)} placeholder="es. Gruppo Fabio" style={inputStyle} />
+              </label>
+              <label style={labelStyle}>
+                Primo membro / referente WhatsApp
+                <select required value={newGroupLeadId} onChange={(event) => setNewGroupLeadId(event.target.value)} style={inputStyle}>
+                  <option value="">Seleziona persona</option>
+                  {operators.map((operator) => <option key={operator.id} value={operator.id}>{operator.display_name || `Operatore ${String(operator.id).slice(0, 8)}`}</option>)}
+                </select>
+              </label>
+              <div style={{ ...labelStyle, justifyContent: 'end' }}>
+                <span>La membership diventa reale al salvataggio del programma.</span>
+                <button type="submit" disabled={groupSaving} style={groupSaving ? disabledBtnStyle : primaryBtnStyle}>{groupSaving ? 'Creazione…' : 'Crea gruppo'}</button>
+              </div>
+            </form>
+          )}
+          <h3 style={{ ...sectionTitleStyle, fontSize: 16 }}>Scegli la persona che riceverà il link</h3>
           {operators.length === 0 ? (
             <Notice danger text="Nessun operatore attivo trovato in operator_profiles. Crea prima il profilo operatore." />
           ) : (
@@ -304,6 +447,8 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
               ))}
             </div>
           )}
+          {selectedOperatorId && !selectedGroupId && <Notice danger text="Prima crea o seleziona un gruppo." />}
+          {selectedGroupId && !selectedOperatorId && <Notice danger text="Seleziona il referente/persona che riceverà il programma." />}
           <div style={footerRowStyle}>
             <span />
             <button
@@ -318,145 +463,125 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
         </div>
       )}
 
-      {/* ── STEP 2: Comuni e zone ── */}
+      {/* ── STEP 2: Programma Operativo ── */}
       {step === 2 && (
         <div style={cardStyle}>
-          <p style={eyebrowStyle}>Step 2 — Comuni e zone</p>
-          <h2 style={sectionTitleStyle}>Dove lavora?</h2>
+          <p style={eyebrowStyle}>Step 2 — Programma Operativo</p>
+          <h2 style={sectionTitleStyle}>Cosa deve fare il Driver?</h2>
 
-          <p style={{ ...labelStyle, marginBottom: 6 }}>Comuni assegnati</p>
-          {dbComuni.length > 0 && (
-            <div style={chipGridStyle}>
-              {dbComuni.map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  style={selectedComuni.includes(c) ? activeChipStyle : chipStyle}
-                  onClick={() => toggleComune(c)}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          )}
-          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-            <input
-              value={customComune}
-              onChange={e => setCustomComune(e.target.value)}
-              placeholder="Aggiungi comune personalizzato..."
-              style={inputStyle}
-              onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCustomComune())}
-            />
-            <button type="button" style={secondaryBtnStyle} onClick={addCustomComune}>+ Aggiungi</button>
+          <div style={formGridStyle}>
+            <label style={labelStyle}>
+              Data inizio *
+              <input
+                type="date"
+                value={splitLocalDatetime(startsAt).date}
+                onChange={e => setStartsAt(combineLocalDatetime(e.target.value, splitLocalDatetime(startsAt).time))}
+                style={inputStyle}
+              />
+            </label>
+            <label style={labelStyle}>
+              Ora inizio *
+              <input
+                type="time"
+                value={splitLocalDatetime(startsAt).time}
+                onChange={e => setStartsAt(combineLocalDatetime(splitLocalDatetime(startsAt).date, e.target.value))}
+                style={inputStyle}
+              />
+            </label>
+            <label style={labelStyle}>
+              Data scadenza (facoltativa)
+              <input
+                type="date"
+                value={splitLocalDatetime(endsAt).date}
+                onChange={e => setEndsAt(e.target.value ? combineLocalDatetime(e.target.value, splitLocalDatetime(endsAt).time || '23:59') : '')}
+                style={inputStyle}
+                min={splitLocalDatetime(startsAt).date || undefined}
+              />
+            </label>
+            <label style={labelStyle}>
+              Ora scadenza (facoltativa)
+              <input
+                type="time"
+                value={splitLocalDatetime(endsAt).time}
+                onChange={e => setEndsAt(combineLocalDatetime(splitLocalDatetime(endsAt).date || splitLocalDatetime(startsAt).date, e.target.value))}
+                style={inputStyle}
+                disabled={!splitLocalDatetime(endsAt).date}
+              />
+            </label>
           </div>
-          {selectedComuni.filter(c => !dbComuni.includes(c)).length > 0 && (
-            <div style={chipGridStyle}>
-              {selectedComuni.filter(c => !dbComuni.includes(c)).map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  style={activeChipStyle}
-                  onClick={() => toggleComune(c)}
-                >
-                  {c} ✕
-                </button>
-              ))}
-            </div>
-          )}
 
-          {zones.length > 0 && (
-            <>
-              <p style={{ ...labelStyle, marginTop: 18, marginBottom: 6 }}>Zone specifiche (da campagna)</p>
-              <div style={chipGridStyle}>
-                {zones.map((z, idx) => {
-                  const label = z.label || z.zone_name || z.municipality_name || `Zona ${idx + 1}`;
-                  return (
-                    <button
-                      key={z.id || idx}
-                      type="button"
-                      style={selectedZoneLabels.includes(label) ? activeChipStyle : chipStyle}
-                      onClick={() => toggleZone(label)}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </>
+          <label style={{ ...labelStyle, marginBottom: 12 }}>
+            Note operative (visibili al driver)
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Istruzioni specifiche, accessi, contatti..."
+              rows={2}
+              style={textareaStyle}
+            />
+          </label>
+
+          <h3 style={{ ...sectionTitleStyle, fontSize: 16, marginTop: 24, marginBottom: 8 }}>Comuni / Zone disponibili</h3>
+          {zones.length === 0 ? (
+            <Notice text="Nessuna zona configurata per questa campagna." />
+          ) : (
+            <div style={{ display: 'grid', gap: 10 }}>
+              {zones.map(z => {
+                const isSelected = selectedZonesState[z.id]?.selected || false;
+                const assignedQty = selectedZonesState[z.id]?.qty || '';
+                const currentPriority = zonePriorities[z.id] !== undefined ? zonePriorities[z.id] : (z.priority || 0);
+
+                return (
+                  <div key={z.id} style={{
+                    display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center',
+                    padding: 12, borderRadius: 8,
+                    background: isSelected ? 'rgba(232,87,26,.1)' : 'rgba(0,0,0,.15)',
+                    border: `1px solid ${isSelected ? 'rgba(232,87,26,.4)' : 'rgba(255,255,255,.05)'}`
+                  }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flex: '1 1 200px' }}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleToggleZone(z.id)}
+                        style={{ width: 16, height: 16, accentColor: '#e8571a' }}
+                      />
+                      <strong style={{ color: '#fff', fontSize: 14 }}>{z.zone_name || z.municipality_name}</strong>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(255,255,255,.6)' }}>
+                      Qtà (Driver):
+                      <input
+                        type="number"
+                        placeholder="es. 4000"
+                        value={assignedQty}
+                        onChange={e => handleZoneQtyChange(z.id, e.target.value)}
+                        disabled={!isSelected}
+                        style={{ ...inputStyle, width: 90, padding: '6px 10px' }}
+                      />
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(255,255,255,.6)' }}>
+                      Ordine (Globale):
+                      <input
+                        type="number"
+                        value={currentPriority}
+                        onChange={e => handleZonePriorityChange(z.id, e.target.value)}
+                        style={{ ...inputStyle, width: 70, padding: '6px 10px' }}
+                      />
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
           )}
 
           <div style={footerRowStyle}>
             <button type="button" style={secondaryBtnStyle} onClick={() => setStep(1)}>← Indietro</button>
-            <button type="button" style={primaryBtnStyle} onClick={() => setStep(3)}>Avanti →</button>
-          </div>
-        </div>
-      )}
-
-      {/* ── STEP 3: Dettagli ── */}
-      {step === 3 && (
-        <div style={cardStyle}>
-          <p style={eyebrowStyle}>Step 3 — Dettagli lavoro</p>
-          <h2 style={sectionTitleStyle}>Quantità, date e note</h2>
-
-          <div style={formGridStyle}>
-            <label style={labelStyle}>
-              Quantità volantini
-              <input
-                type="number"
-                min="0"
-                value={qty}
-                onChange={e => setQty(e.target.value)}
-                placeholder="es. 5000"
-                style={inputStyle}
-              />
-            </label>
-            <label style={labelStyle}>
-              Data e ora inizio *
-              <input
-                type="datetime-local"
-                value={startsAt}
-                onChange={e => setStartsAt(e.target.value)}
-                style={inputStyle}
-              />
-            </label>
-            <label style={labelStyle}>
-              Scadenza (facoltativa)
-              <input
-                type="datetime-local"
-                value={endsAt}
-                onChange={e => setEndsAt(e.target.value)}
-                style={inputStyle}
-                min={startsAt || undefined}
-              />
-            </label>
-            <label style={{ ...labelStyle, gridColumn: '1 / -1' }}>
-              Gruppo operativo (facoltativo)
-              <input
-                value={selectedGroupId}
-                onChange={e => setSelectedGroupId(e.target.value)}
-                placeholder="UUID gruppo o nome..."
-                style={inputStyle}
-              />
-            </label>
-            <label style={{ ...labelStyle, gridColumn: '1 / -1' }}>
-              Note operative (visibili al driver)
-              <textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="Istruzioni specifiche, accessi, contatti..."
-                rows={3}
-                style={textareaStyle}
-              />
-            </label>
-          </div>
-
-          <div style={footerRowStyle}>
-            <button type="button" style={secondaryBtnStyle} onClick={() => setStep(2)}>← Indietro</button>
             <button
               type="button"
               style={canGoNext() ? primaryBtnStyle : disabledBtnStyle}
               disabled={!canGoNext()}
-              onClick={() => setStep(4)}
+              onClick={() => setStep(3)}
             >
               Anteprima →
             </button>
@@ -464,25 +589,25 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
         </div>
       )}
 
-      {/* ── STEP 4: Anteprima ── */}
-      {step === 4 && (
+      {/* ── STEP 3: Anteprima ── */}
+      {step === 3 && (
         <div style={cardStyle}>
-          <p style={eyebrowStyle}>Step 4 — Anteprima assegnazione</p>
+          <p style={eyebrowStyle}>Step 3 — Anteprima assegnazione</p>
           <h2 style={sectionTitleStyle}>Conferma i dati</h2>
 
           <div style={previewGridStyle}>
             <PreviewRow label="Operatore" value={selectedOperator?.display_name || selectedOperatorId} />
+            <PreviewRow label="Gruppo" value={selectedGroup?.name || 'Gruppo non disponibile'} />
             <PreviewRow label="Campagna" value={campaignTitle} />
-            <PreviewRow label="Comuni" value={selectedComuni.join(', ') || 'Tutti'} />
-            <PreviewRow label="Zone" value={selectedZoneLabels.join(', ') || 'Nessuna specifica'} />
-            <PreviewRow label="Quantità" value={qty ? `${Number(qty).toLocaleString('it-IT')} volantini` : 'Non specificata'} />
+            <PreviewRow label="Programma" value={getSelectedProgramRows().map((row, index) => `${index + 1}. ${row.name} — ${row.quantity ? `${row.quantity.toLocaleString('it-IT')} volantini` : 'quantità da definire'}`).join(' | ')} />
+            <PreviewRow label="Totale" value={`${getSelectedProgramRows().reduce((sum, row) => sum + (row.quantity || 0), 0).toLocaleString('it-IT')} volantini`} />
             <PreviewRow label="Data inizio" value={startsAt ? new Date(startsAt).toLocaleString('it-IT') : 'Immediata'} />
             <PreviewRow label="Scadenza" value={endsAt ? new Date(endsAt).toLocaleString('it-IT') : 'Nessuna'} />
             {notes && <PreviewRow label="Note" value={notes} />}
           </div>
 
           <div style={{ ...footerRowStyle, marginTop: 20 }}>
-            <button type="button" style={secondaryBtnStyle} onClick={() => setStep(3)}>← Modifica</button>
+            <button type="button" style={secondaryBtnStyle} onClick={() => setStep(2)}>← Modifica</button>
             <button
               type="button"
               style={saving ? disabledBtnStyle : primaryBtnStyle}
@@ -495,8 +620,8 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
         </div>
       )}
 
-      {/* ── STEP 5: Risultato ── */}
-      {step === 5 && savedAssignment && (
+      {/* ── STEP 4: Risultato ── */}
+      {step === 4 && savedAssignment && (
         <div style={cardStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
             <span style={{ fontSize: 32 }}>🎉</span>
@@ -513,8 +638,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           <div style={previewGridStyle}>
             <PreviewRow label="Operatore" value={selectedOperator?.display_name || savedAssignment.operator_id} />
             <PreviewRow label="Campagna" value={campaignTitle} />
-            <PreviewRow label="Comuni" value={selectedComuni.join(', ') || 'Tutti'} />
-            <PreviewRow label="Quantità" value={qty ? `${Number(qty).toLocaleString('it-IT')} volantini` : 'Non specificata'} />
+            <PreviewRow label="Zone (Programma)" value={getSelectedZoneNames().join(', ') || 'Nessuna specifica'} />
             <PreviewRow label="Stato" value={savedAssignment.status} />
             {endsAt && <PreviewRow label="Scadenza" value={new Date(endsAt).toLocaleString('it-IT')} />}
           </div>
@@ -549,7 +673,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
             <button
               type="button"
               style={secondaryBtnStyle}
-              onClick={() => { setStep(3); setSavedAssignment(null); }}
+              onClick={() => { setStep(2); setSavedAssignment(null); }}
             >
               Modifica scadenza
             </button>
@@ -626,6 +750,49 @@ function todayIso() {
   const d = new Date();
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   return d.toISOString().slice(0, 16);
+}
+
+// Un valore ISO salvato in DB (es. "2026-08-16T12:25:00+00:00") va convertito
+// nell'equivalente orario LOCALE del browser prima di finire in un input
+// date/time — stesso trucco di todayIso() ma applicato a una data esistente
+// invece che a "adesso". Senza questo, riaprire un'assegnazione per
+// modificarla mostrava le cifre UTC grezze come se fossero gia' locali.
+function toLocalDatetimeInputValue(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const shifted = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return shifted.toISOString().slice(0, 16);
+}
+
+// Percorso inverso: un valore "YYYY-MM-DDTHH:mm" digitato/scelto dall'Admin
+// (nessun offset di timezone: il browser lo intende come ora locale) va
+// convertito in un vero istante UTC prima di essere inviato a Supabase.
+// Prima veniva inviata la stringa grezza: Postgres, non avendo offset,
+// la interpretava con il fuso del server (UTC) invece che con quello
+// dell'Admin — un'ora scelta come "14:25" locale (CEST, UTC+2) veniva
+// salvata come 14:25 UTC, cioe' le 16:25 locali mostrate poi al Driver:
+// esattamente lo scarto di 2 ore riprodotto nel ticket.
+function fromLocalDatetimeInputValue(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+// startsAt/endsAt restano un'unica stringa "YYYY-MM-DDTHH:mm" (stesso
+// formato datetime-local di prima, stessa logica di validazione/anteprima
+// gia' esistente altrove nel file) — questi due helper servono solo a
+// presentarla come Data + Ora separate nel form, piu' pratiche su mobile
+// del widget datetime-local unico.
+function splitLocalDatetime(value) {
+  if (!value) return { date: '', time: '' };
+  const [date = '', time = ''] = value.split('T');
+  return { date, time };
+}
+function combineLocalDatetime(date, time) {
+  if (!date) return '';
+  return `${date}T${time || '00:00'}`;
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -736,28 +903,6 @@ const formGridStyle = {
   gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
   gap: 14,
   marginBottom: 20,
-};
-const chipGridStyle = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  gap: 8,
-  marginBottom: 8,
-};
-const chipStyle = {
-  border: '1px solid rgba(255,255,255,.15)',
-  borderRadius: 999,
-  padding: '6px 14px',
-  background: 'rgba(255,255,255,.04)',
-  color: 'rgba(255,255,255,.7)',
-  cursor: 'pointer',
-  fontSize: 12,
-  fontWeight: 700,
-};
-const activeChipStyle = {
-  ...chipStyle,
-  background: 'rgba(232,87,26,.14)',
-  border: '1px solid rgba(232,87,26,.6)',
-  color: '#e8571a',
 };
 const operatorCardStyle = {
   display: 'flex',

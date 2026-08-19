@@ -1,13 +1,13 @@
 import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { getServiceAccent } from "../lib/services/service-config.js";
-import { supabase as sdkSupabase, ensureSupabaseSessionBridge } from "../supabaseClient.js";
+import { buildTerritorialReportSnapshot } from "../ai/context/buildTerritorialReportSnapshot.js";
+import { runTerritorialReport } from "../ai/adapters/territorialReportAdapter.js";
 
 /**
  * Report Territoriale Avanzato — dashboard modulare, service-adaptive (D2D / H2H / Business).
  * Pure presentational component: riceve tutti i dati già calcolati da Step2 via props.
- * Unica chiamata di rete qui dentro: la Edge Function analyze-territory-summary
- * (sintesi AI del box "Raccomandazione principale" in Panoramica) — l'AI interpreta
- * solo i numeri già calcolati altrove, non ne calcola di nuovi.
+ * L'AI riceve tramite adapter una proiezione privacy-safe del Truth Model e
+ * interpreta solo numeri già calcolati altrove, senza nuovi fetch territoriali.
  */
 
 const F = { serif: "'DM Serif Display',Georgia,serif", sans: "'DM Sans',sans-serif" };
@@ -22,91 +22,39 @@ const CRITICAL = "#F87171";
 const COMPARE = "#A855F7";
 
 // ---------------------------------------------------------------------------
-// SINTESI AI (FASE B) — costruzione payload + hook di fetch
+// ANALISI AI — serializer dedicato + adapter ai-core
 // ---------------------------------------------------------------------------
-
-// Solo dati già calcolati altrove: nessun nuovo calcolo di business logic qui.
-// Le percentuali per-zona sono una semplice divisione presentazionale (come
-// già fa TopZoneBar), non una nuova formula.
-function buildAiTerritorySummaryPayload(p) {
-  const zones = p.territory?.zoneStats || {};
-  const comuniBreakdown = (p.zoneRows || []).map((z) => ({
-    name: z.name,
-    assignedQuantity: z.assignedFlyers ?? null,
-    requiredQuantity: z.requiredFlyers ?? null,
-    coveragePercent: z.requiredFlyers > 0 ? Math.round((z.assignedFlyers / z.requiredFlyers) * 1000) / 10 : null,
-    priorityRank: z.priorityRank ?? null,
-  }));
-  return {
-    service: p.service?.key || null,
-    centerMunicipality: p.territory?.label || null,
-    territoryMode: p.territory?.modeLabel || null,
-    zonesInvolved: zones.involved ?? null,
-    zonesAvailable: zones.available ?? null,
-    quantityInserted: p.quantity?.inserted ?? null,
-    quantityRecommended: p.quantity?.recommended ?? null,
-    coveragePercent: p.coverage?.value ?? null,
-    coverageLabel: p.coverage?.label || null,
-    score: p.score
-      ? {
-          pct: p.score.pct,
-          scoreScale: 100,
-          label: p.score.label,
-          components: Array.isArray(p.score.components)
-            ? p.score.components.map((c) => ({
-                key: c.key,
-                name: c.name,
-                contribution: c.contribution,
-                max: c.max,
-                inputValue: c.inputValue,
-                inputLabel: c.inputLabel,
-              }))
-            : [],
-        }
-      : null,
-    comuniBreakdown,
-    shortage: p.advice?.shortage ?? null,
-  };
-}
-
-// status: 'loading' | 'ai' | 'fallback'. Il fallback statico esistente resta
-// sempre disponibile: mai testo AI non verificato mostrato al cliente.
 function useAiTerritorySummary(p) {
-  const [state, setState] = useState({ status: "loading", summary: null, scoreExplanation: null });
-  const territoryLabel = p.territory?.label;
-  const serviceKey = p.service?.key;
-  const quantityInserted = p.quantity?.inserted;
-
+  const [state, setState] = useState({ status: "loading", summary: null, strengths: [], risks: [], recommendations: [], warnings: [], sources: [], error: null });
   useEffect(() => {
     let cancelled = false;
-    setState({ status: "loading", summary: null, scoreExplanation: null });
-
-    if (!sdkSupabase) {
-      setState({ status: "fallback", summary: null, scoreExplanation: null });
-      return undefined;
-    }
+    setState({ status: "loading", summary: null, strengths: [], risks: [], recommendations: [], warnings: [], sources: [], error: null });
 
     (async () => {
-      try {
-        await ensureSupabaseSessionBridge();
-        const payload = buildAiTerritorySummaryPayload(p);
-        const { data, error } = await sdkSupabase.functions.invoke("analyze-territory-summary", { body: { payload } });
-        if (cancelled) return;
-        if (error || !data || data.status !== "ai" || !data.summary) {
-          setState({ status: "fallback", summary: null, scoreExplanation: null });
-          return;
-        }
-        setState({ status: "ai", summary: data.summary, scoreExplanation: data.scoreExplanation ?? null });
-      } catch {
-        if (!cancelled) setState({ status: "fallback", summary: null, scoreExplanation: null });
+      const snapshot = buildTerritorialReportSnapshot({ truthModel: p.truthModel, presentation: p });
+      const result = await runTerritorialReport({ snapshot });
+      if (cancelled) return;
+      if (result?.status === "error" || !result?.summary) {
+        setState({ status: "error", summary: null, strengths: [], risks: [], recommendations: [], warnings: result?.warnings || [], sources: [], error: result?.error || "Analisi AI non disponibile." });
+        return;
       }
+      setState({
+        status: result.status === "deterministic" ? "deterministic" : "ai",
+        summary: result.summary,
+        strengths: result.strengths || [],
+        risks: result.risks || [],
+        recommendations: result.recommendations || [],
+        warnings: result.warnings || [],
+        sources: result.sources || [],
+        error: null,
+      });
     })();
 
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [territoryLabel, serviceKey, quantityInserted]);
+  }, [p]);
 
   return state;
 }
@@ -143,13 +91,14 @@ function fmtInt(v) {
 function AiStatusBadge({ status }) {
   const cfg = {
     ai: { label: "AI attiva", bg: "rgba(139,92,246,.16)", border: "rgba(139,92,246,.4)", color: "#C4B5FD" },
+    deterministic: { label: "Analisi verificata", bg: "rgba(74,222,128,.12)", border: "rgba(74,222,128,.35)", color: "#86EFAC" },
     loading: { label: "AI in elaborazione…", bg: "rgba(96,165,250,.12)", border: "rgba(96,165,250,.35)", color: "#93C5FD" },
-    fallback: { label: "Analisi locale", bg: "rgba(255,255,255,.06)", border: "rgba(255,255,255,.18)", color: "rgba(255,255,255,.65)" },
+    error: { label: "AI non disponibile", bg: "rgba(248,113,113,.1)", border: "rgba(248,113,113,.3)", color: "#FCA5A5" },
   }[status] || null;
   if (!cfg) return null;
   return (
     <span
-      title={status === "ai" ? "Raccomandazione generata dal modello AI sulla base dei dati territoriali disponibili." : status === "fallback" ? "L'AI non è disponibile in questo momento. La raccomandazione mostrata è generata automaticamente dai dati e dalle regole operative disponibili." : "Richiesta AI in corso."}
+      title={status === "error" ? "La richiesta AI ha restituito un errore reale." : status === "loading" ? "Richiesta AI in corso." : "Analisi generata esclusivamente dai dati territoriali disponibili."}
       style={{
         display: "inline-flex", alignItems: "center", fontFamily: F.sans,
         fontSize: 9.5, fontWeight: 800, letterSpacing: ".03em", textTransform: "uppercase",
@@ -475,12 +424,6 @@ function SectionPanoramica({ p, isMobile }) {
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
         {kpis.map((k) => <KpiCard key={k.label} {...k} />)}
       </div>
-      {aiState.scoreExplanation && (
-        <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 12, padding: "12px 16px" }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,.6)", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".04em" }}>Perché questo punteggio (Score {p.service.key.toUpperCase()})</div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,.82)", lineHeight: 1.5 }}>{aiState.scoreExplanation}</div>
-        </div>
-      )}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
         <div style={{ background: `${accent}10`, border: `1px solid ${accent}35`, borderRadius: 12, padding: 16 }}>
           <div style={{ fontSize: 12.5, fontWeight: 900, color: accent, marginBottom: 8 }}>Come viene analizzato il servizio</div>
@@ -520,18 +463,27 @@ function SectionPanoramica({ p, isMobile }) {
             ) : (
               <>
                 <div style={{ fontSize: 12, color: "rgba(255,255,255,.85)", lineHeight: 1.45 }}>
-                  {aiState.status === "ai" ? aiState.summary : (p.advice.summary || "Selezione area non ancora finalizzata.")}
+                  {aiState.status === "error" ? aiState.error : aiState.summary}
                 </div>
-                {aiState.status === "ai" && (
+                {(aiState.status === "ai" || aiState.status === "deterministic") && (
                   <div style={{ fontSize: 10.5, color: "rgba(255,255,255,.4)", lineHeight: 1.4, marginTop: 8 }}>
-                    Raccomandazione generata dal modello AI sulla base dei dati territoriali disponibili.
+                    Analisi generata esclusivamente sulla base dei dati territoriali e delle fonti elencate.
                   </div>
                 )}
-                {aiState.status === "fallback" && (
-                  <div style={{ fontSize: 10.5, color: "rgba(255,255,255,.4)", lineHeight: 1.4, marginTop: 8 }}>
-                    L'AI non è disponibile in questo momento. La raccomandazione mostrata è generata automaticamente dai dati e dalle regole operative disponibili.
+                {[
+                  ["Punti di forza", aiState.strengths, "#4ADE80"],
+                  ["Rischi", aiState.risks, "#FCA5A5"],
+                  ["Raccomandazioni", aiState.recommendations, "#60A5FA"],
+                  ["Warning", aiState.warnings, "#FBBF24"],
+                  ["Fonti", aiState.sources, "rgba(255,255,255,.62)"],
+                ].filter(([, items]) => items.length > 0).map(([label, items, color]) => (
+                  <div key={label} style={{ marginTop: 10 }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 800, color, marginBottom: 4 }}>{label}</div>
+                    <ul style={{ margin: 0, paddingLeft: 17, color: "rgba(255,255,255,.76)", fontSize: 11, lineHeight: 1.45 }}>
+                      {items.map((item, index) => <li key={`${label}-${index}`}>{item}</li>)}
+                    </ul>
                   </div>
-                )}
+                ))}
               </>
             )}
           </div>

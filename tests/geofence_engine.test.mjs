@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
   GEOFENCE_EXIT_MIN_DURATION_MS,
   GEOFENCE_RETURN_MIN_DURATION_MS,
   GEOFENCE_STALE_AFTER_MS,
+  ZONE_LIVE_STATUS_NEAR_BORDER_THRESHOLD_M,
+  ZONE_LIVE_STATUS_LABELS,
+  ZONE_LIVE_STATUS_COLORS,
   applyStaleness,
   createGeofenceState,
+  deriveLiveZoneStatus,
+  estimateDistanceToZoneBoundaryMeters,
   evaluateGeofencePoint,
   isPointInAnyZone,
   normalizeZonesFromCampaign,
@@ -240,4 +246,68 @@ test("summarizeGeofencePoints: ordina i punti per recorded_at anche se arrivano 
   ];
   const state = summarizeGeofencePoints(points, CIRCLE_ZONES);
   assert.equal(state.status, "inside");
+});
+
+// Dashboard/desktop parity: deriveLiveZoneStatus e' l'unica fonte per il
+// badge istantaneo dentro/fuori/vicino-confine/in-attesa-GPS, condivisa da
+// Driver (DriverZoneMap.jsx), Admin (GpsMonitor.jsx) e Cliente
+// (CampaignTracking.jsx) — nessuna di queste tre pagine deve ridefinire la
+// propria soglia/logica/label.
+test("deriveLiveZoneStatus: awaiting_gps senza posizione, inside/outside/near_border coerenti col confine reale", () => {
+  assert.equal(deriveLiveZoneStatus(POLYGON_ZONES, null, null), "awaiting_gps");
+  assert.equal(deriveLiveZoneStatus([], CENTER.lat, CENTER.lng), "zone_unavailable");
+  assert.equal(deriveLiveZoneStatus(POLYGON_ZONES, CENTER.lat, CENTER.lng), "inside");
+  assert.equal(deriveLiveZoneStatus(POLYGON_ZONES, 33.8938, 35.5018), "outside"); // Beirut, lontano
+  const distanceOutsideKm = estimateDistanceToZoneBoundaryMeters(POLYGON_ZONES, 33.8938, 35.5018) / 1000;
+  assert.ok(distanceOutsideKm > 1000, "un operatore in Libano deve risultare a migliaia di km dal confine, non un numero piccolo/arrotondato");
+  const nearBorderLat = 45.454 - (ZONE_LIVE_STATUS_NEAR_BORDER_THRESHOLD_M / 2) / 111320;
+  assert.equal(deriveLiveZoneStatus(POLYGON_ZONES, nearBorderLat, 9.19), "near_border");
+});
+
+test("deriveLiveZoneStatus e i suoi label/colori sono importati (mai ridefiniti) da Driver, Admin e Cliente", () => {
+  const driver = readFileSync(new URL("../src/components/driver/DriverZoneMap.jsx", import.meta.url), "utf8");
+  const admin = readFileSync(new URL("../src/pages/admin/GpsMonitor.jsx", import.meta.url), "utf8");
+  const customer = readFileSync(new URL("../src/pages/customer/CampaignTracking.jsx", import.meta.url), "utf8");
+  for (const [name, src] of [["Driver", driver], ["Admin", admin], ["Cliente", customer]]) {
+    assert.match(src, /from ['"].*geofenceEngine\.js['"]/, `${name} deve importare da geofenceEngine.js`);
+    assert.match(src, /deriveLiveZoneStatus/, `${name} deve usare deriveLiveZoneStatus`);
+    // Nessuna ridefinizione locale della soglia/label: se qualcuno reintroduce
+    // una costante locale con questi nomi, la duplicazione che il refactor
+    // doveva eliminare sarebbe tornata.
+    assert.doesNotMatch(src, /const ZONE_STATUS_LABELS\s*=/, `${name} non deve ridefinire ZONE_STATUS_LABELS localmente`);
+    assert.doesNotMatch(src, /const NEAR_BORDER_THRESHOLD_M\s*=/, `${name} non deve ridefinire la soglia localmente`);
+  }
+});
+
+test("Admin e Cliente condividono lo stesso hook per la risoluzione/persistenza automatica del confine per-zona, mai una loro copia di quella fetch", () => {
+  const admin = readFileSync(new URL("../src/pages/admin/GpsMonitor.jsx", import.meta.url), "utf8");
+  const customer = readFileSync(new URL("../src/pages/customer/CampaignTracking.jsx", import.meta.url), "utf8");
+  const sharedHook = readFileSync(new URL("../src/hooks/useZoneBoundaries.js", import.meta.url), "utf8");
+  assert.match(admin, /from ['"].*useZoneBoundaries\.js['"]/);
+  assert.match(customer, /from ['"].*useZoneBoundaries\.js['"]/);
+  // Cliente non ha alcun motivo legittimo per chiamare il resolver
+  // direttamente: nessuna funzione di ricerca libera lato Cliente.
+  assert.doesNotMatch(customer, /resolveMunicipalityBoundary\(/, "Cliente non deve chiamare resolveMunicipalityBoundary direttamente: solo l'hook condiviso lo fa");
+  // Admin PUO' chiamarlo direttamente, ma solo per la ricerca libera "Cerca
+  // comune" (sezione 3 del ticket MASTER FIX) — mai per duplicare la
+  // risoluzione/persistenza automatica per-zona-campagna, che resta
+  // esclusiva dell'hook condiviso (nessun secondo fetch/update di
+  // campaign_zones fuori da useZoneBoundaries.js).
+  assert.doesNotMatch(admin, /\.from\(['"]campaign_zones['"]\)/, "Admin non deve avere una propria fetch/update di campaign_zones: solo l'hook condiviso la fa");
+  assert.match(sharedHook, /resolveMunicipalityBoundary/);
+  assert.match(sharedHook, /polygon_geojson/);
+});
+
+// GPS Live (/admin/live) deve riusare il boundary condiviso, il badge live
+// condiviso, e il pannello di override manuale gia' esistente
+// (ZoneProgressPanel + admin_set/clear_zone_manual_progress) — nessuna
+// seconda implementazione di "completamento manuale zona" per questa pagina.
+test("AdminLiveDashboard riusa boundary/status condivisi e il pannello di override manuale esistente, non li reimplementa", () => {
+  const liveDashboard = readFileSync(new URL("../src/pages/admin/AdminLiveDashboard.jsx", import.meta.url), "utf8");
+  assert.match(liveDashboard, /from ['"].*useZoneBoundaries\.js['"]/);
+  assert.match(liveDashboard, /from ['"].*useZoneProgress\.js['"]/);
+  assert.match(liveDashboard, /from ['"].*ZoneProgressPanel\.jsx['"]/);
+  assert.match(liveDashboard, /deriveLiveZoneStatus/);
+  assert.doesNotMatch(liveDashboard, /resolveMunicipalityBoundary\(/);
+  assert.doesNotMatch(liveDashboard, /rpc\(['"]admin_set_zone_manual_progress['"]/, "deve passare dal client zone-progress-api esistente, non chiamare l'RPC direttamente");
 });

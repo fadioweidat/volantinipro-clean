@@ -48,7 +48,7 @@ export function classifyCustomerIntent(message) {
 
 function evidenceForIntent(intentName, context) {
   const keys = EVIDENCE_KEYS_BY_INTENT[intentName] || [];
-  const campaign = context?.latestCampaign;
+  const campaign = context?.currentCampaign;
   if (!campaign) return [];
   return keys.filter((key) => campaign[key]).map((key) => ({ label: LABELS[key] || key, ...campaign[key] }));
 }
@@ -58,7 +58,7 @@ function evidenceForIntent(intentName, context) {
  * gia' esistente (nessuna riscrittura del runtime deterministico) e
  * normalizza SEMPRE l'output nel contratto unico AI-BRAIN-2.
  */
-export async function runCustomerAssistant({ sessionId, authUser, customer, campaigns, dataLoading, dataError, activeCampaign = null, activeQuote = null, location = "/", intentName }) {
+export async function runCustomerAssistant({ sessionId, authUser, customer, campaigns, dataLoading, dataError, activeCampaign = null, activeQuote = null, location = "/", intentName, question = null }) {
   const context = buildCustomerCampaignAiContext(
     { customerId: customer?.id, subjectId: authUser?.id },
     { authUser, customer, campaigns, loading: dataLoading, error: Boolean(dataError) },
@@ -68,7 +68,7 @@ export async function runCustomerAssistant({ sessionId, authUser, customer, camp
   const authorization = resolveIntent(intentName, { role: AI_ROLES.CLIENT });
   if (!authorization.ok) return buildFallbackResponse(authorization.reason, { intent: intentName });
 
-  const message = TRIGGER_MESSAGE[intentName];
+  const message = String(question || "").trim() || TRIGGER_MESSAGE[intentName];
   if (!message) return buildFallbackResponse("unknown_intent", { intent: intentName });
 
   try {

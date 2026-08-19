@@ -96,8 +96,27 @@ test('buildCustomerCampaignAiContext: il prezzo è letto dal record, mai ricalco
 
 test('buildCustomerCampaignAiContext: GPS e foto restano sempre UNAVAILABLE nel contesto Cliente (nessun dato operatore sensibile)', () => {
   const context = buildCustomerCampaignAiContext(customerScope, customerSnapshot);
-  assert.equal(context.latestCampaign.latestGps.type, AI_FIELD_TYPES.UNAVAILABLE);
-  assert.equal(context.latestCampaign.approvedPhotos.type, AI_FIELD_TYPES.UNAVAILABLE);
+  assert.equal(context.currentCampaign.latestGps.type, AI_FIELD_TYPES.UNAVAILABLE);
+  assert.equal(context.currentCampaign.approvedPhotos.type, AI_FIELD_TYPES.UNAVAILABLE);
+});
+
+test('Customer AI distingue campagna corrente per rilevanza operativa e ultimo record creato', () => {
+  const snapshot = {
+    ...customerSnapshot,
+    campaigns: [
+      { id: 'paderno', cliente_id: 'cust-1', titolo: 'Paderno Dugnano', stato: 'confermata', stato_pagamento: 'pagato', quantita: 10000, zona: 'Paderno Dugnano', data_inizio: '2026-08-13', created_at: '2026-08-13T10:04:30Z', metadata: { quote_summary: {} } },
+      { id: 'seveso', cliente_id: 'cust-1', titolo: 'Seveso', stato: 'confermata', stato_pagamento: null, quantita: 11261, zona: 'Seveso', data_inizio: '2026-08-29', created_at: '2026-08-10T18:13:00Z', metadata: { quote_summary: {} } },
+      { id: 'como', cliente_id: 'cust-1', titolo: 'Como', stato: 'confermata', stato_pagamento: null, quantita: 26793, zona: 'Como', data_inizio: '2026-08-29', created_at: '2026-08-10T08:00:00Z', metadata: { quote_summary: {} } },
+      { id: 'driver-map', cliente_id: 'cust-1', titolo: 'Zona test mappa Driver', stato: 'in_distribuzione', zona: 'Milano', created_at: '2026-04-18T20:20:52Z' },
+    ],
+  };
+  const context = buildCustomerCampaignAiContext(customerScope, snapshot);
+  assert.equal(context.currentCampaign.zone.value, 'Seveso');
+  assert.equal(context.currentCampaign.quantity.value, 11261);
+  assert.equal(context.currentCampaign.startDate.value, '2026-08-29');
+  assert.equal(context.currentCampaign.status.value, 'confermata');
+  assert.equal(context.currentCampaign.paymentStatus.value, null, 'payment_status assente resta non disponibile, mai inventato');
+  assert.equal(context.latestCampaign.zone.value, 'Paderno Dugnano');
 });
 
 test('buildConfiguratorAiContext: null se non riceve uno snapshot territoriale valido', () => {

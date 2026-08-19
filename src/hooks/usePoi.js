@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { fetchPois } from '../lib/services/poi-api.js';
 
 // In-module cache: keyed by "lat,lng,radiusKm,svcType".
@@ -10,14 +10,26 @@ const _cache = {};
  * Debounced 700ms after input changes. Uses in-memory cache.
  *
  * Returns:
- *   pois — Array<{id, lat, lng, name, category, color, priority, address}>
+ *   pois    — Array<{id, lat, lng, name, category, color, priority, address}>
  *   loading — bool
- *   error   — string | null  (OVERPASS_TIMEOUT | network error)
+ *   error   — string | null  (OVERPASS_TIMEOUT | network error). Il chiamante
+ *             deve trattare `error` truthy come un fallimento della richiesta,
+ *             mai come "zero risultati confermati" — `pois` puo' essere vuoto
+ *             in entrambi i casi, solo `error` li distingue.
+ *   retry   — () => void — ritenta la stessa query (stesso lat/lng/radius/
+ *             serviceType/target), utile dopo un errore.
  */
 export function usePoi(lat, lng, radiusKm, serviceType, targetSelection = []) {
   const [pois,    setPois]    = useState([]);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState(null);
+  // Incrementato da retry(): forza un nuovo tentativo della stessa query.
+  // Non serve invalidare la cache esplicitamente — un fallimento precedente
+  // non viene mai scritto in _cache (solo il ramo di successo lo fa), quindi
+  // a parita' di lat/lng/radius/serviceType/target la cache resta un miss e
+  // il fetch riparte per davvero.
+  const [retryNonce, setRetryNonce] = useState(0);
+  const retry = useCallback(() => setRetryNonce(n => n + 1), []);
 
   // Stable rounded key avoids micro-precision re-fetches from geocoder
   const latR = lat    != null ? Math.round(lat    * 1000) / 1000 : null;
@@ -74,7 +86,10 @@ export function usePoi(lat, lng, radiusKm, serviceType, targetSelection = []) {
           setError(msg);
           // Keep existing pois on timeout so map doesn't go blank
           if (msg !== 'OVERPASS_TIMEOUT') setPois([]);
-          if (import.meta.env.DEV) console.debug('[usePoi] error:', msg);
+          // import.meta.env non e' definito fuori da un runtime Vite (es. nei
+          // test node:test): try/catch evita che un log di debug faccia
+          // fallire proprio il path di errore che dovrebbe solo segnalare.
+          try { if (import.meta.env.DEV) console.debug('[usePoi] error:', msg); } catch {}
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -85,7 +100,7 @@ export function usePoi(lat, lng, radiusKm, serviceType, targetSelection = []) {
       cancelled = true;
       clearTimeout(timerId);
     };
-  }, [latR, lngR, radR, serviceType, targetKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [latR, lngR, radR, serviceType, targetKey, retryNonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { pois, loading, error };
+  return { pois, loading, error, retry };
 }

@@ -105,6 +105,29 @@ await test("CentralAiAgent produce una risposta grounded con fonte Campagna", as
   assert.equal(response.text.includes("Roma"), false);
 });
 
+await test("Seveso e la campagna corrente, mentre ultimo preventivo segue created_at", async () => {
+  const campaigns = [
+    { id: "paderno", cliente_id: customerA.id, titolo: "Paderno Dugnano", stato: "confermata", stato_pagamento: "pagato", servizio: "d2d", quantita: 10000, zona: "Paderno Dugnano", data_inizio: "2026-08-13", created_at: "2026-08-13T10:04:30Z", metadata: { quote_summary: {} } },
+    { id: "seveso", cliente_id: customerA.id, titolo: "Seveso", stato: "confermata", servizio: "d2d", quantita: 11261, zona: "Seveso", data_inizio: "2026-08-29", created_at: "2026-08-10T18:13:00Z", metadata: { quote_summary: {} } },
+    { id: "como", cliente_id: customerA.id, titolo: "Como", stato: "confermata", servizio: "d2d", quantita: 26793, zona: "Como", data_inizio: "2026-08-29", created_at: "2026-08-10T08:00:00Z", metadata: { quote_summary: {} } },
+    { id: "driver-map", cliente_id: customerA.id, titolo: "Zona test mappa Driver", stato: "in_distribuzione", zona: "Milano", created_at: "2026-04-18T20:20:52Z" },
+  ];
+  const provider = new CustomerDashboardDataProvider();
+  provider.update({ authUser: authUserA, customer: customerA, campaigns, loading: false, error: false });
+  const { agent } = createAiFoundation({ runtime: new CustomerDashboardReadOnlyRuntime(), toolAdapters: { [AI_TOOL_NAMES.CAMPAIGN]: createCampaignToolAdapter(provider), [AI_TOOL_NAMES.CUSTOMER]: createCustomerToolAdapter(provider), [AI_TOOL_NAMES.DASHBOARD]: createDashboardToolAdapter(provider) } });
+  const base = { authUser: authUserA, customerId: customerA.id, profile: { role: "cliente" }, location: "/dashboard" };
+  const progress = await agent.reply({ ...base, sessionId: "seveso-progress", message: "A che punto e la mia campagna?" });
+  const quote = await agent.reply({ ...base, sessionId: "seveso-quote", message: "Mostrami il mio ultimo preventivo" });
+  const assets = await agent.reply({ ...base, sessionId: "seveso-assets", message: "Ci sono report o foto?" });
+  const overview = await agent.reply({ ...base, sessionId: "seveso-overview", message: "Spiegami questa dashboard" });
+  assert.match(progress.text, /Seveso/i);
+  assert.doesNotMatch(progress.text, /Paderno/i);
+  assert.match(quote.text, /Paderno Dugnano/i, 'created_at identifica Paderno come ultimo quote record');
+  assert.match(assets.text, /non indica ancora un report|non posso confermarne/i);
+  assert.match(overview.text, /campagna corrente e Seveso/i);
+  assert.match(overview.text, /ultima campagna creata e Paderno Dugnano/i);
+});
+
 await test("domanda non supportata non inventa e non chiama tool", async () => {
   const { agent } = createAiFoundation({ runtime: new CustomerDashboardReadOnlyRuntime() });
   const response = await agent.reply({ sessionId: "unsupported", authUser: authUserA, customerId: customerA.id, profile: { role: "cliente" }, location: "/dashboard", message: "Puoi inviare una email e modificare la campagna?" });

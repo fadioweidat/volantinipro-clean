@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
@@ -386,5 +387,60 @@ test("AdminGuard", async (t) => {
     } finally {
       fetchMock.restore();
     }
+  });
+});
+
+test("Admin magic-link session and rate-limit contract", async (t) => {
+  const loginSource = readFileSync(new URL("../volantinipro-final.jsx", import.meta.url), "utf8");
+  const sdkSource = readFileSync(new URL("../src/supabaseClient.js", import.meta.url), "utf8");
+  const sessionSource = readFileSync(new URL("../src/auth/session.js", import.meta.url), "utf8");
+  const loginBlock = loginSource.slice(
+    loginSource.indexOf("export function LoginPage"),
+    loginSource.indexOf("export function DashboardPage")
+  );
+
+  await t.test("SDK persiste, rinnova automaticamente e lascia il callback al consumer manuale", () => {
+    assert.match(sdkSource, /persistSession:\s*true/);
+    assert.match(sdkSource, /autoRefreshToken:\s*true/);
+    assert.match(sdkSource, /detectSessionInUrl:\s*false/);
+    assert.match(sessionSource, /onAuthStateChange/);
+    assert.match(sessionSource, /TOKEN_REFRESHED/);
+  });
+
+  await t.test("sessione Admin valida viene ripristinata e verificata prima del redirect", () => {
+    const restoreIndex = loginBlock.indexOf("restoreSupabaseSession()");
+    const roleIndex = loginBlock.indexOf("verifySupabaseAdminRole(restoredSession)", restoreIndex);
+    const redirectIndex = loginBlock.indexOf('onNav("admin")', roleIndex);
+    assert.ok(restoreIndex >= 0 && roleIndex > restoreIndex && redirectIndex > roleIndex);
+    assert.match(loginBlock, /sessionCheck === "checking"/);
+  });
+
+  await t.test("double submit produce una sola richiesta OTP SDK", () => {
+    const lockCheck = loginBlock.indexOf("if (otpRequestInFlight.current) return");
+    const lockSet = loginBlock.indexOf("otpRequestInFlight.current = true", lockCheck);
+    const otpRequest = loginBlock.indexOf("authSupabase.auth.signInWithOtp", lockSet);
+    const lockRelease = loginBlock.indexOf("otpRequestInFlight.current = false", otpRequest);
+    assert.ok(lockCheck >= 0 && lockSet > lockCheck && otpRequest > lockSet && lockRelease > otpRequest);
+    assert.equal((loginBlock.match(/authSupabase\.auth\.signInWithOtp/g) || []).length, 1);
+  });
+
+  await t.test("429 mostra il testo richiesto e non attiva retry automatici", () => {
+    assert.match(loginBlock, /otpError\.status === 429/);
+    assert.match(loginBlock, /Hai richiesto troppi link di accesso\. Usa l'ultimo link ricevuto oppure attendi qualche minuto\./);
+    assert.doesNotMatch(loginBlock, /setTimeout\s*\(|setInterval\s*\(|retry\s*\(/i);
+  });
+
+  await t.test("la richiesta parte solo dal submit del form, non anche da onClick o effect", () => {
+    assert.match(loginBlock, /<form onSubmit=\{sendMagicLink\}/);
+    assert.doesNotMatch(loginBlock, /onClick=\{sendMagicLink\}/);
+    assert.equal((loginBlock.match(/authSupabase\.auth\.signInWithOtp/g) || []).length, 1);
+  });
+
+  await t.test("callback neutro viene passato alla SDK nel campo ufficiale emailRedirectTo", () => {
+    assert.match(loginBlock, /emailRedirectTo:\s*`\$\{window\.location\.origin\}\$\{redirectPath\}`/);
+    assert.match(loginBlock, /const redirectPath = "\/auth\/callback"/);
+    assert.match(loginBlock, /const cleanPath = "\/auth\/callback"/);
+    assert.match(loginBlock, /Accesso in corso\.\.\./);
+    assert.doesNotMatch(loginBlock, /email_redirect_to\s*:/);
   });
 });

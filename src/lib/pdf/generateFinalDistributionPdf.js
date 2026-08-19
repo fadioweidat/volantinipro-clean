@@ -82,7 +82,7 @@ function concat(parts) {
   return output;
 }
 
-function buildPages(report, images) {
+function buildPages(report, images, mapImageIndexByZone) {
   const pages = [];
   let page;
   let y;
@@ -151,19 +151,70 @@ function buildPages(report, images) {
       y -= 8;
     });
   }
+
+  if (report.zones.length) {
+    addPage();
+    text('TRACCIAMENTO GPS E COPERTURA', { size: 16, bold: true, leading: 22 });
+    text('Per ogni zona: confine reale (se disponibile), traccia GPS reale, e copertura scomposta tra GPS reale e integrazione manuale Admin.', { color: '0.36 0.40 0.49', max: 92 });
+    report.zones.forEach((zone) => {
+      rule();
+      heading(zone.name);
+      const mapImageIndex = mapImageIndexByZone.get(zone.name);
+      if (mapImageIndex != null) {
+        const image = images[mapImageIndex - 1];
+        const width = PAGE.width - PAGE.margin * 2;
+        const height = Math.min(220, width * image.height / image.width);
+        ensure(height + 10);
+        page.commands.push(`q ${width} 0 0 ${height} ${PAGE.margin} ${y - height} cm /Im${mapImageIndex} Do Q`);
+        page.images.push(mapImageIndex);
+        y -= height + 8;
+      } else {
+        ensure(40);
+        const reason = zone.traceAvailable
+          ? 'Confine comune non disponibile per questa zona.'
+          : zone.boundaryAvailable
+            ? 'Nessun tracciamento GPS disponibile per questa zona.'
+            : 'Mappa non disponibile per questa zona.';
+        page.commands.push('0.94 0.95 0.96 rg', `${PAGE.margin} ${y - 30} ${PAGE.width - PAGE.margin * 2} 30 re f`);
+        text(reason, { indent: 8, color: '0.42 0.45 0.51', size: 10 });
+        y -= 6;
+      }
+      text(`Copertura GPS reale: ${zone.gpsCoveragePercent != null ? zone.gpsCoveragePercent + '%' : 'Non disponibile'}`, { indent: 8 });
+      text(`Integrazione manuale Admin: ${zone.manualCoveragePercent != null ? zone.manualCoveragePercent + '%' : 'Non disponibile'}`, { indent: 8 });
+      text(`Copertura finale certificata: ${zone.finalCoveragePercent != null ? zone.finalCoveragePercent + '%' : 'Non disponibile'}`, { indent: 8, bold: true });
+      text(`Km GPS totali: ${zone.gpsDistanceKm != null ? zone.gpsDistanceKm + ' km' : 'Non disponibile'} | Punti GPS validi: ${zone.validGpsPoints != null ? number(zone.validGpsPoints) : 'Non disponibile'} | Durata sessioni: ${duration(zone.durationMs)}`, { indent: 8, size: 9, color: '0.30 0.34 0.41', max: 92 });
+      text(`Stato finale: ${zone.finalStatus}`, { indent: 8, size: 9, color: '0.30 0.34 0.41' });
+      y -= 6;
+    });
+  }
+
   pages.forEach((item, index) => {
     item.commands.push(`0.42 0.45 0.51 rg BT /F1 8 Tf ${PAGE.margin} 28 Td ${pdfText(`VolantiniPro | Generato ${dateTime(report.generatedAt)} | Pagina ${index + 1}/${pages.length}`)} Tj ET`);
   });
   return pages;
 }
 
-export function generateFinalDistributionPdfBytes(report, { photos = [] } = {}) {
-  const images = photos.map((photo) => {
+export function generateFinalDistributionPdfBytes(report, { photos = [], zoneSnapshots = [] } = {}) {
+  const photoImages = photos.map((photo) => {
     const bytes = photo.bytes instanceof Uint8Array ? photo.bytes : new Uint8Array(photo.bytes || []);
     const size = jpegSize(bytes);
     return size ? { ...photo, ...size, bytes } : null;
   }).filter(Boolean).slice(0, 6);
-  const pages = buildPages(report, images);
+  // Screenshot mappa per zona (sezione "Tracciamento GPS e Copertura"): stesso
+  // meccanismo di embedding JPEG gia' usato per le foto prova, mai un secondo
+  // formato immagine. Solo zone che hanno davvero prodotto uno screenshot
+  // (mai un placeholder disegnato finto) entrano qui — le altre restano testo
+  // onesto in buildPages.
+  const mapImages = zoneSnapshots.map((snapshot) => {
+    if (!snapshot?.bytes) return null;
+    const bytes = snapshot.bytes instanceof Uint8Array ? snapshot.bytes : new Uint8Array(snapshot.bytes);
+    const size = jpegSize(bytes);
+    return size ? { zoneName: snapshot.zoneName, ...size, bytes } : null;
+  }).filter(Boolean).slice(0, 20);
+
+  const images = [...photoImages, ...mapImages];
+  const mapImageIndexByZone = new Map(mapImages.map((image, index) => [image.zoneName, photoImages.length + index + 1]));
+  const pages = buildPages(report, images, mapImageIndexByZone);
   const imageStart = 5;
   const contentStart = imageStart + images.length;
   const pageIds = pages.map((_, index) => contentStart + (index * 2) + 1);
@@ -212,9 +263,44 @@ async function photoBytes(report) {
   })).then((items) => items.filter(Boolean));
 }
 
-export async function downloadFinalDistributionPdf(report, filename = 'certificazione-distribuzione.pdf') {
+// Screenshot mappa per zona, generati in sequenza (non in parallelo: piu'
+// mappe Leaflet reali montate insieme rallentano/competerebbero per la
+// stessa banda di tile) subito prima della generazione del PDF. Mai
+// bloccante in modo silenzioso: ogni zona ha un timeout di sicurezza interno
+// (captureZoneMapSnapshot) e una zona che fallisce risulta semplicemente
+// senza screenshot (placeholder onesto nel PDF), non un errore che blocca
+// le altre zone o l'intero PDF.
+async function zoneSnapshotBytes(report) {
+  const results = [];
+  const anyZoneNeedsCapture = report.zones.some((zone) => zone.boundaryAvailable || zone.traceAvailable);
+  if (!anyZoneNeedsCapture) return [];
+  // Import dinamico apposta: questo modulo importa leaflet/dist/leaflet.css
+  // a livello statico, che il bundler (Vite, nel browser reale) gestisce
+  // normalmente ma che rompe l'esecuzione di generateFinalDistributionPdf.js
+  // sotto Node puro (i test unitari di questo file girano con Node/tsx, mai
+  // con un bundler) — vedi final_distribution_report.test.mjs, che importa
+  // questo file direttamente. generateFinalDistributionPdfBytes (la funzione
+  // pura, testata) non tocca mai questo percorso.
+  const { captureZoneMapSnapshot } = await import('../reports/captureZoneMapSnapshot.jsx');
+  for (const zone of report.zones) {
+    if (!zone.boundaryAvailable && !zone.traceAvailable) { results.push(null); continue; }
+    try {
+      const bytes = await captureZoneMapSnapshot({ boundaryGeometry: zone.boundaryGeometry, points: zone.tracePoints });
+      results.push(bytes ? { zoneName: zone.name, bytes } : null);
+    } catch {
+      results.push(null);
+    }
+  }
+  return results.filter(Boolean);
+}
+
+export async function downloadFinalDistributionPdf(report, filename = 'certificazione-distribuzione.pdf', { onProgress } = {}) {
+  onProgress?.('Recupero foto prova...');
   const photos = await photoBytes(report);
-  const bytes = generateFinalDistributionPdfBytes(report, { photos });
+  onProgress?.('Generazione mappe zona...');
+  const zoneSnapshots = await zoneSnapshotBytes(report);
+  onProgress?.('Composizione PDF...');
+  const bytes = generateFinalDistributionPdfBytes(report, { photos, zoneSnapshots });
   const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
   const link = document.createElement('a');
   link.href = url;

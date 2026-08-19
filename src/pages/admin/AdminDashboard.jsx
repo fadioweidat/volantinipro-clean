@@ -1,451 +1,367 @@
-import React, { useEffect, useState } from "react";
-import { getRealCampaigns, getLiveOperatorsSummary, selectOptionalTable } from "../../lib/services/admin-api.js";
-import { isAdminAiDashboardEnabled } from "../../lib/runtimeFlags.js";
-import { getCurrentSupabaseUser } from "../../lib/supabaseClient.js";
-import { AdminOperationalMap } from "../../components/admin/AdminOperationalMap.jsx";
-import { AdminLayout } from "./AdminLayout.jsx";
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  buildDriverWhatsAppMessage,
+  generateDriverAssignmentLink,
+  getClientsQuotesOverview,
+  getDailyOperations,
+  getLiveOperatorsSummary,
+  getRealCampaigns,
+  listAssignableOperators,
+  selectOptionalTable,
+} from '../../lib/services/admin-api.js';
+import { buildOperationalGroups, buildTodayGroupCards } from '../../lib/admin/adminHomeModel.js';
+import { buildCommercialSnapshot } from '../../lib/admin/adminCommercialModel.js';
+import { getCurrentSupabaseUser } from '../../lib/supabaseClient.js';
+import { AdminLayout } from './AdminLayout.jsx';
+import './admin-dashboard.css';
 
-const AdminCentralAiPanel = React.lazy(() => import("../../components/ai/admin/AdminCentralAiPanel.jsx"));
+const AdminCentralAiPanel = React.lazy(() => import('../../components/ai/admin/AdminCentralAiPanel.jsx'));
 
-const C = {
-  orange: "#E8571A",
-  green: "#2ECC8A",
-  yellow: "#FBBF24",
-  blue: "#60A5FA",
-  purple: "#A78BFA",
-  white: "#FFFFFF",
-};
-
-const F = {
-  sans: "'DM Sans', Inter, system-ui, sans-serif",
-  serif: "'Playfair Display', Georgia, serif",
-};
-
-const EMPTY = "Dato non disponibile";
-const STATUSES = {
-  active: { label: "In distribuzione", color: C.green },
-  pending: { label: "In attesa", color: C.yellow },
-  done: { label: "Completata", color: "rgba(255,255,255,.58)" },
-};
-const SERVICES = {
-  d2d: { label: "D2D", color: C.orange },
-  h2h: { label: "H2H", color: C.blue },
-  b2b: { label: "B2B", color: C.purple },
-};
-const QUALITY_BADGES = {
-  real: { label: "reale", color: C.green },
-  test: { label: "test", color: C.yellow },
-  incomplete: { label: "incompleta", color: "rgba(255,255,255,.45)" },
-};
+export { normalizeCampaign } from '../../lib/services/admin-api.js';
 
 export default function AdminDashboard({ onNav, adminSession = null }) {
   const [state, setState] = useState({ loading: true, error: null, data: emptyData() });
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [serviceFilter, setServiceFilter] = useState("all");
-  const [showTestCampaigns, setShowTestCampaigns] = useState(false);
-  const [notice, setNotice] = useState("");
-  // Identita' Admin per l'Assistente AI: costruita SOLO qui, DOPO che
-  // AdminGuard ha gia' verificato jwt_is_admin() === true (adminSession
-  // arriva dal render-prop di AdminGuard, mai da location/query/props del
-  // Cliente). role e' fissato ad "admin": jwt_is_admin() copre sia admin
-  // che super_admin, non serve una seconda query a profiles per distinguerli.
+  const [notice, setNotice] = useState('');
   const [adminIdentity, setAdminIdentity] = useState(null);
+  // Redesign compattezza (P1): "Strumenti avanzati" era un accordion enorme
+  // in fondo pagina. Le stesse 3 route (nessuna nuova, nessuna rimossa)
+  // vivono ora in un piccolo popover header "Altri strumenti"; l'Assistente
+  // Admin (non una route, un pannello embedded) si attiva/disattiva dallo
+  // stesso popover invece di un <details> nested in fondo.
+  const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [showAllToday, setShowAllToday] = useState(false);
+
+  async function load() {
+    try {
+      const data = await loadAdminHomeData();
+      setState({ loading: false, error: null, data });
+    } catch (error) {
+      setState({ loading: false, error: error?.message || 'Errore caricamento dashboard admin.', data: emptyData() });
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
-    async function load() {
-      try {
-        const data = await loadAdminData();
-        if (!cancelled) setState({ loading: false, error: null, data });
-      } catch (error) {
-        if (!cancelled) setState({ loading: false, error: error?.message || "Errore caricamento dashboard admin.", data: emptyData() });
-      }
-    }
-    load();
-    const timer = window.setInterval(load, 30000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
+    const refresh = async () => { if (!cancelled) await load(); };
+    refresh();
+    const timer = window.setInterval(refresh, 30000);
+    return () => { cancelled = true; window.clearInterval(timer); };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-    if (!adminSession) {
-      setAdminIdentity(null);
-      return undefined;
-    }
-    getCurrentSupabaseUser(adminSession)
-      .then((user) => {
-        if (cancelled) return;
-        if (!user?.id) { setAdminIdentity(null); return; }
-        setAdminIdentity({ user: { id: String(user.id), email: user.email || null }, role: "admin" });
-      })
-      .catch(() => { if (!cancelled) setAdminIdentity(null); });
+    if (!adminSession) { setAdminIdentity(null); return undefined; }
+    getCurrentSupabaseUser(adminSession).then((user) => {
+      if (!cancelled && user?.id) setAdminIdentity({ user: { id: String(user.id), email: user.email || null }, role: "admin" });
+      else if (!cancelled) setAdminIdentity(null);
+    }).catch(() => { if (!cancelled) setAdminIdentity(null); });
     return () => { cancelled = true; };
   }, [adminSession]);
 
-  const { campaigns, waitlist, activities, liveOperators, liveCount, warningCount, availability } = state.data;
-  const visibleCampaigns = campaigns.filter((campaign) => showTestCampaigns || campaign.quality === "real");
-  const filteredCampaigns = visibleCampaigns
-    .filter((campaign) => statusFilter === "all" || campaign.status === statusFilter)
-    .filter((campaign) => serviceFilter === "all" || campaign.service === serviceFilter);
-  const validCampaigns = campaigns.filter((campaign) => campaign.quality === "real");
-  const revenueValues = validCampaigns.map((campaign) => campaign.total).filter((val) => val != null);
-  const totalRevenue = validCampaigns.every((campaign) => campaign.total != null) && validCampaigns.length > 0
-    ? validCampaigns.reduce((sum, campaign) => sum + campaign.total, 0)
-    : null;
-  const totalQty = validCampaigns.reduce((sum, campaign) => sum + (campaign.qty || 0), 0);
-  const avgCpm = totalRevenue != null && totalQty > 0 ? (totalRevenue / totalQty) * 1000 : null;
+  const { campaigns, todayGroups, groups, liveOperators, liveSummary, availability, clientsQuotes, smartPairing } = state.data;
+  const metrics = useMemo(() => ({
+    groups: todayGroups.length,
+    online: todayGroups.filter((group) => group.presence.key === 'online').length,
+    pending: todayGroups.filter((group) => ['sent', 'opened'].includes(group.program.key)).length,
+    problems: todayGroups.filter((group) => group.work.key === 'problem').length,
+  }), [todayGroups]);
+  const commercial = useMemo(() => buildCommercialSnapshot({ campaigns, today: localDateKey(new Date()) }), [campaigns]);
+  const groupsOnline = groups.filter((group) => group.presence?.key === 'online').length;
+  const clientsStats = useMemo(() => ({
+    pagati: clientsQuotes.filter((row) => row.paymentStatus === 'pagato').length,
+    daPagare: clientsQuotes.filter((row) => row.paymentStatus === 'da_pagare').length,
+    // "Da assegnare" = campagne reali E pagate senza gruppo/programma: una
+    // campagna non ancora pagata o di test non e' operativamente "da
+    // assegnare" (nessuno deve mandarci un gruppo finche' non e' pagata).
+    daAssegnare: clientsQuotes.filter((row) => row.paymentStatus === 'pagato' && !row.assignment).length,
+  }), [clientsQuotes]);
+  const programsStats = useMemo(() => ({
+    pronti: clientsQuotes.filter((row) => row.programStatus !== 'nessun_programma').length,
+    daConfermare: clientsQuotes.filter((row) => ['inviato', 'aperto'].includes(row.programStatus)).length,
+  }), [clientsQuotes]);
+  const smartPairingStats = useMemo(() => ({
+    richieste: smartPairing.rows.filter((row) => (row.status || 'open') === 'open').length,
+    match: Math.max(smartPairing.rows.length - smartPairing.rows.filter((row) => (row.status || 'open') === 'open').length, 0),
+  }), [smartPairing.rows]);
 
-  const kpis = [
-    { label: "Revenue totale", value: totalRevenue == null ? EMPTY : euro(totalRevenue), sub: totalRevenue != null ? "da campagne reali" : "dati importo parziali o mancanti", color: C.orange },
-    { label: "In distribuzione", value: validCampaigns.filter((campaign) => campaign.status === "active").length, sub: `${liveCount + warningCount} sessioni GPS attive`, color: C.green },
-    { label: "In attesa", value: validCampaigns.filter((campaign) => campaign.status === "pending").length, sub: "campagne valide", color: C.yellow },
-    { label: "Completate", value: validCampaigns.filter((campaign) => campaign.status === "done").length, sub: "campagne valide", color: "rgba(255,255,255,.58)" },
-    { label: "CPM medio", value: avgCpm == null ? EMPTY : euro(avgCpm), sub: totalQty > 0 ? "per 1.000 volantini" : "quantita mancante", color: C.blue },
-  ];
+  function openProgramWhatsApp(group) {
+    if (!group.phone) { setNotice('Numero WhatsApp non disponibile per il referente di questo programma.'); return; }
+    const link = generateDriverAssignmentLink(group.primaryAssignmentId, group.primaryAssignmentAccessToken);
+    const text = buildDriverWhatsAppMessage({
+      operatorName: group.operatorNames[0],
+      groupName: group.name,
+      campaignTitle: group.campaign,
+      date: group.assignments[0]?.starts_at ? new Date(group.assignments[0].starts_at).toLocaleDateString('it-IT') : null,
+      startTime: group.assignments[0]?.starts_at ? new Date(group.assignments[0].starts_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : null,
+      programRows: group.zones,
+      qty: group.quantity,
+      link,
+    });
+    window.open(`https://wa.me/${group.phone.replace(/[^\d+]/g, '')}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+    setNotice('Programma preparato in WhatsApp. Non viene registrato come inviato finché non esiste un evento reale.');
+  }
 
-  const exportCsv = () => {
-    if (!filteredCampaigns.length) {
-      setNotice("Nessuna campagna reale da esportare.");
-      return;
-    }
-    const rows = [
-      ["id", "cliente", "servizio", "zona", "quantita", "status", "data", "totale"],
-      ...filteredCampaigns.map((campaign) => [campaign.id, campaign.client, campaign.service, campaign.zone, campaign.qty || "", campaign.status, campaign.date, campaign.total ?? ""]),
-    ];
-    const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "volantinipro-campagne-operative.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-    setNotice(`CSV esportato con ${filteredCampaigns.length} campagne reali.`);
-  };
-
-  const go = (page) => onNav?.(page);
+  const headerActions = (
+    <div className="admin-home__header-actions">
+      <button className="admin-home__primary" type="button" onClick={() => onNav('admin-groups-manager')}>+ Nuovo programma</button>
+      <div className="admin-home__tools-menu">
+        <button
+          type="button"
+          className="admin-home__tools-trigger"
+          onClick={() => setToolsMenuOpen((v) => !v)}
+          aria-expanded={toolsMenuOpen}
+          aria-haspopup="true"
+        >
+          Altri strumenti {toolsMenuOpen ? '▾' : '▸'}
+        </button>
+        {toolsMenuOpen && (
+          <div className="admin-home__tools-popover" role="menu">
+            <a href="/admin/operations" role="menuitem" onClick={() => setToolsMenuOpen(false)}>Centrale Operativa</a>
+            <a href="/admin/live" role="menuitem" onClick={() => setToolsMenuOpen(false)}>Monitor GPS</a>
+            <a href="/admin/operations/report" role="menuitem" onClick={() => setToolsMenuOpen(false)}>Report giornaliero</a>
+            <button type="button" role="menuitem" onClick={() => { setShowAiPanel((v) => !v); setToolsMenuOpen(false); }}>
+              {showAiPanel ? 'Nascondi Assistente Admin' : 'Assistente Admin'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
-    <AdminLayout onNav={onNav}>
-      {state.loading && <Notice text="Caricamento dati admin reali..." />}
-      {state.error && <Notice text={state.error} danger />}
-      {notice && <Notice text={notice} />}
+    <AdminLayout onNav={onNav} title="Oggi" subtitle="Chi lavora, dove deve andare e cosa richiede attenzione." actions={headerActions}>
+      {state.loading && <DashboardSkeleton />}
+      {state.error && <Notice danger>{state.error}</Notice>}
+      {notice && <Notice>{notice}</Notice>}
 
-      <React.Suspense fallback={<div style={{ minHeight: 90, marginBottom: 16 }} aria-label="Caricamento Assistente Admin" />}>
-        <AdminCentralAiPanel
-          adminIdentity={adminIdentity}
-          campaigns={campaigns}
-          availability={availability}
-          operators={liveOperators}
-          operatorsSummary={{ liveCount, warningCount }}
-          dataLoading={state.loading}
-          dataError={state.error}
+      <section className="admin-home__metrics" aria-label="Riepilogo di oggi">
+        <Metric label="Gruppi oggi" value={metrics.groups} tone="blue" />
+        <Metric label="Online" value={metrics.online} tone="green" />
+        <Metric label="Da confermare" value={metrics.pending} tone="yellow" />
+        <Metric label="Problemi" value={metrics.problems} tone="red" />
+      </section>
+
+      <section className="admin-home__section" aria-labelledby="today-title">
+        <SectionHeading
+          id="today-title"
+          eyebrow="Operatività"
+          title="Chi lavora oggi"
+          meta={`${todayGroups.length} gruppi programmati`}
+          action={todayGroups.length > 3 ? (showAllToday ? 'Mostra meno' : 'Vedi tutti') : null}
+          onAction={() => setShowAllToday((v) => !v)}
         />
-      </React.Suspense>
-
-      <section style={kpiGridStyle}>
-        {kpis.map((kpi) => (
-          <div key={kpi.label} style={cardStyle}>
-            <p style={eyebrowStyle}>{kpi.label}</p>
-            <strong style={{ display: "block", fontFamily: F.serif, fontSize: 25, color: kpi.color, letterSpacing: "-.8px", marginBottom: 3 }}>{kpi.value}</strong>
-            <span style={mutedTinyStyle}>{kpi.sub}</span>
+        {!availability.today ? <EmptyState text="Programmi di oggi non disponibili." /> : todayGroups.length === 0 ? (
+          <EmptyState text="Nessun gruppo programmato per oggi." action="Nuovo programma" onAction={() => onNav('admin-groups-manager')} />
+        ) : (
+          <div className={showAllToday ? 'admin-home__today-grid admin-home__today-grid--scroll' : 'admin-home__today-grid'}>
+            {(showAllToday ? todayGroups : todayGroups.slice(0, 3)).map((group) => <TodayGroupCard key={group.id} group={group} onWhatsApp={() => openProgramWhatsApp(group)} />)}
           </div>
-        ))}
+        )}
       </section>
 
-      <section style={{ ...cardStyle, marginBottom: 16 }}>
-        <p style={eyebrowStyle}>Centrale operativa</p>
-        <div style={opsNavStyle}>
-          <a style={opsNavItemStyle} href="#campagne-attive"><strong>Campagne attive</strong><span>Stato, gruppi, operatori e problemi</span></a>
-          <a style={opsNavItemStyle} href="#gruppi-operativi"><strong>Gruppi operativi</strong><span>Accesso per campagna e capogruppo</span></a>
-          <a style={opsNavItemStyle} href="/admin/live"><strong>Monitor GPS Live</strong><span>Storico, online/offline e ping</span></a>
-          <a style={opsNavItemStyle} href="#report-storico"><strong>Report e storico</strong><span>Operations, report finale, export</span></a>
-          <a style={opsNavItemStyle} href="#link-operatori"><strong>Link operatori</strong><span>Tracking gruppo per ragazzi</span></a>
-        </div>
+      {/* Moduli principali (ticket: griglia compatta 2x2, Registro Ordini
+          come modulo principale — non piu' nascosto in Strumenti avanzati).
+          Stessa route esistente /admin/orders, nessuna nuova query: i dati
+          vengono dallo stesso clientsQuotes gia' caricato da loadAdminHomeData. */}
+      <section className="admin-home__module-grid" aria-label="Moduli principali">
+        <ModuleCard
+          title="Registro Ordini"
+          stats={[
+            { label: 'Totali', value: clientsQuotes.length },
+            { label: 'Pagati', value: clientsStats.pagati },
+            { label: 'Da pagare', value: clientsStats.daPagare },
+            { label: 'Da assegnare', value: clientsStats.daAssegnare },
+          ]}
+          cta="Apri registro"
+          onOpen={() => onNav('admin-orders')}
+        />
+        <ModuleCard
+          title="Gruppi"
+          stats={[
+            { label: 'Gruppi', value: groups.length },
+            { label: 'Online', value: groupsOnline },
+          ]}
+          cta="Apri gruppi"
+          onOpen={() => onNav('admin-groups-manager')}
+        />
+        <ModuleCard
+          title="GPS & Programmi"
+          stats={[
+            { label: 'Programmi pronti', value: programsStats.pronti },
+            { label: 'Live', value: liveSummary.liveCount || 0 },
+            { label: 'Da confermare', value: programsStats.daConfermare },
+          ]}
+          cta="Apri GPS & Programmi"
+          onOpen={() => onNav('admin-live')}
+        />
+        <ModuleCard
+          title="Clienti & Preventivi"
+          stats={[
+            { label: 'Pagati', value: clientsStats.pagati },
+            { label: 'Da pagare', value: clientsStats.daPagare },
+            { label: 'Da assegnare', value: clientsStats.daAssegnare },
+          ]}
+          cta="Apri Clienti & Preventivi"
+          onOpen={() => onNav('admin-clients-quotes')}
+        />
       </section>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 340px", gap: 16 }}>
-        <div style={{ display: "grid", gap: 14 }}>
-          <section id="campagne-attive" style={cardStyle}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
-              <div>
-                <p style={eyebrowStyle}>Campagne operative valide</p>
-                <span style={mutedTinyStyle}>{validCampaigns.length} valide · {campaigns.length - validCampaigns.length} escluse</span>
-              </div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "5px 10px", borderRadius: 100, border: "1px solid rgba(255,255,255,.1)", background: "rgba(255,255,255,.04)", color: "rgba(255,255,255,.58)", fontFamily: F.sans, fontSize: 11, cursor: "pointer" }}>
-                  <input type="checkbox" checked={showTestCampaigns} onChange={(event) => setShowTestCampaigns(event.target.checked)} />
-                  Mostra campagne test
-                </label>
-                {filterButtons(["all", "active", "pending", "done"], statusFilter, setStatusFilter, { all: "Tutte", active: "In distribuzione", pending: "In attesa", done: "Completate" })}
-                {filterButtons(["all", "d2d", "h2h", "b2b"], serviceFilter, setServiceFilter, { all: "Servizi", d2d: "D2D", h2h: "H2H", b2b: "B2B" }, C.blue)}
-              </div>
-            </div>
-            {!availability.campaigns ? (
-              <EmptyState text="Tabelle campaigns / campagne / quote_requests non disponibili o non leggibili con RLS." />
-            ) : filteredCampaigns.length === 0 ? (
-              <EmptyState text="Nessuna campagna reale disponibile" />
-            ) : (
-              <div style={{ display: "grid", gap: 8 }}>
-                {filteredCampaigns.map((campaign) => <CampaignRow key={`${campaign.source}-${campaign.id}`} campaign={campaign} />)}
-              </div>
-            )}
-          </section>
+      {/* Secondari: due card compatte affiancate, non piu' un modulo a
+          larghezza piena da solo. */}
+      <section className="admin-home__module-grid admin-home__module-grid--secondary" aria-label="Moduli secondari">
+        <ModuleCard
+          title="Smart Pairing"
+          stats={[
+            { label: 'Richieste', value: smartPairing.available ? smartPairingStats.richieste : 'Non disponibile' },
+            { label: 'Match disponibili', value: smartPairing.available ? smartPairingStats.match : 'Non disponibile' },
+          ]}
+          cta="Apri Smart Pairing"
+          onOpen={() => onNav('admin-smart-pairing')}
+        />
+        <ModuleCard
+          title="Commerciale"
+          stats={[
+            { label: 'Preventivi rapidi nuovi', value: commercial.metrics.newToday },
+            { label: 'Da contattare', value: commercial.metrics.toContact },
+            { label: 'Consulenze', value: 'Non configurato' },
+            { label: 'Traffico', value: 'Non configurato' },
+          ]}
+          cta="Apri Commerciale"
+          onOpen={() => onNav('admin-commercial')}
+        />
+      </section>
 
-          <section id="gruppi-operativi" style={cardStyle}>
-            <p style={eyebrowStyle}>Gruppi operativi</p>
-            {filteredCampaigns.length ? (
-              <div style={{ display: "grid", gap: 8 }}>
-                {filteredCampaigns.slice(0, 8).map((campaign) => (
-                  <div key={`groups-${campaign.id}`} style={opsCampaignStyle}>
-                    <div>
-                      <strong style={{ color: C.white }}>{campaign.client}</strong>
-                      <br />
-                      <span style={mutedTinyStyle}>{campaign.zone} · {campaign.ops?.groups || 0} gruppi · {campaign.ops?.operators || 0} operatori</span>
-                    </div>
-                    <a style={inlineButtonStyle} href={`/admin/campaigns/${campaign.id}/groups`}>Apri gruppi</a>
-                  </div>
-                ))}
-              </div>
-            ) : <EmptyState text="Nessuna campagna selezionata." />}
-          </section>
-
-          <section style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
-            <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,.07)" }}>
-              <p style={eyebrowStyle}>Mappa operativa reale</p>
-            </div>
-            <AdminOperationalMap operators={liveOperators} />
-          </section>
-        </div>
-
-        <aside style={{ display: "grid", gap: 12, alignContent: "start" }}>
-          <SideCard title="Azioni rapide">
-            <ActionButton label="Nuova campagna" onClick={() => { window.location.href = "/admin/campaigns/new"; }} />
-            <ActionButton label="Monitor GPS Live" onClick={() => { window.location.href = "/admin/live"; }} />
-            <ActionButton label="Gruppi prima campagna" onClick={() => { window.location.href = `/admin/campaigns/${filteredCampaigns[0]?.id}/groups`; }} disabledReason={filteredCampaigns[0]?.id ? "" : "Nessuna campagna selezionata."} />
-            <ActionButton label="Operazioni prima campagna" onClick={() => { window.location.href = `/admin/campaigns/${filteredCampaigns[0]?.id}/operations`; }} disabledReason={filteredCampaigns[0]?.id ? "" : "Nessuna campagna selezionata."} />
-            <ActionButton label="Report prima campagna" onClick={() => { window.location.href = `/admin/campaigns/${filteredCampaigns[0]?.id}/report`; }} disabledReason={filteredCampaigns[0]?.id ? "" : "Nessuna campagna selezionata."} />
-            <ActionButton label="Trova Smart Pairing" onClick={() => go("step3")} />
-            <ActionButton label="Apri analisi zona" onClick={() => go("step2")} />
-            <ActionButton label="Genera PDF preventivi" onClick={() => go("step4")} disabledReason="Richiede una campagna configurata nello Step 4." />
-            <ActionButton label="Esporta campagne operative" onClick={exportCsv} disabledReason={filteredCampaigns.length ? "" : "Nessuna campagna reale da esportare."} />
-          </SideCard>
-
-          <SideCard title="Smart Pairing Waitlist" meta={`${waitlist.length} richieste`}>
-            {!availability.waitlist ? <EmptyState text="Tabella waitlist non disponibile." /> : waitlist.length === 0 ? <EmptyState text="Nessuna richiesta Smart Pairing reale." /> : waitlist.slice(0, 8).map((item) => <SimpleRow key={item.id || item.email || item.created_at} title={item.email || item.nome || "Richiesta"} subtitle={item.zone || item.zona || item.preferred_period || EMPTY} />)}
-          </SideCard>
-
-          <SideCard title="Report e storico" meta={`${filteredCampaigns.length} campagne`}>
-            {filteredCampaigns.slice(0, 5).map((campaign) => (
-              <SimpleRow key={`report-${campaign.id}`} title={campaign.client} subtitle={
-                <span>
-                  <a style={linkStyle} href={`/admin/campaigns/${campaign.id}/operations`}>Operations</a>
-                  {" · "}
-                  <a style={linkStyle} href={`/admin/campaigns/${campaign.id}/report`}>Report</a>
-                </span>
-              } />
-            ))}
-          </SideCard>
-
-          <SideCard title="Link operatori" meta="gruppi">
-            {filteredCampaigns.slice(0, 5).map((campaign) => (
-              <SimpleRow key={`links-${campaign.id}`} title={campaign.client} subtitle={<a style={linkStyle} href={`/admin/campaigns/${campaign.id}/groups`}>Copia link gruppo</a>} />
-            ))}
-          </SideCard>
-
-          <SideCard title="Ultime attivita">
-            {!availability.activities ? <EmptyState text="Nessun log attivita reale disponibile." /> : activities.length === 0 ? <EmptyState text="Nessuna attivita registrata." /> : activities.slice(0, 8).map((activity) => <SimpleRow key={activity.id || activity.created_at} title={activity.message || activity.event || activity.action || EMPTY} subtitle={formatDate(activity.created_at || activity.recorded_at)} />)}
-          </SideCard>
-        </aside>
-      </div>
+      {showAiPanel && (
+        <section className="admin-home__section" aria-labelledby="ai-panel-title">
+          <SectionHeading id="ai-panel-title" eyebrow="Assistente" title="Assistente Admin" />
+          <React.Suspense fallback={<p>Caricamento Assistente Admin…</p>}>
+            <AdminCentralAiPanel adminIdentity={adminIdentity} campaigns={campaigns} availability={availability} operators={liveOperators} operatorsSummary={liveSummary} dataLoading={state.loading} dataError={state.error} />
+          </React.Suspense>
+        </section>
+      )}
     </AdminLayout>
   );
 }
 
-async function loadAdminData() {
-  const [campaignsResult, liveSummary, waitlist, activities] = await Promise.all([
-    getRealCampaigns({ includeTest: true }),
-    // Stessa fonte/logica di AdminLiveDashboard (getLiveDrivers +
-    // classifySessionLifecycle + dedupeSessionsByOperator): i due KPI
-    // "sessioni GPS attive" coincidono sempre, nessuna seconda logica.
-    getLiveOperatorsSummary().catch(() => ({ current: [], liveCount: 0, warningCount: 0 })),
-    selectOptionalTable("smart_pairing_waitlist"),
-    selectOptionalTable("activity_log"),
-  ]);
-  return {
-    campaigns: campaignsResult.allRows,
-    waitlist: waitlist.rows,
-    // Solo operatori davvero live/warning: mai completed/cancelled o
-    // sessioni 'started' abbandonate da giorni (gia' escluse da lifecycle
-    // 'history' dentro getLiveOperatorsSummary), mai lo stesso operatore
-    // due volte.
-    liveOperators: liveSummary.current.filter((item) => item.lifecycle === "live" || item.lifecycle === "warning"),
-    liveCount: liveSummary.liveCount,
-    warningCount: liveSummary.warningCount,
-    activities: activities.rows,
-    availability: {
-      campaigns: campaignsResult.availability.campaigns,
-      waitlist: waitlist.available,
-      photos: campaignsResult.availability.photos,
-      activities: activities.available,
-    },
-  };
-}
+// PERF (Admin Dashboard lento — audit): questa funzione lanciava
+// getRealCampaigns() E getClientsQuotesOverview() nello STESSO Promise.all —
+// getClientsQuotesOverview pero' chiama internamente la sua PROPRIA
+// getRealCampaigns() (9 query select('*') su campaigns/campagne/
+// quote_requests/delivery_sessions/gps_tracking_points/proof_photos/
+// operational_groups/operator_assignments/campaign_zones), quindi quelle 9
+// query giravano DUE VOLTE in parallelo con se stesse. In piu',
+// operational_groups/operator_assignments venivano ri-fetchate qui sotto una
+// TERZA volta (groupsResult/assignmentsResult) e listAssignableOperators()
+// due volte. getRealCampaigns ora espone anche i suoi sotto-fetch
+// (groups/assignments/sessions) e getClientsQuotesOverview accetta un bundle
+// "prefetched" per riusarli invece di ri-interrogare le stesse tabelle — vedi
+// admin-api.js. Il resto della logica (filtri "solo campagne reali",
+// forma del valore ritornato) e' invariato.
+// P0 (audit performance Admin autenticato): sotto React.StrictMode (dev)
+// l'effect di mount in AdminDashboard gira due volte quasi simultaneamente —
+// la guardia `cancelled` esistente blocca solo la SECONDA chiamata a load()
+// DOPO che la prima e' gia' partita, ma il fetch della prima invocazione e'
+// gia' in volo e non si ferma: risultato, due catene complete di query reali
+// in parallelo (confermato dal vivo con misurazione reale Admin autenticato).
+// In-flight dedup qui, non un cambio a React.StrictMode: due mount dev
+// consumano ora la STESSA Promise/risultato, un solo fetch reale.
+let __loadAdminHomeDataInFlight = null;
 
-export function normalizeCampaign(row, source) {
-  const rawStatus = String(row.status || row.stato || row.state || row.stato_pagamento || "").toLowerCase();
-  const serviceSource = row.service_type || row.campaign_type || row.type || row.servizio || row.selected_service || row.service;
-  const serviceRaw = String(serviceSource || "").toLowerCase();
-  const rawTotal = row.total_budget ?? row.total_amount ?? row.amount ?? row.price ?? row.totale;
-  let parsedTotal = null;
-  if (rawTotal != null && String(rawTotal).trim() !== '') {
-    const maybeNumber = Number(rawTotal);
-    if (Number.isFinite(maybeNumber)) {
-      parsedTotal = maybeNumber;
-    }
+export async function loadAdminHomeData() {
+  if (__loadAdminHomeDataInFlight) return __loadAdminHomeDataInFlight;
+  __loadAdminHomeDataInFlight = loadAdminHomeDataUncached();
+  try {
+    return await __loadAdminHomeDataInFlight;
+  } finally {
+    __loadAdminHomeDataInFlight = null;
   }
-  const qty = Number(row.total_flyers ?? row.flyer_quantity ?? row.qty ?? row.quantita ?? row.quantity);
-  const lat = Number(row.center_lat ?? row.lat ?? row.latitude ?? row.metadata?.center_lat ?? row.metadata?.lat);
-  const lng = Number(row.center_lng ?? row.lng ?? row.longitude ?? row.metadata?.center_lng ?? row.metadata?.lng);
-  const campaign = {
-    id: row.id || row.campaign_id || row.request_id,
-    client: row.client_name || row.customer_name || row.nome_cliente || row.nome || row.title || row.email || EMPTY,
-    service: serviceRaw.includes("h2h") || serviceRaw.includes("hand") ? "h2h" : serviceRaw.includes("b2b") || serviceRaw.includes("business") ? "b2b" : serviceRaw ? "d2d" : null,
-    zone: row.city_name || row.zone_label || row.zona || row.zone || row.municipality_name || row.title || EMPTY,
-    qty: Number.isFinite(qty) && qty > 0 ? qty : 0,
-    status: normalizeStatus(rawStatus),
-    date: String(row.start_date || row.created_at || row.updated_at || "").slice(0, 10) || EMPTY,
-    total: parsedTotal,
-    lat: Number.isFinite(lat) ? lat : null,
-    lng: Number.isFinite(lng) ? lng : null,
-    rawStatus,
-    createdBy: row.created_by || row.createdBy || row.user_id || row.customer_id || row.metadata?.created_by || "",
-    source,
+}
+
+async function loadAdminHomeDataUncached() {
+  const today = localDateKey(new Date());
+
+  // P0 ROOT CAUSE (misurato dal vivo, Admin autenticato): getLiveOperatorsSummary
+  // aveva un N+1 reale (una query gps_tracking_points PER SESSIONE dentro
+  // getLiveDrivers) e ri-scaricava delivery_sessions gia' preso da
+  // getRealCampaigns — root cause dei suoi 2.7-5.5s cold. getRealCampaigns
+  // viene ora atteso PRIMA (non piu' nello stesso Promise.all degli altri 4)
+  // cosi' i suoi sessions/points gia' scaricati possono essere passati come
+  // prefetched a getLiveOperatorsSummary, eliminando sia l'N+1 sia il doppio
+  // fetch — al prezzo di rendere getRealCampaigns non piu' in parallelo con
+  // gli altri 4 (che restano paralleli tra loro). AdminLiveDashboard.jsx
+  // continua a chiamare getLiveDrivers()/getLiveOperatorsSummary() senza
+  // prefetched, comportamento invariato per quella pagina.
+  const campaignResult = await getRealCampaigns({ includeTest: true });
+
+  const [operations, liveSummary, operators, smartPairingResult] = await Promise.all([
+    getDailyOperations(today).then((rows) => ({ rows, available: true })).catch(() => ({ rows: [], available: false })),
+    getLiveOperatorsSummary({ prefetched: { sessions: campaignResult.sessions, points: campaignResult.points } })
+      .catch(() => ({ current: [], liveCount: 0, warningCount: 0 })),
+    listAssignableOperators().catch(() => []),
+    selectOptionalTable('smart_pairing_waitlist'),
+  ]);
+  const liveOperators = liveSummary.current || [];
+  const realCampaignIds = new Set(campaignResult.allRows.filter((campaign) => campaign.quality === 'real').map((campaign) => campaign.id));
+  const realOperations = operations.rows.filter((assignment) => realCampaignIds.has(assignment.campaign_id));
+  const realGroups = campaignResult.groups.filter((group) => realCampaignIds.has(group.campaign_id));
+  // Stesso identico risultato di prima (nessun override includeTest: solo
+  // campagne reali, cosi' Pagati/Da pagare/Da assegnare in Home restano
+  // identici a ClientsQuotes.jsx), ma senza rifare da zero campaigns/groups/
+  // assignments/operators/sessions gia' recuperati sopra.
+  const clientsQuotesResult = await getClientsQuotesOverview({
+    prefetched: {
+      campaigns: campaignResult.allRows,
+      groups: campaignResult.groups,
+      assignments: campaignResult.assignments,
+      sessions: campaignResult.sessions,
+      operators,
+    },
+  }).catch(() => []);
+  return {
+    campaigns: campaignResult.allRows,
+    todayGroups: buildTodayGroupCards({ operations: realOperations, liveOperators, operators }),
+    groups: buildOperationalGroups({ groups: realGroups, assignments: campaignResult.assignments, operators, liveOperators, campaigns: campaignResult.allRows }),
+    operators,
+    liveOperators,
+    liveSummary,
+    clientsQuotes: clientsQuotesResult,
+    smartPairing: { rows: smartPairingResult.rows, available: smartPairingResult.available },
+    availability: { ...campaignResult.availability, today: operations.available },
   };
-  const quality = classifyCampaign(campaign, row, serviceSource);
-  return { ...campaign, quality: quality.kind, qualityReason: quality.reason };
 }
 
-function classifyCampaign(campaign, row, serviceSource) {
-  const haystack = [
-    campaign.id,
-    campaign.client,
-    campaign.zone,
-    campaign.rawStatus,
-    campaign.createdBy,
-    row.email,
-    row.title,
-    row.note,
-    row.metadata?.source,
-  ].filter(Boolean).join(" ").toLowerCase();
-  if (String(campaign.id || "").startsWith("11111111-1111-1111-1111")) return { kind: "test", reason: "campaign_id fake" };
-  if (/\b(test|demo|placeholder|fake|sample)\b/.test(haystack)) return { kind: "test", reason: "record test/demo" };
-  if (!cleanText(campaign.client) || campaign.client === EMPTY) return { kind: "incomplete", reason: "cliente mancante" };
-  if (!cleanText(campaign.zone) || campaign.zone === EMPTY) return { kind: "incomplete", reason: "zona mancante" };
-  if (!campaign.qty) return { kind: "incomplete", reason: "quantita mancante" };
-  if (!hasCoordinates(campaign)) return { kind: "incomplete", reason: "coordinate mancanti" };
-  if (!serviceSource || !campaign.service) return { kind: "incomplete", reason: "servizio mancante" };
-  if (!campaign.total && !hasQuoteLikeData(row)) return { kind: "incomplete", reason: "importo/preventivo mancante" };
-  if (["placeholder", "test", "demo"].some((token) => campaign.rawStatus.includes(token))) return { kind: "test", reason: "stato placeholder" };
-  return { kind: "real", reason: "record operativo valido" };
+function TodayGroupCard({ group, onWhatsApp }) {
+  const tone = group.work.key === 'problem' ? 'red' : group.work.key === 'started' ? 'blue' : ['sent', 'opened'].includes(group.program.key) ? 'yellow' : group.presence.key === 'online' ? 'green' : 'gray';
+  return <article className={`admin-home__today-card admin-home__today-card--${tone}`}><header><div><h3>{group.name}</h3><StatusDot status={group.presence} /></div><span className={`admin-home__work admin-home__work--${tone}`}>{group.work.label}</span></header><dl><div><dt>Campagna</dt><dd>{group.campaign}</dd></div><div><dt>Zona corrente</dt><dd>{group.zoneLabel}</dd></div><div><dt>Quantità assegnata</dt><dd>{group.quantity ? `${group.quantity.toLocaleString('it-IT')} volantini` : 'Dato non disponibile'}</dd></div><div><dt>Programma</dt><dd>{group.program.label}</dd></div></dl>{group.problem && <p className="admin-home__problem">{group.problem}</p>}<footer><a href={generateDriverAssignmentLink(group.primaryAssignmentId, group.primaryAssignmentAccessToken)}>Apri</a><a href="/admin/live">GPS</a><button type="button" onClick={onWhatsApp}>{['sent', 'opened'].includes(group.program.key) ? 'Reinvia WhatsApp' : 'WhatsApp'}</button></footer></article>;
 }
 
-function hasQuoteLikeData(row) {
-  const hasQuoteReference = Boolean(row.quote_id || row.preventivo_id || row.quote_pdf_url);
-  const hasRevenueValue = [row.total_budget, row.total_amount, row.amount, row.price, row.totale]
-    .some((value) => value != null && String(value).trim() !== "");
-  return hasQuoteReference || hasRevenueValue;
-}
-
-function cleanText(value) {
-  const text = String(value || "").trim();
-  if (!text || text === EMPTY) return "";
-  if (["null", "undefined", "n/a", "-"].includes(text.toLowerCase())) return "";
-  return text;
-}
-
-function normalizeStatus(value) {
-  if (["active", "started", "in_corso", "confermata", "confirmed", "pagato"].some((token) => value.includes(token))) return "active";
-  if (["completed", "done", "completata", "cancelled"].some((token) => value.includes(token))) return "done";
-  return "pending";
-}
-
-function uniqueById(rows) {
-  return Array.from(new Map(rows.filter((row) => row.id).map((row) => [String(row.id), row])).values());
-}
-
-function CampaignRow({ campaign }) {
-  const service = SERVICES[campaign.service] || { label: "N/D", color: "rgba(255,255,255,.38)" };
-  const status = STATUSES[campaign.status] || STATUSES.pending;
-  const quality = QUALITY_BADGES[campaign.quality] || QUALITY_BADGES.incomplete;
+function ModuleCard({ title, stats, cta, onOpen }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "72px minmax(180px,1.4fr) 92px 96px 92px 96px 112px 220px", gap: 10, alignItems: "center", padding: 12, borderRadius: 11, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.06)", overflowX: "auto" }}>
-      <div style={{ fontFamily: F.sans, fontSize: 11, color: service.color, fontWeight: 900 }}>{service.label}<br /><span style={{ color: "rgba(255,255,255,.35)", fontWeight: 600 }}>{String(campaign.id).slice(0, 8)}</span></div>
-      <div><strong style={{ fontFamily: F.sans, fontSize: 13, color: C.white }}>{campaign.client}</strong><br /><span style={mutedTinyStyle}>{campaign.zone} · {campaign.qty ? `${campaign.qty.toLocaleString("it-IT")} volantini` : EMPTY}</span></div>
-      <div style={{ fontFamily: F.sans, fontSize: 12, color: C.orange, fontWeight: 800 }}>{campaign.ops?.groups || 0} gruppi</div>
-      <div style={{ fontFamily: F.sans, fontSize: 12, color: C.green, fontWeight: 800 }}>{campaign.ops?.online || 0} online<br /><span style={{ color: "#ef4444" }}>{campaign.ops?.offline || 0} offline</span></div>
-      <div style={{ fontFamily: F.sans, fontSize: 12, color: C.blue, fontWeight: 800 }}>{campaign.ops?.progress || 0}%</div>
-      <div style={{ fontFamily: F.sans, fontSize: 12, color: campaign.ops?.problems ? "#ef4444" : C.green, fontWeight: 800 }}>{campaign.ops?.problems || 0} problemi</div>
-      <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.48)", fontWeight: 700 }}>{formatDate(campaign.ops?.lastPing)}</div>
-      <div style={{ padding: "4px 8px", borderRadius: 100, background: `${status.color}18`, color: status.color, fontFamily: F.sans, fontSize: 10, fontWeight: 800, textAlign: "center" }}>{status.label}</div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <a style={miniLinkButtonStyle} href={`/admin/campaigns/${campaign.id}/groups`}>Gruppi</a>
-        <a style={miniLinkButtonStyle} href={`/admin/campaigns/${campaign.id}/operations`}>GPS</a>
-        <a style={miniLinkButtonStyle} href={`/admin/campaigns/${campaign.id}/report`}>Report</a>
-        <span title={campaign.qualityReason} style={{ padding: "4px 8px", borderRadius: 100, background: `${quality.color}18`, color: quality.color, fontFamily: F.sans, fontSize: 10, fontWeight: 900, textAlign: "center" }}>{quality.label}</span>
+    <article className="admin-home__module-card">
+      <p className="admin-home__module-title">{title}</p>
+      <div className="admin-home__module-stats">
+        {stats.map((stat) => (
+          <div key={stat.label} className={stat.value === 'Non configurato' ? 'admin-home__module-stats--muted' : ''}><span>{stat.label}</span><strong>{stat.value}</strong></div>
+        ))}
       </div>
-    </div>
+      <button type="button" className="admin-home__module-cta" onClick={onOpen}>{cta}</button>
+    </article>
   );
 }
 
-function SideCard({ title, meta, children }) {
-  return <section style={cardStyle}><div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 10 }}><p style={eyebrowStyle}>{title}</p>{meta && <span style={{ fontFamily: F.sans, fontSize: 10, color: C.orange }}>{meta}</span>}</div>{children}</section>;
+function StatusDot({ status }) { return <span className={`admin-home__presence admin-home__presence--${status.key}`}><i />{status.label}</span>; }
+function Metric({ label, value, tone }) { return <article className={`admin-home__metric admin-home__metric--${tone}`}><strong>{value}</strong><span>{label}</span></article>; }
+function SectionHeading({ id, eyebrow, title, meta, action, onAction }) { return <header className="admin-home__heading"><div><p>{eyebrow}</p><h2 id={id}>{title}</h2>{meta && <span>{meta}</span>}</div>{action && <button type="button" onClick={onAction}>{action}</button>}</header>; }
+function EmptyState({ text, action, onAction }) { return <div className="admin-home__empty"><p>{text}</p>{action && <button type="button" onClick={onAction}>{action}</button>}</div>; }
+function Notice({ children, danger = false }) { return <div className={`admin-home__notice${danger ? ' admin-home__notice--danger' : ''}`} role={danger ? 'alert' : 'status'}>{children}</div>; }
+function DashboardSkeleton() { return <div className="admin-home__skeleton" aria-label="Caricamento dashboard"><span /><span /><span /><span /></div>; }
+
+function localDateKey(date) { const offset = date.getTimezoneOffset() * 60000; return new Date(date.getTime() - offset).toISOString().slice(0, 10); }
+function emptyData() {
+  return {
+    campaigns: [], todayGroups: [], groups: [], operators: [], liveOperators: [],
+    liveSummary: { liveCount: 0, warningCount: 0 }, clientsQuotes: [], smartPairing: { rows: [], available: false },
+    availability: { campaigns: false, today: false, groups: false },
+  };
 }
-
-function ActionButton({ label, onClick, disabledReason }) {
-  const disabled = Boolean(disabledReason);
-  return <button onClick={disabled ? undefined : onClick} disabled={disabled} title={disabledReason || ""} style={{ width: "100%", padding: "9px 11px", borderRadius: 9, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)", color: disabled ? "rgba(255,255,255,.28)" : "rgba(255,255,255,.68)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, textAlign: "left", cursor: disabled ? "not-allowed" : "pointer", marginBottom: 6 }}>{label}{disabled ? ` · ${disabledReason}` : ""}</button>;
-}
-
-function SimpleRow({ title, subtitle }) {
-  return <div style={{ padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,.05)", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.62)" }}>{title}<br /><span style={mutedTinyStyle}>{subtitle}</span></div>;
-}
-
-function EmptyState({ text }) {
-  return <div style={{ padding: 16, border: "1px dashed rgba(255,255,255,.14)", borderRadius: 10, color: "rgba(255,255,255,.42)", fontFamily: F.sans, fontSize: 12 }}>{text}</div>;
-}
-
-function Notice({ text, danger = false }) {
-  return <div style={{ ...cardStyle, padding: 13, marginBottom: 14, borderColor: danger ? "rgba(248,113,113,.28)" : "rgba(46,204,138,.24)", color: danger ? "#F87171" : C.green, fontFamily: F.sans, fontSize: 12 }}>{text}</div>;
-}
-
-function filterButtons(ids, active, setActive, labels, color = C.orange) {
-  return ids.map((id) => <button key={id} onClick={() => setActive(id)} style={{ padding: "5px 11px", borderRadius: 100, border: `1px solid ${active === id ? color : "rgba(255,255,255,.1)"}`, background: active === id ? `${color}18` : "rgba(255,255,255,.04)", color: active === id ? color : "rgba(255,255,255,.48)", fontFamily: F.sans, fontSize: 11, cursor: "pointer" }}>{labels[id]}</button>);
-}
-
-function hasCoordinates(campaign) {
-  return Number.isFinite(campaign.lat) && Number.isFinite(campaign.lng);
-}
-
-function euro(value) {
-  return `€${Number(value).toLocaleString("it-IT", { maximumFractionDigits: 2 })}`;
-}
-
-function formatDate(value) {
-  return value ? new Date(value).toLocaleString("it-IT") : EMPTY;
-}
-
-const emptyData = () => ({ campaigns: [], waitlist: [], liveOperators: [], liveCount: 0, warningCount: 0, activities: [], availability: {} });
-
-const cardStyle = { background: "rgba(255,255,255,.04)", borderRadius: 13, border: "1px solid rgba(255,255,255,.08)", padding: 16 };
-const eyebrowStyle = { margin: 0, fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,.36)", letterSpacing: ".1em", textTransform: "uppercase" };
-const mutedTinyStyle = { fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.34)" };
-const kpiGridStyle = { display: "grid", gridTemplateColumns: "repeat(5, minmax(0,1fr))", gap: 10, marginBottom: 18 };
-const opsNavStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, marginTop: 12 };
-const opsNavItemStyle = { display: "grid", gap: 5, padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.035)", color: "rgba(255,255,255,.72)", textDecoration: "none", fontFamily: F.sans, fontSize: 12 };
-const opsCampaignStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,.07)", background: "rgba(255,255,255,.03)" };
-const inlineButtonStyle = { border: "1px solid rgba(255,255,255,.1)", borderRadius: 9, padding: "8px 10px", color: C.white, background: "rgba(255,255,255,.04)", textDecoration: "none", fontFamily: F.sans, fontSize: 12, fontWeight: 800 };
-const miniLinkButtonStyle = { ...inlineButtonStyle, padding: "4px 7px", fontSize: 10 };
-const linkStyle = { color: C.orange, textDecoration: "none", fontWeight: 900 };

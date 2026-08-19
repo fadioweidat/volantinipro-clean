@@ -77,7 +77,7 @@ test("Smart Pairing server limita offset, posti, sconti e non espone identità",
   assert.doesNotMatch(source, /client_email|client_phone|client_name/);
 });
 
-test("prezzo distingue null, zero e positivo; urgenza +30% e sconti non si duplicano", () => {
+test("prezzo distingue null, zero e positivo; urgenza +20%/+35% (P1 pricing engine) e sconti non si duplicano", () => {
   assert.equal(resolveQuoteQuantity({ flyerQuantity: null, qty: undefined }), null);
   assert.equal(resolveQuoteQuantity({ flyerQuantity: 0, qty: 10000 }), 0);
   assert.equal(formatNumber(null, "—"), "—");
@@ -87,15 +87,19 @@ test("prezzo distingue null, zero e positivo; urgenza +30% e sconti non si dupli
   assert.equal(formatQuoteCurrency(missing.total), "—");
   const zero = calculateQuotePricing({ quantity: 0, pricePerThousand: 18.5 });
   assert.equal(zero.total, 0);
+  // P1 PRICING ENGINE: urgenza "urgent" e' +20% (era +30%), "express" e'
+  // +35% (prima non applicava alcun sovrapprezzo nel totale finale).
   const quote = calculateQuotePricing({ quantity: 10000, pricePerThousand: 20, smartPairingDiscountPct: 40, urgency: "urgent", planDiscountPct: 10, extras: [{ price: 25 }] });
   assert.equal(quote.baseCost, 200);
   assert.equal(quote.smartPairingDiscount, 80);
-  assert.equal(quote.urgencySurcharge, 60);
-  assert.equal(quote.planDiscountAmount, 18);
-  assert.equal(quote.total, 187);
+  assert.equal(quote.urgencySurcharge, 40);
+  assert.equal(quote.planDiscountAmount, 16);
+  assert.equal(quote.total, 169);
+  const expressQuote = calculateQuotePricing({ quantity: 10000, pricePerThousand: 20, urgency: "express" });
+  assert.equal(expressQuote.urgencySurcharge, 70); // 200 * 0.35
   const step1 = fs.readFileSync(path.join(root, "src/pages/public/configurator/Step1.jsx"), "utf8");
-  assert.match(step1, /Maggiorazione \+30%/);
-  assert.doesNotMatch(step1, /Maggiorazione \+20%/);
+  assert.match(step1, /Maggiorazione \+20%/);
+  assert.doesNotMatch(step1, /Maggiorazione \+30%/);
 });
 
 test("UI, payload DB e PDF condividono lo stesso totale e il PDF è valido", () => {
@@ -108,7 +112,12 @@ test("UI, payload DB e PDF condividono lo stesso totale e il PDF è valido", () 
   const step4 = fs.readFileSync(path.join(root, "src/pages/public/configurator/Step4.jsx"), "utf8");
   assert.match(step4, /total_amount: Number\(total\.toFixed\(2\)\)/);
   assert.match(step4, /pricing: quotePdfData\.pricing/);
-  assert.match(step4, /total\s*\n\s*\}/);
+  // P1 STAMPA SEPARATA DAL PREVENTIVO: "total" resta il totale distribuzione
+  // (stampa esclusa); il blocco pricing ora espone anche un campo "printing"
+  // separato (stima indicativa, mai sommata) subito dopo "total,".
+  assert.match(step4, /total,\s*\n\s*printing: printingExtra \? \{/);
+  assert.match(step4, /const distributionExtras = selectedExtras\.filter\(e => e\.id !== "printing"\)/);
+  assert.match(step4, /extras: distributionExtras, distributionZones: distributionZonesForPricing/);
   assert.match(step4, /quantityIsSufficient == null \? null/);
   assert.match(step4, /coverageStatus: quantityIsSufficient == null \? "unavailable"/);
 });

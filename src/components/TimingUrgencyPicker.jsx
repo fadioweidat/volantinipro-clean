@@ -9,7 +9,7 @@ const C = { blue: "#60A5FA", red: "#F87171", white: "#FFFFFF" };
 export const TIMING_OPTIONS = [
   { id: "asap", label: "Appena possibile", desc: "Pianificazione ordinaria", urgency: "normal" },
   { id: "2weeks", label: "Entro 2 settimane", desc: "Nessuna maggiorazione", urgency: "normal" },
-  { id: "urgent", label: "Urgente", desc: "Attivazione prioritaria", urgency: "urgent", surchargeLabel: "+30%" },
+  { id: "urgent", label: "Urgente", desc: "Attivazione prioritaria", urgency: "urgent", surchargeLabel: "+20%" },
   { id: "custom", label: "Scegli una data", desc: "Data di inizio specifica", urgency: "normal" },
 ];
 

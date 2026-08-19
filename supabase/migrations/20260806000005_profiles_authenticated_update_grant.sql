@@ -1,0 +1,15 @@
+-- Empirically discovered while verifying the Step4 profile-upsert fix
+-- (profiles_own_insert, see 20260805000008): public.profiles already had
+-- column-level UPDATE grants to authenticated for full_name, phone and
+-- company_name, but NOT for updated_at -- and ensureCurrentClient()'s
+-- upsert always includes updated_at in its payload, so the ON CONFLICT DO
+-- UPDATE branch (an existing profile row) still failed with 42501
+-- whenever a profile already existed, even after the INSERT policy fix.
+--
+-- Column-scoped on purpose, matching the grants already in place: id,
+-- created_at and role are deliberately NOT included. role is additionally
+-- protected independently by the profiles_own_update RLS policy
+-- (auth.uid() = id) and by the protect_profile_authorization_fields
+-- trigger, but granting UPDATE at the table level would still needlessly
+-- widen the surface -- this grants only the one column actually needed.
+grant update (updated_at) on public.profiles to authenticated;

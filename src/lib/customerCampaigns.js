@@ -1,4 +1,19 @@
 export const CUSTOMER_DATA_UNAVAILABLE = 'Dato non disponibile';
+export const CUSTOMER_PAYMENT_STATE = Object.freeze({
+  PAID: 'paid',
+  PENDING: 'pending',
+  UNAVAILABLE: 'unavailable',
+});
+
+const PAID_PAYMENT_STATUSES = new Set(['pagato', 'paid', 'completed']);
+const PENDING_PAYMENT_STATUSES = new Set(['in_attesa', 'in_attesa_pagamento', 'pending']);
+
+export function getCustomerPaymentState(value) {
+  const normalized = nullableText(value)?.toLowerCase() ?? null;
+  if (normalized && PAID_PAYMENT_STATUSES.has(normalized)) return CUSTOMER_PAYMENT_STATE.PAID;
+  if (normalized && PENDING_PAYMENT_STATUSES.has(normalized)) return CUSTOMER_PAYMENT_STATE.PENDING;
+  return CUSTOMER_PAYMENT_STATE.UNAVAILABLE;
+}
 
 const STATUS_TO_CUSTOMER = {
   draft: 'confermata', pending_review: 'confermata', approved: 'confermata',

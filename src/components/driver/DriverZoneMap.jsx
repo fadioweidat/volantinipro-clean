@@ -2,49 +2,20 @@ import 'leaflet/dist/leaflet.css';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CircleMarker, Circle, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import { getCampaignGpsPoints } from '../../lib/services/gps-api.js';
-import { estimateDistanceToZoneBoundaryMeters, isPointInAnyZone } from '../../lib/geofence/geofenceEngine.js';
+import { deriveLiveZoneStatus, ZONE_LIVE_STATUS_LABELS, ZONE_LIVE_STATUS_COLORS } from '../../lib/geofence/geofenceEngine.js';
 
-const NEAR_BORDER_THRESHOLD_M = 40;
 const PATH_REFRESH_MIN_INTERVAL_MS = 8000;
 
-const ZONE_STATUS_LABELS = {
-  inside: 'Dentro la zona',
-  near_border: 'Vicino al confine',
-  outside: 'Fuori zona',
-  zone_unavailable: 'Zona non disponibile',
-};
-const ZONE_STATUS_COLORS = {
-  inside: '#0f766e',
-  near_border: '#b45309',
-  outside: '#b91c1c',
-  zone_unavailable: '#64748b',
-};
-
-// Stato SOLO visivo, calcolato istantaneamente sull'ultima posizione nota
-// (isPointInAnyZone e' la stessa funzione pura gia' usata dal debounce
-// ufficiale in useGpsTracking/geofenceEngine — nessuna nuova logica di
-// rilevamento, solo una lettura immediata per la mappa). Distinto di
-// proposito dallo stato debounced tracking.geofenceState.status, che resta
-// l'unica fonte per l'alert "Sei fuori dalla zona assegnata".
-function deriveMapZoneStatus(zones, position) {
-  const lat = Number(position?.lat);
-  const lng = Number(position?.lng);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return 'zone_unavailable';
-  const inside = isPointInAnyZone(zones, lat, lng);
-  if (inside === null) return 'zone_unavailable';
-  const distance = estimateDistanceToZoneBoundaryMeters(zones, lat, lng);
-  if (distance != null && distance <= NEAR_BORDER_THRESHOLD_M) return 'near_border';
-  return inside ? 'inside' : 'outside';
-}
-
+// Badge condiviso con Admin/GpsMonitor.jsx: stessa fonte (deriveLiveZoneStatus
+// in geofenceEngine.js), mai una seconda logica/soglia duplicata per il desktop.
 function ZoneStatusBadge({ status }) {
-  const color = ZONE_STATUS_COLORS[status] || ZONE_STATUS_COLORS.zone_unavailable;
+  const color = ZONE_LIVE_STATUS_COLORS[status] || ZONE_LIVE_STATUS_COLORS.zone_unavailable;
   return (
     <span style={{
       display: 'inline-flex', border: '1px solid', borderRadius: 999, padding: '5px 12px',
       fontSize: 12, fontWeight: 900, color, borderColor: `${color}44`, background: `${color}14`,
     }}>
-      {ZONE_STATUS_LABELS[status] || ZONE_STATUS_LABELS.zone_unavailable}
+      {ZONE_LIVE_STATUS_LABELS[status] || ZONE_LIVE_STATUS_LABELS.zone_unavailable}
     </span>
   );
 }
@@ -115,7 +86,7 @@ export function DriverZoneMap({ campaignId, sessionId, position, zones }) {
     // throttle sopra per non rifare fetch a ogni singolo render.
   }, [campaignId, sessionId, position?.recorded_at]);
 
-  const zoneStatus = useMemo(() => deriveMapZoneStatus(zones, position), [zones, position]);
+  const zoneStatus = useMemo(() => deriveLiveZoneStatus(zones, position?.lat, position?.lng), [zones, position]);
   const lat = Number(position?.lat);
   const lng = Number(position?.lng);
   const hasPosition = Number.isFinite(lat) && Number.isFinite(lng);

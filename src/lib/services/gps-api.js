@@ -161,30 +161,72 @@ export async function getValidOperatorAssignments(campaignId) {
   return Array.isArray(data) ? data : [];
 }
 
-export async function resolveGpsAssignment(campaignId) {
+// Stessa regola di validita' usata sia sul percorso "cerca tra tutte le
+// assignment del campaign" sia sul percorso "verifica quella gia' nota":
+// status active, non revocata, con un gruppo assegnato (senza group_id il
+// driver non ha un programma GPS da seguire), dentro la finestra
+// starts_at/ends_at. Nessuna regola cambiata rispetto a prima, solo estratta
+// per essere applicabile a un singolo record oltre che a una lista.
+function isAssignmentCurrentlyValidForGps(assignment) {
+  if (!assignment) return false;
+  const now = Date.now();
+  const startsAt = assignment.starts_at ? Date.parse(assignment.starts_at) : 0;
+  const endsAt = assignment.ends_at ? Date.parse(assignment.ends_at) : Infinity;
+  return (
+    assignment.status === 'active' &&
+    !assignment.revoked_at &&
+    Boolean(assignment.group_id) &&
+    startsAt <= now &&
+    endsAt > now
+  );
+}
+
+// assignmentContext (opzionale): { assignment, campaign } gia' recuperati e
+// validati da un chiamante che ha gia' fatto il proprio giro di verifica
+// (es. useDriverAssignment, che ha gia' letto operator_assignments per id e
+// gia' chiamato la stessa RPC gps_get_operator_campaign). Se presente ed
+// ancora valido, evita di rifare da zero le due chiamate di rete
+// (gps_get_operator_campaign + getValidOperatorAssignments) — root cause
+// della lentezza confermata nell'audit precedente: la stessa RPC veniva
+// chiamata due volte per lo stesso mount pagina.
+//
+// CONTROLLO SERVER-SIDE CHE RESTA SEMPRE OBBLIGATORIO, context o no:
+// getCurrentOperatorProfile() — verifica che l'operatore autenticato sia
+// tuttora attivo (non sospeso/disabilitato) chiamando il DB in questo
+// preciso istante. Questo NON puo' essere dedotto da dati gia' in mano al
+// chiamante (lo stato dell'operatore puo' cambiare in qualsiasi momento,
+// indipendentemente dall'assignment), quindi va rieseguito sempre.
+export async function resolveGpsAssignment(campaignId, assignmentContext = null) {
   if (!isValidUuid(campaignId)) throw permanentGpsError('assignment_invalid_campaign');
   await getCurrentOperatorProfile();
+
+  if (assignmentContext?.assignment && assignmentContext?.campaign) {
+    if (assignmentContext.assignment.campaign_id !== campaignId) {
+      // Il contesto passato non corrisponde al campaign richiesto: non e'
+      // un dato di cui fidarsi per questa chiamata, ricadi sul percorso
+      // completo invece di usarlo per errore.
+    } else if (isAssignmentCurrentlyValidForGps(assignmentContext.assignment)) {
+      return { assignment: assignmentContext.assignment, campaign: assignmentContext.campaign };
+    } else {
+      throw permanentGpsError('assignment_missing');
+    }
+  }
+
   const campaign = await callGpsRpc('gps_get_operator_campaign', { p_campaign_id: campaignId });
   const assignments = await getValidOperatorAssignments(campaignId);
-  const now = Date.now();
-  const active = assignments.filter((assignment) => {
-    const startsAt = assignment.starts_at ? Date.parse(assignment.starts_at) : 0;
-    const endsAt = assignment.ends_at ? Date.parse(assignment.ends_at) : Infinity;
-    return (
-      assignment.status === 'active' &&
-      !assignment.revoked_at &&
-      Boolean(assignment.group_id) &&
-      startsAt <= now &&
-      endsAt > now
-    );
-  });
+  const active = assignments.filter(isAssignmentCurrentlyValidForGps);
 
   if (!active.length) throw permanentGpsError('assignment_missing');
   if (active.length > 1) throw permanentGpsError('assignment_ambiguous');
   return { assignment: active[0], campaign };
 }
 
-export async function startGpsSession(campaignId, { assignmentId, deviceId, zoneId } = {}) {
+// accessToken (opzionale): segreto per-assignment (operator_assignments.
+// access_token) che autorizza lato server questa RPC quando non c'e' una
+// sessione Supabase (link Driver pubblico via WhatsApp — vedi migrazione
+// 20260816160000_driver_gps_access_token.sql). Se omesso il comportamento
+// resta identico a prima (richiede auth.uid()).
+export async function startGpsSession(campaignId, { assignmentId, deviceId, zoneId, accessToken } = {}) {
   const resolved = assignmentId
     ? { assignment: { id: assignmentId } }
     : await resolveGpsAssignment(campaignId);
@@ -195,14 +237,20 @@ export async function startGpsSession(campaignId, { assignmentId, deviceId, zone
     p_assignment_id: resolved.assignment.id,
     p_device_id: deviceId || null,
     p_campaign_zone_id: zoneId || null,
+    p_access_token: accessToken || null,
   });
 }
 
-export async function transitionZone(zoneId, action) {
+// assignmentId e' richiesto SOLO in modalita' token (gps_transition_zone
+// deve poter verificare access_token contro una specifica assignment: il
+// solo zoneId, a differenza di sessionId, non la identifica univocamente).
+export async function transitionZone(zoneId, action, { accessToken, assignmentId } = {}) {
   if (!isValidUuid(zoneId)) throw permanentGpsError('assignment_missing');
   return callGpsRpc('gps_transition_zone', {
     p_campaign_zone_id: zoneId,
     p_action: action,
+    p_access_token: accessToken || null,
+    p_assignment_id: accessToken ? assignmentId || null : null,
   });
 }
 
@@ -228,16 +276,32 @@ export async function getActiveGpsSession(campaignId) {
   return rows.find((session) => session.status === 'started' || session.status === 'paused') || null;
 }
 
-export async function pauseGpsSession(sessionId) {
-  return callGpsRpc('gps_transition_session', { p_session_id: sessionId, p_action: 'pause' });
+// Equivalente di getActiveGpsSession, ma per il link Driver pubblico (nessuna
+// sessione Supabase da cui leggere driverId): usa la RPC dedicata
+// get_active_driver_session (migrazione
+// 20260816190000_driver_gps_resume_and_confirm_status.sql), scoped a UNA
+// sola assignment tramite assignment_id+access_token — mai un elenco globale
+// di delivery_sessions. Ritorna null se non c'e' nessuna sessione
+// started/paused per quella assignment.
+export async function getActiveGpsSessionByToken(assignmentId, accessToken) {
+  if (!isValidUuid(assignmentId) || !accessToken) return null;
+  const data = await callGpsRpc('get_active_driver_session', {
+    p_assignment_id: assignmentId,
+    p_access_token: accessToken,
+  });
+  return data?.session || null;
 }
 
-export async function resumeGpsSession(sessionId) {
-  return callGpsRpc('gps_transition_session', { p_session_id: sessionId, p_action: 'resume' });
+export async function pauseGpsSession(sessionId, accessToken) {
+  return callGpsRpc('gps_transition_session', { p_session_id: sessionId, p_action: 'pause', p_access_token: accessToken || null });
 }
 
-export async function endGpsSession(sessionId) {
-  return callGpsRpc('gps_transition_session', { p_session_id: sessionId, p_action: 'complete' });
+export async function resumeGpsSession(sessionId, accessToken) {
+  return callGpsRpc('gps_transition_session', { p_session_id: sessionId, p_action: 'resume', p_access_token: accessToken || null });
+}
+
+export async function endGpsSession(sessionId, accessToken) {
+  return callGpsRpc('gps_transition_session', { p_session_id: sessionId, p_action: 'complete', p_access_token: accessToken || null });
 }
 
 export async function calculateGpsCoverage(sessionId, bufferMeters = 30) {
@@ -254,10 +318,17 @@ export async function insertGpsPoint({
   speed,
   heading,
   recordedAt,
+  accessToken,
 }) {
-  const authenticatedDriverId = await getCurrentUserId();
-  if (driverId && driverId !== authenticatedDriverId) {
-    throw permanentGpsError('gps_driver_mismatch', new Error(GPS_DRIVER_MISMATCH_MESSAGE));
+  // In modalita' token (link Driver pubblico) non c'e' nessuna sessione
+  // Supabase da cui leggere un driverId autenticato da confrontare: il
+  // controllo di ownership avviene lato server dentro gps_insert_point
+  // tramite il token stesso, non qui.
+  if (!accessToken) {
+    const authenticatedDriverId = await getCurrentUserId();
+    if (driverId && driverId !== authenticatedDriverId) {
+      throw permanentGpsError('gps_driver_mismatch', new Error(GPS_DRIVER_MISMATCH_MESSAGE));
+    }
   }
 
   return withRetry(() => callGpsRpc('gps_insert_point', {
@@ -268,11 +339,12 @@ export async function insertGpsPoint({
     p_speed: Number.isFinite(Number(speed)) ? Number(speed) : null,
     p_heading: Number.isFinite(Number(heading)) ? Number(heading) : null,
     p_recorded_at: recordedAt || new Date().toISOString(),
+    p_access_token: accessToken || null,
   }), 'invio punto GPS');
 }
 
-export async function heartbeatGpsSession(sessionId) {
-  return callGpsRpc('gps_heartbeat_session', { p_session_id: sessionId });
+export async function heartbeatGpsSession(sessionId, accessToken) {
+  return callGpsRpc('gps_heartbeat_session', { p_session_id: sessionId, p_access_token: accessToken || null });
 }
 
 export async function getCampaignGpsPoints(campaignId, { sessionId } = {}) {

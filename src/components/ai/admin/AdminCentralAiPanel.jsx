@@ -4,12 +4,13 @@ import { AI_RESPONSE_STATUSES } from "../../../ai/schema/aiResponseSchema.js";
 import "./admin-central-ai.css";
 
 const INTENT_LABELS = {
-  daily_operations_summary: "Riepilogo operativo",
-  critical_campaigns: "Campagne critiche",
-  inactive_operators: "Operatori inattivi",
-  stale_gps_sessions: "Sessioni GPS stantie",
-  campaigns_without_photos: "Campagne senza foto",
-  unassigned_groups: "Gruppi non assegnati",
+  operations_summary: "Riepilogo operativo",
+  driver_attention: "Driver da attenzionare",
+  campaign_attention: "Campagne critiche",
+  blocked_zones: "Zone bloccate",
+  gps_stale: "GPS fermo",
+  program_status: "Stato programmi",
+  alerts_summary: "Riepilogo alert",
 };
 
 export default function AdminCentralAiPanel({ adminIdentity, campaigns = [], availability = {}, operators = [], operatorsSummary = {}, dataLoading = false, dataError = null }) {
@@ -19,9 +20,9 @@ export default function AdminCentralAiPanel({ adminIdentity, campaigns = [], ava
   const [fetchedFor, setFetchedFor] = useState(null);
 
   const identityReady = Boolean(adminIdentity?.user?.id && ["admin", "super_admin"].includes(adminIdentity?.role));
-  const unavailable = !identityReady || Boolean(dataError) || availability?.campaigns !== true;
+  const unavailable = !identityReady || Boolean(dataError);
 
-  async function fetchCopilotData(nextIntent = "daily_operations_summary") {
+  async function fetchCopilotData(nextIntent = "operations_summary") {
     if (loading || unavailable || dataLoading) return;
     setLoading(true);
     try {
@@ -63,6 +64,9 @@ export default function AdminCentralAiPanel({ adminIdentity, campaigns = [], ava
                       <article className="admin-central-ai__message admin-central-ai__message--assistant" style={{ borderLeft: `4px solid ${response.status === AI_RESPONSE_STATUSES.AI ? "#3b82f6" : response.status === AI_RESPONSE_STATUSES.FALLBACK ? "#eab308" : "#ef4444"}` }}>
                         <strong>{INTENT_LABELS[response.intent] || "Analisi"}</strong>
                         <p>{response.answer}</p>
+                        {response.summary && <p className="admin-central-ai__summary"><strong>Analisi AI</strong>{response.summary}</p>}
+                        {response.priorities?.length > 0 && <div className="admin-central-ai__details"><strong>Priorità</strong><ul>{response.priorities.map((item, index) => <li key={`priority-${index}`}>{item}</li>)}</ul></div>}
+                        {response.warnings?.length > 0 && <div className="admin-central-ai__details admin-central-ai__details--warning"><strong>Warning</strong><ul>{response.warnings.map((item, index) => <li key={`warning-${index}`}>{item}</li>)}</ul></div>}
                         {response.evidence.length > 0 && (
                           <ul className="admin-central-ai__evidence">
                             {response.evidence.map((item, index) => (
@@ -72,7 +76,7 @@ export default function AdminCentralAiPanel({ adminIdentity, campaigns = [], ava
                         )}
                         {response.limitations.length > 0 && <p className="admin-central-ai__source">Limiti: {response.limitations.join(" ")}</p>}
                       </article>
-                      <span className="admin-central-ai__source">{response.status === AI_RESPONSE_STATUSES.AI ? "Generato da OpenAI su dati reali autorizzati." : "Risposta di fallback controllata: nessun testo grezzo del modello mostrato."}</span>
+                      <span className="admin-central-ai__source">{response.updatedAt ? `Ultimo aggiornamento: ${new Date(response.updatedAt).toLocaleString("it-IT")}. ` : ""}{response.provider === "deterministic" ? "Risposta deterministica su dati reali autorizzati." : response.status === AI_RESPONSE_STATUSES.AI ? "Generato da OpenAI su dati reali autorizzati." : "Errore reale controllato: nessun testo grezzo del modello mostrato."}</span>
                     </div>
                   )}
             </>}

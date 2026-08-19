@@ -1,3 +1,7 @@
+import { supabase } from "../supabaseClient.js";
+
+const APP_SESSION_KEY = "vp_supabase_session";
+
 export function getSupabaseEnv() {
   let url = "";
   let anonKey = "";
@@ -20,18 +24,126 @@ export function hasSupabaseConfig() {
 
 export function getStoredSupabaseSession() {
   try {
-    return JSON.parse(localStorage.getItem("vp_supabase_session") || "null");
+    return JSON.parse(localStorage.getItem(APP_SESSION_KEY) || "null");
   } catch {
     return null;
   }
 }
 
 export function saveStoredSupabaseSession(sessionData) {
-  localStorage.setItem("vp_supabase_session", JSON.stringify(sessionData));
+  localStorage.setItem(APP_SESSION_KEY, JSON.stringify(sessionData));
 }
 
 export function clearStoredSupabaseSession() {
-  localStorage.removeItem("vp_supabase_session");
+  globalRestorePromise = null;
+  localStorage.removeItem(APP_SESSION_KEY);
+}
+
+function toStoredSession(session) {
+  if (!session?.access_token) return null;
+  return {
+    accessToken: session.access_token,
+    refreshToken: session.refresh_token || null,
+    expiresAt: session.expires_at || null,
+    tokenType: session.token_type || "bearer"
+  };
+}
+
+let authStateSyncStarted = false;
+
+// Mantiene la sessione REST storica dell'app allineata alla sessione ufficiale
+// Supabase. TOKEN_REFRESHED sostituisce anche il refresh token ruotato: senza
+// questo mirror /admin potrebbe continuare a usare un JWT ormai scaduto.
+function ensureAuthStateSync() {
+  if (!supabase || authStateSyncStarted || typeof window === "undefined") return;
+  authStateSyncStarted = true;
+  supabase.auth.onAuthStateChange((event, sdkSession) => {
+    const stored = toStoredSession(sdkSession);
+    if (stored) saveStoredSupabaseSession(stored);
+    else if (event === "SIGNED_OUT") clearStoredSupabaseSession();
+  });
+}
+
+// Source of truth per cold load/refresh: prima lascia che la SDK carichi la
+// propria sessione persistita (getSession la rinnova se necessario), poi
+// bridgea la sessione storica dell'app quando il callback manuale ha appena
+// ricevuto access_token + refresh_token.
+let globalRestorePromise = null;
+
+export function restoreSupabaseSession(preferredSession = null) {
+  if (!preferredSession && globalRestorePromise) {
+    return globalRestorePromise;
+  }
+
+  const promise = _restoreSupabaseSession(preferredSession).finally(() => {
+    // Dedup solo per le chiamate concorrenti in volo: una volta risolta,
+    // la promise condivisa va sganciata subito, altrimenti ogni restore
+    // successivo (anche a distanza di minuti/ore) riceverebbe per sempre
+    // lo stesso risultato della primissima chiamata invece di rivalutare
+    // lo stato reale della sessione.
+    if (globalRestorePromise === promise) {
+      globalRestorePromise = null;
+    }
+  });
+  if (!preferredSession) {
+    globalRestorePromise = promise;
+  }
+  return promise;
+}
+
+async function _restoreSupabaseSession(preferredSession = null) {
+  const stored = preferredSession || getStoredSupabaseSession();
+
+  if (!supabase) {
+    if (isStoredSupabaseSessionValid(stored)) return stored;
+    clearStoredSupabaseSession();
+    return null;
+  }
+
+  ensureAuthStateSync();
+
+  try {
+    if (preferredSession) {
+      const accessToken = preferredSession.accessToken || preferredSession.access_token;
+      const refreshToken = preferredSession.refreshToken || preferredSession.refresh_token;
+      if (!accessToken || !refreshToken) return null;
+      const { data, error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken
+      });
+      if (error || !data?.session) return null;
+      const normalized = toStoredSession(data.session);
+      saveStoredSupabaseSession(normalized);
+      return normalized;
+    }
+
+    const { data, error } = await supabase.auth.getSession();
+    if (!error && data?.session) {
+      const normalized = toStoredSession(data.session);
+      saveStoredSupabaseSession(normalized);
+      return normalized;
+    }
+
+    const accessToken = stored?.accessToken || stored?.access_token;
+    const refreshToken = stored?.refreshToken || stored?.refresh_token;
+    if (accessToken && refreshToken) {
+      const bridged = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken
+      });
+      if (!bridged.error && bridged.data?.session) {
+        const normalized = toStoredSession(bridged.data.session);
+        saveStoredSupabaseSession(normalized);
+        return normalized;
+      }
+    }
+  } catch {
+    // Una sessione che non puo' essere ripristinata non autorizza l'Admin.
+  }
+
+  if (isStoredSupabaseSessionValid(stored)) return stored;
+  clearStoredSupabaseSession();
+  return null;
 }
 
 // Una sessione senza expiresAt e considerata valida (comportamento storico,

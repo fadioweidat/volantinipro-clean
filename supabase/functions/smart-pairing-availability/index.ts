@@ -41,7 +41,7 @@ serve(async req => {
     const body = await req.json().catch(() => ({}));
     const service = ["d2d", "h2h", "b2b"].includes(String(body.service)) ? String(body.service) : null;
     const zone = clean(body.zone);
-    if (!service || !zone) return json({ error: "INVALID_SMART_PAIRING_CONTEXT" }, 400);
+    if (!service || !zone || zone.length > 200) return json({ error: "INVALID_SMART_PAIRING_CONTEXT" }, 400);
 
     const requestedStart = /^\d{4}-\d{2}-\d{2}$/.test(String(body.startDate || "")) ? String(body.startDate) : isoDate(new Date());
     const today = isoDate(new Date());

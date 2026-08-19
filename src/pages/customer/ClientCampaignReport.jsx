@@ -18,7 +18,9 @@ export function ClientCampaignReport({ campaignId }) {
     if (!state.report) return;
     try {
       setState((previous) => ({ ...previous, notice: 'Generazione PDF in corso...' }));
-      await downloadFinalDistributionPdf(state.report, 'certificazione-distribuzione-volantinipro.pdf');
+      await downloadFinalDistributionPdf(state.report, 'certificazione-distribuzione-volantinipro.pdf', {
+        onProgress: (message) => setState((previous) => ({ ...previous, notice: message })),
+      });
       setState((previous) => ({ ...previous, notice: 'PDF scaricato.' }));
     } catch (error) {
       setState((previous) => ({ ...previous, notice: '', error: error?.message || 'Impossibile generare il PDF.' }));

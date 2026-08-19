@@ -84,34 +84,62 @@ export const AI_INTENTS = Object.freeze({
 
   // ---- Dashboard Admin, scope admin_operations ----
   critical_campaigns: intent("critical_campaigns", {
-    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "admin_copilot_edge_function",
+    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "ai_core_admin_dashboard",
     fallback: "Non risultano campagne critiche nei dati Admin caricati.",
     allowedNavActions: ["open_campaign_operations", "open_campaign_report"],
   }),
   inactive_operators: intent("inactive_operators", {
-    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "admin_copilot_edge_function",
+    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "ai_core_admin_dashboard",
     fallback: "Non risultano operatori inattivi nei dati GPS live caricati.",
     allowedNavActions: ["open_gps_monitor"],
   }),
   stale_gps_sessions: intent("stale_gps_sessions", {
-    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "admin_copilot_edge_function",
+    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "ai_core_admin_dashboard",
     fallback: "Non risultano sessioni GPS stantie nei dati caricati.",
     allowedNavActions: ["open_gps_monitor"],
   }),
   campaigns_without_photos: intent("campaigns_without_photos", {
-    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "admin_copilot_edge_function",
+    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "ai_core_admin_dashboard",
     fallback: "La fonte foto non e' disponibile o non risultano campagne senza foto.",
     allowedNavActions: ["open_campaign_report"],
   }),
   unassigned_groups: intent("unassigned_groups", {
-    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "admin_copilot_edge_function",
+    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "ai_core_admin_dashboard",
     fallback: "Non risultano campagne attive senza gruppi assegnati.",
     allowedNavActions: ["open_campaign_groups"],
   }),
   daily_operations_summary: intent("daily_operations_summary", {
-    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "admin_copilot_edge_function",
+    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "ai_core_admin_dashboard",
     fallback: "Dati operativi Admin non disponibili in questo momento.",
     allowedNavActions: ["open_gps_monitor", "open_campaign_operations"],
+  }),
+  operations_summary: intent("operations_summary", {
+    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "ai_core_admin_dashboard",
+    fallback: "Dati operativi Admin non disponibili in questo momento.", allowedNavActions: ["open_gps_monitor", "open_campaign_operations"],
+  }),
+  driver_attention: intent("driver_attention", {
+    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "ai_core_admin_dashboard",
+    fallback: "Non risultano Driver da attenzionare nei dati operativi.", allowedNavActions: ["open_campaign_operations"],
+  }),
+  campaign_attention: intent("campaign_attention", {
+    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "ai_core_admin_dashboard",
+    fallback: "Non risultano campagne da attenzionare nei dati operativi.", allowedNavActions: ["open_campaign_operations", "open_campaign_report"],
+  }),
+  blocked_zones: intent("blocked_zones", {
+    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "ai_core_admin_dashboard",
+    fallback: "Non risultano zone bloccate nei dati operativi.", allowedNavActions: ["open_campaign_operations"],
+  }),
+  gps_stale: intent("gps_stale", {
+    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "ai_core_admin_dashboard",
+    fallback: "Non risultano alert GPS_STALE nei dati operativi.", allowedNavActions: ["open_gps_monitor"],
+  }),
+  program_status: intent("program_status", {
+    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "ai_core_admin_dashboard",
+    fallback: "Gli stati programma non sono disponibili.", allowedNavActions: ["open_campaign_operations"],
+  }),
+  alerts_summary: intent("alerts_summary", {
+    allowedRoles: [AI_ROLES.ADMIN], requiredContext: "admin_operations", authorizedFunction: "ai_core_admin_dashboard",
+    fallback: "Non risultano alert operativi.", allowedNavActions: ["open_campaign_operations"],
   }),
 });
 

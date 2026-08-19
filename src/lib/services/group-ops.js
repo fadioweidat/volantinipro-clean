@@ -5,6 +5,7 @@ import {
   getSessionGroup,
 } from './gps-api.js';
 import { formatDuration, lastActivityAt, sessionDurationMs, shortId } from './report-utils.js';
+import { getPublicAppUrl } from '../publicAppUrl.js';
 
 export function buildGroupRows({ sessions = [], photos = [] }) {
   const enriched = sessions.map((item) => enrichSession(item, photos));
@@ -86,7 +87,7 @@ export function detectSessionAlerts(item) {
 }
 
 export function groupShareUrl(campaignId, group) {
-  const url = new URL(`/driver/tracking/${campaignId}`, window.location.origin);
+  const url = new URL(`/driver/tracking/${campaignId}`, getPublicAppUrl());
   url.searchParams.set('groupId', group.id);
   if (group.name) url.searchParams.set('groupName', group.name);
   return url.toString();

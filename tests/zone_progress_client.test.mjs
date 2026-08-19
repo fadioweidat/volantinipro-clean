@@ -1,10 +1,33 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   ZoneProgressError,
   createZoneProgressClient,
   isZoneProgressAuthorizationError,
 } from '../src/lib/services/zone-progress-api.js';
+
+// P0 regression: admin_set_zone_manual_progress evolved to 6 required
+// parameters (no SQL DEFAULT on any of them) but the frontend call site kept
+// sending only 3 — every real click silently 404'd (PGRST202) in production
+// while every mock-based unit test kept passing, because a hand-rolled mock
+// RPC client never validates real Postgres function arity. This test reads
+// the actual canonical SQL definition and cross-checks it against the JS
+// call site's parameter names, so a future signature change that isn't
+// mirrored in the client fails loudly here instead of silently in the browser.
+test('admin_set_zone_manual_progress frontend call matches the canonical SQL signature exactly', () => {
+  const sql = readFileSync(new URL('../supabase/migrations/20260806000003_gps_coverage_canonical_consolidation.sql', import.meta.url), 'utf8');
+  const match = sql.match(/create or replace function public\.admin_set_zone_manual_progress\(([\s\S]*?)\)\s*\nreturns/);
+  assert.ok(match, 'canonical admin_set_zone_manual_progress definition not found in the migration');
+  const sqlParams = [...match[1].matchAll(/(p_\w+)\s+\w+/g)].map((m) => m[1]).sort();
+
+  const clientSource = readFileSync(new URL('../src/lib/services/zone-progress-api.js', import.meta.url), 'utf8');
+  const callMatch = clientSource.match(/rpc\('admin_set_zone_manual_progress',\s*\{([\s\S]*?)\}\)/);
+  assert.ok(callMatch, 'admin_set_zone_manual_progress call site not found');
+  const clientParams = [...callMatch[1].matchAll(/(p_\w+):/g)].map((m) => m[1]).sort();
+
+  assert.deepEqual(clientParams, sqlParams, 'zone-progress-api.js must send exactly the parameters the canonical SQL function declares (no defaults exist on any of them)');
+});
 
 const CAMPAIGN_ID = '30000000-0000-0000-0000-00000000000a';
 const ZONE_ID = '40000000-0000-0000-0000-00000000000a';
@@ -55,11 +78,21 @@ test('zone progress client calls the three RPCs with exact typed arguments', asy
       args: { p_campaign_id: CAMPAIGN_ID },
     },
     {
+      // P0: la funzione canonica admin_set_zone_manual_progress richiede 6
+      // parametri (nessun DEFAULT su adjustment_type/inaccessible_percent/notes
+      // lato Postgres) — una chiamata a 3 parametri viene rifiutata da
+      // PostgREST con 404 PGRST202 "function not found", riprodotto dal vivo.
+      // Questo test prima asserisce lo stesso payload incompleto che causava
+      // il bug: un mock RPC non lo avrebbe mai rilevato, solo la vera
+      // funzione Postgres lo fa.
       name: 'admin_set_zone_manual_progress',
       args: {
         p_campaign_zone_id: ZONE_ID,
+        p_adjustment_type: 'manual_covered',
         p_manual_percent: 55,
+        p_inaccessible_percent: null,
         p_reason: 'Verifica area',
+        p_notes: null,
       },
     },
     {

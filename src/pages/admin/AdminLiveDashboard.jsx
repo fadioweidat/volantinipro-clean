@@ -1,15 +1,28 @@
 import 'leaflet/dist/leaflet.css';
-import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
-import { useEffect, useMemo, useState } from 'react';
+import L from 'leaflet';
+import { CircleMarker, MapContainer, Polyline, Polygon, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   classifySessionLifecycle,
   displayDeviceId,
   displayDriverName,
+  calculateGpsCoverage,
 } from '../../lib/services/gps-api.js';
 import { getLiveDrivers } from '../../lib/services/admin-api.js';
 import { dedupeSessionsByOperator, filterOperationalRows } from '../../lib/services/report-utils.js';
 import { EXCLUSION_LABELS, filterValidGpsPoints, calculateFilteredDistanceKm, summarizeGpsQuality } from '../../lib/gps/pointQuality.js';
+import { deriveLiveZoneStatus, estimateDistanceToZoneBoundaryMeters, ZONE_LIVE_STATUS_LABELS, ZONE_LIVE_STATUS_COLORS } from '../../lib/geofence/geofenceEngine.js';
+import { useZoneBoundaries } from '../../hooks/useZoneBoundaries.js';
+import { useZoneProgress } from '../../hooks/useZoneProgress.js';
+import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
 import { AdminLayout } from './AdminLayout.jsx';
+
+const WORK_STATUS_LABELS = {
+  started: 'In corso',
+  paused: 'Pausa',
+  completed: 'Completata',
+  cancelled: 'Annullata',
+};
 
 const LIFECYCLE_LABELS = {
   live: 'Live',
@@ -68,6 +81,62 @@ export function AdminLiveDashboard({ onNav }) {
   }, [withLifecycle, selectedSessionId]);
 
   const selectedItem = withLifecycle.find((item) => item.session.id === selectedSessionId) || null;
+  const selectedCampaignId = selectedItem?.session?.campaign_id || null;
+
+  // Confine reale + stato dentro/fuori/vicino-confine per il driver
+  // selezionato: stesso hook/funzioni condivise con GpsMonitor.jsx,
+  // CampaignTracking.jsx e la Driver App — nessuna logica geografica nuova.
+  const { zoneRows, resolvedBoundaries } = useZoneBoundaries(selectedCampaignId);
+  const zoneProgress = useZoneProgress({ campaignId: selectedCampaignId, includeHistory: true });
+  const liveZones = useMemo(
+    () => Object.values(resolvedBoundaries).filter(Boolean).map((geometry) => ({ kind: 'polygon', geometry })),
+    [resolvedBoundaries],
+  );
+  const mapZones = useMemo(() => (zoneProgress.zones || []).map((zone) => ({
+    ...zone,
+    geometry: resolvedBoundaries[zone.campaign_zone_id] || null,
+  })), [zoneProgress.zones, resolvedBoundaries]);
+  const activeZoneName = zoneRows?.[0]?.zone_name || null;
+  const liveZoneStatus = useMemo(
+    () => deriveLiveZoneStatus(liveZones, selectedItem?.latest?.lat, selectedItem?.latest?.lng),
+    [liveZones, selectedItem?.latest],
+  );
+  const outsideDistanceKm = useMemo(() => {
+    if (liveZoneStatus !== 'outside' || !selectedItem?.latest) return null;
+    const meters = estimateDistanceToZoneBoundaryMeters(liveZones, selectedItem.latest.lat, selectedItem.latest.lng);
+    return meters != null ? meters / 1000 : null;
+  }, [liveZoneStatus, liveZones, selectedItem?.latest]);
+
+  // Copertura GPS reale della sessione selezionata — stessa RPC
+  // gps_calculate_zone_coverage gia' usata da GpsMonitor.jsx, nessun secondo
+  // calcolo lato client.
+  const [coverage, setCoverage] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    setCoverage(null);
+    if (!selectedSessionId) return undefined;
+    calculateGpsCoverage(selectedSessionId)
+      .then((res) => { if (!cancelled) setCoverage(res); })
+      .catch(() => { if (!cancelled) setCoverage(null); });
+    return () => { cancelled = true; };
+  }, [selectedSessionId, selectedItem?.points?.length]);
+
+  const mapRef = useRef(null);
+  const handleGoToOperatorPosition = () => {
+    if (selectedItem?.latest && mapRef.current) {
+      mapRef.current.setView([Number(selectedItem.latest.lat), Number(selectedItem.latest.lng)], Math.max(mapRef.current.getZoom(), 16));
+    }
+  };
+  const handleReturnToArea = () => {
+    const geometry = liveZones[0]?.geometry;
+    if (!geometry || !mapRef.current) return;
+    try {
+      const bounds = L.geoJSON(geometry).getBounds();
+      if (bounds.isValid()) mapRef.current.fitBounds(bounds, { padding: [24, 24] });
+    } catch {
+      // geometria non valida per Leaflet: nessuna azione, nessun crash.
+    }
+  };
 
   const breadcrumbs = [
     { label: "Dashboard", href: "/admin" },
@@ -139,11 +208,26 @@ export function AdminLiveDashboard({ onNav }) {
 
       <div style={layoutStyle}>
         <section style={cardStyle}>
-          <p style={eyebrowStyle}>Mappa live {selectedItem ? `— traccia: ${displayDriverName(selectedItem.session)} (${shortId(selectedItem.session.id)})` : ''}</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
+            <p style={{ ...eyebrowStyle, margin: 0 }}>Mappa live {selectedItem ? `— traccia: ${displayDriverName(selectedItem.session)} (${shortId(selectedItem.session.id)})` : ''}</p>
+            {selectedItem && <LiveZoneStatusBadge status={liveZoneStatus} distanceKm={outsideDistanceKm} />}
+          </div>
+          {activeZoneName && <p style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 900, color: '#fff' }}>{activeZoneName}</p>}
+          {liveZoneStatus === 'outside' && (
+            <div style={outOfAreaAlertStyle}>
+              ⚠ OPERATORE FUORI AREA{outsideDistanceKm != null ? ` — a ${outsideDistanceKm.toFixed(1)} km dalla zona` : ''}
+            </div>
+          )}
           {withLifecycle.some((item) => item.latest) ? (
-            <LiveMap drivers={withLifecycle} selectedSessionId={selectedSessionId} />
+            <LiveMap drivers={withLifecycle} selectedSessionId={selectedSessionId} zones={mapZones} mapRef={mapRef} />
           ) : (
             <EmptyState text={state.loading ? 'Caricamento tracking GPS...' : 'Nessun tracking GPS disponibile'} />
+          )}
+          {selectedItem && (
+            <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+              <button onClick={handleGoToOperatorPosition} disabled={!selectedItem.latest} style={mapActionButtonStyle(!selectedItem.latest)}>📍 Posizione operatore</button>
+              <button onClick={handleReturnToArea} disabled={!liveZones[0]?.geometry} style={mapActionButtonStyle(!liveZones[0]?.geometry)}>⟲ Torna all'area</button>
+            </div>
           )}
           <SessionQualityPanel item={selectedItem} />
         </section>
@@ -160,8 +244,116 @@ export function AdminLiveDashboard({ onNav }) {
           )) : <EmptyState text="Nessuna sessione attiva reale." />}
         </aside>
       </div>
+
+      {selectedItem && (
+        <section style={{ ...cardStyle, marginTop: 16 }}>
+          <p style={eyebrowStyle}>Controllo operativo GPS</p>
+          <div style={operationalGridStyle}>
+            <div style={operationalCardStyle}>
+              <p style={operationalCardTitleStyle}>Stato operatore</p>
+              <MiniRow label="Connessione" value={selectedItem.lifecycle === 'live' ? 'Online' : 'Offline'} />
+              <MiniRow label="GPS" value={selectedItem.session.status === 'started' ? 'Attivo' : selectedItem.session.status === 'paused' ? 'In pausa' : 'Non avviato'} />
+              <MiniRow label="Area" value={ZONE_LIVE_STATUS_LABELS[liveZoneStatus] || ZONE_LIVE_STATUS_LABELS.zone_unavailable} />
+              {outsideDistanceKm != null && <MiniRow label="Distanza dalla zona" value={`${outsideDistanceKm.toFixed(1)} km`} />}
+              <MiniRow label="Ultimo ping" value={formatDateTime(selectedItem.lastPing)} />
+              <MiniRow label="Precisione GPS" value={selectedItem.latest?.accuracy != null ? `${Math.round(selectedItem.latest.accuracy)} m` : 'n/d'} />
+            </div>
+            <div style={operationalCardStyle}>
+              <p style={operationalCardTitleStyle}>Stato lavoro</p>
+              <MiniRow label="Sessione" value={WORK_STATUS_LABELS[selectedItem.session.status] || selectedItem.session.status} />
+              <MiniRow label="Modalità" value="Automatica GPS" />
+              <MiniRow label="Zona attiva" value={activeZoneName || 'n/d'} />
+            </div>
+            <div style={operationalCardStyle}>
+              <p style={operationalCardTitleStyle}>Copertura</p>
+              {coverage?.calculation_status === 'ready' ? (
+                <>
+                  <MiniRow label="Copertura GPS" value={`${coverage.coverage_percent}%`} />
+                  <MiniRow label="Km validi" value={`${(selectedItem.km || 0).toFixed(2)} km`} />
+                  <MiniRow label="Punti validi/esclusi" value={`${summarizeGpsQuality(selectedItem.points || []).validCount} / ${summarizeGpsQuality(selectedItem.points || []).excludedCount}`} />
+                </>
+              ) : (
+                <MiniRow label="Copertura GPS" value={coverage?.calculation_status === 'zone_geometry_missing' ? 'Confine non ancora disponibile' : 'In calcolo...'} />
+              )}
+            </div>
+          </div>
+
+          {/* Intervento manuale Admin: RIUSA il pannello override zona gia'
+              esistente (ZoneProgressPanel + admin_set/clear_zone_manual_progress,
+              con storico audit gia' presente) — nessuna seconda implementazione
+              di "completamento manuale". "Imposta override" al 100% copre
+              "Conferma/Completa manualmente"; "Rimuovi override" copre
+              "Riapri zona/Annulla intervento". Non esiste nel codice una stato
+              distinto "Da verificare"/"Richiedi ripasso": non inventato qui,
+              richiederebbe una nuova colonna di stato non autorizzata da
+              questo ticket (vedi report finale). */}
+          <div style={{ marginTop: 16 }}>
+            <ZoneProgressPanel
+              zones={zoneProgress.zones}
+              history={zoneProgress.history}
+              loading={zoneProgress.loading}
+              refreshing={zoneProgress.refreshing}
+              error={zoneProgress.error}
+              notice={zoneProgress.notice}
+              isAdmin
+              mutatingZoneId={zoneProgress.mutatingZoneId}
+              onRefresh={zoneProgress.refresh}
+              onSetManual={zoneProgress.setManualProgress}
+              onClearManual={zoneProgress.clearManualProgress}
+              theme="dark"
+            />
+          </div>
+        </section>
+      )}
     </AdminLayout>
   );
+}
+
+function MiniRow({ label, value }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,.06)' }}>
+      <span style={{ color: 'rgba(255,255,255,.5)', fontWeight: 700 }}>{label}</span>
+      <span style={{ color: '#fff', fontWeight: 800 }}>{value}</span>
+    </div>
+  );
+}
+
+function LiveZoneStatusBadge({ status, distanceKm }) {
+  const color = ZONE_LIVE_STATUS_COLORS[status] || ZONE_LIVE_STATUS_COLORS.zone_unavailable;
+  const label = ZONE_LIVE_STATUS_LABELS[status] || ZONE_LIVE_STATUS_LABELS.zone_unavailable;
+  return (
+    <span style={{ display: 'inline-flex', border: '1px solid', borderRadius: 999, padding: '6px 14px', fontSize: 13, fontWeight: 900, color, borderColor: `${color}44`, background: `${color}14` }}>
+      {label}{status === 'outside' && distanceKm != null ? ` — ${distanceKm.toFixed(1)} km` : ''}
+    </span>
+  );
+}
+
+function mapActionButtonStyle(disabled) {
+  return {
+    border: '1px solid rgba(255,255,255,.14)',
+    background: disabled ? 'rgba(255,255,255,.04)' : 'rgba(232,87,26,.16)',
+    color: disabled ? 'rgba(255,255,255,.35)' : '#fff',
+    borderRadius: 10,
+    padding: '10px 16px',
+    fontSize: 13,
+    fontWeight: 800,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+  };
+}
+
+// Stesso pattern di Admin/GpsMonitor.jsx e Driver/DriverWorkMapPage.jsx.
+function FitToZoneBounds({ geometry }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!geometry) return;
+    try {
+      const bounds = L.geoJSON(geometry).getBounds();
+      if (bounds.isValid()) map.fitBounds(bounds, { padding: [24, 24] });
+    } catch {
+      // geometria non valida per Leaflet: la mappa resta dov'e', nessun crash.
+    }
+  }, [geometry, map]);
+  return null;
 }
 
 // Ricentra sull'INTERA traccia (fitBounds), non solo sull'ultimo punto: va
@@ -178,9 +370,19 @@ function FitBoundsToTrack({ positions }) {
   return null;
 }
 
-function LiveMap({ drivers, selectedSessionId }) {
+function LiveMap({ drivers, selectedSessionId, zones = [], mapRef }) {
   const first = drivers.find((item) => item.latest)?.latest;
-  const center = first ? [Number(first.lat), Number(first.lng)] : [45.4642, 9.19];
+  const zoneWithGeometry = useMemo(() => zones.find((zone) => zone.geometry), [zones]);
+  const center = useMemo(() => {
+    if (first) return [Number(first.lat), Number(first.lng)];
+    if (zoneWithGeometry) {
+      const coord = zoneWithGeometry.geometry.type === 'MultiPolygon'
+        ? zoneWithGeometry.geometry.coordinates?.[0]?.[0]?.[0]
+        : zoneWithGeometry.geometry.coordinates?.[0]?.[0];
+      if (coord) return [coord[1], coord[0]];
+    }
+    return [45.4642, 9.19]; // Milano default — solo fallback residuo
+  }, [first, zoneWithGeometry]);
 
   const selected = drivers.find((item) => item.session.id === selectedSessionId) || null;
   const { valid: selectedValidPoints } = useMemo(
@@ -194,8 +396,24 @@ function LiveMap({ drivers, selectedSessionId }) {
 
   return (
     <div style={{ height: 560, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)' }}>
-      <MapContainer center={center} zoom={12} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
+      <MapContainer ref={mapRef} center={center} zoom={12} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
         <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        {trackPositions.length < 2 && zoneWithGeometry && <FitToZoneBounds geometry={zoneWithGeometry.geometry} />}
+        {zones.map((zone) => {
+          if (!zone.geometry || !zone.geometry.coordinates) return null;
+          let coords = [];
+          if (zone.geometry.type === 'Polygon') {
+            coords = zone.geometry.coordinates.map((ring) => ring.map((p) => [p[1], p[0]]));
+          } else if (zone.geometry.type === 'MultiPolygon') {
+            coords = zone.geometry.coordinates.map((poly) => poly.map((ring) => ring.map((p) => [p[1], p[0]])));
+          }
+          if (!coords.length) return null;
+          return (
+            <Polygon key={zone.campaign_zone_id} positions={coords} pathOptions={{ color: '#e8571a', weight: 2, fillColor: '#e8571a', fillOpacity: 0.08 }}>
+              <Popup><strong>{zone.zone_name}</strong></Popup>
+            </Polygon>
+          );
+        })}
         {trackPositions.length >= 2 && (
           <>
             <Polyline positions={trackPositions} pathOptions={{ color: '#e8571a', weight: 5, opacity: 0.85 }} />
@@ -359,5 +577,9 @@ const badgeStyle = { border: '1px solid', borderRadius: 999, padding: '4px 8px',
 const driverRowStyle = { display: 'grid', gap: 5, width: '100%', textAlign: 'left', padding: '12px 8px', borderBottom: '1px solid rgba(255,255,255,.07)', fontSize: 12, background: 'transparent', border: 'none', borderRadius: 8, cursor: 'pointer', font: 'inherit', color: 'inherit' };
 const driverRowSelectedStyle = { background: 'rgba(232,87,26,.12)', boxShadow: 'inset 0 0 0 1px rgba(232,87,26,.4)' };
 const qualityPanelStyle = { marginTop: 14, padding: 14, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 10 };
+const outOfAreaAlertStyle = { marginBottom: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(239,68,68,.14)', border: '1px solid rgba(239,68,68,.35)', color: '#fecaca', fontWeight: 900, fontSize: 13 };
+const operationalGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 };
+const operationalCardStyle = { padding: 14, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 10 };
+const operationalCardTitleStyle = { margin: '0 0 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.1em', color: 'rgba(255,255,255,.5)', fontWeight: 900 };
 const metricRowStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 10 };
 const metricStyle = { display: 'grid', gap: 4, padding: 10, background: 'rgba(255,255,255,.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,.06)' };

@@ -29,3 +29,34 @@ export function isSelectableCalendarDate(date, availableDates, pair) {
   if (pair && Number(pair.placesAvailable ?? 1) > 0) return true;
   return availableDates instanceof Set && availableDates.has(date);
 }
+
+export function getSelectedSmartPairingDates(selectedDates, smartPairingSlots) {
+  const slotDates = new Set(
+    (Array.isArray(smartPairingSlots) ? smartPairingSlots : [])
+      .filter(slot => slot && Number(slot.placesAvailable ?? 1) > 0)
+      .map(slot => slot.date || slot.day || slot.giorno)
+      .filter(Boolean)
+  );
+  return [...new Set(Array.isArray(selectedDates) ? selectedDates : [])]
+    .filter(date => slotDates.has(date));
+}
+
+export function buildSmartPairingBypassState(previousState, availabilityStatus) {
+  return {
+    ...previousState,
+    campaignZones: Array.isArray(previousState?.campaignZones)
+      ? previousState.campaignZones.map(zone => ({ ...zone, smartPairingSelectedDates: [] }))
+      : previousState?.campaignZones,
+    smartPairingSelectedDates: [],
+    avgDiscount: 0,
+    pairingDays: [],
+    normalDays: [],
+    requestOnlyDays: [],
+    pairingType: {},
+    pairingDiscountPercent: {},
+    averagePairingDiscount: 0,
+    maxPairingDiscount: 0,
+    calendarStatus: "no_smart_pairing",
+    smartPairingStatus: availabilityStatus === "error" ? "skipped_unverified" : "none"
+  };
+}

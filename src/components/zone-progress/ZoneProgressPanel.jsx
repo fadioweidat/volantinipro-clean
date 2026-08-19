@@ -210,6 +210,7 @@ function formatDateTime(value) {
 function eventLabel(value) {
   if (value === 'manual_override') return 'Override manuale';
   if (value === 'manual_clear') return 'Override rimosso';
+  if (value === 'geometric_sync') return 'Sincronizzazione geometrica';
   return 'Ricalcolo automatico';
 }
 

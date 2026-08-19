@@ -74,10 +74,6 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
   const compact = useCompact();
   const [menuOpen, setMenuOpen] = useState(false);
   const [platformOpen, setPlatformOpen] = useState(false);
-  const goAdmin = () => {
-    if (typeof onAdmin === "function") return onAdmin();
-    window.location.href = "/admin/campaigns/11111111-1111-1111-1111-111111111111/gps";
-  };
 
   const scrollToSection = (id) => {
     setMenuOpen(false);
@@ -86,55 +82,38 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
   };
 
   const benefits = [
-    {
-      icon: "target",
-      text: "Servizi di distribuzione per ogni tipo di campagna",
-    },
-    {
-      icon: "chart",
-      text: "Mappa operativa con zona, raggio e comuni coinvolti",
-    },
-    {
-      icon: "report",
-      text: "GPS, prove fotografiche e report finale verificabile",
-    },
+    { icon: "target", text: "Servizi di distribuzione per ogni tipo di campagna" },
+    { icon: "chart", text: "Mappa operativa con zona, raggio e comuni coinvolti" },
+    { icon: "report", text: "GPS, prove fotografiche e report finale verificabile" },
   ];
 
   return (
     <section
       style={{
-        minHeight: "100vh",
+        minHeight: compact ? "100vh" : "680px",
+        maxHeight: "none",
         position: "relative",
-        overflow: "visible",
-        background:
-          "radial-gradient(circle at top right, rgba(232, 87, 26, 0.08), transparent 45%), linear-gradient(180deg, #050d1a 0%, #081426 100%)",
-        padding: compact ? "24px 20px 40px" : "32px 56px 48px",
+        overflow: "hidden",
+        background: "#07101f",
+        padding: compact ? "16px 16px 16px" : "24px 48px 24px",
         boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          pointerEvents: "none",
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.015) 1px, transparent 1px)",
-          backgroundSize: "64px 64px, 64px 64px",
-          maskImage: "linear-gradient(to bottom, black 0%, transparent 90%)",
-        }}
-      />
+      <HeroRealMapPreview compact={compact} benefits={benefits} />
 
       <nav
         style={{
           position: "relative",
           zIndex: 30,
           maxWidth: 1400,
+          width: "100%",
           margin: "0 auto",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           gap: 24,
-          marginBottom: compact ? 48 : 80,
         }}
         aria-label="Navigazione principale"
       >
@@ -194,12 +173,6 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
                   >
                     Preventivo Rapido
                   </button>
-                  <button
-                    onClick={() => window.location.href = "/?page=consultant"}
-                    style={{ textAlign: "left", padding: "10px 12px", borderRadius: 8, background: "transparent", border: "none", color: "rgba(255, 255, 255, 0.8)", fontFamily: F.sans, fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}
-                  >
-                    Supporto Consulente
-                  </button>
                 </div>
               )}
             </div>
@@ -219,8 +192,6 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
           {compact && (
             <button
               type="button"
-              aria-label={menuOpen ? "Chiudi menu" : "Apri menu"}
-              aria-expanded={menuOpen}
               onClick={() => setMenuOpen((value) => !value)}
               style={hamburgerButtonStyle}
             >
@@ -237,86 +208,65 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
           <button onClick={() => { setMenuOpen(false); scrollToSection("come-funziona"); }} style={mobileMenuItemStyle}>Come funziona</button>
           <button onClick={() => { setMenuOpen(false); scrollToSection("prezzi"); }} style={mobileMenuItemStyle}>Prezzi</button>
           <button onClick={() => { setMenuOpen(false); onConfigure?.(); }} style={mobileMenuItemStyle}>Piattaforma: Configuratore</button>
-          <button onClick={() => { setMenuOpen(false); window.location.href = "/?page=quick"; }} style={{ ...mobileMenuItemStyle, color: "rgba(255,255,255,.65)", fontSize: 14 }}>↳ Preventivo Rapido</button>
-          <button onClick={() => { setMenuOpen(false); scrollToSection("chi-siamo"); }} style={mobileMenuItemStyle}>Chi siamo</button>
           <button onClick={() => { setMenuOpen(false); onLogin?.(); }} style={{ ...mobileMenuItemStyle, color: C.orange }}>Accedi</button>
-          <div style={{ marginTop: 8 }}>
-            <Button variant="primary" className="vb" onClick={() => { setMenuOpen(false); onConfigure?.(); }} style={{ ...primaryButtonStyle, width: "100%", minHeight: 48, justifyContent: "center" }}>
-              Configura la tua campagna
-            </Button>
-          </div>
         </div>
       )}
 
       <div
         style={{
           position: "relative",
-          zIndex: 1,
+          zIndex: 10,
           maxWidth: 1400,
-          margin: "0 auto",
-          display: "grid",
-          gridTemplateColumns: compact ? "1fr" : "1fr 1.2fr",
-          alignItems: "center",
-          gap: compact ? 48 : 64,
+          width: "100%",
+          margin: compact ? "16px auto 0" : "0 auto",
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          pointerEvents: "none",
         }}
       >
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.22, ease: "easeOut" }}
-          style={{ paddingTop: compact ? 0 : 16, position: "relative", zIndex: 10 }}
+          style={{ maxWidth: compact ? "100%" : "45%", pointerEvents: "auto" }}
         >
-          <div style={heroEyebrowStyle}>VOLANTINAGGIO &middot; DISTRIBUZIONE &middot; CONTROLLO GPS</div>
+          <div style={{ ...heroEyebrowStyle, marginBottom: compact ? 12 : 16 }}>VOLANTINAGGIO &middot; CONTROLLO GPS</div>
 
-          <h1 style={{ ...headlineStyle(compact), maxWidth: 700 }}>
-            Distribuisci volantini e verifica ogni consegna con <span style={{ color: C.orange }}>GPS e report fotografico</span>
+          <h1 style={{ ...headlineStyle(compact), maxWidth: 580 }}>
+            Distribuisci volantini e<br/>
+            verifica ogni consegna<br/>
+            con <span style={{ color: C.orange }}>GPS e report fotografico</span>
           </h1>
 
-          <p style={copyStyle(compact)}>
+          <p style={{ ...copyStyle(compact), maxWidth: 540, margin: compact ? "16px 0 24px" : "20px 0 28px" }}>
             Pianifica la zona, calcola quante famiglie puoi raggiungere e ricevi prove concrete al termine della distribuzione. Senza contratti fissi.
           </p>
 
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16, marginBottom: 20 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginBottom: 16 }}>
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.15 }}>
-              <Button variant="primary" className="vb" onClick={onQuote || (() => window.location.href = "/preventivo")} style={heroPrimaryButtonStyle}>
+              <Button variant="primary" className="vb" onClick={onQuote || (() => window.location.href = "/preventivo")} style={{ ...heroPrimaryButtonStyle, minHeight: 44, padding: "0 20px" }}>
                 Calcola la tua copertura
               </Button>
             </motion.div>
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.15 }}>
-              <Button variant="secondary" onClick={onHowItWorks} style={heroOutlineButtonStyle}>
+              <Button variant="secondary" onClick={onHowItWorks} style={{ ...heroOutlineButtonStyle, minHeight: 44, padding: "0 20px" }}>
                 Vedi i servizi
               </Button>
             </motion.div>
           </div>
           
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 32 }}>
-            {["Door to Door", "Hand to Hand", "Negozi", "Scuole", "Metro/Stazioni", "Report GPS"].map(chip => (
-              <span key={chip} style={{ padding: "5px 12px", borderRadius: 100, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", fontSize: 11, color: "rgba(226, 232, 240, 0.7)", fontWeight: 700, letterSpacing: "0.02em" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {["Door to Door", "Hand to Hand", "Negozi", "Scuole"].map(chip => (
+              <span key={chip} style={{ padding: "4px 10px", borderRadius: 100, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", fontSize: 10, color: "rgba(226, 232, 240, 0.7)", fontWeight: 700, letterSpacing: "0.02em" }}>
                 {chip}
               </span>
             ))}
           </div>
-
-          <div style={{ display: "grid", gap: 20 }}>
-            {benefits.map((benefit) => (
-              <div key={benefit.text} style={benefitRowStyle}>
-                <BenefitIcon type={benefit.icon} />
-                {benefit.text}
-              </div>
-            ))}
-          </div>
-
-          <div style={antiGhostClaimStyle}>
-            <span style={antiGhostIconStyle}>GPS</span>
-            <span>
-              <strong>10.000 volantini distribuiti?</strong><br />
-              Il GPS ti aiuta a verificare la copertura reale.
-            </span>
-          </div>
         </motion.div>
-
-        <HeroRealMapPreview compact={compact} />
       </div>
+      <div style={{ height: compact ? 480 : 220, width: "100%", flexShrink: 0, pointerEvents: "none" }} />
     </section>
   );
 }
@@ -437,6 +387,27 @@ function useHeroMapPreviewStyles() {
           animation: vpHeroScaleX .8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       }
+      .vp-hero-map-preview .vp-step2-map-shell {
+        height: 100% !important;
+      }
+      .vp-hero-map-preview .leaflet-radiusCenter-pane {
+        display: none !important;
+      }
+      .vp-hero-map-preview .leaflet-control-attribution {
+        background: rgba(10, 18, 32, 0.2) !important;
+        backdrop-filter: blur(4px) !important;
+        -webkit-backdrop-filter: blur(4px) !important;
+        border-radius: 4px !important;
+        border: 1px solid rgba(255,255,255,0.05) !important;
+        color: rgba(255,255,255,0.4) !important;
+        font-size: 8px !important;
+        padding: 1px 4px !important;
+        margin-bottom: 70px !important;
+        margin-right: 10px !important;
+      }
+      .vp-hero-map-preview .leaflet-control-attribution a {
+        color: rgba(255,255,255,0.5) !important;
+      }
       @keyframes vpHeroPolygonIn {
         from { fill-opacity: 0; stroke-opacity: .25; }
         to { fill-opacity: var(--leaflet-fill-opacity, .45); stroke-opacity: 1; }
@@ -467,7 +438,7 @@ function useHeroMapPreviewStyles() {
   }, []);
 }
 
-function HeroRealMapPreview({ compact }) {
+function HeroRealMapPreview({ compact, benefits }) {
   useHeroMapPreviewStyles();
   const [previewRef, previewVisible] = useInViewOnce();
   const previewCity = useMemo(() => ({
@@ -501,150 +472,181 @@ function HeroRealMapPreview({ compact }) {
   const animatedTotalFamilies = useCountUpNumber(totalFamilies, animateMetrics, { duration: 900 });
 
   return (
-    <div ref={previewRef} aria-label="Anteprima reale mappa territoriale" style={{ paddingTop: compact ? 0 : 22 }}>
-      {/* Monitor header */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: C.orange, textTransform: "uppercase", letterSpacing: "0.08em" }}>Monitor campagna</div>
-          <span className="vp-hero-badge" style={{...heroPreviewBadgeStyle, flexShrink: 0}}>Esempio analisi zona</span>
+    <>
+      <div ref={previewRef} className="vp-hero-map-preview" style={{
+        position: "absolute",
+        top: 0, right: 0, bottom: -60, left: compact ? 0 : "45%",
+        zIndex: 1,
+        pointerEvents: "auto",
+        overflow: "hidden"
+      }}>
+        <div style={{
+          position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none",
+          background: compact 
+            ? "linear-gradient(to bottom, #07101f 0%, rgba(7,16,31,0.85) 15%, rgba(7,16,31,0.2) 50%, #07101f 100%)"
+            : "linear-gradient(90deg, #07101f 0%, rgba(7,16,31,0.92) 10%, rgba(7,16,31,0.45) 30%, rgba(7,16,31,0) 60%, transparent 100%), linear-gradient(0deg, #07101f 0%, rgba(7,16,31,0) 15%)"
+        }} />
+
+        <div style={{ position: "absolute", inset: 0, zIndex: 1 }}>
+          {loading && <PreviewLoading />}
+          {!unavailable && (
+            <Step2Map
+              city={previewCity}
+              radius={radiusKm}
+              svcType="d2d"
+              serviceColor={C.orange}
+              zonesWithCoords={preview.zones}
+              selected={preview.zones.map((zone) => zone.id)}
+              activeLayers={{ radius: true, comuni: true, settori: false, civici: false, poi: false }}
+              settori={[]}
+              pois={[]}
+              civiciState={{ count: 0 }}
+              campaignZones={[{ id: "hero_preview", city: previewCity, cityName: previewCity.name, radiusKm, service_type: "d2d" }]}
+              activeZoneId="hero_preview"
+              themeMode={false}
+              opacityLevel="normal"
+              interactive={false}
+            />
+          )}
         </div>
-        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>Raggio, comuni coperti, quantità stimata e prove GPS.</div>
-      </div>
 
-      {/* Monitor shell */}
-      <div className="vp-hero-map-preview" style={heroPreviewShellStyle}>
-        {/* KPI row */}
-        <div style={{ padding: "12px 14px 0" }}>
-          <div style={heroPreviewMetricsStyle}>
-            <HeroMetric loading={loading} number={preview.families} animate={animateMetrics} label="Famiglie raggiungibili" highlight />
-            <HeroMetric loading={loading} number={radiusKm} suffix=" km" animate={animateMetrics} label="Raggio analisi" />
-            <HeroMetric loading={loading} number={preview.zones.length || null} animate={animateMetrics} label="Comuni coinvolti" />
-            <HeroMetric loading={loading} number={preview.coverage || null} suffix="%" animate={animateMetrics} label="Copertura stimata" fallback={preview.coverageLabel} />
-          </div>
-        </div>
-
-        {/* Map — clean, no overlay panel */}
-        <div style={{ padding: "12px 14px 14px" }}>
-          <div style={heroPreviewMapFrameStyle}>
-            {loading && <PreviewLoading />}
-            {unavailable ? (
-              <div style={heroPreviewUnavailableStyle}>
-                <strong>Anteprima dati non disponibile</strong>
-                <span>La mappa reale si attiva appena i dati territoriali sono disponibili.</span>
-              </div>
-            ) : (
-              <Step2Map
-                city={previewCity}
-                radius={radiusKm}
-                svcType="d2d"
-                serviceColor={C.orange}
-                zonesWithCoords={preview.zones}
-                selected={preview.zones.map((zone) => zone.id)}
-                activeLayers={{ radius: true, comuni: true, settori: false, civici: false, poi: false }}
-                settori={[]}
-                pois={[]}
-                civiciState={{ count: 0 }}
-                campaignZones={[{ id: "hero_preview", city: previewCity, cityName: previewCity.name, radiusKm, service_type: "d2d" }]}
-                activeZoneId="hero_preview"
-                themeMode={false}
-                opacityLevel="normal"
-              />
-            )}
-
-            {/* Center marker + radius label */}
-            {!unavailable && !loading && (
-              <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 450, display: "flex", flexDirection: "column", alignItems: "center", pointerEvents: "none" }}>
-                <motion.div
-                  animate={{
-                    scale: [1, 1.25, 1],
-                    boxShadow: [
-                      "0 0 16px rgba(232,87,26,0.85), 0 2px 8px rgba(0,0,0,0.5)",
-                      "0 0 28px rgba(232,87,26,1), 0 4px 12px rgba(0,0,0,0.6)",
-                      "0 0 16px rgba(232,87,26,0.85), 0 2px 8px rgba(0,0,0,0.5)"
-                    ]
-                  }}
-                  transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-                  style={{ width: 22, height: 22, background: C.orange, borderRadius: "50%", border: "3.5px solid #fff" }}
-                />
-                <div style={{ marginTop: 8, background: "rgba(8,15,30,0.92)", padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 800, color: "#fff", border: "1px solid rgba(232,87,26,0.35)", whiteSpace: "nowrap", boxShadow: "0 4px 16px rgba(0,0,0,0.5)", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                  <span style={{ fontSize: 9, color: C.orange, textTransform: "uppercase", letterSpacing: "0.06em" }}>Centro campagna</span>
-                  <span>Raggio {radiusKm} km</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Analisi zona card — OUTSIDE the map */}
-      {!unavailable && (
-        <div className="vp-hero-card" style={heroAnalisiZonaCardStyle}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 900, color: C.orange, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Analisi zona</div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>Comuni nel raggio selezionato</div>
+        {!unavailable && !loading && (
+          // Il wrapper coincide in pixel con .leaflet-container (stesso box:
+          // vedi vp-hero-map-preview/vp-step2-map-shell), quindi 50%/50% e'
+          // esattamente il container point del center passato a Step2Map
+          // (stesso previewCity usato dal L.circle) — non un'approssimazione
+          // visiva. Dimensioni del wrapper = dimensioni del pallino, cosi'
+          // translate(-50%,-50%) centra il pallino stesso, non il blocco
+          // pallino+etichetta: l'etichetta e' un figlio assoluto sotto di
+          // esso e non influenza il centraggio.
+          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 3, pointerEvents: "none", width: 18, height: 18 }}>
+            <motion.div
+              animate={{
+                scale: [1, 1.25, 1],
+                boxShadow: [
+                  "0 0 16px rgba(232,87,26,0.85), 0 2px 8px rgba(0,0,0,0.5)",
+                  "0 0 28px rgba(232,87,26,1), 0 4px 12px rgba(0,0,0,0.6)",
+                  "0 0 16px rgba(232,87,26,0.85), 0 2px 8px rgba(0,0,0,0.5)"
+                ]
+              }}
+              transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+              style={{ width: 18, height: 18, background: C.orange, borderRadius: "50%", border: "3px solid #fff" }}
+            />
+            <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", marginTop: 6, background: "rgba(8,15,30,0.85)", padding: "4px 8px", borderRadius: 6, fontSize: 10, fontWeight: 800, color: "#fff", border: "1px solid rgba(232,87,26,0.35)", whiteSpace: "nowrap", boxShadow: "0 2px 10px rgba(0,0,0,0.4)", display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+              <span style={{ fontSize: 8, color: C.orange, textTransform: "uppercase", letterSpacing: "0.06em" }}>Centro campagna</span>
+              <span>Raggio {radiusKm} km</span>
             </div>
+          </div>
+        )}
 
+        {!unavailable && (
+          <div style={{
+            position: "absolute",
+            top: compact ? 64 : 90,
+            right: compact ? 16 : "6%",
+            left: compact ? 16 : "auto",
+            zIndex: 4,
+            display: "grid",
+            gridTemplateColumns: compact ? "1fr 1fr" : "repeat(4, auto)",
+            justifyContent: compact ? "stretch" : "end",
+            gap: compact ? 8 : 12,
+            pointerEvents: "none"
+          }}>
+            <FloatingKPI loading={loading} number={preview.families} animate={animateMetrics} label="Famiglie raggiungibili" highlight />
+            <FloatingKPI loading={loading} number={radiusKm} suffix=" Km" animate={animateMetrics} label="Raggio analisi" />
+            <FloatingKPI loading={loading} number={preview.zones.length || null} animate={animateMetrics} label="Comuni coinvolti" />
+            <FloatingKPI loading={loading} number={preview.coverage || null} suffix="%" animate={animateMetrics} label="Copertura stimata" fallback={preview.coverageLabel} />
+          </div>
+        )}
+      </div>
+
+      {!unavailable && (
+        <div style={{
+          position: "absolute",
+          bottom: compact ? 12 : 12,
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "calc(100% - 24px)",
+          maxWidth: 1360,
+          zIndex: 20,
+          background: "rgba(8, 16, 28, 0.25)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 16,
+          padding: compact ? 16 : "20px 28px",
+          display: "grid",
+          gridTemplateColumns: compact ? "1fr" : "1.2fr 1fr 0.8fr",
+          gap: compact ? 20 : 40,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+        }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, justifyContent: "center" }}>
+            {benefits.map(b => (
+              <div key={b.text} style={{ display: "flex", gap: 10, alignItems: "flex-start", color: "rgba(226, 232, 240, 0.9)", fontSize: 13, fontWeight: 500, lineHeight: 1.3 }}>
+                 <div style={{ flexShrink: 0, marginTop: 1 }}><BenefitIcon type={b.icon} /></div>
+                 <span>{b.text}</span>
+              </div>
+            ))}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: compact ? "1fr" : "1fr 1fr", gap: compact ? 8 : 12 }}>
-            {/* Zones list */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {visibleZones.map((zone, index) => (
-                <div key={zone.id} className="vp-hero-zone-row" style={{ ...heroPreviewZoneRowStyle, margin: 0, animationDelay: `${350 + index * 90}ms` }}>
-                  <span style={{ ...heroPreviewDotStyle, background: zone.color }} />
-                  <span style={heroPreviewZoneNameStyle}>{zone.name}</span>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", justifySelf: "end" }}>
-                    {zone.coverage ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                        <div style={{ width: 32, height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
-                          <div className="vp-hero-coverage-fill" style={{ width: `${Math.round(zone.coverage)}%`, height: "100%", background: zone.color, animationDelay: `${500 + index * 90}ms` }} />
-                        </div>
-                        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", fontWeight: 700, minWidth: 26, textAlign: "right" }}>{Math.round(zone.coverage)}%</span>
-                      </div>
-                    ) : null}
-                    <span style={heroPreviewZoneValueStyle}>{formatHeroNumber(zone.families)} fam.</span>
+          <div style={{ borderTop: compact ? "1px solid rgba(255,255,255,0.08)" : "none", paddingTop: compact ? 16 : 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, color: C.orange, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>Analisi Zona</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "6px" }}>
+              {visibleZones.map((z, i) => (
+                <div key={z.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, animation: animateMetrics ? `vpHeroRowIn .45s cubic-bezier(0.16, 1, 0.3, 1) forwards ${350 + i * 90}ms` : 'none', opacity: animateMetrics ? 0 : 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: z.color, flexShrink: 0 }} />
+                    <span style={{ color: "#f8fafc", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{z.name}</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ color: "rgba(255,255,255,0.9)", fontWeight: 800 }}>{formatHeroNumber(z.families)}</span>
+                    <span style={{ color: "rgba(255,255,255,0.4)", fontWeight: 700, minWidth: 28, textAlign: "right" }}>{Math.round(z.coverage || 0)}%</span>
                   </div>
                 </div>
               ))}
               {hiddenZoneCount > 0 && (
-                <div className="vp-hero-zone-row" style={{ ...heroPreviewMoreRowStyle, margin: 0, animationDelay: `${350 + visibleZones.length * 90}ms` }}>
-                  <span>+ altri {formatNumero(hiddenZoneCount)} comuni</span>
-                  <span style={heroPreviewZoneValueStyle}>&middot; {formatHeroNumber(preview.zones.slice(visibleZoneCount).reduce((s, z) => s + z.families, 0))} fam.</span>
-                </div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontWeight: 600, marginTop: 2 }}>+ altri {hiddenZoneCount} comuni ({formatHeroNumber(preview.zones.slice(visibleZoneCount).reduce((s, z) => s + z.families, 0))} fam.)</div>
               )}
             </div>
+          </div>
 
-            {/* Totale + footer */}
-            <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-              <div style={{ ...heroPreviewTotalStyle, marginTop: 0 }}>
-                <span>Totale famiglie</span>
-                <strong style={{ color: C.orange, fontSize: 16 }}>{formatHeroNumber(animatedTotalFamilies ?? 0)}</strong>
-              </div>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontStyle: "italic", marginTop: 12 }}>
-                Copertura calcolata sul raggio selezionato
-              </div>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 8, display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.2)", fontSize: 9, color: "rgba(255,255,255,0.45)", flexShrink: 0 }}>ⓘ</span>
-                <span>Copertura = % famiglie raggiunte sul totale dei comuni nel raggio</span>
-              </div>
+          <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", borderLeft: compact ? "none" : "1px solid rgba(255,255,255,0.08)", paddingLeft: compact ? 0 : 28, paddingTop: compact ? 16 : 0, borderTop: compact ? "1px solid rgba(255,255,255,0.08)" : "none" }}>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.05em", marginBottom: 4 }}>Totale famiglie</div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: C.white, fontFamily: "'JetBrains Mono', monospace", letterSpacing: "-0.04em", lineHeight: 1 }}>{formatHeroNumber(animatedTotalFamilies ?? 0)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.05em", marginBottom: 4 }}>Copertura stimata</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: C.orange, fontFamily: "'JetBrains Mono', monospace", letterSpacing: "-0.04em", lineHeight: 1 }}>{preview.coverage ? `${Math.round(preview.coverage)}%` : preview.coverageLabel}</div>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
-function HeroMetric({ loading, number, value, suffix = "", label, highlight, animate, fallback = "n/d" }) {
+function FloatingKPI({ loading, number, value, suffix = "", label, highlight, animate, fallback = "n/d" }) {
   const counted = useCountUpNumber(number, animate);
   const hasNumber = number != null && Number.isFinite(Number(number));
-  const displayValue = hasNumber ? `${formatNumero(counted)}${suffix}` : value ?? fallback;
+  const displayValue = hasNumber ? `${formatHeroNumber(counted)}${suffix}` : value ?? fallback;
 
   return (
-    <div style={heroMetricStyle}>
-      {loading ? <span style={heroMetricSkeletonStyle} /> : <strong style={{ color: highlight ? C.orange : C.white, fontSize: 20, fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, letterSpacing: "-0.03em" }}>{displayValue}</strong>}
-      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700 }}>{label}</span>
+    <div style={{
+      background: "rgba(8, 14, 26, 0.18)",
+      backdropFilter: "blur(10px)",
+      WebkitBackdropFilter: "blur(10px)",
+      border: "1px solid rgba(255,255,255,0.10)",
+      borderRadius: 12,
+      padding: "10px 14px",
+      display: "flex",
+      flexDirection: "column",
+      gap: 2,
+      boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+      minWidth: 120,
+    }}>
+      {loading ? <span style={heroMetricSkeletonStyle} /> : <strong style={{ color: highlight ? C.orange : C.white, fontSize: 18, fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, letterSpacing: "-0.03em" }}>{displayValue}</strong>}
+      <span style={{ fontSize: 9, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: "0.02em", fontWeight: 700 }}>{label}</span>
     </div>
   );
 }
@@ -1033,8 +1035,10 @@ const headerOutlineButtonStyle = {
   minHeight: 46,
   padding: "0 20px",
   borderRadius: 8,
-  border: "1px solid rgba(255, 255, 255, 0.15)",
-  background: "rgba(255, 255, 255, 0.04)",
+  border: "1px solid rgba(255, 255, 255, 0.12)",
+  background: "rgba(8, 14, 26, 0.16)",
+  backdropFilter: "blur(10px)",
+  WebkitBackdropFilter: "blur(10px)",
   color: C.white,
   fontFamily: F.sans,
   fontSize: 14,
@@ -1045,6 +1049,7 @@ const headerOutlineButtonStyle = {
   justifyContent: "center",
   gap: 8,
   transition: "all 0.2s ease",
+  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
 };
 
 const primaryButtonStyle = {
@@ -1169,12 +1174,12 @@ const heroEyebrowStyle = {
 const headlineStyle = (compact) => ({
   margin: 0,
   fontFamily: "'DM Serif Display', Georgia, serif",
-  fontSize: compact ? 46 : "clamp(52px, 4.5vw, 78px)",
-  lineHeight: 1.05,
+  fontSize: compact ? 42 : "clamp(58px, 5vw, 82px)",
+  lineHeight: 1.02,
   fontWeight: 400,
-  letterSpacing: "-0.03em",
+  letterSpacing: "-0.02em",
   color: C.white,
-  textShadow: "0 24px 48px rgba(0, 0, 0, 0.5)",
+  textShadow: "0 16px 32px rgba(0, 0, 0, 0.4)",
 });
 
 const copyStyle = (compact) => ({

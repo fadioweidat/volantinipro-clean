@@ -1,3 +1,93 @@
+import 'leaflet/dist/leaflet.css';
+import { CircleMarker, MapContainer, Polygon, Polyline, TileLayer } from 'react-leaflet';
+
+const NA = 'Non disponibile';
+
+function formatPercent(value) {
+  return value == null ? NA : `${value}%`;
+}
+
+function formatKm(value) {
+  return value == null ? NA : `${value.toFixed(2)} km`;
+}
+
+function formatCount(value) {
+  return value == null ? NA : formatNumber(value);
+}
+
+function zoneGeometryToLatLngs(geometry) {
+  if (!geometry?.coordinates) return [];
+  if (geometry.type === 'Polygon') return geometry.coordinates.map((ring) => ring.map((p) => [p[1], p[0]]));
+  if (geometry.type === 'MultiPolygon') return geometry.coordinates.flatMap((poly) => poly.map((ring) => ring.map((p) => [p[1], p[0]])));
+  return [];
+}
+
+// Sezione "Tracciamento GPS e Copertura" — visibile a Cliente E Admin allo
+// stesso modo (stesso componente condiviso da ClientCampaignReport.jsx e
+// dalla vista "Cliente/Finale" di CampaignReport.jsx): nessun dato tecnico
+// aggiuntivo qui, solo cio' che il ticket chiede sia comune a entrambi.
+// Mappa interattiva a schermo (confine reale + traccia reale, mai un
+// cerchio/traccia inventati); lo screenshot statico embeddato nel PDF e'
+// generato separatamente al momento del download (captureZoneMapSnapshot.js).
+function GpsCoverageSection({ zones }) {
+  if (!zones.length) return null;
+  return (
+    <section style={cardStyle}>
+      <p style={eyebrowStyle}>Tracciamento GPS e copertura</p>
+      <p style={{ margin: '0 0 14px', color: '#64748b', fontSize: 13 }}>
+        Per ogni zona: confine reale del comune (se disponibile), traccia GPS reale registrata, e scomposizione
+        della copertura tra rilevazione GPS e integrazione manuale Admin — mai un totale unico senza distinguerle.
+      </p>
+      {zones.map((zone, index) => (
+        <div key={`${zone.name}-gps-${index}`} style={gpsZoneCardStyle}>
+          <div style={gpsZoneHeaderStyle}>
+            <strong>{zone.name}</strong>
+            <span style={zoneStatusStyle(zone.finalStatus === 'Completata con integrazione manuale' ? 'Parziale' : zone.finalStatus)}>{zone.finalStatus}</span>
+          </div>
+
+          {zone.boundaryAvailable || zone.traceAvailable ? (
+            <div style={gpsMapFrameStyle}>
+              <MapContainer
+                center={zone.tracePoints?.[0] ? [Number(zone.tracePoints[0].lat), Number(zone.tracePoints[0].lng)] : [45.4642, 9.19]}
+                zoom={13}
+                scrollWheelZoom={false}
+                style={{ height: '100%', width: '100%' }}
+              >
+                <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                {zone.boundaryAvailable && zoneGeometryToLatLngs(zone.boundaryGeometry).length > 0 && (
+                  <Polygon positions={zoneGeometryToLatLngs(zone.boundaryGeometry)} pathOptions={{ color: '#e8571a', weight: 2, fillColor: '#e8571a', fillOpacity: 0.08 }} />
+                )}
+                {(zone.tracePoints || []).length > 1 && (
+                  <Polyline
+                    positions={zone.tracePoints.map((p) => [Number(p.lat), Number(p.lng)])}
+                    pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.85 }}
+                  />
+                )}
+                {zone.tracePoints?.[0] && (
+                  <CircleMarker center={[Number(zone.tracePoints[0].lat), Number(zone.tracePoints[0].lng)]} radius={6} pathOptions={{ color: '#0f766e', fillColor: '#0f766e', fillOpacity: 0.95 }} />
+                )}
+              </MapContainer>
+            </div>
+          ) : (
+            <div style={gpsMapPlaceholderStyle}>
+              {zone.traceAvailable ? 'Confine comune non disponibile per questa zona.' : 'Nessun tracciamento GPS disponibile.'}
+            </div>
+          )}
+
+          <div style={gpsKpiGridStyle}>
+            <Kpi label="Copertura GPS reale" value={formatPercent(zone.gpsCoveragePercent)} />
+            <Kpi label="Integrazione manuale Admin" value={formatPercent(zone.manualCoveragePercent)} />
+            <Kpi label="Copertura finale certificata" value={formatPercent(zone.finalCoveragePercent)} />
+            <Kpi label="Km GPS totali" value={formatKm(zone.gpsDistanceKm)} />
+            <Kpi label="Punti GPS validi" value={formatCount(zone.validGpsPoints)} />
+            <Kpi label="Durata sessioni" value={formatDuration(zone.durationMs)} />
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 function formatDate(value, dateOnly = false) {
   if (!value) return 'Dato non disponibile';
   const date = new Date(value);
@@ -62,6 +152,8 @@ export function FinalDistributionReportView({ report, loading = false }) {
           </table>
         </div>
       </section>
+
+      <GpsCoverageSection zones={report.zones} />
 
       <section style={twoColumnStyle}>
         <div style={cardStyle}>
@@ -131,3 +223,8 @@ const photoStyle = { width: '100%', height: 145, objectFit: 'cover', borderRadiu
 const mutedStyle = { display: 'block', marginTop: 8, color: '#64748b' };
 const emptyStyle = { padding: 18, border: '1px dashed #cbd5e1', borderRadius: 10, color: '#64748b' };
 const footerStyle = { padding: '20px 4px', color: '#64748b', fontSize: 12, textAlign: 'center' };
+const gpsZoneCardStyle = { marginTop: 16, paddingTop: 16, borderTop: '1px solid #edf1ee' };
+const gpsZoneHeaderStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 10, color: '#17211f', fontSize: 15 };
+const gpsMapFrameStyle = { height: 260, borderRadius: 10, overflow: 'hidden', border: '1px solid #d7ded9' };
+const gpsMapPlaceholderStyle = { padding: 18, textAlign: 'center', border: '1px dashed #cbd5e1', borderRadius: 10, color: '#64748b', background: '#f8fafc' };
+const gpsKpiGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10, marginTop: 12 };

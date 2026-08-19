@@ -11,6 +11,7 @@ import {
 } from "../../../ai-foundation/integrations/customer-dashboard/CustomerDashboardReadOnlyRuntime.mjs";
 import { runCustomerAssistant, classifyCustomerIntent } from "../../../ai/adapters/customerAssistantAdapter.js";
 import { AI_RESPONSE_STATUSES } from "../../../ai/schema/aiResponseSchema.js";
+import { resolveLatestQuoteCampaign, resolveOwnedCampaignSelection, safeCampaign } from "../../../ai-foundation/integrations/customer-dashboard/customerDashboardAdapters.mjs";
 import "./customer-ai-assistant.css";
 
 const SUGGESTIONS = Object.freeze([
@@ -62,6 +63,13 @@ export default function CustomerAiAssistantPanel({ session, customer, campaigns 
 
   const identityReady = Boolean(authState === "ready" && authUser?.id && customer?.id && customer?.email && authUser.email.toLowerCase() === String(customer.email).toLowerCase());
   const sessionId = useMemo(() => identityReady ? getSessionId(authUser.id) : null, [identityReady, authUser?.id]);
+  const campaignSelection = useMemo(() => {
+    const safeCampaigns = campaigns.map(safeCampaign);
+    return {
+      ...resolveOwnedCampaignSelection(safeCampaigns),
+      latestQuote: resolveLatestQuoteCampaign(safeCampaigns),
+    };
+  }, [campaigns]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -79,15 +87,11 @@ export default function CustomerAiAssistantPanel({ session, customer, campaigns 
     setMessage("");
     setHistory((prev) => [...prev, { role: "user", content: question, at: new Date().toISOString(), aiResponse: null }]);
     try {
-      const activeQuote = campaigns.find((campaign) => {
-        const status = campaign?.stato ?? campaign?.status;
-        const metadata = campaign?.metadata && typeof campaign.metadata === "object" ? campaign.metadata : {};
-        return Boolean(metadata.quote_summary) || ["preventivo", "inviato", "in_preparazione"].includes(status);
-      }) ?? null;
       const intentName = classifyCustomerIntent(question);
       const response = await runCustomerAssistant({
         sessionId, authUser, customer, campaigns, dataLoading, dataError,
-        activeCampaign: campaigns[0] ?? null, activeQuote, location: window.location.href, intentName,
+        activeCampaign: campaignSelection.currentCampaign, activeQuote: campaignSelection.latestQuote,
+        location: window.location.href, intentName, question,
       });
       setHistory((prev) => [...prev, { role: "assistant", content: response.answer, at: new Date().toISOString(), aiResponse: response }]);
     } catch {

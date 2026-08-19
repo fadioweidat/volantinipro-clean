@@ -57,7 +57,7 @@ function emptyText(intent) {
 function factualText(intent, payload) {
   const data = payload.data;
   if (payload.state === CUSTOMER_TOOL_DATA_STATES.EMPTY) return emptyText(intent);
-  if (intent === "status") return `La campagna piu recente risulta ${statusLabel(data.status)}.`;
+  if (intent === "status") return `La campagna corrente in zona ${data.zone || "non disponibile"} risulta ${statusLabel(data.status)}.`;
   if (intent === "recent") return data.map((campaign, index) => `${index + 1}. ${campaign.zone || "Zona non disponibile"} - ${statusLabel(campaign.status)} - ${formatNumber(campaign.quantity)} volantini.`).join("\n");
   if (intent === "quote") return `L'ultimo preventivo disponibile riguarda ${serviceLabel(data.service)}, ${formatNumber(data.quantity)} volantini, zona ${data.zone || "non disponibile"}${data.totalAmount == null ? ". Totale non disponibile." : `, totale reale EUR ${data.totalAmount.toLocaleString("it-IT", { minimumFractionDigits: 2 })}.`}`;
   if (intent === "service") return `Il servizio indicato per la campagna piu recente e ${serviceLabel(data.service)}.`;
@@ -66,7 +66,7 @@ function factualText(intent, payload) {
   if (intent === "schedule") return `Il lavoro risulta programmato dal ${formatDate(data.startDate)} al ${formatDate(data.endDate)}.`;
   if (intent === "completion") return ["completata", "report_pronto"].includes(data.status) ? "Si, la campagna piu recente risulta completata." : `No: lo stato disponibile e ${statusLabel(data.status)}.`;
   if (intent === "assets") return `${data.reportIndicator ? "Lo stato campagna indica che un report puo essere disponibile." : "Lo stato campagna non indica ancora un report disponibile."} La fonte foto non e collegata a questo assistente, quindi non posso confermarne la disponibilita.`;
-  if (intent === "overview") return `La Dashboard contiene ${data.campaignCount} campagne: ${data.activeCount} attive, ${data.completedCount} completate, ${data.pendingPaymentCount} con pagamento da verificare e ${data.reportIndicatorCount} con indicatore report.`;
+  if (intent === "overview") return `La Dashboard contiene ${data.campaignCount} campagne: ${data.activeCount} attive, ${data.completedCount} completate, ${data.pendingPaymentCount} con pagamento da verificare e ${data.reportIndicatorCount} con indicatore report. La campagna corrente e ${data.currentCampaign?.zone || "non disponibile"}; l'ultima campagna creata e ${data.latestCampaign?.zone || "non disponibile"}.`;
   if (intent === "missing") return data.noCampaigns ? "Non ci sono campagne da verificare." : data.fields.length ? `Nella campagna piu recente mancano: ${data.fields.join(", ")}.` : "I campi principali della campagna piu recente risultano disponibili.";
   if (intent === "profile") return `Il profilo cliente autenticato e ${data.name || data.email || "disponibile"}.`;
   return "Questa richiesta non e ancora supportata dall'Assistente VolantiniPro. Consulta le sezioni Campagne e preventivi della Dashboard.";

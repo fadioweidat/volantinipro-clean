@@ -4,7 +4,7 @@ import { C, F, x, w, j, T, z, R } from "../../../lib/constants.js";
 import KpiTooltip from "../../../components/ui/KpiTooltip.jsx";
 import { useIsMobile } from "../../../hooks/useIsMobile.js";
 import { AnimatePresence, motion } from "framer-motion";
-import { AUTH_EXPIRED_MESSAGE, clearExpiredSupabaseSession, ensureRestSessionFromSdk, getStoredSupabaseSession, hasSupabaseConfig, isAuthTokenExpiredError, isStoredSupabaseSessionExpired, saveCampaign } from "../../../lib/supabaseClient.js";
+import { submitPublicCampaign, AUTH_EXPIRED_MESSAGE, clearExpiredSupabaseSession, ensureRestSessionFromSdk, getStoredSupabaseSession, hasSupabaseConfig, isAuthTokenExpiredError, isStoredSupabaseSessionExpired, saveCampaign } from "../../../lib/supabaseClient.js";
 import { buildExtraServicesById, buildExtraServicesRegistry, buildOptionalExtras, buildSvcCommercial, normalizeSelectedExtras } from "../../../lib/extraServicesRegistry.js";
 import { BUSINESS_DELIVERY_METHODS, BUSINESS_MATERIAL_LOCATIONS, BUSINESS_OBJECTIVES, BUSINESS_PROOF_OPTIONS, BUSINESS_RECIPIENTS, businessCategoryLabel, businessOptionLabel, calculateBusinessMaterials, calculateBusinessOperationalPlan } from "../../../lib/business/business-config.js";
 import { formatAreaKm2, formatNumber, formatPaperWeight } from "../../../lib/utils/format.js";
@@ -21,6 +21,8 @@ import { Step1Icon } from "../../../components/Step1Icon.jsx";
 import { truthfulSourceLabel } from "../../../lib/step2/truthfulSourceLabel.js";
 import { useCliente } from "../../../hooks/useCliente.js";
 import { calculateQuotePricing, formatQuoteCurrency, resolveQuoteQuantity } from "../../../lib/quotePricing.js";
+import { resolveConfiguratorDistributionZones } from "../../../lib/pricing/resolveConfiguratorDistributionZones.js";
+import { URGENCY_SURCHARGE_PCT } from "../../../lib/pricing/distributionPricing.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
 export function Step4({
@@ -34,12 +36,12 @@ export function Step4({
   const isMobile = useIsMobile();
   const [sent, setSent] = useState(false);
   const [savingCampaign, setSavingCampaign] = useState(false);
+  const campaignSaveInFlightRef = useRef(false);
+  const { cliente } = useCliente();
+  const [clientForm, setClientForm] = useState({ nome: cliente?.nome || '', email: cliente?.email || '', telefono: cliente?.telefono || '', azienda: cliente?.company_name || '' });
   const [campaignSaveError, setCampaignSaveError] = useState(null);
   const [showLoginRequired, setShowLoginRequired] = useState(false);
   const [savedCampaign, setSavedCampaign] = useState(null);
-  const {
-    cliente
-  } = useCliente();
   const [emailSent, setEmailSent] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState("");
@@ -67,6 +69,14 @@ export function Step4({
   const flyerQty = (data.coverageDecision === "increase" || data.coverageDecision === "useRecommended") && data.fullCoverageFlyers != null && rawFlyerQty != null ? Math.max(rawFlyerQty, Number(data.fullCoverageFlyers)) : rawFlyerQty;
   const pricePerThousand = QUOTE_PRICES[svcType] || 18.5;
   const unitPricePerFlyer = pricePerThousand / 1000;
+  // P0 WIRING REALE — griglia territoriale attiva SOLO per D2D (sezione 9
+  // del ticket precedente + sezione 9 di questo: "NON applicare
+  // automaticamente questa griglia a... ALTRI SERVIZI"). h2h/b2b restano
+  // sulla tariffa flat QUOTE_PRICES invariata (distributionZonesForPricing
+  // resta null per loro, calculateQuotePricing ricade sul vecchio calcolo).
+  const distributionZonesForPricing = svcType === "d2d"
+    ? resolveConfiguratorDistributionZones(data, flyerQty).zones
+    : null;
   const zones = data.zones || [];
   const selZ = [...S2_ZONES.filter(z => zones.includes(z.id)), ...(data.selectedCaps || []).map(cap => data.capDataMap?.[cap]).filter(Boolean)].filter(z => !z.unavailable);
   const totF = selZ.reduce((a, z) => a + z.families, 0);
@@ -414,14 +424,27 @@ export function Step4({
         </div>
       </div>;
   };
+  // P1 PRICING ENGINE sezione 11: sostituiti -5/-10/-15 con -3/-5/-8.
   const subDiscPct = data.planDiscount || {
     single: 0,
-    monthly3: 5,
-    monthly6: 10,
-    monthly12: 15
+    monthly3: 3,
+    monthly6: 5,
+    monthly12: 8
   }[data.subscription] || 0;
-  const pricing = calculateQuotePricing({ quantity: flyerQty, pricePerThousand, smartPairingDiscountPct: disc, urgency: data.urgency, planDiscountPct: subDiscPct, extras: selectedExtras });
+  // P1 STAMPA SEPARATA DAL PREVENTIVO: "printing" e' un prezzo indicativo da
+  // confermare in tipografia, non fa parte del totale distribuzione pagabile
+  // (total_amount). Va escluso dall'array "extras" passato al motore prezzi
+  // e mostrato/salvato come stima separata (metadata.printing.estimatedPrice).
+  const printingExtra = selectedExtras.find(e => e.id === "printing") || null;
+  const distributionExtras = selectedExtras.filter(e => e.id !== "printing");
+  const printingEstimatedPrice = printingExtra?.price || 0;
+  const pricing = calculateQuotePricing({ quantity: flyerQty, pricePerThousand, smartPairingDiscountPct: disc, urgency: data.urgency, planDiscountPct: subDiscPct, extras: distributionExtras, distributionZones: distributionZonesForPricing });
   const { baseCost, smartPairingDiscount, urgencySurcharge: urgSurch, subtotalBeforePlan, planDiscountAmount, extraCost, total } = pricing;
+  // P0 WIRING REALE sezione 7/8: percentuale reale applicata (0/20/35),
+  // usata per correggere le etichette "+30%" statiche sotto (non
+  // riflettevano piu' la vera sovrapprezzo dopo il fix dell'urgenza a 3
+  // livelli, e non distinguevano affatto "express").
+  const urgencySurchargePctLabel = URGENCY_SURCHARGE_PCT[data.urgency === "urgent" ? "urgent" : data.urgency === "express" ? "express" : "standard"] ?? 0;
   const flyWRaw = {
     80: 80,
     115: 115,
@@ -542,7 +565,7 @@ export function Step4({
     const pts = k.split("-");
     return `${pts[2]} ${MONTHS_SHORT[parseInt(pts[1])]}`;
   }).join(" – ") : "Nessuna data selezionata";
-  const serviceExtras = selectedExtras.map(e => ({
+  const serviceExtras = distributionExtras.map(e => ({
     l: e.label,
     v: e.price > 0 ? `+${eur(e.price)}` : e.isUrgent ? "Incluso in urgenza" : "Incluso",
     c: e.isUrgent ? C.red : e.price > 0 ? C.blue : C.green,
@@ -1046,7 +1069,7 @@ export function Step4({
         total: baseCost
       }],
       subtotal: baseCost,
-      extras: selectedExtras.map(e => ({
+      extras: distributionExtras.map(e => ({
         label: e.label,
         amount: e.price,
         status: e.status
@@ -1060,7 +1083,12 @@ export function Step4({
         amount: planDiscountAmount,
         percentage: subDiscPct
       } : null].filter(Boolean),
-      total
+      total,
+      printing: printingExtra ? {
+        label: "Stampa indicativa",
+        amount: printingEstimatedPrice,
+        note: "Da confermare in tipografia — non inclusa nel totale distribuzione"
+      } : null
     },
     sources: svcType === "d2d" ? d2dSummarySources : serviceSummaryConfig.sources || []
   };
@@ -1125,53 +1153,60 @@ export function Step4({
     else window.location.href = "/" + u;
   }
   async function handleConfirmCampaign() {
-    if (!canConfirm || savingCampaign) return;
+    if (!canConfirm || campaignSaveInFlightRef.current) return;
+    
+    // Validazione form
+    if (!clientForm.nome || !clientForm.email) {
+      setCampaignSaveError("Compila Nome e Email per procedere.");
+      return;
+    }
+
+    campaignSaveInFlightRef.current = true;
     setSavingCampaign(true);
     setCampaignSaveError(null);
     setShowLoginRequired(false);
+
     try {
-      if (hasSupabaseConfig() && isStoredSupabaseSessionExpired()) {
-        console.warn("[AUTH_TOKEN_EXPIRED]", {
-          action: "confirm_campaign"
-        });
-        clearExpiredSupabaseSession();
-        redirectToLoginAfterExpiredSession();
-        return;
-      }
-      if (hasSupabaseConfig()) {
-        await ensureRestSessionFromSdk({
-          action: "confirm_campaign"
-        });
-      }
-      const session = typeof getStoredSupabaseSession === "function" ? getStoredSupabaseSession() : null;
-      const hasValidClientSession = Boolean(session?.accessToken || session?.access_token || cliente?.email && cliente.email !== "dev@volantinipro.local");
-      if (!hasValidClientSession && hasSupabaseConfig()) {
-        setCampaignSaveError("Per confermare e salvare la campagna devi accedere con email.");
-        setShowLoginRequired(true);
-        try {
-          localStorage.setItem("volantinipro_return_to", "step4");
-          localStorage.setItem("volantinipro_pending_action", "confirm_campaign");
-          localStorage.setItem("volantinipro_pending_campaign_draft", JSON.stringify(data));
-        } catch {}
-        setSent(false);
-        setSavingCampaign(false);
-        return;
-      }
-      setConfirmSyncStatus(hasSupabaseConfig() ? "Salvataggio campagna in corso..." : "Backend non configurato: puoi scaricare il PDF o inviare una richiesta disponibilità.");
-      if (!hasSupabaseConfig()) {
-        setSent(true);
-        setSavingCampaign(false);
-        return;
-      }
-      const savedCampaign = await saveCampaign({
+      setConfirmSyncStatus("Inoltro richiesta in corso...");
+
+      // Zone strutturate per comune, non solo il nome nel title/city: source
+      // of truth per campaign_zones lato Edge Function. zonesAllocation (Step2)
+      // ha già quantità/comune reali per riga quando disponibile; senza
+      // allocazione granulare (es. preventivo rapido) si ripartisce comunque
+      // la quantità totale sui comuni selezionati, mai un singolo blob "city".
+      const campaignZonesPayload = zoneAllocs.length > 0
+        ? zoneAllocs.map((z, idx) => ({
+            municipality: step4AreaLabel(z.name) || `Zona ${idx + 1}`,
+            quantity: Number(z.assignedFlyers ?? z.requiredFlyers ?? 0) || 0,
+            priority: idx + 1,
+            lat: Number.isFinite(Number(z.lat)) ? Number(z.lat) : null,
+            lng: Number.isFinite(Number(z.lng)) ? Number(z.lng) : null,
+          }))
+        : selectedZoneNames.map((name, idx) => ({
+            municipality: name,
+            quantity: selectedZoneNames.length > 0 && Number.isFinite(flyerQty)
+              ? Math.round(flyerQty / selectedZoneNames.length)
+              : null,
+            priority: idx + 1,
+            lat: null,
+            lng: null,
+          }));
+
+      const payload = {
+        title: `Campagna Preventivo (${clientForm.nome})`,
         service_type: svcType,
-        status: "confermata",
+        status: "pending_review",
         city_name: data.cityName || data.searchedLocation || mainAreaLabel,
         zone_ids: zones,
+        campaignZones: campaignZonesPayload,
         flyer_quantity: flyerQty,
         flyer_format: data.flyerFormat,
         start_date: data.startDate || data.campaignPeriodStart || null,
         end_date: data.endDate || data.campaignPeriodEnd || null,
+        client_name: clientForm.nome,
+        client_email: clientForm.email,
+        client_phone: clientForm.telefono,
+        company_name: clientForm.azienda,
         smart_pairing_discount: disc,
         total_amount: Number(total.toFixed(2)),
         metadata: {
@@ -1190,73 +1225,78 @@ export function Step4({
           formato: data.flyerFormat,
           materiale: alreadyPrinted ? "già stampato" : "Da produrre",
           piano: subL,
-          servizi_extra: selectedExtras.map(e => ({
-            id: e.id,
-            label: e.label,
-            price: e.price || 0
-          })),
+          servizi_extra: selectedExtras.map(e => ({ id: e.id, label: e.label, price: e.price || 0 })),
           selected_dates: selDays,
           extra_services: selectedExtras.map(e => e.id),
           pricing: quotePdfData.pricing,
           service_kpis: kpis,
           quote_summary: quotePdfData,
-          dashboard_kpis: {
-            families: estimatedFamiliesForSummary,
-            population: kpisPopulation,
-            coverage: coverageForSummary,
-            comuniCount: kpisComuniCount,
-            requiredFlyers: requiredQty || null
-          },
+          dashboard_kpis: { families: estimatedFamiliesForSummary, population: kpisPopulation, coverage: coverageForSummary, comuniCount: kpisComuniCount, requiredFlyers: requiredQty || null },
           operational_waypoints: plannedGpsPoints,
-          source: data.quickSource || "configurator"
+          source: data.quickSource || "configurator",
+          printing: {
+            enabled: Boolean(data.printing?.enabled),
+            specs: {
+              format: data.printing?.format || null,
+              paperType: data.printing?.paperType || null,
+              grammage: data.printing?.grammage || null,
+              sides: data.printing?.sides || null,
+              color: data.printing?.color || null,
+              fold: data.printing?.folding || null,
+              artworkStatus: data.printing?.artworkStatus || null,
+              notes: data.printing?.notes || null
+            },
+            estimatedPrice: data.printing?.enabled ? printingEstimatedPrice : null,
+            definitivePrice: null,
+            status: data.printing?.enabled ? "REQUESTED" : "NOT_REQUESTED"
+          }
         }
-      });
-      const savedRow = Array.isArray(savedCampaign) ? savedCampaign[0] : savedCampaign || {};
-      const id = savedRow?.id;
-      if (!id) {
-        setCampaignSaveError("Campagna non salvata. Riprova.");
-        setSent(false);
+      };
+
+      if (!hasSupabaseConfig()) {
+        setSent(true);
         setSavingCampaign(false);
         return;
       }
+
+      const res = await submitPublicCampaign(payload);
+      
+      if (res.error) throw new Error(res.error.message || "Errore API Edge Function");
+
+      const savedRow = res.data?.campaign || {};
+      const id = savedRow?.id;
       setSavedCampaign(savedRow);
       setSent(true);
+      
       try {
         localStorage.removeItem("volantinipro_return_to");
         localStorage.removeItem("volantinipro_pending_action");
         localStorage.removeItem("volantinipro_pending_campaign_draft");
       } catch {}
-      setReturnFromLogin(false);
-      sendEmailConferma({
-        cliente: {
-          email: savedRow.metadata?.client_email || cliente?.email || "",
-          nome: savedRow.metadata?.client_name || cliente?.nome || "Cliente"
-        },
-        campagna: {
-          servizio: tLabel,
-          zona: mainAreaLabel,
-          totale_euro: Number(total.toFixed(2)),
-          causale_bonifico: savedRow.causale_bonifico || `VP-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${String(id || "REQ001").slice(0, 6).toUpperCase()}`
-        }
-      }).catch(err => console.warn("Email conferma bonifico non inviata", err));
-      setConfirmSyncStatus(`Campagna salvata su Supabase (${id.slice(0, 8)}).`);
+
+      // P0-A: submit-campaign-request salva sempre user_id = NULL per un
+      // visitatore anonimo (nessun account creato in questo flusso). Senza
+      // questo, la campagna resta invisibile per sempre nella Dashboard
+      // Cliente. Salviamo qui SOLO id + email di questa specifica campagna:
+      // al prossimo login/signup con quella email verificata, useCampagne.js
+      // chiama claim_public_campaign(id) una volta sola per reclamarla — mai
+      // un claim globale su tutte le campagne di quell'email.
+      if (id) {
+        try {
+          localStorage.setItem("volantinipro_pending_campaign_claim", JSON.stringify({
+            campaignId: id,
+            clientEmail: clientForm.email,
+          }));
+        } catch {}
+      }
+
       if (onCampaignSaved) onCampaignSaved(id, "payment");
     } catch (err) {
-      setSent(false);
-      if (isAuthTokenExpiredError(err)) {
-        redirectToLoginAfterExpiredSession();
-        return;
-      }
-      if (String(err?.message || "").includes("Login Supabase richiesto")) {
-        setCampaignSaveError("Per confermare e salvare la campagna devi accedere con email.");
-        setShowLoginRequired(true);
-        setSavingCampaign(false);
-        return;
-      }
       console.warn("Campaign Supabase save failed", err);
       setCampaignSaveError("Errore durante il salvataggio della campagna: " + (err?.message || "Riprova più tardi."));
-      setConfirmSyncStatus("Campagna non salvata: verifica login e variabili ambiente Supabase.");
+      setConfirmSyncStatus("Campagna non salvata.");
     } finally {
+      campaignSaveInFlightRef.current = false;
       setSavingCampaign(false);
     }
   }
@@ -1886,7 +1926,7 @@ export function Step4({
             }, data.printing?.enabled && {
               icon: "",
               l: "Prezzo stampa",
-              v: selectedExtras.find(e => e.id === "printing") ? `+${selectedExtras.find(e => e.id === "printing").price}€` : "Da confermare",
+              v: printingExtra ? `~${printingExtra.price}€ (stima, da confermare tipografia)` : "Da confermare",
               c: C.orange
             }, isH2H && {
               icon: "",
@@ -2545,7 +2585,7 @@ export function Step4({
                     color: cardCol,
                     flexShrink: 0
                   }}>
-                          {ext.price > 0 ? eur(ext.price) : ext.isUrgent ? "+30%" : "✓"}
+                          {ext.price > 0 ? eur(ext.price) : ext.isUrgent ? `+${urgencySurchargePctLabel}%` : "✓"}
                         </div>
                       </div>
                       {/* Benefits */}
@@ -2585,24 +2625,10 @@ export function Step4({
                 }}>{ext.description}</p>}
                       {optionalConfig && <div style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
+                  gridTemplateColumns: "1fr",
                   gap: 8,
                   paddingTop: 4
                 }}>
-                          <button type="button" onClick={() => openExtraDemo(ext)} style={{
-                    width: "100%",
-                    padding: "10px",
-                    borderRadius: 10,
-                    border: "1px solid rgba(255,255,255,.14)",
-                    background: "rgba(255,255,255,.05)",
-                    color: C.white,
-                    fontFamily: F.sans,
-                    fontSize: 12,
-                    fontWeight: 800,
-                    cursor: "pointer"
-                  }}>
-                            Anteprima
-                          </button>
                           <button type="button" onClick={() => removeOptionalExtra(optionalConfig)} style={{
                     width: "100%",
                     padding: "10px",
@@ -2730,24 +2756,9 @@ export function Step4({
                         </div>
                         <div style={{
                     display: "grid",
-                    gridTemplateColumns: selected ? "1fr 1fr" : "1fr 1.15fr",
+                    gridTemplateColumns: "1fr",
                     gap: 8
                   }}>
-                          <button type="button" onClick={() => openExtraDemo(ext)} style={{
-                      width: "100%",
-                      padding: "10px",
-                      borderRadius: 10,
-                      border: "1px solid rgba(255,255,255,.14)",
-                      background: "rgba(255,255,255,.05)",
-                      color: C.white,
-                      fontFamily: F.sans,
-                      fontSize: 12,
-                      fontWeight: 800,
-                      cursor: "pointer",
-                      transition: "all .2s"
-                    }}>
-                            Anteprima
-                          </button>
                           {selected ? <button type="button" onClick={() => removeOptionalExtra(ext)} style={{
                       width: "100%",
                       padding: "10px",
@@ -2824,9 +2835,9 @@ export function Step4({
               }, {
                 icon: "lightning",
                 l: "Priorità",
-                v: data.urgency === "urgent" ? "URGENTE (+30%)" : "Standard operativa",
-                c: data.urgency === "urgent" ? C.red : C.white,
-                highlight: data.urgency === "urgent"
+                v: data.urgency === "urgent" ? `URGENTE (+${urgencySurchargePctLabel}%)` : data.urgency === "express" ? `EXPRESS (+${urgencySurchargePctLabel}%)` : "Standard operativa",
+                c: data.urgency === "urgent" || data.urgency === "express" ? C.red : C.white,
+                highlight: data.urgency === "urgent" || data.urgency === "express"
               }, {
                 icon: "package",
                 l: "Stato",
@@ -3693,7 +3704,7 @@ export function Step4({
                 fontFamily: F.sans,
                 fontSize: 11,
                 color: C.red
-              }}><Step1Icon name="lightning" size={11} color={C.red} /> Urgenza +30%</span>
+              }}><Step1Icon name="lightning" size={11} color={C.red} /> Urgenza +{urgencySurchargePctLabel}%</span>
                   <span style={{
                 fontFamily: F.sans,
                 fontSize: 11,
@@ -3751,7 +3762,7 @@ export function Step4({
                 fontFamily: F.sans,
                 fontSize: 12,
                 color: "rgba(255,255,255,.55)"
-              }}>Totale campagna</span>
+              }}>{isQuick ? "Stima distribuzione" : "Totale distribuzione"}</span>
                 <span style={{
                 fontFamily: F.serif,
                 fontSize: 38,
@@ -3825,6 +3836,42 @@ export function Step4({
                 </div>
               </div>
             </div>
+
+            {/* P1 STAMPA SEPARATA: stima indicativa mostrata separata dal
+                totale distribuzione, mai sommata prima della conferma
+                tipografia (vedi metadata.printing.status). */}
+            {printingExtra && <div style={{
+            background: "rgba(255,255,255,.04)",
+            borderRadius: 12,
+            padding: "12px 16px",
+            border: "1px dashed rgba(255,255,255,.15)",
+            marginBottom: 16,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 10
+          }}>
+                <div>
+                  <div style={{
+                fontFamily: F.sans,
+                fontSize: 11,
+                fontWeight: 700,
+                color: "rgba(255,255,255,.7)"
+              }}>Stampa indicativa</div>
+                  <div style={{
+                fontFamily: F.sans,
+                fontSize: 10,
+                color: "rgba(255,255,255,.4)",
+                marginTop: 2
+              }}>Da confermare in tipografia — non inclusa nel totale distribuzione</div>
+                </div>
+                <span style={{
+                fontFamily: F.sans,
+                fontSize: 18,
+                fontWeight: 800,
+                color: "rgba(255,255,255,.75)"
+              }}>~{eur(printingEstimatedPrice)}</span>
+              </div>}
 
             {/* Dashboard ed esecuzione / Modificabile badge */}
             {!sent ? <>
@@ -3929,7 +3976,7 @@ export function Step4({
                   <button type="button" onClick={() => {
               if (onHome) onHome("campaign", {
                 campaignId: savedCampaign.id
-              });else window.location.href = `/dashboard/${savedCampaign.id}`;
+              });else if (typeof onNav === "function") onNav("dashboard");else window.location.href = "/dashboard";
             }} style={{
               width: "100%",
               padding: "12px",
@@ -4182,6 +4229,19 @@ export function Step4({
                 color: "rgba(255,255,255,.4)"
               }}>{confirmSyncStatus}</span></>}
               </div>}
+            
+          {!sent && !isQuick && (
+            <div style={{ marginTop: 24, padding: 16, background: 'rgba(255,255,255,0.02)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)' }}>
+              <h4 style={{ color: C.white, margin: '0 0 16px 0', fontSize: 16 }}>I tuoi dati per il preventivo</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+                <input type="text" placeholder="Nome *" value={clientForm.nome} onChange={e => setClientForm({...clientForm, nome: e.target.value})} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: C.white, width: '100%' }} />
+                <input type="email" placeholder="Email *" value={clientForm.email} onChange={e => setClientForm({...clientForm, email: e.target.value})} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: C.white, width: '100%' }} />
+                <input type="tel" placeholder="Telefono *" value={clientForm.telefono} onChange={e => setClientForm({...clientForm, telefono: e.target.value})} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: C.white, width: '100%' }} />
+                <input type="text" placeholder="Azienda (opzionale)" value={clientForm.azienda} onChange={e => setClientForm({...clientForm, azienda: e.target.value})} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: C.white, width: '100%' }} />
+              </div>
+            </div>
+          )}
+
             {!canConfirm && confirmProblem && !isQuick && <div style={{
             fontFamily: F.sans,
             fontSize: 10,
@@ -4316,7 +4376,12 @@ export function Step4({
       right: 0,
       bottom: 0,
       zIndex: 220,
-      padding: "10px 14px",
+      // Priorità 5: safe-area-inset-bottom evita che l'indicatore home di
+      // iOS/i telefoni senza tasti fisici copra la barra totale/Conferma —
+      // il padding-bottom del contenuto sopra (140px, riga ~1313) resta
+      // invariato, sufficiente come margine statico indipendentemente
+      // dalla safe area.
+      padding: "10px 14px calc(10px + env(safe-area-inset-bottom))",
       background: "rgba(10,18,34,.96)",
       borderTop: "1px solid rgba(255,255,255,.1)",
       backdropFilter: "blur(14px)",

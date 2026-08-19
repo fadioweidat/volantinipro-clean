@@ -91,10 +91,27 @@ export function createZoneProgressClient(client) {
         );
       }
       const normalizedReason = normalizeReason(reason);
+      // ROOT CAUSE (P0, riprodotto dal vivo via REST diretto): la funzione
+      // canonica admin_set_zone_manual_progress (20260806000003_gps_coverage_
+      // canonical_consolidation.sql) richiede 6 parametri — p_adjustment_type,
+      // p_inaccessible_percent e p_notes non hanno DEFAULT in Postgres — ma
+      // questa chiamata ne mandava solo 3. PostgREST rifiuta con 404 PGRST202
+      // ("Could not find the function ... with parameters p_campaign_zone_id,
+      // p_manual_percent, p_reason") per QUALUNQUE click su "Imposta
+      // override": da qui "AUTOMATICO ADMIN non funziona" a schermo.
+      // 'manual_covered' riproduce esattamente la semantica originale di
+      // questo form (percentuale di copertura confermata manualmente, nessun
+      // input "area non accessibile" qui — quello resta un tipo separato,
+      // gia' gestito da CoverageAdjustmentPanel/MANUALE ADMIN). p_notes: il
+      // form non ha un campo note distinto, null e' valido (btrim(null) e'
+      // null lato Postgres).
       const { data, error } = await requireClient().rpc('admin_set_zone_manual_progress', {
         p_campaign_zone_id: campaignZoneId,
+        p_adjustment_type: 'manual_covered',
         p_manual_percent: percent,
+        p_inaccessible_percent: null,
         p_reason: normalizedReason,
+        p_notes: null,
       });
       if (error) throw mapZoneProgressError(error);
       return normalizeProgressRow(unwrapProgressRow(data));
@@ -229,7 +246,15 @@ function normalizeHistoryRow(row) {
     !row.id ||
     !row.campaign_zone_id_snapshot ||
     !row.campaign_id_snapshot ||
-    !['automatic_recalc', 'manual_override', 'manual_clear'].includes(row.event_type) ||
+    // P0: il vincolo SQL (campaign_zone_progress_history_event_type_check)
+    // ammette anche 'geometric_sync' — emesso da sync_campaign_zone_progress_cache
+    // ogni volta che una correzione geometrica (MANUALE ADMIN) tocca la zona —
+    // ma questa whitelist lo ignorava. Una sola riga 'geometric_sync' (reale,
+    // riprodotta dal vivo su campagna 3c846a51.../zona Barasso) faceva fallire
+    // l'intero normalizeHistoryRow, che tramite Promise.all in useZoneProgress
+    // buttava via anche le zone gia' caricate correttamente: "Risposta storico
+    // avanzamento zone non valida." + "Nessuna zona configurata" insieme.
+    !['automatic_recalc', 'manual_override', 'manual_clear', 'geometric_sync'].includes(row.event_type) ||
     typeof row.reason !== 'string' ||
     !row.created_at
   ) {

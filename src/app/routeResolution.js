@@ -1,8 +1,16 @@
 export function resolveAppRoute(path, { hasAuthHash = false, prefillHas = false, step = null } = {}) {
   const p = String(path || '/').toLowerCase();
   if (hasAuthHash) return 'login';
+  if (p === '/auth/callback') return 'login';
   if (p === '/admin' || p === '/admin/dashboard') return 'admin';
   if (p === '/admin/live') return 'admin-live';
+  if (p === '/admin/operations') return 'admin-operations';
+  if (p === '/admin/operations/report' || p === '/admin/daily-report') return 'admin-daily-report';
+  if (p === '/admin/clients-quotes') return 'admin-clients-quotes';
+  if (p === '/admin/orders') return 'admin-orders';
+  if (p === '/admin/groups') return 'admin-groups-manager';
+  if (p === '/admin/commercial') return 'admin-commercial';
+  if (p === '/admin/smart-pairing') return 'admin-smart-pairing';
   const adminAssignmentsNew = p.match(/^\/admin\/campaigns\/([^/]+)\/assignments\/new$/);
   if (adminAssignmentsNew) return `admin-assignments-new:${adminAssignmentsNew[1]}`;
   const adminRoute = p.match(/^\/admin\/campaigns\/([^/]+)\/(gps|operations|groups|report|assignments)$/);

@@ -1,10 +1,11 @@
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CircleMarker, Circle, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet';
+import { CircleMarker, Circle, GeoJSON, MapContainer, Polygon, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import { useGpsTracking } from '../../hooks/useGpsTracking.js';
 import { getCampaignGpsPoints, calculateGpsCoverage } from '../../lib/services/gps-api.js';
 import { deriveInstantZoneStatus, normalizeZonesFromCampaign } from '../../lib/geofence/geofenceEngine.js';
 import { calculateFilteredDistanceKm } from '../../lib/gps/pointQuality.js';
+import { resolveMunicipalityBoundary } from '../../lib/geo/resolveMunicipalityBoundary.js';
 
 const PATH_REFRESH_MIN_INTERVAL_MS = 8000;
 
@@ -138,8 +139,42 @@ export function DriverCoverageMap({ campaignId }) {
   const lng = Number(position?.lng);
   const hasPosition = Number.isFinite(lat) && Number.isFinite(lng);
   const mapsUrl = hasPosition ? `https://www.google.com/maps?q=${lat},${lng}` : null;
-  
-  const defaultCenter = hasPosition ? [lat, lng] : (zones[0]?.centerLat ? [zones[0].centerLat, zones[0].centerLng] : [45.4642, 9.19]);
+
+  // "Area assegnata" deve centrare sulla zona di lavoro, non sulla posizione
+  // GPS reale dell'operatore (che puo' essere lontanissima, es. prima di
+  // partire): center_lat/lng della zona attiva (source of truth reale,
+  // campaign_zones) ha priorita' sulla posizione. Solo se la zona non ha
+  // coordinate reali (0,0 = placeholder esplicito, mai una coordinata
+  // fittizia) si ricade sulla posizione dell'operatore, e solo in ultima
+  // battuta su un default fisso. La posizione resta comunque visibile come
+  // marker separato ("Tu sei qui") e richiamabile col bottone "Centra sulla
+  // mia posizione", invariati sotto.
+  const activeZoneCenter = tracking.session?.campaign_zone_id
+    ? tracking.assignmentState.campaign?.campaign_zones?.find((z) => z.id === tracking.session.campaign_zone_id)
+    : tracking.assignmentState.campaign?.campaign_zones?.[0];
+  const zoneCenterLat = Number(activeZoneCenter?.center_lat);
+  const zoneCenterLng = Number(activeZoneCenter?.center_lng);
+  const hasZoneCenter = Number.isFinite(zoneCenterLat) && Number.isFinite(zoneCenterLng) && !(zoneCenterLat === 0 && zoneCenterLng === 0);
+  const defaultCenter = hasZoneCenter ? [zoneCenterLat, zoneCenterLng] : hasPosition ? [lat, lng] : [45.4642, 9.19];
+
+  // Confine reale del Comune (stessa fonte/algoritmo di Step2, helper
+  // condiviso in src/lib/geo/resolveMunicipalityBoundary.js), usato SOLO se
+  // le zone strutturate (campaign_zones.polygon_geojson) non producono una
+  // geometria disegnabile. MAI un cerchio inventato come area assegnata.
+  const [municipalityBoundary, setMunicipalityBoundary] = useState(null);
+  // activeZoneCenter (sopra) e' gia' la riga campaign_zones della zona
+  // realmente in corso: il suo zone_name ha priorita' su campaign?.city,
+  // altrimenti una campagna multi-comune userebbe sempre il comune
+  // "principale" invece di quello della zona attiva.
+  const realComuneName = activeZoneCenter?.zone_name || tracking.assignmentState.campaign?.city || null;
+  const hasDrawableZone = zones.length > 0;
+  useEffect(() => {
+    if (hasDrawableZone || !realComuneName) { setMunicipalityBoundary(null); return; }
+    let cancelled = false;
+    resolveMunicipalityBoundary(realComuneName, { lat: zoneCenterLat, lng: zoneCenterLng })
+      .then((geom) => { if (!cancelled) setMunicipalityBoundary(geom); });
+    return () => { cancelled = true; };
+  }, [hasDrawableZone, realComuneName, zoneCenterLat, zoneCenterLng]);
 
   const handleRecenter = () => {
     if (hasPosition) {
@@ -148,9 +183,9 @@ export function DriverCoverageMap({ campaignId }) {
   };
 
   const handleShowZone = () => {
-    if (zones[0]?.centerLat) {
+    if (hasZoneCenter) {
       setCenterMap(null);
-      setCenterMap({ lat: zones[0].centerLat, lng: zones[0].centerLng, ts: Date.now() });
+      setCenterMap({ lat: zoneCenterLat, lng: zoneCenterLng, ts: Date.now() });
     }
   };
 
@@ -188,6 +223,9 @@ export function DriverCoverageMap({ campaignId }) {
           <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <RecenterController center={centerMap} />
           {zones.map((zone, index) => <ZoneShape key={index} zone={zone} index={index} />)}
+          {!hasDrawableZone && municipalityBoundary && (
+            <GeoJSON data={municipalityBoundary} style={{ color: '#e8571a', weight: 2, fillColor: '#e8571a', fillOpacity: 0.08 }} />
+          )}
           {path.length > 1 && <Polyline positions={path} pathOptions={{ color: '#0f766e', weight: 4, opacity: 0.75 }} />}
           {hasPosition && (
             <CircleMarker center={[lat, lng]} radius={9} pathOptions={{ color: '#1d4ed8', fillColor: '#3b82f6', fillOpacity: 0.9, weight: 2 }}>

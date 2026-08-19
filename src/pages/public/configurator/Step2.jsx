@@ -36,6 +36,7 @@ import { QUOTE_PRICES } from "../../../lib/appConstants.js";
 import { S2_RADII } from "../../../lib/step2/s2Constants.js";
 import { Step1Icon } from "../../../components/Step1Icon.jsx";
 import { Step2Map } from "../../../components/Step2Map.jsx";
+import { Step2MapErrorBoundary } from "../../../components/Step2MapErrorBoundary.jsx";
 import { supabase } from "../../../lib/supabaseClient.js";
 import { truthfulSourceLabel } from "../../../lib/step2/truthfulSourceLabel.js";
 import { useAddressPoints } from "../../../hooks/useAddressPoints.js";
@@ -47,6 +48,8 @@ import { applyConfiguratorServiceChange } from "../../../lib/configuratorService
 import { useTransportStops } from "../../../hooks/useTransportStops.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
+import { Step2BottomActions } from "./step2/Step2BottomActions.jsx";
+import { Step2SynthesisMessage } from "./step2/Step2SynthesisMessage.jsx";
 export function Step2({
   data,
   setData,
@@ -1240,7 +1243,8 @@ export function Step2({
   const {
     pois: fetchedPois,
     loading: poiLoading,
-    error: poiError
+    error: poiError,
+    retry: retryPoi
   } = usePoi(queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType, distributionTargetSelection);
   const backendPois = useMemo(() => {
     if (!['d2d', 'h2h', 'b2b'].includes(svcType)) return [];
@@ -1282,9 +1286,20 @@ export function Step2({
   // POI sulla mappa D2D non ha un pannello equivalente, quindi qui evitiamo
   // di lasciare la mappa silenziosa (che sembrerebbe un errore) quando un
   // settore reale e' selezionato ma non produce risultati nell'area.
-  const poiEmptySectorLabel = svcType === "d2d" && !poiLoading && city && pois.length === 0 && distributionTargetSelection.length > 0 && !distributionTargetSelection.includes("all")
+  //
+  // "Zero risultati" e "richiesta fallita" NON sono la stessa cosa: usePoi
+  // azzera `fetchedPois`/`pois` anche quando Overpass va in errore/timeout su
+  // entrambi gli endpoint, quindi `pois.length === 0` da solo non basta a
+  // dire "nessuna attivita' nella zona" — va sempre incrociato con `poiError`
+  // (unica fonte di verita' sull'esito della richiesta, nessun sistema
+  // parallelo). Un errore mostra un messaggio distinto con retry mirato.
+  const poiSectorSelectionLabel = distributionTargetSelection.length > 0 && !distributionTargetSelection.includes("all")
     ? distributionTargetSelection.map(target => ACTIVITY_TARGET_LABELS[target] || target).join(", ")
     : null;
+  const poiEmptySectorLabel = svcType === "d2d" && !poiLoading && !poiError && city && pois.length === 0 && poiSectorSelectionLabel
+    ? poiSectorSelectionLabel
+    : null;
+  const poiFetchFailed = svcType === "d2d" && !poiLoading && Boolean(poiError) && Boolean(city);
   const [poiListSearch, setPoiListSearch] = useState("");
   const [businessPoiFilter, setBusinessPoiFilter] = useState("all");
   const [h2hPoiFilter, setH2hPoiFilter] = useState("all");
@@ -4117,6 +4132,7 @@ export function Step2({
     available: isResidentialStep2 ? Number(serviceKpis?.families) > 0 : isMovementStep2 ? canonicalAllocationRows.length > 0 : selectedOperationalPois.length > 0,
     kpis: {
       ...serviceKpis,
+      density: zoneDensity || null,
       coverage: operationalCoveragePercent,
       recommendedFlyers: requiredFlyers,
       operatorCount: isBusinessStep2 ? businessOperationalPlan?.recommendedOperators ?? null : isMovementStep2 ? operatorCountForPoiAssignment : null,
@@ -4469,15 +4485,21 @@ export function Step2({
           ← Torna allo Step 1
         </button>
 
-        {/* Titolo */}
+        {/* Titolo — su mobile stretto (395px) il testo del titolo (senza
+            vincolo di larghezza) restava piu' largo del viewport e
+            traboccava invece di andare a capo: maxWidth:100% permette al
+            wrapping naturale del testo di funzionare entro il contenitore. */}
         <div style={{
-          flexShrink: 0
+          flexShrink: 1,
+          minWidth: 0,
+          maxWidth: "100%"
         }}>
           <div style={{
             fontFamily: F.serif,
             fontSize: 22,
             color: C.white,
-            letterSpacing: "-.5px"
+            letterSpacing: "-.5px",
+            maxWidth: "100%"
           }}>{isBusinessStep2 ? "Seleziona le attività e le aziende da raggiungere" : "Scegli la zona di distribuzione"}</div>
           <div style={{
             fontFamily: F.sans,
@@ -5362,13 +5384,21 @@ export function Step2({
             </div>}
         </div>}
 
-      {/* Section */}
+      {/* Section — riga chip zone + pulsante "+ Aggiungi": overflow-x:auto
+          da solo lasciava "+ Aggiungi un'altra zona / comune" (e le chip
+          zona) fuori dal viewport senza alcuna affordance di scroll
+          visibile su mobile ("tagliato", non davvero raggiungibile).
+          flex-wrap va a capo invece di scrollare — tutto resta sempre
+          visibile, stesso pattern esplicitamente richiesto per le righe di
+          controlli (a differenza dello Stepper, dove lo scroll resta
+          accettabile perche' e' una sequenza ordinata, non una riga di
+          controlli indipendenti). */}
       <div style={{
         display: "flex",
         alignItems: "center",
+        flexWrap: "wrap",
         gap: 6,
         margin: "-4px 0 12px",
-        overflowX: "auto",
         paddingBottom: 2
       }}>
         {campaignZones.map((z, idx) => {
@@ -5504,9 +5534,12 @@ export function Step2({
       {isAdminView && (() => {
       const svcKey = isResidentialStep2 ? "d2d" : isMovementStep2 ? "h2h" : "b2b";
       const activeServiceTitle = isResidentialStep2 ? "Door to Door" : isMovementStep2 ? "Hand to Hand" : "Distribuzione presso attività e aziende";
-      const totalHouseholds = effectiveDemoData?.householdsTotal > 0 ? effectiveDemoData.householdsTotal : serviceKpis?.families || 0;
-      const totalPopulation = effectiveDemoData?.populationTotal > 0 ? effectiveDemoData.populationTotal : serviceKpis?.population || 0;
-      const profileDens = zoneDensity > 0 ? zoneDensity : aiAgg?.densita > 0 ? aiAgg.densita : summaryComuniStats?.densita > 0 ? summaryComuniStats.densita : 0;
+      // Il report deve usare lo stesso perimetro selezionato dei KPI Step2.
+      // effectiveDemoData puo contenere il totale comunale e non e' quindi un
+      // fallback valido per una selezione territoriale piu ristretta.
+      const totalHouseholds = Number(serviceKpis?.families) || 0;
+      const totalPopulation = Number(serviceKpis?.population) || 0;
+      const profileDens = Number(serviceKpis?.density) || zoneDensity || 0;
       const ageRows = effectiveDemoData ? [{
         l: "0-14",
         v: effectiveDemoData.age_0_14_pct,
@@ -5987,7 +6020,8 @@ export function Step2({
                   {sharedCoveragePctText} copertura
                 </span>
               </div>}
-            <Step2Map city={mapCityForStep2} radius={isRadiusMode ? Number(radiusKm) || Number(radius) || 3 : radiusKm} svcType={svcType} serviceColor={col} zonesWithCoords={zonesWithCoords} selected={selected} onToggleZone={toggleZone} apiData={apiData} targetColor={targetBusinessMeta?.color || '#a78bfa'} activeLayers={activeMapLayers} settori={sectors} pois={pois} loadingPois={poiLoading} poiEmptySectorLabel={poiEmptySectorLabel} operationalPoints={step1OperationalPoints} poiAssignments={poiAssignments} onTogglePoi={togglePoiAssignment} focusPoiId={focusedPoiId} focusPoiNonce={focusedPoiNonce} businessConfig={isBusinessStep2 ? {
+            <Step2MapErrorBoundary resetKey={`${mapCityForStep2?.name || mapCityForStep2?.label || ""}|${data.activeZoneId || ""}`}>
+            <Step2Map city={mapCityForStep2} radius={isRadiusMode ? Number(radiusKm) || Number(radius) || 3 : radiusKm} svcType={svcType} serviceColor={col} zonesWithCoords={zonesWithCoords} selected={selected} onToggleZone={toggleZone} apiData={apiData} targetColor={targetBusinessMeta?.color || '#a78bfa'} activeLayers={activeMapLayers} settori={sectors} pois={pois} loadingPois={poiLoading} poiEmptySectorLabel={poiEmptySectorLabel} poiFetchFailed={poiFetchFailed} onRetryPoi={retryPoi} operationalPoints={step1OperationalPoints} poiAssignments={poiAssignments} onTogglePoi={togglePoiAssignment} focusPoiId={focusedPoiId} focusPoiNonce={focusedPoiNonce} businessConfig={isBusinessStep2 ? {
               deliveryLabel: businessOptionLabel(BUSINESS_DELIVERY_METHODS, data.businessDeliveryMethod),
               recipientLabel: businessOptionLabel(BUSINESS_RECIPIENTS, data.businessPreferredRecipient)
             } : null} civiciState={civiciState} onLayerToggle={id => {
@@ -6003,6 +6037,7 @@ export function Step2({
             // hiddenBoundaries (per-comune toggle from the UI) still applies.
             // Indirizzo non confermato: il confine comune viene passato come contesto leggero tratteggiato.
             (isComuneMode || mapConfiniOn && searchMode === "address") && municipalityBoundary ? Array.isArray(municipalityBoundary) ? municipalityBoundary.filter(b => !hiddenBoundaries.includes(normalizeMunicipalityName(b?.name || ""))) : hiddenBoundaries.includes(normalizeMunicipalityName(municipalityBoundary?.name || city?.label || city?.name || "")) ? null : municipalityBoundary : null} isMunicipalityMode={isComuneMode && !hasUnconfirmedAddressPoint} unconfirmedAddressMode={hasUnconfirmedAddressPoint} nilMode={isNilManualMode} coveragePolygons={mapCoverageZones} zoneAllocationById={zoneAllocationById} boundaryKpis={boundaryKpisForMap} themeMode={viewMode !== "distribuzione"} activeLayerId={activeLay?.id || null} zoneCoverageById={zoneCoverageById} basemap={mapBasemap} mapConfiniOn={mapConfiniOn} onToggleConfini={() => setMapConfiniOn(v => !v)} dusafLanduse={dusafLanduse} omiInfo={omiInfo} onBasemapToggle={() => setMapBasemap(b => b === "standard" ? "satellite" : "standard")} onMapClick={manualPinMode ? handleManualMapClick : null} />
+            </Step2MapErrorBoundary>
             {showTerritoryData && (gisLoading || gisTimedOut) && <div style={{
               position: "absolute",
               inset: 0,
@@ -7121,140 +7156,148 @@ export function Step2({
                 return { zone, index, assigned, target, coverage, missing, status, allocation };
               });
               
-              const overallCoverage = sumTarget > 0 ? Math.min(100, (sumAssigned / sumTarget) * 100) : 0;
-
-              return <div id="vp-step2-zone-details-panel" className="vp-step2-zone-details__panel">
+                     return <div id="vp-step2-zone-details-panel" className="vp-step2-zone-details__panel" style={{ marginTop: 16 }}>
                     <div style={{
-                      display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 16, padding: 12, 
-                      background: "rgba(255,255,255,.03)", borderRadius: 8, border: "1px solid rgba(255,255,255,.06)"
+                      display: "flex", flexWrap: "wrap", gap: 16, marginBottom: 24, padding: "16px 20px", 
+                      background: "rgba(255,255,255,.04)", borderRadius: 12, border: "1px solid rgba(255,255,255,.1)"
                     }}>
-                      <div style={{flex: "1 1 45%", display: "flex", flexDirection: "column", gap: 2}}>
-                        <span style={{fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase"}}>Comuni nel raggio</span>
-                        <strong style={{fontSize: 14, color: C.white}}>{detailZones.length}</strong>
-                      </div>
-                      <div style={{flex: "1 1 45%", display: "flex", flexDirection: "column", gap: 2}}>
-                        <span style={{fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase"}}>Copertura complessiva del fabbisogno</span>
-                        <strong style={{fontSize: 14, color: col}}>{formatPercentIT(overallCoverage, 1)}</strong>
-                      </div>
-                      <div style={{flex: "1 1 100%", display: "flex", gap: 16, marginTop: 4, fontSize: 12}}>
-                        <span style={{color: "#86EFAC"}}>• {countComplete} completi</span>
-                        <span style={{color: "#FCD34D"}}>• {countPartial} parziali</span>
-                        <span style={{color: "#FCA5A5"}}>• {countExcluded} esclusi</span>
+                      <div style={{flex: "1 1 100%"}}>
+                        <div style={{fontSize: 18, fontWeight: 700, color: C.white, marginBottom: 8}}>
+                          {isNilAnalysis ? "NIL / Quartieri selezionati" : "Comuni nel raggio"}: {detailZones.length}
+                        </div>
+                        <div style={{display: "flex", gap: 16, fontSize: 14}}>
+                          <span style={{color: "#86EFAC", fontWeight: 600}}>{countComplete} complet{isNilAnalysis ? "i" : "o"}</span>
+                          <span style={{color: "#FCD34D", fontWeight: 600}}>{countPartial} parzial{isNilAnalysis ? "i" : "e"}</span>
+                          <span style={{color: "#FCA5A5", fontWeight: 600}}>{countExcluded} esclus{isNilAnalysis ? "i" : "o"}</span>
+                        </div>
                       </div>
                     </div>
 
-                    {showTerritoryData && <div className="vp-step2-zone-details__sort" aria-label="Ordina dettaglio zone">
-                        <span>Ordina per</span>
-                        {[["relevance", "Priorità"], ["families", "Target"], ["coverage", "Copertura"], ["assigned", "Quantità assegnata"]].map(([id, label]) => <button type="button" key={id} aria-pressed={zoneListSort === id} onClick={() => setZoneListSort(id)}>{label}</button>)}
+                    {showTerritoryData && <div className="vp-step2-zone-details__sort" aria-label="Ordina dettaglio zone" style={{ marginBottom: 16 }}>
+                        <span style={{ color: "rgba(255,255,255,.5)" }}>Ordina per</span>
+                        {[["relevance", "Priorità"], ["families", "Target"], ["coverage", "Copertura"], ["assigned", "Quantità assegnata"]].map(([id, label]) => <button type="button" key={id} aria-pressed={zoneListSort === id} onClick={() => setZoneListSort(id)} style={{ padding: "4px 10px", borderRadius: 16, border: zoneListSort === id ? `1px solid ${col}` : "1px solid rgba(255,255,255,.2)", background: zoneListSort === id ? `${col}22` : "transparent", color: zoneListSort === id ? C.white : "rgba(255,255,255,.7)", fontSize: 12, cursor: "pointer", marginLeft: 8 }}>{label}</button>)}
                       </div>}
                     
                     {!isMobile ? (
-                      <table className="vp-step2-zone-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-                        <thead>
-                          <tr>
-                            <th style={{ minWidth: 140, whiteSpace: "nowrap", textAlign: "left", padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,.1)" }}>Zona / NIL</th>
-                            <th style={{ textAlign: "right", padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,.1)" }}>{isResidentialStep2 ? "Famiglie stimate" : isMovementStep2 ? "Pubblico / punti" : "Attività / target"}</th>
-                            <th style={{ textAlign: "right", padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,.1)" }}>Assegnati</th>
-                            <th style={{ textAlign: "right", padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,.1)" }}>Mancanti</th>
-                            <th style={{ padding: "8px 12px", textAlign: "left", borderBottom: "1px solid rgba(255,255,255,.1)" }}>Copertura del fabbisogno cassette</th>
-                            <th style={{ padding: "8px 12px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,.1)" }}>Priorità</th>
-                            <th style={{ padding: "8px 12px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,.1)" }}>Stato</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {tableRows.map((row) => {
-                            const { zone, index, assigned, target, coverage, missing, status, allocation } = row;
-                            const rowKey = zone.id || zone.name || index;
-                            const priorityLabel = allocation?.priorityRank === 1 ? "1" : allocation?.priorityRank || index + 1;
-                            
-                            let statusColor = "#FCA5A5";
-                            let statusBg = "rgba(248,113,113,.1)";
-                            if (status === "Completo") {
-                              statusColor = "#86EFAC";
-                              statusBg = "rgba(34,197,94,.1)";
-                            } else if (status === "Parziale") {
-                              statusColor = "#FCD34D";
-                              statusBg = "rgba(250,204,21,.1)";
-                            }
+                      <div style={{ overflowX: "auto" }}>
+                        <table className="vp-step2-zone-table" style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
+                          <thead>
+                            <tr>
+                              <th style={{ whiteSpace: "nowrap", textAlign: "left", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,.1)", fontSize: 12, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>{isNilAnalysis ? "NIL" : "Comune"}</th>
+                              <th style={{ textAlign: "right", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,.1)", fontSize: 12, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>{isResidentialStep2 ? "Famiglie" : isMovementStep2 ? "Pubblico" : "Attività"}</th>
+                              <th style={{ textAlign: "right", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,.1)", fontSize: 12, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Assegnati</th>
+                              <th style={{ textAlign: "right", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,.1)", fontSize: 12, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Mancanti</th>
+                              <th style={{ padding: "12px 16px", textAlign: "left", borderBottom: "1px solid rgba(255,255,255,.1)", fontSize: 12, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Copertura</th>
+                              <th style={{ padding: "12px 16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,.1)", fontSize: 12, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Stato</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {tableRows.map((row) => {
+                              const { zone, index, assigned, target, coverage, missing, status, allocation } = row;
+                              const rowKey = zone.id || zone.name || index;
+                              const priorityLabel = allocation?.priorityRank === 1 ? "1" : allocation?.priorityRank || index + 1;
+                              
+                              let statusColor = "#FCA5A5";
+                              let statusBg = "rgba(248,113,113,.15)";
+                              if (status === "Completo") {
+                                statusColor = "#86EFAC";
+                                statusBg = "rgba(34,197,94,.15)";
+                              } else if (status === "Parziale") {
+                                statusColor = "#FCD34D";
+                                statusBg = "rgba(250,204,21,.15)";
+                              }
 
-                            return <tr key={rowKey} style={{ borderBottom: "1px solid rgba(255,255,255,.04)" }}>
-                                <th scope="row" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 200, padding: "8px 12px", textAlign: "left", fontWeight: "normal" }} title={zone.name || zone.label || `Zona ${index + 1}`}>
-                                  {zone.name || zone.label || `Zona ${index + 1}`}
-                                </th>
-                                <td className="vp-data-number" style={{ textAlign: "right", padding: "8px 12px" }}>{target > 0 ? formatIntegerIT(target) : "N/D"}</td>
-                                <td className="vp-data-number" style={{ textAlign: "right", padding: "8px 12px" }}>{formatIntegerIT(assigned)}</td>
-                                <td className="vp-data-number" style={{ textAlign: "right", padding: "8px 12px", color: missing > 0 ? "rgba(255,255,255,.6)" : "inherit" }}>{formatIntegerIT(missing)}</td>
-                                <td style={{ padding: "8px 12px" }}>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <span className="vp-data-number" style={{ minWidth: 45 }}>{formatPercentIT(coverage, 1)}</span>
-                                    <div style={{ flex: 1, height: 4, background: "rgba(255,255,255,.1)", borderRadius: 2, overflow: "hidden" }}>
-                                      <div style={{ width: `${coverage}%`, height: "100%", background: statusColor, borderRadius: 2 }} />
+                              return <tr key={rowKey} style={{ borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+                                  <td style={{ padding: "16px", textAlign: "left" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                      <span style={{ display: "inline-block", background: "rgba(255,255,255,.1)", color: "rgba(255,255,255,.7)", borderRadius: 4, padding: "2px 6px", fontSize: 11, fontWeight: 700 }}>#{priorityLabel}</span>
+                                      <strong style={{ fontSize: 16, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }} title={zone.name || zone.label || `Zona ${index + 1}`}>
+                                        {zone.name || zone.label || `Zona ${index + 1}`}
+                                      </strong>
                                     </div>
-                                  </div>
-                                </td>
-                                <td style={{ textAlign: "center", padding: "8px 12px" }}>{priorityLabel}</td>
-                                <td style={{ textAlign: "center", padding: "8px 12px" }}>
-                                  <span style={{
-                                    display: "inline-block", padding: "2px 8px", borderRadius: 12,
-                                    fontSize: 10, fontWeight: 700, textTransform: "uppercase",
-                                    color: statusColor, background: statusBg
-                                  }}>
-                                    {status}
-                                  </span>
-                                </td>
-                              </tr>;
-                          })}
-                        </tbody>
-                      </table>
+                                  </td>
+                                  <td className="vp-data-number" style={{ textAlign: "right", padding: "16px", fontSize: 15, color: "rgba(255,255,255,.8)" }}>{target > 0 ? formatIntegerIT(target) : "N/D"}</td>
+                                  <td className="vp-data-number" style={{ textAlign: "right", padding: "16px", fontSize: 15, color: C.white, fontWeight: 600 }}>{formatIntegerIT(assigned)}</td>
+                                  <td className="vp-data-number" style={{ textAlign: "right", padding: "16px", fontSize: 15, color: missing > 0 ? "rgba(255,255,255,.5)" : "rgba(255,255,255,.2)" }}>{formatIntegerIT(missing)}</td>
+                                  <td style={{ padding: "16px", minWidth: 160 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                      <span className="vp-data-number" style={{ fontSize: 15, fontWeight: 700, color: statusColor, minWidth: 45 }}>{formatPercentIT(coverage, 1)}</span>
+                                      <div style={{ flex: 1, height: 8, background: "rgba(255,255,255,.1)", borderRadius: 4, overflow: "hidden" }}>
+                                        <div style={{ width: `${coverage}%`, height: "100%", background: statusColor, borderRadius: 4 }} />
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td style={{ textAlign: "center", padding: "16px" }}>
+                                    <span style={{
+                                      display: "inline-block", padding: "6px 12px", borderRadius: 16,
+                                      fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px",
+                                      color: statusColor, background: statusBg, border: `1px solid ${statusColor}40`
+                                    }}>
+                                      {status}
+                                    </span>
+                                  </td>
+                                </tr>;
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     ) : (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                         {tableRows.map((row) => {
                           const { zone, index, assigned, target, coverage, missing, status, allocation } = row;
                           const rowKey = zone.id || zone.name || index;
                           const priorityLabel = allocation?.priorityRank === 1 ? "1" : allocation?.priorityRank || index + 1;
                           
                           let statusColor = "#FCA5A5";
-                          let statusBg = "rgba(248,113,113,.1)";
+                          let statusBg = "rgba(248,113,113,.15)";
                           if (status === "Completo") {
                             statusColor = "#86EFAC";
-                            statusBg = "rgba(34,197,94,.1)";
+                            statusBg = "rgba(34,197,94,.15)";
                           } else if (status === "Parziale") {
                             statusColor = "#FCD34D";
-                            statusBg = "rgba(250,204,21,.1)";
+                            statusBg = "rgba(250,204,21,.15)";
                           }
 
-                          return <div key={rowKey} style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)", borderRadius: 12, padding: 14 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                              <strong style={{ fontSize: 14, color: C.white }}>{zone.name || zone.label || `Zona ${index + 1}`}</strong>
-                              <span style={{
-                                padding: "2px 8px", borderRadius: 12, fontSize: 9, fontWeight: 700, textTransform: "uppercase",
-                                color: statusColor, background: statusBg
-                              }}>{status}</span>
+                          return <div key={rowKey} style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16, padding: 20 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <span style={{ display: "inline-block", background: "rgba(255,255,255,.1)", color: "rgba(255,255,255,.7)", borderRadius: 4, padding: "2px 6px", fontSize: 11, fontWeight: 700 }}>#{priorityLabel}</span>
+                                <strong style={{ fontSize: 18, color: C.white, lineHeight: 1.2 }}>{zone.name || zone.label || `Zona ${index + 1}`}</strong>
+                              </div>
                             </div>
                             
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                              <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.1)", borderRadius: 3, overflow: "hidden" }}>
-                                <div style={{ width: `${coverage}%`, height: "100%", background: statusColor, borderRadius: 3 }} />
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", paddingBottom: 16, borderBottom: "1px solid rgba(255,255,255,.06)", marginBottom: 16 }}>
+                              <div>
+                                <div style={{ fontSize: 11, color: "rgba(255,255,255,.5)", textTransform: "uppercase", marginBottom: 4 }}>{isResidentialStep2 ? "Famiglie" : "Target"}</div>
+                                <div className="vp-data-number" style={{ fontSize: 16, color: "rgba(255,255,255,.9)" }}>{target > 0 ? formatIntegerIT(target) : "N/D"}</div>
                               </div>
-                              <span className="vp-data-number" style={{ fontSize: 13, fontWeight: 700, color: statusColor }}>{formatPercentIT(coverage, 1)}</span>
+                              <div>
+                                <div style={{ fontSize: 11, color: "rgba(255,255,255,.5)", textTransform: "uppercase", marginBottom: 4 }}>Assegnati</div>
+                                <div className="vp-data-number" style={{ fontSize: 16, color: C.white, fontWeight: 700 }}>{formatIntegerIT(assigned)}</div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 11, color: "rgba(255,255,255,.5)", textTransform: "uppercase", marginBottom: 4 }}>Mancanti</div>
+                                <div className="vp-data-number" style={{ fontSize: 16, color: missing > 0 ? "rgba(255,255,255,.6)" : "rgba(255,255,255,.2)" }}>{formatIntegerIT(missing)}</div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 11, color: "rgba(255,255,255,.5)", textTransform: "uppercase", marginBottom: 4 }}>Stato</div>
+                                <span style={{
+                                  display: "inline-block", padding: "4px 10px", borderRadius: 12,
+                                  fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px",
+                                  color: statusColor, background: statusBg, border: `1px solid ${statusColor}40`
+                                }}>
+                                  {status}
+                                </span>
+                              </div>
                             </div>
 
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 12px" }}>
-                              <div>
-                                <div style={{ fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase", marginBottom: 2 }}>{isResidentialStep2 ? "Famiglie stimate" : "Target"}</div>
-                                <div className="vp-data-number" style={{ fontSize: 13 }}>{target > 0 ? formatIntegerIT(target) : "N/D"}</div>
+                            <div>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                                <span style={{ fontSize: 11, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Copertura</span>
+                                <span className="vp-data-number" style={{ fontSize: 15, fontWeight: 700, color: statusColor }}>{formatPercentIT(coverage, 1)}</span>
                               </div>
-                              <div>
-                                <div style={{ fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase", marginBottom: 2 }}>Assegnati</div>
-                                <div className="vp-data-number" style={{ fontSize: 13 }}>{formatIntegerIT(assigned)}</div>
-                              </div>
-                              <div>
-                                <div style={{ fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase", marginBottom: 2 }}>Mancanti</div>
-                                <div className="vp-data-number" style={{ fontSize: 13, color: missing > 0 ? "rgba(255,255,255,.7)" : "inherit" }}>{formatIntegerIT(missing)}</div>
-                              </div>
-                              <div>
-                                <div style={{ fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase", marginBottom: 2 }}>Priorità</div>
-                                <div style={{ fontSize: 13 }}>{priorityLabel}</div>
+                              <div style={{ width: "100%", height: 8, background: "rgba(255,255,255,.1)", borderRadius: 4, overflow: "hidden" }}>
+                                <div style={{ width: `${coverage}%`, height: "100%", background: statusColor, borderRadius: 4 }} />
                               </div>
                             </div>
                           </div>;
@@ -9534,51 +9577,18 @@ export function Step2({
                 </div>
 
                 {/* 7. Messaggio umano di sintesi (Fase 1) */}
-                {(() => {
-                const insQty = step2TruthModel.quantity.current;
-                const recQty = step2TruthModel.quantity.recommendedRequirement;
-                const covPct = step2TruthModel.coverage.operationalPct || 0;
-                const insFmt = formatIntegerIT(insQty);
-                const areaLbl = step2ViewModel.primaryAreaLabel || "questa zona";
-                let summaryMsg = "";
-                if (isResidentialStep2) {
-                  if (!step2ViewModel.hasUsableCoverageData) {
-                    summaryMsg = `I dati territoriali necessari non sono disponibili per ${areaLbl}. Copertura, fabbisogno e quantità residua non vengono calcolati.`;
-                  } else if (missingFlyers > 0) {
-                    summaryMsg = `Con ${insFmt} volantini il sistema concentrera la distribuzione nelle zone con maggiore priorita e coprira ${step2CoverageFullLabel || "una quota non calcolabile del fabbisogno operativo"}. Denominatore: ${step2RequirementContextLabel}. Per una copertura completa del territorio sono stimati ${formatIntegerIT(recQty)} volantini.`;
-                  } else if (insQty > recQty && recQty > 0) {
-                    const surplus = insQty - recQty;
-                    summaryMsg = `Con ${insFmt} volantini copri interamente ${areaLbl}. Restano ${formatIntegerIT(surplus)} volantini che puoi utilizzare per ampliare l'area.`;
-                  } else {
-                    summaryMsg = `Con ${insFmt} volantini copri interamente ${areaLbl}.`;
-                  }
-                } else if (isMovementStep2) {
-                  summaryMsg = pois.length > 0 || transportState?.available ? `Lo scenario da ${insFmt} volantini considera i POI e i nodi TPL effettivamente restituiti in ${areaLbl}; non rappresenta un conteggio di passanti.` : `Lo scenario da ${insFmt} volantini è parziale: POI e trasporto non sono disponibili per ${areaLbl}.`;
-                } else {
-                  summaryMsg = pois.length > 0 ? `Lo scenario da ${insFmt} volantini usa le attività POI restituite per ${areaLbl}; non equivale a un censimento completo di imprese o uffici.` : `Lo scenario da ${insFmt} volantini è parziale: censimento imprese, uffici e aree produttive non disponibile.`;
-                }
-                return <div style={{
-                  marginTop: 14,
-                  padding: "10px 14px",
-                  borderRadius: 10,
-                  background: "rgba(56,189,248,.08)",
-                  border: "1px solid rgba(56,189,248,.22)",
-                  fontFamily: F.sans,
-                  fontSize: 11.5,
-                  color: "rgba(255,255,255,.88)",
-                  lineHeight: 1.45
-                }}>
-                      <div>{summaryMsg}</div>
-                      {step2TruthModel.zones.firstPriority && <div style={{
-                    marginTop: 7,
-                    color: "rgba(255,255,255,.62)"
-                  }}>
-                          Prima priorità: <b style={{
-                      color: C.white
-                    }}>{step2TruthModel.zones.firstPriority.name}</b>. Criterio: ordine di allocazione corrente condiviso con il Report Avanzato.
-                        </div>}
-                    </div>;
-              })()}
+                <Step2SynthesisMessage
+                  step2TruthModel={step2TruthModel}
+                  step2ViewModel={step2ViewModel}
+                  formatIntegerIT={formatIntegerIT}
+                  isResidentialStep2={isResidentialStep2}
+                  missingFlyers={missingFlyers}
+                  step2CoverageFullLabel={step2CoverageFullLabel}
+                  step2RequirementContextLabel={step2RequirementContextLabel}
+                  isMovementStep2={isMovementStep2}
+                  pois={pois}
+                  transportState={transportState}
+                />
 
               </div>
             </div>}
@@ -9715,81 +9725,17 @@ export function Step2({
           })()}
 
           {/* Bottom actions container (Sempre visibile in fondo al rail) */}
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            marginTop: "auto"
-          }}>
-
-            {step2ZonesReady && !coverageDecisionReady && <div style={{
-              padding: "10px 12px",
-              borderRadius: 10,
-              background: "rgba(251,191,36,.08)",
-              border: "1px solid rgba(251,191,36,.22)",
-              fontFamily: F.sans,
-              fontSize: 11,
-              color: "rgba(255,255,255,.7)",
-              lineHeight: 1.5,
-              textAlign: "center"
-            }}>
-                Scegli come gestire la copertura parziale.
-              </div>}
-            {step2ZonesReady && <div style={{
-              padding: "10px 12px",
-              borderRadius: 10,
-              background: "rgba(34,197,94,.07)",
-              border: "1px solid rgba(34,197,94,.18)",
-              fontFamily: F.sans,
-              fontSize: 11,
-              color: "rgba(255,255,255,.65)",
-              lineHeight: 1.5,
-              textAlign: "center"
-            }}>
-                La quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.
-              </div>}
-            <button className="btn" onClick={handleNext} disabled={!canContinueCalendar} style={{
-              width: "100%",
-              minHeight: 52,
-              padding: "0 16px",
-              borderRadius: 12,
-              border: canContinueCalendar ? "1px solid rgba(255,255,255,0.18)" : "none",
-              background: canContinueCalendar ? col : "rgba(255,255,255,.08)",
-              color: C.white,
-              fontFamily: F.sans,
-              fontSize: 14,
-              fontWeight: 900,
-              cursor: canContinueCalendar ? "pointer" : "not-allowed",
-              boxShadow: canContinueCalendar ? `0 4px 16px ${col}66` : "none",
-              textAlign: "center",
-              transition: "all .2s ease"
-            }}>
-              {continueLabel}
-            </button>
-            {step2ZonesReady && !operationalSelectionReady && (isMovementStep2 || isBusinessStep2) && <div style={{
-              padding: "9px 11px",
-              borderRadius: 9,
-              background: "rgba(245,158,11,.08)",
-              border: "1px solid rgba(245,158,11,.22)",
-              fontFamily: F.sans,
-              fontSize: 10,
-              color: "#FCD34D",
-              lineHeight: 1.45,
-              textAlign: "center"
-            }}>
-                {isBusinessStep2 ? "Seleziona almeno un’attività sulla mappa e assegnala a un addetto." : "Seleziona almeno un punto sulla mappa e assegnalo a un promoter."}
-              </div>}
-            {!step2ZonesReady && <div style={{
-              fontFamily: F.sans,
-              fontSize: 10,
-              color: "rgba(255,255,255,.35)",
-              textAlign: "center",
-              lineHeight: 1.5,
-              padding: "0 4px"
-            }}>
-                Assicurati che tutte le zone abbiano un'area geografica e una quantità di volantini valida.
-              </div>}
-          </div>
+          <Step2BottomActions
+            step2ZonesReady={step2ZonesReady}
+            coverageDecisionReady={coverageDecisionReady}
+            canContinueCalendar={canContinueCalendar}
+            handleNext={handleNext}
+            col={col}
+            continueLabel={continueLabel}
+            operationalSelectionReady={operationalSelectionReady}
+            isMovementStep2={isMovementStep2}
+            isBusinessStep2={isBusinessStep2}
+          />
         </div>
         </>}
       </div>

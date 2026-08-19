@@ -55,8 +55,25 @@ function zoneLabel(zone) {
   return zone.municipality_name || zone.zone_name || zone.zone_label || zone.address_label || 'Zona operativa';
 }
 
+// Stato finale certificato per la sezione GPS/Copertura del report — NON
+// sostituisce clientZoneStatus() sopra (quello resta il campo `status`
+// invariato, gia' usato da FinalDistributionReportView/CampaignReport/
+// ClientCampaignReport): questo e' un campo aggiuntivo (`finalStatus`) che
+// separa esplicitamente GPS reale da intervento Admin, come richiesto —
+// mai un 100% muto quando parte della copertura e' manuale.
+function computeFinalStatus(extras) {
+  if (!extras || extras.calculationStatus !== 'ready') return 'Non disponibile';
+  const gps = Number(extras.gpsCoveragePercent) || 0;
+  const manual = Number(extras.manualCoveragePercent) || 0;
+  const final = Number(extras.finalCoveragePercent) || 0;
+  if (final >= 100 && manual > 0) return 'Completata con integrazione manuale';
+  if (final >= 100) return 'Completata';
+  if (gps > 0 || manual > 0) return 'Parziale';
+  return 'Non disponibile';
+}
+
 export function buildFinalDistributionReport({
-  campaign = {}, zones = [], assignmentZones = [], sessions = [], telemetry = [], photos = [], generatedAt = new Date().toISOString(),
+  campaign = {}, zones = [], assignmentZones = [], sessions = [], telemetry = [], photos = [], generatedAt = new Date().toISOString(), zoneExtras = new Map(),
 } = {}) {
   const telemetryBySession = new Map(telemetry.map((row) => [row.session_id, row]));
   const sessionsByZone = new Map();
@@ -77,6 +94,7 @@ export function buildFinalDistributionReport({
     const zoneSessions = sessionsByZone.get(zone.id) || [];
     const zonePhotos = zoneSessions.flatMap((session) => photoBySession.get(session.id) || []);
     const gpsCount = zoneSessions.reduce((sum, session) => sum + numberOrZero(session.gps_count), 0);
+    const extras = zoneExtras.get(zone.id) || null;
     return {
       name: zoneLabel(zone),
       municipality: zone.municipality_name || zoneLabel(zone),
@@ -93,6 +111,21 @@ export function buildFinalDistributionReport({
         approved: Boolean(photo.approved_at),
       })),
       totalPhotoCount: zonePhotos.length,
+      // Sezione "Tracciamento GPS e Copertura" (NON sostituisce nulla sopra):
+      // percentuali sempre dal motore server-side calculate_zone_final_coverage,
+      // mai un calcolo lato client, mai un 100% inventato — 'Non disponibile'
+      // quando il calcolo non e' 'ready'.
+      gpsCoveragePercent: extras?.calculationStatus === 'ready' ? extras.gpsCoveragePercent : null,
+      manualCoveragePercent: extras?.calculationStatus === 'ready' ? extras.manualCoveragePercent : null,
+      finalCoveragePercent: extras?.calculationStatus === 'ready' ? extras.finalCoveragePercent : null,
+      gpsDistanceKm: extras?.gpsDistanceKm ?? null,
+      validGpsPoints: extras?.validGpsPoints ?? null,
+      excludedGpsPoints: extras?.excludedGpsPoints ?? null,
+      boundaryAvailable: Boolean(extras?.boundaryAvailable),
+      traceAvailable: Boolean(extras?.traceAvailable),
+      boundaryGeometry: extras?.boundaryGeometry || null,
+      tracePoints: extras?.tracePoints || [],
+      finalStatus: computeFinalStatus(extras),
     };
   });
 

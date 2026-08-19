@@ -16,8 +16,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
+  buildSmartPairingBypassState,
   normalizeSmartPairingAvailability,
   fetchSmartPairingAvailability,
+  getSelectedSmartPairingDates,
 } from "../src/lib/smartPairingAvailability.js";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -105,6 +107,46 @@ test("TEST E - CONTINUA SENZA: in stato error usa smartPairingStatus=skipped_unv
   assert.match(step3Source, /skipped_unverified/);
   assert.match(step3Source, /availabilityStatus === "error"/);
   assert.match(step3Source, /id="step3-skip-unverified"/);
+});
+
+test("BUG TEST A - zero match: bypass non richiede date e preserva lo state precedente", () => {
+  const previous = {
+    selectedDates: ["2099-03-10"],
+    days: ["2099-03-10"],
+    campaignPeriodStart: "2099-03-01",
+    campaignPeriodEnd: "2099-03-31",
+    smartPairingSelectedDates: [],
+    campaignZones: [{ id: "cormano", selectedDates: ["2099-03-10"], smartPairingSelectedDates: ["2099-03-12"] }]
+  };
+  const next = buildSmartPairingBypassState(previous, "success");
+  assert.deepEqual(next.selectedDates, previous.selectedDates);
+  assert.deepEqual(next.days, previous.days);
+  assert.equal(next.campaignPeriodStart, previous.campaignPeriodStart);
+  assert.equal(next.campaignPeriodEnd, previous.campaignPeriodEnd);
+  assert.deepEqual(next.campaignZones[0].selectedDates, previous.campaignZones[0].selectedDates);
+  assert.deepEqual(next.campaignZones[0].smartPairingSelectedDates, []);
+  assert.equal(next.smartPairingStatus, "none");
+  assert.doesNotMatch(step3Source, /function handleSkipPairing\(\)[\s\S]{0,700}Seleziona almeno una data disponibile/);
+});
+
+test("BUG TEST B - zero slot: date generiche non diventano match Smart Pairing", () => {
+  assert.deepEqual(getSelectedSmartPairingDates(["2099-04-10"], []), []);
+  assert.match(step3Source, /realSmartPairingSlots\.length > 0 && <div/);
+});
+
+test("BUG TEST C - slot reale: solo una data restituita dal backend puo essere confermata", () => {
+  const slots = [{ date: "2099-05-12", type: "same", placesAvailable: 2 }];
+  assert.deepEqual(
+    getSelectedSmartPairingDates(["2099-05-11", "2099-05-12"], slots),
+    ["2099-05-12"]
+  );
+});
+
+test("BUG TEST D - date Step 1, slot backend e selezione Smart Pairing hanno campi distinti", () => {
+  assert.match(step3Source, /setSelDays\(data\.smartPairingSelectedDates \|\| \[\]\)/);
+  assert.match(step3Source, /smartPairingSlots: realSmartPairingSlots/);
+  assert.match(step3Source, /smartPairingSelectedDates: newDays/);
+  assert.match(step3Source, /step1SelectedDates: prev\.step1SelectedDates \|\| prev\.selectedDates \|\| prev\.days \|\| \[\]/);
 });
 
 // INVARIANTI KPI

@@ -5,13 +5,16 @@ import KpiTooltip from "../../../components/ui/KpiTooltip.jsx";
 import { useIsMobile } from "../../../hooks/useIsMobile.js";
 import { motion } from "framer-motion";
 import { AUTH_EXPIRED_MESSAGE, clearExpiredSupabaseSession, hasSupabaseConfig, isAuthTokenExpiredError, isStoredSupabaseSessionExpired, saveSmartPairingWaitlist, supabase } from "../../../lib/supabaseClient.js";
-import { BASE_PRICES, MONTHS_FULL } from "../../../lib/appConstants.js";
+import { supabase as supabaseSdk } from "../../../supabaseClient.js";
+import { QUOTE_PRICES, MONTHS_FULL } from "../../../lib/appConstants.js";
+import { calculateQuotePricing } from "../../../lib/quotePricing.js";
+import { resolveConfiguratorDistributionZones } from "../../../lib/pricing/resolveConfiguratorDistributionZones.js";
 import { calculateBusinessMaterials, calculateBusinessOperationalPlan } from "../../../lib/business/business-config.js";
 import { formatIntegerIT } from "../../../lib/utils/format.js";
 import { isStep2DebugEnabled } from "../../../lib/step2/debugStep2.js";
 import { NavButton } from "../../../components/NavButton.jsx";
 import { Step1Icon } from "../../../components/Step1Icon.jsx";
-import { calendarDateKey, fetchSmartPairingAvailability, isSelectableCalendarDate } from "../../../lib/smartPairingAvailability.js";
+import { buildSmartPairingBypassState, calendarDateKey, fetchSmartPairingAvailability, getSelectedSmartPairingDates, isSelectableCalendarDate } from "../../../lib/smartPairingAvailability.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
 export function Step3({
@@ -78,7 +81,7 @@ export function Step3({
     setAvailabilityStatus("loading");
     (async () => {
       try {
-        const availability = await fetchSmartPairingAvailability(supabase, {
+        const availability = await fetchSmartPairingAvailability(supabaseSdk, {
           service: data.type || "d2d",
           zone: data.cityName || (typeof data.selectedComuni?.[0] === "string" ? data.selectedComuni[0] : data.selectedComuni?.[0]?.name || data.selectedComuni?.[0]?.label) || "",
           lat: data.city?.lat ?? data.selectedSearchPoint?.lat ?? null,
@@ -105,74 +108,48 @@ export function Step3({
   useEffect(() => {
     if (data.dateMode === "per_zone" && activeCalZoneId) {
       const z = (data.campaignZones || []).find(x => x.id === activeCalZoneId);
-      setSelDays(z?.selectedDates || z?.days || []);
+      setSelDays(z?.smartPairingSelectedDates || []);
     } else {
-      setSelDays(data.selectedDates || data.days || []);
+      setSelDays(data.smartPairingSelectedDates || []);
     }
-  }, [activeCalZoneId, data.dateMode, data.campaignZones, data.selectedDates, data.days]);
-  const getMinMaxDates = dates => {
-    if (!dates || dates.length === 0) return {
-      start: null,
-      end: null
-    };
-    const sorted = [...dates].sort();
-    return {
-      start: sorted[0],
-      end: sorted[sorted.length - 1]
-    };
-  };
+  }, [activeCalZoneId, data.dateMode, data.campaignZones, data.smartPairingSelectedDates]);
   const updateDays = newDays => {
     setSelDays(newDays);
     if (data.dateMode === "per_zone" && activeCalZoneId) {
       setData(prev => {
-        const minMax = getMinMaxDates(newDays);
         const updatedZones = (prev.campaignZones || []).map(z => {
           if (z.id === activeCalZoneId) {
             return {
               ...z,
-              selectedDates: newDays,
-              days: newDays,
-              startDate: minMax.start,
-              endDate: minMax.end,
-              start_date: minMax.start,
-              end_date: minMax.end
+              step1SelectedDates: z.step1SelectedDates || z.selectedDates || z.days || [],
+              smartPairingSelectedDates: newDays
             };
           }
           return z;
         });
         const allDates = updatedZones.reduce((acc, z) => {
-          if (z.selectedDates) acc.push(...z.selectedDates);
+          if (z.smartPairingSelectedDates) acc.push(...z.smartPairingSelectedDates);
           return acc;
         }, []);
         const uniqueDates = [...new Set(allDates)];
-        const overallMinMax = getMinMaxDates(uniqueDates);
         return {
           ...prev,
+          step1SelectedDates: prev.step1SelectedDates || prev.selectedDates || prev.days || [],
           campaignZones: updatedZones,
-          selectedDates: uniqueDates,
-          days: uniqueDates,
-          startDate: overallMinMax.start,
-          endDate: overallMinMax.end
+          smartPairingSelectedDates: uniqueDates
         };
       });
     } else {
       setData(prev => {
-        const minMax = getMinMaxDates(newDays);
         const updatedZones = (prev.campaignZones || []).map(z => ({
           ...z,
-          selectedDates: newDays,
-          days: newDays,
-          startDate: minMax.start,
-          endDate: minMax.end,
-          start_date: minMax.start,
-          end_date: minMax.end
+          step1SelectedDates: z.step1SelectedDates || z.selectedDates || z.days || [],
+          smartPairingSelectedDates: newDays
         }));
         return {
           ...prev,
-          selectedDates: newDays,
-          days: newDays,
-          startDate: minMax.start,
-          endDate: minMax.end,
+          step1SelectedDates: prev.step1SelectedDates || prev.selectedDates || prev.days || [],
+          smartPairingSelectedDates: newDays,
           campaignZones: updatedZones
         };
       });
@@ -359,13 +336,26 @@ export function Step3({
     if (period.type === "weekdays") return `Giorni preferiti: ${(period.weekdays || []).join(", ")}`;
     return `Periodo: ${period.text}`;
   };
-  const basePrice = BASE_PRICES[currentServiceType] || 1.85;
+  // P0 WIRING REALE — rimossa la terza formula indipendente (BASE_PRICES,
+  // 1/10 di QUOTE_PRICES per un bug di denominatore mai stato notato perche'
+  // baseCost/saved qui sotto non erano mai lette da nessun altro punto del
+  // file, ne' renderizzate ne' scritte in data: codice morto). Sostituita
+  // con la STESSA pipeline centrale di Step4 (calculateQuotePricing +
+  // resolveConfiguratorDistributionZones, griglia territoriale reale per
+  // D2D, tariffa flat invariata per h2h/b2b) cosi' che, se in futuro questo
+  // valore viene effettivamente mostrato, coincida per costruzione con
+  // Step4 per lo stesso input — mai una seconda tabella prezzi.
   const activeQty = activeZone ? Number(activeZone.assigned_flyers || 0) : Number(data.qty || 0);
-  const baseCost = activeZone ? activeQty / 1000 * basePrice : activeQty / 1000 * basePrice * ((data.campaignZones || []).length || 1);
+  const step3PricePerThousand = QUOTE_PRICES[currentServiceType] || 18.5;
+  const step3DistributionZones = currentServiceType === "d2d"
+    ? resolveConfiguratorDistributionZones(data, activeQty).zones
+    : null;
+  const step3Pricing = calculateQuotePricing({ quantity: activeQty, pricePerThousand: step3PricePerThousand, distributionZones: step3DistributionZones });
+  const baseCost = step3Pricing.baseCost ?? 0;
   const saved = baseCost * (averagePairingDiscount / 100);
   function toggle(d) {
     const k = calendarDateKey(year, month, d);
-    if (!isSelectableCalendarDate(k, availableDates, pairs[k])) return;
+    if (!pairs[k] || !isSelectableCalendarDate(k, availableDates, pairs[k])) return;
     const newDays = selDays.includes(k) ? selDays.filter(x => x !== k) : [...selDays, k];
     updateDays(newDays);
     setShowRequest(false);
@@ -378,6 +368,7 @@ export function Step3({
       days: selDays,
       avgDiscount: averagePairingDiscount,
       selectedDates: selDays,
+      smartPairingSelectedDates: selDays,
       selectedMonth: {
         month,
         year,
@@ -404,11 +395,10 @@ export function Step3({
   function buildFinalPayload(contactOverride) {
     if (data.dateMode === "per_zone") {
       const allSelectedDates = (data.campaignZones || []).reduce((acc, z) => {
-        if (z.selectedDates) acc.push(...z.selectedDates);
+        if (z.smartPairingSelectedDates) acc.push(...z.smartPairingSelectedDates);
         return acc;
       }, []);
       const uniqueSelectedDates = [...new Set(allSelectedDates)];
-      const minMax = getMinMaxDates(uniqueSelectedDates);
       const pairingByDay = Object.fromEntries(uniqueSelectedDates.map(k => [k, pairs[k] ? pairs[k].type : "none"]));
       const discountByDay = Object.fromEntries(uniqueSelectedDates.map(k => [k, pairs[k]?.disc || 0]));
       const allZonePairingDays = uniqueSelectedDates.filter(k => pairs[k]);
@@ -419,6 +409,7 @@ export function Step3({
         days: uniqueSelectedDates,
         avgDiscount: overallAverageDiscount,
         selectedDates: uniqueSelectedDates,
+        smartPairingSelectedDates: uniqueSelectedDates,
         selectedMonth: {
           month,
           year,
@@ -439,9 +430,7 @@ export function Step3({
         smartPairingAvailabilitySource: realSmartPairingSlots.length || realAvailabilityDates.length ? "backend" : "none",
         smartPairingRequestSent: false,
         smartPairingStatus: allZonePairingDays.length ? "selected" : "none",
-        contactRequestData: contactOverride || data.contactRequestData || null,
-        startDate: minMax.start,
-        endDate: minMax.end
+        contactRequestData: contactOverride || data.contactRequestData || null
       };
     } else {
       return buildPayload(contactOverride);
@@ -523,9 +512,8 @@ export function Step3({
     setFormError("");
     setData(d => ({
       ...d,
-      days: [],
+      smartPairingSelectedDates: [],
       avgDiscount: 0,
-      selectedDates: [],
       selectedDaysCount: 0,
       pairingDays: [],
       normalDays: [],
@@ -604,9 +592,9 @@ export function Step3({
     });
     console.info("[STEP3_NAV_STATE_BEFORE_CHANGE]", navSnapshot());
     if (data.dateMode === "per_zone") {
-      const hasUnplanned = (data.campaignZones || []).some(z => !z.selectedDates || z.selectedDates.length === 0);
+      const hasUnplanned = (data.campaignZones || []).some(z => getSelectedSmartPairingDates(z.smartPairingSelectedDates, realSmartPairingSlots).length === 0);
       if (hasUnplanned) {
-        const firstUnplanned = (data.campaignZones || []).find(z => !z.selectedDates || z.selectedDates.length === 0);
+        const firstUnplanned = (data.campaignZones || []).find(z => getSelectedSmartPairingDates(z.smartPairingSelectedDates, realSmartPairingSlots).length === 0);
         if (firstUnplanned) {
           setActiveCalZoneId(firstUnplanned.id);
           const msg = `Pianifica le date anche per la zona: ${firstUnplanned.zone_label || firstUnplanned.cityName || "successiva"}`;
@@ -620,7 +608,7 @@ export function Step3({
         }
       }
     }
-    if (selDays.length === 0 && data.dateMode !== "per_zone") {
+    if (pairingDays.length === 0 && data.dateMode !== "per_zone") {
       console.warn("[STEP3_NAV_BLOCKED_VALIDATION]", {
         reason: "no_dates_selected",
         ...navSnapshot()
@@ -643,42 +631,10 @@ export function Step3({
     // Se la disponibilità non è stata verificata (errore tecnico), avvisiamo
     // esplicitamente con smartPairingStatus = "skipped_unverified" anziché "none",
     // in modo che Step 4 possa mostrare un avviso appropriato.
-    const skipStatus = availabilityStatus === "error" ? "skipped_unverified" : "none";
-    if (selDays.length === 0 && availabilityStatus !== "error") {
-      setNavError("Seleziona almeno una data disponibile prima di continuare.");
-      return;
-    }
     setNavError("");
     // In caso di errore, non c'è un payload di date da buildFinalPayload
     // (non ci sono date selezionabili). Aggiorniamo solo lo stato Smart Pairing.
-    if (availabilityStatus === "error") {
-      setData(d => ({
-        ...d,
-        avgDiscount: 0,
-        pairingDays: [],
-        normalDays: [],
-        pairingType: {},
-        pairingDiscountPercent: {},
-        averagePairingDiscount: 0,
-        maxPairingDiscount: 0,
-        calendarStatus: "no_smart_pairing",
-        smartPairingStatus: skipStatus
-      }));
-    } else {
-      setData(d => ({
-        ...d,
-        ...buildFinalPayload(null),
-        avgDiscount: 0,
-        pairingDays: [],
-        normalDays: selDays,
-        pairingType: {},
-        pairingDiscountPercent: {},
-        averagePairingDiscount: 0,
-        maxPairingDiscount: 0,
-        calendarStatus: "no_smart_pairing",
-        smartPairingStatus: skipStatus
-      }));
-    }
+    setData(d => buildSmartPairingBypassState(d, availabilityStatus));
     handleContinueToStep4();
   }
   const inputStyle = {
@@ -992,10 +948,15 @@ export function Step3({
         </div>
       </div>
 
-      {/* 3. KPI CARDS */}
+      {/* 3. KPI CARDS — "1fr" puro su CSS Grid equivale a minmax(auto,1fr):
+          la colonna NON scende mai sotto la larghezza minima del proprio
+          contenuto (es. sub-testo lungo come "Nessuna campagna compatibile
+          al momento."), quindi su 395px la griglia 2 colonne traboccava
+          comunque. minmax(0,1fr) permette alle colonne di restringersi
+          davvero, lasciando che il testo vada a capo dentro la card. */}
       <div style={{
       display: "grid",
-      gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
+      gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(4, 1fr)",
       gap: 14,
       marginBottom: 32
     }}>
@@ -1065,7 +1026,9 @@ export function Step3({
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.15)"
+        boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+        minWidth: 0,
+        boxSizing: "border-box"
       }}>
             <div style={{
           fontFamily: F.sans,
@@ -1300,7 +1263,7 @@ export function Step3({
             </motion.div> : <div style={{
           marginBottom: 28
         }}>
-              <div style={{
+              {realSmartPairingSlots.length > 0 && <div style={{
             display: "flex",
             gap: 14,
             marginBottom: 14,
@@ -1336,7 +1299,7 @@ export function Step3({
                 color: "rgba(255,255,255,.6)"
               }}>{l}</span>
                   </div>)}
-              </div>
+              </div>}
 
               <div style={{
             display: "flex",
@@ -1417,7 +1380,7 @@ export function Step3({
                   k = calendarDateKey(year, month, d),
                   pair = pairs[k];
                 const sel = selDays.includes(k);
-                const selectable = isSelectableCalendarDate(k, availableDates, pair);
+                const selectable = Boolean(pair) && isSelectableCalendarDate(k, availableDates, pair);
                 let bg = "rgba(255,255,255,.025)",
                   border = "1px solid rgba(255,255,255,.04)",
                   tc = "rgba(255,255,255,.22)";
@@ -2074,12 +2037,12 @@ export function Step3({
                 <span style={{
                 padding: "3px 8px",
                 borderRadius: 6,
-                background: realSmartPairingSlots.length > 0 ? selDays.length > 0 ? "rgba(46,204,138,0.15)" : "rgba(6,182,212,0.15)" : "rgba(255,255,255,.07)",
-                color: realSmartPairingSlots.length > 0 ? selDays.length > 0 ? C.green : C.cyan : "rgba(255,255,255,.7)",
+                background: realSmartPairingSlots.length > 0 ? pairingDays.length > 0 ? "rgba(46,204,138,0.15)" : "rgba(6,182,212,0.15)" : "rgba(255,255,255,.07)",
+                color: realSmartPairingSlots.length > 0 ? pairingDays.length > 0 ? C.green : C.cyan : "rgba(255,255,255,.7)",
                 fontSize: 11,
                 fontWeight: 700
               }}>
-                  {realSmartPairingSlots.length > 0 ? selDays.length > 0 ? "Confermato" : "Compatibili" : (formSent ? "Richiesta registrata" : "Nessun match")}
+                  {realSmartPairingSlots.length > 0 ? pairingDays.length > 0 ? "Confermato" : "Compatibili" : (formSent ? "Richiesta registrata" : "Nessun match")}
                 </span>
               </div>
               <div style={{
@@ -2105,7 +2068,7 @@ export function Step3({
           flexDirection: "column",
           gap: 10
         }}>
-            {selDays.length > 0 ? <button className="btn" onClick={handlePrimary} style={{
+            {pairingDays.length > 0 ? <button className="btn" onClick={handlePrimary} style={{
             width: "100%",
             padding: "16px",
             borderRadius: 12,

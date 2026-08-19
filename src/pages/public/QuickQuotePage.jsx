@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Step1Icon } from "../../components/Step1Icon.jsx";
+import { useIsMobile } from "../../hooks/useIsMobile.js";
 import { useServiceAnalysis } from "../../hooks/useServiceAnalysis.js";
 import { normalizeNominatimGeocodeResult, canonicalizeItalianMunicipalityName } from "../../lib/geocoding/canonicalizeItalianMunicipalityName.js";
 import { buildExtraServicesRegistry, buildExtraServicesById, buildOptionalExtras, OPTIONAL_EXTRAS_ORDER } from "../../lib/extraServicesRegistry.js";
@@ -15,6 +16,9 @@ import {
   computeBusinessTerritorialEstimate,
 } from "../../lib/quickQuote/territorialCampaignCalculator.js";
 import { getBusinessDefaultCopies } from "../../lib/business/business-config.js";
+import { calculateQuotePricing } from "../../lib/quotePricing.js";
+import { QUOTE_PRICES } from "../../lib/appConstants.js";
+import { resolveConfiguratorDistributionZones } from "../../lib/pricing/resolveConfiguratorDistributionZones.js";
 
 const F = { serif: "'DM Serif Display',Georgia,serif", sans: "'DM Sans',sans-serif" };
 const C = {
@@ -23,9 +27,6 @@ const C = {
   yellow: "#FBBF24", red: "#F87171", teal: "#2DD4BF", muted: "#64748B", white: "#FFFFFF",
 };
 
-// Stesso prezzo per 1.000 usato da Step4 (QUOTE_PRICES) — duplicato qui come
-// letterale perche' non e' un modulo importabile, ma il valore e' identico.
-const QUOTE_PRICES = { d2d: 18.5, h2h: 22.0, b2b: 35.0 };
 const MAX_COMUNI = 3;
 // Stesso raggio "singolo comune" gia' usato altrove in questo file
 // (Math.min(Math.max(3, 3), 8) == 3) — riusato qui per interrogare
@@ -93,6 +94,10 @@ function n(value) {
 }
 
 export default function QuickQuotePage({ onStart, onContact, data }) {
+  // Stesso hook/breakpoint di Step1.jsx per le card "Tipo di distribuzione":
+  // le card "Tipo di servizio" qui replicano lo stesso comportamento a
+  // colonna singola sotto i 760px.
+  const isMobile = useIsMobile();
   const [service, setService] = useState(data?.type || data?.selectedService || "d2d");
   const [activityType, setActivityType] = useState(data?.activityType || data?.businessSector || "");
   const [comuni, setComuni] = useState([]); // [{ name, lat, lng }]
@@ -377,16 +382,36 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
     setExtraIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  // PREZZO — stessa formula di Step4 (QUOTE_PRICES-based): base +
-  // sovrapprezzo urgenza (+30% reale) + extra. Calcolato solo su
-  // effectiveQuantity, mai sulla quantita' grezza inserita prima che sia
-  // stata risolta (sez. 12).
+  // PREZZO — P1 PRICING ENGINE sezione 21: centralizzato su
+  // calculateQuotePricing (stesso modulo condiviso usato da Step4), non
+  // piu' una formula duplicata a mano. Stesso input (quantita', tariffa,
+  // urgenza, extra) => stesso identico output di Step4 per lo stesso
+  // servizio/comune/quantita'/urgenza — nessun piano applicato qui (Quick
+  // Quote non raccoglie una scelta di piano continuativo), come gia' prima.
   const pricePerThousand = QUOTE_PRICES[service] || 18.5;
   const pricingQty = effectiveQuantity || 0;
-  const baseCost = pricingQty * (pricePerThousand / 1000);
-  const urgencySurcharge = urgency === "urgent" ? baseCost * 0.3 : 0;
-  const extrasCost = extraIds.reduce((sum, id) => sum + (registryById[id]?.price || 0), 0);
-  const total = baseCost + urgencySurcharge + extrasCost;
+  const extraLineItems = extraIds.map((id) => ({ id, price: registryById[id]?.price || 0 }));
+  // P0 WIRING REALE sezione 6 — griglia territoriale attiva per D2D SOLO
+  // quando un singolo comune reale e' selezionato (Quick Quote non
+  // raccoglie una quantita' per-comune quando ne sono selezionati piu' di
+  // uno, vedi audit: mai inventare una ripartizione qui). Con un solo
+  // comune, questo produce esattamente lo stesso prezzo di Step4 per lo
+  // stesso input (stessa classifyTerritory, stesso calculateQuotePricing).
+  const quickDistributionZones = service === "d2d" && comuni.length === 1 && pricingQty > 0
+    ? resolveConfiguratorDistributionZones({ selectedComuni: comuni }, pricingQty).zones
+    : null;
+  const quickPricing = calculateQuotePricing({
+    quantity: pricingQty,
+    pricePerThousand,
+    urgency,
+    extras: extraLineItems,
+    distributionZones: quickDistributionZones,
+  });
+  const baseCost = quickPricing.baseCost ?? 0;
+  const urgencySurcharge = quickPricing.urgencySurcharge ?? 0;
+  const urgencySurchargePctLabel = baseCost > 0 ? Math.round((urgencySurcharge / baseCost) * 100) : 0;
+  const extrasCost = quickPricing.extraCost ?? 0;
+  const total = quickPricing.total ?? (baseCost + urgencySurcharge + extrasCost);
 
   // PRESENTAZIONE / CONSIGLIO — testo deterministico sempre disponibile
   // (nessuna dipendenza da AI, sez. 7 del ticket). Solo D2D: H2H e B2B hanno
@@ -503,7 +528,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
             unitPrice: pricePerThousand / 1000,
             total: baseCost,
           },
-          ...(urgencySurcharge > 0 ? [{ label: "Maggiorazione urgenza (+30%)", quantity: null, unitPrice: null, total: urgencySurcharge }] : []),
+          ...(urgencySurcharge > 0 ? [{ label: `Maggiorazione urgenza (+${urgencySurchargePctLabel}%)`, quantity: null, unitPrice: null, total: urgencySurcharge }] : []),
         ],
         subtotal: baseCost,
         extras: extraIds.map((id) => ({ label: registryById[id]?.head, amount: registryById[id]?.price || 0, status: "Selezionato" })),
@@ -546,38 +571,66 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
           <div style={{ background: "rgba(255,255,255,.03)", borderRadius: 20, border: "1px solid rgba(255,255,255,.08)", padding: "28px", boxShadow: "0 20px 50px rgba(0,0,0,.3)" }}>
 
             <FieldLabel>Tipo di servizio</FieldLabel>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))", gap: 20, marginBottom: 32, alignItems: "stretch" }}>
               {SERVICE_OPTIONS.map((opt) => {
-                const dt = distributionTypes.find((t) => t.id === opt.id);
+                const t = distributionTypes.find((x) => x.id === opt.id);
+                if (!t) return null;
                 const active = service === opt.id;
-                const svcColor = dt?.color || C.orange;
+                const cardCol = active ? C.green : "rgba(255,255,255,.38)";
                 return (
-                  <button
-                    key={opt.id} type="button" onClick={() => setService(opt.id)}
-                    style={{
-                      position: "relative",
-                      display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6,
-                      padding: "14px", borderRadius: 12, cursor: "pointer", textAlign: "left",
-                      border: `${active ? 2 : 1.5}px solid ${active ? svcColor : "rgba(255,255,255,.12)"}`,
-                      background: active ? `${svcColor}22` : "rgba(255,255,255,.03)",
-                      boxShadow: active ? `0 10px 26px ${svcColor}28` : "none",
-                    }}
-                  >
+                  <button type="button" role="radio" aria-checked={active} key={t.id} onClick={() => setService(t.id)} className={`vp-s1-card-hover${active ? " vp-s1-card-selected" : ""}`} style={{
+                    padding: 24,
+                    borderRadius: 18,
+                    // Stessi valori di s1Card() in Step1.jsx: stesso gradiente/bordo/
+                    // ombra della card selezionata/non selezionata, stesso "feeling premium".
+                    background: active ? "linear-gradient(180deg, rgba(34,197,94,.13), rgba(34,197,94,.055))" : "rgba(9,18,33,.58)",
+                    border: `1.5px solid ${active ? "rgba(34,197,94,.45)" : "rgba(255,255,255,.105)"}`,
+                    boxShadow: active ? "0 18px 42px rgba(34,197,94,.13)" : "inset 0 1px 0 rgba(255,255,255,.035)",
+                    cursor: "pointer",
+                    display: "flex",
+                    flexDirection: "column",
+                    position: "relative",
+                    textAlign: "left",
+                    color: "inherit",
+                    transition: "all .3s cubic-bezier(.4,0,.2,1)"
+                  }}>
                     {active ? (
-                      <div style={{ position: "absolute", top: 8, right: 8, padding: "3px 8px", borderRadius: 999, background: `${C.green}24`, border: `1px solid ${C.green}55`, color: C.green, fontFamily: F.sans, fontSize: 9, fontWeight: 800 }}>
+                      <div style={{ position: "absolute", top: 16, right: 16, padding: "3px 9px", borderRadius: 999, background: "rgba(34,197,94,.14)", border: "1px solid rgba(34,197,94,.36)", color: C.green, fontFamily: F.sans, fontSize: 10, fontWeight: 800 }}>
                         ✓ Selezionato
                       </div>
-                    ) : dt?.badge && (
-                      <div style={{ position: "absolute", top: 8, right: 8, padding: "3px 8px", borderRadius: 999, background: "rgba(255,255,255,.055)", border: "1px solid rgba(255,255,255,.1)", color: "rgba(255,255,255,.66)", fontFamily: F.sans, fontSize: 9, fontWeight: 800 }}>
-                        {dt.badge}
+                    ) : t.badge ? (
+                      <div style={{ position: "absolute", top: 18, right: 18, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,.055)", border: "1px solid rgba(255,255,255,.1)", color: "rgba(255,255,255,.66)", fontFamily: F.sans, fontSize: 11, fontWeight: 800 }}>
+                        {t.badge}
                       </div>
-                    )}
-                    <Step1Icon name={opt.icon} size={20} color={active ? svcColor : "rgba(255,255,255,.6)"} />
-                    <span style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: active ? svcColor : C.white }}>{opt.label}</span>
-                    <span style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)" }}>{opt.sub}</span>
-                    {dt?.target && (
-                      <span style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.32)", lineHeight: 1.3 }}>{dt.target}</span>
-                    )}
+                    ) : null}
+                    <div style={{ marginBottom: 16 }}>
+                      <Step1Icon name={t.icon} size={36} color={active ? C.green : "rgba(255,255,255,.82)"} />
+                    </div>
+                    <div style={{ fontFamily: F.serif, fontSize: 22, color: "#F8FAFC", marginBottom: 8 }}>
+                      {t.name}
+                    </div>
+                    <p style={{ fontFamily: F.sans, fontSize: 13, lineHeight: 1.55, color: "#94A3B8", margin: "0 0 18px", minHeight: 40 }}>
+                      {t.desc}
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14, borderRadius: 12, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,0.065)", marginBottom: 20, flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 12, color: "#CBD5E1" }}>
+                        <span style={{ marginTop: 2, flexShrink: 0 }}><Step1Icon name="lightbulb" size={14} /></span> <span><b style={{ color: "#F8FAFC" }}>Casi d'uso:</b> {t.useCases}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 12, color: "#CBD5E1" }}>
+                        <span style={{ marginTop: 2, flexShrink: 0 }}><Step1Icon name="target" size={14} /></span> <span><b style={{ color: "#F8FAFC" }}>Target:</b> {t.target}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 12, color: "#CBD5E1" }}>
+                        <span style={{ marginTop: 2, flexShrink: 0 }}><Step1Icon name="clock" size={14} /></span> <span><b style={{ color: "#F8FAFC" }}>Tempo medio:</b> {t.time}</span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 14, borderTop: `1px solid ${active ? "rgba(34,197,94,.24)" : "rgba(255,255,255,0.08)"}`, width: "100%" }}>
+                      <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 600, color: "#64748B", fontStyle: "italic" }}>
+                        Prezzo calcolato nel preventivo finale
+                      </span>
+                      <span style={{ width: 26, height: 26, borderRadius: "50%", background: active ? C.green : "transparent", border: `2px solid ${active ? C.green : cardCol}`, display: "flex", alignItems: "center", justifyContent: "center", color: active ? "#06131f" : cardCol, fontSize: 13, fontWeight: 900, transition: "all .2s", flexShrink: 0 }}>
+                        {active ? "✓" : "+"}
+                      </span>
+                    </div>
                   </button>
                 );
               })}
@@ -1051,7 +1104,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                   )}
                   {urgencySurcharge > 0 && (
                     <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: C.red }}>
-                      <span>Urgenza (+30%)</span>
+                      <span>Urgenza (+{urgencySurchargePctLabel}%)</span>
                       <span>+{money(urgencySurcharge)}</span>
                     </div>
                   )}

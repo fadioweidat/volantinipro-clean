@@ -19,7 +19,9 @@ export function buildExtraServicesRegistry({ flyerQty, dedicatedSupervisionPrice
       bullets: ["Segui in tempo reale gli operatori sulla mappa", "Storico percorso al termine della distribuzione", "Link di condivisione per il tuo team"],
       mappingLabel: "Tracking GPS", mappingDescription: "Monitoraggio operativo della distribuzione con tracciamento delle attività.", mappingIcon: "",
       optionalDescription: "Tracciamento operativo e timeline distributori.", optionalMicro: "Mostra avanzamento e operatori sulla mappa.", optionalIcon: "GPS",
-      price: 25, optional: true,
+      // P1 PRICING ENGINE sezione 13: prezzo commerciale aggiornato da €25 a
+      // €60 (GPS Live / tracking), stesso id, nessuna duplicazione.
+      price: 60, optional: true,
     },
     {
       id: "photo_proof", legacyIds: ["foto", "photo_proof", "foto_localizzate", "photo_report_advanced"], addId: "photo_report_advanced",
@@ -27,7 +29,15 @@ export function buildExtraServicesRegistry({ flyerQty, dedicatedSupervisionPrice
       bullets: ["30 foto geolocalizzate con data e orario", "Conferma visiva zona per zona", "Archivio scaricabile dal portale cliente"],
       mappingLabel: "Foto localizzate", mappingDescription: "Prove fotografiche con data, zona e riferimento operativo.", mappingIcon: "",
       optionalDescription: "Proof fotografici con data e zona.", optionalMicro: "Foto geolocalizzate con data e ora.", optionalIcon: "PHOTO",
-      price: 35, optional: true,
+      // P1 PRICING ENGINE sezione 13: prezzo commerciale aggiornato da €35 a
+      // €30 (Foto proof base), stesso id, nessuna duplicazione. Il ticket
+      // chiede anche un tier separato "Report fotografico completo €50" —
+      // NON aggiunto qui: richiederebbe una seconda voce con nuova UI/copy
+      // in Step4 (bullets/badge dedicati), rischio di duplicazione se fatto
+      // senza un audit UI dedicato — riportato come pending nel report
+      // finale invece di forzarlo (sezione 14 del ticket lo permette
+      // esplicitamente per casi analoghi).
+      price: 30, optional: true,
     },
     {
       id: "graphic_design", legacyIds: ["graphic_design", "grafica_progetto"], addId: "graphic_design",

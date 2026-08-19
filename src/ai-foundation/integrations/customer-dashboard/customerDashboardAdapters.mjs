@@ -13,6 +13,15 @@ const metadataOf = (row) => {
 };
 const dateValue = (value) => text(value) && !Number.isNaN(Date.parse(value)) ? value : null;
 const newestFirst = (left, right) => Date.parse(right.createdAt || 0) - Date.parse(left.createdAt || 0);
+const ACTIVE_STATUSES = new Set(["confermata", "in_preparazione", "in_distribuzione"]);
+
+const operationalNewestFirst = (left, right) => {
+  const leftNeedsPayment = left.paymentStatus !== "pagato" ? 1 : 0;
+  const rightNeedsPayment = right.paymentStatus !== "pagato" ? 1 : 0;
+  if (leftNeedsPayment !== rightNeedsPayment) return rightNeedsPayment - leftNeedsPayment;
+  const byStartDate = Date.parse(right.startDate || 0) - Date.parse(left.startDate || 0);
+  return byStartDate || newestFirst(left, right);
+};
 
 export function campaignBelongsToScope(row, snapshot, scope) {
   const metadata = metadataOf(row);
@@ -31,6 +40,7 @@ export function safeCampaign(row) {
       : [];
   return Object.freeze({
     id: text(row?.id),
+    name: text(row?.titolo ?? row?.campaign_name ?? row?.title),
     status: text(row?.stato ?? row?.status),
     paymentStatus: text(row?.stato_pagamento ?? row?.payment_status),
     service: text(row?.servizio ?? row?.service_type),
@@ -45,6 +55,24 @@ export function safeCampaign(row) {
     hasQuoteSummary: Boolean(metadata.quote_summary),
     reportIndicator: ["completata", "report_pronto"].includes(text(row?.stato ?? row?.status)),
   });
+}
+
+/**
+ * Separa la campagna corrente (quella attiva che richiede attenzione e con
+ * data operativa piu' recente) dall'ultimo record creato. L'ordine ricevuto
+ * dalla UI non e' mai usato come regola di selezione.
+ */
+export function resolveOwnedCampaignSelection(rows) {
+  const campaigns = Array.isArray(rows) ? [...rows] : [];
+  const latestCampaign = [...campaigns].sort(newestFirst)[0] ?? null;
+  const currentCampaign = campaigns.filter((campaign) => ACTIVE_STATUSES.has(campaign.status)).sort(operationalNewestFirst)[0] ?? latestCampaign;
+  return Object.freeze({ currentCampaign, latestCampaign });
+}
+
+export function resolveLatestQuoteCampaign(rows) {
+  return (Array.isArray(rows) ? [...rows] : [])
+    .filter((campaign) => campaign.hasQuoteSummary || ["preventivo", "inviato", "in_preparazione"].includes(campaign.status))
+    .sort(newestFirst)[0] ?? null;
 }
 
 function envelope(source, state, data, missing = []) {
@@ -112,10 +140,11 @@ export function createCampaignToolAdapter(provider) {
       const operation = text(arguments_?.operation);
       if (!operations.has(operation)) throw new AiToolAdapterError("invalid_input");
       const campaigns = ownedCampaigns(snapshot, scope);
+      const { currentCampaign } = resolveOwnedCampaignSelection(campaigns);
       if (operation === "recent") return envelope(AI_TOOL_NAMES.CAMPAIGN, campaigns.length ? CUSTOMER_TOOL_DATA_STATES.AVAILABLE : CUSTOMER_TOOL_DATA_STATES.EMPTY, Object.freeze(campaigns.slice(0, 5)));
       const selected = operation === "latest_quote"
-        ? campaigns.find((campaign) => campaign.hasQuoteSummary || ["preventivo", "inviato", "in_preparazione"].includes(campaign.status))
-        : campaigns[0];
+        ? resolveLatestQuoteCampaign(campaigns)
+        : currentCampaign;
       if (!selected) return envelope(AI_TOOL_NAMES.CAMPAIGN, CUSTOMER_TOOL_DATA_STATES.EMPTY, null);
       const missing = [
         ["status", selected.status], ["service", selected.service], ["quantity", selected.quantity],
@@ -145,20 +174,21 @@ export function createDashboardToolAdapter(provider) {
       const operation = text(arguments_?.operation);
       if (!operations.has(operation)) throw new AiToolAdapterError("invalid_input");
       const campaigns = ownedCampaigns(snapshot, scope);
-      const latest = campaigns[0] ?? null;
-      const missing = latest ? [
-        ["stato campagna", latest.status], ["servizio", latest.service], ["quantita", latest.quantity],
-        ["zona", latest.zone], ["data inizio", latest.startDate], ["data fine", latest.endDate],
+      const { currentCampaign, latestCampaign } = resolveOwnedCampaignSelection(campaigns);
+      const missing = currentCampaign ? [
+        ["stato campagna", currentCampaign.status], ["servizio", currentCampaign.service], ["quantita", currentCampaign.quantity],
+        ["zona", currentCampaign.zone], ["data inizio", currentCampaign.startDate], ["data fine", currentCampaign.endDate],
       ].filter(([, value]) => value === null).map(([label]) => label) : [];
       const data = operation === "missing"
-        ? Object.freeze({ campaignId: latest?.id ?? null, fields: Object.freeze(missing), noCampaigns: campaigns.length === 0 })
+        ? Object.freeze({ campaignId: currentCampaign?.id ?? null, fields: Object.freeze(missing), noCampaigns: campaigns.length === 0 })
         : Object.freeze({
             campaignCount: campaigns.length,
             activeCount: campaigns.filter((campaign) => ["confermata", "in_preparazione", "in_distribuzione"].includes(campaign.status)).length,
             completedCount: campaigns.filter((campaign) => ["completata", "report_pronto"].includes(campaign.status)).length,
             pendingPaymentCount: campaigns.filter((campaign) => campaign.paymentStatus && campaign.paymentStatus !== "pagato").length,
             reportIndicatorCount: campaigns.filter((campaign) => campaign.reportIndicator).length,
-            latestCampaign: latest,
+            currentCampaign,
+            latestCampaign,
           });
       return envelope(AI_TOOL_NAMES.DASHBOARD, campaigns.length ? CUSTOMER_TOOL_DATA_STATES.AVAILABLE : CUSTOMER_TOOL_DATA_STATES.EMPTY, data, missing);
     },

@@ -3,8 +3,7 @@ import {
   hasSupabaseConfig,
   getStoredSupabaseSession,
   consumeSupabaseAuthHash,
-  isStoredSupabaseSessionValid,
-  clearStoredSupabaseSession,
+  restoreSupabaseSession,
   verifySupabaseAdminRole
 } from "../session.js";
 
@@ -66,29 +65,34 @@ export function AdminGuard({ onNav, children }) {
   );
   const [roleStatus, setRoleStatus] = useState("checking"); // checking | admin | denied
 
-  const sessionValid = !hasSupabaseConfig() || isStoredSupabaseSessionValid(session);
-
   useEffect(() => {
-    if (!sessionValid) {
-      if (session) clearStoredSupabaseSession();
-      onNav?.("login", { context: "admin" });
-      return undefined;
-    }
     if (!hasSupabaseConfig()) {
       setRoleStatus("admin");
       return undefined;
     }
     let cancelled = false;
     setRoleStatus("checking");
-    verifySupabaseAdminRole(session).then((isAdmin) => {
+    void restoreSupabaseSession().then(async (restoredSession) => {
+      if (cancelled) return;
+      if (!restoredSession) {
+        setRoleStatus("anonymous");
+        onNav?.("login", { context: "admin" });
+        return;
+      }
+      setSession(restoredSession);
+      const isAdmin = await verifySupabaseAdminRole(restoredSession);
       if (!cancelled) setRoleStatus(isAdmin ? "admin" : "denied");
     });
     return () => {
       cancelled = true;
     };
-  }, [session, sessionValid, onNav]);
+    // La sessione iniziale e' intenzionalmente una snapshot: il suo refresh
+    // viene gestito dalla SDK e sincronizzato nello storage, non riavviando il
+    // guard a ogni rotazione del token.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // onNav rimosso dalle dipendenze per evitare il re-trigger a ogni render di AppRouter
 
-  if (!sessionValid) return null;
+  if (roleStatus === "anonymous") return null;
   if (roleStatus === "checking") return <AdminRoleCheckingPlaceholder />;
   if (roleStatus === "denied") return <AdminAccessDeniedPanel onNav={onNav} />;
   // roleStatus === "admin" qui sotto: jwt_is_admin() e' gia' stato verificato

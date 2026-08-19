@@ -1,12 +1,15 @@
 import 'leaflet/dist/leaflet.css';
-import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, Polygon } from 'react-leaflet';
-import { useEffect, useMemo, useState } from 'react';
+import L from 'leaflet';
+import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, Polygon, useMap } from 'react-leaflet';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
+import { useZoneBoundaries } from '../../hooks/useZoneBoundaries.js';
 import { calculateDistanceKm } from '../../lib/services/gps-api.js';
 import { getOwnedCustomerTracking } from '../../lib/services/customer-api.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
 import { listCoverageAdjustments } from '../../lib/services/coverage-adjustments-api.js';
+import { deriveLiveZoneStatus, estimateDistanceToZoneBoundaryMeters, ZONE_LIVE_STATUS_LABELS, ZONE_LIVE_STATUS_COLORS } from '../../lib/geofence/geofenceEngine.js';
 import { C, F } from '../../lib/constants.js';
 
 export function CampaignTracking({ campaignId }) {
@@ -14,6 +17,19 @@ export function CampaignTracking({ campaignId }) {
   const [adjustments, setAdjustments] = useState([]);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const zoneProgress = useZoneProgress({ campaignId });
+  // Stesso hook condiviso di Admin/GpsMonitor.jsx: stesso confine reale del
+  // comune (resolveMunicipalityBoundary, identico alla Driver App), nessuna
+  // seconda logica per la vista Cliente.
+  const { zoneRows, resolvedBoundaries } = useZoneBoundaries(campaignId);
+  const mapZones = useMemo(() => (zoneProgress.zones || []).map((zone) => ({
+    ...zone,
+    geometry: resolvedBoundaries[zone.campaign_zone_id] || null,
+  })), [zoneProgress.zones, resolvedBoundaries]);
+  const liveZones = useMemo(
+    () => Object.values(resolvedBoundaries).filter(Boolean).map((geometry) => ({ kind: 'polygon', geometry })),
+    [resolvedBoundaries],
+  );
+  const activeZoneName = zoneRows?.[0]?.zone_name || null;
 
   useEffect(() => {
     let cancelled = false;
@@ -51,6 +67,29 @@ export function CampaignTracking({ campaignId }) {
   const status = deriveCampaignStatus(state.sessions);
   const activeMs = state.sessions.reduce((sum, session) => sum + sessionDurationMs(session), 0);
   const distanceKm = calculateDistanceKm(state.points);
+  const latestPoint = state.points[state.points.length - 1] || null;
+  // Stesso badge/soglia della Driver App e di Admin/GpsMonitor.jsx
+  // (deriveLiveZoneStatus, geofenceEngine.js) — nessuna logica separata.
+  const liveZoneStatus = useMemo(() => deriveLiveZoneStatus(liveZones, latestPoint?.lat, latestPoint?.lng), [liveZones, latestPoint]);
+  const outsideDistanceKm = useMemo(() => {
+    if (liveZoneStatus !== 'outside' || !latestPoint) return null;
+    const meters = estimateDistanceToZoneBoundaryMeters(liveZones, latestPoint.lat, latestPoint.lng);
+    return meters != null ? meters / 1000 : null;
+  }, [liveZoneStatus, liveZones, latestPoint]);
+  const mapRef = useRef(null);
+  const handleGoToOperatorPosition = () => {
+    if (latestPoint && mapRef.current) mapRef.current.setView([Number(latestPoint.lat), Number(latestPoint.lng)], Math.max(mapRef.current.getZoom(), 16));
+  };
+  const handleReturnToArea = () => {
+    const geometry = liveZones[0]?.geometry;
+    if (!geometry || !mapRef.current) return;
+    try {
+      const bounds = L.geoJSON(geometry).getBounds();
+      if (bounds.isValid()) mapRef.current.fitBounds(bounds, { padding: [24, 24] });
+    } catch {
+      // geometria non valida per Leaflet: nessuna azione, nessun crash.
+    }
+  };
   const latestPing = [...state.points].reverse().find((point) => point.recorded_at || point.created_at)?.recorded_at
     || [...state.sessions].sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))[0]?.updated_at
     || null;
@@ -107,9 +146,21 @@ export function CampaignTracking({ campaignId }) {
         {state.campaign && <AuthorizedZoneProgress zoneProgress={zoneProgress} />}
 
         <section style={{ ...cardStyle, marginBottom: 16 }}>
-          <p style={eyebrowStyle}>Percorso distribuzione</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+            <div>
+              <p style={eyebrowStyle}>Percorso distribuzione</p>
+              {activeZoneName && <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.white, fontFamily: F.sans }}>{activeZoneName}</p>}
+            </div>
+            <LiveZoneStatusBadge status={liveZoneStatus} distanceKm={outsideDistanceKm} />
+          </div>
           {state.points.length > 0 || zoneProgress.zones.length > 0 ? (
-            <TrackingMap points={state.points} zones={zoneProgress.zones} adjustments={adjustments} />
+            <>
+              <TrackingMap points={state.points} zones={mapZones} adjustments={adjustments} mapRef={mapRef} />
+              <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+                <button onClick={handleGoToOperatorPosition} disabled={!latestPoint} style={mapActionButtonStyle(!latestPoint)}>📍 La mia posizione</button>
+                <button onClick={handleReturnToArea} disabled={!liveZones[0]?.geometry} style={mapActionButtonStyle(!liveZones[0]?.geometry)}>⟲ Torna all'area</button>
+              </div>
+            </>
           ) : (
             <EmptyState text={state.loading ? 'Caricamento tracking GPS…' : 'Il percorso GPS sarà disponibile quando inizierà la distribuzione.'} tall />
           )}
@@ -183,17 +234,23 @@ function polygonGeoJsonToLatLngs(geometry) {
   return ring.map(([lng, lat]) => [lat, lng]);
 }
 
-function TrackingMap({ points, zones = [], adjustments = [] }) {
+function TrackingMap({ points, zones = [], adjustments = [], mapRef }) {
   const latest = points[points.length - 1];
   const first = points[0];
+  // Solo la prima zona con confine REALMENTE risolto contribuisce al centro
+  // (mai la prima zona in assoluto): stessa regola di Admin/GpsMonitor.jsx,
+  // Milano resta un ultimo fallback residuo, mai il caso normale.
+  const zoneWithGeometry = useMemo(() => zones.find((zone) => zone.geometry), [zones]);
   const center = useMemo(() => {
     if (latest) return [Number(latest.lat), Number(latest.lng)];
-    if (zones.length > 0 && zones[0].geometry?.coordinates?.[0]?.[0]) {
-      const coord = zones[0].geometry.coordinates[0][0];
-      return [coord[1], coord[0]];
+    if (zoneWithGeometry) {
+      const coord = zoneWithGeometry.geometry.type === 'MultiPolygon'
+        ? zoneWithGeometry.geometry.coordinates?.[0]?.[0]?.[0]
+        : zoneWithGeometry.geometry.coordinates?.[0]?.[0];
+      if (coord) return [coord[1], coord[0]];
     }
-    return [45.4642, 9.1900];
-  }, [latest, zones]);
+    return [45.4642, 9.1900]; // Milano default — solo fallback residuo
+  }, [latest, zoneWithGeometry]);
   const path = points.map((point) => [Number(point.lat), Number(point.lng)]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
 
   function getZoneStyle(zone) {
@@ -208,8 +265,9 @@ function TrackingMap({ points, zones = [], adjustments = [] }) {
 
   return (
     <div style={{ height: 460, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)' }}>
-      <MapContainer center={center} zoom={15} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
+      <MapContainer ref={mapRef} center={center} zoom={15} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
         <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        {!latest && zoneWithGeometry && <FitToZoneBounds geometry={zoneWithGeometry.geometry} />}
         {zones.map((zone) => {
           if (!zone.geometry || !zone.geometry.coordinates) return null;
           let coords = [];
@@ -268,6 +326,56 @@ function TrackingMap({ points, zones = [], adjustments = [] }) {
       )}
     </div>
   );
+}
+
+// Stesso pattern di Admin/GpsMonitor.jsx e Driver/DriverWorkMapPage.jsx: il
+// "center" di MapContainer fissa solo la posizione INIZIALE al mount.
+function FitToZoneBounds({ geometry }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!geometry) return;
+    try {
+      const bounds = L.geoJSON(geometry).getBounds();
+      if (bounds.isValid()) map.fitBounds(bounds, { padding: [24, 24] });
+    } catch {
+      // geometria non valida per Leaflet: la mappa resta dov'e', nessun crash.
+    }
+  }, [geometry, map]);
+  return null;
+}
+
+// Stesso badge di Admin/GpsMonitor.jsx (stessi ZONE_LIVE_STATUS_LABELS/COLORS
+// da geofenceEngine.js, import diretto): allineamento richiesto tra Cliente e
+// Driver App, mai una seconda logica per il desktop.
+function LiveZoneStatusBadge({ status, distanceKm }) {
+  const color = ZONE_LIVE_STATUS_COLORS[status] || ZONE_LIVE_STATUS_COLORS.zone_unavailable;
+  const label = ZONE_LIVE_STATUS_LABELS[status] || ZONE_LIVE_STATUS_LABELS.zone_unavailable;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+      <span style={{ display: 'inline-flex', border: '1px solid', borderRadius: 999, padding: '6px 14px', fontSize: 13, fontWeight: 900, color, borderColor: `${color}44`, background: `${color}14` }}>
+        {label}
+      </span>
+      {status === 'outside' && distanceKm != null && (
+        <span style={{ fontSize: 12, color: '#fca5a5', fontWeight: 700 }}>
+          Operatore fuori area assegnata — a {distanceKm.toFixed(1)} km dalla zona
+        </span>
+      )}
+    </div>
+  );
+}
+
+function mapActionButtonStyle(disabled) {
+  return {
+    border: '1px solid rgba(255,255,255,.14)',
+    background: disabled ? 'rgba(255,255,255,.04)' : 'rgba(232,87,26,.16)',
+    color: disabled ? 'rgba(255,255,255,.35)' : C.white,
+    borderRadius: 10,
+    padding: '10px 16px',
+    fontSize: 13,
+    fontWeight: 800,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    fontFamily: F.sans,
+  };
 }
 
 function LegendItem({ color, label, line = false, dashed = false }) {

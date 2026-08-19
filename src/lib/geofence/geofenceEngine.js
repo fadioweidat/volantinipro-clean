@@ -163,6 +163,46 @@ export function estimateDistanceToZoneBoundaryMeters(zones, lat, lng) {
   return Number.isFinite(min) ? min : null;
 }
 
+// Stato "vivo" (non debounced) dentro/fuori/vicino-confine/zona-non-disponibile
+// per un singolo punto — usato per il badge istantaneo sulla mappa (Driver
+// DriverZoneMap.jsx e Admin GpsMonitor.jsx). Centralizzato qui apposta: prima
+// esisteva solo dentro DriverZoneMap.jsx, e Admin avrebbe dovuto reinventare
+// la stessa soglia/logica per allinearsi visivamente al Driver, rischiando
+// di divergere in silenzio a un futuro tweak della soglia. Distinto di
+// proposito dal debounce ufficiale (evaluateGeofencePoint/createGeofenceState),
+// che resta l'unica fonte per l'alert operativo "sei fuori dalla zona".
+export const ZONE_LIVE_STATUS_NEAR_BORDER_THRESHOLD_M = 40;
+export const ZONE_LIVE_STATUS_LABELS = {
+  inside: 'Dentro la zona',
+  near_border: 'Vicino al confine',
+  outside: 'Fuori zona',
+  zone_unavailable: 'Zona non disponibile',
+  awaiting_gps: 'In attesa GPS',
+};
+export const ZONE_LIVE_STATUS_COLORS = {
+  inside: '#0f766e',
+  near_border: '#b45309',
+  outside: '#b91c1c',
+  zone_unavailable: '#64748b',
+  awaiting_gps: '#64748b',
+};
+
+export function deriveLiveZoneStatus(zones, lat, lng) {
+  // toFiniteNumber(null) === 0 (Number(null) e' finito): un controllo
+  // esplicito su lat/lng grezzi, prima della conversione, e' l'unico modo
+  // corretto per distinguere "nessuna posizione nota ancora" (awaiting_gps)
+  // da una posizione reale a 0/0.
+  if (lat == null || lng == null) return 'awaiting_gps';
+  const nLat = toFiniteNumber(lat);
+  const nLng = toFiniteNumber(lng);
+  if (nLat == null || nLng == null) return 'awaiting_gps';
+  const inside = isPointInAnyZone(zones, nLat, nLng);
+  if (inside === null) return 'zone_unavailable';
+  const distance = estimateDistanceToZoneBoundaryMeters(zones, nLat, nLng);
+  if (distance != null && distance <= ZONE_LIVE_STATUS_NEAR_BORDER_THRESHOLD_M) return 'near_border';
+  return inside ? 'inside' : 'outside';
+}
+
 export function createGeofenceState() {
   return {
     status: 'unknown', // unknown | zone_unavailable | inside | outside | stale

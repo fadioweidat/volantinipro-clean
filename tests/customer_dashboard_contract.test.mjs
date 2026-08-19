@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { normalizeCustomerCampaign } from '../src/lib/customerCampaigns.js';
+import { CUSTOMER_PAYMENT_STATE, getCustomerPaymentState, normalizeCustomerCampaign } from '../src/lib/customerCampaigns.js';
 import { resolveAppRoute } from '../src/app/routeResolution.js';
+
+const supabaseClientSdk = readFileSync(new URL('../src/supabaseClient.js', import.meta.url), 'utf8');
+const useCliente = readFileSync(new URL('../src/hooks/useCliente.js', import.meta.url), 'utf8');
+const useCampagne = readFileSync(new URL('../src/hooks/useCampagne.js', import.meta.url), 'utf8');
+const dashboardMonolith = readFileSync(new URL('../volantinipro-final.jsx', import.meta.url), 'utf8');
 
 test('Customer adapter preserves missing, zero and positive values', () => {
   const missing = normalizeCustomerCampaign({ id: 'a', status: 'draft', metadata: {} });
@@ -17,6 +22,14 @@ test('Customer adapter preserves missing, zero and positive values', () => {
   assert.equal(positive.totale_euro, 420.5);
 });
 
+test('Payment KPI e card condividono la stessa regola e null resta non disponibile', () => {
+  assert.equal(getCustomerPaymentState('pagato'), CUSTOMER_PAYMENT_STATE.PAID);
+  assert.equal(getCustomerPaymentState('in_attesa'), CUSTOMER_PAYMENT_STATE.PENDING);
+  assert.equal(getCustomerPaymentState('in_attesa_pagamento'), CUSTOMER_PAYMENT_STATE.PENDING);
+  assert.equal(getCustomerPaymentState(null), CUSTOMER_PAYMENT_STATE.UNAVAILABLE);
+  assert.equal(getCustomerPaymentState('stato_sconosciuto'), CUSTOMER_PAYMENT_STATE.UNAVAILABLE);
+});
+
 test('Customer routes are explicit and invalid routes never fall through to home', () => {
   const id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
   assert.equal(resolveAppRoute('/dashboard'), 'dashboard');
@@ -28,6 +41,59 @@ test('Customer routes are explicit and invalid routes never fall through to home
   assert.equal(resolveAppRoute('/customer/campaigns/missing/unknown'), 'not-found');
   assert.equal(resolveAppRoute('/route-inesistente'), 'not-found');
   assert.equal(resolveAppRoute('/admin/dashboard'), 'admin');
+  assert.equal(resolveAppRoute('/auth/callback'), 'login');
+});
+
+// P0 regression: a stale/expired vp_supabase_session survived indefinitely —
+// supabase.auth.getUser() rejected it (403 on /auth/v1/user, 400 on
+// /auth/v1/token?grant_type=refresh_token, reproduced live) but nothing
+// cleared it, so DashboardPage's "Sessione attiva" badge (driven only by raw
+// localStorage presence at mount) kept lying while every real query failed.
+
+test('clearBridgedSupabaseSession removes only the bridged session key, never the pending campaign claim', () => {
+  assert.match(supabaseClientSdk, /export function clearBridgedSupabaseSession/);
+  const fnBody = supabaseClientSdk.slice(supabaseClientSdk.indexOf('export function clearBridgedSupabaseSession'));
+  assert.match(fnBody, /localStorage\.removeItem\('vp_supabase_session'\)/);
+  assert.doesNotMatch(fnBody.slice(0, fnBody.indexOf('\n}')), /pending_campaign_claim/);
+});
+
+test('useCliente and useCampagne clear the bridged session and expose sessionInvalid when getUser() rejects the token', () => {
+  for (const [name, src] of [['useCliente', useCliente], ['useCampagne', useCampagne]]) {
+    assert.match(src, /clearBridgedSupabaseSession/, `${name} must import/call clearBridgedSupabaseSession`);
+    assert.match(src, /setSessionInvalid\(true\)/, `${name} must expose a sessionInvalid signal`);
+    assert.match(src, /return \{[^}]*sessionInvalid[^}]*\}/, `${name} must return sessionInvalid to callers`);
+    // Cleanup must happen inside the authError branch, before the throw that
+    // triggers the generic catch — not bolted on after the fact.
+    const authErrorIdx = src.indexOf('if (authError)');
+    const clearIdx = src.indexOf('clearBridgedSupabaseSession()', authErrorIdx);
+    assert.ok(authErrorIdx >= 0 && clearIdx > authErrorIdx);
+  }
+});
+
+test('DashboardPage reacts to an invalid session by clearing the badge and navigating to login, with a loop guard', () => {
+  const dashboardStart = dashboardMonolith.indexOf('export function DashboardPage');
+  const dashboardBody = dashboardMonolith.slice(dashboardStart, dashboardMonolith.indexOf('\nexport function', dashboardStart + 1));
+  assert.match(dashboardBody, /sessionInvalid:\s*clienteSessionInvalid/);
+  assert.match(dashboardBody, /sessionInvalid:\s*campagneSessionInvalid/);
+  assert.match(dashboardBody, /\(clienteSessionInvalid \|\| campagneSessionInvalid\)\s*&&\s*session/);
+  assert.match(dashboardBody, /setSession\(null\)/);
+  assert.match(dashboardBody, /onNav\("login"\)/);
+});
+
+test('authenticated root and magic-link callbacks have role-aware canonical landings', () => {
+  const appRouter = readFileSync(new URL('../src/app/AppRouter.jsx', import.meta.url), 'utf8');
+  const login = readFileSync(new URL('../volantinipro-final.jsx', import.meta.url), 'utf8');
+  assert.match(appRouter, /page !== "auth-landing"/);
+  assert.match(appRouter, /page === "auth-landing" && <RouteLoadingFallback/);
+  assert.match(appRouter, /isAdmin \? "\/admin" : "\/dashboard"/);
+  assert.match(appRouter, /paths\[p\] \|\| "\/not-found"/);
+  assert.doesNotMatch(appRouter, /paths\[p\] \|\| "\/"/);
+  assert.match(login, /verifySupabaseAdminRole\(restoredSession\)/);
+  assert.match(login, /const cleanPath = "\/auth\/callback"/);
+  assert.match(login, /onNav\("admin"\)/);
+  assert.match(login, /onNav\(pendingReturnToStep4 \? "step4" : "dashboard"\)/);
+  assert.doesNotMatch(login, /window\.location\.href\s*=\s*["']\/["']/);
+  assert.doesNotMatch(login, /readPendingAuthReturnPath\(\) \|\| ["']\/["']/);
 });
 
 test('Customer access is canonical, owner-scoped and has no legacy fallback', () => {
@@ -60,9 +126,9 @@ test('Tracking, report and payment expose required privacy-safe flows', () => {
   assert.match(tracking, /getOwnedCustomerTracking/);
   assert.match(tracking, /Ultimo ping/);
   assert.match(tracking, /AuthorizedZoneProgress/);
-  assert.match(report, /getOwnedCustomerReport/);
-  assert.match(report, /Scarica CSV GPS/);
-  assert.match(report, /Stampa \/ salva PDF/);
+  assert.match(report, /getFinalDistributionReport/);
+  assert.match(report, /Scarica certificazione PDF/);
+  assert.doesNotMatch(report, /Scarica CSV GPS|window\.print|react-leaflet|Genera Report AI/);
   assert.doesNotMatch(report, /driver_email|driver_phone|disciplin/i);
   assert.match(payment, /from\("campaigns"\)\.select\("metadata"\)/);
   assert.doesNotMatch(payment, /from\("campagne"\)/);

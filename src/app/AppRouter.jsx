@@ -8,7 +8,7 @@ import { RouteLoadingFallback } from "../layouts/public/RouteLoadingFallback.jsx
 import { F, C } from "../lib/constants.js";
 import { CustomerGuard } from "../auth/guards/CustomerGuard.jsx";
 import { AdminGuard } from "../auth/guards/AdminGuard.jsx";
-import { hasSupabaseAuthHashError, hasSupabaseAuthHashToken, readPendingAuthContext } from "../auth/session.js";
+import { getStoredSupabaseSession, hasSupabaseAuthHashError, hasSupabaseAuthHashToken, isStoredSupabaseSessionValid, readPendingAuthContext, verifySupabaseAdminRole } from "../auth/session.js";
 import { resolveAppRoute } from "./routeResolution.js";
 import { clearConfiguratorDraft, configuratorHistoryState, readConfiguratorDraft, readConfiguratorHistoryState, writeConfiguratorDraft } from "../lib/configuratorState.js";
 export { resolveAppRoute } from "./routeResolution.js";
@@ -27,6 +27,13 @@ const PagamentoBonificoPage = lazy(() => import("../../volantinipro-final.jsx").
 const AdminDashboard = lazy(() => import("../../volantinipro-final.jsx").then(m => ({ default: m.AdminDashboard })));
 
 const AdminLiveDashboard = lazy(() => import("../pages/admin/AdminLiveDashboard.jsx").then(m => ({ default: m.AdminLiveDashboard })));
+const AdminOperationsCenter = lazy(() => import("../pages/admin/AdminOperationsCenter.jsx").then(m => ({ default: m.AdminOperationsCenter })));
+const ClientsQuotes = lazy(() => import("../pages/admin/ClientsQuotes.jsx").then(m => ({ default: m.ClientsQuotes })));
+const AdminOrdersRegistry = lazy(() => import("../pages/admin/AdminOrdersRegistry.jsx").then(m => ({ default: m.AdminOrdersRegistry })));
+const GroupsManager = lazy(() => import("../pages/admin/GroupsManager.jsx").then(m => ({ default: m.GroupsManager })));
+const CommercialCenter = lazy(() => import("../pages/admin/CommercialCenter.jsx").then(m => ({ default: m.CommercialCenter })));
+const SmartPairingWaitlist = lazy(() => import("../pages/admin/SmartPairingWaitlist.jsx").then(m => ({ default: m.SmartPairingWaitlist })));
+const AdminDailyReport = lazy(() => import("../pages/admin/AdminDailyReport.jsx").then(m => ({ default: m.AdminDailyReport })));
 const GpsMonitor = lazy(() => import("../pages/admin/GpsMonitor.jsx").then(m => ({ default: m.GpsMonitor })));
 const CampaignOperations = lazy(() => import("../pages/admin/CampaignOperations.jsx").then(m => ({ default: m.CampaignOperations })));
 const CampaignGroups = lazy(() => import("../pages/admin/CampaignGroups.jsx").then(m => ({ default: m.CampaignGroups })));
@@ -106,7 +113,30 @@ export function AppRouter() {
     });
   };
 
-  const [page, setPage] = useState(routeToPage(window.location.pathname));
+  const [page, setPage] = useState(() => {
+    const resolved = routeToPage(window.location.pathname);
+    const storedSession = getStoredSupabaseSession();
+    return resolved === "home" && isStoredSupabaseSessionValid(storedSession)
+      ? "auth-landing"
+      : resolved;
+  });
+
+  useEffect(() => {
+    if (page !== "auth-landing") return undefined;
+    const session = getStoredSupabaseSession();
+    if (!isStoredSupabaseSessionValid(session)) return undefined;
+
+    let cancelled = false;
+    verifySupabaseAdminRole(session).then((isAdmin) => {
+      if (cancelled) return;
+      const path = isAdmin ? "/admin" : "/dashboard";
+      window.history.replaceState(null, "", path);
+      setPage(isAdmin ? "admin" : "dashboard");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [page]);
 
   useEffect(() => {
     const handlePop = event => {
@@ -180,7 +210,8 @@ export function AppRouter() {
       payment: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}/pagamento` : "/dashboard",
       privacy: "/privacy", terms: "/termini", cookie: "/cookie-policy", quick: "/preventivo-rapido", preventivo: "/preventivo",
       consultant: "/consulente", step1: "/configuratore", step2: "/configuratore", step3: "/configuratore",
-      step4: "/configuratore", admin: "/admin", "admin-live": "/admin/live"
+      step4: "/configuratore", admin: "/admin", "admin-live": "/admin/live", "admin-operations": "/admin/operations", "admin-daily-report": "/admin/operations/report", "admin-clients-quotes": "/admin/clients-quotes", "admin-orders": "/admin/orders",
+      "admin-groups-manager": "/admin/groups", "admin-commercial": "/admin/commercial", "admin-smart-pairing": "/admin/smart-pairing"
     };
     if (typeof window !== "undefined") {
       const params = new URLSearchParams();
@@ -223,7 +254,7 @@ export function AppRouter() {
       } else if (p.startsWith("customer-payment:")) {
         window.history.pushState(null, "", `/customer/campaigns/${p.split(":")[1]}/payment`);
       } else {
-        window.history.pushState(null, "", paths[p] || "/");
+        window.history.pushState(null, "", paths[p] || "/not-found");
       }
     }
     setPage(routeToPage(window.location.pathname));
@@ -254,8 +285,10 @@ export function AppRouter() {
     <div style={{ fontFamily: F.sans, minHeight: "100vh", background: C.navyMid }}>
       <Bootstrap />
       <SeoMeta page={page} />
-      {!isConfiguratorPage && page !== "home" && <Navbar onNav={goTo} page={page} />}
+      {!isConfiguratorPage && page !== "home" && page !== "auth-landing" && <Navbar onNav={goTo} page={page} />}
       <div style={{ paddingTop: 0 }}>
+
+        {page === "auth-landing" && <RouteLoadingFallback />}
 
         {/* PUBLIC ROUTES */}
         {isConfiguratorPage && <StepperBar current={page} onGo={goTo} />}
@@ -312,6 +345,13 @@ export function AppRouter() {
             {({ session }) => <Suspense fallback={<RouteLoadingFallback />}>
               {page === "admin" && <AdminDashboard onNav={goTo} adminSession={session} />}
               {page === "admin-live" && <AdminLiveDashboard onNav={goTo} />}
+              {page === "admin-operations" && <AdminOperationsCenter onNav={goTo} />}
+              {page === "admin-clients-quotes" && <ClientsQuotes onNav={goTo} />}
+              {page === "admin-orders" && <AdminOrdersRegistry onNav={goTo} />}
+              {page === "admin-groups-manager" && <GroupsManager onNav={goTo} />}
+              {page === "admin-commercial" && <CommercialCenter onNav={goTo} />}
+              {page === "admin-smart-pairing" && <SmartPairingWaitlist onNav={goTo} />}
+              {page === "admin-daily-report" && <AdminDailyReport onNav={goTo} />}
               {page.startsWith("admin-gps:") && <GpsMonitor campaignId={page.split(":")[1]} onNav={goTo} />}
               {page.startsWith("admin-operations:") && <CampaignOperations campaignId={page.split(":")[1]} onNav={goTo} />}
               {page.startsWith("admin-groups:") && <CampaignGroups campaignId={page.split(":")[1]} onNav={goTo} />}

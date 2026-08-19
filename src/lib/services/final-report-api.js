@@ -1,6 +1,8 @@
 import { ensureSupabaseSessionBridge, supabase } from '../../supabaseClient.js';
 import { buildFinalDistributionReport } from '../reports/finalDistributionReport.js';
-import { createProofPhotoSignedUrl } from './gps-api.js';
+import { createProofPhotoSignedUrl, calculateDistanceKm } from './gps-api.js';
+import { filterValidGpsPoints } from '../gps/pointQuality.js';
+import { resolveMunicipalityBoundary } from '../geo/resolveMunicipalityBoundary.js';
 
 async function getCampaign(campaignId, customerOwned) {
   let query = supabase.from('campaigns')
@@ -38,13 +40,50 @@ async function getTelemetry(campaignId, sessionsFallback, customerOwned) {
   return [...result.values()];
 }
 
+// Sezione "Tracciamento GPS e Copertura": per ogni zona reale, la
+// scomposizione certificata GPS/manuale/finale gia' calcolata server-side da
+// calculate_zone_final_coverage (stessa funzione, stesso motore geometrico
+// gia' usato da CoverageAdjustmentPanel/GpsMonitor per calculate_campaign_final_coverage,
+// qui scoped a UNA zona) — mai un secondo calcolo lato client. Best-effort:
+// una zona il cui calcolo fallisce (RLS, geometria mancante) riporta
+// semplicemente calculationStatus diverso da 'ready', mai un fallback fake.
+async function getZoneFinalCoverage(campaignZoneId) {
+  try {
+    const { data, error } = await supabase.rpc('calculate_zone_final_coverage', { p_campaign_zone_id: campaignZoneId });
+    if (error || !data) return { calculationStatus: 'not_available' };
+    return {
+      calculationStatus: data.calculation_status || 'not_available',
+      gpsCoveragePercent: data.gps_coverage_pct ?? null,
+      manualCoveragePercent: data.manual_coverage_pct ?? null,
+      inaccessibleAreaPercent: data.inaccessible_area_pct ?? null,
+      finalCoveragePercent: data.final_operational_coverage_pct ?? null,
+    };
+  } catch {
+    return { calculationStatus: 'not_available' };
+  }
+}
+
+// Confine reale del comune per la mappa del report — stesso
+// resolveMunicipalityBoundary gia' usato da Driver/Admin/Cliente/GPS Live,
+// mai una seconda implementazione. Sola lettura, mai persistito qui (la
+// persistenza su campaign_zones.polygon_geojson resta esclusiva di
+// useZoneBoundaries, usato nelle pagine mappa interattive — questo report
+// puo' generarsi anche per zone mai aperte in GpsMonitor/CampaignTracking).
+async function getZoneBoundaryGeometry(zoneName, lat, lng) {
+  try {
+    return await resolveMunicipalityBoundary(zoneName, { lat, lng });
+  } catch {
+    return null;
+  }
+}
+
 export async function getFinalDistributionReport(campaignId, { customerOwned = false } = {}) {
   if (!supabase) throw new Error('Supabase non configurato.');
   await ensureSupabaseSessionBridge();
   const campaign = await getCampaign(campaignId, customerOwned);
   const [zonesResult, sessionsResult, photosResult, assignmentsResult] = await Promise.all([
     supabase.from('campaign_zones')
-      .select('id, priority, zone_name, quantity_assigned, status')
+      .select('id, priority, zone_name, quantity_assigned, status, center_lat, center_lng')
       .eq('campaign_id', campaignId).order('priority', { ascending: true }),
     supabase.from('delivery_sessions')
       .select('id, campaign_zone_id, status, started_at, paused_at, ended_at, created_at, updated_at')
@@ -61,6 +100,7 @@ export async function getFinalDistributionReport(campaignId, { customerOwned = f
   if (photosResult.error) throw photosResult.error;
   if (assignmentsResult.error) throw assignmentsResult.error;
 
+  const zones = zonesResult.data || [];
   const sessions = sessionsResult.data || [];
   const telemetry = await getTelemetry(campaignId, sessions, customerOwned);
   const signedPhotos = await Promise.all((photosResult.data || []).map(async (photo) => ({
@@ -68,12 +108,51 @@ export async function getFinalDistributionReport(campaignId, { customerOwned = f
     signedUrl: await createProofPhotoSignedUrl(photo.storage_path).catch(() => null),
   })));
   const assignmentZones = (assignmentsResult.data || []).flatMap((assignment) => assignment.operator_assignment_zones || []);
+
+  // Punti GPS grezzi (lat/lng/recorded_at/accuracy) per zona: servono solo
+  // per la sezione GPS del report (km reali via filterValidGpsPoints, e
+  // traccia per lo screenshot mappa) — la telemetria sopra resta la fonte
+  // per i conteggi di sessione gia' esistenti, invariata.
+  const sessionIds = sessions.map((s) => s.id);
+  const pointsBySession = new Map();
+  if (sessionIds.length) {
+    const { data: rawPoints } = await supabase
+      .from('gps_tracking_points')
+      .select('session_id, lat, lng, accuracy, recorded_at')
+      .in('session_id', sessionIds);
+    (rawPoints || []).forEach((point) => {
+      if (!pointsBySession.has(point.session_id)) pointsBySession.set(point.session_id, []);
+      pointsBySession.get(point.session_id).push(point);
+    });
+  }
+
+  const zoneExtras = new Map(await Promise.all(zones.map(async (zone) => {
+    const zoneSessionIds = sessions.filter((s) => s.campaign_zone_id === zone.id).map((s) => s.id);
+    const rawZonePoints = zoneSessionIds.flatMap((id) => pointsBySession.get(id) || []);
+    const validPoints = filterValidGpsPoints(rawZonePoints).valid;
+    const [coverage, boundaryGeometry] = await Promise.all([
+      getZoneFinalCoverage(zone.id),
+      zone.zone_name ? getZoneBoundaryGeometry(zone.zone_name, zone.center_lat, zone.center_lng) : Promise.resolve(null),
+    ]);
+    return [zone.id, {
+      ...coverage,
+      gpsDistanceKm: validPoints.length ? Number(calculateDistanceKm(validPoints).toFixed(2)) : null,
+      validGpsPoints: rawZonePoints.length ? validPoints.length : null,
+      excludedGpsPoints: rawZonePoints.length ? rawZonePoints.length - validPoints.length : null,
+      boundaryAvailable: Boolean(boundaryGeometry),
+      traceAvailable: validPoints.length > 0,
+      boundaryGeometry,
+      tracePoints: validPoints,
+    }];
+  })));
+
   return buildFinalDistributionReport({
     campaign,
-    zones: zonesResult.data || [],
+    zones,
     assignmentZones,
     sessions,
     telemetry,
     photos: signedPhotos,
+    zoneExtras,
   });
 }

@@ -1,127 +1,52 @@
-import 'leaflet/dist/leaflet.css';
-import { CircleMarker, GeoJSON, MapContainer, Polyline, TileLayer, useMap } from 'react-leaflet';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useGpsTracking } from '../../hooks/useGpsTracking.js';
+import { useDriverAssignment } from '../../hooks/useDriverAssignment.js';
 import { PodCapture } from '../../components/driver/PodCapture.jsx';
+import { resolveMunicipalityBoundary } from '../../lib/geo/resolveMunicipalityBoundary.js';
+import { geoJsonContainsPoint } from '../../lib/geo/pointInPolygon.js';
+import { estimateDistanceToZoneBoundaryMeters } from '../../lib/geofence/geofenceEngine.js';
+import { navigateDriver, driverPathWithQuery } from './driverNav.js';
 
 // ─── DriverAssignmentPage ─────────────────────────────────────────────────────
-// Pagina driver accessibile tramite /driver/assignment/{assignmentId}.
-//
-// A differenza di TrackingPage (che riceve campaignId dall'URL),
-// questa pagina riceve assignmentId — risolve il campaignId leggendo
-// l'assegnazione da Supabase (via operator_assignments, RLS-protetta).
-//
-// Il driver_id NON è mai nell'URL: l'autenticazione è sempre via auth.uid().
-// Un driver diverso → RLS blocca la lettura → assignmentStatus = 'blocked'.
+// Pagina driver accessibile tramite /driver/assignment/{assignmentId}, link
+// pubblico condiviso via WhatsApp dall'admin — nessun login richiesto.
+// L'assignmentId (UUID non indovinabile) e' l'unico segreto necessario per
+// leggere il programma: useDriverAssignment risolve i dati tramite una RPC
+// pubblica dedicata, non tramite una sessione utente.
 
-async function fetchComuneBoundary(name) {
-  if (!name) return null;
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(`${name}, Italy`)}&format=geojson&polygon_geojson=1&limit=1`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'VolantiniPro/1.0' } });
-    const data = await res.json();
-    return data.features?.[0]?.geometry || null;
-  } catch {
-    return null;
-  }
-}
-
-function pointInPolygon(lat, lng, geom) {
-  if (!geom) return true;
-  const rings = geom.type === 'Polygon'
-    ? [geom.coordinates[0]]
-    : geom.type === 'MultiPolygon'
-      ? geom.coordinates.map(poly => poly[0])
-      : null;
-  if (!rings) return true;
-  return rings.some(ring => {
-    let inside = false;
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-      const xi = ring[i][0], yi = ring[i][1];
-      const xj = ring[j][0], yj = ring[j][1];
-      if (((yi > lat) !== (yj > lat)) && (lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi)) {
-        inside = !inside;
-      }
-    }
-    return inside;
-  });
+function formatDistanceLabel(meters) {
+  if (!Number.isFinite(meters)) return null;
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  return `${(meters / 1000).toFixed(1)} km`;
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function DriverAssignmentPage({ assignmentId }) {
-  const [assignmentData, setAssignmentData] = useState(null);
-  const [assignmentError, setAssignmentError] = useState(null);
-  const [campaignId, setCampaignId] = useState(null);
-  const [loadingAssignment, setLoadingAssignment] = useState(true);
-
-  // Load assignment from DB to get campaignId + details
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      if (!assignmentId) {
-        setAssignmentError('ID assegnazione mancante.');
-        setLoadingAssignment(false);
-        return;
-      }
-      try {
-        // Import supabase directly to read operator_assignments
-        const { supabase } = await import('../../supabaseClient.js');
-        if (!supabase) throw new Error('Supabase non configurato.');
-
-        const { data, error } = await supabase
-          .from('operator_assignments')
-          .select('*')
-          .eq('id', assignmentId)
-          .maybeSingle();
-
-        if (error) throw error;
-        if (!data) {
-          throw new Error('Assegnazione non trovata o accesso negato. Verifica di essere loggato con l\'account corretto.');
-        }
-
-        // Check status client-side (RLS already enforces operator_id = auth.uid())
-        if (data.status === 'revoked') {
-          // Un'assegnazione revocata blocca l'accesso, tranne quando esiste
-          // già una sessione GPS attiva/in pausa: in quel caso la pagina resta
-          // raggiungibile solo per permettere il Termina (gps_transition_session
-          // lato backend applica la stessa regola ed è la source of truth:
-          // blocca resume/pause, consente solo complete/cancel).
-          const { data: liveSession } = await supabase
-            .from('delivery_sessions')
-            .select('id')
-            .eq('assignment_id', assignmentId)
-            .in('status', ['started', 'paused'])
-            .maybeSingle();
-          if (!liveSession) {
-            throw new Error('Questa assegnazione è stata revocata. Contatta il tuo amministratore.');
-          }
-        }
-        if (data.status === 'completed') {
-          throw new Error('Questa assegnazione è già stata completata.');
-        }
-        const now = Date.now();
-        if (data.ends_at && Date.parse(data.ends_at) <= now) {
-          throw new Error(`Questa assegnazione è scaduta il ${new Date(data.ends_at).toLocaleString('it-IT')}. Contatta il tuo amministratore.`);
-        }
-        if (data.starts_at && Date.parse(data.starts_at) > now) {
-          throw new Error(`Il lavoro inizia il ${new Date(data.starts_at).toLocaleString('it-IT')}. Torna più tardi.`);
-        }
-
-        if (!cancelled) {
-          setAssignmentData(data);
-          setCampaignId(data.campaign_id);
-          setLoadingAssignment(false);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setAssignmentError(err?.message || 'Errore caricamento assegnazione.');
-          setLoadingAssignment(false);
-        }
-      }
-    }
-    load();
-    return () => { cancelled = true; };
-  }, [assignmentId]);
+  // Timing diagnostico SOLO DEV (audit "Driver main page still loads too
+  // slow"): PAGE_MOUNT = primo render di questo componente (la shell
+  // "Caricamento assegnazione..." e' gia' in DOM a questo punto, prima di
+  // qualunque fetch). Nessuna fase rallentata da questo marker.
+  const pageMountRef = useRef(Boolean(import.meta.env.DEV) ? performance.now() : null);
+  if (pageMountRef.current != null && !pageMountRef.logged) {
+    pageMountRef.logged = true;
+    console.info(`[DRIVER LOAD] PAGE_MOUNT=0ms (t0)`);
+  }
+  const {
+    assignmentData,
+    assignmentZones,
+    assignmentError,
+    assignmentErrorType,
+    campaignId,
+    campaignRecord,
+    loadingAssignment,
+    loadingProgramDetails,
+    programDetailsError,
+    confirmedAt,
+    confirming,
+    confirmationError,
+    confirmAssignment,
+    accessToken,
+  } = useDriverAssignment(assignmentId);
 
   if (loadingAssignment) {
     return (
@@ -144,6 +69,15 @@ export function DriverAssignmentPage({ assignmentId }) {
       campaignId={campaignId}
       assignmentId={assignmentId}
       assignmentData={assignmentData}
+      campaignRecord={campaignRecord}
+      assignmentZones={assignmentZones}
+      loadingProgramDetails={loadingProgramDetails}
+      programDetailsError={programDetailsError}
+      confirmedAt={confirmedAt}
+      confirming={confirming}
+      confirmationError={confirmationError}
+      onConfirm={confirmAssignment}
+      accessToken={accessToken}
     />
   );
 }
@@ -152,8 +86,23 @@ export function DriverAssignmentPage({ assignmentId }) {
 // Il componente reale del tracker. Separato per permettere il mount
 // solo dopo che campaignId è risolto (evita chiamate con undefined).
 
-function DriverTracker({ campaignId, assignmentId, assignmentData }) {
-  const tracking = useGpsTracking(campaignId);
+function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecord, assignmentZones, loadingProgramDetails, programDetailsError, confirmedAt, confirming, confirmationError, onConfirm, accessToken }) {
+  // Stesso riuso di DriverWorkMapPage.jsx: assignment/campaign gia'
+  // validati da useDriverAssignment, passati a useGpsTracking per evitare
+  // di rifare da zero gps_get_operator_campaign/getValidOperatorAssignments.
+  const assignmentContext = useMemo(
+    () => (assignmentData && campaignRecord ? { assignment: assignmentData, campaign: campaignRecord } : null),
+    [assignmentData, campaignRecord],
+  );
+  const tracking = useGpsTracking(campaignId, { assignmentContext, accessToken, assignmentId });
+  // FIRST_CONTENT_RENDER SOLO DEV: questo componente monta solo dopo che
+  // loadingAssignment e' passato a false (Fase 1 conclusa) — il suo primo
+  // effect e' quindi un buon segnale di "contenuto reale visibile",
+  // indipendente da mappa/boundary/zone dettagliate.
+  useEffect(() => {
+    if (import.meta.env.DEV) console.info('[DRIVER LOAD] FIRST_CONTENT_RENDER (shell reale montata)');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [section, setSection] = useState('home');
   const [actionLoading, setActionLoading] = useState(null);
   const [actionError, setActionError] = useState(null);
@@ -165,7 +114,12 @@ function DriverTracker({ campaignId, assignmentId, assignmentData }) {
   const meta = useMemo(() => safeJson(assignmentData?.metadata), [assignmentData]);
   const comuni = useMemo(() => meta.comuni || [], [meta]);
   const zoneLabels = useMemo(() => meta.zone_labels || [], [meta]);
-  const qty = meta.qty || null;
+  // Source of truth reale: somma delle quantita' per zona di QUESTA
+  // assegnazione (operator_assignment_zones.quantity), mai il totale
+  // campagna — un'assegnazione copre solo le sue zone. meta.qty resta
+  // fallback solo se le zone strutturate non sono disponibili.
+  const assignmentZonesQtySum = (assignmentZones || []).reduce((sum, z) => sum + (Number(z.quantity) || 0), 0);
+  const qty = assignmentZonesQtySum > 0 ? assignmentZonesQtySum : (meta.qty || null);
   const assignmentNotes = meta.notes || null;
   const campaignTitle = meta.campaign_title || `Campagna ${String(campaignId).slice(0, 8)}`;
   const startsAt = assignmentData?.starts_at;
@@ -177,15 +131,54 @@ function DriverTracker({ campaignId, assignmentId, assignmentData }) {
     || meta.operator_display_name
     || `Operatore ${String(tracking.session?.driver_id || assignmentData?.operator_id || 'assegnato').slice(0, 6)}`;
 
-  // Fetch comune boundary for first assigned comune
+  // Zona attiva (source of truth reale per il centro mappa): campaign_zone_id
+  // della sessione -> operator_assignment_zones/campaign_zones. zone_name qui
+  // e' gia' operator_assignment_zones.municipality_name, cioe' il Comune gia'
+  // risolto (mai una sotto-zona tipo "Saronno Centro" — vedi
+  // useDriverAssignment.js), quindi ha priorita' sul confine: usarlo evita
+  // che una campagna con piu' zone/comuni resti agganciata al comune
+  // "principale" (campaign.city) anche quando la zona/sessione realmente
+  // attiva e' un altro comune della stessa campagna.
+  const activeAssignmentZoneId = tracking.session?.campaign_zone_id;
+  const primaryAssignmentZone = (assignmentZones || []).find(z => z.id === activeAssignmentZoneId) || (assignmentZones || [])[0] || null;
+  const zoneCenter = primaryAssignmentZone && primaryAssignmentZone.centerLat != null && primaryAssignmentZone.centerLng != null
+    && !(primaryAssignmentZone.centerLat === 0 && primaryAssignmentZone.centerLng === 0)
+    ? { lat: primaryAssignmentZone.centerLat, lng: primaryAssignmentZone.centerLng }
+    : null;
+  const realComuneName = primaryAssignmentZone?.zone_name || tracking.assignmentState.campaign?.city || primaryComune || null;
+
+  // Confine reale del Comune (stessa fonte/algoritmo di Step2: Nominatim
+  // validato sul centroide + fallback analysis-istat), MAI un cerchio
+  // inventato. boundaryLoading distingue "in corso" da "non disponibile".
+  const [boundaryLoading, setBoundaryLoading] = useState(false);
   useEffect(() => {
-    if (!primaryComune) return;
+    if (!realComuneName) { setBoundary(null); return; }
     let cancelled = false;
-    fetchComuneBoundary(primaryComune).then(geom => {
-      if (!cancelled) setBoundary(geom);
-    });
+    setBoundaryLoading(true);
+    resolveMunicipalityBoundary(realComuneName, { lat: zoneCenter?.lat, lng: zoneCenter?.lng })
+      .then(geom => { if (!cancelled) setBoundary(geom); })
+      .finally(() => { if (!cancelled) setBoundaryLoading(false); });
     return () => { cancelled = true; };
-  }, [primaryComune]);
+  }, [realComuneName, zoneCenter?.lat, zoneCenter?.lng]);
+
+  // Prefetch del chunk della pagina Mappa (Leaflet + react-leaflet inclusi,
+  // vedi import statici in cima a DriverWorkMapPage.jsx) DOPO che il
+  // contenuto critico di questa pagina e' gia' visibile, a tempo perso
+  // (requestIdleCallback, con setTimeout come fallback su browser/WebView
+  // che non lo supportano). Nessun rendering, nessuno stato: e' lo stesso
+  // import() dinamico gia' usato da main.jsx per questa route, chiamato qui
+  // in anticipo solo per scaldare la cache del browser. Se l'utente non apre
+  // mai la Mappa, l'unico costo e' un download in background a bassa
+  // priorita' — mai prima del first render del Driver.
+  useEffect(() => {
+    const prefetch = () => { import('./DriverWorkMapPage.jsx').catch(() => {}); };
+    if (typeof requestIdleCallback === 'function') {
+      const id = requestIdleCallback(prefetch, { timeout: 3000 });
+      return () => cancelIdleCallback(id);
+    }
+    const id = setTimeout(prefetch, 1500);
+    return () => clearTimeout(id);
+  }, []);
 
   // Battery status
   useEffect(() => {
@@ -209,9 +202,28 @@ function DriverTracker({ campaignId, assignmentId, assignmentData }) {
   }, []);
 
   const currentPos = tracking.lastPosition;
-  const pathPositions = tracking.path.map(p => [p.lat, p.lng]);
-  const outOfZone = Boolean(currentPos && boundary && tracking.isActive && !pointInPolygon(currentPos.lat, currentPos.lng, boundary));
-  const completion = estimateCompletion(tracking.distanceKm, qty);
+
+  // "Fuori area" e distanza si basano SOLO sul confine reale del Comune
+  // (point-in-polygon + distanza dal bordo, entrambe utility gia' condivise
+  // e testate). Senza un confine risolto non si puo' determinare dentro/fuori:
+  // nessun avviso inventato, nessun cerchio di fallback (ticket esplicito).
+  const outOfZone = Boolean(currentPos && boundary && tracking.isActive && !geoJsonContainsPoint(boundary, currentPos.lat, currentPos.lng));
+  const zoneDistanceM = outOfZone && currentPos && boundary
+    ? estimateDistanceToZoneBoundaryMeters([{ kind: 'polygon', geometry: boundary }], currentPos.lat, currentPos.lng)
+    : null;
+  // Audit "zona completata ma KPI 0%": Completamento veniva calcolato SOLO
+  // dalla distanza GPS live della sessione GPS corrente (estimateCompletion),
+  // mai dallo stato zone persistito — un lavoro completato tramite una
+  // sessione GPS PASSATA (nessuna sessione attiva in QUESTO page load, quindi
+  // tracking.distanceKm riparte da 0) mostrava sempre 0%, anche a zone
+  // realmente completate. Solo le zone STRUTTURATE (assignmentZones, mai le
+  // fallbackZones sintetizzate da comuni piu' sotto quando mancano zone
+  // reali) hanno uno status persistito da poter contare — source of truth
+  // ora e' completedZones/totalZones, non piu' la distanza.
+  const totalZonesCount = (assignmentZones || []).length;
+  const completedZonesCount = (assignmentZones || []).filter(z => z.status === 'Completata').length;
+  const allZonesCompleted = totalZonesCount > 0 && completedZonesCount === totalZonesCount;
+  const completion = totalZonesCount > 0 ? Math.round((completedZonesCount / totalZonesCount) * 100) : 0;
 
   // Assegnazione revocata con sessione già in corso: Start/Pausa/Riprendi
   // restano bloccati lato UI (il backend li rifiuta comunque — è la
@@ -225,6 +237,17 @@ function DriverTracker({ campaignId, assignmentId, assignmentData }) {
     : tracking.isPaused ? 'Riprendi'
     : tracking.assignmentStatus === 'loading' ? 'Verifica...'
     : 'Inizia tracciamento';
+
+  const fallbackZones = comuni.length > 0 ? comuni.map(c => ({
+    id: null,
+    zone_name: c,
+    priority: 999,
+    quantity: null,
+    status: 'Da iniziare',
+    notes: null,
+    isLegacy: true
+  })) : [];
+  const zonesToDisplay = assignmentZones?.length > 0 ? assignmentZones : fallbackZones;
 
   async function runAction(label, fn) {
     setActionError(null);
@@ -258,7 +281,11 @@ function DriverTracker({ campaignId, assignmentId, assignmentData }) {
 
   return (
     <main style={shellStyle}>
-      {outOfZone && <div style={alertBannerStyle}>⚠️ Fuori dalla zona assegnata. Rientra nell'area di lavoro.</div>}
+      {outOfZone && (
+        <div style={alertBannerStyle}>
+          ⚠️ Operatore fuori area assegnata{formatDistanceLabel(zoneDistanceM) ? ` — a ${formatDistanceLabel(zoneDistanceM)} dalla zona` : ''}. Rientra nell'area di lavoro.
+        </div>
+      )}
 
       <header style={topBarStyle}>
         <div style={avatarStyle}>{operatorName.slice(0, 1).toUpperCase()}</div>
@@ -267,7 +294,7 @@ function DriverTracker({ campaignId, assignmentId, assignmentData }) {
           <h1 style={titleStyle}>{operatorName}</h1>
           <p style={mutedStyle}>{campaignTitle}</p>
         </div>
-        <StatusBadge status={tracking.status} network={tracking.networkStatus} />
+        <StatusBadge status={tracking.status} network={tracking.networkStatus} allZonesCompleted={allZonesCompleted} />
       </header>
 
       {/* Errors */}
@@ -275,21 +302,23 @@ function DriverTracker({ campaignId, assignmentId, assignmentData }) {
       {tracking.error && <Notice danger text={tracking.error} />}
       {actionError && <Notice danger text={actionError} />}
       {sosState && <Notice text={sosState} />}
+      {/* Fallimento di una query secondaria (conferma/campagna/zone): un
+          avviso locale, mai la schermata globale "Accesso non disponibile"
+          — l'autorizzazione di base (Fase 1) e' gia' stata validata. */}
+      {programDetailsError && <Notice danger text={programDetailsError} />}
 
       {/* Assignment info card */}
       <section style={heroCardStyle}>
         <p style={eyebrowStyle}>Lavoro assegnato</p>
         <h2 style={campaignTitleStyle}>{campaignTitle}</h2>
         <div style={summaryGridStyle}>
-          <Metric label="Comuni" value={comuni.length ? comuni.join(', ') : 'Da definire'} />
-          {zoneLabels.length > 0 && <Metric label="Zone" value={zoneLabels.join(', ')} />}
-          <Metric label="Quantità" value={qty ? `${Number(qty).toLocaleString('it-IT')} volantini` : 'Non specificata'} />
+          <Metric label="Quantità totale" value={qty ? `${Number(qty).toLocaleString('it-IT')} volantini` : 'Non specificata'} />
           <Metric label="Data" value={startsAt ? new Date(startsAt).toLocaleDateString('it-IT') : 'Da definire'} />
           {endsAt && <Metric label="Scadenza" value={new Date(endsAt).toLocaleDateString('it-IT')} />}
           {assignmentNotes && <Metric label="Note admin" value={assignmentNotes} />}
         </div>
         <div style={telemetryGridStyle}>
-          <Telemetry label="GPS" value={tracking.accuracy != null ? `${Math.round(tracking.accuracy)} m` : 'In attesa'} tone={tracking.accuracy != null && tracking.accuracy <= 50 ? 'good' : 'warn'} />
+          <Telemetry label="Precisione GPS" value={tracking.accuracy != null ? `${Math.round(tracking.accuracy)} m` : 'In attesa'} tone={tracking.accuracy != null && tracking.accuracy <= 50 ? 'good' : 'warn'} />
           <Telemetry label="Batteria" value={battery.supported ? `${battery.level}%${battery.charging ? ' · ⚡' : ''}` : 'n/d'} tone={battery.supported && battery.level < 20 ? 'bad' : 'good'} />
           <Telemetry label="Rete" value={tracking.networkStatus === 'online' ? 'Online' : 'Offline'} tone={tracking.networkStatus === 'online' ? 'good' : 'warn'} />
           <Telemetry label="Assegnazione" value={assignmentLabel(tracking.assignmentStatus)} tone={tracking.assignmentStatus === 'ready' ? 'good' : tracking.assignmentStatus === 'loading' ? 'warn' : 'bad'} />
@@ -297,28 +326,132 @@ function DriverTracker({ campaignId, assignmentId, assignmentData }) {
         </div>
       </section>
 
+      <section style={cardStyle}>
+        <p style={eyebrowStyle}>Presa in carico</p>
+        {confirmedAt ? (
+          <div role="status" style={{ color: '#86EFAC', fontWeight: 900, marginTop: 8 }}>
+            ✓ Programma confermato
+            <div style={{ marginTop: 4, fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,.58)' }}>
+              Confermato alle {new Date(confirmedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+            </div>
+          </div>
+        ) : loadingProgramDetails ? (
+          // Stato conferma non ancora noto (Fase 2 in corso): placeholder
+          // neutro, mai il pulsante prima di sapere se e' gia' confermato.
+          <p style={{ ...mutedStyle, marginTop: 8 }}>Verifica stato conferma...</p>
+        ) : (
+          <>
+            <button type="button" style={{ ...primaryButtonStyle, width: '100%', marginTop: 10 }} disabled={confirming} onClick={onConfirm}>
+              {confirming ? 'Conferma in corso...' : 'Confermo e prendo in carico'}
+            </button>
+            <p style={{ ...mutedStyle, marginTop: 8 }}>Conferma di aver ricevuto e verificato il programma di lavoro.</p>
+            {confirmationError && <p role="alert" style={{ color: '#FCA5A5', margin: '8px 0 0', fontSize: 12 }}>{confirmationError}</p>}
+          </>
+        )}
+      </section>
+
+      {/* Programma Operativo (Structured Zones) */}
+      <section style={cardStyle}>
+        <p style={eyebrowStyle}>Programma Operativo</p>
+        {assignmentZones === null ? (
+          // Fase 2 ancora in corso (operator_assignment_zones non arrivata):
+          // messaggio locale SOLO in questa sezione, mai un blocco dell'intera
+          // pagina — l'accesso base e' gia' autorizzato.
+          <p style={{ ...mutedStyle, marginTop: 8 }}>Caricamento programma...</p>
+        ) : (
+        <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
+          {zonesToDisplay.map((z, idx) => {
+            const isCurrentZone = tracking.session?.campaign_zone_id === z.id && z.id != null;
+            
+            let statusPill = z.status;
+            let statusColor = '#94a3b8'; // Da iniziare
+            if (z.status === 'In corso') statusColor = '#3b82f6';
+            if (z.status === 'Completata') statusColor = '#22c55e';
+            if (z.isLegacy) {
+              statusPill = 'Legacy (Sola lettura)';
+              statusColor = '#f59e0b';
+            }
+
+            return (
+              <div key={z.id || idx} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 12, background: isCurrentZone ? '#f0fdf4' : '#fff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 16, color: '#0f172a' }}>
+                      <span style={{ color: '#64748b', marginRight: 6 }}>{idx + 1}.</span>
+                      {z.zone_name}
+                    </h3>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                      {z.quantity != null && <span style={{ fontSize: 13, color: '#475569' }}>Qtà: {Number(z.quantity).toLocaleString('it-IT')}</span>}
+                      <span style={{ fontSize: 12, padding: '2px 6px', borderRadius: 4, background: statusColor, color: '#fff' }}>
+                        {statusPill}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {z.notes && <p style={{ margin: '8px 0', fontSize: 13, color: '#64748b' }}>Note: {z.notes}</p>}
+                
+                {!z.isLegacy && (
+                  <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+                    {z.status !== 'Completata' && !isCurrentZone && (
+                      <button 
+                        type="button" 
+                        style={{ ...primaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1, opacity: tracking.isActive || tracking.isPaused ? 0.5 : 1 }}
+                        disabled={Boolean(actionLoading) || assignmentBlocksStart || tracking.isActive || tracking.isPaused}
+                        onClick={() => runAction('Avvio zona...', () => tracking.start(z.id))}
+                      >
+                        Inizia
+                      </button>
+                    )}
+                    {isCurrentZone && tracking.isActive && (
+                      <button 
+                        type="button" 
+                        style={{ ...secondaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
+                        disabled={Boolean(actionLoading)}
+                        onClick={() => runAction('Pausa...', tracking.pause)}
+                      >
+                        Pausa
+                      </button>
+                    )}
+                    {isCurrentZone && tracking.isPaused && (
+                      <button 
+                        type="button" 
+                        style={{ ...primaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
+                        disabled={Boolean(actionLoading)}
+                        onClick={() => runAction('Riprendo...', tracking.resume)}
+                      >
+                        Riprendi
+                      </button>
+                    )}
+                    {isCurrentZone && (tracking.isActive || tracking.isPaused) && (
+                      <button 
+                        type="button" 
+                        style={{ ...dangerButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
+                        disabled={Boolean(actionLoading)}
+                        onClick={() => runAction('Termino zona...', async () => {
+                          await tracking.completeZone(z.id);
+                          await tracking.end();
+                          // A small timeout to let the UI refresh (or let the polling catch up)
+                          window.setTimeout(() => window.location.reload(), 1000);
+                        })}
+                      >
+                        Termina
+                      </button>
+                    )}
+                    {z.status === 'Completata' && (
+                      <span style={{ color: '#22c55e', fontSize: 14, fontWeight: 'bold' }}>✓ Completata</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        )}
+      </section>
+
       {/* Controls */}
       <section style={controlsCardStyle}>
-        <button
-          type="button"
-          style={primaryButtonStyle}
-          disabled={Boolean(actionLoading) || assignmentBlocksStart}
-          onClick={() => runAction(
-            primaryAction,
-            tracking.isActive ? tracking.pause
-              : tracking.isPaused ? tracking.resume
-              : tracking.start
-          )}
-        >
-          {primaryAction}
-        </button>
-        {(tracking.isActive || tracking.isPaused) && (
-          <button type="button" style={dangerButtonStyle} disabled={Boolean(actionLoading)}
-            onClick={() => runAction('Termino', tracking.end)}>
-            Termina
-          </button>
-        )}
-        <button type="button" style={secondaryButtonStyle} onClick={() => setSection('map')}>Mappa</button>
+        <button type="button" style={secondaryButtonStyle} onClick={() => navigateDriver(driverPathWithQuery(`/driver/assignment/${assignmentId}/map`))}>Mappa</button>
         <button type="button" style={secondaryButtonStyle} onClick={openGoogleMaps}>Google Maps</button>
         <button type="button" style={secondaryButtonStyle} onClick={() => { setSection('photo'); window.setTimeout(() => fileInputRef.current?.click(), 120); }}>Foto</button>
         <button type="button" style={secondaryButtonStyle} onClick={() => setSection('report')}>Report</button>
@@ -330,27 +463,13 @@ function DriverTracker({ campaignId, assignmentId, assignmentData }) {
         <section style={cardStyle}>
           <p style={eyebrowStyle}>Stato lavoro</p>
           <div style={summaryGridStyle}>
-            <Metric label="Km percorsi" value={`${tracking.distanceKm.toFixed(2)} km`} />
+            <Metric label="Distanza GPS totale" value={`${tracking.distanceKm.toFixed(2)} km`} />
             <Metric label="Completamento" value={`${completion}%`} />
             <Metric label="Velocità" value={tracking.speed != null ? `${Math.round(tracking.speed * 3.6)} km/h` : 'n/d'} />
             <Metric label="Direzione" value={tracking.heading != null ? `${Math.round(tracking.heading)}°` : 'n/d'} />
             <Metric label="Ultimo invio" value={tracking.lastSentAt ? formatTime(tracking.lastSentAt) : 'In attesa'} />
             <Metric label="Sessione" value={formatDuration(sessionMs(tracking.session))} />
           </div>
-        </section>
-      )}
-
-      {/* Map section */}
-      {section === 'map' && (
-        <section style={cardStyle}>
-          <div style={{ display: 'flex', alignItems: 'end', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div>
-              <p style={eyebrowStyle}>Mappa lavoro</p>
-              <h2 style={{ margin: '4px 0 0', color: '#fff', fontSize: 18 }}>{comuni.join(' / ') || 'Area assegnata'}</h2>
-            </div>
-            <span style={mutedStyle}>{tracking.distanceKm.toFixed(2)} km · {completion}%</span>
-          </div>
-          <DriverMap path={pathPositions} boundary={boundary} currentPos={currentPos} />
         </section>
       )}
 
@@ -386,56 +505,21 @@ function DriverTracker({ campaignId, assignmentId, assignmentData }) {
         </section>
       )}
 
+      {/* Prima era un testo statico ("Coda GPS offline...") mostrato SEMPRE,
+          anche a rete online e coda vuota — leggibile come "il GPS e' offline
+          adesso" mentre non lo era affatto (audit: nessuna vera coda foto/SOS
+          esiste, solo tracking.queueSize e' un dato reale). Ora riflette lo
+          stato vero: rassicurante quando non c'e' nulla in coda, informativo
+          sul conteggio reale quando c'e' davvero qualcosa da inviare. */}
       <p style={disclaimerStyle}>
-        Coda GPS offline, SOS e controllo duplicati foto sono salvati localmente su questo dispositivo.
+        {tracking.queueSize > 0
+          ? `${tracking.queueSize} ${tracking.queueSize === 1 ? 'punto GPS' : 'punti GPS'} in coda locale: verranno inviati appena la rete torna disponibile.`
+          : 'Protezione offline attiva: se perdi la rete, i punti GPS restano salvati sul dispositivo e vengono inviati appena torni online.'}
       </p>
     </main>
   );
 }
 
-// ─── Map Component ────────────────────────────────────────────────────────────
-function DriverMap({ path, boundary, currentPos }) {
-  const center = currentPos
-    ? [currentPos.lat, currentPos.lng]
-    : path.length ? path[path.length - 1]
-    : [45.4642, 9.19];
-  return (
-    <div style={mapWrapStyle}>
-      <MapContainer center={center} zoom={15} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
-        <MapUpdater center={center} />
-        <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        {boundary && (
-          <GeoJSON key={JSON.stringify(center)} data={boundary}
-            style={{ color: '#2ECC8A', weight: 3, fillOpacity: 0.06, dashArray: '6,4' }} />
-        )}
-        {path.length > 1 && <Polyline positions={path} pathOptions={{ color: '#E8571A', weight: 5, opacity: 0.9 }} />}
-        {currentPos && (
-          <CircleMarker center={[currentPos.lat, currentPos.lng]} radius={11}
-            pathOptions={{ color: '#2ECC8A', fillColor: '#2ECC8A', fillOpacity: 0.95 }}>
-          </CircleMarker>
-        )}
-      </MapContainer>
-    </div>
-  );
-}
-
-function MapUpdater({ center }) {
-  const map = useMap();
-  const prev = useRef(null);
-  useEffect(() => {
-    const t = window.setTimeout(() => map.invalidateSize(), 250);
-    return () => window.clearTimeout(t);
-  }, [map]);
-  useEffect(() => {
-    if (!center) return;
-    const key = center.join(',');
-    if (key !== prev.current) {
-      prev.current = key;
-      map.setView(center, map.getZoom(), { animate: true });
-    }
-  }, [center, map]);
-  return null;
-}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 function LoadingScreen() {
@@ -461,12 +545,17 @@ function BlockedScreen({ error }) {
   );
 }
 
-function StatusBadge({ status, network }) {
+function StatusBadge({ status, network, allZonesCompleted }) {
   const isActive = status === 'active';
-  const color = isActive ? '#2ECC8A' : status === 'paused' ? '#FBBF24' : '#94A3B8';
+  // Verde anche per "Lavoro completato" (stesso significato pratico di
+  // "andato a buon fine" di Online/Terminato), non il grigio neutro di
+  // "non ancora avviato" — solo quando lo stato live non e' gia'
+  // attivo/paused (quei due restano invariati, priorita' allo stato live).
+  const isDoneLike = status === 'completed' || (allZonesCompleted && status !== 'active' && status !== 'paused' && status !== 'permission_error');
+  const color = isActive ? '#2ECC8A' : status === 'paused' ? '#FBBF24' : isDoneLike ? '#2ECC8A' : '#94A3B8';
   return (
     <div style={{ ...statusBadgeStyle, borderColor: `${color}55`, color }}>
-      <strong>{statusLabel(status)}</strong>
+      <strong>{statusLabel(status, { allZonesCompleted })}</strong>
       <span>{network}</span>
     </div>
   );
@@ -517,17 +606,29 @@ function assignmentLabel(status) {
   return 'In attesa';
 }
 
-function statusLabel(status) {
+// Audit "GPS risulta offline": questa era 'Offline' per QUALUNQUE stato non
+// esplicitamente elencato — inclusi 'idle' (stato iniziale, prima di
+// premere Start/senza sessione attiva) e 'completed'. 'Offline' legge come
+// "il GPS e' rotto/disconnesso", ma 'idle' significa solo "non ancora
+// avviato" — una condizione normale, non un errore. tracking.networkStatus
+// (mostrato separatamente come "Rete") resta l'UNICA fonte reale per la
+// connettivita'; questa label riguarda solo lo stato della sessione GPS.
+//
+// Audit "zona completata ma stato ambiguo": 'idle' copriva DUE casi molto
+// diversi — "non ancora iniziato" E "lavoro gia' completato (magari in una
+// sessione GPS passata), nessuna sessione live in questo page load" —
+// entrambi mostravano "GPS non avviato", leggibile come "devi ancora
+// iniziare" anche a lavoro finito. allZonesCompleted (derivato dallo stato
+// zone persistito, vedi DriverTracker) distingue i due casi SOLO quando lo
+// stato live non e' gia' esplicito (active/paused/permission_error restano
+// sempre prioritari e invariati — vedi test D/E).
+function statusLabel(status, { allZonesCompleted = false } = {}) {
   if (status === 'active')           return 'Online';
   if (status === 'paused')           return 'Pausa';
-  if (status === 'completed')        return 'Terminato';
   if (status === 'permission_error') return 'GPS bloccato';
-  return 'Offline';
-}
-
-function estimateCompletion(distanceKm, qty) {
-  const target = qty ? Math.max(1.2, qty / 3500) : 4;
-  return Math.min(100, Math.round((distanceKm / target) * 100));
+  if (status === 'completed')        return 'Terminato';
+  if (allZonesCompleted)             return 'Lavoro completato';
+  return 'GPS non avviato';
 }
 
 function sessionMs(session) {
@@ -696,16 +797,6 @@ const telemetryStyle = {
   border: '1px solid rgba(255,255,255,.08)',
   display: 'grid',
   gap: 5,
-};
-const mapWrapStyle = {
-  height: 'min(62vh, 520px)',
-  minHeight: 360,
-  width: '100%',
-  borderRadius: 16,
-  overflow: 'hidden',
-  border: '1px solid rgba(255,255,255,.12)',
-  position: 'relative',
-  zIndex: 1,
 };
 const alertBannerStyle = {
   position: 'sticky',

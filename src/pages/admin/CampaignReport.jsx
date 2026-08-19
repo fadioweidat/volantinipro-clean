@@ -122,7 +122,9 @@ export function CampaignReport({ campaignId }) {
     if (!finalState.report) return;
     try {
       setFinalState((previous) => ({ ...previous, notice: 'Generazione PDF in corso...' }));
-      await downloadFinalDistributionPdf(finalState.report, 'certificazione-distribuzione-volantinipro.pdf');
+      await downloadFinalDistributionPdf(finalState.report, 'certificazione-distribuzione-volantinipro.pdf', {
+        onProgress: (message) => setFinalState((previous) => ({ ...previous, notice: message })),
+      });
       setFinalState((previous) => ({ ...previous, notice: 'PDF scaricato.' }));
     } catch (error) {
       setFinalState((previous) => ({ ...previous, error: error?.message || 'Impossibile generare il PDF.', notice: '' }));

@@ -40,11 +40,14 @@ export function Step1({
         monthly6: 6,
         monthly12: 12
       };
+      // P1 PRICING ENGINE sezione 11: sostituiti -5/-10/-15 con -3/-5/-8 —
+      // questo e' il valore reale che finisce in data.planDiscount, letto
+      // con priorita' da Step4.jsx (subDiscPct = data.planDiscount || ...).
       const discountMult = {
         single: 0,
-        monthly3: 5,
-        monthly6: 10,
-        monthly12: 15
+        monthly3: 3,
+        monthly6: 5,
+        monthly12: 8
       };
       const mMult = monthsMult[next.subscription] || 1;
       const pDisc = discountMult[next.subscription] || 0;
@@ -237,7 +240,7 @@ export function Step1({
   }, {
     id: "urgent",
     label: "Urgente",
-    desc: "Avvio rapido in 24–48h ove disponibile • Maggiorazione +30%",
+    desc: "Avvio rapido in 24–48h ove disponibile • Maggiorazione +20%",
     badge: "Rapido"
   }, {
     id: "express",
@@ -254,17 +257,17 @@ export function Step1({
     id: "monthly3",
     label: "Trimestrale",
     subtitle: "Pianificazione 3 mesi",
-    disc: 5
+    disc: 3
   }, {
     id: "monthly6",
     label: "Semestrale",
     subtitle: "Pianificazione 6 mesi",
-    disc: 10
+    disc: 5
   }, {
     id: "monthly12",
     label: "Annuale",
     subtitle: "Pianificazione 12 mesi",
-    disc: 15
+    disc: 8
   }];
   const baseRate = {
     d2d: 18.5,
@@ -273,18 +276,21 @@ export function Step1({
     "business-distribution": 35.0
   }[data.type || "d2d"] || 18.5;
   const activeQty = data.qty || 10000;
-  const distEst = activeQty / 1000 * baseRate;
-  const printEst = data.hasFlyers === "no" ? Math.round(activeQty / 1000 * 29) : 0;
-  let subtotalEst = distEst + printEst;
-  if (data.urgency === "urgent") subtotalEst *= 1.3;
-  if (data.urgency === "express") subtotalEst *= 1.35;
+  let distEst = activeQty / 1000 * baseRate;
+  // P1 PRICING ENGINE sezione 10/12: urgenza e sconto piano si applicano
+  // SOLO alla distribuzione, mai alla stampa (STAMPA: NON TOCCARE) — prima
+  // venivano applicati a distEst+printEst insieme.
+  if (data.urgency === "urgent") distEst *= 1.2;
+  if (data.urgency === "express") distEst *= 1.35;
   const discPct = {
     single: 0,
-    monthly3: 5,
-    monthly6: 10,
-    monthly12: 15
+    monthly3: 3,
+    monthly6: 5,
+    monthly12: 8
   }[data.subscription] || 0;
-  if (discPct > 0) subtotalEst = subtotalEst * (1 - discPct / 100);
+  if (discPct > 0) distEst = distEst * (1 - discPct / 100);
+  const printEst = data.hasFlyers === "no" ? Math.round(activeQty / 1000 * 29) : 0;
+  const subtotalEst = distEst + printEst;
   const totalEstFormatted = Math.round(subtotalEst).toLocaleString("it-IT");
   const handleContinue = async () => {
     const isBusinessService = data.type === "b2b" || data.type === "business-distribution";
@@ -653,13 +659,13 @@ export function Step1({
   }[data.type] || "Da selezionare";
   const currentPlanLabel = {
     single: "Singola",
-    monthly3: "Trimestrale (-5%)",
-    monthly6: "Semestrale (-10%)",
-    monthly12: "Annuale (-15%)"
+    monthly3: "Trimestrale (-3%)",
+    monthly6: "Semestrale (-5%)",
+    monthly12: "Annuale (-8%)"
   }[data.subscription] || "Da selezionare";
   const currentUrgencyLabel = {
     normal: "Standard",
-    urgent: "Urgente (+30%)",
+    urgent: "Urgente (+20%)",
     express: "Express (+35%)"
   }[data.urgency] || "Da selezionare";
   const currentPrintLabel = data.hasFlyers === "yes" ? "Già stampati" : data.hasFlyers === "no" ? "Da stampare (+stampa)" : "Da selezionare";

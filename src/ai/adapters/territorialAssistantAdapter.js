@@ -58,7 +58,10 @@ export async function runTerritorialAssistant({ snapshot, question, role = "visi
     // risponde 401 anche con una sessione vp_supabase_session valida (stesso
     // bug gia' noto e risolto per gli altri chiamanti in supabaseClient.js).
     await ensureSupabaseSessionBridge();
-    const { data, error: invokeError } = await supabase.functions.invoke("ai-assistant-territory", { body: { snapshot, question } });
+    // Migrato ad ai-core (backend AI centrale, Fase 1 = solo contextType
+    // "step2"): stessa auth logic, stesso prompt, stessa cache di
+    // ai-assistant-territory, che resta deployata invariata come rollback.
+    const { data, error: invokeError } = await supabase.functions.invoke("ai-core", { body: { contextType: "step2", snapshot, question } });
     if (invokeError) throw invokeError;
     if (data?.error) throw new Error(data.error);
     const answer = typeof data?.answer === "string" && data.answer.trim() ? data.answer.trim() : null;

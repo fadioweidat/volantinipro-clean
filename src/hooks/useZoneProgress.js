@@ -27,7 +27,10 @@ export function zoneProgressReducer(state, action) {
         refreshing: false,
         zones: action.zones,
         history: action.history,
-        error: null,
+        // Le zone (dato primario) restano valide anche se lo storico
+        // (secondario) e' fallito — l'errore, se presente, resta visibile
+        // nel banner senza nascondere le card zona gia' caricate.
+        error: action.error || null,
       };
     case 'load_failed':
       return {
@@ -79,14 +82,26 @@ export function useZoneProgress({
     const requestId = ++requestIdRef.current;
     dispatch({ type: 'load_started' });
     try {
-      const [zones, history] = await Promise.all([
-        client.getCampaignZoneProgress(campaignId),
-        includeHistory
-          ? client.getCampaignZoneProgressHistory(campaignId)
-          : Promise.resolve([]),
-      ]);
+      // P0: zone e storico venivano risolti con un solo Promise.all — un
+      // problema isolato nello storico (es. una riga con event_type non
+      // ancora riconosciuto) rigettava l'intero Promise.all e buttava via
+      // anche le zone gia' recuperate correttamente, mostrando "Nessuna zona
+      // configurata" anche quando le zone esistevano davvero (riprodotto dal
+      // vivo). Le zone sono il dato primario del pannello: un fallimento
+      // dello storico (secondario, solo Admin) non deve mai nasconderle.
+      const zones = await client.getCampaignZoneProgress(campaignId);
+      let history = [];
+      let historyError = null;
+      if (includeHistory) {
+        try {
+          history = await client.getCampaignZoneProgressHistory(campaignId);
+        } catch (error) {
+          historyError = error;
+        }
+      }
       if (!mountedRef.current || requestId !== requestIdRef.current) return null;
-      dispatch({ type: 'load_succeeded', zones, history });
+      dispatch({ type: 'load_succeeded', zones, history, error: historyError });
+      if (rethrow && historyError) throw historyError;
       return { zones, history };
     } catch (error) {
       if (!mountedRef.current || requestId !== requestIdRef.current) return null;

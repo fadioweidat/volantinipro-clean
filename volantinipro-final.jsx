@@ -1,6 +1,7 @@
 import React, { Component, Fragment, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { printQuotePdf } from "./src/lib/pdf/printQuotePdf.js";
 import { supabase, confirmCampaignPayment, hasSupabaseConfig, saveCampaign, saveSmartPairingWaitlist, getStoredSupabaseSession } from "./src/lib/supabaseClient.js";
+import { supabase as authSupabase } from "./src/supabaseClient.js";
 import {
   consumeSupabaseAuthHash,
   parseSupabaseAuthHashError,
@@ -12,12 +13,14 @@ import {
   clearPendingAuthReturnPath,
   rememberPendingAuthOrigin,
   readPendingAuthOrigin,
-  clearPendingAuthOrigin
+  clearPendingAuthOrigin,
+  restoreSupabaseSession,
+  verifySupabaseAdminRole
 } from "./src/auth/session.js";
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
-import { customerValue, CUSTOMER_DATA_UNAVAILABLE } from "./src/lib/customerCampaigns.js";
+import { customerValue, CUSTOMER_DATA_UNAVAILABLE, CUSTOMER_PAYMENT_STATE, getCustomerPaymentState } from "./src/lib/customerCampaigns.js";
 
 // Badge neutro per "Dato non disponibile": usato al posto del rendering
 // grande/colorato di un valore reale, cosi' un dato mancante non sembra un
@@ -4991,6 +4994,7 @@ export function LoginPage({
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [authError, setAuthError] = useState(() => parseSupabaseAuthHashError());
+  const otpRequestInFlight = useRef(false);
   const {
     url,
     anonKey
@@ -4998,27 +5002,40 @@ export function LoginPage({
   const configured = Boolean(url && anonKey);
   const isAdminContext = context === "admin";
   const isDriverContext = context === "driver";
-  const redirectPath = isAdminContext ? "/login?context=admin" : isDriverContext ? "/login?context=driver" : "/login?context=customer";
+  const isAuthCallback = window.location.pathname.toLowerCase() === "/auth/callback";
+  const redirectPath = "/auth/callback";
+  const [sessionCheck, setSessionCheck] = useState(() => configured && (isAdminContext || isAuthCallback) ? "checking" : "ready");
 
   useEffect(() => {
+    let cancelled = false;
+
     if (window.location.hash.includes("access_token")) {
-      const driverReturnPath = isDriverContext ? (readPendingAuthReturnPath() || "/") : null;
-      // Per il Driver NON si passa driverReturnPath come cleanPath qui: se
-      // consumeSupabaseAuthHash facesse gia' un replaceState verso
-      // driverReturnPath, la successiva window.location.href = driverReturnPath
-      // diventerebbe un'assegnazione verso un URL identico a quello gia'
-      // mostrato dalla barra indirizzi (il replaceState non ricarica la
-      // pagina, ma AGGIORNA silenziosamente window.location.pathname) — Chrome
-      // tratta l'assegnazione a un href gia' corrente come no-op e non naviga
-      // mai davvero verso /driver/tracking/*, che restando fuori da AppRouter
-      // (src/main.jsx) richiede un caricamento di pagina reale. Restando su
-      // "/login?context=driver" qui, la successiva navigazione e' verso un URL
-      // genuinamente diverso e Chrome la esegue per davvero.
-      const cleanPath = isAdminContext ? "/admin" : isDriverContext ? "/login?context=driver" : "/dashboard";
+      // Mantieni un landing neutro finche' sessione e ruolo non sono stati
+      // verificati. Il path canonico viene scelto soltanto dopo il lookup
+      // backend: nessun flash della Home e nessun /admin prematuro.
+      const driverReturnPathRaw = isDriverContext ? readPendingAuthReturnPath() : null;
+      const driverReturnPath = /^\/driver\/(tracking|assignment)\//.test(driverReturnPathRaw || "")
+        ? driverReturnPathRaw
+        : null;
+      const cleanPath = "/auth/callback";
       const session = consumeSupabaseAuthHash(cleanPath);
       if (session) {
         clearPendingAuthContext();
-        if (isDriverContext) {
+        // setSession() trasferisce il callback manuale nella sessione SDK
+        // persistente e abilita auto-refresh prima di lasciare la login page.
+        void restoreSupabaseSession(session).then(async (restoredSession) => {
+          if (cancelled) return;
+          if (!restoredSession) {
+            setSessionCheck("ready");
+            setAuthError({ message: "Non sono riuscito a ripristinare la sessione. Richiedi un nuovo magic link." });
+            return;
+          }
+          if (isDriverContext) {
+            if (!driverReturnPath) {
+              setSessionCheck("ready");
+              setAuthError({ message: "Link operativo Driver mancante. Apri di nuovo il link della campagna o dell'assegnazione." });
+              return;
+            }
           // /driver/tracking/* e' un entry point standalone fuori da
           // AppRouter (src/main.jsx), quindi il ritorno richiede una
           // navigazione reale del browser e non onNav/goTo. location.replace
@@ -5033,15 +5050,21 @@ export function LoginPage({
           // un altro IP LAN o su localhost, se quell'host e' raggiungibile),
           // un path relativo resterebbe sull'origin sbagliato. Fallback
           // sull'origin corrente solo se non era stato salvato.
-          const driverOrigin = readPendingAuthOrigin() || window.location.origin;
-          clearPendingAuthReturnPath();
-          clearPendingAuthOrigin();
-          window.location.replace(`${driverOrigin}${driverReturnPath}`);
-          return;
-        }
-        if (isAdminContext) {
-          onNav("admin");
-        } else {
+            const driverOrigin = readPendingAuthOrigin() || window.location.origin;
+            clearPendingAuthReturnPath();
+            clearPendingAuthOrigin();
+            window.location.replace(`${driverOrigin}${driverReturnPath}`);
+            return;
+          }
+          // Il contesto del link non e' un ruolo attendibile: una callback
+          // generata fuori dalla pagina Login puo' perdere ?context=. Il ruolo
+          // Admin viene quindi verificato sul backend prima del redirect.
+          const isAdmin = await verifySupabaseAdminRole(restoredSession);
+          if (cancelled) return;
+          if (isAdmin) {
+            onNav("admin");
+            return;
+          }
           // Se il login e' stato richiesto da Step4 (vedi handleConfirmCampaign
           // in Step4.jsx, che imposta volantinipro_return_to prima di mandare
           // qui l'utente), torna a Step4 invece che alla Dashboard generica:
@@ -5056,9 +5079,9 @@ export function LoginPage({
             try { return localStorage.getItem("volantinipro_return_to") === "step4"; } catch { return false; }
           })();
           onNav(pendingReturnToStep4 ? "step4" : "dashboard");
-        }
+        });
       }
-      return;
+      return () => { cancelled = true; };
     }
     const hashError = parseSupabaseAuthHashError();
     if (hashError) {
@@ -5067,11 +5090,34 @@ export function LoginPage({
       clearPendingAuthContext();
       // vp_pending_auth_return_path resta: un nuovo tentativo di magic link
       // deve ancora sapere dove tornare (vedi sendMagicLink sotto).
+      setSessionCheck("ready");
+      return () => { cancelled = true; };
     }
+
+    if (isAdminContext && configured) {
+      // Un Admin gia' autenticato non deve poter generare OTP inutili. La SDK
+      // ripristina/aggiorna prima la sessione persistita, poi il ruolo viene
+      // sempre confermato dal backend.
+      void restoreSupabaseSession().then(async (restoredSession) => {
+        if (cancelled) return;
+        if (restoredSession && await verifySupabaseAdminRole(restoredSession)) {
+          if (!cancelled) onNav("admin");
+          return;
+        }
+        if (!cancelled) setSessionCheck("ready");
+      });
+    } else {
+      setSessionCheck("ready");
+    }
+    return () => { cancelled = true; };
   }, [isAdminContext, isDriverContext, onNav]);
 
   const sendMagicLink = async e => {
     e.preventDefault();
+    // `disabled={busy}` segue il render React e da solo non chiude la finestra
+    // tra due eventi nello stesso tick. Il ref e' un lock sincrono e impedisce
+    // la seconda POST anche sotto double click o submit ravvicinati.
+    if (otpRequestInFlight.current) return;
     if (!email.includes("@")) {
       setStatus("Inserisci una email valida.");
       return;
@@ -5080,6 +5126,7 @@ export function LoginPage({
       setStatus("Configura VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY in.env.local per inviare magic link reali.");
       return;
     }
+    otpRequestInFlight.current = true;
     setBusy(true);
     setStatus("");
     setAuthError(null);
@@ -5089,7 +5136,7 @@ export function LoginPage({
     // in quel caso.
     rememberPendingAuthContext(isAdminContext ? "admin" : isDriverContext ? "driver" : "customer");
     if (isDriverContext) {
-      const returnTo = new URLSearchParams(window.location.search).get("returnTo");
+      const returnTo = new URLSearchParams(window.location.search).get("returnTo") || readPendingAuthReturnPath();
       if (returnTo) rememberPendingAuthReturnPath(returnTo);
       // window.location.origin dell'host che sta davvero inviando la
       // richiesta ORA (localhost sul PC, IP LAN sul telefono) — mai
@@ -5098,47 +5145,40 @@ export function LoginPage({
       rememberPendingAuthOrigin(window.location.origin);
     }
     try {
-      const res = await fetch(`${url}/auth/v1/otp`, {
-        method: "POST",
-        headers: {
-          apikey: anonKey,
-          Authorization: `Bearer ${anonKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          email,
-          create_user: true,
-          type: "magiclink",
-          options: {
-            email_redirect_to: `${window.location.origin}${redirectPath}`
-          }
-        })
+      // Usa il client ufficiale: emailRedirectTo e' un'opzione SDK che viene
+      // serializzata correttamente nel redirect_to del ConfirmationURL.
+      // La precedente fetch REST inseriva options.email_redirect_to nel body
+      // raw; GoTrue la ignorava e ripiegava sulla Site URL "/".
+      const { error: otpError } = await authSupabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: `${window.location.origin}${redirectPath}`
+        }
       });
-      if (!res.ok) {
-        if (res.status === 429) {
-          throw new Error("Troppi magic link richiesti. Attendi prima di riprovare.");
+      if (otpError) {
+        if (otpError.status === 429) {
+          throw new Error("Hai richiesto troppi link di accesso. Usa l'ultimo link ricevuto oppure attendi qualche minuto.");
         }
-        const errData = await res.json().catch(() => null);
-        if (errData && errData.error_description) {
-          throw new Error(errData.error_description);
-        } else if (errData && errData.msg) {
-          throw new Error(errData.msg);
-        } else if (errData && errData.message) {
-          throw new Error(errData.message);
-        }
-        throw new Error("magic_link_failed");
+        throw new Error(otpError.message || "magic_link_failed");
       }
-      setStatus(isAdminContext ? "Magic link inviato. Controlla la tua email per entrare nella dashboard admin." : isDriverContext ? "Magic link inviato. Controlla la tua email per accedere come operatore." : "Magic link inviato. Controlla la tua email per entrare nella dashboard.");
+      setStatus(isAdminContext ? "Magic link inviato. Controlla la tua email per entrare nella dashboard admin." : "Magic link inviato. Controlla la tua email per entrare nella dashboard.");
     } catch (err) {
       if (err.message !== "magic_link_failed" && err.message !== "Failed to fetch") {
         setStatus(err.message);
       } else {
-        setStatus("Non sono riuscito a inviare il magic link. Verifica chiavi Supabase e redirect URL.");
+        setStatus("Non sono riuscito a inviare il codice. Verifica chiavi Supabase e redirect URL.");
       }
     } finally {
+      otpRequestInFlight.current = false;
       setBusy(false);
     }
   };
+  if (sessionCheck === "checking") {
+    return <div style={{ minHeight: "100vh", background: `linear-gradient(180deg,${C.navyDeep},${C.navyMid})`, padding: "150px 24px", color: "rgba(255,255,255,.72)", textAlign: "center", fontFamily: F.sans }}>
+      Accesso in corso...
+    </div>;
+  }
   return <div style={{
     minHeight: "100vh",
     background: `linear-gradient(180deg,${C.navyDeep},${C.navyMid})`,
@@ -5255,12 +5295,14 @@ export function DashboardPage({
     }
   });
   const {
-    cliente
+    cliente,
+    sessionInvalid: clienteSessionInvalid
   } = useCliente();
   const {
     campagne,
     loading,
-    error
+    error,
+    sessionInvalid: campagneSessionInvalid
   } = useCampagne();
   useEffect(() => {
     const hash = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
@@ -5277,6 +5319,21 @@ export function DashboardPage({
       window.history.replaceState(null, "", "/dashboard");
     }
   }, []);
+  useEffect(() => {
+    // P0: useCliente/useCampagne hanno gia' rilevato che supabase.auth.getUser()
+    // rifiuta il token bridgeato (sessione scaduta/refresh fallito) e ripulito
+    // vp_supabase_session (mai il pending campaign claim, chiave separata). Il
+    // badge "Sessione attiva" qui sopra pero' resta legato al solo "session"
+    // locale: senza questo, continuerebbe a mostrare "Sessione attiva" a
+    // tempo indefinito mentre ogni query reale fallisce silenziosamente.
+    // Guardia "&& session" anti-loop: una volta azzerato session, la
+    // condizione non e' piu' vera finche' non arriva una sessione valida
+    // nuova (nuovo login), quindi questo effect non puo' ri-innescarsi da solo.
+    if ((clienteSessionInvalid || campagneSessionInvalid) && session) {
+      setSession(null);
+      onNav("login");
+    }
+  }, [clienteSessionInvalid, campagneSessionInvalid, session, onNav]);
   useEffect(() => {
     // Non usare la variabile "session" catturata al render: l'effect qui sopra
     // (stesso componente, stesso passaggio di effect) puo' aver appena salvato
@@ -5305,7 +5362,7 @@ export function DashboardPage({
     b2b: ["B2B", C.purple]
   };
   const activeCount = campagne.filter(c => ["confermata", "in_preparazione", "in_distribuzione"].includes(c.stato)).length;
-  const waitingPaymentCount = campagne.filter(c => c.stato_pagamento === "in_attesa").length;
+  const waitingPaymentCount = campagne.filter(c => getCustomerPaymentState(c.stato_pagamento) === CUSTOMER_PAYMENT_STATE.PENDING).length;
   const knownTotals = campagne.map(c => c.totale_euro).filter(value => value != null);
   const totalSpent = knownTotals.length ? knownTotals.reduce((a, value) => a + Number(value), 0) : null;
   const flyersDone = campagne.reduce((a, c) => a + Number(c.volantini_distribuiti || 0), 0);
@@ -5463,6 +5520,10 @@ export function DashboardPage({
               {campagne.map(campagna => {
             const [svcLabel, svcColor] = svcCfg[campagna.service_type] || [campagna.servizio, C.orange];
             const [statusLabel, statusColor] = statusCfg[campagna.stato] || [campagna.stato, C.white];
+            const paymentState = getCustomerPaymentState(campagna.stato_pagamento);
+            const paymentLabel = paymentState === CUSTOMER_PAYMENT_STATE.PAID ? "Pagato" : paymentState === CUSTOMER_PAYMENT_STATE.PENDING ? "In attesa pagamento" : CUSTOMER_DATA_UNAVAILABLE;
+            const paymentColor = paymentState === CUSTOMER_PAYMENT_STATE.PAID ? C.green : paymentState === CUSTOMER_PAYMENT_STATE.PENDING ? C.yellow : "rgba(255,255,255,.42)";
+            const paymentBackground = paymentState === CUSTOMER_PAYMENT_STATE.PAID ? "rgba(46,204,138,.14)" : paymentState === CUSTOMER_PAYMENT_STATE.PENDING ? "rgba(251,191,36,.14)" : "rgba(255,255,255,.06)";
             return <div key={campagna.id} style={{
               padding: 16,
               borderRadius: 13,
@@ -5502,12 +5563,12 @@ export function DashboardPage({
                         <span style={{
                     padding: "3px 8px",
                     borderRadius: 999,
-                    background: campagna.stato_pagamento === "pagato" ? "rgba(46,204,138,.14)" : "rgba(251,191,36,.14)",
-                    color: campagna.stato_pagamento === "pagato" ? C.green : C.yellow,
+                    background: paymentBackground,
+                    color: paymentColor,
                     fontFamily: F.sans,
                     fontSize: 10,
                     fontWeight: 900
-                  }}>{campagna.stato_pagamento === "pagato" ? "Pagato" : "In attesa pagamento"}</span>
+                  }}>{paymentLabel}</span>
                       </div>
                       <div style={{
                   fontFamily: F.serif,
@@ -5519,7 +5580,7 @@ export function DashboardPage({
                   fontSize: 12,
                   color: "rgba(255,255,255,.45)",
                   marginTop: 5
-                }}>{(campagna.comuni || []).join("  ") || customerValue(campagna.zona)}  {campagna.quantita == null ? customerValue(null) : `${campagna.quantita.toLocaleString("it-IT")} volantini`}  {customerValue(campagna.data_inizio)}  {customerValue(campagna.data_fine)}</div>
+                }}>{(campagna.comuni || []).length > 1 ? `Comuni: ${campagna.comuni.join(", ")}` : (campagna.comuni || [])[0] || customerValue(campagna.zona)}  {campagna.quantita == null ? customerValue(null) : `${campagna.quantita.toLocaleString("it-IT")} volantini`}  {customerValue(campagna.data_inizio)}  {customerValue(campagna.data_fine)}</div>
                     </div>
                     <div style={{
                 textAlign: "right"
@@ -5688,6 +5749,48 @@ export function CampaignDashboardPage({
             fontWeight: 700,
             cursor: "pointer"
           }}>Apri report</button></div>
+          </div>
+
+          <div style={{
+          background: "rgba(255,255,255,.045)",
+          border: "1px solid rgba(255,255,255,.09)",
+          borderRadius: 14,
+          padding: 18,
+          marginBottom: 14
+        }}>
+            <div style={{
+            fontFamily: F.sans,
+            fontSize: 11,
+            fontWeight: 800,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            color: "rgba(255,255,255,.45)",
+            marginBottom: 10
+          }}>Zone / Comuni</div>
+            {(campagna.campaignZones || []).length === 0 ? <div style={{
+            fontFamily: F.sans,
+            fontSize: 13,
+            color: "rgba(255,255,255,.5)"
+          }}>Zone della campagna non disponibili</div> : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {campagna.campaignZones.map((z) => <div key={z.id || z.zone_name} style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontFamily: F.sans,
+              fontSize: 13,
+              color: C.white
+            }}><span>{z.zone_name || customerValue(null)}</span><span style={{ color: "rgba(255,255,255,.6)" }}>{z.quantity_assigned == null ? customerValue(null) : `${Number(z.quantity_assigned).toLocaleString("it-IT")} volantini`}</span></div>)}
+              <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontFamily: F.sans,
+              fontSize: 13,
+              fontWeight: 800,
+              color: C.white,
+              marginTop: 6,
+              paddingTop: 8,
+              borderTop: "1px solid rgba(255,255,255,.08)"
+            }}><span>Totale</span><span>{campagna.quantita == null ? customerValue(null) : `${campagna.quantita.toLocaleString("it-IT")} volantini`}</span></div>
+            </div>}
           </div>
 
           <div style={{
