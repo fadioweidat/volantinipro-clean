@@ -200,7 +200,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           group_id: selectedGroupId || null,
           starts_at: startsAtUtc,
           ends_at: endsAtUtc,
-          metadata: { metadata },
+          metadata,
         });
       } else {
         result = await createOperatorAssignment({
