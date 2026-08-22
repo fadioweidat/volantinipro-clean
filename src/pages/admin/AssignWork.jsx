@@ -15,6 +15,7 @@ import {
 import { getCampaignRecord } from '../../lib/services/gps-api.js';
 import { AssignWorkGroupOperatorStep } from './assign-work/AssignWorkGroupOperatorStep.jsx';
 import { AssignWorkProgramStep } from './assign-work/AssignWorkProgramStep.jsx';
+import { AssignWorkPreviewStep } from './assign-work/AssignWorkPreviewStep.jsx';
 
 // ─── AssignWork ───────────────────────────────────────────────────────────────
 // Form a step per assegnare lavoro a un operatore e generare il link GPS personale.
@@ -450,33 +451,31 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
 
       {/* ── STEP 3: Anteprima ── */}
       {step === 3 && (
-        <div style={cardStyle}>
-          <p style={eyebrowStyle}>Step 3 — Anteprima assegnazione</p>
-          <h2 style={sectionTitleStyle}>Conferma i dati</h2>
-
-          <div style={previewGridStyle}>
-            <PreviewRow label="Operatore" value={selectedOperator?.display_name || selectedOperatorId} />
-            <PreviewRow label="Gruppo" value={selectedGroup?.name || 'Gruppo non disponibile'} />
-            <PreviewRow label="Campagna" value={campaignTitle} />
-            <PreviewRow label="Programma" value={getSelectedProgramRows().map((row, index) => `${index + 1}. ${row.name} — ${row.quantity ? `${row.quantity.toLocaleString('it-IT')} volantini` : 'quantità da definire'}`).join(' | ')} />
-            <PreviewRow label="Totale" value={`${getSelectedProgramRows().reduce((sum, row) => sum + (row.quantity || 0), 0).toLocaleString('it-IT')} volantini`} />
-            <PreviewRow label="Data inizio" value={startsAt ? new Date(startsAt).toLocaleString('it-IT') : 'Immediata'} />
-            <PreviewRow label="Scadenza" value={endsAt ? new Date(endsAt).toLocaleString('it-IT') : 'Nessuna'} />
-            {notes && <PreviewRow label="Note" value={notes} />}
-          </div>
-
-          <div style={{ ...footerRowStyle, marginTop: 20 }}>
-            <button type="button" style={secondaryBtnStyle} onClick={() => setStep(2)}>← Modifica</button>
-            <button
-              type="button"
-              style={saving ? disabledBtnStyle : primaryBtnStyle}
-              disabled={saving}
-              onClick={handleSave}
-            >
-              {saving ? 'Salvataggio...' : isEdit ? 'Aggiorna assegnazione' : '✓ Salva e genera link'}
-            </button>
-          </div>
-        </div>
+        <AssignWorkPreviewStep
+          PreviewRow={PreviewRow}
+          selectedOperator={selectedOperator}
+          selectedOperatorId={selectedOperatorId}
+          selectedGroup={selectedGroup}
+          campaignTitle={campaignTitle}
+          getSelectedProgramRows={getSelectedProgramRows}
+          startsAt={startsAt}
+          endsAt={endsAt}
+          notes={notes}
+          saving={saving}
+          isEdit={isEdit}
+          handleSave={handleSave}
+          setStep={setStep}
+          styles={{
+            cardStyle,
+            eyebrowStyle,
+            sectionTitleStyle,
+            previewGridStyle,
+            footerRowStyle,
+            secondaryBtnStyle,
+            primaryBtnStyle,
+            disabledBtnStyle,
+          }}
+        />
       )}
 
       {/* ── STEP 4: Risultato ── */}
