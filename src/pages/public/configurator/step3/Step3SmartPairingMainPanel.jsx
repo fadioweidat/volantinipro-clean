@@ -202,7 +202,7 @@ export function Step3SmartPairingMainPanel({ availabilityStatus, setAvailability
                     }}>{l}</span>
                         </div>)}
                     </div>}
-      
+
                     <div style={{
                   display: "flex",
                   alignItems: "center",
@@ -247,7 +247,7 @@ export function Step3SmartPairingMainPanel({ availabilityStatus, setAvailability
                     fontSize: 14
                   }}>+ </button>
                     </div>
-      
+
                     <div style={{
                   position: "relative",
                   background: "rgba(255,255,255,.03)",
@@ -359,7 +359,7 @@ export function Step3SmartPairingMainPanel({ availabilityStatus, setAvailability
                       Non trovo il giorno che voglio · Avvisami per date diverse
                     </button>
                   </div>}
-      
+
                 {showRequest && <div style={{
                 marginBottom: 28,
                 borderRadius: 16,
@@ -611,7 +611,7 @@ export function Step3SmartPairingMainPanel({ availabilityStatus, setAvailability
                         </button>
                       </>}
                   </div>}
-      
+
                 {/* 5. PERCHÉ CONVIENE */}
                 <div style={{
                 background: "rgba(255,255,255,0.025)",
@@ -654,7 +654,7 @@ export function Step3SmartPairingMainPanel({ availabilityStatus, setAvailability
                       </div>)}
                   </div>
                 </div>
-      
+
                 {/* 6. COME FUNZIONA */}
                 <div id="smart-pairing-how" style={{
                 background: "rgba(255,255,255,0.025)",
@@ -736,7 +736,7 @@ export function Step3SmartPairingMainPanel({ availabilityStatus, setAvailability
                     Successivamente crea automaticamente gruppi di distribuzione compatibili, abbattendo i costi di uscita logistica.
                   </div>
                 </div>
-      
+
                 {/* 10. MIGLIORARE LA FIDUCIA */}
                 <div style={{
                 background: "rgba(255,255,255,0.025)",
@@ -782,8 +782,8 @@ export function Step3SmartPairingMainPanel({ availabilityStatus, setAvailability
                     <span><b>Garanzia trasparenza:</b> Il risparmio mostrato deriva esclusivamente da campagne realmente compatibili. <b>Non vengono utilizzati dati casuali.</b></span>
                   </div>
                 </div>
-      
-              
+
+
     </>
   );
 }
