@@ -13,6 +13,9 @@ const adminLive = readFileSync('src/pages/admin/AdminLiveDashboard.jsx', 'utf8')
 // componente estratto AdminLiveFiltersPanel.jsx, non piu' inline in
 // AdminLiveDashboard.jsx.
 const adminLiveFiltersPanel = readFileSync('src/pages/admin/admin-live/AdminLiveFiltersPanel.jsx', 'utf8');
+// La lista sessioni (withLifecycle.map + DriverRow) vive ora nel componente
+// estratto AdminLiveSessionsList.jsx, non piu' inline in AdminLiveDashboard.jsx.
+const adminLiveSessionsList = readFileSync('src/pages/admin/admin-live/AdminLiveSessionsList.jsx', 'utf8');
 const contractMigration = readFileSync('supabase/migrations_legacy_pre_rebaseline_20260821/20260805000003_reconcile_driver_gps_contract.sql', 'utf8');
 const zoneMigration = readFileSync('supabase/migrations_legacy_pre_rebaseline_20260821/20260805000004_secure_gps_zone_transitions.sql', 'utf8');
 const podMigration = readFileSync('supabase/migrations_legacy_pre_rebaseline_20260821/20260805000005_harden_pod_visibility.sql', 'utf8');
@@ -130,7 +133,7 @@ test('POD, Admin and Customer isolation contract', async (t) => {
     assert.match(adminLive, /status: 'all_history'/);
     assert.match(adminLive + adminLiveFiltersPanel, /value="all_history">Tutti \(incl\. storico\)/);
     assert.match(adminLive, /<LiveMap drivers=\{withLifecycle\}/);
-    assert.match(adminLive, /withLifecycle\.length \? withLifecycle\.map/);
+    assert.match(adminLive + adminLiveSessionsList, /withLifecycle\.length \? withLifecycle\.map/);
     assert.match(adminLive, /const currentRows = useMemo/);
   });
 

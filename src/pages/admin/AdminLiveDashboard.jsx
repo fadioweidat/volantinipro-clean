@@ -18,6 +18,7 @@ import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPa
 import { AdminLayout } from './AdminLayout.jsx';
 import { AdminLiveKpiPanel } from './admin-live/AdminLiveKpiPanel.jsx';
 import { AdminLiveFiltersPanel } from './admin-live/AdminLiveFiltersPanel.jsx';
+import { AdminLiveSessionsList } from './admin-live/AdminLiveSessionsList.jsx';
 
 const WORK_STATUS_LABELS = {
   started: 'In corso',
@@ -201,17 +202,17 @@ export function AdminLiveDashboard({ onNav }) {
           <SessionQualityPanel item={selectedItem} />
         </section>
 
-        <aside style={cardStyle}>
-          <p style={eyebrowStyle}>Driver e storico</p>
-          {withLifecycle.length ? withLifecycle.map((item) => (
-            <DriverRow
-              key={item.session.id}
-              item={item}
-              selected={item.session.id === selectedSessionId}
-              onSelect={() => setSelectedSessionId(item.session.id)}
-            />
-          )) : <EmptyState text="Nessuna sessione attiva reale." />}
-        </aside>
+        <AdminLiveSessionsList
+          withLifecycle={withLifecycle}
+          selectedSessionId={selectedSessionId}
+          setSelectedSessionId={setSelectedSessionId}
+          DriverRow={DriverRow}
+          EmptyState={EmptyState}
+          styles={{
+            cardStyle,
+            eyebrowStyle,
+          }}
+        />
       </div>
 
       {selectedItem && (
