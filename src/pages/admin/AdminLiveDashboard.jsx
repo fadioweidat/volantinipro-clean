@@ -16,6 +16,7 @@ import { useZoneBoundaries } from '../../hooks/useZoneBoundaries.js';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
 import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
 import { AdminLayout } from './AdminLayout.jsx';
+import { AdminLiveKpiPanel } from './admin-live/AdminLiveKpiPanel.jsx';
 
 const WORK_STATUS_LABELS = {
   started: 'In corso',
@@ -148,13 +149,17 @@ export function AdminLiveDashboard({ onNav }) {
       {state.error && <Notice danger text={state.error} />}
       {offlineRecentCount > 0 && <Notice danger text={`${offlineRecentCount} driver offline o senza ping recente.`} />}
 
-      <section style={kpiGridStyle}>
-        <Kpi label="Sessioni filtrate" value={currentRows.length} />
-        <Kpi label="Live" value={liveCount} tone="green" />
-        <Kpi label="Warning" value={warningCount} tone="yellow" />
-        <Kpi label="Offline recente" value={offlineRecentCount} tone="red" />
-        <Kpi label="Storico terminato" value={historyCount} />
-      </section>
+      <AdminLiveKpiPanel
+        currentRows={currentRows}
+        liveCount={liveCount}
+        warningCount={warningCount}
+        offlineRecentCount={offlineRecentCount}
+        historyCount={historyCount}
+        Kpi={Kpi}
+        styles={{
+          kpiGridStyle,
+        }}
+      />
 
       <section style={cardStyle}>
         <p style={eyebrowStyle}>Filtri storico</p>
