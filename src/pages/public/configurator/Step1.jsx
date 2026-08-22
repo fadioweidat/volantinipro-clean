@@ -668,7 +668,7 @@ export function Step1({
     urgent: "Urgente (+20%)",
     express: "Express (+35%)"
   }[data.urgency] || "Da selezionare";
-  const currentPrintLabel = data.hasFlyers === "yes" ? "Già stampati" : data.hasFlyers === "no" ? "Da stampare (+stampa)" : "Da selezionare";
+  const currentPrintLabel = data.printing?.enabled ? "Da stampare (+stampa)" : (data.printing?.enabled === false ? "Già stampati" : "Da selezionare");
   const currentFormatLabel = data.flyerFormat ? String(data.flyerFormat).toUpperCase() : "Da selezionare";
   const businessDefinitionMode = data.businessDefinitionMode || "materials";
   const step1Issues = [!data.type && {
@@ -1913,7 +1913,7 @@ export function Step1({
             marginBottom: 32
           }}>
               {materialOptions.map(m => {
-              const active = data.hasFlyers === m.id;
+              const active = data.printing?.enabled ? m.id === "no" : (data.printing?.enabled === false ? m.id === "yes" : false);
               return <button type="button" aria-pressed={active} key={m.id} onClick={() => updateData({
                 hasFlyers: m.id,
                 extraServices: m.id === "yes" ? (data.extraServices || []).filter(s => !["stampa", "grafica"].includes(s)) : data.extraServices || [],

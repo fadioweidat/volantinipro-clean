@@ -5,13 +5,13 @@
    registro è ora una funzione parametrizzata invece di una costante statica. */
 
 export const SELECTED_EXTRAS_ORDER = [
-  "tracking_gps", "photo_proof", "printing", "graphic_design", "design",
-  "quality_control", "operator_support", "urgent_distribution", "puntiVetrina",
+  "control_pro", "tracking_gps", "gps_plus_report", "photo_proof", "photo_report_advanced", "video_proof", "printing", "graphic_design", "design",
+  "quality_control", "operator_support", "account_manager", "qr_analytics", "advanced_report", "urgent_distribution", "puntiVetrina",
   "dedicated_supervision",
 ];
-export const OPTIONAL_EXTRAS_ORDER = ["graphic_design", "tracking_gps", "photo_proof", "dedicated_supervision"];
+export const OPTIONAL_EXTRAS_ORDER = ["control_pro", "graphic_design", "tracking_gps", "gps_plus_report", "photo_proof", "photo_report_advanced", "video_proof", "advanced_report", "qr_analytics", "account_manager", "dedicated_supervision"];
 
-export function buildExtraServicesRegistry({ flyerQty, dedicatedSupervisionPrice, campaignDurationKnown }) {
+export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDurationKnown }) {
   return [
     {
       id: "tracking_gps", legacyIds: ["gps", "tracking_gps", "gps_default"], addId: "gps",
@@ -19,25 +19,47 @@ export function buildExtraServicesRegistry({ flyerQty, dedicatedSupervisionPrice
       bullets: ["Segui in tempo reale gli operatori sulla mappa", "Storico percorso al termine della distribuzione", "Link di condivisione per il tuo team"],
       mappingLabel: "Tracking GPS", mappingDescription: "Monitoraggio operativo della distribuzione con tracciamento delle attività.", mappingIcon: "",
       optionalDescription: "Tracciamento operativo e timeline distributori.", optionalMicro: "Mostra avanzamento e operatori sulla mappa.", optionalIcon: "GPS",
-      // P1 PRICING ENGINE sezione 13: prezzo commerciale aggiornato da €25 a
-      // €60 (GPS Live / tracking), stesso id, nessuna duplicazione.
       price: 60, optional: true,
     },
     {
-      id: "photo_proof", legacyIds: ["foto", "photo_proof", "foto_localizzate", "photo_report_advanced"], addId: "photo_report_advanced",
-      commercialIcon: "camera", head: "Report Fotografico", col: "#60A5FA", badge: "Massima sicurezza",
-      bullets: ["30 foto geolocalizzate con data e orario", "Conferma visiva zona per zona", "Archivio scaricabile dal portale cliente"],
-      mappingLabel: "Foto localizzate", mappingDescription: "Prove fotografiche con data, zona e riferimento operativo.", mappingIcon: "",
+      id: "photo_proof", legacyIds: ["foto", "photo_proof", "foto_localizzate"], addId: "photo_proof",
+      commercialIcon: "camera", head: "Foto Proof Base", col: "#60A5FA", badge: null,
+      bullets: ["Foto geolocalizzate con data e orario", "Conferma visiva zona per zona", "Archivio scaricabile dal portale cliente"],
+      mappingLabel: "Foto Proof Base", mappingDescription: "Prove fotografiche di base con data e zona.", mappingIcon: "",
       optionalDescription: "Proof fotografici con data e zona.", optionalMicro: "Foto geolocalizzate con data e ora.", optionalIcon: "PHOTO",
-      // P1 PRICING ENGINE sezione 13: prezzo commerciale aggiornato da €35 a
-      // €30 (Foto proof base), stesso id, nessuna duplicazione. Il ticket
-      // chiede anche un tier separato "Report fotografico completo €50" —
-      // NON aggiunto qui: richiederebbe una seconda voce con nuova UI/copy
-      // in Step4 (bullets/badge dedicati), rischio di duplicazione se fatto
-      // senza un audit UI dedicato — riportato come pending nel report
-      // finale invece di forzarlo (sezione 14 del ticket lo permette
-      // esplicitamente per casi analoghi).
       price: 30, optional: true,
+    },
+    {
+      id: "photo_report_advanced", legacyIds: ["photo_report_advanced"], addId: "photo_report_advanced",
+      commercialIcon: "camera", head: "Report Fotografico Completo", col: "#3B82F6", badge: "Massima sicurezza",
+      bullets: ["Report fotografico dettagliato", "Archivio scaricabile esteso", "Mappatura fotografica avanzata"],
+      mappingLabel: "Report Fotografico Completo", mappingDescription: "Prove fotografiche dettagliate con data, zona e riferimento operativo completo.", mappingIcon: "",
+      optionalDescription: "Report fotografico dettagliato.", optionalMicro: "Mappatura visiva completa.", optionalIcon: "PHOTO",
+      price: 50, optional: true,
+    },
+    {
+      id: "gps_plus_report", legacyIds: ["gps_plus_report"], addId: "gps_plus_report",
+      commercialIcon: "pin", head: "GPS + Report Finale", col: "#10B981", badge: "Consigliato",
+      bullets: ["Tracking GPS in tempo reale", "Report finale dettagliato", "Condivisione con il team"],
+      mappingLabel: "GPS + Report Finale", mappingDescription: "Tracciamento GPS live più report finale di recapito.", mappingIcon: "",
+      optionalDescription: "GPS e report finale.", optionalMicro: "Copertura tracking e report post-campagna.", optionalIcon: "GPS",
+      price: 90, optional: true,
+    },
+    {
+      id: "video_proof", legacyIds: ["video_proof"], addId: "video_proof",
+      commercialIcon: "video", head: "Video Proof", col: "#F59E0B", badge: "Premium",
+      bullets: ["Clip video delle consegne", "Conferma visiva premium", "File scaricabili"],
+      mappingLabel: "Video Proof", mappingDescription: "Registrazioni video localizzate per prova inconfutabile.", mappingIcon: "",
+      optionalDescription: "Video delle operazioni in campo.", optionalMicro: "Clip scaricabili con conferma geolocalizzata.", optionalIcon: "VIDEO",
+      price: 60, optional: true,
+    },
+    {
+      id: "control_pro", legacyIds: ["control_pro", "control_pro_99"], addId: "control_pro",
+      commercialIcon: "shield", head: "Controllo PRO", col: "#8B5CF6", badge: "All-in-one Bundle",
+      bullets: ["Tracking GPS Live", "Foto proof completi", "Report finale PDF e mappa copertura"],
+      mappingLabel: "Controllo PRO", mappingDescription: "Pacchetto sicurezza e controllo completo: GPS, Foto e Report finale in un unico bundle.", mappingIcon: "shield",
+      optionalDescription: "Pacchetto sicurezza e controllo: GPS, Foto e Report finale.", optionalMicro: "Massima tranquillità a prezzo fisso.", optionalIcon: "SHIELD",
+      price: 99, optional: true,
     },
     {
       id: "graphic_design", legacyIds: ["graphic_design", "grafica_progetto"], addId: "graphic_design",
@@ -53,9 +75,33 @@ export function buildExtraServicesRegistry({ flyerQty, dedicatedSupervisionPrice
       bullets: ["Monitoraggio attivo GPS e foto", "Intervento diretto sugli operatori in caso di problemi", "Contatto diretto dedicato"],
       mappingLabel: "Supervisione Dedicata", mappingDescription: "Un referente segue la tua campagna e interviene in caso di anomalie. Contattalo direttamente se hai bisogno.", mappingIcon: "eye",
       optionalDescription: "Un referente segue la tua campagna e interviene in caso di anomalie. Contattalo direttamente se hai bisogno.",
-      optionalMicro: campaignDurationKnown ? "Consigliato se attivi anche Tracking GPS Live." : "Consigliato se attivi anche Tracking GPS Live. Prezzo indicativo, confermato in base alla durata effettiva.",
+      optionalMicro: "€120 / giorno. Le giornate operative esatte verranno definite e confermate.",
       optionalIcon: "SUPERVISION",
-      price: dedicatedSupervisionPrice, optional: true,
+      price: 120, optional: true,
+    },
+    {
+      id: "account_manager", legacyIds: ["account_manager"], addId: "account_manager",
+      commercialIcon: "user", head: "Account Manager Dedicato", col: "#14B8A6", badge: null,
+      bullets: ["Supporto continuo per l'intera campagna", "Priorità di contatto", "Pianificazione strategica inclusa"],
+      mappingLabel: "Account Manager", mappingDescription: "Manager dedicato per tutto il ciclo di vita della campagna.", mappingIcon: "user",
+      optionalDescription: "Un referente dedicato sempre a tua disposizione.", optionalMicro: "Consulenza e assistenza prioritaria.", optionalIcon: "USER",
+      price: 80, optional: true,
+    },
+    {
+      id: "qr_analytics", legacyIds: ["qr_analytics", "qr"], addId: "qr_analytics",
+      commercialIcon: "chart", head: "QR / Landing Analytics", col: "#EC4899", badge: null,
+      bullets: ["Codice QR univoco stampato", "Landing page dedicata", "Tracciamento scansioni in tempo reale"],
+      mappingLabel: "QR / Landing Analytics", mappingDescription: "Aggiunta codice QR al volantino con statistiche di conversione online.", mappingIcon: "chart",
+      optionalDescription: "Monitora quante persone scansionano il tuo volantino.", optionalMicro: "Report accessi e click.", optionalIcon: "QR",
+      price: 50, optional: true,
+    },
+    {
+      id: "advanced_report", legacyIds: ["advanced_report", "report_avanzato"], addId: "advanced_report",
+      commercialIcon: "document", head: "Report Avanzato Copertura", col: "#64748B", badge: null,
+      bullets: ["Analisi dettagliata della penetrazione territoriale", "Statistiche di recapito per area", "Esportazione dati in vari formati"],
+      mappingLabel: "Report Avanzato", mappingDescription: "Documentazione completa post-campagna con metriche extra.", mappingIcon: "document",
+      optionalDescription: "Ricevi un'analisi approfondita al termine della campagna.", optionalMicro: "Ottimo per analisi marketing.", optionalIcon: "DOCUMENT",
+      price: 40, optional: true,
     },
     {
       id: "puntiVetrina", legacyIds: [],
@@ -117,10 +163,19 @@ export function normalizeSelectedExtras(data, registryById) {
     ...(data.urgency === "urgent" ? ["urgent"] : []),
   ];
 
-  return SELECTED_EXTRAS_ORDER.map((id) => registryById[id]).filter((ext) =>
+  let rawList = SELECTED_EXTRAS_ORDER.map((id) => registryById[id]).filter((ext) =>
     ext.legacyIds.some((oid) => currentServices.includes(oid)) ||
     data[ext.id] === true
-  ).map((ext) => ({
+  );
+
+  // Control Pro Deduplication
+  const hasControlPro = rawList.some(e => e.id === "control_pro");
+  if (hasControlPro) {
+    const dedupIds = ["tracking_gps", "photo_proof", "photo_report_advanced", "gps_plus_report", "advanced_report"];
+    rawList = rawList.filter(e => !dedupIds.includes(e.id));
+  }
+
+  return rawList.map((ext) => ({
     id: ext.id,
     label: ext.mappingLabel,
     description: ext.mappingDescription,

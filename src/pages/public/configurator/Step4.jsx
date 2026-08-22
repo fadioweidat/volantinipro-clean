@@ -127,7 +127,7 @@ export function Step4({
   // sulle stesse closure locali di questo componente.
   const EXTRA_SERVICES_REGISTRY = buildExtraServicesRegistry({
     flyerQty,
-    dedicatedSupervisionPrice,
+    durationDays: selDays.length || 1,
     campaignDurationKnown
   });
   const svcCommercial = buildSvcCommercial(EXTRA_SERVICES_REGISTRY);
@@ -1883,7 +1883,7 @@ export function Step4({
             }, {
               icon: "printer",
               l: "Stampa",
-              v: data.printing?.enabled ? "Inclusa" : "Non inclusa",
+              v: data.printing?.enabled ? "Richiesta" : "Non richiesta",
               c: data.printing?.enabled ? C.green : C.white
             }, data.printing?.enabled && data.printing?.format && {
               icon: "",
@@ -1926,7 +1926,12 @@ export function Step4({
             }, data.printing?.enabled && {
               icon: "",
               l: "Prezzo stampa",
-              v: printingExtra ? `~${printingExtra.price}€ (stima, da confermare tipografia)` : "Da confermare",
+              v: printingExtra ? `~${printingExtra.price}€ (indicativo)` : "Da confermare",
+              c: C.orange
+            }, data.printing?.enabled && {
+              icon: "",
+              l: "Stato stampa",
+              v: "Da confermare con tipografia",
               c: C.orange
             }, isH2H && {
               icon: "",
