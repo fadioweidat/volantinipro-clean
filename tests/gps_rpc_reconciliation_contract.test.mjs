@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const migration = readFileSync("supabase/migrations/030_reconcile_gps_session_rpc.sql", "utf8");
+const migration = readFileSync("supabase/migrations_legacy_pre_rebaseline_20260821/030_reconcile_gps_session_rpc.sql", "utf8");
 
 const REQUESTED_RPCS = [
   "gps_start_session",

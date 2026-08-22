@@ -123,9 +123,9 @@ test("UI, payload DB e PDF condividono lo stesso totale e il PDF è valido", () 
 });
 
 test("salvataggio cliente dispone del solo INSERT profile per-owner e campaigns resta vincolata al JWT", () => {
-  const profilePolicy = fs.readFileSync(path.join(root, "supabase/migrations/20260805000008_profiles_own_insert.sql"), "utf8");
-  const profileGrant = fs.readFileSync(path.join(root, "supabase/migrations/20260805000009_profiles_authenticated_insert_grant.sql"), "utf8");
-  const reconciledRls = fs.readFileSync(path.join(root, "supabase/migrations/030_reconcile_gps_session_rpc.sql"), "utf8");
+  const profilePolicy = fs.readFileSync(path.join(root, "supabase/migrations_legacy_pre_rebaseline_20260821/20260805000008_profiles_own_insert.sql"), "utf8");
+  const profileGrant = fs.readFileSync(path.join(root, "supabase/migrations_legacy_pre_rebaseline_20260821/20260805000009_profiles_authenticated_insert_grant.sql"), "utf8");
+  const reconciledRls = fs.readFileSync(path.join(root, "supabase/migrations_legacy_pre_rebaseline_20260821/030_reconcile_gps_session_rpc.sql"), "utf8");
   const client = fs.readFileSync(path.join(root, "src/lib/supabaseClient.js"), "utf8");
   assert.match(profilePolicy, /with check \(auth\.uid\(\) = id\)/i);
   assert.match(profileGrant, /grant insert on table public\.profiles to authenticated/i);

@@ -54,7 +54,7 @@ test('PDF è A4 strutturato, incorpora foto e non espone dati tecnici', () => {
 });
 
 test('telemetry finale è read-only, owner/admin-scoped e senza coordinate', async () => {
-  const sql = await readFile(new URL('../supabase/migrations/20260813000200_final_distribution_report_telemetry.sql', import.meta.url), 'utf8');
+  const sql = await readFile(new URL('../supabase/migrations_legacy_pre_rebaseline_20260821/20260813000200_final_distribution_report_telemetry.sql', import.meta.url), 'utf8');
   assert.match(sql, /security definer/i);
   assert.match(sql, /set search_path to ''/i);
   assert.match(sql, /public\.gps_is_admin\(\)/);

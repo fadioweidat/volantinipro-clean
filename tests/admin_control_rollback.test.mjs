@@ -6,10 +6,10 @@ import {
   getAllowedCampaignActions,
 } from '../src/lib/services/admin-transitions-api.js';
 
-const auditMigration = readFileSync('supabase/migrations/20260818120000_campaign_admin_action_log.sql', 'utf8');
-const programRevokedMigration = readFileSync('supabase/migrations/20260818120100_assignment_program_revoked.sql', 'utf8');
-const archivedMigration = readFileSync('supabase/migrations/20260818120150_campaign_status_archived.sql', 'utf8');
-const transitionsMigration = readFileSync('supabase/migrations/20260818120200_admin_campaign_transitions.sql', 'utf8');
+const auditMigration = readFileSync('supabase/migrations_legacy_pre_rebaseline_20260821/20260818120000_campaign_admin_action_log.sql', 'utf8');
+const programRevokedMigration = readFileSync('supabase/migrations_legacy_pre_rebaseline_20260821/20260818120100_assignment_program_revoked.sql', 'utf8');
+const archivedMigration = readFileSync('supabase/migrations_legacy_pre_rebaseline_20260821/20260818120150_campaign_status_archived.sql', 'utf8');
+const transitionsMigration = readFileSync('supabase/migrations_legacy_pre_rebaseline_20260821/20260818120200_admin_campaign_transitions.sql', 'utf8');
 const adminApi = readFileSync('src/lib/services/admin-api.js', 'utf8');
 
 test('P1 ADMIN CONTROL + ROLLBACK — state machine (getAllowedCampaignActions)', async (t) => {

@@ -16,7 +16,7 @@ import {
 // call site's parameter names, so a future signature change that isn't
 // mirrored in the client fails loudly here instead of silently in the browser.
 test('admin_set_zone_manual_progress frontend call matches the canonical SQL signature exactly', () => {
-  const sql = readFileSync(new URL('../supabase/migrations/20260806000003_gps_coverage_canonical_consolidation.sql', import.meta.url), 'utf8');
+  const sql = readFileSync(new URL('../supabase/migrations_legacy_pre_rebaseline_20260821/20260806000003_gps_coverage_canonical_consolidation.sql', import.meta.url), 'utf8');
   const match = sql.match(/create or replace function public\.admin_set_zone_manual_progress\(([\s\S]*?)\)\s*\nreturns/);
   assert.ok(match, 'canonical admin_set_zone_manual_progress definition not found in the migration');
   const sqlParams = [...match[1].matchAll(/(p_\w+)\s+\w+/g)].map((m) => m[1]).sort();

@@ -10,8 +10,8 @@ import {
 const adminSource = fs.readFileSync('supabase/functions/ai-admin-copilot/index.ts', 'utf8');
 const reportSource = fs.readFileSync('supabase/functions/ai-campaign-report/index.ts', 'utf8');
 const territorySource = fs.readFileSync('supabase/functions/ai-assistant-territory/index.ts', 'utf8');
-const cacheMigration = fs.readFileSync('supabase/migrations/036_ai_territorial_chat_cache.sql', 'utf8');
-const reportMigration = fs.readFileSync('supabase/migrations/037_campaign_ai_report.sql', 'utf8');
+const cacheMigration = fs.readFileSync('supabase/migrations_legacy_pre_rebaseline_20260821/036_ai_territorial_chat_cache.sql', 'utf8');
+const reportMigration = fs.readFileSync('supabase/migrations_legacy_pre_rebaseline_20260821/037_campaign_ai_report.sql', 'utf8');
 
 test('AI Copilot: solo profiles.role admin è autorizzato', () => {
   assert.equal(isAdminProfile({ role: 'admin' }), true);

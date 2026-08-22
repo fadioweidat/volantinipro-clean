@@ -3,15 +3,15 @@ import fs from "node:fs";
 import test from "node:test";
 
 const packageJson = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-const migration = fs.readFileSync(new URL("../supabase/migrations/20260805000010_gtfs_routes_stop_times.sql", import.meta.url), "utf8");
-const poiMigration = fs.readFileSync(new URL("../supabase/migrations/20260805000011_poi_cache_radius.sql", import.meta.url), "utf8");
+const migration = fs.readFileSync(new URL("../supabase/migrations_legacy_pre_rebaseline_20260821/20260805000010_gtfs_routes_stop_times.sql", import.meta.url), "utf8");
+const poiMigration = fs.readFileSync(new URL("../supabase/migrations_legacy_pre_rebaseline_20260821/20260805000011_poi_cache_radius.sql", import.meta.url), "utf8");
 const poiFunction = fs.readFileSync(new URL("../supabase/functions/analysis-poi-search/index.ts", import.meta.url), "utf8");
 const step2Map = fs.readFileSync(new URL("../src/components/Step2Map.jsx", import.meta.url), "utf8");
-const nilMigration = fs.readFileSync(new URL("../supabase/migrations/20260805000012_milano_nil_pgt2030.sql", import.meta.url), "utf8");
+const nilMigration = fs.readFileSync(new URL("../supabase/migrations_legacy_pre_rebaseline_20260821/20260805000012_milano_nil_pgt2030.sql", import.meta.url), "utf8");
 const addressClient = fs.readFileSync(new URL("../src/lib/services/address-points-api.js", import.meta.url), "utf8");
 const addressImporter = fs.readFileSync(new URL("../scripts/import_osm_addresses.mjs", import.meta.url), "utf8");
-const addressRadiusMigration = fs.readFileSync(new URL("../supabase/migrations/20260805000013_address_points_radius_summary.sql", import.meta.url), "utf8");
-const realNilToleranceMigration = fs.readFileSync(new URL("../supabase/migrations/20260805000014_real_nil_geometry_tolerance.sql", import.meta.url), "utf8");
+const addressRadiusMigration = fs.readFileSync(new URL("../supabase/migrations_legacy_pre_rebaseline_20260821/20260805000013_address_points_radius_summary.sql", import.meta.url), "utf8");
+const realNilToleranceMigration = fs.readFileSync(new URL("../supabase/migrations_legacy_pre_rebaseline_20260821/20260805000014_real_nil_geometry_tolerance.sql", import.meta.url), "utf8");
 
 test("official test pipeline includes territorial data import contracts", () => {
   assert.match(packageJson.scripts.test, /tests\/territorial_data_import\.test\.mjs/);

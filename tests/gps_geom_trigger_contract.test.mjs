@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const migration = readFileSync("supabase/migrations/031_fix_gps_geom_trigger_search_path.sql", "utf8");
+const migration = readFileSync("supabase/migrations_legacy_pre_rebaseline_20260821/031_fix_gps_geom_trigger_search_path.sql", "utf8");
 const migrationCode = migration
   .split("\n")
   .filter((line) => !line.trim().startsWith("--"))

@@ -5,7 +5,7 @@ import test from 'node:test';
 const submitFunction = readFileSync(new URL('../supabase/functions/submit-campaign-request/index.ts', import.meta.url), 'utf8');
 const client = readFileSync(new URL('../src/lib/supabaseClient.js', import.meta.url), 'utf8');
 const step4 = readFileSync(new URL('../src/pages/public/configurator/Step4.jsx', import.meta.url), 'utf8');
-const claimMigration = readFileSync(new URL('../supabase/migrations/20260817120000_claim_public_campaign_rpc.sql', import.meta.url), 'utf8');
+const claimMigration = readFileSync(new URL('../supabase/migrations_legacy_pre_rebaseline_20260821/20260817120000_claim_public_campaign_rpc.sql', import.meta.url), 'utf8');
 const useCampagne = readFileSync(new URL('../src/hooks/useCampagne.js', import.meta.url), 'utf8');
 
 test('authenticated campaign submission derives ownership from verified JWT, never from request body', () => {

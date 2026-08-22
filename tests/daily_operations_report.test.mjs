@@ -22,7 +22,7 @@ test('route Admin giornaliera dedicata e alias', () => {
 
 test('telemetria usa una RPC batch read-only senza nuove tabelle o payload GPS completo', async () => {
   const api = await readFile(new URL('../src/lib/services/admin-api.js', import.meta.url), 'utf8');
-  const migration = await readFile(new URL('../supabase/migrations/20260813000100_admin_daily_report_telemetry.sql', import.meta.url), 'utf8');
+  const migration = await readFile(new URL('../supabase/migrations_legacy_pre_rebaseline_20260821/20260813000100_admin_daily_report_telemetry.sql', import.meta.url), 'utf8');
   const telemetrySource = api.slice(api.indexOf('async function getDailyTelemetryBySession'), api.indexOf('export async function getDailyOperationsReport'));
   assert.match(api, /rpc\('admin_daily_report_telemetry'/);
   assert.match(migration, /count\(\*\).*min\(point\.recorded_at\).*max\(point\.recorded_at\)/s);

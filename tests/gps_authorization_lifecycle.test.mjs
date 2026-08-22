@@ -9,11 +9,11 @@ const trackingPage = readFileSync('src/pages/driver/TrackingPage.jsx', 'utf8');
 const podCapture = readFileSync('src/components/driver/PodCapture.jsx', 'utf8');
 const customerApi = readFileSync('src/lib/services/customer-api.js', 'utf8');
 const adminLive = readFileSync('src/pages/admin/AdminLiveDashboard.jsx', 'utf8');
-const contractMigration = readFileSync('supabase/migrations/20260805000003_reconcile_driver_gps_contract.sql', 'utf8');
-const zoneMigration = readFileSync('supabase/migrations/20260805000004_secure_gps_zone_transitions.sql', 'utf8');
-const podMigration = readFileSync('supabase/migrations/20260805000005_harden_pod_visibility.sql', 'utf8');
-const pointDedupeMigration = readFileSync('supabase/migrations/20260805000006_dedupe_gps_points.sql', 'utf8');
-const sessionMigration = readFileSync('supabase/migrations/20260803000003_gps_cancel_stale_session.sql', 'utf8');
+const contractMigration = readFileSync('supabase/migrations_legacy_pre_rebaseline_20260821/20260805000003_reconcile_driver_gps_contract.sql', 'utf8');
+const zoneMigration = readFileSync('supabase/migrations_legacy_pre_rebaseline_20260821/20260805000004_secure_gps_zone_transitions.sql', 'utf8');
+const podMigration = readFileSync('supabase/migrations_legacy_pre_rebaseline_20260821/20260805000005_harden_pod_visibility.sql', 'utf8');
+const pointDedupeMigration = readFileSync('supabase/migrations_legacy_pre_rebaseline_20260821/20260805000006_dedupe_gps_points.sql', 'utf8');
+const sessionMigration = readFileSync('supabase/migrations_legacy_pre_rebaseline_20260821/20260803000003_gps_cancel_stale_session.sql', 'utf8');
 
 test('GPS authorization contract', async (t) => {
   await t.test('start uses authenticated operator assignment and rejects foreign zones', () => {

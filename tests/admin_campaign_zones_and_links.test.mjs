@@ -8,7 +8,7 @@ const dashboard = readFileSync(new URL('../src/pages/admin/AdminDashboard.jsx', 
 // gruppo") vive ora nella pagina dedicata /admin/groups, non piu' nella Home.
 const groupsManager = readFileSync(new URL('../src/pages/admin/GroupsManager.jsx', import.meta.url), 'utf8');
 const adminApi = readFileSync(new URL('../src/lib/services/admin-api.js', import.meta.url), 'utf8');
-const migration = readFileSync(new URL('../supabase/migrations/20260813114316_admin_campaign_zones_rls.sql', import.meta.url), 'utf8');
+const migration = readFileSync(new URL('../supabase/migrations_legacy_pre_rebaseline_20260821/20260813114316_admin_campaign_zones_rls.sql', import.meta.url), 'utf8');
 
 test('AssignWork loads campaign zones without converting query failures to an empty state', () => {
   assert.match(assignWork, /getCampaignZonesWithGroups\(campaignId\)/);
