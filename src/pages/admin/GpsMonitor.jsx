@@ -17,6 +17,7 @@ import { ZoneCoverageMap } from '../../components/admin/ZoneCoverageMap.jsx';
 import { FitToZoneBounds } from '../../components/map/FitToZoneBounds.jsx';
 import { GpsMonitorMetricsPanel } from './gps-monitor/GpsMonitorMetricsPanel.jsx';
 import { GpsMonitorGeofenceHistory } from './gps-monitor/GpsMonitorGeofenceHistory.jsx';
+import { GpsMonitorSessionsProofPanel } from './gps-monitor/GpsMonitorSessionsProofPanel.jsx';
 
 export function GpsMonitor({ campaignId, onNav }) {
   const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], activeSession: null, campaign: null });
@@ -425,27 +426,24 @@ export function GpsMonitor({ campaignId, onNav }) {
         }}
       />
 
-      <section style={gridTwoStyle}>
-        <div style={cardStyle}>
-          <p style={eyebrowStyle}>Sessioni</p>
-          {state.sessions.length ? state.sessions.map((session) => (
-            <div key={session.id} style={session.id === state.activeSession?.id ? activeSessionRowStyle : rowStyle}>
-              <strong>{session.status}</strong>
-              <span>{formatDateTime(session.started_at)} - {formatDateTime(session.ended_at || session.paused_at)}</span>
-              <span>{session.driver_id}</span>
-              <span>{sessionOnlineLabel(session, state.activeSession, latest)}</span>
-              {session.id === state.activeSession?.id ? <span style={activeBadgeStyle}>mappa</span> : null}
-            </div>
-          )) : <EmptyState text="Nessuna sessione registrata" />}
-        </div>
-
-        <div style={cardStyle}>
-          <p style={eyebrowStyle}>Foto proof</p>
-          {state.photos.length ? state.photos.map((photo) => (
-            <ProofPhoto key={photo.id} photo={photo} />
-          )) : <EmptyState text="Nessuna foto prova caricata" />}
-        </div>
-      </section>
+      <GpsMonitorSessionsProofPanel
+        sessions={state.sessions}
+        activeSession={state.activeSession}
+        photos={state.photos}
+        latest={latest}
+        sessionOnlineLabel={sessionOnlineLabel}
+        ProofPhoto={ProofPhoto}
+        EmptyState={EmptyState}
+        formatDateTime={formatDateTime}
+        styles={{
+          gridTwoStyle,
+          cardStyle,
+          eyebrowStyle,
+          rowStyle,
+          activeSessionRowStyle,
+          activeBadgeStyle,
+        }}
+      />
     </AdminLayout>
   );
 }
