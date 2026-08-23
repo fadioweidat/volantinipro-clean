@@ -13,6 +13,7 @@ import { buildOperationalGroups, buildTodayGroupCards } from '../../lib/admin/ad
 import { buildCommercialSnapshot } from '../../lib/admin/adminCommercialModel.js';
 import { getCurrentSupabaseUser } from '../../lib/supabaseClient.js';
 import { AdminLayout } from './AdminLayout.jsx';
+import { AdminDashboardMetricsPanel } from './admin-dashboard/AdminDashboardMetricsPanel.jsx';
 import './admin-dashboard.css';
 
 const AdminCentralAiPanel = React.lazy(() => import('../../components/ai/admin/AdminCentralAiPanel.jsx'));
@@ -135,12 +136,7 @@ export default function AdminDashboard({ onNav, adminSession = null }) {
       {state.error && <Notice danger>{state.error}</Notice>}
       {notice && <Notice>{notice}</Notice>}
 
-      <section className="admin-home__metrics" aria-label="Riepilogo di oggi">
-        <Metric label="Gruppi oggi" value={metrics.groups} tone="blue" />
-        <Metric label="Online" value={metrics.online} tone="green" />
-        <Metric label="Da confermare" value={metrics.pending} tone="yellow" />
-        <Metric label="Problemi" value={metrics.problems} tone="red" />
-      </section>
+      <AdminDashboardMetricsPanel metrics={metrics} Metric={Metric} />
 
       <section className="admin-home__section" aria-labelledby="today-title">
         <SectionHeading
