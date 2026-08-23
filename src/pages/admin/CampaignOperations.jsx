@@ -7,6 +7,7 @@ import { getCampaignReport } from '../../lib/services/admin-api.js';
 import { buildGpsCsv, buildSessionCsv, downloadTextFile, filterOperationalRows, lastActivityAt, sessionDurationMs } from '../../lib/services/report-utils.js';
 import { AdminLayout } from './AdminLayout.jsx';
 import { ZoneAssignmentsPanel } from './ZoneAssignmentsPanel.jsx';
+import { CampaignOperationsKpiPanel } from './campaign-operations/CampaignOperationsKpiPanel.jsx';
 
 const DEFAULT_CENTER = [45.4642, 9.19];
 const COLORS = ['#e8571a', '#2ecc8a', '#60a5fa', '#fbbf24', '#a78bfa', '#ef4444'];
@@ -89,16 +90,22 @@ export function CampaignOperations({ campaignId, onNav }) {
       {state.error && <Notice danger text={state.error} />}
       {state.notice && <Notice text={state.notice} />}
 
-      <section style={kpiGridStyle}>
-        <Kpi label="Status campagna" value={status} />
-        <Kpi label="Driver assegnati" value={operations?.assignedDriversCount ?? 'dato non disponibile'} />
-        <Kpi label="Sessioni" value={`${visibleSessions.length}/${sessions.length}`} />
-        <Kpi label={filters.status === 'all_history' || filters.status === 'history' ? "Tempo totale (inc. storico)" : "Tempo totale"} value={formatDuration(totalMs)} />
-        <Kpi label={filters.status === 'all_history' || filters.status === 'history' ? "Km totali (inc. storico)" : "Km totali"} value={`${Number(totalKm || 0).toFixed(2)} km`} />
-        <Kpi label="Punti GPS" value={totalPoints} />
-        <Kpi label="Foto proof" value={operations?.photos?.length || 0} />
-        <Kpi label="Avanzamento stimato" value={progress} />
-      </section>
+      <CampaignOperationsKpiPanel
+        statusValue={status}
+        driversValue={operations?.assignedDriversCount ?? 'dato non disponibile'}
+        sessionsValue={`${visibleSessions.length}/${sessions.length}`}
+        timeLabel={filters.status === 'all_history' || filters.status === 'history' ? 'Tempo totale (inc. storico)' : 'Tempo totale'}
+        timeValue={formatDuration(totalMs)}
+        kmLabel={filters.status === 'all_history' || filters.status === 'history' ? 'Km totali (inc. storico)' : 'Km totali'}
+        kmValue={`${Number(totalKm || 0).toFixed(2)} km`}
+        pointsValue={totalPoints}
+        photosValue={operations?.photos?.length || 0}
+        progressValue={progress}
+        Kpi={Kpi}
+        styles={{
+          kpiGridStyle,
+        }}
+      />
 
       <section style={cardStyle}>
         <p style={eyebrowStyle}>Filtri storico</p>
