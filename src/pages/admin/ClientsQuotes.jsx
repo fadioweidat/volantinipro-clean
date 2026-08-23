@@ -6,6 +6,7 @@ import {
   buildDriverWhatsAppMessage,
 } from '../../lib/services/admin-api.js';
 import { confirmCampaignPayment } from '../../lib/supabaseClient.js';
+import { ClientsQuotesSearchBar } from './clients-quotes/ClientsQuotesSearchBar.jsx';
 
 const AssignWork = lazy(() => import('./AssignWork.jsx').then(m => ({ default: m.AssignWork })));
 
@@ -138,16 +139,12 @@ export function ClientsQuotes({ onNav }) {
 
   return (
     <AdminLayout title="Clienti & Preventivi" subtitle="Preventivo pagato -> gruppo -> programma -> WhatsApp -> GPS, da un'unica riga." breadcrumbs={breadcrumbs} onNav={onNav}>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
-        <input
-          type="text"
-          placeholder="Cerca cliente o comune..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ flex: '1 1 260px', background: C.navyLight, border: '1px solid #374151', borderRadius: 8, padding: '10px 14px', color: C.white, fontSize: 14 }}
-        />
-        {state.loading && <span style={{ color: C.gray, fontSize: 13 }}>Aggiornamento...</span>}
-      </div>
+      <ClientsQuotesSearchBar
+        search={search}
+        setSearch={setSearch}
+        loading={state.loading}
+        colors={C}
+      />
 
       {state.error && (
         <div style={{ background: 'rgba(239,68,68,.1)', border: '1px solid #ef4444', color: '#ef4444', padding: 12, borderRadius: 6, marginBottom: 20 }}>
