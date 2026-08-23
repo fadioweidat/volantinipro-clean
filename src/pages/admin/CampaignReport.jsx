@@ -27,6 +27,7 @@ import { AdminLayout } from './AdminLayout.jsx';
 import { FinalDistributionReportView } from '../../components/reports/FinalDistributionReportView.jsx';
 import { downloadFinalDistributionPdf } from '../../lib/pdf/generateFinalDistributionPdf.js';
 import { getFinalDistributionReport } from '../../lib/services/final-report-api.js';
+import { CampaignReportKpiPanel } from './campaign-report/CampaignReportKpiPanel.jsx';
 
 export function CampaignReport({ campaignId }) {
   const [viewMode, setViewMode] = useState('cliente');
@@ -170,16 +171,20 @@ export function CampaignReport({ campaignId }) {
         </div>
       </section>
 
-      <section style={kpiGridStyle}>
-        <Kpi label="Stato" value={state.loading ? 'caricamento' : deriveCampaignStatus(allSessions)} />
-        <Kpi label="Avanzamento" value={estimateProgress(allSessions)} />
-        <Kpi label="Sessioni filtrate" value={`${visibleRows.length}/${rows.length}`} />
-        <Kpi label="Operatori" value={operators.size || 'n/d'} />
-        <Kpi label="Km totali" value={`${totalKm.toFixed(2)} km`} />
-        <Kpi label="Tempo totale" value={formatDuration(totalMs)} />
-        <Kpi label="Punti GPS" value={totalPoints} />
-        <Kpi label="Foto proof" value={state.operations?.photos?.length || 0} />
-      </section>
+      <CampaignReportKpiPanel
+        statusValue={state.loading ? 'caricamento' : deriveCampaignStatus(allSessions)}
+        progressValue={estimateProgress(allSessions)}
+        sessionsValue={`${visibleRows.length}/${rows.length}`}
+        operatorsValue={operators.size || 'n/d'}
+        kmValue={`${totalKm.toFixed(2)} km`}
+        durationValue={formatDuration(totalMs)}
+        pointsValue={totalPoints}
+        photosValue={state.operations?.photos?.length || 0}
+        Kpi={Kpi}
+        styles={{
+          kpiGridStyle,
+        }}
+      />
 
       <section style={cardStyle}>
         <div style={sectionHeaderStyle}>
