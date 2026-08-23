@@ -4,6 +4,7 @@ import { getClientsQuotesOverview } from '../../lib/services/admin-api.js';
 import { confirmCampaignPayment } from '../../lib/supabaseClient.js';
 import { AdminActionMenu } from '../../components/admin/AdminActionMenu.jsx';
 import { AdminOrdersSummaryPanel } from './admin-orders/AdminOrdersSummaryPanel.jsx';
+import { AdminOrdersToolbar } from './admin-orders/AdminOrdersToolbar.jsx';
 
 // REGISTRO PREVENTIVI & ORDINI — vista tabellare stile Excel su tutti i
 // preventivi/campagne reali. Nessuna tabella parallela, nessuna nuova query
@@ -234,17 +235,16 @@ export function AdminOrdersRegistry({ onNav }) {
         }}
       />
 
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-        <input
-          type="text"
-          placeholder="Cerca per ID, cliente, azienda, email, telefono, comune, gruppo..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ flex: '1 1 320px', background: C.navyLight, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 14px', color: C.white, fontSize: 14 }}
-        />
-        <button type="button" onClick={exportCsv} style={exportButtonStyle}>Esporta CSV</button>
-        {state.loading && <span style={{ color: C.gray, fontSize: 13 }}>Aggiornamento...</span>}
-      </div>
+      <AdminOrdersToolbar
+        search={search}
+        setSearch={setSearch}
+        loading={state.loading}
+        onExport={exportCsv}
+        colors={C}
+        styles={{
+          exportButtonStyle,
+        }}
+      />
 
       {state.error && <div style={errorBoxStyle}>{state.error}</div>}
 
