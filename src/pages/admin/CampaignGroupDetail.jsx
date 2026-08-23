@@ -11,6 +11,7 @@ import {
 import { getCampaignReport, getGroupSessions } from '../../lib/services/admin-api.js';
 import { detectSessionAlerts, enrichSession, groupShareUrl } from '../../lib/services/group-ops.js';
 import { REPORT_COLORS, filterOperationalRows, formatDateTime, formatDuration, sessionDurationMs, shortId } from '../../lib/services/report-utils.js';
+import { CampaignGroupDetailKpiPanel } from './campaign-group-detail/CampaignGroupDetailKpiPanel.jsx';
 
 export function CampaignGroupDetail({ campaignId, groupId }) {
   const [state, setState] = useState({ loading: true, error: null, report: null, groupSessions: [], photos: [], notice: '' });
@@ -100,16 +101,20 @@ export function CampaignGroupDetail({ campaignId, groupId }) {
       {state.error && <Notice danger text={state.error} />}
       {state.notice && <Notice text={state.notice} />}
 
-      <section style={kpiGridStyle}>
-        <Kpi label="Operatori" value={visibleRows.length} />
-        <Kpi label="Online" value={visibleRows.filter((item) => item.status === 'online').length} color="#2ecc8a" />
-        <Kpi label="Warning" value={visibleRows.filter((item) => item.status === 'warning').length} color="#fbbf24" />
-        <Kpi label="Offline" value={visibleRows.filter((item) => item.status === 'offline').length} color="#ef4444" />
-        <Kpi label="Km gruppo" value={`${visibleRows.reduce((sum, item) => sum + item.km, 0).toFixed(2)} km`} />
-        <Kpi label="Punti GPS" value={visibleRows.reduce((sum, item) => sum + item.points.length, 0)} />
-        <Kpi label="Foto proof" value={groupPhotos.length} />
-        <Kpi label="Copertura stimata" value="area non definita" />
-      </section>
+      <CampaignGroupDetailKpiPanel
+        operatorsValue={visibleRows.length}
+        onlineValue={visibleRows.filter((item) => item.status === 'online').length}
+        warningValue={visibleRows.filter((item) => item.status === 'warning').length}
+        offlineValue={visibleRows.filter((item) => item.status === 'offline').length}
+        kmValue={`${visibleRows.reduce((sum, item) => sum + item.km, 0).toFixed(2)} km`}
+        pointsValue={visibleRows.reduce((sum, item) => sum + item.points.length, 0)}
+        photosValue={groupPhotos.length}
+        coverageValue="area non definita"
+        Kpi={Kpi}
+        styles={{
+          kpiGridStyle,
+        }}
+      />
 
       <section style={toolbarStyle}>
         <label style={labelStyle}>Periodo
