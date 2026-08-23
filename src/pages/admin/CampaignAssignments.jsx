@@ -9,6 +9,7 @@ import {
 } from '../../lib/services/admin-api.js';
 import { getCampaignRecord } from '../../lib/services/gps-api.js';
 import { CampaignAssignmentsSummaryPanel } from './campaign-assignments/CampaignAssignmentsSummaryPanel.jsx';
+import { CampaignAssignmentCardHeader } from './campaign-assignments/CampaignAssignmentCardHeader.jsx';
 
 // ─── CampaignAssignments ──────────────────────────────────────────────────────
 // Lista tutte le assegnazioni di una campagna con azioni admin:
@@ -195,33 +196,16 @@ export function CampaignAssignments({ campaignId }) {
                   ...assignmentCardStyle,
                   borderLeftColor: statusColor(effectiveStatus),
                 }}>
-                  {/* Row 1: name + status */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                    <div>
-                      <strong style={{ color: '#fff', fontSize: 15 }}>
-                        {a.operator_name || `Operatore ${String(a.operator_id || '').slice(0, 8)}`}
-                      </strong>
-                      {a.operator_phone && (
-                        <span style={{ marginLeft: 10, color: 'rgba(255,255,255,.5)', fontSize: 12 }}>
-                          {a.operator_phone}
-                        </span>
-                      )}
-                    </div>
-                    <StatusBadge status={effectiveStatus} />
-                  </div>
-
-                  {/* Row 2: comuni, zone, qty */}
-                  <div style={metaRowStyle}>
-                    {meta.comuni?.length > 0 && (
-                      <MetaChip icon="📍" label={meta.comuni.join(', ')} />
-                    )}
-                    {meta.zone_labels?.length > 0 && (
-                      <MetaChip icon="🗂" label={meta.zone_labels.join(', ')} />
-                    )}
-                    {meta.qty && (
-                      <MetaChip icon="📦" label={`${Number(meta.qty).toLocaleString('it-IT')} volantini`} />
-                    )}
-                  </div>
+                  <CampaignAssignmentCardHeader
+                    assignment={a}
+                    meta={meta}
+                    effectiveStatus={effectiveStatus}
+                    StatusBadge={StatusBadge}
+                    MetaChip={MetaChip}
+                    styles={{
+                      metaRowStyle,
+                    }}
+                  />
 
                   {/* Row 3: date */}
                   <div style={{ fontSize: 11, color: 'rgba(255,255,255,.42)', display: 'flex', gap: 14, flexWrap: 'wrap' }}>
