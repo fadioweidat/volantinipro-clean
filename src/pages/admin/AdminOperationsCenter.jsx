@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AdminLayout } from './AdminLayout.jsx';
 import { getDailyOperations, generateDriverAssignmentLink, buildDriverWhatsAppMessage } from '../../lib/services/admin-api.js';
 import { operationAlertPriority } from '../../lib/operations/deriveOperationAlerts.js';
+import { AdminOperationsKpiPanel } from './admin-operations/AdminOperationsKpiPanel.jsx';
+
+const kpiGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', marginBottom: '32px' };
 
 const C = {
   navyMid: "#111827",
@@ -247,17 +250,13 @@ export function AdminOperationsCenter({ onNav }) {
       )}
 
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', marginBottom: '32px' }}>
-        <Kpi label="Driver attivi oggi" value={kpis.drivers} />
-        <Kpi label="Programmi assegnati" value={kpis.campaigns} />
-        <Kpi label="Comuni totali" value={kpis.municipalities} />
-        <Kpi label="Volantini assegnati" value={kpis.flyers.toLocaleString('it-IT')} />
-        <Kpi label="Zone in corso" value={kpis.inProgress} tone="green" />
-        <Kpi label="Zone completate" value={kpis.completed} />
-        <Kpi label="Zone con problema" value={kpis.problem} tone={kpis.problem > 0 ? "red" : "default"} />
-        <Kpi label="Alert attivi" value={kpis.alerts} tone={kpis.alerts > 0 ? "yellow" : "default"} />
-        <Kpi label="Critici" value={kpis.criticalAlerts} tone={kpis.criticalAlerts > 0 ? "red" : "default"} />
-      </div>
+      <AdminOperationsKpiPanel
+        kpis={kpis}
+        Kpi={Kpi}
+        styles={{
+          kpiGridStyle,
+        }}
+      />
 
       {kpis.alerts > 0 && (
         <section aria-labelledby="operations-alerts-title" style={{ background: C.navyLight, border: '1px solid #4B5563', borderRadius: 8, padding: 16, marginBottom: 24 }}>
