@@ -4474,6 +4474,7 @@ export function Step2({
           addressIntentInMilano={addressIntentInMilano}
           addressSearchError={addressSearchError}
           apiLoading={apiLoading}
+          appendMunicipalityToActiveZone={appendMunicipalityToActiveZone}
           campaignZones={campaignZones}
           capSearchLoading={capSearchLoading}
           capSuggestions={capSuggestions}
@@ -4482,6 +4483,7 @@ export function Step2({
           data={data}
           dropOpen={dropOpen}
           duplicateComuneNotice={duplicateComuneNotice}
+          geocodeSuggestions={geocodeSuggestions}
           getCampaignZoneLabel={getCampaignZoneLabel}
           handleAddZone={handleAddZone}
           handleCapSelect={handleCapSelect}
@@ -4499,6 +4501,7 @@ export function Step2({
           nilManualMode={nilManualMode}
           onBack={onBack}
           pendingAddMunicipality={pendingAddMunicipality}
+          pill={pill}
           radiusAdvisoryData={radiusAdvisoryData}
           radiusKm={radiusKm}
           recommendedRadiusForSlider={recommendedRadiusForSlider}
@@ -4506,7 +4509,9 @@ export function Step2({
           resetActiveZone={resetActiveZone}
           resolveMilanoCity={resolveMilanoCity}
           search={search}
+          searchedLocation={searchedLocation}
           searchMode={searchMode}
+          selectAddressPointInMilano={selectAddressPointInMilano}
           selectCampaignZone={selectCampaignZone}
           selectMilanoAsNil={selectMilanoAsNil}
           selectMunicipalityAsRadiusCenter={selectMunicipalityAsRadiusCenter}
@@ -4534,6 +4539,7 @@ export function Step2({
           setSelectedSearchPoint={setSelectedSearchPoint}
           sharedCoveragePctText={sharedCoveragePctText}
           startManualPinSelection={startManualPinSelection}
+          svcType={svcType}
           switchToCapMode={switchToCapMode}
           switchToComuneMode={switchToComuneMode}
           switchToRadiusMode={switchToRadiusMode}
