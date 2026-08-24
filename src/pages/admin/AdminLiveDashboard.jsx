@@ -16,6 +16,9 @@ import { useZoneBoundaries } from '../../hooks/useZoneBoundaries.js';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
 import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
 import { AdminLayout } from './AdminLayout.jsx';
+import { AdminLiveKpiPanel } from './admin-live/AdminLiveKpiPanel.jsx';
+import { AdminLiveFiltersPanel } from './admin-live/AdminLiveFiltersPanel.jsx';
+import { AdminLiveSessionsList } from './admin-live/AdminLiveSessionsList.jsx';
 
 const WORK_STATUS_LABELS = {
   started: 'In corso',
@@ -148,63 +151,30 @@ export function AdminLiveDashboard({ onNav }) {
       {state.error && <Notice danger text={state.error} />}
       {offlineRecentCount > 0 && <Notice danger text={`${offlineRecentCount} driver offline o senza ping recente.`} />}
 
-      <section style={kpiGridStyle}>
-        <Kpi label="Sessioni filtrate" value={currentRows.length} />
-        <Kpi label="Live" value={liveCount} tone="green" />
-        <Kpi label="Warning" value={warningCount} tone="yellow" />
-        <Kpi label="Offline recente" value={offlineRecentCount} tone="red" />
-        <Kpi label="Storico terminato" value={historyCount} />
-      </section>
+      <AdminLiveKpiPanel
+        currentRows={currentRows}
+        liveCount={liveCount}
+        warningCount={warningCount}
+        offlineRecentCount={offlineRecentCount}
+        historyCount={historyCount}
+        Kpi={Kpi}
+        styles={{
+          kpiGridStyle,
+        }}
+      />
 
-      <section style={cardStyle}>
-        <p style={eyebrowStyle}>Filtri storico</p>
-        <div style={filterGridStyle}>
-          <label style={labelStyle}>
-            Periodo
-            <select value={filters.period} onChange={(event) => setFilters((prev) => ({ ...prev, period: event.target.value }))} style={inputStyle}>
-              <option value="today">Oggi</option>
-              <option value="yesterday">Ieri</option>
-              <option value="7d">Ultimi 7 giorni</option>
-              <option value="custom">Intervallo date</option>
-              <option value="all">Tutto</option>
-            </select>
-          </label>
-          <label style={labelStyle}>
-            Da
-            <input type="date" value={filters.fromDate} onChange={(event) => setFilters((prev) => ({ ...prev, fromDate: event.target.value }))} disabled={filters.period !== 'custom'} style={inputStyle} />
-          </label>
-          <label style={labelStyle}>
-            A
-            <input type="date" value={filters.toDate} onChange={(event) => setFilters((prev) => ({ ...prev, toDate: event.target.value }))} disabled={filters.period !== 'custom'} style={inputStyle} />
-          </label>
-          <label style={labelStyle}>
-            Campagna
-            <select value={filters.campaign} onChange={(event) => setFilters((prev) => ({ ...prev, campaign: event.target.value }))} style={inputStyle}>
-              <option value="all">Tutte</option>
-              {campaigns.map((campaignId) => <option key={campaignId} value={campaignId}>{campaignId}</option>)}
-            </select>
-          </label>
-          <label style={labelStyle}>
-            Stato sessione
-            <select value={filters.status} onChange={(event) => setFilters((prev) => ({ ...prev, status: event.target.value }))} style={inputStyle}>
-              <option value="all_history">Tutti (incl. storico)</option>
-              <option value="all">Solo operativi correnti</option>
-              <option value="started">Started</option>
-              <option value="paused">Paused</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </label>
-          <label style={labelStyle}>
-            Driver
-            <input value={filters.driver} onChange={(event) => setFilters((prev) => ({ ...prev, driver: event.target.value }))} style={inputStyle} placeholder="nome operatore" />
-          </label>
-          <label style={labelStyle}>
-            Gruppo
-            <input value={filters.group} onChange={(event) => setFilters((prev) => ({ ...prev, group: event.target.value }))} style={inputStyle} placeholder="nome gruppo" />
-          </label>
-        </div>
-      </section>
+      <AdminLiveFiltersPanel
+        filters={filters}
+        setFilters={setFilters}
+        campaigns={campaigns}
+        styles={{
+          cardStyle,
+          eyebrowStyle,
+          filterGridStyle,
+          labelStyle,
+          inputStyle,
+        }}
+      />
 
       <div style={layoutStyle}>
         <section style={cardStyle}>
@@ -232,17 +202,17 @@ export function AdminLiveDashboard({ onNav }) {
           <SessionQualityPanel item={selectedItem} />
         </section>
 
-        <aside style={cardStyle}>
-          <p style={eyebrowStyle}>Driver e storico</p>
-          {withLifecycle.length ? withLifecycle.map((item) => (
-            <DriverRow
-              key={item.session.id}
-              item={item}
-              selected={item.session.id === selectedSessionId}
-              onSelect={() => setSelectedSessionId(item.session.id)}
-            />
-          )) : <EmptyState text="Nessuna sessione attiva reale." />}
-        </aside>
+        <AdminLiveSessionsList
+          withLifecycle={withLifecycle}
+          selectedSessionId={selectedSessionId}
+          setSelectedSessionId={setSelectedSessionId}
+          DriverRow={DriverRow}
+          EmptyState={EmptyState}
+          styles={{
+            cardStyle,
+            eyebrowStyle,
+          }}
+        />
       </div>
 
       {selectedItem && (

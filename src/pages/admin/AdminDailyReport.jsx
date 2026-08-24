@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AdminLayout } from './AdminLayout.jsx';
 import { getDailyOperationsReport } from '../../lib/services/admin-api.js';
 import { dailyOperationsReportCsv } from '../../lib/operations/dailyOperationsReport.js';
+import { AdminDailyReportKpiPanel } from './admin-daily-report/AdminDailyReportKpiPanel.jsx';
 
 const C = { bg: '#111827', card: '#1F2937', line: '#374151', white: '#fff', muted: '#9CA3AF', orange: '#e8571a', green: '#10B981', red: '#EF4444', yellow: '#F59E0B', blue: '#60A5FA' };
 const pad = value => String(value).padStart(2, '0');
@@ -93,20 +94,24 @@ export function AdminDailyReport({ onNav }) {
     {!state.loading && !state.error && report?.drivers.length === 0 && <div style={styles.empty}>Nessuna attività operativa per questa data.</div>}
 
     {report?.drivers.length > 0 && <>
-      <section style={styles.kpiGrid}>
-        <Kpi label="Driver programmati" value={report.kpis.driversScheduled} />
-        <Kpi label="Driver che hanno iniziato" value={report.kpis.driversStarted} color={C.blue} />
-        <Kpi label="Driver completati" value={report.kpis.driversCompleted} color={C.green} />
-        <Kpi label="Comuni assegnati" value={report.kpis.municipalitiesAssigned} />
-        <Kpi label="Comuni completati" value={report.kpis.municipalitiesCompleted} color={C.green} />
-        <Kpi label="Comuni parziali" value={report.kpis.municipalitiesPartial} color={C.yellow} />
-        <Kpi label="Comuni bloccati" value={report.kpis.municipalitiesBlocked} color={C.red} />
-        <Kpi label="Volantini assegnati" value={formatNumber(report.kpis.quantityAssigned)} detail="Nessuna quantità distribuita inventata" />
-        <Kpi label="Avanzamento reale" value={`${report.kpis.zonesCompleted} / ${report.kpis.zonesAssigned}`} detail="Zone completate / assegnate" />
-        <Kpi label="Foto ricevute" value={report.kpis.photos} />
-        <Kpi label="Sessioni GPS" value={report.kpis.gpsSessions} />
-        <Kpi label="Alert operativi" value={report.kpis.alerts} color={report.kpis.alerts ? C.red : C.green} detail="Attivi sullo stato disponibile" />
-      </section>
+      <AdminDailyReportKpiPanel
+        Kpi={Kpi}
+        values={{
+          scheduledDrivers: { value: report.kpis.driversScheduled },
+          startedDrivers: { value: report.kpis.driversStarted, color: C.blue },
+          completedDrivers: { value: report.kpis.driversCompleted, color: C.green },
+          assignedMunicipalities: { value: report.kpis.municipalitiesAssigned },
+          completedMunicipalities: { value: report.kpis.municipalitiesCompleted, color: C.green },
+          partialMunicipalities: { value: report.kpis.municipalitiesPartial, color: C.yellow },
+          blockedMunicipalities: { value: report.kpis.municipalitiesBlocked, color: C.red },
+          assignedFlyers: { value: formatNumber(report.kpis.quantityAssigned), detail: 'Nessuna quantità distribuita inventata' },
+          realProgress: { value: `${report.kpis.zonesCompleted} / ${report.kpis.zonesAssigned}`, detail: 'Zone completate / assegnate' },
+          photos: { value: report.kpis.photos },
+          gpsSessions: { value: report.kpis.gpsSessions },
+          alerts: { value: report.kpis.alerts, color: report.kpis.alerts ? C.red : C.green, detail: 'Attivi sullo stato disponibile' },
+        }}
+        styles={{ kpiGrid: styles.kpiGrid }}
+      />
 
       <section style={{ ...styles.card, marginBottom: 18 }}>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>

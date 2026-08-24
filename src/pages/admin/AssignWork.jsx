@@ -13,6 +13,10 @@ import {
   updateCampaignZoneAssignment,
 } from '../../lib/services/admin-api.js';
 import { getCampaignRecord } from '../../lib/services/gps-api.js';
+import { AssignWorkGroupOperatorStep } from './assign-work/AssignWorkGroupOperatorStep.jsx';
+import { AssignWorkProgramStep } from './assign-work/AssignWorkProgramStep.jsx';
+import { AssignWorkPreviewStep } from './assign-work/AssignWorkPreviewStep.jsx';
+import { AssignWorkResultStep } from './assign-work/AssignWorkResultStep.jsx';
 
 // ─── AssignWork ───────────────────────────────────────────────────────────────
 // Form a step per assegnare lavoro a un operatore e generare il link GPS personale.
@@ -374,324 +378,142 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
 
       {/* ── STEP 1: Scegli operatore ── */}
       {step === 1 && (
-        <div style={cardStyle}>
-          <p style={eyebrowStyle}>Step 1 — Scegli gruppo e persona</p>
-          <h2 style={sectionTitleStyle}>A quale gruppo assegni il programma?</h2>
-          {groups.length === 0 ? (
-            <Notice text="Nessun gruppo configurato." />
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8, marginBottom: 18 }}>
-              {groups.map(group => (
-                <button key={group.id} type="button" style={{ ...operatorCardStyle, border: selectedGroupId === group.id ? '2px solid #e8571a' : '1px solid rgba(255,255,255,.1)', background: selectedGroupId === group.id ? 'rgba(232,87,26,.1)' : 'rgba(255,255,255,.03)' }} onClick={() => setSelectedGroupId(group.id)}>
-                  <div><strong style={{ color: '#fff' }}>{group.name}</strong><p style={{ margin: '3px 0 0', fontSize: 11, color: 'rgba(255,255,255,.48)' }}>{group.lead_name || 'Referente non disponibile'}</p></div>
-                  {selectedGroupId === group.id && <span style={checkStyle}>✓</span>}
-                </button>
-              ))}
-            </div>
-          )}
-          <button type="button" style={secondaryBtnStyle} onClick={() => setGroupCreatorOpen((open) => !open)}>+ Crea gruppo</button>
-          {groupCreatorOpen && (
-            <form onSubmit={handleCreateGroup} style={{ ...formGridStyle, marginTop: 14, padding: 14, border: '1px solid rgba(232,87,26,.28)', borderRadius: 12, background: 'rgba(232,87,26,.06)' }}>
-              <label style={labelStyle}>
-                Nome gruppo
-                <input required value={newGroupName} onChange={(event) => setNewGroupName(event.target.value)} placeholder="es. Gruppo Fabio" style={inputStyle} />
-              </label>
-              <label style={labelStyle}>
-                Primo membro / referente WhatsApp
-                <select required value={newGroupLeadId} onChange={(event) => setNewGroupLeadId(event.target.value)} style={inputStyle}>
-                  <option value="">Seleziona persona</option>
-                  {operators.map((operator) => <option key={operator.id} value={operator.id}>{operator.display_name || `Operatore ${String(operator.id).slice(0, 8)}`}</option>)}
-                </select>
-              </label>
-              <div style={{ ...labelStyle, justifyContent: 'end' }}>
-                <span>La membership diventa reale al salvataggio del programma.</span>
-                <button type="submit" disabled={groupSaving} style={groupSaving ? disabledBtnStyle : primaryBtnStyle}>{groupSaving ? 'Creazione…' : 'Crea gruppo'}</button>
-              </div>
-            </form>
-          )}
-          <h3 style={{ ...sectionTitleStyle, fontSize: 16 }}>Scegli la persona che riceverà il link</h3>
-          {operators.length === 0 ? (
-            <Notice danger text="Nessun operatore attivo trovato in operator_profiles. Crea prima il profilo operatore." />
-          ) : (
-            <div style={{ display: 'grid', gap: 8 }}>
-              {operators.map(op => (
-                <button
-                  key={op.id}
-                  type="button"
-                  style={{
-                    ...operatorCardStyle,
-                    border: selectedOperatorId === op.id
-                      ? '2px solid #e8571a'
-                      : '1px solid rgba(255,255,255,.1)',
-                    background: selectedOperatorId === op.id
-                      ? 'rgba(232,87,26,.1)'
-                      : 'rgba(255,255,255,.03)',
-                  }}
-                  onClick={() => setSelectedOperatorId(op.id)}
-                >
-                  <div style={operatorAvatarStyle}>
-                    {(op.display_name || '?').slice(0, 1).toUpperCase()}
-                  </div>
-                  <div>
-                    <strong style={{ color: '#fff', fontSize: 15 }}>
-                      {op.display_name || `Operatore ${op.id.slice(0, 8)}`}
-                    </strong>
-                    <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,.5)' }}>
-                      {op.phone || 'Telefono non inserito'} · {op.status}
-                    </p>
-                  </div>
-                  {selectedOperatorId === op.id && (
-                    <span style={checkStyle}>✓</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-          {selectedOperatorId && !selectedGroupId && <Notice danger text="Prima crea o seleziona un gruppo." />}
-          {selectedGroupId && !selectedOperatorId && <Notice danger text="Seleziona il referente/persona che riceverà il programma." />}
-          <div style={footerRowStyle}>
-            <span />
-            <button
-              style={canGoNext() ? primaryBtnStyle : disabledBtnStyle}
-              type="button"
-              disabled={!canGoNext()}
-              onClick={() => setStep(2)}
-            >
-              Avanti →
-            </button>
-          </div>
-        </div>
+        <AssignWorkGroupOperatorStep
+          Notice={Notice}
+          groups={groups}
+          selectedGroupId={selectedGroupId}
+          setSelectedGroupId={setSelectedGroupId}
+          groupCreatorOpen={groupCreatorOpen}
+          setGroupCreatorOpen={setGroupCreatorOpen}
+          handleCreateGroup={handleCreateGroup}
+          newGroupName={newGroupName}
+          setNewGroupName={setNewGroupName}
+          newGroupLeadId={newGroupLeadId}
+          setNewGroupLeadId={setNewGroupLeadId}
+          groupSaving={groupSaving}
+          operators={operators}
+          selectedOperatorId={selectedOperatorId}
+          setSelectedOperatorId={setSelectedOperatorId}
+          canGoNext={canGoNext}
+          setStep={setStep}
+          styles={{
+            cardStyle,
+            eyebrowStyle,
+            sectionTitleStyle,
+            operatorCardStyle,
+            checkStyle,
+            secondaryBtnStyle,
+            formGridStyle,
+            labelStyle,
+            inputStyle,
+            disabledBtnStyle,
+            primaryBtnStyle,
+            footerRowStyle,
+            operatorAvatarStyle,
+          }}
+        />
       )}
 
       {/* ── STEP 2: Programma Operativo ── */}
       {step === 2 && (
-        <div style={cardStyle}>
-          <p style={eyebrowStyle}>Step 2 — Programma Operativo</p>
-          <h2 style={sectionTitleStyle}>Cosa deve fare il Driver?</h2>
-
-          <div style={formGridStyle}>
-            <label style={labelStyle}>
-              Data inizio *
-              <input
-                type="date"
-                value={splitLocalDatetime(startsAt).date}
-                onChange={e => setStartsAt(combineLocalDatetime(e.target.value, splitLocalDatetime(startsAt).time))}
-                style={inputStyle}
-              />
-            </label>
-            <label style={labelStyle}>
-              Ora inizio *
-              <input
-                type="time"
-                value={splitLocalDatetime(startsAt).time}
-                onChange={e => setStartsAt(combineLocalDatetime(splitLocalDatetime(startsAt).date, e.target.value))}
-                style={inputStyle}
-              />
-            </label>
-            <label style={labelStyle}>
-              Data scadenza (facoltativa)
-              <input
-                type="date"
-                value={splitLocalDatetime(endsAt).date}
-                onChange={e => setEndsAt(e.target.value ? combineLocalDatetime(e.target.value, splitLocalDatetime(endsAt).time || '23:59') : '')}
-                style={inputStyle}
-                min={splitLocalDatetime(startsAt).date || undefined}
-              />
-            </label>
-            <label style={labelStyle}>
-              Ora scadenza (facoltativa)
-              <input
-                type="time"
-                value={splitLocalDatetime(endsAt).time}
-                onChange={e => setEndsAt(combineLocalDatetime(splitLocalDatetime(endsAt).date || splitLocalDatetime(startsAt).date, e.target.value))}
-                style={inputStyle}
-                disabled={!splitLocalDatetime(endsAt).date}
-              />
-            </label>
-          </div>
-
-          <label style={{ ...labelStyle, marginBottom: 12 }}>
-            Note operative (visibili al driver)
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Istruzioni specifiche, accessi, contatti..."
-              rows={2}
-              style={textareaStyle}
-            />
-          </label>
-
-          <h3 style={{ ...sectionTitleStyle, fontSize: 16, marginTop: 24, marginBottom: 8 }}>Comuni / Zone disponibili</h3>
-          {zones.length === 0 ? (
-            <Notice text="Nessuna zona configurata per questa campagna." />
-          ) : (
-            <div style={{ display: 'grid', gap: 10 }}>
-              {zones.map(z => {
-                const isSelected = selectedZonesState[z.id]?.selected || false;
-                const assignedQty = selectedZonesState[z.id]?.qty || '';
-                const currentPriority = zonePriorities[z.id] !== undefined ? zonePriorities[z.id] : (z.priority || 0);
-
-                return (
-                  <div key={z.id} style={{
-                    display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center',
-                    padding: 12, borderRadius: 8,
-                    background: isSelected ? 'rgba(232,87,26,.1)' : 'rgba(0,0,0,.15)',
-                    border: `1px solid ${isSelected ? 'rgba(232,87,26,.4)' : 'rgba(255,255,255,.05)'}`
-                  }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flex: '1 1 200px' }}>
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleToggleZone(z.id)}
-                        style={{ width: 16, height: 16, accentColor: '#e8571a' }}
-                      />
-                      <strong style={{ color: '#fff', fontSize: 14 }}>{z.zone_name || z.municipality_name}</strong>
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(255,255,255,.6)' }}>
-                      Qtà (Driver):
-                      <input
-                        type="number"
-                        placeholder="es. 4000"
-                        value={assignedQty}
-                        onChange={e => handleZoneQtyChange(z.id, e.target.value)}
-                        disabled={!isSelected}
-                        style={{ ...inputStyle, width: 90, padding: '6px 10px' }}
-                      />
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(255,255,255,.6)' }}>
-                      Ordine (Globale):
-                      <input
-                        type="number"
-                        value={currentPriority}
-                        onChange={e => handleZonePriorityChange(z.id, e.target.value)}
-                        style={{ ...inputStyle, width: 70, padding: '6px 10px' }}
-                      />
-                    </label>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <div style={footerRowStyle}>
-            <button type="button" style={secondaryBtnStyle} onClick={() => setStep(1)}>← Indietro</button>
-            <button
-              type="button"
-              style={canGoNext() ? primaryBtnStyle : disabledBtnStyle}
-              disabled={!canGoNext()}
-              onClick={() => setStep(3)}
-            >
-              Anteprima →
-            </button>
-          </div>
-        </div>
+        <AssignWorkProgramStep
+          Notice={Notice}
+          startsAt={startsAt}
+          setStartsAt={setStartsAt}
+          endsAt={endsAt}
+          setEndsAt={setEndsAt}
+          notes={notes}
+          setNotes={setNotes}
+          zones={zones}
+          selectedZonesState={selectedZonesState}
+          zonePriorities={zonePriorities}
+          handleToggleZone={handleToggleZone}
+          handleZoneQtyChange={handleZoneQtyChange}
+          handleZonePriorityChange={handleZonePriorityChange}
+          splitLocalDatetime={splitLocalDatetime}
+          combineLocalDatetime={combineLocalDatetime}
+          canGoNext={canGoNext}
+          setStep={setStep}
+          styles={{
+            cardStyle,
+            eyebrowStyle,
+            sectionTitleStyle,
+            formGridStyle,
+            labelStyle,
+            inputStyle,
+            textareaStyle,
+            footerRowStyle,
+            secondaryBtnStyle,
+            primaryBtnStyle,
+            disabledBtnStyle,
+          }}
+        />
       )}
 
       {/* ── STEP 3: Anteprima ── */}
       {step === 3 && (
-        <div style={cardStyle}>
-          <p style={eyebrowStyle}>Step 3 — Anteprima assegnazione</p>
-          <h2 style={sectionTitleStyle}>Conferma i dati</h2>
-
-          <div style={previewGridStyle}>
-            <PreviewRow label="Operatore" value={selectedOperator?.display_name || selectedOperatorId} />
-            <PreviewRow label="Gruppo" value={selectedGroup?.name || 'Gruppo non disponibile'} />
-            <PreviewRow label="Campagna" value={campaignTitle} />
-            <PreviewRow label="Programma" value={getSelectedProgramRows().map((row, index) => `${index + 1}. ${row.name} — ${row.quantity ? `${row.quantity.toLocaleString('it-IT')} volantini` : 'quantità da definire'}`).join(' | ')} />
-            <PreviewRow label="Totale" value={`${getSelectedProgramRows().reduce((sum, row) => sum + (row.quantity || 0), 0).toLocaleString('it-IT')} volantini`} />
-            <PreviewRow label="Data inizio" value={startsAt ? new Date(startsAt).toLocaleString('it-IT') : 'Immediata'} />
-            <PreviewRow label="Scadenza" value={endsAt ? new Date(endsAt).toLocaleString('it-IT') : 'Nessuna'} />
-            {notes && <PreviewRow label="Note" value={notes} />}
-          </div>
-
-          <div style={{ ...footerRowStyle, marginTop: 20 }}>
-            <button type="button" style={secondaryBtnStyle} onClick={() => setStep(2)}>← Modifica</button>
-            <button
-              type="button"
-              style={saving ? disabledBtnStyle : primaryBtnStyle}
-              disabled={saving}
-              onClick={handleSave}
-            >
-              {saving ? 'Salvataggio...' : isEdit ? 'Aggiorna assegnazione' : '✓ Salva e genera link'}
-            </button>
-          </div>
-        </div>
+        <AssignWorkPreviewStep
+          PreviewRow={PreviewRow}
+          selectedOperator={selectedOperator}
+          selectedOperatorId={selectedOperatorId}
+          selectedGroup={selectedGroup}
+          campaignTitle={campaignTitle}
+          getSelectedProgramRows={getSelectedProgramRows}
+          startsAt={startsAt}
+          endsAt={endsAt}
+          notes={notes}
+          saving={saving}
+          isEdit={isEdit}
+          handleSave={handleSave}
+          setStep={setStep}
+          styles={{
+            cardStyle,
+            eyebrowStyle,
+            sectionTitleStyle,
+            previewGridStyle,
+            footerRowStyle,
+            secondaryBtnStyle,
+            primaryBtnStyle,
+            disabledBtnStyle,
+          }}
+        />
       )}
 
       {/* ── STEP 4: Risultato ── */}
       {step === 4 && savedAssignment && (
-        <div style={cardStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-            <span style={{ fontSize: 32 }}>🎉</span>
-            <div>
-              <p style={eyebrowStyle}>Assegnazione creata</p>
-              <h2 style={{ ...sectionTitleStyle, margin: 0 }}>Link personale generato</h2>
-            </div>
-          </div>
-
-          {savedAssignment.status === 'revoked' && (
-            <Notice danger text="Assegnazione revocata. Il link non è più utilizzabile." />
-          )}
-
-          <div style={previewGridStyle}>
-            <PreviewRow label="Operatore" value={selectedOperator?.display_name || savedAssignment.operator_id} />
-            <PreviewRow label="Campagna" value={campaignTitle} />
-            <PreviewRow label="Zone (Programma)" value={getSelectedZoneNames().join(', ') || 'Nessuna specifica'} />
-            <PreviewRow label="Stato" value={savedAssignment.status} />
-            {endsAt && <PreviewRow label="Scadenza" value={new Date(endsAt).toLocaleString('it-IT')} />}
-          </div>
-
-          {/* Link box */}
-          <div style={linkBoxStyle}>
-            <p style={eyebrowStyle}>Link personale driver (non condivisibile con altri)</p>
-            <div style={linkTextStyle}>{generatedLink}</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-              <button type="button" style={primaryBtnStyle} onClick={handleCopyLink}>
-                {copiedLink ? '✓ Copiato!' : '📋 Copia link'}
-              </button>
-              <button type="button" style={whatsappBtnStyle} onClick={handleWhatsApp}>
-                📱 Invia WhatsApp
-              </button>
-              <button type="button" style={secondaryBtnStyle} onClick={handleCopyMsg}>
-                {copiedMsg ? '✓ Messaggio copiato!' : '📝 Copia messaggio completo'}
-              </button>
-            </div>
-          </div>
-
-          {/* Messaggio anteprima */}
-          <details style={{ marginTop: 12 }}>
-            <summary style={{ cursor: 'pointer', color: 'rgba(255,255,255,.6)', fontSize: 12, fontWeight: 700 }}>
-              Anteprima messaggio WhatsApp
-            </summary>
-            <pre style={msgPreviewStyle}>{buildWhatsAppMsg()}</pre>
-          </details>
-
-          {/* Azioni secondarie */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16, borderTop: '1px solid rgba(255,255,255,.08)', paddingTop: 14 }}>
-            <button
-              type="button"
-              style={secondaryBtnStyle}
-              onClick={() => { setStep(2); setSavedAssignment(null); }}
-            >
-              Modifica scadenza
-            </button>
-            {savedAssignment.status !== 'revoked' && (
-              <button
-                type="button"
-                style={{ ...secondaryBtnStyle, color: '#fca5a5', borderColor: 'rgba(239,68,68,.35)' }}
-                disabled={saving}
-                onClick={handleRevoke}
-              >
-                🚫 Revoca assegnazione
-              </button>
-            )}
-            {onClose && (
-              <button type="button" style={secondaryBtnStyle} onClick={onClose}>Chiudi</button>
-            )}
-          </div>
-        </div>
+        <AssignWorkResultStep
+          PreviewRow={PreviewRow}
+          Notice={Notice}
+          savedAssignment={savedAssignment}
+          generatedLink={generatedLink}
+          selectedOperator={selectedOperator}
+          campaignTitle={campaignTitle}
+          endsAt={endsAt}
+          getSelectedZoneNames={getSelectedZoneNames}
+          copiedLink={copiedLink}
+          copiedMsg={copiedMsg}
+          handleCopyLink={handleCopyLink}
+          handleCopyMsg={handleCopyMsg}
+          handleWhatsApp={handleWhatsApp}
+          handleRevoke={handleRevoke}
+          buildWhatsAppMsg={buildWhatsAppMsg}
+          saving={saving}
+          setStep={setStep}
+          setSavedAssignment={setSavedAssignment}
+          onClose={onClose}
+          styles={{
+            cardStyle,
+            eyebrowStyle,
+            sectionTitleStyle,
+            previewGridStyle,
+            linkBoxStyle,
+            linkTextStyle,
+            msgPreviewStyle,
+            primaryBtnStyle,
+            secondaryBtnStyle,
+            whatsappBtnStyle,
+          }}
+        />
       )}
     </div>
   );

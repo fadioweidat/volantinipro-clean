@@ -3,6 +3,7 @@ import { getCampaignRecord } from '../../lib/services/gps-api.js';
 import { getRealGroups } from '../../lib/services/admin-api.js';
 import { groupShareUrl } from '../../lib/services/group-ops.js';
 import { formatDateTime } from '../../lib/services/report-utils.js';
+import { CampaignGroupsKpiPanel } from './campaign-groups/CampaignGroupsKpiPanel.jsx';
 
 const STATUS = {
   attivo: '#2ecc8a',
@@ -72,15 +73,24 @@ export function CampaignGroups({ campaignId }) {
       {state.error && <Notice danger text={state.error} />}
       {state.notice && <Notice text={state.notice} />}
 
-      <section style={kpiGridStyle}>
-        <Kpi label="Gruppi" value={groups.length} />
-        <Kpi label="Operatori" value={totals.operators} />
-        <Kpi label="Online" value={totals.online} color="#2ecc8a" />
-        <Kpi label="Offline" value={totals.offline} color="#ef4444" />
-        <Kpi label="Problemi aperti" value={totals.problems} color={totals.problems ? '#ef4444' : '#2ecc8a'} />
-        <Kpi label="Km totali" value={`${totals.km.toFixed(2)} km`} />
-        <Kpi label="Punti GPS" value={totals.points} />
-      </section>
+      <CampaignGroupsKpiPanel
+        Kpi={Kpi}
+        values={{
+          groups: groups.length,
+          operators: totals.operators,
+          online: totals.online,
+          offline: totals.offline,
+          problems: totals.problems,
+          km: `${totals.km.toFixed(2)} km`,
+          points: totals.points,
+        }}
+        colors={{
+          online: '#2ecc8a',
+          offline: '#ef4444',
+          problems: totals.problems ? '#ef4444' : '#2ecc8a',
+        }}
+        styles={{ kpiGridStyle }}
+      />
 
       <section style={cardStyle}>
         <div style={sectionHeaderStyle}>

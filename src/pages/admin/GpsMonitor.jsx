@@ -15,6 +15,9 @@ import { AdminLayout } from './AdminLayout.jsx';
 import { CoverageAdjustmentPanel } from '../../components/admin/CoverageAdjustmentPanel.jsx';
 import { ZoneCoverageMap } from '../../components/admin/ZoneCoverageMap.jsx';
 import { FitToZoneBounds } from '../../components/map/FitToZoneBounds.jsx';
+import { GpsMonitorMetricsPanel } from './gps-monitor/GpsMonitorMetricsPanel.jsx';
+import { GpsMonitorGeofenceHistory } from './gps-monitor/GpsMonitorGeofenceHistory.jsx';
+import { GpsMonitorSessionsProofPanel } from './gps-monitor/GpsMonitorSessionsProofPanel.jsx';
 
 export function GpsMonitor({ campaignId, onNav }) {
   const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], activeSession: null, campaign: null });
@@ -244,33 +247,22 @@ export function GpsMonitor({ campaignId, onNav }) {
   return (
     <AdminLayout title="Admin GPS Monitor" subtitle={`Campagna ${campaignId}`} breadcrumbs={breadcrumbs} onNav={onNav}>
       {state.error && <div style={errorStyle}>{state.error}</div>}
-      <div style={metricGridStyle}>
-        <Metric label="Stato campagna" value={status} />
-        <Metric label="Sessioni" value={state.sessions.length} />
-        <Metric label="Punti GPS" value={state.points.length} />
-        <Metric label="Sessione mappa" value={activeSessionLabel} />
-        <Metric label="Driver" value={driverOnline ? 'online' : 'offline'} />
-        <Metric label="Tempo attivo" value={formatDuration(activeMs)} />
-        <Metric label="Geofence" value={<GeofenceBadge status={geofence.status} />} />
-        {coverage && coverage.calculation_status === 'ready' && (
-          <Metric 
-            label="Copertura calcolata" 
-            value={
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {coverage.coverage_percent}%
-                <button 
-                  onClick={handleRecalculateCoverage}
-                  disabled={coverage.calculating}
-                  style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 4, color: '#fff', fontSize: 10, padding: '2px 6px', cursor: 'pointer' }}
-                  title="Ricalcola manualmente"
-                >
-                  {coverage.calculating ? '...' : 'Ricalcola'}
-                </button>
-              </div>
-            } 
-          />
-        )}
-      </div>
+      <GpsMonitorMetricsPanel
+        state={state}
+        status={status}
+        activeMs={activeMs}
+        activeSessionLabel={activeSessionLabel}
+        driverOnline={driverOnline}
+        geofence={geofence}
+        coverage={coverage}
+        handleRecalculateCoverage={handleRecalculateCoverage}
+        formatDuration={formatDuration}
+        Metric={Metric}
+        GeofenceBadge={GeofenceBadge}
+        styles={{
+          metricGridStyle,
+        }}
+      />
 
       <section style={cardStyle}>
         <p style={eyebrowStyle}>Mappa operativa — Copertura GPS / Admin</p>
@@ -422,46 +414,36 @@ export function GpsMonitor({ campaignId, onNav }) {
         )}
       </section>
 
-      <section style={cardStyle}>
-        <p style={eyebrowStyle}>Storico geofence (sessione mappa)</p>
-        {geofence.events.length ? (
-          <div style={{ display: 'grid', gap: 8 }}>
-            {geofence.events.map((event, index) => (
-              <div key={index} style={rowStyle}>
-                <span style={{ fontSize: 11, fontWeight: 900, color: event.type === 'exited' ? '#b91c1c' : '#0f766e' }}>
-                  {event.type === 'exited' ? 'Uscita confermata' : 'Rientro confermato'}
-                </span>
-                <span>{formatDateTime(new Date(event.at).toISOString())}</span>
-                <span style={{ fontSize: 12, color: '#64748b' }}>{event.lat.toFixed(5)}, {event.lng.toFixed(5)}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <EmptyState text={geofenceZones.length ? 'Nessuna uscita dalla zona rilevata sui punti disponibili.' : 'Zona campagna non ancora configurata: verifica non disponibile.'} />
-        )}
-      </section>
+      <GpsMonitorGeofenceHistory
+        geofence={geofence}
+        geofenceZones={geofenceZones}
+        formatDateTime={formatDateTime}
+        EmptyState={EmptyState}
+        styles={{
+          cardStyle,
+          eyebrowStyle,
+          rowStyle,
+        }}
+      />
 
-      <section style={gridTwoStyle}>
-        <div style={cardStyle}>
-          <p style={eyebrowStyle}>Sessioni</p>
-          {state.sessions.length ? state.sessions.map((session) => (
-            <div key={session.id} style={session.id === state.activeSession?.id ? activeSessionRowStyle : rowStyle}>
-              <strong>{session.status}</strong>
-              <span>{formatDateTime(session.started_at)} - {formatDateTime(session.ended_at || session.paused_at)}</span>
-              <span>{session.driver_id}</span>
-              <span>{sessionOnlineLabel(session, state.activeSession, latest)}</span>
-              {session.id === state.activeSession?.id ? <span style={activeBadgeStyle}>mappa</span> : null}
-            </div>
-          )) : <EmptyState text="Nessuna sessione registrata" />}
-        </div>
-
-        <div style={cardStyle}>
-          <p style={eyebrowStyle}>Foto proof</p>
-          {state.photos.length ? state.photos.map((photo) => (
-            <ProofPhoto key={photo.id} photo={photo} />
-          )) : <EmptyState text="Nessuna foto prova caricata" />}
-        </div>
-      </section>
+      <GpsMonitorSessionsProofPanel
+        sessions={state.sessions}
+        activeSession={state.activeSession}
+        photos={state.photos}
+        latest={latest}
+        sessionOnlineLabel={sessionOnlineLabel}
+        ProofPhoto={ProofPhoto}
+        EmptyState={EmptyState}
+        formatDateTime={formatDateTime}
+        styles={{
+          gridTwoStyle,
+          cardStyle,
+          eyebrowStyle,
+          rowStyle,
+          activeSessionRowStyle,
+          activeBadgeStyle,
+        }}
+      />
     </AdminLayout>
   );
 }

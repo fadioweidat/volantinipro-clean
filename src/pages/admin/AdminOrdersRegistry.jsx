@@ -3,6 +3,8 @@ import { AdminLayout } from './AdminLayout.jsx';
 import { getClientsQuotesOverview } from '../../lib/services/admin-api.js';
 import { confirmCampaignPayment } from '../../lib/supabaseClient.js';
 import { AdminActionMenu } from '../../components/admin/AdminActionMenu.jsx';
+import { AdminOrdersSummaryPanel } from './admin-orders/AdminOrdersSummaryPanel.jsx';
+import { AdminOrdersToolbar } from './admin-orders/AdminOrdersToolbar.jsx';
 
 // REGISTRO PREVENTIVI & ORDINI — vista tabellare stile Excel su tutti i
 // preventivi/campagne reali. Nessuna tabella parallela, nessuna nuova query
@@ -219,35 +221,30 @@ export function AdminOrdersRegistry({ onNav }) {
 
   return (
     <AdminLayout title="Registro Preventivi & Ordini" subtitle="Un registro unico, stile Excel, su tutti i preventivi e ordini reali." breadcrumbs={breadcrumbs} onNav={onNav}>
-      <div style={kpiGridStyle}>
-        <Kpi label="Preventivi totali" value={kpi.total} />
-        <Kpi label="Nuovi" value={kpi.new} />
-        <Kpi label="Da pagare" value={kpi.toPay} tone={C.yellow} />
-        <Kpi label="Pagati" value={kpi.paid} tone={C.green} />
-        <Kpi label="Da assegnare" value={kpi.toAssign} tone={C.blue} />
-        <Kpi label="In lavorazione" value={kpi.inProgress} tone={C.blue} />
-        <Kpi label="Completati" value={kpi.completed} tone={C.green} />
-        <Kpi label="Valore totale" value={formatMoney(kpi.totalValue) || '—'} />
-        <Kpi label="Valore pagato" value={formatMoney(kpi.paidValue) || '—'} tone={C.green} />
-      </div>
+      <AdminOrdersSummaryPanel
+        kpi={kpi}
+        activeFilter={activeFilter}
+        setActiveFilter={setActiveFilter}
+        quickFilters={QUICK_FILTERS}
+        Kpi={Kpi}
+        formatMoney={formatMoney}
+        colors={C}
+        chipStyle={chipStyle}
+        styles={{
+          kpiGridStyle,
+        }}
+      />
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-        {QUICK_FILTERS.map((f) => (
-          <button key={f.key} type="button" onClick={() => setActiveFilter(f.key)} style={chipStyle(activeFilter === f.key)}>{f.label}</button>
-        ))}
-      </div>
-
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-        <input
-          type="text"
-          placeholder="Cerca per ID, cliente, azienda, email, telefono, comune, gruppo..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ flex: '1 1 320px', background: C.navyLight, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 14px', color: C.white, fontSize: 14 }}
-        />
-        <button type="button" onClick={exportCsv} style={exportButtonStyle}>Esporta CSV</button>
-        {state.loading && <span style={{ color: C.gray, fontSize: 13 }}>Aggiornamento...</span>}
-      </div>
+      <AdminOrdersToolbar
+        search={search}
+        setSearch={setSearch}
+        loading={state.loading}
+        onExport={exportCsv}
+        colors={C}
+        styles={{
+          exportButtonStyle,
+        }}
+      />
 
       {state.error && <div style={errorBoxStyle}>{state.error}</div>}
 

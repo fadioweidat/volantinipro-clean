@@ -10,6 +10,7 @@ import {
 import { AdminLayout } from './AdminLayout.jsx';
 import { AssignWork } from './AssignWork.jsx';
 import { loadAdminHomeData } from './AdminDashboard.jsx';
+import { GroupsManagerCreateForm } from './groups-manager/GroupsManagerCreateForm.jsx';
 import './admin-dashboard.css';
 
 function emptyData() {
@@ -154,12 +155,15 @@ export function GroupsManager({ onNav }) {
       <section id="link-operatori" className="admin-home__section" aria-labelledby="groups-title">
         <SectionHeading id="groups-title" eyebrow="Persone" title="I miei gruppi" meta={`${groups.length} gruppi reali`} action="+ Nuovo gruppo" onAction={() => setGroupFormOpen((value) => !value)} />
         {groupFormOpen && (
-          <form className="admin-home__group-form" onSubmit={submitNewGroup}>
-            <label>Campagna<select required value={groupForm.campaignId} onChange={(event) => setGroupForm((value) => ({ ...value, campaignId: event.target.value }))}><option value="">Seleziona campagna</option>{realCampaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaignName(campaign)}</option>)}</select></label>
-            <label>Nome gruppo<input required value={groupForm.name} onChange={(event) => setGroupForm((value) => ({ ...value, name: event.target.value }))} /></label>
-            <label>Primo membro / referente WhatsApp<select required value={groupForm.leadOperatorId} onChange={(event) => setGroupForm((value) => ({ ...value, leadOperatorId: event.target.value }))}><option value="">Seleziona persona</option>{operators.map((operator) => <option key={operator.id} value={operator.id}>{operator.display_name || `Operatore ${String(operator.id).slice(0, 8)}`}</option>)}</select></label>
-            <button className="admin-home__primary" disabled={busyGroupId === 'new'}>{busyGroupId === 'new' ? 'Salvataggio…' : 'Crea gruppo'}</button>
-          </form>
+          <GroupsManagerCreateForm
+            groupForm={groupForm}
+            setGroupForm={setGroupForm}
+            realCampaigns={realCampaigns}
+            operators={operators}
+            busy={busyGroupId === 'new'}
+            onSubmit={submitNewGroup}
+            campaignName={campaignName}
+          />
         )}
         {groups.length === 0 ? <EmptyState text="Nessun gruppo configurato." action="+ Crea gruppo" onAction={() => setGroupFormOpen(true)} /> : (
           <div className="admin-home__groups-grid">

@@ -3,6 +3,10 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const assignWork = readFileSync(new URL('../src/pages/admin/AssignWork.jsx', import.meta.url), 'utf8');
+// Il JSX dello Step 2 (incluso il messaggio "Nessuna zona configurata...")
+// vive ora nel componente estratto AssignWorkProgramStep.jsx, non piu' inline
+// in AssignWork.jsx.
+const assignWorkProgramStep = readFileSync(new URL('../src/pages/admin/assign-work/AssignWorkProgramStep.jsx', import.meta.url), 'utf8');
 const dashboard = readFileSync(new URL('../src/pages/admin/AdminDashboard.jsx', import.meta.url), 'utf8');
 // La sezione "I miei gruppi" (con l'ancora #link-operatori e "Copia link
 // gruppo") vive ora nella pagina dedicata /admin/groups, non piu' nella Home.
@@ -13,7 +17,7 @@ const migration = readFileSync(new URL('../supabase/migrations_legacy_pre_rebase
 test('AssignWork loads campaign zones without converting query failures to an empty state', () => {
   assert.match(assignWork, /getCampaignZonesWithGroups\(campaignId\)/);
   assert.doesNotMatch(assignWork, /getCampaignZonesWithGroups\(campaignId\)\.catch/);
-  assert.match(assignWork, /Nessuna zona configurata per questa campagna\./);
+  assert.match(assignWork + assignWorkProgramStep, /Nessuna zona configurata per questa campagna\./);
 });
 
 test('campaign zone query uses the route campaign id without premature group or status filters', () => {

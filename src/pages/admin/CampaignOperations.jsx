@@ -7,6 +7,8 @@ import { getCampaignReport } from '../../lib/services/admin-api.js';
 import { buildGpsCsv, buildSessionCsv, downloadTextFile, filterOperationalRows, lastActivityAt, sessionDurationMs } from '../../lib/services/report-utils.js';
 import { AdminLayout } from './AdminLayout.jsx';
 import { ZoneAssignmentsPanel } from './ZoneAssignmentsPanel.jsx';
+import { CampaignOperationsKpiPanel } from './campaign-operations/CampaignOperationsKpiPanel.jsx';
+import { CampaignOperationsFiltersPanel } from './campaign-operations/CampaignOperationsFiltersPanel.jsx';
 
 const DEFAULT_CENTER = [45.4642, 9.19];
 const COLORS = ['#e8571a', '#2ecc8a', '#60a5fa', '#fbbf24', '#a78bfa', '#ef4444'];
@@ -89,58 +91,35 @@ export function CampaignOperations({ campaignId, onNav }) {
       {state.error && <Notice danger text={state.error} />}
       {state.notice && <Notice text={state.notice} />}
 
-      <section style={kpiGridStyle}>
-        <Kpi label="Status campagna" value={status} />
-        <Kpi label="Driver assegnati" value={operations?.assignedDriversCount ?? 'dato non disponibile'} />
-        <Kpi label="Sessioni" value={`${visibleSessions.length}/${sessions.length}`} />
-        <Kpi label={filters.status === 'all_history' || filters.status === 'history' ? "Tempo totale (inc. storico)" : "Tempo totale"} value={formatDuration(totalMs)} />
-        <Kpi label={filters.status === 'all_history' || filters.status === 'history' ? "Km totali (inc. storico)" : "Km totali"} value={`${Number(totalKm || 0).toFixed(2)} km`} />
-        <Kpi label="Punti GPS" value={totalPoints} />
-        <Kpi label="Foto proof" value={operations?.photos?.length || 0} />
-        <Kpi label="Avanzamento stimato" value={progress} />
-      </section>
+      <CampaignOperationsKpiPanel
+        statusValue={status}
+        driversValue={operations?.assignedDriversCount ?? 'dato non disponibile'}
+        sessionsValue={`${visibleSessions.length}/${sessions.length}`}
+        timeLabel={filters.status === 'all_history' || filters.status === 'history' ? 'Tempo totale (inc. storico)' : 'Tempo totale'}
+        timeValue={formatDuration(totalMs)}
+        kmLabel={filters.status === 'all_history' || filters.status === 'history' ? 'Km totali (inc. storico)' : 'Km totali'}
+        kmValue={`${Number(totalKm || 0).toFixed(2)} km`}
+        pointsValue={totalPoints}
+        photosValue={operations?.photos?.length || 0}
+        progressValue={progress}
+        Kpi={Kpi}
+        styles={{
+          kpiGridStyle,
+        }}
+      />
 
-      <section style={cardStyle}>
-        <p style={eyebrowStyle}>Filtri storico</p>
-        <div style={filterGridStyle}>
-          <label style={labelStyle}>Periodo
-            <select value={filters.period} onChange={(event) => setFilters((prev) => ({ ...prev, period: event.target.value }))} style={inputStyle}>
-              <option value="all">Tutto</option>
-              <option value="today">Oggi</option>
-              <option value="yesterday">Ieri</option>
-              <option value="7d">Ultimi 7 giorni</option>
-              <option value="custom">Intervallo date</option>
-            </select>
-          </label>
-          <label style={labelStyle}>Da
-            <input type="date" value={filters.fromDate} onChange={(event) => setFilters((prev) => ({ ...prev, fromDate: event.target.value }))} disabled={filters.period !== 'custom'} style={inputStyle} />
-          </label>
-          <label style={labelStyle}>A
-            <input type="date" value={filters.toDate} onChange={(event) => setFilters((prev) => ({ ...prev, toDate: event.target.value }))} disabled={filters.period !== 'custom'} style={inputStyle} />
-          </label>
-          <label style={labelStyle}>Campagna
-            <input value={campaignId} disabled style={inputStyle} />
-          </label>
-          <label style={labelStyle}>Operatore
-            <input value={filters.driver} onChange={(event) => setFilters((prev) => ({ ...prev, driver: event.target.value }))} style={inputStyle} placeholder="nome o id" />
-          </label>
-          <label style={labelStyle}>Gruppo
-            <input value={filters.group} onChange={(event) => setFilters((prev) => ({ ...prev, group: event.target.value }))} style={inputStyle} placeholder="nome gruppo" />
-          </label>
-          <label style={labelStyle}>Stato sessione
-            <select value={filters.status} onChange={(event) => setFilters((prev) => ({ ...prev, status: event.target.value }))} style={inputStyle}>
-              <option value="all">Filtra storiche (default)</option>
-              <option value="all_history">Tutte (incluso storico)</option>
-              <option value="live">Live (in corso)</option>
-              <option value="started">Started</option>
-              <option value="paused">Paused</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="history">Solo Storiche/Test</option>
-            </select>
-          </label>
-        </div>
-      </section>
+      <CampaignOperationsFiltersPanel
+        filters={filters}
+        setFilters={setFilters}
+        campaignId={campaignId}
+        styles={{
+          cardStyle,
+          eyebrowStyle,
+          filterGridStyle,
+          labelStyle,
+          inputStyle,
+        }}
+      />
 
       <section style={cardStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>

@@ -11,6 +11,8 @@ import {
 import { getCampaignReport, getGroupSessions } from '../../lib/services/admin-api.js';
 import { detectSessionAlerts, enrichSession, groupShareUrl } from '../../lib/services/group-ops.js';
 import { REPORT_COLORS, filterOperationalRows, formatDateTime, formatDuration, sessionDurationMs, shortId } from '../../lib/services/report-utils.js';
+import { CampaignGroupDetailKpiPanel } from './campaign-group-detail/CampaignGroupDetailKpiPanel.jsx';
+import { CampaignGroupDetailFiltersPanel } from './campaign-group-detail/CampaignGroupDetailFiltersPanel.jsx';
 
 export function CampaignGroupDetail({ campaignId, groupId }) {
   const [state, setState] = useState({ loading: true, error: null, report: null, groupSessions: [], photos: [], notice: '' });
@@ -100,51 +102,31 @@ export function CampaignGroupDetail({ campaignId, groupId }) {
       {state.error && <Notice danger text={state.error} />}
       {state.notice && <Notice text={state.notice} />}
 
-      <section style={kpiGridStyle}>
-        <Kpi label="Operatori" value={visibleRows.length} />
-        <Kpi label="Online" value={visibleRows.filter((item) => item.status === 'online').length} color="#2ecc8a" />
-        <Kpi label="Warning" value={visibleRows.filter((item) => item.status === 'warning').length} color="#fbbf24" />
-        <Kpi label="Offline" value={visibleRows.filter((item) => item.status === 'offline').length} color="#ef4444" />
-        <Kpi label="Km gruppo" value={`${visibleRows.reduce((sum, item) => sum + item.km, 0).toFixed(2)} km`} />
-        <Kpi label="Punti GPS" value={visibleRows.reduce((sum, item) => sum + item.points.length, 0)} />
-        <Kpi label="Foto proof" value={groupPhotos.length} />
-        <Kpi label="Copertura stimata" value="area non definita" />
-      </section>
+      <CampaignGroupDetailKpiPanel
+        operatorsValue={visibleRows.length}
+        onlineValue={visibleRows.filter((item) => item.status === 'online').length}
+        warningValue={visibleRows.filter((item) => item.status === 'warning').length}
+        offlineValue={visibleRows.filter((item) => item.status === 'offline').length}
+        kmValue={`${visibleRows.reduce((sum, item) => sum + item.km, 0).toFixed(2)} km`}
+        pointsValue={visibleRows.reduce((sum, item) => sum + item.points.length, 0)}
+        photosValue={groupPhotos.length}
+        coverageValue="area non definita"
+        Kpi={Kpi}
+        styles={{
+          kpiGridStyle,
+        }}
+      />
 
-      <section style={toolbarStyle}>
-        <label style={labelStyle}>Periodo
-          <select value={filters.period} onChange={(event) => setFilters((prev) => ({ ...prev, period: event.target.value }))} style={inputStyle}>
-            <option value="all">Tutto</option>
-            <option value="today">Oggi</option>
-            <option value="yesterday">Ieri</option>
-            <option value="7d">Ultimi 7 giorni</option>
-            <option value="custom">Intervallo custom</option>
-          </select>
-        </label>
-        <label style={labelStyle}>Gruppo
-          <input value={group.name} disabled style={inputStyle} />
-        </label>
-        <label style={labelStyle}>Da
-          <input type="date" value={filters.fromDate} onChange={(event) => setFilters((prev) => ({ ...prev, fromDate: event.target.value }))} disabled={filters.period !== 'custom'} style={inputStyle} />
-        </label>
-        <label style={labelStyle}>A
-          <input type="date" value={filters.toDate} onChange={(event) => setFilters((prev) => ({ ...prev, toDate: event.target.value }))} disabled={filters.period !== 'custom'} style={inputStyle} />
-        </label>
-        <label style={labelStyle}>Operatore
-          <input value={filters.operator} onChange={(event) => setFilters((prev) => ({ ...prev, operator: event.target.value }))} style={inputStyle} placeholder="nome operatore" />
-        </label>
-        <label style={labelStyle}>Stato
-          <select value={filters.status} onChange={(event) => setFilters((prev) => ({ ...prev, status: event.target.value }))} style={inputStyle}>
-            <option value="all">Tutti</option>
-            <option value="started">Started</option>
-            <option value="paused">Paused</option>
-            <option value="completed">Completed</option>
-            <option value="online">Online</option>
-            <option value="warning">Warning</option>
-            <option value="offline">Offline</option>
-          </select>
-        </label>
-      </section>
+      <CampaignGroupDetailFiltersPanel
+        filters={filters}
+        setFilters={setFilters}
+        groupName={group.name}
+        styles={{
+          toolbarStyle,
+          labelStyle,
+          inputStyle,
+        }}
+      />
 
       <div style={layoutStyle}>
         <section style={cardStyle}>

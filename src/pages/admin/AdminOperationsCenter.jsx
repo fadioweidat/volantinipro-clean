@@ -2,6 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AdminLayout } from './AdminLayout.jsx';
 import { getDailyOperations, generateDriverAssignmentLink, buildDriverWhatsAppMessage } from '../../lib/services/admin-api.js';
 import { operationAlertPriority } from '../../lib/operations/deriveOperationAlerts.js';
+import { AdminOperationsKpiPanel } from './admin-operations/AdminOperationsKpiPanel.jsx';
+import { AdminOperationsDateFilter } from './admin-operations/AdminOperationsDateFilter.jsx';
+
+const kpiGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', marginBottom: '32px' };
 
 const C = {
   navyMid: "#111827",
@@ -227,18 +231,18 @@ export function AdminOperationsCenter({ onNav }) {
     <AdminLayout title="Centrale Operativa Giornaliera" subtitle="Monitoraggio real-time assegnazioni" breadcrumbs={breadcrumbs} onNav={onNav}>
       
       {/* Date Filter */}
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '24px', background: C.navyLight, padding: '16px', borderRadius: '8px' }}>
-        <button onClick={() => changeDate(-1)} style={btnStyle}>Giorno precedente</button>
-        <button onClick={setToday} style={btnStyle}>Oggi</button>
-        <input 
-          type="date" 
-          value={date} 
-          onChange={e => setDate(e.target.value)}
-          style={{ background: C.navyMid, color: C.white, border: '1px solid #374151', padding: '8px 12px', borderRadius: '4px' }}
-        />
-        <button onClick={() => changeDate(1)} style={btnStyle}>Giorno successivo</button>
-        {state.loading && <span style={{ color: C.gray, marginLeft: 'auto', fontSize: '14px' }}>Aggiornamento...</span>}
-      </div>
+      <AdminOperationsDateFilter
+        date={date}
+        setDate={setDate}
+        onPreviousDay={() => changeDate(-1)}
+        onToday={setToday}
+        onNextDay={() => changeDate(1)}
+        loading={state.loading}
+        colors={C}
+        styles={{
+          btnStyle,
+        }}
+      />
 
       {state.error && (
         <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', padding: '12px', borderRadius: '6px', marginBottom: '24px' }}>
@@ -247,17 +251,13 @@ export function AdminOperationsCenter({ onNav }) {
       )}
 
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', marginBottom: '32px' }}>
-        <Kpi label="Driver attivi oggi" value={kpis.drivers} />
-        <Kpi label="Programmi assegnati" value={kpis.campaigns} />
-        <Kpi label="Comuni totali" value={kpis.municipalities} />
-        <Kpi label="Volantini assegnati" value={kpis.flyers.toLocaleString('it-IT')} />
-        <Kpi label="Zone in corso" value={kpis.inProgress} tone="green" />
-        <Kpi label="Zone completate" value={kpis.completed} />
-        <Kpi label="Zone con problema" value={kpis.problem} tone={kpis.problem > 0 ? "red" : "default"} />
-        <Kpi label="Alert attivi" value={kpis.alerts} tone={kpis.alerts > 0 ? "yellow" : "default"} />
-        <Kpi label="Critici" value={kpis.criticalAlerts} tone={kpis.criticalAlerts > 0 ? "red" : "default"} />
-      </div>
+      <AdminOperationsKpiPanel
+        kpis={kpis}
+        Kpi={Kpi}
+        styles={{
+          kpiGridStyle,
+        }}
+      />
 
       {kpis.alerts > 0 && (
         <section aria-labelledby="operations-alerts-title" style={{ background: C.navyLight, border: '1px solid #4B5563', borderRadius: 8, padding: 16, marginBottom: 24 }}>
