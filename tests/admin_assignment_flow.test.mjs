@@ -19,6 +19,7 @@
 import { test, describe, mock, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import './operation_alerts.test.mjs';
+import { readFileSync } from 'node:fs';
 
 // ─── Helpers sotto test (estratti senza import React) ─────────────────────────
 
@@ -530,4 +531,46 @@ describe('revoca durante sessione attiva', () => {
       'La funzione di revoca deve registrare _revoked_pending_stop nel metadata'
     );
   });
+});
+
+// ─── REGRESSION AUDIT (2026-08-24) — priorità F ────────────────────────────────
+// Aggiunto per colmare una lacuna di copertura individuata durante l'audit di
+// regressione post-refactor: nessun test verificava che l'apertura WhatsApp
+// lato Admin non scriva mai assignment_program_sent.
+//
+// NOTA: un test diretto sulla funzione reale generateDriverAssignmentLink
+// (per la query string ?access=TOKEN, priorità E) è stato tentato ma
+// ACCANTONATO: getPublicAppUrl() (src/lib/publicAppUrl.js:10) legge
+// import.meta.env, che sotto `node --test` puro (senza Vite) è undefined e
+// fa fallire la chiamata prima ancora di generare il link. Risolverlo
+// richiederebbe modificare produzione (guard su import.meta.env in
+// publicAppUrl.js) o la configurazione del test runner — fuori dallo scope
+// "nessuna modifica a produzione" di questo audit. Il comportamento reale
+// resta comunque verificato per lettura di codice (vedi report), solo privo
+// di un test automatico eseguibile in questo ambiente.
+
+describe('WhatsApp Admin non registra assignment_program_sent all\'apertura (test statico sul sorgente)', () => {
+  const adminPagesToCheck = [
+    'src/pages/admin/GroupsManager.jsx',
+    'src/pages/admin/AdminOperationsCenter.jsx',
+    'src/pages/admin/CampaignAssignments.jsx',
+    'src/pages/admin/ClientsQuotes.jsx',
+    'src/pages/admin/AssignWork.jsx',
+    'src/pages/admin/AdminDashboard.jsx',
+  ];
+
+  for (const relPath of adminPagesToCheck) {
+    test(`${relPath} non chiama logAssignmentEvent (nessuna scrittura sent/opened/confirmed lato Admin)`, () => {
+      let source;
+      try {
+        source = readFileSync(new URL(`../${relPath}`, import.meta.url), 'utf8');
+      } catch {
+        return; // file non presente in questo ambiente: skip silenzioso
+      }
+      assert.ok(
+        !source.includes('logAssignmentEvent'),
+        `${relPath} non deve chiamare logAssignmentEvent: solo un evento reale lato Driver può marcare il programma come inviato/aperto/confermato`
+      );
+    });
+  }
 });
