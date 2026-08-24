@@ -4,21 +4,7 @@ const F = { serif: "'DM Serif Display', Georgia, serif", sans: "'DM Sans', Inter
 const C_ORANGE = "#E8571A";
 const GRAD = "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)";
 
-function Logo() {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#F8FAFC" }}>
-      <div style={{ width: 32, height: 32, borderRadius: 8, background: GRAD, display: "grid", placeItems: "center" }}>
-        <svg width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-          <path d="M10 2.5 17 17H3L10 2.5Z" fill="white" />
-          <circle cx="10" cy="12" r="2" fill="white" opacity=".7" />
-        </svg>
-      </div>
-      <span style={{ fontFamily: F.serif, fontSize: 22, letterSpacing: "-.02em" }}>
-        Volantini<span style={{ color: C_ORANGE }}>Pro</span>
-      </span>
-    </div>
-  );
-}
+import { Logo } from "../common/Logo.jsx";
 
 function SocialIcon({ type }) {
   const common = { stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round", fill: "none" };
@@ -103,8 +89,8 @@ export default function Footer({ onNav, onHowItWorks }) {
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div className="footer-grid">
           <div>
-            <Logo />
-            <p style={{ margin: "18px 0 24px", maxWidth: 280, fontFamily: F.sans, fontSize: 14, lineHeight: 1.65, color: "#94A3B8" }}>
+            <Logo dark={true} size={32} />
+            <p style={{ marginTop: 24, fontSize: 15, lineHeight: 1.6, color: "#94A3B8", maxWidth: 300 }}>
               Distribuzione volantini intelligente per il B2B italiano.
             </p>
             <div style={{ display: "flex", gap: 12 }}>

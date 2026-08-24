@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { C, F, x, w, j, T, z, R } from "../../lib/constants.js";
 import { useIsMobile } from "../../hooks/useIsMobile.js";
-// Altri import se necessari verranno aggiunti nel prossimo step
+import { Logo } from "../../components/common/Logo.jsx";
 
 export function Navbar({
   onNav,
@@ -84,39 +84,14 @@ export function Navbar({
         <button onClick={() => go("home")} aria-label="Torna alla Home di VolantiniPro" style={{
         display: "flex",
         alignItems: "center",
-        gap: 12,
         background: "transparent",
         border: "none",
         cursor: "pointer",
         padding: "4px 0",
         minHeight: 44
       }}>
-          <div style={{
-          width: 32,
-          height: 32,
-          borderRadius: 8,
-          background: "transparent",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center"
-        }}>
-            <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-              <path d="M16 3C11.03 3 7 7.03 7 12c0 7 9 17 9 17s9-10 9-17c0-4.97-4.03-9-9-9Z" fill={C.orange} />
-              <circle cx="16" cy="12" r="3.2" fill="#ffe7dc" />
-            </svg>
-          </div>
-          <span style={{
-          fontFamily: F.sans,
-          fontSize: 20,
-          fontWeight: 900,
-          letterSpacing: "-0.03em",
-          color: C.white
-        }}>
-            Volantini<span style={{
-            color: C.orange
-          }}>Pro</span>
-          </span>
-        </button>
+        <Logo dark={true} size={40} />
+      </button>
 
         {!isMobile && <div style={{
         display: "flex",

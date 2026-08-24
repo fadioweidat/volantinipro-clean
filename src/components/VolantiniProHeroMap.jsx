@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import HeroMapMockup from "./HeroMapMockup.jsx";
 import Button from "../ui/Button.jsx";
+import { Logo } from "./common/Logo.jsx";
 
 const C = {
   orange: "#ff5a14",
@@ -25,14 +26,7 @@ function useCompact(bp = 900) {
   return compact;
 }
 
-function MapPinLogo() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <path d="M16 3C11.03 3 7 7.03 7 12c0 7 9 17 9 17s9-10 9-17c0-4.97-4.03-9-9-9Z" fill={C.orange} />
-      <circle cx="16" cy="12" r="3.2" fill="#ffe7dc" />
-    </svg>
-  );
-}
+
 
 function BenefitIcon({ type }) {
   if (type === "target") {
@@ -132,10 +126,7 @@ export function VolantiniProHeroMap({ onConfigure, onLogin, onAdmin, onHowItWork
         aria-label="Navigazione principale"
       >
         <button onClick={onHowItWorks} style={brandButtonStyle}>
-          <MapPinLogo />
-          <span style={{ fontFamily: F.sans, fontSize: compact ? 18 : 22, fontWeight: 900, letterSpacing: "-0.03em" }}>
-            Volantini<span style={{ color: C.orange }}>Pro</span>
-          </span>
+          <Logo dark={true} size={28} />
         </button>
 
         {!compact && (
