@@ -4469,9 +4469,8 @@ export function Step2({
 
       {!isAdminView && <Step2TerritoryControlsPanel
           activeAreaTab={activeAreaTab}
-          activeZoneId={activeZoneId}
+          activeZoneId={data.activeZoneId}
           addressFullCoverageConfirmed={addressFullCoverageConfirmed}
-          addressIntentInMilano={addressIntentInMilano}
           addressSearchError={addressSearchError}
           apiLoading={apiLoading}
           appendMunicipalityToActiveZone={appendMunicipalityToActiveZone}
@@ -4492,7 +4491,6 @@ export function Step2({
           hiddenBoundaries={hiddenBoundaries}
           isAdminView={isAdminView}
           isBusinessStep2={isBusinessStep2}
-          isHidden={isHidden}
           isMobile={isMobile}
           isMovementStep2={isMovementStep2}
           isNilAnalysis={isNilAnalysis}
@@ -4550,30 +4548,42 @@ export function Step2({
       {/* ========================================================= */}
       {/* REPORT TERRITORIALE AVANZATO — dashboard modulare, service-adaptive */}
       {isAdminView && <Step2TerritorialReportSection
+        aiAgg={aiAgg}
         areaMode={areaMode}
+        b2bKpiZone={b2bKpiZone}
         businessMaterialPlan={businessMaterialPlan}
         businessOperationalPlan={businessOperationalPlan}
+        businessRadiusRows={businessRadiusRows}
+        coverageDecision={coverageDecision}
         d2dKpiZone={d2dKpiZone}
         effectiveDemoData={effectiveDemoData}
         fetchedPois={fetchedPois}
+        h2hHotspotRadiusRows={h2hHotspotRadiusRows}
         isMobile={isMobile}
         isMovementStep2={isMovementStep2}
         isNilAnalysis={isNilAnalysis}
         isResidentialStep2={isResidentialStep2}
+        manualFlyers={manualFlyers}
         omiInfo={omiInfo}
         omiReference={omiReference}
+        operationalAdvice={operationalAdvice}
         operationalEstimate={operationalEstimate}
         pois={pois}
         printTerritorialReportPdf={printTerritorialReportPdf}
         radius={radius}
+        requiredFlyers={requiredFlyers}
         selZones={selZones}
+        selectCoverageQuantityDecision={selectCoverageQuantityDecision}
         selectedComuni={selectedComuni}
         selectedOperationalPois={selectedOperationalPois}
         serviceKpis={serviceKpis}
+        setIsAdminView={setIsAdminView}
         step2CoverageFullLabel={step2CoverageFullLabel}
         step2TruthModel={step2TruthModel}
         step2ViewModel={step2ViewModel}
         territoryPluralLabel={territoryPluralLabel}
+        transportState={transportState}
+        updateManualFlyersQuantity={updateManualFlyersQuantity}
         zoneDensity={zoneDensity}
         zoneVerdict={zoneVerdict}
       />}
@@ -4594,39 +4604,106 @@ export function Step2({
 
           {/* MAPPA GRANDE — solo Vista Cliente. */}
           <Step2MapPanel
+        activeLay={activeLay}
         activeMapLayers={activeMapLayers}
+        apiData={apiData}
+        boundaryKpisForMap={boundaryKpisForMap}
         city={city}
+        civiciAvailable={civiciAvailable}
+        civiciState={civiciState}
+        col={col}
+        data={data}
+        dusafLanduse={dusafLanduse}
+        focusedPoiId={focusedPoiId}
+        focusedPoiNonce={focusedPoiNonce}
+        gisLoading={gisLoading}
+        gisTimedOut={gisTimedOut}
         handleManualMapClick={handleManualMapClick}
         hasUnconfirmedAddressPoint={hasUnconfirmedAddressPoint}
+        hiddenBoundaries={hiddenBoundaries}
+        isAdminView={isAdminView}
         isBusinessStep2={isBusinessStep2}
+        isComuneMode={isComuneMode}
         isMovementStep2={isMovementStep2}
+        isNilAnalysis={isNilAnalysis}
+        isNilManualMode={isNilManualMode}
+        isRadiusMode={isRadiusMode}
         manualPinMode={manualPinMode}
         mapBasemap={mapBasemap}
+        mapCityForStep2={mapCityForStep2}
         mapConfiniOn={mapConfiniOn}
+        mapCoverageZones={mapCoverageZones}
+        municipalityBoundary={municipalityBoundary}
+        omiInfo={omiInfo}
         pois={pois}
+        poiEmptySectorLabel={poiEmptySectorLabel}
+        poiFetchFailed={poiFetchFailed}
+        poiLoading={poiLoading}
+        poiAssignments={poiAssignments}
         radius={radius}
+        radiusKm={radiusKm}
+        residentialRadiusRows={residentialRadiusRows}
+        retryPoi={retryPoi}
+        sectors={sectors}
+        searchMode={searchMode}
+        selected={selected}
+        selectedSearchPoint={selectedSearchPoint}
+        selectCampaignZone={selectCampaignZone}
         selZones={selZones}
+        serviceKpis={serviceKpis}
         setActiveMapLayers={setActiveMapLayers}
         setManualPinMode={setManualPinMode}
         setMapBasemap={setMapBasemap}
         setMapConfiniOn={setMapConfiniOn}
+        sharedCoveragePctText={sharedCoveragePctText}
         showTerritoryData={showTerritoryData}
+        step1OperationalPoints={step1OperationalPoints}
+        svcType={svcType}
+        targetBusinessMeta={targetBusinessMeta}
+        thMax={thMax}
+        thMin={thMin}
+        toggleZone={toggleZone}
+        togglePoiAssignment={togglePoiAssignment}
+        viewMode={viewMode}
+        zoneAllocationById={zoneAllocationById}
+        zoneCoverageById={zoneCoverageById}
+        zonesInRadius={zonesInRadius}
+        zonesWithCoords={zonesWithCoords}
           />
 
           <Step2PoiAssignmentPanel
+        assignPoiToOperator={assignPoiToOperator}
         businessMaterialPlan={businessMaterialPlan}
         businessOperationalPlan={businessOperationalPlan}
+        businessPoiCategoryCounts={businessPoiCategoryCounts}
+        businessPoiFilter={businessPoiFilter}
+        changeOperatorCountInStep2={changeOperatorCountInStep2}
         city={city}
         clearPoiAssignments={clearPoiAssignments}
+        distributionTargetSelection={distributionTargetSelection}
+        focusPoiRow={focusPoiRow}
+        focusedPoiId={focusedPoiId}
+        h2hPoiCategoryCounts={h2hPoiCategoryCounts}
+        h2hPoiFilter={h2hPoiFilter}
         isBusinessStep2={isBusinessStep2}
         isMobile={isMobile}
         isMovementStep2={isMovementStep2}
         operatorCountForPoiAssignment={operatorCountForPoiAssignment}
         operatorSchedules={operatorSchedules}
         poiAssignments={poiAssignments}
+        poiComuneResolver={poiComuneResolver}
+        poiListSearch={poiListSearch}
         pois={pois}
+        rebalanceSelectedPois={rebalanceSelectedPois}
+        selectAndBalanceAllPois={selectAndBalanceAllPois}
         selectedOperationalPois={selectedOperationalPois}
+        setBusinessPoiFilter={setBusinessPoiFilter}
+        setH2hPoiFilter={setH2hPoiFilter}
+        setPoiListSearch={setPoiListSearch}
         togglePoiAssignment={togglePoiAssignment}
+        updateOperatorScheduleInStep2={updateOperatorScheduleInStep2}
+        updatePoiCopies={updatePoiCopies}
+        visiblePoisForAssignment={visiblePoisForAssignment}
       />
       <Step2CapPanel
         businessMetrics={businessMetrics}
@@ -4657,8 +4734,6 @@ export function Step2({
         zonesInRadius={zonesInRadius}
       />
           <Step2ComunePanel
-        POI_DATA_NOT_AVAILABLE={POI_DATA_NOT_AVAILABLE}
-
         activeCampaignZone={activeCampaignZone}
         activeComuneZeroData={activeComuneZeroData}
         addressPreviewNilZones={addressPreviewNilZones}
@@ -4672,13 +4747,14 @@ export function Step2({
         city={city}
         col={col}
         comuniPriorityOrder={comuniPriorityOrder}
-        containingCandidates={containingCandidates}
+        containingNil={containingNil}
+
         coverageDecision={coverageDecision}
         coverageStrategy={coverageStrategy}
         debugStep2Log={debugStep2Log}
-        flyerQuantity={flyerQuantity}
+
         flyerQuantityFromStep1={flyerQuantityFromStep1}
-        formulaFamilies={formulaFamilies}
+
         getComuneColor={getComuneColor}
         getCoverageStatus={getCoverageStatus}
         handleNext={handleNext}
@@ -4686,14 +4762,17 @@ export function Step2({
         hasSearchPoint={hasSearchPoint}
         hasSurplus={hasSurplus}
         hasUnconfirmedAddressPoint={hasUnconfirmedAddressPoint}
-        householdsInRadius={householdsInRadius}
+
         isBusinessStep2={isBusinessStep2}
-        isCap={isCap}
+
         isComuneMode={isComuneMode}
         isCoverageDecisionValid={isCoverageDecisionValid}
+        isInvalid={isInvalid}
         isMilanoComuneCollapsible={isMilanoComuneCollapsible}
+        isMobile={isMobile}
         isMovementStep2={isMovementStep2}
         isNilAnalysis={isNilAnalysis}
+        isPartial={isPartial}
         isRadiusMode={isRadiusMode}
         isResidentialStep2={isResidentialStep2}
         manualAssignments={manualAssignments}
@@ -4702,22 +4781,26 @@ export function Step2({
         marginalZoneCoverage={marginalZoneCoverage}
         marginalZoneFamilies={marginalZoneFamilies}
         milanoComuneNilInsufficient={milanoComuneNilInsufficient}
+        missingFlyers={missingFlyers}
         movePriorityZone={movePriorityZone}
-        municipality={municipality}
+
+        municipalityTotalFamilies={municipalityTotalFamilies}
         municipalityTotalFamiliesLabel={municipalityTotalFamiliesLabel}
         municipalityTotalFamiliesRowLabel={municipalityTotalFamiliesRowLabel}
         nilManualMode={nilManualMode}
         nilUnavailable={nilUnavailable}
-        primaryAreaLabel={primaryAreaLabel}
-        primaryCoverageLabel={primaryCoverageLabel}
+
+
         primaryCoveredZones={primaryCoveredZones}
-        priority={priority}
+
         radius={radius}
+        radiusKm={radiusKm}
         remainingFlyers={remainingFlyers}
         requiredFlyers={requiredFlyers}
-        requiresExplicitNilChoice={requiresExplicitNilChoice}
+
         resolveMilanoCity={resolveMilanoCity}
         searchMode={searchMode}
+        selected={selected}
         selZones={selZones}
         selectCoverageQuantityDecision={selectCoverageQuantityDecision}
         selectedAreaFamiliesLabel={selectedAreaFamiliesLabel}
@@ -4735,7 +4818,7 @@ export function Step2({
         setDropOpen={setDropOpen}
         setNilManualMode={setNilManualMode}
         setPartialCoverageConfirmed={setPartialCoverageConfirmed}
-        setRequestedAnalysisLevel={setRequestedAnalysisLevel}
+        setRequestedAnalysisLevel={() => {}}
         setSearch={setSearch}
         setSelected={setSelected}
         setSelectedComuni={setSelectedComuni}
@@ -4759,6 +4842,7 @@ export function Step2({
         switchToRadiusMode={switchToRadiusMode}
         territorialDataUnavailable={territorialDataUnavailable}
         territorySingularLabel={territorySingularLabel}
+        toggleZone={toggleZone}
         totalAssigned={totalAssigned}
         updateActiveRadius={updateActiveRadius}
         updateManual={updateManual}
@@ -4777,29 +4861,37 @@ export function Step2({
         <Step2SummaryPanel
           activeCampaignZone={activeCampaignZone}
           areaMode={areaMode}
+          businessMaterialPlan={businessMaterialPlan}
+          businessOperationalPlan={businessOperationalPlan}
           canContinueCalendar={canContinueCalendar}
           col={col}
           continueLabel={continueLabel}
           coverageDecisionReady={coverageDecisionReady}
           finalFlyersRounded={finalFlyersRounded}
+          h2hMainOutputs={h2hMainOutputs}
           handleNext={handleNext}
           hasUnconfirmedAddressPoint={hasUnconfirmedAddressPoint}
           isBusinessStep2={isBusinessStep2}
           isMobile={isMobile}
           isMovementStep2={isMovementStep2}
           isResidentialStep2={isResidentialStep2}
+          missingFlyers={missingFlyers}
           operationalSelectionReady={operationalSelectionReady}
+          pois={pois}
           radius={radius}
           radiusKm={radiusKm}
+          residentialMainOutputsNormalized={residentialMainOutputsNormalized}
           selZones={selZones}
           selectedOperationalPois={selectedOperationalPois}
           setIsAdminView={setIsAdminView}
           showTerritoryData={showTerritoryData}
+          step2CoverageFullLabel={step2CoverageFullLabel}
           step2CoveragePctLabel={step2CoveragePctLabel}
           step2RequirementContextLabel={step2RequirementContextLabel}
           step2TruthModel={step2TruthModel}
           step2ViewModel={step2ViewModel}
           step2ZonesReady={step2ZonesReady}
+          transportState={transportState}
           zonesInRadius={zonesInRadius}
         />
         </>}
@@ -4817,4 +4909,3 @@ export function Step2({
         </React.Suspense>}
     </div>;
 }
-

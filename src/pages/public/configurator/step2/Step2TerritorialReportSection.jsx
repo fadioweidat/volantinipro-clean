@@ -2,8 +2,9 @@ import React from "react";
 import { C, F } from "../../../../lib/constants.js";
 import { formatIntegerIT, formatPercentIT } from "../../../../lib/utils/format.js";
 import TerritorialReport from "../../../TerritorialReport.jsx";
+import { D2D_DAILY_CAPACITY } from "../../../../lib/step2/operationalMetrics.js";
 
-export function Step2TerritorialReportSection({ areaMode, businessMaterialPlan, businessOperationalPlan, d2dKpiZone, effectiveDemoData, fetchedPois, isMobile, isMovementStep2, isNilAnalysis, isResidentialStep2, omiInfo, omiReference, operationalEstimate, pois, printTerritorialReportPdf, radius, selZones, selectedComuni, selectedOperationalPois, serviceKpis, step2CoverageFullLabel, step2TruthModel, step2ViewModel, territoryPluralLabel, zoneDensity, zoneVerdict }) {
+export function Step2TerritorialReportSection({ aiAgg, areaMode, b2bKpiZone, businessMaterialPlan, businessOperationalPlan, businessRadiusRows, coverageDecision, d2dKpiZone, effectiveDemoData, fetchedPois, h2hHotspotRadiusRows, isMobile, isMovementStep2, isNilAnalysis, isResidentialStep2, manualFlyers, omiInfo, omiReference, operationalAdvice, operationalEstimate, pois, printTerritorialReportPdf, radius, requiredFlyers, selZones, selectCoverageQuantityDecision, selectedComuni, selectedOperationalPois, serviceKpis, setIsAdminView, step2CoverageFullLabel, step2TruthModel, step2ViewModel, territoryPluralLabel, transportState, updateManualFlyersQuantity, zoneDensity, zoneVerdict }) {
 
       const svcKey = isResidentialStep2 ? "d2d" : isMovementStep2 ? "h2h" : "b2b";
       const activeServiceTitle = isResidentialStep2 ? "Door to Door" : isMovementStep2 ? "Hand to Hand" : "Distribuzione presso attività e aziende";

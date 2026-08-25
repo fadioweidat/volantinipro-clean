@@ -1,9 +1,11 @@
 import React from "react";
 import { C, F } from "../../../../lib/constants.js";
 import { formatRadiusLabel } from "../../../../lib/utils/format.js";
-import { businessOptionLabel, BUSINESS_DELIVERY_METHODS, BUSINESS_RECIPIENTS } from "../../../../lib/business/business-config.js";
+import { businessOptionLabel, businessCategoryLabel, BUSINESS_DELIVERY_METHODS, BUSINESS_RECIPIENTS } from "../../../../lib/business/business-config.js";
+import { ACTIVITY_TARGET_LABELS } from "../../../../lib/step2/activityTargets.js";
+import { PROMOTER_COUNT_OPTIONS, PROMOTER_SHIFT_DURATION_OPTIONS, PROMOTER_TIME_SLOT_OPTIONS } from "../../../../lib/step1/step1OptionLists.js";
 
-export function Step2PoiAssignmentPanel({ businessMaterialPlan, businessOperationalPlan, city, clearPoiAssignments, isBusinessStep2, isMobile, isMovementStep2, operatorCountForPoiAssignment, operatorSchedules, poiAssignments, pois, selectedOperationalPois, togglePoiAssignment }) {
+export function Step2PoiAssignmentPanel({ assignPoiToOperator, businessMaterialPlan, businessOperationalPlan, businessPoiCategoryCounts, businessPoiFilter, changeOperatorCountInStep2, city, clearPoiAssignments, distributionTargetSelection, focusPoiRow, focusedPoiId, h2hPoiCategoryCounts, h2hPoiFilter, isBusinessStep2, isMobile, isMovementStep2, operatorCountForPoiAssignment, operatorSchedules, poiAssignments, poiComuneResolver, poiListSearch, pois, rebalanceSelectedPois, selectAndBalanceAllPois, selectedOperationalPois, setBusinessPoiFilter, setH2hPoiFilter, setPoiListSearch, togglePoiAssignment, updateOperatorScheduleInStep2, updatePoiCopies, visiblePoisForAssignment }) {
   return (
     <>
       {(isMovementStep2 || isBusinessStep2) && city && <div style={{

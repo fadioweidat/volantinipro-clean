@@ -10,7 +10,7 @@ import { getCoverageStatus } from "../../../../lib/step2/buildStep2ViewModel.js"
 import { normalizeMunicipalityName } from "../../../../lib/step2/addressIntent.js";
 import { truthfulSourceLabel } from "../../../../lib/step2/truthfulSourceLabel.js";
 
-export function Step2MapPanel({ activeMapLayers, city, handleManualMapClick, hasUnconfirmedAddressPoint, isBusinessStep2, isMovementStep2, manualPinMode, mapBasemap, mapConfiniOn, pois, radius, selZones, setActiveMapLayers, setManualPinMode, setMapBasemap, setMapConfiniOn, showTerritoryData }) {
+export function Step2MapPanel({ activeLay, activeMapLayers, apiData, boundaryKpisForMap, city, civiciAvailable, civiciState, col, data, dusafLanduse, focusedPoiId, focusedPoiNonce, gisLoading, gisTimedOut, handleManualMapClick, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isComuneMode, isMovementStep2, isNilAnalysis, isNilManualMode, isRadiusMode, manualPinMode, mapBasemap, mapCityForStep2, mapConfiniOn, mapCoverageZones, municipalityBoundary, omiInfo, pois, poiEmptySectorLabel, poiFetchFailed, poiLoading, poiAssignments, radius, radiusKm, residentialRadiusRows, retryPoi, sectors, searchMode, selected, selectedSearchPoint, selectCampaignZone, selZones, serviceKpis, setActiveMapLayers, setManualPinMode, setMapBasemap, setMapConfiniOn, sharedCoveragePctText, showTerritoryData, step1OperationalPoints, svcType, targetBusinessMeta, thMax, thMin, toggleZone, togglePoiAssignment, viewMode, zoneAllocationById, zoneCoverageById, zonesInRadius, zonesWithCoords }) {
   return (
     <>
       {/* MAPPA GRANDE — solo Vista Cliente. */}

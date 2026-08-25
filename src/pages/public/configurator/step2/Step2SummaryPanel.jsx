@@ -5,7 +5,7 @@ import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 import { Step2BottomActions } from "./Step2BottomActions.jsx";
 import { Step2SynthesisMessage } from "./Step2SynthesisMessage.jsx";
 
-export function Step2SummaryPanel({ activeCampaignZone, areaMode, canContinueCalendar, col, continueLabel, coverageDecisionReady, finalFlyersRounded, handleNext, hasUnconfirmedAddressPoint, isBusinessStep2, isMobile, isMovementStep2, isResidentialStep2, operationalSelectionReady, radius, radiusKm, selZones, selectedOperationalPois, setIsAdminView, showTerritoryData, step2CoveragePctLabel, step2RequirementContextLabel, step2TruthModel, step2ViewModel, step2ZonesReady, zonesInRadius }) {
+export function Step2SummaryPanel({ activeCampaignZone, areaMode, businessMaterialPlan, businessOperationalPlan, canContinueCalendar, col, continueLabel, coverageDecisionReady, finalFlyersRounded, h2hMainOutputs, handleNext, hasUnconfirmedAddressPoint, isBusinessStep2, isMobile, isMovementStep2, isResidentialStep2, missingFlyers, operationalSelectionReady, pois, radius, radiusKm, residentialMainOutputsNormalized, selZones, selectedOperationalPois, setIsAdminView, showTerritoryData, step2CoverageFullLabel, step2CoveragePctLabel, step2RequirementContextLabel, step2TruthModel, step2ViewModel, step2ZonesReady, transportState, zonesInRadius }) {
   return (
     <>
       {/* RIGHT COLUMN - ACTIVE ZONE SUMMARY */}
