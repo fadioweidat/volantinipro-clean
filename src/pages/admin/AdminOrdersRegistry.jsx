@@ -134,16 +134,26 @@ export function AdminOrdersRegistry({ onNav }) {
   const [paymentConfirmBusy, setPaymentConfirmBusy] = useState(false);
   const [paymentConfirmError, setPaymentConfirmError] = useState('');
 
-  const load = async () => {
-    setState((prev) => ({ ...prev, loading: true }));
+  // background=true (polling periodico, stesso intervallo di 30s gia' usato
+  // da AdminDashboard.jsx) evita lo spinner a schermo intero e non svuota le
+  // righe gia' mostrate se il refresh silenzioso fallisce: solo il primo
+  // caricamento e il pulsante di refresh manuale restano bloccanti.
+  const load = async ({ background = false } = {}) => {
+    if (!background) setState((prev) => ({ ...prev, loading: true }));
     try {
       const rows = await getClientsQuotesOverview();
       setState({ loading: false, error: null, rows });
     } catch (err) {
-      setState({ loading: false, error: err?.message || 'Errore di caricamento', rows: [] });
+      if (background) setState((prev) => ({ ...prev, loading: false }));
+      else setState({ loading: false, error: err?.message || 'Errore di caricamento', rows: [] });
     }
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    let cancelled = false;
+    load();
+    const timer = window.setInterval(() => { if (!cancelled) load({ background: true }); }, 30000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, []);
 
   const filteredRows = useMemo(() => {
     const filterDef = QUICK_FILTERS.find((f) => f.key === activeFilter) || QUICK_FILTERS[0];
