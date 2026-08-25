@@ -9,7 +9,25 @@ export const SELECTED_EXTRAS_ORDER = [
   "quality_control", "operator_support", "account_manager", "qr_analytics", "advanced_report", "urgent_distribution", "puntiVetrina",
   "dedicated_supervision",
 ];
-export const OPTIONAL_EXTRAS_ORDER = ["control_pro", "graphic_design", "tracking_gps", "gps_plus_report", "photo_proof", "photo_report_advanced", "video_proof", "advanced_report", "qr_analytics", "account_manager", "dedicated_supervision"];
+// gps_plus_report resta nel registry e in SELECTED_EXTRAS_ORDER per non
+// perdere preventivi storici che lo hanno gia' selezionato, ma non e' piu'
+// proposto come nuovo extra: sovrappone Controllo PRO (GPS + report) senza
+// far parte dei 3 gruppi Controllo e Report / Marketing / Assistenza.
+export const OPTIONAL_EXTRAS_ORDER = ["control_pro", "tracking_gps", "photo_proof", "photo_report_advanced", "graphic_design", "video_proof", "qr_analytics", "advanced_report", "account_manager", "dedicated_supervision"];
+
+// Categorie di presentazione per il raggruppamento nello Step4 (sezione
+// extra "Servizi inclusi / facoltativi"): CONTROLLO E REPORT, MARKETING,
+// ASSISTENZA. Solo etichettatura per la UI, nessun prezzo duplicato qui.
+export const EXTRA_CATEGORIES = {
+  CONTROLLO_REPORT: "controllo_report",
+  MARKETING: "marketing",
+  ASSISTENZA: "assistenza",
+};
+
+// Id degli extra gia' compresi nel pacchetto Controllo PRO: se selezionato,
+// questi extra non devono poter essere ri-acquistati singolarmente (niente
+// doppio addebito) e vanno mostrati come "gia' inclusi" nella UI.
+export const CONTROL_PRO_INCLUDED_IDS = ["tracking_gps", "photo_proof", "photo_report_advanced"];
 
 export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDurationKnown }) {
   return [
@@ -19,7 +37,7 @@ export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDur
       bullets: ["Segui in tempo reale gli operatori sulla mappa", "Storico percorso al termine della distribuzione", "Link di condivisione per il tuo team"],
       mappingLabel: "Tracking GPS", mappingDescription: "Monitoraggio operativo della distribuzione con tracciamento delle attività.", mappingIcon: "",
       optionalDescription: "Tracciamento operativo e timeline distributori.", optionalMicro: "Mostra avanzamento e operatori sulla mappa.", optionalIcon: "GPS",
-      price: 60, optional: true,
+      price: 60, optional: true, category: EXTRA_CATEGORIES.CONTROLLO_REPORT,
     },
     {
       id: "photo_proof", legacyIds: ["foto", "photo_proof", "foto_localizzate"], addId: "photo_proof",
@@ -27,7 +45,7 @@ export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDur
       bullets: ["Foto geolocalizzate con data e orario", "Conferma visiva zona per zona", "Archivio scaricabile dal portale cliente"],
       mappingLabel: "Foto Proof Base", mappingDescription: "Prove fotografiche di base con data e zona.", mappingIcon: "",
       optionalDescription: "Proof fotografici con data e zona.", optionalMicro: "Foto geolocalizzate con data e ora.", optionalIcon: "PHOTO",
-      price: 30, optional: true,
+      price: 30, optional: true, category: EXTRA_CATEGORIES.CONTROLLO_REPORT,
     },
     {
       id: "photo_report_advanced", legacyIds: ["photo_report_advanced"], addId: "photo_report_advanced",
@@ -35,7 +53,7 @@ export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDur
       bullets: ["Report fotografico dettagliato", "Archivio scaricabile esteso", "Mappatura fotografica avanzata"],
       mappingLabel: "Report Fotografico Completo", mappingDescription: "Prove fotografiche dettagliate con data, zona e riferimento operativo completo.", mappingIcon: "",
       optionalDescription: "Report fotografico dettagliato.", optionalMicro: "Mappatura visiva completa.", optionalIcon: "PHOTO",
-      price: 50, optional: true,
+      price: 50, optional: true, category: EXTRA_CATEGORIES.CONTROLLO_REPORT,
     },
     {
       id: "gps_plus_report", legacyIds: ["gps_plus_report"], addId: "gps_plus_report",
@@ -51,15 +69,17 @@ export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDur
       bullets: ["Clip video delle consegne", "Conferma visiva premium", "File scaricabili"],
       mappingLabel: "Video Proof", mappingDescription: "Registrazioni video localizzate per prova inconfutabile.", mappingIcon: "",
       optionalDescription: "Video delle operazioni in campo.", optionalMicro: "Clip scaricabili con conferma geolocalizzata.", optionalIcon: "VIDEO",
-      price: 60, optional: true,
+      price: 60, optional: true, category: EXTRA_CATEGORIES.MARKETING,
     },
     {
       id: "control_pro", legacyIds: ["control_pro", "control_pro_99"], addId: "control_pro",
-      commercialIcon: "shield", head: "Controllo PRO", col: "#8B5CF6", badge: "All-in-one Bundle",
+      commercialIcon: "shield", head: "Controllo PRO", col: "#8B5CF6", badge: "Pacchetto consigliato",
       bullets: ["Tracking GPS Live", "Foto proof completi", "Report finale PDF e mappa copertura"],
       mappingLabel: "Controllo PRO", mappingDescription: "Pacchetto sicurezza e controllo completo: GPS, Foto e Report finale in un unico bundle.", mappingIcon: "shield",
       optionalDescription: "Pacchetto sicurezza e controllo: GPS, Foto e Report finale.", optionalMicro: "Massima tranquillità a prezzo fisso.", optionalIcon: "SHIELD",
-      price: 99, optional: true,
+      bundleIncludesLabel: "Include Tracking GPS Live + Foto Proof + Report Finale",
+      bundleIncludesIds: CONTROL_PRO_INCLUDED_IDS,
+      price: 99, optional: true, category: EXTRA_CATEGORIES.CONTROLLO_REPORT,
     },
     {
       id: "graphic_design", legacyIds: ["graphic_design", "grafica_progetto"], addId: "graphic_design",
@@ -67,7 +87,7 @@ export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDur
       bullets: ["2 bozze incluse", "Consegna in 48h", "File pronto per la stampa"],
       mappingLabel: "Grafica", mappingDescription: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", mappingIcon: "palette",
       optionalDescription: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", optionalMicro: "Non hai ancora il volantino? Progettiamo noi la grafica per te.", optionalIcon: "GRAPHIC",
-      price: 79, optional: true,
+      price: 79, optional: true, category: EXTRA_CATEGORIES.MARKETING,
     },
     {
       id: "dedicated_supervision", legacyIds: ["dedicated_supervision", "supervisione_dedicata"], addId: "dedicated_supervision",
@@ -77,7 +97,7 @@ export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDur
       optionalDescription: "Un referente segue la tua campagna e interviene in caso di anomalie. Contattalo direttamente se hai bisogno.",
       optionalMicro: "€120 / giorno. Le giornate operative esatte verranno definite e confermate.",
       optionalIcon: "SUPERVISION",
-      price: 120, optional: true,
+      price: 120, priceUnit: "day", optional: true, category: EXTRA_CATEGORIES.ASSISTENZA,
     },
     {
       id: "account_manager", legacyIds: ["account_manager"], addId: "account_manager",
@@ -85,7 +105,7 @@ export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDur
       bullets: ["Supporto continuo per l'intera campagna", "Priorità di contatto", "Pianificazione strategica inclusa"],
       mappingLabel: "Account Manager", mappingDescription: "Manager dedicato per tutto il ciclo di vita della campagna.", mappingIcon: "user",
       optionalDescription: "Un referente dedicato sempre a tua disposizione.", optionalMicro: "Consulenza e assistenza prioritaria.", optionalIcon: "USER",
-      price: 80, optional: true,
+      price: 80, optional: true, category: EXTRA_CATEGORIES.ASSISTENZA,
     },
     {
       id: "qr_analytics", legacyIds: ["qr_analytics", "qr"], addId: "qr_analytics",
@@ -93,7 +113,7 @@ export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDur
       bullets: ["Codice QR univoco stampato", "Landing page dedicata", "Tracciamento scansioni in tempo reale"],
       mappingLabel: "QR / Landing Analytics", mappingDescription: "Aggiunta codice QR al volantino con statistiche di conversione online.", mappingIcon: "chart",
       optionalDescription: "Monitora quante persone scansionano il tuo volantino.", optionalMicro: "Report accessi e click.", optionalIcon: "QR",
-      price: 50, optional: true,
+      price: 50, optional: true, category: EXTRA_CATEGORIES.MARKETING,
     },
     {
       id: "advanced_report", legacyIds: ["advanced_report", "report_avanzato"], addId: "advanced_report",
@@ -101,7 +121,7 @@ export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDur
       bullets: ["Analisi dettagliata della penetrazione territoriale", "Statistiche di recapito per area", "Esportazione dati in vari formati"],
       mappingLabel: "Report Avanzato", mappingDescription: "Documentazione completa post-campagna con metriche extra.", mappingIcon: "document",
       optionalDescription: "Ricevi un'analisi approfondita al termine della campagna.", optionalMicro: "Ottimo per analisi marketing.", optionalIcon: "DOCUMENT",
-      price: 40, optional: true,
+      price: 40, optional: true, category: EXTRA_CATEGORIES.MARKETING,
     },
     {
       id: "puntiVetrina", legacyIds: [],
@@ -168,11 +188,12 @@ export function normalizeSelectedExtras(data, registryById) {
     data[ext.id] === true
   );
 
-  // Control Pro Deduplication
+  // Control Pro Deduplication — evita il doppio addebito: se Controllo PRO
+  // e' selezionato, gli extra gia' compresi nel bundle (CONTROL_PRO_INCLUDED_IDS)
+  // non compaiono come voci separate ne' nel totale.
   const hasControlPro = rawList.some(e => e.id === "control_pro");
   if (hasControlPro) {
-    const dedupIds = ["tracking_gps", "photo_proof", "photo_report_advanced", "gps_plus_report", "advanced_report"];
-    rawList = rawList.filter(e => !dedupIds.includes(e.id));
+    rawList = rawList.filter(e => !CONTROL_PRO_INCLUDED_IDS.includes(e.id));
   }
 
   return rawList.map((ext) => ({
@@ -180,6 +201,7 @@ export function normalizeSelectedExtras(data, registryById) {
     label: ext.mappingLabel,
     description: ext.mappingDescription,
     price: ext.price,
+    priceUnit: ext.priceUnit || null,
     icon: ext.mappingIcon,
     status: ext.isUrgent ? "selected" : (ext.price === 0 ? "included" : "selected"),
     isUrgent: ext.isUrgent,
@@ -191,6 +213,10 @@ export function buildOptionalExtras(registryById) {
     id: ext.id,
     addId: ext.addId,
     removeIds: ext.legacyIds,
+    category: ext.category || null,
+    priceUnit: ext.priceUnit || null,
+    bundleIncludesLabel: ext.bundleIncludesLabel || null,
+    bundleIncludesIds: ext.bundleIncludesIds || null,
     label: ext.head,
     description: ext.optionalDescription,
     micro: ext.optionalMicro,

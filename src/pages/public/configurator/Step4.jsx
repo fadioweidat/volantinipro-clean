@@ -2529,6 +2529,7 @@ export function Step4({
             removeOptionalExtra={removeOptionalExtra}
             addOptionalExtra={addOptionalExtra}
             isOptionalExtraSelected={isOptionalExtraSelected}
+            selectedExtraIds={selectedExtraIds}
           />
 
           <Step4PlanningPanel
