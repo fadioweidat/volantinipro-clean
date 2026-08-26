@@ -1,4 +1,5 @@
 import { supabase } from "../supabaseClient.js";
+import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "../lib/monitoring/errorLog.js";
 
 const APP_SESSION_KEY = "vp_supabase_session";
 
@@ -137,8 +138,20 @@ async function _restoreSupabaseSession(preferredSession = null) {
         return normalized;
       }
     }
-  } catch {
-    // Una sessione che non puo' essere ripristinata non autorizza l'Admin.
+  } catch (err) {
+    // Una sessione che non puo' essere ripristinata non autorizza l'Admin
+    // (comportamento invariato). Un'eccezione qui e' pero' anomala — non e'
+    // il normale "nessuna sessione salvata" (quei rami sopra restituiscono
+    // null senza mai lanciare), e' un fallimento reale della SDK/rete
+    // durante getSession()/setSession(). Mai l'access/refresh token nel log
+    // (mai letti in questo blocco: solo err?.message, gia' sanitizzato da
+    // logError per pattern simili a JWT/apikey come ulteriore difesa).
+    logError({
+      category: ERROR_CATEGORIES.AUTH,
+      module: "session_restore",
+      message: err?.message || "Ripristino sessione fallito con eccezione",
+      severity: ERROR_SEVERITY.WARNING,
+    });
   }
 
   if (isStoredSupabaseSessionValid(stored)) return stored;
@@ -180,7 +193,19 @@ export async function verifySupabaseAdminRole(session) {
     if (!res.ok) return false;
     const result = await res.json();
     return result === true;
-  } catch {
+  } catch (err) {
+    // Fail-closed invariato (return false). L'eccezione qui e' un
+    // fallimento infrastrutturale reale (rete/DNS/CORS verso l'RPC
+    // jwt_is_admin), non "l'utente non e' admin" — merita un log tecnico
+    // distinto affinche' l'Admin possa accorgersi se il controllo ruolo
+    // smette di funzionare per TUTTI, non solo per un utente non
+    // autorizzato. Mai il token nel log (solo err?.message).
+    logError({
+      category: ERROR_CATEGORIES.AUTH,
+      module: "admin_role_check",
+      message: err?.message || "Verifica ruolo Admin fallita con eccezione",
+      severity: ERROR_SEVERITY.CRITICAL,
+    });
     return false;
   }
 }

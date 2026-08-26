@@ -6,6 +6,7 @@ import {
   restoreSupabaseSession,
   verifySupabaseAdminRole
 } from "../session.js";
+import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "../../lib/monitoring/errorLog.js";
 
 const PANEL_STYLE = {
   minHeight: "60vh",
@@ -80,6 +81,19 @@ export function AdminGuard({ onNav, children }) {
       // implicito qui: se serve sviluppo locale senza Supabase configurato,
       // va gestito altrove in modo esplicito, non da questo Guard.
       setRoleStatus("config_error");
+      // Configurazione auth realmente mancante su una route Admin: un
+      // fallimento infrastrutturale reale (nessuno puo' entrare in /admin
+      // finche' non e' risolto), non "utente non autorizzato" — merita un
+      // log tecnico distinto dal normale "non-admin" (vedi ramo 'denied'
+      // sotto, che NON logga mai). Nessun dato personale/token qui: la
+      // configurazione mancante e' nota a priori, non serve leggere nulla
+      // dalla sessione.
+      logError({
+        category: ERROR_CATEGORIES.AUTH,
+        module: "admin_guard",
+        message: "Configurazione Supabase Auth mancante su route Admin",
+        severity: ERROR_SEVERITY.CRITICAL,
+      });
       return undefined;
     }
     let cancelled = false;

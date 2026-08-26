@@ -21,6 +21,7 @@ import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
 import { customerValue, CUSTOMER_DATA_UNAVAILABLE, CUSTOMER_PAYMENT_STATE, getCustomerPaymentState } from "./src/lib/customerCampaigns.js";
+import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "./src/lib/monitoring/errorLog.js";
 
 // Badge neutro per "Dato non disponibile": usato al posto del rendering
 // grande/colorato di un valore reale, cosi' un dato mancante non sembra un
@@ -5028,6 +5029,20 @@ export function LoginPage({
           if (!restoredSession) {
             setSessionCheck("ready");
             setAuthError({ message: "Non sono riuscito a ripristinare la sessione. Richiedi un nuovo magic link." });
+            // FASE Auth error logging: qui l'hash conteneva un access_token
+            // valido (arrivato direttamente dal redirect di Supabase, non
+            // manomesso), eppure restoreSupabaseSession() non e' riuscita a
+            // trasformarlo in una sessione SDK persistente — un esito
+            // tecnico anomalo, diverso da un link scaduto/gia' usato (quello
+            // e' gia' gestito separatamente da hashError sotto e non passa
+            // mai da questo ramo). Nessun token/email nel log: solo il fatto
+            // che il ripristino e' fallito.
+            logError({
+              category: ERROR_CATEGORIES.AUTH,
+              module: "callback",
+              message: "Ripristino sessione fallito dopo callback magic link con access_token valido",
+              severity: ERROR_SEVERITY.WARNING,
+            });
             return;
           }
           if (isDriverContext) {
@@ -5124,6 +5139,16 @@ export function LoginPage({
     }
     if (!configured) {
       setStatus("Configura VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY in.env.local per inviare magic link reali.");
+      // Configurazione auth realmente mancante (non l'assenza di sessione,
+      // che e' lo stato normale di un visitatore non loggato): un admin/dev
+      // deve saperlo, e' l'unico modo per cui il login smette di funzionare
+      // per TUTTI, non per un singolo utente.
+      logError({
+        category: ERROR_CATEGORIES.AUTH,
+        module: "login",
+        message: "Configurazione Supabase Auth mancante (VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY)",
+        severity: ERROR_SEVERITY.CRITICAL,
+      });
       return;
     }
     otpRequestInFlight.current = true;
@@ -5169,6 +5194,17 @@ export function LoginPage({
       } else {
         setStatus("Non sono riuscito a inviare il codice. Verifica chiavi Supabase e redirect URL.");
       }
+      // Fallimento reale della SDK (rate limit, errore Supabase, rete): mai
+      // l'indirizzo email del richiedente, solo il messaggio di errore gia'
+      // usato per la UI (generico per costruzione — mai un dato personale,
+      // vedi i due rami sopra: "Hai richiesto troppi link..."/messaggio SDK
+      // grezzo che non contiene mai l'email inserita dall'utente).
+      logError({
+        category: ERROR_CATEGORIES.AUTH,
+        module: "login",
+        message: err?.message || "Invio magic link fallito",
+        severity: ERROR_SEVERITY.WARNING,
+      });
     } finally {
       otpRequestInFlight.current = false;
       setBusy(false);
