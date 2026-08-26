@@ -3,7 +3,7 @@
 // dato inventato qui: e' una vista testuale/JSON di cio' che la pagina gia'
 // mostra.
 
-export function buildPlatformStatusReport({ health, flows, traffic, providers, lastEvents, generatedAt = new Date() } = {}) {
+export function buildPlatformStatusReport({ health, flows, traffic, providers, lastEvents, authHealth, generatedAt = new Date() } = {}) {
   const healthRows = health?.rows || [];
   const hasError = healthRows.some((row) => row.status === "error");
   const hasWarning = healthRows.some((row) => row.status === "warning");
@@ -18,5 +18,14 @@ export function buildPlatformStatusReport({ health, flows, traffic, providers, l
     providersNotConfigured: providers ? Object.entries(providers).filter(([, configured]) => !configured).map(([name]) => name) : null,
     traffic: traffic || null,
     lastEvents: lastEvents || null,
+    // FASE login health check: stessi 3 livelli mostrati nel Blocco 3b, mai
+    // ricalcolati qui — solo serializzati per il report esportabile.
+    authHealth: authHealth ? {
+      infrastructure: authHealth.infrastructure.status,
+      clientContract: authHealth.clientContract.status,
+      adminContract: authHealth.adminContract.status,
+      clientRealLogin: authHealth.clientRealLogin.status,
+      adminRealLogin: authHealth.adminRealLogin.status,
+    } : null,
   };
 }

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getConfigStatus, getPlatformStatusData, getSiteTraffic, resolveErrorLogEntry } from '../../lib/services/admin-api.js';
 import { runPlatformHealthCheck } from '../../lib/monitoring/platformHealth.js';
 import { computeFlowHealth } from '../../lib/monitoring/platformFlows.js';
+import { computeAuthHealth } from '../../lib/monitoring/authHealth.js';
 import { computeSiteTrafficSummary } from '../../lib/analytics/siteTrafficSummary.js';
 import { computeLastOperationalEvents } from '../../lib/monitoring/platformEvents.js';
 import { buildPlatformStatusReport } from '../../lib/monitoring/platformReport.js';
@@ -47,6 +48,7 @@ function emptyRawData() {
 export function PlatformStatus({ onNav }) {
   const [rawData, setRawData] = useState(emptyRawData());
   const [health, setHealth] = useState(null);
+  const [authHealth, setAuthHealth] = useState(null);
   const [configStatus, setConfigStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
@@ -62,19 +64,27 @@ export function PlatformStatus({ onNav }) {
       setRawData(data);
       setConfigStatus(cfg);
       setLoadError(null);
-      return data;
+      return { data, cfg };
     } catch (err) {
       setLoadError(err?.message || 'Errore caricamento dati piattaforma.');
-      return null;
+      return { data: null, cfg: null };
     }
   }, []);
 
   const runFullCheck = useCallback(async () => {
     setChecking(true);
     try {
-      const data = await refreshData();
-      const healthResult = await runPlatformHealthCheck({ getSiteTrafficFn: getSiteTraffic });
+      const { data, cfg } = await refreshData();
+      const [healthResult, authHealthResult] = await Promise.all([
+        runPlatformHealthCheck({ getSiteTrafficFn: getSiteTraffic }),
+        computeAuthHealth({
+          lastAdminSignIn: cfg?.lastAdminSignIn,
+          lastCustomerSignIn: cfg?.lastCustomerSignIn,
+          errorLogRows: data?.errorLog?.rows || [],
+        }),
+      ]);
       setHealth(healthResult);
+      setAuthHealth(authHealthResult);
       if (!data) setNotice('Controllo completato con dati parziali: alcune tabelle non erano raggiungibili.');
     } finally {
       setChecking(false);
@@ -129,7 +139,7 @@ export function PlatformStatus({ onNav }) {
   }
 
   function handleDownloadReport() {
-    const report = buildPlatformStatusReport({ health, flows, traffic: trafficConfigured ? traffic : null, providers: configStatus?.providers || null, lastEvents });
+    const report = buildPlatformStatusReport({ health, flows, traffic: trafficConfigured ? traffic : null, providers: configStatus?.providers || null, lastEvents, authHealth });
     downloadTextFile(`centro-controllo-sito-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`, JSON.stringify(report, null, 2), 'application/json');
   }
 
@@ -209,6 +219,42 @@ export function PlatformStatus({ onNav }) {
             </article>
           ))}
         </div>
+      </section>
+
+      {/* BLOCCO 3b — Login system (FASE login health check reale) */}
+      <section className="admin-home__section" aria-labelledby="ccs-auth-title">
+        <SectionHeading id="ccs-auth-title" eyebrow="Login" title="Sistema di login" meta={authHealth ? `Ultimo controllo: ${formatRelative(authHealth.checkedAt)}` : 'In attesa del primo controllo'} />
+        {authHealth ? (
+          <div className="ccs-flow-list">
+            <article className="ccs-flow-row">
+              <span className="ccs-flow-row__label">Supabase Auth (infrastruttura)</span>
+              <StatusPill status={authHealth.infrastructure.status === 'OK' ? 'ok' : 'error'} label={authHealth.infrastructure.status} />
+              <span className="ccs-flow-row__reason">{authHealth.infrastructure.error || `Endpoint raggiungibile${Number.isFinite(authHealth.infrastructure.responseTimeMs) ? ` (${authHealth.infrastructure.responseTimeMs} ms)` : ''}`}</span>
+            </article>
+            <article className="ccs-flow-row">
+              <span className="ccs-flow-row__label">Login Cliente — contratto</span>
+              <StatusPill status={authHealth.clientContract.status === 'PASS' ? 'pass' : 'fail'} label={authHealth.clientContract.status} />
+              <span className="ccs-flow-row__reason">Instradamento/sessione: {authHealth.clientContract.checks.filter((c) => c.pass).length}/{authHealth.clientContract.checks.length} verifiche superate</span>
+            </article>
+            <article className="ccs-flow-row">
+              <span className="ccs-flow-row__label">Login Admin — contratto</span>
+              <StatusPill status={authHealth.adminContract.status === 'PASS' ? 'pass' : 'fail'} label={authHealth.adminContract.status} />
+              <span className="ccs-flow-row__reason">Instradamento/ruolo fail-closed: {authHealth.adminContract.checks.filter((c) => c.pass).length}/{authHealth.adminContract.checks.length} verifiche superate{authHealth.adminContract.liveProbe.status === 'error' ? ' — sonda live jwt_is_admin fallita' : ''}</span>
+            </article>
+            <article className="ccs-flow-row">
+              <span className="ccs-flow-row__label">Login Cliente — evidenza reale</span>
+              <StatusPill status={authHealth.clientRealLogin.status === 'OK_RECENT' ? 'pass' : authHealth.clientRealLogin.status === 'ERROR_RECENT' ? 'fail' : 'warning'} label={authHealth.clientRealLogin.status === 'NO_RECENT_EVIDENCE' ? 'NESSUNA EVIDENZA RECENTE' : authHealth.clientRealLogin.status} />
+              <span className="ccs-flow-row__reason">{authHealth.clientRealLogin.reason}</span>
+            </article>
+            <article className="ccs-flow-row">
+              <span className="ccs-flow-row__label">Login Admin — evidenza reale</span>
+              <StatusPill status={authHealth.adminRealLogin.status === 'OK_RECENT' ? 'pass' : authHealth.adminRealLogin.status === 'ERROR_RECENT' ? 'fail' : 'warning'} label={authHealth.adminRealLogin.status === 'NO_RECENT_EVIDENCE' ? 'NESSUNA EVIDENZA RECENTE' : authHealth.adminRealLogin.status} />
+              <span className="ccs-flow-row__reason">{authHealth.adminRealLogin.reason}</span>
+            </article>
+          </div>
+        ) : (
+          <div className="admin-home__empty"><p>In attesa del primo controllo.</p></div>
+        )}
       </section>
 
       {/* BLOCCO 4 — Traffico e funnel */}

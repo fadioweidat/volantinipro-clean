@@ -22,13 +22,13 @@ function AdminRoleCheckingPlaceholder() {
   return <div style={PANEL_STYLE}>Verifica ruolo Admin in corso...</div>;
 }
 
-function AdminAccessDeniedPanel({ onNav }) {
+function AdminAccessDeniedPanel({ onNav, reason }) {
   return (
     <div style={PANEL_STYLE}>
       <div>
         <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>Accesso negato</div>
         <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 16 }}>
-          Sei autenticato ma il tuo account non ha i permessi Admin.
+          {reason || "Sei autenticato ma il tuo account non ha i permessi Admin."}
         </div>
         <button
           onClick={() => onNav?.("home")}
@@ -52,7 +52,9 @@ function AdminAccessDeniedPanel({ onNav }) {
 // Verifica reale (non piu' pass-through): richiede una sessione Supabase
 // autenticata (stesso meccanismo di CustomerGuard/DashboardPage) E un ruolo
 // Admin confermato dal backend tramite l'RPC jwt_is_admin() gia' esistente in
-// produzione (vedi session.js:verifySupabaseAdminRole). Distingue tre stati:
+// produzione (vedi session.js:verifySupabaseAdminRole). Distingue quattro stati,
+// TUTTI fail-closed tranne l'ultimo:
+//   - config Supabase assente                 -> pannello "Accesso negato", nessun redirect
 //   - anonimo (nessuna sessione valida)      -> redirect a /login?context=admin
 //   - autenticato ma jwt_is_admin() = false   -> pannello "Accesso negato", nessun redirect
 //   - autenticato e jwt_is_admin() = true     -> children (Dashboard Admin)
@@ -63,11 +65,21 @@ export function AdminGuard({ onNav, children }) {
   const [session, setSession] = useState(
     () => consumeSupabaseAuthHash("/admin") || getStoredSupabaseSession()
   );
-  const [roleStatus, setRoleStatus] = useState("checking"); // checking | admin | denied
+  const [roleStatus, setRoleStatus] = useState("checking"); // checking | admin | denied | anonymous | config_error
 
   useEffect(() => {
     if (!hasSupabaseConfig()) {
-      setRoleStatus("admin");
+      // FAIL-CLOSED: prima di questa fix, config Supabase assente
+      // promuoveva automaticamente ad Admin (roleStatus="admin") — un
+      // bypass fail-open incompatibile con il resto dell'architettura auth,
+      // che nega sempre su qualunque errore/configurazione mancante (vedi
+      // verifySupabaseAdminRole in session.js e jwt_is_admin() lato DB).
+      // Senza config nota non possiamo raggiungere ne' verificare una
+      // sessione ne' un ruolo: l'unico esito corretto e' negare l'accesso,
+      // mai concederlo per assenza di dati. Nessun bypass dev/local
+      // implicito qui: se serve sviluppo locale senza Supabase configurato,
+      // va gestito altrove in modo esplicito, non da questo Guard.
+      setRoleStatus("config_error");
       return undefined;
     }
     let cancelled = false;
@@ -94,6 +106,10 @@ export function AdminGuard({ onNav, children }) {
 
   if (roleStatus === "anonymous") return null;
   if (roleStatus === "checking") return <AdminRoleCheckingPlaceholder />;
+  // Nessuno stack trace/variabile ambiente esposta: solo un messaggio
+  // diagnostico generico, stesso pannello "Accesso negato" gia' usato per
+  // un ruolo non-Admin — nessuna nuova UX introdotta.
+  if (roleStatus === "config_error") return <AdminAccessDeniedPanel onNav={onNav} reason="Configurazione autenticazione non disponibile." />;
   if (roleStatus === "denied") return <AdminAccessDeniedPanel onNav={onNav} />;
   // roleStatus === "admin" qui sotto: jwt_is_admin() e' gia' stato verificato
   // dal backend. Il render-prop espone la sessione verificata ai children che
