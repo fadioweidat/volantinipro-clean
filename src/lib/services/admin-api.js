@@ -405,6 +405,103 @@ export async function getApprovedProofPhotos(campaignId) {
   })));
 }
 
+// FASE Centro Controllo — storico uptime/incidenti (Blocco E/orchestratore
+// manual). Tutte fail-soft (mai un'eccezione che rompe il resto della
+// pagina: stesso discipline di errorLog.js/insertGpsPoint) — vedi
+// src/lib/monitoring/healthCollectorClient.js per l'orchestrazione che le
+// usa tramite dependency injection (queste funzioni non importano mai
+// quel modulo, per evitare un ciclo).
+export async function getPlatformHealthHistory({ sinceDays = 30 } = {}) {
+  if (!supabase) return { rows: [], available: false };
+  try {
+    const cutoff = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from('platform_health_checks')
+      .select('check_name, check_group, status, response_time_ms, error_code, error_message, checked_at, source')
+      .gte('checked_at', cutoff)
+      .order('checked_at', { ascending: false });
+    if (error) return { rows: [], available: false };
+    return { rows: Array.isArray(data) ? data : [], available: true };
+  } catch {
+    return { rows: [], available: false };
+  }
+}
+
+export async function getPlatformIncidents() {
+  return selectOptionalTable('platform_incidents', 'started_at');
+}
+
+export async function insertPlatformHealthChecks(rows) {
+  if (!supabase || !Array.isArray(rows) || rows.length === 0) return;
+  try {
+    await supabase.from('platform_health_checks').insert(rows);
+  } catch {
+    // Fire-and-forget: uno storico non scritto non deve mai rompere il
+    // Centro Controllo (stesso discipline di errorLog.js).
+  }
+}
+
+export async function getRecentPlatformHealthChecks(checkName, limit) {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('platform_health_checks')
+      .select('status, error_code, error_message, checked_at')
+      .eq('check_name', checkName)
+      .order('checked_at', { ascending: false })
+      .limit(limit);
+    if (error) return [];
+    return Array.isArray(data)
+      ? data.map((r) => ({ status: r.status, errorCode: r.error_code, errorMessage: r.error_message, checkedAt: r.checked_at }))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getOpenPlatformIncident(checkName) {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from('platform_incidents')
+      .select('*')
+      .eq('check_name', checkName)
+      .eq('status', 'open')
+      .maybeSingle();
+    if (error) return null;
+    return data || null;
+  } catch {
+    return null;
+  }
+}
+
+// A differenza delle altre scritture di questo blocco, l'errore QUI viene
+// restituito (non inghiottito): l'unique index parziale
+// platform_incidents_one_open_per_check_uidx puo' far fallire l'insert con
+// un unique_violation (23505) in caso di race tra due esecuzioni
+// concorrenti dello stesso check (es. un futuro secondo collector
+// simultaneo) — vedi healthCollectorClient.js/recordHealthAndIncidents, che
+// usa questo {error} per recuperare l'incidente gia' creato dall'altra
+// esecuzione e aggiornarlo invece di considerarlo un fallimento silenzioso.
+export async function insertPlatformIncident(incident) {
+  if (!supabase) return { error: null };
+  try {
+    const { error } = await supabase.from('platform_incidents').insert(incident);
+    return { error: error || null };
+  } catch (err) {
+    return { error: err || new Error('insertPlatformIncident failed') };
+  }
+}
+
+export async function updatePlatformIncident(id, patch) {
+  if (!supabase) return;
+  try {
+    await supabase.from('platform_incidents').update(patch).eq('id', id);
+  } catch {
+    // Fire-and-forget: vedi insertPlatformHealthChecks.
+  }
+}
+
 export async function selectOptionalTable(table, order = 'created_at') {
   if (!supabase) return { rows: [], available: false };
   try {

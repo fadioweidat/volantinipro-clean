@@ -1,8 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getConfigStatus, getPlatformStatusData, getSiteTraffic, resolveErrorLogEntry } from '../../lib/services/admin-api.js';
+import {
+  getConfigStatus, getPlatformStatusData, getSiteTraffic, resolveErrorLogEntry,
+  getPlatformHealthHistory, getPlatformIncidents, insertPlatformHealthChecks,
+  getRecentPlatformHealthChecks, getOpenPlatformIncident, insertPlatformIncident, updatePlatformIncident,
+} from '../../lib/services/admin-api.js';
 import { runPlatformHealthCheck } from '../../lib/monitoring/platformHealth.js';
 import { computeFlowHealth } from '../../lib/monitoring/platformFlows.js';
 import { computeAuthHealth } from '../../lib/monitoring/authHealth.js';
+import { recordHealthAndIncidents } from '../../lib/monitoring/healthCollectorClient.js';
+import { computeUptimeSummary, computeResponseTimePercentiles, estimateDowntimeMs } from '../../lib/monitoring/healthHistory.js';
 import { computeSiteTrafficSummary } from '../../lib/analytics/siteTrafficSummary.js';
 import { computeLastOperationalEvents } from '../../lib/monitoring/platformEvents.js';
 import { buildPlatformStatusReport } from '../../lib/monitoring/platformReport.js';
@@ -50,6 +56,8 @@ export function PlatformStatus({ onNav }) {
   const [health, setHealth] = useState(null);
   const [authHealth, setAuthHealth] = useState(null);
   const [configStatus, setConfigStatus] = useState(null);
+  const [healthHistory, setHealthHistory] = useState({ rows: [], available: false });
+  const [incidents, setIncidents] = useState({ rows: [], available: false });
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
   const [loadError, setLoadError] = useState(null);
@@ -86,6 +94,30 @@ export function PlatformStatus({ onNav }) {
       setHealth(healthResult);
       setAuthHealth(authHealthResult);
       if (!data) setNotice('Controllo completato con dati parziali: alcune tabelle non erano raggiungibili.');
+
+      // FASE storico uptime/incidenti: registra questa esecuzione
+      // (source='manual', e' l'Admin che ha premuto il pulsante) e
+      // aggiorna gli incidenti aperti/risolti di conseguenza. Fire-and-forget
+      // fail-soft (vedi admin-api.js): un errore qui non deve mai impedire
+      // di vedere lo stato corrente, gia' mostrato sopra.
+      try {
+        await recordHealthAndIncidents({
+          health: healthResult,
+          authHealth: authHealthResult,
+          configStatus: cfg,
+          insertHealthChecks: insertPlatformHealthChecks,
+          getRecentChecks: getRecentPlatformHealthChecks,
+          getOpenIncident: getOpenPlatformIncident,
+          insertIncident: insertPlatformIncident,
+          updateIncident: updatePlatformIncident,
+        });
+      } catch {
+        // Non fatale: lo stato corrente resta corretto, solo lo storico
+        // di questa singola esecuzione non viene registrato.
+      }
+      const [historyResult, incidentsResult] = await Promise.all([getPlatformHealthHistory(), getPlatformIncidents()]);
+      setHealthHistory(historyResult);
+      setIncidents(incidentsResult);
     } finally {
       setChecking(false);
       setLoading(false);
@@ -104,6 +136,18 @@ export function PlatformStatus({ onNav }) {
     deliverySessions: rawData.deliverySessions.rows,
     gpsPoints: rawData.gpsPoints.rows,
   }), [rawData]);
+
+  const uptimeSummary = useMemo(() => computeUptimeSummary(healthHistory.rows), [healthHistory.rows]);
+  const perf24h = useMemo(() => {
+    const cutoff = Date.now() - WINDOW_24H_MS;
+    return computeResponseTimePercentiles(healthHistory.rows.filter((r) => new Date(r.checked_at).getTime() >= cutoff));
+  }, [healthHistory.rows]);
+  const downtimeEstimateMs = useMemo(() => estimateDowntimeMs(healthHistory.rows.filter((r) => Date.now() - new Date(r.checked_at).getTime() <= WINDOW_24H_MS)), [healthHistory.rows]);
+  const openIncidents = useMemo(() => (incidents.rows || []).filter((i) => i.status === 'open').sort((a, b) => new Date(b.last_seen_at) - new Date(a.last_seen_at)), [incidents.rows]);
+  const resolvedIncidents = useMemo(() => (incidents.rows || [])
+    .filter((i) => i.status === 'resolved')
+    .sort((a, b) => new Date(b.resolved_at) - new Date(a.resolved_at))
+    .slice(0, 10), [incidents.rows]);
 
   const traffic = useMemo(() => computeSiteTrafficSummary(rawData.siteTraffic.rows), [rawData.siteTraffic.rows]);
   const trafficConfigured = rawData.siteTraffic.available && traffic.hasAnyData;
@@ -286,6 +330,79 @@ export function PlatformStatus({ onNav }) {
           <article><strong>{rawData.errorLog.available ? timeoutsLast24h.length : '—'}</strong><span>Timeout recenti (24h)</span></article>
         </div>
         {slowChecks.length > 0 && <div className="admin-home__source-note"><strong>Servizi lenti</strong><span>{slowChecks.map((s) => `${s.label} (${s.responseTimeMs}ms)`).join(', ')}</span></div>}
+      </section>
+
+      {/* BLOCCO 5b — Storico uptime (FASE alert automatici + storico) */}
+      <section className="admin-home__section" aria-labelledby="ccs-uptime-title">
+        <SectionHeading id="ccs-uptime-title" eyebrow="Storico" title="Storico uptime" meta={healthHistory.available ? `${healthHistory.rows.length} campioni (ultimi 30 giorni)` : 'Storico non disponibile'} />
+        {!healthHistory.available ? (
+          <div className="admin-home__empty"><p>Storico non ancora disponibile (tabella platform_health_checks non raggiungibile).</p></div>
+        ) : (
+          <div className="admin-home__traffic-grid">
+            {['24h', '7d', '30d'].map((label) => {
+              const u = uptimeSummary[label];
+              return (
+                <article key={label}>
+                  <strong>{u.status === 'INSUFFICIENT_DATA' ? 'Storico non ancora sufficiente' : `${u.uptimePercent}%`}</strong>
+                  <span>Uptime {label}{u.status === 'OK' ? ` · ${u.sampleCount} check, ${u.failCount} falliti` : ''}</span>
+                </article>
+              );
+            })}
+            <article><strong>{openIncidents.length}</strong><span>Incidenti aperti</span></article>
+            <article><strong>{incidents.rows.length}</strong><span>Incidenti totali registrati</span></article>
+            <article><strong>{Math.round(downtimeEstimateMs / 60000)} min</strong><span>Downtime stimato (24h)</span></article>
+          </div>
+        )}
+      </section>
+
+      {/* BLOCCO 5c — Incidenti */}
+      <section className="admin-home__section" aria-labelledby="ccs-incidents-title">
+        <SectionHeading id="ccs-incidents-title" eyebrow="Alert" title="Incidenti" meta="Aperti automaticamente solo dopo soglia deterministica, mai su un singolo jitter" />
+        <div className="admin-home__source-note"><strong>Incidenti aperti</strong></div>
+        {openIncidents.length === 0 ? (
+          <div className="admin-home__empty"><p>Nessun incidente aperto.</p></div>
+        ) : (
+          <div className="ccs-error-list">
+            {openIncidents.map((inc) => (
+              <article key={inc.id} className={`ccs-error-row ccs-error-row--${inc.severity}`}>
+                <div className="ccs-error-row__main">
+                  <div><strong>{inc.check_name}</strong><span>{inc.summary}</span></div>
+                  <span className="ccs-error-row__meta">Iniziato {formatRelative(inc.started_at)} · ultimo rilevamento {formatRelative(inc.last_seen_at)} · {inc.occurrence_count} occorrenze</span>
+                </div>
+                <StatusPill status={inc.severity === 'critical' ? 'error' : 'warning'} label={inc.severity.toUpperCase()} />
+              </article>
+            ))}
+          </div>
+        )}
+        <div className="admin-home__source-note" style={{ marginTop: 16 }}><strong>Incidenti risolti recenti</strong></div>
+        {resolvedIncidents.length === 0 ? (
+          <div className="admin-home__empty"><p>Nessun incidente risolto di recente.</p></div>
+        ) : (
+          <div className="ccs-error-list">
+            {resolvedIncidents.map((inc) => (
+              <article key={inc.id} className="ccs-error-row">
+                <div className="ccs-error-row__main">
+                  <div><strong>{inc.check_name}</strong><span>Durata: {Math.round((new Date(inc.resolved_at) - new Date(inc.started_at)) / 60000)} min</span></div>
+                  <span className="ccs-error-row__meta">Risolto {formatRelative(inc.resolved_at)}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* BLOCCO 5d — Performance storica */}
+      <section className="admin-home__section" aria-labelledby="ccs-perf-history-title">
+        <SectionHeading id="ccs-perf-history-title" eyebrow="Performance" title="Performance (storico)" meta="p50/p95 sui campioni delle ultime 24h" />
+        {perf24h.status === 'INSUFFICIENT_DATA' ? (
+          <div className="admin-home__empty"><p>Storico non ancora sufficiente ({perf24h.sampleCount} campioni).</p></div>
+        ) : (
+          <div className="admin-home__traffic-grid">
+            <article><strong>{perf24h.p50} ms</strong><span>p50 (24h)</span></article>
+            <article><strong>{perf24h.p95} ms</strong><span>p95 (24h)</span></article>
+            <article><strong>{perf24h.sampleCount}</strong><span>Campioni (24h)</span></article>
+          </div>
+        )}
       </section>
 
       {/* BLOCCO 6 — Stato servizi esterni */}
