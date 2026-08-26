@@ -58,3 +58,21 @@ enable_signup = true
 
 [analytics]
 enabled = false
+
+# FASE Centro Controllo — persistenza config Edge Function (Blocco B).
+# Questa e' l'unica supabase/config.toml del repository: pur essendo nata
+# per il replay locale GPS PHASE 4 (vedi commento di testa del file), e'
+# anche il file che "supabase functions deploy" legge per QUALUNQUE target
+# (locale o --linked/--project-ref), incluso il progetto remoto reale.
+#
+# Senza questa sezione, un futuro "supabase functions deploy
+# platform-health-collector" SENZA il flag --no-verify-jwt riattiverebbe
+# verify_jwt=true di default (comportamento gia' osservato dal vivo in
+# questa stessa fase: il primo deploy, senza questo flag, ha fatto fallire
+# ogni chiamata schedulata dal cron con 401 UNAUTHORIZED_NO_AUTH_HEADER,
+# perche' il gateway Supabase blocca la richiesta PRIMA che il codice della
+# function (con la propria verifica x-collector-secret) venga mai eseguito).
+# Dichiararlo qui rende il comportamento corretto riproducibile senza dover
+# ricordare il flag ad ogni deploy futuro.
+[functions.platform-health-collector]
+verify_jwt = false
