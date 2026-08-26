@@ -3,15 +3,19 @@ import {
   endGpsSession,
   getActiveGpsSession,
   getActiveGpsSessionByToken,
+  getLastGpsRecordedAt,
   heartbeatGpsSession,
   insertGpsPoint,
   isPermanentGpsWriteError,
   pauseGpsSession,
   resumeGpsSession,
   resolveGpsAssignment,
+  sendPagehideHeartbeat,
   startGpsSession,
   transitionZone,
 } from '../lib/services/gps-api.js';
+import { classifyDeliverySession } from '../lib/monitoring/gpsSessionLifecycle.js';
+import { resolveResumePolicy, RESUME_ACTION } from '../lib/monitoring/gpsResumePolicy.js';
 import {
   applyStaleness,
   createGeofenceState,
@@ -26,6 +30,16 @@ const HEARTBEAT_INTERVAL_MS = 20000;
 const QUEUE_FLUSH_INTERVAL_MS = 10000;
 const HIGH_SPEED_MPS = 2.2;
 const GEOFENCE_STALENESS_CHECK_MS = 30000;
+// Tetto massimo di attesa per la conferma server dello Stop (Fase B —
+// prevenzione zombie): endGpsSession() gia' fa fino a 3 tentativi con
+// backoff [800,1800,4000]ms (withRetry in gps-api.js), ma se un singolo
+// tentativo resta appeso (rete morta senza mai fallire/timeoutare da sola)
+// quella catena potrebbe non terminare mai. Questo e' un limite separato sul
+// tempo TOTALE di attesa, non un quarto tentativo: scaduto, l'utente vede
+// "chiusura non confermata" invece di restare bloccato a tempo indeterminato
+// su un pulsante che gira.
+const END_CONFIRM_TIMEOUT_MS = 20000;
+const NOT_CONFIRMED_MESSAGE = 'Chiusura non confermata — riprova quando torna la connessione.';
 
 // assignmentContext (opzionale, retro-compatibile): { assignment, campaign }
 // gia' recuperati e validati da un chiamante che ha gia' fatto il proprio
@@ -66,6 +80,7 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
     campaign: null,
     error: null,
   });
+  const [resumeNotice, setResumeNotice] = useState(null);
   const [geofenceState, setGeofenceState] = useState(createGeofenceState());
   const geofenceStateRef = useRef(geofenceState);
   const watchIdRef = useRef(null);
@@ -469,8 +484,30 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
 
   const end = useCallback(async () => {
     if (!sessionRef.current?.id) return null;
+    setError(null);
+    // NON fermiamo watch/wakeLock qui: se il server non conferma la
+    // chiusura, il tracking deve continuare esattamente come prima — non
+    // possiamo far credere al driver che il turno sia finito lato server
+    // quando non lo e' (root cause diretta delle sessioni zombie storiche
+    // gia' pulite in questa stessa fase: una UI che smetteva di tracciare
+    // pur non avendo mai ricevuto conferma di chiusura).
+    let updated;
+    try {
+      updated = await withTimeout(
+        endGpsSession(sessionRef.current.id, accessToken),
+        END_CONFIRM_TIMEOUT_MS,
+        NOT_CONFIRMED_MESSAGE,
+      );
+    } catch (err) {
+      const message = err?.timeout
+        ? err.message
+        : `${err?.message || 'Chiusura sessione GPS non riuscita.'} ${NOT_CONFIRMED_MESSAGE}`;
+      setError(message);
+      throw Object.assign(new Error(message), { cause: err, notConfirmed: true });
+    }
+    // SERVER CONFIRMED da qui in poi: solo ora fermiamo watch/wakeLock e
+    // aggiorniamo lo stato locale a 'completed'.
     stopWatch();
-    const updated = await endGpsSession(sessionRef.current.id, accessToken);
     sessionRef.current = updated;
     statusRef.current = 'completed';
     setSession(updated);
@@ -497,11 +534,41 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
           ? (assignmentId ? await getActiveGpsSessionByToken(assignmentId, accessToken) : null)
           : await getActiveGpsSession(campaignId);
         if (cancelled || !existing || (existing.status !== 'started' && existing.status !== 'paused')) return;
+
+        // Classificazione PRIMA di riagganciare (Fase D — prevenzione
+        // zombie): mai un resume silenzioso di una sessione ABANDONED. In
+        // modalita' token last_gps_recorded_at arriva gia' dentro `existing`
+        // (get_active_driver_session esteso — vedi migrazione
+        // 20260826130000_get_active_driver_session_last_gps.sql, proposta e
+        // non ancora applicata: finche' non e' live il campo e' undefined e
+        // viene trattato semplicemente come "nessuna evidenza nota", mai un
+        // errore). In modalita' autenticata lo leggiamo qui direttamente
+        // (RLS driver_id=auth.uid() lo consente).
+        const lastGpsRecordedAt = accessToken
+          ? (existing._lastGpsRecordedAt ?? null)
+          : await getLastGpsRecordedAt(existing.id);
+        if (cancelled) return;
+
+        const classification = classifyDeliverySession(existing, { lastGpsRecordedAt });
+        const policy = resolveResumePolicy(classification);
+
+        if (policy.action === RESUME_ACTION.BLOCK) {
+          // NON riagganciamo session/status: nessun tracking silenzioso su
+          // una sessione abbandonata. NON chiamiamo mai qui la RPC
+          // admin-only gps_recover_abandoned_session — il Driver non deve
+          // ottenere privilegi admin; puo' solo essere informato.
+          setResumeNotice({ level: 'blocked', message: policy.message, classification: classification.state });
+          return;
+        }
+
         sessionRef.current = existing;
         const newStatus = existing.status === 'paused' ? 'paused' : 'active';
         statusRef.current = newStatus;
         setSession(existing);
         setStatus(newStatus);
+        if (policy.action === RESUME_ACTION.RESUME_WITH_WARNING) {
+          setResumeNotice({ level: 'warning', message: policy.message, classification: classification.state });
+        }
 
         if (newStatus === 'active') {
           await requestWakeLock();
@@ -534,6 +601,21 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [flushQueue, requestWakeLock, startWatch]);
+
+  useEffect(() => {
+    // Fase C — pagehide/chiusura app: best-effort, MAI un cancel/complete
+    // automatico. Solo un ultimo heartbeat diagnostico se il tracking era
+    // davvero attivo in quel momento — non sostituisce il pulsante Stop, non
+    // chiude nulla da solo. Vedi sendPagehideHeartbeat in gps-api.js per il
+    // perche' di fetch(keepalive) invece di sendBeacon.
+    const onPageHide = () => {
+      if (statusRef.current === 'active' && sessionRef.current?.id) {
+        sendPagehideHeartbeat(sessionRef.current.id, accessToken);
+      }
+    };
+    window.addEventListener('pagehide', onPageHide);
+    return () => window.removeEventListener('pagehide', onPageHide);
+  }, [accessToken]);
 
   useEffect(() => {
     const onOnline = () => {
@@ -597,6 +679,7 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
       : assignmentState.status === 'unknown' ? 'loading'
       : 'blocked',
     assignmentError: assignmentState.error,
+    resumeNotice,
     geofenceState,
     canStart: assignmentState.status === 'valid',
     isActive: status === 'active',
@@ -612,6 +695,33 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
     completeZone,
     end,
   };
+}
+
+// Corsa contro un timer: la promise originale continua a girare in
+// background (nessun abort reale sulla richiesta HTTP sottostante, l'SDK
+// Supabase usato qui non espone un AbortSignal per rpc()) — solo la UI
+// smette di aspettarla oltre `ms`. Se la richiesta reale completa DOPO lo
+// scadere del timer, il suo risultato viene semplicemente ignorato: non
+// aggiorna mai session/status (vedi end(), che li tocca solo dentro il
+// blocco try, mai in un .then() separato).
+function withTimeout(promise, ms, timeoutMessage) {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      const err = new Error(timeoutMessage);
+      err.timeout = true;
+      reject(err);
+    }, ms);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }
 
 function distanceMeters(lat1, lng1, lat2, lng2) {

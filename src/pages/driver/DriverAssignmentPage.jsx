@@ -301,6 +301,8 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
       {tracking.assignmentError && <Notice id="op-assign-error" danger text={tracking.assignmentError} />}
       {tracking.error && <Notice danger text={tracking.error} />}
       {actionError && <Notice danger text={actionError} />}
+      {tracking.resumeNotice?.level === 'blocked' && <Notice id="gps-resume-blocked" danger text={tracking.resumeNotice.message} />}
+      {tracking.resumeNotice?.level === 'warning' && <Notice id="gps-resume-warning" text={tracking.resumeNotice.message} />}
       {sosState && <Notice text={sosState} />}
       {/* Fallimento di una query secondaria (conferma/campagna/zone): un
           avviso locale, mai la schermata globale "Accesso non disponibile"

@@ -289,7 +289,36 @@ export async function getActiveGpsSessionByToken(assignmentId, accessToken) {
     p_assignment_id: assignmentId,
     p_access_token: accessToken,
   });
-  return data?.session || null;
+  if (!data?.session) return null;
+  // last_gps_recorded_at aggiunto dalla migrazione
+  // 20260826130000_get_active_driver_session_last_gps.sql (proposta, non
+  // ancora applicata a questo turno): finche' non e' live il campo e'
+  // semplicemente assente/undefined e il chiamante lo tratta come "nessuna
+  // evidenza GPS nota", MAI come un errore.
+  return { ...data.session, _lastGpsRecordedAt: data.last_gps_recorded_at ?? null };
+}
+
+// Ultimo gps_tracking_points.recorded_at per una sessione, o null se nessun
+// punto e' mai stato registrato. Usato SOLO per classificare una sessione
+// trovata al resume (gpsSessionLifecycle/gpsResumePolicy) — mai per scrivere
+// nulla. RLS gps_tracking_points_select_policy consente al driver
+// autenticato di leggere i propri punti (driver_id = auth.uid()), quindi
+// nessuna RPC dedicata serve in modalita' autenticata. In modalita' token
+// (link Driver pubblico, nessun auth.uid()) questa select fallirebbe per
+// RLS: get_active_driver_session include gia' last_gps_recorded_at nel
+// proprio risultato per quel caso — vedi getActiveGpsSessionByToken sopra.
+export async function getLastGpsRecordedAt(sessionId) {
+  if (!isValidUuid(sessionId)) return null;
+  const client = await requireSupabase();
+  const { data, error } = await client
+    .from('gps_tracking_points')
+    .select('recorded_at')
+    .eq('session_id', sessionId)
+    .order('recorded_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return null;
+  return data?.recorded_at || null;
 }
 
 export async function pauseGpsSession(sessionId, accessToken) {
@@ -300,8 +329,16 @@ export async function resumeGpsSession(sessionId, accessToken) {
   return callGpsRpc('gps_transition_session', { p_session_id: sessionId, p_action: 'resume', p_access_token: accessToken || null });
 }
 
+// withRetry (stessa funzione, stessi 3 tentativi con backoff [800,1800,4000]ms,
+// gia' usata per gps_insert_point): un fallimento di rete transitorio durante
+// lo Stop non deve far credere al Driver che il turno sia chiuso quando il
+// server non ha mai confermato — vedi useGpsTracking.js end() per come la UI
+// gestisce l'eventuale eccezione finale (mai un successo finto).
 export async function endGpsSession(sessionId, accessToken) {
-  return callGpsRpc('gps_transition_session', { p_session_id: sessionId, p_action: 'complete', p_access_token: accessToken || null });
+  return withRetry(
+    () => callGpsRpc('gps_transition_session', { p_session_id: sessionId, p_action: 'complete', p_access_token: accessToken || null }),
+    'Chiusura sessione GPS',
+  );
 }
 
 export async function calculateGpsCoverage(sessionId, bufferMeters = 30) {
@@ -345,6 +382,64 @@ export async function insertGpsPoint({
 
 export async function heartbeatGpsSession(sessionId, accessToken) {
   return callGpsRpc('gps_heartbeat_session', { p_session_id: sessionId, p_access_token: accessToken || null });
+}
+
+let cachedRestUrl;
+let cachedRestAnonKey;
+function readSupabaseRestConfig() {
+  if (cachedRestUrl !== undefined) return { url: cachedRestUrl, key: cachedRestAnonKey };
+  cachedRestUrl = null;
+  cachedRestAnonKey = null;
+  try {
+    cachedRestUrl = import.meta.env.VITE_SUPABASE_URL;
+    cachedRestAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  } catch {
+    if (typeof process !== 'undefined' && process.env) {
+      cachedRestUrl = process.env.VITE_SUPABASE_URL;
+      cachedRestAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+    }
+  }
+  return { url: cachedRestUrl, key: cachedRestAnonKey };
+}
+
+// Best-effort, SOLO diagnostico (Fase C — pagehide/chiusura app): invia un
+// ultimo heartbeat quando la pagina sta per chiudersi o andare in
+// background. MAI un cancel/complete automatico: lo Stop esplicito resta
+// l'unico modo reale per chiudere un turno — vedi end() in
+// useGpsTracking.js. Un heartbeat "in piu'" al massimo aggiorna updated_at
+// (gia' non usato per classificare l'attivita', vedi gpsSessionLifecycle.js)
+// senza alcun effetto sullo stato della sessione.
+//
+// navigator.sendBeacon e' stato scartato: non puo' portare header custom
+// (apikey/Authorization), quindi non puo' autenticare una chiamata RPC
+// Supabase. fetch(..., {keepalive:true}) sopravvive alla chiusura della
+// pagina (limite di payload ~64KB, ampiamente sufficiente qui) mantenendo
+// gli header necessari.
+//
+// SOLO modalita' token (accessToken presente, link Driver pubblico): in
+// modalita' autenticata (login Driver via Supabase Auth, senza token) il JWT
+// bridgeato non viene letto qui — nessun accesso sincrono affidabile al
+// token dal contesto pagehide senza duplicare la logica del bridge — il beat
+// viene semplicemente omesso in quel caso, mai tentato con credenziali
+// sbagliate (fuorviante nei log, e comunque solo best-effort).
+export function sendPagehideHeartbeat(sessionId, accessToken) {
+  if (!isValidUuid(sessionId) || !accessToken) return;
+  const { url, key } = readSupabaseRestConfig();
+  if (!url || !key) return;
+  try {
+    fetch(`${url}/rest/v1/rpc/gps_heartbeat_session`, {
+      method: 'POST',
+      keepalive: true,
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({ p_session_id: sessionId, p_access_token: accessToken }),
+    }).catch(() => {});
+  } catch {
+    // best-effort: mai bloccare/segnalare un errore durante pagehide.
+  }
 }
 
 export async function getCampaignGpsPoints(campaignId, { sessionId } = {}) {
