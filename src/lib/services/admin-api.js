@@ -78,6 +78,86 @@ export async function getRealCampaigns({ includeTest = false } = {}) {
   };
 }
 
+// Traffico sito (Admin "Commerciale"): legge public.site_events, l'event
+// store privacy-safe introdotto per sostituire i placeholder statici di
+// CommercialCenter.jsx. Solo lettura grezza qui — l'aggregazione (oggi,
+// funnel, conversion rate) e' in src/lib/analytics/siteTrafficSummary.js
+// cosi' resta testabile senza rete, stesso pattern di getRealCampaigns.
+// Finestra di 3 giorni: sufficiente per calcolare "oggi" in qualunque fuso
+// del browser senza scaricare l'intera tabella ad ogni load.
+export async function getSiteTraffic() {
+  if (!supabase) return { rows: [], available: false };
+  try {
+    const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from('site_events')
+      .select('event_name, created_at, anonymous_session_id, path, campaign_id, quote_id')
+      .gte('created_at', cutoff)
+      .order('created_at', { ascending: false });
+    if (error) return { rows: [], available: false };
+    return { rows: Array.isArray(data) ? data : [], available: true };
+  } catch {
+    return { rows: [], available: false };
+  }
+}
+
+// Stato provider esterni + ultimo login admin/cliente (Centro Controllo
+// Sito, Blocco 6 + parte del Blocco 8): questi dati vivono solo lato
+// server (secret non esposti al frontend, service-role per auth.admin.
+// listUsers), quindi passano dalla Edge Function config-status — mai
+// service-role nel browser. La function restituisce solo booleani/
+// timestamp, mai i valori dei secret.
+export async function getConfigStatus() {
+  if (!supabase) return { available: false, providers: null, lastAdminSignIn: null, lastCustomerSignIn: null };
+  try {
+    const { data, error } = await supabase.functions.invoke('config-status');
+    if (error || !data || data.error) return { available: false, providers: null, lastAdminSignIn: null, lastCustomerSignIn: null };
+    return { available: true, providers: data.providers, lastAdminSignIn: data.lastAdminSignIn, lastCustomerSignIn: data.lastCustomerSignIn };
+  } catch {
+    return { available: false, providers: null, lastAdminSignIn: null, lastCustomerSignIn: null };
+  }
+}
+
+// Dati grezzi per il Centro Controllo Sito (Blocco 2/3/8): un solo punto di
+// fetch parallelo che riusa selectOptionalTable/getRealCampaigns/
+// getSiteTraffic gia' esistenti — nessuna nuova query duplicata rispetto a
+// quelle gia' scritte per gli altri pannelli Admin.
+export async function getPlatformStatusData() {
+  const [errorLog, campaignsResult, siteTraffic, assignmentEvents, operatorAssignments, deliverySessions, gpsPoints] = await Promise.all([
+    selectOptionalTable('error_log'),
+    getRealCampaigns({ includeTest: true }),
+    getSiteTraffic(),
+    selectOptionalTable('assignment_event_log'),
+    selectOptionalTable('operator_assignments'),
+    selectOptionalTable('delivery_sessions'),
+    selectOptionalTable('gps_tracking_points', 'recorded_at'),
+  ]);
+  return {
+    errorLog,
+    campaigns: campaignsResult,
+    siteTraffic,
+    assignmentEvents,
+    operatorAssignments,
+    deliverySessions,
+    gpsPoints,
+  };
+}
+
+// Triage di un errore reale (Blocco 2, "stato aperto/risolto"): solo
+// admin/super_admin possono farlo (error_log_admin_all in
+// 20260825220000_error_log.sql). Stesso pattern gia' in uso per
+// updateCampaignZoneAssignment poco sotto.
+export async function resolveErrorLogEntry(errorId) {
+  const { data, error } = await supabase
+    .from('error_log')
+    .update({ status: 'resolved', resolved_at: new Date().toISOString() })
+    .eq('id', errorId)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 // Vista unificata "Clienti & Preventivi" (ADMIN-OPS-UNIFY-1): compone dati
 // gia' letti altrove (getRealCampaigns, operational_groups,
 // operator_assignments, operator_assignment_zones, operator_profiles,

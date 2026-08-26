@@ -11,6 +11,7 @@ import { AdminGuard } from "../auth/guards/AdminGuard.jsx";
 import { getStoredSupabaseSession, hasSupabaseAuthHashError, hasSupabaseAuthHashToken, isStoredSupabaseSessionValid, readPendingAuthContext, verifySupabaseAdminRole } from "../auth/session.js";
 import { resolveAppRoute } from "./routeResolution.js";
 import { clearConfiguratorDraft, configuratorHistoryState, readConfiguratorDraft, readConfiguratorHistoryState, writeConfiguratorDraft } from "../lib/configuratorState.js";
+import { trackPageView } from "../lib/analytics/siteEvents.js";
 export { resolveAppRoute } from "./routeResolution.js";
 
 // BUNDLE-OPTIMIZE-1: nessuna di queste route serve al bootstrap pubblico
@@ -32,6 +33,7 @@ const ClientsQuotes = lazy(() => import("../pages/admin/ClientsQuotes.jsx").then
 const AdminOrdersRegistry = lazy(() => import("../pages/admin/AdminOrdersRegistry.jsx").then(m => ({ default: m.AdminOrdersRegistry })));
 const GroupsManager = lazy(() => import("../pages/admin/GroupsManager.jsx").then(m => ({ default: m.GroupsManager })));
 const CommercialCenter = lazy(() => import("../pages/admin/CommercialCenter.jsx").then(m => ({ default: m.CommercialCenter })));
+const PlatformStatus = lazy(() => import("../pages/admin/PlatformStatus.jsx").then(m => ({ default: m.PlatformStatus })));
 const SmartPairingWaitlist = lazy(() => import("../pages/admin/SmartPairingWaitlist.jsx").then(m => ({ default: m.SmartPairingWaitlist })));
 const AdminDailyReport = lazy(() => import("../pages/admin/AdminDailyReport.jsx").then(m => ({ default: m.AdminDailyReport })));
 const GpsMonitor = lazy(() => import("../pages/admin/GpsMonitor.jsx").then(m => ({ default: m.GpsMonitor })));
@@ -139,6 +141,12 @@ export function AppRouter() {
     };
   }, [page]);
 
+  // Traffico sito (Admin "Commerciale"): un page_view per ogni cambio pagina,
+  // fire-and-forget, nessun impatto su routing/auth esistenti.
+  useEffect(() => {
+    trackPageView(window.location.pathname);
+  }, [page]);
+
   useEffect(() => {
     const handlePop = event => {
       const restored = readConfiguratorHistoryState(event.state);
@@ -212,7 +220,7 @@ export function AppRouter() {
       privacy: "/privacy", terms: "/termini", cookie: "/cookie-policy", quick: "/preventivo-rapido", preventivo: "/preventivo",
       consultant: "/consulente", step1: "/configuratore", step2: "/configuratore", step3: "/configuratore",
       step4: "/configuratore", admin: "/admin", "admin-live": "/admin/live", "admin-operations": "/admin/operations", "admin-daily-report": "/admin/operations/report", "admin-clients-quotes": "/admin/clients-quotes", "admin-orders": "/admin/orders",
-      "admin-groups-manager": "/admin/groups", "admin-commercial": "/admin/commercial", "admin-smart-pairing": "/admin/smart-pairing"
+      "admin-groups-manager": "/admin/groups", "admin-commercial": "/admin/commercial", "admin-smart-pairing": "/admin/smart-pairing", "admin-status": "/admin/status"
     };
     if (typeof window !== "undefined") {
       const params = new URLSearchParams();
@@ -351,6 +359,7 @@ export function AppRouter() {
               {page === "admin-orders" && <AdminOrdersRegistry onNav={goTo} />}
               {page === "admin-groups-manager" && <GroupsManager onNav={goTo} />}
               {page === "admin-commercial" && <CommercialCenter onNav={goTo} />}
+              {page === "admin-status" && <PlatformStatus onNav={goTo} />}
               {page === "admin-smart-pairing" && <SmartPairingWaitlist onNav={goTo} />}
               {page === "admin-daily-report" && <AdminDailyReport onNav={goTo} />}
               {page.startsWith("admin-gps:") && <GpsMonitor campaignId={page.split(":")[1]} onNav={goTo} />}

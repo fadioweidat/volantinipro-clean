@@ -41,5 +41,14 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       include: ['react-leaflet', 'leaflet', 'framer-motion'],
     },
+    // Centro Controllo Sito (Admin, Blocco 1 "ultimo deploy/versione"):
+    // Vercel imposta automaticamente VERCEL_GIT_COMMIT_SHA come env var del
+    // processo di build (non un .env file, quindi loadEnv() non lo vede) —
+    // lo leggiamo qui da process.env e lo inseriamo nel bundle come
+    // stringa statica. Vuoto in sviluppo locale (nessun commit finto).
+    define: {
+      __COMMIT_SHA__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA || ''),
+      __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    },
   }
 })

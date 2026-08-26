@@ -1,13 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { getRealCampaigns } from '../../lib/services/admin-api.js';
+import { getRealCampaigns, getSiteTraffic } from '../../lib/services/admin-api.js';
 import { buildCommercialSnapshot, buildConsultationWhatsAppMessage } from '../../lib/admin/adminCommercialModel.js';
+import { computeSiteTrafficSummary } from '../../lib/analytics/siteTrafficSummary.js';
 import { AdminLayout } from './AdminLayout.jsx';
 import './admin-dashboard.css';
 
 function localDateKey(date) { const offset = date.getTimezoneOffset() * 60000; return new Date(date.getTime() - offset).toISOString().slice(0, 10); }
+function formatPct(value) { return value == null ? '—' : `${Math.round(value * 100)}%`; }
 
 export function CommercialCenter({ onNav }) {
   const [state, setState] = useState({ loading: true, error: null, campaigns: [], availability: { campaigns: false } });
+  const [traffic, setTraffic] = useState({ loading: true, available: false, rows: [] });
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
@@ -20,11 +23,30 @@ export function CommercialCenter({ onNav }) {
         if (!cancelled) setState({ loading: false, error: error?.message || 'Errore caricamento commerciale.', campaigns: [], availability: { campaigns: false } });
       }
     }
+    async function loadTraffic() {
+      try {
+        const result = await getSiteTraffic();
+        if (!cancelled) setTraffic({ loading: false, available: result.available, rows: result.rows });
+      } catch {
+        if (!cancelled) setTraffic({ loading: false, available: false, rows: [] });
+      }
+    }
     load();
+    loadTraffic();
     return () => { cancelled = true; };
   }, []);
 
   const commercial = useMemo(() => buildCommercialSnapshot({ campaigns: state.campaigns, today: localDateKey(new Date()) }), [state.campaigns]);
+  const trafficSummary = useMemo(() => computeSiteTrafficSummary(traffic.rows), [traffic.rows]);
+  const trafficConfigured = traffic.available && trafficSummary.hasAnyData;
+  const trafficMetrics = [
+    { label: 'Visitatori oggi', value: trafficSummary.visitorsToday },
+    { label: 'Sessioni oggi', value: trafficSummary.sessionsToday },
+    { label: 'Preventivi iniziati', value: trafficSummary.quotesStartedToday },
+    { label: 'Preventivi completati', value: trafficSummary.quotesCompletedToday },
+    { label: 'Richieste consulenza', value: trafficSummary.consultationRequestsToday },
+    { label: 'Conversioni', value: formatPct(trafficSummary.conversionRate) },
+  ];
 
   function contactQuoteWhatsApp(quote) {
     if (!quote.phone) { setNotice('Numero WhatsApp non disponibile per questo preventivo.'); return; }
@@ -80,11 +102,15 @@ export function CommercialCenter({ onNav }) {
       </section>
 
       <section id="traffico" className="admin-home__section" aria-labelledby="traffic-title">
-        <SectionHeading id="traffic-title" eyebrow="Traffico" title="Traffico sito" meta="Analytics non configurata" />
+        <SectionHeading id="traffic-title" eyebrow="Traffico" title="Traffico sito" meta={trafficConfigured ? 'Event store privacy-safe (site_events)' : 'Analytics non configurata'} />
         <div className="admin-home__traffic-grid">
-          {['Visitatori oggi', 'Sessioni oggi', 'Preventivi iniziati', 'Preventivi completati', 'Richieste consulenza', 'Conversioni'].map((label) => <article key={label}><strong>—</strong><span>{label}</span></article>)}
+          {trafficMetrics.map(({ label, value }) => <article key={label}><strong>{trafficConfigured ? value : '—'}</strong><span>{label}</span></article>)}
         </div>
-        <div className="admin-home__source-note"><strong>Dati non disponibili</strong><span>Nessun provider analytics o event store privacy-safe è attivo. Visitatori, sessioni, funnel, top page e attribution restano distinti e non vengono stimati dai record commerciali.</span></div>
+        {trafficConfigured ? (
+          <div className="admin-home__source-note"><strong>Fonte: site_events</strong><span>Dati reali di oggi, aggregati da eventi anonimi (page_view, session_started, quote_started, quote_completed, consultation_requested). Nessuna stima dai record commerciali.</span></div>
+        ) : (
+          <div className="admin-home__source-note"><strong>Dati non disponibili</strong><span>{traffic.loading ? 'Caricamento dati traffico...' : 'Nessun evento registrato ancora. Visitatori, sessioni, funnel e conversioni restano distinti e non vengono stimati dai record commerciali.'}</span></div>
+        )}
       </section>
     </AdminLayout>
   );

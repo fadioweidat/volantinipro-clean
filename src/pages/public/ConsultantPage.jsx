@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { TimingUrgencyPicker } from "../../components/TimingUrgencyPicker.jsx";
+import { trackConsultationRequested } from "../../lib/analytics/siteEvents.js";
 
 const F = { serif: "'DM Serif Display',Georgia,serif", sans: "'DM Sans',sans-serif" };
 const C = {
@@ -139,7 +140,7 @@ export default function ConsultantPage({ onStart, data }) {
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             <button
-              onClick={() => setSubmitted(true)}
+              onClick={() => { trackConsultationRequested(); setSubmitted(true); }}
               className="vb"
               style={{ padding: "12px 18px", borderRadius: 10, border: "none", background: C.orange, color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer" }}
             >

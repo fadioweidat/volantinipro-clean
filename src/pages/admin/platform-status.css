@@ -1,0 +1,59 @@
+.ccs-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.ccs-actions button{min-height:44px;padding:0 15px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(255,255,255,.045);color:#fff;font:800 12px 'DM Sans',sans-serif;cursor:pointer}
+.ccs-actions button:hover:not(:disabled){background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18)}
+.ccs-actions button:disabled{opacity:.5;cursor:not-allowed}
+.ccs-actions button:first-child{background:#e8571a;border-color:#e8571a}
+
+.ccs-pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font:800 10px 'DM Sans',sans-serif;letter-spacing:.03em;white-space:nowrap}
+.ccs-pill--green{background:rgba(46,204,138,.15);color:#86efac}
+.ccs-pill--yellow{background:rgba(251,191,36,.15);color:#fde68a}
+.ccs-pill--red{background:rgba(239,68,68,.15);color:#fecaca}
+
+.ccs-health-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.ccs-health-card{padding:13px;border-radius:11px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-left:3px solid rgba(255,255,255,.2);display:flex;flex-direction:column;gap:6px}
+.ccs-health-card--green{border-left-color:#2ecc8a}
+.ccs-health-card--yellow{border-left-color:#fbbf24}
+.ccs-health-card--red{border-left-color:#ef4444}
+.ccs-health-card__top{display:flex;justify-content:space-between;align-items:center;gap:8px;color:#fff;font:700 12px 'DM Sans',sans-serif}
+.ccs-health-card__timing{color:rgba(255,255,255,.4);font:600 10px 'DM Sans',sans-serif}
+.ccs-health-card__error{color:#fecaca;font:500 10px 'DM Sans',sans-serif;overflow-wrap:anywhere}
+
+.ccs-error-list{display:grid;gap:8px}
+.ccs-error-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;border-radius:10px;background:rgba(5,14,22,.44);border:1px solid rgba(255,255,255,.07);border-left:3px solid rgba(255,255,255,.2)}
+.ccs-error-row--critical,.ccs-error-row--error{border-left-color:#ef4444}
+.ccs-error-row--warning{border-left-color:#fbbf24}
+.ccs-error-row--info{border-left-color:#60a5fa}
+.ccs-error-row__main{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+.ccs-error-row__main strong{color:#fff;font:700 12px 'DM Sans',sans-serif}
+.ccs-error-row__main span{color:rgba(255,255,255,.55);font:500 11px 'DM Sans',sans-serif;overflow-wrap:anywhere}
+.ccs-error-row__meta{color:rgba(255,255,255,.35)!important;font-size:9px!important}
+.ccs-error-row__actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.ccs-error-row__actions button{min-height:32px;padding:0 10px;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:rgba(255,255,255,.05);color:#fff;font:700 10px 'DM Sans',sans-serif;cursor:pointer}
+
+.ccs-flow-list{display:grid;gap:6px}
+.ccs-flow-row{display:grid;grid-template-columns:160px 90px 1fr 90px;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;background:rgba(255,255,255,.025)}
+.ccs-flow-row__label{color:#fff;font:700 12px 'DM Sans',sans-serif}
+.ccs-flow-row__reason{color:rgba(255,255,255,.5);font:500 11px 'DM Sans',sans-serif}
+.ccs-flow-row__checked{color:rgba(255,255,255,.3);font:600 10px 'DM Sans',sans-serif;text-align:right}
+
+.ccs-provider-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ccs-provider-row{display:flex;justify-content:space-between;align-items:center;padding:11px 13px;border-radius:9px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)}
+.ccs-provider-row span:first-child{color:#fff;font:700 12px 'DM Sans',sans-serif}
+
+.ccs-event-list{display:grid;gap:6px}
+.ccs-event-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:10px 12px;border-radius:9px;background:rgba(255,255,255,.025);flex-wrap:wrap}
+.ccs-event-row__label{color:rgba(255,255,255,.55);font:600 11px 'DM Sans',sans-serif}
+.ccs-event-row__value{color:#fff;font:700 12px 'DM Sans',sans-serif}
+.ccs-event-row__detail{width:100%;color:rgba(255,255,255,.4);font:500 10px 'DM Sans',sans-serif;overflow-wrap:anywhere}
+
+@media(max-width:900px){
+  .ccs-health-grid{grid-template-columns:repeat(2,1fr)}
+  .ccs-provider-grid{grid-template-columns:1fr 1fr}
+  .ccs-flow-row{grid-template-columns:1fr;gap:4px}
+  .ccs-flow-row__checked{text-align:left}
+}
+@media(max-width:460px){
+  .ccs-health-grid{grid-template-columns:1fr}
+  .ccs-provider-grid{grid-template-columns:1fr}
+  .ccs-error-row{flex-direction:column;align-items:flex-start}
+}

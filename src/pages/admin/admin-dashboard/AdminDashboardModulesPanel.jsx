@@ -71,6 +71,15 @@ export function AdminDashboardModulesPanel({ clientsQuotesCount, clientsStats, g
           cta="Apri Commerciale"
           onOpen={() => onNav('admin-commercial')}
         />
+        {/* Centro Controllo Sito: stato piattaforma, errori reali, health
+            dei flussi critici, provider esterni. Nessuno stat qui: i numeri
+            vivono nella pagina dedicata, dove vengono calcolati dal vivo. */}
+        <ModuleCard
+          title="Centro Controllo Sito"
+          stats={[]}
+          cta="Apri Centro Controllo"
+          onOpen={() => onNav('admin-status')}
+        />
       </section>
     </>
   );

@@ -18,6 +18,7 @@ import { Step1Help } from "../../../components/Step1Help.jsx";
 import { Step1Icon } from "../../../components/Step1Icon.jsx";
 import { Step1Summary } from "../../../components/Step1Summary.jsx";
 import { applyConfiguratorServiceChange } from "../../../lib/configuratorServiceTransition.js";
+import { trackQuoteStarted } from "../../../lib/analytics/siteEvents.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
 export function Step1({
@@ -30,6 +31,11 @@ export function Step1({
   const [showSmartPairingModal, setShowSmartPairingModal] = useState(false);
   const [resolvingOperationalLocation, setResolvingOperationalLocation] = useState(false);
   const [operationalLocationError, setOperationalLocationError] = useState("");
+  // Traffico sito (Admin "Commerciale"): un preventivo "iniziato" per
+  // sessione, alla prima apertura di Step1. Fire-and-forget.
+  useEffect(() => {
+    trackQuoteStarted();
+  }, []);
   const updateData = useCallback(newVals => {
     setData(prev => {
       const serviceBase = newVals.type && newVals.type !== prev.type ? applyConfiguratorServiceChange(prev, newVals.type) : prev;

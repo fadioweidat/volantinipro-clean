@@ -28,6 +28,8 @@ import { useCliente } from "../../../hooks/useCliente.js";
 import { calculateQuotePricing, formatQuoteCurrency, resolveQuoteQuantity } from "../../../lib/quotePricing.js";
 import { resolveConfiguratorDistributionZones } from "../../../lib/pricing/resolveConfiguratorDistributionZones.js";
 import { URGENCY_SURCHARGE_PCT } from "../../../lib/pricing/distributionPricing.js";
+import { trackQuoteCompleted } from "../../../lib/analytics/siteEvents.js";
+import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "../../../lib/monitoring/errorLog.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
 export function Step4({
@@ -1272,7 +1274,8 @@ export function Step4({
       const id = savedRow?.id;
       setSavedCampaign(savedRow);
       setSent(true);
-      
+      trackQuoteCompleted({ campaignId: id || null });
+
       try {
         localStorage.removeItem("volantinipro_return_to");
         localStorage.removeItem("volantinipro_pending_action");
@@ -1300,6 +1303,12 @@ export function Step4({
       console.warn("Campaign Supabase save failed", err);
       setCampaignSaveError("Errore durante il salvataggio della campagna: " + (err?.message || "Riprova più tardi."));
       setConfirmSyncStatus("Campagna non salvata.");
+      logError({
+        category: ERROR_CATEGORIES.SUBMIT_CAMPAIGN,
+        module: "Step4.handleConfirmCampaign",
+        message: err?.message || "Salvataggio campagna fallito",
+        severity: ERROR_SEVERITY.ERROR,
+      });
     } finally {
       campaignSaveInFlightRef.current = false;
       setSavingCampaign(false);

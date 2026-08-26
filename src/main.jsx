@@ -2,6 +2,7 @@ import React, { Component, Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { RouteLoadingFallback } from "./layouts/public/RouteLoadingFallback.jsx";
 import { warnIfMojibake } from "./lib/mojibakeGuard.js";
+import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "./lib/monitoring/errorLog.js";
 
 // BUG "Driver map page bianca": un dynamic import() fallito (es. Vite dev
 // optimize-deps stale su react-leaflet/leaflet, o un blip di rete) lancia
@@ -33,6 +34,16 @@ class RouteErrorBoundary extends Component {
     } else {
       console.error('[RouteErrorBoundary] route crash', error?.message);
     }
+    // Centro Controllo Sito (Admin): questo e' l'unico error boundary a
+    // monte di TUTTE le route, quindi il posto giusto per registrare un
+    // crash frontend reale — nessun errore simulato, solo cio' che React ha
+    // davvero intercettato.
+    logError({
+      category: ERROR_CATEGORIES.FRONTEND,
+      module: typeof window !== "undefined" ? window.location.pathname + window.location.search : null,
+      message: error?.message || "Errore frontend sconosciuto",
+      severity: ERROR_SEVERITY.CRITICAL,
+    });
   }
   render() {
     if (this.state.hasError) {
