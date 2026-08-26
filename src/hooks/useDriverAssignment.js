@@ -58,7 +58,7 @@ function logDriverLoadTiming(t, err = null) {
 // stato conferma presa in carico (best-effort, RLS-scoped: per un link
 // anonimo puo' restare vuoto, trattato come "non ancora confermato").
 export function useDriverAssignment(assignmentId) {
-  const accessToken = useMemo(() => readAccessTokenFromLocation(), []);
+  const accessToken = useMemo(() => readAccessTokenFromLocation(), [assignmentId]);
   const [assignmentData, setAssignmentData] = useState(null);
   const [assignmentZones, setAssignmentZones] = useState(null);
   const [assignmentError, setAssignmentError] = useState(null);
@@ -85,6 +85,19 @@ export function useDriverAssignment(assignmentId) {
 
   useEffect(() => {
     let cancelled = false;
+
+    setLoadingAssignment(true);
+    setLoadingProgramDetails(true);
+    setAssignmentData(null);
+    setAssignmentZones(null);
+    setCampaignId(null);
+    setCampaignRecord(null);
+    setConfirmedAt(null);
+    setAssignmentError(null);
+    setAssignmentErrorType(null);
+    setProgramDetailsError(null);
+    setConfirmationError(null);
+
     // Timing DEV-only (import.meta.env.DEV): performance.now() per fase,
     // stampato in una riga sola a fine caricamento. Nessun impatto in
     // produzione (il blocco if e' escluso dal bundle prod da Vite tree-shake

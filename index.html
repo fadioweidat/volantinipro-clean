@@ -7,7 +7,60 @@
     <title>VolantiniPro</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!--
+      Bootstrap failsafe (bug "pagina bianca Driver da WhatsApp/Chrome Android"):
+      prima di questo fix #root partiva vuoto e restava vuoto per sempre se il
+      modulo /src/main.jsx (o una qualunque delle sue import statiche) falliva
+      a caricare/parsare — un errore di rete/504/500 a quel livello avviene
+      PRIMA che una sola riga di React esegua, quindi nessun error boundary
+      React puo' mai intercettarlo (riprodotto dal vivo: rotto un import
+      statico di main.jsx, ricaricato, #root restava "" per sempre, nessun
+      messaggio, console con "Failed to reload /src/main.jsx"/500).
+      Questo markup e' HTML statico puro, mai dipendente da JS module
+      resolution: appare subito, prima ancora che il browser tenti di
+      scaricare main.jsx. Lo script inline sotto (non-module, esegue
+      sincrono durante il parsing HTML, indipendente dal grafo ES module)
+      sostituisce il messaggio con un invito a riprovare SOLO se main.jsx non
+      ha segnalato un boot riuscito (window.__appBooted) entro una soglia
+      ragionevole, o se il browser emette un evento 'error' di caricamento
+      script prima di quel momento.
+    -->
+    <div id="root">
+      <div id="vp-boot-fallback" style="min-height:100dvh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;padding:24px;background:#0b1220;color:rgba(255,255,255,.85);font-family:'DM Sans',Inter,system-ui,sans-serif;text-align:center;">
+        <p id="vp-boot-fallback-text" style="margin:0;font-size:15px;">Caricamento programma...</p>
+      </div>
+    </div>
+    <script>
+      (function () {
+        var BOOT_TIMEOUT_MS = 8000;
+        var shown = false;
+        function showRetry() {
+          if (window.__appBooted || shown) return;
+          shown = true;
+          var textEl = document.getElementById('vp-boot-fallback-text');
+          var containerEl = document.getElementById('vp-boot-fallback');
+          if (!containerEl) return;
+          if (textEl) textEl.textContent = 'Impossibile caricare il programma.';
+          if (!document.getElementById('vp-boot-fallback-retry')) {
+            var btn = document.createElement('button');
+            btn.id = 'vp-boot-fallback-retry';
+            btn.type = 'button';
+            btn.textContent = 'Riprova';
+            btn.style.cssText = 'min-height:48px;padding:0 24px;border-radius:12px;border:none;background:#2ECC8A;color:#071426;font-weight:800;font-size:15px;cursor:pointer;';
+            btn.onclick = function () { window.location.reload(); };
+            containerEl.appendChild(btn);
+          }
+        }
+        window.setTimeout(showRetry, BOOT_TIMEOUT_MS);
+        window.addEventListener('error', function (e) {
+          // Un fallimento di caricamento/parsing dello script module (rete,
+          // 500/504, sintassi) emette un evento 'error' a livello window
+          // prima che React abbia mai potuto montare: mostra subito
+          // l'invito a riprovare, senza aspettare l'intero timeout.
+          if (!window.__appBooted) showRetry();
+        }, true);
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

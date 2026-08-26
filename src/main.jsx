@@ -1,68 +1,21 @@
-import React, { Component, Suspense, lazy, useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { RouteLoadingFallback } from "./layouts/public/RouteLoadingFallback.jsx";
+import { RouteErrorBoundary } from "./bootstrap/RouteErrorBoundary.jsx";
+import { clearRetryFlag } from "./bootstrap/chunkRetry.js";
 import { warnIfMojibake } from "./lib/mojibakeGuard.js";
-import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "./lib/monitoring/errorLog.js";
 
-// BUG "Driver map page bianca": un dynamic import() fallito (es. Vite dev
-// optimize-deps stale su react-leaflet/leaflet, o un blip di rete) lancia
-// dentro il Suspense boundary di React.lazy — senza un error boundary che lo
-// intercetti, React scarica l'intero albero e lascia <body> vuoto, senza
-// nessun messaggio. Un solo error boundary qui, a monte di TUTTE le route
-// (Driver/Cliente/pubbliche), sostituisce lo schermo bianco con un invito a
-// ricaricare — non tenta un retry automatico silenzioso (rischierebbe un
-// loop se la causa e' persistente), lascia il controllo all'utente.
-class RouteErrorBoundary extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-  componentDidCatch(error, info) {
-    if (import.meta.env.DEV) {
-      // Diagnostico temporaneo (bug "Driver direct link fallisce a volte al
-      // primo carico"): error.message/stack sono la causa reale dietro il
-      // fallback generico "Impossibile caricare la pagina" — mai l'access
-      // token (che non transita mai per questo path, ne' per errori di
-      // rendering ne' per import falliti: e' letto solo da window.location.
-      // search dentro gli hook Driver, mai incluso in un throw/stack).
-      console.error('[RouteErrorBoundary] error.message:', error?.message);
-      console.error('[RouteErrorBoundary] error.stack:', error?.stack);
-      console.error('[RouteErrorBoundary] componentStack:', info?.componentStack);
-    } else {
-      console.error('[RouteErrorBoundary] route crash', error?.message);
-    }
-    // Centro Controllo Sito (Admin): questo e' l'unico error boundary a
-    // monte di TUTTE le route, quindi il posto giusto per registrare un
-    // crash frontend reale — nessun errore simulato, solo cio' che React ha
-    // davvero intercettato.
-    logError({
-      category: ERROR_CATEGORIES.FRONTEND,
-      module: typeof window !== "undefined" ? window.location.pathname + window.location.search : null,
-      message: error?.message || "Errore frontend sconosciuto",
-      severity: ERROR_SEVERITY.CRITICAL,
-    });
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 24, background: '#0b1220', color: 'rgba(255,255,255,.85)', fontFamily: "'DM Sans', Inter, system-ui, sans-serif", textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 15 }}>Impossibile caricare la pagina.</p>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            style={{ minHeight: 48, padding: '0 24px', borderRadius: 12, border: 'none', background: '#2ECC8A', color: '#071426', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
-          >
-            Ricarica
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
+// Segnale per il fallback statico in index.html (script inline, non-module):
+// raggiungere questa riga prova che l'INTERO grafo di import statici di
+// main.jsx si e' risolto con successo (in ES modules le import sono sempre
+// risolte prima che qualunque codice top-level del modulo esegua) — e'
+// esattamente il fallimento riprodotto dal vivo per questo bug (un import
+// statico rotto -> "Failed to reload /src/main.jsx", 500, nessuna riga di
+// questo file esegue mai, #root resta vuoto per sempre). Impostato il prima
+// possibile, non dopo il render: anche se React impiegasse piu' tempo del
+// previsto, il watchdog HTML non deve mostrare un falso "errore" mentre il
+// modulo e' gia' stato caricato correttamente.
+if (typeof window !== "undefined") window.__appBooted = true;
 
 // PERF-1: AppRouter (e tutto cio' che importa staticamente: PublicRoutes,
 // l'intero configuratore Step1-4, ecc.) era un import statico qui, quindi
@@ -131,6 +84,18 @@ function Root() {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
+  // Fase D (retry singolo su chunk load error): se Root per questo path
+  // resta montato senza che RouteErrorBoundary intercetti nulla per qualche
+  // secondo, il chunk lazy di questa route e' verosimilmente stato caricato
+  // con successo — pulisce il flag di retry, cosi' un futuro fallimento
+  // reale su questo stesso pathname (in questa stessa tab) ottiene di nuovo
+  // un tentativo automatico invece di restare marcato "gia' ritentato" per
+  // sempre dopo un singolo blip risolto.
+  useEffect(() => {
+    const timer = window.setTimeout(() => clearRetryFlag(path), 3000);
+    return () => window.clearTimeout(timer);
+  }, [path]);
+
   const driverMatch = path.match(/^\/driver\/tracking\/([^/]+)$/);
   if (driverMatch) return <Suspense fallback={<RouteLoadingFallback />}><TrackingPage campaignId={driverMatch[1]} /></Suspense>;
 
@@ -139,10 +104,10 @@ function Root() {
 
   // ADMIN-DRIVER-LINK-2: link personale driver via assignment_id (no driver_id nell'URL)
   const driverAssignmentMapMatch = path.match(/^\/driver\/assignment\/([^/]+)\/map$/);
-  if (driverAssignmentMapMatch) return <Suspense fallback={<RouteLoadingFallback />}><DriverWorkMapPage assignmentId={driverAssignmentMapMatch[1]} /></Suspense>;
+  if (driverAssignmentMapMatch) return <Suspense fallback={<RouteLoadingFallback />}><DriverWorkMapPage key={driverAssignmentMapMatch[1]} assignmentId={driverAssignmentMapMatch[1]} /></Suspense>;
 
   const driverAssignmentMatch = path.match(/^\/driver\/assignment\/([^/]+)$/);
-  if (driverAssignmentMatch) return <Suspense fallback={<RouteLoadingFallback />}><DriverAssignmentPage assignmentId={driverAssignmentMatch[1]} /></Suspense>;
+  if (driverAssignmentMatch) return <Suspense fallback={<RouteLoadingFallback />}><DriverAssignmentPage key={driverAssignmentMatch[1]} assignmentId={driverAssignmentMatch[1]} /></Suspense>;
 
   const customerMatch = path.match(/^\/customer\/campaigns\/([^/]+)\/tracking$/);
   if (customerMatch) return <Suspense fallback={<RouteLoadingFallback />}><CampaignTracking campaignId={customerMatch[1]} /></Suspense>;
