@@ -437,7 +437,11 @@ test("Admin magic-link session and rate-limit contract", async (t) => {
   });
 
   await t.test("callback neutro viene passato alla SDK nel campo ufficiale emailRedirectTo", () => {
-    assert.match(loginBlock, /emailRedirectTo:\s*`\$\{window\.location\.origin\}\$\{redirectPath\}`/);
+    // Base via getAuthRedirectBase() (dominio pubblico in produzione), non
+    // window.location.origin — che su un dev server LAN/localhost sarebbe un
+    // IP privato irraggiungibile dal link email. Vedi tests/magic_link_redirect.test.mjs.
+    assert.match(loginBlock, /emailRedirectTo:\s*`\$\{getAuthRedirectBase\(\)\}\$\{redirectPath\}`/);
+    assert.doesNotMatch(loginBlock, /emailRedirectTo:\s*`\$\{window\.location\.origin\}/);
     assert.match(loginBlock, /const redirectPath = "\/auth\/callback"/);
     assert.match(loginBlock, /const cleanPath = "\/auth\/callback"/);
     assert.match(loginBlock, /Accesso in corso\.\.\./);

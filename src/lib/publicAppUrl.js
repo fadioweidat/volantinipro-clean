@@ -23,3 +23,41 @@ export function getPublicAppUrl() {
 
   return "";
 }
+
+// Base assoluta per il redirect del magic link Auth (Cliente e Admin),
+// passata come `emailRedirectTo` a supabase.auth.signInWithOtp e quindi
+// serializzata nel redirect_to del ConfirmationURL.
+//
+// Regola: in PRODUZIONE non si usa MAI window.location.origin. Se la richiesta
+// del magic link parte da un dev server raggiungibile in LAN
+// (es. http://192.168.10.65:5174) o da localhost, quell'origin finirebbe nel
+// link ricevuto via email e il Cliente atterrerebbe su un IP privato non
+// pubblico (bug riprodotto: http://192.168.10.65:5174/#access_token=...).
+// In produzione la base e' sempre il dominio pubblico configurato
+// (VITE_PUBLIC_APP_URL, es. https://www.volantinipro.it).
+//
+// In SVILUPPO (import.meta.env.DEV === true) window.location.origin resta
+// corretto: e' l'host reale da cui parte la richiesta ed e' raggiungibile
+// dalla stessa macchina / rete che apre poi il link.
+export function getAuthRedirectBase() {
+  const configured = String(import.meta.env.VITE_PUBLIC_APP_URL || "").trim().replace(/\/+$/, "");
+  const currentOrigin =
+    typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
+
+  if (import.meta.env.DEV) {
+    return currentOrigin || configured;
+  }
+
+  // Produzione.
+  if (configured) return configured;
+  // VITE_PUBLIC_APP_URL assente in produzione e' un errore di configurazione:
+  // l'origin corrente in prod E' comunque il dominio pubblico, meglio quello
+  // di una stringa vuota che romperebbe signInWithOtp.
+  if (currentOrigin) {
+    console.warn("[AUTH_REDIRECT_BASE_MISSING_PUBLIC_APP_URL]", {
+      hint: "Imposta VITE_PUBLIC_APP_URL (dominio pubblico) nell'ambiente Production.",
+    });
+    return currentOrigin;
+  }
+  return "";
+}

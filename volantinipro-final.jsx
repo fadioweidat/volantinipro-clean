@@ -22,6 +22,7 @@ import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
 import { customerValue, CUSTOMER_DATA_UNAVAILABLE, CUSTOMER_PAYMENT_STATE, getCustomerPaymentState } from "./src/lib/customerCampaigns.js";
 import { getBankTransferDetails, BANK_TRANSFER_UNAVAILABLE_MESSAGE } from "./src/lib/bankTransfer.js";
+import { getAuthRedirectBase } from "./src/lib/publicAppUrl.js";
 import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "./src/lib/monitoring/errorLog.js";
 
 // Badge neutro per "Dato non disponibile": usato al posto del rendering
@@ -5175,11 +5176,17 @@ export function LoginPage({
       // serializzata correttamente nel redirect_to del ConfirmationURL.
       // La precedente fetch REST inseriva options.email_redirect_to nel body
       // raw; GoTrue la ignorava e ripiegava sulla Site URL "/".
+      //
+      // Base via getAuthRedirectBase(), NON window.location.origin: in
+      // produzione un magic link richiesto da un dev server LAN/localhost
+      // (window.location.origin = http://192.168.x.x:5174) atterrerebbe su
+      // quell'IP privato. In dev getAuthRedirectBase() ritorna comunque
+      // window.location.origin.
       const { error: otpError } = await authSupabase.auth.signInWithOtp({
         email,
         options: {
           shouldCreateUser: true,
-          emailRedirectTo: `${window.location.origin}${redirectPath}`
+          emailRedirectTo: `${getAuthRedirectBase()}${redirectPath}`
         }
       });
       if (otpError) {
