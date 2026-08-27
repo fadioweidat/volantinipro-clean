@@ -2399,7 +2399,17 @@ export function Step4({
                 gridTemplateColumns: isMobile ? "1fr" : "1.5fr 1fr",
                 gap: 12
               }}>
-                        <button onClick={() => onHome("step1")} style={{
+                        <button onClick={() => {
+                  // Porta la quantita' alla copertura completa (fabbisogno
+                  // reale risolto in requiredQty). Prima questo bottone
+                  // faceva solo onHome("step1") — nessun effetto su
+                  // quantita'/prezzo/copertura. Scrive sui campi che Step1 e
+                  // resolveQuoteQuantity leggono davvero (qty + flyerQuantity),
+                  // cosi' pricing/KPI/copertura si ricalcolano e la sync con
+                  // Step1 resta coerente. Mai un decremento.
+                  const target = Math.max(Number(flyerQty) || 0, Math.round(Number(requiredQty) || 0));
+                  if (target > 0) setData(d => ({ ...d, qty: target, flyerQuantity: target }));
+                }} style={{
                   padding: "14px 18px",
                   borderRadius: 10,
                   border: "none",
