@@ -1,12 +1,36 @@
 // Privacy-safe first-party site analytics (no PII, no third-party
-// provider). Writes go through the same anon-key browser Supabase client
-// already used everywhere else (src/supabaseClient.js) and are restricted
-// server-side by the site_events_insert_anon/site_events_insert_authenticated
-// RLS policies (INSERT-only, event_name allowlist) — see
+// provider). Writes are anonymous INSERT-only, restricted server-side by the
+// site_events_insert_anon/site_events_insert_authenticated RLS policies
+// (event_name allowlist) — see
 // supabase/migrations/20260825190000_site_traffic_events.sql. Tracking is
 // always fire-and-forget: a failed/blocked insert must never affect the UI.
+//
+// Root cause of the "POST /rest/v1/site_events 401 Unauthorized from the
+// homepage" bug: this module used the shared @supabase/supabase-js client
+// (src/supabaseClient.js), which has persistSession/autoRefreshToken enabled
+// and is also fed the app's login session via the setSession bridge. On a
+// returning visitor whose JWT has lapsed (access token expired, refresh no
+// longer valid — a routine state, and the default one for the developer's
+// own browser) the SDK still attaches `Authorization: Bearer <stale JWT>` to
+// this insert, and PostgREST rejects an invalid/expired JWT with 401 (an
+// RLS/permission failure would instead be 403 — verified: a direct anon
+// INSERT with the current publishable key returns 201). Analytics has no
+// reason to be authenticated, so it now posts as anon explicitly via its own
+// fetch, never through the session-bearing SDK client.
 
-import { supabase } from "../../supabaseClient.js";
+function analyticsEnv() {
+  try {
+    return {
+      url: import.meta.env.VITE_SUPABASE_URL,
+      anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+    };
+  } catch {
+    if (typeof process !== "undefined" && process.env) {
+      return { url: process.env.VITE_SUPABASE_URL, anonKey: process.env.VITE_SUPABASE_ANON_KEY };
+    }
+    return { url: undefined, anonKey: undefined };
+  }
+}
 
 export const SITE_EVENT_NAMES = Object.freeze({
   PAGE_VIEW: "page_view",
@@ -50,16 +74,30 @@ export function getAnonymousSessionId() {
 
 async function insertSiteEvent(eventName, { path = null, campaignId = null, quoteId = null } = {}) {
   if (!ALLOWED_EVENTS.includes(eventName)) return;
-  if (!supabase) return;
+  const { url, anonKey } = analyticsEnv();
+  if (!url || !anonKey) return;
   const anonymousSessionId = getAnonymousSessionId();
   if (!anonymousSessionId) return;
   try {
-    await supabase.from("site_events").insert({
-      event_name: eventName,
-      anonymous_session_id: anonymousSessionId,
-      path,
-      campaign_id: campaignId,
-      quote_id: quoteId,
+    // Anon only: apikey + Authorization both carry the publishable key, never
+    // a user JWT. Prefer=return=minimal so PostgREST does not echo the row
+    // back (no SELECT grant for anon anyway).
+    await fetch(`${url}/rest/v1/site_events`, {
+      method: "POST",
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        event_name: eventName,
+        anonymous_session_id: anonymousSessionId,
+        path,
+        campaign_id: campaignId,
+        quote_id: quoteId,
+      }),
+      keepalive: true,
     });
   } catch {
     // Fire-and-forget: il tracking non deve mai bloccare o rompere l'esperienza utente.
