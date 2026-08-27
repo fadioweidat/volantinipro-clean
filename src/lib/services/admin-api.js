@@ -749,6 +749,26 @@ export async function listAssignableOperators() {
   }
 }
 
+// Aggiorna il telefono di un operatore (public.profiles.phone via
+// operator_profiles.user_id). Solo Admin/Super Admin: la RPC SECURITY DEFINER
+// admin_set_operator_phone applica il guard jwt_is_admin() e la stessa
+// validazione lato server. Ritorna la riga operatore aggiornata (stessa forma
+// di admin_list_operators) per il refresh immediato della UI.
+export async function adminSetOperatorPhone(operatorId, phone) {
+  if (!supabase) throw new Error('Supabase non configurato.');
+  if (!isValidUuid(operatorId)) throw new Error('id operatore non valido.');
+  await ensureSupabaseSessionBridge();
+  const { data, error } = await supabase.rpc('admin_set_operator_phone', {
+    p_operator_id: operatorId,
+    p_phone: phone == null || phone === '' ? null : phone,
+  });
+  if (error) {
+    console.error('[ADMIN_SET_OPERATOR_PHONE_ERROR]', error?.message);
+    throw new Error(error.message || 'Aggiornamento telefono non riuscito.');
+  }
+  return Array.isArray(data) ? data[0] || null : data || null;
+}
+
 export async function listCampaignAssignments(campaignId) {
   if (!supabase) return [];
   if (!isValidUuid(campaignId)) return [];

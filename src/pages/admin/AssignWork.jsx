@@ -11,7 +11,9 @@ import {
   setAssignmentZones,
   listAssignmentZones,
   updateCampaignZoneAssignment,
+  adminSetOperatorPhone,
 } from '../../lib/services/admin-api.js';
+import { isValidPhone, normalizePhone, PHONE_INPUT_PLACEHOLDER } from '../../lib/phoneNumber.js';
 import { getCampaignRecord } from '../../lib/services/gps-api.js';
 import { AssignWorkGroupOperatorStep } from './assign-work/AssignWorkGroupOperatorStep.jsx';
 import { AssignWorkProgramStep } from './assign-work/AssignWorkProgramStep.jsx';
@@ -109,6 +111,51 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
 
   const selectedOperator = operators.find(op => op.id === selectedOperatorId) || null;
   const selectedGroup = groups.find(group => group.id === selectedGroupId) || null;
+
+  // Inline edit del telefono operatore (Step 1). Aggiorna profiles.phone via
+  // la RPC admin-only admin_set_operator_phone, poi rinfresca `operators` in
+  // memoria: selectedOperator (e quindi il link WhatsApp) usa subito il nuovo
+  // numero, nessun reload.
+  const [phoneEditId, setPhoneEditId] = useState(null);
+  const [phoneDraft, setPhoneDraft] = useState('');
+  const [phoneSaving, setPhoneSaving] = useState(false);
+  const [phoneError, setPhoneError] = useState(null);
+
+  const startEditPhone = useCallback((operator) => {
+    setPhoneEditId(operator.id);
+    setPhoneDraft(operator.phone || '');
+    setPhoneError(null);
+  }, []);
+
+  const cancelEditPhone = useCallback(() => {
+    setPhoneEditId(null);
+    setPhoneDraft('');
+    setPhoneError(null);
+  }, []);
+
+  const saveOperatorPhone = useCallback(async (operatorId) => {
+    const next = normalizePhone(phoneDraft);
+    if (!isValidPhone(next)) {
+      setPhoneError('Numero non valido. Usa un formato tipo +39 333 1234567.');
+      return;
+    }
+    setPhoneSaving(true);
+    setPhoneError(null);
+    try {
+      const updated = await adminSetOperatorPhone(operatorId, next);
+      setOperators(prev => prev.map(op => (
+        op.id === operatorId
+          ? { ...op, phone: updated?.phone ?? (next === '' ? null : next) }
+          : op
+      )));
+      cancelEditPhone();
+    } catch (err) {
+      setPhoneError(err?.message || 'Aggiornamento telefono non riuscito.');
+    } finally {
+      setPhoneSaving(false);
+    }
+  }, [phoneDraft, cancelEditPhone]);
+
   const campaignTitle = campaign?.title || campaign?.campaign_name || campaign?.nome || `Campagna ${String(campaignId).slice(0, 8)}`;
 
   async function handleCreateGroup(event) {
@@ -394,6 +441,15 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           operators={operators}
           selectedOperatorId={selectedOperatorId}
           setSelectedOperatorId={setSelectedOperatorId}
+          phoneEditId={phoneEditId}
+          phoneDraft={phoneDraft}
+          setPhoneDraft={setPhoneDraft}
+          phoneSaving={phoneSaving}
+          phoneError={phoneError}
+          onStartEditPhone={startEditPhone}
+          onCancelEditPhone={cancelEditPhone}
+          onSaveOperatorPhone={saveOperatorPhone}
+          phonePlaceholder={PHONE_INPUT_PLACEHOLDER}
           canGoNext={canGoNext}
           setStep={setStep}
           styles={{

@@ -1,5 +1,7 @@
-export function AssignWorkGroupOperatorStep({ Notice, groups, selectedGroupId, setSelectedGroupId, groupCreatorOpen, setGroupCreatorOpen, handleCreateGroup, newGroupName, setNewGroupName, newGroupLeadId, setNewGroupLeadId, groupSaving, operators, selectedOperatorId, setSelectedOperatorId, canGoNext, setStep, styles }) {
+export function AssignWorkGroupOperatorStep({ Notice, groups, selectedGroupId, setSelectedGroupId, groupCreatorOpen, setGroupCreatorOpen, handleCreateGroup, newGroupName, setNewGroupName, newGroupLeadId, setNewGroupLeadId, groupSaving, operators, selectedOperatorId, setSelectedOperatorId, phoneEditId, phoneDraft, setPhoneDraft, phoneSaving, phoneError, onStartEditPhone, onCancelEditPhone, onSaveOperatorPhone, phonePlaceholder, canGoNext, setStep, styles }) {
   const { cardStyle, eyebrowStyle, sectionTitleStyle, operatorCardStyle, checkStyle, secondaryBtnStyle, formGridStyle, labelStyle, inputStyle, disabledBtnStyle, primaryBtnStyle, footerRowStyle, operatorAvatarStyle } = styles;
+  const editLinkStyle = { background: 'none', border: 'none', color: '#e8571a', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '2px 4px' };
+  const phoneRowStyle = { display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 6, padding: '8px 10px', borderRadius: 10, background: 'rgba(232,87,26,.06)', border: '1px solid rgba(232,87,26,.2)' };
   return (
         <div style={cardStyle}>
           <p style={eyebrowStyle}>Step 1 — Scegli gruppo e persona</p>
@@ -42,35 +44,83 @@ export function AssignWorkGroupOperatorStep({ Notice, groups, selectedGroupId, s
           ) : (
             <div style={{ display: 'grid', gap: 8 }}>
               {operators.map(op => (
-                <button
-                  key={op.id}
-                  type="button"
-                  style={{
-                    ...operatorCardStyle,
-                    border: selectedOperatorId === op.id
-                      ? '2px solid #e8571a'
-                      : '1px solid rgba(255,255,255,.1)',
-                    background: selectedOperatorId === op.id
-                      ? 'rgba(232,87,26,.1)'
-                      : 'rgba(255,255,255,.03)',
-                  }}
-                  onClick={() => setSelectedOperatorId(op.id)}
-                >
-                  <div style={operatorAvatarStyle}>
-                    {(op.display_name || '?').slice(0, 1).toUpperCase()}
-                  </div>
-                  <div>
-                    <strong style={{ color: '#fff', fontSize: 15 }}>
-                      {op.display_name || `Operatore ${op.id.slice(0, 8)}`}
-                    </strong>
-                    <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,.5)' }}>
-                      {op.phone || 'Telefono non inserito'} · {op.status}
-                    </p>
-                  </div>
-                  {selectedOperatorId === op.id && (
-                    <span style={checkStyle}>✓</span>
+                <div key={op.id}>
+                  <button
+                    type="button"
+                    style={{
+                      ...operatorCardStyle,
+                      border: selectedOperatorId === op.id
+                        ? '2px solid #e8571a'
+                        : '1px solid rgba(255,255,255,.1)',
+                      background: selectedOperatorId === op.id
+                        ? 'rgba(232,87,26,.1)'
+                        : 'rgba(255,255,255,.03)',
+                    }}
+                    onClick={() => setSelectedOperatorId(op.id)}
+                  >
+                    <div style={operatorAvatarStyle}>
+                      {(op.display_name || '?').slice(0, 1).toUpperCase()}
+                    </div>
+                    <div>
+                      <strong style={{ color: '#fff', fontSize: 15 }}>
+                        {op.display_name || `Operatore ${op.id.slice(0, 8)}`}
+                      </strong>
+                      <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,.5)' }}>
+                        {op.phone || 'Telefono non inserito'} · {op.status}
+                      </p>
+                    </div>
+                    {selectedOperatorId === op.id && (
+                      <span style={checkStyle}>✓</span>
+                    )}
+                  </button>
+
+                  {phoneEditId === op.id ? (
+                    <div style={phoneRowStyle}>
+                      <input
+                        type="tel"
+                        autoFocus
+                        value={phoneDraft}
+                        placeholder={phonePlaceholder}
+                        onChange={(event) => setPhoneDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') { event.preventDefault(); onSaveOperatorPhone(op.id); }
+                          if (event.key === 'Escape') { event.preventDefault(); onCancelEditPhone(); }
+                        }}
+                        style={{ ...inputStyle, flex: '1 1 180px', minWidth: 0 }}
+                        aria-label={`Telefono di ${op.display_name || 'operatore'}`}
+                      />
+                      <button
+                        type="button"
+                        disabled={phoneSaving}
+                        onClick={() => onSaveOperatorPhone(op.id)}
+                        style={phoneSaving ? disabledBtnStyle : primaryBtnStyle}
+                      >
+                        {phoneSaving ? 'Salvataggio…' : 'Salva'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={phoneSaving}
+                        onClick={onCancelEditPhone}
+                        style={secondaryBtnStyle}
+                      >
+                        Annulla
+                      </button>
+                      {phoneError && (
+                        <span style={{ flexBasis: '100%', color: '#ff8a65', fontSize: 12, fontWeight: 700 }}>
+                          {phoneError}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onStartEditPhone(op)}
+                      style={editLinkStyle}
+                    >
+                      ✏️ Modifica telefono
+                    </button>
                   )}
-                </button>
+                </div>
               ))}
             </div>
           )}
