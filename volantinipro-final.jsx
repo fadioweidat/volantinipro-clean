@@ -21,6 +21,7 @@ import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
 import { customerValue, CUSTOMER_DATA_UNAVAILABLE, CUSTOMER_PAYMENT_STATE, getCustomerPaymentState } from "./src/lib/customerCampaigns.js";
+import { getBankTransferDetails, BANK_TRANSFER_UNAVAILABLE_MESSAGE } from "./src/lib/bankTransfer.js";
 import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "./src/lib/monitoring/errorLog.js";
 
 // Badge neutro per "Dato non disponibile": usato al posto del rendering
@@ -6505,9 +6506,10 @@ export function CampaignDashboardPage({
       </div>
     </div>;
 }
-const BONIFICO_IBAN = import.meta.env.VITE_IBAN || "IT60 X0000 0000 0000 0000 0000 000";
-const BONIFICO_INTESTATARIO = import.meta.env.VITE_INTESTATARIO || "VolantiniPro Srl";
-const BONIFICO_BANCA = import.meta.env.VITE_BANCA || "Banca Sella";
+// Nessun placeholder: se le coordinate bancarie reali non sono configurate
+// (VITE_IBAN / VITE_INTESTATARIO / VITE_BANCA), BONIFICO.available e' false e
+// la UI mostra BANK_TRANSFER_UNAVAILABLE_MESSAGE invece di un IBAN finto.
+const BONIFICO = getBankTransferDetails();
 export function PagamentoBonificoPage({
   onNav,
   campaignId
@@ -6657,7 +6659,12 @@ export function PagamentoBonificoPage({
           textTransform: "uppercase",
           marginBottom: 14
         }}>Istruzioni bonifico</div>
-          {[["Intestatario", BONIFICO_INTESTATARIO], ["Banca", BONIFICO_BANCA], ["IBAN", BONIFICO_IBAN], ["Importo", campagna.totale_euro == null ? customerValue(null) : `€${Number(campagna.totale_euro).toLocaleString("it-IT", {
+          {!BONIFICO.available ? <div style={{
+          fontFamily: F.sans,
+          fontSize: 13,
+          color: "rgba(255,255,255,.7)",
+          lineHeight: 1.6
+        }}>{BANK_TRANSFER_UNAVAILABLE_MESSAGE}</div> : [["Intestatario", BONIFICO.intestatario], ["Banca", BONIFICO.banca], ["IBAN", BONIFICO.iban], ["Importo", campagna.totale_euro == null ? customerValue(null) : `€${Number(campagna.totale_euro).toLocaleString("it-IT", {
           minimumFractionDigits: 2
         })}`], ["Causale", customerValue(campagna.causale_bonifico)]].map(([l, v]) => <div key={l} style={{
           display: "grid",
@@ -6683,14 +6690,14 @@ export function PagamentoBonificoPage({
         fontSize: 12,
         lineHeight: 1.5,
         marginBottom: 14
-      }}>Inserire la causale esatta per il corretto abbinamento. La distribuzione parte entro 24h dalla ricezione del bonifico.</div>
+      }}>{BONIFICO.available ? "Inserire la causale esatta per il corretto abbinamento. La distribuzione parte entro 24h dalla ricezione del bonifico." : "Le istruzioni di pagamento saranno disponibili a breve. Nessun bonifico va effettuato finche' le coordinate non sono confermate."}</div>
         <div style={{
         display: "flex",
         gap: 10,
         flexWrap: "wrap",
         marginBottom: 14
       }}>
-          <button onClick={() => copy("IBAN", BONIFICO_IBAN)} style={{
+          {BONIFICO.available && <button onClick={() => copy("IBAN", BONIFICO.iban)} style={{
           minHeight: 44,
           padding: "0 14px",
           borderRadius: 10,
@@ -6701,7 +6708,7 @@ export function PagamentoBonificoPage({
           fontSize: 13,
           fontWeight: 800,
           cursor: "pointer"
-        }}>Copia IBAN</button>
+        }}>Copia IBAN</button>}
           <button disabled={!campagna.causale_bonifico} onClick={() => copy("Causale", campagna.causale_bonifico)} style={{
           minHeight: 44,
           padding: "0 14px",

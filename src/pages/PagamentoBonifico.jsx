@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { useCampagnaDetail } from '../hooks/useCampagnaDetail'
 import { customerValue } from '../lib/customerCampaigns.js'
+import { getBankTransferDetails, BANK_TRANSFER_UNAVAILABLE_MESSAGE } from '../lib/bankTransfer.js'
 
-const IBAN          = import.meta.env.VITE_IBAN || 'IT60 X0000 0000 0000 0000 0000 000'
-const INTESTATARIO  = import.meta.env.VITE_INTESTATARIO || 'VolantiniPro Srl'
-const BANCA         = 'Banca Sella'
+// Nessun placeholder: coordinate reali solo se VITE_IBAN / VITE_INTESTATARIO
+// / VITE_BANCA sono tutte configurate, altrimenti bonifico non disponibile.
+const BANK = getBankTransferDetails()
 
 const C = {
   orange: "#E8571A",
@@ -71,10 +72,15 @@ export function PagamentoBonificoPage({ campaignId, onNav }) {
         </div>
         
         <div style={{ padding: '24px' }}>
+          {!BANK.available ? (
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,.75)', lineHeight: 1.6, margin: 0 }}>
+              {BANK_TRANSFER_UNAVAILABLE_MESSAGE}
+            </p>
+          ) : (<>
           {[
-            { label: 'Intestatario', value: INTESTATARIO },
-            { label: 'Banca', value: BANCA },
-            { label: 'IBAN', value: IBAN, copy: true },
+            { label: 'Intestatario', value: BANK.intestatario },
+            { label: 'Banca', value: BANK.banca },
+            { label: 'IBAN', value: BANK.iban, copy: true },
             { label: 'Importo', value: info.totale_euro == null ? customerValue(null) : `€${info.totale_euro.toFixed(2)}`, copy: info.totale_euro != null, valueToCopy: info.totale_euro?.toFixed(2) },
             { label: 'Causale', value: customerValue(info.causale_bonifico), copy: Boolean(info.causale_bonifico), bold: true },
           ].map((row, i) => (
@@ -100,6 +106,7 @@ export function PagamentoBonificoPage({ campaignId, onNav }) {
               ⏱ La distribuzione parte entro 24h lavorative dal ricevimento del bonifico.
             </p>
           </div>
+          </>)}
         </div>
       </div>
 
