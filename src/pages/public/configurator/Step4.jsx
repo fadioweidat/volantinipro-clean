@@ -135,7 +135,8 @@ export function Step4({
   const EXTRA_SERVICES_REGISTRY = buildExtraServicesRegistry({
     flyerQty,
     durationDays: selDays.length || 1,
-    campaignDurationKnown
+    campaignDurationKnown,
+    printConfig: data.printing ? { ...data.printing, urgency: data.urgency } : null
   });
   const svcCommercial = buildSvcCommercial(EXTRA_SERVICES_REGISTRY);
   const EXTRA_SERVICES_BY_ID = buildExtraServicesById(EXTRA_SERVICES_REGISTRY);
@@ -1932,7 +1933,7 @@ export function Step4({
             }, data.printing?.enabled && data.printing?.sides && {
               icon: "",
               l: "Lati",
-              v: data.printing.sides === "fronte_retro" ? "Fronte/retro" : "Solo fronte",
+              v: { fronte: "Solo fronte", fronte_retro_eq: "Fronte/retro uguali", fronte_retro: "Fronte/retro differenti" }[data.printing.sides] || "Fronte/retro differenti",
               c: C.white
             }, data.printing?.enabled && data.printing?.color && {
               icon: "",

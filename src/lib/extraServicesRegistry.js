@@ -29,7 +29,9 @@ export const EXTRA_CATEGORIES = {
 // doppio addebito) e vanno mostrati come "gia' inclusi" nella UI.
 export const CONTROL_PRO_INCLUDED_IDS = ["tracking_gps", "photo_proof", "photo_report_advanced"];
 
-export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDurationKnown }) {
+import { computePrintEstimate } from "./pricing/printPricing.js";
+
+export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDurationKnown, printConfig }) {
   return [
     {
       id: "tracking_gps", legacyIds: ["gps", "tracking_gps", "gps_default"], addId: "gps",
@@ -135,7 +137,15 @@ export function buildExtraServicesRegistry({ flyerQty, durationDays, campaignDur
       commercialIcon: "printer", head: "Stampa Materiale", col: "#60A5FA", badge: "Miglior rapporto qualità/prezzo",
       bullets: ["Produzione professionale del materiale", "Qualità certificata per distribuzione", "Consegna prima della campagna"],
       mappingLabel: "Stampa materiale", mappingDescription: "Produzione del materiale prima della distribuzione.", mappingIcon: "",
-      price: Math.ceil((flyerQty || 10000) / 1000) * 12, optional: false,
+      price: computePrintEstimate({
+        quantity: flyerQty || 10000,
+        printFormat: printConfig?.format,
+        grammage: printConfig?.grammage,
+        sides: printConfig?.sides,
+        color: printConfig?.color,
+        fold: printConfig?.folding ?? printConfig?.fold,
+        urgency: printConfig?.urgency,
+      }), optional: false,
     },
     {
       id: "design", legacyIds: ["grafica", "design", "preparazione_grafica"],

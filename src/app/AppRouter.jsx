@@ -53,12 +53,12 @@ const ClientCampaignReport = lazy(() => import("../pages/customer/ClientCampaign
 function createEmptyConfiguratorData() {
   return {
     type: null, activityType: "", activityNote: "", qty: 10000,
-    hasFlyers: "yes", flyerFormat: "a5", flyerWeight: "115", extraServices: [], printGramm: "115", printSide: "fronte", printColor: "cmyk",
-    printing: { enabled: false, format: "a5", paperType: "patinata_opaca", grammage: "115", sides: "fronte_retro", color: "cmyk", folding: "nessuna", artworkStatus: "da_creare", notes: "" },
+    hasFlyers: "yes", flyerFormat: "a5", flyerWeight: "130", extraServices: [], printGramm: "130", printSide: "fronte", printColor: "cmyk",
+    printing: { enabled: false, format: "a5", paperType: "patinata_opaca", grammage: "130", sides: "fronte_retro", color: "cmyk", folding: "nessuna", artworkStatus: "da_creare", notes: "" },
     urgency: "normal", subscription: "single", campaignsPerMonth: 1,
     selectedService: null, activeService: null, businessSector: "", flyerQuantity: 10000,
     campaignPeriodStart: "", campaignPeriodEnd: "", alreadyPrinted: true,
-    printServices: [], paperWeight: "115", printSides: "fronte", colorMode: "cmyk",
+    printServices: [], paperWeight: "130", printSides: "fronte", colorMode: "cmyk",
     campaignPlan: "single", totalCampaigns: 1, planDiscount: 0,
     redistExtra: null, zoneMode: "auto", zoneCountIntent: "single",
     city: null, cityName: "", radius: 3, selectedRadius: 3, searchedLocation: "", zones: [], selectedZones: [], selectedComuni: [],

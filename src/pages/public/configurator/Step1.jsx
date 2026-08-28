@@ -10,6 +10,7 @@ import { buildPromoterAssignments, geocodePromoterAssignment } from "../../../li
 import { DISTRIBUTION_TARGET_OPTIONS } from "../../../lib/step2/activityTargets.js";
 import { distributionTypes } from "../../../lib/distributionTypes.js";
 import { FLYER_FORMAT_OPTIONS, PROMOTER_COUNT_OPTIONS, PROMOTER_LOCATION_TYPE_OPTIONS, PROMOTER_SHIFT_DURATION_OPTIONS, PROMOTER_TIME_SLOT_OPTIONS } from "../../../lib/step1/step1OptionLists.js";
+import { calculatePrintPrice, PRINT_FORMAT_OPTIONS, isPrintFormatConfigured, toPrintableFormat } from "../../../lib/pricing/printPricing.js";
 import { GEO_DATA } from "../../../lib/geoData.js";
 import { getMunicipalityDedupKey, normalizeTerritoryName } from "../../../lib/step2/addressIntent.js";
 import { H2H_FLYERS_PER_PROMOTER_HOUR } from "../../../lib/step2/operationalMetrics.js";
@@ -156,19 +157,7 @@ export function Step1({
     label: "Sì, voglio anche stampa",
     desc: "Aggiungiamo la stampa tipografica professionale al preventivo finale"
   }];
-  const printFormatOptions = [{
-    id: "A6",
-    label: "A6",
-    size: "10x15 cm"
-  }, {
-    id: "A5",
-    label: "A5",
-    size: "15x21 cm"
-  }, {
-    id: "A4",
-    label: "A4",
-    size: "21x29 cm"
-  }];
+  const printFormatOptions = PRINT_FORMAT_OPTIONS;
   const printPaperTypeOptions = [{
     id: "patinata_lucida",
     label: "Patinata lucida"
@@ -180,24 +169,33 @@ export function Step1({
     label: "Uso mano"
   }];
   const printGrammageOptions = [{
-    id: "90",
-    label: "90g"
-  }, {
-    id: "115",
-    label: "115g"
+    id: "100",
+    label: "100g"
   }, {
     id: "130",
     label: "130g"
   }, {
     id: "170",
     label: "170g"
+  }, {
+    id: "250",
+    label: "250g"
+  }, {
+    id: "300",
+    label: "300g"
+  }, {
+    id: "350",
+    label: "350g"
   }];
   const printSidesOptions = [{
     id: "fronte",
     label: "Solo fronte"
   }, {
+    id: "fronte_retro_eq",
+    label: "Fronte/retro uguali"
+  }, {
     id: "fronte_retro",
-    label: "Fronte/retro"
+    label: "Fronte/retro differenti"
   }];
   const printColorOptions = [{
     id: "colori",
@@ -223,10 +221,13 @@ export function Step1({
     id: "da_creare",
     label: "Da creare"
   }];
+  // Default = configurazione dei benchmark stampa reali (~130 g, fronte/retro
+  // differenti). Le altre opzioni vengono salvate ma NON cambiano il prezzo
+  // finche' non ci sono benchmark reali distinti (vedi printPricing.js).
   const printing = {
-    format: String(data.flyerFormat || "A5").toUpperCase(),
-    grammage: String(data.paperWeight || data.printGramm || "115"),
-    sides: data.printSides || data.printSide || "fronte",
+    format: toPrintableFormat(data.printing?.format || data.flyerFormat || "A5"),
+    grammage: String(data.paperWeight || data.printGramm || "130"),
+    sides: data.printSides || data.printSide || "fronte_retro",
     color: data.colorMode === "cmyk" ? "colori" : data.colorMode || data.printColor || "colori",
     folding: "nessuna",
     artworkStatus: "pronto",
@@ -238,6 +239,17 @@ export function Step1({
       ...patch
     }
   });
+  // Formato di stampa e formato materiale/logistico: quando la stampa e'
+  // attiva il secondo si sincronizza automaticamente col primo (UX richiesta).
+  // Il formato di stampa NON cambia il prezzo (il motore reale dipende solo
+  // dalla quantita'), ma tiene coerente la specifica salvata.
+  const setPrintFormat = id => {
+    const fmt = toPrintableFormat(id);
+    updateData({
+      flyerFormat: fmt,
+      printing: { ...printing, format: fmt }
+    });
+  };
   const priorityOptions = [{
     id: "normal",
     label: "Standard",
@@ -295,9 +307,32 @@ export function Step1({
     monthly12: 8
   }[data.subscription] || 0;
   if (discPct > 0) distEst = distEst * (1 - discPct / 100);
-  const printEst = data.hasFlyers === "no" ? Math.round(activeQty / 1000 * 29) : 0;
+  // "Sì, voglio anche stampa" ⟺ hasFlyers === "no" (id fuorviante della card).
+  const printActive = data.hasFlyers === "no";
+  // Motore prezzi stampa centralizzato (src/lib/pricing/printPricing.js).
+  // PREZZO VERIFICATO = SOLO quantita' + printFormat (A6/A5) + interpolazione +
+  // ricarico interno 20% (gia' nel customerPrice, mai esposto come voce).
+  // grammatura/lati/colore/carta/piega/urgenza vengono salvati ma NON cambiano
+  // il prezzo (nessun benchmark reale). A4 = NOT_CONFIGURED: nessun prezzo.
+  const printFormatConfigured = isPrintFormatConfigured(printing.format);
+  const printPrice = calculatePrintPrice({
+    quantity: activeQty,
+    printFormat: printing.format,
+    grammage: printing.grammage,
+    sides: printing.sides,
+    color: printing.color,
+    paperType: printing.paperType,
+    fold: printing.folding,
+    urgency: data.urgency,
+    enabled: printActive
+  });
+  const printEst = printActive && printPrice.customerPrice != null ? printPrice.customerPrice : 0;
+  const printEstUnknown = printActive && !printFormatConfigured;
   const subtotalEst = distEst + printEst;
   const totalEstFormatted = Math.round(subtotalEst).toLocaleString("it-IT");
+  const eur2 = n => `€ ${Number(n).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const sidesLabel = { fronte: "solo fronte", fronte_retro_eq: "fronte/retro uguali", fronte_retro: "fronte/retro differenti" }[printing.sides] || "fronte/retro differenti";
+  const printSpecLabel = `${String(printing.format || "A5").toUpperCase()} · ${new Intl.NumberFormat("it-IT").format(activeQty)} pz · ${String(printing.grammage || "130")}g · ${sidesLabel}`;
   const handleContinue = async () => {
     const isBusinessService = data.type === "b2b" || data.type === "business-distribution";
     if (step1Issues.length > 0) {
@@ -674,7 +709,7 @@ export function Step1({
     urgent: "Urgente (+20%)",
     express: "Express (+35%)"
   }[data.urgency] || "Da selezionare";
-  const currentPrintLabel = data.printing?.enabled ? "Da stampare (+stampa)" : (data.printing?.enabled === false ? "Già stampati" : "Da selezionare");
+  const currentPrintLabel = data.hasFlyers === "no" ? "Sì" : (data.hasFlyers === "yes" ? "No" : "Da selezionare");
   const currentFormatLabel = data.flyerFormat ? String(data.flyerFormat).toUpperCase() : "Da selezionare";
   const businessDefinitionMode = data.businessDefinitionMode || "materials";
   const step1Issues = [!data.type && {
@@ -753,7 +788,7 @@ export function Step1({
     label: "Zona",
     val: isB2B ? data.businessZone || "Da selezionare" : "Da selezionare nello Step 2"
   }, {
-    label: "Formato",
+    label: "Formato materiale",
     val: currentFormatLabel
   }, {
     label: "Quantità",
@@ -764,7 +799,13 @@ export function Step1({
   }, {
     label: "Stampa",
     val: currentPrintLabel
+  }, ...(printActive ? [{
+    label: "Formato stampa",
+    val: printFormatConfigured ? String(printing.format || "A5").toUpperCase() : `${String(printing.format || "A4").toUpperCase()} · prezzo da verificare`
   }, {
+    label: "Costo stampa",
+    val: printEstUnknown ? "Da verificare" : eur2(printEst)
+  }] : []), {
     label: "Urgenza",
     val: currentUrgencyLabel
   }, ...(data.puntiVetrina ? [{
@@ -984,7 +1025,14 @@ export function Step1({
         top: 22,
         zIndex: 8
       }} aria-label="Riepilogo configurazione">
-          <Step1Summary rows={summaryRows} issues={step1Issues} isMobile={isMobile} />
+          <Step1Summary rows={summaryRows} issues={step1Issues} isMobile={isMobile} estimate={{
+          printActive,
+          printCost: printEst,
+          printUnknown: printEstUnknown,
+          printSpecLabel,
+          distributionCost: Math.round(distEst),
+          total: Math.round(subtotalEst)
+        }} />
         </aside>
         {/* Left Column: Configuration Sections */}
         <div style={{
@@ -1920,14 +1968,20 @@ export function Step1({
           }}>
               {materialOptions.map(m => {
               const active = data.printing?.enabled ? m.id === "no" : (data.printing?.enabled === false ? m.id === "yes" : false);
-              return <button type="button" aria-pressed={active} key={m.id} onClick={() => updateData({
-                hasFlyers: m.id,
-                extraServices: m.id === "yes" ? (data.extraServices || []).filter(s => !["stampa", "grafica"].includes(s)) : data.extraServices || [],
-                printing: {
-                  ...printing,
-                  enabled: m.id === "no"
-                }
-              })} className={`vp-s1-card-hover${active ? " vp-s1-card-selected" : ""}`} style={{
+              return <button type="button" aria-pressed={active} key={m.id} onClick={() => {
+                const enablingPrint = m.id === "no";
+                const syncedFormat = enablingPrint ? toPrintableFormat(printing.format || data.flyerFormat) : (data.flyerFormat || printing.format);
+                updateData({
+                  hasFlyers: m.id,
+                  ...(syncedFormat ? { flyerFormat: syncedFormat } : {}),
+                  extraServices: m.id === "yes" ? (data.extraServices || []).filter(s => !["stampa", "grafica"].includes(s)) : data.extraServices || [],
+                  printing: {
+                    ...printing,
+                    format: syncedFormat ? String(syncedFormat).toUpperCase() : printing.format,
+                    enabled: enablingPrint
+                  }
+                });
+              }} className={`vp-s1-card-hover${active ? " vp-s1-card-selected" : ""}`} style={{
                 padding: 24,
                 borderRadius: 20,
                 ...s1Card(active),
@@ -1959,7 +2013,7 @@ export function Step1({
             </div>
 
             {/* Modulo stampa — visibile solo se "Sì, voglio anche stampa" */}
-            {data.hasFlyers === "no" && <div style={{
+            {printActive && <div style={{
             borderTop: "1px solid rgba(255,255,255,0.08)",
             paddingTop: 24,
             marginBottom: 32,
@@ -1967,17 +2021,63 @@ export function Step1({
             flexDirection: "column",
             gap: 20
           }}>
+                <div>
+                  <div style={{
+                fontSize: 15,
+                fontWeight: 800,
+                color: "#F8FAFC",
+                marginBottom: 4
+              }}>Formato di stampa</div>
+                  <div style={{
+                fontSize: 13,
+                color: "#94A3B8",
+                fontWeight: 500
+              }}>Scegli il formato che vuoi stampare. Il prezzo viene aggiornato automaticamente.</div>
+                </div>
+
+                <div style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "repeat(3, 1fr)" : "repeat(3, 1fr)",
+              gap: 14
+            }}>
+                  {printFormatOptions.map(fmt => {
+                const active = String(printing.format || "").toUpperCase() === fmt.id;
+                const configured = isPrintFormatConfigured(fmt.id);
+                return <button type="button" aria-pressed={active} key={fmt.id} onClick={() => setPrintFormat(fmt.id)} className={`vp-s1-card-hover${active ? " vp-s1-card-selected" : ""}`} style={{
+                  padding: 20,
+                  borderRadius: 16,
+                  ...s1Card(active),
+                  cursor: "pointer",
+                  textAlign: "center"
+                }}>
+                        <div style={{
+                    fontFamily: F.serif,
+                    fontSize: 30,
+                    color: active ? s1Green : "#F8FAFC",
+                    marginBottom: 6
+                  }}>{fmt.label}</div>
+                        <div style={{
+                    fontSize: 12,
+                    color: active ? s1Green : "#94A3B8"
+                  }}>{fmt.size}</div>
+                        {!configured && <div style={{
+                    fontSize: 10,
+                    color: "#FBBF24",
+                    marginTop: 6,
+                    fontWeight: 700
+                  }}>Prezzo da verificare</div>}
+                      </button>;
+              })}
+                </div>
+
                 <div style={{
               fontSize: 15,
               fontWeight: 800,
-              color: "#F8FAFC"
+              color: "#F8FAFC",
+              marginTop: 4
             }}>Dettagli di stampa</div>
 
                 {[{
-              key: "format",
-              label: "Formato di stampa",
-              options: printFormatOptions
-            }, {
               key: "paperType",
               label: "Tipo carta",
               options: printPaperTypeOptions
@@ -2051,19 +2151,26 @@ export function Step1({
                 </div>
 
                 <div style={{
-              padding: "10px 14px",
+              padding: "12px 14px",
               borderRadius: 10,
-              background: "rgba(148,163,184,0.08)",
-              border: "1px solid rgba(148,163,184,0.15)",
-              fontSize: 12,
-              color: "#94A3B8",
-              fontStyle: "italic"
+              background: printEstUnknown ? "rgba(251,191,36,0.08)" : "rgba(34,197,94,0.08)",
+              border: `1px solid ${printEstUnknown ? "rgba(251,191,36,0.28)" : "rgba(34,197,94,0.22)"}`,
+              fontSize: 13,
+              color: "#F8FAFC",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
+              flexWrap: "wrap"
             }}>
-                  Il prezzo di stampa verrà calcolato nel preventivo finale.
+                  <span style={{ color: "#94A3B8" }}>Stampa&nbsp;<span style={{ fontSize: 11 }}>({printSpecLabel})</span>{printPrice.estimatedBeyondBenchmark ? <span style={{ fontSize: 11, color: "#FBBF24" }}> · oltre i volumi di riferimento</span> : null}</span>
+                  {printEstUnknown
+                ? <strong style={{ fontSize: 14, color: "#FBBF24" }}>Prezzo da verificare</strong>
+                : <strong style={{ fontSize: 16, color: s1Green }}>{eur2(printEst)}</strong>}
                 </div>
               </div>}
 
-            {/* Formato 4 Card */}
+            {/* Formato del materiale da distribuire — concetto separato dalla stampa */}
             <div style={{
             borderTop: "1px solid rgba(255,255,255,0.08)",
             paddingTop: 24
@@ -2072,15 +2179,40 @@ export function Step1({
               fontSize: 15,
               fontWeight: 800,
               color: "#F8FAFC",
-              marginBottom: 14
+              marginBottom: 4
             }}>
-                Seleziona il formato del materiale da distribuire <span style={{
-                fontSize: 13,
-                color: "#94A3B8",
-                fontWeight: 500
-              }}>(indipendente dalle opzioni di stampa)</span>
+                Formato del materiale da distribuire
               </div>
               <div style={{
+              fontSize: 13,
+              color: "#94A3B8",
+              fontWeight: 500,
+              marginBottom: 14
+            }}>
+                Serve per definire dimensione e gestione logistica del materiale.
+              </div>
+              {printActive ? (() => {
+              const matFmt = FLYER_FORMAT_OPTIONS.find(f => f.id === data.flyerFormat) || FLYER_FORMAT_OPTIONS.find(f => f.id === "A5");
+              return <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                padding: "16px 18px",
+                borderRadius: 16,
+                background: "rgba(34,197,94,0.06)",
+                border: "1px solid rgba(34,197,94,0.22)"
+              }}>
+                    <div style={{
+                  fontFamily: F.serif,
+                  fontSize: 26,
+                  color: s1Green
+                }}>{matFmt.label}</div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13, color: "#F8FAFC", fontWeight: 700 }}>{matFmt.size}</div>
+                      <div style={{ fontSize: 12, color: "#94A3B8" }}>Sincronizzato con il formato di stampa. DL è disponibile come formato materiale solo senza stampa.</div>
+                    </div>
+                  </div>;
+            })() : <div style={{
               display: "grid",
               gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
               gap: 14
@@ -2108,7 +2240,7 @@ export function Step1({
                   }}>{fmt.size}</div>
                     </button>;
               })}
-              </div>
+              </div>}
             </div>
           </div>
 
