@@ -17,9 +17,11 @@ import {
   toPrintableFormat,
 } from "../src/lib/pricing/printPricing.js";
 import { buildExtraServicesRegistry, buildExtraServicesById, normalizeSelectedExtras } from "../src/lib/extraServicesRegistry.js";
+import { SUPPORT_EMAIL, SUPPORT_WHATSAPP, HAS_SUPPORT_WHATSAPP, buildGraphicRequestText, buildGraphicWhatsAppUrl, buildGraphicMailtoUrl } from "../src/lib/contactConfig.js";
 
 const root = path.resolve(import.meta.dirname, "..");
 const step1Src = fs.readFileSync(path.join(root, "src/pages/public/configurator/Step1.jsx"), "utf8");
+const step4Src = fs.readFileSync(path.join(root, "src/pages/public/configurator/Step4.jsx"), "utf8");
 const summarySrc = fs.readFileSync(path.join(root, "src/components/Step1Summary.jsx"), "utf8");
 
 const close = (a, b, eps = 0.01) => Math.abs(a - b) <= eps;
@@ -314,4 +316,88 @@ test("riepilogo Step1 distingue formato stampa / formato materiale / costo stamp
   assert.doesNotMatch(step1Src, /[Mm]argine VolantiniPro/);
   assert.doesNotMatch(step1Src, /markup 20%|ricarico 20%|VolantiniPro \+?20%/i);
   assert.doesNotMatch(summarySrc, /markup|margine/i);
+});
+
+// ---------------------------------------------------------------------------
+// File per la stampa + Servizio grafico (elementi distinti dal prezzo stampa)
+// ---------------------------------------------------------------------------
+
+test("STAMPA / FILE GRAFICO / SERVIZIO GRAFICO sono blocchi distinti in Step1", () => {
+  // sezione dedicata "File per la stampa" con le 2 card
+  assert.match(step1Src, /File per la stampa/);
+  assert.match(step1Src, /Hai già il file grafico pronto per la stampa\?/);
+  assert.match(step1Src, /Sì, ho già il file/);
+  assert.match(step1Src, /No, ho bisogno della grafica/);
+  // il vecchio pill "artworkStatus" NON e' piu' tra i dettagli di stampa
+  assert.doesNotMatch(step1Src, /key: "artworkStatus"/);
+  assert.doesNotMatch(step1Src, /printArtworkOptions/);
+});
+
+test("READY: nessun costo grafico, nessuna richiesta di servizio", () => {
+  assert.match(step1Src, /const artworkNeedsDesign = printing\.artworkStatus === "da_creare"/);
+  assert.match(step1Src, /graphicPriceStatus = artworkNeedsDesign \? "REQUIRES_QUOTE" : "NOT_REQUIRED"/);
+  // "Come inviare il file" mostrato solo con file pronto
+  assert.match(step1Src, /!artworkNeedsDesign && <div[\s\S]*Come inviare il file/);
+  // upload on-site non implementato -> solo testo, nessun bottone falso
+  assert.match(step1Src, /Potrai caricare il file tramite VolantiniPro dopo la conferma/);
+});
+
+test("NEEDS_DESIGN: box servizio grafico, nessun prezzo automatico (REQUIRES_QUOTE)", () => {
+  assert.match(step1Src, /Servizio grafico VolantiniPro/);
+  assert.match(step1Src, /Il costo della grafica non è incluso nel prezzo di stampa/);
+  assert.match(step1Src, /Contatta su WhatsApp/);
+  assert.match(step1Src, /Invia un'email/);
+  // nessun prezzo grafico hardcodato
+  assert.doesNotMatch(step1Src, /graphic(Price|_price)\s*[:=]\s*\d/i);
+  assert.doesNotMatch(step1Src, /Servizio grafico[\s\S]{0,80}€\s?\d/);
+});
+
+test("data model artwork normalizzato: READY|NEEDS_DESIGN + graphicPriceStatus", () => {
+  assert.match(step1Src, /status: status === "da_creare" \? "NEEDS_DESIGN" : "READY"/);
+  assert.match(step1Src, /graphicServiceRequested: status === "da_creare"/);
+  assert.match(step1Src, /graphicPriceStatus: status === "da_creare" \? "REQUIRES_QUOTE" : "NOT_REQUIRED"/);
+  // Step4 persiste la struttura e graphicPrice: null (mai €0 a totale)
+  assert.match(step4Src, /artwork: data\.printing\?\.artwork \|\|/);
+  assert.match(step4Src, /graphicPrice: null/);
+  assert.match(step4Src, /l: "Servizio grafico",\s*\n\s*v: "Da quotare"/);
+});
+
+test("il prezzo stampa NON e' toccato dalla scelta grafica", () => {
+  const a5 = calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE });
+  assert.equal(a5.customerPrice, 132.0);
+  // calculatePrintPrice non ha alcun parametro artwork/graphic
+  assert.doesNotMatch(step1Src, /calculatePrintPrice\(\{[^}]*artwork/i);
+  assert.doesNotMatch(step1Src, /calculatePrintPrice\(\{[^}]*graphic/i);
+  // riepilogo Step1: righe distinte, nessun importo per il servizio grafico
+  assert.match(step1Src, /label: "File grafico",\s*\n\s*val: artworkNeedsDesign \? "Da creare" : "Già disponibile"/);
+  assert.match(step1Src, /label: "Servizio grafico",\s*\n\s*val: artworkNeedsDesign \? "Da quotare con VolantiniPro" : "Nessun servizio richiesto"/);
+});
+
+test("contatti da config reale, nessun contatto inventato", () => {
+  // email: fallback sul valore gia' presente nel progetto (footer PDF preventivo)
+  assert.equal(SUPPORT_EMAIL, "info@volantinipro.it");
+  // WhatsApp: nessun numero di default -> CTA nascosto se non configurato
+  assert.equal(SUPPORT_WHATSAPP, null);
+  assert.equal(HAS_SUPPORT_WHATSAPP, false);
+  assert.equal(buildGraphicWhatsAppUrl({ format: "A5", quantity: 10000, printEnabled: true }), null);
+  // Step1 rende il CTA WhatsApp solo dietro il flag
+  assert.match(step1Src, /HAS_SUPPORT_WHATSAPP && <a href=\{buildGraphicWhatsAppUrl/);
+  // nessun numero di telefono / wa.me hardcodato in Step1
+  assert.doesNotMatch(step1Src, /wa\.me\/\d/);
+  assert.doesNotMatch(step1Src, /\+39\s?\d/);
+  // nessun indirizzo email hardcodato diverso da quello di config
+  const emails = step1Src.match(/[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]{2,}/gi) || [];
+  assert.deepEqual([...new Set(emails)], []);
+});
+
+test("messaggi precompilati WhatsApp / email includono formato, quantità, stampa", () => {
+  const txt = buildGraphicRequestText({ format: "a5", quantity: 10000, printEnabled: true, notes: "urgente" });
+  assert.match(txt, /Formato: A5/);
+  assert.match(txt, /Quantità: 10\.000/);
+  assert.match(txt, /Stampa: Sì/);
+  assert.match(txt, /Note: urgente/);
+  assert.match(txt, /preventivo per la grafica/);
+  const mailto = buildGraphicMailtoUrl({ format: "A5", quantity: 10000 });
+  assert.match(mailto, /^mailto:info@volantinipro\.it\?subject=/);
+  assert.match(decodeURIComponent(mailto), /Richiesta servizio grafico - VolantiniPro/);
 });

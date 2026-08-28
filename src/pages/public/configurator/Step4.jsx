@@ -1253,6 +1253,12 @@ export function Step4({
               color: data.printing?.color || null,
               fold: data.printing?.folding || null,
               artworkStatus: data.printing?.artworkStatus || null,
+              artwork: data.printing?.artwork || {
+                status: data.printing?.artworkStatus === "da_creare" ? "NEEDS_DESIGN" : "READY",
+                graphicServiceRequested: data.printing?.artworkStatus === "da_creare",
+                graphicPriceStatus: data.printing?.artworkStatus === "da_creare" ? "REQUIRES_QUOTE" : "NOT_REQUIRED"
+              },
+              graphicPrice: null,
               notes: data.printing?.notes || null
             },
             estimatedPrice: data.printing?.enabled ? printingEstimatedPrice : null,
@@ -1957,9 +1963,14 @@ export function Step4({
               c: C.white
             }, data.printing?.enabled && data.printing?.artworkStatus && {
               icon: "",
-              l: "File grafico stampa",
-              v: data.printing.artworkStatus === "pronto" ? "Già pronto" : "Da creare",
+              l: "File grafico",
+              v: data.printing.artworkStatus === "da_creare" ? "Da creare" : "Già disponibile",
               c: C.white
+            }, data.printing?.enabled && data.printing?.artworkStatus === "da_creare" && {
+              icon: "",
+              l: "Servizio grafico",
+              v: "Da quotare",
+              c: C.orange
             }, data.printing?.enabled && {
               icon: "",
               l: "Prezzo stampa",

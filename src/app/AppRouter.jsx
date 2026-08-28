@@ -54,7 +54,7 @@ function createEmptyConfiguratorData() {
   return {
     type: null, activityType: "", activityNote: "", qty: 10000,
     hasFlyers: "yes", flyerFormat: "a5", flyerWeight: "130", extraServices: [], printGramm: "130", printSide: "fronte", printColor: "cmyk",
-    printing: { enabled: false, format: "a5", paperType: "patinata_opaca", grammage: "130", sides: "fronte_retro", color: "cmyk", folding: "nessuna", artworkStatus: "da_creare", notes: "" },
+    printing: { enabled: false, format: "a5", paperType: "patinata_opaca", grammage: "130", sides: "fronte_retro", color: "cmyk", folding: "nessuna", artworkStatus: "pronto", artwork: { status: "READY", graphicServiceRequested: false, graphicPriceStatus: "NOT_REQUIRED" }, notes: "" },
     urgency: "normal", subscription: "single", campaignsPerMonth: 1,
     selectedService: null, activeService: null, businessSector: "", flyerQuantity: 10000,
     campaignPeriodStart: "", campaignPeriodEnd: "", alreadyPrinted: true,

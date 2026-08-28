@@ -11,6 +11,7 @@ import { DISTRIBUTION_TARGET_OPTIONS } from "../../../lib/step2/activityTargets.
 import { distributionTypes } from "../../../lib/distributionTypes.js";
 import { FLYER_FORMAT_OPTIONS, PROMOTER_COUNT_OPTIONS, PROMOTER_LOCATION_TYPE_OPTIONS, PROMOTER_SHIFT_DURATION_OPTIONS, PROMOTER_TIME_SLOT_OPTIONS } from "../../../lib/step1/step1OptionLists.js";
 import { calculatePrintPrice, PRINT_FORMAT_OPTIONS, isPrintFormatConfigured, toPrintableFormat } from "../../../lib/pricing/printPricing.js";
+import { SUPPORT_EMAIL, HAS_SUPPORT_WHATSAPP, buildGraphicWhatsAppUrl, buildGraphicMailtoUrl } from "../../../lib/contactConfig.js";
 import { GEO_DATA } from "../../../lib/geoData.js";
 import { getMunicipalityDedupKey, normalizeTerritoryName } from "../../../lib/step2/addressIntent.js";
 import { H2H_FLYERS_PER_PROMOTER_HOUR } from "../../../lib/step2/operationalMetrics.js";
@@ -223,13 +224,6 @@ export function Step1({
     id: "tre",
     label: "Piega a tre"
   }];
-  const printArtworkOptions = [{
-    id: "pronto",
-    label: "Già pronto"
-  }, {
-    id: "da_creare",
-    label: "Da creare"
-  }];
   // Default = configurazione dei benchmark stampa reali (~130 g, fronte/retro
   // differenti). Le altre opzioni vengono salvate ma NON cambiano il prezzo
   // finche' non ci sono benchmark reali distinti (vedi printPricing.js).
@@ -249,6 +243,19 @@ export function Step1({
       ...printing,
       ...patch
     }
+  });
+  // File di stampa e servizio grafico — elementi DISTINTI dal prezzo stampa.
+  // "da_creare" NON aggiunge alcun costo: il servizio grafico e' da quotare
+  // separatamente con VolantiniPro (graphicPrice = null, REQUIRES_QUOTE).
+  const artworkNeedsDesign = printing.artworkStatus === "da_creare";
+  const graphicPriceStatus = artworkNeedsDesign ? "REQUIRES_QUOTE" : "NOT_REQUIRED";
+  const buildArtwork = status => ({
+    status: status === "da_creare" ? "NEEDS_DESIGN" : "READY",
+    graphicServiceRequested: status === "da_creare",
+    graphicPriceStatus: status === "da_creare" ? "REQUIRES_QUOTE" : "NOT_REQUIRED"
+  });
+  const setArtwork = status => updateData({
+    printing: { ...printing, artworkStatus: status, artwork: buildArtwork(status) }
   });
   // Formato di stampa e formato materiale/logistico: quando la stampa e'
   // attiva il secondo si sincronizza automaticamente col primo (UX richiesta).
@@ -817,6 +824,12 @@ export function Step1({
   }, {
     label: "Costo stampa",
     val: printEstUnknown ? "Da verificare" : eur2(printEst)
+  }, {
+    label: "File grafico",
+    val: artworkNeedsDesign ? "Da creare" : "Già disponibile"
+  }, {
+    label: "Servizio grafico",
+    val: artworkNeedsDesign ? "Da quotare con VolantiniPro" : "Nessun servizio richiesto"
   }] : []), {
     label: "Urgenza",
     val: currentUrgencyLabel
@@ -2113,10 +2126,6 @@ export function Step1({
               key: "folding",
               label: "Piega",
               options: printFoldingOptions
-            }, {
-              key: "artworkStatus",
-              label: "File grafico",
-              options: printArtworkOptions
             }].map(field => <div key={field.key}>
                     <div style={{
                 fontSize: 12,
@@ -2183,6 +2192,51 @@ export function Step1({
                   {printEstUnknown
                 ? <strong style={{ fontSize: 14, color: "#FBBF24" }}>Prezzo da verificare</strong>
                 : <strong style={{ fontSize: 16, color: s1Green }}>{eur2(printEst)}</strong>}
+                </div>
+
+                {/* FILE PER LA STAMPA — distinto da STAMPA e da SERVIZIO GRAFICO */}
+                <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: "#F8FAFC", marginBottom: 4 }}>File per la stampa</div>
+                    <div style={{ fontSize: 13, color: "#94A3B8", fontWeight: 500 }}>Hai già il file grafico pronto per la stampa?</div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
+                    {[{
+                    id: "pronto",
+                    title: "Sì, ho già il file",
+                    sub: "Potrai inviarlo a VolantiniPro dopo il preventivo."
+                  }, {
+                    id: "da_creare",
+                    title: "No, ho bisogno della grafica",
+                    sub: "Il servizio grafico viene quotato separatamente da VolantiniPro."
+                  }].map(opt => {
+                    const active = printing.artworkStatus === opt.id;
+                    return <button type="button" aria-pressed={active} key={opt.id} onClick={() => setArtwork(opt.id)} className={`vp-s1-card-hover${active ? " vp-s1-card-selected" : ""}`} style={{ padding: 18, borderRadius: 16, ...s1Card(active), cursor: "pointer", textAlign: "left" }}>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: active ? s1Green : "#F8FAFC", marginBottom: 6 }}>{opt.title}</div>
+                          <div style={{ fontSize: 12, color: "#94A3B8", lineHeight: 1.5 }}>{opt.sub}</div>
+                        </button>;
+                  })}
+                  </div>
+
+                  {!artworkNeedsDesign && <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(96,165,250,0.06)", border: "1px solid rgba(96,165,250,0.2)" }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "#F8FAFC", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 8 }}>Come inviare il file</div>
+                    <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 6, fontSize: 13, color: "#CBD5E1", lineHeight: 1.5 }}>
+                      <li>Potrai caricare il file tramite VolantiniPro dopo la conferma</li>
+                      {HAS_SUPPORT_WHATSAPP && <li>Invia tramite <a href={buildGraphicWhatsAppUrl({ format: printing.format, quantity: activeQty, printEnabled: true, notes: printing.notes })} target="_blank" rel="noopener noreferrer" style={{ color: "#60A5FA", fontWeight: 700 }}>WhatsApp</a></li>}
+                      <li>Invia tramite <a href={buildGraphicMailtoUrl({ format: printing.format, quantity: activeQty, notes: printing.notes })} style={{ color: "#60A5FA", fontWeight: 700 }}>email</a> ({SUPPORT_EMAIL})</li>
+                    </ul>
+                  </div>}
+
+                  {artworkNeedsDesign && <div style={{ padding: "16px 18px", borderRadius: 12, background: "rgba(232,87,26,0.06)", border: "1px solid rgba(232,87,26,0.25)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "#E8571A", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Servizio grafico VolantiniPro</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC", marginBottom: 6 }}>Hai bisogno di creare o sistemare la grafica?</div>
+                    <div style={{ fontSize: 13, color: "#CBD5E1", lineHeight: 1.55, marginBottom: 14 }}>Il costo della grafica non è incluso nel prezzo di stampa. Contatta VolantiniPro per spiegare cosa ti serve e ricevere un preventivo.</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                      {HAS_SUPPORT_WHATSAPP && <a href={buildGraphicWhatsAppUrl({ format: printing.format, quantity: activeQty, printEnabled: true, notes: printing.notes })} target="_blank" rel="noopener noreferrer" className="vb" style={{ padding: "11px 20px", borderRadius: 8, background: "#E8571A", color: "#fff", fontFamily: F.sans, fontSize: 13, fontWeight: 800, textDecoration: "none", boxShadow: "0 6px 16px rgba(232,87,26,0.28)" }}>Contatta su WhatsApp</a>}
+                      <a href={buildGraphicMailtoUrl({ format: printing.format, quantity: activeQty, notes: printing.notes })} className="vb" style={{ padding: "11px 20px", borderRadius: 8, background: HAS_SUPPORT_WHATSAPP ? "rgba(255,255,255,0.06)" : "#E8571A", color: "#fff", border: HAS_SUPPORT_WHATSAPP ? "1px solid rgba(255,255,255,0.15)" : "none", fontFamily: F.sans, fontSize: 13, fontWeight: 800, textDecoration: "none" }}>Invia un'email</a>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 10 }}>Servizio grafico: da quotare separatamente · non aggiunto al totale.</div>
+                  </div>}
                 </div>
               </div>}
 
