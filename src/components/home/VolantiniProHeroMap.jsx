@@ -232,18 +232,18 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
           </h1>
 
           <p style={{ ...copyStyle(compact), maxWidth: 540, margin: compact ? "16px 0 24px" : "20px 0 28px" }}>
-            Pianifica la zona, calcola quante famiglie puoi raggiungere e ricevi prove concrete al termine della distribuzione. Senza contratti fissi.
+            Configura la campagna con dati territoriali reali, segui la distribuzione con il tracking GPS degli operatori e ricevi foto, prove di consegna e report finale. Senza contratti fissi.
           </p>
 
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginBottom: 16 }}>
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.15 }}>
-              <Button variant="primary" className="vb" onClick={onQuote || (() => window.location.href = "/preventivo")} style={{ ...heroPrimaryButtonStyle, minHeight: 44, padding: "0 20px" }}>
-                Calcola la tua copertura
+              <Button variant="primary" className="vb" onClick={onConfigure || onQuote || (() => window.location.href = "/preventivo")} style={{ ...heroPrimaryButtonStyle, minHeight: 44, padding: "0 20px" }}>
+                Configura la tua campagna
               </Button>
             </motion.div>
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.15 }}>
               <Button variant="secondary" onClick={onHowItWorks} style={{ ...heroOutlineButtonStyle, minHeight: 44, padding: "0 20px" }}>
-                Vedi i servizi
+                Vedi come funziona
               </Button>
             </motion.div>
           </div>

@@ -13,8 +13,11 @@ import PricingSection from "../../components/home/PricingSection.jsx";
 import Footer from "../../components/home/Footer.jsx";
 import VolantiniProHeroMap from "../../components/home/VolantiniProHeroMap.jsx";
 import WhyDifferentSection from "../../components/home/WhyDifferentSection.jsx";
-
-const VolantiniProAIHub = React.lazy(() => import("../../components/ai/VolantiniProAIHub.jsx"));
+import DashboardClienteSection from "../../components/home/DashboardClienteSection.jsx";
+import TrackingLiveSection from "../../components/home/TrackingLiveSection.jsx";
+import CosaRiceviSection from "../../components/home/CosaRiceviSection.jsx";
+import TecnologiaSection from "../../components/home/TecnologiaSection.jsx";
+import FinalCtaSection from "../../components/home/FinalCtaSection.jsx";
 
 export function HomePage({
   onStart: n
@@ -81,26 +84,26 @@ export function HomePage({
     j = ["Retail locale", "Food locale", "Casa e servizi", "Fitness locale", "Attività locale"],
     T = [{
       n: "01",
-      t: "Configura campagna",
-      d: "Scegli servizio, quantità, formato, stampa e frequenza della distribuzione.",
+      t: "Configura",
+      d: "Servizio, comune, quantità e formato.",
       b: "Servizio + quantità",
       c: "#E8571A"
     }, {
       n: "02",
-      t: "Zona e mappa",
-      d: "Imposta comune e raggio, poi verifica famiglie ISTAT, comuni coinvolti, copertura e volantini consigliati.",
+      t: "Analizza il territorio",
+      d: "Copertura, famiglie, zone, mappa e dati reali.",
       b: "Analisi territoriale",
       c: "#E8571A"
     }, {
       n: "03",
-      t: "Pianificazione",
-      d: "Scegli il periodo desiderato. Smart Pairing resta opzionale quando esistono campagne compatibili.",
-      b: "Date + opzioni",
+      t: "Personalizza",
+      d: "Piano, servizi ed extra.",
+      b: "Piano + extra",
       c: "#E8571A"
     }, {
       n: "04",
-      t: "Preventivo completo",
-      d: "Controlla il preventivo finale e avvia la campagna. Include tracking GPS live degli operatori e report finale con foto.",
+      t: "Preventivo e conferma",
+      d: "Prezzo finale, PDF e avvio campagna.",
       b: "Riepilogo + prezzo",
       c: "#E8571A"
     }],
@@ -430,27 +433,27 @@ export function HomePage({
               cursor: "pointer",
               boxShadow: "0 6px 16px rgba(232,87,26,0.28)"
             },
-            children: "Calcola la tua copertura →"
+            children: "Configura la tua campagna →"
           })
         })]
       })
+    }), _jsx(DashboardClienteSection, {
+      onConfigure: () => n("preventivo")
+    }), _jsx(TrackingLiveSection, {
+      onConfigure: () => n("preventivo")
     }), _jsx(ServicesSection, {
       onConfigure: () => n("preventivo")
-    }), _jsx(React.Suspense, {
-      fallback: _jsx("div", {
-        style: {
-          minHeight: 200,
-          background: "#0B1020"
-        }
-      }),
-      children: _jsx(VolantiniProAIHub, {
-        onConfigure: () => n("preventivo")
-      })
-    }), _jsx(RisultatiSection, {}), _jsx(FAQSection, {
-      onContact: () => n("consultant")
+    }), _jsx(CosaRiceviSection, {
+      onConfigure: () => n("preventivo")
     }), _jsx(PricingSection, {
       onConfigure: () => n("preventivo"),
       onConsultant: () => n("consultant")
+    }), _jsx(TecnologiaSection, {
+      onConfigure: () => n("preventivo")
+    }), _jsx(RisultatiSection, {}), _jsx(FAQSection, {
+      onContact: () => n("consultant")
+    }), _jsx(FinalCtaSection, {
+      onConfigure: () => n("preventivo")
     }), _jsx(Footer, {
       onNav: n,
       onHowItWorks: i

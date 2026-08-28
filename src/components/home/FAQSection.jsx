@@ -23,6 +23,22 @@ const faqs = [
     a: "Sì, puoi impostare un raggio di distribuzione e valutare automaticamente i comuni vicini. La piattaforma mostra famiglie stimate, copertura e volumi consigliati per ogni area. Scopri di più nel configuratore →",
   },
   {
+    q: "Come controllo la distribuzione?",
+    a: "Dopo la conferma segui la campagna dalla Dashboard Cliente: stato di avanzamento, percorso GPS degli operatori, zone servite e prove fotografiche raccolte sul campo.",
+  },
+  {
+    q: "Cosa vedo nella Dashboard Cliente?",
+    a: "Stato della campagna, tracking GPS, foto e prove della distribuzione e il report finale con mappa di copertura e dati della campagna. Gli elementi disponibili dipendono dal servizio scelto.",
+  },
+  {
+    q: "Come funziona il Tracking GPS?",
+    a: "Gli operatori ricevono il programma sul telefono, avviano la consegna e il percorso viene registrato via GPS. Nella dashboard vedi avanzamento, zone coperte e storico della distribuzione.",
+  },
+  {
+    q: "Quali prove ricevo a fine campagna?",
+    a: "Report fotografico con foto geolocalizzate, mappa delle zone effettivamente servite, percorso GPS e storico della distribuzione, raccolti in un unico report finale.",
+  },
+  {
     q: "Il preventivo è vincolante?",
     a: "No, il preventivo serve a darti una stima chiara prima di confermare la campagna. La conferma operativa avviene solo dopo la revisione del team e la disponibilità delle date. Scopri di più nel configuratore →",
   },

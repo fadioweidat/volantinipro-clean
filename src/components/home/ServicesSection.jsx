@@ -46,27 +46,21 @@ function BriefcaseIcon() {
 const services = [
   {
     title: "Door to Door",
-    subtitle: "Residenziale",
-    price: "Prezzo personalizzato",
-    unit: "Calcolato sulla tua zona",
+    subtitle: "Distribuzione residenziale",
     bullets: ["Cassette, condomini, ville", "GPS punto-per-punto", "Report foto e mappe"],
     icon: <MailboxIcon />,
     accent: C.primary,
   },
   {
     title: "Hand to Hand",
-    subtitle: "Mano a mano",
-    price: "Prezzo personalizzato",
-    unit: "Calcolato sulla tua zona",
+    subtitle: "Distribuzione a mano",
     bullets: ["Alto passaggio pedonale", "Fasce orarie ottimali", "POI strategici inclusi"],
     icon: <UsersIcon />,
     accent: C.cyan,
   },
   {
     title: "Business Distribution",
-    subtitle: "B2B",
-    price: "Prezzo personalizzato",
-    unit: "Calcolato sulla tua zona",
+    subtitle: "Distribuzione B2B",
     bullets: ["Uffici e negozi mirati", "Categorie merceologiche", "Competitor mappati"],
     icon: <BriefcaseIcon />,
     accent: C.success,
@@ -93,7 +87,7 @@ export default function ServicesSection({ onConfigure }) {
           <h2 className="landing-h2" style={{ fontFamily: F.serif, fontSize: 46, color: C.white, letterSpacing: "-0.03em", marginBottom: 16, lineHeight: 1.05 }}>
             Servizi chiari, prezzo calcolato sulla tua zona.
           </h2>
-          <p style={{ fontFamily: F.sans, fontSize: 16, color: "#94A3B8", maxWidth: 560, margin: "0 auto", lineHeight: 1.6 }}>
+          <p style={{ fontFamily: F.sans, fontSize: 16, color: "#AEB9C9", maxWidth: 560, margin: "0 auto", lineHeight: 1.6 }}>
             Il costo della distribuzione cambia in base ad area, quantità e servizio scelto.
           </p>
         </div>
@@ -114,14 +108,8 @@ export default function ServicesSection({ onConfigure }) {
               <h3 style={{ fontFamily: F.serif, fontSize: 24, color: C.white, lineHeight: 1.08, letterSpacing: "-0.02em", margin: 0 }}>
                 {service.title}
               </h3>
-              <p style={{ margin: "6px 0 20px", fontFamily: F.sans, fontSize: 14, color: "#94A3B8" }}>{service.subtitle}</p>
-              <div style={{ height: 1, background: "rgba(255, 255, 255, 0.08)", marginBottom: 20 }} />
-              <div style={{ fontFamily: F.serif, fontSize: 22, color: service.accent, lineHeight: 1.05, letterSpacing: "-0.02em", marginBottom: 6 }}>
-                {service.price}
-              </div>
-              <div style={{ fontFamily: F.sans, fontSize: 11, color: "#94A3B8", letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 24 }}>
-                {service.unit}
-              </div>
+              <p style={{ margin: "6px 0 20px", fontFamily: F.sans, fontSize: 14, color: "#AEB9C9" }}>{service.subtitle}</p>
+              <div style={{ height: 1, background: "rgba(255, 255, 255, 0.08)", marginBottom: 24 }} />
               <div style={{ display: "grid", gap: 12, marginBottom: 28 }}>
                 {service.bullets.map((bullet) => (
                   <div key={bullet} style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: F.sans, fontSize: 14, color: "#CBD5E1", fontWeight: 500 }}>
@@ -141,8 +129,18 @@ export default function ServicesSection({ onConfigure }) {
           ))}
         </div>
 
-
-
+        <div style={{ textAlign: "center", marginTop: 44 }}>
+          <button
+            onClick={onConfigure}
+            className="vb"
+            style={{ padding: "14px 32px", borderRadius: 8, border: "none", background: C.primary, color: "#fff", fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: "0 6px 16px rgba(232,87,26,0.28)" }}
+          >
+            Calcola il tuo preventivo →
+          </button>
+          <p style={{ fontFamily: F.sans, fontSize: 13, color: "#AEB9C9", margin: "16px 0 0" }}>
+            Prezzo calcolato su zona, quantità e servizio. Nessun abbonamento mensile obbligatorio.
+          </p>
+        </div>
       </div>
     </section>
   );

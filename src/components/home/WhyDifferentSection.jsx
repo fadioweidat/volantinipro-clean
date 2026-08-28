@@ -4,40 +4,40 @@ import { motion } from "framer-motion";
 const CARDS = [
   {
     title: "Dati territoriali ISTAT",
-    desc: "Famiglie, popolazione e densità abitativa vengono letti dalle fonti territoriali disponibili.",
+    desc: "Famiglie, popolazione e densità abitativa letti dalle fonti territoriali disponibili.",
     icon: "ISTAT",
-    bullets: ["Famiglie raggiungibili", "Comuni coinvolti", "Densità abitativa"],
+    bullets: ["Famiglie", "Popolazione", "Copertura", "Analisi del territorio"],
   },
   {
-    title: "Analisi Territoriale",
-    desc: "Prima della campagna analizziamo zona, raggio, comuni coinvolti, copertura e fabbisogno volantini.",
+    title: "Analisi territoriale",
+    desc: "Prima della campagna analizziamo zona, raggio e comuni coinvolti.",
     icon: "GIS",
-    bullets: ["Raggio d'azione", "Copertura stimata", "Zone coperte"],
+    bullets: ["Zone", "Comuni", "Copertura", "Fabbisogno volantini"],
   },
   {
     title: "Tracking GPS",
-    desc: "Il lavoro sul campo può essere verificato con percorsi operativi e tracciamento GPS.",
+    desc: "Il lavoro sul campo viene registrato con il percorso GPS degli operatori.",
     icon: "GPS",
-    bullets: ["Percorsi operativi", "Verifica distribuzione", "Controllo avanzamento"],
+    bullets: ["Percorso operativo", "Avanzamento", "Storico distribuzione"],
   },
   {
-    title: "Report e Prove",
-    desc: "Report finali, evidenze fotografiche e riepiloghi rendono la distribuzione controllabile.",
+    title: "Report e prove",
+    desc: "Le evidenze raccolte rendono la distribuzione controllabile a fine campagna.",
     icon: "PDF",
-    bullets: ["Prove fotografiche", "Riepilogo campagna", "Report condivisibile"],
+    bullets: ["Foto", "Report fotografico", "Mappa copertura", "Prove della distribuzione"],
   },
 ];
 
 export default function WhyDifferentSection() {
   return (
-    <section id="chi-siamo" style={{ background: "#0B1020", paddingTop: 80, paddingBottom: 80, paddingLeft: "5vw", paddingRight: "5vw", boxSizing: "border-box" }} aria-labelledby="why-different-title">
+    <section id="chi-siamo" style={{ background: "#0B1020", paddingTop: 64, paddingBottom: 64, paddingLeft: "5vw", paddingRight: "5vw", boxSizing: "border-box" }} aria-labelledby="why-different-title">
       <style>{`
         .why-diff-container {
           max-width: 1400px;
           margin: 0 auto;
         }
         .why-diff-header {
-          margin-bottom: 56px;
+          margin-bottom: 40px;
         }
         .why-diff-kicker {
           font-family: 'DM Sans', Inter, system-ui, sans-serif;
@@ -60,7 +60,7 @@ export default function WhyDifferentSection() {
           font-family: 'DM Sans', Inter, system-ui, sans-serif;
           font-size: 17px;
           line-height: 1.65;
-          color: #94A3B8;
+          color: #AEB9C9;
           max-width: 540px;
           margin: 0;
         }
@@ -117,7 +117,7 @@ export default function WhyDifferentSection() {
           font-family: 'DM Sans', Inter, system-ui, sans-serif;
           font-size: 15px;
           line-height: 1.6;
-          color: #94A3B8;
+          color: #AEB9C9;
           margin: 0;
         }
 
@@ -161,7 +161,7 @@ export default function WhyDifferentSection() {
                 <h3 className="why-diff-card-title">{card.title}</h3>
                 <p className="why-diff-card-text">{card.desc}</p>
                 {card.bullets && (
-                  <ul style={{ paddingLeft: 20, marginTop: 16, marginBottom: 0, color: "#94A3B8", fontFamily: "'DM Sans', Inter, sans-serif", fontSize: 14, lineHeight: 1.6 }}>
+                  <ul style={{ paddingLeft: 20, marginTop: 16, marginBottom: 0, color: "#AEB9C9", fontFamily: "'DM Sans', Inter, sans-serif", fontSize: 14, lineHeight: 1.6 }}>
                     {card.bullets.map(b => <li key={b}>{b}</li>)}
                   </ul>
                 )}
