@@ -1246,6 +1246,7 @@ export function Step4({
             enabled: Boolean(data.printing?.enabled),
             specs: {
               format: data.printing?.format || null,
+              orientation: data.printing?.orientation || null,
               paperType: data.printing?.paperType || null,
               grammage: data.printing?.grammage || null,
               sides: data.printing?.sides || null,
@@ -1920,6 +1921,11 @@ export function Step4({
               icon: "",
               l: "Formato stampa",
               v: data.printing.format,
+              c: C.white
+            }, data.printing?.enabled && data.printing?.orientation && {
+              icon: "",
+              l: "Orientamento",
+              v: data.printing.orientation === "orizzontale" ? "Orizzontale" : "Verticale",
               c: C.white
             }, data.printing?.enabled && data.printing?.paperType && {
               icon: "",

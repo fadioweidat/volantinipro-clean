@@ -194,6 +194,23 @@ test("carta: opaca / lucida / usomano stesso prezzo (paperMultiplier 1.00)", () 
   assert.equal(calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, paperType: "uso_mano" }).calibration.paper, false);
 });
 
+test("orientamento: verticale / orizzontale stesso prezzo (multiplier 1.00), entrambi calibrati", () => {
+  const ref = priceOf({});
+  for (const o of ["verticale", "orizzontale"]) {
+    assert.equal(priceOf({ orientation: o }), ref, `orientation ${o}`);
+    const r = calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, orientation: o });
+    assert.equal(r.configurationMultipliers.orientation, 1.0);
+    assert.equal(r.calibration.orientation, true);
+  }
+  // Step1: opzioni orientamento presenti e passate al motore; carta STANDARD prima
+  assert.match(step1Src, /printOrientationOptions = \[\{\s*id: "verticale"[\s\S]*id: "orizzontale"/);
+  assert.match(step1Src, /key: "orientation",\s*\n\s*label: "Orientamento"/);
+  assert.match(step1Src, /orientation: printing\.orientation/);
+  assert.match(step1Src, /printPaperTypeOptions = \[\{\s*id: "patinata_opaca"[\s\S]*id: "uso_mano"[\s\S]*id: "patinata_lucida"/);
+  // niente A3 / formato personalizzato nella UI stampa
+  assert.doesNotMatch(step1Src, /"A3"|formato personalizzato|custom format/i);
+});
+
 test("piega: nessuna / meta / tre stesso prezzo (foldMultiplier 1.00)", () => {
   const ref = priceOf({});
   for (const f of ["nessuna", "meta", "tre"]) {

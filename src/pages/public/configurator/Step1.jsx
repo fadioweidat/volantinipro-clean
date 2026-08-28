@@ -158,15 +158,24 @@ export function Step1({
     desc: "Aggiungiamo la stampa tipografica professionale al preventivo finale"
   }];
   const printFormatOptions = PRINT_FORMAT_OPTIONS;
-  const printPaperTypeOptions = [{
-    id: "patinata_lucida",
-    label: "Patinata lucida"
+  const printOrientationOptions = [{
+    id: "verticale",
+    label: "Verticale"
   }, {
+    id: "orizzontale",
+    label: "Orizzontale"
+  }];
+  // STANDARD prima, PREMIUM in coda. Nessuna maggiorazione premium finche' non
+  // calibrata (paperMultiplier = 1.00 nel motore).
+  const printPaperTypeOptions = [{
     id: "patinata_opaca",
     label: "Patinata opaca"
   }, {
     id: "uso_mano",
     label: "Uso mano"
+  }, {
+    id: "patinata_lucida",
+    label: "Patinata lucida · Premium"
   }];
   const printGrammageOptions = [{
     id: "100",
@@ -226,6 +235,8 @@ export function Step1({
   // finche' non ci sono benchmark reali distinti (vedi printPricing.js).
   const printing = {
     format: toPrintableFormat(data.printing?.format || data.flyerFormat || "A5"),
+    orientation: "verticale",
+    paperType: "patinata_opaca",
     grammage: String(data.paperWeight || data.printGramm || "130"),
     sides: data.printSides || data.printSide || "fronte_retro",
     color: data.colorMode === "cmyk" ? "colori" : data.colorMode || data.printColor || "colori",
@@ -322,6 +333,7 @@ export function Step1({
     sides: printing.sides,
     color: printing.color,
     paperType: printing.paperType,
+    orientation: printing.orientation,
     fold: printing.folding,
     urgency: data.urgency,
     enabled: printActive
@@ -2078,6 +2090,10 @@ export function Step1({
             }}>Dettagli di stampa</div>
 
                 {[{
+              key: "orientation",
+              label: "Orientamento",
+              options: printOrientationOptions
+            }, {
               key: "paperType",
               label: "Tipo carta",
               options: printPaperTypeOptions

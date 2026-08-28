@@ -157,8 +157,17 @@ export const PAPER_CALIBRATED_VALUES = Object.freeze([
 export const FOLD_MULTIPLIER = 1.0;
 export const FOLD_CALIBRATED_VALUES = Object.freeze(["nessuna", "none"]);
 
-// Orientamento — verticale / orizzontale: 1.00.
+// Orientamento — verticale / orizzontale: 1.00 (salvato nel preventivo, nessuna
+// variante di prezzo). Entrambi i valori sono "calibrati" (nessuna incognita).
 export const ORIENTATION_MULTIPLIER = 1.0;
+export const ORIENTATION_CALIBRATED_VALUES = Object.freeze([
+  "verticale",
+  "orizzontale",
+  "vertical",
+  "horizontal",
+  "portrait",
+  "landscape",
+]);
 
 // Urgenza / data consegna — nessuna maggiorazione sulla stampa (l'urgenza
 // resta gestita solo sulla distribuzione, per non applicarla due volte).
@@ -270,7 +279,7 @@ export function calculatePrintPrice({
     color: COLOR_CALIBRATED_VALUES.includes(normKey(color)),
     paper: PAPER_CALIBRATED_VALUES.includes(normKey(paperType)),
     fold: FOLD_CALIBRATED_VALUES.includes(normKey(fold)),
-    orientation: true, // verticale/orizzontale: nessuna variante di prezzo
+    orientation: orientation == null || ORIENTATION_CALIBRATED_VALUES.includes(normKey(orientation)),
     urgency: PRINT_URGENCY_CALIBRATED_VALUES.includes(urgencyKey),
   };
   // Tutti i moltiplicatori di configurazione sono 1.00 (nessun benchmark reale).
