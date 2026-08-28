@@ -6,17 +6,20 @@
  * la configurazione:
  *   format = A5 (14,8 x 21 cm)  /  A6 (10,5 x 14,8 cm)  /  A4 (21 x 29,7 cm)
  *   carta  = Patinata opaca (Classic demimatt) / Patinata lucida (Classic gloss)
- *            -> prezzo IDENTICO per le due carte (verificato sui punti reali)
+ *            -> prezzo IDENTICO per le due carte, grammature 100..350 g/m2;
+ *            OPPURE Uso mano (Classic Uncoated) -> unica grammatura 90 g/m2,
+ *            matrice DEDICATA PRINT_UNCOATED_90_BENCHMARKS per formato.
  *   lati   = solo fronte + fronte/retro uguali + fronte/retro differenti sono
- *            TUTTI allo stesso prezzo reale su A4, A5 E A6 — equivalenza
- *            VERIFICATA dal vivo sul configuratore per OGNI formato e OGNI
- *            grammatura in matrice, layout confermato in UI e nel body API.
+ *            TUTTI allo stesso prezzo reale su A4, A5 E A6 (anche uso mano 90) —
+ *            equivalenza VERIFICATA dal vivo, layout confermato in UI e body API.
  *            NON un moltiplicatore: il lato non muove il prezzo.
  *   colore = 4/4 (quadricromia — Pixart volantini non offre B/N)
  *   piega  = nessuna
- *   grammature: 100 / 130 / 170 / 250 / 300 / 350 g/m2
- * Le tre matrici sono INDIPENDENTI: nessuna deriva da un'altra con
- * moltiplicatori, ogni cella e' un prezzo letto direttamente per quel formato.
+ *   grammature: patinata 100/130/170/250/300/350 ; uso mano solo 90 g/m2
+ * Ogni matrice (A5/A6/A4 patinata + uncoated-90 per formato) e' INDIPENDENTE:
+ * nessuna deriva da un'altra con moltiplicatori, ogni cella e' un prezzo letto
+ * direttamente. Combinazioni carta/grammatura incompatibili (uso mano + 130,
+ * patinata + 90) -> REQUIRES_REVIEW, customerPrice null.
  *
  * customerPrice = baseMarketPrice * 1.20  (markup VolantiniPro 20%, INTERNO,
  * mai mostrato come voce separata).
@@ -223,6 +226,64 @@ export const PRINT_A4_BENCHMARKS = Object.freeze({
 
 export const PRINT_A4_GRAMMAGES = Object.keys(PRINT_A4_BENCHMARKS);
 
+// ---------------------------------------------------------------------------
+// Matrice USO MANO 90 g/m² (Classic Usomano / substrate "Classic Uncoated
+// 90 gsm") — prezzi BASE letti DIRETTAMENTE da Pixartprinting.it
+// (/product/quote/, IT, CAP 30020, 2026-08-28, ex IVA, tier 144-120-Fast =
+// standard/economy). Struttura DEDICATA e INDIPENDENTE dalle matrici patinata.
+// Contratto fornitore: la carta "Uso mano" espone SOLO 90 g/m²; le patinate
+// (opaca/lucida) NON offrono 90 g/m². Nessuna conversione, nessun multiplier.
+// LATI: solo fronte / f/r uguali / f/r differenti verificati allo stesso
+// prezzo per A4/A5/A6. 25.000 -> interpolazione lineare 20k<->30k.
+// ---------------------------------------------------------------------------
+
+export const PRINT_UNCOATED_90_SOURCE = "Pixartprinting.it (2026-08-28, ex IVA, consegna standard/economy)";
+
+export const PRINT_UNCOATED_90_CONFIG = Object.freeze({
+  paper: "uso_mano",
+  substrate: "Classic Uncoated 90 gsm",
+  grammage: "90",
+  formats: ["A4", "A5", "A6"],
+  sides: ["fronte", "fronte_retro_eq", "fronte_retro"], // stesso prezzo (verificato)
+  color: "colori", // 4/4
+  fold: "nessuna",
+  delivery: "standard",
+});
+
+// Per formato: { "90": [[quantita', prezzoBase], ...] } — stessa forma delle
+// tabelle patinata cosi' benchmarkBasePrice puo' usarle senza casi speciali.
+export const PRINT_UNCOATED_90_BENCHMARKS = Object.freeze({
+  A4: {
+    "90": [
+      [1000, 62.54], [2500, 94.92], [5000, 131.79], [7500, 172.77], [10000, 218.18],
+      [15000, 296.83], [20000, 396.33], [30000, 553.76], [40000, 719.78], [50000, 885.8],
+    ],
+  },
+  A5: {
+    "90": [
+      [1000, 49.18], [2500, 62.3], [5000, 89.64], [7500, 116.68], [10000, 120.94],
+      [15000, 172.77], [20000, 206.06], [30000, 296.83], [40000, 375.47], [50000, 445.97],
+    ],
+  },
+  A6: {
+    "90": [
+      [1000, 42.5], [2500, 47.27], [5000, 52.63], [7500, 68.22], [10000, 74.7],
+      [15000, 109.82], [20000, 124.04], [30000, 172.77], [40000, 206.06], [50000, 239.35],
+    ],
+  },
+});
+
+export const PRINT_UNCOATED_90_GRAMMAGES = Object.freeze(["90"]);
+
+// Valori paperType che identificano la carta "Uso mano" (Classic Uncoated).
+const USO_MANO_SET = new Set([
+  "uso_mano", "usomano", "uso mano", "classic_usomano", "classic usomano",
+  "classic_uncoated", "classic uncoated", "uncoated",
+]);
+export function isUsoManoPaper(paperType) {
+  return USO_MANO_SET.has(normKey(paperType));
+}
+
 // Tabelle benchmark per formato di stampa configurato.
 const BENCHMARK_TABLES = Object.freeze({ A5: PRINT_A5_BENCHMARKS, A6: PRINT_A6_BENCHMARKS, A4: PRINT_A4_BENCHMARKS });
 const BENCHMARK_SOURCES = Object.freeze({ A5: PRINT_A5_BENCHMARK_SOURCE, A6: PRINT_A6_BENCHMARK_SOURCE, A4: PRINT_A4_BENCHMARK_SOURCE });
@@ -232,14 +293,15 @@ export function grammagesForPrintFormat(id) {
   return BENCHMARK_GRAMMAGES[String(id || "").toUpperCase()] || [];
 }
 
-// Valori di configurazione coperti dai dati reali. Carta / colore / piega sono
-// identici per A5, A6 e A4: stessa famiglia carta "Classic" (opaca == lucida),
-// stesso colore (4/4), stessa piega (nessuna). "Uso mano" resta fuori (su A6 e
-// A4 il fornitore usa solo 90 g/m², incompatibile con la matrice).
+// Valori di configurazione coperti dai dati reali. Colore / piega sono identici
+// per A5, A6 e A4. Carta: patinata opaca/lucida (grammature 100..350) OPPURE
+// uso mano (unica grammatura 90 g/m² — matrice PRINT_UNCOATED_90_BENCHMARKS).
 const A5_PAPER_CONFIRMED = new Set([
   "patinata_opaca", "patinata_lucida", "classic_demimatt", "classic_gloss",
   "couche", "couché", "patinata",
 ]);
+// Carte con dati reali: patinate + uso mano.
+const PAPER_CONFIRMED = new Set([...A5_PAPER_CONFIRMED, ...USO_MANO_SET]);
 // LATI — su A4, A5 e A6 (prodotto "Volantini e Flyer" Pixartprinting) il
 // prezzo NON varia col tipo di stampa: solo fronte, fronte/retro uguali e
 // fronte/retro differenti risultano allo stesso identico prezzo reale.
@@ -314,10 +376,15 @@ function normGrammage(v) {
  * Prezzo BASE di mercato per (formato stampa, grammatura, quantita') —
  * interpolazione lineare tra i punti della STESSA grammatura e dello STESSO
  * formato. Formati coperti: A5, A6, A4 (matrici indipendenti). Altro -> null.
+ * Con paperType = uso mano usa la matrice dedicata PRINT_UNCOATED_90_BENCHMARKS
+ * (unica grammatura 90). Firma retro-compatibile: paperType e' opzionale.
  * @returns {{ price:number|null, exact:boolean, belowMin:boolean, aboveMax:boolean }}
  */
-export function benchmarkBasePrice(printFormat, quantity, grammage) {
-  const tables = BENCHMARK_TABLES[String(printFormat || "").toUpperCase()];
+export function benchmarkBasePrice(printFormat, quantity, grammage, paperType) {
+  const fmt = String(printFormat || "").toUpperCase();
+  const tables = isUsoManoPaper(paperType)
+    ? PRINT_UNCOATED_90_BENCHMARKS[fmt]
+    : BENCHMARK_TABLES[fmt];
   if (!tables) {
     return { price: null, exact: false, belowMin: false, aboveMax: false };
   }
@@ -364,7 +431,10 @@ export function benchmarkBasePrice(printFormat, quantity, grammage) {
  *                                (f/r uguali) / "fronte_retro" (f/r differenti):
  *                                su A4/A5/A6 tutti coperti allo stesso prezzo
  * @param {string} [p.color]      "colori" coperto; "bianco_nero" -> review
- * @param {string} [p.paperType]  "patinata_opaca" / "patinata_lucida" coperti; "uso_mano" -> review
+ * @param {string} [p.paperType]  "patinata_opaca" / "patinata_lucida" (grammature
+ *                                100..350) oppure "uso_mano" (unica grammatura 90).
+ *                                Combinazioni incompatibili (uso_mano+130,
+ *                                patinata+90) -> REQUIRES_REVIEW.
  * @param {string} [p.fold]       "nessuna" coperto; "meta"/"tre" -> review
  * @param {string} [p.orientation] nessun effetto sul prezzo
  * @param {string} [p.urgency]    nessun effetto sul prezzo stampa
@@ -385,8 +455,13 @@ export function calculatePrintPrice({
   const fmt = String(printFormat || "").toUpperCase();
   const urgencyKey = normKey(urgency) || "standard";
   const gKey = normGrammage(grammage);
-  // Lista grammature del formato richiesto (A5/A6 hanno matrici dedicate).
-  const gramList = BENCHMARK_GRAMMAGES[fmt] || PRINT_A5_GRAMMAGES;
+  const usoMano = isUsoManoPaper(paperType);
+  // Grammature valide per la carta scelta: uso mano -> solo 90; patinata ->
+  // 100/130/170/250/300/350 (per formato). Cosi' "uso mano + 130" e
+  // "patinata + 90" risultano automaticamente non coperti (REQUIRES_REVIEW).
+  const gramList = usoMano
+    ? PRINT_UNCOATED_90_GRAMMAGES
+    : (BENCHMARK_GRAMMAGES[fmt] || PRINT_A5_GRAMMAGES);
 
   const configurationMultipliers = {
     grammage: GRAMMAGE_MULTIPLIER, sides: SIDES_MULTIPLIER, color: COLOR_MULTIPLIER,
@@ -397,7 +472,7 @@ export function calculatePrintPrice({
     grammage: gramList.includes(gKey),
     sides: sidesConfirmedFor(fmt, sides),
     color: A5_COLOR_CONFIRMED.has(normKey(color)),
-    paper: A5_PAPER_CONFIRMED.has(normKey(paperType)),
+    paper: PAPER_CONFIRMED.has(normKey(paperType)),
     fold: A5_FOLD_CONFIRMED.has(normKey(fold)),
     orientation: true,
     urgency: PRINT_URGENCY_CALIBRATED_VALUES.includes(urgencyKey),
@@ -433,12 +508,12 @@ export function calculatePrintPrice({
   if (!gramList.includes(gKey)) reasons.push("grammage:" + (gKey || "?"));
   if (!sidesConfirmedFor(fmt, sides)) reasons.push("sides:" + (normKey(sides) || "?"));
   if (!A5_COLOR_CONFIRMED.has(normKey(color))) reasons.push("color:" + (normKey(color) || "?"));
-  if (!A5_PAPER_CONFIRMED.has(normKey(paperType))) reasons.push("paper:" + (normKey(paperType) || "?"));
+  if (!PAPER_CONFIRMED.has(normKey(paperType))) reasons.push("paper:" + (normKey(paperType) || "?"));
   if (!A5_FOLD_CONFIRMED.has(normKey(fold))) reasons.push("fold:" + (normKey(fold) || "?"));
 
   if (reasons.length > 0) return { ...base, reviewReasons: reasons, grammageUsed: gramList.includes(gKey) ? gKey : null };
 
-  const bench = benchmarkBasePrice(fmt, quantity, gKey);
+  const bench = benchmarkBasePrice(fmt, quantity, gKey, paperType);
   if (bench.price == null) {
     return { ...base, reviewReasons: ["quantity:" + String(quantity)], grammageUsed: gKey };
   }
@@ -452,7 +527,7 @@ export function calculatePrintPrice({
     priceStatus,
     formatConfigured: true,
     grammageUsed: gKey,
-    source: BENCHMARK_SOURCES[fmt] || PRINT_A5_BENCHMARK_SOURCE,
+    source: usoMano ? PRINT_UNCOATED_90_SOURCE : (BENCHMARK_SOURCES[fmt] || PRINT_A5_BENCHMARK_SOURCE),
     baseBenchmarkPrice: basePrintPrice,
     basePrintPrice,
     volantiniProMarkup: round2(customerPrice - basePrintPrice),
@@ -484,13 +559,15 @@ export function computePrintEstimate({
   urgency,
 } = {}) {
   if (enabled === false) return 0;
+  const paper = paperType ?? "patinata_opaca";
   const res = calculatePrintPrice({
     quantity,
     printFormat: printFormat || format || "A5",
-    grammage: grammage ?? "130",
+    // Con carta uso mano l'unica grammatura reale e' 90 (usata solo se assente).
+    grammage: grammage ?? (isUsoManoPaper(paper) ? "90" : "130"),
     sides: sides ?? "fronte_retro",
     color: color ?? "colori",
-    paperType: paperType ?? "patinata_opaca",
+    paperType: paper,
     fold: fold ?? "nessuna",
     orientation,
     urgency,

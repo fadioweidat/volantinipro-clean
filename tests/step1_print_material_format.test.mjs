@@ -15,6 +15,9 @@ import {
   PRINT_A6_GRAMMAGES,
   PRINT_A4_BENCHMARKS,
   PRINT_A4_GRAMMAGES,
+  PRINT_UNCOATED_90_BENCHMARKS,
+  PRINT_UNCOATED_90_SOURCE,
+  isUsoManoPaper,
   PRINT_FORMAT_STATUS,
   VOLANTINIPRO_MARKUP_PCT,
   isPrintFormatConfigured,
@@ -164,13 +167,20 @@ test("Patinata opaca e Patinata lucida = stesso prezzo (dato reale identico)", (
   }
 });
 
-test("Uso mano = REQUIRES_REVIEW, nessun prezzo (fornitore reale: solo 90g)", () => {
-  const r = price({ quantity: 10000, grammage: "130", paperType: "uso_mano" });
-  assert.equal(r.priceStatus, "REQUIRES_REVIEW");
-  assert.equal(r.customerPrice, null);
-  assert.ok(r.reviewReasons.some((x) => x.startsWith("paper:")));
-  // anche uso mano + 90g (fuori matrice A5) resta REQUIRES_REVIEW
-  assert.equal(price({ quantity: 10000, grammage: "90", paperType: "uso_mano" }).priceStatus, "REQUIRES_REVIEW");
+test("Uso mano: 90g coperto (AUTO_CONFIRMED); grammatura patinata su uso mano = incompatibile", () => {
+  // uso mano + 90g -> prezzo reale dalla matrice uncoated dedicata
+  const ok = price({ quantity: 10000, grammage: "90", paperType: "uso_mano" });
+  assert.equal(ok.priceStatus, "AUTO_CONFIRMED");
+  assert.equal(ok.customerPrice, 145.13); // A5 uso mano 10k
+  // uso mano + 130g -> stato incompatibile (uso mano ha solo 90g)
+  const bad = price({ quantity: 10000, grammage: "130", paperType: "uso_mano" });
+  assert.equal(bad.priceStatus, "REQUIRES_REVIEW");
+  assert.equal(bad.customerPrice, null);
+  assert.ok(bad.reviewReasons.some((x) => x.startsWith("grammage:")));
+  // patinata + 90g -> stato incompatibile (patinata non ha 90g)
+  const bad2 = price({ quantity: 10000, grammage: "90", paperType: "patinata_opaca" });
+  assert.equal(bad2.priceStatus, "REQUIRES_REVIEW");
+  assert.equal(bad2.customerPrice, null);
 });
 
 // ---------------------------------------------------------------------------
@@ -322,8 +332,8 @@ test("A6 carta: patinata opaca == patinata lucida (dato reale identico), AUTO_CO
 
 test("A6 config non coperte = REQUIRES_REVIEW, customerPrice null (nessuno sconto/mapping inventato)", () => {
   const bad = [
-    { paperType: "uso_mano" },
-    { grammage: "90", paperType: "uso_mano" }, // 90g A6 non va mappato su 100/130
+    { paperType: "uso_mano" }, // uso mano + 130g (default) = incompatibile
+    { grammage: "90" }, // patinata + 90g = incompatibile
     { color: "bianco_nero" },
     { fold: "meta" },
     { fold: "tre" },
@@ -469,8 +479,8 @@ test("A4 carta: patinata opaca == patinata lucida (dato reale identico), AUTO_CO
 
 test("A4 config non coperte = REQUIRES_REVIEW, customerPrice null", () => {
   const bad = [
-    { paperType: "uso_mano" },
-    { grammage: "90", paperType: "uso_mano" }, // A4 uso mano solo 90g -> non mappare
+    { paperType: "uso_mano" }, // uso mano + 130g (base) = incompatibile
+    { grammage: "90" }, // patinata + 90g = incompatibile
     { color: "bianco_nero" },
     { fold: "meta" },
     { fold: "tre" },
@@ -525,6 +535,122 @@ test("A6 regressione: matrice e numeri A6 invariati dopo l'aggiunta di A4", () =
   assert.equal(priceA6({ quantity: 10000, grammage: "250" }).customerPrice, 158.29);
   assert.equal(PRINT_A6_BENCHMARKS["130"][4][1], 82.98);
   assert.equal(benchmarkBasePrice("A6", 10000, "170").price, 97.5);
+});
+
+// ---------------------------------------------------------------------------
+// USO MANO 90 g/m² — matrice dedicata PRINT_UNCOATED_90_BENCHMARKS per formato
+// (Pixartprinting /product/quote/, 2026-08-28, CAP 30020, ex IVA, standard/
+// economy). Contratto fornitore: uso mano espone SOLO 90g; patinata SOLO
+// 100..350. Combinazioni incrociate -> REQUIRES_REVIEW.
+// ---------------------------------------------------------------------------
+
+const um = (fmt, over) => calculatePrintPrice({ printFormat: fmt, paperType: "uso_mano", grammage: "90", sides: "fronte_retro", color: "colori", fold: "nessuna", quantity: 10000, ...over });
+
+test("USO MANO 90g — prezzi obbligatori 10k (base / customer +20%) per formato", () => {
+  for (const [fmt, base, customer] of [["A4", 218.18, 261.82], ["A5", 120.94, 145.13], ["A6", 74.7, 89.64]]) {
+    const r = um(fmt);
+    assert.equal(r.basePrintPrice, base, `${fmt} um base`);
+    assert.equal(r.customerPrice, customer, `${fmt} um customer`);
+    assert.equal(r.priceStatus, "AUTO_CONFIRMED", `${fmt} um status`);
+    assert.equal(r.source, PRINT_UNCOATED_90_SOURCE, `${fmt} um source`);
+    assert.equal(r.format, fmt);
+  }
+});
+
+test("USO MANO 90g — intera matrice uncoated = customerPrice esatto (base × 1.20) e AUTO_CONFIRMED", () => {
+  for (const fmt of ["A4", "A5", "A6"]) {
+    for (const [qty, base] of PRINT_UNCOATED_90_BENCHMARKS[fmt]["90"]) {
+      const r = um(fmt, { quantity: qty });
+      assert.equal(r.basePrintPrice, base, `${fmt} um ${qty} base`);
+      assert.equal(r.customerPrice, round2(base * 1.2), `${fmt} um ${qty} customer`);
+      assert.equal(r.priceStatus, "AUTO_CONFIRMED", `${fmt} um ${qty} status`);
+    }
+  }
+});
+
+test("USO MANO 90g — i 3 lati allo stesso customerPrice, AUTO_CONFIRMED (A4/A5/A6)", () => {
+  for (const fmt of ["A4", "A5", "A6"]) {
+    const cs = ["fronte", "fronte_retro_eq", "fronte_retro"].map((s) => um(fmt, { sides: s }));
+    for (const r of cs) {
+      assert.equal(r.priceStatus, "AUTO_CONFIRMED", `${fmt} um sides`);
+      assert.equal(r.customerPrice, cs[0].customerPrice, `${fmt} um sides stesso prezzo`);
+      assert.equal(r.customerPrice, cs[2].customerPrice, `${fmt} um sides stesso prezzo`);
+    }
+  }
+});
+
+test("USO MANO 90g — 25.000 = INTERPOLATED (lineare 20k↔30k, tabella uncoated del formato)", () => {
+  for (const fmt of ["A4", "A5", "A6"]) {
+    const t = PRINT_UNCOATED_90_BENCHMARKS[fmt]["90"];
+    const at20 = t.find((r) => r[0] === 20000)[1];
+    const at30 = t.find((r) => r[0] === 30000)[1];
+    const expBase = at20 + (at30 - at20) * 0.5;
+    const r = um(fmt, { quantity: 25000 });
+    assert.equal(r.priceStatus, "INTERPOLATED", `${fmt} um 25k status`);
+    assert.ok(close(r.baseBenchmarkPrice, round2(expBase), 0.01), `${fmt} um 25k base`);
+    assert.equal(r.customerPrice, round2(expBase * 1.2), `${fmt} um 25k customer`);
+  }
+});
+
+test("USO MANO — stati incompatibili carta/grammatura = REQUIRES_REVIEW, customerPrice null", () => {
+  for (const fmt of ["A4", "A5", "A6"]) {
+    // uso mano + grammatura patinata
+    for (const g of ["100", "130", "170", "250", "300", "350"]) {
+      const r = um(fmt, { grammage: g });
+      assert.equal(r.priceStatus, "REQUIRES_REVIEW", `${fmt} uso mano + ${g}g`);
+      assert.equal(r.customerPrice, null);
+    }
+    // patinata + 90g
+    const p90 = calculatePrintPrice({ printFormat: fmt, paperType: "patinata_opaca", grammage: "90", sides: "fronte_retro", color: "colori", fold: "nessuna", quantity: 10000 });
+    assert.equal(p90.priceStatus, "REQUIRES_REVIEW", `${fmt} patinata + 90g`);
+    assert.equal(p90.customerPrice, null);
+  }
+});
+
+test("USO MANO 90g — B/N e piega restano REQUIRES_REVIEW", () => {
+  for (const fmt of ["A4", "A5", "A6"]) {
+    assert.equal(um(fmt, { color: "bianco_nero" }).priceStatus, "REQUIRES_REVIEW");
+    assert.equal(um(fmt, { fold: "meta" }).priceStatus, "REQUIRES_REVIEW");
+    assert.equal(um(fmt, { fold: "tre" }).priceStatus, "REQUIRES_REVIEW");
+  }
+});
+
+test("USO MANO — nessuna cross-contamination con le matrici patinata né tra formati", () => {
+  // uso mano != patinata, stesso formato/quantità
+  for (const fmt of ["A4", "A5", "A6"]) {
+    const umC = um(fmt).customerPrice;
+    const patC = calculatePrintPrice({ printFormat: fmt, paperType: "patinata_opaca", grammage: "130", sides: "fronte_retro", color: "colori", fold: "nessuna", quantity: 10000 }).customerPrice;
+    assert.notEqual(umC, patC, `${fmt} um != patinata`);
+  }
+  // uso mano A4 != A5 != A6 (tabelle indipendenti)
+  const [a4, a5, a6] = ["A4", "A5", "A6"].map((f) => um(f).customerPrice);
+  assert.equal(new Set([a4, a5, a6]).size, 3);
+  assert.ok(a4 > a5 && a5 > a6, "atteso A4 > A5 > A6 anche per uso mano @10k");
+  // benchmarkBasePrice: 4° arg paperType instrada sulla tabella giusta; 3-arg = patinata (compat)
+  assert.equal(round2(benchmarkBasePrice("A5", 10000, "90", "uso_mano").price), 120.94);
+  assert.equal(benchmarkBasePrice("A5", 10000, "90").price, null); // patinata non ha 90g
+  assert.equal(benchmarkBasePrice("A5", 10000, "130").price, 155.93); // 3-arg invariato
+});
+
+test("USO MANO — helper isUsoManoPaper riconosce le varianti; patinata invariata", () => {
+  for (const v of ["uso_mano", "Uso mano", "Classic Usomano", "classic_uncoated", "UNCOATED"]) {
+    assert.equal(isUsoManoPaper(v), true, `isUsoManoPaper(${v})`);
+  }
+  for (const v of ["patinata_opaca", "patinata_lucida", "classic_demimatt", "", null, undefined]) {
+    assert.equal(isUsoManoPaper(v), false, `isUsoManoPaper(${v})`);
+  }
+});
+
+test("USO MANO — regressione patinata: A4/A5/A6 @10k 130g invariati; lati/25k patinata invariati", () => {
+  assert.equal(calculatePrintPrice({ ...A4, quantity: 10000, grammage: "130" }).customerPrice, 348.96);
+  assert.equal(price({ quantity: 10000, grammage: "130" }).customerPrice, 187.12);
+  assert.equal(priceA6({ quantity: 10000, grammage: "130" }).customerPrice, 99.58);
+  // lati patinata: 3 tipi stesso prezzo (invariato)
+  for (const s of ["fronte", "fronte_retro_eq", "fronte_retro"]) {
+    assert.equal(price({ quantity: 10000, grammage: "250", sides: s }).customerPrice, 296.4);
+  }
+  // 25k patinata invariato
+  assert.equal(price({ quantity: 25000, grammage: "130" }).priceStatus, "INTERPOLATED");
 });
 
 test("grammatura fuori matrice (90/115/135) = REQUIRES_REVIEW", () => {

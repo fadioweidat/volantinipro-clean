@@ -178,25 +178,16 @@ export function Step1({
     id: "patinata_lucida",
     label: "Patinata lucida · Premium"
   }];
-  const printGrammageOptions = [{
-    id: "100",
-    label: "100g"
-  }, {
-    id: "130",
-    label: "130g"
-  }, {
-    id: "170",
-    label: "170g"
-  }, {
-    id: "250",
-    label: "250g"
-  }, {
-    id: "300",
-    label: "300g"
-  }, {
-    id: "350",
-    label: "350g"
-  }];
+  // Grammature: la carta "Uso mano" (Classic Uncoated) espone SOLO 90 g/m² dal
+  // fornitore reale; le patinate SOLO 100/130/170/250/300/350. Il selettore
+  // segue il contratto reale — nessuno stato incompatibile carta/grammatura.
+  const printGrammagePatinata = [
+    { id: "100", label: "100g" }, { id: "130", label: "130g" }, { id: "170", label: "170g" },
+    { id: "250", label: "250g" }, { id: "300", label: "300g" }, { id: "350", label: "350g" },
+  ];
+  const printGrammageUsoMano = [{ id: "90", label: "90g" }];
+  const isUsoManoPaper = (data.printing?.paperType) === "uso_mano";
+  const printGrammageOptions = isUsoManoPaper ? printGrammageUsoMano : printGrammagePatinata;
   const printSidesOptions = [{
     id: "fronte",
     label: "Solo fronte"
@@ -227,7 +218,7 @@ export function Step1({
   // Default = configurazione dei benchmark stampa reali (~130 g, fronte/retro
   // differenti). Le altre opzioni vengono salvate ma NON cambiano il prezzo
   // finche' non ci sono benchmark reali distinti (vedi printPricing.js).
-  const printing = {
+  const printing0 = {
     format: toPrintableFormat(data.printing?.format || data.flyerFormat || "A5"),
     orientation: "verticale",
     paperType: "patinata_opaca",
@@ -238,12 +229,27 @@ export function Step1({
     artworkStatus: "pronto",
     ...(data.printing || {})
   };
-  const updatePrinting = patch => updateData({
-    printing: {
-      ...printing,
-      ...patch
+  // Coerenza carta/grammatura secondo il contratto reale del fornitore:
+  //  - uso mano  -> unica grammatura 90
+  //  - patinata  -> se la grammatura persistita e' 90 (stato incompatibile),
+  //                 ripristina 130 g/m² (default patinata valido)
+  const coerceGrammage = (paperType, grammage) => {
+    if (paperType === "uso_mano") return "90";
+    return String(grammage) === "90" ? "130" : String(grammage);
+  };
+  const printing = {
+    ...printing0,
+    grammage: coerceGrammage(printing0.paperType, printing0.grammage),
+  };
+  const updatePrinting = patch => {
+    const next = { ...printing, ...patch };
+    // Un cambio di carta puo' rendere incompatibile la grammatura corrente:
+    // la si riallinea SEMPRE (uso mano -> 90 ; patinata da 90 -> 130).
+    if ("paperType" in patch && !("grammage" in patch)) {
+      next.grammage = coerceGrammage(next.paperType, next.grammage);
     }
-  });
+    updateData({ printing: next });
+  };
   // File di stampa e servizio grafico — elementi DISTINTI dal prezzo stampa.
   // "da_creare" NON aggiunge alcun costo: il servizio grafico e' da quotare
   // separatamente con VolantiniPro (graphicPrice = null, REQUIRES_QUOTE).
@@ -328,12 +334,13 @@ export function Step1({
   // "Sì, voglio anche stampa" ⟺ hasFlyers === "no" (id fuorviante della card).
   const printActive = data.hasFlyers === "no";
   // Motore prezzi stampa centralizzato (src/lib/pricing/printPricing.js).
-  // PREZZO REALE = matrice A5 per grammatura (Pixartprinting, dati verificati) +
-  // interpolazione lineare + ricarico interno 20% (gia' nel customerPrice, mai
-  // esposto come voce). Config coperta dai dati -> AUTO_CONFIRMED/INTERPOLATED;
-  // config non coperta (A6, uso mano, solo fronte, f/r uguali, B/N, piega,
-  // grammatura fuori matrice) -> REQUIRES_REVIEW -> "Prezzo da verificare".
-  // A4 = NOT_CONFIGURED.
+  // PREZZO REALE = matrici per formato (A4/A5/A6, Pixartprinting, dati
+  // verificati): patinata opaca/lucida 100..350 g/m² + uso mano 90 g/m²
+  // (matrice dedicata) + interpolazione lineare + ricarico interno 20% (gia'
+  // nel customerPrice, mai esposto). I 3 tipi di lati hanno lo stesso prezzo.
+  // Config coperta -> AUTO_CONFIRMED/INTERPOLATED; non coperta (B/N, piega,
+  // carta/grammatura incompatibile: uso mano+130, patinata+90) ->
+  // REQUIRES_REVIEW -> "Prezzo da verificare".
   const printFormatConfigured = isPrintFormatConfigured(printing.format);
   const printPrice = calculatePrintPrice({
     quantity: activeQty,
