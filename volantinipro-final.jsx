@@ -5023,6 +5023,13 @@ export function LoginPage({
       const cleanPath = "/auth/callback";
       const session = consumeSupabaseAuthHash(cleanPath);
       if (session) {
+        // Intento del login (Admin vs Cliente), catturato PRIMA di pulire il
+        // context ricordato. `isAdminContext` deriva da ?context=admin nella
+        // query (precedenza) oppure dal context memorizzato all'invio del
+        // magic link (readPendingAuthContext). Serve SOLO a scegliere la
+        // destinazione tra route a cui l'utente ha comunque diritto: non
+        // concede mai privilegi — il ruolo Admin resta verificato dal backend.
+        const loginIntentIsAdmin = isAdminContext;
         clearPendingAuthContext();
         // setSession() trasferisce il callback manuale nella sessione SDK
         // persistente e abilita auto-refresh prima di lasciare la login page.
@@ -5073,12 +5080,17 @@ export function LoginPage({
             window.location.replace(`${driverOrigin}${driverReturnPath}`);
             return;
           }
-          // Il contesto del link non e' un ruolo attendibile: una callback
-          // generata fuori dalla pagina Login puo' perdere ?context=. Il ruolo
-          // Admin viene quindi verificato sul backend prima del redirect.
+          // Ruolo Admin reale, verificato dal backend (RPC jwt_is_admin, mai
+          // dedotto lato client, fail-closed). Da solo NON basta per atterrare
+          // su /admin: serve anche che il login sia partito con intento Admin
+          // (loginIntentIsAdmin). Un account con role=admin che entra dal
+          // flusso Cliente — o da admin-grant-access, che punta a /dashboard —
+          // resta nel flusso Cliente e vede la Dashboard cliente: mai promosso
+          // automaticamente all'area Admin solo perche' il suo ruolo e' admin.
+          // (Separazione intento/ruolo: il ruolo autorizza, l'intento instrada.)
           const isAdmin = await verifySupabaseAdminRole(restoredSession);
           if (cancelled) return;
-          if (isAdmin) {
+          if (isAdmin && loginIntentIsAdmin) {
             onNav("admin");
             return;
           }

@@ -91,19 +91,30 @@ test("resolveQuoteQuantity legge flyerQuantity ?? qty (i campi scritti dal botto
   assert.match(src, /function resolveQuoteQuantity\(data\)\s*\{[\s\S]*?data\?\.flyerQuantity\s*\?\?\s*data\?\.qty/);
 });
 
-// --- BUG B (contratto auth da preservare) ---
-// L'account di test (fenice.sp@gmail.com) risulta profiles.role = 'admin':
-// il redirect a /admin dopo il magic link e' CORRETTO. Qui si blocca solo la
-// regressione del contratto: la decisione Admin nel callback viene SOLO dal
-// controllo backend, mai da ?context.
+// --- BUG B (contratto auth) — AGGIORNATO dopo il fix "separazione Cliente/Admin" ---
+// Contratto PRECEDENTE (vulnerabile): il callback instradava a /admin sulla
+// SOLA base di verifySupabaseAdminRole(), ignorando l'intento del login.
+// L'account usato storicamente per "testare il flusso cliente" ha
+// profiles.role = 'admin', quindi il bug si mascherava da comportamento
+// corretto. In produzione un cliente reale con role=admin (o un admin che
+// apre il link cliente) finiva in Dashboard Admin.
+//
+// Contratto ATTUALE: il ruolo Admin resta verificato SOLO dal backend
+// (jwt_is_admin, fail-closed) e AUTORIZZA; l'INTENTO del login (isAdminContext,
+// da ?context=admin o dal context ricordato all'invio) INSTRADA. /admin scatta
+// solo con entrambi. Vedi tests/auth_client_admin_separation.test.mjs.
 
-test("callback: la scelta Admin arriva da verifySupabaseAdminRole, non da ?context", () => {
+test("callback: /admin richiede ruolo backend E intento Admin (non solo il ruolo)", () => {
   const s = MAGIC_SRC.indexOf('window.location.hash.includes("access_token")');
   assert.ok(s >= 0);
   const cb = MAGIC_SRC.slice(s, s + 6000);
   assert.match(cb, /const isAdmin = await verifySupabaseAdminRole\(restoredSession\)/);
-  assert.match(cb, /if \(isAdmin\) \{\s*onNav\("admin"\)/);
-  assert.match(cb, /onNav\(pendingReturnToStep4 \? "step4" : "dashboard"\)/, "non-admin -> dashboard");
-  // Nel ramo di consumo dell'hash la rotta non e' mai decisa da queryContext/context.
-  assert.doesNotMatch(cb, /queryContext\s*===\s*"admin"\s*\?\s*[^:]*onNav\("admin"\)/);
+  // l'intento e' catturato prima di pulire il context ricordato
+  assert.match(cb, /const loginIntentIsAdmin = isAdminContext;/);
+  // il redirect Admin richiede ruolo backend E intento Admin
+  assert.match(cb, /if \(isAdmin && loginIntentIsAdmin\) \{\s*\n\s*onNav\("admin"\)/);
+  // la vecchia condizione "solo ruolo" non esiste piu'
+  assert.doesNotMatch(cb, /if \(isAdmin\) \{\s*\n\s*onNav\("admin"\)/);
+  // intento Cliente / mancante -> dashboard (o ritorno a Step4)
+  assert.match(cb, /onNav\(pendingReturnToStep4 \? "step4" : "dashboard"\)/, "non-admin/intento cliente -> dashboard");
 });

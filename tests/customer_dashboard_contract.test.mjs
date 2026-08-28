@@ -80,16 +80,31 @@ test('DashboardPage reacts to an invalid session by clearing the badge and navig
   assert.match(dashboardBody, /onNav\("login"\)/);
 });
 
-test('authenticated root and magic-link callbacks have role-aware canonical landings', () => {
+test('authenticated root and magic-link callbacks have intent-aware canonical landings', () => {
   const appRouter = readFileSync(new URL('../src/app/AppRouter.jsx', import.meta.url), 'utf8');
   const login = readFileSync(new URL('../volantinipro-final.jsx', import.meta.url), 'utf8');
   assert.match(appRouter, /page !== "auth-landing"/);
   assert.match(appRouter, /page === "auth-landing" && <RouteLoadingFallback/);
-  assert.match(appRouter, /isAdmin \? "\/admin" : "\/dashboard"/);
+  // "auth-landing" (sessione presente all'apertura di "/") non ha intento di
+  // login Admin: destinazione SEMPRE /dashboard. Il ruolo admin da solo non
+  // promuove piu' automaticamente a /admin (nessun verifySupabaseAdminRole qui).
+  const authLandingBlock = appRouter.slice(
+    appRouter.indexOf('if (page !== "auth-landing")'),
+    appRouter.indexOf('}, [page]);', appRouter.indexOf('if (page !== "auth-landing")')),
+  );
+  assert.match(authLandingBlock, /replaceState\(null, "", "\/dashboard"\)/);
+  assert.match(authLandingBlock, /setPage\("dashboard"\)/);
+  assert.doesNotMatch(authLandingBlock, /"\/admin"/);
+  assert.doesNotMatch(authLandingBlock, /verifySupabaseAdminRole/);
   assert.match(appRouter, /paths\[p\] \|\| "\/not-found"/);
   assert.doesNotMatch(appRouter, /paths\[p\] \|\| "\/"/);
+  // Callback magic link: il ruolo Admin e' verificato dal backend, ma /admin
+  // scatta SOLO se anche l'intento del login era Admin (loginIntentIsAdmin).
   assert.match(login, /verifySupabaseAdminRole\(restoredSession\)/);
   assert.match(login, /const cleanPath = "\/auth\/callback"/);
+  assert.match(login, /const loginIntentIsAdmin = isAdminContext/);
+  assert.match(login, /if \(isAdmin && loginIntentIsAdmin\) \{/);
+  assert.doesNotMatch(login, /if \(isAdmin\) \{\s*\n\s*onNav\("admin"\)/);
   assert.match(login, /onNav\("admin"\)/);
   assert.match(login, /onNav\(pendingReturnToStep4 \? "step4" : "dashboard"\)/);
   assert.doesNotMatch(login, /window\.location\.href\s*=\s*["']\/["']/);

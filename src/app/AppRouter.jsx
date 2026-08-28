@@ -8,7 +8,7 @@ import { RouteLoadingFallback } from "../layouts/public/RouteLoadingFallback.jsx
 import { F, C } from "../lib/constants.js";
 import { CustomerGuard } from "../auth/guards/CustomerGuard.jsx";
 import { AdminGuard } from "../auth/guards/AdminGuard.jsx";
-import { getStoredSupabaseSession, hasSupabaseAuthHashError, hasSupabaseAuthHashToken, isStoredSupabaseSessionValid, readPendingAuthContext, verifySupabaseAdminRole } from "../auth/session.js";
+import { getStoredSupabaseSession, hasSupabaseAuthHashError, hasSupabaseAuthHashToken, isStoredSupabaseSessionValid, readPendingAuthContext } from "../auth/session.js";
 import { resolveAppRoute } from "./routeResolution.js";
 import { clearConfiguratorDraft, configuratorHistoryState, readConfiguratorDraft, readConfiguratorHistoryState, writeConfiguratorDraft } from "../lib/configuratorState.js";
 import { trackPageView } from "../lib/analytics/siteEvents.js";
@@ -129,16 +129,15 @@ export function AppRouter() {
     const session = getStoredSupabaseSession();
     if (!isStoredSupabaseSessionValid(session)) return undefined;
 
-    let cancelled = false;
-    verifySupabaseAdminRole(session).then((isAdmin) => {
-      if (cancelled) return;
-      const path = isAdmin ? "/admin" : "/dashboard";
-      window.history.replaceState(null, "", path);
-      setPage(isAdmin ? "admin" : "dashboard");
-    });
-    return () => {
-      cancelled = true;
-    };
+    // "auth-landing" = sessione valida presente all'apertura di "/" (l'utente
+    // ha semplicemente riaperto il sito, NESSUN intento di login Admin). La
+    // destinazione canonica e' SEMPRE la Dashboard cliente: il ruolo Admin da
+    // solo non promuove mai automaticamente a /admin (separazione intento/
+    // ruolo). L'area Admin resta raggiungibile in modo esplicito digitando
+    // /admin, dove AdminGuard verifica jwt_is_admin() lato backend.
+    window.history.replaceState(null, "", "/dashboard");
+    setPage("dashboard");
+    return undefined;
   }, [page]);
 
   // Traffico sito (Admin "Commerciale"): un page_view per ogni cambio pagina,
