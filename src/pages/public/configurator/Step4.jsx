@@ -6,6 +6,7 @@ import { useIsMobile } from "../../../hooks/useIsMobile.js";
 import { AnimatePresence, motion } from "framer-motion";
 import { submitPublicCampaign, AUTH_EXPIRED_MESSAGE, clearExpiredSupabaseSession, ensureRestSessionFromSdk, getStoredSupabaseSession, hasSupabaseConfig, isAuthTokenExpiredError, isStoredSupabaseSessionExpired, saveCampaign } from "../../../lib/supabaseClient.js";
 import { buildExtraServicesById, buildExtraServicesRegistry, buildOptionalExtras, buildSvcCommercial, normalizeSelectedExtras } from "../../../lib/extraServicesRegistry.js";
+import { calculatePrintPrice } from "../../../lib/pricing/printPricing.js";
 import { BUSINESS_DELIVERY_METHODS, BUSINESS_MATERIAL_LOCATIONS, BUSINESS_OBJECTIVES, BUSINESS_PROOF_OPTIONS, BUSINESS_RECIPIENTS, businessCategoryLabel, businessOptionLabel, calculateBusinessMaterials, calculateBusinessOperationalPlan } from "../../../lib/business/business-config.js";
 import { formatAreaKm2, formatNumber, formatPaperWeight } from "../../../lib/utils/format.js";
 import { formatCoverageProportion } from "../../../lib/step2/buildStep2ViewModel.js";
@@ -445,7 +446,23 @@ export function Step4({
   // e mostrato/salvato come stima separata (metadata.printing.estimatedPrice).
   const printingExtra = selectedExtras.find(e => e.id === "printing") || null;
   const distributionExtras = selectedExtras.filter(e => e.id !== "printing");
-  const printingEstimatedPrice = printingExtra?.price || 0;
+  // Prezzo stampa reale (matrice A5 Pixartprinting) — coerente con la
+  // grammatura/carta/lati/colore selezionati. priceStatus decide se mostrare
+  // un importo o "Da verificare". Mai sommato al totale distribuzione.
+  const printQuote = calculatePrintPrice({
+    quantity: flyerQty,
+    printFormat: data.printing?.format,
+    grammage: data.printing?.grammage,
+    sides: data.printing?.sides,
+    color: data.printing?.color,
+    paperType: data.printing?.paperType,
+    fold: data.printing?.folding,
+    orientation: data.printing?.orientation,
+    urgency: data.urgency,
+    enabled: Boolean(data.printing?.enabled),
+  });
+  const printPriceKnown = printQuote.customerPrice != null;
+  const printingEstimatedPrice = printPriceKnown ? printQuote.customerPrice : 0;
   const pricing = calculateQuotePricing({ quantity: flyerQty, pricePerThousand, smartPairingDiscountPct: disc, urgency: data.urgency, planDiscountPct: subDiscPct, extras: distributionExtras, distributionZones: distributionZonesForPricing });
   const { baseCost, smartPairingDiscount, urgencySurcharge: urgSurch, subtotalBeforePlan, planDiscountAmount, extraCost, total } = pricing;
   // P0 WIRING REALE sezione 7/8: percentuale reale applicata (0/20/35),
@@ -1094,8 +1111,11 @@ export function Step4({
       total,
       printing: printingExtra ? {
         label: "Stampa indicativa",
-        amount: printingEstimatedPrice,
-        note: "Da confermare in tipografia — non inclusa nel totale distribuzione"
+        amount: printPriceKnown ? printQuote.customerPrice : null,
+        priceStatus: printQuote.priceStatus,
+        note: printPriceKnown
+          ? "Da confermare in tipografia — non inclusa nel totale distribuzione"
+          : "Configurazione da verificare con VolantiniPro — non inclusa nel totale distribuzione"
       } : null
     },
     sources: svcType === "d2d" ? d2dSummarySources : serviceSummaryConfig.sources || []
@@ -1261,7 +1281,10 @@ export function Step4({
               graphicPrice: null,
               notes: data.printing?.notes || null
             },
-            estimatedPrice: data.printing?.enabled ? printingEstimatedPrice : null,
+            estimatedPrice: data.printing?.enabled && printPriceKnown ? printQuote.customerPrice : null,
+            priceStatus: data.printing?.enabled ? printQuote.priceStatus : null,
+            marketBasePrice: data.printing?.enabled && printPriceKnown ? printQuote.basePrintPrice : null,
+            marketSource: data.printing?.enabled && printPriceKnown ? printQuote.source : null,
             definitivePrice: null,
             status: data.printing?.enabled ? "REQUESTED" : "NOT_REQUESTED"
           }
@@ -1942,6 +1965,11 @@ export function Step4({
                 uso_mano: "Uso mano"
               }[data.printing.paperType] || data.printing.paperType,
               c: C.white
+            }, data.printing?.enabled && data.printing?.grammage && {
+              icon: "",
+              l: "Grammatura stampa",
+              v: `${String(data.printing.grammage).replace(/[^\d]/g, "")} g/m²`,
+              c: C.white
             }, data.printing?.enabled && data.printing?.sides && {
               icon: "",
               l: "Lati",
@@ -1974,12 +2002,12 @@ export function Step4({
             }, data.printing?.enabled && {
               icon: "",
               l: "Prezzo stampa",
-              v: printingExtra ? `~${printingExtra.price}€ (indicativo)` : "Da confermare",
+              v: printPriceKnown ? `~${printQuote.customerPrice.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€ (indicativo)` : "Da verificare",
               c: C.orange
             }, data.printing?.enabled && {
               icon: "",
               l: "Stato stampa",
-              v: "Da confermare con tipografia",
+              v: printPriceKnown ? "Da confermare con tipografia" : "Configurazione da verificare con VolantiniPro",
               c: C.orange
             }, isH2H && {
               icon: "",
@@ -2759,6 +2787,7 @@ export function Step4({
               totF={totF}
               printingExtra={printingExtra}
               printingEstimatedPrice={printingEstimatedPrice}
+              printPriceKnown={printPriceKnown}
               eur={eur}
             />
 

@@ -2,7 +2,7 @@ import React from "react";
 import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 import { C, F } from "../../../../lib/constants.js";
 
-export function Step4PricingSummaryPanel({ tLabel, baseCost, serviceExtras, disc, smartPairingDiscount, data, urgencySurchargePctLabel, urgSurch, subDiscPct, planDiscountAmount, isQuick, total, flyerQty, svcType, kpis, totF, printingExtra, printingEstimatedPrice, eur }) {
+export function Step4PricingSummaryPanel({ tLabel, baseCost, serviceExtras, disc, smartPairingDiscount, data, urgencySurchargePctLabel, urgSurch, subDiscPct, planDiscountAmount, isQuick, total, flyerQty, svcType, kpis, totF, printingExtra, printingEstimatedPrice, printPriceKnown = true, eur }) {
   return (
     <>
       {/* Price breakdown */}
@@ -245,14 +245,14 @@ export function Step4PricingSummaryPanel({ tLabel, baseCost, serviceExtras, disc
                 fontSize: 10,
                 color: "rgba(255,255,255,.4)",
                 marginTop: 2
-              }}>Da confermare in tipografia — non inclusa nel totale distribuzione</div>
+              }}>{printPriceKnown ? "Da confermare in tipografia — non inclusa nel totale distribuzione" : "Configurazione da verificare con VolantiniPro — non inclusa nel totale distribuzione"}</div>
                 </div>
                 <span style={{
                 fontFamily: F.sans,
                 fontSize: 18,
                 fontWeight: 800,
                 color: "rgba(255,255,255,.75)"
-              }}>~{eur(printingEstimatedPrice)}</span>
+              }}>{printPriceKnown ? `~${eur(printingEstimatedPrice)}` : "Da verificare"}</span>
               </div>}
     </>
   );

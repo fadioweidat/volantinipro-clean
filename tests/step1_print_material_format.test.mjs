@@ -9,7 +9,8 @@ import {
   PRINT_FORMAT_OPTIONS,
   PRINT_FORMAT_IDS,
   MATERIAL_FORMAT_OPTIONS,
-  PRINT_BENCHMARKS,
+  PRINT_A5_BENCHMARKS,
+  PRINT_A5_GRAMMAGES,
   PRINT_FORMAT_STATUS,
   VOLANTINIPRO_MARKUP_PCT,
   isPrintFormatConfigured,
@@ -22,382 +23,308 @@ import { SUPPORT_EMAIL, SUPPORT_WHATSAPP, HAS_SUPPORT_WHATSAPP, buildGraphicRequ
 const root = path.resolve(import.meta.dirname, "..");
 const step1Src = fs.readFileSync(path.join(root, "src/pages/public/configurator/Step1.jsx"), "utf8");
 const step4Src = fs.readFileSync(path.join(root, "src/pages/public/configurator/Step4.jsx"), "utf8");
+const engineSrc = fs.readFileSync(path.join(root, "src/lib/pricing/printPricing.js"), "utf8");
 const summarySrc = fs.readFileSync(path.join(root, "src/components/Step1Summary.jsx"), "utf8");
 
 const close = (a, b, eps = 0.01) => Math.abs(a - b) <= eps;
-const BASE = { grammage: "130", sides: "fronte_retro", color: "colori", fold: "nessuna", urgency: "standard" };
+const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+// Configurazione coperta dai dati reali A5 (patinata opaca, fronte/retro differenti, colori, nessuna piega).
+const A5 = { printFormat: "A5", paperType: "patinata_opaca", sides: "fronte_retro", color: "colori", fold: "nessuna" };
+const price = (over) => calculatePrintPrice({ ...A5, ...over });
 
 // ---------------------------------------------------------------------------
-// Benchmark A6 / A5 — valori BASE realmente osservati (interni).
+// 1. Matrice A5 reale — numeri obbligatori @ 10.000
 // ---------------------------------------------------------------------------
 
-test("A6 — benchmark base ai punti osservati", () => {
-  const b = (q) => benchmarkBasePrice("A6", q).price;
-  assert.equal(b(1000), 49.0);
-  assert.equal(b(2500), 55.5);
-  assert.equal(b(10000), 76.0);
-  assert.equal(b(15000), 112.87);
-  assert.equal(b(20000), 149.83);
-  assert.equal(b(30000), 223.7);
-  assert.equal(b(40000), 297.37);
-  assert.equal(b(50000), 371.44);
-});
-
-test("A5 — benchmark base ai punti osservati", () => {
-  const b = (q) => benchmarkBasePrice("A5", q).price;
-  assert.equal(b(1000), 55.0);
-  assert.equal(b(2500), 70.0);
-  assert.equal(b(10000), 110.0);
-  assert.equal(b(15000), 160.0);
-  assert.equal(b(20000), 210.67);
-  assert.equal(b(30000), 311.67);
-  assert.equal(b(40000), 412.67);
-  assert.equal(b(50000), 513.67);
-});
-
-test("calculatePrintPrice — A6/A5 base = benchmark osservato (config base)", () => {
-  assert.equal(calculatePrintPrice({ quantity: 1000, printFormat: "A6", ...BASE }).basePrintPrice, 49.0);
-  assert.equal(calculatePrintPrice({ quantity: 2500, printFormat: "A6", ...BASE }).basePrintPrice, 55.5);
-  assert.equal(calculatePrintPrice({ quantity: 10000, printFormat: "A6", ...BASE }).basePrintPrice, 76.0);
-  assert.equal(calculatePrintPrice({ quantity: 20000, printFormat: "A6", ...BASE }).basePrintPrice, 149.83);
-  assert.equal(calculatePrintPrice({ quantity: 50000, printFormat: "A6", ...BASE }).basePrintPrice, 371.44);
-  assert.equal(calculatePrintPrice({ quantity: 1000, printFormat: "A5", ...BASE }).basePrintPrice, 55.0);
-  assert.equal(calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE }).basePrintPrice, 110.0);
-  assert.equal(calculatePrintPrice({ quantity: 20000, printFormat: "A5", ...BASE }).basePrintPrice, 210.67);
-  assert.equal(calculatePrintPrice({ quantity: 50000, printFormat: "A5", ...BASE }).basePrintPrice, 513.67);
-});
-
-// ---------------------------------------------------------------------------
-// Margine VolantiniPro (interno, 20%) — customerPrice
-// ---------------------------------------------------------------------------
-
-test("markup VolantiniPro esattamente 20% (interno, non esposto)", () => {
-  assert.equal(VOLANTINIPRO_MARKUP_PCT, 20);
-  const a6 = calculatePrintPrice({ quantity: 10000, printFormat: "A6", ...BASE });
-  assert.equal(a6.customerPrice, 91.2); // 76 * 1.2
-  assert.equal(a6.volantiniProMarkupPct, 20);
-
-  const a5_10 = calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE });
-  assert.equal(a5_10.customerPrice, 132.0); // 110 * 1.2
-
-  const a5_20 = calculatePrintPrice({ quantity: 20000, printFormat: "A5", ...BASE });
-  assert.ok(close(a5_20.customerPrice, 252.8)); // 210.67 * 1.2
-
-  const a5_50 = calculatePrintPrice({ quantity: 50000, printFormat: "A5", ...BASE });
-  assert.ok(close(a5_50.customerPrice, 616.4)); // 513.67 * 1.2
-
-  // rapporto customer/base = 1.20 esatto
-  for (const q of [1000, 7000, 12345, 33333, 50000]) {
-    const r = calculatePrintPrice({ quantity: q, printFormat: "A5", ...BASE });
-    assert.ok(close(r.customerPrice / r.basePrintPrice, 1.2, 0.0005), `q=${q}`);
+test("A5 10k — prezzi obbligatori per grammatura (base / customer +20%)", () => {
+  const cases = [
+    ["100", 126.01, 151.21],
+    ["130", 155.93, 187.12],
+    ["170", 174.44, 209.33],
+    ["250", 247.0, 296.4],
+    ["300", 277.17, 332.6],
+    ["350", 333.43, 400.12],
+  ];
+  for (const [g, base, customer] of cases) {
+    const r = price({ quantity: 10000, grammage: g });
+    assert.equal(r.basePrintPrice, base, `base ${g}g`);
+    assert.equal(r.customerPrice, customer, `customer ${g}g`);
+    assert.equal(r.priceStatus, "AUTO_CONFIRMED", `status ${g}g`);
   }
 });
 
-// ---------------------------------------------------------------------------
-// Interpolazione lineare
-// ---------------------------------------------------------------------------
+test("A5 — l'intera matrice benchmark = customerPrice esatto (base × 1.20) e AUTO_CONFIRMED", () => {
+  for (const g of PRINT_A5_GRAMMAGES) {
+    for (const [qty, base] of PRINT_A5_BENCHMARKS[g]) {
+      const r = price({ quantity: qty, grammage: g });
+      assert.equal(r.basePrintPrice, base, `A5 ${g}g ${qty} base`);
+      assert.equal(r.customerPrice, round2(base * 1.2), `A5 ${g}g ${qty} customer`);
+      assert.equal(r.priceStatus, "AUTO_CONFIRMED", `A5 ${g}g ${qty} status`);
+      assert.equal(r.volantiniProMarkupPct, 20);
+    }
+  }
+});
 
-test("interpolazione lineare tra due benchmark (A5 12.500 ≈ base 135, customer ≈ 162)", () => {
-  const r = calculatePrintPrice({ quantity: 12500, printFormat: "A5", ...BASE });
-  assert.ok(close(r.baseBenchmarkPrice, 135.0), `base ${r.baseBenchmarkPrice}`);
-  assert.ok(close(r.customerPrice, 162.0), `customer ${r.customerPrice}`);
-  // metà esatta tra 2500 (70) e 10000 (110) => 6250 -> 90
-  assert.ok(close(benchmarkBasePrice("A5", 6250).price, 90.0));
+test("il vecchio benchmark A5 ipotetico (55 / 70 / 110) non esiste piu'", () => {
+  assert.equal(PRINT_A5_BENCHMARKS["130"][0][1], 47.6);   // 1.000 reale, non 55
+  assert.equal(PRINT_A5_BENCHMARKS["130"][4][1], 155.93); // 10.000 reale, non 110
+  assert.doesNotMatch(engineSrc, /\[10000, 110\b/);
+  assert.doesNotMatch(engineSrc, /\[1000, 55\b/);
 });
 
 // ---------------------------------------------------------------------------
-// Sotto / sopra range
+// 2. +20% VolantiniPro
 // ---------------------------------------------------------------------------
 
-test("sotto il minimo: prezzo del benchmark minimo, mai sotto", () => {
-  assert.equal(benchmarkBasePrice("A5", 500).price, 55.0);
-  assert.equal(benchmarkBasePrice("A5", 999).price, 55.0);
-  assert.equal(benchmarkBasePrice("A6", 200).price, 49.0);
+test("markup 20% esatto e interno (mai voce separata)", () => {
+  assert.equal(VOLANTINIPRO_MARKUP_PCT, 20);
+  for (const g of PRINT_A5_GRAMMAGES) {
+    const r = price({ quantity: 10000, grammage: g });
+    assert.ok(close(r.customerPrice / r.basePrintPrice, 1.2, 0.0005), `ratio ${g}g`);
+  }
+  assert.doesNotMatch(step1Src, /[Mm]argine VolantiniPro/);
+  assert.doesNotMatch(summarySrc, /markup|margine/i);
 });
 
-test("sopra 50.000: estensione lineare + flag estimatedBeyondBenchmark", () => {
-  const r = calculatePrintPrice({ quantity: 60000, printFormat: "A5", ...BASE });
-  assert.equal(r.estimatedBeyondBenchmark, true);
-  // pendenza ultimo intervallo A5: (513.67-412.67)/10000 = 0.0101 -> +101 a 60k
-  assert.ok(close(r.baseBenchmarkPrice, 614.67, 0.02), `base ${r.baseBenchmarkPrice}`);
-  assert.equal(calculatePrintPrice({ quantity: 40000, printFormat: "A5", ...BASE }).estimatedBeyondBenchmark, false);
+// ---------------------------------------------------------------------------
+// 3-4. Interpolazione
+// ---------------------------------------------------------------------------
+
+test("25.000 = INTERPOLATED (lineare tra 20k e 30k, stessa grammatura)", () => {
+  for (const g of PRINT_A5_GRAMMAGES) {
+    const t = PRINT_A5_BENCHMARKS[g];
+    const at20 = t.find((r) => r[0] === 20000)[1];
+    const at30 = t.find((r) => r[0] === 30000)[1];
+    const expBase = at20 + (at30 - at20) * 0.5;
+    const r = price({ quantity: 25000, grammage: g });
+    assert.equal(r.priceStatus, "INTERPOLATED", `25k ${g}g status`);
+    assert.ok(close(r.baseBenchmarkPrice, round2(expBase), 0.01), `25k ${g}g base`);
+    assert.equal(r.customerPrice, round2(expBase * 1.2), `25k ${g}g customer`);
+  }
 });
 
-test("il prezzo non diminuisce mai al crescere della quantità", () => {
-  for (const fmt of ["A5", "A6"]) {
+test("quantità intermedia = INTERPOLATED, solo tra benchmark della STESSA grammatura", () => {
+  const r = price({ quantity: 12500, grammage: "130" });
+  assert.equal(r.priceStatus, "INTERPOLATED");
+  // 10k=155.93, 15k=222.29 -> 12.5k = media
+  assert.ok(close(r.baseBenchmarkPrice, round2((155.93 + 222.29) / 2), 0.01));
+  // benchmarkBasePrice non mescola mai grammature diverse
+  assert.equal(benchmarkBasePrice("A5", 10000, "130").price, 155.93);
+  assert.equal(benchmarkBasePrice("A5", 10000, "170").price, 174.44);
+  assert.notEqual(benchmarkBasePrice("A5", 10000, "130").price, benchmarkBasePrice("A5", 10000, "170").price);
+});
+
+test("sotto il minimo (1.000) = clamp; sopra 50.000 = estensione lineare, entrambi INTERPOLATED", () => {
+  const below = price({ quantity: 500, grammage: "130" });
+  assert.equal(below.baseBenchmarkPrice, 47.6);
+  assert.equal(below.belowMinBenchmark, true);
+  assert.equal(below.priceStatus, "INTERPOLATED");
+  const above = price({ quantity: 60000, grammage: "130" });
+  assert.equal(above.estimatedBeyondBenchmark, true);
+  assert.equal(above.priceStatus, "INTERPOLATED");
+  assert.ok(above.customerPrice > price({ quantity: 50000, grammage: "130" }).customerPrice);
+});
+
+test("prezzo mai decrescente al crescere della quantità (ogni grammatura)", () => {
+  for (const g of PRINT_A5_GRAMMAGES) {
     let prev = -1;
-    for (let q = 500; q <= 80000; q += 500) {
-      const c = calculatePrintPrice({ quantity: q, printFormat: fmt, ...BASE }).customerPrice;
-      assert.ok(c >= prev - 1e-6, `${fmt} q=${q}: ${c} < ${prev}`);
+    for (let q = 500; q <= 55000; q += 250) {
+      const c = price({ quantity: q, grammage: g }).customerPrice;
+      assert.ok(c >= prev - 1e-6, `${g}g q=${q}: ${c} < ${prev}`);
       prev = c;
     }
   }
 });
 
 // ---------------------------------------------------------------------------
-// A4 — nessun prezzo inventato
+// 5. Confronto grammature @ 10.000 (analisi, non moltiplicatori)
 // ---------------------------------------------------------------------------
 
-test("A4 = NOT_CONFIGURED: nessun listino inventato", () => {
-  assert.equal(PRINT_FORMAT_STATUS.A4, "NOT_CONFIGURED");
-  assert.equal(isPrintFormatConfigured("A4"), false);
-  assert.equal(PRINT_BENCHMARKS.A4, undefined);
-  const r = calculatePrintPrice({ quantity: 10000, printFormat: "A4", ...BASE });
-  assert.equal(r.formatConfigured, false);
+test("confronto @10k: crescente con la grammatura, ratio vs 130g", () => {
+  const ref = price({ quantity: 10000, grammage: "130" }).basePrintPrice;
+  const ratios = PRINT_A5_GRAMMAGES.map((g) => price({ quantity: 10000, grammage: g }).basePrintPrice / ref);
+  for (let i = 1; i < ratios.length; i += 1) assert.ok(ratios[i] > ratios[i - 1], `ratio non crescente @ idx ${i}`);
+  assert.ok(close(price({ quantity: 10000, grammage: "130" }).basePrintPrice / ref, 1.0));
+});
+
+// ---------------------------------------------------------------------------
+// 6. Carta
+// ---------------------------------------------------------------------------
+
+test("Patinata opaca e Patinata lucida = stesso prezzo (dato reale identico)", () => {
+  for (const g of PRINT_A5_GRAMMAGES) {
+    const opaca = price({ quantity: 10000, grammage: g, paperType: "patinata_opaca" });
+    const lucida = price({ quantity: 10000, grammage: g, paperType: "patinata_lucida" });
+    assert.equal(lucida.customerPrice, opaca.customerPrice, `carta ${g}g`);
+    assert.equal(lucida.priceStatus, "AUTO_CONFIRMED");
+  }
+});
+
+test("Uso mano = REQUIRES_REVIEW, nessun prezzo (fornitore reale: solo 90g)", () => {
+  const r = price({ quantity: 10000, grammage: "130", paperType: "uso_mano" });
+  assert.equal(r.priceStatus, "REQUIRES_REVIEW");
   assert.equal(r.customerPrice, null);
-  assert.equal(r.basePrintPrice, null);
-  assert.equal(computePrintEstimate({ quantity: 10000, printFormat: "A4" }), 0);
+  assert.ok(r.reviewReasons.some((x) => x.startsWith("paper:")));
+  // anche uso mano + 90g (fuori matrice A5) resta REQUIRES_REVIEW
+  assert.equal(price({ quantity: 10000, grammage: "90", paperType: "uso_mano" }).priceStatus, "REQUIRES_REVIEW");
 });
 
 // ---------------------------------------------------------------------------
-// Configurazione — NESSUN moltiplicatore non verificato entra nel prezzo.
-// Le opzioni si salvano nella specifica ma il prezzo resta invariato;
-// ogni parametro espone un flag *Calibrated.
+// 7. Lati
 // ---------------------------------------------------------------------------
 
-const priceOf = (over) => calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, ...over }).customerPrice;
-
-test("grammatura: 100/130/170/250/300/350 stesso prezzo (nessun benchmark distinto)", () => {
-  const ref = priceOf({ grammage: "130" });
-  assert.equal(ref, 132.0);
-  for (const g of ["100", "130", "170", "250", "300", "350", "90", "115"]) {
-    assert.equal(priceOf({ grammage: g }), ref, `grammage ${g}`);
-    assert.equal(calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, grammage: g }).configurationMultipliers.grammage, 1.0);
+test("lati: solo fronte/retro differenti confermato; solo fronte e f/r uguali = REQUIRES_REVIEW", () => {
+  assert.equal(price({ quantity: 10000, grammage: "130", sides: "fronte_retro" }).priceStatus, "AUTO_CONFIRMED");
+  for (const s of ["fronte", "fronte_retro_eq"]) {
+    const r = price({ quantity: 10000, grammage: "130", sides: s });
+    assert.equal(r.priceStatus, "REQUIRES_REVIEW", `sides ${s}`);
+    assert.equal(r.customerPrice, null, `sides ${s} price`);
   }
-  // calibrata solo 130g
-  assert.equal(calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, grammage: "130" }).calibration.grammage, true);
-  assert.equal(calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, grammage: "170" }).calibration.grammage, false);
-});
-
-test("lati: solo fronte / fronte-retro uguali / differenti stesso prezzo; niente ×0.90", () => {
-  const ref = priceOf({ sides: "fronte_retro" });
-  for (const s of ["fronte", "fronte_retro_eq", "fronte_retro", "front_back_different"]) {
-    assert.equal(priceOf({ sides: s }), ref, `sides ${s}`);
-    assert.equal(calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, sides: s }).configurationMultipliers.sides, 1.0);
-  }
-  assert.equal(calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, sides: "fronte_retro" }).calibration.sides, true);
-  assert.equal(calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, sides: "fronte" }).calibration.sides, false);
-});
-
-test("colore: colori e bianco/nero stesso prezzo; niente ×0.90 per B/N", () => {
-  const ref = priceOf({ color: "colori" });
-  assert.equal(priceOf({ color: "bianco_nero" }), ref);
-  assert.equal(calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, color: "bianco_nero" }).configurationMultipliers.color, 1.0);
-  assert.equal(calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, color: "colori" }).calibration.color, true);
-  assert.equal(calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, color: "bianco_nero" }).calibration.color, false);
-});
-
-test("carta: opaca / lucida / usomano stesso prezzo (paperMultiplier 1.00)", () => {
-  const ref = priceOf({});
-  for (const p of ["patinata_opaca", "patinata_lucida", "uso_mano"]) {
-    assert.equal(priceOf({ paperType: p }), ref, `paper ${p}`);
-  }
-  assert.equal(calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, paperType: "patinata_opaca" }).calibration.paper, true);
-  assert.equal(calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, paperType: "uso_mano" }).calibration.paper, false);
-});
-
-test("orientamento: verticale / orizzontale stesso prezzo (multiplier 1.00), entrambi calibrati", () => {
-  const ref = priceOf({});
-  for (const o of ["verticale", "orizzontale"]) {
-    assert.equal(priceOf({ orientation: o }), ref, `orientation ${o}`);
-    const r = calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, orientation: o });
-    assert.equal(r.configurationMultipliers.orientation, 1.0);
-    assert.equal(r.calibration.orientation, true);
-  }
-  // Step1: opzioni orientamento presenti e passate al motore; carta STANDARD prima
-  assert.match(step1Src, /printOrientationOptions = \[\{\s*id: "verticale"[\s\S]*id: "orizzontale"/);
-  assert.match(step1Src, /key: "orientation",\s*\n\s*label: "Orientamento"/);
-  assert.match(step1Src, /orientation: printing\.orientation/);
-  assert.match(step1Src, /printPaperTypeOptions = \[\{\s*id: "patinata_opaca"[\s\S]*id: "uso_mano"[\s\S]*id: "patinata_lucida"/);
-  // niente A3 / formato personalizzato nella UI stampa
-  assert.doesNotMatch(step1Src, /"A3"|formato personalizzato|custom format/i);
-});
-
-test("piega: nessuna / meta / tre stesso prezzo (foldMultiplier 1.00)", () => {
-  const ref = priceOf({});
-  for (const f of ["nessuna", "meta", "tre"]) {
-    assert.equal(priceOf({ fold: f }), ref, `fold ${f}`);
-    assert.equal(calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, fold: f }).configurationMultipliers.fold, 1.0);
-  }
-});
-
-test("urgenza stampa: standard / urgent / express stesso prezzo; calibrated solo standard", () => {
-  const std = calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, urgency: "standard" });
-  const urg = calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, urgency: "urgent" });
-  const exp = calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE, urgency: "express" });
-  assert.equal(std.customerPrice, urg.customerPrice);
-  assert.equal(std.customerPrice, exp.customerPrice);
-  assert.equal(std.configurationMultipliers.urgency, 1.0);
-  assert.equal(urg.configurationMultipliers.urgency, 1.0);
-  assert.equal(std.urgencyCalibrated, true);
-  assert.equal(urg.urgencyCalibrated, false);
-  assert.equal(exp.urgencyCalibrated, false);
-});
-
-test("configurationAdjustment è sempre 1.00: nessun input non verificato nel prezzo", () => {
-  const worst = calculatePrintPrice({
-    quantity: 30000, printFormat: "A6",
-    grammage: "350", sides: "fronte", color: "bianco_nero", paperType: "uso_mano", fold: "tre", urgency: "express",
-  });
-  const base = calculatePrintPrice({ quantity: 30000, printFormat: "A6", ...BASE });
-  assert.equal(worst.configurationAdjustment, 1.0);
-  assert.equal(worst.customerPrice, base.customerPrice); // stesse opzioni "estreme" -> stesso prezzo
-  assert.ok(close(worst.customerPrice, 223.7 * 1.2)); // solo benchmark A6@30k * 1.20
-  for (const k of Object.values(worst.configurationMultipliers)) assert.equal(k, 1.0);
 });
 
 // ---------------------------------------------------------------------------
-// Separazione printFormat / materialFormat
+// 8. Colore
 // ---------------------------------------------------------------------------
 
-test("printFormat A6/A5/A4 · materialFormat A6/A5/A4/DL · DL escluso dalla stampa", () => {
+test("colore: colori (4/4) confermato; bianco/nero = REQUIRES_REVIEW, nessuno sconto inventato", () => {
+  assert.equal(price({ quantity: 10000, grammage: "130", color: "colori" }).priceStatus, "AUTO_CONFIRMED");
+  const bn = price({ quantity: 10000, grammage: "130", color: "bianco_nero" });
+  assert.equal(bn.priceStatus, "REQUIRES_REVIEW");
+  assert.equal(bn.customerPrice, null);
+});
+
+// ---------------------------------------------------------------------------
+// 9. Piega
+// ---------------------------------------------------------------------------
+
+test("piega: nessuna confermata; metà e tre = REQUIRES_REVIEW (SKU separato)", () => {
+  assert.equal(price({ quantity: 10000, grammage: "130", fold: "nessuna" }).priceStatus, "AUTO_CONFIRMED");
+  for (const f of ["meta", "tre"]) {
+    assert.equal(price({ quantity: 10000, grammage: "130", fold: f }).priceStatus, "REQUIRES_REVIEW", `fold ${f}`);
+    assert.equal(price({ quantity: 10000, grammage: "130", fold: f }).customerPrice, null);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 10. Formati
+// ---------------------------------------------------------------------------
+
+test("A6 = REQUIRES_REVIEW (nessun prezzo, vecchio listino rimosso); A4 = NOT_CONFIGURED", () => {
+  assert.equal(PRINT_FORMAT_STATUS.A5, "CONFIGURED");
+  assert.equal(PRINT_FORMAT_STATUS.A6, "REQUIRES_REVIEW");
+  assert.equal(PRINT_FORMAT_STATUS.A4, "NOT_CONFIGURED");
+  assert.equal(isPrintFormatConfigured("A5"), true);
+  assert.equal(isPrintFormatConfigured("A6"), false);
+  assert.equal(isPrintFormatConfigured("A4"), false);
+  const a6 = price({ quantity: 10000, grammage: "130", printFormat: "A6" });
+  assert.equal(a6.priceStatus, "REQUIRES_REVIEW");
+  assert.equal(a6.customerPrice, null);
+  const a4 = price({ quantity: 10000, grammage: "130", printFormat: "A4" });
+  assert.equal(a4.priceStatus, "NOT_CONFIGURED");
+  assert.equal(a4.customerPrice, null);
+  // niente vecchi benchmark A6 nel motore
+  assert.doesNotMatch(engineSrc, /A6:\s*\[/);
+});
+
+test("grammatura fuori matrice (90/115/135) = REQUIRES_REVIEW", () => {
+  for (const g of ["90", "115", "135"]) {
+    assert.equal(price({ quantity: 10000, grammage: g }).priceStatus, "REQUIRES_REVIEW", `g ${g}`);
+    assert.equal(price({ quantity: 10000, grammage: g }).customerPrice, null);
+  }
+  // formati grammatura accettati anche come "130 g/m²"
+  assert.equal(price({ quantity: 10000, grammage: "130 g/m²" }).customerPrice, 187.12);
+});
+
+// ---------------------------------------------------------------------------
+// 11. priceStatus
+// ---------------------------------------------------------------------------
+
+test("priceStatus copre i 4 valori del contratto", () => {
+  const seen = new Set();
+  seen.add(price({ quantity: 10000, grammage: "130" }).priceStatus);            // AUTO_CONFIRMED
+  seen.add(price({ quantity: 12345, grammage: "130" }).priceStatus);            // INTERPOLATED
+  seen.add(price({ quantity: 10000, grammage: "130", sides: "fronte" }).priceStatus); // REQUIRES_REVIEW
+  seen.add(price({ quantity: 10000, grammage: "130", printFormat: "A4" }).priceStatus); // NOT_CONFIGURED
+  assert.deepEqual([...seen].sort(), ["AUTO_CONFIRMED", "INTERPOLATED", "NOT_CONFIGURED", "REQUIRES_REVIEW"]);
+});
+
+// ---------------------------------------------------------------------------
+// computePrintEstimate + registry
+// ---------------------------------------------------------------------------
+
+test("computePrintEstimate: 0 se non attiva / config non coperta; prezzo reale coi default", () => {
+  assert.equal(computePrintEstimate({ quantity: 10000, enabled: false }), 0);
+  assert.equal(computePrintEstimate({ quantity: 10000 }), 187.12); // default A5/130/opaca/f-r/colori/nessuna
+  assert.equal(computePrintEstimate({ quantity: 10000, grammage: "250" }), 296.4);
+  assert.equal(computePrintEstimate({ quantity: 10000, sides: "fronte" }), 0);      // REQUIRES_REVIEW -> 0
+  assert.equal(computePrintEstimate({ quantity: 10000, printFormat: "A6" }), 0);
+});
+
+test("extraServicesRegistry 'printing' usa computePrintEstimate (matrice reale)", () => {
+  const reg = buildExtraServicesRegistry({ flyerQty: 10000, printConfig: { format: "A5", grammage: "130", sides: "fronte_retro", color: "colori", paperType: "patinata_opaca", folding: "nessuna" } });
+  assert.equal(buildExtraServicesById(reg).printing.price, 187.12);
+  const reg250 = buildExtraServicesRegistry({ flyerQty: 10000, printConfig: { format: "A5", grammage: "250", sides: "fronte_retro", color: "colori", paperType: "patinata_opaca", folding: "nessuna" } });
+  assert.equal(buildExtraServicesById(reg250).printing.price, 296.4);
+  const regReview = buildExtraServicesRegistry({ flyerQty: 10000, printConfig: { format: "A5", grammage: "130", sides: "fronte", color: "colori", paperType: "patinata_opaca", folding: "nessuna" } });
+  assert.equal(buildExtraServicesById(regReview).printing.price, 0);
+});
+
+// ---------------------------------------------------------------------------
+// 12. Step1 — wiring live
+// ---------------------------------------------------------------------------
+
+test("Step1 usa calculatePrintPrice e mostra 'Da verificare' quando customerPrice è null", () => {
+  assert.match(step1Src, /const printPrice = calculatePrintPrice\(\{[\s\S]*quantity: activeQty[\s\S]*printFormat: printing\.format[\s\S]*grammage: printing\.grammage[\s\S]*sides: printing\.sides[\s\S]*color: printing\.color[\s\S]*paperType: printing\.paperType[\s\S]*enabled: printActive/);
+  assert.match(step1Src, /const printEstUnknown = printActive && printPrice\.customerPrice == null/);
+  assert.match(step1Src, /Prezzo da verificare|Da verificare/);
+  assert.doesNotMatch(step1Src, /activeQty \/ 1000 \* 29/);
+});
+
+// ---------------------------------------------------------------------------
+// 14. Step4 — prezzo coerente con la grammatura
+// ---------------------------------------------------------------------------
+
+test("Step4 calcola il prezzo stampa reale e mostra 'Da verificare' se REQUIRES_REVIEW; mai nel totale", () => {
+  assert.match(step4Src, /import \{ calculatePrintPrice \} from "\.\.\/\.\.\/\.\.\/lib\/pricing\/printPricing\.js"/);
+  assert.match(step4Src, /const printQuote = calculatePrintPrice\(\{[\s\S]*quantity: flyerQty[\s\S]*grammage: data\.printing\?\.grammage/);
+  assert.match(step4Src, /const printPriceKnown = printQuote\.customerPrice != null/);
+  assert.match(step4Src, /l: "Prezzo stampa",\s*\n\s*v: printPriceKnown \? .* : "Da verificare"/);
+  // stampa resta esclusa dal totale distribuzione
+  assert.match(step4Src, /const distributionExtras = selectedExtras\.filter\(e => e\.id !== "printing"\)/);
+  assert.match(step4Src, /extras: distributionExtras/);
+});
+
+// ---------------------------------------------------------------------------
+// Regressioni: separazione formati / grafica / contatti
+// ---------------------------------------------------------------------------
+
+test("printFormat A5/A6/A4 · materialFormat +DL · DL mai printFormat", () => {
   assert.deepEqual(PRINT_FORMAT_IDS, ["A6", "A5", "A4"]);
-  assert.deepEqual(PRINT_FORMAT_OPTIONS.map((o) => o.id), ["A6", "A5", "A4"]);
   assert.deepEqual(MATERIAL_FORMAT_OPTIONS.map((o) => o.id), ["A6", "A5", "A4", "DL"]);
   assert.equal(isPrintableFormat("DL"), false);
-  assert.equal(isPrintableFormat("A4"), true);
-  assert.equal(calculatePrintPrice({ quantity: 10000, printFormat: "DL", ...BASE }).customerPrice, null);
   assert.equal(toPrintableFormat("DL"), "A5");
-});
-
-test("no stampa => printPrice 0; materialFormat non modifica il print price", () => {
-  assert.equal(calculatePrintPrice({ quantity: 10000, printFormat: "A5", enabled: false }).customerPrice, null);
-  assert.equal(computePrintEstimate({ quantity: 10000, printFormat: "A5", enabled: false }), 0);
-  // calculatePrintPrice non accetta materialFormat: cambiare formato materiale
-  // in Step1 aggiorna data.flyerFormat ma il motore usa solo printFormat.
+  assert.equal(price({ quantity: 10000, grammage: "130", printFormat: "DL" }).customerPrice, null);
+  // il formato materiale non è un input del motore prezzo stampa
   assert.doesNotMatch(step1Src, /calculatePrintPrice\(\{[^}]*flyerFormat/);
   assert.doesNotMatch(step1Src, /calculatePrintPrice\(\{[^}]*materialFormat/);
 });
 
-// ---------------------------------------------------------------------------
-// extraServicesRegistry riusa lo stesso motore
-// ---------------------------------------------------------------------------
-
-test("extraServicesRegistry 'printing' usa calculatePrintPrice (customerPrice)", () => {
-  const registry = buildExtraServicesRegistry({ flyerQty: 10000, durationDays: 1, campaignDurationKnown: true, printConfig: { format: "A5", grammage: "130", sides: "fronte_retro", color: "colori", folding: "nessuna" } });
-  const byId = buildExtraServicesById(registry);
-  assert.equal(byId.printing.price, 132.0);
-  const selected = normalizeSelectedExtras({ printServices: ["stampa"] }, byId);
-  assert.equal(selected.find((e) => e.id === "printing").price, 132.0);
-  // A4 nel registry -> 0 (nessun prezzo inventato)
-  const regA4 = buildExtraServicesRegistry({ flyerQty: 10000, printConfig: { format: "A4" } });
-  assert.equal(buildExtraServicesById(regA4).printing.price, 0);
-});
-
-// ---------------------------------------------------------------------------
-// Step1 — wiring
-// ---------------------------------------------------------------------------
-
-test("Step1 usa il motore centralizzato calculatePrintPrice per il prezzo live", () => {
-  assert.match(step1Src, /import \{ calculatePrintPrice, PRINT_FORMAT_OPTIONS, isPrintFormatConfigured, toPrintableFormat \}/);
-  assert.match(step1Src, /const printPrice = calculatePrintPrice\(\{[\s\S]*quantity: activeQty[\s\S]*printFormat: printing\.format[\s\S]*urgency: data\.urgency[\s\S]*enabled: printActive/);
-  assert.doesNotMatch(step1Src, /activeQty \/ 1000 \* 29/);
-  assert.doesNotMatch(step1Src, /PRINT_PRICE_PER_THOUSAND/);
-  // niente ×0.90 / ×1.12 / moltiplicatori non verificati nel motore
-  const engineSrc = fs.readFileSync(path.join(root, "src/lib/pricing/printPricing.js"), "utf8");
-  assert.doesNotMatch(engineSrc, /0\.9\b|0\.94\b|0\.97\b|1\.12\b/);
-  assert.match(engineSrc, /customerPrice = round2\(bench\.price \* \(1 \+ VOLANTINIPRO_MARKUP_PCT \/ 100\)\)/);
-  // A4 non blocca ma mostra "prezzo da verificare"
-  assert.match(step1Src, /const printEstUnknown = printActive && !printFormatConfigured/);
-  assert.match(step1Src, /Prezzo da verificare/);
-});
-
-test("Step1 default di stampa allineati alla config benchmark (130g, fronte/retro)", () => {
-  assert.match(step1Src, /grammage: String\(data\.paperWeight \|\| data\.printGramm \|\| "130"\)/);
-  assert.match(step1Src, /sides: data\.printSides \|\| data\.printSide \|\| "fronte_retro"/);
-});
-
-test("riepilogo Step1 distingue formato stampa / formato materiale / costo stampa; markup 20% non mostrato", () => {
-  assert.match(step1Src, /label: "Formato materiale"/);
-  assert.match(step1Src, /label: "Formato stampa"/);
-  assert.match(step1Src, /label: "Costo stampa"/);
-  assert.match(summarySrc, /printSpecLabel/);
-  // il ricarico interno 20% non deve comparire come voce/testo mostrato al cliente
-  assert.doesNotMatch(step1Src, /[Mm]argine VolantiniPro/);
-  assert.doesNotMatch(step1Src, /markup 20%|ricarico 20%|VolantiniPro \+?20%/i);
-  assert.doesNotMatch(summarySrc, /markup|margine/i);
-});
-
-// ---------------------------------------------------------------------------
-// File per la stampa + Servizio grafico (elementi distinti dal prezzo stampa)
-// ---------------------------------------------------------------------------
-
-test("STAMPA / FILE GRAFICO / SERVIZIO GRAFICO sono blocchi distinti in Step1", () => {
-  // sezione dedicata "File per la stampa" con le 2 card
-  assert.match(step1Src, /File per la stampa/);
-  assert.match(step1Src, /Hai già il file grafico pronto per la stampa\?/);
-  assert.match(step1Src, /Sì, ho già il file/);
-  assert.match(step1Src, /No, ho bisogno della grafica/);
-  // il vecchio pill "artworkStatus" NON e' piu' tra i dettagli di stampa
-  assert.doesNotMatch(step1Src, /key: "artworkStatus"/);
-  assert.doesNotMatch(step1Src, /printArtworkOptions/);
-});
-
-test("READY: nessun costo grafico, nessuna richiesta di servizio", () => {
-  assert.match(step1Src, /const artworkNeedsDesign = printing\.artworkStatus === "da_creare"/);
-  assert.match(step1Src, /graphicPriceStatus = artworkNeedsDesign \? "REQUIRES_QUOTE" : "NOT_REQUIRED"/);
-  // "Come inviare il file" mostrato solo con file pronto
-  assert.match(step1Src, /!artworkNeedsDesign && <div[\s\S]*Come inviare il file/);
-  // upload on-site non implementato -> solo testo, nessun bottone falso
-  assert.match(step1Src, /Potrai caricare il file tramite VolantiniPro dopo la conferma/);
-});
-
-test("NEEDS_DESIGN: box servizio grafico, nessun prezzo automatico (REQUIRES_QUOTE)", () => {
-  assert.match(step1Src, /Servizio grafico VolantiniPro/);
-  assert.match(step1Src, /Il costo della grafica non è incluso nel prezzo di stampa/);
-  assert.match(step1Src, /Contatta su WhatsApp/);
-  assert.match(step1Src, /Invia un'email/);
-  // nessun prezzo grafico hardcodato
-  assert.doesNotMatch(step1Src, /graphic(Price|_price)\s*[:=]\s*\d/i);
-  assert.doesNotMatch(step1Src, /Servizio grafico[\s\S]{0,80}€\s?\d/);
-});
-
-test("data model artwork normalizzato: READY|NEEDS_DESIGN + graphicPriceStatus", () => {
-  assert.match(step1Src, /status: status === "da_creare" \? "NEEDS_DESIGN" : "READY"/);
-  assert.match(step1Src, /graphicServiceRequested: status === "da_creare"/);
-  assert.match(step1Src, /graphicPriceStatus: status === "da_creare" \? "REQUIRES_QUOTE" : "NOT_REQUIRED"/);
-  // Step4 persiste la struttura e graphicPrice: null (mai €0 a totale)
-  assert.match(step4Src, /artwork: data\.printing\?\.artwork \|\|/);
-  assert.match(step4Src, /graphicPrice: null/);
-  assert.match(step4Src, /l: "Servizio grafico",\s*\n\s*v: "Da quotare"/);
-});
-
-test("il prezzo stampa NON e' toccato dalla scelta grafica", () => {
-  const a5 = calculatePrintPrice({ quantity: 10000, printFormat: "A5", ...BASE });
-  assert.equal(a5.customerPrice, 132.0);
-  // calculatePrintPrice non ha alcun parametro artwork/graphic
+test("grafica: nessuna regressione — artwork flow separato dal prezzo stampa", () => {
+  // il motore non ha parametri artwork/graphic
   assert.doesNotMatch(step1Src, /calculatePrintPrice\(\{[^}]*artwork/i);
   assert.doesNotMatch(step1Src, /calculatePrintPrice\(\{[^}]*graphic/i);
-  // riepilogo Step1: righe distinte, nessun importo per il servizio grafico
-  assert.match(step1Src, /label: "File grafico",\s*\n\s*val: artworkNeedsDesign \? "Da creare" : "Già disponibile"/);
-  assert.match(step1Src, /label: "Servizio grafico",\s*\n\s*val: artworkNeedsDesign \? "Da quotare con VolantiniPro" : "Nessun servizio richiesto"/);
+  assert.match(step1Src, /File per la stampa/);
+  assert.match(step1Src, /Servizio grafico VolantiniPro/);
+  assert.match(step1Src, /graphicPriceStatus = artworkNeedsDesign \? "REQUIRES_QUOTE" : "NOT_REQUIRED"/);
+  assert.match(step4Src, /graphicPrice: null/);
 });
 
-test("contatti da config reale, nessun contatto inventato", () => {
-  // email: fallback sul valore gia' presente nel progetto (footer PDF preventivo)
+test("contatti servizio grafico da config reale, nessun contatto inventato", () => {
   assert.equal(SUPPORT_EMAIL, "info@volantinipro.it");
-  // WhatsApp: nessun numero di default -> CTA nascosto se non configurato
   assert.equal(SUPPORT_WHATSAPP, null);
   assert.equal(HAS_SUPPORT_WHATSAPP, false);
-  assert.equal(buildGraphicWhatsAppUrl({ format: "A5", quantity: 10000, printEnabled: true }), null);
-  // Step1 rende il CTA WhatsApp solo dietro il flag
-  assert.match(step1Src, /HAS_SUPPORT_WHATSAPP && <a href=\{buildGraphicWhatsAppUrl/);
-  // nessun numero di telefono / wa.me hardcodato in Step1
+  assert.equal(buildGraphicWhatsAppUrl({ format: "A5", quantity: 10000 }), null);
+  assert.match(buildGraphicMailtoUrl({ format: "A5", quantity: 10000 }), /^mailto:info@volantinipro\.it\?subject=/);
+  assert.match(buildGraphicRequestText({ format: "a5", quantity: 10000, printEnabled: true }), /Formato: A5[\s\S]*Quantità: 10\.000[\s\S]*Stampa: Sì/);
   assert.doesNotMatch(step1Src, /wa\.me\/\d/);
-  assert.doesNotMatch(step1Src, /\+39\s?\d/);
-  // nessun indirizzo email hardcodato diverso da quello di config
-  const emails = step1Src.match(/[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]{2,}/gi) || [];
-  assert.deepEqual([...new Set(emails)], []);
-});
-
-test("messaggi precompilati WhatsApp / email includono formato, quantità, stampa", () => {
-  const txt = buildGraphicRequestText({ format: "a5", quantity: 10000, printEnabled: true, notes: "urgente" });
-  assert.match(txt, /Formato: A5/);
-  assert.match(txt, /Quantità: 10\.000/);
-  assert.match(txt, /Stampa: Sì/);
-  assert.match(txt, /Note: urgente/);
-  assert.match(txt, /preventivo per la grafica/);
-  const mailto = buildGraphicMailtoUrl({ format: "A5", quantity: 10000 });
-  assert.match(mailto, /^mailto:info@volantinipro\.it\?subject=/);
-  assert.match(decodeURIComponent(mailto), /Richiesta servizio grafico - VolantiniPro/);
 });

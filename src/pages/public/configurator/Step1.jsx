@@ -328,10 +328,12 @@ export function Step1({
   // "Sì, voglio anche stampa" ⟺ hasFlyers === "no" (id fuorviante della card).
   const printActive = data.hasFlyers === "no";
   // Motore prezzi stampa centralizzato (src/lib/pricing/printPricing.js).
-  // PREZZO VERIFICATO = SOLO quantita' + printFormat (A6/A5) + interpolazione +
-  // ricarico interno 20% (gia' nel customerPrice, mai esposto come voce).
-  // grammatura/lati/colore/carta/piega/urgenza vengono salvati ma NON cambiano
-  // il prezzo (nessun benchmark reale). A4 = NOT_CONFIGURED: nessun prezzo.
+  // PREZZO REALE = matrice A5 per grammatura (Pixartprinting, dati verificati) +
+  // interpolazione lineare + ricarico interno 20% (gia' nel customerPrice, mai
+  // esposto come voce). Config coperta dai dati -> AUTO_CONFIRMED/INTERPOLATED;
+  // config non coperta (A6, uso mano, solo fronte, f/r uguali, B/N, piega,
+  // grammatura fuori matrice) -> REQUIRES_REVIEW -> "Prezzo da verificare".
+  // A4 = NOT_CONFIGURED.
   const printFormatConfigured = isPrintFormatConfigured(printing.format);
   const printPrice = calculatePrintPrice({
     quantity: activeQty,
@@ -346,7 +348,7 @@ export function Step1({
     enabled: printActive
   });
   const printEst = printActive && printPrice.customerPrice != null ? printPrice.customerPrice : 0;
-  const printEstUnknown = printActive && !printFormatConfigured;
+  const printEstUnknown = printActive && printPrice.customerPrice == null;
   const subtotalEst = distEst + printEst;
   const totalEstFormatted = Math.round(subtotalEst).toLocaleString("it-IT");
   const eur2 = n => `€ ${Number(n).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
