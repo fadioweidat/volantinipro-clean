@@ -1,26 +1,29 @@
 /* STAMPA — motore prezzi stampa centralizzato (unica fonte).
  *
- * PREZZO REALE, non ipotetico. La matrice A5 sotto e' compilata con prezzi
- * effettivamente letti dal configuratore Pixartprinting.it (IT), 2026-08-28,
- * colonna consegna standard/economy, IVA esclusa, per la configurazione:
- *   format = A5 (14,8 x 21 cm)
+ * PREZZO REALE, non ipotetico. Le matrici A5 e A6 sotto sono compilate con
+ * prezzi effettivamente letti dal configuratore Pixartprinting.it (IT),
+ * 2026-08-28, colonna consegna standard/economy, IVA esclusa, per la
+ * configurazione:
+ *   format = A5 (14,8 x 21 cm)  /  A6 (10,5 x 14,8 cm)
  *   carta  = Patinata opaca (Classic demimatt) / Patinata lucida (Classic gloss)
- *            -> prezzo IDENTICO per le due carte (stessa famiglia "Classic")
+ *            -> prezzo IDENTICO per le due carte (verificato sui punti reali)
  *   lati   = Fronte e retro differenti
  *   colore = 4/4 (quadricromia — Pixart volantini non offre B/N)
  *   piega  = nessuna
  *   grammature: 100 / 130 / 170 / 250 / 300 / 350 g/m2
+ * Le due matrici sono INDIPENDENTI: A6 NON deriva da A5 con moltiplicatori,
+ * ogni cella e' un prezzo A6 letto direttamente.
  *
  * customerPrice = baseMarketPrice * 1.20  (markup VolantiniPro 20%, INTERNO,
  * mai mostrato come voce separata).
  *
  * Ogni chiamata ritorna priceStatus:
- *   AUTO_CONFIRMED  — A5 + carta opaca/lucida + grammatura in matrice +
+ *   AUTO_CONFIRMED  — A5/A6 + carta opaca/lucida + grammatura in matrice +
  *                     fronte/retro differenti + colori + nessuna piega +
  *                     quantita' = punto benchmark esatto
  *   INTERPOLATED    — come sopra ma quantita' tra due benchmark della STESSA
  *                     identica configurazione (25.000 incluso)
- *   REQUIRES_REVIEW — configurazione non coperta da dati reali (A6, uso mano,
+ *   REQUIRES_REVIEW — configurazione non coperta da dati reali (uso mano,
  *                     solo fronte, fronte/retro uguali, bianco/nero, piega,
  *                     grammatura fuori matrice, ...)
  *   NOT_CONFIGURED  — A4 (nessun dato)
@@ -59,10 +62,10 @@ export function toPrintableFormat(id) {
   return PRINT_FORMAT_IDS.includes(upper) ? upper : "A5";
 }
 
-// Solo A5 ha dati reali. A6 = da riverificare, A4 = nessun dato.
+// A5 e A6 hanno matrici di prezzi reali dedicate. A4 = nessun dato.
 export const PRINT_FORMAT_STATUS = Object.freeze({
   A5: "CONFIGURED",
-  A6: "REQUIRES_REVIEW",
+  A6: "CONFIGURED",
   A4: "NOT_CONFIGURED",
 });
 
@@ -115,7 +118,69 @@ export const PRINT_A5_BENCHMARKS = Object.freeze({
 
 export const PRINT_A5_GRAMMAGES = Object.keys(PRINT_A5_BENCHMARKS);
 
-// Valori di configurazione coperti dai dati reali (A5).
+// ---------------------------------------------------------------------------
+// Matrice A6 — prezzi BASE di mercato letti DIRETTAMENTE da Pixartprinting.it
+// (endpoint /product/quote/, IT, CAP 30020, 2026-08-28, ex IVA, tier consegna
+// "Fast 120" = produzione 120h = standard/economy, la colonna piu' economica).
+// Config: A6 (105 x 148 mm), Classic Demimatt / Classic Gloss (prezzo identico
+// verificato su 100/130/350 g), Front & back side different, 4/4, Fold None.
+// NESSUN valore derivato dalla matrice A5. [quantita', prezzoBase] crescente.
+// 25.000 NON e' un punto benchmark Pixart -> interpolazione lineare 20k<->30k.
+// ---------------------------------------------------------------------------
+
+export const PRINT_A6_BENCHMARK_SOURCE = "Pixartprinting.it (2026-08-28, ex IVA, consegna standard/economy)";
+
+export const PRINT_A6_BENCHMARK_CONFIG = Object.freeze({
+  format: "A6",
+  paper: ["patinata_opaca", "patinata_lucida"],
+  sides: "fronte_retro", // fronte e retro differenti
+  color: "colori", // 4/4
+  fold: "nessuna",
+  delivery: "standard",
+});
+
+export const PRINT_A6_BENCHMARKS = Object.freeze({
+  "100": [
+    [1000, 37.22], [2500, 44.67], [5000, 50.26], [7500, 69.53], [10000, 72.28],
+    [15000, 117.85], [20000, 141.98], [30000, 197.53], [40000, 236.51], [50000, 283.18],
+  ],
+  "130": [
+    [1000, 37.9], [2500, 46.27], [5000, 59.8], [7500, 73.4], [10000, 82.98],
+    [15000, 133.12], [20000, 159.93], [30000, 222.29], [40000, 274.65], [50000, 327.01],
+  ],
+  "170": [
+    [1000, 39.24], [2500, 49.47], [5000, 64.95], [7500, 81.13], [10000, 97.5],
+    [15000, 149.18], [20000, 188.59], [30000, 264.11], [40000, 335.54], [50000, 406.97],
+  ],
+  "250": [
+    [1000, 49.29], [2500, 62.55], [5000, 85.05], [7500, 110.38], [10000, 131.91],
+    [15000, 201.36], [20000, 253.34], [30000, 375.0], [40000, 480.82], [50000, 586.65],
+  ],
+  "300": [
+    [1000, 44.39], [2500, 69.16], [5000, 101.2], [7500, 129.55], [10000, 153.62],
+    [15000, 232.47], [20000, 299.64], [30000, 441.11], [40000, 571.53], [50000, 701.96],
+  ],
+  "350": [
+    [1000, 54.17], [2500, 81.67], [5000, 110.52], [7500, 149.95], [10000, 176.86],
+    [15000, 273.28], [20000, 341.98], [30000, 520.12], [40000, 669.2], [50000, 825.96],
+  ],
+});
+
+export const PRINT_A6_GRAMMAGES = Object.keys(PRINT_A6_BENCHMARKS);
+
+// Tabelle benchmark per formato di stampa configurato.
+const BENCHMARK_TABLES = Object.freeze({ A5: PRINT_A5_BENCHMARKS, A6: PRINT_A6_BENCHMARKS });
+const BENCHMARK_SOURCES = Object.freeze({ A5: PRINT_A5_BENCHMARK_SOURCE, A6: PRINT_A6_BENCHMARK_SOURCE });
+const BENCHMARK_GRAMMAGES = Object.freeze({ A5: PRINT_A5_GRAMMAGES, A6: PRINT_A6_GRAMMAGES });
+
+export function grammagesForPrintFormat(id) {
+  return BENCHMARK_GRAMMAGES[String(id || "").toUpperCase()] || [];
+}
+
+// Valori di configurazione coperti dai dati reali. Identici per A5 e A6:
+// stessa famiglia carta "Classic" (opaca == lucida), stessi lati (F/R
+// differenti), stesso colore (4/4), stessa piega (nessuna). "Uso mano" resta
+// fuori (su A6 il fornitore usa solo 90 g/m², incompatibile con la matrice).
 const A5_PAPER_CONFIRMED = new Set([
   "patinata_opaca", "patinata_lucida", "classic_demimatt", "classic_gloss",
   "couche", "couché", "patinata",
@@ -167,15 +232,17 @@ function normGrammage(v) {
 }
 
 /**
- * Prezzo BASE di mercato per (A5, grammatura, quantita') — interpolazione
- * lineare tra i punti della STESSA grammatura.
+ * Prezzo BASE di mercato per (formato stampa, grammatura, quantita') —
+ * interpolazione lineare tra i punti della STESSA grammatura e dello STESSO
+ * formato. Formati coperti: A5, A6 (matrici indipendenti). A4/altro -> null.
  * @returns {{ price:number|null, exact:boolean, belowMin:boolean, aboveMax:boolean }}
  */
 export function benchmarkBasePrice(printFormat, quantity, grammage) {
-  if (String(printFormat || "").toUpperCase() !== "A5") {
+  const tables = BENCHMARK_TABLES[String(printFormat || "").toUpperCase()];
+  if (!tables) {
     return { price: null, exact: false, belowMin: false, aboveMax: false };
   }
-  const table = PRINT_A5_BENCHMARKS[normGrammage(grammage)];
+  const table = tables[normGrammage(grammage)];
   if (!table) return { price: null, exact: false, belowMin: false, aboveMax: false };
 
   const qty = Number(quantity);
@@ -237,6 +304,8 @@ export function calculatePrintPrice({
   const fmt = String(printFormat || "").toUpperCase();
   const urgencyKey = normKey(urgency) || "standard";
   const gKey = normGrammage(grammage);
+  // Lista grammature del formato richiesto (A5/A6 hanno matrici dedicate).
+  const gramList = BENCHMARK_GRAMMAGES[fmt] || PRINT_A5_GRAMMAGES;
 
   const configurationMultipliers = {
     grammage: GRAMMAGE_MULTIPLIER, sides: SIDES_MULTIPLIER, color: COLOR_MULTIPLIER,
@@ -244,7 +313,7 @@ export function calculatePrintPrice({
     urgency: PRINT_URGENCY_MULTIPLIER,
   };
   const calibration = {
-    grammage: PRINT_A5_GRAMMAGES.includes(gKey),
+    grammage: gramList.includes(gKey),
     sides: A5_SIDES_CONFIRMED.has(normKey(sides)),
     color: A5_COLOR_CONFIRMED.has(normKey(color)),
     paper: A5_PAPER_CONFIRMED.has(normKey(paperType)),
@@ -275,19 +344,19 @@ export function calculatePrintPrice({
 
   if (enabled === false) return { ...base, priceStatus: "NOT_CONFIGURED", reviewReasons: ["disabled"] };
   if (fmt === "A4") return { ...base, priceStatus: "NOT_CONFIGURED", reviewReasons: ["format:A4"] };
-  if (fmt !== "A5") return { ...base, reviewReasons: ["format:" + (fmt || "?")] };
+  if (fmt !== "A5" && fmt !== "A6") return { ...base, reviewReasons: ["format:" + (fmt || "?")] };
 
-  // A5 — verifica che ogni dimensione sia coperta dai dati reali
+  // A5 / A6 — verifica che ogni dimensione sia coperta dai dati reali del formato
   const reasons = [];
-  if (!PRINT_A5_GRAMMAGES.includes(gKey)) reasons.push("grammage:" + (gKey || "?"));
+  if (!gramList.includes(gKey)) reasons.push("grammage:" + (gKey || "?"));
   if (!A5_SIDES_CONFIRMED.has(normKey(sides))) reasons.push("sides:" + (normKey(sides) || "?"));
   if (!A5_COLOR_CONFIRMED.has(normKey(color))) reasons.push("color:" + (normKey(color) || "?"));
   if (!A5_PAPER_CONFIRMED.has(normKey(paperType))) reasons.push("paper:" + (normKey(paperType) || "?"));
   if (!A5_FOLD_CONFIRMED.has(normKey(fold))) reasons.push("fold:" + (normKey(fold) || "?"));
 
-  if (reasons.length > 0) return { ...base, reviewReasons: reasons, grammageUsed: PRINT_A5_GRAMMAGES.includes(gKey) ? gKey : null };
+  if (reasons.length > 0) return { ...base, reviewReasons: reasons, grammageUsed: gramList.includes(gKey) ? gKey : null };
 
-  const bench = benchmarkBasePrice("A5", quantity, gKey);
+  const bench = benchmarkBasePrice(fmt, quantity, gKey);
   if (bench.price == null) {
     return { ...base, reviewReasons: ["quantity:" + String(quantity)], grammageUsed: gKey };
   }
@@ -301,7 +370,7 @@ export function calculatePrintPrice({
     priceStatus,
     formatConfigured: true,
     grammageUsed: gKey,
-    source: PRINT_A5_BENCHMARK_SOURCE,
+    source: BENCHMARK_SOURCES[fmt] || PRINT_A5_BENCHMARK_SOURCE,
     baseBenchmarkPrice: basePrintPrice,
     basePrintPrice,
     volantiniProMarkup: round2(customerPrice - basePrintPrice),

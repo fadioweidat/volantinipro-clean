@@ -11,6 +11,8 @@ import {
   MATERIAL_FORMAT_OPTIONS,
   PRINT_A5_BENCHMARKS,
   PRINT_A5_GRAMMAGES,
+  PRINT_A6_BENCHMARKS,
+  PRINT_A6_GRAMMAGES,
   PRINT_FORMAT_STATUS,
   VOLANTINIPRO_MARKUP_PCT,
   isPrintFormatConfigured,
@@ -209,21 +211,142 @@ test("piega: nessuna confermata; metà e tre = REQUIRES_REVIEW (SKU separato)", 
 // 10. Formati
 // ---------------------------------------------------------------------------
 
-test("A6 = REQUIRES_REVIEW (nessun prezzo, vecchio listino rimosso); A4 = NOT_CONFIGURED", () => {
+test("formati: A5 e A6 = CONFIGURED (matrici reali dedicate); A4 = NOT_CONFIGURED", () => {
   assert.equal(PRINT_FORMAT_STATUS.A5, "CONFIGURED");
-  assert.equal(PRINT_FORMAT_STATUS.A6, "REQUIRES_REVIEW");
+  assert.equal(PRINT_FORMAT_STATUS.A6, "CONFIGURED");
   assert.equal(PRINT_FORMAT_STATUS.A4, "NOT_CONFIGURED");
   assert.equal(isPrintFormatConfigured("A5"), true);
-  assert.equal(isPrintFormatConfigured("A6"), false);
+  assert.equal(isPrintFormatConfigured("A6"), true);
   assert.equal(isPrintFormatConfigured("A4"), false);
-  const a6 = price({ quantity: 10000, grammage: "130", printFormat: "A6" });
-  assert.equal(a6.priceStatus, "REQUIRES_REVIEW");
-  assert.equal(a6.customerPrice, null);
   const a4 = price({ quantity: 10000, grammage: "130", printFormat: "A4" });
   assert.equal(a4.priceStatus, "NOT_CONFIGURED");
   assert.equal(a4.customerPrice, null);
-  // niente vecchi benchmark A6 nel motore
-  assert.doesNotMatch(engineSrc, /A6:\s*\[/);
+  // A4 non ha benchmark
+  assert.equal(benchmarkBasePrice("A4", 10000, "130").price, null);
+});
+
+// ---------------------------------------------------------------------------
+// 10-bis. Matrice A6 reale (Pixartprinting /product/quote/, 2026-08-28, ex IVA,
+// standard/economy). Indipendente da A5, nessun moltiplicatore derivato.
+// ---------------------------------------------------------------------------
+
+const A6 = { printFormat: "A6", paperType: "patinata_opaca", sides: "fronte_retro", color: "colori", fold: "nessuna" };
+const priceA6 = (over) => calculatePrintPrice({ ...A6, ...over });
+
+test("A6 10k — prezzi obbligatori per grammatura (base / customer +20%)", () => {
+  const cases = [
+    ["100", 72.28, 86.74],
+    ["130", 82.98, 99.58],
+    ["170", 97.5, 117.0],
+    ["250", 131.91, 158.29],
+    ["300", 153.62, 184.34],
+    ["350", 176.86, 212.23],
+  ];
+  for (const [g, base, customer] of cases) {
+    const r = priceA6({ quantity: 10000, grammage: g });
+    assert.equal(r.basePrintPrice, base, `A6 base ${g}g`);
+    assert.equal(r.customerPrice, customer, `A6 customer ${g}g`);
+    assert.equal(r.priceStatus, "AUTO_CONFIRMED", `A6 status ${g}g`);
+    assert.equal(r.format, "A6");
+  }
+});
+
+test("A6 — intera matrice benchmark = customerPrice esatto (base × 1.20) e AUTO_CONFIRMED", () => {
+  for (const g of PRINT_A6_GRAMMAGES) {
+    for (const [qty, base] of PRINT_A6_BENCHMARKS[g]) {
+      const r = priceA6({ quantity: qty, grammage: g });
+      assert.equal(r.basePrintPrice, base, `A6 ${g}g ${qty} base`);
+      assert.equal(r.customerPrice, round2(base * 1.2), `A6 ${g}g ${qty} customer`);
+      assert.equal(r.priceStatus, "AUTO_CONFIRMED", `A6 ${g}g ${qty} status`);
+    }
+  }
+});
+
+test("A6 matrice != A5 matrice (dati indipendenti, nessuna derivazione)", () => {
+  assert.deepEqual(PRINT_A6_GRAMMAGES, PRINT_A5_GRAMMAGES); // stesse grammature
+  for (const g of PRINT_A6_GRAMMAGES) {
+    assert.notEqual(
+      PRINT_A6_BENCHMARKS[g][4][1], PRINT_A5_BENCHMARKS[g][4][1],
+      `A6 e A5 @10k coincidono per ${g}g (sospetto di derivazione)`,
+    );
+    // A6 e' piu' economico di A5 a pari grammatura/quantita' (formato piu' piccolo)
+    assert.ok(PRINT_A6_BENCHMARKS[g][4][1] < PRINT_A5_BENCHMARKS[g][4][1], `A6 >= A5 @10k ${g}g`);
+  }
+});
+
+test("A6 25.000 = INTERPOLATED (lineare 20k↔30k, stessa grammatura A6)", () => {
+  for (const g of PRINT_A6_GRAMMAGES) {
+    const t = PRINT_A6_BENCHMARKS[g];
+    const at20 = t.find((r) => r[0] === 20000)[1];
+    const at30 = t.find((r) => r[0] === 30000)[1];
+    const expBase = at20 + (at30 - at20) * 0.5;
+    const r = priceA6({ quantity: 25000, grammage: g });
+    assert.equal(r.priceStatus, "INTERPOLATED", `A6 25k ${g}g status`);
+    assert.ok(close(r.baseBenchmarkPrice, round2(expBase), 0.01), `A6 25k ${g}g base`);
+    assert.equal(r.customerPrice, round2(expBase * 1.2), `A6 25k ${g}g customer`);
+  }
+  // benchmarkBasePrice non mescola mai A5 e A6
+  assert.equal(benchmarkBasePrice("A6", 10000, "130").price, 82.98);
+  assert.equal(benchmarkBasePrice("A5", 10000, "130").price, 155.93);
+  // interpolazione 25k: ogni formato usa SOLO la propria tabella (20k/30k adiacenti)
+  assert.ok(close(benchmarkBasePrice("A6", 25000, "130").price, (159.93 + 222.29) / 2, 1e-9)); // 191.11
+  assert.ok(close(benchmarkBasePrice("A5", 25000, "130").price, (274.65 + 401.68) / 2, 1e-9)); // 338.165
+  assert.equal(round2(benchmarkBasePrice("A6", 25000, "130").price), 191.11);
+  assert.equal(round2(benchmarkBasePrice("A5", 25000, "130").price), 338.17);
+  assert.notEqual(
+    priceA6({ quantity: 25000, grammage: "130" }).customerPrice,
+    price({ quantity: 25000, grammage: "130" }).customerPrice,
+    "A6 25k 130g deve differire da A5 25k 130g (tabelle indipendenti)",
+  );
+  assert.equal(priceA6({ quantity: 25000, grammage: "130" }).customerPrice, 229.33);
+  assert.equal(priceA6({ quantity: 25000, grammage: "130" }).source, "Pixartprinting.it (2026-08-28, ex IVA, consegna standard/economy)");
+});
+
+test("A6 carta: patinata opaca == patinata lucida (dato reale identico), AUTO_CONFIRMED", () => {
+  for (const g of PRINT_A6_GRAMMAGES) {
+    const opaca = priceA6({ quantity: 10000, grammage: g, paperType: "patinata_opaca" });
+    const lucida = priceA6({ quantity: 10000, grammage: g, paperType: "patinata_lucida" });
+    assert.equal(lucida.customerPrice, opaca.customerPrice, `A6 carta ${g}g`);
+    assert.equal(lucida.priceStatus, "AUTO_CONFIRMED");
+  }
+});
+
+test("A6 config non coperte = REQUIRES_REVIEW, customerPrice null (nessuno sconto/mapping inventato)", () => {
+  const bad = [
+    { paperType: "uso_mano" },
+    { grammage: "90", paperType: "uso_mano" }, // 90g A6 non va mappato su 100/130
+    { sides: "fronte" },
+    { sides: "fronte_retro_eq" },
+    { color: "bianco_nero" },
+    { fold: "meta" },
+    { fold: "tre" },
+    { grammage: "115" },
+  ];
+  for (const over of bad) {
+    const r = priceA6({ quantity: 10000, grammage: "130", ...over });
+    assert.equal(r.priceStatus, "REQUIRES_REVIEW", `A6 ${JSON.stringify(over)}`);
+    assert.equal(r.customerPrice, null, `A6 ${JSON.stringify(over)} price`);
+  }
+});
+
+test("A6 prezzo mai decrescente al crescere della quantità (ogni grammatura)", () => {
+  for (const g of PRINT_A6_GRAMMAGES) {
+    let prev = -1;
+    for (let q = 500; q <= 55000; q += 500) {
+      const c = priceA6({ quantity: q, grammage: g }).customerPrice;
+      assert.ok(c >= prev - 1e-6, `A6 ${g}g q=${q}: ${c} < ${prev}`);
+      prev = c;
+    }
+  }
+});
+
+test("A5 regressione: matrice e numeri A5 invariati dopo l'aggiunta di A6", () => {
+  assert.equal(price({ quantity: 10000, grammage: "130" }).customerPrice, 187.12);
+  assert.equal(price({ quantity: 10000, grammage: "250" }).customerPrice, 296.4);
+  assert.equal(price({ quantity: 10000, grammage: "130" }).priceStatus, "AUTO_CONFIRMED");
+  assert.equal(PRINT_A5_BENCHMARKS["130"][4][1], 155.93);
+  assert.equal(PRINT_A5_BENCHMARKS["350"][9][1], 1680.05);
+  assert.equal(benchmarkBasePrice("A5", 10000, "170").price, 174.44);
 });
 
 test("grammatura fuori matrice (90/115/135) = REQUIRES_REVIEW", () => {
@@ -257,7 +380,10 @@ test("computePrintEstimate: 0 se non attiva / config non coperta; prezzo reale c
   assert.equal(computePrintEstimate({ quantity: 10000 }), 187.12); // default A5/130/opaca/f-r/colori/nessuna
   assert.equal(computePrintEstimate({ quantity: 10000, grammage: "250" }), 296.4);
   assert.equal(computePrintEstimate({ quantity: 10000, sides: "fronte" }), 0);      // REQUIRES_REVIEW -> 0
-  assert.equal(computePrintEstimate({ quantity: 10000, printFormat: "A6" }), 0);
+  // A6 ora ha matrice reale: coi default (130/opaca/f-r/colori/nessuna) -> prezzo A6
+  assert.equal(computePrintEstimate({ quantity: 10000, printFormat: "A6" }), 99.58);
+  assert.equal(computePrintEstimate({ quantity: 10000, printFormat: "A6", grammage: "250" }), 158.29);
+  assert.equal(computePrintEstimate({ quantity: 10000, printFormat: "A4" }), 0); // NOT_CONFIGURED -> 0
 });
 
 test("extraServicesRegistry 'printing' usa computePrintEstimate (matrice reale)", () => {
