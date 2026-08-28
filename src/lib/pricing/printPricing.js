@@ -7,10 +7,11 @@
  *   format = A5 (14,8 x 21 cm)  /  A6 (10,5 x 14,8 cm)  /  A4 (21 x 29,7 cm)
  *   carta  = Patinata opaca (Classic demimatt) / Patinata lucida (Classic gloss)
  *            -> prezzo IDENTICO per le due carte (verificato sui punti reali)
- *   lati   = Fronte e retro differenti (A5/A6);  A4: solo fronte + fronte/retro
- *            uguali + fronte/retro differenti sono TUTTI allo stesso prezzo —
- *            equivalenza VERIFICATA sui dati reali A4, NON un moltiplicatore.
- *            Vale SOLO per A4: su A5/A6 solo fronte e f/r uguali restano review.
+ *   lati   = solo fronte + fronte/retro uguali + fronte/retro differenti sono
+ *            TUTTI allo stesso prezzo reale su A4, A5 E A6 — equivalenza
+ *            VERIFICATA dal vivo sul configuratore per OGNI formato e OGNI
+ *            grammatura in matrice, layout confermato in UI e nel body API.
+ *            NON un moltiplicatore: il lato non muove il prezzo.
  *   colore = 4/4 (quadricromia — Pixart volantini non offre B/N)
  *   piega  = nessuna
  *   grammature: 100 / 130 / 170 / 250 / 300 / 350 g/m2
@@ -22,15 +23,12 @@
  *
  * Ogni chiamata ritorna priceStatus:
  *   AUTO_CONFIRMED  — A5/A6/A4 + carta opaca/lucida + grammatura in matrice +
- *                     lati coperti dal formato + colori + nessuna piega +
- *                     quantita' = punto benchmark esatto
- *                     (lati coperti: A5/A6 solo "f/r differenti"; A4 anche
- *                      "solo fronte" e "f/r uguali", stesso prezzo reale)
+ *                     lati (uno qualsiasi dei 3, stesso prezzo) + colori +
+ *                     nessuna piega + quantita' = punto benchmark esatto
  *   INTERPOLATED    — come sopra ma quantita' tra due benchmark della STESSA
  *                     identica configurazione (25.000 incluso)
  *   REQUIRES_REVIEW — configurazione non coperta da dati reali (uso mano,
- *                     bianco/nero, piega, grammatura fuori matrice; su A5/A6
- *                     anche solo fronte / fronte-retro uguali, ...)
+ *                     bianco/nero, piega, grammatura fuori matrice, ...)
  *   NOT_CONFIGURED  — stampa disattivata (enabled: false)
  *
  * Quando priceStatus != AUTO_CONFIRMED/INTERPOLATED -> customerPrice = null
@@ -242,23 +240,28 @@ const A5_PAPER_CONFIRMED = new Set([
   "patinata_opaca", "patinata_lucida", "classic_demimatt", "classic_gloss",
   "couche", "couché", "patinata",
 ]);
-// LATI — copertura DIVERSA per formato:
-//  A5 / A6: solo "fronte e retro differenti" e' coperto dai dati reali;
-//           solo fronte e fronte/retro uguali restano REQUIRES_REVIEW.
-//  A4     : solo fronte + fronte/retro uguali + fronte/retro differenti sono
-//           TUTTI allo stesso prezzo reale (equivalenza verificata dal vivo).
+// LATI — su A4, A5 e A6 (prodotto "Volantini e Flyer" Pixartprinting) il
+// prezzo NON varia col tipo di stampa: solo fronte, fronte/retro uguali e
+// fronte/retro differenti risultano allo stesso identico prezzo reale.
+// Equivalenza VERIFICATA dal vivo sul configuratore (endpoint /product/quote/,
+// 2026-08-28, CAP 30020, tier 144-120-Fast) per OGNI formato e OGNI grammatura
+// in matrice: A5 {100,130,170,250,300,350}g e A6 {100,130,170,250,300,350}g,
+// layout confermato sia nella gallery UI sia nel body della richiesta.
+// NESSUN moltiplicatore: il prezzo continua a venire SOLO da
+// (formato -> tabella) + quantita' + grammatura.
 const SIDES_CONFIRMED_DIFF_ONLY = new Set([
   "fronte_retro", "front_back_different", "fronte_retro_diff", "fronte_retro_differenti",
 ]);
-const SIDES_CONFIRMED_A4 = new Set([
+const SIDES_CONFIRMED_ALL = new Set([
   ...SIDES_CONFIRMED_DIFF_ONLY,
   "fronte", "solo_fronte", "front_only", "front_side_only", "solo fronte",
   "fronte_retro_eq", "fronte_retro_uguali", "fronte_retro_uguale", "front_back_same", "fronte retro uguali",
 ]);
+// Tutti i formati con matrice reale coprono i 3 tipi di lati allo stesso prezzo.
 const SIDES_CONFIRMED_BY_FORMAT = Object.freeze({
-  A5: SIDES_CONFIRMED_DIFF_ONLY,
-  A6: SIDES_CONFIRMED_DIFF_ONLY,
-  A4: SIDES_CONFIRMED_A4,
+  A5: SIDES_CONFIRMED_ALL,
+  A6: SIDES_CONFIRMED_ALL,
+  A4: SIDES_CONFIRMED_ALL,
 });
 function sidesConfirmedFor(fmt, sides) {
   const set = SIDES_CONFIRMED_BY_FORMAT[String(fmt || "").toUpperCase()] || SIDES_CONFIRMED_DIFF_ONLY;
@@ -357,9 +360,9 @@ export function benchmarkBasePrice(printFormat, quantity, grammage) {
  * @param {number} p.quantity
  * @param {string} p.printFormat  "A5" | "A6" | "A4"
  * @param {string} [p.grammage]   "100"|"130"|"170"|"250"|"300"|"350" (o "130 g/m²")
- * @param {string} [p.sides]      A5/A6: solo "fronte_retro" (differenti) coperto;
- *                                A4: "fronte" (solo fronte) / "fronte_retro_eq" /
- *                                "fronte_retro" tutti coperti allo stesso prezzo
+ * @param {string} [p.sides]      "fronte" (solo fronte) / "fronte_retro_eq"
+ *                                (f/r uguali) / "fronte_retro" (f/r differenti):
+ *                                su A4/A5/A6 tutti coperti allo stesso prezzo
  * @param {string} [p.color]      "colori" coperto; "bianco_nero" -> review
  * @param {string} [p.paperType]  "patinata_opaca" / "patinata_lucida" coperti; "uso_mano" -> review
  * @param {string} [p.fold]       "nessuna" coperto; "meta"/"tre" -> review
@@ -424,8 +427,8 @@ export function calculatePrintPrice({
   if (fmt !== "A5" && fmt !== "A6" && fmt !== "A4") return { ...base, reviewReasons: ["format:" + (fmt || "?")] };
 
   // A5 / A6 / A4 — verifica che ogni dimensione sia coperta dai dati reali del
-  // formato. LATI: la copertura dipende dal formato (A4 copre tutti e 3 i modi
-  // allo stesso prezzo reale; A5/A6 solo "fronte e retro differenti").
+  // formato. LATI: su tutti e 3 i formati i tre tipi (solo fronte / f/r uguali /
+  // f/r differenti) sono coperti allo stesso prezzo reale (verificato dal vivo).
   const reasons = [];
   if (!gramList.includes(gKey)) reasons.push("grammage:" + (gKey || "?"));
   if (!sidesConfirmedFor(fmt, sides)) reasons.push("sides:" + (normKey(sides) || "?"));

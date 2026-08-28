@@ -177,12 +177,14 @@ test("Uso mano = REQUIRES_REVIEW, nessun prezzo (fornitore reale: solo 90g)", ()
 // 7. Lati
 // ---------------------------------------------------------------------------
 
-test("lati: solo fronte/retro differenti confermato; solo fronte e f/r uguali = REQUIRES_REVIEW", () => {
-  assert.equal(price({ quantity: 10000, grammage: "130", sides: "fronte_retro" }).priceStatus, "AUTO_CONFIRMED");
+test("lati: solo fronte / f/r uguali / f/r differenti tutti confermati allo stesso prezzo (A5)", () => {
+  const df = price({ quantity: 10000, grammage: "130", sides: "fronte_retro" });
+  assert.equal(df.priceStatus, "AUTO_CONFIRMED");
   for (const s of ["fronte", "fronte_retro_eq"]) {
     const r = price({ quantity: 10000, grammage: "130", sides: s });
-    assert.equal(r.priceStatus, "REQUIRES_REVIEW", `sides ${s}`);
-    assert.equal(r.customerPrice, null, `sides ${s} price`);
+    assert.equal(r.priceStatus, "AUTO_CONFIRMED", `sides ${s}`);
+    assert.equal(r.customerPrice, df.customerPrice, `sides ${s} == f/r differenti`);
+    assert.equal(r.customerPrice, 187.12, `sides ${s} price`);
   }
 });
 
@@ -322,8 +324,6 @@ test("A6 config non coperte = REQUIRES_REVIEW, customerPrice null (nessuno scont
   const bad = [
     { paperType: "uso_mano" },
     { grammage: "90", paperType: "uso_mano" }, // 90g A6 non va mappato su 100/130
-    { sides: "fronte" },
-    { sides: "fronte_retro_eq" },
     { color: "bianco_nero" },
     { fold: "meta" },
     { fold: "tre" },
@@ -386,29 +386,62 @@ test("A4 — intera matrice benchmark = customerPrice esatto (base × 1.20) e AU
   }
 });
 
-test("A4 LATI — solo fronte / f/r uguali / f/r differenti TUTTI allo stesso prezzo, AUTO_CONFIRMED", () => {
-  for (const g of PRINT_A4_GRAMMAGES) {
-    const diff = priceA4({ quantity: 10000, grammage: g, sides: "fronte_retro" });
-    for (const s of ["fronte", "fronte_retro_eq"]) {
-      const r = priceA4({ quantity: 10000, grammage: g, sides: s });
-      assert.equal(r.priceStatus, "AUTO_CONFIRMED", `A4 sides ${s} ${g}g`);
-      assert.equal(r.customerPrice, diff.customerPrice, `A4 sides ${s} == differenti ${g}g`);
+// ---------------------------------------------------------------------------
+// LATI — A4/A5/A6: i 3 tipi (solo fronte / f/r uguali / f/r differenti) sono
+// coperti allo STESSO prezzo reale su OGNI formato e OGNI grammatura in matrice
+// (equivalenza verificata dal vivo su Pixartprinting, layout confermato in UI e
+// nel body /product/quote/). Nessun SIDES_MULTIPLIER: il lato non muove il prezzo.
+// ---------------------------------------------------------------------------
+
+const SIDES_3 = ["fronte", "fronte_retro_eq", "fronte_retro"];
+const cfg = (fmt) => ({ printFormat: fmt, paperType: "patinata_opaca", color: "colori", fold: "nessuna" });
+
+test("LATI: A4/A5/A6 — i 3 tipi allo stesso customerPrice e AUTO_CONFIRMED, ogni grammatura", () => {
+  const GR = { A4: PRINT_A4_GRAMMAGES, A5: PRINT_A5_GRAMMAGES, A6: PRINT_A6_GRAMMAGES };
+  for (const fmt of ["A4", "A5", "A6"]) {
+    for (const g of GR[fmt]) {
+      const prices = SIDES_3.map((s) => calculatePrintPrice({ ...cfg(fmt), quantity: 10000, grammage: g, sides: s }));
+      for (const r of prices) {
+        assert.equal(r.priceStatus, "AUTO_CONFIRMED", `${fmt} ${g}g sides status`);
+        assert.equal(r.customerPrice, prices[2].customerPrice, `${fmt} ${g}g sides stesso prezzo`);
+        assert.equal(r.customerPrice, prices[0].customerPrice, `${fmt} ${g}g sides stesso prezzo`);
+      }
     }
   }
-  // equivalenza reale, non moltiplicatore: nessun SIDES_MULTIPLIER != 1
+  // equivalenza reale, non moltiplicatore: SIDES_MULTIPLIER resta 1.0 e il
+  // prezzo non dipende da `sides` (dimostrato sopra: 3 lati -> stesso customerPrice).
   assert.match(engineSrc, /SIDES_MULTIPLIER = 1\.0/);
 });
 
-test("REGRESSIONE A5/A6 LATI — solo fronte e f/r uguali restano REQUIRES_REVIEW (mai promossi ad A4)", () => {
-  for (const fmt of ["A5", "A6"]) {
-    for (const s of ["fronte", "fronte_retro_eq"]) {
-      const r = calculatePrintPrice({ printFormat: fmt, paperType: "patinata_opaca", sides: s, color: "colori", fold: "nessuna", quantity: 10000, grammage: "130" });
-      assert.equal(r.priceStatus, "REQUIRES_REVIEW", `${fmt} sides ${s}`);
-      assert.equal(r.customerPrice, null, `${fmt} sides ${s} price`);
+test("LATI — esempi obbligatori A5 (10k, tutti e 3 i lati = stesso customerPrice)", () => {
+  for (const [g, base, customer] of [["130", 155.93, 187.12], ["250", 247.0, 296.4]]) {
+    for (const s of SIDES_3) {
+      const r = calculatePrintPrice({ ...cfg("A5"), quantity: 10000, grammage: g, sides: s });
+      assert.equal(r.basePrintPrice, base, `A5 10k ${g}g ${s} base`);
+      assert.equal(r.customerPrice, customer, `A5 10k ${g}g ${s} customer`);
+      assert.equal(r.priceStatus, "AUTO_CONFIRMED");
     }
-    // f/r differenti resta l'unico coperto per A5/A6
-    const ok = calculatePrintPrice({ printFormat: fmt, paperType: "patinata_opaca", sides: "fronte_retro", color: "colori", fold: "nessuna", quantity: 10000, grammage: "130" });
-    assert.equal(ok.priceStatus, "AUTO_CONFIRMED", `${fmt} f/r differenti`);
+  }
+});
+
+test("LATI — esempi obbligatori A6 (10k, tutti e 3 i lati = stesso customerPrice)", () => {
+  for (const [g, base, customer] of [["130", 82.98, 99.58], ["250", 131.91, 158.29]]) {
+    for (const s of SIDES_3) {
+      const r = calculatePrintPrice({ ...cfg("A6"), quantity: 10000, grammage: g, sides: s });
+      assert.equal(r.basePrintPrice, base, `A6 10k ${g}g ${s} base`);
+      assert.equal(r.customerPrice, customer, `A6 10k ${g}g ${s} customer`);
+      assert.equal(r.priceStatus, "AUTO_CONFIRMED");
+    }
+  }
+});
+
+test("LATI — cambiare lato NON cambia il customerPrice (A5/A6, su interpolazione 25k inclusa)", () => {
+  for (const fmt of ["A5", "A6"]) {
+    for (const q of [10000, 25000, 12345]) {
+      const cs = SIDES_3.map((s) => calculatePrintPrice({ ...cfg(fmt), quantity: q, grammage: "250", sides: s }).customerPrice);
+      assert.equal(cs[0], cs[1], `${fmt} q=${q} solo fronte == f/r uguali`);
+      assert.equal(cs[1], cs[2], `${fmt} q=${q} f/r uguali == f/r differenti`);
+    }
   }
 });
 
@@ -511,7 +544,7 @@ test("priceStatus copre i 4 valori del contratto", () => {
   const seen = new Set();
   seen.add(price({ quantity: 10000, grammage: "130" }).priceStatus);            // AUTO_CONFIRMED
   seen.add(price({ quantity: 12345, grammage: "130" }).priceStatus);            // INTERPOLATED
-  seen.add(price({ quantity: 10000, grammage: "130", sides: "fronte" }).priceStatus); // REQUIRES_REVIEW (A5)
+  seen.add(price({ quantity: 10000, grammage: "130", color: "bianco_nero" }).priceStatus); // REQUIRES_REVIEW (B/N non coperto)
   seen.add(price({ quantity: 10000, grammage: "130", enabled: false }).priceStatus);  // NOT_CONFIGURED
   assert.deepEqual([...seen].sort(), ["AUTO_CONFIRMED", "INTERPOLATED", "NOT_CONFIGURED", "REQUIRES_REVIEW"]);
 });
@@ -524,7 +557,9 @@ test("computePrintEstimate: 0 se non attiva / config non coperta; prezzo reale c
   assert.equal(computePrintEstimate({ quantity: 10000, enabled: false }), 0);
   assert.equal(computePrintEstimate({ quantity: 10000 }), 187.12); // default A5/130/opaca/f-r/colori/nessuna
   assert.equal(computePrintEstimate({ quantity: 10000, grammage: "250" }), 296.4);
-  assert.equal(computePrintEstimate({ quantity: 10000, sides: "fronte" }), 0);      // REQUIRES_REVIEW -> 0
+  assert.equal(computePrintEstimate({ quantity: 10000, sides: "fronte" }), 187.12); // A5 solo fronte = f/r differenti (dato reale)
+  assert.equal(computePrintEstimate({ quantity: 10000, sides: "fronte_retro_eq" }), 187.12);
+  assert.equal(computePrintEstimate({ quantity: 10000, color: "bianco_nero" }), 0);  // B/N non coperto -> 0
   // A6 / A4 hanno matrice reale: coi default (130/opaca/f-r/colori/nessuna) -> prezzo del formato
   assert.equal(computePrintEstimate({ quantity: 10000, printFormat: "A6" }), 99.58);
   assert.equal(computePrintEstimate({ quantity: 10000, printFormat: "A6", grammage: "250" }), 158.29);
@@ -538,7 +573,11 @@ test("extraServicesRegistry 'printing' usa computePrintEstimate (matrice reale)"
   assert.equal(buildExtraServicesById(reg).printing.price, 187.12);
   const reg250 = buildExtraServicesRegistry({ flyerQty: 10000, printConfig: { format: "A5", grammage: "250", sides: "fronte_retro", color: "colori", paperType: "patinata_opaca", folding: "nessuna" } });
   assert.equal(buildExtraServicesById(reg250).printing.price, 296.4);
-  const regReview = buildExtraServicesRegistry({ flyerQty: 10000, printConfig: { format: "A5", grammage: "130", sides: "fronte", color: "colori", paperType: "patinata_opaca", folding: "nessuna" } });
+  // A5 solo fronte = stesso prezzo reale di f/r differenti (dato verificato)
+  const regSolo = buildExtraServicesRegistry({ flyerQty: 10000, printConfig: { format: "A5", grammage: "130", sides: "fronte", color: "colori", paperType: "patinata_opaca", folding: "nessuna" } });
+  assert.equal(buildExtraServicesById(regSolo).printing.price, 187.12);
+  // config davvero non coperta (B/N) -> 0
+  const regReview = buildExtraServicesRegistry({ flyerQty: 10000, printConfig: { format: "A5", grammage: "130", sides: "fronte_retro", color: "bianco_nero", paperType: "patinata_opaca", folding: "nessuna" } });
   assert.equal(buildExtraServicesById(regReview).printing.price, 0);
 });
 
