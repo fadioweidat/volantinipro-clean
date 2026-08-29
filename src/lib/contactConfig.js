@@ -17,6 +17,14 @@ const rawWhatsApp = String(env.VITE_SUPPORT_WHATSAPP || "").replace(/[^\d]/g, ""
 export const SUPPORT_WHATSAPP = rawWhatsApp.length >= 8 ? rawWhatsApp : null;
 export const HAS_SUPPORT_WHATSAPP = SUPPORT_WHATSAPP != null;
 
+// Invio richiesta grafica via backend (Edge Function `send-graphic-request` +
+// Resend). Flag FRONTEND non-segreto: NON è la RESEND_API_KEY, che resta solo
+// server-side. Quando è attivo e Supabase è configurato, la card "Servizio
+// grafico" mostra "Invia richiesta" (primaria) + "Apri email" (secondaria);
+// altrimenti resta solo il fallback mailto.
+export const GRAPHIC_REQUEST_ENABLED =
+  String(env.VITE_GRAPHIC_REQUEST_ENABLED || "") === "true" && Boolean(env.VITE_SUPABASE_URL);
+
 function fmtQty(q) {
   const n = Number(q);
   return Number.isFinite(n) && n > 0 ? n.toLocaleString("it-IT") : "";

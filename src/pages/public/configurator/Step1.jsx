@@ -11,7 +11,8 @@ import { DISTRIBUTION_TARGET_OPTIONS } from "../../../lib/step2/activityTargets.
 import { distributionTypes } from "../../../lib/distributionTypes.js";
 import { FLYER_FORMAT_OPTIONS, PROMOTER_COUNT_OPTIONS, PROMOTER_LOCATION_TYPE_OPTIONS, PROMOTER_SHIFT_DURATION_OPTIONS, PROMOTER_TIME_SLOT_OPTIONS } from "../../../lib/step1/step1OptionLists.js";
 import { calculatePrintPrice, PRINT_FORMAT_OPTIONS, isPrintFormatConfigured, toPrintableFormat } from "../../../lib/pricing/printPricing.js";
-import { SUPPORT_EMAIL, HAS_SUPPORT_WHATSAPP, buildGraphicWhatsAppUrl, buildGraphicMailtoUrl } from "../../../lib/contactConfig.js";
+import { SUPPORT_EMAIL, HAS_SUPPORT_WHATSAPP, GRAPHIC_REQUEST_ENABLED, buildGraphicWhatsAppUrl, buildGraphicMailtoUrl } from "../../../lib/contactConfig.js";
+import { sendGraphicRequest } from "../../../api/sendGraphicRequest.js";
 import { GEO_DATA } from "../../../lib/geoData.js";
 import { getMunicipalityDedupKey, normalizeTerritoryName } from "../../../lib/step2/addressIntent.js";
 import { H2H_FLYERS_PER_PROMOTER_HOUR } from "../../../lib/step2/operationalMetrics.js";
@@ -33,6 +34,7 @@ export function Step1({
   const [showSmartPairingModal, setShowSmartPairingModal] = useState(false);
   const [resolvingOperationalLocation, setResolvingOperationalLocation] = useState(false);
   const [operationalLocationError, setOperationalLocationError] = useState("");
+  const [graphicSend, setGraphicSend] = useState({ status: "idle" }); // idle | sending | sent | error
   // Traffico sito (Admin "Commerciale"): un preventivo "iniziato" per
   // sessione, alla prima apertura di Step1. Fire-and-forget.
   useEffect(() => {
@@ -260,9 +262,32 @@ export function Step1({
     graphicServiceRequested: status === "da_creare",
     graphicPriceStatus: status === "da_creare" ? "REQUIRES_QUOTE" : "NOT_REQUIRED"
   });
-  const setArtwork = status => updateData({
-    printing: { ...printing, artworkStatus: status, artwork: buildArtwork(status) }
-  });
+  const setArtwork = status => {
+    if (graphicSend.status !== "idle") setGraphicSend({ status: "idle" });
+    updateData({
+      printing: { ...printing, artworkStatus: status, artwork: buildArtwork(status) }
+    });
+  };
+  // Invio richiesta grafica via backend (Resend). SOLO su click esplicito del
+  // cliente — mai al semplice cambio card. Il destinatario interno e' deciso
+  // server-side; qui si spediscono solo i dati della configurazione stampa.
+  const submitGraphicRequest = async () => {
+    if (graphicSend.status === "sending") return;
+    setGraphicSend({ status: "sending" });
+    const res = await sendGraphicRequest({
+      format: printing.format,
+      quantity: activeQty,
+      orientation: printing.orientation,
+      paperType: printing.paperType,
+      grammage: printing.grammage,
+      sides: printing.sides,
+      color: printing.color,
+      folding: printing.folding,
+      notes: printing.notes,
+      clientEmail: data.clientEmail || data.email || undefined
+    });
+    setGraphicSend(res?.ok ? { status: "sent" } : { status: "error", code: res?.code });
+  };
   // Formato di stampa e formato materiale/logistico: quando la stampa e'
   // attiva il secondo si sincronizza automaticamente col primo (UX richiesta).
   // Il formato di stampa NON cambia il prezzo (il motore reale dipende solo
@@ -2240,10 +2265,16 @@ export function Step1({
                     <div style={{ fontSize: 11, fontWeight: 800, color: "#E8571A", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Servizio grafico VolantiniPro</div>
                     <div style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC", marginBottom: 6 }}>Hai bisogno di creare o sistemare la grafica?</div>
                     <div style={{ fontSize: 13, color: "#CBD5E1", lineHeight: 1.55, marginBottom: 14 }}>Il costo della grafica non è incluso nel prezzo di stampa. Contatta VolantiniPro per spiegare cosa ti serve e ricevere un preventivo.</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                      {HAS_SUPPORT_WHATSAPP && <a href={buildGraphicWhatsAppUrl({ format: printing.format, quantity: activeQty, printEnabled: true, notes: printing.notes })} target="_blank" rel="noopener noreferrer" className="vb" style={{ padding: "11px 20px", borderRadius: 8, background: "#E8571A", color: "#fff", fontFamily: F.sans, fontSize: 13, fontWeight: 800, textDecoration: "none", boxShadow: "0 6px 16px rgba(232,87,26,0.28)" }}>Contatta su WhatsApp</a>}
-                      <a href={buildGraphicMailtoUrl({ format: printing.format, quantity: activeQty, notes: printing.notes })} className="vb" style={{ padding: "11px 20px", borderRadius: 8, background: HAS_SUPPORT_WHATSAPP ? "rgba(255,255,255,0.06)" : "#E8571A", color: "#fff", border: HAS_SUPPORT_WHATSAPP ? "1px solid rgba(255,255,255,0.15)" : "none", fontFamily: F.sans, fontSize: 13, fontWeight: 800, textDecoration: "none" }}>Invia un'email</a>
-                    </div>
+                    {graphicSend.status === "sent"
+                    ? <div style={{ fontSize: 13, fontWeight: 800, color: s1Green }}>✓ Richiesta inviata a VolantiniPro</div>
+                    : <>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                        {HAS_SUPPORT_WHATSAPP && <a href={buildGraphicWhatsAppUrl({ format: printing.format, quantity: activeQty, printEnabled: true, notes: printing.notes })} target="_blank" rel="noopener noreferrer" className="vb" style={{ padding: "11px 20px", borderRadius: 8, background: "#E8571A", color: "#fff", fontFamily: F.sans, fontSize: 13, fontWeight: 800, textDecoration: "none", boxShadow: "0 6px 16px rgba(232,87,26,0.28)" }}>Contatta su WhatsApp</a>}
+                        {GRAPHIC_REQUEST_ENABLED && <button type="button" onClick={submitGraphicRequest} disabled={graphicSend.status === "sending"} className="vb" style={{ padding: "11px 20px", borderRadius: 8, border: "none", background: "#E8571A", color: "#fff", fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: graphicSend.status === "sending" ? "default" : "pointer", opacity: graphicSend.status === "sending" ? 0.7 : 1, boxShadow: "0 6px 16px rgba(232,87,26,0.28)" }}>{graphicSend.status === "sending" ? "Invio…" : "Invia richiesta"}</button>}
+                        <a href={buildGraphicMailtoUrl({ format: printing.format, quantity: activeQty, notes: printing.notes })} className="vb" style={{ padding: "11px 20px", borderRadius: 8, background: (HAS_SUPPORT_WHATSAPP || GRAPHIC_REQUEST_ENABLED) ? "rgba(255,255,255,0.06)" : "#E8571A", color: "#fff", border: (HAS_SUPPORT_WHATSAPP || GRAPHIC_REQUEST_ENABLED) ? "1px solid rgba(255,255,255,0.15)" : "none", fontFamily: F.sans, fontSize: 13, fontWeight: 800, textDecoration: "none" }}>{GRAPHIC_REQUEST_ENABLED ? "Apri email" : "Invia un'email"}</a>
+                      </div>
+                      {graphicSend.status === "error" && <div style={{ fontSize: 11, color: "#FBBF24", marginTop: 8 }}>Invio non riuscito. Usa "Apri email"{HAS_SUPPORT_WHATSAPP ? " o WhatsApp" : ""} per contattarci.</div>}
+                    </>}
                     <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 10 }}>Servizio grafico: da quotare separatamente · non aggiunto al totale.</div>
                   </div>}
                 </div>
