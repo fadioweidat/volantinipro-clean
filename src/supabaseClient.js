@@ -16,28 +16,64 @@ try {
   }
 }
 
-// detectSessionInUrl: false — questo client non e' mai il consumatore
-// previsto dell'hash #access_token=... del magic link (vedi commento sotto:
-// il flusso reale e' interamente manuale via vp_supabase_session, bridgeato
-// qui SOLO dopo il fatto). Lasciato al default (true), la sua detection
-// automatica del GoTrue-js interno intercetta l'hash per conto proprio,
-// prima o in corsa con consumeSupabaseAuthHash() in LoginPage: se vince lei,
-// salva la sessione sotto la propria chiave sb-<ref>-auth-token (mai letta
-// dall'app) e ripulisce l'hash dall'URL, lasciando l'app senza nulla da
-// consumare — la route ricade quindi su Home invece che su /dashboard.
-// Riprodotto dal vivo: risolve il bug "magic link torna alla Home".
-export const supabase = (supabaseUrl && supabaseKey)
-  ? createClient(supabaseUrl, supabaseKey, {
+// createClient() (supabase-js) rifiuta un supabaseUrl che non inizia con
+// http(s):// lanciando "Invalid supabaseUrl: Must be a valid HTTP or HTTPS
+// URL." a tempo di valutazione del modulo. Questo modulo e' importato da ~30
+// file (hook dashboard, servizi, pagine): se il costruttore lancia qui,
+// l'intero bundle non si inizializza e l'app va in crash ("Impossibile
+// caricare il programma", schermo bianco + Uncaught Error in console).
+//
+// Caso reale che l'ha innescato: le env VITE_* di produzione sono marcate
+// "Sensitive" su Vercel; una build eseguita con `vercel build` in locale
+// (vercel pull) riceve il placeholder letterale "[SENSITIVE]" al posto del
+// valore vero, e Vite lo inlinea come URL. "[SENSITIVE]" e' truthy ma non e'
+// un URL -> crash.
+//
+// Fail-safe: se l'URL non e' un http(s):// valido lo trattiamo come "non
+// configurato" (supabase = null, gia' gestito da tutti i chiamanti con
+// degradazione controllata) e logghiamo UNA riga chiara, senza mai stampare
+// chiave o valori.
+const isValidHttpUrl = (value) =>
+  typeof value === 'string' && /^https?:\/\//i.test(value.trim());
+
+let supabaseInstance = null;
+if (supabaseUrl && supabaseKey && isValidHttpUrl(supabaseUrl)) {
+  try {
+    supabaseInstance = createClient(supabaseUrl, supabaseKey, {
       auth: {
-        // Esplicitati per rendere il contratto di sessione verificabile: nel
-        // browser la SDK persiste nella sua chiave standard
-        // sb-<project-ref>-auth-token e rinnova il JWT prima della scadenza.
+        // detectSessionInUrl: false — questo client non e' mai il consumatore
+        // previsto dell'hash #access_token=... del magic link (vedi sotto: il
+        // flusso reale e' interamente manuale via vp_supabase_session,
+        // bridgeato qui SOLO dopo il fatto). Lasciato al default (true), la
+        // detection automatica del GoTrue-js interno intercetta l'hash per
+        // conto proprio, prima o in corsa con consumeSupabaseAuthHash() in
+        // LoginPage: se vince lei, salva la sessione sotto la propria chiave
+        // sb-<ref>-auth-token (mai letta dall'app) e ripulisce l'hash
+        // dall'URL, lasciando l'app senza nulla da consumare — la route
+        // ricade quindi su Home invece che su /dashboard. Riprodotto dal
+        // vivo: risolve il bug "magic link torna alla Home".
+        //
+        // persistSession/autoRefreshToken esplicitati per rendere il
+        // contratto di sessione verificabile: nel browser la SDK persiste
+        // nella sua chiave standard sb-<project-ref>-auth-token e rinnova il
+        // JWT prima della scadenza.
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: false,
       },
-    })
-  : null
+    });
+  } catch (error) {
+    // Non deve mai propagare: l'app deve poter caricare anche senza client.
+    console.error('[SUPABASE_CLIENT_INIT_FAILED]', error?.message || String(error));
+    supabaseInstance = null;
+  }
+} else if (supabaseUrl || supabaseKey) {
+  console.error(
+    '[SUPABASE_CONFIG_INVALID] VITE_SUPABASE_URL non e\' un URL http(s) valido: client Supabase disabilitato. Verificare le env di build.',
+  );
+}
+
+export const supabase = supabaseInstance
 
 // The main app (volantinipro-final.jsx) authenticates via a separate
 // lightweight REST client (src/lib/supabaseClient.js), storing the session

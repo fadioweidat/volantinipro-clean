@@ -499,6 +499,12 @@ function readSupabaseRestConfig() {
       cachedRestAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
     }
   }
+  // Un valore truthy ma non-URL (es. placeholder "[SENSITIVE]" da una build
+  // con env Vercel non risolte) porterebbe a fetch("[SENSITIVE]/rest/v1/..").
+  // Lo neutralizziamo qui: i chiamanti gestiscono gia' url mancante.
+  if (typeof cachedRestUrl !== 'string' || !/^https?:\/\//i.test(cachedRestUrl.trim())) {
+    cachedRestUrl = null;
+  }
   return { url: cachedRestUrl, key: cachedRestAnonKey };
 }
 

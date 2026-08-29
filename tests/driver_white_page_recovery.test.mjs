@@ -27,6 +27,9 @@ const indexHtmlSource = readFileSync(new URL("../index.html", import.meta.url), 
 const mainJsxSource = readFileSync(new URL("../src/main.jsx", import.meta.url), "utf8");
 const chunkRetrySource = readFileSync(new URL("../src/bootstrap/chunkRetry.js", import.meta.url), "utf8");
 const routeErrorBoundarySource = readFileSync(new URL("../src/bootstrap/RouteErrorBoundary.jsx", import.meta.url), "utf8");
+const sdkClientSource = readFileSync(new URL("../src/supabaseClient.js", import.meta.url), "utf8");
+const restClientSource = readFileSync(new URL("../src/lib/supabaseClient.js", import.meta.url), "utf8");
+const gpsApiSource = readFileSync(new URL("../src/lib/services/gps-api.js", import.meta.url), "utf8");
 
 function makeMemoryStorage() {
   const store = new Map();
@@ -214,6 +217,50 @@ test("6. Assignment isolation (fix precedente) invariata: DriverAssignmentPage/D
 test("7. Navigazione SPA Programma<->Mappa (pushState/popstate) invariata in main.jsx", () => {
   assert.match(mainJsxSource, /window\.addEventListener\('popstate', onPopState\)/);
   assert.match(mainJsxSource, /const \[path, setPath\] = useState\(\(\) => window\.location\.pathname\)/);
+});
+
+// ---------------------------------------------------------------------------
+// 9. HOTFIX "Invalid supabaseUrl" — un VITE_SUPABASE_URL non-URL (es. il
+//    placeholder "[SENSITIVE]" di una build con env Vercel non risolte) NON
+//    deve far lanciare createClient a tempo di modulo (crash app-wide
+//    "Impossibile caricare il programma").
+// ---------------------------------------------------------------------------
+test("9. src/supabaseClient.js: createClient e' chiamato SOLO dietro un check http(s):// e dentro un try/catch, mai a valutazione di modulo senza guardia", () => {
+  // Guardia URL prima di createClient.
+  assert.match(sdkClientSource, /\/\^https\?:\\\/\\\/\/i\.test\(/);
+  // createClient non e' piu' in una espressione ternaria nuda a livello di
+  // export: e' dentro un blocco try.
+  assert.doesNotMatch(sdkClientSource, /export const supabase = \(supabaseUrl && supabaseKey\)\s*\n?\s*\?\s*createClient/);
+  const guardIdx = sdkClientSource.search(/if \(supabaseUrl && supabaseKey && isValidHttpUrl\(supabaseUrl\)\)/);
+  const createIdx = sdkClientSource.indexOf("createClient(supabaseUrl, supabaseKey");
+  const tryIdx = sdkClientSource.lastIndexOf("try {", createIdx);
+  const catchIdx = sdkClientSource.indexOf("catch (error)", createIdx);
+  assert.ok(guardIdx >= 0 && createIdx > guardIdx, "createClient deve stare dopo la guardia isValidHttpUrl");
+  assert.ok(tryIdx >= 0 && catchIdx > createIdx, "createClient deve stare dentro un try/catch");
+  // Il catch non ri-lancia e azzera l'istanza.
+  const catchBody = sdkClientSource.slice(catchIdx, catchIdx + 240);
+  assert.match(catchBody, /supabaseInstance = null/);
+  assert.doesNotMatch(catchBody, /throw\b/);
+  // Nessun valore/chiave loggato: solo message.
+  assert.doesNotMatch(sdkClientSource, /console\.(error|warn|log)\([^)]*supabaseKey/);
+});
+
+test("9b. src/lib/supabaseClient.js: hasSupabaseConfig() richiede un URL http(s):// valido, non solo truthy", () => {
+  const fn = restClientSource.slice(
+    restClientSource.indexOf("export function hasSupabaseConfig"),
+    restClientSource.indexOf("export function hasSupabaseConfig") + 260,
+  );
+  assert.match(fn, /\/\^https\?:\\\/\\\/\/i\.test\(String\(url\)\.trim\(\)\)/);
+  assert.match(fn, /url && anonKey &&/);
+});
+
+test("9c. gps-api.js readSupabaseRestConfig(): un url truthy ma non-URL viene annullato (niente fetch(\"[SENSITIVE]/rest/v1/..\"))", () => {
+  const fn = gpsApiSource.slice(
+    gpsApiSource.indexOf("function readSupabaseRestConfig"),
+    gpsApiSource.indexOf("function readSupabaseRestConfig") + 900,
+  );
+  assert.match(fn, /!\/\^https\?:\\\/\\\/\/i\.test\(cachedRestUrl\.trim\(\)\)/);
+  assert.match(fn, /cachedRestUrl = null;/);
 });
 
 // ---------------------------------------------------------------------------

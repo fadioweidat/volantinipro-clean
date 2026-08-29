@@ -10,9 +10,16 @@ function supabaseEnv() {
   };
 }
 
+// url deve essere un http(s):// reale. Una build con env "Sensitive" non
+// risolte (vercel build in locale) inlinea il placeholder "[SENSITIVE]":
+// truthy ma non un URL. Trattandolo come "non configurato" il client shim
+// resta null e supabaseRequest() lancia il suo errore controllato
+// ("Supabase environment variables are not configured.") invece di un
+// fetch("[SENSITIVE]/rest/v1/...") non gestito. Allineato al guard in
+// ../supabaseClient.js.
 export function hasSupabaseConfig() {
   const { url, anonKey } = supabaseEnv();
-  return Boolean(url && anonKey);
+  return Boolean(url && anonKey && /^https?:\/\//i.test(String(url).trim()));
 }
 
 export function getStoredSupabaseSession() {
