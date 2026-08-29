@@ -56,7 +56,7 @@ test("3. end(): solo dopo la risposta server valorizza session/status='completed
 
 // 4. stop network failure => UI NON finge closed
 test("4. end(): un fallimento (timeout o RPC) non tocca mai session/status e rilancia l'errore", () => {
-  const endFnMatch = hookSource.match(/const end = useCallback\(async \(\) => \{[\s\S]*?\n  \}, \[releaseWakeLock, stopWatch, accessToken\]\);/);
+  const endFnMatch = hookSource.match(/const end = useCallback\(async \(\) => \{[\s\S]*?\n  \}, \[releaseWakeLock, stopWatch, accessToken[^\]]*\]\);/);
   assert.ok(endFnMatch, "end() non trovato");
   const endFn = endFnMatch[0];
   // Il blocco catch deve rilanciare (throw) e non deve contenere alcuna

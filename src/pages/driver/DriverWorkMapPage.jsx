@@ -4,14 +4,20 @@ import { CircleMarker, GeoJSON, MapContainer, Polyline, TileLayer, Tooltip, useM
 import L from 'leaflet';
 import { useGpsTracking } from '../../hooks/useGpsTracking.js';
 import { useDriverAssignment } from '../../hooks/useDriverAssignment.js';
-import { getCampaignGpsPoints, calculateGpsCoverage } from '../../lib/services/gps-api.js';
+import { getCampaignGpsPoints, calculateGpsCoverage, getDriverGroupTracking } from '../../lib/services/gps-api.js';
 import { filterValidGpsPoints } from '../../lib/gps/pointQuality.js';
+import { C } from '../../lib/constants.js';
 import { geoJsonContainsPoint } from '../../lib/geo/pointInPolygon.js';
 import { resolveMunicipalityBoundary } from '../../lib/geo/resolveMunicipalityBoundary.js';
 import { driverPathWithQuery, driverBackClick } from './driverNav.js';
 
 const POINTS_REFRESH_MIN_INTERVAL_MS = 8000;
 const COVERAGE_REFRESH_INTERVAL_MS = 60000;
+const GROUP_TRACKS_REFRESH_MS = 20000;
+// Colori tracce compagni di gruppo: token del design system esistente.
+// La PROPRIA traccia resta blu (#2563eb, gia' usata sotto).
+const GROUP_TRACK_COLORS = [C.orange, C.purple, C.green, C.teal, C.yellow];
+const GROUP_STATUS_LABEL = { started: 'In corso', paused: 'In pausa', completed: 'Terminato' };
 
 // ─── DriverWorkMapPage ────────────────────────────────────────────────────────
 // /driver/assignment/{assignmentId}/map — mappa grande dedicata, separata da
@@ -160,6 +166,39 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
     [validPoints],
   );
 
+  // GROUP SHARED TRACKS: le tracce degli ALTRI operatori dello stesso gruppo,
+  // per coordinarsi (vie gia' fatte, aree mancanti). Payload gia' safe e
+  // filtrato PER SESSIONE dalla RPC/helper (get_driver_group_tracking):
+  // nessun dato personale, nessun UUID mostrato in UI. Finche' la RPC non e'
+  // live, getDriverGroupTracking ritorna { others: [] } e la mappa mostra solo
+  // la propria traccia — comportamento attuale invariato.
+  const [groupOthers, setGroupOthers] = useState([]);
+  useEffect(() => {
+    if (!assignmentId) { setGroupOthers([]); return; }
+    let cancelled = false;
+    const load = () => {
+      getDriverGroupTracking(assignmentId, accessToken)
+        .then((res) => { if (!cancelled) setGroupOthers(Array.isArray(res?.others) ? res.others : []); })
+        .catch(() => {});
+    };
+    load();
+    const timer = window.setInterval(load, GROUP_TRACKS_REFRESH_MS);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [assignmentId, accessToken]);
+
+  // Una polilinea PER SESSIONE compagno (mai un array unico). validPoints
+  // gia' filtrato per sessione lato helper -> nessun segmento cross-driver.
+  const groupLines = useMemo(() => groupOthers.map((track, index) => ({
+    sessionId: track.sessionId,
+    color: GROUP_TRACK_COLORS[index % GROUP_TRACK_COLORS.length],
+    label: track.label || `Operatore ${index + 1}`,
+    statusLabel: GROUP_STATUS_LABEL[track.status] || track.status || '',
+    lastPoint: track.lastPoint,
+    latlngs: (track.validPoints || [])
+      .map((p) => [Number(p.lat), Number(p.lng)])
+      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng)),
+  })), [groupOthers]);
+
   // "Distanza valida nell'area": solo i tratti di percorso quality-filtrato
   // che restano DENTRO il confine reale — mai una distanza dal centro
   // presentata come area. Senza confine risolto non si inventa un numero.
@@ -272,6 +311,20 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
                 <Tooltip direction="top" offset={[0, -8]}>{zoneLabel || 'Zona attiva'}</Tooltip>
               </CircleMarker>
             )}
+            {/* Tracce dei compagni di gruppo — una Polyline per sessione,
+                sotto la propria (disegnata dopo). Nessun segmento cross-driver. */}
+            {groupLines.map((g) => (
+              <React.Fragment key={g.sessionId}>
+                {g.latlngs.length > 1 && (
+                  <Polyline positions={g.latlngs} pathOptions={{ color: g.color, weight: 3, opacity: 0.7, dashArray: '6 6' }} />
+                )}
+                {g.lastPoint && (
+                  <CircleMarker center={[Number(g.lastPoint.lat), Number(g.lastPoint.lng)]} radius={6} pathOptions={{ color: g.color, fillColor: g.color, fillOpacity: 0.9, weight: 2 }}>
+                    <Tooltip direction="top" offset={[0, -8]}>{g.label}{g.statusLabel ? ` · ${g.statusLabel}` : ''}</Tooltip>
+                  </CircleMarker>
+                )}
+              </React.Fragment>
+            ))}
             {trackPath.length > 1 && <Polyline positions={trackPath} pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.85 }} />}
             {hasPosition && (
               <CircleMarker center={[lat, lng]} radius={9} pathOptions={{ color: '#1d4ed8', fillColor: '#3b82f6', fillOpacity: 0.95, weight: 2 }}>
@@ -286,6 +339,20 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
           <button type="button" style={mapControlBtnStyle} disabled={!hasPosition} onClick={() => setFlyToMe({ lat, lng, ts: Date.now() })}>La mia posizione</button>
           <button type="button" style={mapControlBtnStyle} disabled={!boundary} onClick={() => setFitToArea((n) => n + 1)}>Torna all'area</button>
         </div>
+
+        {groupLines.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, padding: '8px 12px', fontSize: 12, color: '#334155' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 14, height: 3, background: '#2563eb', display: 'inline-block' }} /> Tu
+            </span>
+            {groupLines.map((g) => (
+              <span key={g.sessionId} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 14, height: 3, background: g.color, display: 'inline-block' }} />
+                {g.label}{g.statusLabel ? ` · ${g.statusLabel}` : ''}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );

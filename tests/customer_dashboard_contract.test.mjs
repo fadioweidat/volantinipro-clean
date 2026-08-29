@@ -123,7 +123,8 @@ test('Customer access is canonical, owner-scoped and has no legacy fallback', ()
   assert.match(sources, /\.eq\(['"]user_id['"], authData\.user\.id\)/);
   assert.doesNotMatch(sources, /from\(['"]campagne['"]\)|from\(['"]clienti['"]\)/);
   const ownershipIndex = sources.indexOf('getOwnedCustomerCampaign(campaignId)');
-  const gpsIndex = sources.indexOf('getCampaignGpsPoints(campaignId)');
+  // Letture GPS customer-safe (select esplicite, nessun dato operatore).
+  const gpsIndex = sources.indexOf('getCustomerCampaignGpsPoints(campaignId)');
   assert.ok(ownershipIndex >= 0 && gpsIndex > ownershipIndex, 'ownership must be checked before GPS reads');
 });
 

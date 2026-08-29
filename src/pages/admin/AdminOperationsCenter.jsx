@@ -355,7 +355,7 @@ export function AdminOperationsCenter({ onNav }) {
               <button onClick={() => window.open(generateDriverAssignmentLink(a.id, a.access_token), '_blank')} style={actionBtnStyle}>Apri programma</button>
               <button onClick={() => {
                 navigator.clipboard.writeText(generateDriverAssignmentLink(a.id, a.access_token));
-                alert('Link copiato!');
+                alert('Link personale copiato — non condividere con altri operatori. Ogni operatore deve avere il proprio link.');
               }} style={actionBtnStyle}>Copia link Driver</button>
               <button onClick={() => onNav(`admin-gps:${a.campaign_id}`)} style={actionBtnStyle}>GPS Live</button>
               <button onClick={() => onNav(`admin-assignments:${a.campaign_id}`)} style={actionBtnStyle}>Modifica assegnazioni</button>

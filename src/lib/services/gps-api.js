@@ -1,5 +1,6 @@
 import { supabase, ensureSupabaseSessionBridge } from '../../supabaseClient.js';
-import { calculateFilteredDistanceKm } from '../gps/pointQuality.js';
+import { calculateFilteredDistanceKm, filterValidGpsPoints } from '../gps/pointQuality.js';
+import { getDeviceInstallationId } from '../gps/deviceInstallationId.js';
 
 const RETRY_DELAYS_MS = [800, 1800, 4000];
 const GPS_DRIVER_MISMATCH_MESSAGE = 'Il driver autenticato non corrisponde alla sessione GPS.';
@@ -58,7 +59,10 @@ export function isPermanentGpsWriteError(error) {
       message.includes('sessione_gia_attiva') ||
       message.includes('zona_non_autorizzata') ||
       message.includes('coordinate_non_valide') ||
-      message.includes('transizione_sessione_non_valida'),
+      message.includes('transizione_sessione_non_valida') ||
+      message.includes('paused_session') ||
+      message.includes('session_completed') ||
+      message.includes('device_mismatch'),
   );
 }
 
@@ -91,7 +95,13 @@ function mapRpcError(error) {
     normalized.includes('SESSIONE_GIA_ATTIVA') ||
     normalized.includes('ZONA_NON_AUTORIZZATA') ||
     normalized.includes('COORDINATE_NON_VALIDE') ||
-    normalized.includes('TRANSIZIONE_SESSIONE_NON_VALIDA')
+    normalized.includes('TRANSIZIONE_SESSIONE_NON_VALIDA') ||
+    // Aggiunti dalla migrazione device-ownership: sessione in pausa (nessun
+    // punto operativo durante la pausa), sessione completata, device diverso
+    // da quello che ha avviato la sessione.
+    normalized.includes('PAUSED_SESSION') ||
+    normalized.includes('SESSION_COMPLETED') ||
+    normalized.includes('DEVICE_MISMATCH')
   ) {
     mapped.permanent = true;
   }
@@ -103,6 +113,32 @@ async function callGpsRpc(name, args = {}) {
   const { data, error } = await client.rpc(name, args);
   if (error) throw mapRpcError(error);
   return data;
+}
+
+// "Funzione non trovata": PostgREST restituisce PGRST202 (o un messaggio
+// "Could not find the function public.<name>") quando l'RPC non esiste ancora
+// nello schema. Usato per la strategia di rollout zero-downtime delle RPC _v2
+// device-aware: se la migrazione device-ownership non e' ancora applicata, si
+// ricade sull'RPC v1 (senza enforcement device) senza rompere nulla.
+function isRpcNotFound(error) {
+  const code = String(error?.code || error?.cause?.code || '');
+  const message = String(error?.message || error?.cause?.message || '').toLowerCase();
+  return code === 'PGRST202' || code === '404' ||
+    message.includes('could not find the function') ||
+    (message.includes('function') && message.includes('does not exist'));
+}
+
+// Chiama prima la RPC _v2 (device-aware). Se non esiste ancora, ricade sulla
+// v1 con gli argomenti "legacy" (senza p_device_id). Qualsiasi ALTRO errore
+// della v2 (PAUSED_SESSION, DEVICE_MISMATCH, ...) viene propagato: NON e' un
+// motivo per ripiegare sulla v1.
+async function callGpsRpcV2Fallback(v2Name, v1Name, v2Args, v1Args) {
+  try {
+    return await callGpsRpc(v2Name, v2Args);
+  } catch (error) {
+    if (isRpcNotFound(error)) return callGpsRpc(v1Name, v1Args);
+    throw error;
+  }
 }
 
 async function withRetry(operation, label = 'operazione GPS') {
@@ -285,10 +321,16 @@ export async function getActiveGpsSession(campaignId) {
 // started/paused per quella assignment.
 export async function getActiveGpsSessionByToken(assignmentId, accessToken) {
   if (!isValidUuid(assignmentId) || !accessToken) return null;
-  const data = await callGpsRpc('get_active_driver_session', {
-    p_assignment_id: assignmentId,
-    p_access_token: accessToken,
-  });
+  const deviceId = getDeviceInstallationId();
+  const data = await callGpsRpcV2Fallback(
+    'get_active_driver_session_v2',
+    'get_active_driver_session',
+    { p_assignment_id: assignmentId, p_access_token: accessToken, p_device_id: deviceId },
+    { p_assignment_id: assignmentId, p_access_token: accessToken },
+  );
+  // La v2 device-aware ritorna { session: null, blocked: 'device_mismatch' }
+  // quando la sessione appartiene a un altro dispositivo.
+  if (data?.blocked === 'device_mismatch') return { _blocked: 'device_mismatch' };
   if (!data?.session) return null;
   // last_gps_recorded_at aggiunto dalla migrazione
   // 20260826130000_get_active_driver_session_last_gps.sql (proposta, non
@@ -321,12 +363,25 @@ export async function getLastGpsRecordedAt(sessionId) {
   return data?.recorded_at || null;
 }
 
+// pause/resume/complete passano SEMPRE p_device_id: la RPC v2 verifica che sia
+// lo stesso dispositivo che possiede la sessione (DEVICE_MISMATCH altrimenti).
+// Fallback a gps_transition_session v1 finche' la migrazione non e' applicata.
+function transitionSession(sessionId, action, accessToken) {
+  const deviceId = getDeviceInstallationId();
+  return callGpsRpcV2Fallback(
+    'gps_transition_session_v2',
+    'gps_transition_session',
+    { p_session_id: sessionId, p_action: action, p_access_token: accessToken || null, p_device_id: deviceId },
+    { p_session_id: sessionId, p_action: action, p_access_token: accessToken || null },
+  );
+}
+
 export async function pauseGpsSession(sessionId, accessToken) {
-  return callGpsRpc('gps_transition_session', { p_session_id: sessionId, p_action: 'pause', p_access_token: accessToken || null });
+  return transitionSession(sessionId, 'pause', accessToken);
 }
 
 export async function resumeGpsSession(sessionId, accessToken) {
-  return callGpsRpc('gps_transition_session', { p_session_id: sessionId, p_action: 'resume', p_access_token: accessToken || null });
+  return transitionSession(sessionId, 'resume', accessToken);
 }
 
 // withRetry (stessa funzione, stessi 3 tentativi con backoff [800,1800,4000]ms,
@@ -336,7 +391,7 @@ export async function resumeGpsSession(sessionId, accessToken) {
 // gestisce l'eventuale eccezione finale (mai un successo finto).
 export async function endGpsSession(sessionId, accessToken) {
   return withRetry(
-    () => callGpsRpc('gps_transition_session', { p_session_id: sessionId, p_action: 'complete', p_access_token: accessToken || null }),
+    () => transitionSession(sessionId, 'complete', accessToken),
     'Chiusura sessione GPS',
   );
 }
@@ -368,7 +423,7 @@ export async function insertGpsPoint({
     }
   }
 
-  return withRetry(() => callGpsRpc('gps_insert_point', {
+  const common = {
     p_session_id: sessionId,
     p_lat: lat,
     p_lng: lng,
@@ -377,7 +432,20 @@ export async function insertGpsPoint({
     p_heading: Number.isFinite(Number(heading)) ? Number(heading) : null,
     p_recorded_at: recordedAt || new Date().toISOString(),
     p_access_token: accessToken || null,
-  }), 'invio punto GPS');
+  };
+  // v2 device-aware: blocca PAUSED_SESSION / SESSION_COMPLETED / DEVICE_MISMATCH
+  // lato server. Fallback a gps_insert_point v1 finche' la migrazione non e'
+  // applicata (in quel caso l'unico presidio e' app-level: watchPosition fermo
+  // in pausa + claim device al resume).
+  return withRetry(
+    () => callGpsRpcV2Fallback(
+      'gps_insert_point_v2',
+      'gps_insert_point',
+      { ...common, p_device_id: getDeviceInstallationId() },
+      common,
+    ),
+    'invio punto GPS',
+  );
 }
 
 export async function heartbeatGpsSession(sessionId, accessToken) {
@@ -474,6 +542,154 @@ export async function getCampaignGpsSessions(campaignId) {
     query = query.eq('campaign_id', campaignId);
   }
 
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+// --- Multi-driver / multi-session helpers -----------------------------------
+// Il modello GPS supporta piu' operatori sulla stessa campagna (una
+// delivery_session + un driver_id distinti per operatore). Le viste che
+// mostrano una mappa devono tenere le tracce SEPARATE per session_id: mai un
+// array unico ordinato solo per tempo (concatenerebbe punti di operatori
+// diversi in un'unica polilinea e produrrebbe falsi "impossible_jump" nel
+// filtro qualita', che confronta ogni punto con il precedente).
+
+const TRACKABLE_SESSION_STATUSES = ['started', 'paused', 'completed'];
+
+// Raggruppa una lista piatta di gps_tracking_points per session_id,
+// preservando l'ordine recorded_at gia' applicato dalla query.
+export function groupGpsPointsBySession(points = []) {
+  const bySession = new Map();
+  for (const point of Array.isArray(points) ? points : []) {
+    const key = point?.session_id || 'unknown';
+    if (!bySession.has(key)) bySession.set(key, []);
+    bySession.get(key).push(point);
+  }
+  return bySession;
+}
+
+// Ritorna una traccia per sessione, con i punti gia' separati e il filtro
+// qualita' applicato PER SESSIONE (mai sull'unione). Una sola query punti per
+// tutta la campagna, raggruppata lato client.
+export async function getCampaignSessionTracks(campaignId, { statuses = TRACKABLE_SESSION_STATUSES } = {}) {
+  const [sessions, points] = await Promise.all([
+    getCampaignGpsSessions(campaignId),
+    getCampaignGpsPoints(campaignId),
+  ]);
+  const allowed = new Set(statuses);
+  const relevant = (sessions || []).filter((s) => allowed.has(s.status));
+  const bySession = groupGpsPointsBySession(points);
+  return relevant
+    .map((session) => {
+      const sessionPoints = bySession.get(session.id) || [];
+      const { valid, excluded } = filterValidGpsPoints(sessionPoints);
+      const lastPoint = valid[valid.length - 1] || sessionPoints[sessionPoints.length - 1] || null;
+      const lastActivityIso =
+        session.updated_at || lastPoint?.recorded_at || lastPoint?.created_at || session.started_at || null;
+      return {
+        session,
+        points: sessionPoints,
+        validPoints: valid,
+        excludedPoints: excluded,
+        lastPoint,
+        lifecycleStatus: classifySessionLifecycle(session, lastActivityIso),
+      };
+    })
+    .sort((a, b) => {
+      const aTime = new Date(a.session.started_at || a.session.created_at || 0).getTime();
+      const bTime = new Date(b.session.started_at || b.session.created_at || 0).getTime();
+      return aTime - bTime; // dal primo operatore che ha iniziato al piu' recente
+    });
+}
+
+// GROUP SHARED TRACKS (app Driver): un operatore vede le tracce degli ALTRI
+// membri dello STESSO group_id+campaign_id per coordinarsi (vie gia' fatte,
+// aree mancanti). NON e' "tutte le sessioni della campagna": l'autorizzazione
+// (stesso gruppo, assignment valido del chiamante) e i campi safe sono decisi
+// server-side dalla RPC get_driver_group_tracking (migrazione
+// 20260829160000, non applicata). Nessun select('*') diretto: nessun
+// driver_phone / device_id / token / metadata privata nel payload.
+// Fallback: finche' la RPC non e' live ritorna { self: null, others: [] } e
+// la mappa Driver mostra solo la propria traccia (comportamento attuale).
+export async function getDriverGroupTracking(assignmentId, accessToken) {
+  if (!isValidUuid(assignmentId)) return { self: null, others: [] };
+  try {
+    const data = await callGpsRpc('get_driver_group_tracking', {
+      p_assignment_id: assignmentId,
+      p_access_token: accessToken || null,
+    });
+    const sessions = Array.isArray(data?.sessions) ? data.sessions : [];
+    const points = Array.isArray(data?.points) ? data.points : [];
+    const bySession = groupGpsPointsBySession(points);
+    const tracks = sessions.map((s, index) => {
+      const raw = bySession.get(s.id) || [];
+      const { valid } = filterValidGpsPoints(raw);
+      return {
+        sessionId: s.id,
+        status: s.status,
+        startedAt: s.started_at,
+        pausedAt: s.paused_at,
+        endedAt: s.ended_at,
+        isSelf: Boolean(s.is_self),
+        // Etichetta UI: mai UUID. "Tu" per la propria sessione, "Operatore N"
+        // per gli altri (o l'alias di gruppo se gia' fornito safe dalla RPC).
+        label: s.is_self ? 'Tu' : (s.display_label || `Operatore ${index + 1}`),
+        validPoints: valid,
+        lastPoint: valid[valid.length - 1] || null,
+      };
+    });
+    return {
+      self: tracks.find((t) => t.isSelf) || null,
+      others: tracks.filter((t) => !t.isSelf),
+    };
+  } catch (error) {
+    if (isRpcNotFound(error)) return { self: null, others: [] };
+    throw error;
+  }
+}
+
+// ADMIN — sblocca il dispositivo associato a una sessione (RPC admin-only
+// gps_admin_unlock_device, migrazione 20260829150000, non applicata).
+// Preserva sessione / GPS / assignment / storico: azzera solo device_id.
+export async function adminUnlockDevice(sessionId, reason) {
+  if (!isValidUuid(sessionId)) throw permanentGpsError('assignment_missing');
+  return callGpsRpc('gps_admin_unlock_device', {
+    p_session_id: sessionId,
+    p_reason: reason ? String(reason).trim().slice(0, 500) : null,
+  });
+}
+
+// Lettura punti GPS per il CLIENTE: select esplicita, MAI select('*').
+// Esclude driver_id (identificatore tecnico dell'operatore) dal payload che
+// arriva al browser del cliente. session_id resta, serve come chiave di
+// raggruppamento delle tracce lato UI.
+export async function getCustomerCampaignGpsPoints(campaignId) {
+  const client = await requireSupabase();
+  let query = client
+    .from('gps_tracking_points')
+    .select('id, campaign_id, session_id, lat, lng, accuracy, speed, heading, recorded_at, created_at')
+    .order('recorded_at', { ascending: true });
+  if (campaignId && campaignId !== 'all' && isValidUuid(campaignId)) {
+    query = query.eq('campaign_id', campaignId);
+  }
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+// Lettura sessioni per il CLIENTE: select esplicita customer-safe. NON invia
+// driver_name / driver_phone / device_id / driver_id / assignment_id /
+// metadata / group_id (dati operatore non necessari al cliente).
+export async function getCustomerCampaignGpsSessions(campaignId) {
+  const client = await requireSupabase();
+  let query = client
+    .from('delivery_sessions')
+    .select('id, campaign_id, status, started_at, paused_at, ended_at, updated_at, campaign_zone_id')
+    .order('created_at', { ascending: false });
+  if (campaignId && campaignId !== 'all' && isValidUuid(campaignId)) {
+    query = query.eq('campaign_id', campaignId);
+  }
   const { data, error } = await query;
   if (error) throw error;
   return data || [];

@@ -303,6 +303,7 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
       {actionError && <Notice danger text={actionError} />}
       {tracking.resumeNotice?.level === 'blocked' && <Notice id="gps-resume-blocked" danger text={tracking.resumeNotice.message} />}
       {tracking.resumeNotice?.level === 'warning' && <Notice id="gps-resume-warning" text={tracking.resumeNotice.message} />}
+      {tracking.isPaused && <Notice id="gps-paused" text="Lavoro in pausa — il GPS non registra nuovi punti finche' non riprendi." />}
       {sosState && <Notice text={sosState} />}
       {/* Fallimento di una query secondaria (conferma/campagna/zone): un
           avviso locale, mai la schermata globale "Accesso non disponibile"
@@ -405,38 +406,45 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
                       </button>
                     )}
                     {isCurrentZone && tracking.isActive && (
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         style={{ ...secondaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
                         disabled={Boolean(actionLoading)}
                         onClick={() => runAction('Pausa...', tracking.pause)}
                       >
-                        Pausa
+                        Metti in pausa
                       </button>
                     )}
                     {isCurrentZone && tracking.isPaused && (
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         style={{ ...primaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
                         disabled={Boolean(actionLoading)}
                         onClick={() => runAction('Riprendo...', tracking.resume)}
                       >
-                        Riprendi
+                        Riprendi lavoro
                       </button>
                     )}
                     {isCurrentZone && (tracking.isActive || tracking.isPaused) && (
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         style={{ ...dangerButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
                         disabled={Boolean(actionLoading)}
-                        onClick={() => runAction('Termino zona...', async () => {
-                          await tracking.completeZone(z.id);
-                          await tracking.end();
-                          // A small timeout to let the UI refresh (or let the polling catch up)
-                          window.setTimeout(() => window.location.reload(), 1000);
-                        })}
+                        onClick={() => {
+                          // Conferma esplicita. "Termina lavoro" chiude la
+                          // sessione dell'operatore (nessun nuovo GPS dopo) —
+                          // NON completa la campagna, che puo' avere altri
+                          // operatori attivi.
+                          if (!window.confirm('Confermi di aver terminato il lavoro assegnato? La tua sessione GPS verra\' chiusa.')) return;
+                          runAction('Termino zona...', async () => {
+                            await tracking.completeZone(z.id);
+                            await tracking.end();
+                            // A small timeout to let the UI refresh (or let the polling catch up)
+                            window.setTimeout(() => window.location.reload(), 1000);
+                          });
+                        }}
                       >
-                        Termina
+                        Termina lavoro
                       </button>
                     )}
                     {z.status === 'Completata' && (

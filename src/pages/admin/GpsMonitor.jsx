@@ -1,13 +1,13 @@
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, Polygon } from 'react-leaflet';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
-import { createProofPhotoSignedUrl, getCampaignGpsPoints, getCampaignGpsSessions, getCampaignProofPhotos, getCampaignRecord, calculateGpsCoverage } from '../../lib/services/gps-api.js';
+import { createProofPhotoSignedUrl, getCampaignGpsSessions, getCampaignSessionTracks, getCampaignProofPhotos, getCampaignRecord, calculateGpsCoverage, adminUnlockDevice } from '../../lib/services/gps-api.js';
+import { C } from '../../lib/constants.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
 import { normalizeZonesFromCampaign, summarizeGeofencePoints, deriveLiveZoneStatus, estimateDistanceToZoneBoundaryMeters, ZONE_LIVE_STATUS_LABELS, ZONE_LIVE_STATUS_COLORS } from '../../lib/geofence/geofenceEngine.js';
-import { filterValidGpsPoints } from '../../lib/gps/pointQuality.js';
 import { geoJsonApproxCentroid } from '../../lib/geo/pointInPolygon.js';
 import { useZoneBoundaries } from '../../hooks/useZoneBoundaries.js';
 import { resolveMunicipalityBoundary } from '../../lib/geo/resolveMunicipalityBoundary.js';
@@ -19,9 +19,34 @@ import { GpsMonitorMetricsPanel } from './gps-monitor/GpsMonitorMetricsPanel.jsx
 import { GpsMonitorGeofenceHistory } from './gps-monitor/GpsMonitorGeofenceHistory.jsx';
 import { GpsMonitorSessionsProofPanel } from './gps-monitor/GpsMonitorSessionsProofPanel.jsx';
 
+// Palette tracce per-operatore: token del design system esistente
+// (src/lib/constants.js), arancione brand per il primo operatore. Nessun
+// colore inventato: si cicla se gli operatori superano la palette.
+const TRACK_PALETTE = ['#e8571a', C.blue, C.purple, C.green, C.teal, C.yellow];
+export function trackColor(index) {
+  return TRACK_PALETTE[index % TRACK_PALETTE.length];
+}
+const OPERATOR_STATUS_LABELS = {
+  live: 'ONLINE',
+  warning: 'ONLINE',
+  offline_recent: 'OFFLINE',
+  history: 'TERMINATO',
+};
+function operatorStatusLabel(track) {
+  if (track.session?.status === 'paused') return 'IN PAUSA';
+  if (track.session?.status === 'completed' || track.session?.status === 'cancelled') return 'TERMINATO';
+  return OPERATOR_STATUS_LABELS[track.lifecycleStatus] || 'OFFLINE';
+}
+
 export function GpsMonitor({ campaignId, onNav }) {
-  const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], activeSession: null, campaign: null });
+  // MULTI-OPERATORE: si caricano TUTTE le sessioni trackabili della campagna
+  // (una per operatore) con i punti gia' separati per session_id. `points` e'
+  // solo la concatenazione piatta per i pannelli/metriche esistenti — la mappa
+  // NON la usa mai per la polilinea (vedi GpsMap): una <Polyline> per traccia.
+  const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], sessionTracks: [], photos: [], activeSession: null, campaign: null });
   const [coverage, setCoverage] = useState(null);
+  const [trackVisibility, setTrackVisibility] = useState({});
+  const toggleTrack = (sessionId) => setTrackVisibility((prev) => ({ ...prev, [sessionId]: prev[sessionId] === false }));
   const zoneProgress = useZoneProgress({ campaignId, includeHistory: true });
   // Confine reale del comune (stesso hook condiviso con Cliente/CampaignTracking.jsx
   // e stesso resolveMunicipalityBoundary della Driver App) — MAI un cerchio
@@ -34,15 +59,19 @@ export function GpsMonitor({ campaignId, onNav }) {
     let cancelled = false;
     async function load() {
       try {
-        const sessions = await getCampaignGpsSessions(campaignId);
-        const activeSession = getLatestTrackableSession(sessions);
-        const [points, photos, campaign] = await Promise.all([
-          activeSession ? getCampaignGpsPoints(campaignId, { sessionId: activeSession.id }) : Promise.resolve([]),
+        const [sessions, sessionTracks, photos, campaign] = await Promise.all([
+          getCampaignGpsSessions(campaignId),
+          getCampaignSessionTracks(campaignId),
           getCampaignProofPhotos(campaignId),
           getCampaignRecord(campaignId).catch(() => null),
         ]);
+        // Sessione "primaria" per coverage/centro mappa/highlight nel pannello
+        // sessioni — MAI l'unica renderizzata: tutte le tracce restano
+        // visibili come polilinee separate.
+        const activeSession = getLatestTrackableSession(sessions) || sessionTracks[sessionTracks.length - 1]?.session || null;
+        const points = sessionTracks.flatMap((track) => track.points);
         const photosWithUrls = await hydratePhotoUrls(photos);
-        if (!cancelled) setState({ loading: false, error: null, points, sessions, photos: photosWithUrls, activeSession, campaign });
+        if (!cancelled) setState({ loading: false, error: null, points, sessions, sessionTracks, photos: photosWithUrls, activeSession, campaign });
       } catch (err) {
         if (!cancelled) setState((prev) => ({ ...prev, loading: false, error: err?.message || 'Errore caricamento GPS.' }));
       }
@@ -205,6 +234,23 @@ export function GpsMonitor({ campaignId, onNav }) {
     }
   };
 
+  // ADMIN — "Sblocca dispositivo": scollega il device associato alla sessione
+  // dell'operatore (RPC gps_admin_unlock_device, admin-only). Preserva
+  // sessione / GPS / assignment / storico: azzera solo device_id, cosi' un
+  // nuovo dispositivo puo' riprendere l'incarico. Conferma + motivo obbligatori.
+  const handleUnlockDevice = async (sessionId) => {
+    if (!sessionId) return;
+    if (!window.confirm('Vuoi scollegare il dispositivo attualmente associato a questo incarico? La sessione, i punti GPS e lo storico NON vengono toccati.')) return;
+    const reason = window.prompt('Motivo dello sblocco (obbligatorio):', '');
+    if (!reason || !reason.trim()) { window.alert('Motivo obbligatorio: sblocco annullato.'); return; }
+    try {
+      await adminUnlockDevice(sessionId, reason.trim());
+      window.alert('Dispositivo scollegato. L\'operatore puo\' ora riprendere l\'incarico da un nuovo dispositivo.');
+    } catch (err) {
+      window.alert(`Sblocco non riuscito: ${err?.message || 'errore sconosciuto'}`);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     if (state.activeSession?.id) {
@@ -215,7 +261,17 @@ export function GpsMonitor({ campaignId, onNav }) {
     return () => { cancelled = true; };
   }, [state.activeSession?.id, state.points.length, state.activeSession?.status]);
 
-  const geofenceZones = useMemo(() => normalizeZonesFromCampaign(state.campaign), [state.campaign]);
+  // Geofence: source of truth = geometrie reali gia' risolte/persistite da
+  // useZoneBoundaries (campaign_zones.polygon_geojson), NON il record campagna.
+  // Prima si leggevano le zone dal solo oggetto campagna: quel record non
+  // porta le zone, quindi il motore geofence non trovava geometria e mostrava
+  // "Zona non configurata" come falso negativo anche quando campaign_zones
+  // esiste. `normalizeZonesFromCampaign` accetta gia' una forma
+  // { campaign_zones: [...] } e legge zone.geometry per ciascuna.
+  const geofenceZones = useMemo(
+    () => normalizeZonesFromCampaign({ campaign_zones: (mapZones || []).filter((zone) => zone.geometry) }),
+    [mapZones],
+  );
   const geofence = useMemo(() => summarizeGeofencePoints(state.points, geofenceZones), [state.points, geofenceZones]);
 
   const status = deriveCampaignStatus(state.sessions);
@@ -231,7 +287,13 @@ export function GpsMonitor({ campaignId, onNav }) {
     const meters = estimateDistanceToZoneBoundaryMeters(liveZones, latest.lat, latest.lng);
     return meters != null ? meters / 1000 : null;
   }, [liveZoneStatus, liveZones, latest]);
-  const gpsValidPointCount = useMemo(() => filterValidGpsPoints(state.points).valid.length, [state.points]);
+  // Somma dei validi PER SESSIONE (mai filterValidGpsPoints sull'unione dei
+  // punti di piu' operatori: il confronto col punto precedente leggerebbe il
+  // salto tra la traccia di A e quella di B come "impossible_jump").
+  const gpsValidPointCount = useMemo(
+    () => state.sessionTracks.reduce((sum, track) => sum + track.validPoints.length, 0),
+    [state.sessionTracks],
+  );
   const latestActivityAt = state.activeSession?.updated_at || latest?.created_at || latest?.recorded_at || state.activeSession?.started_at || null;
   const driverOnline = latestActivityAt ? Date.now() - new Date(latestActivityAt).getTime() < 45000 : false;
   const activeSessionLabel = state.activeSession
@@ -321,7 +383,7 @@ export function GpsMonitor({ campaignId, onNav }) {
         )}
 
         {state.points.length > 0 || zoneProgress.zones.length > 0 ? (
-          <GpsMap points={state.points} latest={latest} zones={mapZones} selectedZoneGeometry={selectedZoneGeometry} searchGeometry={zoneSearchState.result?.geometry || null} mapRef={mapRef} />
+          <GpsMap points={state.points} sessionTracks={state.sessionTracks} trackVisibility={trackVisibility} latest={latest} zones={mapZones} selectedZoneGeometry={selectedZoneGeometry} searchGeometry={zoneSearchState.result?.geometry || null} mapRef={mapRef} />
         ) : (
           <EmptyState text={state.loading ? 'Caricamento tracking GPS...' : 'Nessun tracking GPS disponibile'} />
         )}
@@ -334,11 +396,25 @@ export function GpsMonitor({ campaignId, onNav }) {
           </button>
         </div>
 
+        <GpsMonitorOperatorsPanel
+          sessionTracks={state.sessionTracks}
+          trackVisibility={trackVisibility}
+          toggleTrack={toggleTrack}
+          activeSessionId={state.activeSession?.id}
+          formatDateTime={formatDateTime}
+          onUnlockDevice={handleUnlockDevice}
+        />
+
         {mapMode === 'gps' && (
           <div style={gpsReadOnlySummaryStyle}>
-            <MiniStat label="Copertura GPS" value={coverage?.calculation_status === 'ready' ? `${coverage.coverage_percent}%` : 'n/d'} />
+            {/* "Copertura operatore (stimata)": il calcolo attuale e' per
+                singola sessione e usa come denominatore l'area della zona
+                assegnata (spesso l'intero comune). NON e' la copertura
+                aggregata di campagna (unione delle tracce di tutti gli
+                operatori) — quella e' un lavoro successivo con RPC dedicata. */}
+            <MiniStat label="Copertura operatore (stimata)" value={coverage?.calculation_status === 'ready' ? `${coverage.coverage_percent}%` : 'n/d'} />
             <MiniStat label="Punti GPS validi" value={gpsValidPointCount} />
-            <MiniStat label="Punti GPS esclusi" value={state.points.length - gpsValidPointCount} />
+            <MiniStat label="Punti GPS esclusi (qualita')" value={state.points.length - gpsValidPointCount} />
           </div>
         )}
 
@@ -500,7 +576,7 @@ function getLatestTrackableSession(sessions) {
     })[0] || null;
 }
 
-function GpsMap({ points, latest, zones = [], selectedZoneGeometry = null, searchGeometry = null, mapRef }) {
+function GpsMap({ points, sessionTracks = [], trackVisibility = {}, latest, zones = [], selectedZoneGeometry = null, searchGeometry = null, mapRef }) {
   // Centro/fitBounds seguono la geometria della zona SELEZIONATA (passata
   // esplicitamente dal genitore), mai "la prima zona con geometria trovata
   // nell'array" — su una campagna multi-comune l'ordine di risoluzione delle
@@ -522,11 +598,22 @@ function GpsMap({ points, latest, zones = [], selectedZoneGeometry = null, searc
     // appena il confine della zona selezionata arriva.
     return [45.4642, 9.1900]; // Milano default — solo fallback residuo
   }, [latest, selectedZoneGeometry]);
-  // Solo i punti che superano il filtro qualita' (stesso modulo condiviso di
-  // AdminLiveDashboard) finiscono nella polilinea: un punto anomalo isolato
-  // non deve piu' disegnare un salto impossibile sulla mappa.
-  const validPoints = useMemo(() => filterValidGpsPoints(points).valid, [points]);
-  const path = validPoints.map((point) => [Number(point.lat), Number(point.lng)]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+  // UNA polilinea PER SESSIONE/OPERATORE, mai una sola linea da tutti i punti:
+  // concatenare la traccia dell'operatore A con quella di B disegnerebbe
+  // segmenti diagonali artificiali e, nel filtro qualita' (confronto col punto
+  // precedente), leggerebbe il salto A->B come "impossible_jump".
+  // filterValidGpsPoints e' applicato PER SESSIONE. Un operatore nascosto dal
+  // toggle non contribuisce alla mappa.
+  const trackLines = useMemo(() => (sessionTracks || []).map((track, index) => ({
+    sessionId: track.session.id,
+    color: trackColor(index),
+    visible: trackVisibility[track.session.id] !== false,
+    lastPoint: track.lastPoint,
+    latlngs: (track.validPoints || [])
+      .map((point) => [Number(point.lat), Number(point.lng)])
+      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng)),
+    points: track.points || [],
+  })), [sessionTracks, trackVisibility]);
 
   function getZoneStyle(zone) {
     if (zone.adjustment_type === 'inaccessible') {
@@ -587,22 +674,101 @@ function GpsMap({ points, latest, zones = [], selectedZoneGeometry = null, searc
           );
         })()}
 
-        {path.length > 1 && <Polyline positions={path} pathOptions={{ color: '#e8571a', weight: 4, opacity: 0.82 }} />}
-        {points.map((point) => (
-          <CircleMarker key={point.id} center={[point.lat, point.lng]} radius={4} pathOptions={{ color: '#0f766e', fillColor: '#0f766e', fillOpacity: 0.65 }}>
-            <Popup>
-              {formatDateTime(point.recorded_at)}
-              <br />
-              Accuracy: {point.accuracy != null ? `${Math.round(point.accuracy)} m` : 'n/d'}
-            </Popup>
-          </CircleMarker>
+        {trackLines.filter((track) => track.visible).map((track) => (
+          <Fragment key={track.sessionId}>
+            {track.latlngs.length > 1 && (
+              <Polyline positions={track.latlngs} pathOptions={{ color: track.color, weight: 4, opacity: 0.82 }} />
+            )}
+            {track.points.map((point) => (
+              <CircleMarker key={point.id} center={[point.lat, point.lng]} radius={4} pathOptions={{ color: track.color, fillColor: track.color, fillOpacity: 0.6 }}>
+                <Popup>
+                  {formatDateTime(point.recorded_at)}
+                  <br />
+                  Accuracy: {point.accuracy != null ? `${Math.round(point.accuracy)} m` : 'n/d'}
+                </Popup>
+              </CircleMarker>
+            ))}
+            {track.lastPoint && (
+              <CircleMarker center={[Number(track.lastPoint.lat), Number(track.lastPoint.lng)]} radius={7} pathOptions={{ color: track.color, fillColor: track.color, fillOpacity: 0.95 }}>
+                <Popup>Ultimo punto operatore<br />{formatDateTime(track.lastPoint.recorded_at)}</Popup>
+              </CircleMarker>
+            )}
+          </Fragment>
         ))}
         {latest && (
           <CircleMarker center={[latest.lat, latest.lng]} radius={8} pathOptions={{ color: '#991b1b', fillColor: '#ef4444', fillOpacity: 0.9 }}>
-            <Popup>Ultimo punto<br />{formatDateTime(latest.recorded_at)}</Popup>
+            <Popup>Ultimo punto (piu' recente in campagna)<br />{formatDateTime(latest.recorded_at)}</Popup>
           </CircleMarker>
         )}
       </MapContainer>
+    </div>
+  );
+}
+
+// Pannello operatori: TUTTE le sessioni della campagna contemporaneamente,
+// una riga per operatore, con traccia distinguibile (colore = trackColor),
+// stato (ONLINE / IN PAUSA / OFFLINE / TERMINATO), conteggi punti e toggle
+// mostra/nascondi la traccia sulla mappa.
+export function GpsMonitorOperatorsPanel({ sessionTracks = [], trackVisibility = {}, toggleTrack, activeSessionId, formatDateTime: fmt, onUnlockDevice }) {
+  if (!sessionTracks.length) return null;
+  const format = fmt || ((v) => (v ? new Date(v).toLocaleString('it-IT') : 'n/d'));
+  return (
+    <div style={{ marginTop: 14, display: 'grid', gap: 8 }}>
+      <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.08em', color: 'rgba(255,255,255,.5)', fontWeight: 900 }}>
+        Operatori · {sessionTracks.length}
+      </div>
+      {sessionTracks.map((track, index) => {
+        const color = trackColor(index);
+        const statusLabel = operatorStatusLabel(track);
+        const visible = trackVisibility[track.session.id] !== false;
+        const lastAt = track.lastPoint?.recorded_at || track.session.updated_at || track.session.started_at || null;
+        return (
+          <div
+            key={track.session.id}
+            style={{
+              display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center',
+              padding: '10px 12px', borderRadius: 10,
+              background: track.session.id === activeSessionId ? 'rgba(232,87,26,.08)' : 'rgba(255,255,255,.03)',
+              border: '1px solid rgba(255,255,255,.07)',
+            }}
+          >
+            <span style={{ width: 12, height: 12, borderRadius: 3, background: color, flex: '0 0 auto' }} />
+            <strong style={{ color: '#fff', fontSize: 13 }}>Operatore {index + 1}</strong>
+            <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: '.04em', color:
+              statusLabel === 'ONLINE' ? '#22c55e' : statusLabel === 'IN PAUSA' ? '#fbbf24' : statusLabel === 'TERMINATO' ? '#94a3b8' : '#f87171' }}>
+              {statusLabel}
+            </span>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,.6)' }}>
+              {track.points.length} punti · {track.validPoints.length} validi · {track.excludedPoints.length} scartati (qualita')
+            </span>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,.45)' }}>Ultimo: {format(lastAt)}</span>
+            <button
+              type="button"
+              onClick={() => toggleTrack?.(track.session.id)}
+              style={{
+                marginLeft: 'auto', border: '1px solid rgba(255,255,255,.16)',
+                background: visible ? 'rgba(232,87,26,.16)' : 'rgba(255,255,255,.04)',
+                color: '#fff', borderRadius: 999, padding: '5px 12px', fontSize: 11, fontWeight: 800, cursor: 'pointer',
+              }}
+            >
+              {visible ? 'Nascondi traccia' : 'Mostra traccia'}
+            </button>
+            {onUnlockDevice && (track.session.status === 'started' || track.session.status === 'paused') && (
+              <button
+                type="button"
+                onClick={() => onUnlockDevice(track.session.id)}
+                title="Scollega il dispositivo associato a questo incarico (sessione/GPS/storico preservati)"
+                style={{
+                  border: '1px solid rgba(255,255,255,.16)', background: 'rgba(255,255,255,.04)',
+                  color: '#fff', borderRadius: 999, padding: '5px 12px', fontSize: 11, fontWeight: 800, cursor: 'pointer',
+                }}
+              >
+                Sblocca dispositivo
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

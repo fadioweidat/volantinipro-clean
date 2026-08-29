@@ -257,6 +257,9 @@ export function CampaignAssignments({ campaignId }) {
                   </div>
 
                   {/* Row 5: actions */}
+                  <div style={{ fontSize: 11, color: '#b45309', fontWeight: 700, marginTop: 4 }}>
+                    Link personale — non condividere con altri operatori.
+                  </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
                     <button
                       type="button"

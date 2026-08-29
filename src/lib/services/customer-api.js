@@ -3,8 +3,8 @@ import { normalizeCustomerCampaign } from '../customerCampaigns.js';
 import {
   calculateDistanceKm,
   createProofPhotoSignedUrl,
-  getCampaignGpsPoints,
-  getCampaignGpsSessions,
+  getCustomerCampaignGpsPoints,
+  getCustomerCampaignGpsSessions,
   getCampaignProofPhotos,
 } from './gps-api.js';
 
@@ -34,9 +34,12 @@ export async function getOwnedCustomerCampaign(campaignId) {
 
 export async function getOwnedCustomerTracking(campaignId) {
   const campaign = await getOwnedCustomerCampaign(campaignId);
+  // Letture customer-safe: select esplicite, nessun dato operatore (nome,
+  // telefono, device_id, driver_id, assignment_id, metadata) nel payload che
+  // arriva al browser del cliente.
   const [points, sessions, photos] = await Promise.all([
-    getCampaignGpsPoints(campaignId),
-    getCampaignGpsSessions(campaignId),
+    getCustomerCampaignGpsPoints(campaignId),
+    getCustomerCampaignGpsSessions(campaignId),
     getCampaignProofPhotos(campaignId, { approvedOnly: true }),
   ]);
   const approvedPhotos = await Promise.all((photos || []).map(async (photo) => ({

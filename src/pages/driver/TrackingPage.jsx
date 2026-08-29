@@ -203,6 +203,8 @@ export function TrackingPage({ campaignId }) {
 
         {tracking.error && <div style={errorStyle}>{tracking.error}</div>}
         {tracking.assignmentState.error && <div style={errorStyle}>{tracking.assignmentState.error}</div>}
+        {tracking.resumeNotice?.level === 'blocked' && <div style={errorStyle}>{tracking.resumeNotice.message}</div>}
+        {tracking.resumeNotice?.level === 'warning' && <div style={{ ...errorStyle, background: 'rgba(251,191,36,.12)', color: '#92400e', borderColor: 'rgba(251,191,36,.4)' }}>{tracking.resumeNotice.message}</div>}
 
         <div style={metricGridStyle}>
           <Metric label="Assignment" value={assignmentLabel} />
@@ -223,6 +225,11 @@ export function TrackingPage({ campaignId }) {
           </div>
         )}
 
+        {tracking.status === 'paused' && (
+          <div style={{ margin: '0 0 10px', padding: '10px 12px', borderRadius: 10, background: 'rgba(251,191,36,.12)', border: '1px solid rgba(251,191,36,.4)', color: '#92400e', fontWeight: 800, fontSize: 13 }}>
+            Lavoro in pausa — il GPS non registra nuovi punti finche' non riprendi.
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           {tracking.status === 'idle' || tracking.status === 'completed' || tracking.status === 'permission_error' ? (
             <>
@@ -247,12 +254,12 @@ export function TrackingPage({ campaignId }) {
           ) : null}
           {tracking.status === 'active' && (
             <button style={secondaryButtonStyle} type="button" onClick={() => handle(tracking.pause)}>
-              Pausa
+              Metti in pausa
             </button>
           )}
           {tracking.status === 'paused' && (
             <button style={primaryButtonStyle} type="button" onClick={() => handle(tracking.resume)}>
-              Riprendi
+              Riprendi lavoro
             </button>
           )}
           {(tracking.status === 'active' || tracking.status === 'paused') && availableZones.length > 1 && (
@@ -277,11 +284,17 @@ export function TrackingPage({ campaignId }) {
             </>
           )}
           {(tracking.status === 'active' || tracking.status === 'paused') && (
-            <button style={dangerButtonStyle} type="button" onClick={() => handle(async () => {
-              await tracking.completeZone(tracking.session?.campaign_zone_id);
-              await tracking.end();
-            })}>
-              Termina e Completa Zona
+            <button style={dangerButtonStyle} type="button" onClick={() => {
+              // Conferma esplicita: "Termina lavoro" chiude la sessione
+              // dell'operatore (nessun nuovo GPS dopo). NON completa la
+              // campagna — puo' avere altri operatori attivi.
+              if (!window.confirm('Confermi di aver terminato il lavoro assegnato? La tua sessione GPS verra\' chiusa.')) return;
+              handle(async () => {
+                await tracking.completeZone(tracking.session?.campaign_zone_id);
+                await tracking.end();
+              });
+            }}>
+              Termina lavoro
             </button>
           )}
         </div>

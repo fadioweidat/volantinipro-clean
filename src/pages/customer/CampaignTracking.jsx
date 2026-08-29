@@ -5,7 +5,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
 import { useZoneBoundaries } from '../../hooks/useZoneBoundaries.js';
-import { calculateDistanceKm } from '../../lib/services/gps-api.js';
+import { calculateDistanceKm, groupGpsPointsBySession } from '../../lib/services/gps-api.js';
+import { filterValidGpsPoints } from '../../lib/gps/pointQuality.js';
 import { getOwnedCustomerTracking } from '../../lib/services/customer-api.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
 import { listCoverageAdjustments } from '../../lib/services/coverage-adjustments-api.js';
@@ -66,7 +67,16 @@ export function CampaignTracking({ campaignId }) {
 
   const status = deriveCampaignStatus(state.sessions);
   const activeMs = state.sessions.reduce((sum, session) => sum + sessionDurationMs(session), 0);
-  const distanceKm = calculateDistanceKm(state.points);
+  // Distanza per campagna = somma delle distanze PER SESSIONE (mai su un array
+  // misto di piu' operatori: il filtro qualita' confronta ogni punto col
+  // precedente e un salto tra la traccia dell'operatore A e quella di B
+  // sarebbe letto come "impossible_jump").
+  const distanceKm = useMemo(() => {
+    const groups = groupGpsPointsBySession(state.points);
+    let km = 0;
+    for (const groupPoints of groups.values()) km += calculateDistanceKm(groupPoints);
+    return km;
+  }, [state.points]);
   const latestPoint = state.points[state.points.length - 1] || null;
   // Stesso badge/soglia della Driver App e di Admin/GpsMonitor.jsx
   // (deriveLiveZoneStatus, geofenceEngine.js) — nessuna logica separata.
@@ -251,7 +261,20 @@ function TrackingMap({ points, zones = [], adjustments = [], mapRef }) {
     }
     return [45.4642, 9.1900]; // Milano default — solo fallback residuo
   }, [latest, zoneWithGeometry]);
-  const path = points.map((point) => [Number(point.lat), Number(point.lng)]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+  // Una polilinea PER SESSIONE (mai una sola linea da tutti i punti): con piu'
+  // operatori sulla stessa campagna concatenare A->B->A produrrebbe segmenti
+  // diagonali artificiali. filterValidGpsPoints e' applicato per sessione.
+  // Il cliente vede piu' tracce con un'unica legenda "Percorso distribuzione",
+  // senza sapere quale traccia e' di quale operatore.
+  const sessionPaths = useMemo(() => {
+    const groups = groupGpsPointsBySession(points);
+    return [...groups.entries()].map(([sessionId, groupPoints]) => ({
+      sessionId,
+      latlngs: filterValidGpsPoints(groupPoints).valid
+        .map((p) => [Number(p.lat), Number(p.lng)])
+        .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng)),
+    })).filter((track) => track.latlngs.length > 0);
+  }, [points]);
 
   function getZoneStyle(zone) {
     if (zone.adjustment_type === 'inaccessible') {
@@ -304,7 +327,11 @@ function TrackingMap({ points, zones = [], adjustments = [], mapRef }) {
           />
         ))}
 
-        {path.length > 1 && <Polyline positions={path} pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.82 }} />}
+        {sessionPaths.map((track) => (
+          track.latlngs.length > 1 && (
+            <Polyline key={track.sessionId} positions={track.latlngs} pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.82 }} />
+          )
+        ))}
         {first && (
           <CircleMarker center={[first.lat, first.lng]} radius={7} pathOptions={{ color: '#0f766e', fillColor: '#0f766e', fillOpacity: 0.9 }}>
             <Popup>Partenza<br />{formatDateTime(first.recorded_at)}</Popup>

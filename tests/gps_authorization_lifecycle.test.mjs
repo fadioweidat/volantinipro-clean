@@ -69,9 +69,13 @@ test('GPS lifecycle and frontend/DB RPC contract', async (t) => {
   });
 
   await t.test('pause, reload, resume and stop keep the canonical session RPC', () => {
-    assert.match(gpsApi, /gps_transition_session[^]*p_action: 'pause'/);
-    assert.match(gpsApi, /gps_transition_session[^]*p_action: 'resume'/);
-    assert.match(gpsApi, /gps_transition_session[^]*p_action: 'complete'/);
+    // RPC canonica gps_transition_session (v1) + overload device-aware _v2 con
+    // fallback zero-downtime; l'azione passa per l'helper transitionSession.
+    assert.match(gpsApi, /callGpsRpcV2Fallback\(\s*'gps_transition_session_v2',\s*'gps_transition_session'/);
+    assert.match(gpsApi, /p_action: action/);
+    assert.match(gpsApi, /transitionSession\(sessionId, 'pause'/);
+    assert.match(gpsApi, /transitionSession\(sessionId, 'resume'/);
+    assert.match(gpsApi, /transitionSession\(sessionId, 'complete'/);
     assert.match(trackingHook, /getActiveGpsSession\(campaignId\)/);
     assert.match(trackingHook, /existing\.status === 'paused' \? 'paused' : 'active'/);
   });
@@ -86,9 +90,15 @@ test('GPS lifecycle and frontend/DB RPC contract', async (t) => {
   });
 
   await t.test('stop completes the zone before the session and preserves POD state', () => {
-    const stopBody = trackingPage.slice(trackingPage.indexOf('Termina e Completa Zona') - 400, trackingPage.indexOf('Termina e Completa Zona') + 100);
+    // "Termina lavoro" (ex "Termina e Completa Zona"): conferma esplicita +
+    // completeZone prima di end, mai un location.reload. Il testo compare
+    // anche in un commento: si ancora all'ULTIMA occorrenza (il <button>).
+    const btnAt = trackingPage.lastIndexOf('Termina lavoro');
+    const stopBody = trackingPage.slice(btnAt - 900, btnAt);
+    assert.ok(stopBody.includes('tracking.completeZone') && stopBody.includes('tracking.end'));
     assert.ok(stopBody.indexOf('tracking.completeZone') < stopBody.indexOf('tracking.end'));
     assert.doesNotMatch(stopBody, /location\.reload/);
+    assert.match(stopBody, /window\.confirm/);
   });
 
   await t.test('GPS point and coverage contracts use reconciled names', () => {

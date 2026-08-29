@@ -23,6 +23,13 @@ import {
   normalizeZonesFromCampaign,
 } from '../lib/geofence/geofenceEngine.js';
 import { dedupeGpsPointQueue, gpsPointQueueKey } from '../lib/gps/offlineQueue.js';
+import { getDeviceInstallationId, readSessionClaim, writeSessionClaim, clearSessionClaim } from '../lib/gps/deviceInstallationId.js';
+
+// Mostrato quando lo stesso link/token e' gia' in uso su un altro dispositivo
+// (device_id della sessione != questo device, e nessun claim locale). Testo
+// richiesto dal ticket DRIVER SESSION ISOLATION.
+const DEVICE_CONFLICT_MESSAGE =
+  'Questo incarico e\' gia\' attivo su un altro dispositivo. Per lavorare contemporaneamente serve un link personale. Contatta l\'Admin per una nuova assegnazione.';
 
 const SEND_INTERVAL_MS = 15000;
 const MIN_DISTANCE_METERS = 8;
@@ -59,6 +66,12 @@ const NOT_CONFIRMED_MESSAGE = 'Chiusura non confermata — riprova quando torna 
 // generale": resta negata senza un token valido esattamente come oggi nega
 // un auth.uid() nullo.
 export function useGpsTracking(campaignId, { assignmentContext = null, accessToken = null, assignmentId = null } = {}) {
+  // Chiave stabile per il "claim" locale device->sessione: l'assignment
+  // identifica il link personale; in modalita' autenticata si ricade sulla
+  // campagna. Serve a distinguere "questo device possiede gia' la sessione"
+  // da "un altro device l'ha avviata".
+  const sessionScope = assignmentId || campaignId || 'unknown';
+  const deviceInstallationId = getDeviceInstallationId();
   const [session, setSession] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
@@ -355,7 +368,27 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
       campaign: resolved.campaign,
       error: null,
     });
-    const nextSession = await startGpsSession(campaignId, { assignmentId: resolved.assignment.id, zoneId, accessToken });
+    let nextSession;
+    try {
+      nextSession = await startGpsSession(campaignId, {
+        assignmentId: resolved.assignment.id, zoneId, accessToken,
+        deviceId: deviceInstallationId,
+      });
+    } catch (err) {
+      // Sessione gia' attiva per questo (operatore, campagna): il vincolo
+      // unique server-side impedisce un secondo Start. Se non e' questo
+      // device ad averla avviata (nessun claim locale) e' un uso da secondo
+      // dispositivo dello stesso link — messaggio dedicato, non un errore
+      // generico.
+      if (/SESSIONE_GIA_ATTIVA|DEVICE_MISMATCH/i.test(String(err?.message || ''))) {
+        const claim = readSessionClaim(sessionScope);
+        if (!claim) {
+          setResumeNotice({ level: 'blocked', message: DEVICE_CONFLICT_MESSAGE, classification: 'device_conflict' });
+        }
+      }
+      throw err;
+    }
+    writeSessionClaim(sessionScope, nextSession.id);
     sessionRef.current = nextSession;
     statusRef.current = 'active';
     setSession(nextSession);
@@ -512,9 +545,10 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
     statusRef.current = 'completed';
     setSession(updated);
     setStatus('completed');
+    clearSessionClaim(sessionScope); // sessione chiusa: il device non la "possiede" piu'
     await releaseWakeLock();
     return updated;
-  }, [releaseWakeLock, stopWatch, accessToken]);
+  }, [releaseWakeLock, stopWatch, accessToken, sessionScope]);
 
   useEffect(() => {
     let cancelled = false;
@@ -533,6 +567,12 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
         const existing = accessToken
           ? (assignmentId ? await getActiveGpsSessionByToken(assignmentId, accessToken) : null)
           : await getActiveGpsSession(campaignId);
+        // La RPC device-aware (get_active_driver_session_v2) segnala che la
+        // sessione appartiene a un altro dispositivo: NON adottarla.
+        if (existing?._blocked === 'device_mismatch') {
+          if (!cancelled) setResumeNotice({ level: 'blocked', message: DEVICE_CONFLICT_MESSAGE, classification: 'device_conflict' });
+          return;
+        }
         if (cancelled || !existing || (existing.status !== 'started' && existing.status !== 'paused')) return;
 
         // Classificazione PRIMA di riagganciare (Fase D — prevenzione
@@ -560,6 +600,28 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
           setResumeNotice({ level: 'blocked', message: policy.message, classification: classification.state });
           return;
         }
+
+        // DEVICE OWNERSHIP (ticket DRIVER SESSION ISOLATION): non adottare
+        // silenziosamente una sessione avviata da un ALTRO dispositivo con lo
+        // stesso link. `device_id` e' gia' sulla riga delivery_sessions
+        // (ritornata da get_active_driver_session anche in modalita' token).
+        // Blocco se la sessione ha un device_id noto, diverso da questo
+        // device, e nessun claim locale conferma che l'abbiamo avviata noi.
+        // Il controllo server-side completo (insert/transition rifiutati per
+        // device sbagliato) e' nella migrazione device-ownership, non ancora
+        // applicata: questo e' il presidio app-level per il caso reale del
+        // link inoltrato e riaperto su un secondo browser.
+        const localClaim = readSessionClaim(sessionScope);
+        const ownedHere = localClaim?.sessionId === existing.id;
+        const otherDeviceOwns =
+          Boolean(existing.device_id) &&
+          Boolean(deviceInstallationId) &&
+          existing.device_id !== deviceInstallationId;
+        if (!ownedHere && otherDeviceOwns) {
+          setResumeNotice({ level: 'blocked', message: DEVICE_CONFLICT_MESSAGE, classification: 'device_conflict' });
+          return;
+        }
+        writeSessionClaim(sessionScope, existing.id);
 
         sessionRef.current = existing;
         const newStatus = existing.status === 'paused' ? 'paused' : 'active';
