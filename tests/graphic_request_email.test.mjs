@@ -167,12 +167,35 @@ test("Step1: submitGraphicRequest solo su click, non al cambio card; conferma + 
   assert.equal(invocations.length, 1);
   const setArtworkBody = step1Src.slice(step1Src.indexOf("const setArtwork = status =>"), step1Src.indexOf("const submitGraphicRequest"));
   assert.doesNotMatch(setArtworkBody, /sendGraphicRequest/);
-  assert.match(step1Src, /✓ Richiesta inviata a VolantiniPro/);
+  assert.match(step1Src, /Richiesta inviata\. Abbiamo ricevuto la tua richiesta per il servizio grafico\./);
   // mailto sempre disponibile come fallback
   assert.match(step1Src, /buildGraphicMailtoUrl\(\{ format: printing\.format/);
   assert.match(step1Src, /GRAPHIC_REQUEST_ENABLED \? "Apri email" : "Invia un'email"/);
   // WhatsApp invariato: solo dietro HAS_SUPPORT_WHATSAPP
   assert.match(step1Src, /HAS_SUPPORT_WHATSAPP && <a href=\{buildGraphicWhatsAppUrl/);
+});
+
+test("Step1: campo email cliente — opzionale, normalizzato, blocca submit se non valido", () => {
+  // UI: label + input type email + placeholder + helper text
+  assert.match(step1Src, /Email per la conferma/);
+  assert.match(step1Src, /id="graphic-request-email"\s+type="email"/);
+  assert.match(step1Src, /placeholder="nome@email\.it"/);
+  assert.match(step1Src, /Ti invieremo una conferma della richiesta a questo indirizzo\./);
+  // stato dedicato per il valore del campo
+  assert.match(step1Src, /const \[graphicEmail, setGraphicEmail\] = useState\(""\)/);
+  // normalizzazione: trim + lowercase + cap lunghezza
+  assert.match(step1Src, /String\(graphicEmail \|\| ""\)\.trim\(\)\.toLowerCase\(\)\.slice\(0, 120\)/);
+  // email presente ma non valida -> submit bloccato con errore inline, nessun invio
+  assert.match(step1Src, /if \(email && !GRAPHIC_EMAIL_RE\.test\(email\)\) \{\s*setGraphicSend\(\{ status: "error", code: "INVALID_EMAIL" \}\);\s*return;/);
+  assert.match(step1Src, /Inserisci un indirizzo email valido oppure lascia il campo vuoto\./);
+  // email vuota -> la richiesta interna parte comunque (nessun early-return se `email` è falsy)
+  assert.match(step1Src, /clientEmail: email \|\| data\.clientEmail \|\| data\.email \|\| undefined/);
+  // il payload non porta MAI to/recipient/from dalla card
+  const submitBody = step1Src.slice(step1Src.indexOf("const submitGraphicRequest"), step1Src.indexOf("setGraphicSend(res?.ok"));
+  assert.doesNotMatch(submitBody, /\b(to|recipient|from):/);
+  // messaggio conferma email SOLO se clientConfirmed dal backend
+  assert.match(step1Src, /status: "sent", clientConfirmed: Boolean\(res\.clientConfirmed\)/);
+  assert.match(step1Src, /graphicSend\.clientConfirmed && <div[^>]*>Ti abbiamo inviato una conferma via email\.<\/div>/);
 });
 
 // ---------------------------------------------------------------------------

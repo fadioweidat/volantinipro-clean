@@ -35,6 +35,7 @@ export function Step1({
   const [resolvingOperationalLocation, setResolvingOperationalLocation] = useState(false);
   const [operationalLocationError, setOperationalLocationError] = useState("");
   const [graphicSend, setGraphicSend] = useState({ status: "idle" }); // idle | sending | sent | error
+  const [graphicEmail, setGraphicEmail] = useState(""); // email cliente per la conferma (opzionale)
   // Traffico sito (Admin "Commerciale"): un preventivo "iniziato" per
   // sessione, alla prima apertura di Step1. Fire-and-forget.
   useEffect(() => {
@@ -270,9 +271,19 @@ export function Step1({
   };
   // Invio richiesta grafica via backend (Resend). SOLO su click esplicito del
   // cliente — mai al semplice cambio card. Il destinatario interno e' deciso
-  // server-side; qui si spediscono solo i dati della configurazione stampa.
+  // server-side; qui si spediscono solo i dati della configurazione stampa
+  // piu', se fornita, l'email cliente per la conferma automatica.
+  const GRAPHIC_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const submitGraphicRequest = async () => {
     if (graphicSend.status === "sending") return;
+    // Email opzionale: se vuota la richiesta interna parte comunque (senza
+    // clientEmail, quindi senza conferma cliente). Se presente ma non valida
+    // il submit e' bloccato con errore inline.
+    const email = String(graphicEmail || "").trim().toLowerCase().slice(0, 120);
+    if (email && !GRAPHIC_EMAIL_RE.test(email)) {
+      setGraphicSend({ status: "error", code: "INVALID_EMAIL" });
+      return;
+    }
     setGraphicSend({ status: "sending" });
     const res = await sendGraphicRequest({
       format: printing.format,
@@ -284,9 +295,11 @@ export function Step1({
       color: printing.color,
       folding: printing.folding,
       notes: printing.notes,
-      clientEmail: data.clientEmail || data.email || undefined
+      clientEmail: email || data.clientEmail || data.email || undefined
     });
-    setGraphicSend(res?.ok ? { status: "sent" } : { status: "error", code: res?.code });
+    setGraphicSend(res?.ok
+      ? { status: "sent", clientConfirmed: Boolean(res.clientConfirmed) }
+      : { status: "error", code: res?.code });
   };
   // Formato di stampa e formato materiale/logistico: quando la stampa e'
   // attiva il secondo si sincronizza automaticamente col primo (UX richiesta).
@@ -2266,14 +2279,31 @@ export function Step1({
                     <div style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC", marginBottom: 6 }}>Hai bisogno di creare o sistemare la grafica?</div>
                     <div style={{ fontSize: 13, color: "#CBD5E1", lineHeight: 1.55, marginBottom: 14 }}>Il costo della grafica non è incluso nel prezzo di stampa. Contatta VolantiniPro per spiegare cosa ti serve e ricevere un preventivo.</div>
                     {graphicSend.status === "sent"
-                    ? <div style={{ fontSize: 13, fontWeight: 800, color: s1Green }}>✓ Richiesta inviata a VolantiniPro</div>
+                    ? <div style={{ fontSize: 13, fontWeight: 800, color: s1Green }}>
+                        <div>Richiesta inviata. Abbiamo ricevuto la tua richiesta per il servizio grafico.</div>
+                        {graphicSend.clientConfirmed && <div style={{ fontWeight: 700, marginTop: 4 }}>Ti abbiamo inviato una conferma via email.</div>}
+                      </div>
                     : <>
+                      {GRAPHIC_REQUEST_ENABLED && <div style={{ marginBottom: 12 }}>
+                        <label htmlFor="graphic-request-email" style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#CBD5E1", marginBottom: 6 }}>Email per la conferma</label>
+                        <input
+                          id="graphic-request-email"
+                          type="email"
+                          value={graphicEmail}
+                          onChange={e => { setGraphicEmail(e.target.value); if (graphicSend.status === "error") setGraphicSend({ status: "idle" }); }}
+                          placeholder="nome@email.it"
+                          autoComplete="email"
+                          maxLength={120}
+                          style={{ width: "100%", maxWidth: 360, padding: "10px 12px", borderRadius: 8, border: `1px solid ${graphicSend.code === "INVALID_EMAIL" ? "#FBBF24" : "rgba(255,255,255,0.15)"}`, background: "rgba(255,255,255,0.06)", color: "#F8FAFC", fontFamily: F.sans, fontSize: 13 }}
+                        />
+                        <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 6 }}>Ti invieremo una conferma della richiesta a questo indirizzo.</div>
+                      </div>}
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                         {HAS_SUPPORT_WHATSAPP && <a href={buildGraphicWhatsAppUrl({ format: printing.format, quantity: activeQty, printEnabled: true, notes: printing.notes })} target="_blank" rel="noopener noreferrer" className="vb" style={{ padding: "11px 20px", borderRadius: 8, background: "#E8571A", color: "#fff", fontFamily: F.sans, fontSize: 13, fontWeight: 800, textDecoration: "none", boxShadow: "0 6px 16px rgba(232,87,26,0.28)" }}>Contatta su WhatsApp</a>}
                         {GRAPHIC_REQUEST_ENABLED && <button type="button" onClick={submitGraphicRequest} disabled={graphicSend.status === "sending"} className="vb" style={{ padding: "11px 20px", borderRadius: 8, border: "none", background: "#E8571A", color: "#fff", fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: graphicSend.status === "sending" ? "default" : "pointer", opacity: graphicSend.status === "sending" ? 0.7 : 1, boxShadow: "0 6px 16px rgba(232,87,26,0.28)" }}>{graphicSend.status === "sending" ? "Invio…" : "Invia richiesta"}</button>}
                         <a href={buildGraphicMailtoUrl({ format: printing.format, quantity: activeQty, notes: printing.notes })} className="vb" style={{ padding: "11px 20px", borderRadius: 8, background: (HAS_SUPPORT_WHATSAPP || GRAPHIC_REQUEST_ENABLED) ? "rgba(255,255,255,0.06)" : "#E8571A", color: "#fff", border: (HAS_SUPPORT_WHATSAPP || GRAPHIC_REQUEST_ENABLED) ? "1px solid rgba(255,255,255,0.15)" : "none", fontFamily: F.sans, fontSize: 13, fontWeight: 800, textDecoration: "none" }}>{GRAPHIC_REQUEST_ENABLED ? "Apri email" : "Invia un'email"}</a>
                       </div>
-                      {graphicSend.status === "error" && <div style={{ fontSize: 11, color: "#FBBF24", marginTop: 8 }}>Invio non riuscito. Usa "Apri email"{HAS_SUPPORT_WHATSAPP ? " o WhatsApp" : ""} per contattarci.</div>}
+                      {graphicSend.status === "error" && <div style={{ fontSize: 11, color: "#FBBF24", marginTop: 8 }}>{graphicSend.code === "INVALID_EMAIL" ? "Inserisci un indirizzo email valido oppure lascia il campo vuoto." : <>Invio non riuscito. Usa "Apri email"{HAS_SUPPORT_WHATSAPP ? " o WhatsApp" : ""} per contattarci.</>}</div>}
                     </>}
                     <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 10 }}>Servizio grafico: da quotare separatamente · non aggiunto al totale.</div>
                   </div>}
