@@ -84,8 +84,46 @@ test('A: CoverageAdjustmentPanel — matita + gomma + seleziona + annulla + salv
   assert.match(panel, /const handleUndo = \(\) =>/);
   assert.match(panel, /const \[undoStack, setUndoStack\] = useState\(\[\]\)/);
   assert.match(panel, /onClick=\{handleSave\}/);
-  // seleziona = click su un adjustment esistente -> startEditing
-  assert.match(panel, /click: \(\) => !correcting && startEditing\(adj\)/);
+  // seleziona = click su un adjustment esistente -> startEditing (tool 'select')
+  assert.match(panel, /if \(!correcting\) \{ startEditing\(adj\); return; \}/);
+  assert.match(panel, /if \(tool === 'select'\) startEditing\(adj\)/);
+});
+
+test('AUTO: toolbar reale [SELEZIONA][MATITA][GOMMA][ANNULLA][SALVA] + "Carica copertura automatica"', () => {
+  assert.match(panel, /const \[tool, setTool\] = useState\('draw'\)/);
+  assert.match(panel, /onClick=\{\(\) => setTool\('select'\)\}[\s\S]{0,80}Seleziona/);
+  assert.match(panel, /setTool\('draw'\)[\s\S]{0,80}Matita/);
+  assert.match(panel, /onClick=\{\(\) => setTool\('erase'\)\}[\s\S]{0,120}Gomma/);
+  assert.match(panel, /onClick=\{handleUndo\}[\s\S]{0,120}Annulla/);
+  assert.match(panel, /onClick=\{handleSave\}[\s\S]{0,120}Salva/);
+  assert.match(panel, /GOMMA attiva — clicca sul tratto\/area da rimuovere/);
+  // "Carica copertura automatica" visibile solo su livello automatic_verified
+  assert.match(panel, /sourceLevel === 'automatic_verified' &&/);
+  assert.match(panel, /onClick=\{loadAutomaticBase\}[\s\S]{0,260}Carica copertura automatica/);
+});
+
+test('AUTO: base automatica = vie reali OSM convertite in tratti draft (non percentuale finta)', () => {
+  assert.match(panel, /import \{ resolveRoadNetwork \} from '\.\.\/\.\.\/lib\/geo\/resolveRoadNetwork\.js'/);
+  assert.match(panel, /selectRoadsFromOrigin/);
+  const fn = panel.slice(panel.indexOf('const loadAutomaticBase'), panel.indexOf('const loadAutomaticBase') + 1400);
+  assert.match(fn, /resolveRoadNetwork\(municipalityName, boundaryGeometry\)/);
+  assert.match(fn, /selectRoadsFromOrigin\(net, origin, pct, gpsPath\)/);
+  assert.match(fn, /\.map\(\(w\) => w\.geometry\)/);
+  assert.match(fn, /setDraftLines\(\(prev\) => \[\.\.\.prev, \.\.\.lines\]\)/);
+  assert.match(fn, /setSourceLevel\('automatic_verified'\)/);
+  // GpsMonitor passa municipalityName + automaticPercent al pannello del tab AUTO
+  const gm = read('src/pages/admin/GpsMonitor.jsx');
+  assert.match(gm, /defaultSourceLevel="automatic_verified"[\s\S]{0,200}municipalityName=\{activeZoneName\}[\s\S]{0,200}automaticPercent=\{/);
+});
+
+test('AUTO: GOMMA rimuove SOLO il tratto/forma cliccato (mai tutto); undo ripristina', () => {
+  const fn = panel.slice(panel.indexOf('const eraseNearest'), panel.indexOf('const loadAutomaticBase'));
+  assert.match(fn, /draftLines\.forEach\(\(line, i\) => \{ const d = pointToPolylineMeters/);
+  assert.match(fn, /setDraftLines\(\(prev\) => prev\.filter\(\(_, i\) => i !== bestI\)\)/);
+  assert.match(fn, /if \(bestAdj\) \{ handleRevoke\(bestAdj\); return; \}/);         // saved adjustment -> revoca
+  // undo di una gomma ripristina la forma
+  assert.match(panel, /last\.kind === 'erase-line'\) setDraftLines\(\(p\) => \[\.\.\.p, last\.line\]\)/);
+  assert.match(panel, /last\.kind === 'erase-area'\) setDraftAreas\(\(p\) => \[\.\.\.p, last\.area\]\)/);
 });
 
 test('A: UNDO ripristina l\'ultima modifica non salvata (vertice, poi ultima forma chiusa)', () => {

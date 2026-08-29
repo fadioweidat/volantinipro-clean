@@ -16,6 +16,8 @@ import {
 import { filterValidGpsPoints } from '../../lib/gps/pointQuality.js';
 import { geoJsonPolygonToLeafletPositions } from '../../lib/geo/geoJsonToLeaflet.js';
 import { geoJsonContainsPoint } from '../../lib/geo/pointInPolygon.js';
+import { resolveRoadNetwork } from '../../lib/geo/resolveRoadNetwork.js';
+import { getMunicipalityCenterPoint, selectRoadsFromOrigin } from '../../lib/geo/originRadialSelection.js';
 
 // Modello obbligatorio: traccia GPS reale + correzioni manuali Admin + zone
 // non accessibili = copertura operativa finale. Questo componente non scrive
@@ -107,7 +109,30 @@ function DrawClickCapture({ active, onAddPoint }) {
   return null;
 }
 
-export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], boundaryGeometry = null, gpsOperatorCount = 0, defaultSourceLevel = 'manual_verified' }) {
+// Distanza minima (m, approx planare) da una polilinea [[lat,lng],...] a un
+// punto — per la GOMMA "clicca il tratto da rimuovere".
+function pointToPolylineMeters(latlng, line) {
+  if (!Array.isArray(line) || line.length < 2) return Infinity;
+  const [plat, plng] = latlng;
+  const mPerDegLat = 111320;
+  const mPerDegLng = 111320 * Math.cos((plat * Math.PI) / 180);
+  const px = plng * mPerDegLng;
+  const py = plat * mPerDegLat;
+  let best = Infinity;
+  for (let i = 0; i < line.length - 1; i += 1) {
+    const ax = line[i][1] * mPerDegLng; const ay = line[i][0] * mPerDegLat;
+    const bx = line[i + 1][1] * mPerDegLng; const by = line[i + 1][0] * mPerDegLat;
+    const dx = bx - ax; const dy = by - ay;
+    const len2 = dx * dx + dy * dy || 1;
+    let t = ((px - ax) * dx + (py - ay) * dy) / len2;
+    t = Math.max(0, Math.min(1, t));
+    const cx = ax + t * dx; const cy = ay + t * dy;
+    best = Math.min(best, Math.hypot(px - cx, py - cy));
+  }
+  return best;
+}
+
+export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], boundaryGeometry = null, gpsOperatorCount = 0, defaultSourceLevel = 'manual_verified', automaticPercent = null, municipalityName = null }) {
   const [adjustments, setAdjustments] = useState([]);
   const [coverage, setCoverage] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -153,6 +178,13 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   // Anteprima "Copertura finale" = ESATTAMENTE la geometria che vede il
   // Cliente (calculate_campaign_final_coverage.final_coverage_geometry).
   const [showFinalPreview, setShowFinalPreview] = useState(true);
+  // TOOL vero e cliccabile: SELEZIONA / MATITA / GOMMA. ANNULLA e SALVA
+  // restano azioni. La GOMMA rimuove SOLO il tratto/forma cliccato — mai
+  // "cancella tutto".
+  const [tool, setTool] = useState('draw');
+  // Caricamento della copertura AUTOMATICA esistente (vie reali OSM) come
+  // BASE editabile — cosi' automatic_verified non parte da 0%.
+  const [autoBaseState, setAutoBaseState] = useState({ loading: false, error: null, loaded: 0 });
   // Stack undo delle modifiche NON salvate (aree/linee chiuse).
   const [undoStack, setUndoStack] = useState([]);
 
@@ -229,6 +261,8 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setDraftLines([]);
     setActiveLine([]);
     setUndoStack([]);
+    setTool('draw');
+    setAutoBaseState({ loading: false, error: null, loaded: 0 });
     setDraftType(isGpsLevel ? 'exclusion' : 'manual_covered');
     setDraftReason('');
     setDraftNotes('');
@@ -237,8 +271,86 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   };
 
   const addDrawPoint = (pt) => {
+    if (tool === 'erase') { eraseNearest(pt); return; }
+    if (tool !== 'draw') return;
     if (drawMode === 'line') setActiveLine((prev) => [...prev, pt]);
     else setActiveVertices((prev) => [...prev, pt]);
+  };
+
+  // GOMMA: rimuove SOLO la forma piu' vicina al click (tratto/area draft),
+  // oppure revoca la correzione salvata piu' vicina. Mai "cancella tutto".
+  const eraseNearest = (pt) => {
+    const ERASE_RADIUS_M = 35;
+    // 1) draft lines
+    let bestI = -1; let bestD = ERASE_RADIUS_M;
+    draftLines.forEach((line, i) => { const d = pointToPolylineMeters(pt, line); if (d < bestD) { bestD = d; bestI = i; } });
+    if (bestI >= 0) {
+      setDraftLines((prev) => prev.filter((_, i) => i !== bestI));
+      setUndoStack((prev) => [...prev, { kind: 'erase-line', line: draftLines[bestI] }]);
+      setFormError(null);
+      return;
+    }
+    // 2) draft areas (per vertice piu' vicino)
+    let bestA = -1; let bestAD = ERASE_RADIUS_M;
+    draftAreas.forEach((area, i) => {
+      const d = pointToPolylineMeters(pt, [...area, area[0]]);
+      if (d < bestAD) { bestAD = d; bestA = i; }
+    });
+    if (bestA >= 0) {
+      setDraftAreas((prev) => prev.filter((_, i) => i !== bestA));
+      setUndoStack((prev) => [...prev, { kind: 'erase-area', area: draftAreas[bestA] }]);
+      setFormError(null);
+      return;
+    }
+    // 3) correzione salvata piu' vicina -> revoca (conferma)
+    let bestAdj = null; let bestAdjD = ERASE_RADIUS_M;
+    for (const adj of activeAdjustments) {
+      const g = adj.geometry;
+      let line = [];
+      if (g?.type === 'LineString') line = g.coordinates.map(([lng, lat]) => [lat, lng]);
+      else if (g?.type === 'MultiLineString') line = (g.coordinates[0] || []).map(([lng, lat]) => [lat, lng]);
+      else if (g?.type === 'Polygon') { const r = g.coordinates?.[0] || []; line = r.map(([lng, lat]) => [lat, lng]); }
+      const d = pointToPolylineMeters(pt, line);
+      if (d < bestAdjD) { bestAdjD = d; bestAdj = adj; }
+    }
+    if (bestAdj) { handleRevoke(bestAdj); return; }
+    setFormError('GOMMA: nessun tratto/area vicino al punto cliccato.');
+  };
+
+  // "Carica copertura automatica": converte la selezione stradale AUTOMATICA
+  // (vie reali OSM, stesso motore di ZoneCoverageMap) in tratti draft
+  // editabili. Al salvataggio ogni via diventa una riga
+  // source=automatic_verified -> alimenta calculate_campaign_final_coverage.
+  const loadAutomaticBase = async () => {
+    if (!boundaryGeometry || !municipalityName) {
+      setAutoBaseState({ loading: false, error: 'Confine/comune non disponibile per questa zona.', loaded: 0 });
+      return;
+    }
+    setAutoBaseState({ loading: true, error: null, loaded: 0 });
+    try {
+      const net = await resolveRoadNetwork(municipalityName, boundaryGeometry);
+      if (!net?.ways?.length) {
+        setAutoBaseState({ loading: false, error: 'Rete stradale non disponibile per questa zona.', loaded: 0 });
+        return;
+      }
+      const origin = getMunicipalityCenterPoint(boundaryGeometry);
+      const gpsPath = filterValidGpsPoints(points).valid.map((p) => [Number(p.lat), Number(p.lng)]);
+      const pct = Number.isFinite(Number(automaticPercent)) && Number(automaticPercent) > 0 ? Number(automaticPercent) : 100;
+      const sel = selectRoadsFromOrigin(net, origin, pct, gpsPath);
+      const lines = (sel.selectedWays || []).map((w) => w.geometry).filter((g) => Array.isArray(g) && g.length >= 2);
+      if (!lines.length) {
+        setAutoBaseState({ loading: false, error: 'Nessuna via selezionata dall\'automatico.', loaded: 0 });
+        return;
+      }
+      setSourceLevel('automatic_verified');
+      setDrawMode('line');
+      setDraftLines((prev) => [...prev, ...lines]);
+      setUndoStack((prev) => [...prev, ...lines.map(() => ({ kind: 'line' }))]);
+      setDraftReason((r) => r || 'Copertura automatica su vie reali (base editabile).');
+      setAutoBaseState({ loading: false, error: null, loaded: lines.length });
+    } catch (err) {
+      setAutoBaseState({ loading: false, error: err?.message || 'Caricamento automatico non riuscito.', loaded: 0 });
+    }
   };
 
   // "Chiudi": area (>=3 vertici) o tratto (>=2 vertici) -> nel rispettivo
@@ -267,7 +379,9 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     if (!last) return;
     setUndoStack((p) => p.slice(0, -1));
     if (last.kind === 'line') setDraftLines((p) => p.slice(0, -1));
-    else setDraftAreas((p) => p.slice(0, -1));
+    else if (last.kind === 'area') setDraftAreas((p) => p.slice(0, -1));
+    else if (last.kind === 'erase-line') setDraftLines((p) => [...p, last.line]);   // GOMMA -> ripristina
+    else if (last.kind === 'erase-area') setDraftAreas((p) => [...p, last.area]);
   };
 
   const startEditing = (adjustment) => {
@@ -317,6 +431,8 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setDraftLines([]);
     setActiveLine([]);
     setUndoStack([]);
+    setTool('draw');
+    setAutoBaseState({ loading: false, error: null, loaded: 0 });
     setFormError(null);
   };
 
@@ -467,25 +583,42 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
         {!correcting ? (
           <button type="button" onClick={startCorrecting} style={primaryButtonStyle}>Correggi copertura</button>
         ) : (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button type="button" onClick={handleCloseShape} style={secondaryButtonStyle}>
-              {drawMode === 'line' ? 'Chiudi tratto' : 'Chiudi area'}
-            </button>
-            <button
-              type="button"
-              onClick={handleUndo}
-              disabled={!activeVertices.length && !activeLine.length && !undoStack.length}
-              style={secondaryButtonStyle}
-            >
-              Annulla
-            </button>
-            {!editingId && (
-              <button type="button" onClick={handleClearAll} style={secondaryButtonStyle}>Cancella tutto</button>
-            )}
-            <button type="button" onClick={cancelCorrecting} style={secondaryButtonStyle}>Chiudi editor</button>
-          </div>
+          <button type="button" onClick={cancelCorrecting} style={secondaryButtonStyle}>Chiudi editor</button>
         )}
       </div>
+
+      {correcting && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 10, padding: 8, borderRadius: 10, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)' }}>
+          <span style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,.42)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Strumenti</span>
+          <button type="button" onClick={() => setTool('select')} style={toolButtonStyle(tool === 'select')}>Seleziona</button>
+          <button type="button" onClick={() => { setTool('draw'); }} style={toolButtonStyle(tool === 'draw')}>Matita</button>
+          <button type="button" onClick={() => setTool('erase')} style={{ ...toolButtonStyle(tool === 'erase'), background: tool === 'erase' ? '#dc2626' : 'rgba(255,255,255,.06)' }}>Gomma</button>
+          <button type="button" onClick={handleUndo} disabled={!activeVertices.length && !activeLine.length && !undoStack.length} style={toolButtonStyle(false)}>Annulla</button>
+          <button type="button" onClick={handleSave} disabled={saving} style={{ ...toolButtonStyle(false), background: '#e8571a' }}>{saving ? 'Salvataggio...' : 'Salva'}</button>
+          {tool === 'draw' && (
+            <button type="button" onClick={handleCloseShape} style={toolButtonStyle(false)}>{drawMode === 'line' ? 'Chiudi tratto' : 'Chiudi area'}</button>
+          )}
+          {!editingId && sourceLevel === 'automatic_verified' && (
+            <button type="button" onClick={loadAutomaticBase} disabled={autoBaseState.loading} style={{ ...toolButtonStyle(false), background: '#0f766e' }}>
+              {autoBaseState.loading ? 'Carico vie...' : 'Carica copertura automatica'}
+            </button>
+          )}
+          {!editingId && (
+            <button type="button" onClick={handleClearAll} style={toolButtonStyle(false)}>Svuota bozza</button>
+          )}
+        </div>
+      )}
+      {correcting && tool === 'erase' && (
+        <div style={{ marginTop: 6, fontSize: 12, fontWeight: 800, color: '#fca5a5' }}>
+          GOMMA attiva — clicca sul tratto/area da rimuovere (rimuove SOLO quello, mai tutto).
+        </div>
+      )}
+      {autoBaseState.error && <div style={errorStyle}>{autoBaseState.error}</div>}
+      {autoBaseState.loaded > 0 && (
+        <div style={{ marginTop: 6, fontSize: 12, color: '#86efac' }}>
+          Copertura automatica caricata: {autoBaseState.loaded} vie reali come base editabile. Rimuovi le vie inutili con la GOMMA, poi Salva.
+        </div>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,.6)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Operatori Admin manuali</span>
@@ -656,7 +789,11 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
                 weight: 3,
                 dashArray: adj.adjustment_type === 'inaccessible' ? '8 6' : undefined,
               }}
-              eventHandlers={{ click: () => !correcting && startEditing(adj) }}
+              eventHandlers={{ click: () => {
+                if (!correcting) { startEditing(adj); return; }
+                if (tool === 'select') startEditing(adj);
+                else if (tool === 'erase') handleRevoke(adj);
+              } }}
             >
               <Popup>
                 <strong>{TYPE_LABELS[adj.adjustment_type]}</strong>{adj.metadata?.operator_key ? ` — ${adj.metadata.operator_key}` : ''}<br />
@@ -704,10 +841,15 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
             <CircleMarker key={i} center={v} radius={5} pathOptions={{ color: '#111827', fillColor: '#fff', fillOpacity: 1 }} />
           ))}
 
-          {/* Matita a tratto: polilinee draft + linea in disegno */}
+          {/* Bozza tratti (matita / base automatica caricata). In modalita'
+              GOMMA sono cliccabili: click -> rimuove SOLO quel tratto. */}
           {correcting && !editingId && draftLines.map((line, i) => (
             <Polyline key={`draft-line-${i}`} positions={line}
-              pathOptions={{ color: '#a855f7', weight: 3, opacity: 0.9, dashArray: '4 4' }} />
+              pathOptions={{ color: tool === 'erase' ? '#dc2626' : '#a855f7', weight: tool === 'erase' ? 5 : 3, opacity: 0.9, dashArray: '4 4' }}
+              eventHandlers={tool === 'erase' ? { click: () => {
+                setDraftLines((prev) => prev.filter((_, j) => j !== i));
+                setUndoStack((prev) => [...prev, { kind: 'erase-line', line }]);
+              } } : undefined} />
           ))}
           {correcting && activeLine.length > 0 && (
             <Polyline positions={activeLine} pathOptions={{ color: '#a855f7', weight: 3, opacity: 0.9, dashArray: '2 4' }} />
@@ -836,6 +978,13 @@ const cardStyle = { background: 'rgba(255,255,255,.045)', border: '1px solid rgb
 const eyebrowStyle = { margin: 0, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: 'rgba(255,255,255,.42)', fontWeight: 900 };
 const primaryButtonStyle = { background: '#e8571a', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 800, padding: '8px 14px', cursor: 'pointer' };
 const secondaryButtonStyle = { background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 8, color: '#fff', fontSize: 12, padding: '6px 10px', cursor: 'pointer' };
+function toolButtonStyle(active) {
+  return {
+    border: active ? 'none' : '1px solid rgba(255,255,255,.16)',
+    borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 800, cursor: 'pointer',
+    background: active ? '#2563eb' : 'rgba(255,255,255,.06)', color: '#fff',
+  };
+}
 const errorStyle = { padding: 10, borderRadius: 8, color: '#fecaca', background: 'rgba(239,68,68,.15)', border: '1px solid rgba(239,68,68,.3)', marginTop: 8, fontSize: 12 };
 const formStyle = { marginTop: 12, padding: 14, borderRadius: 10, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)' };
 const labelStyle = { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: 'rgba(255,255,255,.6)', marginTop: 8 };

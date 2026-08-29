@@ -437,6 +437,8 @@ export function GpsMonitor({ campaignId, onNav }) {
               boundaryGeometry={selectedZoneGeometry}
               gpsOperatorCount={gpsOperatorCount}
               defaultSourceLevel="automatic_verified"
+              municipalityName={activeZoneName}
+              automaticPercent={selectedAutoZoneProgress ? (selectedAutoZoneProgress.manual_override_enabled ? selectedAutoZoneProgress.manual_percent : selectedAutoZoneProgress.automatic_percent) : null}
             />
 
             {/* Diagnostica (sola lettura): la selezione stradale automatica
