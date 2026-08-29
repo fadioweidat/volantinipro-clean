@@ -258,6 +258,18 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
   })) : [];
   const zonesToDisplay = assignmentZones?.length > 0 ? assignmentZones : fallbackZones;
 
+  // Etichette azione: ogni pulsante e' disabilitato SOLO mentre gira la
+  // PROPRIA azione, non per un qualunque actionLoading. Cosi' un'azione lenta
+  // o appesa (es. una pausa su rete ballerina) non puo' piu' intrappolare
+  // "Termina lavoro" — che per una sessione attiva deve restare sempre la
+  // via d'uscita. (Il tetto di timeout su pause/resume in useGpsTracking
+  // sblocca comunque actionLoading; questo e' il presidio a livello UI.)
+  const ACTION_START = 'Avvio zona...';
+  const ACTION_REOPEN = 'Riapro zona...';
+  const ACTION_PAUSE = 'Pausa...';
+  const ACTION_RESUME = 'Riprendo...';
+  const ACTION_END = 'Termino sessione...';
+
   async function runAction(label, fn) {
     setActionError(null);
     setActionLoading(label);
@@ -417,7 +429,7 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
                         type="button"
                         style={{ ...primaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
                         disabled={Boolean(actionLoading) || assignmentBlocksStart}
-                        onClick={() => runAction(z.status === 'Completata' ? 'Riapro zona...' : 'Avvio zona...', () => tracking.start(z.id))}
+                        onClick={() => runAction(z.status === 'Completata' ? ACTION_REOPEN : ACTION_START, () => tracking.start(z.id))}
                       >
                         {z.status === 'Completata' ? 'Riprendi zona' : 'Inizia'}
                       </button>
@@ -431,8 +443,8 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
                       <button
                         type="button"
                         style={{ ...secondaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
-                        disabled={Boolean(actionLoading)}
-                        onClick={() => runAction('Pausa...', tracking.pause)}
+                        disabled={actionLoading === ACTION_PAUSE}
+                        onClick={() => runAction(ACTION_PAUSE, tracking.pause)}
                       >
                         Metti in pausa
                       </button>
@@ -441,8 +453,8 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
                       <button
                         type="button"
                         style={{ ...primaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
-                        disabled={Boolean(actionLoading)}
-                        onClick={() => runAction('Riprendo...', tracking.resume)}
+                        disabled={actionLoading === ACTION_RESUME}
+                        onClick={() => runAction(ACTION_RESUME, tracking.resume)}
                       >
                         Riprendi lavoro
                       </button>
@@ -451,7 +463,7 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
                       <button
                         type="button"
                         style={{ ...dangerButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
-                        disabled={Boolean(actionLoading)}
+                        disabled={actionLoading === ACTION_END}
                         onClick={() => {
                           // Conferma esplicita. "Termina lavoro" chiude SOLO la
                           // delivery_session di questo operatore (status =
@@ -464,7 +476,7 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
                           // la zona a "Completata" per tutti — root cause del
                           // blocco "il Driver riapre e non riparte".
                           if (!window.confirm('Confermi di aver terminato il lavoro assegnato? La tua sessione GPS verra\' chiusa. La zona resta comunque aperta per gli altri operatori.')) return;
-                          runAction('Termino sessione...', async () => {
+                          runAction(ACTION_END, async () => {
                             await tracking.end();
                             // A small timeout to let the UI refresh (or let the polling catch up)
                             window.setTimeout(() => window.location.reload(), 1000);

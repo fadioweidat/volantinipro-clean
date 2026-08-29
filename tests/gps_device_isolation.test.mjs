@@ -351,3 +351,64 @@ test('anti-double-device server INVARIATO: nessuna modifica alle RPC / migrazion
   // tradurre il blocco device-mismatch (nessuna riconciliazione forzata).
   assert.match(gpsApi, /_blocked: 'device_mismatch'/);
 });
+
+// ---------------------------------------------------------------------------
+// 12. Pausa / Termina di una sessione ATTIVA non devono restare intrappolati
+//     (bug live: pulsanti visibili ma sbiaditi e non cliccabili). Causa:
+//     pause/resume senza timeout -> actionLoading bloccato -> tutti i
+//     pulsanti disabled. Il geofence NON c'entra: non gate-a Pause/End.
+// ---------------------------------------------------------------------------
+
+test('useGpsTracking: pause() e resume() hanno un timeout come end() (una fetch appesa non blocca la UI per sempre)', () => {
+  const src = read('src/hooks/useGpsTracking.js');
+  const pauseFn = src.slice(src.indexOf('const pause = useCallback'), src.indexOf('const resume = useCallback'));
+  const resumeFn = src.slice(src.indexOf('const resume = useCallback'), src.indexOf('const changeZone = useCallback'));
+  assert.match(pauseFn, /await withTimeout\(\s*pauseGpsSession\(/, 'pause() deve usare withTimeout');
+  assert.match(resumeFn, /await withTimeout\(\s*resumeGpsSession\(/, 'resume() deve usare withTimeout');
+  assert.match(src, /PAUSE_RESUME_CONFIRM_TIMEOUT_MS/);
+  // end() aveva gia' il suo timeout: resta.
+  assert.match(src, /await withTimeout\(\s*endGpsSession\(/);
+});
+
+test('DriverAssignmentPage: Pausa/Riprendi/Termina disabilitati SOLO dalla propria azione, mai da un actionLoading qualunque', () => {
+  const src = read('src/pages/driver/DriverAssignmentPage.jsx');
+  // Le tre etichette azione esistono come costanti riusate.
+  for (const c of ['ACTION_PAUSE', 'ACTION_RESUME', 'ACTION_END']) {
+    assert.match(src, new RegExp(`const ${c} = '`), `${c} deve essere una costante`);
+  }
+  // disabled per-azione (non piu' Boolean(actionLoading) generico sui tre).
+  assert.match(src, /disabled=\{actionLoading === ACTION_PAUSE\}/);
+  assert.match(src, /disabled=\{actionLoading === ACTION_RESUME\}/);
+  assert.match(src, /disabled=\{actionLoading === ACTION_END\}/);
+  // "Termina lavoro" NON e' piu' disabilitato da Boolean(actionLoading):
+  // una pausa lenta non lo intrappola.
+  const endBtn = src.slice(src.indexOf('dangerButtonStyle, padding'), src.indexOf('Termina lavoro'));
+  assert.doesNotMatch(endBtn, /disabled=\{Boolean\(actionLoading\)\}/);
+});
+
+test('DriverAssignmentPage: il geofence (outOfZone) NON disabilita Pausa/Riprendi/Termina', () => {
+  const src = read('src/pages/driver/DriverAssignmentPage.jsx');
+  // outOfZone compare solo nel banner di avviso, mai in un disabled=.
+  const disabledExprs = [...src.matchAll(/disabled=\{[^}]*\}/g)].map((m) => m[0]);
+  for (const expr of disabledExprs) {
+    assert.doesNotMatch(expr, /outOfZone|geofence|zoneDistance/i, `nessun disabled deve dipendere dal geofence: ${expr}`);
+  }
+});
+
+test('gps_transition_session_v3: i rami pause/complete NON hanno alcun check geofence/area (server non intrappola Pause/End fuori zona)', () => {
+  const mig = read('supabase/migrations/20260829180000_gps_driver_rpc_v3.sql');
+  const fn = mig.slice(mig.indexOf('function public.gps_transition_session_v3'), mig.indexOf('function public.get_active_driver_session_v3'));
+  for (const forbidden of [/st_within/i, /st_contains/i, /geojsoncontains/i, /polygon/i, /geofence/i, /fuori\s*area/i, /dentro\s*(la\s*)?zona/i]) {
+    assert.doesNotMatch(fn, forbidden, `gps_transition_session_v3 non deve avere un check geofence (${forbidden})`);
+  }
+  // I rami esistono e agiscono per sola transizione di status.
+  assert.match(fn, /p_action = 'pause' and v_session\.status = 'started'/);
+  assert.match(fn, /p_action = 'complete' and v_session\.status in \('started', 'paused'\)/);
+});
+
+test('anti-double-device INVARIATO da questo fix (nessuna modifica RPC/migrazioni device-ownership)', () => {
+  assert.match(read('supabase/migrations/20260829140000_gps_session_device_ownership.sql'),
+    /jsonb_build_object\('session', null, 'blocked', 'device_mismatch'\)/);
+  assert.match(gpsApi, /_blocked: 'device_mismatch'/);
+  assert.match(gpsApi, /p_device_id: deviceId/);
+});

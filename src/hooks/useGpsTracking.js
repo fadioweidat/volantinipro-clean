@@ -47,6 +47,17 @@ const GEOFENCE_STALENESS_CHECK_MS = 30000;
 // su un pulsante che gira.
 const END_CONFIRM_TIMEOUT_MS = 20000;
 const NOT_CONFIRMED_MESSAGE = 'Chiusura non confermata — riprova quando torna la connessione.';
+// Stesso problema di end() anche per pause/resume: pauseGpsSession/
+// resumeGpsSession NON hanno retry ne' timeout propri (a differenza di
+// endGpsSession). Con la rete mobile che "appende" una fetch senza mai
+// fallire (radio in sleep, campo ballerino) la promise di pause() non si
+// risolve mai -> in DriverAssignmentPage runAction() lascia actionLoading
+// bloccato -> TUTTI i pulsanti azione (Pausa, Riprendi e soprattutto
+// "Termina lavoro") restano disabled/sbiaditi finche' non si ricarica.
+// Con questo tetto la promise fallisce (mai un successo finto: la UI mostra
+// "non confermato") e i pulsanti tornano cliccabili.
+const PAUSE_RESUME_CONFIRM_TIMEOUT_MS = 15000;
+const PAUSE_RESUME_NOT_CONFIRMED_MESSAGE = 'Azione non confermata — riprova quando torna la connessione.';
 
 // assignmentContext (opzionale, retro-compatibile): { assignment, campaign }
 // gia' recuperati e validati da un chiamante che ha gia' fatto il proprio
@@ -464,7 +475,11 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
 
   const pause = useCallback(async () => {
     if (!sessionRef.current?.id) return null;
-    const updated = await pauseGpsSession(sessionRef.current.id, accessToken);
+    const updated = await withTimeout(
+      pauseGpsSession(sessionRef.current.id, accessToken),
+      PAUSE_RESUME_CONFIRM_TIMEOUT_MS,
+      PAUSE_RESUME_NOT_CONFIRMED_MESSAGE,
+    );
     sessionRef.current = updated;
     statusRef.current = 'paused';
     setSession(updated);
@@ -476,7 +491,11 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
 
   const resume = useCallback(async () => {
     if (!sessionRef.current?.id) return null;
-    const updated = await resumeGpsSession(sessionRef.current.id, accessToken);
+    const updated = await withTimeout(
+      resumeGpsSession(sessionRef.current.id, accessToken),
+      PAUSE_RESUME_CONFIRM_TIMEOUT_MS,
+      PAUSE_RESUME_NOT_CONFIRMED_MESSAGE,
+    );
     sessionRef.current = updated;
     statusRef.current = 'active';
     setSession(updated);
