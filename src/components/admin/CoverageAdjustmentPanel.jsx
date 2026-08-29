@@ -107,7 +107,7 @@ function DrawClickCapture({ active, onAddPoint }) {
   return null;
 }
 
-export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], boundaryGeometry = null, gpsOperatorCount = 0 }) {
+export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], boundaryGeometry = null, gpsOperatorCount = 0, defaultSourceLevel = 'manual_verified' }) {
   const [adjustments, setAdjustments] = useState([]);
   const [coverage, setCoverage] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -144,7 +144,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   // Livello di editing (gomma su TUTTI e 3): 'gps_exclusion' (gomma sul GPS
   // reale — overlay, mai DELETE su gps_tracking_points), 'automatic_verified'
   // (matita/gomma su generazione automatica), 'manual_verified'.
-  const [sourceLevel, setSourceLevel] = useState('manual_verified');
+  const [sourceLevel, setSourceLevel] = useState(defaultSourceLevel);
   // 'area' (poligono, come prima) | 'line' (matita a tratto -> LineString).
   const [drawMode, setDrawMode] = useState('area');
   const [lineBufferM, setLineBufferM] = useState(12);
@@ -498,10 +498,10 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
 
       {coverage && coverage.calculation_status === 'ready' && (
         <div style={coverageGridStyle}>
-          <CoverageMetric label="Copertura GPS" value={coverage.gps_coverage_pct} color="#22c55e" />
-          <CoverageMetric label="Copertura manuale" value={coverage.manual_coverage_pct} color="#a855f7" />
+          <CoverageMetric label="GPS reale" value={coverage.gps_coverage_pct} color="#22c55e" />
+          <CoverageMetric label="Verificata (man.+auto.)" value={coverage.manual_coverage_pct} color="#a855f7" />
           <CoverageMetric label="Area non accessibile" value={coverage.inaccessible_area_pct} color="#f97316" />
-          <CoverageMetric label="Copertura finale" value={coverage.final_operational_coverage_pct} color="#e8571a" emphasize />
+          <CoverageMetric label="FINALE VERIFICATA" value={coverage.final_operational_coverage_pct} color="#e8571a" emphasize />
         </div>
       )}
       {coverage && coverage.calculation_status !== 'ready' && (

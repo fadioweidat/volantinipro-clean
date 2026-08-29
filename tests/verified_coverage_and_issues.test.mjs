@@ -66,9 +66,12 @@ test('A: coverage-adjustments-api passa source/lineBufferM; espone VERIFIED_COVE
 });
 
 test('A: CoverageAdjustmentPanel — matita + gomma + seleziona + annulla + salva su TUTTI e 3 i livelli', () => {
-  // livello selezionabile: gps / automatic / manual
+  // livello selezionabile: gps / automatic / manual; init dal prop
+  // defaultSourceLevel (usato dal tab AUTOMATICO ADMIN per aprire su
+  // 'automatic_verified').
   assert.match(panel, /COVERAGE_SOURCE_LEVELS\.map/);
-  assert.match(panel, /const \[sourceLevel, setSourceLevel\] = useState\('manual_verified'\)/);
+  assert.match(panel, /defaultSourceLevel = 'manual_verified'/);
+  assert.match(panel, /const \[sourceLevel, setSourceLevel\] = useState\(defaultSourceLevel\)/);
   assert.match(panel, /const isGpsLevel = sourceLevel === 'gps_exclusion'/);
   // matita: area OPPURE linea
   assert.match(panel, /const \[drawMode, setDrawMode\] = useState\('area'\)/);
@@ -268,4 +271,37 @@ test('non-regressione: le RPC coverage restano CREATE OR REPLACE; l\'unico DROP 
     assert.match(d, /drop function if exists public\.admin_(create|update)_coverage_adjustment\(uuid, /,
       `DROP FUNCTION non atteso: ${d}`);
   }
+});
+
+// ===========================================================================
+// FIX MIRATO — AUTOMATICO ADMIN e' un editor reale; una sola "finale"
+// ===========================================================================
+
+test('AUTO tab: usa CoverageAdjustmentPanel su livello automatic_verified (matita/gomma/undo/save/preview)', () => {
+  const gm = read('src/pages/admin/GpsMonitor.jsx');
+  const autoBlock = gm.slice(gm.indexOf("mapMode === 'auto'"), gm.indexOf("mapMode === 'manual'"));
+  assert.match(autoBlock, /<CoverageAdjustmentPanel[\s\S]*?defaultSourceLevel="automatic_verified"/);
+  // il point-cloud diagnostico (ZoneCoverageMap) e' relegato a un <details> sola lettura
+  assert.match(autoBlock, /<details[\s\S]*?Diagnostica: selezione stradale automatica \(sola lettura\)[\s\S]*?<ZoneCoverageMap/);
+});
+
+test('AUTO tab: override legacy (ZoneProgressPanel) e\' collassato e marcato "non alimenta la Copertura Verificata"', () => {
+  const gm = read('src/pages/admin/GpsMonitor.jsx');
+  const autoBlock = gm.slice(gm.indexOf("mapMode === 'auto'"), gm.indexOf("mapMode === 'manual'"));
+  assert.match(autoBlock, /<details[\s\S]*?Override legacy percentuale \(non alimenta la Copertura Verificata\)[\s\S]*?<ZoneProgressPanel/);
+  assert.match(autoBlock, /Per correggere la copertura usa Matita\/Gomma qui sopra/);
+  // la vecchia riga "Finale:" che leggeva campaign_zone_progress ora e' marcata Legacy dentro la diagnostica
+  assert.match(autoBlock, /Legacy — GPS sessione:/);
+  assert.doesNotMatch(autoBlock, /GPS reale: \{gpsCoveragePercentLabel\} · Admin automatico:/);
+});
+
+test('FINALE: la percentuale/geometria finale ha UNA sola fonte = calculate_campaign_final_coverage', () => {
+  const p = read('src/components/admin/CoverageAdjustmentPanel.jsx');
+  // il pannello (usato sia da MANUALE sia da AUTOMATICO) legge SOLO getFinalCoverage
+  assert.match(p, /getFinalCoverage\(campaignId\)/);
+  assert.match(p, /coverage\.final_operational_coverage_pct/);
+  assert.match(p, /FINALE VERIFICATA/);
+  assert.match(p, /GPS reale/);              // metrica GPS dal motore verified, non session-scoped
+  // Cliente e Admin: stessa RPC
+  assert.match(customerApi, /getFinalCoverage\(campaignId\)/);
 });

@@ -421,48 +421,76 @@ export function GpsMonitor({ campaignId, onNav }) {
 
         {mapMode === 'auto' && (
           <div style={{ marginTop: 16 }}>
-            {/* AUTOMATICO ADMIN = ZoneProgressPanel gia' esistente
-                (admin_set_zone_manual_progress / admin_clear_zone_manual_progress,
-                audit gia' presente in campaign_zone_progress_history), filtrato
-                alla SOLA zona selezionata: stessa identica logica, non una
-                riscrittura — "Comune: [Varese]" del ticket e' proprio questo filtro. */}
-            <ZoneProgressPanel
-              zones={selectedZoneId ? zoneProgress.zones.filter((z) => z.campaign_zone_id === selectedZoneId) : zoneProgress.zones}
-              history={zoneProgress.history}
-              loading={zoneProgress.loading}
-              refreshing={zoneProgress.refreshing}
-              error={zoneProgress.error}
-              notice={zoneProgress.notice}
-              isAdmin
-              mutatingZoneId={zoneProgress.mutatingZoneId}
-              onRefresh={zoneProgress.refresh}
-              onSetManual={zoneProgress.setManualProgress}
-              onClearManual={zoneProgress.clearManualProgress}
+            {/* AUTOMATICO ADMIN — editor reale sulla mappa: stesso
+                CoverageAdjustmentPanel del tab MANUALE, ma aperto sul livello
+                'automatic_verified'. Matita (area/tratto), gomma (esclusione),
+                seleziona, annulla, salva, "Anteprima Copertura finale". Le
+                correzioni sono persistite in campaign_coverage_adjustments
+                (source=automatic_verified / gps_exclusion) e alimentano
+                calculate_campaign_final_coverage — l'UNICA fonte di verita'
+                del "finale", identica a quella del Cliente. */}
+            <CoverageAdjustmentPanel
+              key={`auto-${selectedZoneRow?.id || 'none'}`}
+              campaignId={campaignId}
+              points={state.points}
+              zones={selectedZoneRow ? [{ id: selectedZoneRow.id, ...manualPanelZoneCenter }] : geofenceZones}
+              boundaryGeometry={selectedZoneGeometry}
+              gpsOperatorCount={gpsOperatorCount}
+              defaultSourceLevel="automatic_verified"
             />
-            {/* Ticket A: AUTOMATICO ADMIN aveva solo il controllo percentuale,
-                nessuna mappa. Stesso boundary di GPS REALE/MANUALE
-                (selectedZoneGeometry, nessun secondo resolver), stessa
-                traccia GPS reale gia' caricata (state.points, MAI generata
-                qui) + un riempimento proporzionale del confine come
-                indicatore visivo della percentuale Admin (ticket G: nessuna
-                linea GPS finta). */}
-            {selectedAutoZoneProgress && (
-              <div style={{ marginTop: 16 }}>
-                <p style={{ margin: '0 0 8px', fontSize: 12, color: '#64748b', fontWeight: 800 }}>
-                  {activeZoneName ? `${activeZoneName} — ` : ''}
-                  GPS reale: {gpsCoveragePercentLabel} · Admin automatico: {formatAdminPercent(selectedAutoZoneProgress)} · Finale: {formatFinalPercent(selectedAutoZoneProgress)}
-                </p>
-                <ZoneCoverageMap
-                  key={selectedZoneId || 'none'}
-                  boundaryGeometry={selectedZoneGeometry}
-                  municipalityName={activeZoneName}
-                  gpsOperatorCount={gpsOperatorCount}
-                  points={state.points}
-                  automaticPercent={selectedAutoZoneProgress.manual_override_enabled ? selectedAutoZoneProgress.manual_percent : selectedAutoZoneProgress.automatic_percent}
-                  effectivePercent={selectedAutoZoneProgress.effective_percent}
-                />
-              </div>
-            )}
+
+            {/* Diagnostica (sola lettura): la selezione stradale automatica
+                come nuvola di punti. NON e' la copertura finale — quella e'
+                l'anteprima nel pannello sopra. */}
+            <details style={{ marginTop: 14 }}>
+              <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 800, color: 'rgba(255,255,255,.6)' }}>
+                Diagnostica: selezione stradale automatica (sola lettura)
+              </summary>
+              {selectedAutoZoneProgress ? (
+                <div style={{ marginTop: 10 }}>
+                  <p style={{ margin: '0 0 8px', fontSize: 12, color: '#64748b', fontWeight: 800 }}>
+                    {activeZoneName ? `${activeZoneName} — ` : ''}
+                    Legacy — GPS sessione: {gpsCoveragePercentLabel} · Automatico grezzo: {formatAdminPercent(selectedAutoZoneProgress)} · Effettivo cache: {formatFinalPercent(selectedAutoZoneProgress)}
+                    <br /><span style={{ color: '#94a3b8', fontWeight: 600 }}>Questi valori NON sono la Copertura Verificata: fanno riferimento alla cache campaign_zone_progress. Il valore reale e' "FINALE VERIFICATA" nel pannello sopra.</span>
+                  </p>
+                  <ZoneCoverageMap
+                    key={selectedZoneId || 'none'}
+                    boundaryGeometry={selectedZoneGeometry}
+                    municipalityName={activeZoneName}
+                    gpsOperatorCount={gpsOperatorCount}
+                    points={state.points}
+                    automaticPercent={selectedAutoZoneProgress.manual_override_enabled ? selectedAutoZoneProgress.manual_percent : selectedAutoZoneProgress.automatic_percent}
+                    effectivePercent={selectedAutoZoneProgress.effective_percent}
+                  />
+                </div>
+              ) : (
+                <p style={{ marginTop: 10, fontSize: 12, color: '#94a3b8' }}>Seleziona una zona per la diagnostica.</p>
+              )}
+            </details>
+
+            {/* Override legacy (percentuale manuale) — MANTENUTO per audit /
+                compatibilita', ma NON alimenta la Copertura Verificata. */}
+            <details style={{ marginTop: 12 }}>
+              <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 800, color: 'rgba(255,255,255,.6)' }}>
+                Override legacy percentuale (non alimenta la Copertura Verificata)
+              </summary>
+              <p style={{ margin: '8px 0', fontSize: 12, color: '#fbbf24', fontWeight: 700 }}>
+                Sistema precedente basato su percentuale fissa. Per correggere la copertura usa Matita/Gomma qui sopra.
+              </p>
+              <ZoneProgressPanel
+                zones={selectedZoneId ? zoneProgress.zones.filter((z) => z.campaign_zone_id === selectedZoneId) : zoneProgress.zones}
+                history={zoneProgress.history}
+                loading={zoneProgress.loading}
+                refreshing={zoneProgress.refreshing}
+                error={zoneProgress.error}
+                notice={zoneProgress.notice}
+                isAdmin
+                mutatingZoneId={zoneProgress.mutatingZoneId}
+                onRefresh={zoneProgress.refresh}
+                onSetManual={zoneProgress.setManualProgress}
+                onClearManual={zoneProgress.clearManualProgress}
+              />
+            </details>
           </div>
         )}
 
