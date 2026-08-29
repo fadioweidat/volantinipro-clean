@@ -8,7 +8,11 @@ import {
   endGpsSession,
   updateSessionAdminOverride,
 } from '../../lib/services/gps-api.js';
-import { getCampaignReport, getGroupSessions } from '../../lib/services/admin-api.js';
+import {
+  getCampaignReport, getGroupSessions,
+  adminCreateGroupAccessLink, adminRevokeGroupAccessLink, adminGetGroupAccessLink,
+  generateDriverGroupLink,
+} from '../../lib/services/admin-api.js';
 import { detectSessionAlerts, enrichSession, groupShareUrl } from '../../lib/services/group-ops.js';
 import { REPORT_COLORS, filterOperationalRows, formatDateTime, formatDuration, sessionDurationMs, shortId } from '../../lib/services/report-utils.js';
 import { CampaignGroupDetailKpiPanel } from './campaign-group-detail/CampaignGroupDetailKpiPanel.jsx';
@@ -92,11 +96,13 @@ export function CampaignGroupDetail({ campaignId, groupId }) {
           <p style={mutedStyle}>Area assegnata: area non definita</p>
         </div>
         <div style={actionsStyle}>
-          <button style={buttonStyle} type="button" onClick={copyLink}>Copia link gruppo</button>
+          <button style={buttonStyle} type="button" onClick={copyLink}>Copia link monitoraggio</button>
           <button style={buttonStyle} type="button" onClick={sendWhatsApp}>Invia WhatsApp</button>
           <a style={buttonStyle} href={`/admin/campaigns/${campaignId}/report`}>Report</a>
         </div>
       </header>
+
+      <DriverGroupAccessPanel campaignId={campaignId} groupId={decodedGroupId} groupName={group.name} />
 
       {state.loading && <Notice text="Caricamento dati gruppo..." />}
       {state.error && <Notice danger text={state.error} />}
@@ -232,6 +238,84 @@ function Kpi({ label, value, color = '#e8571a' }) {
 
 function Notice({ text, danger }) {
   return <div style={{ ...noticeStyle, borderColor: danger ? '#ef4444' : 'rgba(255,255,255,.1)', color: danger ? '#fecaca' : '#d1fae5' }}>{text}</div>;
+}
+
+// DRIVER GROUP ACCESS — 1 link operativo per tutto il gruppo. Ogni operatore
+// che lo apre crea una sessione GPS personale separata (join lato server).
+// Distinto dal "link monitoraggio" (sola lettura) sopra.
+function DriverGroupAccessPanel({ campaignId, groupId, groupName }) {
+  const [link, setLink] = useState(null);          // { exists, id, status, participants, max_participants }
+  const [rawToken, setRawToken] = useState(null);  // mostrato UNA volta dopo Genera
+  const [maxInput, setMaxInput] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  async function refresh() {
+    try { setLink(await adminGetGroupAccessLink(campaignId, groupId)); }
+    catch (e) { setError(e?.message || 'Errore lettura link.'); }
+  }
+  useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [campaignId, groupId]);
+
+  async function onGenerate() {
+    if (busy) return;
+    setBusy(true); setError(null); setCopied(false);
+    try {
+      const max = maxInput.trim() ? Math.max(1, parseInt(maxInput, 10) || 0) || null : null;
+      const res = await adminCreateGroupAccessLink(campaignId, groupId, { maxParticipants: max });
+      setRawToken(res?.token || null);
+      await refresh();
+    } catch (e) { setError(e?.message || 'Generazione non riuscita.'); }
+    finally { setBusy(false); }
+  }
+  async function onRevoke() {
+    if (busy || !link?.id) return;
+    if (!window.confirm('Revocare il link operativo del gruppo? I nuovi ingressi saranno bloccati. Le sessioni gia\' attive NON vengono interrotte.')) return;
+    setBusy(true); setError(null);
+    try { await adminRevokeGroupAccessLink(link.id); setRawToken(null); await refresh(); }
+    catch (e) { setError(e?.message || 'Revoca non riuscita.'); }
+    finally { setBusy(false); }
+  }
+  async function onCopy() {
+    if (!rawToken) return;
+    try { await navigator.clipboard?.writeText(generateDriverGroupLink(rawToken)); setCopied(true); } catch { /* ignore */ }
+  }
+
+  return (
+    <section style={{ ...cardStyle, marginBottom: 16 }}>
+      <p style={eyebrowStyle}>Link operativo gruppo — {groupName}</p>
+      <p style={{ ...mutedStyle, margin: '0 0 10px' }}>
+        Condividi questo link con gli operatori del gruppo. Ogni dispositivo creera'
+        una sessione personale separata (pausa/ripresa/fine turno individuali).
+        Non e' il link di monitoraggio.
+      </p>
+      {link?.exists ? (
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', fontSize: 13 }}>
+          <span style={{ fontWeight: 900, color: '#22c55e' }}>ATTIVO</span>
+          <span>Partecipanti: <b>{link.participants ?? 0}</b>{link.max_participants ? ` / ${link.max_participants}` : ''}</span>
+          <button type="button" style={smallButtonStyle} disabled={busy} onClick={onGenerate}>Rigenera</button>
+          <button type="button" style={{ ...smallButtonStyle, borderColor: 'rgba(239,68,68,.4)' }} disabled={busy} onClick={onRevoke}>Revoca</button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'end' }}>
+          <label style={labelStyle}>Max operatori (opz.)
+            <input style={{ ...inputStyle, width: 120 }} type="number" min="1" value={maxInput} onChange={(e) => setMaxInput(e.target.value)} placeholder="illimitato" />
+          </label>
+          <button type="button" style={buttonStyle} disabled={busy} onClick={onGenerate}>{busy ? 'Genero…' : 'Genera link'}</button>
+        </div>
+      )}
+      {rawToken && (
+        <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: 'rgba(255,255,255,.05)' }}>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,.5)', marginBottom: 6 }}>Link generato — copialo ora, non sara' piu' visibile:</div>
+          <code style={{ fontSize: 12, wordBreak: 'break-all', color: '#fff' }}>{generateDriverGroupLink(rawToken)}</code>
+          <div style={{ marginTop: 8 }}>
+            <button type="button" style={smallButtonStyle} onClick={onCopy}>{copied ? '✓ Copiato' : 'Copia link'}</button>
+          </div>
+        </div>
+      )}
+      {error && <div style={{ marginTop: 10, color: '#fca5a5', fontSize: 12, fontWeight: 700 }}>{error}</div>}
+    </section>
+  );
 }
 
 function EmptyState({ text }) {

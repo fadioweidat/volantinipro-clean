@@ -64,14 +64,17 @@ test('GPS lifecycle and frontend/DB RPC contract', async (t) => {
   await t.test('start signature and frontend arguments match exactly', () => {
     assert.match(contractMigration, /gps_start_session\(\s*p_assignment_id uuid,\s*p_device_id text[^,]+,\s*p_campaign_zone_id uuid/s);
     assert.match(gpsApi, /p_assignment_id: resolved\.assignment\.id/);
-    assert.match(gpsApi, /p_device_id: deviceId \|\| null/);
+    assert.match(gpsApi, /p_device_id: deviceId \|\| getDeviceInstallationId\(\) \|\| null/);
     assert.match(gpsApi, /p_campaign_zone_id: zoneId \|\| null/);
   });
 
   await t.test('pause, reload, resume and stop keep the canonical session RPC', () => {
-    // RPC canonica gps_transition_session (v1) + overload device-aware _v2 con
+    // RPC canonica gps_transition_session (v1) + overload _v2 (device) + _v3
+    // (identita' participant), provate in ordine da callGpsRpcVersioned con
     // fallback zero-downtime; l'azione passa per l'helper transitionSession.
-    assert.match(gpsApi, /callGpsRpcV2Fallback\(\s*'gps_transition_session_v2',\s*'gps_transition_session'/);
+    assert.match(gpsApi, /name: 'gps_transition_session_v3'/);
+    assert.match(gpsApi, /name: 'gps_transition_session_v2'/);
+    assert.match(gpsApi, /name: 'gps_transition_session'/);
     assert.match(gpsApi, /p_action: action/);
     assert.match(gpsApi, /transitionSession\(sessionId, 'pause'/);
     assert.match(gpsApi, /transitionSession\(sessionId, 'resume'/);

@@ -65,6 +65,9 @@ const DriverAssignmentPage = lazy(() =>
 const DriverWorkMapPage = lazy(() =>
   import("./pages/driver/DriverWorkMapPage.jsx").then(m => ({ default: m.DriverWorkMapPage }))
 );
+const DriverGroupJoinPage = lazy(() =>
+  import("./pages/driver/DriverGroupJoinPage.jsx").then(m => ({ default: m.DriverGroupJoinPage }))
+);
 
 warnIfMojibake(document.documentElement?.innerHTML || "", "initial document");
 
@@ -95,6 +98,10 @@ function Root() {
     const timer = window.setTimeout(() => clearRetryFlag(path), 3000);
     return () => window.clearTimeout(timer);
   }, [path]);
+
+  // Driver Group Access: 1 link condiviso di gruppo -> join -> identita' personale.
+  const driverGroupMatch = path.match(/^\/driver\/group\/([^/]+)$/);
+  if (driverGroupMatch) return <Suspense fallback={<RouteLoadingFallback />}><DriverGroupJoinPage key={driverGroupMatch[1]} groupToken={decodeURIComponent(driverGroupMatch[1])} /></Suspense>;
 
   const driverMatch = path.match(/^\/driver\/tracking\/([^/]+)$/);
   if (driverMatch) return <Suspense fallback={<RouteLoadingFallback />}><TrackingPage campaignId={driverMatch[1]} /></Suspense>;

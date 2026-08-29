@@ -158,30 +158,31 @@ test('Admin: link personale marcato "non condividere"', () => {
 
 const gpsApi = read('src/lib/services/gps-api.js');
 
-test('gps-api: helper fallback _v2 -> v1 (RPC not found)', () => {
+test('gps-api: callGpsRpcVersioned ricade sulla versione precedente solo su "not found"', () => {
   assert.match(gpsApi, /function isRpcNotFound/);
   assert.match(gpsApi, /PGRST202/);
-  assert.match(gpsApi, /function callGpsRpcV2Fallback/);
-  // Qualsiasi altro errore della v2 (PAUSED_SESSION, DEVICE_MISMATCH...) NON
-  // deve ripiegare sulla v1.
-  const fb = gpsApi.slice(gpsApi.indexOf('function callGpsRpcV2Fallback'), gpsApi.indexOf('function callGpsRpcV2Fallback') + 400);
-  assert.match(fb, /if \(isRpcNotFound\(error\)\) return callGpsRpc\(v1Name/);
-  assert.match(fb, /throw error/);
+  assert.match(gpsApi, /async function callGpsRpcVersioned\(specs\)/);
+  const fb = gpsApi.slice(gpsApi.indexOf('async function callGpsRpcVersioned'), gpsApi.indexOf('async function callGpsRpcVersioned') + 500);
+  // Fallback SOLO se non e' l'ultima versione E l'errore e' "not found".
+  assert.match(fb, /if \(i < specs\.length - 1 && isRpcNotFound\(error\)\) continue;/);
+  assert.match(fb, /throw error;/);
+  // Grant mancante (permission denied) -> trattato come "not found" -> fallback.
+  assert.match(gpsApi, /message\.includes\('permission denied for function'\)/);
 });
 
-test('gps-api: insert/transition/get_active chiamano _v2 con p_device_id, fallback v1', () => {
-  for (const [v2, v1] of [
-    ['gps_insert_point_v2', 'gps_insert_point'],
-    ['gps_transition_session_v2', 'gps_transition_session'],
-    ['get_active_driver_session_v2', 'get_active_driver_session'],
+test('gps-api: insert/transition/get_active provano _v3 -> _v2 -> v1 con p_device_id', () => {
+  for (const [v3, v2, v1] of [
+    ['gps_insert_point_v3', 'gps_insert_point_v2', 'gps_insert_point'],
+    ['gps_transition_session_v3', 'gps_transition_session_v2', 'gps_transition_session'],
+    ['get_active_driver_session_v3', 'get_active_driver_session_v2', 'get_active_driver_session'],
   ]) {
-    assert.match(gpsApi, new RegExp(`callGpsRpcV2Fallback\\(\\s*'${v2}',\\s*'${v1}'`), `${v2} deve avere fallback a ${v1}`);
+    assert.match(gpsApi, new RegExp(`name: '${v3}'`), `${v3} deve essere provata per prima`);
+    assert.match(gpsApi, new RegExp(`name: '${v2}'`), `${v2} deve restare nella catena`);
+    assert.match(gpsApi, new RegExp(`name: '${v1}'`), `${v1} deve restare come ultimo fallback`);
   }
-  // p_device_id = SEMPRE lo stesso installation id, mai uno nuovo per request.
   assert.match(gpsApi, /import \{ getDeviceInstallationId \} from '\.\.\/gps\/deviceInstallationId\.js'/);
   assert.match(gpsApi, /p_device_id: getDeviceInstallationId\(\)/);
   assert.match(gpsApi, /p_device_id: deviceId/); // transitionSession helper
-  // get_active v2 -> blocco device_mismatch propagato al chiamante.
   assert.match(gpsApi, /data\?\.blocked === 'device_mismatch'/);
   assert.match(gpsApi, /_blocked: 'device_mismatch'/);
 });

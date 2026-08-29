@@ -928,6 +928,48 @@ export function generateDriverAssignmentLink(assignmentId, accessToken = null) {
   return accessToken ? `${base}?access=${encodeURIComponent(accessToken)}` : base;
 }
 
+// DRIVER GROUP ACCESS — link operativo di gruppo. Diverso dal link personale
+// e dal link di MONITORAGGIO gruppo (groupShareUrl): questo, aperto da ogni
+// dispositivo, crea via driver_group_join una identita'/sessione personale
+// separata. Il token e' quello raw restituito UNA volta da
+// admin_create_group_access_link.
+export function generateDriverGroupLink(groupToken) {
+  if (!groupToken) return '';
+  return `${getPublicAppUrl()}/driver/group/${encodeURIComponent(groupToken)}`;
+}
+
+// Genera (rigenera) il group access link per (campaign, group). Ritorna il
+// token RAW una sola volta.
+export async function adminCreateGroupAccessLink(campaignId, groupId, { maxParticipants = null, expiresAt = null } = {}) {
+  await ensureSupabaseSessionBridge();
+  const { data, error } = await supabase.rpc('admin_create_group_access_link', {
+    p_campaign_id: campaignId,
+    p_group_id: groupId,
+    p_max_participants: maxParticipants,
+    p_expires_at: expiresAt,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function adminRevokeGroupAccessLink(linkId) {
+  await ensureSupabaseSessionBridge();
+  const { data, error } = await supabase.rpc('admin_revoke_group_access_link', { p_id: linkId });
+  if (error) throw error;
+  return data;
+}
+
+// Stato del link attivo (senza token). { exists, id, status, participants, max_participants, expires_at }
+export async function adminGetGroupAccessLink(campaignId, groupId) {
+  await ensureSupabaseSessionBridge();
+  const { data, error } = await supabase.rpc('admin_get_group_access_link', {
+    p_campaign_id: campaignId,
+    p_group_id: groupId,
+  });
+  if (error) throw error;
+  return data;
+}
+
 export function buildDriverWhatsAppMessage({ operatorName, groupName = null, campaignTitle, date, startTime = null, comuni, zone, programRows = null, qty, total, link, mapLink = null }) {
   const nomeDisplay = operatorName || 'Operatore';
   const comuniText = (comuni || []).length ? comuni.join(', ') : 'Da definire';

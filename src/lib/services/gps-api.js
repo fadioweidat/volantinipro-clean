@@ -125,20 +125,38 @@ function isRpcNotFound(error) {
   const message = String(error?.message || error?.cause?.message || '').toLowerCase();
   return code === 'PGRST202' || code === '404' ||
     message.includes('could not find the function') ||
-    (message.includes('function') && message.includes('does not exist'));
+    (message.includes('function') && message.includes('does not exist')) ||
+    // Grant mancante sull'RPC _v2 (es. non concessa a `anon` per il link
+    // Driver pubblico): trattala come "v2 non disponibile" e ricadi sulla v1,
+    // invece di far fallire in modo permanente il tracking. I messaggi
+    // applicativi (DEVICE_MISMATCH / PAUSED_SESSION / ...) non contengono
+    // "permission denied for function", quindi non innescano il fallback.
+    message.includes('permission denied for function');
 }
 
-// Chiama prima la RPC _v2 (device-aware). Se non esiste ancora, ricade sulla
-// v1 con gli argomenti "legacy" (senza p_device_id). Qualsiasi ALTRO errore
-// della v2 (PAUSED_SESSION, DEVICE_MISMATCH, ...) viene propagato: NON e' un
-// motivo per ripiegare sulla v1.
-async function callGpsRpcV2Fallback(v2Name, v1Name, v2Args, v1Args) {
-  try {
-    return await callGpsRpc(v2Name, v2Args);
-  } catch (error) {
-    if (isRpcNotFound(error)) return callGpsRpc(v1Name, v1Args);
-    throw error;
+// Prova le RPC nell'ordine dato (piu' recente -> piu' vecchia). Ricade sulla
+// successiva SOLO se quella corrente "non esiste" (migrazione non applicata /
+// grant mancante): isRpcNotFound. Qualsiasi ALTRO errore applicativo
+// (PAUSED_SESSION, DEVICE_MISMATCH, SESSIONE_GIA_ATTIVA, auth, validazione)
+// viene propagato: NON e' un motivo per ripiegare su una versione precedente.
+// specs: [{ name, args }, ...]
+async function callGpsRpcVersioned(specs) {
+  let lastError = null;
+  for (let i = 0; i < specs.length; i += 1) {
+    try {
+      return await callGpsRpc(specs[i].name, specs[i].args);
+    } catch (error) {
+      lastError = error;
+      if (i < specs.length - 1 && isRpcNotFound(error)) continue;
+      throw error;
+    }
   }
+  throw lastError;
+}
+
+// Retro-compat (2 versioni). Usata dai test esistenti.
+async function callGpsRpcV2Fallback(v2Name, v1Name, v2Args, v1Args) {
+  return callGpsRpcVersioned([{ name: v2Name, args: v2Args }, { name: v1Name, args: v1Args }]);
 }
 
 async function withRetry(operation, label = 'operazione GPS') {
@@ -269,12 +287,18 @@ export async function startGpsSession(campaignId, { assignmentId, deviceId, zone
 
   if (!isValidUuid(resolved.assignment?.id)) throw permanentGpsError('assignment_missing');
   if (zoneId != null && !isValidUuid(zoneId)) throw permanentGpsError('assignment_missing');
-  return callGpsRpc('gps_start_session', {
+  const args = {
     p_assignment_id: resolved.assignment.id,
-    p_device_id: deviceId || null,
+    p_device_id: deviceId || getDeviceInstallationId() || null,
     p_campaign_zone_id: zoneId || null,
     p_access_token: accessToken || null,
-  });
+  };
+  // _v3 gestisce l'identita' participant di gruppo (operator_id NULL); v1
+  // resta il fallback per i link personali finche' la migrazione non e' live.
+  return callGpsRpcVersioned([
+    { name: 'gps_start_session_v3', args },
+    { name: 'gps_start_session', args },
+  ]);
 }
 
 // assignmentId e' richiesto SOLO in modalita' token (gps_transition_zone
@@ -282,12 +306,16 @@ export async function startGpsSession(campaignId, { assignmentId, deviceId, zone
 // solo zoneId, a differenza di sessionId, non la identifica univocamente).
 export async function transitionZone(zoneId, action, { accessToken, assignmentId } = {}) {
   if (!isValidUuid(zoneId)) throw permanentGpsError('assignment_missing');
-  return callGpsRpc('gps_transition_zone', {
+  const args = {
     p_campaign_zone_id: zoneId,
     p_action: action,
     p_access_token: accessToken || null,
     p_assignment_id: accessToken ? assignmentId || null : null,
-  });
+  };
+  return callGpsRpcVersioned([
+    { name: 'gps_transition_zone_v3', args },
+    { name: 'gps_transition_zone', args },
+  ]);
 }
 
 export async function getActiveGpsSession(campaignId) {
@@ -322,12 +350,13 @@ export async function getActiveGpsSession(campaignId) {
 export async function getActiveGpsSessionByToken(assignmentId, accessToken) {
   if (!isValidUuid(assignmentId) || !accessToken) return null;
   const deviceId = getDeviceInstallationId();
-  const data = await callGpsRpcV2Fallback(
-    'get_active_driver_session_v2',
-    'get_active_driver_session',
-    { p_assignment_id: assignmentId, p_access_token: accessToken, p_device_id: deviceId },
-    { p_assignment_id: assignmentId, p_access_token: accessToken },
-  );
+  const withDevice = { p_assignment_id: assignmentId, p_access_token: accessToken, p_device_id: deviceId };
+  const legacy = { p_assignment_id: assignmentId, p_access_token: accessToken };
+  const data = await callGpsRpcVersioned([
+    { name: 'get_active_driver_session_v3', args: withDevice },
+    { name: 'get_active_driver_session_v2', args: withDevice },
+    { name: 'get_active_driver_session', args: legacy },
+  ]);
   // La v2 device-aware ritorna { session: null, blocked: 'device_mismatch' }
   // quando la sessione appartiene a un altro dispositivo.
   if (data?.blocked === 'device_mismatch') return { _blocked: 'device_mismatch' };
@@ -368,12 +397,13 @@ export async function getLastGpsRecordedAt(sessionId) {
 // Fallback a gps_transition_session v1 finche' la migrazione non e' applicata.
 function transitionSession(sessionId, action, accessToken) {
   const deviceId = getDeviceInstallationId();
-  return callGpsRpcV2Fallback(
-    'gps_transition_session_v2',
-    'gps_transition_session',
-    { p_session_id: sessionId, p_action: action, p_access_token: accessToken || null, p_device_id: deviceId },
-    { p_session_id: sessionId, p_action: action, p_access_token: accessToken || null },
-  );
+  const withDevice = { p_session_id: sessionId, p_action: action, p_access_token: accessToken || null, p_device_id: deviceId };
+  const legacy = { p_session_id: sessionId, p_action: action, p_access_token: accessToken || null };
+  return callGpsRpcVersioned([
+    { name: 'gps_transition_session_v3', args: withDevice },
+    { name: 'gps_transition_session_v2', args: withDevice },
+    { name: 'gps_transition_session', args: legacy },
+  ]);
 }
 
 export async function pauseGpsSession(sessionId, accessToken) {
@@ -433,23 +463,25 @@ export async function insertGpsPoint({
     p_recorded_at: recordedAt || new Date().toISOString(),
     p_access_token: accessToken || null,
   };
-  // v2 device-aware: blocca PAUSED_SESSION / SESSION_COMPLETED / DEVICE_MISMATCH
-  // lato server. Fallback a gps_insert_point v1 finche' la migrazione non e'
-  // applicata (in quel caso l'unico presidio e' app-level: watchPosition fermo
-  // in pausa + claim device al resume).
+  // _v3 (identita' participant/personale) -> _v2 (device-aware) -> v1.
+  // Blocco server-side PAUSED_SESSION / SESSION_COMPLETED / DEVICE_MISMATCH.
+  const withDevice = { ...common, p_device_id: getDeviceInstallationId() };
   return withRetry(
-    () => callGpsRpcV2Fallback(
-      'gps_insert_point_v2',
-      'gps_insert_point',
-      { ...common, p_device_id: getDeviceInstallationId() },
-      common,
-    ),
+    () => callGpsRpcVersioned([
+      { name: 'gps_insert_point_v3', args: withDevice },
+      { name: 'gps_insert_point_v2', args: withDevice },
+      { name: 'gps_insert_point', args: common },
+    ]),
     'invio punto GPS',
   );
 }
 
 export async function heartbeatGpsSession(sessionId, accessToken) {
-  return callGpsRpc('gps_heartbeat_session', { p_session_id: sessionId, p_access_token: accessToken || null });
+  const args = { p_session_id: sessionId, p_access_token: accessToken || null };
+  return callGpsRpcVersioned([
+    { name: 'gps_heartbeat_session_v3', args },
+    { name: 'gps_heartbeat_session', args },
+  ]);
 }
 
 let cachedRestUrl;
@@ -647,6 +679,60 @@ export async function getDriverGroupTracking(assignmentId, accessToken) {
     if (isRpcNotFound(error)) return { self: null, others: [] };
     throw error;
   }
+}
+
+// --- DRIVER GROUP ACCESS ---------------------------------------------------
+// 1 link operativo di gruppo -> N identita' isolate. Il GROUP TOKEN passa
+// SOLO da driver_group_join: dopo il join il browser usa il token PERSONALE
+// dell'assignment participant restituito. Il group token non puo' mai
+// controllare una delivery_session.
+const GROUP_JOIN_STORAGE_PREFIX = 'vp:gps:group-join:';
+function groupJoinKey(groupToken) {
+  return GROUP_JOIN_STORAGE_PREFIX + String(groupToken || '').trim().slice(0, 64);
+}
+
+// Se questo device ha gia' fatto join a questo group link, ritorna le
+// credenziali personali salvate (nessuna nuova chiamata di rete).
+export function readDriverGroupJoin(groupToken) {
+  try {
+    const raw = window.localStorage.getItem(groupJoinKey(groupToken));
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && parsed.assignmentId && parsed.accessToken ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+// JOIN: valida il group token server-side, crea/riusa il participant di
+// questo device, ritorna { assignmentId, accessToken (personale),
+// displayName, campaignId, groupId, reused }. Persiste localmente cosi' la
+// riapertura dello stesso link sullo stesso device NON crea un duplicato.
+export async function driverGroupJoin(groupToken, displayName) {
+  const token = String(groupToken || '').trim();
+  if (token.length < 16) throw permanentGpsError('assignment_missing', new Error('Link di gruppo non valido.'));
+  const existing = readDriverGroupJoin(token);
+  if (existing) return { ...existing, reused: true };
+
+  const data = await callGpsRpc('driver_group_join', {
+    p_group_token: token,
+    p_device_id: getDeviceInstallationId(),
+    p_display_name: String(displayName || '').trim(),
+  });
+  const result = {
+    assignmentId: data?.assignment_id || null,
+    accessToken: data?.access_token || null,
+    participantId: data?.participant_id || null,
+    displayName: data?.display_name || null,
+    campaignId: data?.campaign_id || null,
+    groupId: data?.group_id || null,
+    reused: Boolean(data?.reused),
+  };
+  if (result.assignmentId && result.accessToken) {
+    try {
+      window.localStorage.setItem(groupJoinKey(token), JSON.stringify(result));
+    } catch { /* best-effort */ }
+  }
+  return result;
 }
 
 // ADMIN — sblocca il dispositivo associato a una sessione (RPC admin-only

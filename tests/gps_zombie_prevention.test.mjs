@@ -33,9 +33,11 @@ function startedSession(overrides = {}) {
 // 1. start => started (contratto gia' coperto da gps_prod_rpc_frontend_contract;
 // qui verifichiamo solo che il file sorgente non sia stato alterato in modo da
 // rompere il contratto RPC nome/parametri usato da startGpsSession).
-test("1. startGpsSession chiama ancora gps_start_session con gli stessi 4 parametri", () => {
-  assert.match(gpsApiSource, /callGpsRpc\('gps_start_session',\s*\{\s*p_assignment_id/);
-  assert.match(gpsApiSource, /p_device_id: deviceId \|\| null/);
+test("1. startGpsSession chiama ancora gps_start_session (via versioned fallback) con gli stessi parametri", () => {
+  // Ora: callGpsRpcVersioned([{ name: 'gps_start_session_v3', args }, { name: 'gps_start_session', args }])
+  assert.match(gpsApiSource, /callGpsRpcVersioned\(\[\s*\{ name: 'gps_start_session_v3', args \},\s*\{ name: 'gps_start_session', args \}/);
+  assert.match(gpsApiSource, /p_assignment_id: resolved\.assignment\.id/);
+  assert.match(gpsApiSource, /p_device_id: deviceId \|\| getDeviceInstallationId\(\) \|\| null/);
   assert.match(gpsApiSource, /p_campaign_zone_id: zoneId \|\| null/);
   assert.match(gpsApiSource, /p_access_token: accessToken \|\| null/);
 });
