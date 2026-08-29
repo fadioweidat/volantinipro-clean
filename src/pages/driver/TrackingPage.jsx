@@ -12,6 +12,7 @@ import {
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
 import { rememberPendingAuthContext, rememberPendingAuthReturnPath, rememberPendingAuthOrigin, saveStoredSupabaseSession } from '../../auth/session.js';
 import { normalizeZonesFromCampaign, deriveInstantZoneStatus } from '../../lib/geofence/geofenceEngine.js';
+import { DRIVER_PAUSE_ENABLED } from '../../lib/gps/driverUiFlags.js';
 
 
 function resolveOperatorDisplayName(profile) {
@@ -228,7 +229,9 @@ export function TrackingPage({ campaignId }) {
 
         {tracking.status === 'paused' && (
           <div style={{ margin: '0 0 10px', padding: '10px 12px', borderRadius: 10, background: 'rgba(251,191,36,.12)', border: '1px solid rgba(251,191,36,.4)', color: '#92400e', fontWeight: 800, fontSize: 13 }}>
-            Lavoro in pausa — il GPS non registra nuovi punti finche' non riprendi.
+            {DRIVER_PAUSE_ENABLED
+              ? "Lavoro in pausa — il GPS non registra nuovi punti finche' non riprendi."
+              : "Sessione in pausa — il GPS non registra nuovi punti. Puoi terminare il lavoro qui sotto."}
           </div>
         )}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -263,12 +266,16 @@ export function TrackingPage({ campaignId }) {
               )}
             </>
           ) : null}
-          {tracking.status === 'active' && (
+          {/* Pausa/Riprendi SOSPESI dalla UI (DRIVER_PAUSE_ENABLED=false):
+              flusso Driver ridotto a "Inizia zona" -> "Termina lavoro". La
+              logica tracking.pause()/resume() resta intatta e riattivabile.
+              "Termina lavoro" piu' sotto copre gia' status === 'paused'. */}
+          {DRIVER_PAUSE_ENABLED && tracking.status === 'active' && (
             <button style={secondaryButtonStyle} type="button" onClick={() => handle(tracking.pause)}>
               Metti in pausa
             </button>
           )}
-          {tracking.status === 'paused' && (
+          {DRIVER_PAUSE_ENABLED && tracking.status === 'paused' && (
             <button style={primaryButtonStyle} type="button" onClick={() => handle(tracking.resume)}>
               Riprendi lavoro
             </button>

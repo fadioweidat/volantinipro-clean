@@ -128,16 +128,18 @@ test('GpsMonitor: geofence dalla geometria reale (mapZones), non da campaigns.me
 
 for (const [name, src] of [['TrackingPage', trackingPage], ['DriverAssignmentPage', assignmentPage]]) {
   test(`${name}: controlli pausa/riprendi/termina con etichette e conferma`, () => {
+    // Pausa/Riprendi: codice NON rimosso, solo nascosto dietro il flag
+    // DRIVER_PAUSE_ENABLED (sospensione UI, riattivabile).
     assert.match(src, /Metti in pausa/);
     assert.match(src, /Riprendi lavoro/);
+    assert.match(src, /DRIVER_PAUSE_ENABLED/);
     assert.match(src, /Termina lavoro/);
-    assert.match(src, /Lavoro in pausa/);
+    assert.match(src, /in pausa/);
     assert.match(src, /window\.confirm/);
     // "Termina lavoro" chiude SOLO la sessione operatore: tracking.end(),
     // MAI tracking.completeZone() (la zona resta aperta per il gruppo).
-    const btnAt = src.lastIndexOf('Termina lavoro');
-    const stop = src.slice(btnAt - 900, btnAt);
-    assert.ok(stop.includes('tracking.end'));
-    assert.doesNotMatch(stop, /tracking\.completeZone/);
+    // La logica vive in endWork() (DriverAssignmentPage) o inline (TrackingPage).
+    assert.ok(src.includes('tracking.end'));
+    assert.doesNotMatch(src, /tracking\.completeZone/);
   });
 }

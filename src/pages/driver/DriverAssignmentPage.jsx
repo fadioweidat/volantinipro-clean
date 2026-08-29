@@ -6,6 +6,7 @@ import { resolveMunicipalityBoundary } from '../../lib/geo/resolveMunicipalityBo
 import { geoJsonContainsPoint } from '../../lib/geo/pointInPolygon.js';
 import { estimateDistanceToZoneBoundaryMeters } from '../../lib/geofence/geofenceEngine.js';
 import { navigateDriver, driverPathWithQuery } from './driverNav.js';
+import { DRIVER_PAUSE_ENABLED } from '../../lib/gps/driverUiFlags.js';
 
 // ─── DriverAssignmentPage ─────────────────────────────────────────────────────
 // Pagina driver accessibile tramite /driver/assignment/{assignmentId}, link
@@ -258,6 +259,17 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
   })) : [];
   const zonesToDisplay = assignmentZones?.length > 0 ? assignmentZones : fallbackZones;
 
+  // La "card" della zona corrente (quella con id === session.campaign_zone_id)
+  // e' l'unico punto in cui compare "Termina lavoro" nel loop zone. Se una
+  // sessione active/paused non ha una zona corrispondente in lista (es.
+  // sessione legacy gia' in pausa, o zona non piu' presente), il Driver
+  // resterebbe senza via d'uscita: in quel caso mostriamo un "Termina
+  // lavoro" a livello di sessione, sopra le zone.
+  const currentZoneHasCard = zonesToDisplay.some(
+    (z) => z.id != null && z.id === tracking.session?.campaign_zone_id,
+  );
+  const sessionNeedsStandaloneEnd = (tracking.isActive || tracking.isPaused) && !currentZoneHasCard;
+
   // Etichette azione: ogni pulsante e' disabilitato SOLO mentre gira la
   // PROPRIA azione, non per un qualunque actionLoading. Cosi' un'azione lenta
   // o appesa (es. una pausa su rete ballerina) non puo' piu' intrappolare
@@ -276,6 +288,20 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
     try { await fn(); }
     catch (err) { setActionError(err?.message || 'Operazione non riuscita.'); }
     finally { setActionLoading(null); }
+  }
+
+  // "Termina lavoro": conferma esplicita + tracking.end() (che ha il proprio
+  // timeout e non aggiorna la UI a "completato" senza conferma server). NON
+  // dipende da geofence/outOfZone/warning GPS/actionLoading di pause-resume;
+  // l'unico gate e' actionLoading === ACTION_END (il proprio tentativo).
+  // Usato sia dalla card zona corrente sia dal fallback session-level.
+  function endWork() {
+    if (!window.confirm('Confermi di aver terminato il lavoro assegnato? La tua sessione GPS verra\' chiusa. La zona resta comunque aperta per gli altri operatori.')) return;
+    runAction(ACTION_END, async () => {
+      await tracking.end();
+      // A small timeout to let the UI refresh (or let the polling catch up)
+      window.setTimeout(() => window.location.reload(), 1000);
+    });
   }
 
   function sendSos() {
@@ -325,7 +351,26 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
       {tracking.resumeNotice?.level === 'blocked' && <Notice id="gps-resume-blocked" danger text={tracking.resumeNotice.message} />}
       {tracking.resumeNotice?.level === 'error' && <Notice id="gps-resume-error" danger text={tracking.resumeNotice.message} />}
       {tracking.resumeNotice?.level === 'warning' && <Notice id="gps-resume-warning" text={tracking.resumeNotice.message} />}
-      {tracking.isPaused && <Notice id="gps-paused" text="Lavoro in pausa — il GPS non registra nuovi punti finche' non riprendi." />}
+      {tracking.isPaused && (
+        <Notice
+          id="gps-paused"
+          text={DRIVER_PAUSE_ENABLED
+            ? "Lavoro in pausa — il GPS non registra nuovi punti finche' non riprendi."
+            : "Sessione in pausa — il GPS non registra nuovi punti. Puoi terminare il lavoro qui sotto."}
+        />
+      )}
+      {sessionNeedsStandaloneEnd && (
+        <div style={{ margin: '0 0 10px' }}>
+          <button
+            type="button"
+            style={{ ...dangerButtonStyle, width: '100%' }}
+            disabled={actionLoading === ACTION_END}
+            onClick={endWork}
+          >
+            Termina lavoro
+          </button>
+        </div>
+      )}
       {sosState && <Notice text={sosState} />}
       {/* Fallimento di una query secondaria (conferma/campagna/zone): un
           avviso locale, mai la schermata globale "Accesso non disponibile"
@@ -439,7 +484,13 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
                         Sessione gia&#39; attiva per questo incarico. Non puoi avviarne un&#39;altra da qui — contatta l&#39;Admin.
                       </span>
                     )}
-                    {isCurrentZone && tracking.isActive && (
+                    {/* Pausa/Riprendi SOSPESI dalla UI (DRIVER_PAUSE_ENABLED=false):
+                        il flusso Driver e' ridotto a "Inizia" -> "Termina lavoro".
+                        La logica tracking.pause()/resume() resta intatta e
+                        riattivabile rimettendo il flag a true. "Termina lavoro"
+                        qui sotto resta disponibile anche per una sessione gia'
+                        in pausa (legacy), senza bisogno di riprendere. */}
+                    {DRIVER_PAUSE_ENABLED && isCurrentZone && tracking.isActive && (
                       <button
                         type="button"
                         style={{ ...secondaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
@@ -449,7 +500,7 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
                         Metti in pausa
                       </button>
                     )}
-                    {isCurrentZone && tracking.isPaused && (
+                    {DRIVER_PAUSE_ENABLED && isCurrentZone && tracking.isPaused && (
                       <button
                         type="button"
                         style={{ ...primaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
@@ -464,24 +515,12 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
                         type="button"
                         style={{ ...dangerButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
                         disabled={actionLoading === ACTION_END}
-                        onClick={() => {
-                          // Conferma esplicita. "Termina lavoro" chiude SOLO la
-                          // delivery_session di questo operatore (status =
-                          // completed, nessun nuovo GPS dopo). NON marca la
-                          // campaign_zone come "Completata" e NON completa la
-                          // campagna: la zona resta "In corso" per gli altri
-                          // operatori del gruppo finche' Admin/criterio finale
-                          // non la chiude. Prima chiamava anche completeZone(),
-                          // che tramite gps_transition_zone('complete') metteva
-                          // la zona a "Completata" per tutti — root cause del
-                          // blocco "il Driver riapre e non riparte".
-                          if (!window.confirm('Confermi di aver terminato il lavoro assegnato? La tua sessione GPS verra\' chiusa. La zona resta comunque aperta per gli altri operatori.')) return;
-                          runAction(ACTION_END, async () => {
-                            await tracking.end();
-                            // A small timeout to let the UI refresh (or let the polling catch up)
-                            window.setTimeout(() => window.location.reload(), 1000);
-                          });
-                        }}
+                        // "Termina lavoro" chiude SOLO la delivery_session di
+                        // questo operatore (status = completed). NON marca la
+                        // campaign_zone "Completata" ne' completa la campagna:
+                        // la zona resta "In corso" per gli altri operatori del
+                        // gruppo. Vedi endWork() sopra.
+                        onClick={endWork}
                       >
                         Termina lavoro
                       </button>
