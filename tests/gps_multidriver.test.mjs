@@ -133,13 +133,11 @@ for (const [name, src] of [['TrackingPage', trackingPage], ['DriverAssignmentPag
     assert.match(src, /Termina lavoro/);
     assert.match(src, /Lavoro in pausa/);
     assert.match(src, /window\.confirm/);
-    // Il completamento operatore chiama completeZone prima di end. Il testo
-    // "Termina lavoro" compare anche in un commento: si ancora all'ULTIMA
-    // occorrenza (il figlio del <button>).
+    // "Termina lavoro" chiude SOLO la sessione operatore: tracking.end(),
+    // MAI tracking.completeZone() (la zona resta aperta per il gruppo).
     const btnAt = src.lastIndexOf('Termina lavoro');
     const stop = src.slice(btnAt - 900, btnAt);
-    assert.ok(stop.includes('tracking.completeZone'));
     assert.ok(stop.includes('tracking.end'));
-    assert.ok(stop.indexOf('tracking.completeZone') < stop.indexOf('tracking.end'));
+    assert.doesNotMatch(stop, /tracking\.completeZone/);
   });
 }

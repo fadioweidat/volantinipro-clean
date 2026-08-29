@@ -274,7 +274,7 @@ export function GpsMonitor({ campaignId, onNav }) {
   );
   const geofence = useMemo(() => summarizeGeofencePoints(state.points, geofenceZones), [state.points, geofenceZones]);
 
-  const status = deriveCampaignStatus(state.sessions);
+  const status = deriveCampaignStatus(state.sessions, state.campaign);
   const activeMs = state.sessions.reduce((sum, session) => sum + sessionDurationMs(session), 0);
   const latest = state.points[state.points.length - 1] || null;
   // Stato dentro/fuori istantaneo sull'ultimo punto — stessa funzione pura del
@@ -802,7 +802,17 @@ async function hydratePhotoUrls(photos) {
   })));
 }
 
-function deriveCampaignStatus(sessions) {
+const CAMPAIGN_STATUS_LABELS = {
+  in_progress: 'in corso', completed: 'completata', cancelled: 'annullata',
+  canceled: 'annullata', archived: 'archiviata', draft: 'bozza', pending: 'in attesa',
+};
+// Lo stato REALE della campagna e' campaigns.status (DB), NON lo stato delle
+// sessioni: una campagna 'in_progress' con tutte le sessioni 'completed' e'
+// comunque IN CORSO (gli operatori possono ripartire con "Riprendi zona").
+// Lo stato sessione/operatore e' mostrato separatamente (pannello operatori).
+function deriveCampaignStatus(sessions, campaignRecord) {
+  const dbStatus = campaignRecord?.status || campaignRecord?.stato;
+  if (dbStatus) return CAMPAIGN_STATUS_LABELS[dbStatus] || String(dbStatus).replace(/_/g, ' ');
   if (!sessions.length) return 'non iniziata';
   if (sessions.some((session) => session.status === 'started')) return 'in corso';
   if (sessions.some((session) => session.status === 'paused')) return 'pausa';

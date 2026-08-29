@@ -285,12 +285,13 @@ export function TrackingPage({ campaignId }) {
           )}
           {(tracking.status === 'active' || tracking.status === 'paused') && (
             <button style={dangerButtonStyle} type="button" onClick={() => {
-              // Conferma esplicita: "Termina lavoro" chiude la sessione
-              // dell'operatore (nessun nuovo GPS dopo). NON completa la
-              // campagna — puo' avere altri operatori attivi.
-              if (!window.confirm('Confermi di aver terminato il lavoro assegnato? La tua sessione GPS verra\' chiusa.')) return;
+              // Conferma esplicita: "Termina lavoro" chiude SOLO la
+              // delivery_session di questo operatore (status = completed).
+              // NON marca la campaign_zone come "Completata" (niente
+              // completeZone/gps_transition_zone) e NON completa la campagna:
+              // la zona resta "In corso" per gli altri operatori del gruppo.
+              if (!window.confirm('Confermi di aver terminato il lavoro assegnato? La tua sessione GPS verra\' chiusa. La zona resta comunque aperta per gli altri operatori.')) return;
               handle(async () => {
-                await tracking.completeZone(tracking.session?.campaign_zone_id);
                 await tracking.end();
               });
             }}>

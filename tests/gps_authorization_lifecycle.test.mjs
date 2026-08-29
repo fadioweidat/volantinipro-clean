@@ -89,14 +89,14 @@ test('GPS lifecycle and frontend/DB RPC contract', async (t) => {
     assert.match(trackingPage, /Passa alla zona/);
   });
 
-  await t.test('stop completes the zone before the session and preserves POD state', () => {
-    // "Termina lavoro" (ex "Termina e Completa Zona"): conferma esplicita +
-    // completeZone prima di end, mai un location.reload. Il testo compare
-    // anche in un commento: si ancora all'ULTIMA occorrenza (il <button>).
+  await t.test('stop chiude SOLO la sessione operatore, mai la zona', () => {
+    // "Termina lavoro": conferma esplicita + tracking.end() (chiude la
+    // delivery_session). NON chiama piu' tracking.completeZone(): la zona
+    // resta "In corso" per gli altri operatori del gruppo.
     const btnAt = trackingPage.lastIndexOf('Termina lavoro');
     const stopBody = trackingPage.slice(btnAt - 900, btnAt);
-    assert.ok(stopBody.includes('tracking.completeZone') && stopBody.includes('tracking.end'));
-    assert.ok(stopBody.indexOf('tracking.completeZone') < stopBody.indexOf('tracking.end'));
+    assert.ok(stopBody.includes('tracking.end'));
+    assert.doesNotMatch(stopBody, /tracking\.completeZone/);
     assert.doesNotMatch(stopBody, /location\.reload/);
     assert.match(stopBody, /window\.confirm/);
   });

@@ -395,14 +395,21 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
                 
                 {!z.isLegacy && (
                   <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-                    {z.status !== 'Completata' && !isCurrentZone && (
-                      <button 
-                        type="button" 
-                        style={{ ...primaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1, opacity: tracking.isActive || tracking.isPaused ? 0.5 : 1 }}
-                        disabled={Boolean(actionLoading) || assignmentBlocksStart || tracking.isActive || tracking.isPaused}
-                        onClick={() => runAction('Avvio zona...', () => tracking.start(z.id))}
+                    {/* Avvio zona: disponibile anche quando la zona risulta
+                        "Completata" ma nessuna sessione e' attiva — con 11.701
+                        volantini una zona non e' mai "finita" dopo una sola
+                        sessione breve, e senza questo pulsante il Driver che
+                        riapre il link non ha alcun modo di ripartire (root
+                        cause "Admin resta offline"). gps_start_session rimette
+                        gia' la zona a "In corso" lato server. */}
+                    {!isCurrentZone && !tracking.isActive && !tracking.isPaused && (
+                      <button
+                        type="button"
+                        style={{ ...primaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
+                        disabled={Boolean(actionLoading) || assignmentBlocksStart}
+                        onClick={() => runAction(z.status === 'Completata' ? 'Riapro zona...' : 'Avvio zona...', () => tracking.start(z.id))}
                       >
-                        Inizia
+                        {z.status === 'Completata' ? 'Riprendi zona' : 'Inizia'}
                       </button>
                     )}
                     {isCurrentZone && tracking.isActive && (
@@ -431,13 +438,18 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
                         style={{ ...dangerButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
                         disabled={Boolean(actionLoading)}
                         onClick={() => {
-                          // Conferma esplicita. "Termina lavoro" chiude la
-                          // sessione dell'operatore (nessun nuovo GPS dopo) —
-                          // NON completa la campagna, che puo' avere altri
-                          // operatori attivi.
-                          if (!window.confirm('Confermi di aver terminato il lavoro assegnato? La tua sessione GPS verra\' chiusa.')) return;
-                          runAction('Termino zona...', async () => {
-                            await tracking.completeZone(z.id);
+                          // Conferma esplicita. "Termina lavoro" chiude SOLO la
+                          // delivery_session di questo operatore (status =
+                          // completed, nessun nuovo GPS dopo). NON marca la
+                          // campaign_zone come "Completata" e NON completa la
+                          // campagna: la zona resta "In corso" per gli altri
+                          // operatori del gruppo finche' Admin/criterio finale
+                          // non la chiude. Prima chiamava anche completeZone(),
+                          // che tramite gps_transition_zone('complete') metteva
+                          // la zona a "Completata" per tutti — root cause del
+                          // blocco "il Driver riapre e non riparte".
+                          if (!window.confirm('Confermi di aver terminato il lavoro assegnato? La tua sessione GPS verra\' chiusa. La zona resta comunque aperta per gli altri operatori.')) return;
+                          runAction('Termino sessione...', async () => {
                             await tracking.end();
                             // A small timeout to let the UI refresh (or let the polling catch up)
                             window.setTimeout(() => window.location.reload(), 1000);
@@ -447,7 +459,7 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
                         Termina lavoro
                       </button>
                     )}
-                    {z.status === 'Completata' && (
+                    {z.status === 'Completata' && (tracking.isActive || tracking.isPaused || isCurrentZone) && (
                       <span style={{ color: '#22c55e', fontSize: 14, fontWeight: 'bold' }}>✓ Completata</span>
                     )}
                   </div>

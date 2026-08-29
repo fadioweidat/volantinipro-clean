@@ -65,7 +65,7 @@ export function CampaignTracking({ campaignId }) {
     // cambiamento a getOwnedCustomerTracking.
   }, [campaignId, refreshNonce]);
 
-  const status = deriveCampaignStatus(state.sessions);
+  const status = deriveCampaignStatus(state.sessions, state.campaign);
   const activeMs = state.sessions.reduce((sum, session) => sum + sessionDurationMs(session), 0);
   // Distanza per campagna = somma delle distanze PER SESSIONE (mai su un array
   // misto di piu' operatori: il filtro qualita' confronta ogni punto col
@@ -417,7 +417,16 @@ function LegendItem({ color, label, line = false, dashed = false }) {
   );
 }
 
-function deriveCampaignStatus(sessions) {
+const CAMPAIGN_STATUS_LABELS = {
+  in_progress: 'in corso', completed: 'completata', cancelled: 'annullata',
+  canceled: 'annullata', archived: 'archiviata', draft: 'bozza', pending: 'in attesa',
+};
+// Fonte di verita' per lo stato campagna = campaigns.status (DB), non lo stato
+// delle sessioni. Fallback alla derivazione da sessioni solo se il record
+// campagna non porta lo stato.
+function deriveCampaignStatus(sessions, campaignRecord) {
+  const dbStatus = campaignRecord?.status || campaignRecord?.stato || campaignRecord?.stato_campagna;
+  if (dbStatus) return CAMPAIGN_STATUS_LABELS[dbStatus] || String(dbStatus).replace(/_/g, ' ');
   if (!sessions.length) return 'non iniziata';
   if (sessions.some((session) => session.status === 'started')) return 'in corso';
   if (sessions.some((session) => session.status === 'paused')) return 'pausa';

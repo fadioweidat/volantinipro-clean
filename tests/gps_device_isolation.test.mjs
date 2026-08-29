@@ -253,3 +253,47 @@ test('gps-api adminUnlockDevice: RPC gps_admin_unlock_device, motivo troncato', 
   assert.match(gpsApi, /callGpsRpc\('gps_admin_unlock_device', \{/);
   assert.match(gpsApi, /p_reason: reason \? String\(reason\)\.trim\(\)\.slice\(0, 500\) : null/);
 });
+
+// ---------------------------------------------------------------------------
+// 9. Zona "Completata" — il Driver puo' comunque ripartire (root cause
+//    "il Driver apre l'app ma l'Admin resta offline")
+// ---------------------------------------------------------------------------
+
+test('DriverAssignmentPage: zona Completata NON blocca l\'avvio quando nessuna sessione e\' attiva', () => {
+  const src = read('src/pages/driver/DriverAssignmentPage.jsx');
+  // Il pulsante di avvio non e' piu' gate-ato su z.status !== 'Completata'.
+  const btnBlock = src.slice(src.indexOf("Programma Operativo"), src.indexOf("Termina lavoro"));
+  assert.doesNotMatch(btnBlock, /z\.status !== 'Completata' && !isCurrentZone/);
+  // Condizione nuova: avvio disponibile quando non e' la zona corrente e non
+  // c'e' sessione attiva/in pausa; etichetta "Riprendi zona" se Completata.
+  assert.match(src, /!isCurrentZone && !tracking\.isActive && !tracking\.isPaused/);
+  assert.match(src, /z\.status === 'Completata' \? 'Riprendi zona' : 'Inizia'/);
+  assert.match(src, /tracking\.start\(z\.id\)/);
+});
+
+// ---------------------------------------------------------------------------
+// 10. "Termina lavoro" chiude SOLO la sessione, mai la zona/campagna;
+//     stato campagna Admin = campaigns.status (DB), non derivato dalle sessioni
+// ---------------------------------------------------------------------------
+
+test('Driver "Termina lavoro" NON chiama completeZone (zona resta aperta per il gruppo)', () => {
+  for (const p of ['src/pages/driver/DriverAssignmentPage.jsx', 'src/pages/driver/TrackingPage.jsx']) {
+    const src = read(p);
+    const btnAt = src.lastIndexOf('Termina lavoro');
+    const handler = src.slice(btnAt - 900, btnAt);
+    assert.ok(handler.includes('tracking.end'), `${p}: deve chiudere la sessione`);
+    assert.doesNotMatch(handler, /tracking\.completeZone/, `${p}: NON deve completare la zona`);
+    assert.match(handler, /La zona resta comunque aperta per gli altri operatori/, `${p}: conferma deve spiegarlo`);
+  }
+});
+
+test('deriveCampaignStatus: campaigns.status DB e\' la fonte di verita\', non le sessioni', () => {
+  for (const p of ['src/pages/admin/GpsMonitor.jsx', 'src/pages/customer/CampaignTracking.jsx']) {
+    const src = read(p);
+    assert.match(src, /function deriveCampaignStatus\(sessions, campaignRecord\)/, `${p}: firma con campaignRecord`);
+    assert.match(src, /campaignRecord\?\.status \|\| campaignRecord\?\.stato/, `${p}: legge lo stato dal record campagna`);
+    assert.match(src, /deriveCampaignStatus\(state\.sessions, state\.campaign\)/, `${p}: passa state.campaign`);
+    // in_progress -> "in corso" anche se tutte le sessioni sono completed.
+    assert.match(src, /in_progress: 'in corso'/);
+  }
+});
