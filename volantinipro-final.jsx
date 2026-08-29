@@ -5288,7 +5288,7 @@ export function LoginPage({
         flexDirection: "column",
         gap: 12
       }}>
-          <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="email@azienda.it" style={{
+          <input id="login-email" name="email" aria-label="Email" value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="email@azienda.it" style={{
           width: "100%",
           padding: "13px 14px",
           borderRadius: 10,
