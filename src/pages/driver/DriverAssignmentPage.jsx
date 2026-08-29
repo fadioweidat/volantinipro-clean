@@ -231,6 +231,15 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
   const isRevoked = assignmentData?.status === 'revoked';
   const assignmentBlocksStart = isRevoked
     || (!tracking.isActive && !tracking.isPaused && tracking.assignmentStatus !== 'ready');
+
+  // Riconciliazione: esiste gia' una sessione attiva per questo incarico che
+  // questo device NON puo' riagganciare (avviata da un altro dispositivo/
+  // browser, oppure classificata abbandonata da recuperare). Il server
+  // rifiutera' comunque un nuovo Start con ACTIVE_SESSION_EXISTS: non
+  // proporre "Inizia"/"Riprendi zona" — mostrare lo stato e rimandare
+  // all'Admin. NON tocca il controllo anti-doppio-dispositivo lato server:
+  // e' solo la UI che smette di offrire un'azione che non puo' riuscire.
+  const activeSessionElsewhere = tracking.resumeNotice?.level === 'blocked';
   const primaryAction = actionLoading
     ? `${actionLoading}...`
     : tracking.isActive ? 'Pausa'
@@ -302,6 +311,7 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
       {tracking.error && <Notice danger text={tracking.error} />}
       {actionError && <Notice danger text={actionError} />}
       {tracking.resumeNotice?.level === 'blocked' && <Notice id="gps-resume-blocked" danger text={tracking.resumeNotice.message} />}
+      {tracking.resumeNotice?.level === 'error' && <Notice id="gps-resume-error" danger text={tracking.resumeNotice.message} />}
       {tracking.resumeNotice?.level === 'warning' && <Notice id="gps-resume-warning" text={tracking.resumeNotice.message} />}
       {tracking.isPaused && <Notice id="gps-paused" text="Lavoro in pausa — il GPS non registra nuovi punti finche' non riprendi." />}
       {sosState && <Notice text={sosState} />}
@@ -402,7 +412,7 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
                         riapre il link non ha alcun modo di ripartire (root
                         cause "Admin resta offline"). gps_start_session rimette
                         gia' la zona a "In corso" lato server. */}
-                    {!isCurrentZone && !tracking.isActive && !tracking.isPaused && (
+                    {!isCurrentZone && !tracking.isActive && !tracking.isPaused && !activeSessionElsewhere && (
                       <button
                         type="button"
                         style={{ ...primaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
@@ -411,6 +421,11 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
                       >
                         {z.status === 'Completata' ? 'Riprendi zona' : 'Inizia'}
                       </button>
+                    )}
+                    {!isCurrentZone && !tracking.isActive && !tracking.isPaused && activeSessionElsewhere && (
+                      <span style={{ fontSize: 13, color: '#b91c1c', flex: 1 }}>
+                        Sessione gia&#39; attiva per questo incarico. Non puoi avviarne un&#39;altra da qui — contatta l&#39;Admin.
+                      </span>
                     )}
                     {isCurrentZone && tracking.isActive && (
                       <button

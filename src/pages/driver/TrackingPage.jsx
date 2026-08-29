@@ -204,6 +204,7 @@ export function TrackingPage({ campaignId }) {
         {tracking.error && <div style={errorStyle}>{tracking.error}</div>}
         {tracking.assignmentState.error && <div style={errorStyle}>{tracking.assignmentState.error}</div>}
         {tracking.resumeNotice?.level === 'blocked' && <div style={errorStyle}>{tracking.resumeNotice.message}</div>}
+        {tracking.resumeNotice?.level === 'error' && <div style={errorStyle}>{tracking.resumeNotice.message}</div>}
         {tracking.resumeNotice?.level === 'warning' && <div style={{ ...errorStyle, background: 'rgba(251,191,36,.12)', color: '#92400e', borderColor: 'rgba(251,191,36,.4)' }}>{tracking.resumeNotice.message}</div>}
 
         <div style={metricGridStyle}>
@@ -247,9 +248,19 @@ export function TrackingPage({ campaignId }) {
                   ))}
                 </select>
               )}
-              <button style={primaryButtonStyle} type="button" onClick={() => handle(() => tracking.start(selectedZoneId))} disabled={!tracking.canStart || !selectedZoneId}>
-                Inizia zona
-              </button>
+              {tracking.resumeNotice?.level === 'blocked' ? (
+                // Sessione gia' attiva per questo incarico non riagganciabile
+                // da questo device (altro dispositivo/browser, o abbandonata):
+                // il server rifiuterebbe comunque un nuovo Start
+                // (ACTIVE_SESSION_EXISTS). Non offrire "Inizia zona".
+                <span style={{ ...errorStyle, display: 'block' }}>
+                  Sessione gia&#39; attiva per questo incarico. Contatta l&#39;Admin.
+                </span>
+              ) : (
+                <button style={primaryButtonStyle} type="button" onClick={() => handle(() => tracking.start(selectedZoneId))} disabled={!tracking.canStart || !selectedZoneId}>
+                  Inizia zona
+                </button>
+              )}
             </>
           ) : null}
           {tracking.status === 'active' && (

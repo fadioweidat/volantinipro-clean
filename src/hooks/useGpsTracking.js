@@ -628,8 +628,13 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
         statusRef.current = newStatus;
         setSession(existing);
         setStatus(newStatus);
+        // Sessione riagganciata: pulisci un eventuale notice 'blocked'/'error'
+        // rimasto da un tentativo di riconciliazione precedente andato male,
+        // altrimenti resterebbe a schermo pur avendo ora la sessione attiva.
         if (policy.action === RESUME_ACTION.RESUME_WITH_WARNING) {
           setResumeNotice({ level: 'warning', message: policy.message, classification: classification.state });
+        } else {
+          setResumeNotice(null);
         }
 
         if (newStatus === 'active') {
@@ -639,6 +644,20 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
         }
       } catch (err) {
         console.warn('Resume session GPS non riuscito', err);
+        // La verifica della sessione attiva e' fallita (rete / RPC): NON
+        // sappiamo se una sessione esiste. Non lasciare la UI in stato
+        // "idle / Inizia" senza spiegazione — un tentativo di Start
+        // potrebbe poi fallire con ACTIVE_SESSION_EXISTS senza contesto.
+        // Notice NON bloccante (level 'error', diverso da 'blocked'): il
+        // Driver e' invitato a ricaricare. Nessun impatto sul controllo
+        // server anti-doppio-dispositivo.
+        if (!cancelled) {
+          setResumeNotice({
+            level: 'error',
+            message: 'Impossibile verificare lo stato della sessione. Ricarica la pagina o controlla la connessione.',
+            classification: 'reconcile_failed',
+          });
+        }
       }
     }
     resumeExistingSession();

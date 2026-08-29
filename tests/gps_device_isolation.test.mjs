@@ -298,3 +298,56 @@ test('deriveCampaignStatus: campaigns.status DB e\' la fonte di verita\', non le
     assert.match(src, /in_progress: 'in corso'/);
   }
 });
+
+// ---------------------------------------------------------------------------
+// 11. Riconciliazione sessione attiva — la UI NON deve restare su "Inizia"
+//     quando esiste gia' una sessione attiva non riagganciabile da questo
+//     device (altro dispositivo/browser, o abbandonata). Il controllo
+//     server anti-doppio-dispositivo NON viene toccato.
+// ---------------------------------------------------------------------------
+
+test('useGpsTracking: un errore di riconciliazione produce un resumeNotice NON bloccante (level "error"), mai silenzio', () => {
+  const src = read('src/hooks/useGpsTracking.js');
+  const at = src.indexOf("console.warn('Resume session GPS non riuscito'");
+  const c = src.slice(at, at + 1000);
+  assert.match(c, /setResumeNotice\(\{[\s\S]{0,60}level: 'error'/, 'il catch deve esporre un notice, non solo console.warn');
+  assert.match(c, /classification: 'reconcile_failed'/);
+  assert.doesNotMatch(c, /level: 'blocked'/, 'un errore di rete NON e\' un blocco anti-double-device');
+});
+
+test('useGpsTracking: riagganciando una sessione LIVE/PAUSED pulisce un resumeNotice bloccante rimasto', () => {
+  const src = read('src/hooks/useGpsTracking.js');
+  const at = src.indexOf('setSession(existing);');
+  const s = src.slice(at, at + 700);
+  assert.match(s, /RESUME_WITH_WARNING[\s\S]*?\} else \{[\s\S]{0,40}setResumeNotice\(null\);/);
+});
+
+test('DriverAssignmentPage: con resumeNotice "blocked" NON mostra "Inizia"/"Riprendi zona", ma un messaggio + rimando Admin', () => {
+  const src = read('src/pages/driver/DriverAssignmentPage.jsx');
+  assert.match(src, /const activeSessionElsewhere = tracking\.resumeNotice\?\.level === 'blocked';/);
+  // il pulsante di avvio zona ora richiede ANCHE !activeSessionElsewhere
+  assert.match(src, /!isCurrentZone && !tracking\.isActive && !tracking\.isPaused && !activeSessionElsewhere && \(/);
+  // ramo alternativo: messaggio chiaro quando la sessione e' attiva altrove
+  assert.match(src, /!isCurrentZone && !tracking\.isActive && !tracking\.isPaused && activeSessionElsewhere && \(/);
+  assert.match(src, /Sessione gia&#39; attiva per questo incarico\. Non puoi avviarne un&#39;altra da qui/);
+  // il notice 'error' (riconciliazione fallita) e' renderizzato
+  assert.match(src, /tracking\.resumeNotice\?\.level === 'error'/);
+});
+
+test('TrackingPage: con resumeNotice "blocked" "Inizia zona" e\' sostituito da un messaggio', () => {
+  const src = read('src/pages/driver/TrackingPage.jsx');
+  assert.match(src, /tracking\.resumeNotice\?\.level === 'blocked' \? \(/);
+  assert.match(src, /Sessione gia&#39; attiva per questo incarico\. Contatta l&#39;Admin\./);
+  assert.match(src, /tracking\.resumeNotice\?\.level === 'error'/);
+});
+
+test('anti-double-device server INVARIATO: nessuna modifica alle RPC / migrazioni in questo fix', () => {
+  // La RPC continua a segnalare il device diverso e a bloccare un secondo Start.
+  assert.match(read('supabase/migrations/20260829140000_gps_session_device_ownership.sql'),
+    /jsonb_build_object\('session', null, 'blocked', 'device_mismatch'\)/);
+  assert.match(read('supabase/migrations/20260829180000_gps_driver_rpc_v3.sql'),
+    /ACTIVE_SESSION_EXISTS/);
+  // Il fix e' solo lato UI: gps-api.js continua a passare p_device_id e a
+  // tradurre il blocco device-mismatch (nessuna riconciliazione forzata).
+  assert.match(gpsApi, /_blocked: 'device_mismatch'/);
+});
