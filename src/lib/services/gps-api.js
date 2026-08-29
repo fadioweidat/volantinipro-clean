@@ -871,6 +871,51 @@ export async function createProofPhotoSignedUrl(storagePath) {
   return data?.signedUrl || null;
 }
 
+// FOTO DI VERIFICA SEGNALAZIONE — tabella issue_verification_photos, SEPARATA
+// da proof_photos (non entra mai nella gallery generale). Prefisso storage
+// dedicato campaign/<cid>/issue/<iid>/photo/. Coordinate OBBLIGATORIE. Nessun
+// access_token viene salvato. Supporta modalita' token (link Driver pubblico)
+// e autenticata.
+export function buildIssuePhotoStoragePath({ campaignId, issueId }) {
+  if (!isValidUuid(campaignId) || !isValidUuid(issueId)) {
+    throw permanentGpsError('assignment_missing', new Error('Segnalazione non valida per il caricamento foto.'));
+  }
+  const photoId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `campaign/${campaignId}/issue/${issueId}/photo/${photoId}.jpg`;
+}
+
+export async function uploadIssueVerificationPhoto({
+  campaignId, issueId, blob, lat, lng, accuracy = null, addressLabel = null, note = null,
+  assignmentId = null, accessToken = null,
+}) {
+  if (!isValidUuid(campaignId) || !isValidUuid(issueId)) throw permanentGpsError('assignment_missing');
+  if (!blob) throw permanentGpsError('gps_auth_required', new Error('Nessun file da caricare.'));
+  if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
+    throw permanentGpsError('gps_auth_required', new Error('Posizione GPS obbligatoria per la foto di verifica.'));
+  }
+  const client = await requireSupabase();
+  const storagePath = buildIssuePhotoStoragePath({ campaignId, issueId });
+
+  await withRetry(async () => {
+    const { error: uploadError } = await client.storage
+      .from('proof-photos')
+      .upload(storagePath, blob, { contentType: 'image/jpeg', upsert: false });
+    if (uploadError) throw mapRpcError(uploadError);
+  }, 'upload foto verifica');
+
+  return callGpsRpc('driver_register_issue_photo', {
+    p_issue_id: issueId,
+    p_storage_path: storagePath,
+    p_lat: Number(lat),
+    p_lng: Number(lng),
+    p_accuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : null,
+    p_address_label: addressLabel || null,
+    p_note: note || null,
+    p_assignment_id: assignmentId || null,
+    p_access_token: accessToken || null,
+  });
+}
+
 function safeJson(value) {
   if (!value) return {};
   if (typeof value === 'object') return value;

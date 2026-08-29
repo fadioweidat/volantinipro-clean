@@ -7,6 +7,8 @@ import {
   getCustomerCampaignGpsSessions,
   getCampaignProofPhotos,
 } from './gps-api.js';
+import { getFinalCoverage } from './coverage-adjustments-api.js';
+import { getCustomerIssues } from './customer-issues-api.js';
 
 export class CustomerCampaignAccessError extends Error {
   constructor(message = 'Campagna non trovata o non autorizzata.') {
@@ -37,16 +39,30 @@ export async function getOwnedCustomerTracking(campaignId) {
   // Letture customer-safe: select esplicite, nessun dato operatore (nome,
   // telefono, device_id, driver_id, assignment_id, metadata) nel payload che
   // arriva al browser del cliente.
-  const [points, sessions, photos] = await Promise.all([
+  const [points, sessions, photos, finalCoverage, issues] = await Promise.all([
     getCustomerCampaignGpsPoints(campaignId),
     getCustomerCampaignGpsSessions(campaignId),
     getCampaignProofPhotos(campaignId, { approvedOnly: true }),
+    // Copertura VERIFICATA/FINALE unica: e' l'unica geometria che il Cliente
+    // deve vedere sulla mappa (GPS reale verificato + verifiche
+    // manuali/automatiche - esclusioni), senza distinguere le fonti.
+    getFinalCoverage(campaignId).catch(() => null),
+    getCustomerIssues(campaignId).catch(() => []),
   ]);
   const approvedPhotos = await Promise.all((photos || []).map(async (photo) => ({
     ...photo,
     signedUrl: await createProofPhotoSignedUrl(photo.storage_path).catch(() => null),
   })));
-  return { campaign, points, sessions, photos: approvedPhotos };
+  // Foto delle segnalazioni: firma la signed url (bucket privato). Restano
+  // legate alla singola issue — MAI mescolate con approvedPhotos (gallery).
+  const issuesWithPhotos = await Promise.all((Array.isArray(issues) ? issues : []).map(async (issue) => ({
+    ...issue,
+    photos: await Promise.all((issue.photos || []).map(async (p) => ({
+      ...p,
+      signedUrl: await createProofPhotoSignedUrl(p.storage_path).catch(() => null),
+    }))),
+  })));
+  return { campaign, points, sessions, photos: approvedPhotos, finalCoverage, issues: issuesWithPhotos };
 }
 
 export async function getOwnedCustomerReport(campaignId) {

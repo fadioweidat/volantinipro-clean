@@ -13,6 +13,7 @@ import { useZoneBoundaries } from '../../hooks/useZoneBoundaries.js';
 import { resolveMunicipalityBoundary } from '../../lib/geo/resolveMunicipalityBoundary.js';
 import { AdminLayout } from './AdminLayout.jsx';
 import { CoverageAdjustmentPanel } from '../../components/admin/CoverageAdjustmentPanel.jsx';
+import { AdminIssuesPanel } from '../../components/admin/AdminIssuesPanel.jsx';
 import { ZoneCoverageMap } from '../../components/admin/ZoneCoverageMap.jsx';
 import { FitToZoneBounds } from '../../components/map/FitToZoneBounds.jsx';
 import { GpsMonitorMetricsPanel } from './gps-monitor/GpsMonitorMetricsPanel.jsx';
@@ -486,6 +487,7 @@ export function GpsMonitor({ campaignId, onNav }) {
               boundaryGeometry={selectedZoneGeometry}
               gpsOperatorCount={gpsOperatorCount}
             />
+            <AdminIssuesPanel campaignId={campaignId} />
           </div>
         )}
       </section>

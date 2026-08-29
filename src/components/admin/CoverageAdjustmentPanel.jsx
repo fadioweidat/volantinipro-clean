@@ -4,8 +4,11 @@ import { CircleMarker, MapContainer, Marker, Polygon, Polyline, Popup, TileLayer
 import { useEffect, useMemo, useState } from 'react';
 import {
   COVERAGE_ADJUSTMENT_TYPES,
+  COVERAGE_SOURCE_LEVELS,
+  VERIFIED_COVERAGE_STYLE,
   createCoverageAdjustment,
   getFinalCoverage,
+  latLngsToLineStringGeoJson,
   listCoverageAdjustments,
   revokeCoverageAdjustment,
   updateCoverageAdjustment,
@@ -28,6 +31,7 @@ const TYPE_COLORS = {
   manual_covered: '#a855f7', // viola
   partially_covered: '#a855f7',
   inaccessible: '#dc2626', // rosso tratteggiato — area non accessibile
+  exclusion: '#dc2626', // rosso — GOMMA sul GPS reale (esclusione overlay)
 };
 
 // P1: operatori Admin manuali (MAN-01..MAN-04), identificativi neutrali —
@@ -47,7 +51,7 @@ function manualOperatorColor(operatorKey) {
   return MANUAL_OPERATOR_COLORS[Number.isFinite(idx) && idx >= 0 ? idx % MANUAL_OPERATOR_COLORS.length : 0];
 }
 
-const TYPE_LABELS = Object.fromEntries(COVERAGE_ADJUSTMENT_TYPES.map((t) => [t.value, t.label]));
+const TYPE_LABELS = { ...Object.fromEntries(COVERAGE_ADJUSTMENT_TYPES.map((t) => [t.value, t.label])), exclusion: 'Esclusione GPS (gomma)' };
 
 function polygonGeoJsonToLatLngs(geometry) {
   const ring = geometry?.coordinates?.[0];
@@ -137,6 +141,32 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   const [manualOperatorCount, setManualOperatorCount] = useState(1);
   const [selectedOperatorKey, setSelectedOperatorKey] = useState('MAN-01');
 
+  // Livello di editing (gomma su TUTTI e 3): 'gps_exclusion' (gomma sul GPS
+  // reale — overlay, mai DELETE su gps_tracking_points), 'automatic_verified'
+  // (matita/gomma su generazione automatica), 'manual_verified'.
+  const [sourceLevel, setSourceLevel] = useState('manual_verified');
+  // 'area' (poligono, come prima) | 'line' (matita a tratto -> LineString).
+  const [drawMode, setDrawMode] = useState('area');
+  const [lineBufferM, setLineBufferM] = useState(12);
+  const [activeLine, setActiveLine] = useState([]);   // vertici polilinea in disegno
+  const [draftLines, setDraftLines] = useState([]);   // polilinee chiuse, in attesa di Salva
+  // Anteprima "Copertura finale" = ESATTAMENTE la geometria che vede il
+  // Cliente (calculate_campaign_final_coverage.final_coverage_geometry).
+  const [showFinalPreview, setShowFinalPreview] = useState(true);
+  // Stack undo delle modifiche NON salvate (aree/linee chiuse).
+  const [undoStack, setUndoStack] = useState([]);
+
+  // gps_exclusion = solo aree, tipo forzato 'exclusion' (la gomma sul GPS).
+  const isGpsLevel = sourceLevel === 'gps_exclusion';
+  useEffect(() => {
+    if (isGpsLevel) {
+      setDrawMode('area');
+      setDraftType('exclusion');
+    } else if (draftType === 'exclusion') {
+      setDraftType('manual_covered');
+    }
+  }, [isGpsLevel]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const validPoints = useMemo(() => filterValidGpsPoints(points).valid, [points]);
   const path = validPoints.map((p) => [Number(p.lat), Number(p.lng)]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
   const first = path[0] || null;
@@ -196,11 +226,48 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setEditingId(null);
     setDraftAreas([]);
     setActiveVertices([]);
-    setDraftType('manual_covered');
+    setDraftLines([]);
+    setActiveLine([]);
+    setUndoStack([]);
+    setDraftType(isGpsLevel ? 'exclusion' : 'manual_covered');
     setDraftReason('');
     setDraftNotes('');
     setSelectedOperatorKey('MAN-01');
     setFormError(null);
+  };
+
+  const addDrawPoint = (pt) => {
+    if (drawMode === 'line') setActiveLine((prev) => [...prev, pt]);
+    else setActiveVertices((prev) => [...prev, pt]);
+  };
+
+  // "Chiudi": area (>=3 vertici) o tratto (>=2 vertici) -> nel rispettivo
+  // draft + push sullo stack undo.
+  const handleCloseShape = () => {
+    if (drawMode === 'line') {
+      if (activeLine.length < 2) { setFormError('Disegna almeno 2 punti per il tratto.'); return; }
+      setDraftLines((prev) => [...prev, activeLine]);
+      setUndoStack((prev) => [...prev, { kind: 'line' }]);
+      setActiveLine([]);
+    } else {
+      if (activeVertices.length < 3) { setFormError('Disegna almeno 3 vertici per l\'area.'); return; }
+      setDraftAreas((prev) => [...prev, activeVertices]);
+      setUndoStack((prev) => [...prev, { kind: 'area' }]);
+      setActiveVertices([]);
+    }
+    setFormError(null);
+  };
+
+  // ANNULLA: ripristina l'ultima modifica NON salvata. Prima i vertici della
+  // forma in disegno, poi l'ultima forma chiusa (area o tratto).
+  const handleUndo = () => {
+    if (drawMode === 'line' && activeLine.length > 0) { setActiveLine((p) => p.slice(0, -1)); return; }
+    if (activeVertices.length > 0) { setActiveVertices((p) => p.slice(0, -1)); return; }
+    const last = undoStack[undoStack.length - 1];
+    if (!last) return;
+    setUndoStack((p) => p.slice(0, -1));
+    if (last.kind === 'line') setDraftLines((p) => p.slice(0, -1));
+    else setDraftAreas((p) => p.slice(0, -1));
   };
 
   const startEditing = (adjustment) => {
@@ -213,7 +280,20 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setCorrecting(true);
     setEditingId(adjustment.id);
     setDraftAreas([]);
-    setActiveVertices(polygonGeoJsonToLatLngs(adjustment.geometry));
+    setDraftLines([]);
+    setUndoStack([]);
+    setSourceLevel(adjustment.source || 'manual_verified');
+    const gtype = adjustment.geometry?.type;
+    if (gtype === 'LineString' || gtype === 'MultiLineString') {
+      setDrawMode('line');
+      setActiveLine((adjustment.geometry.coordinates || []).map(([lng, lat]) => [lat, lng]));
+      setActiveVertices([]);
+      if (adjustment.line_buffer_m) setLineBufferM(Number(adjustment.line_buffer_m));
+    } else {
+      setDrawMode('area');
+      setActiveVertices(polygonGeoJsonToLatLngs(adjustment.geometry));
+      setActiveLine([]);
+    }
     setDraftType(adjustment.adjustment_type);
     setDraftReason(adjustment.reason || '');
     setDraftNotes(adjustment.notes || '');
@@ -234,43 +314,18 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setEditingId(null);
     setDraftAreas([]);
     setActiveVertices([]);
+    setDraftLines([]);
+    setActiveLine([]);
+    setUndoStack([]);
     setFormError(null);
   };
 
-  const undoLastPoint = () => setActiveVertices((prev) => prev.slice(0, -1));
-
-  // "Nuova area" (ticket C, passo 1/4): l'area corrente deve essere gia'
-  // chiusa (o vuota). Se l'Admin clicca "Nuova area" con vertici ancora
-  // aperti, blocchiamo con un messaggio invece di chiuderla in silenzio: un
-  // "Chiudi area" implicito nasconderebbe esattamente l'errore che questo
-  // fix vuole eliminare (poligoni uniti senza che l'Admin lo intenda).
-  const handleNewArea = () => {
-    if (editingId) return;
-    if (activeVertices.length > 0) {
-      setFormError('Chiudi l\'area corrente ("Chiudi area") prima di iniziarne una nuova.');
-      return;
-    }
-    setFormError(null);
-  };
-
-  const handleCloseArea = () => {
-    if (activeVertices.length < 3) {
-      setFormError('Disegna almeno 3 vertici prima di chiudere l\'area.');
-      return;
-    }
-    setDraftAreas((prev) => [...prev, activeVertices]);
-    setActiveVertices([]);
-    setFormError(null);
-  };
-
-  const handleClearActiveArea = () => {
-    setActiveVertices([]);
-    setFormError(null);
-  };
-
-  const handleClearAllAreas = () => {
+  const handleClearAll = () => {
     setDraftAreas([]);
     setActiveVertices([]);
+    setDraftLines([]);
+    setActiveLine([]);
+    setUndoStack([]);
     setFormError(null);
   };
 
@@ -291,68 +346,82 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
       setFormError('Il motivo e’ obbligatorio.');
       return;
     }
-    // Modifica (editingId): activeVertices E' l'unico poligono della riga,
-    // niente "Chiudi area" — salva direttamente quel poligono.
-    // Nuova correzione: ogni area deve essere gia' chiusa in draftAreas;
-    // un'area ancora in disegno blocca il salvataggio invece di essere
-    // chiusa in automatico (stesso motivo del blocco in "Nuova area" sopra).
-    let areas;
+    // source per livello. gps_exclusion + type 'exclusion' = GOMMA sul GPS
+    // reale: NON tocca gps_tracking_points, e' una riga overlay revocabile.
+    const source = sourceLevel;
+    const effectiveType = isGpsLevel ? 'exclusion' : draftType;
+
+    // Editing di una riga esistente = un solo poligono/tratto.
     if (editingId) {
-      if (activeVertices.length < 3) {
-        setFormError('Disegna almeno 3 vertici prima di salvare.');
+      const isLine = drawMode === 'line';
+      const shape = isLine ? activeLine : activeVertices;
+      if ((isLine && shape.length < 2) || (!isLine && shape.length < 3)) {
+        setFormError(isLine ? 'Disegna almeno 2 punti.' : 'Disegna almeno 3 vertici.');
         return;
       }
-      areas = [activeVertices];
-    } else {
-      if (activeVertices.length > 0) {
-        setFormError('Chiudi l\'area in disegno ("Chiudi area") o cancellala prima di salvare.');
+      if (!isLine && areaOutsideBoundary(shape)) {
+        setFormError('L\'area esce dal confine del comune selezionato.');
         return;
       }
-      if (draftAreas.length === 0) {
-        setFormError('Disegna almeno un\'area (minimo 3 vertici, poi "Chiudi area") prima di salvare.');
-        return;
+      setSaving(true); setFormError(null);
+      try {
+        await updateCoverageAdjustment({
+          adjustmentId: editingId,
+          adjustmentType: effectiveType,
+          geometryGeoJson: isLine ? latLngsToLineStringGeoJson(shape) : latLngsToPolygonGeoJson(shape),
+          reason: draftReason.trim(),
+          notes: draftNotes.trim() || null,
+          metadata: { operator_key: selectedOperatorKey, admin_operator: true },
+          source,
+          lineBufferM: isLine ? lineBufferM : null,
+        });
+        cancelCorrecting();
+        await load();
+      } catch (err) {
+        setFormError(err?.message || 'Salvataggio non riuscito.');
+      } finally {
+        setSaving(false);
       }
-      areas = draftAreas;
+      return;
+    }
+
+    // Nuova correzione: tutte le forme devono essere gia' chiuse.
+    if (activeVertices.length > 0 || activeLine.length > 0) {
+      setFormError('Chiudi la forma in disegno ("Chiudi") o annullala prima di salvare.');
+      return;
+    }
+    const areas = draftAreas;
+    const lines = drawMode === 'line' ? draftLines : (isGpsLevel ? [] : draftLines);
+    if (areas.length === 0 && lines.length === 0 && draftLines.length === 0) {
+      setFormError('Disegna almeno un\'area o un tratto, poi "Chiudi", prima di salvare.');
+      return;
     }
     for (let i = 0; i < areas.length; i += 1) {
       if (areaOutsideBoundary(areas[i])) {
-        setFormError(`L'area ${i + 1} esce dal confine del comune selezionato. Correggi i vertici o cancella quest'area prima di salvare.`);
+        setFormError(`L'area ${i + 1} esce dal confine del comune selezionato.`);
         return;
       }
     }
     setSaving(true);
     setFormError(null);
     try {
-      // P1: operator_key nel campo metadata jsonb gia' esistente (nessun
-      // cambio schema — vedi audit). admin_operator:true marca esplicitamente
-      // che questa correzione e' un'integrazione Admin simulata, MAI dati
-      // GPS reali di gps_tracking_points/delivery_sessions.
       const metadata = { operator_key: selectedOperatorKey, admin_operator: true };
-      if (editingId) {
-        await updateCoverageAdjustment({
-          adjustmentId: editingId,
-          adjustmentType: draftType,
-          geometryGeoJson: latLngsToPolygonGeoJson(areas[0]),
-          reason: draftReason.trim(),
-          notes: draftNotes.trim() || null,
-          metadata,
+      for (const area of areas) {
+        await createCoverageAdjustment({
+          campaignId, zoneId: zones[0]?.id ?? null, adjustmentType: effectiveType,
+          geometryGeoJson: latLngsToPolygonGeoJson(area),
+          reason: draftReason.trim(), notes: draftNotes.trim() || null, metadata, source,
         });
-      } else {
-        // Un adjustment per area (ticket D: la colonna geometry e' tipizzata
-        // Polygon singolo, nessuna MultiPolygon multi-parte ammessa dalla
-        // RPC) — tutte riferite alla stessa zone_id/tipo/motivo, cosi' due
-        // aree separate non vengono mai unite in un'unica geometria che le
-        // collegherebbe. calculate_zone_final_coverage le unisce (ST_Union)
-        // gia' oggi per il calcolo aggregato, nessuna riscrittura li'.
-        for (const area of areas) {
+      }
+      // La matita "a tratto": una riga LineString per tratto, con buffer.
+      // Non disponibile per gps_exclusion (che e' sempre un'area).
+      if (!isGpsLevel) {
+        for (const line of draftLines) {
           await createCoverageAdjustment({
-            campaignId,
-            zoneId: zones[0]?.id ?? null,
-            adjustmentType: draftType,
-            geometryGeoJson: latLngsToPolygonGeoJson(area),
-            reason: draftReason.trim(),
-            notes: draftNotes.trim() || null,
-            metadata,
+            campaignId, zoneId: zones[0]?.id ?? null, adjustmentType: 'manual_covered',
+            geometryGeoJson: latLngsToLineStringGeoJson(line),
+            reason: draftReason.trim(), notes: draftNotes.trim() || null, metadata, source,
+            lineBufferM,
           });
         }
       }
@@ -399,18 +468,21 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
           <button type="button" onClick={startCorrecting} style={primaryButtonStyle}>Correggi copertura</button>
         ) : (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" onClick={handleCloseShape} style={secondaryButtonStyle}>
+              {drawMode === 'line' ? 'Chiudi tratto' : 'Chiudi area'}
+            </button>
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={!activeVertices.length && !activeLine.length && !undoStack.length}
+              style={secondaryButtonStyle}
+            >
+              Annulla
+            </button>
             {!editingId && (
-              <button type="button" onClick={handleNewArea} disabled={activeVertices.length > 0} style={secondaryButtonStyle}>Nuova area</button>
+              <button type="button" onClick={handleClearAll} style={secondaryButtonStyle}>Cancella tutto</button>
             )}
-            {!editingId && (
-              <button type="button" onClick={handleCloseArea} disabled={activeVertices.length < 3} style={secondaryButtonStyle}>Chiudi area</button>
-            )}
-            <button type="button" onClick={undoLastPoint} disabled={!activeVertices.length} style={secondaryButtonStyle}>Annulla ultimo punto</button>
-            <button type="button" onClick={handleClearActiveArea} disabled={!activeVertices.length} style={secondaryButtonStyle}>Cancella area</button>
-            {!editingId && (
-              <button type="button" onClick={handleClearAllAreas} disabled={!draftAreas.length && !activeVertices.length} style={secondaryButtonStyle}>Cancella tutto</button>
-            )}
-            <button type="button" onClick={cancelCorrecting} style={secondaryButtonStyle}>Annulla</button>
+            <button type="button" onClick={cancelCorrecting} style={secondaryButtonStyle}>Chiudi editor</button>
           </div>
         )}
       </div>
@@ -440,15 +512,59 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
 
       {correcting && (
         <div style={formStyle}>
-          <p style={{ margin: '0 0 8px', fontSize: 12, color: 'rgba(255,255,255,.6)' }}>
-            {editingId
-              ? `Clicca sulla mappa per aggiungere i vertici del poligono (${activeVertices.length} inseriti, minimo 3).`
-              : `Area in disegno: ${activeVertices.length} vertici (minimo 3, poi "Chiudi area"). Aree chiuse: ${draftAreas.length}.`}
+          <label style={labelStyle}>
+            Livello (la gomma agisce su tutti e 3)
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+              {COVERAGE_SOURCE_LEVELS.map((lv) => (
+                <button
+                  key={lv.value}
+                  type="button"
+                  onClick={() => setSourceLevel(lv.value)}
+                  style={{
+                    border: sourceLevel === lv.value ? 'none' : '1px solid rgba(255,255,255,.14)',
+                    borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 800, cursor: 'pointer',
+                    background: sourceLevel === lv.value ? '#2563eb' : 'rgba(255,255,255,.05)', color: '#fff',
+                  }}
+                >
+                  {lv.label}
+                </button>
+              ))}
+            </div>
+          </label>
+          <p style={{ margin: '6px 0', fontSize: 11, color: 'rgba(255,255,255,.5)' }}>
+            {isGpsLevel
+              ? 'GOMMA sul GPS reale: crea un\'esclusione verificata (overlay). NON modifica mai gps_tracking_points.'
+              : 'Matita = aggiungi tratto/area verificata. Gomma = disegna un\'esclusione, oppure revoca una correzione dallo storico.'}
           </p>
+          <p style={{ margin: '0 0 8px', fontSize: 12, color: 'rgba(255,255,255,.6)' }}>
+            {drawMode === 'line'
+              ? `Tratto in disegno: ${activeLine.length} punti (min 2). Tratti chiusi: ${draftLines.length}.`
+              : `Area in disegno: ${activeVertices.length} vertici (min 3). Aree chiuse: ${draftAreas.length}.`}
+          </p>
+          {!isGpsLevel && (
+            <label style={labelStyle}>
+              Strumento
+              <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                <button type="button" onClick={() => setDrawMode('area')}
+                  style={{ ...secondaryButtonStyle, background: drawMode === 'area' ? '#2563eb' : secondaryButtonStyle.background }}>Area (poligono)</button>
+                <button type="button" onClick={() => setDrawMode('line')}
+                  style={{ ...secondaryButtonStyle, background: drawMode === 'line' ? '#2563eb' : secondaryButtonStyle.background }}>Matita a tratto (linea)</button>
+              </div>
+            </label>
+          )}
+          {drawMode === 'line' && !isGpsLevel && (
+            <label style={labelStyle}>
+              Larghezza tratto: {lineBufferM} m
+              <input type="range" min={4} max={40} step={2} value={lineBufferM}
+                onChange={(e) => setLineBufferM(Number(e.target.value))} />
+            </label>
+          )}
           <label style={labelStyle}>
             Tipo correzione
-            <select value={draftType} onChange={(e) => setDraftType(e.target.value)} style={inputStyle}>
-              {COVERAGE_ADJUSTMENT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            <select value={draftType} onChange={(e) => setDraftType(e.target.value)} style={inputStyle} disabled={isGpsLevel || drawMode === 'line'}>
+              {isGpsLevel
+                ? <option value="exclusion">Esclusione GPS (gomma)</option>
+                : COVERAGE_ADJUSTMENT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </label>
           <label style={labelStyle}>
@@ -496,7 +612,19 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
       <div style={{ height: 460, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)', marginTop: 12 }}>
         <MapContainer center={center} zoom={15} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
           <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <DrawClickCapture active={correcting} onAddPoint={(pt) => setActiveVertices((prev) => [...prev, pt])} />
+          <DrawClickCapture active={correcting} onAddPoint={addDrawPoint} />
+
+          {/* ANTEPRIMA "COPERTURA FINALE" = la STESSA geometria/stile che vede
+              il Cliente ("Copertura verificata"). Nessuna distinzione per
+              source. */}
+          {showFinalPreview && coverage?.final_coverage_geometry
+            && geoJsonPolygonToLeafletPositions(coverage.final_coverage_geometry).length > 0 && (
+            <Polygon
+              positions={geoJsonPolygonToLeafletPositions(coverage.final_coverage_geometry)}
+              pathOptions={VERIFIED_COVERAGE_STYLE}
+              interactive={false}
+            />
+          )}
 
           {boundaryGeometry && geoJsonPolygonToLeafletPositions(boundaryGeometry).length > 0 && (
             <Polygon
@@ -564,8 +692,8 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
             <Polygon
               positions={activeVertices}
               pathOptions={{
-                color: activeAreaOutsideBoundary ? '#dc2626' : TYPE_COLORS[draftType],
-                fillColor: activeAreaOutsideBoundary ? '#dc2626' : TYPE_COLORS[draftType],
+                color: activeAreaOutsideBoundary ? '#dc2626' : (isGpsLevel ? '#dc2626' : TYPE_COLORS[draftType]),
+                fillColor: activeAreaOutsideBoundary ? '#dc2626' : (isGpsLevel ? '#dc2626' : TYPE_COLORS[draftType]),
                 fillOpacity: 0.25,
                 weight: 2,
                 dashArray: '4 4',
@@ -574,6 +702,18 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
           )}
           {correcting && activeVertices.map((v, i) => (
             <CircleMarker key={i} center={v} radius={5} pathOptions={{ color: '#111827', fillColor: '#fff', fillOpacity: 1 }} />
+          ))}
+
+          {/* Matita a tratto: polilinee draft + linea in disegno */}
+          {correcting && !editingId && draftLines.map((line, i) => (
+            <Polyline key={`draft-line-${i}`} positions={line}
+              pathOptions={{ color: '#a855f7', weight: 3, opacity: 0.9, dashArray: '4 4' }} />
+          ))}
+          {correcting && activeLine.length > 0 && (
+            <Polyline positions={activeLine} pathOptions={{ color: '#a855f7', weight: 3, opacity: 0.9, dashArray: '2 4' }} />
+          )}
+          {correcting && activeLine.map((v, i) => (
+            <CircleMarker key={`al-${i}`} center={v} radius={5} pathOptions={{ color: '#111827', fillColor: '#a855f7', fillOpacity: 1 }} />
           ))}
 
           {showDetailedPoints && validPoints.map((p) => (
@@ -598,6 +738,10 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
       <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: 'rgba(255,255,255,.6)' }}>
         <input type="checkbox" checked={showDetailedPoints} onChange={(e) => setShowDetailedPoints(e.target.checked)} />
         Mostra ogni punto GPS dettagliato (solo su richiesta)
+      </label>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 12, color: 'rgba(255,255,255,.6)' }}>
+        <input type="checkbox" checked={showFinalPreview} onChange={(e) => setShowFinalPreview(e.target.checked)} />
+        Anteprima "Copertura finale" (identica alla vista Cliente)
       </label>
 
       <Legend presentOperatorKeys={presentOperatorKeys} />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useGpsTracking } from '../../hooks/useGpsTracking.js';
 import { useDriverAssignment } from '../../hooks/useDriverAssignment.js';
 import { PodCapture } from '../../components/driver/PodCapture.jsx';
@@ -7,6 +7,8 @@ import { geoJsonContainsPoint } from '../../lib/geo/pointInPolygon.js';
 import { estimateDistanceToZoneBoundaryMeters } from '../../lib/geofence/geofenceEngine.js';
 import { navigateDriver, driverPathWithQuery } from './driverNav.js';
 import { DRIVER_PAUSE_ENABLED } from '../../lib/gps/driverUiFlags.js';
+import { driverListIssues, driverTransitionIssue, ISSUE_STATUS_LABELS } from '../../lib/services/customer-issues-api.js';
+import { uploadIssueVerificationPhoto } from '../../lib/services/gps-api.js';
 
 // ─── DriverAssignmentPage ─────────────────────────────────────────────────────
 // Pagina driver accessibile tramite /driver/assignment/{assignmentId}, link
@@ -537,6 +539,8 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
         )}
       </section>
 
+      <DriverIssuesSection assignmentId={assignmentId} campaignId={campaignId} accessToken={accessToken} />
+
       {/* Controls */}
       <section style={controlsCardStyle}>
         <button type="button" style={secondaryButtonStyle} onClick={() => navigateDriver(driverPathWithQuery(`/driver/assignment/${assignmentId}/map`))}>Mappa</button>
@@ -683,6 +687,104 @@ function Notice({ text, danger = false, id }) {
     }}>
       {text}
     </div>
+  );
+}
+
+// ─── Segnalazioni Cliente -> Autista ─────────────────────────────────────────
+function DriverIssuesSection({ assignmentId, campaignId, accessToken }) {
+  const [issues, setIssues] = useState([]);
+  const [busyId, setBusyId] = useState(null);
+  const [err, setErr] = useState(null);
+  const fileRefs = useRef({});
+
+  const reload = useCallback(async () => {
+    try {
+      const rows = await driverListIssues(assignmentId, accessToken || null);
+      setIssues(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      setErr(e?.message || null);
+    }
+  }, [assignmentId, accessToken]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  const openMaps = (issue) => {
+    const q = encodeURIComponent(`${issue.street} ${issue.house_number || ''}, ${issue.municipality}`);
+    window.open(`https://www.google.com/maps/search/${q}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const act = async (issue, action, note = null) => {
+    setBusyId(issue.id); setErr(null);
+    try {
+      await driverTransitionIssue({ issueId: issue.id, action, note, assignmentId, accessToken: accessToken || null });
+      await reload();
+    } catch (e) {
+      setErr(e?.message || 'Operazione non riuscita.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const onPhoto = async (issue, file) => {
+    if (!file) return;
+    setBusyId(issue.id); setErr(null);
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        if (!navigator.geolocation) { reject(new Error('GPS non disponibile: impossibile allegare una foto di verifica.')); return; }
+        navigator.geolocation.getCurrentPosition(resolve, () => reject(new Error('Posizione GPS negata: la foto di verifica richiede il GPS.')), { enableHighAccuracy: true, timeout: 15000 });
+      });
+      await uploadIssueVerificationPhoto({
+        campaignId, issueId: issue.id, blob: file,
+        lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy,
+        assignmentId, accessToken: accessToken || null,
+      });
+      await reload();
+    } catch (e) {
+      setErr(e?.message || 'Caricamento foto non riuscito.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  if (!issues.length && !err) return null;
+
+  return (
+    <section style={{ maxWidth: 760, margin: '0 auto 12px', padding: 14, borderRadius: 16, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)' }}>
+      <p style={{ margin: '0 0 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: 'rgba(255,255,255,.5)', fontWeight: 900 }}>Segnalazioni</p>
+      {err && <Notice danger text={err} />}
+      {issues.map((issue) => {
+        const done = issue.status === 'resolved' || issue.status === 'not_resolvable';
+        return (
+          <div key={issue.id} style={{ padding: 10, borderTop: '1px solid rgba(255,255,255,.08)', fontSize: 13, color: 'rgba(255,255,255,.85)' }}>
+            <div style={{ fontWeight: 900 }}>VERIFICA CLIENTE</div>
+            <div>{issue.municipality} — {issue.street} {issue.house_number || ''}</div>
+            <div style={{ color: 'rgba(255,255,255,.55)', fontSize: 12, margin: '4px 0' }}>
+              {issue.notes || 'Vai sul posto e verifica.'} · Stato: {ISSUE_STATUS_LABELS[issue.status] || issue.status}
+            </div>
+            {!done && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                <button type="button" style={secondaryButtonStyle} onClick={() => openMaps(issue)}>Naviga</button>
+                {issue.status !== 'in_progress' && (
+                  <button type="button" style={secondaryButtonStyle} disabled={busyId === issue.id} onClick={() => act(issue, 'take')}>Sono sul posto</button>
+                )}
+                <button type="button" style={secondaryButtonStyle} disabled={busyId === issue.id} onClick={() => fileRefs.current[issue.id]?.click()}>Foto verifica</button>
+                <input ref={(el) => { fileRefs.current[issue.id] = el; }} type="file" accept="image/*" capture="environment"
+                  style={{ display: 'none' }} onChange={(e) => onPhoto(issue, e.target.files?.[0])} />
+                <button type="button" style={{ ...primaryButtonStyle, padding: '6px 12px' }} disabled={busyId === issue.id}
+                  onClick={() => { const n = window.prompt('Nota per il cliente (facoltativa):', 'Verifica effettuata e distribuzione completata.'); if (n === null) return; act(issue, 'resolve', n); }}>
+                  Chiudi come risolta
+                </button>
+                <button type="button" style={secondaryButtonStyle} disabled={busyId === issue.id}
+                  onClick={() => { const n = window.prompt('Perché non risolvibile?', ''); if (n === null) return; act(issue, 'not_resolvable', n); }}>
+                  Non risolvibile
+                </button>
+              </div>
+            )}
+            {done && <div style={{ color: '#86EFAC', fontSize: 12 }}>Verifica completata.</div>}
+          </div>
+        );
+      })}
+    </section>
   );
 }
 

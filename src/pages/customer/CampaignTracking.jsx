@@ -9,7 +9,9 @@ import { calculateDistanceKm, groupGpsPointsBySession } from '../../lib/services
 import { filterValidGpsPoints } from '../../lib/gps/pointQuality.js';
 import { getOwnedCustomerTracking } from '../../lib/services/customer-api.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
-import { listCoverageAdjustments } from '../../lib/services/coverage-adjustments-api.js';
+import { listCoverageAdjustments, VERIFIED_COVERAGE_STYLE } from '../../lib/services/coverage-adjustments-api.js';
+import { geoJsonPolygonToLeafletPositions } from '../../lib/geo/geoJsonToLeaflet.js';
+import { createCustomerIssue, ISSUE_REASONS, ISSUE_STATUS_LABELS } from '../../lib/services/customer-issues-api.js';
 import { deriveLiveZoneStatus, estimateDistanceToZoneBoundaryMeters, ZONE_LIVE_STATUS_LABELS, ZONE_LIVE_STATUS_COLORS } from '../../lib/geofence/geofenceEngine.js';
 import { C, F } from '../../lib/constants.js';
 
@@ -163,23 +165,26 @@ export function CampaignTracking({ campaignId }) {
             </div>
             <LiveZoneStatusBadge status={liveZoneStatus} distanceKm={outsideDistanceKm} />
           </div>
-          {state.points.length > 0 || zoneProgress.zones.length > 0 ? (
+          {state.points.length > 0 || zoneProgress.zones.length > 0 || state.finalCoverage?.final_coverage_geometry ? (
             <>
-              <TrackingMap points={state.points} zones={mapZones} adjustments={adjustments} mapRef={mapRef} />
+              <TrackingMap zones={mapZones} finalCoverage={state.finalCoverage} mapRef={mapRef} />
               <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-                <button onClick={handleGoToOperatorPosition} disabled={!latestPoint} style={mapActionButtonStyle(!latestPoint)}>📍 La mia posizione</button>
                 <button onClick={handleReturnToArea} disabled={!liveZones[0]?.geometry} style={mapActionButtonStyle(!liveZones[0]?.geometry)}>⟲ Torna all'area</button>
               </div>
             </>
           ) : (
-            <EmptyState text={state.loading ? 'Caricamento tracking GPS…' : 'Il percorso GPS sarà disponibile quando inizierà la distribuzione.'} tall />
+            <EmptyState text={state.loading ? 'Caricamento copertura…' : 'La copertura sarà disponibile quando inizierà la distribuzione.'} tall />
           )}
-          {adjustments.length > 0 && (
-            <p style={{ margin: '10px 0 0', fontSize: 12, color: 'rgba(255,255,255,.45)', fontFamily: F.sans }}>
-              Copertura finale composta da rilevamento GPS e verifiche operative approvate.
-            </p>
-          )}
+          <p style={{ margin: '10px 0 0', fontSize: 12, color: 'rgba(255,255,255,.45)', fontFamily: F.sans }}>
+            Copertura verificata dal team operativo.
+          </p>
         </section>
+
+        <CustomerIssuesCard
+          campaignId={campaignId}
+          issues={state.issues || []}
+          onCreated={() => setRefreshNonce((n) => n + 1)}
+        />
 
         <div className="vp-tracking-two-col">
           <section style={cardStyle}>
@@ -244,53 +249,36 @@ function polygonGeoJsonToLatLngs(geometry) {
   return ring.map(([lng, lat]) => [lat, lng]);
 }
 
-function TrackingMap({ points, zones = [], adjustments = [], mapRef }) {
-  const latest = points[points.length - 1];
-  const first = points[0];
-  // Solo la prima zona con confine REALMENTE risolto contribuisce al centro
-  // (mai la prima zona in assoluto): stessa regola di Admin/GpsMonitor.jsx,
-  // Milano resta un ultimo fallback residuo, mai il caso normale.
+// Il Cliente vede UNA sola geometria: la COPERTURA VERIFICATA finale
+// (calculate_campaign_final_coverage.final_coverage_geometry). Nessuna
+// distinzione visiva tra GPS reale verificato / automatic_verified /
+// manual_verified: stesso colore, spessore, opacita', stile. Nessuna
+// polilinea GPS grezza ridisegnata sopra i tratti esclusi. Nessuna etichetta
+// tecnica (gps / manual / automatic / exclusion).
+function TrackingMap({ zones = [], finalCoverage = null, mapRef }) {
   const zoneWithGeometry = useMemo(() => zones.find((zone) => zone.geometry), [zones]);
+  const coveragePositions = useMemo(
+    () => (finalCoverage?.final_coverage_geometry
+      ? geoJsonPolygonToLeafletPositions(finalCoverage.final_coverage_geometry)
+      : []),
+    [finalCoverage],
+  );
   const center = useMemo(() => {
-    if (latest) return [Number(latest.lat), Number(latest.lng)];
     if (zoneWithGeometry) {
       const coord = zoneWithGeometry.geometry.type === 'MultiPolygon'
         ? zoneWithGeometry.geometry.coordinates?.[0]?.[0]?.[0]
         : zoneWithGeometry.geometry.coordinates?.[0]?.[0];
       if (coord) return [coord[1], coord[0]];
     }
-    return [45.4642, 9.1900]; // Milano default — solo fallback residuo
-  }, [latest, zoneWithGeometry]);
-  // Una polilinea PER SESSIONE (mai una sola linea da tutti i punti): con piu'
-  // operatori sulla stessa campagna concatenare A->B->A produrrebbe segmenti
-  // diagonali artificiali. filterValidGpsPoints e' applicato per sessione.
-  // Il cliente vede piu' tracce con un'unica legenda "Percorso distribuzione",
-  // senza sapere quale traccia e' di quale operatore.
-  const sessionPaths = useMemo(() => {
-    const groups = groupGpsPointsBySession(points);
-    return [...groups.entries()].map(([sessionId, groupPoints]) => ({
-      sessionId,
-      latlngs: filterValidGpsPoints(groupPoints).valid
-        .map((p) => [Number(p.lat), Number(p.lng)])
-        .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng)),
-    })).filter((track) => track.latlngs.length > 0);
-  }, [points]);
-
-  function getZoneStyle(zone) {
-    if (zone.adjustment_type === 'inaccessible') {
-      return { color: '#f97316', fillColor: '#f97316', fillOpacity: 0.2, dashArray: '5, 10', weight: 2 };
-    }
-    if (zone.adjustment_type === 'manual_covered' || zone.adjustment_type === 'partially_covered') {
-      return { color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.2, weight: 2 };
-    }
-    return { color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.1, weight: 2 };
-  }
+    return [45.4642, 9.1900];
+  }, [zoneWithGeometry]);
 
   return (
     <div style={{ height: 460, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)' }}>
       <MapContainer ref={mapRef} center={center} zoom={15} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
         <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        {!latest && zoneWithGeometry && <FitToZoneBounds geometry={zoneWithGeometry.geometry} />}
+        {zoneWithGeometry && <FitToZoneBounds geometry={zoneWithGeometry.geometry} />}
+        {/* Contorno neutro delle zone assegnate — nessun colore di copertura. */}
         {zones.map((zone) => {
           if (!zone.geometry || !zone.geometry.coordinates) return null;
           let coords = [];
@@ -301,59 +289,119 @@ function TrackingMap({ points, zones = [], adjustments = [], mapRef }) {
           }
           if (!coords.length) return null;
           return (
-            <Polygon key={zone.campaign_zone_id} positions={coords} pathOptions={getZoneStyle(zone)}>
-              <Popup>
-                <strong>{zone.zone_name}</strong><br/>
-                Copertura: {zone.effective_percent}%
-              </Popup>
+            <Polygon key={zone.campaign_zone_id} positions={coords}
+              pathOptions={{ color: 'rgba(255,255,255,.35)', weight: 1, fill: false, dashArray: '4 4' }}>
+              <Popup><strong>{zone.zone_name}</strong></Popup>
             </Polygon>
           );
         })}
-
-        {/* Correzioni geometriche esatte (fonte canonica campaign_coverage_adjustments),
-            sopra il tinteggio dell'intera zona: mostrano l'area realmente corretta
-            dall'Admin, non l'intera zona. Solo correzioni attive, mai revocate. */}
-        {adjustments.map((adj) => (
-          <Polygon
-            key={adj.id}
-            positions={polygonGeoJsonToLatLngs(adj.geometry)}
-            pathOptions={{
-              color: ADJUSTMENT_COLORS[adj.adjustment_type] || '#8b5cf6',
-              fillColor: ADJUSTMENT_COLORS[adj.adjustment_type] || '#8b5cf6',
-              fillOpacity: adj.adjustment_type === 'inaccessible' ? 0.1 : 0.28,
-              weight: 2,
-              dashArray: adj.adjustment_type === 'inaccessible' ? '6 5' : undefined,
-            }}
-          />
-        ))}
-
-        {sessionPaths.map((track) => (
-          track.latlngs.length > 1 && (
-            <Polyline key={track.sessionId} positions={track.latlngs} pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.82 }} />
-          )
-        ))}
-        {first && (
-          <CircleMarker center={[first.lat, first.lng]} radius={7} pathOptions={{ color: '#0f766e', fillColor: '#0f766e', fillOpacity: 0.9 }}>
-            <Popup>Partenza<br />{formatDateTime(first.recorded_at)}</Popup>
-          </CircleMarker>
-        )}
-        {latest && (
-          <CircleMarker center={[latest.lat, latest.lng]} radius={8} pathOptions={{ color: '#991b1b', fillColor: '#ef4444', fillOpacity: 0.9 }}>
-            <Popup>Ultimo punto<br />{formatDateTime(latest.recorded_at)}</Popup>
-          </CircleMarker>
+        {/* COPERTURA VERIFICATA — geometria unica, stile unico. */}
+        {coveragePositions.length > 0 && (
+          <Polygon positions={coveragePositions} pathOptions={VERIFIED_COVERAGE_STYLE}>
+            <Popup>Copertura verificata{finalCoverage?.final_operational_coverage_pct != null
+              ? `: ${finalCoverage.final_operational_coverage_pct}%` : ''}</Popup>
+          </Polygon>
         )}
       </MapContainer>
-      {(zones.length > 0 || adjustments.length > 0) && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, padding: '8px 4px 0', fontSize: 11, color: 'rgba(255,255,255,.5)', background: C.navyMid }}>
-          <LegendItem color="#2563eb" label="Traccia GPS reale" line />
-          <LegendItem color="#22c55e" label="Copertura GPS" />
-          <LegendItem color="#8b5cf6" label="Correzione manuale Admin" />
-          <LegendItem color="#f97316" label="Area non accessibile" dashed />
-        </div>
-      )}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, padding: '8px 4px 0', fontSize: 11, color: 'rgba(255,255,255,.5)', background: C.navyMid }}>
+        <LegendItem color={VERIFIED_COVERAGE_STYLE.color} label="Copertura verificata" />
+      </div>
     </div>
   );
 }
+
+function CustomerIssuesCard({ campaignId, issues = [], onCreated }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ municipality: '', street: '', houseNumber: '', reason: 'non_ricevuto', notes: '' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [ok, setOk] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.municipality.trim() || !form.street.trim()) { setError('Comune e via sono obbligatori.'); return; }
+    setBusy(true); setError(null); setOk(false);
+    try {
+      await createCustomerIssue({
+        campaignId,
+        municipality: form.municipality.trim(),
+        street: form.street.trim(),
+        houseNumber: form.houseNumber.trim() || null,
+        reason: form.reason,
+        notes: form.notes.trim() || null,
+      });
+      setOk(true);
+      setForm({ municipality: '', street: '', houseNumber: '', reason: 'non_ricevuto', notes: '' });
+      setOpen(false);
+      onCreated?.();
+    } catch (err) {
+      setError(err?.message || 'Invio segnalazione non riuscito.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section style={cardStyle}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <p style={eyebrowStyle}>Segnalazioni</p>
+        <button type="button" onClick={() => { setOpen((v) => !v); setOk(false); }} style={mapActionButtonStyle(false)}>
+          {open ? 'Chiudi' : 'Segnala un problema'}
+        </button>
+      </div>
+      {ok && <p style={{ margin: '8px 0 0', fontSize: 13, color: C.green, fontFamily: F.sans }}>Segnalazione inviata. La verifica arriverà all'operatore della zona.</p>}
+      {open && (
+        <form onSubmit={submit} style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+          <input placeholder="Comune (es. San Donato Milanese)" value={form.municipality}
+            onChange={(e) => setForm({ ...form, municipality: e.target.value })} style={issueInputStyle} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input placeholder="Via (es. Via Roma)" value={form.street}
+              onChange={(e) => setForm({ ...form, street: e.target.value })} style={{ ...issueInputStyle, flex: 2 }} />
+            <input placeholder="Civico" value={form.houseNumber}
+              onChange={(e) => setForm({ ...form, houseNumber: e.target.value })} style={{ ...issueInputStyle, flex: 1 }} />
+          </div>
+          <select value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} style={issueInputStyle}>
+            {ISSUE_REASONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
+          <textarea placeholder="Note (facoltative)" rows={2} value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })} style={issueInputStyle} />
+          {error && <p style={{ margin: 0, fontSize: 12, color: '#fca5a5', fontFamily: F.sans }}>{error}</p>}
+          <button type="submit" disabled={busy} style={mapActionButtonStyle(busy)}>{busy ? 'Invio…' : 'Invia segnalazione'}</button>
+        </form>
+      )}
+      <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+        {issues.length === 0 && <EmptyState text="Nessuna segnalazione." />}
+        {issues.map((issue) => (
+          <div key={issue.id} style={{ ...rowStyle, flexDirection: 'column', alignItems: 'stretch' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+              <strong style={{ color: C.white, fontFamily: F.sans, fontSize: 13 }}>
+                {issue.municipality} — {issue.street}{issue.house_number ? ` ${issue.house_number}` : ''}
+              </strong>
+              <span style={{ fontSize: 11, fontWeight: 800, color: (issue.status === 'resolved') ? C.green : 'rgba(255,255,255,.55)', fontFamily: F.sans }}>
+                {ISSUE_STATUS_LABELS[issue.status] || issue.status}
+              </span>
+            </div>
+            {issue.status === 'resolved' && (
+              <div style={{ marginTop: 6, fontSize: 12, color: 'rgba(255,255,255,.65)', fontFamily: F.sans }}>
+                <strong style={{ color: C.green }}>Verifica completata</strong> · {formatDateTime(issue.resolved_at)}<br />
+                {issue.resolution_note && <span>“{issue.resolution_note}”<br /></span>}
+                {(issue.photos || []).filter((p) => p.signedUrl).map((p) => (
+                  <img key={p.id} src={p.signedUrl} alt="Foto verifica"
+                    style={{ width: 120, height: 90, objectFit: 'cover', borderRadius: 8, marginTop: 6, border: '1px solid rgba(255,255,255,.08)' }} />
+                ))}
+                {(issue.photos || []).some((p) => p.lat != null) && (
+                  <p style={{ margin: '4px 0 0', fontSize: 11, color: 'rgba(255,255,255,.4)' }}>Foto GPS verificata.</p>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+const issueInputStyle = { background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 8, color: '#fff', padding: '8px 10px', fontFamily: 'inherit', fontSize: 13 };
 
 // Stesso pattern di Admin/GpsMonitor.jsx e Driver/DriverWorkMapPage.jsx: il
 // "center" di MapContainer fissa solo la posizione INIZIALE al mount.

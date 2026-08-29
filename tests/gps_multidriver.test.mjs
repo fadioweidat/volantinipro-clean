@@ -91,11 +91,14 @@ test('customer-api: getOwnedCustomerTracking usa i fetch customer-safe', () => {
 // 3. Polilinee separate — Cliente
 // ---------------------------------------------------------------------------
 
-test('CampaignTracking: una Polyline per sessione, filtro qualita\' per gruppo', () => {
-  assert.match(campaignTracking, /groupGpsPointsBySession/);
-  assert.match(campaignTracking, /filterValidGpsPoints\(groupPoints\)\.valid/);
-  assert.match(campaignTracking, /sessionPaths\.map\(/);
-  // Nessuna singola polilinea da TUTTI i punti.
+test('CampaignTracking: il Cliente vede SOLO la copertura verificata finale (nessuna traccia GPS grezza)', () => {
+  // Cambio VERIFIED-COVERAGE: il Cliente non ridisegna piu' la raw GPS
+  // polyline (che farebbe ricomparire i tratti esclusi). Rende una sola
+  // geometria: calculate_campaign_final_coverage.final_coverage_geometry,
+  // con lo stile condiviso VERIFIED_COVERAGE_STYLE.
+  assert.match(campaignTracking, /finalCoverage\?\.final_coverage_geometry/);
+  assert.match(campaignTracking, /pathOptions=\{VERIFIED_COVERAGE_STYLE\}/);
+  assert.doesNotMatch(campaignTracking, /pathOptions=\{\{ color: '#2563eb', weight: 4/);
   assert.doesNotMatch(campaignTracking, /positions=\{path\}/);
 });
 
