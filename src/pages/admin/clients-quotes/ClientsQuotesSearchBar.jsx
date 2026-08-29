@@ -2,7 +2,10 @@ export function ClientsQuotesSearchBar({ search, setSearch, loading, colors }) {
   return (
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
         <input
+          id="admin-client-search"
+          name="admin-client-search"
           type="text"
+          aria-label="Cerca cliente o comune"
           placeholder="Cerca cliente o comune..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
