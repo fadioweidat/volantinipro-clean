@@ -120,28 +120,8 @@ export function AppRouter() {
   };
 
   const [page, setPage] = useState(() => {
-    const resolved = routeToPage(window.location.pathname);
-    const storedSession = getStoredSupabaseSession();
-    return resolved === "home" && isStoredSupabaseSessionValid(storedSession)
-      ? "auth-landing"
-      : resolved;
+    return routeToPage(window.location.pathname);
   });
-
-  useEffect(() => {
-    if (page !== "auth-landing") return undefined;
-    const session = getStoredSupabaseSession();
-    if (!isStoredSupabaseSessionValid(session)) return undefined;
-
-    // "auth-landing" = sessione valida presente all'apertura di "/" (l'utente
-    // ha semplicemente riaperto il sito, NESSUN intento di login Admin). La
-    // destinazione canonica e' SEMPRE la Dashboard cliente: il ruolo Admin da
-    // solo non promuove mai automaticamente a /admin (separazione intento/
-    // ruolo). L'area Admin resta raggiungibile in modo esplicito digitando
-    // /admin, dove AdminGuard verifica jwt_is_admin() lato backend.
-    window.history.replaceState(null, "", "/dashboard");
-    setPage("dashboard");
-    return undefined;
-  }, [page]);
 
   // Traffico sito (Admin "Commerciale"): un page_view per ogni cambio pagina,
   // fire-and-forget, nessun impatto su routing/auth esistenti.
@@ -299,10 +279,8 @@ export function AppRouter() {
     <div style={{ fontFamily: F.sans, minHeight: "100vh", background: C.navyMid }}>
       <Bootstrap />
       <SeoMeta page={page} />
-      {!isConfiguratorPage && page !== "home" && page !== "auth-landing" && <Navbar onNav={goTo} page={page} />}
+      {!isConfiguratorPage && page !== "home" && <Navbar onNav={goTo} page={page} />}
       <div style={{ paddingTop: 0 }}>
-
-        {page === "auth-landing" && <RouteLoadingFallback />}
 
         {/* PUBLIC ROUTES */}
         {isConfiguratorPage && <StepperBar current={page} onGo={goTo} />}

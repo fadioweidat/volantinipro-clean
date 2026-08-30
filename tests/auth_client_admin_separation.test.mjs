@@ -75,23 +75,7 @@ test("callback: il secondo ramo onNav('admin') resta nel contesto Admin esplicit
   assert.ok(ctxGuard >= 0 && ctxGuard < restoreIdx, "il ramo restore e' dentro isAdminContext && configured");
 });
 
-// ---------------------------------------------------------------------------
-// 2. auth-landing (apertura di "/") — nessun intento admin -> sempre dashboard
-// ---------------------------------------------------------------------------
 
-test("auth-landing: sessione presente all'apertura di '/' instrada SEMPRE a /dashboard", () => {
-  const block = APPROUTER_SRC.slice(
-    APPROUTER_SRC.indexOf('if (page !== "auth-landing")'),
-    APPROUTER_SRC.indexOf("}, [page]);", APPROUTER_SRC.indexOf('if (page !== "auth-landing")')),
-  );
-  assert.match(block, /replaceState\(null, "", "\/dashboard"\)/);
-  assert.match(block, /setPage\("dashboard"\)/);
-  // niente piu' auto-admin qui: nessun ramo /admin, nessun role check
-  assert.doesNotMatch(block, /"\/admin"/);
-  assert.doesNotMatch(block, /verifySupabaseAdminRole/);
-  // e l'import inutilizzato e' stato rimosso
-  assert.doesNotMatch(APPROUTER_SRC, /import \{[^}]*verifySupabaseAdminRole[^}]*\} from "\.\.\/auth\/session\.js"/);
-});
 
 // ---------------------------------------------------------------------------
 // 3. Ruolo admin sempre e solo dal backend (fail-closed) — invariato
