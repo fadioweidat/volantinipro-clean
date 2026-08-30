@@ -96,7 +96,7 @@ test('AUTO: toolbar reale [SELEZIONA][MATITA][GOMMA][ANNULLA][SALVA] + "Carica c
   assert.match(panel, /onClick=\{\(\) => setTool\('erase'\)\}[\s\S]{0,120}Gomma/);
   assert.match(panel, /onClick=\{handleUndo\}[\s\S]{0,120}Annulla/);
   assert.match(panel, /onClick=\{handleSave\}[\s\S]{0,120}Salva/);
-  assert.match(panel, /GOMMA attiva — clicca sul tratto\/area da rimuovere/);
+  assert.match(panel, /GOMMA attiva — sulle bozze taglia solo la parte dentro il cerchio/);
   // "Carica copertura automatica" visibile solo su livello automatic_verified
   assert.match(panel, /sourceLevel === 'automatic_verified' &&/);
   assert.match(panel, /onClick=\{loadAutomaticBase\}[\s\S]{0,260}Carica copertura automatica/);
@@ -118,14 +118,21 @@ test('AUTO: base automatica = vie reali OSM convertite in tratti draft (non perc
   assert.match(gm, /defaultSourceLevel="automatic_verified"[\s\S]{0,200}municipalityName=\{activeZoneName\}[\s\S]{0,200}automaticPercent=\{/);
 });
 
-test('AUTO: GOMMA rimuove SOLO il tratto/forma cliccato (mai tutto); undo ripristina', () => {
+test('AUTO: GOMMA — bozza LineString = split parziale (§8), riga salvata = revoca intera; undo ripristina', () => {
   const fn = panel.slice(panel.indexOf('const eraseNearest'), panel.indexOf('const loadAutomaticBase'));
   assert.match(fn, /draftLines\.forEach\(\(line, i\) => \{ const d = pointToPolylineMeters/);
-  assert.match(fn, /setDraftLines\(\(prev\) => prev\.filter\(\(_, i\) => i !== bestI\)\)/);
-  assert.match(fn, /if \(bestAdj\) \{ handleRevoke\(bestAdj\); return; \}/);         // saved adjustment -> revoca
-  // undo di una gomma ripristina la forma
+  // §8: sulla bozza NON si rimuove piu' l'intera linea, si applica lo split parziale
+  assert.match(fn, /applyDraftLineSplit\(draftLines\[bestI\], pt\)/);
+  assert.doesNotMatch(fn, /setDraftLines\(\(prev\) => prev\.filter\(\(_, i\) => i !== bestI\)\)/);
+  assert.match(fn, /if \(bestAdj\) \{ handleRevoke\(bestAdj\); return; \}/);         // saved adjustment -> revoca INTERA (invariato)
+  // helper puro usato per il taglio
+  assert.match(panel, /import \{ splitPolylineByCircle, polylineLengthMeters \} from '\.\.\/\.\.\/lib\/geo\/splitPolylineByCircle\.js'/);
+  assert.match(panel, /const pieces = splitPolylineByCircle\(original, pt, eraseRadiusM\)/);
+  // undo di una gomma ripristina la forma (aree/linee intere + split parziale)
   assert.match(panel, /last\.kind === 'erase-line'\) setDraftLines\(\(p\) => \[\.\.\.p, last\.line\]\)/);
   assert.match(panel, /last\.kind === 'erase-area'\) setDraftAreas\(\(p\) => \[\.\.\.p, last\.area\]\)/);
+  assert.match(panel, /last\.kind === 'split-line'/);
+  assert.match(panel, /const restored = \[\.\.\.without\.slice\(0, insertAt\), last\.original, \.\.\.without\.slice\(insertAt\)\]/);
 });
 
 test('A: UNDO ripristina l\'ultima modifica non salvata (vertice, poi ultima forma chiusa)', () => {

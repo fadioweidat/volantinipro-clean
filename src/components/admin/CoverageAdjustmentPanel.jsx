@@ -19,6 +19,7 @@ import { geoJsonContainsPoint } from '../../lib/geo/pointInPolygon.js';
 import { resolveRoadNetwork } from '../../lib/geo/resolveRoadNetwork.js';
 import { getMunicipalityCenterPoint, selectRoadsFromOrigin } from '../../lib/geo/originRadialSelection.js';
 import { mergeRoadNetworks, assignWayZoneId } from '../../lib/geo/mergeRoadNetworks.js';
+import { splitPolylineByCircle, polylineLengthMeters } from '../../lib/geo/splitPolylineByCircle.js';
 
 // Modello obbligatorio: traccia GPS reale + correzioni manuali Admin + zone
 // non accessibili = copertura operativa finale. Questo componente non scrive
@@ -413,19 +414,62 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     else setActiveVertices((prev) => [...prev, pt]);
   };
 
+  // §8: KPI live ricalcolati dalla geometria residua reale delle bozze
+  // automatiche (mai final_operational_coverage_pct finche' non si salva).
+  const recomputeAutoKpi = (nextDraftLines) => {
+    setAutoKpi((k) => {
+      if (!k || sourceLevel !== 'automatic_verified') return k;
+      const totalM = (Number(k.totalKm) || 0) * 1000;
+      const selM = (nextDraftLines || []).reduce((s, l) => s + polylineLengthMeters(l), 0);
+      return { ...k, ways: (nextDraftLines || []).length, selectedKm: selM / 1000, coveragePct: totalM > 0 ? (selM / totalM) * 100 : 0 };
+    });
+  };
+
+  // §8: gomma PARZIALE su una LineString di BOZZA (mai su righe salvate).
+  // Sostituisce la linea con 0..N pezzi residui; propaga ownership zone_id
+  // (§5) e lastAutoLines (§6); registra l'undo per ripristino esatto (§7).
+  const applyDraftLineSplit = (original, pt) => {
+    const idx = draftLines.indexOf(original);
+    if (idx < 0) return false;
+    const pieces = splitPolylineByCircle(original, pt, eraseRadiusM);
+    const nextDraftLines = [...draftLines.slice(0, idx), ...pieces, ...draftLines.slice(idx + 1)];
+    const hadOwner = autoLineOwnership.has(original);
+    const ownerZoneId = autoLineOwnership.get(original);
+    const wasAuto = lastAutoLines.includes(original);
+
+    setDraftLines(nextDraftLines);
+    if (hadOwner) {
+      setAutoLineOwnership((prev) => {
+        const next = new Map(prev);
+        next.delete(original);
+        pieces.forEach((p) => next.set(p, ownerZoneId));
+        return next;
+      });
+    }
+    if (wasAuto) {
+      setLastAutoLines((prev) => {
+        const at = prev.indexOf(original);
+        if (at < 0) return prev;
+        return [...prev.slice(0, at), ...pieces, ...prev.slice(at + 1)];
+      });
+    }
+    setUndoStack((prev) => [...prev, { kind: 'split-line', original, pieces, hadOwner, ownerZoneId, wasAuto }]);
+    recomputeAutoKpi(nextDraftLines);
+    setFormError(null);
+    return true;
+  };
+
   // GOMMA: rimuove SOLO la forma piu' vicina al click (tratto/area draft),
   // oppure revoca la correzione salvata piu' vicina. Mai "cancella tutto".
   const eraseNearest = (pt) => {
     // §7: raggio operativo = quello scelto nella UI (default 25 m), non piu'
     // un valore hardcoded. È lo STESSO numero del cerchio §6.
     const ERASE_RADIUS_M = eraseRadiusM;
-    // 1) draft lines
+    // 1) draft lines — §8: split parziale, non rimozione dell'intera linea
     let bestI = -1; let bestD = ERASE_RADIUS_M;
     draftLines.forEach((line, i) => { const d = pointToPolylineMeters(pt, line); if (d < bestD) { bestD = d; bestI = i; } });
     if (bestI >= 0) {
-      setDraftLines((prev) => prev.filter((_, i) => i !== bestI));
-      setUndoStack((prev) => [...prev, { kind: 'erase-line', line: draftLines[bestI] }]);
-      setFormError(null);
+      applyDraftLineSplit(draftLines[bestI], pt);
       return;
     }
     // 2) draft areas (per vertice piu' vicino)
@@ -592,6 +636,31 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     else if (last.kind === 'area') setDraftAreas((p) => p.slice(0, -1));
     else if (last.kind === 'erase-line') setDraftLines((p) => [...p, last.line]);   // GOMMA -> ripristina
     else if (last.kind === 'erase-area') setDraftAreas((p) => [...p, last.area]);
+    else if (last.kind === 'split-line') {
+      // §7: ripristina ESATTAMENTE la LineString originale al posto dei pezzi.
+      const firstPieceIdx = last.pieces.length ? draftLines.indexOf(last.pieces[0]) : -1;
+      const without = draftLines.filter((l) => !last.pieces.includes(l));
+      const insertAt = firstPieceIdx >= 0 ? Math.min(firstPieceIdx, without.length) : without.length;
+      const restored = [...without.slice(0, insertAt), last.original, ...without.slice(insertAt)];
+      setDraftLines(restored);
+      if (last.hadOwner) {
+        setAutoLineOwnership((prev) => {
+          const next = new Map(prev);
+          last.pieces.forEach((p) => next.delete(p));
+          next.set(last.original, last.ownerZoneId);
+          return next;
+        });
+      }
+      if (last.wasAuto) {
+        setLastAutoLines((prev) => {
+          const at = last.pieces.length ? prev.indexOf(last.pieces[0]) : -1;
+          const cleaned = prev.filter((l) => !last.pieces.includes(l));
+          const pos = at >= 0 ? Math.min(at, cleaned.length) : cleaned.length;
+          return [...cleaned.slice(0, pos), last.original, ...cleaned.slice(pos)];
+        });
+      }
+      recomputeAutoKpi(restored);
+    }
   };
 
   const startEditing = (adjustment) => {
@@ -898,8 +967,11 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
       )}
       {correcting && tool === 'erase' && (
         <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12, fontWeight: 800, color: '#fca5a5' }}>
-            GOMMA attiva — clicca sul tratto/area da rimuovere (rimuove SOLO quello).
+          <span
+            style={{ fontSize: 12, fontWeight: 800, color: '#fca5a5' }}
+            title="Sulle bozze non salvate la gomma taglia solo la porzione dentro il cerchio. Per modificare solo una parte di una correzione gia' salvata, revocala e ridisegna i tratti necessari."
+          >
+            GOMMA attiva — sulle bozze taglia solo la parte dentro il cerchio; su una correzione salvata la revoca (con motivo).
           </span>
           {/* §7 — dimensione gomma: il raggio mostrato §6 = il raggio usato da eraseNearest */}
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'rgba(255,255,255,.7)' }}>
@@ -1185,13 +1257,13 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
           ))}
 
           {/* Bozza tratti (matita / base automatica caricata). In modalita'
-              GOMMA sono cliccabili: click -> rimuove SOLO quel tratto. */}
+              GOMMA sono cliccabili: click -> §8 split parziale nel punto
+              cliccato, non rimozione dell'intero tratto. */}
           {correcting && !editingId && draftLines.map((line, i) => (
             <Polyline key={`draft-line-${i}`} positions={line}
               pathOptions={{ color: tool === 'erase' ? '#dc2626' : '#a855f7', weight: tool === 'erase' ? 5 : 3, opacity: 0.9, dashArray: '4 4' }}
-              eventHandlers={tool === 'erase' ? { click: () => {
-                setDraftLines((prev) => prev.filter((_, j) => j !== i));
-                setUndoStack((prev) => [...prev, { kind: 'erase-line', line }]);
+              eventHandlers={tool === 'erase' ? { click: (e) => {
+                applyDraftLineSplit(line, [e.latlng.lat, e.latlng.lng]);
               } } : undefined} />
           ))}
           {correcting && activeLine.length > 0 && (
