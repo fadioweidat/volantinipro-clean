@@ -1,41 +1,25 @@
 // Rete stradale reale (OSM/Overpass) per la traccia "Admin automatica"
-// simulata sulle vie reali (P0). AUDIT (Fase 1 del ticket): il progetto usa
-// gia' Overpass per i POI (src/lib/services/poi-api.js — stessi endpoint,
-// stesso pattern fetch+fallback multi-endpoint), ma nessuna source di rete
-// stradale/route-graph esisteva. Nessuna tabella locale OSM roads, nessun
-// Mapbox streets, nessun route graph. Si riusa la STESSA fonte esterna
-// (OpenStreetMap/Overpass) e lo stesso pattern di fallback multi-endpoint
-// gia' validato da poi-api.js, invece di introdurre un secondo provider.
+// simulata sulle vie reali (P0).
+//
+// FIX PRODUZIONE (ticket "OVERPASS CORS / 504"): il browser NON chiama piu'
+// Overpass direttamente. In produzione overpass.kumi.systems risponde senza
+// header CORS e overpass-api.de va in 504: da qui la richiesta passa per il
+// proxy server-side same-project `road-network` (supabase/functions/
+// road-network), che fa il fetch verso Overpass, il fallback multi-provider
+// e una cache TTL. Vedi src/api/roadNetwork.js.
 //
 // Nessuna scrittura DB: questo modulo restituisce solo dati derivati al
 // volo, mai persistiti (vedi ZoneCoverageMap.jsx e il report del ticket per
 // la motivazione della non-persistenza).
 import { normalizeMunicipalityName } from '../step2/addressIntent.js';
+import { fetchRoadNetworkElements } from '../../api/roadNetwork.js';
 
-let overpassEnv = null;
-try {
-  overpassEnv = import.meta.env.VITE_OVERPASS_ENDPOINT;
-} catch {
-  if (typeof process !== 'undefined' && process.env) overpassEnv = process.env.VITE_OVERPASS_ENDPOINT;
-}
-// Stessi endpoint di poi-api.js (stessa fonte esterna, stesso ordine di
-// fallback) — non importati da li' per non introdurre un accoppiamento tra
-// un modulo di sola lettura POI e uno nuovo di rete stradale; entrambi
-// puntano allo stesso servizio Overpass pubblico.
-const OVERPASS_ENDPOINTS = [
-  overpassEnv || null,
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass-api.de/api/interpreter',
-].filter(Boolean);
-
-// Fase 4: classi stradali idonee a un giro porta a porta residenziale.
-// Escluse esplicitamente (audit): motorway/trunk (autostrade/superstrade,
-// mai porta a porta), primary/secondary/tertiary (strade di scorrimento,
-// tipicamente senza accesso pedonale diretto alle abitazioni su gran parte
-// del tracciato), footway/path (marciapiedi/sentieri: non rappresentano un
-// percorso di consegna con mezzo/a piedi lungo il fronte strada nel modello
-// di questo sistema).
-const ELIGIBLE_HIGHWAY_CLASSES = ['residential', 'living_street', 'unclassified', 'service'];
+// Fase 4: classi stradali idonee a un giro porta a porta residenziale
+// (residential / living_street / unclassified / service). Il filtro per
+// classe e' applicato lato server nella query Overpass QL (buildRoadQuery in
+// _shared/roadNetworkProxy.ts, stessa lista canonica); qui restano solo le
+// esclusioni di dettaglio su `service` (EXCLUDED_SERVICE_VALUES) e la
+// normalizzazione degli elementi.
 
 const roadCache = new Map();
 const roadInFlight = new Map();
@@ -115,38 +99,11 @@ function ringToOverpassPoly(ring) {
   return pts.map(([lng, lat]) => `${lat} ${lng}`).join(' ');
 }
 
-function buildRoadQuery(poly) {
-  const classes = ELIGIBLE_HIGHWAY_CLASSES.join('|');
-  return `[out:json][timeout:25];\n(\n  way["highway"~"^(${classes})$"](poly:"${poly}");\n);\nout geom;`;
-}
-
-async function fetchRoadsFromOverpass(poly) {
-  const query = buildRoadQuery(poly);
-  let lastError = null;
-  for (const endpoint of OVERPASS_ENDPOINTS) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 22_000);
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        // User-Agent esplicito richiesto dagli endpoint pubblici Overpass
-        // (kumi.systems rifiuta esplicitamente le richieste senza), stessa
-        // convenzione gia' usata per Nominatim in resolveMunicipalityBoundary.js.
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'VolantiniPro/1.0 (GPS coverage tool)' },
-        body: `data=${encodeURIComponent(query)}`,
-        signal: ctrl.signal,
-      });
-      if (!res.ok) throw new Error(res.status === 504 ? 'OVERPASS_TIMEOUT' : `OVERPASS_HTTP_${res.status}`);
-      const data = await res.json();
-      return data.elements || [];
-    } catch (err) {
-      lastError = err?.name === 'AbortError' ? new Error('OVERPASS_TIMEOUT') : err;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-  throw lastError || new Error('OVERPASS_UNAVAILABLE');
-}
+// La query Overpass QL e' costruita lato server (buildRoadQuery in
+// _shared/roadNetworkProxy.ts): il client passa SOLO il poligono decimato,
+// mai QL arbitrario. `ELIGIBLE_HIGHWAY_CLASSES` resta qui perche' descrive la
+// classificazione idonea usata da elementToWay/audit; il server usa la stessa
+// lista canonica.
 
 // service=parking_aisle/driveway sono spiazzi privati, non vie di
 // distribuzione — esclusi anche se rientrano nella classe "service".
@@ -191,7 +148,7 @@ export async function resolveRoadNetwork(municipalityName, boundaryGeometry) {
     if (!ring || ring.length < 3) return null;
     try {
       const poly = ringToOverpassPoly(ring);
-      const elements = await fetchRoadsFromOverpass(poly);
+      const elements = await fetchRoadNetworkElements({ municipality: municipalityName, poly });
       const ways = elements.map(elementToWay).filter(Boolean);
       // Ordinamento deterministico per OSM way id (Fase 6): stabile ad ogni
       // chiamata, indipendente dall'ordine (non garantito) restituito da Overpass.
