@@ -115,6 +115,18 @@ export function GpsMonitor({ campaignId, onNav }) {
   const selectedZoneGeometry = selectedZoneId ? resolvedBoundaries[selectedZoneId] || null : null;
   const activeZoneName = selectedZoneRow?.zone_name || null;
 
+  // Ambito automatico multi-zona (CoverageAdjustmentPanel §4): SOLO le zone
+  // campagna gia' esistenti (campaign_zones via useZoneBoundaries), con nome
+  // comune e confine reale gia' risolto. Nessun boundary inventato: le zone
+  // ancora senza geometria vengono escluse finche' resolveMunicipalityBoundary
+  // non le popola.
+  const campaignZonesForAuto = useMemo(
+    () => zoneRows
+      .map((z) => ({ id: z.id, municipalityName: z.zone_name, boundaryGeometry: resolvedBoundaries[z.id] || null }))
+      .filter((z) => z.municipalityName && z.boundaryGeometry),
+    [zoneRows, resolvedBoundaries],
+  );
+
   // Riga di zoneProgress per la zona selezionata (ticket A): stesso dato
   // gia' letto da ZoneProgressPanel/AUTOMATICO, non un secondo fetch.
   const selectedAutoZoneProgress = selectedZoneId
@@ -438,6 +450,7 @@ export function GpsMonitor({ campaignId, onNav }) {
               gpsOperatorCount={gpsOperatorCount}
               defaultSourceLevel="automatic_verified"
               municipalityName={activeZoneName}
+              campaignZones={campaignZonesForAuto}
               automaticPercent={selectedAutoZoneProgress ? (selectedAutoZoneProgress.manual_override_enabled ? selectedAutoZoneProgress.manual_percent : selectedAutoZoneProgress.automatic_percent) : null}
             />
 

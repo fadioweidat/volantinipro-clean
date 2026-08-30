@@ -18,6 +18,7 @@ import { geoJsonPolygonToLeafletPositions } from '../../lib/geo/geoJsonToLeaflet
 import { geoJsonContainsPoint } from '../../lib/geo/pointInPolygon.js';
 import { resolveRoadNetwork } from '../../lib/geo/resolveRoadNetwork.js';
 import { getMunicipalityCenterPoint, selectRoadsFromOrigin } from '../../lib/geo/originRadialSelection.js';
+import { mergeRoadNetworks, assignWayZoneId } from '../../lib/geo/mergeRoadNetworks.js';
 
 // Modello obbligatorio: traccia GPS reale + correzioni manuali Admin + zone
 // non accessibili = copertura operativa finale. Questo componente non scrive
@@ -131,6 +132,28 @@ function OriginClickCapture({ active, onPick }) {
 
 // §2: preset percentuale copertura automatica.
 const AUTO_PCT_PRESETS = [50, 60, 70, 80, 90, 100];
+// §4/§9: concorrenza max delle chiamate Overpass multi-zona + soglia oltre la
+// quale mostrare l'avviso "campagna con molte zone".
+const AUTO_MULTIZONE_CONCURRENCY = 4;
+const AUTO_MULTIZONE_WARN_OVER = 6;
+
+// §3: batched Promise.allSettled — mai Promise.all puro (una zona che fallisce
+// NON deve far fallire tutte le altre), concorrenza limitata (§9: mai N
+// chiamate contemporanee senza controllo).
+async function resolveNetworksBatched(zones, limit = AUTO_MULTIZONE_CONCURRENCY) {
+  const out = [];
+  for (let start = 0; start < zones.length; start += limit) {
+    const batch = zones.slice(start, start + limit);
+    // eslint-disable-next-line no-await-in-loop
+    const settled = await Promise.allSettled(
+      batch.map((z) => resolveRoadNetwork(z.municipalityName, z.boundaryGeometry)),
+    );
+    settled.forEach((s, k) => {
+      out.push({ zoneId: batch[k].id, zoneName: batch[k].municipalityName, network: s.status === 'fulfilled' ? s.value : null });
+    });
+  }
+  return out;
+}
 // §7: raggio gomma selezionabile (m). Il valore reale usato da eraseNearest
 // e il raggio del cerchio §6 sono lo STESSO numero.
 const ERASE_RADIUS_PRESETS_M = [5, 10, 20, 30, 50];
@@ -159,7 +182,7 @@ function pointToPolylineMeters(latlng, line) {
   return best;
 }
 
-export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], boundaryGeometry = null, gpsOperatorCount = 0, defaultSourceLevel = 'manual_verified', automaticPercent = null, municipalityName = null, storePoint = null }) {
+export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], boundaryGeometry = null, gpsOperatorCount = 0, defaultSourceLevel = 'manual_verified', automaticPercent = null, municipalityName = null, storePoint = null, campaignZones = [] }) {
   const [adjustments, setAdjustments] = useState([]);
   const [coverage, setCoverage] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -237,6 +260,14 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   // §10 — vie dell'ultimo caricamento automatico non ancora salvato, per
   // sostituirle (mai duplicarle) ad un nuovo caricamento.
   const [lastAutoLines, setLastAutoLines] = useState([]);
+  // §4 — ambito automatico: 'single' (comune selezionato) | 'campaign' (tutte
+  // le zone della campagna gia' esistenti). Default 'single'.
+  const [autoScope, setAutoScope] = useState('single');
+  // §3/§4 — mappa geometria-linea -> zone_id assegnato (solo scope campaign;
+  // in single il salvataggio usa la zona selezionata come sempre).
+  const [autoLineOwnership, setAutoLineOwnership] = useState(new Map());
+  // §3 — esito multi-zona dell'ultimo caricamento (per KPI + elenco zone fallite).
+  const [autoMulti, setAutoMulti] = useState(null);
 
   // gps_exclusion = solo aree, tipo forzato 'exclusion' (la gomma sul GPS).
   const isGpsLevel = sourceLevel === 'gps_exclusion';
@@ -280,8 +311,29 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
       ? (autoMapPoint || null)
       : autoCenterPoint;
 
+  // §4 — zone campagna realmente utilizzabili (nome comune + confine reale
+  // risolto). MAI un confine inventato: le zone senza geometria sono escluse.
+  const multiZonesEligible = useMemo(
+    () => (Array.isArray(campaignZones) ? campaignZones : []).filter(
+      (z) => z && z.id != null && z.municipalityName && z.boundaryGeometry,
+    ),
+    [campaignZones],
+  );
+  const canMultiZone = multiZonesEligible.length > 1;
+  const isCampaignScope = autoScope === 'campaign' && canMultiZone;
+
   function handleAutoOriginPick(lat, lng) {
-    if (boundaryGeometry && !geoJsonContainsPoint(boundaryGeometry, lat, lng)) {
+    // §5 — in scope campagna il punto puo' stare in QUALSIASI zona della
+    // campagna; fuori da TUTTE -> bloccato. In scope singolo resta vincolato
+    // al confine della zona selezionata (comportamento invariato).
+    if (isCampaignScope) {
+      const inAnyZone = multiZonesEligible.some((z) => geoJsonContainsPoint(z.boundaryGeometry, lat, lng));
+      if (!inAnyZone) {
+        setAutoMapPoint(null);
+        setAutoOriginError('Punto di partenza fuori da tutte le zone della campagna.');
+        return;
+      }
+    } else if (boundaryGeometry && !geoJsonContainsPoint(boundaryGeometry, lat, lng)) {
       setAutoMapPoint(null);
       setAutoOriginError('Punto di partenza fuori dalla zona selezionata.');
       return;
@@ -341,6 +393,9 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setAutoBaseState({ loading: false, error: null, loaded: 0 });
     setAutoKpi(null);
     setLastAutoLines([]);
+    setAutoLineOwnership(new Map());
+    setAutoMulti(null);
+    setAutoScope('single');
     setEraseCursor(null);
     setAutoMapPoint(null);
     setAutoOriginError(null);
@@ -405,12 +460,22 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   // editabili. Al salvataggio ogni via diventa una riga
   // source=automatic_verified -> alimenta calculate_campaign_final_coverage.
   const loadAutomaticBase = async () => {
-    if (!boundaryGeometry || !municipalityName) {
+    // Guardia: scope singolo richiede confine+comune della zona selezionata;
+    // scope campagna richiede almeno una zona campagna con confine reale.
+    if (!isCampaignScope && (!boundaryGeometry || !municipalityName)) {
       setAutoBaseState({ loading: false, error: 'Confine/comune non disponibile per questa zona.', loaded: 0 });
       return;
     }
-    // §3: origine effettiva, con fallback dichiarato a centro comune.
-    const origin = autoOrigin || autoCenterPoint || getMunicipalityCenterPoint(boundaryGeometry);
+    if (isCampaignScope && multiZonesEligible.length === 0) {
+      setAutoBaseState({ loading: false, error: 'Nessuna zona campagna con confine reale disponibile.', loaded: 0 });
+      return;
+    }
+    // §3/§5: origine effettiva, con fallback dichiarato a centro comune (della
+    // zona selezionata in single, della prima zona campagna in scope campagna).
+    const fallbackCenter = autoCenterPoint
+      || (boundaryGeometry ? getMunicipalityCenterPoint(boundaryGeometry) : null)
+      || (isCampaignScope ? getMunicipalityCenterPoint(multiZonesEligible[0].boundaryGeometry) : null);
+    const origin = autoOrigin || fallbackCenter;
     if (!origin) {
       setAutoBaseState({ loading: false, error: 'Punto di partenza non disponibile: scegli "Centro comune" o clicca sulla mappa.', loaded: 0 });
       return;
@@ -423,20 +488,52 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     }
     setAutoBaseState({ loading: true, error: null, loaded: 0 });
     setAutoOriginError(null);
+    setAutoMulti(null);
     try {
-      const net = await resolveRoadNetwork(municipalityName, boundaryGeometry);
-      if (!net?.ways?.length) {
-        setAutoBaseState({ loading: false, error: 'Rete stradale non disponibile per questa zona.', loaded: 0 });
-        return;
+      // §3/§4: rete idonea. Scope campagna -> una resolveRoadNetwork per zona
+      // (batched Promise.allSettled, concorrenza limitata), poi merge+dedup.
+      let net;
+      let multiInfo = null;
+      if (isCampaignScope) {
+        const settled = await resolveNetworksBatched(multiZonesEligible, AUTO_MULTIZONE_CONCURRENCY);
+        const merged = mergeRoadNetworks(settled);
+        const failedZoneNames = settled
+          .filter((s) => merged.failedZoneIds.includes(s.zoneId))
+          .map((s) => s.zoneName)
+          .filter(Boolean);
+        multiInfo = { loadedZoneCount: merged.loadedZoneCount, failedZoneCount: merged.failedZoneCount, failedZoneNames };
+        setAutoMulti(multiInfo);
+        if (!merged.ways.length) {
+          setAutoBaseState({ loading: false, error: 'Nessuna rete stradale caricata per le zone della campagna.', loaded: 0 });
+          return;
+        }
+        net = merged;
+      } else {
+        net = await resolveRoadNetwork(municipalityName, boundaryGeometry);
+        if (!net?.ways?.length) {
+          setAutoBaseState({ loading: false, error: 'Rete stradale non disponibile per questa zona.', loaded: 0 });
+          return;
+        }
       }
       const gpsPath = filterValidGpsPoints(points).valid.map((p) => [Number(p.lat), Number(p.lng)]);
-      // §2: la percentuale scelta nella UI (1–100), non la prop legacy.
+      // §2/§6: la percentuale (1–100) e' riferita alla lunghezza totale della
+      // rete MERGED di tutte le zone caricate, non a ogni comune separatamente.
       const pct = Math.min(100, Math.max(1, Math.round(Number(autoPct) || 70)));
       const sel = selectRoadsFromOrigin(net, origin, pct, gpsPath);
-      const lines = (sel.selectedWays || []).map((w) => w.geometry).filter((g) => Array.isArray(g) && g.length >= 2);
+      const selectedWays = (sel.selectedWays || []).filter((w) => Array.isArray(w.geometry) && w.geometry.length >= 2);
+      const lines = selectedWays.map((w) => w.geometry);
       if (!lines.length) {
         setAutoBaseState({ loading: false, error: 'Nessuna via selezionata dall\'automatico.', loaded: 0 });
         return;
+      }
+      // §7: ogni via generata sa a quale zone_id appartiene (solo scope
+      // campagna; in single il salvataggio usa la zona selezionata come prima).
+      const ownership = new Map();
+      if (isCampaignScope) {
+        const fallbackZoneId = zones[0]?.id ?? null;
+        for (const w of selectedWays) {
+          ownership.set(w.geometry, assignWayZoneId(w.geometry, multiZonesEligible, fallbackZoneId).zoneId);
+        }
       }
       setSourceLevel('automatic_verified');
       setDrawMode('line');
@@ -445,16 +542,20 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
       // correzioni salvate restano intatte.
       setDraftLines((prev) => [...prev.filter((l) => !lastAutoLines.includes(l)), ...lines]);
       setLastAutoLines(lines);
+      setAutoLineOwnership(ownership);
       setUndoStack((prev) => [...prev, ...lines.map(() => ({ kind: 'line' }))]);
       setDraftReason((r) => r || 'Copertura automatica su vie reali (base editabile).');
-      // §9: KPI immediati sulla bozza (nessun impatto sul FINALE finche' non si salva).
+      // §8/§9: KPI immediati sulla bozza (nessun impatto sul FINALE finche' non si salva).
       setAutoKpi({
         requestedPct: pct,
-        ways: sel.selectedWays.length,
+        ways: selectedWays.length,
         selectedKm: sel.selectedLengthM / 1000,
         totalKm: net.totalLengthM / 1000,
         coveragePct: sel.coverageMetricPercent,
         originLabel: autoOriginMode === 'store' && storeOriginPoint ? 'Punto vendita' : autoOriginMode === 'map' && autoMapPoint ? 'Punto sulla mappa' : 'Centro comune',
+        scope: isCampaignScope ? 'campaign' : 'single',
+        zonesLoaded: multiInfo ? multiInfo.loadedZoneCount : 1,
+        zonesFailed: multiInfo ? multiInfo.failedZoneCount : 0,
       });
       setAutoBaseState({ loading: false, error: null, loaded: lines.length });
     } catch (err) {
@@ -544,6 +645,8 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setAutoBaseState({ loading: false, error: null, loaded: 0 });
     setAutoKpi(null);
     setLastAutoLines([]);
+    setAutoLineOwnership(new Map());
+    setAutoMulti(null);
     setEraseCursor(null);
     setFormError(null);
   };
@@ -556,6 +659,8 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setUndoStack([]);
     setAutoKpi(null);
     setLastAutoLines([]);
+    setAutoLineOwnership(new Map());
+    setAutoMulti(null);
     setFormError(null);
   };
 
@@ -647,8 +752,12 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
       // Non disponibile per gps_exclusion (che e' sempre un'area).
       if (!isGpsLevel) {
         for (const line of draftLines) {
+          // §7/§10: zone_id per via — dall'assegnazione multi-zona quando
+          // presente (scope campagna), altrimenti la zona selezionata come
+          // sempre. campaign_id / source / geometry restano invariati.
+          const lineZoneId = autoLineOwnership.get(line) ?? zones[0]?.id ?? null;
           await createCoverageAdjustment({
-            campaignId, zoneId: zones[0]?.id ?? null, adjustmentType: 'manual_covered',
+            campaignId, zoneId: lineZoneId, adjustmentType: 'manual_covered',
             geometryGeoJson: latLngsToLineStringGeoJson(line),
             reason: draftReason.trim(), notes: draftNotes.trim() || null, metadata, source,
             lineBufferM,
@@ -739,7 +848,32 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
           )}
           {autoOriginError && <p style={{ margin: '4px 0 0', fontSize: 12, color: '#fca5a5' }}>{autoOriginError}</p>}
 
-          {/* 3 — Carica */}
+          {/* 3 — Ambito (§4) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+            <span style={autoCtlLabelStyle}>Ambito</span>
+            <button type="button" onClick={() => setAutoScope('single')} style={autoChipStyle(autoScope === 'single')}>Comune selezionato</button>
+            <button
+              type="button"
+              disabled={!canMultiZone}
+              title={canMultiZone ? '' : 'La campagna ha una sola zona con confine reale'}
+              onClick={() => setAutoScope('campaign')}
+              style={autoChipStyle(isCampaignScope, !canMultiZone)}
+            >
+              Tutte le zone della campagna{canMultiZone ? ` (${multiZonesEligible.length})` : ''}
+            </button>
+          </div>
+          {isCampaignScope && multiZonesEligible.length > AUTO_MULTIZONE_WARN_OVER && (
+            <p style={{ margin: '4px 0 0', fontSize: 11, color: '#fbbf24' }}>
+              Campagna con molte zone: il caricamento della rete può richiedere più tempo.
+            </p>
+          )}
+          {autoMulti && autoMulti.failedZoneCount > 0 && (
+            <p style={{ margin: '4px 0 0', fontSize: 11, color: '#fca5a5' }}>
+              Zone non caricate ({autoMulti.failedZoneCount}): {autoMulti.failedZoneNames.join(', ') || '—'}. La copertura mostrata NON è completa.
+            </p>
+          )}
+
+          {/* 4 — Carica */}
           <button type="button" onClick={loadAutomaticBase} disabled={autoBaseState.loading} style={{ ...primaryButtonStyle, background: '#0f766e', marginTop: 10 }}>
             {autoBaseState.loading ? 'Carico vie…' : (lastAutoLines.length ? 'Rigenera copertura automatica' : 'Carica copertura automatica')}
           </button>
@@ -790,10 +924,14 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
         <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
           {[
             ['Copertura richiesta', `${autoKpi.requestedPct}%`],
+            ...(autoKpi.scope === 'campaign' ? [
+              ['Zone caricate', String(autoKpi.zonesLoaded)],
+              ['Zone fallite', String(autoKpi.zonesFailed)],
+            ] : []),
             ['Vie selezionate', autoKpi.ways.toLocaleString('it-IT')],
             ['Lunghezza selezionata', `${autoKpi.selectedKm.toLocaleString('it-IT', { maximumFractionDigits: 2 })} km`],
-            ['Rete idonea totale', `${autoKpi.totalKm.toLocaleString('it-IT', { maximumFractionDigits: 2 })} km`],
-            ['Copertura effettiva bozza', `${autoKpi.coveragePct.toLocaleString('it-IT', { maximumFractionDigits: 1 })}%`],
+            ['Rete totale', `${autoKpi.totalKm.toLocaleString('it-IT', { maximumFractionDigits: 2 })} km`],
+            ['Copertura effettiva', `${autoKpi.coveragePct.toLocaleString('it-IT', { maximumFractionDigits: 1 })}%`],
             ['Origine', autoKpi.originLabel],
           ].map(([l, v]) => (
             <div key={l} style={{ padding: 8, borderRadius: 8, background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)' }}>

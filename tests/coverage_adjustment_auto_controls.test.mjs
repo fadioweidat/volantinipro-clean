@@ -28,7 +28,8 @@ test('§3 — selettore origine con 3 modalità + validazione confine + fallback
   assert.match(SRC, />Scegli sulla mappa</);
   assert.match(SRC, /function OriginClickCapture/);
   assert.match(SRC, /geoJsonContainsPoint\(boundaryGeometry, lat, lng\)/, 'il click origine deve validare contro il confine');
-  assert.match(SRC, /autoOrigin \|\| autoCenterPoint \|\| getMunicipalityCenterPoint\(boundaryGeometry\)/, 'fallback dichiarato a centro comune');
+  assert.match(SRC, /const fallbackCenter = autoCenterPoint[\s\S]{0,220}getMunicipalityCenterPoint\(boundaryGeometry\)/, 'fallback dichiarato a centro comune');
+  assert.match(SRC, /const origin = autoOrigin \|\| fallbackCenter;/);
   assert.match(SRC, /storePoint && Number\.isFinite/, 'punto vendita usato SOLO se coordinata reale');
   assert.match(SRC, /Punto di partenza automatico/, 'marker origine etichettato');
 });
@@ -57,7 +58,7 @@ test('§9 — KPI bozza automatica (richiesta %, vie, lunghezza, rete totale) se
   assert.match(SRC, /const \[autoKpi, setAutoKpi\] = useState\(null\)/);
   assert.match(SRC, /setAutoKpi\(\{[\s\S]*requestedPct:[\s\S]*ways:[\s\S]*selectedKm:[\s\S]*totalKm:[\s\S]*coveragePct:/);
   assert.match(SRC, /Copertura richiesta/);
-  assert.match(SRC, /Rete idonea totale/);
+  assert.match(SRC, /'Rete totale'/);
   // nessuna scrittura verso il motore/DB nel ramo di caricamento
   assert.doesNotMatch(SRC.slice(SRC.indexOf('const loadAutomaticBase'), SRC.indexOf('const handleCloseShape')), /calculate_campaign_final_coverage|\.update\(|\.rpc\(/);
 });
