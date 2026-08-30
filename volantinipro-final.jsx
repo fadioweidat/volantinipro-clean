@@ -22,6 +22,7 @@ import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
 import { customerValue, CUSTOMER_DATA_UNAVAILABLE, CUSTOMER_PAYMENT_STATE, getCustomerPaymentState } from "./src/lib/customerCampaigns.js";
 import { getBankTransferDetails, BANK_TRANSFER_UNAVAILABLE_MESSAGE } from "./src/lib/bankTransfer.js";
+import { IS_MANUAL_CONTACT, buildCampaignContactWhatsAppUrl, buildCampaignContactMailtoUrl } from "./src/lib/paymentMode.js";
 import { getAuthRedirectBase } from "./src/lib/publicAppUrl.js";
 import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "./src/lib/monitoring/errorLog.js";
 
@@ -6608,6 +6609,145 @@ export function PagamentoBonificoPage({
           color: "rgba(255,255,255,.55)",
           lineHeight: 1.6
         }}>Le istruzioni di bonifico richiedono una campagna reale salvata nel database.</div>
+        </div>
+      </div>;
+  }
+  // PAYMENT_MODE "manual_contact": nessun pagamento online, nessuna coordinata
+  // bancaria. Il cliente vede la ricevuta + i CTA di contatto. Lo stato di
+  // pagamento reale della campagna NON viene toccato. Il blocco bonifico sotto
+  // resta nel codice per un futuro ripristino (VITE_PAYMENT_MODE != manual_contact).
+  if (IS_MANUAL_CONTACT) {
+    const contactId = campagna.id || routeCampaignId || null;
+    const waUrl = buildCampaignContactWhatsAppUrl(contactId);
+    const mailUrl = buildCampaignContactMailtoUrl(contactId);
+    const primaryBtn = {
+      minHeight: 48,
+      padding: "0 20px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 12,
+      border: "none",
+      background: "#25D366",
+      color: "#0B1020",
+      fontFamily: F.sans,
+      fontSize: 15,
+      fontWeight: 900,
+      textDecoration: "none",
+      cursor: "pointer",
+      boxShadow: "0 8px 22px rgba(37,211,102,.28)"
+    };
+    const secondaryBtn = {
+      minHeight: 44,
+      padding: "0 16px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 11,
+      border: `1px solid ${C.orange}55`,
+      background: `${C.orange}12`,
+      color: C.orange,
+      fontFamily: F.sans,
+      fontSize: 14,
+      fontWeight: 800,
+      textDecoration: "none",
+      cursor: "pointer"
+    };
+    const tertiaryBtn = {
+      minHeight: 44,
+      padding: "0 16px",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 11,
+      border: "1px solid rgba(255,255,255,.14)",
+      background: "transparent",
+      color: "rgba(255,255,255,.72)",
+      fontFamily: F.sans,
+      fontSize: 14,
+      fontWeight: 700,
+      cursor: "pointer"
+    };
+    return <div style={{
+      minHeight: "100vh",
+      background: C.navyMid,
+      padding: "105px 24px 80px"
+    }}>
+        <div style={{
+        maxWidth: 640,
+        margin: "0 auto",
+        background: "rgba(255,255,255,.045)",
+        border: "1px solid rgba(255,255,255,.09)",
+        borderRadius: 16,
+        padding: 28
+      }}>
+          <div style={{
+          width: 46,
+          height: 46,
+          borderRadius: "50%",
+          background: "rgba(46,204,138,.14)",
+          border: "1px solid rgba(46,204,138,.34)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: C.green,
+          fontSize: 24,
+          fontWeight: 900,
+          marginBottom: 16
+        }}>✓</div>
+          <div style={{
+          fontFamily: F.serif,
+          fontSize: 34,
+          color: C.white,
+          marginBottom: 10
+        }}>Campagna confermata!</div>
+          <div style={{
+          fontFamily: F.sans,
+          fontSize: 16,
+          color: C.white,
+          fontWeight: 700,
+          lineHeight: 1.6,
+          marginBottom: 6
+        }}>Abbiamo ricevuto correttamente la tua richiesta.</div>
+          <div style={{
+          fontFamily: F.sans,
+          fontSize: 14,
+          color: "rgba(255,255,255,.6)",
+          lineHeight: 1.6,
+          marginBottom: 18
+        }}>Ti contatteremo al più presto per completare la conferma della campagna e fornirti le istruzioni di pagamento.</div>
+          {contactId && <div style={{
+          display: "inline-block",
+          padding: "7px 12px",
+          borderRadius: 9,
+          background: "rgba(255,255,255,.05)",
+          border: "1px solid rgba(255,255,255,.1)",
+          fontFamily: F.sans,
+          fontSize: 12,
+          fontWeight: 800,
+          color: "rgba(255,255,255,.75)",
+          marginBottom: 22
+        }}>ID campagna: {contactId}</div>}
+          <div style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          alignItems: "stretch"
+        }}>
+            {waUrl && <a href={waUrl} target="_blank" rel="noreferrer" style={primaryBtn}>Contattaci su WhatsApp</a>}
+            <a href={mailUrl} style={secondaryBtn}>Contattaci via Email</a>
+            <button onClick={() => onNav("campaign", {
+            campaignId: campagna.id
+          })} style={tertiaryBtn}>Vai alla Dashboard</button>
+          </div>
+          {!waUrl && <p style={{
+          fontFamily: F.sans,
+          fontSize: 12,
+          color: "rgba(255,255,255,.4)",
+          lineHeight: 1.5,
+          marginTop: 14,
+          marginBottom: 0
+        }}>Scrivici via email: ti risponderemo al più presto.</p>}
         </div>
       </div>;
   }
