@@ -21,6 +21,7 @@ import { getMunicipalityCenterPoint, selectRoadsFromOrigin } from '../../lib/geo
 import { mergeRoadNetworks, assignWayZoneId } from '../../lib/geo/mergeRoadNetworks.js';
 import { splitPolylineByCircle, polylineLengthMeters } from '../../lib/geo/splitPolylineByCircle.js';
 import { getOperatorColor, UNASSIGNED_OPERATOR_COLOR } from '../../lib/geo/operatorColor.js';
+import { geometryToLeafletLines, isPolygonGeometry, geometryFirstLatLng } from '../../lib/geo/adjustmentGeometry.js';
 
 // Modello obbligatorio: traccia GPS reale + correzioni manuali Admin + zone
 // non accessibili = copertura operativa finale. Questo componente non scrive
@@ -1284,28 +1285,20 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
             />
           )}
 
-          {activeAdjustments.map((adj) => (
-            <Polygon
-              key={adj.id}
-              positions={polygonGeoJsonToLatLngs(adj.geometry)}
-              pathOptions={{
-                // P1: il BORDO distingue l'operatore Admin, il RIEMPIMENTO
-                // resta legato al tipo di correzione (coperta/non
-                // accessibile) — nessuna delle due informazioni si perde.
-                color: manualOperatorColor(adj.metadata?.operator_key),
-                fillColor: TYPE_COLORS[adj.adjustment_type] || '#a855f7',
-                fillOpacity: adj.adjustment_type === 'inaccessible' ? 0.08 : 0.22,
-                weight: 3,
-                dashArray: adj.adjustment_type === 'inaccessible' ? '8 6' : undefined,
-              }}
-              eventHandlers={{ click: () => {
-                if (!correcting) { startEditing(adj); return; }
-                if (tool === 'select') startEditing(adj);
-                else if (tool === 'erase') handleRevoke(adj);
-              } }}
-            >
+          {activeAdjustments.flatMap((adj) => {
+            const isExclusion = adj.adjustment_type === 'exclusion';
+            const isInaccessible = adj.adjustment_type === 'inaccessible';
+            // §2: exclusion = rosso distinto; manual/automatic = colore
+            // dell'operatore reale.
+            const strokeColor = isExclusion ? '#dc2626' : manualOperatorColor(adj.metadata?.operator_key);
+            const handlers = { click: () => {
+              if (!correcting) { startEditing(adj); return; }
+              if (tool === 'select') startEditing(adj);
+              else if (tool === 'erase') handleRevoke(adj);
+            } };
+            const popup = (
               <Popup>
-                <strong>{TYPE_LABELS[adj.adjustment_type]}</strong>{adj.metadata?.operator_key ? ` — ${adj.metadata.operator_key}` : ''}<br />
+                <strong>{TYPE_LABELS[adj.adjustment_type]}</strong>{adj.metadata?.operator_key ? ` — ${operatorLabelForKey(adj.metadata.operator_key)}` : ''}<br />
                 {adj.reason}<br />
                 {adj.updated_at ? new Date(adj.updated_at).toLocaleString('it-IT') : ''}
                 <div style={{ marginTop: 6 }}>
@@ -1313,13 +1306,46 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
                   <button type="button" onClick={() => handleRevoke(adj)}>Revoca</button>
                 </div>
               </Popup>
-            </Polygon>
-          ))}
+            );
+            const rings = geometryToLeafletLines(adj.geometry);
+            if (isPolygonGeometry(adj.geometry)) {
+              return rings.map((ring, ri) => (
+                <Polygon
+                  key={`${adj.id}-p${ri}`}
+                  positions={ring}
+                  pathOptions={{
+                    color: strokeColor,
+                    fillColor: TYPE_COLORS[adj.adjustment_type] || '#a855f7',
+                    fillOpacity: isInaccessible ? 0.08 : 0.22,
+                    weight: 3,
+                    dashArray: (isInaccessible || isExclusion) ? '8 6' : undefined,
+                  }}
+                  eventHandlers={handlers}
+                >{ri === 0 ? popup : null}</Polygon>
+              ));
+            }
+            // §1: LineString / MultiLineString salvate -> Polyline (linea
+            // continua, mai poligono degenere). Nessun vertex marker.
+            return rings.map((line, li) => (
+              <Polyline
+                key={`${adj.id}-l${li}`}
+                positions={line}
+                pathOptions={{
+                  color: strokeColor,
+                  weight: 4,
+                  opacity: 0.95,
+                  lineCap: 'round',
+                  dashArray: isExclusion ? '6 5' : undefined,
+                }}
+                eventHandlers={handlers}
+              >{li === 0 ? popup : null}</Polyline>
+            ));
+          })}
           {/* Un solo marker START per operatore (Fase 6: no marker per ogni
               area), sulla prima correzione attiva trovata per quell'operatore. */}
           {presentOperatorKeys.map((key) => {
             const firstAdj = activeAdjustments.find((a) => a.metadata?.operator_key === key);
-            const pos = firstAdj ? polygonGeoJsonToLatLngs(firstAdj.geometry)[0] : null;
+            const pos = firstAdj ? geometryFirstLatLng(firstAdj.geometry) : null;
             return pos ? (
               <Marker key={`man-start-${key}`} position={pos} icon={manualOperatorDivIcon(operatorShortForKey(key), manualOperatorColor(key))} />
             ) : null;
