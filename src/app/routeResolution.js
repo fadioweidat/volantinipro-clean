@@ -30,6 +30,7 @@ export function resolveAppRoute(path, { hasAuthHash = false, prefillHas = false,
   const legacyCampaign = p.match(/^\/campagna\/([^/]+)$/);
   if (legacyCampaign) return `campaign:${legacyCampaign[1]}`;
   if (p.startsWith('/customer/') || p.startsWith('/dashboard/') || p.startsWith('/campagna/')) return 'not-found';
+  if (p === '/supplier' || p === '/supplier/dashboard') return 'supplier-dashboard';
   if (p === '/' || p === '/index.html' || p === '/volantinipro-final.jsx') return 'home';
   if (p === '/login') return 'login';
   if (p === '/dashboard') return 'dashboard';

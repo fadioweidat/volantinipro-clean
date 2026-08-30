@@ -8,6 +8,7 @@ import { RouteLoadingFallback } from "../layouts/public/RouteLoadingFallback.jsx
 import { F, C } from "../lib/constants.js";
 import { CustomerGuard } from "../auth/guards/CustomerGuard.jsx";
 import { AdminGuard } from "../auth/guards/AdminGuard.jsx";
+import { SupplierGuard } from "../auth/guards/SupplierGuard.jsx";
 import { getStoredSupabaseSession, hasSupabaseAuthHashError, hasSupabaseAuthHashToken, isStoredSupabaseSessionValid, readPendingAuthContext } from "../auth/session.js";
 import { resolveAppRoute } from "./routeResolution.js";
 import { clearConfiguratorDraft, configuratorHistoryState, readConfiguratorDraft, readConfiguratorHistoryState, writeConfiguratorDraft } from "../lib/configuratorState.js";
@@ -45,6 +46,8 @@ const CampaignAssignments = lazy(() => import("../pages/admin/CampaignAssignment
 
 const CampaignTracking = lazy(() => import("../pages/customer/CampaignTracking.jsx").then(m => ({ default: m.CampaignTracking })));
 const ClientCampaignReport = lazy(() => import("../pages/customer/ClientCampaignReport.jsx").then(m => ({ default: m.ClientCampaignReport })));
+
+const SupplierDashboard = lazy(() => import("../pages/supplier/SupplierDashboard.jsx").then(m => ({ default: m.SupplierDashboard })));
 
 // Stato iniziale di una campagna nuova (nessun dato di sessione precedente).
 // Usata sia per il primo mount sia per il reset esplicito "nuova campagna":
@@ -219,7 +222,8 @@ export function AppRouter() {
       privacy: "/privacy", terms: "/termini", cookie: "/cookie-policy", quick: "/preventivo-rapido", preventivo: "/preventivo",
       consultant: "/consulente", step1: "/configuratore", step2: "/configuratore", step3: "/configuratore",
       step4: "/configuratore", admin: "/admin", "admin-live": "/admin/live", "admin-operations": "/admin/operations", "admin-daily-report": "/admin/operations/report", "admin-clients-quotes": "/admin/clients-quotes", "admin-orders": "/admin/orders",
-      "admin-groups-manager": "/admin/groups", "admin-commercial": "/admin/commercial", "admin-smart-pairing": "/admin/smart-pairing", "admin-status": "/admin/status"
+      "admin-groups-manager": "/admin/groups", "admin-commercial": "/admin/commercial", "admin-smart-pairing": "/admin/smart-pairing", "admin-status": "/admin/status",
+      "supplier-dashboard": "/supplier"
     };
     if (typeof window !== "undefined") {
       const params = new URLSearchParams();
@@ -287,7 +291,9 @@ export function AppRouter() {
           ? "admin"
           : pendingAuthContext === "driver"
             ? "driver"
-            : "customer";
+            : queryContext === "supplier" || pendingAuthContext === "supplier"
+              ? "supplier"
+              : "customer";
 
   return (
     <div style={{ fontFamily: F.sans, minHeight: "100vh", background: C.navyMid }}>
@@ -369,6 +375,15 @@ export function AppRouter() {
               {page.startsWith("admin-assignments:") && <CampaignAssignments campaignId={page.split(":")[1]} />}
             </Suspense>}
           </AdminGuard>
+        )}
+
+        {/* SUPPLIER ROUTES */}
+        {page === "supplier-dashboard" && (
+          <SupplierGuard onNav={goTo}>
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <SupplierDashboard onNav={goTo} />
+            </Suspense>
+          </SupplierGuard>
         )}
 
       </div>
