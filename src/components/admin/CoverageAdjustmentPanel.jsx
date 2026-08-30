@@ -1,6 +1,6 @@
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { CircleMarker, MapContainer, Marker, Polygon, Polyline, Popup, TileLayer, useMapEvents } from 'react-leaflet';
+import { Circle, CircleMarker, MapContainer, Marker, Polygon, Polyline, Popup, TileLayer, useMapEvents } from 'react-leaflet';
 import { useEffect, useMemo, useState } from 'react';
 import {
   COVERAGE_ADJUSTMENT_TYPES,
@@ -109,6 +109,33 @@ function DrawClickCapture({ active, onAddPoint }) {
   return null;
 }
 
+// §6: la GOMMA mostra un cerchio (raggio reale in metri) che segue il mouse
+// sulla mappa e sparisce all'uscita. Nessun click qui — solo tracking del
+// puntatore per l'overlay non interattivo.
+function EraseCursorCapture({ active, onMove, onLeave }) {
+  useMapEvents({
+    mousemove(event) { if (active) onMove([event.latlng.lat, event.latlng.lng]); },
+    mouseout() { onLeave(); },
+  });
+  return null;
+}
+
+// §3: click mappa per il "punto di partenza" dell'automatico (livello
+// automatic_verified). Attivo solo in modalita' origine = 'map'.
+function OriginClickCapture({ active, onPick }) {
+  useMapEvents({
+    click(event) { if (active) onPick(event.latlng.lat, event.latlng.lng); },
+  });
+  return null;
+}
+
+// §2: preset percentuale copertura automatica.
+const AUTO_PCT_PRESETS = [50, 60, 70, 80, 90, 100];
+// §7: raggio gomma selezionabile (m). Il valore reale usato da eraseNearest
+// e il raggio del cerchio §6 sono lo STESSO numero.
+const ERASE_RADIUS_PRESETS_M = [5, 10, 20, 30, 50];
+const DEFAULT_ERASE_RADIUS_M = 25;
+
 // Distanza minima (m, approx planare) da una polilinea [[lat,lng],...] a un
 // punto — per la GOMMA "clicca il tratto da rimuovere".
 function pointToPolylineMeters(latlng, line) {
@@ -132,7 +159,7 @@ function pointToPolylineMeters(latlng, line) {
   return best;
 }
 
-export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], boundaryGeometry = null, gpsOperatorCount = 0, defaultSourceLevel = 'manual_verified', automaticPercent = null, municipalityName = null }) {
+export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], boundaryGeometry = null, gpsOperatorCount = 0, defaultSourceLevel = 'manual_verified', automaticPercent = null, municipalityName = null, storePoint = null }) {
   const [adjustments, setAdjustments] = useState([]);
   const [coverage, setCoverage] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -188,6 +215,29 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   // Stack undo delle modifiche NON salvate (aree/linee chiuse).
   const [undoStack, setUndoStack] = useState([]);
 
+  // §2 — percentuale AUTOMATICO ADMIN: % della lunghezza delle VIE IDONEE da
+  // selezionare (NON e' final_operational_coverage_pct: quello resta calcolato
+  // solo dal motore server, commit-based). Default = automatic_percent
+  // esistente se disponibile, altrimenti 70.
+  const [autoPct, setAutoPct] = useState(() => {
+    const n = Number(automaticPercent);
+    return Number.isFinite(n) && n > 0 ? Math.min(100, Math.max(1, Math.round(n))) : 70;
+  });
+  // §3 — punto di partenza dell'automatico: 'store' (punto vendita, solo se una
+  // coordinata reale e' disponibile), 'center' (centro comune), 'map' (click).
+  const [autoOriginMode, setAutoOriginMode] = useState(storePoint ? 'store' : 'center');
+  const [autoMapPoint, setAutoMapPoint] = useState(null);
+  const [autoOriginError, setAutoOriginError] = useState(null);
+  // §7 — raggio gomma (m). Sostituisce l'hardcoded ERASE_RADIUS_M = 35.
+  const [eraseRadiusM, setEraseRadiusM] = useState(DEFAULT_ERASE_RADIUS_M);
+  // §6 — posizione corrente del puntatore per il cerchio gomma.
+  const [eraseCursor, setEraseCursor] = useState(null);
+  // §9 — KPI dell'ultimo "Carica copertura automatica".
+  const [autoKpi, setAutoKpi] = useState(null);
+  // §10 — vie dell'ultimo caricamento automatico non ancora salvato, per
+  // sostituirle (mai duplicarle) ad un nuovo caricamento.
+  const [lastAutoLines, setLastAutoLines] = useState([]);
+
   // gps_exclusion = solo aree, tipo forzato 'exclusion' (la gomma sul GPS).
   const isGpsLevel = sourceLevel === 'gps_exclusion';
   useEffect(() => {
@@ -213,6 +263,32 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   // visibile come layer di sola lettura ma non controlla piu' il centro.
   const zoneCenter = zones[0]?.center_lat ? [zones[0].center_lat, zones[0].center_lng] : null;
   const center = zoneCenter || last || first || [45.4642, 9.19];
+
+  // §3 — origine effettiva per selectRoadsFromOrigin. 'store' vale solo se una
+  // coordinata reale del punto vendita e' stata passata (mai inventata).
+  // Fallback dichiarato: punto vendita assente -> centro comune.
+  const autoCenterPoint = useMemo(
+    () => (boundaryGeometry ? getMunicipalityCenterPoint(boundaryGeometry) : null),
+    [boundaryGeometry],
+  );
+  const storeOriginPoint = storePoint && Number.isFinite(Number(storePoint.lat)) && Number.isFinite(Number(storePoint.lng))
+    ? { lat: Number(storePoint.lat), lng: Number(storePoint.lng) }
+    : null;
+  const autoOrigin = autoOriginMode === 'store'
+    ? (storeOriginPoint || autoCenterPoint)
+    : autoOriginMode === 'map'
+      ? (autoMapPoint || null)
+      : autoCenterPoint;
+
+  function handleAutoOriginPick(lat, lng) {
+    if (boundaryGeometry && !geoJsonContainsPoint(boundaryGeometry, lat, lng)) {
+      setAutoMapPoint(null);
+      setAutoOriginError('Punto di partenza fuori dalla zona selezionata.');
+      return;
+    }
+    setAutoOriginError(null);
+    setAutoMapPoint({ lat, lng });
+  }
 
   const load = async () => {
     setLoading(true);
@@ -263,6 +339,11 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setUndoStack([]);
     setTool('draw');
     setAutoBaseState({ loading: false, error: null, loaded: 0 });
+    setAutoKpi(null);
+    setLastAutoLines([]);
+    setEraseCursor(null);
+    setAutoMapPoint(null);
+    setAutoOriginError(null);
     setDraftType(isGpsLevel ? 'exclusion' : 'manual_covered');
     setDraftReason('');
     setDraftNotes('');
@@ -280,7 +361,9 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   // GOMMA: rimuove SOLO la forma piu' vicina al click (tratto/area draft),
   // oppure revoca la correzione salvata piu' vicina. Mai "cancella tutto".
   const eraseNearest = (pt) => {
-    const ERASE_RADIUS_M = 35;
+    // §7: raggio operativo = quello scelto nella UI (default 25 m), non piu'
+    // un valore hardcoded. È lo STESSO numero del cerchio §6.
+    const ERASE_RADIUS_M = eraseRadiusM;
     // 1) draft lines
     let bestI = -1; let bestD = ERASE_RADIUS_M;
     draftLines.forEach((line, i) => { const d = pointToPolylineMeters(pt, line); if (d < bestD) { bestD = d; bestI = i; } });
@@ -326,16 +409,29 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
       setAutoBaseState({ loading: false, error: 'Confine/comune non disponibile per questa zona.', loaded: 0 });
       return;
     }
+    // §3: origine effettiva, con fallback dichiarato a centro comune.
+    const origin = autoOrigin || autoCenterPoint || getMunicipalityCenterPoint(boundaryGeometry);
+    if (!origin) {
+      setAutoBaseState({ loading: false, error: 'Punto di partenza non disponibile: scegli "Centro comune" o clicca sulla mappa.', loaded: 0 });
+      return;
+    }
+    // §10: se una bozza automatica precedente non salvata esiste, chiedere e
+    // SOSTITUIRLA (mai duplicare). Le correzioni gia' salvate non si toccano.
+    if (lastAutoLines.length > 0 && typeof window !== 'undefined' && window.confirm
+      && !window.confirm('Rigenerare la bozza automatica? Le vie automatiche non ancora salvate verranno sostituite. Le correzioni gia’ salvate non vengono toccate.')) {
+      return;
+    }
     setAutoBaseState({ loading: true, error: null, loaded: 0 });
+    setAutoOriginError(null);
     try {
       const net = await resolveRoadNetwork(municipalityName, boundaryGeometry);
       if (!net?.ways?.length) {
         setAutoBaseState({ loading: false, error: 'Rete stradale non disponibile per questa zona.', loaded: 0 });
         return;
       }
-      const origin = getMunicipalityCenterPoint(boundaryGeometry);
       const gpsPath = filterValidGpsPoints(points).valid.map((p) => [Number(p.lat), Number(p.lng)]);
-      const pct = Number.isFinite(Number(automaticPercent)) && Number(automaticPercent) > 0 ? Number(automaticPercent) : 100;
+      // §2: la percentuale scelta nella UI (1–100), non la prop legacy.
+      const pct = Math.min(100, Math.max(1, Math.round(Number(autoPct) || 70)));
       const sel = selectRoadsFromOrigin(net, origin, pct, gpsPath);
       const lines = (sel.selectedWays || []).map((w) => w.geometry).filter((g) => Array.isArray(g) && g.length >= 2);
       if (!lines.length) {
@@ -344,9 +440,22 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
       }
       setSourceLevel('automatic_verified');
       setDrawMode('line');
-      setDraftLines((prev) => [...prev, ...lines]);
+      // §10: rimuovi le vie del caricamento automatico precedente (per
+      // reference), poi aggiungi il nuovo set. Le linee disegnate a mano e le
+      // correzioni salvate restano intatte.
+      setDraftLines((prev) => [...prev.filter((l) => !lastAutoLines.includes(l)), ...lines]);
+      setLastAutoLines(lines);
       setUndoStack((prev) => [...prev, ...lines.map(() => ({ kind: 'line' }))]);
       setDraftReason((r) => r || 'Copertura automatica su vie reali (base editabile).');
+      // §9: KPI immediati sulla bozza (nessun impatto sul FINALE finche' non si salva).
+      setAutoKpi({
+        requestedPct: pct,
+        ways: sel.selectedWays.length,
+        selectedKm: sel.selectedLengthM / 1000,
+        totalKm: net.totalLengthM / 1000,
+        coveragePct: sel.coverageMetricPercent,
+        originLabel: autoOriginMode === 'store' && storeOriginPoint ? 'Punto vendita' : autoOriginMode === 'map' && autoMapPoint ? 'Punto sulla mappa' : 'Centro comune',
+      });
       setAutoBaseState({ loading: false, error: null, loaded: lines.length });
     } catch (err) {
       setAutoBaseState({ loading: false, error: err?.message || 'Caricamento automatico non riuscito.', loaded: 0 });
@@ -433,6 +542,9 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setUndoStack([]);
     setTool('draw');
     setAutoBaseState({ loading: false, error: null, loaded: 0 });
+    setAutoKpi(null);
+    setLastAutoLines([]);
+    setEraseCursor(null);
     setFormError(null);
   };
 
@@ -442,6 +554,8 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setDraftLines([]);
     setActiveLine([]);
     setUndoStack([]);
+    setAutoKpi(null);
+    setLastAutoLines([]);
     setFormError(null);
   };
 
@@ -587,6 +701,51 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
         )}
       </div>
 
+      {/* §11 — AUTOMATICO ADMIN: controlli in ordine (1 Percentuale, 2 Punto
+          di partenza, 3 [Carica]) PRIMA della toolbar di editing. Visibile
+          solo sul livello automatic_verified in creazione (non in modifica di
+          una riga esistente). */}
+      {correcting && !editingId && sourceLevel === 'automatic_verified' && (
+        <div style={{ marginTop: 10, padding: 10, borderRadius: 10, background: 'rgba(15,118,110,.10)', border: '1px solid rgba(15,118,110,.35)' }}>
+          <div style={{ fontSize: 10, fontWeight: 900, color: '#5eead4', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Generazione automatica</div>
+
+          {/* 1 — Percentuale */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={autoCtlLabelStyle}>Copertura automatica</span>
+            {AUTO_PCT_PRESETS.map((p) => (
+              <button key={p} type="button" onClick={() => setAutoPct(p)} style={autoChipStyle(autoPct === p)}>{p}%</button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
+            <input type="range" min={1} max={100} step={1} value={autoPct} onChange={(e) => setAutoPct(Math.min(100, Math.max(1, Number(e.target.value) || 1)))} style={{ flex: '1 1 160px' }} />
+            <input type="number" min={1} max={100} value={autoPct} onChange={(e) => setAutoPct(Math.min(100, Math.max(1, Number(e.target.value) || 1)))} style={{ ...inputStyle, width: 64 }} />
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,.5)' }}>% della lunghezza delle vie idonee (non è la copertura finale)</span>
+          </div>
+
+          {/* 2 — Punto di partenza */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+            <span style={autoCtlLabelStyle}>Punto di partenza</span>
+            <button type="button" disabled={!storeOriginPoint} title={storeOriginPoint ? '' : 'Nessuna coordinata reale del punto vendita per questa campagna'} onClick={() => setAutoOriginMode('store')} style={autoChipStyle(autoOriginMode === 'store', !storeOriginPoint)}>Punto vendita</button>
+            <button type="button" onClick={() => setAutoOriginMode('center')} style={autoChipStyle(autoOriginMode === 'center')}>Centro comune</button>
+            <button type="button" onClick={() => setAutoOriginMode('map')} style={autoChipStyle(autoOriginMode === 'map')}>Scegli sulla mappa</button>
+          </div>
+          {autoOriginMode === 'map' && (
+            <p style={{ margin: '4px 0 0', fontSize: 11, color: 'rgba(255,255,255,.55)' }}>
+              Clicca sulla mappa per fissare il punto di partenza automatico{autoMapPoint ? ' ✓ impostato' : ''}.
+            </p>
+          )}
+          {autoOriginMode === 'store' && !storeOriginPoint && (
+            <p style={{ margin: '4px 0 0', fontSize: 11, color: '#fbbf24' }}>Punto vendita non disponibile — verrà usato il centro comune.</p>
+          )}
+          {autoOriginError && <p style={{ margin: '4px 0 0', fontSize: 12, color: '#fca5a5' }}>{autoOriginError}</p>}
+
+          {/* 3 — Carica */}
+          <button type="button" onClick={loadAutomaticBase} disabled={autoBaseState.loading} style={{ ...primaryButtonStyle, background: '#0f766e', marginTop: 10 }}>
+            {autoBaseState.loading ? 'Carico vie…' : (lastAutoLines.length ? 'Rigenera copertura automatica' : 'Carica copertura automatica')}
+          </button>
+        </div>
+      )}
+
       {correcting && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 10, padding: 8, borderRadius: 10, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)' }}>
           <span style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,.42)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Strumenti</span>
@@ -598,25 +757,50 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
           {tool === 'draw' && (
             <button type="button" onClick={handleCloseShape} style={toolButtonStyle(false)}>{drawMode === 'line' ? 'Chiudi tratto' : 'Chiudi area'}</button>
           )}
-          {!editingId && sourceLevel === 'automatic_verified' && (
-            <button type="button" onClick={loadAutomaticBase} disabled={autoBaseState.loading} style={{ ...toolButtonStyle(false), background: '#0f766e' }}>
-              {autoBaseState.loading ? 'Carico vie...' : 'Carica copertura automatica'}
-            </button>
-          )}
           {!editingId && (
             <button type="button" onClick={handleClearAll} style={toolButtonStyle(false)}>Svuota bozza</button>
           )}
         </div>
       )}
       {correcting && tool === 'erase' && (
-        <div style={{ marginTop: 6, fontSize: 12, fontWeight: 800, color: '#fca5a5' }}>
-          GOMMA attiva — clicca sul tratto/area da rimuovere (rimuove SOLO quello, mai tutto).
+        <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, fontWeight: 800, color: '#fca5a5' }}>
+            GOMMA attiva — clicca sul tratto/area da rimuovere (rimuove SOLO quello).
+          </span>
+          {/* §7 — dimensione gomma: il raggio mostrato §6 = il raggio usato da eraseNearest */}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'rgba(255,255,255,.7)' }}>
+            <span style={autoCtlLabelStyle}>Dimensione</span>
+            <button type="button" onClick={() => setEraseRadiusM((r) => Math.max(5, r - 5))} style={secondaryButtonStyle}>−</button>
+            <b style={{ minWidth: 44, textAlign: 'center' }}>{eraseRadiusM} m</b>
+            <button type="button" onClick={() => setEraseRadiusM((r) => Math.min(50, r + 5))} style={secondaryButtonStyle}>+</button>
+            {ERASE_RADIUS_PRESETS_M.map((m) => (
+              <button key={m} type="button" onClick={() => setEraseRadiusM(m)} style={autoChipStyle(eraseRadiusM === m)}>{m}</button>
+            ))}
+          </span>
         </div>
       )}
       {autoBaseState.error && <div style={errorStyle}>{autoBaseState.error}</div>}
       {autoBaseState.loaded > 0 && (
         <div style={{ marginTop: 6, fontSize: 12, color: '#86efac' }}>
           Copertura automatica caricata: {autoBaseState.loaded} vie reali come base editabile. Rimuovi le vie inutili con la GOMMA, poi Salva.
+        </div>
+      )}
+      {/* §9 — KPI bozza automatica (nessun impatto sul FINALE finché non si salva) */}
+      {autoKpi && sourceLevel === 'automatic_verified' && (
+        <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
+          {[
+            ['Copertura richiesta', `${autoKpi.requestedPct}%`],
+            ['Vie selezionate', autoKpi.ways.toLocaleString('it-IT')],
+            ['Lunghezza selezionata', `${autoKpi.selectedKm.toLocaleString('it-IT', { maximumFractionDigits: 2 })} km`],
+            ['Rete idonea totale', `${autoKpi.totalKm.toLocaleString('it-IT', { maximumFractionDigits: 2 })} km`],
+            ['Copertura effettiva bozza', `${autoKpi.coveragePct.toLocaleString('it-IT', { maximumFractionDigits: 1 })}%`],
+            ['Origine', autoKpi.originLabel],
+          ].map(([l, v]) => (
+            <div key={l} style={{ padding: 8, borderRadius: 8, background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)' }}>
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,.5)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{l}</span>
+              <div style={{ fontSize: 14, fontWeight: 800 }}>{v}</div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -742,10 +926,31 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
         </div>
       )}
 
+      {/* §6 — cursore crosshair quando la GOMMA è attiva (Leaflet imposta un
+          proprio cursore su .leaflet-container: serve un override mirato). */}
+      <style>{'.leaflet-container.vp-erase-cursor{cursor:crosshair}'}</style>
       <div style={{ height: 460, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)', marginTop: 12 }}>
-        <MapContainer center={center} zoom={15} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
+        <MapContainer center={center} zoom={15} scrollWheelZoom className={correcting && tool === 'erase' ? 'vp-erase-cursor' : undefined} style={{ height: '100%', width: '100%' }}>
           <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <DrawClickCapture active={correcting} onAddPoint={addDrawPoint} />
+          {/* §3 — click mappa per il punto di partenza automatico */}
+          <OriginClickCapture active={correcting && sourceLevel === 'automatic_verified' && autoOriginMode === 'map'} onPick={handleAutoOriginPick} />
+          {/* §6 — il cerchio gomma segue il mouse, sparisce all'uscita */}
+          <EraseCursorCapture active={correcting && tool === 'erase'} onMove={setEraseCursor} onLeave={() => setEraseCursor(null)} />
+          {correcting && tool === 'erase' && eraseCursor && (
+            <Circle
+              center={eraseCursor}
+              radius={eraseRadiusM}
+              interactive={false}
+              pathOptions={{ color: '#dc2626', weight: 2, fillColor: '#dc2626', fillOpacity: 0.18, dashArray: '4 3' }}
+            />
+          )}
+          {/* §3 — marker "Punto di partenza automatico" */}
+          {correcting && sourceLevel === 'automatic_verified' && autoOrigin && Number.isFinite(Number(autoOrigin.lat)) && (
+            <CircleMarker center={[autoOrigin.lat, autoOrigin.lng]} radius={7} pathOptions={{ color: '#111827', fillColor: '#fbbf24', fillOpacity: 1, weight: 2 }}>
+              <Popup>Punto di partenza automatico</Popup>
+            </CircleMarker>
+          )}
 
           {/* ANTEPRIMA "COPERTURA FINALE" = la STESSA geometria/stile che vede
               il Cliente ("Copertura verificata"). Nessuna distinzione per
@@ -986,6 +1191,15 @@ function toolButtonStyle(active) {
   };
 }
 const errorStyle = { padding: 10, borderRadius: 8, color: '#fecaca', background: 'rgba(239,68,68,.15)', border: '1px solid rgba(239,68,68,.3)', marginTop: 8, fontSize: 12 };
+const autoCtlLabelStyle = { fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,.5)', textTransform: 'uppercase', letterSpacing: '.06em' };
+function autoChipStyle(active, disabled = false) {
+  return {
+    border: active ? 'none' : '1px solid rgba(255,255,255,.16)',
+    borderRadius: 8, padding: '5px 9px', fontSize: 12, fontWeight: 800,
+    cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.4 : 1,
+    background: active ? '#0f766e' : 'rgba(255,255,255,.06)', color: '#fff',
+  };
+}
 const formStyle = { marginTop: 12, padding: 14, borderRadius: 10, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)' };
 const labelStyle = { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: 'rgba(255,255,255,.6)', marginTop: 8 };
 const inputStyle = { background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 6, color: '#fff', padding: '6px 8px', fontFamily: 'inherit', fontSize: 13 };

@@ -105,11 +105,13 @@ test('AUTO: toolbar reale [SELEZIONA][MATITA][GOMMA][ANNULLA][SALVA] + "Carica c
 test('AUTO: base automatica = vie reali OSM convertite in tratti draft (non percentuale finta)', () => {
   assert.match(panel, /import \{ resolveRoadNetwork \} from '\.\.\/\.\.\/lib\/geo\/resolveRoadNetwork\.js'/);
   assert.match(panel, /selectRoadsFromOrigin/);
-  const fn = panel.slice(panel.indexOf('const loadAutomaticBase'), panel.indexOf('const loadAutomaticBase') + 1400);
+  const fn = panel.slice(panel.indexOf('const loadAutomaticBase'), panel.indexOf('const handleCloseShape'));
   assert.match(fn, /resolveRoadNetwork\(municipalityName, boundaryGeometry\)/);
   assert.match(fn, /selectRoadsFromOrigin\(net, origin, pct, gpsPath\)/);
   assert.match(fn, /\.map\(\(w\) => w\.geometry\)/);
-  assert.match(fn, /setDraftLines\(\(prev\) => \[\.\.\.prev, \.\.\.lines\]\)/);
+  // §10 del ticket "AUTOMATICO ADMIN COMPLETO": ricaricare SOSTITUISCE la bozza
+  // automatica precedente (per reference) invece di accodarla -> niente duplicati.
+  assert.match(fn, /setDraftLines\(\(prev\) => \[\.\.\.prev\.filter\(\(l\) => !lastAutoLines\.includes\(l\)\), \.\.\.lines\]\)/);
   assert.match(fn, /setSourceLevel\('automatic_verified'\)/);
   // GpsMonitor passa municipalityName + automaticPercent al pannello del tab AUTO
   const gm = read('src/pages/admin/GpsMonitor.jsx');
