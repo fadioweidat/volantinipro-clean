@@ -42,7 +42,7 @@ export function normalizeCustomerCampaign(row, zones = []) {
     causale_bonifico: nullableText(metadata.payment_reference ?? metadata.causale_bonifico),
     smart_pairing_sconto: nullableNumber(metadata.smart_pairing_discount),
     volantini_distribuiti: nullableNumber(metadata.distributed_quantity ?? metadata.volantini_distribuiti),
-    copertura_pct: nullableNumber(metadata.coverage_percent ?? metadata.copertura_pct),
+    copertura_pct: null, // Dato deprecato/legacy, iniettato a runtime da getFinalCoverage
     selected_dates: Array.isArray(metadata.selected_dates) ? metadata.selected_dates : [],
     pricing: objectValue(metadata.pricing),
   };

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ensureSupabaseSessionBridge, supabase } from '../supabaseClient'
 import { normalizeCustomerCampaign } from '../lib/customerCampaigns.js'
+import { getFinalCoverage } from '../lib/services/coverage-adjustments-api.js'
 
 export function useCampagnaDetail(id) {
   const [campagna, setCampagna] = useState(null)
@@ -21,7 +22,23 @@ export function useCampagnaDetail(id) {
           .eq('user_id', authData.user.id)
           .maybeSingle()
         if (queryError) throw queryError
-        setCampagna(data ? normalizeCustomerCampaign(data, data.campaign_zones) : null)
+        
+        let finalCoveragePct = null;
+        if (data) {
+          try {
+            const coverage = await getFinalCoverage(id);
+            finalCoveragePct = coverage?.final_operational_coverage_pct ?? null;
+          } catch (e) {
+            console.warn('[CAMPAIGN_DETAIL_COVERAGE_FAILED]', e?.message);
+          }
+        }
+        
+        const normalized = data ? normalizeCustomerCampaign(data, data.campaign_zones) : null;
+        if (normalized) {
+          normalized.copertura_pct = finalCoveragePct;
+        }
+        
+        setCampagna(normalized)
       } catch (loadError) {
         console.error('[CUSTOMER_CAMPAIGN_DETAIL_LOAD_FAILED]', { code: loadError?.code || null, message: loadError?.message || 'Errore sconosciuto' })
         setError(loadError?.message || 'Dettaglio campagna non disponibile.')
