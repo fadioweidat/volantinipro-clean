@@ -1,7 +1,7 @@
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Circle, CircleMarker, MapContainer, Marker, Polygon, Polyline, Popup, TileLayer, useMapEvents } from 'react-leaflet';
-import { useEffect, useMemo, useState } from 'react';
+import { Circle, CircleMarker, MapContainer, Marker, Polygon, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   COVERAGE_ADJUSTMENT_TYPES,
   COVERAGE_SOURCE_LEVELS,
@@ -111,15 +111,57 @@ function DrawClickCapture({ active, onAddPoint }) {
   return null;
 }
 
-// §6: la GOMMA mostra un cerchio (raggio reale in metri) che segue il mouse
-// sulla mappa e sparisce all'uscita. Nessun click qui — solo tracking del
-// puntatore per l'overlay non interattivo.
-function EraseCursorCapture({ active, onMove, onLeave }) {
-  useMapEvents({
-    mousemove(event) { if (active) onMove([event.latlng.lat, event.latlng.lng]); },
-    mouseout() { onLeave(); },
-  });
-  return null;
+// §1/§2: cerchio GOMMA che segue il puntatore in tempo reale ED È SEMPRE
+// VISIBILE — anche quando il mouse è sopra le linee di copertura.
+//
+// - `map.on('mousemove')` NON scatta sopra un <Polyline> SVG interattivo
+//   (Leaflet dirotta l'evento sul layer): il vecchio approccio "congelava" il
+//   cerchio proprio dove serve. Qui si ascolta il `mousemove` DOM nativo sul
+//   container della mappa: gli eventi DOM risalgono dai figli SVG, quindi
+//   scattano ovunque. `map.mouseEventToLatLng` converte in coordinate.
+// - Il <Circle> vive in un pane dedicato con z-index ALTO (sopra overlayPane
+//   400 e markerPane 600), così non finisce mai sotto le linee.
+function EraseCursorCapture({ active, radiusM }) {
+  const map = useMap();
+  const [pt, setPt] = useState(null);
+
+  useEffect(() => {
+    if (!map.getPane('vp-erase-pane')) {
+      const p = map.createPane('vp-erase-pane');
+      p.style.zIndex = 660;
+      p.style.pointerEvents = 'none';
+    }
+  }, [map]);
+
+  useEffect(() => {
+    if (!active) { setPt(null); return undefined; }
+    const el = map.getContainer();
+    const onMove = (event) => {
+      try {
+        const ll = map.mouseEventToLatLng(event);
+        setPt([ll.lat, ll.lng]);
+      } catch { /* fuori dalla mappa */ }
+    };
+    const onLeave = () => setPt(null);
+    el.addEventListener('mousemove', onMove);
+    el.addEventListener('mouseleave', onLeave);
+    return () => {
+      el.removeEventListener('mousemove', onMove);
+      el.removeEventListener('mouseleave', onLeave);
+      setPt(null);
+    };
+  }, [active, map]);
+
+  if (!active || !pt) return null;
+  return (
+    <Circle
+      center={pt}
+      radius={radiusM}
+      pane="vp-erase-pane"
+      interactive={false}
+      pathOptions={{ color: '#ef4444', weight: 3, opacity: 0.95, fillColor: '#ef4444', fillOpacity: 0.2, dashArray: '6 5' }}
+    />
+  );
 }
 
 // §3: click mappa per il "punto di partenza" dell'automatico (livello
@@ -255,7 +297,11 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   // §7 — raggio gomma (m). Sostituisce l'hardcoded ERASE_RADIUS_M = 35.
   const [eraseRadiusM, setEraseRadiusM] = useState(DEFAULT_ERASE_RADIUS_M);
   // §6 — posizione corrente del puntatore per il cerchio gomma.
-  const [eraseCursor, setEraseCursor] = useState(null);
+  // §1: quando la GOMMA colpisce una linea via il suo handler <Polyline>,
+  // questo timestamp impedisce al catch-all <DrawClickCapture> del map di
+  // ri-elaborare lo stesso click su `draftLines` stale (doppio split / esito
+  // incoerente).
+  const justErasedRef = useRef(0);
   // §9 — KPI dell'ultimo "Carica copertura automatica".
   const [autoKpi, setAutoKpi] = useState(null);
   // §10 — vie dell'ultimo caricamento automatico non ancora salvato, per
@@ -322,6 +368,14 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   );
   const canMultiZone = multiZonesEligible.length > 1;
   const isCampaignScope = autoScope === 'campaign' && canMultiZone;
+
+  // §3 — i controlli "Copertura automatica" (percentuale/origine/ambito/CTA)
+  // NON devono sparire quando l'Admin sposta il selettore livello (es. per
+  // usare la GOMMA su un tratto): nel tab AUTOMATICO (defaultSourceLevel
+  // 'automatic_verified') restano sempre visibili. Nel tab MANUALE non
+  // compaiono.
+  const autoContext = defaultSourceLevel === 'automatic_verified';
+  const autoConfigVisible = autoContext || sourceLevel === 'automatic_verified';
 
   function handleAutoOriginPick(lat, lng) {
     // §5 — in scope campagna il punto puo' stare in QUALSIASI zona della
@@ -397,7 +451,6 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setAutoLineOwnership(new Map());
     setAutoMulti(null);
     setAutoScope('single');
-    setEraseCursor(null);
     setAutoMapPoint(null);
     setAutoOriginError(null);
     setDraftType(isGpsLevel ? 'exclusion' : 'manual_covered');
@@ -418,7 +471,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   // automatiche (mai final_operational_coverage_pct finche' non si salva).
   const recomputeAutoKpi = (nextDraftLines) => {
     setAutoKpi((k) => {
-      if (!k || sourceLevel !== 'automatic_verified') return k;
+      if (!k || !(autoContext || sourceLevel === 'automatic_verified')) return k;
       const totalM = (Number(k.totalKm) || 0) * 1000;
       const selM = (nextDraftLines || []).reduce((s, l) => s + polylineLengthMeters(l), 0);
       return { ...k, ways: (nextDraftLines || []).length, selectedKm: selM / 1000, coveragePct: totalM > 0 ? (selM / totalM) * 100 : 0 };
@@ -462,11 +515,19 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   // GOMMA: rimuove SOLO la forma piu' vicina al click (tratto/area draft),
   // oppure revoca la correzione salvata piu' vicina. Mai "cancella tutto".
   const eraseNearest = (pt) => {
-    // §7: raggio operativo = quello scelto nella UI (default 25 m), non piu'
-    // un valore hardcoded. È lo STESSO numero del cerchio §6.
+    // §1: se il click era gia' stato preso dall'handler <Polyline> (hit-test
+    // preciso di Leaflet sul tratto), NON rielaborarlo qui sul draftLines
+    // stale della closure.
+    if (Date.now() - justErasedRef.current < 80) return;
+    // §7: raggio operativo = quello scelto nella UI. È lo STESSO numero del
+    // cerchio §2.
     const ERASE_RADIUS_M = eraseRadiusM;
+    // §1: fallback quando Leaflet non ha registrato il click "sul tratto"
+    // (bordo, gap tra vertici): tolleranza generosa, minimo 30 m, cosi' un
+    // click visivamente "sopra la linea" fa comunque lo split.
+    const LINE_TOL_M = Math.max(ERASE_RADIUS_M, 30);
     // 1) draft lines — §8: split parziale, non rimozione dell'intera linea
-    let bestI = -1; let bestD = ERASE_RADIUS_M;
+    let bestI = -1; let bestD = LINE_TOL_M;
     draftLines.forEach((line, i) => { const d = pointToPolylineMeters(pt, line); if (d < bestD) { bestD = d; bestI = i; } });
     if (bestI >= 0) {
       applyDraftLineSplit(draftLines[bestI], pt);
@@ -716,7 +777,6 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setLastAutoLines([]);
     setAutoLineOwnership(new Map());
     setAutoMulti(null);
-    setEraseCursor(null);
     setFormError(null);
   };
 
@@ -883,9 +943,9 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
           di partenza, 3 [Carica]) PRIMA della toolbar di editing. Visibile
           solo sul livello automatic_verified in creazione (non in modifica di
           una riga esistente). */}
-      {correcting && !editingId && sourceLevel === 'automatic_verified' && (
+      {correcting && !editingId && autoConfigVisible && (
         <div style={{ marginTop: 10, padding: 10, borderRadius: 10, background: 'rgba(15,118,110,.10)', border: '1px solid rgba(15,118,110,.35)' }}>
-          <div style={{ fontSize: 10, fontWeight: 900, color: '#5eead4', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Generazione automatica</div>
+          <div style={{ fontSize: 10, fontWeight: 900, color: '#5eead4', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Copertura automatica</div>
 
           {/* 1 — Percentuale */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -992,7 +1052,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
         </div>
       )}
       {/* §9 — KPI bozza automatica (nessun impatto sul FINALE finché non si salva) */}
-      {autoKpi && sourceLevel === 'automatic_verified' && (
+      {autoKpi && autoConfigVisible && (
         <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
           {[
             ['Copertura richiesta', `${autoKpi.requestedPct}%`],
@@ -1144,19 +1204,12 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
           <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <DrawClickCapture active={correcting} onAddPoint={addDrawPoint} />
           {/* §3 — click mappa per il punto di partenza automatico */}
-          <OriginClickCapture active={correcting && sourceLevel === 'automatic_verified' && autoOriginMode === 'map'} onPick={handleAutoOriginPick} />
-          {/* §6 — il cerchio gomma segue il mouse, sparisce all'uscita */}
-          <EraseCursorCapture active={correcting && tool === 'erase'} onMove={setEraseCursor} onLeave={() => setEraseCursor(null)} />
-          {correcting && tool === 'erase' && eraseCursor && (
-            <Circle
-              center={eraseCursor}
-              radius={eraseRadiusM}
-              interactive={false}
-              pathOptions={{ color: '#dc2626', weight: 2, fillColor: '#dc2626', fillOpacity: 0.18, dashArray: '4 3' }}
-            />
-          )}
+          <OriginClickCapture active={correcting && autoConfigVisible && autoOriginMode === 'map'} onPick={handleAutoOriginPick} />
+          {/* §1/§2 — cerchio GOMMA: segue il puntatore (mousemove DOM, scatta
+              anche sopra le linee) in un pane sopra la copertura, sempre visibile. */}
+          <EraseCursorCapture active={correcting && tool === 'erase'} radiusM={eraseRadiusM} />
           {/* §3 — marker "Punto di partenza automatico" */}
-          {correcting && sourceLevel === 'automatic_verified' && autoOrigin && Number.isFinite(Number(autoOrigin.lat)) && (
+          {correcting && autoConfigVisible && autoOrigin && Number.isFinite(Number(autoOrigin.lat)) && (
             <CircleMarker center={[autoOrigin.lat, autoOrigin.lng]} radius={7} pathOptions={{ color: '#111827', fillColor: '#fbbf24', fillOpacity: 1, weight: 2 }}>
               <Popup>Punto di partenza automatico</Popup>
             </CircleMarker>
@@ -1261,8 +1314,12 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
               cliccato, non rimozione dell'intero tratto. */}
           {correcting && !editingId && draftLines.map((line, i) => (
             <Polyline key={`draft-line-${i}`} positions={line}
-              pathOptions={{ color: tool === 'erase' ? '#dc2626' : '#a855f7', weight: tool === 'erase' ? 5 : 3, opacity: 0.9, dashArray: '4 4' }}
+              pathOptions={{ color: tool === 'erase' ? '#dc2626' : '#a855f7', weight: tool === 'erase' ? 8 : 3, opacity: 0.9, dashArray: '4 4', lineCap: 'round' }}
               eventHandlers={tool === 'erase' ? { click: (e) => {
+                // §1: hit-test preciso di Leaflet sul tratto -> split reale.
+                // Segna il timestamp cosi' il catch-all del map non raddoppia.
+                justErasedRef.current = Date.now();
+                L.DomEvent.stopPropagation(e);
                 applyDraftLineSplit(line, [e.latlng.lat, e.latlng.lng]);
               } } : undefined} />
           ))}

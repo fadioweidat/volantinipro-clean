@@ -34,14 +34,20 @@ test('§3 — selettore origine con 3 modalità + validazione confine + fallback
   assert.match(SRC, /Punto di partenza automatico/, 'marker origine etichettato');
 });
 
-// ── §6 gomma circolare ─────────────────────────────────────────────────
-test('§6 — cerchio gomma che segue il mouse (Circle raggio reale in metri) + crosshair', () => {
-  assert.match(SRC, /function EraseCursorCapture/);
-  assert.match(SRC, /mousemove\(event\)\s*\{\s*if \(active\) onMove/);
-  assert.match(SRC, /mouseout\(\)\s*\{\s*onLeave\(\)/);
-  assert.match(SRC, /<Circle\s+[\s\S]*?radius=\{eraseRadiusM\}[\s\S]*?interactive=\{false\}/);
-  assert.match(SRC, /vp-erase-cursor\{cursor:crosshair\}/);
-  assert.match(SRC, /className=\{correcting && tool === 'erase' \? 'vp-erase-cursor' : undefined\}/);
+// ── §6 gomma circolare (aggiornato dal ticket "AUDIT + SEMPLIFICAZIONE") ──
+test('§6/§1/§2 — cerchio gomma: mousemove DOM (scatta anche sopra le linee), pane dedicato, sempre visibile', () => {
+  assert.match(SRC, /function EraseCursorCapture\(\{ active, radiusM \}\)/);
+  // mousemove DOM sul container, non map.on('mousemove') (che si ferma sui layer SVG)
+  assert.match(SRC, /el\.addEventListener\('mousemove', onMove\)/);
+  assert.match(SRC, /map\.mouseEventToLatLng\(event\)/);
+  assert.match(SRC, /el\.addEventListener\('mouseleave', onLeave\)/);
+  // pane dedicato con z-index alto (sopra overlayPane/markerPane)
+  assert.match(SRC, /map\.createPane\('vp-erase-pane'\)/);
+  assert.match(SRC, /p\.style\.zIndex = 660/);
+  // <Circle> nel pane dedicato, raggio reale, non interattivo, stile evidente
+  assert.match(SRC, /<Circle\s+[\s\S]*?radius=\{radiusM\}[\s\S]*?pane="vp-erase-pane"[\s\S]*?interactive=\{false\}/);
+  assert.match(SRC, /color: '#ef4444', weight: 3/);
+  assert.match(SRC, /<EraseCursorCapture active=\{correcting && tool === 'erase'\} radiusM=\{eraseRadiusM\} \/>/);
 });
 
 // ── §7 dimensione gomma ────────────────────────────────────────────────
@@ -73,11 +79,11 @@ test('§10 — ricaricare l\'automatico sostituisce la bozza (conferma) e non du
 
 // ── §11 UX riordino ───────────────────────────────────────────────────
 test('§11 — blocco AUTOMATICO ADMIN ordinato (percentuale -> origine -> carica) prima della toolbar', () => {
-  const block = SRC.indexOf("Generazione automatica");
+  const block = SRC.indexOf(">Copertura automatica<");
   const toolbar = SRC.indexOf(">Strumenti<");
   assert.ok(block > 0 && toolbar > 0 && block < toolbar, 'il blocco automatico deve precedere la toolbar strumenti');
   // ordine interno: percentuale prima di "Punto di partenza" prima di "Carica"
-  const pctPos = SRC.indexOf('Copertura automatica<', block);
+  const pctPos = SRC.indexOf('Copertura automatica<', block + 5);
   const originPos = SRC.indexOf('Punto di partenza<', block);
   const loadPos = SRC.indexOf('Carica copertura automatica', block);
   assert.ok(pctPos > 0 && originPos > pctPos && loadPos > originPos);

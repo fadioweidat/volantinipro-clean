@@ -141,7 +141,7 @@ test('PANEL — §8 KPI live ricalcolati dalla geometria residua (mai il FINALE)
 });
 
 test('PANEL — §9 preview: il click sul tratto in modalita\' gomma fa lo split nel punto cliccato', () => {
-  assert.match(PANEL, /eventHandlers=\{tool === 'erase' \? \{ click: \(e\) => \{\s*applyDraftLineSplit\(line, \[e\.latlng\.lat, e\.latlng\.lng\]\)/);
+  assert.match(PANEL, /eventHandlers=\{tool === 'erase' \? \{ click: \(e\) => \{[\s\S]{0,400}applyDraftLineSplit\(line, \[e\.latlng\.lat, e\.latlng\.lng\]\)/);
 });
 
 test('PANEL — §11 GPS raw: helper puramente geometrico, nessuna scrittura GPS introdotta', () => {

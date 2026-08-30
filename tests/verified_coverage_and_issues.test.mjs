@@ -97,9 +97,11 @@ test('AUTO: toolbar reale [SELEZIONA][MATITA][GOMMA][ANNULLA][SALVA] + "Carica c
   assert.match(panel, /onClick=\{handleUndo\}[\s\S]{0,120}Annulla/);
   assert.match(panel, /onClick=\{handleSave\}[\s\S]{0,120}Salva/);
   assert.match(panel, /GOMMA attiva — sulle bozze taglia solo la parte dentro il cerchio/);
-  // "Carica copertura automatica" visibile solo su livello automatic_verified
-  assert.match(panel, /sourceLevel === 'automatic_verified' &&/);
-  assert.match(panel, /onClick=\{loadAutomaticBase\}[\s\S]{0,260}Carica copertura automatica/);
+  // Config "Copertura automatica" visibile in contesto automatico (tab AUTO)
+  // anche se l'Admin sposta il selettore livello per usare la GOMMA.
+  assert.match(panel, /const autoConfigVisible = autoContext \|\| sourceLevel === 'automatic_verified'/);
+  assert.match(panel, /\{correcting && !editingId && autoConfigVisible && \(/);
+  assert.match(panel, /onClick=\{loadAutomaticBase\}[\s\S]{0,320}(Carica|Rigenera) copertura automatica/);
 });
 
 test('AUTO: base automatica = vie reali OSM convertite in tratti draft (non percentuale finta)', () => {
