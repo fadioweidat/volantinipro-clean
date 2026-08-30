@@ -8,6 +8,7 @@ import ServicesSection from "../../components/home/ServicesSection.jsx";
 import FeatureZonaMappa from "../../components/home/FeatureZonaMappa.jsx";
 import FeatureSmartPairing from "../../components/home/FeatureSmartPairing.jsx";
 import RisultatiSection from "../../components/home/RisultatiSection.jsx";
+import EnterpriseSection from "../../components/home/EnterpriseSection.jsx";
 import FAQSection from "../../components/home/FAQSection.jsx";
 import PricingSection from "../../components/home/PricingSection.jsx";
 import Footer from "../../components/home/Footer.jsx";
@@ -450,7 +451,7 @@ export function HomePage({
       onConsultant: () => n("consultant")
     }), _jsx(TecnologiaSection, {
       onConfigure: () => n("preventivo")
-    }), _jsx(RisultatiSection, {}), _jsx(FAQSection, {
+    }), _jsx(EnterpriseSection, {}), _jsx(RisultatiSection, {}), _jsx(FAQSection, {
       onContact: () => n("consultant")
     }), _jsx(FinalCtaSection, {
       onConfigure: () => n("preventivo")
