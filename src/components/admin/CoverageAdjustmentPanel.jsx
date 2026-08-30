@@ -225,7 +225,7 @@ function pointToPolylineMeters(latlng, line) {
   return best;
 }
 
-export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], boundaryGeometry = null, gpsOperatorCount = 0, defaultSourceLevel = 'manual_verified', automaticPercent = null, municipalityName = null, storePoint = null, campaignZones = [], campaignOperators = [] }) {
+export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], boundaryGeometry = null, gpsOperatorCount = 0, gpsOperators = [], defaultSourceLevel = 'manual_verified', automaticPercent = null, municipalityName = null, storePoint = null, campaignZones = [], campaignOperators = [] }) {
   // Operatori REALI della campagna (da GpsMonitor -> admin_list_campaign_assignments).
   // Ogni opzione: { key (operator_id||assignment_id||'admin'), label, operatorId,
   // assignmentId, zoneId }. Mai un MAN-0N fittizio. Se la campagna non ha
@@ -274,7 +274,6 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   const [draftAreas, setDraftAreas] = useState([]);
   const [activeVertices, setActiveVertices] = useState([]);
   const [draftType, setDraftType] = useState('manual_covered');
-  const [draftReason, setDraftReason] = useState('');
   const [draftNotes, setDraftNotes] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -505,7 +504,6 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setAutoMapPoint(null);
     setAutoOriginError(null);
     setDraftType(isGpsLevel ? 'exclusion' : 'manual_covered');
-    setDraftReason('');
     setDraftNotes('');
     setSelectedOperatorKey(defaultOperatorKey);
     setFormError(null);
@@ -700,7 +698,6 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
       setLastAutoLines(lines);
       setAutoLineOwnership(ownership);
       setUndoStack((prev) => [...prev, ...lines.map(() => ({ kind: 'line' }))]);
-      setDraftReason((r) => r || 'Copertura automatica su vie reali (base editabile).');
       // §8/§9: KPI immediati sulla bozza (nessun impatto sul FINALE finche' non si salva).
       setAutoKpi({
         requestedPct: pct,
@@ -800,8 +797,10 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
       setActiveLine([]);
     }
     setDraftType(adjustment.adjustment_type);
-    setDraftReason(adjustment.reason || '');
-    setDraftNotes(adjustment.notes || '');
+    // "reason" resta solo un campo di audit interno: si pre-compila le Note
+    // con l'eventuale testo storico (reason legacy o notes) senza mai
+    // ripristinare un campo "motivo obbligatorio".
+    setDraftNotes(adjustment.notes || (adjustment.reason && adjustment.reason !== 'admin_adjustment' ? adjustment.reason : ''));
     // Operatore gia' salvato (id reale o vecchia chiave "MAN-0N"): se non e'
     // tra gli operatori reali attuali resta comunque selezionato via
     // `editSavedOperatorKey` (aggiunto in coda alle opzioni finche' si edita).
@@ -852,10 +851,10 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   }
 
   const handleSave = async () => {
-    if (!draftReason.trim()) {
-      setFormError('Il motivo e’ obbligatorio.');
-      return;
-    }
+    // Nessun campo "motivo" obbligatorio: l'Admin decide direttamente. Il
+    // backend richiede reason NOT NULL solo per audit -> si passa
+    // automaticamente le Note (se presenti) o un valore interno neutro.
+    const autoReason = draftNotes.trim() || 'admin_adjustment';
     // source per livello. gps_exclusion + type 'exclusion' = GOMMA sul GPS
     // reale: NON tocca gps_tracking_points, e' una riga overlay revocabile.
     const source = sourceLevel;
@@ -879,7 +878,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
           adjustmentId: editingId,
           adjustmentType: effectiveType,
           geometryGeoJson: isLine ? latLngsToLineStringGeoJson(shape) : latLngsToPolygonGeoJson(shape),
-          reason: draftReason.trim(),
+          reason: autoReason,
           notes: draftNotes.trim() || null,
           metadata: { operator_key: selectedOperatorKey, operator_id: selectedOperator?.operatorId || null, assignment_id: selectedOperator?.assignmentId || null, admin_operator: true },
           source,
@@ -920,7 +919,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
         await createCoverageAdjustment({
           campaignId, zoneId: zones[0]?.id ?? null, adjustmentType: effectiveType,
           geometryGeoJson: latLngsToPolygonGeoJson(area),
-          reason: draftReason.trim(), notes: draftNotes.trim() || null, metadata, source,
+          reason: autoReason, notes: draftNotes.trim() || null, metadata, source,
         });
       }
       // La matita "a tratto": una riga LineString per tratto, con buffer.
@@ -934,7 +933,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
           await createCoverageAdjustment({
             campaignId, zoneId: lineZoneId, adjustmentType: 'manual_covered',
             geometryGeoJson: latLngsToLineStringGeoJson(line),
-            reason: draftReason.trim(), notes: draftNotes.trim() || null, metadata, source,
+            reason: autoReason, notes: draftNotes.trim() || null, metadata, source,
             lineBufferM,
           });
         }
@@ -949,14 +948,10 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   };
 
   const handleRevoke = async (adjustment) => {
-    const reason = window.prompt('Motivo della revoca (obbligatorio):', '');
-    if (reason === null) return;
-    if (!reason.trim()) {
-      window.alert('Il motivo della revoca e’ obbligatorio.');
-      return;
-    }
+    // Azione diretta: nessun popup, nessun testo richiesto all'Admin. Il
+    // backend richiede reason NOT NULL solo per audit -> valore interno neutro.
     try {
-      await revokeCoverageAdjustment({ adjustmentId: adjustment.id, reason: reason.trim() });
+      await revokeCoverageAdjustment({ adjustmentId: adjustment.id, reason: 'admin_revoked' });
       await load();
     } catch (err) {
       window.alert(err?.message || 'Revoca non riuscita.');
@@ -1217,12 +1212,8 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
             </div>
           </label>
           <label style={labelStyle}>
-            Motivo (obbligatorio)
-            <textarea value={draftReason} onChange={(e) => setDraftReason(e.target.value)} rows={2} style={inputStyle} placeholder="Es. distribuzione a piedi confermata senza tracker attivo" />
-          </label>
-          <label style={labelStyle}>
             Note (facoltative)
-            <textarea value={draftNotes} onChange={(e) => setDraftNotes(e.target.value)} rows={2} style={inputStyle} />
+            <textarea value={draftNotes} onChange={(e) => setDraftNotes(e.target.value)} rows={2} style={inputStyle} placeholder="Es. distribuzione a piedi confermata senza tracker attivo" />
           </label>
           {activeVertices.length >= 3 && (
             <p style={{ margin: '4px 0', fontSize: 12, color: activeAreaOutsideBoundary ? '#fca5a5' : 'rgba(255,255,255,.55)' }}>
@@ -1428,12 +1419,13 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
         Anteprima "Copertura finale" (identica alla vista Cliente)
       </label>
 
-      <Legend presentOperatorKeys={presentOperatorKeys} operatorLabelForKey={operatorLabelForKey} />
-      {(presentOperatorKeys.length > 0 || gpsOperatorCount > 0) && (
-        <p style={{ margin: '6px 0 0', fontSize: 12, color: 'rgba(255,255,255,.55)' }}>
-          Operatori GPS reali: {gpsOperatorCount} · Operatori Admin manuali: {presentOperatorKeys.length}
-        </p>
-      )}
+      <Legend />
+      <OperatorLegend
+        gpsOperators={gpsOperators}
+        gpsOperatorCount={gpsOperatorCount}
+        presentOperatorKeys={presentOperatorKeys}
+        operatorLabelForKey={operatorLabelForKey}
+      />
 
       <div style={{ marginTop: 12 }}>
         <button type="button" onClick={() => setShowHistory((v) => !v)} style={secondaryButtonStyle}>
@@ -1484,14 +1476,14 @@ function CoverageMetric({ label, value, color, emphasize = false }) {
   );
 }
 
-function Legend({ presentOperatorKeys = [], operatorLabelForKey = (k) => k }) {
+// Legenda FISSA della simbologia (non per-operatore): confine, traccia GPS,
+// copertura GPS, area non accessibile, revocata. I colori per singolo
+// operatore sono nella OperatorLegend qui sotto.
+function Legend() {
   const items = [
     { color: BOUNDARY_COLOR, label: 'Confine comune (zona selezionata)', dashed: true },
     { color: '#2563eb', label: 'Traccia GPS reale' },
     { color: '#22c55e', label: 'Copertura GPS', fillOnly: true },
-    ...(presentOperatorKeys.length > 0
-      ? presentOperatorKeys.map((key) => ({ color: manualOperatorColor(key), label: `${operatorLabelForKey(key)} — integrazione manuale` }))
-      : [{ color: '#a855f7', label: 'Copertura manuale Admin', fillOnly: true }]),
     { color: '#dc2626', label: 'Area non accessibile', dashed: true },
     { color: '#6b7280', label: 'Correzione revocata (storico Admin)' },
   ];
@@ -1508,6 +1500,51 @@ function Legend({ presentOperatorKeys = [], operatorLabelForKey = (k) => k }) {
           {item.label}
         </span>
       ))}
+    </div>
+  );
+}
+
+// §3 — legenda OPERATORI: elenco chiaro con nome + pallino del colore reale
+// usato sulla mappa (stesso getOperatorColor sia per la traccia GPS sia per
+// le correzioni manuali dello stesso operatore). Mai il solo contatore
+// "Operatori GPS reali: N" quando esistono nomi/id.
+function OperatorLegend({ gpsOperators = [], gpsOperatorCount = 0, presentOperatorKeys = [], operatorLabelForKey = (k) => k }) {
+  const hasGps = gpsOperators.length > 0;
+  const hasManual = presentOperatorKeys.length > 0;
+  if (!hasGps && !hasManual && gpsOperatorCount === 0) return null;
+
+  const dot = (color) => ({
+    width: 11, height: 11, borderRadius: 999, background: color,
+    border: '1px solid rgba(0,0,0,.35)', flex: '0 0 auto',
+  });
+  const groupTitle = { margin: '10px 0 4px', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.06em', color: 'rgba(255,255,255,.45)' };
+  const rowStyleLocal = { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(255,255,255,.72)', padding: '2px 0' };
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <p style={groupTitle}>Operatori GPS reali{hasGps ? '' : `: ${gpsOperatorCount}`}</p>
+      {hasGps ? (
+        gpsOperators.map((op, i) => (
+          <div key={`gps-${op.id}`} style={rowStyleLocal}>
+            <span style={dot(op.color)} />
+            {op.name || `Operatore ${i + 1}`}
+          </div>
+        ))
+      ) : (
+        <div style={{ ...rowStyleLocal, color: 'rgba(255,255,255,.45)' }}>Nessuna traccia GPS con operatore identificato.</div>
+      )}
+
+      <p style={groupTitle}>Operatori Admin manuali{hasManual ? '' : ': 0'}</p>
+      {hasManual ? (
+        presentOperatorKeys.map((key) => (
+          <div key={`man-${key}`} style={rowStyleLocal}>
+            <span style={dot(manualOperatorColor(key))} />
+            {operatorLabelForKey(key)}
+          </div>
+        ))
+      ) : (
+        <div style={{ ...rowStyleLocal, color: 'rgba(255,255,255,.45)' }}>Nessuna correzione manuale associata a un operatore.</div>
+      )}
     </div>
   );
 }

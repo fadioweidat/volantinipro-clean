@@ -154,6 +154,23 @@ export function GpsMonitor({ campaignId, onNav }) {
     [assignmentRows],
   );
 
+  // Operatori GPS REALI con nome + colore stabile, per la legenda del
+  // CoverageAdjustmentPanel (§ ticket "ogni operatore con il suo colore" +
+  // "legenda con nomi"). Un elemento per driver_id distinto tra le sessioni
+  // trackabili; il nome viene risolto dagli assignment reali (operator_id),
+  // il colore da getOperatorColor(driver_id) — LO STESSO usato per la traccia
+  // GPS sulla mappa e per le correzioni manuali dello stesso operatore.
+  const gpsOperators = useMemo(() => {
+    const byId = new Map();
+    (state.sessionTracks || []).forEach((t) => {
+      const id = t.session?.driver_id;
+      if (!id || byId.has(id)) return;
+      const match = campaignOperators.find((o) => o.operatorId && o.operatorId === id);
+      byId.set(id, { id, name: match?.name || null, color: getOperatorColor(id) });
+    });
+    return [...byId.values()];
+  }, [state.sessionTracks, campaignOperators]);
+
   // Riga di zoneProgress per la zona selezionata (ticket A): stesso dato
   // gia' letto da ZoneProgressPanel/AUTOMATICO, non un secondo fetch.
   const selectedAutoZoneProgress = selectedZoneId
@@ -479,6 +496,7 @@ export function GpsMonitor({ campaignId, onNav }) {
               municipalityName={activeZoneName}
               campaignZones={campaignZonesForAuto}
               campaignOperators={campaignOperators}
+              gpsOperators={gpsOperators}
               automaticPercent={selectedAutoZoneProgress ? (selectedAutoZoneProgress.manual_override_enabled ? selectedAutoZoneProgress.manual_percent : selectedAutoZoneProgress.automatic_percent) : null}
             />
 
@@ -559,6 +577,7 @@ export function GpsMonitor({ campaignId, onNav }) {
               gpsOperatorCount={gpsOperatorCount}
               campaignZones={campaignZonesForAuto}
               campaignOperators={campaignOperators}
+              gpsOperators={gpsOperators}
             />
             <AdminIssuesPanel campaignId={campaignId} />
           </div>
