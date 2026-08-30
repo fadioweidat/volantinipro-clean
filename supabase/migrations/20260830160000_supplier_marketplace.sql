@@ -144,6 +144,34 @@ alter table public.quotes add column if not exists decided_at timestamptz;
 create index if not exists quotes_marketplace_idx
   on public.quotes (campaign_id) where supplier_id is not null;
 
+-- F1 — MULTI-SUPPLIER QUOTES.
+-- Il vincolo legacy `idx_quotes_active_unique (campaign_id) WHERE is_active`
+-- (baseline: UNA sola quota piattaforma attiva per campagna) e' incompatibile
+-- col Marketplace: le quote Supplier nascono anch'esse con is_active=true
+-- (default NOT NULL della colonna quotes.is_active), quindi il SECONDO
+-- Supplier sulla stessa richiesta violava idx_quotes_active_unique (raw 23505)
+-- e non poteva inviare la propria offerta.
+--
+-- Fix:
+--  (a) restringere il vincolo legacy alle SOLE quote piattaforma
+--      (supplier_id IS NULL): comportamento IDENTICO per tutte le righe legacy
+--      esistenti (che hanno sempre supplier_id NULL), il flusso quote legacy
+--      non cambia.
+--  (b) aggiungere un vincolo Marketplace dedicato: al piu' UNA offerta in
+--      stato 'submitted' per (campagna, fornitore). Piu' Supplier diversi
+--      possono avere una 'submitted' sulla stessa campagna. Le offerte non
+--      piu' in gara (draft/accepted/rejected/not_selected/expired/withdrawn)
+--      NON contano -> lo storico resta intatto e un Supplier puo' re-inviare
+--      dopo un ritiro/rifiuto.
+drop index if exists public.idx_quotes_active_unique;
+create unique index if not exists idx_quotes_active_unique
+  on public.quotes (campaign_id)
+  where is_active = true and supplier_id is null;
+
+create unique index if not exists quotes_marketplace_one_submitted_per_supplier
+  on public.quotes (campaign_id, supplier_id)
+  where supplier_id is not null and quote_status = 'submitted';
+
 drop policy if exists quotes_supplier_own_select on public.quotes;
 create policy quotes_supplier_own_select on public.quotes
   for select to authenticated using (supplier_id = auth.uid());
@@ -398,14 +426,22 @@ begin
   end if;
 
   perform set_config('marketplace.rpc', 'on', true);
-  insert into public.quotes
-    (campaign_id, supplier_id, quote_status, subtotal, total_amount, currency,
-     estimated_time, availability, allowed_public_notes, valid_until, submitted_at)
-  values
-    (v_campaign.id, v_uid, 'submitted', p_total_amount, p_total_amount, 'EUR',
-     nullif(btrim(p_estimated_time), ''), nullif(btrim(p_availability), ''),
-     nullif(btrim(p_allowed_public_notes), ''), p_valid_until, now())
-  returning * into v_quote;
+  begin
+    insert into public.quotes
+      (campaign_id, supplier_id, quote_status, subtotal, total_amount, currency,
+       estimated_time, availability, allowed_public_notes, valid_until, submitted_at)
+    values
+      (v_campaign.id, v_uid, 'submitted', p_total_amount, p_total_amount, 'EUR',
+       nullif(btrim(p_estimated_time), ''), nullif(btrim(p_availability), ''),
+       nullif(btrim(p_allowed_public_notes), ''), p_valid_until, now())
+    returning * into v_quote;
+  exception when unique_violation then
+    -- Concorrenza: due submit dello STESSO Supplier passano entrambi il
+    -- controllo `if exists` sopra, poi uno viola
+    -- quotes_marketplace_one_submitted_per_supplier. Semantica coerente,
+    -- mai un raw 23505 al client.
+    raise exception 'OFFERTA_GIA_INVIATA' using errcode = '23505';
+  end;
 
   if v_campaign.status = 'requested' then
     update public.campaigns set status = 'receiving_quotes' where id = v_campaign.id;
@@ -580,9 +616,41 @@ begin
     raise exception 'ASSEGNAZIONE_GIA_PRESENTE' using errcode = '23505';
   end if;
 
-  select a.group_id into v_group_id from public.operator_assignments a
-    where a.campaign_id = p_campaign_id limit 1;
-  if v_group_id is null then v_group_id := gen_random_uuid(); end if;
+  -- F2 — OPERATIONAL GROUP REALE per l'assegnazione Supplier.
+  -- Prima il group_id era `gen_random_uuid()` quando la campagna vinta non
+  -- aveva ancora un gruppo operativo: nessuna riga parent in
+  -- operational_groups -> FK operator_assignments_group_campaign_fkey (23503).
+  --
+  -- Ora: (1) riusa il gruppo di un'assegnazione gia' presente sulla campagna;
+  -- (2) altrimenti riusa un qualsiasi operational_group esistente della
+  -- campagna; (3) altrimenti ne crea uno REALE con i campi minimi dello schema
+  -- (campaign_id, name) — stesso modello dell'RPC Admin di assegnazione
+  -- (baseline: gruppo 'Generale'). La campagna e' gia' stata verificata come
+  -- di proprieta' del Supplier (CAMPAGNA_NON_DEL_FORNITORE sopra), quindi il
+  -- gruppo viene creato/usato SOLO per una campagna del Supplier.
+  --
+  -- Concorrenza: advisory lock per-campagna: due prime assegnazioni simultanee
+  -- sulla stessa campagna non creano due gruppi 'Generale' duplicati.
+  perform pg_advisory_xact_lock(hashtext('supplier_assign_operator_group'), hashtext(p_campaign_id::text));
+
+  select a.group_id into v_group_id
+    from public.operator_assignments a
+    where a.campaign_id = p_campaign_id and a.revoked_at is null
+    limit 1;
+
+  if v_group_id is null then
+    select og.id into v_group_id
+      from public.operational_groups og
+      where og.campaign_id = p_campaign_id
+      order by og.created_at asc nulls last
+      limit 1;
+  end if;
+
+  if v_group_id is null then
+    insert into public.operational_groups (campaign_id, name)
+    values (p_campaign_id, 'Generale')
+    returning id into v_group_id;
+  end if;
 
   insert into public.operator_assignments (operator_id, campaign_id, group_id, status, created_by)
   values (p_operator_id, p_campaign_id, v_group_id, 'active', v_uid)

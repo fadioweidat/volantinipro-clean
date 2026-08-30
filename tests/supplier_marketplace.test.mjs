@@ -197,6 +197,34 @@ test('T — nessun secret/service_role nei file frontend marketplace', () => {
   }
 });
 
+// ── F1: multi-supplier quotes / legacy unique index reconciled ──────
+test('F1 — idx_quotes_active_unique ristretto a legacy (supplier_id IS NULL) + indice marketplace per (campaign, supplier) submitted', () => {
+  // il vincolo legacy viene sostituito, non lasciato incompatibile
+  assert.match(MIG, /drop index if exists public\.idx_quotes_active_unique/);
+  assert.match(MIG, /create unique index if not exists idx_quotes_active_unique\s*\n\s*on public\.quotes \(campaign_id\)\s*\n\s*where is_active = true and supplier_id is null/);
+  // nuovo vincolo marketplace: 1 sola 'submitted' per (campagna, fornitore)
+  assert.match(MIG, /create unique index if not exists quotes_marketplace_one_submitted_per_supplier\s*\n\s*on public\.quotes \(campaign_id, supplier_id\)\s*\n\s*where supplier_id is not null and quote_status = 'submitted'/);
+  // submit_quote mappa la violazione di unicita' su OFFERTA_GIA_INVIATA (mai raw 23505)
+  const b = fnBody('supplier_submit_quote');
+  assert.match(b, /exception when unique_violation then/);
+  assert.match(b, /exception when unique_violation then[\s\S]{0,400}raise exception 'OFFERTA_GIA_INVIATA'/);
+});
+
+// ── F2: real operational group for supplier assignment ──────────────
+test('F2 — supplier_assign_operator crea/riusa un operational_group REALE (mai group_id casuale)', () => {
+  const b = fnBody('supplier_assign_operator');
+  assert.doesNotMatch(b, /v_group_id := gen_random_uuid\(\)/);
+  // riuso: prima da un'assegnazione della campagna, poi da operational_groups
+  assert.match(b, /select a\.group_id into v_group_id\s*\n\s*from public\.operator_assignments a\s*\n\s*where a\.campaign_id = p_campaign_id and a\.revoked_at is null/);
+  assert.match(b, /select og\.id into v_group_id\s*\n\s*from public\.operational_groups og\s*\n\s*where og\.campaign_id = p_campaign_id/);
+  // creazione con i campi minimi dello schema
+  assert.match(b, /insert into public\.operational_groups \(campaign_id, name\)\s*\n\s*values \(p_campaign_id, 'Generale'\)\s*\n\s*returning id into v_group_id/);
+  // concorrenza: advisory lock per-campagna prima del find-or-create
+  assert.match(b, /pg_advisory_xact_lock\(hashtext\('supplier_assign_operator_group'\), hashtext\(p_campaign_id::text\)\)/);
+  // l'ownership della campagna resta verificata PRIMA della logica di gruppo
+  assert.ok(b.indexOf('CAMPAGNA_NON_DEL_FORNITORE') < b.indexOf('pg_advisory_xact_lock'));
+});
+
 // ── routing ───────────────────────────────────────────
 test('routing — /supplier registrato, risolto, protetto da SupplierGuard', () => {
   assert.match(RESOLVE, /p === '\/supplier'[\s\S]{0,90}return 'supplier-dashboard'/);
