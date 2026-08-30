@@ -341,10 +341,21 @@ function CustomerIssuesCard({ campaignId, issues = [], onCreated }) {
     }
   };
 
+  // §9 notifica in-app (nessun push/SMS/WhatsApp): quando una segnalazione
+  // e' stata verificata dall'operatore, il cliente vede subito l'indicatore.
+  const resolvedCount = issues.filter((i) => i.status === 'resolved').length;
+
   return (
     <section style={cardStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-        <p style={eyebrowStyle}>Segnalazioni</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <p style={eyebrowStyle}>Segnalazioni</p>
+          {resolvedCount > 0 && (
+            <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.04em', textTransform: 'uppercase', color: C.navy, background: C.green, borderRadius: 999, padding: '3px 8px', fontFamily: F.sans }}>
+              Verifica completata{resolvedCount > 1 ? ` (${resolvedCount})` : ''}
+            </span>
+          )}
+        </div>
         <button type="button" onClick={() => { setOpen((v) => !v); setOk(false); }} style={mapActionButtonStyle(false)}>
           {open ? 'Chiudi' : 'Segnala un problema'}
         </button>

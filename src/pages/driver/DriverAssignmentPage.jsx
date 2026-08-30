@@ -748,9 +748,20 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken }) {
 
   if (!issues.length && !err) return null;
 
+  // §9 notifica in-app (nessun push/SMS/WhatsApp): quante segnalazioni non
+  // ancora prese in carico (nuove/assegnate).
+  const newCount = issues.filter((i) => i.status === 'new' || i.status === 'assigned').length;
+
   return (
     <section style={{ maxWidth: 760, margin: '0 auto 12px', padding: 14, borderRadius: 16, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)' }}>
-      <p style={{ margin: '0 0 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: 'rgba(255,255,255,.5)', fontWeight: 900 }}>Segnalazioni</p>
+      <p style={{ margin: '0 0 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: 'rgba(255,255,255,.5)', fontWeight: 900, display: 'flex', alignItems: 'center', gap: 8 }}>
+        Segnalazioni
+        {newCount > 0 && (
+          <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: '.02em', color: '#0B1020', background: '#f97316', borderRadius: 999, padding: '2px 8px' }}>
+            {newCount} nuov{newCount === 1 ? 'a' : 'e'} segnalazion{newCount === 1 ? 'e' : 'i'}
+          </span>
+        )}
+      </p>
       {err && <Notice danger text={err} />}
       {issues.map((issue) => {
         const done = issue.status === 'resolved' || issue.status === 'not_resolvable';
