@@ -515,6 +515,32 @@ export async function selectOptionalTable(table, order = 'created_at') {
   }
 }
 
+// Marketplace Fornitori — lista Admin. NON esiste (per scelta) una RPC
+// dedicata: il modello previsto e' la policy RLS `supplier_profiles_admin_all`
+// (`for all to authenticated using jwt_is_admin()`), che concede all'Admin la
+// lettura completa della tabella. Questa SELECT gira SOTTO quella policy — non
+// la bypassa — esattamente come le altre letture Admin di questo file
+// (campaign_zones, operational_groups, smart_pairing_waitlist). Colonne
+// esplicite: MAI `documents`/`verified_by`/`suspended_by` (dati non necessari
+// alla UI). Le mutazioni di stato passano SOLO da adminSetSupplierStatus (RPC).
+const ADMIN_SUPPLIER_COLUMNS =
+  'id, public_code, company_name, contact_name, email, phone, vat_number, status, admin_notes, created_at, updated_at, verified_at, suspended_at';
+
+export async function adminListSuppliers() {
+  if (!supabase) return { rows: [], available: false };
+  try {
+    await ensureSupabaseSessionBridge();
+    const { data, error } = await supabase
+      .from('supplier_profiles')
+      .select(ADMIN_SUPPLIER_COLUMNS)
+      .order('created_at', { ascending: false });
+    if (error) return { rows: [], available: false, error };
+    return { rows: Array.isArray(data) ? data : [], available: true };
+  } catch (error) {
+    return { rows: [], available: false, error };
+  }
+}
+
 export async function getCampaignZonesWithGroups(campaignId) {
   const [zonesRes, groupsRes] = await Promise.all([
     supabase.from('campaign_zones').select('*').eq('campaign_id', campaignId).order('priority', { ascending: true, nullsFirst: false }).order('zone_name'),

@@ -7,12 +7,16 @@ import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const MIG = read('supabase/migrations/20260830160000_supplier_marketplace.sql');
+const MIG_ASG = read('supabase/migrations/20260830170000_supplier_list_campaign_assignments.sql');
 const API = read('src/lib/services/supplier-api.js');
 const GUARD = read('src/auth/guards/SupplierGuard.jsx');
 const DASH = read('src/pages/supplier/SupplierDashboard.jsx');
 const CUSTVIEW = read('src/pages/customer/CustomerQuotesView.jsx');
 const APPROUTER = read('src/app/AppRouter.jsx');
 const RESOLVE = read('src/app/routeResolution.js');
+const FINAL = read('volantinipro-final.jsx');
+const MKTERR = read('src/lib/services/marketplaceErrors.js');
+const CUSTCAMP = read('src/lib/customerCampaigns.js');
 
 // helper: corpo di una funzione SQL "create or replace function public.NAME(...)... $$;"
 function fnBody(name) {
@@ -232,9 +236,174 @@ test('routing — /supplier registrato, risolto, protetto da SupplierGuard', () 
   assert.match(APPROUTER, /page === "supplier-dashboard"[\s\S]{0,120}<SupplierGuard/);
 });
 
-// ── CustomerQuotesView non montata (pre-migration) ────
-test('CustomerQuotesView NON montata (nessuna regressione Cliente pre-migration)', () => {
+// ── CustomerQuotesView montata nella pagina dettaglio campagna Cliente ──
+test('U — CustomerQuotesView montata in CampaignDashboardPage (una sola volta, nessuna pagina duplicata)', () => {
+  // import + montaggio nella pagina dettaglio campagna reale
+  assert.match(FINAL, /import \{ CustomerQuotesView \} from "\.\/src\/pages\/customer\/CustomerQuotesView\.jsx"/);
+  assert.match(FINAL, /<CustomerQuotesView campaignId=\{routeCampaignId\} status=\{campagna\.rawStatus\} \/>/);
+  // una sola occorrenza del componente montato (nessun duplicato)
+  assert.equal((FINAL.match(/<CustomerQuotesView\b/g) || []).length, 1);
+  // NON montata altrove
   assert.doesNotMatch(APPROUTER, /CustomerQuotesView/);
-  const custPage = read('src/pages/customer/CampaignTracking.jsx');
-  assert.doesNotMatch(custPage, /CustomerQuotesView/);
+  assert.doesNotMatch(read('src/pages/customer/CampaignTracking.jsx'), /CustomerQuotesView/);
+});
+
+test('U2 — CustomerQuotesView: solo stati Marketplace, CTA "Seleziona preventivo", niente window.*', () => {
+  assert.match(CUSTVIEW, /\['requested', 'receiving_quotes', 'quote_selected', 'assigned'\]/);
+  assert.match(CUSTVIEW, /Seleziona preventivo/);
+  assert.match(CUSTVIEW, /customerAcceptQuote\(quoteId\)/);
+  assert.match(CUSTVIEW, /mapMarketplaceError/);
+  // nessun update diretto, nessun dialog nativo, nessun reload
+  assert.doesNotMatch(CUSTVIEW, /window\.confirm|window\.alert|window\.location\.reload|\balert\(/);
+  assert.doesNotMatch(CUSTVIEW, /\.from\(['"](quotes|campaigns)['"]\)/);
+  // double-submit lock: bottone disabilitato mentre una selezione e' in corso
+  assert.match(CUSTVIEW, /if \(acceptingId\) return;/);
+  assert.match(CUSTVIEW, /disabled=\{busy \|\| Boolean\(acceptingId\)\}/);
+  // payload privato Fornitore mai referenziato
+  assert.doesNotMatch(CUSTVIEW, /supplier_id|company_name|vat_number|admin_notes|\bsubtotal\b|\.email\b|\.phone\b/);
+});
+
+// ── raw campaign status nel view model + label italiane nella lista ──
+test('U3 — normalizeCustomerCampaign espone rawStatus/marketplaceStatus senza toccare `stato` legacy', () => {
+  assert.match(CUSTCAMP, /rawStatus,/);
+  assert.match(CUSTCAMP, /marketplaceStatus: isMarketplaceCampaignStatus\(row\.status\) \? rawStatus : null/);
+  // backward compat: mapping legacy invariato
+  assert.match(CUSTCAMP, /stato: STATUS_TO_CUSTOMER\[row\.status\] \?\? rawStatus/);
+  assert.match(CUSTCAMP, /MARKETPLACE_STATUS_LABELS = Object\.freeze\(\{[\s\S]*requested: 'Richiesta inviata'/);
+  assert.match(CUSTCAMP, /receiving_quotes: 'Raccolta preventivi'/);
+  assert.match(CUSTCAMP, /quote_selected: 'Preventivo selezionato'/);
+  assert.match(CUSTCAMP, /assigned: 'Fornitore assegnato'/);
+  // lista campagne Cliente: gli stati Marketplace hanno una label (non "sconosciuto")
+  assert.match(FINAL, /requested: \[MARKETPLACE_STATUS_LABELS\.requested/);
+  assert.match(FINAL, /receiving_quotes: \[MARKETPLACE_STATUS_LABELS\.receiving_quotes/);
+});
+
+// ── mapper centrale errori Marketplace ──
+test('U4 — mapMarketplaceError: token noti -> messaggi it, sconosciuto -> generico, mai raw', () => {
+  assert.match(MKTERR, /export function mapMarketplaceError/);
+  for (const tok of ['OFFERTA_GIA_INVIATA', 'FORNITORE_NON_VERIFICATO', 'CAMPAGNA_GIA_ASSEGNATA', 'OPERATORE_NON_DEL_FORNITORE', 'CAMPAGNA_NON_DEL_FORNITORE']) {
+    assert.match(MKTERR, new RegExp(`${tok}:`), tok);
+  }
+  assert.match(MKTERR, /Si è verificato un errore\. Riprova\./);
+  // deve saper estrarre il token da un corpo JSON PostgREST grezzo
+  assert.match(MKTERR, /JSON\.parse\(trimmed\)/);
+  // usato sia lato Fornitore sia lato Cliente
+  assert.match(DASH, /mapMarketplaceError/);
+  assert.match(CUSTVIEW, /mapMarketplaceError/);
+  // supplier-api rpc() normalizza il messaggio JSON grezzo in code+message puliti
+  assert.match(API, /if \(trimmed\.startsWith\('\{'\) \|\| trimmed\.startsWith\('\['\)\)/);
+});
+
+// ── V: assegnazione operatori nella Dashboard Supplier ("Lavori assegnati") ──
+test('V — Dashboard Supplier: pannello inline assegna operatore via RPC, mai INSERT/UPDATE diretto', () => {
+  // import delle sole RPC previste
+  assert.match(DASH, /supplierListOwnOperators,/);
+  assert.match(DASH, /supplierAssignOperator,/);
+  // pannello inline dedicato + CTA
+  assert.match(DASH, /function AssignOperatorPanel\(/);
+  assert.match(DASH, /Assegna operatore/);
+  // CTA coerente con la reale capacita' backend: supplier_assign_operator
+  // AGGIUNGE, non sostituisce -> "Assegna un altro operatore", mai "Cambia".
+  assert.match(DASH, /ops\.length > 0 \? 'Assegna un altro operatore' : 'Assegna operatore'/);
+  assert.doesNotMatch(DASH, /'Cambia operatore'/);
+  // carica SOLO i propri operatori
+  assert.match(DASH, /await supplierListOwnOperators\(\)/);
+  // assegna SOLO tramite RPC, signature reale (operatorId, campaignId)
+  assert.match(DASH, /await supplierAssignOperator\(selected, campaignId\)/);
+  assert.doesNotMatch(DASH, /\.from\(['"](operator_assignments|campaigns|operational_groups)['"]\)/);
+  // niente dialog nativi
+  assert.doesNotMatch(DASH, /window\.prompt|window\.confirm|window\.alert|\balert\(/);
+  // no double-click / disabled durante submit
+  assert.match(DASH, /if \(busy \|\| !selected\) return;/);
+  assert.match(DASH, /disabled=\{busy \|\| !selected \|\| !operators \|\| operators\.length === 0\}/);
+  // operatori inattivi non selezionabili
+  assert.match(DASH, /const inactive = o\.active === false;/);
+  assert.match(DASH, /disabled=\{inactive \|\| busy\}/);
+  // empty state
+  assert.match(DASH, /Non hai ancora operatori disponibili\./);
+  // errori mappati; gia'-assegnato NON e' un errore per l'utente
+  assert.match(DASH, /setErr\(mapMarketplaceError\(e\)\)/);
+  assert.match(DASH, /e\?\.code === '23505' \|\| String\(e\?\.message\) === 'ASSEGNAZIONE_GIA_PRESENTE'/);
+  // operatore/i assegnato/i mostrato/i dopo il successo, dalla fonte di verita'
+  assert.match(DASH, /'Operatore assegnato: ' : 'Operatori assegnati: '/);
+  assert.match(DASH, /ops\.join\(', '\)/);
+  // la UI NON crea gruppi: nessun riferimento a operational_groups / group_id
+  assert.doesNotMatch(DASH, /operational_group|group_id|gen_random_uuid/i);
+});
+
+// ── W: sezioni read-only della Dashboard invariate ──
+test('W — sezioni "Richieste disponibili" / "I miei preventivi" invariate (nessuna regressione)', () => {
+  assert.match(DASH, /Richieste disponibili/);
+  assert.match(DASH, /I miei preventivi/);
+  // il reload iniziale carica ancora esattamente 3 liste (no operatori eager)
+  assert.match(DASH, /getSupplierAvailableRequests\(\)\.catch/);
+  assert.match(DASH, /supplierListOwnQuotes\(\)\.catch/);
+  assert.match(DASH, /supplierListAssignedCampaigns\(\)\.catch/);
+  assert.doesNotMatch(DASH, /Promise\.all\(\[[\s\S]*supplierListOwnOperators\(\)[\s\S]*\]\)/);
+});
+
+// ── client wrapper assegnazione: signature + solo RPC ──
+test('X — supplierAssignOperator wrapper: rpc supplier_assign_operator, args mappati', () => {
+  assert.match(API, /export function supplierAssignOperator\(operatorId, campaignId\)/);
+  assert.match(API, /rpc\('supplier_assign_operator', \{ p_operator_id: operatorId, p_campaign_id: campaignId \}\)/);
+  assert.match(API, /export function supplierListOwnOperators\(\)/);
+  assert.match(API, /rpc\('supplier_list_own_operators'\)/);
+});
+
+// ── Y: nuova RPC read-only supplier_list_campaign_assignments (migration dedicata) ──
+test('Y — supplier_list_campaign_assignments: SECURITY DEFINER, search_path bloccato, no params, isolamento via campaigns.supplier_id, payload minimo', () => {
+  const M = MIG_ASG;
+  // firma: nessun parametro accettato dal client (no p_campaign_id)
+  assert.match(M, /create or replace function public\.supplier_list_campaign_assignments\(\)/);
+  assert.doesNotMatch(M, /function public\.supplier_list_campaign_assignments\([^)]*p_/);
+  // hardening
+  assert.match(M, /security definer/);
+  assert.match(M, /set search_path to ''/);
+  assert.match(M, /language plpgsql/);
+  assert.match(M, /\bstable\b/);
+  assert.match(M, /alter function public\.supplier_list_campaign_assignments\(\) owner to postgres/);
+  assert.match(M, /revoke all on function public\.supplier_list_campaign_assignments\(\) from public, anon/);
+  assert.match(M, /grant execute on function public\.supplier_list_campaign_assignments\(\) to authenticated/);
+  // autenticazione obbligatoria
+  assert.match(M, /v_uid uuid := auth\.uid\(\)/);
+  assert.match(M, /if v_uid is null then\s*\n\s*raise exception 'NON_AUTENTICATO'/);
+  // isolamento: SOLO campagne del Supplier; nessun campaign_id dal client
+  assert.match(M, /join public\.campaigns c\s*\n\s*on c\.id = a\.campaign_id\s*\n\s*and c\.supplier_id = v_uid/);
+  // payload minimo dichiarato nella returns table
+  const retTable = M.slice(M.indexOf('returns table ('), M.indexOf('language plpgsql'));
+  for (const col of ['campaign_id uuid', 'assignment_id uuid', 'operator_id uuid', 'operator_display_name text', 'assignment_status text', 'group_id uuid', 'group_name text', 'created_at timestamptz']) {
+    assert.ok(retTable.includes(col), `manca colonna payload: ${col}`);
+  }
+  // NIENTE dati sensibili nel corpo eseguibile (esclusi i commenti di testata)
+  const body = M.slice(M.indexOf('create or replace function'));
+  assert.doesNotMatch(body, /email|phone|telefono|document|vat_number|admin_notes|access_token|price|pricing|gps|latitude|longitude/i);
+  // sola lettura: nessun INSERT/UPDATE/DELETE su tabelle
+  assert.doesNotMatch(body, /\b(insert into|update public\.|delete from)\b/i);
+});
+
+// ── Z: client wrapper della nuova RPC ──
+test('Z — supplierListCampaignAssignments wrapper: chiama SOLO rpc supplier_list_campaign_assignments, nessun argomento', () => {
+  assert.match(API, /export function supplierListCampaignAssignments\(\)/);
+  assert.match(API, /rpc\('supplier_list_campaign_assignments'\)/);
+  // nessun campaign_id passato dal client a questa RPC
+  assert.doesNotMatch(API, /rpc\('supplier_list_campaign_assignments',/);
+});
+
+// ── AA: Dashboard ricostruisce l'assegnazione dopo un refresh, dal backend ──
+test('AA — Dashboard: read-path assegnazioni dal backend, "corrente" = solo status active, mai da state/cache precedente', () => {
+  // import della nuova RPC
+  assert.match(DASH, /supplierListCampaignAssignments,/);
+  // reload dedicato che parte SEMPRE dalla RPC
+  assert.match(DASH, /const reloadAssignments = useCallback\(async \(\) => \{[\s\S]*supplierListCampaignAssignments\(\)/);
+  // lookup campaign_id -> operatori: SOLO assegnazioni active (non "ultimo per created_at")
+  assert.match(DASH, /if \(a\.assignment_status !== 'active'\) continue;/);
+  assert.match(DASH, /const activeOpsByCampaign = useMemo\(/);
+  // al mount si ricarica SEMPRE dal backend (oltre a reload())
+  assert.match(DASH, /useEffect\(\(\) => \{ reload\(\); reloadAssignments\(\); \}/);
+  // dopo un assign la UI si riallinea dalla fonte di verita', non da state locale
+  assert.match(DASH, /await reloadAssignments\(\);/);
+  // nessuna mappa di assegnazioni tenuta come "verita'" nello state del componente
+  assert.doesNotMatch(DASH, /assignedByCampaign/);
+  // nessuna persistenza client-side spacciata per fonte dati
+  assert.doesNotMatch(DASH, /localStorage|sessionStorage/);
 });

@@ -21,17 +21,41 @@ const STATUS_TO_CUSTOMER = {
   cancelled: 'annullata', problem: 'problema',
 };
 
+// Stati DB del flusso Marketplace Fornitore (campaigns.status). Non hanno una
+// mappatura legacy in STATUS_TO_CUSTOMER: `campagna.stato` resta il valore DB
+// grezzo (backward compatible), ma la UI Cliente li riconosce e li etichetta.
+export const MARKETPLACE_CAMPAIGN_STATUSES = Object.freeze([
+  'requested', 'receiving_quotes', 'quote_selected', 'assigned',
+]);
+
+export const MARKETPLACE_STATUS_LABELS = Object.freeze({
+  requested: 'Richiesta inviata',
+  receiving_quotes: 'Raccolta preventivi',
+  quote_selected: 'Preventivo selezionato',
+  assigned: 'Fornitore assegnato',
+});
+
+export function isMarketplaceCampaignStatus(rawStatus) {
+  return MARKETPLACE_CAMPAIGN_STATUSES.includes(String(rawStatus || ''));
+}
+
 export function normalizeCustomerCampaign(row, zones = []) {
   if (!row || typeof row !== 'object') return null;
   const metadata = objectValue(row.metadata);
   const zoneRows = Array.isArray(zones) ? zones : [];
   const zoneNames = zoneRows.map((zone) => nullableText(zone.zone_name ?? zone.zone_label ?? zone.municipality_name)).filter(Boolean);
+  const rawStatus = nullableText(row.status);
   return {
     ...row,
     campaignZones: zoneRows,
     titolo: nullableText(row.campaign_name ?? row.title),
     servizio: nullableText(row.service_type),
-    stato: STATUS_TO_CUSTOMER[row.status] ?? nullableText(row.status),
+    stato: STATUS_TO_CUSTOMER[row.status] ?? rawStatus,
+    // Stato DB reale (campaigns.status), esplicito e stabile: usato dai flussi
+    // Marketplace (CustomerQuotesView) che devono ragionare sullo stato del
+    // modello, non sull'etichetta legacy. NON sostituisce `stato`.
+    rawStatus,
+    marketplaceStatus: isMarketplaceCampaignStatus(row.status) ? rawStatus : null,
     quantita: nullableNumber(row.quantity ?? row.target_quantity),
     totale_euro: nullableNumber(row.total_amount ?? row.estimated_price),
     data_inizio: nullableText(row.start_date ?? row.distribution_start_date),

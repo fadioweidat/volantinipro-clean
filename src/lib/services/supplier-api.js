@@ -9,8 +9,23 @@ import { supabase } from '../supabaseClient';
 async function rpc(name, args = undefined) {
   const { data, error } = await supabase.rpc(name, args);
   if (error) {
-    const e = new Error(error.message || `RPC ${name} fallita`);
-    e.code = error.code || null;
+    // Il client REST leggero (src/lib/supabaseClient) mette il corpo grezzo
+    // (spesso JSON PostgREST) dentro error.message. Lo normalizziamo qui:
+    // i chiamanti ricevono SEMPRE un `.message` = token di dominio pulito
+    // (es. OFFERTA_GIA_INVIATA) e un `.code` separato, mai il JSON grezzo.
+    let message = error.message || `RPC ${name} fallita`;
+    let code = error.code || null;
+    const trimmed = typeof message === 'string' ? message.trim() : '';
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        const body = JSON.parse(trimmed);
+        message = body.message || body.error || message;
+        code = code || body.code || null;
+      } catch { /* non JSON valido: lascia message com'è */ }
+    }
+    const e = new Error(message);
+    e.code = code;
+    e.rpc = name;
     throw e;
   }
   return data;
@@ -50,6 +65,14 @@ export function supplierListAssignedCampaigns() {
 /** I propri operatori. */
 export function supplierListOwnOperators() {
   return rpc('supplier_list_own_operators');
+}
+
+/** Assegnazioni operatore GIA' esistenti sulle proprie campagne (read-only).
+ *  Serve alla Dashboard per ricostruire "operatore assegnato" dopo un refresh.
+ *  Isolamento server-side: SOLO campagne dove campaigns.supplier_id = auth.uid().
+ *  Payload minimo: nessun contatto operatore, nessun dato di altri Supplier. */
+export function supplierListCampaignAssignments() {
+  return rpc('supplier_list_campaign_assignments');
 }
 
 /** Assegna un proprio operatore a una campagna vinta. */

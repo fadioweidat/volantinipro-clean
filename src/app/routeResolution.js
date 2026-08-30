@@ -11,6 +11,7 @@ export function resolveAppRoute(path, { hasAuthHash = false, prefillHas = false,
   if (p === '/admin/groups') return 'admin-groups-manager';
   if (p === '/admin/commercial') return 'admin-commercial';
   if (p === '/admin/smart-pairing') return 'admin-smart-pairing';
+  if (p === '/admin/suppliers') return 'admin-suppliers';
   if (p === '/admin/status') return 'admin-status';
   const adminAssignmentsNew = p.match(/^\/admin\/campaigns\/([^/]+)\/assignments\/new$/);
   if (adminAssignmentsNew) return `admin-assignments-new:${adminAssignmentsNew[1]}`;

@@ -20,7 +20,8 @@ import {
 import { useCampagne } from "./src/hooks/useCampagne.js";
 import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
-import { customerValue, CUSTOMER_DATA_UNAVAILABLE, CUSTOMER_PAYMENT_STATE, getCustomerPaymentState } from "./src/lib/customerCampaigns.js";
+import { customerValue, CUSTOMER_DATA_UNAVAILABLE, CUSTOMER_PAYMENT_STATE, getCustomerPaymentState, MARKETPLACE_STATUS_LABELS } from "./src/lib/customerCampaigns.js";
+import { CustomerQuotesView } from "./src/pages/customer/CustomerQuotesView.jsx";
 import { getBankTransferDetails, BANK_TRANSFER_UNAVAILABLE_MESSAGE } from "./src/lib/bankTransfer.js";
 import { IS_MANUAL_CONTACT, buildCampaignContactWhatsAppUrl, buildCampaignContactMailtoUrl } from "./src/lib/paymentMode.js";
 import { getAuthRedirectBase } from "./src/lib/publicAppUrl.js";
@@ -5411,7 +5412,13 @@ export function DashboardPage({
     confermata: ["Confermata", C.yellow],
     in_preparazione: ["In preparazione", C.orange],
     in_distribuzione: ["In distribuzione", C.green],
-    completata: ["Completata", C.blue]
+    completata: ["Completata", C.blue],
+    // Stati Marketplace (campaigns.status grezzo, non mappato in legacy):
+    // etichette italiane professionali, mai "stato sconosciuto".
+    requested: [MARKETPLACE_STATUS_LABELS.requested, C.yellow],
+    receiving_quotes: [MARKETPLACE_STATUS_LABELS.receiving_quotes, C.orange],
+    quote_selected: [MARKETPLACE_STATUS_LABELS.quote_selected, C.blue],
+    assigned: [MARKETPLACE_STATUS_LABELS.assigned, C.green]
   };
   const svcCfg = {
     d2d: ["D2D", C.orange],
@@ -5807,6 +5814,11 @@ export function CampaignDashboardPage({
             cursor: "pointer"
           }}>Apri report</button></div>
           </div>
+
+          {/* Marketplace: preventivi Fornitore ricevuti + selezione. Il
+              componente si auto-nasconde per le campagne legacy (rende null se
+              campagna.rawStatus non e' uno stato Marketplace). */}
+          <CustomerQuotesView campaignId={routeCampaignId} status={campagna.rawStatus} />
 
           <div style={{
           background: "rgba(255,255,255,.045)",

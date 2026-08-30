@@ -71,6 +71,15 @@ export function AdminDashboardModulesPanel({ clientsQuotesCount, clientsStats, g
           cta="Apri Commerciale"
           onOpen={() => onNav('admin-commercial')}
         />
+        {/* Fornitori Marketplace: verifica / sospensione / rifiuto degli
+            account Supplier. Nessuno stat qui: la lista reale e i contatori
+            per stato vivono nella pagina dedicata (RPC/RLS Marketplace). */}
+        <ModuleCard
+          title="Fornitori"
+          stats={[]}
+          cta="Apri Fornitori"
+          onOpen={() => onNav('admin-suppliers')}
+        />
         {/* Centro Controllo Sito: stato piattaforma, errori reali, health
             dei flussi critici, provider esterni. Nessuno stat qui: i numeri
             vivono nella pagina dedicata, dove vengono calcolati dal vivo. */}
