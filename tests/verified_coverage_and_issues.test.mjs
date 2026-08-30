@@ -74,7 +74,8 @@ test('A: CoverageAdjustmentPanel — matita + gomma + seleziona + annulla + salv
   assert.match(panel, /const \[sourceLevel, setSourceLevel\] = useState\(defaultSourceLevel\)/);
   assert.match(panel, /const isGpsLevel = sourceLevel === 'gps_exclusion'/);
   // matita: area OPPURE linea
-  assert.match(panel, /const \[drawMode, setDrawMode\] = useState\('area'\)/);
+  // §6/§G del ticket "operatori reali": per completare vie/tratti il default e' LINEA
+  assert.match(panel, /const \[drawMode, setDrawMode\] = useState\('line'\)/);
   assert.match(panel, /Matita a tratto \(linea\)/);
   assert.match(panel, /latLngsToLineStringGeoJson\(/);
   // gomma sul GPS: type forzato exclusion, area

@@ -13,6 +13,8 @@ import { useZoneBoundaries } from '../../hooks/useZoneBoundaries.js';
 import { resolveMunicipalityBoundary } from '../../lib/geo/resolveMunicipalityBoundary.js';
 import { AdminLayout } from './AdminLayout.jsx';
 import { CoverageAdjustmentPanel } from '../../components/admin/CoverageAdjustmentPanel.jsx';
+import { listCampaignAssignments } from '../../lib/services/admin-api.js';
+import { getOperatorColor } from '../../lib/geo/operatorColor.js';
 import { AdminIssuesPanel } from '../../components/admin/AdminIssuesPanel.jsx';
 import { ZoneCoverageMap } from '../../components/admin/ZoneCoverageMap.jsx';
 import { FitToZoneBounds } from '../../components/map/FitToZoneBounds.jsx';
@@ -125,6 +127,31 @@ export function GpsMonitor({ campaignId, onNav }) {
       .map((z) => ({ id: z.id, municipalityName: z.zone_name, boundaryGeometry: resolvedBoundaries[z.id] || null }))
       .filter((z) => z.municipalityName && z.boundaryGeometry),
     [zoneRows, resolvedBoundaries],
+  );
+
+  // Operatori REALI della campagna per CoverageAdjustmentPanel (§ ticket
+  // "operatori reali"): da admin_list_campaign_assignments, solo attivi/non
+  // revocati, senza access_token nel payload passato alla UI.
+  const [assignmentRows, setAssignmentRows] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    if (!campaignId) { setAssignmentRows([]); return undefined; }
+    listCampaignAssignments(campaignId)
+      .then((rows) => { if (!cancelled) setAssignmentRows(Array.isArray(rows) ? rows : []); })
+      .catch(() => { if (!cancelled) setAssignmentRows([]); });
+    return () => { cancelled = true; };
+  }, [campaignId]);
+  const campaignOperators = useMemo(
+    () => assignmentRows
+      .filter((a) => !a.revoked_at && (a.status == null || a.status === 'active'))
+      .map((a) => ({
+        assignmentId: a.id,
+        operatorId: a.operator_id || null,
+        name: a.operator_name && a.operator_name !== a.operator_id ? a.operator_name : null,
+        zoneId: a.zone_id || null,
+        groupId: a.group_id || null,
+      })),
+    [assignmentRows],
   );
 
   // Riga di zoneProgress per la zona selezionata (ticket A): stesso dato
@@ -451,6 +478,7 @@ export function GpsMonitor({ campaignId, onNav }) {
               defaultSourceLevel="automatic_verified"
               municipalityName={activeZoneName}
               campaignZones={campaignZonesForAuto}
+              campaignOperators={campaignOperators}
               automaticPercent={selectedAutoZoneProgress ? (selectedAutoZoneProgress.manual_override_enabled ? selectedAutoZoneProgress.manual_percent : selectedAutoZoneProgress.automatic_percent) : null}
             />
 
@@ -529,6 +557,8 @@ export function GpsMonitor({ campaignId, onNav }) {
               zones={selectedZoneRow ? [{ id: selectedZoneRow.id, ...manualPanelZoneCenter }] : geofenceZones}
               boundaryGeometry={selectedZoneGeometry}
               gpsOperatorCount={gpsOperatorCount}
+              campaignZones={campaignZonesForAuto}
+              campaignOperators={campaignOperators}
             />
             <AdminIssuesPanel campaignId={campaignId} />
           </div>
@@ -651,7 +681,10 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, latest, zone
   // toggle non contribuisce alla mappa.
   const trackLines = useMemo(() => (sessionTracks || []).map((track, index) => ({
     sessionId: track.session.id,
-    color: trackColor(index),
+    // Colore STABILE per operatore (stesso di CoverageAdjustmentPanel per le
+    // correzioni manuali dello stesso autista); fallback all'indice per
+    // sessioni senza driver_id.
+    color: track.session?.driver_id ? getOperatorColor(track.session.driver_id) : trackColor(index),
     visible: trackVisibility[track.session.id] !== false,
     lastPoint: track.lastPoint,
     latlngs: (track.validPoints || [])

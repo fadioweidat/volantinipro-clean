@@ -20,6 +20,7 @@ import { resolveRoadNetwork } from '../../lib/geo/resolveRoadNetwork.js';
 import { getMunicipalityCenterPoint, selectRoadsFromOrigin } from '../../lib/geo/originRadialSelection.js';
 import { mergeRoadNetworks, assignWayZoneId } from '../../lib/geo/mergeRoadNetworks.js';
 import { splitPolylineByCircle, polylineLengthMeters } from '../../lib/geo/splitPolylineByCircle.js';
+import { getOperatorColor, UNASSIGNED_OPERATOR_COLOR } from '../../lib/geo/operatorColor.js';
 
 // Modello obbligatorio: traccia GPS reale + correzioni manuali Admin + zone
 // non accessibili = copertura operativa finale. Questo componente non scrive
@@ -38,22 +39,20 @@ const TYPE_COLORS = {
   exclusion: '#dc2626', // rosso — GOMMA sul GPS reale (esclusione overlay)
 };
 
-// P1: operatori Admin manuali (MAN-01..MAN-04), identificativi neutrali —
-// MAI nomi di persone reali inesistenti. Il colore del BORDO del poligono
-// distingue l'operatore; il RIEMPIMENTO resta TYPE_COLORS (il tipo di
-// correzione — coperta/non accessibile — non deve perdere il suo
-// significato visivo esistente).
-export const MAX_MANUAL_OPERATORS = 4;
-const MANUAL_OPERATOR_COLORS = ['#0f766e', '#d97706', '#db2777', '#6366f1'];
-const UNASSIGNED_OPERATOR_COLOR = '#94a3b8'; // correzioni create prima di questa funzione, nessun operator_key
-function manualOperatorKeyFor(index) {
-  return `MAN-${String(index + 1).padStart(2, '0')}`;
-}
+// Operatori REALI della campagna (da admin_list_campaign_assignments). Il
+// colore del BORDO del poligono / della linea distingue l'operatore; il
+// RIEMPIMENTO resta TYPE_COLORS (il tipo di correzione non perde il suo
+// significato visivo). `operator_key` salvato in metadata =
+// operator_id || assignment_id reale — MAI un "MAN-0N" fittizio.
+const ADMIN_OPERATOR_KEY = 'admin'; // campagna senza assignment: unico fallback neutrale
+
+// Colore stabile per la chiave operatore (operator_id/assignment_id reali; per
+// le correzioni pre-feature con chiave "MAN-0N" resta comunque deterministico).
 function manualOperatorColor(operatorKey) {
-  if (!operatorKey) return UNASSIGNED_OPERATOR_COLOR;
-  const idx = parseInt(String(operatorKey).split('-')[1], 10) - 1;
-  return MANUAL_OPERATOR_COLORS[Number.isFinite(idx) && idx >= 0 ? idx % MANUAL_OPERATOR_COLORS.length : 0];
+  if (!operatorKey || operatorKey === ADMIN_OPERATOR_KEY) return UNASSIGNED_OPERATOR_COLOR;
+  return getOperatorColor(operatorKey);
 }
+
 
 const TYPE_LABELS = { ...Object.fromEntries(COVERAGE_ADJUSTMENT_TYPES.map((t) => [t.value, t.label])), exclusion: 'Esclusione GPS (gomma)' };
 
@@ -225,7 +224,37 @@ function pointToPolylineMeters(latlng, line) {
   return best;
 }
 
-export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], boundaryGeometry = null, gpsOperatorCount = 0, defaultSourceLevel = 'manual_verified', automaticPercent = null, municipalityName = null, storePoint = null, campaignZones = [] }) {
+export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], boundaryGeometry = null, gpsOperatorCount = 0, defaultSourceLevel = 'manual_verified', automaticPercent = null, municipalityName = null, storePoint = null, campaignZones = [], campaignOperators = [] }) {
+  // Operatori REALI della campagna (da GpsMonitor -> admin_list_campaign_assignments).
+  // Ogni opzione: { key (operator_id||assignment_id||'admin'), label, operatorId,
+  // assignmentId, zoneId }. Mai un MAN-0N fittizio. Se la campagna non ha
+  // assignment: unica opzione neutrale "Copertura Admin".
+  const operatorOptions = useMemo(() => {
+    const list = (Array.isArray(campaignOperators) ? campaignOperators : [])
+      .filter((o) => o && (o.operatorId || o.assignmentId))
+      .map((o, i) => ({
+        key: String(o.operatorId || o.assignmentId),
+        label: o.name || `Autista ${i + 1}`,
+        operatorId: o.operatorId || null,
+        assignmentId: o.assignmentId || null,
+        zoneId: o.zoneId || null,
+      }));
+    // dedup per key (piu' assignment stesso operatore)
+    const seen = new Set();
+    const deduped = list.filter((o) => (seen.has(o.key) ? false : seen.add(o.key)));
+    if (deduped.length === 0) {
+      return [{ key: ADMIN_OPERATOR_KEY, label: 'Copertura Admin', operatorId: null, assignmentId: null, zoneId: null }];
+    }
+    return deduped;
+  }, [campaignOperators]);
+
+  // Default: operatore della zona selezionata se determinabile, altrimenti il
+  // primo. Se ambiguo (piu' operatori sulla zona) resta il primo di quella zona.
+  const defaultOperatorKey = useMemo(() => {
+    const zoneId = zones[0]?.id ?? null;
+    const forZone = zoneId ? operatorOptions.find((o) => o.zoneId && o.zoneId === zoneId) : null;
+    return (forZone || operatorOptions[0])?.key || ADMIN_OPERATOR_KEY;
+  }, [operatorOptions, zones]);
   const [adjustments, setAdjustments] = useState([]);
   const [coverage, setCoverage] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -251,20 +280,41 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   const [formError, setFormError] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showDetailedPoints, setShowDetailedPoints] = useState(false);
-  // P1: numero di operatori Admin manuali disponibili (MAN-01..MAN-0N) e
-  // operatore assegnato all'area/correzione in disegno. Nessuna
-  // persistenza per il contatore stesso (Fase 10): solo il singolo
-  // operator_key scelto viene salvato, dentro il campo metadata jsonb gia'
-  // esistente su campaign_coverage_adjustments — nessun cambio schema.
-  const [manualOperatorCount, setManualOperatorCount] = useState(1);
-  const [selectedOperatorKey, setSelectedOperatorKey] = useState('MAN-01');
+  // Operatore reale associato alla correzione in disegno. Solo il singolo
+  // operator_key (id reale) viene salvato in metadata jsonb — nessun cambio
+  // schema. Nessun contatore: l'elenco e' quello reale (operatorOptions).
+  const [selectedOperatorKey, setSelectedOperatorKey] = useState(ADMIN_OPERATOR_KEY);
+  // Allinea la selezione al default reale quando cambiano gli operatori/zona
+  // e non si sta editando una riga esistente.
+  useEffect(() => {
+    if (editingId) return;
+    setSelectedOperatorKey((cur) => (operatorOptions.some((o) => o.key === cur) ? cur : defaultOperatorKey));
+  }, [defaultOperatorKey, operatorOptions, editingId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const selectedOperator = operatorOptions.find((o) => o.key === selectedOperatorKey) || operatorOptions[0];
+  // key (id reale o vecchia "MAN-0N") -> etichetta leggibile.
+  const operatorLabelForKey = (key) => {
+    const opt = operatorOptions.find((o) => o.key === key);
+    if (opt) return opt.label;
+    if (!key || key === ADMIN_OPERATOR_KEY) return 'Copertura Admin';
+    if (/^MAN-\d+$/.test(String(key))) return `Operatore ${String(key).split('-')[1]}`;
+    return 'Operatore';
+  };
+  const operatorShortForKey = (key) => {
+    const label = operatorLabelForKey(key);
+    const m = String(label).match(/\d+/);
+    if (m) return m[0];
+    return /^[A-Za-zÀ-ÿ]/.test(label) ? label[0].toUpperCase() : '•';
+  };
 
   // Livello di editing (gomma su TUTTI e 3): 'gps_exclusion' (gomma sul GPS
   // reale — overlay, mai DELETE su gps_tracking_points), 'automatic_verified'
   // (matita/gomma su generazione automatica), 'manual_verified'.
   const [sourceLevel, setSourceLevel] = useState(defaultSourceLevel);
   // 'area' (poligono, come prima) | 'line' (matita a tratto -> LineString).
-  const [drawMode, setDrawMode] = useState('area');
+  // §6/§G: per completare vie/tratti mancanti il default e' LINEA. "Area
+  // (poligono)" resta opzione secondaria per piazze/aree pedonali/zone non
+  // accessibili.
+  const [drawMode, setDrawMode] = useState('line');
   const [lineBufferM, setLineBufferM] = useState(12);
   const [activeLine, setActiveLine] = useState([]);   // vertici polilinea in disegno
   const [draftLines, setDraftLines] = useState([]);   // polilinee chiuse, in attesa di Salva
@@ -456,7 +506,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setDraftType(isGpsLevel ? 'exclusion' : 'manual_covered');
     setDraftReason('');
     setDraftNotes('');
-    setSelectedOperatorKey('MAN-01');
+    setSelectedOperatorKey(defaultOperatorKey);
     setFormError(null);
   };
 
@@ -751,15 +801,10 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setDraftType(adjustment.adjustment_type);
     setDraftReason(adjustment.reason || '');
     setDraftNotes(adjustment.notes || '');
-    const existingKey = adjustment.metadata?.operator_key || 'MAN-01';
-    setSelectedOperatorKey(existingKey);
-    // Se l'operatore gia' assegnato ha un indice oltre il contatore
-    // corrente (es. adjustment MAN-03 ma il selettore e' su 1), allarga il
-    // contatore cosi' il suo pulsante resta visibile/selezionabile.
-    const existingIndex = parseInt(existingKey.split('-')[1], 10);
-    if (Number.isFinite(existingIndex) && existingIndex > manualOperatorCount) {
-      setManualOperatorCount(Math.min(MAX_MANUAL_OPERATORS, existingIndex));
-    }
+    // Operatore gia' salvato (id reale o vecchia chiave "MAN-0N"): se non e'
+    // tra gli operatori reali attuali resta comunque selezionato via
+    // `editSavedOperatorKey` (aggiunto in coda alle opzioni finche' si edita).
+    setSelectedOperatorKey(adjustment.metadata?.operator_key || defaultOperatorKey);
     setFormError(null);
   };
 
@@ -835,7 +880,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
           geometryGeoJson: isLine ? latLngsToLineStringGeoJson(shape) : latLngsToPolygonGeoJson(shape),
           reason: draftReason.trim(),
           notes: draftNotes.trim() || null,
-          metadata: { operator_key: selectedOperatorKey, admin_operator: true },
+          metadata: { operator_key: selectedOperatorKey, operator_id: selectedOperator?.operatorId || null, assignment_id: selectedOperator?.assignmentId || null, admin_operator: true },
           source,
           lineBufferM: isLine ? lineBufferM : null,
         });
@@ -869,7 +914,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setSaving(true);
     setFormError(null);
     try {
-      const metadata = { operator_key: selectedOperatorKey, admin_operator: true };
+      const metadata = { operator_key: selectedOperatorKey, operator_id: selectedOperator?.operatorId || null, assignment_id: selectedOperator?.assignmentId || null, admin_operator: true };
       for (const area of areas) {
         await createCoverageAdjustment({
           campaignId, zoneId: zones[0]?.id ?? null, adjustmentType: effectiveType,
@@ -924,7 +969,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
 
   // Operatori distinti realmente presenti tra le correzioni attive (non il
   // solo contatore UI) — usati per legenda/KPI, cosi' riflettono i dati
-  // reali anche se manualOperatorCount cambia dopo che le aree sono state
+  // reali anche se l'elenco operatori cambia dopo che le aree sono state
   // salvate.
   const presentOperatorKeys = [...new Set(activeAdjustments.map((a) => a.metadata?.operator_key).filter(Boolean))].sort();
 
@@ -1074,13 +1119,6 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,.6)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Operatori Admin manuali</span>
-        {Array.from({ length: MAX_MANUAL_OPERATORS }, (_, i) => i + 1).map((n) => (
-          <button key={n} type="button" onClick={() => setManualOperatorCount(n)} style={{ ...secondaryButtonStyle, background: manualOperatorCount === n ? '#0f766e' : secondaryButtonStyle.background, border: manualOperatorCount === n ? 'none' : secondaryButtonStyle.border }}>{n}</button>
-        ))}
-      </div>
-
       {error && <div style={errorStyle}>{error}</div>}
 
       {coverage && coverage.calculation_status === 'ready' && (
@@ -1155,21 +1193,24 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
             </select>
           </label>
           <label style={labelStyle}>
-            Operatore
+            Operatore associato
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
-              {Array.from({ length: manualOperatorCount }, (_, i) => manualOperatorKeyFor(i)).map((key) => (
+              {(operatorOptions.some((o) => o.key === selectedOperatorKey)
+                ? operatorOptions
+                : [...operatorOptions, { key: selectedOperatorKey, label: selectedOperatorKey }]
+              ).map((opt) => (
                 <button
-                  key={key}
+                  key={opt.key}
                   type="button"
-                  onClick={() => setSelectedOperatorKey(key)}
+                  onClick={() => setSelectedOperatorKey(opt.key)}
                   style={{
-                    border: selectedOperatorKey === key ? 'none' : '1px solid rgba(255,255,255,.14)',
+                    border: selectedOperatorKey === opt.key ? 'none' : '1px solid rgba(255,255,255,.14)',
                     borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 800, cursor: 'pointer',
-                    background: selectedOperatorKey === key ? manualOperatorColor(key) : 'rgba(255,255,255,.05)',
+                    background: selectedOperatorKey === opt.key ? manualOperatorColor(opt.key) : 'rgba(255,255,255,.05)',
                     color: '#fff',
                   }}
                 >
-                  {key}
+                  {opt.label}
                 </button>
               ))}
             </div>
@@ -1280,7 +1321,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
             const firstAdj = activeAdjustments.find((a) => a.metadata?.operator_key === key);
             const pos = firstAdj ? polygonGeoJsonToLatLngs(firstAdj.geometry)[0] : null;
             return pos ? (
-              <Marker key={`man-start-${key}`} position={pos} icon={manualOperatorDivIcon(`M${key.split('-')[1]}`, manualOperatorColor(key))} />
+              <Marker key={`man-start-${key}`} position={pos} icon={manualOperatorDivIcon(operatorShortForKey(key), manualOperatorColor(key))} />
             ) : null;
           })}
 
@@ -1305,8 +1346,11 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
               }}
             />
           )}
-          {correcting && activeVertices.map((v, i) => (
-            <CircleMarker key={i} center={v} radius={5} pathOptions={{ color: '#111827', fillColor: '#fff', fillOpacity: 1 }} />
+          {/* §9: vertex marker SOLO mentre si disegna/modifica (tool matita) e
+              piccoli. Dopo "Chiudi" / salvataggio activeVertices e' vuoto ->
+              spariscono. Nella preview Cliente non esistono (correcting=false). */}
+          {correcting && tool === 'draw' && activeVertices.map((v, i) => (
+            <CircleMarker key={i} center={v} radius={3} pathOptions={{ color: '#111827', fillColor: '#fff', fillOpacity: 1, weight: 1 }} />
           ))}
 
           {/* Bozza tratti (matita / base automatica caricata). In modalita'
@@ -1326,8 +1370,8 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
           {correcting && activeLine.length > 0 && (
             <Polyline positions={activeLine} pathOptions={{ color: '#a855f7', weight: 3, opacity: 0.9, dashArray: '2 4' }} />
           )}
-          {correcting && activeLine.map((v, i) => (
-            <CircleMarker key={`al-${i}`} center={v} radius={5} pathOptions={{ color: '#111827', fillColor: '#a855f7', fillOpacity: 1 }} />
+          {correcting && tool === 'draw' && activeLine.map((v, i) => (
+            <CircleMarker key={`al-${i}`} center={v} radius={3} pathOptions={{ color: '#111827', fillColor: '#a855f7', fillOpacity: 1, weight: 1 }} />
           ))}
 
           {showDetailedPoints && validPoints.map((p) => (
@@ -1358,7 +1402,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
         Anteprima "Copertura finale" (identica alla vista Cliente)
       </label>
 
-      <Legend presentOperatorKeys={presentOperatorKeys} />
+      <Legend presentOperatorKeys={presentOperatorKeys} operatorLabelForKey={operatorLabelForKey} />
       {(presentOperatorKeys.length > 0 || gpsOperatorCount > 0) && (
         <p style={{ margin: '6px 0 0', fontSize: 12, color: 'rgba(255,255,255,.55)' }}>
           Operatori GPS reali: {gpsOperatorCount} · Operatori Admin manuali: {presentOperatorKeys.length}
@@ -1414,13 +1458,13 @@ function CoverageMetric({ label, value, color, emphasize = false }) {
   );
 }
 
-function Legend({ presentOperatorKeys = [] }) {
+function Legend({ presentOperatorKeys = [], operatorLabelForKey = (k) => k }) {
   const items = [
     { color: BOUNDARY_COLOR, label: 'Confine comune (zona selezionata)', dashed: true },
     { color: '#2563eb', label: 'Traccia GPS reale' },
     { color: '#22c55e', label: 'Copertura GPS', fillOnly: true },
     ...(presentOperatorKeys.length > 0
-      ? presentOperatorKeys.map((key) => ({ color: manualOperatorColor(key), label: `${key} — Integrazione manuale Admin` }))
+      ? presentOperatorKeys.map((key) => ({ color: manualOperatorColor(key), label: `${operatorLabelForKey(key)} — integrazione manuale` }))
       : [{ color: '#a855f7', label: 'Copertura manuale Admin', fillOnly: true }]),
     { color: '#dc2626', label: 'Area non accessibile', dashed: true },
     { color: '#6b7280', label: 'Correzione revocata (storico Admin)' },
