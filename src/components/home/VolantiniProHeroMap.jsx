@@ -421,17 +421,6 @@ function useHeroMapPreviewStyles() {
       .vp-hero-map-preview .vp-step2-map-shell {
         height: 100% !important;
       }
-      /* Basemap ribilanciato SOLO per la hero (nessun impatto sul
-         configuratore): sfondo container scuro + tile piu' spente per
-         togliere il "bruciato" del filtro globale brightness/contrast.
-         Nessun blur: la mappa resta nitida. Raggio arancione, marker e
-         nomi citta' restano leggibili. */
-      .vp-hero-map-preview .leaflet-container {
-        background: #0a1220 !important;
-      }
-      .vp-hero-map-preview .leaflet-tile {
-        filter: brightness(0.78) contrast(0.97) saturate(0.64) !important;
-      }
       .vp-hero-map-preview .leaflet-radiusCenter-pane {
         display: none !important;
       }
@@ -533,14 +522,9 @@ function HeroRealMapPreview({ compact, benefits }) {
       }}>
         <div style={{
           position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none",
-          // Overlay ribilanciato: (1) veil piatto uniforme molto leggero su
-          // TUTTA la mappa per togliere il bianco abbagliante senza sfocare;
-          // (2) sfumatura orizzontale piu' morbida verso la sinistra e con un
-          // "pavimento" sul lato destro (non piu' 100% trasparente), cosi' il
-          // basemap resta leggibile ma coerente col tema scuro.
-          background: compact
-            ? "linear-gradient(rgba(5,12,24,0.16), rgba(5,12,24,0.16)), linear-gradient(to bottom, #07101f 0%, rgba(7,16,31,0.78) 16%, rgba(7,16,31,0.18) 50%, #07101f 100%)"
-            : "linear-gradient(rgba(5,12,24,0.16), rgba(5,12,24,0.16)), linear-gradient(90deg, #07101f 0%, rgba(7,16,31,0.72) 12%, rgba(7,16,31,0.34) 32%, rgba(7,16,31,0.12) 62%, rgba(7,16,31,0.06) 100%), linear-gradient(0deg, #07101f 0%, rgba(7,16,31,0) 18%)"
+          background: compact 
+            ? "linear-gradient(to bottom, #07101f 0%, rgba(7,16,31,0.85) 15%, rgba(7,16,31,0.2) 50%, #07101f 100%)"
+            : "linear-gradient(90deg, #07101f 0%, rgba(7,16,31,0.92) 10%, rgba(7,16,31,0.45) 30%, rgba(7,16,31,0) 60%, transparent 100%), linear-gradient(0deg, #07101f 0%, rgba(7,16,31,0) 15%)"
         }} />
 
         <div style={{ position: "absolute", inset: 0, zIndex: 1 }}>
