@@ -24,12 +24,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   createTtlCache,
   fetchRoadsWithFallback,
-  resolveEndpoints,
 } from "../_shared/roadNetworkProxy.ts";
 import {
   buildPoiQuery,
   getServiceTargetTags,
   makePoiCacheKey,
+  resolvePoiEndpoints,
   resultCap,
   validatePoiInput,
 } from "../_shared/poiSearchProxy.ts";
@@ -80,7 +80,9 @@ function consumeRateLimit(req: Request): { allowed: boolean; retryAfterSeconds: 
 
 // ── Cache TTL server-side (istanza warm) ──────────────────────────────────
 const CACHE_TTL_MS = envInt("POI_SEARCH_CACHE_TTL_MS", 3600000, 60000, 86400000);
-const PROVIDER_TIMEOUT_MS = envInt("POI_SEARCH_TIMEOUT_MS", 25000, 5000, 55000);
+// 12s per provider (audit 502): un mirror lento/morto viene scartato in fretta;
+// worst case 3 provider = 36s invece di 75s. Allineato a POI_OVERPASS_QL_TIMEOUT_S.
+const PROVIDER_TIMEOUT_MS = envInt("POI_SEARCH_TIMEOUT_MS", 12000, 5000, 55000);
 const poiCache = createTtlCache<any[]>(CACHE_TTL_MS);
 
 serve(async (req: Request) => {
@@ -122,7 +124,7 @@ serve(async (req: Request) => {
   try {
     const result = await fetchRoadsWithFallback({
       fetchImpl: fetch as any,
-      endpoints: resolveEndpoints(Deno.env.get("OVERPASS_ENDPOINT")),
+      endpoints: resolvePoiEndpoints(Deno.env.get("OVERPASS_ENDPOINT")),
       query,
       timeoutMs: PROVIDER_TIMEOUT_MS,
     });

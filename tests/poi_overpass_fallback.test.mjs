@@ -17,12 +17,12 @@ import { test } from 'node:test';
 import {
   buildPoiQuery,
   getServiceTargetTags,
+  resolvePoiEndpoints,
   resultCap,
   validatePoiInput,
 } from '../supabase/functions/_shared/poiSearchProxy.ts';
 import {
   fetchRoadsWithFallback,
-  resolveEndpoints,
 } from '../supabase/functions/_shared/roadNetworkProxy.ts';
 
 const schoolElement = (id, name) => ({ type: 'node', id, lat: 45.6, lon: 9.1, tags: { amenity: 'school', name } });
@@ -41,7 +41,7 @@ async function runPoiProxy(rawInput, fetchImpl, { envEndpoint = null, timeoutMs 
   });
   const res = await fetchRoadsWithFallback({
     fetchImpl,
-    endpoints: resolveEndpoints(envEndpoint),
+    endpoints: resolvePoiEndpoints(envEndpoint),
     query,
     timeoutMs,
   });
@@ -69,38 +69,52 @@ function trackedFetchMock(plan) {
 
 const INPUT = { centerLat: 45.6, centerLng: 9.1, radiusKm: 3, serviceType: 'd2d', targetSelection: ['scuole'] };
 
-test('TEST A: endpoint primario 200 -> risultati, nessun fallback contattato', async () => {
+test('TEST A: primario overpass-api.de 200 -> risultati, nessun fallback contattato', async () => {
   const plan = new Map([
-    ['overpass.kumi.systems', { status: 200, elements: [schoolElement(1, 'Scuola Kumi')] }],
-    ['overpass-api.de', { status: 200, elements: [schoolElement(2, 'Scuola De')] }],
+    ['overpass-api.de', { status: 200, elements: [schoolElement(1, 'Scuola De')] }],
+    ['overpass.private.coffee', { status: 200, elements: [schoolElement(2, 'Scuola Coffee')] }],
   ]);
   const mock = trackedFetchMock(plan);
   const elements = await runPoiProxy(INPUT, mock);
   assert.equal(elements.length, 1);
-  assert.equal(elements[0].tags.name, 'Scuola Kumi');
+  assert.equal(elements[0].tags.name, 'Scuola De');
   assert.equal(mock.calls.length, 1);
-  assert.match(mock.calls[0], /kumi\.systems/);
+  assert.match(mock.calls[0], /overpass-api\.de/);
 });
 
-test('TEST B: primario 504 -> fallback automatico al provider 2 (200)', async () => {
+test('TEST B: primario 429 -> fallback automatico a private.coffee (200); kumi non toccato', async () => {
   const plan = new Map([
-    ['overpass.kumi.systems', { status: 504 }],
-    ['overpass-api.de', { status: 200, elements: [schoolElement(3, 'Scuola Fallback')] }],
+    ['overpass-api.de', { status: 429 }],
+    ['overpass.private.coffee', { status: 200, elements: [schoolElement(3, 'Scuola Fallback')] }],
   ]);
   const mock = trackedFetchMock(plan);
   const elements = await runPoiProxy(INPUT, mock);
   assert.equal(elements.length, 1);
   assert.equal(elements[0].tags.name, 'Scuola Fallback');
   assert.equal(mock.calls.length, 2);
-  assert.match(mock.calls[0], /kumi\.systems/);
-  assert.match(mock.calls[1], /overpass-api\.de/);
+  assert.match(mock.calls[0], /overpass-api\.de/);
+  assert.match(mock.calls[1], /overpass\.private\.coffee/);
+});
+
+test('TEST B bis: primario 504 + 2° 504 -> 3° kumi.systems 200 (ultimo della catena)', async () => {
+  const plan = new Map([
+    ['overpass-api.de', { status: 504 }],
+    ['overpass.private.coffee', { status: 504 }],
+    ['overpass.kumi.systems', { status: 200, elements: [schoolElement(7, 'Scuola Kumi ultima')] }],
+  ]);
+  const mock = trackedFetchMock(plan);
+  const elements = await runPoiProxy(INPUT, mock);
+  assert.equal(elements[0].tags.name, 'Scuola Kumi ultima');
+  assert.equal(mock.calls.length, 3);
+  assert.match(mock.calls[0], /overpass-api\.de/);
+  assert.match(mock.calls[2], /overpass\.kumi\.systems/);
 });
 
 test('TEST C: tutti i provider in errore -> propaga un errore (error-state)', async () => {
   const plan = new Map([
-    ['overpass.kumi.systems', { status: 504 }],
-    ['overpass-api.de', { status: 502 }],
-    ['overpass.private.coffee', { status: 500 }],
+    ['overpass-api.de', { status: 504 }],
+    ['overpass.private.coffee', { status: 502 }],
+    ['overpass.kumi.systems', { status: 500 }],
   ]);
   const mock = trackedFetchMock(plan);
   await assert.rejects(() => runPoiProxy(INPUT, mock), /UNAVAILABLE|OVERPASS_HTTP/);
@@ -109,8 +123,8 @@ test('TEST C: tutti i provider in errore -> propaga un errore (error-state)', as
 
 test('TEST C bis: reject di rete sul primario -> comunque fallback al successivo', async () => {
   const plan = new Map([
-    ['overpass.kumi.systems', { rejects: true, rejectMessage: 'NETWORK_DOWN' }],
-    ['overpass-api.de', { status: 200, elements: [schoolElement(4, 'Scuola Dopo Rete Giu')] }],
+    ['overpass-api.de', { rejects: true, rejectMessage: 'NETWORK_DOWN' }],
+    ['overpass.private.coffee', { status: 200, elements: [schoolElement(4, 'Scuola Dopo Rete Giu')] }],
   ]);
   const mock = trackedFetchMock(plan);
   const elements = await runPoiProxy(INPUT, mock);
@@ -118,10 +132,10 @@ test('TEST C bis: reject di rete sul primario -> comunque fallback al successivo
   assert.equal(mock.calls.length, 2);
 });
 
-test('TEST D: OVERPASS_ENDPOINT override -> provato per primo, prima di kumi', async () => {
+test('TEST D: OVERPASS_ENDPOINT override -> provato per primo, prima di overpass-api.de', async () => {
   const plan = new Map([
     ['my-overpass.internal', { status: 200, elements: [schoolElement(5, 'Scuola Override')] }],
-    ['overpass.kumi.systems', { status: 200, elements: [schoolElement(6, 'Scuola Kumi')] }],
+    ['overpass-api.de', { status: 200, elements: [schoolElement(6, 'Scuola De')] }],
   ]);
   const mock = trackedFetchMock(plan);
   const elements = await runPoiProxy(INPUT, mock, { envEndpoint: 'https://my-overpass.internal/api/interpreter' });

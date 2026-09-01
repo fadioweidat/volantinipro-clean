@@ -21,6 +21,36 @@
 export const POI_SERVICE_TYPES = ['d2d', 'h2h', 'b2b'] as const;
 export type PoiServiceType = (typeof POI_SERVICE_TYPES)[number];
 
+// ── Ordine provider Overpass SPECIFICO per poi-search ─────────────────────
+// Override locale del default condiviso (_shared/roadNetworkProxy.ts, che
+// resta invariato per road-network). Motivo (audit 502): overpass.kumi.systems
+// e' attualmente non responsivo e, essendo primo nel default condiviso,
+// bruciava l'intero timeout su OGNI richiesta prima del fallback. Qui:
+//   1. overpass-api.de       (di norma 200 in 2-8s)
+//   2. overpass.private.coffee
+//   3. overpass.kumi.systems (ultimo: se e' morto costa comunque solo l'ultimo giro)
+export const POI_OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+];
+
+/**
+ * Come resolveEndpoints di roadNetworkProxy, ma sull'ordine POI: eventuale
+ * OVERPASS_ENDPOINT (env server) prima, poi POI_OVERPASS_ENDPOINTS. Solo
+ * https://, nessun duplicato.
+ */
+export function resolvePoiEndpoints(envEndpoint?: string | null): string[] {
+  const list: string[] = [];
+  const push = (u: unknown) => {
+    const v = String(u || '').trim();
+    if (v && /^https:\/\//i.test(v) && !list.includes(v)) list.push(v);
+  };
+  push(envEndpoint);
+  for (const u of POI_OVERPASS_ENDPOINTS) push(u);
+  return list;
+}
+
 // ── Vincoli input ─────────────────────────────────────────────────────────
 export const POI_RADIUS_MIN_KM = 0.1;
 export const POI_RADIUS_MAX_KM = 50;
@@ -35,9 +65,11 @@ export function resultCap(serviceType: string): number {
   return serviceType === 'd2d' ? POI_RESULT_CAP_D2D : POI_RESULT_CAP_DEFAULT;
 }
 
-// Timeout QL Overpass (allineato a road-network). Il timeout *di rete* per
-// provider e' gestito da fetchRoadsWithFallback (AbortController).
-export const POI_OVERPASS_QL_TIMEOUT_S = 25;
+// Timeout QL Overpass, allineato al timeout *di rete* per provider
+// (POI_SEARCH_TIMEOUT_MS = 12000 in poi-search/index.ts). Un mirror che non
+// completa la query in 12s viene comunque scartato: worst case 3x12 = 36s
+// invece di 3x25 = 75s.
+export const POI_OVERPASS_QL_TIMEOUT_S = 12;
 
 // ── Tag-set per servizio (allowlist server-side) ──────────────────────────
 // SOLO `key`/`val` (guidano la QL) + `cat` (per il filtro per target).

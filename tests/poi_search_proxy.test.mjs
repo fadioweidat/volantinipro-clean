@@ -11,16 +11,18 @@ import {
   POI_SERVICE_TYPES,
   POI_RESULT_CAP_D2D,
   POI_RESULT_CAP_DEFAULT,
+  POI_OVERPASS_ENDPOINTS,
+  POI_OVERPASS_QL_TIMEOUT_S,
   buildPoiQuery,
   getServiceTargetTags,
   makePoiCacheKey,
+  resolvePoiEndpoints,
   resultCap,
   validatePoiInput,
 } from '../supabase/functions/_shared/poiSearchProxy.ts';
 import {
   createTtlCache,
   fetchRoadsWithFallback,
-  resolveEndpoints,
 } from '../supabase/functions/_shared/roadNetworkProxy.ts';
 
 // client POI_TAGS (colori/priorita') — per il cross-check anti-drift.
@@ -57,7 +59,8 @@ test('validatePoiInput non lascia passare tentativi di iniezione nei target', ()
 test('buildPoiQuery: QL costruita SOLO da valori validati, nessun input testuale', () => {
   const tags = getServiceTargetTags('d2d', ['scuole']);
   const q = buildPoiQuery({ centerLat: 45.551, centerLng: 9.163, radiusKm: 3, tags, cap: resultCap('d2d') });
-  assert.match(q, /^\[out:json\]\[timeout:25\];/);
+  assert.equal(POI_OVERPASS_QL_TIMEOUT_S, 12, 'QL timeout ridotto a 12s (audit 502)');
+  assert.match(q, /^\[out:json\]\[timeout:12\];/);
   assert.match(q, /\(around:3000,45\.551,9\.163\)/);
   assert.match(q, /node\["amenity"="school"\]/);
   assert.match(q, /way\["amenity"="school"\]/);
@@ -90,6 +93,22 @@ test('POI_TAGS server e client hanno lo stesso set di coppie key:val per ogni se
   }
 });
 
+// ── ordine provider POI (override locale, road-network invariato) ────────
+test('resolvePoiEndpoints: ordine overpass-api.de -> private.coffee -> kumi.systems', () => {
+  const eps = resolvePoiEndpoints(null);
+  assert.deepEqual(eps, POI_OVERPASS_ENDPOINTS);
+  assert.match(eps[0], /overpass-api\.de/);
+  assert.match(eps[1], /overpass\.private\.coffee/);
+  assert.match(eps[2], /overpass\.kumi\.systems/);
+});
+
+test('resolvePoiEndpoints: OVERPASS_ENDPOINT env passa per primo, poi l\'ordine POI', () => {
+  const eps = resolvePoiEndpoints('https://my-overpass.internal/api/interpreter');
+  assert.match(eps[0], /my-overpass\.internal/);
+  assert.match(eps[1], /overpass-api\.de/);
+  assert.equal(eps.length, 4);
+});
+
 // ── fallback multi-provider (riuso fetchRoadsWithFallback con la QL POI) ──
 const POI_QUERY = buildPoiQuery({ centerLat: 45.55, centerLng: 9.16, radiusKm: 3, tags: getServiceTargetTags('d2d', ['scuole']), cap: 80 });
 
@@ -106,38 +125,64 @@ function endpointMock(plan) {
   return fn;
 }
 
-test('fallback: provider 1 in 504 -> passa al provider 2 che risponde 200', async () => {
+test('fallback: primario (overpass-api.de) 200 -> nessun altro provider contattato', async () => {
   const mock = endpointMock({
-    'overpass.kumi.systems': { status: 504 },
     'overpass-api.de': { status: 200, elements: [{ type: 'node', id: 1 }] },
+    'overpass.private.coffee': { status: 200, elements: [{ type: 'node', id: 2 }] },
   });
   const res = await fetchRoadsWithFallback({
-    fetchImpl: mock, endpoints: resolveEndpoints(null), query: POI_QUERY, timeoutMs: 5000,
+    fetchImpl: mock, endpoints: resolvePoiEndpoints(null), query: POI_QUERY, timeoutMs: 5000,
   });
   assert.deepEqual(res.elements, [{ type: 'node', id: 1 }]);
-  assert.equal(res.endpointIndex, 1);
-  assert.equal(mock.calls.length, 2);
-  assert.match(mock.calls[0], /kumi\.systems/);
-  assert.match(mock.calls[1], /overpass-api\.de/);
+  assert.equal(res.endpointIndex, 0);
+  assert.equal(mock.calls.length, 1);
+  assert.match(mock.calls[0], /overpass-api\.de/);
 });
 
-test('fallback: tutti i provider falliti -> lancia (nessun risultato finto)', async () => {
+test('fallback: primario 429 -> passa a private.coffee (2 chiamate), kumi non toccato', async () => {
   const mock = endpointMock({
-    'overpass.kumi.systems': { status: 504 },
-    'overpass-api.de': { status: 502 },
-    'overpass.private.coffee': { throws: true, name: 'TypeError' },
+    'overpass-api.de': { status: 429 },
+    'overpass.private.coffee': { status: 200, elements: [{ type: 'node', id: 3 }] },
+  });
+  const res = await fetchRoadsWithFallback({
+    fetchImpl: mock, endpoints: resolvePoiEndpoints(null), query: POI_QUERY, timeoutMs: 5000,
+  });
+  assert.deepEqual(res.elements, [{ type: 'node', id: 3 }]);
+  assert.equal(mock.calls.length, 2);
+  assert.match(mock.calls[0], /overpass-api\.de/);
+  assert.match(mock.calls[1], /overpass\.private\.coffee/);
+});
+
+test('fallback: primario 504 -> anche 2° 504 -> 3° (kumi) 200', async () => {
+  const mock = endpointMock({
+    'overpass-api.de': { status: 504 },
+    'overpass.private.coffee': { status: 504 },
+    'overpass.kumi.systems': { status: 200, elements: [{ id: 7 }] },
+  });
+  const res = await fetchRoadsWithFallback({
+    fetchImpl: mock, endpoints: resolvePoiEndpoints(null), query: POI_QUERY, timeoutMs: 5000,
+  });
+  assert.deepEqual(res.elements, [{ id: 7 }]);
+  assert.equal(mock.calls.length, 3);
+});
+
+test('fallback: tutti e 3 i provider falliti -> lancia (nessun risultato finto)', async () => {
+  const mock = endpointMock({
+    'overpass-api.de': { status: 504 },
+    'overpass.private.coffee': { status: 502 },
+    'overpass.kumi.systems': { throws: true, name: 'TypeError' },
   });
   await assert.rejects(
-    () => fetchRoadsWithFallback({ fetchImpl: mock, endpoints: resolveEndpoints(null), query: POI_QUERY, timeoutMs: 5000 }),
+    () => fetchRoadsWithFallback({ fetchImpl: mock, endpoints: resolvePoiEndpoints(null), query: POI_QUERY, timeoutMs: 5000 }),
     /UNAVAILABLE/,
   );
   assert.equal(mock.calls.length, 3, 'tentati tutti e 3 i provider prima di arrendersi');
 });
 
 test('empty result NON e\' un errore: elements [] risolve regolarmente', async () => {
-  const mock = endpointMock({ 'overpass.kumi.systems': { status: 200, elements: [] } });
+  const mock = endpointMock({ 'overpass-api.de': { status: 200, elements: [] } });
   const res = await fetchRoadsWithFallback({
-    fetchImpl: mock, endpoints: resolveEndpoints(null), query: POI_QUERY, timeoutMs: 5000,
+    fetchImpl: mock, endpoints: resolvePoiEndpoints(null), query: POI_QUERY, timeoutMs: 5000,
   });
   assert.deepEqual(res.elements, []);
   assert.equal(mock.calls.length, 1);
@@ -153,7 +198,7 @@ test('timeout provider: AbortController fa passare al provider successivo', asyn
     if (calls.length === 1) return slow(url, init);
     return { ok: true, status: 200, json: async () => ({ elements: [{ id: 9 }] }) };
   };
-  const res = await fetchRoadsWithFallback({ fetchImpl: fn, endpoints: resolveEndpoints(null), query: POI_QUERY, timeoutMs: 40 });
+  const res = await fetchRoadsWithFallback({ fetchImpl: fn, endpoints: resolvePoiEndpoints(null), query: POI_QUERY, timeoutMs: 40 });
   assert.deepEqual(res.elements, [{ id: 9 }]);
   assert.equal(calls.length, 2);
 });
