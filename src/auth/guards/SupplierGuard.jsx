@@ -16,18 +16,42 @@ export function SupplierGuard({ children, onNav }) {
     (async () => {
       try {
         const { data: { session: s } } = await supabase.auth.getSession();
-        if (!s || !s.user) {
+        // La sessione del sito vive nel client REST leggero (localStorage
+        // vp_supabase_session): il suo getSession() restituisce SOLO i token,
+        // MAI un oggetto `user` (consumeSupabaseAuthHash/toStoredSession non lo
+        // popolano). Subito dopo un Magic Link il blob ha quindi l'access_token
+        // ma non `user`: il vecchio `if (!s || !s.user)` rimbalzava sempre a
+        // /login?context=supplier — il Fornitore non entrava mai in dashboard
+        // arrivando qui direttamente, senza prima passare dalla Dashboard
+        // Cliente che idratava `user` nel blob (bug reale del Magic Link).
+        // L'utente reale si risolve dal token via /auth/v1/user, come fa gia'
+        // il resto dell'app (getCurrentSupabaseUser).
+        const accessToken = s?.accessToken || s?.access_token || null;
+        if (!accessToken) {
+          if (mounted) { setState({ phase: 'denied', session: null, supplierStatus: null }); onNav('login?context=supplier'); }
+          return;
+        }
+        let userId = s?.user?.id || null;
+        if (!userId) {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            userId = user?.id || null;
+          } catch {
+            userId = null;
+          }
+        }
+        if (!userId) {
           if (mounted) { setState({ phase: 'denied', session: null, supplierStatus: null }); onNav('login?context=supplier'); }
           return;
         }
         const { data: profile, error: pErr } = await supabase
-          .from('profiles').select('role').eq('id', s.user.id).single();
+          .from('profiles').select('role').eq('id', userId).single();
         if (pErr || profile?.role !== 'supplier') {
           if (mounted) { setState({ phase: 'denied', session: s, supplierStatus: null }); onNav('dashboard'); }
           return;
         }
         const { data: sp, error: spErr } = await supabase
-          .from('supplier_profiles').select('status').eq('id', s.user.id).single();
+          .from('supplier_profiles').select('status').eq('id', userId).single();
         if (spErr || !sp) {
           if (mounted) setState({ phase: 'not-verified', session: s, supplierStatus: 'pending' });
           return;

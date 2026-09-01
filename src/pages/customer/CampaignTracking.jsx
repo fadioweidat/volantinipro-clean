@@ -13,6 +13,7 @@ import { listCoverageAdjustments, VERIFIED_COVERAGE_STYLE } from '../../lib/serv
 import { geoJsonPolygonToLeafletPositions } from '../../lib/geo/geoJsonToLeaflet.js';
 import { createCustomerIssue, ISSUE_REASONS, ISSUE_STATUS_LABELS } from '../../lib/services/customer-issues-api.js';
 import { deriveLiveZoneStatus, estimateDistanceToZoneBoundaryMeters, ZONE_LIVE_STATUS_LABELS, ZONE_LIVE_STATUS_COLORS } from '../../lib/geofence/geofenceEngine.js';
+import { getMunicipalityCenterPoint } from '../../lib/geo/originRadialSelection.js';
 import { C, F } from '../../lib/constants.js';
 
 export function CampaignTracking({ campaignId }) {
@@ -28,9 +29,16 @@ export function CampaignTracking({ campaignId }) {
     ...zone,
     geometry: resolvedBoundaries[zone.campaign_zone_id] || null,
   })), [zoneProgress.zones, resolvedBoundaries]);
+  // SOLO le geometrie delle zone di QUESTA campagna (zoneRows), mai
+  // Object.values(resolvedBoundaries) — che, non resettato fra campagne prima
+  // del fix in useZoneBoundaries, poteva far entrare un confine di una
+  // campagna vista in precedenza (root cause "Bergamo mostra Milano").
   const liveZones = useMemo(
-    () => Object.values(resolvedBoundaries).filter(Boolean).map((geometry) => ({ kind: 'polygon', geometry })),
-    [resolvedBoundaries],
+    () => (zoneRows || [])
+      .map((z) => resolvedBoundaries[z.id])
+      .filter(Boolean)
+      .map((geometry) => ({ kind: 'polygon', geometry })),
+    [zoneRows, resolvedBoundaries],
   );
   const activeZoneName = zoneRows?.[0]?.zone_name || null;
 
@@ -265,11 +273,17 @@ function TrackingMap({ zones = [], finalCoverage = null, mapRef }) {
   );
   const center = useMemo(() => {
     if (zoneWithGeometry) {
+      // Centroide del confine reale (point-on-surface), non un vertice a caso.
+      const c = getMunicipalityCenterPoint(zoneWithGeometry.geometry);
+      if (c) return [c.lat, c.lng];
       const coord = zoneWithGeometry.geometry.type === 'MultiPolygon'
         ? zoneWithGeometry.geometry.coordinates?.[0]?.[0]?.[0]
         : zoneWithGeometry.geometry.coordinates?.[0]?.[0];
       if (coord) return [coord[1], coord[0]];
     }
+    // Nessun confine della campagna corrente risolto: MAI Milano per una zona
+    // non-Milano. [45.4642, 9.19] resta solo perché MapContainer richiede un
+    // center non-null; il blocco chiamante mostra comunque lo stato "attesa GPS".
     return [45.4642, 9.1900];
   }, [zoneWithGeometry]);
 

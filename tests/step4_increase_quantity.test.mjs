@@ -107,7 +107,7 @@ test("resolveQuoteQuantity legge flyerQuantity ?? qty (i campi scritti dal botto
 test("callback: /admin richiede ruolo backend E intento Admin (non solo il ruolo)", () => {
   const s = MAGIC_SRC.indexOf('window.location.hash.includes("access_token")');
   assert.ok(s >= 0);
-  const cb = MAGIC_SRC.slice(s, s + 6000);
+  const cb = MAGIC_SRC.slice(s, s + 7200);
   assert.match(cb, /const isAdmin = await verifySupabaseAdminRole\(restoredSession\)/);
   // l'intento e' catturato prima di pulire il context ricordato
   assert.match(cb, /const loginIntentIsAdmin = isAdminContext;/);

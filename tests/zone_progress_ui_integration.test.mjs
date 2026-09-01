@@ -252,6 +252,7 @@ test('hook exposes authorization errors without fallback data', async () => {
 test('routed UI integrates customer and Admin roles while operator stays excluded', () => {
   const customerPage = readFileSync('src/pages/customer/CampaignTracking.jsx', 'utf8');
   const adminPage = readFileSync('src/pages/admin/GpsMonitor.jsx', 'utf8');
+  const coverageEditor = readFileSync('src/pages/admin/CoverageEditor.jsx', 'utf8');
   const operatorPage = readFileSync('src/pages/driver/TrackingPage.jsx', 'utf8');
   const service = readFileSync('src/lib/services/zone-progress-api.js', 'utf8');
 
@@ -259,9 +260,12 @@ test('routed UI integrates customer and Admin roles while operator stays exclude
   assert.match(customerPage, /<ZoneProgressPanel/);
   assert.doesNotMatch(customerPage, /isAdmin|onSetManual|onClearManual/);
 
+  // Monitor operativo: legge lo storico (includeHistory) ma NON monta piu' i
+  // controlli di scrittura percentuale — quelli sono nell'Editor Copertura.
   assert.match(adminPage, /includeHistory: true/);
-  assert.match(adminPage, /onSetManual=\{zoneProgress\.setManualProgress\}/);
-  assert.match(adminPage, /onClearManual=\{zoneProgress\.clearManualProgress\}/);
+  assert.doesNotMatch(adminPage, /<ZoneProgressPanel/);
+  assert.match(coverageEditor, /onSetManual=\{zoneProgress\.setManualProgress\}/);
+  assert.match(coverageEditor, /onClearManual=\{zoneProgress\.clearManualProgress\}/);
 
   assert.doesNotMatch(operatorPage, /useZoneProgress|ZoneProgressPanel/);
   assert.doesNotMatch(service, /\.from\(['"]campaign_zone_progress['"]\)/);

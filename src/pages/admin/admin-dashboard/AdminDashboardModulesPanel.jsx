@@ -89,6 +89,24 @@ export function AdminDashboardModulesPanel({ clientsQuotesCount, clientsStats, g
           cta="Apri Centro Controllo"
           onOpen={() => onNav('admin-status')}
         />
+        {/* Studio Mappa: strumento autonomo di progettazione copertura su
+            mappa — indipendente da campagne/Monitor/Driver, storage locale.
+            Nessuno stat: apre la pagina dedicata /admin/map-studio. */}
+        <ModuleCard
+          title="Studio Mappa"
+          stats={[]}
+          cta="Apri Studio Mappa"
+          onOpen={() => onNav('admin-map-studio')}
+        />
+        {/* Analytics Visitatori: traffico sito first-party privacy-safe
+            (site_events) — panoramica, geografia, sorgenti, pagine, funnel,
+            domanda commerciale. Nessuno stat qui: pagina dedicata. */}
+        <ModuleCard
+          title="Analytics Visitatori"
+          stats={[]}
+          cta="Apri Analytics"
+          onOpen={() => onNav('admin-analytics')}
+        />
       </section>
     </>
   );

@@ -52,6 +52,28 @@ export async function createCoverageAdjustment({
   });
 }
 
+/** Salvataggio ATOMICO di piu' LineString automatiche in una sola RPC/
+ * transazione (solo Admin). Sostituisce il vecchio loop "una RPC per via"
+ * che poteva interrompersi a meta' lasciando un salvataggio parziale.
+ * p_lines = [{ geometry: <GeoJSON LineString>, zone_id: <uuid|null> }, ...].
+ * Ritorna { received, inserted, discarded, discarded_indexes }: o tutte le
+ * linee valide sono persistite, o (in caso di errore) nessuna. */
+export async function createCoverageAdjustmentsBatch({
+  campaignId, lines, reason, source = 'automatic_verified', lineBufferM = 12,
+  notes = null, metadata = {}, adjustmentType = 'manual_covered',
+}) {
+  return callCoverageRpc('admin_create_coverage_adjustments_batch', {
+    p_campaign_id: campaignId,
+    p_lines: lines,
+    p_reason: reason,
+    p_source: source,
+    p_line_buffer_m: lineBufferM,
+    p_notes: notes,
+    p_metadata: metadata,
+    p_adjustment_type: adjustmentType,
+  });
+}
+
 /** Modifica/corregge una correzione non revocata (solo Admin). */
 export async function updateCoverageAdjustment({
   adjustmentId, adjustmentType, geometryGeoJson = null, reason, notes = null,
@@ -74,6 +96,30 @@ export async function revokeCoverageAdjustment({ adjustmentId, reason }) {
   return callCoverageRpc('admin_revoke_coverage_adjustment', {
     p_adjustment_id: adjustmentId,
     p_reason: reason,
+  });
+}
+
+/** GOMMA PARZIALE (solo Admin): revoca la correzione sorgente e crea i
+ * segmenti RESIDUI (0..N GeoJSON LineString) in una sola transazione atomica,
+ * con una sola sync finale. residualLines vuoto = revoca completa. I residui
+ * ereditano source / zone_id / operator metadata / line_buffer_m dalla
+ * sorgente. Ritorna { revoked_id, created_count, discarded, created_ids }. */
+export async function splitCoverageAdjustment({ adjustmentId, residualLines, reason = 'admin_partial_erase' }) {
+  return callCoverageRpc('admin_split_coverage_adjustment', {
+    p_adjustment_id: adjustmentId,
+    p_residual_lines: residualLines,
+    p_reason: reason,
+  });
+}
+
+/** Ricalcolo PESANTE della copertura finale di una zona (solo Admin),
+ * SEPARATO dall'edit. Matita/Gomma marcano la zona "dirty" e ritornano
+ * subito; il frontend chiama questa RPC dopo, best-effort. Se va in timeout
+ * l'edit resta committato e la zona resta dirty per un retry successivo.
+ * Ritorna { campaign_zone_id, recalculated, duration_ms }. */
+export async function recalcZoneCoverage({ campaignZoneId }) {
+  return callCoverageRpc('admin_recalc_zone_coverage', {
+    p_campaign_zone_id: campaignZoneId,
   });
 }
 

@@ -10,6 +10,7 @@ import { getOperatorColor, OPERATOR_PALETTE, UNASSIGNED_OPERATOR_COLOR } from '.
 
 const PANEL = readFileSync(new URL('../src/components/admin/CoverageAdjustmentPanel.jsx', import.meta.url), 'utf8');
 const GM = readFileSync(new URL('../src/pages/admin/GpsMonitor.jsx', import.meta.url), 'utf8');
+const COVEDIT = readFileSync(new URL('../src/pages/admin/CoverageEditor.jsx', import.meta.url), 'utf8');
 
 // ── D: colore deterministico per operator_id ────────────────────────────
 test('D — getOperatorColor: deterministico, stabile, dalla palette', () => {
@@ -50,11 +51,13 @@ test('A/B — operatori derivati da campaignOperators reali, nessun MAN-0N hardc
   assert.doesNotMatch(PANEL, />Operatori Admin manuali</);
   assert.doesNotMatch(PANEL, /useState\('MAN-01'\)|setSelectedOperatorKey\('MAN-01'\)/);
   assert.doesNotMatch(PANEL, /`MAN-\$\{/); // nessuna GENERAZIONE di chiavi MAN-0N (i commenti che le nominano vanno bene)
-  // GpsMonitor carica gli assignment reali e li passa
+  // GpsMonitor carica gli assignment reali (per la lista operatori canonica);
+  // l'Editor Copertura Avanzato li passa al pannello di correzione.
   assert.match(GM, /import \{ listCampaignAssignments \} from '\.\.\/\.\.\/lib\/services\/admin-api\.js'/);
   assert.match(GM, /listCampaignAssignments\(campaignId\)/);
   assert.match(GM, /const campaignOperators = useMemo\(/);
-  assert.match(GM, /campaignOperators=\{campaignOperators\}/);
+  assert.match(COVEDIT, /const campaignOperators = useMemo\(/);
+  assert.match(COVEDIT, /campaignOperators=\{campaignOperators\}/);
 });
 
 test('C — quantita\' operatori dinamica (map sugli assignment, nessun conteggio fisso)', () => {

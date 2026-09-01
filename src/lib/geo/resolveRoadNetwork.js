@@ -155,6 +155,14 @@ export async function resolveRoadNetwork(municipalityName, boundaryGeometry) {
       ways.sort((a, b) => a.id - b.id);
       const totalLengthM = ways.reduce((sum, w) => sum + w.lengthM, 0);
       const result = { ways, totalLengthM };
+      // Un risultato VUOTO (0 vie / lunghezza <= 0) NON viene cacheato: puo'
+      // dipendere da una decimazione poly troppo aggressiva o da un transitorio
+      // lato Overpass. Cachearlo "congelava" permanentemente lo 0 per tutta la
+      // sessione pagina (ticket "automatico 80% resta 0"). Lo restituiamo
+      // comunque: il chiamante lo tratta come "rete non disponibile".
+      if (!ways.length || totalLengthM <= 0) {
+        return result;
+      }
       roadCache.set(key, result);
       writeSessionCache(key, result);
       return result;

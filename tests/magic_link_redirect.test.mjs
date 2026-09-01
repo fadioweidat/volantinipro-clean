@@ -121,10 +121,37 @@ test("callback: /auth/callback risolve alla login page e l'hash con token ci pas
 test("callback: Cliente -> dashboard, Admin -> admin (ruolo verificato dal backend)", () => {
   const s = FINAL_CODE.indexOf('window.location.hash.includes("access_token")');
   assert.ok(s >= 0, "blocco callback non trovato");
-  const cb = FINAL_CODE.slice(s, s + 6000);
+  const cb = FINAL_CODE.slice(s, s + 7200);
   assert.match(cb, /verifySupabaseAdminRole\(restoredSession\)/, "il ruolo Admin e' verificato lato backend");
   assert.match(cb, /onNav\("admin"\)/, "Admin -> /admin");
   assert.match(cb, /onNav\(pendingReturnToStep4 \? "step4" : "dashboard"\)/, "Cliente -> /dashboard (o step4 se pending)");
+});
+
+test("callback: Fornitore -> /supplier (SupplierGuard gestisce il rifiuto), stesso magic link", () => {
+  const s = FINAL_CODE.indexOf('window.location.hash.includes("access_token")');
+  const cb = FINAL_CODE.slice(s, s + 7200);
+  // intento supplier catturato PRIMA di clearPendingAuthContext, poi instrada
+  // su /supplier (route esistente -> SupplierGuard). Nessun ruolo concesso qui.
+  assert.match(cb, /const loginIntentIsSupplier = isSupplierContext;/);
+  assert.match(cb, /if \(loginIntentIsSupplier\) \{\s*onNav\("supplier-dashboard"\);/);
+  // il branch supplier NON deve precedere/soppiantare quello Admin
+  assert.ok(cb.indexOf('onNav("admin")') < cb.indexOf('onNav("supplier-dashboard")'),
+    "Admin resta valutato prima di Fornitore");
+  // context supplier -> memorizzato nel pending context per il round-trip del magic link
+  assert.match(FINAL_CODE, /rememberPendingAuthContext\(isAdminContext \? "admin" : isDriverContext \? "driver" : isSupplierContext \? "supplier" : "customer"\)/);
+  // stesso Supabase Auth: nessuna nuova chiamata OTP dedicata al supplier
+  const otpCount = (FINAL_CODE.match(/signInWithOtp\(\{/g) || []).length;
+  assert.equal(otpCount, 1, "un solo signInWithOtp condiviso da tutti i context");
+});
+
+test("callback: context=supplier non passa mai dalla Dashboard Cliente", () => {
+  const s = FINAL_CODE.indexOf('window.location.hash.includes("access_token")');
+  const cb = FINAL_CODE.slice(s, s + 7200);
+  // il return del branch supplier impedisce di raggiungere onNav(... "dashboard")
+  const supplierIdx = cb.indexOf('if (loginIntentIsSupplier) {');
+  const dashboardIdx = cb.indexOf('onNav(pendingReturnToStep4 ? "step4" : "dashboard")');
+  assert.ok(supplierIdx >= 0 && dashboardIdx > supplierIdx, "il branch supplier precede il fallback dashboard");
+  assert.match(cb.slice(supplierIdx, dashboardIdx), /onNav\("supplier-dashboard"\);\s*return;/);
 });
 
 test("callback: l'hash con access_token viene rimosso dall'URL dopo il restore", () => {

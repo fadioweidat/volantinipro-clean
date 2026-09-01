@@ -105,11 +105,15 @@ test('polylineLengthMeters — ~785 m per 0.01° di longitudine a lat 45', () =>
 });
 
 // ── contratto sorgente: wiring nel pannello ───────────────────────
-test('PANEL — split applicato SOLO alle draftLines, righe salvate = revoca intera', () => {
-  const eraseFn = PANEL.slice(PANEL.indexOf('const eraseNearest'), PANEL.indexOf('const loadAutomaticBase'));
+test('PANEL — split parziale: bozze via applyDraftLineSplit, righe salvate via handleSplitAdjustment (poligoni -> revoca)', () => {
+  const eraseFn = PANEL.slice(PANEL.indexOf('const eraseNearest'), PANEL.indexOf('const applyAutoSelectionFromCache'));
   assert.match(eraseFn, /applyDraftLineSplit\(draftLines\[bestI\], pt\)/);
   assert.doesNotMatch(eraseFn, /prev\.filter\(\(_, i\) => i !== bestI\)/, 'niente piu\' rimozione intera della bozza');
-  assert.match(eraseFn, /if \(bestAdj\) \{ handleRevoke\(bestAdj\); return; \}/, 'riga salvata -> revoca intera invariata');
+  // riga salvata: GOMMA PARZIALE (split geometrico + admin_split_coverage_adjustment)
+  assert.match(eraseFn, /const pieces = splitPolylineByCircle\(sub, pt, ERASE_RADIUS_M\)/);
+  assert.match(eraseFn, /handleSplitAdjustment\(bestAdj, residuals\); \/\/ residuals=\[\] -> revoca completa/);
+  // poligoni salvati: revoca intera
+  assert.match(eraseFn, /handleRevoke\(bestAdj\);\s*\n\s*return;/);
 });
 
 test('PANEL — §5 ownership: i pezzi ereditano lo zone_id della linea originale', () => {

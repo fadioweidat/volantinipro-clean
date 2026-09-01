@@ -108,7 +108,10 @@ test('AUTO: toolbar reale [SELEZIONA][MATITA][GOMMA][ANNULLA][SALVA] + "Carica c
 test('AUTO: base automatica = vie reali OSM convertite in tratti draft (non percentuale finta)', () => {
   assert.match(panel, /import \{ resolveRoadNetwork \} from '\.\.\/\.\.\/lib\/geo\/resolveRoadNetwork\.js'/);
   assert.match(panel, /selectRoadsFromOrigin/);
-  const fn = panel.slice(panel.indexOf('const loadAutomaticBase'), panel.indexOf('const handleCloseShape'));
+  // La selezione stradale vive ora in applyAutoSelectionFromCache (helper puro
+  // condiviso da loadAutomaticBase e dall'effetto reattivo su autoPct); la
+  // slice parte da li' e arriva fino a handleCloseShape.
+  const fn = panel.slice(panel.indexOf('const applyAutoSelectionFromCache'), panel.indexOf('const handleCloseShape'));
   assert.match(fn, /resolveRoadNetwork\(municipalityName, boundaryGeometry\)/);
   assert.match(fn, /selectRoadsFromOrigin\(net, origin, pct, gpsPath\)/);
   assert.match(fn, /\.map\(\(w\) => w\.geometry\)/);
@@ -116,18 +119,23 @@ test('AUTO: base automatica = vie reali OSM convertite in tratti draft (non perc
   // automatica precedente (per reference) invece di accodarla -> niente duplicati.
   assert.match(fn, /setDraftLines\(\(prev\) => \[\.\.\.prev\.filter\(\(l\) => !lastAutoLines\.includes\(l\)\), \.\.\.lines\]\)/);
   assert.match(fn, /setSourceLevel\('automatic_verified'\)/);
-  // GpsMonitor passa municipalityName + automaticPercent al pannello del tab AUTO
-  const gm = read('src/pages/admin/GpsMonitor.jsx');
-  assert.match(gm, /defaultSourceLevel="automatic_verified"[\s\S]{0,200}municipalityName=\{activeZoneName\}[\s\S]{0,200}automaticPercent=\{/);
+  // L'Editor Copertura Avanzato (pagina Admin dedicata, ticket "3 esperienze
+  // GPS") passa municipalityName + automaticPercent al pannello del tab AUTO.
+  const editor = read('src/pages/admin/CoverageEditor.jsx');
+  assert.match(editor, /defaultSourceLevel="automatic_verified"[\s\S]{0,240}municipalityName=\{activeZoneName\}[\s\S]{0,240}automaticPercent=\{/);
 });
 
-test('AUTO: GOMMA — bozza LineString = split parziale (§8), riga salvata = revoca intera; undo ripristina', () => {
-  const fn = panel.slice(panel.indexOf('const eraseNearest'), panel.indexOf('const loadAutomaticBase'));
+test('AUTO: GOMMA — split parziale su bozze E su righe salvate (§8); undo ripristina', () => {
+  const fn = panel.slice(panel.indexOf('const eraseNearest'), panel.indexOf('const applyAutoSelectionFromCache'));
   assert.match(fn, /draftLines\.forEach\(\(line, i\) => \{ const d = pointToPolylineMeters/);
   // §8: sulla bozza NON si rimuove piu' l'intera linea, si applica lo split parziale
   assert.match(fn, /applyDraftLineSplit\(draftLines\[bestI\], pt\)/);
   assert.doesNotMatch(fn, /setDraftLines\(\(prev\) => prev\.filter\(\(_, i\) => i !== bestI\)\)/);
-  assert.match(fn, /if \(bestAdj\) \{ handleRevoke\(bestAdj\); return; \}/);         // saved adjustment -> revoca INTERA (invariato)
+  // riga salvata (LineString/MultiLineString): GOMMA PARZIALE -> handleSplitAdjustment
+  // (revoca sorgente + segmenti residui in 1 sola RPC atomica); poligono -> revoca.
+  assert.match(fn, /handleSplitAdjustment\(bestAdj, residuals\)/);
+  assert.match(fn, /handleRevoke\(bestAdj\);\s*\n\s*return;/);
+  assert.match(panel, /await splitCoverageAdjustment\(\{/);
   // helper puro usato per il taglio
   assert.match(panel, /import \{ splitPolylineByCircle, polylineLengthMeters \} from '\.\.\/\.\.\/lib\/geo\/splitPolylineByCircle\.js'/);
   assert.match(panel, /const pieces = splitPolylineByCircle\(original, pt, eraseRadiusM\)/);
@@ -328,21 +336,29 @@ test('non-regressione: le RPC coverage restano CREATE OR REPLACE; l\'unico DROP 
 // ===========================================================================
 
 test('AUTO tab: usa CoverageAdjustmentPanel su livello automatic_verified (matita/gomma/undo/save/preview)', () => {
-  const gm = read('src/pages/admin/GpsMonitor.jsx');
-  const autoBlock = gm.slice(gm.indexOf("mapMode === 'auto'"), gm.indexOf("mapMode === 'manual'"));
+  // Editor Copertura Avanzato (pagina Admin dedicata, non collegata dal
+  // Monitor): mantiene i due tab con diagnostica/override.
+  const editor = read('src/pages/admin/CoverageEditor.jsx');
+  const autoBlock = editor.slice(editor.indexOf("editorTab === 'auto'"), editor.indexOf('<AdminIssuesPanel'));
   assert.match(autoBlock, /<CoverageAdjustmentPanel[\s\S]*?defaultSourceLevel="automatic_verified"/);
-  // il point-cloud diagnostico (ZoneCoverageMap) e' relegato a un <details> sola lettura
   assert.match(autoBlock, /<details[\s\S]*?Diagnostica: selezione stradale automatica \(sola lettura\)[\s\S]*?<ZoneCoverageMap/);
+  // Il Monitor operativo Admin monta il pannello in modalità SEMPLICE
+  // (strumenti quotidiani inline), senza diagnostica/override/selettore livello.
+  const gm = read('src/pages/admin/GpsMonitor.jsx');
+  assert.match(gm, /<CoverageAdjustmentPanel\s*\n\s*key=\{`\$\{campaignId\}:\$\{selectedZoneId \|\| 'none'\}`\}\s*\n\s*simple/);
+  assert.doesNotMatch(gm, /<ZoneCoverageMap|<ZoneProgressPanel/);
 });
 
 test('AUTO tab: override legacy (ZoneProgressPanel) e\' collassato e marcato "non alimenta la Copertura Verificata"', () => {
-  const gm = read('src/pages/admin/GpsMonitor.jsx');
-  const autoBlock = gm.slice(gm.indexOf("mapMode === 'auto'"), gm.indexOf("mapMode === 'manual'"));
+  const editor = read('src/pages/admin/CoverageEditor.jsx');
+  const autoBlock = editor.slice(editor.indexOf("editorTab === 'auto'"), editor.indexOf('<AdminIssuesPanel'));
   assert.match(autoBlock, /<details[\s\S]*?Override legacy percentuale \(non alimenta la Copertura Verificata\)[\s\S]*?<ZoneProgressPanel/);
   assert.match(autoBlock, /Per correggere la copertura usa Matita\/Gomma qui sopra/);
-  // la vecchia riga "Finale:" che leggeva campaign_zone_progress ora e' marcata Legacy dentro la diagnostica
-  assert.match(autoBlock, /Legacy — GPS sessione:/);
-  assert.doesNotMatch(autoBlock, /GPS reale: \{gpsCoveragePercentLabel\} · Admin automatico:/);
+  // la riga diagnostica resta marcata "Legacy" e non spacciata per Copertura Verificata
+  assert.match(autoBlock, /Legacy — Automatico grezzo:/);
+  // il Monitor operativo non contiene piu' il pannello percentuale legacy
+  const gm = read('src/pages/admin/GpsMonitor.jsx');
+  assert.doesNotMatch(gm, /<ZoneProgressPanel/);
 });
 
 test('FINALE: la percentuale/geometria finale ha UNA sola fonte = calculate_campaign_final_coverage', () => {

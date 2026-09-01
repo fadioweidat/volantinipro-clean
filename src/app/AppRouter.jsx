@@ -12,7 +12,15 @@ import { SupplierGuard } from "../auth/guards/SupplierGuard.jsx";
 import { getStoredSupabaseSession, hasSupabaseAuthHashError, hasSupabaseAuthHashToken, isStoredSupabaseSessionValid, readPendingAuthContext } from "../auth/session.js";
 import { resolveAppRoute } from "./routeResolution.js";
 import { clearConfiguratorDraft, configuratorHistoryState, readConfiguratorDraft, readConfiguratorHistoryState, writeConfiguratorDraft } from "../lib/configuratorState.js";
-import { trackPageView } from "../lib/analytics/siteEvents.js";
+import {
+  trackPageView,
+  trackQuoteStepReached,
+  trackQuoteAbandoned,
+  trackMunicipalitySelected,
+  trackQuantitySelected,
+  trackServiceSelected,
+  trackExtrasSelected,
+} from "../lib/analytics/siteEvents.js";
 export { resolveAppRoute } from "./routeResolution.js";
 
 // BUNDLE-OPTIMIZE-1: nessuna di queste route serve al bootstrap pubblico
@@ -39,6 +47,9 @@ const SmartPairingWaitlist = lazy(() => import("../pages/admin/SmartPairingWaitl
 const AdminSuppliers = lazy(() => import("../pages/admin/AdminSuppliers.jsx").then(m => ({ default: m.AdminSuppliers })));
 const AdminDailyReport = lazy(() => import("../pages/admin/AdminDailyReport.jsx").then(m => ({ default: m.AdminDailyReport })));
 const GpsMonitor = lazy(() => import("../pages/admin/GpsMonitor.jsx").then(m => ({ default: m.GpsMonitor })));
+const CoverageEditor = lazy(() => import("../pages/admin/CoverageEditor.jsx").then(m => ({ default: m.CoverageEditor })));
+const MapStudioPage = lazy(() => import("../pages/admin/map-studio/MapStudioPage.jsx").then(m => ({ default: m.MapStudioPage })));
+const AnalyticsPage = lazy(() => import("../pages/admin/analytics/AnalyticsPage.jsx").then(m => ({ default: m.AnalyticsPage })));
 const CampaignOperations = lazy(() => import("../pages/admin/CampaignOperations.jsx").then(m => ({ default: m.CampaignOperations })));
 const CampaignGroups = lazy(() => import("../pages/admin/CampaignGroups.jsx").then(m => ({ default: m.CampaignGroups })));
 const CampaignReport = lazy(() => import("../pages/admin/CampaignReport.jsx").then(m => ({ default: m.CampaignReport })));
@@ -130,6 +141,53 @@ export function AppRouter() {
     trackPageView(window.location.pathname);
   }, [page]);
 
+  // Analytics Visitatori — funnel preventivo. `quote_step_reached` all'ingresso
+  // di ogni step; `quote_abandoned` uscendo dal configuratore senza completare.
+  // Fire-and-forget, dedup interna al modulo analytics.
+  const prevStepRef = React.useRef(null);
+  useEffect(() => {
+    const m = /^step([1-4])$/.exec(page);
+    const step = m ? Number(m[1]) : null;
+    if (step) {
+      trackQuoteStepReached(step);
+      prevStepRef.current = step;
+    } else if (prevStepRef.current) {
+      let completed = false;
+      try { completed = window.sessionStorage.getItem("vp_quote_completed") === "1"; } catch {}
+      if (!completed) trackQuoteAbandoned(prevStepRef.current);
+      prevStepRef.current = null;
+    }
+  }, [page]);
+
+  // Eventi commerciali dal configuratore: comune / quantità / servizio / extra.
+  // Nessun dato personale — solo nome comune, provincia/regione, fascia
+  // quantità, tipo servizio (allowlist metadata lato modulo).
+  const funnelSentRef = React.useRef({ muni: null, qty: null, service: null, extras: null });
+  useEffect(() => {
+    if (!/^step[1-4]$/.test(page)) return;
+    const sent = funnelSentRef.current;
+
+    const comune = (data.selectedComuni && data.selectedComuni[0]) || data.city || null;
+    const muniName = (typeof comune === "string" ? comune : (comune?.label || comune?.name || comune?.comune_name || comune?.municipality_name)) || data.cityName || null;
+    if (muniName && muniName !== sent.muni) {
+      sent.muni = muniName;
+      const province = (comune && (comune.provincia || comune.province || comune.sigla_provincia || comune.prov)) || null;
+      const region = (comune && (comune.regione || comune.region)) || null;
+      trackMunicipalitySelected({ municipality: muniName, province, region });
+    }
+
+    const qty = Number(data.qty || data.flyerQuantity || 0);
+    if (qty > 0 && qty !== sent.qty) { sent.qty = qty; trackQuantitySelected(qty); }
+
+    const SERVICE_LABEL = { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Negozi / B2B" };
+    const service = SERVICE_LABEL[data.type] || (typeof data.selectedService === "string" ? data.selectedService : null);
+    if (service && service !== sent.service) { sent.service = service; trackServiceSelected(service); }
+
+    const extras = Array.isArray(data.extraServices) ? data.extraServices.filter((x) => typeof x === "string") : [];
+    const extrasKey = extras.slice().sort().join("|");
+    if (extras.length && extrasKey !== sent.extras) { sent.extras = extrasKey; trackExtrasSelected(extras); }
+  }, [page, data.selectedComuni, data.city, data.cityName, data.qty, data.flyerQuantity, data.type, data.selectedService, data.extraServices]);
+
   useEffect(() => {
     const handlePop = event => {
       const restored = readConfiguratorHistoryState(event.state);
@@ -203,7 +261,7 @@ export function AppRouter() {
       privacy: "/privacy", terms: "/termini", cookie: "/cookie-policy", quick: "/preventivo-rapido", preventivo: "/preventivo",
       consultant: "/consulente", step1: "/configuratore", step2: "/configuratore", step3: "/configuratore",
       step4: "/configuratore", admin: "/admin", "admin-live": "/admin/live", "admin-operations": "/admin/operations", "admin-daily-report": "/admin/operations/report", "admin-clients-quotes": "/admin/clients-quotes", "admin-orders": "/admin/orders",
-      "admin-groups-manager": "/admin/groups", "admin-commercial": "/admin/commercial", "admin-smart-pairing": "/admin/smart-pairing", "admin-suppliers": "/admin/suppliers", "admin-status": "/admin/status",
+      "admin-groups-manager": "/admin/groups", "admin-commercial": "/admin/commercial", "admin-smart-pairing": "/admin/smart-pairing", "admin-suppliers": "/admin/suppliers", "admin-status": "/admin/status", "admin-map-studio": "/admin/map-studio", "admin-analytics": "/admin/analytics",
       "supplier-dashboard": "/supplier"
     };
     if (typeof window !== "undefined") {
@@ -230,6 +288,12 @@ export function AppRouter() {
         window.history.pushState(configuratorHistoryState(s), "", `/configuratore?${params.toString()}`);
       } else if (p.startsWith("admin-gps:")) {
         window.history.pushState(null, "", `/admin/campaigns/${p.split(":")[1]}/gps`);
+      } else if (p.startsWith("admin-coverage-editor:")) {
+        // Editor Copertura Avanzato: stessa campagna, zona/comune corrente
+        // passata come query opzionale (?zone=<campaign_zone_id>) — il router
+        // risolve sul solo pathname, la pagina legge la query per pre-selezione.
+        const zoneQuery = prefillPatch?.zoneId ? `?zone=${encodeURIComponent(prefillPatch.zoneId)}` : "";
+        window.history.pushState(null, "", `/admin/campaigns/${p.split(":")[1]}/coverage-editor${zoneQuery}`);
       } else if (p.startsWith("admin-operations:")) {
         window.history.pushState(null, "", `/admin/campaigns/${p.split(":")[1]}/operations`);
       } else if (p.startsWith("admin-groups:")) {
@@ -319,7 +383,10 @@ export function AppRouter() {
         {page.startsWith("customer-tracking:") && (
           <CustomerGuard onNav={goTo}>
             <Suspense fallback={<RouteLoadingFallback />}>
-              <CampaignTracking campaignId={page.split(":")[1]} />
+              {/* key={campaignId}: cambiare campagna rimonta la pagina da
+                  zero — nessun residuo di zona/confine/tracce/center della
+                  campagna precedente (bug "Bergamo mostra Milano"). */}
+              <CampaignTracking key={page.split(":")[1]} campaignId={page.split(":")[1]} />
             </Suspense>
           </CustomerGuard>
         )}
@@ -347,7 +414,13 @@ export function AppRouter() {
               {page === "admin-smart-pairing" && <SmartPairingWaitlist onNav={goTo} />}
               {page === "admin-suppliers" && <AdminSuppliers onNav={goTo} />}
               {page === "admin-daily-report" && <AdminDailyReport onNav={goTo} />}
-              {page.startsWith("admin-gps:") && <GpsMonitor campaignId={page.split(":")[1]} onNav={goTo} />}
+              {page === "admin-map-studio" && <MapStudioPage onNav={goTo} />}
+              {page === "admin-analytics" && <AnalyticsPage onNav={goTo} />}
+              {/* key={campaignId}: rimonta il Monitor/Editor da zero al cambio
+                  campagna — reset di selectedZoneId, tracce, draft, autoNetRef,
+                  center. Nessuna contaminazione fra campagne/zone. */}
+              {page.startsWith("admin-gps:") && <GpsMonitor key={page.split(":")[1]} campaignId={page.split(":")[1]} onNav={goTo} />}
+              {page.startsWith("admin-coverage-editor:") && <CoverageEditor key={page.split(":")[1]} campaignId={page.split(":")[1]} onNav={goTo} />}
               {page.startsWith("admin-operations:") && <CampaignOperations campaignId={page.split(":")[1]} onNav={goTo} />}
               {page.startsWith("admin-groups:") && <CampaignGroups campaignId={page.split(":")[1]} onNav={goTo} />}
               {page.startsWith("admin-report:") && <CampaignReport campaignId={page.split(":")[1]} onNav={goTo} />}

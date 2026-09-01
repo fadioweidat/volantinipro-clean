@@ -11,6 +11,7 @@ import { selectRoadsFromOrigin } from '../src/lib/geo/originRadialSelection.js';
 
 const PANEL = readFileSync(new URL('../src/components/admin/CoverageAdjustmentPanel.jsx', import.meta.url), 'utf8');
 const GM = readFileSync(new URL('../src/pages/admin/GpsMonitor.jsx', import.meta.url), 'utf8');
+const COVEDIT = readFileSync(new URL('../src/pages/admin/CoverageEditor.jsx', import.meta.url), 'utf8');
 
 const way = (id, lat, lng, len = 100) => ({ id, geometry: [[lat, lng], [lat, lng + 0.001]], lengthM: len });
 const net = (ways) => ({ ways, totalLengthM: ways.reduce((s, w) => s + w.lengthM, 0) });
@@ -108,8 +109,8 @@ test('70% — riferito alla lunghezza totale della rete merged, non a ogni comun
 test('PANEL — prop campaignZones + filtro zone valide + canMultiZone', () => {
   assert.match(PANEL, /campaignZones = \[\]/);
   assert.match(PANEL, /const multiZonesEligible = useMemo\([\s\S]{0,260}z\.municipalityName && z\.boundaryGeometry/);
-  assert.match(PANEL, /const canMultiZone = multiZonesEligible\.length > 1/);
-  assert.match(PANEL, /const isCampaignScope = autoScope === 'campaign' && canMultiZone/);
+  assert.match(PANEL, /const canMultiZone = !simple && multiZonesEligible\.length > 1/);
+  assert.match(PANEL, /const isCampaignScope = !simple && autoScope === 'campaign' && canMultiZone/);
 });
 
 test('PANEL — UI ambito: default single, "Tutte le zone" disabilitato con 1 sola zona', () => {
@@ -136,8 +137,10 @@ test('PANEL — origine map validata contro QUALSIASI campaignZone in scope camp
 test('PANEL — save: zone_id per via da assignWayZoneId (scope campagna), fallback zona selezionata', () => {
   assert.match(PANEL, /import \{ mergeRoadNetworks, assignWayZoneId \} from '\.\.\/\.\.\/lib\/geo\/mergeRoadNetworks\.js'/);
   assert.match(PANEL, /assignWayZoneId\(w\.geometry, multiZonesEligible, fallbackZoneId\)\.zoneId/);
-  assert.match(PANEL, /const lineZoneId = autoLineOwnership\.get\(line\) \?\? zones\[0\]\?\.id \?\? null/);
-  assert.match(PANEL, /campaignId, zoneId: lineZoneId, adjustmentType: 'manual_covered'/);
+  // save batch: ogni linea porta il proprio zone_id (assegnazione multi-zona
+  // o zona selezionata come fallback), in un unico payload atomico.
+  assert.match(PANEL, /geometry: latLngsToLineStringGeoJson\(line\),\s*\n\s*zone_id: autoLineOwnership\.get\(line\) \?\? zones\[0\]\?\.id \?\? null,/);
+  assert.match(PANEL, /createCoverageAdjustmentsBatch\(\{[\s\S]{0,200}lines: linesPayload/);
 });
 
 test('PANEL — KPI multi-zone (Zone caricate / Zone fallite) + guard many-zones + elenco zone fallite', () => {
@@ -157,10 +160,10 @@ test('PANEL — scope singolo invariato: resolveRoadNetwork(municipalityName, bo
   assert.match(PANEL, /selectRoadsFromOrigin\(net, origin, pct, gpsPath\)/);
 });
 
-// ── contratto sorgente: GpsMonitor passa le zone reali ────────────────
-test('GPSMONITOR — campaignZones dal solo campaign_zones reale (zoneRows + resolvedBoundaries), filtrate', () => {
-  assert.match(GM, /const campaignZonesForAuto = useMemo\(/);
-  assert.match(GM, /zoneRows[\s\S]{0,160}municipalityName: z\.zone_name, boundaryGeometry: resolvedBoundaries\[z\.id\] \|\| null/);
-  assert.match(GM, /\.filter\(\(z\) => z\.municipalityName && z\.boundaryGeometry\)/);
-  assert.match(GM, /campaignZones=\{campaignZonesForAuto\}/);
+// ── contratto sorgente: l'Editor Copertura passa le zone reali ────────
+test('COVERAGE-EDITOR — campaignZones dal solo campaign_zones reale (zoneRows + resolvedBoundaries), filtrate', () => {
+  assert.match(COVEDIT, /const campaignZonesForAuto = useMemo\(/);
+  assert.match(COVEDIT, /zoneRows[\s\S]{0,160}municipalityName: z\.zone_name, boundaryGeometry: resolvedBoundaries\[z\.id\] \|\| null/);
+  assert.match(COVEDIT, /\.filter\(\(z\) => z\.municipalityName && z\.boundaryGeometry\)/);
+  assert.match(COVEDIT, /campaignZones=\{campaignZonesForAuto\}/);
 });

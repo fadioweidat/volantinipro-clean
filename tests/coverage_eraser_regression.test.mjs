@@ -68,7 +68,7 @@ test('P — comportamento split invariato (taglio centrale -> 2 LineString, fuor
 
 // ── G/H/I: percentuale automatica sempre visibile in modalita' automatica ──
 test('G — controlli "Copertura automatica" NON gated sul selettore livello (autoConfigVisible)', () => {
-  assert.match(SRC, /const autoContext = defaultSourceLevel === 'automatic_verified';/);
+  assert.match(SRC, /const autoContext = defaultSourceLevel === 'automatic_verified' \|\| simple;/);
   assert.match(SRC, /const autoConfigVisible = autoContext \|\| sourceLevel === 'automatic_verified';/);
   assert.match(SRC, /\{correcting && !editingId && autoConfigVisible && \(/);
   assert.match(SRC, /\{autoKpi && autoConfigVisible && \(/);

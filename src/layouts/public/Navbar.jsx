@@ -11,6 +11,7 @@ export function Navbar({
   const [sc, setSc] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [platformOpen, setPlatformOpen] = useState(false);
+  const [accessOpen, setAccessOpen] = useState(false);
   const isMobile = useIsMobile();
   useEffect(() => {
     const h = () => setSc(window.scrollY > 20);
@@ -22,6 +23,7 @@ export function Navbar({
   const go = target => {
     setMenuOpen(false);
     setPlatformOpen(false);
+    setAccessOpen(false);
     if (target === "login") {
       try {
         localStorage.setItem("volantinipro_return_to", "dashboard");
@@ -248,21 +250,79 @@ export function Navbar({
           transition: "all 0.2s ease"
         }}>
                 Dashboard Campagna
-              </button> : <button onClick={() => go("login")} style={{
-          minHeight: 44,
-          padding: "0 20px",
-          borderRadius: 8,
-          border: "1px solid rgba(255, 255, 255, 0.16)",
-          background: "rgba(255, 255, 255, 0.04)",
-          color: C.white,
-          fontFamily: F.sans,
-          fontSize: 14.5,
-          fontWeight: 700,
-          cursor: "pointer",
-          transition: "all 0.2s ease"
-        }}>
-                Accedi
-              </button>}
+              </button> : <div style={{
+          position: "relative"
+        }} onMouseEnter={() => setAccessOpen(true)} onMouseLeave={() => setAccessOpen(false)}>
+                <button aria-expanded={accessOpen} aria-haspopup="true" onClick={() => setAccessOpen(v => !v)} style={{
+            minHeight: 44,
+            padding: "0 20px",
+            borderRadius: 8,
+            border: "1px solid rgba(255, 255, 255, 0.16)",
+            background: "rgba(255, 255, 255, 0.04)",
+            color: C.white,
+            fontFamily: F.sans,
+            fontSize: 14.5,
+            fontWeight: 700,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            transition: "all 0.2s ease"
+          }}>
+                  <span>Accedi</span>
+                  <span style={{
+              fontSize: 10,
+              color: "rgba(255, 255, 255, 0.5)",
+              transform: accessOpen ? "rotate(180deg)" : "none",
+              transition: "transform 0.2s"
+            }}>▾</span>
+                </button>
+                {accessOpen && <div style={{
+            position: "absolute",
+            top: "100%",
+            right: 0,
+            marginTop: 4,
+            width: 210,
+            padding: 8,
+            background: "rgba(10, 18, 34, 0.98)",
+            border: "1px solid rgba(255, 255, 255, 0.12)",
+            borderRadius: 12,
+            boxShadow: "0 16px 40px rgba(0, 0, 0, 0.6)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+            zIndex: 210
+          }}>
+                    <button onClick={() => go("login")} style={{
+              textAlign: "left",
+              padding: "10px 12px",
+              borderRadius: 8,
+              background: "transparent",
+              border: "none",
+              color: C.white,
+              fontFamily: F.sans,
+              fontSize: 13.5,
+              fontWeight: 700,
+              cursor: "pointer"
+            }}>
+                      Area Cliente
+                    </button>
+                    <button onClick={() => go("supplier-dashboard")} style={{
+              textAlign: "left",
+              padding: "10px 12px",
+              borderRadius: 8,
+              background: "transparent",
+              border: "none",
+              color: "rgba(255, 255, 255, 0.8)",
+              fontFamily: F.sans,
+              fontSize: 13.5,
+              fontWeight: 600,
+              cursor: "pointer"
+            }}>
+                      Area Fornitore
+                    </button>
+                  </div>}
+              </div>}
             <button className="vb" onClick={() => go("step1")} style={{
           minHeight: 46,
           padding: "0 22px",
@@ -390,7 +450,7 @@ export function Navbar({
         background: "rgba(255,255,255,0.08)",
         margin: "6px 0"
       }} />
-          <button onClick={() => go("login")} style={{
+          <button onClick={() => setAccessOpen(v => !v)} aria-expanded={accessOpen} aria-haspopup="true" style={{
         minHeight: 44,
         borderRadius: 8,
         border: "1px solid rgba(255, 255, 255, 0.18)",
@@ -399,10 +459,52 @@ export function Navbar({
         fontFamily: F.sans,
         fontSize: 14,
         fontWeight: 700,
-        cursor: "pointer"
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6
       }}>
-            Accedi
+            <span>Accedi</span>
+            <span style={{
+          fontSize: 10,
+          color: "rgba(255, 255, 255, 0.5)",
+          transform: accessOpen ? "rotate(180deg)" : "none",
+          transition: "transform 0.2s"
+        }}>▾</span>
           </button>
+          {accessOpen && <div style={{
+        display: "grid",
+        gap: 4,
+        padding: "2px 0"
+      }}>
+              <button onClick={() => go("login")} style={{
+          minHeight: 42,
+          borderRadius: 8,
+          border: "1px solid rgba(255, 255, 255, 0.14)",
+          background: "rgba(255, 255, 255, 0.04)",
+          color: C.white,
+          fontFamily: F.sans,
+          fontSize: 13.5,
+          fontWeight: 700,
+          cursor: "pointer"
+        }}>
+                Area Cliente
+              </button>
+              <button onClick={() => go("supplier-dashboard")} style={{
+          minHeight: 42,
+          borderRadius: 8,
+          border: "1px solid rgba(255, 255, 255, 0.14)",
+          background: "rgba(255, 255, 255, 0.04)",
+          color: "rgba(255, 255, 255, 0.82)",
+          fontFamily: F.sans,
+          fontSize: 13.5,
+          fontWeight: 700,
+          cursor: "pointer"
+        }}>
+                Area Fornitore
+              </button>
+            </div>}
           <button className="vb" onClick={() => go("step1")} style={{
         minHeight: 48,
         borderRadius: 8,

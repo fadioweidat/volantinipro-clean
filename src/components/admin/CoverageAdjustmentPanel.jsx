@@ -7,10 +7,13 @@ import {
   COVERAGE_SOURCE_LEVELS,
   VERIFIED_COVERAGE_STYLE,
   createCoverageAdjustment,
+  createCoverageAdjustmentsBatch,
   getFinalCoverage,
   latLngsToLineStringGeoJson,
   listCoverageAdjustments,
+  recalcZoneCoverage,
   revokeCoverageAdjustment,
+  splitCoverageAdjustment,
   updateCoverageAdjustment,
 } from '../../lib/services/coverage-adjustments-api.js';
 import { filterValidGpsPoints } from '../../lib/gps/pointQuality.js';
@@ -225,7 +228,11 @@ function pointToPolylineMeters(latlng, line) {
   return best;
 }
 
-export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], boundaryGeometry = null, gpsOperatorCount = 0, gpsOperators = [], defaultSourceLevel = 'manual_verified', automaticPercent = null, municipalityName = null, storePoint = null, campaignZones = [], campaignOperators = [] }) {
+export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], boundaryGeometry = null, gpsOperatorCount = 0, gpsOperators = [], defaultSourceLevel = 'manual_verified', automaticPercent = null, municipalityName = null, storePoint = null, campaignZones = [], campaignOperators = [], simple = false }) {
+  // simple: modalità "Monitor operativo Admin" — solo strumenti quotidiani
+  // (operatore, matita, gomma, manuale, automatico 50..100%, KPI/preview,
+  // salva, note facoltative). Nasconde selettore livello, ambito multi-zona,
+  // storico correzioni. NON è lo Studio Mappa Avanzato (fuori scope).
   // Operatori REALI della campagna (da GpsMonitor -> admin_list_campaign_assignments).
   // Ogni opzione: { key (operator_id||assignment_id||'admin'), label, operatorId,
   // assignmentId, zoneId }. Mai un MAN-0N fittizio. Se la campagna non ha
@@ -328,6 +335,14 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   // Caricamento della copertura AUTOMATICA esistente (vie reali OSM) come
   // BASE editabile — cosi' automatic_verified non parte da 0%.
   const [autoBaseState, setAutoBaseState] = useState({ loading: false, error: null, loaded: 0 });
+  // Esito dell'ultimo salvataggio batch automatico: { inserted, discarded }.
+  const [lastBatchSave, setLastBatchSave] = useState(null);
+  // TIMEOUT DOPO GOMMA: il ricalcolo pesante della copertura zona
+  // (ST_UnaryUnion su ~2500 tratti) e' SEPARATO dall'edit. Matita/Gomma
+  // marcano la zona "dirty" lato DB e ritornano subito; qui completiamo il
+  // ricalcolo best-effort. `zoneRecalcPending` mostra "ricalcolo in corso"
+  // e un timeout qui NON annulla l'edit gia' committato.
+  const [zoneRecalcPending, setZoneRecalcPending] = useState(false);
   // Stack undo delle modifiche NON salvate (aree/linee chiuse).
   const [undoStack, setUndoStack] = useState([]);
 
@@ -352,6 +367,11 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   // ri-elaborare lo stesso click su `draftLines` stale (doppio split / esito
   // incoerente).
   const justErasedRef = useRef(0);
+  // §C/§8 — rete stradale + origine dell'ultimo "Carica copertura automatica".
+  // Serve a rifare SUBITO la sola selezione (selectRoadsFromOrigin, pura e
+  // locale) quando l'Admin cambia la percentuale 50/60/70/80/90/100 — senza
+  // nuova chiamata Overpass, senza conferma, senza salvare prima.
+  const autoNetRef = useRef(null);
   // §9 — KPI dell'ultimo "Carica copertura automatica".
   const [autoKpi, setAutoKpi] = useState(null);
   // §10 — vie dell'ultimo caricamento automatico non ancora salvato, per
@@ -389,9 +409,6 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   // Il centro zona (centroide del boundary reale, calcolato dal chiamante)
   // ha ora sempre priorita' quando disponibile; la traccia GPS resta
   // visibile come layer di sola lettura ma non controlla piu' il centro.
-  const zoneCenter = zones[0]?.center_lat ? [zones[0].center_lat, zones[0].center_lng] : null;
-  const center = zoneCenter || last || first || [45.4642, 9.19];
-
   // §3 — origine effettiva per selectRoadsFromOrigin. 'store' vale solo se una
   // coordinata reale del punto vendita e' stata passata (mai inventata).
   // Fallback dichiarato: punto vendita assente -> centro comune.
@@ -399,6 +416,18 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     () => (boundaryGeometry ? getMunicipalityCenterPoint(boundaryGeometry) : null),
     [boundaryGeometry],
   );
+  // Centro iniziale della mappa di disegno. Priorità: 1) center_lat/lng reali
+  // della zona SE validi (non null, non 0/0 — Bergamo reale ha 0/0), 2)
+  // centroide del confine reale (getMunicipalityCenterPoint), 3) traccia GPS,
+  // 4) [45.4642, 9.19] come ULTIMISSIMO residuo (mai raggiunto se la zona ha
+  // un confine): meglio un default che un crash di Leaflet su center=null.
+  const zoneCenterFromCols = (
+    zones[0]
+    && Number.isFinite(Number(zones[0].center_lat)) && Number(zones[0].center_lat) !== 0
+    && Number.isFinite(Number(zones[0].center_lng)) && Number(zones[0].center_lng) !== 0
+  ) ? [Number(zones[0].center_lat), Number(zones[0].center_lng)] : null;
+  const zoneCenterFromBoundary = autoCenterPoint ? [autoCenterPoint.lat, autoCenterPoint.lng] : null;
+  const center = zoneCenterFromCols || zoneCenterFromBoundary || last || first || [45.4642, 9.19];
   const storeOriginPoint = storePoint && Number.isFinite(Number(storePoint.lat)) && Number.isFinite(Number(storePoint.lng))
     ? { lat: Number(storePoint.lat), lng: Number(storePoint.lng) }
     : null;
@@ -416,15 +445,17 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     ),
     [campaignZones],
   );
-  const canMultiZone = multiZonesEligible.length > 1;
-  const isCampaignScope = autoScope === 'campaign' && canMultiZone;
+  // simple: mai ambito multi-zona (una zona per volta, come da ticket
+  // "Monitor Admin simple" — niente configurazioni complesse).
+  const canMultiZone = !simple && multiZonesEligible.length > 1;
+  const isCampaignScope = !simple && autoScope === 'campaign' && canMultiZone;
 
   // §3 — i controlli "Copertura automatica" (percentuale/origine/ambito/CTA)
   // NON devono sparire quando l'Admin sposta il selettore livello (es. per
   // usare la GOMMA su un tratto): nel tab AUTOMATICO (defaultSourceLevel
   // 'automatic_verified') restano sempre visibili. Nel tab MANUALE non
   // compaiono.
-  const autoContext = defaultSourceLevel === 'automatic_verified';
+  const autoContext = defaultSourceLevel === 'automatic_verified' || simple;
   const autoConfigVisible = autoContext || sourceLevel === 'automatic_verified';
 
   function handleAutoOriginPick(lat, lng) {
@@ -466,7 +497,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const refresh = async () => {
       try {
         const [adj, cov] = await Promise.all([
           listCoverageAdjustments(campaignId),
@@ -482,9 +513,28 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
           setLoading(false);
         }
       }
-    })();
-    return () => { cancelled = true; };
+    };
+    refresh();
+    // Refresh periodico: le correzioni possono essere revocate FUORI da questo
+    // pannello (cleanup SQL, altro Admin). Senza ricarica, `adjustments`
+    // restava stale e una riga gia' revocata nel DB veniva ancora mostrata
+    // come attiva/editabile -> CORREZIONE_GIA_REVOCATA al primo click.
+    // Non tocca draft/editingId/disegno in corso (load() setta solo
+    // adjustments + coverage).
+    const timer = window.setInterval(refresh, 20000);
+    return () => { cancelled = true; window.clearInterval(timer); };
   }, [campaignId]);
+
+  // Se la riga in modifica viene revocata (qui o altrove) esci dall'editor:
+  // continuare a salvarla darebbe CORREZIONE_GIA_REVOCATA.
+  useEffect(() => {
+    if (!editingId) return;
+    const row = adjustments.find((a) => a.id === editingId);
+    if (row && row.revoked_at) {
+      setFormError('Questa correzione è stata revocata: editor chiuso.');
+      cancelCorrecting();
+    }
+  }, [adjustments, editingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startCorrecting = () => {
     setCorrecting(true);
@@ -499,6 +549,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setAutoKpi(null);
     setLastAutoLines([]);
     setAutoLineOwnership(new Map());
+    autoNetRef.current = null;
     setAutoMulti(null);
     setAutoScope('single');
     setAutoMapPoint(null);
@@ -507,6 +558,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setDraftNotes('');
     setSelectedOperatorKey(defaultOperatorKey);
     setFormError(null);
+    setLastBatchSave(null);
   };
 
   const addDrawPoint = (pt) => {
@@ -594,20 +646,180 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
       setFormError(null);
       return;
     }
-    // 3) correzione salvata piu' vicina -> revoca (conferma)
-    let bestAdj = null; let bestAdjD = ERASE_RADIUS_M;
+    // 3) correzione SORGENTE salvata piu' vicina. Hit-test sulla geometria di
+    // OGNI correzione attiva (LineString / TUTTI i rami di MultiLineString /
+    // anello del Polygon), distanza click->segmento (pointToPolylineMeters).
+    // Tolleranza = LINE_TOL_M (>= 30 m), come per le bozze: un click
+    // visivamente "sopra la linea" a zoom tipico deve trovarla. Mai sul
+    // poligono finale aggregato (quello NON e' in activeAdjustments).
+    let bestAdj = null; let bestAdjD = LINE_TOL_M;
     for (const adj of activeAdjustments) {
       const g = adj.geometry;
-      let line = [];
-      if (g?.type === 'LineString') line = g.coordinates.map(([lng, lat]) => [lat, lng]);
-      else if (g?.type === 'MultiLineString') line = (g.coordinates[0] || []).map(([lng, lat]) => [lat, lng]);
-      else if (g?.type === 'Polygon') { const r = g.coordinates?.[0] || []; line = r.map(([lng, lat]) => [lat, lng]); }
-      const d = pointToPolylineMeters(pt, line);
-      if (d < bestAdjD) { bestAdjD = d; bestAdj = adj; }
+      const rings = [];
+      if (g?.type === 'LineString') rings.push(g.coordinates.map(([lng, lat]) => [lat, lng]));
+      else if (g?.type === 'MultiLineString') {
+        (g.coordinates || []).forEach((seg) => rings.push((seg || []).map(([lng, lat]) => [lat, lng])));
+      } else if (g?.type === 'Polygon') {
+        (g.coordinates || []).forEach((r) => rings.push((r || []).map(([lng, lat]) => [lat, lng])));
+      } else if (g?.type === 'MultiPolygon') {
+        (g.coordinates || []).forEach((poly) => (poly || []).forEach((r) => rings.push((r || []).map(([lng, lat]) => [lat, lng]))));
+      }
+      for (const line of rings) {
+        const d = pointToPolylineMeters(pt, line);
+        if (d < bestAdjD) { bestAdjD = d; bestAdj = adj; }
+      }
     }
-    if (bestAdj) { handleRevoke(bestAdj); return; }
-    setFormError('GOMMA: nessun tratto/area vicino al punto cliccato.');
+    if (bestAdj) {
+      const g = bestAdj.geometry;
+      // GOMMA PARZIALE: se e' una linea, taglia SOLO la porzione dentro il
+      // cerchio e persisti i segmenti residui; revoca completa solo se non
+      // resta nulla. Su Polygon/MultiPolygon -> revoca completa (lo split
+      // areale richiederebbe una libreria di clipping non presente).
+      if (g?.type === 'LineString' || g?.type === 'MultiLineString') {
+        const subLines = g.type === 'LineString'
+          ? [g.coordinates.map(([lng, lat]) => [lat, lng])]
+          : (g.coordinates || []).map((seg) => (seg || []).map(([lng, lat]) => [lat, lng]));
+        const residuals = [];
+        let touched = false;
+        for (const sub of subLines) {
+          if (sub.length < 2) continue;
+          const pieces = splitPolylineByCircle(sub, pt, ERASE_RADIUS_M);
+          if (pieces.length === 1 && pieces[0].length === sub.length) {
+            residuals.push(sub); // ramo non toccato dal cerchio
+          } else {
+            touched = true;
+            pieces.forEach((pc) => { if (pc.length >= 2) residuals.push(pc); });
+          }
+        }
+        if (!touched) {
+          setFormError('GOMMA: il cerchio non interseca questo tratto. Zooma o clicca più vicino.');
+          return;
+        }
+        handleSplitAdjustment(bestAdj, residuals); // residuals=[] -> revoca completa
+        return;
+      }
+      handleRevoke(bestAdj);
+      return;
+    }
+    setFormError('GOMMA: nessuna correzione entro il raggio. Zooma o clicca più vicino a un tratto visibile.');
   };
+
+  // GOMMA PARZIALE su una correzione salvata: una sola operazione atomica
+  // (revoca sorgente + creazione segmenti residui + una sola sync) via
+  // admin_split_coverage_adjustment. I residui ereditano source / zone_id /
+  // operator metadata / line_buffer_m dalla sorgente. residualLatLngs = []
+  // -> revoca completa.
+  // Completa il ricalcolo PESANTE della copertura zona DOPO che l'edit
+  // geometrico e' gia' committato. admin_recalc_zone_coverage vive in una
+  // request separata (timeout 600s, fuori dal gateway dell'edit): se fallisce,
+  // la zona resta "dirty" lato DB e un retry successivo la completa — l'edit
+  // NON viene mai annullato. La "finale verificata" visibile
+  // (calculate_campaign_final_coverage) e' gia' corretta senza questo passo.
+  const recalcZonesAfterEdit = async (zoneIds) => {
+    const ids = [...new Set((zoneIds || []).filter(Boolean))];
+    if (ids.length === 0) return;
+    setZoneRecalcPending(true);
+    try {
+      for (const id of ids) {
+        try {
+          await recalcZoneCoverage({ campaignZoneId: id });
+        } catch {
+          /* zona resta dirty: retry al prossimo edit / refresh periodico */
+        }
+      }
+    } finally {
+      setZoneRecalcPending(false);
+    }
+  };
+
+  const handleSplitAdjustment = async (adjustment, residualLatLngs) => {
+    if (!adjustment?.id || adjustment.revoked_at) return;
+    const residualLines = (residualLatLngs || [])
+      .filter((l) => Array.isArray(l) && l.length >= 2)
+      .map((l) => latLngsToLineStringGeoJson(l));
+    // Rimozione ottimista della sorgente (i residui compaiono dopo load()).
+    setAdjustments((prev) => prev.map((a) => (
+      a.id === adjustment.id
+        ? { ...a, revoked_at: new Date().toISOString(), revoke_reason: 'admin_partial_erase' }
+        : a
+    )));
+    if (editingId === adjustment.id) cancelCorrecting();
+    justErasedRef.current = Date.now();
+    try {
+      await splitCoverageAdjustment({
+        adjustmentId: adjustment.id,
+        residualLines,
+        reason: draftNotes.trim() || 'admin_partial_erase',
+      });
+    } catch (err) {
+      if (!/CORREZIONE_GIA_REVOCATA/i.test(err?.message || '')) {
+        window.alert(err?.message || 'Gomma parziale non riuscita.');
+      }
+    } finally {
+      await load();
+      // Edit committato: ora il ricalcolo pesante, fuori dalla transazione.
+      await recalcZonesAfterEdit([adjustment.zone_id, ...zones.map((z) => z.id)]);
+      await load();
+    }
+  };
+
+  // §C/§8 — applica la percentuale corrente a una rete GIA' risolta (cache
+  // autoNetRef). PURA + LOCALE: nessuna Overpass, nessuna conferma. Sostituisce
+  // le sole vie automatiche precedenti (mai le linee disegnate a mano, mai le
+  // correzioni salvate) e ricalcola i KPI cosi' che corrispondano alla mappa.
+  // Ritorna il numero di vie selezionate.
+  const applyAutoSelectionFromCache = (pctRaw, { pushUndo = false } = {}) => {
+    const cached = autoNetRef.current;
+    if (!cached) return 0;
+    const { net, origin, meta } = cached;
+    const pct = Math.min(100, Math.max(1, Math.round(Number(pctRaw) || 70)));
+    const gpsPath = filterValidGpsPoints(points).valid.map((p) => [Number(p.lat), Number(p.lng)]);
+    const sel = selectRoadsFromOrigin(net, origin, pct, gpsPath);
+    const selectedWays = (sel.selectedWays || []).filter((w) => Array.isArray(w.geometry) && w.geometry.length >= 2);
+    const lines = selectedWays.map((w) => w.geometry);
+    if (!lines.length) {
+      // percentuale troppo bassa per anche una sola via: pulisci SOLO la bozza
+      // automatica, lascia intatte le linee disegnate a mano.
+      setDraftLines((prev) => prev.filter((l) => !lastAutoLines.includes(l)));
+      setLastAutoLines([]);
+      setAutoLineOwnership(new Map());
+      setAutoKpi((k) => (k ? { ...k, requestedPct: pct, ways: 0, selectedKm: 0, coveragePct: 0 } : k));
+      return 0;
+    }
+    const ownership = new Map();
+    if (meta.isCampaignScope) {
+      const fallbackZoneId = zones[0]?.id ?? null;
+      const multiZonesEligible = meta.multiZonesEligible;
+      for (const w of selectedWays) {
+        ownership.set(w.geometry, assignWayZoneId(w.geometry, multiZonesEligible, fallbackZoneId).zoneId);
+      }
+    }
+    setDraftLines((prev) => [...prev.filter((l) => !lastAutoLines.includes(l)), ...lines]);
+    setLastAutoLines(lines);
+    setAutoLineOwnership(ownership);
+    if (pushUndo) setUndoStack((prev) => [...prev, ...lines.map(() => ({ kind: 'line' }))]);
+    setAutoKpi({
+      requestedPct: pct,
+      ways: selectedWays.length,
+      selectedKm: sel.selectedLengthM / 1000,
+      totalKm: net.totalLengthM / 1000,
+      coveragePct: sel.coverageMetricPercent,
+      originLabel: meta.originLabel,
+      scope: meta.isCampaignScope ? 'campaign' : 'single',
+      zonesLoaded: meta.zonesLoaded,
+      zonesFailed: meta.zonesFailed,
+    });
+    return lines.length;
+  };
+
+  // §C/§8 — la percentuale (preset / slider / campo numero) aggiorna SUBITO la
+  // mappa e i KPI quando una rete automatica e' gia' stata caricata: nessuna
+  // nuova Overpass, nessuna conferma, nessun salvataggio, nessun cambio tool.
+  useEffect(() => {
+    if (!correcting || editingId) return;
+    if (!autoNetRef.current) return;
+    applyAutoSelectionFromCache(autoPct, { pushUndo: false });
+  }, [autoPct]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // "Carica copertura automatica": converte la selezione stradale AUTOMATICA
   // (vie reali OSM, stesso motore di ZoneCoverageMap) in tratti draft
@@ -617,10 +829,12 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     // Guardia: scope singolo richiede confine+comune della zona selezionata;
     // scope campagna richiede almeno una zona campagna con confine reale.
     if (!isCampaignScope && (!boundaryGeometry || !municipalityName)) {
+      autoNetRef.current = null;
       setAutoBaseState({ loading: false, error: 'Confine/comune non disponibile per questa zona.', loaded: 0 });
       return;
     }
     if (isCampaignScope && multiZonesEligible.length === 0) {
+      autoNetRef.current = null;
       setAutoBaseState({ loading: false, error: 'Nessuna zona campagna con confine reale disponibile.', loaded: 0 });
       return;
     }
@@ -631,6 +845,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
       || (isCampaignScope ? getMunicipalityCenterPoint(multiZonesEligible[0].boundaryGeometry) : null);
     const origin = autoOrigin || fallbackCenter;
     if (!origin) {
+      autoNetRef.current = null;
       setAutoBaseState({ loading: false, error: 'Punto di partenza non disponibile: scegli "Centro comune" o clicca sulla mappa.', loaded: 0 });
       return;
     }
@@ -657,61 +872,50 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
           .filter(Boolean);
         multiInfo = { loadedZoneCount: merged.loadedZoneCount, failedZoneCount: merged.failedZoneCount, failedZoneNames };
         setAutoMulti(multiInfo);
-        if (!merged.ways.length) {
+        if (!merged.ways.length || !(merged.totalLengthM > 0)) {
+          autoNetRef.current = null;
           setAutoBaseState({ loading: false, error: 'Nessuna rete stradale caricata per le zone della campagna.', loaded: 0 });
           return;
         }
         net = merged;
       } else {
         net = await resolveRoadNetwork(municipalityName, boundaryGeometry);
-        if (!net?.ways?.length) {
-          setAutoBaseState({ loading: false, error: 'Rete stradale non disponibile per questa zona.', loaded: 0 });
+        // §4 ticket: una rete con 0 vie o lunghezza totale <= 0 NON è una
+        // base valida — mai cache, errore esplicito, autoNetRef invalidato
+        // (così il cambio percentuale non produce più 0 in silenzio).
+        if (!net?.ways?.length || !(net.totalLengthM > 0)) {
+          autoNetRef.current = null;
+          setAutoBaseState({ loading: false, error: 'Rete stradale non disponibile per questa zona (nessuna via idonea trovata). Riprova più tardi.', loaded: 0 });
           return;
         }
       }
-      const gpsPath = filterValidGpsPoints(points).valid.map((p) => [Number(p.lat), Number(p.lng)]);
-      // §2/§6: la percentuale (1–100) e' riferita alla lunghezza totale della
-      // rete MERGED di tutte le zone caricate, non a ogni comune separatamente.
-      const pct = Math.min(100, Math.max(1, Math.round(Number(autoPct) || 70)));
-      const sel = selectRoadsFromOrigin(net, origin, pct, gpsPath);
-      const selectedWays = (sel.selectedWays || []).filter((w) => Array.isArray(w.geometry) && w.geometry.length >= 2);
-      const lines = selectedWays.map((w) => w.geometry);
-      if (!lines.length) {
-        setAutoBaseState({ loading: false, error: 'Nessuna via selezionata dall\'automatico.', loaded: 0 });
-        return;
-      }
-      // §7: ogni via generata sa a quale zone_id appartiene (solo scope
-      // campagna; in single il salvataggio usa la zona selezionata come prima).
-      const ownership = new Map();
-      if (isCampaignScope) {
-        const fallbackZoneId = zones[0]?.id ?? null;
-        for (const w of selectedWays) {
-          ownership.set(w.geometry, assignWayZoneId(w.geometry, multiZonesEligible, fallbackZoneId).zoneId);
-        }
-      }
+      // §C/§8: memorizza la rete risolta + l'origine. Da qui in poi il cambio
+      // di percentuale rifa' SOLO la selezione (pura, locale) via l'effetto su
+      // autoPct — nessuna nuova Overpass, nessuna conferma.
+      autoNetRef.current = {
+        net,
+        origin,
+        meta: {
+          isCampaignScope,
+          multiZonesEligible,
+          originLabel: autoOriginMode === 'store' && storeOriginPoint ? 'Punto vendita' : autoOriginMode === 'map' && autoMapPoint ? 'Punto sulla mappa' : 'Centro comune',
+          zonesLoaded: multiInfo ? multiInfo.loadedZoneCount : 1,
+          zonesFailed: multiInfo ? multiInfo.failedZoneCount : 0,
+        },
+      };
       setSourceLevel('automatic_verified');
       setDrawMode('line');
-      // §10: rimuovi le vie del caricamento automatico precedente (per
-      // reference), poi aggiungi il nuovo set. Le linee disegnate a mano e le
-      // correzioni salvate restano intatte.
-      setDraftLines((prev) => [...prev.filter((l) => !lastAutoLines.includes(l)), ...lines]);
-      setLastAutoLines(lines);
-      setAutoLineOwnership(ownership);
-      setUndoStack((prev) => [...prev, ...lines.map(() => ({ kind: 'line' }))]);
-      // §8/§9: KPI immediati sulla bozza (nessun impatto sul FINALE finche' non si salva).
-      setAutoKpi({
-        requestedPct: pct,
-        ways: selectedWays.length,
-        selectedKm: sel.selectedLengthM / 1000,
-        totalKm: net.totalLengthM / 1000,
-        coveragePct: sel.coverageMetricPercent,
-        originLabel: autoOriginMode === 'store' && storeOriginPoint ? 'Punto vendita' : autoOriginMode === 'map' && autoMapPoint ? 'Punto sulla mappa' : 'Centro comune',
-        scope: isCampaignScope ? 'campaign' : 'single',
-        zonesLoaded: multiInfo ? multiInfo.loadedZoneCount : 1,
-        zonesFailed: multiInfo ? multiInfo.failedZoneCount : 0,
-      });
-      setAutoBaseState({ loading: false, error: null, loaded: lines.length });
+      const loadedCount = applyAutoSelectionFromCache(autoPct, { pushUndo: true });
+      if (!loadedCount) {
+        // Rete valida ma 0 vie selezionate a questa percentuale: la
+        // percentuale NON va mostrata come "successo". La rete resta in cache
+        // (alzare la % può selezionare vie); il messaggio è esplicito.
+        setAutoBaseState({ loading: false, error: `Nessuna via selezionata al ${Math.round(Number(autoPct) || 0)}%: alza la percentuale o sposta il punto di partenza.`, loaded: 0 });
+        return;
+      }
+      setAutoBaseState({ loading: false, error: null, loaded: loadedCount });
     } catch (err) {
+      autoNetRef.current = null;
       setAutoBaseState({ loading: false, error: err?.message || 'Caricamento automatico non riuscito.', loaded: 0 });
     }
   };
@@ -773,6 +977,10 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   };
 
   const startEditing = (adjustment) => {
+    // Mai aprire l'editor su una riga revocata: il salvataggio darebbe
+    // CORREZIONE_GIA_REVOCATA. La UI non dovrebbe offrirlo (popup/pulsanti
+    // solo su activeAdjustments), ma lo stato puo' essere stale.
+    if (!adjustment?.id || adjustment.revoked_at) { setFormError('Correzione revocata: non modificabile.'); return; }
     // Modifica di una riga esistente = un solo poligono (la colonna DB e'
     // tipizzata Polygon singolo per riga): niente multi-area qui, il
     // workflow "Nuova area" resta disabilitato durante la modifica. Per
@@ -821,8 +1029,11 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setAutoKpi(null);
     setLastAutoLines([]);
     setAutoLineOwnership(new Map());
+    autoNetRef.current = null;
     setAutoMulti(null);
     setFormError(null);
+    // lastBatchSave NON azzerato: l'esito "N salvate / M scartate" resta
+    // visibile dopo il salvataggio finché non si riapre l'editor.
   };
 
   const handleClearAll = () => {
@@ -834,6 +1045,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     setAutoKpi(null);
     setLastAutoLines([]);
     setAutoLineOwnership(new Map());
+    autoNetRef.current = null;
     setAutoMulti(null);
     setFormError(null);
   };
@@ -886,11 +1098,28 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
         });
         cancelCorrecting();
         await load();
+        await recalcZonesAfterEdit(zones.map((z) => z.id));
+        await load();
       } catch (err) {
-        setFormError(err?.message || 'Salvataggio non riuscito.');
+        if (/CORREZIONE_GIA_REVOCATA/i.test(err?.message || '')) {
+          // La riga e' stata revocata nel frattempo (cleanup/altro Admin):
+          // chiudi l'editor e riallinea, senza errore tecnico.
+          setFormError('Questa correzione è stata revocata: modifica annullata.');
+          cancelCorrecting();
+          await load();
+        } else {
+          setFormError(err?.message || 'Salvataggio non riuscito.');
+        }
       } finally {
         setSaving(false);
       }
+      return;
+    }
+
+    // In modalita' GOMMA non c'e' un "salva bozza": la gomma agisce al click
+    // sulla mappa. Messaggio coerente con lo strumento, non quello del disegno.
+    if (tool === 'erase') {
+      setFormError('Seleziona una parte del tratto da rimuovere.');
       return;
     }
 
@@ -922,21 +1151,33 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
           reason: autoReason, notes: draftNotes.trim() || null, metadata, source,
         });
       }
-      // La matita "a tratto": una riga LineString per tratto, con buffer.
-      // Non disponibile per gps_exclusion (che e' sempre un'area).
-      if (!isGpsLevel) {
-        for (const line of draftLines) {
-          // §7/§10: zone_id per via — dall'assegnazione multi-zona quando
-          // presente (scope campagna), altrimenti la zona selezionata come
-          // sempre. campaign_id / source / geometry restano invariati.
-          const lineZoneId = autoLineOwnership.get(line) ?? zones[0]?.id ?? null;
-          await createCoverageAdjustment({
-            campaignId, zoneId: lineZoneId, adjustmentType: 'manual_covered',
-            geometryGeoJson: latLngsToLineStringGeoJson(line),
-            reason: autoReason, notes: draftNotes.trim() || null, metadata, source,
-            lineBufferM,
-          });
-        }
+      // Matita "a tratto" / copertura automatica: TUTTE le LineString in
+      // UNA sola RPC batch atomica (mai piu' una RPC per via — vedi
+      // migration 20260831120000). Se il batch fallisce: 0 righe scritte,
+      // errore mostrato, draft mantenuto in UI (nessun cancelCorrecting nel
+      // catch). Non disponibile per gps_exclusion (sempre un'area).
+      if (!isGpsLevel && draftLines.length > 0) {
+        // §7/§10: zone_id per via — dall'assegnazione multi-zona quando
+        // presente (scope campagna), altrimenti la zona selezionata.
+        const linesPayload = draftLines.map((line) => ({
+          geometry: latLngsToLineStringGeoJson(line),
+          zone_id: autoLineOwnership.get(line) ?? zones[0]?.id ?? null,
+        }));
+        const res = await createCoverageAdjustmentsBatch({
+          campaignId,
+          lines: linesPayload,
+          reason: autoReason,
+          source,
+          lineBufferM,
+          notes: draftNotes.trim() || null,
+          metadata,
+          adjustmentType: 'manual_covered',
+        });
+        setLastBatchSave({
+          inserted: Number(res?.inserted || 0),
+          discarded: Number(res?.discarded || 0),
+          received: Number(res?.received || linesPayload.length),
+        });
       }
       cancelCorrecting();
       await load();
@@ -948,13 +1189,32 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   };
 
   const handleRevoke = async (adjustment) => {
+    // Guardia: mai un secondo revoke sulla stessa riga (la UI non deve
+    // nemmeno offrirlo, ma lo stato React puo' essere transitoriamente stale).
+    if (!adjustment?.id || adjustment.revoked_at) return;
+    // Rimozione OTTIMISTA immediata dalla lista attiva: il popup/pulsanti
+    // spariscono subito, senza attendere il round-trip. load() nel finally
+    // riallinea comunque alla verita' del DB.
+    setAdjustments((prev) => prev.map((a) => (
+      a.id === adjustment.id
+        ? { ...a, revoked_at: new Date().toISOString(), revoke_reason: 'admin_revoked' }
+        : a
+    )));
+    if (editingId === adjustment.id) cancelCorrecting();
     // Azione diretta: nessun popup, nessun testo richiesto all'Admin. Il
     // backend richiede reason NOT NULL solo per audit -> valore interno neutro.
     try {
       await revokeCoverageAdjustment({ adjustmentId: adjustment.id, reason: 'admin_revoked' });
-      await load();
     } catch (err) {
-      window.alert(err?.message || 'Revoca non riuscita.');
+      // CORREZIONE_GIA_REVOCATA = il DB l'ha gia' revocata (cleanup/altro
+      // Admin): non e' un errore per l'utente, load() qui sotto sincronizza.
+      if (!/CORREZIONE_GIA_REVOCATA/i.test(err?.message || '')) {
+        window.alert(err?.message || 'Revoca non riuscita.');
+      }
+    } finally {
+      await load(); // verita' del DB: se il revoke e' davvero fallito, la riga torna attiva
+      await recalcZonesAfterEdit([adjustment.zone_id, ...zones.map((z) => z.id)]);
+      await load();
     }
   };
 
@@ -1018,29 +1278,33 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
           )}
           {autoOriginError && <p style={{ margin: '4px 0 0', fontSize: 12, color: '#fca5a5' }}>{autoOriginError}</p>}
 
-          {/* 3 — Ambito (§4) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
-            <span style={autoCtlLabelStyle}>Ambito</span>
-            <button type="button" onClick={() => setAutoScope('single')} style={autoChipStyle(autoScope === 'single')}>Comune selezionato</button>
-            <button
-              type="button"
-              disabled={!canMultiZone}
-              title={canMultiZone ? '' : 'La campagna ha una sola zona con confine reale'}
-              onClick={() => setAutoScope('campaign')}
-              style={autoChipStyle(isCampaignScope, !canMultiZone)}
-            >
-              Tutte le zone della campagna{canMultiZone ? ` (${multiZonesEligible.length})` : ''}
-            </button>
-          </div>
-          {isCampaignScope && multiZonesEligible.length > AUTO_MULTIZONE_WARN_OVER && (
-            <p style={{ margin: '4px 0 0', fontSize: 11, color: '#fbbf24' }}>
-              Campagna con molte zone: il caricamento della rete può richiedere più tempo.
-            </p>
-          )}
-          {autoMulti && autoMulti.failedZoneCount > 0 && (
-            <p style={{ margin: '4px 0 0', fontSize: 11, color: '#fca5a5' }}>
-              Zone non caricate ({autoMulti.failedZoneCount}): {autoMulti.failedZoneNames.join(', ') || '—'}. La copertura mostrata NON è completa.
-            </p>
+          {/* 3 — Ambito (§4) — nascosto in modalità simple (una zona per volta). */}
+          {!simple && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                <span style={autoCtlLabelStyle}>Ambito</span>
+                <button type="button" onClick={() => setAutoScope('single')} style={autoChipStyle(autoScope === 'single')}>Comune selezionato</button>
+                <button
+                  type="button"
+                  disabled={!canMultiZone}
+                  title={canMultiZone ? '' : 'La campagna ha una sola zona con confine reale'}
+                  onClick={() => setAutoScope('campaign')}
+                  style={autoChipStyle(isCampaignScope, !canMultiZone)}
+                >
+                  Tutte le zone della campagna{canMultiZone ? ` (${multiZonesEligible.length})` : ''}
+                </button>
+              </div>
+              {isCampaignScope && multiZonesEligible.length > AUTO_MULTIZONE_WARN_OVER && (
+                <p style={{ margin: '4px 0 0', fontSize: 11, color: '#fbbf24' }}>
+                  Campagna con molte zone: il caricamento della rete può richiedere più tempo.
+                </p>
+              )}
+              {autoMulti && autoMulti.failedZoneCount > 0 && (
+                <p style={{ margin: '4px 0 0', fontSize: 11, color: '#fca5a5' }}>
+                  Zone non caricate ({autoMulti.failedZoneCount}): {autoMulti.failedZoneNames.join(', ') || '—'}. La copertura mostrata NON è completa.
+                </p>
+              )}
+            </>
           )}
 
           {/* 4 — Carica */}
@@ -1092,7 +1356,22 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
           Copertura automatica caricata: {autoBaseState.loaded} vie reali come base editabile. Rimuovi le vie inutili con la GOMMA, poi Salva.
         </div>
       )}
+      {lastBatchSave && (
+        <div style={{ marginTop: 6, fontSize: 12, color: lastBatchSave.discarded > 0 ? '#fbbf24' : '#86efac' }}>
+          Salvataggio automatico: {lastBatchSave.inserted} linee salvate (transazione unica){lastBatchSave.discarded > 0 ? ` · ${lastBatchSave.discarded} scartate perché geometria non valida` : ''}. Ricarica per la copertura finale.
+        </div>
+      )}
+      {zoneRecalcPending && (
+        <div style={{ marginTop: 6, fontSize: 12, color: '#93c5fd' }}>
+          Modifica salvata. Ricalcolo della copertura della zona in corso…
+        </div>
+      )}
       {/* §9 — KPI bozza automatica (nessun impatto sul FINALE finché non si salva) */}
+      {autoKpi && autoConfigVisible && autoKpi.ways === 0 && (
+        <div style={errorStyle}>
+          Copertura automatica al {autoKpi.requestedPct}%: nessuna via selezionata (0 km). Non è un risultato valido — alza la percentuale, sposta il punto di partenza o riprova a caricare la rete.
+        </div>
+      )}
       {autoKpi && autoConfigVisible && (
         <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
           {[
@@ -1133,25 +1412,31 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
 
       {correcting && (
         <div style={formStyle}>
-          <label style={labelStyle}>
-            Livello (la gomma agisce su tutti e 3)
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
-              {COVERAGE_SOURCE_LEVELS.map((lv) => (
-                <button
-                  key={lv.value}
-                  type="button"
-                  onClick={() => setSourceLevel(lv.value)}
-                  style={{
-                    border: sourceLevel === lv.value ? 'none' : '1px solid rgba(255,255,255,.14)',
-                    borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 800, cursor: 'pointer',
-                    background: sourceLevel === lv.value ? '#2563eb' : 'rgba(255,255,255,.05)', color: '#fff',
-                  }}
-                >
-                  {lv.label}
-                </button>
-              ))}
-            </div>
-          </label>
+          {/* Selettore livello (gps/automatic/manual): pannello tecnico —
+              nascosto in modalità simple. Il livello resta gestito
+              implicitamente: manuale di default, 'automatic_verified' dopo
+              "Carica copertura automatica", esclusione dalla GOMMA. */}
+          {!simple && (
+            <label style={labelStyle}>
+              Livello (la gomma agisce su tutti e 3)
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+                {COVERAGE_SOURCE_LEVELS.map((lv) => (
+                  <button
+                    key={lv.value}
+                    type="button"
+                    onClick={() => setSourceLevel(lv.value)}
+                    style={{
+                      border: sourceLevel === lv.value ? 'none' : '1px solid rgba(255,255,255,.14)',
+                      borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 800, cursor: 'pointer',
+                      background: sourceLevel === lv.value ? '#2563eb' : 'rgba(255,255,255,.05)', color: '#fff',
+                    }}
+                  >
+                    {lv.label}
+                  </button>
+                ))}
+              </div>
+            </label>
+          )}
           <p style={{ margin: '6px 0', fontSize: 11, color: 'rgba(255,255,255,.5)' }}>
             {isGpsLevel
               ? 'GOMMA sul GPS reale: crea un\'esclusione verificata (overlay). NON modifica mai gps_tracking_points.'
@@ -1421,13 +1706,17 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
 
       <Legend />
       <OperatorLegend
+        campaignOperators={campaignOperators}
         gpsOperators={gpsOperators}
         gpsOperatorCount={gpsOperatorCount}
         presentOperatorKeys={presentOperatorKeys}
         operatorLabelForKey={operatorLabelForKey}
       />
 
-      <div style={{ marginTop: 12 }}>
+      {/* Storico correzioni: pannello di consultazione/revoca — nascosto in
+          modalità simple (Monitor operativo). La revoca resta possibile con la
+          GOMMA direttamente sulla correzione salvata sulla mappa. */}
+      <div style={{ marginTop: 12, display: simple ? 'none' : 'block' }}>
         <button type="button" onClick={() => setShowHistory((v) => !v)} style={secondaryButtonStyle}>
           {showHistory ? 'Nascondi storico correzioni' : `Storico correzioni (${adjustments.length})`}
         </button>
@@ -1508,10 +1797,14 @@ function Legend() {
 // usato sulla mappa (stesso getOperatorColor sia per la traccia GPS sia per
 // le correzioni manuali dello stesso operatore). Mai il solo contatore
 // "Operatori GPS reali: N" quando esistono nomi/id.
-function OperatorLegend({ gpsOperators = [], gpsOperatorCount = 0, presentOperatorKeys = [], operatorLabelForKey = (k) => k }) {
+function OperatorLegend({ campaignOperators = [], gpsOperators = [], gpsOperatorCount = 0, presentOperatorKeys = [], operatorLabelForKey = (k) => k }) {
+  // Operatori realmente ASSEGNATI alla campagna (fonte: assegnazioni reali).
+  const assignedOperators = (Array.isArray(campaignOperators) ? campaignOperators : [])
+    .filter((o) => o && (o.operatorId || o.assignmentId));
+  const hasAssigned = assignedOperators.length > 0;
   const hasGps = gpsOperators.length > 0;
   const hasManual = presentOperatorKeys.length > 0;
-  if (!hasGps && !hasManual && gpsOperatorCount === 0) return null;
+  if (!hasAssigned && !hasGps && !hasManual && gpsOperatorCount === 0) return null;
 
   const dot = (color) => ({
     width: 11, height: 11, borderRadius: 999, background: color,
@@ -1522,6 +1815,23 @@ function OperatorLegend({ gpsOperators = [], gpsOperatorCount = 0, presentOperat
 
   return (
     <div style={{ marginTop: 10 }}>
+      {/* OPERATORI CAMPAGNA — tutti gli assegnati, nome reale + colore stabile
+          (stesso getOperatorColor di traccia GPS / correzioni manuali). */}
+      {hasAssigned && (
+        <>
+          <p style={groupTitle}>Operatori campagna ({assignedOperators.length})</p>
+          {assignedOperators.map((o, i) => {
+            const key = String(o.operatorId || o.assignmentId);
+            return (
+              <div key={`camp-${key}`} style={rowStyleLocal}>
+                <span style={dot(manualOperatorColor(key))} />
+                {o.name || `Operatore ${key.slice(0, 8)}`}
+              </div>
+            );
+          })}
+        </>
+      )}
+
       <p style={groupTitle}>Operatori GPS reali{hasGps ? '' : `: ${gpsOperatorCount}`}</p>
       {hasGps ? (
         gpsOperators.map((op, i) => (

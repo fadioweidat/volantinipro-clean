@@ -13,8 +13,12 @@ export function resolveAppRoute(path, { hasAuthHash = false, prefillHas = false,
   if (p === '/admin/smart-pairing') return 'admin-smart-pairing';
   if (p === '/admin/suppliers') return 'admin-suppliers';
   if (p === '/admin/status') return 'admin-status';
+  if (p === '/admin/map-studio') return 'admin-map-studio';
+  if (p === '/admin/analytics') return 'admin-analytics';
   const adminAssignmentsNew = p.match(/^\/admin\/campaigns\/([^/]+)\/assignments\/new$/);
   if (adminAssignmentsNew) return `admin-assignments-new:${adminAssignmentsNew[1]}`;
+  const adminCoverageEditor = p.match(/^\/admin\/campaigns\/([^/]+)\/coverage-editor$/);
+  if (adminCoverageEditor) return `admin-coverage-editor:${adminCoverageEditor[1]}`;
   const adminRoute = p.match(/^\/admin\/campaigns\/([^/]+)\/(gps|operations|groups|report|assignments)$/);
   if (adminRoute) return `admin-${adminRoute[2]}:${adminRoute[1]}`;
   if (p.startsWith('/admin')) return 'admin';

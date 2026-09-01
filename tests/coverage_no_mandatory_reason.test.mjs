@@ -10,6 +10,7 @@ import { getOperatorColor, OPERATOR_PALETTE } from '../src/lib/geo/operatorColor
 
 const PANEL = readFileSync(new URL('../src/components/admin/CoverageAdjustmentPanel.jsx', import.meta.url), 'utf8');
 const GM = readFileSync(new URL('../src/pages/admin/GpsMonitor.jsx', import.meta.url), 'utf8');
+const COVEDIT = readFileSync(new URL('../src/pages/admin/CoverageEditor.jsx', import.meta.url), 'utf8');
 
 // ── A: nessun "Motivo (obbligatorio)" nella UI ─────────────────────────
 test('A — nessun campo "Motivo (obbligatorio)" nel pannello', () => {
@@ -31,9 +32,13 @@ test('B — nessun window.prompt nel pannello', () => {
 
 // ── C: la revoca e' diretta e passa un reason interno neutro ───────────
 test('C — handleRevoke diretto, reason interno "admin_revoked", nessun input utente', () => {
-  const fn = PANEL.slice(PANEL.indexOf('const handleRevoke ='), PANEL.indexOf('const handleRevoke =') + 500);
+  const fn = PANEL.slice(PANEL.indexOf('const handleRevoke ='), PANEL.indexOf('const activeAdjustments ='));
   assert.match(fn, /revokeCoverageAdjustment\(\{ adjustmentId: adjustment\.id, reason: 'admin_revoked' \}\)/);
   assert.doesNotMatch(fn, /window\.prompt|window\.confirm/);
+  // guardia: mai un secondo revoke sulla stessa riga
+  assert.match(fn, /if \(!adjustment\?\.id \|\| adjustment\.revoked_at\) return;/);
+  // CORREZIONE_GIA_REVOCATA non e' un errore per l'utente (il DB l'ha gia' revocata)
+  assert.match(fn, /CORREZIONE_GIA_REVOCATA/);
 });
 
 // ── C2: il salvataggio non blocca mai per assenza di testo ─────────────
@@ -80,10 +85,15 @@ test('G — OperatorLegend: elenco nomi GPS reali + Admin manuali, non il solo c
   assert.match(PANEL, /borderRadius: 999, background: color/);
   assert.match(PANEL, /dot\(op\.color\)/);
   assert.match(PANEL, /dot\(manualOperatorColor\(key\)\)/);
-  // GpsMonitor costruisce e passa gpsOperators (id + name + color) a entrambi i pannelli
+  // Il Monitor operativo Admin (GpsMonitor) monta il pannello in modalità
+  // simple e gli passa gpsOperators (id + name + color stabile).
   assert.match(GM, /const gpsOperators = useMemo\(/);
   assert.match(GM, /color: getOperatorColor\(id\)/);
-  assert.equal((GM.match(/gpsOperators=\{gpsOperators\}/g) || []).length, 2);
+  assert.match(GM, /gpsOperators=\{gpsOperators\}/);
+  // L'Editor Copertura Avanzato (pagina separata, non collegata dal Monitor)
+  // resta e costruisce gpsOperators per entrambe le sue viste del pannello.
+  assert.match(COVEDIT, /const gpsOperators = useMemo\(/);
+  assert.equal((COVEDIT.match(/gpsOperators=\{gpsOperators\}/g) || []).length, 2);
 });
 
 // ── H: selettore operatore = tutti gli operatori della campagna ────────

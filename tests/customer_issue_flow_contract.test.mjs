@@ -18,6 +18,7 @@ const CT = read('src/pages/customer/CampaignTracking.jsx');
 const DRV = read('src/pages/driver/DriverAssignmentPage.jsx');
 const ADM = read('src/components/admin/AdminIssuesPanel.jsx');
 const GM = read('src/pages/admin/GpsMonitor.jsx');
+const COVEDIT = read('src/pages/admin/CoverageEditor.jsx');
 
 // ── modello dati / stati ──────────────────────────────────────────────
 test('MODELLO — customer_issues ha i campi e gli stati richiesti', () => {
@@ -142,13 +143,16 @@ test('L — Dashboard Cliente: risposta risolta nella issue (stato, data/ora, fo
 });
 
 // ── M: admin vede tutto ─────────────────────────────────────────
-test('M — Admin: lista completa + routing manuale, montata in GpsMonitor', () => {
+test('M — Admin: lista completa + routing manuale, montata nell\'Editor Copertura', () => {
   assert.match(M2, /create or replace function public\.admin_list_issues\(p_campaign_id uuid default null\)/);
   assert.match(M2, /if not public\.gps_is_admin\(\) then raise exception 'ADMIN_NON_AUTORIZZATO'/);
   assert.match(M2, /'open_seconds', extract\(epoch from \(coalesce\(i\.resolved_at, now\(\)\) - i\.created_at\)\)::bigint/);
   assert.match(ADM, /adminListIssues\(campaignId\)/);
   assert.match(ADM, /await adminRouteIssue\(issueId, assignmentId\)/);
-  assert.match(GM, /<AdminIssuesPanel campaignId=\{campaignId\} \/>/);
+  // Gli strumenti tecnici Admin (incl. gestione segnalazioni) sono nell'Editor
+  // Copertura Avanzato, non piu' nel Monitor operativo.
+  assert.match(COVEDIT, /<AdminIssuesPanel campaignId=\{campaignId\} \/>/);
+  assert.doesNotMatch(GM, /<AdminIssuesPanel/);
 });
 
 // ── N: nessun token/secret esposto ─────────────────────────────

@@ -27,8 +27,15 @@ export function useZoneBoundaries(campaignId) {
 
   useEffect(() => {
     let cancelled = false;
+    // Reset SEMPRE al cambio campagna: nessun residuo di zone/confini della
+    // campagna precedente. Senza questo, resolvedBoundaries si accumulava fra
+    // campagne/zone e una geometria stale (es. Milano di una campagna vista
+    // prima) contaminava la vista corrente — root cause del bug
+    // "header Bergamo, mappa Milano".
+    setZoneRows([]);
+    setResolvedBoundaries({});
+    persistedZoneIdsRef.current = new Set();
     if (!campaignId || !supabase) {
-      setZoneRows([]);
       return undefined;
     }
     // Ordine stabile e significativo (priority, poi zone_name) — senza
@@ -43,7 +50,25 @@ export function useZoneBoundaries(campaignId) {
       .eq('campaign_id', campaignId)
       .order('priority', { ascending: true, nullsFirst: false })
       .order('zone_name', { ascending: true })
-      .then(({ data }) => { if (!cancelled) setZoneRows(data || []); });
+      .then(({ data }) => {
+        if (cancelled) return;
+        const rows = data || [];
+        setZoneRows(rows);
+        // PRIORITÀ A del ticket "Bergamo→Milano": il confine reale
+        // campaign_zones.polygon_geojson (persistito) va usato SUBITO, senza
+        // attendere Nominatim. resolveMunicipalityBoundary (priorità C) resta
+        // solo per le zone che nel DB non hanno ancora un poligono.
+        const seeded = {};
+        for (const zone of rows) {
+          const g = zone.polygon_geojson;
+          if (g && typeof g === 'object' && g.type && Array.isArray(g.coordinates)) {
+            seeded[zone.id] = g;
+          }
+        }
+        if (Object.keys(seeded).length) {
+          setResolvedBoundaries((prev) => ({ ...prev, ...seeded }));
+        }
+      });
     return () => { cancelled = true; };
   }, [campaignId]);
 

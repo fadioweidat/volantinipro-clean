@@ -101,6 +101,51 @@ export async function getSiteTraffic() {
   }
 }
 
+// Analytics Visitatori (dashboard /admin/analytics): righe grezze di
+// public.site_events nella finestra richiesta. RLS: solo admin/super_admin
+// possono fare SELECT. L'aggregazione (panoramica, geografia, sorgenti,
+// pagine, funnel, domanda commerciale) è in
+// src/lib/analytics/analyticsAggregate.js, testabile senza rete.
+export async function getAnalyticsEvents({ days = 7 } = {}) {
+  if (!supabase) return { rows: [], available: false };
+  try {
+    await ensureSupabaseSessionBridge();
+    const clampedDays = Math.min(90, Math.max(1, Number(days) || 7));
+    const cutoff = new Date(Date.now() - clampedDays * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from('site_events')
+      .select('event_name, created_at, anonymous_session_id, session_id, path, referrer_host, referrer_type, utm_source, utm_medium, utm_campaign, utm_content, utm_term, country, region, city, device_type, browser, os, campaign_id, quote_id, metadata')
+      .gte('created_at', cutoff)
+      .order('created_at', { ascending: false })
+      .limit(50000);
+    if (error) return { rows: [], available: false, error: error.message || 'errore' };
+    return { rows: Array.isArray(data) ? data : [], available: true };
+  } catch (err) {
+    return { rows: [], available: false, error: err?.message || 'errore' };
+  }
+}
+
+// Rollup giornalieri pre-aggregati (public.analytics_daily_rollup) per finestre
+// lunghe (30gg+) senza scaricare l'intera tabella eventi.
+export async function getAnalyticsRollups({ days = 30 } = {}) {
+  if (!supabase) return { rows: [], available: false };
+  try {
+    await ensureSupabaseSessionBridge();
+    const clampedDays = Math.min(400, Math.max(1, Number(days) || 30));
+    const fromDay = new Date(Date.now() - clampedDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const { data, error } = await supabase
+      .from('analytics_daily_rollup')
+      .select('day, dimension, key, visitors, sessions, page_views, events, quotes_started, quotes_completed')
+      .gte('day', fromDay)
+      .order('day', { ascending: false })
+      .limit(20000);
+    if (error) return { rows: [], available: false, error: error.message || 'errore' };
+    return { rows: Array.isArray(data) ? data : [], available: true };
+  } catch (err) {
+    return { rows: [], available: false, error: err?.message || 'errore' };
+  }
+}
+
 // Stato provider esterni + ultimo login admin/cliente (Centro Controllo
 // Sito, Blocco 6 + parte del Blocco 8): questi dati vivono solo lato
 // server (secret non esposti al frontend, service-role per auth.admin.

@@ -2,21 +2,18 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, Polygon } from 'react-leaflet';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
 import { createProofPhotoSignedUrl, getCampaignGpsSessions, getCampaignSessionTracks, getCampaignProofPhotos, getCampaignRecord, calculateGpsCoverage, adminUnlockDevice } from '../../lib/services/gps-api.js';
 import { C } from '../../lib/constants.js';
+import { CoverageAdjustmentPanel } from '../../components/admin/CoverageAdjustmentPanel.jsx';
+import { getMunicipalityCenterPoint } from '../../lib/geo/originRadialSelection.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
 import { normalizeZonesFromCampaign, summarizeGeofencePoints, deriveLiveZoneStatus, estimateDistanceToZoneBoundaryMeters, ZONE_LIVE_STATUS_LABELS, ZONE_LIVE_STATUS_COLORS } from '../../lib/geofence/geofenceEngine.js';
-import { geoJsonApproxCentroid } from '../../lib/geo/pointInPolygon.js';
 import { useZoneBoundaries } from '../../hooks/useZoneBoundaries.js';
 import { resolveMunicipalityBoundary } from '../../lib/geo/resolveMunicipalityBoundary.js';
 import { AdminLayout } from './AdminLayout.jsx';
-import { CoverageAdjustmentPanel } from '../../components/admin/CoverageAdjustmentPanel.jsx';
 import { listCampaignAssignments } from '../../lib/services/admin-api.js';
 import { getOperatorColor } from '../../lib/geo/operatorColor.js';
-import { AdminIssuesPanel } from '../../components/admin/AdminIssuesPanel.jsx';
-import { ZoneCoverageMap } from '../../components/admin/ZoneCoverageMap.jsx';
 import { FitToZoneBounds } from '../../components/map/FitToZoneBounds.jsx';
 import { GpsMonitorMetricsPanel } from './gps-monitor/GpsMonitorMetricsPanel.jsx';
 import { GpsMonitorGeofenceHistory } from './gps-monitor/GpsMonitorGeofenceHistory.jsx';
@@ -28,6 +25,12 @@ import { GpsMonitorSessionsProofPanel } from './gps-monitor/GpsMonitorSessionsPr
 const TRACK_PALETTE = ['#e8571a', C.blue, C.purple, C.green, C.teal, C.yellow];
 export function trackColor(index) {
   return TRACK_PALETTE[index % TRACK_PALETTE.length];
+}
+// Etichetta di ripiego quando il display_name reale dell'operatore non c'e':
+// "Operatore <short-id>", MAI "Operatore 04" da indice di array.
+export function shortOperatorId(value) {
+  const s = String(value || '');
+  return s.length > 8 ? s.slice(0, 8) : s;
 }
 const OPERATOR_STATUS_LABELS = {
   live: 'ONLINE',
@@ -117,21 +120,11 @@ export function GpsMonitor({ campaignId, onNav }) {
   const selectedZoneGeometry = selectedZoneId ? resolvedBoundaries[selectedZoneId] || null : null;
   const activeZoneName = selectedZoneRow?.zone_name || null;
 
-  // Ambito automatico multi-zona (CoverageAdjustmentPanel §4): SOLO le zone
-  // campagna gia' esistenti (campaign_zones via useZoneBoundaries), con nome
-  // comune e confine reale gia' risolto. Nessun boundary inventato: le zone
-  // ancora senza geometria vengono escluse finche' resolveMunicipalityBoundary
-  // non le popola.
-  const campaignZonesForAuto = useMemo(
-    () => zoneRows
-      .map((z) => ({ id: z.id, municipalityName: z.zone_name, boundaryGeometry: resolvedBoundaries[z.id] || null }))
-      .filter((z) => z.municipalityName && z.boundaryGeometry),
-    [zoneRows, resolvedBoundaries],
-  );
-
-  // Operatori REALI della campagna per CoverageAdjustmentPanel (§ ticket
-  // "operatori reali"): da admin_list_campaign_assignments, solo attivi/non
-  // revocati, senza access_token nel payload passato alla UI.
+  // Operatori REALI della campagna (§ ticket "operatori reali"): da
+  // admin_list_campaign_assignments, solo attivi/non revocati, senza
+  // access_token nel payload passato alla UI. Alimentano canonicalOperators
+  // (pannello operatori del monitor) e vengono passati all'Editor Copertura
+  // quando l'Admin apre "Correggi copertura".
   const [assignmentRows, setAssignmentRows] = useState([]);
   useEffect(() => {
     let cancelled = false;
@@ -154,12 +147,53 @@ export function GpsMonitor({ campaignId, onNav }) {
     [assignmentRows],
   );
 
-  // Operatori GPS REALI con nome + colore stabile, per la legenda del
-  // CoverageAdjustmentPanel (§ ticket "ogni operatore con il suo colore" +
-  // "legenda con nomi"). Un elemento per driver_id distinto tra le sessioni
-  // trackabili; il nome viene risolto dagli assignment reali (operator_id),
-  // il colore da getOperatorColor(driver_id) — LO STESSO usato per la traccia
-  // GPS sulla mappa e per le correzioni manuali dello stesso operatore.
+  // Lista CANONICA degli operatori della campagna (ticket §2). Fonte primaria:
+  // le assegnazioni reali (admin_list_campaign_assignments, attive/non
+  // revocate). Arricchita con la presenza GPS = driver_id tra le sessioni
+  // trackabili. operatorId stabile; colore SEMPRE da
+  // getOperatorColor(operatorId||assignmentId) — mai da indice/etichetta.
+  const gpsDriverIds = useMemo(
+    () => new Set((state.sessionTracks || []).map((t) => t.session?.driver_id).filter(Boolean)),
+    [state.sessionTracks],
+  );
+  const canonicalOperators = useMemo(() => {
+    const out = [];
+    const seen = new Set();
+    for (const o of campaignOperators) {
+      const key = o.operatorId || o.assignmentId;
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        operatorId: o.operatorId || null,
+        assignmentId: o.assignmentId || null,
+        colorKey: String(key),
+        displayName: o.name || `Operatore ${shortOperatorId(key)}`,
+        color: getOperatorColor(key),
+        assigned: true,
+        hasGps: o.operatorId ? gpsDriverIds.has(o.operatorId) : false,
+      });
+    }
+    // GPS driver senza assegnazione corrispondente (assegnazione revocata ma
+    // sessione storica): non perderli, ma restano fuori dal conteggio "assegnati".
+    for (const id of gpsDriverIds) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push({
+        operatorId: id, assignmentId: null, colorKey: String(id),
+        displayName: `Operatore ${shortOperatorId(id)}`, color: getOperatorColor(id),
+        assigned: false, hasGps: true,
+      });
+    }
+    return out;
+  }, [campaignOperators, gpsDriverIds]);
+  // "OPERATORI: N" = operatori realmente ASSEGNATI (mai il numero di sessioni GPS).
+  const assignedOperatorCount = canonicalOperators.filter((o) => o.assigned).length;
+  const operatorsWithGpsCount = canonicalOperators.filter((o) => o.hasGps).length;
+
+  // Operatori GPS reali (id + nome + colore stabile) per la legenda del
+  // CoverageAdjustmentPanel simple: un elemento per driver_id distinto, nome
+  // dagli assignment reali, colore SEMPRE da getOperatorColor(driver_id) — lo
+  // stesso della traccia GPS e delle correzioni manuali dello stesso autista.
   const gpsOperators = useMemo(() => {
     const byId = new Map();
     (state.sessionTracks || []).forEach((t) => {
@@ -170,51 +204,7 @@ export function GpsMonitor({ campaignId, onNav }) {
     });
     return [...byId.values()];
   }, [state.sessionTracks, campaignOperators]);
-
-  // Riga di zoneProgress per la zona selezionata (ticket A): stesso dato
-  // gia' letto da ZoneProgressPanel/AUTOMATICO, non un secondo fetch.
-  const selectedAutoZoneProgress = selectedZoneId
-    ? zoneProgress.zones.find((z) => z.campaign_zone_id === selectedZoneId) || null
-    : null;
-  // "GPS reale" nell'esempio del ticket riusa la STESSA copertura GPS gia'
-  // calcolata e mostrata nel tab GPS REALE (coverage.coverage_percent) — MAI
-  // un nuovo calcolo per-zona: quello richiederebbe toccare il motore GPS,
-  // esplicitamente vietato da questo ticket.
-  const gpsCoveragePercentLabel = coverage?.calculation_status === 'ready' ? `${coverage.coverage_percent}%` : 'n/d';
-  // P1 (KPI multi-operatore): conteggio best-effort da dati gia' caricati
-  // (state.sessions), MAI una nuova query al motore GPS. "Operatore GPS" qui
-  // = driver_id distinto tra le sessioni della zona selezionata — un proxy
-  // ragionevole, non una verifica di identita' reale.
-  const gpsOperatorCount = new Set(
-    state.sessions
-      .filter((s) => !selectedZoneId || s.campaign_zone_id === selectedZoneId)
-      .map((s) => s.driver_id)
-      .filter(Boolean),
-  ).size;
-  function formatAdminPercent(zoneRow) {
-    const value = zoneRow.manual_override_enabled ? zoneRow.manual_percent : zoneRow.automatic_percent;
-    return value != null ? `${Number(value).toLocaleString('it-IT', { maximumFractionDigits: 2 })}%` : 'n/d';
-  }
-  function formatFinalPercent(zoneRow) {
-    return zoneRow.effective_percent != null
-      ? `${Number(zoneRow.effective_percent).toLocaleString('it-IT', { maximumFractionDigits: 2 })}%`
-      : 'n/d';
-  }
-
-  // P0 (MANUALE ADMIN): campaign_zones.center_lat/center_lng sono spesso 0/0
-  // (mai popolati da Step4 per le zone "comune completo") — CoverageAdjustmentPanel
-  // fa `zones[0]?.center_lat ? [...] : [45.4642, 9.19]` per il centro
-  // iniziale della SUA mappa, e 0 e' falsy in JS: la mappa si apriva su
-  // Milano invece che sulla zona selezionata, senza alcun errore visibile —
-  // l'Admin si trovava davanti a una mappa "vuota" della zona sbagliata e
-  // il click sembrava "non fare nulla" (i vertici finivano su Milano, mai
-  // scrollati in vista). Usiamo il centroide del confine reale gia' risolto
-  // (stesso identico poligono di selectedZoneGeometry, nessun nuovo fetch)
-  // quando disponibile, altrimenti le colonne DB come fallback residuo.
-  const zoneCentroid = selectedZoneGeometry ? geoJsonApproxCentroid(selectedZoneGeometry) : null;
-  const manualPanelZoneCenter = zoneCentroid
-    ? { center_lat: zoneCentroid.lat, center_lng: zoneCentroid.lng }
-    : { center_lat: selectedZoneRow?.center_lat, center_lng: selectedZoneRow?.center_lng };
+  const gpsOperatorCount = gpsDriverIds.size;
 
   // Stessa forma normalizzata { kind, geometry } richiesta da
   // deriveLiveZoneStatus/estimateDistanceToZoneBoundaryMeters — le funzioni
@@ -227,14 +217,24 @@ export function GpsMonitor({ campaignId, onNav }) {
   );
   const mapRef = useRef(null);
 
-  // MAPPA OPERATIVA: 3 modalita' esplicite, mai confuse. GPS REALE resta
-  // sempre sola lettura (nessun input scrive qui). AUTOMATICO ADMIN e
-  // MANUALE ADMIN riusano i due sistemi di correzione GIA' esistenti
-  // (ZoneProgressPanel/admin_set_zone_manual_progress per percentuale,
-  // CoverageAdjustmentPanel/admin_create_coverage_adjustment per geometria
-  // disegnata) — nessun terzo sistema creato qui, solo la stessa UI
-  // riorganizzata in tab.
-  const [mapMode, setMapMode] = useState('gps');
+  // MONITOR OPERATIVO ADMIN: mappa/tracce/operatori/foto/geofence + strumenti
+  // SEMPLICI di correzione copertura inline (CoverageAdjustmentPanel mode
+  // simple): operatore, matita, gomma parziale, manuale, automatico 50..100%,
+  // KPI/preview, salva, note facoltative. NIENTE diagnostica / override legacy
+  // / pannelli tecnici / motivo obbligatorio. Lo "Studio Mappa Avanzato"
+  // (CoverageEditor.jsx) resta un lavoro separato, NON collegato da qui.
+  // Un solo motore GPS, un'unica fonte copertura: calculate_campaign_final_coverage.
+
+  // Centro iniziale del pannello di disegno per la zona selezionata: 1)
+  // center_lat/lng reali SE validi (Bergamo reale ha 0/0), 2) centroide del
+  // confine reale (getMunicipalityCenterPoint). MAI Milano hard-coded.
+  const zoneCentroid = selectedZoneGeometry ? getMunicipalityCenterPoint(selectedZoneGeometry) : null;
+  const manualPanelZoneCenter = (
+    selectedZoneRow
+    && Number.isFinite(Number(selectedZoneRow.center_lat)) && Number(selectedZoneRow.center_lat) !== 0
+    && Number.isFinite(Number(selectedZoneRow.center_lng)) && Number(selectedZoneRow.center_lng) !== 0
+  ) ? { center_lat: Number(selectedZoneRow.center_lat), center_lng: Number(selectedZoneRow.center_lng) }
+    : (zoneCentroid ? { center_lat: zoneCentroid.lat, center_lng: zoneCentroid.lng } : {});
 
   // Ricerca comune libera (sezione 3 del ticket): stesso resolveMunicipalityBoundary
   // del Driver, MAI persistito e MAI legato a campaign_zones — serve solo per
@@ -384,23 +384,7 @@ export function GpsMonitor({ campaignId, onNav }) {
       />
 
       <section style={cardStyle}>
-        <p style={eyebrowStyle}>Mappa operativa — Copertura GPS / Admin</p>
-
-        {/* 3 modalita' esplicite (sezione 1/15 del ticket): GPS REALE resta
-            sempre sola lettura, nessun form/input scrive nulla in quella
-            tab. AUTOMATICO ADMIN e MANUALE ADMIN riusano i due sistemi di
-            correzione gia' esistenti (vedi commento su mapMode sopra). */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '10px 0' }}>
-          {[
-            { value: 'gps', label: 'GPS REALE' },
-            { value: 'auto', label: 'AUTOMATICO ADMIN' },
-            { value: 'manual', label: 'MANUALE ADMIN' },
-          ].map((tab) => (
-            <button key={tab.value} onClick={() => setMapMode(tab.value)} style={modeTabStyle(mapMode === tab.value)}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <p style={eyebrowStyle}>Mappa operativa — Copertura GPS (sola lettura)</p>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
           <input
@@ -420,7 +404,7 @@ export function GpsMonitor({ campaignId, onNav }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
           <div>
             {activeZoneName && <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#17211f' }}>{activeZoneName}</p>}
-            {mapMode === 'gps' && <p style={{ margin: '2px 0 0', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.08em', color: '#64748b', fontWeight: 900 }}>Fonte: GPS DRIVER — sola lettura</p>}
+            <p style={{ margin: '2px 0 0', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.08em', color: '#64748b', fontWeight: 900 }}>Fonte: GPS DRIVER — sola lettura</p>
           </div>
           <LiveZoneStatusBadge status={liveZoneStatus} distanceKm={outsideDistanceKm} />
         </div>
@@ -439,10 +423,14 @@ export function GpsMonitor({ campaignId, onNav }) {
           </div>
         )}
 
-        {state.points.length > 0 || zoneProgress.zones.length > 0 ? (
+        {(selectedZoneGeometry || latest) ? (
           <GpsMap points={state.points} sessionTracks={state.sessionTracks} trackVisibility={trackVisibility} latest={latest} zones={mapZones} selectedZoneGeometry={selectedZoneGeometry} searchGeometry={zoneSearchState.result?.geometry || null} mapRef={mapRef} />
         ) : (
-          <EmptyState text={state.loading ? 'Caricamento tracking GPS...' : 'Nessun tracking GPS disponibile'} />
+          <EmptyState text={state.loading
+            ? 'Caricamento tracking GPS...'
+            : activeZoneName
+              ? `Confine della zona "${activeZoneName}" non disponibile: mappa non mostrata per evitare una zona errata.`
+              : 'Nessuna zona selezionata / nessun tracking GPS disponibile'} />
         )}
         <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
           <button onClick={handleGoToOperatorPosition} disabled={!latest} style={mapActionButtonStyle(!latest)}>
@@ -455,6 +443,9 @@ export function GpsMonitor({ campaignId, onNav }) {
 
         <GpsMonitorOperatorsPanel
           sessionTracks={state.sessionTracks}
+          canonicalOperators={canonicalOperators}
+          assignedOperatorCount={assignedOperatorCount}
+          operatorsWithGpsCount={operatorsWithGpsCount}
           trackVisibility={trackVisibility}
           toggleTrack={toggleTrack}
           activeSessionId={state.activeSession?.id}
@@ -462,125 +453,45 @@ export function GpsMonitor({ campaignId, onNav }) {
           onUnlockDevice={handleUnlockDevice}
         />
 
-        {mapMode === 'gps' && (
-          <div style={gpsReadOnlySummaryStyle}>
-            {/* "Copertura operatore (stimata)": il calcolo attuale e' per
-                singola sessione e usa come denominatore l'area della zona
-                assegnata (spesso l'intero comune). NON e' la copertura
-                aggregata di campagna (unione delle tracce di tutti gli
-                operatori) — quella e' un lavoro successivo con RPC dedicata. */}
-            <MiniStat label="Copertura operatore (stimata)" value={coverage?.calculation_status === 'ready' ? `${coverage.coverage_percent}%` : 'n/d'} />
-            <MiniStat label="Punti GPS validi" value={gpsValidPointCount} />
-            <MiniStat label="Punti GPS esclusi (qualita')" value={state.points.length - gpsValidPointCount} />
-          </div>
-        )}
+        <div style={gpsReadOnlySummaryStyle}>
+          {/* "Copertura operatore (stimata)": il calcolo attuale e' per
+              singola sessione e usa come denominatore l'area della zona
+              assegnata (spesso l'intero comune). NON e' la copertura
+              aggregata di campagna (unione delle tracce di tutti gli
+              operatori) — quella e' un lavoro successivo con RPC dedicata. */}
+          <MiniStat label="Copertura operatore (stimata)" value={coverage?.calculation_status === 'ready' ? `${coverage.coverage_percent}%` : 'n/d'} />
+          <MiniStat label="Punti GPS validi" value={gpsValidPointCount} />
+          <MiniStat label="Punti GPS esclusi (qualita')" value={state.points.length - gpsValidPointCount} />
+        </div>
 
-        {mapMode === 'auto' && (
-          <div style={{ marginTop: 16 }}>
-            {/* AUTOMATICO ADMIN — editor reale sulla mappa: stesso
-                CoverageAdjustmentPanel del tab MANUALE, ma aperto sul livello
-                'automatic_verified'. Matita (area/tratto), gomma (esclusione),
-                seleziona, annulla, salva, "Anteprima Copertura finale". Le
-                correzioni sono persistite in campaign_coverage_adjustments
-                (source=automatic_verified / gps_exclusion) e alimentano
-                calculate_campaign_final_coverage — l'UNICA fonte di verita'
-                del "finale", identica a quella del Cliente. */}
-            <CoverageAdjustmentPanel
-              key={`auto-${selectedZoneRow?.id || 'none'}`}
-              campaignId={campaignId}
-              points={state.points}
-              zones={selectedZoneRow ? [{ id: selectedZoneRow.id, ...manualPanelZoneCenter }] : geofenceZones}
-              boundaryGeometry={selectedZoneGeometry}
-              gpsOperatorCount={gpsOperatorCount}
-              defaultSourceLevel="automatic_verified"
-              municipalityName={activeZoneName}
-              campaignZones={campaignZonesForAuto}
-              campaignOperators={campaignOperators}
-              gpsOperators={gpsOperators}
-              automaticPercent={selectedAutoZoneProgress ? (selectedAutoZoneProgress.manual_override_enabled ? selectedAutoZoneProgress.manual_percent : selectedAutoZoneProgress.automatic_percent) : null}
-            />
+      </section>
 
-            {/* Diagnostica (sola lettura): la selezione stradale automatica
-                come nuvola di punti. NON e' la copertura finale — quella e'
-                l'anteprima nel pannello sopra. */}
-            <details style={{ marginTop: 14 }}>
-              <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 800, color: 'rgba(255,255,255,.6)' }}>
-                Diagnostica: selezione stradale automatica (sola lettura)
-              </summary>
-              {selectedAutoZoneProgress ? (
-                <div style={{ marginTop: 10 }}>
-                  <p style={{ margin: '0 0 8px', fontSize: 12, color: '#64748b', fontWeight: 800 }}>
-                    {activeZoneName ? `${activeZoneName} — ` : ''}
-                    Legacy — GPS sessione: {gpsCoveragePercentLabel} · Automatico grezzo: {formatAdminPercent(selectedAutoZoneProgress)} · Effettivo cache: {formatFinalPercent(selectedAutoZoneProgress)}
-                    <br /><span style={{ color: '#94a3b8', fontWeight: 600 }}>Questi valori NON sono la Copertura Verificata: fanno riferimento alla cache campaign_zone_progress. Il valore reale e' "FINALE VERIFICATA" nel pannello sopra.</span>
-                  </p>
-                  <ZoneCoverageMap
-                    key={selectedZoneId || 'none'}
-                    boundaryGeometry={selectedZoneGeometry}
-                    municipalityName={activeZoneName}
-                    gpsOperatorCount={gpsOperatorCount}
-                    points={state.points}
-                    automaticPercent={selectedAutoZoneProgress.manual_override_enabled ? selectedAutoZoneProgress.manual_percent : selectedAutoZoneProgress.automatic_percent}
-                    effectivePercent={selectedAutoZoneProgress.effective_percent}
-                  />
-                </div>
-              ) : (
-                <p style={{ marginTop: 10, fontSize: 12, color: '#94a3b8' }}>Seleziona una zona per la diagnostica.</p>
-              )}
-            </details>
-
-            {/* Override legacy (percentuale manuale) — MANTENUTO per audit /
-                compatibilita', ma NON alimenta la Copertura Verificata. */}
-            <details style={{ marginTop: 12 }}>
-              <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 800, color: 'rgba(255,255,255,.6)' }}>
-                Override legacy percentuale (non alimenta la Copertura Verificata)
-              </summary>
-              <p style={{ margin: '8px 0', fontSize: 12, color: '#fbbf24', fontWeight: 700 }}>
-                Sistema precedente basato su percentuale fissa. Per correggere la copertura usa Matita/Gomma qui sopra.
-              </p>
-              <ZoneProgressPanel
-                zones={selectedZoneId ? zoneProgress.zones.filter((z) => z.campaign_zone_id === selectedZoneId) : zoneProgress.zones}
-                history={zoneProgress.history}
-                loading={zoneProgress.loading}
-                refreshing={zoneProgress.refreshing}
-                error={zoneProgress.error}
-                notice={zoneProgress.notice}
-                isAdmin
-                mutatingZoneId={zoneProgress.mutatingZoneId}
-                onRefresh={zoneProgress.refresh}
-                onSetManual={zoneProgress.setManualProgress}
-                onClearManual={zoneProgress.clearManualProgress}
-              />
-            </details>
-          </div>
-        )}
-
-        {mapMode === 'manual' && (
-          <div style={{ marginTop: 16 }}>
-            {/* MANUALE ADMIN = CoverageAdjustmentPanel gia' esistente
-                (admin_create/update/revoke_coverage_adjustment, disegno
-                Polygon con click, storico/revoca gia' presenti, mostra gia'
-                la scomposizione GPS/manuale/finale richiesta dal test D) —
-                stessa identica logica, non una riscrittura. Scopiamo
-                zones alla zona selezionata solo per il centro iniziale e per
-                taggare correttamente le nuove correzioni. */}
-            {/* key={selectedZoneRow?.id}: il centro Leaflet (prop `center` di
-                MapContainer) si applica solo al MONTAGGIO iniziale — senza
-                remount, cambiare zona (es. Barasso -> Gavirate) dai chip
-                sopra non avrebbe ricentrato la mappa di disegno. */}
-            <CoverageAdjustmentPanel
-              key={selectedZoneRow?.id || 'none'}
-              campaignId={campaignId}
-              points={state.points}
-              zones={selectedZoneRow ? [{ id: selectedZoneRow.id, ...manualPanelZoneCenter }] : geofenceZones}
-              boundaryGeometry={selectedZoneGeometry}
-              gpsOperatorCount={gpsOperatorCount}
-              campaignZones={campaignZonesForAuto}
-              campaignOperators={campaignOperators}
-              gpsOperators={gpsOperators}
-            />
-            <AdminIssuesPanel campaignId={campaignId} />
-          </div>
+      {/* COPERTURA OPERATIVA — stessa fonte di Cliente ed Editor
+          (calculate_campaign_final_coverage, via il pannello) + strumenti
+          SEMPLICI inline. mode "simple": operatore, matita/continua tracciato,
+          gomma parziale, manuale, automatico 50..100%, KPI/preview, salva,
+          note facoltative. NIENTE diagnostica / override legacy / selettore
+          livello / ambito multi-zona / motivo obbligatorio / link editor.
+          key={campaignId:zoneId}: cambio campagna o zona rimonta il pannello
+          da zero — nessun autoNetRef / draft / centro della zona precedente. */}
+      <section style={{ ...cardStyle, marginTop: 16 }}>
+        {selectedZoneGeometry ? (
+          <CoverageAdjustmentPanel
+            key={`${campaignId}:${selectedZoneId || 'none'}`}
+            simple
+            campaignId={campaignId}
+            points={state.points}
+            zones={selectedZoneRow ? [{ id: selectedZoneRow.id, ...manualPanelZoneCenter }] : []}
+            boundaryGeometry={selectedZoneGeometry}
+            municipalityName={activeZoneName}
+            gpsOperatorCount={gpsOperatorCount}
+            campaignOperators={campaignOperators}
+            gpsOperators={gpsOperators}
+          />
+        ) : (
+          <EmptyState text={state.loading
+            ? 'Caricamento zona...'
+            : `Confine della zona ${activeZoneName ? `"${activeZoneName}" ` : ''}non disponibile: strumenti copertura non attivabili finché il confine non è caricato.`} />
         )}
       </section>
 
@@ -679,18 +590,24 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, latest, zone
   // l'indeterminatezza dietro "la mappa mostra una zona diversa da quella
   // attesa" su campagne con piu' comuni.
   const center = useMemo(() => {
-    if (latest) return [Number(latest.lat), Number(latest.lng)];
+    // Priorità 1: centroide del confine reale della zona SELEZIONATA
+    // (point-on-surface, mai un vertice a caso). Così anche senza punti GPS
+    // la mappa apre SULLA zona, non su Milano.
     if (selectedZoneGeometry) {
+      const c = getMunicipalityCenterPoint(selectedZoneGeometry);
+      if (c) return [c.lat, c.lng];
       const coord = selectedZoneGeometry.type === 'MultiPolygon'
         ? selectedZoneGeometry.coordinates?.[0]?.[0]?.[0]
         : selectedZoneGeometry.coordinates?.[0]?.[0];
       if (coord) return [coord[1], coord[0]];
     }
-    // Nessun punto GPS, nessuna zona selezionata con confine reale ancora
-    // risolto: unico caso residuo in cui non c'e' nulla di reale da
-    // centrare. FitToZoneBounds sotto corregge comunque la vista reale non
-    // appena il confine della zona selezionata arriva.
-    return [45.4642, 9.1900]; // Milano default — solo fallback residuo
+    // Priorità 2: ultimo punto GPS reale (una posizione reale, non un default).
+    if (latest) return [Number(latest.lat), Number(latest.lng)];
+    // Nessun confine risolto e nessun punto GPS: MAI Milano hard-coded per una
+    // zona non-Milano. Il chiamante non monta <GpsMap> in questo caso
+    // (mostra "confine non disponibile"); [45.4642, 9.19] resta solo perché
+    // MapContainer richiede un center non-null se mai renderizzato.
+    return [45.4642, 9.1900];
   }, [latest, selectedZoneGeometry]);
   // UNA polilinea PER SESSIONE/OPERATORE, mai una sola linea da tutti i punti:
   // concatenare la traccia dell'operatore A con quella di B disegnerebbe
@@ -806,16 +723,39 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, latest, zone
 // una riga per operatore, con traccia distinguibile (colore = trackColor),
 // stato (ONLINE / IN PAUSA / OFFLINE / TERMINATO), conteggi punti e toggle
 // mostra/nascondi la traccia sulla mappa.
-export function GpsMonitorOperatorsPanel({ sessionTracks = [], trackVisibility = {}, toggleTrack, activeSessionId, formatDateTime: fmt, onUnlockDevice }) {
-  if (!sessionTracks.length) return null;
+export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperators = [], assignedOperatorCount = 0, operatorsWithGpsCount = 0, trackVisibility = {}, toggleTrack, activeSessionId, formatDateTime: fmt, onUnlockDevice }) {
+  if (!sessionTracks.length && !canonicalOperators.length) return null;
   const format = fmt || ((v) => (v ? new Date(v).toLocaleString('it-IT') : 'n/d'));
+  // driver_id -> operatore canonico (nome reale + colore stabile) per le righe
+  // di dettaglio sessione qui sotto.
+  const opByDriver = new Map(canonicalOperators.filter((o) => o.operatorId).map((o) => [o.operatorId, o]));
   return (
     <div style={{ marginTop: 14, display: 'grid', gap: 8 }}>
       <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.08em', color: 'rgba(255,255,255,.5)', fontWeight: 900 }}>
-        Operatori · {sessionTracks.length}
+        OPERATORI: {assignedOperatorCount}{operatorsWithGpsCount > 0 ? ` · CON GPS: ${operatorsWithGpsCount}` : ''}
       </div>
+
+      {/* OPERATORI CAMPAGNA — legenda: TUTTI gli operatori assegnati, nome
+          reale + pallino del colore stabile (getOperatorColor). */}
+      {canonicalOperators.length > 0 && (
+        <div style={{ display: 'grid', gap: 4, padding: '8px 12px', borderRadius: 10, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)' }}>
+          {canonicalOperators.map((op) => (
+            <div key={`canon-${op.colorKey}`} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(255,255,255,.78)' }}>
+              <span style={{ width: 11, height: 11, borderRadius: 999, background: op.color, border: '1px solid rgba(0,0,0,.35)', flex: '0 0 auto' }} />
+              {op.displayName}
+              {op.hasGps && <span style={{ fontSize: 10, fontWeight: 900, color: '#22c55e' }}>GPS</span>}
+              {!op.assigned && <span style={{ fontSize: 10, color: 'rgba(255,255,255,.4)' }}>(assegnazione revocata)</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
       {sessionTracks.map((track, index) => {
-        const color = trackColor(index);
+        const canonOp = opByDriver.get(track.session?.driver_id) || null;
+        const color = canonOp?.color
+          || (track.session?.driver_id ? getOperatorColor(track.session.driver_id) : trackColor(index));
+        const rowTitle = canonOp?.displayName
+          || (track.session?.driver_id ? `Operatore ${shortOperatorId(track.session.driver_id)}` : `Operatore ${index + 1}`);
         const statusLabel = operatorStatusLabel(track);
         const visible = trackVisibility[track.session.id] !== false;
         const lastAt = track.lastPoint?.recorded_at || track.session.updated_at || track.session.started_at || null;
@@ -830,7 +770,7 @@ export function GpsMonitorOperatorsPanel({ sessionTracks = [], trackVisibility =
             }}
           >
             <span style={{ width: 12, height: 12, borderRadius: 3, background: color, flex: '0 0 auto' }} />
-            <strong style={{ color: '#fff', fontSize: 13 }}>Operatore {index + 1}</strong>
+            <strong style={{ color: '#fff', fontSize: 13 }}>{rowTitle}</strong>
             <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: '.04em', color:
               statusLabel === 'ONLINE' ? '#22c55e' : statusLabel === 'IN PAUSA' ? '#fbbf24' : statusLabel === 'TERMINATO' ? '#94a3b8' : '#f87171' }}>
               {statusLabel}
@@ -980,21 +920,6 @@ function zoneChipStyle(active) {
     padding: '6px 12px',
     fontSize: 12,
     fontWeight: active ? 900 : 700,
-    cursor: 'pointer',
-  };
-}
-
-function modeTabStyle(active) {
-  return {
-    border: '1px solid',
-    borderColor: active ? '#e8571a' : 'rgba(255,255,255,.16)',
-    background: active ? '#e8571a' : 'rgba(255,255,255,.04)',
-    color: '#fff',
-    borderRadius: 8,
-    padding: '10px 16px',
-    fontSize: 12,
-    fontWeight: 900,
-    letterSpacing: '.04em',
     cursor: 'pointer',
   };
 }

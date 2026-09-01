@@ -68,10 +68,12 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
   const compact = useCompact();
   const [menuOpen, setMenuOpen] = useState(false);
   const [platformOpen, setPlatformOpen] = useState(false);
+  const [accessOpen, setAccessOpen] = useState(false);
 
   const scrollToSection = (id) => {
     setMenuOpen(false);
     setPlatformOpen(false);
+    setAccessOpen(false);
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -173,9 +175,38 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
 
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           {!compact && (
-            <Button variant="secondary" onClick={onLogin} style={headerOutlineButtonStyle}>
-              Accedi
-            </Button>
+            <div
+              style={{ position: "relative" }}
+              onMouseEnter={() => setAccessOpen(true)}
+              onMouseLeave={() => setAccessOpen(false)}
+            >
+              <button
+                type="button"
+                aria-expanded={accessOpen}
+                aria-haspopup="true"
+                onClick={() => setAccessOpen((v) => !v)}
+                style={{ ...headerOutlineButtonStyle, display: "flex", alignItems: "center", gap: 6 }}
+              >
+                <span>Accedi</span>
+                <span style={{ fontSize: 10, color: "rgba(255, 255, 255, 0.5)", transform: accessOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
+              </button>
+              {accessOpen && (
+                <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, width: 210, padding: 8, background: "rgba(10, 18, 34, 0.98)", border: "1px solid rgba(255, 255, 255, 0.12)", borderRadius: 12, boxShadow: "0 16px 40px rgba(0, 0, 0, 0.6)", display: "flex", flexDirection: "column", gap: 4, zIndex: 210 }}>
+                  <button
+                    onClick={() => { setAccessOpen(false); onLogin?.(); }}
+                    style={{ textAlign: "left", padding: "10px 12px", borderRadius: 8, background: "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    Area Cliente
+                  </button>
+                  <button
+                    onClick={() => { setAccessOpen(false); window.location.href = "/supplier"; }}
+                    style={{ textAlign: "left", padding: "10px 12px", borderRadius: 8, background: "transparent", border: "none", color: "rgba(255, 255, 255, 0.8)", fontFamily: F.sans, fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Area Fornitore
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           <Button variant="primary" className="vb" onClick={onConfigure} style={primaryButtonStyle}>
             Configura la tua campagna
@@ -199,7 +230,16 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
           <button onClick={() => { setMenuOpen(false); scrollToSection("come-funziona"); }} style={mobileMenuItemStyle}>Come funziona</button>
           <button onClick={() => { setMenuOpen(false); scrollToSection("prezzi"); }} style={mobileMenuItemStyle}>Prezzi</button>
           <button onClick={() => { setMenuOpen(false); onConfigure?.(); }} style={mobileMenuItemStyle}>Piattaforma: Configuratore</button>
-          <button onClick={() => { setMenuOpen(false); onLogin?.(); }} style={{ ...mobileMenuItemStyle, color: C.orange }}>Accedi</button>
+          <button onClick={() => setAccessOpen((v) => !v)} aria-expanded={accessOpen} aria-haspopup="true" style={{ ...mobileMenuItemStyle, color: C.orange, display: "flex", alignItems: "center", gap: 6 }}>
+            <span>Accedi</span>
+            <span style={{ fontSize: 10, transform: accessOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
+          </button>
+          {accessOpen && (
+            <>
+              <button onClick={() => { setMenuOpen(false); setAccessOpen(false); onLogin?.(); }} style={{ ...mobileMenuItemStyle, paddingLeft: 16 }}>↳ Area Cliente</button>
+              <button onClick={() => { setMenuOpen(false); setAccessOpen(false); window.location.href = "/supplier"; }} style={{ ...mobileMenuItemStyle, paddingLeft: 16 }}>↳ Area Fornitore</button>
+            </>
+          )}
         </div>
       )}
 

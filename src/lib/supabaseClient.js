@@ -4,10 +4,25 @@ const SESSION_KEY = "vp_supabase_session";
 export const AUTH_EXPIRED_MESSAGE = "Sessione scaduta. Accedi di nuovo per continuare.";
 
 function supabaseEnv() {
-  return {
-    url: import.meta.env.VITE_SUPABASE_URL,
-    anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-  };
+  // import.meta.env e' sempre un oggetto reale sotto Vite (dev + build). E'
+  // undefined sotto il test runner Node puro (no Vite): stesso fallback su
+  // process.env gia' usato in ../supabaseClient.js, cosi' i moduli che
+  // dipendono da questo client (es. SupplierGuard) restano importabili nei
+  // test di integrazione. Nessun cambiamento di comportamento a runtime.
+  try {
+    return {
+      url: import.meta.env.VITE_SUPABASE_URL,
+      anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+    };
+  } catch (e) {
+    if (typeof process !== "undefined" && process.env) {
+      return {
+        url: process.env.VITE_SUPABASE_URL,
+        anonKey: process.env.VITE_SUPABASE_ANON_KEY,
+      };
+    }
+    return { url: undefined, anonKey: undefined };
+  }
 }
 
 // url deve essere un http(s):// reale. Una build con env "Sensitive" non

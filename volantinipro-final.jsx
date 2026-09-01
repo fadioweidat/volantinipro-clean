@@ -5007,6 +5007,12 @@ export function LoginPage({
   const configured = Boolean(url && anonKey);
   const isAdminContext = context === "admin";
   const isDriverContext = context === "driver";
+  // context=supplier: stesso Supabase Auth (magic link) di Cliente/Admin, ma
+  // dopo il callback l'utente torna su /supplier (protetto da SupplierGuard),
+  // non sulla Dashboard Cliente. Nessun secondo sistema auth: solo l'intento
+  // di login viene instradato verso l'area giusta (il ruolo resta verificato
+  // da SupplierGuard/RPC verified_supplier).
+  const isSupplierContext = context === "supplier";
   const isAuthCallback = window.location.pathname.toLowerCase() === "/auth/callback";
   const redirectPath = "/auth/callback";
   const [sessionCheck, setSessionCheck] = useState(() => configured && (isAdminContext || isAuthCallback) ? "checking" : "ready");
@@ -5032,6 +5038,9 @@ export function LoginPage({
         // destinazione tra route a cui l'utente ha comunque diritto: non
         // concede mai privilegi — il ruolo Admin resta verificato dal backend.
         const loginIntentIsAdmin = isAdminContext;
+        // Stesso motivo: intento di login Fornitore catturato PRIMA di pulire
+        // il context ricordato (instrada verso /supplier, non concede ruoli).
+        const loginIntentIsSupplier = isSupplierContext;
         clearPendingAuthContext();
         // setSession() trasferisce il callback manuale nella sessione SDK
         // persistente e abilita auto-refresh prima di lasciare la login page.
@@ -5096,6 +5105,14 @@ export function LoginPage({
             onNav("admin");
             return;
           }
+          // Intento di login Fornitore: torna su /supplier. SupplierGuard
+          // decide poi se mostrare la dashboard o il rifiuto (role != supplier
+          // o status != verified) secondo la logica esistente — qui NON si
+          // concede alcun privilegio, si sceglie solo la destinazione.
+          if (loginIntentIsSupplier) {
+            onNav("supplier-dashboard");
+            return;
+          }
           // Se il login e' stato richiesto da Step4 (vedi handleConfirmCampaign
           // in Step4.jsx, che imposta volantinipro_return_to prima di mandare
           // qui l'utente), torna a Step4 invece che alla Dashboard generica:
@@ -5117,7 +5134,7 @@ export function LoginPage({
     const hashError = parseSupabaseAuthHashError();
     if (hashError) {
       setAuthError(hashError);
-      clearSupabaseAuthHashError(isAdminContext ? "/login?context=admin" : isDriverContext ? "/login?context=driver" : "/login?context=customer");
+      clearSupabaseAuthHashError(isAdminContext ? "/login?context=admin" : isDriverContext ? "/login?context=driver" : isSupplierContext ? "/login?context=supplier" : "/login?context=customer");
       clearPendingAuthContext();
       // vp_pending_auth_return_path resta: un nuovo tentativo di magic link
       // deve ancora sapere dove tornare (vedi sendMagicLink sotto).
@@ -5141,7 +5158,7 @@ export function LoginPage({
       setSessionCheck("ready");
     }
     return () => { cancelled = true; };
-  }, [isAdminContext, isDriverContext, onNav]);
+  }, [isAdminContext, isDriverContext, isSupplierContext, onNav]);
 
   const sendMagicLink = async e => {
     e.preventDefault();
@@ -5175,7 +5192,7 @@ export function LoginPage({
     // {SITE_URL}#error=... senza onorare redirect_to: memorizza qui il
     // context scelto ora, cosi' la pagina di login puo' ripristinarlo anche
     // in quel caso.
-    rememberPendingAuthContext(isAdminContext ? "admin" : isDriverContext ? "driver" : "customer");
+    rememberPendingAuthContext(isAdminContext ? "admin" : isDriverContext ? "driver" : isSupplierContext ? "supplier" : "customer");
     if (isDriverContext) {
       const returnTo = new URLSearchParams(window.location.search).get("returnTo") || readPendingAuthReturnPath();
       if (returnTo) rememberPendingAuthReturnPath(returnTo);
@@ -5259,7 +5276,7 @@ export function LoginPage({
         letterSpacing: ".14em",
         textTransform: "uppercase",
         marginBottom: 12
-      }}>{isAdminContext ? "Accesso admin" : isDriverContext ? "Accesso operatore" : "Accesso cliente"}</div>
+      }}>{isAdminContext ? "Accesso admin" : isDriverContext ? "Accesso operatore" : isSupplierContext ? "Accesso fornitore" : "Accesso cliente"}</div>
         <h1 style={{
         fontFamily: F.serif,
         fontSize: 34,
