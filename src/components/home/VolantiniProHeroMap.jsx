@@ -421,12 +421,6 @@ function useHeroMapPreviewStyles() {
       .vp-hero-map-preview .vp-step2-map-shell {
         height: 100% !important;
       }
-      /* Basemap piu' scuro SOLO per la hero (nessun impatto sul
-         configuratore/Step2Map globale): scurisce le tile senza toccare
-         gradienti, veil, poligoni, raggio o KPI. */
-      .vp-hero-map-preview .leaflet-tile {
-        filter: brightness(0.60) contrast(1.05) saturate(0.75) !important;
-      }
       .vp-hero-map-preview .leaflet-radiusCenter-pane {
         display: none !important;
       }
