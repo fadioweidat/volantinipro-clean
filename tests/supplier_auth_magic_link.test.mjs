@@ -69,8 +69,8 @@ function installFetch(routes) {
     if (String(url).includes("/auth/v1/user")) {
       return routes.userEndpoint === "fail" ? fail() : ok(routes.userEndpoint);
     }
-    if (String(url).includes("/rest/v1/profiles")) return ok(routes.profiles);
-    if (String(url).includes("/rest/v1/supplier_profiles")) return ok(routes.supplierProfiles);
+    if (String(url).includes("/rest/v1/profiles")) return routes.profiles === "fail" ? fail(500) : ok(routes.profiles);
+    if (String(url).includes("/rest/v1/supplier_profiles")) return routes.supplierProfiles === "fail" ? fail(500) : ok(routes.supplierProfiles);
     throw new Error(`fetch non mockata: ${url}`);
   };
   return { calls, restore: () => { globalThis.fetch = prev; } };
@@ -154,37 +154,48 @@ test("Nessuna sessione: rimbalza a /login?context=supplier, children non renderi
 });
 
 // BUG "Area Fornitore apre Area Cliente": una sessione CLIENTE che apre
-// /supplier NON deve mai finire nel portale cliente. Prima il guard faceva
-// onNav('dashboard'); ora mostra un accesso negato dedicato, nessun redirect.
-test("C — sessione CLIENTE attiva + /supplier: NIENTE redirect all'Area Cliente, schermata accesso fornitore", async () => {
+// /supplier NON deve mai finire nel portale cliente. Il guard non fa alcun
+// redirect: se non c'e' un profilo fornitore mostra il form di candidatura.
+test("C — sessione CLIENTE attiva + /supplier: NIENTE redirect all'Area Cliente, form 'Richiedi accesso come fornitore'", async () => {
   const navCalls = [];
   const { text } = await renderGuard({
     storedSession: { accessToken: "customer-token", expiresAt: FUTURE },
     routes: {
       userEndpoint: { id: "customer-uid" },
-      profiles: [{ role: "customer" }],
       supplierProfiles: [],
     },
     onNav: (page) => navCalls.push(page),
   });
 
   assert.ok(!navCalls.includes("dashboard"), "MAI onNav('dashboard') automatico");
-  assert.deepEqual(navCalls, [], "nessuna navigazione automatica: si mostra lo schermo dedicato");
+  assert.deepEqual(navCalls, [], "nessuna navigazione automatica: si mostra il form di candidatura");
   assert.doesNotMatch(text, /SUPPLIER CONTENT/, "i children del Fornitore non devono comparire");
-  assert.match(text, /non è registrato come fornitore/i);
-  assert.match(text, /Accedi come fornitore/);
+  assert.match(text, /Richiedi accesso come fornitore/);
+  assert.match(text, /non è ancora registrato come fornitore/i);
 });
 
-test("C2 — profilo mancante (pErr) per un utente autenticato: stessa schermata, nessun redirect a /dashboard", async () => {
+test("C2 — utente autenticato senza profilo fornitore: form di candidatura, nessun redirect a /dashboard", async () => {
   const navCalls = [];
   const { text } = await renderGuard({
     storedSession: { accessToken: "tok", expiresAt: FUTURE },
-    routes: { userEndpoint: { id: "uid-x" }, profiles: [], supplierProfiles: [] },
+    routes: { userEndpoint: { id: "uid-x" }, supplierProfiles: [] },
     onNav: (page) => navCalls.push(page),
   });
   assert.ok(!navCalls.includes("dashboard"));
   assert.doesNotMatch(text, /SUPPLIER CONTENT/);
-  assert.match(text, /non è registrato come fornitore/i);
+  assert.match(text, /Richiedi accesso come fornitore/);
+});
+
+test("C3 — errore reale nella lettura di supplier_profiles: 'servizio non disponibile' + Riprova, MAI login loop", async () => {
+  const navCalls = [];
+  const { text } = await renderGuard({
+    storedSession: { accessToken: "tok", expiresAt: FUTURE },
+    routes: { userEndpoint: { id: "uid-x" }, supplierProfiles: "fail" },
+    onNav: (page) => navCalls.push(page),
+  });
+  assert.deepEqual(navCalls, [], "un errore di query non deve rimbalzare al login");
+  assert.match(text, /Servizio fornitori non disponibile/i);
+  assert.match(text, /Riprova/);
 });
 
 test("E — refresh diretto di /supplier con sessione FORNITORE verificata: entra in dashboard", async () => {
@@ -225,19 +236,31 @@ test("F — role isolation: stesso mount, sessione fornitore -> dashboard; sessi
   assert.ok(!custNav.includes("dashboard"), "un cliente sul flusso fornitore non viene mai spinto nell'Area Cliente");
 });
 
-test("Fornitore non ancora verificato (status=pending): pannello 'in attesa di verifica', nessun redirect", async () => {
+test("Fornitore non ancora verificato (status=pending): pannello 'Registrazione ricevuta / in attesa di approvazione', nessun redirect", async () => {
   const navCalls = [];
   const { text } = await renderGuard({
     storedSession: { accessToken: "pending-supplier-token", expiresAt: FUTURE },
     routes: {
       userEndpoint: { id: "supplier-uid" },
-      profiles: [{ role: "supplier" }],
       supplierProfiles: [{ status: "pending" }],
     },
     onNav: (page) => navCalls.push(page),
   });
 
   assert.deepEqual(navCalls, []);
-  assert.match(text, /in attesa di verifica/i);
+  assert.match(text, /in attesa di approvazione/i);
   assert.doesNotMatch(text, /SUPPLIER CONTENT/);
+});
+
+test("Fornitore sospeso (status=suspended): schermata dedicata 'Account sospeso', nessun redirect, nessun form", async () => {
+  const navCalls = [];
+  const { text } = await renderGuard({
+    storedSession: { accessToken: "tok", expiresAt: FUTURE },
+    routes: { userEndpoint: { id: "sup-uid" }, supplierProfiles: [{ status: "suspended" }] },
+    onNav: (page) => navCalls.push(page),
+  });
+  assert.deepEqual(navCalls, []);
+  assert.match(text, /sospeso/i);
+  assert.doesNotMatch(text, /SUPPLIER CONTENT/);
+  assert.doesNotMatch(text, /Richiedi accesso come fornitore/);
 });

@@ -1,5 +1,5 @@
 // MARKETPLACE FORNITORE — test di CONTRATTO reali (nessun assert.ok(true)).
-// La migration NON e' applicata: si verifica il testo SQL + il wiring frontend.
+// Si verifica il testo SQL delle migration + il wiring frontend.
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const MIG = read('supabase/migrations/20260830160000_supplier_marketplace.sql');
 const MIG_ASG = read('supabase/migrations/20260830170000_supplier_list_campaign_assignments.sql');
+const MIG_APPLY = read('supabase/migrations/20260901130000_supplier_apply.sql');
 const API = read('src/lib/services/supplier-api.js');
 const GUARD = read('src/auth/guards/SupplierGuard.jsx');
 const DASH = read('src/pages/supplier/SupplierDashboard.jsx');
@@ -159,33 +160,61 @@ test('O — supplier_assign_operator: operatore E campagna devono essere del for
   assert.match(MIG, /create policy operator_profiles_supplier_select on public\.operator_profiles\s+for select to authenticated using \(supplier_id = auth\.uid\(\)\)/);
 });
 
-// ── P: SupplierGuard verified gate ───────────────────────
-test('P — SupplierGuard verifica role=supplier E supplier_profiles.status=verified; loading chiuso su denied/error', () => {
-  assert.match(GUARD, /profile\?\.role !== 'supplier'/);
-  assert.match(GUARD, /from\('supplier_profiles'\)\.select\('status'\)/);
-  assert.match(GUARD, /sp\.status !== 'verified'/);
-  assert.match(GUARD, /phase: 'not-verified'/);
-  // nessun ramo lascia phase:'loading' appeso
-  assert.doesNotMatch(GUARD, /setLoading\(false\)/); // rimpiazzato da phase-state
-  assert.match(GUARD, /pending: 'Il tuo account fornitore è in attesa di verifica\.'/);
+// ── B: supplier_apply — provisioning self-service ───────────────────────────
+test('B — supplier_apply: auth obbligatoria, status SEMPRE pending, mai verified, idempotente, promuove solo client->supplier', () => {
+  assert.match(MIG_APPLY, /create or replace function public\.supplier_apply\(/);
+  assert.match(MIG_APPLY, /security definer set search_path to ''/);
+  assert.match(MIG_APPLY, /v_uid uuid := auth\.uid\(\)/);
+  assert.match(MIG_APPLY, /if v_uid is null then\s*\n\s*raise exception 'NON_AUTENTICATO'/);
+  // crea la riga SOLO se assente; su riga esistente NON tocca lo status
+  assert.match(MIG_APPLY, /select \* into v_row from public\.supplier_profiles where id = v_uid;\s*\n\s*if found then/);
+  const insertBlock = MIG_APPLY.slice(MIG_APPLY.indexOf('insert into public.supplier_profiles'));
+  assert.match(insertBlock, /'pending'/);
+  // la funzione non assegna mai status verified/suspended/rejected (solo commenti li citano)
+  const body = MIG_APPLY.slice(MIG_APPLY.indexOf('as $$'), MIG_APPLY.indexOf('$$;'));
+  assert.doesNotMatch(body, /status\s*=\s*'(verified|suspended|rejected)'/);
+  assert.doesNotMatch(body, /verified_at\s*=/);
+  // promozione ruolo ristretta: solo da 'client'
+  assert.match(MIG_APPLY, /update public\.profiles\s*\n\s*set role = 'supplier'[\s\S]{0,60}where id = v_uid and role = 'client'/);
+  // grant mirato
+  assert.match(MIG_APPLY, /revoke all on function public\.supplier_apply\([^)]*\) from public, anon/);
+  assert.match(MIG_APPLY, /grant execute on function public\.supplier_apply\([^)]*\) to authenticated/);
+  // validazione server-side
+  assert.match(MIG_APPLY, /RAGIONE_SOCIALE_OBBLIGATORIA/);
+  // client wiring
+  assert.match(API, /export function supplierApply\(/);
+  assert.match(API, /rpc\('supplier_apply'/);
 });
 
-test('P2 — SupplierGuard: utente NON fornitore non cade mai nell\'Area Cliente', () => {
-  // Nuovo stato dedicato per "autenticato ma non supplier".
-  assert.match(GUARD, /phase: 'not-supplier'/);
-  // Il ramo role !== 'supplier' NON deve piu' fare onNav('dashboard').
-  const nonSupplierBranch = GUARD.slice(GUARD.indexOf("profile?.role !== 'supplier'"), GUARD.indexOf("from('supplier_profiles')"));
-  assert.doesNotMatch(nonSupplierBranch, /onNav\('dashboard'\)/, "il ramo non-supplier non deve redirigere all'Area Cliente");
-  assert.doesNotMatch(nonSupplierBranch, /onNav\("dashboard"\)/);
-  // Nessun onNav('dashboard') automatico da nessuna parte nel guard
-  // (il link all'Area Cliente resta SOLO come pulsante manuale nella UI).
-  assert.doesNotMatch(GUARD, /onNav\('dashboard'\);\s*\}\s*\n\s*return;/);
-  // catch generico -> flusso fornitore, non login generico.
+// ── P: SupplierGuard verified gate + stati distinti ─────────────────────────
+test('P — SupplierGuard: gate su supplier_profiles.status=verified; pending/suspended/rejected hanno schermate distinte; nessun phase:loading appeso', () => {
+  assert.match(GUARD, /from\('supplier_profiles'\)\.select\('status'\)/);
+  assert.match(GUARD, /sp\.status === 'verified'/);
+  // Stati distinti (FASE C): pending / suspended / rejected / apply / ok.
+  assert.match(GUARD, /phase: 'pending'/);
+  assert.match(GUARD, /phase: sp\.status/); // suspended | rejected
+  assert.match(GUARD, /phase: 'ok'/);
+  // nessun ramo lascia phase:'loading' appeso
+  assert.doesNotMatch(GUARD, /setLoading\(false\)/);
+  assert.match(GUARD, /Registrazione ricevuta/);
+});
+
+test('P2 — SupplierGuard: utente NON fornitore -> form "Richiedi accesso", mai Area Cliente, mai login loop', () => {
+  // Stato dedicato per "autenticato senza profilo fornitore": porta al form
+  // di candidatura, NON al pulsante che rimanda al login.
+  assert.match(GUARD, /phase: 'apply'/);
+  assert.match(GUARD, /Richiedi accesso come fornitore/);
+  assert.match(GUARD, /supplierApply\(/);
+  // Errore di query/tabella -> "servizio non disponibile" + Riprova, NON login loop.
+  assert.match(GUARD, /phase: 'service-unavailable'/);
+  assert.match(GUARD, /Servizio fornitori non disponibile/);
+  assert.match(GUARD, /Riprova/);
+  // Nessun onNav('dashboard') automatico da nessuna parte nel guard.
+  assert.doesNotMatch(GUARD, /onNav\('dashboard'\)/, "il guard non deve mai redirigere all'Area Cliente");
+  assert.doesNotMatch(GUARD, /onNav\("dashboard"\)/);
+  // L'unico redirect automatico resta: nessuna sessione -> flusso fornitore.
   assert.match(GUARD, /onNav\('login\?context=supplier'\)/);
-  assert.doesNotMatch(GUARD, /catch\s*\{[\s\S]{0,120}onNav\('login'\)/);
-  // UI dedicata con accesso fornitore + home; il link Area Cliente e' manuale.
-  assert.match(GUARD, /Questo account non è registrato come fornitore/);
-  assert.match(GUARD, /Accedi come fornitore/);
+  assert.doesNotMatch(GUARD, /catch\s*\{[\s\S]{0,160}onNav\('login'\)/);
 });
 
 // ── Q: own quotes RPC ───────────────────────────────────

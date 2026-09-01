@@ -91,6 +91,20 @@ export function supplierUpdateProfile({ companyName, contactName = null, phone =
   });
 }
 
+/** Candidatura fornitore self-service dell'utente autenticato: crea la riga
+ *  supplier_profiles (status 'pending') se assente e promuove profiles.role
+ *  client->supplier. Idempotente lato DB; non puo' impostare 'verified'. */
+export function supplierApply({ companyName, contactName = null, phone = null, vatNumber = null, coverageAreas = null, services = null }) {
+  return rpc('supplier_apply', {
+    p_company_name: companyName,
+    p_contact_name: contactName,
+    p_phone: phone,
+    p_vat_number: vatNumber,
+    p_coverage_areas: coverageAreas,
+    p_services: services,
+  });
+}
+
 // ── Cliente ────────────────────────────────────────────────────────────────
 
 /** Offerte Fornitore ANONIME per una campagna del cliente (solo public_code). */
