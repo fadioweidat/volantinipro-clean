@@ -1305,7 +1305,13 @@ export function Step4({
       const id = savedRow?.id;
       setSavedCampaign(savedRow);
       setSent(true);
-      trackQuoteCompleted({ campaignId: id || null });
+      try { window.sessionStorage.setItem("vp_quote_completed", "1"); } catch {}
+      trackQuoteCompleted({
+        campaignId: id || null,
+        municipality: data.cityName || (typeof data.comune === "string" ? data.comune : null) || null,
+        quantity: Number(data.qty || data.flyerQuantity || 0) || null,
+        service: { d2d: "Door to Door", h2h: "Hand to Hand", b2b: "Negozi / B2B" }[data.type] || null,
+      });
 
       try {
         localStorage.removeItem("volantinipro_return_to");

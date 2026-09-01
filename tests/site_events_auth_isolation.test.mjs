@@ -201,18 +201,19 @@ test("sessione VALIDA nel client principale: il tracking resta indipendente (ste
   }
 });
 
-test("event allowlist invariata: un event_name non consentito non genera nessuna richiesta", async () => {
+test("event allowlist (FASE 2): 11 nomi consentiti, i tracker pubblici usano solo quelli", async () => {
   const env = installBrowserEnv();
   try {
     const mod = await freshModule();
-    // Nessun export permette un nome arbitrario: verifichiamo che i soli
-    // nomi ammessi siano quelli previsti e che i tracker pubblici usino
-    // esclusivamente quelli.
     assert.deepEqual(
       Object.values(mod.SITE_EVENT_NAMES).sort(),
-      ["consultation_requested", "page_view", "quote_completed", "quote_started", "session_started"].sort(),
+      [
+        "consultation_requested", "page_view", "quote_completed", "quote_started", "session_started",
+        "municipality_selected", "quantity_selected", "service_selected", "extras_selected",
+        "quote_step_reached", "quote_abandoned",
+      ].sort(),
     );
-    mod.trackQuoteCompleted({ campaignId: "camp-1", quoteId: "q-1" });
+    mod.trackQuoteCompleted({ campaignId: "11111111-1111-4111-8111-111111111111" });
     await new Promise((r) => setImmediate(r));
     for (const call of env.calls) {
       assert.ok(Object.values(mod.SITE_EVENT_NAMES).includes(bodyOf(call).event_name));
@@ -222,20 +223,31 @@ test("event allowlist invariata: un event_name non consentito non genera nessuna
   }
 });
 
-test("nessuna PII: il body contiene esattamente le colonne dello schema minimo", async () => {
+test("nessuna PII: il body contiene solo colonne dello schema site_events (FASE 2), mai email/nome/telefono/IP", async () => {
   const env = installBrowserEnv();
   try {
     const { trackPageView } = await freshModule();
-    trackPageView("/preventivo");
+    trackPageView("/preventivo?utm_source=google&email=test@x.it");
     await new Promise((r) => setImmediate(r));
 
+    const ALLOWED = new Set([
+      "event_name", "anonymous_session_id", "session_id", "path",
+      "referrer_host", "referrer_type",
+      "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
+      "device_type", "browser", "os", "campaign_id", "quote_id", "metadata",
+    ]);
     assert.ok(env.calls.length >= 1);
     for (const call of env.calls) {
-      assert.deepEqual(
-        Object.keys(bodyOf(call)).sort(),
-        ["anonymous_session_id", "campaign_id", "event_name", "path", "quote_id"].sort(),
-        "il body non deve contenere campi oltre lo schema site_events",
-      );
+      const body = bodyOf(call);
+      for (const k of Object.keys(body)) assert.ok(ALLOWED.has(k), `colonna inattesa nel body: ${k}`);
+      // path privo di query string, nessuna PII propagata
+      assert.equal(body.path, "/preventivo");
+      const serialized = JSON.stringify(body);
+      assert.doesNotMatch(serialized, /@[a-z0-9.-]+\.[a-z]{2,}/i, "nessuna email nel body");
+      assert.doesNotMatch(serialized, /\b(?:\d{1,3}\.){3}\d{1,3}\b/, "nessun IP nel body");
+      // il client non deve MAI settare la geo
+      assert.equal(body.country, undefined);
+      assert.equal(body.city, undefined);
     }
   } finally {
     env.restore();

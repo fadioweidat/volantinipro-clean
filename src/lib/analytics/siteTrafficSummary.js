@@ -22,7 +22,11 @@ export function computeSiteTrafficSummary(rows, { now = new Date() } = {}) {
   const countByEvent = (eventName) => todayRows.filter((row) => row.event_name === eventName).length;
 
   const visitorIds = new Set(todayRows.map((row) => row.anonymous_session_id).filter(Boolean));
-  const sessionsToday = countByEvent("session_started");
+  // Sessioni = session_id distinti, fallback ad anonymous_session_id per gli
+  // eventi storici senza session_id. Stessa definizione di analyticsAggregate /
+  // rollup SQL (session_uid). NON e piu il conteggio di session_started.
+  const sessionIds = new Set(todayRows.map((row) => row.session_id || row.anonymous_session_id).filter(Boolean));
+  const sessionsToday = sessionIds.size;
   const quotesStartedToday = countByEvent("quote_started");
   const quotesCompletedToday = countByEvent("quote_completed");
   const consultationRequestsToday = countByEvent("consultation_requested");
