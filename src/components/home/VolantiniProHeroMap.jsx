@@ -494,12 +494,21 @@ function HeroRealMapPreview({ compact, benefits }) {
   );
 
   const preview = useMemo(() => normalizeHeroPreview(data, previewCity), [data, previewCity]);
-  const unavailable = !loading && (error || data?.error || !preview.zones.length);
+
+  // La BASE MAP (tile + raggio, centrata su previewCity) e' SEMPRE montata e
+  // NON dipende da useServiceAnalysis. Solo i DATI territoriali (poligoni
+  // comuni, KPI, lista zone) possono degradare: in quel caso si mostrano
+  // fallback "n/d" e un badge discreto, mai un pannello vuoto e mai lo
+  // smontaggio di Step2Map (root cause del bug "la mappa appare e sparisce").
+  const zonesForMap = Array.isArray(preview.zones) ? preview.zones : [];
+  const selectedZoneIds = zonesForMap.map((zone) => zone.id);
+  const dataUnavailable = !loading && (Boolean(error) || Boolean(data?.error) || zonesForMap.length === 0);
+
   const visibleZoneCount = compact ? 3 : 5;
-  const visibleZones = preview.zones.slice(0, visibleZoneCount);
-  const hiddenZoneCount = Math.max(0, preview.zones.length - visibleZones.length);
-  const animateMetrics = previewVisible && !loading && !unavailable;
-  const totalFamilies = preview.zones.reduce((s, z) => s + z.families, 0);
+  const visibleZones = zonesForMap.slice(0, visibleZoneCount);
+  const hiddenZoneCount = Math.max(0, zonesForMap.length - visibleZones.length);
+  const animateMetrics = previewVisible && !loading && !dataUnavailable;
+  const totalFamilies = zonesForMap.reduce((s, z) => s + z.families, 0);
   const animatedTotalFamilies = useCountUpNumber(totalFamilies, animateMetrics, { duration: 900 });
 
   return (
@@ -519,29 +528,43 @@ function HeroRealMapPreview({ compact, benefits }) {
         }} />
 
         <div style={{ position: "absolute", inset: 0, zIndex: 1 }}>
-          {loading && <PreviewLoading />}
-          {!unavailable && (
-            <Step2Map
-              city={previewCity}
-              radius={radiusKm}
-              svcType="d2d"
-              serviceColor={C.orange}
-              zonesWithCoords={preview.zones}
-              selected={preview.zones.map((zone) => zone.id)}
-              activeLayers={{ radius: true, comuni: true, settori: false, civici: false, poi: false }}
-              settori={[]}
-              pois={[]}
-              civiciState={{ count: 0 }}
-              campaignZones={[{ id: "hero_preview", city: previewCity, cityName: previewCity.name, radiusKm, service_type: "d2d" }]}
-              activeZoneId="hero_preview"
-              themeMode={false}
-              opacityLevel="normal"
-              interactive={false}
-            />
-          )}
+          {/* Step2Map SEMPRE montata: la base map (tile CARTO + cerchio raggio
+              su previewCity) non dipende dai dati territoriali. Con zone vuote
+              disegna comunque tile + raggio 3 km. Nessun key dinamico ->
+              nessun unmount/remount su cambio loading/error. */}
+          <Step2Map
+            city={previewCity}
+            radius={radiusKm}
+            svcType="d2d"
+            serviceColor={C.orange}
+            zonesWithCoords={zonesForMap}
+            selected={selectedZoneIds}
+            activeLayers={{ radius: true, comuni: true, settori: false, civici: false, poi: false }}
+            settori={[]}
+            pois={[]}
+            civiciState={{ count: 0 }}
+            campaignZones={[{ id: "hero_preview", city: previewCity, cityName: previewCity.name, radiusKm, service_type: "d2d" }]}
+            activeZoneId="hero_preview"
+            themeMode={false}
+            opacityLevel="normal"
+            interactive={false}
+          />
         </div>
 
-        {!unavailable && !loading && (
+        {/* Overlay dati NON invasivo — non copre la mappa, angolo in basso. */}
+        {loading && (
+          <div style={heroDataBadgeStyle}>
+            <span style={heroSpinnerStyle} />
+            Caricamento dati territoriali...
+          </div>
+        )}
+        {!loading && dataUnavailable && (
+          <div style={heroDataBadgeStyle}>
+            Dati territoriali momentaneamente non disponibili
+          </div>
+        )}
+
+        {!loading && (
           // Il wrapper coincide in pixel con .leaflet-container (stesso box:
           // vedi vp-hero-map-preview/vp-step2-map-shell), quindi 50%/50% e'
           // esattamente il container point del center passato a Step2Map
@@ -570,89 +593,96 @@ function HeroRealMapPreview({ compact, benefits }) {
           </div>
         )}
 
-        {!unavailable && (
-          <div style={{
-            position: "absolute",
-            top: compact ? 64 : 90,
-            right: compact ? 16 : "6%",
-            left: compact ? 16 : "auto",
-            zIndex: 4,
-            display: "grid",
-            gridTemplateColumns: compact ? "1fr 1fr" : "repeat(4, auto)",
-            justifyContent: compact ? "stretch" : "end",
-            gap: compact ? 8 : 12,
-            pointerEvents: "none"
-          }}>
-            <FloatingKPI loading={loading} number={preview.families} animate={animateMetrics} label="Famiglie raggiungibili" highlight />
-            <FloatingKPI loading={loading} number={radiusKm} suffix=" Km" animate={animateMetrics} label="Raggio analisi" />
-            <FloatingKPI loading={loading} number={preview.zones.length || null} animate={animateMetrics} label="Comuni coinvolti" />
-            <FloatingKPI loading={loading} number={preview.coverage || null} suffix="%" animate={animateMetrics} label="Copertura stimata" fallback={preview.coverageLabel} />
-          </div>
-        )}
-      </div>
-
-      {!unavailable && (
+        {/* KPI SEMPRE presenti: se i dati non ci sono mostrano "n/d", non si
+            smontano (mai meta' destra vuota). Il "Raggio analisi" e' un dato
+            statico della preview e resta sempre valorizzato. */}
         <div style={{
           position: "absolute",
-          bottom: compact ? 12 : 12,
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: "calc(100% - 24px)",
-          maxWidth: 1360,
-          zIndex: 20,
-          background: "rgba(8, 16, 28, 0.25)",
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: 16,
-          padding: compact ? 16 : "20px 28px",
+          top: compact ? 64 : 90,
+          right: compact ? 16 : "6%",
+          left: compact ? 16 : "auto",
+          zIndex: 4,
           display: "grid",
-          gridTemplateColumns: compact ? "1fr" : "1.2fr 1fr 0.8fr",
-          gap: compact ? 20 : 40,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+          gridTemplateColumns: compact ? "1fr 1fr" : "repeat(4, auto)",
+          justifyContent: compact ? "stretch" : "end",
+          gap: compact ? 8 : 12,
+          pointerEvents: "none"
         }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, justifyContent: "center" }}>
-            {benefits.map(b => (
-              <div key={b.text} style={{ display: "flex", gap: 10, alignItems: "flex-start", color: "rgba(226, 232, 240, 0.9)", fontSize: 13, fontWeight: 500, lineHeight: 1.3 }}>
-                 <div style={{ flexShrink: 0, marginTop: 1 }}><BenefitIcon type={b.icon} /></div>
-                 <span>{b.text}</span>
+          <FloatingKPI loading={loading} number={dataUnavailable ? null : preview.families} animate={animateMetrics} label="Famiglie raggiungibili" highlight />
+          <FloatingKPI loading={loading} number={radiusKm} suffix=" Km" animate={animateMetrics} label="Raggio analisi" />
+          <FloatingKPI loading={loading} number={dataUnavailable ? null : (zonesForMap.length || null)} animate={animateMetrics} label="Comuni coinvolti" />
+          <FloatingKPI loading={loading} number={dataUnavailable ? null : (preview.coverage || null)} suffix="%" animate={animateMetrics} label="Copertura stimata" fallback={dataUnavailable ? "n/d" : preview.coverageLabel} />
+        </div>
+      </div>
+
+      {/* Card inferiore SEMPRE montata. La colonna benefici e' statica; la
+          colonna "Analisi Zona" e i totali mostrano un fallback discreto se i
+          dati territoriali non sono disponibili. Mai smontata -> nessuna meta'
+          hero vuota. */}
+      <div style={{
+        position: "absolute",
+        bottom: compact ? 12 : 12,
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: "calc(100% - 24px)",
+        maxWidth: 1360,
+        zIndex: 20,
+        background: "rgba(8, 16, 28, 0.25)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 16,
+        padding: compact ? 16 : "20px 28px",
+        display: "grid",
+        gridTemplateColumns: compact ? "1fr" : "1.2fr 1fr 0.8fr",
+        gap: compact ? 20 : 40,
+        boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+      }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, justifyContent: "center" }}>
+          {benefits.map(b => (
+            <div key={b.text} style={{ display: "flex", gap: 10, alignItems: "flex-start", color: "rgba(226, 232, 240, 0.9)", fontSize: 13, fontWeight: 500, lineHeight: 1.3 }}>
+               <div style={{ flexShrink: 0, marginTop: 1 }}><BenefitIcon type={b.icon} /></div>
+               <span>{b.text}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ borderTop: compact ? "1px solid rgba(255,255,255,0.08)" : "none", paddingTop: compact ? 16 : 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: C.orange, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>Analisi Zona</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "6px" }}>
+            {visibleZones.length === 0 ? (
+              <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.5)", fontWeight: 600, lineHeight: 1.4 }}>
+                {loading ? "Analisi del territorio in corso..." : "Dati comune non disponibili — riprova tra poco."}
+              </div>
+            ) : visibleZones.map((z, i) => (
+              <div key={z.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, animation: animateMetrics ? `vpHeroRowIn .45s cubic-bezier(0.16, 1, 0.3, 1) forwards ${350 + i * 90}ms` : 'none', opacity: animateMetrics ? 0 : 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: z.color, flexShrink: 0 }} />
+                  <span style={{ color: "#f8fafc", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{z.name}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color: "rgba(255,255,255,0.9)", fontWeight: 800 }}>{formatHeroNumber(z.families)}</span>
+                  <span style={{ color: "rgba(255,255,255,0.4)", fontWeight: 700, minWidth: 28, textAlign: "right" }}>{Math.round(z.coverage || 0)}%</span>
+                </div>
               </div>
             ))}
-          </div>
-
-          <div style={{ borderTop: compact ? "1px solid rgba(255,255,255,0.08)" : "none", paddingTop: compact ? 16 : 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, color: C.orange, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>Analisi Zona</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "6px" }}>
-              {visibleZones.map((z, i) => (
-                <div key={z.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, animation: animateMetrics ? `vpHeroRowIn .45s cubic-bezier(0.16, 1, 0.3, 1) forwards ${350 + i * 90}ms` : 'none', opacity: animateMetrics ? 0 : 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: z.color, flexShrink: 0 }} />
-                    <span style={{ color: "#f8fafc", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{z.name}</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ color: "rgba(255,255,255,0.9)", fontWeight: 800 }}>{formatHeroNumber(z.families)}</span>
-                    <span style={{ color: "rgba(255,255,255,0.4)", fontWeight: 700, minWidth: 28, textAlign: "right" }}>{Math.round(z.coverage || 0)}%</span>
-                  </div>
-                </div>
-              ))}
-              {hiddenZoneCount > 0 && (
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontWeight: 600, marginTop: 2 }}>+ altri {hiddenZoneCount} comuni ({formatHeroNumber(preview.zones.slice(visibleZoneCount).reduce((s, z) => s + z.families, 0))} fam.)</div>
-              )}
-            </div>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", borderLeft: compact ? "none" : "1px solid rgba(255,255,255,0.08)", paddingLeft: compact ? 0 : 28, paddingTop: compact ? 16 : 0, borderTop: compact ? "1px solid rgba(255,255,255,0.08)" : "none" }}>
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.05em", marginBottom: 4 }}>Totale famiglie</div>
-              <div style={{ fontSize: 26, fontWeight: 800, color: C.white, fontFamily: "'JetBrains Mono', monospace", letterSpacing: "-0.04em", lineHeight: 1 }}>{formatHeroNumber(animatedTotalFamilies ?? 0)}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.05em", marginBottom: 4 }}>Copertura stimata</div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: C.orange, fontFamily: "'JetBrains Mono', monospace", letterSpacing: "-0.04em", lineHeight: 1 }}>{preview.coverage ? `${Math.round(preview.coverage)}%` : preview.coverageLabel}</div>
-            </div>
+            {hiddenZoneCount > 0 && (
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontWeight: 600, marginTop: 2 }}>+ altri {hiddenZoneCount} comuni ({formatHeroNumber(zonesForMap.slice(visibleZoneCount).reduce((s, z) => s + z.families, 0))} fam.)</div>
+            )}
           </div>
         </div>
-      )}
+
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", borderLeft: compact ? "none" : "1px solid rgba(255,255,255,0.08)", paddingLeft: compact ? 0 : 28, paddingTop: compact ? 16 : 0, borderTop: compact ? "1px solid rgba(255,255,255,0.08)" : "none" }}>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.05em", marginBottom: 4 }}>Totale famiglie</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: C.white, fontFamily: "'JetBrains Mono', monospace", letterSpacing: "-0.04em", lineHeight: 1 }}>{dataUnavailable ? "n/d" : formatHeroNumber(animatedTotalFamilies ?? 0)}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.05em", marginBottom: 4 }}>Copertura stimata</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: C.orange, fontFamily: "'JetBrains Mono', monospace", letterSpacing: "-0.04em", lineHeight: 1 }}>{dataUnavailable ? "n/d" : (preview.coverage ? `${Math.round(preview.coverage)}%` : preview.coverageLabel)}</div>
+          </div>
+        </div>
+      </div>
     </>
   );
 }
@@ -678,15 +708,6 @@ function FloatingKPI({ loading, number, value, suffix = "", label, highlight, an
     }}>
       {loading ? <span style={heroMetricSkeletonStyle} /> : <strong style={{ color: highlight ? C.orange : C.white, fontSize: 18, fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, letterSpacing: "-0.03em" }}>{displayValue}</strong>}
       <span style={{ fontSize: 9, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: "0.02em", fontWeight: 700 }}>{label}</span>
-    </div>
-  );
-}
-
-function PreviewLoading() {
-  return (
-    <div style={heroPreviewLoadingStyle}>
-      <span style={heroSpinnerStyle} />
-      Caricamento dati territoriali...
     </div>
   );
 }
@@ -979,6 +1000,32 @@ const heroSpinnerStyle = {
   borderRadius: "50%",
   border: "2px solid rgba(255,255,255,.28)",
   borderTopColor: C.orange,
+};
+
+// Badge dati territoriali — piccolo, angolo in basso a sinistra della mappa,
+// NON copre la base map. Usato sia per il loading sia per lo stato "dati non
+// disponibili" (messaggio non tecnico).
+const heroDataBadgeStyle = {
+  position: "absolute",
+  bottom: 92,
+  left: 16,
+  zIndex: 5,
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+  maxWidth: "min(320px, 70%)",
+  padding: "6px 12px",
+  borderRadius: 999,
+  background: "rgba(8,15,30,0.72)",
+  border: "1px solid rgba(255,255,255,0.10)",
+  backdropFilter: "blur(8px)",
+  WebkitBackdropFilter: "blur(8px)",
+  color: "rgba(255,255,255,0.82)",
+  fontSize: 11,
+  fontWeight: 700,
+  lineHeight: 1.3,
+  pointerEvents: "none",
+  boxShadow: "0 6px 18px rgba(0,0,0,0.28)",
 };
 
 const heroPreviewUnavailableStyle = {
