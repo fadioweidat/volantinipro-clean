@@ -4,7 +4,7 @@
 // diretto su `quotes`/`supplier_profiles`/`operator_assignments`. Nessun
 // `supplier_id` inviato dal browser (lo deriva il DB da auth.uid()). Nessuna
 // chiave privilegiata, nessun token nel client.
-import { supabase } from '../supabaseClient';
+import { supabase, ensureRestSessionFromSdk } from '../supabaseClient';
 
 async function rpc(name, args = undefined) {
   const { data, error } = await supabase.rpc(name, args);
@@ -120,7 +120,17 @@ export function customerAcceptQuote(quoteId) {
 
 // ── Admin ──────────────────────────────────────────────────────────────────
 
-/** Solo Admin: cambia lo stato di verifica di un fornitore. */
-export function adminSetSupplierStatus(supplierId, status, notes = null) {
+/** Solo Admin: cambia lo stato di verifica di un fornitore.
+ *
+ *  Nell'area Admin la sessione "viva" e' quella del client SDK: la sessione
+ *  REST leggera (localStorage vp_supabase_session), da cui questo modulo
+ *  autentica le RPC, puo' essere scaduta/assente -> la chiamata partirebbe con
+ *  la sola anon key e admin_set_supplier_status risponderebbe ADMIN_RICHIESTO
+ *  (jwt_is_admin()=false), lasciando il fornitore "pending" senza errore
+ *  evidente. ensureRestSessionFromSdk() riallinea la sessione REST a quella
+ *  SDK prima della RPC (stesso motivo per cui adminListSuppliers chiama
+ *  ensureSupabaseSessionBridge). */
+export async function adminSetSupplierStatus(supplierId, status, notes = null) {
+  await ensureRestSessionFromSdk({ action: 'admin_set_supplier_status' });
   return rpc('admin_set_supplier_status', { p_supplier_id: supplierId, p_status: status, p_notes: notes });
 }

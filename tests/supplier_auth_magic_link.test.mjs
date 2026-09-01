@@ -70,13 +70,22 @@ function installFetch(routes) {
       return routes.userEndpoint === "fail" ? fail() : ok(routes.userEndpoint);
     }
     if (String(url).includes("/rest/v1/profiles")) return routes.profiles === "fail" ? fail(500) : ok(routes.profiles);
-    if (String(url).includes("/rest/v1/supplier_profiles")) return routes.supplierProfiles === "fail" ? fail(500) : ok(routes.supplierProfiles);
+    if (String(url).includes("/rest/v1/supplier_profiles")) {
+      // supplierProfiles puo' essere una CODA di risposte: ogni SELECT consuma
+      // la successiva (l'ultima resta). Serve a simulare "Aggiorna stato" che
+      // rifà la query e stavolta trova status=verified.
+      let val = routes.supplierProfiles;
+      if (Array.isArray(routes.supplierProfilesQueue) && routes.supplierProfilesQueue.length) {
+        val = routes.supplierProfilesQueue.length > 1 ? routes.supplierProfilesQueue.shift() : routes.supplierProfilesQueue[0];
+      }
+      return val === "fail" ? fail(500) : ok(val);
+    }
     throw new Error(`fetch non mockata: ${url}`);
   };
   return { calls, restore: () => { globalThis.fetch = prev; } };
 }
 
-async function renderGuard({ storedSession, routes, onNav }) {
+async function renderGuard({ storedSession, routes, onNav, keepFetch = false }) {
   const storage = installWindow();
   if (storedSession) storage.setItem("vp_supabase_session", JSON.stringify(storedSession));
   const fetchMock = installFetch(routes);
@@ -97,9 +106,27 @@ async function renderGuard({ storedSession, routes, onNav }) {
       // eslint-disable-next-line no-await-in-loop
       await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     }
-    return { text: JSON.stringify(renderer.toJSON()), calls: fetchMock.calls };
+    return {
+      text: JSON.stringify(renderer.toJSON()),
+      calls: fetchMock.calls,
+      renderer,
+      // clicca il primo bottone il cui testo contiene `label`, poi lascia
+      // risolvere la catena di await del nuovo effect.
+      async click(label) {
+        const flat = (c) => (Array.isArray(c) ? c.map(flat).join("") : String(c ?? ""));
+        const btn = renderer.root.findAll((n) => n.type === "button" && flat(n.props.children).includes(label))[0];
+        if (!btn) throw new Error(`bottone "${label}" non trovato`);
+        await act(async () => { btn.props.onClick(); });
+        for (let i = 0; i < 6; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+        }
+        return JSON.stringify(renderer.toJSON());
+      },
+      restore: fetchMock.restore,
+    };
   } finally {
-    fetchMock.restore();
+    if (!keepFetch) fetchMock.restore();
   }
 }
 
@@ -263,4 +290,31 @@ test("Fornitore sospeso (status=suspended): schermata dedicata 'Account sospeso'
   assert.match(text, /sospeso/i);
   assert.doesNotMatch(text, /SUPPLIER CONTENT/);
   assert.doesNotMatch(text, /Richiedi accesso come fornitore/);
+});
+
+// BUG "Aggiorna stato non funziona": dopo che l'Admin verifica il fornitore,
+// il click su "Aggiorna stato" nella schermata pending deve rifare la SELECT
+// live di supplier_profiles.status e, se verified, entrare SUBITO nella
+// dashboard — senza nuovo login, senza reload.
+test("Aggiorna stato: da pending, dopo verifica Admin, il click rifà la SELECT e monta la Dashboard Fornitore", async () => {
+  const navCalls = [];
+  const h = await renderGuard({
+    storedSession: { accessToken: "tok", expiresAt: FUTURE },
+    routes: {
+      userEndpoint: { id: "sup-uid" },
+      // 1ª SELECT -> pending; ogni SELECT successiva -> verified
+      supplierProfilesQueue: [[{ status: "pending" }], [{ status: "verified" }]],
+    },
+    onNav: (page) => navCalls.push(page),
+    keepFetch: true,
+  });
+  try {
+    assert.match(h.text, /in attesa di approvazione/i);
+    assert.doesNotMatch(h.text, /SUPPLIER CONTENT/);
+    const after = await h.click("Aggiorna stato");
+    assert.match(after, /SUPPLIER CONTENT/, "status verified => children montati subito");
+    assert.deepEqual(navCalls, [], "nessun redirect/login: solo un re-check");
+  } finally {
+    h.restore();
+  }
 });

@@ -38,8 +38,13 @@ test('B — status change solo via adminSetSupplierStatus; nessun update diretto
   assert.match(PAGE, /await adminSetSupplierStatus\(id, to\)/);
   assert.doesNotMatch(PAGE, /\.from\(['"]supplier_profiles['"]\)[\s\S]{0,80}\.(update|insert|delete|upsert)\(/);
   // il wrapper RPC esiste ed e' security-definer gated
-  assert.match(SUPAPI, /export function adminSetSupplierStatus\(supplierId, status, notes = null\)/);
+  assert.match(SUPAPI, /export async function adminSetSupplierStatus\(supplierId, status, notes = null\)/);
   assert.match(SUPAPI, /rpc\('admin_set_supplier_status'/);
+  // FIX "Verifica fornitore non persiste": nell'area Admin la sessione REST
+  // leggera puo' essere scaduta -> va riallineata alla sessione SDK prima
+  // della RPC, altrimenti admin_set_supplier_status parte come anon
+  // (jwt_is_admin()=false -> ADMIN_RICHIESTO) e il fornitore resta pending.
+  assert.match(SUPAPI, /await ensureRestSessionFromSdk\([^)]*\)[\s\S]{0,120}rpc\('admin_set_supplier_status'/);
 });
 
 // ── C: transizioni consentite (ticket §4) ──
@@ -59,6 +64,19 @@ test('D — label italiane pending/verified/suspended/rejected', () => {
   assert.match(m, /suspended: 'Sospeso'/);
   assert.match(m, /rejected: 'Rifiutato'/);
   assert.match(PAGE, /admin-home__lead-state/); // badge stato riusa lo stile esistente
+});
+
+// ── D2: la riga fornitore mostra ragione sociale, contatto, email, TELEFONO, P.IVA, stato, data richiesta ──
+test('D2 — la card fornitore rende phone (bug "telefono mancante"), contact_name, email, vat_number, created_at', () => {
+  // la colonna e' fetchata da admin-api...
+  assert.match(ADMINAPI, /const ADMIN_SUPPLIER_COLUMNS[\s\S]{0,200}phone/);
+  // ...e ora RESA nella UI (prima assente: solo email/contact/vat)
+  assert.match(PAGE, /\{s\.phone/);
+  assert.match(PAGE, /s\.company_name/);
+  assert.match(PAGE, /s\.contact_name/);
+  assert.match(PAGE, /s\.email/);
+  assert.match(PAGE, /s\.vat_number/);
+  assert.match(PAGE, /fmtDate\(s\.created_at\)/);
 });
 
 // ── E: filtri Tutti/In attesa/Verificati/Sospesi/Rifiutati su stati DB reali ──

@@ -167,14 +167,16 @@ function SupplierApplyForm({ onNav, onDone }) {
   async function submit(e) {
     e.preventDefault();
     const company = companyName.trim();
+    const tel = phone.trim();
     if (company.length < 2) { setError('Inserisci la ragione sociale.'); return; }
+    if (tel.length < 5) { setError('Inserisci un numero di telefono.'); return; }
     setBusy(true);
     setError('');
     try {
       await supplierApply({
         companyName: company,
         contactName: contactName.trim() || null,
-        phone: phone.trim() || null,
+        phone: tel,
         vatNumber: vatNumber.trim() || null,
       });
       onDone();
@@ -197,7 +199,7 @@ function SupplierApplyForm({ onNav, onDone }) {
       <form onSubmit={submit} style={{ marginTop: 14, textAlign: 'left' }}>
         <input style={inputStyle} value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Ragione sociale *" maxLength={200} autoComplete="organization" />
         <input style={inputStyle} value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Referente (opzionale)" maxLength={120} autoComplete="name" />
-        <input style={inputStyle} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Telefono (opzionale)" maxLength={40} autoComplete="tel" />
+        <input style={inputStyle} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Telefono *" maxLength={40} autoComplete="tel" inputMode="tel" />
         <input style={inputStyle} value={vatNumber} onChange={(e) => setVatNumber(e.target.value)} placeholder="Partita IVA (opzionale)" maxLength={40} />
         {error && <p style={{ color: '#fca5a5', fontSize: 12.5, marginTop: 10 }}>{error}</p>}
         <div style={rowStyle}>

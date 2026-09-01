@@ -140,8 +140,9 @@ export function AdminSuppliers({ onNav }) {
                       <div className="admin-home__lead-main">
                         <div>
                           <strong>{s.public_code || EMPTY}{s.company_name ? ` · ${s.company_name}` : ''}</strong>
-                          <span>{s.email || 'Email non disponibile'}{s.contact_name ? ` · ${s.contact_name}` : ''}{s.vat_number ? ` · P.IVA ${s.vat_number}` : ''}</span>
-                          <span>Creato: {fmtDate(s.created_at)} · Aggiornato: {fmtDate(s.updated_at)}</span>
+                          <span>{s.email || 'Email non disponibile'}{s.contact_name ? ` · ${s.contact_name}` : ''}</span>
+                          <span>Tel: {s.phone || EMPTY}{s.vat_number ? ` · P.IVA ${s.vat_number}` : ''}</span>
+                          <span>Richiesta: {fmtDate(s.created_at)} · Aggiornato: {fmtDate(s.updated_at)}</span>
                         </div>
                         <span className={`admin-home__lead-state ${STATUS_BADGE_CLASS[s.status] || ''}`}>
                           {STATUS_LABEL[s.status] || s.status}
