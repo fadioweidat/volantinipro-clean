@@ -170,6 +170,24 @@ test('P — SupplierGuard verifica role=supplier E supplier_profiles.status=veri
   assert.match(GUARD, /pending: 'Il tuo account fornitore è in attesa di verifica\.'/);
 });
 
+test('P2 — SupplierGuard: utente NON fornitore non cade mai nell\'Area Cliente', () => {
+  // Nuovo stato dedicato per "autenticato ma non supplier".
+  assert.match(GUARD, /phase: 'not-supplier'/);
+  // Il ramo role !== 'supplier' NON deve piu' fare onNav('dashboard').
+  const nonSupplierBranch = GUARD.slice(GUARD.indexOf("profile?.role !== 'supplier'"), GUARD.indexOf("from('supplier_profiles')"));
+  assert.doesNotMatch(nonSupplierBranch, /onNav\('dashboard'\)/, "il ramo non-supplier non deve redirigere all'Area Cliente");
+  assert.doesNotMatch(nonSupplierBranch, /onNav\("dashboard"\)/);
+  // Nessun onNav('dashboard') automatico da nessuna parte nel guard
+  // (il link all'Area Cliente resta SOLO come pulsante manuale nella UI).
+  assert.doesNotMatch(GUARD, /onNav\('dashboard'\);\s*\}\s*\n\s*return;/);
+  // catch generico -> flusso fornitore, non login generico.
+  assert.match(GUARD, /onNav\('login\?context=supplier'\)/);
+  assert.doesNotMatch(GUARD, /catch\s*\{[\s\S]{0,120}onNav\('login'\)/);
+  // UI dedicata con accesso fornitore + home; il link Area Cliente e' manuale.
+  assert.match(GUARD, /Questo account non è registrato come fornitore/);
+  assert.match(GUARD, /Accedi come fornitore/);
+});
+
 // ── Q: own quotes RPC ───────────────────────────────────
 test('Q — supplier_list_own_quotes RPC + client', () => {
   assert.match(MIG, /function public\.supplier_list_own_quotes\(\)/);
@@ -234,6 +252,20 @@ test('routing — /supplier registrato, risolto, protetto da SupplierGuard', () 
   assert.match(RESOLVE, /p === '\/supplier'[\s\S]{0,90}return 'supplier-dashboard'/);
   assert.match(APPROUTER, /import \{ SupplierGuard \}/);
   assert.match(APPROUTER, /page === "supplier-dashboard"[\s\S]{0,120}<SupplierGuard/);
+});
+
+test('routing — "Area Fornitore" instrada al flusso Fornitore, mai a /dashboard', () => {
+  const NAVBAR = read('src/layouts/public/Navbar.jsx');
+  const HERO = read('src/components/home/VolantiniProHeroMap.jsx');
+  // Navbar: il pulsante "Area Fornitore" naviga a supplier-dashboard.
+  assert.match(NAVBAR, /go\("supplier-dashboard"\)[\s\S]{0,400}Area Fornitore/);
+  // Hero access menu: "Area Fornitore" -> /supplier.
+  assert.match(HERO, /window\.location\.href = "\/supplier"[\s\S]{0,120}Area Fornitore/);
+  // Login callback: intento Fornitore -> supplier-dashboard, non "dashboard".
+  assert.match(FINAL, /loginIntentIsSupplier = isSupplierContext/);
+  assert.match(FINAL, /if \(loginIntentIsSupplier\) \{\s*\n\s*onNav\("supplier-dashboard"\)/);
+  // Il context supplier e' onorato nella risoluzione loginContext di AppRouter.
+  assert.match(APPROUTER, /queryContext === "supplier" \|\| pendingAuthContext === "supplier"\s*\n?\s*\?\s*"supplier"/);
 });
 
 // ── CustomerQuotesView montata nella pagina dettaglio campagna Cliente ──

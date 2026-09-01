@@ -47,7 +47,14 @@ export function SupplierGuard({ children, onNav }) {
         const { data: profile, error: pErr } = await supabase
           .from('profiles').select('role').eq('id', userId).single();
         if (pErr || profile?.role !== 'supplier') {
-          if (mounted) { setState({ phase: 'denied', session: s, supplierStatus: null }); onNav('dashboard'); }
+          // Utente autenticato ma NON fornitore (tipicamente un cliente, o un
+          // profilo appena creato senza role). BUG STORICO: qui si navigava
+          // automaticamente alla Dashboard Cliente, quindi cliccare "Area
+          // Fornitore" cadeva nel portale cliente. L'Area Fornitore deve avere
+          // il suo flusso separato: si mostra un accesso negato DEDICATO, con
+          // navigazione ESPLICITA (nessun redirect automatico verso l'Area
+          // Cliente).
+          if (mounted) setState({ phase: 'not-supplier', session: s, supplierStatus: null });
           return;
         }
         const { data: sp, error: spErr } = await supabase
@@ -62,13 +69,30 @@ export function SupplierGuard({ children, onNav }) {
         }
         if (mounted) setState({ phase: 'ok', session: s, supplierStatus: 'verified' });
       } catch {
-        if (mounted) { setState({ phase: 'denied', session: null, supplierStatus: null }); onNav('login'); }
+        // Errore imprevisto: si resta nel flusso Fornitore (login?context=supplier),
+        // mai nel login generico che poi ricade sul Cliente.
+        if (mounted) { setState({ phase: 'denied', session: null, supplierStatus: null }); onNav('login?context=supplier'); }
       }
     })();
     return () => { mounted = false; };
   }, [onNav]);
 
   if (state.phase === 'loading') return <RouteLoadingFallback />;
+
+  if (state.phase === 'not-supplier') {
+    return (
+      <div style={{ maxWidth: 520, margin: '80px auto', padding: 28, borderRadius: 14, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', color: '#fff', fontFamily: F.sans, textAlign: 'center' }}>
+        <div style={{ fontSize: 34, marginBottom: 8 }}>🔒</div>
+        <h2 style={{ fontFamily: F.serif, fontSize: 24, margin: '0 0 8px' }}>Area Fornitore</h2>
+        <p style={{ color: 'rgba(255,255,255,.6)', fontSize: 14, lineHeight: 1.6 }}>Questo account non è registrato come fornitore. Accedi con le credenziali dell'Area Fornitore per continuare.</p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginTop: 18 }}>
+          <button type="button" onClick={() => onNav('login?context=supplier')} style={{ minHeight: 42, padding: '0 18px', borderRadius: 10, border: 'none', background: C.orange, color: '#fff', fontFamily: F.sans, fontWeight: 800, cursor: 'pointer' }}>Accedi come fornitore</button>
+          <button type="button" onClick={() => onNav('home')} style={{ minHeight: 42, padding: '0 18px', borderRadius: 10, border: '1px solid rgba(255,255,255,.18)', background: 'transparent', color: '#fff', fontFamily: F.sans, fontWeight: 700, cursor: 'pointer' }}>Torna alla home</button>
+        </div>
+        <button type="button" onClick={() => onNav('dashboard')} style={{ marginTop: 14, background: 'transparent', border: 'none', color: 'rgba(255,255,255,.45)', fontFamily: F.sans, fontSize: 12.5, textDecoration: 'underline', cursor: 'pointer' }}>Sei un cliente? Vai all'Area Cliente</button>
+      </div>
+    );
+  }
 
   if (state.phase === 'not-verified') {
     const label = {

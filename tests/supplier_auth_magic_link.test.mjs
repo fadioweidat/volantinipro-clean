@@ -153,7 +153,10 @@ test("Nessuna sessione: rimbalza a /login?context=supplier, children non renderi
   assert.doesNotMatch(text, /SUPPLIER CONTENT/);
 });
 
-test("Autenticato ma NON fornitore (role != supplier): rimanda a /dashboard, non a login, niente contenuto Fornitore", async () => {
+// BUG "Area Fornitore apre Area Cliente": una sessione CLIENTE che apre
+// /supplier NON deve mai finire nel portale cliente. Prima il guard faceva
+// onNav('dashboard'); ora mostra un accesso negato dedicato, nessun redirect.
+test("C — sessione CLIENTE attiva + /supplier: NIENTE redirect all'Area Cliente, schermata accesso fornitore", async () => {
   const navCalls = [];
   const { text } = await renderGuard({
     storedSession: { accessToken: "customer-token", expiresAt: FUTURE },
@@ -165,8 +168,61 @@ test("Autenticato ma NON fornitore (role != supplier): rimanda a /dashboard, non
     onNav: (page) => navCalls.push(page),
   });
 
-  assert.deepEqual(navCalls, ["dashboard"]);
+  assert.ok(!navCalls.includes("dashboard"), "MAI onNav('dashboard') automatico");
+  assert.deepEqual(navCalls, [], "nessuna navigazione automatica: si mostra lo schermo dedicato");
+  assert.doesNotMatch(text, /SUPPLIER CONTENT/, "i children del Fornitore non devono comparire");
+  assert.match(text, /non è registrato come fornitore/i);
+  assert.match(text, /Accedi come fornitore/);
+});
+
+test("C2 — profilo mancante (pErr) per un utente autenticato: stessa schermata, nessun redirect a /dashboard", async () => {
+  const navCalls = [];
+  const { text } = await renderGuard({
+    storedSession: { accessToken: "tok", expiresAt: FUTURE },
+    routes: { userEndpoint: { id: "uid-x" }, profiles: [], supplierProfiles: [] },
+    onNav: (page) => navCalls.push(page),
+  });
+  assert.ok(!navCalls.includes("dashboard"));
   assert.doesNotMatch(text, /SUPPLIER CONTENT/);
+  assert.match(text, /non è registrato come fornitore/i);
+});
+
+test("E — refresh diretto di /supplier con sessione FORNITORE verificata: entra in dashboard", async () => {
+  const navCalls = [];
+  // installWindow() imposta location.pathname = "/supplier": simula il
+  // refresh diretto della route, senza passare da un click nella SPA.
+  const { text, calls } = await renderGuard({
+    storedSession: { accessToken: "supplier-token", expiresAt: FUTURE },
+    routes: {
+      userEndpoint: { id: "supplier-uid", email: "f@ex.it" },
+      profiles: [{ role: "supplier" }],
+      supplierProfiles: [{ status: "verified" }],
+    },
+    onNav: (page) => navCalls.push(page),
+  });
+  assert.deepEqual(navCalls, []);
+  assert.match(text, /SUPPLIER CONTENT/);
+  assert.ok(calls.some((u) => u.includes("/rest/v1/supplier_profiles")));
+});
+
+test("F — role isolation: stesso mount, sessione fornitore -> dashboard; sessione cliente -> schermo fornitore (mai Area Cliente)", async () => {
+  const supNav = [];
+  const sup = await renderGuard({
+    storedSession: { accessToken: "s1", expiresAt: FUTURE },
+    routes: { userEndpoint: { id: "sup" }, profiles: [{ role: "supplier" }], supplierProfiles: [{ status: "verified" }] },
+    onNav: (p) => supNav.push(p),
+  });
+  assert.match(sup.text, /SUPPLIER CONTENT/);
+  assert.deepEqual(supNav, []);
+
+  const custNav = [];
+  const cust = await renderGuard({
+    storedSession: { accessToken: "c1", expiresAt: FUTURE },
+    routes: { userEndpoint: { id: "cust" }, profiles: [{ role: "customer" }], supplierProfiles: [] },
+    onNav: (p) => custNav.push(p),
+  });
+  assert.doesNotMatch(cust.text, /SUPPLIER CONTENT/);
+  assert.ok(!custNav.includes("dashboard"), "un cliente sul flusso fornitore non viene mai spinto nell'Area Cliente");
 });
 
 test("Fornitore non ancora verificato (status=pending): pannello 'in attesa di verifica', nessun redirect", async () => {
