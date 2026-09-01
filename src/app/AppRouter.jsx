@@ -135,6 +135,33 @@ export function AppRouter() {
     return routeToPage(window.location.pathname);
   });
 
+  // DATA STATE — DEVE stare PRIMA di qualunque useEffect/useMemo/callback (e
+  // relativa dependency array) che legge `data`. Gli effetti Analytics qui
+  // sotto referenziano `data.*` nella loro dependency array, valutata durante
+  // il render: dichiarare `data` dopo generava un TDZ ("Cannot access 'data'
+  // before initialization", minificato: "Cannot access 'c' before
+  // initialization") -> RouteErrorBoundary in produzione. Una sola dichiarazione.
+  const [data, setData] = useState(() => {
+    let draft = {};
+    const persistedDraft = typeof window !== "undefined" ? readConfiguratorDraft(window.localStorage) || {} : {};
+    if (typeof window !== "undefined" && localStorage.getItem("volantinipro_return_to") === "step4") {
+      try {
+        const raw = localStorage.getItem("volantinipro_pending_campaign_draft");
+        if (raw) draft = JSON.parse(raw);
+      } catch (e) {}
+    }
+    return {
+      ...createEmptyConfiguratorData(),
+      ...persistedDraft,
+      ...draft,
+      ...prefill.patch
+    };
+  });
+
+  // Refs Analytics — prima degli effetti che li usano.
+  const prevStepRef = React.useRef(null);
+  const funnelSentRef = React.useRef({ muni: null, qty: null, service: null, extras: null });
+
   // Traffico sito (Admin "Commerciale"): un page_view per ogni cambio pagina,
   // fire-and-forget, nessun impatto su routing/auth esistenti.
   useEffect(() => {
@@ -144,7 +171,6 @@ export function AppRouter() {
   // Analytics Visitatori — funnel preventivo. `quote_step_reached` all'ingresso
   // di ogni step; `quote_abandoned` uscendo dal configuratore senza completare.
   // Fire-and-forget, dedup interna al modulo analytics.
-  const prevStepRef = React.useRef(null);
   useEffect(() => {
     const m = /^step([1-4])$/.exec(page);
     const step = m ? Number(m[1]) : null;
@@ -162,7 +188,6 @@ export function AppRouter() {
   // Eventi commerciali dal configuratore: comune / quantità / servizio / extra.
   // Nessun dato personale — solo nome comune, provincia/regione, fascia
   // quantità, tipo servizio (allowlist metadata lato modulo).
-  const funnelSentRef = React.useRef({ muni: null, qty: null, service: null, extras: null });
   useEffect(() => {
     if (!/^step[1-4]$/.test(page)) return;
     const sent = funnelSentRef.current;
@@ -197,23 +222,6 @@ export function AppRouter() {
     window.addEventListener("popstate", handlePop);
     return () => window.removeEventListener("popstate", handlePop);
   }, []);
-
-  const [data, setData] = useState(() => {
-    let draft = {};
-    const persistedDraft = typeof window !== "undefined" ? readConfiguratorDraft(window.localStorage) || {} : {};
-    if (typeof window !== "undefined" && localStorage.getItem("volantinipro_return_to") === "step4") {
-      try {
-        const raw = localStorage.getItem("volantinipro_pending_campaign_draft");
-        if (raw) draft = JSON.parse(raw);
-      } catch (e) {}
-    }
-    return {
-      ...createEmptyConfiguratorData(),
-      ...persistedDraft,
-      ...draft,
-      ...prefill.patch
-    };
-  });
 
   useEffect(() => {
     if (!isConfiguratorPagePath(window.location.pathname)) return;
