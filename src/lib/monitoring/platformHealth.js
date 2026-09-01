@@ -211,11 +211,16 @@ export async function runPlatformHealthCheck({ getSiteTrafficFn } = {}) {
   // Ogni riga in errore reale (non "unknown"/non configurato) finisce anche
   // in error_log, cosi' un guasto rilevato qui e' visibile anche in
   // "Errori recenti" senza dover ripetere la logica altrove.
+  // fingerprint STABILE per check (`health:<key>`): un guasto di health che
+  // persiste tra un run e l'altro aggiorna la STESSA riga (occurrence_count /
+  // last_seen_at) invece di crearne una nuova ogni volta — il pannello lo
+  // mostra gia', non deve diventare rumore in "Errori recenti".
   await Promise.all(rows.filter((row) => row.status === "error" && row.error).map((row) => logError({
     category: row.key === "gps_backend" ? ERROR_CATEGORIES.GPS : row.key === "edge_functions" ? ERROR_CATEGORIES.EDGE_FUNCTION : ERROR_CATEGORIES.SUPABASE,
     module: `health_check.${row.key}`,
     message: row.error,
     severity: ERROR_SEVERITY.WARNING,
+    fingerprint: `health:${row.key}`,
   })));
 
   return {

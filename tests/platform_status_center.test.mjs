@@ -63,14 +63,41 @@ test("errori vecchi (>24h) non influenzano lo stato attuale del flusso", () => {
   assert.notEqual(submit.status, "fail");
 });
 
-test("GPS Live: sessione attiva senza punti GPS recenti (15 min) => FAIL", () => {
+// HARDENING P2 — una sessione avviata senza GPS recente NON e' un guasto del
+// backend GPS: gps_live diventa WARNING (non FAIL) e la sessione stale finisce
+// in una riga WARNING separata. Il guasto backend vero vive solo nella riga
+// "Driver/GPS backend" di runPlatformHealthCheck.
+test("GPS Live: sessione avviata senza GPS recente => WARNING (mai FAIL: non e' un guasto backend)", () => {
   const flows = computeFlowHealth({
     deliverySessions: [{ id: "s1", status: "started" }],
-    gpsPoints: [{ session_id: "s1", recorded_at: "2026-08-25T17:00:00.000Z" }], // 1h fa, oltre i 15 min
+    gpsPoints: [{ session_id: "s1", recorded_at: "2026-08-25T17:00:00.000Z" }], // 1h fa
     now: NOW,
   });
   const gps = flows.find((f) => f.key === "gps_live");
-  assert.equal(gps.status, "fail");
+  assert.equal(gps.status, "warning");
+  assert.notEqual(gps.status, "fail");
+});
+
+test("Sessioni GPS stale/abbandonate: una sessione started ferma da 1h => WARNING separato, mai chiusa", () => {
+  const flows = computeFlowHealth({
+    deliverySessions: [{ id: "s1", status: "started" }],
+    gpsPoints: [{ session_id: "s1", recorded_at: "2026-08-25T17:00:00.000Z" }],
+    now: NOW,
+  });
+  const stale = flows.find((f) => f.key === "gps_stale_sessions");
+  assert.equal(stale.status, "warning");
+  assert.match(stale.reason, /mai chiuse|abbandon/i);
+});
+
+test("GPS: ne' gps_live ne' gps_stale_sessions possono emettere 'fail' (il guasto backend vive solo in checkGpsBackend)", () => {
+  const flows = computeFlowHealth({
+    deliverySessions: [{ id: "a", status: "started" }, { id: "b", status: "started" }],
+    gpsPoints: [],
+    now: NOW,
+  });
+  for (const key of ["gps_live", "gps_stale_sessions"]) {
+    assert.notEqual(flows.find((f) => f.key === key).status, "fail");
+  }
 });
 
 test("GPS Live: sessione attiva con punti GPS recenti => PASS", () => {

@@ -159,6 +159,9 @@ export async function computeAuthHealth({ lastAdminSignIn = null, lastCustomerSi
       module: "health_check.auth_infrastructure",
       message: infrastructure.error || "Auth endpoint irraggiungibile",
       severity: ERROR_SEVERITY.CRITICAL,
+      // fingerprint stabile: un guasto auth che persiste tra i run aggiorna
+      // la stessa riga (last_seen_at/occurrence_count), non ne crea una nuova.
+      fingerprint: "health:auth_infrastructure",
     });
   }
 
@@ -169,6 +172,7 @@ export async function computeAuthHealth({ lastAdminSignIn = null, lastCustomerSi
       module: "health_check.admin_role_probe",
       message: contract.admin.liveProbe.error,
       severity: ERROR_SEVERITY.CRITICAL,
+      fingerprint: "health:admin_role_probe",
     });
   }
 

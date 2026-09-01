@@ -167,15 +167,58 @@ export async function getConfigStatus() {
 // fetch parallelo che riusa selectOptionalTable/getRealCampaigns/
 // getSiteTraffic gia' esistenti — nessuna nuova query duplicata rispetto a
 // quelle gia' scritte per gli altri pannelli Admin.
-export async function getPlatformStatusData() {
+// error_log per il Centro Controllo: solo la finestra utile — tutte le righe
+// ancora aperte (a prescindere dall'eta') + tutto cio' che e' stato visto
+// negli ultimi `days` giorni — con un tetto esplicito. MAI select('*')
+// sull'intera tabella, che cresce fino alla retention a 90 giorni.
+async function selectErrorLogForStatus({ days = 7, limit = 400 } = {}) {
+  if (!supabase) return { rows: [], available: false };
+  try {
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from('error_log')
+      .select('*')
+      .or(`status.eq.open,created_at.gte.${cutoff}`)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) return { rows: [], available: false };
+    return { rows: Array.isArray(data) ? data : [], available: true };
+  } catch {
+    return { rows: [], available: false };
+  }
+}
+
+// gps_tracking_points cresce di continuo: per il Centro Controllo serve solo
+// la finestra recente (freschezza sessioni 15min + "ultimo GPS ricevuto"),
+// non l'intera storia. Colonne minime, finestra 48h, tetto esplicito.
+async function selectRecentGpsPointsForStatus({ hours = 48, limit = 5000 } = {}) {
+  if (!supabase) return { rows: [], available: false };
+  try {
+    const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from('gps_tracking_points')
+      .select('session_id, recorded_at, created_at')
+      .gte('recorded_at', cutoff)
+      .order('recorded_at', { ascending: false })
+      .limit(limit);
+    if (error) return { rows: [], available: false };
+    return { rows: Array.isArray(data) ? data : [], available: true };
+  } catch {
+    return { rows: [], available: false };
+  }
+}
+
+export async function getPlatformStatusData({ siteTrafficPromise } = {}) {
   const [errorLog, campaignsResult, siteTraffic, assignmentEvents, operatorAssignments, deliverySessions, gpsPoints] = await Promise.all([
-    selectOptionalTable('error_log'),
+    selectErrorLogForStatus(),
     getRealCampaigns({ includeTest: true }),
-    getSiteTraffic(),
+    // Riusa la lettura di getSiteTraffic gia' in volo (runFullCheck la passa
+    // anche a runPlatformHealthCheck) invece di rifarla: era la doppia query.
+    siteTrafficPromise || getSiteTraffic(),
     selectOptionalTable('assignment_event_log'),
     selectOptionalTable('operator_assignments'),
     selectOptionalTable('delivery_sessions'),
-    selectOptionalTable('gps_tracking_points', 'recorded_at'),
+    selectRecentGpsPointsForStatus(),
   ]);
   return {
     errorLog,
@@ -464,7 +507,11 @@ export async function getPlatformHealthHistory({ sinceDays = 30 } = {}) {
       .from('platform_health_checks')
       .select('check_name, check_group, status, response_time_ms, error_code, error_message, checked_at, source')
       .gte('checked_at', cutoff)
-      .order('checked_at', { ascending: false });
+      .order('checked_at', { ascending: false })
+      // Tetto esplicito: a regime (collector ogni 5min, ~8 check) la finestra
+      // 30gg vale ~69k righe. 40k copre comunque >2 settimane piene di storia
+      // ed evita di scaricare l'intera tabella se la retention slitta.
+      .limit(40000);
     if (error) return { rows: [], available: false };
     return { rows: Array.isArray(data) ? data : [], available: true };
   } catch {

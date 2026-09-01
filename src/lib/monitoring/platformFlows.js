@@ -9,8 +9,9 @@
 // per "login cliente"), lo stato e' WARNING con un motivo esplicito — MAI
 // PASS finto, come richiesto.
 
+import { classifyDeliverySession, GPS_SESSION_STATE } from "./gpsSessionLifecycle.js";
+
 const WINDOW_24H_MS = 24 * 60 * 60 * 1000;
-const GPS_FRESHNESS_MS = 15 * 60 * 1000;
 
 function withinWindow(timestampValue, windowMs, now) {
   if (!timestampValue) return false;
@@ -89,16 +90,39 @@ export function computeFlowHealth({
     ? flow("driver_assignment", "Assegnazione Driver", "pass", `${recentAssignments.length} assegnazione/i nelle ultime 24h`, now)
     : flow("driver_assignment", "Assegnazione Driver", "warning", "Nessuna assegnazione operatore nelle ultime 24h", now));
 
-  const activeSessions = (Array.isArray(deliverySessions) ? deliverySessions : []).filter((s) => s.status === "started");
-  if (activeSessions.length === 0) {
-    flows.push(flow("gps_live", "GPS Live", "warning", "Nessuna sessione di consegna attiva al momento", now));
-  } else {
-    const freshSessionIds = new Set(recentRows(gpsPoints, GPS_FRESHNESS_MS, now, "recorded_at").map((p) => p.session_id));
-    const stale = activeSessions.filter((s) => !freshSessionIds.has(s.id));
-    flows.push(stale.length > 0
-      ? flow("gps_live", "GPS Live", "fail", `${stale.length} sessione/i attiva/e senza dati GPS negli ultimi 15 minuti`, now)
-      : flow("gps_live", "GPS Live", "pass", `${activeSessions.length} sessione/i attiva/e, tutte con GPS recente`, now));
+  // GPS — separazione netta (HARDENING P2):
+  //  - "GPS Live" giudica SOLO se le sessioni operative ricevono dati adesso.
+  //  - "Sessioni GPS stale/abbandonate" e' un WARNING operativo a se': una
+  //    sessione lasciata aperta NON e' un guasto del backend GPS (quello e'
+  //    la riga "Driver/GPS backend" in runPlatformHealthCheck) e non deve mai
+  //    comparire come FAIL qui. Non si chiude MAI nulla: solo classificazione.
+  const startedSessions = (Array.isArray(deliverySessions) ? deliverySessions : []).filter((s) => s.status === "started");
+  const lastGpsBySessionId = {};
+  for (const p of Array.isArray(gpsPoints) ? gpsPoints : []) {
+    const sid = p?.session_id;
+    if (!sid) continue;
+    const ts = new Date(p.recorded_at).getTime();
+    if (!Number.isFinite(ts)) continue;
+    if (!(sid in lastGpsBySessionId) || ts > lastGpsBySessionId[sid]) lastGpsBySessionId[sid] = ts;
   }
+  const classifiedStarted = startedSessions.map((s) => classifyDeliverySession(s, {
+    now,
+    lastGpsRecordedAt: (s.id in lastGpsBySessionId) ? new Date(lastGpsBySessionId[s.id]).toISOString() : null,
+  }).state);
+  const liveCount = classifiedStarted.filter((state) => state === GPS_SESSION_STATE.LIVE).length;
+  const staleCount = classifiedStarted.filter((state) => state === GPS_SESSION_STATE.STALE || state === GPS_SESSION_STATE.ABANDONED).length;
+
+  if (startedSessions.length === 0) {
+    flows.push(flow("gps_live", "GPS Live", "warning", "Nessuna sessione di consegna attiva al momento", now));
+  } else if (liveCount > 0) {
+    flows.push(flow("gps_live", "GPS Live", "pass", `${liveCount} sessione/i operativa/e con GPS recente`, now));
+  } else {
+    flows.push(flow("gps_live", "GPS Live", "warning", `${startedSessions.length} sessione/i avviata/e ma nessun dato GPS recente — nessun guasto del backend GPS (vedi "Driver/GPS backend")`, now));
+  }
+
+  flows.push(staleCount > 0
+    ? flow("gps_stale_sessions", "Sessioni GPS stale/abbandonate", "warning", `${staleCount} sessione/i avviata/e senza attivita' recente, mai chiuse automaticamente`, now)
+    : flow("gps_stale_sessions", "Sessioni GPS stale/abbandonate", "pass", "Nessuna sessione avviata risulta abbandonata", now));
 
   return flows;
 }

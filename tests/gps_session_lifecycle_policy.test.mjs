@@ -121,16 +121,21 @@ test("due sessioni con lo stesso assignment_id ma attivita' diverse vengono clas
   assert.equal(counts.abandoned, 1);
 });
 
-// 10. Centro Controllo continua a mostrare FAIL/WARNING quando il problema e' reale
-// (platformFlows.js NON e' stato toccato in questa fase: guardia di regressione)
-test("regressione: computeFlowHealth (non modificato) continua a marcare GPS Live FAIL sui dati reali delle sessioni zombie", () => {
+// 10. HARDENING Centro Controllo P2: una sessione zombie (started ma senza GPS
+// recente) NON e' un guasto del backend GPS. computeFlowHealth ora la tratta
+// come WARNING su gps_live + WARNING sulla riga separata gps_stale_sessions,
+// mai come FAIL (il FAIL backend vive solo in checkGpsBackend/runPlatformHealthCheck).
+test("HARDENING: computeFlowHealth su una sessione zombie => gps_live WARNING + gps_stale_sessions WARNING, mai FAIL", () => {
   const flows = computeFlowHealth({
     deliverySessions: [{ id: "zombie1", status: "started" }],
     gpsPoints: [{ session_id: "zombie1", recorded_at: new Date(NOW.getTime() - 15 * HOUR).toISOString() }],
     now: NOW,
   });
   const gpsLive = flows.find((f) => f.key === "gps_live");
-  assert.equal(gpsLive.status, "fail");
+  const gpsStale = flows.find((f) => f.key === "gps_stale_sessions");
+  assert.equal(gpsLive.status, "warning");
+  assert.notEqual(gpsLive.status, "fail");
+  assert.equal(gpsStale.status, "warning");
 });
 
 test("summarizeDeliverySessions: conteggi coerenti su un mix realistico (replica approssimata delle 11 sessioni reali)", () => {

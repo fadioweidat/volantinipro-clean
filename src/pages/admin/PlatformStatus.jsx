@@ -19,6 +19,7 @@ import './platform-status.css';
 
 const WINDOW_24H_MS = 24 * 60 * 60 * 1000;
 const SLOW_THRESHOLD_MS = 1500;
+const PROD_ORIGIN = 'www.volantinipro.it';
 
 const STATUS_TONE = { ok: 'green', pass: 'green', warning: 'yellow', unknown: 'yellow', error: 'red', fail: 'red' };
 
@@ -63,6 +64,8 @@ export function PlatformStatus({ onNav }) {
   const [loadError, setLoadError] = useState(null);
   const [notice, setNotice] = useState('');
   const [resolvingId, setResolvingId] = useState(null);
+  const [showAllOrigins, setShowAllOrigins] = useState(false);
+  const [showResolvedErrors, setShowResolvedErrors] = useState(false);
   const mountStartRef = useRef(typeof performance !== 'undefined' ? performance.now() : Date.now());
   const [dashboardLoadMs, setDashboardLoadMs] = useState(null);
 
@@ -82,15 +85,28 @@ export function PlatformStatus({ onNav }) {
   const runFullCheck = useCallback(async () => {
     setChecking(true);
     try {
-      const { data, cfg } = await refreshData();
-      const [healthResult, authHealthResult] = await Promise.all([
-        runPlatformHealthCheck({ getSiteTrafficFn: getSiteTraffic }),
-        computeAuthHealth({
-          lastAdminSignIn: cfg?.lastAdminSignIn,
-          lastCustomerSignIn: cfg?.lastCustomerSignIn,
-          errorLogRows: data?.errorLog?.rows || [],
-        }),
+      // HARDENING P3 — parallelizzazione. Prima: refreshData() (dati DB +
+      // config) veniva atteso INTERAMENTE prima di lanciare l'health check,
+      // e getSiteTraffic() girava due volte (una in getPlatformStatusData,
+      // una in runPlatformHealthCheck). Ora: una sola lettura getSiteTraffic
+      // condivisa, e le tre operazioni indipendenti (dati DB, config, health
+      // check) partono insieme. computeAuthHealth resta dopo perche' dipende
+      // da errorLog.rows + cfg.
+      const siteTrafficPromise = getSiteTraffic();
+      const [data, cfg, healthResult] = await Promise.all([
+        getPlatformStatusData({ siteTrafficPromise }).catch(() => null),
+        getConfigStatus().catch(() => null),
+        runPlatformHealthCheck({ getSiteTrafficFn: () => siteTrafficPromise }),
       ]);
+      if (data) { setRawData(data); setLoadError(null); }
+      else setLoadError('Errore caricamento dati piattaforma.');
+      setConfigStatus(cfg);
+
+      const authHealthResult = await computeAuthHealth({
+        lastAdminSignIn: cfg?.lastAdminSignIn,
+        lastCustomerSignIn: cfg?.lastCustomerSignIn,
+        errorLogRows: data?.errorLog?.rows || [],
+      });
       setHealth(healthResult);
       setAuthHealth(authHealthResult);
       if (!data) setNotice('Controllo completato con dati parziali: alcune tabelle non erano raggiungibili.');
@@ -123,7 +139,7 @@ export function PlatformStatus({ onNav }) {
       setLoading(false);
       setDashboardLoadMs(Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - mountStartRef.current));
     }
-  }, [refreshData]);
+  }, []);
 
   useEffect(() => { runFullCheck(); }, [runFullCheck]);
 
@@ -162,11 +178,26 @@ export function PlatformStatus({ onNav }) {
     lastCustomerSignIn: configStatus?.lastCustomerSignIn,
   }), [rawData, configStatus]);
 
-  const recentErrors = useMemo(() => [...(rawData.errorLog.rows || [])]
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .slice(0, 25), [rawData.errorLog.rows]);
+  // HARDENING P1 — di default il Centro Controllo mostra SOLO gli errori
+  // realmente attivi in produzione: status='open', origin=www.volantinipro.it
+  // (localhost/preview esclusi finche' non si spunta il toggle), visti negli
+  // ultimi 7 giorni. Le righe storiche senza `origin` restano visibili.
+  const errorFilteredRows = useMemo(() => {
+    const cutoff = Date.now() - 7 * WINDOW_24H_MS;
+    return (rawData.errorLog.rows || []).filter((row) => {
+      if (!showResolvedErrors && row.status !== 'open') return false;
+      if (!showAllOrigins && row.origin && row.origin !== PROD_ORIGIN) return false;
+      const seen = new Date(row.last_seen_at || row.created_at).getTime();
+      if (row.status !== 'open' && Number.isFinite(seen) && seen < cutoff) return false;
+      return true;
+    });
+  }, [rawData.errorLog.rows, showAllOrigins, showResolvedErrors]);
 
-  const errorsLast24h = useMemo(() => (rawData.errorLog.rows || []).filter((row) => Date.now() - new Date(row.created_at).getTime() <= WINDOW_24H_MS), [rawData.errorLog.rows]);
+  const recentErrors = useMemo(() => [...errorFilteredRows]
+    .sort((a, b) => new Date(b.last_seen_at || b.created_at) - new Date(a.last_seen_at || a.created_at))
+    .slice(0, 50), [errorFilteredRows]);
+
+  const errorsLast24h = useMemo(() => (rawData.errorLog.rows || []).filter((row) => Date.now() - new Date(row.last_seen_at || row.created_at).getTime() <= WINDOW_24H_MS), [rawData.errorLog.rows]);
   const timeoutsLast24h = useMemo(() => errorsLast24h.filter((row) => /timeout/i.test(row.message || '')), [errorsLast24h]);
   const slowChecks = useMemo(() => (health?.rows || []).filter((row) => Number.isFinite(row.responseTimeMs) && row.responseTimeMs > SLOW_THRESHOLD_MS), [health]);
 
@@ -174,7 +205,7 @@ export function PlatformStatus({ onNav }) {
     setResolvingId(errorId);
     try {
       await resolveErrorLogEntry(errorId);
-      setRawData((prev) => ({ ...prev, errorLog: { ...prev.errorLog, rows: prev.errorLog.rows.map((r) => (r.id === errorId ? { ...r, status: 'resolved' } : r)) } }));
+      setRawData((prev) => ({ ...prev, errorLog: { ...prev.errorLog, rows: prev.errorLog.rows.map((r) => (r.id === errorId ? { ...r, status: 'resolved', resolved_note: 'manual', resolved_at: new Date().toISOString() } : r)) } }));
     } catch (err) {
       setNotice(err?.message || 'Impossibile aggiornare lo stato dell\'errore.');
     } finally {
@@ -224,7 +255,13 @@ export function PlatformStatus({ onNav }) {
 
       {/* BLOCCO 2 — Errori recenti */}
       <section className="admin-home__section" aria-labelledby="ccs-errors-title">
-        <SectionHeading id="ccs-errors-title" eyebrow="Errori" title="Errori recenti" meta={rawData.errorLog.available ? `${recentErrors.length} mostrati` : 'error_log non disponibile'} />
+        <SectionHeading id="ccs-errors-title" eyebrow="Errori" title="Errori realmente attivi" meta={rawData.errorLog.available ? `${recentErrors.length} mostrati${showAllOrigins ? '' : ` · solo ${PROD_ORIGIN}`}${showResolvedErrors ? '' : ' · solo aperti'}` : 'error_log non disponibile'} />
+        {rawData.errorLog.available && (
+          <div className="ccs-error-filters">
+            <label><input type="checkbox" checked={showAllOrigins} onChange={(e) => setShowAllOrigins(e.target.checked)} /> Mostra anche localhost / anteprime</label>
+            <label><input type="checkbox" checked={showResolvedErrors} onChange={(e) => setShowResolvedErrors(e.target.checked)} /> Mostra anche risolti (ultimi 7 giorni)</label>
+          </div>
+        )}
         {!rawData.errorLog.available ? (
           <div className="admin-home__empty"><p>Nessun sistema di log errori disponibile (tabella error_log non raggiungibile).</p></div>
         ) : recentErrors.length === 0 ? (
@@ -235,13 +272,18 @@ export function PlatformStatus({ onNav }) {
               <article key={row.id} className={`ccs-error-row ccs-error-row--${row.severity}`}>
                 <div className="ccs-error-row__main">
                   <div>
-                    <strong>{row.category}{row.module ? ` · ${row.module}` : ''}</strong>
+                    <strong>{row.category}{row.module ? ` · ${row.module}` : ''}{Number(row.occurrence_count) > 1 ? ` · ${row.occurrence_count}×` : ''}</strong>
                     <span>{row.message}</span>
                   </div>
-                  <span className="ccs-error-row__meta">{formatRelative(row.created_at)} · {row.severity}{row.request_id ? ` · req: ${row.request_id}` : ''}{row.campaign_id ? ` · campagna: ${String(row.campaign_id).slice(0, 8)}` : ''}</span>
+                  <span className="ccs-error-row__meta">
+                    primo: {formatRelative(row.created_at)} · ultimo: {formatRelative(row.last_seen_at || row.created_at)} · {row.severity}
+                    {row.release ? ` · rel: ${String(row.release).slice(0, 7)}` : ''}
+                    {row.origin ? ` · ${row.origin}` : ''}
+                    {row.request_id ? ` · req: ${row.request_id}` : ''}{row.campaign_id ? ` · campagna: ${String(row.campaign_id).slice(0, 8)}` : ''}
+                  </span>
                 </div>
                 <div className="ccs-error-row__actions">
-                  <span className={`ccs-pill ccs-pill--${row.status === 'open' ? 'yellow' : 'green'}`}>{row.status === 'open' ? 'Aperto' : 'Risolto'}</span>
+                  <span className={`ccs-pill ccs-pill--${row.status === 'open' ? 'yellow' : 'green'}`}>{row.status === 'open' ? 'Aperto' : (row.resolved_note === 'auto' ? 'Auto-risolto' : 'Risolto')}</span>
                   {row.status === 'open' && <button type="button" onClick={() => handleResolve(row.id)} disabled={resolvingId === row.id}>{resolvingId === row.id ? 'Attendi...' : 'Segna risolto'}</button>}
                 </div>
               </article>
