@@ -1,20 +1,16 @@
-// Real POI data from OpenStreetMap via Overpass API.
-// No API key required. Respects the /api/analysis/poi-search GeoJSON contract.
+// Real POI data from OpenStreetMap. No API key required. Respects the
+// /api/analysis/poi-search GeoJSON contract.
+//
+// FIX PRODUZIONE (ticket "FIX DEFINITIVO POI OVERPASS VIA PROXY"): il browser
+// NON contatta piu' i mirror Overpass pubblici direttamente (in produzione
+// uno risponde senza header CORS, l'altro va in 504). La richiesta passa per
+// il proxy same-project `/functions/v1/poi-search` (supabase/functions/
+// poi-search), che costruisce la query lato server, fa il fallback
+// multi-provider, la cache TTL e il rate limit. Qui restano SOLO la mappatura
+// elemento -> POI, il dedup e il sort. Vedi src/api/poiSearch.js. Gemello di
+// src/api/roadNetwork.js.
 
-let overpassEnv = null;
-try {
-  overpassEnv = import.meta.env.VITE_OVERPASS_ENDPOINT;
-} catch (e) {
-  if (typeof process !== "undefined" && process.env) {
-    overpassEnv = process.env.VITE_OVERPASS_ENDPOINT;
-  }
-}
-
-const OVERPASS_ENDPOINTS = [
-  overpassEnv || null,
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass-api.de/api/interpreter',
-].filter(Boolean);
+import { fetchPoiSearchElements } from '../../api/poiSearch.js';
 
 // ── Per-service POI tag definitions ─────────────────────────────────────────
 // Each entry: Overpass key/value pair + display metadata + priority (1–10).
@@ -143,15 +139,9 @@ export function getPoiTagsForTargets(serviceType, targetSelection) {
   return serviceTags.filter(tag => allowedCategories.has(tag.cat));
 }
 
-// ── Overpass QL builder ──────────────────────────────────────────────────────
-function buildQuery(tags, centerLat, centerLng, radiusM, maxResults) {
-  const around = `(around:${Math.round(radiusM)},${centerLat},${centerLng})`;
-  const parts = tags.flatMap(({ key, val }) => [
-    `node["${key}"="${val}"]${around};`,
-    `way["${key}"="${val}"]${around};`,
-  ]);
-  return `[out:json][timeout:20];\n(\n${parts.join('\n')}\n);\nout center ${maxResults};`;
-}
+// La Overpass QL (`buildQuery`) e' stata spostata lato server in
+// supabase/functions/_shared/poiSearchProxy.ts: il client non costruisce piu'
+// QL ne' contatta endpoint Overpass.
 
 // ── Overpass element → internal POI object ───────────────────────────────────
 function toPoi(el, tags) {
@@ -208,42 +198,30 @@ function dedup(pois) {
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /**
- * Fetch real POI from Overpass for the given service type and area.
- * Returns Array<{id, lat, lng, name, category, color, priority, address, ...}>
- * Throws on timeout / network failure — caller (usePoi) handles errors.
+ * Fetch real POI for the given service type and area, via the same-project
+ * proxy `/functions/v1/poi-search` (mai Overpass diretto dal browser).
+ * Returns Array<{id, lat, lng, name, category, color, priority, address, ...}>.
+ *
+ * Contratto errori (invariato per usePoi):
+ * - 200 + elements [] -> zero attivita' reali: ritorna [] senza lanciare.
+ * - proxy non disponibile / tutti i provider Overpass falliti -> lancia
+ *   Error('POI_SEARCH_UNAVAILABLE'), che usePoi mappa su `error`.
  */
 export async function fetchPois({ centerLat, centerLng, radiusKm = 5, serviceType, targetSelection = [] }) {
-  const tags       = getPoiTagsForTargets(serviceType, targetSelection);
-  const radiusM    = radiusKm * 1000;
-  const maxResults = serviceType === 'd2d' ? 80 : 150;
-  const query      = buildQuery(tags, centerLat, centerLng, radiusM, maxResults);
+  // `tags` serve solo a toPoi (colore/priorita'/categoria + filtro per
+  // target). La QL Overpass e' costruita lato server dal proxy.
+  const tags = getPoiTagsForTargets(serviceType, targetSelection);
 
-  let lastError = null;
-  for (const endpoint of OVERPASS_ENDPOINTS) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 18_000);
+  const elements = await fetchPoiSearchElements({
+    centerLat,
+    centerLng,
+    radiusKm,
+    serviceType,
+    targetSelection,
+  });
 
-    try {
-      const res = await fetch(endpoint, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body:    `data=${encodeURIComponent(query)}`,
-        signal:  ctrl.signal,
-      });
-      if (!res.ok) throw new Error(res.status === 504 ? 'OVERPASS_TIMEOUT' : `OVERPASS_HTTP_${res.status}`);
-
-      const data = await res.json();
-      const raw  = (data.elements || []).map(el => toPoi(el, tags)).filter(Boolean);
-
-      return dedup(raw).sort((a, b) => b.priority - a.priority);
-    } catch (err) {
-      lastError = err.name === 'AbortError' ? new Error('OVERPASS_TIMEOUT') : err;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
-  throw lastError || new Error('OVERPASS_UNAVAILABLE');
+  const raw = (elements || []).map(el => toPoi(el, tags)).filter(Boolean);
+  return dedup(raw).sort((a, b) => b.priority - a.priority);
 }
 
 /**

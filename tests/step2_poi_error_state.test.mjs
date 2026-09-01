@@ -1,12 +1,16 @@
 // Verifica deterministica (fake timers + fetch mockato) della distinzione
-// "zero POI reali" vs "errore/timeout Overpass" introdotta in
-// src/hooks/usePoi.js (poi.error, poi.retry) e consumata da
-// src/pages/public/configurator/Step2.jsx / src/components/Step2Map.jsx.
+// "zero POI reali" vs "errore proxy POI" (src/hooks/usePoi.js: poi.error,
+// poi.retry), consumata da src/pages/public/configurator/Step2.jsx /
+// src/components/Step2Map.jsx.
+//
+// Dopo il ticket "FIX DEFINITIVO POI OVERPASS VIA PROXY": usePoi -> fetchPois
+// -> src/api/poiSearch.js -> POST /functions/v1/poi-search (mai Overpass
+// diretto). Il mock di globalThis.fetch qui rappresenta quel proxy: 200 +
+// elements = risultati, !ok / reject = POI_SEARCH_UNAVAILABLE.
 //
 // Monta l'hook REALE usePoi (non una reimplementazione) tramite un harness
 // React minimale, con lo stesso pattern fake-DOM + fake-timer gia' usato in
-// tests/quick_quote_h2h_business_timeout.test.mjs. globalThis.fetch e'
-// mockato: nessuna chiamata di rete reale a Overpass.
+// tests/quick_quote_h2h_business_timeout.test.mjs.
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -14,6 +18,10 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+// poiSearch.js richiede l'endpoint base per costruire /functions/v1/poi-search.
+process.env.VITE_SUPABASE_URL = 'https://proj.supabase.co';
+process.env.VITE_SUPABASE_ANON_KEY = 'anon-test-key';
 
 import { usePoi } from '../src/hooks/usePoi.js';
 
@@ -166,9 +174,9 @@ test('TEST B: risposta 200 con elements vuoti è zero reale, error resta null', 
 });
 
 // =================================================================
-// TEST C — rete/timeout Overpass -> error valorizzato, MAI confuso con zero
+// TEST C — proxy non disponibile -> error valorizzato, MAI confuso con zero
 // =================================================================
-test('TEST C: fallimento di rete su entrambi gli endpoint valorizza error, non un empty silenzioso', async (t) => {
+test('TEST C: fallimento del proxy POI valorizza error, non un empty silenzioso', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const container = installFakeDom();
   const plan = { current: { rejects: true, rejectMessage: 'NETWORK_DOWN' } };
