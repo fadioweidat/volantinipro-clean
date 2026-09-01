@@ -2,7 +2,20 @@ import React from "react";
 import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 import { C, F } from "../../../../lib/constants.js";
 
-export function Step4PricingSummaryPanel({ tLabel, baseCost, serviceExtras, disc, smartPairingDiscount, data, urgencySurchargePctLabel, urgSurch, subDiscPct, planDiscountAmount, isQuick, total, flyerQty, svcType, kpis, totF, printingExtra, printingEstimatedPrice, printPriceKnown = true, eur }) {
+export function Step4PricingSummaryPanel({ tLabel, baseCost, serviceExtras, disc, smartPairingDiscount, data, urgencySurchargePctLabel, urgSurch, subDiscPct, planDiscountAmount, isQuick, total, flyerQty, svcType, kpis, totF, printingExtra, printingEstimatedPrice, printPriceKnown = true, printingSelected = false, printingLinePrice = 0, artworkRequired = false, artworkSelected = false, graphicLinePrice = 0, graphicServicePrice = 79, grandTotal, eur }) {
+  const extrasSubtotal = (serviceExtras || []).reduce((sum, e) => {
+    const n = typeof e.raw === "number" ? e.raw : Number(String(e.v || "").replace(/[^0-9.,-]/g, "").replace(",", "."));
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
+  const displayTotal = Number.isFinite(grandTotal) ? grandTotal : total;
+  const stampaLabel = printingSelected ? (printPriceKnown ? eur(printingLinePrice) : "Da verificare") : "Non inclusa";
+  const graficaLabel = (artworkRequired && artworkSelected) ? eur(graphicLinePrice) : (artworkRequired ? "Non inclusa" : "Non inclusa / €0");
+  const row5 = (label, value, opts = {}) => (
+    <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 5, borderBottom: "1px solid rgba(255,255,255,.04)" }}>
+      <span style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.5)", fontWeight: opts.strong ? 800 : 400 }}>{label}</span>
+      <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: opts.strong ? 800 : 600, color: opts.dim ? "rgba(255,255,255,.4)" : "rgba(255,255,255,.78)" }}>{value}</span>
+    </div>
+  );
   return (
     <>
       {/* Price breakdown */}
@@ -114,6 +127,16 @@ export function Step4PricingSummaryPanel({ tLabel, baseCost, serviceExtras, disc
                 </div>}
             </div>
 
+      {/* Riepilogo prezzi (ticket §3): Distribuzione / Stampa / Grafica / Extra / Totale.
+          Stampa e Grafica sono SEMPRE mostrate, anche se non incluse. */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12, paddingTop: 8, borderTop: "1px dashed rgba(255,255,255,.1)" }}>
+              {row5("Distribuzione", eur(total))}
+              {row5("Stampa", stampaLabel, { dim: !printingSelected })}
+              {row5("Grafica", graficaLabel, { dim: !(artworkRequired && artworkSelected) })}
+              {row5("Extra", extrasSubtotal > 0 ? eur(extrasSubtotal) : "—", { dim: extrasSubtotal <= 0 })}
+              {row5("Totale", eur(displayTotal), { strong: true })}
+            </div>
+
       {/* Investment box */}
             <div style={{
             background: "linear-gradient(135deg, rgba(232,87,26,0.15) 0%, rgba(99,102,241,0.1) 100%)",
@@ -144,7 +167,7 @@ export function Step4PricingSummaryPanel({ tLabel, baseCost, serviceExtras, disc
                 fontFamily: F.sans,
                 fontSize: 12,
                 color: "rgba(255,255,255,.55)"
-              }}>{isQuick ? "Stima distribuzione" : "Totale distribuzione"}</span>
+              }}>{isQuick ? "Stima totale" : "Totale"}</span>
                 <span style={{
                 fontFamily: F.serif,
                 fontSize: 38,
@@ -152,7 +175,7 @@ export function Step4PricingSummaryPanel({ tLabel, baseCost, serviceExtras, disc
                 color: "#E8571A",
                 letterSpacing: "-1.5px",
                 lineHeight: 1
-              }}>{eur(total)}</span>
+              }}>{eur(displayTotal)}</span>
               </div>
               <div style={{
               display: "flex",

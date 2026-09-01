@@ -747,14 +747,30 @@ test("printFormat A5/A6/A4 · materialFormat +DL · DL mai printFormat", () => {
   assert.doesNotMatch(step1Src, /calculatePrintPrice\(\{[^}]*materialFormat/);
 });
 
-test("grafica: nessuna regressione — artwork flow separato dal prezzo stampa", () => {
-  // il motore non ha parametri artwork/graphic
+test("grafica: sezione INDIPENDENTE dalla stampa — prezzo separato, mai mescolato", () => {
+  // Il motore stampa non ha parametri artwork/graphic (nessun mix).
   assert.doesNotMatch(step1Src, /calculatePrintPrice\(\{[^}]*artwork/i);
   assert.doesNotMatch(step1Src, /calculatePrintPrice\(\{[^}]*graphic/i);
-  assert.match(step1Src, /File per la stampa/);
-  assert.match(step1Src, /Servizio grafico VolantiniPro/);
-  assert.match(step1Src, /graphicPriceStatus = artworkNeedsDesign \? "REQUIRES_QUOTE" : "NOT_REQUIRED"/);
-  assert.match(step4Src, /graphicPrice: null/);
+  // printPricing.js non conosce la grafica.
+  assert.doesNotMatch(engineSrc, /graphicPricing|GRAPHIC_SERVICE_PRICE|computeGraphicEstimate/);
+  // Modulo grafica dedicato, prezzo unico (ticket: €79 fisso).
+  const graphicSrc = fs.readFileSync(path.join(root, "src/lib/pricing/graphicPricing.js"), "utf8");
+  assert.match(graphicSrc, /GRAPHIC_SERVICE_PRICE\s*=\s*79/);
+  assert.doesNotMatch(graphicSrc, /^\s*import[^\n]*printPricing/m);
+  // Step1: sezione Grafica indipendente, opzione B mostra il prezzo e la
+  // scelta esplicita di aggiungerla.
+  assert.match(step1Src, /GRAPHIC_SERVICE_PRICE/);
+  assert.match(step1Src, /Aggiungi grafica al preventivo/);
+  assert.match(step1Src, /setArtworkSelected/);
+  // Step4: la grafica entra nel totale SOLO se richiesta e accettata, e
+  // resta separata dal motore distribuzione (calculateQuotePricing).
+  assert.match(step4Src, /computeGraphicEstimate\(\{ artworkRequired, artworkSelected \}\)/);
+  assert.doesNotMatch(step4Src, /calculateQuotePricing\(\{[^}]*graphic/i);
+  assert.match(step4Src, /artwork_required/);
+  assert.match(step4Src, /artwork_selected/);
+  assert.match(step4Src, /artwork_price/);
+  assert.match(step4Src, /printing_selected/);
+  assert.match(step4Src, /printing_price/);
 });
 
 test("contatti servizio grafico da config reale, nessun contatto inventato", () => {

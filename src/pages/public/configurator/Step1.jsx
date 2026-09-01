@@ -11,6 +11,7 @@ import { DISTRIBUTION_TARGET_OPTIONS } from "../../../lib/step2/activityTargets.
 import { distributionTypes } from "../../../lib/distributionTypes.js";
 import { FLYER_FORMAT_OPTIONS, PROMOTER_COUNT_OPTIONS, PROMOTER_LOCATION_TYPE_OPTIONS, PROMOTER_SHIFT_DURATION_OPTIONS, PROMOTER_TIME_SLOT_OPTIONS } from "../../../lib/step1/step1OptionLists.js";
 import { calculatePrintPrice, PRINT_FORMAT_OPTIONS, isPrintFormatConfigured, toPrintableFormat } from "../../../lib/pricing/printPricing.js";
+import { GRAPHIC_SERVICE_PRICE } from "../../../lib/pricing/graphicPricing.js";
 import { SUPPORT_EMAIL, HAS_SUPPORT_WHATSAPP, GRAPHIC_REQUEST_ENABLED, buildGraphicWhatsAppUrl, buildGraphicMailtoUrl } from "../../../lib/contactConfig.js";
 import { sendGraphicRequest } from "../../../api/sendGraphicRequest.js";
 import { GEO_DATA } from "../../../lib/geoData.js";
@@ -153,13 +154,13 @@ export function Step1({
   const materialOptions = [{
     id: "yes",
     icon: "package",
-    label: "No, ho già i volantini",
-    desc: "Fornisci tu il materiale pronto per la distribuzione logistica"
+    label: "No, solo distribuzione",
+    desc: "Fornisci tu il materiale pronto: la stampa non viene inclusa nel preventivo"
   }, {
     id: "no",
     icon: "printer",
-    label: "Sì, voglio anche stampa",
-    desc: "Aggiungiamo la stampa tipografica professionale al preventivo finale"
+    label: "Aggiungi stampa al preventivo",
+    desc: "Stampa tipografica professionale, con prezzo in tempo reale nel riepilogo"
   }];
   const printFormatOptions = PRINT_FORMAT_OPTIONS;
   const printOrientationOptions = [{
@@ -253,20 +254,36 @@ export function Step1({
     }
     updateData({ printing: next });
   };
-  // File di stampa e servizio grafico — elementi DISTINTI dal prezzo stampa.
-  // "da_creare" NON aggiunge alcun costo: il servizio grafico e' da quotare
-  // separatamente con VolantiniPro (graphicPrice = null, REQUIRES_QUOTE).
+  // GRAFICA — sezione INDIPENDENTE dalla stampa (ticket "STAMPA E GRAFICA
+  // DEVONO ESSERE SEPARATE"). Il costo grafica NON e' mai incluso nel prezzo
+  // di stampa e non passa dal motore prezzi distribuzione.
+  //   A "Si', ho gia' il file"        -> artwork.required=false, selected=false, price=0
+  //   B "No, ho bisogno della grafica" -> artwork.required=true; il cliente
+  //      sceglie ESPLICITAMENTE se aggiungerla (artwork.selected) al prezzo
+  //      GRAPHIC_SERVICE_PRICE (79).
   const artworkNeedsDesign = printing.artworkStatus === "da_creare";
-  const graphicPriceStatus = artworkNeedsDesign ? "REQUIRES_QUOTE" : "NOT_REQUIRED";
-  const buildArtwork = status => ({
+  const artworkSelected = Boolean(printing.artwork?.selected);
+  const graphicPriceStatus = artworkNeedsDesign
+    ? (artworkSelected ? "SELECTED" : "AVAILABLE")
+    : "NOT_REQUIRED";
+  const buildArtwork = (status, selected = false) => ({
     status: status === "da_creare" ? "NEEDS_DESIGN" : "READY",
     graphicServiceRequested: status === "da_creare",
-    graphicPriceStatus: status === "da_creare" ? "REQUIRES_QUOTE" : "NOT_REQUIRED"
+    graphicPriceStatus: status === "da_creare" ? (selected ? "SELECTED" : "AVAILABLE") : "NOT_REQUIRED",
+    required: status === "da_creare",
+    selected: status === "da_creare" ? selected : false,
+    price: status === "da_creare" && selected ? GRAPHIC_SERVICE_PRICE : (status === "da_creare" ? null : 0),
   });
   const setArtwork = status => {
     if (graphicSend.status !== "idle") setGraphicSend({ status: "idle" });
+    // Cambio A/B: azzera sempre la scelta "aggiungi al preventivo".
     updateData({
-      printing: { ...printing, artworkStatus: status, artwork: buildArtwork(status) }
+      printing: { ...printing, artworkStatus: status, artwork: buildArtwork(status, false) }
+    });
+  };
+  const setArtworkSelected = selected => {
+    updateData({
+      printing: { ...printing, artworkStatus: "da_creare", artwork: buildArtwork("da_creare", Boolean(selected)) }
     });
   };
   // Invio richiesta grafica via backend (Resend). SOLO su click esplicito del
@@ -2050,7 +2067,8 @@ export function Step1({
                   printing: {
                     ...printing,
                     format: syncedFormat ? String(syncedFormat).toUpperCase() : printing.format,
-                    enabled: enablingPrint
+                    enabled: enablingPrint,
+                    selected: enablingPrint
                   }
                 });
               }} className={`vp-s1-card-hover${active ? " vp-s1-card-selected" : ""}`} style={{
@@ -2241,21 +2259,22 @@ export function Step1({
                 : <strong style={{ fontSize: 16, color: s1Green }}>{eur2(printEst)}</strong>}
                 </div>
 
-                {/* FILE PER LA STAMPA — distinto da STAMPA e da SERVIZIO GRAFICO */}
+                {/* GRAFICA — sezione INDIPENDENTE dalla stampa. Prezzo separato,
+                    scelta esplicita di aggiungerla o meno. */}
                 <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: "#F8FAFC", marginBottom: 4 }}>File per la stampa</div>
-                    <div style={{ fontSize: 13, color: "#94A3B8", fontWeight: 500 }}>Hai già il file grafico pronto per la stampa?</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: "#F8FAFC", marginBottom: 4 }}>Grafica</div>
+                    <div style={{ fontSize: 13, color: "#94A3B8", fontWeight: 500 }}>La grafica è separata dalla stampa: non è inclusa automaticamente.</div>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
                     {[{
                     id: "pronto",
                     title: "Sì, ho già il file",
-                    sub: "Potrai inviarlo a VolantiniPro dopo il preventivo."
+                    sub: "Costo grafica €0. Potrai inviare il file a VolantiniPro dopo il preventivo."
                   }, {
                     id: "da_creare",
                     title: "No, ho bisogno della grafica",
-                    sub: "Il servizio grafico viene quotato separatamente da VolantiniPro."
+                    sub: `Servizio grafico VolantiniPro: €${GRAPHIC_SERVICE_PRICE}. Lo aggiungi tu al preventivo, non è incluso d'ufficio.`
                   }].map(opt => {
                     const active = printing.artworkStatus === opt.id;
                     return <button type="button" aria-pressed={active} key={opt.id} onClick={() => setArtwork(opt.id)} className={`vp-s1-card-hover${active ? " vp-s1-card-selected" : ""}`} style={{ padding: 18, borderRadius: 16, ...s1Card(active), cursor: "pointer", textAlign: "left" }}>
@@ -2266,7 +2285,7 @@ export function Step1({
                   </div>
 
                   {!artworkNeedsDesign && <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(96,165,250,0.06)", border: "1px solid rgba(96,165,250,0.2)" }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: "#F8FAFC", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 8 }}>Come inviare il file</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "#F8FAFC", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 8 }}>Come inviare il file — grafica €0</div>
                     <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 6, fontSize: 13, color: "#CBD5E1", lineHeight: 1.5 }}>
                       <li>Potrai caricare il file tramite VolantiniPro dopo la conferma</li>
                       {HAS_SUPPORT_WHATSAPP && <li>Invia tramite <a href={buildGraphicWhatsAppUrl({ format: printing.format, quantity: activeQty, printEnabled: true, notes: printing.notes })} target="_blank" rel="noopener noreferrer" style={{ color: "#60A5FA", fontWeight: 700 }}>WhatsApp</a></li>}
@@ -2276,8 +2295,25 @@ export function Step1({
 
                   {artworkNeedsDesign && <div style={{ padding: "16px 18px", borderRadius: 12, background: "rgba(232,87,26,0.06)", border: "1px solid rgba(232,87,26,0.25)" }}>
                     <div style={{ fontSize: 11, fontWeight: 800, color: "#E8571A", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>Servizio grafico VolantiniPro</div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC", marginBottom: 6 }}>Hai bisogno di creare o sistemare la grafica?</div>
-                    <div style={{ fontSize: 13, color: "#CBD5E1", lineHeight: 1.55, marginBottom: 14 }}>Il costo della grafica non è incluso nel prezzo di stampa. Contatta VolantiniPro per spiegare cosa ti serve e ricevere un preventivo.</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 10 }}>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC" }}>2 bozze incluse · consegna 48h · file pronto per la stampa</span>
+                      <strong style={{ fontSize: 18, color: "#F8FAFC" }}>€{GRAPHIC_SERVICE_PRICE}</strong>
+                    </div>
+                    <div style={{ fontSize: 13, color: "#CBD5E1", lineHeight: 1.55, marginBottom: 14 }}>Il costo della grafica non è incluso nel prezzo di stampa. Scegli se aggiungerla al preventivo.</div>
+                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 6 }}>
+                      {[{
+                        sel: true, title: `Aggiungi grafica al preventivo · €${GRAPHIC_SERVICE_PRICE}`, sub: "Verrà mostrata come voce separata nel riepilogo."
+                      }, {
+                        sel: false, title: "No, la gestisco io", sub: "Grafica: Non inclusa (€0). La stampa resta invariata."
+                      }].map(o => {
+                        const active = artworkSelected === o.sel;
+                        return <button type="button" aria-pressed={active} key={String(o.sel)} onClick={() => setArtworkSelected(o.sel)} className={`vp-s1-card-hover${active ? " vp-s1-card-selected" : ""}`} style={{ padding: 14, borderRadius: 12, ...s1Card(active), cursor: "pointer", textAlign: "left" }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 800, color: active ? s1Green : "#F8FAFC", marginBottom: 4 }}>{o.title}</div>
+                          <div style={{ fontSize: 11.5, color: "#94A3B8", lineHeight: 1.45 }}>{o.sub}</div>
+                        </button>;
+                      })}
+                    </div>
+                    <div style={{ fontSize: 13, color: "#CBD5E1", lineHeight: 1.55, margin: "14px 0 8px" }}>Vuoi spiegarci cosa ti serve? Mandaci una richiesta (facoltativo).</div>
                     {graphicSend.status === "sent"
                     ? <div style={{ fontSize: 13, fontWeight: 800, color: s1Green }}>
                         <div>Richiesta inviata. Abbiamo ricevuto la tua richiesta per il servizio grafico.</div>
@@ -2305,7 +2341,7 @@ export function Step1({
                       </div>
                       {graphicSend.status === "error" && <div style={{ fontSize: 11, color: "#FBBF24", marginTop: 8 }}>{graphicSend.code === "INVALID_EMAIL" ? "Inserisci un indirizzo email valido oppure lascia il campo vuoto." : <>Invio non riuscito. Usa "Apri email"{HAS_SUPPORT_WHATSAPP ? " o WhatsApp" : ""} per contattarci.</>}</div>}
                     </>}
-                    <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 10 }}>Servizio grafico: da quotare separatamente · non aggiunto al totale.</div>
+                    <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 10 }}>{artworkSelected ? `Grafica €${GRAPHIC_SERVICE_PRICE} aggiunta al preventivo come voce separata dalla stampa.` : "Grafica non inclusa. Puoi aggiungerla qui sopra in qualsiasi momento."}</div>
                   </div>}
                 </div>
               </div>}

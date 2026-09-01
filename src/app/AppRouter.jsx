@@ -69,7 +69,13 @@ function createEmptyConfiguratorData() {
   return {
     type: null, activityType: "", activityNote: "", qty: 10000,
     hasFlyers: "yes", flyerFormat: "a5", flyerWeight: "130", extraServices: [], printGramm: "130", printSide: "fronte", printColor: "cmyk",
-    printing: { enabled: false, format: "a5", paperType: "patinata_opaca", grammage: "130", sides: "fronte_retro", color: "cmyk", folding: "nessuna", artworkStatus: "pronto", artwork: { status: "READY", graphicServiceRequested: false, graphicPriceStatus: "NOT_REQUIRED" }, notes: "" },
+    // STAMPA e GRAFICA sono scelte separate e persistite separatamente:
+    //   selected        -> [Aggiungi stampa al preventivo] / [No, solo distribuzione]  (alias di `enabled`)
+    //   price           -> stima stampa corrente (computePrintEstimate)
+    //   artwork.required -> B "No, ho bisogno della grafica" (vs A "ho gia' il file")
+    //   artwork.selected -> il cliente ha scelto di aggiungere la grafica al preventivo
+    //   artwork.price    -> costo grafica (GRAPHIC_SERVICE_PRICE se required && selected, altrimenti 0)
+    printing: { enabled: false, selected: false, price: null, format: "a5", paperType: "patinata_opaca", grammage: "130", sides: "fronte_retro", color: "cmyk", folding: "nessuna", artworkStatus: "pronto", artwork: { status: "READY", graphicServiceRequested: false, graphicPriceStatus: "NOT_REQUIRED", required: false, selected: false, price: null }, notes: "" },
     urgency: "normal", subscription: "single", campaignsPerMonth: 1,
     selectedService: null, activeService: null, businessSector: "", flyerQuantity: 10000,
     campaignPeriodStart: "", campaignPeriodEnd: "", alreadyPrinted: true,

@@ -13,7 +13,15 @@ export const SELECTED_EXTRAS_ORDER = [
 // perdere preventivi storici che lo hanno gia' selezionato, ma non e' piu'
 // proposto come nuovo extra: sovrappone Controllo PRO (GPS + report) senza
 // far parte dei 3 gruppi Controllo e Report / Marketing / Assistenza.
-export const OPTIONAL_EXTRAS_ORDER = ["control_pro", "tracking_gps", "photo_proof", "photo_report_advanced", "graphic_design", "video_proof", "qr_analytics", "advanced_report", "account_manager", "dedicated_supervision"];
+export const OPTIONAL_EXTRAS_ORDER = ["control_pro", "tracking_gps", "photo_proof", "photo_report_advanced", "video_proof", "qr_analytics", "advanced_report", "account_manager", "dedicated_supervision"];
+
+// Extra grafica LEGACY: nel NUOVO preventivo la grafica passa SOLO dalla
+// sezione "Grafica" dello Step1 (data.printing.artwork.* + graphicPricing.js,
+// prezzo €79). `graphic_design` e `design` NON vengono piu' proposti nel
+// selettore extra dello Step4 — ma restano nel registry e in
+// SELECTED_EXTRAS_ORDER, cosi' i preventivi STORICI che li contengono
+// continuano a essere letti e prezzati correttamente da normalizeSelectedExtras.
+export const LEGACY_HIDDEN_EXTRA_IDS = Object.freeze(["graphic_design", "design"]);
 
 // Categorie di presentazione per il raggruppamento nello Step4 (sezione
 // extra "Servizi inclusi / facoltativi"): CONTROLLO E REPORT, MARKETING,
@@ -219,7 +227,12 @@ export function normalizeSelectedExtras(data, registryById) {
 }
 
 export function buildOptionalExtras(registryById) {
-  return OPTIONAL_EXTRAS_ORDER.map((id) => registryById[id]).map((ext) => ({
+  // Difesa in profondita': anche se un id legacy rientrasse nell'ordine, non
+  // viene mai proposto nel selettore extra del nuovo Step4.
+  return OPTIONAL_EXTRAS_ORDER
+    .filter((id) => !LEGACY_HIDDEN_EXTRA_IDS.includes(id))
+    .map((id) => registryById[id])
+    .map((ext) => ({
     id: ext.id,
     addId: ext.addId,
     removeIds: ext.legacyIds,

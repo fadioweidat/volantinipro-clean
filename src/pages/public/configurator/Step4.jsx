@@ -29,6 +29,7 @@ import { useCliente } from "../../../hooks/useCliente.js";
 import { calculateQuotePricing, formatQuoteCurrency, resolveQuoteQuantity } from "../../../lib/quotePricing.js";
 import { resolveConfiguratorDistributionZones } from "../../../lib/pricing/resolveConfiguratorDistributionZones.js";
 import { URGENCY_SURCHARGE_PCT } from "../../../lib/pricing/distributionPricing.js";
+import { computeGraphicEstimate, GRAPHIC_SERVICE_PRICE } from "../../../lib/pricing/graphicPricing.js";
 import { trackQuoteCompleted } from "../../../lib/analytics/siteEvents.js";
 import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "../../../lib/monitoring/errorLog.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
@@ -465,6 +466,19 @@ export function Step4({
   const printingEstimatedPrice = printPriceKnown ? printQuote.customerPrice : 0;
   const pricing = calculateQuotePricing({ quantity: flyerQty, pricePerThousand, smartPairingDiscountPct: disc, urgency: data.urgency, planDiscountPct: subDiscPct, extras: distributionExtras, distributionZones: distributionZonesForPricing });
   const { baseCost, smartPairingDiscount, urgencySurcharge: urgSurch, subtotalBeforePlan, planDiscountAmount, extraCost, total } = pricing;
+
+  // STAMPA e GRAFICA — voci SEPARATE, mai dentro il motore distribuzione
+  // (calculateQuotePricing) e mai una dentro l'altra.
+  //   stampa:  data.printing.selected (alias legacy: enabled) -> printQuote.customerPrice
+  //   grafica: data.printing.artwork.required && .selected -> GRAPHIC_SERVICE_PRICE
+  const printingSelected = Boolean(data.printing?.selected ?? data.printing?.enabled);
+  const printingLinePrice = printingSelected && printPriceKnown ? printQuote.customerPrice : 0;
+  const artworkRequired = Boolean(data.printing?.artwork?.required ?? (data.printing?.artworkStatus === "da_creare"));
+  const artworkSelected = Boolean(data.printing?.artwork?.selected);
+  const graphicLinePrice = computeGraphicEstimate({ artworkRequired, artworkSelected });
+  // Riepilogo prezzi (ticket §3): Distribuzione + Stampa + Grafica + Extra.
+  // `total` = distribuzione + extra distribuzione (motore invariato).
+  const grandTotal = Number((total + printingLinePrice + graphicLinePrice).toFixed(2));
   // P0 WIRING REALE sezione 7/8: percentuale reale applicata (0/20/35),
   // usata per correggere le etichette "+30%" statiche sotto (non
   // riflettevano piu' la vera sovrapprezzo dopo il fix dell'urgenza a 3
@@ -1264,6 +1278,12 @@ export function Step4({
           source: data.quickSource || "configurator",
           printing: {
             enabled: Boolean(data.printing?.enabled),
+            // Ticket §4 — STAMPA e GRAFICA salvate SEPARATAMENTE:
+            printing_selected: printingSelected,
+            printing_price: printingSelected && printPriceKnown ? printQuote.customerPrice : null,
+            artwork_required: artworkRequired,
+            artwork_selected: artworkSelected,
+            artwork_price: artworkSelected ? GRAPHIC_SERVICE_PRICE : (artworkRequired ? null : 0),
             specs: {
               format: data.printing?.format || null,
               orientation: data.printing?.orientation || null,
@@ -1276,17 +1296,20 @@ export function Step4({
               artwork: data.printing?.artwork || {
                 status: data.printing?.artworkStatus === "da_creare" ? "NEEDS_DESIGN" : "READY",
                 graphicServiceRequested: data.printing?.artworkStatus === "da_creare",
-                graphicPriceStatus: data.printing?.artworkStatus === "da_creare" ? "REQUIRES_QUOTE" : "NOT_REQUIRED"
+                graphicPriceStatus: data.printing?.artworkStatus === "da_creare" ? "AVAILABLE" : "NOT_REQUIRED",
+                required: artworkRequired,
+                selected: artworkSelected,
+                price: artworkSelected ? GRAPHIC_SERVICE_PRICE : (artworkRequired ? null : 0)
               },
-              graphicPrice: null,
+              graphicPrice: artworkSelected ? GRAPHIC_SERVICE_PRICE : null,
               notes: data.printing?.notes || null
             },
-            estimatedPrice: data.printing?.enabled && printPriceKnown ? printQuote.customerPrice : null,
-            priceStatus: data.printing?.enabled ? printQuote.priceStatus : null,
-            marketBasePrice: data.printing?.enabled && printPriceKnown ? printQuote.basePrintPrice : null,
-            marketSource: data.printing?.enabled && printPriceKnown ? printQuote.source : null,
+            estimatedPrice: printingSelected && printPriceKnown ? printQuote.customerPrice : null,
+            priceStatus: printingSelected ? printQuote.priceStatus : null,
+            marketBasePrice: printingSelected && printPriceKnown ? printQuote.basePrintPrice : null,
+            marketSource: printingSelected && printPriceKnown ? printQuote.source : null,
             definitivePrice: null,
-            status: data.printing?.enabled ? "REQUESTED" : "NOT_REQUESTED"
+            status: printingSelected ? "REQUESTED" : "NOT_REQUESTED"
           }
         }
       };
@@ -2794,6 +2817,13 @@ export function Step4({
               printingExtra={printingExtra}
               printingEstimatedPrice={printingEstimatedPrice}
               printPriceKnown={printPriceKnown}
+              printingSelected={printingSelected}
+              printingLinePrice={printingLinePrice}
+              artworkRequired={artworkRequired}
+              artworkSelected={artworkSelected}
+              graphicLinePrice={graphicLinePrice}
+              graphicServicePrice={GRAPHIC_SERVICE_PRICE}
+              grandTotal={grandTotal}
               eur={eur}
             />
 
