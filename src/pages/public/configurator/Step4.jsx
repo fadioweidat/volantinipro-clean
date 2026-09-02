@@ -30,6 +30,7 @@ import { calculateQuotePricing, formatQuoteCurrency, resolveQuoteQuantity } from
 import { resolveConfiguratorDistributionZones } from "../../../lib/pricing/resolveConfiguratorDistributionZones.js";
 import { URGENCY_SURCHARGE_PCT } from "../../../lib/pricing/distributionPricing.js";
 import { computeGraphicEstimate, GRAPHIC_SERVICE_PRICE } from "../../../lib/pricing/graphicPricing.js";
+import { SUPPORT_EMAIL, SUPPORT_WHATSAPP } from "../../../lib/contactConfig.js";
 import { trackQuoteCompleted } from "../../../lib/analytics/siteEvents.js";
 import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "../../../lib/monitoring/errorLog.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
@@ -1001,11 +1002,30 @@ export function Step4({
     generatedAt: new Date().toISOString(),
     status: sent ? "Preventivo confermato" : isQuick ? "Stima indicativa" : "Preventivo stimato",
     service: tLabel,
+    // Dati aziendali: SOLO quelli realmente configurati (nessun dato inventato).
+    // P.IVA / ragione sociale / sede non sono disponibili nel progetto -> omessi.
+    contact: {
+      name: "VolantiniPro",
+      site: "www.volantinipro.it",
+      email: SUPPORT_EMAIL || null,
+      phone: SUPPORT_WHATSAPP || null
+    },
+    client: {
+      name: clientForm.nome || null,
+      company: clientForm.azienda || null,
+      email: clientForm.email || null,
+      phone: clientForm.telefono || null
+    },
     campaign: {
       variant: svcType === "d2d" ? data.distributionVariant || data.residentialType || data.coverageType || "Copertura residenziale" : null,
       quantity: flyerQty,
       format: (data.flyerFormat || data.format || "").toUpperCase(),
       grammage: flyW !== "-" ? flyW : null,
+      paperType: data.printing?.paperType || null,
+      orientation: data.printing?.orientation || null,
+      sides: data.printing?.sides || null,
+      color: data.printing?.color || null,
+      radiusKm: (isMunicipalityMode || data.areaMode === "cap") ? null : (data.radius || null),
       materialStatus: alreadyPrinted ? "già stampato" : "Da produrre",
       graphicStatus: data.graphicsReady === true || data.designReady === true ? "File disponibile" : data.needGraphic || productionServices.includes("grafica") ? "File da preparare" : "Non specificato",
       plan: subL,
@@ -1128,14 +1148,28 @@ export function Step4({
       // confermare in tipografia) ma e' inclusa nel totale mostrato.
       grandTotal,
       printingLine: (printingSelected && printPriceKnown) ? {
-        label: "Stampa materiale (indicativa)",
+        label: "Stampa indicativa",
         amount: printingLinePrice,
-        note: "Da confermare in tipografia"
+        note: "da confermare con la tipografia",
+        indicative: true,
+        inTotal: true
       } : null,
-      graphicLine: (graphicLinePrice > 0) ? {
-        label: "Grafica",
-        amount: graphicLinePrice
-      } : null,
+      // Grafica: 3 stati espliciti
+      //  - non richiesta            -> "File fornito dal cliente — €0"
+      //  - richiesta, non scelta    -> "Grafica non inclusa"
+      //  - richiesta e scelta       -> "Grafica richiesta — €79,00"
+      graphicLine: !artworkRequired
+        ? { label: "Grafica", note: "File fornito dal cliente", amount: 0, inTotal: false }
+        : (artworkSelected
+          ? { label: "Grafica richiesta", amount: graphicLinePrice, inTotal: true }
+          : { label: "Grafica", note: "non inclusa", amount: null, inTotal: false }),
+      // Elenco servizi realmente presenti nell'ordine (Parte E del ticket).
+      services: [
+        { label: `Distribuzione ${tLabel}`, amount: baseCost },
+        ...distributionExtras.map(e => ({ label: e.label, amount: e.price })),
+        ...((printingSelected && printPriceKnown) ? [{ label: "Stampa materiale (indicativa)", amount: printingLinePrice, indicative: true }] : []),
+        ...((artworkRequired && artworkSelected) ? [{ label: "Grafica", amount: graphicLinePrice }] : []),
+      ],
       printing: printingExtra ? {
         label: "Stampa indicativa",
         amount: printPriceKnown ? printQuote.customerPrice : null,

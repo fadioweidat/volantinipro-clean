@@ -125,6 +125,21 @@ test("UI, payload DB e PDF condividono lo stesso totale e il PDF è valido", () 
   assert.match(step4, /extras: distributionExtras, distributionZones: distributionZonesForPricing/);
   assert.match(step4, /quantityIsSufficient == null \? null/);
   assert.match(step4, /coverageStatus: quantityIsSufficient == null \? "unavailable"/);
+
+  // Il PDF (printQuotePdf.js) usa grandTotal per il totale, lo etichetta
+  // "Totale complessivo" e NON contiene testo contraddittorio "non inclusa
+  // nel totale".
+  const pdf = fs.readFileSync(path.join(root, "src/lib/pdf/printQuotePdf.js"), "utf8");
+  assert.match(pdf, /pricing\.grandTotal != null \? pricing\.grandTotal : pricing\.total/);
+  assert.match(pdf, /Totale complessivo/);
+  assert.doesNotMatch(pdf, /Totale stimato/);
+  assert.doesNotMatch(pdf, /non inclusa nel totale/);
+  // Header professionale + sezione dati cliente + servizi inclusi
+  assert.match(pdf, /class="brand-contact"/);
+  assert.match(pdf, /"Dati cliente"/);
+  assert.match(pdf, /"Servizi inclusi nel preventivo"/);
+  // Parte F: niente più sezione KPI "Indicatori servizio" nel PDF principale
+  assert.doesNotMatch(pdf, /"Indicatori servizio"/);
 });
 
 test("salvataggio cliente dispone del solo INSERT profile per-owner e campaigns resta vincolata al JWT", () => {

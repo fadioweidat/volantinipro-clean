@@ -124,6 +124,8 @@ export function printQuotePdf(rawData) {
   const outputs = d.outputs || {};
   const planning = d.planning || {};
   const pricing = d.pricing || {};
+  const contact = d.contact || {};
+  const client = d.client || {};
   const ins = Number(outputs.insertedFlyers || 0);
   const rec = Number(outputs.recommendedFlyers || 0);
   const covPct = rec && ins ? Math.min(100, Math.round((ins / rec) * 100)) : null;
@@ -157,6 +159,8 @@ export function printQuotePdf(rawData) {
   }
   .brand { font-size: 24px; font-weight: 900; color: #E8571A; letter-spacing: -0.5px; }
   .brand-sub { font-size: 10.5px; color: #6b7280; margin-top: 2px; }
+  .brand-contact { margin-top: 6px; font-size: 9px; color: #9ca3af; line-height: 1.5; }
+  .brand-contact span { display: block; }
   .doc-meta { text-align: right; }
   .status-badge {
     display: inline-block; background: #FFF3ED; color: #E8571A;
@@ -275,6 +279,14 @@ export function printQuotePdf(rawData) {
     <div>
       <div class="brand">VolantiniPro</div>
       <div class="brand-sub">Preventivo campagna di distribuzione</div>
+      <div class="brand-contact">
+        ${contact.site ? `<span>${contact.site}</span>` : ""}
+        ${contact.email ? `<span>${contact.email}</span>` : ""}
+        ${contact.phone ? `<span>Tel. ${contact.phone}</span>` : ""}
+        ${contact.vat ? `<span>P.IVA ${contact.vat}</span>` : ""}
+        ${contact.legalName ? `<span>${contact.legalName}</span>` : ""}
+        ${contact.address ? `<span>${contact.address}</span>` : ""}
+      </div>
     </div>
     <div class="doc-meta">
       <div class="status-badge">${d.status || "Preventivo stimato"}</div>
@@ -282,6 +294,7 @@ export function printQuotePdf(rawData) {
         <tr><td>Riferimento</td><td><strong>${quoteId}</strong></td></tr>
         <tr><td>Data</td><td>${genDate}</td></tr>
         <tr><td>Servizio</td><td>${d.service || "—"}</td></tr>
+        ${d.validUntil ? `<tr><td>Validità</td><td>${new Date(d.validUntil).toLocaleDateString("it-IT")}</td></tr>` : ""}
       </table>
     </div>
   </div>
@@ -292,6 +305,18 @@ export function printQuotePdf(rawData) {
     <p>Riepilogo operativo generato da VolantiniPro · ${area.mainArea || ""}</p>
   </div>
 
+  <!-- Dati cliente -->
+  ${(client.name || client.company || client.email || client.phone) ? `
+  <div class="section">
+    ${secHeader(nextSec(), "Dati cliente", "Intestatario del preventivo")}
+    <div class="kv-grid">
+      ${kv("Nome", client.name)}
+      ${kv("Azienda", client.company)}
+      ${kv("Email", client.email)}
+      ${kv("Telefono", client.phone)}
+    </div>
+  </div>` : ""}
+
   <!-- 1. Configurazione campagna -->
   <div class="section">
     ${secHeader(nextSec(), "Configurazione campagna", "Dati selezionati nella configurazione")}
@@ -299,15 +324,20 @@ export function printQuotePdf(rawData) {
       ${kv("Servizio", d.service)}
       ${kv("Variante", campaign.variant)}
       ${kv("Zona principale", area.mainArea)}
+      ${kv("Modalità area", area.areaMode)}
+      ${kv("Raggio", campaign.radiusKm ? `${fmt(campaign.radiusKm, 1)} km` : (area.radiusKm ? `${fmt(area.radiusKm, 1)} km` : null))}
       ${kv("Quantità volantini", fmt(campaign.quantity))}
       ${kv("Formato", campaign.format)}
       ${kv("Grammatura", campaign.grammage)}
+      ${kv("Carta", campaign.paperType)}
+      ${kv("Orientamento", campaign.orientation)}
+      ${kv("Lati", campaign.sides)}
+      ${kv("Colore", campaign.color)}
       ${kv("Materiale", campaign.materialStatus)}
       ${kv("Grafica", campaign.graphicStatus)}
       ${kv("Piano", campaign.plan)}
       ${campaign.campaignsPerMonth ? kv("Campagne/mese", fmt(campaign.campaignsPerMonth)) : ""}
       ${campaign.duration ? kv("Durata", campaign.duration) : ""}
-      ${kv("Modalità area", area.areaMode)}
     </div>
   </div>
 
@@ -335,40 +365,49 @@ export function printQuotePdf(rawData) {
     }</div>` : ""}
   </div>
 
-  <!-- 3. Comuni -->
-  ${(d.municipalities || []).length ? `
+  <!-- 3. Sintesi zone (solo selezionate; il dettaglio completo resta nel Report Territoriale) -->
+  ${(() => {
+    const selM = (d.municipalities || []).filter(m => !String(m.status || "").toLowerCase().includes("non selezionato"));
+    if (!selM.length) return "";
+    const shown = selM.slice(0, 8);
+    const more = selM.length - shown.length;
+    return `
   <div class="section">
-    ${secHeader(nextSec(), "Comuni nel raggio", "Selezione e copertura territoriale")}
+    ${secHeader(nextSec(), "Sintesi zone", "Zone incluse nel preventivo")}
+    <div class="callout" style="margin:0 0 8px">${selM.length} ${selM.length === 1 ? "zona selezionata" : "zone selezionate"}${outputs.estimatedFamilies ? ` · ${fmt(outputs.estimatedFamilies)} famiglie stimate` : ""}${covPct != null ? ` · copertura ${pct(covPct)}` : ""}. Il dettaglio territoriale completo (NIL/quartieri, KPI e fonti) è disponibile nel Report Territoriale.</div>
     <table class="data-table">
-      <thead><tr>
-        <th>Comune</th><th>Stato</th><th>Volantini allocati</th><th>Copertura</th><th>Contributo</th>
-      </tr></thead>
+      <thead><tr><th>Zona</th><th>Stato</th><th>Volantini allocati</th><th>Copertura</th></tr></thead>
       <tbody>
-        ${(d.municipalities || []).map(m => {
-          const notSel = String(m.status || "").toLowerCase().includes("non selezionato");
-          const badgeCls = notSel ? "badge-gray" : String(m.status || "").includes("completa") ? "badge-green" : "badge-orange";
+        ${shown.map(m => {
+          const badgeCls = String(m.status || "").includes("completa") ? "badge-green" : "badge-orange";
           return `<tr>
             <td><strong>${m.name}</strong></td>
             <td><span class="badge ${badgeCls}">${m.status}</span></td>
-            <td>${!notSel && m.estimatedFlyers != null ? fmt(m.estimatedFlyers) : "—"}</td>
-            <td>${!notSel && m.coveragePct != null ? pct(m.coveragePct) : "—"}</td>
-            <td>${!notSel && m.contributionPct != null ? pct(m.contributionPct) : "—"}</td>
+            <td>${m.estimatedFlyers != null ? fmt(m.estimatedFlyers) : "—"}</td>
+            <td>${m.coveragePct != null ? pct(m.coveragePct) : "—"}</td>
           </tr>`;
         }).join("")}
+        ${more > 0 ? `<tr><td colspan="4" style="color:#9ca3af">+ ${more} altre zone — vedi Report Territoriale</td></tr>` : ""}
+      </tbody>
+    </table>
+  </div>`;
+  })()}
+
+  <!-- Servizi inclusi nel preventivo (solo quelli realmente acquistati) -->
+  ${(pricing.services || []).length ? `
+  <div class="section">
+    ${secHeader(nextSec(), "Servizi inclusi nel preventivo", "Voci realmente selezionate")}
+    <table class="data-table">
+      <tbody>
+        ${(pricing.services || []).map(s => `<tr>
+          <td><strong>${s.label}</strong></td>
+          <td style="text-align:right">${s.amount == null ? "—" : (s.indicative ? "~" : "") + cur(s.amount)}</td>
+        </tr>`).join("")}
       </tbody>
     </table>
   </div>` : ""}
 
-  <!-- 4. KPI -->
-  ${(d.scores || []).length ? `
-  <div class="section">
-    ${secHeader(nextSec(), "Indicatori servizio", "KPI operativi della stima")}
-    <div class="kv-grid kv-grid-${Math.min(d.scores.length, 3)}">
-      ${(d.scores || []).map(s => kv(s.label, `${s.value}/100${s.description ? " · " + s.description : ""}`)).join("")}
-    </div>
-  </div>` : ""}
-
-  <!-- 5. Admin info -->
+  <!-- Admin info -->
   ${(d.adminInfo || []).length ? `
   <div class="section">
     ${secHeader(nextSec(), "Sintesi demografica ed economica", "Dati ISTAT e territoriali")}
@@ -415,17 +454,18 @@ export function printQuotePdf(rawData) {
           <td>${disc.label}</td><td>—</td><td>—</td><td>−${cur(disc.amount)}</td>
         </tr>`).join("")}
         ${pricing.printingLine ? `<tr class="row-extra">
-          <td>${pricing.printingLine.label}</td><td>—</td><td>—</td><td>~${cur(pricing.printingLine.amount)}</td>
+          <td>${pricing.printingLine.label}${pricing.printingLine.note ? ` — ${pricing.printingLine.note}` : ""}</td><td>—</td><td>—</td><td>~${cur(pricing.printingLine.amount)}</td>
         </tr>` : ""}
         ${pricing.graphicLine ? `<tr class="row-extra">
-          <td>${pricing.graphicLine.label}</td><td>—</td><td>—</td><td>${cur(pricing.graphicLine.amount)}</td>
+          <td>${pricing.graphicLine.label}${pricing.graphicLine.note ? ` — ${pricing.graphicLine.note}` : ""}</td><td>—</td><td>—</td><td>${pricing.graphicLine.amount == null ? "—" : cur(pricing.graphicLine.amount)}</td>
         </tr>` : ""}
       </tbody>
     </table>
+    ${pricing.printingLine ? `<div class="callout" style="margin-top:8px">Stampa indicativa ~${cur(pricing.printingLine.amount)} — da confermare con la tipografia. È inclusa nel totale complessivo qui sotto.</div>` : ""}
     <div class="total-box">
       <div>
-        <div class="total-label">Prezzo finale stimato</div>
-        <div class="total-note">IVA esclusa · soggetto a conferma finale · nessun pagamento anticipato${pricing.printingLine ? " · stampa indicativa da confermare in tipografia" : ""}</div>
+        <div class="total-label">Totale complessivo</div>
+        <div class="total-note">IVA esclusa · soggetto a conferma finale · nessun pagamento anticipato${pricing.printingLine ? " · stampa indicativa da confermare con la tipografia" : ""}</div>
       </div>
       <div class="total-amount">${cur(pricing.grandTotal != null ? pricing.grandTotal : pricing.total)}</div>
     </div>
@@ -441,7 +481,7 @@ export function printQuotePdf(rawData) {
   <!-- Footer -->
   <div class="doc-footer">
     Il presente documento è una stima operativa generata da VolantiniPro sulla base dei dati inseriti e delle analisi territoriali disponibili.
-    Il preventivo può essere soggetto a conferma operativa. · info@volantinipro.it · ${quoteId}
+    Il preventivo può essere soggetto a conferma operativa. · ${[contact.site, contact.email || "info@volantinipro.it", contact.phone ? `Tel. ${contact.phone}` : null].filter(Boolean).join(" · ")} · ${quoteId}
   </div>
 
 </div>
