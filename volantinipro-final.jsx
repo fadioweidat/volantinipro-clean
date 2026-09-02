@@ -45,8 +45,11 @@ import ServicesSection from "./src/components/home/ServicesSection.jsx";
 import WhyDifferentSection from "./src/components/home/WhyDifferentSection.jsx";
 import RisultatiSection from "./src/components/home/RisultatiSection.jsx";
 import Footer from "./src/components/home/Footer.jsx";
+import EnterpriseSection from "./src/components/home/EnterpriseSection.jsx";
 import { AdminRouteGuard } from "./src/components/admin/AdminGuard.jsx";
 const VolantiniProAIHub = React.lazy(() => import("./src/components/ai/VolantiniProAIHub.jsx"));
+const CustomerAiAssistantPanel = React.lazy(() => import("./src/components/ai/customer/CustomerAiAssistantPanel.jsx"));
+const TerritorialStep2AiBoundary = React.lazy(() => import("./src/ai-foundation/integrations/territorial-step2/TerritorialStep2AiBoundary.jsx"));
 const RealAdminDashboard = React.lazy(() => import("./src/pages/admin/AdminDashboard.jsx"));
 const ServiceCenter = React.lazy(() => import("./src/pages/ServiceCenter.jsx"));
 const OutputLibrary = React.lazy(() => import("./src/pages/OutputLibrary.jsx"));
@@ -61,7 +64,7 @@ import { normalizeNominatimGeocodeResult, normalizeNominatimH2HBootstrapPoint } 
 import { buildStep2ViewModel, formatCoverageProportion } from "./src/lib/step2/buildStep2ViewModel.js";
 import { buildStep2TruthModel, buildStep2ToStep3Payload } from "./src/lib/step2/buildStep2TruthModel.js";
 import { checkMilanoTerritory } from "./src/lib/step2/milanoTerritoryHelper.js";
-import { allowMockData, isProduction } from "./src/lib/runtimeFlags.js";
+import { allowMockData, isCustomerAiDashboardEnabled, isProduction, isTerritorialStep2AiEnabled } from "./src/lib/runtimeFlags.js";
 import { defaultLayerState } from "./src/lib/dataSources.js";
 import { geoJsonApproxCentroid, geoJsonContainsPoint } from "./src/lib/geo/pointInPolygon.js";
 import { GRANDE_CITTA_ZONE_THRESHOLD, isZonaRilevante } from "./src/lib/services/zone-list-config.js";
@@ -1014,10 +1017,13 @@ _jsx("section", {
             })
           }),
           _jsx("div", {
-            style: { maxWidth: 400 },
-            children: _jsx("p", {
-              style: { fontFamily: F.sans, fontSize: 18, color: "rgba(255,255,255,.6)", margin: 0, lineHeight: 1.5 },
-              children: "Scegli il percorso più adatto alle esigenze della tua campagna."
+            style: { maxWidth: 450 },
+            children: _jsxs("div", {
+              style: { fontFamily: F.sans, fontSize: 16, color: "rgba(255,255,255,.7)", margin: 0, lineHeight: 1.5 },
+              children: [
+                _jsxs("div", { style: { marginBottom: 8 }, children: ["Distribuzione standard? ", _jsx("span", { style: { color: C.orange, fontWeight: 700, cursor: "pointer" }, onClick: () => n("step1"), children: "→ Calcola il preventivo" })] }),
+                _jsxs("div", { children: ["Gestisci più sedi o una campagna complessa? ", _jsx("span", { style: { color: C.blue, fontWeight: 700, cursor: "pointer" }, onClick: () => { document.getElementById("enterprise-solutions")?.scrollIntoView({ behavior: "smooth", block: "start" }) }, children: "→ Scopri Soluzioni Enterprise" })] })
+              ]
             })
           })
         ]
@@ -1162,7 +1168,7 @@ _jsx("section", {
     ]
   })
 })
-,_jsx(RisultatiSection,{}),_jsx(FAQSection,{onContact:()=>n("consultant")}),_jsx(PricingSection,{onConfigure:scrollOptions,onConsultant:()=>n("consultant")}),_jsx(Footer,{onNav:n,onHowItWorks:i})]})}
+,_jsx(EnterpriseSection,{}),_jsx(RisultatiSection,{}),_jsx(FAQSection,{onContact:()=>n("consultant")}),_jsx(PricingSection,{onConfigure:scrollOptions,onConsultant:()=>n("consultant")}),_jsx(Footer,{onNav:n,onHowItWorks:i})]})}
 
 // JSX runtime shim for reconstructed bundle code
 function _jsx(type, props, key) {
@@ -3177,12 +3183,16 @@ function Step1({ data, setData, onNext, onHome }) {
               Prossimo passaggio
             </h2>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 18, marginBottom: 28 }}>
-              {[
+              {(data.quickMode ? [
+                "Riceverai un preventivo immediato senza passare dalla mappa.",
+                "Potrai selezionare servizi extra come tracking GPS.",
+                "Scarica il PDF o richiedi consulenza diretta."
+              ] : [
                 "Selezionerai la zona direttamente sulla mappa.",
                 "Vedrai famiglie, popolazione e copertura stimata.",
                 "Riceverai un preventivo automatico basato sulla zona scelta.",
                 "Potrai modificare tutto prima della conferma finale.",
-              ].map((pt, idx) => (
+              ]).map((pt, idx) => (
                 <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                   <div style={{ width: 24, height: 24, borderRadius: "50%", background: "rgba(34,197,94,.14)", border: "1px solid rgba(34,197,94,.36)", color: s1Green, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, flexShrink: 0, marginTop: 2 }}>
                     ✓
@@ -3231,7 +3241,7 @@ function Step1({ data, setData, onNext, onHome }) {
                   gap: 12,
                 }}
               >
-                <span>{resolvingOperationalLocation ? (isB2B ? "Localizzo il comune..." : "Localizzo il punto operativo...") : "Continua allo Step 2"}</span>
+                <span>{resolvingOperationalLocation ? (isB2B ? "Localizzo il comune..." : "Localizzo il punto operativo...") : (data.quickMode ? "Calcola Preventivo Rapido" : "Continua allo Step 2")}</span>
                 <span style={{ fontSize: 22 }}>➔</span>
               </button>
               {operationalLocationError && (
@@ -3547,7 +3557,7 @@ function getVerifiedBusinessMetrics(pois, targetMeta, radiusKm) {
   };
 }
 
-function Step2({ data, setData, onNext, onBack }) {
+function Step2({ data, setData, onNext, onBack, aiIdentity, aiContextId }) {
   const isMobile = useIsMobile();
 const svcRaw = data.selectedService || data.activeService || data.type || "d2d";
 const svcType = ({door_to_door:"d2d","door-to-door":"d2d",door:"d2d",hand_to_hand:"h2h","hand-to-hand":"h2h",business:"b2b","business-distribution":"b2b",business_b2b:"b2b"})[svcRaw] || svcRaw;
@@ -8096,7 +8106,7 @@ const radiusInsightRows = zonesInRadius.map(z => ({
                     {pop > 0 && <span style={{ color: "rgba(255,255,255,.6)", fontSize: 11 }}>({formatNumber(pop)} ab.)</span>}
                     {rec > 0 && <span style={{ color: col, fontSize: 11, fontWeight: 700 }}>{formatNumber(rec)} vol.</span>}
                     <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: isPart ? "rgba(234,179,8,.15)" : (isHidden ? "rgba(255,255,255,.08)" : "rgba(34,197,94,.15)"), color: isPart ? "#FACC15" : (isHidden ? "rgba(255,255,255,.6)" : "#22C55E"), border: `1px solid ${isPart ? "rgba(234,179,8,.3)" : (isHidden ? "rgba(255,255,255,.15)" : "rgba(34,197,94,.3)")}` }}>
-                      {isPart ? `Parziale (${cov}%)` : "Confine OK/Caricato"}
+                      {isPart ? `Peso zona sul totale: ${cov}%` : "Confine OK/Caricato"}
                     </span>
                     {/* Toggle Visibilità Confine ON/OFF (Solo Visivo - NON RIMUOVI IL COMUNE NE' I KPI) */}
                     {hasBound && (
@@ -10274,6 +10284,20 @@ const isManual = allocationMode === "manual";
         </>
         )}
       </div>
+      {!isAdminView && isTerritorialStep2AiEnabled && (
+        <React.Suspense fallback={<div style={{ marginTop: 16, padding: 14, borderRadius: 12, background: "rgba(56,189,248,.07)", color: "rgba(255,255,255,.62)", fontFamily: F.sans, fontSize: 11 }}>Inizializzazione Assistente Territoriale...</div>}>
+          <TerritorialStep2AiBoundary
+            truthModel={step2TruthModel}
+            viewModel={step2ViewModel}
+            loading={Boolean(apiLoading || gisLoading)}
+            error={Boolean(apiError || gisTimedOut || hasCoverageCalculationError)}
+            identity={aiIdentity}
+            contextId={aiContextId}
+            activeCampaignRef={data.campaignId || null}
+            activeQuoteRef={data.quoteId || data.quoteRequestId || null}
+          />
+        </React.Suspense>
+      )}
     </div>
   );
 }
@@ -12342,7 +12366,7 @@ function handleDownloadPdf() {
           </div>
 
           <div style={{...box(), padding: "18px" }}>
-            {secHead("3", "Servizi inclusi", "Cosa ricevi con questa campagna", sectionAccent)}
+            {secHead("3", isQuick ? "Personalizza il tuo preventivo" : "Servizi inclusi", isQuick ? "Seleziona i servizi extra per la tua campagna" : "Cosa ricevi con questa campagna", sectionAccent)}
 
             {/* ── Servizi già inclusi — commercial cards ── */}
             {selectedExtras.length === 0 ? (
@@ -12461,8 +12485,9 @@ function handleDownloadPdf() {
             )}
           </div>
 
-          <div style={{...box(), padding: "18px" }}>
-            {secHead("4", "Pianificazione", "Date, Smart Pairing e stato operativo", sectionAccent)}
+          {!isQuick && (
+            <div style={{...box(), padding: "18px" }}>
+              {secHead("4", "Pianificazione", "Date, Smart Pairing e stato operativo", sectionAccent)}
             {data.smartPairingRequestSent ? (
               <div style={{ padding: "14px", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.58)", background: "rgba(251,191,36,.06)", border: "1px solid rgba(251,191,36,.2)", borderRadius: 10, lineHeight: 1.6 }}>
                 <b style={{ color: C.yellow }}>Richiesta data diversa inviata.</b><br />
@@ -12531,12 +12556,14 @@ function handleDownloadPdf() {
                 )}
               </div>
             )}
-          </div>
+            </div>
+          )}
 
           {/* ── SEZIONE 5: Analisi tecnica ── */}
-          <div style={{...box(), padding: "18px" }}>
+          {!isQuick && (
+            <div style={{...box(), padding: "18px" }}>
 
-            {/* Card introduttiva — sempre visibile */}
+              {/* Card introduttiva — sempre visibile */}
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(99,102,241,.14)", border: "1px solid rgba(99,102,241,.28)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Step1Icon name="chart" size={22} color="#818CF8" /></div>
@@ -12715,9 +12742,10 @@ function handleDownloadPdf() {
               </div>
             )}
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* ── SIDEBAR ── */}
+      {/* ── SIDEBAR ── */}
         <div>
           <div style={{...box(), padding: "18px", position: isMobile ? "static" : "sticky", top: 90, display: "flex", flexDirection: "column", gap: 0 }}>
 
@@ -12911,9 +12939,22 @@ function handleDownloadPdf() {
 
             {/* CTAs */}
             {isQuick ? (
-              <button className="btn s4-btn-green" onClick={() => onHome("step1")} style={{ width: "100%", padding: "16px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)", color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", marginBottom: 10, boxShadow: "0 8px 24px rgba(232,87,26,0.4)", transition: "all .2s" }}>
-                Completa configurazione →
-              </button>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
+                <button className="btn s4-btn-green" onClick={() => onHome("step1")} style={{ width: "100%", padding: "16px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)", color: C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: "0 8px 24px rgba(232,87,26,0.4)", transition: "all .2s" }}>
+                  Completa configurazione →
+                </button>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <button className="btn" onClick={handleDownloadPdf} disabled={pdfBusy} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px", borderRadius: 10, border: `1px solid ${col}40`, background: `${col}0e`, color: col, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: pdfBusy ? "wait" : "pointer" }}>
+                    {pdfBusy ? "Attendi…" : <><Step1Icon name="printer" size={15} color={col} /> Scarica PDF</>}
+                  </button>
+                  <button className="btn" onClick={() => onHome("consultant")} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px", borderRadius: 10, border: "1px solid rgba(56,189,248,.3)", background: "rgba(56,189,248,.08)", color: "#38BDF8", fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                    <Step1Icon name="user" size={15} color="#38BDF8" /> Consulenza
+                  </button>
+                </div>
+                <button className="btn" onClick={() => { setEmailSent(true); setTimeout(() => setEmailSent(false), 3000); }} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px", borderRadius: 10, border: "1px solid rgba(46,204,138,.25)", background: "rgba(46,204,138,.07)", color: C.green, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                  {emailSent ? "✓ Inviato" : <><Step1Icon name="mail" size={15} color={C.green} /> Invia preventivo via email</>}
+                </button>
+              </div>
             ) : (
               <button className="btn s4-btn-green" disabled={!canConfirm || savingCampaign} onClick={handleConfirmCampaign} style={{ width: "100%", padding: "16px", borderRadius: 12, border: "none", background: !canConfirm ? "rgba(255,255,255,.08)" : sent ? "rgba(46,204,138,.9)" : "linear-gradient(135deg, #E8571A 0%, #D0450B 100%)", color: !canConfirm ? "rgba(255,255,255,.3)" : C.white, fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: canConfirm && !savingCampaign ? "pointer" : "not-allowed", marginBottom: 10, boxShadow: canConfirm && !sent ? "0 8px 24px rgba(232,87,26,0.4)" : "none", transition: "all .2s" }}>
                 {savingCampaign ? "Salvataggio in corso..." : sent ? "✓ Campagna confermata" : "Conferma e avvia la campagna →"}
@@ -12928,16 +12969,18 @@ function handleDownloadPdf() {
             )}
             {!canConfirm && confirmProblem && !isQuick && <div style={{ fontFamily: F.sans, fontSize: 10, color: C.red, textAlign: "center", marginBottom: 8 }}>{confirmProblem}</div>}
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
-              <button className="btn" onClick={handleDownloadPdf} disabled={pdfBusy} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, width: "100%", padding: "10px", borderRadius: 9, border: `1px solid ${col}40`, background: `${col}0e`, color: col, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: pdfBusy ? "wait" : "pointer" }}>
-                {pdfBusy ? "Generazione PDF…" : <><Step1Icon name="printer" size={15} color={col} /> Scarica preventivo PDF</>}
-              </button>
-              <button className="btn" onClick={() => { setEmailSent(false); setPdfError("Invio email non configurato. Scarica il PDF oppure contattaci."); }} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, width: "100%", padding: "10px", borderRadius: 9, border: "1px solid rgba(46,204,138,.25)", background: "rgba(46,204,138,.07)", color: C.green, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                {emailSent ? "✓ Inviato" : <><Step1Icon name="mail" size={15} color={C.green} /> Invia preventivo via email</>}
-              </button>
-              {emailSent && <div style={{ fontFamily: F.sans, fontSize: 10, color: C.green, textAlign: "center" }}>Scarica il PDF per condividere il preventivo.</div>}
-              {pdfError && <div style={{ fontFamily: F.sans, fontSize: 10, color: C.red, textAlign: "center" }}>{pdfError}</div>}
-            </div>
+            {!isQuick && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+                <button className="btn" onClick={handleDownloadPdf} disabled={pdfBusy} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, width: "100%", padding: "10px", borderRadius: 9, border: `1px solid ${col}40`, background: `${col}0e`, color: col, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: pdfBusy ? "wait" : "pointer" }}>
+                  {pdfBusy ? "Generazione PDF…" : <><Step1Icon name="printer" size={15} color={col} /> Scarica preventivo PDF</>}
+                </button>
+                <button className="btn" onClick={() => { setEmailSent(true); setTimeout(() => setEmailSent(false), 3000); }} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, width: "100%", padding: "10px", borderRadius: 9, border: "1px solid rgba(46,204,138,.25)", background: "rgba(46,204,138,.07)", color: C.green, fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                  {emailSent ? "✓ Inviato" : <><Step1Icon name="mail" size={15} color={C.green} /> Invia preventivo via email</>}
+                </button>
+                {emailSent && <div style={{ fontFamily: F.sans, fontSize: 10, color: C.green, textAlign: "center" }}>Controlla la tua casella email.</div>}
+                {pdfError && <div style={{ fontFamily: F.sans, fontSize: 10, color: C.red, textAlign: "center" }}>{pdfError}</div>}
+              </div>
+            )}
 
             {!sent && (
               <div style={{ marginTop: 10, padding: "14px", borderRadius: 11, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.07)" }}>
@@ -13275,6 +13318,11 @@ const [clientFilter, setClientFilter] = useState("all");
     if (hasSupabaseConfig() && !session && !hash.get("access_token") && !qs.get("code")) onNav("login");
   }, [session]);
 const logout = () => {
+    if (isCustomerAiDashboardEnabled) {
+      void import("./src/ai-foundation/integrations/customer-dashboard/customerDashboardFoundation.js")
+        .then(({ clearCustomerDashboardAiContext }) => clearCustomerDashboardAiContext())
+        .catch(() => {});
+    }
     localStorage.removeItem("vp_supabase_session");
     setSession(null);
     onNav("login");
@@ -13389,6 +13437,18 @@ const clientEmpty = (title, text) => (
         />
 
         <AINotificationCenter center={clientNotificationCenter} loading={loading} error={error} />
+
+        {isCustomerAiDashboardEnabled && (
+          <React.Suspense fallback={<div style={{ minHeight: 90, marginBottom: 16 }} aria-label="Caricamento Assistente VolantiniPro" />}>
+            <CustomerAiAssistantPanel
+              session={session}
+              customer={cliente}
+              campaigns={campagne}
+              dataLoading={loading}
+              dataError={error || clienteError}
+            />
+          </React.Suspense>
+        )}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 12, marginBottom: 16 }}>
           <div style={{ ...clientCard({ padding: 18 }) }}>
@@ -13997,19 +14057,47 @@ function CampaignDashboardPage({ onNav, campaignId }) {
 	      console.warn("[DASHBOARD_QUOTE_ORIGINAL_ERROR]", { message: err?.message || String(err) });
 	    }
 	  };
-	  const timelineSteps = [
-	    ["Confermata", true, C.green],
-	    ["Pagamento", paymentPaid, paymentPaid ? C.green : C.orange],
-	    ["Preparazione", paymentPaid || campagnaView.stato === "in_preparazione" || isExecuting, C.blue],
-	    ["Distribuzione", isExecuting, C.green],
-	    ["Report finale", campagnaView.stato === "completata", C.purple],
-	  ];
-	  const documentCards = [
-	    ["Preventivo originale", quoteSummary ? "Scarica preventivo" : "Disponibile dopo conferma dati", quoteSummary ? handleQuoteOriginal : null],
-	    ["Istruzioni pagamento", paymentPaid ? "Pagamento ricevuto" : "Visualizza istruzioni", () => onNav("payment", { campaignId: campagna.id })],
-	    ["Report campagna", isExecuting || campagnaView.stato === "completata" ? "Scarica report" : "Disponibile dopo avvio", () => onNav("report", { campaignId: campagna.id })],
-	    ["Foto e GPS", isExecuting ? "Disponibili durante distribuzione" : "Disponibile durante distribuzione", null],
-	  ];
+  // Video Proof & QR Analytics state
+  const [videoModalOpen, setVideoModalOpen] = useState(false);
+  const [videoInfo, setVideoInfo] = useState(null);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrStats, setQrStats] = useState(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  useEffect(() => {
+    if (!campagna?.id) return;
+    import("./src/lib/services/video-proof-api.js").then((m) => {
+      m.getCampaignVideoInfo(campagna.id, campagna).then(setVideoInfo);
+    });
+    import("./src/lib/services/qr-analytics-api.js").then((m) => {
+      const qrData = m.buildCampaignQrInfo(campagna);
+      if (qrData?.slug) {
+        m.getCampaignQrStats(campagna.id, qrData.slug).then(setQrStats);
+      }
+    });
+  }, [campagna?.id]);
+
+  const hasPhotoProof = dashboardHasModule(["photo_proof", "foto", "photo_report_advanced", "foto_localizzate"]) || (Array.isArray(campagna.foto_proof) && campagna.foto_proof.length > 0);
+  const hasAdvancedReport = dashboardHasModule(["advanced_report", "report_avanzato", "report_analytics", "report_copertura", "controllo_qualita", "quality_control"]);
+  const hasVideoProof = dashboardHasModule(["video_proof", "video", "video_distribuzione"]) || Boolean(campagnaView.metadata?.video_proof);
+  const hasQrAnalytics = dashboardHasModule(["qr_analytics", "qr", "landing_analytics", "qr_landing"]) || Boolean(campagnaView.metadata?.qr_slug || campagnaView.metadata?.qr_target_url);
+
+  const qrInfo = useMemo(() => {
+    const meta = campagnaView.metadata || {};
+    const slug = meta.qr_slug || `vp-${String(campagna?.id || "").slice(0, 6)}`;
+    const targetUrl = meta.qr_target_url || campagna?.website || "https://volantinipro.it";
+    const redirectUrl = typeof window !== "undefined" ? `${window.location.origin}/q/${slug}` : `https://volantinipro.it/q/${slug}`;
+    const qrSvg = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(redirectUrl)}&format=svg&margin=1`;
+    return { slug, targetUrl, redirectUrl, qrSvg };
+  }, [campagnaView, campagna]);
+
+  const copyQrLink = () => {
+    if (!qrInfo.redirectUrl) return;
+    navigator.clipboard.writeText(qrInfo.redirectUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(180deg,#07111f 0%,#0d1a2d 52%,#07111f 100%)", padding: "105px 24px 80px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
@@ -14032,7 +14120,7 @@ function CampaignDashboardPage({ onNav, campaignId }) {
             <div style={{ display: "flex", gap: 9, flexWrap: "wrap", justifyContent: "flex-end" }}>
               {!paymentPaid && <button onClick={() => onNav("payment", { campaignId: campagna.id })} style={smallButton("primary")}>Vedi istruzioni pagamento</button>}
               <button onClick={handleQuoteOriginal} disabled={!quoteSummary} style={{ ...smallButton(), opacity: quoteSummary ? 1 : .48, cursor: quoteSummary ? "pointer" : "not-allowed" }}>Scarica preventivo originale</button>
-              <button onClick={() => onNav("report", { campaignId: campagna.id })} style={smallButton()}>Scarica report campagna</button>
+              <button onClick={() => window.location.href = `/customer/campaigns/${campagna.id}/report`} style={smallButton()}>Scarica report trasparenza</button>
               <a href="https://wa.me/" style={{ ...smallButton(), display: "inline-flex", alignItems: "center", textDecoration: "none", color: C.green, border: "1px solid rgba(46,204,138,.24)", background: "rgba(46,204,138,.08)" }}>Contatta su WhatsApp</a>
             </div>
           </div>
@@ -14070,6 +14158,141 @@ function CampaignDashboardPage({ onNav, campaignId }) {
 
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.35fr) minmax(300px,.65fr)", gap: 16 }}>
           <div style={{ display: "grid", gap: 16 }}>
+            {/* SEZIONE UNIFICATA REPORT E RISULTATI */}
+            <section style={{ ...dashboardCard({ padding: 22 }) }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: C.orange, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 4 }}>Area Riservata Consegne</div>
+                  <h2 style={{ margin: 0, fontFamily: F.serif, fontSize: 24, color: C.white, letterSpacing: "-.5px" }}>Report e risultati</h2>
+                </div>
+                <span style={{ padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,.06)", color: "rgba(255,255,255,.6)", fontSize: 11, fontWeight: 800 }}>Audit Certificato</span>
+              </div>
+
+              <div style={{ display: "grid", gap: 14 }}>
+                {/* 1. REPORT FOTOGRAFICO COMPLETO */}
+                <div style={{ padding: 16, borderRadius: 14, background: "rgba(255,255,255,.03)", border: `1px solid ${hasPhotoProof ? "rgba(96,165,250,.24)" : "rgba(255,255,255,.07)"}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontSize: 18 }}>📸</span>
+                        <strong style={{ color: C.white, fontSize: 14 }}>1. Report Fotografico Completo</strong>
+                      </div>
+                      <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,.58)", lineHeight: 1.5 }}>
+                        {hasPhotoProof
+                          ? (proof.length > 0 ? `${proof.length} foto con watermark geolocalizzato e certificazione SHA-256.` : (isExecuting ? "Foto in attesa di approvazione dal responsabile operativo." : "Scatti geolocalizzati disponibili al termine della distribuzione."))
+                          : "Non incluso nel tuo ordine — foto geolocalizzate ad alta risoluzione."}
+                      </p>
+                    </div>
+                    <span style={{ padding: "4px 9px", borderRadius: 999, fontSize: 10, fontWeight: 900, background: !hasPhotoProof ? "rgba(255,255,255,.06)" : proof.length > 0 ? "rgba(34,197,94,.12)" : "rgba(251,191,36,.12)", color: !hasPhotoProof ? "rgba(255,255,255,.45)" : proof.length > 0 ? C.green : C.yellow, border: `1px solid ${!hasPhotoProof ? "rgba(255,255,255,.1)" : proof.length > 0 ? "rgba(34,197,94,.28)" : "rgba(251,191,36,.28)"}` }}>
+                      {!hasPhotoProof ? "Non incluso" : proof.length > 0 ? "Disponibile" : "In preparazione"}
+                    </span>
+                  </div>
+                  {hasPhotoProof && (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                      <button type="button" onClick={() => window.location.href = `/customer/campaigns/${campagna.id}/report`} style={{ ...smallButton("primary"), minHeight: 36, fontSize: 11 }}>
+                        Visualizza report fotografico
+                      </button>
+                      <button type="button" onClick={() => window.open(`/customer/campaigns/${campagna.id}/report?print=1`, "_blank")} style={{ ...smallButton(), minHeight: 36, fontSize: 11 }}>
+                        Scarica / Stampa PDF
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. REPORT AVANZATO COPERTURA */}
+                <div style={{ padding: 16, borderRadius: 14, background: "rgba(255,255,255,.03)", border: `1px solid ${hasAdvancedReport ? "rgba(167,139,250,.24)" : "rgba(255,255,255,.07)"}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontSize: 18 }}>📊</span>
+                        <strong style={{ color: C.white, fontSize: 14 }}>2. Report Avanzato Copertura</strong>
+                      </div>
+                      <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,.58)", lineHeight: 1.5 }}>
+                        {hasAdvancedReport
+                          ? (isExecuting || campagnaView.stato === "completata" ? "Analisi PostGIS consolidata con confronto pianificato vs realizzato e mappa densità." : "Elaborazione metrica e mappe di penetrazione disponibili a chiusura lavori.")
+                          : "Non incluso nel tuo ordine — report esecutivo territoriale certificato."}
+                      </p>
+                    </div>
+                    <span style={{ padding: "4px 9px", borderRadius: 999, fontSize: 10, fontWeight: 900, background: !hasAdvancedReport ? "rgba(255,255,255,.06)" : (isExecuting || campagnaView.stato === "completata") ? "rgba(34,197,94,.12)" : "rgba(96,165,250,.12)", color: !hasAdvancedReport ? "rgba(255,255,255,.45)" : (isExecuting || campagnaView.stato === "completata") ? C.green : "#93c5fd", border: `1px solid ${!hasAdvancedReport ? "rgba(255,255,255,.1)" : "rgba(167,139,250,.28)"}` }}>
+                      {!hasAdvancedReport ? "Non incluso" : (isExecuting || campagnaView.stato === "completata") ? "Disponibile" : "In preparazione"}
+                    </span>
+                  </div>
+                  {hasAdvancedReport && (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                      <button type="button" onClick={() => window.location.href = `/customer/campaigns/${campagna.id}/coverage`} style={{ ...smallButton("primary"), minHeight: 36, fontSize: 11, background: "linear-gradient(135deg,#8B5CF6,#6D28D9)" }}>
+                        Visualizza report copertura
+                      </button>
+                      <button type="button" onClick={() => window.open(`/customer/campaigns/${campagna.id}/coverage`, "_blank")} style={{ ...smallButton(), minHeight: 36, fontSize: 11 }}>
+                        Scarica PDF
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. VIDEO PROOF */}
+                <div style={{ padding: 16, borderRadius: 14, background: "rgba(255,255,255,.03)", border: `1px solid ${hasVideoProof ? "rgba(236,72,153,.24)" : "rgba(255,255,255,.07)"}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontSize: 18 }}>🎥</span>
+                        <strong style={{ color: C.white, fontSize: 14 }}>3. Video Proof HD</strong>
+                      </div>
+                      <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,.58)", lineHeight: 1.5 }}>
+                        {hasVideoProof
+                          ? (videoInfo?.status === "pronto" ? `Video documentale verificato (${videoInfo.filename || "MP4 HD"}).` : "Video in elaborazione — caricamento a cura del team operativo prima della chiusura.")
+                          : "Non incluso nel tuo ordine — riprese video in loco a prova di consegna."}
+                      </p>
+                    </div>
+                    <span style={{ padding: "4px 9px", borderRadius: 999, fontSize: 10, fontWeight: 900, background: !hasVideoProof ? "rgba(255,255,255,.06)" : videoInfo?.status === "pronto" ? "rgba(34,197,94,.12)" : "rgba(251,191,36,.12)", color: !hasVideoProof ? "rgba(255,255,255,.45)" : videoInfo?.status === "pronto" ? C.green : C.yellow, border: `1px solid ${!hasVideoProof ? "rgba(255,255,255,.1)" : "rgba(236,72,153,.28)"}` }}>
+                      {!hasVideoProof ? "Non incluso" : videoInfo?.status === "pronto" ? "Pronto" : "In preparazione"}
+                    </span>
+                  </div>
+                  {hasVideoProof && videoInfo?.status === "pronto" && (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                      <button type="button" onClick={() => setVideoModalOpen(true)} style={{ ...smallButton("primary"), minHeight: 36, fontSize: 11, background: "linear-gradient(135deg,#EC4899,#BE185D)" }}>
+                        Guarda Video Proof
+                      </button>
+                      {videoInfo.signedUrl && (
+                        <a href={videoInfo.signedUrl} download style={{ ...smallButton(), minHeight: 36, fontSize: 11, textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+                          Scarica MP4
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 4. QR / LANDING ANALYTICS */}
+                <div style={{ padding: 16, borderRadius: 14, background: "rgba(255,255,255,.03)", border: `1px solid ${hasQrAnalytics ? "rgba(245,158,11,.24)" : "rgba(255,255,255,.07)"}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontSize: 18 }}>📱</span>
+                        <strong style={{ color: C.white, fontSize: 14 }}>4. QR / Landing Analytics</strong>
+                      </div>
+                      <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,.58)", lineHeight: 1.5 }}>
+                        {hasQrAnalytics
+                          ? (qrStats ? `${qrStats.totalScans} scansioni registrate (${qrStats.uniqueVisitors} visitatori unici). QR e link attivi.` : "In configurazione dal team tecnico prima della stampa dei volantini.")
+                          : "Non incluso nel tuo ordine — tracking di ritorno e scansioni real-time."}
+                      </p>
+                    </div>
+                    <span style={{ padding: "4px 9px", borderRadius: 999, fontSize: 10, fontWeight: 900, background: !hasQrAnalytics ? "rgba(255,255,255,.06)" : qrStats ? "rgba(34,197,94,.12)" : "rgba(245,158,11,.12)", color: !hasQrAnalytics ? "rgba(255,255,255,.45)" : qrStats ? C.green : C.yellow, border: `1px solid ${!hasQrAnalytics ? "rgba(255,255,255,.1)" : "rgba(245,158,11,.28)"}` }}>
+                      {!hasQrAnalytics ? "Non incluso" : qrStats ? "Attivo" : "In configurazione"}
+                    </span>
+                  </div>
+                  {hasQrAnalytics && (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                      <button type="button" onClick={() => setQrModalOpen(true)} style={{ ...smallButton("primary"), minHeight: 36, fontSize: 11, background: "linear-gradient(135deg,#F59E0B,#D97706)" }}>
+                        Visualizza Analytics & Link
+                      </button>
+                      <a href={qrInfo.qrSvg} download={`qr-campagna-${campagna.id}.svg`} style={{ ...smallButton(), minHeight: 36, fontSize: 11, textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+                        Scarica QR Vettoriale
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+
             <section style={{ ...dashboardCard({ padding: 22 }) }}>
               <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: C.blue, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Zona e copertura</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 10, marginBottom: 14 }}>
@@ -14084,33 +14307,7 @@ function CampaignDashboardPage({ onNav, campaignId }) {
                 {displayComuni.map(name => <span key={name} style={{ padding: "6px 10px", borderRadius: 999, background: "rgba(96,165,250,.10)", border: "1px solid rgba(96,165,250,.20)", color: "#93c5fd", fontFamily: F.sans, fontSize: 12, fontWeight: 800 }}>{name}</span>)}
               </div>
               <div style={{ padding: 16, borderRadius: 14, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.62)", lineHeight: 1.55 }}>
-                La mappa operativa sara disponibile dopo l'avvio della campagna.
-              </div>
-            </section>
-
-            <section style={{ ...dashboardCard({ padding: 22 }) }}>
-              <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: C.purple, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>GPS e foto</div>
-              {isExecuting && (gpsFormat !== "empty" || proof.length > 0) ? (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
-                  <div style={{ padding: 15, borderRadius: 14, background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.22)", fontFamily: F.sans, fontSize: 13, color: C.white }}>Tracking GPS disponibile durante la distribuzione.</div>
-                  <div style={{ padding: 15, borderRadius: 14, background: "rgba(96,165,250,.08)", border: "1px solid rgba(96,165,250,.22)", fontFamily: F.sans, fontSize: 13, color: C.white }}>{proof.length} foto proof caricate</div>
-                </div>
-              ) : (
-                <div style={{ padding: 16, borderRadius: 14, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.62)", lineHeight: 1.55 }}>
-                  GPS e foto proof saranno disponibili durante la distribuzione se inclusi nel servizio.
-                </div>
-              )}
-            </section>
-
-            <section style={{ ...dashboardCard({ padding: 22 }) }}>
-              <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: C.green, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Documenti campagna</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10 }}>
-                {documentCards.map(([title, text, action]) => (
-                  <button key={title} type="button" onClick={action || undefined} disabled={!action} style={{ textAlign: "left", minHeight: 116, padding: 15, borderRadius: 14, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", cursor: action ? "pointer" : "default", opacity: action ? 1 : .72 }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 900, color: C.white, marginBottom: 8 }}>{title}</div>
-                    <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.54)", lineHeight: 1.45 }}>{text}</div>
-                  </button>
-                ))}
+                La mappa operativa e visualizzabile in dettaglio all'interno del Report di Trasparenza e nel Report Avanzato.
               </div>
             </section>
           </div>
@@ -14118,45 +14315,98 @@ function CampaignDashboardPage({ onNav, campaignId }) {
           <aside style={{ display: "grid", gap: 16, alignContent: "start" }}>
             <section style={{ ...dashboardCard({ padding: 22 }) }}>
               <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: C.orange, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Riepilogo economico</div>
-              {[["Distribuzione base", base], ["Servizi extra", extras], ["Smart Pairing sconto", -discounts], ["Totale campagna", total]].map(([label, value], index) => (
-                <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 14, padding: index === 3 ? "14px 0 0" : "10px 0", borderTop: index === 3 ? "1px solid rgba(255,255,255,.12)" : index === 0 ? "none" : "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12 }}>
+              {[["Distribuzione base", base], ["Servizi extra", extras], discounts > 0 ? ["Smart Pairing sconto", -discounts] : null, ["Totale campagna", total]].filter(Boolean).map(([label, value], index, arr) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 14, padding: index === arr.length - 1 ? "14px 0 0" : "10px 0", borderTop: index === arr.length - 1 ? "1px solid rgba(255,255,255,.12)" : index === 0 ? "none" : "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12 }}>
                   <span style={{ color: "rgba(255,255,255,.54)" }}>{label}</span>
-                  <b style={{ color: value < 0 ? C.green : index === 3 ? C.orange : C.white }}>{`€${Number(value || 0).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</b>
+                  <b style={{ color: value < 0 ? C.green : index === arr.length - 1 ? C.orange : C.white }}>{`€${Number(value || 0).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</b>
                 </div>
               ))}
               <div style={{ marginTop: 14, padding: 12, borderRadius: 12, background: paymentPaid ? "rgba(46,204,138,.08)" : "rgba(232,87,26,.10)", border: `1px solid ${paymentPaid ? "rgba(46,204,138,.22)" : "rgba(232,87,26,.26)"}`, color: paymentPaid ? C.green : C.orange, fontFamily: F.sans, fontSize: 12, fontWeight: 900 }}>{paymentLabel}</div>
             </section>
 
             <section style={{ ...dashboardCard({ padding: 22 }) }}>
-              <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: C.green, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Moduli inclusi</div>
-              {[
-                ["Report Controllo Qualita", hasQualityReportModule],
-                ["Modulo Ottimizzazione AI", hasAiOptimizerModule],
-              ].map(([label, included]) => (
-                <div key={label} style={{ padding: "13px 0", borderTop: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ color: C.white, fontSize: 13, fontWeight: 900 }}>{label}</span>
-                    <span style={{ padding: "4px 8px", borderRadius: 999, background: included ? "rgba(46,204,138,.12)" : "rgba(255,255,255,.06)", border: `1px solid ${included ? "rgba(46,204,138,.26)" : "rgba(255,255,255,.12)"}`, color: included ? C.green : "rgba(255,255,255,.52)", fontSize: 10, fontWeight: 900 }}>{included ? "Incluso" : "Non incluso"}</span>
-                  </div>
-                  <div style={{ color: "rgba(255,255,255,.56)", fontSize: 12, lineHeight: 1.5 }}>
-                    {included ? "Disponibile durante o dopo l'esecuzione della campagna." : "Non incluso nel preventivo."}
-                  </div>
-                </div>
-              ))}
-            </section>
-
-            <section style={{ ...dashboardCard({ padding: 22 }) }}>
-              <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: C.blue, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Dettagli campagna</div>
-              {[["Servizio", serviceLabel], ["Stato", statoLabel], ["Volantini necessari", requiredFlyers != null ? formatNumber(requiredFlyers) : "-"], ["Zona", campagnaView.zona]].map(([label, value]) => (
-                <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 14, padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,.06)", fontFamily: F.sans, fontSize: 12 }}>
-                  <span style={{ color: "rgba(255,255,255,.48)" }}>{label}</span>
-                  <b style={{ color: C.white, textAlign: "right" }}>{value}</b>
-                </div>
-              ))}
+              <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 900, color: C.green, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Documenti campagna</div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {documentCards.map(([title, text, action]) => (
+                  <button key={title} type="button" onClick={action || undefined} disabled={!action} style={{ textAlign: "left", padding: "12px 14px", borderRadius: 12, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,.08)", cursor: action ? "pointer" : "default", opacity: action ? 1 : .72 }}>
+                    <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 900, color: C.white }}>{title}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", marginTop: 3 }}>{text}</div>
+                  </button>
+                ))}
+              </div>
             </section>
           </aside>
         </div>
       </div>
+
+      {/* VIDEO PROOF MODAL */}
+      {videoModalOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,.85)", backdropFilter: "blur(6px)", display: "grid", placeItems: "center", padding: 20 }}>
+          <div style={{ maxWidth: 840, width: "100%", background: "#0F1E30", border: "1px solid rgba(255,255,255,.14)", borderRadius: 18, overflow: "hidden", boxShadow: "0 25px 60px rgba(0,0,0,.5)" }}>
+            <div style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,.08)" }}>
+              <strong style={{ color: C.white, fontSize: 16 }}>🎥 Video Proof Certificato — {campagnaView.zona}</strong>
+              <button type="button" onClick={() => setVideoModalOpen(false)} style={{ background: "none", border: "none", color: C.white, fontSize: 20, cursor: "pointer" }}>✕</button>
+            </div>
+            <div style={{ padding: 20 }}>
+              {videoInfo?.signedUrl ? (
+                <video controls autoPlay style={{ width: "100%", maxHeight: 480, borderRadius: 12, background: "#000" }}>
+                  <source src={videoInfo.signedUrl} type="video/mp4" />
+                  Il tuo browser non supporta la riproduzione video HTML5.
+                </video>
+              ) : (
+                <div style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,.6)" }}>Video non disponibile per la riproduzione.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR ANALYTICS MODAL */}
+      {qrModalOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,.85)", backdropFilter: "blur(6px)", display: "grid", placeItems: "center", padding: 20 }}>
+          <div style={{ maxWidth: 640, width: "100%", background: "#0F1E30", border: "1px solid rgba(255,255,255,.14)", borderRadius: 18, padding: 24, boxShadow: "0 25px 60px rgba(0,0,0,.5)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <strong style={{ color: C.white, fontSize: 18 }}>📱 QR Code & Analytics Real-time</strong>
+              <button type="button" onClick={() => setQrModalOpen(false)} style={{ background: "none", border: "none", color: C.white, fontSize: 20, cursor: "pointer" }}>✕</button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 20, alignItems: "center", marginBottom: 20 }}>
+              <div style={{ background: "#fff", padding: 12, borderRadius: 12, display: "grid", placeItems: "center" }}>
+                <img src={qrInfo.qrSvg} alt="QR Code Campagna" style={{ width: "100%", height: "auto" }} />
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,.5)" }}>Link tracciato per volantino:</div>
+                <div style={{ padding: "10px 12px", background: "rgba(0,0,0,.3)", borderRadius: 8, color: "#93c5fd", fontFamily: "monospace", fontSize: 12, wordBreak: "break-all" }}>
+                  {qrInfo.redirectUrl}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button type="button" onClick={copyQrLink} style={{ ...smallButton("primary"), minHeight: 34, fontSize: 11, background: copiedLink ? C.green : C.orange }}>
+                    {copiedLink ? "✓ Copiato!" : "Copia Link"}
+                  </button>
+                  <a href={qrInfo.qrSvg} download={`qr-campagna-${campagna.id}.svg`} style={{ ...smallButton(), minHeight: 34, fontSize: 11, textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+                    Scarica SVG
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, padding: 14, background: "rgba(255,255,255,.03)", borderRadius: 12, border: "1px solid rgba(255,255,255,.08)" }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase", fontWeight: 800 }}>Scansioni Totali</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: C.orange, marginTop: 4 }}>{qrStats?.totalScans || 0}</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase", fontWeight: 800 }}>Visitatori Unici</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: C.green, marginTop: 4 }}>{qrStats?.uniqueVisitors || 0}</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,.5)", textTransform: "uppercase", fontWeight: 800 }}>Dispositivi Mobile</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: "#60A5FA", marginTop: 4 }}>{qrStats?.mobileCount || 0}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -14612,7 +14862,7 @@ function InteractiveRadiusSlider({ value, options, disabled = false, onCommit, r
   );
 }
 
-export default function App() {
+export default function App({ verifiedAiIdentity = null } = {}) {
   const readPrefill = () => {
     if (typeof window === "undefined") return { has: false, patch: {} };
 const p = new URLSearchParams(window.location.search);
@@ -14685,6 +14935,8 @@ const routeToPage = path => {
     return "step1";
   };
 const [page, setPage] = useState(routeToPage(window.location.pathname));
+const [territorialAiContextId] = useState(() => globalThis.crypto?.randomUUID?.() ?? `step2-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+const territorialAiIdentity = useMemo(() => verifiedAiIdentity ?? Object.freeze({ status: "anonymous" }), [verifiedAiIdentity]);
 
   useEffect(() => {
     const handlePop = () => setPage(routeToPage(window.location.pathname));
@@ -14785,9 +15037,9 @@ const printed = prefillPatch.printed;
 const format = prefillPatch.format;
 const urgency = prefillPatch.urgency;
 const activityType = prefillPatch.activityType;
-      setData(d => ({...d,...(service ? { type: service, selectedService: service, activeService: service } : {}),...(qty > 0 ? { qty, flyerQuantity: qty, flyerQuantityFromStep1: qty } : {}),...(comune ? { cityName: comune, searchedLocation: comune } : {}),...(printed ? { hasFlyers: printed === "true" ? "yes" : "no", alreadyPrinted: printed === "true" } : {}),...(format ? { flyerFormat: format.toLowerCase() } : {}),...(urgency ? { urgency: urgency === "urgent" ? "urgent" : "normal" } : {}),
-...(activityType ? { activityType, businessSector: activityType, distributionTargets: [activityType], distributionTargetsExplicit: false } : {}),
-        quickSource: prefillPatch.source || d.quickSource || ""
+      setData(d => ({...d,...(service ? { type: service, selectedService: service, activeService: service } : {}),...(qty > 0 ? { qty, flyerQuantity: qty, flyerQuantityFromStep1: qty } : {}),...(comune ? { cityName: comune, searchedLocation: comune } : {}),...(printed ? { hasFlyers: printed === "true" ? "yes" : "no", alreadyPrinted: printed === "true" } : {}),...(format ? { flyerFormat: format.toLowerCase() } : {}),...(urgency ? { urgency: urgency === "urgent" ? "urgent" : "normal" } : {}),...(activityType ? { activityType, businessSector: activityType, distributionTargets: [activityType], distributionTargetsExplicit: false } : {}),
+        quickSource: prefillPatch.source || d.quickSource || "",
+        ...(prefillPatch.quickMode !== undefined ? { quickMode: prefillPatch.quickMode } : {})
       }));
     }
     const paths = { home: "/", login: "/login", dashboard: "/dashboard", campaign: prefillPatch?.campaignId ? `/dashboard/${prefillPatch.campaignId}${prefillPatch?.new ? "?nuovo=true" : ""}` : "/dashboard", payment: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}/pagamento` : "/dashboard", report: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}/report` : "/dashboard", privacy: "/privacy", terms: "/termini", cookie: "/cookie-policy", quick: "/preventivo-rapido", consultant: "/consulente", step1: "/configuratore", step2: "/zona", step3: "/calendario", step4: "/riepilogo", admin: "/admin" };
@@ -14851,7 +15103,7 @@ const isConfiguratorPage = page === "step1" || page === "step2" || page === "ste
         {isConfiguratorPage && (
           <>
             {page === "step1" && <Step1 data={data} setData={setData} onNext={() => goTo("step2")} onHome={() => goTo("home")} />}
-            {page === "step2" && <Step2ErrorBoundary><Step2 data={data} setData={setData} onNext={() => goTo("step3")} onBack={() => goTo("step1")} /></Step2ErrorBoundary>}
+            {page === "step2" && <Step2ErrorBoundary><Step2 data={data} setData={setData} onNext={() => goTo("step3")} onBack={() => goTo("step1")} aiIdentity={territorialAiIdentity} aiContextId={territorialAiContextId} /></Step2ErrorBoundary>}
             {page === "step3" && <Step3 data={data} setData={setData} onNext={() => goTo("step4")} onBack={() => goTo("step2")} />}
             {page === "step4" && <Step4 data={data} setData={setData} onBack={() => goTo("step3")} onHome={(p, opts) => goTo(p || "home", opts)} onCampaignSaved={(id) => goTo("payment", { campaignId: id })} />}
           </>

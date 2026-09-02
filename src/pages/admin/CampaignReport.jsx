@@ -210,7 +210,100 @@ export function CampaignReport({ campaignId }) {
           </div>
         ) : <EmptyState text={state.loading ? 'Caricamento foto proof...' : 'Nessuna foto proof per i filtri selezionati.'} />}
       </section>
+
+      <AdminDeliverablesSection campaignId={campaignId} campaign={state.campaign} onNotice={setNotice} />
     </AdminShell>
+  );
+}
+
+function AdminDeliverablesSection({ campaignId, campaign, onNotice }) {
+  const [videoFile, setVideoFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [videoInfo, setVideoInfo] = useState(null);
+  const [qrSlug, setQrSlug] = useState('');
+  const [qrTargetUrl, setQrTargetUrl] = useState('');
+  const [savingQr, setSavingQr] = useState(false);
+
+  useEffect(() => {
+    import('../../lib/services/video-proof-api.js').then((m) => {
+      m.getCampaignVideoInfo(campaignId, campaign).then(setVideoInfo);
+    });
+    const meta = campaign?.metadata || {};
+    setQrSlug(meta.qr_slug || `vp-${String(campaignId).slice(0, 6)}`);
+    setQrTargetUrl(meta.qr_target_url || campaign?.website || 'https://volantinipro.it');
+  }, [campaignId, campaign]);
+
+  async function handleVideoUpload(e) {
+    e.preventDefault();
+    if (!videoFile) return;
+    setUploading(true);
+    try {
+      const { uploadCampaignVideo } = await import('../../lib/services/video-proof-api.js');
+      const res = await uploadCampaignVideo(campaignId, videoFile);
+      setVideoInfo(res);
+      onNotice('Video proof caricato con successo.');
+    } catch (err) {
+      onNotice(`Errore: ${err.message}`);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleSaveQr(e) {
+    e.preventDefault();
+    setSavingQr(true);
+    try {
+      const { supabase } = await import('../../lib/supabaseClient.js');
+      if (supabase) {
+        const { data: c } = await supabase.from('campagne').select('metadata').eq('id', campaignId).single();
+        const updated = { ...(c?.metadata || {}), qr_slug: qrSlug, qr_target_url: qrTargetUrl };
+        await supabase.from('campagne').update({ metadata: updated }).eq('id', campaignId);
+      }
+      onNotice('Configurazione QR Analytics salvata.');
+    } catch (err) {
+      onNotice(`Errore salvataggio QR: ${err.message}`);
+    } finally {
+      setSavingQr(false);
+    }
+  }
+
+  return (
+    <section style={gridTwoStyle}>
+      <div style={cardStyle}>
+        <p style={eyebrowStyle}>Gestione Video Proof</p>
+        <h3 style={{ margin: '0 0 12px', color: '#fff', fontSize: 18 }}>Caricamento Video Campagna</h3>
+        {videoInfo?.status === 'pronto' ? (
+          <div style={{ padding: 14, background: 'rgba(34,197,94,.1)', borderRadius: 10, border: '1px solid rgba(34,197,94,.3)', marginBottom: 14 }}>
+            <strong style={{ color: '#22C55E' }}>✓ Video Proof attivo</strong>
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,.7)' }}>File: {videoInfo.filename} ({Math.round((videoInfo.size || 0) / 1024 / 1024)} MB)</p>
+          </div>
+        ) : (
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', marginBottom: 14 }}>Carica un video MP4/WebM per rendere disponibile il Video Proof nell'Area Cliente.</p>
+        )}
+        <form onSubmit={handleVideoUpload} style={{ display: 'grid', gap: 10 }}>
+          <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={(e) => setVideoFile(e.target.files?.[0] || null)} style={inputStyle} />
+          <button type="submit" disabled={!videoFile || uploading} style={{ ...buttonStyle, background: '#E8571A', border: 'none', textAlign: 'center' }}>
+            {uploading ? 'Caricamento in corso...' : 'Carica Video Proof'}
+          </button>
+        </form>
+      </div>
+
+      <div style={cardStyle}>
+        <p style={eyebrowStyle}>Configurazione QR Analytics</p>
+        <h3 style={{ margin: '0 0 12px', color: '#fff', fontSize: 18 }}>Parametri QR & Redirect</h3>
+        <form onSubmit={handleSaveQr} style={{ display: 'grid', gap: 10 }}>
+          <label style={labelStyle}>Slug univoco (/q/:slug)
+            <input value={qrSlug} onChange={(e) => setQrSlug(e.target.value)} style={inputStyle} />
+          </label>
+          <label style={labelStyle}>URL di destinazione finale
+            <input value={qrTargetUrl} onChange={(e) => setQrTargetUrl(e.target.value)} style={inputStyle} placeholder="https://tuosito.it/promozione" />
+          </label>
+          <button type="submit" disabled={savingQr} style={{ ...buttonStyle, background: '#3b82f6', border: 'none', textAlign: 'center' }}>
+            {savingQr ? 'Salvataggio...' : 'Salva Configurazione QR'}
+          </button>
+        </form>
+      </div>
+    </section>
   );
 }
 

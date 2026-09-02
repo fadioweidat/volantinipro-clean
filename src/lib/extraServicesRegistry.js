@@ -5,11 +5,13 @@
    registro è ora una funzione parametrizzata invece di una costante statica. */
 
 export const SELECTED_EXTRAS_ORDER = [
-  "tracking_gps", "photo_proof", "printing", "graphic_design", "design",
-  "quality_control", "operator_support", "urgent_distribution", "puntiVetrina",
-  "dedicated_supervision",
+  "tracking_gps", "photo_proof", "advanced_report", "qr_analytics", "video_proof",
+  "printing", "graphic_design", "design", "quality_control", "operator_support",
+  "urgent_distribution", "puntiVetrina", "dedicated_supervision",
 ];
-export const OPTIONAL_EXTRAS_ORDER = ["graphic_design", "tracking_gps", "photo_proof", "dedicated_supervision"];
+export const OPTIONAL_EXTRAS_ORDER = [
+  "graphic_design", "tracking_gps", "photo_proof", "advanced_report", "qr_analytics", "video_proof", "dedicated_supervision"
+];
 
 export function buildExtraServicesRegistry({ flyerQty, dedicatedSupervisionPrice, campaignDurationKnown }) {
   return [
@@ -23,11 +25,35 @@ export function buildExtraServicesRegistry({ flyerQty, dedicatedSupervisionPrice
     },
     {
       id: "photo_proof", legacyIds: ["foto", "photo_proof", "foto_localizzate", "photo_report_advanced"], addId: "photo_report_advanced",
-      commercialIcon: "camera", head: "Report Fotografico", col: "#60A5FA", badge: "Massima sicurezza",
+      commercialIcon: "camera", head: "Report Fotografico Completo", col: "#60A5FA", badge: "Massima sicurezza",
       bullets: ["30 foto geolocalizzate con data e orario", "Conferma visiva zona per zona", "Archivio scaricabile dal portale cliente"],
       mappingLabel: "Foto localizzate", mappingDescription: "Prove fotografiche con data, zona e riferimento operativo.", mappingIcon: "",
       optionalDescription: "Proof fotografici con data e zona.", optionalMicro: "Foto geolocalizzate con data e ora.", optionalIcon: "PHOTO",
       price: 35, optional: true,
+    },
+    {
+      id: "advanced_report", legacyIds: ["advanced_report", "report_avanzato", "report_analytics", "report_copertura"], addId: "advanced_report",
+      commercialIcon: "chart", head: "Report Avanzato Copertura", col: "#A78BFA", badge: "PostGIS & Audit",
+      bullets: ["Mappa copertura e densità famiglie", "Confronto pianificato vs realizzato", "Certificato esecutivo esportabile in PDF"],
+      mappingLabel: "Report Avanzato Copertura", mappingDescription: "Analisi di penetrazione territoriale certificata su base PostGIS.", mappingIcon: "",
+      optionalDescription: "Report esecutivo con analisi di copertura territoriale.", optionalMicro: "Metriche territoriali e audit distributivo completo.", optionalIcon: "CHART",
+      price: 39, optional: true,
+    },
+    {
+      id: "qr_analytics", legacyIds: ["qr", "qr_analytics", "landing_analytics", "qr_landing"], addId: "qr_analytics",
+      commercialIcon: "qr", head: "QR & Landing Analytics", col: "#F59E0B", badge: "Conversion Tracking",
+      bullets: ["QR Code dedicato vettoriale e PNG", "Tracciamento scansioni e visitatori unici", "Statistiche in tempo reale in Area Cliente"],
+      mappingLabel: "QR / Landing Analytics", mappingDescription: "Tracciamento del ritorno e scansioni generate dal volantino.", mappingIcon: "",
+      optionalDescription: "QR code tracciato con metriche di scansione in tempo reale.", optionalMicro: "Monitora le risposte e le conversioni generate.", optionalIcon: "QR",
+      price: 49, optional: true,
+    },
+    {
+      id: "video_proof", legacyIds: ["video", "video_proof", "video_distribuzione"], addId: "video_proof",
+      commercialIcon: "video", head: "Video Proof HD", col: "#EC4899", badge: "Certificazione Video",
+      bullets: ["Video documentale della distribuzione", "Verifica passaggi sul campo", "Player HD protetto in Area Cliente"],
+      mappingLabel: "Video Proof", mappingDescription: "Riprese video della distribuzione ad alta definizione.", mappingIcon: "",
+      optionalDescription: "Video verifica sul campo delle attività distributive.", optionalMicro: "Prova visiva video ad alta risoluzione.", optionalIcon: "VIDEO",
+      price: 69, optional: true,
     },
     {
       id: "graphic_design", legacyIds: ["graphic_design", "grafica_progetto"], addId: "graphic_design",
@@ -108,8 +134,7 @@ export function normalizeSelectedExtras(data, registryById) {
   ];
 
   return SELECTED_EXTRAS_ORDER.map((id) => registryById[id]).filter((ext) =>
-    ext.legacyIds.some((oid) => currentServices.includes(oid)) ||
-    data[ext.id] === true
+    ext && (ext.legacyIds.some((oid) => currentServices.includes(oid)) || data[ext.id] === true)
   ).map((ext) => ({
     id: ext.id,
     label: ext.mappingLabel,
@@ -122,7 +147,7 @@ export function normalizeSelectedExtras(data, registryById) {
 }
 
 export function buildOptionalExtras(registryById) {
-  return OPTIONAL_EXTRAS_ORDER.map((id) => registryById[id]).map((ext) => ({
+  return OPTIONAL_EXTRAS_ORDER.map((id) => registryById[id]).filter(Boolean).map((ext) => ({
     id: ext.id,
     addId: ext.addId,
     removeIds: ext.legacyIds,
