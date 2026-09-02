@@ -159,4 +159,23 @@ describe('Premium Services End-to-End Test Suite', () => {
     assert.equal(redirectedStatus, 302, 'Bot is redirected normally without crashing');
     assert.ok(redirectedHeaders.Location);
   });
+
+  it('Fase 3: Open redirect protection blocks dangerous URI schemes like javascript: and data:', async () => {
+    const handler = (await import('../api/q/[slug].js')).default;
+    let redirectedHeaders = null;
+
+    const mockReq = {
+      query: { slug: 'vp-malicious-test' },
+      headers: { 'user-agent': 'Mozilla/5.0' },
+    };
+    const mockRes = {
+      writeHead(status, headers) { redirectedHeaders = headers; },
+      end() {},
+      status() { return { send() {} }; },
+    };
+
+    await handler(mockReq, mockRes);
+    assert.ok(redirectedHeaders.Location.startsWith('http://') || redirectedHeaders.Location.startsWith('https://'));
+    assert.ok(!redirectedHeaders.Location.includes('javascript:'));
+  });
 });

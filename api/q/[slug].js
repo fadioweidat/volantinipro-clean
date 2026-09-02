@@ -37,6 +37,21 @@ function detectDevice(userAgent) {
   return 'desktop';
 }
 
+function sanitizeTargetUrl(url) {
+  if (!url || typeof url !== 'string') return 'https://volantinipro.it';
+  const trimmed = url.trim();
+  if (/^(javascript|data|file|vbscript):/i.test(trimmed)) {
+    return 'https://volantinipro.it';
+  }
+  try {
+    const parsed = new URL(trimmed.startsWith('http://') || trimmed.startsWith('https://') ? trimmed : `https://${trimmed}`);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.href;
+    }
+  } catch {}
+  return 'https://volantinipro.it';
+}
+
 export default async function handler(req, res) {
   const { slug } = req.query;
 
@@ -94,14 +109,11 @@ export default async function handler(req, res) {
     }
   }
 
-  // Ensure targetUrl has protocol
-  if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
-    targetUrl = `https://${targetUrl}`;
-  }
+  const safeLocation = sanitizeTargetUrl(targetUrl);
 
   // Server-side HTTP 302 Redirect
   res.writeHead(302, {
-    Location: targetUrl,
+    Location: safeLocation,
     'Cache-Control': 'no-store, no-cache, must-revalidate',
   });
   res.end();
