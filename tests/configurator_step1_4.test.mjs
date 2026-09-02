@@ -110,12 +110,17 @@ test("UI, payload DB e PDF condividono lo stesso totale e il PDF è valido", () 
   const bytes = generateQuotePdfBytes(quote);
   assert.equal(validatePdfBytes(bytes), true);
   const step4 = fs.readFileSync(path.join(root, "src/pages/public/configurator/Step4.jsx"), "utf8");
+  // total_amount (importo distribuzione pagabile via bonifico) resta il
+  // totale distribuzione: stampa/grafica confermate e fatturate a parte.
   assert.match(step4, /total_amount: Number\(total\.toFixed\(2\)\)/);
   assert.match(step4, /pricing: quotePdfData\.pricing/);
   // P1 STAMPA SEPARATA DAL PREVENTIVO: "total" resta il totale distribuzione
-  // (stampa esclusa); il blocco pricing ora espone anche un campo "printing"
-  // separato (stima indicativa, mai sommata) subito dopo "total,".
-  assert.match(step4, /total,\s*\n\s*printing: printingExtra \? \{/);
+  // (stampa esclusa) e il blocco pricing espone un campo "printing" separato.
+  // Il "Prezzo finale" mostrato al cliente (hero Step 4 + PDF) usa invece
+  // grandTotal = distribuzione + stampa indicativa + grafica.
+  assert.match(step4, /const grandTotal = Number\(\(total \+ printingLinePrice \+ graphicLinePrice\)\.toFixed\(2\)\)/);
+  assert.match(step4, /pricing: \{[\s\S]*?\btotal,[\s\S]*?\bgrandTotal,[\s\S]*?printing: printingExtra \? \{/);
+  assert.match(step4, /metadata: \{[\s\S]{0,40}grand_total: grandTotal,/);
   assert.match(step4, /const distributionExtras = selectedExtras\.filter\(e => e\.id !== "printing"\)/);
   assert.match(step4, /extras: distributionExtras, distributionZones: distributionZonesForPricing/);
   assert.match(step4, /quantityIsSufficient == null \? null/);

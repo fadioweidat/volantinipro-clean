@@ -8,7 +8,7 @@ export function Step4PricingSummaryPanel({ tLabel, baseCost, serviceExtras, disc
     return sum + (Number.isFinite(n) ? n : 0);
   }, 0);
   const displayTotal = Number.isFinite(grandTotal) ? grandTotal : total;
-  const stampaLabel = printingSelected ? (printPriceKnown ? eur(printingLinePrice) : "Da verificare") : "Non inclusa";
+  const stampaLabel = printingSelected ? (printPriceKnown ? `~${eur(printingLinePrice)} · indicativa` : "Da verificare") : "Non inclusa";
   const graficaLabel = (artworkRequired && artworkSelected) ? eur(graphicLinePrice) : (artworkRequired ? "Non inclusa" : "Non inclusa / €0");
   const row5 = (label, value, opts = {}) => (
     <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 5, borderBottom: "1px solid rgba(255,255,255,.04)" }}>
@@ -268,7 +268,7 @@ export function Step4PricingSummaryPanel({ tLabel, baseCost, serviceExtras, disc
                 fontSize: 10,
                 color: "rgba(255,255,255,.4)",
                 marginTop: 2
-              }}>{printPriceKnown ? "Da confermare in tipografia — non inclusa nel totale distribuzione" : "Configurazione da verificare con VolantiniPro — non inclusa nel totale distribuzione"}</div>
+              }}>{printPriceKnown ? "Stampa indicativa — da confermare in tipografia" : "Configurazione da verificare con VolantiniPro"}</div>
                 </div>
                 <span style={{
                 fontFamily: F.sans,

@@ -262,7 +262,7 @@ export function Step4({
         lineHeight: 1.55
       }}>{text}</div>
       </div>;
-    const previewKpis = [["Zona", mainAreaLabel, C.white], ["Volantini", formatNumber(flyerQty), C.orange], ["Famiglie stimate", formatNumber(realFamilies), C.green], ["Copertura stimata", realCoverage != null ? `${realCoverage}%` : "-", C.green], ["Comuni", realComuniCount != null ? formatNumber(realComuniCount) : "-", C.blue], ["Totale", eur(total), C.orange]];
+    const previewKpis = [["Zona", mainAreaLabel, C.white], ["Volantini", formatNumber(flyerQty), C.orange], ["Famiglie stimate", formatNumber(realFamilies), C.green], ["Copertura stimata", realCoverage != null ? `${realCoverage}%` : "-", C.green], ["Comuni", realComuniCount != null ? formatNumber(realComuniCount) : "-", C.blue], ["Totale", eur(grandTotal), C.orange]];
     if (ext.id === "tracking_gps") {
       return <div style={{
         display: "grid",
@@ -1123,13 +1123,26 @@ export function Step4({
         percentage: subDiscPct
       } : null].filter(Boolean),
       total,
+      // Prezzo finale coerente con la UI Step 4: distribuzione + stampa
+      // selezionata + grafica selezionata. La stampa resta INDICATIVA (da
+      // confermare in tipografia) ma e' inclusa nel totale mostrato.
+      grandTotal,
+      printingLine: (printingSelected && printPriceKnown) ? {
+        label: "Stampa materiale (indicativa)",
+        amount: printingLinePrice,
+        note: "Da confermare in tipografia"
+      } : null,
+      graphicLine: (graphicLinePrice > 0) ? {
+        label: "Grafica",
+        amount: graphicLinePrice
+      } : null,
       printing: printingExtra ? {
         label: "Stampa indicativa",
         amount: printPriceKnown ? printQuote.customerPrice : null,
         priceStatus: printQuote.priceStatus,
         note: printPriceKnown
-          ? "Da confermare in tipografia — non inclusa nel totale distribuzione"
-          : "Configurazione da verificare con VolantiniPro — non inclusa nel totale distribuzione"
+          ? "Stampa indicativa — da confermare in tipografia"
+          : "Configurazione da verificare con VolantiniPro"
       } : null
     },
     sources: svcType === "d2d" ? d2dSummarySources : serviceSummaryConfig.sources || []
@@ -1250,8 +1263,13 @@ export function Step4({
         client_phone: clientForm.telefono,
         company_name: clientForm.azienda,
         smart_pairing_discount: disc,
+        // total_amount = importo distribuzione pagabile ora via bonifico
+        // (stampa/grafica confermate e fatturate separatamente — P1 STAMPA
+        // SEPARATA). metadata.grand_total = prezzo finale mostrato al cliente
+        // in Step 4 e nel PDF (distribuzione + stampa indicativa + grafica).
         total_amount: Number(total.toFixed(2)),
         metadata: {
+          grand_total: grandTotal,
           zona: mainAreaLabel,
           comune: data.cityName || data.comune || selectedZoneNames[0] || null,
           mode: data.searchMode || data.areaMode || "configurator",
@@ -1858,7 +1876,14 @@ export function Step4({
             color: col,
             letterSpacing: "-1.5px",
             lineHeight: 1
-          }}>{eur(total)}</div>
+          }}>{eur(grandTotal)}</div>
+            {printingSelected && printPriceKnown && <div style={{
+            fontFamily: F.sans,
+            fontSize: 9,
+            fontWeight: 600,
+            color: "rgba(255,255,255,.5)",
+            marginTop: 5
+          }}>Stampa indicativa ~{eur(printingLinePrice)} · da confermare</div>}
           </div>
         </div>
         {(selectedExtras.length > 0 || disc > 0) && <div style={{
@@ -2896,7 +2921,7 @@ export function Step4({
             fontSize: 22,
             color: col,
             letterSpacing: "-.4px"
-          }}>{eur(total)}</div>
+          }}>{eur(grandTotal)}</div>
             </div>
             {isQuick ? <button className="btn" onClick={() => onHome("step1")} style={{
           minHeight: 48,

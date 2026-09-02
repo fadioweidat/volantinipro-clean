@@ -414,14 +414,20 @@ export function printQuotePdf(rawData) {
         ${(pricing.discounts || []).map(disc => `<tr class="row-discount">
           <td>${disc.label}</td><td>—</td><td>—</td><td>−${cur(disc.amount)}</td>
         </tr>`).join("")}
+        ${pricing.printingLine ? `<tr class="row-extra">
+          <td>${pricing.printingLine.label}</td><td>—</td><td>—</td><td>~${cur(pricing.printingLine.amount)}</td>
+        </tr>` : ""}
+        ${pricing.graphicLine ? `<tr class="row-extra">
+          <td>${pricing.graphicLine.label}</td><td>—</td><td>—</td><td>${cur(pricing.graphicLine.amount)}</td>
+        </tr>` : ""}
       </tbody>
     </table>
     <div class="total-box">
       <div>
-        <div class="total-label">Totale stimato</div>
-        <div class="total-note">IVA esclusa · soggetto a conferma finale · nessun pagamento anticipato</div>
+        <div class="total-label">Prezzo finale stimato</div>
+        <div class="total-note">IVA esclusa · soggetto a conferma finale · nessun pagamento anticipato${pricing.printingLine ? " · stampa indicativa da confermare in tipografia" : ""}</div>
       </div>
-      <div class="total-amount">${cur(pricing.total)}</div>
+      <div class="total-amount">${cur(pricing.grandTotal != null ? pricing.grandTotal : pricing.total)}</div>
     </div>
   </div>
 

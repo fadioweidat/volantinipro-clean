@@ -12,26 +12,43 @@ const CATEGORY_LABELS = {
   [EXTRA_CATEGORIES.ASSISTENZA]: "Assistenza",
 };
 
+// Servizi opzionali mostrati SUBITO nella vista principale: i due più
+// comprensibili/utili. Tutti gli altri (Controllo PRO, Foto Proof Base,
+// Video Proof, QR / Landing Analytics, Report Avanzato Copertura, Account
+// Manager, Supervisione Dedicata) restano nel registry e acquistabili, ma
+// solo dopo aver aperto "Altri servizi opzionali".
+const PRIMARY_OPTIONAL_IDS = ["tracking_gps", "photo_report_advanced"];
+
 function formatExtraPrice(ext, eur) {
   return ext.priceUnit === "day" ? `${eur(ext.price)} / giorno` : `+${eur(ext.price)}`;
 }
 
 export function Step4ExtrasPanel({ box, secHead, isQuick, sectionAccent, selectedExtras, optionalExtras, isMobile, svcCommercial, eur, urgencySurchargePctLabel, removeOptionalExtra, addOptionalExtra, isOptionalExtraSelected, selectedExtraIds }) {
+  const [showMoreOptional, setShowMoreOptional] = React.useState(false);
   const isControlProSelected = (selectedExtraIds || []).includes("control_pro");
-  const groupedOptionalExtras = CATEGORY_ORDER.map(category => ({
+  const selectedIdSet = new Set(selectedExtraIds || []);
+
+  // Un opzionale già selezionato appare tra i "Servizi inclusi / selezionati"
+  // sopra: non va ripetuto tra gli opzionali (niente duplicazioni).
+  const notYetSelected = (ext) => !selectedIdSet.has(ext.id) && !isOptionalExtraSelected(ext);
+  const primaryOptional = optionalExtras.filter(ext => PRIMARY_OPTIONAL_IDS.includes(ext.id) && notYetSelected(ext));
+  const advancedOptional = optionalExtras.filter(ext => !PRIMARY_OPTIONAL_IDS.includes(ext.id) && notYetSelected(ext));
+
+  const groupedAdvancedExtras = CATEGORY_ORDER.map(category => ({
     category,
     label: CATEGORY_LABELS[category],
-    items: optionalExtras.filter(ext => ext.category === category)
+    items: advancedOptional.filter(ext => ext.category === category)
   })).filter(group => group.items.length > 0);
-  const uncategorizedExtras = optionalExtras.filter(ext => !CATEGORY_ORDER.includes(ext.category));
+  const uncategorizedAdvanced = advancedOptional.filter(ext => !CATEGORY_ORDER.includes(ext.category));
+
   return (
     <div style={{
           ...box(),
           padding: "18px"
         }}>
-            {secHead("3", isQuick ? "Personalizza il tuo preventivo" : "Servizi inclusi", isQuick ? "Seleziona i servizi extra per la tua campagna" : "Cosa ricevi con questa campagna", sectionAccent)}
+            {secHead("3", isQuick ? "Personalizza il tuo preventivo" : "Servizi inclusi e selezionati", isQuick ? "Seleziona i servizi extra per la tua campagna" : "Cosa comprende il tuo preventivo", sectionAccent)}
 
-            {/* ── Servizi già inclusi — commercial cards ── */}
+            {/* ── Servizi realmente scelti / inclusi ── */}
             {selectedExtras.length === 0 ? <div style={{
             padding: "16px",
             textAlign: "center",
@@ -42,7 +59,7 @@ export function Step4ExtrasPanel({ box, secHead, isQuick, sectionAccent, selecte
             fontSize: 13,
             color: "rgba(255,255,255,.34)"
           }}>
-                Nessun servizio extra selezionato. Scopri le opzioni disponibili qui sotto.
+                Nessun servizio extra selezionato. La distribuzione è comunque inclusa nel preventivo. Aggiungi altri servizi qui sotto.
               </div> : <div style={{
             display: "grid",
             gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))",
@@ -184,8 +201,8 @@ export function Step4ExtrasPanel({ box, secHead, isQuick, sectionAccent, selecte
             })}
               </div>}
 
-            {/* ── Optional non ancora aggiunti, raggruppati in 3 gruppi ── */}
-            {optionalExtras.length > 0 && <div style={{
+            {/* ── Servizi opzionali principali (sempre visibili) ── */}
+            {primaryOptional.length > 0 && <div style={{
             marginTop: 24,
             paddingTop: 20,
             borderTop: "1px solid rgba(255,255,255,.08)"
@@ -198,46 +215,82 @@ export function Step4ExtrasPanel({ box, secHead, isQuick, sectionAccent, selecte
               textTransform: "uppercase",
               letterSpacing: ".08em",
               marginBottom: 16
-            }}>Aggiungi servizi facoltativi al preventivo</div>
-                {groupedOptionalExtras.map((group, groupIdx) => <div key={group.category} style={{
-              marginTop: groupIdx === 0 ? 0 : 22
-            }}>
-                    <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                marginBottom: 10
-              }}>
-                      <span style={{
-                  fontFamily: F.sans,
-                  fontSize: 10,
-                  fontWeight: 900,
-                  color: "rgba(255,255,255,.66)",
-                  textTransform: "uppercase",
-                  letterSpacing: ".1em"
-                }}>{group.label}</span>
-                      <span style={{
-                  flex: 1,
-                  height: 1,
-                  background: "rgba(255,255,255,.08)"
-                }} />
-                    </div>
-                    <div style={{
-                display: "grid",
-                gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(280px,1fr))",
-                gap: 12
-              }}>
-                      {group.items.map(ext => renderOptionalCard(ext))}
-                    </div>
-                  </div>)}
-                {uncategorizedExtras.length > 0 && <div style={{
+            }}>Servizi opzionali</div>
+                <div style={{
               display: "grid",
               gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(280px,1fr))",
-              gap: 12,
-              marginTop: 22
+              gap: 12
             }}>
-                    {uncategorizedExtras.map(ext => renderOptionalCard(ext))}
-                  </div>}
+                  {primaryOptional.map(ext => renderOptionalCard(ext))}
+                </div>
+              </div>}
+
+            {/* ── Altri servizi opzionali (nascosti dietro un controllo) ── */}
+            {advancedOptional.length > 0 && <div style={{
+            marginTop: primaryOptional.length > 0 ? 20 : 24,
+            paddingTop: primaryOptional.length > 0 ? 0 : 20,
+            borderTop: primaryOptional.length > 0 ? "none" : "1px solid rgba(255,255,255,.08)"
+          }}>
+                <button type="button" onClick={() => setShowMoreOptional(v => !v)} style={{
+              width: "100%",
+              padding: "11px 14px",
+              borderRadius: 10,
+              border: "1px solid rgba(255,255,255,.14)",
+              background: "rgba(255,255,255,.03)",
+              color: "rgba(255,255,255,.72)",
+              fontFamily: F.sans,
+              fontSize: 12,
+              fontWeight: 800,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8
+            }}>
+                  {showMoreOptional ? "Nascondi altri servizi opzionali" : `Mostra altri servizi opzionali (${advancedOptional.length})`}
+                  <span style={{ fontSize: 10 }}>{showMoreOptional ? "▲" : "▼"}</span>
+                </button>
+                {showMoreOptional && <div style={{ marginTop: 16 }}>
+                  {groupedAdvancedExtras.map((group, groupIdx) => <div key={group.category} style={{
+                marginTop: groupIdx === 0 ? 0 : 22
+              }}>
+                      <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  marginBottom: 10
+                }}>
+                        <span style={{
+                    fontFamily: F.sans,
+                    fontSize: 10,
+                    fontWeight: 900,
+                    color: "rgba(255,255,255,.66)",
+                    textTransform: "uppercase",
+                    letterSpacing: ".1em"
+                  }}>{group.label}</span>
+                        <span style={{
+                    flex: 1,
+                    height: 1,
+                    background: "rgba(255,255,255,.08)"
+                  }} />
+                      </div>
+                      <div style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(280px,1fr))",
+                  gap: 12
+                }}>
+                        {group.items.map(ext => renderOptionalCard(ext))}
+                      </div>
+                    </div>)}
+                  {uncategorizedAdvanced.length > 0 && <div style={{
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(280px,1fr))",
+                gap: 12,
+                marginTop: 22
+              }}>
+                      {uncategorizedAdvanced.map(ext => renderOptionalCard(ext))}
+                    </div>}
+                </div>}
               </div>}
           </div>
   );
