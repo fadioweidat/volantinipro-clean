@@ -1604,6 +1604,17 @@ export function Step2ComunePanel({ activeCampaignZone, activeComuneZeroData, add
                                         {coverageDecision === "manual" ? "[x] " : ""}Modifica manualmente
                                       </button>
                                     </div>
+                                    <div style={{
+                            fontFamily: F.sans,
+                            fontSize: 11,
+                            color: "rgba(255,255,255,.55)",
+                            lineHeight: 1.45,
+                            marginTop: 2
+                          }}>
+                                      {isRadiusMode
+                                        ? `Con ${Number(availableFlyers || 0).toLocaleString("it-IT", { useGrouping: true })} volantini copriremo progressivamente le zone prioritarie partendo dal punto selezionato, fino all'esaurimento della quantità. Il raggio indica l'area di riferimento, ma non garantisce la copertura completa se la quantità non è sufficiente.`
+                                        : `Con ${Number(availableFlyers || 0).toLocaleString("it-IT", { useGrouping: true })} volantini copriremo progressivamente le zone a priorità più alta, fino all'esaurimento della quantità. Le zone non raggiunte restano escluse.`}
+                                    </div>
                                     {coverageDecision === "manual" && <div style={{
                             display: "flex",
                             flexDirection: "column",
