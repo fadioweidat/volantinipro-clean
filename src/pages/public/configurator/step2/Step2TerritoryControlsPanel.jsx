@@ -139,6 +139,17 @@ export function Step2TerritoryControlsPanel({ activeAreaTab, activeZoneId, addre
                       cursor: "pointer",
                       transition: "all.2s"
                     }}>Comune</button>
+                    <button onClick={switchToRadiusMode} style={{
+                      padding: "9px 10px",
+                      background: activeAreaTab === "raggio" ? col : "transparent",
+                      border: "none",
+                      color: C.white,
+                      fontFamily: F.sans,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      transition: "all.2s"
+                    }}>Raggio</button>
                     <button onClick={switchToCapMode} style={{
                       padding: "9px 10px",
                       background: activeAreaTab === "cap" ? col : "transparent",
