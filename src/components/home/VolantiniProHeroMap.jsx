@@ -170,6 +170,7 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
               )}
             </div>
             <button onClick={() => scrollToSection("chi-siamo")} style={navButtonStyle}>Chi siamo</button>
+            <button onClick={() => scrollToSection("contatti")} style={navButtonStyle}>Contatti</button>
           </div>
         )}
 
@@ -229,6 +230,7 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
         <div style={mobileMenuStyle}>
           <button onClick={() => { setMenuOpen(false); scrollToSection("come-funziona"); }} style={mobileMenuItemStyle}>Come funziona</button>
           <button onClick={() => { setMenuOpen(false); scrollToSection("prezzi"); }} style={mobileMenuItemStyle}>Prezzi</button>
+          <button onClick={() => { setMenuOpen(false); scrollToSection("contatti"); }} style={mobileMenuItemStyle}>Contatti</button>
           <button onClick={() => { setMenuOpen(false); onConfigure?.(); }} style={mobileMenuItemStyle}>Piattaforma: Configuratore</button>
           <button onClick={() => setAccessOpen((v) => !v)} aria-expanded={accessOpen} aria-haspopup="true" style={{ ...mobileMenuItemStyle, color: C.orange, display: "flex", alignItems: "center", gap: 6 }}>
             <span>Accedi</span>

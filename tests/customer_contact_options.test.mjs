@@ -79,12 +79,22 @@ test("InlineHelpCta: overlay fisso richiudibile, 'Hai bisogno di aiuto?', [Chied
   assert.doesNotMatch(src, /configurator\/Step|quotePricing|pricing|territorialCampaignCalculator/);
 });
 
-// ── Navbar: voce "Contatti" (desktop + mobile) ──────────────────────────
-test("Navbar: voce 'Contatti' presente e collega alla sezione #contatti (desktop e mobile)", () => {
+// ── Navbar (pagine non-home): voce "Contatti" desktop + mobile ─────────
+test("Navbar.jsx: voce 'Contatti' presente e collega alla sezione #contatti (desktop e mobile)", () => {
   const src = read("src/layouts/public/Navbar.jsx");
   const contattiButtons = src.match(/scrollToSection\("contatti"\)/g) || [];
   assert.ok(contattiButtons.length >= 2, `attese >=2 voci Contatti (desktop+mobile), trovate ${contattiButtons.length}`);
   assert.match(src, />\s*Contatti\s*</);
+});
+
+// ── Navbar homepage (VolantiniProHeroMap): stessa voce "Contatti" ──────
+test("VolantiniProHeroMap: 'Contatti' -> scrollToSection('contatti') sia desktop sia mobile", () => {
+  const src = read("src/components/home/VolantiniProHeroMap.jsx");
+  const hits = src.match(/scrollToSection\("contatti"\)/g) || [];
+  assert.ok(hits.length >= 2, `attese >=2 voci Contatti (desktop+mobile) nella hero nav, trovate ${hits.length}`);
+  assert.match(src, />Contatti<\/button>/);
+  // scrollToSection della hero fa scroll all'id, coerente con id="contatti" della sezione
+  assert.match(src, /const scrollToSection = \(id\) => \{[\s\S]*getElementById\(id\)\?\.scrollIntoView/);
 });
 
 // ── HomePage monta la sezione ────────────────────────────────────────────
