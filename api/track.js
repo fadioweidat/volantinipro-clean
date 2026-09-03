@@ -13,6 +13,7 @@
 
 import { validateAnalyticsEvent, ANALYTICS_LIMITS } from '../src/lib/analytics/eventSchema.js';
 import { readVercelGeo, prettyRegion } from '../src/lib/analytics/geo.js';
+import { originKindFromHost, isBotUserAgent } from '../src/lib/analytics/trafficClass.js';
 
 const RATE_MAX = 60; // eventi/minuto per client
 const RATE_WINDOW_MS = 60 * 1000;
@@ -81,7 +82,25 @@ export default async function handler(req, res) {
     ? { country: rawGeo.country, region: prettyRegion(rawGeo.country, rawGeo.region), city: rawGeo.city }
     : null;
 
-  const result = validateAnalyticsEvent({ ...payload, geo }, { allowGeo: true });
+  // Classificazione traffico lato ingestion:
+  //  - origin_kind: dall'host della request (Origin, poi Referer). Solo l'enum
+  //    finale (public|test|preview|unknown) finisce in metadata — mai l'host
+  //    string, mai l'IP, mai lo User-Agent raw.
+  //  - bot: ri-valutato dallo User-Agent REALE della request (più affidabile
+  //    del device_type calcolato dal client). Se è un bot forziamo
+  //    device_type='bot' PRIMA della validazione.
+  const originKind = originKindFromHost(
+    headers.origin || headers.Origin || headers.referer || headers.Referer || null,
+  );
+  const serverIsBot = isBotUserAgent(headers['user-agent'] || headers['User-Agent'] || '');
+  const mergedMetadata = { ...(payload.metadata && typeof payload.metadata === 'object' ? payload.metadata : {}), origin_kind: originKind };
+  const enrichedPayload = {
+    ...payload,
+    metadata: mergedMetadata,
+    device_type: serverIsBot ? 'bot' : payload.device_type,
+  };
+
+  const result = validateAnalyticsEvent({ ...enrichedPayload, geo }, { allowGeo: true });
   if (!result.ok) return end(422);
 
   const { url, serviceKey } = supabaseConfig();

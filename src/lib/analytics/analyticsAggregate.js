@@ -7,6 +7,7 @@
 // vecchie senza session_id.
 
 import { resolveTrafficSource } from './utm.js';
+import { classifyTrafficRow, classesForFilter, excludedBucketOf, TRAFFIC_FILTERS } from './trafficClass.js';
 
 function localDateKey(date) {
   const d = date instanceof Date ? date : new Date(date);
@@ -167,14 +168,26 @@ function buildCommercial(rows) {
 // rows: array di righe site_events (event_name, created_at, anonymous_session_id,
 // session_id, path, referrer_host, referrer_type, utm_*, country, region, city,
 // device_type, browser, os, metadata).
-export function computeAnalytics(rows, { now = new Date(), rangeDays = 7 } = {}) {
+export function computeAnalytics(rows, { now = new Date(), rangeDays = 7, trafficClass = TRAFFIC_FILTERS.PUBLIC } = {}) {
   const all = Array.isArray(rows) ? rows : [];
   const nowD = now instanceof Date ? now : new Date(now);
   const fromMs = nowD.getTime() - rangeDays * 24 * 60 * 60 * 1000;
-  const inRange = all.filter((r) => {
+  const inRangeAll = all.filter((r) => {
     const t = r?.created_at ? new Date(r.created_at).getTime() : NaN;
     return Number.isFinite(t) && t >= fromMs && t <= nowD.getTime();
   });
+
+  // Classificazione traffico: PRIMA di qualunque aggregazione. Il default è
+  // 'public' (KPI commerciali). L'indicatore "Traffico escluso" è sempre
+  // calcolato sull'intera finestra, a prescindere dal filtro attivo.
+  const classified = inRangeAll.map((r) => ({ r, cls: classifyTrafficRow(r) }));
+  const excluded = { botTest: 0, adminInternal: 0, unclassified: 0 };
+  for (const { cls } of classified) {
+    const bucket = excludedBucketOf(cls);
+    if (bucket) excluded[bucket] += 1;
+  }
+  const wanted = classesForFilter(trafficClass); // null => 'Tutto'
+  const inRange = wanted ? classified.filter((c) => wanted.has(c.cls)).map((c) => c.r) : inRangeAll;
 
   const todayKey = localDateKey(nowD);
   const todayRows = inRange.filter((r) => localDateKey(r.created_at) === todayKey);
@@ -266,6 +279,8 @@ export function computeAnalytics(rows, { now = new Date(), rangeDays = 7 } = {})
 
   return {
     hasAnyData: all.length > 0,
+    trafficClass,
+    excluded,
     range: { days: rangeDays, fromISO: new Date(fromMs).toISOString(), toISO: nowD.toISOString() },
     overview,
     daily,

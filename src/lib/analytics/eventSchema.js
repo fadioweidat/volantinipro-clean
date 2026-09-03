@@ -32,8 +32,12 @@ export const METADATA_ALLOWED_KEYS = Object.freeze([
   'service',
   'extras',
   'step',
+  // classificazione traffico: enum di 4 valori, scritto SOLO da /api/track.
+  // Non è un dato personale (deriva dall'host della request, mai da IP/UA raw).
+  'origin_kind',
 ]);
 const METADATA_KEY_SET = new Set(METADATA_ALLOWED_KEYS);
+const ORIGIN_KIND_VALUES = new Set(['public', 'test', 'preview', 'unknown']);
 
 // Chiavi/valori che NON devono MAI comparire (difesa in profondità).
 const PII_KEY_RE = /(^|_)(email|mail|name|nome|cognome|surname|phone|tel|telefono|mobile|whatsapp|ip|address|indirizzo|cap|zip|postcode|lat|lng|latitude|longitude|coord|token|secret|password)($|_)/i;
@@ -88,6 +92,11 @@ export function sanitizeMetadata(input) {
     if (rawKey === 'step') {
       const s = Number(rawVal);
       if (Number.isInteger(s) && s >= 1 && s <= 6) out.step = s;
+      continue;
+    }
+    if (rawKey === 'origin_kind') {
+      const v = String(rawVal).toLowerCase();
+      if (ORIGIN_KIND_VALUES.has(v)) out.origin_kind = v;
       continue;
     }
     if (rawKey === 'quantity_bucket') {

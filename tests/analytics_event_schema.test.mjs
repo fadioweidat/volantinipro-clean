@@ -97,6 +97,6 @@ test('validateAnalyticsEvent: rifiuti', () => {
   assert.equal(validateAnalyticsEvent(huge).reason, 'payload-too-large');
 });
 
-test('METADATA_ALLOWED_KEYS = esattamente le 7 chiavi decise', () => {
-  assert.deepEqual([...METADATA_ALLOWED_KEYS].sort(), ['extras', 'municipality', 'province', 'quantity_bucket', 'region', 'service', 'step'].sort());
+test('METADATA_ALLOWED_KEYS = le 8 chiavi decise (7 funnel + origin_kind)', () => {
+  assert.deepEqual([...METADATA_ALLOWED_KEYS].sort(), ['extras', 'municipality', 'origin_kind', 'province', 'quantity_bucket', 'region', 'service', 'step'].sort());
 });

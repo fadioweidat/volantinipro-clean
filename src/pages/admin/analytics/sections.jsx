@@ -6,8 +6,14 @@ const pctFmt = (n) => (n == null ? '—' : `${n}%`);
 
 export function OverviewSection({ data }) {
   const o = data.overview;
+  const excl = data.excluded || { botTest: 0, adminInternal: 0, unclassified: 0 };
+  const isPublic = (data.trafficClass || 'public') === 'public';
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,.45)' }}>
+        {isPublic ? 'KPI su traffico pubblico reale.' : `KPI su traffico "${data.trafficClass}".`}
+        {' '}Escluso dal pubblico: {excl.botTest} bot/test · {excl.adminInternal} admin/internal · {excl.unclassified} non classificati.
+      </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
         <KpiTile label="Visitatori oggi" value={fmt(o.visitorsToday)} />
         <KpiTile label="Visitatori unici (periodo)" value={fmt(o.uniqueVisitors)} />

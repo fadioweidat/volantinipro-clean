@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AdminLayout } from '../AdminLayout.jsx';
 import { getAnalyticsEvents } from '../../../lib/services/admin-api.js';
 import { computeAnalytics } from '../../../lib/analytics/analyticsAggregate.js';
+import { TRAFFIC_FILTERS } from '../../../lib/analytics/trafficClass.js';
 import { isAnalyticsOptedOut, setAnalyticsOptOut } from '../../../lib/analytics/siteEvents.js';
 import {
   OverviewSection, GeographySection, SourcesSection, PagesSection, FunnelSection, CommercialDemandSection,
@@ -25,6 +26,15 @@ const TABS = [
   { id: 'commercial', label: 'Domanda commerciale' },
 ];
 
+// Filtro traffico. DEFAULT = 'public' (KPI commerciali). Gli altri servono
+// per ispezione, mai per i numeri commerciali di default.
+const TRAFFIC_FILTER_TABS = [
+  { id: TRAFFIC_FILTERS.PUBLIC, label: 'Pubblico' },
+  { id: TRAFFIC_FILTERS.ALL, label: 'Tutto' },
+  { id: TRAFFIC_FILTERS.BOT_TEST, label: 'Bot/Test' },
+  { id: TRAFFIC_FILTERS.ADMIN_INTERNAL, label: 'Admin/Internal' },
+];
+
 const tabBtn = (active) => ({
   border: '1px solid', borderColor: active ? '#2563eb' : 'rgba(255,255,255,.16)',
   background: active ? '#2563eb' : 'rgba(255,255,255,.05)', color: '#fff',
@@ -34,6 +44,7 @@ const tabBtn = (active) => ({
 export function AnalyticsPage({ onNav }) {
   const [rangeDays, setRangeDays] = useState(7);
   const [tab, setTab] = useState('overview');
+  const [trafficClass, setTrafficClass] = useState(TRAFFIC_FILTERS.PUBLIC);
   const [state, setState] = useState({ loading: true, error: null, rows: [], available: false });
   const [optedOut, setOptedOut] = useState(() => isAnalyticsOptedOut());
 
@@ -49,7 +60,11 @@ export function AnalyticsPage({ onNav }) {
     return () => { cancelled = true; };
   }, [rangeDays]);
 
-  const data = useMemo(() => computeAnalytics(state.rows, { rangeDays }), [state.rows, rangeDays]);
+  const data = useMemo(
+    () => computeAnalytics(state.rows, { rangeDays, trafficClass }),
+    [state.rows, rangeDays, trafficClass],
+  );
+  const excl = data.excluded || { botTest: 0, adminInternal: 0, unclassified: 0 };
 
   const breadcrumbs = [{ label: 'Dashboard', href: '/admin' }, { label: 'Analytics Visitatori' }];
 
@@ -74,6 +89,24 @@ export function AnalyticsPage({ onNav }) {
           Escludi questo browser dal tracking (opt-out)
         </label>
       </div>
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+        <span style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,.5)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Traffico</span>
+        {TRAFFIC_FILTER_TABS.map((t) => (
+          <button key={t.id} type="button" onClick={() => setTrafficClass(t.id)} style={tabBtn(trafficClass === t.id)}>{t.label}</button>
+        ))}
+        <span style={{ flex: 1 }} />
+        <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,.55)' }}>
+          Traffico escluso: <b style={{ color: 'rgba(255,255,255,.8)' }}>{excl.botTest}</b> bot/test
+          {' · '}<b style={{ color: 'rgba(255,255,255,.8)' }}>{excl.adminInternal}</b> admin/internal
+          {' · '}<b style={{ color: 'rgba(255,255,255,.8)' }}>{excl.unclassified}</b> non classificati
+        </span>
+      </div>
+      {trafficClass !== TRAFFIC_FILTERS.PUBLIC && (
+        <p style={{ margin: '0 0 10px', fontSize: 11.5, color: '#fde68a' }}>
+          Vista non commerciale: i KPI qui sotto includono traffico {trafficClass === TRAFFIC_FILTERS.ALL ? 'di ogni tipo (bot, test, admin, internal, non classificato)' : trafficClass === TRAFFIC_FILTERS.BOT_TEST ? 'bot / test / preview' : 'admin / internal'}. Torna a “Pubblico” per i numeri di business.
+        </p>
+      )}
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
         {TABS.map((t) => (
