@@ -1,17 +1,11 @@
-import React, { useState } from "react";
-import { buildInfoWhatsAppUrl } from "../../lib/contactConfig.js";
+import React from "react";
 
 const F = { sans: "'DM Sans', Inter, system-ui, sans-serif" };
 const ORANGE = "#E8571A";
 
-// Richiamo di aiuto compatto per il configuratore (Step 1-4). Fisso in basso a
-// destra, piccolo, richiudibile: NON copre il contenuto e non entra nel flusso.
-// "Chiedi all'AI" -> onAsk (di norma va allo step con l'assistente).
-// "WhatsApp" -> wa.me, solo se il numero ufficiale è configurato.
-export default function InlineHelpCta({ onAsk }) {
-  const [open, setOpen] = useState(false);
-  const whatsappUrl = buildInfoWhatsAppUrl();
-
+// Launcher compatto del solo assistente contestuale. Il pannello e i fallback
+// di contatto vivono nel componente AI condiviso, non nella logica degli Step.
+export default function InlineHelpCta({ onAsk, expanded = false }) {
   const wrap = {
     position: "fixed",
     right: 16,
@@ -21,7 +15,6 @@ export default function InlineHelpCta({ onAsk }) {
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-end",
-    gap: 8,
     pointerEvents: "none",
   };
   const pill = {
@@ -29,83 +22,26 @@ export default function InlineHelpCta({ onAsk }) {
     display: "inline-flex",
     alignItems: "center",
     gap: 8,
-    padding: "10px 14px",
-    borderRadius: 999,
+    padding: "11px 15px",
+    borderRadius: 14,
     border: "1px solid rgba(255,255,255,0.16)",
     background: "rgba(10,18,34,0.94)",
     color: "#fff",
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 800,
     cursor: "pointer",
     boxShadow: "0 10px 28px rgba(0,0,0,0.4)",
     backdropFilter: "blur(8px)",
   };
-  const action = (primary) => ({
-    pointerEvents: "auto",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    padding: "9px 14px",
-    borderRadius: 10,
-    textDecoration: "none",
-    border: primary ? "none" : "1px solid rgba(255,255,255,0.18)",
-    background: primary ? ORANGE : "rgba(10,18,34,0.94)",
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: 800,
-    cursor: "pointer",
-    boxShadow: "0 8px 22px rgba(0,0,0,0.35)",
-  });
-
-  if (!open) {
-    return (
-      <div style={wrap}>
-        <button type="button" style={pill} onClick={() => setOpen(true)} aria-expanded="false">
-          <span aria-hidden="true">💬</span> Hai bisogno di aiuto?
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div style={wrap}>
-      <div
-        style={{
-          pointerEvents: "auto",
-          background: "rgba(10,18,34,0.96)",
-          border: "1px solid rgba(255,255,255,0.14)",
-          borderRadius: 14,
-          padding: 12,
-          boxShadow: "0 16px 40px rgba(0,0,0,0.5)",
-          backdropFilter: "blur(8px)",
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-          maxWidth: 260,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-          <span style={{ fontSize: 13, fontWeight: 800, color: "#fff" }}>Hai bisogno di aiuto?</span>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-label="Chiudi"
-            style={{ border: "none", background: "transparent", color: "rgba(255,255,255,0.6)", fontSize: 16, cursor: "pointer", lineHeight: 1 }}
-          >
-            ✕
-          </button>
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button type="button" style={action(true)} onClick={() => { setOpen(false); onAsk?.(); }}>
-            <span aria-hidden="true">🤖</span> Chiedi all’AI
-          </button>
-          {whatsappUrl ? (
-            <a style={action(false)} href={whatsappUrl} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
-              <span aria-hidden="true">🟢</span> WhatsApp
-            </a>
-          ) : null}
-        </div>
-      </div>
+      <button type="button" style={pill} onClick={onAsk} aria-expanded={expanded} aria-controls="quote-ai-panel">
+        <span aria-hidden="true" style={{ width: 27, height: 27, display: "grid", placeItems: "center", borderRadius: 9, background: ORANGE, fontSize: 15 }}>?</span>
+        <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.25 }}>
+          <span>Hai bisogno di aiuto?</span>
+          <span style={{ color: "rgba(255,255,255,.62)", fontSize: 10, fontWeight: 650 }}>Chiedi all’assistente VolantiniPro</span>
+        </span>
+      </button>
     </div>
   );
 }

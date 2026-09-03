@@ -12,8 +12,8 @@ export const AI_CORE_CONTEXT_TYPES = Object.freeze([
   "campaign_report",
 ]);
 
-// Context implementati: Step2 e Report Territoriale pubblici, Admin autenticato.
-export const IMPLEMENTED_CONTEXT_TYPES = Object.freeze(["step2", "admin_dashboard", "territorial_report"]);
+// Configuratore pubblico Step1-4, Report Territoriale pubblico e Admin autenticato.
+export const IMPLEMENTED_CONTEXT_TYPES = Object.freeze(["step1", "step2", "step3", "step4", "admin_dashboard", "territorial_report"]);
 
 export function isKnownContextType(value: unknown): value is string {
   return typeof value === "string" && AI_CORE_CONTEXT_TYPES.includes(value);

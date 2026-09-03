@@ -76,3 +76,8 @@ enabled = false
 # ricordare il flag ad ogni deploy futuro.
 [functions.platform-health-collector]
 verify_jwt = false
+
+# Il configuratore Step1-4 è pubblico. L'Edge Function valida e minimizza il
+# contesto applicativo internamente; un JWT valido abilita solo la cache utente.
+[functions.ai-core]
+verify_jwt = false

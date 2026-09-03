@@ -1,6 +1,8 @@
-import React, { lazy, Suspense } from "react";
+import React, { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import { RouteLoadingFallback } from "../layouts/public/RouteLoadingFallback.jsx";
 import InlineHelpCta from "../components/common/InlineHelpCta.jsx";
+import QuoteAssistantPanel from "../components/ai/quote/QuoteAssistantPanel.jsx";
+import { buildQuoteAssistantBaseContext, quickQuestionsForPage } from "../ai/context/buildQuoteAssistantContext.js";
 
 // PERF-1: questi erano import statici (commento originale: "restano import
 // statici, invariati" — riferito al fatto che homepage/configuratore non
@@ -32,6 +34,19 @@ const ServiceCenter = lazy(() => import("../pages/public/ServiceCenter.jsx"));
 // (l'utente vede "Accedi per usare l'Assistente AI", non un errore tecnico).
 
 export function PublicRoutes({ page, data, setData, goTo, prefillPatch }) {
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [runtimeAssistantContext, setRuntimeAssistantContext] = useState(null);
+  const baseAssistantContext = useMemo(() => buildQuoteAssistantBaseContext(page, data), [page, data]);
+  const assistantContext = runtimeAssistantContext?.page === page ? runtimeAssistantContext.context : baseAssistantContext;
+  const updateAssistantContext = useCallback((contextPage, context) => {
+    setRuntimeAssistantContext((current) => {
+      const next = { page: contextPage, context };
+      return current?.page === contextPage && JSON.stringify(current.context) === JSON.stringify(context) ? current : next;
+    });
+  }, []);
+  const updateStep2AssistantContext = useCallback((context) => updateAssistantContext("step2", context), [updateAssistantContext]);
+  const updateStep4AssistantContext = useCallback((context) => updateAssistantContext("step4", context), [updateAssistantContext]);
+
   const content = (() => {
     if (page === "home") return <HomePage onStart={goTo} />;
     if (page === "privacy") return <LegalPage type="privacy" onNav={goTo} />;
@@ -42,22 +57,20 @@ export function PublicRoutes({ page, data, setData, goTo, prefillPatch }) {
     if (page === "preventivo") return <ServiceCenter onNav={goTo} />;
 
     if (page === "step1") return <Step1 data={data} setData={setData} onNext={() => goTo("step2")} />;
-    if (page === "step2") return <Step2 data={data} setData={setData} onNext={() => goTo("step3")} onBack={() => goTo("step1")} />;
+    if (page === "step2") return <Step2 data={data} setData={setData} onNext={() => goTo("step3")} onBack={() => goTo("step1")} onAssistantContextChange={updateStep2AssistantContext} />;
     if (page === "step3") return <Step3 data={data} setData={setData} onNext={() => goTo("step4")} onBack={() => goTo("step2")} />;
-    if (page === "step4") return <Step4 data={data} setData={setData} onNav={goTo} onBack={() => goTo("step3")} />;
+    if (page === "step4") return <Step4 data={data} setData={setData} onNav={goTo} onBack={() => goTo("step3")} onAssistantContextChange={updateStep4AssistantContext} />;
 
     return null;
   })();
 
   if (!content) return null;
-  // Richiamo di aiuto compatto SOLO nel configuratore (Step 1-4). Non tocca la
-  // logica degli Step: overlay fisso, richiudibile. "Chiedi all'AI" porta allo
-  // Step 2 (assistente territoriale).
   const isConfiguratorStep = page === "step1" || page === "step2" || page === "step3" || page === "step4";
   return (
     <Suspense fallback={<RouteLoadingFallback />}>
-      {content}
-      {isConfiguratorStep && <InlineHelpCta onAsk={() => goTo("step2")} />}
+      <div className={`configurator-assistant-layout${isConfiguratorStep && assistantOpen ? " configurator-assistant-layout--open" : ""}`}>{content}</div>
+      {isConfiguratorStep && <InlineHelpCta expanded={assistantOpen} onAsk={() => setAssistantOpen(true)} />}
+      {isConfiguratorStep && <QuoteAssistantPanel open={assistantOpen} onClose={() => setAssistantOpen(false)} page={page} context={assistantContext} quickQuestions={quickQuestionsForPage(page)} />}
     </Suspense>
   );
 }

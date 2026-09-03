@@ -3,7 +3,8 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 import { C, F, x, w, j, T, z, R } from "../../../lib/constants.js";
 import { useIsMobile } from "../../../hooks/useIsMobile.js";
 import TerritorialReport from "../../TerritorialReport.jsx";
-import TerritorialStep2AiBoundary from "../../../ai-foundation/integrations/territorial-step2/TerritorialStep2AiBoundary.jsx";
+import { buildTerritorialAiSnapshot } from "../../../lib/step2/buildTerritorialAiSnapshot.mjs";
+import { buildQuoteAssistantStep2Context } from "../../../ai/context/buildQuoteAssistantContext.js";
 import { ACTIVITY_TARGET_LABELS } from "../../../lib/step2/activityTargets.js";
 import { ADDRESS_INTENT_RE, detectSearchIntent, extractOfficialNilCode, getMunicipalityDedupKey, getVerifiedBusinessMetrics, getZoneVerdict, isAddressLikePlaceType, isGeocoderResultInMilanoComune, isNilLikePlaceType, logAddressVsMunicipalityDebug, looksLikeAddressResult, normalizeCoverageDecision, normalizeMunicipalityName, normalizeTerritoryName } from "../../../lib/step2/addressIntent.js";
 import { apiToZones, capToZone, getZoneCoords, haversineKm, pickRealComuneGeometry } from "../../../lib/step2/zoneGeoHelpers.js";
@@ -25,7 +26,6 @@ import { geoJsonApproxCentroid, geoJsonContainsPoint } from "../../../lib/geo/po
 import { getServiceAccent } from "../../../lib/services/service-config.js";
 import { GRANDE_CITTA_ZONE_THRESHOLD, isZonaRilevante } from "../../../lib/services/zone-list-config.js";
 import { InteractiveRadiusSlider } from "../../../components/InteractiveRadiusSlider.jsx";
-import { isTerritorialStep2AiEnabled } from "../../../lib/runtimeFlags.js";
 import { kmToPx, MH, MW, s2proj, SCALE_X, SCALE_Y, thColor } from "../../../lib/step2/miniMapProjection.js";
 import { kpiLabel } from "../../../lib/services/kpi-definitions.js";
 import { LAYERS, SERVICE_META } from "../../../lib/services/serviceMeta.js";
@@ -62,8 +62,7 @@ export function Step2({
   setData,
   onNext,
   onBack,
-  aiIdentity,
-  aiContextId
+  onAssistantContextChange
 }) {
   const isMobile = useIsMobile();
   const svcRaw = data.selectedService || data.activeService || data.type || "d2d";
@@ -4289,6 +4288,17 @@ export function Step2({
     intersectedNilCount: intersectedNils.length,
     selectedNilCount: selectedNils.length
   });
+  const assistantSnapshot = buildTerritorialAiSnapshot({
+    truthModel: step2TruthModel,
+    viewModel: step2ViewModel,
+    loading: Boolean(apiLoading || gisLoading),
+    error: Boolean(apiError || gisTimedOut || hasCoverageCalculationError)
+  });
+  const assistantContext = buildQuoteAssistantStep2Context(assistantSnapshot, data);
+  const assistantContextKey = JSON.stringify(assistantContext);
+  useEffect(() => {
+    onAssistantContextChange?.(assistantContext);
+  }, [onAssistantContextChange, assistantContextKey]);
   const step2CoveragePctLabel = step2TruthModel.coverage.operationalPct == null ? null : formatPercentIT(step2TruthModel.coverage.operationalPct, Number.isInteger(step2TruthModel.coverage.operationalPct) ? 0 : 1);
   const step2CoverageFullLabel = step2CoveragePctLabel ? `${step2CoveragePctLabel} del fabbisogno operativo` : null;
   // Shared, single-decimal, formatPercentIT-formatted coverage percentage —
@@ -4896,16 +4906,5 @@ export function Step2({
         />
         </>}
       </div>
-      {!isAdminView && isTerritorialStep2AiEnabled && <React.Suspense fallback={<div style={{
-      marginTop: 16,
-      padding: 14,
-      borderRadius: 12,
-      background: "rgba(56,189,248,.07)",
-      color: "rgba(255,255,255,.62)",
-      fontFamily: F.sans,
-      fontSize: 11
-    }}>Inizializzazione Assistente Territoriale...</div>}>
-          <TerritorialStep2AiBoundary truthModel={step2TruthModel} viewModel={step2ViewModel} loading={Boolean(apiLoading || gisLoading)} error={Boolean(apiError || gisTimedOut || hasCoverageCalculationError)} identity={aiIdentity} contextId={aiContextId} activeCampaignRef={data.campaignId || null} activeQuoteRef={data.quoteId || data.quoteRequestId || null} />
-        </React.Suspense>}
     </div>;
 }

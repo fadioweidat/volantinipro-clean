@@ -22,19 +22,19 @@ test('ai-core: contextType validi non implementati rispondono 501 e i context im
   const implementedCheckIndex = indexSource.indexOf('isImplementedContextType(contextType)');
   const notImplementedIndex = indexSource.indexOf('error: "CONTEXT_TYPE_NOT_IMPLEMENTED" }, 501');
   assert.ok(implementedCheckIndex >= 0 && notImplementedIndex > implementedCheckIndex);
-  // admin_dashboard/customer_dashboard/campaign_report sono nella whitelist ma
-  // MAI nella lista implementata: nessun ramo dedicato deve esistere per loro.
+  // Gli Step 1-4 usano un unico ramo pubblico; dashboard cliente e report
+  // campagna restano noti ma non ancora implementati.
   assert.match(indexSource, /contextType\s*===\s*"admin_dashboard"/);
   assert.match(indexSource, /contextType\s*===\s*"territorial_report"/);
   assert.doesNotMatch(indexSource, /contextType\s*===\s*"customer_dashboard"/);
   assert.doesNotMatch(indexSource, /contextType\s*===\s*"campaign_report"/);
   assert.match(contextTypesSource, /"step1"[\s\S]*"step2"[\s\S]*"step3"[\s\S]*"step4"[\s\S]*"customer_dashboard"[\s\S]*"admin_dashboard"[\s\S]*"territorial_report"[\s\S]*"campaign_report"/);
-  assert.match(contextTypesSource, /IMPLEMENTED_CONTEXT_TYPES = Object\.freeze\(\["step2", "admin_dashboard", "territorial_report"\]\)/);
+  assert.match(contextTypesSource, /IMPLEMENTED_CONTEXT_TYPES = Object\.freeze\(\["step1", "step2", "step3", "step4", "admin_dashboard", "territorial_report"\]\)/);
 });
 
 test('ai-core: step2 NON impone JWT — l\'identità è risolta ma mai bloccante prima del branch', () => {
   const userResolvedIndex = indexSource.indexOf('const user = await getAuthedUser(req);');
-  const handleStep2CallIndex = indexSource.indexOf('return await handleStep2(user, body);');
+  const handleStep2CallIndex = indexSource.indexOf('QUOTE_CONTEXT_TYPES.has(contextType)', userResolvedIndex);
   assert.ok(userResolvedIndex >= 0 && handleStep2CallIndex > userResolvedIndex);
   // Tra la risoluzione dell'utente e la chiamata a handleStep2 non deve
   // esserci NESSUN early-return 401: e' esattamente il fix richiesto (prima
@@ -44,8 +44,8 @@ test('ai-core: step2 NON impone JWT — l\'identità è risolta ma mai bloccante
   assert.doesNotMatch(indexSource, /error: "UNAUTHENTICATED"/, 'ai-core non deve più avere un percorso UNAUTHENTICATED bloccante per step2');
 });
 
-test('ai-core: handleStep2 gestisce esplicitamente user === null e arriva comunque a callOpenAi', () => {
-  const fnStart = indexSource.indexOf('async function handleStep2(user: { id: string } | null, body: any) {');
+test('ai-core: handleQuoteStep gestisce esplicitamente user === null e arriva comunque a OpenAI', () => {
+  const fnStart = indexSource.indexOf('async function handleQuoteStep(contextType: string, user: { id: string } | null, body: any) {');
   assert.ok(fnStart >= 0, 'la firma deve accettare user nullable, non solo { id: string }');
   const fnEnd = indexSource.indexOf('\nserve(async (req: Request)', fnStart);
   const fnBody = indexSource.slice(fnStart, fnEnd);
@@ -55,7 +55,7 @@ test('ai-core: handleStep2 gestisce esplicitamente user === null e arriva comunq
   const anonBranchEnd = fnBody.indexOf('\n  }', anonBranchIndex);
   const anonBranch = fnBody.slice(anonBranchIndex, anonBranchEnd);
 
-  assert.match(anonBranch, /callOpenAi\(snapshot, question, warnings\)/, 'il ramo anonimo deve raggiungere la chiamata AI, non fermarsi prima');
+  assert.match(anonBranch, /callOpenAi\(contextType, snapshot, question, warnings\)/, 'il ramo anonimo deve raggiungere la chiamata AI, non fermarsi prima');
   // Nessun accesso a dati privati nel ramo anonimo: niente cache, niente
   // tabelle utente/campagna.
   assert.doesNotMatch(anonBranch, /ai_territorial_chat_cache/, 'il ramo anonimo non deve toccare la cache (nessuna migration in questa fase)');
@@ -65,7 +65,7 @@ test('ai-core: handleStep2 gestisce esplicitamente user === null e arriva comunq
 });
 
 test('ai-core: utente autenticato continua a usare la cache ai_territorial_chat_cache', () => {
-  const fnStart = indexSource.indexOf('async function handleStep2(user: { id: string } | null, body: any) {');
+  const fnStart = indexSource.indexOf('async function handleQuoteStep(contextType: string, user: { id: string } | null, body: any) {');
   const fnEnd = indexSource.indexOf('\nserve(async (req: Request)', fnStart);
   const fnBody = indexSource.slice(fnStart, fnEnd);
   const afterAnonBranch = fnBody.slice(fnBody.indexOf('if (!user) {'));
@@ -98,8 +98,8 @@ test('ai-core: validazione input — limiti dimensionali e struttura sicura prim
   assert.match(indexSource, /MAX_SNAPSHOT_ARRAY_LENGTH = 200/);
 });
 
-test('ai-core: il prompt non riceve mai header/identità, solo snapshot+question', () => {
-  const promptFnIndex = indexSource.indexOf('function buildUserPrompt(snapshot: Record<string, unknown>, question: string)');
+test('ai-core: il prompt non riceve mai header/identità, solo contextType+snapshot+question', () => {
+  const promptFnIndex = indexSource.indexOf('function buildQuoteUserPrompt(contextType: string, snapshot: Record<string, unknown>, question: string)');
   assert.ok(promptFnIndex >= 0);
   const promptFnEnd = indexSource.indexOf('\n}', promptFnIndex);
   const promptFnBody = indexSource.slice(promptFnIndex, promptFnEnd);
@@ -108,13 +108,11 @@ test('ai-core: il prompt non riceve mai header/identità, solo snapshot+question
   assert.doesNotMatch(promptFnBody, /user\./);
 });
 
-test('ai-core: stesso modello e stesso prompt system di ai-assistant-territory', () => {
-  const territorySource = fs.readFileSync('supabase/functions/ai-assistant-territory/index.ts', 'utf8');
+test('ai-core: policy preventivo vieta invenzioni e modifiche automatiche', () => {
   assert.match(indexSource, /model:\s*"gpt-4o-mini"/);
-  const extractSystemPrompt = (src) => {
-    const start = src.indexOf('function buildSystemPrompt()');
-    const end = src.indexOf('\n}', start);
-    return src.slice(start, end);
-  };
-  assert.equal(extractSystemPrompt(indexSource), extractSystemPrompt(territorySource), 'il prompt territoriale deve restare identico, non modificato in questo fix');
+  assert.match(indexSource, /NON inventare prezzi, sconti, disponibilita, copertura, tempi o condizioni contrattuali/);
+  assert.match(indexSource, /Non modificare mai il preventivo/);
+  assert.match(indexSource, /quoteAnswerNumbersAreGrounded/);
+  assert.match(indexSource, /SENSITIVE_CONTEXT_REJECTED/);
+  assert.match(indexSource, /redactQuestion/);
 });

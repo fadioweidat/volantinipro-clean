@@ -1,0 +1,39 @@
+.configurator-assistant-layout{min-width:0;transition:padding-right .22s ease}
+.quote-ai__backdrop{position:fixed;inset:0;z-index:190;border:0;background:rgba(2,8,18,.42);cursor:default}
+.quote-ai{position:fixed;z-index:200;top:12px;right:12px;bottom:12px;width:min(420px,calc(100vw - 24px));display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:#0b1525;color:#fff;box-shadow:0 24px 80px rgba(0,0,0,.42);font-family:"DM Sans",Inter,system-ui,sans-serif}
+.quote-ai__header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:22px 22px 18px;border-bottom:1px solid rgba(255,255,255,.08);background:linear-gradient(145deg,rgba(232,87,26,.15),transparent 48%)}
+.quote-ai__step{display:block;margin-bottom:7px;color:#ff9b6f;font-size:10px;font-weight:900;letter-spacing:.09em;text-transform:uppercase}
+.quote-ai h2{margin:0;font:800 23px/1.12 "DM Sans",Inter,system-ui,sans-serif;letter-spacing:-.35px}
+.quote-ai__header p{margin:7px 0 0;color:rgba(255,255,255,.6);font-size:12px;line-height:1.45}
+.quote-ai__close{flex:0 0 auto;width:38px;height:38px;border:1px solid rgba(255,255,255,.13);border-radius:10px;background:rgba(255,255,255,.055);color:#fff;font:300 27px/1 system-ui;cursor:pointer}
+.quote-ai__body{min-height:0;flex:1;overflow:auto;padding:18px 18px 8px}
+.quote-ai__questions{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px}
+.quote-ai__questions button{min-height:36px;padding:8px 11px;border:1px solid rgba(232,87,26,.28);border-radius:999px;background:rgba(232,87,26,.08);color:#ffd4c2;font:750 11px/1.25 "DM Sans",Inter,sans-serif;cursor:pointer}
+.quote-ai__history{display:flex;flex-direction:column;gap:10px}
+.quote-ai__welcome{padding:18px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.035)}
+.quote-ai__welcome strong{font-size:14px}.quote-ai__welcome p{margin:7px 0 0;color:rgba(255,255,255,.58);font-size:12px;line-height:1.5}
+.quote-ai__message{max-width:88%;padding:11px 13px;border-radius:14px}
+.quote-ai__message span{display:block;margin-bottom:5px;color:rgba(255,255,255,.48);font-size:9px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}
+.quote-ai__message p{margin:0;white-space:pre-line;font-size:13px;line-height:1.55}
+.quote-ai__message--user{align-self:flex-end;border-bottom-right-radius:5px;background:#e8571a}
+.quote-ai__message--assistant{align-self:flex-start;border:1px solid rgba(255,255,255,.09);border-bottom-left-radius:5px;background:#142238}
+.quote-ai__thinking{padding:11px;color:rgba(255,255,255,.52);font-size:12px}
+.quote-ai__fallback{margin-top:14px;padding:14px;border:1px solid rgba(251,191,36,.22);border-radius:14px;background:rgba(251,191,36,.07)}
+.quote-ai__fallback strong{color:#fde68a;font-size:13px}.quote-ai__fallback p{margin:5px 0 11px;color:rgba(255,255,255,.58);font-size:11px}
+.quote-ai__contacts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.quote-ai__contacts--compact{grid-template-columns:1fr;margin-top:11px}
+.quote-ai__contacts a{display:flex;flex-direction:column;gap:2px;padding:9px 10px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:rgba(255,255,255,.05);color:#fff;font-size:11px;font-weight:850;text-decoration:none}
+.quote-ai__contacts a span{margin:0;color:rgba(255,255,255,.57);font-size:9px;letter-spacing:0;text-transform:none}
+.quote-ai__form{padding:14px 18px 16px;border-top:1px solid rgba(255,255,255,.08);background:#091321}
+.quote-ai__form label{display:block;margin-bottom:7px;color:rgba(255,255,255,.62);font-size:10px;font-weight:850}
+.quote-ai__form>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.quote-ai__form input{min-width:0;min-height:45px;padding:0 12px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:#111f33;color:#fff;font:500 13px "DM Sans",Inter,sans-serif}
+.quote-ai__form input::placeholder{color:rgba(255,255,255,.42)}
+.quote-ai__form button{min-height:45px;padding:0 17px;border:0;border-radius:10px;background:#e8571a;color:#fff;font:850 12px "DM Sans",Inter,sans-serif;cursor:pointer}
+.quote-ai__form small{display:block;margin-top:8px;color:rgba(255,255,255,.4);font-size:9px}
+.quote-ai button:focus-visible,.quote-ai input:focus-visible,.quote-ai a:focus-visible{outline:2px solid #ff9b6f;outline-offset:2px}
+.quote-ai button:active,.quote-ai a:active{transform:translateY(1px)}
+.quote-ai button:disabled{cursor:not-allowed;opacity:.55}
+@media(min-width:761px){.configurator-assistant-layout--open{padding-right:444px}.quote-ai__backdrop{display:none}}
+@media(max-width:760px){.quote-ai{top:auto;right:0;bottom:0;left:0;width:100%;height:min(82dvh,720px);border-right:0;border-bottom:0;border-left:0;border-radius:18px 18px 0 0}.quote-ai__header{padding:18px 17px 15px}.quote-ai__body{padding:15px 15px 7px}.quote-ai__form{padding:12px 15px max(14px,env(safe-area-inset-bottom))}.quote-ai__message{max-width:94%}}
+@media(max-width:390px){.quote-ai__form>div{grid-template-columns:1fr}.quote-ai__form button{width:100%}.quote-ai__contacts{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.configurator-assistant-layout{transition:none}.quote-ai button:active,.quote-ai a:active{transform:none}}
