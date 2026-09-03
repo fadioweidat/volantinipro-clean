@@ -283,13 +283,18 @@ test('routing — /supplier registrato, risolto, protetto da SupplierGuard', () 
   assert.match(APPROUTER, /page === "supplier-dashboard"[\s\S]{0,120}<SupplierGuard/);
 });
 
-test('routing — "Area Fornitore" instrada al flusso Fornitore, mai a /dashboard', () => {
+test('routing — voce "Lavora con noi" instrada al flusso Fornitore, mai a /dashboard', () => {
   const NAVBAR = read('src/layouts/public/Navbar.jsx');
   const HERO = read('src/components/home/VolantiniProHeroMap.jsx');
-  // Navbar: il pulsante "Area Fornitore" naviga a supplier-dashboard.
-  assert.match(NAVBAR, /go\("supplier-dashboard"\)[\s\S]{0,400}Area Fornitore/);
-  // Hero access menu: "Area Fornitore" -> /supplier.
-  assert.match(HERO, /window\.location\.href = "\/supplier"[\s\S]{0,120}Area Fornitore/);
+  // Navbar: "Lavora con noi" -> "Diventa fornitore" / "Sei gia' fornitore? Accedi"
+  // navigano a supplier-dashboard (nessun rimando a "dashboard" cliente).
+  assert.match(NAVBAR, /<span>Lavora con noi<\/span>/);
+  assert.match(NAVBAR, /go\("supplier-dashboard"\)[\s\S]{0,400}Diventa fornitore/);
+  assert.match(NAVBAR, /go\("supplier-dashboard"\)[\s\S]{0,400}Sei già fornitore\? Accedi/);
+  // Hero: stesse voci -> /supplier.
+  assert.match(HERO, /<span>Lavora con noi<\/span>/);
+  assert.match(HERO, /window\.location\.href = "\/supplier"[\s\S]{0,160}Diventa fornitore/);
+  assert.match(HERO, /window\.location\.href = "\/supplier"[\s\S]{0,160}Sei già fornitore\? Accedi/);
   // Login callback: intento Fornitore -> supplier-dashboard, non "dashboard".
   assert.match(FINAL, /loginIntentIsSupplier = isSupplierContext/);
   assert.match(FINAL, /if \(loginIntentIsSupplier\) \{\s*\n\s*onNav\("supplier-dashboard"\)/);

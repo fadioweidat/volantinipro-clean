@@ -68,12 +68,12 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
   const compact = useCompact();
   const [menuOpen, setMenuOpen] = useState(false);
   const [platformOpen, setPlatformOpen] = useState(false);
-  const [accessOpen, setAccessOpen] = useState(false);
+  const [workOpen, setWorkOpen] = useState(false); // dropdown "Lavora con noi"
 
   const scrollToSection = (id) => {
     setMenuOpen(false);
     setPlatformOpen(false);
-    setAccessOpen(false);
+    setWorkOpen(false);
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -171,43 +171,50 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
             </div>
             <button onClick={() => scrollToSection("chi-siamo")} style={navButtonStyle}>Chi siamo</button>
             <button onClick={() => scrollToSection("contatti")} style={navButtonStyle}>Contatti</button>
+            <div
+              style={{ position: "relative" }}
+              onMouseEnter={() => setWorkOpen(true)}
+              onMouseLeave={() => setWorkOpen(false)}
+            >
+              <button
+                type="button"
+                aria-expanded={workOpen}
+                aria-haspopup="true"
+                onClick={() => setWorkOpen((v) => !v)}
+                style={{ ...navButtonStyle, display: "flex", alignItems: "center", gap: 6 }}
+              >
+                <span>Lavora con noi</span>
+                <span style={{ fontSize: 10, color: "rgba(255, 255, 255, 0.5)", transform: workOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
+              </button>
+              {workOpen && (
+                <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", width: 240, padding: 8, background: "rgba(10, 18, 34, 0.98)", border: "1px solid rgba(255, 255, 255, 0.12)", borderRadius: 12, boxShadow: "0 16px 40px rgba(0, 0, 0, 0.6)", display: "flex", flexDirection: "column", gap: 4, zIndex: 210 }}>
+                  <button
+                    onClick={() => { setWorkOpen(false); window.location.href = "/supplier"; }}
+                    style={{ textAlign: "left", padding: "10px 12px", borderRadius: 8, background: "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    Diventa fornitore
+                  </button>
+                  <button
+                    onClick={() => { setWorkOpen(false); window.location.href = "/supplier"; }}
+                    style={{ textAlign: "left", padding: "10px 12px", borderRadius: 8, background: "transparent", border: "none", color: "rgba(255, 255, 255, 0.8)", fontFamily: F.sans, fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Sei già fornitore? Accedi
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           {!compact && (
-            <div
-              style={{ position: "relative" }}
-              onMouseEnter={() => setAccessOpen(true)}
-              onMouseLeave={() => setAccessOpen(false)}
+            <button
+              type="button"
+              onClick={() => onLogin?.()}
+              style={headerOutlineButtonStyle}
             >
-              <button
-                type="button"
-                aria-expanded={accessOpen}
-                aria-haspopup="true"
-                onClick={() => setAccessOpen((v) => !v)}
-                style={{ ...headerOutlineButtonStyle, display: "flex", alignItems: "center", gap: 6 }}
-              >
-                <span>Accedi</span>
-                <span style={{ fontSize: 10, color: "rgba(255, 255, 255, 0.5)", transform: accessOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
-              </button>
-              {accessOpen && (
-                <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, width: 210, padding: 8, background: "rgba(10, 18, 34, 0.98)", border: "1px solid rgba(255, 255, 255, 0.12)", borderRadius: 12, boxShadow: "0 16px 40px rgba(0, 0, 0, 0.6)", display: "flex", flexDirection: "column", gap: 4, zIndex: 210 }}>
-                  <button
-                    onClick={() => { setAccessOpen(false); onLogin?.(); }}
-                    style={{ textAlign: "left", padding: "10px 12px", borderRadius: 8, background: "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}
-                  >
-                    Area Cliente
-                  </button>
-                  <button
-                    onClick={() => { setAccessOpen(false); window.location.href = "/supplier"; }}
-                    style={{ textAlign: "left", padding: "10px 12px", borderRadius: 8, background: "transparent", border: "none", color: "rgba(255, 255, 255, 0.8)", fontFamily: F.sans, fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}
-                  >
-                    Area Fornitore
-                  </button>
-                </div>
-              )}
-            </div>
+              Area Cliente
+            </button>
           )}
           <Button variant="primary" className="vb" onClick={onConfigure} style={primaryButtonStyle}>
             Configura la tua campagna
@@ -228,20 +235,23 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
 
       {compact && menuOpen && (
         <div style={mobileMenuStyle}>
-          <button onClick={() => { setMenuOpen(false); scrollToSection("come-funziona"); }} style={mobileMenuItemStyle}>Come funziona</button>
-          <button onClick={() => { setMenuOpen(false); scrollToSection("prezzi"); }} style={mobileMenuItemStyle}>Prezzi</button>
+          <button onClick={() => { setMenuOpen(false); onConfigure?.(); }} style={{ ...mobileMenuItemStyle, color: C.orange, fontWeight: 800 }}>Configura la tua campagna</button>
+          <button onClick={() => { setMenuOpen(false); onLogin?.(); }} style={mobileMenuItemStyle}>Area Cliente</button>
           <button onClick={() => { setMenuOpen(false); scrollToSection("contatti"); }} style={mobileMenuItemStyle}>Contatti</button>
-          <button onClick={() => { setMenuOpen(false); onConfigure?.(); }} style={mobileMenuItemStyle}>Piattaforma: Configuratore</button>
-          <button onClick={() => setAccessOpen((v) => !v)} aria-expanded={accessOpen} aria-haspopup="true" style={{ ...mobileMenuItemStyle, color: C.orange, display: "flex", alignItems: "center", gap: 6 }}>
-            <span>Accedi</span>
-            <span style={{ fontSize: 10, transform: accessOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
+          <button onClick={() => setWorkOpen((v) => !v)} aria-expanded={workOpen} aria-haspopup="true" style={{ ...mobileMenuItemStyle, display: "flex", alignItems: "center", gap: 6 }}>
+            <span>Lavora con noi</span>
+            <span style={{ fontSize: 10, transform: workOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
           </button>
-          {accessOpen && (
+          {workOpen && (
             <>
-              <button onClick={() => { setMenuOpen(false); setAccessOpen(false); onLogin?.(); }} style={{ ...mobileMenuItemStyle, paddingLeft: 16 }}>↳ Area Cliente</button>
-              <button onClick={() => { setMenuOpen(false); setAccessOpen(false); window.location.href = "/supplier"; }} style={{ ...mobileMenuItemStyle, paddingLeft: 16 }}>↳ Area Fornitore</button>
+              <button onClick={() => { setMenuOpen(false); setWorkOpen(false); window.location.href = "/supplier"; }} style={{ ...mobileMenuItemStyle, paddingLeft: 16 }}>↳ Diventa fornitore</button>
+              <button onClick={() => { setMenuOpen(false); setWorkOpen(false); window.location.href = "/supplier"; }} style={{ ...mobileMenuItemStyle, paddingLeft: 16 }}>↳ Sei già fornitore? Accedi</button>
             </>
           )}
+          <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "6px 0" }} />
+          <button onClick={() => { setMenuOpen(false); scrollToSection("come-funziona"); }} style={mobileMenuItemStyle}>Come funziona</button>
+          <button onClick={() => { setMenuOpen(false); scrollToSection("prezzi"); }} style={mobileMenuItemStyle}>Prezzi</button>
+          <button onClick={() => { setMenuOpen(false); onConfigure?.(); }} style={mobileMenuItemStyle}>Piattaforma: Configuratore</button>
         </div>
       )}
 
