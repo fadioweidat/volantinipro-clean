@@ -74,15 +74,24 @@ test('legacy: nessun origin_kind + device bot -> bot; + /admin -> admin; + /driv
   assert.equal(classifyTrafficRow(row({ path: '/driver/x', metadata: {} })), 'internal');
 });
 
-test('unknown SOLO da origin_kind=unknown o riga malformata; legacy path NULL resta public', () => {
+test('legacy path NULL: eventi di funnel -> public; ogni altro evento -> unknown', () => {
+  // origin_kind esplicito / riga malformata
   assert.equal(classifyTrafficRow(row({ path: '/', metadata: { origin_kind: 'unknown' } })), 'unknown');
   assert.equal(classifyTrafficRow(null), 'unknown');
   assert.equal(classifyTrafficRow('nope'), 'unknown');
-  // legacy: eventi di funnel storici con path NULL -> restano public (non rumore)
-  assert.equal(classifyTrafficRow(row({ event_name: 'quote_started', path: null, metadata: {} })), 'public');
-  assert.equal(classifyTrafficRow(row({ event_name: 'page_view', path: null, metadata: {} })), 'public');
-  // ma un bot con path NULL resta bot; /admin con path resta admin
+  // eventi di funnel/business con path NULL -> public legacy
+  for (const en of ['quote_started', 'quote_completed', 'municipality_selected', 'quantity_selected',
+    'service_selected', 'extras_selected', 'quote_step_reached', 'quote_abandoned']) {
+    assert.equal(classifyTrafficRow(row({ event_name: en, path: null, metadata: {} })), 'public', en);
+  }
+  // ogni altro evento senza path -> unknown
+  for (const en of ['page_view', 'session_started', 'consultation_requested']) {
+    assert.equal(classifyTrafficRow(row({ event_name: en, path: null, metadata: {} })), 'unknown', en);
+  }
+  // con path presente resta public; bot resta bot; /admin resta admin
+  assert.equal(classifyTrafficRow(row({ event_name: 'page_view', path: '/', metadata: {} })), 'public');
   assert.equal(classifyTrafficRow(row({ path: null, device_type: 'bot', metadata: {} })), 'bot');
+  assert.equal(classifyTrafficRow(row({ event_name: 'page_view', path: '/admin', metadata: {} })), 'admin');
 });
 
 // ── originKindFromHost (usato da /api/track) ───────────────────────────────

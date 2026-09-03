@@ -34,6 +34,19 @@ export const PRODUCTION_HOSTS = Object.freeze(['www.volantinipro.it', 'volantini
 const ADMIN_PATH_RE = /^\/admin(?:\/|$)/i;
 const INTERNAL_PATH_RE = /^\/(?:driver|office)(?:\/|$)/i;
 
+// Eventi di funnel/business: sono traffico pubblico attribuibile anche quando
+// la riga legacy non ha `path` (gli eventi non-page_view non lo portano).
+const BUSINESS_FUNNEL_EVENTS = new Set([
+  'quote_started',
+  'quote_completed',
+  'municipality_selected',
+  'quantity_selected',
+  'service_selected',
+  'extras_selected',
+  'quote_step_reached',
+  'quote_abandoned',
+]);
+
 function normalizePath(p) {
   if (typeof p !== 'string' || p === '') return null;
   const clean = p.split('?')[0].split('#')[0];
@@ -112,19 +125,21 @@ export function classifyTrafficRow(row) {
   // 5) internal — path /driver/* o /office/*
   if (path && INTERNAL_PATH_RE.test(path)) return TRAFFIC_CLASSES.INTERNAL;
 
-  // 6) public — origin_kind di produzione OPPURE legacy (nessun origin_kind):
-  //    non-bot, path non admin/internal -> public.
+  // 6) public — origin_kind di produzione.
   if (originKind === 'public') return TRAFFIC_CLASSES.PUBLIC;
 
-  // 7) unknown — SOLO se l'ingestion ha marcato origin_kind='unknown' (nessun
-  //    header host determinabile), oppure riga malformata (gestita in cima).
-  //    NB: una riga LEGACY con path NULL (tipico degli eventi di funnel storici
-  //    quote_started/completed, municipality_selected, quote_step_*) resta
-  //    PUBLIC: è traffico reale, non "rumore". Declassarla a unknown farebbe
-  //    sparire lo storico del funnel dai KPI commerciali (decisione operativa).
+  // 7) unknown — origin_kind marcato 'unknown' dall'ingestion (nessun header
+  //    host determinabile).
   if (originKind === 'unknown') return TRAFFIC_CLASSES.UNKNOWN;
 
-  return TRAFFIC_CLASSES.PUBLIC; // legacy public
+  // LEGACY (nessun origin_kind, non-bot, path non admin/internal):
+  //  - con path -> public
+  //  - senza path -> public SOLO se è un evento di funnel/business (quelli non
+  //    portano mai `path`); qualsiasi altro evento senza path -> unknown.
+  if (path) return TRAFFIC_CLASSES.PUBLIC;
+  return BUSINESS_FUNNEL_EVENTS.has(row.event_name)
+    ? TRAFFIC_CLASSES.PUBLIC
+    : TRAFFIC_CLASSES.UNKNOWN;
 }
 
 // Filtri della dashboard -> insieme di classi incluse. `null` = nessun filtro.

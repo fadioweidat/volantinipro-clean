@@ -94,11 +94,11 @@ test('VERIFICA DIVERGENZA: stessa definizione VISITOR/SESSION del rollup SQL', (
 
 test('geografia: top cities per visitatori distinti, con %', () => {
   const rows = [
-    ev('page_view', { v: 'a', country: 'IT', region: 'Lombardia', city: 'Milano' }),
-    ev('page_view', { v: 'a', country: 'IT', region: 'Lombardia', city: 'Milano' }),
-    ev('page_view', { v: 'b', country: 'IT', region: 'Lombardia', city: 'Milano' }),
-    ev('page_view', { v: 'c', country: 'IT', region: 'Lombardia', city: 'Monza' }),
-    ev('page_view', { v: 'd', country: 'IT', region: 'Lazio', city: 'Roma' }),
+    ev('page_view', { v: 'a', path: '/', country: 'IT', region: 'Lombardia', city: 'Milano' }),
+    ev('page_view', { v: 'a', path: '/', country: 'IT', region: 'Lombardia', city: 'Milano' }),
+    ev('page_view', { v: 'b', path: '/', country: 'IT', region: 'Lombardia', city: 'Milano' }),
+    ev('page_view', { v: 'c', path: '/', country: 'IT', region: 'Lombardia', city: 'Monza' }),
+    ev('page_view', { v: 'd', path: '/', country: 'IT', region: 'Lazio', city: 'Roma' }),
   ];
   const r = computeAnalytics(rows, { now: NOW, rangeDays: 7 });
   assert.deepEqual(r.geography.cities.map((c) => [c.key, c.count]), [['Milano', 2], ['Monza', 1], ['Roma', 1]]);
@@ -109,11 +109,11 @@ test('geografia: top cities per visitatori distinti, con %', () => {
 
 test('sorgenti: UTM prevale, referrer classificato, direct fallback', () => {
   const rows = [
-    ev('page_view', { v: 'a', utm: 'newsletter', utm_medium: 'email' }),
-    ev('page_view', { v: 'b', rh: 'google.com', rt: 'organic' }),
-    ev('page_view', { v: 'c', rh: 'l.instagram.com', rt: 'social' }),
-    ev('page_view', { v: 'd' }),
-    ev('page_view', { v: 'e' }),
+    ev('page_view', { v: 'a', path: '/', utm: 'newsletter', utm_medium: 'email' }),
+    ev('page_view', { v: 'b', path: '/', rh: 'google.com', rt: 'organic' }),
+    ev('page_view', { v: 'c', path: '/', rh: 'l.instagram.com', rt: 'social' }),
+    ev('page_view', { v: 'd', path: '/' }),
+    ev('page_view', { v: 'e', path: '/' }),
   ];
   const r = computeAnalytics(rows, { now: NOW, rangeDays: 7 });
   const bySource = Object.fromEntries(r.sources.map((s) => [s.source, s.visitors]));
@@ -182,7 +182,7 @@ test('domanda commerciale: comuni/province/bucket/servizi/extra + conversione pe
 });
 
 test('range: eventi fuori finestra esclusi; hasAnyData distingue vuoto', () => {
-  const rows = [ev('page_view', { v: 'a', at: T(12, 20) })]; // 20 giorni fa
+  const rows = [ev('page_view', { v: 'a', path: '/', at: T(12, 20) })]; // 20 giorni fa
   const r7 = computeAnalytics(rows, { now: NOW, rangeDays: 7 });
   assert.equal(r7.overview.pageViews, 0);
   assert.equal(r7.hasAnyData, true);
