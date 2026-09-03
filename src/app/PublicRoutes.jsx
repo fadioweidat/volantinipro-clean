@@ -1,5 +1,6 @@
 import React, { lazy, Suspense } from "react";
 import { RouteLoadingFallback } from "../layouts/public/RouteLoadingFallback.jsx";
+import InlineHelpCta from "../components/common/InlineHelpCta.jsx";
 
 // PERF-1: questi erano import statici (commento originale: "restano import
 // statici, invariati" — riferito al fatto che homepage/configuratore non
@@ -49,5 +50,14 @@ export function PublicRoutes({ page, data, setData, goTo, prefillPatch }) {
   })();
 
   if (!content) return null;
-  return <Suspense fallback={<RouteLoadingFallback />}>{content}</Suspense>;
+  // Richiamo di aiuto compatto SOLO nel configuratore (Step 1-4). Non tocca la
+  // logica degli Step: overlay fisso, richiudibile. "Chiedi all'AI" porta allo
+  // Step 2 (assistente territoriale).
+  const isConfiguratorStep = page === "step1" || page === "step2" || page === "step3" || page === "step4";
+  return (
+    <Suspense fallback={<RouteLoadingFallback />}>
+      {content}
+      {isConfiguratorStep && <InlineHelpCta onAsk={() => goTo("step2")} />}
+    </Suspense>
+  );
 }

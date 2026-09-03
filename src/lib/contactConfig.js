@@ -52,6 +52,26 @@ export function buildGraphicWhatsAppUrl(params = {}) {
   return `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(buildGraphicRequestText(params))}`;
 }
 
+/* ── Contatto generico "Serve una mano?" (sezione Contatti + richiami Step) ── */
+
+/** Messaggio WhatsApp precompilato per la richiesta di informazioni generica. */
+export const SUPPORT_INFO_WHATSAPP_TEXT =
+  "Ciao VolantiniPro, avrei bisogno di informazioni sul servizio di distribuzione volantini.";
+
+/** Oggetto email precompilato per la richiesta di informazioni generica. */
+export const SUPPORT_INFO_EMAIL_SUBJECT = "Richiesta informazioni VolantiniPro";
+
+/** URL wa.me con il messaggio informativo, oppure null se WhatsApp non configurato. */
+export function buildInfoWhatsAppUrl() {
+  if (!HAS_SUPPORT_WHATSAPP) return null;
+  return `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(SUPPORT_INFO_WHATSAPP_TEXT)}`;
+}
+
+/** mailto: verso l'email ufficiale con oggetto precompilato per informazioni. */
+export function buildInfoMailtoUrl() {
+  return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(SUPPORT_INFO_EMAIL_SUBJECT)}`;
+}
+
 /** mailto: verso l'email ufficiale con oggetto e corpo precompilati. */
 export function buildGraphicMailtoUrl({ format, quantity, notes } = {}) {
   const subject = "Richiesta servizio grafico - VolantiniPro";

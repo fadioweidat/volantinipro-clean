@@ -229,6 +229,20 @@ export function Navbar({
         }}>
               Chi siamo
             </button>
+            <button onClick={() => scrollToSection("contatti")} style={{
+          background: "transparent",
+          border: "none",
+          color: "rgba(255, 255, 255, 0.82)",
+          fontFamily: F.sans,
+          fontSize: 15,
+          fontWeight: 700,
+          cursor: "pointer",
+          padding: "8px 12px",
+          minHeight: 44,
+          transition: "color 0.2s ease"
+        }}>
+              Contatti
+            </button>
           </div>}
 
         {!isMobile && <div style={{
@@ -444,6 +458,22 @@ export function Navbar({
         padding: "0 6px"
       }}>
             Chi siamo
+          </button>
+          <button onClick={() => scrollToSection("contatti")} style={{
+        minHeight: 44,
+        display: "flex",
+        alignItems: "center",
+        background: "transparent",
+        border: "none",
+        color: "rgba(255, 255, 255, 0.82)",
+        fontFamily: F.sans,
+        fontSize: 15,
+        fontWeight: 700,
+        cursor: "pointer",
+        textAlign: "left",
+        padding: "0 6px"
+      }}>
+            Contatti
           </button>
           <div style={{
         height: 1,

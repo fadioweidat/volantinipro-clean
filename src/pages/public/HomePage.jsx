@@ -19,6 +19,7 @@ import TrackingLiveSection from "../../components/home/TrackingLiveSection.jsx";
 import CosaRiceviSection from "../../components/home/CosaRiceviSection.jsx";
 import TecnologiaSection from "../../components/home/TecnologiaSection.jsx";
 import FinalCtaSection from "../../components/home/FinalCtaSection.jsx";
+import ContattiSection from "../../components/home/ContattiSection.jsx";
 
 export function HomePage({
   onStart: n
@@ -453,6 +454,10 @@ export function HomePage({
       onConfigure: () => n("preventivo")
     }), _jsx(EnterpriseSection, {}), _jsx(RisultatiSection, {}), _jsx(FAQSection, {
       onContact: () => n("consultant")
+    }), _jsx(ContattiSection, {
+      onAsk: () => n("step1", null, {
+        newCampaign: true
+      })
     }), _jsx(FinalCtaSection, {
       onConfigure: () => n("preventivo")
     }), _jsx(Footer, {
