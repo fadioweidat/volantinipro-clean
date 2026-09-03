@@ -47,23 +47,48 @@ test("buildInfoWhatsAppUrl: wa.me col numero configurato + testo encodato, oppur
 });
 
 // ── ContattiSection ───────────────────────────────────────────────────────
-test("ContattiSection: id=contatti, titolo, testo e 3 CTA (WhatsApp condizionale, Email, Chiedi all'AI)", () => {
+test("ContattiSection: SOLO 2 CTA — WhatsApp + Email; nessun 'Chiedi all'AI' nella sezione", () => {
   const src = read("src/components/home/ContattiSection.jsx");
   assert.match(src, /id="contatti"/);
   assert.match(src, /Serve una mano\?/);
   assert.match(src, /Hai dubbi sul preventivo, sulla distribuzione o sui servizi\? Contatta direttamente VolantiniPro\./);
-  assert.match(src, /Scrivici via Email/);
-  assert.match(src, /Chiedi all[’']AI/);
-  // WhatsApp solo se configurato: usa buildInfoWhatsAppUrl e rende condizionale
+  // esattamente 2 CtaButton principali: WhatsApp + Scrivici via Email
+  const ctaLabels = [...src.matchAll(/label="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(ctaLabels, ["WhatsApp", "Scrivici via Email"]);
+  assert.equal((src.match(/<CtaButton\b/g) || []).length, 2);
+  // AI rimossa da questa sezione
+  assert.doesNotMatch(src, /Chiedi all[’']AI/);
+  assert.doesNotMatch(src, /Assistente configuratore/);
+  assert.doesNotMatch(src, /onAsk/);
+  // WhatsApp: buildInfoWhatsAppUrl, condizionale, nessun numero hardcoded
   assert.match(src, /buildInfoWhatsAppUrl/);
   assert.match(src, /whatsappUrl \?/);
-  // Email e mailto dai helper ufficiali, nessun indirizzo/numero hardcoded
-  assert.match(src, /buildInfoMailtoUrl/);
   assert.doesNotMatch(src, /wa\.me\/\d/);
+  // Email: helper ufficiale, nessun mailto hardcoded
+  assert.match(src, /buildInfoMailtoUrl/);
   assert.doesNotMatch(src, /mailto:[a-z]/i);
-  // responsive: usa useIsMobile per la disposizione (riga su desktop, colonna su mobile)
+  // responsive: desktop affiancati (row), mobile verticali full-width (column)
   assert.match(src, /useIsMobile/);
   assert.match(src, /flexDirection: isMobile \? "column" : "row"/);
+  assert.match(src, /width: mobile \? "100%" : "auto"/);
+});
+
+// ── contactConfig: numero WhatsApp ufficiale + formato wa.me ──────────────
+test("WhatsApp: '+39 351 767 3737' -> wa.me/393517673737 + messaggio precompilato esatto", async () => {
+  const { SUPPORT_INFO_WHATSAPP_TEXT } = await import("../src/lib/contactConfig.js");
+  // il ticket fissa il numero ufficiale; contactConfig normalizza a sole cifre
+  assert.equal("+39 351 767 3737".replace(/[^\d]/g, ""), "393517673737");
+  assert.equal(
+    SUPPORT_INFO_WHATSAPP_TEXT,
+    "Ciao VolantiniPro, avrei bisogno di informazioni sul servizio di distribuzione volantini.",
+  );
+  // forma dell'URL che contactConfig produce dato quel numero
+  const url = `https://wa.me/393517673737?text=${encodeURIComponent(SUPPORT_INFO_WHATSAPP_TEXT)}`;
+  assert.match(url, /^https:\/\/wa\.me\/393517673737\?text=Ciao%20VolantiniPro/);
+  // contactConfig normalizza VITE_SUPPORT_WHATSAPP togliendo tutto ciò che non è cifra
+  const cfgSrc = read("src/lib/contactConfig.js");
+  assert.match(cfgSrc, /VITE_SUPPORT_WHATSAPP[^\n]*replace\(\/\[\^\\d\]\/g, ""\)/);
+  assert.match(cfgSrc, /https:\/\/wa\.me\/\$\{SUPPORT_WHATSAPP\}\?text=\$\{encodeURIComponent\(SUPPORT_INFO_WHATSAPP_TEXT\)\}/);
 });
 
 // ── InlineHelpCta (richiamo Step) ────────────────────────────────────────

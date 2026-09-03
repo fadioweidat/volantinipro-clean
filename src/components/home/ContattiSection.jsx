@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import { useIsMobile } from "../../hooks/useIsMobile.js";
 import {
   SUPPORT_EMAIL,
-  HAS_SUPPORT_WHATSAPP,
   buildInfoWhatsAppUrl,
   buildInfoMailtoUrl,
 } from "../../lib/contactConfig.js";
@@ -53,11 +52,11 @@ function CtaButton({ href, onClick, primary, icon, label, sub, mobile }) {
   return <button type="button" onClick={onClick} style={base}>{content}</button>;
 }
 
-// Sezione "Serve una mano?" — contatto diretto con VolantiniPro.
-// WhatsApp: mostrato SOLO se il numero è configurato (contactConfig, nessun
-// numero inventato). Email: sempre, verso l'indirizzo ufficiale. "Chiedi
-// all'AI": entra nel configuratore, dove vive l'assistente territoriale.
-export default function ContattiSection({ onAsk }) {
+// Sezione "Serve una mano?" — contatto diretto con VolantiniPro: SOLO
+// WhatsApp + Email. WhatsApp mostrato quando il numero è configurato
+// (VITE_SUPPORT_WHATSAPP, nessun numero inventato). Email: sempre, verso
+// l'indirizzo ufficiale. (L'AI sarà negli Step del preventivo, non qui.)
+export default function ContattiSection() {
   const isMobile = useIsMobile();
   const whatsappUrl = buildInfoWhatsAppUrl();
 
@@ -106,7 +105,6 @@ export default function ContattiSection({ onAsk }) {
             <CtaButton mobile={isMobile} primary href={whatsappUrl} icon="🟢" label="WhatsApp" sub="Risposta rapida" />
           ) : null}
           <CtaButton mobile={isMobile} href={buildInfoMailtoUrl()} icon="✉️" label="Scrivici via Email" sub={SUPPORT_EMAIL} />
-          <CtaButton mobile={isMobile} onClick={() => onAsk?.()} icon="🤖" label="Chiedi all’AI" sub="Assistente configuratore" />
         </div>
       </motion.div>
     </section>

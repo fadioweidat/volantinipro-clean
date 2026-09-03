@@ -454,11 +454,7 @@ export function HomePage({
       onConfigure: () => n("preventivo")
     }), _jsx(EnterpriseSection, {}), _jsx(RisultatiSection, {}), _jsx(FAQSection, {
       onContact: () => n("consultant")
-    }), _jsx(ContattiSection, {
-      onAsk: () => n("step1", null, {
-        newCampaign: true
-      })
-    }), _jsx(FinalCtaSection, {
+    }), _jsx(ContattiSection, {}), _jsx(FinalCtaSection, {
       onConfigure: () => n("preventivo")
     }), _jsx(Footer, {
       onNav: n,
