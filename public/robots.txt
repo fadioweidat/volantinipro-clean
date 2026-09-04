@@ -1,4 +1,12 @@
 User-agent: *
 Allow: /
 
-Sitemap: http://localhost:5173/sitemap.xml
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /customer/
+Disallow: /campagna/
+Disallow: /supplier
+Disallow: /login
+Disallow: /auth/
+
+Sitemap: https://www.volantinipro.it/sitemap.xml

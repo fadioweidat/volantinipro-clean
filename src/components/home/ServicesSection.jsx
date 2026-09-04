@@ -43,7 +43,9 @@ function BriefcaseIcon() {
   );
 }
 
-const services = [
+// Esportato per il Service JSON-LD in SeoMeta.jsx: stessa fonte del testo
+// realmente visibile, mai una copia duplicata.
+export const services = [
   {
     title: "Door to Door",
     subtitle: "Distribuzione residenziale",

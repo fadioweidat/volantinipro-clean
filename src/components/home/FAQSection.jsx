@@ -7,7 +7,9 @@ const C_ORANGE = "#E8571A";
 
 // Homepage: SOLO le 6 FAQ principali (ridotte da 12). Il set completo resta
 // disponibile via "Vedi tutte le FAQ" (contatto diretto, nessuna nuova route).
-const faqs = [
+// Esportato per il FAQPage JSON-LD in SeoMeta.jsx: stessa fonte, mai una
+// copia duplicata che potrebbe disallinearsi dal testo realmente visibile.
+export const faqs = [
   {
     q: "Come funziona il configuratore?",
     a: "Scegli servizio, zona, date operative e ricevi un preventivo completo con costi e analisi territoriale. In ogni passaggio vedi solo le informazioni utili per decidere senza perdere tempo.",

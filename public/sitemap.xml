@@ -1,30 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>http://localhost:5173/</loc>
+    <loc>https://www.volantinipro.it/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
   </url>
   <url>
-    <loc>http://localhost:5173/preventivo-rapido</loc>
+    <loc>https://www.volantinipro.it/preventivo</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
   </url>
   <url>
-    <loc>http://localhost:5173/consulente</loc>
+    <loc>https://www.volantinipro.it/preventivo-rapido</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
-    <loc>http://localhost:5173/login</loc>
+    <loc>https://www.volantinipro.it/consulente</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
   </url>
   <url>
-    <loc>http://localhost:5173/dashboard</loc>
+    <loc>https://www.volantinipro.it/privacy</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
   </url>
   <url>
-    <loc>http://localhost:5173/campagna/demo</loc>
+    <loc>https://www.volantinipro.it/termini</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
   </url>
   <url>
-    <loc>http://localhost:5173/privacy</loc>
-  </url>
-  <url>
-    <loc>http://localhost:5173/termini</loc>
-  </url>
-  <url>
-    <loc>http://localhost:5173/cookie-policy</loc>
+    <loc>https://www.volantinipro.it/cookie-policy</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
   </url>
 </urlset>

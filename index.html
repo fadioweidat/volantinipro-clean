@@ -4,7 +4,36 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>VolantiniPro</title>
+    <link rel="alternate icon" href="/favicon.ico" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>Distribuzione Volantini con GPS e Report | VolantiniPro</title>
+    <!--
+      Metadata statica = stato iniziale servito ad OGNI richiesta (SPA senza
+      SSR/prerender, vedi audit ticket SEO): riflette la homepage, la pagina
+      con la massima probabilità di essere l'URL crawlato/condiviso senza
+      esecuzione JS (bot di anteprima social, crawler che non renderizzano).
+      src/layouts/public/SeoMeta.jsx sovrascrive questi stessi tag via JS per
+      ogni altra pagina una volta che React monta (Googlebot e i crawler che
+      eseguono JS vedono i valori corretti per-pagina; gli altri vedono
+      comunque la homepage, mai un valore vuoto o sbagliato).
+    -->
+    <meta name="description" content="Distribuzione volantini Door to Door, Hand to Hand e Business con analisi territoriale, tracking GPS, prove fotografiche e preventivo online." />
+    <link rel="canonical" href="https://www.volantinipro.it/" />
+    <meta property="og:site_name" content="VolantiniPro" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="it_IT" />
+    <meta property="og:url" content="https://www.volantinipro.it/" />
+    <meta property="og:title" content="Distribuzione Volantini con GPS e Report | VolantiniPro" />
+    <meta property="og:description" content="Distribuzione volantini Door to Door, Hand to Hand e Business con analisi territoriale, tracking GPS, prove fotografiche e preventivo online." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Distribuzione Volantini con GPS e Report | VolantiniPro" />
+    <meta name="twitter:description" content="Distribuzione volantini Door to Door, Hand to Hand e Business con analisi territoriale, tracking GPS, prove fotografiche e preventivo online." />
+    <script type="application/ld+json">
+      {"@context":"https://schema.org","@type":"Organization","name":"VolantiniPro","url":"https://www.volantinipro.it/","email":"info@volantinipro.it"}
+    </script>
+    <script type="application/ld+json">
+      {"@context":"https://schema.org","@type":"WebSite","name":"VolantiniPro","url":"https://www.volantinipro.it/"}
+    </script>
   </head>
   <body>
     <!--
