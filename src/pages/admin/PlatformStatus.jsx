@@ -15,8 +15,9 @@ import { computeLastOperationalEvents } from '../../lib/monitoring/platformEvent
 import { buildPlatformStatusReport } from '../../lib/monitoring/platformReport.js';
 import {
   buildControlCenterModel, createControlCenterAuditEntry, executeControlCenterRepair,
-  loadControlCenterAudit, saveControlCenterAudit, CONTROL_CENTER_MAINTENANCE_PLAN,
+  loadControlCenterAudit, saveControlCenterAudit,
 } from '../../lib/monitoring/controlCenterEngine.js';
+import { deriveMaintenanceStatus } from '../../lib/monitoring/maintenanceHistory.js';
 import { runControlCenterDiagnosis } from '../../ai/adapters/controlCenterAdapter.js';
 import { downloadTextFile } from '../../lib/services/report-utils.js';
 import { AdminLayout } from './AdminLayout.jsx';
@@ -173,6 +174,7 @@ export function PlatformStatus({ onNav }) {
     gpsPoints: rawData.gpsPoints.rows,
     auditLog,
   }), [health, flows, rawData.errorLog.rows, rawData.deliverySessions.rows, rawData.gpsPoints.rows, auditLog]);
+  const maintenance = useMemo(() => deriveMaintenanceStatus(healthHistory.rows), [healthHistory.rows]);
 
   const rememberAudit = useCallback((entry) => {
     setAuditLog((current) => saveControlCenterAudit([entry, ...current]));
@@ -287,7 +289,7 @@ export function PlatformStatus({ onNav }) {
   }
 
   function handleDownloadReport() {
-    const report = buildPlatformStatusReport({ health, flows, traffic: trafficConfigured ? traffic : null, providers: configStatus?.providers || null, lastEvents, authHealth, controlCenter, auditLog, maintenance: CONTROL_CENTER_MAINTENANCE_PLAN });
+    const report = buildPlatformStatusReport({ health, flows, traffic: trafficConfigured ? traffic : null, providers: configStatus?.providers || null, lastEvents, authHealth, controlCenter, auditLog, maintenance });
     downloadTextFile(`centro-controllo-sito-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`, JSON.stringify(report, null, 2), 'application/json');
   }
 
@@ -350,12 +352,16 @@ export function PlatformStatus({ onNav }) {
       </section>
 
       <section className="admin-home__section" aria-labelledby="ccs-maintenance-title">
-        <SectionHeading id="ccs-maintenance-title" eyebrow="Manutenzione" title="Piano operativo" meta="Preparato per il ticket scheduler successivo; nessun cron o deploy avviato da questa pagina" />
+        <SectionHeading id="ccs-maintenance-title" eyebrow="Manutenzione" title="Manutenzione automatica" meta={`${maintenance.scheduler} · ${maintenance.timeZone}`} />
         <div className="ccs-maintenance-grid">
-          <article><span>Ogni giorno</span><strong>Controlli automatici</strong><StatusPill status="ok" label="PRONTO" /></article>
-          <article><span>Ogni mese</span><strong>Manutenzione completa</strong><StatusPill status="warning" label="APPROVAZIONE" /></article>
-          <article><span>Ogni mese</span><strong>Report operativo</strong><StatusPill status="ok" label="PRONTO" /></article>
+          <article><span>Ultimo controllo giornaliero</span><strong>{formatRelative(maintenance.lastDailyAt)}</strong><StatusPill status={maintenance.lastDailyStatus} label={maintenance.lastDailyStatus === 'ok' ? 'VERIFICATO' : maintenance.lastDailyStatus === 'warning' ? 'DA REVISIONARE' : 'IN ATTESA'} /></article>
+          <article><span>Prossimo controllo</span><strong>{new Date(maintenance.nextDailyAt).toLocaleString('it-IT')}</strong><small>Ogni giorno alle 07:00</small></article>
+          <article><span>Ultimo report mensile</span><strong>{formatRelative(maintenance.lastMonthlyAt)}</strong><small>Primo lunedì alle 08:00</small></article>
+          <article><span>Auto-fix eseguiti</span><strong>{maintenance.autoFixes ?? '—'}</strong><small>Ultimo ciclo giornaliero</small></article>
+          <article><span>Warning aperti</span><strong>{maintenance.warnings ?? '—'}</strong><StatusPill status={maintenance.warnings == null ? 'unknown' : maintenance.warnings ? 'warning' : 'ok'} label={maintenance.warnings == null ? 'IN ATTESA' : maintenance.warnings ? 'ATTENZIONE' : 'NESSUNO'} /></article>
+          <article><span>Critical aperti</span><strong>{maintenance.critical ?? '—'}</strong><StatusPill status={maintenance.critical == null ? 'unknown' : maintenance.critical ? 'error' : 'ok'} label={maintenance.critical == null ? 'IN ATTESA' : maintenance.critical ? 'APPROVAZIONE' : 'NESSUNO'} /></article>
         </div>
+        <div className="admin-home__source-note"><strong>Politica automatica</strong><span>Solo retry, osservazione dell’auto-resolve ≥72h e cleanup non distruttivi già previsti. Codice, deploy, DB, RLS, Auth, pagamenti e cancellazioni richiedono sempre approvazione.</span></div>
       </section>
 
       {/* BLOCCO 1 — Stato generale piattaforma */}

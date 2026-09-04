@@ -51,7 +51,7 @@ declare const Deno: any;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-collector-secret",
 };
 
 const json = (body: unknown, status = 200) =>
@@ -545,13 +545,15 @@ async function handleAdminDashboard(user: { id: string } | null, body: any) {
   return json({ ...aiResult, status: "ai", cached: false });
 }
 
-async function handleControlCenterDiagnosis(user: { id: string } | null, body: any) {
-  if (!user) return json({ status: "error", error: "AUTHENTICATION_REQUIRED" }, 401);
+async function handleControlCenterDiagnosis(user: { id: string } | null, body: any, trustedCollector = false) {
+  if (!user && !trustedCollector) return json({ status: "error", error: "AUTHENTICATION_REQUIRED" }, 401);
   const supabase = supabaseAdmin();
   if (!supabase) return json({ status: "error", error: "AUTH_SERVICE_UNAVAILABLE" }, 500);
-  const { data: profile, error: profileError } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
-  if (profileError) return json({ status: "error", error: "AUTH_CHECK_FAILED" }, 500);
-  if (!isAdminProfile(profile)) return json({ status: "error", error: "FORBIDDEN" }, 403);
+  if (!trustedCollector) {
+    const { data: profile, error: profileError } = await supabase.from("profiles").select("role").eq("id", user!.id).maybeSingle();
+    if (profileError) return json({ status: "error", error: "AUTH_CHECK_FAILED" }, 500);
+    if (!isAdminProfile(profile)) return json({ status: "error", error: "FORBIDDEN" }, 403);
+  }
   const validation = validateStep2Payload(body);
   if (!validation.ok) return json({ status: "error", error: validation.error }, 400);
   if (!validateControlCenterSnapshot(validation.snapshot)) return json({ status: "error", error: "INVALID_CONTROL_CENTER_SNAPSHOT" }, 400);
@@ -633,10 +635,12 @@ serve(async (req: Request) => {
     // Step2 e territorial_report accettano user===null; i contesti Admin
     // respingono l'anonimo e verificano il ruolo nel proprio handler.
     const user = await getAuthedUser(req);
+    const collectorSecret = Deno.env.get("PLATFORM_HEALTH_COLLECTOR_SECRET");
+    const trustedCollector = Boolean(collectorSecret && req.headers.get("x-collector-secret") === collectorSecret);
 
     if (QUOTE_CONTEXT_TYPES.has(contextType)) return await handleQuoteStep(contextType, user, body);
     if (contextType === "admin_dashboard") return await handleAdminDashboard(user, body);
-    if (contextType === "control_center_diagnosis") return await handleControlCenterDiagnosis(user, body);
+    if (contextType === "control_center_diagnosis") return await handleControlCenterDiagnosis(user, body, trustedCollector);
     if (contextType === "territorial_report") return await handleTerritorialReport(user, body);
     return json({ answer: null, status: "error", error: "CONTEXT_TYPE_NOT_IMPLEMENTED" }, 501);
   } catch (error) {
