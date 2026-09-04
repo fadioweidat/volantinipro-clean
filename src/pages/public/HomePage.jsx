@@ -5,19 +5,15 @@ import KpiTooltip from "../../components/ui/KpiTooltip.jsx";
 import { Step1Icon } from "../../components/Step1Icon.jsx";
 import TrustBar from "../../components/home/TrustBar.jsx";
 import ServicesSection from "../../components/home/ServicesSection.jsx";
-import FeatureZonaMappa from "../../components/home/FeatureZonaMappa.jsx";
-import FeatureSmartPairing from "../../components/home/FeatureSmartPairing.jsx";
-import RisultatiSection from "../../components/home/RisultatiSection.jsx";
 import EnterpriseSection from "../../components/home/EnterpriseSection.jsx";
 import FAQSection from "../../components/home/FAQSection.jsx";
-import PricingSection from "../../components/home/PricingSection.jsx";
 import Footer from "../../components/home/Footer.jsx";
 import VolantiniProHeroMap from "../../components/home/VolantiniProHeroMap.jsx";
 import WhyDifferentSection from "../../components/home/WhyDifferentSection.jsx";
+import HowItWorksSection from "../../components/home/HowItWorksSection.jsx";
+import GpsLiveSection from "../../components/home/GpsLiveSection.jsx";
+import SmartPairingSection from "../../components/home/SmartPairingSection.jsx";
 import DashboardClienteSection from "../../components/home/DashboardClienteSection.jsx";
-import TrackingLiveSection from "../../components/home/TrackingLiveSection.jsx";
-import CosaRiceviSection from "../../components/home/CosaRiceviSection.jsx";
-import TecnologiaSection from "../../components/home/TecnologiaSection.jsx";
 import FinalCtaSection from "../../components/home/FinalCtaSection.jsx";
 import ContattiSection from "../../components/home/ContattiSection.jsx";
 
@@ -205,254 +201,17 @@ export function HomePage({
         value: "PDF",
         label: "Report verificabili"
       }]
-    }), _jsx(WhyDifferentSection, {}), _jsx("section", {
-      ref: kpiBandRef,
-      className: "section-tight",
-      style: {
-        display: "none",
-        background: C.navy,
-        paddingLeft: 28,
-        paddingRight: 28,
-        borderTop: `3px solid ${C.orange}`,
-        opacity: kpiBandVisible ? 1 : 0,
-        transform: kpiBandVisible ? "none" : "translateY(22px)",
-        transition: "opacity .5s ease, transform .7s cubic-bezier(.2,.8,.2,1)",
-        willChange: "transform, opacity"
-      },
-      children: _jsx("div", {
-        style: {
-          maxWidth: 1200,
-          margin: "0 auto",
-          display: "grid",
-          gridTemplateColumns: "repeat(4,1fr)",
-          gap: 2
-        },
-        children: x.map(({
-          value: D,
-          l: W,
-          src: A,
-          term: TM
-        }, F) => _jsxs("div", {
-          style: {
-            padding: "34px 26px",
-            borderLeft: F > 0 ? "1px solid rgba(255,255,255,.07)" : "none"
-          },
-          children: [_jsx("div", {
-            style: {
-              width: 26,
-              height: 3,
-              background: C.orange,
-              borderRadius: 2,
-              marginBottom: 16
-            }
-          }), _jsx("div", {
-            style: {
-              fontFamily: F.serif,
-              fontSize: typeof D == "string" && D.length > 8 ? 34 : 50,
-              color: C.white,
-              letterSpacing: "-1.4px",
-              lineHeight: 1,
-              marginBottom: 10,
-              fontVariantNumeric: "tabular-nums"
-            },
-            children: D
-          }), _jsxs("div", {
-            style: {
-              display: "flex",
-              alignItems: "center",
-              fontFamily: F.sans,
-              fontSize: 13,
-              color: "rgba(255,255,255,.8)",
-              lineHeight: 1.4,
-              marginBottom: 8
-            },
-            children: [W, _jsx(KpiTooltip, {
-              term: TM || D
-            })]
-          }), _jsx("div", {
-            style: {
-              display: "inline-flex",
-              padding: "3px 7px",
-              borderRadius: 4,
-              background: "rgba(232,87,26,.12)",
-              fontFamily: F.sans,
-              fontSize: 9,
-              color: C.orange
-            },
-            children: A
-          })]
-        }, W))
-      })
-    }), _jsx("section", {
-      id: "come-funziona",
-      className: "section",
-      style: {
-        background: C.cream,
-        paddingLeft: 28,
-        paddingRight: 28,
-        scrollMarginTop: 80
-      },
-      children: _jsxs("div", {
-        style: {
-          maxWidth: 1200,
-          margin: "0 auto"
-        },
-        children: [_jsxs("div", {
-          style: {
-            marginBottom: 64
-          },
-          children: [_jsx("div", {
-            style: {
-              fontFamily: F.sans,
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: ".15em",
-              textTransform: "uppercase",
-              color: C.orange,
-              marginBottom: 12
-            },
-            children: "Dall'idea al volantino in mano"
-          }), _jsxs("h2", {
-            style: {
-              fontFamily: F.serif,
-              fontSize: 48,
-              color: C.navy,
-              letterSpacing: "-1.5px",
-              marginBottom: 14,
-              lineHeight: 1.06
-            },
-            children: ["Dall'idea alla campagna", _jsx("br", {}), "in 4 step misurabili."]
-          }), _jsx("p", {
-            style: {
-              fontFamily: F.sans,
-              fontSize: 16,
-              color: C.muted,
-              maxWidth: 520,
-              lineHeight: 1.65
-            },
-            children: "Un flusso unico per definire servizio, zona, date operative e preventivo finale."
-          })]
-        }), _jsx("div", {
-          className: "steps-grid",
-          style: {
-            display: "grid",
-            gap: 16
-          },
-          children: T.map(({
-            n: D,
-            t: W,
-            d: A,
-            b: badge,
-            c: B
-          }, P) => _jsxs("div", {
-            className: "vc",
-            style: {
-              padding: "24px 20px",
-              background: C.white,
-              borderRadius: 16,
-              border: "1px solid rgba(0,0,0,.1)",
-              boxShadow: "0 12px 32px rgba(0,0,0,.06)",
-              position: "relative",
-              overflow: "hidden",
-              display: "flex",
-              flexDirection: "column",
-              height: "100%"
-            },
-            children: [_jsx("div", {
-              style: {
-                position: "absolute",
-                top: 0,
-                right: 12,
-                fontFamily: F.sans,
-                fontWeight: 900,
-                fontSize: 64,
-                color: "#F4F6F8",
-                lineHeight: 1,
-                userSelect: "none"
-              },
-              children: D
-            }), _jsx("div", {
-              style: {
-                width: 24,
-                height: 3,
-                borderRadius: 2,
-                background: B,
-                marginBottom: 16
-              }
-            }), _jsx("h3", {
-              style: {
-                fontFamily: F.serif,
-                fontSize: 20,
-                color: C.navy,
-                marginBottom: 10,
-                letterSpacing: "-.3px"
-              },
-              children: W
-            }), _jsx("p", {
-              style: {
-                fontFamily: F.sans,
-                fontSize: 13,
-                color: C.muted,
-                lineHeight: 1.5,
-                marginBottom: 16,
-                flex: 1
-              },
-              children: A
-            }), _jsx("div", {
-              style: {
-                display: "inline-flex",
-                padding: "4px 10px",
-                borderRadius: 6,
-                background: `${B}12`,
-                fontFamily: F.sans,
-                fontSize: 10,
-                fontWeight: 800,
-                color: B,
-                letterSpacing: ".05em",
-                textTransform: "uppercase",
-                alignSelf: "flex-start"
-              },
-              children: badge
-            })]
-          }, D))
-        }), _jsx("div", {
-          style: {
-            textAlign: "center",
-            marginTop: 56
-          },
-          children: _jsx("button", {
-            className: "vb",
-            onClick: () => n("preventivo"),
-            style: {
-              padding: "14px 34px",
-              borderRadius: 8,
-              border: "none",
-              background: "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)",
-              color: C.white,
-              fontFamily: F.sans,
-              fontSize: 15,
-              fontWeight: 700,
-              cursor: "pointer",
-              boxShadow: "0 6px 16px rgba(232,87,26,0.28)"
-            },
-            children: "Configura la tua campagna →"
-          })
-        })]
-      })
-    }), _jsx(DashboardClienteSection, {
-      onConfigure: () => n("preventivo")
-    }), _jsx(TrackingLiveSection, {
+    }), _jsx(WhyDifferentSection, {}), _jsx(HowItWorksSection, {
       onConfigure: () => n("preventivo")
     }), _jsx(ServicesSection, {
       onConfigure: () => n("preventivo")
-    }), _jsx(CosaRiceviSection, {
+    }), _jsx(GpsLiveSection, {
       onConfigure: () => n("preventivo")
-    }), _jsx(PricingSection, {
-      onConfigure: () => n("preventivo"),
-      onConsultant: () => n("consultant")
-    }), _jsx(TecnologiaSection, {
+    }), _jsx(SmartPairingSection, {
       onConfigure: () => n("preventivo")
-    }), _jsx(EnterpriseSection, {}), _jsx(RisultatiSection, {}), _jsx(FAQSection, {
+    }), _jsx(DashboardClienteSection, {
+      onConfigure: () => n("preventivo")
+    }), _jsx(EnterpriseSection, {}), _jsx(FAQSection, {
       onContact: () => n("consultant")
     }), _jsx(ContattiSection, {}), _jsx(FinalCtaSection, {
       onConfigure: () => n("preventivo")

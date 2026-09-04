@@ -203,10 +203,10 @@ export default function EnterpriseSection() {
     <section
       id="enterprise-solutions"
       className="section"
-      style={{ background: "#070C16", paddingLeft: 24, paddingRight: 24, borderTop: "1px solid rgba(255,255,255,.05)", borderBottom: "1px solid rgba(255,255,255,.05)" }}
+      style={{ background: "#070C16", paddingTop: 56, paddingBottom: 56, paddingLeft: 24, paddingRight: 24, borderTop: "1px solid rgba(255,255,255,.05)", borderBottom: "1px solid rgba(255,255,255,.05)" }}
     >
       <div style={{ maxWidth: 1140, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 36 }}>
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: C.blue, marginBottom: 12 }}>
             Soluzioni Enterprise
           </div>
@@ -218,14 +218,16 @@ export default function EnterpriseSection() {
           </p>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 32 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 2, marginBottom: 28, borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,.06)" }}>
           {blocks.map((b, i) => (
-            <div key={b.t} style={{ background: "#101624", borderRadius: 12, padding: 20, border: "1px solid rgba(255,255,255,.06)" }}>
-              <div style={{ width: 32, height: 32, borderRadius: 9, background: "rgba(96,165,250,.12)", display: "flex", alignItems: "center", justifyContent: "center", color: C.blue, marginBottom: 14, fontSize: 14, fontWeight: 700 }}>
+            <div key={b.t} style={{ background: "#101624", padding: "18px 18px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <div style={{ width: 26, height: 26, borderRadius: 8, background: "rgba(96,165,250,.12)", display: "flex", alignItems: "center", justifyContent: "center", color: C.blue, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
                 {i + 1}
               </div>
-              <h3 style={{ fontFamily: F.serif, fontSize: 17, color: "#fff", margin: "0 0 8px" }}>{b.t}</h3>
-              <p style={{ fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.6)", lineHeight: 1.55, margin: 0 }}>{b.d}</p>
+              <div>
+                <h3 style={{ fontFamily: F.serif, fontSize: 15.5, color: "#fff", margin: "0 0 4px" }}>{b.t}</h3>
+                <p style={{ fontFamily: F.sans, fontSize: 12.5, color: "rgba(255,255,255,.6)", lineHeight: 1.5, margin: 0 }}>{b.d}</p>
+              </div>
             </div>
           ))}
         </div>

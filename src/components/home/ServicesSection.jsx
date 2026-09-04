@@ -1,5 +1,5 @@
 import React from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import Button from "../ui/Button.jsx";
 
 const F = {
@@ -67,20 +67,12 @@ const services = [
   },
 ];
 
-const HOW_STEPS = [
-  { n: "01", icon: "🎯", title: "Scegli il servizio", desc: "Distribuzione in cassetta, a mano o alle attività commerciali. Scegli in base al tuo obiettivo." },
-  { n: "02", icon: "🗺️", title: "Seleziona la zona", desc: "Indica il comune e il raggio. La mappa mostra le famiglie raggiungibili e la copertura stimata." },
-  { n: "03", icon: "📅", title: "Scegli le date", desc: "Decidi quando vuoi distribuire. Se disponibile, puoi condividere il costo con un'altra campagna." },
-  { n: "04", icon: "📋", title: "Ricevi il preventivo", desc: "Prezzo calcolato su zona, quantità e servizio. Nessuna sorpresa: tutto trasparente prima della conferma." },
-  { n: "05", icon: "📡", title: "Monitora in tempo reale", desc: "Il percorso degli operatori viene tracciato con GPS. Puoi verificare dove è avvenuta la distribuzione." },
-  { n: "06", icon: "📄", title: "Ricevi il report finale", desc: "Al termine ricevi un documento con foto, mappe e dati della distribuzione. Prove concrete del lavoro svolto." },
-];
-
 export default function ServicesSection({ onConfigure }) {
+  const reduceMotion = useReducedMotion();
   return (
-    <section className="section" style={{ background: "#0B1020", paddingLeft: 28, paddingRight: 28, borderTop: "1px solid rgba(148,163,184,0.18)" }}>
+    <section className="section-tight" style={{ background: "#0B1020", paddingLeft: 28, paddingRight: 28, borderTop: "1px solid rgba(148,163,184,0.18)" }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 56 }}>
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".15em", textTransform: "uppercase", color: C.primary, marginBottom: 16 }}>
             Quanto costa distribuire
           </div>
@@ -97,11 +89,11 @@ export default function ServicesSection({ onConfigure }) {
             <motion.article
               key={service.title}
               className="servizio-card vc"
-              initial={{ opacity: 0, y: 16 }}
+              initial={reduceMotion ? false : { opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.18, delay: idx * 0.05 }}
-              whileHover={{ y: -4, borderColor: "rgba(232, 87, 26, 0.4)" }}
+              transition={{ duration: 0.18, delay: reduceMotion ? 0 : idx * 0.05 }}
+              whileHover={reduceMotion ? undefined : { y: -4, borderColor: "rgba(232, 87, 26, 0.4)" }}
               style={{ borderRadius: 20, padding: "32px 28px", border: "1px solid rgba(255, 255, 255, 0.08)", background: "#122036", boxShadow: "0 16px 32px rgba(0,0,0,0.25)", display: "flex", flexDirection: "column" }}
             >
               <div style={{ marginBottom: 20 }}>{service.icon}</div>

@@ -1,43 +1,44 @@
 import React from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 
 const CARDS = [
   {
     title: "Dati territoriali ISTAT",
-    desc: "Famiglie, popolazione e densità abitativa letti dalle fonti territoriali disponibili.",
+    desc: "Famiglie, popolazione e densità abitativa lette dalle fonti territoriali disponibili.",
     icon: "ISTAT",
-    bullets: ["Famiglie", "Popolazione", "Copertura", "Analisi del territorio"],
+    bullets: ["Famiglie e popolazione", "Copertura stimata"],
   },
   {
     title: "Analisi territoriale",
     desc: "Prima della campagna analizziamo zona, raggio e comuni coinvolti.",
     icon: "GIS",
-    bullets: ["Zone", "Comuni", "Copertura", "Fabbisogno volantini"],
+    bullets: ["Zone e comuni", "Fabbisogno volantini"],
   },
   {
     title: "Tracking GPS",
     desc: "Il lavoro sul campo viene registrato con il percorso GPS degli operatori.",
     icon: "GPS",
-    bullets: ["Percorso operativo", "Avanzamento", "Storico distribuzione"],
+    bullets: ["Percorso operativo", "Avanzamento live"],
   },
   {
     title: "Report e prove",
     desc: "Le evidenze raccolte rendono la distribuzione controllabile a fine campagna.",
     icon: "PDF",
-    bullets: ["Foto", "Report fotografico", "Mappa copertura", "Prove della distribuzione"],
+    bullets: ["Foto geolocalizzate", "Mappa di copertura"],
   },
 ];
 
 export default function WhyDifferentSection() {
+  const reduceMotion = useReducedMotion();
   return (
-    <section id="chi-siamo" style={{ background: "#0B1020", paddingTop: 64, paddingBottom: 64, paddingLeft: "5vw", paddingRight: "5vw", boxSizing: "border-box" }} aria-labelledby="why-different-title">
+    <section id="chi-siamo" className="section-tight" style={{ background: "#0B1020", paddingTop: 48, paddingBottom: 48, paddingLeft: "5vw", paddingRight: "5vw", boxSizing: "border-box" }} aria-labelledby="why-different-title">
       <style>{`
         .why-diff-container {
           max-width: 1400px;
           margin: 0 auto;
         }
         .why-diff-header {
-          margin-bottom: 40px;
+          margin-bottom: 32px;
         }
         .why-diff-kicker {
           font-family: 'DM Sans', Inter, system-ui, sans-serif;
@@ -72,13 +73,13 @@ export default function WhyDifferentSection() {
         .why-diff-card {
           background: #122036;
           border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 20px;
-          padding: 32px 28px;
+          border-radius: 18px;
+          padding: 24px 24px;
           display: flex;
           flex-direction: column;
-          gap: 20px;
-          min-height: 220px;
-          transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
+          gap: 14px;
+          min-height: 168px;
+          transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
         }
         .why-diff-card:hover {
           transform: translateY(-4px);
@@ -90,27 +91,26 @@ export default function WhyDifferentSection() {
         .why-diff-card:nth-child(4) { grid-column: span 7; }
 
         .why-diff-icon-badge {
-          width: 52px;
-          height: 52px;
-          border-radius: 14px;
+          width: 42px;
+          height: 42px;
+          border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
           background: rgba(232, 87, 26, 0.12);
           border: 1px solid rgba(232, 87, 26, 0.25);
           font-family: 'DM Sans', Inter, system-ui, sans-serif;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 900;
           letter-spacing: .08em;
           color: #E8571A;
-          margin-bottom: -4px;
         }
         .why-diff-card-title {
           font-family: 'DM Serif Display', Georgia, serif;
-          font-size: 28px;
+          font-size: 22px;
           line-height: 1.1;
           color: #F8FAFC;
-          margin: 0 0 12px;
+          margin: 0 0 8px;
           letter-spacing: -0.02em;
         }
         .why-diff-card-text {
@@ -150,11 +150,11 @@ export default function WhyDifferentSection() {
             <motion.article
               key={card.title}
               className="why-diff-card"
-              initial={{ opacity: 0, y: 16 }}
+              initial={reduceMotion ? false : { opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.18, delay: idx * 0.05 }}
-              whileHover={{ y: -4, borderColor: "rgba(232, 87, 26, 0.4)" }}
+              transition={{ duration: 0.18, delay: reduceMotion ? 0 : idx * 0.05 }}
+              whileHover={reduceMotion ? undefined : { y: -4, borderColor: "rgba(232, 87, 26, 0.4)" }}
             >
               <div className="why-diff-icon-badge">{card.icon}</div>
               <div style={{ marginTop: "auto" }}>
