@@ -121,6 +121,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   const [timing, setTiming] = useState("asap");
   const [customDate, setCustomDate] = useState("");
   const [extraIds, setExtraIds] = useState([]);
+  const [showAdvancedExtras, setShowAdvancedExtras] = useState(false);
   const [quantityAcknowledged, setQuantityAcknowledged] = useState(false);
   // Timeout client-side per-comune (H2H/B2B) — indice true quando lo slot ha
   // superato POI_PER_COMUNE_TIMEOUT_MS senza risolvere. Una volta true resta
@@ -366,8 +367,8 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   // tutti i comuni (progressive loading, sez. 3): basta una quantita'
   // effettiva valida, gia' derivata solo da comuni "matched" a monte.
   const canPrice = service === "d2d"
-    ? (!territorialLoading && effectiveQuantity != null && effectiveQuantity > 0 && (!hasComuni || !territorialError))
-    : (effectiveQuantity != null && effectiveQuantity > 0);
+    ? (!territorialLoading && effectiveQuantity != null && effectiveQuantity > 0 && hasComuni && !territorialError)
+    : (hasComuni && effectiveQuantity != null && effectiveQuantity > 0);
 
   const urgency = TIMING_OPTIONS.find((t) => t.id === timing)?.urgency || "normal";
 
@@ -377,6 +378,13 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   );
   const registryById = useMemo(() => buildExtraServicesById(registry), [registry]);
   const optionalExtras = useMemo(() => buildOptionalExtras(registryById), [registryById]);
+
+  const MAIN_EXTRA_IDS = useMemo(() => ["control_pro", "tracking_gps", "photo_report_advanced"], []);
+  const ADVANCED_EXTRA_IDS = useMemo(() => ["photo_proof", "video_proof", "qr_analytics", "advanced_report", "account_manager", "dedicated_supervision"], []);
+
+  const mainExtras = useMemo(() => optionalExtras.filter((e) => MAIN_EXTRA_IDS.includes(e.id)), [optionalExtras, MAIN_EXTRA_IDS]);
+  const advancedExtras = useMemo(() => optionalExtras.filter((e) => ADVANCED_EXTRA_IDS.includes(e.id)), [optionalExtras, ADVANCED_EXTRA_IDS]);
+  const activeAdvancedCount = useMemo(() => extraIds.filter((id) => ADVANCED_EXTRA_IDS.includes(id)).length, [extraIds, ADVANCED_EXTRA_IDS]);
 
   const toggleExtra = (id) => {
     setExtraIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -541,376 +549,236 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: C.navyDeep, padding: "72px 20px 120px" }}>
+    <div style={{ minHeight: "100vh", background: C.navyDeep, padding: "48px 20px 80px" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         <button
           type="button" onClick={() => onStart("home")} className="vp-navbtn"
           style={{
-            display: "inline-flex", alignItems: "center", gap: 7, minHeight: 42, padding: "10px 18px",
+            display: "inline-flex", alignItems: "center", gap: 7, minHeight: 38, padding: "8px 16px",
             borderRadius: 10, border: "1px solid rgba(255,255,255,.16)",
             background: "linear-gradient(180deg, rgba(18,32,54,.74), rgba(6,15,26,.72))",
-            color: "#F1F5F9", fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer", marginBottom: 24,
+            color: "#F1F5F9", fontFamily: F.sans, fontSize: 13, fontWeight: 800, cursor: "pointer", marginBottom: 20,
           }}
         >
-          Home
+          ← Home
         </button>
 
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: C.blue, marginBottom: 12 }}>
-            Scorciatoia
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: C.blue, marginBottom: 8 }}>
+            Preventivo Immediato
           </div>
-          <h1 style={{ fontFamily: F.serif, fontSize: 44, color: C.white, letterSpacing: "-1.4px", marginBottom: 12 }}>
+          <h1 style={{ fontFamily: F.serif, fontSize: "clamp(30px, 4vw, 40px)", color: C.white, letterSpacing: "-1.2px", margin: "0 0 8px" }}>
             Preventivo rapido
           </h1>
-          <p style={{ fontFamily: F.sans, fontSize: 16, color: "rgba(255,255,255,.52)", lineHeight: 1.6, maxWidth: 640 }}>
-            Scegli il servizio e i comuni: calcoliamo automaticamente la quantità consigliata dai dati territoriali reali. Nessuna mappa da configurare qui.
+          <p style={{ fontFamily: F.sans, fontSize: 15, color: "rgba(255,255,255,.6)", lineHeight: 1.5, maxWidth: 640, margin: 0 }}>
+            Configura servizio e comuni: calcoliamo subito la stima trasparente basata sui dati territoriali reali.
           </p>
         </div>
 
-        <div className="qq-grid" style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 28, alignItems: "start" }}>
-          <div style={{ background: "rgba(255,255,255,.03)", borderRadius: 20, border: "1px solid rgba(255,255,255,.08)", padding: "28px", boxShadow: "0 20px 50px rgba(0,0,0,.3)" }}>
+        <div className="qq-grid" style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 24, alignItems: "start" }}>
+          {/* Form principale a sinistra */}
+          <div style={{ background: "rgba(255,255,255,.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,.08)", padding: isMobile ? "20px 16px" : "24px 26px", boxShadow: "0 20px 50px rgba(0,0,0,.25)" }}>
 
-            <FieldLabel>Tipo di servizio</FieldLabel>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))", gap: 20, marginBottom: 32, alignItems: "stretch" }}>
-              {SERVICE_OPTIONS.map((opt) => {
-                const t = distributionTypes.find((x) => x.id === opt.id);
-                if (!t) return null;
-                const active = service === opt.id;
-                const cardCol = active ? C.green : "rgba(255,255,255,.38)";
-                return (
-                  <button type="button" role="radio" aria-checked={active} key={t.id} onClick={() => setService(t.id)} className={`vp-s1-card-hover${active ? " vp-s1-card-selected" : ""}`} style={{
-                    padding: 24,
-                    borderRadius: 18,
-                    // Stessi valori di s1Card() in Step1.jsx: stesso gradiente/bordo/
-                    // ombra della card selezionata/non selezionata, stesso "feeling premium".
-                    background: active ? "linear-gradient(180deg, rgba(34,197,94,.13), rgba(34,197,94,.055))" : "rgba(9,18,33,.58)",
-                    border: `1.5px solid ${active ? "rgba(34,197,94,.45)" : "rgba(255,255,255,.105)"}`,
-                    boxShadow: active ? "0 18px 42px rgba(34,197,94,.13)" : "inset 0 1px 0 rgba(255,255,255,.035)",
-                    cursor: "pointer",
-                    display: "flex",
-                    flexDirection: "column",
-                    position: "relative",
-                    textAlign: "left",
-                    color: "inherit",
-                    transition: "all .3s cubic-bezier(.4,0,.2,1)"
-                  }}>
-                    {active ? (
-                      <div style={{ position: "absolute", top: 16, right: 16, padding: "3px 9px", borderRadius: 999, background: "rgba(34,197,94,.14)", border: "1px solid rgba(34,197,94,.36)", color: C.green, fontFamily: F.sans, fontSize: 10, fontWeight: 800 }}>
-                        ✓ Selezionato
-                      </div>
-                    ) : t.badge ? (
-                      <div style={{ position: "absolute", top: 18, right: 18, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,.055)", border: "1px solid rgba(255,255,255,.1)", color: "rgba(255,255,255,.66)", fontFamily: F.sans, fontSize: 11, fontWeight: 800 }}>
-                        {t.badge}
-                      </div>
-                    ) : null}
-                    <div style={{ marginBottom: 16 }}>
-                      <Step1Icon name={t.icon} size={36} color={active ? C.green : "rgba(255,255,255,.82)"} />
-                    </div>
-                    <div style={{ fontFamily: F.serif, fontSize: 22, color: "#F8FAFC", marginBottom: 8 }}>
-                      {t.name}
-                    </div>
-                    <p style={{ fontFamily: F.sans, fontSize: 13, lineHeight: 1.55, color: "#94A3B8", margin: "0 0 18px", minHeight: 40 }}>
-                      {t.desc}
-                    </p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14, borderRadius: 12, background: "rgba(255,255,255,.035)", border: "1px solid rgba(255,255,255,0.065)", marginBottom: 20, flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 12, color: "#CBD5E1" }}>
-                        <span style={{ marginTop: 2, flexShrink: 0 }}><Step1Icon name="lightbulb" size={14} /></span> <span><b style={{ color: "#F8FAFC" }}>Casi d'uso:</b> {t.useCases}</span>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 12, color: "#CBD5E1" }}>
-                        <span style={{ marginTop: 2, flexShrink: 0 }}><Step1Icon name="target" size={14} /></span> <span><b style={{ color: "#F8FAFC" }}>Target:</b> {t.target}</span>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 12, color: "#CBD5E1" }}>
-                        <span style={{ marginTop: 2, flexShrink: 0 }}><Step1Icon name="clock" size={14} /></span> <span><b style={{ color: "#F8FAFC" }}>Tempo medio:</b> {t.time}</span>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 14, borderTop: `1px solid ${active ? "rgba(34,197,94,.24)" : "rgba(255,255,255,0.08)"}`, width: "100%" }}>
-                      <span style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 600, color: "#64748B", fontStyle: "italic" }}>
-                        Prezzo calcolato nel preventivo finale
-                      </span>
-                      <span style={{ width: 26, height: 26, borderRadius: "50%", background: active ? C.green : "transparent", border: `2px solid ${active ? C.green : cardCol}`, display: "flex", alignItems: "center", justifyContent: "center", color: active ? "#06131f" : cardCol, fontSize: 13, fontWeight: 900, transition: "all .2s", flexShrink: 0 }}>
-                        {active ? "✓" : "+"}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
+            {/* 1. SCELTA SERVIZIO */}
             <div style={{ marginBottom: 24 }}>
-              <FieldLabel>Settore o attività</FieldLabel>
-              <select value={activityType} onChange={(e) => setActivityType(e.target.value)} style={inputStyle}>
-                <option value="">Seleziona settore (opzionale)</option>
-                {activityButtons.map((btn) => (
-                  <option key={btn.value} value={btn.value}>{btn.label}</option>
-                ))}
-              </select>
-            </div>
-
-            <FieldLabel>Comuni o zone target (fino a {MAX_COMUNI})</FieldLabel>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: comuni.length ? 12 : 0 }}>
-              {comuni.map((c) => (
-                <span
-                  key={c.name}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 8px 6px 12px", borderRadius: 20, background: `${C.blue}1f`, border: `1px solid ${C.blue}55`, color: C.blue, fontFamily: F.sans, fontSize: 13, fontWeight: 700 }}
-                >
-                  {c.name}
-                  <button
-                    type="button" onClick={() => removeComune(c.name)} aria-label={`Rimuovi ${c.name}`}
-                    style={{ border: "none", background: "transparent", color: C.blue, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0 }}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-            {!comuneCapReached && (
-              <div style={{ position: "relative" }}>
-                <input
-                  value={comuneInput}
-                  onChange={(e) => { setComuneInput(e.target.value); setDropOpen(true); setDuplicateWarning(false); }}
-                  onFocus={() => setDropOpen(true)}
-                  placeholder={comuni.length === 0 ? "Es: Milano, Cormano..." : "Cerca un altro comune..."}
-                  style={inputStyle}
-                />
-                {duplicateWarning && (
-                  <div style={{ fontFamily: F.sans, fontSize: 12, color: C.yellow, marginTop: 6 }}>
-                    Comune già selezionato.
-                  </div>
-                )}
-                {dropOpen && comuneInput.length >= 2 && (
-                  <div style={{ position: "absolute", zIndex: 5, top: "calc(100% + 4px)", left: 0, right: 0, background: C.navy, border: "1px solid rgba(255,255,255,.14)", borderRadius: 10, overflow: "hidden", boxShadow: "0 12px 30px rgba(0,0,0,.4)" }}>
-                    {suggestLoading && (
-                      <div style={{ padding: "10px 14px", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.4)" }}>Cerco comuni...</div>
-                    )}
-                    {!suggestLoading && suggestions.length === 0 && (
-                      <div style={{ padding: "10px 14px", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.4)" }}>Nessun risultato</div>
-                    )}
-                    {!suggestLoading && suggestions.map((s) => (
-                      <button
-                        key={s.id} type="button" onClick={() => addComune(s)}
-                        style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", color: C.white, fontFamily: F.sans, fontSize: 13, cursor: "pointer" }}
-                      >
-                        {s.name}{s.province ? ` · ${s.province}` : ""}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-            {comuneCapReached && (
-              <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.4)", marginTop: 4 }}>
-                Hai raggiunto il massimo di {MAX_COMUNI} comuni.{" "}
-                <button
-                  type="button"
-                  onClick={() => onContact("consultant", { comune: comuni.map((c) => c.name).join(", "), service, qty: effectiveQuantity, activityType })}
-                  style={{ border: "none", background: "transparent", color: C.blue, fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0, textDecoration: "underline" }}
-                >
-                  Hai più comuni? Parla con un consulente
-                </button>
-              </div>
-            )}
-
-            {/* STATO DI CARICAMENTO — nessun risultato precedente mostrato come valido */}
-            {service === "d2d" && hasComuni && territorialLoading && (
-              <div style={{ marginTop: 16, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
-                <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.5)" }}>
-                  Calcolo dati territoriali…
-                </div>
-              </div>
-            )}
-
-            {service === "d2d" && hasComuni && !territorialLoading && territorialError && (
-              <div style={{ marginTop: 16, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
-                <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.5)" }}>
-                  Dati territoriali non disponibili al momento. Riprova o continua nel percorso guidato.
-                </div>
-              </div>
-            )}
-
-            {service === "d2d" && territorialReady && campaign.breakdown.length > 0 && (
-              <div style={{ marginTop: 16, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
-                {!campaign.supported ? (
-                  <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.45)" }}>
-                    Quantità consigliata automatica non disponibile per questo servizio: inserisci la quantità desiderata qui sotto.
-                  </div>
-                ) : campaign.allMatched ? (
-                  <>
-                    <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.green, marginBottom: 8 }}>
-                      {qty == null ? "Quantità consigliata" : "Quantità consigliata"} · {n(recommendedQty)} volantini
-                    </div>
-                    <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)", marginBottom: 8 }}>
-                      Copertura stimata: {qty == null ? "100%" : `${coveragePctAtCurrentQty}%`}
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {campaign.breakdown.map((b) => (
-                        <div key={b.municipality} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
-                          <span>{b.municipality}</span>
-                          <span>{b.households != null ? `${n(qty == null ? b.recommendedQuantity : b.requestedQuantity)} volantini` : "dato non disponibile"}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,.6)", marginBottom: 6 }}>
-                      Dati territoriali disponibili solo per alcuni comuni
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {campaign.breakdown.map((b) => (
-                        <div key={b.municipality} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
-                          <span>{b.municipality}</span>
-                          <span>{b.households != null ? `${n(b.households)} famiglie` : "Dati territoriali non disponibili per questo comune"}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* HAND TO HAND — solo indicatori territoriali reali, mai una
-                quantita' automatica (nessuna formula affidabile esiste per
-                derivarla da POI/score senza promoter e ore). Caricamento
-                progressivo: si mostra ogni comune non appena completa, senza
-                aspettare gli altri (sez. 3). */}
-            {service === "h2h" && hasComuni && poiAllPending && (
-              <div style={{ marginTop: 16, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
-                <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.5)" }}>
-                  Analisi territoriale in corso…
-                </div>
-              </div>
-            )}
-            {service === "h2h" && hasComuni && !poiAllPending && h2hSummary && (
-              <div style={{ marginTop: 16, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
-                <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.white, marginBottom: 2 }}>
-                  Analisi rapida della zona
-                </div>
-                {h2hSummary.totalCount > 1 && (
-                  <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)", marginBottom: 8 }}>
-                    Analisi disponibile per {h2hSummary.completedCount} di {h2hSummary.totalCount} comuni selezionati.
-                  </div>
-                )}
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {h2hSummary.poiCount != null && (
-                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
-                      <span>Punti rilevati</span><span>{n(h2hSummary.poiCount)}</span>
-                    </div>
-                  )}
-                  {h2hSummary.transitPoints != null && (
-                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
-                      <span>Fermate / stazioni</span><span>{n(h2hSummary.transitPoints)}</span>
-                    </div>
-                  )}
-                  {h2hSummary.schoolsEventsCount != null && (
-                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
-                      <span>Scuole / università / eventi</span><span>{n(h2hSummary.schoolsEventsCount)}</span>
-                    </div>
-                  )}
-                  {h2hSummary.hotspotCount != null && (
-                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
-                      <span>Hotspot rilevati</span><span>{n(h2hSummary.hotspotCount)}</span>
-                    </div>
-                  )}
-                  {h2hSummary.poiCount == null && h2hSummary.transitPoints == null && h2hSummary.schoolsEventsCount == null && h2hSummary.hotspotCount == null && (
-                    <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.45)" }}>Dato non disponibile</div>
-                  )}
-                  {h2hSummary.pendingMunicipalities.length > 0 && (
-                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)", marginTop: 4 }}>
-                      Analisi in corso per: {h2hSummary.pendingMunicipalities.join(", ")}.
-                    </div>
-                  )}
-                  {h2hSummary.timedOutMunicipalities.length > 0 && (
-                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)", marginTop: 4 }}>
-                      Analisi non disponibile per questo comune nei tempi previsti: {h2hSummary.timedOutMunicipalities.join(", ")}.
-                    </div>
-                  )}
-                  {h2hSummary.unmatchedMunicipalities.length > 0 && h2hSummary.pendingMunicipalities.length === 0 && h2hSummary.timedOutMunicipalities.length === 0 && (
-                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)", marginTop: 4 }}>
-                      Dati non disponibili per: {h2hSummary.unmatchedMunicipalities.join(", ")}. I KPI sopra riguardano solo i comuni analizzati correttamente.
-                    </div>
-                  )}
-                </div>
-                <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.5)", marginTop: 12, lineHeight: 1.5 }}>
-                  La quantità dipende dalla durata dell'attività e dal numero di promoter. Inserisci la quantità desiderata per ricevere la stima immediata.
-                </div>
-              </div>
-            )}
-
-            {/* BUSINESS DISTRIBUTION — attivita' target reali + stima
-                materiali (1 copia/attivita', default esistente in
-                business-config.js), mai presentata come dato territoriale
-                completo. Anche qui caricamento progressivo per-comune. */}
-            {service === "b2b" && hasComuni && poiAllPending && (
-              <div style={{ marginTop: 16, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
-                <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.5)" }}>
-                  Analisi territoriale in corso…
-                </div>
-              </div>
-            )}
-            {service === "b2b" && hasComuni && !poiAllPending && businessEstimate && (
-              <div style={{ marginTop: 16, padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
-                <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.green, marginBottom: 4 }}>
-                  Attività target rilevate · {businessEstimate.targetActivitiesCount != null ? n(businessEstimate.targetActivitiesCount) : "dato non disponibile"}
-                </div>
-                {businessEstimate.estimatedMaterials != null && (
-                  <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)", marginBottom: 8 }}>
-                    Stima minima materiali · {n(businessEstimate.estimatedMaterials)} copie
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,.4)", marginTop: 2 }}>
-                      Calcolata considerando {businessEstimate.defaultCopies} {businessEstimate.defaultCopies === 1 ? "copia" : "copie"} per ogni attività target rilevata.
-                    </div>
-                  </div>
-                )}
-                {businessEstimate.breakdown.length > 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
-                    {businessEstimate.breakdown.map((b) => (
-                      <div key={b.municipality} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
-                        <span>{b.municipality}</span>
-                        <span>
-                          {b.status === "matched" ? `${n(b.targetActivitiesCount)} attività`
-                            : b.status === "pending" ? "Analisi in corso…"
-                            : b.status === "timeout" ? "Tempo di analisi superato"
-                            : "Dati non disponibili"}
-                        </span>
-                      </div>
-                    ))}
-                    {businessEstimate.targetActivitiesCount != null && (
-                      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,.75)", borderTop: "1px solid rgba(255,255,255,.08)", paddingTop: 4, marginTop: 2 }}>
-                        <span>Totale</span><span>{n(businessEstimate.targetActivitiesCount)} attività</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-                {businessEstimate.totalCount > 1 && businessEstimate.completedCount < businessEstimate.totalCount && (
-                  <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)", marginTop: 8 }}>
-                    Stima basata su {businessEstimate.completedCount} dei {businessEstimate.totalCount} comuni selezionati. Il totale riguarda solo i comuni analizzati correttamente.
-                  </div>
-                )}
-                {businessEstimateOutdated && (
-                  <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: `${C.blue}14`, border: `1px solid ${C.blue}44` }}>
-                    <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.75)", marginBottom: 6 }}>
-                      È disponibile una stima aggiornata: {n(businessEstimate.estimatedMaterials)} copie.
-                    </div>
+              <FieldLabel>1. Tipo di servizio</FieldLabel>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))", gap: 12, alignItems: "stretch" }}>
+                {SERVICE_OPTIONS.map((opt) => {
+                  const t = distributionTypes.find((x) => x.id === opt.id);
+                  if (!t) return null;
+                  const active = service === opt.id;
+                  return (
                     <button
-                      type="button"
-                      onClick={() => { setQty(null); setAcceptedBusinessEstimate(businessEstimate.estimatedMaterials); setQuantityAcknowledged(false); }}
-                      style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: C.blue, color: C.navyDeep, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}
+                      type="button" role="radio" aria-checked={active} key={t.id} onClick={() => setService(t.id)}
+                      className={`vp-s1-card-hover${active ? " vp-s1-card-selected" : ""}`}
+                      style={{
+                        padding: "16px 14px",
+                        borderRadius: 14,
+                        background: active ? "linear-gradient(180deg, rgba(34,197,94,.14), rgba(34,197,94,.06))" : "rgba(9,18,33,.55)",
+                        border: `1.5px solid ${active ? "rgba(34,197,94,.5)" : "rgba(255,255,255,.09)"}`,
+                        boxShadow: active ? "0 10px 24px rgba(34,197,94,.12)" : "inset 0 1px 0 rgba(255,255,255,.03)",
+                        cursor: "pointer",
+                        display: "flex",
+                        flexDirection: "column",
+                        position: "relative",
+                        textAlign: "left",
+                        color: "inherit",
+                        transition: "all .2s ease",
+                      }}
                     >
-                      Usa la stima aggiornata
+                      {active && (
+                        <div style={{ position: "absolute", top: 12, right: 12, padding: "2px 7px", borderRadius: 999, background: "rgba(34,197,94,.18)", border: "1px solid rgba(34,197,94,.4)", color: C.green, fontFamily: F.sans, fontSize: 9.5, fontWeight: 800 }}>
+                          ✓ Attivo
+                        </div>
+                      )}
+                      <div style={{ marginBottom: 10 }}>
+                        <Step1Icon name={t.icon} size={28} color={active ? C.green : "rgba(255,255,255,.8)"} />
+                      </div>
+                      <div style={{ fontFamily: F.serif, fontSize: 17, color: "#F8FAFC", marginBottom: 4 }}>
+                        {t.name}
+                      </div>
+                      <p style={{ fontFamily: F.sans, fontSize: 12, lineHeight: 1.4, color: "#94A3B8", margin: "0 0 10px", minHeight: 34 }}>
+                        {t.desc}
+                      </p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "8px 10px", borderRadius: 8, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,0.05)", marginTop: "auto" }}>
+                        <div style={{ fontSize: 11, color: "#CBD5E1", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <span style={{ color: "rgba(255,255,255,.5)" }}>Uso:</span> {t.useCases}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#CBD5E1", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <span style={{ color: "rgba(255,255,255,.5)" }}>Target:</span> {t.target}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#CBD5E1", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <span style={{ color: "rgba(255,255,255,.5)" }}>Tempo:</span> {t.time}
+                        </div>
+                      </div>
                     </button>
-                  </div>
-                )}
-                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)", marginTop: 10, lineHeight: 1.5 }}>
-                  La stima si basa sulle attività target rilevate dalle fonti territoriali disponibili. Il numero effettivo di attività può variare.
-                </div>
+                  );
+                })}
               </div>
-            )}
+            </div>
 
-            <div style={{ marginTop: 24, marginBottom: 24 }}>
-              <FieldLabel>Quantità volantini (opzionale)</FieldLabel>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                {/* H2H non ha mai una quantita' automatica (nessuna formula
-                    affidabile la produce): il pulsante non viene mostrato,
-                    resta solo l'inserimento manuale sotto. */}
+            {/* 2. DOVE VUOI DISTRIBUIRE (COMUNI / ZONE) */}
+            <div style={{ marginBottom: 24, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,.06)" }}>
+              <FieldLabel>2. Dove vuoi distribuire?</FieldLabel>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: comuni.length ? 10 : 0 }}>
+                {comuni.map((c) => (
+                  <span
+                    key={c.name}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "5px 10px", borderRadius: 20, background: `${C.blue}1f`, border: `1px solid ${C.blue}55`, color: C.blue, fontFamily: F.sans, fontSize: 12.5, fontWeight: 700 }}
+                  >
+                    📍 {c.name}
+                    <button
+                      type="button" onClick={() => removeComune(c.name)} aria-label={`Rimuovi ${c.name}`}
+                      style={{ border: "none", background: "transparent", color: C.blue, cursor: "pointer", fontSize: 13, lineHeight: 1, padding: 0 }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              {!comuneCapReached && (
+                <div style={{ position: "relative" }}>
+                  <input
+                    value={comuneInput}
+                    onChange={(e) => { setComuneInput(e.target.value); setDropOpen(true); setDuplicateWarning(false); }}
+                    onFocus={() => setDropOpen(true)}
+                    placeholder={comuni.length === 0 ? "Es: Milano, Cormano…" : "Aggiungi un altro comune…"}
+                    style={inputStyle}
+                  />
+                  {duplicateWarning && (
+                    <div style={{ fontFamily: F.sans, fontSize: 11.5, color: C.yellow, marginTop: 4 }}>
+                      Comune già selezionato.
+                    </div>
+                  )}
+                  {dropOpen && comuneInput.length >= 2 && (
+                    <div style={{ position: "absolute", zIndex: 10, top: "calc(100% + 4px)", left: 0, right: 0, background: C.navy, border: "1px solid rgba(255,255,255,.14)", borderRadius: 10, overflow: "hidden", boxShadow: "0 12px 30px rgba(0,0,0,.5)" }}>
+                      {suggestLoading && (
+                        <div style={{ padding: "10px 14px", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.4)" }}>Cerco comuni…</div>
+                      )}
+                      {!suggestLoading && suggestions.length === 0 && (
+                        <div style={{ padding: "10px 14px", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.4)" }}>Nessun risultato trovato</div>
+                      )}
+                      {!suggestLoading && suggestions.map((s) => (
+                        <button
+                          key={s.id} type="button" onClick={() => addComune(s)}
+                          style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", color: C.white, fontFamily: F.sans, fontSize: 13, cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,.05)" }}
+                        >
+                          {s.name}{s.province ? ` · ${s.province}` : ""}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {comuneCapReached && (
+                <div style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.45)", marginTop: 4 }}>
+                  Massimo {MAX_COMUNI} comuni inseriti per il calcolo rapido.{" "}
+                  <button
+                    type="button"
+                    onClick={() => onContact("consultant", { comune: comuni.map((c) => c.name).join(", "), service, qty: effectiveQuantity, activityType })}
+                    style={{ border: "none", background: "transparent", color: C.blue, fontFamily: F.sans, fontSize: 11.5, fontWeight: 700, cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                  >
+                    Hai più comuni? Parla con un consulente
+                  </button>
+                </div>
+              )}
+
+              {/* Settore / Attività (compatto, opzionale) */}
+              <div style={{ marginTop: 12 }}>
+                <select value={activityType} onChange={(e) => setActivityType(e.target.value)} style={{ ...inputStyle, padding: "8px 12px", fontSize: 12.5 }}>
+                  <option value="">Settore o tipo attività (opzionale)</option>
+                  {activityButtons.map((btn) => (
+                    <option key={btn.value} value={btn.value}>{btn.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* BOX RISULTATI TERRITORIALI D2D */}
+              {service === "d2d" && hasComuni && territorialLoading && (
+                <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 8, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", fontSize: 12, color: "rgba(255,255,255,.6)" }}>
+                  Calcolo dati territoriali in corso…
+                </div>
+              )}
+              {service === "d2d" && hasComuni && !territorialLoading && territorialError && (
+                <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 8, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)", fontSize: 12, color: "rgba(255,255,255,.6)" }}>
+                  Dati territoriali momentaneamente non disponibili.
+                </div>
+              )}
+              {service === "d2d" && territorialReady && campaign.breakdown.length > 0 && campaign.allMatched && (
+                <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10, background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.3)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <span style={{ fontFamily: F.sans, fontSize: 12.5, fontWeight: 800, color: C.green }}>
+                      Fabbisogno stimato: {n(recommendedQty)} volantini
+                    </span>
+                    <span style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.7)" }}>
+                      Copertura: {qty == null ? "100%" : `${coveragePctAtCurrentQty}%`}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    {campaign.breakdown.map((b) => (
+                      <div key={b.municipality} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.65)" }}>
+                        <span>• {b.municipality}</span>
+                        <span>{b.households != null ? `${n(qty == null ? b.recommendedQuantity : b.requestedQuantity)} volantini` : "dato n/d"}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* BOX RISULTATI H2H */}
+              {service === "h2h" && hasComuni && !poiAllPending && h2hSummary && (
+                <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)" }}>
+                  <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: C.white, marginBottom: 4 }}>
+                    Punti di passaggio rilevati: {h2hSummary.poiCount != null ? n(h2hSummary.poiCount) : "n/d"}
+                  </div>
+                  <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)" }}>
+                    La quantità H2H dipende dalla durata e dai promoter. Inserisci la quantità desiderata sotto.
+                  </div>
+                </div>
+              )}
+
+              {/* BOX RISULTATI B2B */}
+              {service === "b2b" && hasComuni && !poiAllPending && businessEstimate && (
+                <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10, background: "rgba(46,204,138,.08)", border: "1px solid rgba(46,204,138,.3)" }}>
+                  <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: C.green, marginBottom: 4 }}>
+                    Attività target rilevate: {businessEstimate.targetActivitiesCount != null ? n(businessEstimate.targetActivitiesCount) : "n/d"}
+                  </div>
+                  {businessEstimate.estimatedMaterials != null && (
+                    <div style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.65)" }}>
+                      Stima consigliata materiali: {n(businessEstimate.estimatedMaterials)} copie ({businessEstimate.defaultCopies} per attività).
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 3. QUANTITÀ VOLANTINI */}
+            <div style={{ marginBottom: 24, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,.06)" }}>
+              <FieldLabel>3. Quantità volantini</FieldLabel>
+              <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.5)", marginBottom: 10 }}>
+                Con Automatica calcoliamo la quantità consigliata usando i dati territoriali reali.
+              </div>
+              <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 10 }}>
                 {service !== "h2h" && (
                   <button
                     type="button"
@@ -921,17 +789,17 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                     }}
                     disabled={service === "b2b" && recommendedQty == null}
                     style={{
-                      padding: "8px 14px", borderRadius: 8,
+                      padding: "7px 12px", borderRadius: 8,
                       border: `1px solid ${qty === null ? C.green : "rgba(255,255,255,.12)"}`,
                       background: qty === null ? `${C.green}22` : "rgba(255,255,255,.04)",
-                      color: qty === null ? C.green : "rgba(255,255,255,.6)",
-                      fontFamily: F.sans, fontSize: 13, fontWeight: 700,
+                      color: qty === null ? C.green : "rgba(255,255,255,.65)",
+                      fontFamily: F.sans, fontSize: 12, fontWeight: 700,
                       cursor: service === "b2b" && recommendedQty == null ? "not-allowed" : "pointer",
                       opacity: service === "b2b" && recommendedQty == null ? 0.5 : 1,
                     }}
                   >
                     {service === "b2b"
-                      ? (recommendedQty != null ? `Usa ${n(recommendedQty)} copie` : "Usa stima automatica")
+                      ? (recommendedQty != null ? `Usa ${n(recommendedQty)} copie` : "Automatica (consigliata)")
                       : "Automatica (consigliata)"}
                   </button>
                 )}
@@ -939,11 +807,11 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                   <button
                     key={value} type="button" onClick={() => { setQty(value); setQuantityAcknowledged(false); }}
                     style={{
-                      padding: "8px 14px", borderRadius: 8,
+                      padding: "7px 12px", borderRadius: 8,
                       border: `1px solid ${qty === value ? C.blue : "rgba(255,255,255,.12)"}`,
                       background: qty === value ? `${C.blue}22` : "rgba(255,255,255,.04)",
-                      color: qty === value ? C.blue : "rgba(255,255,255,.6)",
-                      fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                      color: qty === value ? C.blue : "rgba(255,255,255,.65)",
+                      fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer",
                     }}
                   >
                     {n(value)}
@@ -958,93 +826,72 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                     setQty(raw === "" ? null : (parseInt(raw, 10) || 0));
                     setQuantityAcknowledged(false);
                   }}
-                  placeholder="Lascia vuoto per il calcolo automatico" style={inputStyle}
+                  placeholder="Oppure inserisci una quantità personalizzata (lascia vuoto per automatica)"
+                  style={{ ...inputStyle, paddingRight: 40 }}
                 />
-                <div style={{ position: "absolute", right: 14, top: 12, fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.3)" }}>pz.</div>
+                <div style={{ position: "absolute", right: 14, top: 12, fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.4)" }}>pz.</div>
               </div>
 
-              {/* CASO B — quantità insufficiente: warning + due CTA (sez. 4) */}
+              {/* Warning Shortfall D2D */}
               {showShortfall && (
-                <div style={{ marginTop: 12, padding: "14px", borderRadius: 12, background: `${C.yellow}14`, border: `1px solid ${C.yellow}55` }}>
-                  <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.yellow, marginBottom: 6 }}>
-                    La quantità indicata non è sufficiente per coprire completamente i comuni selezionati.
+                <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: `${C.yellow}14`, border: `1px solid ${C.yellow}55` }}>
+                  <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.yellow, marginBottom: 4 }}>
+                    Quantità inferiore al fabbisogno stimato ({n(recommendedQty)} pz) · Copertura: {coveragePctAtCurrentQty}%
                   </div>
-                  <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.6)", marginBottom: 10, lineHeight: 1.5 }}>
-                    Quantità inserita: {n(qty)} · Quantità consigliata: {n(recommendedQty)} · Copertura stimata: {coveragePctAtCurrentQty}%
-                    {comuni.length > 1 ? " (ripartizione proporzionale ai dati territoriali per comune)." : "."}
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
                     <button
                       type="button" onClick={() => setQty(recommendedQty)}
-                      style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: C.yellow, color: C.navyDeep, fontFamily: F.sans, fontSize: 12, fontWeight: 800, cursor: "pointer" }}
+                      style={{ padding: "6px 10px", borderRadius: 6, border: "none", background: C.yellow, color: C.navyDeep, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}
                     >
-                      Aumenta a {n(recommendedQty)} volantini
+                      Aumenta a {n(recommendedQty)}
                     </button>
                     <button
                       type="button" onClick={() => setQuantityAcknowledged(true)}
-                      style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,.2)", background: "transparent", color: "rgba(255,255,255,.7)", fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                      style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.2)", background: "transparent", color: "rgba(255,255,255,.7)", fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer" }}
                     >
                       Mantieni {n(qty)}
                     </button>
                   </div>
                 </div>
               )}
-
-              {/* CASO B risolto con "Mantieni": copertura parziale spiegata (sez. 5) */}
-              {recommendedQty != null && qty != null && qty < recommendedQty && quantityAcknowledged && (
-                <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.1)" }}>
-                  <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.6)", lineHeight: 1.5 }}>
-                    Con {n(qty)} volantini la campagna coprirà circa il {coveragePctAtCurrentQty}% del fabbisogno territoriale selezionato.
-                  </div>
-                </div>
-              )}
-
-              {/* Sez. 6 — quantità adeguata/superiore: nessun warning, stato positivo */}
-              {showSurplus && (
-                <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10, background: `${C.green}14`, border: `1px solid ${C.green}55` }}>
-                  <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.green }}>
-                    Quantità adeguata per la copertura selezionata.
-                  </div>
-                  {qty > recommendedQty && (
-                    <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", marginTop: 4 }}>
-                      La quantità indicata supera quella necessaria per la copertura territoriale stimata.
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 24 }}>
-              <div>
-                <FieldLabel>Formato materiale</FieldLabel>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {FORMAT_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.id} type="button" onClick={() => setFormat(opt.id)}
-                      style={{
-                        padding: "8px 14px", borderRadius: 8,
-                        border: `1px solid ${format === opt.id ? C.blue : "rgba(255,255,255,.12)"}`,
-                        background: format === opt.id ? `${C.blue}22` : "rgba(255,255,255,.04)",
-                        color: format === opt.id ? C.blue : "rgba(255,255,255,.6)",
-                        fontFamily: F.sans, fontSize: 13, fontWeight: 700, cursor: "pointer",
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+            {/* 4. MATERIALE (FORMATO & STAMPA) SU STESSA RIGA */}
+            <div style={{ marginBottom: 24, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,.06)" }}>
+              <FieldLabel>4. Materiale (Formato & Stampa)</FieldLabel>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, alignItems: "start" }}>
+                <div>
+                  <div style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.6)", marginBottom: 6, fontWeight: 600 }}>Formato</div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {FORMAT_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id} type="button" onClick={() => setFormat(opt.id)}
+                        style={{
+                          padding: "6px 12px", borderRadius: 7,
+                          border: `1px solid ${format === opt.id ? C.blue : "rgba(255,255,255,.12)"}`,
+                          background: format === opt.id ? `${C.blue}22` : "rgba(255,255,255,.04)",
+                          color: format === opt.id ? C.blue : "rgba(255,255,255,.65)",
+                          fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <FieldLabel>Stato materiale</FieldLabel>
-                <select value={printed} onChange={(e) => setPrinted(e.target.value)} style={inputStyle}>
-                  <option value="true">Sì, già stampato</option>
-                  <option value="false">No, devo stamparlo</option>
-                </select>
+                <div>
+                  <div style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.6)", marginBottom: 6, fontWeight: 600 }}>Stato materiale</div>
+                  <select value={printed} onChange={(e) => setPrinted(e.target.value)} style={{ ...inputStyle, padding: "8px 12px", fontSize: 12.5 }}>
+                    <option value="true">Sì, già stampato</option>
+                    <option value="false">No, devo stamparlo</option>
+                  </select>
+                </div>
               </div>
             </div>
 
-            <div style={{ marginBottom: 24 }}>
-              <FieldLabel>Quando parte la campagna</FieldLabel>
+            {/* 5. QUANDO PARTE LA CAMPAGNA */}
+            <div style={{ marginBottom: 24, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,.06)" }}>
+              <FieldLabel>5. Quando parte la campagna</FieldLabel>
               <TimingUrgencyPicker
                 timing={timing} onTimingChange={setTiming}
                 customDate={customDate} onCustomDateChange={setCustomDate}
@@ -1052,145 +899,221 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
               />
             </div>
 
-            <div>
-              <FieldLabel>Servizi extra opzionali</FieldLabel>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {optionalExtras.map((ext) => {
+            {/* 6. SERVIZI EXTRA OPZIONALI */}
+            <div style={{ paddingTop: 16, borderTop: "1px solid rgba(255,255,255,.06)" }}>
+              <FieldLabel>6. Servizi extra opzionali</FieldLabel>
+
+              {/* 3 Extra principali visibili subito */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 12 }}>
+                {mainExtras.map((ext) => {
                   const selected = extraIds.includes(ext.id);
                   return (
                     <label
                       key={ext.id}
-                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, border: `1px solid ${selected ? C.blue : "rgba(255,255,255,.1)"}`, background: selected ? `${C.blue}14` : "rgba(255,255,255,.03)", cursor: "pointer" }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 9,
+                        border: `1px solid ${selected ? C.blue : "rgba(255,255,255,.09)"}`,
+                        background: selected ? `${C.blue}14` : "rgba(255,255,255,.025)",
+                        cursor: "pointer", transition: "all .15s ease",
+                      }}
                     >
-                      <input type="checkbox" checked={selected} onChange={() => toggleExtra(ext.id)} />
+                      <input type="checkbox" checked={selected} onChange={() => toggleExtra(ext.id)} style={{ accentColor: C.blue }} />
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 700, color: C.white }}>{ext.label}</div>
-                        <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)" }}>{ext.description}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontFamily: F.sans, fontSize: 12.5, fontWeight: 700, color: C.white }}>{ext.label}</span>
+                          {ext.badge && (
+                            <span style={{ fontSize: 9.5, padding: "1px 6px", borderRadius: 4, background: `${ext.col || C.blue}22`, color: ext.col || C.blue, fontWeight: 800 }}>
+                              {ext.badge}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)", marginTop: 1 }}>{ext.description}</div>
                       </div>
-                      <div style={{ fontFamily: F.sans, fontSize: 13, fontWeight: 800, color: C.blue }}>+{money(ext.price)}</div>
+                      <div style={{ fontFamily: F.sans, fontSize: 12.5, fontWeight: 800, color: C.blue, whiteSpace: "nowrap" }}>+{money(ext.price)}</div>
                     </label>
                   );
                 })}
               </div>
+
+              {/* Accordion toggle per altri servizi avanzati */}
+              <button
+                type="button"
+                onClick={() => setShowAdvancedExtras((prev) => !prev)}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 12px", borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.04)",
+                  color: "#CBD5E1", fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                  width: "100%", justifyContent: "space-between",
+                }}
+              >
+                <span>
+                  {showAdvancedExtras ? "▲ Nascondi servizi avanzati" : `▼ Mostra altri servizi avanzati (${advancedExtras.length})`}
+                </span>
+                {activeAdvancedCount > 0 && (
+                  <span style={{ padding: "2px 7px", borderRadius: 10, background: `${C.blue}22`, color: C.blue, fontSize: 10.5, fontWeight: 800 }}>
+                    {activeAdvancedCount} attivi
+                  </span>
+                )}
+              </button>
+
+              {/* Contenuto Accordion (6 extra avanzati) */}
+              {showAdvancedExtras && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 10, paddingTop: 10, borderTop: "1px dashed rgba(255,255,255,.08)" }}>
+                  {advancedExtras.map((ext) => {
+                    const selected = extraIds.includes(ext.id);
+                    return (
+                      <label
+                        key={ext.id}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 9,
+                          border: `1px solid ${selected ? C.blue : "rgba(255,255,255,.09)"}`,
+                          background: selected ? `${C.blue}14` : "rgba(255,255,255,.02)",
+                          cursor: "pointer", transition: "all .15s ease",
+                        }}
+                      >
+                        <input type="checkbox" checked={selected} onChange={() => toggleExtra(ext.id)} style={{ accentColor: C.blue }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white }}>{ext.label}</div>
+                          <div style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.45)" }}>{ext.description}</div>
+                        </div>
+                        <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 800, color: C.blue, whiteSpace: "nowrap" }}>+{money(ext.price)}</div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="qq-sticky" style={{ position: "sticky", top: 24, background: "rgba(255,255,255,.03)", borderRadius: 20, border: "1px solid rgba(255,255,255,.08)", padding: "24px", boxShadow: "0 20px 50px rgba(0,0,0,.3)" }}>
-            <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: "rgba(255,255,255,.4)", marginBottom: 12 }}>
-              La tua stima
+          {/* Colonna destra: Riepilogo Live Sticky */}
+          <div className="qq-sticky" style={{ position: "sticky", top: 20, background: "rgba(255,255,255,.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,.08)", padding: "20px 22px", boxShadow: "0 20px 50px rgba(0,0,0,.3)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase", color: "rgba(255,255,255,.45)" }}>
+                Riepilogo preventivo
+              </div>
+              <span style={{ padding: "2px 7px", borderRadius: 4, background: canPrice ? "rgba(34,197,94,.15)" : "rgba(234,179,8,.15)", color: canPrice ? C.green : C.yellow, fontFamily: F.sans, fontSize: 10, fontWeight: 800 }}>
+                {canPrice ? "Pronto" : "Incompleto"}
+              </span>
             </div>
 
-            {(service === "d2d" && hasComuni && territorialLoading) || (service === "b2b" && hasComuni && poiAllPending) ? (
-              <div style={{ padding: "24px 0", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.5)" }}>
-                {service === "d2d" ? "Calcolo dati territoriali…" : "Analisi territoriale in corso…"}
+            {/* Check-list dei parametri selezionati */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 14, marginBottom: 14, borderBottom: "1px solid rgba(255,255,255,.08)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)" }}>
+                <span>Servizio:</span>
+                <span style={{ color: "#F8FAFC", fontWeight: 700 }}>{serviceLabel}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)" }}>
+                <span>Zona:</span>
+                <span style={{ color: hasComuni ? "#F8FAFC" : C.yellow, fontWeight: 700, maxWidth: 180, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {hasComuni ? comuni.map((c) => c.name).join(", ") : "Seleziona comune"}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)" }}>
+                <span>Quantità:</span>
+                <span style={{ color: "#F8FAFC", fontWeight: 700 }}>
+                  {effectiveQuantity ? `${n(effectiveQuantity)} pz` : (hasComuni ? "In calcolo…" : "In attesa")}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)" }}>
+                <span>Formato / Stampa:</span>
+                <span style={{ color: "#F8FAFC", fontWeight: 700 }}>{format} · {printed === "true" ? "Stampato" : "Da stampare"}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)" }}>
+                <span>Tempistica:</span>
+                <span style={{ color: "#F8FAFC", fontWeight: 700 }}>{TIMING_OPTIONS.find((t) => t.id === timing)?.label || "Appena possibile"}</span>
+              </div>
+              {extraIds.length > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: C.blue }}>
+                  <span>Extra attivi:</span>
+                  <span style={{ fontWeight: 700 }}>{extraIds.length} selezionati</span>
+                </div>
+              )}
+            </div>
+
+            {/* Visualizzazione Prezzo o Stato Incompleto */}
+            {!hasComuni ? (
+              <div style={{ padding: "12px 14px", borderRadius: 10, background: `${C.yellow}14`, border: `1px solid ${C.yellow}44`, marginBottom: 14 }}>
+                <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.yellow, marginBottom: 2 }}>
+                  Seleziona almeno 1 comune per calcolare la stima.
+                </div>
+                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)" }}>
+                  Inserisci il comune target per attivare il calcolo automatico della copertura e del preventivo.
+                </div>
+              </div>
+            ) : (service === "d2d" && territorialLoading) || (service === "b2b" && poiAllPending) ? (
+              <div style={{ padding: "16px 0", fontFamily: F.sans, fontSize: 12.5, color: "rgba(255,255,255,.5)", textAlign: "center" }}>
+                Calcolo dati territoriali in corso…
               </div>
             ) : (
               <>
-                <div style={{ fontFamily: F.serif, fontSize: 36, color: C.white, marginBottom: 4 }}>
+                <div style={{ fontFamily: F.serif, fontSize: 34, color: C.white, marginBottom: 2, letterSpacing: "-0.5px" }}>
                   {canPrice ? money(total) : "—"}
                 </div>
-                <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.4)", marginBottom: 4 }}>+ IVA</div>
-                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.35)", marginBottom: 20 }}>Stima indicativa</div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 16, marginBottom: 16, borderBottom: "1px solid rgba(255,255,255,.08)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)" }}>
-                    <span>{serviceLabel} · {comuni.length} {comuni.length === 1 ? "comune" : "comuni"}</span>
-                  </div>
-                  {canPrice && (
-                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)" }}>
-                      <span>{n(effectiveQuantity)} pz</span>
-                      <span>{money(baseCost)}</span>
-                    </div>
-                  )}
-                  {urgencySurcharge > 0 && (
-                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: C.red }}>
-                      <span>Urgenza (+{urgencySurchargePctLabel}%)</span>
-                      <span>+{money(urgencySurcharge)}</span>
-                    </div>
-                  )}
-                  {extraIds.map((id) => (
-                    <div key={id} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)" }}>
-                      <span>{registryById[id]?.head}</span>
-                      <span>+{money(registryById[id]?.price)}</span>
-                    </div>
-                  ))}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14 }}>
+                  <span style={{ fontFamily: F.sans, fontSize: 11.5, color: "rgba(255,255,255,.5)" }}>+ IVA</span>
+                  <span style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.35)" }}>• Stima indicativa</span>
                 </div>
 
-                {campaign.supported && recommendedQty != null && (
-                  <div style={{ marginBottom: 16, padding: "12px", borderRadius: 10, background: showShortfall ? `${C.yellow}14` : `${C.green}14`, border: `1px solid ${showShortfall ? C.yellow + "55" : C.green + "55"}` }}>
-                    {showShortfall ? (
-                      <>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.6)" }}>
-                          <span>Quantità selezionata</span><span>{n(qty)}</span>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.6)" }}>
-                          <span>Quantità consigliata</span><span>{n(recommendedQty)}</span>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.yellow }}>
-                          <span>Copertura stimata</span><span>{coveragePctAtCurrentQty}%</span>
-                        </div>
-                        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                          <button type="button" onClick={() => setQty(recommendedQty)} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "none", background: C.yellow, color: C.navyDeep, fontFamily: F.sans, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
-                            Aumenta a {n(recommendedQty)}
-                          </button>
-                          <button type="button" onClick={() => setQuantityAcknowledged(true)} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,.2)", background: "transparent", color: "rgba(255,255,255,.7)", fontFamily: F.sans, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                            Mantieni {n(qty)}
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.green }}>
-                          Quantità consigliata: {n(recommendedQty)} volantini
-                        </div>
-                        <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", marginTop: 4 }}>
-                          Copertura stimata: {qty == null ? 100 : coveragePctAtCurrentQty}%
-                        </div>
-                      </>
+                {/* Scomposizione voci di costo */}
+                {canPrice && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 14, marginBottom: 14, borderBottom: "1px solid rgba(255,255,255,.08)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.65)" }}>
+                      <span>Distribuzione ({n(effectiveQuantity)} pz)</span>
+                      <span>{money(baseCost)}</span>
+                    </div>
+                    {urgencySurcharge > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: C.red }}>
+                        <span>Urgenza (+{urgencySurchargePctLabel}%)</span>
+                        <span>+{money(urgencySurcharge)}</span>
+                      </div>
                     )}
+                    {extraIds.map((id) => (
+                      <div key={id} style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: C.blue }}>
+                        <span>{registryById[id]?.head}</span>
+                        <span>+{money(registryById[id]?.price)}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
-
-                {explanation && (
-                  <div style={{ marginBottom: 16, fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", lineHeight: 1.5 }}>
-                    {explanation}
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleRequestQuote}
-                  disabled={!canPrice}
-                  style={{
-                    width: "100%", padding: "15px", borderRadius: 12, border: "none",
-                    background: canPrice ? C.orange : "rgba(255,255,255,.08)",
-                    color: canPrice ? C.white : "rgba(255,255,255,.35)",
-                    fontFamily: F.sans, fontSize: 15, fontWeight: 800,
-                    cursor: canPrice ? "pointer" : "not-allowed", marginBottom: 12,
-                  }}
-                >
-                  Ricevi il preventivo
-                </button>
               </>
             )}
 
-            <div style={{ padding: "14px", borderRadius: 12, background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.07)", marginBottom: 12 }}>
-              <div style={{ fontFamily: F.sans, fontSize: 12, fontWeight: 700, color: C.white, marginBottom: 6 }}>
-                {comuni.length > 1 ? "Vuoi analizzare tutti i comuni nel dettaglio?" : "Vuoi vedere zona e copertura sulla mappa?"}
+            {/* Pulsante CTA principale */}
+            <button
+              type="button"
+              onClick={handleRequestQuote}
+              disabled={!canPrice}
+              style={{
+                width: "100%", padding: "14px", borderRadius: 10, border: "none",
+                background: canPrice ? C.orange : "rgba(255,255,255,.08)",
+                color: canPrice ? C.white : "rgba(255,255,255,.35)",
+                fontFamily: F.sans, fontSize: 14, fontWeight: 800,
+                cursor: canPrice ? "pointer" : "not-allowed", marginBottom: 10,
+                boxShadow: canPrice ? "0 8px 20px rgba(232,87,26,.3)" : "none",
+                transition: "all .15s ease",
+              }}
+            >
+              {canPrice ? "Ricevi il preventivo" : "Completa i dati"}
+            </button>
+
+            <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)", lineHeight: 1.45, marginBottom: 16 }}>
+              Stima indicativa. Il preventivo definitivo viene confermato dopo l’analisi completa dell’area.
+            </div>
+
+            {/* Box percorso guidato */}
+            <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.07)" }}>
+              <div style={{ fontFamily: F.sans, fontSize: 11.5, fontWeight: 700, color: C.white, marginBottom: 4 }}>
+                Vuoi vedere zona e copertura sulla mappa?
               </div>
-              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.5)", lineHeight: 1.5, marginBottom: 10 }}>
-                Continua nel percorso guidato: la configurazione attuale viene precompilata, poi analizzi zona e copertura in tempo reale.
+              <div style={{ fontFamily: F.sans, fontSize: 10.5, color: "rgba(255,255,255,.5)", lineHeight: 1.4, marginBottom: 8 }}>
+                Continua nel percorso guidato con mappa interattiva e analisi territoriale completa.
               </div>
               <button
                 type="button" onClick={goToGuidedPath}
-                style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: C.white, fontFamily: F.sans, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 7, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: C.white, fontFamily: F.sans, fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}
               >
                 Continua nel percorso guidato →
               </button>
-            </div>
-
-            <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)", lineHeight: 1.5 }}>
-              Stima indicativa non vincolante. Il preventivo definitivo viene confermato dopo l'analisi completa dell'area.
             </div>
           </div>
         </div>
@@ -1198,7 +1121,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
 
       <style>{`
         @media (max-width: 900px) {
-          .qq-grid { grid-template-columns: 1fr !important; }
+          .qq-grid { grid-template-columns: 1fr !important; gap: 20px !important; }
           .qq-sticky { position: static !important; }
         }
       `}</style>
