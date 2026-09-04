@@ -180,16 +180,16 @@ export function HomePage({
   @media (min-width: 1025px) { .home-shell-dark .steps-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 16px !important; } }
   @media (max-width: 1024px) and (min-width: 641px) { .home-shell-dark .steps-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 16px !important; } }
   @media (max-width: 640px) { .home-shell-dark .steps-grid { grid-template-columns: 1fr !important; gap: 16px !important; } }
-  .home-shell-dark .section { padding-top: 64px !important; padding-bottom: 64px !important; }
-  .home-shell-dark .section-tight { padding-top: 44px !important; padding-bottom: 44px !important; }
+  .home-shell-dark .section { padding-top: 52px !important; padding-bottom: 52px !important; }
+  .home-shell-dark .section-tight { padding-top: 36px !important; padding-bottom: 36px !important; }
   .home-shell-dark .vp-home-hero-nav { box-sizing: border-box; }
   .home-shell-dark .vp-home-hero-title,
   .home-shell-dark .vp-home-hero-copy,
   .home-shell-dark .servizio-card,
   .home-shell-dark .servizio-card * { overflow-wrap: normal; word-break: normal; hyphens: none; }
   @media (max-width: 900px) {
-    .home-shell-dark .section { padding-top: 44px !important; padding-bottom: 44px !important; }
-    .home-shell-dark .section-tight { padding-top: 36px !important; padding-bottom: 36px !important; }
+    .home-shell-dark .section { padding-top: 38px !important; padding-bottom: 38px !important; }
+    .home-shell-dark .section-tight { padding-top: 28px !important; padding-bottom: 28px !important; }
     .home-shell-dark .vp-home-hero-nav { padding: 0 !important; border-radius: 0 !important; background: transparent !important; border-bottom: 0 !important; box-shadow: none !important; }
     .home-shell-dark .vp-home-hero-content,
     .home-shell-dark .vp-home-hero-copy-block { min-width: 0; width: 100%; }

@@ -72,19 +72,19 @@ export default function ServicesSection({ onConfigure }) {
   return (
     <section className="section-tight" style={{ background: "#0B1020", paddingLeft: 28, paddingRight: 28, borderTop: "1px solid rgba(148,163,184,0.18)" }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".15em", textTransform: "uppercase", color: C.primary, marginBottom: 16 }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".15em", textTransform: "uppercase", color: C.primary, marginBottom: 10 }}>
             Quanto costa distribuire
           </div>
-          <h2 className="landing-h2" style={{ fontFamily: F.serif, fontSize: 46, color: C.white, letterSpacing: "-0.03em", marginBottom: 16, lineHeight: 1.05 }}>
+          <h2 className="landing-h2" style={{ fontFamily: F.serif, fontSize: "clamp(30px, 3.8vw, 42px)", color: C.white, letterSpacing: "-0.03em", marginBottom: 12, lineHeight: 1.05 }}>
             Servizi chiari, prezzo calcolato sulla tua zona.
           </h2>
-          <p style={{ fontFamily: F.sans, fontSize: 16, color: "#AEB9C9", maxWidth: 560, margin: "0 auto", lineHeight: 1.6 }}>
+          <p style={{ fontFamily: F.sans, fontSize: 15, color: "#AEB9C9", maxWidth: 560, margin: "0 auto", lineHeight: 1.55 }}>
             Il costo della distribuzione cambia in base ad area, quantità e servizio scelto.
           </p>
         </div>
 
-        <div className="services-grid" style={{ gap: 24 }}>
+        <div className="services-grid" style={{ gap: 20 }}>
           {services.map((service, idx) => (
             <motion.article
               key={service.title}
@@ -93,19 +93,19 @@ export default function ServicesSection({ onConfigure }) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.18, delay: reduceMotion ? 0 : idx * 0.05 }}
-              whileHover={reduceMotion ? undefined : { y: -4, borderColor: "rgba(232, 87, 26, 0.4)" }}
-              style={{ borderRadius: 20, padding: "32px 28px", border: "1px solid rgba(255, 255, 255, 0.08)", background: "#122036", boxShadow: "0 16px 32px rgba(0,0,0,0.25)", display: "flex", flexDirection: "column" }}
+              whileHover={reduceMotion ? undefined : { y: -3, borderColor: "rgba(232, 87, 26, 0.4)" }}
+              style={{ borderRadius: 16, padding: "24px 22px", border: "1px solid rgba(255, 255, 255, 0.08)", background: "#122036", boxShadow: "0 12px 28px rgba(0,0,0,0.22)", display: "flex", flexDirection: "column" }}
             >
-              <div style={{ marginBottom: 20 }}>{service.icon}</div>
-              <h3 style={{ fontFamily: F.serif, fontSize: 24, color: C.white, lineHeight: 1.08, letterSpacing: "-0.02em", margin: 0 }}>
+              <div style={{ marginBottom: 14 }}>{service.icon}</div>
+              <h3 style={{ fontFamily: F.serif, fontSize: 22, color: C.white, lineHeight: 1.08, letterSpacing: "-0.02em", margin: 0 }}>
                 {service.title}
               </h3>
-              <p style={{ margin: "6px 0 20px", fontFamily: F.sans, fontSize: 14, color: "#AEB9C9" }}>{service.subtitle}</p>
-              <div style={{ height: 1, background: "rgba(255, 255, 255, 0.08)", marginBottom: 24 }} />
-              <div style={{ display: "grid", gap: 12, marginBottom: 28 }}>
+              <p style={{ margin: "4px 0 16px", fontFamily: F.sans, fontSize: 13.5, color: "#AEB9C9" }}>{service.subtitle}</p>
+              <div style={{ height: 1, background: "rgba(255, 255, 255, 0.08)", marginBottom: 18 }} />
+              <div style={{ display: "grid", gap: 10, marginBottom: 22 }}>
                 {service.bullets.map((bullet) => (
-                  <div key={bullet} style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: F.sans, fontSize: 14, color: "#CBD5E1", fontWeight: 500 }}>
-                    <span style={{ color: service.accent, fontWeight: 900, fontSize: 12 }}>✓</span>
+                  <div key={bullet} style={{ display: "flex", alignItems: "center", gap: 9, fontFamily: F.sans, fontSize: 13.5, color: "#CBD5E1", fontWeight: 500 }}>
+                    <span style={{ color: service.accent, fontWeight: 900, fontSize: 11 }}>✓</span>
                     {bullet}
                   </div>
                 ))}
@@ -113,7 +113,7 @@ export default function ServicesSection({ onConfigure }) {
               <Button
                 variant="ghost"
                 onClick={onConfigure}
-                style={{ marginTop: "auto", color: C.white, fontSize: 14, fontWeight: 800, justifyContent: "flex-start", padding: 0 }}
+                style={{ marginTop: "auto", color: C.white, fontSize: 13.5, fontWeight: 800, justifyContent: "flex-start", padding: 0 }}
               >
                 Scopri come →
               </Button>
@@ -121,15 +121,15 @@ export default function ServicesSection({ onConfigure }) {
           ))}
         </div>
 
-        <div style={{ textAlign: "center", marginTop: 44 }}>
+        <div style={{ textAlign: "center", marginTop: 32 }}>
           <button
             onClick={onConfigure}
             className="vb"
-            style={{ padding: "14px 32px", borderRadius: 8, border: "none", background: C.primary, color: "#fff", fontFamily: F.sans, fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: "0 6px 16px rgba(232,87,26,0.28)" }}
+            style={{ padding: "12px 28px", borderRadius: 8, border: "none", background: C.primary, color: "#fff", fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 6px 16px rgba(232,87,26,0.28)" }}
           >
             Calcola il tuo preventivo →
           </button>
-          <p style={{ fontFamily: F.sans, fontSize: 13, color: "#AEB9C9", margin: "16px 0 0" }}>
+          <p style={{ fontFamily: F.sans, fontSize: 12.5, color: "#AEB9C9", margin: "12px 0 0" }}>
             Prezzo calcolato su zona, quantità e servizio. Nessun abbonamento mensile obbligatorio.
           </p>
         </div>

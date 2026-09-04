@@ -29,14 +29,14 @@ export default function HowItWorksSection({ onConfigure }) {
         }
       `}</style>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-        <div style={{ marginBottom: 40 }}>
-          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: C_ORANGE, marginBottom: 10 }}>
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase", color: C_ORANGE, marginBottom: 8 }}>
             Dall'idea al volantino in mano
           </div>
-          <h2 style={{ fontFamily: F.serif, fontSize: "clamp(30px, 4vw, 44px)", color: "#0B1020", letterSpacing: "-1.4px", margin: "0 0 10px", lineHeight: 1.08 }}>
+          <h2 style={{ fontFamily: F.serif, fontSize: "clamp(28px, 3.6vw, 40px)", color: "#0B1020", letterSpacing: "-1.4px", margin: "0 0 8px", lineHeight: 1.08 }}>
             Dall'idea alla campagna in 4 step misurabili.
           </h2>
-          <p style={{ fontFamily: F.sans, fontSize: 15, color: "#5B6472", maxWidth: 520, lineHeight: 1.6, margin: 0 }}>
+          <p style={{ fontFamily: F.sans, fontSize: 14.5, color: "#5B6472", maxWidth: 520, lineHeight: 1.55, margin: 0 }}>
             Un flusso unico per definire servizio, zona, date operative e preventivo finale.
           </p>
         </div>
@@ -52,17 +52,17 @@ export default function HowItWorksSection({ onConfigure }) {
               transition={{ duration: 0.22, delay: reduceMotion ? 0 : idx * 0.08 }}
             >
               <div style={{
-                width: 44, height: 44, borderRadius: "50%", background: "#0B1020", color: C_ORANGE,
+                width: 40, height: 40, borderRadius: "50%", background: "#0B1020", color: C_ORANGE,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontFamily: F.sans, fontSize: 15, fontWeight: 900, flexShrink: 0,
+                fontFamily: F.sans, fontSize: 14, fontWeight: 900, flexShrink: 0,
                 border: "3px solid #F4F1EB", boxShadow: "0 0 0 2px rgba(11,16,32,.12)",
               }}>
                 {step.n}
               </div>
               <div>
-                <h3 style={{ fontFamily: F.serif, fontSize: 19, color: "#0B1020", margin: "0 0 4px", letterSpacing: "-.3px" }}>{step.title}</h3>
-                <p style={{ fontFamily: F.sans, fontSize: 13, color: "#5B6472", lineHeight: 1.5, margin: "0 0 10px" }}>{step.desc}</p>
-                <div style={{ display: "inline-flex", padding: "3px 9px", borderRadius: 6, background: "rgba(232,87,26,.1)", fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C_ORANGE, letterSpacing: ".04em", textTransform: "uppercase" }}>
+                <h3 style={{ fontFamily: F.serif, fontSize: 18, color: "#0B1020", margin: "0 0 3px", letterSpacing: "-.3px" }}>{step.title}</h3>
+                <p style={{ fontFamily: F.sans, fontSize: 12.5, color: "#5B6472", lineHeight: 1.45, margin: "0 0 8px" }}>{step.desc}</p>
+                <div style={{ display: "inline-flex", padding: "3px 8px", borderRadius: 6, background: "rgba(232,87,26,.1)", fontFamily: F.sans, fontSize: 9.5, fontWeight: 800, color: C_ORANGE, letterSpacing: ".04em", textTransform: "uppercase" }}>
                   {step.badge}
                 </div>
               </div>
@@ -70,11 +70,11 @@ export default function HowItWorksSection({ onConfigure }) {
           ))}
         </div>
 
-        <div style={{ textAlign: "center", marginTop: 40 }}>
+        <div style={{ textAlign: "center", marginTop: 28 }}>
           <button
             className="vb"
             onClick={() => onConfigure?.()}
-            style={{ padding: "13px 30px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)", color: "#fff", fontFamily: F.sans, fontSize: 14.5, fontWeight: 700, cursor: "pointer", boxShadow: "0 6px 16px rgba(232,87,26,0.28)" }}
+            style={{ padding: "12px 28px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)", color: "#fff", fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 6px 16px rgba(232,87,26,0.28)" }}
           >
             Configura la tua campagna →
           </button>
