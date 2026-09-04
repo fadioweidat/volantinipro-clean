@@ -23,6 +23,8 @@ export function deriveMaintenanceStatus(rows = [], now = new Date()) {
   nextDaily.setHours(7, 0, 0, 0);
   if (nextDaily <= now || lastDaily?.metadata?.localDate === now.toLocaleDateString('en-CA')) nextDaily.setDate(nextDaily.getDate() + 1);
   const summary = lastDaily?.metadata?.summary || {};
+  const monthlyReport = lastMonthly?.metadata?.report || null;
+  const monthlyCounts = monthlyReport?.counts || {};
   return Object.freeze({
     scheduler: 'pg_cron · platform-health-collector',
     timeZone: 'Europe/Rome',
@@ -34,6 +36,12 @@ export function deriveMaintenanceStatus(rows = [], now = new Date()) {
     warnings: lastDaily ? Number(summary.warning) || 0 : null,
     critical: lastDaily ? Number(summary.critical) || 0 : null,
     lastDailyStatus: lastDaily?.status || 'unknown',
-    monthlyReport: lastMonthly?.metadata?.report || null,
+    lastMonthlyStatus: lastMonthly?.status || 'unknown',
+    monthlyAutoFixes: lastMonthly ? Number(monthlyCounts.autoFixes) || 0 : null,
+    monthlyWarnings: lastMonthly ? Number(monthlyCounts.warning) || 0 : null,
+    monthlyCritical: lastMonthly ? Number(monthlyCounts.critical) || 0 : null,
+    monthlyReport,
+    // FASE 8: warning persistenti da segnalare senza correggerli automaticamente.
+    persistentProblems: (monthlyReport?.problems || []).filter((problem) => problem.persistent),
   });
 }

@@ -80,6 +80,7 @@ export function PlatformStatus({ onNav }) {
   const [diagnosingIssueId, setDiagnosingIssueId] = useState(null);
   const [diagnoses, setDiagnoses] = useState({});
   const [approvalIssueId, setApprovalIssueId] = useState(null);
+  const [showMonthlyReport, setShowMonthlyReport] = useState(false);
 
   const refreshData = useCallback(async () => {
     try {
@@ -355,12 +356,30 @@ export function PlatformStatus({ onNav }) {
         <SectionHeading id="ccs-maintenance-title" eyebrow="Manutenzione" title="Manutenzione automatica" meta={`${maintenance.scheduler} · ${maintenance.timeZone}`} />
         <div className="ccs-maintenance-grid">
           <article><span>Ultimo controllo giornaliero</span><strong>{formatRelative(maintenance.lastDailyAt)}</strong><StatusPill status={maintenance.lastDailyStatus} label={maintenance.lastDailyStatus === 'ok' ? 'VERIFICATO' : maintenance.lastDailyStatus === 'warning' ? 'DA REVISIONARE' : 'IN ATTESA'} /></article>
-          <article><span>Prossimo controllo</span><strong>{new Date(maintenance.nextDailyAt).toLocaleString('it-IT')}</strong><small>Ogni giorno alle 07:00</small></article>
-          <article><span>Ultimo report mensile</span><strong>{formatRelative(maintenance.lastMonthlyAt)}</strong><small>Primo lunedì alle 08:00</small></article>
+          <article><span>Prossimo controllo giornaliero</span><strong>{new Date(maintenance.nextDailyAt).toLocaleString('it-IT')}</strong><small>Ogni giorno alle 07:00</small></article>
+          <article><span>Ultima manutenzione mensile</span><strong>{formatRelative(maintenance.lastMonthlyAt)}</strong><StatusPill status={maintenance.lastMonthlyStatus} label={maintenance.lastMonthlyStatus === 'ok' ? 'VERIFICATO' : maintenance.lastMonthlyStatus === 'warning' ? 'DA REVISIONARE' : 'IN ATTESA'} /></article>
+          <article><span>Prossima manutenzione mensile</span><strong>{new Date(maintenance.nextMonthlyAt).toLocaleString('it-IT')}</strong><small>Primo lunedì del mese alle 08:00</small></article>
           <article><span>Auto-fix eseguiti</span><strong>{maintenance.autoFixes ?? '—'}</strong><small>Ultimo ciclo giornaliero</small></article>
+          <article><span>Auto-fix ultimo mese</span><strong>{maintenance.monthlyAutoFixes ?? '—'}</strong><small>Ultimo report mensile</small></article>
           <article><span>Warning aperti</span><strong>{maintenance.warnings ?? '—'}</strong><StatusPill status={maintenance.warnings == null ? 'unknown' : maintenance.warnings ? 'warning' : 'ok'} label={maintenance.warnings == null ? 'IN ATTESA' : maintenance.warnings ? 'ATTENZIONE' : 'NESSUNO'} /></article>
           <article><span>Critical aperti</span><strong>{maintenance.critical ?? '—'}</strong><StatusPill status={maintenance.critical == null ? 'unknown' : maintenance.critical ? 'error' : 'ok'} label={maintenance.critical == null ? 'IN ATTESA' : maintenance.critical ? 'APPROVAZIONE' : 'NESSUNO'} /></article>
         </div>
+        {maintenance.persistentProblems?.length > 0 && (
+          <div className="admin-home__notice admin-home__notice--danger" role="alert">
+            <strong>Warning persistenti — solo segnalazione, nessuna correzione automatica</strong>
+            <ul>
+              {maintenance.persistentProblems.map((problem) => (
+                <li key={problem.module}>{problem.module}: stato {problem.severity} da {problem.persistedForChecks} controlli consecutivi.</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <div className="ccs-actions">
+          <button type="button" onClick={() => setShowMonthlyReport((v) => !v)} disabled={!maintenance.monthlyReport}>
+            {showMonthlyReport ? 'Nascondi ultimo report' : 'Visualizza ultimo report'}
+          </button>
+        </div>
+        {showMonthlyReport && maintenance.monthlyReport && <MonthlyReportView report={maintenance.monthlyReport} />}
         <div className="admin-home__source-note"><strong>Politica automatica</strong><span>Solo retry, osservazione dell’auto-resolve ≥72h e cleanup non distruttivi già previsti. Codice, deploy, DB, RLS, Auth, pagamenti e cancellazioni richiedono sempre approvazione.</span></div>
       </section>
 
@@ -660,3 +679,58 @@ function AuditRow({ row }) {
 }
 
 function SectionHeading({ id, eyebrow, title, meta }) { return <header className="admin-home__heading"><div><p>{eyebrow}</p><h2 id={id}>{title}</h2>{meta && <span>{meta}</span>}</div></header>; }
+
+// Versione leggibile (Admin UI) del report mensile JSON strutturato — le
+// stesse 12 sezioni richieste dal ticket, nessun dato ricalcolato qui: solo
+// presentazione di cio' che buildMonthlyMaintenanceReport() ha gia' prodotto.
+const MONTHLY_SECTION_LABELS = {
+  statoGenerale: '1. Stato generale', frontend: '2. Frontend', preventivatore: '3. Preventivatore', gps: '4. GPS',
+  marketplace: '5. Marketplace', analytics: '6. Analytics', databaseSupabase: '7. Database/Supabase', sicurezza: '8. Sicurezza',
+  performance: '9. Performance', azioniEseguite: '10. Azioni eseguite', problemiAperti: '11. Problemi aperti', raccomandazioni: '12. Raccomandazioni',
+};
+const MONTHLY_SECTION_ORDER = ['statoGenerale', 'frontend', 'preventivatore', 'gps', 'marketplace', 'analytics', 'databaseSupabase', 'sicurezza', 'performance', 'azioniEseguite', 'problemiAperti', 'raccomandazioni'];
+
+function MonthlyProblemRow({ problem }) {
+  return (
+    <article className="ccs-audit-row">
+      <div><strong>{problem.module}</strong><StatusPill status={problem.severity === 'critical' ? 'error' : 'warning'} label={problem.severity === 'critical' ? 'CRITICAL' : 'WARNING'} /></div>
+      <p>Rilevato il {new Date(problem.detectedAt).toLocaleString('it-IT')} · Causa: {problem.cause || 'n/d'}</p>
+      <p>Azione proposta: {problem.proposedAction}</p>
+      <p>Azione eseguita: {problem.actionExecuted ? 'sì' : 'no'} · Verifica post-fix: {problem.postFixVerification || 'n/d'} · Stato finale: {problem.finalState}</p>
+      {problem.persistent && <p>Persiste da {problem.persistedForChecks} controlli consecutivi.</p>}
+    </article>
+  );
+}
+
+function MonthlyReportView({ report }) {
+  const sections = report.sections || {};
+  return (
+    <div className="ccs-monthly-report">
+      <h3>{report.title}</h3>
+      <p>Generato il {new Date(report.generatedAt).toLocaleString('it-IT')} — {report.counts.ok} OK, {report.counts.warning} warning, {report.counts.critical} critical, {report.counts.autoFixes} auto-fix, {report.counts.aiDiagnoses} diagnosi AI, {report.counts.automaticRedActions} azioni rosse eseguite.</p>
+      {MONTHLY_SECTION_ORDER.map((key) => {
+        const section = sections[key];
+        if (!section) return null;
+        return (
+          <section key={key} className="ccs-monthly-report__section">
+            <h4>{MONTHLY_SECTION_LABELS[key]}</h4>
+            {key === 'statoGenerale' && <p>{section.summaryText}</p>}
+            {key === 'raccomandazioni' && <ul>{section.items.map((item) => <li key={item}>{item}</li>)}</ul>}
+            {key === 'azioniEseguite' && (
+              section.autoFixes.length === 0 ? <p>Nessun auto-fix eseguito.</p> : <ul>{section.autoFixes.map((fix, i) => <li key={i}>{fix.action}: {fix.result} ({fix.affected ?? 0} interessati)</li>)}</ul>
+            )}
+            {(key === 'frontend' || key === 'preventivatore' || key === 'gps' || key === 'marketplace' || key === 'analytics' || key === 'databaseSupabase' || key === 'sicurezza') && (
+              section.problems.length === 0 ? <p>Nessun problema in questa sezione.</p> : section.problems.map((problem) => <MonthlyProblemRow key={problem.module} problem={problem} />)
+            )}
+            {key === 'performance' && (
+              section.slowChecks.length === 0 ? <p>Nessun controllo lento (soglia 1500 ms).</p> : <ul>{section.slowChecks.map((c) => <li key={c.checkName}>{c.checkName}: {c.responseTimeMs} ms</li>)}</ul>
+            )}
+            {key === 'problemiAperti' && (
+              section.problems.length === 0 ? <p>Nessun problema aperto.</p> : section.problems.map((problem) => <MonthlyProblemRow key={problem.module} problem={problem} />)
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+}

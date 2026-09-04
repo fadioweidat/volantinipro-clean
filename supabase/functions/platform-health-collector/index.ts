@@ -197,7 +197,12 @@ async function pingEdgeFunction(url: string, anonKey: string, name: string) {
     const res = await fetch(`${url}/functions/v1/${name}`, { method: "GET", headers: { apikey: anonKey }, signal: controller.signal });
     const responseTimeMs = Date.now() - start;
     if (res.status === 404) return { reachable: false, responseTimeMs, error: "Funzione non deployata (404)" };
-    return { reachable: true, responseTimeMs, error: null as string | null };
+    // submit-campaign-request accetta solo POST: un GET riceve sempre 500
+    // dalla function stessa, non un segnale di infrastruttura down — resta
+    // REACHABLE, solo etichettata esplicitamente (stessa logica lato browser
+    // in src/lib/monitoring/platformHealth.js, duplicazione deliberata).
+    const classification = name === "submit-campaign-request" && res.status >= 500 ? "method_not_supported" : "ok";
+    return { reachable: true, responseTimeMs, error: null as string | null, classification };
   } catch (err: any) {
     const timedOut = err?.name === "AbortError";
     return { reachable: false, responseTimeMs: Date.now() - start, error: timedOut ? `Timeout dopo ${EDGE_FUNCTION_PING_TIMEOUT_MS}ms` : sanitizeMessage(err?.message || String(err)) };
@@ -388,6 +393,12 @@ serve(async (req: Request) => {
     }
 
     const incidentActions: any[] = [];
+    // Numero di controlli consecutivi in cui un check risulta ancora aperto
+    // (platform_incidents.occurrence_count e' gia' esattamente questo dato)
+    // — usato dal report mensile (FASE 8: "indicare da quanti controlli
+    // persiste") senza ricalcolare nulla, solo letto dalla stessa incident
+    // machine che gia' gestisce apertura/chiusura.
+    const persistenceByCheck: Record<string, number> = {};
     for (const r of results) {
       const rule = resolveRule(r.checkName);
       if (!rule.alertable) continue;
@@ -397,6 +408,13 @@ serve(async (req: Request) => {
         supabase.from("platform_incidents").select("*").eq("check_name", r.checkName).eq("status", "open").maybeSingle(),
       ]);
       const decision = evaluateIncidentTransition(r.checkName, rule, recent || [], existingIncident, nowIso);
+      if (decision.action === "open") {
+        persistenceByCheck[r.checkName] = decision.incident.occurrence_count;
+      } else if (decision.action === "update") {
+        persistenceByCheck[r.checkName] = decision.patch.occurrence_count ?? existingIncident?.occurrence_count ?? 0;
+      } else if (existingIncident) {
+        persistenceByCheck[r.checkName] = existingIncident.occurrence_count || 0;
+      }
       if (decision.action === "open") {
         const { error } = await supabase.from("platform_incidents").insert(decision.incident);
         if (error) {
@@ -501,7 +519,20 @@ serve(async (req: Request) => {
         maintenanceRuns.push({ type: "daily", status: error ? "record_failed" : marker.status });
       }
       if (schedule.runMonthly) {
-        const report = buildMonthlyMaintenanceReport({ monthKey: schedule.window.monthKey, checks: results.map((row) => ({ ...row, severity: resolveRule(row.checkName).severity })), autoFixes, diagnoses, generatedAt: nowIso });
+        // Mese precedente: solo per il confronto "degrado performance" in
+        // sezione Performance — lettura, nessuna scrittura, nessun impatto
+        // se il marker del mese scorso non esiste ancora (report nuovo).
+        const previousMonthKey = new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000);
+        const previousMonthMarker = `maintenance_monthly_${new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit" }).format(previousMonthKey)}`;
+        const { data: previousMonthlyRow } = await supabase.from("platform_health_checks").select("metadata").eq("check_name", previousMonthMarker).order("checked_at", { ascending: false }).limit(1).maybeSingle();
+        const report = buildMonthlyMaintenanceReport({
+          monthKey: schedule.window.monthKey,
+          checks: results.map((row) => ({ ...row, severity: resolveRule(row.checkName).severity, checkedAt: nowIso, persistedForChecks: persistenceByCheck[row.checkName] || 0 })),
+          autoFixes,
+          diagnoses,
+          generatedAt: nowIso,
+          previousReport: (previousMonthlyRow as any)?.metadata?.report || null,
+        });
         const marker = { check_name: schedule.window.monthlyMarker, check_group: "provider", status: failedVerification ? "warning" : "ok", response_time_ms: null, error_code: failedVerification ? "POST_FIX_VERIFICATION_FAILED" : null, error_message: failedVerification ? "Report mensile completato con verifica post-fix da revisionare." : null, checked_at: nowIso, source: "collector", metadata: { maintenanceType: "monthly", localMonth: schedule.window.monthKey, timeZone: "Europe/Rome", report } };
         const { error } = await supabase.from("platform_health_checks").insert(marker);
         maintenanceRuns.push({ type: "monthly", status: error ? "record_failed" : marker.status });

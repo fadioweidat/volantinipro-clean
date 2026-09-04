@@ -122,7 +122,12 @@ export async function pingEdgeFunction(name) {
     if (res.status === 404) {
       return { name, reachable: false, status: 404, responseTimeMs, error: "Funzione non deployata (404)" };
     }
-    return { name, reachable: true, status: res.status, responseTimeMs };
+    // submit-campaign-request accetta solo POST con body JSON: un probe GET
+    // riceve sempre 500 dalla function stessa (non un errore infrastrutturale).
+    // Etichettato esplicitamente cosi' il report mensile non lo confonde con
+    // un guasto reale — la funzione resta REACHABLE, il probe non e' cambiato.
+    const classification = name === "submit-campaign-request" && res.status >= 500 ? "method_not_supported" : "ok";
+    return { name, reachable: true, status: res.status, responseTimeMs, classification };
   } catch (error) {
     const timedOut = error?.name === "AbortError";
     return {
