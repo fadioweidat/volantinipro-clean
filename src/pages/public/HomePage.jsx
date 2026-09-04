@@ -180,6 +180,41 @@ export function HomePage({
   @media (min-width: 1025px) { .home-shell-dark .steps-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 16px !important; } }
   @media (max-width: 1024px) and (min-width: 641px) { .home-shell-dark .steps-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 16px !important; } }
   @media (max-width: 640px) { .home-shell-dark .steps-grid { grid-template-columns: 1fr !important; gap: 16px !important; } }
+  .home-shell-dark .section { padding-top: 64px !important; padding-bottom: 64px !important; }
+  .home-shell-dark .section-tight { padding-top: 44px !important; padding-bottom: 44px !important; }
+  .home-shell-dark .vp-home-hero-nav { box-sizing: border-box; }
+  .home-shell-dark .vp-home-hero-title,
+  .home-shell-dark .vp-home-hero-copy,
+  .home-shell-dark .servizio-card,
+  .home-shell-dark .servizio-card * { overflow-wrap: normal; word-break: normal; hyphens: none; }
+  @media (max-width: 900px) {
+    .home-shell-dark .section { padding-top: 44px !important; padding-bottom: 44px !important; }
+    .home-shell-dark .section-tight { padding-top: 36px !important; padding-bottom: 36px !important; }
+    .home-shell-dark .vp-home-hero-nav { padding: 0 !important; border-radius: 0 !important; background: transparent !important; border-bottom: 0 !important; box-shadow: none !important; }
+    .home-shell-dark .vp-home-hero-content,
+    .home-shell-dark .vp-home-hero-copy-block { min-width: 0; width: 100%; }
+    .home-shell-dark .vp-home-hero-title { font-size: clamp(2.35rem, 10.5vw, 3.35rem) !important; line-height: 1.02 !important; letter-spacing: -0.035em !important; max-width: 100% !important; margin-bottom: 16px !important; }
+    .home-shell-dark .vp-home-hero-copy { font-size: 1rem !important; line-height: 1.55 !important; margin: 16px 0 22px !important; }
+    .home-shell-dark .vp-home-hero-summary { max-width: calc(100% - 24px) !important; }
+  }
+  @media (max-width: 600px) {
+    .home-shell-dark .vp-home-hero-header-cta,
+    .home-shell-dark .vp-home-hero-kpis { display: none !important; }
+    .home-shell-dark .vp-home-hero-shade { background: linear-gradient(to bottom, #07101f 0%, rgba(7,16,31,.94) 18%, rgba(7,16,31,.76) 58%, rgba(7,16,31,.28) 78%, #07101f 100%) !important; }
+    .home-shell-dark .vp-home-hero-nav-actions { gap: 8px !important; }
+    .home-shell-dark .vp-home-hero-break { display: none; }
+    .home-shell-dark .vp-home-hero-actions { display: grid !important; grid-template-columns: 1fr !important; width: 100%; gap: 10px !important; }
+    .home-shell-dark .vp-home-hero-actions > *,
+    .home-shell-dark .vp-home-hero-actions button { width: 100%; }
+    .home-shell-dark .vp-home-hero-chips { gap: 6px !important; }
+    .home-shell-dark .vp-home-hero-spacer { height: 430px !important; }
+    .home-shell-dark .vp-home-hero-summary { padding: 16px !important; gap: 16px !important; }
+    .home-shell-dark .servizio-card { min-height: 0 !important; padding: 24px 20px !important; }
+    .home-shell-dark #chi-siamo { padding-top: 44px !important; padding-bottom: 44px !important; }
+    .home-shell-dark .why-diff-header { margin-bottom: 28px !important; }
+    .home-shell-dark .why-diff-card { min-height: 0 !important; padding: 24px 20px !important; gap: 16px !important; }
+    .home-shell-dark .faq-row button { min-height: 64px !important; padding: 18px 4px !important; }
+  }
 `
     }), _jsx(VolantiniProHeroMap, {
       onConfigure: () => n("preventivo"),

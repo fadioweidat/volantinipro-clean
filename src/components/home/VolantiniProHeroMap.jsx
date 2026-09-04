@@ -65,7 +65,7 @@ function BenefitIcon({ type }) {
 }
 
 export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, onHowItWorks }) {
-  const compact = useCompact();
+  const compact = useCompact(1120);
   const [menuOpen, setMenuOpen] = useState(false);
   const [platformOpen, setPlatformOpen] = useState(false);
   const [workOpen, setWorkOpen] = useState(false); // dropdown "Lavora con noi"
@@ -85,6 +85,7 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
 
   return (
     <section
+      className="vp-home-hero"
       style={{
         minHeight: compact ? "100vh" : "680px",
         maxHeight: "none",
@@ -100,6 +101,7 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
       <HeroRealMapPreview compact={compact} benefits={benefits} />
 
       <nav
+        className="vp-home-hero-nav"
         style={{
           position: "relative",
           zIndex: 30,
@@ -206,7 +208,7 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
           </div>
         )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div className="vp-home-hero-nav-actions" style={{ display: "flex", alignItems: "center", gap: 14 }}>
           {!compact && (
             <button
               type="button"
@@ -216,7 +218,7 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
               Area Cliente
             </button>
           )}
-          <Button variant="primary" className="vb" onClick={onConfigure} style={primaryButtonStyle}>
+          <Button variant="primary" className="vb vp-home-hero-header-cta" onClick={onConfigure} style={primaryButtonStyle}>
             Configura la tua campagna
           </Button>
           {compact && (
@@ -256,6 +258,7 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
       )}
 
       <div
+        className="vp-home-hero-content"
         style={{
           position: "relative",
           zIndex: 10,
@@ -270,6 +273,7 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
         }}
       >
         <motion.div
+          className="vp-home-hero-copy-block"
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.22, ease: "easeOut" }}
@@ -277,17 +281,17 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
         >
           <div style={{ ...heroEyebrowStyle, marginBottom: compact ? 12 : 16 }}>VOLANTINAGGIO &middot; CONTROLLO GPS</div>
 
-          <h1 style={{ ...headlineStyle(compact), maxWidth: 580 }}>
-            Distribuisci volantini e<br/>
-            verifica ogni consegna<br/>
+          <h1 className="vp-home-hero-title" style={{ ...headlineStyle(compact), maxWidth: 580 }}>
+            Distribuisci volantini e<br className="vp-home-hero-break"/>{" "}
+            verifica ogni consegna<br className="vp-home-hero-break"/>{" "}
             con <span style={{ color: C.orange }}>GPS e report fotografico</span>
           </h1>
 
-          <p style={{ ...copyStyle(compact), maxWidth: 540, margin: compact ? "16px 0 24px" : "20px 0 28px" }}>
+          <p className="vp-home-hero-copy" style={{ ...copyStyle(compact), maxWidth: 540, margin: compact ? "16px 0 24px" : "20px 0 28px" }}>
             Configura la campagna con dati territoriali reali, segui la distribuzione con il tracking GPS degli operatori e ricevi foto, prove di consegna e report finale. Senza contratti fissi.
           </p>
 
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginBottom: 16 }}>
+          <div className="vp-home-hero-actions" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginBottom: 16 }}>
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.15 }}>
               <Button variant="primary" className="vb" onClick={onConfigure || onQuote || (() => window.location.href = "/preventivo")} style={{ ...heroPrimaryButtonStyle, minHeight: 44, padding: "0 20px" }}>
                 Configura la tua campagna
@@ -300,7 +304,7 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
             </motion.div>
           </div>
           
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <div className="vp-home-hero-chips" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {["Door to Door", "Hand to Hand", "Negozi", "Scuole"].map(chip => (
               <span key={chip} style={{ padding: "4px 10px", borderRadius: 100, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", fontSize: 10, color: "rgba(226, 232, 240, 0.7)", fontWeight: 700, letterSpacing: "0.02em" }}>
                 {chip}
@@ -309,7 +313,7 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
           </div>
         </motion.div>
       </div>
-      <div style={{ height: compact ? 480 : 220, width: "100%", flexShrink: 0, pointerEvents: "none" }} />
+      <div className="vp-home-hero-spacer" style={{ height: compact ? 480 : 220, width: "100%", flexShrink: 0, pointerEvents: "none" }} />
     </section>
   );
 }
@@ -532,7 +536,7 @@ function HeroRealMapPreview({ compact, benefits }) {
         pointerEvents: "auto",
         overflow: "hidden"
       }}>
-        <div style={{
+        <div className="vp-home-hero-shade" style={{
           position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none",
           background: compact 
             ? "linear-gradient(to bottom, #07101f 0%, rgba(7,16,31,0.85) 15%, rgba(7,16,31,0.2) 50%, #07101f 100%)"
@@ -608,7 +612,7 @@ function HeroRealMapPreview({ compact, benefits }) {
         {/* KPI SEMPRE presenti: se i dati non ci sono mostrano "n/d", non si
             smontano (mai meta' destra vuota). Il "Raggio analisi" e' un dato
             statico della preview e resta sempre valorizzato. */}
-        <div style={{
+        <div className="vp-home-hero-kpis" style={{
           position: "absolute",
           top: compact ? 64 : 90,
           right: compact ? 16 : "6%",
@@ -631,7 +635,7 @@ function HeroRealMapPreview({ compact, benefits }) {
           colonna "Analisi Zona" e i totali mostrano un fallback discreto se i
           dati territoriali non sono disponibili. Mai smontata -> nessuna meta'
           hero vuota. */}
-      <div style={{
+      <div className="vp-home-hero-summary" style={{
         position: "absolute",
         bottom: compact ? 12 : 12,
         left: "50%",
@@ -649,6 +653,7 @@ function HeroRealMapPreview({ compact, benefits }) {
         gridTemplateColumns: compact ? "1fr" : "1.2fr 1fr 0.8fr",
         gap: compact ? 20 : 40,
         boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+        boxSizing: "border-box",
       }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, justifyContent: "center" }}>
           {benefits.map(b => (
