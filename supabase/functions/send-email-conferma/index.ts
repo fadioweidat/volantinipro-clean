@@ -1,24 +1,24 @@
 // send-email-conferma — endpoint email transazionali cliente:
-//  - type "conferma" / "pagamento_ricevuto": contenuto INVARIATO rispetto
-//    alla versione precedente (istruzioni bonifico / notifica pagamento).
-//  - type "preventivo" (nuovo): invia il riepilogo del preventivo Step4 via
-//    email al cliente ("Invia preventivo via email"), FASE ticket "EMAIL
-//    PREVENTIVO REALE END-TO-END".
+//  - type "conferma" / "pagamento_ricevuto": contenuto INVARIATO (istruzioni bonifico / notifica pagamento).
+//  - type "preventivo": invia il riepilogo del preventivo Step4 via email al cliente ("Invia preventivo via email").
 //
-// Sicurezza (hardening di questo giro — la function non aveva MAI un
-// chiamante reale prima d'ora, quindi nessun comportamento live cambia):
+// Sicurezza & Hardening DB Live:
 // - RESEND_API_KEY letta SOLO da _shared/sendTransactionalEmail.ts, mai qui.
-// - CORS + solo POST, rate limiting in-memory per IP (stesso pattern di
-//   send-graphic-request/fadi-gateway).
+// - CORS + solo POST.
 // - Validazione payload lato server per ogni type (nessun trust del body).
-// - Idempotenza in-memory: un doppio invio ravvicinato (stesso destinatario
-//   + stesso contenuto, o stesso requestId esplicito) non genera una seconda
-//   email — risponde "ok" senza rispedire (evita l'effetto "email duplicata"
-//   da doppio click, difesa in profondita' oltre al disable lato frontend).
-// - Nessun log di email/PII: solo type/esito/status.
+// - Nessuna PII memorizzata nel DB né nei log tecnici:
+//   * recipientEmail normalizzato (trim + lower) e convertito in SHA-256 (recipient_hash).
+//   * IP del client convertito in SHA-256 (ip_hash), nessun IP raw nel DB.
+// - Persistenza atomica su DB (tabelle edge_rate_limit_buckets e edge_idempotency_keys):
+//   * Idempotenza atomica tramite RPC check_idempotency_and_mark (status: pending, sent, failed).
+//   * Richieste deduplicate (sent o pending concorrente) NON consumano token di rate limit.
+//   * Failed retry consentito solo dopo cooldown >= 60s con incremento di attempt_count.
+//   * Rate limit: max 5 invii effettivi per recipient_hash in 10 minuti (HTTP 429 + Retry-After).
+//   * Nessun cron job creato (pulizia gestita separatamente).
 
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 import { sendTransactionalEmail } from "../_shared/sendTransactionalEmail.ts";
 import { buildQuoteEmail, sanitizeQuoteEmailSpec } from "../_shared/quoteEmail.ts";
 
@@ -34,51 +34,45 @@ const json = (body: unknown, status = 200) =>
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// --- Rate limiting in-memory (stesso pattern di send-graphic-request) ------
-function envInt(name: string, fallback: number, min: number, max: number): number {
-  const raw = Deno.env.get(name);
-  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.min(max, Math.max(min, parsed));
+// --- Hashing crittografico (SHA-256) per tutela della privacy (GDPR / zero PII) ---
+async function sha256Hex(value: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(value);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
-const RATE_LIMIT_MAX = envInt("SEND_EMAIL_CONFERMA_RATE_MAX", 5, 1, 100);
-const RATE_LIMIT_WINDOW_MS = envInt("SEND_EMAIL_CONFERMA_RATE_WINDOW_MS", 60000, 1000, 3600000);
-const rateBuckets = new Map<string, { windowStart: number; count: number }>();
-function clientKey(req: Request): string {
+
+function normalizeEmail(email: unknown): string {
+  return String(email || "").trim().toLowerCase();
+}
+
+function extractClientIp(req: Request): string {
   const cf = req.headers.get("cf-connecting-ip")?.trim();
   if (cf) return cf;
   const fwd = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   return fwd || "unknown";
 }
-function consumeRateLimit(req: Request): { allowed: boolean; retryAfterSeconds: number } {
-  const key = clientKey(req);
-  const now = Date.now();
-  const cur = rateBuckets.get(key);
-  if (!cur || now - cur.windowStart >= RATE_LIMIT_WINDOW_MS) {
-    rateBuckets.set(key, { windowStart: now, count: 1 });
-    return { allowed: true, retryAfterSeconds: 0 };
-  }
-  if (cur.count >= RATE_LIMIT_MAX) {
-    return { allowed: false, retryAfterSeconds: Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (now - cur.windowStart)) / 1000)) };
-  }
-  cur.count += 1;
-  return { allowed: true, retryAfterSeconds: 0 };
+
+function getSupabaseAdmin() {
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) return null;
+  return createClient(url, key, { auth: { persistSession: false } });
 }
 
-// --- Idempotenza in-memory: evita un secondo invio quasi-simultaneo --------
-const IDEMPOTENCY_WINDOW_MS = envInt("SEND_EMAIL_CONFERMA_IDEMPOTENCY_WINDOW_MS", 30000, 1000, 300000);
-const recentSends = new Map<string, number>();
-function idempotencyKey(type: string, recipientEmail: string, requestId: unknown, fingerprint: string): string {
+// Costruzione chiave di idempotenza priva di PII (usa recipient_hash)
+async function buildPersistentIdempotencyKey(
+  type: string,
+  recipientHash: string,
+  quoteOrCampaignId: string | null,
+  requestId: unknown,
+  payloadFingerprintRaw: string
+): Promise<string> {
   const explicit = String(requestId || "").trim().slice(0, 100);
-  return explicit ? `${type}:${recipientEmail}:req:${explicit}` : `${type}:${recipientEmail}:${fingerprint}`;
-}
-function alreadySentRecently(key: string): boolean {
-  const now = Date.now();
-  for (const [k, ts] of recentSends) if (now - ts > IDEMPOTENCY_WINDOW_MS) recentSends.delete(k);
-  const ts = recentSends.get(key);
-  if (ts != null && now - ts <= IDEMPOTENCY_WINDOW_MS) return true;
-  recentSends.set(key, now);
-  return false;
+  const secondaryIdentifier = explicit ? `req:${explicit}` : `fp:${await sha256Hex(payloadFingerprintRaw)}`;
+  const middle = quoteOrCampaignId ? `:${quoteOrCampaignId}:` : ":";
+  return `${type}:${recipientHash}${middle}${secondaryIdentifier}`;
 }
 
 // --- Contenuto "conferma" / "pagamento_ricevuto" — INVARIATO ---------------
@@ -86,12 +80,6 @@ const IBAN = "IT60 X0542 8111 0100 0001 2345 6";
 const INTESTATARIO = "VolantiniPro Srl";
 
 function buildConfermaEmail(cliente: any, campagna: any, isPaid: boolean): { subject: string; html: string } {
-  // Distinzione esplicita (nessun calcolo qui, solo presentazione):
-  //  - totale_euro           = importo distribuzione pagabile ORA via bonifico
-  //  - grand_totale_euro      = totale preventivo stimato (distribuzione +
-  //                             stampa indicativa + grafica) mostrato in Step 4 / PDF
-  //  - stampa_indicativa      = importo stampa da confermare in tipografia
-  // total_amount NON viene mai chiamato "Totale preventivo" / "Prezzo finale".
   const payNow = campagna?.totale_euro;
   const grandTotal = campagna?.grand_totale_euro ?? campagna?.grand_total ?? null;
   const stampaIndicativa = campagna?.stampa_indicativa ?? null;
@@ -142,14 +130,6 @@ serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, code: "METHOD_NOT_ALLOWED" }, 405);
 
-  const rl = consumeRateLimit(req);
-  if (!rl.allowed) {
-    return new Response(JSON.stringify({ ok: false, code: "RATE_LIMITED" }), {
-      status: 429,
-      headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(rl.retryAfterSeconds) },
-    });
-  }
-
   let raw: any;
   try {
     raw = await req.json();
@@ -159,43 +139,135 @@ serve(async (req: Request) => {
   if (!raw || typeof raw !== "object") return json({ ok: false, code: "INVALID_PAYLOAD" }, 400);
 
   const type = String(raw.type || "conferma");
+  const clientIp = extractClientIp(req);
+  const ipHash = await sha256Hex(clientIp);
+
+  let recipientEmail = "";
+  let quoteOrCampaignId: string | null = null;
+  let fingerprintPayload = "";
+  let subject = "";
+  let html = "";
+  let text: string | undefined = undefined;
 
   if (type === "preventivo") {
     const siteUrl = String(Deno.env.get("SITE_URL") || "https://www.volantinipro.it").trim() || "https://www.volantinipro.it";
     const spec = sanitizeQuoteEmailSpec(raw, siteUrl);
     if (!spec) return json({ ok: false, code: "INVALID_PAYLOAD" }, 400);
 
-    const fingerprint = `${spec.quoteId || ""}:${spec.grandTotal}:${Math.floor(Date.now() / IDEMPOTENCY_WINDOW_MS)}`;
-    const key = idempotencyKey(type, spec.recipientEmail, raw.requestId, fingerprint);
-    if (alreadySentRecently(key)) return json({ ok: true, deduped: true });
+    recipientEmail = spec.recipientEmail;
+    quoteOrCampaignId = spec.quoteId || null;
+    fingerprintPayload = `${spec.quoteId || ""}:${spec.grandTotal}:${spec.location || ""}:${spec.service || ""}`;
 
     const content = buildQuoteEmail(spec);
-    const result = await sendTransactionalEmail({ to: spec.recipientEmail, subject: content.subject, html: content.html, text: content.text });
-    if (!result.ok) {
-      console.error("[send-email-conferma] SEND_FAILED", { type, code: result.code });
-      const status = result.code === "EMAIL_NOT_CONFIGURED" ? 503 : 502;
-      return json({ ok: false, code: result.code || "SEND_FAILED" }, status);
-    }
-    return json({ ok: true, id: result.id });
+    subject = content.subject;
+    html = content.html;
+    text = content.text;
+  } else {
+    // type "conferma" / "pagamento_ricevuto"
+    const cliente = raw.cliente || {};
+    const campagna = raw.campagna || {};
+    recipientEmail = normalizeEmail(cliente?.email);
+    if (!EMAIL_RE.test(recipientEmail)) return json({ ok: false, code: "INVALID_RECIPIENT" }, 400);
+
+    quoteOrCampaignId = campagna?.id ? String(campagna.id) : null;
+    fingerprintPayload = `${campagna?.servizio || ""}:${campagna?.zona || ""}:${campagna?.totale_euro || ""}`;
+
+    const isPaid = type === "pagamento_ricevuto";
+    const content = buildConfermaEmail(cliente, campagna, isPaid);
+    subject = content.subject;
+    html = content.html;
   }
 
-  // --- type "conferma" / "pagamento_ricevuto" (invariato) ------------------
-  const cliente = raw.cliente || {};
-  const campagna = raw.campagna || {};
-  const recipientEmail = String(cliente?.email || "").trim().toLowerCase();
-  if (!EMAIL_RE.test(recipientEmail)) return json({ ok: false, code: "INVALID_RECIPIENT" }, 400);
+  const recipientHash = await sha256Hex(recipientEmail);
+  const key = await buildPersistentIdempotencyKey(type, recipientHash, quoteOrCampaignId, raw.requestId, fingerprintPayload);
 
-  const isPaid = type === "pagamento_ricevuto";
-  const fingerprint = `${campagna?.servizio || ""}:${campagna?.zona || ""}:${Math.floor(Date.now() / IDEMPOTENCY_WINDOW_MS)}`;
-  const key = idempotencyKey(type, recipientEmail, raw.requestId, fingerprint);
-  if (alreadySentRecently(key)) return json({ ok: true, deduped: true });
+  const supabase = getSupabaseAdmin();
 
-  const { subject, html } = buildConfermaEmail(cliente, campagna, isPaid);
-  const result = await sendTransactionalEmail({ to: recipientEmail, subject, html });
+  // --- 1. Controllo Idempotenza Atomico nel DB -----------------------------
+  if (supabase) {
+    const { data: idem, error: idemErr } = await supabase.rpc("check_idempotency_and_mark", {
+      p_idempotency_key: key,
+      p_email_type: type,
+      p_recipient_hash: recipientHash,
+      p_ip_hash: ipHash,
+      p_cooldown_seconds: 60,
+      p_ttl_seconds: 86400,
+    });
+
+    if (idemErr) {
+      console.error("[send-email-conferma] IDEMPOTENCY_RPC_ERROR", { type, code: idemErr.code });
+    } else if (idem) {
+      if (idem.action === "dedup") {
+        // Già inviata con successo: deduped true, NESSUN invio, NESSUN consumo rate limit
+        return json({ ok: true, deduped: true, id: idem.provider_message_id || undefined });
+      }
+      if (idem.action === "in_progress") {
+        // Richiesta concorrente già in elaborazione: deduped true, nessun secondo invio
+        return json({ ok: true, deduped: true, in_progress: true });
+      }
+      if (idem.action === "cooldown") {
+        // Tentativo precedente fallito: cooldown >= 60s
+        const retryAfter = Number(idem.retry_after_seconds || 60);
+        return new Response(JSON.stringify({ ok: false, code: "RETRY_TOO_EARLY", retryAfterSeconds: retryAfter }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(retryAfter) },
+        });
+      }
+      // idem.action === "proceed" -> prosegui verso rate limit e invio
+    }
+
+    // --- 2. Rate Limiting Atomico nel DB (max 5 invii effettivi in 10 min) --
+    // Eseguito SOLO per invii effettivi (non deduplicati)
+    const { data: rl, error: rlErr } = await supabase.rpc("consume_edge_rate_limit", {
+      p_scope: `email_${type}`,
+      p_identifier_type: "recipient",
+      p_identifier_hash: recipientHash,
+      p_max_requests: 5,
+      p_window_seconds: 600,
+    });
+
+    if (rlErr) {
+      console.error("[send-email-conferma] RATE_LIMIT_RPC_ERROR", { type, code: rlErr.code });
+    } else if (rl && !rl.allowed) {
+      // Superato limite invii effettivi: segnala failed sull'idempotency per consentire retry futuro
+      await supabase.rpc("mark_idempotency_result", {
+        p_idempotency_key: key,
+        p_status: "failed",
+        p_error_code: "RATE_LIMITED",
+      });
+      const retryAfter = Number(rl.retry_after_seconds || 60);
+      return new Response(JSON.stringify({ ok: false, code: "RATE_LIMITED", retryAfterSeconds: retryAfter }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(retryAfter) },
+      });
+    }
+  }
+
+  // --- 3. Invio effettivo tramite provider transazionale (Resend) ----------
+  const result = await sendTransactionalEmail({ to: recipientEmail, subject, html, text });
+
+  // --- 4. Registrazione Esito Atomico nel DB -------------------------------
+  if (supabase) {
+    if (result.ok) {
+      await supabase.rpc("mark_idempotency_result", {
+        p_idempotency_key: key,
+        p_status: "sent",
+        p_provider_message_id: result.id || null,
+      });
+    } else {
+      await supabase.rpc("mark_idempotency_result", {
+        p_idempotency_key: key,
+        p_status: "failed",
+        p_error_code: result.code || "SEND_FAILED",
+      });
+    }
+  }
+
   if (!result.ok) {
     console.error("[send-email-conferma] SEND_FAILED", { type, code: result.code });
     const status = result.code === "EMAIL_NOT_CONFIGURED" ? 503 : 502;
     return json({ ok: false, code: result.code || "SEND_FAILED" }, status);
   }
+
   return json({ ok: true, id: result.id });
 });

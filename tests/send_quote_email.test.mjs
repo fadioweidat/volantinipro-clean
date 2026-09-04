@@ -110,8 +110,8 @@ test("send-email-conferma: CORS/OPTIONS/solo POST, rate limit e idempotenza pres
   assert.match(src, /req\.method === "OPTIONS"/);
   assert.match(src, /req\.method !== "POST"/);
   assert.match(src, /RATE_LIMITED/);
-  assert.match(src, /rateBuckets/);
-  assert.match(src, /alreadySentRecently/);
+  assert.match(src, /consume_edge_rate_limit/);
+  assert.match(src, /check_idempotency_and_mark/);
   assert.match(src, /deduped:\s*true/);
 });
 
