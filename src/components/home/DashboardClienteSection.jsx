@@ -113,9 +113,10 @@ export default function DashboardClienteSection({ onConfigure }) {
                 <rect width="360" height="120" fill="url(#dashGrid)" />
 
                 {/* Reticolo strade urbane */}
-                <g stroke="rgba(255,255,255,0.05)" strokeWidth="0.8" fill="none">
+                <g stroke="rgba(255,255,255,0.06)" strokeWidth="0.8" fill="none">
                   <path d="M 10 30 L 350 30 M 10 65 L 350 65 M 10 95 L 350 95" />
                   <path d="M 60 5 L 60 115 M 130 5 L 130 115 M 210 5 L 210 115 M 290 5 L 290 115" />
+                  <path d="M 40 110 L 160 15 M 140 115 L 310 10" stroke="rgba(255,255,255,0.035)" strokeWidth="0.7" />
                 </g>
 
                 {/* Poligoni copertura per settore */}
@@ -129,16 +130,17 @@ export default function DashboardClienteSection({ onConfigure }) {
                 ))}
 
                 {/* Label settori */}
-                <text x="90" y="70" fill="#F8FAFC" fontSize="7" fontFamily={F.sans} fontWeight="800">AFFORI (98%)</text>
-                <text x="175" y="80" fill="#F8FAFC" fontSize="7" fontFamily={F.sans} fontWeight="800">BOVISA (94%)</text>
-                <text x="250" y="55" fill="#F8FAFC" fontSize="7" fontFamily={F.sans} fontWeight="800">DERGANO (95%)</text>
+                <text x="80" y="70" fill="#F8FAFC" fontSize="7" fontFamily={F.sans} fontWeight="800">AFFORI (98%)</text>
+                <text x="165" y="80" fill="#F8FAFC" fontSize="7" fontFamily={F.sans} fontWeight="800">BOVISA (94%)</text>
+                <text x="245" y="55" fill="#F8FAFC" fontSize="7" fontFamily={F.sans} fontWeight="800">DERGANO (95%)</text>
+                <text x="28" y="42" fill="rgba(255,255,255,0.45)" fontSize="6" fontFamily={F.sans} fontWeight="700">CORMANO (92%)</text>
               </svg>
 
-              <div style={{ position: "absolute", top: 6, left: 6, background: "rgba(11,16,32,0.85)", backdropFilter: "blur(4px)", padding: "2px 7px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.08)", fontFamily: F.sans, fontSize: 8.5, color: "#4ADE80", fontWeight: 700 }}>
+              <div style={{ position: "absolute", top: 6, left: 6, background: "rgba(11,16,32,0.88)", backdropFilter: "blur(4px)", padding: "2px 7px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.08)", fontFamily: F.sans, fontSize: 8.5, color: "#4ADE80", fontWeight: 700 }}>
                 Copertura: 95.4% · 8.420 famiglie raggiunte
               </div>
-              <div style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(11,16,32,0.85)", backdropFilter: "blur(4px)", padding: "2px 7px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.08)", fontFamily: F.sans, fontSize: 8, color: "#8E9AA8" }}>
-                3 settori · Verifica ISTAT & GIS
+              <div style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(11,16,32,0.88)", backdropFilter: "blur(4px)", padding: "2px 7px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.08)", fontFamily: F.sans, fontSize: 8, color: "#8E9AA8" }}>
+                4 settori · Verifica ISTAT & GIS
               </div>
             </div>
 

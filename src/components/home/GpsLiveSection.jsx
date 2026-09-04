@@ -132,10 +132,12 @@ export default function GpsLiveSection({ onConfigure }) {
                 {/* Griglia tecnica */}
                 <rect width="380" height="170" fill="url(#gpsTechnicalGrid)" />
 
-                {/* Blocchi urbani / Rete stradale stilizzata */}
-                <g stroke="rgba(255,255,255,0.055)" strokeWidth="0.9" fill="none">
+                {/* Blocchi urbani / Rete stradale realistica Bovisa - Dergano */}
+                <g stroke="rgba(255,255,255,0.06)" strokeWidth="0.9" fill="none">
                   <path d="M 10 38 L 370 38 M 10 85 L 370 85 M 10 132 L 370 132" />
                   <path d="M 70 10 L 70 160 M 150 10 L 150 160 M 230 10 L 230 160 M 310 10 L 310 160" />
+                  {/* Diagonali di collegamento */}
+                  <path d="M 30 150 L 180 30 M 140 160 L 330 20" stroke="rgba(255,255,255,0.04)" strokeWidth="0.8" />
                 </g>
                 <g fill="rgba(255,255,255,0.02)">
                   <rect x="20" y="44" width="42" height="32" rx="3" />
@@ -150,16 +152,18 @@ export default function GpsLiveSection({ onConfigure }) {
                   <rect x="320" y="92" width="45" height="32" rx="3" />
                 </g>
 
-                {/* Etichette micro-toponomastica */}
-                <text x="82" y="32" fill="rgba(255,255,255,0.22)" fontSize="6.5" fontFamily={F.sans} fontWeight="600">VIA BOVISASCA</text>
-                <text x="162" y="32" fill="rgba(255,255,255,0.22)" fontSize="6.5" fontFamily={F.sans} fontWeight="600">VIA IMBONATI</text>
-                <text x="242" y="32" fill="rgba(255,255,255,0.22)" fontSize="6.5" fontFamily={F.sans} fontWeight="600">P.ZZA BAUSAN</text>
+                {/* Etichette toponomastica reale */}
+                <text x="75" y="32" fill="rgba(255,255,255,0.28)" fontSize="6.5" fontFamily={F.sans} fontWeight="700">VIA BOVISASCA</text>
+                <text x="155" y="32" fill="rgba(255,255,255,0.28)" fontSize="6.5" fontFamily={F.sans} fontWeight="700">VIA IMBONATI</text>
+                <text x="245" y="32" fill="rgba(255,255,255,0.28)" fontSize="6.5" fontFamily={F.sans} fontWeight="700">P.ZZA BAUSAN</text>
+                <text x="315" y="80" fill="rgba(255,255,255,0.22)" fontSize="6" fontFamily={F.sans} fontWeight="600">V.LE BODIO</text>
+                <text x="90" y="145" fill="rgba(255,255,255,0.22)" fontSize="6" fontFamily={F.sans} fontWeight="600">VIA DERGANO</text>
 
                 {/* Area di campagna (poligono assegnato) */}
                 <polygon
                   points="25,138 50,40 195,26 325,44 355,138 105,156"
                   fill="url(#polyGrad)"
-                  stroke="rgba(232,87,26,0.4)"
+                  stroke="rgba(232,87,26,0.45)"
                   strokeWidth="1.4"
                   strokeDasharray="4 2"
                 />
@@ -179,10 +183,10 @@ export default function GpsLiveSection({ onConfigure }) {
                 />
 
                 {/* Waypoints GPS intermedi */}
-                {[[45,140, "WP1"], [120,128, "WP2"], [200,92, "WP3"]].map(([cx, cy, label], i) => (
+                {[[45,140, "WP1"], [120,128, "WP2"], [200,92, "WP3"], [245,50, "WP4"]].map(([cx, cy, label], i) => (
                   <g key={i}>
-                    <circle cx={cx} cy={cy} r="4" fill="#0B1020" stroke={C_ORANGE} strokeWidth="2" />
-                    <text x={cx + 5} y={cy + 3} fill="rgba(255,255,255,0.45)" fontSize="5.5" fontFamily={F.sans} fontWeight="700">{label}</text>
+                    <circle cx={cx} cy={cy} r="4" fill="#0B1020" stroke={C_ORANGE} strokeWidth="1.8" />
+                    <text x={cx + 5} y={cy + 3} fill="rgba(255,255,255,0.5)" fontSize="5.5" fontFamily={F.sans} fontWeight="700">{label}</text>
                   </g>
                 ))}
 
@@ -197,17 +201,17 @@ export default function GpsLiveSection({ onConfigure }) {
                   <circle cx="292" cy="66" r="7.5" fill="rgba(232,87,26,0.35)" />
                   <circle cx="292" cy="66" r="4.5" fill={C_ORANGE} stroke="#FFFFFF" strokeWidth="1.5" />
                   {/* Tooltip operatore */}
-                  <rect x="252" y="45" width="80" height="14" rx="3" fill="rgba(11,16,32,0.92)" stroke="rgba(232,87,26,0.4)" strokeWidth="0.8" />
-                  <text x="258" y="54.5" fill="#FFFFFF" fontSize="6.2" fontFamily={F.sans} fontWeight="800">OP-01 • IN CONSEGNA</text>
+                  <rect x="244" y="45" width="94" height="14" rx="3" fill="rgba(11,16,32,0.92)" stroke="rgba(232,87,26,0.4)" strokeWidth="0.8" />
+                  <text x="250" y="54.5" fill="#FFFFFF" fontSize="6.2" fontFamily={F.sans} fontWeight="800">OP-01 • SQUADRA ALPHA (LIVE)</text>
                 </motion.g>
               </svg>
 
               {/* HUD overlay angoli */}
-              <div style={{ position: "absolute", top: 6, left: 6, background: "rgba(11,16,32,0.85)", backdropFilter: "blur(4px)", padding: "2px 7px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.08)", fontFamily: F.sans, fontSize: 8.5, color: "rgba(255,255,255,0.7)", fontWeight: 700 }}>
-                Zona Assegnata · 1.4 km²
+              <div style={{ position: "absolute", top: 6, left: 6, background: "rgba(11,16,32,0.88)", backdropFilter: "blur(4px)", padding: "2px 7px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.08)", fontFamily: F.sans, fontSize: 8.5, color: "rgba(255,255,255,0.8)", fontWeight: 700 }}>
+                Zona Assegnata: Bovisa-Dergano · 1.4 km²
               </div>
-              <div style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(11,16,32,0.85)", backdropFilter: "blur(4px)", padding: "2px 7px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.08)", fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,0.6)", fontVariantNumeric: "tabular-nums" }}>
-                45.503° N, 9.172° E · Traccia attiva
+              <div style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(11,16,32,0.88)", backdropFilter: "blur(4px)", padding: "2px 7px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.08)", fontFamily: F.sans, fontSize: 8, color: "rgba(255,255,255,0.7)", fontVariantNumeric: "tabular-nums" }}>
+                45.5032° N, 9.1724° E · Precisione ±2.5m
               </div>
             </div>
 
