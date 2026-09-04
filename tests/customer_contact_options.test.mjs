@@ -92,14 +92,12 @@ test("WhatsApp: '+39 351 767 3737' -> wa.me/393517673737 + messaggio precompilat
 });
 
 // ── InlineHelpCta (richiamo Step) ────────────────────────────────────────
-test("InlineHelpCta: overlay fisso richiudibile, 'Hai bisogno di aiuto?', [Chiedi all'AI] [WhatsApp], nessuna logica Step", () => {
+test("InlineHelpCta: launcher fisso apre l'assistente contestuale senza logica Step", () => {
   const src = read("src/components/common/InlineHelpCta.jsx");
   assert.match(src, /position: "fixed"/);
   assert.match(src, /Hai bisogno di aiuto\?/);
-  assert.match(src, /Chiedi all[’']AI/);
-  assert.match(src, /buildInfoWhatsAppUrl/);
-  // richiudibile: stato open + bottone chiudi
-  assert.match(src, /useState\(false\)/);
+  assert.match(src, /Chiedi all’assistente VolantiniPro/);
+  assert.match(src, /aria-controls="quote-ai-panel"/);
   // non importa nulla dagli Step / calcoli preventivo
   assert.doesNotMatch(src, /configurator\/Step|quotePricing|pricing|territorialCampaignCalculator/);
 });
@@ -131,9 +129,11 @@ test("HomePage: monta ContattiSection una sola volta, prima della FinalCtaSectio
 });
 
 // ── PublicRoutes monta il richiamo SOLO nel configuratore ────────────────
-test("PublicRoutes: InlineHelpCta reso solo per step1-4, 'Chiedi all'AI' -> step2", () => {
+test("PublicRoutes: InlineHelpCta e pannello contestuale sono resi solo per Step1-4", () => {
   const src = read("src/app/PublicRoutes.jsx");
   assert.match(src, /import InlineHelpCta from "\.\.\/components\/common\/InlineHelpCta\.jsx"/);
-  assert.match(src, /isConfiguratorStep && <InlineHelpCta onAsk=\{\(\) => goTo\("step2"\)\} \/>/);
+  assert.match(src, /isConfiguratorStep && <InlineHelpCta expanded=\{assistantOpen\}/);
+  assert.match(src, /isConfiguratorStep && <QuoteAssistantPanel/);
+  assert.doesNotMatch(src, /onAsk=\{\(\) => goTo\("step2"\)\}/);
   assert.match(src, /page === "step1" \|\| page === "step2" \|\| page === "step3" \|\| page === "step4"/);
 });

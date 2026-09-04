@@ -40,6 +40,12 @@ import {
   validateTerritorialReportAiResult,
   validateTerritorialReportSnapshot,
 } from "./territorialReport.ts";
+import {
+  buildControlCenterSystemPrompt,
+  buildControlCenterUserPrompt,
+  validateControlCenterDiagnosis,
+  validateControlCenterSnapshot,
+} from "./controlCenterDiagnosis.ts";
 
 declare const Deno: any;
 
@@ -100,6 +106,17 @@ const MAX_SNAPSHOT_DEPTH = 8;
 // body raggiungibile anche in forma anonima (nessun JWT a monte) non deve
 // contenere queste chiavi in nessun punto dello snapshot.
 const DANGEROUS_KEYS = new Set(["__proto__", "prototype", "constructor"]);
+const QUOTE_CONTEXT_TYPES = new Set(["step1", "step2", "step3", "step4"]);
+const QUOTE_COMMON_KEYS = new Set(["schemaVersion", "step", "quoteState", "request", "location", "territory", "service", "availableServices"]);
+const QUOTE_EXTRA_KEYS: Record<string, Set<string>> = {
+  step1: new Set(),
+  step2: new Set(["quantity", "kpis", "calculation", "missing", "limitations"]),
+  step3: new Set(),
+  step4: new Set(["pricing", "premiumServices", "pdfAvailable"]),
+};
+const SENSITIVE_QUOTE_KEY = /password|token|secret|session|auth|customer|client|user_?id|email|phone|telefono|coordinates|latitude|longitude|(^|_)lat$|(^|_)lng$|(^|_)ip$/i;
+const EMAIL_VALUE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
+const PHONE_VALUE = /(?:\+?\d[\s().-]*){9,}/;
 
 function isSnapshotStructureSafe(value: unknown, depth = 0): boolean {
   if (depth > MAX_SNAPSHOT_DEPTH) return false;
@@ -151,27 +168,121 @@ function validateStep2Payload(body: any): { ok: true; snapshot: Record<string, u
   return { ok: true, snapshot, question: trimmedQuestion };
 }
 
+function containsSensitiveQuoteData(value: unknown): boolean {
+  if (typeof value === "string") return EMAIL_VALUE.test(value) || PHONE_VALUE.test(value);
+  if (Array.isArray(value)) return value.some(containsSensitiveQuoteData);
+  if (!value || typeof value !== "object") return false;
+  return Object.entries(value as Record<string, unknown>).some(([key, entry]) => SENSITIVE_QUOTE_KEY.test(key) || containsSensitiveQuoteData(entry));
+}
+
+function redactQuestion(value: string) {
+  return value
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, "[email rimossa]")
+    .replace(/(?:\+?\d[\s().-]*){9,}/g, "[telefono rimosso]");
+}
+
+function validateQuotePayload(contextType: string, body: any) {
+  const base = validateStep2Payload(body);
+  if (!base.ok) return base;
+  if (!QUOTE_CONTEXT_TYPES.has(contextType) || base.snapshot.step !== Number(contextType.replace("step", ""))) {
+    return { ok: false as const, error: "CONTEXT_STEP_MISMATCH" };
+  }
+  const allowedKeys = new Set([...QUOTE_COMMON_KEYS, ...(QUOTE_EXTRA_KEYS[contextType] || [])]);
+  if (Object.keys(base.snapshot).some((key) => !allowedKeys.has(key))) {
+    return { ok: false as const, error: "UNEXPECTED_CONTEXT_FIELD" };
+  }
+  if (containsSensitiveQuoteData(base.snapshot)) {
+    return { ok: false as const, error: "SENSITIVE_CONTEXT_REJECTED" };
+  }
+  return { ...base, question: redactQuestion(base.question) };
+}
+
 // ── Prompt territoriale — identico a quello di ai-assistant-territory ──────
 // Duplicato volutamente (non importato dalla vecchia function): ogni Edge
 // Function Supabase e' un deploy isolato, ai-assistant-territory resta
 // autonoma e invariata per il rollback, quindi non deve dipendere da ai-core
 // ne' viceversa.
-function buildSystemPrompt() {
+function buildQuoteSystemPrompt() {
   return [
-    "Sei un Assistente Territoriale esperto per l'app VolantiniPro. Rispondi alle domande dell'utente usando SOLO i dati forniti nel payload JSON.",
-    "NON INVENTARE MAI NUMERI. Se un dato non e' presente nei dati forniti, rispondi esplicitamente: 'Dato non disponibile'.",
-    "I dati che ricevi riguardano un'analisi territoriale (Step 2) o di campagna.",
-    "Spiega in modo semplice e diretto, usando un tono professionale ma amichevole.",
+    "Sei l'assistente di VolantiniPro durante la configurazione del preventivo.",
+    "Rispondi in modo semplice, breve e concreto usando SOLO i dati del preventivo ricevuti, le descrizioni ufficiali dei servizi e le regole commerciali presenti nel payload.",
+    "NON inventare prezzi, sconti, disponibilita, copertura, tempi o condizioni contrattuali. Non calcolare o ricostruire valori mancanti.",
+    "Se un dato non e' disponibile, dillo chiaramente. Non modificare mai il preventivo e non dichiarare di averlo modificato.",
+    "Se il cliente vuole parlare con una persona, indica subito WhatsApp +39 351 767 3737 ed Email info@volantinipro.it.",
     "Non usare markdown complesso, usa solo paragrafi normali.",
     "La risposta deve essere contenuta in un campo testuale semplice e restituito come JSON valido nel formato: {\"answer\": \"tua risposta\"}.",
   ].join(" ");
 }
 
-function buildUserPrompt(snapshot: Record<string, unknown>, question: string) {
-  return `Ecco i dati reali dello snapshot territoriale:\n${JSON.stringify(snapshot, null, 2)}\n\nDomanda dell'utente: "${question}"`;
+function buildQuoteUserPrompt(contextType: string, snapshot: Record<string, unknown>, question: string) {
+  return `Contesto reale ${contextType} del preventivo:\n${JSON.stringify(snapshot, null, 2)}\n\nDomanda dell'utente: "${question}"`;
 }
 
-async function callOpenAi(snapshot: Record<string, unknown>, question: string, warnings: string[]) {
+function normalizedNumericTokens(value: unknown): Set<string> {
+  const text = typeof value === "string" ? value : JSON.stringify(value);
+  const matches = text.match(/-?\d{1,3}(?:[.\s]\d{3})*(?:,\d+)?|-?\d+(?:[.,]\d+)?/g) || [];
+  return new Set(matches.map((token) => {
+    const compact = token.replace(/\s/g, "");
+    return compact.includes(",") ? compact.replace(/\./g, "").replace(",", ".") : compact.replace(/\.(?=\d{3}(?:\D|$))/g, "");
+  }));
+}
+
+function quoteAnswerNumbersAreGrounded(answer: string, snapshot: Record<string, unknown>) {
+  const allowed = normalizedNumericTokens(snapshot);
+  return [...normalizedNumericTokens(answer)].every((number) => allowed.has(number));
+}
+
+function euro(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? `€${value.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : "dato non disponibile";
+}
+
+function deterministicQuoteResponse(contextType: string, snapshot: any, question: string): string | null {
+  const normalized = question.toLowerCase();
+  if (/(?:parlare|sentire|contattare|scrivere).*(?:persona|operatore|consulente|umano)|(?:persona|operatore|consulente|umano).*(?:parlare|sentire|contattare|scrivere)/i.test(question)) {
+    return "Puoi parlare subito con il team VolantiniPro: WhatsApp +39 351 767 3737 oppure Email info@volantinipro.it.";
+  }
+  if (contextType === "step1" && /come funziona/.test(normalized)) {
+    return "In questo passaggio scegli servizio, quantità, periodo e materiale. Nei passaggi successivi selezioni la zona, verifichi copertura e disponibilità, poi controlli il preventivo finale. L'assistente spiega i dati ma non modifica le tue scelte.";
+  }
+  if (contextType === "step2" && /copertura|copro tutta/.test(normalized)) {
+    const coverage = snapshot?.kpis?.residentialCoveragePct ?? snapshot?.kpis?.quantityCoveragePct;
+    if (typeof coverage !== "number") return "La copertura non è disponibile nei dati correnti dello Step 2.";
+    const quantity = snapshot?.quantity?.current;
+    const area = snapshot?.location?.municipality || snapshot?.territory?.selectedNames?.join(", ") || "la zona selezionata";
+    return `Con ${typeof quantity === "number" ? quantity.toLocaleString("it-IT") : "la quantità corrente"} volantini, la copertura mostrata per ${area} è ${coverage.toLocaleString("it-IT") }%. ${coverage >= 100 ? "La zona risulta coperta rispetto al fabbisogno operativo mostrato." : "La copertura non risulta completa rispetto al fabbisogno operativo mostrato."}`;
+  }
+  if (contextType === "step4" && /totale|perch[eé].*cost|spiegami.*prezzo/.test(normalized)) {
+    const pricing = snapshot?.pricing || {};
+    if (typeof pricing.grandTotal !== "number") return "Il totale non è disponibile nei dati correnti dello Step 4.";
+    const parts = [`Distribuzione ed extra: ${euro(pricing.distributionAndExtrasTotal)}`];
+    parts.push(pricing.printing?.selected ? `stampa indicativa: ${euro(pricing.printing.amount)}` : "stampa: non inclusa");
+    parts.push(pricing.graphics?.selected ? `grafica: ${euro(pricing.graphics.amount)}` : "grafica: non inclusa");
+    return `Il totale reale del preventivo è ${euro(pricing.grandTotal)}. ${parts.join("; ")}.`;
+  }
+  if (contextType === "step4" && /stampa.*(?:inclus|compres)/.test(normalized)) {
+    const printing = snapshot?.pricing?.printing;
+    return printing?.selected ? `Sì. La stampa è inclusa come importo indicativo di ${euro(printing.amount)}, da confermare con la tipografia.` : "No. Nei dati correnti dello Step 4 la stampa non è inclusa.";
+  }
+  if (contextType === "step4" && /grafica.*(?:inclus|compres)/.test(normalized)) {
+    const graphics = snapshot?.pricing?.graphics;
+    return graphics?.selected ? `Sì. La grafica è inclusa per ${euro(graphics.amount)}.` : "No. Nei dati correnti dello Step 4 la grafica non è inclusa.";
+  }
+  if (contextType === "step4" && /pdf|scaricare/.test(normalized)) {
+    return snapshot?.pdfAvailable ? "Sì. In questo Step puoi usare l'azione disponibile per scaricare il PDF del preventivo." : "La disponibilità del PDF non risulta nei dati correnti.";
+  }
+  if (contextType === "step4" && /gps|report fotografico|foto/.test(normalized)) {
+    const requestedId = /gps/.test(normalized) ? "tracking_gps" : "photo_proof";
+    const service = snapshot?.premiumServices?.find((item: any) => item?.id === requestedId);
+    return service?.description
+      ? `${service.label}: ${service.description}${typeof snapshot?.pricing?.extras?.find((item: any) => item?.id === requestedId)?.amount === "number" ? ` Importo nel preventivo: ${euro(snapshot.pricing.extras.find((item: any) => item?.id === requestedId).amount)}.` : ""}`
+      : "Questo servizio non risulta selezionato nei dati correnti del preventivo.";
+  }
+  return null;
+}
+
+async function callOpenAi(contextType: string, snapshot: Record<string, unknown>, question: string, warnings: string[]) {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) {
     warnings.push("OPENAI_NOT_CONFIGURED");
@@ -187,8 +298,8 @@ async function callOpenAi(snapshot: Record<string, unknown>, question: string, w
         temperature: 0.2,
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: buildSystemPrompt() },
-          { role: "user", content: buildUserPrompt(snapshot, question) },
+          { role: "system", content: buildQuoteSystemPrompt() },
+          { role: "user", content: buildQuoteUserPrompt(contextType, snapshot, question) },
         ],
       }),
     });
@@ -201,6 +312,7 @@ async function callOpenAi(snapshot: Record<string, unknown>, question: string, w
     const parsed = JSON.parse(content);
     const answer = typeof parsed.answer === "string" ? parsed.answer.trim() : "";
     if (!answer) throw new Error("OPENAI_EMPTY_ANSWER");
+    if (!quoteAnswerNumbersAreGrounded(answer, snapshot)) throw new Error("OPENAI_UNGROUNDED_NUMBER");
 
     return answer;
   } catch (error) {
@@ -237,6 +349,40 @@ async function callAdminOpenAi(snapshot: Record<string, unknown>, question: stri
     if (!validateAdminAiResult(parsed)) throw new Error("OPENAI_INVALID_ADMIN_RESPONSE");
     if (!numbersAreGrounded(parsed, snapshot)) throw new Error("OPENAI_UNGROUNDED_NUMBER");
     return parsed;
+  } catch (error) {
+    warnings.push(`OPENAI_CALL_FAILED:${error instanceof Error ? error.message : "unknown"}`);
+    return null;
+  }
+}
+
+async function callControlCenterOpenAi(snapshot: Record<string, unknown>, warnings: string[]) {
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) {
+    warnings.push("OPENAI_NOT_CONFIGURED");
+    return null;
+  }
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        temperature: 0.1,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: buildControlCenterSystemPrompt() },
+          { role: "user", content: buildControlCenterUserPrompt(snapshot) },
+        ],
+      }),
+    });
+    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    const content = (await res.json())?.choices?.[0]?.message?.content;
+    if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
+    const parsed = JSON.parse(content);
+    if (!validateControlCenterDiagnosis(parsed)) throw new Error("OPENAI_INVALID_CONTROL_CENTER_DIAGNOSIS");
+    const issueType = String(snapshot.issueType || "");
+    const policyAllowsAuto = snapshot.riskLevel === "green" && (/^health:/.test(issueType) || /^gps:abandoned_sessions$/.test(issueType) || /^error:/.test(issueType));
+    return { ...parsed, autoResolvable: parsed.autoResolvable === true && policyAllowsAuto };
   } catch (error) {
     warnings.push(`OPENAI_CALL_FAILED:${error instanceof Error ? error.message : "unknown"}`);
     return null;
@@ -284,12 +430,14 @@ async function callTerritorialReportOpenAi(snapshot: Record<string, unknown>, qu
 // (l'unica identita' possibile e' quella verificata da getAuthedUser, mai
 // quella del payload). `user` puo' essere null: in quel caso la richiesta
 // procede comunque, solo senza cache.
-async function handleStep2(user: { id: string } | null, body: any) {
-  const validation = validateStep2Payload(body);
+async function handleQuoteStep(contextType: string, user: { id: string } | null, body: any) {
+  const validation = validateQuotePayload(contextType, body);
   if (!validation.ok) {
     return json({ answer: null, status: "error", error: validation.error }, 400);
   }
   const { snapshot, question } = validation;
+  const deterministic = deterministicQuoteResponse(contextType, snapshot, question);
+  if (deterministic) return json({ answer: deterministic, status: "deterministic" });
 
   // ai_territorial_chat_cache.user_id e' pensata per "solo le proprie righe"
   // (RLS + design): per una richiesta anonima non si inventa un'identita' ne'
@@ -298,7 +446,7 @@ async function handleStep2(user: { id: string } | null, body: any) {
   // ogni domanda.
   if (!user) {
     const warnings: string[] = [];
-    const aiResult = await callOpenAi(snapshot, question, warnings);
+    const aiResult = await callOpenAi(contextType, snapshot, question, warnings);
     if (!aiResult) return json({ answer: null, status: "fallback", warnings });
     return json({ answer: aiResult, status: "ai" });
   }
@@ -308,7 +456,7 @@ async function handleStep2(user: { id: string } | null, body: any) {
   // nell'hash: stessa tabella (ai_territorial_chat_cache, nessuna migrazione
   // richiesta in Fase 1), ma una domanda identica su un contextType diverso
   // produce comunque un hash diverso e non collide mai con la cache esistente.
-  const payloadHash = await hashPayload({ contextType: "step2", snapshot, question });
+  const payloadHash = await hashPayload({ contextType, snapshot, question });
 
   if (supabase) {
     const { data: cached } = await supabase
@@ -329,7 +477,7 @@ async function handleStep2(user: { id: string } | null, body: any) {
   // non li modifica, li interpreta soltanto. Se un dato manca nello snapshot
   // il prompt impone esplicitamente "Dato non disponibile", mai un numero
   // inventato.
-  const aiResult = await callOpenAi(snapshot, question, warnings);
+  const aiResult = await callOpenAi(contextType, snapshot, question, warnings);
 
   if (!aiResult) {
     return json({ answer: null, status: "fallback", warnings });
@@ -342,7 +490,7 @@ async function handleStep2(user: { id: string } | null, body: any) {
       question,
       answer: aiResult,
     });
-    if (insertError) console.error("[ai-core:step2] CACHE_INSERT_FAILED", insertError.message);
+    if (insertError) console.error(`[ai-core:${contextType}] CACHE_INSERT_FAILED`, insertError.message);
   }
 
   return json({ answer: aiResult, status: "ai" });
@@ -395,6 +543,22 @@ async function handleAdminDashboard(user: { id: string } | null, body: any) {
   });
   if (insertError && insertError.code !== "23505") console.error("[ai-core:admin_dashboard] CACHE_INSERT_FAILED", insertError.message);
   return json({ ...aiResult, status: "ai", cached: false });
+}
+
+async function handleControlCenterDiagnosis(user: { id: string } | null, body: any) {
+  if (!user) return json({ status: "error", error: "AUTHENTICATION_REQUIRED" }, 401);
+  const supabase = supabaseAdmin();
+  if (!supabase) return json({ status: "error", error: "AUTH_SERVICE_UNAVAILABLE" }, 500);
+  const { data: profile, error: profileError } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  if (profileError) return json({ status: "error", error: "AUTH_CHECK_FAILED" }, 500);
+  if (!isAdminProfile(profile)) return json({ status: "error", error: "FORBIDDEN" }, 403);
+  const validation = validateStep2Payload(body);
+  if (!validation.ok) return json({ status: "error", error: validation.error }, 400);
+  if (!validateControlCenterSnapshot(validation.snapshot)) return json({ status: "error", error: "INVALID_CONTROL_CENTER_SNAPSHOT" }, 400);
+  const warnings: string[] = [];
+  const result = await callControlCenterOpenAi(validation.snapshot, warnings);
+  if (!result) return json({ status: "fallback", error: "AI_DIAGNOSIS_UNAVAILABLE", warnings }, 503);
+  return json({ ...result, status: "ai", warnings });
 }
 
 async function handleTerritorialReport(user: { id: string } | null, body: any) {
@@ -466,12 +630,13 @@ serve(async (req: Request) => {
 
     // Identita' risolta una sola volta, sempre in modo opzionale a questo
     // livello: e' il singolo branch contextType a decidere se e' obbligatoria.
-    // Step2 e territorial_report accettano user===null; admin_dashboard
-    // respinge l'anonimo e verifica il ruolo nel proprio handler.
+    // Step2 e territorial_report accettano user===null; i contesti Admin
+    // respingono l'anonimo e verificano il ruolo nel proprio handler.
     const user = await getAuthedUser(req);
 
-    if (contextType === "step2") return await handleStep2(user, body);
+    if (QUOTE_CONTEXT_TYPES.has(contextType)) return await handleQuoteStep(contextType, user, body);
     if (contextType === "admin_dashboard") return await handleAdminDashboard(user, body);
+    if (contextType === "control_center_diagnosis") return await handleControlCenterDiagnosis(user, body);
     if (contextType === "territorial_report") return await handleTerritorialReport(user, body);
     return json({ answer: null, status: "error", error: "CONTEXT_TYPE_NOT_IMPLEMENTED" }, 501);
   } catch (error) {

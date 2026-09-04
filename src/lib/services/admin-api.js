@@ -16,6 +16,7 @@ import {
 import { buildGroupRows } from './group-ops.js';
 import { dedupeSessionsByOperator, lastActivityAt, sessionDurationMs } from './report-utils.js';
 import { getPublicAppUrl } from '../publicAppUrl.js';
+import { classifyDeliverySession, GPS_SESSION_STATE } from '../monitoring/gpsSessionLifecycle.js';
 
 const EMPTY = 'Dato non disponibile';
 
@@ -243,6 +244,67 @@ export async function resolveErrorLogEntry(errorId) {
     .select()
     .single();
   if (error) throw new Error(error.message);
+  return data;
+}
+
+// Azione VERDE del Centro Controllo: chiude soltanto una riga di log gia'
+// vecchia. Non elimina dati e non modifica il sistema che ha generato
+// l'errore. Il chiamante applica la soglia minima di 72h; qui la
+// ri-verifichiamo sul record reale prima dell'UPDATE (fail closed).
+export async function autoResolveOldErrorLogEntry(errorId, { now = new Date() } = {}) {
+  await ensureSupabaseSessionBridge();
+  const { data: current, error: readError } = await supabase
+    .from('error_log')
+    .select('id,status,last_seen_at,created_at')
+    .eq('id', errorId)
+    .single();
+  if (readError) throw new Error(readError.message);
+  if (current.status !== 'open') return current;
+  const lastSeen = new Date(current.last_seen_at || current.created_at).getTime();
+  if (!Number.isFinite(lastSeen) || now.getTime() - lastSeen < 72 * 60 * 60 * 1000) throw new Error('ERROR_NOT_OLD_ENOUGH');
+  const { data, error } = await supabase
+    .from('error_log')
+    .update({ status: 'resolved', resolved_at: now.toISOString(), resolved_note: 'auto' })
+    .eq('id', errorId)
+    .eq('status', 'open')
+    .select('id,status,resolved_at,resolved_note')
+    .single();
+  if (error) throw new Error(error.message);
+  if (data?.status !== 'resolved') throw new Error('POST_FIX_VERIFICATION_FAILED');
+  return data;
+}
+
+// Azione VERDE GPS: prima legge nuovamente sessione e MAX(recorded_at), poi
+// riclassifica. Solo ABANDONED (>4h) arriva alla RPC admin-only, che verifica
+// di nuovo stato e timestamp nel database e registra gps_operator_audit_log.
+export async function recoverAbandonedGpsSession(target, { now = new Date() } = {}) {
+  await ensureSupabaseSessionBridge();
+  const { data: session, error: sessionError } = await supabase
+    .from('delivery_sessions')
+    .select('id,status,started_at,paused_at,ended_at')
+    .eq('id', target?.id)
+    .single();
+  if (sessionError) throw new Error(sessionError.message);
+  const { data: lastPoint, error: pointError } = await supabase
+    .from('gps_tracking_points')
+    .select('recorded_at')
+    .eq('session_id', session.id)
+    .order('recorded_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (pointError) throw new Error(pointError.message);
+  const classification = classifyDeliverySession(session, { now, lastGpsRecordedAt: lastPoint?.recorded_at || null });
+  if (classification.state !== GPS_SESSION_STATE.ABANDONED) throw new Error('GPS_SESSION_NOT_ABANDONED');
+  const source = lastPoint?.recorded_at ? 'last_gps_recorded_at' : 'no_gps_evidence';
+  const { data, error } = await supabase.rpc('gps_recover_abandoned_session', {
+    p_session_id: session.id,
+    p_ended_at: lastPoint?.recorded_at || null,
+    p_reason: 'control_center_allowlisted_recovery',
+    p_expected_current_status: session.status,
+    p_ended_at_source: source,
+  });
+  if (error) throw new Error(error.message);
+  if (data?.status !== 'cancelled') throw new Error('POST_FIX_VERIFICATION_FAILED');
   return data;
 }
 

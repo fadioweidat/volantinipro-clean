@@ -33,6 +33,7 @@ import { computeGraphicEstimate, GRAPHIC_SERVICE_PRICE } from "../../../lib/pric
 import { SUPPORT_EMAIL, SUPPORT_WHATSAPP } from "../../../lib/contactConfig.js";
 import { trackQuoteCompleted } from "../../../lib/analytics/siteEvents.js";
 import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "../../../lib/monitoring/errorLog.js";
+import { buildQuoteAssistantStep4Context } from "../../../ai/context/buildQuoteAssistantContext.js";
 // Altri import se necessari verranno aggiunti nel prossimo step
 
 export function Step4({
@@ -41,7 +42,8 @@ export function Step4({
   onBack,
   onNav,
   onHome,
-  onCampaignSaved
+  onCampaignSaved,
+  onAssistantContextChange
 }) {
   const isMobile = useIsMobile();
   const [sent, setSent] = useState(false);
@@ -480,6 +482,25 @@ export function Step4({
   // Riepilogo prezzi (ticket §3): Distribuzione + Stampa + Grafica + Extra.
   // `total` = distribuzione + extra distribuzione (motore invariato).
   const grandTotal = Number((total + printingLinePrice + graphicLinePrice).toFixed(2));
+  const assistantContext = buildQuoteAssistantStep4Context(data, {
+    distributionBase: baseCost,
+    smartPairingDiscount,
+    urgencySurcharge: urgSurch,
+    planDiscount: planDiscountAmount,
+    distributionAndExtrasTotal: total,
+    printingSelected,
+    printingAmount: printingLinePrice,
+    graphicsRequired: artworkRequired,
+    graphicsSelected: artworkSelected,
+    graphicsAmount: graphicLinePrice,
+    extras: distributionExtras.map((item) => ({ id: item.id, label: item.label, description: item.description, amount: item.price })),
+    grandTotal,
+    pdfAvailable: true
+  });
+  const assistantContextKey = JSON.stringify(assistantContext);
+  useEffect(() => {
+    onAssistantContextChange?.(assistantContext);
+  }, [onAssistantContextChange, assistantContextKey]);
   // P0 WIRING REALE sezione 7/8: percentuale reale applicata (0/20/35),
   // usata per correggere le etichette "+30%" statiche sotto (non
   // riflettevano piu' la vera sovrapprezzo dopo il fix dell'urgenza a 3
