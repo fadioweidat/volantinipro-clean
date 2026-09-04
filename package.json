@@ -5,6 +5,7 @@
     "test:ai-admin": "node --import tsx --test tests/ai_core_admin_dashboard.test.mjs tests/ai_core_dispatcher.test.mjs",
     "test:ai-territorial-report": "node --import tsx --test tests/ai_core_territorial_report.test.mjs tests/ai_core_dispatcher.test.mjs",
     "test:quote-assistant": "node --import tsx --test tests/quote_contextual_assistant.test.mjs tests/ai_core_dispatcher.test.mjs tests/ai_territorial_step2_integration.test.mjs tests/customer_contact_options.test.mjs",
+    "test:control-center": "node --import tsx --test tests/platform_status_center.test.mjs tests/platform_monitoring_persistence.test.mjs tests/gps_zombie_prevention.test.mjs",
     "test:admin-home": "node --import tsx --test tests/admin_operational_home.test.mjs tests/admin_commercial_home.test.mjs",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",

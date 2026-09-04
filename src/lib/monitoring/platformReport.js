@@ -3,7 +3,7 @@
 // dato inventato qui: e' una vista testuale/JSON di cio' che la pagina gia'
 // mostra.
 
-export function buildPlatformStatusReport({ health, flows, traffic, providers, lastEvents, authHealth, generatedAt = new Date() } = {}) {
+export function buildPlatformStatusReport({ health, flows, traffic, providers, lastEvents, authHealth, controlCenter, auditLog = [], maintenance = null, generatedAt = new Date() } = {}) {
   const healthRows = health?.rows || [];
   const hasError = healthRows.some((row) => row.status === "error");
   const hasWarning = healthRows.some((row) => row.status === "warning");
@@ -27,5 +27,27 @@ export function buildPlatformStatusReport({ health, flows, traffic, providers, l
       clientRealLogin: authHealth.clientRealLogin.status,
       adminRealLogin: authHealth.adminRealLogin.status,
     } : null,
+    controlCenter: controlCenter ? {
+      summary: controlCenter.summary,
+      issues: controlCenter.issues.map((problem) => ({
+        state: problem.state,
+        risk: problem.risk,
+        problem: problem.problem,
+        probableCause: problem.probableCause,
+        module: problem.module,
+        action: problem.actionLabel,
+        lastChecked: problem.checkedAt,
+      })),
+    } : null,
+    interventionHistory: auditLog.map((row) => ({
+      problem: row.problem,
+      date: row.at,
+      action: row.action,
+      actor: row.actor,
+      authorizedBy: row.authorizedBy,
+      result: row.result,
+      postFixVerification: row.verification,
+    })),
+    maintenance,
   };
 }

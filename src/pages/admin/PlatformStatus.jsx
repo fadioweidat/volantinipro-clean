@@ -3,6 +3,7 @@ import {
   getConfigStatus, getPlatformStatusData, getSiteTraffic, resolveErrorLogEntry,
   getPlatformHealthHistory, getPlatformIncidents, insertPlatformHealthChecks,
   getRecentPlatformHealthChecks, getOpenPlatformIncident, insertPlatformIncident, updatePlatformIncident,
+  autoResolveOldErrorLogEntry, recoverAbandonedGpsSession,
 } from '../../lib/services/admin-api.js';
 import { runPlatformHealthCheck } from '../../lib/monitoring/platformHealth.js';
 import { computeFlowHealth } from '../../lib/monitoring/platformFlows.js';
@@ -12,6 +13,11 @@ import { computeUptimeSummary, computeResponseTimePercentiles, estimateDowntimeM
 import { computeSiteTrafficSummary } from '../../lib/analytics/siteTrafficSummary.js';
 import { computeLastOperationalEvents } from '../../lib/monitoring/platformEvents.js';
 import { buildPlatformStatusReport } from '../../lib/monitoring/platformReport.js';
+import {
+  buildControlCenterModel, createControlCenterAuditEntry, executeControlCenterRepair,
+  loadControlCenterAudit, saveControlCenterAudit, CONTROL_CENTER_MAINTENANCE_PLAN,
+} from '../../lib/monitoring/controlCenterEngine.js';
+import { runControlCenterDiagnosis } from '../../ai/adapters/controlCenterAdapter.js';
 import { downloadTextFile } from '../../lib/services/report-utils.js';
 import { AdminLayout } from './AdminLayout.jsx';
 import './admin-dashboard.css';
@@ -68,6 +74,11 @@ export function PlatformStatus({ onNav }) {
   const [showResolvedErrors, setShowResolvedErrors] = useState(false);
   const mountStartRef = useRef(typeof performance !== 'undefined' ? performance.now() : Date.now());
   const [dashboardLoadMs, setDashboardLoadMs] = useState(null);
+  const [auditLog, setAuditLog] = useState(() => loadControlCenterAudit());
+  const [repairingIssueId, setRepairingIssueId] = useState(null);
+  const [diagnosingIssueId, setDiagnosingIssueId] = useState(null);
+  const [diagnoses, setDiagnoses] = useState({});
+  const [approvalIssueId, setApprovalIssueId] = useState(null);
 
   const refreshData = useCallback(async () => {
     try {
@@ -134,6 +145,7 @@ export function PlatformStatus({ onNav }) {
       const [historyResult, incidentsResult] = await Promise.all([getPlatformHealthHistory(), getPlatformIncidents()]);
       setHealthHistory(historyResult);
       setIncidents(incidentsResult);
+      return { data, cfg, healthResult, authHealthResult };
     } finally {
       setChecking(false);
       setLoading(false);
@@ -152,6 +164,67 @@ export function PlatformStatus({ onNav }) {
     deliverySessions: rawData.deliverySessions.rows,
     gpsPoints: rawData.gpsPoints.rows,
   }), [rawData]);
+
+  const controlCenter = useMemo(() => buildControlCenterModel({
+    health,
+    flows,
+    errorLogRows: rawData.errorLog.rows,
+    deliverySessions: rawData.deliverySessions.rows,
+    gpsPoints: rawData.gpsPoints.rows,
+    auditLog,
+  }), [health, flows, rawData.errorLog.rows, rawData.deliverySessions.rows, rawData.gpsPoints.rows, auditLog]);
+
+  const rememberAudit = useCallback((entry) => {
+    setAuditLog((current) => saveControlCenterAudit([entry, ...current]));
+  }, []);
+
+  const handleAutoRepair = useCallback(async (problem) => {
+    setRepairingIssueId(problem.id);
+    setNotice('');
+    try {
+      const outcome = await executeControlCenterRepair(problem, {
+        retryHealth: runFullCheck,
+        resolveOldError: autoResolveOldErrorLogEntry,
+        recoverAbandonedGps: recoverAbandonedGpsSession,
+      });
+      rememberAudit(createControlCenterAuditEntry({ problem, action: problem.actionId, mode: 'auto', result: outcome.result, verification: outcome.verification }));
+      if (problem.actionId !== 'retry_health_check') await runFullCheck();
+      setNotice(`Azione sicura completata. ${outcome.verification}`);
+    } catch (err) {
+      const verification = err?.message || 'Azione non completata.';
+      rememberAudit(createControlCenterAuditEntry({ problem, action: problem.actionId, mode: 'auto', result: 'failed', verification }));
+      setNotice(`Auto-repair non eseguito: ${verification}`);
+    } finally {
+      setRepairingIssueId(null);
+    }
+  }, [rememberAudit, runFullCheck]);
+
+  const handleDiagnosis = useCallback(async (problem) => {
+    setDiagnosingIssueId(problem.id);
+    setNotice('');
+    try {
+      const diagnosis = await runControlCenterDiagnosis(problem);
+      setDiagnoses((current) => ({ ...current, [problem.id]: diagnosis }));
+      rememberAudit(createControlCenterAuditEntry({ problem, action: 'ai_diagnosis', mode: 'ai', result: 'success', verification: 'Output AI validato e mostrato; nessuna modifica eseguita.' }));
+    } catch (err) {
+      setNotice(`Analisi AI non disponibile: ${err?.message || 'errore sconosciuto'}`);
+    } finally {
+      setDiagnosingIssueId(null);
+    }
+  }, [rememberAudit]);
+
+  const handleApprovalRecord = useCallback((problem) => {
+    rememberAudit(createControlCenterAuditEntry({
+      problem,
+      action: 'approval_requested',
+      mode: 'approval',
+      result: 'recorded',
+      authorizedBy: 'Admin autenticato',
+      verification: 'Richiesta registrata; nessuna azione rossa è stata eseguita automaticamente.',
+    }));
+    setApprovalIssueId(null);
+    setNotice('Richiesta di approvazione registrata. Nessuna modifica è stata eseguita.');
+  }, [rememberAudit]);
 
   const uptimeSummary = useMemo(() => computeUptimeSummary(healthHistory.rows), [healthHistory.rows]);
   const perf24h = useMemo(() => {
@@ -214,7 +287,7 @@ export function PlatformStatus({ onNav }) {
   }
 
   function handleDownloadReport() {
-    const report = buildPlatformStatusReport({ health, flows, traffic: trafficConfigured ? traffic : null, providers: configStatus?.providers || null, lastEvents, authHealth });
+    const report = buildPlatformStatusReport({ health, flows, traffic: trafficConfigured ? traffic : null, providers: configStatus?.providers || null, lastEvents, authHealth, controlCenter, auditLog, maintenance: CONTROL_CENTER_MAINTENANCE_PLAN });
     downloadTextFile(`centro-controllo-sito-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`, JSON.stringify(report, null, 2), 'application/json');
   }
 
@@ -234,6 +307,56 @@ export function PlatformStatus({ onNav }) {
         <button type="button" onClick={refreshData} disabled={checking}>Aggiorna stato</button>
         <button type="button" onClick={handleDownloadReport} disabled={!health}>Scarica report tecnico (JSON)</button>
       </div>
+
+      <section className="ccs-command" aria-labelledby="ccs-command-title">
+        <header className="ccs-command__header">
+          <div><p>Centro Controllo 2.0</p><h2 id="ccs-command-title">Stato sito oggi</h2><span>Rilevamento, rischio, diagnosi e verifica post-fix nello stesso flusso operativo.</span></div>
+          <StatusPill status={controlCenter.summary.errors > 0 ? 'error' : controlCenter.summary.warnings > 0 ? 'warning' : 'ok'} label={controlCenter.summary.errors > 0 ? 'INTERVENTO' : controlCenter.summary.warnings > 0 ? 'ATTENZIONE' : 'OPERATIVO'} />
+        </header>
+        <div className="ccs-command__summary">
+          <article><strong>{controlCenter.summary.ok}</strong><span>controlli OK</span></article>
+          <article><strong>{controlCenter.summary.warnings}</strong><span>warning</span></article>
+          <article><strong>{controlCenter.summary.errors}</strong><span>errori</span></article>
+          <article><strong>{controlCenter.summary.autoFixed}</strong><span>risolti automaticamente oggi</span></article>
+          <article><strong>{controlCenter.summary.suggested}</strong><span>interventi suggeriti</span></article>
+        </div>
+      </section>
+
+      <section className="admin-home__section" aria-labelledby="ccs-issues-title">
+        <SectionHeading id="ccs-issues-title" eyebrow="Triage operativo" title="Problemi rilevati" meta={`${controlCenter.issues.length} segnali raggruppati · auto-fix solo allowlist`} />
+        {controlCenter.issues.length === 0 ? <div className="admin-home__empty"><p>Nessun problema operativo rilevato.</p></div> : (
+          <div className="ccs-issue-list">
+            {controlCenter.issues.map((problem) => <ControlIssueCard
+              key={problem.id}
+              problem={problem}
+              diagnosis={diagnoses[problem.id]}
+              lastFix={auditLog.find((row) => row.module === problem.module && row.mode === 'auto')}
+              repairing={repairingIssueId === problem.id}
+              diagnosing={diagnosingIssueId === problem.id}
+              approvalOpen={approvalIssueId === problem.id}
+              onRepair={() => handleAutoRepair(problem)}
+              onDiagnose={() => handleDiagnosis(problem)}
+              onApproval={() => setApprovalIssueId(problem.id)}
+              onApprovalConfirm={() => handleApprovalRecord(problem)}
+              onApprovalCancel={() => setApprovalIssueId(null)}
+            />)}
+          </div>
+        )}
+      </section>
+
+      <section className="admin-home__section" aria-labelledby="ccs-audit-title">
+        <SectionHeading id="ccs-audit-title" eyebrow="Report" title="Storico interventi" meta="Audit locale amministrativo; gli auto-fix DB mantengono anche il proprio audit server-side" />
+        {auditLog.length === 0 ? <div className="admin-home__empty"><p>Nessun intervento registrato da questo browser.</p></div> : <div className="ccs-audit-list">{auditLog.slice(0, 30).map((row) => <AuditRow key={row.id} row={row} />)}</div>}
+      </section>
+
+      <section className="admin-home__section" aria-labelledby="ccs-maintenance-title">
+        <SectionHeading id="ccs-maintenance-title" eyebrow="Manutenzione" title="Piano operativo" meta="Preparato per il ticket scheduler successivo; nessun cron o deploy avviato da questa pagina" />
+        <div className="ccs-maintenance-grid">
+          <article><span>Ogni giorno</span><strong>Controlli automatici</strong><StatusPill status="ok" label="PRONTO" /></article>
+          <article><span>Ogni mese</span><strong>Manutenzione completa</strong><StatusPill status="warning" label="APPROVAZIONE" /></article>
+          <article><span>Ogni mese</span><strong>Report operativo</strong><StatusPill status="ok" label="PRONTO" /></article>
+        </div>
+      </section>
 
       {/* BLOCCO 1 — Stato generale piattaforma */}
       <section className="admin-home__section" aria-labelledby="ccs-health-title">
@@ -491,6 +614,43 @@ function EventRow({ label, event, unknown, detail }) {
       {detail && <span className="ccs-event-row__detail">{detail}</span>}
     </article>
   );
+}
+
+function ControlIssueCard({ problem, diagnosis, lastFix, repairing, diagnosing, approvalOpen, onRepair, onDiagnose, onApproval, onApprovalConfirm, onApprovalCancel }) {
+  const statusLabel = problem.state === 'error' ? '🔴 Errore' : problem.state === 'warning' ? '⚠️ Warning' : '✅ OK';
+  const riskLabel = problem.risk === 'green' ? 'VERDE · azione sicura' : problem.risk === 'red' ? 'ROSSO · approvazione' : 'GIALLO · diagnosi AI';
+  return <article className={`ccs-issue ccs-issue--${problem.risk}`}>
+    <div className="ccs-issue__rail"><span className={`ccs-issue__state ccs-issue__state--${problem.state}`}>{statusLabel}</span><span className={`ccs-issue__risk ccs-issue__risk--${problem.risk}`}>{riskLabel}</span></div>
+    <div className="ccs-issue__content">
+      <div className="ccs-issue__field"><span>Problema</span><strong>{problem.problem}</strong></div>
+      <div className="ccs-issue__field"><span>Causa probabile</span><p>{problem.probableCause}</p></div>
+      <div className="ccs-issue__meta"><span>Modulo: {problem.module}</span><span>Ultimo controllo: {formatRelative(problem.checkedAt)}</span><span>Ultimo fix: {lastFix ? formatRelative(lastFix.at) : 'Mai'}</span></div>
+      {diagnosis && <div className="ccs-diagnosis" aria-live="polite">
+        <div><span>Causa AI</span><p>{diagnosis.probableCause}</p></div>
+        <div><span>Impatto</span><p>{diagnosis.impact}</p></div>
+        <div><span>Urgenza</span><strong>{diagnosis.urgency.toUpperCase()}</strong></div>
+        <div><span>Fix suggerito</span><p>{diagnosis.suggestedFix}</p></div>
+        <small>{diagnosis.autoResolvable ? 'L’AI lo considera compatibile con una riparazione sicura; decide comunque l’allowlist locale.' : 'Intervento non autorizzato all’esecuzione automatica.'}</small>
+      </div>}
+      {approvalOpen && <div className="ccs-approval" role="group" aria-label="Conferma richiesta di approvazione">
+        <strong>Nessuna azione verrà eseguita.</strong><p>Conferma soltanto la registrazione della richiesta per revisione umana.</p>
+        <div><button type="button" onClick={onApprovalConfirm}>Registra richiesta</button><button type="button" onClick={onApprovalCancel}>Annulla</button></div>
+      </div>}
+    </div>
+    <div className="ccs-issue__actions">
+      {problem.risk === 'green' && <button type="button" onClick={onRepair} disabled={repairing}>{repairing ? 'Verifica in corso…' : problem.actionLabel}</button>}
+      {problem.risk === 'yellow' && <button type="button" onClick={onDiagnose} disabled={diagnosing}>{diagnosing ? 'Analisi in corso…' : 'Analizza problema'}</button>}
+      {problem.risk === 'red' && <><button type="button" className="ccs-button--danger" onClick={onApproval}>Richiede approvazione</button><button type="button" className="ccs-button--quiet" onClick={onDiagnose} disabled={diagnosing}>{diagnosing ? 'Analisi…' : 'Analizza problema'}</button></>}
+    </div>
+  </article>;
+}
+
+function AuditRow({ row }) {
+  return <article className="ccs-audit-row">
+    <div><strong>{row.problem}</strong><span>{row.action} · {row.actor}{row.authorizedBy ? ` · autorizzato da ${row.authorizedBy}` : ''}</span></div>
+    <div><StatusPill status={row.result === 'failed' ? 'error' : 'ok'} label={row.result === 'success' ? 'VERIFICATO' : row.result === 'failed' ? 'FALLITO' : 'REGISTRATO'} /><time dateTime={row.at}>{formatRelative(row.at)}</time></div>
+    <p>{row.verification}</p>
+  </article>;
 }
 
 function SectionHeading({ id, eyebrow, title, meta }) { return <header className="admin-home__heading"><div><p>{eyebrow}</p><h2 id={id}>{title}</h2>{meta && <span>{meta}</span>}</div></header>; }

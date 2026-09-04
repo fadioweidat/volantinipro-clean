@@ -26,10 +26,11 @@ test('ai-core: contextType validi non implementati rispondono 501 e i context im
   // campagna restano noti ma non ancora implementati.
   assert.match(indexSource, /contextType\s*===\s*"admin_dashboard"/);
   assert.match(indexSource, /contextType\s*===\s*"territorial_report"/);
+  assert.match(indexSource, /contextType\s*===\s*"control_center_diagnosis"/);
   assert.doesNotMatch(indexSource, /contextType\s*===\s*"customer_dashboard"/);
   assert.doesNotMatch(indexSource, /contextType\s*===\s*"campaign_report"/);
   assert.match(contextTypesSource, /"step1"[\s\S]*"step2"[\s\S]*"step3"[\s\S]*"step4"[\s\S]*"customer_dashboard"[\s\S]*"admin_dashboard"[\s\S]*"territorial_report"[\s\S]*"campaign_report"/);
-  assert.match(contextTypesSource, /IMPLEMENTED_CONTEXT_TYPES = Object\.freeze\(\["step1", "step2", "step3", "step4", "admin_dashboard", "territorial_report"\]\)/);
+  assert.match(contextTypesSource, /IMPLEMENTED_CONTEXT_TYPES = Object\.freeze\(\["step1", "step2", "step3", "step4", "admin_dashboard", "control_center_diagnosis", "territorial_report"\]\)/);
 });
 
 test('ai-core: step2 NON impone JWT — l\'identità è risolta ma mai bloccante prima del branch', () => {

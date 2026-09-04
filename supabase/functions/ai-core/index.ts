@@ -40,6 +40,12 @@ import {
   validateTerritorialReportAiResult,
   validateTerritorialReportSnapshot,
 } from "./territorialReport.ts";
+import {
+  buildControlCenterSystemPrompt,
+  buildControlCenterUserPrompt,
+  validateControlCenterDiagnosis,
+  validateControlCenterSnapshot,
+} from "./controlCenterDiagnosis.ts";
 
 declare const Deno: any;
 
@@ -349,6 +355,40 @@ async function callAdminOpenAi(snapshot: Record<string, unknown>, question: stri
   }
 }
 
+async function callControlCenterOpenAi(snapshot: Record<string, unknown>, warnings: string[]) {
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) {
+    warnings.push("OPENAI_NOT_CONFIGURED");
+    return null;
+  }
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        temperature: 0.1,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: buildControlCenterSystemPrompt() },
+          { role: "user", content: buildControlCenterUserPrompt(snapshot) },
+        ],
+      }),
+    });
+    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    const content = (await res.json())?.choices?.[0]?.message?.content;
+    if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
+    const parsed = JSON.parse(content);
+    if (!validateControlCenterDiagnosis(parsed)) throw new Error("OPENAI_INVALID_CONTROL_CENTER_DIAGNOSIS");
+    const issueType = String(snapshot.issueType || "");
+    const policyAllowsAuto = snapshot.riskLevel === "green" && (/^health:/.test(issueType) || /^gps:abandoned_sessions$/.test(issueType) || /^error:/.test(issueType));
+    return { ...parsed, autoResolvable: parsed.autoResolvable === true && policyAllowsAuto };
+  } catch (error) {
+    warnings.push(`OPENAI_CALL_FAILED:${error instanceof Error ? error.message : "unknown"}`);
+    return null;
+  }
+}
+
 async function callTerritorialReportOpenAi(snapshot: Record<string, unknown>, question: string, warnings: string[]) {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) {
@@ -505,6 +545,22 @@ async function handleAdminDashboard(user: { id: string } | null, body: any) {
   return json({ ...aiResult, status: "ai", cached: false });
 }
 
+async function handleControlCenterDiagnosis(user: { id: string } | null, body: any) {
+  if (!user) return json({ status: "error", error: "AUTHENTICATION_REQUIRED" }, 401);
+  const supabase = supabaseAdmin();
+  if (!supabase) return json({ status: "error", error: "AUTH_SERVICE_UNAVAILABLE" }, 500);
+  const { data: profile, error: profileError } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  if (profileError) return json({ status: "error", error: "AUTH_CHECK_FAILED" }, 500);
+  if (!isAdminProfile(profile)) return json({ status: "error", error: "FORBIDDEN" }, 403);
+  const validation = validateStep2Payload(body);
+  if (!validation.ok) return json({ status: "error", error: validation.error }, 400);
+  if (!validateControlCenterSnapshot(validation.snapshot)) return json({ status: "error", error: "INVALID_CONTROL_CENTER_SNAPSHOT" }, 400);
+  const warnings: string[] = [];
+  const result = await callControlCenterOpenAi(validation.snapshot, warnings);
+  if (!result) return json({ status: "fallback", error: "AI_DIAGNOSIS_UNAVAILABLE", warnings }, 503);
+  return json({ ...result, status: "ai", warnings });
+}
+
 async function handleTerritorialReport(user: { id: string } | null, body: any) {
   const validation = validateStep2Payload(body);
   if (!validation.ok) return json({ status: "error", error: validation.error }, 400);
@@ -574,12 +630,13 @@ serve(async (req: Request) => {
 
     // Identita' risolta una sola volta, sempre in modo opzionale a questo
     // livello: e' il singolo branch contextType a decidere se e' obbligatoria.
-    // Step2 e territorial_report accettano user===null; admin_dashboard
-    // respinge l'anonimo e verifica il ruolo nel proprio handler.
+    // Step2 e territorial_report accettano user===null; i contesti Admin
+    // respingono l'anonimo e verificano il ruolo nel proprio handler.
     const user = await getAuthedUser(req);
 
     if (QUOTE_CONTEXT_TYPES.has(contextType)) return await handleQuoteStep(contextType, user, body);
     if (contextType === "admin_dashboard") return await handleAdminDashboard(user, body);
+    if (contextType === "control_center_diagnosis") return await handleControlCenterDiagnosis(user, body);
     if (contextType === "territorial_report") return await handleTerritorialReport(user, body);
     return json({ answer: null, status: "error", error: "CONTEXT_TYPE_NOT_IMPLEMENTED" }, 501);
   } catch (error) {

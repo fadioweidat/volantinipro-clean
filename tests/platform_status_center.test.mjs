@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import "./control_center_2.test.mjs";
 import test from "node:test";
 import fs from "node:fs";
 import path from "node:path";
