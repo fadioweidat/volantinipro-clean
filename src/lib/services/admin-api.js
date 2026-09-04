@@ -567,7 +567,7 @@ export async function getPlatformHealthHistory({ sinceDays = 30 } = {}) {
     const cutoff = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await supabase
       .from('platform_health_checks')
-      .select('check_name, check_group, status, response_time_ms, error_code, error_message, checked_at, source')
+      .select('check_name, check_group, status, response_time_ms, error_code, error_message, checked_at, source, metadata')
       .gte('checked_at', cutoff)
       .order('checked_at', { ascending: false })
       // Tetto esplicito: a regime (collector ogni 5min, ~8 check) la finestra
