@@ -2,8 +2,9 @@ import React from "react";
 import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 import { NavButton } from "../../../../components/NavButton.jsx";
 import { C, F } from "../../../../lib/constants.js";
+import { Step4SendQuoteEmail } from "./Step4SendQuoteEmail.jsx";
 
-export function Step4CampaignActionsPanel({ sent, savedCampaign, onHome, onNav, returnFromLogin, setReturnFromLogin, showLoginRequired, handleLoginRequiredNavigation, campaignSaveError, isQuick, handleDownloadPdf, pdfBusy, col, emailSent, setEmailSent, canConfirm, savingCampaign, handleConfirmCampaign, confirmSyncStatus, clientForm, setClientForm, confirmProblem, pdfError, onBack, data, handleOpenSavedCampaign }) {
+export function Step4CampaignActionsPanel({ sent, savedCampaign, onHome, onNav, returnFromLogin, setReturnFromLogin, showLoginRequired, handleLoginRequiredNavigation, campaignSaveError, isQuick, handleDownloadPdf, pdfBusy, col, quotePdfData, canConfirm, savingCampaign, handleConfirmCampaign, confirmSyncStatus, clientForm, setClientForm, confirmProblem, pdfError, onBack, data, handleOpenSavedCampaign }) {
   return (
     <>
       {/* Dashboard ed esecuzione / Modificabile badge */}
@@ -292,26 +293,7 @@ export function Step4CampaignActionsPanel({ sent, savedCampaign, onHome, onNav, 
                     <Step1Icon name="user" size={15} color="#38BDF8" /> Consulenza
                   </button>
                 </div>
-                <button className="btn" onClick={() => {
-              setEmailSent(true);
-              setTimeout(() => setEmailSent(false), 3000);
-            }} style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 7,
-              padding: "12px",
-              borderRadius: 10,
-              border: "1px solid rgba(46,204,138,.25)",
-              background: "rgba(46,204,138,.07)",
-              color: C.green,
-              fontFamily: F.sans,
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: "pointer"
-            }}>
-                  {emailSent ? "✓ Inviato" : <><Step1Icon name="mail" size={15} color={C.green} /> Invia preventivo via email</>}
-                </button>
+                <Step4SendQuoteEmail quotePdfData={quotePdfData} clientForm={clientForm} setClientForm={setClientForm} handleDownloadPdf={handleDownloadPdf} pdfBusy={pdfBusy} col={col} compact={false} />
               </div> : <button className="btn s4-btn-green" disabled={!canConfirm || savingCampaign} onClick={handleConfirmCampaign} style={{
             width: "100%",
             padding: "16px",
@@ -393,33 +375,7 @@ export function Step4CampaignActionsPanel({ sent, savedCampaign, onHome, onNav, 
             }}>
                   {pdfBusy ? "Generazione PDF…" : <><Step1Icon name="printer" size={15} color={col} /> Scarica preventivo PDF</>}
                 </button>
-                <button className="btn" onClick={() => {
-              setEmailSent(true);
-              setTimeout(() => setEmailSent(false), 3000);
-            }} style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 7,
-              width: "100%",
-              padding: "10px",
-              borderRadius: 9,
-              border: "1px solid rgba(46,204,138,.25)",
-              background: "rgba(46,204,138,.07)",
-              color: C.green,
-              fontFamily: F.sans,
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: "pointer"
-            }}>
-                  {emailSent ? "✓ Inviato" : <><Step1Icon name="mail" size={15} color={C.green} /> Invia preventivo via email</>}
-                </button>
-                {emailSent && <div style={{
-              fontFamily: F.sans,
-              fontSize: 10,
-              color: C.green,
-              textAlign: "center"
-            }}>Controlla la tua casella email.</div>}
+                <Step4SendQuoteEmail quotePdfData={quotePdfData} clientForm={clientForm} setClientForm={setClientForm} handleDownloadPdf={handleDownloadPdf} pdfBusy={pdfBusy} col={col} compact={true} />
                 {pdfError && <div style={{
               fontFamily: F.sans,
               fontSize: 10,

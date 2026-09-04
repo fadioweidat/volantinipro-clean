@@ -54,7 +54,6 @@ export function Step4({
   const [campaignSaveError, setCampaignSaveError] = useState(null);
   const [showLoginRequired, setShowLoginRequired] = useState(false);
   const [savedCampaign, setSavedCampaign] = useState(null);
-  const [emailSent, setEmailSent] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState("");
   const [showTechPanel, setShowTechPanel] = useState(false);
@@ -2921,8 +2920,7 @@ export function Step4({
               handleDownloadPdf={handleDownloadPdf}
               pdfBusy={pdfBusy}
               col={col}
-              emailSent={emailSent}
-              setEmailSent={setEmailSent}
+              quotePdfData={quotePdfData}
               canConfirm={canConfirm}
               savingCampaign={savingCampaign}
               handleConfirmCampaign={handleConfirmCampaign}
