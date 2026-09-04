@@ -237,6 +237,9 @@ function deterministicQuoteResponse(contextType: string, snapshot: any, question
   if (/(?:parlare|sentire|contattare|scrivere).*(?:persona|operatore|consulente|umano)|(?:persona|operatore|consulente|umano).*(?:parlare|sentire|contattare|scrivere)/i.test(question)) {
     return "Puoi parlare subito con il team VolantiniPro: WhatsApp +39 351 767 3737 oppure Email info@volantinipro.it.";
   }
+  if (contextType === "step1" && /come funziona/.test(normalized)) {
+    return "In questo passaggio scegli servizio, quantità, periodo e materiale. Nei passaggi successivi selezioni la zona, verifichi copertura e disponibilità, poi controlli il preventivo finale. L'assistente spiega i dati ma non modifica le tue scelte.";
+  }
   if (contextType === "step2" && /copertura|copro tutta/.test(normalized)) {
     const coverage = snapshot?.kpis?.residentialCoveragePct ?? snapshot?.kpis?.quantityCoveragePct;
     if (typeof coverage !== "number") return "La copertura non è disponibile nei dati correnti dello Step 2.";

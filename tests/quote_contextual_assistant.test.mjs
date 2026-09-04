@@ -86,5 +86,17 @@ test("backend abilita Step1-4, rifiuta PII e verifica i numeri generati", () => 
   assert.match(source, /SENSITIVE_CONTEXT_REJECTED/);
   assert.match(source, /OPENAI_UNGROUNDED_NUMBER/);
   assert.match(source, /deterministicQuoteResponse/);
+  assert.match(source, /contextType === "step1" && \/come funziona\//);
+  assert.match(source, /L'assistente spiega i dati ma non modifica le tue scelte/);
   assert.match(config, /\[functions\.ai-core\][\s\S]*verify_jwt = false/);
+});
+
+test("layout Step1 preserva la leggibilità delle card con il pannello AI aperto", () => {
+  const step1 = fs.readFileSync("src/pages/public/configurator/Step1.jsx", "utf8");
+  const assistantCss = fs.readFileSync("src/components/ai/quote/quote-assistant.css", "utf8");
+  assert.match(step1, /vp-s1-service-grid/);
+  assert.match(step1, /minmax\(min\(100%, 232px\), 1fr\)/);
+  assert.match(step1, /vp-s1-service-detail/);
+  assert.match(assistantCss, /width:min\(364px,calc\(100vw - 24px\)\)/);
+  assert.match(assistantCss, /padding-right:388px/);
 });

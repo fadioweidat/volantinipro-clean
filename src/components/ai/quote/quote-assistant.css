@@ -1,6 +1,6 @@
 .configurator-assistant-layout{min-width:0;transition:padding-right .22s ease}
 .quote-ai__backdrop{position:fixed;inset:0;z-index:190;border:0;background:rgba(2,8,18,.42);cursor:default}
-.quote-ai{position:fixed;z-index:200;top:12px;right:12px;bottom:12px;width:min(420px,calc(100vw - 24px));display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:#0b1525;color:#fff;box-shadow:0 24px 80px rgba(0,0,0,.42);font-family:"DM Sans",Inter,system-ui,sans-serif}
+.quote-ai{position:fixed;z-index:200;top:12px;right:12px;bottom:12px;width:min(364px,calc(100vw - 24px));display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:#0b1525;color:#fff;box-shadow:0 24px 80px rgba(0,0,0,.42);font-family:"DM Sans",Inter,system-ui,sans-serif}
 .quote-ai__header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:22px 22px 18px;border-bottom:1px solid rgba(255,255,255,.08);background:linear-gradient(145deg,rgba(232,87,26,.15),transparent 48%)}
 .quote-ai__step{display:block;margin-bottom:7px;color:#ff9b6f;font-size:10px;font-weight:900;letter-spacing:.09em;text-transform:uppercase}
 .quote-ai h2{margin:0;font:800 23px/1.12 "DM Sans",Inter,system-ui,sans-serif;letter-spacing:-.35px}
@@ -33,7 +33,7 @@
 .quote-ai button:focus-visible,.quote-ai input:focus-visible,.quote-ai a:focus-visible{outline:2px solid #ff9b6f;outline-offset:2px}
 .quote-ai button:active,.quote-ai a:active{transform:translateY(1px)}
 .quote-ai button:disabled{cursor:not-allowed;opacity:.55}
-@media(min-width:761px){.configurator-assistant-layout--open{padding-right:444px}.quote-ai__backdrop{display:none}}
+@media(min-width:761px){.configurator-assistant-layout--open{padding-right:388px}.quote-ai__backdrop{display:none}}
 @media(max-width:760px){.quote-ai{top:auto;right:0;bottom:0;left:0;width:100%;height:min(82dvh,720px);border-right:0;border-bottom:0;border-left:0;border-radius:18px 18px 0 0}.quote-ai__header{padding:18px 17px 15px}.quote-ai__body{padding:15px 15px 7px}.quote-ai__form{padding:12px 15px max(14px,env(safe-area-inset-bottom))}.quote-ai__message{max-width:94%}}
 @media(max-width:390px){.quote-ai__form>div{grid-template-columns:1fr}.quote-ai__form button{width:100%}.quote-ai__contacts{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.configurator-assistant-layout{transition:none}.quote-ai button:active,.quote-ai a:active{transform:none}}

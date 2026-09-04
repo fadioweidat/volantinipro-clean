@@ -966,6 +966,15 @@ export function Step1({
         .vp-s1-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #22C55E; cursor: pointer; border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.4); transition: transform 0.15s; }
         .vp-s1-slider::-webkit-slider-thumb:hover { transform: scale(1.18); }
         .vp-s1-root { overflow-x: clip; }
+        .vp-s1-service-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 232px), 1fr)); }
+        .vp-s1-service-card { min-width: 0; width: 100%; overflow: hidden; }
+        .vp-s1-service-title { min-height: 2.3em; padding-right: 82px; line-height: 1.15; overflow-wrap: normal; word-break: normal; hyphens: none; }
+        .vp-s1-service-copy, .vp-s1-service-detail { overflow-wrap: normal; word-break: normal; hyphens: none; }
+        .vp-s1-service-detail { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: start; gap: 7px; line-height: 1.45; }
+        @media (max-width: 760px) {
+          .vp-s1-service-grid { grid-template-columns: minmax(0, 1fr); }
+          .vp-s1-service-title { min-height: 0; }
+        }
         .vp-s1-root button:focus-visible, .vp-s1-root input:focus-visible, .vp-s1-root select:focus-visible, .vp-s1-root textarea:focus-visible, .vp-s1-root summary:focus-visible { outline: 3px solid rgba(56,189,248,.72); outline-offset: 3px; }
         .vp-s1-help-wrap { position: relative; display: inline-flex; margin-left: 8px; vertical-align: middle; }
         .vp-s1-help { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(148,163,184,.38); background: rgba(15,29,50,.9); color: #CBD5E1; cursor: help; font: 900 12px/1 'DM Sans',sans-serif; }
@@ -1147,9 +1156,8 @@ export function Step1({
               Come vuoi distribuire i tuoi volantini?
               <Step1Help label="Differenze tra i servizi">La scelta cambia il tipo di area e le attività disponibili nello Step 2. Potrai ancora verificare tutto sulla mappa.</Step1Help>
             </h2>
-            <div role="radiogroup" aria-label="Tipo di distribuzione" style={{
+            <div role="radiogroup" aria-label="Tipo di distribuzione" className="vp-s1-service-grid" style={{
             display: "grid",
-            gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))",
             gap: 20,
             alignItems: "stretch"
           }}>
@@ -1158,8 +1166,8 @@ export function Step1({
               const cardCol = active ? s1Green : "rgba(255,255,255,.38)";
               return <button type="button" role="radio" aria-checked={active} key={t.id} onClick={() => updateData({
                 type: t.id
-              })} className={`vp-s1-card-hover${active ? " vp-s1-card-selected" : ""}`} style={{
-                padding: 24,
+              })} className={`vp-s1-card-hover vp-s1-service-card${active ? " vp-s1-card-selected" : ""}`} style={{
+                padding: isMobile ? 20 : 22,
                 borderRadius: 18,
                 ...s1Card(active),
                 cursor: "pointer",
@@ -1201,13 +1209,13 @@ export function Step1({
                     <div style={{
                   marginBottom: 16
                 }}><Step1Icon name={t.icon} size={36} color={active ? s1Green : "rgba(255,255,255,.82)"} /></div>
-                    <div style={{
+                    <div className="vp-s1-service-title" style={{
                   fontFamily: F.serif,
                   fontSize: 22,
                   color: "#F8FAFC",
                   marginBottom: 8
                 }}>{t.name}</div>
-                    <p style={{
+                    <p className="vp-s1-service-copy" style={{
                   fontFamily: F.sans,
                   fontSize: 13,
                   lineHeight: 1.55,
@@ -1226,33 +1234,24 @@ export function Step1({
                   marginBottom: 20,
                   flex: 1
                 }}>
-                      <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
+                      <div className="vp-s1-service-detail" style={{
                     fontSize: 12,
                     color: "#CBD5E1"
-                  }}><Step1Icon name="lightbulb" size={14} /> <b style={{
+                  }}><Step1Icon name="lightbulb" size={14} /> <span><b style={{
                       color: "#F8FAFC"
-                    }}>Casi d'uso:</b> {t.useCases}</div>
-                      <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
+                    }}>Casi d'uso:</b> {t.useCases}</span></div>
+                      <div className="vp-s1-service-detail" style={{
                     fontSize: 12,
                     color: "#CBD5E1"
-                  }}><Step1Icon name="target" size={14} /> <b style={{
+                  }}><Step1Icon name="target" size={14} /> <span><b style={{
                       color: "#F8FAFC"
-                    }}>Target:</b> {t.target}</div>
-                      <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
+                    }}>Target:</b> {t.target}</span></div>
+                      <div className="vp-s1-service-detail" style={{
                     fontSize: 12,
                     color: "#CBD5E1"
-                  }}><Step1Icon name="clock" size={14} /> <b style={{
+                  }}><Step1Icon name="clock" size={14} /> <span><b style={{
                       color: "#F8FAFC"
-                    }}>Tempo medio:</b> {t.time}</div>
+                    }}>Tempo medio:</b> {t.time}</span></div>
                     </div>
                     <div style={{
                   display: "flex",
