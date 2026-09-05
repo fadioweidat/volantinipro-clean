@@ -47,45 +47,111 @@ function BriefcaseIcon() {
 // realmente visibile, mai una copia duplicata.
 export const services = [
   {
+    key: "d2d",
     title: "Door to Door",
     subtitle: "Distribuzione residenziale",
+    priceNote: "Prezzo calcolato sulla tua zona",
     bullets: ["Cassette, condomini, ville", "GPS punto-per-punto", "Report foto e mappe"],
+    cta: "Calcola Door to Door",
     icon: <MailboxIcon />,
     accent: C.primary,
     pageKey: "service-door-to-door",
   },
   {
+    key: "h2h",
     title: "Hand to Hand",
     subtitle: "Distribuzione a mano",
+    priceNote: "Prezzo calcolato sulla tua zona",
     bullets: ["Alto passaggio pedonale", "Fasce orarie ottimali", "POI strategici inclusi"],
+    cta: "Calcola Hand to Hand",
     icon: <UsersIcon />,
     accent: C.cyan,
     pageKey: "service-hand-to-hand",
   },
   {
+    key: "b2b",
     title: "Business Distribution",
     subtitle: "Distribuzione B2B",
+    priceNote: "Prezzo calcolato sulla tua zona",
     bullets: ["Uffici e negozi mirati", "Categorie merceologiche", "Competitor mappati"],
+    cta: "Richiedi progetto Business",
     icon: <BriefcaseIcon />,
     accent: C.success,
     pageKey: "service-business",
   },
 ];
 
-export default function ServicesSection({ onConfigure, onServiceLink }) {
+const PRICE_FACTORS = ["Zona", "Quantità", "Servizio", "Urgenza", "Extra"];
+
+export default function ServicesSection({ onConfigure, onConsultant, onServiceLink }) {
   const reduceMotion = useReducedMotion();
+
+  const handleCardClick = (service) => {
+    if (service.key === "b2b") {
+      if (typeof onConsultant === "function") return onConsultant();
+      if (typeof onConfigure === "function") return onConfigure("b2b");
+      if (typeof onServiceLink === "function") return onServiceLink(service.pageKey);
+    } else {
+      if (typeof onConfigure === "function") return onConfigure(service.key);
+      if (typeof onServiceLink === "function") return onServiceLink(service.pageKey);
+    }
+  };
+
+  const handleFinalCta = () => {
+    if (typeof onConfigure === "function") return onConfigure();
+  };
+
   return (
-    <section className="section-tight" style={{ background: "#0B1020", paddingLeft: 28, paddingRight: 28, borderTop: "1px solid rgba(148,163,184,0.18)" }}>
+    <section
+      id="prezzi"
+      className="section-tight"
+      style={{
+        background: "#0B1020",
+        paddingLeft: 28,
+        paddingRight: 28,
+        borderTop: "1px solid rgba(148,163,184,0.18)",
+        scrollMarginTop: 80,
+      }}
+    >
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 800, letterSpacing: ".15em", textTransform: "uppercase", color: C.primary, marginBottom: 10 }}>
-            Quanto costa distribuire
+          <div
+            style={{
+              fontFamily: F.sans,
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: ".15em",
+              textTransform: "uppercase",
+              color: C.primary,
+              marginBottom: 10,
+            }}
+          >
+            Trasparenza Prezzi
           </div>
-          <h2 className="landing-h2" style={{ fontFamily: F.serif, fontSize: "clamp(30px, 3.8vw, 42px)", color: C.white, letterSpacing: "-0.03em", marginBottom: 12, lineHeight: 1.05 }}>
-            Servizi chiari, prezzo calcolato sulla tua zona.
+          <h2
+            className="landing-h2"
+            style={{
+              fontFamily: F.serif,
+              fontSize: "clamp(30px, 3.8vw, 42px)",
+              color: C.white,
+              letterSpacing: "-0.03em",
+              marginBottom: 12,
+              lineHeight: 1.15,
+            }}
+          >
+            Quanto costa distribuire i volantini?
           </h2>
-          <p style={{ fontFamily: F.sans, fontSize: 15, color: "#AEB9C9", maxWidth: 560, margin: "0 auto", lineHeight: 1.55 }}>
-            Il costo della distribuzione cambia in base ad area, quantità e servizio scelto.
+          <p
+            style={{
+              fontFamily: F.sans,
+              fontSize: 15,
+              color: "#AEB9C9",
+              maxWidth: 620,
+              margin: "0 auto",
+              lineHeight: 1.55,
+            }}
+          >
+            Il prezzo viene calcolato in base a zona, quantità, servizio e opzioni selezionate.
           </p>
         </div>
 
@@ -99,44 +165,173 @@ export default function ServicesSection({ onConfigure, onServiceLink }) {
               viewport={{ once: true }}
               transition={{ duration: 0.18, delay: reduceMotion ? 0 : idx * 0.05 }}
               whileHover={reduceMotion ? undefined : { y: -3, borderColor: "rgba(232, 87, 26, 0.4)" }}
-              style={{ borderRadius: 16, padding: "24px 22px", border: "1px solid rgba(255, 255, 255, 0.08)", background: "#122036", boxShadow: "0 12px 28px rgba(0,0,0,0.22)", display: "flex", flexDirection: "column" }}
+              style={{
+                borderRadius: 16,
+                padding: "24px 22px",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                background: "#122036",
+                boxShadow: "0 12px 28px rgba(0,0,0,0.22)",
+                display: "flex",
+                flexDirection: "column",
+              }}
             >
               <div style={{ marginBottom: 14 }}>{service.icon}</div>
-              <h3 style={{ fontFamily: F.serif, fontSize: 22, color: C.white, lineHeight: 1.08, letterSpacing: "-0.02em", margin: 0 }}>
+              <h3
+                style={{
+                  fontFamily: F.serif,
+                  fontSize: 22,
+                  color: C.white,
+                  lineHeight: 1.08,
+                  letterSpacing: "-0.02em",
+                  margin: 0,
+                }}
+              >
                 {service.title}
               </h3>
-              <p style={{ margin: "4px 0 16px", fontFamily: F.sans, fontSize: 13.5, color: "#AEB9C9" }}>{service.subtitle}</p>
+              <p style={{ margin: "4px 0 16px", fontFamily: F.sans, fontSize: 13.5, color: "#AEB9C9" }}>
+                {service.subtitle}
+              </p>
               <div style={{ height: 1, background: "rgba(255, 255, 255, 0.08)", marginBottom: 18 }} />
-              <div style={{ display: "grid", gap: 10, marginBottom: 22 }}>
+              <div
+                style={{
+                  fontFamily: F.sans,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: C.primary,
+                  lineHeight: 1.25,
+                  letterSpacing: "-0.01em",
+                  marginBottom: 18,
+                }}
+              >
+                {service.priceNote}
+              </div>
+              <div style={{ display: "grid", gap: 10, marginBottom: 20, flex: 1 }}>
                 {service.bullets.map((bullet) => (
-                  <div key={bullet} style={{ display: "flex", alignItems: "center", gap: 9, fontFamily: F.sans, fontSize: 13.5, color: "#CBD5E1", fontWeight: 500 }}>
+                  <div
+                    key={bullet}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 9,
+                      fontFamily: F.sans,
+                      fontSize: 13.5,
+                      color: "#CBD5E1",
+                      fontWeight: 500,
+                    }}
+                  >
                     <span style={{ color: service.accent, fontWeight: 900, fontSize: 11 }}>✓</span>
                     {bullet}
                   </div>
                 ))}
               </div>
-              <Button
-                variant="ghost"
-                onClick={() => onServiceLink?.(service.pageKey)}
-                style={{ marginTop: "auto", color: C.white, fontSize: 13.5, fontWeight: 800, justifyContent: "flex-start", padding: 0 }}
-              >
-                Scopri come →
-              </Button>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: "auto" }}>
+                <Button
+                  variant="secondary"
+                  onClick={() => handleCardClick(service)}
+                  style={{
+                    width: "100%",
+                    justifyContent: "center",
+                    minHeight: 44,
+                    borderRadius: 10,
+                    fontFamily: F.sans,
+                    fontSize: 13.5,
+                    fontWeight: 800,
+                    border: "1px solid rgba(232, 87, 26, 0.4)",
+                    background: "rgba(232, 87, 26, 0.08)",
+                    color: C.white,
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  {service.cta} →
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => onServiceLink?.(service.pageKey)}
+                  style={{
+                    color: "#94A3B8",
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    justifyContent: "center",
+                    padding: "4px 0",
+                  }}
+                >
+                  Scopri come →
+                </Button>
+              </div>
             </motion.article>
           ))}
         </div>
 
-        <div style={{ textAlign: "center", marginTop: 32 }}>
+        <div
+          style={{
+            marginTop: 36,
+            padding: "24px 28px",
+            borderRadius: 16,
+            background: "#122036",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            boxShadow: "0 12px 28px rgba(0,0,0,0.22)",
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 20,
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div
+              style={{
+                fontFamily: F.sans,
+                fontSize: 12,
+                fontWeight: 800,
+                letterSpacing: ".1em",
+                textTransform: "uppercase",
+                color: C.primary,
+              }}
+            >
+              Il prezzo dipende da:
+            </div>
+            <div
+              style={{
+                fontFamily: F.sans,
+                fontSize: 15,
+                fontWeight: 600,
+                color: "#CBD5E1",
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              {PRICE_FACTORS.map((factor, index) => (
+                <React.Fragment key={factor}>
+                  <span>{factor}</span>
+                  {index < PRICE_FACTORS.length - 1 && (
+                    <span style={{ color: C.primary, fontWeight: 700 }}>·</span>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+
           <button
-            onClick={onConfigure}
+            onClick={handleFinalCta}
             className="vb"
-            style={{ padding: "12px 28px", borderRadius: 8, border: "none", background: C.primary, color: "#fff", fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer", boxShadow: "0 6px 16px rgba(232,87,26,0.28)" }}
+            style={{
+              minHeight: 46,
+              padding: "0 26px",
+              borderRadius: 10,
+              fontFamily: F.sans,
+              fontSize: 14.5,
+              fontWeight: 800,
+              background: C.primary,
+              color: "#fff",
+              boxShadow: "0 6px 18px rgba(232, 87, 26, 0.35)",
+              border: "none",
+              cursor: "pointer",
+            }}
           >
             Calcola il tuo preventivo →
           </button>
-          <p style={{ fontFamily: F.sans, fontSize: 12.5, color: "#AEB9C9", margin: "12px 0 0" }}>
-            Prezzo calcolato su zona, quantità e servizio. Nessun abbonamento mensile obbligatorio.
-          </p>
         </div>
       </div>
     </section>
