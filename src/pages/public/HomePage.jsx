@@ -239,7 +239,8 @@ export function HomePage({
     }), _jsx(WhyDifferentSection, {}), _jsx(HowItWorksSection, {
       onConfigure: () => n("preventivo")
     }), _jsx(ServicesSection, {
-      onConfigure: () => n("preventivo")
+      onConfigure: () => n("preventivo"),
+      onServiceLink: (pageKey) => n(pageKey)
     }), _jsx(GpsLiveSection, {
       onConfigure: () => n("preventivo")
     }), _jsx(SmartPairingSection, {

@@ -11,6 +11,21 @@
     <priority>0.9</priority>
   </url>
   <url>
+    <loc>https://www.volantinipro.it/servizi/door-to-door</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.volantinipro.it/servizi/hand-to-hand</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.volantinipro.it/servizi/business</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://www.volantinipro.it/preventivo-rapido</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>

@@ -274,7 +274,9 @@ export function AppRouter() {
       payment: prefillPatch?.campaignId ? `/campagna/${prefillPatch.campaignId}/pagamento` : "/dashboard",
       privacy: "/privacy", terms: "/termini", cookie: "/cookie-policy", quick: "/preventivo-rapido", preventivo: "/preventivo",
       consultant: "/consulente", step1: "/configuratore", step2: "/configuratore", step3: "/configuratore",
-      step4: "/configuratore", admin: "/admin", "admin-live": "/admin/live", "admin-operations": "/admin/operations", "admin-daily-report": "/admin/operations/report", "admin-clients-quotes": "/admin/clients-quotes", "admin-orders": "/admin/orders",
+      step4: "/configuratore",
+      "service-door-to-door": "/servizi/door-to-door", "service-hand-to-hand": "/servizi/hand-to-hand", "service-business": "/servizi/business",
+      admin: "/admin", "admin-live": "/admin/live", "admin-operations": "/admin/operations", "admin-daily-report": "/admin/operations/report", "admin-clients-quotes": "/admin/clients-quotes", "admin-orders": "/admin/orders",
       "admin-groups-manager": "/admin/groups", "admin-commercial": "/admin/commercial", "admin-smart-pairing": "/admin/smart-pairing", "admin-suppliers": "/admin/suppliers", "admin-status": "/admin/status", "admin-map-studio": "/admin/map-studio", "admin-analytics": "/admin/analytics",
       "supplier-dashboard": "/supplier"
     };

@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { SUPPORT_EMAIL, SUPPORT_WHATSAPP } from "../../lib/contactConfig.js";
 import { faqs } from "../../components/home/FAQSection.jsx";
 import { services } from "../../components/home/ServicesSection.jsx";
+import { SERVICE_PAGE_CONTENT } from "../../lib/seo/servicePagesContent.js";
 
 // TICKET — SEO TECNICO + GOOGLE + AI SEARCH: title/description/canonical/OG/
 // Twitter/robots per pagina + JSON-LD (Organization/WebSite sempre,
@@ -33,7 +34,21 @@ const metaByPage = {
   privacy: ["Privacy Policy | VolantiniPro", "Informativa privacy per clienti e utenti VolantiniPro."],
   terms: ["Termini e condizioni | VolantiniPro", "Condizioni d'uso del servizio VolantiniPro."],
   cookie: ["Cookie Policy | VolantiniPro", "Informazioni sui cookie tecnici, analytics e preferenze del sito VolantiniPro."],
+  "service-door-to-door": [
+    "Distribuzione Volantini Door to Door | VolantiniPro",
+    "Distribuzione volantini nelle cassette postali di condomini e zone residenziali, con analisi territoriale, tracking GPS e report finale.",
+  ],
+  "service-hand-to-hand": [
+    "Distribuzione Volantini Hand to Hand | VolantiniPro",
+    "Distribuzione volantini a mano in punti ad alto passaggio pedonale, con POI strategici, tracking GPS e report finale.",
+  ],
+  "service-business": [
+    "Distribuzione Volantini Business | VolantiniPro",
+    "Distribuzione volantini mirata ad aziende, negozi e uffici, con coordinamento multi-sede, tracking GPS e report finale.",
+  ],
 };
+
+const SERVICE_PAGE_IDS = Object.keys(SERVICE_PAGE_CONTENT);
 
 // Pagine private/gestionali: mai indicizzate, anche se raggiunte per link
 // diretto (robots.txt Disallow blocca il crawling, questo blocca l'indicizzazione
@@ -52,7 +67,7 @@ function isPrivatePage(page) {
 
 // Pagine interne "di contenuto" (non home, non private): ricevono un
 // BreadcrumbList Home > Pagina, coerente con FASE 5 del ticket.
-const BREADCRUMB_PAGES = new Set(["quick", "consultant", "preventivo", "privacy", "terms", "cookie"]);
+const BREADCRUMB_PAGES = new Set(["quick", "consultant", "preventivo", "privacy", "terms", "cookie", ...SERVICE_PAGE_IDS]);
 
 function setMeta(selector, attr, value) {
   let el = document.head.querySelector(selector);
@@ -137,9 +152,14 @@ export function SeoMeta({ page }) {
     setJsonLd("organization", organizationJsonLd(siteUrl));
     setJsonLd("website", { "@type": "WebSite", name: "VolantiniPro", url: siteUrl });
 
-    // FAQPage + Service: solo in home, solo contenuto realmente visibile lì
-    // (stessa fonte di FAQSection.jsx/ServicesSection.jsx, nessun testo
-    // duplicato o inventato "per AI").
+    // FAQPage + Service: in home (tutti i servizi + tutte le FAQ home) o su
+    // una delle 3 pagine servizio (solo il proprio Service + le proprie FAQ
+    // brevi) — sempre dalla stessa fonte del contenuto realmente visibile
+    // (FAQSection.jsx/ServicesSection.jsx per la home,
+    // src/lib/seo/servicePagesContent.js per le pagine servizio, la stessa
+    // fonte usata da ServicePages.jsx per il rendering), mai testo duplicato
+    // o inventato "per AI".
+    const servicePageContent = SERVICE_PAGE_CONTENT[page];
     if (page === "home") {
       setJsonLd("faqpage", {
         "@type": "FAQPage",
@@ -161,6 +181,21 @@ export function SeoMeta({ page }) {
             provider: { "@type": "Organization", name: "VolantiniPro", url: siteUrl },
           },
         })),
+      });
+    } else if (servicePageContent) {
+      setJsonLd("faqpage", {
+        "@type": "FAQPage",
+        mainEntity: servicePageContent.faqs.map((f) => ({
+          "@type": "Question",
+          name: f.q,
+          acceptedAnswer: { "@type": "Answer", text: f.a },
+        })),
+      });
+      setJsonLd("services", {
+        "@type": "Service",
+        name: servicePageContent.h1,
+        description: servicePageContent.intro,
+        provider: { "@type": "Organization", name: "VolantiniPro", url: siteUrl },
       });
     } else {
       setJsonLd("faqpage", null);

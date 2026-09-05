@@ -52,6 +52,7 @@ export const services = [
     bullets: ["Cassette, condomini, ville", "GPS punto-per-punto", "Report foto e mappe"],
     icon: <MailboxIcon />,
     accent: C.primary,
+    pageKey: "service-door-to-door",
   },
   {
     title: "Hand to Hand",
@@ -59,6 +60,7 @@ export const services = [
     bullets: ["Alto passaggio pedonale", "Fasce orarie ottimali", "POI strategici inclusi"],
     icon: <UsersIcon />,
     accent: C.cyan,
+    pageKey: "service-hand-to-hand",
   },
   {
     title: "Business Distribution",
@@ -66,10 +68,11 @@ export const services = [
     bullets: ["Uffici e negozi mirati", "Categorie merceologiche", "Competitor mappati"],
     icon: <BriefcaseIcon />,
     accent: C.success,
+    pageKey: "service-business",
   },
 ];
 
-export default function ServicesSection({ onConfigure }) {
+export default function ServicesSection({ onConfigure, onServiceLink }) {
   const reduceMotion = useReducedMotion();
   return (
     <section className="section-tight" style={{ background: "#0B1020", paddingLeft: 28, paddingRight: 28, borderTop: "1px solid rgba(148,163,184,0.18)" }}>
@@ -114,7 +117,7 @@ export default function ServicesSection({ onConfigure }) {
               </div>
               <Button
                 variant="ghost"
-                onClick={onConfigure}
+                onClick={() => onServiceLink?.(service.pageKey)}
                 style={{ marginTop: "auto", color: C.white, fontSize: 13.5, fontWeight: 800, justifyContent: "flex-start", padding: 0 }}
               >
                 Scopri come →

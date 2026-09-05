@@ -134,7 +134,7 @@ test("ServicesSection.jsx esporta i servizi, SeoMeta.jsx li usa per il JSON-LD S
 // ── BreadcrumbList: solo pagine interne, mai su home/pagine private ────
 test("SeoMeta.jsx: BreadcrumbList solo sulle pagine interne di contenuto", () => {
   const src = read("src/layouts/public/SeoMeta.jsx");
-  assert.match(src, /BREADCRUMB_PAGES = new Set\(\["quick", "consultant", "preventivo", "privacy", "terms", "cookie"\]\)/);
+  assert.match(src, /BREADCRUMB_PAGES = new Set\(\["quick", "consultant", "preventivo", "privacy", "terms", "cookie"/);
   assert.match(src, /"@type": "BreadcrumbList"/);
   assert.doesNotMatch(src, /BREADCRUMB_PAGES\.add\("home"\)/);
 });
