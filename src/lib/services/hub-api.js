@@ -96,6 +96,19 @@ export async function adminListConversations({ kind = null, unreadOnly = false }
   return callHubRpc('admin_list_conversations', { p_kind: kind, p_unread_only: unreadOnly });
 }
 
+// TICKET — FIX FIRST MESSAGE ADMIN -> DRIVER: elenca TUTTI gli assignment
+// reali (non solo quelli con gia' una conversazione), cosi' l'Admin puo'
+// scrivere per primo a un Driver che non ha mai scritto.
+export async function adminListDriverDirectory() {
+  return callHubRpc('admin_list_driver_directory');
+}
+
+// Get-or-create la conversazione driver_admin + invia come Admin — stesso
+// path sia per il primo messaggio sia per i successivi (idempotente).
+export async function adminSendDriverMessage({ assignmentId, text }) {
+  return callHubRpc('admin_send_driver_message', { p_assignment_id: assignmentId, p_text: text });
+}
+
 export async function adminListMessages(conversationId) {
   return callHubRpc('admin_list_messages', { p_conversation_id: conversationId });
 }

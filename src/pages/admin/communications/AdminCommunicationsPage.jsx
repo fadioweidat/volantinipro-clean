@@ -4,9 +4,11 @@ import { F, C } from "../../../lib/constants.js";
 import {
   adminDecideModificationRequest,
   adminListConversations,
+  adminListDriverDirectory,
   adminListMessages,
   adminListModificationRequests,
   adminMarkMessagesSeen,
+  adminSendDriverMessage,
   adminSendMessage,
   MODIFICATION_STATUS_LABELS,
   MODIFICATION_TYPES,
@@ -37,19 +39,44 @@ export function AdminCommunicationsPage({ onNav }) {
   const [issues, setIssues] = useState([]);
   const [modRequests, setModRequests] = useState([]);
   const [assignments, setAssignments] = useState([]);
-  const [selectedConversationId, setSelectedConversationId] = useState(null);
+  const [selectedKey, setSelectedKey] = useState(null);
   const [error, setError] = useState(null);
 
   const reload = useCallback(async () => {
     try {
-      const kind = filter === "customer_admin" || filter === "driver_admin" ? filter : null;
-      const unreadOnly = filter === "unread";
-      const [convs, issueRows, modRows] = await Promise.all([
-        adminListConversations({ kind, unreadOnly }),
+      let convs;
+      if (filter === "driver_admin") {
+        // TICKET — FIX FIRST MESSAGE ADMIN -> DRIVER: la directory include
+        // TUTTI gli assignment reali, non solo quelli con gia' una
+        // conversazione, cosi' l'Admin puo' scrivere per primo a un Driver
+        // che non ha mai scritto (conversation_id resta null finche' non
+        // parte il primo messaggio).
+        const rows = await adminListDriverDirectory();
+        convs = (Array.isArray(rows) ? rows : []).map((r) => ({
+          key: `assignment:${r.assignment_id}`,
+          kind: "driver_admin",
+          id: r.conversation_id,
+          assignment_id: r.assignment_id,
+          campaign_id: r.campaign_id,
+          campaign_name: r.campaign_name,
+          zone_name: r.zone_name,
+          assignment_status: r.assignment_status,
+          operator_name: r.operator_name,
+          unread_count: r.unread_count,
+          last_message: r.last_message,
+          updated_at: r.updated_at,
+        }));
+      } else {
+        const kind = filter === "customer_admin" ? filter : null;
+        const unreadOnly = filter === "unread";
+        const rows = await adminListConversations({ kind, unreadOnly });
+        convs = (Array.isArray(rows) ? rows : []).map((c) => ({ ...c, key: c.id }));
+      }
+      const [issueRows, modRows] = await Promise.all([
         adminListIssues(null).catch(() => []),
         adminListModificationRequests({}).catch(() => []),
       ]);
-      setConversations(Array.isArray(convs) ? convs : []);
+      setConversations(convs);
       setIssues(Array.isArray(issueRows) ? issueRows : []);
       setModRequests(Array.isArray(modRows) ? modRows : []);
     } catch (e) {
@@ -66,8 +93,8 @@ export function AdminCommunicationsPage({ onNav }) {
   }, [reload]);
 
   const selectedConversation = useMemo(
-    () => conversations.find((c) => c.id === selectedConversationId) || null,
-    [conversations, selectedConversationId]
+    () => conversations.find((c) => c.key === selectedKey) || null,
+    [conversations, selectedKey]
   );
 
   return (
@@ -86,18 +113,24 @@ export function AdminCommunicationsPage({ onNav }) {
       {(filter === "all" || filter === "customer_admin" || filter === "driver_admin" || filter === "unread") && (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 320px) 1fr", gap: 16 }}>
           <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
-            {conversations.length === 0 && <div style={{ padding: 16, fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.4)" }}>Nessuna conversazione.</div>}
+            {conversations.length === 0 && <div style={{ padding: 16, fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.4)" }}>{filter === "driver_admin" ? "Nessun Driver assegnato." : "Nessuna conversazione."}</div>}
             {conversations.map((c) => (
-              <button key={c.id} type="button" onClick={() => setSelectedConversationId(c.id)}
-                style={{ display: "block", width: "100%", textAlign: "left", padding: 12, borderBottom: "1px solid rgba(255,255,255,.06)", background: c.id === selectedConversationId ? "rgba(232,87,26,.1)" : "transparent", border: "none", borderTop: "none", cursor: "pointer" }}>
+              <button key={c.key} type="button" onClick={() => setSelectedKey(c.key)}
+                style={{ display: "block", width: "100%", textAlign: "left", padding: 12, borderBottom: "1px solid rgba(255,255,255,.06)", background: c.key === selectedKey ? "rgba(232,87,26,.1)" : "transparent", border: "none", borderTop: "none", cursor: "pointer" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                   <strong style={{ fontFamily: F.sans, fontSize: 13, color: C.white }}>
-                    {c.kind === "customer_admin" ? (c.customer_name || c.campaign_name || `Campagna #${String(c.campaign_id || "").slice(0, 8)}`) : (c.zone_name || `Assignment #${String(c.assignment_id || "").slice(0, 8)}`)}
+                    {c.kind === "customer_admin" ? (c.customer_name || c.campaign_name || `Campagna #${String(c.campaign_id || "").slice(0, 8)}`) : (c.operator_name || c.zone_name || `Assignment #${String(c.assignment_id || "").slice(0, 8)}`)}
                   </strong>
                   {c.unread_count > 0 && <span style={{ fontSize: 10, fontWeight: 900, color: "#0B1020", background: "#f97316", borderRadius: 999, padding: "2px 7px" }}>{c.unread_count}</span>}
                 </div>
-                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)", marginTop: 2 }}>{c.kind === "customer_admin" ? "Cliente" : "Driver"}</div>
-                {c.last_message && <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.last_message.text}</div>}
+                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)", marginTop: 2 }}>
+                  {c.kind === "customer_admin" ? "Cliente" : `Driver${c.zone_name ? ` · ${c.zone_name}` : ""}${c.campaign_name ? ` · ${c.campaign_name}` : ""}`}
+                </div>
+                {c.last_message ? (
+                  <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.last_message.text}</div>
+                ) : c.kind === "driver_admin" && !c.id ? (
+                  <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.35)", marginTop: 4, fontStyle: "italic" }}>Nessuna conversazione ancora — scrivi il primo messaggio</div>
+                ) : null}
               </button>
             ))}
           </div>
@@ -121,14 +154,23 @@ function ConversationDetail({ conversation, onSent }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  // TICKET — FIX FIRST MESSAGE ADMIN -> DRIVER: per una riga della directory
+  // Driver senza chat ancora, conversation.id e' null finche' l'Admin non
+  // invia il primo messaggio. Stato locale cosi' il resto della UI (polling,
+  // lista messaggi) si aggancia subito alla conversazione appena creata,
+  // senza dover riselezionare la riga dalla lista.
+  const [conversationId, setConversationId] = useState(conversation.id || null);
+
+  useEffect(() => { setConversationId(conversation.id || null); setMessages([]); }, [conversation.key, conversation.id]);
 
   const reload = useCallback(async () => {
-    const rows = await adminListMessages(conversation.id).catch(() => []);
+    if (!conversationId) { setMessages([]); return; }
+    const rows = await adminListMessages(conversationId).catch(() => []);
     setMessages(Array.isArray(rows) ? rows : []);
     if ((rows || []).some((m) => m.recipient_role === "admin" && !m.seen_at)) {
-      adminMarkMessagesSeen(conversation.id).catch(() => {});
+      adminMarkMessagesSeen(conversationId).catch(() => {});
     }
-  }, [conversation.id]);
+  }, [conversationId]);
 
   useEffect(() => {
     reload();
@@ -141,7 +183,14 @@ function ConversationDetail({ conversation, onSent }) {
     if (!text.trim()) return;
     setBusy(true);
     try {
-      await adminSendMessage({ conversationId: conversation.id, text: text.trim() });
+      if (conversation.kind === "driver_admin") {
+        // get-or-create idempotente: stesso path per il primo messaggio e
+        // per i successivi, l'Admin non deve mai sapere se la chat esisteva.
+        const msg = await adminSendDriverMessage({ assignmentId: conversation.assignment_id, text: text.trim() });
+        setConversationId(msg.conversation_id);
+      } else {
+        await adminSendMessage({ conversationId, text: text.trim() });
+      }
       setText("");
       await reload();
       onSent?.();
@@ -153,9 +202,10 @@ function ConversationDetail({ conversation, onSent }) {
   return (
     <div>
       <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.5)", marginBottom: 10 }}>
-        {conversation.kind === "customer_admin" ? `Cliente — ${conversation.customer_name || "Campagna " + String(conversation.campaign_id || "").slice(0, 8)}` : `Driver — ${conversation.zone_name || ""}`}
+        {conversation.kind === "customer_admin" ? `Cliente — ${conversation.customer_name || "Campagna " + String(conversation.campaign_id || "").slice(0, 8)}` : `Driver — ${conversation.operator_name || ""}${conversation.zone_name ? ` · ${conversation.zone_name}` : ""}`}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 380, overflowY: "auto", marginBottom: 10 }}>
+        {!conversationId && <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.4)" }}>Nessun messaggio ancora. Scrivi il primo messaggio a questo Driver.</div>}
         {messages.map((m) => (
           <div key={m.id} style={{ alignSelf: m.sender_role === "admin" ? "flex-end" : "flex-start", maxWidth: "75%" }}>
             <div style={{ fontSize: 10, color: "rgba(255,255,255,.4)", marginBottom: 2 }}>{m.sender_role}</div>
@@ -164,7 +214,7 @@ function ConversationDetail({ conversation, onSent }) {
         ))}
       </div>
       <form onSubmit={send} style={{ display: "flex", gap: 8 }}>
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={`Rispondi a ${conversation.kind === "customer_admin" ? "Cliente" : "Driver"}…`}
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={`${conversationId ? "Rispondi" : "Scrivi il primo messaggio"} a ${conversation.kind === "customer_admin" ? "Cliente" : "Driver"}…`}
           style={{ flex: 1, background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.14)", borderRadius: 8, color: "#fff", padding: "8px 10px", fontFamily: "inherit", fontSize: 13 }} />
         <button type="submit" disabled={busy} style={{ padding: "0 16px", borderRadius: 8, border: "none", background: C.orange, color: "#0B1020", fontWeight: 800, cursor: "pointer" }}>Invia</button>
       </form>
