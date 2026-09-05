@@ -4,6 +4,7 @@ import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, Polygon } from 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
 import { createProofPhotoSignedUrl, getCampaignGpsSessions, getCampaignSessionTracks, getCampaignProofPhotos, getCampaignRecord, calculateGpsCoverage, adminUnlockDevice } from '../../lib/services/gps-api.js';
+import { ProofPhotoApproveButton } from '../../components/admin/ProofPhotoApproveButton.jsx';
 import { C } from '../../lib/constants.js';
 import { CoverageAdjustmentPanel } from '../../components/admin/CoverageAdjustmentPanel.jsx';
 import { getMunicipalityCenterPoint } from '../../lib/geo/originRadialSelection.js';
@@ -582,6 +583,11 @@ export function GpsMonitor({ campaignId, onNav }) {
         activeSession={state.activeSession}
         photos={state.photos}
         latest={latest}
+        zoneRows={zoneRows}
+        onApprovePhoto={(photoId, approvedAt) => setState((prev) => ({
+          ...prev,
+          photos: (prev.photos || []).map((p) => (p.id === photoId ? { ...p, approved_at: approvedAt } : p)),
+        }))}
         sessionOnlineLabel={sessionOnlineLabel}
         ProofPhoto={ProofPhoto}
         EmptyState={EmptyState}
@@ -922,8 +928,11 @@ export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperator
   );
 }
 
-function ProofPhoto({ photo }) {
+function ProofPhoto({ photo, sessions = [], zoneRows = [], onApproved }) {
   const meta = parseProofPhotoNote(photo.note);
+  const session = (sessions || []).find((s) => s.id === photo.session_id) || null;
+  const driverLabel = session?.driver_name || meta.driverName || (session?.driver_id ? `${String(session.driver_id).slice(0, 8)}…` : (photo.driver_id ? `${String(photo.driver_id).slice(0, 8)}…` : null));
+  const zoneName = (zoneRows || []).find((z) => z.id === session?.campaign_zone_id)?.zone_name || null;
   return (
     <div style={rowStyle}>
       {photo.signedUrl ? <img src={photo.signedUrl} alt="Foto prova" style={{ width: 96, height: 72, objectFit: 'cover', borderRadius: 8 }} /> : null}
@@ -932,8 +941,16 @@ function ProofPhoto({ photo }) {
           <strong>{formatDateTime(photo.taken_at || photo.created_at)}</strong>
           {meta.outcome && <span style={{ fontSize: 11, fontWeight: 800, color: '#0f766e' }}>{podOutcomeLabel(meta.outcome)}</span>}
           <span style={{ fontSize: 11, color: photo.approved_at ? '#0f766e' : '#b45309' }}>{photo.approved_at ? 'Approvata' : 'In attesa di approvazione'}</span>
+          {!photo.approved_at && <ProofPhotoApproveButton photo={photo} onApproved={onApproved} variant="dark" />}
         </div>
-        <p style={{ margin: '4px 0', color: 'rgba(255,255,255,.55)' }}>{meta.client || 'Cliente non specificato'}{meta.address ? ` · ${meta.address}` : ''}</p>
+        {(driverLabel || zoneName) && (
+          <p style={{ margin: '4px 0', color: 'rgba(255,255,255,.55)', fontSize: 12 }}>
+            {driverLabel ? `Driver: ${driverLabel}` : ''}{driverLabel && zoneName ? ' · ' : ''}{zoneName ? `Zona: ${zoneName}` : ''}
+          </p>
+        )}
+        {(meta.client || meta.address) && (
+          <p style={{ margin: '4px 0', color: 'rgba(255,255,255,.55)' }}>{meta.client || 'Cliente non specificato'}{meta.address ? ` · ${meta.address}` : ''}</p>
+        )}
         {(meta.ddt || meta.colli) && (
           <p style={{ margin: '2px 0', color: 'rgba(255,255,255,.4)', fontSize: 12 }}>{meta.ddt ? `DDT ${meta.ddt}` : ''}{meta.ddt && meta.colli ? ' · ' : ''}{meta.colli ? `${meta.colli} colli` : ''}</p>
         )}

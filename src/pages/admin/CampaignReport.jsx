@@ -8,6 +8,7 @@ import {
   getSessionGroup,
 } from '../../lib/services/gps-api.js';
 import { getCampaignReport } from '../../lib/services/admin-api.js';
+import { ProofPhotoApproveButton } from '../../components/admin/ProofPhotoApproveButton.jsx';
 import {
   REPORT_COLORS,
   buildGpsCsv,
@@ -236,6 +237,19 @@ export function CampaignReport({ campaignId }) {
                 {photo.signedUrl ? <img src={photo.signedUrl} alt="Foto proof" style={photoStyle} /> : <div style={photoPlaceholderStyle}>Foto</div>}
                 <strong>{formatDateTime(photo.taken_at || photo.created_at)}</strong>
                 <span>{photo.approved_at ? 'approvata' : 'da verificare'}</span>
+                {!photo.approved_at && (
+                  <ProofPhotoApproveButton
+                    photo={photo}
+                    variant="dark"
+                    onApproved={(photoId, approvedAt) => setState((prev) => ({
+                      ...prev,
+                      operations: {
+                        ...prev.operations,
+                        photos: (prev.operations?.photos || []).map((p) => (p.id === photoId ? { ...p, approved_at: approvedAt } : p)),
+                      },
+                    }))}
+                  />
+                )}
                 <small>{photo.note || 'Nessuna nota'}</small>
               </article>
             ))}

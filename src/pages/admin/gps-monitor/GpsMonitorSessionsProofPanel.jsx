@@ -1,4 +1,4 @@
-export function GpsMonitorSessionsProofPanel({ sessions, activeSession, photos, latest, sessionOnlineLabel, ProofPhoto, EmptyState, formatDateTime, styles }) {
+export function GpsMonitorSessionsProofPanel({ sessions, activeSession, photos, latest, zoneRows = [], onApprovePhoto, sessionOnlineLabel, ProofPhoto, EmptyState, formatDateTime, styles }) {
   const { gridTwoStyle, cardStyle, eyebrowStyle, rowStyle, activeSessionRowStyle, activeBadgeStyle } = styles;
   return (
       <section style={gridTwoStyle}>
@@ -18,7 +18,7 @@ export function GpsMonitorSessionsProofPanel({ sessions, activeSession, photos, 
         <div style={cardStyle}>
           <p style={eyebrowStyle}>Foto proof</p>
           {photos.length ? photos.map((photo) => (
-            <ProofPhoto key={photo.id} photo={photo} />
+            <ProofPhoto key={photo.id} photo={photo} sessions={sessions} zoneRows={zoneRows} onApproved={onApprovePhoto} />
           )) : <EmptyState text="Nessuna foto prova caricata" />}
         </div>
       </section>

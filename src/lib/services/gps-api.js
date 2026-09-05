@@ -787,6 +787,16 @@ export async function getCustomerCampaignGpsSessions(campaignId) {
   return data || [];
 }
 
+// TICKET — APPROVAZIONE FOTO PROOF ADMIN -> CLIENTE.
+// Unico percorso di approvazione: RPC SECURITY DEFINER approve_proof_photo,
+// autorizzata solo per Admin reale (guard gps_is_admin + allowlist email lato
+// DB). Il Cliente continua a leggere solo approved_at IS NOT NULL. Idempotente:
+// ri-approvare una foto gia' approvata ritorna la riga esistente.
+export async function approveProofPhoto(photoId) {
+  if (!isValidUuid(photoId)) throw permanentGpsError('assignment_invalid_campaign', new Error('Foto non valida.'));
+  return callGpsRpc('approve_proof_photo', { p_photo_id: photoId });
+}
+
 export async function getCampaignProofPhotos(campaignId, { approvedOnly = false } = {}) {
   const client = await requireSupabase();
 
