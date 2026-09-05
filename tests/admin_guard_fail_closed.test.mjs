@@ -80,6 +80,21 @@ async function renderAdminGuard({ onNav = () => {} } = {}) {
 
 const adminGuardSource = readFileSync(new URL("../src/auth/guards/AdminGuard.jsx", import.meta.url), "utf8");
 
+// TICKET — ADMIN MAGIC LINK SOLO PER fenice.sp@gmail.com: AdminGuard ora
+// decodifica il claim 'email' dal JWT PRIMA di chiamare jwt_is_admin() (vedi
+// tests/admin_email_allowlist.test.mjs per la copertura dedicata). I token
+// di test qui sotto ("admin-token" ecc.) non sono JWT reali — getSessionEmail()
+// ritorna null per un token senza punti, che fallisce SEMPRE il controllo
+// email indipendentemente da cosa risponde jwt_is_admin(). makeFakeJwt()
+// costruisce un JWT minimo (header.payload.signature, nessuna firma reale
+// necessaria: la verifica di firma resta lato Supabase, qui si testa solo
+// la lettura del claim) con l'email autorizzata, per i test che devono
+// ancora rappresentare "una sessione Admin valida".
+function makeFakeJwt(email) {
+  const b64url = (obj) => Buffer.from(JSON.stringify(obj)).toString("base64url");
+  return `${b64url({ alg: "none" })}.${b64url({ email })}.signature`;
+}
+
 // 1. Supabase config mancante => DENIED
 test("1. Config Supabase assente => 'Accesso negato' (config_error), MAI i children Admin", async (t) => {
   withoutSupabaseConfig(t);
@@ -141,11 +156,14 @@ test("3. Config presente + sessione scaduta => nessun accesso Admin (trattata co
 });
 
 // 4. role check error => DENIED
-test("4. Config presente + sessione valida + jwt_is_admin() errore di rete => 'Accesso negato', mai Admin", async (t) => {
+test("4. Config presente + sessione valida (email autorizzata) + jwt_is_admin() errore di rete => 'Accesso negato', mai Admin", async (t) => {
   withSupabaseConfig(t);
   globalThis.localStorage = makeMemoryStorage();
   const future = Math.floor(Date.now() / 1000) + 3600;
-  globalThis.localStorage.setItem("vp_supabase_session", JSON.stringify({ accessToken: "customer-token", expiresAt: String(future) }));
+  // Email autorizzata nel token: cosi' questo test continua a esercitare
+  // davvero il ramo "jwt_is_admin() lancia" e non viene intercettato prima
+  // dal nuovo controllo email (quello ha il proprio test dedicato).
+  globalThis.localStorage.setItem("vp_supabase_session", JSON.stringify({ accessToken: makeFakeJwt("fenice.sp@gmail.com"), expiresAt: String(future) }));
   globalThis.window = makeWindow();
   const fetchMock = mockFetchOnce(async () => { throw new Error("network down"); });
 
@@ -160,11 +178,11 @@ test("4. Config presente + sessione valida + jwt_is_admin() errore di rete => 'A
 });
 
 // 5. jwt_is_admin false => DENIED
-test("5. Config presente + sessione valida + jwt_is_admin()=false => 'Accesso negato', mai Admin", async (t) => {
+test("5. Config presente + sessione valida (email autorizzata) + jwt_is_admin()=false => 'Accesso negato', mai Admin", async (t) => {
   withSupabaseConfig(t);
   globalThis.localStorage = makeMemoryStorage();
   const future = Math.floor(Date.now() / 1000) + 3600;
-  globalThis.localStorage.setItem("vp_supabase_session", JSON.stringify({ accessToken: "customer-token", expiresAt: String(future) }));
+  globalThis.localStorage.setItem("vp_supabase_session", JSON.stringify({ accessToken: makeFakeJwt("fenice.sp@gmail.com"), expiresAt: String(future) }));
   globalThis.window = makeWindow();
   const fetchMock = mockFetchOnce(async () => ({ ok: true, json: async () => false }));
 
@@ -179,11 +197,11 @@ test("5. Config presente + sessione valida + jwt_is_admin()=false => 'Accesso ne
 });
 
 // 6. jwt_is_admin true => ADMIN
-test("6. Config presente + sessione valida + jwt_is_admin()=true => children Admin renderizzati", async (t) => {
+test("6. Config presente + sessione valida (email autorizzata) + jwt_is_admin()=true => children Admin renderizzati", async (t) => {
   withSupabaseConfig(t);
   globalThis.localStorage = makeMemoryStorage();
   const future = Math.floor(Date.now() / 1000) + 3600;
-  globalThis.localStorage.setItem("vp_supabase_session", JSON.stringify({ accessToken: "admin-token", expiresAt: String(future) }));
+  globalThis.localStorage.setItem("vp_supabase_session", JSON.stringify({ accessToken: makeFakeJwt("fenice.sp@gmail.com"), expiresAt: String(future) }));
   globalThis.window = makeWindow();
   const fetchMock = mockFetchOnce(async () => ({ ok: true, json: async () => true }));
 

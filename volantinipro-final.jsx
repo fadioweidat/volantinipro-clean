@@ -23,6 +23,7 @@ import { useCliente } from "./src/hooks/useCliente.js";
 import { customerValue, CUSTOMER_DATA_UNAVAILABLE, CUSTOMER_PAYMENT_STATE, getCustomerPaymentState, MARKETPLACE_STATUS_LABELS } from "./src/lib/customerCampaigns.js";
 import { CustomerQuotesView } from "./src/pages/customer/CustomerQuotesView.jsx";
 import { CampaignConfigSection, CustomerMessagesPanel } from "./src/components/customer/CampaignHubPanels.jsx";
+import { isAuthorizedAdminEmail, normalizeEmail } from "./src/auth/adminAuthorization.js";
 import { getBankTransferDetails, BANK_TRANSFER_UNAVAILABLE_MESSAGE } from "./src/lib/bankTransfer.js";
 import { IS_MANUAL_CONTACT, buildCampaignContactWhatsAppUrl, buildCampaignContactMailtoUrl } from "./src/lib/paymentMode.js";
 import { getAuthRedirectBase } from "./src/lib/publicAppUrl.js";
@@ -5171,6 +5172,16 @@ export function LoginPage({
       setStatus("Inserisci una email valida.");
       return;
     }
+    // TICKET — ADMIN MAGIC LINK SOLO PER fenice.sp@gmail.com: trim+lowercase
+    // PRIMA di qualunque confronto/invio (Fase 5: devono essere equivalenti
+    // "fenice.sp@gmail.com" / "FENICE.SP@GMAIL.COM" / " Fenice.Sp@gmail.com").
+    // Blocco SOLO per il contesto Admin — Cliente/Driver/Supplier invariati,
+    // ricevono comunque un'email normalizzata (mai meno corretto).
+    const normalizedEmail = normalizeEmail(email);
+    if (isAdminContext && !isAuthorizedAdminEmail(normalizedEmail)) {
+      setStatus("Email non autorizzata per l'accesso amministratore.");
+      return;
+    }
     if (!configured) {
       setStatus("Configura VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY in.env.local per inviare magic link reali.");
       // Configurazione auth realmente mancante (non l'assenza di sessione,
@@ -5215,7 +5226,7 @@ export function LoginPage({
       // quell'IP privato. In dev getAuthRedirectBase() ritorna comunque
       // window.location.origin.
       const { error: otpError } = await authSupabase.auth.signInWithOtp({
-        email,
+        email: normalizedEmail,
         options: {
           shouldCreateUser: true,
           emailRedirectTo: `${getAuthRedirectBase()}${redirectPath}`

@@ -15,6 +15,17 @@ import { CustomerGuard } from "../src/auth/guards/CustomerGuard.jsx";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
+// TICKET — ADMIN MAGIC LINK SOLO PER fenice.sp@gmail.com: AdminGuard ora
+// legge il claim 'email' dal JWT prima di chiamare jwt_is_admin(). I test
+// che devono rappresentare "una sessione Admin realmente autorizzata"
+// hanno bisogno di un token con quella forma, non piu' di una stringa
+// opaca — il controllo email ha la propria copertura dedicata in
+// tests/admin_email_allowlist.test.mjs.
+function makeFakeJwt(email) {
+  const b64url = (obj) => Buffer.from(JSON.stringify(obj)).toString("base64url");
+  return `${b64url({ alg: "none" })}.${b64url({ email })}.signature`;
+}
+
 function makeMemoryStorage() {
   const store = new Map();
   return {
@@ -335,7 +346,7 @@ test("AdminGuard", async (t) => {
     const future = Math.floor(Date.now() / 1000) + 3600;
     globalThis.localStorage.setItem(
       "vp_supabase_session",
-      JSON.stringify({ accessToken: "real-admin-token", expiresAt: String(future) })
+      JSON.stringify({ accessToken: makeFakeJwt("fenice.sp@gmail.com"), expiresAt: String(future) })
     );
     globalThis.window = makeWindow({ hash: "", search: "" }).win;
     const navCalls = [];
@@ -362,8 +373,9 @@ test("AdminGuard", async (t) => {
 
   await t.test("hash con access_token valido + RPC=true -> consuma il magic link e autorizza senza redirect", async () => {
     globalThis.localStorage = makeMemoryStorage();
+    const freshToken = makeFakeJwt("fenice.sp@gmail.com");
     const { win } = makeWindow({
-      hash: "#access_token=fresh-admin-token&refresh_token=r1&expires_at=9999999999&token_type=bearer",
+      hash: `#access_token=${freshToken}&refresh_token=r1&expires_at=9999999999&token_type=bearer`,
     });
     globalThis.window = win;
     const navCalls = [];
@@ -383,7 +395,7 @@ test("AdminGuard", async (t) => {
 
       assert.equal(renderer.toJSON().children[0], "SECRET ADMIN CONTENT");
       assert.deepEqual(navCalls, []);
-      assert.equal(getStoredSupabaseSession().accessToken, "fresh-admin-token");
+      assert.equal(getStoredSupabaseSession().accessToken, freshToken);
     } finally {
       fetchMock.restore();
     }

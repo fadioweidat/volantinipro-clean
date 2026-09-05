@@ -4,8 +4,10 @@ import {
   getStoredSupabaseSession,
   consumeSupabaseAuthHash,
   restoreSupabaseSession,
-  verifySupabaseAdminRole
+  verifySupabaseAdminRole,
+  getSessionEmail
 } from "../session.js";
+import { isAuthorizedAdminEmail } from "../adminAuthorization.js";
 import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "../../lib/monitoring/errorLog.js";
 
 const PANEL_STYLE = {
@@ -154,6 +156,19 @@ export function AdminGuard({ onNav, children }) {
           return;
         }
         setSession(restoredSession);
+        // TICKET — ADMIN MAGIC LINK SOLO PER fenice.sp@gmail.com: controllo
+        // locale, sincrono, PRIMA della verifica di rete (jwt_is_admin()).
+        // Un'email diversa nega l'accesso immediatamente, senza consumare
+        // budget di rete/timeout e senza mai dipendere solo dal frontend —
+        // la stessa regola e' applicata anche lato backend in
+        // jwt_is_admin()/gps_is_admin() (migration 20260905150000), quindi
+        // un utente non potrebbe comunque leggere dati Admin chiamando le
+        // RPC direttamente anche aggirando questo controllo client-side.
+        const email = getSessionEmail(restoredSession);
+        if (!isAuthorizedAdminEmail(email)) {
+          if (!cancelled) setRoleStatus("denied");
+          return;
+        }
         const isAdmin = await withTimeout(verifySupabaseAdminRole(restoredSession), ADMIN_ROLE_CHECK_TIMEOUT_MS);
         if (!cancelled) setRoleStatus(isAdmin ? "admin" : "denied");
       })

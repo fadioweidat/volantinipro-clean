@@ -168,6 +168,32 @@ export function isStoredSupabaseSessionValid(session) {
   return expiresAt * 1000 > Date.now();
 }
 
+// TICKET — ADMIN MAGIC LINK SOLO PER fenice.sp@gmail.com: legge l'email
+// dal claim 'email' del JWT (stesso token gia' usato per accessToken,
+// nessuna richiesta di rete aggiuntiva — importante durante un outage
+// Supabase, per non consumare il budget del timeout di AdminGuard su una
+// verifica che puo' essere fatta localmente). Fail-closed: un token
+// malformato o senza claim 'email' ritorna null, mai una stringa vuota
+// che potrebbe confrontare uguale per errore altrove.
+export function getSessionEmail(session) {
+  const token = session?.accessToken || session?.access_token;
+  if (!token || typeof token !== "string") return null;
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "===".slice((base64.length + 3) % 4);
+    const binary = typeof atob === "function" ? atob(padded) : Buffer.from(padded, "base64").toString("binary");
+    const json = decodeURIComponent(
+      binary.split("").map((c) => "%" + c.charCodeAt(0).toString(16).padStart(2, "0")).join("")
+    );
+    const payload = JSON.parse(json);
+    return typeof payload?.email === "string" ? payload.email : null;
+  } catch {
+    return null;
+  }
+}
+
 // Verifica reale del ruolo Admin lato backend tramite l'RPC public.jwt_is_admin(),
 // gia' presente in produzione (supabase/migrations/019_gps_tracking.sql) e usata
 // per proteggere le RLS di delivery_sessions/gps_tracking_points (percorso GPS).

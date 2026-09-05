@@ -50,6 +50,16 @@ function withSupabaseConfig(t) {
 
 const adminGuardSource = readFileSync(new URL("../src/auth/guards/AdminGuard.jsx", import.meta.url), "utf8");
 
+// TICKET — ADMIN MAGIC LINK SOLO PER fenice.sp@gmail.com: AdminGuard ora
+// legge il claim 'email' dal JWT PRIMA di chiamare jwt_is_admin(). Serve un
+// token con l'email autorizzata perche' questo test eserciti davvero il
+// timeout su verifySupabaseAdminRole, non il nuovo blocco email (che ha la
+// propria copertura in tests/admin_email_allowlist.test.mjs).
+function makeFakeJwt(email) {
+  const b64url = (obj) => Buffer.from(JSON.stringify(obj)).toString("base64url");
+  return `${b64url({ alg: "none" })}.${b64url({ email })}.signature`;
+}
+
 test("STATICO — withTimeout() esiste, timeout ragionevole, mai roleStatus bloccato su 'checking'", () => {
   assert.match(adminGuardSource, /const ADMIN_ROLE_CHECK_TIMEOUT_MS = 15000;/);
   assert.match(adminGuardSource, /function withTimeout\(promise, ms\)/);
@@ -66,7 +76,7 @@ test("RUNTIME — verifySupabaseAdminRole che non risponde entro il timeout => p
   withSupabaseConfig(t);
   globalThis.localStorage = makeMemoryStorage();
   const future = Math.floor(Date.now() / 1000) + 3600;
-  globalThis.localStorage.setItem("vp_supabase_session", JSON.stringify({ accessToken: "admin-token", expiresAt: String(future) }));
+  globalThis.localStorage.setItem("vp_supabase_session", JSON.stringify({ accessToken: makeFakeJwt("fenice.sp@gmail.com"), expiresAt: String(future) }));
   globalThis.window = makeWindow();
 
   const prevFetch = globalThis.fetch;
