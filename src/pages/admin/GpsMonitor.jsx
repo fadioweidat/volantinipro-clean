@@ -15,6 +15,7 @@ import { resolveMunicipalityBoundary } from '../../lib/geo/resolveMunicipalityBo
 import { AdminLayout } from './AdminLayout.jsx';
 import { listCampaignAssignments } from '../../lib/services/admin-api.js';
 import { getOperatorColor } from '../../lib/geo/operatorColor.js';
+import { operatorKeyFor } from '../../lib/geo/operatorSplit.js';
 import { FitToZoneBounds } from '../../components/map/FitToZoneBounds.jsx';
 import { GpsMonitorMetricsPanel } from './gps-monitor/GpsMonitorMetricsPanel.jsx';
 import { GpsMonitorGeofenceHistory } from './gps-monitor/GpsMonitorGeofenceHistory.jsx';
@@ -176,6 +177,16 @@ export function GpsMonitor({ campaignId, onNav }) {
   const campaignOperators = useMemo(
     () => assignmentRows
       .filter((a) => !a.revoked_at && (a.status == null || a.status === 'active'))
+      // Ordine STABILE e deterministico per la numerazione OP-01/02/03...:
+      // per data di creazione dell'assegnazione, poi per id. Senza questo
+      // l'indice (e quindi OP-0N) puo' cambiare a ogni refresh su campagne
+      // con piu' operatori.
+      .slice()
+      .sort((a, b) => {
+        const ta = new Date(a.created_at || a.starts_at || 0).getTime();
+        const tb = new Date(b.created_at || b.starts_at || 0).getTime();
+        return ta - tb || String(a.id).localeCompare(String(b.id));
+      })
       .map((a) => ({
         assignmentId: a.id,
         operatorId: a.operator_id || null,
@@ -490,7 +501,7 @@ export function GpsMonitor({ campaignId, onNav }) {
           {canonicalOperators.map((op, idx) => {
             const opKey = op.operatorId || op.assignmentId || op.colorKey;
             const isSelected = selectedOperatorFilter === opKey;
-            const label = `OP-0${idx + 1}${op.displayName && !op.displayName.startsWith('Operatore') ? ` · ${op.displayName}` : ''}`;
+            const label = `${operatorKeyFor('OP', idx)}${op.displayName && !op.displayName.startsWith('Operatore') ? ` · ${op.displayName}` : ''}`;
             return (
               <button
                 key={op.colorKey}
@@ -899,6 +910,9 @@ export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperator
   if (!sessionTracks.length && !canonicalOperators.length) return null;
   const format = fmt || ((v) => (v ? new Date(v).toLocaleString('it-IT') : 'n/d'));
   const opByDriver = new Map(canonicalOperators.filter((o) => o.operatorId).map((o) => [o.operatorId, o]));
+  // Etichetta OP-01/02/03... stabile per operatore canonico (ordine gia'
+  // deterministico da campaignOperators).
+  const opLabelByKey = new Map(canonicalOperators.map((o, i) => [o.colorKey, operatorKeyFor('OP', i)]));
   const zoneNameById = new Map((zoneRows || []).map((z) => [z.id, z.zone_name]));
 
   return (
@@ -913,7 +927,8 @@ export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperator
           {canonicalOperators.map((op) => (
             <div key={`canon-${op.colorKey}`} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(255,255,255,.78)' }}>
               <span style={{ width: 11, height: 11, borderRadius: 999, background: op.color, border: '1px solid rgba(0,0,0,.35)', flex: '0 0 auto' }} />
-              {op.displayName}
+              <strong style={{ color: '#fff', fontWeight: 800 }}>{opLabelByKey.get(op.colorKey)}</strong>
+              <span>{op.displayName}</span>
               {op.hasGps && <span style={{ fontSize: 10, fontWeight: 900, color: '#22c55e' }}>GPS</span>}
               {!op.assigned && <span style={{ fontSize: 10, color: 'rgba(255,255,255,.4)' }}>(assegnazione revocata)</span>}
             </div>
