@@ -1564,6 +1564,8 @@ export function normalizeSmartPairingRequest(row, campaigns = []) {
     return cZone.includes(cleanComune) || cleanComune.includes(cZone) || cComuni.some((cz) => cz.includes(cleanComune) || cleanComune.includes(cz)) || cCity.includes(cleanComune);
   });
 
+  const adminNotes = (row.admin_notes || '').trim() || null;
+
   return {
     id: row.id,
     clienteId: row.cliente_id || row.client_id || null,
@@ -1574,6 +1576,7 @@ export function normalizeSmartPairingRequest(row, campaigns = []) {
     service,
     datePreferite,
     note,
+    adminNotes,
     quantity,
     quoteId,
     gestita,
@@ -1623,16 +1626,28 @@ export async function adminUpdateSmartPairingStatus(id, patch = {}) {
   if (!id) throw new Error('ID richiesta mancante.');
   await ensureSupabaseSessionBridge();
 
-  const isClosed = ['accepted', 'rejected', 'closed'].includes(patch.status) || patch.gestita === true;
+  const newStatus = patch.status || (patch.gestita ? 'closed' : undefined);
+  const isClosed = ['accepted', 'rejected', 'closed'].includes(newStatus) || patch.gestita === true;
+  
   const updatePayload = {
     gestita: isClosed,
     gestita_at: isClosed ? (patch.gestita_at || new Date().toISOString()) : null,
   };
 
+  if (newStatus) {
+    updatePayload.status = newStatus;
+  }
+
   if (patch.note !== undefined) {
     updatePayload.note = patch.note;
   }
 
+  if (patch.admin_notes !== undefined || patch.adminNotes !== undefined) {
+    updatePayload.admin_notes = patch.admin_notes ?? patch.adminNotes;
+  }
+
+  // Fallback safe update: tenta con status e admin_notes, se il db non ha ancora le colonne applica fallback note/gestita
+  let result = null;
   const { data, error } = await supabase
     .from('smart_pairing_waitlist')
     .update(updatePayload)
@@ -1640,9 +1655,29 @@ export async function adminUpdateSmartPairingStatus(id, patch = {}) {
     .select();
 
   if (error) {
-    console.error('[ADMIN_UPDATE_SMART_PAIRING_ERROR]', error?.message);
-    throw error;
+    // Se errore colonna mancante prima di migrazione, ritenta con payload compatibile
+    if (error.message && (error.message.includes('status') || error.message.includes('admin_notes'))) {
+      const fallbackPayload = {
+        gestita: isClosed,
+        gestita_at: isClosed ? (patch.gestita_at || new Date().toISOString()) : null,
+      };
+      if (patch.note !== undefined || patch.admin_notes !== undefined || patch.adminNotes !== undefined) {
+        fallbackPayload.note = [patch.note, patch.admin_notes || patch.adminNotes].filter(Boolean).join(' | Note admin: ');
+      }
+      const { data: fbData, error: fbErr } = await supabase
+        .from('smart_pairing_waitlist')
+        .update(fallbackPayload)
+        .eq('id', id)
+        .select();
+      if (fbErr) throw fbErr;
+      result = fbData;
+    } else {
+      console.error('[ADMIN_UPDATE_SMART_PAIRING_ERROR]', error?.message);
+      throw error;
+    }
+  } else {
+    result = data;
   }
 
-  return Array.isArray(data) ? data[0] || null : data;
+  return Array.isArray(result) ? result[0] || null : result;
 }
