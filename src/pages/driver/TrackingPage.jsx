@@ -362,7 +362,6 @@ export function TrackingPage({ campaignId }) {
           campaignId={campaignId}
           sessionId={tracking.session?.id || null}
           lastPosition={tracking.lastPosition}
-          driverName={driverName}
           city={realComuneName}
           onUploaded={loadRecentPhotos}
         />

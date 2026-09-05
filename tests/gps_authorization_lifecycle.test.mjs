@@ -120,11 +120,22 @@ test('GPS lifecycle and frontend/DB RPC contract', async (t) => {
 });
 
 test('POD, Admin and Customer isolation contract', async (t) => {
-  await t.test('POD captures watermark metadata and requires a real session path', () => {
-    for (const field of ['takenAt', 'client', 'address', 'ddt', 'colli', 'outcome', 'driverName', 'lat', 'lng']) {
-      assert.match(podCapture, new RegExp(`\\b${field}\\b`));
+  await t.test('POD photo watermark is automatic, no driver-typed fields; legacy session path kept + assignment path added', () => {
+    // TICKET — BUG REALE PHOTO CAPTURE FLOW: il flusso "Foto prova campagna"
+    // e' ridotto (scatta -> anteprima watermarkata -> conferma). I metadati
+    // del watermark sono automatici (takenAt/lat/lng dal capture flow); i
+    // campi digitati dal Driver (client/address/ddt/colli/outcome) sono
+    // RIMOSSI da PodCapture.jsx.
+    assert.match(podCapture, /takenAt/);
+    assert.match(podCapture, /lastPosition\?\.lat/);
+    assert.match(podCapture, /lastPosition\?\.lng/);
+    for (const removed of ['form.client', 'form.address', 'form.ddt', 'form.colli', 'form.outcome']) {
+      assert.doesNotMatch(podCapture, new RegExp(removed.replace('.', '\\.')));
     }
+    // gps-api mantiene il path canonico di sessione (flusso autenticato
+    // legacy) e aggiunge il path per assignment (flusso token Driver).
     assert.match(gpsApi, /campaign\/\$\{campaignId\}\/session\/\$\{sessionId\}\/photo\//);
+    assert.match(gpsApi, /campaign\/\$\{campaignId\}\/assignment\/\$\{assignmentId\}\/photo\//);
   });
 
   await t.test('legacy permissive row and Storage policies are removed', () => {

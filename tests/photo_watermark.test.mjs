@@ -161,15 +161,34 @@ test("reverseGeocode: risposta senza road e senza city -> null (nessuna euristic
   try { assert.equal(await reverseGeocode(45.53, 9.18), null); } finally { restore(); }
 });
 
-// ── Wiring del capture flow: watermark BURNATO prima dell'upload ─────────
-test("PodCapture.jsx: watermark automatico (buildDeliveryWatermarkLines) burnato sul canvas, poi upload del blob watermarkato", () => {
+// ── Wiring del capture flow: watermark BURNATO nell'anteprima, prima dell'upload ──
+test("PodCapture.jsx: watermark burnato SUBITO dopo lo scatto (l'anteprima e' gia' watermarkata), poi upload dello stesso canvas", () => {
   const src = read("src/components/driver/PodCapture.jsx");
-  assert.match(src, /buildDeliveryWatermarkLines\(\{/);
-  assert.match(src, /drawPodWatermark\(canvasRef\.current, watermarkLines\)/);
-  assert.match(src, /const finalBlob = await canvasToJpegBlob\(canvasRef\.current\)/);
-  assert.match(src, /blob: finalBlob/);
-  // Nessun campo del form finisce piu' nei pixel della foto.
-  assert.doesNotMatch(src, /buildPodWatermarkLines/);
+  // drawPodWatermark(canvas, ...) avviene in handleFileSelected, PRIMA di
+  // mostrare la preview -> il Driver vede subito la foto con watermark.
+  assert.match(src, /drawPodWatermark\(canvas, buildDeliveryWatermarkLines\(\{/);
+  const selIdx = src.indexOf("async function handleFileSelected");
+  const confIdx = src.indexOf("async function handleConfirm");
+  const drawIdx = src.indexOf("drawPodWatermark(canvas, buildDeliveryWatermarkLines");
+  assert.ok(drawIdx > selIdx && drawIdx < confIdx, "il watermark va disegnato in handleFileSelected, non in handleConfirm");
+  assert.match(src, /setPreviewUrl\(URL\.createObjectURL\(blob\)\)/);
+  // handleConfirm carica lo STESSO canvas gia' watermarkato, non lo ridisegna.
+  const confBody = src.slice(confIdx);
+  assert.match(confBody, /const finalBlob = await canvasToJpegBlob\(canvasRef\.current\)/);
+  assert.doesNotMatch(confBody, /drawPodWatermark/);
+});
+
+test("PodCapture.jsx: NESSUN campo manuale nel flusso Foto prova (Cliente/Indirizzo/DDT/Colli/Note rimossi, non bloccano l'invio)", () => {
+  const src = read("src/components/driver/PodCapture.jsx");
+  assert.doesNotMatch(src, /buildPodWatermarkLines|buildProofPhotoNote|POD_OUTCOME_OPTIONS/);
+  assert.doesNotMatch(src, /placeholder="Nome cliente"|placeholder="Via, civico, comune"|placeholder="Numero DDT"/);
+  // Nessun <input>/<select>/<textarea> di POD nel render (i campi manuali sono
+  // stati rimossi; restano solo gli <input type=file> nascosti per scatto/galleria).
+  assert.doesNotMatch(src, /<textarea/);
+  assert.doesNotMatch(src, /<select/);
+  assert.doesNotMatch(src, /setForm\(/);
+  const fileInputs = (src.match(/<input /g) || []).length;
+  assert.equal(fileInputs, 2, "solo i 2 input file (fotocamera + galleria), nessun campo testuale");
 });
 
 test("PodCapture.jsx: FASE 4 — reverse geocoding NON bloccante prima del watermark, .catch(() => null), l'upload prosegue in ogni caso", () => {
@@ -178,11 +197,18 @@ test("PodCapture.jsx: FASE 4 — reverse geocoding NON bloccante prima del water
   assert.match(src, /geo = await reverseGeocode\(lastPosition\.lat, lastPosition\.lng\)\.catch\(\(\) => null\)/);
   assert.match(src, /street: geo\?\.street \|\| null/);
   assert.match(src, /geoCity: geo\?\.city \|\| null/);
-  // La chiamata reverseGeocode e' PRIMA di drawPodWatermark / uploadProofPhoto,
-  // ma non lancia mai e non blocca oltre il suo timeout interno.
-  const geoIdx = src.indexOf("await reverseGeocode(");
-  const uploadIdx = src.indexOf("await uploadProofPhoto(");
-  assert.ok(geoIdx > 0 && uploadIdx > geoIdx);
+});
+
+test("PodCapture.jsx: BUG SUPABASE AUTH — upload via access_token dell'assignment, MAI client.auth.getUser() nel flusso token", () => {
+  const src = read("src/components/driver/PodCapture.jsx");
+  assert.match(src, /export function PodCapture\(\{ campaignId, sessionId, assignmentId = null, accessToken = null,/);
+  assert.match(src, /uploadProofPhoto\(\{[\s\S]{0,200}assignmentId,[\s\S]{0,200}accessToken,/);
+  const api = read("src/lib/services/gps-api.js");
+  // Nel ramo token uploadProofPhoto non chiama getCurrentUserId(): passa da
+  // driver_register_proof_photo (RPC SECURITY DEFINER, autz via access_token).
+  assert.match(api, /if \(accessToken && isValidUuid\(assignmentId\)\) \{/);
+  assert.match(api, /callGpsRpc\('driver_register_proof_photo', \{/);
+  assert.match(api, /p_access_token: accessToken,/);
 });
 
 test("DriverAssignmentPage.jsx: foto di verifica segnalazione watermarkate (buildIssueWatermarkLines) prima dell'upload, con dati reali della issue", () => {
@@ -197,9 +223,11 @@ test("DriverAssignmentPage.jsx: foto di verifica segnalazione watermarkate (buil
 test("Comune reale passato a PodCapture da entrambe le pagine Driver (mai un valore hardcoded)", () => {
   const dap = read("src/pages/driver/DriverAssignmentPage.jsx");
   const tp = read("src/pages/driver/TrackingPage.jsx");
-  assert.match(dap, /<PodCapture[\s\S]{0,220}city=\{realComuneName\}/);
-  assert.match(tp, /<PodCapture[\s\S]{0,220}city=\{realComuneName\}/);
+  assert.match(dap, /<PodCapture[\s\S]{0,400}city=\{realComuneName\}/);
+  assert.match(tp, /<PodCapture[\s\S]{0,400}city=\{realComuneName\}/);
   assert.match(tp, /const realComuneName = activeZoneRecord\?\.zone_name/);
+  // DriverAssignmentPage passa assignmentId + accessToken per l'upload token.
+  assert.match(dap, /<PodCapture[\s\S]{0,400}assignmentId=\{assignmentId\}[\s\S]{0,120}accessToken=\{accessToken\}/);
 });
 
 test("EXIF non e' mai la fonte: nessuna libreria/parsing EXIF introdotta dal watermark", () => {

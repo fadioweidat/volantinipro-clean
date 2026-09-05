@@ -579,8 +579,9 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
           <PodCapture
             campaignId={campaignId}
             sessionId={tracking.session?.id || null}
+            assignmentId={assignmentId}
+            accessToken={accessToken}
             lastPosition={currentPos}
-            driverName={operatorName}
             city={realComuneName}
             onUploaded={() => {}}
           />

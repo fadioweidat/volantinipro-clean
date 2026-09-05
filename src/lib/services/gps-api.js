@@ -820,16 +820,54 @@ export function buildProofPhotoStoragePath({ campaignId, sessionId }) {
   return `campaign/${campaignId}/session/${sessionId}/photo/${photoId}.jpg`;
 }
 
+// TICKET — BUG REALE PHOTO CAPTURE FLOW: path per la modalita' token (link
+// Driver pubblico, nessun Magic Link). Combacia con la policy storage
+// proof_photos_assignment_storage_insert e col prefisso validato da
+// driver_register_proof_photo (migrazione 20260905170000).
+export function buildProofPhotoAssignmentStoragePath({ campaignId, assignmentId }) {
+  if (!isValidUuid(campaignId) || !isValidUuid(assignmentId)) {
+    throw permanentGpsError('assignment_missing', new Error('Assegnazione non valida per il caricamento foto prova.'));
+  }
+  const photoId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `campaign/${campaignId}/assignment/${assignmentId}/photo/${photoId}.jpg`;
+}
+
 // Carica una foto POD gia' compressa/watermarkata (blob JPEG) nel bucket
 // privato "proof-photos" e salva il record in proof_photos. Fallisce chiuso:
 // se l'insert della riga fallisce dopo l'upload del file, l'oggetto caricato
 // resta orfano nello storage (nessun record) ma non viene mai mostrato da
 // nessuna vista, perche' tutte le letture passano da proof_photos.
-export async function uploadProofPhoto({ campaignId, sessionId, blob, lat, lng, takenAt, note }) {
+export async function uploadProofPhoto({ campaignId, sessionId, blob, lat, lng, takenAt, note, assignmentId = null, accessToken = null }) {
   if (!isValidUuid(campaignId)) throw permanentGpsError('assignment_invalid_campaign');
   if (!blob) throw permanentGpsError('gps_auth_required', new Error('Nessun file da caricare.'));
 
   const client = await requireSupabase();
+
+  // TICKET — BUG REALE PHOTO CAPTURE FLOW: modalita' token (link Driver
+  // pubblico, mai Magic Link). Nessuna sessione Supabase da cui leggere
+  // auth.uid(): l'autorizzazione (assignment -> driver) e' riletta
+  // server-side dalla RPC SECURITY DEFINER via access_token. Stesso pattern
+  // gia' usato per le foto di verifica segnalazione.
+  if (accessToken && isValidUuid(assignmentId)) {
+    const storagePath = buildProofPhotoAssignmentStoragePath({ campaignId, assignmentId });
+    await withRetry(async () => {
+      const { error: uploadError } = await client.storage
+        .from('proof-photos')
+        .upload(storagePath, blob, { contentType: 'image/jpeg', upsert: false });
+      if (uploadError) throw mapRpcError(uploadError);
+    }, 'upload foto prova (token)');
+    return callGpsRpc('driver_register_proof_photo', {
+      p_assignment_id: assignmentId,
+      p_storage_path: storagePath,
+      p_lat: Number.isFinite(Number(lat)) ? Number(lat) : null,
+      p_lng: Number.isFinite(Number(lng)) ? Number(lng) : null,
+      p_taken_at: takenAt || new Date().toISOString(),
+      p_note: note || null,
+      p_access_token: accessToken,
+    });
+  }
+
+  // Flusso autenticato legacy (Magic Link): invariato.
   const driverId = await getCurrentUserId();
   const storagePath = buildProofPhotoStoragePath({ campaignId, sessionId, driverId });
 
