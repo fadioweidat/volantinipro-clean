@@ -57,12 +57,14 @@ function GpsCoverageSection({ zones }) {
                 {zone.boundaryAvailable && zoneGeometryToLatLngs(zone.boundaryGeometry).length > 0 && (
                   <Polygon positions={zoneGeometryToLatLngs(zone.boundaryGeometry)} pathOptions={{ color: '#e8571a', weight: 2, fillColor: '#e8571a', fillOpacity: 0.08 }} />
                 )}
-                {(zone.tracePoints || []).length > 1 && (
-                  <Polyline
-                    positions={zone.tracePoints.map((p) => [Number(p.lat), Number(p.lng)])}
-                    pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.85 }}
+                {(zone.tracePoints || []).map((p, idx) => (
+                  <CircleMarker
+                    key={`dot-${idx}`}
+                    center={[Number(p.lat), Number(p.lng)]}
+                    radius={3}
+                    pathOptions={{ color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.75, weight: 1 }}
                   />
-                )}
+                ))}
                 {zone.tracePoints?.[0] && (
                   <CircleMarker center={[Number(zone.tracePoints[0].lat), Number(zone.tracePoints[0].lng)]} radius={6} pathOptions={{ color: '#0f766e', fillColor: '#0f766e', fillOpacity: 0.95 }} />
                 )}

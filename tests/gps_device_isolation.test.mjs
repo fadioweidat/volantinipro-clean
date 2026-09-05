@@ -226,11 +226,11 @@ test('gps-api getDriverGroupTracking: raggruppa per sessione, filtro per session
   assert.match(fn, /if \(isRpcNotFound\(error\)\) return \{ self: null, others: \[\] \}/);
 });
 
-test('DriverWorkMapPage: traccia propria + tracce gruppo, una polyline per sessione, legenda "Tu"', () => {
+test('DriverWorkMapPage: traccia propria + tracce gruppo, punti GPS per sessione, legenda "Tu"', () => {
   const src = read('src/pages/driver/DriverWorkMapPage.jsx');
   assert.match(src, /getDriverGroupTracking\(assignmentId, accessToken\)/);
   assert.match(src, /groupLines\.map\(/);
-  assert.match(src, /<Polyline positions=\{g\.latlngs\}/);
+  assert.match(src, /g\.latlngs\.map/);
   assert.match(src, /background: '#2563eb'[\s\S]{0,40}Tu/); // legenda: la propria = "Tu"
   assert.doesNotMatch(src, /g\.sessionId\}<\/|>\{g\.sessionId\}</); // mai UUID in UI
 });

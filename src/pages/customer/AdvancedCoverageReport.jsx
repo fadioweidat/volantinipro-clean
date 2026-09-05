@@ -186,10 +186,14 @@ export function AdvancedCoverageReport({ campaignId, onNav }) {
               style={{ height: '100%', width: '100%' }}
             >
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-              <Polyline
-                positions={state.points.map(p => [Number(p.lat), Number(p.lng)]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng))}
-                pathOptions={{ color: '#E8571A', weight: 4, opacity: 0.85 }}
-              />
+              {state.points.map(p => [Number(p.lat), Number(p.lng)]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng)).map((pos, idx) => (
+                <CircleMarker
+                  key={`dot-${idx}`}
+                  center={pos}
+                  radius={3.5}
+                  pathOptions={{ color: '#E8571A', fillColor: '#E8571A', fillOpacity: 0.75, weight: 1 }}
+                />
+              ))}
               <CircleMarker
                 center={[Number(state.points[state.points.length - 1].lat), Number(state.points[state.points.length - 1].lng)]}
                 radius={8}

@@ -63,9 +63,14 @@ export function AdminOperationalMap({ operators }) {
             <ZoneShape key={`${item.session.id}-zone-${zoneIndex}`} zone={zone} />
           )))}
           {tracks.map(({ item, path }) => (
-            path.length > 1 && (
-              <Polyline key={`${item.session.id}-line`} positions={path} pathOptions={{ color: '#e8571a', weight: 3, opacity: 0.75 }} />
-            )
+            path.map((pos, idx) => (
+              <CircleMarker
+                key={`${item.session.id}-dot-${idx}`}
+                center={pos}
+                radius={3}
+                pathOptions={{ color: '#e8571a', fillColor: '#e8571a', fillOpacity: 0.75, weight: 1 }}
+              />
+            ))
           ))}
           {tracks.map(({ item, last, zoneStatus }) => last && (
             <CircleMarker

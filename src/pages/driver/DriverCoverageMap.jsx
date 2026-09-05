@@ -226,7 +226,14 @@ export function DriverCoverageMap({ campaignId }) {
           {!hasDrawableZone && municipalityBoundary && (
             <GeoJSON data={municipalityBoundary} style={{ color: '#e8571a', weight: 2, fillColor: '#e8571a', fillOpacity: 0.08 }} />
           )}
-          {path.length > 1 && <Polyline positions={path} pathOptions={{ color: '#0f766e', weight: 4, opacity: 0.75 }} />}
+          {path.map((pos, idx) => (
+            <CircleMarker
+              key={`dot-${idx}`}
+              center={pos}
+              radius={3.5}
+              pathOptions={{ color: '#0f766e', fillColor: '#0f766e', fillOpacity: 0.75, weight: 1 }}
+            />
+          ))}
           {hasPosition && (
             <CircleMarker center={[lat, lng]} radius={9} pathOptions={{ color: '#1d4ed8', fillColor: '#3b82f6', fillOpacity: 0.9, weight: 2 }}>
               <Tooltip permanent direction="top" offset={[0, -8]}>Tu sei qui</Tooltip>
