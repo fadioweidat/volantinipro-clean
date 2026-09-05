@@ -171,34 +171,38 @@ test("reverseGeocode: risposta senza road e senza city -> null (nessuna euristic
 // ── Wiring del capture flow: watermark BURNATO nell'anteprima, prima dell'upload ──
 test("PodCapture.jsx: watermark burnato SUBITO dopo lo scatto (l'anteprima e' gia' watermarkata), poi upload dello stesso canvas", () => {
   const src = read("src/components/driver/PodCapture.jsx");
-  // drawPodWatermark(canvas, ...) avviene in handleFileSelected, PRIMA di
-  // mostrare la preview -> il Driver vede subito la foto con watermark.
+  // drawPodWatermark(canvas, ...) avviene nel percorso di scatto (handleShutter
+  // = fotocamera web) e nel fallback galleria, PRIMA di mostrare la preview.
   assert.match(src, /drawPodWatermark\(canvas, buildDeliveryWatermarkLines\(\{/);
-  const selIdx = src.indexOf("async function handleFileSelected");
+  const shutterIdx = src.indexOf("async function handleShutter");
+  const galleryIdx = src.indexOf("async function handleGallerySelected");
   const confIdx = src.indexOf("async function handleConfirm");
-  const drawIdx = src.indexOf("drawPodWatermark(canvas, buildDeliveryWatermarkLines");
-  assert.ok(drawIdx > selIdx && drawIdx < confIdx, "il watermark va disegnato in handleFileSelected, non in handleConfirm");
+  assert.ok(shutterIdx > 0 && galleryIdx > 0, "esistono handleShutter (fotocamera web) e handleGallerySelected (fallback)");
+  const drawIdxs = [...src.matchAll(/drawPodWatermark\(canvas, buildDeliveryWatermarkLines/g)].map((m) => m.index);
+  assert.ok(drawIdxs.length >= 2, "watermark disegnato sia nel percorso scatto sia nel fallback galleria");
+  assert.ok(drawIdxs.every((i) => i < confIdx), "il watermark va disegnato prima di handleConfirm, mai dentro");
   assert.match(src, /const url = URL\.createObjectURL\(thumbBlob \|\| blob\);/);
   assert.match(src, /setPreviewUrl\(url\)/);
-  // handleConfirm carica lo STESSO Blob gia' watermarkato, non lo ridisegna
-  // e non ri-comprime (nessun secondo encode del canvas -> nessun picco
-  // di memoria in fase di conferma).
+  // handleConfirm carica lo STESSO Blob gia' watermarkato: nessun re-encode.
   const confBody = src.slice(confIdx);
   assert.match(confBody, /blob: finalBlobRef\.current/);
-  assert.doesNotMatch(confBody, /drawPodWatermark|canvasToJpegBlob|compressPodImage/);
+  assert.doesNotMatch(confBody, /drawPodWatermark|canvasToJpegBlob|compressPodImage|captureVideoFrame/);
 });
 
 test("PodCapture.jsx: NESSUN campo manuale nel flusso Foto prova (Cliente/Indirizzo/DDT/Colli/Note rimossi, non bloccano l'invio)", () => {
   const src = read("src/components/driver/PodCapture.jsx");
   assert.doesNotMatch(src, /buildPodWatermarkLines|buildProofPhotoNote|POD_OUTCOME_OPTIONS/);
   assert.doesNotMatch(src, /placeholder="Nome cliente"|placeholder="Via, civico, comune"|placeholder="Numero DDT"/);
-  // Nessun <input>/<select>/<textarea> di POD nel render (i campi manuali sono
-  // stati rimossi; restano solo gli <input type=file> nascosti per scatto/galleria).
   assert.doesNotMatch(src, /<textarea/);
   assert.doesNotMatch(src, /<select/);
   assert.doesNotMatch(src, /setForm\(/);
-  const fileInputs = (src.match(/<input /g) || []).length;
-  assert.equal(fileInputs, 2, "solo i 2 input file (fotocamera + galleria), nessun campo testuale");
+  // un solo <input type=file> nel render (fallback galleria); lo scatto usa
+  // <video> + getUserMedia, NON <input capture> (camera OEM 12MP).
+  const jsxInputs = (src.match(/<input ref=\{/g) || []).length;
+  assert.equal(jsxInputs, 1, "solo 1 input file nascosto per il fallback galleria");
+  // nessun attributo capture="environment" nel JSX renderizzato
+  assert.doesNotMatch(src, /<input[^>]*capture=["']environment["']/);
+  assert.match(src, /<video ref=\{videoRef\}/);
 });
 
 test("PodCapture.jsx: FASE 4 — reverse geocoding NON bloccante prima del watermark, .catch(() => null), l'upload prosegue in ogni caso", () => {
@@ -207,6 +211,59 @@ test("PodCapture.jsx: FASE 4 — reverse geocoding NON bloccante prima del water
   assert.match(src, /geo = await reverseGeocode\(lastPosition\.lat, lastPosition\.lng\)\.catch\(\(\) => null\)/);
   assert.match(src, /street: geo\?\.street \|\| null/);
   assert.match(src, /geoCity: geo\?\.city \|\| null/);
+});
+
+// ── TICKET — ANDROID CAMERA FLOW: getUserMedia a risoluzione vincolata ──
+test("CAMERA — costanti getUserMedia: 1280x960 ideal, 1600x1200 max, environment, no audio", () => {
+  const pod = read("src/lib/pod/podPhotoProcessing.js");
+  assert.match(pod, /export const POD_CAMERA_CONSTRAINTS = \{/);
+  assert.match(pod, /facingMode: \{ ideal: 'environment' \}/);
+  assert.match(pod, /width: \{ ideal: 1280, max: 1600 \}/);
+  assert.match(pod, /height: \{ ideal: 960, max: 1200 \}/);
+  assert.match(pod, /audio: false/);
+  assert.match(pod, /export const POD_CAMERA_MAX_DIMENSION = 1600/);
+});
+
+test("CAMERA — captureVideoFrame: frame del <video> su canvas <=maxDimension, nessun decode full-res, nessun ImageBitmap", () => {
+  const pod = read("src/lib/pod/podPhotoProcessing.js");
+  assert.match(pod, /export function captureVideoFrame\(video, maxDimension = POD_CAMERA_MAX_DIMENSION\)/);
+  assert.match(pod, /video\?\.videoWidth/);
+  assert.match(pod, /fitLongSide\(vw, vh, maxDimension\)/);
+  assert.match(pod, /ctx\.drawImage\(video, 0, 0, width, height\)/);
+  const fn = pod.slice(pod.indexOf("export function captureVideoFrame"), pod.indexOf("export function stopCameraStream"));
+  assert.doesNotMatch(fn, /createImageBitmap|new Image\(/);
+  assert.match(pod, /export function stopCameraStream\(stream, video\)/);
+  assert.match(pod, /stream\.getTracks\(\)\.forEach\(\(t\) => \{ try \{ t\.stop\(\)/);
+  assert.match(pod, /video\.srcObject = null/);
+});
+
+test("CAMERA — PodCapture usa getUserMedia(POD_CAMERA_CONSTRAINTS) + <video> live, stop tracks dopo lo scatto", () => {
+  const src = read("src/components/driver/PodCapture.jsx");
+  assert.match(src, /navigator\.mediaDevices\.getUserMedia\(POD_CAMERA_CONSTRAINTS\)/);
+  assert.match(src, /navigator\.mediaDevices\?\.getUserMedia/); // guard di disponibilita'
+  assert.match(src, /captureVideoFrame\(v, Math\.min\(profile\.maxDimension, POD_CAMERA_MAX_DIMENSION\)\)/);
+  assert.match(src, /function stopCamera\(\)/);
+  assert.match(src, /stopCameraStream\(streamRef\.current, videoRef\.current\)/);
+  // fotocamera spenta appena catturato il frame + all'unmount
+  const shutter = src.slice(src.indexOf("async function handleShutter"), src.indexOf("async function handleGallerySelected"));
+  assert.match(shutter, /stopCamera\(\);\s*\n\s*pushStage\('tracks_stopped'\)/);
+  assert.match(src, /useEffect\(\(\) => \(\) => \{\s*\n\s*stopCameraStream\(streamRef\.current, videoRef\.current\)/);
+  // stage specifici del percorso fotocamera
+  for (const st of ["camera_request", "camera_ready", "shutter", "frame_draw_start", "frame_draw_done", "tracks_stopped"]) {
+    assert.match(src, new RegExp(`pushStage\\('${st}'`), `manca pushStage('${st}')`);
+  }
+});
+
+test("CAMERA — fallback: getUserMedia assente / permesso negato -> avviso esplicito + solo galleria, MAI ritorno automatico al path 12MP", () => {
+  const src = read("src/components/driver/PodCapture.jsx");
+  assert.match(src, /if \(!navigator\.mediaDevices\?\.getUserMedia\)/);
+  assert.match(src, /NotAllowedError/);
+  assert.match(src, /setCameraError\(/);
+  // in errore fotocamera si offre SOLO la galleria (nessun openCamera automatico)
+  assert.match(src, /\{cameraError && \(\s*\n\s*<button[^>]*onClick=\{\(\) => galleryInputRef\.current\?\.click\(\)\}/);
+  // il fallback galleria passa comunque da compressPodImage (decode-at-target)
+  const gallery = src.slice(src.indexOf("async function handleGallerySelected"), src.indexOf("async function handleConfirm"));
+  assert.match(gallery, /compressPodImage\(file, \{ maxDimension: profile\.maxDimension, onStage: pushStage \}\)/);
 });
 
 test("PodCapture.jsx: BUG SUPABASE AUTH — upload via access_token dell'assignment, MAI client.auth.getUser() nel flusso token", () => {
@@ -290,7 +347,8 @@ test("MEMORY — PodCapture.jsx: cleanup obbligatorio, no base64, 1 Blob, serial
   assert.match(src, /URL\.createObjectURL\(thumbBlob \|\| blob\)/);
   // una sola object URL viva, revocata prima di crearne un'altra e all'unmount
   assert.match(src, /function revokePreview\(\)\s*\{[\s\S]{0,200}URL\.revokeObjectURL\(previewUrlRef\.current\)/);
-  assert.match(src, /useEffect\(\(\) => \(\) => \{ revokePreview\(\); finalBlobRef\.current = null; \}, \[\]\)/);
+  // unmount: fotocamera spenta + object URL revocata + blob rilasciato
+  assert.match(src, /useEffect\(\(\) => \(\) => \{[\s\S]{0,200}stopCameraStream\(streamRef\.current, videoRef\.current\)[\s\S]{0,120}revokePreview\(\);[\s\S]{0,80}finalBlobRef\.current = null;[\s\S]{0,20}\}, \[\]\)/);
   // canvas rilasciato SUBITO dopo il Blob (non tenuto per tutto lo stage preview)
   assert.match(src, /releaseCanvas\(canvas\);\s*\n\s*canvas = null;/);
   // lock seriale: 1 processing / 1 upload
@@ -396,7 +454,7 @@ test("DIAGNOSTICA — history multi-tentativo in sessionStorage, attemptId univo
   assert.match(src, /function newAttemptId\(\)/);
   assert.match(src, /function nextAttemptSeq\(\)/);
   // ogni scatto = nuova attempt session
-  assert.match(src, /function startAttempt\(\)/);
+  assert.match(src, /function startAttempt\(kind\)/);
   assert.match(src, /attemptId: newAttemptId\(\)/);
   assert.match(src, /n: nextAttemptSeq\(\)/);
   assert.match(src, /status: 'running'/);
@@ -422,7 +480,9 @@ test("DIAGNOSTICA — history NON cancellata da fullCleanup / resetToIdle / rese
   assert.doesNotMatch(cleanup, /setHistory|saveHistory|HISTORY_KEY|removeItem/);
   const reset = src.slice(src.indexOf("function resetToIdle"), src.indexOf("function switchToLowMemory"));
   assert.doesNotMatch(reset, /setHistory|saveHistory|HISTORY_KEY|removeItem/);
-  assert.match(src, /useEffect\(\(\) => \(\) => \{ revokePreview\(\); finalBlobRef\.current = null; \}, \[\]\)/);
+  // l'unmount cleanup non tocca la history
+  const unmount = src.slice(src.indexOf("Unmount: fotocamera"), src.indexOf("Unmount: fotocamera") + 320);
+  assert.doesNotMatch(unmount, /setHistory|saveHistory|HISTORY_KEY|removeItem/);
 });
 
 test("DIAGNOSTICA — 'Ultima diagnostica foto': Tentativo #N, Stato, ULTIMO STAGE, Copia diagnostica, Mostra tentativi precedenti; SEMPRE fuori dai rami di stage", () => {
@@ -442,7 +502,7 @@ test("DIAGNOSTICA — 'Ultima diagnostica foto': Tentativo #N, Stato, ULTIMO STA
 
 test("DIAGNOSTICA — errore PRIMA di input_received -> attempt failed, stage 'camera_pre_js', messaggio esplicito", () => {
   const src = read("src/components/driver/PodCapture.jsx");
-  assert.match(src, /if \(!file\) \{[\s\S]{0,600}startAttempt\(\);[\s\S]{0,400}lastStageOverride: 'camera_pre_js'/);
+  assert.match(src, /if \(!file\) \{[\s\S]{0,600}startAttempt\('gallery'\);[\s\S]{0,400}lastStageOverride: 'camera_pre_js'/);
   assert.match(src, /reason: 'camera_pre_js'/);
   assert.match(src, /Errore avvenuto prima che la foto arrivasse alla pipeline JavaScript/);
 });

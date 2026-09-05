@@ -26,6 +26,50 @@ export const POD_MEMORY_PROFILES = {
 export const POD_THUMB_MAX_DIMENSION = 480;
 export const POD_THUMB_QUALITY = 0.6;
 
+// TICKET — ANDROID CAMERA FLOW UNUSABLE.
+// Root cause: <input type="file" capture="environment"> apre la camera OEM
+// Samsung che consegna un JPEG 12MP (4080x3060, ~5MB) al renderer Chrome ->
+// pressione memoria prima ancora che l'app veda il file. Il nuovo percorso
+// usa getUserMedia con risoluzione VINCOLATA: nessun JPEG 12MP entra mai nel
+// renderer. Il frame viene disegnato direttamente su un canvas <= 1600px.
+export const POD_CAMERA_MAX_DIMENSION = 1600;
+export const POD_CAMERA_CONSTRAINTS = {
+  video: {
+    facingMode: { ideal: 'environment' },
+    width: { ideal: 1280, max: 1600 },
+    height: { ideal: 960, max: 1200 },
+  },
+  audio: false,
+};
+
+// Cattura il frame corrente di un <video> (stream getUserMedia gia' a bassa
+// risoluzione) su un canvas <= maxDimension. Nessun decode full-res, nessun
+// ImageBitmap: il video element e' gia' la sorgente ridimensionata.
+export function captureVideoFrame(video, maxDimension = POD_CAMERA_MAX_DIMENSION) {
+  const vw = video?.videoWidth || 0;
+  const vh = video?.videoHeight || 0;
+  if (!vw || !vh) throw new Error('Frame video non pronto.');
+  const { width, height } = fitLongSide(vw, vh, maxDimension);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Contesto canvas non disponibile su questo dispositivo.');
+  ctx.drawImage(video, 0, 0, width, height);
+  return { canvas, width, height, origWidth: vw, origHeight: vh };
+}
+
+// Arresta e rilascia uno stream getUserMedia + il video element collegato.
+export function stopCameraStream(stream, video) {
+  try {
+    if (stream) stream.getTracks().forEach((t) => { try { t.stop(); } catch { /* gia' fermo */ } });
+  } catch { /* stream non valido */ }
+  if (video) {
+    try { video.pause(); } catch { /* ignore */ }
+    try { video.srcObject = null; } catch { /* ignore */ }
+  }
+}
+
 // navigator.deviceMemory e' in GiB, arrotondato per difetto a 0.25/0.5/1/2/4/8.
 // <= 4 e' la soglia indicata dal ticket per partire subito in modalita' leggera.
 export function detectLowMemoryDevice() {
@@ -119,7 +163,7 @@ export function readJpegDimensions(bytes) {
   return null;
 }
 
-function fitLongSide(width, height, maxDimension) {
+export function fitLongSide(width, height, maxDimension) {
   const longSide = Math.max(width, height);
   const scale = longSide > maxDimension ? maxDimension / longSide : 1;
   return {

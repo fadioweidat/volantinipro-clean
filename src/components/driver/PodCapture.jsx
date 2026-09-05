@@ -2,43 +2,42 @@ import { useEffect, useRef, useState } from 'react';
 import {
   buildDeliveryWatermarkLines,
   canvasToJpegBlob,
+  captureVideoFrame,
   compressPodImage,
   detectLowMemoryDevice,
   drawPodWatermark,
   isMemoryError,
   makeThumbnailBlob,
+  POD_CAMERA_CONSTRAINTS,
+  POD_CAMERA_MAX_DIMENSION,
   POD_MEMORY_PROFILES,
   releaseCanvas,
+  stopCameraStream,
   validatePodImageFile,
 } from '../../lib/pod/podPhotoProcessing.js';
 import { uploadProofPhoto } from '../../lib/services/gps-api.js';
 import { reverseGeocode } from '../../lib/geo/geocodeAddress.js';
 
-// TICKET — CATTURARE DIAGNOSTICA DI UN TENTATIVO FALLITO (failure intermittente).
+// TICKET — ANDROID CAMERA FLOW UNUSABLE: MEMORY INSUFFICIENT BEFORE PHOTO
+// REACHES APP.
 //
-// Il bug memoria e' INTERMITTENTE: 2-3 scatti falliscono con "Memoria
-// insufficiente", poi uno passa. Questo giro NON tocca resize/watermark/
-// upload/GPS: aggiunge solo una diagnostica multi-tentativo robusta.
+// Root cause: il vecchio file-input con attributo capture apriva la camera OEM
+// (Samsung) che consegna un JPEG ~12MP (4080x3060) al renderer Chrome, con
+// pressione memoria prima/durante l'handoff -> "Memoria insufficiente" ancora
+// prima della preview, spesso senza nemmeno un tentativo diagnosticabile.
 //
-// - Ogni scatto = una nuova "attempt session" con attemptId univoco e numero
-//   progressivo N.
-// - Ogni stage viene scritto SUBITO in sessionStorage
-//   (`pod_photo_diagnostic_history`), quindi anche se il renderer Chrome si
-//   ricarica il log resta.
-// - La history tiene gli ultimi 5 tentativi. Un tentativo nuovo NON
-//   sovrascrive il precedente: viene aggiunto in testa.
-// - status: running | success | failed | interrupted. Al mount ogni tentativo
-//   ancora "running" diventa interrupted / reason=renderer_reload_or_oom.
-// - "Ultima diagnostica foto" e' SEMPRE visibile sotto la card (anche a idle)
-//   con: Tentativo #N, Stato, ULTIMO STAGE, "Copia diagnostica", "Mostra
-//   tentativi precedenti". Non viene mai cancellata da cleanup/reset.
+// Nuovo percorso: getUserMedia con risoluzione VINCOLATA (1280x960, max
+// 1600x1200). Preview video live leggera. Allo SCATTA: frame del video ->
+// canvas <=1600px -> watermark -> JPEG -> stop tracks + release -> upload.
+// Nessun JPEG 12MP entra mai nel renderer.
 //
-// Stage: input_received -> dimensions_read -> bitmap_start -> bitmap_done ->
-// canvas_draw_start -> canvas_draw_done -> watermark_start -> watermark_done
-// -> blob_start -> blob_done -> thumb_start -> thumb_done -> preview_ready ->
-// upload_start -> storage_upload_done -> rpc_register_start ->
-// rpc_register_done -> cleanup_done. Sentinella camera_pre_js = errore prima
-// che il file raggiunga il codice JS.
+// Fallback (getUserMedia assente o permesso negato): SOLO "Scegli dalla
+// galleria" (input file senza capture), con avviso esplicito; l'immagine
+// passa comunque da compressPodImage (decode-at-target), mai un full-res 12MP.
+//
+// Backend upload invariato: assignment access_token + RPC
+// driver_register_proof_photo, nessun login Supabase Driver.
+// Zero campi manuali. Diagnostica multi-tentativo invariata (sessionStorage).
 
 const LOW_MEMORY_FLAG = 'pod_forced_low_memory';
 const HISTORY_KEY = 'pod_photo_diagnostic_history';
@@ -72,8 +71,6 @@ function nextAttemptSeq() {
 function newAttemptId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
-// Ogni tentativo ancora "running" al mount = renderer ricaricato o OOM prima
-// del finalize: diventa interrupted con reason esplicito.
 function reconcileHistory(list) {
   let changed = false;
   const out = (list || []).map((a) => {
@@ -103,6 +100,7 @@ function formatAttempt(a) {
   const head = [
     `attemptId     ${a.attemptId}`,
     `tentativo     #${a.n}   stato ${statusLabel(a.status)}${a.reason ? ` (${a.reason})` : ''}`,
+    `sorgente      ${a.kind || '-'}`,
     `startedAt     ${a.startedAt}`,
     `updatedAt     ${a.updatedAt}`,
     `ultimo stage  ${a.lastStage || '-'}`,
@@ -110,7 +108,7 @@ function formatAttempt(a) {
     `error.message ${a.errorMessage || '-'}`,
     `memoryError   ${a.memoryError === null || a.memoryError === undefined ? '-' : a.memoryError}`,
     `profilo       ${a.profile || '-'}   deviceMemory ${a.deviceMemory ?? '-'}`,
-    `origBytes     ${a.origBytes ?? '-'}   orig ${a.origWidth ?? '-'}x${a.origHeight ?? '-'}`,
+    `capture       ${a.origWidth ?? '-'}x${a.origHeight ?? '-'}  (${a.origBytes ?? '-'} B in)`,
     `target        ${a.targetWidth ?? '-'}x${a.targetHeight ?? '-'}`,
     `finalBytes    ${a.finalBytes ?? '-'}   elapsed ${a.elapsedMs ?? '-'} ms`,
     '— stages —',
@@ -123,15 +121,15 @@ function formatAttempt(a) {
 }
 
 export function PodCapture({ campaignId, sessionId, assignmentId = null, accessToken = null, lastPosition, city = null, onUploaded }) {
-  const [stage, setStage] = useState('idle'); // idle | preparing | preview | uploading | error
+  const [stage, setStage] = useState('idle'); // idle | camera | preparing | preview | uploading | error
   const [error, setError] = useState(null);
+  const [cameraError, setCameraError] = useState(null); // fallback -> solo galleria
   const [previewUrl, setPreviewUrl] = useState(null);
   const [meta, setMeta] = useState(null);
   const [profileId, setProfileId] = useState(
     () => ((detectLowMemoryDevice() || readForcedLowMemory()) ? 'low' : 'default'),
   );
   const [memoryFailure, setMemoryFailure] = useState(false);
-  // Diagnostica multi-tentativo persistente (sessionStorage).
   const [history, setHistory] = useState(() => {
     const { out, changed } = reconcileHistory(loadHistory());
     if (changed) saveHistory(out);
@@ -139,26 +137,32 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
   });
   const [showPrev, setShowPrev] = useState(false);
 
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
   const finalBlobRef = useRef(null);
   const takenAtRef = useRef(null);
   const previewUrlRef = useRef(null);
   const busyRef = useRef(false);
   const profileRef = useRef(profileId);
   const stageLogRef = useRef([]);
-  const attemptRef = useRef(null); // tentativo corrente (=== history[0] finche' running)
+  const attemptRef = useRef(null);
   const t0Ref = useRef(0);
-  const cameraInputRef = useRef(null);
-  const fileInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
 
   profileRef.current = profileId;
 
-  // Riconciliazione anche dopo un rimonto vero e proprio (non solo initializer).
   useEffect(() => {
     const { out, changed } = reconcileHistory(loadHistory());
     if (changed) { saveHistory(out); setHistory(out); }
   }, []);
 
-  useEffect(() => () => { revokePreview(); finalBlobRef.current = null; }, []);
+  // Unmount: fotocamera spenta, nessuna object URL orfana.
+  useEffect(() => () => {
+    stopCameraStream(streamRef.current, videoRef.current);
+    streamRef.current = null;
+    revokePreview();
+    finalBlobRef.current = null;
+  }, []);
 
   function nowMs() {
     return typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -173,10 +177,11 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
     setHistory(trimmed);
   }
 
-  function startAttempt() {
+  function startAttempt(kind) {
     const attempt = {
       attemptId: newAttemptId(),
       n: nextAttemptSeq(),
+      kind, // 'camera' | 'gallery'
       startedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       status: 'running',
@@ -203,7 +208,6 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
     return attempt;
   }
 
-  // Registra uno stage e persiste SUBITO l'intero tentativo.
   function pushStage(name, extra) {
     const a = attemptRef.current;
     if (!a) return;
@@ -217,22 +221,18 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
     a.updatedAt = new Date().toISOString();
     if (name === 'preview_ready') a.reachedPreview = true;
 
-    const inp = stageLogRef.current.find((s) => s.stage === 'input_received');
-    const dims = stageLogRef.current.find((s) => s.stage === 'dimensions_read');
-    const bd = stageLogRef.current.find((s) => s.stage === 'blob_done');
-    if (inp) a.origBytes = inp.origBytes ?? a.origBytes;
-    if (dims) {
-      a.origWidth = dims.origWidth ?? a.origWidth;
-      a.origHeight = dims.origHeight ?? a.origHeight;
-      a.targetWidth = dims.targetWidth ?? a.targetWidth;
-      a.targetHeight = dims.targetHeight ?? a.targetHeight;
+    for (const s of stageLogRef.current) {
+      if (s.origBytes != null) a.origBytes = s.origBytes;
+      if (s.origWidth != null) a.origWidth = s.origWidth;
+      if (s.origHeight != null) a.origHeight = s.origHeight;
+      if (s.targetWidth != null) a.targetWidth = s.targetWidth;
+      if (s.targetHeight != null) a.targetHeight = s.targetHeight;
+      if (s.finalBytes != null) a.finalBytes = s.finalBytes;
     }
-    if (bd) a.finalBytes = bd.finalBytes ?? a.finalBytes;
 
     persistCurrent(a);
   }
 
-  // Marca il tentativo corrente: success | failed | interrupted.
   function finalizeAttempt(status, opts = {}) {
     const a = attemptRef.current;
     if (!a) return;
@@ -255,8 +255,7 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
     }
   }
 
-  // NON tocca la history / sessionStorage: la diagnostica sopravvive a
-  // errore, reset e distruzione dell'anteprima.
+  // NON tocca la history: la diagnostica sopravvive a errore, reset, teardown.
   function fullCleanup() {
     revokePreview();
     setPreviewUrl(null);
@@ -264,14 +263,19 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
     takenAtRef.current = null;
   }
 
+  function stopCamera() {
+    stopCameraStream(streamRef.current, videoRef.current);
+    streamRef.current = null;
+  }
+
   function resetToIdle() {
+    stopCamera();
     fullCleanup();
     setMeta(null);
     setError(null);
     setStage('idle');
     busyRef.current = false;
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (galleryInputRef.current) galleryInputRef.current.value = '';
   }
 
   function switchToLowMemory() {
@@ -280,7 +284,144 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
     persistForcedLowMemory();
   }
 
-  async function handleFileSelected(event) {
+  async function openCamera() {
+    if (busyRef.current) return;
+    setError(null);
+    setCameraError(null);
+    setMemoryFailure(false);
+    t0Ref.current = nowMs();
+    startAttempt('camera');
+    pushStage('camera_request', { profile: profileRef.current });
+    setStage('camera');
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw Object.assign(new Error('Fotocamera web non supportata su questo browser.'), { name: 'NotSupportedError' });
+      }
+      const stream = await navigator.mediaDevices.getUserMedia(POD_CAMERA_CONSTRAINTS);
+      streamRef.current = stream;
+      const v = videoRef.current;
+      if (v) {
+        v.srcObject = stream;
+        await v.play().catch(() => { /* autoplay puo' richiedere gesture: il frame arriva comunque */ });
+      }
+      const track = stream.getVideoTracks?.()[0];
+      const s = track?.getSettings?.() || {};
+      pushStage('camera_ready', {
+        width: s.width ?? v?.videoWidth ?? null,
+        height: s.height ?? v?.videoHeight ?? null,
+      });
+    } catch (err) {
+      stopCamera();
+      pushStage('camera_error', { name: err?.name || null, message: err?.message || String(err) });
+      finalizeAttempt('failed', { error: err, reason: 'camera_unavailable' });
+      setCameraError(
+        err?.name === 'NotAllowedError'
+          ? 'Permesso fotocamera negato. Abilita la fotocamera per il sito, oppure usa "Scegli dalla galleria".'
+          : 'Fotocamera web non disponibile su questo dispositivo. Usa "Scegli dalla galleria".',
+      );
+      setStage('error');
+    }
+  }
+
+  async function handleShutter() {
+    if (busyRef.current) return;
+    if (!attemptRef.current) startAttempt('camera');
+    busyRef.current = true;
+    setError(null);
+    setStage('preparing');
+
+    const profile = POD_MEMORY_PROFILES[profileRef.current] || POD_MEMORY_PROFILES.default;
+    let canvas = null;
+    try {
+      const v = videoRef.current;
+      pushStage('shutter', { vw: v?.videoWidth ?? null, vh: v?.videoHeight ?? null });
+
+      pushStage('frame_draw_start', { profile: profile.id });
+      const framed = captureVideoFrame(v, Math.min(profile.maxDimension, POD_CAMERA_MAX_DIMENSION));
+      canvas = framed.canvas;
+      pushStage('frame_draw_done', {
+        origWidth: framed.origWidth,
+        origHeight: framed.origHeight,
+        targetWidth: framed.width,
+        targetHeight: framed.height,
+      });
+
+      const takenAt = new Date().toISOString();
+
+      let geo = null;
+      if (lastPosition?.lat != null && lastPosition?.lng != null) {
+        geo = await reverseGeocode(lastPosition.lat, lastPosition.lng).catch(() => null);
+      }
+
+      pushStage('watermark_start');
+      drawPodWatermark(canvas, buildDeliveryWatermarkLines({
+        takenAt,
+        lat: lastPosition?.lat,
+        lng: lastPosition?.lng,
+        city,
+        street: geo?.street || null,
+        houseNumber: geo?.houseNumber || null,
+        geoCity: geo?.city || null,
+      }));
+      pushStage('watermark_done');
+
+      const finalW = canvas.width;
+      const finalH = canvas.height;
+
+      pushStage('blob_start', { quality: profile.quality });
+      const blob = await canvasToJpegBlob(canvas, profile.quality);
+      pushStage('blob_done', { finalBytes: blob.size, finalW, finalH });
+
+      pushStage('thumb_start');
+      const thumbBlob = await makeThumbnailBlob(canvas).catch(() => null);
+      pushStage('thumb_done', { thumbBytes: thumbBlob?.size ?? null });
+
+      releaseCanvas(canvas);
+      canvas = null;
+
+      // fotocamera spenta appena il frame e' catturato: niente stream vivo
+      // durante preview/upload.
+      stopCamera();
+      pushStage('tracks_stopped');
+
+      finalBlobRef.current = blob;
+      takenAtRef.current = takenAt;
+
+      revokePreview();
+      const url = URL.createObjectURL(thumbBlob || blob);
+      previewUrlRef.current = url;
+      setPreviewUrl(url);
+      setMeta({
+        origW: framed.origWidth,
+        origH: framed.origHeight,
+        finalW, finalH,
+        finalBytes: blob.size,
+        ms: Math.round(nowMs() - t0Ref.current),
+      });
+      pushStage('preview_ready');
+      setStage('preview');
+    } catch (err) {
+      const mem = isMemoryError(err);
+      finalizeAttempt('failed', { error: err, memoryError: mem });
+      if (canvas) releaseCanvas(canvas);
+      stopCamera();
+      fullCleanup();
+      if (mem) {
+        switchToLowMemory();
+        setMemoryFailure(true);
+        setError('Memoria insufficiente durante lo scatto. Riprova in modalita\' leggera.');
+      } else {
+        setError(err?.message || 'Scatto non riuscito. Riprova.');
+      }
+      setStage('error');
+    } finally {
+      busyRef.current = false;
+    }
+  }
+
+  // Fallback galleria: input file SENZA capture. L'immagine passa comunque da
+  // compressPodImage (decode-at-target), mai un full-res 12MP nel renderer.
+  async function handleGallerySelected(event) {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (busyRef.current) return;
@@ -288,15 +429,14 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
     t0Ref.current = nowMs();
 
     if (!file) {
-      // Item: errore/annullo PRIMA che la foto entri nella pipeline JS.
-      startAttempt();
+      startAttempt('gallery');
       finalizeAttempt('failed', {
         reason: 'camera_pre_js',
         lastStageOverride: 'camera_pre_js',
         memoryError: null,
         errorMessage: 'Errore avvenuto prima che la foto arrivasse alla pipeline JavaScript',
       });
-      setError('Nessuna foto ricevuta dalla fotocamera. Riprova.');
+      setError('Nessuna foto ricevuta. Riprova.');
       setStage('error');
       return;
     }
@@ -307,7 +447,7 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
     setStage('preparing');
 
     const profile = POD_MEMORY_PROFILES[profileRef.current] || POD_MEMORY_PROFILES.default;
-    startAttempt();
+    startAttempt('gallery');
     pushStage('input_received', { origBytes: file.size, type: file.type || null, profile: profile.id });
 
     let canvas = null;
@@ -375,7 +515,7 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
       if (mem) {
         switchToLowMemory();
         setMemoryFailure(true);
-        setError('Memoria del telefono insufficiente durante l\'elaborazione. Riprova in modalita\' leggera (foto piu\' piccola).');
+        setError('Memoria del telefono insufficiente durante l\'elaborazione. Riprova in modalita\' leggera.');
       } else {
         setError(err?.message || 'Foto non valida.');
       }
@@ -431,23 +571,22 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
   }
 
   const scattoDisabled = stage === 'preparing' || stage === 'uploading' || busyRef.current;
-  const profileLabel = profileRef.current === 'low' ? 'leggera (1280px)' : 'standard (1600px)';
+  const profileLabel = profileRef.current === 'low' ? 'leggera (max 1280px)' : 'standard (max 1600px)';
   const cur = history[0] || null;
 
   return (
     <section style={cardStyle}>
       <p style={eyebrowStyle}>Foto prova campagna</p>
 
-      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleFileSelected} />
-      <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileSelected} />
+      <input ref={galleryInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleGallerySelected} />
 
       {stage === 'idle' && (
         <div style={{ display: 'grid', gap: 10 }}>
           <div style={mutedStyle}>Data, ora, posizione e "GPS verificato" vengono aggiunti automaticamente alla foto.</div>
-          <div style={{ ...mutedStyle, fontSize: 11 }}>Modalita' foto: {profileLabel}</div>
+          <div style={{ ...mutedStyle, fontSize: 11 }}>Fotocamera web a bassa risoluzione · modalita' {profileLabel}</div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button type="button" style={primaryButtonStyle} disabled={scattoDisabled} onClick={() => cameraInputRef.current?.click()}>Scatta foto</button>
-            <button type="button" style={secondaryButtonStyle} disabled={scattoDisabled} onClick={() => fileInputRef.current?.click()}>Scegli dalla galleria</button>
+            <button type="button" style={primaryButtonStyle} disabled={scattoDisabled} onClick={openCamera}>Scatta foto</button>
+            <button type="button" style={secondaryButtonStyle} disabled={scattoDisabled} onClick={() => galleryInputRef.current?.click()}>Scegli dalla galleria</button>
           </div>
           {profileRef.current === 'low' && (
             <button type="button" style={linkButtonStyle} onClick={() => { profileRef.current = 'default'; setProfileId('default'); try { localStorage.removeItem(LOW_MEMORY_FLAG); } catch { /* ignore */ } }}>
@@ -457,15 +596,32 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
         </div>
       )}
 
+      {stage === 'camera' && (
+        <div style={{ display: 'grid', gap: 12 }}>
+          <video ref={videoRef} playsInline muted autoPlay style={videoStyle} />
+          <div style={mutedStyle}>Inquadra il punto di consegna, poi premi SCATTA.</div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button type="button" style={primaryButtonStyle} disabled={scattoDisabled} onClick={handleShutter}>SCATTA</button>
+            <button type="button" style={secondaryButtonStyle} onClick={resetToIdle}>Annulla</button>
+          </div>
+        </div>
+      )}
+
       {stage === 'preparing' && <div style={mutedStyle}>Elaborazione foto e watermark in corso ({profileLabel})...</div>}
 
       {stage === 'error' && (
         <div style={{ display: 'grid', gap: 10 }}>
-          <div style={errorStyle}>{error}</div>
+          <div style={errorStyle}>{cameraError || error}</div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {finalBlobRef.current && <button type="button" style={primaryButtonStyle} onClick={handleConfirm}>Riprova invio</button>}
+            {cameraError && (
+              <button type="button" style={primaryButtonStyle} onClick={() => galleryInputRef.current?.click()}>Scegli dalla galleria</button>
+            )}
+            {!cameraError && !finalBlobRef.current && (
+              <button type="button" style={primaryButtonStyle} onClick={openCamera}>Riprova fotocamera</button>
+            )}
             {(memoryFailure || profileRef.current === 'low') && !finalBlobRef.current && (
-              <button type="button" style={primaryButtonStyle} onClick={() => { switchToLowMemory(); resetToIdle(); cameraInputRef.current?.click(); }}>Riprova in modalita' leggera</button>
+              <button type="button" style={secondaryButtonStyle} onClick={() => { switchToLowMemory(); openCamera(); }}>Modalita' leggera</button>
             )}
             <button type="button" style={secondaryButtonStyle} onClick={resetToIdle}>Nuovo scatto</button>
           </div>
@@ -483,15 +639,13 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
           <div style={mutedStyle}>Controlla che il watermark sia leggibile, poi conferma. L'upload e' automatico.</div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button type="button" style={primaryButtonStyle} onClick={handleConfirm}>Conferma e invia</button>
-            <button type="button" style={secondaryButtonStyle} onClick={resetToIdle}>Riscatta</button>
+            <button type="button" style={secondaryButtonStyle} onClick={() => { resetToIdle(); openCamera(); }}>Riscatta</button>
           </div>
         </div>
       )}
 
       {stage === 'uploading' && <div style={mutedStyle}>Caricamento foto in corso...</div>}
 
-      {/* SEMPRE visibile finche' esiste almeno un tentativo in history:
-          anche a idle, anche dopo rimonto / reload del renderer. */}
       {cur && (
         <div style={lastDiagStyle}>
           <div style={lastDiagHeadStyle}>Ultima diagnostica foto</div>
@@ -535,6 +689,7 @@ const errorStyle = { padding: 12, borderRadius: 10, color: '#991b1b', background
 const primaryButtonStyle = { border: 'none', borderRadius: 10, padding: '12px 16px', background: '#e8571a', color: '#fff', fontWeight: 900, cursor: 'pointer' };
 const secondaryButtonStyle = { border: '1px solid #cbd5e1', borderRadius: 10, padding: '10px 14px', background: '#fff', color: '#17211f', fontWeight: 900, cursor: 'pointer', fontSize: 12 };
 const linkButtonStyle = { border: 'none', background: 'none', color: '#2563eb', fontSize: 12, textDecoration: 'underline', cursor: 'pointer', padding: 0 };
+const videoStyle = { width: '100%', maxHeight: 360, objectFit: 'contain', borderRadius: 10, border: '1px solid #e2e8f0', background: '#0b0f14' };
 const previewImgStyle = { width: '100%', maxHeight: 360, objectFit: 'contain', borderRadius: 10, border: '1px solid #e2e8f0', background: '#0b0f14' };
 const lastDiagStyle = { marginTop: 14, border: '1px solid #cbd5e1', borderRadius: 10, padding: 12, background: '#f8fafc', display: 'grid', gap: 8 };
 const lastDiagHeadStyle = { fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.1em', color: '#334155' };
