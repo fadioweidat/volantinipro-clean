@@ -165,12 +165,14 @@ export function formatWatermarkDateTime(takenAt) {
 }
 
 // Foto di consegna (proof_photos): nessuna colonna di indirizzo esiste per
-// questa tabella e non esiste geocodifica inversa nel progetto — mostrare le
-// coordinate reali (o "Indirizzo non disponibile" se anche il GPS manca) e'
-// l'unica opzione che non inventa mai una via/citta' (vedi ticket). `city` va
-// passato dal chiamante come il Comune REALE della zona/campagna attiva
-// (stessa fonte gia' usata per il confine mappa in DriverAssignmentPage.jsx,
-// mai un valore diverso). "GPS verificato" SOLO se lat/lng sono presenti.
+// questa tabella. `street`/`houseNumber`/`geoCity` arrivano da un reverse
+// geocoding NON bloccante e time-boxed (reverseGeocode in geocodeAddress.js,
+// Fase 4 del ticket): se presenti sono REALI (componenti della risposta
+// Nominatim), altrimenti si mostrano le coordinate reali (o "Indirizzo non
+// disponibile" se anche il GPS manca) — mai una via/citta' inventata. `city`
+// (Comune della zona/campagna attiva, source of truth interna, stessa fonte
+// del confine mappa in DriverAssignmentPage.jsx) ha comunque priorita' sul
+// `geoCity`. "GPS verificato" SOLO se lat/lng sono presenti e validi.
 // Un fix GPS valido richiede lat/lng realmente presenti e finiti; (0, 0) e'
 // il sentinel di "nessun fix" gia' trattato come non valido altrove nel
 // progetto — non e' una coordinata reale utile per una foto di consegna.
@@ -182,12 +184,18 @@ function hasRealGps(lat, lng) {
   return !(nlat === 0 && nlng === 0);
 }
 
-export function buildDeliveryWatermarkLines({ takenAt, lat, lng, city }) {
+export function buildDeliveryWatermarkLines({ takenAt, lat, lng, city, street, houseNumber, geoCity }) {
   const gps = hasRealGps(lat, lng);
+  // Via/civico dal reverse geocoding NON bloccante (Fase 4): usati SOLO se
+  // reali; altrimenti le coordinate reali, mai una via indovinata.
+  const addressLine = street ? `${street}${houseNumber ? ` ${houseNumber}` : ''}` : null;
+  // Comune: preferisci quello della zona/campagna (source of truth interna);
+  // se manca, quello del reverse geocoding; mai inventato.
+  const cityLine = city ? String(city) : (geoCity ? String(geoCity) : null);
   return [
     formatWatermarkDateTime(takenAt),
-    gps ? `${formatCoordinate(lat)}, ${formatCoordinate(lng)}` : 'Indirizzo non disponibile',
-    city ? String(city) : null,
+    addressLine || (gps ? `${formatCoordinate(lat)}, ${formatCoordinate(lng)}` : 'Indirizzo non disponibile'),
+    cityLine,
     gps ? 'GPS verificato' : null,
   ].filter(Boolean);
 }

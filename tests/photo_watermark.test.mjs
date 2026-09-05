@@ -17,8 +17,15 @@ import {
   buildIssueWatermarkLines,
   formatWatermarkDateTime,
 } from "../src/lib/pod/podPhotoProcessing.js";
+import { reverseGeocode } from "../src/lib/geo/geocodeAddress.js";
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+
+function withFetch(impl) {
+  const prev = globalThis.fetch;
+  globalThis.fetch = impl;
+  return () => { globalThis.fetch = prev; };
+}
 
 // ── formatWatermarkDateTime ──────────────────────────────────────────────
 test("formatWatermarkDateTime: formato '<g> <Mese> <aaaa> hh:mm:ss', mese abbreviato IT, giorno senza zero iniziale", () => {
@@ -56,6 +63,33 @@ test("buildDeliveryWatermarkLines: comune assente -> riga comune omessa, mai una
   assert.equal(lines.length, 3);
 });
 
+test("buildDeliveryWatermarkLines: FASE 4 — via/civico REALI dal reverse geocoding sostituiscono le coordinate; city interna ha priorita' su geoCity", () => {
+  const d = new Date(2026, 8, 5, 16, 20, 14);
+  const lines = buildDeliveryWatermarkLines({
+    takenAt: d.toISOString(), lat: 45.53, lng: 9.18,
+    city: "Milano", street: "Via Oroboni", houseNumber: "10", geoCity: "MILANO (geo)",
+  });
+  assert.deepEqual(lines, ["5 Set 2026 16:20:14", "Via Oroboni 10", "Milano", "GPS verificato"]);
+});
+
+test("buildDeliveryWatermarkLines: FASE 4 — reverse geocoding fallito (street/geoCity null) -> coordinate reali, upload non si ferma", () => {
+  const d = new Date(2026, 8, 5, 16, 20, 14);
+  const lines = buildDeliveryWatermarkLines({
+    takenAt: d.toISOString(), lat: 45.53, lng: 9.18, city: null,
+    street: null, houseNumber: null, geoCity: null,
+  });
+  assert.deepEqual(lines, ["5 Set 2026 16:20:14", "45.53000, 9.18000", "GPS verificato"]);
+});
+
+test("buildDeliveryWatermarkLines: FASE 4 — solo geoCity disponibile (nessun comune interno) -> usa geoCity, mai inventato", () => {
+  const d = new Date(2026, 8, 5, 16, 20, 14);
+  const lines = buildDeliveryWatermarkLines({
+    takenAt: d.toISOString(), lat: 45.53, lng: 9.18, city: null,
+    street: "Piazza Duomo", houseNumber: null, geoCity: "Milano",
+  });
+  assert.deepEqual(lines, ["5 Set 2026 16:20:14", "Piazza Duomo", "Milano", "GPS verificato"]);
+});
+
 test("buildDeliveryWatermarkLines: nessun campo digitato dal Driver (client/ddt/colli/esito/indirizzo NON accettati)", () => {
   const d = new Date(2026, 8, 5, 12, 34, 18);
   const lines = buildDeliveryWatermarkLines({
@@ -91,15 +125,64 @@ test("buildIssueWatermarkLines: civico assente -> solo via; via assente -> fallb
   );
 });
 
+// ── reverseGeocode: NON bloccante, fail-closed, mai un indirizzo inventato ──
+test("reverseGeocode: risposta valida -> {street, houseNumber, city} REALI dai componenti address", async () => {
+  const restore = withFetch(async () => ({
+    ok: true,
+    json: async () => ({ address: { road: "Via Oroboni", house_number: "10", city: "Milano" } }),
+  }));
+  try {
+    assert.deepEqual(await reverseGeocode(45.53, 9.18), { street: "Via Oroboni", houseNumber: "10", city: "Milano" });
+  } finally { restore(); }
+});
+
+test("reverseGeocode: HTTP non ok / errore rete / timeout -> null (fail-closed, il chiamante tiene le coordinate)", async () => {
+  let restore = withFetch(async () => ({ ok: false, status: 429, json: async () => ({}) }));
+  try { assert.equal(await reverseGeocode(45.53, 9.18), null); } finally { restore(); }
+  restore = withFetch(async () => { throw new Error("network down"); });
+  try { assert.equal(await reverseGeocode(45.53, 9.18), null); } finally { restore(); }
+  restore = withFetch(async () => { const e = new Error("aborted"); e.name = "AbortError"; throw e; });
+  try { assert.equal(await reverseGeocode(45.53, 9.18, { timeoutMs: 500 }), null); } finally { restore(); }
+});
+
+test("reverseGeocode: coordinate non valide o (0,0) -> null senza nemmeno chiamare la rete", async () => {
+  let called = false;
+  const restore = withFetch(async () => { called = true; return { ok: true, json: async () => ({}) }; });
+  try {
+    assert.equal(await reverseGeocode(null, 9.18), null);
+    assert.equal(await reverseGeocode(0, 0), null);
+    assert.equal(await reverseGeocode("x", "y"), null);
+    assert.equal(called, false);
+  } finally { restore(); }
+});
+
+test("reverseGeocode: risposta senza road e senza city -> null (nessuna euristica che indovina)", async () => {
+  const restore = withFetch(async () => ({ ok: true, json: async () => ({ address: { country: "Italia" } }) }));
+  try { assert.equal(await reverseGeocode(45.53, 9.18), null); } finally { restore(); }
+});
+
 // ── Wiring del capture flow: watermark BURNATO prima dell'upload ─────────
 test("PodCapture.jsx: watermark automatico (buildDeliveryWatermarkLines) burnato sul canvas, poi upload del blob watermarkato", () => {
   const src = read("src/components/driver/PodCapture.jsx");
-  assert.match(src, /buildDeliveryWatermarkLines\(\{\s*\n\s*takenAt,\s*\n\s*lat: lastPosition\?\.lat,\s*\n\s*lng: lastPosition\?\.lng,\s*\n\s*city,/);
+  assert.match(src, /buildDeliveryWatermarkLines\(\{/);
   assert.match(src, /drawPodWatermark\(canvasRef\.current, watermarkLines\)/);
   assert.match(src, /const finalBlob = await canvasToJpegBlob\(canvasRef\.current\)/);
   assert.match(src, /blob: finalBlob/);
   // Nessun campo del form finisce piu' nei pixel della foto.
   assert.doesNotMatch(src, /buildPodWatermarkLines/);
+});
+
+test("PodCapture.jsx: FASE 4 — reverse geocoding NON bloccante prima del watermark, .catch(() => null), l'upload prosegue in ogni caso", () => {
+  const src = read("src/components/driver/PodCapture.jsx");
+  assert.match(src, /import \{ reverseGeocode \} from '\.\.\/\.\.\/lib\/geo\/geocodeAddress\.js'/);
+  assert.match(src, /geo = await reverseGeocode\(lastPosition\.lat, lastPosition\.lng\)\.catch\(\(\) => null\)/);
+  assert.match(src, /street: geo\?\.street \|\| null/);
+  assert.match(src, /geoCity: geo\?\.city \|\| null/);
+  // La chiamata reverseGeocode e' PRIMA di drawPodWatermark / uploadProofPhoto,
+  // ma non lancia mai e non blocca oltre il suo timeout interno.
+  const geoIdx = src.indexOf("await reverseGeocode(");
+  const uploadIdx = src.indexOf("await uploadProofPhoto(");
+  assert.ok(geoIdx > 0 && uploadIdx > geoIdx);
 });
 
 test("DriverAssignmentPage.jsx: foto di verifica segnalazione watermarkate (buildIssueWatermarkLines) prima dell'upload, con dati reali della issue", () => {

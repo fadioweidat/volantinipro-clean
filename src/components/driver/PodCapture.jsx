@@ -9,6 +9,7 @@ import {
   validatePodImageFile,
 } from '../../lib/pod/podPhotoProcessing.js';
 import { uploadProofPhoto } from '../../lib/services/gps-api.js';
+import { reverseGeocode } from '../../lib/geo/geocodeAddress.js';
 
 const initialForm = { client: '', address: '', ddt: '', colli: '', outcome: 'consegnato', note: '' };
 
@@ -66,11 +67,23 @@ export function PodCapture({ campaignId, sessionId, lastPosition, driverName, ci
     setError(null);
     try {
       const takenAt = new Date().toISOString();
+      // Fase 4: reverse geocoding NON bloccante e time-boxed. Se risponde in
+      // tempo con dati REALI -> via/civico/comune nel watermark; altrimenti
+      // (timeout, 429, offline, risposta incompleta) -> null e si ripiega
+      // sulle coordinate reali. L'upload prosegue in ogni caso: reverseGeocode
+      // non lancia mai e non attende oltre il suo timeout interno.
+      let geo = null;
+      if (lastPosition?.lat != null && lastPosition?.lng != null) {
+        geo = await reverseGeocode(lastPosition.lat, lastPosition.lng).catch(() => null);
+      }
       const watermarkLines = buildDeliveryWatermarkLines({
         takenAt,
         lat: lastPosition?.lat,
         lng: lastPosition?.lng,
         city,
+        street: geo?.street || null,
+        houseNumber: geo?.houseNumber || null,
+        geoCity: geo?.city || null,
       });
       drawPodWatermark(canvasRef.current, watermarkLines);
       const finalBlob = await canvasToJpegBlob(canvasRef.current);
