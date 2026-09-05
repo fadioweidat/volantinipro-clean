@@ -1,6 +1,6 @@
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, Polygon, useMap } from 'react-leaflet';
+import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, Polygon, Pane, Tooltip, useMap } from 'react-leaflet';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
@@ -20,6 +20,7 @@ export function CampaignTracking({ campaignId }) {
   const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], photos: [], campaign: null });
   const [adjustments, setAdjustments] = useState([]);
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [selectedZoneId, setSelectedZoneId] = useState(null);
   const zoneProgress = useZoneProgress({ campaignId });
   // Stesso hook condiviso di Admin/GpsMonitor.jsx: stesso confine reale del
   // comune (resolveMunicipalityBoundary, identico alla Driver App), nessuna
@@ -127,6 +128,21 @@ export function CampaignTracking({ campaignId }) {
         @media (max-width: 480px) { .vp-tracking-kpi-grid { grid-template-columns: 1fr; } }
         .vp-tracking-two-col { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
         @media (max-width: 760px) { .vp-tracking-two-col { grid-template-columns: 1fr; } }
+        .vp-nil-map-label {
+          background: rgba(15, 23, 42, 0.88) !important;
+          border: 1px solid rgba(232, 87, 26, 0.7) !important;
+          color: #ffffff !important;
+          font-family: inherit !important;
+          font-size: 11px !important;
+          font-weight: 700 !important;
+          padding: 2px 6px !important;
+          border-radius: 4px !important;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+          pointer-events: none !important;
+        }
+        .vp-nil-map-label::before {
+          display: none !important;
+        }
       `}</style>
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
         <header style={{ marginBottom: 22 }}>
@@ -172,7 +188,14 @@ export function CampaignTracking({ campaignId }) {
           <Metric label="Foto approvate" value={state.photos.length} color={C.blue} />
         </div>
 
-        {state.campaign && <AuthorizedZoneProgress zoneProgress={zoneProgress} finalCoverage={state.finalCoverage} />}
+        {state.campaign && (
+          <AuthorizedZoneProgress
+            zoneProgress={zoneProgress}
+            finalCoverage={state.finalCoverage}
+            selectedZoneId={selectedZoneId}
+            onSelectZone={(zoneId) => setSelectedZoneId((curr) => (curr === zoneId ? null : zoneId))}
+          />
+        )}
 
         <section style={{ ...cardStyle, marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
@@ -190,6 +213,8 @@ export function CampaignTracking({ campaignId }) {
                 latestPoint={latestPoint}
                 finalCoverage={state.finalCoverage}
                 mapRef={mapRef}
+                selectedZoneId={selectedZoneId}
+                onSelectZone={(zoneId) => setSelectedZoneId((curr) => (curr === zoneId ? null : zoneId))}
               />
               <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
                 <button onClick={handleReturnToArea} disabled={!liveZones[0]?.geometry} style={mapActionButtonStyle(!liveZones[0]?.geometry)}>⟲ Torna all'area</button>
@@ -247,7 +272,7 @@ export function CampaignTracking({ campaignId }) {
   );
 }
 
-function AuthorizedZoneProgress({ zoneProgress, finalCoverage }) {
+function AuthorizedZoneProgress({ zoneProgress, finalCoverage, selectedZoneId = null, onSelectZone = null }) {
   // Sincronizzazione source-of-truth: se calculate_campaign_final_coverage ha
   // una percentuale calcolata, viene usata in caso di mancata sync della cache zona
   const syncedZones = useMemo(() => {
@@ -262,17 +287,21 @@ function AuthorizedZoneProgress({ zoneProgress, finalCoverage }) {
     return rawZones;
   }, [zoneProgress.zones, finalCoverage]);
 
-  return <div style={{ marginBottom: 16 }}>
-    <ZoneProgressPanel
-      zones={syncedZones}
-      loading={zoneProgress.loading}
-      refreshing={zoneProgress.refreshing}
-      error={zoneProgress.error}
-      notice={zoneProgress.notice}
-      onRefresh={zoneProgress.refresh}
-      theme="dark"
-    />
-  </div>;
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <ZoneProgressPanel
+        zones={syncedZones}
+        loading={zoneProgress.loading}
+        refreshing={zoneProgress.refreshing}
+        error={zoneProgress.error}
+        notice={zoneProgress.notice}
+        selectedZoneId={selectedZoneId}
+        onSelectZone={onSelectZone}
+        onRefresh={zoneProgress.refresh}
+        theme="dark"
+      />
+    </div>
+  );
 }
 
 const ADJUSTMENT_COLORS = {
@@ -287,11 +316,25 @@ function polygonGeoJsonToLatLngs(geometry) {
   return ring.map(([lng, lat]) => [lat, lng]);
 }
 
-// Il Cliente vede la COPERTURA VERIFICATA finale
+// Il Cliente vede i POLIGONI NIL / ZONE, la COPERTURA VERIFICATA finale
 // (calculate_campaign_final_coverage.final_coverage_geometry) e i PUNTI GPS
 // REALI (singoli dots, MAI linee continue o percorsi artificiali).
-function TrackingMap({ zones = [], points = [], latestPoint = null, finalCoverage = null, mapRef }) {
+function TrackingMap({
+  zones = [],
+  points = [],
+  latestPoint = null,
+  finalCoverage = null,
+  mapRef,
+  selectedZoneId = null,
+  onSelectZone = null,
+}) {
+  const selectedZone = useMemo(() => zones.find((z) => z.campaign_zone_id === selectedZoneId), [zones, selectedZoneId]);
   const zoneWithGeometry = useMemo(() => zones.find((zone) => zone.geometry), [zones]);
+  const activeFocusGeometry = useMemo(() => {
+    if (selectedZone?.geometry) return selectedZone.geometry;
+    return zoneWithGeometry?.geometry || null;
+  }, [selectedZone, zoneWithGeometry]);
+
   const coveragePositions = useMemo(
     () => (finalCoverage?.final_coverage_geometry
       ? geoJsonPolygonToLeafletPositions(finalCoverage.final_coverage_geometry)
@@ -312,6 +355,10 @@ function TrackingMap({ zones = [], points = [], latestPoint = null, finalCoverag
   }, [points]);
 
   const center = useMemo(() => {
+    if (selectedZone?.geometry) {
+      const c = getMunicipalityCenterPoint(selectedZone.geometry);
+      if (c) return [c.lat, c.lng];
+    }
     if (latestPoint && Number.isFinite(Number(latestPoint.lat))) {
       return [Number(latestPoint.lat), Number(latestPoint.lng)];
     }
@@ -327,53 +374,117 @@ function TrackingMap({ zones = [], points = [], latestPoint = null, finalCoverag
       return [validGpsPoints[0].lat, validGpsPoints[0].lng];
     }
     return [45.4642, 9.1900];
-  }, [zoneWithGeometry, latestPoint, validGpsPoints]);
+  }, [selectedZone, zoneWithGeometry, latestPoint, validGpsPoints]);
 
   return (
     <div style={{ height: 460, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)' }}>
       <MapContainer ref={mapRef} center={center} zoom={15} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
         <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        {zoneWithGeometry && <FitToZoneBounds geometry={zoneWithGeometry.geometry} />}
-        {/* Contorno neutro delle zone assegnate */}
+
+        {/* Layer Panes configurati con z-index espliciti */}
+        <Pane name="nilPane" style={{ zIndex: 400 }} />
+        <Pane name="coveragePane" style={{ zIndex: 450 }} />
+        <Pane name="gpsPointsPane" style={{ zIndex: 500 }} />
+        <Pane name="gpsLivePane" style={{ zIndex: 550 }} />
+
+        {activeFocusGeometry && <FitToZoneBounds geometry={activeFocusGeometry} />}
+
+        {/* Poligoni NIL / Zone individuali */}
         {zones.map((zone) => {
           if (!zone.geometry || !zone.geometry.coordinates) return null;
           let coords = [];
           if (zone.geometry.type === 'Polygon') {
-            coords = zone.geometry.coordinates.map(ring => ring.map(p => [p[1], p[0]]));
+            coords = zone.geometry.coordinates.map((ring) => ring.map((p) => [p[1], p[0]]));
           } else if (zone.geometry.type === 'MultiPolygon') {
-            coords = zone.geometry.coordinates.map(poly => poly.map(ring => ring.map(p => [p[1], p[0]])));
+            coords = zone.geometry.coordinates.map((poly) => poly.map((ring) => ring.map((p) => [p[1], p[0]])));
           }
           if (!coords.length) return null;
+
+          const isSelected = selectedZoneId === zone.campaign_zone_id;
+          const pathOptions = isSelected
+            ? {
+                color: '#e8571a',
+                weight: 3.5,
+                fillColor: '#e8571a',
+                fillOpacity: 0.35,
+              }
+            : {
+                color: '#e8571a',
+                weight: 2,
+                fillColor: '#e8571a',
+                fillOpacity: 0.12,
+              };
+
           return (
-            <Polygon key={zone.campaign_zone_id} positions={coords}
-              pathOptions={{ color: '#e8571a', weight: 2, fillColor: '#e8571a', fillOpacity: 0.05, dashArray: '4 4' }}>
-              <Popup><strong>{zone.zone_name}</strong></Popup>
+            <Polygon
+              key={zone.campaign_zone_id}
+              positions={coords}
+              pane="nilPane"
+              pathOptions={pathOptions}
+              eventHandlers={{
+                click: () => onSelectZone?.(isSelected ? null : zone.campaign_zone_id),
+              }}
+            >
+              <Tooltip permanent direction="center" className="vp-nil-map-label">
+                <span>{zone.zone_name}</span>
+              </Tooltip>
+              <Popup>
+                <div style={{ fontFamily: F.sans, fontSize: 13, minWidth: 160 }}>
+                  <strong style={{ fontSize: 14, color: '#0f172a', display: 'block', marginBottom: 4 }}>
+                    {zone.zone_name}
+                  </strong>
+                  {zone.address_label && (
+                    <p style={{ margin: '2px 0 6px', color: '#64748b', fontSize: 12 }}>
+                      {zone.address_label}
+                    </p>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginTop: 4 }}>
+                    <span style={{ color: '#334155' }}>Copertura:</span>
+                    <strong style={{ color: '#16a34a' }}>
+                      {zone.effective_percent != null ? `${Number(zone.effective_percent).toFixed(1)}%` : '0%'}
+                    </strong>
+                  </div>
+                  {zone.target_quantity != null && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 12, color: '#64748b', marginTop: 3 }}>
+                      <span>Volantini:</span>
+                      <strong>{zone.completed_quantity || 0} / {zone.target_quantity}</strong>
+                    </div>
+                  )}
+                </div>
+              </Popup>
             </Polygon>
           );
         })}
+
         {/* COPERTURA VERIFICATA — geometria unica */}
         {coveragePositions.length > 0 && (
-          <Polygon positions={coveragePositions} pathOptions={VERIFIED_COVERAGE_STYLE}>
-            <Popup>Copertura verificata{finalCoverage?.final_operational_coverage_pct != null
-              ? `: ${finalCoverage.final_operational_coverage_pct}%` : ''}</Popup>
+          <Polygon positions={coveragePositions} pane="coveragePane" pathOptions={VERIFIED_COVERAGE_STYLE}>
+            <Popup>
+              Copertura verificata{finalCoverage?.final_operational_coverage_pct != null
+                ? `: ${finalCoverage.final_operational_coverage_pct}%` : ''}
+            </Popup>
           </Polygon>
         )}
+
         {/* PUNTI GPS REALI: singoli dots che mostrano i passaggi effettivi (NIENTE polyline) */}
         {validGpsPoints.map((pt, idx) => (
           <CircleMarker
             key={pt.id || `pt-${idx}`}
             center={[pt.lat, pt.lng]}
             radius={3}
+            pane="gpsPointsPane"
             pathOptions={{ color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 0.75, weight: 1 }}
           >
             <Popup>Punto GPS rilevato<br />{formatDateTime(pt.recorded_at)}</Popup>
           </CircleMarker>
         ))}
+
         {/* Ultima posizione rilevata */}
         {latestPoint && (
           <CircleMarker
             center={[Number(latestPoint.lat), Number(latestPoint.lng)]}
             radius={7}
+            pane="gpsLivePane"
             pathOptions={{ color: '#10b981', fillColor: '#34d399', fillOpacity: 0.95, weight: 2 }}
           >
             <Popup>Ultima posizione registrata<br />{formatDateTime(latestPoint.recorded_at || latestPoint.created_at)}</Popup>
@@ -381,6 +492,7 @@ function TrackingMap({ zones = [], points = [], latestPoint = null, finalCoverag
         )}
       </MapContainer>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, padding: '8px 10px', fontSize: 11, color: 'rgba(255,255,255,.7)', background: C.navyMid }}>
+        <LegendItem color="#e8571a" label="Confini Zone / NIL" />
         <LegendItem color={VERIFIED_COVERAGE_STYLE.color} label="Copertura verificata" />
         <LegendItem color="#3b82f6" label="Punti GPS rilevati" />
         <LegendItem color="#34d399" label="Ultima posizione" />

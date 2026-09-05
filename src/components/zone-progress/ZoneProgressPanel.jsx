@@ -15,6 +15,8 @@ export function ZoneProgressPanel({
   notice = '',
   isAdmin = false,
   mutatingZoneId = null,
+  selectedZoneId = null,
+  onSelectZone = null,
   onRefresh,
   onSetManual,
   onClearManual,
@@ -83,11 +85,35 @@ export function ZoneProgressPanel({
             const draft = drafts[zone.campaign_zone_id] || { percent: '', reason: '' };
             const busy = mutatingZoneId === zone.campaign_zone_id;
             const mutationBusy = Boolean(mutatingZoneId);
+            const isSelected = selectedZoneId === zone.campaign_zone_id;
+            const cardSelectedStyle = isSelected
+              ? {
+                  borderColor: theme === 'dark' ? '#e8571a' : '#e8571a',
+                  background: theme === 'dark' ? 'rgba(232,87,26,.08)' : '#fff7ed',
+                  boxShadow: '0 0 0 2px #e8571a, 0 8px 20px rgba(232,87,26,.12)',
+                }
+              : {};
             return (
-              <article key={zone.campaign_zone_id} style={t.zoneCardStyle}>
+              <article
+                key={zone.campaign_zone_id}
+                style={{
+                  ...t.zoneCardStyle,
+                  ...cardSelectedStyle,
+                  cursor: onSelectZone ? 'pointer' : 'default',
+                  transition: 'all .18s ease-in-out',
+                }}
+                onClick={() => onSelectZone?.(isSelected ? null : zone.campaign_zone_id)}
+              >
                 <div style={t.zoneHeaderStyle}>
                   <div>
-                    <strong style={t.zoneTitleStyle}>{zone.zone_name || 'Zona campagna'}</strong>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <strong style={t.zoneTitleStyle}>{zone.zone_name || 'Zona campagna'}</strong>
+                      {isSelected && (
+                        <span style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', padding: '2px 7px', borderRadius: 999, background: '#e8571a', color: '#fff' }}>
+                          Mappa attiva
+                        </span>
+                      )}
+                    </div>
                     {zone.address_label ? <p style={t.addressStyle}>{zone.address_label}</p> : null}
                   </div>
                   <span style={t.percentBadgeStyle}>{formatPercent(zone.effective_percent)}</span>
