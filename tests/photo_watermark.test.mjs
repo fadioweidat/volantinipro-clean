@@ -386,62 +386,96 @@ test("ANDROID — gps-api uploadProofPhoto: accetta onStage e riporta storage/rp
   assert.doesNotMatch(api, /report\([^)]*storagePath/);
 });
 
-// ── TICKET — DIAGNOSTICA FOTO NON VISIBILE NELLA DRIVER APP REALE ───────
-test("DIAGNOSTICA — persiste in sessionStorage, sopravvive a rimonto / reload del renderer", () => {
+// ── TICKET — CATTURARE DIAGNOSTICA DI UN TENTATIVO FALLITO (intermittente) ──
+test("DIAGNOSTICA — history multi-tentativo in sessionStorage, attemptId univoco, N progressivo", () => {
   const src = read("src/components/driver/PodCapture.jsx");
-  assert.match(src, /const DIAG_KEY = 'pod_photo_last_diagnostic'/);
-  assert.match(src, /function loadLastDiagnostic\(\)[\s\S]{0,200}sessionStorage\.getItem\(DIAG_KEY\)/);
-  assert.match(src, /function saveLastDiagnostic\(diag\)[\s\S]{0,200}sessionStorage\.setItem\(DIAG_KEY/);
-  // stato inizializzato dalla diagnostica salvata (sopravvive al rimonto)
-  assert.match(src, /useState\(\(\) => loadLastDiagnostic\(\)\)/);
-  // ogni stage viene persistito SUBITO (se il renderer muore ora, l'ultimo
-  // stage senza *_done e' il punto di rottura)
-  const push = src.slice(src.indexOf("function pushStage"));
-  assert.match(push.slice(0, 400), /saveLastDiagnostic\(diag\)/);
+  assert.match(src, /const HISTORY_KEY = 'pod_photo_diagnostic_history'/);
+  assert.match(src, /const MAX_ATTEMPTS = 5/);
+  assert.match(src, /function loadHistory\(\)[\s\S]{0,200}sessionStorage\.getItem\(HISTORY_KEY\)/);
+  assert.match(src, /function saveHistory\(list\)[\s\S]{0,200}sessionStorage\.setItem\(HISTORY_KEY, JSON\.stringify\(list\.slice\(0, MAX_ATTEMPTS\)\)\)/);
+  assert.match(src, /function newAttemptId\(\)/);
+  assert.match(src, /function nextAttemptSeq\(\)/);
+  // ogni scatto = nuova attempt session
+  assert.match(src, /function startAttempt\(\)/);
+  assert.match(src, /attemptId: newAttemptId\(\)/);
+  assert.match(src, /n: nextAttemptSeq\(\)/);
+  assert.match(src, /status: 'running'/);
 });
 
-test("DIAGNOSTICA — NON cancellata da fullCleanup / resetToIdle / reset input / distruzione preview", () => {
+test("DIAGNOSTICA — persist dopo OGNI stage; il tentativo nuovo NON sovrascrive il precedente (unshift + slice 5)", () => {
+  const src = read("src/components/driver/PodCapture.jsx");
+  const push = src.slice(src.indexOf("function pushStage"), src.indexOf("function finalizeAttempt"));
+  assert.match(push, /persistCurrent\(a\)/);
+  const persist = src.slice(src.indexOf("function persistCurrent"), src.indexOf("function startAttempt"));
+  assert.match(persist, /list\.unshift\(\{ \.\.\.a \}\)/);
+  assert.match(persist, /list\.slice\(0, MAX_ATTEMPTS\)/);
+  // finalize marca il tentativo: success | failed | interrupted
+  const fin = src.slice(src.indexOf("function finalizeAttempt"));
+  assert.match(fin.slice(0, 600), /a\.status = status/);
+  assert.match(src, /finalizeAttempt\('success'\)/);
+  assert.match(src, /finalizeAttempt\('failed', \{ error: err/);
+});
+
+test("DIAGNOSTICA — history NON cancellata da fullCleanup / resetToIdle / reset input / preview teardown", () => {
   const src = read("src/components/driver/PodCapture.jsx");
   const cleanup = src.slice(src.indexOf("function fullCleanup"), src.indexOf("function resetToIdle"));
-  assert.doesNotMatch(cleanup, /setLastDiagnostic|DIAG_KEY|removeItem/);
+  assert.doesNotMatch(cleanup, /setHistory|saveHistory|HISTORY_KEY|removeItem/);
   const reset = src.slice(src.indexOf("function resetToIdle"), src.indexOf("function switchToLowMemory"));
-  assert.doesNotMatch(reset, /setLastDiagnostic|DIAG_KEY|removeItem/);
-  // l'unmount cleanup non tocca la diagnostica
+  assert.doesNotMatch(reset, /setHistory|saveHistory|HISTORY_KEY|removeItem/);
   assert.match(src, /useEffect\(\(\) => \(\) => \{ revokePreview\(\); finalBlobRef\.current = null; \}, \[\]\)/);
 });
 
-test("DIAGNOSTICA — 'Ultima diagnostica foto' + 'ULTIMO STAGE' + 'Copia diagnostica' SEMPRE sotto la card, anche a idle", () => {
+test("DIAGNOSTICA — 'Ultima diagnostica foto': Tentativo #N, Stato, ULTIMO STAGE, Copia diagnostica, Mostra tentativi precedenti; SEMPRE fuori dai rami di stage", () => {
   const src = read("src/components/driver/PodCapture.jsx");
-  // il blocco NON e' dentro un ramo stage === '...' : e' condizionato solo a lastDiagnostic
-  assert.match(src, /\{lastDiagnostic && \(\s*\n\s*<div style=\{lastDiagStyle\}>/);
+  assert.match(src, /\{cur && \(\s*\n\s*<div style=\{lastDiagStyle\}>/);
   assert.match(src, /Ultima diagnostica foto/);
-  assert.match(src, /ULTIMO STAGE: \{lastDiagnostic\.lastStage/);
-  assert.match(src, /onClick=\{copyLastDiagnostic\}>Copia diagnostica</);
-  // il blocco diagnostica compare DOPO la chiusura dei rami di stage
+  assert.match(src, /Tentativo #\{cur\.n\} · \{statusLabel\(cur\.status\)\}/);
+  assert.match(src, /ULTIMO STAGE: \{cur\.lastStage/);
+  assert.match(src, /onClick=\{\(\) => copyAttempt\(cur\)\}>Copia diagnostica</);
+  assert.match(src, /Mostra tentativi precedenti/);
+  assert.match(src, /history\.slice\(1\)\.map\(\(a\) =>/);
+  assert.match(src, /function statusLabel\(status\)[\s\S]{0,300}'INTERRUPTED'/);
   const idxUploading = src.indexOf("stage === 'uploading'");
-  const idxDiag = src.indexOf("{lastDiagnostic && (");
+  const idxDiag = src.indexOf("{cur && (");
   assert.ok(idxDiag > idxUploading, "il blocco diagnostica va reso fuori dai rami di stage");
 });
 
-test("DIAGNOSTICA — errore PRIMA di input_received -> stage 'camera_pre_js' + messaggio esplicito", () => {
+test("DIAGNOSTICA — errore PRIMA di input_received -> attempt failed, stage 'camera_pre_js', messaggio esplicito", () => {
   const src = read("src/components/driver/PodCapture.jsx");
-  assert.match(src, /if \(!file\) \{[\s\S]{0,600}lastStageOverride: 'camera_pre_js'/);
+  assert.match(src, /if \(!file\) \{[\s\S]{0,600}startAttempt\(\);[\s\S]{0,400}lastStageOverride: 'camera_pre_js'/);
+  assert.match(src, /reason: 'camera_pre_js'/);
   assert.match(src, /Errore avvenuto prima che la foto arrivasse alla pipeline JavaScript/);
-  assert.match(src, /beforePipeline: true/);
 });
 
-test("DIAGNOSTICA — al mount, diagnostica non finalized -> promossa a 'interrotto' (probabile OOM renderer)", () => {
+test("DIAGNOSTICA — al mount, ogni tentativo 'running' -> interrupted / reason=renderer_reload_or_oom", () => {
   const src = read("src/components/driver/PodCapture.jsx");
-  assert.match(src, /if \(d && !d\.finalized\) \{/);
-  assert.match(src, /interrupted: true/);
-  assert.match(src, /probabile esaurimento memoria del renderer/i);
+  assert.match(src, /function reconcileHistory\(list\)/);
+  assert.match(src, /a\.status === 'running'/);
+  assert.match(src, /status: 'interrupted'/);
+  assert.match(src, /reason: 'renderer_reload_or_oom'/);
+  // riconciliazione sia nell'initializer di stato sia in un useEffect (rimonto)
+  assert.match(src, /useState\(\(\) => \{\s*\n\s*const \{ out, changed \} = reconcileHistory\(loadHistory\(\)\)/);
+  assert.match(src, /useEffect\(\(\) => \{\s*\n\s*const \{ out, changed \} = reconcileHistory\(loadHistory\(\)\)/);
 });
 
-test("DIAGNOSTICA — campi minimi richiesti presenti nell'oggetto diagnostica", () => {
+test("DIAGNOSTICA — l'oggetto tentativo porta i campi minimi richiesti dal ticket", () => {
   const src = read("src/components/driver/PodCapture.jsx");
-  for (const field of ["lastStage", "errorName", "errorMessage", "memoryError", "origBytes", "origWidth", "origHeight", "targetWidth", "targetHeight", "finalBytes", "elapsedMs", "timestamp"]) {
-    assert.match(src, new RegExp(`${field}:`), `manca il campo diagnostica ${field}`);
+  for (const field of ["attemptId", "startedAt", "updatedAt", "lastStage", "elapsedMs", "origBytes", "origWidth", "origHeight", "targetWidth", "targetHeight", "finalBytes", "errorName", "errorMessage", "memoryError"]) {
+    assert.match(src, new RegExp(`${field}:`), `manca il campo tentativo ${field}`);
   }
+  // stages array per tentativo
+  assert.match(src, /a\.stages = stageLogRef\.current/);
+});
+
+test("DIAGNOSTICA — NON tocca resize / watermark / upload / GPS (solo layer diagnostico)", () => {
+  const src = read("src/components/driver/PodCapture.jsx");
+  // pipeline invariata: stessi call-site di compressione, watermark, blob, upload
+  assert.match(src, /const compressed = await compressPodImage\(file, \{ maxDimension: profile\.maxDimension, onStage: pushStage \}\)/);
+  assert.match(src, /drawPodWatermark\(canvas, buildDeliveryWatermarkLines\(\{/);
+  assert.match(src, /const blob = await canvasToJpegBlob\(canvas, profile\.quality\)/);
+  assert.match(src, /await uploadProofPhoto\(\{/);
+  // reverseGeocode invariato, non bloccante
+  assert.match(src, /geo = await reverseGeocode\(lastPosition\.lat, lastPosition\.lng\)\.catch\(\(\) => null\)/);
 });
 
 // ── DO NOT BREAK: watermark POD/DDT esistente e nota non toccati ─────────
