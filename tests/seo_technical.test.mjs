@@ -53,13 +53,29 @@ test("index.html: title/description/canonical/OG/Twitter/JSON-LD statici present
   assert.match(src, /<meta property="og:url" content="https:\/\/www\.volantinipro\.it\/" \/>/);
   assert.match(src, /<meta name="twitter:card" content="summary" \/>/);
   assert.match(src, /<link rel="manifest" href="\/manifest\.webmanifest" \/>/);
-  const jsonLdBlocks = [...src.matchAll(/<script type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/g)].map((m) => JSON.parse(m[1]));
+  const jsonLdBlocks = [...src.matchAll(/<script type="application\/ld\+json"[^>]*>\s*([\s\S]*?)\s*<\/script>/g)].map((m) => JSON.parse(m[1]));
   assert.ok(jsonLdBlocks.some((b) => b["@type"] === "Organization" && b.name === "VolantiniPro" && b.url === "https://www.volantinipro.it/" && b.email === "info@volantinipro.it"), "manca JSON-LD Organization statico coerente");
   assert.ok(jsonLdBlocks.some((b) => b["@type"] === "WebSite" && b.url === "https://www.volantinipro.it/"), "manca JSON-LD WebSite statico");
   for (const block of jsonLdBlocks) assert.equal(block["@context"], "https://schema.org");
   // Nessun indirizzo fisico inventato (FASE 5: "NON inventare indirizzo fisico").
   assert.doesNotMatch(src, /"address"\s*:/);
   assert.doesNotMatch(src, /LocalBusiness/);
+});
+
+// TICKET — GOOGLE SEARCH CONSOLE READINESS: bug reale trovato in audit live
+// (homepage produzione mostrava Organization/WebSite DUPLICATI: uno statico
+// da index.html, uno iniettato da SeoMeta.jsx via useEffect, perché non
+// condividevano lo stesso marker data-seo-jsonld e setJsonLd() non poteva
+// trovare/riusare quello statico). Fix: stesso attributo su entrambi i lati
+// -> SeoMeta.jsx aggiorna in place l'elemento statico invece di duplicarlo.
+test("index.html: gli script JSON-LD statici (organization/website) portano lo stesso data-seo-jsonld usato da SeoMeta.jsx, per evitare duplicati a runtime", () => {
+  const src = read("index.html");
+  assert.match(src, /<script type="application\/ld\+json" data-seo-jsonld="organization">/);
+  assert.match(src, /<script type="application\/ld\+json" data-seo-jsonld="website">/);
+  const seoMetaSrc = read("src/layouts/public/SeoMeta.jsx");
+  assert.match(seoMetaSrc, /setJsonLd\("organization"/);
+  assert.match(seoMetaSrc, /setJsonLd\("website"/);
+  assert.match(seoMetaSrc, /querySelector\(`script\[data-seo-jsonld="\$\{id\}"\]`\)/);
 });
 
 test("manifest.webmanifest: valido, referenzia solo icone realmente presenti in public/", () => {
