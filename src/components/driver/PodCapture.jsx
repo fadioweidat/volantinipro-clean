@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import {
   POD_OUTCOME_OPTIONS,
-  buildPodWatermarkLines,
+  buildDeliveryWatermarkLines,
   buildProofPhotoNote,
   canvasToJpegBlob,
   compressPodImage,
@@ -12,7 +12,15 @@ import { uploadProofPhoto } from '../../lib/services/gps-api.js';
 
 const initialForm = { client: '', address: '', ddt: '', colli: '', outcome: 'consegnato', note: '' };
 
-export function PodCapture({ campaignId, sessionId, lastPosition, driverName, onUploaded }) {
+// TICKET — WATERMARK FOTO CLIENTE: `city` e' il Comune REALE della zona/
+// campagna attiva (stessa fonte gia' usata per il confine mappa in
+// DriverAssignmentPage.jsx — realComuneName), passato dal chiamante. Il
+// watermark burnato sulla foto usa SOLO dati automatici (data/ora reali,
+// coordinate GPS del dispositivo, questo comune) — mai i campi del form
+// sotto (Cliente/Indirizzo/DDT/Colli/Esito), che restano solo per la nota
+// di consegna salvata separatamente (proof_photos.note), non per i pixel
+// della foto.
+export function PodCapture({ campaignId, sessionId, lastPosition, driverName, city = null, onUploaded }) {
   const [stage, setStage] = useState('idle'); // idle | preparing | preview | uploading | error
   const [error, setError] = useState(null);
   const [form, setForm] = useState(initialForm);
@@ -58,16 +66,11 @@ export function PodCapture({ campaignId, sessionId, lastPosition, driverName, on
     setError(null);
     try {
       const takenAt = new Date().toISOString();
-      const watermarkLines = buildPodWatermarkLines({
+      const watermarkLines = buildDeliveryWatermarkLines({
         takenAt,
-        client: form.client,
-        address: form.address,
-        ddt: form.ddt,
-        colli: form.colli,
-        outcome: form.outcome,
-        driverName,
         lat: lastPosition?.lat,
         lng: lastPosition?.lng,
+        city,
       });
       drawPodWatermark(canvasRef.current, watermarkLines);
       const finalBlob = await canvasToJpegBlob(canvasRef.current);

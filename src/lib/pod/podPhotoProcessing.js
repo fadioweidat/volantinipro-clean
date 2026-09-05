@@ -139,6 +139,76 @@ export function buildPodWatermarkLines({ takenAt, client, address, ddt, colli, o
   ].filter(Boolean);
 }
 
+// ---------------------------------------------------------------------------
+// TICKET — REQUISITO WATERMARK FOTO CLIENTE.
+//
+// Watermark AUTOMATICO, mai digitato dal Driver: solo dati realmente
+// disponibili nello stesso momento in cui vengono salvati nel DB (stesso
+// taken_at/lat/lng passati a uploadProofPhoto/uploadIssueVerificationPhoto
+// subito dopo — nessuna fonte diversa, nessun drift possibile tra quello che
+// il cliente legge nell'immagine e quello che e' scritto nel record). EXIF
+// non viene mai letto: i valori vengono dal capture flow stesso (posizione
+// GPS del dispositivo, orologio del dispositivo), non da metadati embedded
+// nel file immagine.
+// ---------------------------------------------------------------------------
+const WATERMARK_MONTHS_IT = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+
+// Locale al dispositivo che scatta: nessuna conversione di fuso necessaria,
+// il watermark viene generato nello stesso istante/dispositivo dello scatto.
+export function formatWatermarkDateTime(takenAt) {
+  const d = takenAt ? new Date(takenAt) : null;
+  if (!d || Number.isNaN(d.getTime())) return null;
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${d.getDate()} ${WATERMARK_MONTHS_IT[d.getMonth()]} ${d.getFullYear()} ${hh}:${mm}:${ss}`;
+}
+
+// Foto di consegna (proof_photos): nessuna colonna di indirizzo esiste per
+// questa tabella e non esiste geocodifica inversa nel progetto — mostrare le
+// coordinate reali (o "Indirizzo non disponibile" se anche il GPS manca) e'
+// l'unica opzione che non inventa mai una via/citta' (vedi ticket). `city` va
+// passato dal chiamante come il Comune REALE della zona/campagna attiva
+// (stessa fonte gia' usata per il confine mappa in DriverAssignmentPage.jsx,
+// mai un valore diverso). "GPS verificato" SOLO se lat/lng sono presenti.
+// Un fix GPS valido richiede lat/lng realmente presenti e finiti; (0, 0) e'
+// il sentinel di "nessun fix" gia' trattato come non valido altrove nel
+// progetto — non e' una coordinata reale utile per una foto di consegna.
+function hasRealGps(lat, lng) {
+  if (lat == null || lng == null) return false;
+  const nlat = Number(lat);
+  const nlng = Number(lng);
+  if (!Number.isFinite(nlat) || !Number.isFinite(nlng)) return false;
+  return !(nlat === 0 && nlng === 0);
+}
+
+export function buildDeliveryWatermarkLines({ takenAt, lat, lng, city }) {
+  const gps = hasRealGps(lat, lng);
+  return [
+    formatWatermarkDateTime(takenAt),
+    gps ? `${formatCoordinate(lat)}, ${formatCoordinate(lng)}` : 'Indirizzo non disponibile',
+    city ? String(city) : null,
+    gps ? 'GPS verificato' : null,
+  ].filter(Boolean);
+}
+
+// Foto di verifica segnalazione (issue_verification_photos): via/civico/
+// comune sono REALI (customer_issues.street/house_number/municipality,
+// scelti dal Cliente in fase di segnalazione — mai digitati qui dal
+// Driver). lat/lng sono il GPS del dispositivo al momento dello scatto
+// (obbligatorio per queste foto: driver_register_issue_photo lato RPC
+// rifiuta coordinate mancanti, quindi "GPS verificato" e' sempre vero qui).
+export function buildIssueWatermarkLines({ takenAt, lat, lng, municipality, street, houseNumber }) {
+  const gps = hasRealGps(lat, lng);
+  const addressLine = street ? `${street}${houseNumber ? ` ${houseNumber}` : ''}` : null;
+  return [
+    formatWatermarkDateTime(takenAt),
+    addressLine || (gps ? `${formatCoordinate(lat)}, ${formatCoordinate(lng)}` : 'Indirizzo non disponibile'),
+    municipality ? String(municipality) : null,
+    gps ? 'GPS verificato' : null,
+  ].filter(Boolean);
+}
+
 // I metadati DDT/colli/esito/cliente/indirizzo non hanno colonne dedicate in
 // proof_photos: vengono serializzati dentro "note" (gia' esistente, text
 // libero) come JSON. parseProofPhotoNote sa leggere sia questo formato sia

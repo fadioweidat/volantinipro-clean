@@ -10,6 +10,7 @@ import { DRIVER_PAUSE_ENABLED } from '../../lib/gps/driverUiFlags.js';
 import { driverListIssues, driverTransitionIssue, ISSUE_STATUS_LABELS } from '../../lib/services/customer-issues-api.js';
 import { uploadIssueVerificationPhoto } from '../../lib/services/gps-api.js';
 import { driverListMessages, driverMarkMessagesSeen, driverSendMessage } from '../../lib/services/hub-api.js';
+import { buildIssueWatermarkLines, canvasToJpegBlob, compressPodImage, drawPodWatermark } from '../../lib/pod/podPhotoProcessing.js';
 
 // ─── DriverAssignmentPage ─────────────────────────────────────────────────────
 // Pagina driver accessibile tramite /driver/assignment/{assignmentId}, link
@@ -580,6 +581,7 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
             sessionId={tracking.session?.id || null}
             lastPosition={currentPos}
             driverName={operatorName}
+            city={realComuneName}
             onUploaded={() => {}}
           />
         </section>
@@ -745,8 +747,25 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken }) {
         if (!navigator.geolocation) { reject(new Error('GPS non disponibile: impossibile allegare una foto di verifica.')); return; }
         navigator.geolocation.getCurrentPosition(resolve, () => reject(new Error('Posizione GPS negata: la foto di verifica richiede il GPS.')), { enableHighAccuracy: true, timeout: 15000 });
       });
+      // TICKET — WATERMARK FOTO CLIENTE: watermark burnato sui pixel PRIMA
+      // dell'upload, con via/civico/comune REALI della segnalazione
+      // (customer_issues.street/house_number/municipality, mai digitati qui)
+      // + data/ora dello scatto e coordinate GPS appena rilevate (stesse
+      // passate all'RPC). La versione mostrata/scaricata dal cliente e' quindi
+      // sempre watermarkata; non si conserva una versione senza watermark.
+      const takenAt = new Date().toISOString();
+      const { canvas } = await compressPodImage(file);
+      drawPodWatermark(canvas, buildIssueWatermarkLines({
+        takenAt,
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        municipality: issue.municipality,
+        street: issue.street,
+        houseNumber: issue.house_number,
+      }));
+      const watermarkedBlob = await canvasToJpegBlob(canvas);
       await uploadIssueVerificationPhoto({
-        campaignId, issueId: issue.id, blob: file,
+        campaignId, issueId: issue.id, blob: watermarkedBlob,
         lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy,
         assignmentId, accessToken: accessToken || null,
       });

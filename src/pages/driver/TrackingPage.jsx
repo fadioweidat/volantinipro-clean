@@ -145,6 +145,14 @@ export function TrackingPage({ campaignId }) {
     [availableZones, selectedZoneId]
   );
 
+  // TICKET — WATERMARK FOTO CLIENTE: Comune REALE per il watermark automatico
+  // delle foto di consegna — zona selezionata, poi comune della campagna,
+  // mai un valore inventato (stessa priorita' di DriverAssignmentPage.jsx).
+  const realComuneName = activeZoneRecord?.zone_name
+    || tracking.assignmentState?.campaign?.city
+    || availableZones[0]?.zone_name
+    || null;
+
   // Stessa funzione pura gia' usata da useGpsTracking per calcolare
   // geofenceState: nessuna zona/logica nuova, solo lettura per la mappa.
   // Filtriamo per la zona selezionata se presente.
@@ -355,6 +363,7 @@ export function TrackingPage({ campaignId }) {
           sessionId={tracking.session?.id || null}
           lastPosition={tracking.lastPosition}
           driverName={driverName}
+          city={realComuneName}
           onUploaded={loadRecentPhotos}
         />
       )}
