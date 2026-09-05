@@ -15,10 +15,14 @@ import { readFileSync } from "node:fs";
 import {
   buildDeliveryWatermarkLines,
   buildIssueWatermarkLines,
+  detectLowMemoryDevice,
   formatWatermarkDateTime,
+  isMemoryError,
   readJpegDimensions,
   POD_MAX_DIMENSION,
   POD_JPEG_QUALITY,
+  POD_MEMORY_PROFILES,
+  POD_THUMB_MAX_DIMENSION,
 } from "../src/lib/pod/podPhotoProcessing.js";
 import { reverseGeocode } from "../src/lib/geo/geocodeAddress.js";
 
@@ -174,7 +178,7 @@ test("PodCapture.jsx: watermark burnato SUBITO dopo lo scatto (l'anteprima e' gi
   const confIdx = src.indexOf("async function handleConfirm");
   const drawIdx = src.indexOf("drawPodWatermark(canvas, buildDeliveryWatermarkLines");
   assert.ok(drawIdx > selIdx && drawIdx < confIdx, "il watermark va disegnato in handleFileSelected, non in handleConfirm");
-  assert.match(src, /const url = URL\.createObjectURL\(blob\);/);
+  assert.match(src, /const url = URL\.createObjectURL\(thumbBlob \|\| blob\);/);
   assert.match(src, /setPreviewUrl\(url\)/);
   // handleConfirm carica lo STESSO Blob gia' watermarkato, non lo ridisegna
   // e non ri-comprime (nessun secondo encode del canvas -> nessun picco
@@ -283,7 +287,7 @@ test("MEMORY — PodCapture.jsx: cleanup obbligatorio, no base64, 1 Blob, serial
   // niente DataURL/base64 in state: solo Blob + una object URL (i commenti
   // possono nominarli per spiegare cosa NON si fa).
   assert.doesNotMatch(src, /\.toDataURL\(|readAsDataURL\(|FileReader\(/);
-  assert.match(src, /URL\.createObjectURL\(blob\)/);
+  assert.match(src, /URL\.createObjectURL\(thumbBlob \|\| blob\)/);
   // una sola object URL viva, revocata prima di crearne un'altra e all'unmount
   assert.match(src, /function revokePreview\(\)\s*\{[\s\S]{0,200}URL\.revokeObjectURL\(previewUrlRef\.current\)/);
   assert.match(src, /useEffect\(\(\) => \(\) => \{ revokePreview\(\); finalBlobRef\.current = null; \}, \[\]\)/);
@@ -302,6 +306,84 @@ test("MEMORY — PodCapture.jsx: cleanup obbligatorio, no base64, 1 Blob, serial
 test("MEMORY — DriverAssignmentPage.jsx (foto verifica): releaseCanvas subito dopo il Blob", () => {
   const src = read("src/pages/driver/DriverAssignmentPage.jsx");
   assert.match(src, /const watermarkedBlob = await canvasToJpegBlob\(canvas\);\s*\n\s*releaseCanvas\(canvas\);/);
+});
+
+// ── TICKET — PHOTO PIPELINE STILL FAILS ON REAL ANDROID (diagnostica + profilo) ──
+test("ANDROID — profilo memoria: default 1600px/q0.8, low 1024-1280px/q<=0.72", () => {
+  assert.equal(POD_MEMORY_PROFILES.default.maxDimension, POD_MAX_DIMENSION);
+  assert.equal(POD_MEMORY_PROFILES.default.quality, POD_JPEG_QUALITY);
+  assert.ok(POD_MEMORY_PROFILES.low.maxDimension >= 1024 && POD_MEMORY_PROFILES.low.maxDimension <= 1280,
+    `low.maxDimension=${POD_MEMORY_PROFILES.low.maxDimension} fuori 1024-1280`);
+  assert.ok(POD_MEMORY_PROFILES.low.quality >= 0.65 && POD_MEMORY_PROFILES.low.quality <= 0.72,
+    `low.quality=${POD_MEMORY_PROFILES.low.quality} fuori 0.65-0.72`);
+  assert.ok(POD_THUMB_MAX_DIMENSION <= 480, "thumbnail preview <= 480px lato lungo");
+});
+
+test("ANDROID — isMemoryError riconosce OOM Chrome Android / QuotaExceeded / RangeError, non un errore qualsiasi", () => {
+  assert.equal(isMemoryError(new Error("Impossibile completare l'operazione precedente. Memoria insufficiente.")), true);
+  assert.equal(isMemoryError(Object.assign(new Error("x"), { name: "QuotaExceededError" })), true);
+  assert.equal(isMemoryError(new RangeError("Array buffer allocation failed")), true);
+  assert.equal(isMemoryError(new Error("out of memory")), true);
+  assert.equal(isMemoryError(new Error("network request failed")), false);
+  assert.equal(isMemoryError(null), false);
+});
+
+test("ANDROID — detectLowMemoryDevice: navigator.deviceMemory <= 4 -> true", () => {
+  const prev = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const set = (nav) => Object.defineProperty(globalThis, "navigator", { value: nav, configurable: true, writable: true });
+  try {
+    set({ deviceMemory: 4 });
+    assert.equal(detectLowMemoryDevice(), true);
+    set({ deviceMemory: 8 });
+    assert.equal(detectLowMemoryDevice(), false);
+    set({});
+    assert.equal(detectLowMemoryDevice(), false);
+  } finally {
+    if (prev) Object.defineProperty(globalThis, "navigator", prev);
+    else Object.defineProperty(globalThis, "navigator", { value: undefined, configurable: true });
+  }
+});
+
+test("ANDROID — podPhotoProcessing: makeThumbnailBlob + onStage instrumentano bitmap/canvas", () => {
+  const pod = read("src/lib/pod/podPhotoProcessing.js");
+  assert.match(pod, /export async function makeThumbnailBlob\(sourceCanvas/);
+  assert.match(pod, /export async function compressPodImage\(file, \{ maxDimension = POD_MAX_DIMENSION, onStage \} = \{\}\)/);
+  assert.match(pod, /report\('bitmap_start'/);
+  assert.match(pod, /report\('bitmap_done'/);
+  assert.match(pod, /report\('canvas_draw_start'/);
+  assert.match(pod, /report\('canvas_draw_done'\)/);
+  assert.match(pod, /report\('dimensions_read'/);
+});
+
+test("ANDROID — PodCapture.jsx: stage log completo, profilo dinamico, thumbnail preview, recovery modalita' leggera", () => {
+  const src = read("src/components/driver/PodCapture.jsx");
+  // diagnostica di fase: ogni stage chiave e' registrato
+  for (const st of ["input_received", "watermark_start", "watermark_done", "blob_start", "blob_done", "thumb_start", "thumb_done", "preview_ready", "upload_start", "cleanup_done"]) {
+    assert.match(src, new RegExp(`pushStage\\('${st}'`), `manca pushStage('${st}')`);
+  }
+  // onStage passato sia alla compressione sia all'upload
+  assert.match(src, /compressPodImage\(file, \{ maxDimension: profile\.maxDimension, onStage: pushStage \}\)/);
+  assert.match(src, /uploadProofPhoto\(\{[\s\S]{0,400}onStage: pushStage,/);
+  // anteprima da thumbnail dedicata, non dal blob finale
+  assert.match(src, /makeThumbnailBlob\(canvas\)\.catch\(\(\) => null\)/);
+  // profilo memoria: auto da deviceMemory o flag persistito, degrado dopo OOM
+  assert.match(src, /detectLowMemoryDevice\(\) \|\| readForcedLowMemory\(\)/);
+  assert.match(src, /function switchToLowMemory\(\)/);
+  assert.match(src, /isMemoryError\(err\)/);
+  assert.match(src, /persistForcedLowMemory\(\)/);
+  // niente storico di Blob: un solo finalBlobRef, azzerato nel cleanup
+  assert.doesNotMatch(src, /blobHistory|blobs\.push|\[\.\.\.blobs/);
+});
+
+test("ANDROID — gps-api uploadProofPhoto: accetta onStage e riporta storage/rpc senza token nei dati di stage", () => {
+  const api = read("src/lib/services/gps-api.js");
+  assert.match(api, /export async function uploadProofPhoto\(\{[\s\S]{0,220}onStage \}\)/);
+  assert.match(api, /report\('storage_upload_done', \{ blobBytes: blob\.size \}\)/);
+  assert.match(api, /report\('rpc_register_start'\)/);
+  assert.match(api, /report\('rpc_register_done'\)/);
+  // lo stage non deve mai includere access_token / storagePath completo
+  assert.doesNotMatch(api, /report\([^)]*accessToken/);
+  assert.doesNotMatch(api, /report\([^)]*storagePath/);
 });
 
 // ── DO NOT BREAK: watermark POD/DDT esistente e nota non toccati ─────────

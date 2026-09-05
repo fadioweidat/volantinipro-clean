@@ -837,9 +837,13 @@ export function buildProofPhotoAssignmentStoragePath({ campaignId, assignmentId 
 // se l'insert della riga fallisce dopo l'upload del file, l'oggetto caricato
 // resta orfano nello storage (nessun record) ma non viene mai mostrato da
 // nessuna vista, perche' tutte le letture passano da proof_photos.
-export async function uploadProofPhoto({ campaignId, sessionId, blob, lat, lng, takenAt, note, assignmentId = null, accessToken = null }) {
+export async function uploadProofPhoto({ campaignId, sessionId, blob, lat, lng, takenAt, note, assignmentId = null, accessToken = null, onStage }) {
   if (!isValidUuid(campaignId)) throw permanentGpsError('assignment_invalid_campaign');
   if (!blob) throw permanentGpsError('gps_auth_required', new Error('Nessun file da caricare.'));
+
+  // Diagnostica di fase (TICKET — real Android failure). Non riceve mai il
+  // token o il path completo: solo nomi di stage e dimensione blob.
+  const report = typeof onStage === 'function' ? onStage : () => {};
 
   const client = await requireSupabase();
 
@@ -856,7 +860,9 @@ export async function uploadProofPhoto({ campaignId, sessionId, blob, lat, lng, 
         .upload(storagePath, blob, { contentType: 'image/jpeg', upsert: false });
       if (uploadError) throw mapRpcError(uploadError);
     }, 'upload foto prova (token)');
-    return callGpsRpc('driver_register_proof_photo', {
+    report('storage_upload_done', { blobBytes: blob.size });
+    report('rpc_register_start');
+    const record = await callGpsRpc('driver_register_proof_photo', {
       p_assignment_id: assignmentId,
       p_storage_path: storagePath,
       p_lat: Number.isFinite(Number(lat)) ? Number(lat) : null,
@@ -865,6 +871,8 @@ export async function uploadProofPhoto({ campaignId, sessionId, blob, lat, lng, 
       p_note: note || null,
       p_access_token: accessToken,
     });
+    report('rpc_register_done');
+    return record;
   }
 
   // Flusso autenticato legacy (Magic Link): invariato.
@@ -877,6 +885,8 @@ export async function uploadProofPhoto({ campaignId, sessionId, blob, lat, lng, 
       .upload(storagePath, blob, { contentType: 'image/jpeg', upsert: false });
     if (uploadError) throw mapRpcError(uploadError);
   }, 'upload foto POD');
+  report('storage_upload_done', { blobBytes: blob.size });
+  report('rpc_register_start');
 
   const { data, error } = await client
     .from('proof_photos')
@@ -894,6 +904,7 @@ export async function uploadProofPhoto({ campaignId, sessionId, blob, lat, lng, 
     .single();
 
   if (error) throw mapRpcError(error);
+  report('rpc_register_done');
   return data;
 }
 

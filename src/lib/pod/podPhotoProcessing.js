@@ -11,6 +11,45 @@ export const POD_MAX_INPUT_BYTES = 20 * 1024 * 1024; // 20MB, limite di sicurezz
 export const POD_MAX_DIMENSION = 1600;
 export const POD_JPEG_QUALITY = 0.8;
 
+// TICKET — PHOTO PIPELINE STILL FAILS ON REAL ANDROID DEVICE.
+// Profilo memoria dinamico. `default` = comportamento attuale; `low` viene
+// attivato automaticamente se navigator.deviceMemory <= 4 oppure dopo il
+// primo errore memory-related (persistito in localStorage lato componente).
+// In `low`: lato lungo piu' corto, qualita' piu' bassa, e l'anteprima usa una
+// thumbnail dedicata (mai il blob finale a piena dimensione).
+export const POD_MEMORY_PROFILES = {
+  default: { id: 'default', maxDimension: POD_MAX_DIMENSION, quality: POD_JPEG_QUALITY },
+  low: { id: 'low', maxDimension: 1280, quality: 0.7 },
+};
+
+// Anteprima leggera: la preview non decodifica mai il JPEG finale (1280-1600px).
+export const POD_THUMB_MAX_DIMENSION = 480;
+export const POD_THUMB_QUALITY = 0.6;
+
+// navigator.deviceMemory e' in GiB, arrotondato per difetto a 0.25/0.5/1/2/4/8.
+// <= 4 e' la soglia indicata dal ticket per partire subito in modalita' leggera.
+export function detectLowMemoryDevice() {
+  try {
+    const dm = Number(typeof navigator !== 'undefined' ? navigator.deviceMemory : 0);
+    return Number.isFinite(dm) && dm > 0 && dm <= 4;
+  } catch {
+    return false;
+  }
+}
+
+// Riconosce un errore di esaurimento memoria da qualunque fase (createImageBitmap,
+// drawImage, toBlob, decode <img>, allocazione storage). Chrome Android usa
+// messaggi diversi a seconda del punto: "Impossibile completare l'operazione
+// precedente. Memoria insufficiente." dal renderer, RangeError/allocation da V8,
+// QuotaExceededError dallo storage. In dubbio, meglio degradare al profilo low.
+const MEMORY_ERROR_RE = /memory|memoria|insufficient|insufficiente|out of memory|allocation (failed|size)|operazione precedente|cannot allocate|quota/i;
+export function isMemoryError(err) {
+  if (!err) return false;
+  const name = String(err.name || '');
+  if (name === 'QuotaExceededError' || name === 'RangeError' || name === 'NS_ERROR_OUT_OF_MEMORY') return true;
+  return MEMORY_ERROR_RE.test(String(err.message || err.name || err));
+}
+
 export const POD_OUTCOME_OPTIONS = [
   { value: 'consegnato', label: 'Consegnato' },
   { value: 'assente', label: 'Destinatario assente' },
@@ -104,8 +143,9 @@ export function releaseCanvas(canvas) {
 // ratio). Nessun buffer full-resolution vive mai: ne' un <Image> full-res,
 // ne' un ImageBitmap full-res. Il File originale non viene trattenuto oltre
 // la durata di questa funzione.
-export async function compressPodImage(file, { maxDimension = POD_MAX_DIMENSION } = {}) {
+export async function compressPodImage(file, { maxDimension = POD_MAX_DIMENSION, onStage } = {}) {
   validatePodImageFile(file);
+  const report = typeof onStage === 'function' ? onStage : () => {};
 
   let bitmap = null;
   let origWidth = null;
@@ -124,6 +164,14 @@ export async function compressPodImage(file, { maxDimension = POD_MAX_DIMENSION 
         }
       } catch { /* header non leggibile: si prosegue senza target noto */ }
 
+      report('dimensions_read', {
+        origWidth, origHeight,
+        targetWidth: target?.width ?? null,
+        targetHeight: target?.height ?? null,
+        headerDims: !!target,
+      });
+
+      report('bitmap_start', { path: target ? 'resize_on_decode' : 'full_decode' });
       if (target) {
         // decode DIRETTO alla risoluzione target: mai il full-res in RAM
         bitmap = await createImageBitmap(file, {
@@ -148,30 +196,37 @@ export async function compressPodImage(file, { maxDimension = POD_MAX_DIMENSION 
           bitmap = full;
         }
       }
+      report('bitmap_done', { width: bitmap.width, height: bitmap.height });
 
       const canvas = document.createElement('canvas');
       canvas.width = bitmap.width;
       canvas.height = bitmap.height;
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Contesto canvas non disponibile su questo dispositivo.');
+      report('canvas_draw_start', { width: canvas.width, height: canvas.height });
       ctx.drawImage(bitmap, 0, 0);
       bitmap.close();
       bitmap = null;
+      report('canvas_draw_done');
       return { canvas, width: canvas.width, height: canvas.height, origWidth, origHeight };
     }
 
     // Fallback estremo (browser senza createImageBitmap): Image + canvas.
+    report('bitmap_start', { path: 'image_element_fallback' });
     const img = await loadImageFromFile(file);
     try {
       origWidth = img.naturalWidth || img.width;
       origHeight = img.naturalHeight || img.height;
       const { width, height } = fitLongSide(origWidth, origHeight, maxDimension);
+      report('bitmap_done', { width, height, origWidth, origHeight });
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Contesto canvas non disponibile su questo dispositivo.');
+      report('canvas_draw_start', { width, height });
       ctx.drawImage(img, 0, 0, width, height);
+      report('canvas_draw_done');
       return { canvas, width, height, origWidth, origHeight };
     } finally {
       if (img.src?.startsWith('blob:')) URL.revokeObjectURL(img.src);
@@ -179,6 +234,28 @@ export async function compressPodImage(file, { maxDimension = POD_MAX_DIMENSION 
     }
   } finally {
     if (bitmap) { try { bitmap.close(); } catch { /* gia' chiuso */ } }
+  }
+}
+
+// Anteprima leggera: ridisegna il canvas finale (gia' downscalato + watermark)
+// dentro un canvas piccolo (<= 480px lato lungo) e ne ritorna un JPEG ~40-80KB.
+// Cosi' la preview <img> non decodifica mai il JPEG finale da 1280-1600px.
+// Il canvas thumbnail viene rilasciato subito.
+export async function makeThumbnailBlob(sourceCanvas, { maxDimension = POD_THUMB_MAX_DIMENSION, quality = POD_THUMB_QUALITY } = {}) {
+  if (!sourceCanvas || !sourceCanvas.width || !sourceCanvas.height) return null;
+  const { width, height } = fitLongSide(sourceCanvas.width, sourceCanvas.height, maxDimension);
+  const thumb = document.createElement('canvas');
+  thumb.width = width;
+  thumb.height = height;
+  try {
+    const ctx = thumb.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(sourceCanvas, 0, 0, width, height);
+    return await canvasToJpegBlob(thumb, quality);
+  } catch {
+    return null;
+  } finally {
+    releaseCanvas(thumb);
   }
 }
 
