@@ -41,8 +41,8 @@ function isUsableCenter(lat, lng) {
   return Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0);
 }
 
-async function fetchFromNominatim(name, lat, lng) {
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(`${name}, Italy`)}&format=geojson&polygon_geojson=1&limit=10&dedupe=0`;
+async function queryNominatimSearch(query, lat, lng) {
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=geojson&polygon_geojson=1&limit=10&dedupe=0`;
   const res = await fetch(url, { headers: { 'User-Agent': 'VolantiniPro/1.0' } });
   const json = await res.json();
   const candidates = (json.features || []).filter((f) => {
@@ -57,23 +57,54 @@ async function fetchFromNominatim(name, lat, lng) {
   return valid?.geometry || null;
 }
 
+async function fetchFromNominatim(name, lat, lng) {
+  // 1. Direct query: "<name>, Italy"
+  let geom = await queryNominatimSearch(`${name}, Italy`, lat, lng).catch(() => null);
+  if (geom) return geom;
+
+  // 2. Sub-district / NIL query if in Milan area (lat ~45.3-45.6, lng ~9.0-9.4)
+  const isNearMilan = Number.isFinite(lat) && Number.isFinite(lng) && lat >= 45.3 && lat <= 45.6 && lng >= 9.0 && lng <= 9.4;
+  if (isNearMilan || !geom) {
+    geom = await queryNominatimSearch(`${name}, Milano, Italy`, lat, lng).catch(() => null);
+    if (geom) return geom;
+    geom = await queryNominatimSearch(`${name}, Lombardia, Italy`, lat, lng).catch(() => null);
+    if (geom) return geom;
+  }
+  return null;
+}
+
 async function fetchFromAnalysisIstat(name, lat, lng, normalizedName) {
   if (!isUsableCenter(lat, lng)) return null;
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_SUPABASE_URL;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  const apiUrl = import.meta.env.VITE_ANALYSIS_ISTAT_URL || (baseUrl ? `${baseUrl}/functions/v1/analysis-istat` : null);
+  const env = (typeof import.meta !== 'undefined' && import.meta?.env) || {};
+  const baseUrl = env.VITE_API_BASE_URL || env.VITE_SUPABASE_URL;
+  const anonKey = env.VITE_SUPABASE_ANON_KEY;
+  const apiUrl = env.VITE_ANALYSIS_ISTAT_URL || (baseUrl ? `${baseUrl}/functions/v1/analysis-istat` : null);
   if (!apiUrl) return null;
   const headers = {};
   if (anonKey && apiUrl.includes('/functions/v1/')) {
     headers.Authorization = `Bearer ${anonKey}`;
     headers.apikey = anonKey;
   }
-  const res = await fetch(`${apiUrl}?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}&radius=3&service=d2d&municipality=${encodeURIComponent(name)}&analysisLevel=comune`, { headers });
-  const json = await res.json();
-  const row = (json?.comuni_breakdown || []).find((entry) => normalizeMunicipalityName(entry?.comune_name || entry?.municipality_name) === normalizedName && entry?.geometry_geojson);
-  if (!row) return null;
-  const geometry = typeof row.geometry_geojson === 'string' ? JSON.parse(row.geometry_geojson) : row.geometry_geojson;
-  return geometry && (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') ? geometry : null;
+  
+  // Try comune breakdown first, then nil breakdown
+  for (const analysisLevel of ['comune', 'nil']) {
+    try {
+      const res = await fetch(`${apiUrl}?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}&radius=5&service=d2d&municipality=${encodeURIComponent(name)}&analysisLevel=${analysisLevel}`, { headers });
+      const json = await res.json();
+      const rows = [...(json?.comuni_breakdown || []), ...(json?.nil_breakdown || [])];
+      const row = rows.find((entry) => {
+        const entryName = normalizeMunicipalityName(entry?.nil_name || entry?.comune_name || entry?.municipality_name);
+        return entryName === normalizedName && entry?.geometry_geojson;
+      });
+      if (row) {
+        const geometry = typeof row.geometry_geojson === 'string' ? JSON.parse(row.geometry_geojson) : row.geometry_geojson;
+        if (geometry && (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon')) return geometry;
+      }
+    } catch {
+      // Continue to next analysis level
+    }
+  }
+  return null;
 }
 
 // name: nome del Comune reale (es. "Saronno"), MAI il nome di una sotto-zona
@@ -82,7 +113,7 @@ async function fetchFromAnalysisIstat(name, lat, lng, normalizedName) {
 // giusto tra piu' risultati Nominatim omonimi (mai per disegnare un cerchio).
 // Ritorna la geometria o null (mai un fallback grafico inventato).
 export async function resolveMunicipalityBoundary(name, { lat, lng } = {}) {
-  const DEBUG_TIMING = Boolean(import.meta.env.DEV);
+  const DEBUG_TIMING = Boolean(typeof import.meta !== 'undefined' && import.meta?.env?.DEV);
   const normalizedName = normalizeMunicipalityName(name);
   if (!normalizedName) return null;
   if (boundaryCache.has(normalizedName)) {
@@ -146,4 +177,9 @@ export async function resolveMunicipalityBoundary(name, { lat, lng } = {}) {
   } finally {
     boundaryInFlight.delete(normalizedName);
   }
+}
+
+export function clearMunicipalityBoundaryCache() {
+  boundaryCache.clear();
+  boundaryInFlight.clear();
 }
