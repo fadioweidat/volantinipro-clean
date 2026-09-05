@@ -54,6 +54,24 @@ export function GpsMonitor({ campaignId, onNav }) {
   const [trackVisibility, setTrackVisibility] = useState({});
   const toggleTrack = (sessionId) => setTrackVisibility((prev) => ({ ...prev, [sessionId]: prev[sessionId] === false }));
   const zoneProgress = useZoneProgress({ campaignId, includeHistory: true });
+  const [selectedOperatorFilter, setSelectedOperatorFilter] = useState('all');
+  const [showExcludedGpsPoints, setShowExcludedGpsPoints] = useState(false);
+
+  // Filtraggio per operatore selezionato (quick filter bar)
+  const filteredSessionTracks = useMemo(() => {
+    if (selectedOperatorFilter === 'all') return state.sessionTracks;
+    return state.sessionTracks.filter((track) => {
+      const driverId = track.session?.driver_id;
+      const assignmentId = track.session?.assignment_id;
+      const sessionId = track.session?.id;
+      return driverId === selectedOperatorFilter || assignmentId === selectedOperatorFilter || sessionId === selectedOperatorFilter;
+    });
+  }, [state.sessionTracks, selectedOperatorFilter]);
+
+  const filteredPoints = useMemo(() => {
+    if (selectedOperatorFilter === 'all') return state.points;
+    return filteredSessionTracks.flatMap((t) => t.points || []);
+  }, [selectedOperatorFilter, filteredSessionTracks, state.points]);
   // Confine reale del comune (stesso hook condiviso con Cliente/CampaignTracking.jsx
   // e stesso resolveMunicipalityBoundary della Driver App) — MAI un cerchio
   // inventato quando manca il poligono. Persistito su
@@ -423,8 +441,59 @@ export function GpsMonitor({ campaignId, onNav }) {
           </div>
         )}
 
+        {/* BARRA FILTRI OPERATORE (TUTTI / OP-01 / OP-02 ...) + DIAGNOSTICA ESCLUSI */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12, padding: '8px 12px', background: 'rgba(255,255,255,.03)', borderRadius: 10, border: '1px solid rgba(255,255,255,.07)' }}>
+          <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: 'rgba(255,255,255,.5)' }}>Filtro Operatori:</span>
+          <button
+            type="button"
+            onClick={() => setSelectedOperatorFilter('all')}
+            style={operatorFilterChipStyle(selectedOperatorFilter === 'all')}
+          >
+            Tutti ({canonicalOperators.length || state.sessionTracks.length})
+          </button>
+          {canonicalOperators.map((op, idx) => {
+            const opKey = op.operatorId || op.assignmentId || op.colorKey;
+            const isSelected = selectedOperatorFilter === opKey;
+            const label = `OP-0${idx + 1}${op.displayName && !op.displayName.startsWith('Operatore') ? ` · ${op.displayName}` : ''}`;
+            return (
+              <button
+                key={op.colorKey}
+                type="button"
+                onClick={() => setSelectedOperatorFilter(opKey)}
+                style={{
+                  ...operatorFilterChipStyle(isSelected),
+                  borderColor: isSelected ? op.color : 'rgba(255,255,255,.16)',
+                  background: isSelected ? `${op.color}28` : 'rgba(255,255,255,.04)',
+                }}
+              >
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: op.color, display: 'inline-block', marginRight: 6 }} />
+                {label}
+              </button>
+            );
+          })}
+          <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(255,255,255,.6)', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={showExcludedGpsPoints}
+              onChange={(e) => setShowExcludedGpsPoints(e.target.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            Mostra punti GPS esclusi (diagnostica)
+          </label>
+        </div>
+
         {(selectedZoneGeometry || latest) ? (
-          <GpsMap points={state.points} sessionTracks={state.sessionTracks} trackVisibility={trackVisibility} latest={latest} zones={mapZones} selectedZoneGeometry={selectedZoneGeometry} searchGeometry={zoneSearchState.result?.geometry || null} mapRef={mapRef} />
+          <GpsMap
+            points={filteredPoints}
+            sessionTracks={filteredSessionTracks}
+            trackVisibility={trackVisibility}
+            showExcludedGpsPoints={showExcludedGpsPoints}
+            latest={latest}
+            zones={mapZones}
+            selectedZoneGeometry={selectedZoneGeometry}
+            searchGeometry={zoneSearchState.result?.geometry || null}
+            mapRef={mapRef}
+          />
         ) : (
           <EmptyState text={state.loading
             ? 'Caricamento tracking GPS...'
@@ -448,6 +517,7 @@ export function GpsMonitor({ campaignId, onNav }) {
           operatorsWithGpsCount={operatorsWithGpsCount}
           trackVisibility={trackVisibility}
           toggleTrack={toggleTrack}
+          zoneRows={zoneRows}
           activeSessionId={state.activeSession?.id}
           formatDateTime={formatDateTime}
           onUnlockDevice={handleUnlockDevice}
@@ -581,18 +651,8 @@ function getLatestTrackableSession(sessions) {
     })[0] || null;
 }
 
-function GpsMap({ points, sessionTracks = [], trackVisibility = {}, latest, zones = [], selectedZoneGeometry = null, searchGeometry = null, mapRef }) {
-  // Centro/fitBounds seguono la geometria della zona SELEZIONATA (passata
-  // esplicitamente dal genitore), mai "la prima zona con geometria trovata
-  // nell'array" — su una campagna multi-comune l'ordine di risoluzione delle
-  // geometrie e' asincrono/parallelo (resolveMunicipalityBoundary per ogni
-  // comune) e "la prima gia' risolta" cambiava a ogni refresh: era questa
-  // l'indeterminatezza dietro "la mappa mostra una zona diversa da quella
-  // attesa" su campagne con piu' comuni.
+function GpsMap({ points, sessionTracks = [], trackVisibility = {}, showExcludedGpsPoints = false, latest, zones = [], selectedZoneGeometry = null, searchGeometry = null, mapRef }) {
   const center = useMemo(() => {
-    // Priorità 1: centroide del confine reale della zona SELEZIONATA
-    // (point-on-surface, mai un vertice a caso). Così anche senza punti GPS
-    // la mappa apre SULLA zona, non su Milano.
     if (selectedZoneGeometry) {
       const c = getMunicipalityCenterPoint(selectedZoneGeometry);
       if (c) return [c.lat, c.lng];
@@ -603,31 +663,23 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, latest, zone
     }
     // Priorità 2: ultimo punto GPS reale (una posizione reale, non un default).
     if (latest) return [Number(latest.lat), Number(latest.lng)];
-    // Nessun confine risolto e nessun punto GPS: MAI Milano hard-coded per una
-    // zona non-Milano. Il chiamante non monta <GpsMap> in questo caso
-    // (mostra "confine non disponibile"); [45.4642, 9.19] resta solo perché
-    // MapContainer richiede un center non-null se mai renderizzato.
     return [45.4642, 9.1900];
   }, [latest, selectedZoneGeometry]);
-  // UNA polilinea PER SESSIONE/OPERATORE, mai una sola linea da tutti i punti:
-  // concatenare la traccia dell'operatore A con quella di B disegnerebbe
-  // segmenti diagonali artificiali e, nel filtro qualita' (confronto col punto
-  // precedente), leggerebbe il salto A->B come "impossible_jump".
-  // filterValidGpsPoints e' applicato PER SESSIONE. Un operatore nascosto dal
-  // toggle non contribuisce alla mappa.
-  const trackLines = useMemo(() => (sessionTracks || []).map((track, index) => ({
-    sessionId: track.session.id,
-    // Colore STABILE per operatore (stesso di CoverageAdjustmentPanel per le
-    // correzioni manuali dello stesso autista); fallback all'indice per
-    // sessioni senza driver_id.
-    color: track.session?.driver_id ? getOperatorColor(track.session.driver_id) : trackColor(index),
-    visible: trackVisibility[track.session.id] !== false,
-    lastPoint: track.lastPoint,
-    latlngs: (track.validPoints || [])
-      .map((point) => [Number(point.lat), Number(point.lng)])
-      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng)),
-    points: track.points || [],
-  })), [sessionTracks, trackVisibility]);
+
+  const trackLayers = useMemo(() => (sessionTracks || []).map((track, index) => {
+    const color = track.session?.driver_id ? getOperatorColor(track.session.driver_id) : trackColor(index);
+    const validPts = track.validPoints || [];
+    const excludedPts = track.excludedPoints || [];
+    return {
+      sessionId: track.session.id,
+      driverId: track.session?.driver_id,
+      color,
+      visible: trackVisibility[track.session.id] !== false,
+      lastPoint: track.lastPoint,
+      validPoints: validPts,
+      excludedPoints: excludedPts,
+    };
+  }), [sessionTracks, trackVisibility]);
 
   function getZoneStyle(zone) {
     if (zone.adjustment_type === 'inaccessible') {
@@ -636,10 +688,6 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, latest, zone
     if (zone.adjustment_type === 'manual_covered' || zone.adjustment_type === 'partially_covered') {
       return { color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.2, weight: 2 };
     }
-    // Confine normale (nessuna correzione manuale/inaccessibile): stesso
-    // arancione brand del confine disegnato dalla Driver App
-    // (DriverZoneMap.jsx ZoneShape, #e8571a) — stessa identità visiva tra
-    // dashboard PC e app mobile, non un colore diverso per il desktop.
     return { color: '#e8571a', fillColor: '#e8571a', fillOpacity: 0.08, weight: 2 };
   }
 
@@ -647,14 +695,10 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, latest, zone
     <div style={{ height: 460, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)' }}>
       <MapContainer ref={mapRef} center={center} zoom={15} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
         <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        {/* Si riesegue a ogni cambio di zona selezionata (geometry cambia
-            riferimento), non solo quando manca un punto GPS live: cambiare
-            zona deve sempre spostare subito la vista, come richiesto. */}
         {selectedZoneGeometry && <FitToZoneBounds geometry={selectedZoneGeometry} />}
 
         {zones.map((zone) => {
           if (!zone.geometry || !zone.geometry.coordinates) return null;
-          // Leaflet expects [lat, lng], GeoJSON is [lng, lat]
           let coords = [];
           if (zone.geometry.type === 'Polygon') {
             coords = zone.geometry.coordinates.map(ring => ring.map(p => [p[1], p[0]]));
@@ -688,30 +732,63 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, latest, zone
           );
         })()}
 
-        {trackLines.filter((track) => track.visible).map((track) => (
+        {/* PUNTI GPS REALI: singoli dots per ogni posizione registrata (NIENTE polyline continua) */}
+        {trackLayers.filter((t) => t.visible).map((track) => (
           <Fragment key={track.sessionId}>
-            {track.latlngs.length > 1 && (
-              <Polyline positions={track.latlngs} pathOptions={{ color: track.color, weight: 4, opacity: 0.82 }} />
-            )}
-            {track.points.map((point) => (
-              <CircleMarker key={point.id} center={[point.lat, point.lng]} radius={4} pathOptions={{ color: track.color, fillColor: track.color, fillOpacity: 0.6 }}>
+            {/* Punti validi dell'operatore */}
+            {track.validPoints.map((point) => (
+              <CircleMarker
+                key={point.id}
+                center={[point.lat, point.lng]}
+                radius={3.5}
+                pathOptions={{ color: track.color, fillColor: track.color, fillOpacity: 0.75, weight: 1 }}
+              >
                 <Popup>
-                  {formatDateTime(point.recorded_at)}
-                  <br />
-                  Accuracy: {point.accuracy != null ? `${Math.round(point.accuracy)} m` : 'n/d'}
+                  <strong>Punto GPS registrato</strong>
+                  <br />Ora: {formatDateTime(point.recorded_at)}
+                  <br />Accuratezza: {point.accuracy != null ? `${Math.round(point.accuracy)} m` : 'n/d'}
+                  {point.speed != null && <><br />Velocità: {(point.speed * 3.6).toFixed(1)} km/h</>}
                 </Popup>
               </CircleMarker>
             ))}
+
+            {/* Punti esclusi per diagnostica (se attivata) */}
+            {showExcludedGpsPoints && track.excludedPoints.map((point) => (
+              <CircleMarker
+                key={`ex-${point.id}`}
+                center={[point.lat, point.lng]}
+                radius={2.5}
+                pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.5, weight: 1 }}
+              >
+                <Popup>
+                  <strong style={{ color: '#ef4444' }}>Punto GPS escluso</strong>
+                  <br />Ora: {formatDateTime(point.recorded_at)}
+                  <br />Motivo: {point.exclusionReason || 'Qualità non sufficiente (accuratezza o salto)'}
+                  <br />Accuratezza: {point.accuracy != null ? `${Math.round(point.accuracy)} m` : 'n/d'}
+                </Popup>
+              </CircleMarker>
+            ))}
+
+            {/* Ultimo punto operatore (marker pulsante) */}
             {track.lastPoint && (
-              <CircleMarker center={[Number(track.lastPoint.lat), Number(track.lastPoint.lng)]} radius={7} pathOptions={{ color: track.color, fillColor: track.color, fillOpacity: 0.95 }}>
-                <Popup>Ultimo punto operatore<br />{formatDateTime(track.lastPoint.recorded_at)}</Popup>
+              <CircleMarker
+                center={[Number(track.lastPoint.lat), Number(track.lastPoint.lng)]}
+                radius={7.5}
+                pathOptions={{ color: track.color, fillColor: track.color, fillOpacity: 0.95, weight: 2 }}
+              >
+                <Popup>
+                  <strong>Ultima posizione rilevata</strong>
+                  <br />{formatDateTime(track.lastPoint.recorded_at)}
+                  <br />Accuratezza: {track.lastPoint.accuracy != null ? `${Math.round(track.lastPoint.accuracy)} m` : 'n/d'}
+                </Popup>
               </CircleMarker>
             )}
           </Fragment>
         ))}
+
         {latest && (
-          <CircleMarker center={[latest.lat, latest.lng]} radius={8} pathOptions={{ color: '#991b1b', fillColor: '#ef4444', fillOpacity: 0.9 }}>
-            <Popup>Ultimo punto (piu' recente in campagna)<br />{formatDateTime(latest.recorded_at)}</Popup>
+          <CircleMarker center={[latest.lat, latest.lng]} radius={8.5} pathOptions={{ color: '#991b1b', fillColor: '#ef4444', fillOpacity: 0.9, weight: 2 }}>
+            <Popup><strong>Ultimo punto generale campagna</strong><br />{formatDateTime(latest.recorded_at)}</Popup>
           </CircleMarker>
         )}
       </MapContainer>
@@ -719,24 +796,48 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, latest, zone
   );
 }
 
+function calculatePointsDistanceKm(points) {
+  if (!points || points.length < 2) return 0;
+  let totalMeters = 0;
+  for (let i = 1; i < points.length; i++) {
+    const p1 = points[i - 1];
+    const p2 = points[i];
+    const lat1 = Number(p1.lat);
+    const lng1 = Number(p1.lng);
+    const lat2 = Number(p2.lat);
+    const lng2 = Number(p2.lng);
+    if (!Number.isFinite(lat1) || !Number.isFinite(lng1) || !Number.isFinite(lat2) || !Number.isFinite(lng2)) continue;
+    const R = 6371e3;
+    const phi1 = (lat1 * Math.PI) / 180;
+    const phi2 = (lat2 * Math.PI) / 180;
+    const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+    const deltaLambda = ((lng2 - lng1) * Math.PI) / 180;
+    const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+              Math.cos(phi1) * Math.cos(phi2) *
+              Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    totalMeters += R * c;
+  }
+  return totalMeters / 1000;
+}
+
 // Pannello operatori: TUTTE le sessioni della campagna contemporaneamente,
-// una riga per operatore, con traccia distinguibile (colore = trackColor),
-// stato (ONLINE / IN PAUSA / OFFLINE / TERMINATO), conteggi punti e toggle
+// una riga per operatore, con traccia distinguibile,
+// stato (ONLINE / IN PAUSA / OFFLINE / TERMINATO), conteggi punti, km e toggle
 // mostra/nascondi la traccia sulla mappa.
-export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperators = [], assignedOperatorCount = 0, operatorsWithGpsCount = 0, trackVisibility = {}, toggleTrack, activeSessionId, formatDateTime: fmt, onUnlockDevice }) {
+export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperators = [], assignedOperatorCount = 0, operatorsWithGpsCount = 0, trackVisibility = {}, toggleTrack, zoneRows = [], activeSessionId, formatDateTime: fmt, onUnlockDevice }) {
   if (!sessionTracks.length && !canonicalOperators.length) return null;
   const format = fmt || ((v) => (v ? new Date(v).toLocaleString('it-IT') : 'n/d'));
-  // driver_id -> operatore canonico (nome reale + colore stabile) per le righe
-  // di dettaglio sessione qui sotto.
   const opByDriver = new Map(canonicalOperators.filter((o) => o.operatorId).map((o) => [o.operatorId, o]));
+  const zoneNameById = new Map((zoneRows || []).map((z) => [z.id, z.zone_name]));
+
   return (
     <div style={{ marginTop: 14, display: 'grid', gap: 8 }}>
       <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.08em', color: 'rgba(255,255,255,.5)', fontWeight: 900 }}>
         OPERATORI: {assignedOperatorCount}{operatorsWithGpsCount > 0 ? ` · CON GPS: ${operatorsWithGpsCount}` : ''}
       </div>
 
-      {/* OPERATORI CAMPAGNA — legenda: TUTTI gli operatori assegnati, nome
-          reale + pallino del colore stabile (getOperatorColor). */}
+      {/* OPERATORI CAMPAGNA — legenda: TUTTI gli operatori assegnati, nome reale + colore stabile */}
       {canonicalOperators.length > 0 && (
         <div style={{ display: 'grid', gap: 4, padding: '8px 12px', borderRadius: 10, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)' }}>
           {canonicalOperators.map((op) => (
@@ -759,6 +860,9 @@ export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperator
         const statusLabel = operatorStatusLabel(track);
         const visible = trackVisibility[track.session.id] !== false;
         const lastAt = track.lastPoint?.recorded_at || track.session.updated_at || track.session.started_at || null;
+        const assignedZoneName = zoneNameById.get(track.session?.campaign_zone_id) || (canonOp?.zoneId && zoneNameById.get(canonOp.zoneId)) || null;
+        const distKm = calculatePointsDistanceKm(track.validPoints);
+
         return (
           <div
             key={track.session.id}
@@ -775,8 +879,16 @@ export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperator
               statusLabel === 'ONLINE' ? '#22c55e' : statusLabel === 'IN PAUSA' ? '#fbbf24' : statusLabel === 'TERMINATO' ? '#94a3b8' : '#f87171' }}>
               {statusLabel}
             </span>
+            {assignedZoneName && (
+              <span style={{ fontSize: 11, background: 'rgba(255,255,255,.06)', padding: '2px 8px', borderRadius: 6, color: 'rgba(255,255,255,.7)' }}>
+                Zona: {assignedZoneName}
+              </span>
+            )}
+            <span style={{ fontSize: 12, color: '#2ecc8a', fontWeight: 700 }}>
+              {distKm.toFixed(1)} km
+            </span>
             <span style={{ fontSize: 12, color: 'rgba(255,255,255,.6)' }}>
-              {track.points.length} punti · {track.validPoints.length} validi · {track.excludedPoints.length} scartati (qualita')
+              {track.points.length} punti ({track.validPoints.length} validi · {track.excludedPoints.length} scartati)
             </span>
             <span style={{ fontSize: 12, color: 'rgba(255,255,255,.45)' }}>Ultimo: {format(lastAt)}</span>
             <button
@@ -921,6 +1033,22 @@ function zoneChipStyle(active) {
     fontSize: 12,
     fontWeight: active ? 900 : 700,
     cursor: 'pointer',
+  };
+}
+
+function operatorFilterChipStyle(active) {
+  return {
+    border: '1px solid',
+    borderColor: active ? '#e8571a' : 'rgba(255,255,255,.16)',
+    background: active ? 'rgba(232,87,26,.22)' : 'rgba(255,255,255,.04)',
+    color: '#fff',
+    borderRadius: 999,
+    padding: '5px 12px',
+    fontSize: 12,
+    fontWeight: active ? 900 : 700,
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
   };
 }
 

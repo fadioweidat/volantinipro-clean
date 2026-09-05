@@ -1181,6 +1181,8 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
       }
       cancelCorrecting();
       await load();
+      await recalcZonesAfterEdit(zones.map((z) => z.id));
+      await load();
     } catch (err) {
       setFormError(err?.message || 'Salvataggio non riuscito.');
     } finally {
@@ -1553,7 +1555,15 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
             />
           )}
 
-          {path.length > 1 && <Polyline positions={path} pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.85 }} />}
+          {/* PUNTI GPS REALI: singoli dots per ogni posizione registrata */}
+          {path.map((pos, idx) => (
+            <CircleMarker
+              key={`gps-dot-${idx}`}
+              center={pos}
+              radius={3}
+              pathOptions={{ color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.75, weight: 1 }}
+            />
+          ))}
           {coverage?.gps_coverage_geometry && (
             <Polygon
               positions={polygonGeoJsonToLatLngs(coverage.gps_coverage_geometry.type === 'Polygon' ? coverage.gps_coverage_geometry : { coordinates: coverage.gps_coverage_geometry.coordinates?.[0] })}

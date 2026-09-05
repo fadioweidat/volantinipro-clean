@@ -196,11 +196,12 @@ function clampPercent(value) {
 }
 
 function formatPercent(value) {
+  if (value == null || !Number.isFinite(Number(value))) return 'Dato non disponibile';
   return `${clampPercent(value).toLocaleString('it-IT', { maximumFractionDigits: 2 })}%`;
 }
 
 function formatNullablePercent(value) {
-  return value == null ? '—' : formatPercent(value);
+  return value == null ? 'Dato non disponibile' : formatPercent(value);
 }
 
 function formatDateTime(value) {

@@ -227,9 +227,14 @@ export function CoverageMapPage({ campaignId }) {
             {validPathPositions.map((pos, index) => (
               <Circle key={index} center={pos} radius={COVERAGE_RADIUS_M} pathOptions={{ stroke: false, fillColor: '#0f766e', fillOpacity: 0.18 }} />
             ))}
-            {validPathPositions.length > 1 && (
-              <Polyline positions={validPathPositions} pathOptions={{ color: '#0f766e', weight: 4, opacity: 0.85 }} />
-            )}
+            {validPathPositions.map((pos, index) => (
+              <CircleMarker
+                key={`dot-${index}`}
+                center={pos}
+                radius={3.5}
+                pathOptions={{ color: '#0f766e', fillColor: '#0f766e', fillOpacity: 0.75, weight: 1 }}
+              />
+            ))}
             {validPathPositions.length > 0 && (
               <CircleMarker center={validPathPositions[0]} radius={7} pathOptions={{ color: '#0f766e', fillColor: '#2ecc8a', fillOpacity: 0.95, weight: 2 }}>
                 <Tooltip direction="top">Partenza</Tooltip>

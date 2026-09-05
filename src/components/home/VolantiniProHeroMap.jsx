@@ -517,11 +517,16 @@ function HeroRealMapPreview({ compact, benefits }) {
     previewCity.municipality_code,
   );
 
+  const hasError = Boolean(error);
+  const hasEmptyComuni = Boolean(data && Array.isArray(data.comuni_breakdown) && data.comuni_breakdown.length === 0);
+
   const preview = useMemo(() => normalizeHeroPreview(data, previewCity), [data, previewCity]);
 
-  const zonesForMap = Array.isArray(preview.zones) && preview.zones.length > 0
-    ? preview.zones
-    : DEFAULT_MILANO_NORD_ZONES;
+  const zonesForMap = hasEmptyComuni
+    ? []
+    : (Array.isArray(preview.zones) && preview.zones.length > 0
+      ? preview.zones
+      : DEFAULT_MILANO_NORD_ZONES);
   const selectedZoneIds = zonesForMap.map((zone) => zone.id);
   const totalFamilies = zonesForMap.reduce((s, z) => s + z.families, 0);
 
@@ -598,105 +603,74 @@ function HeroRealMapPreview({ compact, benefits }) {
             <path d="M 395 70 L 400 230 L 405 350 L 415 540" fill="none" stroke="#FFFFFF" strokeWidth="1" strokeOpacity="0.7" strokeDasharray="6 4" />
 
             {/* Tangenziale Nord / A4 */}
-            <path d="M 120 180 Q 360 170 680 160" fill="none" stroke="#64748B" strokeWidth="2.4" strokeOpacity="0.4" />
+            <path d="M 120 180 Q 400 200 680 170" fill="none" stroke="#F59E0B" strokeWidth="2.4" strokeOpacity="0.45" />
+            <path d="M 120 180 Q 400 200 680 170" fill="none" stroke="#FFFFFF" strokeWidth="0.8" strokeOpacity="0.6" strokeDasharray="5 4" />
 
-            {/* Viale Rubicone / Viale Fermi */}
-            <path d="M 430 250 L 440 430 L 460 550" fill="none" stroke="#94A3B8" strokeWidth="1.8" strokeOpacity="0.35" />
-
+            {/* Viale Rubicone */}
+            <path d="M 380 340 L 410 600" fill="none" stroke="#94A3B8" strokeWidth="2" strokeOpacity="0.4" />
             {/* Via Bovisasca */}
-            <path d="M 280 200 L 320 360 L 340 500" fill="none" stroke="#94A3B8" strokeWidth="1.6" strokeOpacity="0.35" />
+            <path d="M 280 260 L 320 520" fill="none" stroke="#94A3B8" strokeWidth="1.6" strokeOpacity="0.35" />
+            {/* Via Imbonati */}
+            <path d="M 450 360 L 480 620" fill="none" stroke="#94A3B8" strokeWidth="1.6" strokeOpacity="0.35" />
 
-            {/* Via Astesani / Via Imbonati */}
-            <path d="M 420 370 L 425 460 L 430 540" fill="none" stroke="#94A3B8" strokeWidth="1.8" strokeOpacity="0.35" />
+            {/* Raggio Catchment Area 3km */}
+            <circle cx="400" cy="300" r="160" fill="url(#heroCatchmentGlow)" stroke={C.orange} strokeWidth="2" strokeDasharray="6 4" strokeOpacity="0.7" />
+            <circle cx="400" cy="300" r="80" fill="none" stroke="rgba(232,87,26,0.25)" strokeWidth="1" strokeDasharray="3 3" />
+            <circle cx="400" cy="300" r="240" fill="none" stroke="rgba(232,87,26,0.15)" strokeWidth="1" strokeDasharray="4 4" />
 
-            {/* Cerchio Raggio Operativo 3 km con Glow */}
-            <circle cx="400" cy="275" r="170" fill="url(#heroCatchmentGlow)" />
-            <circle cx="400" cy="275" r="170" fill="none" stroke={C.orange} strokeWidth="2.5" strokeDasharray="8 6" strokeOpacity="0.85" className="gis-radius-glow" />
-
-            {/* Toponimi e Toponomastica Reale Milano Nord */}
-            <g fontFamily={F.sans} fontSize="9" fontWeight="800">
-              {/* Cormano */}
-              <rect x="355" y="240" width="90" height="18" rx="4" fill="rgba(7,16,31,0.88)" stroke="rgba(46,204,138,0.5)" strokeWidth="0.8" />
-              <text x="400" y="252.5" fill="#FFFFFF" textAnchor="middle">CORMANO (Centro)</text>
-
-              {/* Cusano Milanino */}
-              <rect x="495" y="245" width="98" height="18" rx="4" fill="rgba(7,16,31,0.85)" stroke="rgba(96,165,250,0.4)" strokeWidth="0.8" />
-              <text x="544" y="257.5" fill="#E2E8F0" textAnchor="middle">CUSANO MILANINO</text>
-
-              {/* Novate Milanese */}
-              <rect x="220" y="270" width="98" height="18" rx="4" fill="rgba(7,16,31,0.85)" stroke="rgba(167,139,250,0.4)" strokeWidth="0.8" />
-              <text x="269" y="282.5" fill="#E2E8F0" textAnchor="middle">NOVATE MILANESE</text>
-
-              {/* Bresso */}
-              <rect x="490" y="145" width="62" height="17" rx="4" fill="rgba(7,16,31,0.85)" stroke="rgba(251,191,36,0.4)" strokeWidth="0.8" />
-              <text x="521" y="157" fill="#E2E8F0" textAnchor="middle">BRESSO</text>
-
-              {/* Affori / Dergano / Bovisa */}
-              <rect x="360" y="380" width="92" height="18" rx="4" fill="rgba(7,16,31,0.88)" stroke="rgba(20,184,166,0.5)" strokeWidth="0.8" />
-              <text x="406" y="392.5" fill="#FFFFFF" textAnchor="middle">MILANO AFFORI</text>
-
-              <rect x="430" y="440" width="70" height="16" rx="4" fill="rgba(7,16,31,0.82)" stroke="rgba(255,255,255,0.1)" strokeWidth="0.7" />
-              <text x="465" y="451.5" fill="#CBD5E1" textAnchor="middle" fontSize="8">DERGANO</text>
-
-              <rect x="320" y="440" width="62" height="16" rx="4" fill="rgba(7,16,31,0.82)" stroke="rgba(255,255,255,0.1)" strokeWidth="0.7" />
-              <text x="351" y="451.5" fill="#CBD5E1" textAnchor="middle" fontSize="8">BOVISA</text>
+            {/* Radial Radar Sweep Effect */}
+            <g style={{ transformOrigin: "400px 300px", animation: "heroGisRadarSweep 12s linear infinite" }}>
+              <line x1="400" y1="300" x2="400" y2="140" stroke="rgba(232,87,26,0.7)" strokeWidth="1.8" />
+              <polygon points="400,300 400,140 460,150" fill="rgba(232,87,26,0.08)" />
             </g>
 
-            {/* Nomi Strade lungo gli assi */}
-            <g fill="rgba(255,255,255,0.3)" fontSize="7" fontFamily={F.sans} fontWeight="700">
-              <text x="410" y="125" transform="rotate(85 410,125)">SP44 MILANO-MEDA</text>
-              <text x="445" y="330" transform="rotate(80 445,330)">V.LE RUBICONE</text>
-              <text x="300" y="270" transform="rotate(75 300,270)">VIA BOVISASCA</text>
-              <text x="435" y="500" transform="rotate(85 435,500)">VIA IMBONATI</text>
-              <text x="210" y="172">A4 TANGENZIALE NORD</text>
+            {/* Etichette Comuni & Nomi Stradali */}
+            <g fontFamily="Inter, system-ui, sans-serif" fontWeight="800" fontSize="10" fill="#FFFFFF" letterSpacing="0.04em">
+              <text x="375" y="270" fill="#2ECC8A" textAnchor="middle" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.9))">CORMANO (Centro)</text>
+              <text x="540" y="255" fill="#93C5FD" textAnchor="middle" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.9))">CUSANO MILANINO</text>
+              <text x="265" y="285" fill="#C4B5FD" textAnchor="middle" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.9))">NOVATE MILANESE</text>
+              <text x="530" y="160" fill="#FDE68A" textAnchor="middle" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.9))">BRESSO</text>
+              <text x="405" y="380" fill="#5EEAD4" textAnchor="middle" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.9))">MILANO AFFORI DERGANO BOVISA</text>
+
+              {/* Arterie Labels */}
+              <text x="412" y="120" fill="rgba(255,255,255,0.4)" fontSize="7" fontWeight="600">SP44 MILANO-MEDA</text>
+              <text x="420" y="470" fill="rgba(255,255,255,0.35)" fontSize="7" fontWeight="600">V.LE RUBICONE</text>
+              <text x="290" y="420" fill="rgba(255,255,255,0.35)" fontSize="7" fontWeight="600">VIA BOVISASCA</text>
+              <text x="475" y="490" fill="rgba(255,255,255,0.35)" fontSize="7" fontWeight="600">VIA IMBONATI</text>
+              <text x="550" y="185" fill="rgba(255,255,255,0.35)" fontSize="7" fontWeight="600">A4 TANGENZIALE NORD</text>
             </g>
 
-            {/* GIS Technical HUD */}
-            <g fill="rgba(255,255,255,0.4)" fontSize="7.5" fontFamily={F.sans} fontWeight="700">
-              {/* Bussola Nord */}
-              <g transform="translate(680, 70)">
-                <circle cx="15" cy="15" r="14" fill="rgba(7,16,31,0.8)" stroke="rgba(255,255,255,0.15)" strokeWidth="0.8" />
-                <path d="M 15 5 L 18 16 L 15 13 L 12 16 Z" fill={C.orange} />
-                <path d="M 15 25 L 18 14 L 15 17 L 12 14 Z" fill="rgba(255,255,255,0.4)" />
-                <text x="15" y="3" textAnchor="middle" fill="#FFFFFF" fontSize="6.5" fontWeight="900">N</text>
-              </g>
-              {/* Scala metrica */}
-              <g transform="translate(60, 520)">
-                <rect x="-6" y="-8" width="94" height="24" rx="4" fill="rgba(7,16,31,0.85)" stroke="rgba(255,255,255,0.1)" strokeWidth="0.7" />
-                <line x1="0" y1="6" x2="80" y2="6" stroke="#FFFFFF" strokeWidth="1.5" />
-                <line x1="0" y1="2" x2="0" y2="6" stroke="#FFFFFF" strokeWidth="1.5" />
-                <line x1="40" y1="2" x2="40" y2="6" stroke="#FFFFFF" strokeWidth="1.5" />
-                <line x1="80" y1="2" x2="80" y2="6" stroke="#FFFFFF" strokeWidth="1.5" />
-                <text x="0" y="-1" fill="#CBD5E1">0</text>
-                <text x="35" y="-1" fill="#CBD5E1">1 km</text>
-                <text x="70" y="-1" fill="#CBD5E1">2 km</text>
-              </g>
+            {/* Scala metrica e bussola grafica */}
+            <g transform="translate(40, 560)" opacity="0.8">
+              <rect width="120" height="24" rx="4" fill="rgba(8,16,28,0.7)" stroke="rgba(255,255,255,0.1)" />
+              <line x1="15" y1="14" x2="105" y2="14" stroke="#fff" strokeWidth="1.5" />
+              <line x1="15" y1="9" x2="15" y2="19" stroke="#fff" strokeWidth="1.5" />
+              <line x1="60" y1="11" x2="60" y2="17" stroke="#fff" strokeWidth="1" />
+              <line x1="105" y1="9" x2="105" y2="19" stroke="#fff" strokeWidth="1.5" />
+              <text x="15" y="8" fill="#fff" fontSize="6.5" fontWeight="700" textAnchor="middle">0</text>
+              <text x="60" y="8" fill="#fff" fontSize="6.5" fontWeight="700" textAnchor="middle">1 km</text>
+              <text x="105" y="8" fill="#fff" fontSize="6.5" fontWeight="700" textAnchor="middle">2 km</text>
+            </g>
+
+            {/* Bussola Nord */}
+            <g transform="translate(50, 500)" opacity="0.85">
+              <circle cx="16" cy="16" r="14" fill="rgba(8,16,28,0.7)" stroke="rgba(255,255,255,0.15)" />
+              <polygon points="16,6 20,16 16,14 12,16" fill={C.orange} />
+              <polygon points="16,26 20,16 16,14 12,16" fill="rgba(255,255,255,0.3)" />
+              <text x="16" y="5" fill="#fff" fontSize="7" fontWeight="900" textAnchor="middle">N</text>
             </g>
           </svg>
         </div>
 
-        {/* Layer 2: Gradient Shade */}
-        <div className="vp-home-hero-shade" style={{
-          position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none",
-          background: compact 
-            ? "linear-gradient(to bottom, #07101f 0%, rgba(7,16,31,0.85) 15%, rgba(7,16,31,0.2) 50%, #07101f 100%)"
-            : "linear-gradient(90deg, #07101f 0%, rgba(7,16,31,0.92) 10%, rgba(7,16,31,0.45) 30%, rgba(7,16,31,0) 60%, transparent 100%), linear-gradient(0deg, #07101f 0%, rgba(7,16,31,0) 15%)"
-        }} />
-
-        {/* Layer 3: Interactive Step2Map runtime */}
-        <div style={{ position: "absolute", inset: 0, zIndex: 1, opacity: 0.88 }}>
+        {/* Layer 2: Step2Map reale per render interattivo Leaflet quando abilitato */}
+        <div style={{ position: "absolute", inset: 0, zIndex: 1, opacity: 0.15, pointerEvents: "none" }}>
           <Step2Map
-            city={previewCity}
-            radius={radiusKm}
-            svcType="d2d"
-            serviceColor={C.orange}
             zonesWithCoords={zonesForMap}
             selected={selectedZoneIds}
-            activeLayers={{ radius: true, comuni: true, settori: false, civici: false, poi: false }}
-            settori={[]}
-            pois={[]}
-            civiciState={{ count: 0 }}
-            campaignZones={[{ id: "hero_preview", city: previewCity, cityName: previewCity.name, radiusKm, service_type: "d2d" }]}
+            center={previewCity}
+            radius={radiusKm}
+            mode="d2d"
+            centerMethod="comune"
             activeZoneId="hero_preview"
             themeMode={false}
             opacityLevel="normal"
@@ -704,11 +678,21 @@ function HeroRealMapPreview({ compact, benefits }) {
           />
         </div>
 
-        {/* Overlay caricamento dati */}
+        {/* Overlay caricamento o stato dati */}
         {loading && (
           <div style={heroDataBadgeStyle}>
             <span style={heroSpinnerStyle} />
             Calibrazione GIS territoriale...
+          </div>
+        )}
+        {hasError && (
+          <div style={heroDataBadgeStyle}>
+            Dati territoriali momentaneamente non disponibili
+          </div>
+        )}
+        {hasEmptyComuni && (
+          <div style={heroDataBadgeStyle}>
+            Dati comune non disponibili
           </div>
         )}
 
@@ -745,10 +729,10 @@ function HeroRealMapPreview({ compact, benefits }) {
           gap: compact ? 8 : 12,
           pointerEvents: "none"
         }}>
-          <FloatingKPI loading={loading} number={totalFamilies} animate={animateMetrics} label="Famiglie raggiungibili" highlight />
-          <FloatingKPI loading={loading} number={radiusKm} suffix=" Km" animate={animateMetrics} label="Raggio analisi" />
-          <FloatingKPI loading={loading} number={zonesForMap.length} animate={animateMetrics} label="Comuni coinvolti" />
-          <FloatingKPI loading={loading} number={preview.coverage || 94.8} suffix="%" animate={animateMetrics} label="Copertura stimata" fallback="94.8%" />
+          <FloatingKPI loading={loading} number={hasError ? null : totalFamilies} animate={animateMetrics} label="Famiglie raggiungibili" highlight />
+          <FloatingKPI loading={loading} number={hasError ? null : radiusKm} suffix=" Km" animate={animateMetrics} label="Raggio analisi" />
+          <FloatingKPI loading={loading} number={hasError ? null : zonesForMap.length} animate={animateMetrics} label="Comuni coinvolti" />
+          <FloatingKPI loading={loading} number={hasError ? null : (preview.coverage || 94.8)} suffix="%" animate={animateMetrics} label="Copertura stimata" fallback="94.8%" />
         </div>
       </div>
 

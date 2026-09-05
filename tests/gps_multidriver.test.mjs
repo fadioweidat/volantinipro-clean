@@ -109,9 +109,9 @@ test('CampaignTracking: il Cliente vede SOLO la copertura verificata finale (nes
 test('GpsMonitor: carica TUTTE le sessioni trackabili, non solo la piu\' recente', () => {
   assert.match(gpsMonitor, /getCampaignSessionTracks/);
   assert.doesNotMatch(gpsMonitor, /getCampaignGpsPoints\(campaignId, \{ sessionId/);
-  // Una Polyline per traccia (mai una sola da tutti i punti).
-  assert.match(gpsMonitor, /trackLines\.filter\(\(track\) => track\.visible\)\.map/);
-  assert.match(gpsMonitor, /<Polyline positions=\{track\.latlngs\}/);
+  // Punti GPS per operatore con CircleMarker (mai polyline continua)
+  assert.match(gpsMonitor, /trackLayers\.filter\(\(t\) => t\.visible\)\.map/);
+  assert.match(gpsMonitor, /track\.validPoints\.map/);
   // Pannello operatori simultaneo + toggle mostra/nascondi.
   assert.match(gpsMonitor, /function GpsMonitorOperatorsPanel/);
   assert.match(gpsMonitor, /toggleTrack/);

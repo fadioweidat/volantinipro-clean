@@ -155,6 +155,15 @@ export function CampaignTracking({ campaignId }) {
 
         <div className="vp-tracking-kpi-grid" style={{ marginBottom: 16 }}>
           <Metric label="Stato campagna" value={status} color={C.green} />
+          <Metric
+            label="Copertura verificata"
+            value={state.finalCoverage?.final_operational_coverage_pct != null
+              ? `${state.finalCoverage.final_operational_coverage_pct}%`
+              : (zoneProgress.zones?.[0]?.effective_percent != null && zoneProgress.zones[0].effective_percent > 0
+                ? `${zoneProgress.zones[0].effective_percent}%`
+                : (state.points.length > 0 ? 'In calcolo...' : 'Dato non disponibile'))}
+            color={C.green}
+          />
           <Metric label="Punti GPS" value={state.points.length} color={C.blue} />
           <Metric label="Tempo registrato" value={formatDuration(activeMs)} color={C.orange} />
           <Metric label="Distanza" value={`${distanceKm.toFixed(2)} km`} color={C.orange} />
@@ -163,7 +172,7 @@ export function CampaignTracking({ campaignId }) {
           <Metric label="Foto approvate" value={state.photos.length} color={C.blue} />
         </div>
 
-        {state.campaign && <AuthorizedZoneProgress zoneProgress={zoneProgress} />}
+        {state.campaign && <AuthorizedZoneProgress zoneProgress={zoneProgress} finalCoverage={state.finalCoverage} />}
 
         <section style={{ ...cardStyle, marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
@@ -175,7 +184,13 @@ export function CampaignTracking({ campaignId }) {
           </div>
           {state.points.length > 0 || zoneProgress.zones.length > 0 || state.finalCoverage?.final_coverage_geometry ? (
             <>
-              <TrackingMap zones={mapZones} finalCoverage={state.finalCoverage} mapRef={mapRef} />
+              <TrackingMap
+                zones={mapZones}
+                points={state.points}
+                latestPoint={latestPoint}
+                finalCoverage={state.finalCoverage}
+                mapRef={mapRef}
+              />
               <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
                 <button onClick={handleReturnToArea} disabled={!liveZones[0]?.geometry} style={mapActionButtonStyle(!liveZones[0]?.geometry)}>⟲ Torna all'area</button>
               </div>
@@ -232,10 +247,24 @@ export function CampaignTracking({ campaignId }) {
   );
 }
 
-function AuthorizedZoneProgress({ zoneProgress }) {
+function AuthorizedZoneProgress({ zoneProgress, finalCoverage }) {
+  // Sincronizzazione source-of-truth: se calculate_campaign_final_coverage ha
+  // una percentuale calcolata, viene usata in caso di mancata sync della cache zona
+  const syncedZones = useMemo(() => {
+    const rawZones = zoneProgress.zones || [];
+    if (!rawZones.length) return [];
+    if (finalCoverage?.final_operational_coverage_pct != null) {
+      return rawZones.map((z) => ({
+        ...z,
+        effective_percent: z.effective_percent > 0 ? z.effective_percent : finalCoverage.final_operational_coverage_pct,
+      }));
+    }
+    return rawZones;
+  }, [zoneProgress.zones, finalCoverage]);
+
   return <div style={{ marginBottom: 16 }}>
     <ZoneProgressPanel
-      zones={zoneProgress.zones}
+      zones={syncedZones}
       loading={zoneProgress.loading}
       refreshing={zoneProgress.refreshing}
       error={zoneProgress.error}
@@ -258,13 +287,10 @@ function polygonGeoJsonToLatLngs(geometry) {
   return ring.map(([lng, lat]) => [lat, lng]);
 }
 
-// Il Cliente vede UNA sola geometria: la COPERTURA VERIFICATA finale
-// (calculate_campaign_final_coverage.final_coverage_geometry). Nessuna
-// distinzione visiva tra GPS reale verificato / automatic_verified /
-// manual_verified: stesso colore, spessore, opacita', stile. Nessuna
-// polilinea GPS grezza ridisegnata sopra i tratti esclusi. Nessuna etichetta
-// tecnica (gps / manual / automatic / exclusion).
-function TrackingMap({ zones = [], finalCoverage = null, mapRef }) {
+// Il Cliente vede la COPERTURA VERIFICATA finale
+// (calculate_campaign_final_coverage.final_coverage_geometry) e i PUNTI GPS
+// REALI (singoli dots, MAI linee continue o percorsi artificiali).
+function TrackingMap({ zones = [], points = [], latestPoint = null, finalCoverage = null, mapRef }) {
   const zoneWithGeometry = useMemo(() => zones.find((zone) => zone.geometry), [zones]);
   const coveragePositions = useMemo(
     () => (finalCoverage?.final_coverage_geometry
@@ -272,9 +298,24 @@ function TrackingMap({ zones = [], finalCoverage = null, mapRef }) {
       : []),
     [finalCoverage],
   );
+
+  // Punti GPS validi (singoli dots reali per mostrare il passaggio effettivo)
+  const validGpsPoints = useMemo(() => {
+    return (points || [])
+      .filter((p) => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)) && Number(p.lat) !== 0)
+      .map((p) => ({
+        id: p.id,
+        lat: Number(p.lat),
+        lng: Number(p.lng),
+        recorded_at: p.recorded_at || p.created_at,
+      }));
+  }, [points]);
+
   const center = useMemo(() => {
+    if (latestPoint && Number.isFinite(Number(latestPoint.lat))) {
+      return [Number(latestPoint.lat), Number(latestPoint.lng)];
+    }
     if (zoneWithGeometry) {
-      // Centroide del confine reale (point-on-surface), non un vertice a caso.
       const c = getMunicipalityCenterPoint(zoneWithGeometry.geometry);
       if (c) return [c.lat, c.lng];
       const coord = zoneWithGeometry.geometry.type === 'MultiPolygon'
@@ -282,18 +323,18 @@ function TrackingMap({ zones = [], finalCoverage = null, mapRef }) {
         : zoneWithGeometry.geometry.coordinates?.[0]?.[0];
       if (coord) return [coord[1], coord[0]];
     }
-    // Nessun confine della campagna corrente risolto: MAI Milano per una zona
-    // non-Milano. [45.4642, 9.19] resta solo perché MapContainer richiede un
-    // center non-null; il blocco chiamante mostra comunque lo stato "attesa GPS".
+    if (validGpsPoints.length > 0) {
+      return [validGpsPoints[0].lat, validGpsPoints[0].lng];
+    }
     return [45.4642, 9.1900];
-  }, [zoneWithGeometry]);
+  }, [zoneWithGeometry, latestPoint, validGpsPoints]);
 
   return (
     <div style={{ height: 460, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)' }}>
       <MapContainer ref={mapRef} center={center} zoom={15} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
         <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {zoneWithGeometry && <FitToZoneBounds geometry={zoneWithGeometry.geometry} />}
-        {/* Contorno neutro delle zone assegnate — nessun colore di copertura. */}
+        {/* Contorno neutro delle zone assegnate */}
         {zones.map((zone) => {
           if (!zone.geometry || !zone.geometry.coordinates) return null;
           let coords = [];
@@ -305,21 +346,44 @@ function TrackingMap({ zones = [], finalCoverage = null, mapRef }) {
           if (!coords.length) return null;
           return (
             <Polygon key={zone.campaign_zone_id} positions={coords}
-              pathOptions={{ color: 'rgba(255,255,255,.35)', weight: 1, fill: false, dashArray: '4 4' }}>
+              pathOptions={{ color: '#e8571a', weight: 2, fillColor: '#e8571a', fillOpacity: 0.05, dashArray: '4 4' }}>
               <Popup><strong>{zone.zone_name}</strong></Popup>
             </Polygon>
           );
         })}
-        {/* COPERTURA VERIFICATA — geometria unica, stile unico. */}
+        {/* COPERTURA VERIFICATA — geometria unica */}
         {coveragePositions.length > 0 && (
           <Polygon positions={coveragePositions} pathOptions={VERIFIED_COVERAGE_STYLE}>
             <Popup>Copertura verificata{finalCoverage?.final_operational_coverage_pct != null
               ? `: ${finalCoverage.final_operational_coverage_pct}%` : ''}</Popup>
           </Polygon>
         )}
+        {/* PUNTI GPS REALI: singoli dots che mostrano i passaggi effettivi (NIENTE polyline) */}
+        {validGpsPoints.map((pt, idx) => (
+          <CircleMarker
+            key={pt.id || `pt-${idx}`}
+            center={[pt.lat, pt.lng]}
+            radius={3}
+            pathOptions={{ color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 0.75, weight: 1 }}
+          >
+            <Popup>Punto GPS rilevato<br />{formatDateTime(pt.recorded_at)}</Popup>
+          </CircleMarker>
+        ))}
+        {/* Ultima posizione rilevata */}
+        {latestPoint && (
+          <CircleMarker
+            center={[Number(latestPoint.lat), Number(latestPoint.lng)]}
+            radius={7}
+            pathOptions={{ color: '#10b981', fillColor: '#34d399', fillOpacity: 0.95, weight: 2 }}
+          >
+            <Popup>Ultima posizione registrata<br />{formatDateTime(latestPoint.recorded_at || latestPoint.created_at)}</Popup>
+          </CircleMarker>
+        )}
       </MapContainer>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, padding: '8px 4px 0', fontSize: 11, color: 'rgba(255,255,255,.5)', background: C.navyMid }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, padding: '8px 10px', fontSize: 11, color: 'rgba(255,255,255,.7)', background: C.navyMid }}>
         <LegendItem color={VERIFIED_COVERAGE_STYLE.color} label="Copertura verificata" />
+        <LegendItem color="#3b82f6" label="Punti GPS rilevati" />
+        <LegendItem color="#34d399" label="Ultima posizione" />
       </div>
     </div>
   );

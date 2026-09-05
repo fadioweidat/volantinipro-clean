@@ -311,13 +311,17 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
                 <Tooltip direction="top" offset={[0, -8]}>{zoneLabel || 'Zona attiva'}</Tooltip>
               </CircleMarker>
             )}
-            {/* Tracce dei compagni di gruppo — una Polyline per sessione,
-                sotto la propria (disegnata dopo). Nessun segmento cross-driver. */}
+            {/* PUNTI GPS COMPAGNI DI GRUPPO: singoli dots per sessione */}
             {groupLines.map((g) => (
               <React.Fragment key={g.sessionId}>
-                {g.latlngs.length > 1 && (
-                  <Polyline positions={g.latlngs} pathOptions={{ color: g.color, weight: 3, opacity: 0.7, dashArray: '6 6' }} />
-                )}
+                {g.latlngs.map((pos, idx) => (
+                  <CircleMarker
+                    key={`group-dot-${g.sessionId}-${idx}`}
+                    center={pos}
+                    radius={3}
+                    pathOptions={{ color: g.color, fillColor: g.color, fillOpacity: 0.65, weight: 1 }}
+                  />
+                ))}
                 {g.lastPoint && (
                   <CircleMarker center={[Number(g.lastPoint.lat), Number(g.lastPoint.lng)]} radius={6} pathOptions={{ color: g.color, fillColor: g.color, fillOpacity: 0.9, weight: 2 }}>
                     <Tooltip direction="top" offset={[0, -8]}>{g.label}{g.statusLabel ? ` · ${g.statusLabel}` : ''}</Tooltip>
@@ -325,7 +329,15 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
                 )}
               </React.Fragment>
             ))}
-            {trackPath.length > 1 && <Polyline positions={trackPath} pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.85 }} />}
+            {/* PUNTI GPS PROPRI: singoli dots registrati */}
+            {trackPath.map((pos, idx) => (
+              <CircleMarker
+                key={`own-dot-${idx}`}
+                center={pos}
+                radius={3.5}
+                pathOptions={{ color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.8, weight: 1 }}
+              />
+            ))}
             {hasPosition && (
               <CircleMarker center={[lat, lng]} radius={9} pathOptions={{ color: '#1d4ed8', fillColor: '#3b82f6', fillOpacity: 0.95, weight: 2 }}>
                 <Tooltip permanent direction="top" offset={[0, -8]}>Tu sei qui</Tooltip>

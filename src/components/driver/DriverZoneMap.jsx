@@ -105,7 +105,14 @@ export function DriverZoneMap({ campaignId, sessionId, position, zones }) {
             <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <RecenterOnPosition lat={lat} lng={lng} />
             {zones.map((zone, index) => <ZoneShape key={index} zone={zone} index={index} />)}
-            {path.length > 1 && <Polyline positions={path} pathOptions={{ color: '#0f766e', weight: 4, opacity: 0.75 }} />}
+            {path.map((pos, idx) => (
+              <CircleMarker
+                key={`dot-${idx}`}
+                center={pos}
+                radius={3.5}
+                pathOptions={{ color: '#0f766e', fillColor: '#0f766e', fillOpacity: 0.75, weight: 1 }}
+              />
+            ))}
             <CircleMarker center={[lat, lng]} radius={9} pathOptions={{ color: '#1d4ed8', fillColor: '#3b82f6', fillOpacity: 0.9, weight: 2 }}>
               <Tooltip permanent direction="top" offset={[0, -8]}>Tu sei qui</Tooltip>
             </CircleMarker>
