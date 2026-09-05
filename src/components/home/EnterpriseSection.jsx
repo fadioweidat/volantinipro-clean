@@ -68,10 +68,11 @@ function EnterpriseContactModal({ onClose }) {
     ].join("\n");
 
     const payload = {
+      nome: form.nome.trim() || form.azienda.trim() || "Richiesta Enterprise",
       servizio: "Enterprise",
       email: form.email.trim(),
-      telefono: form.telefono.trim(),
-      zone: form.citta.trim() || "Multi-città",
+      whatsapp: form.telefono.trim(),
+      comune: form.citta.trim() || "Multi-città",
       note,
     };
 

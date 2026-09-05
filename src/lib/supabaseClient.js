@@ -282,16 +282,26 @@ export async function getCampaignById(id) {
 }
 
 export async function saveSmartPairingWaitlist(payload) {
+  const nome = (payload.nome || payload.name || payload.azienda || (payload.email ? payload.email.split("@")[0] : "") || "Utente").trim();
+  const whatsapp = payload.whatsapp || payload.telefono || payload.phone || null;
+  const comune = payload.comune || payload.zone || payload.city || payload.citta || "Zona da confermare";
+  const servizio = payload.servizio || payload.service || payload.service_type || "d2d";
+  const datePreferite = payload.date_preferite || payload.preferred_period || payload.preferredPeriod || null;
+  const clienteId = payload.cliente_id || payload.client_id || null;
+
   return supabaseRequest("/rest/v1/smart_pairing_waitlist", {
     method: "POST",
     prefer: "return=representation",
     body: {
+      nome: nome.length >= 2 ? nome : "Richiesta Smart Pairing",
       email: payload.email,
-      telefono: payload.telefono || null,
-      zone: payload.zone || "Zona da confermare",
-      preferred_period: payload.preferred_period || null,
+      whatsapp,
+      comune,
+      servizio,
+      date_preferite: datePreferite,
       note: payload.note || null,
-      status: "open",
+      cliente_id: clienteId,
+      gestita: false,
     },
   });
 }

@@ -5,7 +5,7 @@ import { C, F } from "../../../../lib/constants.js";
 import { calendarDateKey } from "../../../../lib/smartPairingAvailability.js";
 import { MONTHS_FULL } from "../../../../lib/appConstants.js";
 
-export function Step3SmartPairingMainPanel({ availabilityStatus, setAvailabilityStatus, setAvailabilityRetryCount, realSmartPairingSlots, availableDates, isMobile, handleContinueToStep4, shouldShowContinueToStep4, handleSkipPairing, month, setMonth, year, setYear, selDays, setSelDays, isSelectableCalendarDate, preferredPeriod, updatePreferredPeriod, togglePreferredWeekday, showRequest, setShowRequest, form, setForm, formError, setFormError, formSent, setFormSent, handleRequestSubmit, setSmartPairingRegistered, dateMode, pairs, toggle, sanitizeWhatsAppLocal }) {
+export function Step3SmartPairingMainPanel({ availabilityStatus, setAvailabilityStatus, setAvailabilityRetryCount, realSmartPairingSlots, availableDates, isMobile, handleContinueToStep4, shouldShowContinueToStep4, handleSkipPairing, month, setMonth, year, setYear, selDays, setSelDays, isSelectableCalendarDate, preferredPeriod, updatePreferredPeriod, togglePreferredWeekday, showRequest, setShowRequest, form, setForm, formError, setFormError, formSent, setFormSent, handleRequestSubmit, setSmartPairingRegistered, dateMode, pairs, toggle, sanitizeWhatsAppLocal, isSubmittingWaitlist = false }) {
   const DI = ["Lu", "Ma", "Me", "Gi", "Ve", "Sa", "Do"];
   const dim = (m, y) => new Date(y, m + 1, 0).getDate();
   const fdow = (m, y) => {
@@ -594,20 +594,28 @@ export function Step3SmartPairingMainPanel({ availabilityStatus, setAvailability
                     color: C.red,
                     marginBottom: 12
                   }}>{formError}</div>}
-                        <button className="btn" onClick={handleRequestSubmit} style={{
-                    width: "100%",
-                    padding: "14px",
-                    borderRadius: 12,
-                    border: "none",
-                    background: "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)",
-                    color: C.white,
-                    fontFamily: F.sans,
-                    fontSize: 14,
-                    fontWeight: 800,
-                    cursor: "pointer",
-                    boxShadow: "0 6px 18px rgba(99,102,241,0.3)"
-                  }}>
-                          Avvisami appena ci sono slot compatibili
+                        <button
+                          className="btn"
+                          onClick={handleRequestSubmit}
+                          disabled={isSubmittingWaitlist}
+                          style={{
+                            width: "100%",
+                            padding: "14px",
+                            borderRadius: 12,
+                            border: "none",
+                            background: isSubmittingWaitlist
+                              ? "rgba(255,255,255,0.18)"
+                              : "linear-gradient(135deg,#E8571A 0%,#D0450B 100%)",
+                            color: C.white,
+                            fontFamily: F.sans,
+                            fontSize: 14,
+                            fontWeight: 800,
+                            cursor: isSubmittingWaitlist ? "not-allowed" : "pointer",
+                            opacity: isSubmittingWaitlist ? 0.7 : 1,
+                            boxShadow: isSubmittingWaitlist ? "none" : "0 6px 18px rgba(99,102,241,0.3)"
+                          }}
+                        >
+                          {isSubmittingWaitlist ? "Salvataggio richiesta..." : "Avvisami appena ci sono slot compatibili"}
                         </button>
                       </>}
                   </div>}

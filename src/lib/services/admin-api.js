@@ -1504,3 +1504,145 @@ export async function getDailyOperationsReport(dateStr, { now = new Date() } = {
   });
   return buildDailyOperationsReport(hydrated, { date: dateStr, telemetryBySession, now });
 }
+
+// ── Smart Pairing Waitlist Management (Admin) ────────────────────────────────
+
+export function normalizeSmartPairingRequest(row, campaigns = []) {
+  if (!row) return null;
+
+  const nome = (row.nome || row.name || row.customer_name || row.client_name || row.azienda || (row.email ? row.email.split('@')[0] : '') || 'Richiesta').trim();
+  const email = (row.email || '').trim() || null;
+  const phone = (row.whatsapp || row.telefono || row.phone || '').trim() || null;
+  const comune = (row.comune || row.zone || row.city || row.citta || 'Zona non specificata').trim();
+  
+  const rawService = String(row.servizio || row.service || row.service_type || 'd2d').toLowerCase();
+  const service = rawService.includes('enterprise')
+    ? 'enterprise'
+    : rawService.includes('h2h') || rawService.includes('hand')
+    ? 'h2h'
+    : rawService.includes('b2b') || rawService.includes('business')
+    ? 'b2b'
+    : 'd2d';
+
+  const datePreferite = (row.date_preferite || row.preferred_period || row.preferredPeriod || 'Periodo non specificato').trim();
+  const note = (row.note || row.notes || '').trim() || null;
+  const gestita = Boolean(row.gestita);
+  const gestitaAt = row.gestita_at || null;
+
+  // Derive granular status
+  let status = row.status || (gestita ? 'closed' : 'open');
+  if (['open', 'reviewing', 'proposal_sent', 'accepted', 'rejected', 'closed'].includes(row.status)) {
+    status = row.status;
+  } else if (gestita) {
+    status = 'closed';
+  } else {
+    status = 'open';
+  }
+
+  // Parse rich note metadata if present
+  let quantity = null;
+  let quoteId = null;
+  if (note) {
+    const qtyMatch = note.match(/Quantit[àa]:?\s*([\d\.\s]+)\s*volantini/i) || note.match(/Quantit[àa]:?\s*([\d\.\s]+)/i);
+    if (qtyMatch) {
+      const parsedQty = parseInt(qtyMatch[1].replace(/\D/g, ''), 10);
+      if (Number.isFinite(parsedQty) && parsedQty > 0) quantity = parsedQty;
+    }
+    const quoteMatch = note.match(/Preventivo:?\s*([A-Za-z0-9\-_]+)/i);
+    if (quoteMatch) {
+      quoteId = quoteMatch[1];
+    }
+  }
+
+  // Find compatible active/scheduled campaigns
+  const cleanComune = comune.toLowerCase();
+  const matchingCampaigns = (campaigns || []).filter((c) => {
+    if (!cleanComune || cleanComune === 'zona non specificata' || cleanComune === 'zona da confermare') return false;
+    const cZone = (c.zone || '').toLowerCase();
+    const cComuni = Array.isArray(c.comuni) ? c.comuni.map((cz) => String(cz).toLowerCase()) : [];
+    const cCity = (c.city || '').toLowerCase();
+    return cZone.includes(cleanComune) || cleanComune.includes(cZone) || cComuni.some((cz) => cz.includes(cleanComune) || cleanComune.includes(cz)) || cCity.includes(cleanComune);
+  });
+
+  return {
+    id: row.id,
+    clienteId: row.cliente_id || row.client_id || null,
+    nome,
+    email,
+    phone,
+    comune,
+    service,
+    datePreferite,
+    note,
+    quantity,
+    quoteId,
+    gestita,
+    gestitaAt,
+    status,
+    createdAt: row.created_at || null,
+    matchingCampaigns: matchingCampaigns.map((c) => ({
+      id: c.id,
+      title: c.client || c.name || c.title || 'Campagna',
+      zone: c.zone || c.comuni?.[0] || 'Zona',
+      date: c.date || null,
+      service: c.service,
+    })),
+    raw: row,
+  };
+}
+
+export async function adminGetSmartPairingRequests() {
+  if (!supabase) return { rows: [], allRows: [], available: false };
+  try {
+    await ensureSupabaseSessionBridge();
+    const [waitlistResult, campaignsResult] = await Promise.all([
+      selectOptionalTable('smart_pairing_waitlist', 'created_at'),
+      getRealCampaigns({ includeTest: false }).catch(() => ({ rows: [] })),
+    ]);
+
+    if (!waitlistResult.available) {
+      return { rows: [], allRows: [], available: false };
+    }
+
+    const campaigns = campaignsResult.rows || [];
+    const allNormalized = waitlistResult.rows.map((row) => normalizeSmartPairingRequest(row, campaigns));
+
+    return {
+      rows: allNormalized,
+      allRows: allNormalized,
+      available: true,
+    };
+  } catch (err) {
+    console.error('[ADMIN_GET_SMART_PAIRING_REQUESTS_ERROR]', err?.message);
+    return { rows: [], allRows: [], available: false, error: err?.message };
+  }
+}
+
+export async function adminUpdateSmartPairingStatus(id, patch = {}) {
+  if (!supabase) throw new Error('Supabase non configurato.');
+  if (!id) throw new Error('ID richiesta mancante.');
+  await ensureSupabaseSessionBridge();
+
+  const isClosed = ['accepted', 'rejected', 'closed'].includes(patch.status) || patch.gestita === true;
+  const updatePayload = {
+    gestita: isClosed,
+    gestita_at: isClosed ? (patch.gestita_at || new Date().toISOString()) : null,
+  };
+
+  if (patch.note !== undefined) {
+    updatePayload.note = patch.note;
+  }
+
+  const { data, error } = await supabase
+    .from('smart_pairing_waitlist')
+    .update(updatePayload)
+    .eq('id', id)
+    .select();
+
+  if (error) {
+    console.error('[ADMIN_UPDATE_SMART_PAIRING_ERROR]', error?.message);
+    throw error;
+  }
+
+  return Array.isArray(data) ? data[0] || null : data;
+}

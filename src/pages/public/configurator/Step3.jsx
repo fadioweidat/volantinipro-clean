@@ -438,6 +438,8 @@ export function Step3({
       return buildPayload(contactOverride);
     }
   }
+  const [isSubmittingWaitlist, setIsSubmittingWaitlist] = useState(false);
+
   function validateRequestForm() {
     if (!form.nome.trim()) {
       setFormError("Inserisci nome e cognome");
@@ -459,85 +461,98 @@ export function Step3({
     return true;
   }
   async function handleRequestSubmit() {
+    if (isSubmittingWaitlist) return;
     if (!validateRequestForm()) return;
-    const preferredPeriod = buildPreferredPeriod();
-    const preferredPeriodText = preferredPeriodToText(preferredPeriod);
-    const whatsapp = normalizeWhatsApp(form.telefono);
-    const comunePrincipale = allZonesList[0] || data.cityName || "Zona da confermare";
-    console.info("[STEP3_FORM_STATE]", {
-      nome: form.nome,
-      email: form.email,
-      telefono: form.telefono,
-      preferredPeriod,
-      note: form.note || ""
-    });
-    if (hasSupabaseConfig()) {
-      if (isStoredSupabaseSessionExpired()) {
-        console.warn("[SMART_PAIRING_BLOCKED_EXPIRED_SESSION]");
-        console.warn("[AUTH_TOKEN_EXPIRED]", {
-          action: "smart_pairing_submit"
-        });
-        clearExpiredSupabaseSession();
-        console.warn("[AUTH_RELOGIN_REQUIRED]", {
-          action: "smart_pairing_submit"
-        });
-        setFormError(AUTH_EXPIRED_MESSAGE);
-        return;
-      }
-      const waitlistPayload = {
+    setIsSubmittingWaitlist(true);
+    try {
+      const preferredPeriod = buildPreferredPeriod();
+      const preferredPeriodText = preferredPeriodToText(preferredPeriod);
+      const whatsapp = normalizeWhatsApp(form.telefono);
+      const comunePrincipale = allZonesList[0] || data.cityName || "Zona da confermare";
+      console.info("[STEP3_FORM_STATE]", {
         nome: form.nome,
         email: form.email,
-        whatsapp,
-        comune: comunePrincipale,
-        servizio: currentServiceType,
-        date_preferite: preferredPeriodText,
-        note: form.note || null
-      };
-      console.info("[STEP3_WAITLIST_PAYLOAD]", waitlistPayload);
-      try {
-        await saveSmartPairingWaitlist(waitlistPayload);
-      } catch (err) {
-        if (isAuthTokenExpiredError(err)) {
+        telefono: form.telefono,
+        preferredPeriod,
+        note: form.note || ""
+      });
+      if (hasSupabaseConfig()) {
+        if (isStoredSupabaseSessionExpired()) {
+          console.warn("[SMART_PAIRING_BLOCKED_EXPIRED_SESSION]");
+          console.warn("[AUTH_TOKEN_EXPIRED]", {
+            action: "smart_pairing_submit"
+          });
+          clearExpiredSupabaseSession();
+          console.warn("[AUTH_RELOGIN_REQUIRED]", {
+            action: "smart_pairing_submit"
+          });
           setFormError(AUTH_EXPIRED_MESSAGE);
           return;
         }
-        // Real failure (RLS block or otherwise): show it, don't silently
-        // advance as if the request had been saved.
-        setFormError(err?.message || "Richiesta Smart Pairing non salvata. Riprova.");
-        return;
+
+        const richNotes = [
+          form.note?.trim() || "",
+          activeQty ? `Quantità: ${activeQty.toLocaleString('it-IT')} volantini` : "",
+          allZonesList.length > 1 ? `Zone: ${allZonesList.join(', ')}` : "",
+          data.quoteId ? `Preventivo: ${data.quoteId}` : ""
+        ].filter(Boolean).join(" | ");
+
+        const waitlistPayload = {
+          nome: form.nome.trim(),
+          email: form.email.trim(),
+          whatsapp,
+          comune: comunePrincipale,
+          servizio: currentServiceType,
+          date_preferite: preferredPeriodText,
+          note: richNotes || null,
+          cliente_id: data.clientId || data.customerId || null
+        };
+        console.info("[STEP3_WAITLIST_PAYLOAD]", waitlistPayload);
+        try {
+          await saveSmartPairingWaitlist(waitlistPayload);
+        } catch (err) {
+          if (isAuthTokenExpiredError(err)) {
+            setFormError(AUTH_EXPIRED_MESSAGE);
+            return;
+          }
+          // Real failure (RLS block or otherwise): show it, don't silently
+          // advance as if the request had been saved.
+          setFormError(err?.message || "Richiesta Smart Pairing non salvata. Riprova.");
+          return;
+        }
       }
+      console.info("[STEP3_SMART_PAIRING_REGISTERED]", navSnapshot());
+      console.info("[STEP3_WAITLIST_INSERT_SUCCESS]", navSnapshot());
+      setFormSent(true);
+      setSmartPairingRegistered(true);
+      setFormError("");
+      setData(d => ({
+        ...d,
+        smartPairingSelectedDates: [],
+        avgDiscount: 0,
+        selectedDaysCount: 0,
+        pairingDays: [],
+        normalDays: [],
+        requestOnlyDays: [],
+        pairingType: {},
+        pairingDiscountPercent: {},
+        averagePairingDiscount: 0,
+        maxPairingDiscount: 0,
+        calendarStatus: "smart_pairing_request",
+        smartPairingStatus: "request_sent",
+        smartPairingRequestSent: true,
+        requiresManualConfirmation: true,
+        contactRequestData: {
+          ...form,
+          telefono: whatsapp,
+          periodo: preferredPeriodText,
+          preferred_period: preferredPeriod,
+          preferredPeriod
+        }
+      }));
+    } finally {
+      setIsSubmittingWaitlist(false);
     }
-    console.info("[STEP3_SMART_PAIRING_REGISTERED]", navSnapshot());
-    console.info("[STEP3_WAITLIST_INSERT_SUCCESS]", navSnapshot());
-    setFormSent(true);
-    setSmartPairingRegistered(true);
-    setFormError("");
-    setData(d => ({
-      ...d,
-      smartPairingSelectedDates: [],
-      avgDiscount: 0,
-      selectedDaysCount: 0,
-      pairingDays: [],
-      normalDays: [],
-      requestOnlyDays: [],
-      pairingType: {},
-      pairingDiscountPercent: {},
-      averagePairingDiscount: 0,
-      maxPairingDiscount: 0,
-      calendarStatus: "smart_pairing_request",
-      smartPairingStatus: "request_sent",
-      smartPairingRequestSent: true,
-      requiresManualConfirmation: true,
-      contactRequestData: {
-        ...form,
-        telefono: whatsapp,
-        periodo: preferredPeriodText,
-        preferred_period: preferredPeriod,
-        preferredPeriod
-      }
-    }));
-    // Don't auto-advance: let the user see the confirmation message below,
-    // they can continue via the main "Genera preventivo" action whenever ready.
   }
 
   // --- Navigation (Step3 -> Step2 / Step3 -> Step4) ---
@@ -1159,6 +1174,7 @@ export function Step3({
             pairs={pairs}
             toggle={toggle}
             sanitizeWhatsAppLocal={sanitizeWhatsAppLocal}
+            isSubmittingWaitlist={isSubmittingWaitlist}
           />
         </div>
 
