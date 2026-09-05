@@ -91,13 +91,18 @@ test("5b. AdminGuard: il ramo config_error (hasSupabaseConfig()===false) chiama 
 test("6. AdminGuard: il ramo 'denied' (autenticato ma non-admin) NON chiama mai logError", () => {
   const deniedIdx = adminGuardSource.indexOf('roleStatus === "denied"');
   assert.ok(deniedIdx > 0);
-  // Nessuna chiamata logError nel corpo del componente al di FUORI del
-  // singolo blocco config_error gia' verificato sopra: verifica che il
-  // conteggio totale delle chiamate logError nel file sia esattamente 1
-  // (solo config_error), cosi' un 'denied' o 'anonymous' aggiunto in futuro
-  // che iniziasse a loggare farebbe fallire questo test.
+  // TICKET — FIX ADMIN PAGE STUCK ON "VERIFICA RUOLO ADMIN IN CORSO...":
+  // aggiunto un secondo punto di log, distinto da config_error, per il
+  // nuovo ramo "error" (timeout su restoreSupabaseSession()/
+  // verifySupabaseAdminRole() — un fallimento infrastrutturale reale,
+  // stessa categoria di config_error, mai il normale "utente non admin").
+  // Il conteggio sale da 1 a 2 di conseguenza; resta pero' vero che NESSUNA
+  // chiamata logError esiste nei rami denied/anonymous/admin (l'assert sotto
+  // verifica proprio questo, non un conteggio cieco).
   const logErrorCallCount = (adminGuardSource.match(/logError\(\{/g) || []).length;
-  assert.equal(logErrorCallCount, 1, "AdminGuard deve chiamare logError SOLO nel ramo config_error");
+  assert.equal(logErrorCallCount, 2, "AdminGuard deve chiamare logError SOLO nei rami config_error ed error (timeout), mai in denied/anonymous/admin");
+  const deniedBranchOnwards = adminGuardSource.slice(deniedIdx);
+  assert.doesNotMatch(deniedBranchOnwards, /logError\(\{/, "nessuna chiamata logError deve comparire nel/dopo il ramo denied");
 });
 
 test("6b. verifySupabaseAdminRole(): il ramo '!res.ok' (RPC ha risposto ma nega, es. token scaduto) NON chiama mai logError — solo l'eccezione la chiama", () => {

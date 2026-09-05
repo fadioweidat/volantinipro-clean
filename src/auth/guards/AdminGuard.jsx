@@ -23,6 +23,52 @@ function AdminRoleCheckingPlaceholder() {
   return <div style={PANEL_STYLE}>Verifica ruolo Admin in corso...</div>;
 }
 
+// TICKET — FIX ADMIN PAGE STUCK ON "VERIFICA RUOLO ADMIN IN CORSO...":
+// prima di questo fix restoreSupabaseSession()/verifySupabaseAdminRole()
+// venivano solo await-ati, senza alcun timeout — se una delle due richieste
+// di rete restava sospesa (visto dal vivo durante un incidente Supabase:
+// 504/errori JWT intermittenti sul gateway), roleStatus restava "checking"
+// per sempre e la pagina non usciva mai dallo spinner. ADMIN_ROLE_CHECK_
+// TIMEOUT_MS pone un limite ragionevole: se la verifica non termina entro
+// quel tempo, l'utente vede un errore chiaro con un modo per riprovare,
+// mai uno spinner infinito.
+const ADMIN_ROLE_CHECK_TIMEOUT_MS = 15000;
+
+function withTimeout(promise, ms) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("ADMIN_ROLE_CHECK_TIMEOUT")), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+function AdminRoleCheckErrorPanel({ onRetry }) {
+  return (
+    <div style={PANEL_STYLE}>
+      <div>
+        <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>Impossibile verificare l'accesso Admin. Riprova.</div>
+        <button
+          onClick={onRetry}
+          style={{
+            minHeight: 40,
+            padding: "0 20px",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,.18)",
+            background: "rgba(255,255,255,.08)",
+            color: "#fff",
+            fontFamily: "inherit",
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: "pointer"
+          }}
+        >
+          Riprova
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AdminAccessDeniedPanel({ onNav, reason }) {
   return (
     <div style={PANEL_STYLE}>
@@ -66,7 +112,8 @@ export function AdminGuard({ onNav, children }) {
   const [session, setSession] = useState(
     () => consumeSupabaseAuthHash("/admin") || getStoredSupabaseSession()
   );
-  const [roleStatus, setRoleStatus] = useState("checking"); // checking | admin | denied | anonymous | config_error
+  const [roleStatus, setRoleStatus] = useState("checking"); // checking | admin | denied | anonymous | config_error | error
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     if (!hasSupabaseConfig()) {
@@ -98,28 +145,47 @@ export function AdminGuard({ onNav, children }) {
     }
     let cancelled = false;
     setRoleStatus("checking");
-    void restoreSupabaseSession().then(async (restoredSession) => {
-      if (cancelled) return;
-      if (!restoredSession) {
-        setRoleStatus("anonymous");
-        onNav?.("login", { context: "admin" });
-        return;
-      }
-      setSession(restoredSession);
-      const isAdmin = await verifySupabaseAdminRole(restoredSession);
-      if (!cancelled) setRoleStatus(isAdmin ? "admin" : "denied");
-    });
+    void withTimeout(restoreSupabaseSession(), ADMIN_ROLE_CHECK_TIMEOUT_MS)
+      .then(async (restoredSession) => {
+        if (cancelled) return;
+        if (!restoredSession) {
+          setRoleStatus("anonymous");
+          onNav?.("login", { context: "admin" });
+          return;
+        }
+        setSession(restoredSession);
+        const isAdmin = await withTimeout(verifySupabaseAdminRole(restoredSession), ADMIN_ROLE_CHECK_TIMEOUT_MS);
+        if (!cancelled) setRoleStatus(isAdmin ? "admin" : "denied");
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // MAI uno spinner infinito: se la sessione o la verifica del ruolo
+        // non terminano entro ADMIN_ROLE_CHECK_TIMEOUT_MS (visto dal vivo
+        // durante un incidente di rete/gateway Supabase), l'utente vede un
+        // errore chiaro con un modo per riprovare invece di restare bloccato
+        // su "Verifica ruolo Admin in corso...". Fail-closed: un timeout non
+        // concede MAI l'accesso Admin.
+        logError({
+          category: ERROR_CATEGORIES.AUTH,
+          module: "admin_guard",
+          message: err?.message || "Verifica ruolo Admin non completata",
+          severity: ERROR_SEVERITY.WARNING,
+        });
+        setRoleStatus("error");
+      });
     return () => {
       cancelled = true;
     };
     // La sessione iniziale e' intenzionalmente una snapshot: il suo refresh
     // viene gestito dalla SDK e sincronizzato nello storage, non riavviando il
-    // guard a ogni rotazione del token.
+    // guard a ogni rotazione del token. retryToken forza un nuovo tentativo
+    // quando l'utente preme "Riprova" dopo un timeout.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // onNav rimosso dalle dipendenze per evitare il re-trigger a ogni render di AppRouter
+  }, [retryToken]); // onNav rimosso dalle dipendenze per evitare il re-trigger a ogni render di AppRouter
 
   if (roleStatus === "anonymous") return null;
   if (roleStatus === "checking") return <AdminRoleCheckingPlaceholder />;
+  if (roleStatus === "error") return <AdminRoleCheckErrorPanel onRetry={() => setRetryToken((t) => t + 1)} />;
   // Nessuno stack trace/variabile ambiente esposta: solo un messaggio
   // diagnostico generico, stesso pannello "Accesso negato" gia' usato per
   // un ruolo non-Admin — nessuna nuova UX introdotta.
