@@ -50,6 +50,7 @@ const GpsMonitor = lazy(() => import("../pages/admin/GpsMonitor.jsx").then(m => 
 const CoverageEditor = lazy(() => import("../pages/admin/CoverageEditor.jsx").then(m => ({ default: m.CoverageEditor })));
 const MapStudioPage = lazy(() => import("../pages/admin/map-studio/MapStudioPage.jsx").then(m => ({ default: m.MapStudioPage })));
 const AnalyticsPage = lazy(() => import("../pages/admin/analytics/AnalyticsPage.jsx").then(m => ({ default: m.AnalyticsPage })));
+const AdminCommunicationsPage = lazy(() => import("../pages/admin/communications/AdminCommunicationsPage.jsx").then(m => ({ default: m.AdminCommunicationsPage })));
 const CampaignOperations = lazy(() => import("../pages/admin/CampaignOperations.jsx").then(m => ({ default: m.CampaignOperations })));
 const CampaignGroups = lazy(() => import("../pages/admin/CampaignGroups.jsx").then(m => ({ default: m.CampaignGroups })));
 const CampaignReport = lazy(() => import("../pages/admin/CampaignReport.jsx").then(m => ({ default: m.CampaignReport })));
@@ -279,6 +280,7 @@ export function AppRouter() {
       "milano-landing": "/distribuzione-volantini-milano",
       admin: "/admin", "admin-live": "/admin/live", "admin-operations": "/admin/operations", "admin-daily-report": "/admin/operations/report", "admin-clients-quotes": "/admin/clients-quotes", "admin-orders": "/admin/orders",
       "admin-groups-manager": "/admin/groups", "admin-commercial": "/admin/commercial", "admin-smart-pairing": "/admin/smart-pairing", "admin-suppliers": "/admin/suppliers", "admin-status": "/admin/status", "admin-map-studio": "/admin/map-studio", "admin-analytics": "/admin/analytics",
+      "admin-communications": "/admin/communications",
       "supplier-dashboard": "/supplier"
     };
     if (typeof window !== "undefined") {
@@ -433,6 +435,7 @@ export function AppRouter() {
               {page === "admin-daily-report" && <AdminDailyReport onNav={goTo} />}
               {page === "admin-map-studio" && <MapStudioPage onNav={goTo} />}
               {page === "admin-analytics" && <AnalyticsPage onNav={goTo} />}
+              {page === "admin-communications" && <AdminCommunicationsPage onNav={goTo} />}
               {/* key={campaignId}: rimonta il Monitor/Editor da zero al cambio
                   campagna — reset di selectedZoneId, tracce, draft, autoNetRef,
                   center. Nessuna contaminazione fra campagne/zone. */}

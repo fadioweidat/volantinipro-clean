@@ -15,6 +15,7 @@ export function resolveAppRoute(path, { hasAuthHash = false, prefillHas = false,
   if (p === '/admin/status') return 'admin-status';
   if (p === '/admin/map-studio') return 'admin-map-studio';
   if (p === '/admin/analytics') return 'admin-analytics';
+  if (p === '/admin/communications') return 'admin-communications';
   const adminAssignmentsNew = p.match(/^\/admin\/campaigns\/([^/]+)\/assignments\/new$/);
   if (adminAssignmentsNew) return `admin-assignments-new:${adminAssignmentsNew[1]}`;
   const adminCoverageEditor = p.match(/^\/admin\/campaigns\/([^/]+)\/coverage-editor$/);

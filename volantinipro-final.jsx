@@ -22,6 +22,7 @@ import { useCampagnaDetail } from "./src/hooks/useCampagnaDetail.js";
 import { useCliente } from "./src/hooks/useCliente.js";
 import { customerValue, CUSTOMER_DATA_UNAVAILABLE, CUSTOMER_PAYMENT_STATE, getCustomerPaymentState, MARKETPLACE_STATUS_LABELS } from "./src/lib/customerCampaigns.js";
 import { CustomerQuotesView } from "./src/pages/customer/CustomerQuotesView.jsx";
+import { CampaignConfigSection, CustomerMessagesPanel } from "./src/components/customer/CampaignHubPanels.jsx";
 import { getBankTransferDetails, BANK_TRANSFER_UNAVAILABLE_MESSAGE } from "./src/lib/bankTransfer.js";
 import { IS_MANUAL_CONTACT, buildCampaignContactWhatsAppUrl, buildCampaignContactMailtoUrl } from "./src/lib/paymentMode.js";
 import { getAuthRedirectBase } from "./src/lib/publicAppUrl.js";
@@ -5836,6 +5837,13 @@ export function CampaignDashboardPage({
               componente si auto-nasconde per le campagne legacy (rende null se
               campagna.rawStatus non e' uno stato Marketplace). */}
           <CustomerQuotesView campaignId={routeCampaignId} status={campagna.rawStatus} />
+
+          {/* TICKET — CUSTOMER CONTROL CENTER: Step1-4 in sola lettura +
+              "Richiedi modifica" (dati REALI da campagna.metadata, nessuna
+              ricostruzione) e chat Cliente<->Admin (mai Cliente<->Driver:
+              vincolo strutturale lato RPC/DB, non solo qui). */}
+          <CampaignConfigSection campagna={campagna} />
+          <CustomerMessagesPanel campaignId={routeCampaignId} />
 
           <div style={{
           background: "rgba(255,255,255,.045)",

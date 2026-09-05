@@ -9,6 +9,7 @@ import { navigateDriver, driverPathWithQuery } from './driverNav.js';
 import { DRIVER_PAUSE_ENABLED } from '../../lib/gps/driverUiFlags.js';
 import { driverListIssues, driverTransitionIssue, ISSUE_STATUS_LABELS } from '../../lib/services/customer-issues-api.js';
 import { uploadIssueVerificationPhoto } from '../../lib/services/gps-api.js';
+import { driverListMessages, driverMarkMessagesSeen, driverSendMessage } from '../../lib/services/hub-api.js';
 
 // ─── DriverAssignmentPage ─────────────────────────────────────────────────────
 // Pagina driver accessibile tramite /driver/assignment/{assignmentId}, link
@@ -541,6 +542,8 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
 
       <DriverIssuesSection assignmentId={assignmentId} campaignId={campaignId} accessToken={accessToken} />
 
+      <DriverMessagesSection assignmentId={assignmentId} accessToken={accessToken} />
+
       {/* Controls */}
       <section style={controlsCardStyle}>
         <button type="button" style={secondaryButtonStyle} onClick={() => navigateDriver(driverPathWithQuery(`/driver/assignment/${assignmentId}/map`))}>Mappa</button>
@@ -807,6 +810,87 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken }) {
           </div>
         );
       })}
+    </section>
+  );
+}
+
+// ─── Messaggi Driver <-> Admin (mai Cliente) ───────────────────────────────
+// TICKET — CUSTOMER CONTROL CENTER + ADMIN HUB + DRIVER MESSAGING. Il Driver
+// vede SOLO "VolantiniPro Admin / Centrale Operativa" come contatto — nessun
+// contatto Cliente mostrato, e nessuna RPC qui sotto puo' comunque scrivere
+// verso un Cliente (driver_send_message forza sempre recipient_role='admin'
+// lato DB, vedi migration 20260905130000).
+function DriverMessagesSection({ assignmentId, accessToken }) {
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const reload = useCallback(async () => {
+    try {
+      const rows = await driverListMessages(assignmentId, accessToken || null);
+      setMessages(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      setErr(e?.message || null);
+    }
+  }, [assignmentId, accessToken]);
+
+  // Stesso polling leggero di DriverIssuesSection (20s): un driver gia' con
+  // l'app aperta deve vedere un messaggio Admin senza logout/refresh.
+  useEffect(() => {
+    reload();
+    const timer = window.setInterval(reload, 20000);
+    return () => window.clearInterval(timer);
+  }, [reload]);
+
+  useEffect(() => {
+    if (messages.some((m) => m.recipient_role === 'driver' && !m.seen_at)) {
+      driverMarkMessagesSeen(assignmentId, accessToken || null).catch(() => {});
+    }
+  }, [messages, assignmentId, accessToken]);
+
+  const send = async (e) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    setBusy(true); setErr(null);
+    try {
+      await driverSendMessage({ assignmentId, text: text.trim(), accessToken: accessToken || null });
+      setText('');
+      await reload();
+    } catch (e) {
+      setErr(e?.message || 'Invio messaggio non riuscito.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const unreadCount = messages.filter((m) => m.recipient_role === 'driver' && !m.seen_at).length;
+
+  return (
+    <section style={{ maxWidth: 760, margin: '0 auto 12px', padding: 14, borderRadius: 16, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)' }}>
+      <p style={{ margin: '0 0 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: 'rgba(255,255,255,.5)', fontWeight: 900, display: 'flex', alignItems: 'center', gap: 8 }}>
+        Messaggi
+        {unreadCount > 0 && (
+          <span style={{ fontSize: 11, fontWeight: 900, color: '#0B1020', background: '#f97316', borderRadius: 999, padding: '2px 8px' }}>{unreadCount}</span>
+        )}
+      </p>
+      <div style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', marginBottom: 8 }}>VolantiniPro Admin / Centrale Operativa</div>
+      {err && <Notice danger text={err} />}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflowY: 'auto', marginBottom: 8 }}>
+        {messages.length === 0 && <div style={{ fontSize: 12, color: 'rgba(255,255,255,.4)' }}>Nessun messaggio.</div>}
+        {messages.map((m) => (
+          <div key={m.id} style={{ alignSelf: m.sender_role === 'driver' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
+            <div style={{ padding: '6px 10px', borderRadius: 10, background: m.sender_role === 'driver' ? 'rgba(232,87,26,.18)' : 'rgba(255,255,255,.06)', fontSize: 13, color: 'rgba(255,255,255,.9)' }}>{m.text}</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', marginTop: 2, textAlign: m.sender_role === 'driver' ? 'right' : 'left' }}>
+              {new Date(m.created_at).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <form onSubmit={send} style={{ display: 'flex', gap: 6 }}>
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Scrivi ad Admin…" style={{ flex: 1, background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 8, color: '#fff', padding: '8px 10px', fontSize: 13 }} />
+        <button type="submit" disabled={busy} style={{ ...primaryButtonStyle, padding: '0 14px' }}>Invia</button>
+      </form>
     </section>
   );
 }

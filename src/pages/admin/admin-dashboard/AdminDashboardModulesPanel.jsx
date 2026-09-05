@@ -107,6 +107,16 @@ export function AdminDashboardModulesPanel({ clientsQuotesCount, clientsStats, g
           cta="Apri Analytics"
           onOpen={() => onNav('admin-analytics')}
         />
+        {/* Comunicazioni: hub centrale messaggi Cliente<->Admin e
+            Driver<->Admin, segnalazioni, richieste di modifica campagna.
+            Nessuno stat qui: contatori reali (non letti/per categoria)
+            vivono nella pagina dedicata. */}
+        <ModuleCard
+          title="Comunicazioni"
+          stats={[]}
+          cta="Apri Comunicazioni"
+          onOpen={() => onNav('admin-communications')}
+        />
       </section>
     </>
   );
