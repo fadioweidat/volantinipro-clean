@@ -3,6 +3,7 @@ import { SUPPORT_EMAIL, SUPPORT_WHATSAPP } from "../../lib/contactConfig.js";
 import { faqs } from "../../components/home/FAQSection.jsx";
 import { services } from "../../components/home/ServicesSection.jsx";
 import { SERVICE_PAGE_CONTENT } from "../../lib/seo/servicePagesContent.js";
+import { milanoLandingContent } from "../../lib/seo/milanoLandingContent.js";
 
 // TICKET — SEO TECNICO + GOOGLE + AI SEARCH: title/description/canonical/OG/
 // Twitter/robots per pagina + JSON-LD (Organization/WebSite sempre,
@@ -46,9 +47,18 @@ const metaByPage = {
     "Distribuzione Volantini Business | VolantiniPro",
     "Distribuzione volantini mirata ad aziende, negozi e uffici, con coordinamento multi-sede, tracking GPS e report finale.",
   ],
+  "milano-landing": [
+    "Distribuzione Volantini Milano con GPS e Report | VolantiniPro",
+    "Servizio di distribuzione volantini a Milano con Door to Door, Hand to Hand e soluzioni Business. Analisi territoriale, tracking GPS, prove fotografiche e preventivo online.",
+  ],
 };
 
 const SERVICE_PAGE_IDS = Object.keys(SERVICE_PAGE_CONTENT);
+
+// Pagine "servizio/locali" che condividono lo stesso shape {h1, intro, faqs}
+// per il FAQPage/Service JSON-LD (vedi sotto) — le 3 pagine servizio +
+// la pagina locale pilota Milano (TICKET SEO LOCAL PAGE PILOTA MILANO).
+const CONTENT_PAGES = { ...SERVICE_PAGE_CONTENT, "milano-landing": milanoLandingContent };
 
 // Pagine private/gestionali: mai indicizzate, anche se raggiunte per link
 // diretto (robots.txt Disallow blocca il crawling, questo blocca l'indicizzazione
@@ -67,7 +77,7 @@ function isPrivatePage(page) {
 
 // Pagine interne "di contenuto" (non home, non private): ricevono un
 // BreadcrumbList Home > Pagina, coerente con FASE 5 del ticket.
-const BREADCRUMB_PAGES = new Set(["quick", "consultant", "preventivo", "privacy", "terms", "cookie", ...SERVICE_PAGE_IDS]);
+const BREADCRUMB_PAGES = new Set(["quick", "consultant", "preventivo", "privacy", "terms", "cookie", ...SERVICE_PAGE_IDS, "milano-landing"]);
 
 function setMeta(selector, attr, value) {
   let el = document.head.querySelector(selector);
@@ -153,13 +163,14 @@ export function SeoMeta({ page }) {
     setJsonLd("website", { "@type": "WebSite", name: "VolantiniPro", url: siteUrl });
 
     // FAQPage + Service: in home (tutti i servizi + tutte le FAQ home) o su
-    // una delle 3 pagine servizio (solo il proprio Service + le proprie FAQ
-    // brevi) — sempre dalla stessa fonte del contenuto realmente visibile
-    // (FAQSection.jsx/ServicesSection.jsx per la home,
-    // src/lib/seo/servicePagesContent.js per le pagine servizio, la stessa
+    // una delle 3 pagine servizio o sulla pagina locale Milano (solo il
+    // proprio Service + le proprie FAQ brevi) — sempre dalla stessa fonte
+    // del contenuto realmente visibile (FAQSection.jsx/ServicesSection.jsx
+    // per la home, src/lib/seo/servicePagesContent.js e
+    // milanoLandingContent.js per le pagine servizio/locali, la stessa
     // fonte usata da ServicePages.jsx per il rendering), mai testo duplicato
     // o inventato "per AI".
-    const servicePageContent = SERVICE_PAGE_CONTENT[page];
+    const servicePageContent = CONTENT_PAGES[page];
     if (page === "home") {
       setJsonLd("faqpage", {
         "@type": "FAQPage",

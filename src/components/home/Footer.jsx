@@ -41,6 +41,7 @@ const columns = [
       ["Prezzi", "prezzi"],
       ["Configura la tua campagna", "step1"],
       ["Smart Pairing", "smart-pairing"],
+      ["Distribuzione volantini a Milano", "milano-landing"],
       ["API & integrazioni", "consultant"],
     ],
   },

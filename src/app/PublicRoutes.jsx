@@ -24,6 +24,7 @@ const ServiceCenter = lazy(() => import("../pages/public/ServiceCenter.jsx"));
 const ServiceDoorToDoorPage = lazy(() => import("../pages/public/ServicePages.jsx").then(m => ({ default: m.ServiceDoorToDoorPage })));
 const ServiceHandToHandPage = lazy(() => import("../pages/public/ServicePages.jsx").then(m => ({ default: m.ServiceHandToHandPage })));
 const ServiceBusinessPage = lazy(() => import("../pages/public/ServicePages.jsx").then(m => ({ default: m.ServiceBusinessPage })));
+const MilanoLandingPage = lazy(() => import("../pages/public/MilanoLandingPage.jsx").then(m => ({ default: m.MilanoLandingPage })));
 
 // L'Assistente e il Report AI di Step2 richiedono un utente Supabase
 // autenticato reale: le Edge Function (ai-assistant-territory,
@@ -61,6 +62,7 @@ export function PublicRoutes({ page, data, setData, goTo, prefillPatch }) {
     if (page === "service-door-to-door") return <ServiceDoorToDoorPage onNav={goTo} />;
     if (page === "service-hand-to-hand") return <ServiceHandToHandPage onNav={goTo} />;
     if (page === "service-business") return <ServiceBusinessPage onNav={goTo} />;
+    if (page === "milano-landing") return <MilanoLandingPage onNav={goTo} />;
 
     if (page === "step1") return <Step1 data={data} setData={setData} onNext={() => goTo("step2")} />;
     if (page === "step2") return <Step2 data={data} setData={setData} onNext={() => goTo("step3")} onBack={() => goTo("step1")} onAssistantContextChange={updateStep2AssistantContext} />;

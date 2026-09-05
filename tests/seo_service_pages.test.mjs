@@ -83,9 +83,9 @@ test("SeoMeta.jsx: title/description unici per le 3 pagine servizio, diversi tra
 
 test("SeoMeta.jsx: le 3 pagine servizio sono in BREADCRUMB_PAGES e ricevono FAQPage/Service dedicati da SERVICE_PAGE_CONTENT", () => {
   const src = read("src/layouts/public/SeoMeta.jsx");
-  assert.match(src, /BREADCRUMB_PAGES = new Set\(\[.*\.\.\.SERVICE_PAGE_IDS\]\)/);
+  assert.match(src, /BREADCRUMB_PAGES = new Set\(\[.*\.\.\.SERVICE_PAGE_IDS/);
   assert.match(src, /import \{ SERVICE_PAGE_CONTENT \} from "\.\.\/\.\.\/lib\/seo\/servicePagesContent\.js"/);
-  assert.match(src, /const servicePageContent = SERVICE_PAGE_CONTENT\[page\]/);
+  assert.match(src, /const servicePageContent = CONTENT_PAGES\[page\]/);
   assert.match(src, /"@type": "Service",\s*\n\s*name: servicePageContent\.h1/);
 });
 

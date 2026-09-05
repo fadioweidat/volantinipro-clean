@@ -2,13 +2,14 @@ import React from "react";
 import { C, F } from "../../lib/constants.js";
 import { NavButton } from "../../components/NavButton.jsx";
 import Button from "../../components/ui/Button.jsx";
-import { doorToDoorContent, handToHandContent, businessContent } from "../../lib/seo/servicePagesContent.js";
+import { milanoLandingContent as content } from "../../lib/seo/milanoLandingContent.js";
 
-// TICKET — SEO SERVICE PAGES VOLANTINIPRO: 3 pagine pubbliche reali
-// (/servizi/door-to-door, /servizi/hand-to-hand, /servizi/business).
-// Un solo template condiviso + 3 config di contenuto (in
-// src/lib/seo/servicePagesContent.js, condiviso anche con SeoMeta.jsx per il
-// JSON-LD — stessa fonte, nessun testo duplicato/disallineato).
+// TICKET — SEO LOCAL PAGE PILOTA MILANO: unica pagina locale pilota
+// (/distribuzione-volantini-milano), stesso meccanismo di route reale delle
+// pagine servizio (src/pages/public/ServicePages.jsx) e stesso design system
+// (navy/orange, Navbar/Footer riusati da AppRouter.jsx). Contenuto in
+// src/lib/seo/milanoLandingContent.js, condiviso con SeoMeta.jsx per il
+// JSON-LD — nessun testo duplicato o inventato (vedi vincoli nel file).
 
 const SERVICE_LINKS = [
   { key: "service-door-to-door", label: "Door to Door" },
@@ -16,9 +17,6 @@ const SERVICE_LINKS = [
   { key: "service-business", label: "Business" },
 ];
 
-// Stesso pattern gia' usato da Navbar.jsx/HomePage.jsx per "Come funziona"
-// da una pagina diversa dalla home: naviga alla home, poi scrolla alla
-// sezione (nessuna route dedicata esiste per "come funziona").
 function goToHowItWorks(onNav) {
   onNav("home");
   setTimeout(() => {
@@ -26,13 +24,20 @@ function goToHowItWorks(onNav) {
   }, 150);
 }
 
-function ServicePageTemplate({ content, onNav }) {
+function goToContatti(onNav) {
+  onNav("home");
+  setTimeout(() => {
+    document.getElementById("contatti")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 150);
+}
+
+export function MilanoLandingPage({ onNav }) {
   return (
     <div style={{ minHeight: "100vh", background: C.navyMid, padding: "105px 24px 80px" }}>
       <div style={{ maxWidth: 860, margin: "0 auto" }}>
         {/* Hero */}
         <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, color: C.orange, letterSpacing: ".14em", textTransform: "uppercase", marginBottom: 12 }}>
-          {content.eyebrow}
+          Distribuzione volantini locale
         </div>
         <h1 style={{ fontFamily: F.serif, fontSize: "clamp(30px, 4.2vw, 42px)", color: C.white, letterSpacing: "-1px", lineHeight: 1.1, marginBottom: 14 }}>
           {content.h1}
@@ -42,7 +47,7 @@ function ServicePageTemplate({ content, onNav }) {
         </p>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 40 }}>
           <Button variant="primary" onClick={() => onNav("preventivo")}>{content.ctaLabel}</Button>
-          <Button variant="secondary" onClick={() => onNav("consultant")}>Parla con un consulente</Button>
+          <Button variant="secondary" onClick={() => onNav("consultant")}>Parla con noi</Button>
         </div>
 
         {/* Sezioni H2 con contenuto reale */}
@@ -56,6 +61,22 @@ function ServicePageTemplate({ content, onNav }) {
                 {p}
               </p>
             ))}
+
+            {/* Sezione "Come distribuiamo a Milano": 3 card servizio con link reale */}
+            {section.services && (
+              <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+                {section.services.map((s) => (
+                  <div key={s.pageKey} style={{ padding: 16, borderRadius: 12, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.08)" }}>
+                    <div style={{ fontFamily: F.sans, fontSize: 14, fontWeight: 800, color: C.white, marginBottom: 6 }}>{s.title}</div>
+                    <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.6)", lineHeight: 1.6, marginBottom: 10 }}>{s.text}</div>
+                    <Button variant="ghost" onClick={() => onNav(s.pageKey)} style={{ color: C.orange, fontSize: 13, padding: 0 }}>
+                      Scopri {s.title} →
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {section.bullets && (
               <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
                 {section.bullets.map((b) => (
@@ -66,10 +87,16 @@ function ServicePageTemplate({ content, onNav }) {
                 ))}
               </div>
             )}
+
+            {section.priceCta && (
+              <Button variant="primary" onClick={() => onNav("preventivo")} style={{ marginTop: 10 }}>
+                {section.priceCta}
+              </Button>
+            )}
           </section>
         ))}
 
-        {/* FAQ brevi — fattuali, per AI search / answer engines */}
+        {/* FAQ brevi e reali — visibili senza interazione, per crawler/AI search */}
         <section style={{ marginBottom: 40 }}>
           <h2 style={{ fontFamily: F.serif, fontSize: 22, color: C.white, marginBottom: 14, letterSpacing: "-.02em" }}>
             Domande frequenti
@@ -87,14 +114,14 @@ function ServicePageTemplate({ content, onNav }) {
         {/* CTA finale */}
         <div style={{ padding: 22, borderRadius: 14, background: "rgba(232,87,26,.08)", border: "1px solid rgba(232,87,26,.25)", marginBottom: 34, textAlign: "center" }}>
           <p style={{ fontFamily: F.sans, fontSize: 14, color: "rgba(255,255,255,.75)", marginBottom: 14 }}>
-            Configura la tua campagna {content.shortName} e ricevi un preventivo online.
+            Configura la tua campagna a Milano e ricevi un preventivo online.
           </p>
           <Button variant="primary" onClick={() => onNav("preventivo")}>{content.ctaLabel}</Button>
         </div>
 
         {/* Internal linking */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 26 }}>
-          {SERVICE_LINKS.filter((s) => s.key !== content.pageKey).map((s) => (
+          {SERVICE_LINKS.map((s) => (
             <Button key={s.key} variant="ghost" onClick={() => onNav(s.key)} style={{ color: "rgba(255,255,255,.7)", fontSize: 13 }}>
               {s.label} →
             </Button>
@@ -102,13 +129,8 @@ function ServicePageTemplate({ content, onNav }) {
           <Button variant="ghost" onClick={() => goToHowItWorks(onNav)} style={{ color: "rgba(255,255,255,.7)", fontSize: 13 }}>
             Come funziona →
           </Button>
-          <Button variant="ghost" onClick={() => { onNav("home"); setTimeout(() => document.getElementById("contatti")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150); }} style={{ color: "rgba(255,255,255,.7)", fontSize: 13 }}>
+          <Button variant="ghost" onClick={() => goToContatti(onNav)} style={{ color: "rgba(255,255,255,.7)", fontSize: 13 }}>
             Contatti →
-          </Button>
-          {/* Link discreto verso la pagina locale pilota Milano (TICKET SEO
-              LOCAL PAGE PILOTA MILANO) — nessun link SEO ripetuto altrove. */}
-          <Button variant="ghost" onClick={() => onNav("milano-landing")} style={{ color: "rgba(255,255,255,.7)", fontSize: 13 }}>
-            Distribuzione volantini a Milano →
           </Button>
         </div>
 
@@ -116,14 +138,4 @@ function ServicePageTemplate({ content, onNav }) {
       </div>
     </div>
   );
-}
-
-export function ServiceDoorToDoorPage({ onNav }) {
-  return <ServicePageTemplate content={doorToDoorContent} onNav={onNav} />;
-}
-export function ServiceHandToHandPage({ onNav }) {
-  return <ServicePageTemplate content={handToHandContent} onNav={onNav} />;
-}
-export function ServiceBusinessPage({ onNav }) {
-  return <ServicePageTemplate content={businessContent} onNav={onNav} />;
 }

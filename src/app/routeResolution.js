@@ -48,6 +48,7 @@ export function resolveAppRoute(path, { hasAuthHash = false, prefillHas = false,
   if (p === '/servizi/door-to-door') return 'service-door-to-door';
   if (p === '/servizi/hand-to-hand') return 'service-hand-to-hand';
   if (p === '/servizi/business') return 'service-business';
+  if (p === '/distribuzione-volantini-milano') return 'milano-landing';
   if (p === '/configuratore' || prefillHas) return step ? `step${step}` : 'step1';
   return 'not-found';
 }

@@ -26,6 +26,11 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://www.volantinipro.it/distribuzione-volantini-milano</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://www.volantinipro.it/preventivo-rapido</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
