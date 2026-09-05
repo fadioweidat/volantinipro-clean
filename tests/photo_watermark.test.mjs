@@ -386,6 +386,64 @@ test("ANDROID — gps-api uploadProofPhoto: accetta onStage e riporta storage/rp
   assert.doesNotMatch(api, /report\([^)]*storagePath/);
 });
 
+// ── TICKET — DIAGNOSTICA FOTO NON VISIBILE NELLA DRIVER APP REALE ───────
+test("DIAGNOSTICA — persiste in sessionStorage, sopravvive a rimonto / reload del renderer", () => {
+  const src = read("src/components/driver/PodCapture.jsx");
+  assert.match(src, /const DIAG_KEY = 'pod_photo_last_diagnostic'/);
+  assert.match(src, /function loadLastDiagnostic\(\)[\s\S]{0,200}sessionStorage\.getItem\(DIAG_KEY\)/);
+  assert.match(src, /function saveLastDiagnostic\(diag\)[\s\S]{0,200}sessionStorage\.setItem\(DIAG_KEY/);
+  // stato inizializzato dalla diagnostica salvata (sopravvive al rimonto)
+  assert.match(src, /useState\(\(\) => loadLastDiagnostic\(\)\)/);
+  // ogni stage viene persistito SUBITO (se il renderer muore ora, l'ultimo
+  // stage senza *_done e' il punto di rottura)
+  const push = src.slice(src.indexOf("function pushStage"));
+  assert.match(push.slice(0, 400), /saveLastDiagnostic\(diag\)/);
+});
+
+test("DIAGNOSTICA — NON cancellata da fullCleanup / resetToIdle / reset input / distruzione preview", () => {
+  const src = read("src/components/driver/PodCapture.jsx");
+  const cleanup = src.slice(src.indexOf("function fullCleanup"), src.indexOf("function resetToIdle"));
+  assert.doesNotMatch(cleanup, /setLastDiagnostic|DIAG_KEY|removeItem/);
+  const reset = src.slice(src.indexOf("function resetToIdle"), src.indexOf("function switchToLowMemory"));
+  assert.doesNotMatch(reset, /setLastDiagnostic|DIAG_KEY|removeItem/);
+  // l'unmount cleanup non tocca la diagnostica
+  assert.match(src, /useEffect\(\(\) => \(\) => \{ revokePreview\(\); finalBlobRef\.current = null; \}, \[\]\)/);
+});
+
+test("DIAGNOSTICA — 'Ultima diagnostica foto' + 'ULTIMO STAGE' + 'Copia diagnostica' SEMPRE sotto la card, anche a idle", () => {
+  const src = read("src/components/driver/PodCapture.jsx");
+  // il blocco NON e' dentro un ramo stage === '...' : e' condizionato solo a lastDiagnostic
+  assert.match(src, /\{lastDiagnostic && \(\s*\n\s*<div style=\{lastDiagStyle\}>/);
+  assert.match(src, /Ultima diagnostica foto/);
+  assert.match(src, /ULTIMO STAGE: \{lastDiagnostic\.lastStage/);
+  assert.match(src, /onClick=\{copyLastDiagnostic\}>Copia diagnostica</);
+  // il blocco diagnostica compare DOPO la chiusura dei rami di stage
+  const idxUploading = src.indexOf("stage === 'uploading'");
+  const idxDiag = src.indexOf("{lastDiagnostic && (");
+  assert.ok(idxDiag > idxUploading, "il blocco diagnostica va reso fuori dai rami di stage");
+});
+
+test("DIAGNOSTICA — errore PRIMA di input_received -> stage 'camera_pre_js' + messaggio esplicito", () => {
+  const src = read("src/components/driver/PodCapture.jsx");
+  assert.match(src, /if \(!file\) \{[\s\S]{0,600}lastStageOverride: 'camera_pre_js'/);
+  assert.match(src, /Errore avvenuto prima che la foto arrivasse alla pipeline JavaScript/);
+  assert.match(src, /beforePipeline: true/);
+});
+
+test("DIAGNOSTICA — al mount, diagnostica non finalized -> promossa a 'interrotto' (probabile OOM renderer)", () => {
+  const src = read("src/components/driver/PodCapture.jsx");
+  assert.match(src, /if \(d && !d\.finalized\) \{/);
+  assert.match(src, /interrupted: true/);
+  assert.match(src, /probabile esaurimento memoria del renderer/i);
+});
+
+test("DIAGNOSTICA — campi minimi richiesti presenti nell'oggetto diagnostica", () => {
+  const src = read("src/components/driver/PodCapture.jsx");
+  for (const field of ["lastStage", "errorName", "errorMessage", "memoryError", "origBytes", "origWidth", "origHeight", "targetWidth", "targetHeight", "finalBytes", "elapsedMs", "timestamp"]) {
+    assert.match(src, new RegExp(`${field}:`), `manca il campo diagnostica ${field}`);
+  }
+});
+
 // ── DO NOT BREAK: watermark POD/DDT esistente e nota non toccati ─────────
 test("buildPodWatermarkLines / buildProofPhotoNote / parseProofPhotoNote restano invariati (nessuna regressione POD)", () => {
   const pod = read("src/lib/pod/podPhotoProcessing.js");

@@ -14,25 +14,33 @@ import {
 import { uploadProofPhoto } from '../../lib/services/gps-api.js';
 import { reverseGeocode } from '../../lib/geo/geocodeAddress.js';
 
-// TICKET — PHOTO PIPELINE STILL FAILS ON REAL ANDROID DEVICE.
+// TICKET — DIAGNOSTICA FOTO NON VISIBILE NELLA DRIVER APP REALE.
 //
-// Il fix precedente (decode-at-target + releaseCanvas + lock seriale) NON ha
-// risolto "Impossibile completare l'operazione precedente. Memoria
-// insufficiente." sul telefono reale. Questo giro NON introduce ottimizzazioni
-// speculative: aggiunge (1) diagnostica di fase per capire ESATTAMENTE dove
-// fallisce, (2) un profilo memoria dinamico (default 1600px/q0.8 vs low
-// 1280px/q0.7), (3) anteprima via thumbnail dedicata (<=480px) invece del
-// blob finale, (4) recovery "modalita' leggera" dopo un errore di memoria.
+// Sul telefono reale l'errore "Impossibile completare l'operazione precedente.
+// Memoria insufficiente." fa perdere lo stato React del componente (la card
+// torna subito a idle, spesso perche' il renderer Chrome viene ricaricato o
+// il componente viene rimontato) e con esso spariva la diagnostica di fase.
 //
-// Ordine stage (ognuno loggato con timestamp relativo, dimensioni, elapsed,
-// error.name/message; MAI token o dati sensibili):
-//   input_received -> dimensions_read -> bitmap_start -> bitmap_done ->
-//   canvas_draw_start -> canvas_draw_done -> watermark_start -> watermark_done
-//   -> blob_start -> blob_done -> thumb_start -> thumb_done -> preview_ready
-//   -> upload_start -> storage_upload_done -> rpc_register_start ->
-//   rpc_register_done -> cleanup_done
+// Ora la diagnostica NON vive piu' solo nello stato React: ogni stage viene
+// scritto SUBITO in sessionStorage (`pod_photo_last_diagnostic`). Al mount il
+// componente la rilegge. Se l'ultima diagnostica non e' "finalized" significa
+// che il flusso e' stato interrotto senza un errore JS catturabile — quasi
+// sempre un OOM del renderer: lo si dichiara esplicitamente.
+//
+// La sezione "Ultima diagnostica foto" e il pulsante "Copia diagnostica" sono
+// SEMPRE visibili sotto la card (anche a flusso idle) finche' esiste una
+// diagnostica salvata. fullCleanup / resetToIdle / reset dell'input NON la
+// cancellano mai.
+//
+// Ordine stage: input_received -> dimensions_read -> bitmap_start ->
+// bitmap_done -> canvas_draw_start -> canvas_draw_done -> watermark_start ->
+// watermark_done -> blob_start -> blob_done -> thumb_start -> thumb_done ->
+// preview_ready -> upload_start -> storage_upload_done -> rpc_register_start
+// -> rpc_register_done -> cleanup_done.
+// Sentinella: camera_pre_js = errore PRIMA che il file arrivi al codice JS.
 
 const LOW_MEMORY_FLAG = 'pod_forced_low_memory';
+const DIAG_KEY = 'pod_photo_last_diagnostic';
 const MAX_STAGE_ROWS = 60;
 
 function readForcedLowMemory() {
@@ -41,17 +49,58 @@ function readForcedLowMemory() {
 function persistForcedLowMemory() {
   try { localStorage.setItem(LOW_MEMORY_FLAG, '1'); } catch { /* storage non disponibile */ }
 }
+function loadLastDiagnostic() {
+  try {
+    const raw = sessionStorage.getItem(DIAG_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch { return null; }
+}
+function saveLastDiagnostic(diag) {
+  try { sessionStorage.setItem(DIAG_KEY, JSON.stringify(diag)); } catch { /* storage non disponibile */ }
+  try { console.info('[PodCapture] diagnostic', JSON.stringify(diag)); } catch { /* console non disponibile */ }
+}
+
+// Costruisce l'oggetto diagnostica dai campi noti + dagli stage gia' raccolti.
+function buildDiagnostic(stages, extra) {
+  const pick = (name) => stages.find((s) => s.stage === name) || null;
+  const input = pick('input_received');
+  const dims = pick('dimensions_read');
+  const blobDone = pick('blob_done');
+  const last = stages.length ? stages[stages.length - 1].stage : null;
+  return {
+    lastStage: extra?.lastStageOverride || last || 'sconosciuto',
+    beforePipeline: !!extra?.beforePipeline,
+    errorName: extra?.error?.name || null,
+    errorMessage: extra?.error ? (extra.error.message || String(extra.error)) : (extra?.errorMessage || null),
+    memoryError: extra?.memoryError ?? null,
+    origBytes: input?.origBytes ?? null,
+    origWidth: dims?.origWidth ?? null,
+    origHeight: dims?.origHeight ?? null,
+    targetWidth: dims?.targetWidth ?? null,
+    targetHeight: dims?.targetHeight ?? null,
+    finalBytes: blobDone?.finalBytes ?? null,
+    elapsedMs: extra?.elapsedMs ?? (stages.length ? stages[stages.length - 1].atMs : null),
+    timestamp: new Date().toISOString(),
+    profile: extra?.profile || null,
+    deviceMemory: (typeof navigator !== 'undefined' ? navigator.deviceMemory : null) ?? null,
+    finalized: !!extra?.finalized,
+    stages,
+  };
+}
 
 export function PodCapture({ campaignId, sessionId, assignmentId = null, accessToken = null, lastPosition, city = null, onUploaded }) {
   const [stage, setStage] = useState('idle'); // idle | preparing | preview | uploading | error
   const [error, setError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [meta, setMeta] = useState(null); // { origBytes, origW, origH, finalW, finalH, finalBytes, ms }
-  const [stageLog, setStageLog] = useState([]); // diagnostica di fase (temporanea)
   const [profileId, setProfileId] = useState(
     () => ((detectLowMemoryDevice() || readForcedLowMemory()) ? 'low' : 'default'),
   );
   const [memoryFailure, setMemoryFailure] = useState(false);
+  // Diagnostica persistente: sopravvive a rimonti e reload del renderer.
+  const [lastDiagnostic, setLastDiagnostic] = useState(() => loadLastDiagnostic());
 
   const finalBlobRef = useRef(null);
   const takenAtRef = useRef(null);
@@ -65,17 +114,48 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
 
   profileRef.current = profileId;
 
+  // Al mount: se l'ultima diagnostica salvata non e' finalized, il flusso e'
+  // stato interrotto senza un errore JS -> quasi sempre OOM del renderer.
+  useEffect(() => {
+    const d = loadLastDiagnostic();
+    if (d && !d.finalized) {
+      const promoted = {
+        ...d,
+        finalized: true,
+        interrupted: true,
+        memoryError: d.memoryError ?? true,
+        errorMessage: d.errorMessage || 'Flusso interrotto senza errore JavaScript catturabile (probabile esaurimento memoria del renderer).',
+      };
+      saveLastDiagnostic(promoted);
+      setLastDiagnostic(promoted);
+    } else if (d) {
+      setLastDiagnostic(d);
+    }
+  }, []);
+
   function nowMs() {
     return typeof performance !== 'undefined' ? performance.now() : Date.now();
   }
 
-  // Registra uno stage: timestamp relativo all'inizio dello scatto corrente,
-  // + qualunque campo extra (dimensioni, byte, error.name/message).
+  // Registra uno stage e lo persiste SUBITO: se il renderer muore ora, al
+  // mount successivo l'ultimo stage senza il suo *_done e' il punto di rottura.
   function pushStage(name, extra) {
     const entry = { stage: name, atMs: Math.round(nowMs() - (t0Ref.current || nowMs())), ...(extra || {}) };
     stageLogRef.current = [...stageLogRef.current, entry].slice(-MAX_STAGE_ROWS);
-    setStageLog(stageLogRef.current);
-    try { console.info('[PodCapture]', JSON.stringify(entry)); } catch { /* console non disponibile */ }
+    const diag = buildDiagnostic(stageLogRef.current, {
+      profile: profileRef.current,
+      finalized: name === 'cleanup_done',
+    });
+    saveLastDiagnostic(diag);
+    setLastDiagnostic(diag);
+  }
+
+  // Chiude la diagnostica con un esito d'errore (o pre-pipeline) e la persiste.
+  function finalizeDiagnostic(extra) {
+    const diag = buildDiagnostic(stageLogRef.current, { ...extra, profile: profileRef.current, finalized: true });
+    saveLastDiagnostic(diag);
+    setLastDiagnostic(diag);
+    return diag;
   }
 
   function revokePreview() {
@@ -85,6 +165,8 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
     }
   }
 
+  // NON tocca lastDiagnostic ne' sessionStorage: la diagnostica deve
+  // sopravvivere a errore, reset e distruzione dell'anteprima.
   function fullCleanup() {
     revokePreview();
     setPreviewUrl(null);
@@ -92,7 +174,6 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
     takenAtRef.current = null;
   }
 
-  // Cleanup all'unmount: nessuna object URL orfana, nessun Blob trattenuto.
   useEffect(() => () => { revokePreview(); finalBlobRef.current = null; }, []);
 
   function resetToIdle() {
@@ -114,8 +195,25 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
   async function handleFileSelected(event) {
     const file = event.target.files?.[0];
     event.target.value = ''; // libera SUBITO la FileList dell'input
-    if (!file) return;
     if (busyRef.current) return; // gia' un'immagine in lavorazione
+
+    if (!file) {
+      // Item 6: nessun file arrivato al codice JS -> errore/annullo PRIMA
+      // che la foto entri nella pipeline (camera intent / OS Android / OOM
+      // durante il ritorno dalla fotocamera).
+      stageLogRef.current = [];
+      t0Ref.current = nowMs();
+      finalizeDiagnostic({
+        lastStageOverride: 'camera_pre_js',
+        beforePipeline: true,
+        memoryError: null,
+        errorMessage: 'Errore avvenuto prima che la foto arrivasse alla pipeline JavaScript',
+      });
+      setError('Nessuna foto ricevuta dalla fotocamera. Riprova.');
+      setStage('error');
+      return;
+    }
+
     busyRef.current = true;
     setError(null);
     setMemoryFailure(false);
@@ -123,7 +221,6 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
 
     t0Ref.current = nowMs();
     stageLogRef.current = [];
-    setStageLog([]);
 
     const profile = POD_MEMORY_PROFILES[profileRef.current] || POD_MEMORY_PROFILES.default;
     const origBytes = file.size;
@@ -133,13 +230,11 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
     try {
       validatePodImageFile(file);
 
-      // decode + downscale in un passo, secondo il profilo memoria attivo
       const compressed = await compressPodImage(file, { maxDimension: profile.maxDimension, onStage: pushStage });
       canvas = compressed.canvas;
 
       const takenAt = new Date().toISOString();
 
-      // reverse geocoding NON bloccante, time-boxed
       let geo = null;
       if (lastPosition?.lat != null && lastPosition?.lng != null) {
         geo = await reverseGeocode(lastPosition.lat, lastPosition.lng).catch(() => null);
@@ -161,11 +256,9 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
       const finalH = canvas.height;
 
       pushStage('blob_start', { quality: profile.quality });
-      const blob = await canvasToJpegBlob(canvas, profile.quality); // upload usa QUESTO blob
+      const blob = await canvasToJpegBlob(canvas, profile.quality);
       pushStage('blob_done', { finalBytes: blob.size, finalW, finalH });
 
-      // anteprima leggera: thumbnail <=480px dal canvas finale, poi si libera
-      // il canvas grande. La preview <img> non decodifica mai il JPEG finale.
       pushStage('thumb_start');
       const thumbBlob = await makeThumbnailBlob(canvas).catch(() => null);
       pushStage('thumb_done', { thumbBytes: thumbBlob?.size ?? null });
@@ -192,7 +285,7 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
       setStage('preview');
     } catch (err) {
       const mem = isMemoryError(err);
-      pushStage('error', { failedAfter: stageLogRef.current[stageLogRef.current.length - 1]?.stage || 'input_received', name: err?.name || null, message: err?.message || String(err), memoryError: mem });
+      finalizeDiagnostic({ error: err, memoryError: mem, elapsedMs: Math.round(nowMs() - t0Ref.current) });
       if (canvas) releaseCanvas(canvas);
       fullCleanup();
       if (mem) {
@@ -221,7 +314,7 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
         sessionId,
         assignmentId,
         accessToken,
-        blob: finalBlobRef.current, // stesso Blob gia' compresso+watermarkato
+        blob: finalBlobRef.current,
         lat: lastPosition?.lat,
         lng: lastPosition?.lng,
         takenAt: takenAtRef.current || new Date().toISOString(),
@@ -232,10 +325,8 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
       resetToIdle();
     } catch (err) {
       const mem = isMemoryError(err);
-      pushStage('error', { failedAfter: 'upload', name: err?.name || null, message: err?.message || String(err), memoryError: mem });
+      finalizeDiagnostic({ error: err, memoryError: mem, lastStageOverride: 'upload', elapsedMs: Math.round(nowMs() - t0Ref.current) });
       if (mem) { switchToLowMemory(); setMemoryFailure(true); }
-      // Recovery: lo stato torna utilizzabile, il Blob e' ancora valido per un
-      // nuovo tentativo di upload senza rifare il processing.
       setError(err?.message || 'Caricamento foto non riuscito. Riprova.');
       setStage('error');
     } finally {
@@ -243,21 +334,18 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
     }
   }
 
-  function copyDiagnostics() {
-    const text = JSON.stringify({ profile: profileRef.current, deviceMemory: (typeof navigator !== 'undefined' ? navigator.deviceMemory : null) ?? null, meta, stages: stageLogRef.current }, null, 2);
-    try { navigator.clipboard?.writeText(text); } catch { /* clipboard non disponibile */ }
+  function copyLastDiagnostic() {
+    if (!lastDiagnostic) return;
+    try { navigator.clipboard?.writeText(JSON.stringify(lastDiagnostic, null, 2)); } catch { /* clipboard non disponibile */ }
+  }
+
+  function clearLastDiagnostic() {
+    try { sessionStorage.removeItem(DIAG_KEY); } catch { /* ignore */ }
+    setLastDiagnostic(null);
   }
 
   const scattoDisabled = stage === 'preparing' || stage === 'uploading' || busyRef.current;
   const profileLabel = profileRef.current === 'low' ? 'leggera (1280px)' : 'standard (1600px)';
-
-  const diagnosticsBlock = stageLog.length > 0 && (
-    <details style={diagStyle}>
-      <summary style={diagSummaryStyle}>Diagnostica ({stageLog.length} stage) · modalita' {profileLabel}</summary>
-      <pre style={diagPreStyle}>{stageLog.map((s) => `+${String(s.atMs).padStart(5)}ms  ${s.stage}${formatExtra(s)}`).join('\n')}</pre>
-      <button type="button" style={secondaryButtonStyle} onClick={copyDiagnostics}>Copia diagnostica</button>
-    </details>
-  );
 
   return (
     <section style={cardStyle}>
@@ -282,12 +370,7 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
         </div>
       )}
 
-      {stage === 'preparing' && (
-        <div style={{ display: 'grid', gap: 10 }}>
-          <div style={mutedStyle}>Elaborazione foto e watermark in corso ({profileLabel})...</div>
-          {diagnosticsBlock}
-        </div>
-      )}
+      {stage === 'preparing' && <div style={mutedStyle}>Elaborazione foto e watermark in corso ({profileLabel})...</div>}
 
       {stage === 'error' && (
         <div style={{ display: 'grid', gap: 10 }}>
@@ -299,7 +382,6 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
             )}
             <button type="button" style={secondaryButtonStyle} onClick={resetToIdle}>Nuovo scatto</button>
           </div>
-          {diagnosticsBlock}
         </div>
       )}
 
@@ -316,24 +398,54 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
             <button type="button" style={primaryButtonStyle} onClick={handleConfirm}>Conferma e invia</button>
             <button type="button" style={secondaryButtonStyle} onClick={resetToIdle}>Riscatta</button>
           </div>
-          {diagnosticsBlock}
         </div>
       )}
 
-      {stage === 'uploading' && (
-        <div style={{ display: 'grid', gap: 10 }}>
-          <div style={mutedStyle}>Caricamento foto in corso...</div>
-          {diagnosticsBlock}
+      {stage === 'uploading' && <div style={mutedStyle}>Caricamento foto in corso...</div>}
+
+      {/* SEMPRE visibile finche' esiste una diagnostica salvata: anche a idle,
+          anche dopo un rimonto / reload del renderer (sessionStorage). */}
+      {lastDiagnostic && (
+        <div style={lastDiagStyle}>
+          <div style={lastDiagHeadStyle}>Ultima diagnostica foto</div>
+          <div style={lastStageBigStyle}>ULTIMO STAGE: {lastDiagnostic.lastStage || 'sconosciuto'}</div>
+          {lastDiagnostic.beforePipeline && (
+            <div style={errorStyle}>Errore avvenuto prima che la foto arrivasse alla pipeline JavaScript</div>
+          )}
+          {lastDiagnostic.interrupted && !lastDiagnostic.beforePipeline && (
+            <div style={errorStyle}>Flusso interrotto senza errore JavaScript — probabile esaurimento memoria del renderer Chrome.</div>
+          )}
+          <pre style={diagPreStyle}>{formatDiagnostic(lastDiagnostic)}</pre>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" style={secondaryButtonStyle} onClick={copyLastDiagnostic}>Copia diagnostica</button>
+            <button type="button" style={linkButtonStyle} onClick={clearLastDiagnostic}>Nascondi</button>
+          </div>
         </div>
       )}
     </section>
   );
 }
 
-function formatExtra(s) {
-  const keys = Object.keys(s).filter((k) => k !== 'stage' && k !== 'atMs');
-  if (!keys.length) return '';
-  return '  ' + keys.map((k) => `${k}=${s[k]}`).join(' ');
+function formatDiagnostic(d) {
+  const head = [
+    `timestamp     ${d.timestamp || '-'}`,
+    `ultimo stage  ${d.lastStage || '-'}`,
+    `error.name    ${d.errorName || '-'}`,
+    `error.message ${d.errorMessage || '-'}`,
+    `memoryError   ${d.memoryError === null || d.memoryError === undefined ? '-' : d.memoryError}`,
+    `profilo       ${d.profile || '-'}  deviceMemory ${d.deviceMemory ?? '-'}`,
+    `origBytes     ${d.origBytes ?? '-'}   orig ${d.origWidth ?? '-'}x${d.origHeight ?? '-'}`,
+    `target        ${d.targetWidth ?? '-'}x${d.targetHeight ?? '-'}`,
+    `finalBytes    ${d.finalBytes ?? '-'}   elapsed ${d.elapsedMs ?? '-'} ms`,
+    `finalized     ${!!d.finalized}${d.interrupted ? ' (interrotto)' : ''}`,
+    '— stages —',
+  ].join('\n');
+  const rows = (d.stages || []).map((s) => {
+    const extra = Object.keys(s).filter((k) => k !== 'stage' && k !== 'atMs')
+      .map((k) => `${k}=${s[k]}`).join(' ');
+    return `+${String(s.atMs).padStart(5)}ms  ${s.stage}${extra ? '  ' + extra : ''}`;
+  }).join('\n');
+  return `${head}\n${rows}`;
 }
 
 const cardStyle = { background: '#fff', border: '1px solid #d7ded9', borderRadius: 14, padding: 18, boxShadow: '0 10px 26px rgba(15,23,42,.07)' };
@@ -342,8 +454,9 @@ const mutedStyle = { color: '#64748b', fontSize: 13 };
 const errorStyle = { padding: 12, borderRadius: 10, color: '#991b1b', background: '#fee2e2', border: '1px solid #fecaca', fontSize: 13 };
 const primaryButtonStyle = { border: 'none', borderRadius: 10, padding: '12px 16px', background: '#e8571a', color: '#fff', fontWeight: 900, cursor: 'pointer' };
 const secondaryButtonStyle = { border: '1px solid #cbd5e1', borderRadius: 10, padding: '12px 16px', background: '#fff', color: '#17211f', fontWeight: 900, cursor: 'pointer' };
-const linkButtonStyle = { border: 'none', background: 'none', color: '#2563eb', fontSize: 12, textDecoration: 'underline', cursor: 'pointer', padding: 0, justifySelf: 'start' };
+const linkButtonStyle = { border: 'none', background: 'none', color: '#2563eb', fontSize: 12, textDecoration: 'underline', cursor: 'pointer', padding: 0 };
 const previewImgStyle = { width: '100%', maxHeight: 360, objectFit: 'contain', borderRadius: 10, border: '1px solid #e2e8f0', background: '#0b0f14' };
-const diagStyle = { border: '1px dashed #cbd5e1', borderRadius: 10, padding: 10, background: '#f8fafc' };
-const diagSummaryStyle = { fontSize: 12, fontWeight: 900, color: '#334155', cursor: 'pointer' };
-const diagPreStyle = { margin: '8px 0', fontSize: 10.5, lineHeight: 1.5, color: '#0f172a', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 220, overflow: 'auto' };
+const lastDiagStyle = { marginTop: 14, border: '1px solid #cbd5e1', borderRadius: 10, padding: 12, background: '#f8fafc', display: 'grid', gap: 8 };
+const lastDiagHeadStyle = { fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.1em', color: '#334155' };
+const lastStageBigStyle = { fontSize: 15, fontWeight: 900, color: '#0f172a', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' };
+const diagPreStyle = { margin: 0, fontSize: 10.5, lineHeight: 1.5, color: '#0f172a', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 260, overflow: 'auto' };
