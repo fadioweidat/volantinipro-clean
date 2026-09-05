@@ -51,6 +51,7 @@ export function AdminIssuesPanel({ campaignId }) {
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,.5)' }}>
               {ISSUE_STATUS_LABELS[i.status] || i.status} · {i.routed_to === 'driver' ? 'assegnata' : 'coda Admin'}
               {' · aperta da '}{Math.round((i.open_seconds || 0) / 60)} min
+              {i.seen_at ? ` · vista ${new Date(i.seen_at).toLocaleString('it-IT')}` : ''}
               {i.resolved_at ? ` · risolta ${new Date(i.resolved_at).toLocaleString('it-IT')}` : ''}
             </div>
           </div>

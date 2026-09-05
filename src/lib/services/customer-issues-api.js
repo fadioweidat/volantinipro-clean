@@ -27,6 +27,7 @@ export const ISSUE_REASONS = Object.freeze([
 export const ISSUE_STATUS_LABELS = Object.freeze({
   new: 'Nuova',
   assigned: 'Assegnata',
+  seen: 'Presa visione',
   in_progress: 'Presa in carico',
   resolved: 'Risolta',
   not_resolvable: 'Non risolvibile',
@@ -34,9 +35,11 @@ export const ISSUE_STATUS_LABELS = Object.freeze({
 
 // --- Cliente ---------------------------------------------------------------
 
-/** Crea una segnalazione. Il routing all'autista e' automatico lato server;
- *  fallback coda Admin se l'assegnazione non e' certa. */
-export async function createCustomerIssue({ campaignId, municipality, street, houseNumber = null, lat = null, lng = null, reason, notes = null }) {
+/** Crea una segnalazione. `zoneId` (zona reale scelta dal Cliente, stessa
+ *  fonte gia' usata dalla mappa tracking) instrada l'assignment corretto
+ *  server-side; senza zona nota (o candidato non univoco) resta in coda
+ *  Admin — mai indovinato, mai al driver sbagliato. */
+export async function createCustomerIssue({ campaignId, municipality, street, houseNumber = null, lat = null, lng = null, zoneId = null, reason, notes = null }) {
   return callIssueRpc('customer_create_issue', {
     p_campaign_id: campaignId,
     p_municipality: municipality,
@@ -46,6 +49,7 @@ export async function createCustomerIssue({ campaignId, municipality, street, ho
     p_lng: lng,
     p_reason: reason,
     p_notes: notes,
+    p_zone_id: zoneId,
   });
 }
 

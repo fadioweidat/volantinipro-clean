@@ -706,7 +706,16 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken }) {
     }
   }, [assignmentId, accessToken]);
 
-  useEffect(() => { reload(); }, [reload]);
+  // TICKET FIX SEGNALAZIONI: prima solo al mount, un driver gia' con l'app
+  // aperta non vedeva mai una segnalazione arrivata dopo (bisognava fare
+  // logout/login o ricaricare). Polling leggero (nessuna nuova infrastruttura
+  // realtime), stesso ordine di grandezza gia' usato altrove nell'app per il
+  // tracking cliente (30s) — qui 20s perche' il ticket chiede "15-30 secondi".
+  useEffect(() => {
+    reload();
+    const timer = window.setInterval(reload, 20000);
+    return () => window.clearInterval(timer);
+  }, [reload]);
 
   const openMaps = (issue) => {
     const q = encodeURIComponent(`${issue.street} ${issue.house_number || ''}, ${issue.municipality}`);
@@ -775,6 +784,9 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken }) {
             {!done && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
                 <button type="button" style={secondaryButtonStyle} onClick={() => openMaps(issue)}>Naviga</button>
+                {(issue.status === 'new' || issue.status === 'assigned') && (
+                  <button type="button" style={secondaryButtonStyle} disabled={busyId === issue.id} onClick={() => act(issue, 'seen')}>Presa visione</button>
+                )}
                 {issue.status !== 'in_progress' && (
                   <button type="button" style={secondaryButtonStyle} disabled={busyId === issue.id} onClick={() => act(issue, 'take')}>Sono sul posto</button>
                 )}

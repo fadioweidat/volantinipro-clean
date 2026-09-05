@@ -11,7 +11,7 @@ import { getOwnedCustomerTracking } from '../../lib/services/customer-api.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
 import { listCoverageAdjustments, VERIFIED_COVERAGE_STYLE } from '../../lib/services/coverage-adjustments-api.js';
 import { geoJsonPolygonToLeafletPositions } from '../../lib/geo/geoJsonToLeaflet.js';
-import { createCustomerIssue, ISSUE_REASONS, ISSUE_STATUS_LABELS } from '../../lib/services/customer-issues-api.js';
+import { createCustomerIssue, ISSUE_REASONS } from '../../lib/services/customer-issues-api.js';
 import { deriveLiveZoneStatus, estimateDistanceToZoneBoundaryMeters, ZONE_LIVE_STATUS_LABELS, ZONE_LIVE_STATUS_COLORS } from '../../lib/geofence/geofenceEngine.js';
 import { getMunicipalityCenterPoint } from '../../lib/geo/originRadialSelection.js';
 import { C, F } from '../../lib/constants.js';
@@ -191,6 +191,7 @@ export function CampaignTracking({ campaignId }) {
         <CustomerIssuesCard
           campaignId={campaignId}
           issues={state.issues || []}
+          zones={zoneRows}
           onCreated={() => setRefreshNonce((n) => n + 1)}
         />
 
@@ -324,28 +325,44 @@ function TrackingMap({ zones = [], finalCoverage = null, mapRef }) {
   );
 }
 
-function CustomerIssuesCard({ campaignId, issues = [], onCreated }) {
+// Stato reale mostrato al Cliente (Fase 3/7 del ticket: "NON mentire al
+// cliente" quando nessun driver e' assegnato). Wording dedicato al Cliente,
+// distinto da ISSUE_STATUS_LABELS (usato da Driver/Admin per lo stesso
+// status con un pubblico diverso) — nessuna duplicazione di dato, solo di
+// presentazione.
+function customerIssueStatusLabel(issue) {
+  if (issue.status === 'resolved') return 'Risolta';
+  if (issue.status === 'not_resolvable') return 'Non risolvibile';
+  if (issue.status === 'in_progress') return 'In verifica';
+  if (issue.status === 'seen') return 'Operatore informato';
+  if (issue.routed_to !== 'driver') return 'In attesa di assegnazione operatore';
+  return 'In attesa di presa visione';
+}
+
+function CustomerIssuesCard({ campaignId, issues = [], zones = [], onCreated }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ municipality: '', street: '', houseNumber: '', reason: 'non_ricevuto', notes: '' });
+  const [form, setForm] = useState({ zoneId: '', street: '', houseNumber: '', reason: 'non_ricevuto', notes: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const [ok, setOk] = useState(false);
+  const [ok, setOk] = useState(null);
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.municipality.trim() || !form.street.trim()) { setError('Comune e via sono obbligatori.'); return; }
-    setBusy(true); setError(null); setOk(false);
+    if (!form.street.trim()) { setError('La via è obbligatoria.'); return; }
+    setBusy(true); setError(null); setOk(null);
     try {
-      await createCustomerIssue({
+      const selectedZone = zones.find((z) => z.id === form.zoneId);
+      const created = await createCustomerIssue({
         campaignId,
-        municipality: form.municipality.trim(),
+        municipality: selectedZone?.zone_name || 'Zona non specificata',
         street: form.street.trim(),
         houseNumber: form.houseNumber.trim() || null,
+        zoneId: form.zoneId || null,
         reason: form.reason,
         notes: form.notes.trim() || null,
       });
-      setOk(true);
-      setForm({ municipality: '', street: '', houseNumber: '', reason: 'non_ricevuto', notes: '' });
+      setOk(created);
+      setForm({ zoneId: '', street: '', houseNumber: '', reason: 'non_ricevuto', notes: '' });
       setOpen(false);
       onCreated?.();
     } catch (err) {
@@ -370,15 +387,21 @@ function CustomerIssuesCard({ campaignId, issues = [], onCreated }) {
             </span>
           )}
         </div>
-        <button type="button" onClick={() => { setOpen((v) => !v); setOk(false); }} style={mapActionButtonStyle(false)}>
+        <button type="button" onClick={() => { setOpen((v) => !v); setOk(null); }} style={mapActionButtonStyle(false)}>
           {open ? 'Chiudi' : 'Segnala un problema'}
         </button>
       </div>
-      {ok && <p style={{ margin: '8px 0 0', fontSize: 13, color: C.green, fontFamily: F.sans }}>Segnalazione inviata. La verifica arriverà all'operatore della zona.</p>}
+      {ok && (
+        <p style={{ margin: '8px 0 0', fontSize: 13, color: C.green, fontFamily: F.sans }}>
+          Segnalazione inviata. Stato: {customerIssueStatusLabel(ok)}.
+        </p>
+      )}
       {open && (
         <form onSubmit={submit} style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-          <input placeholder="Comune (es. San Donato Milanese)" value={form.municipality}
-            onChange={(e) => setForm({ ...form, municipality: e.target.value })} style={issueInputStyle} />
+          <select value={form.zoneId} onChange={(e) => setForm({ ...form, zoneId: e.target.value })} style={issueInputStyle}>
+            <option value="">Zona non specificata (verifica manuale Admin)</option>
+            {zones.map((z) => <option key={z.id} value={z.id}>{z.zone_name}</option>)}
+          </select>
           <div style={{ display: 'flex', gap: 8 }}>
             <input placeholder="Via (es. Via Roma)" value={form.street}
               onChange={(e) => setForm({ ...form, street: e.target.value })} style={{ ...issueInputStyle, flex: 2 }} />
@@ -403,7 +426,7 @@ function CustomerIssuesCard({ campaignId, issues = [], onCreated }) {
                 {issue.municipality} — {issue.street}{issue.house_number ? ` ${issue.house_number}` : ''}
               </strong>
               <span style={{ fontSize: 11, fontWeight: 800, color: (issue.status === 'resolved') ? C.green : 'rgba(255,255,255,.55)', fontFamily: F.sans }}>
-                {ISSUE_STATUS_LABELS[issue.status] || issue.status}
+                {customerIssueStatusLabel(issue)}
               </span>
             </div>
             {issue.status === 'resolved' && (

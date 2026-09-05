@@ -203,11 +203,17 @@ test('B: customer_create_issue verifica ownership, instrada SOLO se 1 candidato 
   assert.match(migIssueRpcs, /'DRIVER_ISSUE_ASSIGNED'/);
 });
 
-test('B: Dashboard Cliente ha la card "Segnala un problema" (comune/via/civico/motivo/note)', () => {
+test('B: Dashboard Cliente ha la card "Segnala un problema" (zona reale/via/civico/motivo/note)', () => {
   assert.match(customerTracking, /Segnala un problema/);
   assert.match(customerTracking, /createCustomerIssue\(/);
   assert.match(customerTracking, /ISSUE_REASONS\.map/);
-  assert.match(customerTracking, /Comune \(es\. San Donato Milanese\)/);
+  // TICKET FIX SEGNALAZIONI: la zona e' scelta da un menu con le zone REALI
+  // della campagna (stessa fonte della mappa tracking, zoneRows), non piu'
+  // digitata a mano — root cause del mancato instradamento al driver
+  // (customer_create_issue instradava solo via point-in-polygon su lat/lng,
+  // mai raccolti dal form; con la zona reale instrada per zone_id).
+  assert.match(customerTracking, /zones\.map\(\(z\) => <option key=\{z\.id\} value=\{z\.id\}>\{z\.zone_name\}<\/option>\)/);
+  assert.match(customerTracking, /zoneId: form\.zoneId \|\| null/);
   assert.match(customerTracking, /Via \(es\. Via Roma\)/);
   assert.match(customerTracking, /Civico/);
 });
