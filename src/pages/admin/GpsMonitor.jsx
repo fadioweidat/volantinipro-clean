@@ -1,6 +1,6 @@
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, Polygon } from 'react-leaflet';
+import { CircleMarker, MapContainer, Pane, Polyline, Popup, TileLayer, Polygon, Tooltip } from 'react-leaflet';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
 import { createProofPhotoSignedUrl, getCampaignGpsSessions, getCampaignSessionTracks, getCampaignProofPhotos, getCampaignRecord, calculateGpsCoverage, adminUnlockDevice } from '../../lib/services/gps-api.js';
@@ -117,6 +117,26 @@ export function GpsMonitor({ campaignId, onNav }) {
     ...zone,
     geometry: resolvedBoundaries[zone.campaign_zone_id] || null,
   })), [zoneProgress.zones, resolvedBoundaries]);
+
+  // TICKET — FINAL GPS GATE Admin: i poligoni NIL sulla mappa devono venire
+  // dalla STESSA lista dei chip / delle card (zoneRows = useZoneBoundaries),
+  // non solo dalle zone con progress. Ogni NIL con confine reale risolto
+  // (resolvedBoundaries, stesso source of truth della Driver App e del
+  // Cliente) diventa un poligono distinto con label permanente. Il progress
+  // (%, quantita', tipo correzione) e' agganciato per campaign_zone_id se
+  // disponibile — mai un cerchio o un centro inventato quando manca il confine.
+  const nilMapZones = useMemo(() => (zoneRows || []).map((z) => {
+    const prog = (zoneProgress.zones || []).find((p) => p.campaign_zone_id === z.id) || {};
+    return {
+      campaign_zone_id: z.id,
+      zone_name: z.zone_name,
+      geometry: resolvedBoundaries[z.id] || null,
+      adjustment_type: prog.adjustment_type || null,
+      effective_percent: prog.effective_percent ?? null,
+      target_quantity: prog.target_quantity ?? null,
+      completed_quantity: prog.completed_quantity ?? null,
+    };
+  }), [zoneRows, resolvedBoundaries, zoneProgress.zones]);
 
   // Zona "attiva" per la Live Map: su una campagna multi-comune (es. Varese,
   // Barasso, Bardello..., Gavirate, ...) leggere semplicemente zoneRows[0] o
@@ -384,6 +404,21 @@ export function GpsMonitor({ campaignId, onNav }) {
 
   return (
     <AdminLayout title="Admin GPS Monitor" subtitle={`Campagna ${campaignId}`} breadcrumbs={breadcrumbs} onNav={onNav}>
+      <style>{`
+        .vp-gm-nil-label {
+          background: rgba(15,23,42,.88) !important;
+          border: 1px solid rgba(232,87,26,.7) !important;
+          color: #fff !important;
+          font-size: 11px !important;
+          font-weight: 800 !important;
+          padding: 2px 6px !important;
+          border-radius: 4px !important;
+          box-shadow: 0 2px 6px rgba(0,0,0,.4) !important;
+          pointer-events: none !important;
+          white-space: nowrap !important;
+        }
+        .vp-gm-nil-label::before { display: none !important; }
+      `}</style>
       {state.error && <div style={errorStyle}>{state.error}</div>}
       <GpsMonitorMetricsPanel
         state={state}
@@ -490,7 +525,9 @@ export function GpsMonitor({ campaignId, onNav }) {
             trackVisibility={trackVisibility}
             showExcludedGpsPoints={showExcludedGpsPoints}
             latest={latest}
-            zones={mapZones}
+            zones={nilMapZones}
+            selectedZoneId={selectedZoneId}
+            onSelectZone={(id) => setSelectedZoneId(id)}
             selectedZoneGeometry={selectedZoneGeometry}
             searchGeometry={zoneSearchState.result?.geometry || null}
             mapRef={mapRef}
@@ -657,7 +694,7 @@ function getLatestTrackableSession(sessions) {
     })[0] || null;
 }
 
-function GpsMap({ points, sessionTracks = [], trackVisibility = {}, showExcludedGpsPoints = false, latest, zones = [], selectedZoneGeometry = null, searchGeometry = null, mapRef }) {
+function GpsMap({ points, sessionTracks = [], trackVisibility = {}, showExcludedGpsPoints = false, latest, zones = [], selectedZoneId = null, onSelectZone = null, selectedZoneGeometry = null, searchGeometry = null, mapRef }) {
   const center = useMemo(() => {
     if (selectedZoneGeometry) {
       const c = getMunicipalityCenterPoint(selectedZoneGeometry);
@@ -687,22 +724,35 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, showExcluded
     };
   }), [sessionTracks, trackVisibility]);
 
-  function getZoneStyle(zone) {
-    if (zone.adjustment_type === 'inaccessible') {
-      return { color: '#f97316', fillColor: '#f97316', fillOpacity: 0.2, dashArray: '5, 10', weight: 2 };
-    }
-    if (zone.adjustment_type === 'manual_covered' || zone.adjustment_type === 'partially_covered') {
-      return { color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.2, weight: 2 };
-    }
-    return { color: '#e8571a', fillColor: '#e8571a', fillOpacity: 0.08, weight: 2 };
+  // Stile poligono NIL: base tenue, evidenza forte quando selezionato; il
+  // colore riflette l'eventuale correzione copertura (inaccessibile / manuale).
+  function getZoneStyle(zone, isSelected) {
+    let color = '#e8571a';
+    if (zone.adjustment_type === 'inaccessible') color = '#f97316';
+    else if (zone.adjustment_type === 'manual_covered' || zone.adjustment_type === 'partially_covered') color = '#8b5cf6';
+    return isSelected
+      ? { color, fillColor: color, fillOpacity: 0.32, weight: 3.5 }
+      : { color, fillColor: color, fillOpacity: 0.10, weight: 1.5 };
   }
 
   return (
     <div style={{ height: 460, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)' }}>
       <MapContainer ref={mapRef} center={center} zoom={15} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
         <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+
+        {/* Ordine layer esplicito: base -> NIL -> coverage/ricerca -> GPS validi
+            -> GPS esclusi (diagnostica) -> marker live. Le label permanenti
+            usano il tooltipPane di Leaflet (z 650), sopra tutto. */}
+        <Pane name="nilPane" style={{ zIndex: 400 }} />
+        <Pane name="coveragePane" style={{ zIndex: 440 }} />
+        <Pane name="gpsValidPane" style={{ zIndex: 480 }} />
+        <Pane name="gpsExcludedPane" style={{ zIndex: 490 }} />
+        <Pane name="gpsLivePane" style={{ zIndex: 520 }} />
+
         {selectedZoneGeometry && <FitToZoneBounds geometry={selectedZoneGeometry} />}
 
+        {/* Poligoni NIL / Zone distinti, stessa lista dei chip / delle card.
+            Label permanente col nome NIL, click -> seleziona/evidenzia. */}
         {zones.map((zone) => {
           if (!zone.geometry || !zone.geometry.coordinates) return null;
           let coords = [];
@@ -712,11 +762,22 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, showExcluded
             coords = zone.geometry.coordinates.map(poly => poly.map(ring => ring.map(p => [p[1], p[0]])));
           }
           if (!coords.length) return null;
+          const isSelected = selectedZoneId != null && zone.campaign_zone_id === selectedZoneId;
           return (
-            <Polygon key={zone.campaign_zone_id} positions={coords} pathOptions={getZoneStyle(zone)}>
+            <Polygon
+              key={zone.campaign_zone_id}
+              positions={coords}
+              pane="nilPane"
+              pathOptions={getZoneStyle(zone, isSelected)}
+              eventHandlers={{ click: () => onSelectZone?.(zone.campaign_zone_id) }}
+            >
+              <Tooltip permanent direction="center" className="vp-gm-nil-label">
+                <span>{zone.zone_name}</span>
+              </Tooltip>
               <Popup>
                 <strong>{zone.zone_name}</strong><br/>
-                Copertura: {zone.effective_percent}%<br/>
+                Copertura: {zone.effective_percent != null ? `${Number(zone.effective_percent).toFixed(1)}%` : 'n/d'}<br/>
+                {zone.target_quantity != null && <span>Volantini: {zone.completed_quantity || 0} / {zone.target_quantity}<br/></span>}
                 {zone.adjustment_type && <span>Correzione: {zone.adjustment_type}</span>}
               </Popup>
             </Polygon>
@@ -732,7 +793,7 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, showExcluded
           }
           if (!coords.length) return null;
           return (
-            <Polygon positions={coords} pathOptions={{ color: '#2563eb', weight: 2, fillColor: '#2563eb', fillOpacity: 0.06, dashArray: '6 6' }}>
+            <Polygon positions={coords} pane="coveragePane" pathOptions={{ color: '#2563eb', weight: 2, fillColor: '#2563eb', fillOpacity: 0.06, dashArray: '6 6' }}>
               <Popup>Risultato ricerca (solo consultazione)</Popup>
             </Polygon>
           );
@@ -746,8 +807,9 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, showExcluded
               <CircleMarker
                 key={point.id}
                 center={[point.lat, point.lng]}
-                radius={3.5}
-                pathOptions={{ color: track.color, fillColor: track.color, fillOpacity: 0.75, weight: 1 }}
+                radius={4}
+                pane="gpsValidPane"
+                pathOptions={{ color: '#ffffff', fillColor: track.color, fillOpacity: 0.9, weight: 1 }}
               >
                 <Popup>
                   <strong>Punto GPS registrato</strong>
@@ -764,6 +826,7 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, showExcluded
                 key={`ex-${point.id}`}
                 center={[point.lat, point.lng]}
                 radius={2.5}
+                pane="gpsExcludedPane"
                 pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.5, weight: 1 }}
               >
                 <Popup>
@@ -780,7 +843,8 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, showExcluded
               <CircleMarker
                 center={[Number(track.lastPoint.lat), Number(track.lastPoint.lng)]}
                 radius={7.5}
-                pathOptions={{ color: track.color, fillColor: track.color, fillOpacity: 0.95, weight: 2 }}
+                pane="gpsLivePane"
+                pathOptions={{ color: '#ffffff', fillColor: track.color, fillOpacity: 0.98, weight: 2 }}
               >
                 <Popup>
                   <strong>Ultima posizione rilevata</strong>
@@ -793,7 +857,7 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, showExcluded
         ))}
 
         {latest && (
-          <CircleMarker center={[latest.lat, latest.lng]} radius={8.5} pathOptions={{ color: '#991b1b', fillColor: '#ef4444', fillOpacity: 0.9, weight: 2 }}>
+          <CircleMarker center={[latest.lat, latest.lng]} radius={8.5} pane="gpsLivePane" pathOptions={{ color: '#991b1b', fillColor: '#ef4444', fillOpacity: 0.9, weight: 2 }}>
             <Popup><strong>Ultimo punto generale campagna</strong><br />{formatDateTime(latest.recorded_at)}</Popup>
           </CircleMarker>
         )}
