@@ -1,73 +1,94 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   buildDeliveryWatermarkLines,
   canvasToJpegBlob,
   compressPodImage,
   drawPodWatermark,
+  releaseCanvas,
   validatePodImageFile,
 } from '../../lib/pod/podPhotoProcessing.js';
 import { uploadProofPhoto } from '../../lib/services/gps-api.js';
 import { reverseGeocode } from '../../lib/geo/geocodeAddress.js';
 
-// TICKET — BUG REALE PHOTO CAPTURE FLOW.
-// Flusso "Foto prova campagna" ridotto all'essenziale: il Driver preme
-// SCATTA FOTO, il sistema fa tutto in automatico (GPS gia' acquisito dal
-// tracking + reverse geocoding NON bloccante + watermark burnato sui pixel),
-// mostra l'anteprima GIA' watermarkata, e con Conferma la carica.
-//   - NESSUN campo manuale (Cliente/Indirizzo/DDT/Colli/Note): l'indirizzo
-//     non lo digita piu' il Driver e nessun campo blocca l'invio.
-//   - Watermark visibile nell'anteprima, non solo nei metadata DB.
-//   - Upload via access_token dell'assignment (mai Magic Link): la RPC
-//     driver_register_proof_photo rilegge l'autorizzazione server-side.
-// `city` = Comune reale della zona/campagna attiva (fonte interna,
-// priorita' sul comune del reverse geocoding). `assignmentId`/`accessToken`
-// per l'upload token-mode.
+// TICKET — MEMORY EXHAUSTION DURING PHOTO CAPTURE (Chrome Android:
+// "Impossibile completare l'operazione precedente. Memoria insufficiente.").
+//
+// Pipeline memoria-safe, UNA foto alla volta:
+//   camera File -> compressPodImage (decode DIRETTO a lato lungo 1600px,
+//   mai il buffer RGBA full-res) -> drawPodWatermark -> Blob JPEG ~q0.8 ->
+//   releaseCanvas (canvas 1x1, backing store liberato SUBITO) -> UNA object
+//   URL per l'anteprima -> upload dello STESSO Blob (nessun re-encode) ->
+//   cleanup completo.
+// In nessun momento vivono contemporaneamente original + canvas + preview:
+// dopo la produzione del Blob resta solo il Blob (~300KB-1MB) + la sua URL.
+// Mai base64/DataURL in React state. Lock seriale: durante processing o
+// upload i pulsanti di scatto sono disabilitati.
 export function PodCapture({ campaignId, sessionId, assignmentId = null, accessToken = null, lastPosition, city = null, onUploaded }) {
   const [stage, setStage] = useState('idle'); // idle | preparing | preview | uploading | error
   const [error, setError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
-  const canvasRef = useRef(null);
+  const [meta, setMeta] = useState(null); // { origBytes, origW, origH, finalW, finalH, finalBytes, ms }
+  const finalBlobRef = useRef(null);
   const takenAtRef = useRef(null);
+  const previewUrlRef = useRef(null);
+  const busyRef = useRef(false); // lock seriale: 1 processing / 1 upload
   const cameraInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  function clearPreview() {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  function revokePreview() {
+    if (previewUrlRef.current) {
+      try { URL.revokeObjectURL(previewUrlRef.current); } catch { /* gia' revocata */ }
+      previewUrlRef.current = null;
+    }
+  }
+
+  function fullCleanup() {
+    revokePreview();
     setPreviewUrl(null);
-    canvasRef.current = null;
+    finalBlobRef.current = null;
     takenAtRef.current = null;
   }
 
+  // Cleanup all'unmount: nessuna object URL orfana.
+  useEffect(() => () => { revokePreview(); finalBlobRef.current = null; }, []);
+
   function resetToIdle() {
-    clearPreview();
+    fullCleanup();
+    setMeta(null);
     setError(null);
     setStage('idle');
+    busyRef.current = false;
     if (cameraInputRef.current) cameraInputRef.current.value = '';
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   async function handleFileSelected(event) {
     const file = event.target.files?.[0];
-    event.target.value = '';
+    event.target.value = ''; // libera subito la FileList dell'input
     if (!file) return;
+    if (busyRef.current) return; // gia' un'immagine in lavorazione
+    busyRef.current = true;
     setError(null);
     setStage('preparing');
+
+    const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const origBytes = file.size;
+    let canvas = null;
     try {
       validatePodImageFile(file);
-      const { canvas } = await compressPodImage(file);
+
+      // decode + downscale in un passo: mai il full-res in RAM
+      const compressed = await compressPodImage(file);
+      canvas = compressed.canvas;
+
       const takenAt = new Date().toISOString();
 
-      // Reverse geocoding NON bloccante e time-boxed: se risponde in tempo
-      // con dati REALI -> via/civico/comune nel watermark; altrimenti
-      // (timeout/429/offline/risposta incompleta) -> null e si ripiega sulle
-      // coordinate reali. Non lancia mai e non attende oltre il suo timeout.
+      // reverse geocoding NON bloccante, time-boxed
       let geo = null;
       if (lastPosition?.lat != null && lastPosition?.lng != null) {
         geo = await reverseGeocode(lastPosition.lat, lastPosition.lng).catch(() => null);
       }
 
-      // Watermark burnato SUBITO: l'anteprima mostrata al Driver e' gia'
-      // quella definitiva (stesso canvas poi caricato).
       drawPodWatermark(canvas, buildDeliveryWatermarkLines({
         takenAt,
         lat: lastPosition?.lat,
@@ -78,29 +99,54 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
         geoCity: geo?.city || null,
       }));
 
-      canvasRef.current = canvas;
+      const finalW = canvas.width;
+      const finalH = canvas.height;
+      const blob = await canvasToJpegBlob(canvas); // ~q0.8
+
+      // libera SUBITO il backing store del canvas: da qui in poi resta solo
+      // il Blob (~300KB-1MB) + una object URL per l'anteprima.
+      releaseCanvas(canvas);
+      canvas = null;
+
+      finalBlobRef.current = blob;
       takenAtRef.current = takenAt;
-      const blob = await canvasToJpegBlob(canvas);
-      setPreviewUrl(URL.createObjectURL(blob));
+
+      revokePreview();
+      const url = URL.createObjectURL(blob);
+      previewUrlRef.current = url;
+      setPreviewUrl(url);
+      setMeta({
+        origBytes,
+        origW: compressed.origWidth || null,
+        origH: compressed.origHeight || null,
+        finalW, finalH,
+        finalBytes: blob.size,
+        ms: Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0),
+      });
       setStage('preview');
     } catch (err) {
+      if (canvas) releaseCanvas(canvas);
+      fullCleanup();
       setError(err?.message || 'Foto non valida.');
       setStage('error');
+    } finally {
+      busyRef.current = false;
     }
   }
 
   async function handleConfirm() {
-    if (!canvasRef.current) return;
+    if (busyRef.current) return;
+    if (!finalBlobRef.current) { setStage('idle'); return; }
+    busyRef.current = true;
     setStage('uploading');
     setError(null);
     try {
-      const finalBlob = await canvasToJpegBlob(canvasRef.current);
       const record = await uploadProofPhoto({
         campaignId,
         sessionId,
         assignmentId,
         accessToken,
-        blob: finalBlob,
+        blob: finalBlobRef.current, // stesso Blob gia' compresso+watermarkato
         lat: lastPosition?.lat,
         lng: lastPosition?.lng,
         takenAt: takenAtRef.current || new Date().toISOString(),
@@ -108,10 +154,16 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
       onUploaded?.(record);
       resetToIdle();
     } catch (err) {
+      // Recovery: lo stato torna utilizzabile, il Blob e' ancora valido per
+      // un nuovo tentativo senza rifare processing.
       setError(err?.message || 'Caricamento foto non riuscito. Riprova.');
       setStage('error');
+    } finally {
+      busyRef.current = false;
     }
   }
+
+  const scattoDisabled = stage === 'preparing' || stage === 'uploading' || busyRef.current;
 
   return (
     <section style={cardStyle}>
@@ -124,8 +176,8 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
         <div style={{ display: 'grid', gap: 10 }}>
           <div style={mutedStyle}>Data, ora, posizione e "GPS verificato" vengono aggiunti automaticamente alla foto.</div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button type="button" style={primaryButtonStyle} onClick={() => cameraInputRef.current?.click()}>Scatta foto</button>
-            <button type="button" style={secondaryButtonStyle} onClick={() => fileInputRef.current?.click()}>Scegli dalla galleria</button>
+            <button type="button" style={primaryButtonStyle} disabled={scattoDisabled} onClick={() => cameraInputRef.current?.click()}>Scatta foto</button>
+            <button type="button" style={secondaryButtonStyle} disabled={scattoDisabled} onClick={() => fileInputRef.current?.click()}>Scegli dalla galleria</button>
           </div>
         </div>
       )}
@@ -135,13 +187,21 @@ export function PodCapture({ campaignId, sessionId, assignmentId = null, accessT
       {stage === 'error' && (
         <div style={{ display: 'grid', gap: 10 }}>
           <div style={errorStyle}>{error}</div>
-          <button type="button" style={secondaryButtonStyle} onClick={resetToIdle}>Riprova</button>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {finalBlobRef.current && <button type="button" style={primaryButtonStyle} onClick={handleConfirm}>Riprova invio</button>}
+            <button type="button" style={secondaryButtonStyle} onClick={resetToIdle}>Nuovo scatto</button>
+          </div>
         </div>
       )}
 
       {stage === 'preview' && (
         <div style={{ display: 'grid', gap: 12 }}>
           {previewUrl && <img src={previewUrl} alt="Anteprima foto con watermark" style={previewImgStyle} />}
+          {meta && (
+            <div style={{ ...mutedStyle, fontSize: 11 }}>
+              {meta.finalW}×{meta.finalH} · {(meta.finalBytes / 1024).toFixed(0)} KB · {meta.ms} ms
+            </div>
+          )}
           <div style={mutedStyle}>Controlla che il watermark sia leggibile, poi conferma. L'upload e' automatico.</div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button type="button" style={primaryButtonStyle} onClick={handleConfirm}>Conferma e invia</button>

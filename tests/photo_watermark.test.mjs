@@ -16,6 +16,9 @@ import {
   buildDeliveryWatermarkLines,
   buildIssueWatermarkLines,
   formatWatermarkDateTime,
+  readJpegDimensions,
+  POD_MAX_DIMENSION,
+  POD_JPEG_QUALITY,
 } from "../src/lib/pod/podPhotoProcessing.js";
 import { reverseGeocode } from "../src/lib/geo/geocodeAddress.js";
 
@@ -171,11 +174,14 @@ test("PodCapture.jsx: watermark burnato SUBITO dopo lo scatto (l'anteprima e' gi
   const confIdx = src.indexOf("async function handleConfirm");
   const drawIdx = src.indexOf("drawPodWatermark(canvas, buildDeliveryWatermarkLines");
   assert.ok(drawIdx > selIdx && drawIdx < confIdx, "il watermark va disegnato in handleFileSelected, non in handleConfirm");
-  assert.match(src, /setPreviewUrl\(URL\.createObjectURL\(blob\)\)/);
-  // handleConfirm carica lo STESSO canvas gia' watermarkato, non lo ridisegna.
+  assert.match(src, /const url = URL\.createObjectURL\(blob\);/);
+  assert.match(src, /setPreviewUrl\(url\)/);
+  // handleConfirm carica lo STESSO Blob gia' watermarkato, non lo ridisegna
+  // e non ri-comprime (nessun secondo encode del canvas -> nessun picco
+  // di memoria in fase di conferma).
   const confBody = src.slice(confIdx);
-  assert.match(confBody, /const finalBlob = await canvasToJpegBlob\(canvasRef\.current\)/);
-  assert.doesNotMatch(confBody, /drawPodWatermark/);
+  assert.match(confBody, /blob: finalBlobRef\.current/);
+  assert.doesNotMatch(confBody, /drawPodWatermark|canvasToJpegBlob|compressPodImage/);
 });
 
 test("PodCapture.jsx: NESSUN campo manuale nel flusso Foto prova (Cliente/Indirizzo/DDT/Colli/Note rimossi, non bloccano l'invio)", () => {
@@ -239,6 +245,63 @@ test("EXIF non e' mai la fonte: nessuna libreria/parsing EXIF introdotta dal wat
     // arrivano dal capture flow (orologio + GPS del dispositivo), non dal file.
     assert.doesNotMatch(src, /require\(['"][^'"]*exif|from ['"][^'"]*exif|piexif|exifr|\.exif\b|getExif|parseExif/i);
   }
+});
+
+// ── TICKET MEMORY EXHAUSTION ────────────────────────────────────────────
+test("MEMORY — target lato lungo 1280-1920px e qualita' 0.75-0.85 (range del ticket)", () => {
+  assert.ok(POD_MAX_DIMENSION >= 1280 && POD_MAX_DIMENSION <= 1920, `POD_MAX_DIMENSION=${POD_MAX_DIMENSION} fuori range`);
+  assert.ok(POD_JPEG_QUALITY >= 0.75 && POD_JPEG_QUALITY <= 0.85, `POD_JPEG_QUALITY=${POD_JPEG_QUALITY} fuori range`);
+});
+
+test("MEMORY — readJpegDimensions legge width/height dal marker SOF senza decodificare i pixel", () => {
+  // FF D8 (SOI) | FF E0 APP0 len=16 + 14 byte | FF C0 SOF0 len=17: prec=8, H=3000(0x0BB8), W=4000(0x0FA0)
+  const bytes = new Uint8Array([
+    0xff, 0xd8,
+    0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
+    0xff, 0xc0, 0x00, 0x11, 0x08, 0x0b, 0xb8, 0x0f, 0xa0, 0x03, 0x01, 0x22, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01,
+  ]);
+  assert.deepEqual(readJpegDimensions(bytes), { width: 4000, height: 3000 });
+  assert.equal(readJpegDimensions(new Uint8Array([0x89, 0x50, 0x4e, 0x47])), null); // PNG -> null
+  assert.equal(readJpegDimensions(new Uint8Array([0xff, 0xd8])), null); // header troncato -> null
+  assert.equal(readJpegDimensions(null), null);
+});
+
+test("MEMORY — compressPodImage decodifica GIA' ridimensionato (createImageBitmap + resizeWidth), mai il full-res in RAM", () => {
+  const pod = read("src/lib/pod/podPhotoProcessing.js");
+  assert.match(pod, /createImageBitmap\(file, \{\s*\n\s*resizeWidth: target\.width,\s*\n\s*resizeHeight: target\.height,/);
+  assert.match(pod, /readJpegDimensions\(head\)/);
+  assert.match(pod, /bitmap\.close\(\);/);
+  assert.match(pod, /export function releaseCanvas\(canvas\)/);
+  assert.match(pod, /canvas\.width = 1; canvas\.height = 1;/);
+  // il vecchio percorso Image+drawImage full-res resta SOLO come fallback
+  // estremo per browser senza createImageBitmap.
+  assert.match(pod, /Fallback estremo \(browser senza createImageBitmap\)/);
+});
+
+test("MEMORY — PodCapture.jsx: cleanup obbligatorio, no base64, 1 Blob, serial lock, canvas rilasciato subito", () => {
+  const src = read("src/components/driver/PodCapture.jsx");
+  // niente DataURL/base64 in state: solo Blob + una object URL (i commenti
+  // possono nominarli per spiegare cosa NON si fa).
+  assert.doesNotMatch(src, /\.toDataURL\(|readAsDataURL\(|FileReader\(/);
+  assert.match(src, /URL\.createObjectURL\(blob\)/);
+  // una sola object URL viva, revocata prima di crearne un'altra e all'unmount
+  assert.match(src, /function revokePreview\(\)\s*\{[\s\S]{0,200}URL\.revokeObjectURL\(previewUrlRef\.current\)/);
+  assert.match(src, /useEffect\(\(\) => \(\) => \{ revokePreview\(\); finalBlobRef\.current = null; \}, \[\]\)/);
+  // canvas rilasciato SUBITO dopo il Blob (non tenuto per tutto lo stage preview)
+  assert.match(src, /releaseCanvas\(canvas\);\s*\n\s*canvas = null;/);
+  // lock seriale: 1 processing / 1 upload
+  assert.match(src, /const busyRef = useRef\(false\)/);
+  assert.match(src, /if \(busyRef\.current\) return;/);
+  assert.match(src, /disabled=\{scattoDisabled\}/);
+  // handleConfirm riusa lo STESSO Blob, nessun re-encode del canvas
+  const conf = src.slice(src.indexOf("async function handleConfirm"));
+  assert.match(conf, /blob: finalBlobRef\.current/);
+  assert.doesNotMatch(conf, /canvasToJpegBlob|drawPodWatermark|compressPodImage/);
+});
+
+test("MEMORY — DriverAssignmentPage.jsx (foto verifica): releaseCanvas subito dopo il Blob", () => {
+  const src = read("src/pages/driver/DriverAssignmentPage.jsx");
+  assert.match(src, /const watermarkedBlob = await canvasToJpegBlob\(canvas\);\s*\n\s*releaseCanvas\(canvas\);/);
 });
 
 // ── DO NOT BREAK: watermark POD/DDT esistente e nota non toccati ─────────

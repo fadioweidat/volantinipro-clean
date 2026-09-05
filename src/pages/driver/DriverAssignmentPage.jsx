@@ -10,7 +10,7 @@ import { DRIVER_PAUSE_ENABLED } from '../../lib/gps/driverUiFlags.js';
 import { driverListIssues, driverTransitionIssue, ISSUE_STATUS_LABELS } from '../../lib/services/customer-issues-api.js';
 import { uploadIssueVerificationPhoto } from '../../lib/services/gps-api.js';
 import { driverListMessages, driverMarkMessagesSeen, driverSendMessage } from '../../lib/services/hub-api.js';
-import { buildIssueWatermarkLines, canvasToJpegBlob, compressPodImage, drawPodWatermark } from '../../lib/pod/podPhotoProcessing.js';
+import { buildIssueWatermarkLines, canvasToJpegBlob, compressPodImage, drawPodWatermark, releaseCanvas } from '../../lib/pod/podPhotoProcessing.js';
 
 // ─── DriverAssignmentPage ─────────────────────────────────────────────────────
 // Pagina driver accessibile tramite /driver/assignment/{assignmentId}, link
@@ -755,6 +755,9 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken }) {
       // passate all'RPC). La versione mostrata/scaricata dal cliente e' quindi
       // sempre watermarkata; non si conserva una versione senza watermark.
       const takenAt = new Date().toISOString();
+      // compressPodImage: decode + downscale in un passo (lato lungo 1600px,
+      // mai il buffer RGBA full-res). releaseCanvas subito dopo il Blob:
+      // stesso presidio memoria del flusso foto prova.
       const { canvas } = await compressPodImage(file);
       drawPodWatermark(canvas, buildIssueWatermarkLines({
         takenAt,
@@ -765,6 +768,7 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken }) {
         houseNumber: issue.house_number,
       }));
       const watermarkedBlob = await canvasToJpegBlob(canvas);
+      releaseCanvas(canvas);
       await uploadIssueVerificationPhoto({
         campaignId, issueId: issue.id, blob: watermarkedBlob,
         lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy,

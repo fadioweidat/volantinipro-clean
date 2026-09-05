@@ -4,8 +4,12 @@
 // proof_photos (nessuna colonna nuova, nessuna migration).
 
 export const POD_MAX_INPUT_BYTES = 20 * 1024 * 1024; // 20MB, limite di sicurezza sul file originale
-export const POD_MAX_DIMENSION = 960;
-export const POD_JPEG_QUALITY = 0.6;
+// TICKET — MEMORY EXHAUSTION: lato lungo target 1600px (range del ticket
+// 1280-1920) e qualita' 0.8 (range 0.75-0.85). Il downscale avviene DURANTE
+// il decode (createImageBitmap con resizeWidth/Height), non dopo: il buffer
+// RGBA full-resolution di una foto 12MP (~48MB) non viene mai materializzato.
+export const POD_MAX_DIMENSION = 1600;
+export const POD_JPEG_QUALITY = 0.8;
 
 export const POD_OUTCOME_OPTIONS = [
   { value: 'consegnato', label: 'Consegnato' },
@@ -48,28 +52,133 @@ function loadImageFromFile(file) {
   });
 }
 
-// Ridimensiona al lato lungo massimo indicato e ricomprime in JPEG alla
-// qualita' indicata. Ritorna { blob, width, height, objectUrl } cosi' il
-// chiamante puo' mostrare l'anteprima senza ricreare l'URL.
-export async function compressPodImage(file, { maxDimension = POD_MAX_DIMENSION, quality = POD_JPEG_QUALITY } = {}) {
-  validatePodImageFile(file);
-  const img = await loadImageFromFile(file);
+// Legge SOLO le dimensioni da un header JPEG (marker SOF) senza decodificare
+// i pixel. Serve per far ridimensionare createImageBitmap DURANTE il decode
+// mantenendo l'aspect ratio, invece di decodificare full-res e ridurre dopo.
+// Ritorna null se non e' un JPEG o l'header non e' leggibile (fallback gestito
+// dal chiamante).
+export function readJpegDimensions(bytes) {
+  if (!bytes || bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
+  let i = 2;
+  while (i + 9 < bytes.length) {
+    if (bytes[i] !== 0xff) { i += 1; continue; }
+    const marker = bytes[i + 1];
+    // marker senza payload
+    if (marker === 0xff) { i += 1; continue; }
+    if (marker === 0xd8 || marker === 0xd9 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) { i += 2; continue; }
+    const len = (bytes[i + 2] << 8) | bytes[i + 3];
+    if (len < 2) return null;
+    // SOF0..SOF15 (escludendo DHT 0xC4, JPG 0xC8, DAC 0xCC) -> contiene h/w
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      const height = (bytes[i + 5] << 8) | bytes[i + 6];
+      const width = (bytes[i + 7] << 8) | bytes[i + 8];
+      if (width > 0 && height > 0) return { width, height };
+      return null;
+    }
+    i += 2 + len;
+  }
+  return null;
+}
+
+function fitLongSide(width, height, maxDimension) {
+  const longSide = Math.max(width, height);
+  const scale = longSide > maxDimension ? maxDimension / longSide : 1;
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+}
+
+// Rilascio esplicito del backing store di un canvas: azzerarne le dimensioni
+// libera subito la memoria RGBA invece di aspettare il GC (decisivo su
+// Chrome Android quando si scattano piu' foto di fila).
+export function releaseCanvas(canvas) {
   try {
-    const longSide = Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height);
-    const scale = longSide > maxDimension ? maxDimension / longSide : 1;
-    const width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
-    const height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+    if (canvas) { canvas.width = 1; canvas.height = 1; }
+  } catch { /* canvas gia' scollegato */ }
+}
 
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Contesto canvas non disponibile su questo dispositivo.');
-    ctx.drawImage(img, 0, 0, width, height);
+// TICKET — MEMORY EXHAUSTION: produce un canvas GIA' ridimensionato al lato
+// lungo `maxDimension`, decodificando a risoluzione ridotta quando possibile
+// (createImageBitmap con resizeWidth/Height + header JPEG per l'aspect
+// ratio). Nessun buffer full-resolution vive mai: ne' un <Image> full-res,
+// ne' un ImageBitmap full-res. Il File originale non viene trattenuto oltre
+// la durata di questa funzione.
+export async function compressPodImage(file, { maxDimension = POD_MAX_DIMENSION } = {}) {
+  validatePodImageFile(file);
 
-    return { canvas, width, height };
+  let bitmap = null;
+  let origWidth = null;
+  let origHeight = null;
+  try {
+    if (typeof createImageBitmap === 'function') {
+      // 1) prova a ricavare le dimensioni dal solo header (nessun decode)
+      let target = null;
+      try {
+        const head = new Uint8Array(await file.slice(0, 128 * 1024).arrayBuffer());
+        const dims = readJpegDimensions(head);
+        if (dims) {
+          origWidth = dims.width;
+          origHeight = dims.height;
+          target = fitLongSide(dims.width, dims.height, maxDimension);
+        }
+      } catch { /* header non leggibile: si prosegue senza target noto */ }
+
+      if (target) {
+        // decode DIRETTO alla risoluzione target: mai il full-res in RAM
+        bitmap = await createImageBitmap(file, {
+          resizeWidth: target.width,
+          resizeHeight: target.height,
+          resizeQuality: 'high',
+        });
+      } else {
+        // non-JPEG (es. PNG/WebP da galleria) o header illeggibile: decode
+        // pieno una volta, poi ricampiona se serve e chiudi subito il primo.
+        const full = await createImageBitmap(file);
+        origWidth = full.width;
+        origHeight = full.height;
+        if (Math.max(full.width, full.height) > maxDimension) {
+          const t = fitLongSide(full.width, full.height, maxDimension);
+          const resized = await createImageBitmap(full, 0, 0, full.width, full.height, {
+            resizeWidth: t.width, resizeHeight: t.height, resizeQuality: 'high',
+          });
+          full.close();
+          bitmap = resized;
+        } else {
+          bitmap = full;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Contesto canvas non disponibile su questo dispositivo.');
+      ctx.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      bitmap = null;
+      return { canvas, width: canvas.width, height: canvas.height, origWidth, origHeight };
+    }
+
+    // Fallback estremo (browser senza createImageBitmap): Image + canvas.
+    const img = await loadImageFromFile(file);
+    try {
+      origWidth = img.naturalWidth || img.width;
+      origHeight = img.naturalHeight || img.height;
+      const { width, height } = fitLongSide(origWidth, origHeight, maxDimension);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Contesto canvas non disponibile su questo dispositivo.');
+      ctx.drawImage(img, 0, 0, width, height);
+      return { canvas, width, height, origWidth, origHeight };
+    } finally {
+      if (img.src?.startsWith('blob:')) URL.revokeObjectURL(img.src);
+      img.src = '';
+    }
   } finally {
-    if (img.src?.startsWith('blob:')) URL.revokeObjectURL(img.src);
+    if (bitmap) { try { bitmap.close(); } catch { /* gia' chiuso */ } }
   }
 }
 
