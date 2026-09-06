@@ -1314,9 +1314,13 @@ export function Step2({
   }), [city, selectedComuni, selectedSearchPoint, searchMode]);
   const selectedMunicipality = useMemo(() => {
     if (searchMode === "cap") return null;
-    const raw = city?.comune || city?.name || city?.label || selectedComuni?.[0]?.comune || selectedComuni?.[0]?.name || selectedComuni?.[0]?.label || null;
     if (isResidentialStep2 && hasMilanoTerritory) return "Milano";
-    return raw;
+    const raw = city?.comune || city?.name || city?.label || selectedComuni?.[0]?.comune || selectedComuni?.[0]?.name || selectedComuni?.[0]?.label || null;
+    // REGRESSION analisi Comune: dopo il refactor autocomplete alcuni result
+    // portano il nome col suffisso provincia ("Cormano (MI)"): il backend
+    // analysis-istat lo tollera ma la normalizzazione ISTAT e' piu' affidabile
+    // sul nome puro. Rimuovi un eventuale " (XX)" finale, mai altro.
+    return typeof raw === "string" ? (raw.replace(/\s*\([A-Za-z]{2}\)\s*$/, "").trim() || raw) : raw;
   }, [searchMode, city?.comune, city?.label, city?.name, selectedComuni, isResidentialStep2, hasMilanoTerritory]);
   const requestedAnalysisLevel = useMemo(() => isResidentialStep2 && hasMilanoTerritory ? "nil" : "comune", [isResidentialStep2, hasMilanoTerritory]);
   const analysisScope = useMemo(() => data.activeZoneId || "zone", [data.activeZoneId]);
@@ -2346,7 +2350,38 @@ export function Step2({
     const nilRows = Array.isArray(apiData.nil_breakdown) && apiData.nil_breakdown.length ? apiData.nil_breakdown : (apiData.comuni_breakdown || []).filter(row => row?.territory_level === "nil");
     const territoryLevel = nilRows.length ? "nil" : activeAnalysisLevel;
   }, [apiData, requestedAnalysisLevel, activeAnalysisLevel, zonesInRadius]);
-  const territorialDataUnavailable = Boolean(city && !apiLoading && !hasUsefulApiZones);
+  // REGRESSION Step 2 Comune: se l'analisi ha restituito valori aggregati
+  // reali per il comune (famiglie / volantini consigliati), NON e' "dato non
+  // disponibile" — apiToZones sintetizza gia' una zona-comune. "Unavailable"
+  // solo quando davvero non c'e' ne' breakdown ne' valori aggregati.
+  const apiHasAggregateValues = Boolean(
+    apiData && !apiData.error && apiData.values &&
+    ((Number(apiData.values.famiglie_stimate) || 0) > 0 || (Number(apiData.values.volantini_consigliati) || 0) > 0)
+  );
+  const territorialDataUnavailable = Boolean(city && !apiLoading && !hasUsefulApiZones && !apiHasAggregateValues);
+  useEffect(() => {
+    if (!city || apiLoading) return;
+    // Diagnostica sicura (nessun secret): rende visibile in prod il caso in
+    // cui l'UI mostra "dato non disponibile" pur avendo una richiesta valida
+    // / una risposta con valori. Serve a localizzare il binding rotto.
+    if (!hasUsefulApiZones) {
+      // eslint-disable-next-line no-console
+      console.warn("[STEP2_TERRITORIAL_STATE]", {
+        municipality: selectedMunicipality || null,
+        analysisLevel: requestedAnalysisLevel,
+        lat: Number.isFinite(Number(queryCenterLat)) ? Number(queryCenterLat) : null,
+        lng: Number.isFinite(Number(queryCenterLng)) ? Number(queryCenterLng) : null,
+        radiusKm: effectiveRadiusKm,
+        apiRequestFired: Boolean(apiData) || Boolean(apiError),
+        apiError: apiError || null,
+        apiHasValues: Boolean(apiData?.values),
+        apiFamilies: apiData?.values?.famiglie_stimate ?? null,
+        comuniBreakdown: Array.isArray(apiData?.comuni_breakdown) ? apiData.comuni_breakdown.length : null,
+        apiZonesLen: Array.isArray(apiZones) ? apiZones.length : null,
+        territorialDataUnavailable,
+      });
+    }
+  }, [city, apiLoading, hasUsefulApiZones, selectedMunicipality, requestedAnalysisLevel, queryCenterLat, queryCenterLng, effectiveRadiusKm, apiData, apiError, apiZones, territorialDataUnavailable]);
   const capZones = useMemo(() => selectedCaps.map(cap => capDataMap[cap]).filter(zone => zone && !zone.unavailable), [selectedCaps, capDataMap]);
   const allZones = useMemo(() => [...zonesInRadius, ...capZones], [zonesInRadius, capZones]);
   useEffect(() => {
