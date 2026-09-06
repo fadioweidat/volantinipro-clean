@@ -2428,8 +2428,9 @@ export function Step2({
     const sig = JSON.stringify(payload);
     if (analysisGateSigRef.current === sig) return;
     analysisGateSigRef.current = sig;
-    // eslint-disable-next-line no-console
-    console.warn("[STEP2_ANALYSIS_GATE]", payload);
+    // Diagnostica TEMPORANEA (tickets 17-22): ora gated dietro il debug flag
+    // Step 2 — in produzione non stampa nulla (nessuno spam in console).
+    if (isStep2DebugEnabled()) console.warn("[STEP2_ANALYSIS_GATE]", payload); // eslint-disable-line no-console
   }, [city, analysisParams.municipality, analysisParams.lat, analysisParams.lng, analysisParams.radiusKm, analysisParams.serviceType, analysisParams.analysisLevel, coverageMode, apiPending, apiRequestFired]);
 
   useEffect(() => {
@@ -2437,7 +2438,7 @@ export function Step2({
     // Diagnostica sicura (nessun secret): rende visibile in prod il caso in
     // cui l'UI mostra "dato non disponibile" pur avendo una richiesta valida
     // / una risposta con valori. Serve a localizzare il binding rotto.
-    if (!hasUsefulApiZones) {
+    if (!hasUsefulApiZones && isStep2DebugEnabled()) {
       // eslint-disable-next-line no-console
       console.warn("[STEP2_TERRITORIAL_STATE]", {
         municipality: selectedMunicipality || null,
@@ -3639,6 +3640,7 @@ export function Step2({
   const analysisRespSigRef = useRef(null);
   const analysisMapSigRef = useRef(null);
   useEffect(() => {
+    if (!isStep2DebugEnabled()) return;
     if (!apiData && !apiError) return;
     const bd = Array.isArray(apiData?.comuni_breakdown) ? apiData.comuni_breakdown : [];
     const nbd = Array.isArray(apiData?.nil_breakdown) ? apiData.nil_breakdown : [];
@@ -3670,6 +3672,7 @@ export function Step2({
     console.warn("[STEP2_ANALYSIS_RESPONSE]", payload);
   }, [apiData, apiError]);
   useEffect(() => {
+    if (!isStep2DebugEnabled()) return;
     if (!city || !apiRequestSettled) return;
     const payload = {
       apiDataPresent: Boolean(apiData) && !apiData.error,

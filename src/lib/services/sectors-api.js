@@ -12,7 +12,13 @@ const debugStep2Error = (...args) => {
   if (debugStep2Enabled()) console.error(...args);
 };
 
-const mapSectorsInfo = (...args) => console.info(...args);
+// [MAP_SECTORS_RPC_REQUEST] / [MAP_SECTORS_RPC_SUCCESS]: diagnostica di routine,
+// gated dietro il debug flag Step 2 (in produzione non stampa nulla). Gli
+// errori/fallback restano visibili (mapSectorsWarn) perche' segnalano problemi
+// reali. Nessuna modifica al data flow / dipendenze di useSectors.
+const mapSectorsInfo = (...args) => {
+  if (debugStep2Enabled()) console.info(...args);
+};
 const mapSectorsWarn = (...args) => console.warn(...args);
 
 async function fetchSectorsAnonRest(params, signal) {

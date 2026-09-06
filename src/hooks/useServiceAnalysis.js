@@ -1,8 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { buildServiceAnalysisRequest } from '../lib/step2/buildServiceAnalysisRequest.js';
 
+const step2DebugEnabled = () =>
+  typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV &&
+  (import.meta.env.VITE_DEBUG_STEP2 === 'true' || (typeof window !== "undefined" && window.__VOLANTINIPRO_DEBUG_STEP2__));
+
 const debugStep2 = (...args) => {
-  if (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV && (import.meta.env.VITE_DEBUG_STEP2 === 'true' || (typeof window !== "undefined" && window.__VOLANTINIPRO_DEBUG_STEP2__))) console.log(...args);
+  if (step2DebugEnabled()) console.log(...args);
 };
 
 let hasLoggedInvalidZone = false;
@@ -100,6 +104,9 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
   // viewport) non produce righe di log. `scope` e' incluso per tracciare da
   // quale consumer arriva la chiave.
   useEffect(() => {
+    // Diagnostica TEMPORANEA (tickets 17-22): gated dietro il debug flag Step 2.
+    // In produzione non esegue nulla -> nessun [STEP2_ANALYSIS_KEY] in console.
+    if (!step2DebugEnabled()) return;
     const targetKeySnap = Array.isArray(targetSelection)
       ? [...targetSelection].filter(Boolean).sort().join('|')
       : String(targetSelection || '');
