@@ -462,71 +462,72 @@ export function Step2TerritoryControlsPanel({ activeAreaTab, activeZoneId, addre
                               </button>
                             </div>;
                         }
-                        // Tab Comune accetta solo risultati amministrativi comunali.
-                        // "Brera"/"Duomo"/ecc. arrivano dal geocoder taggati come
-                        // locality/neighborhood/suburb/quarter — MAI creati come
-                        // comune. La CTA "Seleziona come NIL" appare solo se il
-                        // quartiere appartiene a Milano (il dataset NIL esiste solo
-                        // lì); per frazioni di altri comuni si invita a cercare il
-                        // comune di appartenenza.
-                        if (isNilLikePlaceType(c.placeType)) {
-                          const nilName = c.label || c.name;
-                          const isMilanoArea = String(c.name || "").toLowerCase().includes("milano");
+
+                        const isMilanoArea = isGeocoderResultInMilanoComune(c) || normalizeMunicipalityName(c.comune || c.name || "") === "milano";
+                        const isMilanNilCandidate = isMilanoArea && isNilLikePlaceType(c.placeType) && normalizeMunicipalityName(c.displayName || c.label || c.name) !== "milano";
+
+                        if (isMilanNilCandidate) {
+                          const nilName = c.localita || c.label || c.name;
                           return <div key={c.id} style={{
                             padding: "10px 14px",
                             borderBottom: "1px solid rgba(255,255,255,.05)",
                             background: "rgba(251,191,36,.05)"
                           }}>
                               <div style={{
-                              fontFamily: F.sans,
-                              fontSize: 13,
-                              color: C.white,
-                              marginBottom: 3
-                            }}>{nilName}</div>
+                                fontFamily: F.sans,
+                                fontSize: 13,
+                                color: C.white,
+                                marginBottom: 3
+                              }}>{c.displayName || nilName}</div>
                               <div style={{
-                              fontFamily: F.sans,
-                              fontSize: 11,
-                              color: "#FBBF24",
-                              marginBottom: isMilanoArea ? 6 : 0
-                            }}>
-                                {isMilanoArea ? `${nilName} non è un comune. È una zona/quartiere di Milano.` : `${nilName} non è un comune. È una zona/frazione: cerca il comune di appartenenza.`}
+                                fontFamily: F.sans,
+                                fontSize: 11,
+                                color: "#FBBF24",
+                                marginBottom: 6
+                              }}>
+                                  Zona / quartiere di Milano
                               </div>
-                              {isMilanoArea && <button onClick={() => {
-                              selectMilanoAsNil(nilName, {
-                                lat: c.lat,
-                                lng: c.lng
-                              });
-                            }} style={{
-                              padding: "5px 10px",
-                              borderRadius: 7,
-                              border: "1px solid rgba(34,197,94,.4)",
-                              background: "rgba(34,197,94,.14)",
-                              color: "#22C55E",
-                              fontFamily: F.sans,
-                              fontSize: 11,
-                              fontWeight: 800,
-                              cursor: "pointer"
-                            }}>
-                                  Seleziona {nilName} come NIL
-                                </button>}
+                              <button onClick={() => {
+                                selectMilanoAsNil(nilName, {
+                                  lat: c.lat,
+                                  lng: c.lng
+                                });
+                              }} style={{
+                                padding: "5px 10px",
+                                borderRadius: 7,
+                                border: "1px solid rgba(34,197,94,.4)",
+                                background: "rgba(34,197,94,.14)",
+                                color: "#22C55E",
+                                fontFamily: F.sans,
+                                fontSize: 11,
+                                fontWeight: 800,
+                                cursor: "pointer"
+                              }}>
+                                    Seleziona {nilName} come NIL
+                              </button>
                             </div>;
                         }
+
+                        const displayTitle = c.displayName || c.label || c.name;
+                        const isSubLocalityType = c.type === "frazione" || c.type === "localita" || c.type === "quartiere" || Boolean(c.localita);
+                        const badgeTypeLabel = c.type === "frazione" ? "frazione" : c.type === "quartiere" ? "quartiere" : c.type === "localita" ? "località" : (c.placeType === "place" || c.type === "comune") ? "comune" : c.type;
+
                         return <div key={c.id} onClick={() => {
                           if (searchMode === "municipality" && pendingAddMunicipality) {
                             appendMunicipalityToActiveZone(c);
                           } else if (searchMode === "address") {
                             setAddressSearchError("");
-                            logAddressVsMunicipalityDebug(search, city, c, null, false, "explicit_radius_municipality_selection", c.label || c.name, c.placeType || "municipality", c.label || c.name);
+                            logAddressVsMunicipalityDebug(search, city, c, null, false, "explicit_radius_municipality_selection", displayTitle, c.placeType || "municipality", c.comune || c.label || c.name);
                             selectMunicipalityAsRadiusCenter(c);
                             setSelectedSearchPoint(null);
                             if (import.meta.env.DEV) {
                               console.log("[STEP2_SEARCH_SELECTION_DEBUG]", {
                                 inputValue: search,
                                 detectedSearchIntent: detectSearchIntent(search).intent,
-                                selectedResultName: c.label || c.name,
+                                selectedResultName: displayTitle,
                                 selectedResultType: c.placeType || "municipality",
-                                parentComune: null,
-                                selectedComune: c.label || c.name,
+                                parentComune: c.comune || null,
+                                selectedComune: c.comune || c.label || c.name,
                                 selectedAddressPoint: null,
                                 radiusCenterSource: "municipality_radius_center",
                                 blockedReason: null
@@ -534,17 +535,17 @@ export function Step2TerritoryControlsPanel({ activeAreaTab, activeZoneId, addre
                             }
                           } else {
                             setAddressSearchError("");
-                            logAddressVsMunicipalityDebug(search, city, c, null, false, "explicit_municipality_selection", c.label || c.name, c.placeType || "municipality", c.label || c.name);
+                            logAddressVsMunicipalityDebug(search, city, c, null, false, "explicit_municipality_selection", displayTitle, c.placeType || "municipality", c.comune || c.label || c.name);
                             selectPrimaryMunicipality(c);
                             setSelectedSearchPoint(null);
                             if (import.meta.env.DEV) {
                               console.log("[STEP2_SEARCH_SELECTION_DEBUG]", {
                                 inputValue: search,
                                 detectedSearchIntent: detectSearchIntent(search).intent,
-                                selectedResultName: c.label || c.name,
+                                selectedResultName: displayTitle,
                                 selectedResultType: c.placeType || "municipality",
-                                parentComune: null,
-                                selectedComune: c.label || c.name,
+                                parentComune: c.comune || null,
+                                selectedComune: c.comune || c.label || c.name,
                                 selectedAddressPoint: null,
                                 radiusCenterSource: "municipality",
                                 blockedReason: null
@@ -557,9 +558,28 @@ export function Step2TerritoryControlsPanel({ activeAreaTab, activeZoneId, addre
                           fontFamily: F.sans,
                           fontSize: 13,
                           color: C.white,
-                          borderBottom: "1px solid rgba(255,255,255,.05)"
+                          borderBottom: "1px solid rgba(255,255,255,.05)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 8
                         }} onMouseEnter={e => e.currentTarget.style.background = "rgba(34, 197, 94,.12)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                           {c.label || c.name}
+                           <div>
+                             <span>{displayTitle}</span>
+                           </div>
+                           {isSubLocalityType && <span style={{
+                             fontSize: 10,
+                             padding: "2px 6px",
+                             borderRadius: 4,
+                             background: "rgba(59, 130, 246, 0.18)",
+                             color: "#93C5FD",
+                             fontWeight: 700,
+                             textTransform: "uppercase",
+                             letterSpacing: "0.04em",
+                             whiteSpace: "nowrap"
+                           }}>
+                             {badgeTypeLabel}
+                           </span>}
                         </div>;
                       })}
                       </>;
