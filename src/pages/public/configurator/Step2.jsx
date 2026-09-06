@@ -3600,6 +3600,71 @@ export function Step2({
     roiScore: null,
     confidenceScore: null
   };
+  // ── DIAGNOSTICA TEMPORANEA (ticket "FETCH OK, apiData DOES NOT POPULATE") ──
+  // [STEP2_ANALYSIS_RESPONSE]: cosa riceve DAVVERO questo browser da
+  // analysis-istat (solo campi safe). [STEP2_ANALYSIS_MAPPING]: dove la
+  // pipeline apiData -> apiZones -> zonesInRadius -> selZones -> serviceKpis
+  // perde le zone. Log solo al cambio (niente spam).
+  const analysisRespSigRef = useRef(null);
+  const analysisMapSigRef = useRef(null);
+  useEffect(() => {
+    if (!apiData && !apiError) return;
+    const bd = Array.isArray(apiData?.comuni_breakdown) ? apiData.comuni_breakdown : [];
+    const nbd = Array.isArray(apiData?.nil_breakdown) ? apiData.nil_breakdown : [];
+    const safeRow = r => (r && typeof r === "object"
+      ? Object.fromEntries(Object.entries(r)
+          .filter(([k]) => !/key|token|auth|secret|apikey/i.test(k))
+          .slice(0, 24)
+          .map(([k, val]) => [k, val && typeof val === "object" ? (Array.isArray(val) ? `[array:${val.length}]` : "{obj}") : val]))
+      : null);
+    const payload = {
+      apiError: apiError || apiData?.error || null,
+      topLevelKeys: apiData && typeof apiData === "object" ? Object.keys(apiData) : null,
+      valuesKeys: apiData?.values && typeof apiData.values === "object" ? Object.keys(apiData.values) : null,
+      famiglie_stimate: apiData?.values?.famiglie_stimate ?? null,
+      volantini_consigliati: apiData?.values?.volantini_consigliati ?? null,
+      popolazione_stimata: apiData?.values?.popolazione_stimata ?? null,
+      comuniBreakdownLen: bd.length,
+      nilBreakdownLen: nbd.length,
+      breakdownRow0Keys: bd[0] ? Object.keys(bd[0]) : null,
+      breakdownRow0: safeRow(bd[0]),
+      breakdownRow1: safeRow(bd[1]),
+      metadata: apiData?.metadata && typeof apiData.metadata === "object" ? apiData.metadata : null,
+      municipalityEcho: apiData?.metadata?.municipality || apiData?.metadata?.comune || null,
+    };
+    const sig = JSON.stringify(payload);
+    if (analysisRespSigRef.current === sig) return;
+    analysisRespSigRef.current = sig;
+    // eslint-disable-next-line no-console
+    console.warn("[STEP2_ANALYSIS_RESPONSE]", payload);
+  }, [apiData, apiError]);
+  useEffect(() => {
+    if (!city || !apiRequestSettled) return;
+    const payload = {
+      apiDataPresent: Boolean(apiData) && !apiData.error,
+      apiHasAggregateValues,
+      comuniBreakdownLen: Array.isArray(apiData?.comuni_breakdown) ? apiData.comuni_breakdown.length : null,
+      apiToZonesInputCity: city ? { name: city.name ?? null, label: city.label ?? null, comune: city.comune ?? null, municipality_code: city.municipality_code ?? city.municipalityCode ?? null } : null,
+      selectedMunicipality: selectedMunicipality || null,
+      requestedAnalysisLevel,
+      coverageMode,
+      apiZonesLen: Array.isArray(apiZones) ? apiZones.length : null,
+      apiZoneNames: Array.isArray(apiZones) ? apiZones.slice(0, 10).map(z => z.name) : null,
+      hasUsefulApiZones,
+      zonesInRadiusLen: Array.isArray(zonesInRadius) ? zonesInRadius.length : null,
+      selectedLen: Array.isArray(selected) ? selected.length : null,
+      selZonesLen: Array.isArray(selZones) ? selZones.length : null,
+      serviceKpisFamilies: serviceKpis?.families ?? null,
+      serviceKpisRecommended: serviceKpis?.recommendedFlyers ?? null,
+      territorialDataUnavailable,
+    };
+    const sig = JSON.stringify(payload);
+    if (analysisMapSigRef.current === sig) return;
+    analysisMapSigRef.current = sig;
+    // eslint-disable-next-line no-console
+    console.warn("[STEP2_ANALYSIS_MAPPING]", payload);
+  }, [city, apiRequestSettled, apiData, apiHasAggregateValues, apiZones, hasUsefulApiZones, zonesInRadius, selected, selZones, serviceKpis, territorialDataUnavailable, selectedMunicipality, requestedAnalysisLevel, coverageMode]);
+
   // Somma su SOLO i comuni realmente selezionati (selZones, già filtrato
   // sui chip scelti manualmente) — non un singolo comune "principale":
   // con 1 comune coincide col totale di quel comune, con N comuni è la

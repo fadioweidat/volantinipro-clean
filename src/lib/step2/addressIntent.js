@@ -98,6 +98,12 @@ export function normalizeMunicipalityName(raw) {
   return String(raw || "")
     .split(",")[0]
     .replace(/^\s*comune di\s+/i, "")
+    // Strip a trailing province suffix in parentheses: "Cormano (MI)" → "Cormano".
+    // analysis-istat comuni_breakdown rows arrive with this suffix while
+    // selectedMunicipality is already stripped (Step2 selectedMunicipality memo):
+    // without this, single-comune matching in zonesInRadius produced 0 matches
+    // -> empty zones -> "Dato non disponibile". General, no hardcoded comune.
+    .replace(/\s*\([A-Za-z]{2}\)\s*$/, "")
     // Normalize hyphens to spaces: "Bovisio-Masciago" → "Bovisio Masciago"
     // so the API name (which may use hyphens) matches the user-selected name (which uses spaces)
     .replace(/-/g, " ")

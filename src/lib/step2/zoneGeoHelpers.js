@@ -22,17 +22,65 @@ export function apiToZones(apiData, city) {
   if (breakdown.length === 0) return [];
   const nC = breakdown.length;
   const items = breakdown;
+  // Alias tolleranti sui nomi di campo delle righe breakdown: analysis-istat e
+  // frontend possono divergere ("comune" vs "comune_name", "istat_code" vs
+  // "comune_code", "famiglie_stimate" vs "households_*", ...). Se il nome del
+  // comune non viene letto la riga diventa "Zona N" e il match single-comune in
+  // zonesInRadius fallisce -> zone vuote. `firstNum` = primo valore numerico
+  // finito > 0 tra piu' alias.
+  const firstStr = (...vals) => {
+    for (const val of vals) {
+      if (typeof val === "string" && val.trim()) return val.trim();
+    }
+    return null;
+  };
+  const firstNum = (...vals) => {
+    for (const val of vals) {
+      const n = Number(val);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    return 0;
+  };
   return items.map((c, idx) => {
     const territoryLevel = c.territory_level || analysisLevel;
     const isNil = territoryLevel === "nil";
-    const territoryName = c.nil_name || c.comune_name || c.municipality_name || `Zona ${idx + 1}`;
-    const territoryCode = c.nil_code || c.comune_code || c.municipality_code || null;
-    const pct = c.pct_copertura || c.percentuale || Math.round(100 / nC);
+    const territoryName = firstStr(
+      c.nil_name, c.comune_name, c.municipality_name, c.comune, c.municipality,
+      c.name, c.nome, c.nome_comune, c.denominazione, c.denominazione_comune,
+      c.label, c.city
+    ) || `Zona ${idx + 1}`;
+    const territoryCode = firstStr(
+      c.nil_code, c.comune_code, c.municipality_code, c.istat_code, c.codice_istat,
+      c.cod_istat, c.pro_com, c.pro_com_t, c.comuneCode, c.municipalityCode, c.code
+    );
+    const pct = firstNum(
+      c.pct_copertura, c.percentuale, c.pct, c.percentuale_copertura,
+      c.coverage_pct, c.copertura, c.share, c.weight
+    ) || Math.round(100 / nC);
     const ratio = pct / 100;
     // Use per-municipality values when available (more accurate than total * ratio)
-    const vol = c.volantini_nel_raggio || c.volantini_stimati || c.recommended_flyers || Math.round(totV * ratio);
-    const fam = c.households_in_radius > 0 ? Math.round(c.households_in_radius) : c.households_total > 0 ? Math.round(c.households_total * ratio) : c.households > 0 ? Math.round(c.households) : c.families > 0 ? Math.round(c.families) : Math.round(vol / 1.1);
-    const pop = c.population_in_radius > 0 ? Math.round(c.population_in_radius) : c.population_total > 0 ? Math.round(c.population_total * ratio) : c.population > 0 ? Math.round(c.population) : Math.round(totP * ratio);
+    const vol = firstNum(
+      c.volantini_nel_raggio, c.volantini_stimati, c.recommended_flyers,
+      c.volantini_consigliati, c.volantini, c.flyers, c.flyers_recommended
+    ) || Math.round(totV * ratio);
+    const famRaw = firstNum(
+      c.households_in_radius, c.famiglie_nel_raggio,
+      c.households_total, c.households, c.families, c.famiglie, c.famiglie_stimate,
+      c.nuclei_familiari, c.households_estimated
+    );
+    const fam = c.households_in_radius > 0 ? Math.round(c.households_in_radius)
+      : c.households_total > 0 ? Math.round(c.households_total * ratio)
+      : famRaw > 0 ? Math.round(famRaw)
+      : Math.round(vol / 1.1);
+    const popRaw = firstNum(
+      c.population_in_radius, c.popolazione_nel_raggio,
+      c.population_total, c.population, c.popolazione, c.popolazione_stimata,
+      c.residenti, c.abitanti, c.population_estimated
+    );
+    const pop = c.population_in_radius > 0 ? Math.round(c.population_in_radius)
+      : c.population_total > 0 ? Math.round(c.population_total * ratio)
+      : popRaw > 0 ? Math.round(popRaw)
+      : Math.round(totP * ratio);
     const ri = v.reach_score || 70,
       ro = v.roi_score || 70,
       co = v.confidence_score || 75,
@@ -44,7 +92,7 @@ export function apiToZones(apiData, city) {
       territoryLevel,
       isNil,
       nilCode: c.nil_code || null,
-      municipality_code: c.comune_code || c.municipality_code || null,
+      municipality_code: (isNil ? null : territoryCode) || c.comune_code || c.municipality_code || null,
       area,
       pop,
       families: fam,
