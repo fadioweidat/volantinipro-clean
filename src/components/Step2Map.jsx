@@ -751,6 +751,14 @@ function Step2MapImpl({
                       // preview Hero homepage). null = comportamento invariato
                       // (tooltip solo su hover). Nessun effetto su Step2/Tracking/
                       // Admin/Driver che non passano la prop.
+  viewportShiftX = 0, // number (frazione della larghezza mappa, -0.4..0.4) —
+                      // sposta VISIVAMENTE il contenuto geografico a destra
+                      // (>0) o a sinistra (<0) senza toccare city.lat/lng, il
+                      // marker o la geometria del cerchio (pannano insieme). Solo
+                      // modalità raggio/preview (non municipality mode). Default 0
+                      // = nessuno spostamento (Step2/Tracking/Admin/Driver
+                      // invariati). Usato dal preview Hero per portare il centro
+                      // Cormano ~62% della larghezza invece che al 50%.
 }) {
   const hasConfirmedRadius = Number.isFinite(Number(radius)) && Number(radius) > 0;
   const effectiveMapRadius = hasConfirmedRadius ? Number(radius) : 3;
@@ -1031,6 +1039,30 @@ function Step2MapImpl({
       } else {
         map.setView([city.lat, city.lng], getZoomForRadius(effectiveMapRadius), { animate: false });
       }
+    }
+
+    // Shift viewport SOLO visivo (preview Hero): porta il punto centro
+    // [city.lat, city.lng] a una frazione != 0.5 della larghezza, mantenendo la
+    // stessa lat/lng, lo stesso marker e la stessa geometria del cerchio (che
+    // pannano insieme alla mappa). Idempotente: converge sul target e un
+    // secondo giro è un no-op (nessun accumulo). Mai in municipality mode.
+    if (viewportShiftX && !isMunicipalityMode) {
+      const clampShift = Math.max(-0.4, Math.min(0.4, Number(viewportShiftX) || 0));
+      const shiftCenterToTarget = () => {
+        try {
+          const mapContainer = map.getContainer?.();
+          if (!mapContainer || !mapContainer.isConnected || !map._loaded || !map._mapPane) return;
+          const size = map.getSize();
+          if (!size || !size.x || !size.y) return;
+          const target = L.point(size.x * (0.5 + clampShift), size.y / 2);
+          const current = map.latLngToContainerPoint([Number(city.lat), Number(city.lng)]);
+          const dx = current.x - target.x;
+          if (Math.abs(dx) < 1) return;
+          map.panBy([dx, 0], { animate: false });
+        } catch { /* no-op */ }
+      };
+      shiftCenterToTarget();
+      requestAnimationFrame(() => shiftCenterToTarget());
     }
 
     const group = L.layerGroup().addTo(map);
@@ -1887,7 +1919,7 @@ function Step2MapImpl({
       };
     }
 
-  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, operationalPoints, poiAssignments, onTogglePoi, businessConfig, civiciState, mapZoom, campaignZones, activeZoneId, municipalityBoundary, isMunicipalityMode, nilMode, coveragePolygons, themeMode, activeLayerId, zoneCoverageById, zoneAllocationById, boundaryKpis, unconfirmedAddressMode, centerLabel]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, operationalPoints, poiAssignments, onTogglePoi, businessConfig, civiciState, mapZoom, campaignZones, activeZoneId, municipalityBoundary, isMunicipalityMode, nilMode, coveragePolygons, themeMode, activeLayerId, zoneCoverageById, zoneAllocationById, boundaryKpis, unconfirmedAddressMode, centerLabel, viewportShiftX]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Click da lista H2H/Business: centra la mappa sul POI ed evidenzia il
   // marker, senza toccare assegnazione/selezione (nessuna chiamata a

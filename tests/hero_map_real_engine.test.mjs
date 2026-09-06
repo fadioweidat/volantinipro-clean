@@ -70,7 +70,26 @@ test('Step2Map: prop opzionale centerLabel -> tooltip PERMANENTE ancorato al cen
   assert.match(step2map, /if \(isActive && centerLabel\) \{[\s\S]{0,220}permanent: true[\s\S]{0,120}gis-center-label/);
   // il ramo di default (nessun centerLabel) resta il tooltip su hover
   assert.match(step2map, /marker\.bindTooltip\(tooltipContent, \{ direction: 'top', offset: \[0, -10\], opacity: 1 \}\)/);
-  assert.match(step2map, /centerLabel\]\); \/\/ eslint-disable-line/);
+  assert.match(step2map, /centerLabel, viewportShiftX\]\); \/\/ eslint-disable-line/);
+});
+
+test('Step2Map: viewportShiftX -> shift SOLO visivo del viewport (Hero), idempotente, mai in municipality mode', () => {
+  assert.match(step2map, /viewportShiftX = 0,/);
+  // gate: solo se != 0 e NON municipality mode
+  assert.match(step2map, /if \(viewportShiftX && !isMunicipalityMode\) \{/);
+  // porta [city.lat, city.lng] alla frazione target della larghezza, panBy convergente
+  assert.match(step2map, /L\.point\(size\.x \* \(0\.5 \+ clampShift\), size\.y \/ 2\)/);
+  assert.match(step2map, /const dx = current\.x - target\.x;/);
+  assert.match(step2map, /if \(Math\.abs\(dx\) < 1\) return;/);
+  assert.match(step2map, /map\.panBy\(\[dx, 0\], \{ animate: false \}\)/);
+  // clamp difensivo
+  assert.match(step2map, /Math\.max\(-0\.4, Math\.min\(0\.4, Number\(viewportShiftX\) \|\| 0\)\)/);
+  // NON tocca city.lat/lng: nessun setView con coord modificate nel blocco shift
+  assert.doesNotMatch(step2map, /if \(viewportShiftX && !isMunicipalityMode\) \{[\s\S]{0,500}setView/);
+});
+
+test('Hero: passa viewportShiftX solo su desktop (tablet/mobile invariati)', () => {
+  assert.match(hero, /viewportShiftX=\{compact \? 0 : 0\.12\}/);
 });
 
 test('app.css: .vp-hero-map-preview senza trattamento a card (no background/border/radius/shadow/blur)', () => {

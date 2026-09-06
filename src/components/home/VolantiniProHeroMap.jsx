@@ -614,6 +614,11 @@ function HeroRealMapPreview({ compact, benefits }) {
             activeLayers={{ comuni: true, radius: true, poi: false }}
             interactive={false}
             centerLabel={`Cormano (MI) · raggio ${radiusKm} km`}
+            /* Desktop: sposta VISIVAMENTE il centro Cormano ~62% della larghezza
+               (invece che 50%) così mappa/raggio dominano a destra e il copy a
+               sinistra resta pulito. Nessun cambio di lat/lng, marker e cerchio
+               pannano insieme. Tablet/mobile invariati (0). */
+            viewportShiftX={compact ? 0 : 0.12}
           />
         </div>
 
