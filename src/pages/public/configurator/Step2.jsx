@@ -8,6 +8,7 @@ import { buildQuoteAssistantStep2Context } from "../../../ai/context/buildQuoteA
 import { ACTIVITY_TARGET_LABELS } from "../../../lib/step2/activityTargets.js";
 import { ADDRESS_INTENT_RE, detectSearchIntent, extractOfficialNilCode, getMunicipalityDedupKey, getVerifiedBusinessMetrics, getZoneVerdict, isAddressLikePlaceType, isGeocoderResultInMilanoComune, isNilLikePlaceType, logAddressVsMunicipalityDebug, looksLikeAddressResult, normalizeCoverageDecision, normalizeMunicipalityName, normalizeTerritoryName } from "../../../lib/step2/addressIntent.js";
 import { apiToZones, capToZone, getZoneCoords, haversineKm, pickRealComuneGeometry } from "../../../lib/step2/zoneGeoHelpers.js";
+import { resolveZoneAutoSelection } from "../../../lib/step2/zoneSelection.js";
 import { bizCategoryChart, businessRows, businessZoneScore, getComuneColor, getH2HMetrics, getTargetBizMeta, H2H_HOTSPOT_META, h2hHotspotRows, h2hHotspotStrength, residentialRows, residentialStrength } from "../../../lib/step2/businessZoneHelpers.js";
 import { buildOperationalAdvice, D2D_DAILY_CAPACITY, estimateOperationalDays, H2H_FLYERS_PER_PROMOTER_HOUR, resolveAssignedQuantity } from "../../../lib/step2/operationalMetrics.js";
 import { buildPromoterAssignments } from "../../../lib/step1/promoterAssignments.js";
@@ -2457,13 +2458,36 @@ export function Step2({
   }, [city, apiRequestSettled, apiPending, hasUsefulApiZones, selectedMunicipality, requestedAnalysisLevel, queryCenterLat, queryCenterLng, effectiveRadiusKm, apiData, apiError, apiZones, territorialDataUnavailable]);
   const capZones = useMemo(() => selectedCaps.map(cap => capDataMap[cap]).filter(zone => zone && !zone.unavailable), [selectedCaps, capDataMap]);
   const allZones = useMemo(() => [...zonesInRadius, ...capZones], [zonesInRadius, capZones]);
+  // Auto-selezione zone (P1-A): la selezione di default è "tutte le zone
+  // disponibili" (Comune completo, tutti i comuni multi, tutte le zone nel
+  // raggio, tutte le NIL). PRIMA questo effect rifaceva
+  // setSelected(zonesInRadius.map(id)) ad OGNI ricompute di `zonesInRadius`
+  // (identità array nuova anche a contenuto invariato: refresh apiData, tweak
+  // raggio, toggle tab), sovrascrivendo una selezione manuale NIL / custom /
+  // multi-zona parziale (es. ciclo Via Oroboni → BRUZZANO → Milano completo →
+  // BRUZZANO → Raggio → BRUZZANO perdeva BRUZZANO).
+  // Ora:
+  //  - se `selected` (filtrato agli id ancora esistenti) è un SOTTOINSIEME
+  //    proprio non vuoto della lista corrente → è una scelta manuale: si
+  //    preserva (scartando solo id spariti), non si espande;
+  //  - se `selected` è vuoto, oppure copriva TUTTA la lista precedente, oppure
+  //    copre già tutta la lista corrente → default = tutte le zone correnti
+  //    (riscrive solo se diverge davvero, così un refresh apiData a parità di
+  //    id non causa né clobber né re-render);
+  //  - i mode-switch (switchToNilMode/switchToRadiusMode/"Comune completo"/
+  //    resetActiveZone) azzerano già `selected` a [] → qui riparte da "tutte".
+  const prevAvailableZoneIdsRef = useRef([]);
   useEffect(() => {
-    if (hasUsefulApiZones) {
-      setSelected(zonesInRadius.map(z => z.id));
-    } else {
-      setSelected([]);
-    }
-  }, [city?.id, radius, hasUsefulApiZones, zonesInRadius]);
+    const availableIds = hasUsefulApiZones ? (zonesInRadius || []).map(z => z.id) : [];
+    const prevAvailableIds = prevAvailableZoneIdsRef.current || [];
+    prevAvailableZoneIdsRef.current = availableIds;
+    setSelected(prev => resolveZoneAutoSelection({
+      hasUsefulApiZones,
+      availableIds,
+      prevAvailableIds,
+      currentSelected: prev,
+    }));
+  }, [hasUsefulApiZones, zonesInRadius]);
 
   // Anteprima NIL per indirizzo Milano non ancora confermato (es. Via Brera):
   // calcolata prima di selZones per consentire al calcolo coperture/KPI e alla
