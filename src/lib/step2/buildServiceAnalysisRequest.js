@@ -24,11 +24,14 @@ export function buildServiceAnalysisRequest({
     ? [...targetSelection].filter(Boolean).sort().join('|')
     : String(targetSelection || '');
 
+  const latKey = Number.isFinite(centerLat) ? centerLat.toFixed(6) : "NaN";
+  const lngKey = Number.isFinite(centerLng) ? centerLng.toFixed(6) : "NaN";
+
   const requestKey = [
     service || "",
     municipality || "",
-    Number.isFinite(centerLat) ? centerLat.toFixed(6) : "NaN",
-    Number.isFinite(centerLng) ? centerLng.toFixed(6) : "NaN",
+    latKey,
+    lngKey,
     radiusKm,
     quantity || "",
     scope || "",
@@ -36,6 +39,30 @@ export function buildServiceAnalysisRequest({
     selectionScope || "",
     canonicalCodes,
     targetKey
+  ].join("|");
+
+  // `fetchKey` — identita' della RICHIESTA territoriale vera e propria: solo i
+  // campi che cambiano la risposta di analysis-istat / analysis-poi-search
+  // (quelli effettivamente messi nell'URL sotto), coordinate gia' quantizzate
+  // a 6 decimali (~0.1 m). Esclude di proposito:
+  //  - `quantity`: non cambia famiglie/popolazione/breakdown, riscala solo una
+  //    stima di volantini che il client ricalcola comunque. Era in `requestKey`
+  //    e creava un loop: fetch -> scrittura recommended flyers nella zona ->
+  //    quantityForAnalysis cambia -> refetch -> ... (debounce che non si
+  //    stabilizza mai, apiPending perennemente true).
+  //  - `scope` (data.activeZoneId) e `targetKey`: non finiscono nell'URL, quindi
+  //    generavano refetch a parita' di richiesta reale.
+  // Il debounce/dedup/settle del hook si basa su QUESTA chiave: parametri
+  // Cormano stabili => fetchKey stabile => una sola richiesta.
+  const fetchKey = [
+    service || "",
+    municipality || "",
+    latKey,
+    lngKey,
+    radiusKm,
+    analysisLevel || "",
+    selectionScope || "",
+    canonicalCodes
   ].join("|");
 
   let baseUrl = null;
@@ -66,6 +93,7 @@ export function buildServiceAnalysisRequest({
 
   return {
     requestKey,
+    fetchKey,
     url,
     canonicalCodes,
     apiUrl

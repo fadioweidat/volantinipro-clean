@@ -41,7 +41,25 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
   // il setLoading(true) del debounce si riflettesse in `loading` -> falso
   // negativo (apiRequestFired:false) mentre il fetch stava per partire.
   const lastSettledKeyRef = useRef("");
+  // Diagnostica temporanea (ticket "DEBOUNCE NEVER SETTLES"): snapshot dei
+  // singoli campi + ultima requestKey vista, per loggare requestKey /
+  // previousRequestKey / changedFields e rendere evidente cosa oscilla.
+  const prevFieldsRef = useRef(null);
+  const prevRequestKeyRef = useRef("");
   const [bfcacheResumeNonce, setBfcacheResumeNonce] = useState(0);
+
+  // Calcolo in fase di render (puro) della richiesta corrente. `fetchKey` e'
+  // l'identita' STABILE su cui si basano debounce/dedup/settle: dipende solo
+  // dai parametri che cambiano davvero la risposta territoriale, con lat/lng
+  // gia' quantizzate. Evita che un jitter di `quantity`/`scope`/coordinate al
+  // 7° decimale faccia ripartire il debounce all'infinito.
+  const zoneValid = isAnalysisZoneValid({ lat, lng, radius, municipality });
+  const built = buildServiceAnalysisRequest({
+    lat, lng, radius, service, municipality, quantity, scope, analysisLevel,
+    selectionScope, selectedMunicipalityCodes, targetSelection
+  });
+  const fetchKey = zoneValid ? built.fetchKey : "";
+  const requestKey = built.requestKey;
 
   // P0 (sezione 4 del ticket "Step2 bloccato"): quando la pagina viene
   // ripristinata dal Back-Forward Cache del browser (Chrome bfcache),
@@ -70,14 +88,52 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
     return () => window.removeEventListener("pageshow", handlePageShow);
   }, []);
 
+  // Diagnostica temporanea: logga ogni volta che la requestKey COMPLETA cambia,
+  // dicendo se e' cambiata anche la fetchKey (cioe' se fara' partire una nuova
+  // richiesta) e QUALI campi sono cambiati. Se per Cormano la fetchKey e'
+  // stabile, questo log compare una volta sola e poi tace.
+  useEffect(() => {
+    const targetKeySnap = Array.isArray(targetSelection)
+      ? [...targetSelection].filter(Boolean).sort().join('|')
+      : String(targetSelection || '');
+    const fields = {
+      lat: Number.isFinite(Number(lat)) ? Number(lat).toFixed(6) : String(lat),
+      lng: Number.isFinite(Number(lng)) ? Number(lng).toFixed(6) : String(lng),
+      radius: String(Number(radius)),
+      service: String(service || ""),
+      municipality: String(municipality || ""),
+      quantity: String(quantity || ""),
+      scope: String(scope || ""),
+      analysisLevel: String(analysisLevel || ""),
+      selectionScope: String(selectionScope || ""),
+      selectedMunicipalityCodes: String(selectedMunicipalityCodes || ""),
+      targetKey: targetKeySnap,
+    };
+    const prev = prevFieldsRef.current;
+    const changedFields = prev
+      ? Object.keys(fields).filter((k) => fields[k] !== prev[k])
+      : Object.keys(fields);
+    if (prevRequestKeyRef.current !== requestKey) {
+      // eslint-disable-next-line no-console
+      console.warn("[STEP2_ANALYSIS_KEY]", {
+        requestKey,
+        previousRequestKey: prevRequestKeyRef.current || null,
+        fetchKey,
+        fetchKeyChanged: prevFieldsRef.current ? fetchKey !== (prev && prev.__fetchKey) : true,
+        changedFields,
+      });
+    }
+    fields.__fetchKey = fetchKey;
+    prevFieldsRef.current = fields;
+    prevRequestKeyRef.current = requestKey;
+  }, [requestKey, fetchKey, lat, lng, radius, service, municipality, quantity, scope, analysisLevel, selectionScope, selectedMunicipalityCodes, targetSelection]);
+
   useEffect(() => {
     const radiusKm = Number(radius);
     const centerLat = Number(lat);
     const centerLng = Number(lng);
 
-    const hasValidZone = isAnalysisZoneValid({ lat, lng, radius, municipality });
-
-    if (!hasValidZone) {
+    if (!fetchKey) {
       if (!hasLoggedInvalidZone) {
         debugStep2("[ZONE_ANALYSIS_SKIPPED_INVALID_ZONE]", {
           municipality,
@@ -108,22 +164,10 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
       return undefined;
     }
 
-    const { requestKey, url, canonicalCodes } = buildServiceAnalysisRequest({
-      lat: centerLat,
-      lng: centerLng,
-      radius: radiusKm,
-      service,
-      municipality,
-      quantity,
-      scope,
-      analysisLevel,
-      selectionScope,
-      selectedMunicipalityCodes,
-      targetSelection
-    });
+    const { url, canonicalCodes } = built;
 
-    if (lastRequestKeyRef.current === requestKey && data !== null && error === null) {
-      debugStep2("[ZONE_ANALYSIS_SKIPPED_DUPLICATE]", { requestKey });
+    if (lastRequestKeyRef.current === fetchKey && data !== null && error === null) {
+      debugStep2("[ZONE_ANALYSIS_SKIPPED_DUPLICATE]", { fetchKey });
       // Stessa classe di bug del ramo hasValidZone sopra, caso piu' stretto:
       // se i parametri sono cambiati e tornati rapidamente allo stesso
       // requestKey gia' completato con successo (data!==null) PRIMA che il
@@ -144,7 +188,7 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
     setLoading(true);
 
     const fetchData = async () => {
-      lastRequestKeyRef.current = requestKey;
+      lastRequestKeyRef.current = fetchKey;
 
       debugStep2('[ZONE_CHANGE]', { municipality, centerLat, centerLng, radiusKm, service, selectionScope, selectedMunicipalityCodes: canonicalCodes, targetSelection });
 
@@ -203,8 +247,8 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
           setError(result.error || result.code || `HTTP_${response.status}`);
           setData(result.sources || result.metadata ? result : null);
         } else {
-          if (lastResultKeyRef.current !== requestKey) {
-            lastResultKeyRef.current = requestKey;
+          if (lastResultKeyRef.current !== fetchKey) {
+            lastResultKeyRef.current = fetchKey;
             setData(result);
           }
           setError(null);
@@ -219,11 +263,11 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
         setError("CONNECTION_ERROR");
       } finally {
         if (requestId === requestIdRef.current) {
-          // La richiesta per questo requestKey ha avuto il suo esito
+          // La richiesta per questa fetchKey ha avuto il suo esito
           // (dati, errore o backend non configurato): da ora la
           // diagnostica territoriale puo' pronunciarsi. Copre anche il
           // ramo `!url` (il `return` dentro try passa comunque di qui).
-          lastSettledKeyRef.current = requestKey;
+          lastSettledKeyRef.current = fetchKey;
           setLoading(false);
         }
       }
@@ -237,23 +281,25 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
       clearTimeout(timerId);
       controller.abort();
     };
-  }, [lat, lng, radius, service, municipality, quantity, scope, analysisLevel, selectionScope, selectedMunicipalityCodes, targetSelection ? (Array.isArray(targetSelection) ? [...targetSelection].sort().join('|') : targetSelection) : null, bfcacheResumeNonce]);
+    // Dipende SOLO da `fetchKey` (identita' stabile della richiesta) e dal
+    // nonce bfcache. Non piu' da lat/lng/quantity/scope raw: un loro jitter
+    // che non cambia la richiesta reale non deve piu' far ripartire il
+    // debounce (era la causa di "apiPending" perenne). `built`/`data`/`error`
+    // sono letti apposta come closure "dell'ultimo fetchKey": non devono
+    // ri-triggerare l'effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchKey, bfcacheResumeNonce]);
 
   // `pending` calcolato in fase di render (non in un effect): true quando la
-  // zona e' valida ma per il requestKey corrente non e' ancora arrivato alcun
+  // zona e' valida ma per la fetchKey corrente non e' ancora arrivato alcun
   // esito. Permette a Step2.jsx di NON dichiarare "Dato non disponibile" (ne'
   // loggare [STEP2_ANALYSIS_GATE] come bloccato) nello stesso commit in cui i
   // parametri diventano validi, prima che il fetch debounced parta/risponda.
-  let pending = false;
-  if (isAnalysisZoneValid({ lat, lng, radius, municipality })) {
-    const { requestKey: currentRequestKey } = buildServiceAnalysisRequest({
-      lat, lng, radius, service, municipality, quantity, scope, analysisLevel,
-      selectionScope, selectedMunicipalityCodes, targetSelection
-    });
-    pending =
-      lastSettledKeyRef.current !== currentRequestKey &&
-      !(lastRequestKeyRef.current === currentRequestKey && data !== null && error === null);
-  }
+  const pending = Boolean(
+    zoneValid &&
+    lastSettledKeyRef.current !== fetchKey &&
+    !(lastRequestKeyRef.current === fetchKey && data !== null && error === null)
+  );
 
   return { data, loading, error, pending };
 }

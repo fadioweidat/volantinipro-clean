@@ -48,14 +48,59 @@ test('buildServiceAnalysisRequest: Cormano d2d comune -> URL analysis-istat comp
   assert.match(requestKey, /Cormano/);
 });
 
-test('hook: espone `pending` e traccia lastSettledKeyRef dopo l esito', () => {
+test('hook: espone `pending` e settla sulla fetchKey stabile', () => {
   assert.match(hook, /return \{ data, loading, error, pending \}/);
   assert.match(hook, /const lastSettledKeyRef = useRef\(""\)/);
-  assert.match(hook, /lastSettledKeyRef\.current = requestKey/);
-  // pending vero solo se zona valida e requestKey corrente non ancora concluso
-  assert.match(hook, /pending =\s*lastSettledKeyRef\.current !== currentRequestKey/);
-  // il guard resta identico e centralizzato
-  assert.match(hook, /const hasValidZone = isAnalysisZoneValid\(\{ lat, lng, radius, municipality \}\)/);
+  assert.match(hook, /lastSettledKeyRef\.current = fetchKey/);
+  assert.match(hook, /pending = Boolean\(\s*zoneValid &&\s*lastSettledKeyRef\.current !== fetchKey/);
+  assert.match(hook, /const zoneValid = isAnalysisZoneValid\(\{ lat, lng, radius, municipality \}\)/);
+});
+
+test('hook: il debounce dipende SOLO da fetchKey (+ bfcache), non da lat/lng/quantity raw', () => {
+  // dependency array dell'effect di fetch
+  assert.match(hook, /\}, \[fetchKey, bfcacheResumeNonce\]\);/);
+  // non deve piu' esistere il vecchio array con lat/lng/quantity/scope raw
+  assert.doesNotMatch(hook, /\}, \[lat, lng, radius, service, municipality, quantity, scope, analysisLevel/);
+});
+
+test('DEBOUNCE NEVER SETTLES: fetchKey STABILE quando cambia solo quantity / scope / target / jitter coord', () => {
+  process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://example.supabase.co';
+  const base = { ...CORMANO, service: 'd2d', analysisLevel: 'comune', quantity: 10000, scope: 'zone', selectionScope: 'municipality', targetSelection: ['fitness'] };
+  const k0 = buildServiceAnalysisRequest(base).fetchKey;
+
+  assert.equal(buildServiceAnalysisRequest({ ...base, quantity: 24710 }).fetchKey, k0, 'quantity non deve muovere fetchKey');
+  assert.equal(buildServiceAnalysisRequest({ ...base, quantity: 9999 }).fetchKey, k0, 'quantity (write-back) non deve muovere fetchKey');
+  assert.equal(buildServiceAnalysisRequest({ ...base, scope: 'zone_2' }).fetchKey, k0, 'scope/activeZoneId non deve muovere fetchKey');
+  assert.equal(buildServiceAnalysisRequest({ ...base, targetSelection: ['fitness', 'beauty'] }).fetchKey, k0, 'targetSelection non deve muovere fetchKey');
+  assert.equal(buildServiceAnalysisRequest({ ...base, lat: 45.5437853333, lng: 9.1724314444 }).fetchKey, k0, 'jitter oltre il 6° decimale non deve muovere fetchKey');
+});
+
+test('DEBOUNCE NEVER SETTLES: fetchKey CAMBIA quando cambia un parametro territoriale reale', () => {
+  process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://example.supabase.co';
+  const base = { ...CORMANO, service: 'd2d', analysisLevel: 'comune', selectionScope: 'municipality' };
+  const k0 = buildServiceAnalysisRequest(base).fetchKey;
+  assert.notEqual(buildServiceAnalysisRequest({ ...base, radius: 8 }).fetchKey, k0, 'radius');
+  assert.notEqual(buildServiceAnalysisRequest({ ...base, municipality: 'Milano' }).fetchKey, k0, 'municipality');
+  assert.notEqual(buildServiceAnalysisRequest({ ...base, analysisLevel: 'nil' }).fetchKey, k0, 'analysisLevel');
+  assert.notEqual(buildServiceAnalysisRequest({ ...base, lat: 45.55 }).fetchKey, k0, 'lat oltre il 6° decimale');
+});
+
+test('hook: diagnostica [STEP2_ANALYSIS_KEY] con requestKey / previousRequestKey / changedFields', () => {
+  assert.match(hook, /\[STEP2_ANALYSIS_KEY\]/);
+  assert.match(hook, /previousRequestKey:/);
+  assert.match(hook, /changedFields,/);
+  assert.match(hook, /fetchKeyChanged:/);
+});
+
+test('Step2: queryCenterLat/Lng quantizzati a 6 decimali (jitter al source)', () => {
+  assert.match(step2, /const round6 = v => \(Number\.isFinite\(Number\(v\)\) \? Math\.round\(Number\(v\) \* 1e6\) \/ 1e6 : null\);/);
+  assert.match(step2, /const queryCenterLat = round6\(/);
+  assert.match(step2, /const queryCenterLng = round6\(/);
+});
+
+test('Step2: [STEP2_ANALYSIS_GATE] non spamma (log solo al cambio di stato)', () => {
+  assert.match(step2, /const analysisGateSigRef = useRef\(null\)/);
+  assert.match(step2, /if \(analysisGateSigRef\.current === sig\) return;/);
 });
 
 test('Step2: log [STEP2_ANALYSIS_GATE] con tutti i campi richiesti dal ticket', () => {

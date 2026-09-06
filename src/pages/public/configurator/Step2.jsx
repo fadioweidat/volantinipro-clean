@@ -1346,8 +1346,14 @@ export function Step2({
 
   // Centro delle query backend/GIS: in Raggio col punto cercato usa il punto
   // (via/NIL), altrimenti il centroide comune — stessa priorità di radiusCenter.
-  const queryCenterLat = isRadiusMode && hasSearchPoint ? radiusCenter.lat : city?.lat ?? null;
-  const queryCenterLng = isRadiusMode && hasSearchPoint ? radiusCenter.lng : city?.lng ?? null;
+  // Quantizzato a 6 decimali (~0.1 m): il centroide comune puo' arrivare con
+  // micro-variazioni al 7°+ decimale a render diversi (ricalcoli float,
+  // re-geocoding, interazioni mappa). Non quantizzarlo faceva ripartire il
+  // debounce di useServiceAnalysis all'infinito (apiPending perenne) e
+  // spammava [STEP2_ANALYSIS_GATE].
+  const round6 = v => (Number.isFinite(Number(v)) ? Math.round(Number(v) * 1e6) / 1e6 : null);
+  const queryCenterLat = round6(isRadiusMode && hasSearchPoint ? radiusCenter.lat : city?.lat);
+  const queryCenterLng = round6(isRadiusMode && hasSearchPoint ? radiusCenter.lng : city?.lng);
   const computedSelectionScope = useMemo(() => {
     if (searchMode === "cap") return "cap";
     if (isComuneMode && selectedComuni && selectedComuni.length > 1) return "multi";
@@ -2373,6 +2379,7 @@ export function Step2({
   // [STEP2_ANALYSIS_GATE] — diagnostica TEMPORANEA (ticket "analysis-istat
   // REQUEST NOT FIRING"): rende evidente in prod QUALE condizione blocca la
   // query territoriale. Nessun secret loggato.
+  const analysisGateSigRef = useRef(null);
   useEffect(() => {
     if (!city) return;
     const latN = Number(analysisParams.lat);
@@ -2394,8 +2401,7 @@ export function Step2({
     else if (!serviceOk) reasonBlocked = "missing-service";
     else if (apiPending) reasonBlocked = "pending-debounce";
     else if (!apiRequestFired) reasonBlocked = "no-request-after-settle";
-    // eslint-disable-next-line no-console
-    console.warn("[STEP2_ANALYSIS_GATE]", {
+    const payload = {
       shouldFetch,
       municipalityOk,
       latOk,
@@ -2408,8 +2414,15 @@ export function Step2({
       apiPending,
       apiRequestFired,
       reasonBlocked,
-    });
-  }, [city, analysisParams, coverageMode, apiPending, apiRequestFired]);
+    };
+    // Logga SOLO quando lo stato del gate cambia davvero: prima spammava ad
+    // ogni render (analysisParams e' un oggetto nuovo ogni volta).
+    const sig = JSON.stringify(payload);
+    if (analysisGateSigRef.current === sig) return;
+    analysisGateSigRef.current = sig;
+    // eslint-disable-next-line no-console
+    console.warn("[STEP2_ANALYSIS_GATE]", payload);
+  }, [city, analysisParams.municipality, analysisParams.lat, analysisParams.lng, analysisParams.radiusKm, analysisParams.serviceType, analysisParams.analysisLevel, coverageMode, apiPending, apiRequestFired]);
 
   useEffect(() => {
     if (!city || !apiRequestSettled) return;
