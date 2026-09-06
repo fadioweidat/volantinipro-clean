@@ -13,6 +13,7 @@ import { buildServiceAnalysisRequest } from '../src/lib/step2/buildServiceAnalys
 
 const hook = readFileSync(new URL('../src/hooks/useServiceAnalysis.js', import.meta.url), 'utf8');
 const step2 = readFileSync(new URL('../src/pages/public/configurator/Step2.jsx', import.meta.url), 'utf8');
+const heroMap = readFileSync(new URL('../src/components/home/VolantiniProHeroMap.jsx', import.meta.url), 'utf8');
 
 const CORMANO = { lat: 45.543785, lng: 9.172431, radius: 3, municipality: 'Cormano' };
 
@@ -90,6 +91,30 @@ test('hook: diagnostica [STEP2_ANALYSIS_KEY] con requestKey / previousRequestKey
   assert.match(hook, /previousRequestKey:/);
   assert.match(hook, /changedFields,/);
   assert.match(hook, /fetchKeyChanged:/);
+});
+
+test('hook: [STEP2_ANALYSIS_KEY] NON parte per un\'istanza inattiva (zona non valida, mai attiva)', () => {
+  // il log e' gated su (isActive || wasActive): un consumer montato con args
+  // null (fetchKey "") e mai stato attivo non produce righe.
+  assert.match(hook, /const wasActive = Boolean\(prev && prev\.__fetchKey\);/);
+  assert.match(hook, /const isActive = Boolean\(fetchKey\);/);
+  assert.match(hook, /prevRequestKeyRef\.current !== requestKey && \(isActive \|\| wasActive\)/);
+  // il payload include `scope` per tracciare il consumer
+  assert.match(hook, /console\.warn\("\[STEP2_ANALYSIS_KEY\]", \{\s*\n\s*scope: String\(scope \|\| ""\),/);
+});
+
+test('Hero preview: l\'analisi territoriale (scope hero_preview) parte SOLO se il preview e\' in viewport', () => {
+  // scope literal presente
+  assert.match(heroMap, /"hero_preview"/);
+  // gate esplicito su previewVisible
+  assert.match(heroMap, /const analysisActive = previewVisible;/);
+  // gli argomenti di useServiceAnalysis sono null finche' non e' attivo
+  assert.match(heroMap, /analysisActive \? previewCity\.lat : null/);
+  assert.match(heroMap, /analysisActive \? previewCity\.lng : null/);
+  assert.match(heroMap, /analysisActive \? previewCity\.name : null/);
+  assert.match(heroMap, /analysisActive \? previewCity\.municipality_code : null/);
+  // NON deve piu' passare le coord fisse incondizionatamente
+  assert.doesNotMatch(heroMap, /useServiceAnalysis\(\s*\n?\s*previewCity\.lat,/);
 });
 
 test('Step2: queryCenterLat/Lng quantizzati a 6 decimali (jitter al source)', () => {

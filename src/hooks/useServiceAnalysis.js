@@ -92,6 +92,13 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
   // dicendo se e' cambiata anche la fetchKey (cioe' se fara' partire una nuova
   // richiesta) e QUALI campi sono cambiati. Se per Cormano la fetchKey e'
   // stabile, questo log compare una volta sola e poi tace.
+  //
+  // NB: questo hook e' condiviso (Step2, Hero preview, QuickQuote, ...). Il log
+  // NON parte per un'istanza inattiva: solo se c'e' una richiesta reale ora
+  // (fetchKey non vuoto) o ce n'era una prima (transizione ad "idle"). Cosi'
+  // un consumer montato ma con zona non valida (es. Hero preview fuori
+  // viewport) non produce righe di log. `scope` e' incluso per tracciare da
+  // quale consumer arriva la chiave.
   useEffect(() => {
     const targetKeySnap = Array.isArray(targetSelection)
       ? [...targetSelection].filter(Boolean).sort().join('|')
@@ -113,9 +120,12 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
     const changedFields = prev
       ? Object.keys(fields).filter((k) => fields[k] !== prev[k])
       : Object.keys(fields);
-    if (prevRequestKeyRef.current !== requestKey) {
+    const wasActive = Boolean(prev && prev.__fetchKey);
+    const isActive = Boolean(fetchKey);
+    if (prevRequestKeyRef.current !== requestKey && (isActive || wasActive)) {
       // eslint-disable-next-line no-console
       console.warn("[STEP2_ANALYSIS_KEY]", {
+        scope: String(scope || ""),
         requestKey,
         previousRequestKey: prevRequestKeyRef.current || null,
         fetchKey,

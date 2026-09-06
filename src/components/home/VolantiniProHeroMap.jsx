@@ -509,16 +509,25 @@ function HeroRealMapPreview({ compact, benefits }) {
     municipality_code: "015086",
   }), []);
   const radiusKm = 3;
+  // L'analisi territoriale del preview Hero (Cormano, scope "hero_preview") deve
+  // partire SOLO quando il preview e' davvero visibile in viewport. Prima
+  // veniva chiamata all'mount incondizionatamente: se questo componente veniva
+  // montato senza mai entrare in viewport (es. brevissimo passaggio dalla home
+  // prima di navigare al configuratore) sparava comunque una richiesta
+  // analysis-istat per Cormano, che compariva nei log mentre l'utente era gia'
+  // su Step 2 con un altro comune. `null` -> isAnalysisZoneValid() false ->
+  // il hook non fa nessun fetch e non logga.
+  const analysisActive = previewVisible;
   const { data, loading, error } = useServiceAnalysis(
-    previewCity.lat,
-    previewCity.lng,
+    analysisActive ? previewCity.lat : null,
+    analysisActive ? previewCity.lng : null,
     radiusKm,
     "d2d",
-    previewCity.name,
+    analysisActive ? previewCity.name : null,
     10000,
     "hero_preview",
     "comune",
-    previewCity.municipality_code,
+    analysisActive ? previewCity.municipality_code : null,
   );
 
   const hasError = Boolean(error);
