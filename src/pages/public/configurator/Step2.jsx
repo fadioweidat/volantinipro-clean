@@ -540,6 +540,30 @@ export function Step2({
   }));
   const [openOutputPopover, setOpenOutputPopover] = useState(null);
   const activeZoneForRadius = data.campaignZones?.find(z => z.id === data.activeZoneId) || null;
+  // TICKET — COVERAGE MODE STATE MACHINE: contesto indirizzo PERSISTENTE per
+  // la Zona. Salvato una sola volta dopo la ricerca (Via Antonio Oroboni ->
+  // Milano + NIL vicina BRUZZANO) e MAI cancellato dai passaggi di modalità
+  // (Comune completo / Raggio / NIL). Serve a rendere ogni modalità
+  // reversibile senza reinserire l'indirizzo.
+  const coverageAddress = activeZoneForRadius?.coverage?.address || data.coverage?.address || null;
+  const persistCoverageAddress = useCallback((patch) => {
+    if (!patch) return;
+    setData(prev => {
+      const merge = (existing) => ({
+        label: patch.label ?? existing?.label ?? null,
+        lat: Number.isFinite(Number(patch.lat)) ? Number(patch.lat) : (existing?.lat ?? null),
+        lng: Number.isFinite(Number(patch.lng)) ? Number(patch.lng) : (existing?.lng ?? null),
+        municipality: patch.municipality ?? existing?.municipality ?? null,
+        nearestNilId: patch.nearestNilId ?? existing?.nearestNilId ?? null,
+        nearestNilName: patch.nearestNilName ?? existing?.nearestNilName ?? null,
+      });
+      const nextTop = merge(prev.coverage?.address);
+      const zones = (prev.campaignZones || []).map(z => z.id === prev.activeZoneId
+        ? { ...z, coverage: { ...(z.coverage || {}), address: merge(z.coverage?.address) } }
+        : z);
+      return { ...prev, coverage: { ...(prev.coverage || {}), address: nextTop }, campaignZones: zones };
+    });
+  }, [setData]);
   const activeAreaTab = searchMode === "municipality" ? "comune" : searchMode === "address" ? "raggio" : "cap";
   const selectionMode = activeAreaTab;
   const territoryMode = searchMode === "municipality" ? "full_municipality" : searchMode === "address" ? "radius" : "cap";
@@ -811,17 +835,39 @@ export function Step2({
       };
     });
   }, [city, radiusKm, selected, selectedCaps, selectedSearchPoint, selectedComuni, selectedMunicipalityDisplayLabel, selectedMunicipalitySummary, capDataMap, manualAssignments, allocationMode, coverageDecision, coverageStrategy, radiusSelectionConfirmed, searchMode, activeMapLayers, data.activeZoneId]);
+  // Ripristina il punto indirizzo dal contesto persistente della Zona quando
+  // manca (es. si arriva da "Comune completo"). Mai reinserire l'indirizzo.
+  const restoreSearchPointFromCoverageAddress = () => {
+    if (selectedSearchPoint && Number.isFinite(Number(selectedSearchPoint.lat)) && Number.isFinite(Number(selectedSearchPoint.lng))) return selectedSearchPoint;
+    if (coverageAddress && Number.isFinite(Number(coverageAddress.lat)) && Number.isFinite(Number(coverageAddress.lng))) {
+      const sp = {
+        label: coverageAddress.label || (coverageAddress.municipality || "Indirizzo"),
+        lat: Number(coverageAddress.lat),
+        lng: Number(coverageAddress.lng),
+        type: "address",
+        parentComune: coverageAddress.municipality || "Milano",
+        city: coverageAddress.municipality || "Milano",
+      };
+      setSelectedSearchPoint(sp);
+      return sp;
+    }
+    return null;
+  };
+
   const switchToRadiusMode = () => {
     userModeRef.current = "address";
     setSearchMode("address");
     setDropOpen(false);
     setAddressSearchError("");
-    if (!city && (!selectedComuni || selectedComuni.length === 0) && !selectedSearchPoint) {
+    setNilManualMode(false);
+    setComuniPriorityOrder([]);
+    const restoredPoint = restoreSearchPointFromCoverageAddress();
+    if (!city && (!selectedComuni || selectedComuni.length === 0) && !selectedSearchPoint && !restoredPoint) {
       setSearch("");
       setGeocodeSuggestions([]);
     }
     const nextRad = radius || 3;
-    const centerPoint = selectedSearchPoint || city;
+    const centerPoint = restoredPoint || selectedSearchPoint || city;
     const shouldConfirmRadius = Boolean(centerPoint && Number.isFinite(Number(centerPoint.lat)) && Number.isFinite(Number(centerPoint.lng)) && Number(nextRad) > 0);
     setRadius(nextRad);
     setSelected([]);
@@ -841,6 +887,8 @@ export function Step2({
             radius: nextRad,
             radiusKm: nextRad,
             selected: [],
+            coverageMode: "radius",
+            comuniPriorityOrder: [],
             coverageDecision: null,
             coverageStrategy: null,
             radiusSelectionConfirmed: shouldConfirmRadius
@@ -855,6 +903,7 @@ export function Step2({
         radiusKm: nextRad,
         selectedRadius: nextRad,
         zones: [],
+        comuniPriorityOrder: [],
         coverageDecision: null,
         coverageStrategy: null,
         radiusSelectionConfirmed: shouldConfirmRadius,
@@ -866,7 +915,11 @@ export function Step2({
     userModeRef.current = "municipality";
     setSearchMode("municipality");
     setDropOpen(false);
-    setSelectedSearchPoint(null);
+    // NON azzerare selectedSearchPoint: il contesto indirizzo resta per poter
+    // tornare a NIL/Raggio senza reinserirlo. addressFullCoverageConfirmed=true
+    // sopprime lo stato "anteprima indirizzo non confermato".
+    setNilManualMode(false);
+    setComuniPriorityOrder([]);
     setAddressFullCoverageConfirmed(true);
     setRadiusSelectionConfirmed(false);
     setSelected([]);
@@ -885,6 +938,8 @@ export function Step2({
             radius: null,
             radiusKm: null,
             selected: [],
+            coverageMode: "municipality",
+            comuniPriorityOrder: [],
             coverageDecision: null,
             coverageStrategy: null,
             radiusSelectionConfirmed: false
@@ -896,6 +951,54 @@ export function Step2({
         ...prev,
         searchMode: "municipality",
         zones: [],
+        comuniPriorityOrder: [],
+        coverageDecision: null,
+        coverageStrategy: null,
+        radiusSelectionConfirmed: false,
+        campaignZones: updatedZones
+      };
+    });
+  };
+  // TICKET — COVERAGE MODE STATE MACHINE: passaggio esplicito a NIL, sempre
+  // reversibile. Riusa il contesto indirizzo persistente (coverageAddress);
+  // preseleziona la NIL vicina (BRUZZANO) senza rifare la ricerca. Azzera lo
+  // stato derivato della modalità precedente (selezione + ordine priorità) per
+  // evitare KPI / ranking stale.
+  const switchToNilMode = () => {
+    userModeRef.current = "address";
+    setDropOpen(false);
+    setAddressSearchError("");
+    setSearchMode("address");
+    restoreSearchPointFromCoverageAddress();
+    setNilManualMode(true);
+    setAddressFullCoverageConfirmed(false);
+    setRadiusSelectionConfirmed(false);
+    setComuniPriorityOrder([]);
+    setSelected([]);
+    setCoverageDecision(null);
+    setCoverageStrategy(null);
+    setPartialCoverageConfirmed(false);
+    const nilName = coverageAddress?.nearestNilName || null;
+    if (nilName) setPendingNilPreselectName(nilName);
+    setData(prev => {
+      const updatedZones = (prev.campaignZones || []).map(zone => zone.id === prev.activeZoneId ? {
+        ...zone,
+        searchMode: "address",
+        mode: "nil",
+        territoryMode: "custom_zone",
+        areaMode: "custom_zone",
+        coverageMode: "nil",
+        selected: [],
+        comuniPriorityOrder: [],
+        coverageDecision: null,
+        coverageStrategy: null,
+        radiusSelectionConfirmed: false
+      } : zone);
+      return {
+        ...prev,
+        searchMode: "address",
+        zones: [],
+        comuniPriorityOrder: [],
         coverageDecision: null,
         coverageStrategy: null,
         radiusSelectionConfirmed: false,
@@ -2631,6 +2734,9 @@ export function Step2({
         precision: point.placeType || point.type || "address"
       };
       setSelectedSearchPoint(sp);
+      // Contesto indirizzo PERSISTENTE della Zona (nearestNil* completati poi
+      // da un effetto quando containingNil si risolve).
+      persistCoverageAddress({ label: pointLabel, lat: sp.lat, lng: sp.lng, municipality: "Milano" });
       logAddressVsMunicipalityDebug(pointLabel || search, city, milano, sp, true, "selected_milano_address_point", pointLabel, "address", "Milano");
       if (import.meta.env.DEV) {
         console.log("[STEP2_ADDRESS_VALIDATION]", {
@@ -2739,6 +2845,16 @@ export function Step2({
     code: zonesInRadius[0].nilCode || zonesInRadius[0].nil_code || zonesInRadius[0].id,
     name: zonesInRadius[0].name
   } : null;
+  // Completa il contesto indirizzo persistente con la NIL vicina (BRUZZANO)
+  // appena disponibile, cosi' "torna a NIL" la puo' ripristinare senza
+  // rifare la ricerca. Non riscrive lat/lng/label gia' salvati.
+  useEffect(() => {
+    if (!containingNil?.name) return;
+    if (coverageAddress?.nearestNilName === containingNil.name && coverageAddress?.nearestNilId === (containingNil.code || null)) return;
+    if (!coverageAddress?.lat && !selectedSearchPoint?.lat) return;
+    persistCoverageAddress({ nearestNilId: containingNil.code || null, nearestNilName: containingNil.name });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [containingNil?.name, containingNil?.code]);
   const intersectedNils = isNilAnalysis && areaMode === "radius" ? (zonesInRadius || []).filter(z => z.isNil || z.territoryLevel === "nil" || isNilAnalysis).map(z => ({
     code: z.nilCode || z.nil_code || z.id,
     name: z.name
@@ -4551,6 +4667,9 @@ export function Step2({
           switchToCapMode={switchToCapMode}
           switchToComuneMode={switchToComuneMode}
           switchToRadiusMode={switchToRadiusMode}
+          switchToNilMode={switchToNilMode}
+          coverageMode={coverageMode}
+          coverageAddress={coverageAddress}
           updateActiveRadius={updateActiveRadius}
           zonesInRadius={zonesInRadius}
         />}
@@ -4850,6 +4969,9 @@ export function Step2({
         surplusFlyers={surplusFlyers}
         switchToComuneMode={switchToComuneMode}
         switchToRadiusMode={switchToRadiusMode}
+        switchToNilMode={switchToNilMode}
+        coverageMode={coverageMode}
+        coverageAddress={coverageAddress}
         territorialDataUnavailable={territorialDataUnavailable}
         territorySingularLabel={territorySingularLabel}
         toggleZone={toggleZone}
