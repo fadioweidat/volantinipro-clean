@@ -85,10 +85,11 @@ const CACHE_TTL_MS = envInt("POI_SEARCH_CACHE_TTL_MS", 3600000, 60000, 86400000)
 // I POI sono arricchimento OPZIONALE: Step 2 non deve MAI sembrare lento per
 // causa loro (ticket "POI SEARCH TOO SLOW + 502").
 // - Budget TOTALE dell'intera operazione (tutti i provider + eventuale retry):
-//   oltre questo si degrada, non si aspetta. Target 3-5s.
-const TOTAL_BUDGET_MS = envInt("POI_SEARCH_TOTAL_BUDGET_MS", 4500, 1500, 15000);
+//   oltre questo si degrada, non si aspetta. Target 3-5s END-TO-END: qui 4s
+//   lascia ~1s di margine per cold start isolate + latenza di rete lato client.
+const TOTAL_BUDGET_MS = envInt("POI_SEARCH_TOTAL_BUDGET_MS", 4000, 1500, 15000);
 // - Timeout di rete per singolo provider (comunque limitato dal budget residuo).
-const PROVIDER_TIMEOUT_MS = envInt("POI_SEARCH_TIMEOUT_MS", 3500, 1000, 12000);
+const PROVIDER_TIMEOUT_MS = envInt("POI_SEARCH_TIMEOUT_MS", 3000, 1000, 12000);
 // Un solo retry, solo per fallimenti transitori, solo se resta budget, backoff breve.
 const RETRY_BACKOFF_MS = envInt("POI_SEARCH_RETRY_BACKOFF_MS", 300, 0, 2000);
 // Cache "stale": conserva l'ultimo risultato buono molto piu' a lungo del TTL
