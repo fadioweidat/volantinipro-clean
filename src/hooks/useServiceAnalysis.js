@@ -7,6 +7,25 @@ const debugStep2 = (...args) => {
 
 let hasLoggedInvalidZone = false;
 
+// Guard unico condiviso: stessa condizione usata dentro l'effect del hook e
+// dalla diagnostica [STEP2_ANALYSIS_GATE] in Step2.jsx / dai test. Se cambia
+// qui cambia in un solo punto. `municipality` resta obbligatorio: il backend
+// analysis-istat normalizza sul nome comune, non sa gestire "punto+raggio"
+// senza contesto comunale.
+export function isAnalysisZoneValid({ lat, lng, radius, municipality } = {}) {
+  const centerLat = Number(lat);
+  const centerLng = Number(lng);
+  const radiusKm = Number(radius);
+  return Boolean(
+    municipality &&
+    Number.isFinite(centerLat) &&
+    Number.isFinite(centerLng) &&
+    centerLat !== 0 &&
+    centerLng !== 0 &&
+    radiusKm > 0
+  );
+}
+
 export function useServiceAnalysis(lat, lng, radius, service, municipality = null, quantity = null, scope = null, analysisLevel = null, selectionScope = null, selectedMunicipalityCodes = null, targetSelection = null) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -14,6 +33,14 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
   const requestIdRef = useRef(0);
   const lastRequestKeyRef = useRef("");
   const lastResultKeyRef = useRef("");
+  // requestKey per cui e' gia' arrivata una risposta (successo O errore O
+  // backend non configurato). Serve a distinguere "richiesta non ancora
+  // partita / in debounce" da "richiesta conclusa senza dati": la
+  // diagnostica territoriale in Step2.jsx marcava "Dato non disponibile" gia'
+  // nello STESSO commit React in cui i parametri diventano validi, prima che
+  // il setLoading(true) del debounce si riflettesse in `loading` -> falso
+  // negativo (apiRequestFired:false) mentre il fetch stava per partire.
+  const lastSettledKeyRef = useRef("");
   const [bfcacheResumeNonce, setBfcacheResumeNonce] = useState(0);
 
   // P0 (sezione 4 del ticket "Step2 bloccato"): quando la pagina viene
@@ -48,13 +75,7 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
     const centerLat = Number(lat);
     const centerLng = Number(lng);
 
-    const hasValidZone =
-      municipality &&
-      Number.isFinite(centerLat) &&
-      Number.isFinite(centerLng) &&
-      centerLat !== 0 &&
-      centerLng !== 0 &&
-      radiusKm > 0;
+    const hasValidZone = isAnalysisZoneValid({ lat, lng, radius, municipality });
 
     if (!hasValidZone) {
       if (!hasLoggedInvalidZone) {
@@ -197,7 +218,14 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
         }
         setError("CONNECTION_ERROR");
       } finally {
-        if (requestId === requestIdRef.current) setLoading(false);
+        if (requestId === requestIdRef.current) {
+          // La richiesta per questo requestKey ha avuto il suo esito
+          // (dati, errore o backend non configurato): da ora la
+          // diagnostica territoriale puo' pronunciarsi. Copre anche il
+          // ramo `!url` (il `return` dentro try passa comunque di qui).
+          lastSettledKeyRef.current = requestKey;
+          setLoading(false);
+        }
       }
     };
 
@@ -211,5 +239,21 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
     };
   }, [lat, lng, radius, service, municipality, quantity, scope, analysisLevel, selectionScope, selectedMunicipalityCodes, targetSelection ? (Array.isArray(targetSelection) ? [...targetSelection].sort().join('|') : targetSelection) : null, bfcacheResumeNonce]);
 
-  return { data, loading, error };
+  // `pending` calcolato in fase di render (non in un effect): true quando la
+  // zona e' valida ma per il requestKey corrente non e' ancora arrivato alcun
+  // esito. Permette a Step2.jsx di NON dichiarare "Dato non disponibile" (ne'
+  // loggare [STEP2_ANALYSIS_GATE] come bloccato) nello stesso commit in cui i
+  // parametri diventano validi, prima che il fetch debounced parta/risponda.
+  let pending = false;
+  if (isAnalysisZoneValid({ lat, lng, radius, municipality })) {
+    const { requestKey: currentRequestKey } = buildServiceAnalysisRequest({
+      lat, lng, radius, service, municipality, quantity, scope, analysisLevel,
+      selectionScope, selectedMunicipalityCodes, targetSelection
+    });
+    pending =
+      lastSettledKeyRef.current !== currentRequestKey &&
+      !(lastRequestKeyRef.current === currentRequestKey && data !== null && error === null);
+  }
+
+  return { data, loading, error, pending };
 }

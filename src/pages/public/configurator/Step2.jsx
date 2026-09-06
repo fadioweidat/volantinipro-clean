@@ -1381,9 +1381,15 @@ export function Step2({
   const {
     data: apiData,
     loading: apiLoading,
-    error: apiError
+    error: apiError,
+    pending: apiPending
   } = useServiceAnalysis(analysisParams.lat, analysisParams.lng, analysisParams.radiusKm, analysisParams.serviceType, analysisParams.municipality, analysisParams.quantity, analysisParams.scope, analysisParams.analysisLevel, analysisParams.selectionScope, analysisParams.selectedMunicipalityCodes, analysisParams.targetSelection);
   const omiInfo = apiData?.metadata?.omi ?? null;
+  // Richiesta analysis-istat/POI "conclusa" per i parametri correnti: c'e' un
+  // esito (dati o errore) e non e' in corso ne' in debounce. Finche' e' false
+  // la UI territoriale NON deve dichiarare "Dato non disponibile".
+  const apiRequestFired = Boolean(apiData) || Boolean(apiError);
+  const apiRequestSettled = !apiLoading && !apiPending;
   const {
     sectors,
     loading: sectorsLoading
@@ -2358,9 +2364,55 @@ export function Step2({
     apiData && !apiData.error && apiData.values &&
     ((Number(apiData.values.famiglie_stimate) || 0) > 0 || (Number(apiData.values.volantini_consigliati) || 0) > 0)
   );
-  const territorialDataUnavailable = Boolean(city && !apiLoading && !hasUsefulApiZones && !apiHasAggregateValues);
+  // `apiRequestSettled` = !apiLoading && !apiPending: NON dichiarare
+  // "unavailable" finche' la richiesta analysis-istat e' ancora in debounce o
+  // in volo (era il falso negativo del ticket: "apiRequestFired:false" loggato
+  // nello stesso commit in cui i parametri diventano validi).
+  const territorialDataUnavailable = Boolean(city && apiRequestSettled && !hasUsefulApiZones && !apiHasAggregateValues);
+
+  // [STEP2_ANALYSIS_GATE] — diagnostica TEMPORANEA (ticket "analysis-istat
+  // REQUEST NOT FIRING"): rende evidente in prod QUALE condizione blocca la
+  // query territoriale. Nessun secret loggato.
   useEffect(() => {
-    if (!city || apiLoading) return;
+    if (!city) return;
+    const latN = Number(analysisParams.lat);
+    const lngN = Number(analysisParams.lng);
+    const radN = Number(analysisParams.radiusKm);
+    const municipalityOk = Boolean(analysisParams.municipality);
+    const latOk = Number.isFinite(latN) && latN !== 0;
+    const lngOk = Number.isFinite(lngN) && lngN !== 0;
+    const radiusOk = Number.isFinite(radN) && radN > 0;
+    const serviceOk = Boolean(analysisParams.serviceType);
+    const analysisLevelOk = analysisParams.analysisLevel === "comune" || analysisParams.analysisLevel === "nil";
+    const zoneActive = municipalityOk && latOk && lngOk && radiusOk;
+    const shouldFetch = zoneActive && serviceOk;
+    let reasonBlocked = null;
+    if (!municipalityOk) reasonBlocked = "missing-municipality";
+    else if (!latOk) reasonBlocked = "invalid-lat";
+    else if (!lngOk) reasonBlocked = "invalid-lng";
+    else if (!radiusOk) reasonBlocked = "invalid-radius";
+    else if (!serviceOk) reasonBlocked = "missing-service";
+    else if (apiPending) reasonBlocked = "pending-debounce";
+    else if (!apiRequestFired) reasonBlocked = "no-request-after-settle";
+    // eslint-disable-next-line no-console
+    console.warn("[STEP2_ANALYSIS_GATE]", {
+      shouldFetch,
+      municipalityOk,
+      latOk,
+      lngOk,
+      radiusOk,
+      serviceOk,
+      analysisLevelOk,
+      zoneActive,
+      coverageMode,
+      apiPending,
+      apiRequestFired,
+      reasonBlocked,
+    });
+  }, [city, analysisParams, coverageMode, apiPending, apiRequestFired]);
+
+  useEffect(() => {
+    if (!city || !apiRequestSettled) return;
     // Diagnostica sicura (nessun secret): rende visibile in prod il caso in
     // cui l'UI mostra "dato non disponibile" pur avendo una richiesta valida
     // / una risposta con valori. Serve a localizzare il binding rotto.
@@ -2373,6 +2425,7 @@ export function Step2({
         lng: Number.isFinite(Number(queryCenterLng)) ? Number(queryCenterLng) : null,
         radiusKm: effectiveRadiusKm,
         apiRequestFired: Boolean(apiData) || Boolean(apiError),
+        apiPending,
         apiError: apiError || null,
         apiHasValues: Boolean(apiData?.values),
         apiFamilies: apiData?.values?.famiglie_stimate ?? null,
@@ -2381,7 +2434,7 @@ export function Step2({
         territorialDataUnavailable,
       });
     }
-  }, [city, apiLoading, hasUsefulApiZones, selectedMunicipality, requestedAnalysisLevel, queryCenterLat, queryCenterLng, effectiveRadiusKm, apiData, apiError, apiZones, territorialDataUnavailable]);
+  }, [city, apiRequestSettled, apiPending, hasUsefulApiZones, selectedMunicipality, requestedAnalysisLevel, queryCenterLat, queryCenterLng, effectiveRadiusKm, apiData, apiError, apiZones, territorialDataUnavailable]);
   const capZones = useMemo(() => selectedCaps.map(cap => capDataMap[cap]).filter(zone => zone && !zone.unavailable), [selectedCaps, capDataMap]);
   const allZones = useMemo(() => [...zonesInRadius, ...capZones], [zonesInRadius, capZones]);
   useEffect(() => {

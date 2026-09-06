@@ -18,7 +18,10 @@ test('selectedMunicipality: fallback robusto + rimozione suffisso provincia " (X
 test('territorialDataUnavailable: mai true se apiData.values ha famiglie/volantini reali', () => {
   assert.match(step2, /const apiHasAggregateValues = Boolean\(/);
   assert.match(step2, /Number\(apiData\.values\.famiglie_stimate\) \|\| 0\) > 0 \|\| \(Number\(apiData\.values\.volantini_consigliati\)/);
-  assert.match(step2, /const territorialDataUnavailable = Boolean\(city && !apiLoading && !hasUsefulApiZones && !apiHasAggregateValues\)/);
+  // NB: `!apiLoading` e' stato irrobustito in `apiRequestSettled`
+  // (= !apiLoading && !apiPending) dal ticket "analysis-istat REQUEST NOT
+  // FIRING": non dichiarare "unavailable" mentre la richiesta e' in debounce.
+  assert.match(step2, /const territorialDataUnavailable = Boolean\(city && apiRequestSettled && !hasUsefulApiZones && !apiHasAggregateValues\)/);
 });
 
 test('diagnostica prod: log del binding quando la UI mostrerebbe "non disponibile"', () => {
