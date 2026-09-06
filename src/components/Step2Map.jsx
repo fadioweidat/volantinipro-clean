@@ -2002,7 +2002,7 @@ function Step2MapImpl({
           fontFamily: 'system-ui,sans-serif', fontSize: 11.5, color: 'rgba(255,255,255,.78)',
           display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'auto',
         }}>
-          <span>Impossibile verificare le attività in questa zona.</span>
+          <span>Attività commerciali temporaneamente non disponibili. La configurazione può continuare.</span>
           {onRetryPoi && (
             <button type="button" onClick={onRetryPoi} style={{
               padding: '4px 10px', borderRadius: 7, border: '1px solid rgba(248,113,113,.45)',

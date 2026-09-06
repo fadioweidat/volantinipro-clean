@@ -284,3 +284,35 @@ export function makePoiCacheKey(input: PoiInput): string {
   const targets = [...input.targetSelection].sort().join(',') || '-';
   return `${input.serviceType}:${lat},${lng}:r${rad}:${targets}`;
 }
+
+// ── Classificazione fallimento POI (audit 502) ──────────────────────────────
+// Distingue le cause cosi' che poi-search possa: (a) NON restituire 502
+// generico quando puo' degradare a cache stale; (b) ritentare UNA sola volta
+// solo per fallimenti transitori (timeout / 5xx / 429). "0 risultati" NON e'
+// qui: e' un 200 valido. Un 4xx (query malformata) e' `bad_request`: nessun
+// retry, nessun degrade.
+export type PoiFailureReason =
+  | "upstream_timeout"
+  | "upstream_unavailable"
+  | "rate_limited"
+  | "bad_request"
+  | "internal";
+
+export function classifyPoiFailure(err: unknown): PoiFailureReason {
+  const anyErr = err as any;
+  const msg = String(anyErr?.message ?? anyErr ?? "");
+  if (/OVERPASS_HTTP_429/.test(msg)) return "rate_limited"; // 429 e' transitorio, non "bad request"
+  if (anyErr?.fatal || /OVERPASS_HTTP_4\d\d/.test(msg)) return "bad_request";
+  if (anyErr?.name === "AbortError" || /timeout/i.test(msg)) return "upstream_timeout";
+  if (/JSON|parse|unexpected token/i.test(msg)) return "internal";
+  if (/ROAD_NETWORK_UNAVAILABLE|POI_SEARCH_UNAVAILABLE|OVERPASS_HTTP_5\d\d|network|fetch failed|dns|econn|socket/i.test(msg)) {
+    return "upstream_unavailable";
+  }
+  return "upstream_unavailable";
+}
+
+// Solo i transitori vengono ritentati (una volta) e possono degradare a stale.
+export function isTransientPoiFailure(err: unknown): boolean {
+  const r = classifyPoiFailure(err);
+  return r === "upstream_timeout" || r === "upstream_unavailable" || r === "rate_limited";
+}
