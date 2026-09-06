@@ -59,8 +59,8 @@ test('validatePoiInput non lascia passare tentativi di iniezione nei target', ()
 test('buildPoiQuery: QL costruita SOLO da valori validati, nessun input testuale', () => {
   const tags = getServiceTargetTags('d2d', ['scuole']);
   const q = buildPoiQuery({ centerLat: 45.551, centerLng: 9.163, radiusKm: 3, tags, cap: resultCap('d2d') });
-  assert.equal(POI_OVERPASS_QL_TIMEOUT_S, 12, 'QL timeout ridotto a 12s (audit 502)');
-  assert.match(q, /^\[out:json\]\[timeout:12\];/);
+  assert.equal(POI_OVERPASS_QL_TIMEOUT_S, 5, 'QL timeout 5s (POI opzionale, budget totale ~4.5s)');
+  assert.match(q, /^\[out:json\]\[timeout:5\];/);
   assert.match(q, /\(around:3000,45\.551,9\.163\)/);
   assert.match(q, /node\["amenity"="school"\]/);
   assert.match(q, /way\["amenity"="school"\]/);

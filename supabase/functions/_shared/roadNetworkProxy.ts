@@ -102,16 +102,26 @@ function isRetriableStatus(status: number): boolean {
  * AbortController. Passa al successivo su timeout / 429 / 5xx / errore di
  * rete. Non aspetta mai indefinitamente. Se TUTTI falliscono lancia
  * `ROAD_NETWORK_UNAVAILABLE` (con `.attempts` = numero di tentativi).
+ *
+ * `deadlineMs` (opzionale, epoch ms assoluto — usato SOLO da poi-search, non da
+ * road-network): budget TOTALE per l'intera cascata di provider. Prima di ogni
+ * provider si controlla il tempo residuo; il timeout del singolo provider viene
+ * ridotto a quel residuo. Superata la deadline si smette (nessun altro
+ * provider) e si lancia con `.deadlineExceeded = true`. Serve a garantire un
+ * tempo di risposta massimo per un arricchimento opzionale (POI) invece di
+ * sommare N timeout per-provider.
  */
 export async function fetchRoadsWithFallback(opts: {
   fetchImpl: FetchLike;
   endpoints: string[];
   query: string;
   timeoutMs: number;
+  deadlineMs?: number;
   AbortCtor?: typeof AbortController;
 }): Promise<RoadFetchResult> {
-  const { fetchImpl, endpoints, query, timeoutMs } = opts;
+  const { fetchImpl, endpoints, query, timeoutMs, deadlineMs } = opts;
   const AC = opts.AbortCtor || AbortController;
+  const MIN_PROVIDER_MS = 700;
   if (!endpoints.length) {
     const e: any = new Error('ROAD_NETWORK_UNAVAILABLE');
     e.attempts = 0;
@@ -122,9 +132,23 @@ export async function fetchRoadsWithFallback(opts: {
   let lastError: any = null;
 
   for (let i = 0; i < endpoints.length; i += 1) {
+    // Budget totale esaurito: non provare altri provider.
+    if (deadlineMs != null) {
+      const remaining = deadlineMs - Date.now();
+      if (remaining <= MIN_PROVIDER_MS) {
+        const e: any = new Error('OVERPASS_TIMEOUT');
+        e.attempts = attempts;
+        e.deadlineExceeded = true;
+        e.cause = lastError;
+        throw e;
+      }
+    }
     attempts += 1;
+    const effectiveTimeout = deadlineMs != null
+      ? Math.max(MIN_PROVIDER_MS, Math.min(timeoutMs, deadlineMs - Date.now()))
+      : timeoutMs;
     const ctrl = new AC();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    const timer = setTimeout(() => ctrl.abort(), effectiveTimeout);
     try {
       const res = await fetchImpl(endpoints[i], {
         method: 'POST',

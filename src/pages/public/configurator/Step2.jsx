@@ -1715,7 +1715,14 @@ export function Step2({
     loading: civiciLoading
   } = useAddressPoints(addressPointParams.lat, addressPointParams.lng, addressPointParams.radiusKm, addressPointParams.serviceType, civiciFetchEnabled);
   const analysisLoading = apiLoading;
-  const gisLoading = Boolean(city && (apiLoading || sectorsLoading || poiLoading || civiciLoading || transportLoading));
+  // POI / civici / transiti = arricchimento OPZIONALE della mappa. Per D2D/
+  // residenziale NON devono gatare KPI territoriali, coverage, CTA o skeleton
+  // (ticket "POI SEARCH TOO SLOW": Step 2 sembrava lento anche dopo che
+  // analysis-istat aveva gia' risposto, perche' poiLoading teneva gisLoading
+  // true e faceva scattare gisTimedOut). Per H2H/B2B i POI sono invece dati
+  // operativi (punti promoter / consegna) e restano parte del gate.
+  const poiIsOperationalData = isBusinessStep2 || isMovementStep2;
+  const gisLoading = Boolean(city && (apiLoading || sectorsLoading || (poiIsOperationalData && poiLoading)));
   const [gisTimedOut, setGisTimedOut] = useState(false);
   useEffect(() => {
     setGisTimedOut(false);

@@ -35,24 +35,40 @@ test('isTransientPoiFailure — retry solo per transitori', () => {
   assert.equal(isTransientPoiFailure(new Error('bad JSON parse')), false);
 });
 
-test('poi-search/index.ts — retry unico, cache stale, degrado 200, 502 solo senza stale', () => {
-  // due cache: fresca + stale a TTL lungo
+test('poi-search/index.ts — budget totale, retry budget-aware, degrado SEMPRE 200 (mai 502 al browser)', () => {
+  // due cache: fresca + stale a TTL lungo + cache negativa a TTL breve
   assert.match(edge, /const poiStaleCache = createTtlCache<any\[\]>\(STALE_TTL_MS/);
   assert.match(edge, /const STALE_TTL_MS = envInt\("POI_SEARCH_STALE_TTL_MS"/);
-  // 1 retry, solo transitori, con backoff
+  assert.match(edge, /const poiNegativeCache = createTtlCache<\{ reason: string \}>\(NEGATIVE_TTL_MS/);
+  assert.match(edge, /const NEGATIVE_TTL_MS = envInt\("POI_SEARCH_NEGATIVE_TTL_MS", 45000/);
+  // BUDGET TOTALE dell'intera operazione (target 3-5s) + deadline passata al fallback
+  assert.match(edge, /const TOTAL_BUDGET_MS = envInt\("POI_SEARCH_TOTAL_BUDGET_MS", 4500, 1500, 15000\)/);
+  assert.match(edge, /const deadline = t0 \+ TOTAL_BUDGET_MS;/);
+  assert.match(edge, /deadlineMs: deadline,/);
+  // timeout per-provider ridotto (era 12000)
+  assert.match(edge, /const PROVIDER_TIMEOUT_MS = envInt\("POI_SEARCH_TIMEOUT_MS", 3500/);
+  // 1 retry, solo transitori, solo se NON deadline-exceeded e resta budget
   assert.match(edge, /for \(let attempt = 0; attempt < 2; attempt \+= 1\)/);
-  assert.match(edge, /if \(attempt === 0 && isTransientPoiFailure\(err\)\)/);
-  assert.match(edge, /RETRY_BACKOFF_MS/);
+  assert.match(edge, /attempt === 0 && isTransientPoiFailure\(err\) && !err\?\.deadlineExceeded && budgetLeft > PROVIDER_TIMEOUT_MS \* 0\.6/);
   // successo scrive ENTRAMBE le cache
   assert.match(edge, /poiCache\.set\(cacheKey, result\.elements\);\s*\n\s*poiStaleCache\.set\(cacheKey, result\.elements\);/);
-  // degrado: stale -> 200 con degraded/stale/reason, mai per bad_request
-  assert.match(edge, /const stale = reason !== "bad_request" \? poiStaleCache\.get\(cacheKey\) : null;/);
-  assert.match(edge, /return json\(\{ elements: stale, cached: true, stale: true, degraded: true, reason \}\);/);
-  // 502 solo se NON c'e' stale; bad_request -> 400, rate_limited -> 429
-  assert.match(edge, /const status = reason === "bad_request" \? 400 : reason === "rate_limited" \? 429 : 502;/);
+  // cache negativa: hit -> risposta immediata (stale o degraded), nessun Overpass
+  assert.match(edge, /const negative = poiNegativeCache\.get\(cacheKey\);/);
+  assert.match(edge, /return degradedResponse\(negative\.reason, staleForNeg \?\? \[\]\);/);
+  // degrado finale: SEMPRE 200 strutturato (mai 502). bad_request -> 400 a parte.
+  assert.match(edge, /if \(reason === "bad_request"\) \{[\s\S]{0,240}\}, 400\);/);
+  assert.match(edge, /poiNegativeCache\.set\(cacheKey, \{ reason \}\);/);
+  assert.match(edge, /return degradedResponse\(reason, stale \?\? \[\]\);/);
+  // degradedResponse: 200, elements [], temporaryUnavailable quando vuoto
+  assert.match(edge, /const degradedResponse = \(reason: string, elements: any\[\] = \[\]\) =>\s*\n\s*json\(\{/);
+  assert.match(edge, /temporaryUnavailable: elements\.length === 0,/);
+  // NESSUN 502 restituito (solo nei commenti che spiegano il perche')
+  const code = edge.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(code, /\b502\b/);
+  assert.doesNotMatch(code, /const status = reason === "bad_request"/);
   // "0 risultati" resta un 200 (commento + ramo elements)
   assert.match(edge, /Lista vuota = esito valido[\s\S]{0,400}return json\(\{ elements: result\.elements, cached: false \}\)/);
-  // log sicuro: nessun secret, solo center/raggio/servizio/reason/elapsed
+  // log sicuro: nessun secret
   assert.match(edge, /const safeLog = \(payload/);
   assert.doesNotMatch(edge, /safeLog\([^)]*(SERVICE_ROLE|apikey|authorization|token|secret)/i);
 });

@@ -13,6 +13,12 @@
  *   pronto per toPoi/dedup/sort lato client; lancia
  *   `Error('POI_SEARCH_UNAVAILABLE')` su qualunque fallimento, cosi' che
  *   usePoi lo tratti come error-state (mai come "zero risultati").
+ * - Timeout client (POI_SEARCH_CLIENT_TIMEOUT_MS, default 7s): i POI sono
+ *   arricchimento opzionale, non devono mai tenere Step 2 in "loading" a
+ *   lungo. Poco sopra il budget totale server (~4.5s) + latenza. Allo scadere
+ *   si aborta e si lancia POI_SEARCH_UNAVAILABLE (degrado UI non bloccante).
+ * - Il server puo' rispondere 200 con { temporaryUnavailable: true } (degrado
+ *   senza stale): va trattato come fallimento, NON come "zero risultati".
  */
 
 function readEnv(key) {
@@ -43,11 +49,16 @@ export async function fetchPoiSearchElements({ centerLat, centerLng, radiusKm, s
     headers.apikey = anonKey;
   }
 
+  const clientTimeoutMs = Number(readEnv('POI_SEARCH_CLIENT_TIMEOUT_MS')) || 7000;
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), clientTimeoutMs) : null;
+
   let res;
   try {
     res = await fetch(endpoint, {
       method: 'POST',
       headers,
+      signal: controller ? controller.signal : undefined,
       body: JSON.stringify({
         centerLat,
         centerLng,
@@ -57,7 +68,10 @@ export async function fetchPoiSearchElements({ centerLat, centerLng, radiusKm, s
       }),
     });
   } catch {
+    // include AbortError (timeout client): degrado non bloccante
     throw new Error('POI_SEARCH_UNAVAILABLE');
+  } finally {
+    if (timer) clearTimeout(timer);
   }
   if (!res.ok) throw new Error('POI_SEARCH_UNAVAILABLE');
 
@@ -68,5 +82,11 @@ export async function fetchPoiSearchElements({ centerLat, centerLng, radiusKm, s
     throw new Error('POI_SEARCH_UNAVAILABLE');
   }
   if (!data || !Array.isArray(data.elements)) throw new Error('POI_SEARCH_UNAVAILABLE');
+  // Degrado server senza stale: 200 { elements: [], temporaryUnavailable: true }.
+  // NON e' "zero attivita' reali" -> deve risultare error-state in usePoi
+  // (badge "temporaneamente non disponibili"), non il badge "nessuna attivita'".
+  if (data.temporaryUnavailable === true) throw new Error('POI_SEARCH_UNAVAILABLE');
+  // Degrado con stale (elements popolati): si servono comunque, la mappa mostra
+  // l'ultimo dato buono invece di svuotarsi.
   return data.elements;
 }

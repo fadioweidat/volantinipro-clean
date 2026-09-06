@@ -82,16 +82,39 @@ function consumeRateLimit(req: Request): { allowed: boolean; retryAfterSeconds: 
 
 // ── Cache TTL server-side (istanza warm) ──────────────────────────────────
 const CACHE_TTL_MS = envInt("POI_SEARCH_CACHE_TTL_MS", 3600000, 60000, 86400000);
-// 12s per provider (audit 502): un mirror lento/morto viene scartato in fretta;
-// worst case 3 provider = 36s invece di 75s. Allineato a POI_OVERPASS_QL_TIMEOUT_S.
-const PROVIDER_TIMEOUT_MS = envInt("POI_SEARCH_TIMEOUT_MS", 12000, 5000, 55000);
-// Un solo retry, solo per fallimenti transitori, con backoff breve.
-const RETRY_BACKOFF_MS = envInt("POI_SEARCH_RETRY_BACKOFF_MS", 500, 0, 5000);
+// I POI sono arricchimento OPZIONALE: Step 2 non deve MAI sembrare lento per
+// causa loro (ticket "POI SEARCH TOO SLOW + 502").
+// - Budget TOTALE dell'intera operazione (tutti i provider + eventuale retry):
+//   oltre questo si degrada, non si aspetta. Target 3-5s.
+const TOTAL_BUDGET_MS = envInt("POI_SEARCH_TOTAL_BUDGET_MS", 4500, 1500, 15000);
+// - Timeout di rete per singolo provider (comunque limitato dal budget residuo).
+const PROVIDER_TIMEOUT_MS = envInt("POI_SEARCH_TIMEOUT_MS", 3500, 1000, 12000);
+// Un solo retry, solo per fallimenti transitori, solo se resta budget, backoff breve.
+const RETRY_BACKOFF_MS = envInt("POI_SEARCH_RETRY_BACKOFF_MS", 300, 0, 2000);
 // Cache "stale": conserva l'ultimo risultato buono molto piu' a lungo del TTL
 // fresco, per degradare senza 502 quando Overpass e' momentaneamente down.
 const STALE_TTL_MS = envInt("POI_SEARCH_STALE_TTL_MS", 86400000, 3600000, 604800000);
+// Cache "negativa": dopo un degrado, per la stessa bbox si risponde subito
+// (stale se c'e', altrimenti degraded) senza ri-tentare Overpass ad ogni
+// pan/zoom. TTL breve.
+const NEGATIVE_TTL_MS = envInt("POI_SEARCH_NEGATIVE_TTL_MS", 45000, 5000, 600000);
 const poiCache = createTtlCache<any[]>(CACHE_TTL_MS);
 const poiStaleCache = createTtlCache<any[]>(STALE_TTL_MS, 400);
+const poiNegativeCache = createTtlCache<{ reason: string }>(NEGATIVE_TTL_MS, 400);
+
+// Risposta di degrado NON-bloccante: sempre HTTP 200 con lista vuota + flag,
+// mai un 502 grezzo verso il browser (ticket §4). `bad_request` resta 400
+// (bug client, non transitorio) e il rate limit NOSTRO resta 429 a monte.
+const degradedResponse = (reason: string, elements: any[] = []) =>
+  json({
+    elements,
+    ok: false,
+    degraded: true,
+    temporaryUnavailable: elements.length === 0,
+    stale: elements.length > 0,
+    cached: elements.length > 0,
+    reason,
+  });
 
 const safeLog = (payload: Record<string, unknown>) => {
   try { console.log(JSON.stringify({ tag: "poi-search", ...payload })); } catch { /* no-op */ }
@@ -138,15 +161,27 @@ serve(async (req: Request) => {
     return json({ elements: cached, cached: true });
   }
 
+  // Cache negativa: la stessa bbox ha appena fallito. Non ri-bruciare il budget
+  // su Overpass: rispondi subito con stale (se c'e') o con degrado.
+  const negative = poiNegativeCache.get(cacheKey);
+  if (negative) {
+    const staleForNeg = poiStaleCache.get(cacheKey);
+    safeLog({ outcome: "negative_cache", reason: negative.reason, serviceType: input.serviceType, center: [Number(input.centerLat.toFixed(3)), Number(input.centerLng.toFixed(3))], radiusKm: input.radiusKm, elapsedMs: Date.now() - t0, count: staleForNeg?.length ?? 0 });
+    return degradedResponse(negative.reason, staleForNeg ?? []);
+  }
+
+  const deadline = t0 + TOTAL_BUDGET_MS;
   const runFallback = () => fetchRoadsWithFallback({
     fetchImpl: fetch as any,
     endpoints,
     query,
     timeoutMs: PROVIDER_TIMEOUT_MS,
+    deadlineMs: deadline,
   });
 
   let lastErr: any = null;
-  // Passata 1 + (retry unico solo se il fallimento e' transitorio).
+  // Passata 1 + (retry unico solo se il fallimento e' transitorio E resta
+  // abbastanza budget per un altro giro-provider).
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       const result = await runFallback();
@@ -157,8 +192,9 @@ serve(async (req: Request) => {
       return json({ elements: result.elements, cached: false });
     } catch (err: any) {
       lastErr = err;
-      if (attempt === 0 && isTransientPoiFailure(err)) {
-        await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS));
+      const budgetLeft = deadline - Date.now();
+      if (attempt === 0 && isTransientPoiFailure(err) && !err?.deadlineExceeded && budgetLeft > PROVIDER_TIMEOUT_MS * 0.6) {
+        await new Promise((r) => setTimeout(r, Math.min(RETRY_BACKOFF_MS, Math.max(0, budgetLeft - 200))));
         continue;
       }
       break;
@@ -168,17 +204,19 @@ serve(async (req: Request) => {
   const reason = classifyPoiFailure(lastErr);
   const attempts = Number.isFinite(lastErr?.attempts) ? lastErr.attempts : undefined;
 
-  // §3/§6 — degrado: se Overpass e' momentaneamente giu' ma esiste un ultimo
-  // risultato buono per la stessa zona/bbox, lo si restituisce con 200 e
-  // `degraded/stale`, cosi' Step 2 (mappa, confine, territorio, quantita')
-  // continua a funzionare. 502 solo se non c'e' NULLA da servire.
-  const stale = reason !== "bad_request" ? poiStaleCache.get(cacheKey) : null;
-  if (stale) {
-    safeLog({ outcome: "degraded_stale", reason, serviceType: input.serviceType, center: [Number(input.centerLat.toFixed(3)), Number(input.centerLng.toFixed(3))], radiusKm: input.radiusKm, providers: endpoints.length, elapsedMs: Date.now() - t0, attempts, count: stale.length });
-    return json({ elements: stale, cached: true, stale: true, degraded: true, reason });
+  // bad_request = bug lato client (query malformata): 400, nessun degrado,
+  // nessuna cache negativa. Non dovrebbe capitare (QL costruita dal server).
+  if (reason === "bad_request") {
+    safeLog({ outcome: "bad_request", reason, serviceType: input.serviceType, elapsedMs: Date.now() - t0, attempts });
+    return json({ error: "POI_SEARCH_UNAVAILABLE", reason, ...(attempts != null ? { attempts } : {}) }, 400);
   }
 
-  safeLog({ outcome: "unavailable", reason, serviceType: input.serviceType, center: [Number(input.centerLat.toFixed(3)), Number(input.centerLng.toFixed(3))], radiusKm: input.radiusKm, providers: endpoints.length, elapsedMs: Date.now() - t0, attempts });
-  const status = reason === "bad_request" ? 400 : reason === "rate_limited" ? 429 : 502;
-  return json({ error: "POI_SEARCH_UNAVAILABLE", reason, ...(attempts != null ? { attempts } : {}) }, status);
+  // §3/§4/§6 — degrado NON bloccante (sempre HTTP 200): se esiste un ultimo
+  // risultato buono per la stessa bbox lo si serve (stale), altrimenti lista
+  // vuota + temporaryUnavailable. Mai un 502 grezzo al browser. In entrambi i
+  // casi si segna la cache negativa (TTL breve) per non ri-tentare subito.
+  poiNegativeCache.set(cacheKey, { reason });
+  const stale = poiStaleCache.get(cacheKey);
+  safeLog({ outcome: stale ? "degraded_stale" : "degraded_empty", reason, serviceType: input.serviceType, center: [Number(input.centerLat.toFixed(3)), Number(input.centerLng.toFixed(3))], radiusKm: input.radiusKm, providers: endpoints.length, elapsedMs: Date.now() - t0, attempts, count: stale?.length ?? 0 });
+  return degradedResponse(reason, stale ?? []);
 });

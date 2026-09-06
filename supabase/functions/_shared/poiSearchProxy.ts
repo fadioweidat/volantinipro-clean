@@ -65,11 +65,13 @@ export function resultCap(serviceType: string): number {
   return serviceType === 'd2d' ? POI_RESULT_CAP_D2D : POI_RESULT_CAP_DEFAULT;
 }
 
-// Timeout QL Overpass, allineato al timeout *di rete* per provider
-// (POI_SEARCH_TIMEOUT_MS = 12000 in poi-search/index.ts). Un mirror che non
-// completa la query in 12s viene comunque scartato: worst case 3x12 = 36s
-// invece di 3x25 = 75s.
-export const POI_OVERPASS_QL_TIMEOUT_S = 12;
+// Timeout QL Overpass. I POI sono un arricchimento OPZIONALE della mappa: non
+// devono mai far percepire Step 2 come lento. Budget totale poi-search ~4.5s
+// (POI_SEARCH_TOTAL_BUDGET_MS), ~3.5s per provider di rete: un QL che non
+// completa in ~5s lato Overpass non serve comunque (l'abort di rete scatta
+// prima). Era 12s -> con 3 provider + retry potevano sommarsi 30-70s prima del
+// 502 (ticket "POI SEARCH TOO SLOW + 502").
+export const POI_OVERPASS_QL_TIMEOUT_S = 5;
 
 // ── Tag-set per servizio (allowlist server-side) ──────────────────────────
 // SOLO `key`/`val` (guidano la QL) + `cat` (per il filtro per target).
@@ -301,6 +303,7 @@ export type PoiFailureReason =
 export function classifyPoiFailure(err: unknown): PoiFailureReason {
   const anyErr = err as any;
   const msg = String(anyErr?.message ?? anyErr ?? "");
+  if (anyErr?.deadlineExceeded) return "upstream_timeout"; // budget totale esaurito
   if (/OVERPASS_HTTP_429/.test(msg)) return "rate_limited"; // 429 e' transitorio, non "bad request"
   if (anyErr?.fatal || /OVERPASS_HTTP_4\d\d/.test(msg)) return "bad_request";
   if (anyErr?.name === "AbortError" || /timeout/i.test(msg)) return "upstream_timeout";

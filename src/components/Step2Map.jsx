@@ -1937,29 +1937,22 @@ function Step2MapImpl({
         </div>
       )}
 
-      {/* La base geografica può essere pronta prima dei POI reali. Durante
-          questa fase copriamo la vista provvisoria e spieghiamo l'aggiornamento. */}
+      {/* I POI reali sono un arricchimento OPZIONALE: la base geografica,
+          confine, copertura e KPI sono gia' pronti e usabili. NIENTE overlay a
+          tutto schermo che blocca la mappa mentre caricano (ticket "POI SEARCH
+          TOO SLOW"): solo un piccolo status non bloccante in basso, la mappa
+          resta interattiva (pointer-events: none). */}
       {leafletLoaded && city && loadingPois && (
         <div style={{
-          position: 'absolute', inset: 0, zIndex: 1100,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(8,15,30,.62)', backdropFilter: 'blur(2px)',
-          pointerEvents: 'auto',
+          position: 'absolute', left: '50%', bottom: 14, transform: 'translateX(-50%)',
+          zIndex: 1050, maxWidth: '86%', padding: '8px 13px', borderRadius: 10,
+          background: 'rgba(8,15,30,.82)', border: '1px solid rgba(34,197,94,.28)',
+          boxShadow: '0 8px 24px rgba(0,0,0,.3)', textAlign: 'center',
+          fontFamily: 'system-ui,sans-serif', fontSize: 11.5, color: 'rgba(255,255,255,.8)',
+          display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'none',
         }}>
-          <div style={{
-            minWidth: 250, maxWidth: '82%', padding: '16px 18px', borderRadius: 12,
-            background: 'rgba(8,15,30,.95)', border: '1px solid rgba(34,197,94,.34)',
-            boxShadow: '0 14px 38px rgba(0,0,0,.42)', textAlign: 'center',
-            fontFamily: 'system-ui,sans-serif',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, color: '#4ADE80', fontSize: 13, fontWeight: 800 }}>
-              <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 0 5px rgba(34,197,94,.13)' }} />
-              Ricerca attività nel raggio...
-            </div>
-            <div style={{ marginTop: 7, color: 'rgba(255,255,255,.58)', fontSize: 11, lineHeight: 1.45 }}>
-              Stiamo caricando i punti reali. La mappa si aggiornerà automaticamente.
-            </div>
-          </div>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 0 4px rgba(34,197,94,.13)', flexShrink: 0 }} />
+          Caricamento attività...
         </div>
       )}
 
