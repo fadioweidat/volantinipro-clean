@@ -18,7 +18,8 @@ import {
   serviceLabel,
   shortCampaignId,
   buildAdminClientWhatsAppMessage,
-  buildClientsQuotesSummary,
+  buildWhatsAppUrl,
+  normalizeInternationalPhone,
 } from '../../lib/admin/clientsQuotesView.js';
 
 const AssignWork = lazy(() => import('./AssignWork.jsx').then(m => ({ default: m.AssignWork })));
@@ -101,18 +102,21 @@ export function ClientsQuotes({ onNav }) {
   ];
 
   function handleWhatsAppCliente(row) {
-    const phone = String(row.phone || '').replace(/[^\d+]/g, '');
-    if (!phone) {
+    // §1 — numero cliente REALE della riga, normalizzato in formato
+    // internazionale (39...). Mai il numero VolantiniPro/Admin/hardcoded.
+    const url = buildWhatsAppUrl(row.phone, buildAdminClientWhatsAppMessage(row));
+    if (!url) {
       alert('Numero di telefono cliente non disponibile.');
       return;
     }
-    // §6 — template Admin -> Cliente (NON il messaggio Cliente -> VolantiniPro).
-    const msg = buildAdminClientWhatsAppMessage(row);
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
+    // §6 — apre solo una nuova tab: nessun cambio di stato campagna, nessun
+    // "contattato" automatico.
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   async function handleCopySummary(row) {
-    const text = buildClientsQuotesSummary(row);
+    // §7 — stesso testo del messaggio WhatsApp, senza aprire WhatsApp.
+    const text = buildAdminClientWhatsAppMessage(row);
     try {
       await navigator.clipboard?.writeText(text);
     } catch {
@@ -283,8 +287,8 @@ export function ClientsQuotes({ onNav }) {
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14, borderTop: '1px solid #374151', paddingTop: 12 }}>
                 <ActionBtn onClick={() => onNav?.(`admin-operations:${row.id}`)}>Apri</ActionBtn>
-                <ActionBtn onClick={() => handleWhatsAppCliente(row)}>WhatsApp cliente</ActionBtn>
-                <ActionBtn onClick={() => handleCopySummary(row)}>{copiedRowId === row.id ? 'Copiato ✓' : 'Copia riepilogo'}</ActionBtn>
+                <ActionBtn onClick={() => handleWhatsAppCliente(row)} title="Apri chat WhatsApp con il cliente">WhatsApp cliente</ActionBtn>
+                <ActionBtn onClick={() => handleCopySummary(row)} title="Copia il testo del messaggio negli appunti">{copiedRowId === row.id ? 'Copiato ✓' : 'Copia riepilogo'}</ActionBtn>
                 <ActionBtn as="a" href={row.phone ? `tel:${row.phone}` : undefined} disabled={!row.phone}>Chiama</ActionBtn>
                 <ActionBtn as="a" href={row.email ? `mailto:${row.email}` : undefined} disabled={!row.email}>Email</ActionBtn>
                 {row.paymentStatus === 'da_pagare' && (

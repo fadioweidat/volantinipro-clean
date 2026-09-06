@@ -110,6 +110,34 @@ export function serviceLabel(service) {
   return SERVICE_LABEL[service] || 'Servizio n/d';
 }
 
+// §1 — normalizzazione telefono cliente in formato internazionale per wa.me
+// (solo cifre, nessun '+'). Default country code Italia (39).
+//   3277175000        -> 393277175000
+//   +39 327 7175000   -> 393277175000
+//   00393277175000    -> 393277175000
+//   393277175000      -> 393277175000 (invariato)
+// Ritorna null se non ci sono cifre utilizzabili.
+export function normalizeInternationalPhone(raw, defaultCountryCode = '39') {
+  if (raw == null) return null;
+  let s = String(raw).trim();
+  const hadPlus = s.startsWith('+');
+  s = s.replace(/[^\d]/g, '');
+  if (!s) return null;
+  if (s.startsWith('00')) s = s.slice(2);              // prefisso internazionale 00
+  if (hadPlus) return s;                                // +<cc><numero> gia' completo
+  if (s.startsWith(defaultCountryCode) && s.length >= 11) return s; // gia' con CC IT
+  // numero nazionale italiano (mobile 3xx, 9-10 cifre; fisso 0xx) -> anteponi CC
+  if (s.length <= 11) return `${defaultCountryCode}${s}`;
+  return s;
+}
+
+// URL wa.me: desktop -> WhatsApp Web, mobile -> app. Testo URL-encoded.
+export function buildWhatsAppUrl(phone, message) {
+  const digits = normalizeInternationalPhone(phone);
+  if (!digits) return null;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message || '')}`;
+}
+
 export function shortCampaignId(id) {
   const s = String(id || '');
   if (!s) return 'n/d';
@@ -128,22 +156,86 @@ function zoneLabel(row) {
   return (Array.isArray(row?.comuni) && row.comuni.length ? row.comuni.join(', ') : row?.zone) || null;
 }
 
-// §6 — template Admin -> Cliente (NON il messaggio Cliente -> VolantiniPro).
+// Riga "Etichetta: valore" solo se il valore c'e' — §5: mai "undefined"/"null".
+function line(label, value) {
+  return value != null && value !== '' ? `${label}: ${value}` : null;
+}
+function paymentStateText(row) {
+  return row?.paymentStatus === 'pagato' ? 'Pagato'
+    : row?.paymentStatus === 'da_pagare' ? 'In attesa di pagamento'
+    : 'Non specificato';
+}
+
+// §3/§4 — template Admin -> Cliente, variante per stato. MAI il template
+// Cliente -> VolantiniPro. Le righe con dato mancante vengono OMESSE.
 export function buildAdminClientWhatsAppMessage(row) {
   const nome = row?.client || 'Cliente';
   const id = shortCampaignId(row?.id).replace('…', '');
+  const idKnown = id && id !== 'n/d';
+  const servizio = serviceLabel(row?.service);
+  const zona = zoneLabel(row);
+  const qty = qtyLabel(row?.qty);
+  const tot = euro(row?.total);
+
+  // BUSINESS (§4)
+  if (row?.service === 'b2b') {
+    const azienda = row?.company || row?.client || 'la vostra azienda';
+    return [
+      `Buongiorno ${nome},`,
+      `la contattiamo da VolantiniPro in merito alla richiesta inviata per ${azienda}.`,
+      '',
+      line('Area', zona),
+      line('Quantita indicativa', qty),
+      line('Frequenza', row?.frequency || row?.frequenza || null),
+      '',
+      'Abbiamo ricevuto correttamente la richiesta e vorremmo approfondire le esigenze operative.',
+    ].filter((l) => l != null).join('\n');
+  }
+
+  // DA PAGARE (§4)
+  if (row?.paymentStatus === 'da_pagare' || row?.paymentStatus === 'non_disponibile') {
+    return [
+      `Buongiorno ${nome},`,
+      'la contattiamo da VolantiniPro in merito alla campagna appena confermata.',
+      '',
+      line('ID campagna', idKnown ? id : null),
+      line('Servizio', servizio),
+      line('Zona', zona),
+      line('Quantita', qty),
+      line('Totale', tot),
+      '',
+      'La campagna risulta in attesa di pagamento.',
+      'Le inviamo le informazioni necessarie per completare il pagamento.',
+    ].filter((l) => l != null).join('\n');
+  }
+
+  // PAGATO (§4)
+  if (row?.paymentStatus === 'pagato') {
+    return [
+      `Buongiorno ${nome},`,
+      `abbiamo registrato correttamente il pagamento della campagna ${idKnown ? id : ''}`.trim() + '.',
+      '',
+      line('Zona', zona),
+      line('Quantita', qty),
+      '',
+      "Procediamo ora con l'organizzazione operativa.",
+    ].filter((l) => l != null).join('\n');
+  }
+
+  // BASE (§3)
   return [
     `Buongiorno ${nome},`,
-    `la contattiamo da VolantiniPro in merito alla campagna ${id}.`,
+    'la contattiamo da VolantiniPro in merito alla sua richiesta.',
     '',
-    `Servizio: ${serviceLabel(row?.service)}`,
-    `Zona: ${zoneLabel(row) || 'da definire'}`,
-    `Quantita: ${qtyLabel(row?.qty) || 'da definire'}`,
-    `Totale: ${euro(row?.total) || 'da definire'}`,
-    'Stato: pagamento da completare.',
+    line('ID', idKnown ? id : null),
+    line('Servizio', servizio),
+    line('Zona', zona),
+    line('Quantita', qty),
+    line('Totale', tot),
+    line('Stato', paymentStateText(row)),
     '',
-    'Le inviamo le informazioni necessarie per completare il pagamento.',
-  ].join('\n');
+    'Restiamo a disposizione per completare i prossimi passaggi.',
+  ].filter((l) => l != null).join('\n');
 }
 
 // §7 — testo "Copia riepilogo" per WhatsApp/email/manuale.

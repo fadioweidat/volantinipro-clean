@@ -16,6 +16,8 @@ import {
   shortCampaignId,
   buildAdminClientWhatsAppMessage,
   buildClientsQuotesSummary,
+  normalizeInternationalPhone,
+  buildWhatsAppUrl,
 } from '../src/lib/admin/clientsQuotesView.js';
 
 const page = readFileSync(new URL('../src/pages/admin/ClientsQuotes.jsx', import.meta.url), 'utf8');
@@ -96,29 +98,87 @@ test('ordinamento — default (da_pagare recenti, poi pagati, poi altri) + impor
   assert.equal(impAsc[0], 'No Pay'); // total null in fondo/quando asc -> -Infinity primo
 });
 
-test('template WhatsApp Admin -> Cliente: NON il messaggio Cliente -> VolantiniPro', () => {
-  const msg = buildAdminClientWhatsAppMessage(ROWS[0]);
+test('§1 — normalizeInternationalPhone: nazionale IT -> 39...', () => {
+  assert.equal(normalizeInternationalPhone('3277175000'), '393277175000');
+  assert.equal(normalizeInternationalPhone('327 7175000'), '393277175000');
+  assert.equal(normalizeInternationalPhone('+39 327 7175000'), '393277175000');
+  assert.equal(normalizeInternationalPhone('0039 327 7175000'), '393277175000');
+  assert.equal(normalizeInternationalPhone('393277175000'), '393277175000');
+  assert.equal(normalizeInternationalPhone(''), null);
+  assert.equal(normalizeInternationalPhone(null), null);
+});
+
+test('§2 — buildWhatsAppUrl: wa.me con numero normalizzato + testo URL-encoded', () => {
+  const url = buildWhatsAppUrl('3277175000', 'Buongiorno Fadi,\ntest');
+  assert.match(url, /^https:\/\/wa\.me\/393277175000\?text=/);
+  assert.match(url, /Buongiorno%20Fadi%2C%0Atest/);
+  assert.equal(buildWhatsAppUrl('', 'x'), null);
+});
+
+test('§3/§4 — template DA PAGARE (NON Cliente -> VolantiniPro)', () => {
+  const msg = buildAdminClientWhatsAppMessage(ROWS[0]); // da_pagare, d2d
   assert.match(msg, /^Buongiorno Fadi Oweidat,/);
-  assert.match(msg, /la contattiamo da VolantiniPro in merito alla campagna aaaa1111/);
+  assert.match(msg, /la contattiamo da VolantiniPro in merito alla campagna appena confermata\./);
+  assert.match(msg, /ID campagna: aaaa1111/);
   assert.match(msg, /Servizio: Door to Door/);
   assert.match(msg, /Zona: Cormano/);
   assert.match(msg, /Quantita: 80\.632 volantini/);
   assert.match(msg, /Totale: € 2.?891,49/);
-  assert.match(msg, /Stato: pagamento da completare\./);
+  assert.match(msg, /La campagna risulta in attesa di pagamento\./);
   assert.match(msg, /Le inviamo le informazioni necessarie per completare il pagamento\./);
-  // NON il vecchio messaggio generico
   assert.doesNotMatch(msg, /Ciao .*la contattiamo per la sua campagna VolantiniPro \(/);
 });
 
-test('copia riepilogo — cliente/ID/servizio/zona/quantita/totale/stato pagamento', () => {
-  const s = buildClientsQuotesSummary(ROWS[0]);
-  assert.match(s, /Cliente: Fadi Oweidat/);
-  assert.match(s, /ID campagna: aaaa1111-xxxx/);
-  assert.match(s, /Servizio: Door to Door/);
-  assert.match(s, /Zona: Cormano/);
-  assert.match(s, /Quantita: 80\.632 volantini/);
-  assert.match(s, /Totale: € 2.?891,49/);
-  assert.match(s, /Stato pagamento: DA PAGARE/);
+test('§4 — template PAGATO', () => {
+  const msg = buildAdminClientWhatsAppMessage(ROWS[3]); // pagato, assignment, live
+  assert.match(msg, /^Buongiorno Luca B,/);
+  assert.match(msg, /abbiamo registrato correttamente il pagamento della campagna dddd4444\./);
+  assert.match(msg, /Zona: Sesto/);
+  assert.match(msg, /Quantita: 20.?000 volantini/);
+  assert.match(msg, /Procediamo ora con l'organizzazione operativa\./);
+  assert.doesNotMatch(msg, /Totale:/); // il template PAGATO non ha il totale
+});
+
+test('§4 — template BUSINESS (b2b)', () => {
+  const msg = buildAdminClientWhatsAppMessage(ROWS[2]); // b2b
+  assert.match(msg, /^Buongiorno Ahmed K,/);
+  assert.match(msg, /la contattiamo da VolantiniPro in merito alla richiesta inviata per /);
+  assert.match(msg, /Area: Milano/);
+  assert.match(msg, /Quantita indicativa: 5.?000 volantini/);
+  assert.match(msg, /vorremmo approfondire le esigenze operative\./);
+});
+
+test('§5 — dati mancanti: nessun "undefined" / "null", riga omessa', () => {
+  const bare = { id: null, client: 'Nessun Dato', service: null, comuni: [], zone: null, qty: 0, total: null, paymentStatus: 'da_pagare' };
+  const msg = buildAdminClientWhatsAppMessage(bare);
+  assert.doesNotMatch(msg, /undefined|null/);
+  assert.doesNotMatch(msg, /ID campagna:/);   // id assente -> riga omessa
+  assert.doesNotMatch(msg, /Quantita:/);      // qty 0 -> riga omessa
+  assert.doesNotMatch(msg, /Totale:/);        // total null -> riga omessa
+  assert.match(msg, /^Buongiorno Nessun Dato,/);
+});
+
+test('§9 — caso reale Fadi Oweidat / Cormano / DA PAGARE', () => {
+  const fadi = {
+    id: '4894d988-1111-2222-3333-444455556666', client: 'Fadi Oweidat', phone: '3277175000',
+    service: 'd2d', comuni: ['Cormano'], zone: 'Cormano', qty: 80632, total: 2891.49,
+    paymentStatus: 'da_pagare', assignment: null, gpsStatus: 'non_disponibile',
+  };
+  const url = buildWhatsAppUrl(fadi.phone, buildAdminClientWhatsAppMessage(fadi));
+  assert.match(url, /^https:\/\/wa\.me\/393277175000\?text=/);
+  const msg = buildAdminClientWhatsAppMessage(fadi);
+  assert.match(msg, /ID campagna: 4894d988/);
+  assert.match(msg, /Quantita: 80\.632 volantini/);
+  assert.match(msg, /Totale: € 2.?891,49/);
+  assert.match(msg, /in attesa di pagamento/);
+  // nessun dato di un'altra campagna, nessun messaggio al contrario
+  assert.doesNotMatch(msg, /aaaa1111|Sesto|Milano/);
+  assert.doesNotMatch(msg, /Cliente -> VolantiniPro|richiesta di preventivo/i);
+});
+
+test('copia riepilogo — stesso testo del messaggio WhatsApp', () => {
+  // §7: la pagina copia buildAdminClientWhatsAppMessage(row), non un formato diverso
+  assert.match(page, /const text = buildAdminClientWhatsAppMessage\(row\);/);
 });
 
 test('helper vari', () => {
@@ -140,9 +200,11 @@ test('ClientsQuotes.jsx — wiring: KPI, filtri, ordinamento, copia riepilogo, W
   assert.match(page, /CQ_FILTERS\.map\(\(f\) =>/);
   assert.match(page, /onClick=\{\(\) => handleCopySummary\(row\)\}/);
   assert.match(page, /Copia riepilogo/);
-  // WhatsApp cliente ora usa il template Admin corretto
-  assert.match(page, /const msg = buildAdminClientWhatsAppMessage\(row\)/);
+  // WhatsApp cliente: numero normalizzato via buildWhatsAppUrl + template Admin
+  assert.match(page, /buildWhatsAppUrl\(row\.phone, buildAdminClientWhatsAppMessage\(row\)\)/);
+  assert.match(page, /title="Apri chat WhatsApp con il cliente"/);
   assert.doesNotMatch(page, /Ciao \$\{row\.client \|\| ''\}, la contattiamo per la sua campagna VolantiniPro/);
+  assert.doesNotMatch(page, /String\(row\.phone \|\| ''\)\.replace\(\/\[\^\\d\+\]/); // niente normalizzazione ad-hoc
   // Conferma pagamento: business logic invariata
   assert.match(page, /await confirmCampaignPayment\(paymentConfirmRow\.id\)/);
   assert.doesNotMatch(page, /confirmCampaignPayment\([^)]*[,)]\s*\{/); // nessun nuovo argomento/opzione
