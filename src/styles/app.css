@@ -2473,3 +2473,21 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   .vp-step2-scenario-grid { grid-template-columns:1fr; }
 }
 
+/* ── HERO HOMEPAGE: hero unico, non "due pagine" ──────────────────────────────
+   `.vp-hero-map-preview` e' il CONTENITORE della mappa full-bleed dell'hero
+   (position:absolute, left:0), non un pannello. Le regole precedenti sotto
+   `.saas-home-refinement` gli davano trattamento a "card" (background opaco,
+   border, border-radius, box-shadow, backdrop-filter): era la causa
+   dell'effetto "testo a sinistra / mappa-pannello a destra". Qui lo si riporta
+   a livello di sfondo continuo. La leggibilita' del copy e' garantita dallo
+   scrim/gradiente reso inline nel componente. */
+.saas-home-refinement .vp-hero-map-preview,
+.home-shell-dark .vp-hero-map-preview {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+

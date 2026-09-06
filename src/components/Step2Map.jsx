@@ -745,6 +745,12 @@ function Step2MapImpl({
   focusPoiId,   // id del POI su cui centrare/evidenziare la mappa (click dalla lista H2H/Business)
   focusPoiNonce, // incrementato ad ogni click, anche se si riclicca lo stesso POI
   interactive = true, // false = disabilita drag/zoom/pan (solo preview statica, es. hero homepage); default invariato per Step2/Tracking/Admin/Driver
+  centerLabel = null, // string|null — se valorizzato, il marker centro della zona
+                      // attiva mostra un tooltip PERMANENTE con questo testo,
+                      // ancorato geograficamente al punto centrale (usato dal
+                      // preview Hero homepage). null = comportamento invariato
+                      // (tooltip solo su hover). Nessun effetto su Step2/Tracking/
+                      // Admin/Driver che non passano la prop.
 }) {
   const hasConfirmedRadius = Number.isFinite(Number(radius)) && Number(radius) > 0;
   const effectiveMapRadius = hasConfirmedRadius ? Number(radius) : 3;
@@ -1453,7 +1459,17 @@ function Step2MapImpl({
 
       const marker = L.marker([zCity.lat, zCity.lng], {
         icon: pinIcon(L, zCol), zIndexOffset: isActive ? 2000 : 1000, pane: 'radiusCenterPane',
-      }).bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10], opacity: 1 }).addTo(group);
+      });
+      if (isActive && centerLabel) {
+        // Etichetta centro PERMANENTE ancorata al punto (preview Hero).
+        marker.bindTooltip(String(centerLabel), {
+          permanent: true, direction: 'top', offset: [0, -12], opacity: 1,
+          className: 'gis-center-label', interactive: false, pane: 'tooltipPane',
+        });
+      } else {
+        marker.bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10], opacity: 1 });
+      }
+      marker.addTo(group);
 
       if (!isActive) {
         // Cliccando su una zona inattiva, la attiva!
@@ -1871,7 +1887,7 @@ function Step2MapImpl({
       };
     }
 
-  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, operationalPoints, poiAssignments, onTogglePoi, businessConfig, civiciState, mapZoom, campaignZones, activeZoneId, municipalityBoundary, isMunicipalityMode, nilMode, coveragePolygons, themeMode, activeLayerId, zoneCoverageById, zoneAllocationById, boundaryKpis, unconfirmedAddressMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, operationalPoints, poiAssignments, onTogglePoi, businessConfig, civiciState, mapZoom, campaignZones, activeZoneId, municipalityBoundary, isMunicipalityMode, nilMode, coveragePolygons, themeMode, activeLayerId, zoneCoverageById, zoneAllocationById, boundaryKpis, unconfirmedAddressMode, centerLabel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Click da lista H2H/Business: centra la mappa sul POI ed evidenzia il
   // marker, senza toccare assegnazione/selezione (nessuna chiamata a

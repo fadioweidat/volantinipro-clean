@@ -197,6 +197,12 @@ export function HomePage({
     .home-shell-dark .vp-home-hero-copy { font-size: 1rem !important; line-height: 1.55 !important; margin: 16px 0 22px !important; }
     .home-shell-dark .vp-home-hero-summary { max-width: calc(100% - 24px) !important; }
   }
+  @media (max-width: 1120px) {
+    /* Su tablet le KPI card flottanti si sovrapponevano al titolo dell'hero
+       (griglia full-width, top:64). I numeri chiave restano nella summary card
+       in basso. */
+    .home-shell-dark .vp-home-hero-kpis { display: none !important; }
+  }
   @media (max-width: 600px) {
     .home-shell-dark .vp-home-hero-header-cta,
     .home-shell-dark .vp-home-hero-kpis { display: none !important; }

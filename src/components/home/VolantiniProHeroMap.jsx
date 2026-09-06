@@ -437,9 +437,43 @@ function useHeroMapPreviewStyles() {
       .vp-hero-map-preview .vp-step2-map-shell {
         height: 100% !important;
       }
-      .vp-hero-map-preview .leaflet-radiusCenter-pane {
-        display: none !important;
+      /* Marker centro campagna: reso più evidente (era nascosto). È il punto
+         geografico esatto al centro del cerchio raggio disegnato da Step2Map. */
+      .vp-hero-map-preview .leaflet-radiusCenter-pane .leaflet-marker-icon {
+        filter: drop-shadow(0 0 6px rgba(232, 87, 26, 0.9)) drop-shadow(0 1px 4px rgba(0,0,0,0.5));
       }
+      .vp-hero-map-preview .leaflet-radiusCenter-pane .leaflet-marker-icon::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 26px;
+        height: 26px;
+        margin: -13px 0 0 -13px;
+        border-radius: 50%;
+        border: 1.5px solid rgba(232, 87, 26, 0.55);
+        animation: vpHeroCenterPulse 2.6s ease-out infinite;
+        pointer-events: none;
+      }
+      @keyframes vpHeroCenterPulse {
+        0%   { transform: scale(0.55); opacity: 0.9; }
+        70%  { transform: scale(1.7); opacity: 0; }
+        100% { transform: scale(1.7); opacity: 0; }
+      }
+      /* Etichetta centro ancorata al punto (tooltip permanente Leaflet). */
+      .vp-hero-map-preview .gis-center-label.leaflet-tooltip {
+        background: rgba(8, 15, 30, 0.92);
+        color: #fff;
+        border: 1px solid rgba(232, 87, 26, 0.45);
+        border-radius: 7px;
+        padding: 4px 9px;
+        font-size: 10.5px;
+        font-weight: 800;
+        font-family: 'DM Sans', Inter, system-ui, sans-serif;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+        white-space: nowrap;
+      }
+      .vp-hero-map-preview .gis-center-label.leaflet-tooltip::before { display: none; }
       .vp-hero-map-preview .leaflet-control-attribution {
         background: rgba(10, 18, 32, 0.2) !important;
         backdrop-filter: blur(4px) !important;
@@ -551,9 +585,13 @@ function HeroRealMapPreview({ compact, benefits }) {
 
   return (
     <>
+      {/* La mappa è il LIVELLO VISIVO PRINCIPALE dell'hero: copre l'intera
+          sezione (left:0), non un pannello staccato sul lato destro. Il testo a
+          sinistra ci sta SOPRA grazie allo scrim/gradiente qui sotto. Un solo
+          hero continuo, non "due pagine". */}
       <div ref={previewRef} className="vp-hero-map-preview" style={{
         position: "absolute",
-        top: 0, right: 0, bottom: -60, left: compact ? 0 : "45%",
+        top: 0, right: 0, bottom: -60, left: 0,
         zIndex: 1,
         pointerEvents: "auto",
         overflow: "hidden"
@@ -575,8 +613,22 @@ function HeroRealMapPreview({ compact, benefits }) {
             selected={selectedZoneIds}
             activeLayers={{ comuni: true, radius: true, poi: false }}
             interactive={false}
+            centerLabel={`Cormano (MI) · raggio ${radiusKm} km`}
           />
         </div>
+
+        {/* Scrim: unifica testo e mappa in UN hero. Desktop: gradiente
+            orizzontale opaco a sinistra (leggibilità copy) che sfuma verso la
+            mappa a destra, + vignette in alto/basso per nav e pannelli. Tablet/
+            mobile: gradiente verticale (testo in alto sulla mappa). Sotto i
+            600px il gradiente e' rafforzato da .vp-home-hero-shade in
+            HomePage.jsx. pointer-events:none. */}
+        <div aria-hidden="true" className="vp-home-hero-shade" style={{
+          position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none",
+          background: compact
+            ? "linear-gradient(180deg, #07101f 0%, rgba(7,16,31,0.95) 20%, rgba(7,16,31,0.7) 46%, rgba(7,16,31,0.34) 66%, rgba(7,16,31,0.08) 82%, rgba(7,16,31,0) 92%), linear-gradient(0deg, rgba(7,16,31,0.7) 0%, rgba(7,16,31,0) 30%)"
+            : "linear-gradient(90deg, #07101f 0%, rgba(7,16,31,0.97) 26%, rgba(7,16,31,0.78) 40%, rgba(7,16,31,0.4) 54%, rgba(7,16,31,0.12) 68%, rgba(7,16,31,0) 80%), linear-gradient(0deg, rgba(7,16,31,0.6) 0%, rgba(7,16,31,0) 34%), linear-gradient(180deg, rgba(7,16,31,0.5) 0%, rgba(7,16,31,0) 20%)",
+        }} />
 
         {/* Overlay caricamento o stato dati */}
         {loading && (
@@ -596,13 +648,10 @@ function HeroRealMapPreview({ compact, benefits }) {
           </div>
         )}
 
-        {/* Il centro campagna + il cerchio raggio sono resi dal motore Step2Map
-            (marker + L.circle geodetico, geograficamente allineati). Qui solo
-            una targhetta d'angolo, non ancorata alla mappa. */}
-        <div style={{ position: "absolute", left: compact ? 12 : "6%", bottom: 16, zIndex: 3, pointerEvents: "none", background: "rgba(8,15,30,0.92)", padding: "5px 10px", borderRadius: 7, fontSize: 10.5, fontWeight: 800, color: "#fff", border: "1px solid rgba(232,87,26,0.4)", whiteSpace: "nowrap", boxShadow: "0 4px 16px rgba(0,0,0,0.5)", display: "flex", flexDirection: "column", gap: 1 }}>
-          <span style={{ fontSize: 8, color: C.orange, textTransform: "uppercase", letterSpacing: "0.06em" }}>Centro campagna</span>
-          <span>Cormano (MI) · raggio {radiusKm} km</span>
-        </div>
+        {/* Il centro campagna + il cerchio raggio sono resi dal motore Step2Map:
+            marker (pane radiusCenterPane) al centro geografico ESATTO del
+            L.circle geodetico, con etichetta permanente ancorata (centerLabel).
+            Nessuna targhetta d'angolo scollegata dalla mappa. */}
 
         {/* Floating KPI Cards in alto a destra */}
         <div className="vp-home-hero-kpis" style={{

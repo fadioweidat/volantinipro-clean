@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 
 const hero = readFileSync(new URL('../src/components/home/VolantiniProHeroMap.jsx', import.meta.url), 'utf8');
 const step2map = readFileSync(new URL('../src/components/Step2Map.jsx', import.meta.url), 'utf8');
+const appcss = readFileSync(new URL('../src/styles/app.css', import.meta.url), 'utf8');
 
 test('Hero: nessun SVG mappa decorativo (viewBox 800x650, poligoni/strade/label hardcoded)', () => {
   assert.doesNotMatch(hero, /viewBox="0 0 800 650"/);
@@ -49,10 +50,29 @@ test('Step2Map: il motore disegna raggio geodetico (L.circle in metri) e non inv
   assert.match(step2map, /basemaps\.cartocdn\.com\/rastertiles\/voyager/);
 });
 
-test('Hero: layout invariato (headline / CTA / KPI cards / lista analisi)', () => {
+test('Hero: layout unico (headline / CTA / KPI cards / lista analisi / centro ancorato)', () => {
   assert.match(hero, /FloatingKPI[\s\S]{0,120}label="Famiglie raggiungibili"/);
   assert.match(hero, /FloatingKPI[\s\S]{0,120}label="Comuni coinvolti"/);
   assert.match(hero, /FloatingKPI[\s\S]{0,120}label="Copertura stimata"/);
-  assert.match(hero, /Centro campagna/);
-  assert.match(hero, /raggio \{radiusKm\} km/);
+  // hero UNICO: la mappa e' il livello di fondo full-bleed (left:0), non un
+  // pannello sul lato destro; card treatment neutralizzato in app.css.
+  assert.match(hero, /top: 0, right: 0, bottom: -60, left: 0/);
+  assert.doesNotMatch(hero, /left: compact \? 0 : "45%"/);
+  // scrim che unifica testo e mappa
+  assert.match(hero, /className="vp-home-hero-shade"/);
+  // etichetta centro ANCORATA al marker geografico (non piu' targhetta d'angolo)
+  assert.match(hero, /centerLabel=\{`Cormano \(MI\) · raggio \$\{radiusKm\} km`\}/);
+  assert.doesNotMatch(hero, /leaflet-radiusCenter-pane \{\s*\n\s*display: none/);
+});
+
+test('Step2Map: prop opzionale centerLabel -> tooltip PERMANENTE ancorato al centro (no regressione default)', () => {
+  assert.match(step2map, /centerLabel = null,/);
+  assert.match(step2map, /if \(isActive && centerLabel\) \{[\s\S]{0,220}permanent: true[\s\S]{0,120}gis-center-label/);
+  // il ramo di default (nessun centerLabel) resta il tooltip su hover
+  assert.match(step2map, /marker\.bindTooltip\(tooltipContent, \{ direction: 'top', offset: \[0, -10\], opacity: 1 \}\)/);
+  assert.match(step2map, /centerLabel\]\); \/\/ eslint-disable-line/);
+});
+
+test('app.css: .vp-hero-map-preview senza trattamento a card (no background/border/radius/shadow/blur)', () => {
+  assert.match(appcss, /\.saas-home-refinement \.vp-hero-map-preview,\s*\n\s*\.home-shell-dark \.vp-hero-map-preview \{[\s\S]{0,260}background: transparent !important;[\s\S]{0,260}border: 0 !important;[\s\S]{0,260}box-shadow: none !important/);
 });
