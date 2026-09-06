@@ -1,4 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
+// TICKET — REGRESSION LEAFLET CDN: Leaflet dal pacchetto npm bundlato, MAI da
+// una CDN esterna a runtime (Edge Tracking Prevention bloccava/interferiva con
+// lo storage access della CDN). Stesso import gia' usato da tutti gli altri
+// componenti mappa (GpsMonitor, CampaignReport, Driver, map-studio...).
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
+import markerIconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
+import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 import { isValidGeoJsonGeometry, parseAndValidateGeoJsonGeometry, isFiniteLatLng, isUsableLatLngBounds } from '../lib/map/geometryValidation.js';
 
 const debugStep2 = (...args) => {
@@ -749,36 +758,21 @@ function Step2MapImpl({
   const layersRef = useRef({});
   const viewRef = useRef({ lat: null, lng: null, radius: null });
   const autoFitRef = useRef({ operational: '', assignments: '' });
-  const [leafletLoaded, setLeafletLoaded] = useState(!!window.L);
+  // Leaflet e' bundlato (import L): sempre disponibile, nessun caricamento
+  // asincrono da CDN. Lo stato resta per compatibilita' con gli overlay/dep
+  // array esistenti.
+  const [leafletLoaded] = useState(true);
   const [selectedSectorId, setSelectedSectorId] = useState(null);
   const [mapZoom, setMapZoom] = useState(null);
   // Territori nel calcolo Raggio senza geometry disponibile — mostrati come
   // avviso opzionale in UI, senza nascondere i poligoni disponibili.
   const [missingPolygonNames, setMissingPolygonNames] = useState([]);
 
-  // Carica Leaflet JS + CSS e inizializza mappa
+  // Bonifica di eventuali tag CDN iniettati da versioni precedenti
+  // (o da un'altra tab rimasta aperta): Leaflet ora arriva SOLO dal bundle.
   useEffect(() => {
-    if (window.L) {
-      setLeafletLoaded(true);
-      return;
-    }
-
-    if (!document.getElementById('vp-leaflet-css')) {
-      const link = document.createElement('link');
-      link.id = 'vp-leaflet-css';
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-    }
-
-    if (!document.getElementById('vp-leaflet-js')) {
-      const script = document.createElement('script');
-      script.id = 'vp-leaflet-js';
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = () => setLeafletLoaded(true);
-      script.onerror = () => { warnStep2('[Step2Map] Leaflet non caricato'); };
-      document.head.appendChild(script);
-    }
+    document.getElementById('vp-leaflet-css')?.remove();
+    document.getElementById('vp-leaflet-js')?.remove();
   }, []);
 
   useEffect(() => {
@@ -792,13 +786,13 @@ function Step2MapImpl({
 
   useEffect(() => {
     if (!leafletLoaded || !containerRef.current || mapRef.current) return;
-    const L = window.L;
 
+    // Icone marker dagli asset bundlati (leaflet/dist/images/*), non da CDN.
     delete L.Icon.Default.prototype._getIconUrl;
     L.Icon.Default.mergeOptions({
-      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      iconUrl: markerIconUrl,
+      iconRetinaUrl: markerIconRetinaUrl,
+      shadowUrl: markerShadowUrl,
     });
 
     const map = L.map(containerRef.current, {
@@ -911,9 +905,8 @@ function Step2MapImpl({
 
   // Ridisegna tutti i layer quando i dati o la visibilità cambiano
   useEffect(() => {
-    const L = window.L;
     const map = mapRef.current;
-    if (!L || !map) return;
+    if (!map) return;
 
     Object.values(layersRef.current).forEach(l => { try { map.removeLayer(l); } catch {} });
     layersRef.current = {};
