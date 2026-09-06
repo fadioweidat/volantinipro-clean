@@ -9,6 +9,8 @@ import { ACTIVITY_TARGET_LABELS } from "../../../lib/step2/activityTargets.js";
 import { ADDRESS_INTENT_RE, detectSearchIntent, extractOfficialNilCode, getMunicipalityDedupKey, getVerifiedBusinessMetrics, getZoneVerdict, isAddressLikePlaceType, isGeocoderResultInMilanoComune, isNilLikePlaceType, logAddressVsMunicipalityDebug, looksLikeAddressResult, normalizeCoverageDecision, normalizeMunicipalityName, normalizeTerritoryName } from "../../../lib/step2/addressIntent.js";
 import { apiToZones, capToZone, getZoneCoords, haversineKm, pickRealComuneGeometry } from "../../../lib/step2/zoneGeoHelpers.js";
 import { resolveZoneAutoSelection } from "../../../lib/step2/zoneSelection.js";
+import { filterNilRows } from "../../../lib/step2/milanoNilView.js";
+import { MilanoGuidance } from "./step2/MilanoGuidance.jsx";
 import { bizCategoryChart, businessRows, businessZoneScore, getComuneColor, getH2HMetrics, getTargetBizMeta, H2H_HOTSPOT_META, h2hHotspotRows, h2hHotspotStrength, residentialRows, residentialStrength } from "../../../lib/step2/businessZoneHelpers.js";
 import { buildOperationalAdvice, D2D_DAILY_CAPACITY, estimateOperationalDays, H2H_FLYERS_PER_PROMOTER_HOUR, resolveAssignedQuantity } from "../../../lib/step2/operationalMetrics.js";
 import { buildPromoterAssignments } from "../../../lib/step1/promoterAssignments.js";
@@ -203,6 +205,9 @@ export function Step2({
   // lista NIL è parte diretta del calcolo del raggio) e in NIL manuale (dove
   // l'utente sta scegliendo proprio le NIL) la lista resta sempre visibile.
   const [showMilanoNilList, setShowMilanoNilList] = useState(false);
+  // UX Milano (§6): filtro locale della lista NIL — SOLO presentazionale, non
+  // tocca `selected`/`selZones`/allocazione. Vuoto = lista completa.
+  const [nilQuery, setNilQuery] = useState("");
   // Nome NIL da pre-selezionare non appena la modalità NIL manuale carica le
   // 88 zone di Milano — usato dal flusso "Brera non è un comune → seleziona
   // come NIL" (bottone nel dropdown ricerca Comune).
@@ -3891,6 +3896,30 @@ export function Step2({
       esclusi
     };
   }, [isMovementStep2, isBusinessStep2, h2hMetrics.clusters, businessMetrics.clusterRows, sortedResidentialZones, zonesAllocation]);
+
+  // ── UX Milano (ticket "MILANO UX UPGRADE") — SOLO presentazionale ──────────
+  // Nessun calcolo territoriale nuovo: legge valori canonici gia' derivati
+  // sopra (hasMilanoTerritory, summaryComuniStats, zonesAllocation, serviceKpis,
+  // conteggi NIL per modalita'). `nilQuery` filtra SOLO le righe mostrate.
+  const milanoUxVisible = isResidentialStep2 && hasMilanoTerritory;
+  const milanoNilStats = useMemo(() => ({
+    available: Number(summaryComuniStats?.total) || availableNils.length || 0,
+    full: Number(summaryComuniStats?.coperti) || 0,
+    partial: Number(summaryComuniStats?.parziali) || 0,
+    excluded: Number(summaryComuniStats?.esclusi) || 0,
+  }), [summaryComuniStats, availableNils.length]);
+  const milanoFilteredZoneRows = useMemo(
+    () => (milanoUxVisible && !isRadiusMode && nilQuery ? filterNilRows(zoneRowsForList, nilQuery) : zoneRowsForList),
+    [milanoUxVisible, isRadiusMode, nilQuery, zoneRowsForList]
+  );
+  const milanoNilResultCount = useMemo(
+    () => (nilQuery ? (milanoFilteredZoneRows || []).filter(r => r && r.type === "zone").length : null),
+    [nilQuery, milanoFilteredZoneRows]
+  );
+  const milanoLowCoverage = Boolean(
+    milanoUxVisible && isMilanoComuneCollapsible &&
+    Number.isFinite(Number(serviceKpis?.coverage)) && Number(serviceKpis?.coverage) < 60
+  );
   const aiAgg = selZones.length > 0 ? {
     pop: selZones.reduce((a, z) => a + (z.pop || 0), 0),
     families: selZones.reduce((a, z) => a + (z.families || 0), 0),
@@ -5138,6 +5167,30 @@ export function Step2({
         zoneListSourceCount={zoneListSourceCount}
         zonesInRadius={zonesInRadius}
       />
+          <MilanoGuidance
+            visible={milanoUxVisible}
+            isMobile={isMobile}
+            isRadiusMode={isRadiusMode}
+            isCapMode={isCapMode}
+            nilManualMode={nilManualMode}
+            isMilanoCompletoMode={isMilanoComuneCollapsible}
+            availableNilCount={milanoNilStats.available}
+            intersectedNilCount={intersectedNils.length}
+            selectedNilCount={selectedNils.length}
+            nilStats={milanoNilStats}
+            zonesAllocation={zonesAllocation}
+            allocationMode={allocationMode}
+            firstAllocationZoneName={zonesAllocation[0]?.name || ""}
+            quantity={Number(flyerQuantityFromStep1) || allocationFlyers || null}
+            coveragePct={Number.isFinite(Number(serviceKpis?.coverage)) ? Number(serviceKpis.coverage) : null}
+            lowCoverage={milanoLowCoverage}
+            nilQuery={nilQuery}
+            onNilQueryChange={setNilQuery}
+            nilResultCount={milanoNilResultCount}
+            onShowNil={switchToNilMode}
+            onUseRadius={switchToRadiusMode}
+            onKeepMilanoComplete={switchToComuneMode}
+          />
           <Step2ComunePanel
         activeCampaignZone={activeCampaignZone}
         activeComuneZeroData={activeComuneZeroData}
@@ -5259,7 +5312,7 @@ export function Step2({
         zoneCoveragePctForBox={zoneCoveragePctForBox}
         zoneListSort={zoneListSort}
         zoneListSourceCount={zoneListSourceCount}
-        zoneRowsForList={zoneRowsForList}
+        zoneRowsForList={milanoFilteredZoneRows}
         zonesAllocation={zonesAllocation}
         zonesInRadius={zonesInRadius}
       />
