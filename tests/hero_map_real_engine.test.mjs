@@ -1,0 +1,58 @@
+// TICKET — CRITICAL HERO MAP FIX: la mappa Hero deve riusare il MOTORE REALE
+// dello Step 2 (Step2Map = Leaflet + tile CartoDB reali + L.geoJSON confini
+// comunali reali + L.circle geodetico + fitBounds), NON un SVG decorativo con
+// poligoni/strade/label hardcoded. Audit statico sul sorgente.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const hero = readFileSync(new URL('../src/components/home/VolantiniProHeroMap.jsx', import.meta.url), 'utf8');
+const step2map = readFileSync(new URL('../src/components/Step2Map.jsx', import.meta.url), 'utf8');
+
+test('Hero: nessun SVG mappa decorativo (viewBox 800x650, poligoni/strade/label hardcoded)', () => {
+  assert.doesNotMatch(hero, /viewBox="0 0 800 650"/);
+  assert.doesNotMatch(hero, /MILANO AFFORI DERGANO BOVISA|PADERNO DUGNANO<\/text>/);
+  assert.doesNotMatch(hero, /SP44 MILANO-MEDA|A4 TANGENZIALE NORD|VIA BOVISASCA/);
+  assert.doesNotMatch(hero, /heroGisGrid|heroCatchmentGlow|heroGisRadarSweep/);
+  // niente <polygon>/<circle> SVG hardcoded per la mappa
+  assert.doesNotMatch(hero, /<polygon points="\d/);
+});
+
+test('Hero: riusa Step2Map (stesso motore GIS) con props reali', () => {
+  assert.match(hero, /import \{ Step2Map \} from "\.\.\/Step2Map\.jsx"/);
+  assert.match(hero, /<Step2Map\b/);
+  const call = hero.slice(hero.indexOf('<Step2Map'), hero.indexOf('<Step2Map') + 700);
+  assert.match(call, /city=\{\{ lat: previewCity\.lat, lng: previewCity\.lng/);
+  assert.match(call, /radius=\{radiusKm\}/);
+  assert.match(call, /svcType="d2d"/);
+  assert.match(call, /zonesWithCoords=\{zonesForMap\}/);
+  assert.match(call, /activeLayers=\{\{ comuni: true, radius: true/);
+  assert.match(call, /interactive=\{false\}/);
+  // reso come layer primario (zIndex 0), non nascosto a opacity 0.15
+  assert.doesNotMatch(hero, /opacity: 0\.15, pointerEvents: "none" \}\}>\s*\n\s*<Step2Map/);
+});
+
+test('Hero: comuni/geometrie dalla stessa source of truth (analisi live comuni_breakdown)', () => {
+  assert.match(hero, /analysisLevel/i);
+  assert.match(hero, /comuni_breakdown/);
+  assert.match(hero, /geometry_geojson/);
+  // zonesForMap = preview.zones (live) con fallback comuni reali, MAI NIL
+  assert.match(hero, /const zonesForMap =/);
+  // lat/lng reali del comune passati al motore mappa
+  assert.match(hero, /const lat = firstFiniteNumber\(row\.centroid_lat/);
+});
+
+test('Step2Map: il motore disegna raggio geodetico (L.circle in metri) e non inventa poligoni mancanti', () => {
+  assert.match(step2map, /L\.circle\(\[zCity\.lat, zCity\.lng\], \{\s*\n\s*radius: zRadius \* 1000/);
+  assert.match(step2map, /no_geometry|geometry_parse_error/);
+  // tile reali CartoDB Voyager
+  assert.match(step2map, /basemaps\.cartocdn\.com\/rastertiles\/voyager/);
+});
+
+test('Hero: layout invariato (headline / CTA / KPI cards / lista analisi)', () => {
+  assert.match(hero, /FloatingKPI[\s\S]{0,120}label="Famiglie raggiungibili"/);
+  assert.match(hero, /FloatingKPI[\s\S]{0,120}label="Comuni coinvolti"/);
+  assert.match(hero, /FloatingKPI[\s\S]{0,120}label="Copertura stimata"/);
+  assert.match(hero, /Centro campagna/);
+  assert.match(hero, /raggio \{radiusKm\} km/);
+});
