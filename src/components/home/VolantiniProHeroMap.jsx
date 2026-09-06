@@ -485,12 +485,16 @@ function useHeroMapPreviewStyles() {
   }, []);
 }
 
+// Fallback SOLO quando l'analisi live non restituisce comuni: sono tutti
+// COMUNI reali del catchment Cormano + 3 km (codici ISTAT), MAI NIL/quartieri
+// di Milano — il KPI accanto dice "Comuni coinvolti" e non deve mescolare
+// livelli territoriali diversi.
 const DEFAULT_MILANO_NORD_ZONES = [
   { id: "comune:015086", name: "Cormano", families: 8420, coverage: 96, color: "#2ECC8A" },
   { id: "comune:015096", name: "Cusano Milanino", families: 7850, coverage: 94, color: "#60A5FA" },
   { id: "comune:015157", name: "Novate Milanese", families: 9120, coverage: 91, color: "#A78BFA" },
   { id: "comune:015032", name: "Bresso", families: 11400, coverage: 93, color: "#FBBF24" },
-  { id: "comune:015146_nord", name: "Milano (Affori - Bovisa - Dergano)", families: 14200, coverage: 95, color: "#14B8A6" },
+  { id: "comune:015166", name: "Paderno Dugnano", families: 14200, coverage: 95, color: "#14B8A6" },
 ];
 
 function HeroRealMapPreview({ compact, benefits }) {
@@ -594,7 +598,7 @@ function HeroRealMapPreview({ compact, benefits }) {
             <polygon points="200,230 330,215 340,320 220,350" fill="rgba(167,139,250,0.12)" stroke="rgba(167,139,250,0.5)" strokeWidth="1.2" strokeDasharray="4 2" />
             {/* Bresso (Nord-Est) */}
             <polygon points="470,120 590,110 600,195 460,205" fill="rgba(251,191,36,0.11)" stroke="rgba(251,191,36,0.45)" strokeWidth="1.2" strokeDasharray="4 2" />
-            {/* Milano Nord (Affori - Bovisa - Dergano Sud) */}
+            {/* Paderno Dugnano (Sud) */}
             <polygon points="330,330 480,315 520,440 290,460" fill="rgba(20,184,166,0.13)" stroke="rgba(20,184,166,0.5)" strokeWidth="1.2" strokeDasharray="4 2" />
 
             {/* Arterie stradali reali Milano Nord */}
@@ -630,7 +634,7 @@ function HeroRealMapPreview({ compact, benefits }) {
               <text x="540" y="255" fill="#93C5FD" textAnchor="middle" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.9))">CUSANO MILANINO</text>
               <text x="265" y="285" fill="#C4B5FD" textAnchor="middle" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.9))">NOVATE MILANESE</text>
               <text x="530" y="160" fill="#FDE68A" textAnchor="middle" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.9))">BRESSO</text>
-              <text x="405" y="380" fill="#5EEAD4" textAnchor="middle" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.9))">MILANO AFFORI DERGANO BOVISA</text>
+              <text x="405" y="380" fill="#5EEAD4" textAnchor="middle" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.9))">PADERNO DUGNANO</text>
 
               {/* Arterie Labels */}
               <text x="412" y="120" fill="rgba(255,255,255,0.4)" fontSize="7" fontWeight="600">SP44 MILANO-MEDA</text>
@@ -828,8 +832,11 @@ function FloatingKPI({ loading, number, value, suffix = "", label, highlight, an
 }
 
 function normalizeHeroPreview(data, city) {
+  // "Comuni coinvolti": SOLO comuni. Qualunque riga a livello NIL/quartiere
+  // (Milano: Affori, Dergano, Bovisa, ...) viene esclusa dal conteggio e
+  // dalla lista, indipendentemente da come l'API la etichetta.
   const rows = (Array.isArray(data?.comuni_breakdown) ? data.comuni_breakdown : [])
-    .filter((row) => row?.territory_level !== "nil")
+    .filter((row) => row?.territory_level !== "nil" && row?.is_nil !== true && !row?.nil_code && !row?.nil_name)
     .map((row, index) => normalizeHeroZone(row, index))
     .filter((zone) => zone.geometry);
   const values = data?.values || {};
