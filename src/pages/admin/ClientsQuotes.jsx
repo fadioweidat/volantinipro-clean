@@ -7,6 +7,19 @@ import {
 } from '../../lib/services/admin-api.js';
 import { confirmCampaignPayment } from '../../lib/supabaseClient.js';
 import { ClientsQuotesSearchBar } from './clients-quotes/ClientsQuotesSearchBar.jsx';
+import {
+  CQ_FILTERS,
+  CQ_SORTS,
+  CQ_FILTER_LABEL,
+  CQ_SORT_LABEL,
+  CQ_FILTER_COLOR,
+  computeKpiCounts,
+  applyClientsQuotesView,
+  serviceLabel,
+  shortCampaignId,
+  buildAdminClientWhatsAppMessage,
+  buildClientsQuotesSummary,
+} from '../../lib/admin/clientsQuotesView.js';
 
 const AssignWork = lazy(() => import('./AssignWork.jsx').then(m => ({ default: m.AssignWork })));
 
@@ -45,6 +58,9 @@ const PROGRAM_LABEL = {
 export function ClientsQuotes({ onNav }) {
   const [state, setState] = useState({ loading: true, error: null, rows: [] });
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('tutti');
+  const [sort, setSort] = useState('default');
+  const [copiedRowId, setCopiedRowId] = useState(null);
   const [assignModal, setAssignModal] = useState(null); // campaignId in corso di assegnazione
   const [paymentConfirmRow, setPaymentConfirmRow] = useState(null); // riga in corso di conferma pagamento
   const [paymentConfirmBusy, setPaymentConfirmBusy] = useState(false);
@@ -73,11 +89,11 @@ export function ClientsQuotes({ onNav }) {
     return () => { cancelled = true; window.clearInterval(timer); };
   }, []);
 
-  const filteredRows = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return state.rows;
-    return state.rows.filter((row) => [row.client, ...(row.comuni || [])].join(' ').toLowerCase().includes(q));
-  }, [state.rows, search]);
+  const kpi = useMemo(() => computeKpiCounts(state.rows), [state.rows]);
+  const visibleRows = useMemo(
+    () => applyClientsQuotesView(state.rows, { search, filter, sort }),
+    [state.rows, search, filter, sort],
+  );
 
   const breadcrumbs = [
     { label: 'Dashboard', href: '/admin' },
@@ -90,8 +106,20 @@ export function ClientsQuotes({ onNav }) {
       alert('Numero di telefono cliente non disponibile.');
       return;
     }
-    const msg = `Ciao ${row.client || ''}, la contattiamo per la sua campagna VolantiniPro (${(row.comuni || []).join(', ') || row.zone}).`;
+    // §6 — template Admin -> Cliente (NON il messaggio Cliente -> VolantiniPro).
+    const msg = buildAdminClientWhatsAppMessage(row);
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
+  }
+
+  async function handleCopySummary(row) {
+    const text = buildClientsQuotesSummary(row);
+    try {
+      await navigator.clipboard?.writeText(text);
+    } catch {
+      /* clipboard non disponibile: nessuna azione distruttiva */
+    }
+    setCopiedRowId(row.id);
+    window.setTimeout(() => setCopiedRowId((curr) => (curr === row.id ? null : curr)), 1600);
   }
 
   function handleInviaProgramma(row) {
@@ -149,12 +177,63 @@ export function ClientsQuotes({ onNav }) {
 
   return (
     <AdminLayout title="Clienti & Preventivi" subtitle="Preventivo pagato -> gruppo -> programma -> WhatsApp -> GPS, da un'unica riga." breadcrumbs={breadcrumbs} onNav={onNav}>
+      <style>{`
+        @media (max-width: 640px) {
+          .cq-kpi-grid { grid-template-columns: 1fr 1fr !important; }
+          .cq-filter-bar { -webkit-overflow-scrolling: touch; }
+        }
+      `}</style>
       <ClientsQuotesSearchBar
         search={search}
         setSearch={setSearch}
         loading={state.loading}
         colors={C}
       />
+
+      {/* §1 — KPI summary dai dati reali della pagina (mai hardcoded). */}
+      <div className="cq-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 14 }}>
+        <KpiCard label="Preventivi / Campagne" value={kpi.totali} color={C.white} />
+        <KpiCard label="Da pagare" value={kpi.da_pagare} color={CQ_FILTER_COLOR.da_pagare} onClick={() => setFilter('da_pagare')} active={filter === 'da_pagare'} />
+        <KpiCard label="Pagati" value={kpi.pagati} color={CQ_FILTER_COLOR.pagati} onClick={() => setFilter('pagati')} active={filter === 'pagati'} />
+        <KpiCard label="Da assegnare" value={kpi.da_assegnare} color={CQ_FILTER_COLOR.da_assegnare} onClick={() => setFilter('da_assegnare')} active={filter === 'da_assegnare'} />
+        <KpiCard label="In lavorazione" value={kpi.in_lavorazione} color={CQ_FILTER_COLOR.in_lavorazione} onClick={() => setFilter('in_lavorazione')} active={filter === 'in_lavorazione'} />
+        <KpiCard label="Completati" value={kpi.completati} color={CQ_FILTER_COLOR.completati} onClick={() => setFilter('completati')} active={filter === 'completati'} />
+      </div>
+
+      {/* §2 — filtri rapidi + §8 ordinamento. Nessun reload; la ricerca resta. */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+        <div className="cq-filter-bar" style={{ display: 'flex', gap: 8, overflowX: 'auto', flex: '1 1 auto', paddingBottom: 2 }}>
+          {CQ_FILTERS.map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFilter(f)}
+              style={{
+                flex: '0 0 auto',
+                fontSize: 12,
+                fontWeight: 800,
+                padding: '7px 14px',
+                borderRadius: 999,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                color: filter === f ? '#0b0f14' : (CQ_FILTER_COLOR[f] || C.gray),
+                background: filter === f ? (CQ_FILTER_COLOR[f] || C.gray) : 'transparent',
+                border: `1px solid ${CQ_FILTER_COLOR[f] || C.gray}`,
+              }}
+            >
+              {CQ_FILTER_LABEL[f]}
+            </button>
+          ))}
+        </div>
+        <select
+          aria-label="Ordina preventivi"
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+          style={{ flex: '0 0 auto', background: C.navyLight, border: '1px solid #374151', borderRadius: 8, padding: '8px 12px', color: C.white, fontSize: 13 }}
+        >
+          {CQ_SORTS.map((s) => <option key={s} value={s}>{CQ_SORT_LABEL[s]}</option>)}
+        </select>
+      </div>
 
       {state.error && (
         <div style={{ background: 'rgba(239,68,68,.1)', border: '1px solid #ef4444', color: '#ef4444', padding: 12, borderRadius: 6, marginBottom: 20 }}>
@@ -163,14 +242,17 @@ export function ClientsQuotes({ onNav }) {
       )}
 
       <div style={{ display: 'grid', gap: 10 }}>
-        {filteredRows.length === 0 && !state.loading && (
+        {visibleRows.length === 0 && !state.loading && (
           <p style={{ color: C.gray }}>Nessun preventivo trovato.</p>
         )}
 
-        {filteredRows.map((row) => {
+        {visibleRows.map((row) => {
           const payment = PAYMENT_LABEL[row.paymentStatus];
           const gps = GPS_LABEL[row.gpsStatus];
           const isPaid = row.paymentStatus === 'pagato';
+          const createdLabel = row.createdAt
+            ? new Date(row.createdAt).toLocaleDateString('it-IT')
+            : (row.date && row.date !== '—' ? row.date : null);
           return (
             <div key={row.id} style={{ background: C.navyLight, border: '1px solid #374151', borderRadius: 10, padding: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
@@ -178,6 +260,11 @@ export function ClientsQuotes({ onNav }) {
                   <strong style={{ color: C.white, fontSize: 16 }}>{row.client}</strong>
                   <p style={{ margin: '4px 0 0', color: C.gray, fontSize: 13 }}>
                     {(row.comuni || []).length > 0 ? row.comuni.join(', ') : (row.zone || 'Comuni non disponibili')}
+                  </p>
+                  <p style={{ margin: '4px 0 0', color: C.gray, fontSize: 12 }}>
+                    ID: {shortCampaignId(row.id)}
+                    {' · '}{serviceLabel(row.service)}
+                    {createdLabel ? ` · ${createdLabel}` : ''}
                   </p>
                   <p style={{ margin: '4px 0 0', color: C.gray, fontSize: 12 }}>
                     {row.qty ? `${row.qty.toLocaleString('it-IT')} volantini` : 'Quantita non disponibile'}
@@ -197,6 +284,7 @@ export function ClientsQuotes({ onNav }) {
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14, borderTop: '1px solid #374151', paddingTop: 12 }}>
                 <ActionBtn onClick={() => onNav?.(`admin-operations:${row.id}`)}>Apri</ActionBtn>
                 <ActionBtn onClick={() => handleWhatsAppCliente(row)}>WhatsApp cliente</ActionBtn>
+                <ActionBtn onClick={() => handleCopySummary(row)}>{copiedRowId === row.id ? 'Copiato ✓' : 'Copia riepilogo'}</ActionBtn>
                 <ActionBtn as="a" href={row.phone ? `tel:${row.phone}` : undefined} disabled={!row.phone}>Chiama</ActionBtn>
                 <ActionBtn as="a" href={row.email ? `mailto:${row.email}` : undefined} disabled={!row.email}>Email</ActionBtn>
                 {row.paymentStatus === 'da_pagare' && (
@@ -260,6 +348,32 @@ export function ClientsQuotes({ onNav }) {
         </div>
       )}
     </AdminLayout>
+  );
+}
+
+function KpiCard({ label, value, color, onClick, active }) {
+  const clickable = typeof onClick === 'function';
+  return (
+    <button
+      type="button"
+      onClick={clickable ? onClick : undefined}
+      aria-pressed={clickable ? Boolean(active) : undefined}
+      style={{
+        textAlign: 'left',
+        background: active ? `${color}1e` : 'rgba(255,255,255,.03)',
+        border: `1px solid ${active ? color : '#374151'}`,
+        borderRadius: 10,
+        padding: '12px 14px',
+        cursor: clickable ? 'pointer' : 'default',
+        display: 'grid',
+        gap: 2,
+      }}
+    >
+      <span style={{ fontSize: 22, fontWeight: 900, fontFamily: "'JetBrains Mono', monospace", color: color === '#FFFFFF' ? '#fff' : color, lineHeight: 1 }}>
+        {Number.isFinite(Number(value)) ? Number(value).toLocaleString('it-IT') : '0'}
+      </span>
+      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.04em', textTransform: 'uppercase', color: 'rgba(255,255,255,.55)' }}>{label}</span>
+    </button>
   );
 }
 
