@@ -9,6 +9,13 @@
 .quote-ai__body{min-height:0;flex:1;overflow:auto;padding:18px 18px 8px}
 .quote-ai__questions{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px}
 .quote-ai__questions button{min-height:36px;padding:8px 11px;border:1px solid rgba(232,87,26,.28);border-radius:999px;background:rgba(232,87,26,.08);color:#ffd4c2;font:750 11px/1.25 "DM Sans",Inter,sans-serif;cursor:pointer}
+.quote-ai__context-card{margin-bottom:14px;padding:12px 14px;border:1px solid rgba(255,255,255,.09);border-radius:12px;background:rgba(255,255,255,.03)}
+.quote-ai__context-header{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.quote-ai__context-dot{width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 6px rgba(16,185,129,.6)}
+.quote-ai__context-header strong{color:rgba(255,255,255,.85);font-size:11px;font-weight:750;letter-spacing:.02em;text-transform:uppercase}
+.quote-ai__context-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+.quote-ai__context-label{display:block;color:rgba(255,255,255,.45);font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.quote-ai__context-value{display:block;margin-top:2px;color:#fff;font-size:11px;font-weight:650;line-height:1.3}
 .quote-ai__history{display:flex;flex-direction:column;gap:10px}
 .quote-ai__welcome{padding:18px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.035)}
 .quote-ai__welcome strong{font-size:14px}.quote-ai__welcome p{margin:7px 0 0;color:rgba(255,255,255,.58);font-size:12px;line-height:1.5}

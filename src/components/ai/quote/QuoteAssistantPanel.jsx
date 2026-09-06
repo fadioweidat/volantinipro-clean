@@ -84,6 +84,43 @@ export default function QuoteAssistantPanel({ open, onClose, page, context, quic
       </header>
 
       <div className="quote-ai__body">
+        {step === 2 && context && (
+          <div className="quote-ai__context-card" aria-label="Dati territoriali correnti">
+            <div className="quote-ai__context-header">
+              <span className="quote-ai__context-dot" />
+              <strong>Dati che sto leggendo</strong>
+            </div>
+            <div className="quote-ai__context-grid">
+              <div>
+                <span className="quote-ai__context-label">Territorio</span>
+                <span className="quote-ai__context-value">
+                  {context.location?.frazione ? `${context.location.frazione} — ${context.location.municipality || ""}` : (context.location?.municipality || context.territory?.selectedNames?.[0] || "Non selezionato")}
+                  {context.location?.province ? ` (${context.location.province})` : ""}
+                </span>
+              </div>
+              <div>
+                <span className="quote-ai__context-label">Modalità</span>
+                <span className="quote-ai__context-value">
+                  {context.territory?.modeLabel || (context.territory?.mode === "radius" || context.territory?.mode === "raggio" ? "Raggio" : context.territory?.mode === "nil" ? "NIL" : "Comune")}
+                  {context.territory?.radiusKm ? ` (${context.territory.radiusKm} km)` : ""}
+                </span>
+              </div>
+              <div>
+                <span className="quote-ai__context-label">Quantità</span>
+                <span className="quote-ai__context-value">
+                  {context.quantitaInserita || context.quantity?.current ? `${Number(context.quantitaInserita || context.quantity?.current).toLocaleString("it-IT")} volantini` : "Non inserita"}
+                </span>
+              </div>
+              <div>
+                <span className="quote-ai__context-label">Copertura</span>
+                <span className="quote-ai__context-value">
+                  {context.territorialDataUnavailable ? "Dato non disponibile" : (context.coveragePct != null ? `${Number(context.coveragePct).toLocaleString("it-IT")}%` : (context.kpis?.residentialCoveragePct != null ? `${Number(context.kpis.residentialCoveragePct).toLocaleString("it-IT")}%` : "In calcolo…"))}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="quote-ai__questions" aria-label="Domande suggerite">
           {quickQuestions.map((question) => <button type="button" key={question} disabled={sending} onClick={() => submit(question)}>{question}</button>)}
         </div>

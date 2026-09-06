@@ -78,7 +78,7 @@ export function PublicRoutes({ page, data, setData, goTo, prefillPatch }) {
     <Suspense fallback={<RouteLoadingFallback />}>
       <div className={`configurator-assistant-layout${isConfiguratorStep && assistantOpen ? " configurator-assistant-layout--open" : ""}`}>{content}</div>
       {isConfiguratorStep && <InlineHelpCta expanded={assistantOpen} onAsk={() => setAssistantOpen(true)} />}
-      {isConfiguratorStep && <QuoteAssistantPanel open={assistantOpen} onClose={() => setAssistantOpen(false)} page={page} context={assistantContext} quickQuestions={quickQuestionsForPage(page)} />}
+      {isConfiguratorStep && <QuoteAssistantPanel open={assistantOpen} onClose={() => setAssistantOpen(false)} page={page} context={assistantContext} quickQuestions={quickQuestionsForPage(page, assistantContext)} />}
     </Suspense>
   );
 }

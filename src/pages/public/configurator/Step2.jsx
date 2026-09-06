@@ -4649,13 +4649,44 @@ export function Step2({
     intersectedNilCount: intersectedNils.length,
     selectedNilCount: selectedNils.length
   });
+  const operationalSelectionReady = isResidentialStep2 || isMovementStep2 && (pois.length > 0 ? selectedOperationalPois.length > 0 : step1OperationalPoints.length > 0) || isBusinessStep2 && selectedOperationalPois.length > 0;
+  const canContinueCalendar = isBusinessStep2 ? step2ZonesReady && operationalSelectionReady && !gisLoading && !gisTimedOut : !step2ViewModel.ctaDisabled && step2ZonesReady && operationalSelectionReady && coverageDecisionReady && (!coverageDecisionRequired || allocationStatus === "success");
+  const continueLabel = step2ViewModel.ctaLabel || "Continua allo Step 3";
+
   const assistantSnapshot = buildTerritorialAiSnapshot({
     truthModel: step2TruthModel,
     viewModel: step2ViewModel,
     loading: Boolean(apiLoading || gisLoading),
     error: Boolean(apiError || gisTimedOut || hasCoverageCalculationError)
   });
-  const assistantContext = buildQuoteAssistantStep2Context(assistantSnapshot, data);
+  const assistantContext = buildQuoteAssistantStep2Context(assistantSnapshot, data, {
+    coverageMode: areaMode,
+    comune: selectedComuni?.[0]?.label || selectedComuni?.[0]?.name || cityName || data.cityName || data.comune,
+    provincia: selectedComuni?.[0]?.provincia || selectedComuni?.[0]?.province || province || data.provincia,
+    localita: selectedFrazione?.label || selectedFrazione?.name || data.localita || data.frazione,
+    frazione: selectedFrazione?.label || selectedFrazione?.name || data.localita || data.frazione,
+    indirizzo: selectedSearchPoint?.label || selectedSearchPoint?.display_name || data.address || data.indirizzo,
+    lat: selectedSearchPoint?.lat ?? (typeof centerLat === "number" ? centerLat : null),
+    lng: selectedSearchPoint?.lng ?? (typeof centerLng === "number" ? centerLng : null),
+    radiusKm: radiusKm || radius || data.radiusKm || data.radius,
+    selectedNils: Array.isArray(selectedNils) ? selectedNils.map((n) => (typeof n === "string" ? n : n?.name || n?.label || n?.nil_name)).filter(Boolean) : [],
+    availableNils: step2TruthModel.zones.available,
+    quantitaInserita: manualFlyersNumber || allocationFlyers || data.flyerQuantity || data.qty,
+    famiglie: step2TruthModel.d2d?.kpis?.families || serviceKpis?.families || assistantSnapshot?.metrics?.families,
+    recommendedQuantity: step2TruthModel.quantity?.recommendedRequirement || assistantSnapshot?.quantity?.recommended,
+    coveragePct: step2TruthModel.coverage?.operationalPct ?? assistantSnapshot?.metrics?.residentialCoveragePct,
+    zonesCount: step2TruthModel.zones?.selected ?? (selectedZones?.length || 1),
+    selectedZones: step2TruthModel.territory?.selectedNames ?? (selectedComuni?.[0]?.label ? [selectedComuni[0].label] : []),
+    quantityMissing: step2TruthModel.quantity?.shortage ?? assistantSnapshot?.quantity?.shortage ?? 0,
+    quantitySurplus: step2TruthModel.quantity?.surplus ?? assistantSnapshot?.quantity?.surplus ?? 0,
+    territorialDataUnavailable: Boolean(apiError || gisTimedOut || assistantSnapshot?.state === "unavailable" || assistantSnapshot?.state === "missing"),
+    reportKpis: serviceKpis || assistantSnapshot?.metrics,
+    priorityMode: priorityMode || allocationMode || "auto",
+    ctaStep3Enabled: canContinueCalendar,
+    reasonCtaDisabled: !canContinueCalendar ? (step2ViewModel?.ctaReasonDisabled || (gisLoading ? "Caricamento dati territoriali in corso" : !step2ZonesReady ? "Seleziona una zona per continuare" : "Completa la configurazione territoriale per continuare")) : null,
+    error: Boolean(apiError || gisTimedOut || hasCoverageCalculationError),
+    fallbackActive: Boolean(apiError || gisTimedOut || gisLoading),
+  });
   const assistantContextKey = JSON.stringify(assistantContext);
   useEffect(() => {
     onAssistantContextChange?.(assistantContext);
@@ -4668,9 +4699,6 @@ export function Step2({
   const sharedCoveragePctText = step2CoveragePctLabel || (radiusAdvisoryData ? formatPercentIT(radiusAdvisoryData.covPct, Number.isInteger(radiusAdvisoryData.covPct) ? 0 : 1) : null) || formatPercentIT(serviceKpis?.coverage || 0, Number.isInteger(serviceKpis?.coverage || 0) ? 0 : 1);
   const step2RequirementContextLabel = step2TruthModel.territory.modeLabel || "fabbisogno operativo delle zone selezionate";
   const isCoverageConfigurationValid = step2ViewModel.isCoverageConfigurationValid;
-  const operationalSelectionReady = isResidentialStep2 || isMovementStep2 && (pois.length > 0 ? selectedOperationalPois.length > 0 : step1OperationalPoints.length > 0) || isBusinessStep2 && selectedOperationalPois.length > 0;
-  const canContinueCalendar = isBusinessStep2 ? step2ZonesReady && operationalSelectionReady && !gisLoading && !gisTimedOut : !step2ViewModel.ctaDisabled && step2ZonesReady && operationalSelectionReady && coverageDecisionReady && (!coverageDecisionRequired || allocationStatus === "success");
-  const continueLabel = step2ViewModel.ctaLabel || "Continua allo Step 3";
   if (isStep2DebugEnabled() && typeof window !== "undefined") {
     const apiNils = Array.isArray(apiData?.nil_breakdown) ? apiData.nil_breakdown : [];
     const apiNilsWithGeometry = apiNils.filter(z => Boolean(z?.geometry_geojson || z?.geometry || z?.geojson));

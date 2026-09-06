@@ -110,11 +110,19 @@ const QUOTE_CONTEXT_TYPES = new Set(["step1", "step2", "step3", "step4"]);
 const QUOTE_COMMON_KEYS = new Set(["schemaVersion", "step", "quoteState", "request", "location", "territory", "service", "availableServices"]);
 const QUOTE_EXTRA_KEYS: Record<string, Set<string>> = {
   step1: new Set(),
-  step2: new Set(["quantity", "kpis", "calculation", "missing", "limitations"]),
+  step2: new Set([
+    "quantity", "kpis", "calculation", "missing", "limitations",
+    "serviceType", "coverageMode", "comune", "provincia", "localita", "frazione", "indirizzo",
+    "lat", "lng", "radiusKm", "selectedNils", "availableNils", "quantitaInserita",
+    "famiglie", "cassette", "recommendedQuantity", "coveragePct", "zonesCount",
+    "selectedZones", "quantityMissing", "quantitySurplus", "territorialDataUnavailable",
+    "reportKpis", "priorityMode", "ctaStep3Enabled", "reasonCtaDisabled", "fallbackActive",
+    "error", "metrics", "truthModel", "viewModel"
+  ]),
   step3: new Set(),
   step4: new Set(["pricing", "premiumServices", "pdfAvailable"]),
 };
-const SENSITIVE_QUOTE_KEY = /password|token|secret|session|auth|customer|client|user_?id|email|phone|telefono|coordinates|latitude|longitude|(^|_)lat$|(^|_)lng$|(^|_)ip$/i;
+const SENSITIVE_QUOTE_KEY = /password|token|secret|session|auth|customer_name|customer_email|user_?id|email|phone|telefono|(^|_)ip$/i;
 const EMAIL_VALUE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 const PHONE_VALUE = /(?:\+?\d[\s().-]*){9,}/;
 
@@ -246,12 +254,107 @@ function deterministicQuoteResponse(contextType: string, snapshot: any, question
   if (contextType === "step1" && /come funziona/.test(normalized)) {
     return "In questo passaggio scegli servizio, quantità, periodo e materiale. Nei passaggi successivi selezioni la zona, verifichi copertura e disponibilità, poi controlli il preventivo finale. L'assistente spiega i dati ma non modifica le tue scelte.";
   }
-  if (contextType === "step2" && /copertura|copro tutta/.test(normalized)) {
-    const coverage = snapshot?.kpis?.residentialCoveragePct ?? snapshot?.kpis?.quantityCoveragePct;
-    if (typeof coverage !== "number") return "La copertura non è disponibile nei dati correnti dello Step 2.";
-    const quantity = snapshot?.quantity?.current;
-    const area = snapshot?.location?.municipality || snapshot?.territory?.selectedNames?.join(", ") || "la zona selezionata";
-    return `Con ${typeof quantity === "number" ? quantity.toLocaleString("it-IT") : "la quantità corrente"} volantini, la copertura mostrata per ${area} è ${coverage.toLocaleString("it-IT") }%. ${coverage >= 100 ? "La zona risulta coperta rispetto al fabbisogno operativo mostrato." : "La copertura non risulta completa rispetto al fabbisogno operativo mostrato."}`;
+  if (contextType === "step2") {
+    const comune = snapshot?.comune || snapshot?.location?.municipality || "la zona selezionata";
+    const frazione = snapshot?.frazione || snapshot?.localita || snapshot?.location?.frazione;
+    const provincia = snapshot?.provincia || snapshot?.location?.province;
+    const areaLabel = frazione ? `${frazione} (${comune})` : comune;
+    const qty = snapshot?.quantitaInserita ?? snapshot?.quantity?.current ?? snapshot?.quantity?.inserted;
+    const formattedQty = typeof qty === "number" ? qty.toLocaleString("it-IT") : "la quantità attuale di";
+    const families = snapshot?.famiglie ?? snapshot?.kpis?.families ?? snapshot?.metrics?.families;
+    const formattedFamilies = typeof families === "number" ? families.toLocaleString("it-IT") : null;
+    const recommended = snapshot?.recommendedQuantity ?? snapshot?.quantity?.recommended ?? families;
+    const formattedRecommended = typeof recommended === "number" ? recommended.toLocaleString("it-IT") : null;
+    const coveragePct = snapshot?.coveragePct ?? snapshot?.kpis?.residentialCoveragePct ?? snapshot?.kpis?.quantityCoveragePct ?? snapshot?.metrics?.residentialCoveragePct;
+    const formattedCov = typeof coveragePct === "number" ? coveragePct.toLocaleString("it-IT") : null;
+    const radiusKm = snapshot?.radiusKm || snapshot?.territory?.radiusKm || 3;
+    const shortage = snapshot?.quantityMissing ?? (typeof recommended === "number" && typeof qty === "number" && recommended > qty ? recommended - qty : 0);
+    const formattedShortage = typeof shortage === "number" && shortage > 0 ? shortage.toLocaleString("it-IT") : null;
+    const selectedNils = Array.isArray(snapshot?.selectedNils) && snapshot.selectedNils.length > 0
+      ? snapshot.selectedNils
+      : Array.isArray(snapshot?.territory?.selectedNils)
+        ? snapshot.territory.selectedNils
+        : [];
+    const isUnavailable = snapshot?.territorialDataUnavailable === true || snapshot?.quoteState === "non_disponibile";
+    const ctaDisabled = snapshot?.ctaStep3Enabled === false;
+    const reasonCtaDisabled = snapshot?.reasonCtaDisabled;
+
+    if (/perch[eé].*(?:non posso|non fa|blocc|disabilit).*step 3|non posso continuare|continuare allo step 3|cosa manca per (?:continuare|proseguire)/i.test(normalized)) {
+      if (ctaDisabled) {
+        return `Per continuare allo Step 3: ${reasonCtaDisabled || "è necessario selezionare un comune o una zona valida e confermare la ripartizione dei volantini."}`;
+      }
+      return "La configurazione territoriale è completa: puoi cliccare sul pulsante 'Continua allo Step 3' in basso a destra per procedere con la scelta del servizio e del calendario.";
+    }
+
+    if (/perch[eé].*(?:dato non disponibil|non disponibil|manca.*dato)|dato non disponibile/i.test(normalized)) {
+      return "La dicitura 'Dato non disponibile' indica che i dati ISTAT o i poligoni censuari per la selezione corrente non sono momentaneamente caricati o sono in modalità fallback. Puoi comunque procedere inserendo la quantità desiderata per la tua campagna.";
+    }
+
+    if (/come viene gestita.*(?:frazione|localit[aà])|posso usare.*(?:frazione|localit[aà])|gestione.*frazion/i.test(normalized)) {
+      return `Sì, puoi selezionare frazioni e località${frazione ? ` (come ${frazione})` : ""}. La frazione viene automaticamente ricondotta al comune amministrativo di competenza${comune ? ` (${comune})` : ""}, garantendo dati demografici precisi e distribuzione corretta.`;
+    }
+
+    if (/comune amministrativo|a che comune appartiene|di che comune [eè]/i.test(normalized)) {
+      if (frazione) {
+        return `La località ${frazione} fa parte del comune amministrativo di ${comune}${provincia ? ` (${provincia})` : ""}.`;
+      }
+      return `Il comune amministrativo attualmente selezionato è ${comune}${provincia ? ` (${provincia})` : ""}.`;
+    }
+
+    if (/quanto copr|copro tutt|copertura.*quantit|percentuale.*copertura/i.test(normalized)) {
+      if (isUnavailable || formattedCov == null) {
+        return "La copertura non è attualmente disponibile per la selezione corrente.";
+      }
+      return `Con ${formattedQty} volantini su ${areaLabel}, la copertura mostrata per ${areaLabel} è ${formattedCov}%. ${typeof coveragePct === "number" && coveragePct >= 100 ? "La zona risulta coperta rispetto al fabbisogno operativo mostrato." : "La copertura non risulta completa rispetto al fabbisogno operativo mostrato."}`;
+    }
+
+    if (/quant.*volantini.*serv|copertura complet|coprire tutt|fabbisogno.*total/i.test(normalized)) {
+      if (isUnavailable || formattedRecommended == null) {
+        return "Il calcolo del fabbisogno per la copertura completa non è al momento disponibile per l'area selezionata.";
+      }
+      return `Per una copertura completa al 100% di ${areaLabel} servono circa ${formattedRecommended} volantini${formattedFamilies ? ` (pari a ${formattedFamilies} famiglie/cassette)` : ""}. Rispetto ai ${formattedQty} volantini attuali, ${formattedShortage ? `ne mancano circa ${formattedShortage}` : "la quantità impostata è sufficiente a coprire l'area"}.`;
+    }
+
+    if (/perch[eé].*copertura.*(?:[0-9]|%|bassa|parziale)|spiega.*copertura/i.test(normalized)) {
+      if (isUnavailable || formattedCov == null) {
+        return "La percentuale di copertura non è al momento disponibile nei dati dello Step 2.";
+      }
+      return `La copertura del ${formattedCov}% è calcolata confrontando i ${formattedQty} volantini impostati con il fabbisogno stimato di ${formattedRecommended || formattedFamilies || "famiglie"} famiglie per ${areaLabel}.`;
+    }
+
+    if (/quant.*famigli|numero.*famigli|cassett.*postal/i.test(normalized)) {
+      if (isUnavailable || formattedFamilies == null) {
+        return `Il numero di famiglie per ${areaLabel} non è attualmente disponibile nei dati territoriali.`;
+      }
+      return `Per ${areaLabel} sono stimate circa ${formattedFamilies} famiglie/cassette postali (fonte dati territoriali).`;
+    }
+
+    if (/quantit[aà].*consigliat|quanti.*consigli/i.test(normalized)) {
+      if (isUnavailable || formattedRecommended == null) {
+        return "La quantità consigliata non è attualmente disponibile nei dati correnti dello Step 2.";
+      }
+      return `La quantità consigliata per ${areaLabel} è di ${formattedRecommended} volantini, calcolata per garantire una copertura del 100% delle famiglie/cassette postali.`;
+    }
+
+    if (/cosa cambia.*(?:comune|raggio|nil)|differenz.*(?:comune|raggio|nil)|comune o raggio/i.test(normalized)) {
+      return `La modalità Comune copre l'intero territorio amministrativo. La modalità Raggio distribuisce a partire da un punto/indirizzo entro una distanza chilometrica (es. ${radiusKm} km). La modalità NIL seleziona singoli quartieri specifici per un targeting di massima precisione.`;
+    }
+
+    if (/cos['’]?[eè].*nil|cosa sono i nil|nucle.*identit/i.test(normalized)) {
+      return `I NIL (Nuclei di Identità Locale) sono i quartieri ufficiali e le unità statistiche comunali (come a Milano) per pianificare la distribuzione zona per zona${selectedNils.length > 0 ? ` (attualmente selezionati: ${selectedNils.join(", ")})` : ""}.`;
+    }
+
+    if (/auto.*priorit[aà].*manuale|modalit[aà].*ripartizione|cosa significa.*(?:auto|priorit[aà]|manuale)/i.test(normalized)) {
+      return "La modalità Auto distribuisce i volantini in proporzione alle famiglie in tutte le zone selezionate. La modalità Priorità concentra i volantini prima nelle zone centrali e a più alta densità. La modalità Manuale ti permette di assegnare a mano la quantità esatta per ciascuna zona.";
+    }
+
+    if (/aggiung.*(?:altr.*comune|pi[uù].*comun)|cosa succede se aggiungo/i.test(normalized)) {
+      return "Aggiungendo un altro comune il bacino complessivo di famiglie aumenta. Di conseguenza, mantenendo invariata la quantità di volantini la copertura percentuale media si ridurrà, oppure sarà necessario aumentare i volantini per coprire entrambe le aree.";
+    }
+
+    if (/report territorial|cosa mostra il report/i.test(normalized)) {
+      return "Il Report Territoriale Avanzato fornisce un'analisi demografica approfondita con la stima delle famiglie, densità abitativa, mappa della distribuzione per quartiere/NIL e suggerimenti pratici per ottimizzare la copertura.";
+    }
   }
   if (contextType === "step4" && /totale|perch[eé].*cost|spiegami.*prezzo/.test(normalized)) {
     const pricing = snapshot?.pricing || {};
@@ -278,7 +381,6 @@ function deterministicQuoteResponse(contextType: string, snapshot: any, question
     return service?.description
       ? `${service.label}: ${service.description}${typeof snapshot?.pricing?.extras?.find((item: any) => item?.id === requestedId)?.amount === "number" ? ` Importo nel preventivo: ${euro(snapshot.pricing.extras.find((item: any) => item?.id === requestedId).amount)}.` : ""}`
       : "Questo servizio non risulta selezionato nei dati correnti del preventivo.";
-  }
   return null;
 }
 
