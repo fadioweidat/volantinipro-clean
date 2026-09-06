@@ -30,6 +30,7 @@ import { kmToPx, MH, MW, s2proj, SCALE_X, SCALE_Y, thColor } from "../../../lib/
 import { kpiLabel } from "../../../lib/services/kpi-definitions.js";
 import { LAYERS, SERVICE_META } from "../../../lib/services/serviceMeta.js";
 import { normalizeNominatimGeocodeResult, normalizeNominatimH2HBootstrapPoint } from "../../../lib/geocoding/canonicalizeItalianMunicipalityName.js";
+import { normalizeLocationResult, rankLocationResults } from "../../../lib/geo/normalizeLocationResult.js";
 import { printTerritorialReportPdf } from "../../../lib/pdf/printTerritorialReportPdf.js";
 import { PROMOTER_COUNT_OPTIONS, PROMOTER_SHIFT_DURATION_OPTIONS, PROMOTER_TIME_SLOT_OPTIONS } from "../../../lib/step1/step1OptionLists.js";
 import { QUOTE_PRICES } from "../../../lib/appConstants.js";
@@ -300,37 +301,54 @@ export function Step2({
     rawItems.forEach(item => {
       if (!item) return;
       const obj = typeof item === "string" ? {
-        name: item
+        name: item,
+        comune: item
       } : item;
-      const label = obj.label || obj.name || obj.comune_name || obj.municipality_name || "";
+      const label = obj.comune || obj.name || obj.label || obj.comune_name || obj.municipality_name || "";
       const norm = normalizeMunicipalityName(label);
       const key = getMunicipalityDedupKey(obj) || norm;
       if (key && norm && !byKey.has(key)) byKey.set(key, obj);
     });
     return Array.from(byKey.values());
   }, [selectedComuni, city]);
-  const selectedMunicipalityNames = useMemo(() => selectedMunicipalityItems.map(item => item?.label || item?.name || item?.comune_name || item?.municipality_name || "").filter(Boolean), [selectedMunicipalityItems]);
+  const selectedMunicipalityNames = useMemo(() => selectedMunicipalityItems.map(item => item?.comune || item?.name || item?.label || item?.comune_name || item?.municipality_name || "").filter(Boolean), [selectedMunicipalityItems]);
   const selectedMunicipalitySummary = useMemo(() => selectedMunicipalityItems.map(item => ({
     id: item?.id || item?.placeId || item?.place_id || null,
-    name: item?.label || item?.name || item?.comune_name || item?.municipality_name || "",
+    name: item?.comune || item?.name || item?.label || item?.comune_name || item?.municipality_name || "",
+    displayName: item?.displayName || item?.label || item?.name || "",
+    frazione: item?.localita || item?.frazione || null,
+    localita: item?.localita || item?.frazione || null,
+    comune: item?.comune || item?.name || "",
     lat: Number.isFinite(Number(item?.lat)) ? Number(item.lat) : null,
     lng: Number.isFinite(Number(item?.lng)) ? Number(item.lng) : null,
     istat_code: item?.istat_code || item?.municipalityCode || item?.municipality_code || null,
-    province: item?.prov || item?.province || item?.county || null
+    province: item?.provincia || item?.prov || item?.province || item?.county || null,
+    source: item?.source || null
   })).filter(item => item.name), [selectedMunicipalityItems]);
-  const selectedMunicipalityDisplayLabel = selectedMunicipalityNames.length > 1 ? `${selectedMunicipalityNames.length} comuni completi` : selectedMunicipalityNames[0] || "";
+  const selectedMunicipalityDisplayLabel = selectedMunicipalityNames.length > 1 ? `${selectedMunicipalityNames.length} comuni completi` : (selectedMunicipalityItems[0]?.displayName || selectedMunicipalityItems[0]?.label || selectedMunicipalityNames[0] || "");
   const searchedLocation = data.searchedLocation || "";
   const selectPrimaryMunicipality = useCallback(comune => {
     if (!comune) return;
+    const normalizedComune = {
+      ...comune,
+      name: comune.comune || comune.name,
+      label: comune.displayName || comune.label || comune.name,
+      displayName: comune.displayName || comune.label || comune.name,
+      comune: comune.comune || comune.name,
+      localita: comune.localita || null,
+      frazione: comune.localita || comune.frazione || null,
+      provincia: comune.provincia || comune.prov || null,
+      prov: comune.provincia || comune.prov || null,
+    };
     if (isStep2DebugEnabled()) {
       debugStep2Log("[STEP2_MULTI_COMUNE_STATE_DEBUG]", {
         action: "selectPrimaryMunicipality",
-        target: comune.label || comune.name
+        target: normalizedComune.displayName || normalizedComune.label || normalizedComune.name
       });
     }
-    setCity(comune);
-    setSelectedComuni([comune]);
-    setSearch(comune.label || comune.name || "");
+    setCity(normalizedComune);
+    setSelectedComuni([normalizedComune]);
+    setSearch(normalizedComune.displayName || normalizedComune.label || normalizedComune.name || "");
     setDropOpen(false);
     setSelected([]);
     setSelectedSearchPoint(null);
@@ -348,11 +366,22 @@ export function Step2({
   }, []);
   const selectMunicipalityAsRadiusCenter = useCallback(comune => {
     if (!comune) return;
+    const normalizedComune = {
+      ...comune,
+      name: comune.comune || comune.name,
+      label: comune.displayName || comune.label || comune.name,
+      displayName: comune.displayName || comune.label || comune.name,
+      comune: comune.comune || comune.name,
+      localita: comune.localita || null,
+      frazione: comune.localita || comune.frazione || null,
+      provincia: comune.provincia || comune.prov || null,
+      prov: comune.provincia || comune.prov || null,
+    };
     userModeRef.current = "address";
     setSearchMode("address");
-    setCity(comune);
-    setSelectedComuni([comune]);
-    setSearch(comune.label || comune.name || "");
+    setCity(normalizedComune);
+    setSelectedComuni([normalizedComune]);
+    setSearch(normalizedComune.displayName || normalizedComune.label || normalizedComune.name || "");
     setDropOpen(false);
     setSelected([]);
     setSelectedSearchPoint(null);
@@ -461,7 +490,18 @@ export function Step2({
   }, [isMovementStep2, step1OperationalLocation, step1OperationalPointType, step1OperationalQuery, hasSavedStep2Point, selectOperationalPoint]);
   const appendMunicipalityToActiveZone = useCallback(comune => {
     if (!comune) return;
-    const newKey = getMunicipalityDedupKey(comune);
+    const normalizedComune = {
+      ...comune,
+      name: comune.comune || comune.name,
+      label: comune.displayName || comune.label || comune.name,
+      displayName: comune.displayName || comune.label || comune.name,
+      comune: comune.comune || comune.name,
+      localita: comune.localita || null,
+      frazione: comune.localita || comune.frazione || null,
+      provincia: comune.provincia || comune.prov || null,
+      prov: comune.provincia || comune.prov || null,
+    };
+    const newKey = getMunicipalityDedupKey(normalizedComune);
     if (!newKey) return;
     setSelectedComuni(prev => {
       const existingKeys = new Set((prev || []).map(c => getMunicipalityDedupKey(c)).filter(Boolean));
@@ -469,26 +509,26 @@ export function Step2({
         if (isStep2DebugEnabled()) {
           debugStep2Log("[STEP2_MULTI_COMUNE_STATE_DEBUG]", {
             action: "appendMunicipality_duplicate_prevented",
-            target: comune.label || comune.name,
+            target: normalizedComune.displayName || normalizedComune.label || normalizedComune.name,
             existingKeys: Array.from(existingKeys)
           });
         }
-        setDuplicateComuneNotice(`Il comune "${comune.label || comune.name}" è già presente nella selezione.`);
+        setDuplicateComuneNotice(`Il comune "${normalizedComune.comune || normalizedComune.name}" è già presente nella selezione.`);
         setTimeout(() => setDuplicateComuneNotice(""), 4000);
         return prev;
       }
-      const next = [...(prev || []), comune];
+      const next = [...(prev || []), normalizedComune];
       if (isStep2DebugEnabled()) {
         debugStep2Log("[STEP2_MULTI_COMUNE_STATE_DEBUG]", {
           action: "appendMunicipality_success",
-          added: comune.label || comune.name,
+          added: normalizedComune.displayName || normalizedComune.label || normalizedComune.name,
           total: next.length
         });
       }
       return next;
     });
     if (!city) {
-      setCity(comune);
+      setCity(normalizedComune);
     }
     setSearch("");
     setDropOpen(false);
@@ -1274,10 +1314,10 @@ export function Step2({
   }), [city, selectedComuni, selectedSearchPoint, searchMode]);
   const selectedMunicipality = useMemo(() => {
     if (searchMode === "cap") return null;
-    const raw = city?.label || city?.name || selectedComuni?.[0]?.label || selectedComuni?.[0]?.name || null;
+    const raw = city?.comune || city?.name || city?.label || selectedComuni?.[0]?.comune || selectedComuni?.[0]?.name || selectedComuni?.[0]?.label || null;
     if (isResidentialStep2 && hasMilanoTerritory) return "Milano";
     return raw;
-  }, [searchMode, city?.label, city?.name, selectedComuni, isResidentialStep2, hasMilanoTerritory]);
+  }, [searchMode, city?.comune, city?.label, city?.name, selectedComuni, isResidentialStep2, hasMilanoTerritory]);
   const requestedAnalysisLevel = useMemo(() => isResidentialStep2 && hasMilanoTerritory ? "nil" : "comune", [isResidentialStep2, hasMilanoTerritory]);
   const analysisScope = useMemo(() => data.activeZoneId || "zone", [data.activeZoneId]);
   // Fix effective radius
@@ -1803,30 +1843,38 @@ export function Step2({
             // in precedenza solo Nominatim lo valorizzava, quindi Mapbox
             // mancava il fallback e indirizzi di confine sfuggivano.
             const mapboxSuggestions = d.features.map(f => {
-              const context = Array.isArray(f.context) ? f.context : [];
-              const postcode = context.find(x => String(x.id || "").startsWith("postcode"))?.text || null;
-              const place = context.find(x => String(x.id || "").startsWith("place"))?.text || null;
-              const province = context.find(x => String(x.id || "").startsWith("region"))?.short_code || null;
-              const houseNumber = f.address || null;
-              const street = f.text || null;
-              const fullLabel = f.place_name_it || f.place_name || f.text;
-              return {
-                id: f.id,
-                name: fullLabel,
-                fullName: fullLabel,
-                label: [street, houseNumber].filter(Boolean).join(" ") || street || fullLabel,
-                street,
-                houseNumber,
-                postcode,
-                city: place,
-                province,
-                lat: f.center[1],
-                lng: f.center[0],
-                placeType: f.place_type?.[0] || null,
-                providerPlaceId: f.id,
-                precision: f.place_type?.[0] || null
-              };
-            });
+              const pt = f.place_type?.[0] || null;
+              if (pt === "address" || pt === "poi") {
+                const context = Array.isArray(f.context) ? f.context : [];
+                const postcode = context.find(x => String(x.id || "").startsWith("postcode"))?.text || null;
+                const place = context.find(x => String(x.id || "").startsWith("place"))?.text || null;
+                const province = context.find(x => String(x.id || "").startsWith("region"))?.short_code || null;
+                const houseNumber = f.address || null;
+                const street = f.text || null;
+                const fullLabel = f.place_name_it || f.place_name || f.text;
+                return {
+                  id: f.id,
+                  name: fullLabel,
+                  fullName: fullLabel,
+                  label: [street, houseNumber].filter(Boolean).join(" ") || street || fullLabel,
+                  displayName: fullLabel,
+                  street,
+                  houseNumber,
+                  postcode,
+                  city: place,
+                  comune: place,
+                  province,
+                  provincia: province ? province.replace(/^IT-/i, "") : null,
+                  lat: f.center[1],
+                  lng: f.center[0],
+                  placeType: pt,
+                  providerPlaceId: f.id,
+                  precision: pt,
+                  source: "mapbox"
+                };
+              }
+              return normalizeLocationResult(f, "mapbox");
+            }).filter(Boolean);
             // §3 ticket: quando l'intent è indirizzo-in-Milano ma Mapbox
             // non ha restituito nessuna riga indirizzo, prova anche
             // Nominatim e unisci i risultati — Via Antonio Oroboni potrebbe
@@ -1841,30 +1889,30 @@ export function Step2({
                   });
                 });
                 if (nomAddresses.length > 0) {
-                  setGeocodeSuggestions([...nomAddresses, ...mapboxSuggestions]);
+                  setGeocodeSuggestions(rankLocationResults([...nomAddresses, ...mapboxSuggestions], search));
                   return;
                 }
               } catch {}
             }
-            setGeocodeSuggestions(mapboxSuggestions);
+            setGeocodeSuggestions(rankLocationResults(mapboxSuggestions, search));
             return;
           }
         } catch {}
       }
       try {
-        const nominatimFeatureType = searchIntent.intent === "address" || pointSearchIntent ? "" : "&featuretype=city";
-        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&format=json&addressdetails=1&limit=6${nominatimFeatureType}`);
+        const isAddressQuery = searchIntent.intent === "address" || pointSearchIntent;
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=it&format=json&addressdetails=1&limit=10`);
         const d = await r.json();
-        // addresstype è il campo Nominatim affidabile per il tipo di luogo
-        // (per "Brera, Milano" type/class valgono "census"/"boundary" — non
-        // identificano nulla — mentre addresstype vale correttamente
-        // "quarter"). type/class restano come fallback se addresstype manca.
-        setGeocodeSuggestions(d.map(f => {
+        const suggestions = d.map(f => {
           const pt = f.addresstype || f.type || f.class || null;
-          return normalizeNominatimGeocodeResult(f, {
-            addressLike: isAddressLikePlaceType(pt)
-          });
-        }));
+          if (isAddressQuery && isAddressLikePlaceType(pt)) {
+            return normalizeNominatimGeocodeResult(f, {
+              addressLike: true
+            });
+          }
+          return normalizeLocationResult(f, "nominatim");
+        }).filter(Boolean);
+        setGeocodeSuggestions(rankLocationResults(suggestions, search));
       } catch {
         setGeocodeSuggestions([]);
       }
@@ -1889,7 +1937,7 @@ export function Step2({
       // rate-limit il confine restava vuoto finché non si ricambiava comune.
       return;
     }
-    const cacheKey = targetComuniList.map(c => normalizeMunicipalityName(c.label || c.name)).filter(Boolean).sort().join('|');
+    const cacheKey = targetComuniList.map(c => normalizeMunicipalityName(c.comune || c.name || c.label)).filter(Boolean).sort().join('|');
     const cached = cacheKey ? municipalityBoundaryCacheRef.current.get(cacheKey) : null;
     if (cached) {
       setMunicipalityBoundary(cached);
@@ -1899,7 +1947,7 @@ export function Step2({
     (async () => {
       try {
         const results = await Promise.all(targetComuniList.map(async c => {
-          const name = c.label || c.name;
+          const name = c.comune || c.name || c.label;
           if (!name) return null;
           const cLat = Number(c.lat),
             cLng = Number(c.lng);

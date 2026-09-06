@@ -85,8 +85,8 @@ export function getMunicipalityDedupKey(comune) {
   if (!comune) return "";
   const code = comune.istat_code || comune.municipalityCode || comune.municipality_code || comune.nil_code || comune.nilCode || null;
   if (code) return String(code).trim();
-  const name = normalizeMunicipalityName(comune.name || comune.label || comune.comune_name || "");
-  const prov = String(comune.prov || comune.province || "").trim().toLowerCase();
+  const name = normalizeMunicipalityName(comune.comune || comune.name || comune.label || comune.comune_name || "");
+  const prov = String(comune.provincia || comune.prov || comune.province || "").trim().toLowerCase();
   return prov ? `${name}_${prov}` : name;
 }
 
