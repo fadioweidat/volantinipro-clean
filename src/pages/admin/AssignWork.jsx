@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   listAssignableOperators,
+  adminListSuppliers,
   createOperationalGroup,
   createOperatorAssignment,
   updateOperatorAssignment,
@@ -21,7 +22,7 @@ import { AssignWorkPreviewStep } from './assign-work/AssignWorkPreviewStep.jsx';
 import { AssignWorkResultStep } from './assign-work/AssignWorkResultStep.jsx';
 
 // ─── AssignWork ───────────────────────────────────────────────────────────────
-// Form a step per assegnare lavoro a un operatore e generare il link GPS personale.
+// Form a step per assegnare lavoro a un fornitore/operatore e generare il link GPS personale.
 // Può essere usato come pagina completa o come modale controllato dall'esterno.
 //
 // Props:
@@ -33,8 +34,9 @@ import { AssignWorkResultStep } from './assign-work/AssignWorkResultStep.jsx';
 export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = null, initialGroupId = null, initialOperatorId = null }) {
   const isEdit = Boolean(existingAssignment);
 
-  // Step 1=operatore, 2=programma, 3=prewiew, 4=risultato
+  // Step 1=fornitore e operatore, 2=programma, 3=anteprima, 4=risultato
   const [step, setStep] = useState(1);
+  const [suppliers, setSuppliers] = useState([]);
   const [operators, setOperators] = useState([]);
   const [groups, setGroups] = useState([]);
   const [zones, setZones] = useState([]);
@@ -49,6 +51,9 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   const [newGroupLeadId, setNewGroupLeadId] = useState(initialOperatorId || '');
 
   // Form state
+  const [selectedSupplierId, setSelectedSupplierId] = useState(
+    existingAssignment?.metadata?.supplier_id || existingAssignment?.supplier_id || ''
+  );
   const [selectedOperatorId, setSelectedOperatorId] = useState(existingAssignment?.operator_id || initialOperatorId || '');
   const [selectedGroupId, setSelectedGroupId] = useState(existingAssignment?.group_id || initialGroupId || '');
 
@@ -79,17 +84,33 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       setLoading(true);
       setError(null);
       try {
-        const [ops, zonesData, camp, existingZones] = await Promise.all([
+        const [suppliersRes, ops, zonesData, camp, existingZones] = await Promise.all([
+          adminListSuppliers().catch(() => ({ rows: [] })),
           listAssignableOperators().catch(() => []),
           getCampaignZonesWithGroups(campaignId),
           getCampaignRecord(campaignId).catch(() => null),
           isEdit ? listAssignmentZones(existingAssignment.id).catch(() => []) : Promise.resolve([]),
         ]);
         if (!cancelled) {
+          const suppList = Array.isArray(suppliersRes?.rows) ? suppliersRes.rows : [];
+          setSuppliers(suppList);
           setOperators(ops);
           setZones(zonesData.zones || []);
           setGroups(zonesData.groups || []);
           setCampaign(camp);
+
+          // Auto-select supplier from existing operator or campaign if not already set
+          if (!selectedSupplierId) {
+            if (initialOperatorId || existingAssignment?.operator_id) {
+              const targetOpId = initialOperatorId || existingAssignment?.operator_id;
+              const matchingOp = ops.find(o => o.id === targetOpId);
+              if (matchingOp?.supplier_id) {
+                setSelectedSupplierId(matchingOp.supplier_id);
+              }
+            } else if (camp?.supplier_id) {
+              setSelectedSupplierId(camp.supplier_id);
+            }
+          }
 
           if (isEdit && existingZones.length > 0) {
              const initObj = {};
@@ -109,6 +130,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
     return () => { cancelled = true; };
   }, [campaignId, isEdit, existingAssignment]);
 
+  const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId) || null;
   const selectedOperator = operators.find(op => op.id === selectedOperatorId) || null;
   const selectedGroup = groups.find(group => group.id === selectedGroupId) || null;
 
@@ -216,10 +238,13 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   }
 
   const canGoNext = useCallback(() => {
-    if (step === 1) return Boolean(selectedGroupId && selectedOperatorId);
+    if (step === 1) {
+      const hasSupplierRequirement = suppliers.length === 0 || Boolean(selectedSupplierId);
+      return Boolean(selectedGroupId && selectedOperatorId && hasSupplierRequirement);
+    }
     if (step === 2) return Boolean(startsAt && Object.keys(selectedZonesState).some(id => selectedZonesState[id]?.selected));
     return true;
-  }, [step, selectedGroupId, selectedOperatorId, startsAt, selectedZonesState]);
+  }, [step, selectedGroupId, selectedOperatorId, selectedSupplierId, suppliers.length, startsAt, selectedZonesState]);
 
   async function handleSave() {
     if (saving) return; // guard doppio click
@@ -230,6 +255,8 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
         notes,
         campaign_title: campaignTitle,
         operator_display_name: selectedOperator?.display_name || null,
+        supplier_id: selectedSupplierId || null,
+        supplier_name: selectedSupplier?.company_name || selectedSupplier?.contact_name || null,
       };
 
       // Validate ends_at > starts_at
@@ -423,10 +450,14 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
         </div>
       )}
 
-      {/* ── STEP 1: Scegli operatore ── */}
+      {/* ── STEP 1: Scegli fornitore e operatore ── */}
       {step === 1 && (
         <AssignWorkGroupOperatorStep
           Notice={Notice}
+          suppliers={suppliers}
+          selectedSupplierId={selectedSupplierId}
+          setSelectedSupplierId={setSelectedSupplierId}
+          selectedSupplier={selectedSupplier}
           groups={groups}
           selectedGroupId={selectedGroupId}
           setSelectedGroupId={setSelectedGroupId}
@@ -510,6 +541,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       {step === 3 && (
         <AssignWorkPreviewStep
           PreviewRow={PreviewRow}
+          selectedSupplier={selectedSupplier}
           selectedOperator={selectedOperator}
           selectedOperatorId={selectedOperatorId}
           selectedGroup={selectedGroup}
@@ -542,6 +574,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           Notice={Notice}
           savedAssignment={savedAssignment}
           generatedLink={generatedLink}
+          selectedSupplier={selectedSupplier}
           selectedOperator={selectedOperator}
           campaignTitle={campaignTitle}
           endsAt={endsAt}

@@ -148,13 +148,18 @@ export function CampaignTracking({ campaignId }) {
         <header style={{ marginBottom: 22 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
             <div>
-              <a href={backHref} style={breadcrumbStyle}>
-                Dashboard Cliente <span style={{ color: 'rgba(255,255,255,.3)' }}>›</span> Campagna {campaignTitle} <span style={{ color: 'rgba(255,255,255,.3)' }}>›</span> Tracking
-              </a>
+              <nav aria-label="Breadcrumbs" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 8, fontSize: 13 }}>
+                <a href="/dashboard" style={{ ...breadcrumbStyle, marginBottom: 0 }}>Dashboard Cliente</a>
+                <span style={{ color: 'rgba(255,255,255,.35)' }}>›</span>
+                <a href={backHref} style={{ ...breadcrumbStyle, marginBottom: 0 }}>Campagna {campaignTitle}</a>
+                <span style={{ color: 'rgba(255,255,255,.35)' }}>›</span>
+                <span style={{ color: 'rgba(255,255,255,.85)', fontWeight: 700, fontSize: 12 }}>Tracking Live</span>
+              </nav>
               <h1 style={titleStyle}>Tracking Campagna {campaignTitle}</h1>
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <a href={backHref} style={secondaryBtnStyle}>Torna alla campagna</a>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <a href={backHref} style={secondaryBtnStyle}>← Torna alla campagna</a>
+              <a href="/dashboard" style={secondaryBtnStyle}>⌂ Dashboard</a>
               <button
                 type="button"
                 onClick={() => setRefreshNonce((n) => n + 1)}

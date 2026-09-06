@@ -259,7 +259,7 @@ await test("scritture e manipolazioni non invocano il tool", async () => {
 await test("Step2 pubblica lo snapshot reale al pannello contestuale condiviso", () => {
   const entrypoint = readFileSync(new URL("../src/pages/public/configurator/Step2.jsx", import.meta.url), "utf8");
   assert.match(entrypoint, /import \{ buildTerritorialAiSnapshot \} from "\.\.\/\.\.\/\.\.\/lib\/step2\/buildTerritorialAiSnapshot\.mjs";/);
-  assert.match(entrypoint, /buildQuoteAssistantStep2Context\(assistantSnapshot, data\)/);
+  assert.match(entrypoint, /buildQuoteAssistantStep2Context\(assistantSnapshot,\s*data/);
   assert.match(entrypoint, /onAssistantContextChange\?\.\(assistantContext\)/);
   assert.doesNotMatch(entrypoint, /<TerritorialStep2AiBoundary/);
 });

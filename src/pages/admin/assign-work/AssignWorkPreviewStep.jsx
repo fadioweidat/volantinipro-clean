@@ -1,4 +1,4 @@
-export function AssignWorkPreviewStep({ PreviewRow, selectedOperator, selectedOperatorId, selectedGroup, campaignTitle, getSelectedProgramRows, startsAt, endsAt, notes, saving, isEdit, handleSave, setStep, styles }) {
+export function AssignWorkPreviewStep({ PreviewRow, selectedSupplier, selectedOperator, selectedOperatorId, selectedGroup, campaignTitle, getSelectedProgramRows, startsAt, endsAt, notes, saving, isEdit, handleSave, setStep, styles }) {
   const { cardStyle, eyebrowStyle, sectionTitleStyle, previewGridStyle, footerRowStyle, secondaryBtnStyle, primaryBtnStyle, disabledBtnStyle } = styles;
   return (
         <div style={cardStyle}>
@@ -6,6 +6,12 @@ export function AssignWorkPreviewStep({ PreviewRow, selectedOperator, selectedOp
           <h2 style={sectionTitleStyle}>Conferma i dati</h2>
 
           <div style={previewGridStyle}>
+            {selectedSupplier && (
+              <PreviewRow
+                label="Fornitore"
+                value={`${selectedSupplier.company_name}${selectedSupplier.contact_name ? ` (Ref: ${selectedSupplier.contact_name})` : ''}`}
+              />
+            )}
             <PreviewRow label="Operatore" value={selectedOperator?.display_name || selectedOperatorId} />
             <PreviewRow label="Gruppo" value={selectedGroup?.name || 'Gruppo non disponibile'} />
             <PreviewRow label="Campagna" value={campaignTitle} />

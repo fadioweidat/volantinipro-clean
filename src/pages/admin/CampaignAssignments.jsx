@@ -29,6 +29,7 @@ export function CampaignAssignments({ campaignId }) {
   const [saving, setSaving] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [revokeTargetAssignment, setRevokeTargetAssignment] = useState(null);
 
   const load = useCallback(async (cancelledRef = { current: false }) => {
     setState(prev => ({ ...prev, loading: true, error: null }));
@@ -69,23 +70,29 @@ export function CampaignAssignments({ campaignId }) {
     return acc;
   }, {});
 
-  async function handleRevoke(id) {
-    if (!window.confirm('Revocare questa assegnazione? Il driver non potrà più avviare sessioni GPS.')) return;
+  async function executeRevoke() {
+    if (!revokeTargetAssignment) return;
+    const id = revokeTargetAssignment.id;
     setSaving(true);
     try {
       await revokeOperatorAssignment(id);
       setState(prev => ({
         ...prev,
-        notice: 'Assegnazione revocata con successo.',
+        notice: 'Assegnazione revocata con successo. Il link non è più utilizzabile.',
         assignments: prev.assignments.map(a =>
           a.id === id ? { ...a, status: 'revoked' } : a
         ),
       }));
+      setRevokeTargetAssignment(null);
     } catch (err) {
       setState(prev => ({ ...prev, error: err?.message || 'Errore revoca.' }));
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleRevoke(assignment) {
+    setRevokeTargetAssignment(assignment);
   }
 
   async function handleUpdateEndsAt(id) {
@@ -293,7 +300,7 @@ export function CampaignAssignments({ campaignId }) {
                         type="button"
                         style={{ ...smallBtnStyle, color: '#fca5a5', borderColor: 'rgba(239,68,68,.35)' }}
                         disabled={saving}
-                        onClick={() => handleRevoke(a.id)}
+                        onClick={() => handleRevoke(a)}
                       >
                         🚫 Revoca
                       </button>
@@ -305,6 +312,39 @@ export function CampaignAssignments({ campaignId }) {
           </div>
         )}
       </section>
+
+      {/* Confirmation Modal for Revocation */}
+      {revokeTargetAssignment && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.75)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#111827', border: '1px solid #374151', borderRadius: 14, padding: 24, maxWidth: 440, width: '100%', boxShadow: '0 20px 50px rgba(0,0,0,.5)' }}>
+            <h3 style={{ margin: '0 0 8px', color: '#fff', fontSize: 18 }}>Revocare questa assegnazione?</h3>
+            <p style={{ margin: '0 0 16px', color: 'rgba(255,255,255,.7)', fontSize: 13, lineHeight: 1.4 }}>
+              Il link personale dell'operatore <strong>{revokeTargetAssignment.operator_name || 'Operatore'}</strong> verrà disattivato immediatamente.
+            </p>
+            <div style={{ padding: 12, borderRadius: 8, background: 'rgba(46,204,138,.08)', border: '1px solid rgba(46,204,138,.2)', marginBottom: 18, fontSize: 12, color: '#86efac' }}>
+              ✓ <strong>Sicurezza dati:</strong> Tutte le tracce GPS, i punti registrati e le foto prova già caricate restano integre e storicizzate nella campagna.
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                style={{ ...smallBtnStyle, padding: '8px 16px', fontSize: 13 }}
+                disabled={saving}
+                onClick={() => setRevokeTargetAssignment(null)}
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                style={{ ...smallBtnStyle, background: '#ef4444', color: '#fff', borderColor: '#dc2626', padding: '8px 16px', fontSize: 13, fontWeight: 800 }}
+                disabled={saving}
+                onClick={executeRevoke}
+              >
+                {saving ? 'Revoca in corso…' : '🚫 Conferma revoca'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

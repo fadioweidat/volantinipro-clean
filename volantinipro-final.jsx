@@ -5796,16 +5796,28 @@ export function CampaignDashboardPage({
           marginBottom: 22
         }}>
             <div>
-              <button onClick={() => onNav("dashboard")} style={{
-              padding: 0,
-              border: "none",
-              background: "transparent",
-              color: "rgba(255,255,255,.45)",
-              fontFamily: F.sans,
-              fontSize: 12,
-              cursor: "pointer",
-              marginBottom: 9
-            }}>Dashboard  Campagna #{String(campagna.id).slice(0, 8)}</button>
+              <nav aria-label="Breadcrumbs" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 9, fontSize: 13 }}>
+                <button
+                  type="button"
+                  onClick={() => onNav("dashboard")}
+                  style={{
+                    padding: 0,
+                    border: "none",
+                    background: "transparent",
+                    color: "rgba(255,255,255,.65)",
+                    fontFamily: F.sans,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                  }}
+                >
+                  Dashboard Cliente
+                </button>
+                <span style={{ color: "rgba(255,255,255,.35)", fontSize: 12 }}>›</span>
+                <span style={{ color: "rgba(255,255,255,.85)", fontFamily: F.sans, fontSize: 12, fontWeight: 700 }}>
+                  Campagna #{String(campagna.id).slice(0, 8)}
+                </span>
+              </nav>
               <h1 style={{
               fontFamily: F.serif,
               fontSize: 34,
@@ -5819,29 +5831,44 @@ export function CampaignDashboardPage({
               marginTop: 6
             }}>{campagna.quantita == null ? customerValue(null) : `${campagna.quantita.toLocaleString("it-IT")} volantini`}  Smart Pairing {campagna.smart_pairing_sconto == null ? customerValue(null) : `${campagna.smart_pairing_sconto}%`}</div>
             </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button onClick={() => onNav(`customer-tracking:${campagna.id}`)} style={{
-            minHeight: 44,
-            padding: "0 16px",
-            borderRadius: 10,
-            border: "1px solid rgba(255,255,255,.12)",
-            background: "rgba(255,255,255,.05)",
-            color: C.white,
-            fontFamily: F.sans,
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: "pointer"
-          }}>Tracking live</button><button onClick={() => onNav(`customer-report:${campagna.id}`)} style={{
-            minHeight: 44,
-            padding: "0 16px",
-            borderRadius: 10,
-            border: "1px solid rgba(255,255,255,.12)",
-            background: "rgba(255,255,255,.05)",
-            color: C.white,
-            fontFamily: F.sans,
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: "pointer"
-          }}>Apri report</button></div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <button onClick={() => onNav("dashboard")} style={{
+                minHeight: 44,
+                padding: "0 16px",
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,.12)",
+                background: "rgba(255,255,255,.05)",
+                color: C.white,
+                fontFamily: F.sans,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer"
+              }}>← Torna alla dashboard</button>
+              <button onClick={() => onNav(`customer-tracking:${campagna.id}`)} style={{
+                minHeight: 44,
+                padding: "0 16px",
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,.12)",
+                background: "rgba(255,255,255,.05)",
+                color: C.white,
+                fontFamily: F.sans,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer"
+              }}>Tracking live</button>
+              <button onClick={() => onNav(`customer-report:${campagna.id}`)} style={{
+                minHeight: 44,
+                padding: "0 16px",
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,.12)",
+                background: "rgba(255,255,255,.05)",
+                color: C.white,
+                fontFamily: F.sans,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer"
+              }}>Apri report</button>
+            </div>
           </div>
 
           {/* Marketplace: preventivi Fornitore ricevuti + selezione. Il

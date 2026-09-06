@@ -1,4 +1,4 @@
-export function AssignWorkResultStep({ PreviewRow, Notice, savedAssignment, generatedLink, selectedOperator, campaignTitle, endsAt, getSelectedZoneNames, copiedLink, copiedMsg, handleCopyLink, handleCopyMsg, handleWhatsApp, handleRevoke, buildWhatsAppMsg, saving, setStep, setSavedAssignment, onClose, styles }) {
+export function AssignWorkResultStep({ PreviewRow, Notice, savedAssignment, generatedLink, selectedSupplier, selectedOperator, campaignTitle, endsAt, getSelectedZoneNames, copiedLink, copiedMsg, handleCopyLink, handleCopyMsg, handleWhatsApp, handleRevoke, buildWhatsAppMsg, saving, setStep, setSavedAssignment, onClose, styles }) {
   const { cardStyle, eyebrowStyle, sectionTitleStyle, previewGridStyle, linkBoxStyle, linkTextStyle, msgPreviewStyle, primaryBtnStyle, secondaryBtnStyle, whatsappBtnStyle } = styles;
   return (
         <div style={cardStyle}>
@@ -15,6 +15,12 @@ export function AssignWorkResultStep({ PreviewRow, Notice, savedAssignment, gene
           )}
 
           <div style={previewGridStyle}>
+            {selectedSupplier && (
+              <PreviewRow
+                label="Fornitore"
+                value={`${selectedSupplier.company_name}${selectedSupplier.contact_name ? ` (Ref: ${selectedSupplier.contact_name})` : ''}`}
+              />
+            )}
             <PreviewRow label="Operatore" value={selectedOperator?.display_name || savedAssignment.operator_id} />
             <PreviewRow label="Campagna" value={campaignTitle} />
             <PreviewRow label="Zone (Programma)" value={getSelectedZoneNames().join(', ') || 'Nessuna specifica'} />
@@ -38,6 +44,35 @@ export function AssignWorkResultStep({ PreviewRow, Notice, savedAssignment, gene
               </button>
             </div>
           </div>
+
+          {/* Quick supplier contact bar if supplier exists */}
+          {selectedSupplier && (selectedSupplier.phone || selectedSupplier.email) && (
+            <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,.6)' }}>
+                Contatto diretto fornitore (<strong>{selectedSupplier.company_name}</strong>):
+              </span>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {selectedSupplier.phone && (
+                  <a
+                    href={`https://wa.me/${selectedSupplier.phone.replace(/[^\d+]/g, '')}?text=${encodeURIComponent(buildWhatsAppMsg())}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ ...secondaryBtnStyle, fontSize: 12, padding: '4px 10px', background: 'rgba(46,204,138,.12)', color: '#86efac', borderColor: 'rgba(46,204,138,.25)' }}
+                  >
+                    📱 WhatsApp Fornitore
+                  </a>
+                )}
+                {selectedSupplier.email && (
+                  <a
+                    href={`mailto:${selectedSupplier.email}?subject=${encodeURIComponent(`Assegnazione lavoro - ${campaignTitle}`)}&body=${encodeURIComponent(buildWhatsAppMsg())}`}
+                    style={{ ...secondaryBtnStyle, fontSize: 12, padding: '4px 10px' }}
+                  >
+                    ✉️ Email Fornitore
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Messaggio anteprima */}
           <details style={{ marginTop: 12 }}>

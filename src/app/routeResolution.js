@@ -23,19 +23,15 @@ export function resolveAppRoute(path, { hasAuthHash = false, prefillHas = false,
   const adminRoute = p.match(/^\/admin\/campaigns\/([^/]+)\/(gps|operations|groups|report|assignments)$/);
   if (adminRoute) return `admin-${adminRoute[2]}:${adminRoute[1]}`;
   if (p.startsWith('/admin')) return 'admin';
-  const customerRoute = p.match(/^\/customer\/campaigns\/([^/]+)\/(tracking|report|payment)$/);
-  if (customerRoute) return `customer-${customerRoute[2]}:${customerRoute[1]}`;
-  const dashboardPayment = p.match(/^\/dashboard\/([^/]+)\/payment$/);
-  if (dashboardPayment) return `customer-payment:${dashboardPayment[1]}`;
-  const dashboardCampaign = p.match(/^\/dashboard\/([^/]+)$/);
+  const customerRoute = p.match(/^\/(?:customer\/campaigns|cliente\/campagna|campagna|dashboard)\/([^/]+)\/(tracking|report|pagamento|payment)$/);
+  if (customerRoute) {
+    const action = customerRoute[2] === 'pagamento' ? 'payment' : customerRoute[2];
+    return `customer-${action}:${customerRoute[1]}`;
+  }
+  const dashboardCampaign = p.match(/^\/(?:dashboard|campagna|cliente\/campagna)\/([^/]+)$/);
   if (dashboardCampaign) return `campaign:${dashboardCampaign[1]}`;
-  const legacyReport = p.match(/^\/campagna\/([^/]+)\/report$/);
-  if (legacyReport) return `customer-report:${legacyReport[1]}`;
-  const legacyPayment = p.match(/^\/campagna\/([^/]+)\/pagamento$/);
-  if (legacyPayment) return `customer-payment:${legacyPayment[1]}`;
-  const legacyCampaign = p.match(/^\/campagna\/([^/]+)$/);
-  if (legacyCampaign) return `campaign:${legacyCampaign[1]}`;
-  if (p.startsWith('/customer/') || p.startsWith('/dashboard/') || p.startsWith('/campagna/')) return 'not-found';
+  if (p === '/cliente/dashboard') return 'dashboard';
+  if (p.startsWith('/customer/') || p.startsWith('/dashboard/') || p.startsWith('/campagna/') || p.startsWith('/cliente/')) return 'not-found';
   if (p === '/supplier' || p === '/supplier/dashboard') return 'supplier-dashboard';
   if (p === '/' || p === '/index.html' || p === '/volantinipro-final.jsx') return 'home';
   if (p === '/login') return 'login';

@@ -6,6 +6,7 @@ import {
   buildDriverWhatsAppMessage,
 } from '../../lib/services/admin-api.js';
 import { confirmCampaignPayment } from '../../lib/supabaseClient.js';
+import { adminCancelCampaign, adminArchiveCampaign } from '../../lib/services/admin-transitions-api.js';
 import { ClientsQuotesSearchBar } from './clients-quotes/ClientsQuotesSearchBar.jsx';
 import {
   CQ_FILTERS,
@@ -66,6 +67,11 @@ export function ClientsQuotes({ onNav }) {
   const [paymentConfirmRow, setPaymentConfirmRow] = useState(null); // riga in corso di conferma pagamento
   const [paymentConfirmBusy, setPaymentConfirmBusy] = useState(false);
   const [paymentConfirmError, setPaymentConfirmError] = useState('');
+  const [actionModalRow, setActionModalRow] = useState(null);
+  const [actionModalType, setActionModalType] = useState(null); // 'cancel' | 'archive'
+  const [actionModalBusy, setActionModalBusy] = useState(false);
+  const [actionModalError, setActionModalError] = useState('');
+  const [actionModalReason, setActionModalReason] = useState('');
 
   // background=true (polling periodico, stesso intervallo di 30s gia' usato
   // da AdminDashboard.jsx) evita lo spinner a schermo intero e non svuota le
@@ -309,6 +315,8 @@ export function ClientsQuotes({ onNav }) {
                   Invia programma
                 </ActionBtn>
                 <ActionBtn onClick={() => handleGps(row)} disabled={row.gpsStatus === 'non_disponibile'}>GPS</ActionBtn>
+                <ActionBtn onClick={() => { setActionModalRow(row); setActionModalType('cancel'); setActionModalReason(''); setActionModalError(''); }} style={{ color: '#fca5a5' }}>Annulla</ActionBtn>
+                <ActionBtn onClick={() => { setActionModalRow(row); setActionModalType('archive'); setActionModalReason(''); setActionModalError(''); }}>Archivia</ActionBtn>
               </div>
             </div>
           );
@@ -347,6 +355,52 @@ export function ClientsQuotes({ onNav }) {
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <ActionBtn onClick={() => { setPaymentConfirmRow(null); setPaymentConfirmError(''); }} disabled={paymentConfirmBusy}>Annulla</ActionBtn>
               <ActionBtn onClick={handleConfirmPayment} disabled={paymentConfirmBusy} accent>{paymentConfirmBusy ? 'Conferma in corso…' : 'Conferma pagamento'}</ActionBtn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Cancel / Archive */}
+      {actionModalRow && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.75)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: C.navyLight, border: '1px solid #374151', borderRadius: 14, padding: 24, maxWidth: 440, width: '100%', boxShadow: '0 20px 50px rgba(0,0,0,.5)' }}>
+            <h3 style={{ margin: '0 0 8px', color: C.white, fontSize: 18 }}>
+              {actionModalType === 'cancel' ? 'Conferma annullamento preventivo' : 'Conferma archiviazione preventivo'}
+            </h3>
+            <p style={{ margin: '0 0 16px', color: C.gray, fontSize: 13, lineHeight: 1.4 }}>
+              {actionModalType === 'cancel'
+                ? `La campagna "${actionModalRow.client}" passerà allo stato ANNULLATA. Eventuali pagamenti e assegnazioni storiche non vengono toccati.`
+                : `La campagna "${actionModalRow.client}" verrà ARCHIVIATA e rimossa dalle viste operative correnti. Tutti i dati e lo storico restano intatti.`}
+            </p>
+            <div style={{ padding: 12, borderRadius: 8, background: 'rgba(46,204,138,.08)', border: '1px solid rgba(46,204,138,.2)', marginBottom: 16, fontSize: 12, color: '#86efac' }}>
+              ✓ <strong>Garanzia sicurezza:</strong> Nessun dato storico (GPS, pagamenti, foto o report) viene cancellato o corrotto.
+            </div>
+            <label style={{ display: 'block', marginBottom: 16, fontSize: 12, color: C.gray, fontWeight: 700 }}>
+              Motivo (opzionale):
+              <input
+                type="text"
+                value={actionModalReason}
+                onChange={(e) => setActionModalReason(e.target.value)}
+                placeholder="es. Richiesta cliente, riprogrammazione..."
+                style={{ width: '100%', marginTop: 6, padding: '8px 12px', background: '#0d1e30', border: '1px solid rgba(255,255,255,.15)', borderRadius: 8, color: '#fff', fontSize: 13 }}
+              />
+            </label>
+            {actionModalError && (
+              <div style={{ background: 'rgba(239,68,68,.1)', border: '1px solid #ef4444', color: '#ef4444', padding: 10, borderRadius: 6, marginBottom: 14, fontSize: 13 }}>
+                {actionModalError}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <ActionBtn onClick={() => { setActionModalRow(null); setActionModalType(null); }} disabled={actionModalBusy}>
+                Indietro
+              </ActionBtn>
+              <ActionBtn
+                onClick={handleExecuteAction}
+                disabled={actionModalBusy}
+                style={{ background: actionModalType === 'cancel' ? '#ef4444' : '#e8571a', color: '#fff' }}
+              >
+                {actionModalBusy ? 'Elaborazione…' : (actionModalType === 'cancel' ? 'Conferma annulla' : 'Conferma archivia')}
+              </ActionBtn>
             </div>
           </div>
         </div>

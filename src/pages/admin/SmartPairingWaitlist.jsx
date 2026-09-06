@@ -38,6 +38,7 @@ export function SmartPairingWaitlist({ onNav }) {
   const [actionNotice, setActionNotice] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [confirmCloseRequest, setConfirmCloseRequest] = useState(null);
   const [editNote, setEditNote] = useState('');
 
   async function loadRequests() {
@@ -533,6 +534,15 @@ export function SmartPairingWaitlist({ onNav }) {
                     >
                       📝 Modifica / Note interne
                     </button>
+                    {req.status !== 'closed' && (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmCloseRequest(req)}
+                        style={{ background: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.25)', color: '#fca5a5' }}
+                      >
+                        🗑 Chiudi / Archivia
+                      </button>
+                    )}
                   </div>
                 </article>
               );
@@ -540,6 +550,65 @@ export function SmartPairingWaitlist({ onNav }) {
           </div>
         )}
       </section>
+
+      {/* MODAL CONFERMA CHIUSURA / RIMOZIONE */}
+      {confirmCloseRequest && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={() => setConfirmCloseRequest(null)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 440,
+              background: '#0b1420',
+              border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: 16,
+              padding: 24,
+              boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: '0 0 8px', color: '#fff', fontSize: 18 }}>
+              Chiudere e archiviare questa richiesta?
+            </h3>
+            <p style={{ margin: '0 0 16px', color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 1.4 }}>
+              La richiesta di <strong>{confirmCloseRequest.nome || 'Cliente'}</strong> per la zona di <strong>{confirmCloseRequest.comune || 'Comune'}</strong> verrà segnata come <em>Chiusa</em>.
+            </p>
+            <div style={{ padding: 12, borderRadius: 8, background: 'rgba(46,204,138,0.08)', border: '1px solid rgba(46,204,138,0.2)', marginBottom: 18, fontSize: 12, color: '#86efac' }}>
+              ✓ I contatti, le note e lo storico della richiesta rimarranno consultabili nella scheda &ldquo;Gestite&rdquo;.
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#fff', cursor: 'pointer' }}
+                onClick={() => setConfirmCloseRequest(null)}
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 800, cursor: 'pointer' }}
+                onClick={() => {
+                  handleStatusChange(confirmCloseRequest.id, 'closed');
+                  setConfirmCloseRequest(null);
+                }}
+              >
+                Conferma chiusura
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL / DRAWER MODIFICA NOTE */}
       {selectedRequest && (

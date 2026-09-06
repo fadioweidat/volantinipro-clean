@@ -29,6 +29,8 @@ export function GroupsManager({ onNav }) {
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [editingGroupName, setEditingGroupName] = useState('');
   const [busyGroupId, setBusyGroupId] = useState(null);
+  const [confirmDeactivateGroup, setConfirmDeactivateGroup] = useState(null);
+  const [confirmRemoveMember, setConfirmRemoveMember] = useState(null);
 
   async function load() {
     try {
@@ -63,13 +65,6 @@ export function GroupsManager({ onNav }) {
   }
 
   function openGroupWhatsApp(group) {
-    // Il link deve sempre puntare al programma CORRENTE del gruppo: le
-    // assignment sono ordinate piu' recente-prima (selectOptionalTable
-    // ordina per created_at desc), quindi activeAssignments[0] e' sempre
-    // l'ultima creata e non revocata. Prima si cercava l'assignment del
-    // primo membro con telefono (group.members.find) — se quel membro aveva
-    // una assignment piu' vecchia per lo stesso gruppo, il link generato
-    // era quello vecchio invece del programma davvero attivo oggi.
     const assignment = group.activeAssignments[0] || null;
     const member = group.members.find((item) => (item.id || item.user_id) === assignment?.operator_id && item.phone)
       || group.members.find((item) => item.phone);
@@ -116,24 +111,32 @@ export function GroupsManager({ onNav }) {
     finally { setBusyGroupId(null); }
   }
 
-  async function removeMember(group, memberId) {
+  async function executeRemoveMember() {
+    if (!confirmRemoveMember) return;
+    const { group, memberId } = confirmRemoveMember;
     const assignments = group.activeAssignments.filter((item) => item.operator_id === memberId);
-    if (!assignments.length) return;
+    if (!assignments.length) {
+      setConfirmRemoveMember(null);
+      return;
+    }
     try {
       setBusyGroupId(group.id);
       await Promise.all(assignments.map((item) => revokeOperatorAssignment(item.id)));
       setNotice('Persona rimossa dai programmi attivi. Lo storico è stato conservato.');
+      setConfirmRemoveMember(null);
       await load();
     } catch (error) { setNotice(error?.message || 'Impossibile rimuovere la persona.'); }
     finally { setBusyGroupId(null); }
   }
 
-  async function deactivateGroup(group) {
-    if (!window.confirm(`Revocare tutti i programmi attivi di ${group.name}? Gruppo e storico resteranno disponibili.`)) return;
+  async function executeDeactivateGroup() {
+    if (!confirmDeactivateGroup) return;
+    const group = confirmDeactivateGroup;
     try {
       setBusyGroupId(group.id);
       const count = await deactivateOperationalGroup(group.activeAssignments);
       setNotice(count ? `${count} programmi attivi revocati. Gruppo e storico conservati.` : 'Il gruppo non aveva programmi attivi.');
+      setConfirmDeactivateGroup(null);
       await load();
     } catch (error) { setNotice(error?.message || 'Impossibile disattivare i programmi del gruppo.'); }
     finally { setBusyGroupId(null); }
@@ -174,7 +177,18 @@ export function GroupsManager({ onNav }) {
                   <StatusDot status={group.presence} />
                 </div>
                 <div className="admin-home__members">
-                  {group.members.length ? group.members.map((member) => <span key={member.id || member.user_id}>{member.display_name || 'Persona'}<button type="button" aria-label={`Rimuovi ${member.display_name || 'persona'}`} onClick={() => removeMember(group, member.id || member.user_id)}>×</button></span>) : <em>Nessuna persona con programma attivo</em>}
+                  {group.members.length ? group.members.map((member) => (
+                    <span key={member.id || member.user_id}>
+                      {member.display_name || 'Persona'}
+                      <button
+                        type="button"
+                        aria-label={`Rimuovi ${member.display_name || 'persona'}`}
+                        onClick={() => setConfirmRemoveMember({ group, memberId: member.id || member.user_id, memberName: member.display_name || 'Persona' })}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  )) : <em>Nessuna persona con programma attivo</em>}
                 </div>
                 <p className="admin-home__history">{group.members.length} {group.members.length === 1 ? 'membro' : 'membri'} · Referente: {group.lead_name || 'non configurato'} · {group.activeAssignments.length} programmi attivi</p>
                 <div className="admin-home__card-actions">
@@ -183,7 +197,7 @@ export function GroupsManager({ onNav }) {
                   <button type="button" onClick={() => openWizard(group.campaign_id, group.id)}>Assegna lavoro</button>
                   <button type="button" onClick={() => openGroupWhatsApp(group)}>WhatsApp</button>
                   <a href={`/admin/campaigns/${group.campaign_id}/groups`}>Copia link gruppo</a>
-                  <button type="button" disabled={busyGroupId === group.id} onClick={() => deactivateGroup(group)}>Disattiva programmi</button>
+                  <button type="button" disabled={busyGroupId === group.id} onClick={() => setConfirmDeactivateGroup(group)}>Disattiva programmi</button>
                 </div>
               </article>
             ))}
@@ -197,6 +211,68 @@ export function GroupsManager({ onNav }) {
           <div className="admin-home__campaign-picker"><h3>Step A · Scegli campagna</h3>{realCampaigns.map((campaign) => <button type="button" key={campaign.id} onClick={() => setWizardCampaignId(campaign.id)}><strong>{campaignName(campaign)}</strong><span>{campaign.qty ? `${campaign.qty.toLocaleString('it-IT')} volantini` : 'Quantità non disponibile'}</span></button>)}</div>
         ) : <AssignWork key={`${wizardCampaignId}:${wizardGroupId}:${wizardOperatorId}`} campaignId={wizardCampaignId} initialGroupId={wizardGroupId} initialOperatorId={wizardOperatorId} onSaved={() => load()} onClose={() => { setWizardOpen(false); setWizardCampaignId(''); setWizardGroupId(''); setWizardOperatorId(''); }} />)}
       </section>
+
+      {/* Confirmation Modal for Remove Member */}
+      {confirmRemoveMember && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.75)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#111827', border: '1px solid #374151', borderRadius: 14, padding: 24, maxWidth: 440, width: '100%', boxShadow: '0 20px 50px rgba(0,0,0,.5)' }}>
+            <h3 style={{ margin: '0 0 8px', color: '#fff', fontSize: 18 }}>Rimuovere {confirmRemoveMember.memberName} dal gruppo?</h3>
+            <p style={{ margin: '0 0 16px', color: 'rgba(255,255,255,.7)', fontSize: 13, lineHeight: 1.4 }}>
+              L'operatore verrà rimosso dai programmi attivi del gruppo <strong>{confirmRemoveMember.group.name}</strong>.
+            </p>
+            <div style={{ padding: 12, borderRadius: 8, background: 'rgba(46,204,138,.08)', border: '1px solid rgba(46,204,138,.2)', marginBottom: 18, fontSize: 12, color: '#86efac' }}>
+              ✓ <strong>Storico sicuro:</strong> Tutte le sessioni GPS e lo storico distribuzioni registrate rimangono intatte.
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,.2)', background: 'transparent', color: '#fff', cursor: 'pointer' }}
+                onClick={() => setConfirmRemoveMember(null)}
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 800, cursor: 'pointer' }}
+                onClick={executeRemoveMember}
+              >
+                Rimuovi persona
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Deactivate Group */}
+      {confirmDeactivateGroup && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.75)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#111827', border: '1px solid #374151', borderRadius: 14, padding: 24, maxWidth: 440, width: '100%', boxShadow: '0 20px 50px rgba(0,0,0,.5)' }}>
+            <h3 style={{ margin: '0 0 8px', color: '#fff', fontSize: 18 }}>Disattivare i programmi attivi di {confirmDeactivateGroup.name}?</h3>
+            <p style={{ margin: '0 0 16px', color: 'rgba(255,255,255,.7)', fontSize: 13, lineHeight: 1.4 }}>
+              I link driver attivi collegati a questo gruppo verranno revocati.
+            </p>
+            <div style={{ padding: 12, borderRadius: 8, background: 'rgba(46,204,138,.08)', border: '1px solid rgba(46,204,138,.2)', marginBottom: 18, fontSize: 12, color: '#86efac' }}>
+              ✓ Il gruppo, i membri e tutti i dati storici registrati rimarranno disponibili nel sistema.
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,.2)', background: 'transparent', color: '#fff', cursor: 'pointer' }}
+                onClick={() => setConfirmDeactivateGroup(null)}
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 800, cursor: 'pointer' }}
+                onClick={executeDeactivateGroup}
+              >
+                Disattiva programmi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }
