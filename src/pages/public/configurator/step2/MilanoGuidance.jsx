@@ -1,4 +1,5 @@
 import React from "react";
+import TerritoryGeometryPreview from "./TerritoryGeometryPreview.jsx";
 import { C, F } from "../../../../lib/constants.js";
 import {
   summariseNilCoverage,
@@ -145,6 +146,8 @@ export function MilanoGuidance({
           distribuzione attorno a un punto.
         </p>
       </div>
+
+      <TerritoryGeometryPreview />
 
       {/* Summary card NIL (§4 + §9) — SOLO valori Step 2 esistenti. */}
       <div style={card}>
