@@ -24,6 +24,7 @@ import { getMunicipalityCenterPoint, selectRoadsFromOrigin } from '../../lib/geo
 import { mergeRoadNetworks, assignWayZoneId } from '../../lib/geo/mergeRoadNetworks.js';
 import { splitPolylineByCircle, polylineLengthMeters } from '../../lib/geo/splitPolylineByCircle.js';
 import { getOperatorColor, UNASSIGNED_OPERATOR_COLOR } from '../../lib/geo/operatorColor.js';
+import { operatorKeyFor } from '../../lib/geo/operatorSplit.js';
 import { geometryToLeafletLines, isPolygonGeometry, geometryFirstLatLng } from '../../lib/geo/adjustmentGeometry.js';
 
 // Modello obbligatorio: traccia GPS reale + correzioni manuali Admin + zone
@@ -240,9 +241,11 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
   const operatorOptions = useMemo(() => {
     const list = (Array.isArray(campaignOperators) ? campaignOperators : [])
       .filter((o) => o && (o.operatorId || o.assignmentId))
+      .slice(0, 5)
       .map((o, i) => ({
         key: String(o.operatorId || o.assignmentId),
-        label: o.name || `Autista ${i + 1}`,
+        slot: operatorKeyFor('OP', i),
+        label: `${operatorKeyFor('OP', i)}${o.name && o.name !== o.operatorId ? ` · ${o.name}` : ''}`,
         operatorId: o.operatorId || null,
         assignmentId: o.assignmentId || null,
         zoneId: o.zoneId || null,
@@ -251,7 +254,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
     const seen = new Set();
     const deduped = list.filter((o) => (seen.has(o.key) ? false : seen.add(o.key)));
     if (deduped.length === 0) {
-      return [{ key: ADMIN_OPERATOR_KEY, label: 'Copertura Admin', operatorId: null, assignmentId: null, zoneId: null }];
+      return [{ key: ADMIN_OPERATOR_KEY, slot: 'ADMIN', label: 'Copertura Admin', operatorId: null, assignmentId: null, zoneId: null }];
     }
     return deduped;
   }, [campaignOperators]);
@@ -1497,6 +1500,11 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
                 </button>
               ))}
             </div>
+            {campaignOperators.length > 5 && (
+              <span style={{ fontSize: 11, color: '#fbbf24', marginTop: 4 }}>
+                Presenti {campaignOperators.length} operatori. Mostrati i primi 5 slot (OP-01..OP-05).
+              </span>
+            )}
           </label>
           <label style={labelStyle}>
             Note (facoltative)
@@ -1561,7 +1569,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
               key={`gps-dot-${idx}`}
               center={pos}
               radius={3}
-              pathOptions={{ color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.75, weight: 1 }}
+              pathOptions={{ color: '#b91c1c', fillColor: '#ef4444', fillOpacity: 0.8, weight: 1 }}
             />
           ))}
           {coverage?.gps_coverage_geometry && (
@@ -1687,7 +1695,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
           ))}
 
           {showDetailedPoints && validPoints.map((p) => (
-            <CircleMarker key={p.id} center={[p.lat, p.lng]} radius={3} pathOptions={{ color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.6 }}>
+            <CircleMarker key={p.id} center={[p.lat, p.lng]} radius={3} pathOptions={{ color: '#b91c1c', fillColor: '#ef4444', fillOpacity: 0.65 }}>
               <Popup>{p.recorded_at ? new Date(p.recorded_at).toLocaleString('it-IT') : ''}</Popup>
             </CircleMarker>
           ))}
@@ -1698,7 +1706,7 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
             </CircleMarker>
           )}
           {last && (
-            <CircleMarker center={last} radius={8} pathOptions={{ color: '#991b1b', fillColor: '#ef4444', fillOpacity: 0.9 }}>
+            <CircleMarker center={last} radius={8} pathOptions={{ color: '#7f1d1d', fillColor: '#dc2626', fillOpacity: 0.95 }}>
               <Popup>Ultima posizione</Popup>
             </CircleMarker>
           )}
@@ -1781,9 +1789,9 @@ function CoverageMetric({ label, value, color, emphasize = false }) {
 function Legend() {
   const items = [
     { color: BOUNDARY_COLOR, label: 'Confine comune (zona selezionata)', dashed: true },
-    { color: '#2563eb', label: 'Traccia GPS reale' },
-    { color: '#22c55e', label: 'Copertura GPS', fillOnly: true },
-    { color: '#dc2626', label: 'Area non accessibile', dashed: true },
+    { color: '#ef4444', label: 'Traccia GPS rilevata' },
+    { color: '#dc2626', label: 'Copertura verificata', fillOnly: true },
+    { color: '#f97316', label: 'Area non accessibile', dashed: true },
     { color: '#6b7280', label: 'Correzione revocata (storico Admin)' },
   ];
   return (

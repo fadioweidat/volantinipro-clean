@@ -478,19 +478,19 @@ function TrackingMap({
             center={[pt.lat, pt.lng]}
             radius={3}
             pane="gpsPointsPane"
-            pathOptions={{ color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 0.75, weight: 1 }}
+            pathOptions={{ color: '#b91c1c', fillColor: '#ef4444', fillOpacity: 0.8, weight: 1 }}
           >
             <Popup>Punto GPS rilevato<br />{formatDateTime(pt.recorded_at)}</Popup>
           </CircleMarker>
         ))}
 
-        {/* Ultima posizione rilevata */}
+        {/* Ultima posizione rilevata (Rosso vivo) */}
         {latestPoint && (
           <CircleMarker
             center={[Number(latestPoint.lat), Number(latestPoint.lng)]}
             radius={7}
             pane="gpsLivePane"
-            pathOptions={{ color: '#10b981', fillColor: '#34d399', fillOpacity: 0.95, weight: 2 }}
+            pathOptions={{ color: '#7f1d1d', fillColor: '#dc2626', fillOpacity: 0.95, weight: 2 }}
           >
             <Popup>Ultima posizione registrata<br />{formatDateTime(latestPoint.recorded_at || latestPoint.created_at)}</Popup>
           </CircleMarker>
@@ -499,8 +499,8 @@ function TrackingMap({
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, padding: '8px 10px', fontSize: 11, color: 'rgba(255,255,255,.7)', background: C.navyMid }}>
         <LegendItem color="#e8571a" label="Confini Zone / NIL" />
         <LegendItem color={VERIFIED_COVERAGE_STYLE.color} label="Copertura verificata" />
-        <LegendItem color="#3b82f6" label="Punti GPS rilevati" />
-        <LegendItem color="#34d399" label="Ultima posizione" />
+        <LegendItem color="#ef4444" label="Traccia GPS rilevata" />
+        <LegendItem color="#dc2626" label="Ultima posizione" />
       </div>
     </div>
   );

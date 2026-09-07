@@ -202,6 +202,8 @@ export function GpsMonitor({ campaignId, onNav }) {
   // revocate). Arricchita con la presenza GPS = driver_id tra le sessioni
   // trackabili. operatorId stabile; colore SEMPRE da
   // getOperatorColor(operatorId||assignmentId) — mai da indice/etichetta.
+  // Lista CANONICA degli operatori della campagna (ticket §2 — max 5 slot OP-01..OP-05).
+  // Fonte primaria: le assegnazioni reali (admin_list_campaign_assignments, attive/non revocate).
   const gpsDriverIds = useMemo(
     () => new Set((state.sessionTracks || []).map((t) => t.session?.driver_id).filter(Boolean)),
     [state.sessionTracks],
@@ -213,7 +215,9 @@ export function GpsMonitor({ campaignId, onNav }) {
       const key = o.operatorId || o.assignmentId;
       if (!key || seen.has(key)) continue;
       seen.add(key);
+      const slot = operatorKeyFor('OP', out.length);
       out.push({
+        slot,
         operatorId: o.operatorId || null,
         assignmentId: o.assignmentId || null,
         colorKey: String(key),
@@ -222,17 +226,26 @@ export function GpsMonitor({ campaignId, onNav }) {
         assigned: true,
         hasGps: o.operatorId ? gpsDriverIds.has(o.operatorId) : false,
       });
+      if (out.length >= 5) break;
     }
-    // GPS driver senza assegnazione corrispondente (assegnazione revocata ma
-    // sessione storica): non perderli, ma restano fuori dal conteggio "assegnati".
-    for (const id of gpsDriverIds) {
-      if (seen.has(id)) continue;
-      seen.add(id);
-      out.push({
-        operatorId: id, assignmentId: null, colorKey: String(id),
-        displayName: `Operatore ${shortOperatorId(id)}`, color: getOperatorColor(id),
-        assigned: false, hasGps: true,
-      });
+    // GPS driver senza assegnazione corrispondente (assegnazione revocata ma sessione storica)
+    if (out.length < 5) {
+      for (const id of gpsDriverIds) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const slot = operatorKeyFor('OP', out.length);
+        out.push({
+          slot,
+          operatorId: id,
+          assignmentId: null,
+          colorKey: String(id),
+          displayName: `Operatore ${shortOperatorId(id)}`,
+          color: getOperatorColor(id),
+          assigned: false,
+          hasGps: true,
+        });
+        if (out.length >= 5) break;
+      }
     }
     return out;
   }, [campaignOperators, gpsDriverIds]);
@@ -563,6 +576,7 @@ export function GpsMonitor({ campaignId, onNav }) {
           sessionTracks={state.sessionTracks}
           canonicalOperators={canonicalOperators}
           assignedOperatorCount={assignedOperatorCount}
+          totalAssignedOperators={campaignOperators.length}
           operatorsWithGpsCount={operatorsWithGpsCount}
           trackVisibility={trackVisibility}
           toggleTrack={toggleTrack}
@@ -570,6 +584,8 @@ export function GpsMonitor({ campaignId, onNav }) {
           activeSessionId={state.activeSession?.id}
           formatDateTime={formatDateTime}
           onUnlockDevice={handleUnlockDevice}
+          onNav={onNav}
+          campaignId={campaignId}
         />
 
         <div style={gpsReadOnlySummaryStyle}>
@@ -813,14 +829,14 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, showExcluded
         {/* PUNTI GPS REALI: singoli dots per ogni posizione registrata (NIENTE polyline continua) */}
         {trackLayers.filter((t) => t.visible).map((track) => (
           <Fragment key={track.sessionId}>
-            {/* Punti validi dell'operatore */}
+            {/* Punti validi dell'operatore — SEMPRE in ROSSO per traccia operativa unificata */}
             {track.validPoints.map((point) => (
               <CircleMarker
                 key={point.id}
                 center={[point.lat, point.lng]}
                 radius={4}
                 pane="gpsValidPane"
-                pathOptions={{ color: '#ffffff', fillColor: track.color, fillOpacity: 0.9, weight: 1 }}
+                pathOptions={{ color: '#ffffff', fillColor: '#ef4444', fillOpacity: 0.9, weight: 1 }}
               >
                 <Popup>
                   <strong>Punto GPS registrato</strong>
@@ -838,10 +854,10 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, showExcluded
                 center={[point.lat, point.lng]}
                 radius={2.5}
                 pane="gpsExcludedPane"
-                pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.5, weight: 1 }}
+                pathOptions={{ color: '#64748b', fillColor: '#94a3b8', fillOpacity: 0.5, weight: 1 }}
               >
                 <Popup>
-                  <strong style={{ color: '#ef4444' }}>Punto GPS escluso</strong>
+                  <strong style={{ color: '#64748b' }}>Punto GPS escluso (diagnostica)</strong>
                   <br />Ora: {formatDateTime(point.recorded_at)}
                   <br />Motivo: {point.exclusionReason || 'Qualità non sufficiente (accuratezza o salto)'}
                   <br />Accuratezza: {point.accuracy != null ? `${Math.round(point.accuracy)} m` : 'n/d'}
@@ -849,13 +865,13 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, showExcluded
               </CircleMarker>
             ))}
 
-            {/* Ultimo punto operatore (marker pulsante) */}
+            {/* Ultimo punto operatore (marker pulsante ROSSO VIVO) */}
             {track.lastPoint && (
               <CircleMarker
                 center={[Number(track.lastPoint.lat), Number(track.lastPoint.lng)]}
                 radius={7.5}
                 pane="gpsLivePane"
-                pathOptions={{ color: '#ffffff', fillColor: track.color, fillOpacity: 0.98, weight: 2 }}
+                pathOptions={{ color: '#ffffff', fillColor: '#dc2626', fillOpacity: 0.98, weight: 2 }}
               >
                 <Popup>
                   <strong>Ultima posizione rilevata</strong>
@@ -868,11 +884,29 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, showExcluded
         ))}
 
         {latest && (
-          <CircleMarker center={[latest.lat, latest.lng]} radius={8.5} pane="gpsLivePane" pathOptions={{ color: '#991b1b', fillColor: '#ef4444', fillOpacity: 0.9, weight: 2 }}>
+          <CircleMarker center={[latest.lat, latest.lng]} radius={8.5} pane="gpsLivePane" pathOptions={{ color: '#7f1d1d', fillColor: '#dc2626', fillOpacity: 0.95, weight: 2 }}>
             <Popup><strong>Ultimo punto generale campagna</strong><br />{formatDateTime(latest.recorded_at)}</Popup>
           </CircleMarker>
         )}
       </MapContainer>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, padding: '8px 12px', fontSize: 11, color: 'rgba(255,255,255,.7)', background: 'rgba(15,23,42,.9)' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', border: '1px solid #b91c1c' }} />
+          Traccia GPS rilevata (Rosso)
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#dc2626', border: '2px solid #ffffff' }} />
+          Ultima posizione rilevata (Rosso vivo)
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 14, height: 10, background: 'rgba(232,87,26,.3)', border: '1px solid #e8571a', borderRadius: 2 }} />
+          Confini Zone / NIL
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 14, height: 10, background: 'rgba(249,115,22,.15)', border: '1px dashed #f97316', borderRadius: 2 }} />
+          Area non accessibile
+        </span>
+      </div>
     </div>
   );
 }
@@ -906,33 +940,87 @@ function calculatePointsDistanceKm(points) {
 // una riga per operatore, con traccia distinguibile,
 // stato (ONLINE / IN PAUSA / OFFLINE / TERMINATO), conteggi punti, km e toggle
 // mostra/nascondi la traccia sulla mappa.
-export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperators = [], assignedOperatorCount = 0, operatorsWithGpsCount = 0, trackVisibility = {}, toggleTrack, zoneRows = [], activeSessionId, formatDateTime: fmt, onUnlockDevice }) {
+export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperators = [], assignedOperatorCount = 0, totalAssignedOperators = 0, operatorsWithGpsCount = 0, trackVisibility = {}, toggleTrack, zoneRows = [], activeSessionId, formatDateTime: fmt, onUnlockDevice, onNav, campaignId }) {
   if (!sessionTracks.length && !canonicalOperators.length) return null;
   const format = fmt || ((v) => (v ? new Date(v).toLocaleString('it-IT') : 'n/d'));
   const opByDriver = new Map(canonicalOperators.filter((o) => o.operatorId).map((o) => [o.operatorId, o]));
-  // Etichetta OP-01/02/03... stabile per operatore canonico (ordine gia'
-  // deterministico da campaignOperators).
-  const opLabelByKey = new Map(canonicalOperators.map((o, i) => [o.colorKey, operatorKeyFor('OP', i)]));
+  // Etichetta OP-01/02/03... stabile per operatore canonico
+  const opLabelByKey = new Map(canonicalOperators.map((o, i) => [o.colorKey, o.slot || operatorKeyFor('OP', i)]));
   const zoneNameById = new Map((zoneRows || []).map((z) => [z.id, z.zone_name]));
 
   return (
-    <div style={{ marginTop: 14, display: 'grid', gap: 8 }}>
-      <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.08em', color: 'rgba(255,255,255,.5)', fontWeight: 900 }}>
-        OPERATORI: {assignedOperatorCount}{operatorsWithGpsCount > 0 ? ` · CON GPS: ${operatorsWithGpsCount}` : ''}
+    <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.08em', color: 'rgba(255,255,255,.6)', fontWeight: 900 }}>
+          OPERATORI CAMPAGNA ({assignedOperatorCount}/5){operatorsWithGpsCount > 0 ? ` · CON GPS: ${operatorsWithGpsCount}` : ''}
+        </div>
+        {assignedOperatorCount < 5 && onNav && (
+          <button
+            type="button"
+            onClick={() => onNav('/admin/clienti-preventivi')}
+            style={{
+              background: 'rgba(232,87,26,.18)',
+              border: '1px solid #e8571a',
+              color: '#fff',
+              borderRadius: 8,
+              padding: '4px 10px',
+              fontSize: 11,
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            + Aggiungi operatore
+          </button>
+        )}
       </div>
 
-      {/* OPERATORI CAMPAGNA — legenda: TUTTI gli operatori assegnati, nome reale + colore stabile */}
+      {totalAssignedOperators > 5 && (
+        <div style={{ padding: '6px 10px', borderRadius: 8, background: 'rgba(251,191,36,.12)', border: '1px solid rgba(251,191,36,.3)', color: '#fbbf24', fontSize: 11 }}>
+          Presenti {totalAssignedOperators} operatori assegnati nel database. Il monitor rapido mostra i primi 5 slot (OP-01..OP-05); tutti i dati e sessioni GPS restano preservati integralmente.
+        </div>
+      )}
+
+      {/* OPERATORI CAMPAGNA — slot card reali (OP-01..OP-05) */}
       {canonicalOperators.length > 0 && (
-        <div style={{ display: 'grid', gap: 4, padding: '8px 12px', borderRadius: 10, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)' }}>
-          {canonicalOperators.map((op) => (
-            <div key={`canon-${op.colorKey}`} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(255,255,255,.78)' }}>
-              <span style={{ width: 11, height: 11, borderRadius: 999, background: op.color, border: '1px solid rgba(0,0,0,.35)', flex: '0 0 auto' }} />
-              <strong style={{ color: '#fff', fontWeight: 800 }}>{opLabelByKey.get(op.colorKey)}</strong>
-              <span>{op.displayName}</span>
-              {op.hasGps && <span style={{ fontSize: 10, fontWeight: 900, color: '#22c55e' }}>GPS</span>}
-              {!op.assigned && <span style={{ fontSize: 10, color: 'rgba(255,255,255,.4)' }}>(assegnazione revocata)</span>}
-            </div>
-          ))}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
+          {canonicalOperators.map((op) => {
+            const track = sessionTracks.find((t) => t.session?.driver_id === op.operatorId);
+            const distKm = track ? calculatePointsDistanceKm(track.validPoints) : 0;
+            const validPts = track?.validPoints?.length || 0;
+            const lastAt = track?.lastPoint?.recorded_at || track?.session?.updated_at || null;
+            const status = track ? operatorStatusLabel(track) : (op.assigned ? 'ASSEGNATO' : 'REVOCATO');
+            const statusColor = status === 'ONLINE' ? '#22c55e' : status === 'IN PAUSA' ? '#fbbf24' : status === 'TERMINATO' ? '#94a3b8' : '#f87171';
+
+            return (
+              <div
+                key={`canon-${op.colorKey}`}
+                style={{
+                  display: 'grid',
+                  gap: 4,
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  background: 'rgba(255,255,255,.04)',
+                  border: '1px solid rgba(255,255,255,.08)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 999, background: op.color, flex: '0 0 auto' }} />
+                    <strong style={{ color: '#fff', fontSize: 12, fontWeight: 900 }}>{op.slot || opLabelByKey.get(op.colorKey)}</strong>
+                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,.85)', fontWeight: 700 }}>{op.displayName}</span>
+                  </div>
+                  <span style={{ fontSize: 10, fontWeight: 900, color: statusColor, padding: '2px 6px', borderRadius: 4, background: `${statusColor}18` }}>
+                    {status}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'rgba(255,255,255,.6)', marginTop: 2 }}>
+                  <span style={{ color: '#2ecc8a', fontWeight: 800 }}>{distKm.toFixed(1)} km</span>
+                  <span>{validPts} punti</span>
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,.4)' }}>{lastAt ? format(lastAt) : 'nessun ping'}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

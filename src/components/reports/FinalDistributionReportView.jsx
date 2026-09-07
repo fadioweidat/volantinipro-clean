@@ -62,7 +62,7 @@ function GpsCoverageSection({ zones }) {
                     key={`dot-${idx}`}
                     center={[Number(p.lat), Number(p.lng)]}
                     radius={3}
-                    pathOptions={{ color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.75, weight: 1 }}
+                    pathOptions={{ color: '#b91c1c', fillColor: '#ef4444', fillOpacity: 0.8, weight: 1 }}
                   />
                 ))}
                 {zone.tracePoints?.[0] && (

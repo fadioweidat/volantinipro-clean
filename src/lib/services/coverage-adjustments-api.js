@@ -139,13 +139,26 @@ export const COVERAGE_SOURCE_LEVELS = Object.freeze([
 ]);
 
 // Stile UNICO della copertura finale — identico per Admin ("Copertura
-// finale") e Cliente ("Copertura verificata"). Nessuna variazione per source.
+// finale") e Cliente ("Copertura verificata"). Nessuna variazione per source:
+// TUTTE le tracce e coperture accettate finali sono in ROSSO canonico.
 export const VERIFIED_COVERAGE_STYLE = Object.freeze({
-  color: '#16a34a',
-  fillColor: '#16a34a',
-  fillOpacity: 0.22,
+  color: '#dc2626',
+  fillColor: '#ef4444',
+  fillOpacity: 0.24,
   weight: 2,
   opacity: 1,
+});
+
+export const GPS_TRACE_RED_STYLE = Object.freeze({
+  pointBorder: '#ffffff',
+  pointFill: '#ef4444',
+  pointColor: '#b91c1c',
+  pointOpacity: 0.88,
+  liveBorder: '#ffffff',
+  liveFill: '#dc2626',
+  liveOpacity: 0.98,
+  trackColor: '#dc2626',
+  trackWeight: 2,
 });
 
 // LineString a partire da una lista [lat,lng]. Usato dalla matita "a tratto".
