@@ -169,7 +169,11 @@ test("firewall: i nuovi file non importano core data/logic vietati", () => {
     assert.doesNotMatch(src, /fetch\(|createClient|\.rpc\(/);
   }
   // MilanoGuidance riusa SOLO handler esistenti (nessuna nuova mode-state logic)
-  assert.match(step2, /onShowNil=\{switchToNilMode\}/);
+  // "NIL / Quartiere" entra in selezione NIL manuale RESTANDO in modalità
+  // Comune (stesso setter del toggle esistente in Step2ComunePanel), NON
+  // switchToNilMode (flusso indirizzo->NIL).
+  assert.match(step2, /const enterNilManualMode = \(\) => setNilManualMode\(true\);/);
+  assert.match(step2, /onShowNil=\{enterNilManualMode\}/);
   assert.match(step2, /onUseRadius=\{switchToRadiusMode\}/);
   assert.match(step2, /onKeepMilanoComplete=\{switchToComuneMode\}/);
 });

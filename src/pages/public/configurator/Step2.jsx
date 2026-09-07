@@ -1010,6 +1010,12 @@ export function Step2({
   // preseleziona la NIL vicina (BRUZZANO) senza rifare la ricerca. Azzera lo
   // stato derivato della modalità precedente (selezione + ordine priorità) per
   // evitare KPI / ranking stale.
+  // UX Milano (§3): entra in selezione NIL manuale RESTANDO in modalità Comune —
+  // stessa transizione del toggle esistente in Step2ComunePanel
+  // (setNilManualMode(v => !v), ramo ON). NON e' switchToNilMode() (quello e'
+  // il flusso indirizzo -> NIL, richiede un coverageAddress). Nessuna nuova
+  // logica di stato: riusa lo stesso setter.
+  const enterNilManualMode = () => setNilManualMode(true);
   const switchToNilMode = () => {
     userModeRef.current = "address";
     setDropOpen(false);
@@ -5187,7 +5193,7 @@ export function Step2({
             nilQuery={nilQuery}
             onNilQueryChange={setNilQuery}
             nilResultCount={milanoNilResultCount}
-            onShowNil={switchToNilMode}
+            onShowNil={enterNilManualMode}
             onUseRadius={switchToRadiusMode}
             onKeepMilanoComplete={switchToComuneMode}
           />
