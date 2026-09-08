@@ -1,0 +1,23 @@
+.vp-feasibility { color: #f8fafc; font-family: 'DM Sans', Inter, system-ui, sans-serif; box-sizing: border-box; min-width: 0; }
+.vp-feasibility *, .vp-feasibility *::before, .vp-feasibility *::after { box-sizing: border-box; }
+.vp-feasibility-home { padding: 56px 28px; }
+.vp-feasibility-inner { max-width: 1200px; margin: auto; }
+.vp-feasibility-kicker { color: #fb923c; font-size: 13px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.vp-feasibility h2 { font-size: clamp(26px, 3.5vw, 40px); line-height: 1.15; margin: 10px 0 16px; max-width: 750px; }
+.vp-feasibility p { color: #cbd5e1; line-height: 1.65; font-size: 16px; margin: 10px 0 18px; }
+.vp-feasibility-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin: 28px 0; }
+.vp-feasibility-benefit { padding: 22px; border: 1px solid #334155; border-radius: 16px; background: #111c30; }
+.vp-feasibility h3 { margin: 0; font-size: 19px; }
+.vp-feasibility-benefit p { margin-bottom: 0; }
+.vp-feasibility-cta { display: inline-flex; justify-content: center; align-items: center; min-height: 48px; padding: 12px 20px; border: 1px solid transparent; border-radius: 10px; background: #e8571a; color: white; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; text-align: center; }
+.vp-feasibility-cta:focus-visible, .vp-feasibility a:focus-visible { outline: 3px solid #fbbf24; outline-offset: 4px; }
+.vp-feasibility .vp-feasibility-note { font-size: 14px; }
+.vp-feasibility-card { margin: 24px 0; padding: 24px; border: 1px solid #475569; border-radius: 16px; background: #111c30; }
+.vp-feasibility-card h2 { font-size: 22px; margin-top: 0; }
+.vp-feasibility-page { background: #0b1020; min-height: 75vh; padding: 64px 24px; }
+.vp-feasibility-page .vp-feasibility-inner { max-width: 760px; }
+.vp-feasibility-page h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.15; }
+.vp-feasibility-actions { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 28px; }
+.vp-feasibility-secondary { background: transparent; border-color: #64748b; }
+@media (max-width: 800px) { .vp-feasibility-grid { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .vp-feasibility-home { padding: 36px 20px; } .vp-feasibility-card { padding: 18px; } .vp-feasibility-cta { width: 100%; } }
