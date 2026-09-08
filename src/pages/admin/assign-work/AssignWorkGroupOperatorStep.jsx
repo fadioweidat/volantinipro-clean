@@ -6,7 +6,7 @@ export function AssignWorkGroupOperatorStep({
   selectedSupplierId,
   setSelectedSupplierId,
   selectedSupplier,
-  groups,
+  groups = [],
   selectedGroupId,
   setSelectedGroupId,
   groupCreatorOpen,
@@ -14,21 +14,7 @@ export function AssignWorkGroupOperatorStep({
   handleCreateGroup,
   newGroupName,
   setNewGroupName,
-  newGroupLeadId,
-  setNewGroupLeadId,
   groupSaving,
-  operators,
-  selectedOperatorId,
-  setSelectedOperatorId,
-  phoneEditId,
-  phoneDraft,
-  setPhoneDraft,
-  phoneSaving,
-  phoneError,
-  onStartEditPhone,
-  onCancelEditPhone,
-  onSaveOperatorPhone,
-  phonePlaceholder,
   canGoNext,
   setStep,
   styles,
@@ -46,32 +32,9 @@ export function AssignWorkGroupOperatorStep({
     disabledBtnStyle,
     primaryBtnStyle,
     footerRowStyle,
-    operatorAvatarStyle,
   } = styles;
 
   const [supplierSearch, setSupplierSearch] = useState('');
-
-  const editLinkStyle = {
-    background: 'none',
-    border: 'none',
-    color: '#e8571a',
-    fontSize: 12,
-    fontWeight: 700,
-    cursor: 'pointer',
-    padding: '2px 4px',
-  };
-
-  const phoneRowStyle = {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: 8,
-    alignItems: 'center',
-    marginTop: 6,
-    padding: '8px 10px',
-    borderRadius: 10,
-    background: 'rgba(232,87,26,.06)',
-    border: '1px solid rgba(232,87,26,.2)',
-  };
 
   const supplierActionBtnStyle = {
     display: 'inline-flex',
@@ -101,16 +64,9 @@ export function AssignWorkGroupOperatorStep({
     });
   }, [suppliers, supplierSearch]);
 
-  // Operatori filtrati per fornitore se selezionato, altrimenti tutti
-  const supplierOperators = useMemo(() => {
-    if (!selectedSupplierId) return operators;
-    const forSupplier = operators.filter((op) => op.supplier_id === selectedSupplierId);
-    return forSupplier.length > 0 ? forSupplier : operators;
-  }, [operators, selectedSupplierId]);
-
   return (
     <div style={cardStyle}>
-      <p style={eyebrowStyle}>Step 1 — Scegli Fornitore, Gruppo e Persona</p>
+      <p style={eyebrowStyle}>Step 1 — Scegli Fornitore e Gruppo Operativo</p>
 
       {/* ─────────────────────────────────────────────────────────────
           1. SCEGLI FORNITORE
@@ -120,7 +76,7 @@ export function AssignWorkGroupOperatorStep({
           <div>
             <h2 style={{ ...sectionTitleStyle, margin: 0, fontSize: 18 }}>1. Scegli il Fornitore</h2>
             <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,.5)' }}>
-              Il lavoro viene affidato prima all'azienda partner / fornitore responsabile.
+              Il lavoro viene affidato all'azienda partner responsabile. Il fornitore organizza autonomamente i propri operatori sul campo.
             </p>
           </div>
           {selectedSupplier && (
@@ -202,14 +158,14 @@ export function AssignWorkGroupOperatorStep({
             </div>
           </div>
         ) : suppliers.length === 0 ? (
-          <Notice text="Nessun fornitore registrato nel marketplace. Puoi procedere assegnando direttamente agli operatori." />
+          <Notice text="Nessun fornitore registrato nel marketplace. Puoi procedere configurando il programma operativo." />
         ) : (
           /* Grid Selezione Fornitore */
           <div>
             <div style={{ marginBottom: 12 }}>
               <input
                 type="text"
-                placeholder="🔍 Cerca fornitore per nome, referente, città, email..."
+                placeholder="🔍 Cerca fornitore per nome azienda, referente, città, email..."
                 value={supplierSearch}
                 onChange={(e) => setSupplierSearch(e.target.value)}
                 style={{ ...inputStyle, width: '100%', maxWidth: 440 }}
@@ -293,127 +249,56 @@ export function AssignWorkGroupOperatorStep({
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          2. SCEGLI OPERATORE / PERSONA DEL FORNITORE
-      ───────────────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid rgba(255,255,255,.08)' }}>
-        <h3 style={{ ...sectionTitleStyle, fontSize: 18, marginBottom: 4 }}>2. Scegli la persona che riceverà il link GPS</h3>
-        <p style={{ margin: '0 0 14px', fontSize: 12, color: 'rgba(255,255,255,.5)' }}>
-          {selectedSupplier
-            ? `Autisti o referenti associati a ${selectedSupplier.company_name}:`
-            : 'Seleziona la persona tra gli operatori disponibili:'}
-        </p>
-
-        {supplierOperators.length === 0 ? (
-          <Notice danger text="Nessun operatore attivo trovato in operator_profiles. Crea prima il profilo operatore." />
-        ) : (
-          <div style={{ display: 'grid', gap: 8 }}>
-            {supplierOperators.map((op) => (
-              <div key={op.id}>
-                <button
-                  type="button"
-                  style={{
-                    ...operatorCardStyle,
-                    border: selectedOperatorId === op.id ? '2px solid #e8571a' : '1px solid rgba(255,255,255,.1)',
-                    background: selectedOperatorId === op.id ? 'rgba(232,87,26,.1)' : 'rgba(255,255,255,.03)',
-                  }}
-                  onClick={() => setSelectedOperatorId(op.id)}
-                >
-                  <div style={operatorAvatarStyle}>{(op.display_name || '?').slice(0, 1).toUpperCase()}</div>
-                  <div>
-                    <strong style={{ color: '#fff', fontSize: 15 }}>
-                      {op.display_name || `Operatore ${op.id.slice(0, 8)}`}
-                    </strong>
-                    <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,.5)' }}>
-                      {op.phone || 'Telefono non inserito'} · {op.status}
-                    </p>
-                  </div>
-                  {selectedOperatorId === op.id && <span style={checkStyle}>✓</span>}
-                </button>
-
-                {phoneEditId === op.id ? (
-                  <div style={phoneRowStyle}>
-                    <input
-                      type="tel"
-                      autoFocus
-                      value={phoneDraft}
-                      placeholder={phonePlaceholder}
-                      onChange={(event) => setPhoneDraft(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault();
-                          onSaveOperatorPhone(op.id);
-                        }
-                        if (event.key === 'Escape') {
-                          event.preventDefault();
-                          onCancelEditPhone();
-                        }
-                      }}
-                      style={{ ...inputStyle, flex: '1 1 180px', minWidth: 0 }}
-                      aria-label={`Telefono di ${op.display_name || 'operatore'}`}
-                    />
-                    <button
-                      type="button"
-                      disabled={phoneSaving}
-                      onClick={() => onSaveOperatorPhone(op.id)}
-                      style={phoneSaving ? disabledBtnStyle : primaryBtnStyle}
-                    >
-                      {phoneSaving ? 'Salvataggio…' : 'Salva'}
-                    </button>
-                    <button type="button" disabled={phoneSaving} onClick={onCancelEditPhone} style={secondaryBtnStyle}>
-                      Annulla
-                    </button>
-                    {phoneError && (
-                      <span style={{ flexBasis: '100%', color: '#ff8a65', fontSize: 12, fontWeight: 700 }}>
-                        {phoneError}
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <button type="button" onClick={() => onStartEditPhone(op)} style={editLinkStyle}>
-                    ✏️ Modifica telefono
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ─────────────────────────────────────────────────────────────
-          3. GRUPPO OPERATIVO
+          2. GRUPPO OPERATIVO (FACOLTATIVO)
       ───────────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 20 }}>
-        <h3 style={{ ...sectionTitleStyle, fontSize: 18, marginBottom: 4 }}>3. A quale gruppo assegni il programma?</h3>
+        <h3 style={{ ...sectionTitleStyle, fontSize: 18, marginBottom: 4 }}>2. Gruppo Operativo (Facoltativo)</h3>
         <p style={{ margin: '0 0 12px', fontSize: 12, color: 'rgba(255,255,255,.5)' }}>
-          I gruppi organizzano la distribuzione per zona o squadra operativa.
+          Puoi associare il programma a una squadra o gruppo specifico, oppure procedere senza gruppo.
         </p>
 
-        {groups.length === 0 ? (
-          <Notice text="Nessun gruppo configurato." />
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8, marginBottom: 14 }}>
-            {groups.map((group) => (
-              <button
-                key={group.id}
-                type="button"
-                style={{
-                  ...operatorCardStyle,
-                  border: selectedGroupId === group.id ? '2px solid #e8571a' : '1px solid rgba(255,255,255,.1)',
-                  background: selectedGroupId === group.id ? 'rgba(232,87,26,.1)' : 'rgba(255,255,255,.03)',
-                }}
-                onClick={() => setSelectedGroupId(group.id)}
-              >
-                <div>
-                  <strong style={{ color: '#fff' }}>{group.name}</strong>
-                  <p style={{ margin: '3px 0 0', fontSize: 11, color: 'rgba(255,255,255,.48)' }}>
-                    {group.lead_name || 'Referente non disponibile'}
-                  </p>
-                </div>
-                {selectedGroupId === group.id && <span style={checkStyle}>✓</span>}
-              </button>
-            ))}
-          </div>
-        )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 8, marginBottom: 14 }}>
+          {/* Opzione Nessun Gruppo */}
+          <button
+            type="button"
+            style={{
+              ...operatorCardStyle,
+              border: !selectedGroupId ? '2px solid #e8571a' : '1px solid rgba(255,255,255,.1)',
+              background: !selectedGroupId ? 'rgba(232,87,26,.1)' : 'rgba(255,255,255,.03)',
+            }}
+            onClick={() => setSelectedGroupId('')}
+          >
+            <div>
+              <strong style={{ color: '#fff' }}>Nessun gruppo</strong>
+              <p style={{ margin: '3px 0 0', fontSize: 11, color: 'rgba(255,255,255,.48)' }}>
+                Assegna direttamente al fornitore
+              </p>
+            </div>
+            {!selectedGroupId && <span style={checkStyle}>✓</span>}
+          </button>
+
+          {/* Gruppi esistenti */}
+          {groups.map((group) => (
+            <button
+              key={group.id}
+              type="button"
+              style={{
+                ...operatorCardStyle,
+                border: selectedGroupId === group.id ? '2px solid #e8571a' : '1px solid rgba(255,255,255,.1)',
+                background: selectedGroupId === group.id ? 'rgba(232,87,26,.1)' : 'rgba(255,255,255,.03)',
+              }}
+              onClick={() => setSelectedGroupId(group.id)}
+            >
+              <div>
+                <strong style={{ color: '#fff' }}>{group.name}</strong>
+                <p style={{ margin: '3px 0 0', fontSize: 11, color: 'rgba(255,255,255,.48)' }}>
+                  {group.lead_name ? `Ref: ${group.lead_name}` : 'Gruppo operativo'}
+                </p>
+              </div>
+              {selectedGroupId === group.id && <span style={checkStyle}>✓</span>}
+            </button>
+          ))}
+        </div>
 
         <button type="button" style={secondaryBtnStyle} onClick={() => setGroupCreatorOpen((open) => !open)}>
           + Crea gruppo
@@ -432,39 +317,29 @@ export function AssignWorkGroupOperatorStep({
             }}
           >
             <label style={labelStyle}>
-              Nome gruppo
+              Nome nuovo gruppo
               <input
                 required
                 value={newGroupName}
                 onChange={(event) => setNewGroupName(event.target.value)}
-                placeholder="es. Gruppo Fabio"
+                placeholder="es. Squadra Centro Milano"
                 style={inputStyle}
               />
             </label>
-            <label style={labelStyle}>
-              Primo membro / referente WhatsApp
-              <select
-                required
-                value={newGroupLeadId}
-                onChange={(event) => setNewGroupLeadId(event.target.value)}
-                style={inputStyle}
-              >
-                <option value="">Seleziona persona</option>
-                {operators.map((operator) => (
-                  <option key={operator.id} value={operator.id}>
-                    {operator.display_name || `Operatore ${String(operator.id).slice(0, 8)}`}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div style={{ ...labelStyle, justifyContent: 'end' }}>
-              <span>La membership diventa reale al salvataggio del programma.</span>
+            <div style={{ ...labelStyle, justifyContent: 'flex-end', display: 'flex', gap: 8, alignItems: 'center' }}>
               <button
                 type="submit"
                 disabled={groupSaving}
                 style={groupSaving ? disabledBtnStyle : primaryBtnStyle}
               >
                 {groupSaving ? 'Creazione…' : 'Crea gruppo'}
+              </button>
+              <button
+                type="button"
+                style={secondaryBtnStyle}
+                onClick={() => { setGroupCreatorOpen(false); setNewGroupName(''); }}
+              >
+                Annulla
               </button>
             </div>
           </form>
@@ -473,13 +348,7 @@ export function AssignWorkGroupOperatorStep({
 
       {/* Validation warnings */}
       {suppliers.length > 0 && !selectedSupplierId && (
-        <Notice danger text="Seleziona prima il fornitore partner a cui affidare il lavoro." />
-      )}
-      {selectedSupplierId && !selectedOperatorId && (
-        <Notice danger text="Seleziona la persona/autista del fornitore che riceverà il programma." />
-      )}
-      {selectedOperatorId && !selectedGroupId && (
-        <Notice danger text="Seleziona o crea il gruppo operativo per questo programma." />
+        <Notice danger text="Seleziona il fornitore partner a cui affidare la campagna." />
       )}
 
       <div style={footerRowStyle}>
@@ -490,7 +359,7 @@ export function AssignWorkGroupOperatorStep({
           disabled={!canGoNext()}
           onClick={() => setStep(2)}
         >
-          Avanti →
+          Avanti al programma →
         </button>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { supabase } from '../../lib/supabaseClient.js';
 import {
   listAssignableOperators,
   adminListSuppliers,
@@ -7,14 +8,13 @@ import {
   updateOperatorAssignment,
   revokeOperatorAssignment,
   generateDriverAssignmentLink,
+  buildSupplierProgramWhatsAppMessage,
   buildDriverWhatsAppMessage,
   getCampaignZonesWithGroups,
   setAssignmentZones,
   listAssignmentZones,
   updateCampaignZoneAssignment,
-  adminSetOperatorPhone,
 } from '../../lib/services/admin-api.js';
-import { isValidPhone, normalizePhone, PHONE_INPUT_PLACEHOLDER } from '../../lib/phoneNumber.js';
 import { getCampaignRecord } from '../../lib/services/gps-api.js';
 import { AssignWorkGroupOperatorStep } from './assign-work/AssignWorkGroupOperatorStep.jsx';
 import { AssignWorkProgramStep } from './assign-work/AssignWorkProgramStep.jsx';
@@ -22,8 +22,8 @@ import { AssignWorkPreviewStep } from './assign-work/AssignWorkPreviewStep.jsx';
 import { AssignWorkResultStep } from './assign-work/AssignWorkResultStep.jsx';
 
 // ─── AssignWork ───────────────────────────────────────────────────────────────
-// Form a step per assegnare lavoro a un fornitore/operatore e generare il link GPS personale.
-// Può essere usato come pagina completa o come modale controllato dall'esterno.
+// Flusso a step per affidare il lavoro a un Fornitore partner, impostare il programma
+// operativo e il compenso fornitore, e inviare le istruzioni via WhatsApp.
 //
 // Props:
 //   campaignId   — UUID campagna
@@ -34,7 +34,7 @@ import { AssignWorkResultStep } from './assign-work/AssignWorkResultStep.jsx';
 export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = null, initialGroupId = null, initialOperatorId = null }) {
   const isEdit = Boolean(existingAssignment);
 
-  // Step 1=fornitore e operatore, 2=programma, 3=anteprima, 4=risultato
+  // Step 1=fornitore e gruppo, 2=programma e compenso, 3=anteprima, 4=risultato
   const [step, setStep] = useState(1);
   const [suppliers, setSuppliers] = useState([]);
   const [operators, setOperators] = useState([]);
@@ -48,14 +48,17 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   const [groupCreatorOpen, setGroupCreatorOpen] = useState(false);
   const [groupSaving, setGroupSaving] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
-  const [newGroupLeadId, setNewGroupLeadId] = useState(initialOperatorId || '');
 
   // Form state
   const [selectedSupplierId, setSelectedSupplierId] = useState(
     existingAssignment?.metadata?.supplier_id || existingAssignment?.supplier_id || ''
   );
-  const [selectedOperatorId, setSelectedOperatorId] = useState(existingAssignment?.operator_id || initialOperatorId || '');
   const [selectedGroupId, setSelectedGroupId] = useState(existingAssignment?.group_id || initialGroupId || '');
+  const [supplierCompensation, setSupplierCompensation] = useState(
+    existingAssignment?.metadata?.supplier_compensation != null
+      ? String(existingAssignment.metadata.supplier_compensation)
+      : ''
+  );
 
   const [startsAt, setStartsAt] = useState(
     existingAssignment?.starts_at
@@ -84,12 +87,15 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       setLoading(true);
       setError(null);
       try {
-        const [suppliersRes, ops, zonesData, camp, existingZones] = await Promise.all([
+        const [suppliersRes, ops, zonesData, camp, existingZones, quotesRes] = await Promise.all([
           adminListSuppliers().catch(() => ({ rows: [] })),
           listAssignableOperators().catch(() => []),
           getCampaignZonesWithGroups(campaignId),
           getCampaignRecord(campaignId).catch(() => null),
           isEdit ? listAssignmentZones(existingAssignment.id).catch(() => []) : Promise.resolve([]),
+          supabase
+            ? supabase.from('quotes').select('id, total_amount, quote_status, supplier_id').eq('campaign_id', campaignId).catch(() => ({ data: [] }))
+            : Promise.resolve({ data: [] }),
         ]);
         if (!cancelled) {
           const suppList = Array.isArray(suppliersRes?.rows) ? suppliersRes.rows : [];
@@ -99,16 +105,29 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           setGroups(zonesData.groups || []);
           setCampaign(camp);
 
-          // Auto-select supplier from existing operator or campaign if not already set
-          if (!selectedSupplierId) {
-            if (initialOperatorId || existingAssignment?.operator_id) {
-              const targetOpId = initialOperatorId || existingAssignment?.operator_id;
-              const matchingOp = ops.find(o => o.id === targetOpId);
-              if (matchingOp?.supplier_id) {
-                setSelectedSupplierId(matchingOp.supplier_id);
-              }
-            } else if (camp?.supplier_id) {
+          // Auto-select supplier from existing campaign or quote if not already set
+          let resolvedSupplierId = selectedSupplierId;
+          if (!resolvedSupplierId) {
+            if (camp?.supplier_id) {
+              resolvedSupplierId = camp.supplier_id;
               setSelectedSupplierId(camp.supplier_id);
+            } else if (existingAssignment?.metadata?.supplier_id) {
+              resolvedSupplierId = existingAssignment.metadata.supplier_id;
+              setSelectedSupplierId(resolvedSupplierId);
+            }
+          }
+
+          // Prefill supplier compensation from quotes (marketplace offer) or campaign metadata
+          const quotesList = Array.isArray(quotesRes?.data) ? quotesRes.data : [];
+          const matchedQuote = quotesList.find(q => q.quote_status === 'accepted')
+            || quotesList.find(q => q.supplier_id && q.supplier_id === resolvedSupplierId)
+            || quotesList[0];
+
+          if (!supplierCompensation) {
+            if (matchedQuote?.total_amount != null) {
+              setSupplierCompensation(String(matchedQuote.total_amount));
+            } else if (camp?.metadata?.supplier_compensation != null) {
+              setSupplierCompensation(String(camp.metadata.supplier_compensation));
             }
           }
 
@@ -131,61 +150,15 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   }, [campaignId, isEdit, existingAssignment]);
 
   const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId) || null;
-  const selectedOperator = operators.find(op => op.id === selectedOperatorId) || null;
   const selectedGroup = groups.find(group => group.id === selectedGroupId) || null;
-
-  // Inline edit del telefono operatore (Step 1). Aggiorna profiles.phone via
-  // la RPC admin-only admin_set_operator_phone, poi rinfresca `operators` in
-  // memoria: selectedOperator (e quindi il link WhatsApp) usa subito il nuovo
-  // numero, nessun reload.
-  const [phoneEditId, setPhoneEditId] = useState(null);
-  const [phoneDraft, setPhoneDraft] = useState('');
-  const [phoneSaving, setPhoneSaving] = useState(false);
-  const [phoneError, setPhoneError] = useState(null);
-
-  const startEditPhone = useCallback((operator) => {
-    setPhoneEditId(operator.id);
-    setPhoneDraft(operator.phone || '');
-    setPhoneError(null);
-  }, []);
-
-  const cancelEditPhone = useCallback(() => {
-    setPhoneEditId(null);
-    setPhoneDraft('');
-    setPhoneError(null);
-  }, []);
-
-  const saveOperatorPhone = useCallback(async (operatorId) => {
-    const next = normalizePhone(phoneDraft);
-    if (!isValidPhone(next)) {
-      setPhoneError('Numero non valido. Usa un formato tipo +39 333 1234567.');
-      return;
-    }
-    setPhoneSaving(true);
-    setPhoneError(null);
-    try {
-      const updated = await adminSetOperatorPhone(operatorId, next);
-      setOperators(prev => prev.map(op => (
-        op.id === operatorId
-          ? { ...op, phone: updated?.phone ?? (next === '' ? null : next) }
-          : op
-      )));
-      cancelEditPhone();
-    } catch (err) {
-      setPhoneError(err?.message || 'Aggiornamento telefono non riuscito.');
-    } finally {
-      setPhoneSaving(false);
-    }
-  }, [phoneDraft, cancelEditPhone]);
 
   const campaignTitle = campaign?.title || campaign?.campaign_name || campaign?.nome || `Campagna ${String(campaignId).slice(0, 8)}`;
 
   async function handleCreateGroup(event) {
     event.preventDefault();
     if (groupSaving) return;
-    const lead = operators.find((operator) => operator.id === newGroupLeadId);
-    if (!lead) {
-      setError('Seleziona il primo membro e referente WhatsApp.');
+    if (!newGroupName.trim()) {
+      setError('Inserisci il nome del gruppo.');
       return;
     }
     setGroupSaving(true);
@@ -193,15 +166,14 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
     try {
       const group = await createOperationalGroup({
         campaignId,
-        name: newGroupName,
-        leadName: lead.display_name,
+        name: newGroupName.trim(),
+        leadName: selectedSupplier?.contact_name || selectedSupplier?.company_name || 'Referente Fornitore',
       });
       setGroups((current) => [...current, group].sort((left, right) => String(left.name).localeCompare(String(right.name), 'it')));
       setSelectedGroupId(group.id);
-      setSelectedOperatorId(lead.id);
       setNewGroupName('');
       setGroupCreatorOpen(false);
-      setNotice('Gruppo creato e selezionato. Completa il programma per salvare la persona come membro reale.');
+      setNotice('Gruppo creato e selezionato per questo programma.');
     } catch (err) {
       setError(err?.message || 'Impossibile creare il gruppo.');
     } finally {
@@ -239,24 +211,32 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
 
   const canGoNext = useCallback(() => {
     if (step === 1) {
-      const hasSupplierRequirement = suppliers.length === 0 || Boolean(selectedSupplierId);
-      return Boolean(selectedGroupId && selectedOperatorId && hasSupplierRequirement);
+      return suppliers.length === 0 || Boolean(selectedSupplierId);
     }
-    if (step === 2) return Boolean(startsAt && Object.keys(selectedZonesState).some(id => selectedZonesState[id]?.selected));
+    if (step === 2) {
+      return Boolean(startsAt && Object.keys(selectedZonesState).some(id => selectedZonesState[id]?.selected));
+    }
     return true;
-  }, [step, selectedGroupId, selectedOperatorId, selectedSupplierId, suppliers.length, startsAt, selectedZonesState]);
+  }, [step, selectedSupplierId, suppliers.length, startsAt, selectedZonesState]);
 
   async function handleSave() {
     if (saving) return; // guard doppio click
     setSaving(true);
     setError(null);
     try {
+      const compNum = Number(supplierCompensation);
+      const parsedCompensation = (supplierCompensation !== '' && supplierCompensation != null && !Number.isNaN(compNum))
+        ? compNum
+        : null;
+
       const metadata = {
         notes,
         campaign_title: campaignTitle,
-        operator_display_name: selectedOperator?.display_name || null,
         supplier_id: selectedSupplierId || null,
         supplier_name: selectedSupplier?.company_name || selectedSupplier?.contact_name || null,
+        supplier_compensation: parsedCompensation,
+        group_id: selectedGroupId || null,
+        group_name: selectedGroup?.name || null,
       };
 
       // Validate ends_at > starts_at
@@ -266,11 +246,20 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
         return;
       }
 
-      // startsAt/endsAt sono stringhe locali senza offset (dagli input
-      // date+time): convertite qui in istanti UTC reali prima dell'invio,
-      // mai la stringa grezza (vedi fromLocalDatetimeInputValue).
+      // startsAt/endsAt sono stringhe locali senza offset (dagli input date+time)
       const startsAtUtc = fromLocalDatetimeInputValue(startsAt);
       const endsAtUtc = fromLocalDatetimeInputValue(endsAt);
+
+      // Determine target operator id for DB assignment table
+      const targetOperatorId = existingAssignment?.operator_id
+        || initialOperatorId
+        || operators.find(op => op.supplier_id === selectedSupplierId)?.id
+        || operators[0]?.id
+        || null;
+
+      if (!targetOperatorId && !isEdit) {
+        throw new Error('Nessun profilo operatore di sistema disponibile per l\'assegnazione.');
+      }
 
       let result;
       if (isEdit) {
@@ -283,13 +272,30 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       } else {
         result = await createOperatorAssignment({
           campaignId,
-          operatorId: selectedOperatorId,
+          operatorId: targetOperatorId,
           groupId: selectedGroupId || null,
           startsAt: startsAtUtc,
           endsAt: endsAtUtc,
           metadata,
           notes,
         });
+      }
+
+      // Persist supplier_id and compensation metadata on campaigns row
+      if (selectedSupplierId && supabase) {
+        await supabase
+          .from('campaigns')
+          .update({
+            supplier_id: selectedSupplierId,
+            metadata: {
+              ...(campaign?.metadata || {}),
+              supplier_id: selectedSupplierId,
+              supplier_name: selectedSupplier?.company_name || selectedSupplier?.contact_name || null,
+              supplier_compensation: parsedCompensation,
+            },
+          })
+          .eq('id', campaignId)
+          .catch(() => {});
       }
 
       // Update Zones priorities
@@ -333,7 +339,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   async function handleRevoke() {
     if (!savedAssignment?.id && !existingAssignment?.id) return;
     const id = savedAssignment?.id || existingAssignment.id;
-    if (!window.confirm('Revocare questa assegnazione? Il driver non potrà più avviare il GPS.')) return;
+    if (!window.confirm('Revocare questa assegnazione? Il fornitore non potrà più accedere al programma.')) return;
     setSaving(true);
     try {
       await revokeOperatorAssignment(id);
@@ -369,21 +375,18 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   }
 
   function buildWhatsAppMsg() {
-    const op = selectedOperator || { display_name: existingAssignment?.operator_name };
     const programRows = getSelectedProgramRows();
-    const selZones = programRows.map(row => row.name);
     const totalQty = programRows.reduce((sum, row) => sum + (row.quantity || 0), 0);
 
-    return buildDriverWhatsAppMessage({
-      operatorName: op?.display_name || 'Operatore',
+    return buildSupplierProgramWhatsAppMessage({
+      supplierName: selectedSupplier?.company_name || selectedSupplier?.contact_name || 'Fornitore',
       groupName: selectedGroup?.name || null,
       campaignTitle,
       date: startsAt ? new Date(startsAt).toLocaleDateString('it-IT') : 'Da definire',
       startTime: startsAt ? new Date(startsAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : null,
-      comuni: selZones,
-      zone: selZones,
       programRows,
       qty: totalQty || null,
+      supplierCompensation: supplierCompensation !== '' && supplierCompensation != null ? Number(supplierCompensation) : null,
       link: generatedLink,
     });
   }
@@ -403,21 +406,21 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   }
 
   function handleWhatsApp() {
-    const phone = selectedOperator?.phone?.replace(/[^\d+]/g, '') || '';
+    const phone = selectedSupplier?.phone?.replace(/[^\d+]/g, '') || '';
     if (!phone) {
-      setNotice('Numero WhatsApp non disponibile. Puoi copiare il messaggio senza segnare il programma come inviato.');
+      setNotice('Numero WhatsApp del fornitore non disponibile. Puoi copiare il messaggio senza segnare il programma come inviato.');
       return;
     }
     const msg = buildWhatsAppMsg();
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
-    setNotice('Programma preparato in WhatsApp. Lo stato inviato verra mostrato solo dopo un evento reale.');
+    setNotice('Programma preparato in WhatsApp per il fornitore.');
   }
 
   if (loading) {
     return (
       <div style={shellStyle}>
         <ShellHeader campaignTitle={campaignTitle} campaignId={campaignId} onClose={onClose} />
-        <Notice text="Caricamento operatori e zone..." />
+        <Notice text="Caricamento fornitori e zone..." />
       </div>
     );
   }
@@ -432,7 +435,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       {/* ── Step indicator ── */}
       {step < 4 && (
         <div style={stepBarStyle}>
-          {['Gruppo e persona', 'Programma', 'Anteprima'].map((label, idx) => (
+          {['Fornitore e gruppo', 'Programma', 'Anteprima'].map((label, idx) => (
             <div key={label} style={{
               ...stepItemStyle,
               color: step === idx + 1 ? '#e8571a' : step > idx + 1 ? '#2ecc8a' : 'rgba(255,255,255,.4)',
@@ -450,7 +453,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
         </div>
       )}
 
-      {/* ── STEP 1: Scegli fornitore e operatore ── */}
+      {/* ── STEP 1: Scegli fornitore e gruppo ── */}
       {step === 1 && (
         <AssignWorkGroupOperatorStep
           Notice={Notice}
@@ -466,21 +469,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           handleCreateGroup={handleCreateGroup}
           newGroupName={newGroupName}
           setNewGroupName={setNewGroupName}
-          newGroupLeadId={newGroupLeadId}
-          setNewGroupLeadId={setNewGroupLeadId}
           groupSaving={groupSaving}
-          operators={operators}
-          selectedOperatorId={selectedOperatorId}
-          setSelectedOperatorId={setSelectedOperatorId}
-          phoneEditId={phoneEditId}
-          phoneDraft={phoneDraft}
-          setPhoneDraft={setPhoneDraft}
-          phoneSaving={phoneSaving}
-          phoneError={phoneError}
-          onStartEditPhone={startEditPhone}
-          onCancelEditPhone={cancelEditPhone}
-          onSaveOperatorPhone={saveOperatorPhone}
-          phonePlaceholder={PHONE_INPUT_PLACEHOLDER}
           canGoNext={canGoNext}
           setStep={setStep}
           styles={{
@@ -496,12 +485,11 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
             disabledBtnStyle,
             primaryBtnStyle,
             footerRowStyle,
-            operatorAvatarStyle,
           }}
         />
       )}
 
-      {/* ── STEP 2: Programma Operativo ── */}
+      {/* ── STEP 2: Programma Operativo e Compenso ── */}
       {step === 2 && (
         <AssignWorkProgramStep
           Notice={Notice}
@@ -509,6 +497,8 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           setStartsAt={setStartsAt}
           endsAt={endsAt}
           setEndsAt={setEndsAt}
+          supplierCompensation={supplierCompensation}
+          setSupplierCompensation={setSupplierCompensation}
           notes={notes}
           setNotes={setNotes}
           zones={zones}
@@ -542,10 +532,9 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
         <AssignWorkPreviewStep
           PreviewRow={PreviewRow}
           selectedSupplier={selectedSupplier}
-          selectedOperator={selectedOperator}
-          selectedOperatorId={selectedOperatorId}
           selectedGroup={selectedGroup}
           campaignTitle={campaignTitle}
+          supplierCompensation={supplierCompensation}
           getSelectedProgramRows={getSelectedProgramRows}
           startsAt={startsAt}
           endsAt={endsAt}
@@ -575,8 +564,9 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           savedAssignment={savedAssignment}
           generatedLink={generatedLink}
           selectedSupplier={selectedSupplier}
-          selectedOperator={selectedOperator}
+          selectedGroup={selectedGroup}
           campaignTitle={campaignTitle}
+          supplierCompensation={supplierCompensation}
           endsAt={endsAt}
           getSelectedZoneNames={getSelectedZoneNames}
           copiedLink={copiedLink}

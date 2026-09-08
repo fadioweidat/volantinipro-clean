@@ -91,54 +91,33 @@ test("nessuna scrittura diretta su profiles.phone dal frontend (solo la RPC)", (
   assert.doesNotMatch(ADMIN_API, /from\(['"]profiles['"]\)[\s\S]{0,120}update\([\s\S]{0,80}phone/i);
 });
 
-// --- UI: display + edit inline, aggiornamento senza reload -----------
+// --- UI: Fornitore e routing WhatsApp --------------------------------------
 
-test("Step 1: telefono mostrato, oppure 'Telefono non inserito' quando assente", () => {
-  assert.match(STEP1, /\{op\.phone \|\| 'Telefono non inserito'\} · \{op\.status\}/);
+test("Step 1: telefono fornitore mostrato nella selezione e link rapidi WhatsApp/Chiama", () => {
+  assert.match(STEP1, /supp\.phone \|\| 'Nessun telefono'/);
+  assert.match(STEP1, /https:\/\/wa\.me\/\$\{supp\.phone\.replace/);
+  assert.match(STEP1, /tel:\$\{supp\.phone\}/);
 });
 
-test("Step 1: affordance 'Modifica telefono' che apre l'edit inline", () => {
-  assert.match(STEP1, /✏️ Modifica telefono/);
-  assert.match(STEP1, /onClick=\{\(\) => onStartEditPhone\(op\)\}/);
-  // l'edit compare quando phoneEditId === op.id
-  assert.match(STEP1, /phoneEditId === op\.id \?/);
+test("Step 1: selezione fornitore e gruppo opzionale senza selezione operatore singolo", () => {
+  assert.match(STEP1, /1\. Scegli il Fornitore/);
+  assert.match(STEP1, /2\. Gruppo Operativo \(Facoltativo\)/);
+  assert.match(STEP1, /Nessun gruppo/);
+  // Nessuna selezione operatore o modifica inline operatore nello Step 1
+  assert.doesNotMatch(STEP1, /Scegli la persona che riceverà il link GPS/);
+  assert.doesNotMatch(STEP1, /operator_profiles/);
 });
 
-test("Step 1: form di edit con input precompilato, placeholder, Salva e Annulla", () => {
-  assert.match(STEP1, /value=\{phoneDraft\}/);
-  assert.match(STEP1, /placeholder=\{phonePlaceholder\}/);
-  assert.match(STEP1, /onChange=\{\(event\) => setPhoneDraft\(event\.target\.value\)\}/);
-  // pulsante Salva
-  assert.match(STEP1, /onClick=\{\(\) => onSaveOperatorPhone\(op\.id\)\}/);
-  assert.match(STEP1, /\{phoneSaving \? 'Salvataggio…' : 'Salva'\}/);
-  // pulsante Annulla
-  assert.match(STEP1, /onClick=\{onCancelEditPhone\}/);
-  assert.match(STEP1, />\s*Annulla\s*</);
-  assert.match(STEP1, /\{phoneError &&/);
+test("AssignWork: flusso semplificato fornitore-first con compenso e gruppo opzionale", () => {
+  assert.match(ASSIGN_WORK, /supplierCompensation/);
+  assert.match(ASSIGN_WORK, /selectedSupplierId/);
+  assert.match(ASSIGN_WORK, /buildSupplierProgramWhatsAppMessage/);
 });
 
-test("Step 1: l'input di edit NON e' annidato dentro il <button> della card", () => {
-  // la card <button onClick=setSelectedOperatorId> si chiude prima del blocco phoneEditId
-  const cardClose = STEP1.indexOf("setSelectedOperatorId(op.id)}");
-  const cardButtonEnd = STEP1.indexOf("</button>", cardClose);
-  const editBlock = STEP1.indexOf("phoneEditId === op.id ?");
-  assert.ok(cardButtonEnd > 0 && editBlock > cardButtonEnd, "il form di edit deve stare fuori dalla card <button>");
-});
+// --- WhatsApp usa il numero del fornitore, link Driver invariato --------
 
-test("AssignWork: salvataggio aggiorna operators in memoria (UI senza reload) e Annulla non chiama la RPC", () => {
-  const save = ASSIGN_WORK.slice(ASSIGN_WORK.indexOf("const saveOperatorPhone"), ASSIGN_WORK.indexOf("const saveOperatorPhone") + 900);
-  assert.match(save, /if \(!isValidPhone\(next\)\)/, "valida prima di chiamare la RPC");
-  assert.match(save, /await adminSetOperatorPhone\(operatorId, next\)/);
-  assert.match(save, /setOperators\(prev => prev\.map\(op => \(/, "aggiorna lo stato locale, nessun reload");
-  const cancel = ASSIGN_WORK.slice(ASSIGN_WORK.indexOf("const cancelEditPhone"), ASSIGN_WORK.indexOf("const cancelEditPhone") + 300);
-  assert.doesNotMatch(cancel, /adminSetOperatorPhone/, "Annulla non deve chiamare la RPC");
-});
-
-// --- WhatsApp usa il numero aggiornato, link Driver invariato --------
-
-test("WhatsApp: handleWhatsApp legge selectedOperator.phone (da operators, aggiornato in loco)", () => {
-  assert.match(ASSIGN_WORK, /function handleWhatsApp\(\)\s*\{\s*const phone = selectedOperator\?\.phone/);
-  assert.match(ASSIGN_WORK, /const selectedOperator = operators\.find\(op => op\.id === selectedOperatorId\)/);
+test("WhatsApp: handleWhatsApp legge selectedSupplier.phone (routing al fornitore)", () => {
+  assert.match(ASSIGN_WORK, /function handleWhatsApp\(\)\s*\{\s*const phone = selectedSupplier\?\.phone/);
   assert.match(ASSIGN_WORK, /window\.open\(`https:\/\/wa\.me\/\$\{phone\}/);
 });
 

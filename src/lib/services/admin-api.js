@@ -1197,6 +1197,60 @@ Dopo aver aperto il programma, conferma la presa in carico.
 Quando inizi, premi "Inizia tracciamento".`;
 }
 
+export function buildSupplierProgramWhatsAppMessage({
+  supplierName,
+  groupName = null,
+  campaignTitle,
+  date,
+  startTime = null,
+  programRows = null,
+  qty,
+  supplierCompensation = null,
+  link,
+  mapLink = null,
+}) {
+  const nomeDisplay = supplierName || 'Fornitore';
+  const groupHeader = groupName ? `${nomeDisplay} (${groupName})` : nomeDisplay;
+  const qtyText = qty ? `${Number(qty).toLocaleString('it-IT')} volantini` : 'Quantita da definire';
+  const dateText = date || 'Da definire';
+  const titleText = campaignTitle || 'Campagna VolantiniPro';
+  const compNum = Number(supplierCompensation);
+  const compensationLine = (supplierCompensation != null && supplierCompensation !== '' && !Number.isNaN(compNum))
+    ? `\nCompenso concordato: € ${compNum.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : '';
+
+  if (Array.isArray(programRows) && programRows.length > 0) {
+    const rows = programRows.map((row, index) => `${index + 1}. ${row.name || 'Zona'} — ${row.quantity ? `${Number(row.quantity).toLocaleString('it-IT')} volantini` : 'quantita da definire'}`).join('\n');
+    const mapSection = mapLink ? `\nApri mappa:\n${mapLink}\n` : '';
+    return `Programma di lavoro — ${groupHeader}
+
+Campagna: ${titleText}
+
+${rows}
+
+Totale: ${qtyText}${compensationLine}
+Data: ${dateText}
+Inizio: ${startTime || 'Da definire'}
+
+Apri programma:
+${link || 'Link non disponibile'}
+${mapSection}
+Conferma la presa in carico dal programma.`;
+  }
+
+  return `Programma di lavoro — ${groupHeader}
+
+Campagna: ${titleText}
+Totale: ${qtyText}${compensationLine}
+Data: ${dateText}
+Inizio: ${startTime || 'Da definire'}
+
+Apri il link per vedere il lavoro:
+${link || 'Link non disponibile'}
+
+Conferma la presa in carico dal programma.`;
+}
+
 export async function getDailyOperations(dateStr) {
   await ensureSupabaseSessionBridge();
   // P0 ROOT CAUSE (audit "Chi lavora oggi" mostra assignment vecchi): i

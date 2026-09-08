@@ -20,6 +20,7 @@ import { test, describe, mock, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import './operation_alerts.test.mjs';
 import { readFileSync } from 'node:fs';
+import { buildSupplierProgramWhatsAppMessage } from '../src/lib/services/admin-api.js';
 
 // ─── Helpers sotto test (estratti senza import React) ─────────────────────────
 
@@ -169,6 +170,59 @@ describe('buildDriverWhatsAppMessage', () => {
     assert.ok(/^[\d+]+$/.test(scrubbed), 'il numero scrubbed deve contenere solo cifre e +');
     const whatsappUrl = `https://wa.me/${scrubbed}?text=${encodeURIComponent('test')}`;
     assert.doesNotThrow(() => new URL(whatsappUrl), 'URL WhatsApp deve essere valido');
+  });
+});
+
+// ─── Test: buildSupplierProgramWhatsAppMessage ─────────────────────────────────
+
+describe('buildSupplierProgramWhatsAppMessage (WhatsApp Fornitore con Compenso)', () => {
+  const baseSupplierParams = {
+    supplierName: 'Distribuzione Rapida Srl',
+    groupName: 'Gruppo Milano Nord',
+    campaignTitle: 'Lancio Volantini Estate',
+    date: '10/09/2026',
+    startTime: '08:30',
+    programRows: [
+      { name: 'Centro Storico', quantity: 3000 },
+      { name: 'Porta Venezia', quantity: 2000 },
+    ],
+    qty: 5000,
+    supplierCompensation: 450,
+    link: 'https://app.volantinipro.it/driver/assignment/assign-123',
+  };
+
+  test('contiene fornitore, gruppo, righe programma, totale e compenso concordato', () => {
+    const msg = buildSupplierProgramWhatsAppMessage(baseSupplierParams);
+    assert.ok(msg.includes('Distribuzione Rapida Srl (Gruppo Milano Nord)'));
+    assert.ok(msg.includes('1. Centro Storico'));
+    assert.ok(msg.includes('2. Porta Venezia'));
+    assert.ok(msg.includes('Totale:'));
+    assert.ok(msg.includes('volantini'));
+    assert.ok(msg.includes('Compenso concordato: € 450'));
+    assert.ok(msg.includes('Data: 10/09/2026'));
+    assert.ok(msg.includes('Inizio: 08:30'));
+    assert.ok(msg.includes('https://app.volantinipro.it/driver/assignment/assign-123'));
+    assert.ok(msg.includes('Conferma la presa in carico'));
+  });
+
+  test('senza compenso concordato → omette la riga compenso senza errori', () => {
+    const msg = buildSupplierProgramWhatsAppMessage({ ...baseSupplierParams, supplierCompensation: null });
+    assert.ok(!msg.includes('Compenso concordato'));
+    assert.ok(msg.includes('Totale:'));
+    assert.ok(msg.includes('volantini'));
+  });
+
+  test('senza gruppo → usa solo il nome fornitore nell intestazione', () => {
+    const msg = buildSupplierProgramWhatsAppMessage({ ...baseSupplierParams, groupName: null });
+    assert.ok(msg.includes('Programma di lavoro — Distribuzione Rapida Srl'));
+    assert.ok(!msg.includes('(null)'));
+  });
+
+  test('il messaggio fornitore è safe per encodeURIComponent', () => {
+    const msg = buildSupplierProgramWhatsAppMessage(baseSupplierParams);
+    assert.doesNotThrow(() => encodeURIComponent(msg));
+    const encoded = encodeURIComponent(msg);
+    assert.ok(encoded.length > 0);
   });
 });
 
