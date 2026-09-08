@@ -1,4 +1,10 @@
 data/
+!public/data
+public/data/*
+!public/data/territories
+public/data/territories/*
+!public/data/territories/milano-municipi-ds379.geojson
+!public/data/territories/README.md
 supabase/
 backup/
 backups/
