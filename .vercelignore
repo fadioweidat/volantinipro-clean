@@ -4,6 +4,7 @@ public/data/*
 !public/data/territories
 public/data/territories/*
 !public/data/territories/milano-municipi-ds379.geojson
+!public/data/territories/milano-civic-cap-index.json
 !public/data/territories/README.md
 supabase/
 backup/

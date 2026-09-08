@@ -58,7 +58,7 @@ test('adapter and preview cannot access campaign state or business services', ()
     assert.doesNotMatch(source, /useServiceAnalysis|analysis-istat|pricing|supabase|setData|setSelectedCaps|setNilManualMode|campaignZones|onNext|Step2Map/);
   }
   const preview = read('src/pages/public/configurator/step2/TerritoryGeometryPreview.jsx');
-  assert.match(preview, /function TerritoryGeometryPreview\(\)/);
+  assert.match(preview, /function TerritoryGeometryPreview\(\{ focusRequest = null \}\)/);
   assert.match(preview, /Dati demografici non ancora disponibili/);
 });
 test('Milano-only guidance: Varedo hidden, operational Municipio disabled, preview initially closed', async () => {

@@ -21,3 +21,12 @@ No demographic statistics, postal boundaries or NIL relationships are inferred.
 
 Loaded only when the user opens the independent preview, with abort, timeout,
 browser caching and successful page-lifetime caching; no hover requests or polling.
+
+## Milano civic → CAP presentation index
+
+`milano-civic-cap-index.json` is derived from exact, unique joins between Comune
+di Milano DS2973 and DS634 (CC BY 4.0). It contains no postal boundary geometry
+and must not be used for coverage, pricing, quantity, or demographic calculations.
+Source URLs, SHA256 values, build date, and excluded-record quality counts are
+embedded in the asset. Rebuild it with
+`scripts/generate_milano_civic_cap_index.py` and the preserved source CSVs.
