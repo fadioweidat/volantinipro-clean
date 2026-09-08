@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ZoneProgressPanel } from '../../components/zone-progress/ZoneProgressPanel.jsx';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
 import { useZoneBoundaries } from '../../hooks/useZoneBoundaries.js';
-import { calculateDistanceKm, groupGpsPointsBySession } from '../../lib/services/gps-api.js';
+import { calculateDistanceKm, groupGpsPointsBySession, aggregateOperationalMetrics } from '../../lib/services/gps-api.js';
 import { filterValidGpsPoints } from '../../lib/gps/pointQuality.js';
 import { getOwnedCustomerTracking } from '../../lib/services/customer-api.js';
 import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProcessing.js';
@@ -77,17 +77,19 @@ export function CampaignTracking({ campaignId }) {
   }, [campaignId, refreshNonce]);
 
   const status = deriveCampaignStatus(state.sessions, state.campaign);
-  const activeMs = state.sessions.reduce((sum, session) => sum + sessionDurationMs(session), 0);
-  // Distanza per campagna = somma delle distanze PER SESSIONE (mai su un array
-  // misto di piu' operatori: il filtro qualita' confronta ogni punto col
-  // precedente e un salto tra la traccia dell'operatore A e quella di B
-  // sarebbe letto come "impossible_jump").
-  const distanceKm = useMemo(() => {
-    const groups = groupGpsPointsBySession(state.points);
-    let km = 0;
-    for (const groupPoints of groups.values()) km += calculateDistanceKm(groupPoints);
-    return km;
-  }, [state.points]);
+  const manualMetrics = state.campaign?.metadata?.manual_operational_metrics || null;
+
+  // Aggregazione canonica finale delle metriche (GPS reale + manuale verificato, zero-state protetto)
+  const operationalMetrics = useMemo(() => aggregateOperationalMetrics({
+    gpsPoints: state.points,
+    sessions: state.sessions,
+    photos: state.photos,
+    manualMetrics,
+    finalCoverage: state.finalCoverage,
+    zoneProgress,
+    selectedZoneId,
+  }), [state.points, state.sessions, state.photos, manualMetrics, state.finalCoverage, zoneProgress, selectedZoneId]);
+
   const latestPoint = state.points[state.points.length - 1] || null;
   // Stesso badge/soglia della Driver App e di Admin/GpsMonitor.jsx
   // (deriveLiveZoneStatus, geofenceEngine.js) — nessuna logica separata.
@@ -178,19 +180,39 @@ export function CampaignTracking({ campaignId }) {
           <Metric label="Stato campagna" value={status} color={C.green} />
           <Metric
             label="Copertura verificata"
-            value={state.finalCoverage?.final_operational_coverage_pct != null
-              ? `${state.finalCoverage.final_operational_coverage_pct}%`
-              : (zoneProgress.zones?.[0]?.effective_percent != null && zoneProgress.zones[0].effective_percent > 0
-                ? `${zoneProgress.zones[0].effective_percent}%`
-                : (state.points.length > 0 ? 'In calcolo...' : 'Dato non disponibile'))}
+            value={operationalMetrics.coverageDisplay}
             color={C.green}
           />
-          <Metric label="Punti GPS" value={state.points.length} color={C.blue} />
-          <Metric label="Tempo registrato" value={formatDuration(activeMs)} color={C.orange} />
-          <Metric label="Distanza" value={`${distanceKm.toFixed(2)} km`} color={C.orange} />
-          <Metric label="Ultimo ping" value={formatDateTime(latestPing)} color={C.purple} />
-          <Metric label="Connessione" value={connectionStatus === 'online' ? 'Online' : 'Offline'} color={connectionStatus === 'online' ? C.green : 'rgba(255,255,255,.45)'} />
-          <Metric label="Foto approvate" value={state.photos.length} color={C.blue} />
+          <Metric
+            label="Punti di copertura verificati"
+            value={operationalMetrics.verifiedPointsDisplay}
+            color={C.blue}
+          />
+          <Metric
+            label="Tempo operativo verificato"
+            value={operationalMetrics.operationalTimeDisplay}
+            color={C.orange}
+          />
+          <Metric
+            label="Distanza operativa verificata"
+            value={operationalMetrics.operationalDistanceDisplay}
+            color={C.orange}
+          />
+          <Metric
+            label="Ultimo aggiornamento"
+            value={operationalMetrics.latestEventIso ? formatDateTime(operationalMetrics.latestEventIso) : (latestPing ? formatDateTime(latestPing) : 'Non disponibile')}
+            color={C.purple}
+          />
+          <Metric
+            label="Connessione"
+            value={connectionStatus === 'online' ? 'Online' : 'Offline'}
+            color={connectionStatus === 'online' ? C.green : 'rgba(255,255,255,.45)'}
+          />
+          <Metric
+            label="Foto approvate"
+            value={operationalMetrics.approvedPhotosCount}
+            color={C.blue}
+          />
         </div>
 
         {state.campaign && (

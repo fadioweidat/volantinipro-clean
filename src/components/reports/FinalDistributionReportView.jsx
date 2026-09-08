@@ -102,7 +102,10 @@ function formatNumber(value) {
 }
 
 function formatDuration(ms) {
-  const minutes = Math.round(Number(ms || 0) / 60000);
+  if (ms == null) return NA;
+  const numMs = Number(ms);
+  if (!Number.isFinite(numMs) || numMs <= 0) return NA;
+  const minutes = Math.round(numMs / 60000);
   const hours = Math.floor(minutes / 60);
   return hours ? `${hours} h ${minutes % 60} min` : `${minutes} min`;
 }

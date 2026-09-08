@@ -13,13 +13,14 @@ import { normalizeZonesFromCampaign, summarizeGeofencePoints, deriveLiveZoneStat
 import { useZoneBoundaries } from '../../hooks/useZoneBoundaries.js';
 import { resolveMunicipalityBoundary } from '../../lib/geo/resolveMunicipalityBoundary.js';
 import { AdminLayout } from './AdminLayout.jsx';
-import { listCampaignAssignments } from '../../lib/services/admin-api.js';
+import { listCampaignAssignments, getCampaignManualOperationalMetrics } from '../../lib/services/admin-api.js';
 import { getOperatorColor } from '../../lib/geo/operatorColor.js';
 import { operatorKeyFor } from '../../lib/geo/operatorSplit.js';
 import { FitToZoneBounds } from '../../components/map/FitToZoneBounds.jsx';
 import { GpsMonitorMetricsPanel } from './gps-monitor/GpsMonitorMetricsPanel.jsx';
 import { GpsMonitorGeofenceHistory } from './gps-monitor/GpsMonitorGeofenceHistory.jsx';
 import { GpsMonitorSessionsProofPanel } from './gps-monitor/GpsMonitorSessionsProofPanel.jsx';
+import { GpsMonitorManualDataPanel } from './gps-monitor/GpsMonitorManualDataPanel.jsx';
 
 // Palette tracce per-operatore: token del design system esistente
 // (src/lib/constants.js), arancione brand per il primo operatore. Nessun
@@ -47,6 +48,10 @@ function operatorStatusLabel(track) {
 }
 
 export function GpsMonitor({ campaignId, onNav }) {
+  // Modalita' Admin GPS Monitor: 'monitor' | 'coverage' | 'manual'
+  const [adminMode, setAdminMode] = useState('monitor');
+  const [manualMetrics, setManualMetrics] = useState(null);
+
   // MULTI-OPERATORE: si caricano TUTTE le sessioni trackabili della campagna
   // (una per operatore) con i punti gia' separati per session_id. `points` e'
   // solo la concatenazione piatta per i pannelli/metriche esistenti — la mappa
@@ -85,11 +90,12 @@ export function GpsMonitor({ campaignId, onNav }) {
     let cancelled = false;
     async function load() {
       try {
-        const [sessions, sessionTracks, photos, campaign] = await Promise.all([
+        const [sessions, sessionTracks, photos, campaign, manual] = await Promise.all([
           getCampaignGpsSessions(campaignId),
           getCampaignSessionTracks(campaignId),
           getCampaignProofPhotos(campaignId),
           getCampaignRecord(campaignId).catch(() => null),
+          getCampaignManualOperationalMetrics(campaignId).catch(() => null),
         ]);
         // Sessione "primaria" per coverage/centro mappa/highlight nel pannello
         // sessioni — MAI l'unica renderizzata: tutte le tracce restano
@@ -97,7 +103,11 @@ export function GpsMonitor({ campaignId, onNav }) {
         const activeSession = getLatestTrackableSession(sessions) || sessionTracks[sessionTracks.length - 1]?.session || null;
         const points = sessionTracks.flatMap((track) => track.points);
         const photosWithUrls = await hydratePhotoUrls(photos);
-        if (!cancelled) setState({ loading: false, error: null, points, sessions, sessionTracks, photos: photosWithUrls, activeSession, campaign });
+        const effectiveManual = manual || campaign?.metadata?.manual_operational_metrics || null;
+        if (!cancelled) {
+          setState({ loading: false, error: null, points, sessions, sessionTracks, photos: photosWithUrls, activeSession, campaign });
+          if (effectiveManual) setManualMetrics(effectiveManual);
+        }
       } catch (err) {
         if (!cancelled) setState((prev) => ({ ...prev, loading: false, error: err?.message || 'Errore caricamento GPS.' }));
       }
@@ -461,210 +471,265 @@ export function GpsMonitor({ campaignId, onNav }) {
         }}
       />
 
-      <section style={cardStyle}>
-        <p style={eyebrowStyle}>Mappa operativa — Copertura GPS (sola lettura)</p>
+      {/* SELETTORE MODALITA' ADMIN GPS MONITOR: [ Monitor ] [ Correggi copertura ] [ Dati manuali ] */}
+      <div style={{ display: 'flex', gap: 10, margin: '16px 0 14px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button
+          type="button"
+          onClick={() => setAdminMode('monitor')}
+          style={modeTabButtonStyle(adminMode === 'monitor')}
+        >
+          🛰 Monitor Live
+        </button>
+        <button
+          type="button"
+          onClick={() => setAdminMode('coverage')}
+          style={modeTabButtonStyle(adminMode === 'coverage')}
+        >
+          ✏ Correggi copertura
+        </button>
+        <button
+          type="button"
+          onClick={() => setAdminMode('manual')}
+          style={modeTabButtonStyle(adminMode === 'manual')}
+        >
+          📝 Dati manuali
+        </button>
+      </div>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
-          <input
-            value={zoneSearchQuery}
-            onChange={(e) => setZoneSearchQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSearchZone(); }}
-            placeholder="Cerca comune (es. Cormano, Monza, Varese...)"
-            style={zoneSearchInputStyle}
-          />
-          <button onClick={handleSearchZone} disabled={zoneSearchState.loading || !zoneSearchQuery.trim()} style={mapActionButtonStyle(zoneSearchState.loading || !zoneSearchQuery.trim())}>
-            {zoneSearchState.loading ? 'Ricerca...' : '🔍 Cerca'}
+      {/* SELETTORE MULTI-COMUNE COMPATTO: [ Tutti ] [ Comune A 100% ] [ Comune B 80% ] */}
+      {zoneRows.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,.03)', borderRadius: 10, border: '1px solid rgba(255,255,255,.07)' }}>
+          <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: 'rgba(255,255,255,.5)' }}>
+            Comune / Zona:
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelectedZoneId(null)}
+            style={zoneChipStyle(!selectedZoneId)}
+          >
+            Tutti
           </button>
-          {zoneSearchState.result && <span style={{ fontSize: 12, color: '#0f766e', fontWeight: 800 }}>Confine trovato: {zoneSearchState.result.name}</span>}
-          {zoneSearchState.error && <span style={{ fontSize: 12, color: '#b91c1c', fontWeight: 800 }}>{zoneSearchState.error}</span>}
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
-          <div>
-            {activeZoneName && <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#17211f' }}>{activeZoneName}</p>}
-            <p style={{ margin: '2px 0 0', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.08em', color: '#64748b', fontWeight: 900 }}>Fonte: GPS DRIVER — sola lettura</p>
-          </div>
-          <LiveZoneStatusBadge status={liveZoneStatus} distanceKm={outsideDistanceKm} />
-        </div>
-
-        {zoneRows.length > 1 && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-            {zoneRows.map((zone) => (
+          {zoneRows.map((zone) => {
+            const prog = (zoneProgress.zones || []).find((p) => p.campaign_zone_id === zone.id);
+            const zoneManual = manualMetrics?.zones?.[zone.id];
+            const pct = zoneManual?.coverage_percent ?? prog?.effective_percent ?? null;
+            return (
               <button
                 key={zone.id}
+                type="button"
                 onClick={() => setSelectedZoneId(zone.id)}
                 style={zoneChipStyle(zone.id === selectedZoneId)}
               >
-                {zone.zone_name}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* BARRA FILTRI OPERATORE (TUTTI / OP-01 / OP-02 ...) + DIAGNOSTICA ESCLUSI */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12, padding: '8px 12px', background: 'rgba(255,255,255,.03)', borderRadius: 10, border: '1px solid rgba(255,255,255,.07)' }}>
-          <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: 'rgba(255,255,255,.5)' }}>Filtro Operatori:</span>
-          <button
-            type="button"
-            onClick={() => setSelectedOperatorFilter('all')}
-            style={operatorFilterChipStyle(selectedOperatorFilter === 'all')}
-          >
-            Tutti ({canonicalOperators.length || state.sessionTracks.length})
-          </button>
-          {canonicalOperators.map((op, idx) => {
-            const opKey = op.operatorId || op.assignmentId || op.colorKey;
-            const isSelected = selectedOperatorFilter === opKey;
-            const label = `${operatorKeyFor('OP', idx)}${op.displayName && !op.displayName.startsWith('Operatore') ? ` · ${op.displayName}` : ''}`;
-            return (
-              <button
-                key={op.colorKey}
-                type="button"
-                onClick={() => setSelectedOperatorFilter(opKey)}
-                style={{
-                  ...operatorFilterChipStyle(isSelected),
-                  borderColor: isSelected ? op.color : 'rgba(255,255,255,.16)',
-                  background: isSelected ? `${op.color}28` : 'rgba(255,255,255,.04)',
-                }}
-              >
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: op.color, display: 'inline-block', marginRight: 6 }} />
-                {label}
+                {zone.zone_name}{pct != null ? ` ${Number(pct).toFixed(0)}%` : ''}
               </button>
             );
           })}
-          <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(255,255,255,.6)', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={showExcludedGpsPoints}
-              onChange={(e) => setShowExcludedGpsPoints(e.target.checked)}
-              style={{ cursor: 'pointer' }}
-            />
-            Mostra punti GPS esclusi (diagnostica)
-          </label>
         </div>
+      )}
 
-        {(selectedZoneGeometry || latest) ? (
-          <GpsMap
-            points={filteredPoints}
-            sessionTracks={filteredSessionTracks}
-            trackVisibility={trackVisibility}
-            showExcludedGpsPoints={showExcludedGpsPoints}
-            latest={latest}
-            zones={nilMapZones}
-            selectedZoneId={selectedZoneId}
-            onSelectZone={(id) => setSelectedZoneId(id)}
-            selectedZoneGeometry={selectedZoneGeometry}
-            searchGeometry={zoneSearchState.result?.geometry || null}
-            mapRef={mapRef}
-          />
-        ) : (
-          <EmptyState text={state.loading
-            ? 'Caricamento tracking GPS...'
-            : activeZoneName
-              ? `Confine della zona "${activeZoneName}" non disponibile: mappa non mostrata per evitare una zona errata.`
-              : 'Nessuna zona selezionata / nessun tracking GPS disponibile'} />
-        )}
-        <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-          <button onClick={handleGoToOperatorPosition} disabled={!latest} style={mapActionButtonStyle(!latest)}>
-            📍 Posizione operatore
-          </button>
-          <button onClick={handleReturnToArea} disabled={!selectedZoneGeometry} style={mapActionButtonStyle(!selectedZoneGeometry)}>
-            ⟲ Torna all'area
-          </button>
-        </div>
-
-        <GpsMonitorOperatorsPanel
-          sessionTracks={state.sessionTracks}
-          canonicalOperators={canonicalOperators}
-          assignedOperatorCount={assignedOperatorCount}
-          totalAssignedOperators={campaignOperators.length}
-          operatorsWithGpsCount={operatorsWithGpsCount}
-          trackVisibility={trackVisibility}
-          toggleTrack={toggleTrack}
-          zoneRows={zoneRows}
-          activeSessionId={state.activeSession?.id}
-          formatDateTime={formatDateTime}
-          onUnlockDevice={handleUnlockDevice}
-          onNav={onNav}
-          campaignId={campaignId}
-        />
-
-        <div style={gpsReadOnlySummaryStyle}>
-          {/* "Copertura operatore (stimata)": il calcolo attuale e' per
-              singola sessione e usa come denominatore l'area della zona
-              assegnata (spesso l'intero comune). NON e' la copertura
-              aggregata di campagna (unione delle tracce di tutti gli
-              operatori) — quella e' un lavoro successivo con RPC dedicata. */}
-          <MiniStat label="Copertura operatore (stimata)" value={coverage?.calculation_status === 'ready' ? `${coverage.coverage_percent}%` : 'n/d'} />
-          <MiniStat label="Punti GPS validi" value={gpsValidPointCount} />
-          <MiniStat label="Punti GPS esclusi (qualita')" value={state.points.length - gpsValidPointCount} />
-        </div>
-
-      </section>
-
-      {/* COPERTURA OPERATIVA — stessa fonte di Cliente ed Editor
-          (calculate_campaign_final_coverage, via il pannello) + strumenti
-          SEMPLICI inline. mode "simple": operatore, matita/continua tracciato,
-          gomma parziale, manuale, automatico 50..100%, KPI/preview, salva,
-          note facoltative. NIENTE diagnostica / override legacy / selettore
-          livello / ambito multi-zona / motivo obbligatorio / link editor.
-          key={campaignId:zoneId}: cambio campagna o zona rimonta il pannello
-          da zero — nessun autoNetRef / draft / centro della zona precedente. */}
-      <section style={{ ...cardStyle, marginTop: 16 }}>
-        {selectedZoneGeometry ? (
-          <CoverageAdjustmentPanel
-            key={`${campaignId}:${selectedZoneId || 'none'}`}
-            simple
+      {/* MODALITA' 3: DATI MANUALI VERIFICATI */}
+      {adminMode === 'manual' && (
+        <section style={{ ...cardStyle, marginBottom: 16 }}>
+          <GpsMonitorManualDataPanel
             campaignId={campaignId}
-            points={state.points}
-            zones={selectedZoneRow ? [{ id: selectedZoneRow.id, ...manualPanelZoneCenter }] : []}
-            boundaryGeometry={selectedZoneGeometry}
-            municipalityName={activeZoneName}
-            gpsOperatorCount={gpsOperatorCount}
-            campaignOperators={campaignOperators}
-            gpsOperators={gpsOperators}
+            zoneRows={zoneRows}
+            selectedZoneId={selectedZoneId}
+            onSelectZone={setSelectedZoneId}
+            canonicalOperators={canonicalOperators}
+            manualMetrics={manualMetrics}
+            onSaved={(updated) => setManualMetrics(updated)}
           />
-        ) : (
-          <EmptyState text={state.loading
-            ? 'Caricamento zona...'
-            : `Confine della zona ${activeZoneName ? `"${activeZoneName}" ` : ''}non disponibile: strumenti copertura non attivabili finché il confine non è caricato.`} />
-        )}
-      </section>
+        </section>
+      )}
 
-      <GpsMonitorGeofenceHistory
-        geofence={geofence}
-        geofenceZones={geofenceZones}
-        formatDateTime={formatDateTime}
-        EmptyState={EmptyState}
-        styles={{
-          cardStyle,
-          eyebrowStyle,
-          rowStyle,
-        }}
-      />
+      {/* MODALITA' 2: CORREGGI COPERTURA (DISEGNO/GOMMA/INACCESSIBILE) */}
+      {adminMode === 'coverage' && (
+        <section style={{ ...cardStyle, marginBottom: 16 }}>
+          <p style={eyebrowStyle}>Correzione geometrica copertura</p>
+          {selectedZoneGeometry ? (
+            <CoverageAdjustmentPanel
+              key={`${campaignId}:${selectedZoneId || 'none'}`}
+              simple
+              campaignId={campaignId}
+              points={state.points}
+              zones={selectedZoneRow ? [{ id: selectedZoneRow.id, ...manualPanelZoneCenter }] : []}
+              boundaryGeometry={selectedZoneGeometry}
+              municipalityName={activeZoneName}
+              gpsOperatorCount={gpsOperatorCount}
+              campaignOperators={campaignOperators}
+              gpsOperators={gpsOperators}
+            />
+          ) : (
+            <EmptyState text={state.loading
+              ? 'Caricamento zona...'
+              : `Confine della zona ${activeZoneName ? `"${activeZoneName}" ` : ''}non disponibile: strumenti copertura non attivabili finché il confine non è caricato.`} />
+          )}
+        </section>
+      )}
 
-      <GpsMonitorSessionsProofPanel
-        sessions={state.sessions}
-        activeSession={state.activeSession}
-        photos={state.photos}
-        latest={latest}
-        zoneRows={zoneRows}
-        onApprovePhoto={(photoId, approvedAt) => setState((prev) => ({
-          ...prev,
-          photos: (prev.photos || []).map((p) => (p.id === photoId ? { ...p, approved_at: approvedAt } : p)),
-        }))}
-        sessionOnlineLabel={sessionOnlineLabel}
-        ProofPhoto={ProofPhoto}
-        EmptyState={EmptyState}
-        formatDateTime={formatDateTime}
-        styles={{
-          gridTwoStyle,
-          cardStyle,
-          eyebrowStyle,
-          rowStyle,
-          activeSessionRowStyle,
-          activeBadgeStyle,
-        }}
-      />
+      {/* MODALITA' 1: MONITOR GPS (DEFAULT) */}
+      {adminMode === 'monitor' && (
+        <>
+          <section style={cardStyle}>
+            <p style={eyebrowStyle}>Mappa operativa — Copertura GPS (sola lettura)</p>
+
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+              <input
+                value={zoneSearchQuery}
+                onChange={(e) => setZoneSearchQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSearchZone(); }}
+                placeholder="Cerca comune (es. Cormano, Monza, Varese...)"
+                style={zoneSearchInputStyle}
+              />
+              <button onClick={handleSearchZone} disabled={zoneSearchState.loading || !zoneSearchQuery.trim()} style={mapActionButtonStyle(zoneSearchState.loading || !zoneSearchQuery.trim())}>
+                {zoneSearchState.loading ? 'Ricerca...' : '🔍 Cerca'}
+              </button>
+              {zoneSearchState.result && <span style={{ fontSize: 12, color: '#0f766e', fontWeight: 800 }}>Confine trovato: {zoneSearchState.result.name}</span>}
+              {zoneSearchState.error && <span style={{ fontSize: 12, color: '#b91c1c', fontWeight: 800 }}>{zoneSearchState.error}</span>}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+              <div>
+                {activeZoneName && <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#17211f' }}>{activeZoneName}</p>}
+                <p style={{ margin: '2px 0 0', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.08em', color: '#64748b', fontWeight: 900 }}>Fonte: GPS DRIVER — sola lettura</p>
+              </div>
+              <LiveZoneStatusBadge status={liveZoneStatus} distanceKm={outsideDistanceKm} />
+            </div>
+
+            {/* BARRA FILTRI OPERATORE (TUTTI / OP-01 / OP-02 ...) + DIAGNOSTICA ESCLUSI */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12, padding: '8px 12px', background: 'rgba(255,255,255,.03)', borderRadius: 10, border: '1px solid rgba(255,255,255,.07)' }}>
+              <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: 'rgba(255,255,255,.5)' }}>Filtro Operatori:</span>
+              <button
+                type="button"
+                onClick={() => setSelectedOperatorFilter('all')}
+                style={operatorFilterChipStyle(selectedOperatorFilter === 'all')}
+              >
+                Tutti ({canonicalOperators.length || state.sessionTracks.length})
+              </button>
+              {canonicalOperators.map((op, idx) => {
+                const opKey = op.operatorId || op.assignmentId || op.colorKey;
+                const isSelected = selectedOperatorFilter === opKey;
+                const label = `${operatorKeyFor('OP', idx)}${op.displayName && !op.displayName.startsWith('Operatore') ? ` · ${op.displayName}` : ''}`;
+                return (
+                  <button
+                    key={op.colorKey}
+                    type="button"
+                    onClick={() => setSelectedOperatorFilter(opKey)}
+                    style={{
+                      ...operatorFilterChipStyle(isSelected),
+                      borderColor: isSelected ? op.color : 'rgba(255,255,255,.16)',
+                      background: isSelected ? `${op.color}28` : 'rgba(255,255,255,.04)',
+                    }}
+                  >
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: op.color, display: 'inline-block', marginRight: 6 }} />
+                    {label}
+                  </button>
+                );
+              })}
+              <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(255,255,255,.6)', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={showExcludedGpsPoints}
+                  onChange={(e) => setShowExcludedGpsPoints(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                Mostra punti GPS esclusi (diagnostica)
+              </label>
+            </div>
+
+            {(selectedZoneGeometry || latest) ? (
+              <GpsMap
+                points={filteredPoints}
+                sessionTracks={filteredSessionTracks}
+                trackVisibility={trackVisibility}
+                showExcludedGpsPoints={showExcludedGpsPoints}
+                latest={latest}
+                zones={nilMapZones}
+                selectedZoneId={selectedZoneId}
+                onSelectZone={(id) => setSelectedZoneId(id)}
+                selectedZoneGeometry={selectedZoneGeometry}
+                searchGeometry={zoneSearchState.result?.geometry || null}
+                mapRef={mapRef}
+              />
+            ) : (
+              <EmptyState text={state.loading
+                ? 'Caricamento tracking GPS...'
+                : activeZoneName
+                  ? `Confine della zona "${activeZoneName}" non disponibile: mappa non mostrata per evitare una zona errata.`
+                  : 'Nessuna zona selezionata / nessun tracking GPS disponibile'} />
+            )}
+            <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+              <button onClick={handleGoToOperatorPosition} disabled={!latest} style={mapActionButtonStyle(!latest)}>
+                📍 Posizione operatore
+              </button>
+              <button onClick={handleReturnToArea} disabled={!selectedZoneGeometry} style={mapActionButtonStyle(!selectedZoneGeometry)}>
+                ⟲ Torna all'area
+              </button>
+            </div>
+
+            <GpsMonitorOperatorsPanel
+              sessionTracks={state.sessionTracks}
+              canonicalOperators={canonicalOperators}
+              assignedOperatorCount={assignedOperatorCount}
+              totalAssignedOperators={campaignOperators.length}
+              operatorsWithGpsCount={operatorsWithGpsCount}
+              trackVisibility={trackVisibility}
+              toggleTrack={toggleTrack}
+              zoneRows={zoneRows}
+              activeSessionId={state.activeSession?.id}
+              formatDateTime={formatDateTime}
+              onUnlockDevice={handleUnlockDevice}
+              onNav={onNav}
+              campaignId={campaignId}
+            />
+
+            <div style={gpsReadOnlySummaryStyle}>
+              <MiniStat label="Copertura operatore (stimata)" value={coverage?.calculation_status === 'ready' ? `${coverage.coverage_percent}%` : 'n/d'} />
+              <MiniStat label="Punti GPS validi" value={gpsValidPointCount} />
+              <MiniStat label="Punti GPS esclusi (qualita')" value={state.points.length - gpsValidPointCount} />
+            </div>
+
+          </section>
+
+          <GpsMonitorGeofenceHistory
+            geofence={geofence}
+            geofenceZones={geofenceZones}
+            formatDateTime={formatDateTime}
+            EmptyState={EmptyState}
+            styles={{
+              cardStyle,
+              eyebrowStyle,
+              rowStyle,
+            }}
+          />
+
+          <GpsMonitorSessionsProofPanel
+            sessions={state.sessions}
+            activeSession={state.activeSession}
+            photos={state.photos}
+            latest={latest}
+            zoneRows={zoneRows}
+            formatDateTime={formatDateTime}
+            EmptyState={EmptyState}
+            onNav={onNav}
+            campaignId={campaignId}
+            onApprovePhoto={(photoId, approvedAt) => setState((prev) => ({
+              ...prev,
+              photos: (prev.photos || []).map((p) => (p.id === photoId ? { ...p, approved_at: approvedAt } : p)),
+            }))}
+            sessionOnlineLabel={sessionOnlineLabel}
+            ProofPhoto={ProofPhoto}
+            styles={{
+              gridTwoStyle,
+              cardStyle,
+              eyebrowStyle,
+              rowStyle,
+              activeSessionRowStyle,
+              activeBadgeStyle,
+            }}
+          />
+        </>
+      )}
     </AdminLayout>
   );
 }
@@ -1247,3 +1312,18 @@ function MiniStat({ label, value }) {
     </div>
   );
 }
+
+function modeTabButtonStyle(active) {
+  return {
+    padding: '10px 18px',
+    borderRadius: 10,
+    border: active ? '1px solid #e8571a' : '1px solid rgba(255,255,255,.14)',
+    background: active ? 'rgba(232,87,26,.22)' : 'rgba(255,255,255,.04)',
+    color: active ? '#fff' : 'rgba(255,255,255,.7)',
+    fontWeight: active ? 900 : 700,
+    fontSize: 13,
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  };
+}
+

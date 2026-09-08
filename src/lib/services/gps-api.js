@@ -1071,3 +1071,136 @@ export function calculateDistanceKm(points = []) {
   if (!Array.isArray(points) || points.length < 2) return 0;
   return calculateFilteredDistanceKm(points);
 }
+
+function formatDurationMinutes(ms) {
+  const minutes = Math.floor(ms / 60000);
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return hours ? `${hours}h ${rest}m` : `${rest}m`;
+}
+
+function sessionDurationMs(session) {
+  if (!session?.started_at) return 0;
+  const start = new Date(session.started_at).getTime();
+  const end = new Date(session.ended_at || session.paused_at || Date.now()).getTime();
+  return Math.max(0, end - start);
+}
+
+/**
+ * Calcola l'aggregazione canonica delle metriche operative per una campagna,
+ * integrando la telemetria GPS reale con i dati operativi manuali verificati
+ * senza sovrapposizioni o falsi zeri ("Non disponibile" se nessun dato reale).
+ */
+export function aggregateOperationalMetrics({
+  gpsPoints = [],
+  sessions = [],
+  photos = [],
+  manualMetrics = null,
+  finalCoverage = null,
+  zoneProgress = null,
+  selectedZoneId = null,
+} = {}) {
+  const points = Array.isArray(gpsPoints) ? gpsPoints : [];
+  const sess = Array.isArray(sessions) ? sessions : [];
+  const validPhotos = Array.isArray(photos) ? photos : [];
+
+  let scopedManual = null;
+  if (manualMetrics) {
+    if (selectedZoneId && selectedZoneId !== 'all' && manualMetrics.zones?.[selectedZoneId]) {
+      scopedManual = manualMetrics.zones[selectedZoneId];
+    } else {
+      scopedManual = manualMetrics.campaign_level || null;
+    }
+  }
+
+  // 1. Copertura verificata %
+  let coveragePct = null;
+  let coverageDisplay = 'Dato non disponibile';
+  if (finalCoverage?.final_operational_coverage_pct != null && finalCoverage.final_operational_coverage_pct > 0) {
+    coveragePct = Number(finalCoverage.final_operational_coverage_pct);
+    coverageDisplay = `${coveragePct}%`;
+  } else if (scopedManual?.coverage_percent != null) {
+    coveragePct = Number(scopedManual.coverage_percent);
+    coverageDisplay = `${scopedManual.coverage_percent}%`;
+  } else if (zoneProgress?.zones?.[0]?.effective_percent != null && zoneProgress.zones[0].effective_percent > 0) {
+    coveragePct = Number(zoneProgress.zones[0].effective_percent);
+    coverageDisplay = `${zoneProgress.zones[0].effective_percent}%`;
+  } else if (points.length > 0) {
+    coverageDisplay = 'In calcolo...';
+  }
+
+  // 2. Punti di copertura verificati
+  let verifiedPointsCount = null;
+  let verifiedPointsDisplay = 'Non disponibile';
+  if (points.length > 0) {
+    verifiedPointsCount = points.length;
+    verifiedPointsDisplay = `${points.length}`;
+  } else if (scopedManual?.verified_points_count != null && scopedManual.verified_points_count > 0) {
+    verifiedPointsCount = scopedManual.verified_points_count;
+    verifiedPointsDisplay = `${scopedManual.verified_points_count}`;
+  }
+
+  // 3. Tempo operativo verificato
+  let activeMs = 0;
+  for (const s of sess) {
+    activeMs += sessionDurationMs(s);
+  }
+  let operationalTimeSeconds = null;
+  let operationalTimeDisplay = 'Non disponibile';
+  if (activeMs > 0) {
+    operationalTimeSeconds = Math.round(activeMs / 1000);
+    operationalTimeDisplay = formatDurationMinutes(activeMs);
+  } else if (scopedManual?.operational_time_seconds != null && scopedManual.operational_time_seconds > 0) {
+    operationalTimeSeconds = scopedManual.operational_time_seconds;
+    operationalTimeDisplay = formatDurationMinutes(scopedManual.operational_time_seconds * 1000);
+  }
+
+  // 4. Distanza operativa verificata
+  let rawDistanceKm = 0;
+  if (points.length > 1) {
+    const groups = groupGpsPointsBySession(points);
+    for (const groupPoints of groups.values()) {
+      rawDistanceKm += calculateDistanceKm(groupPoints);
+    }
+  }
+  let operationalDistanceKm = null;
+  let operationalDistanceDisplay = 'Non disponibile';
+  if (rawDistanceKm > 0) {
+    operationalDistanceKm = Number(rawDistanceKm.toFixed(2));
+    operationalDistanceDisplay = `${operationalDistanceKm.toFixed(2)} km`;
+  } else if (scopedManual?.operational_distance_km != null && scopedManual.operational_distance_km > 0) {
+    operationalDistanceKm = Number(Number(scopedManual.operational_distance_km).toFixed(2));
+    operationalDistanceDisplay = `${operationalDistanceKm.toFixed(2)} km`;
+  }
+
+  // 5. Ultimo aggiornamento
+  let latestEventIso = null;
+  const pings = points.map((p) => p.recorded_at || p.created_at).filter(Boolean);
+  const sessionUpdates = sess.map((s) => s.updated_at || s.ended_at || s.started_at).filter(Boolean);
+  const photoDates = validPhotos.map((ph) => ph.taken_at || ph.created_at).filter(Boolean);
+  const manualDates = [scopedManual?.updated_at, scopedManual?.verified_at, manualMetrics?.updated_at].filter(Boolean);
+
+  const allTimestamps = [...pings, ...sessionUpdates, ...photoDates, ...manualDates]
+    .map((d) => new Date(d).getTime())
+    .filter((t) => Number.isFinite(t) && t > 0);
+
+  if (allTimestamps.length > 0) {
+    latestEventIso = new Date(Math.max(...allTimestamps)).toISOString();
+  }
+
+  return {
+    coveragePercent: coveragePct,
+    coverageDisplay,
+    verifiedPointsCount,
+    verifiedPointsDisplay,
+    operationalTimeSeconds,
+    operationalTimeDisplay,
+    operationalDistanceKm,
+    operationalDistanceDisplay,
+    latestEventIso,
+    approvedPhotosCount: validPhotos.length,
+    hasRawGps: points.length > 0 || sess.length > 0,
+    hasManualData: Boolean(scopedManual),
+  };
+}
+

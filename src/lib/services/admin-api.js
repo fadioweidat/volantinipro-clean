@@ -1735,3 +1735,117 @@ export async function adminUpdateSmartPairingStatus(id, patch = {}) {
 
   return Array.isArray(result) ? result[0] || null : result;
 }
+
+/**
+ * Recupera i dati operativi manuali verificati della campagna da metadata.
+ */
+export async function getCampaignManualOperationalMetrics(campaignId) {
+  if (!supabase) return null;
+  if (!campaignId) return null;
+  await ensureSupabaseSessionBridge();
+  const { data, error } = await supabase
+    .from('campaigns')
+    .select('id, metadata')
+    .eq('id', campaignId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data.metadata?.manual_operational_metrics || null;
+}
+
+/**
+ * Salva i dati operativi manuali verificati in campaigns.metadata.manual_operational_metrics
+ * garantendo isolamento per zona (multi-comune) e nessun impatto su gps_tracking_points.
+ */
+export async function saveCampaignManualOperationalMetrics(campaignId, {
+  zoneId = 'all',
+  zoneName = null,
+  coveragePercent = null,
+  operationalTimeSeconds = null,
+  operationalDistanceKm = null,
+  verifiedPointsCount = null,
+  verifiedAt = null,
+  operatorId = null,
+  operatorSlot = null,
+  note = null,
+} = {}) {
+  if (!supabase) throw new Error('Supabase non configurato.');
+  if (!campaignId) throw new Error('ID campagna mancante.');
+  await ensureSupabaseSessionBridge();
+
+  const { data: campaignRow, error: fetchErr } = await supabase
+    .from('campaigns')
+    .select('id, metadata')
+    .eq('id', campaignId)
+    .maybeSingle();
+
+  if (fetchErr) throw fetchErr;
+  if (!campaignRow) throw new Error('Campagna non trovata.');
+
+  const metadata = campaignRow.metadata && typeof campaignRow.metadata === 'object' ? { ...campaignRow.metadata } : {};
+  const currentManual = metadata.manual_operational_metrics && typeof metadata.manual_operational_metrics === 'object'
+    ? { ...metadata.manual_operational_metrics }
+    : { campaign_level: null, zones: {} };
+
+  currentManual.zones = currentManual.zones && typeof currentManual.zones === 'object' ? { ...currentManual.zones } : {};
+
+  const nowIso = new Date().toISOString();
+  const entry = {
+    zone_id: zoneId !== 'all' ? zoneId : null,
+    zone_name: zoneName || null,
+    coverage_percent: coveragePercent != null && coveragePercent !== '' && Number.isFinite(Number(coveragePercent))
+      ? Math.min(100, Math.max(0, Number(coveragePercent)))
+      : null,
+    operational_time_seconds: operationalTimeSeconds != null && operationalTimeSeconds !== '' && Number.isFinite(Number(operationalTimeSeconds))
+      ? Math.max(0, Math.round(Number(operationalTimeSeconds)))
+      : null,
+    operational_distance_km: operationalDistanceKm != null && operationalDistanceKm !== '' && Number.isFinite(Number(operationalDistanceKm))
+      ? Math.max(0, Number(Number(operationalDistanceKm).toFixed(2)))
+      : null,
+    verified_points_count: verifiedPointsCount != null && verifiedPointsCount !== '' && Number.isFinite(Number(verifiedPointsCount))
+      ? Math.max(0, Math.round(Number(verifiedPointsCount)))
+      : null,
+    verified_at: verifiedAt || nowIso,
+    operator_id: operatorId || null,
+    operator_slot: operatorSlot || null,
+    note: note ? String(note).trim() : null,
+    updated_at: nowIso,
+  };
+
+  if (zoneId && zoneId !== 'all') {
+    currentManual.zones[zoneId] = entry;
+
+    // Ricalcola il totale aggregato a livello di campagna sommando/mediando solo le zone registrate
+    const zoneEntries = Object.values(currentManual.zones).filter(Boolean);
+    if (zoneEntries.length > 0) {
+      const validCov = zoneEntries.map((z) => z.coverage_percent).filter((v) => v != null);
+      const avgCov = validCov.length ? Number((validCov.reduce((a, b) => a + b, 0) / validCov.length).toFixed(1)) : null;
+      const sumTime = zoneEntries.reduce((acc, z) => acc + (z.operational_time_seconds || 0), 0);
+      const sumKm = Number(zoneEntries.reduce((acc, z) => acc + (z.operational_distance_km || 0), 0).toFixed(2));
+      const sumPts = zoneEntries.reduce((acc, z) => acc + (z.verified_points_count || 0), 0);
+
+      currentManual.campaign_level = {
+        coverage_percent: avgCov,
+        operational_time_seconds: sumTime > 0 ? sumTime : null,
+        operational_distance_km: sumKm > 0 ? sumKm : null,
+        verified_points_count: sumPts > 0 ? sumPts : null,
+        verified_at: entry.verified_at,
+        updated_at: nowIso,
+      };
+    }
+  } else {
+    currentManual.campaign_level = entry;
+  }
+
+  currentManual.updated_at = nowIso;
+  metadata.manual_operational_metrics = currentManual;
+
+  const { error: updateErr } = await supabase
+    .from('campaigns')
+    .update({ metadata, updated_at: nowIso })
+    .eq('id', campaignId);
+
+  if (updateErr) throw updateErr;
+
+  return currentManual;
+}
+
