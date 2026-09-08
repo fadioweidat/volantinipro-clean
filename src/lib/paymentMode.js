@@ -35,26 +35,42 @@ function readEnv(name) {
 export const PAYMENT_MODE = String(readEnv("VITE_PAYMENT_MODE") || "manual_contact").trim() || "manual_contact";
 export const IS_MANUAL_CONTACT = PAYMENT_MODE === "manual_contact";
 
-export const CAMPAIGN_CONTACT_EMAIL_SUBJECT = "Campagna VolantiniPro - richiesta informazioni";
+export const CAMPAIGN_CONTACT_EMAIL_SUBJECT = "VolantiniPro — Richiesta istruzioni pagamento";
 
-const WHATSAPP_BASE_TEXT =
-  "Buongiorno, ho appena confermato una campagna VolantiniPro. Vorrei ricevere le informazioni per completare la conferma e il pagamento.";
+const WHATSAPP_BASE_PREFIX = "Buongiorno, ho confermato la mia campagna VolantiniPro.";
+const WHATSAPP_BASE_SUFFIX =
+  "Vorrei ricevere le istruzioni per completare il pagamento tramite bonifico. Grazie.";
 
 /** Testo WhatsApp precompilato cliente -> VolantiniPro dopo la conferma campagna. */
 export function buildCampaignContactWhatsAppText(campaignId) {
   const id = campaignId == null ? "" : String(campaignId).trim();
-  return id ? `${WHATSAPP_BASE_TEXT}\n\nID campagna: ${id}` : WHATSAPP_BASE_TEXT;
+  if (!id) {
+    return `${WHATSAPP_BASE_PREFIX}\n${WHATSAPP_BASE_SUFFIX}`;
+  }
+  return `${WHATSAPP_BASE_PREFIX}\nID campagna: ${id}\n${WHATSAPP_BASE_SUFFIX}`;
+}
+
+/** Oggetto email precompilato cliente -> VolantiniPro con ID campagna opzionale. */
+export function buildCampaignContactEmailSubject(campaignId) {
+  const id = campaignId == null ? "" : String(campaignId).trim();
+  return id
+    ? `VolantiniPro — Richiesta istruzioni pagamento — ${id}`
+    : "VolantiniPro — Richiesta istruzioni pagamento";
 }
 
 /** Corpo email precompilato cliente -> VolantiniPro dopo la conferma campagna. */
 export function buildCampaignContactEmailBody(campaignId) {
   const lines = [
     "Buongiorno,",
-    "ho appena confermato una campagna VolantiniPro.",
-    "Vorrei ricevere le informazioni per completare la conferma e il pagamento.",
+    "",
+    "ho confermato la mia campagna VolantiniPro.",
+    "",
   ];
   const id = campaignId == null ? "" : String(campaignId).trim();
-  if (id) lines.push("", `ID campagna: ${id}`);
+  if (id) {
+    lines.push(`ID campagna: ${id}`, "");
+  }
+  lines.push("Vorrei ricevere le istruzioni per completare il pagamento tramite bonifico.", "", "Grazie.");
   return lines.join("\n");
 }
 
@@ -66,7 +82,8 @@ export function buildCampaignContactWhatsAppUrl(campaignId) {
 
 /** mailto: verso l'email ufficiale con oggetto e corpo precompilati. */
 export function buildCampaignContactMailtoUrl(campaignId) {
-  return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(CAMPAIGN_CONTACT_EMAIL_SUBJECT)}&body=${encodeURIComponent(
+  const subject = buildCampaignContactEmailSubject(campaignId);
+  return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(
     buildCampaignContactEmailBody(campaignId),
   )}`;
 }

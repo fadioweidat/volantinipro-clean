@@ -188,7 +188,7 @@ function CampaignRow({ campagna, onVedi }) {
           {campagna.stato_pagamento === 'pagato' ? (
             <span style={{ color: C.green, fontSize: 13, fontWeight: 600 }}> Pagato</span>
           ) : (
-            <span style={{ color: C.yellow, fontSize: 13, fontWeight: 600 }}>⏳ In attesa bonifico</span>
+            <span style={{ color: C.yellow, fontSize: 13, fontWeight: 600 }}>⏳ Pagamento da completare</span>
           )}
         </div>
 

@@ -5987,7 +5987,7 @@ export function CampaignDashboardPage({
               fontSize: 13,
               fontWeight: 800
             }}>
-                {campagna.stato_pagamento === "pagato" ? "Pagamento ricevuto" : "In attesa del tuo bonifico"}
+                {campagna.stato_pagamento === "pagato" ? "Pagamento ricevuto" : "Pagamento da completare"}
                 {campagna.stato_pagamento !== "pagato" && <button onClick={() => onNav("payment", {
                 campaignId: campagna.id
               })} style={{
@@ -6710,7 +6710,10 @@ export function PagamentoBonificoPage({
       fontWeight: 900,
       textDecoration: "none",
       cursor: "pointer",
-      boxShadow: "0 8px 22px rgba(37,211,102,.28)"
+      boxShadow: "0 8px 22px rgba(37,211,102,.28)",
+      width: "100%",
+      boxSizing: "border-box",
+      textAlign: "center"
     };
     const secondaryBtn = {
       minHeight: 44,
@@ -6726,7 +6729,10 @@ export function PagamentoBonificoPage({
       fontSize: 14,
       fontWeight: 800,
       textDecoration: "none",
-      cursor: "pointer"
+      cursor: "pointer",
+      width: "100%",
+      boxSizing: "border-box",
+      textAlign: "center"
     };
     const tertiaryBtn = {
       minHeight: 44,
@@ -6741,7 +6747,10 @@ export function PagamentoBonificoPage({
       fontFamily: F.sans,
       fontSize: 14,
       fontWeight: 700,
-      cursor: "pointer"
+      cursor: "pointer",
+      width: "100%",
+      boxSizing: "border-box",
+      textAlign: "center"
     };
     return <div style={{
       minHeight: "100vh",
@@ -6775,7 +6784,7 @@ export function PagamentoBonificoPage({
           fontSize: 34,
           color: C.white,
           marginBottom: 10
-        }}>Campagna confermata!</div>
+        }}>Campagna confermata</div>
           <div style={{
           fontFamily: F.sans,
           fontSize: 16,
@@ -6787,10 +6796,28 @@ export function PagamentoBonificoPage({
           <div style={{
           fontFamily: F.sans,
           fontSize: 14,
-          color: "rgba(255,255,255,.6)",
+          color: "rgba(255,255,255,.7)",
           lineHeight: 1.6,
+          marginBottom: 14
+        }}>Per completare l'ordine, richiedi le istruzioni di pagamento tramite WhatsApp o Email.</div>
+          <div style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "6px 12px",
+          borderRadius: 8,
+          background: "rgba(251,191,36,.08)",
+          border: "1px solid rgba(251,191,36,.22)",
+          color: C.yellow,
+          fontFamily: F.sans,
+          fontSize: 12,
+          fontWeight: 700,
           marginBottom: 18
-        }}>Ti contatteremo al più presto per completare la conferma della campagna e fornirti le istruzioni di pagamento.</div>
+        }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: C.yellow }}></span>
+            Pagamento non ancora completato
+          </div>
+          <br />
           {contactId && <div style={{
           display: "inline-block",
           padding: "7px 12px",
@@ -6801,7 +6828,9 @@ export function PagamentoBonificoPage({
           fontSize: 12,
           fontWeight: 800,
           color: "rgba(255,255,255,.75)",
-          marginBottom: 22
+          marginBottom: 22,
+          wordBreak: "break-word",
+          maxWidth: "100%"
         }}>ID campagna: {contactId}</div>}
           <div style={{
           display: "flex",
@@ -6809,8 +6838,8 @@ export function PagamentoBonificoPage({
           gap: 10,
           alignItems: "stretch"
         }}>
-            {waUrl && <a href={waUrl} target="_blank" rel="noreferrer" style={primaryBtn}>Contattaci su WhatsApp</a>}
-            <a href={mailUrl} style={secondaryBtn}>Contattaci via Email</a>
+            {waUrl && <a href={waUrl} target="_blank" rel="noreferrer" style={primaryBtn}>Richiedi pagamento su WhatsApp</a>}
+            <a href={mailUrl} style={secondaryBtn}>Richiedi pagamento via Email</a>
             <button onClick={() => onNav("campaign", {
             campaignId: campagna.id
           })} style={tertiaryBtn}>Vai alla Dashboard</button>
@@ -6822,7 +6851,7 @@ export function PagamentoBonificoPage({
           lineHeight: 1.5,
           marginTop: 14,
           marginBottom: 0
-        }}>Scrivici via email: ti risponderemo al più presto.</p>}
+        }}>Scrivici via email per richiedere le istruzioni di pagamento.</p>}
         </div>
       </div>;
   }
