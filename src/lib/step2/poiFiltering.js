@@ -1,8 +1,25 @@
 import { normalizeTerritoryName } from "./addressIntent.js";
 
+const FITNESS_WHITELIST = [
+  "gym", "fitness", "sports_centre", "sportivo", "palestra", "palestre",
+  "yoga", "pilates", "swimming_pool", "martial_arts", "wellness", "spa",
+  "personal_trainer", "dance_school", "sporting_goods", "bodybuilding",
+  "crossfit", "boxe", "nuoto", "piscina", "danza", "arrampicata", "padel", "tennis"
+];
+
+const FITNESS_BLACKLIST = [
+  "bar", "cafe", "caff", "ristorant", "restaurant", "pharmacy", "farmacia",
+  "hospital", "ospedal", "clinic", "school", "scuola", "supermarket",
+  "supermercato", "bank", "negozio", "pub", "hotel", "ufficio", "tabacchi"
+];
+
 const POI_WHITELISTS = {
   all: [],
-  fitness: ["gym", "fitness", "sports_centre", "sportivo", "palestra", "yoga", "pilates", "swimming_pool", "martial_arts", "wellness", "spa", "personal_trainer", "dance_school", "sporting_goods"],
+  fitness: FITNESS_WHITELIST,
+  palestra: FITNESS_WHITELIST,
+  palestre: FITNESS_WHITELIST,
+  gym: FITNESS_WHITELIST,
+  sport: FITNESS_WHITELIST,
   ristorazione: ["ristorante", "bar", "caff", "pub", "mercato"],
   retail: ["negozio", "supermercato", "centro comm", "abbigliamento", "tabacchi"],
   sanitario: ["farmacia", "clinica", "ospedale", "studio medico", "medic", "dentist"],
@@ -23,9 +40,21 @@ const POI_WHITELISTS = {
 };
 
 const POI_BLACKLISTS = {
-  fitness: ["bar", "cafe", "caff", "ristorant", "restaurant", "pharmacy", "farmacia", "hospital", "ospedal", "clinic", "school", "scuola", "supermarket", "supermercato", "bank", "negozio", "pub", "hotel", "ufficio", "tabacchi"],
+  fitness: FITNESS_BLACKLIST,
+  palestra: FITNESS_BLACKLIST,
+  palestre: FITNESS_BLACKLIST,
+  gym: FITNESS_BLACKLIST,
+  sport: FITNESS_BLACKLIST,
   // Other blacklists can be added here if needed
 };
+
+function matchesTerm(haystack, tokens, term) {
+  if (!term || !haystack) return false;
+  if (term.includes(" ")) {
+    return haystack.includes(term);
+  }
+  return tokens.some((t) => t === term || (term.length >= 4 && t.startsWith(term)));
+}
 
 export function filterPoisForCampaignTarget(pois, targetSelection, activityNote = "") {
   const source = Array.isArray(pois) ? pois : [];
@@ -53,19 +82,37 @@ export function filterPoisForCampaignTarget(pois, targetSelection, activityNote 
     const haystack = normalizeTerritoryName(`${poi?.category || ""} ${poi?.name || ""}`);
     const catStack = normalizeTerritoryName(poi?.category || "");
     const nameStack = normalizeTerritoryName(poi?.name || "");
+    const haystackTokens = haystack.split(/[^a-z0-9]+/).filter(Boolean);
+    const catTokens = catStack.split(/[^a-z0-9]+/).filter(Boolean);
+    const nameTokens = nameStack.split(/[^a-z0-9]+/).filter(Boolean);
 
-    // 1. Applica Blacklist prima di tutto (se la stringa del nome o della categoria contiene un termine vietato)
-    if (activeBlacklist.some((term) => haystack.includes(term))) {
-      return false;
+    const isCategoryWhitelisted = catStack && catStack !== "altro" && catStack !== "poi"
+      && activeWhitelist.some((term) => matchesTerm(catStack, catTokens, term));
+
+    // 1. Applica Blacklist:
+    // Se la categoria è già esplicitamente whitelisted (es. categoria "Palestra"),
+    // controlliamo la blacklist solo sulla categoria stessa per evitare falsi positivi
+    // su nomi/indirizzi come "Palestra Baracca" o "Crossfit Barbell".
+    if (isCategoryWhitelisted) {
+      if (activeBlacklist.some((term) => matchesTerm(catStack, catTokens, term))) {
+        return false;
+      }
+    } else {
+      if (activeBlacklist.some((term) => matchesTerm(haystack, haystackTokens, term))) {
+        return false;
+      }
     }
 
     // 2. Se non ha fatto trigger sulla blacklist, verifichiamo la Whitelist.
-    // Diamo preferenza alla categoria originaria/normalizzata se presente, per essere restrittivi
-    if (catStack && catStack !== "altro" && catStack !== "poi") {
-      return activeWhitelist.some((term) => catStack.includes(term) || nameStack.includes(term));
+    if (isCategoryWhitelisted) {
+      return true;
     }
-    
+
+    if (catStack && catStack !== "altro" && catStack !== "poi") {
+      return activeWhitelist.some((term) => matchesTerm(catStack, catTokens, term) || matchesTerm(nameStack, nameTokens, term));
+    }
+
     // Se la categoria manca o è "Altro", fallback sul nome completo
-    return activeWhitelist.some((term) => haystack.includes(term));
+    return activeWhitelist.some((term) => matchesTerm(haystack, haystackTokens, term));
   });
 }

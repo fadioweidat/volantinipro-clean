@@ -79,6 +79,18 @@ export function usePoi(lat, lng, radiusKm, serviceType, targetSelection = []) {
         if (!cancelled) {
           _cache[cacheKey] = result;
           setPois(result);
+          try {
+            if (import.meta.env?.DEV) {
+              console.debug('[usePoi] fetched POIs:', {
+                count: result.length,
+                serviceType,
+                targetKey,
+                lat: latR,
+                lng: lngR,
+                categories: Array.from(new Set(result.map((r) => r.category))),
+              });
+            }
+          } catch {}
         }
       } catch (err) {
         if (!cancelled) {

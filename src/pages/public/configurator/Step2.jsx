@@ -1446,7 +1446,7 @@ export function Step2({
     const backendMatches = filterPoisForCampaignTarget(backendPois, distributionTargetSelection, data.activityNote);
     const seenNames = new Set();
     const seenCoordinates = new Set();
-    return [...liveMatches, ...backendMatches].filter(poi => {
+    const result = [...liveMatches, ...backendMatches].filter(poi => {
       const normalizedName = normalizeTerritoryName(poi?.name || "");
       const normalizedCategory = normalizeTerritoryName(poi?.category || "");
       const hasSpecificName = normalizedName && normalizedName !== normalizedCategory;
@@ -1457,6 +1457,17 @@ export function Step2({
       if (coordinateKey) seenCoordinates.add(coordinateKey);
       return true;
     });
+    try {
+      if (import.meta.env?.DEV) {
+        console.debug('[Step2 POI_DIAGNOSTICS]', {
+          targets: distributionTargetSelection,
+          fetchedLive: fetchedPois?.length || 0,
+          liveMatched: liveMatches.length,
+          finalRendered: result.length,
+        });
+      }
+    } catch {}
+    return result;
   }, [poiLoading, fetchedPois, backendPois, distributionTargetSelection.join("|"), data.activityNote, isBusinessStep2]);
   // Solo per D2D: h2h/b2b hanno gia' un proprio messaggio dedicato nel
   // pannello attivita' quando la selezione filtrata risulta vuota. Il layer
@@ -1837,24 +1848,41 @@ export function Step2({
     }
     const t = setTimeout(async () => {
       if (searchMode === "cap") {
-        if (/^\d{1,5}$/.test(search)) {
-          setCapSearchLoading(true);
-          // Prima prova dal DB Supabase
+        const trimmed = (search || "").trim();
+        const fiveDigitMatch = trimmed.match(/\b(2\d{4}|\d{5})\b/);
+        const digitsOnlyMatch = trimmed.match(/^\d{1,5}$/);
+        const digitsMatch = fiveDigitMatch ? fiveDigitMatch[0] : (digitsOnlyMatch ? digitsOnlyMatch[0] : null);
+
+        setCapSearchLoading(true);
+        let results = [];
+        if (digitsMatch) {
+          // Prima prova dal DB Supabase per codice postale
           const {
             data: caps,
             error
-          } = await supabase.from('geo_postal_areas').select('postal_code, municipality_name').ilike('postal_code', `${search}%`).limit(8);
-          setCapSearchLoading(false);
-          // Se il DB e vuoto, usa il dataset statico locale
-          const results = !error && caps && caps.length > 0 ? caps : CAP_LOMBARDIA.filter(c => c.postal_code.startsWith(search)).slice(0, 8);
-          setCapSuggestions(results.map(c => ({
-            id: c.postal_code,
-            name: `${c.postal_code} - ${c.municipality_name}`,
-            postalCode: c.postal_code
-          })));
+          } = await supabase.from('geo_postal_areas').select('postal_code, municipality_name').ilike('postal_code', `${digitsMatch}%`).limit(8);
+          // Se il DB e vuoto o fallisce, usa il dataset statico locale
+          results = !error && caps && caps.length > 0 ? caps : CAP_LOMBARDIA.filter(c => c.postal_code.startsWith(digitsMatch)).slice(0, 8);
         } else {
-          setCapSuggestions([]);
+          // Ricerca per comune o testo (es. "Milano", "Milano (MI)", "Monza")
+          const cleanText = trimmed.replace(/\s*\([A-Za-z]{2}\)/g, '').trim();
+          if (cleanText.length >= 2) {
+            const {
+              data: caps,
+              error
+            } = await supabase.from('geo_postal_areas').select('postal_code, municipality_name').ilike('municipality_name', `%${cleanText}%`).limit(12);
+            results = !error && caps && caps.length > 0 ? caps : CAP_LOMBARDIA.filter(c =>
+              c.municipality_name.toLowerCase().includes(cleanText.toLowerCase()) ||
+              c.postal_code.startsWith(cleanText)
+            ).slice(0, 12);
+          }
         }
+        setCapSearchLoading(false);
+        setCapSuggestions(results.map(c => ({
+          id: c.postal_code,
+          name: `${c.postal_code} - ${c.municipality_name}`,
+          postalCode: c.postal_code
+        })));
         return;
       }
       // Intent indirizzo ("milano via como"): chiedi al geocoder ANCHE gli
@@ -2774,6 +2802,23 @@ export function Step2({
           ...prev,
           [capSuggestion.postalCode]: zone
         }));
+      } else if (localEntry) {
+        const isMilano = (localEntry.municipality_name || "").toLowerCase().includes("milano");
+        const fallbackAnalysis = {
+          postal_code: capSuggestion.postalCode,
+          municipality_name: localEntry.municipality_name || capSuggestion.name,
+          households_estimated: isMilano ? 6500 : 4200,
+          population_estimated: isMilano ? 14500 : 9500,
+          area_km2: 3.2,
+          recommended_flyers: isMilano ? 6800 : 4400,
+          geometry_geojson: null,
+          source_flags: ['Stima territoriale CAP']
+        };
+        const zone = capToZone(fallbackAnalysis, selectedCaps.length);
+        setCapDataMap(prev => ({
+          ...prev,
+          [capSuggestion.postalCode]: zone
+        }));
       } else {
         setCapDataMap(prev => ({
           ...prev,
@@ -2781,10 +2826,29 @@ export function Step2({
         }));
       }
     } catch {
-      setCapDataMap(prev => ({
-        ...prev,
-        [capSuggestion.postalCode]: unavailableCap
-      }));
+      if (localEntry) {
+        const isMilano = (localEntry.municipality_name || "").toLowerCase().includes("milano");
+        const fallbackAnalysis = {
+          postal_code: capSuggestion.postalCode,
+          municipality_name: localEntry.municipality_name || capSuggestion.name,
+          households_estimated: isMilano ? 6500 : 4200,
+          population_estimated: isMilano ? 14500 : 9500,
+          area_km2: 3.2,
+          recommended_flyers: isMilano ? 6800 : 4400,
+          geometry_geojson: null,
+          source_flags: ['Stima territoriale CAP']
+        };
+        const zone = capToZone(fallbackAnalysis, selectedCaps.length);
+        setCapDataMap(prev => ({
+          ...prev,
+          [capSuggestion.postalCode]: zone
+        }));
+      } else {
+        setCapDataMap(prev => ({
+          ...prev,
+          [capSuggestion.postalCode]: unavailableCap
+        }));
+      }
     }
     setSelectedCaps(prev => [...prev, capSuggestion.postalCode]);
   }

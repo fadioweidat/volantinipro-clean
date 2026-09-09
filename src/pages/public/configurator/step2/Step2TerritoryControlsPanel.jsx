@@ -172,49 +172,76 @@ export function Step2TerritoryControlsPanel({ activeAreaTab, activeZoneId, addre
                     <span style={{
                       fontSize: 13
                     }}>{searchMode === "cap" ? "" : ""} </span>
-                    <input value={search} onChange={e => {
-                      setSearch(e.target.value);
-                      setDropOpen(true);
-                      setAddressSearchError("");
-                    }} onFocus={() => setDropOpen(true)} onKeyDown={e => {
-                      if (e.key === "Enter" && searchMode !== "cap") {
-                        const sIntent = detectSearchIntent(search);
-                        if (sIntent.intent === "address" && sIntent.parentComune === "Milano") {
-                          const topValid = geocodeSuggestions.find(c => {
-                            const textLooksLikeAddr = ADDRESS_INTENT_RE.test(c?.name || c?.label || "");
-                            const inMil = isGeocoderResultInMilanoComune(c);
-                            const hasCoords = Number.isFinite(Number(c?.lat)) && Number.isFinite(Number(c?.lng));
-                            return (looksLikeAddressResult(c) || textLooksLikeAddr) && inMil && hasCoords;
-                          });
-                          if (topValid) {
-                            selectAddressPointInMilano(topValid.name, topValid);
-                          } else {
-                            setAddressSearchError("Indirizzo non trovato a Milano. Controlla il nome della via oppure scegli un punto sulla mappa.");
-                            setSelectedSearchPoint(null);
-                            setDropOpen(false);
-                            logAddressVsMunicipalityDebug(search, city, city, null, true, "invalid_milano_address_blocked_auto_select", search, "unknown", null);
-                            if (import.meta.env.DEV) {
-                              console.log("[STEP2_ADDRESS_VALIDATION]", {
-                                inputValue: search,
-                                searchIntent: sIntent,
-                                rawResultsCount: geocodeSuggestions.length,
-                                validMilanoAddressResultsCount: 0,
-                                rejectedResults: geocodeSuggestions.map(r => ({
-                                  name: r.name,
-                                  fullName: r.fullName,
-                                  type: r.placeType || r.type,
-                                  lat: r.lat,
-                                  lng: r.lng,
-                                  reason: !Number.isFinite(Number(r.lat)) || !Number.isFinite(Number(r.lng)) ? "invalid_coordinates" : "not_valid_milano_address"
-                                })),
-                                selectedSearchPoint: null,
-                                addressSearchError: "Indirizzo non trovato a Milano. Controlla il nome della via oppure scegli un punto sulla mappa."
-                              });
+                    <input
+                      id="step2-search-input"
+                      name="step2_search_input"
+                      value={search}
+                      onChange={e => {
+                        setSearch(e.target.value);
+                        setDropOpen(true);
+                        setAddressSearchError("");
+                      }}
+                      onFocus={() => setDropOpen(true)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") {
+                          if (searchMode === "cap") {
+                            const trimmed = (search || "").trim();
+                            const capMatch = trimmed.match(/\b(2\d{4}|\d{5})\b/);
+                            if (capMatch) {
+                              const postalCode = capMatch[0];
+                              const found = capSuggestions.find(c => c.postalCode === postalCode);
+                              if (found) {
+                                handleCapSelect(found);
+                              } else {
+                                handleCapSelect({
+                                  id: postalCode,
+                                  postalCode: postalCode,
+                                  name: `CAP ${postalCode}`
+                                });
+                              }
+                            } else if (capSuggestions.length > 0) {
+                              handleCapSelect(capSuggestions[0]);
+                            }
+                            return;
+                          }
+                          const sIntent = detectSearchIntent(search);
+                          if (sIntent.intent === "address" && sIntent.parentComune === "Milano") {
+                            const topValid = geocodeSuggestions.find(c => {
+                              const textLooksLikeAddr = ADDRESS_INTENT_RE.test(c?.name || c?.label || "");
+                              const inMil = isGeocoderResultInMilanoComune(c);
+                              const hasCoords = Number.isFinite(Number(c?.lat)) && Number.isFinite(Number(c?.lng));
+                              return (looksLikeAddressResult(c) || textLooksLikeAddr) && inMil && hasCoords;
+                            });
+                            if (topValid) {
+                              selectAddressPointInMilano(topValid.name, topValid);
+                            } else {
+                              setAddressSearchError("Indirizzo non trovato a Milano. Controlla il nome della via oppure scegli un punto sulla mappa.");
+                              setSelectedSearchPoint(null);
+                              setDropOpen(false);
+                              logAddressVsMunicipalityDebug(search, city, city, null, true, "invalid_milano_address_blocked_auto_select", search, "unknown", null);
+                              if (import.meta.env.DEV) {
+                                console.log("[STEP2_ADDRESS_VALIDATION]", {
+                                  inputValue: search,
+                                  searchIntent: sIntent,
+                                  rawResultsCount: geocodeSuggestions.length,
+                                  validMilanoAddressResultsCount: 0,
+                                  rejectedResults: geocodeSuggestions.map(r => ({
+                                    name: r.name,
+                                    fullName: r.fullName,
+                                    type: r.placeType || r.type,
+                                    lat: r.lat,
+                                    lng: r.lng,
+                                    reason: !Number.isFinite(Number(r.lat)) || !Number.isFinite(Number(r.lng)) ? "invalid_coordinates" : "not_valid_milano_address"
+                                  })),
+                                  selectedSearchPoint: null,
+                                  addressSearchError: "Indirizzo non trovato a Milano. Controlla il nome della via oppure scegli un punto sulla mappa."
+                                });
+                              }
                             }
                           }
                         }
-                      }
-                    }} placeholder={searchMode === "cap" ? "Inserisci CAP (es. 20121)..." : searchMode === "municipality" ? pendingAddMunicipality ? "Aggiungi comune (es. Meda, Cesano...)" : "Cerca comune" : "Cerca comune o CAP"} style={{
+                      }}
+                      placeholder={searchMode === "cap" ? "Inserisci CAP (es. 20121)..." : searchMode === "municipality" ? pendingAddMunicipality ? "Aggiungi comune (es. Meda, Cesano...)" : "Cerca comune" : "Cerca comune o CAP"} style={{
                       flex: 1,
                       background: "transparent",
                       border: "none",
