@@ -149,26 +149,73 @@ async function supabaseRequest(path, { method = "GET", body, session, prefer = "
 export const supabase = hasSupabaseConfig()
   ? {
       from(table) {
-        const state = { table, selectValue: "*", filters: [], orderValue: null, limitValue: null, singleValue: false };
+        const state = {
+          table,
+          method: "GET",
+          body: null,
+          selectValue: "*",
+          filters: [],
+          orderValue: null,
+          limitValue: null,
+          singleValue: false,
+          prefer: null,
+        };
         const builder = {
-          select(value = "*") { state.selectValue = value; return builder; },
+          select(value = "*") {
+            state.selectValue = value;
+            if (state.method !== "PATCH" && state.method !== "POST" && state.method !== "DELETE") {
+              state.method = "GET";
+            } else {
+              state.prefer = "return=representation";
+            }
+            return builder;
+          },
+          update(body) {
+            state.method = "PATCH";
+            state.body = body;
+            return builder;
+          },
+          insert(body) {
+            state.method = "POST";
+            state.body = body;
+            state.prefer = "return=representation";
+            return builder;
+          },
+          upsert(body) {
+            state.method = "POST";
+            state.body = body;
+            state.prefer = "resolution=merge-duplicates,return=representation";
+            return builder;
+          },
+          delete() {
+            state.method = "DELETE";
+            return builder;
+          },
           eq(column, value) { state.filters.push({ column, operator: "eq", value }); return builder; },
           ilike(column, value) { state.filters.push({ column, operator: "ilike", value }); return builder; },
           limit(value) { state.limitValue = value; return builder; },
           order(column, options = {}) { state.orderValue = { column, ascending: options.ascending !== false }; return builder; },
           single() { state.singleValue = true; return builder; },
+          maybeSingle() { state.singleValue = true; return builder; },
           async then(resolve) {
             try {
               const params = new URLSearchParams();
-              params.set("select", state.selectValue);
+              if (state.selectValue && (state.method === "GET" || state.prefer?.includes("return=representation"))) {
+                params.set("select", state.selectValue);
+              }
               state.filters.forEach(({ column, operator, value }) => params.append(column, `${operator}.${value}`));
               if (state.orderValue) params.set("order", `${state.orderValue.column}.${state.orderValue.ascending ? "asc" : "desc"}`);
               if (state.limitValue) params.set("limit", state.limitValue);
-              const rows = await supabaseRequest(`/rest/v1/${state.table}?${params.toString()}`, {
+
+              const qs = params.toString();
+              const path = `/rest/v1/${state.table}${qs ? `?${qs}` : ""}`;
+              const rows = await supabaseRequest(path, {
+                method: state.method,
                 session: getStoredSupabaseSession(),
-                prefer: null,
+                prefer: state.prefer,
+                body: state.body,
               });
-              resolve({ data: state.singleValue ? rows?.[0] || null : rows, error: null });
+              resolve({ data: state.singleValue ? (Array.isArray(rows) ? rows[0] || null : rows) : rows, error: null });
             } catch (error) {
               resolve({ data: state.singleValue ? null : [], error });
             }

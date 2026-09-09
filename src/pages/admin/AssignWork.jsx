@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '../../lib/supabaseClient.js';
+import { supabase, ensureSupabaseSessionBridge } from '../../supabaseClient.js';
 import {
   listAssignableOperators,
   adminListSuppliers,
@@ -354,6 +354,10 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       const startsAtUtc = fromLocalDatetimeInputValue(startsAt);
       const endsAtUtc = fromLocalDatetimeInputValue(endsAt);
 
+      if (ensureSupabaseSessionBridge) {
+        await ensureSupabaseSessionBridge();
+      }
+
       // Determine target operator id for DB assignment table
       const targetOperatorId = existingAssignment?.operator_id
         || initialOperatorId
@@ -387,44 +391,52 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
 
       // Persist supplier_id and compensation metadata on campaigns row
       if (supabase) {
-        if (!isManual && selectedSupplierId) {
-          await supabase
-            .from('campaigns')
-            .update({
-              supplier_id: selectedSupplierId,
-              metadata: {
-                ...(campaign?.metadata || {}),
+        try {
+          if (!isManual && selectedSupplierId) {
+            const { error: campErr } = await supabase
+              .from('campaigns')
+              .update({
                 supplier_id: selectedSupplierId,
-                supplier_name: selectedSupplier?.company_name || selectedSupplier?.contact_name || null,
-                supplier_compensation: parsedCompensation,
-                supplier_mode: 'registered',
-              },
-            })
-            .eq('id', campaignId)
-            .catch(() => {});
-        } else if (isManual) {
-          await supabase
-            .from('campaigns')
-            .update({
-              supplier_id: null,
-              metadata: {
-                ...(campaign?.metadata || {}),
-                supplier_id: null,
-                supplier_name: cleanManualName,
-                supplier_compensation: parsedCompensation,
-                supplier_mode: 'manual',
-                manual_supplier: {
-                  name: cleanManualName,
-                  contact_name: cleanManualContact,
-                  phone: cleanManualPhone,
-                  email: cleanManualEmail,
-                  notes: cleanManualNotes,
-                  source: 'admin_manual',
+                metadata: {
+                  ...(campaign?.metadata || {}),
+                  supplier_id: selectedSupplierId,
+                  supplier_name: selectedSupplier?.company_name || selectedSupplier?.contact_name || null,
+                  supplier_compensation: parsedCompensation,
+                  supplier_mode: 'registered',
                 },
-              },
-            })
-            .eq('id', campaignId)
-            .catch(() => {});
+              })
+              .eq('id', campaignId);
+            if (campErr) {
+              console.warn('[ADMIN_ASSIGN_WORK_CAMPAIGN_UPDATE_WARN]', campErr.message);
+            }
+          } else if (isManual) {
+            const { error: campErr } = await supabase
+              .from('campaigns')
+              .update({
+                supplier_id: null,
+                metadata: {
+                  ...(campaign?.metadata || {}),
+                  supplier_id: null,
+                  supplier_name: cleanManualName,
+                  supplier_compensation: parsedCompensation,
+                  supplier_mode: 'manual',
+                  manual_supplier: {
+                    name: cleanManualName,
+                    contact_name: cleanManualContact,
+                    phone: cleanManualPhone,
+                    email: cleanManualEmail,
+                    notes: cleanManualNotes,
+                    source: 'admin_manual',
+                  },
+                },
+              })
+              .eq('id', campaignId);
+            if (campErr) {
+              console.warn('[ADMIN_ASSIGN_WORK_CAMPAIGN_UPDATE_WARN]', campErr.message);
+            }
+          }
+        } catch (campErr) {
+          console.warn('[ADMIN_ASSIGN_WORK_CAMPAIGN_UPDATE_ERROR]', campErr);
         }
       }
 
@@ -460,7 +472,8 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
 
       if (onSaved) onSaved({ assignment: result, link });
     } catch (err) {
-      setError(err?.message || 'Errore salvataggio assegnazione.');
+      console.error('[ASSIGN_WORK_SAVE_ERROR]', err);
+      setError('Impossibile salvare l\'assegnazione. Riprova.');
     } finally {
       setSaving(false);
     }
