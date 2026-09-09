@@ -11,7 +11,8 @@ const trustItems = [
   "Analisi ISTAT demografica",
   "Cartografia GIS professionale",
   "Preventivi e PDF certificati",
-  "Monitoraggio operativo sul campo"
+  "Monitoraggio operativo sul campo",
+  "Analisi convenienza e ROI"
 ];
 
 export default function TrustBar() {

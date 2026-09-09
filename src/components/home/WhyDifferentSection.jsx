@@ -15,6 +15,21 @@ const CARDS = [
     bullets: ["Zone e comuni", "Fabbisogno volantini"],
   },
   {
+    title: "Studio di fattibilità",
+    desc: "Prima di investire, analizziamo la sostenibilità economica della campagna in base alla tua attività, al budget e agli obiettivi.",
+    icon: "AI + ANALISI",
+    bullets: [
+      "Break-even e ROI",
+      "Clienti necessari per rientrare",
+      "Scenari prudente, realistico e crescita",
+      "Rischi e raccomandazioni",
+    ],
+    smallNote: "Analisi basata sui dati forniti e sulle ipotesi dichiarate.",
+    cta: "Scopri l'analisi",
+    href: "/analisi-campagna",
+    isFeasibility: true,
+  },
+  {
     title: "Tracking GPS",
     desc: "Il lavoro sul campo viene registrato con il percorso GPS degli operatori.",
     icon: "GPS",
@@ -62,7 +77,7 @@ export default function WhyDifferentSection() {
           font-size: 17px;
           line-height: 1.65;
           color: #AEB9C9;
-          max-width: 540px;
+          max-width: 680px;
           margin: 0;
         }
         .why-diff-grid {
@@ -85,16 +100,27 @@ export default function WhyDifferentSection() {
           transform: translateY(-4px);
           border-color: rgba(232, 87, 26, 0.4);
         }
-        .why-diff-card:nth-child(1) { grid-column: span 7; }
-        .why-diff-card:nth-child(2) { grid-column: span 5; }
-        .why-diff-card:nth-child(3) { grid-column: span 5; }
-        .why-diff-card:nth-child(4) { grid-column: span 7; }
+        .why-diff-card--feasibility {
+          border-color: rgba(232, 87, 26, 0.22);
+          background: linear-gradient(180deg, #152540 0%, #122036 100%);
+        }
+        .why-diff-card--feasibility:hover {
+          border-color: rgba(232, 87, 26, 0.55);
+        }
+        .why-diff-card:nth-child(1) { grid-column: span 4; }
+        .why-diff-card:nth-child(2) { grid-column: span 4; }
+        .why-diff-card:nth-child(3) { grid-column: span 4; }
+        .why-diff-card:nth-child(4) { grid-column: span 6; }
+        .why-diff-card:nth-child(5) { grid-column: span 6; }
 
         .why-diff-icon-badge {
-          width: 42px;
+          min-width: 42px;
+          width: auto;
           height: 42px;
+          padding: 0 10px;
+          box-sizing: border-box;
           border-radius: 12px;
-          display: flex;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
           background: rgba(232, 87, 26, 0.12);
@@ -104,6 +130,8 @@ export default function WhyDifferentSection() {
           font-weight: 900;
           letter-spacing: .08em;
           color: #E8571A;
+          align-self: flex-start;
+          white-space: nowrap;
         }
         .why-diff-card-title {
           font-family: 'DM Serif Display', Georgia, serif;
@@ -120,12 +148,30 @@ export default function WhyDifferentSection() {
           color: #AEB9C9;
           margin: 0;
         }
+        .why-diff-cta {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 14px;
+          color: #E8571A;
+          font-family: 'DM Sans', Inter, system-ui, sans-serif;
+          font-size: 14px;
+          font-weight: 700;
+          text-decoration: none;
+          transition: color 0.15s ease, transform 0.15s ease;
+          align-self: flex-start;
+        }
+        .why-diff-cta:hover {
+          color: #FF773D;
+          transform: translateX(2px);
+        }
 
         @media (max-width: 980px) {
           .why-diff-card:nth-child(1),
           .why-diff-card:nth-child(2),
           .why-diff-card:nth-child(3),
-          .why-diff-card:nth-child(4) {
+          .why-diff-card:nth-child(4),
+          .why-diff-card:nth-child(5) {
             grid-column: span 12;
           }
           .why-diff-grid {
@@ -141,7 +187,7 @@ export default function WhyDifferentSection() {
             Perché VolantiniPro è diverso
           </h2>
           <p className="why-diff-copy">
-            Analizziamo il territorio prima della campagna, poi costruiamo copertura, quantità e report operativo.
+            Prima analizziamo dove distribuire e se l'investimento può avere senso. Poi pianifichiamo la copertura, monitoriamo il lavoro e documentiamo il risultato.
           </p>
         </div>
 
@@ -149,7 +195,7 @@ export default function WhyDifferentSection() {
           {CARDS.map((card, idx) => (
             <motion.article
               key={card.title}
-              className="why-diff-card"
+              className={`why-diff-card${card.isFeasibility ? " why-diff-card--feasibility" : ""}`}
               initial={reduceMotion ? false : { opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -164,6 +210,17 @@ export default function WhyDifferentSection() {
                   <ul style={{ paddingLeft: 20, marginTop: 16, marginBottom: 0, color: "#AEB9C9", fontFamily: "'DM Sans', Inter, sans-serif", fontSize: 14, lineHeight: 1.6 }}>
                     {card.bullets.map(b => <li key={b}>{b}</li>)}
                   </ul>
+                )}
+                {card.smallNote && (
+                  <p style={{ marginTop: 12, marginBottom: 0, color: "rgba(174, 185, 201, 0.65)", fontFamily: "'DM Sans', Inter, sans-serif", fontSize: 12, lineHeight: 1.4 }}>
+                    {card.smallNote}
+                  </p>
+                )}
+                {card.cta && card.href && (
+                  <a href={card.href} className="why-diff-cta" aria-label={`${card.cta} - ${card.title}`}>
+                    <span>{card.cta}</span>
+                    <span aria-hidden="true">→</span>
+                  </a>
                 )}
               </div>
             </motion.article>
