@@ -1,3 +1,4 @@
+import CampaignSettlementSummary from '../../components/customer/CampaignSettlementSummary.jsx';
 import React, { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { AdminLayout } from './AdminLayout.jsx';
 import { getClientsQuotesOverview } from '../../lib/services/admin-api.js';
@@ -32,6 +33,10 @@ const C = {
 };
 
 const PAYMENT_LABEL = {
+  settled_by_credit: { text: 'SALDO COPERTO DA CREDITO', color: C.green },
+  settled_by_verified_receipt: { text: 'RESIDUO VERIFICATO', color: C.green },
+  review_required: { text: 'SALDO DA VERIFICARE', color: C.yellow },
+  unavailable: { text: 'SALDO NON DISPONIBILE', color: C.yellow },
   pagato: { text: 'PAGATO', color: C.green },
   da_pagare: { text: 'DA PAGARE', color: C.yellow },
   non_disponibile: { text: '—', color: C.gray },
@@ -114,7 +119,7 @@ const QUICK_FILTERS = [
   { key: 'new', label: 'Nuovi', test: (r) => r.paymentStatus === 'non_disponibile' && !r.assignment },
   { key: 'to_pay', label: 'Da pagare', test: (r) => r.paymentStatus === 'da_pagare' },
   { key: 'paid', label: 'Pagati', test: (r) => r.paymentStatus === 'pagato' },
-  { key: 'to_assign', label: 'Da assegnare', test: (r) => r.paymentStatus === 'pagato' && !r.assignment },
+  { key: 'to_assign', label: 'Da assegnare', test: (r) => ['pagato','settled_by_credit','settled_by_verified_receipt'].includes(r.paymentStatus) && !r.assignment },
   { key: 'scheduled', label: 'Programmati', test: (r) => ['inviato', 'aperto', 'confermato'].includes(r.programStatus) },
   { key: 'in_progress', label: 'In lavorazione', test: (r) => r.gpsStatus === 'live' },
   { key: 'completed', label: 'Completati', test: (r) => r.gpsStatus === 'storico' || r.status === 'done' },
@@ -185,7 +190,7 @@ export function AdminOrdersRegistry({ onNav }) {
       new: sum((r) => r.paymentStatus === 'non_disponibile' && !r.assignment),
       toPay: sum((r) => r.paymentStatus === 'da_pagare'),
       paid: sum((r) => r.paymentStatus === 'pagato'),
-      toAssign: sum((r) => r.paymentStatus === 'pagato' && !r.assignment),
+      toAssign: sum((r) => ['pagato','settled_by_credit','settled_by_verified_receipt'].includes(r.paymentStatus) && !r.assignment),
       inProgress: sum((r) => r.gpsStatus === 'live'),
       completed: sum((r) => r.gpsStatus === 'storico' || r.status === 'done'),
       totalValue,
@@ -202,6 +207,7 @@ export function AdminOrdersRegistry({ onNav }) {
     setPaymentConfirmBusy(true);
     setPaymentConfirmError('');
     try {
+      if (paymentConfirmRow.settlement?.application_id) { window.location.assign('/le-mie-analisi'); return; }
       await confirmCampaignPayment(paymentConfirmRow.id);
       setPaymentConfirmRow(null);
       await load();
@@ -319,7 +325,7 @@ export function AdminOrdersRegistry({ onNav }) {
         <div style={{ ...modalOverlayStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ background: C.navyLight, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, maxWidth: 420, width: '100%' }}>
             <h3 style={{ margin: '0 0 6px', color: C.white, fontSize: 18 }}>Confermi di aver verificato il bonifico?</h3>
-            <p style={{ margin: '0 0 16px', color: C.gray, fontSize: 13 }}>Questa azione segna il preventivo come pagato e sblocca l'assegnazione del gruppo.</p>
+            <CampaignSettlementSummary settlement={paymentConfirmRow?.settlement}/><p style={{ margin: '0 0 16px', color: C.gray, fontSize: 13 }}>Questa azione segna il preventivo come pagato e sblocca l'assegnazione del gruppo.</p>
             {paymentConfirmError && <div style={errorBoxStyle}>{paymentConfirmError}</div>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 14 }}>
               <button type="button" onClick={() => { setPaymentConfirmRow(null); setPaymentConfirmError(''); }} disabled={paymentConfirmBusy} style={secondaryBtnStyle}>Annulla</button>
@@ -346,7 +352,7 @@ function renderCell(value, format) {
 }
 
 function RowActions({ row, onNav, onAssign, onConfirmPayment }) {
-  const isPaid = row.paymentStatus === 'pagato';
+  const isPaid = ['pagato','settled_by_credit','settled_by_verified_receipt'].includes(row.paymentStatus);
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
       <MiniBtn onClick={() => onNav?.(`admin-operations:${row.id}`)}>Apri</MiniBtn>

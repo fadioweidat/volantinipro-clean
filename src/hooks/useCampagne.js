@@ -1,3 +1,4 @@
+import { withCampaignSettlement } from '../lib/campaignSettlement.js';
 import { useEffect, useState } from 'react'
 import { ensureSupabaseSessionBridge, supabase, clearBridgedSupabaseSession } from '../supabaseClient'
 import { normalizeCustomerCampaign } from '../lib/customerCampaigns.js'
@@ -69,7 +70,7 @@ export function useCampagne() {
           .eq('user_id', authData.user.id)
           .order('created_at', { ascending: false })
         if (queryError) throw queryError
-        setCampagne((data || []).map((row) => normalizeCustomerCampaign(row, row.campaign_zones)))
+        setCampagne(await Promise.all((data || []).map((row) => withCampaignSettlement(normalizeCustomerCampaign(row, row.campaign_zones)))))
       } catch (loadError) {
         const log = /auth session missing|autenticazione cliente richiesta/i.test(loadError?.message || '') ? console.warn : console.error
         log('[CUSTOMER_CAMPAIGNS_LOAD_FAILED]', { code: loadError?.code || null, message: loadError?.message || 'Errore sconosciuto' })

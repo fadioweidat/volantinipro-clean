@@ -1,7 +1,3 @@
-import { createHandler } from './handler.js';
-
-Deno.serve(createHandler({
-  apiKey: Deno.env.get('OPENAI_API_KEY'),
-  anonKey: Deno.env.get('SUPABASE_ANON_KEY'),
-  model: Deno.env.get('FEASIBILITY_OPENAI_MODEL') || 'gpt-4o-mini',
-}));
+import { handleCommerce } from '../feasibility-commerce/service.ts';
+// The Phase 2 prompt/engine remain unchanged; this gate enforces quota and preview-only access.
+Deno.serve(request=>handleCommerce(request,true));

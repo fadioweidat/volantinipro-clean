@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import FeasibilityConversation from './FeasibilityConversation.jsx';
 import FeasibilitySummary from './FeasibilitySummary.jsx';
-import FeasibilityReport, { money, number } from './FeasibilityReport.jsx';
+import { money, number } from './FeasibilityReport.jsx';
 import { FIELDS, nextMissing, scenariosFromHistory } from './feasibilitySchemas.js';
 import { calculateFeasibility } from './feasibilityEngine.js';
-import { applyEvidence, requestFeasibilityAi } from './feasibilityAi.js';
+import { applyEvidence } from './feasibilityAi.js';
 import { readFeasibility, saveFeasibility, STORAGE_KEY } from './feasibilityStorage.js';
 import './feasibility.css';
+import { commerce, analysisToken, errorText } from './feasibilityCommerce.js';
+import FeasibilityPurchase from './FeasibilityPurchase.jsx';
 
 export default function FeasibilityPage({ onNav }) {
   const [state, setState] = useState(() => readFeasibility(typeof window === 'undefined' ? null : window));
@@ -25,7 +27,7 @@ export default function FeasibilityPage({ onNav }) {
     const abort = new AbortController(); controller.current = abort;
     const timeout = setTimeout(() => abort.abort(), 20000);
     let next = inputs, aiFailed = false;
-    try { const reply = await requestFeasibilityAi({ mode: 'collect', message, currentField, inputs }, { signal: abort.signal }); next = applyEvidence(inputs, reply.updates, message); }
+    try { const reply = await commerce('ai', { analysisToken: analysisToken(), mode: 'collect', message, currentField, inputs }, { signal: abort.signal }); next = applyEvidence(inputs, reply.updates, message); }
     catch { aiFailed = true; if (currentField) next = applyEvidence(inputs, [{ field: currentField, evidence: message }], message); }
     finally { clearTimeout(timeout); }
     if (!active.current) return;
@@ -42,8 +44,8 @@ export default function FeasibilityPage({ onNav }) {
     setBusy(true); setAiState('loading'); setNarrative(null);
     const abort = new AbortController(); controller.current = abort;
     const timeout = setTimeout(() => abort.abort(), 20000);
-    try { const text = await requestFeasibilityAi({ mode: 'narrative', inputs, unusualMargin }, { signal: abort.signal }); if (active.current) { setNarrative(text); setAiState('ready'); } }
-    catch { if (active.current) setAiState('failed'); }
+    try { const text = await commerce('ai', { analysisToken: analysisToken(), mode: 'narrative', inputs, unusualMargin }, { signal: abort.signal }); if (active.current) { setNarrative(text.preview); setAiState('ready'); } }
+    catch (error) { if (active.current) { setAiState('failed'); setNotice(errorText(error)); } }
     finally { clearTimeout(timeout); if (active.current) { change({ phase: 3 }); setBusy(false); } }
   }
   function generate() { try { setResult(calculateFeasibility(inputs, { unusualMargin })); setNotice(''); change({ phase: 2 }); interpret(); } catch { setNotice('Controlla i dati: il calcolo non è possibile con questi valori.'); } }
@@ -56,7 +58,7 @@ export default function FeasibilityPage({ onNav }) {
     {notice && <p className="vf-notice" role="status">{notice}</p>}
     {phase === 0 && <FeasibilityConversation inputs={inputs} messages={messages} busy={busy} onSend={send} onReview={() => change({ phase: 1 })} />}
     {phase === 1 && <FeasibilitySummary inputs={inputs} unusualMargin={unusualMargin} onChange={value => change({ inputs: value })} onUnusualMargin={value => change({ unusualMargin: value })} onGenerate={generate} onBack={() => change({ phase: 0 })} />}
-    {phase >= 2 && result && <FeasibilityReport inputs={inputs} result={result} narrative={narrative} aiState={aiState} unusualMargin={unusualMargin} onEdit={edit} onRetry={interpret} />}
-    <footer className="vf-footer vf-no-print"><button onClick={() => onNav('step4')}>Torna al preventivo</button><button onClick={() => onNav('dashboard')}>Dashboard</button><button disabled={busy} onClick={() => { try { window.sessionStorage.removeItem(STORAGE_KEY); } catch {} setState(readFeasibility(window)); setMessages([]); setResult(null); setNotice('Dati della sola analisi cancellati.'); }}>Cancella dati analisi</button><p>Servizio senza pagamento in questa fase. Il preventivo della campagna rimane invariato.</p></footer>
+    {phase >= 2 && <>{busy && <p role="status">Preparazione dello studio…</p>}{narrative && <FeasibilityPurchase preview={narrative}/>}<div className="vf-actions"><button disabled={busy} onClick={edit}>Modifica dati e ipotesi</button>{aiState === 'failed' && <button disabled={busy} onClick={interpret}>Riprova salvataggio studio</button>}</div>{!result && !narrative && <p>Apri il riepilogo per riprendere l’analisi. I report acquistati sono in Le mie analisi.</p>}</>}
+    <footer className="vf-footer vf-no-print"><button onClick={() => onNav('step4')}>Torna al preventivo</button><a href="/le-mie-analisi">Le mie analisi</a><button onClick={() => onNav('dashboard')}>Dashboard</button><button disabled={busy} onClick={() => { try { window.sessionStorage.removeItem(STORAGE_KEY); analysisToken(true); } catch {} setState(readFeasibility(window)); setMessages([]); setResult(null); setNarrative(null); setAiState('idle'); setNotice('Dati della sola analisi cancellati.'); }}>Cancella dati analisi</button><p>Anteprima gratuita. Report completo acquistabile separatamente. Il preventivo della campagna rimane invariato.</p></footer>
   </div></main>;
 }

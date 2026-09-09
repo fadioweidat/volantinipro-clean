@@ -1,3 +1,4 @@
+import { withCampaignSettlement } from '../lib/campaignSettlement.js';
 import { useEffect, useState } from 'react'
 import { ensureSupabaseSessionBridge, supabase } from '../supabaseClient'
 import { normalizeCustomerCampaign } from '../lib/customerCampaigns.js'
@@ -38,7 +39,7 @@ export function useCampagnaDetail(id) {
           normalized.copertura_pct = finalCoveragePct;
         }
         
-        setCampagna(normalized)
+        setCampagna(await withCampaignSettlement(normalized))
       } catch (loadError) {
         console.error('[CUSTOMER_CAMPAIGN_DETAIL_LOAD_FAILED]', { code: loadError?.code || null, message: loadError?.message || 'Errore sconosciuto' })
         setError(loadError?.message || 'Dettaglio campagna non disponibile.')

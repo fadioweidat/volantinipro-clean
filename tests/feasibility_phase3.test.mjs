@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import Summary from '../src/components/customer/CampaignSettlementSummary.jsx';
+import { isCreditSettled } from '../src/lib/campaignSettlement.js';
+import { resolveAppRoute } from '../src/app/routeResolution.js';
+const render=s=>renderToStaticMarkup(React.createElement(Summary,{settlement:s}));
+test('library route resolves without granting entitlement',()=>assert.equal(resolveAppRoute('/le-mie-analisi'),'feasibility-library'));
+test('settlement requires canonical states, never mutable pagato',()=>{assert.equal(isCreditSettled({settlement_status:'pagato'}),false);assert.equal(isCreditSettled({settlement_status:'awaiting_payment'}),false);assert.equal(isCreditSettled({settlement_status:'settled_by_credit'}),true);assert.equal(isCreditSettled({settlement_status:'settled_by_verified_receipt'}),true);});
+test('500 gross and 30 credit show only 470 as due',()=>{const html=render({settlement_status:'awaiting_payment',original_total_cents:50000,credit_cents:3000,amount_due_cents:47000});assert.match(html,/Totale campagna verificato: 500,00/);assert.match(html,/Credito Studio: −30,00/);assert.match(html,/Importo da versare: 470,00/);});
+test('zero-due is credit settlement, never a received transfer',()=>{const html=render({settlement_status:'settled_by_credit',original_total_cents:2000,credit_cents:2000,amount_due_cents:0});assert.match(html,/Nessun importo da versare/);assert.match(html,/Importo da versare: 0,00/);assert.doesNotMatch(html,/bonifico ricevuto|Pagamento ricevuto|IBAN/i);});
+test('review_required cannot render a payable fallback',()=>{const html=render({settlement_status:'review_required',original_total_cents:50000,credit_cents:3000,amount_due_cents:null});assert.match(html,/nuova verifica Admin/);assert.doesNotMatch(html,/Importo da versare/);});
+test('unavailable settlement fails closed without fake zero',()=>{const html=render({settlement_status:'unavailable',amount_due_cents:null});assert.match(html,/Saldo in verifica/);assert.doesNotMatch(html,/0,00|NaN|undefined/);});
+test('legacy campaigns receive no new settlement assertion',()=>assert.equal(render({settlement_status:'not_applicable'}),''));

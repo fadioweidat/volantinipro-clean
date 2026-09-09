@@ -1,3 +1,5 @@
+import CampaignSettlementSummary from '../components/customer/CampaignSettlementSummary.jsx';
+import { isCreditSettled } from '../lib/campaignSettlement.js';
 import React, { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { useCampagnaDetail } from '../hooks/useCampagnaDetail'
@@ -34,7 +36,7 @@ export function PagamentoBonificoPage({ campaignId, onNav }) {
   }
 
   useEffect(() => {
-    if (!supabase || !campaignId) return
+    if (!supabase || !campaignId || !campagna || campagna.settlement?.settlement_status !== 'not_applicable') return
     const interval = setInterval(async () => {
       const { data } = await supabase.from('campaigns').select('metadata').eq('id', campaignId).single()
       if (data?.metadata?.payment_status === 'pagato') {
@@ -43,7 +45,7 @@ export function PagamentoBonificoPage({ campaignId, onNav }) {
       }
     }, 30000)
     return () => clearInterval(interval)
-  }, [campaignId])
+  }, [campaignId, campagna])
 
   if (loading) return <div style={{ color: C.white, padding: 40 }}>Caricamento istruzioni...</div>
 
@@ -56,6 +58,10 @@ export function PagamentoBonificoPage({ campaignId, onNav }) {
     )
   }
 
+  if (campagna.settlement && campagna.settlement.settlement_status !== 'not_applicable') {
+    const s=campagna.settlement;
+    return <div style={{maxWidth:640,margin:'60px auto',padding:24,color:C.white}}><CampaignSettlementSummary settlement={s}/>{s.amount_due_cents>0&&!isCreditSettled(s)&&<><p>Richiedi le istruzioni per il solo residuo indicato. L’incasso sarà verificato da Admin.</p><a href={buildCampaignContactMailtoUrl(campagna.id)}>Richiedi istruzioni email</a>{buildCampaignContactWhatsAppUrl(campagna.id)&&<p><a target="_blank" rel="noreferrer" href={buildCampaignContactWhatsAppUrl(campagna.id)}>Richiedi istruzioni WhatsApp</a></p>}</>}<button onClick={()=>window.location.reload()}>Aggiorna saldo</button><button onClick={()=>onNav('dashboard')}>Dashboard</button></div>;
+  }
   if (IS_MANUAL_CONTACT) {
     const contactId = campagna?.id || campaignId || null
     const waUrl = buildCampaignContactWhatsAppUrl(contactId)

@@ -1,3 +1,4 @@
+import { withCampaignSettlement } from '../campaignSettlement.js';
 import { ensureSupabaseSessionBridge, supabase } from '../../supabaseClient.js';
 import { normalizeCustomerCampaign } from '../customerCampaigns.js';
 import {
@@ -31,7 +32,7 @@ export async function getOwnedCustomerCampaign(campaignId) {
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new CustomerCampaignAccessError();
-  return normalizeCustomerCampaign(data, data.campaign_zones);
+  return withCampaignSettlement(normalizeCustomerCampaign(data, data.campaign_zones));
 }
 
 export async function getOwnedCustomerTracking(campaignId) {

@@ -1,3 +1,4 @@
+import CampaignSettlementSummary from '../components/customer/CampaignSettlementSummary.jsx';
 import React from 'react'
 import { useCampagne } from '../hooks/useCampagne'
 import { useCliente } from '../hooks/useCliente'
@@ -185,7 +186,7 @@ function CampaignRow({ campagna, onVedi }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 11, opacity: 0.4, textTransform: 'uppercase', marginBottom: 4 }}>Pagamento</div>
-          {campagna.stato_pagamento === 'pagato' ? (
+          {campagna.settlement && campagna.settlement.settlement_status !== 'not_applicable' ? <CampaignSettlementSummary settlement={campagna.settlement}/> : campagna.stato_pagamento === 'pagato' ? (
             <span style={{ color: C.green, fontSize: 13, fontWeight: 600 }}> Pagato</span>
           ) : (
             <span style={{ color: C.yellow, fontSize: 13, fontWeight: 600 }}>⏳ Pagamento da completare</span>

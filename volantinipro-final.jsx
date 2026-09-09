@@ -1,3 +1,5 @@
+import { PagamentoBonificoPage as FeasibilityCreditPaymentPage } from './src/pages/PagamentoBonifico.jsx';
+import CampaignSettlementSummary from './src/components/customer/CampaignSettlementSummary.jsx';
 import React, { Component, Fragment, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { printQuotePdf } from "./src/lib/pdf/printQuotePdf.js";
 import { supabase, confirmCampaignPayment, hasSupabaseConfig, saveCampaign, saveSmartPairingWaitlist, getStoredSupabaseSession } from "./src/lib/supabaseClient.js";
@@ -5614,7 +5616,7 @@ export function DashboardPage({
             const [svcLabel, svcColor] = svcCfg[campagna.service_type] || [campagna.servizio, C.orange];
             const [statusLabel, statusColor] = statusCfg[campagna.stato] || [campagna.stato, C.white];
             const paymentState = getCustomerPaymentState(campagna.stato_pagamento);
-            const paymentLabel = paymentState === CUSTOMER_PAYMENT_STATE.PAID ? "Pagato" : paymentState === CUSTOMER_PAYMENT_STATE.PENDING ? "In attesa pagamento" : CUSTOMER_DATA_UNAVAILABLE;
+            const paymentLabel = campagna.settlement?.settlement_status === "settled_by_credit" ? "Saldo coperto da credito" : campagna.settlement?.settlement_status === "settled_by_verified_receipt" ? "Residuo verificato" : paymentState === CUSTOMER_PAYMENT_STATE.PAID ? "Pagato" : paymentState === CUSTOMER_PAYMENT_STATE.PENDING ? "In attesa pagamento" : CUSTOMER_DATA_UNAVAILABLE;
             const paymentColor = paymentState === CUSTOMER_PAYMENT_STATE.PAID ? C.green : paymentState === CUSTOMER_PAYMENT_STATE.PENDING ? C.yellow : "rgba(255,255,255,.42)";
             const paymentBackground = paymentState === CUSTOMER_PAYMENT_STATE.PAID ? "rgba(46,204,138,.14)" : paymentState === CUSTOMER_PAYMENT_STATE.PENDING ? "rgba(251,191,36,.14)" : "rgba(255,255,255,.06)";
             return <div key={campagna.id} style={{
@@ -5678,7 +5680,7 @@ export function DashboardPage({
                     <div style={{
                 textAlign: "right"
               }}>
-                      {campagna.totale_euro == null ? <MissingValueBadge /> : <div style={{
+                      {campagna.settlement && campagna.settlement.settlement_status !== "not_applicable" ? <CampaignSettlementSummary settlement={campagna.settlement}/> : campagna.totale_euro == null ? <MissingValueBadge /> : <div style={{
                   fontFamily: F.serif,
                   fontSize: 24,
                   color: C.green
@@ -5987,8 +5989,9 @@ export function CampaignDashboardPage({
               fontSize: 13,
               fontWeight: 800
             }}>
-                {campagna.stato_pagamento === "pagato" ? "Pagamento ricevuto" : "Pagamento da completare"}
-                {campagna.stato_pagamento !== "pagato" && <button onClick={() => onNav("payment", {
+                <CampaignSettlementSummary settlement={campagna.settlement}/>{campagna.settlement?.application_id && <a href={`/customer/campaigns/${campagna.id}/payment`}>Apri saldo verificato</a>}
+                {campagna.settlement?.settlement_status === "settled_by_credit" ? "Saldo coperto da credito" : campagna.settlement?.settlement_status === "settled_by_verified_receipt" ? "Residuo verificato" : campagna.settlement?.settlement_status === "review_required" ? "Saldo da verificare" : campagna.stato_pagamento === "pagato" ? "Pagamento ricevuto" : "Pagamento da completare"}
+                {(!campagna.settlement || campagna.settlement.settlement_status === "not_applicable") && campagna.stato_pagamento !== "pagato" && <button onClick={() => onNav("payment", {
                 campaignId: campagna.id
               })} style={{
                 marginLeft: 12,
@@ -6624,6 +6627,7 @@ export function PagamentoBonificoPage({
     setTimeout(() => setToast(null), 2500);
   };
   useEffect(() => {
+    if (!campagna || campagna.settlement?.settlement_status !== "not_applicable") return;
     if (campagna?.stato_pagamento === "pagato") {
       setPaymentStatus("pagato");
       return;
@@ -6687,6 +6691,7 @@ export function PagamentoBonificoPage({
         </div>
       </div>;
   }
+  if (campagna.settlement && campagna.settlement.settlement_status !== "not_applicable") return <FeasibilityCreditPaymentPage campaignId={routeCampaignId} onNav={onNav}/>;
   // PAYMENT_MODE "manual_contact": nessun pagamento online, nessuna coordinata
   // bancaria. Il cliente vede la ricevuta + i CTA di contatto. Lo stato di
   // pagamento reale della campagna NON viene toccato. Il blocco bonifico sotto

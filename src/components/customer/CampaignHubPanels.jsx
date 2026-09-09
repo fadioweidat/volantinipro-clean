@@ -1,3 +1,4 @@
+import CampaignSettlementSummary from './CampaignSettlementSummary.jsx';
 import React, { useCallback, useEffect, useState } from "react";
 import { C, F } from "../../lib/constants.js";
 import Button from "../ui/Button.jsx";
@@ -87,6 +88,7 @@ export function CampaignConfigSection({ campagna }) {
         <Field label="Totale confermato" value={campagna?.totale_euro != null ? `€ ${Number(campagna.totale_euro).toLocaleString("it-IT", { minimumFractionDigits: 2 })}` : null} />
       </StepBlock>
 
+      <CampaignSettlementSummary settlement={campagna?.settlement} />
       <ModificationRequestsList campaignId={campagna?.id} />
 
       {showRequestModal && (

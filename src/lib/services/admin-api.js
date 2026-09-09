@@ -1,3 +1,4 @@
+import { campaignSettlement } from '../campaignSettlement.js';
 import { ensureSupabaseSessionBridge, supabase } from '../../supabaseClient.js';
 import { deriveOperationAlerts } from '../operations/deriveOperationAlerts.js';
 import { buildDailyOperationsReport, localDayBounds } from '../operations/dailyOperationsReport.js';
@@ -354,7 +355,8 @@ export async function getClientsQuotesOverview({ includeTest = false, prefetched
   const sessions = needSessions ? sessionsRes.rows : prefetched.sessions;
   const logs = logsRes.rows.filter((row) => ['assignment_program_sent', 'assignment_program_opened', 'assignment_program_confirmed', 'assignment_program_revoked'].includes(row.event_type));
 
-  return campaigns.map((campaign) => {
+  const settlements = await Promise.all(campaigns.map(c => c.source === 'campaigns' ? campaignSettlement(c.id) : Promise.resolve({settlement_status:'not_applicable'})));
+  return campaigns.map((campaign, campaignIndex) => {
     // Assegnazione attiva piu' recente per questa campagna (nessuna
     // revocata): la stessa regola "prendi la piu' recente non revocata" gia'
     // usata implicitamente da AssignWork quando entra in modalita' modifica.
@@ -412,11 +414,13 @@ export async function getClientsQuotesOverview({ includeTest = false, prefetched
     // confirmCampaignPayment in supabaseClient.js): null/assente NON e'
     // "da pagare", e' semplicemente un dato mancante da segnalare come tale.
     const paymentRaw = campaign.metadata?.payment_status;
-    const paymentStatus = paymentRaw === 'pagato' ? 'pagato' : paymentRaw === 'in_attesa_pagamento' ? 'da_pagare' : 'non_disponibile';
+    const settlement = settlements[campaignIndex];
+    const paymentStatus = settlement.settlement_status === 'not_applicable' ? (paymentRaw === 'pagato' ? 'pagato' : paymentRaw === 'in_attesa_pagamento' ? 'da_pagare' : 'non_disponibile') : settlement.settlement_status === 'awaiting_payment' ? 'da_pagare' : settlement.settlement_status;
 
     return {
       ...campaign,
       paymentStatus,
+      settlement,
       assignment: rawAssignment,
       group,
       operator: operator ? { id: operator.id, name: operator.display_name, phone: operator.phone } : null,

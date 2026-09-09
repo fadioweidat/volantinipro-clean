@@ -39,7 +39,7 @@ export const CQ_FILTER_COLOR = {
 // dai soli stati reali gia' calcolati a monte.
 export function lifecycleBucket(row) {
   if (!row) return 'da_pagare';
-  if (row.paymentStatus !== 'pagato') return 'da_pagare'; // da_pagare + non_disponibile
+  if (!['pagato','settled_by_credit','settled_by_verified_receipt'].includes(row.paymentStatus)) return 'da_pagare'; // da_pagare + non_disponibile
   if (row.gpsStatus === 'storico') return 'completato';
   if (!row.assignment) return 'da_assegnare';
   return 'in_lavorazione';
@@ -176,6 +176,10 @@ export function buildAdminClientWhatsAppMessage(row) {
   const zona = zoneLabel(row);
   const qty = qtyLabel(row?.qty);
   const tot = euro(row?.total);
+  if (row?.settlement && row.settlement.settlement_status !== 'not_applicable') {
+    const s = row.settlement;
+    return [`Buongiorno ${nome},`, `ID campagna: ${id}`, `Totale verificato: ${euro(s.original_total_cents / 100)}`, `Credito Studio: ${euro(s.credit_cents / 100)}`, s.amount_due_cents == null ? 'Saldo da verificare con Admin.' : `Importo da versare: ${euro(s.amount_due_cents / 100)}`, s.settlement_status === 'settled_by_credit' ? 'Saldo coperto da credito.' : ''].filter(Boolean).join('\n');
+  }
 
   // BUSINESS (§4)
   if (row?.service === 'b2b') {

@@ -1,3 +1,4 @@
+import CampaignSettlementSummary from '../../components/customer/CampaignSettlementSummary.jsx';
 import React, { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { AdminLayout } from './AdminLayout.jsx';
 import {
@@ -37,6 +38,10 @@ const C = {
 };
 
 const PAYMENT_LABEL = {
+  settled_by_credit: { text: 'SALDO COPERTO DA CREDITO', color: C.green },
+  settled_by_verified_receipt: { text: 'RESIDUO VERIFICATO', color: C.green },
+  review_required: { text: 'SALDO DA VERIFICARE', color: C.yellow },
+  unavailable: { text: 'SALDO NON DISPONIBILE', color: C.yellow },
   pagato: { text: 'PAGATO', color: C.green },
   da_pagare: { text: 'DA PAGARE', color: C.yellow },
   non_disponibile: { text: 'DATO NON DISPONIBILE', color: C.gray },
@@ -138,7 +143,7 @@ export function ClientsQuotes({ onNav }) {
       alert('Nessun programma creato per questa campagna. Assegna prima un gruppo.');
       return;
     }
-    if (row.paymentStatus !== 'pagato') {
+    if (!['pagato','settled_by_credit','settled_by_verified_receipt'].includes(row.paymentStatus)) {
       alert('Conferma prima il pagamento.');
       return;
     }
@@ -175,6 +180,7 @@ export function ClientsQuotes({ onNav }) {
     setPaymentConfirmBusy(true);
     setPaymentConfirmError('');
     try {
+      if (paymentConfirmRow.settlement?.application_id) { window.location.assign('/le-mie-analisi'); return; }
       await confirmCampaignPayment(paymentConfirmRow.id);
       setPaymentConfirmRow(null);
       await load();
@@ -259,7 +265,7 @@ export function ClientsQuotes({ onNav }) {
         {visibleRows.map((row) => {
           const payment = PAYMENT_LABEL[row.paymentStatus];
           const gps = GPS_LABEL[row.gpsStatus];
-          const isPaid = row.paymentStatus === 'pagato';
+          const isPaid = ['pagato','settled_by_credit','settled_by_verified_receipt'].includes(row.paymentStatus);
           const createdLabel = row.createdAt
             ? new Date(row.createdAt).toLocaleDateString('it-IT')
             : (row.date && row.date !== '—' ? row.date : null);
@@ -340,7 +346,7 @@ export function ClientsQuotes({ onNav }) {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ background: C.navyLight, border: '1px solid #374151', borderRadius: 12, padding: 24, maxWidth: 420, width: '100%' }}>
             <h3 style={{ margin: '0 0 6px', color: C.white, fontSize: 18 }}>Confermi di aver verificato il bonifico?</h3>
-            <p style={{ margin: '0 0 16px', color: C.gray, fontSize: 13 }}>Questa azione segna il preventivo come pagato e sblocca l'assegnazione del gruppo.</p>
+            <CampaignSettlementSummary settlement={paymentConfirmRow?.settlement}/><p style={{ margin: '0 0 16px', color: C.gray, fontSize: 13 }}>Questa azione segna il preventivo come pagato e sblocca l'assegnazione del gruppo.</p>
             <div style={{ display: 'grid', gap: 6, marginBottom: 20, padding: 14, borderRadius: 8, background: 'rgba(255,255,255,.03)', border: '1px solid #374151' }}>
               <Row label="Cliente" value={paymentConfirmRow.client} />
               <Row label="Campagna" value={paymentConfirmRow.name || paymentConfirmRow.client} />
