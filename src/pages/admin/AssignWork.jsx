@@ -37,6 +37,8 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   // Step 1=fornitore e gruppo, 2=programma e compenso, 3=anteprima, 4=risultato
   const [step, setStep] = useState(1);
   const [suppliers, setSuppliers] = useState([]);
+  const [supplierLoading, setSupplierLoading] = useState(false);
+  const [supplierError, setSupplierError] = useState(null);
   const [operators, setOperators] = useState([]);
   const [groups, setGroups] = useState([]);
   const [zones, setZones] = useState([]);
@@ -49,10 +51,24 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   const [groupSaving, setGroupSaving] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
 
-  // Form state
+  // Supplier Mode: 'registered' | 'manual'
+  const isExistingManual = existingAssignment?.metadata?.supplier_mode === 'manual' || Boolean(existingAssignment?.metadata?.manual_supplier);
+  const [supplierMode, setSupplierMode] = useState(isExistingManual ? 'manual' : 'registered');
+
+  // Registered Supplier state
   const [selectedSupplierId, setSelectedSupplierId] = useState(
     existingAssignment?.metadata?.supplier_id || existingAssignment?.supplier_id || ''
   );
+
+  // Manual Supplier state
+  const [manualSupplier, setManualSupplier] = useState({
+    name: existingAssignment?.metadata?.manual_supplier?.name || existingAssignment?.metadata?.supplier_name || '',
+    contact_name: existingAssignment?.metadata?.manual_supplier?.contact_name || '',
+    phone: existingAssignment?.metadata?.manual_supplier?.phone || '',
+    email: existingAssignment?.metadata?.manual_supplier?.email || '',
+    notes: existingAssignment?.metadata?.manual_supplier?.notes || '',
+  });
+
   const [selectedGroupId, setSelectedGroupId] = useState(existingAssignment?.group_id || initialGroupId || '');
   const [supplierCompensation, setSupplierCompensation] = useState(
     existingAssignment?.metadata?.supplier_compensation != null
@@ -80,34 +96,76 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMsg, setCopiedMsg] = useState(false);
 
+  // Dedicated supplier loader for resilience & retry
+  const fetchSuppliers = useCallback(async () => {
+    setSupplierLoading(true);
+    setSupplierError(null);
+    try {
+      const res = await adminListSuppliers();
+      if (res?.error || res?.available === false) {
+        setSupplierError(res?.error?.message || 'Impossibile caricare i fornitori.');
+        setSuppliers([]);
+      } else {
+        setSuppliers(Array.isArray(res?.rows) ? res.rows : []);
+      }
+    } catch (err) {
+      setSupplierError(err?.message || 'Impossibile caricare i fornitori.');
+      setSuppliers([]);
+    } finally {
+      setSupplierLoading(false);
+    }
+  }, []);
+
   // Load data
   useEffect(() => {
     let cancelled = false;
     async function load() {
       setLoading(true);
       setError(null);
+      setSupplierLoading(true);
+      setSupplierError(null);
       try {
-        const [suppliersRes, ops, zonesData, camp, existingZones, quotesRes] = await Promise.all([
-          adminListSuppliers().catch(() => ({ rows: [] })),
+        let quotesData = [];
+        if (supabase) {
+          try {
+            const { data, error: qErr } = await supabase
+              .from('quotes')
+              .select('id, total_amount, quote_status, supplier_id')
+              .eq('campaign_id', campaignId);
+            if (!qErr && Array.isArray(data)) {
+              quotesData = data;
+            }
+          } catch (_) {
+            quotesData = [];
+          }
+        }
+
+        const [suppliersRes, ops, zonesData, camp, existingZones] = await Promise.all([
+          adminListSuppliers().catch(err => ({ rows: [], available: false, error: err })),
           listAssignableOperators().catch(() => []),
           getCampaignZonesWithGroups(campaignId),
           getCampaignRecord(campaignId).catch(() => null),
           isEdit ? listAssignmentZones(existingAssignment.id).catch(() => []) : Promise.resolve([]),
-          supabase
-            ? supabase.from('quotes').select('id, total_amount, quote_status, supplier_id').eq('campaign_id', campaignId).catch(() => ({ data: [] }))
-            : Promise.resolve({ data: [] }),
         ]);
+
         if (!cancelled) {
-          const suppList = Array.isArray(suppliersRes?.rows) ? suppliersRes.rows : [];
-          setSuppliers(suppList);
+          if (suppliersRes?.error || suppliersRes?.available === false) {
+            setSupplierError(suppliersRes?.error?.message || 'Impossibile caricare i fornitori.');
+            setSuppliers([]);
+          } else {
+            const suppList = Array.isArray(suppliersRes?.rows) ? suppliersRes.rows : [];
+            setSuppliers(suppList);
+          }
+          setSupplierLoading(false);
+
           setOperators(ops);
           setZones(zonesData.zones || []);
           setGroups(zonesData.groups || []);
           setCampaign(camp);
 
-          // Auto-select supplier from existing campaign or quote if not already set
+          // Auto-select supplier from existing campaign or quote if not already set and in registered mode
           let resolvedSupplierId = selectedSupplierId;
-          if (!resolvedSupplierId) {
+          if (!resolvedSupplierId && !isExistingManual) {
             if (camp?.supplier_id) {
               resolvedSupplierId = camp.supplier_id;
               setSelectedSupplierId(camp.supplier_id);
@@ -118,7 +176,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           }
 
           // Prefill supplier compensation from quotes (marketplace offer) or campaign metadata
-          const quotesList = Array.isArray(quotesRes?.data) ? quotesRes.data : [];
+          const quotesList = quotesData;
           const matchedQuote = quotesList.find(q => q.quote_status === 'accepted')
             || quotesList.find(q => q.supplier_id && q.supplier_id === resolvedSupplierId)
             || quotesList[0];
@@ -140,19 +198,39 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           }
         }
       } catch (err) {
-        if (!cancelled) setError(err?.message || 'Errore caricamento dati.');
+        if (!cancelled) {
+          setError(err?.message || 'Errore caricamento dati.');
+          setSupplierLoading(false);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
     load();
     return () => { cancelled = true; };
-  }, [campaignId, isEdit, existingAssignment]);
+  }, [campaignId, isEdit, existingAssignment, isExistingManual]);
 
   const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId) || null;
   const selectedGroup = groups.find(group => group.id === selectedGroupId) || null;
 
   const campaignTitle = campaign?.title || campaign?.campaign_name || campaign?.nome || `Campagna ${String(campaignId).slice(0, 8)}`;
+
+  // Resolved active supplier values based on mode
+  const activeSupplierName = supplierMode === 'manual'
+    ? manualSupplier.name.trim()
+    : selectedSupplier?.company_name || selectedSupplier?.contact_name || 'Fornitore';
+
+  const activeSupplierContact = supplierMode === 'manual'
+    ? manualSupplier.contact_name.trim()
+    : selectedSupplier?.contact_name || '';
+
+  const activeSupplierPhone = supplierMode === 'manual'
+    ? manualSupplier.phone.trim()
+    : selectedSupplier?.phone || '';
+
+  const activeSupplierEmail = supplierMode === 'manual'
+    ? manualSupplier.email.trim()
+    : selectedSupplier?.email || '';
 
   async function handleCreateGroup(event) {
     event.preventDefault();
@@ -211,13 +289,21 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
 
   const canGoNext = useCallback(() => {
     if (step === 1) {
+      if (supplierMode === 'manual') {
+        const hasName = Boolean(manualSupplier.name && manualSupplier.name.trim().length > 0);
+        const cleanPhone = (manualSupplier.phone || '').replace(/[^\d+]/g, '');
+        const hasValidPhone = cleanPhone.length >= 6;
+        const email = (manualSupplier.email || '').trim();
+        const validEmail = !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        return hasName && hasValidPhone && validEmail;
+      }
       return suppliers.length === 0 || Boolean(selectedSupplierId);
     }
     if (step === 2) {
       return Boolean(startsAt && Object.keys(selectedZonesState).some(id => selectedZonesState[id]?.selected));
     }
     return true;
-  }, [step, selectedSupplierId, suppliers.length, startsAt, selectedZonesState]);
+  }, [step, supplierMode, manualSupplier, suppliers.length, selectedSupplierId, startsAt, selectedZonesState]);
 
   async function handleSave() {
     if (saving) return; // guard doppio click
@@ -229,14 +315,32 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
         ? compNum
         : null;
 
+      const isManual = supplierMode === 'manual';
+      const cleanManualName = manualSupplier.name.trim();
+      const cleanManualPhone = manualSupplier.phone.trim();
+      const cleanManualContact = manualSupplier.contact_name?.trim() || null;
+      const cleanManualEmail = manualSupplier.email?.trim() || null;
+      const cleanManualNotes = manualSupplier.notes?.trim() || null;
+
       const metadata = {
         notes,
         campaign_title: campaignTitle,
-        supplier_id: selectedSupplierId || null,
-        supplier_name: selectedSupplier?.company_name || selectedSupplier?.contact_name || null,
+        supplier_mode: supplierMode,
+        supplier_id: isManual ? null : (selectedSupplierId || null),
+        supplier_name: isManual ? cleanManualName : (selectedSupplier?.company_name || selectedSupplier?.contact_name || null),
         supplier_compensation: parsedCompensation,
         group_id: selectedGroupId || null,
         group_name: selectedGroup?.name || null,
+        ...(isManual ? {
+          manual_supplier: {
+            name: cleanManualName,
+            contact_name: cleanManualContact,
+            phone: cleanManualPhone,
+            email: cleanManualEmail,
+            notes: cleanManualNotes,
+            source: 'admin_manual',
+          },
+        } : {}),
       };
 
       // Validate ends_at > starts_at
@@ -253,7 +357,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       // Determine target operator id for DB assignment table
       const targetOperatorId = existingAssignment?.operator_id
         || initialOperatorId
-        || operators.find(op => op.supplier_id === selectedSupplierId)?.id
+        || (!isManual ? operators.find(op => op.supplier_id === selectedSupplierId)?.id : null)
         || operators[0]?.id
         || null;
 
@@ -282,20 +386,46 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       }
 
       // Persist supplier_id and compensation metadata on campaigns row
-      if (selectedSupplierId && supabase) {
-        await supabase
-          .from('campaigns')
-          .update({
-            supplier_id: selectedSupplierId,
-            metadata: {
-              ...(campaign?.metadata || {}),
+      if (supabase) {
+        if (!isManual && selectedSupplierId) {
+          await supabase
+            .from('campaigns')
+            .update({
               supplier_id: selectedSupplierId,
-              supplier_name: selectedSupplier?.company_name || selectedSupplier?.contact_name || null,
-              supplier_compensation: parsedCompensation,
-            },
-          })
-          .eq('id', campaignId)
-          .catch(() => {});
+              metadata: {
+                ...(campaign?.metadata || {}),
+                supplier_id: selectedSupplierId,
+                supplier_name: selectedSupplier?.company_name || selectedSupplier?.contact_name || null,
+                supplier_compensation: parsedCompensation,
+                supplier_mode: 'registered',
+              },
+            })
+            .eq('id', campaignId)
+            .catch(() => {});
+        } else if (isManual) {
+          await supabase
+            .from('campaigns')
+            .update({
+              supplier_id: null,
+              metadata: {
+                ...(campaign?.metadata || {}),
+                supplier_id: null,
+                supplier_name: cleanManualName,
+                supplier_compensation: parsedCompensation,
+                supplier_mode: 'manual',
+                manual_supplier: {
+                  name: cleanManualName,
+                  contact_name: cleanManualContact,
+                  phone: cleanManualPhone,
+                  email: cleanManualEmail,
+                  notes: cleanManualNotes,
+                  source: 'admin_manual',
+                },
+              },
+            })
+            .eq('id', campaignId)
+            .catch(() => {});
+        }
       }
 
       // Update Zones priorities
@@ -379,7 +509,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
     const totalQty = programRows.reduce((sum, row) => sum + (row.quantity || 0), 0);
 
     return buildSupplierProgramWhatsAppMessage({
-      supplierName: selectedSupplier?.company_name || selectedSupplier?.contact_name || 'Fornitore',
+      supplierName: activeSupplierName,
       groupName: selectedGroup?.name || null,
       campaignTitle,
       date: startsAt ? new Date(startsAt).toLocaleDateString('it-IT') : 'Da definire',
@@ -406,7 +536,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   }
 
   function handleWhatsApp() {
-    const phone = selectedSupplier?.phone?.replace(/[^\d+]/g, '') || '';
+    const phone = activeSupplierPhone.replace(/[^\d+]/g, '') || '';
     if (!phone) {
       setNotice('Numero WhatsApp del fornitore non disponibile. Puoi copiare il messaggio senza segnare il programma come inviato.');
       return;
@@ -457,10 +587,17 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       {step === 1 && (
         <AssignWorkGroupOperatorStep
           Notice={Notice}
+          supplierMode={supplierMode}
+          setSupplierMode={setSupplierMode}
           suppliers={suppliers}
+          supplierLoading={supplierLoading}
+          supplierError={supplierError}
+          onRetrySuppliers={fetchSuppliers}
           selectedSupplierId={selectedSupplierId}
           setSelectedSupplierId={setSelectedSupplierId}
           selectedSupplier={selectedSupplier}
+          manualSupplier={manualSupplier}
+          setManualSupplier={setManualSupplier}
           groups={groups}
           selectedGroupId={selectedGroupId}
           setSelectedGroupId={setSelectedGroupId}
@@ -482,6 +619,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
             formGridStyle,
             labelStyle,
             inputStyle,
+            textareaStyle,
             disabledBtnStyle,
             primaryBtnStyle,
             footerRowStyle,
@@ -531,7 +669,13 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       {step === 3 && (
         <AssignWorkPreviewStep
           PreviewRow={PreviewRow}
+          supplierMode={supplierMode}
           selectedSupplier={selectedSupplier}
+          manualSupplier={manualSupplier}
+          activeSupplierName={activeSupplierName}
+          activeSupplierContact={activeSupplierContact}
+          activeSupplierPhone={activeSupplierPhone}
+          activeSupplierEmail={activeSupplierEmail}
           selectedGroup={selectedGroup}
           campaignTitle={campaignTitle}
           supplierCompensation={supplierCompensation}
@@ -563,7 +707,13 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           Notice={Notice}
           savedAssignment={savedAssignment}
           generatedLink={generatedLink}
+          supplierMode={supplierMode}
           selectedSupplier={selectedSupplier}
+          manualSupplier={manualSupplier}
+          activeSupplierName={activeSupplierName}
+          activeSupplierContact={activeSupplierContact}
+          activeSupplierPhone={activeSupplierPhone}
+          activeSupplierEmail={activeSupplierEmail}
           selectedGroup={selectedGroup}
           campaignTitle={campaignTitle}
           supplierCompensation={supplierCompensation}

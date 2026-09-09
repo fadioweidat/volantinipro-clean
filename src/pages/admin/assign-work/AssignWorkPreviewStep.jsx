@@ -1,6 +1,12 @@
 export function AssignWorkPreviewStep({
   PreviewRow,
+  supplierMode = 'registered',
   selectedSupplier,
+  manualSupplier,
+  activeSupplierName,
+  activeSupplierContact,
+  activeSupplierPhone,
+  activeSupplierEmail,
   selectedGroup,
   campaignTitle,
   supplierCompensation,
@@ -30,6 +36,19 @@ export function AssignWorkPreviewStep({
     ? `€ ${compNum.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : 'Non specificato';
 
+  const isManual = supplierMode === 'manual';
+  const supplierLabel = isManual ? 'Fornitore manuale' : 'Fornitore';
+
+  const contactDetails = [
+    activeSupplierContact ? `Ref: ${activeSupplierContact}` : null,
+    activeSupplierPhone ? `Tel: ${activeSupplierPhone}` : null,
+    activeSupplierEmail ? `Email: ${activeSupplierEmail}` : null,
+  ].filter(Boolean).join(' · ');
+
+  const supplierValue = activeSupplierName
+    ? `${activeSupplierName}${contactDetails ? ` (${contactDetails})` : ''}`
+    : 'Non specificato';
+
   return (
     <div style={cardStyle}>
       <p style={eyebrowStyle}>Step 3 — Anteprima assegnazione</p>
@@ -37,8 +56,8 @@ export function AssignWorkPreviewStep({
 
       <div style={previewGridStyle}>
         <PreviewRow
-          label="Fornitore"
-          value={selectedSupplier ? `${selectedSupplier.company_name}${selectedSupplier.contact_name ? ` (Ref: ${selectedSupplier.contact_name})` : ''}` : 'Non selezionato'}
+          label={supplierLabel}
+          value={supplierValue}
         />
         <PreviewRow label="Gruppo" value={selectedGroup?.name || 'Nessun gruppo'} />
         <PreviewRow label="Compenso Fornitore" value={compDisplay} />

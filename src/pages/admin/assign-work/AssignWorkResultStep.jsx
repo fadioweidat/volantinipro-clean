@@ -3,7 +3,13 @@ export function AssignWorkResultStep({
   Notice,
   savedAssignment,
   generatedLink,
+  supplierMode = 'registered',
   selectedSupplier,
+  manualSupplier,
+  activeSupplierName,
+  activeSupplierContact,
+  activeSupplierPhone,
+  activeSupplierEmail,
   selectedGroup,
   campaignTitle,
   supplierCompensation,
@@ -40,6 +46,19 @@ export function AssignWorkResultStep({
     ? `€ ${compNum.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : null;
 
+  const isManual = supplierMode === 'manual';
+  const supplierLabel = isManual ? 'Fornitore manuale' : 'Fornitore';
+
+  const contactDetails = [
+    activeSupplierContact ? `Ref: ${activeSupplierContact}` : null,
+    activeSupplierPhone ? `Tel: ${activeSupplierPhone}` : null,
+    activeSupplierEmail ? `Email: ${activeSupplierEmail}` : null,
+  ].filter(Boolean).join(' · ');
+
+  const supplierDisplayValue = activeSupplierName
+    ? `${activeSupplierName}${contactDetails ? ` (${contactDetails})` : ''}`
+    : 'Non specificato';
+
   return (
     <div style={cardStyle}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -55,12 +74,10 @@ export function AssignWorkResultStep({
       )}
 
       <div style={previewGridStyle}>
-        {selectedSupplier && (
-          <PreviewRow
-            label="Fornitore"
-            value={`${selectedSupplier.company_name}${selectedSupplier.contact_name ? ` (Ref: ${selectedSupplier.contact_name})` : ''}`}
-          />
-        )}
+        <PreviewRow
+          label={supplierLabel}
+          value={supplierDisplayValue}
+        />
         <PreviewRow label="Gruppo" value={selectedGroup?.name || 'Nessun gruppo'} />
         {compDisplay && <PreviewRow label="Compenso Fornitore" value={compDisplay} />}
         <PreviewRow label="Campagna" value={campaignTitle} />
@@ -86,17 +103,17 @@ export function AssignWorkResultStep({
         </div>
       </div>
 
-      {/* Quick supplier contact bar if supplier exists */}
-      {selectedSupplier && (selectedSupplier.phone || selectedSupplier.email) && (
+      {/* Quick supplier contact bar for registered OR manual supplier */}
+      {(activeSupplierPhone || activeSupplierEmail) && (
         <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <span style={{ fontSize: 12, color: 'rgba(255,255,255,.6)' }}>
-            Contatti rapidi fornitore (<strong>{selectedSupplier.company_name}</strong>):
+            Contatti rapidi fornitore (<strong>{activeSupplierName}</strong>):
           </span>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {selectedSupplier.phone && (
+            {activeSupplierPhone && (
               <>
                 <a
-                  href={`https://wa.me/${selectedSupplier.phone.replace(/[^\d+]/g, '')}?text=${encodeURIComponent(buildWhatsAppMsg())}`}
+                  href={`https://wa.me/${activeSupplierPhone.replace(/[^\d+]/g, '')}?text=${encodeURIComponent(buildWhatsAppMsg())}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ ...secondaryBtnStyle, fontSize: 12, padding: '4px 10px', background: 'rgba(46,204,138,.12)', color: '#86efac', borderColor: 'rgba(46,204,138,.25)' }}
@@ -104,16 +121,16 @@ export function AssignWorkResultStep({
                   📱 WhatsApp Fornitore
                 </a>
                 <a
-                  href={`tel:${selectedSupplier.phone}`}
+                  href={`tel:${activeSupplierPhone}`}
                   style={{ ...secondaryBtnStyle, fontSize: 12, padding: '4px 10px' }}
                 >
-                  📞 Chiama ({selectedSupplier.phone})
+                  📞 Chiama ({activeSupplierPhone})
                 </a>
               </>
             )}
-            {selectedSupplier.email && (
+            {activeSupplierEmail && (
               <a
-                href={`mailto:${selectedSupplier.email}?subject=${encodeURIComponent(`Programma di lavoro - ${campaignTitle}`)}&body=${encodeURIComponent(buildWhatsAppMsg())}`}
+                href={`mailto:${activeSupplierEmail}?subject=${encodeURIComponent(`Programma di lavoro - ${campaignTitle}`)}&body=${encodeURIComponent(buildWhatsAppMsg())}`}
                 style={{ ...secondaryBtnStyle, fontSize: 12, padding: '4px 10px' }}
               >
                 ✉️ Email Fornitore
