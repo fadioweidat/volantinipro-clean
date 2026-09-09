@@ -5260,6 +5260,9 @@ export function Step2({
             onShowNil={enterNilManualMode}
             onUseRadius={switchToRadiusMode}
             onKeepMilanoComplete={switchToComuneMode}
+            addressPoint={selectedSearchPoint?.type === "address" ? selectedSearchPoint : null}
+            coverageAddress={coverageAddress}
+            containingNil={containingNil}
           />
           <Step2ComunePanel
         activeCampaignZone={activeCampaignZone}

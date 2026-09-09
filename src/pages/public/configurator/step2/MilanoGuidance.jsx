@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import TerritoryGeometryPreview from "./TerritoryGeometryPreview.jsx";
+import MilanoAddressContextCard from "./MilanoAddressContextCard.jsx";
 import { C, F } from "../../../../lib/constants.js";
 import {
   summariseNilCoverage,
@@ -86,7 +87,11 @@ export function MilanoGuidance({
   onShowNil = null,
   onUseRadius = null,
   onKeepMilanoComplete = null,
+  addressPoint = null,
+  coverageAddress = null,
+  containingNil = null,
 }) {
+  const [municipioFocus, setMunicipioFocus] = useState(null);
   if (!visible) return null;
 
   const summary =
@@ -147,7 +152,17 @@ export function MilanoGuidance({
         </p>
       </div>
 
-      <TerritoryGeometryPreview />
+      <MilanoAddressContextCard
+        addressPoint={addressPoint}
+        coverageAddress={coverageAddress}
+        containingNil={containingNil}
+        onUseNil={onShowNil}
+        onPreviewMunicipio={number => setMunicipioFocus(previous => ({ number, nonce: (previous?.nonce || 0) + 1 }))}
+        onUseRadius={onUseRadius}
+        onKeepMilanoComplete={onKeepMilanoComplete}
+      />
+
+      <TerritoryGeometryPreview focusRequest={municipioFocus} />
 
       {/* Summary card NIL (§4 + §9) — SOLO valori Step 2 esistenti. */}
       <div style={card}>

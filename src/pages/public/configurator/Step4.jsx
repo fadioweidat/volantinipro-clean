@@ -22,6 +22,7 @@ import { Step1Icon } from "../../../components/Step1Icon.jsx";
 import { Step4ExtrasPanel } from "./step4/Step4ExtrasPanel.jsx";
 import { Step4PricingSummaryPanel } from "./step4/Step4PricingSummaryPanel.jsx";
 import { Step4CampaignActionsPanel } from "./step4/Step4CampaignActionsPanel.jsx";
+import Step4FeasibilityCard from "./step4/Step4FeasibilityCard.jsx";
 import { Step4PlanningPanel } from "./step4/Step4PlanningPanel.jsx";
 import { Step4TechnicalAnalysisPanel } from "./step4/Step4TechnicalAnalysisPanel.jsx";
 import { truthfulSourceLabel } from "../../../lib/step2/truthfulSourceLabel.js";
@@ -2905,6 +2906,8 @@ export function Step4({
               grandTotal={grandTotal}
               eur={eur}
             />
+
+            {!sent && <Step4FeasibilityCard context={{ referenceId: data.campaignId || null, municipalities: [data.cityName || data.city?.name].filter(Boolean), quantity: flyerQty, service: svcType, total: grandTotal, areas: selectedZoneNames }} />}
 
             <Step4CampaignActionsPanel
               sent={sent}

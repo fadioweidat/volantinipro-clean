@@ -6,7 +6,7 @@ const buttonStyle = { padding: '7px 11px', borderRadius: 8, border: '1px solid r
 const areaLabel = value => new Intl.NumberFormat('it-IT', { maximumFractionDigits: 2 }).format(value);
 const demographicMessage = 'Dati demografici non ancora disponibili';
 
-function PreviewMap() {
+function PreviewMap({ focusedMunicipio = null }) {
   const container = useRef(null);
   const layers = useRef(new Map());
   const [records, setRecords] = useState([]);
@@ -60,6 +60,14 @@ function PreviewMap() {
     }
   }, [selectedId]);
 
+  useEffect(() => {
+    if (!focusedMunicipio || !records.length) return;
+    const id = `milano-municipio-${focusedMunicipio}`;
+    if (!layers.current.has(id)) return;
+    setSelectedId(id);
+    layers.current.get(id)?.openTooltip();
+  }, [focusedMunicipio, records]);
+
   const selected = records.find(record => record.id === selectedId);
   const failed = status === TERRITORY_STATUS.UNAVAILABLE || status === TERRITORY_STATUS.INVALID_GEOMETRY;
   return <div data-testid="municipi-preview" data-status={status}>
@@ -84,15 +92,18 @@ function PreviewMap() {
   </div>;
 }
 
-// No campaign props or callbacks: opening, picking and closing are local presentation state.
-export default function TerritoryGeometryPreview() {
+// The optional focus request only controls this local read-only preview.
+export default function TerritoryGeometryPreview({ focusRequest = null }) {
   const [open, setOpen] = useState(false);
   const trigger = useRef(null);
+  useEffect(() => {
+    if (focusRequest?.number) setOpen(true);
+  }, [focusRequest?.nonce]);
   return <div style={{ fontSize: 12, color: '#f1f5f9', fontFamily: 'inherit' }}>
     <button ref={trigger} type="button" aria-expanded={open} style={buttonStyle} onClick={() => setOpen(value => !value)}>Visualizza Municipi 1–9</button>
     {open && <section aria-label="Anteprima Municipi di Milano" style={{ marginTop: 10 }} onKeyDown={event => { if (event.key === 'Escape') { setOpen(false); trigger.current?.focus(); } }}>
       <button type="button" style={buttonStyle} onClick={() => { setOpen(false); trigger.current?.focus(); }}>Chiudi anteprima</button>
-      <PreviewMap />
+      <PreviewMap focusedMunicipio={focusRequest?.number || null} />
     </section>}
   </div>;
 }

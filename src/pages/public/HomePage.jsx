@@ -16,6 +16,7 @@ import SmartPairingSection from "../../components/home/SmartPairingSection.jsx";
 import DashboardClienteSection from "../../components/home/DashboardClienteSection.jsx";
 import FinalCtaSection from "../../components/home/FinalCtaSection.jsx";
 import ContattiSection from "../../components/home/ContattiSection.jsx";
+import FeasibilitySection from "../../components/home/FeasibilitySection.jsx";
 
 export function HomePage({
   onStart: n
@@ -244,7 +245,7 @@ export function HomePage({
       }]
     }), _jsx(WhyDifferentSection, {}), _jsx(HowItWorksSection, {
       onConfigure: () => n("preventivo")
-    }), _jsx(ServicesSection, {
+    }), _jsx(FeasibilitySection, {}), _jsx(ServicesSection, {
       onConfigure: () => n("preventivo"),
       onServiceLink: (pageKey) => n(pageKey)
     }), _jsx(GpsLiveSection, {

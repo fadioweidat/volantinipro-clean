@@ -20,6 +20,7 @@ const Step3 = lazy(() => import("../pages/public/configurator/Step3.jsx").then(m
 const Step4 = lazy(() => import("../pages/public/configurator/Step4.jsx").then(m => ({ default: m.Step4 })));
 const QuickQuotePage = lazy(() => import("../pages/public/QuickQuotePage.jsx"));
 const ConsultantPage = lazy(() => import("../pages/public/ConsultantPage.jsx"));
+const FeasibilityPage = lazy(() => import("../pages/public/FeasibilityPage.jsx"));
 const ServiceCenter = lazy(() => import("../pages/public/ServiceCenter.jsx"));
 const ServiceDoorToDoorPage = lazy(() => import("../pages/public/ServicePages.jsx").then(m => ({ default: m.ServiceDoorToDoorPage })));
 const ServiceHandToHandPage = lazy(() => import("../pages/public/ServicePages.jsx").then(m => ({ default: m.ServiceHandToHandPage })));
@@ -58,6 +59,7 @@ export function PublicRoutes({ page, data, setData, goTo, prefillPatch }) {
     if (page === "cookie") return <LegalPage type="cookie" onNav={goTo} />;
     if (page === "quick") return <QuickQuotePage onStart={goTo} onContact={goTo} />;
     if (page === "consultant") return <ConsultantPage onStart={goTo} />;
+    if (page === "feasibility") return <FeasibilityPage onNav={goTo} />;
     if (page === "preventivo") return <ServiceCenter onNav={goTo} />;
     if (page === "service-door-to-door") return <ServiceDoorToDoorPage onNav={goTo} />;
     if (page === "service-hand-to-hand") return <ServiceHandToHandPage onNav={goTo} />;
