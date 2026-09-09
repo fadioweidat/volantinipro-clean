@@ -224,7 +224,14 @@ export function Step2CapPanel({ businessMetrics, capDataMap, col, flyerQuantityF
                 fontFamily: F.sans,
                 fontSize: 10,
                 color: "rgba(255,255,255,.4)"
-              }}>I dati mostrati sono stime. Per aggiungere aree vicine usa i pulsanti qui sotto.</div>
+              }}>I dati mostrati sono stime territoriali. Per aggiungere aree vicine usa i pulsanti qui sotto.</div>
+                  <div style={{
+                fontFamily: F.sans,
+                fontSize: 9,
+                color: "rgba(255,255,255,.35)",
+                marginTop: 4,
+                lineHeight: 1.35
+              }}>Stima VolantiniPro ottenuta dalla distribuzione dei civici CAP all'interno dei NIL e dai dati territoriali disponibili. Il CAP è utilizzato come area operativa stimata. Non rappresenta un confine postale ufficiale.</div>
                   <div style={{
                 display: "flex",
                 gap: 8,

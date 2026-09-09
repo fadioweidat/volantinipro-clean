@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { loadMilanoMunicipi, MUNICIPI_SOURCE, MUNICIPI_ATTRIBUTION } from '../../../../lib/geo/territories/municipioMilano.js';
+import { loadMilanoMunicipiWithDemographics, MUNICIPI_SOURCE, MUNICIPI_ATTRIBUTION } from '../../../../lib/geo/territories/municipioMilano.js';
 import { InvalidTerritoryGeometry, TERRITORY_STATUS } from '../../../../lib/geo/territories/territoryTypes.js';
 
 const buttonStyle = { padding: '7px 11px', borderRadius: 8, border: '1px solid rgba(255,255,255,.25)', background: 'transparent', color: 'inherit', cursor: 'pointer', font: 'inherit' };
 const areaLabel = value => new Intl.NumberFormat('it-IT', { maximumFractionDigits: 2 }).format(value);
+const intLabel = value => new Intl.NumberFormat('it-IT').format(Math.round(value));
 const demographicMessage = 'Dati demografici non ancora disponibili';
 
 function PreviewMap({ focusedMunicipio = null }) {
@@ -22,7 +23,7 @@ function PreviewMap({ focusedMunicipio = null }) {
     setStatus(TERRITORY_STATUS.LOADING);
     setSelectedId(null);
     setRecords([]);
-    Promise.all([loadMilanoMunicipi({ signal: controller.signal }), import('leaflet'), import('leaflet/dist/leaflet.css')]).then(([territories, module]) => {
+    Promise.all([loadMilanoMunicipiWithDemographics({ signal: controller.signal }), import('leaflet'), import('leaflet/dist/leaflet.css')]).then(([territories, module]) => {
       if (controller.signal.aborted || !container.current) return;
       const L = module.default || module;
       map = L.map(container.current, { scrollWheelZoom: false, zoomSnap: 0.25 });
@@ -35,8 +36,13 @@ function PreviewMap({ focusedMunicipio = null }) {
         const tooltip = document.createElement('div');
         const title = document.createElement('strong'); title.textContent = territory.name;
         const area = document.createElement('div'); area.textContent = `Area: ${areaLabel(territory.areaKm2)} km²`;
-        const message = document.createElement('div'); message.textContent = demographicMessage;
-        tooltip.append(title, area, message);
+        const demo = document.createElement('div');
+        if (territory.officialFamilies) {
+          demo.textContent = `Famiglie: ${intLabel(territory.officialFamilies)} · Popolazione: ${intLabel(territory.officialPopulation)}`;
+        } else {
+          demo.textContent = demographicMessage;
+        }
+        tooltip.append(title, area, demo);
         layer.bindTooltip(tooltip, { sticky: true });
         layer.on('mouseover', () => { layer.setStyle({ weight: 4, fillOpacity: 0.35 }); layer.bringToFront(); });
         layer.on('mouseout', () => layer.setStyle({ weight: 2, fillOpacity: 0.16 }));
@@ -80,11 +86,31 @@ function PreviewMap({ focusedMunicipio = null }) {
     <div role="group" aria-label="Consulta un Municipio" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
       {records.map(record => <button key={record.id} type="button" aria-pressed={selectedId === record.id} style={{ ...buttonStyle, background: selectedId === record.id ? '#994007' : 'transparent' }} onClick={() => { setSelectedId(record.id); layers.current.get(record.id)?.openTooltip(); }}>{record.name}</button>)}
     </div>
-    <p aria-live="polite" data-testid="municipio-preview-detail" style={{ fontSize: 12, lineHeight: 1.6 }}>
-      {selected ? <><strong>{selected.name}</strong> · Area: {areaLabel(selected.areaKm2)} km²<br /></> : null}
-      {demographicMessage}
-    </p>
-    <p style={{ fontSize: 10, lineHeight: 1.5, opacity: 0.8 }}>
+    <div aria-live="polite" data-testid="municipio-preview-detail" style={{ fontSize: 12, lineHeight: 1.6, marginTop: 10, padding: 12, background: 'rgba(255,255,255,0.06)', borderRadius: 8 }}>
+      {selected ? (
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 4 }}>
+            {selected.name} {selected.description ? <span style={{ opacity: 0.8, fontWeight: 400 }}>— {selected.description}</span> : null} · Area: {areaLabel(selected.areaKm2)} km²
+          </div>
+          {selected.officialFamilies ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '6px 12px', marginTop: 6 }}>
+              <div><span style={{ opacity: 0.65 }}>Famiglie ufficiali:</span> <strong>{intLabel(selected.officialFamilies)}</strong></div>
+              <div><span style={{ opacity: 0.65 }}>Popolazione ufficiale:</span> <strong>{intLabel(selected.officialPopulation)}</strong></div>
+              <div><span style={{ opacity: 0.65 }}>Quantità consigliata VolantiniPro:</span> <strong>{intLabel(selected.recommendedQuantity)}</strong></div>
+              {selected.densityPerKm2 ? <div><span style={{ opacity: 0.65 }}>Densità:</span> <strong>{intLabel(selected.densityPerKm2)} ab./km²</strong></div> : null}
+              <div style={{ gridColumn: '1 / -1', fontSize: 11, opacity: 0.7, marginTop: 4 }}>
+                Fonte dati: Comune di Milano — 2025
+              </div>
+            </div>
+          ) : (
+            <div>{demographicMessage}</div>
+          )}
+        </div>
+      ) : (
+        <div style={{ opacity: 0.7 }}>Seleziona un Municipio per consultare i dati demografici e territoriali ufficiali.</div>
+      )}
+    </div>
+    <p style={{ fontSize: 10, lineHeight: 1.5, opacity: 0.8, marginTop: 8 }}>
       <a href={MUNICIPI_SOURCE.url} target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>{MUNICIPI_SOURCE.name}</a>
       {' · '}<a href={MUNICIPI_SOURCE.licenseUrl} target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>CC BY 4.0</a>
       <br />{MUNICIPI_ATTRIBUTION}<br />Riferimento dati: 13 gennaio 2017.

@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "label": "Dati demografici ufficiali Municipi di Milano",
+  "year": 2025,
+  "source": "Comune di Milano",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+  "datasets": [
+    {
+      "identifier": "DS1442",
+      "title": "Famiglie anagrafiche residenti per municipio (1999-2025)",
+      "url": "https://dati.comune.milano.it/dataset/3b7392e8-c4c9-4055-a0af-651da646e4df"
+    },
+    {
+      "identifier": "DS29",
+      "title": "Popolazione: residenti per cittadinanza e municipio (1999-2025)",
+      "url": "https://dati.comune.milano.it/dataset/afd8acce-3ae7-4d56-a7f6-c7074f49b01f"
+    },
+    {
+      "identifier": "DS379",
+      "title": "Territorio: superficie dei Municipi",
+      "url": "https://dati.comune.milano.it/dataset/36ba21c2-8b48-43ce-bbe1-e236a8a49ff6"
+    }
+  ],
+  "canonicalFlyerFactor": 1.1,
+  "municipi": {
+    "1": {
+      "number": 1,
+      "name": "Municipio 1",
+      "description": "Centro Storico",
+      "families": 54022,
+      "population": 96965,
+      "areaKm2": 9.67,
+      "densityPerKm2": 10027,
+      "recommendedQuantity": 59424
+    },
+    "2": {
+      "number": 2,
+      "name": "Municipio 2",
+      "description": "Stazione Centrale, Gorla, Turro, Greco, Crescenzago",
+      "families": 94026,
+      "population": 160766,
+      "areaKm2": 12.58,
+      "densityPerKm2": 12779,
+      "recommendedQuantity": 103429
+    },
+    "3": {
+      "number": 3,
+      "name": "Municipio 3",
+      "description": "Città Studi, Lambrate, Porta Venezia",
+      "families": 83556,
+      "population": 143217,
+      "areaKm2": 14.23,
+      "densityPerKm2": 10064,
+      "recommendedQuantity": 91912
+    },
+    "4": {
+      "number": 4,
+      "name": "Municipio 4",
+      "description": "Vittoria, Forlanini",
+      "families": 92436,
+      "population": 163508,
+      "areaKm2": 20.95,
+      "densityPerKm2": 7805,
+      "recommendedQuantity": 101680
+    },
+    "5": {
+      "number": 5,
+      "name": "Municipio 5",
+      "description": "Vigentino, Chiaravalle, Gratosoglio",
+      "families": 70163,
+      "population": 125396,
+      "areaKm2": 29.87,
+      "densityPerKm2": 4198,
+      "recommendedQuantity": 77179
+    },
+    "6": {
+      "number": 6,
+      "name": "Municipio 6",
+      "description": "Barona, Lorenteggio",
+      "families": 83013,
+      "population": 151087,
+      "areaKm2": 18.28,
+      "densityPerKm2": 8265,
+      "recommendedQuantity": 91314
+    },
+    "7": {
+      "number": 7,
+      "name": "Municipio 7",
+      "description": "Baggio, De Angeli, San Siro",
+      "families": 92792,
+      "population": 173841,
+      "areaKm2": 31.34,
+      "densityPerKm2": 5547,
+      "recommendedQuantity": 102071
+    },
+    "8": {
+      "number": 8,
+      "name": "Municipio 8",
+      "description": "Fiera, Gallaratese, Quarto Oggiaro",
+      "families": 105828,
+      "population": 196996,
+      "areaKm2": 23.72,
+      "densityPerKm2": 8305,
+      "recommendedQuantity": 116411
+    },
+    "9": {
+      "number": 9,
+      "name": "Municipio 9",
+      "description": "Garibaldi, Niguarda, Bruzzano, Bovisa",
+      "families": 105099,
+      "population": 187303,
+      "areaKm2": 21.12,
+      "densityPerKm2": 8869,
+      "recommendedQuantity": 115609
+    }
+  },
+  "totals": {
+    "families": 780935,
+    "population": 1399079,
+    "areaKm2": 181.76,
+    "densityPerKm2": 7697,
+    "recommendedQuantity": 859029
+  }
+}

@@ -1689,7 +1689,7 @@ export function Step2ComunePanel({ activeCampaignZone, activeComuneZeroData, add
                             }}>
                                         Hai inserito {flyerQuantityFromStep1.toLocaleString("it-IT", {
                                 useGrouping: true
-                              })} volantini. Per coprire {city?.name || "l'area selezionata"} la quantità consigliata è circa {requiredFlyers.toLocaleString("it-IT", {
+                              })} volantini. Per coprire {hasUnconfirmedAddressPoint ? (containingNil?.name || addressPreviewNilZones?.main?.name || selZones?.[0]?.name || "il NIL vicino") : areaMode === "custom_zone" ? (selZones.map(z => z.name).join(", ") || "l'area selezionata") : (city?.name || "l'area selezionata")} la quantità consigliata è circa {requiredFlyers.toLocaleString("it-IT", {
                                 useGrouping: true
                               })}. I volantini residui sono {surplusFlyers.toLocaleString("it-IT", {
                                 useGrouping: true

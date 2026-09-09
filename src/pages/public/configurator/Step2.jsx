@@ -4247,7 +4247,7 @@ export function Step2({
   const residentialMainOutputsNormalized = residentialMainOutputs.map(k => k.l === "Comuni nel raggio" || k.l === territoryPluralLabel ? {
     ...k,
     l: isComuneMode ? territoryPluralLabel : `${territoryPluralLabel} nel raggio`,
-    v: String(zonesInRadius.length)
+    v: String(hasUnconfirmedAddressPoint ? (selZones.length || 1) : (zonesInRadius.length || selZones.length || 0))
   } : k);
   const residentialScores = aiAgg ? SERVICE_META.d2d.advKpis(aiAgg) : [];
   const h2hScores = aiAgg ? SERVICE_META.h2h.advKpis(aiAgg) : [];
@@ -4469,7 +4469,7 @@ export function Step2({
   const hasConfirmedZoneForActiveSelection = searchMode === "cap" ? selectedCaps.length > 0 : searchMode === "municipality" ? Boolean(city || selectedMunicipalityItems.length > 0) : Boolean(city && (selectedComuni.length > 0 || selectedComune));
   const hasConfirmedCoverageMode = areaMode === "radius" ? radiusSelectionConfirmed : areaMode === "custom_zone" ? selected.length > 0 || selZones.length > 0 : areaMode === "cap" ? selectedCaps.length > 0 : usingMunicipalityFullCoverage;
   const hasValidCoverageGeometry = areaMode === "radius" ? Boolean(radiusSelectionConfirmed && radiusCenter && Number.isFinite(Number(radiusCenter.lat)) && Number.isFinite(Number(radiusCenter.lng)) && Number(radiusKm) > 0) : areaMode === "custom_zone" ? selZones.some(z => z.geometry || z.geometry_geojson || pickRealComuneGeometry(z)) : areaMode === "cap" ? selectedCaps.length > 0 : Boolean(municipalityBoundary || selZones.some(z => z.geometry || z.geometry_geojson || pickRealComuneGeometry(z)));
-  const isCoverageCalculationComplete = hasConfirmedCoverageMode && !gisLoading && !apiLoading && !gisTimedOut;
+  const isCoverageCalculationComplete = (hasConfirmedCoverageMode || (hasUnconfirmedAddressPoint && selZones.length > 0)) && !gisLoading && !apiLoading && !gisTimedOut;
   const hasCoverageCalculationError = Boolean(apiError || activeComuneZeroData || milanoComuneNilInsufficient || addressSearchError);
   const primaryReachForGeometry = isResidentialStep2 ? Number(serviceKpis?.families || 0) : isMovementStep2 ? Number(serviceKpis?.poi || 0) : Number(serviceKpis?.businesses || 0);
   const isRadiusGeometryValid = areaMode !== "radius" || Boolean(radiusSelectionConfirmed && radiusCenter && Number.isFinite(Number(radiusCenter.lat)) && Number.isFinite(Number(radiusCenter.lng)) && Number(radiusKm) > 0 && hasValidCoverageGeometry && isCoverageCalculationComplete && primaryReachForGeometry > 0 && Number(requiredFlyers || 0) > 0 && !hasCoverageCalculationError);
@@ -4673,7 +4673,7 @@ export function Step2({
     nils: selectedNils,
     pois: isMovementStep2 ? selectedOperationalPois : [],
     activities: isBusinessStep2 ? selectedOperationalPois : [],
-    availableZoneCount: isResidentialStep2 ? availableNils.length || summaryComuniStats?.total || canonicalAllocationRows.length || null : canonicalAllocationRows.length || null,
+    availableZoneCount: isResidentialStep2 ? (hasUnconfirmedAddressPoint ? (selZones.length || 1) : availableNils.length || summaryComuniStats?.total || canonicalAllocationRows.length || null) : canonicalAllocationRows.length || null,
     dailyCapacity: isResidentialStep2 ? D2D_DAILY_CAPACITY : null,
     operatorCount: isBusinessStep2 ? businessOperationalPlan?.recommendedOperators ?? null : null,
     operatorDays: isBusinessStep2 ? businessOperationalPlan?.operatorDays ?? null : null,
@@ -4746,7 +4746,7 @@ export function Step2({
     gisTimedOut,
     gisLoading,
     availableNilCount: step2TruthModel.zones.available,
-    containingNil: containingNil || addressPreviewNilZones?.main || null,
+    containingNil: containingNil || addressPreviewNilZones?.main || (hasUnconfirmedAddressPoint && selZones?.[0] ? { code: selZones[0].nilCode || selZones[0].nil_code || selZones[0].id, name: selZones[0].name } : null),
     containingNilCandidates: addressPreviewNilZones?.containingCandidates || [],
     intersectedNilCount: intersectedNils.length,
     selectedNilCount: selectedNils.length

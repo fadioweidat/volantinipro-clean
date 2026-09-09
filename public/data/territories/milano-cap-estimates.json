@@ -1,0 +1,2732 @@
+{
+  "schemaVersion": 1,
+  "label": "Stima territoriale CAP Milano",
+  "generatedOn": "2026-09-09",
+  "license": "CC BY 4.0",
+  "methodology": "Stima VolantiniPro basata su ripartizione dei civici CAP nei NIL comunali (DS2973 + DS634 + DS1440)",
+  "disclaimer": "Il CAP è utilizzato come area operativa stimata. Non rappresenta un confine postale ufficiale.",
+  "canonicalFlyerFactor": 1.1,
+  "quality": {
+    "totalJoinedCivics": 50560,
+    "excludedRecords": 57,
+    "totalValidCaps": 38
+  },
+  "estimates": {
+    "20121": {
+      "cap": "20121",
+      "estimatedFamilies": 9281,
+      "recommendedQuantity": 10209,
+      "confidence": "high",
+      "confidenceLabel": "Alta",
+      "civicSampleCount": 1836,
+      "joinedCivicRate": 0.9951,
+      "municipi": [
+        1,
+        9
+      ],
+      "nilCount": 8,
+      "primaryNilName": "BRERA",
+      "primaryNilShare": 0.6944,
+      "nilContributions": [
+        {
+          "nilId": "2",
+          "nilName": "BRERA",
+          "nilFamilies2025": 10570,
+          "civicsInNilWithCap": 1275,
+          "totalCivicsInNil": 1846,
+          "capCivicShare": 0.6907,
+          "estimatedFamiliesContribution": 7301
+        },
+        {
+          "nilId": "1",
+          "nilName": "DUOMO",
+          "nilFamilies2025": 8931,
+          "civicsInNilWithCap": 441,
+          "totalCivicsInNil": 3356,
+          "capCivicShare": 0.1314,
+          "estimatedFamiliesContribution": 1174
+        },
+        {
+          "nilId": "4",
+          "nilName": "GUASTALLA",
+          "nilFamilies2025": 8602,
+          "civicsInNilWithCap": 91,
+          "totalCivicsInNil": 1148,
+          "capCivicShare": 0.0793,
+          "estimatedFamiliesContribution": 682
+        },
+        {
+          "nilId": "3",
+          "nilName": "GIARDINI P.TA VENEZIA",
+          "nilFamilies2025": 20,
+          "civicsInNilWithCap": 9,
+          "totalCivicsInNil": 28,
+          "capCivicShare": 0.3214,
+          "estimatedFamiliesContribution": 6
+        },
+        {
+          "nilId": "69",
+          "nilName": "SARPI",
+          "nilFamilies2025": 17202,
+          "civicsInNilWithCap": 6,
+          "totalCivicsInNil": 1867,
+          "capCivicShare": 0.0032,
+          "estimatedFamiliesContribution": 55
+        },
+        {
+          "nilId": "7",
+          "nilName": "MAGENTA - S. VITTORE",
+          "nilFamilies2025": 9875,
+          "civicsInNilWithCap": 5,
+          "totalCivicsInNil": 1159,
+          "capCivicShare": 0.0043,
+          "estimatedFamiliesContribution": 42
+        },
+        {
+          "nilId": "9",
+          "nilName": "PORTA GARIBALDI - PORTA NUOVA",
+          "nilFamilies2025": 3499,
+          "civicsInNilWithCap": 5,
+          "totalCivicsInNil": 832,
+          "capCivicShare": 0.006,
+          "estimatedFamiliesContribution": 21
+        },
+        {
+          "nilId": "8",
+          "nilName": "PARCO SEMPIONE",
+          "nilFamilies2025": 0,
+          "civicsInNilWithCap": 4,
+          "totalCivicsInNil": 18,
+          "capCivicShare": 0.2222,
+          "estimatedFamiliesContribution": 0
+        }
+      ]
+    },
+    "20122": {
+      "cap": "20122",
+      "estimatedFamilies": 12533,
+      "recommendedQuantity": 13786,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1815,
+      "joinedCivicRate": 0.9994,
+      "municipi": [
+        1,
+        2,
+        5
+      ],
+      "nilCount": 6,
+      "primaryNilName": "GUASTALLA",
+      "primaryNilShare": 0.4463,
+      "nilContributions": [
+        {
+          "nilId": "4",
+          "nilName": "GUASTALLA",
+          "nilFamilies2025": 8602,
+          "civicsInNilWithCap": 810,
+          "totalCivicsInNil": 1148,
+          "capCivicShare": 0.7056,
+          "estimatedFamiliesContribution": 6070
+        },
+        {
+          "nilId": "1",
+          "nilName": "DUOMO",
+          "nilFamilies2025": 8931,
+          "civicsInNilWithCap": 549,
+          "totalCivicsInNil": 3356,
+          "capCivicShare": 0.1636,
+          "estimatedFamiliesContribution": 1461
+        },
+        {
+          "nilId": "5",
+          "nilName": "PORTA VIGENTINA - PORTA LODOVICA",
+          "nilFamilies2025": 7520,
+          "civicsInNilWithCap": 342,
+          "totalCivicsInNil": 708,
+          "capCivicShare": 0.4831,
+          "estimatedFamiliesContribution": 3633
+        },
+        {
+          "nilId": "6",
+          "nilName": "PORTA TICINESE - CONCA DEL NAVIGLIO",
+          "nilFamilies2025": 12480,
+          "civicsInNilWithCap": 106,
+          "totalCivicsInNil": 1038,
+          "capCivicShare": 0.1021,
+          "estimatedFamiliesContribution": 1274
+        },
+        {
+          "nilId": "27",
+          "nilName": "PTA ROMANA",
+          "nilFamilies2025": 9538,
+          "civicsInNilWithCap": 7,
+          "totalCivicsInNil": 848,
+          "capCivicShare": 0.0083,
+          "estimatedFamiliesContribution": 79
+        },
+        {
+          "nilId": "19",
+          "nilName": "PADOVA - TURRO - CRESCENZAGO",
+          "nilFamilies2025": 22358,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 1377,
+          "capCivicShare": 0.0007,
+          "estimatedFamiliesContribution": 16
+        }
+      ]
+    },
+    "20123": {
+      "cap": "20123",
+      "estimatedFamilies": 12172,
+      "recommendedQuantity": 13389,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1976,
+      "joinedCivicRate": 0.997,
+      "municipi": [
+        1,
+        5,
+        6,
+        7
+      ],
+      "nilCount": 5,
+      "primaryNilName": "DUOMO",
+      "primaryNilShare": 0.4717,
+      "nilContributions": [
+        {
+          "nilId": "1",
+          "nilName": "DUOMO",
+          "nilFamilies2025": 8931,
+          "civicsInNilWithCap": 932,
+          "totalCivicsInNil": 3356,
+          "capCivicShare": 0.2777,
+          "estimatedFamiliesContribution": 2480
+        },
+        {
+          "nilId": "7",
+          "nilName": "MAGENTA - S. VITTORE",
+          "nilFamilies2025": 9875,
+          "civicsInNilWithCap": 815,
+          "totalCivicsInNil": 1159,
+          "capCivicShare": 0.7032,
+          "estimatedFamiliesContribution": 6944
+        },
+        {
+          "nilId": "6",
+          "nilName": "PORTA TICINESE - CONCA DEL NAVIGLIO",
+          "nilFamilies2025": 12480,
+          "civicsInNilWithCap": 225,
+          "totalCivicsInNil": 1038,
+          "capCivicShare": 0.2168,
+          "estimatedFamiliesContribution": 2706
+        },
+        {
+          "nilId": "68",
+          "nilName": "PAGANO",
+          "nilFamilies2025": 8958,
+          "civicsInNilWithCap": 2,
+          "totalCivicsInNil": 1004,
+          "capCivicShare": 0.002,
+          "estimatedFamiliesContribution": 18
+        },
+        {
+          "nilId": "44",
+          "nilName": "PORTA TICINESE - CONCHETTA",
+          "nilFamilies2025": 9926,
+          "civicsInNilWithCap": 2,
+          "totalCivicsInNil": 831,
+          "capCivicShare": 0.0024,
+          "estimatedFamiliesContribution": 24
+        }
+      ]
+    },
+    "20124": {
+      "cap": "20124",
+      "estimatedFamilies": 18644,
+      "recommendedQuantity": 20508,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1950,
+      "joinedCivicRate": 0.998,
+      "municipi": [
+        1,
+        2,
+        3,
+        9
+      ],
+      "nilCount": 8,
+      "primaryNilName": "BUENOS AIRES - PORTA VENEZIA - PORTA MONFORTE",
+      "primaryNilShare": 0.3036,
+      "nilContributions": [
+        {
+          "nilId": "21",
+          "nilName": "BUENOS AIRES - PORTA VENEZIA - PORTA MONFORTE",
+          "nilFamilies2025": 35740,
+          "civicsInNilWithCap": 592,
+          "totalCivicsInNil": 3104,
+          "capCivicShare": 0.1907,
+          "estimatedFamiliesContribution": 6816
+        },
+        {
+          "nilId": "10",
+          "nilName": "STAZIONE CENTRALE - PONTE SEVESO",
+          "nilFamilies2025": 10254,
+          "civicsInNilWithCap": 507,
+          "totalCivicsInNil": 1156,
+          "capCivicShare": 0.4386,
+          "estimatedFamiliesContribution": 4497
+        },
+        {
+          "nilId": "11",
+          "nilName": "ISOLA",
+          "nilFamilies2025": 13299,
+          "civicsInNilWithCap": 343,
+          "totalCivicsInNil": 1498,
+          "capCivicShare": 0.229,
+          "estimatedFamiliesContribution": 3045
+        },
+        {
+          "nilId": "12",
+          "nilName": "MACIACHINI - MAGGIOLINA",
+          "nilFamilies2025": 15202,
+          "civicsInNilWithCap": 298,
+          "totalCivicsInNil": 1381,
+          "capCivicShare": 0.2158,
+          "estimatedFamiliesContribution": 3281
+        },
+        {
+          "nilId": "9",
+          "nilName": "PORTA GARIBALDI - PORTA NUOVA",
+          "nilFamilies2025": 3499,
+          "civicsInNilWithCap": 190,
+          "totalCivicsInNil": 832,
+          "capCivicShare": 0.2284,
+          "estimatedFamiliesContribution": 799
+        },
+        {
+          "nilId": "20",
+          "nilName": "LORETO - CASORETTO - NOLO",
+          "nilFamilies2025": 26876,
+          "civicsInNilWithCap": 10,
+          "totalCivicsInNil": 1924,
+          "capCivicShare": 0.0052,
+          "estimatedFamiliesContribution": 140
+        },
+        {
+          "nilId": "2",
+          "nilName": "BRERA",
+          "nilFamilies2025": 10570,
+          "civicsInNilWithCap": 9,
+          "totalCivicsInNil": 1846,
+          "capCivicShare": 0.0049,
+          "estimatedFamiliesContribution": 52
+        },
+        {
+          "nilId": "15",
+          "nilName": "BICOCCA",
+          "nilFamilies2025": 4660,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 329,
+          "capCivicShare": 0.003,
+          "estimatedFamiliesContribution": 14
+        }
+      ]
+    },
+    "20125": {
+      "cap": "20125",
+      "estimatedFamilies": 19568,
+      "recommendedQuantity": 21525,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1631,
+      "joinedCivicRate": 0.9994,
+      "municipi": [
+        2,
+        9
+      ],
+      "nilCount": 7,
+      "primaryNilName": "MACIACHINI - MAGGIOLINA",
+      "primaryNilShare": 0.3844,
+      "nilContributions": [
+        {
+          "nilId": "12",
+          "nilName": "MACIACHINI - MAGGIOLINA",
+          "nilFamilies2025": 15202,
+          "civicsInNilWithCap": 627,
+          "totalCivicsInNil": 1381,
+          "capCivicShare": 0.454,
+          "estimatedFamiliesContribution": 6902
+        },
+        {
+          "nilId": "13",
+          "nilName": "GRECO - SEGNANO",
+          "nilFamilies2025": 9185,
+          "civicsInNilWithCap": 444,
+          "totalCivicsInNil": 642,
+          "capCivicShare": 0.6916,
+          "estimatedFamiliesContribution": 6352
+        },
+        {
+          "nilId": "10",
+          "nilName": "STAZIONE CENTRALE - PONTE SEVESO",
+          "nilFamilies2025": 10254,
+          "civicsInNilWithCap": 329,
+          "totalCivicsInNil": 1156,
+          "capCivicShare": 0.2846,
+          "estimatedFamiliesContribution": 2918
+        },
+        {
+          "nilId": "20",
+          "nilName": "LORETO - CASORETTO - NOLO",
+          "nilFamilies2025": 26876,
+          "civicsInNilWithCap": 145,
+          "totalCivicsInNil": 1924,
+          "capCivicShare": 0.0754,
+          "estimatedFamiliesContribution": 2026
+        },
+        {
+          "nilId": "19",
+          "nilName": "PADOVA - TURRO - CRESCENZAGO",
+          "nilFamilies2025": 22358,
+          "civicsInNilWithCap": 75,
+          "totalCivicsInNil": 1377,
+          "capCivicShare": 0.0545,
+          "estimatedFamiliesContribution": 1219
+        },
+        {
+          "nilId": "15",
+          "nilName": "BICOCCA",
+          "nilFamilies2025": 4660,
+          "civicsInNilWithCap": 10,
+          "totalCivicsInNil": 329,
+          "capCivicShare": 0.0304,
+          "estimatedFamiliesContribution": 142
+        },
+        {
+          "nilId": "11",
+          "nilName": "ISOLA",
+          "nilFamilies2025": 13299,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 1498,
+          "capCivicShare": 0.0007,
+          "estimatedFamiliesContribution": 9
+        }
+      ]
+    },
+    "20126": {
+      "cap": "20126",
+      "estimatedFamilies": 8009,
+      "recommendedQuantity": 8810,
+      "confidence": "high",
+      "confidenceLabel": "Alta",
+      "civicSampleCount": 735,
+      "joinedCivicRate": 0.9959,
+      "municipi": [
+        2,
+        3,
+        9
+      ],
+      "nilCount": 6,
+      "primaryNilName": "GORLA - PRECOTTO",
+      "primaryNilShare": 0.6721,
+      "nilContributions": [
+        {
+          "nilId": "16",
+          "nilName": "GORLA - PRECOTTO",
+          "nilFamilies2025": 16954,
+          "civicsInNilWithCap": 494,
+          "totalCivicsInNil": 1825,
+          "capCivicShare": 0.2707,
+          "estimatedFamiliesContribution": 4589
+        },
+        {
+          "nilId": "15",
+          "nilName": "BICOCCA",
+          "nilFamilies2025": 4660,
+          "civicsInNilWithCap": 204,
+          "totalCivicsInNil": 329,
+          "capCivicShare": 0.6201,
+          "estimatedFamiliesContribution": 2890
+        },
+        {
+          "nilId": "13",
+          "nilName": "GRECO - SEGNANO",
+          "nilFamilies2025": 9185,
+          "civicsInNilWithCap": 25,
+          "totalCivicsInNil": 642,
+          "capCivicShare": 0.0389,
+          "estimatedFamiliesContribution": 357
+        },
+        {
+          "nilId": "19",
+          "nilName": "PADOVA - TURRO - CRESCENZAGO",
+          "nilFamilies2025": 22358,
+          "civicsInNilWithCap": 9,
+          "totalCivicsInNil": 1377,
+          "capCivicShare": 0.0065,
+          "estimatedFamiliesContribution": 145
+        },
+        {
+          "nilId": "10",
+          "nilName": "STAZIONE CENTRALE - PONTE SEVESO",
+          "nilFamilies2025": 10254,
+          "civicsInNilWithCap": 2,
+          "totalCivicsInNil": 1156,
+          "capCivicShare": 0.0017,
+          "estimatedFamiliesContribution": 17
+        },
+        {
+          "nilId": "21",
+          "nilName": "BUENOS AIRES - PORTA VENEZIA - PORTA MONFORTE",
+          "nilFamilies2025": 35740,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 3104,
+          "capCivicShare": 0.0003,
+          "estimatedFamiliesContribution": 11
+        }
+      ]
+    },
+    "20127": {
+      "cap": "20127",
+      "estimatedFamilies": 21025,
+      "recommendedQuantity": 23128,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1437,
+      "joinedCivicRate": 0.9958,
+      "municipi": [
+        2,
+        3
+      ],
+      "nilCount": 5,
+      "primaryNilName": "LORETO - CASORETTO - NOLO",
+      "primaryNilShare": 0.4843,
+      "nilContributions": [
+        {
+          "nilId": "20",
+          "nilName": "LORETO - CASORETTO - NOLO",
+          "nilFamilies2025": 26876,
+          "civicsInNilWithCap": 696,
+          "totalCivicsInNil": 1924,
+          "capCivicShare": 0.3617,
+          "estimatedFamiliesContribution": 9721
+        },
+        {
+          "nilId": "19",
+          "nilName": "PADOVA - TURRO - CRESCENZAGO",
+          "nilFamilies2025": 22358,
+          "civicsInNilWithCap": 634,
+          "totalCivicsInNil": 1377,
+          "capCivicShare": 0.4604,
+          "estimatedFamiliesContribution": 10294
+        },
+        {
+          "nilId": "16",
+          "nilName": "GORLA - PRECOTTO",
+          "nilFamilies2025": 16954,
+          "civicsInNilWithCap": 65,
+          "totalCivicsInNil": 1825,
+          "capCivicShare": 0.0356,
+          "estimatedFamiliesContribution": 604
+        },
+        {
+          "nilId": "10",
+          "nilName": "STAZIONE CENTRALE - PONTE SEVESO",
+          "nilFamilies2025": 10254,
+          "civicsInNilWithCap": 30,
+          "totalCivicsInNil": 1156,
+          "capCivicShare": 0.026,
+          "estimatedFamiliesContribution": 267
+        },
+        {
+          "nilId": "21",
+          "nilName": "BUENOS AIRES - PORTA VENEZIA - PORTA MONFORTE",
+          "nilFamilies2025": 35740,
+          "civicsInNilWithCap": 12,
+          "totalCivicsInNil": 3104,
+          "capCivicShare": 0.0039,
+          "estimatedFamiliesContribution": 139
+        }
+      ]
+    },
+    "20128": {
+      "cap": "20128",
+      "estimatedFamilies": 15912,
+      "recommendedQuantity": 17503,
+      "confidence": "high",
+      "confidenceLabel": "Alta",
+      "civicSampleCount": 1418,
+      "joinedCivicRate": 0.9944,
+      "municipi": [
+        2
+      ],
+      "nilCount": 2,
+      "primaryNilName": "GORLA - PRECOTTO",
+      "primaryNilShare": 0.6862,
+      "nilContributions": [
+        {
+          "nilId": "16",
+          "nilName": "GORLA - PRECOTTO",
+          "nilFamilies2025": 16954,
+          "civicsInNilWithCap": 973,
+          "totalCivicsInNil": 1825,
+          "capCivicShare": 0.5332,
+          "estimatedFamiliesContribution": 9040
+        },
+        {
+          "nilId": "17",
+          "nilName": "ADRIANO",
+          "nilFamilies2025": 9651,
+          "civicsInNilWithCap": 445,
+          "totalCivicsInNil": 625,
+          "capCivicShare": 0.712,
+          "estimatedFamiliesContribution": 6872
+        }
+      ]
+    },
+    "20129": {
+      "cap": "20129",
+      "estimatedFamilies": 24922,
+      "recommendedQuantity": 27414,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 2274,
+      "joinedCivicRate": 0.9991,
+      "municipi": [
+        1,
+        3,
+        4
+      ],
+      "nilCount": 3,
+      "primaryNilName": "BUENOS AIRES - PORTA VENEZIA - PORTA MONFORTE",
+      "primaryNilShare": 0.5717,
+      "nilContributions": [
+        {
+          "nilId": "21",
+          "nilName": "BUENOS AIRES - PORTA VENEZIA - PORTA MONFORTE",
+          "nilFamilies2025": 35740,
+          "civicsInNilWithCap": 1300,
+          "totalCivicsInNil": 3104,
+          "capCivicShare": 0.4188,
+          "estimatedFamiliesContribution": 14968
+        },
+        {
+          "nilId": "26",
+          "nilName": "XXII MARZO",
+          "nilFamilies2025": 17422,
+          "civicsInNilWithCap": 896,
+          "totalCivicsInNil": 1666,
+          "capCivicShare": 0.5378,
+          "estimatedFamiliesContribution": 9370
+        },
+        {
+          "nilId": "4",
+          "nilName": "GUASTALLA",
+          "nilFamilies2025": 8602,
+          "civicsInNilWithCap": 78,
+          "totalCivicsInNil": 1148,
+          "capCivicShare": 0.0679,
+          "estimatedFamiliesContribution": 584
+        }
+      ]
+    },
+    "20131": {
+      "cap": "20131",
+      "estimatedFamilies": 23662,
+      "recommendedQuantity": 26028,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1872,
+      "joinedCivicRate": 0.9973,
+      "municipi": [
+        2,
+        3
+      ],
+      "nilCount": 3,
+      "primaryNilName": "CITTA' STUDI",
+      "primaryNilShare": 0.3392,
+      "nilContributions": [
+        {
+          "nilId": "22",
+          "nilName": "CITTA' STUDI",
+          "nilFamilies2025": 21304,
+          "civicsInNilWithCap": 635,
+          "totalCivicsInNil": 1720,
+          "capCivicShare": 0.3692,
+          "estimatedFamiliesContribution": 7865
+        },
+        {
+          "nilId": "20",
+          "nilName": "LORETO - CASORETTO - NOLO",
+          "nilFamilies2025": 26876,
+          "civicsInNilWithCap": 633,
+          "totalCivicsInNil": 1924,
+          "capCivicShare": 0.329,
+          "estimatedFamiliesContribution": 8842
+        },
+        {
+          "nilId": "21",
+          "nilName": "BUENOS AIRES - PORTA VENEZIA - PORTA MONFORTE",
+          "nilFamilies2025": 35740,
+          "civicsInNilWithCap": 604,
+          "totalCivicsInNil": 3104,
+          "capCivicShare": 0.1946,
+          "estimatedFamiliesContribution": 6955
+        }
+      ]
+    },
+    "20132": {
+      "cap": "20132",
+      "estimatedFamilies": 13612,
+      "recommendedQuantity": 14973,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 905,
+      "joinedCivicRate": 0.9967,
+      "municipi": [
+        2,
+        3
+      ],
+      "nilCount": 3,
+      "primaryNilName": "PADOVA - TURRO - CRESCENZAGO",
+      "primaryNilShare": 0.5017,
+      "nilContributions": [
+        {
+          "nilId": "19",
+          "nilName": "PADOVA - TURRO - CRESCENZAGO",
+          "nilFamilies2025": 22358,
+          "civicsInNilWithCap": 454,
+          "totalCivicsInNil": 1377,
+          "capCivicShare": 0.3297,
+          "estimatedFamiliesContribution": 7371
+        },
+        {
+          "nilId": "18",
+          "nilName": "CIMIANO - ROTTOLE - Q.RE FELTRE",
+          "nilFamilies2025": 10922,
+          "civicsInNilWithCap": 433,
+          "totalCivicsInNil": 793,
+          "capCivicShare": 0.546,
+          "estimatedFamiliesContribution": 5963
+        },
+        {
+          "nilId": "17",
+          "nilName": "ADRIANO",
+          "nilFamilies2025": 9651,
+          "civicsInNilWithCap": 18,
+          "totalCivicsInNil": 625,
+          "capCivicShare": 0.0288,
+          "estimatedFamiliesContribution": 278
+        }
+      ]
+    },
+    "20133": {
+      "cap": "20133",
+      "estimatedFamilies": 20325,
+      "recommendedQuantity": 22358,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1636,
+      "joinedCivicRate": 0.9963,
+      "municipi": [
+        3,
+        4,
+        8
+      ],
+      "nilCount": 6,
+      "primaryNilName": "CITTA' STUDI",
+      "primaryNilShare": 0.4951,
+      "nilContributions": [
+        {
+          "nilId": "22",
+          "nilName": "CITTA' STUDI",
+          "nilFamilies2025": 21304,
+          "civicsInNilWithCap": 810,
+          "totalCivicsInNil": 1720,
+          "capCivicShare": 0.4709,
+          "estimatedFamiliesContribution": 10032
+        },
+        {
+          "nilId": "25",
+          "nilName": "CORSICA",
+          "nilFamilies2025": 11223,
+          "civicsInNilWithCap": 560,
+          "totalCivicsInNil": 866,
+          "capCivicShare": 0.6467,
+          "estimatedFamiliesContribution": 7258
+        },
+        {
+          "nilId": "21",
+          "nilName": "BUENOS AIRES - PORTA VENEZIA - PORTA MONFORTE",
+          "nilFamilies2025": 35740,
+          "civicsInNilWithCap": 240,
+          "totalCivicsInNil": 3104,
+          "capCivicShare": 0.0773,
+          "estimatedFamiliesContribution": 2763
+        },
+        {
+          "nilId": "26",
+          "nilName": "XXII MARZO",
+          "nilFamilies2025": 17422,
+          "civicsInNilWithCap": 23,
+          "totalCivicsInNil": 1666,
+          "capCivicShare": 0.0138,
+          "estimatedFamiliesContribution": 240
+        },
+        {
+          "nilId": "23",
+          "nilName": "LAMBRATE - ORTICA",
+          "nilFamilies2025": 7015,
+          "civicsInNilWithCap": 2,
+          "totalCivicsInNil": 612,
+          "capCivicShare": 0.0033,
+          "estimatedFamiliesContribution": 23
+        },
+        {
+          "nilId": "69",
+          "nilName": "SARPI",
+          "nilFamilies2025": 17202,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 1867,
+          "capCivicShare": 0.0005,
+          "estimatedFamiliesContribution": 9
+        }
+      ]
+    },
+    "20134": {
+      "cap": "20134",
+      "estimatedFamilies": 10683,
+      "recommendedQuantity": 11751,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 837,
+      "joinedCivicRate": 0.9905,
+      "municipi": [
+        3,
+        4
+      ],
+      "nilCount": 4,
+      "primaryNilName": "LAMBRATE - ORTICA",
+      "primaryNilShare": 0.5902,
+      "nilContributions": [
+        {
+          "nilId": "23",
+          "nilName": "LAMBRATE - ORTICA",
+          "nilFamilies2025": 7015,
+          "civicsInNilWithCap": 494,
+          "totalCivicsInNil": 612,
+          "capCivicShare": 0.8072,
+          "estimatedFamiliesContribution": 5663
+        },
+        {
+          "nilId": "18",
+          "nilName": "CIMIANO - ROTTOLE - Q.RE FELTRE",
+          "nilFamilies2025": 10922,
+          "civicsInNilWithCap": 241,
+          "totalCivicsInNil": 793,
+          "capCivicShare": 0.3039,
+          "estimatedFamiliesContribution": 3319
+        },
+        {
+          "nilId": "24",
+          "nilName": "PARCO FORLANINI - CAVRIANO",
+          "nilFamilies2025": 2373,
+          "civicsInNilWithCap": 101,
+          "totalCivicsInNil": 142,
+          "capCivicShare": 0.7113,
+          "estimatedFamiliesContribution": 1688
+        },
+        {
+          "nilId": "22",
+          "nilName": "CITTA' STUDI",
+          "nilFamilies2025": 21304,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 1720,
+          "capCivicShare": 0.0006,
+          "estimatedFamiliesContribution": 13
+        }
+      ]
+    },
+    "20135": {
+      "cap": "20135",
+      "estimatedFamilies": 15044,
+      "recommendedQuantity": 16548,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1319,
+      "joinedCivicRate": 0.9985,
+      "municipi": [
+        1,
+        4,
+        5
+      ],
+      "nilCount": 6,
+      "primaryNilName": "PTA ROMANA",
+      "primaryNilShare": 0.5163,
+      "nilContributions": [
+        {
+          "nilId": "27",
+          "nilName": "PTA ROMANA",
+          "nilFamilies2025": 9538,
+          "civicsInNilWithCap": 681,
+          "totalCivicsInNil": 848,
+          "capCivicShare": 0.8031,
+          "estimatedFamiliesContribution": 7660
+        },
+        {
+          "nilId": "26",
+          "nilName": "XXII MARZO",
+          "nilFamilies2025": 17422,
+          "civicsInNilWithCap": 518,
+          "totalCivicsInNil": 1666,
+          "capCivicShare": 0.3109,
+          "estimatedFamiliesContribution": 5416
+        },
+        {
+          "nilId": "28",
+          "nilName": "UMBRIA - MOLISE - CALVAIRATE",
+          "nilFamilies2025": 13597,
+          "civicsInNilWithCap": 71,
+          "totalCivicsInNil": 625,
+          "capCivicShare": 0.1136,
+          "estimatedFamiliesContribution": 1545
+        },
+        {
+          "nilId": "4",
+          "nilName": "GUASTALLA",
+          "nilFamilies2025": 8602,
+          "civicsInNilWithCap": 31,
+          "totalCivicsInNil": 1148,
+          "capCivicShare": 0.027,
+          "estimatedFamiliesContribution": 232
+        },
+        {
+          "nilId": "5",
+          "nilName": "PORTA VIGENTINA - PORTA LODOVICA",
+          "nilFamilies2025": 7520,
+          "civicsInNilWithCap": 17,
+          "totalCivicsInNil": 708,
+          "capCivicShare": 0.024,
+          "estimatedFamiliesContribution": 180
+        },
+        {
+          "nilId": "36",
+          "nilName": "SCALO ROMANA",
+          "nilFamilies2025": 6881,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 642,
+          "capCivicShare": 0.0016,
+          "estimatedFamiliesContribution": 11
+        }
+      ]
+    },
+    "20136": {
+      "cap": "20136",
+      "estimatedFamilies": 8624,
+      "recommendedQuantity": 9486,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 749,
+      "joinedCivicRate": 0.9973,
+      "municipi": [
+        1,
+        5,
+        9
+      ],
+      "nilCount": 6,
+      "primaryNilName": "PORTA TICINESE - CONCA DEL NAVIGLIO",
+      "primaryNilShare": 0.6422,
+      "nilContributions": [
+        {
+          "nilId": "6",
+          "nilName": "PORTA TICINESE - CONCA DEL NAVIGLIO",
+          "nilFamilies2025": 12480,
+          "civicsInNilWithCap": 481,
+          "totalCivicsInNil": 1038,
+          "capCivicShare": 0.4634,
+          "estimatedFamiliesContribution": 5783
+        },
+        {
+          "nilId": "5",
+          "nilName": "PORTA VIGENTINA - PORTA LODOVICA",
+          "nilFamilies2025": 7520,
+          "civicsInNilWithCap": 245,
+          "totalCivicsInNil": 708,
+          "capCivicShare": 0.346,
+          "estimatedFamiliesContribution": 2602
+        },
+        {
+          "nilId": "27",
+          "nilName": "PTA ROMANA",
+          "nilFamilies2025": 9538,
+          "civicsInNilWithCap": 17,
+          "totalCivicsInNil": 848,
+          "capCivicShare": 0.02,
+          "estimatedFamiliesContribution": 191
+        },
+        {
+          "nilId": "9",
+          "nilName": "PORTA GARIBALDI - PORTA NUOVA",
+          "nilFamilies2025": 3499,
+          "civicsInNilWithCap": 4,
+          "totalCivicsInNil": 832,
+          "capCivicShare": 0.0048,
+          "estimatedFamiliesContribution": 17
+        },
+        {
+          "nilId": "43",
+          "nilName": "TIBALDI",
+          "nilFamilies2025": 6963,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 399,
+          "capCivicShare": 0.0025,
+          "estimatedFamiliesContribution": 17
+        },
+        {
+          "nilId": "37",
+          "nilName": "MORIVIONE",
+          "nilFamilies2025": 4374,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 320,
+          "capCivicShare": 0.0031,
+          "estimatedFamiliesContribution": 14
+        }
+      ]
+    },
+    "20137": {
+      "cap": "20137",
+      "estimatedFamilies": 15020,
+      "recommendedQuantity": 16522,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 823,
+      "joinedCivicRate": 0.9952,
+      "municipi": [
+        4,
+        5
+      ],
+      "nilCount": 6,
+      "primaryNilName": "UMBRIA - MOLISE - CALVAIRATE",
+      "primaryNilShare": 0.5577,
+      "nilContributions": [
+        {
+          "nilId": "28",
+          "nilName": "UMBRIA - MOLISE - CALVAIRATE",
+          "nilFamilies2025": 13597,
+          "civicsInNilWithCap": 459,
+          "totalCivicsInNil": 625,
+          "capCivicShare": 0.7344,
+          "estimatedFamiliesContribution": 9986
+        },
+        {
+          "nilId": "25",
+          "nilName": "CORSICA",
+          "nilFamilies2025": 11223,
+          "civicsInNilWithCap": 213,
+          "totalCivicsInNil": 866,
+          "capCivicShare": 0.246,
+          "estimatedFamiliesContribution": 2761
+        },
+        {
+          "nilId": "29",
+          "nilName": "ORTOMERCATO",
+          "nilFamilies2025": 2514,
+          "civicsInNilWithCap": 135,
+          "totalCivicsInNil": 162,
+          "capCivicShare": 0.8333,
+          "estimatedFamiliesContribution": 2095
+        },
+        {
+          "nilId": "26",
+          "nilName": "XXII MARZO",
+          "nilFamilies2025": 17422,
+          "civicsInNilWithCap": 13,
+          "totalCivicsInNil": 1666,
+          "capCivicShare": 0.0078,
+          "estimatedFamiliesContribution": 136
+        },
+        {
+          "nilId": "36",
+          "nilName": "SCALO ROMANA",
+          "nilFamilies2025": 6881,
+          "civicsInNilWithCap": 2,
+          "totalCivicsInNil": 642,
+          "capCivicShare": 0.0031,
+          "estimatedFamiliesContribution": 21
+        },
+        {
+          "nilId": "35",
+          "nilName": "LODI - CORVETTO",
+          "nilFamilies2025": 21457,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 1000,
+          "capCivicShare": 0.001,
+          "estimatedFamiliesContribution": 21
+        }
+      ]
+    },
+    "20138": {
+      "cap": "20138",
+      "estimatedFamilies": 15847,
+      "recommendedQuantity": 17432,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 983,
+      "joinedCivicRate": 0.9939,
+      "municipi": [
+        4
+      ],
+      "nilCount": 6,
+      "primaryNilName": "TALIEDO - MORSENCHIO - Q.RE FORLANINI",
+      "primaryNilShare": 0.4273,
+      "nilContributions": [
+        {
+          "nilId": "30",
+          "nilName": "TALIEDO - MORSENCHIO - Q.RE FORLANINI",
+          "nilFamilies2025": 10379,
+          "civicsInNilWithCap": 420,
+          "totalCivicsInNil": 542,
+          "capCivicShare": 0.7749,
+          "estimatedFamiliesContribution": 8043
+        },
+        {
+          "nilId": "33",
+          "nilName": "ROGOREDO - SANTA GIULIA",
+          "nilFamilies2025": 5787,
+          "civicsInNilWithCap": 273,
+          "totalCivicsInNil": 411,
+          "capCivicShare": 0.6642,
+          "estimatedFamiliesContribution": 3844
+        },
+        {
+          "nilId": "31",
+          "nilName": "MONLUE' - PONTE LAMBRO",
+          "nilFamilies2025": 3448,
+          "civicsInNilWithCap": 237,
+          "totalCivicsInNil": 262,
+          "capCivicShare": 0.9046,
+          "estimatedFamiliesContribution": 3119
+        },
+        {
+          "nilId": "32",
+          "nilName": "TRIULZO SUPERIORE",
+          "nilFamilies2025": 936,
+          "civicsInNilWithCap": 39,
+          "totalCivicsInNil": 56,
+          "capCivicShare": 0.6964,
+          "estimatedFamiliesContribution": 652
+        },
+        {
+          "nilId": "25",
+          "nilName": "CORSICA",
+          "nilFamilies2025": 11223,
+          "civicsInNilWithCap": 13,
+          "totalCivicsInNil": 866,
+          "capCivicShare": 0.015,
+          "estimatedFamiliesContribution": 168
+        },
+        {
+          "nilId": "35",
+          "nilName": "LODI - CORVETTO",
+          "nilFamilies2025": 21457,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 1000,
+          "capCivicShare": 0.001,
+          "estimatedFamiliesContribution": 21
+        }
+      ]
+    },
+    "20139": {
+      "cap": "20139",
+      "estimatedFamilies": 22456,
+      "recommendedQuantity": 24702,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1279,
+      "joinedCivicRate": 0.9922,
+      "municipi": [
+        4,
+        5
+      ],
+      "nilCount": 6,
+      "primaryNilName": "LODI - CORVETTO",
+      "primaryNilShare": 0.6208,
+      "nilContributions": [
+        {
+          "nilId": "35",
+          "nilName": "LODI - CORVETTO",
+          "nilFamilies2025": 21457,
+          "civicsInNilWithCap": 794,
+          "totalCivicsInNil": 1000,
+          "capCivicShare": 0.794,
+          "estimatedFamiliesContribution": 17037
+        },
+        {
+          "nilId": "36",
+          "nilName": "SCALO ROMANA",
+          "nilFamilies2025": 6881,
+          "civicsInNilWithCap": 407,
+          "totalCivicsInNil": 642,
+          "capCivicShare": 0.634,
+          "estimatedFamiliesContribution": 4363
+        },
+        {
+          "nilId": "34",
+          "nilName": "CHIARAVALLE",
+          "nilFamilies2025": 598,
+          "civicsInNilWithCap": 40,
+          "totalCivicsInNil": 45,
+          "capCivicShare": 0.8889,
+          "estimatedFamiliesContribution": 532
+        },
+        {
+          "nilId": "38",
+          "nilName": "VIGENTINO - Q.RE FATIMA",
+          "nilFamilies2025": 8668,
+          "civicsInNilWithCap": 27,
+          "totalCivicsInNil": 557,
+          "capCivicShare": 0.0485,
+          "estimatedFamiliesContribution": 420
+        },
+        {
+          "nilId": "85",
+          "nilName": "PARCO DELLE ABBAZIE",
+          "nilFamilies2025": 192,
+          "civicsInNilWithCap": 7,
+          "totalCivicsInNil": 81,
+          "capCivicShare": 0.0864,
+          "estimatedFamiliesContribution": 17
+        },
+        {
+          "nilId": "28",
+          "nilName": "UMBRIA - MOLISE - CALVAIRATE",
+          "nilFamilies2025": 13597,
+          "civicsInNilWithCap": 4,
+          "totalCivicsInNil": 625,
+          "capCivicShare": 0.0064,
+          "estimatedFamiliesContribution": 87
+        }
+      ]
+    },
+    "20141": {
+      "cap": "20141",
+      "estimatedFamilies": 22853,
+      "recommendedQuantity": 25138,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1523,
+      "joinedCivicRate": 0.9967,
+      "municipi": [
+        5
+      ],
+      "nilCount": 9,
+      "primaryNilName": "STADERA - CHIESA ROSSA - Q.RE TORRETTA - CONCA FALLATA",
+      "primaryNilShare": 0.2915,
+      "nilContributions": [
+        {
+          "nilId": "42",
+          "nilName": "STADERA - CHIESA ROSSA - Q.RE TORRETTA - CONCA FALLATA",
+          "nilFamilies2025": 16067,
+          "civicsInNilWithCap": 444,
+          "totalCivicsInNil": 1031,
+          "capCivicShare": 0.4306,
+          "estimatedFamiliesContribution": 6918
+        },
+        {
+          "nilId": "38",
+          "nilName": "VIGENTINO - Q.RE FATIMA",
+          "nilFamilies2025": 8668,
+          "civicsInNilWithCap": 378,
+          "totalCivicsInNil": 557,
+          "capCivicShare": 0.6786,
+          "estimatedFamiliesContribution": 5882
+        },
+        {
+          "nilId": "43",
+          "nilName": "TIBALDI",
+          "nilFamilies2025": 6963,
+          "civicsInNilWithCap": 279,
+          "totalCivicsInNil": 399,
+          "capCivicShare": 0.6992,
+          "estimatedFamiliesContribution": 4869
+        },
+        {
+          "nilId": "37",
+          "nilName": "MORIVIONE",
+          "nilFamilies2025": 4374,
+          "civicsInNilWithCap": 268,
+          "totalCivicsInNil": 320,
+          "capCivicShare": 0.8375,
+          "estimatedFamiliesContribution": 3663
+        },
+        {
+          "nilId": "36",
+          "nilName": "SCALO ROMANA",
+          "nilFamilies2025": 6881,
+          "civicsInNilWithCap": 65,
+          "totalCivicsInNil": 642,
+          "capCivicShare": 0.1012,
+          "estimatedFamiliesContribution": 696
+        },
+        {
+          "nilId": "85",
+          "nilName": "PARCO DELLE ABBAZIE",
+          "nilFamilies2025": 192,
+          "civicsInNilWithCap": 38,
+          "totalCivicsInNil": 81,
+          "capCivicShare": 0.4691,
+          "estimatedFamiliesContribution": 90
+        },
+        {
+          "nilId": "39",
+          "nilName": "QUINTOSOLE",
+          "nilFamilies2025": 726,
+          "civicsInNilWithCap": 38,
+          "totalCivicsInNil": 47,
+          "capCivicShare": 0.8085,
+          "estimatedFamiliesContribution": 587
+        },
+        {
+          "nilId": "6",
+          "nilName": "PORTA TICINESE - CONCA DEL NAVIGLIO",
+          "nilFamilies2025": 12480,
+          "civicsInNilWithCap": 7,
+          "totalCivicsInNil": 1038,
+          "capCivicShare": 0.0067,
+          "estimatedFamiliesContribution": 84
+        },
+        {
+          "nilId": "5",
+          "nilName": "PORTA VIGENTINA - PORTA LODOVICA",
+          "nilFamilies2025": 7520,
+          "civicsInNilWithCap": 6,
+          "totalCivicsInNil": 708,
+          "capCivicShare": 0.0085,
+          "estimatedFamiliesContribution": 64
+        }
+      ]
+    },
+    "20142": {
+      "cap": "20142",
+      "estimatedFamilies": 24398,
+      "recommendedQuantity": 26838,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1728,
+      "joinedCivicRate": 0.9925,
+      "municipi": [
+        5,
+        6
+      ],
+      "nilCount": 11,
+      "primaryNilName": "GRATOSOGLIO - Q.RE MISSAGLIA - Q.RE TERRAZZE",
+      "primaryNilShare": 0.2865,
+      "nilContributions": [
+        {
+          "nilId": "41",
+          "nilName": "GRATOSOGLIO - Q.RE MISSAGLIA - Q.RE TERRAZZE",
+          "nilFamilies2025": 8770,
+          "civicsInNilWithCap": 495,
+          "totalCivicsInNil": 630,
+          "capCivicShare": 0.7857,
+          "estimatedFamiliesContribution": 6891
+        },
+        {
+          "nilId": "42",
+          "nilName": "STADERA - CHIESA ROSSA - Q.RE TORRETTA - CONCA FALLATA",
+          "nilFamilies2025": 16067,
+          "civicsInNilWithCap": 389,
+          "totalCivicsInNil": 1031,
+          "capCivicShare": 0.3773,
+          "estimatedFamiliesContribution": 6062
+        },
+        {
+          "nilId": "46",
+          "nilName": "BARONA",
+          "nilFamilies2025": 8214,
+          "civicsInNilWithCap": 366,
+          "totalCivicsInNil": 456,
+          "capCivicShare": 0.8026,
+          "estimatedFamiliesContribution": 6593
+        },
+        {
+          "nilId": "48",
+          "nilName": "RONCHETTO SUL NAVIGLIO - Q.RE LODOVICO IL MORO",
+          "nilFamilies2025": 7784,
+          "civicsInNilWithCap": 119,
+          "totalCivicsInNil": 514,
+          "capCivicShare": 0.2315,
+          "estimatedFamiliesContribution": 1802
+        },
+        {
+          "nilId": "47",
+          "nilName": "CANTALUPA",
+          "nilFamilies2025": 294,
+          "civicsInNilWithCap": 119,
+          "totalCivicsInNil": 120,
+          "capCivicShare": 0.9917,
+          "estimatedFamiliesContribution": 292
+        },
+        {
+          "nilId": "43",
+          "nilName": "TIBALDI",
+          "nilFamilies2025": 6963,
+          "civicsInNilWithCap": 78,
+          "totalCivicsInNil": 399,
+          "capCivicShare": 0.1955,
+          "estimatedFamiliesContribution": 1361
+        },
+        {
+          "nilId": "45",
+          "nilName": "MONCUCCO - SAN CRISTOFORO",
+          "nilFamilies2025": 7815,
+          "civicsInNilWithCap": 78,
+          "totalCivicsInNil": 674,
+          "capCivicShare": 0.1157,
+          "estimatedFamiliesContribution": 904
+        },
+        {
+          "nilId": "40",
+          "nilName": "RONCHETTO DELLE RANE",
+          "nilFamilies2025": 331,
+          "civicsInNilWithCap": 49,
+          "totalCivicsInNil": 49,
+          "capCivicShare": 1.0,
+          "estimatedFamiliesContribution": 331
+        },
+        {
+          "nilId": "86",
+          "nilName": "PARCO DEI NAVIGLI",
+          "nilFamilies2025": 165,
+          "civicsInNilWithCap": 27,
+          "totalCivicsInNil": 36,
+          "capCivicShare": 0.75,
+          "estimatedFamiliesContribution": 124
+        },
+        {
+          "nilId": "85",
+          "nilName": "PARCO DELLE ABBAZIE",
+          "nilFamilies2025": 192,
+          "civicsInNilWithCap": 6,
+          "totalCivicsInNil": 81,
+          "capCivicShare": 0.0741,
+          "estimatedFamiliesContribution": 14
+        },
+        {
+          "nilId": "44",
+          "nilName": "PORTA TICINESE - CONCHETTA",
+          "nilFamilies2025": 9926,
+          "civicsInNilWithCap": 2,
+          "totalCivicsInNil": 831,
+          "capCivicShare": 0.0024,
+          "estimatedFamiliesContribution": 24
+        }
+      ]
+    },
+    "20143": {
+      "cap": "20143",
+      "estimatedFamilies": 14962,
+      "recommendedQuantity": 16458,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1184,
+      "joinedCivicRate": 1.0,
+      "municipi": [
+        6
+      ],
+      "nilCount": 3,
+      "primaryNilName": "PORTA TICINESE - CONCHETTA",
+      "primaryNilShare": 0.4155,
+      "nilContributions": [
+        {
+          "nilId": "44",
+          "nilName": "PORTA TICINESE - CONCHETTA",
+          "nilFamilies2025": 9926,
+          "civicsInNilWithCap": 492,
+          "totalCivicsInNil": 831,
+          "capCivicShare": 0.5921,
+          "estimatedFamiliesContribution": 5877
+        },
+        {
+          "nilId": "45",
+          "nilName": "MONCUCCO - SAN CRISTOFORO",
+          "nilFamilies2025": 7815,
+          "civicsInNilWithCap": 393,
+          "totalCivicsInNil": 674,
+          "capCivicShare": 0.5831,
+          "estimatedFamiliesContribution": 4557
+        },
+        {
+          "nilId": "48",
+          "nilName": "RONCHETTO SUL NAVIGLIO - Q.RE LODOVICO IL MORO",
+          "nilFamilies2025": 7784,
+          "civicsInNilWithCap": 299,
+          "totalCivicsInNil": 514,
+          "capCivicShare": 0.5817,
+          "estimatedFamiliesContribution": 4528
+        }
+      ]
+    },
+    "20144": {
+      "cap": "20144",
+      "estimatedFamilies": 16835,
+      "recommendedQuantity": 18518,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1277,
+      "joinedCivicRate": 0.9938,
+      "municipi": [
+        1,
+        6,
+        7
+      ],
+      "nilCount": 7,
+      "primaryNilName": "PORTA MAGENTA",
+      "primaryNilShare": 0.4213,
+      "nilContributions": [
+        {
+          "nilId": "51",
+          "nilName": "PORTA MAGENTA",
+          "nilFamilies2025": 14445,
+          "civicsInNilWithCap": 538,
+          "totalCivicsInNil": 1313,
+          "capCivicShare": 0.4097,
+          "estimatedFamiliesContribution": 5918
+        },
+        {
+          "nilId": "50",
+          "nilName": "PORTA GENOVA",
+          "nilFamilies2025": 8248,
+          "civicsInNilWithCap": 439,
+          "totalCivicsInNil": 532,
+          "capCivicShare": 0.8252,
+          "estimatedFamiliesContribution": 6806
+        },
+        {
+          "nilId": "44",
+          "nilName": "PORTA TICINESE - CONCHETTA",
+          "nilFamilies2025": 9926,
+          "civicsInNilWithCap": 171,
+          "totalCivicsInNil": 831,
+          "capCivicShare": 0.2058,
+          "estimatedFamiliesContribution": 2043
+        },
+        {
+          "nilId": "49",
+          "nilName": "GIAMBELLINO",
+          "nilFamilies2025": 17065,
+          "civicsInNilWithCap": 58,
+          "totalCivicsInNil": 711,
+          "capCivicShare": 0.0816,
+          "estimatedFamiliesContribution": 1393
+        },
+        {
+          "nilId": "7",
+          "nilName": "MAGENTA - S. VITTORE",
+          "nilFamilies2025": 9875,
+          "civicsInNilWithCap": 53,
+          "totalCivicsInNil": 1159,
+          "capCivicShare": 0.0457,
+          "estimatedFamiliesContribution": 451
+        },
+        {
+          "nilId": "45",
+          "nilName": "MONCUCCO - SAN CRISTOFORO",
+          "nilFamilies2025": 7815,
+          "civicsInNilWithCap": 14,
+          "totalCivicsInNil": 674,
+          "capCivicShare": 0.0208,
+          "estimatedFamiliesContribution": 163
+        },
+        {
+          "nilId": "48",
+          "nilName": "RONCHETTO SUL NAVIGLIO - Q.RE LODOVICO IL MORO",
+          "nilFamilies2025": 7784,
+          "civicsInNilWithCap": 4,
+          "totalCivicsInNil": 514,
+          "capCivicShare": 0.0078,
+          "estimatedFamiliesContribution": 61
+        }
+      ]
+    },
+    "20145": {
+      "cap": "20145",
+      "estimatedFamilies": 6641,
+      "recommendedQuantity": 7305,
+      "confidence": "high",
+      "confidenceLabel": "Alta",
+      "civicSampleCount": 782,
+      "joinedCivicRate": 0.9974,
+      "municipi": [
+        1,
+        7,
+        8
+      ],
+      "nilCount": 7,
+      "primaryNilName": "PAGANO",
+      "primaryNilShare": 0.8491,
+      "nilContributions": [
+        {
+          "nilId": "68",
+          "nilName": "PAGANO",
+          "nilFamilies2025": 8958,
+          "civicsInNilWithCap": 664,
+          "totalCivicsInNil": 1004,
+          "capCivicShare": 0.6614,
+          "estimatedFamiliesContribution": 5925
+        },
+        {
+          "nilId": "59",
+          "nilName": "TRE TORRI",
+          "nilFamilies2025": 1176,
+          "civicsInNilWithCap": 65,
+          "totalCivicsInNil": 327,
+          "capCivicShare": 0.1988,
+          "estimatedFamiliesContribution": 234
+        },
+        {
+          "nilId": "7",
+          "nilName": "MAGENTA - S. VITTORE",
+          "nilFamilies2025": 9875,
+          "civicsInNilWithCap": 25,
+          "totalCivicsInNil": 1159,
+          "capCivicShare": 0.0216,
+          "estimatedFamiliesContribution": 213
+        },
+        {
+          "nilId": "58",
+          "nilName": "DE ANGELI - MONTE ROSA",
+          "nilFamilies2025": 11893,
+          "civicsInNilWithCap": 16,
+          "totalCivicsInNil": 1360,
+          "capCivicShare": 0.0118,
+          "estimatedFamiliesContribution": 140
+        },
+        {
+          "nilId": "67",
+          "nilName": "PORTELLO",
+          "nilFamilies2025": 4811,
+          "civicsInNilWithCap": 9,
+          "totalCivicsInNil": 405,
+          "capCivicShare": 0.0222,
+          "estimatedFamiliesContribution": 107
+        },
+        {
+          "nilId": "51",
+          "nilName": "PORTA MAGENTA",
+          "nilFamilies2025": 14445,
+          "civicsInNilWithCap": 2,
+          "totalCivicsInNil": 1313,
+          "capCivicShare": 0.0015,
+          "estimatedFamiliesContribution": 22
+        },
+        {
+          "nilId": "8",
+          "nilName": "PARCO SEMPIONE",
+          "nilFamilies2025": 0,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 18,
+          "capCivicShare": 0.0556,
+          "estimatedFamiliesContribution": 0
+        }
+      ]
+    },
+    "20146": {
+      "cap": "20146",
+      "estimatedFamilies": 29106,
+      "recommendedQuantity": 32017,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1701,
+      "joinedCivicRate": 0.9965,
+      "municipi": [
+        6,
+        7
+      ],
+      "nilCount": 6,
+      "primaryNilName": "BANDE NERE",
+      "primaryNilShare": 0.4444,
+      "nilContributions": [
+        {
+          "nilId": "52",
+          "nilName": "BANDE NERE",
+          "nilFamilies2025": 25124,
+          "civicsInNilWithCap": 756,
+          "totalCivicsInNil": 1423,
+          "capCivicShare": 0.5313,
+          "estimatedFamiliesContribution": 13348
+        },
+        {
+          "nilId": "51",
+          "nilName": "PORTA MAGENTA",
+          "nilFamilies2025": 14445,
+          "civicsInNilWithCap": 504,
+          "totalCivicsInNil": 1313,
+          "capCivicShare": 0.3839,
+          "estimatedFamiliesContribution": 5545
+        },
+        {
+          "nilId": "49",
+          "nilName": "GIAMBELLINO",
+          "nilFamilies2025": 17065,
+          "civicsInNilWithCap": 403,
+          "totalCivicsInNil": 711,
+          "capCivicShare": 0.5668,
+          "estimatedFamiliesContribution": 9672
+        },
+        {
+          "nilId": "50",
+          "nilName": "PORTA GENOVA",
+          "nilFamilies2025": 8248,
+          "civicsInNilWithCap": 31,
+          "totalCivicsInNil": 532,
+          "capCivicShare": 0.0583,
+          "estimatedFamiliesContribution": 481
+        },
+        {
+          "nilId": "53",
+          "nilName": "LORENTEGGIO",
+          "nilFamilies2025": 7650,
+          "civicsInNilWithCap": 4,
+          "totalCivicsInNil": 908,
+          "capCivicShare": 0.0044,
+          "estimatedFamiliesContribution": 34
+        },
+        {
+          "nilId": "58",
+          "nilName": "DE ANGELI - MONTE ROSA",
+          "nilFamilies2025": 11893,
+          "civicsInNilWithCap": 3,
+          "totalCivicsInNil": 1360,
+          "capCivicShare": 0.0022,
+          "estimatedFamiliesContribution": 26
+        }
+      ]
+    },
+    "20147": {
+      "cap": "20147",
+      "estimatedFamilies": 17631,
+      "recommendedQuantity": 19394,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1238,
+      "joinedCivicRate": 0.992,
+      "municipi": [
+        6,
+        7
+      ],
+      "nilCount": 7,
+      "primaryNilName": "LORENTEGGIO",
+      "primaryNilShare": 0.4782,
+      "nilContributions": [
+        {
+          "nilId": "53",
+          "nilName": "LORENTEGGIO",
+          "nilFamilies2025": 7650,
+          "civicsInNilWithCap": 592,
+          "totalCivicsInNil": 908,
+          "capCivicShare": 0.652,
+          "estimatedFamiliesContribution": 4988
+        },
+        {
+          "nilId": "52",
+          "nilName": "BANDE NERE",
+          "nilFamilies2025": 25124,
+          "civicsInNilWithCap": 406,
+          "totalCivicsInNil": 1423,
+          "capCivicShare": 0.2853,
+          "estimatedFamiliesContribution": 7168
+        },
+        {
+          "nilId": "49",
+          "nilName": "GIAMBELLINO",
+          "nilFamilies2025": 17065,
+          "civicsInNilWithCap": 117,
+          "totalCivicsInNil": 711,
+          "capCivicShare": 0.1646,
+          "estimatedFamiliesContribution": 2809
+        },
+        {
+          "nilId": "56",
+          "nilName": "FORZE ARMATE",
+          "nilFamilies2025": 13211,
+          "civicsInNilWithCap": 101,
+          "totalCivicsInNil": 556,
+          "capCivicShare": 0.1817,
+          "estimatedFamiliesContribution": 2400
+        },
+        {
+          "nilId": "60",
+          "nilName": "STADIO - IPPODROMI",
+          "nilFamilies2025": 6353,
+          "civicsInNilWithCap": 16,
+          "totalCivicsInNil": 784,
+          "capCivicShare": 0.0204,
+          "estimatedFamiliesContribution": 130
+        },
+        {
+          "nilId": "57",
+          "nilName": "SAN SIRO",
+          "nilFamilies2025": 14699,
+          "civicsInNilWithCap": 5,
+          "totalCivicsInNil": 549,
+          "capCivicShare": 0.0091,
+          "estimatedFamiliesContribution": 134
+        },
+        {
+          "nilId": "87",
+          "nilName": "ASSIANO",
+          "nilFamilies2025": 115,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 55,
+          "capCivicShare": 0.0182,
+          "estimatedFamiliesContribution": 2
+        }
+      ]
+    },
+    "20148": {
+      "cap": "20148",
+      "estimatedFamilies": 17367,
+      "recommendedQuantity": 19104,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1257,
+      "joinedCivicRate": 0.996,
+      "municipi": [
+        7,
+        8
+      ],
+      "nilCount": 7,
+      "primaryNilName": "SAN SIRO",
+      "primaryNilShare": 0.3564,
+      "nilContributions": [
+        {
+          "nilId": "57",
+          "nilName": "SAN SIRO",
+          "nilFamilies2025": 14699,
+          "civicsInNilWithCap": 448,
+          "totalCivicsInNil": 549,
+          "capCivicShare": 0.816,
+          "estimatedFamiliesContribution": 11994
+        },
+        {
+          "nilId": "66",
+          "nilName": "QT 8",
+          "nilFamilies2025": 2064,
+          "civicsInNilWithCap": 367,
+          "totalCivicsInNil": 497,
+          "capCivicShare": 0.7384,
+          "estimatedFamiliesContribution": 1524
+        },
+        {
+          "nilId": "60",
+          "nilName": "STADIO - IPPODROMI",
+          "nilFamilies2025": 6353,
+          "civicsInNilWithCap": 258,
+          "totalCivicsInNil": 784,
+          "capCivicShare": 0.3291,
+          "estimatedFamiliesContribution": 2091
+        },
+        {
+          "nilId": "58",
+          "nilName": "DE ANGELI - MONTE ROSA",
+          "nilFamilies2025": 11893,
+          "civicsInNilWithCap": 165,
+          "totalCivicsInNil": 1360,
+          "capCivicShare": 0.1213,
+          "estimatedFamiliesContribution": 1443
+        },
+        {
+          "nilId": "52",
+          "nilName": "BANDE NERE",
+          "nilFamilies2025": 25124,
+          "civicsInNilWithCap": 15,
+          "totalCivicsInNil": 1423,
+          "capCivicShare": 0.0105,
+          "estimatedFamiliesContribution": 264
+        },
+        {
+          "nilId": "51",
+          "nilName": "PORTA MAGENTA",
+          "nilFamilies2025": 14445,
+          "civicsInNilWithCap": 3,
+          "totalCivicsInNil": 1313,
+          "capCivicShare": 0.0023,
+          "estimatedFamiliesContribution": 33
+        },
+        {
+          "nilId": "65",
+          "nilName": "Q.RE GALLARATESE - Q.RE SAN LEONARDO - LAMPUGNANO",
+          "nilFamilies2025": 17707,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 1008,
+          "capCivicShare": 0.001,
+          "estimatedFamiliesContribution": 18
+        }
+      ]
+    },
+    "20149": {
+      "cap": "20149",
+      "estimatedFamilies": 13987,
+      "recommendedQuantity": 15386,
+      "confidence": "high",
+      "confidenceLabel": "Alta",
+      "civicSampleCount": 1435,
+      "joinedCivicRate": 0.9951,
+      "municipi": [
+        7,
+        8
+      ],
+      "nilCount": 7,
+      "primaryNilName": "DE ANGELI - MONTE ROSA",
+      "primaryNilShare": 0.6864,
+      "nilContributions": [
+        {
+          "nilId": "58",
+          "nilName": "DE ANGELI - MONTE ROSA",
+          "nilFamilies2025": 11893,
+          "civicsInNilWithCap": 985,
+          "totalCivicsInNil": 1360,
+          "capCivicShare": 0.7243,
+          "estimatedFamiliesContribution": 8614
+        },
+        {
+          "nilId": "67",
+          "nilName": "PORTELLO",
+          "nilFamilies2025": 4811,
+          "civicsInNilWithCap": 238,
+          "totalCivicsInNil": 405,
+          "capCivicShare": 0.5877,
+          "estimatedFamiliesContribution": 2827
+        },
+        {
+          "nilId": "71",
+          "nilName": "VILLAPIZZONE - CAGNOLA - BOLDINASCO",
+          "nilFamilies2025": 23267,
+          "civicsInNilWithCap": 63,
+          "totalCivicsInNil": 1805,
+          "capCivicShare": 0.0349,
+          "estimatedFamiliesContribution": 812
+        },
+        {
+          "nilId": "59",
+          "nilName": "TRE TORRI",
+          "nilFamilies2025": 1176,
+          "civicsInNilWithCap": 59,
+          "totalCivicsInNil": 327,
+          "capCivicShare": 0.1804,
+          "estimatedFamiliesContribution": 212
+        },
+        {
+          "nilId": "51",
+          "nilName": "PORTA MAGENTA",
+          "nilFamilies2025": 14445,
+          "civicsInNilWithCap": 37,
+          "totalCivicsInNil": 1313,
+          "capCivicShare": 0.0282,
+          "estimatedFamiliesContribution": 407
+        },
+        {
+          "nilId": "57",
+          "nilName": "SAN SIRO",
+          "nilFamilies2025": 14699,
+          "civicsInNilWithCap": 36,
+          "totalCivicsInNil": 549,
+          "capCivicShare": 0.0656,
+          "estimatedFamiliesContribution": 964
+        },
+        {
+          "nilId": "68",
+          "nilName": "PAGANO",
+          "nilFamilies2025": 8958,
+          "civicsInNilWithCap": 17,
+          "totalCivicsInNil": 1004,
+          "capCivicShare": 0.0169,
+          "estimatedFamiliesContribution": 151
+        }
+      ]
+    },
+    "20151": {
+      "cap": "20151",
+      "estimatedFamilies": 21760,
+      "recommendedQuantity": 23936,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1479,
+      "joinedCivicRate": 0.9973,
+      "municipi": [
+        6,
+        7,
+        8
+      ],
+      "nilCount": 8,
+      "primaryNilName": "Q.RE GALLARATESE - Q.RE SAN LEONARDO - LAMPUGNANO",
+      "primaryNilShare": 0.5632,
+      "nilContributions": [
+        {
+          "nilId": "65",
+          "nilName": "Q.RE GALLARATESE - Q.RE SAN LEONARDO - LAMPUGNANO",
+          "nilFamilies2025": 17707,
+          "civicsInNilWithCap": 833,
+          "totalCivicsInNil": 1008,
+          "capCivicShare": 0.8264,
+          "estimatedFamiliesContribution": 14633
+        },
+        {
+          "nilId": "71",
+          "nilName": "VILLAPIZZONE - CAGNOLA - BOLDINASCO",
+          "nilFamilies2025": 23267,
+          "civicsInNilWithCap": 222,
+          "totalCivicsInNil": 1805,
+          "capCivicShare": 0.123,
+          "estimatedFamiliesContribution": 2862
+        },
+        {
+          "nilId": "72",
+          "nilName": "MAGGIORE - MUSOCCO - CERTOSA",
+          "nilFamilies2025": 5415,
+          "civicsInNilWithCap": 188,
+          "totalCivicsInNil": 620,
+          "capCivicShare": 0.3032,
+          "estimatedFamiliesContribution": 1642
+        },
+        {
+          "nilId": "64",
+          "nilName": "TRENNO",
+          "nilFamilies2025": 2113,
+          "civicsInNilWithCap": 115,
+          "totalCivicsInNil": 145,
+          "capCivicShare": 0.7931,
+          "estimatedFamiliesContribution": 1676
+        },
+        {
+          "nilId": "60",
+          "nilName": "STADIO - IPPODROMI",
+          "nilFamilies2025": 6353,
+          "civicsInNilWithCap": 112,
+          "totalCivicsInNil": 784,
+          "capCivicShare": 0.1429,
+          "estimatedFamiliesContribution": 908
+        },
+        {
+          "nilId": "88",
+          "nilName": "PARCO BOSCO IN CITTA'",
+          "nilFamilies2025": 349,
+          "civicsInNilWithCap": 6,
+          "totalCivicsInNil": 91,
+          "capCivicShare": 0.0659,
+          "estimatedFamiliesContribution": 23
+        },
+        {
+          "nilId": "66",
+          "nilName": "QT 8",
+          "nilFamilies2025": 2064,
+          "civicsInNilWithCap": 2,
+          "totalCivicsInNil": 497,
+          "capCivicShare": 0.004,
+          "estimatedFamiliesContribution": 8
+        },
+        {
+          "nilId": "53",
+          "nilName": "LORENTEGGIO",
+          "nilFamilies2025": 7650,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 908,
+          "capCivicShare": 0.0011,
+          "estimatedFamiliesContribution": 8
+        }
+      ]
+    },
+    "20152": {
+      "cap": "20152",
+      "estimatedFamilies": 17959,
+      "recommendedQuantity": 19755,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1294,
+      "joinedCivicRate": 0.9946,
+      "municipi": [
+        6,
+        7
+      ],
+      "nilCount": 7,
+      "primaryNilName": "BAGGIO - Q.RE DEGLI OLMI - Q.RE VALSESIA",
+      "primaryNilShare": 0.5618,
+      "nilContributions": [
+        {
+          "nilId": "55",
+          "nilName": "BAGGIO - Q.RE DEGLI OLMI - Q.RE VALSESIA",
+          "nilFamilies2025": 15870,
+          "civicsInNilWithCap": 727,
+          "totalCivicsInNil": 1375,
+          "capCivicShare": 0.5287,
+          "estimatedFamiliesContribution": 8390
+        },
+        {
+          "nilId": "56",
+          "nilName": "FORZE ARMATE",
+          "nilFamilies2025": 13211,
+          "civicsInNilWithCap": 308,
+          "totalCivicsInNil": 556,
+          "capCivicShare": 0.554,
+          "estimatedFamiliesContribution": 7319
+        },
+        {
+          "nilId": "54",
+          "nilName": "MUGGIANO",
+          "nilFamilies2025": 1381,
+          "civicsInNilWithCap": 146,
+          "totalCivicsInNil": 155,
+          "capCivicShare": 0.9419,
+          "estimatedFamiliesContribution": 1301
+        },
+        {
+          "nilId": "53",
+          "nilName": "LORENTEGGIO",
+          "nilFamilies2025": 7650,
+          "civicsInNilWithCap": 82,
+          "totalCivicsInNil": 908,
+          "capCivicShare": 0.0903,
+          "estimatedFamiliesContribution": 691
+        },
+        {
+          "nilId": "87",
+          "nilName": "ASSIANO",
+          "nilFamilies2025": 115,
+          "civicsInNilWithCap": 13,
+          "totalCivicsInNil": 55,
+          "capCivicShare": 0.2364,
+          "estimatedFamiliesContribution": 27
+        },
+        {
+          "nilId": "88",
+          "nilName": "PARCO BOSCO IN CITTA'",
+          "nilFamilies2025": 349,
+          "civicsInNilWithCap": 10,
+          "totalCivicsInNil": 91,
+          "capCivicShare": 0.1099,
+          "estimatedFamiliesContribution": 38
+        },
+        {
+          "nilId": "49",
+          "nilName": "GIAMBELLINO",
+          "nilFamilies2025": 17065,
+          "civicsInNilWithCap": 8,
+          "totalCivicsInNil": 711,
+          "capCivicShare": 0.0113,
+          "estimatedFamiliesContribution": 193
+        }
+      ]
+    },
+    "20153": {
+      "cap": "20153",
+      "estimatedFamilies": 15809,
+      "recommendedQuantity": 17390,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1310,
+      "joinedCivicRate": 0.9947,
+      "municipi": [
+        7
+      ],
+      "nilCount": 8,
+      "primaryNilName": "BAGGIO - Q.RE DEGLI OLMI - Q.RE VALSESIA",
+      "primaryNilShare": 0.3748,
+      "nilContributions": [
+        {
+          "nilId": "55",
+          "nilName": "BAGGIO - Q.RE DEGLI OLMI - Q.RE VALSESIA",
+          "nilFamilies2025": 15870,
+          "civicsInNilWithCap": 491,
+          "totalCivicsInNil": 1375,
+          "capCivicShare": 0.3571,
+          "estimatedFamiliesContribution": 5667
+        },
+        {
+          "nilId": "61",
+          "nilName": "QUARTO CAGNINO",
+          "nilFamilies2025": 4950,
+          "civicsInNilWithCap": 272,
+          "totalCivicsInNil": 310,
+          "capCivicShare": 0.8774,
+          "estimatedFamiliesContribution": 4343
+        },
+        {
+          "nilId": "60",
+          "nilName": "STADIO - IPPODROMI",
+          "nilFamilies2025": 6353,
+          "civicsInNilWithCap": 194,
+          "totalCivicsInNil": 784,
+          "capCivicShare": 0.2474,
+          "estimatedFamiliesContribution": 1572
+        },
+        {
+          "nilId": "63",
+          "nilName": "FIGINO",
+          "nilFamilies2025": 1250,
+          "civicsInNilWithCap": 118,
+          "totalCivicsInNil": 144,
+          "capCivicShare": 0.8194,
+          "estimatedFamiliesContribution": 1024
+        },
+        {
+          "nilId": "62",
+          "nilName": "QUINTO ROMANO",
+          "nilFamilies2025": 2444,
+          "civicsInNilWithCap": 114,
+          "totalCivicsInNil": 140,
+          "capCivicShare": 0.8143,
+          "estimatedFamiliesContribution": 1990
+        },
+        {
+          "nilId": "88",
+          "nilName": "PARCO BOSCO IN CITTA'",
+          "nilFamilies2025": 349,
+          "civicsInNilWithCap": 54,
+          "totalCivicsInNil": 91,
+          "capCivicShare": 0.5934,
+          "estimatedFamiliesContribution": 207
+        },
+        {
+          "nilId": "56",
+          "nilName": "FORZE ARMATE",
+          "nilFamilies2025": 13211,
+          "civicsInNilWithCap": 40,
+          "totalCivicsInNil": 556,
+          "capCivicShare": 0.0719,
+          "estimatedFamiliesContribution": 950
+        },
+        {
+          "nilId": "87",
+          "nilName": "ASSIANO",
+          "nilFamilies2025": 115,
+          "civicsInNilWithCap": 27,
+          "totalCivicsInNil": 55,
+          "capCivicShare": 0.4909,
+          "estimatedFamiliesContribution": 56
+        }
+      ]
+    },
+    "20154": {
+      "cap": "20154",
+      "estimatedFamilies": 12652,
+      "recommendedQuantity": 13917,
+      "confidence": "high",
+      "confidenceLabel": "Alta",
+      "civicSampleCount": 1360,
+      "joinedCivicRate": 0.9949,
+      "municipi": [
+        1,
+        8,
+        9
+      ],
+      "nilCount": 8,
+      "primaryNilName": "SARPI",
+      "primaryNilShare": 0.8103,
+      "nilContributions": [
+        {
+          "nilId": "69",
+          "nilName": "SARPI",
+          "nilFamilies2025": 17202,
+          "civicsInNilWithCap": 1102,
+          "totalCivicsInNil": 1867,
+          "capCivicShare": 0.5903,
+          "estimatedFamiliesContribution": 10154
+        },
+        {
+          "nilId": "9",
+          "nilName": "PORTA GARIBALDI - PORTA NUOVA",
+          "nilFamilies2025": 3499,
+          "civicsInNilWithCap": 115,
+          "totalCivicsInNil": 832,
+          "capCivicShare": 0.1382,
+          "estimatedFamiliesContribution": 484
+        },
+        {
+          "nilId": "70",
+          "nilName": "GHISOLFA",
+          "nilFamilies2025": 10358,
+          "civicsInNilWithCap": 114,
+          "totalCivicsInNil": 637,
+          "capCivicShare": 0.179,
+          "estimatedFamiliesContribution": 1854
+        },
+        {
+          "nilId": "2",
+          "nilName": "BRERA",
+          "nilFamilies2025": 10570,
+          "civicsInNilWithCap": 19,
+          "totalCivicsInNil": 1846,
+          "capCivicShare": 0.0103,
+          "estimatedFamiliesContribution": 109
+        },
+        {
+          "nilId": "8",
+          "nilName": "PARCO SEMPIONE",
+          "nilFamilies2025": 0,
+          "civicsInNilWithCap": 6,
+          "totalCivicsInNil": 18,
+          "capCivicShare": 0.3333,
+          "estimatedFamiliesContribution": 0
+        },
+        {
+          "nilId": "15",
+          "nilName": "BICOCCA",
+          "nilFamilies2025": 4660,
+          "civicsInNilWithCap": 2,
+          "totalCivicsInNil": 329,
+          "capCivicShare": 0.0061,
+          "estimatedFamiliesContribution": 28
+        },
+        {
+          "nilId": "78",
+          "nilName": "FARINI",
+          "nilFamilies2025": 2268,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 276,
+          "capCivicShare": 0.0036,
+          "estimatedFamiliesContribution": 8
+        },
+        {
+          "nilId": "76",
+          "nilName": "QUARTO OGGIARO - VIALBA - MUSOCCO",
+          "nilFamilies2025": 16240,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 1066,
+          "capCivicShare": 0.0009,
+          "estimatedFamiliesContribution": 15
+        }
+      ]
+    },
+    "20155": {
+      "cap": "20155",
+      "estimatedFamilies": 11383,
+      "recommendedQuantity": 12521,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 772,
+      "joinedCivicRate": 0.9974,
+      "municipi": [
+        8
+      ],
+      "nilCount": 2,
+      "primaryNilName": "GHISOLFA",
+      "primaryNilShare": 0.5505,
+      "nilContributions": [
+        {
+          "nilId": "70",
+          "nilName": "GHISOLFA",
+          "nilFamilies2025": 10358,
+          "civicsInNilWithCap": 425,
+          "totalCivicsInNil": 637,
+          "capCivicShare": 0.6672,
+          "estimatedFamiliesContribution": 6911
+        },
+        {
+          "nilId": "71",
+          "nilName": "VILLAPIZZONE - CAGNOLA - BOLDINASCO",
+          "nilFamilies2025": 23267,
+          "civicsInNilWithCap": 347,
+          "totalCivicsInNil": 1805,
+          "capCivicShare": 0.1922,
+          "estimatedFamiliesContribution": 4472
+        }
+      ]
+    },
+    "20156": {
+      "cap": "20156",
+      "estimatedFamilies": 11691,
+      "recommendedQuantity": 12860,
+      "confidence": "high",
+      "confidenceLabel": "Alta",
+      "civicSampleCount": 977,
+      "joinedCivicRate": 0.9949,
+      "municipi": [
+        8,
+        9
+      ],
+      "nilCount": 3,
+      "primaryNilName": "VILLAPIZZONE - CAGNOLA - BOLDINASCO",
+      "primaryNilShare": 0.7769,
+      "nilContributions": [
+        {
+          "nilId": "71",
+          "nilName": "VILLAPIZZONE - CAGNOLA - BOLDINASCO",
+          "nilFamilies2025": 23267,
+          "civicsInNilWithCap": 759,
+          "totalCivicsInNil": 1805,
+          "capCivicShare": 0.4205,
+          "estimatedFamiliesContribution": 9784
+        },
+        {
+          "nilId": "72",
+          "nilName": "MAGGIORE - MUSOCCO - CERTOSA",
+          "nilFamilies2025": 5415,
+          "civicsInNilWithCap": 215,
+          "totalCivicsInNil": 620,
+          "capCivicShare": 0.3468,
+          "estimatedFamiliesContribution": 1878
+        },
+        {
+          "nilId": "77",
+          "nilName": "BOVISA",
+          "nilFamilies2025": 8352,
+          "civicsInNilWithCap": 3,
+          "totalCivicsInNil": 863,
+          "capCivicShare": 0.0035,
+          "estimatedFamiliesContribution": 29
+        }
+      ]
+    },
+    "20157": {
+      "cap": "20157",
+      "estimatedFamilies": 14968,
+      "recommendedQuantity": 16465,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1217,
+      "joinedCivicRate": 0.9975,
+      "municipi": [
+        4,
+        7,
+        8,
+        9
+      ],
+      "nilCount": 11,
+      "primaryNilName": "QUARTO OGGIARO - VIALBA - MUSOCCO",
+      "primaryNilShare": 0.6023,
+      "nilContributions": [
+        {
+          "nilId": "76",
+          "nilName": "QUARTO OGGIARO - VIALBA - MUSOCCO",
+          "nilFamilies2025": 16240,
+          "civicsInNilWithCap": 733,
+          "totalCivicsInNil": 1066,
+          "capCivicShare": 0.6876,
+          "estimatedFamiliesContribution": 11167
+        },
+        {
+          "nilId": "81",
+          "nilName": "BOVISASCA",
+          "nilFamilies2025": 3767,
+          "civicsInNilWithCap": 309,
+          "totalCivicsInNil": 487,
+          "capCivicShare": 0.6345,
+          "estimatedFamiliesContribution": 2390
+        },
+        {
+          "nilId": "75",
+          "nilName": "STEPHENSON",
+          "nilFamilies2025": 98,
+          "civicsInNilWithCap": 79,
+          "totalCivicsInNil": 119,
+          "capCivicShare": 0.6639,
+          "estimatedFamiliesContribution": 65
+        },
+        {
+          "nilId": "71",
+          "nilName": "VILLAPIZZONE - CAGNOLA - BOLDINASCO",
+          "nilFamilies2025": 23267,
+          "civicsInNilWithCap": 39,
+          "totalCivicsInNil": 1805,
+          "capCivicShare": 0.0216,
+          "estimatedFamiliesContribution": 503
+        },
+        {
+          "nilId": "77",
+          "nilName": "BOVISA",
+          "nilFamilies2025": 8352,
+          "civicsInNilWithCap": 28,
+          "totalCivicsInNil": 863,
+          "capCivicShare": 0.0324,
+          "estimatedFamiliesContribution": 271
+        },
+        {
+          "nilId": "74",
+          "nilName": "ROSERIO",
+          "nilFamilies2025": 139,
+          "civicsInNilWithCap": 13,
+          "totalCivicsInNil": 14,
+          "capCivicShare": 0.9286,
+          "estimatedFamiliesContribution": 129
+        },
+        {
+          "nilId": "73",
+          "nilName": "CASCINA MERLATA",
+          "nilFamilies2025": 912,
+          "civicsInNilWithCap": 12,
+          "totalCivicsInNil": 28,
+          "capCivicShare": 0.4286,
+          "estimatedFamiliesContribution": 391
+        },
+        {
+          "nilId": "35",
+          "nilName": "LODI - CORVETTO",
+          "nilFamilies2025": 21457,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 1000,
+          "capCivicShare": 0.001,
+          "estimatedFamiliesContribution": 21
+        },
+        {
+          "nilId": "80",
+          "nilName": "AFFORI",
+          "nilFamilies2025": 14386,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 1059,
+          "capCivicShare": 0.0009,
+          "estimatedFamiliesContribution": 13
+        },
+        {
+          "nilId": "63",
+          "nilName": "FIGINO",
+          "nilFamilies2025": 1250,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 144,
+          "capCivicShare": 0.0069,
+          "estimatedFamiliesContribution": 9
+        },
+        {
+          "nilId": "72",
+          "nilName": "MAGGIORE - MUSOCCO - CERTOSA",
+          "nilFamilies2025": 5415,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 620,
+          "capCivicShare": 0.0016,
+          "estimatedFamiliesContribution": 9
+        }
+      ]
+    },
+    "20158": {
+      "cap": "20158",
+      "estimatedFamilies": 15046,
+      "recommendedQuantity": 16551,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1205,
+      "joinedCivicRate": 0.9934,
+      "municipi": [
+        8,
+        9
+      ],
+      "nilCount": 5,
+      "primaryNilName": "BOVISA",
+      "primaryNilShare": 0.4697,
+      "nilContributions": [
+        {
+          "nilId": "77",
+          "nilName": "BOVISA",
+          "nilFamilies2025": 8352,
+          "civicsInNilWithCap": 566,
+          "totalCivicsInNil": 863,
+          "capCivicShare": 0.6559,
+          "estimatedFamiliesContribution": 5478
+        },
+        {
+          "nilId": "79",
+          "nilName": "DERGANO",
+          "nilFamilies2025": 14009,
+          "civicsInNilWithCap": 494,
+          "totalCivicsInNil": 827,
+          "capCivicShare": 0.5973,
+          "estimatedFamiliesContribution": 8368
+        },
+        {
+          "nilId": "78",
+          "nilName": "FARINI",
+          "nilFamilies2025": 2268,
+          "civicsInNilWithCap": 142,
+          "totalCivicsInNil": 276,
+          "capCivicShare": 0.5145,
+          "estimatedFamiliesContribution": 1167
+        },
+        {
+          "nilId": "69",
+          "nilName": "SARPI",
+          "nilFamilies2025": 17202,
+          "civicsInNilWithCap": 2,
+          "totalCivicsInNil": 1867,
+          "capCivicShare": 0.0011,
+          "estimatedFamiliesContribution": 19
+        },
+        {
+          "nilId": "71",
+          "nilName": "VILLAPIZZONE - CAGNOLA - BOLDINASCO",
+          "nilFamilies2025": 23267,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 1805,
+          "capCivicShare": 0.0006,
+          "estimatedFamiliesContribution": 14
+        }
+      ]
+    },
+    "20159": {
+      "cap": "20159",
+      "estimatedFamilies": 12476,
+      "recommendedQuantity": 13724,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1169,
+      "joinedCivicRate": 0.9898,
+      "municipi": [
+        9
+      ],
+      "nilCount": 6,
+      "primaryNilName": "ISOLA",
+      "primaryNilShare": 0.5346,
+      "nilContributions": [
+        {
+          "nilId": "11",
+          "nilName": "ISOLA",
+          "nilFamilies2025": 13299,
+          "civicsInNilWithCap": 625,
+          "totalCivicsInNil": 1498,
+          "capCivicShare": 0.4172,
+          "estimatedFamiliesContribution": 5548
+        },
+        {
+          "nilId": "12",
+          "nilName": "MACIACHINI - MAGGIOLINA",
+          "nilFamilies2025": 15202,
+          "civicsInNilWithCap": 298,
+          "totalCivicsInNil": 1381,
+          "capCivicShare": 0.2158,
+          "estimatedFamiliesContribution": 3281
+        },
+        {
+          "nilId": "79",
+          "nilName": "DERGANO",
+          "nilFamilies2025": 14009,
+          "civicsInNilWithCap": 187,
+          "totalCivicsInNil": 827,
+          "capCivicShare": 0.2261,
+          "estimatedFamiliesContribution": 3167
+        },
+        {
+          "nilId": "78",
+          "nilName": "FARINI",
+          "nilFamilies2025": 2268,
+          "civicsInNilWithCap": 56,
+          "totalCivicsInNil": 276,
+          "capCivicShare": 0.2029,
+          "estimatedFamiliesContribution": 460
+        },
+        {
+          "nilId": "77",
+          "nilName": "BOVISA",
+          "nilFamilies2025": 8352,
+          "civicsInNilWithCap": 2,
+          "totalCivicsInNil": 863,
+          "capCivicShare": 0.0023,
+          "estimatedFamiliesContribution": 19
+        },
+        {
+          "nilId": "84",
+          "nilName": "PARCO NORD",
+          "nilFamilies2025": 59,
+          "civicsInNilWithCap": 1,
+          "totalCivicsInNil": 44,
+          "capCivicShare": 0.0227,
+          "estimatedFamiliesContribution": 1
+        }
+      ]
+    },
+    "20161": {
+      "cap": "20161",
+      "estimatedFamilies": 21692,
+      "recommendedQuantity": 23861,
+      "confidence": "medium",
+      "confidenceLabel": "Media",
+      "civicSampleCount": 1429,
+      "joinedCivicRate": 0.9937,
+      "municipi": [
+        9
+      ],
+      "nilCount": 5,
+      "primaryNilName": "AFFORI",
+      "primaryNilShare": 0.5983,
+      "nilContributions": [
+        {
+          "nilId": "80",
+          "nilName": "AFFORI",
+          "nilFamilies2025": 14386,
+          "civicsInNilWithCap": 855,
+          "totalCivicsInNil": 1059,
+          "capCivicShare": 0.8074,
+          "estimatedFamiliesContribution": 11615
+        },
+        {
+          "nilId": "83",
+          "nilName": "BRUZZANO",
+          "nilFamilies2025": 6433,
+          "civicsInNilWithCap": 273,
+          "totalCivicsInNil": 347,
+          "capCivicShare": 0.7867,
+          "estimatedFamiliesContribution": 5061
+        },
+        {
+          "nilId": "82",
+          "nilName": "COMASINA",
+          "nilFamilies2025": 5247,
+          "civicsInNilWithCap": 170,
+          "totalCivicsInNil": 213,
+          "capCivicShare": 0.7981,
+          "estimatedFamiliesContribution": 4188
+        },
+        {
+          "nilId": "81",
+          "nilName": "BOVISASCA",
+          "nilFamilies2025": 3767,
+          "civicsInNilWithCap": 102,
+          "totalCivicsInNil": 487,
+          "capCivicShare": 0.2094,
+          "estimatedFamiliesContribution": 789
+        },
+        {
+          "nilId": "84",
+          "nilName": "PARCO NORD",
+          "nilFamilies2025": 59,
+          "civicsInNilWithCap": 29,
+          "totalCivicsInNil": 44,
+          "capCivicShare": 0.6591,
+          "estimatedFamiliesContribution": 39
+        }
+      ]
+    },
+    "20162": {
+      "cap": "20162",
+      "estimatedFamilies": 14371,
+      "recommendedQuantity": 15808,
+      "confidence": "high",
+      "confidenceLabel": "Alta",
+      "civicSampleCount": 748,
+      "joinedCivicRate": 0.9907,
+      "municipi": [
+        9
+      ],
+      "nilCount": 2,
+      "primaryNilName": "NIGUARDA - CA' GRANDA - PRATO CENTENARO - Q.RE FULVIO TESTI",
+      "primaryNilShare": 0.9973,
+      "nilContributions": [
+        {
+          "nilId": "14",
+          "nilName": "NIGUARDA - CA' GRANDA - PRATO CENTENARO - Q.RE FULVIO TESTI",
+          "nilFamilies2025": 19548,
+          "civicsInNilWithCap": 746,
+          "totalCivicsInNil": 1015,
+          "capCivicShare": 0.735,
+          "estimatedFamiliesContribution": 14368
+        },
+        {
+          "nilId": "84",
+          "nilName": "PARCO NORD",
+          "nilFamilies2025": 59,
+          "civicsInNilWithCap": 2,
+          "totalCivicsInNil": 44,
+          "capCivicShare": 0.0455,
+          "estimatedFamiliesContribution": 3
+        }
+      ]
+    }
+  }
+}
