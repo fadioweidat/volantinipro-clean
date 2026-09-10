@@ -336,9 +336,16 @@ export async function saveSmartPairingWaitlist(payload) {
   const datePreferite = payload.date_preferite || payload.preferred_period || payload.preferredPeriod || null;
   const clienteId = payload.cliente_id || payload.client_id || null;
 
+  // return=minimal (not representation): the row is inserted as `anon`, which
+  // has an INSERT grant + WITH CHECK policy but NO permissive SELECT policy for
+  // its own new row (waitlist_own needs a JWT email). return=representation would
+  // make PostgREST run INSERT ... RETURNING, whose RETURNING read is denied by
+  // RLS -> 42501 and the whole INSERT rolls back. The caller (Step3) never uses
+  // the returned row (only success/error), and a deduped insert (trigger RETURN
+  // NULL) still yields a 2xx/204 = success.
   return supabaseRequest("/rest/v1/smart_pairing_waitlist", {
     method: "POST",
-    prefer: "return=representation",
+    prefer: "return=minimal",
     body: {
       nome: nome.length >= 2 ? nome : "Richiesta Smart Pairing",
       email: payload.email,
