@@ -153,8 +153,9 @@ export async function fetchRoadsWithFallback(opts: {
       const res = await fetchImpl(endpoints[i], {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'VolantiniPro/1.0 (road-network proxy)',
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'User-Agent': 'VolantiniPro/1.0 (+https://www.volantinipro.it; info@volantinipro.it)',
+          'Accept': 'application/json',
         },
         body,
         signal: ctrl.signal,

@@ -31,8 +31,10 @@ export type PoiServiceType = (typeof POI_SERVICE_TYPES)[number];
 //   3. overpass.kumi.systems (ultimo: se e' morto costa comunque solo l'ultimo giro)
 export const POI_OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter',
+  'https://lz4.overpass-api.de/api/interpreter',
+  'https://z.overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
 ];
 
 /**
@@ -71,7 +73,7 @@ export function resultCap(serviceType: string): number {
 // completa in ~5s lato Overpass non serve comunque (l'abort di rete scatta
 // prima). Era 12s -> con 3 provider + retry potevano sommarsi 30-70s prima del
 // 502 (ticket "POI SEARCH TOO SLOW + 502").
-export const POI_OVERPASS_QL_TIMEOUT_S = 5;
+export const POI_OVERPASS_QL_TIMEOUT_S = 8;
 
 // ── Tag-set per servizio (allowlist server-side) ──────────────────────────
 // SOLO `key`/`val` (guidano la QL) + `cat` (per il filtro per target).
