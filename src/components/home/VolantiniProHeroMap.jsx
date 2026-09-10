@@ -178,11 +178,16 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
               onMouseEnter={() => setWorkOpen(true)}
               onMouseLeave={() => setWorkOpen(false)}
             >
+              {/* Il click deve APRIRE, non fare toggle: ogni click e' preceduto
+                  da onMouseEnter (che ha gia' impostato workOpen=true), quindi
+                  un toggle lo richiuderebbe subito -> il menu non si apriva mai
+                  al click (solo in hover). Con setWorkOpen(true) funzionano hover,
+                  click e tastiera; chiusura su onMouseLeave o alla selezione. */}
               <button
                 type="button"
                 aria-expanded={workOpen}
                 aria-haspopup="true"
-                onClick={() => setWorkOpen((v) => !v)}
+                onClick={() => setWorkOpen(true)}
                 style={{ ...navButtonStyle, display: "flex", alignItems: "center", gap: 6 }}
               >
                 <span>Lavora con noi</span>

@@ -88,3 +88,27 @@ test("nessun nuovo sistema auth: solo route esistenti (login / dashboard / suppl
     assert.doesNotMatch(src, /signInWith|createUser|signUp|\/register|auth\/v1/);
   }
 });
+
+for (const [name, src] of [["Navbar.jsx", NAVBAR], ["VolantiniProHeroMap.jsx", HERO]]) {
+  test(`${name} desktop "Lavora con noi": il click APRE il dropdown, non fa toggle contro l'hover`, () => {
+    // Il wrapper desktop ha onMouseEnter -> setWorkOpen(true). Se il bottone
+    // facesse toggle al click, ogni click (sempre preceduto da mouseenter) lo
+    // richiuderebbe subito: il menu non si apriva mai al click.
+    const iDesktop = src.indexOf("<span>Lavora con noi</span>"); // 1a occorrenza = desktop
+    assert.ok(iDesktop > 0, "voce desktop presente");
+    const desktopBtn = src.slice(Math.max(0, iDesktop - 600), iDesktop);
+    assert.match(desktopBtn, /onClick=\{\(\) => setWorkOpen\(true\)\}/,
+      "il bottone desktop 'Lavora con noi' deve APRIRE al click");
+    assert.doesNotMatch(desktopBtn, /setWorkOpen\(\(?v\)? => !v\)/,
+      "nessun toggle sul bottone desktop (in conflitto con l'hover)");
+  });
+
+  test(`${name} mobile "Lavora con noi": il click fa ancora toggle (nessun hover su mobile)`, () => {
+    const iMobile = src.lastIndexOf("<span>Lavora con noi</span>"); // ultima = mobile
+    const iDesktop = src.indexOf("<span>Lavora con noi</span>");
+    assert.ok(iMobile > iDesktop, "esiste anche la voce mobile, distinta dalla desktop");
+    const mobileBtn = src.slice(Math.max(iDesktop + 1, iMobile - 600), iMobile);
+    assert.match(mobileBtn, /setWorkOpen\(\(?v\)? => !v\)/,
+      "il bottone mobile 'Lavora con noi' resta un toggle (tap apre/chiude)");
+  });
+}
