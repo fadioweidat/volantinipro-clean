@@ -55,8 +55,17 @@ export function nilModeCountLabel({
   availableCount = 0,
   intersectedCount = 0,
   selectedCount = 0,
+  externalComuniCount = 0,
+  externalComuniNames = [],
 } = {}) {
-  if (isRadiusMode) return `NIL intercettati dal raggio: ${Number(intersectedCount) || 0}`;
+  if (isRadiusMode) {
+    if (Number(externalComuniCount) > 0) {
+      const namesList = Array.isArray(externalComuniNames) ? externalComuniNames.filter(Boolean) : [];
+      const suffix = namesList.length > 0 ? ` (${namesList.join(", ")})` : "";
+      return `${Number(intersectedCount) || 0} NIL Milano + ${Number(externalComuniCount)} ${Number(externalComuniCount) === 1 ? "Comune limitrofo" : "Comuni limitrofi"}${suffix}`;
+    }
+    return `NIL intercettati dal raggio: ${Number(intersectedCount) || 0}`;
+  }
   if (nilManualMode) return `NIL selezionati: ${Number(selectedCount) || 0}`;
   return `NIL disponibili nel Comune: ${Number(availableCount) || 0}`;
 }

@@ -69,6 +69,8 @@ export function MilanoGuidance({
   availableNilCount = 0,
   intersectedNilCount = 0,
   selectedNilCount = 0,
+  externalComuniCount = 0,
+  externalComuniNames = [],
   // conteggi copertura NIL — CANONICI da Step2 (summaryComuniStats). Se assenti,
   // fallback puro su zonesAllocation via summariseNilCoverage().
   nilStats = null,
@@ -110,6 +112,8 @@ export function MilanoGuidance({
     availableCount: availableNilCount,
     intersectedCount: intersectedNilCount,
     selectedCount: selectedNilCount,
+    externalComuniCount,
+    externalComuniNames,
   });
   const statusLine = nilStatusSummaryLine(summary);
   const priority = neutralPriorityLabel({ allocationMode, firstZoneName: firstAllocationZoneName });
@@ -174,7 +178,7 @@ export function MilanoGuidance({
             gap: isMobile ? 10 : 8,
           }}
         >
-          <Metric label="NIL disponibili" value={summary.available} />
+          <Metric label={isRadiusMode && externalComuniCount > 0 ? "Zone nel raggio" : isRadiusMode ? "NIL nel raggio" : nilManualMode ? "NIL selezionati" : "NIL disponibili"} value={summary.available} />
           <Metric label="coperti" value={summary.full} tone={C.green} />
           <Metric label="parzialmente coperti" value={summary.partial} tone="#FBBF24" />
           <Metric label="non raggiunti" value={summary.excluded} tone="rgba(255,255,255,.55)" />

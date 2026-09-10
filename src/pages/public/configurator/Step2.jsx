@@ -1779,7 +1779,7 @@ export function Step2({
   const responseBreakdownRows = Array.isArray(apiData?.nil_breakdown) && apiData.nil_breakdown.length ? apiData.nil_breakdown : apiData?.comuni_breakdown || [];
   const responseTerritoryLevel = responseBreakdownRows.find(row => row?.territory_level)?.territory_level;
   const activeAnalysisLevel = apiData?.metadata?.analysis_level || apiData?.values?.analysis_level || responseTerritoryLevel || "comune";
-  const isNilAnalysis = isResidentialStep2 && activeAnalysisLevel === "nil";
+  const isNilAnalysis = isResidentialStep2 && (activeAnalysisLevel === "nil" || activeAnalysisLevel === "mixed");
   const nilUnavailable = isResidentialStep2 && requestedAnalysisLevel === "nil" && apiData?.metadata?.nil_unavailable;
   const territoryPluralLabel = isNilAnalysis ? "Zone NIL" : "Comuni";
   const territorySingularLabel = isNilAnalysis ? "NIL" : "Comune";
@@ -3111,11 +3111,12 @@ export function Step2({
     persistCoverageAddress({ nearestNilId: containingNil.code || null, nearestNilName: containingNil.name });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [containingNil?.name, containingNil?.code]);
-  const intersectedNils = isNilAnalysis && areaMode === "radius" ? (zonesInRadius || []).filter(z => z.isNil || z.territoryLevel === "nil" || isNilAnalysis).map(z => ({
+  const intersectedNils = isNilAnalysis && areaMode === "radius" ? (zonesInRadius || []).filter(z => z.isNil || z.territoryLevel === "nil").map(z => ({
     code: z.nilCode || z.nil_code || z.id,
     name: z.name
   })) : [];
-  const selectedNils = isNilAnalysis ? hasUnconfirmedAddressPoint ? [] : areaMode === "custom_zone" || nilManualMode ? (selZones || []).filter(z => z.isNil || z.territoryLevel === "nil" || isNilAnalysis).map(z => ({
+  const intersectedExternalComuni = isNilAnalysis && areaMode === "radius" ? (zonesInRadius || []).filter(z => !z.isNil && z.territoryLevel !== "nil") : [];
+  const selectedNils = isNilAnalysis ? hasUnconfirmedAddressPoint ? [] : areaMode === "custom_zone" || nilManualMode ? (selZones || []).filter(z => z.isNil || z.territoryLevel === "nil").map(z => ({
     code: z.nilCode || z.nil_code || z.id,
     name: z.name
   })) : areaMode === "radius" ? intersectedNils : isComuneMode && !hasUnconfirmedAddressPoint ? availableNils : [] : [];
@@ -5247,6 +5248,8 @@ export function Step2({
             availableNilCount={milanoNilStats.available}
             intersectedNilCount={intersectedNils.length}
             selectedNilCount={selectedNils.length}
+            externalComuniCount={intersectedExternalComuni.length}
+            externalComuniNames={intersectedExternalComuni.map(c => c.name)}
             nilStats={milanoNilStats}
             zonesAllocation={zonesAllocation}
             allocationMode={allocationMode}

@@ -12,7 +12,9 @@ export function apiToZones(apiData, city) {
   if (!apiData || apiData.error || !apiData.values) return null;
   const v = apiData.values;
   const analysisLevel = apiData.metadata?.analysis_level || apiData.values?.analysis_level || "comune";
-  const breakdown = analysisLevel === "nil" && Array.isArray(apiData.nil_breakdown) && apiData.nil_breakdown.length ? apiData.nil_breakdown : apiData.comuni_breakdown || [];
+  const breakdown = Array.isArray(apiData.comuni_breakdown) && apiData.comuni_breakdown.length
+    ? apiData.comuni_breakdown
+    : (Array.isArray(apiData.nil_breakdown) && apiData.nil_breakdown.length ? apiData.nil_breakdown : []);
   const totF = v.famiglie_stimate || v.families || v.households || 0;
   const totP = v.popolazione_stimata || v.population || 0;
   const totV = v.volantini_consigliati || v.volantini_stimati || v.recommended_flyers || 0;

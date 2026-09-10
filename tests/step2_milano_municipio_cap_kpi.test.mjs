@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   loadMilanoMunicipi,
+  loadMilanoMunicipiWithDemographics,
   normalizeMilanoMunicipi,
   loadMilanoMunicipiDemographics,
   MUNICIPI_SOURCE,
@@ -69,7 +70,7 @@ test('=== SECTION 25: MUNICIPIO OFFICIAL DATA & KPI TESTS ===', async (t) => {
   });
 
   await t.test('25.B & 25.C: Municipio 9 resolves official families (105,099) and population (187,303)', async () => {
-    const records = await loadMilanoMunicipi({ fetchImpl });
+    const records = await loadMilanoMunicipiWithDemographics({ fetchImpl });
     assert.equal(records.length, 9);
     const mun9 = records.find((r) => r.number === 9);
     assert.ok(mun9);
@@ -81,7 +82,7 @@ test('=== SECTION 25: MUNICIPIO OFFICIAL DATA & KPI TESTS ===', async (t) => {
   });
 
   await t.test('25.D & 25.E: Source year 2025 and Source label "Comune di Milano"', async () => {
-    const records = await loadMilanoMunicipi({ fetchImpl });
+    const records = await loadMilanoMunicipiWithDemographics({ fetchImpl });
     for (const record of records) {
       assert.equal(record.sourceYear, 2025);
       assert.equal(record.source.license, 'CC BY 4.0');
@@ -90,7 +91,7 @@ test('=== SECTION 25: MUNICIPIO OFFICIAL DATA & KPI TESTS ===', async (t) => {
   });
 
   await t.test('25.F: Quantity recommendation is deterministic from 1.1x factor', async () => {
-    const records = await loadMilanoMunicipi({ fetchImpl });
+    const records = await loadMilanoMunicipiWithDemographics({ fetchImpl });
     const mun9 = records.find((r) => r.number === 9);
     // 105,099 * 1.1 = 115,608.9 -> 115,609
     assert.equal(mun9.recommendedQuantity, 115609);
