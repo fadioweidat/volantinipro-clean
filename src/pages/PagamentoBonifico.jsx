@@ -1,3 +1,4 @@
+import './customer/feasibility/feasibility.css';
 import CampaignSettlementSummary from '../components/customer/CampaignSettlementSummary.jsx';
 import { isCreditSettled } from '../lib/campaignSettlement.js';
 import React, { useEffect, useState } from 'react'
@@ -60,7 +61,16 @@ export function PagamentoBonificoPage({ campaignId, onNav }) {
 
   if (campagna.settlement && campagna.settlement.settlement_status !== 'not_applicable') {
     const s=campagna.settlement;
-    return <div style={{maxWidth:640,margin:'60px auto',padding:24,color:C.white}}><CampaignSettlementSummary settlement={s}/>{s.amount_due_cents>0&&!isCreditSettled(s)&&<><p>Richiedi le istruzioni per il solo residuo indicato. L’incasso sarà verificato da Admin.</p><a href={buildCampaignContactMailtoUrl(campagna.id)}>Richiedi istruzioni email</a>{buildCampaignContactWhatsAppUrl(campagna.id)&&<p><a target="_blank" rel="noreferrer" href={buildCampaignContactWhatsAppUrl(campagna.id)}>Richiedi istruzioni WhatsApp</a></p>}</>}<button onClick={()=>window.location.reload()}>Aggiorna saldo</button><button onClick={()=>onNav('dashboard')}>Dashboard</button></div>;
+    return <main className="vf-page"><div className="vf-shell"><section className="vf-panel">
+      <CampaignSettlementSummary settlement={s}/>
+      {s.amount_due_cents>0&&!isCreditSettled(s)&&<>
+        <p>Richiedi le istruzioni per il solo residuo indicato. L’incasso sarà verificato da Admin.</p>
+        <div className="vf-actions"><a href={buildCampaignContactMailtoUrl(campagna.id)}>Richiedi istruzioni email</a>
+          {buildCampaignContactWhatsAppUrl(campagna.id)&&<a target="_blank" rel="noreferrer" href={buildCampaignContactWhatsAppUrl(campagna.id)}>Richiedi istruzioni WhatsApp</a>}
+        </div>
+      </>}
+      <div className="vf-actions"><button className="vf-primary" onClick={()=>window.location.reload()}>Aggiorna saldo</button><button onClick={()=>onNav('dashboard')}>Dashboard</button></div>
+    </section></div></main>;
   }
   if (IS_MANUAL_CONTACT) {
     const contactId = campagna?.id || campaignId || null
