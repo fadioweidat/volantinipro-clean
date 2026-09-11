@@ -40,13 +40,13 @@ test('poi-search/index.ts — budget totale, retry budget-aware, degrado SEMPRE 
   assert.match(edge, /const poiStaleCache = createTtlCache<any\[\]>\(STALE_TTL_MS/);
   assert.match(edge, /const STALE_TTL_MS = envInt\("POI_SEARCH_STALE_TTL_MS"/);
   assert.match(edge, /const poiNegativeCache = createTtlCache<\{ reason: string \}>\(NEGATIVE_TTL_MS/);
-  assert.match(edge, /const NEGATIVE_TTL_MS = envInt\("POI_SEARCH_NEGATIVE_TTL_MS", 45000/);
-  // BUDGET TOTALE dell'intera operazione (target 3-5s) + deadline passata al fallback
-  assert.match(edge, /const TOTAL_BUDGET_MS = envInt\("POI_SEARCH_TOTAL_BUDGET_MS", 4000, 1500, 15000\)/);
+  assert.match(edge, /const NEGATIVE_TTL_MS = envInt\("POI_SEARCH_NEGATIVE_TTL_MS", 10000/);
+  // BUDGET TOTALE dell'intera operazione (allineato alla config Overpass di produzione) + deadline passata al fallback
+  assert.match(edge, /const TOTAL_BUDGET_MS = envInt\("POI_SEARCH_TOTAL_BUDGET_MS", 9000, 1500, 20000\)/);
   assert.match(edge, /const deadline = t0 \+ TOTAL_BUDGET_MS;/);
   assert.match(edge, /deadlineMs: deadline,/);
-  // timeout per-provider ridotto (era 12000)
-  assert.match(edge, /const PROVIDER_TIMEOUT_MS = envInt\("POI_SEARCH_TIMEOUT_MS", 3000/);
+  // timeout per-provider (config di produzione)
+  assert.match(edge, /const PROVIDER_TIMEOUT_MS = envInt\("POI_SEARCH_TIMEOUT_MS", 6500/);
   // 1 retry, solo transitori, solo se NON deadline-exceeded e resta budget
   assert.match(edge, /for \(let attempt = 0; attempt < 2; attempt \+= 1\)/);
   assert.match(edge, /attempt === 0 && isTransientPoiFailure\(err\) && !err\?\.deadlineExceeded && budgetLeft > PROVIDER_TIMEOUT_MS \* 0\.6/);

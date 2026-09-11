@@ -59,8 +59,8 @@ test('validatePoiInput non lascia passare tentativi di iniezione nei target', ()
 test('buildPoiQuery: QL costruita SOLO da valori validati, nessun input testuale', () => {
   const tags = getServiceTargetTags('d2d', ['scuole']);
   const q = buildPoiQuery({ centerLat: 45.551, centerLng: 9.163, radiusKm: 3, tags, cap: resultCap('d2d') });
-  assert.equal(POI_OVERPASS_QL_TIMEOUT_S, 5, 'QL timeout 5s (POI opzionale, budget totale ~4.5s)');
-  assert.match(q, /^\[out:json\]\[timeout:5\];/);
+  assert.equal(POI_OVERPASS_QL_TIMEOUT_S, 8, 'QL timeout 8s (allineato alla config Overpass di produzione)');
+  assert.match(q, /^\[out:json\]\[timeout:8\];/);
   assert.match(q, /\(around:3000,45\.551,9\.163\)/);
   assert.match(q, /node\["amenity"="school"\]/);
   assert.match(q, /way\["amenity"="school"\]/);
@@ -94,19 +94,22 @@ test('POI_TAGS server e client hanno lo stesso set di coppie key:val per ogni se
 });
 
 // ── ordine provider POI (override locale, road-network invariato) ────────
-test('resolvePoiEndpoints: ordine overpass-api.de -> private.coffee -> kumi.systems', () => {
+test('resolvePoiEndpoints: ordine Overpass di produzione (primario overpass-api.de, 5 provider)', () => {
   const eps = resolvePoiEndpoints(null);
   assert.deepEqual(eps, POI_OVERPASS_ENDPOINTS);
-  assert.match(eps[0], /overpass-api\.de/);
-  assert.match(eps[1], /overpass\.private\.coffee/);
-  assert.match(eps[2], /overpass\.kumi\.systems/);
+  assert.equal(eps.length, 5);
+  assert.match(eps[0], /^https:\/\/overpass-api\.de\//);
+  assert.match(eps[1], /lz4\.overpass-api\.de/);
+  assert.match(eps[2], /z\.overpass-api\.de/);
+  assert.match(eps[3], /overpass\.kumi\.systems/);
+  assert.match(eps[4], /overpass\.private\.coffee/);
 });
 
 test('resolvePoiEndpoints: OVERPASS_ENDPOINT env passa per primo, poi l\'ordine POI', () => {
   const eps = resolvePoiEndpoints('https://my-overpass.internal/api/interpreter');
   assert.match(eps[0], /my-overpass\.internal/);
   assert.match(eps[1], /overpass-api\.de/);
-  assert.equal(eps.length, 4);
+  assert.equal(eps.length, 6);
 });
 
 // ── fallback multi-provider (riuso fetchRoadsWithFallback con la QL POI) ──
@@ -139,44 +142,51 @@ test('fallback: primario (overpass-api.de) 200 -> nessun altro provider contatta
   assert.match(mock.calls[0], /overpass-api\.de/);
 });
 
-test('fallback: primario 429 -> passa a private.coffee (2 chiamate), kumi non toccato', async () => {
+test('fallback: primario 429 -> risale la catena fino al primo provider valido', async () => {
   const mock = endpointMock({
     'overpass-api.de': { status: 429 },
+    'lz4.overpass-api.de': { status: 502 },
+    'z.overpass-api.de': { status: 502 },
+    'overpass.kumi.systems': { status: 504 },
     'overpass.private.coffee': { status: 200, elements: [{ type: 'node', id: 3 }] },
   });
   const res = await fetchRoadsWithFallback({
     fetchImpl: mock, endpoints: resolvePoiEndpoints(null), query: POI_QUERY, timeoutMs: 5000,
   });
   assert.deepEqual(res.elements, [{ type: 'node', id: 3 }]);
-  assert.equal(mock.calls.length, 2);
+  assert.equal(mock.calls.length, 5);
   assert.match(mock.calls[0], /overpass-api\.de/);
-  assert.match(mock.calls[1], /overpass\.private\.coffee/);
+  assert.match(mock.calls[mock.calls.length - 1], /overpass\.private\.coffee/);
 });
 
-test('fallback: primario 504 -> anche 2° 504 -> 3° (kumi) 200', async () => {
+test('fallback: catena di 504 -> serve il primo provider valido (kumi.systems, 4°)', async () => {
   const mock = endpointMock({
     'overpass-api.de': { status: 504 },
-    'overpass.private.coffee': { status: 504 },
+    'lz4.overpass-api.de': { status: 504 },
+    'z.overpass-api.de': { status: 504 },
     'overpass.kumi.systems': { status: 200, elements: [{ id: 7 }] },
   });
   const res = await fetchRoadsWithFallback({
     fetchImpl: mock, endpoints: resolvePoiEndpoints(null), query: POI_QUERY, timeoutMs: 5000,
   });
   assert.deepEqual(res.elements, [{ id: 7 }]);
-  assert.equal(mock.calls.length, 3);
+  assert.equal(mock.calls.length, 4);
+  assert.match(mock.calls[3], /overpass\.kumi\.systems/);
 });
 
-test('fallback: tutti e 3 i provider falliti -> lancia (nessun risultato finto)', async () => {
+test('fallback: tutti i provider falliti -> lancia (nessun risultato finto)', async () => {
   const mock = endpointMock({
     'overpass-api.de': { status: 504 },
-    'overpass.private.coffee': { status: 502 },
-    'overpass.kumi.systems': { throws: true, name: 'TypeError' },
+    'lz4.overpass-api.de': { status: 502 },
+    'z.overpass-api.de': { status: 502 },
+    'overpass.kumi.systems': { status: 502 },
+    'overpass.private.coffee': { throws: true, name: 'TypeError' },
   });
   await assert.rejects(
     () => fetchRoadsWithFallback({ fetchImpl: mock, endpoints: resolvePoiEndpoints(null), query: POI_QUERY, timeoutMs: 5000 }),
     /UNAVAILABLE/,
   );
-  assert.equal(mock.calls.length, 3, 'tentati tutti e 3 i provider prima di arrendersi');
+  assert.equal(mock.calls.length, 5, 'tentati tutti i provider prima di arrendersi');
 });
 
 test('empty result NON e\' un errore: elements [] risolve regolarmente', async () => {

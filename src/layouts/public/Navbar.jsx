@@ -247,7 +247,13 @@ export function Navbar({
             <div style={{
         position: "relative"
       }} onMouseEnter={() => setWorkOpen(true)} onMouseLeave={() => setWorkOpen(false)}>
-              <button aria-expanded={workOpen} aria-haspopup="true" onClick={() => setWorkOpen(v => !v)} style={{
+              {/* Il click deve APRIRE, non fare toggle: qualunque click e'
+                  preceduto da onMouseEnter (che ha gia' impostato workOpen=true),
+                  quindi un toggle lo richiuderebbe subito -> il menu non si
+                  apriva mai al click (solo in hover). Con setWorkOpen(true)
+                  funzionano sia hover sia click sia tastiera; la chiusura resta
+                  su onMouseLeave o alla selezione di una voce (go() azzera lo stato). */}
+              <button aria-expanded={workOpen} aria-haspopup="true" onClick={() => setWorkOpen(true)} style={{
           background: "transparent",
           border: "none",
           color: "rgba(255, 255, 255, 0.82)",

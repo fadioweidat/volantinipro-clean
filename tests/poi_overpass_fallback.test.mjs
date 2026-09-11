@@ -82,54 +82,63 @@ test('TEST A: primario overpass-api.de 200 -> risultati, nessun fallback contatt
   assert.match(mock.calls[0], /overpass-api\.de/);
 });
 
-test('TEST B: primario 429 -> fallback automatico a private.coffee (200); kumi non toccato', async () => {
+test('TEST B: primario 429 -> fallback lungo la catena fino a un provider valido', async () => {
   const plan = new Map([
     ['overpass-api.de', { status: 429 }],
+    ['lz4.overpass-api.de', { status: 502 }],
+    ['z.overpass-api.de', { status: 502 }],
+    ['overpass.kumi.systems', { status: 504 }],
     ['overpass.private.coffee', { status: 200, elements: [schoolElement(3, 'Scuola Fallback')] }],
   ]);
   const mock = trackedFetchMock(plan);
   const elements = await runPoiProxy(INPUT, mock);
   assert.equal(elements.length, 1);
   assert.equal(elements[0].tags.name, 'Scuola Fallback');
-  assert.equal(mock.calls.length, 2);
+  assert.equal(mock.calls.length, 5);
   assert.match(mock.calls[0], /overpass-api\.de/);
-  assert.match(mock.calls[1], /overpass\.private\.coffee/);
+  assert.match(mock.calls[mock.calls.length - 1], /overpass\.private\.coffee/);
 });
 
-test('TEST B bis: primario 504 + 2° 504 -> 3° kumi.systems 200 (ultimo della catena)', async () => {
+test('TEST B bis: catena di 504 -> 4° provider kumi.systems 200', async () => {
   const plan = new Map([
     ['overpass-api.de', { status: 504 }],
-    ['overpass.private.coffee', { status: 504 }],
+    ['lz4.overpass-api.de', { status: 504 }],
+    ['z.overpass-api.de', { status: 504 }],
     ['overpass.kumi.systems', { status: 200, elements: [schoolElement(7, 'Scuola Kumi ultima')] }],
   ]);
   const mock = trackedFetchMock(plan);
   const elements = await runPoiProxy(INPUT, mock);
   assert.equal(elements[0].tags.name, 'Scuola Kumi ultima');
-  assert.equal(mock.calls.length, 3);
+  assert.equal(mock.calls.length, 4);
   assert.match(mock.calls[0], /overpass-api\.de/);
-  assert.match(mock.calls[2], /overpass\.kumi\.systems/);
+  assert.match(mock.calls[3], /overpass\.kumi\.systems/);
 });
 
 test('TEST C: tutti i provider in errore -> propaga un errore (error-state)', async () => {
   const plan = new Map([
     ['overpass-api.de', { status: 504 }],
-    ['overpass.private.coffee', { status: 502 }],
-    ['overpass.kumi.systems', { status: 500 }],
+    ['lz4.overpass-api.de', { status: 502 }],
+    ['z.overpass-api.de', { status: 502 }],
+    ['overpass.kumi.systems', { status: 502 }],
+    ['overpass.private.coffee', { status: 500 }],
   ]);
   const mock = trackedFetchMock(plan);
   await assert.rejects(() => runPoiProxy(INPUT, mock), /UNAVAILABLE|OVERPASS_HTTP/);
-  assert.equal(mock.calls.length, 3, 'tentati tutti e 3 i provider prima di arrendersi');
+  assert.equal(mock.calls.length, 5, 'tentati tutti i provider prima di arrendersi');
 });
 
-test('TEST C bis: reject di rete sul primario -> comunque fallback al successivo', async () => {
+test('TEST C bis: reject di rete sul primario -> comunque fallback lungo la catena', async () => {
   const plan = new Map([
     ['overpass-api.de', { rejects: true, rejectMessage: 'NETWORK_DOWN' }],
+    ['lz4.overpass-api.de', { status: 502 }],
+    ['z.overpass-api.de', { status: 502 }],
+    ['overpass.kumi.systems', { status: 504 }],
     ['overpass.private.coffee', { status: 200, elements: [schoolElement(4, 'Scuola Dopo Rete Giu')] }],
   ]);
   const mock = trackedFetchMock(plan);
   const elements = await runPoiProxy(INPUT, mock);
   assert.equal(elements.length, 1);
-  assert.equal(mock.calls.length, 2);
+  assert.equal(mock.calls.length, 5);
 });
 
 test('TEST D: OVERPASS_ENDPOINT override -> provato per primo, prima di overpass-api.de', async () => {

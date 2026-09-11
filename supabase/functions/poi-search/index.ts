@@ -87,9 +87,9 @@ const CACHE_TTL_MS = envInt("POI_SEARCH_CACHE_TTL_MS", 3600000, 60000, 86400000)
 // - Budget TOTALE dell'intera operazione (tutti i provider + eventuale retry):
 //   oltre questo si degrada, non si aspetta. Target 3-5s END-TO-END: qui 4s
 //   lascia ~1s di margine per cold start isolate + latenza di rete lato client.
-const TOTAL_BUDGET_MS = envInt("POI_SEARCH_TOTAL_BUDGET_MS", 4000, 1500, 15000);
+const TOTAL_BUDGET_MS = envInt("POI_SEARCH_TOTAL_BUDGET_MS", 9000, 1500, 20000);
 // - Timeout di rete per singolo provider (comunque limitato dal budget residuo).
-const PROVIDER_TIMEOUT_MS = envInt("POI_SEARCH_TIMEOUT_MS", 3000, 1000, 12000);
+const PROVIDER_TIMEOUT_MS = envInt("POI_SEARCH_TIMEOUT_MS", 6500, 1000, 15000);
 // Un solo retry, solo per fallimenti transitori, solo se resta budget, backoff breve.
 const RETRY_BACKOFF_MS = envInt("POI_SEARCH_RETRY_BACKOFF_MS", 300, 0, 2000);
 // Cache "stale": conserva l'ultimo risultato buono molto piu' a lungo del TTL
@@ -98,7 +98,7 @@ const STALE_TTL_MS = envInt("POI_SEARCH_STALE_TTL_MS", 86400000, 3600000, 604800
 // Cache "negativa": dopo un degrado, per la stessa bbox si risponde subito
 // (stale se c'e', altrimenti degraded) senza ri-tentare Overpass ad ogni
 // pan/zoom. TTL breve.
-const NEGATIVE_TTL_MS = envInt("POI_SEARCH_NEGATIVE_TTL_MS", 45000, 5000, 600000);
+const NEGATIVE_TTL_MS = envInt("POI_SEARCH_NEGATIVE_TTL_MS", 10000, 2000, 600000);
 const poiCache = createTtlCache<any[]>(CACHE_TTL_MS);
 const poiStaleCache = createTtlCache<any[]>(STALE_TTL_MS, 400);
 const poiNegativeCache = createTtlCache<{ reason: string }>(NEGATIVE_TTL_MS, 400);
