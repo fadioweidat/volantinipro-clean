@@ -22,8 +22,15 @@ export default function FeasibilityBusinessReport({ inputs, analysis, narrative,
     );
   }
 
-  const { competitionLevel, competitorCount, competitors, complementaryPois, targetPotential, score, nearestCompetitorKm, poisAvailable, dataReliability } = analysis;
+  const { competitionLevel, competitorCount, competitors, complementaryPois, targetPotential, score, nearestCompetitorKm, poisAvailable, dataReliability, location } = analysis;
   const isPreliminary = score === PRELIMINARY;
+  // Ticket "GEOCODING + ISTAT + POI CONSISTENCY" §8: quando la località è
+  // stata risolta davvero, mostra l'indirizzo/comune/NIL REALI restituiti
+  // dal geocoder — mai il testo grezzo digitato dall'utente quando esiste un
+  // dato migliore. Nessuna modifica al layout esistente, solo ai valori.
+  const resolvedAddress = location?.displayAddress || null;
+  const resolvedCity = location?.city || null;
+  const resolvedNil = location?.nilName || null;
 
   return (
     <article className="vf-report vf-business-report" aria-labelledby="vfb-report-title">
@@ -42,7 +49,7 @@ export default function FeasibilityBusinessReport({ inputs, analysis, narrative,
       <section className="vf-panel vf-above-fold" aria-label="Sintesi in evidenza">
         <dl className="vf-metrics vf-above-fold-grid">
           <div><dt>Tipo di attività</dt><dd>{inputs.businessType || NOT_AVAILABLE}</dd></div>
-          <div><dt>Località analizzata</dt><dd>{inputs.location || NOT_AVAILABLE}</dd></div>
+          <div><dt>Località analizzata</dt><dd>{resolvedAddress || inputs.location || NOT_AVAILABLE}</dd></div>
           <div><dt>Raggio di analisi</dt><dd>{analysis.radiusKm} km</dd></div>
           <div><dt>Potenzialità finale</dt><dd data-testid="vfb-score"><strong>{score}</strong>{isPreliminary && <small className="vf-small"> — analisi incompleta</small>}</dd></div>
           <div><dt>Affidabilità dei dati</dt><dd data-testid="vfb-reliability"><strong>{dataReliability.level}</strong> <small className="vf-small">({dataReliability.factorsAvailable}/{dataReliability.factorsPossible} fonti)</small></dd></div>
@@ -72,6 +79,13 @@ export default function FeasibilityBusinessReport({ inputs, analysis, narrative,
       <section className="vf-panel">
         <h3>3. Area analizzata</h3>
         <p>{inputs.location || NOT_AVAILABLE} · raggio {analysis.radiusKm} km. <Source tag="user" /></p>
+        {analysis.locationResolved ? (
+          <dl className="vf-metrics">
+            <div><dt>Indirizzo geocodificato</dt><dd>{resolvedAddress || NOT_AVAILABLE} <Source tag="real" /></dd></div>
+            <div><dt>Comune</dt><dd>{resolvedCity || NOT_AVAILABLE} <Source tag="real" /></dd></div>
+            <div><dt>NIL</dt><dd>{resolvedNil || NOT_AVAILABLE} <Source tag={resolvedNil ? 'real' : 'unavailable'} /></dd></div>
+          </dl>
+        ) : null}
         <p className="vf-small">{analysis.locationResolved ? 'Località geocodificata correttamente.' : 'Località non geocodificata: i dati territoriali potrebbero non essere disponibili.'}</p>
       </section>
 

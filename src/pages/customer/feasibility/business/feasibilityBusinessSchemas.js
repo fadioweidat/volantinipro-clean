@@ -3,6 +3,8 @@
 // resta invariato. Nessuna quantità/costo campagna richiesta qui.
 import { GEO_DATA } from '../../../../lib/geoData.js';
 import { normalizeTerritoryName } from '../../../../lib/step2/addressIntent.js';
+import { geocodeAddress } from '../../../../lib/geo/geocodeAddress.js';
+import { resolveNilForPoint } from '../../../../lib/geo/resolveNilForPoint.js';
 
 // ── Campi richiesti (minimi, per §3 del ticket) ─────────────────────────────
 export const BUSINESS_STATUS_OPTIONS = [
@@ -66,6 +68,69 @@ export function resolveBusinessLocation(rawLocation) {
   });
   if (partial) return { name: partial.name || partial.label, lat: partial.lat, lng: partial.lng, matchType: 'partial' };
   return null;
+}
+
+// ── Località → canonica reale (ticket "BUSINESS FEASIBILITY DATA QUALITY:
+// GEOCODING + ISTAT + POI CONSISTENCY") ────────────────────────────────────
+// resolveBusinessLocation (sopra) copre SOLO i pochi comuni satellite in
+// GEO_DATA (nessun indirizzo, nessuna via, niente "Milano" vero e proprio).
+// Per un indirizzo reale ("milano via oroboni", "Via Antonio Oroboni,
+// 20161 Milano", ...) serve un geocoder reale: qui si riusa lo STESSO
+// provider/pattern già in produzione (geocodeAddress.js, Nominatim,
+// riesportato da src/lib/geo/geocodeAddress.js — usato da ZoneCoverageMap
+// in Admin), MAI una seconda implementazione geografica parallela (§3).
+// Ordine di risoluzione, dal più preciso al più generico, nessun dato
+// inventato in nessun passo:
+//   1. GEO_DATA (match esatto/parziale) — comuni satellite noti, nessuna
+//      chiamata di rete, già copriva questo caso prima del ticket.
+//   2. Geocoder reale (Nominatim) — indirizzi/via reali, incluso "Milano".
+//   3. Se il comune risolto è Milano: NIL contenente il punto (stesso
+//      breakdown analysis-istat già usato da Step2/resolveMunicipalityBoundary,
+//      via resolveNilForPoint.js), altrimenti nilName resta null.
+// Ritorna null se NESSUna fonte risolve l'indirizzo — mai coordinate finte.
+export async function resolveBusinessLocationAsync(rawLocation, { signal } = {}) {
+  const text = String(rawLocation || '').trim();
+  if (!text) return null;
+
+  const geoDataMatch = resolveBusinessLocation(text);
+  if (geoDataMatch) {
+    return {
+      displayAddress: geoDataMatch.name,
+      city: geoDataMatch.name,
+      lat: geoDataMatch.lat,
+      lng: geoDataMatch.lng,
+      nilName: null,
+      matchType: geoDataMatch.matchType,
+      source: 'geo_data',
+    };
+  }
+
+  let geocoded = null;
+  try {
+    geocoded = await geocodeAddress(`${text}, Italia`, { signal });
+  } catch {
+    // Rete/provider non disponibile: nessun fallback inventato, si prova
+    // solo il ramo GEO_DATA già tentato sopra — location resta non risolta.
+    return null;
+  }
+  if (!geocoded) return null;
+
+  const city = geocoded.city || null;
+  let nilName = null;
+  if (city && normalizeTerritoryName(city) === normalizeTerritoryName('Milano')) {
+    const nil = await resolveNilForPoint(geocoded.lat, geocoded.lng, { municipalityName: 'Milano', signal }).catch(() => null);
+    nilName = nil?.name || null;
+  }
+
+  return {
+    displayAddress: geocoded.label,
+    city,
+    lat: geocoded.lat,
+    lng: geocoded.lng,
+    nilName,
+    matchType: 'geocoded',
+    source: 'geocoder',
+  };
 }
 
 // ── Attività → categorie POI rilevanti (riuso motore POI esistente) ────────

@@ -7,18 +7,26 @@
 // come funzione condivisa per i nuovi usi (Automatico Admin), invece di
 // introdurre un secondo provider (Google Places/Mapbox non sono usati per
 // questo scopo nel progetto).
-export async function geocodeAddress(query) {
+export async function geocodeAddress(query, { signal } = {}) {
   const trimmed = String(query || '').trim();
   if (!trimmed) return null;
   const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(trimmed)}&countrycodes=it&format=json&addressdetails=1&limit=1`;
-  const res = await fetch(url, { headers: { 'User-Agent': 'VolantiniPro/1.0' } });
+  const res = await fetch(url, { headers: { 'User-Agent': 'VolantiniPro/1.0' }, ...(signal ? { signal } : {}) });
   if (!res.ok) throw new Error('GEOCODE_HTTP_ERROR');
   const rows = await res.json();
   const first = Array.isArray(rows) ? rows[0] : null;
   const lat = Number(first?.lat);
   const lng = Number(first?.lon);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return { lat, lng, label: first.display_name || trimmed };
+  // `city`/`postcode` (Business Mode, ticket "GEOCODING + ISTAT + POI
+  // CONSISTENCY" §2/§3): componenti REALI già presenti nella risposta
+  // Nominatim (addressdetails=1 era già richiesto sopra) — nessuna nuova
+  // fonte, nessun campo inventato. Additivo: i chiamanti esistenti (che
+  // leggono solo lat/lng/label) non sono affetti.
+  const address = first?.address || {};
+  const city = address.city || address.town || address.village || address.municipality || null;
+  const postcode = address.postcode || null;
+  return { lat, lng, label: first.display_name || trimmed, city, postcode };
 }
 
 // TICKET — WATERMARK FOTO CLIENTE (Fase 4): reverse geocoding NON bloccante

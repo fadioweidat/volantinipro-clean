@@ -42,7 +42,7 @@ function haversineKm(lat1, lng1, lat2, lng2) {
  * @param {{population:number|null, households:number|null, available:boolean}} params.territorial
  * @param {boolean} params.inputsComplete true se i campi cliente richiesti erano validi (§4 data reliability)
  */
-export function buildBusinessAnalysis({ center, radiusKm, pois = [], poisAvailable = true, targets = [], territorial, inputsComplete = true }) {
+export function buildBusinessAnalysis({ center, location = null, radiusKm, pois = [], poisAvailable = true, targets = [], territorial, inputsComplete = true }) {
   const competitorCats = competitorCategoriesForTargets(targets);
   const distanced = (pois || []).map(p => ({ ...p, distanceKm: center ? Math.round(haversineKm(center.lat, center.lng, p.lat, p.lng) * 100) / 100 : null }));
 
@@ -106,7 +106,7 @@ export function buildBusinessAnalysis({ center, radiusKm, pois = [], poisAvailab
   });
 
   return {
-    center, radiusKm,
+    center, location, radiusKm,
     competitors: competitors.slice(0, 12),
     competitorCount: competitorCats.length ? competitors.length : null,
     complementaryPois: complementary.slice(0, 12),
