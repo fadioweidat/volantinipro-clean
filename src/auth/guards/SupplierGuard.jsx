@@ -161,6 +161,8 @@ function SupplierApplyForm({ onNav, onDone }) {
   const [contactName, setContactName] = useState('');
   const [phone, setPhone] = useState('');
   const [vatNumber, setVatNumber] = useState('');
+  const [coverageAreas, setCoverageAreas] = useState('Milano e provincia');
+  const [services, setServices] = useState('Door to Door, Hand to Hand, B2B');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -173,11 +175,15 @@ function SupplierApplyForm({ onNav, onDone }) {
     setBusy(true);
     setError('');
     try {
+      const areas = coverageAreas.split(',').map(s => s.trim()).filter(Boolean);
+      const srvs = services.split(',').map(s => s.trim()).filter(Boolean);
       await supplierApply({
         companyName: company,
         contactName: contactName.trim() || null,
         phone: tel,
         vatNumber: vatNumber.trim() || null,
+        coverageAreas: areas.length ? areas : null,
+        services: srvs.length ? srvs : null,
       });
       onDone();
     } catch (err) {
@@ -201,6 +207,8 @@ function SupplierApplyForm({ onNav, onDone }) {
         <input style={inputStyle} value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Referente (opzionale)" maxLength={120} autoComplete="name" />
         <input style={inputStyle} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Telefono *" maxLength={40} autoComplete="tel" inputMode="tel" />
         <input style={inputStyle} value={vatNumber} onChange={(e) => setVatNumber(e.target.value)} placeholder="Partita IVA (opzionale)" maxLength={40} />
+        <input style={inputStyle} value={coverageAreas} onChange={(e) => setCoverageAreas(e.target.value)} placeholder="Zone e province servite (es. Milano, Monza, Bergamo)" />
+        <input style={inputStyle} value={services} onChange={(e) => setServices(e.target.value)} placeholder="Servizi (es. Door to Door, Hand to Hand, B2B)" />
         {error && <p style={{ color: '#fca5a5', fontSize: 12.5, marginTop: 10 }}>{error}</p>}
         <div style={rowStyle}>
           <button type="submit" disabled={busy} style={{ ...primaryBtn, opacity: busy ? 0.6 : 1 }}>{busy ? 'Invio…' : 'Invia richiesta'}</button>

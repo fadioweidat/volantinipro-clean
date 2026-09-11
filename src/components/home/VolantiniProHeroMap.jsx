@@ -191,13 +191,13 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
               {workOpen && (
                 <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", width: 240, padding: 8, background: "rgba(10, 18, 34, 0.98)", border: "1px solid rgba(255, 255, 255, 0.12)", borderRadius: 12, boxShadow: "0 16px 40px rgba(0, 0, 0, 0.6)", display: "flex", flexDirection: "column", gap: 4, zIndex: 210 }}>
                   <button
-                    onClick={() => { setWorkOpen(false); window.location.href = "/supplier"; }}
+                    onClick={() => { setWorkOpen(false); window.location.href = "/lavora-con-noi"; }}
                     style={{ textAlign: "left", padding: "10px 12px", borderRadius: 8, background: "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}
                   >
                     Diventa fornitore
                   </button>
                   <button
-                    onClick={() => { setWorkOpen(false); window.location.href = "/supplier"; }}
+                    onClick={() => { setWorkOpen(false); window.location.href = "/login?context=supplier"; }}
                     style={{ textAlign: "left", padding: "10px 12px", borderRadius: 8, background: "transparent", border: "none", color: "rgba(255, 255, 255, 0.8)", fontFamily: F.sans, fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}
                   >
                     Sei già fornitore? Accedi
@@ -246,8 +246,8 @@ export function VolantiniProHeroMap({ onConfigure, onQuote, onLogin, onAdmin, on
           </button>
           {workOpen && (
             <>
-              <button onClick={() => { setMenuOpen(false); setWorkOpen(false); window.location.href = "/supplier"; }} style={{ ...mobileMenuItemStyle, paddingLeft: 16 }}>↳ Diventa fornitore</button>
-              <button onClick={() => { setMenuOpen(false); setWorkOpen(false); window.location.href = "/supplier"; }} style={{ ...mobileMenuItemStyle, paddingLeft: 16 }}>↳ Sei già fornitore? Accedi</button>
+              <button onClick={() => { setMenuOpen(false); setWorkOpen(false); window.location.href = "/lavora-con-noi"; }} style={{ ...mobileMenuItemStyle, paddingLeft: 16 }}>↳ Diventa fornitore</button>
+              <button onClick={() => { setMenuOpen(false); setWorkOpen(false); window.location.href = "/login?context=supplier"; }} style={{ ...mobileMenuItemStyle, paddingLeft: 16 }}>↳ Sei già fornitore? Accedi</button>
             </>
           )}
           <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "6px 0" }} />

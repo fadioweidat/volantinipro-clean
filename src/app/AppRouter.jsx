@@ -281,7 +281,9 @@ export function AppRouter() {
       admin: "/admin", "admin-live": "/admin/live", "admin-operations": "/admin/operations", "admin-daily-report": "/admin/operations/report", "admin-clients-quotes": "/admin/clients-quotes", "admin-orders": "/admin/orders",
       "admin-groups-manager": "/admin/groups", "admin-commercial": "/admin/commercial", "admin-smart-pairing": "/admin/smart-pairing", "admin-suppliers": "/admin/suppliers", "admin-status": "/admin/status", "admin-map-studio": "/admin/map-studio", "admin-analytics": "/admin/analytics",
       "admin-communications": "/admin/communications",
-      "supplier-dashboard": "/supplier"
+      "supplier-dashboard": "/supplier",
+      "supplier-landing": "/lavora-con-noi",
+      "lavora-con-noi": "/lavora-con-noi"
     };
     if (typeof window !== "undefined") {
       const params = new URLSearchParams();

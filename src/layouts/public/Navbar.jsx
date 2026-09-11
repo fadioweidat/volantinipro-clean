@@ -286,7 +286,7 @@ export function Navbar({
           gap: 4,
           zIndex: 210
         }}>
-                <button onClick={() => go("supplier-dashboard")} style={{
+                <button onClick={() => go("supplier-landing")} style={{
             textAlign: "left",
             padding: "10px 12px",
             borderRadius: 8,
@@ -300,7 +300,7 @@ export function Navbar({
           }}>
                   Diventa fornitore
                 </button>
-                <button onClick={() => go("supplier-dashboard")} style={{
+                <button onClick={() => go("login?context=supplier")} style={{
             textAlign: "left",
             padding: "10px 12px",
             borderRadius: 8,
@@ -451,7 +451,7 @@ export function Navbar({
         gap: 4,
         padding: "2px 0"
       }}>
-              <button onClick={() => go("supplier-dashboard")} style={{
+              <button onClick={() => go("supplier-landing")} style={{
           minHeight: 42,
           borderRadius: 8,
           border: "1px solid rgba(255, 255, 255, 0.14)",
@@ -464,7 +464,7 @@ export function Navbar({
         }}>
                 Diventa fornitore
               </button>
-              <button onClick={() => go("supplier-dashboard")} style={{
+              <button onClick={() => go("login?context=supplier")} style={{
           minHeight: 42,
           borderRadius: 8,
           border: "1px solid rgba(255, 255, 255, 0.14)",

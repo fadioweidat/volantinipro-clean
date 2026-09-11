@@ -33,6 +33,7 @@ export function resolveAppRoute(path, { hasAuthHash = false, prefillHas = false,
   if (p === '/cliente/dashboard') return 'dashboard';
   if (p.startsWith('/customer/') || p.startsWith('/dashboard/') || p.startsWith('/campagna/') || p.startsWith('/cliente/')) return 'not-found';
   if (p === '/supplier' || p === '/supplier/dashboard') return 'supplier-dashboard';
+  if (p === '/lavora-con-noi' || p === '/fornitori' || p === '/supplier/landing' || p === '/supplier/diventa-fornitore' || p === '/supplier/registrazione' || p === '/supplier/registrati') return 'supplier-landing';
   if (p === '/' || p === '/index.html' || p === '/volantinipro-final.jsx') return 'home';
   if (p === '/login') return 'login';
   if (p === '/dashboard') return 'dashboard';

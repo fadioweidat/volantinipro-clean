@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { supabase } from '../../lib/supabaseClient';
 import {
   getSupplierAvailableRequests,
   supplierSubmitQuote,
@@ -161,6 +162,7 @@ function QuoteForm({ requestCode, onDone }) {
 }
 
 export function SupplierDashboard() {
+  const [profile, setProfile] = useState(null);
   const [requests, setRequests] = useState([]);
   const [ownQuotes, setOwnQuotes] = useState([]);
   const [assigned, setAssigned] = useState([]);
@@ -179,6 +181,31 @@ export function SupplierDashboard() {
       setAssignments(Array.isArray(list) ? list : []);
     } catch {
       setAssignments([]);
+    }
+  }, []);
+
+  const reloadProfile = useCallback(async () => {
+    try {
+      let user = null;
+      try {
+        const { data: { user: u } } = await supabase.auth.getUser();
+        user = u;
+      } catch { user = null; }
+
+      let query = supabase.from('supplier_profiles').select('*');
+      if (user?.id) query = query.eq('id', user.id);
+      const res = await (query.maybeSingle ? query.maybeSingle() : query.single());
+      const sp = res?.data || null;
+      if (sp) {
+        setProfile({
+          ...sp,
+          email: sp.email || user?.email || '',
+        });
+      } else if (user) {
+        setProfile({ email: user.email || '', status: 'verified' });
+      }
+    } catch {
+      // Ignora silenziosamente
     }
   }, []);
 
@@ -221,13 +248,90 @@ export function SupplierDashboard() {
     }
   }, []);
 
-  useEffect(() => { reload(); reloadAssignments(); }, [reload, reloadAssignments]);
+  useEffect(() => { reload(); reloadAssignments(); reloadProfile(); }, [reload, reloadAssignments, reloadProfile]);
 
   return (
     <div style={{ padding: 32, maxWidth: 900, margin: '0 auto', color: '#fff', fontFamily: F.sans }}>
       <h1 style={{ fontFamily: F.serif, fontSize: 30, margin: '0 0 4px' }}>Bacheca Fornitore</h1>
       <p style={{ color: 'rgba(255,255,255,.55)', margin: '0 0 20px', fontSize: 14 }}>Richieste, offerte e lavori assegnati.</p>
       {error && <div style={{ ...card, color: '#fca5a5' }}>{error}</div>}
+
+      {/* 0 — Scheda Profilo Fornitore */}
+      {profile && (
+        <section style={{ ...card, background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.12)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+            <div>
+              <p style={{ ...eyebrow, marginBottom: 4 }}>Profilo Fornitore</p>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#fff' }}>{profile.company_name || 'Ditta fornitore'}</h2>
+            </div>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: '4px 10px',
+              borderRadius: 20,
+              fontSize: 12,
+              fontWeight: 800,
+              background: profile.status === 'verified' ? 'rgba(34,197,94,.18)' : profile.status === 'pending' ? 'rgba(234,179,8,.18)' : 'rgba(239,68,68,.18)',
+              color: profile.status === 'verified' ? '#86efac' : profile.status === 'pending' ? '#fde047' : '#fca5a5',
+              border: `1px solid ${profile.status === 'verified' ? 'rgba(34,197,94,.4)' : profile.status === 'pending' ? 'rgba(234,179,8,.4)' : 'rgba(239,68,68,.4)'}`,
+            }}>
+              ● {profile.status === 'verified' ? 'Approvato' : profile.status === 'pending' ? 'In verifica' : profile.status === 'suspended' ? 'Sospeso' : profile.status || 'Registrato'}
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, fontSize: 13, color: 'rgba(255,255,255,.75)' }}>
+            {profile.contact_name && (
+              <div>
+                <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.06em', color: 'rgba(255,255,255,.4)', display: 'block', marginBottom: 2 }}>Referente</span>
+                <span style={{ color: '#fff', fontWeight: 600 }}>{profile.contact_name}</span>
+              </div>
+            )}
+            {profile.phone && (
+              <div>
+                <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.06em', color: 'rgba(255,255,255,.4)', display: 'block', marginBottom: 2 }}>Telefono</span>
+                <span style={{ color: '#fff', fontWeight: 600 }}>{profile.phone}</span>
+              </div>
+            )}
+            {profile.email && (
+              <div>
+                <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.06em', color: 'rgba(255,255,255,.4)', display: 'block', marginBottom: 2 }}>Email</span>
+                <span style={{ color: '#fff', fontWeight: 600 }}>{profile.email}</span>
+              </div>
+            )}
+            {profile.vat_number && (
+              <div>
+                <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.06em', color: 'rgba(255,255,255,.4)', display: 'block', marginBottom: 2 }}>P. IVA</span>
+                <span style={{ color: '#fff', fontWeight: 600 }}>{profile.vat_number}</span>
+              </div>
+            )}
+          </div>
+
+          {((Array.isArray(profile.coverage_areas) && profile.coverage_areas.length > 0) || (Array.isArray(profile.services) && profile.services.length > 0)) && (
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,.08)', display: 'grid', gap: 10 }}>
+              {Array.isArray(profile.coverage_areas) && profile.coverage_areas.length > 0 && (
+                <div>
+                  <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.06em', color: 'rgba(255,255,255,.4)', display: 'block', marginBottom: 6 }}>Zone servite</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {profile.coverage_areas.map((z) => (
+                      <span key={z} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(255,255,255,.08)', color: '#fff' }}>{z}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {Array.isArray(profile.services) && profile.services.length > 0 && (
+                <div>
+                  <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.06em', color: 'rgba(255,255,255,.4)', display: 'block', marginBottom: 6 }}>Servizi offerti</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {profile.services.map((s) => (
+                      <span key={s} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(232,87,26,.15)', color: '#fdba74', border: '1px solid rgba(232,87,26,.3)' }}>{s}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* 1 — Richieste disponibili */}
       <section style={card}>

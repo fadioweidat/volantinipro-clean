@@ -49,7 +49,7 @@ const columns = [
     title: "Azienda",
     links: [
       ["Chi siamo", "how"],
-      ["Lavora con noi (in prep.)", "prep"],
+      ["Lavora con noi", "lavora-con-noi"],
       ["Blog (in prep.)", "prep"],
       ["Contatti", "consultant"],
       ["Press kit (in prep.)", "prep"],

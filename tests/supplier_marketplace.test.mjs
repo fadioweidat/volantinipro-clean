@@ -286,15 +286,14 @@ test('routing — /supplier registrato, risolto, protetto da SupplierGuard', () 
 test('routing — voce "Lavora con noi" instrada al flusso Fornitore, mai a /dashboard', () => {
   const NAVBAR = read('src/layouts/public/Navbar.jsx');
   const HERO = read('src/components/home/VolantiniProHeroMap.jsx');
-  // Navbar: "Lavora con noi" -> "Diventa fornitore" / "Sei gia' fornitore? Accedi"
-  // navigano a supplier-dashboard (nessun rimando a "dashboard" cliente).
+  // Navbar: "Lavora con noi" -> "Diventa fornitore" (supplier-landing) / "Sei gia' fornitore? Accedi" (login?context=supplier)
   assert.match(NAVBAR, /<span>Lavora con noi<\/span>/);
-  assert.match(NAVBAR, /go\("supplier-dashboard"\)[\s\S]{0,400}Diventa fornitore/);
-  assert.match(NAVBAR, /go\("supplier-dashboard"\)[\s\S]{0,400}Sei già fornitore\? Accedi/);
-  // Hero: stesse voci -> /supplier.
+  assert.match(NAVBAR, /go\("supplier-landing"\)[\s\S]{0,400}Diventa fornitore/);
+  assert.match(NAVBAR, /go\("login\?context=supplier"\)[\s\S]{0,400}Sei già fornitore\? Accedi/);
+  // Hero: stesse voci -> /lavora-con-noi e /login?context=supplier.
   assert.match(HERO, /<span>Lavora con noi<\/span>/);
-  assert.match(HERO, /window\.location\.href = "\/supplier"[\s\S]{0,160}Diventa fornitore/);
-  assert.match(HERO, /window\.location\.href = "\/supplier"[\s\S]{0,160}Sei già fornitore\? Accedi/);
+  assert.match(HERO, /window\.location\.href = "\/lavora-con-noi"[\s\S]{0,160}Diventa fornitore/);
+  assert.match(HERO, /window\.location\.href = "\/login\?context=supplier"[\s\S]{0,160}Sei già fornitore\? Accedi/);
   // Login callback: intento Fornitore -> supplier-dashboard, non "dashboard".
   assert.match(FINAL, /loginIntentIsSupplier = isSupplierContext/);
   assert.match(FINAL, /if \(loginIntentIsSupplier\) \{\s*\n\s*onNav\("supplier-dashboard"\)/);
@@ -465,7 +464,7 @@ test('AA — Dashboard: read-path assegnazioni dal backend, "corrente" = solo st
   assert.match(DASH, /if \(a\.assignment_status !== 'active'\) continue;/);
   assert.match(DASH, /const activeOpsByCampaign = useMemo\(/);
   // al mount si ricarica SEMPRE dal backend (oltre a reload())
-  assert.match(DASH, /useEffect\(\(\) => \{ reload\(\); reloadAssignments\(\); \}/);
+  assert.match(DASH, /useEffect\(\(\) => \{\s*reload\(\);\s*reloadAssignments\(\);/);
   // dopo un assign la UI si riallinea dalla fonte di verita', non da state locale
   assert.match(DASH, /await reloadAssignments\(\);/);
   // nessuna mappa di assegnazioni tenuta come "verita'" nello state del componente
