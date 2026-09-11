@@ -9,10 +9,12 @@ import { readFeasibility, saveFeasibility, STORAGE_KEY } from './feasibilityStor
 import './feasibility.css';
 import { commerce, analysisToken, errorText } from './feasibilityCommerce.js';
 import FeasibilityPurchase from './FeasibilityPurchase.jsx';
+import FeasibilityModeChoice from './business/FeasibilityModeChoice.jsx';
+import FeasibilityBusinessFlow from './business/FeasibilityBusinessFlow.jsx';
 
 export default function FeasibilityPage({ onNav }) {
   const [state, setState] = useState(() => readFeasibility(typeof window === 'undefined' ? null : window));
-  const { inputs, context, phase, unusualMargin } = state;
+  const { inputs, context, phase, unusualMargin, mode, businessInputs } = state;
   const [messages, setMessages] = useState([]), [busy, setBusy] = useState(false), [notice, setNotice] = useState('');
   const [result, setResult] = useState(null), [narrative, setNarrative] = useState(null), [aiState, setAiState] = useState('idle');
   const [storageAvailable, setStorageAvailable] = useState(true);
@@ -50,8 +52,31 @@ export default function FeasibilityPage({ onNav }) {
   }
   function generate() { try { setResult(calculateFeasibility(inputs, { unusualMargin })); setNotice(''); change({ phase: 2 }); interpret(); } catch { setNotice('Controlla i dati: il calcolo non è possibile con questi valori.'); } }
   function edit() { if (busy) return; change({ phase: 1 }); setResult(null); setNarrative(null); setAiState('idle'); }
+
+  // ── Scelta esplicita del modo (§1): nessuna inferenza da campi mancanti.
+  // Finché l'utente non sceglie, non viene mostrato né il flusso Campaign
+  // (invariato sotto) né quello Business (nuovo, isolato in ./business/).
+  if (!mode) {
+    return <main className="vf-page"><div className="vf-shell">
+      <FeasibilityModeChoice onChoose={chosen => change({ mode: chosen })} />
+    </div></main>;
+  }
+  if (mode === 'business') {
+    return <main className="vf-page"><div className="vf-shell">
+      <header className="vf-heading"><span className="vf-eyebrow">VolantiniPro · Studio di Fattibilità AI</span><h1>Scopri il potenziale della tua attività</h1><p>Analizziamo territorio, pubblico potenziale, concorrenza e opportunità per aiutarti a capire se una zona è adatta alla tua attività.</p></header>
+      <FeasibilityBusinessFlow
+        inputs={businessInputs}
+        onChange={next => change({ businessInputs: next })}
+        onBackToChoice={() => change({ mode: null })}
+        onNav={onNav}
+      />
+    </div></main>;
+  }
+
+  // ── Campaign Mode (esistente, INVARIATO): stessa UI, stessi hook, stesse
+  // chiamate. Nessuna riga di logica sotto è stata modificata da questo ticket.
   return <main className="vf-page"><div className="vf-shell">
-    <header className="vf-heading"><span className="vf-eyebrow">VolantiniPro · Analisi campagna</span><h1>La tua campagna, con i numeri in chiaro.</h1><p>Racconta la tua attività. Verifica le ipotesi. Valuta gli scenari.</p></header>
+    <header className="vf-heading"><span className="vf-eyebrow">VolantiniPro · Analisi campagna</span><h1>La tua campagna, con i numeri in chiaro.</h1><p>Racconta la tua attività. Verifica le ipotesi. Valuta gli scenari.</p><button type="button" className="vf-no-print" onClick={() => change({ mode: null })}>Cerchi invece uno studio di fattibilità per la tua attività (anche senza campagna)?</button></header>
     <nav className="vf-progress" aria-label="Fasi analisi"><ol>{['Raccontaci la tua attività', 'Riepilogo', 'Analisi', 'Report'].map((label, index) => <li key={label} aria-current={phase === index ? 'step' : undefined}><span>{index + 1}</span>{label}</li>)}</ol></nav>
     {context && <aside className="vf-context" aria-label="Campagna collegata"><strong>Campagna collegata</strong><span>{context.service === 'd2d' ? 'Door to Door' : context.service || 'Servizio non indicato'} · {context.municipalities.join(', ')}</span><span>{context.quantity != null && `${number(context.quantity)} volantini`}{context.total != null && ` · Costo campagna: ${money(context.total)}`}</span><small>Valori del preventivo in sola lettura</small></aside>}
     {!storageAvailable && <p role="status">Salvataggio della sessione non disponibile: conserva il report prima di chiudere la pagina.</p>}
