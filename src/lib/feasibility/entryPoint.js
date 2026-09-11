@@ -89,15 +89,18 @@ export function buildCampaignTerritoryContext(data) {
 
   const zoneNames = rows.map(r => r.name || r.label).filter(Boolean);
 
+  const isRadius = areaMode === 'radius';
   const nilRows = rows.filter(r => r.isNil || r.territoryLevel === 'nil' || Boolean(r.nilCode) || Boolean(r.nil_code));
-  const externalComuniRows = rows.filter(r => (!r.isNil && r.territoryLevel !== 'nil' && !r.nilCode && !r.nil_code) && (r.isComune || r.territoryLevel === 'comune' || r.type === 'comune' || (!r.isNil && r.name && r.name !== cityName)));
+  const externalComuniRows = isRadius
+    ? rows.filter(r => (!r.isNil && r.territoryLevel !== 'nil' && !r.nilCode && !r.nil_code) && (r.isComune || r.territoryLevel === 'comune' || r.type === 'comune' || (r.name && r.name !== cityName && nilRows.length > 0)))
+    : [];
 
   let campaignAreas = '';
-  if (nilRows.length > 0 && externalComuniRows.length > 0) {
+  if (isRadius && nilRows.length > 0 && externalComuniRows.length > 0) {
     campaignAreas = `${nilRows.length} NIL Milano + ${externalComuniRows.length} comuni limitrofi`;
-  } else if (nilRows.length > 0) {
+  } else if (isRadius && nilRows.length > 0) {
     campaignAreas = `${nilRows.length} NIL Milano`;
-  } else if (externalComuniRows.length > 0) {
+  } else if (isRadius && externalComuniRows.length > 0) {
     campaignAreas = `${externalComuniRows.length} comuni limitrofi`;
   } else if (zoneNames.length > 0) {
     if (zoneNames.length <= 5) {

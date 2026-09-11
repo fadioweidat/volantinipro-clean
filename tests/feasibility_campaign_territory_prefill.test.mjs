@@ -96,3 +96,74 @@ test('initialInputs & readFeasibility: prefill enriched territory and human read
   assert.equal(state.inputs.campaignCost.value, 850);
   assert.equal(state.inputs.flyerQuantity.value, 15000);
 });
+
+test('FeasibilityPurchase & FeasibilityReport markup: render Door to Door and rich radius territory', async () => {
+  const React = (await import('react')).default;
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const FeasibilityPurchase = (await import('../src/pages/customer/feasibility/FeasibilityPurchase.jsx')).default;
+  const FeasibilityReport = (await import('../src/pages/customer/feasibility/FeasibilityReport.jsx')).default;
+  const { calculateFeasibility } = await import('../src/pages/customer/feasibility/feasibilityEngine.js');
+
+  const context = {
+    referenceId: 'camp_oroboni_100k',
+    quantity: 100637,
+    service: 'd2d',
+    total: 2902.2,
+    operationalCity: 'Raggio 3 km da Via Antonio Oroboni, 20161 Milano — NIL BRUZZANO',
+    campaignAreas: '12 NIL Milano + 8 comuni limitrofi',
+    areas: ['BRUZZANO', 'AFFORI', 'Cormano', 'Bresso'],
+    startDate: '2026-10-15',
+  };
+
+  const inputs = initialInputs(context);
+  inputs.businessType = { value: 'palestra', source: 'user_provided' };
+  inputs.averageCustomerRevenue = { value: 200, source: 'user_provided' };
+  inputs.averageCustomerMargin = { value: 150, source: 'user_provided' };
+  inputs.targetNewCustomers = { value: 20, source: 'user_provided' };
+
+  // 1. Test FeasibilityPurchase markup (Free Preview / Studio Completato block)
+  const preview = {
+    city: inputs.city.value,
+    operationalCity: inputs.city.value,
+    campaignAreas: inputs.campaignArea.value,
+    businessType: inputs.businessType.value,
+    flyerQuantity: inputs.flyerQuantity.value,
+    campaignCost: 2902.2,
+    breakEvenCustomers: 20,
+    classification: 'CONVENIENTE',
+    scenarioName: 'Prudente',
+    expectedCustomers: 30,
+    serviceLabel: 'Door to Door',
+  };
+
+  const purchaseHtml = renderToStaticMarkup(React.createElement(FeasibilityPurchase, { preview, inputs, context }));
+  assert.ok(purchaseHtml.includes('Door to Door · Raggio 3 km da Via Antonio Oroboni, 20161 Milano — NIL BRUZZANO'), 'Header must show Door to Door and rich radius territory');
+  assert.ok(purchaseHtml.includes('Raggio 3 km da Via Antonio Oroboni, 20161 Milano — NIL BRUZZANO · palestra · 100.637 volantini'), 'Studio completato block must show rich territory');
+  assert.ok(!purchaseHtml.includes('Door to Door · Milano<'), 'Header must NOT collapse to just Milano');
+
+  // 2. Test FeasibilityReport markup (Report body, header, section 3, PDF footer)
+  const result = calculateFeasibility(inputs);
+  const narrative = {
+    executive: 'Campagna con ottimo potenziale nel raggio di 3 km.',
+    business: 'Attività fitness sul territorio.',
+  };
+
+  const reportHtml = renderToStaticMarkup(React.createElement(FeasibilityReport, { inputs, result, narrative }));
+  assert.ok(reportHtml.includes('Door to Door · Raggio 3 km da Via Antonio Oroboni, 20161 Milano — NIL BRUZZANO'), 'Report heading must show Door to Door and rich radius territory');
+  assert.ok(reportHtml.includes('Area operativa:</strong> Raggio 3 km da Via Antonio Oroboni, 20161 Milano — NIL BRUZZANO'), 'Section 3 must show Area operativa');
+  assert.ok(reportHtml.includes('Aree campagna:</strong> 12 NIL Milano + 8 comuni limitrofi'), 'Section 3 must show Aree campagna');
+  assert.ok(reportHtml.includes('Servizio:</strong> Door to Door'), 'Section 3 must show Door to Door');
+});
+
+test('fallback: single municipality mode produces clean municipality name without radius clutter', () => {
+  const mockData = {
+    areaMode: 'municipality',
+    cityName: 'Monza',
+    selectedComuni: [{ name: 'Monza' }],
+    zonesAllocation: [{ name: 'Monza Centro' }, { name: 'Monza San Biagio' }]
+  };
+
+  const territoryCtx = buildCampaignTerritoryContext(mockData);
+  assert.equal(territoryCtx.operationalCity, 'Monza');
+  assert.equal(territoryCtx.campaignAreas, 'Monza Centro, Monza San Biagio');
+});
