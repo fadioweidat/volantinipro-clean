@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import FeasibilityConversation from './FeasibilityConversation.jsx';
 import FeasibilitySummary from './FeasibilitySummary.jsx';
 import { money, number } from './FeasibilityReport.jsx';
-import { FIELDS, nextMissing, scenariosFromHistory } from './feasibilitySchemas.js';
+import { FIELDS, nextMissing, scenariosFromHistory, validationErrors } from './feasibilitySchemas.js';
 import { calculateFeasibility } from './feasibilityEngine.js';
 import { applyEvidence } from './feasibilityAi.js';
 import { readFeasibility, saveFeasibility, STORAGE_KEY } from './feasibilityStorage.js';
@@ -73,12 +73,26 @@ export default function FeasibilityPage({ onNav }) {
     </div></main>;
   }
 
-  // ── Campaign Mode (esistente, INVARIATO): stessa UI, stessi hook, stesse
-  // chiamate. Nessuna riga di logica sotto è stata modificata da questo ticket.
+  // ── Campaign Mode: motore/formule INVARIATI (send/interpret/generate/
+  // calculateFeasibility sotto non sono stati toccati da questo ticket).
+  // Additivo (ticket "CAMPAIGN FEASIBILITY PREFILL" §2/§3/§5/§11): quando la
+  // pagina arriva da un preventivo/campagna esistente (context non nullo),
+  // i campi già noti restano in sola lettura (FeasibilitySummary li gestisce
+  // già) e il fast-path in feasibilityStorage porta l'utente direttamente al
+  // riepilogo (phase 1) invece che alla conversazione a fasi (phase 0).
+  const allRequiredKnown = Object.keys(validationErrors(inputs, true)).length === 0;
   return <main className="vf-page"><div className="vf-shell">
     <header className="vf-heading"><span className="vf-eyebrow">VolantiniPro · Analisi campagna</span><h1>La tua campagna, con i numeri in chiaro.</h1><p>Racconta la tua attività. Verifica le ipotesi. Valuta gli scenari.</p><button type="button" className="vf-no-print" onClick={() => change({ mode: null })}>Cerchi invece uno studio di fattibilità per la tua attività (anche senza campagna)?</button></header>
     <nav className="vf-progress" aria-label="Fasi analisi"><ol>{['Raccontaci la tua attività', 'Riepilogo', 'Analisi', 'Report'].map((label, index) => <li key={label} aria-current={phase === index ? 'step' : undefined}><span>{index + 1}</span>{label}</li>)}</ol></nav>
-    {context && <aside className="vf-context" aria-label="Campagna collegata"><strong>Campagna collegata</strong><span>{context.service === 'd2d' ? 'Door to Door' : context.service || 'Servizio non indicato'} · {context.municipalities.join(', ')}</span><span>{context.quantity != null && `${number(context.quantity)} volantini`}{context.total != null && ` · Costo campagna: ${money(context.total)}`}</span><small>Valori del preventivo in sola lettura</small></aside>}
+    {context && <aside className="vf-context" aria-label="Dati collegati alla campagna">
+      <strong>Dati collegati alla campagna</strong>
+      <span>{{ d2d: 'Door to Door', h2h: 'Hand to Hand', b2b: 'Distribuzione Business' }[context.service] || context.service || 'Servizio non indicato'} · {context.municipalities.join(', ') || (context.areas.length ? context.areas.join(', ') : 'Zona non indicata')}</span>
+      <span>{context.quantity != null && `${number(context.quantity)} volantini`}{context.total != null && ` · Costo campagna: ${money(context.total)}`}{context.startDate && ` · Avvio: ${context.startDate}`}{context.referenceId && ` · Rif. ${context.referenceId}`}</span>
+      <small>Dato già presente nel preventivo/campagna: sola lettura, non serve inserirlo di nuovo.</small>
+      {allRequiredKnown
+        ? <p role="status">I dati necessari sono già disponibili. Controlla il riepilogo e genera l’analisi.</p>
+        : <p role="status">Abbiamo già recuperato i dati della tua campagna. Completa solo le informazioni economiche mancanti.</p>}
+    </aside>}
     {!storageAvailable && <p role="status">Salvataggio della sessione non disponibile: conserva il report prima di chiudere la pagina.</p>}
     {notice && <p className="vf-notice" role="status">{notice}</p>}
     {phase === 0 && <FeasibilityConversation inputs={inputs} messages={messages} busy={busy} onSend={send} onReview={() => change({ phase: 1 })} />}

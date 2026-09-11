@@ -1,4 +1,5 @@
 import { PagamentoBonificoPage as FeasibilityCreditPaymentPage } from './src/pages/PagamentoBonifico.jsx';
+import { openFeasibility } from './src/lib/feasibility/entryPoint.js';
 import CampaignSettlementSummary from './src/components/customer/CampaignSettlementSummary.jsx';
 import React, { Component, Fragment, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { printQuotePdf } from "./src/lib/pdf/printQuotePdf.js";
@@ -5870,6 +5871,26 @@ export function CampaignDashboardPage({
                 fontWeight: 700,
                 cursor: "pointer"
               }}>Apri report</button>
+              <button onClick={() => openFeasibility({
+                referenceId: campagna.id,
+                municipalities: campagna.comuni?.length ? campagna.comuni : [campagna.zona].filter(Boolean),
+                quantity: campagna.quantita,
+                service: campagna.service_type,
+                total: campagna.pricing?.total || campagna.totale_euro,
+                areas: campagna.comuni || [],
+                startDate: campagna.data_inizio || null,
+              }, window, 'campaign', 'campaign')} style={{
+                minHeight: 44,
+                padding: "0 16px",
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,.12)",
+                background: "rgba(255,255,255,.05)",
+                color: C.white,
+                fontFamily: F.sans,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer"
+              }}>Analizza fattibilità</button>
             </div>
           </div>
 

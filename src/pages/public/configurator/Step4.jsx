@@ -2907,7 +2907,7 @@ export function Step4({
               eur={eur}
             />
 
-            {!sent && <Step4FeasibilityCard context={{ referenceId: data.campaignId || null, municipalities: [data.cityName || data.city?.name].filter(Boolean), quantity: flyerQty, service: svcType, total: grandTotal, areas: selectedZoneNames }} />}
+            {!sent && <Step4FeasibilityCard context={{ referenceId: data.campaignId || null, municipalities: [data.cityName || data.city?.name].filter(Boolean), quantity: flyerQty, service: svcType, total: grandTotal, areas: selectedZoneNames, startDate: data.startDate || null }} />}
 
             <Step4CampaignActionsPanel
               sent={sent}

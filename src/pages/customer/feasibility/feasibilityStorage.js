@@ -9,10 +9,13 @@ export const STORAGE_KEY = 'vp_feasibility_session_v2';
 // (§1) — resta null finché l'utente non sceglie esplicitamente.
 export function readFeasibility(browser) {
   const context = browser?.history?.state?.feasibility ? feasibilityContext(browser.history.state.feasibility) : null;
-  // Default 'campaign' preserva l'esperienza esistente su questa rotta
-  // (entry point storici: home CTA, Step4 card) — la scelta esplicita (§1)
-  // resta comunque raggiungibile via link nell'header o "Cambia tipo di analisi".
-  const initial = { context, inputs: initialInputs(context), unusualMargin: false, phase: 0, mode: 'campaign', businessInputs: initialBusinessInputs() };
+  // FAST PATH (ticket "CAMPAIGN FEASIBILITY PREFILL" §5/§6): un contesto
+  // collegato (preventivo/campagna) salta la conversazione a fasi (phase 0)
+  // e apre direttamente il riepilogo prefillato (phase 1) — i campi noti
+  // sono già in sola lettura lì, restano da compilare solo quelli economici
+  // mancanti. SENZA contesto (homepage standalone, §6) il flusso resta quello
+  // storico a partire da phase 0: nessuna regressione.
+  const initial = { context, inputs: initialInputs(context), unusualMargin: false, phase: context ? 1 : 0, mode: 'campaign', contextSource: null, businessInputs: initialBusinessInputs() };
   // Scelta esplicita da un CTA (homepage §1/§6): history.state.feasibilityMode
   // vince sempre su una sessione salvata precedente — e' il segnale piu'
   // fresco dell'intento dell'utente in questa navigazione, evita di dover
@@ -20,6 +23,11 @@ export function readFeasibility(browser) {
   // di ogni return (anche quello anticipato sotto) cosi' vince sempre.
   const requestedMode = browser?.history?.state?.feasibilityMode;
   if (requestedMode === 'business' || requestedMode === 'campaign') initial.mode = requestedMode;
+  // Sorgente esplicita dell'apertura (ticket §1): MAI inferita da quali campi
+  // sono presenti nel context, dichiarata dal chiamante (openFeasibility) e
+  // letta qui allo stesso modo di feasibilityMode.
+  const requestedSource = browser?.history?.state?.contextSource;
+  if (['quote', 'campaign', 'dashboard', 'order'].includes(requestedSource)) initial.contextSource = requestedSource;
   try {
     const saved = JSON.parse(browser?.sessionStorage?.getItem(STORAGE_KEY) || 'null');
     if (saved?.version !== 2 || saved.contextKey !== JSON.stringify(context) || Date.now() - saved.savedAt > 86400000) return initial;
@@ -30,8 +38,13 @@ export function readFeasibility(browser) {
     }
     initial.unusualMargin = saved.unusualMargin === true;
     // Re-open review after refresh; no automatic AI calls or stale reports.
+    // Rispetta sempre la fase salvata esplicitamente: se l'utente e' tornato
+    // volutamente alla conversazione (phase 0, es. "Torna alla conversazione"
+    // dal riepilogo) un refresh non deve rimandarlo forzatamente al riepilogo
+    // solo perche' esiste un contesto collegato.
     initial.phase = saved.phase > 0 ? 1 : 0;
     if (saved.mode === 'business' || saved.mode === 'campaign') initial.mode = saved.mode;
+    if (['quote', 'campaign', 'dashboard', 'order'].includes(saved.contextSource)) initial.contextSource = saved.contextSource;
     if (saved.businessInputs && typeof saved.businessInputs === 'object') {
       const restored = initialBusinessInputs();
       for (const key of Object.keys(restored)) {
@@ -45,12 +58,13 @@ export function readFeasibility(browser) {
   // initial.mode con la preferenza SALVATA — la richiesta esplicita corrente
   // deve comunque vincere anche in quel caso.
   if (requestedMode === 'business' || requestedMode === 'campaign') initial.mode = requestedMode;
+  if (['quote', 'campaign', 'dashboard', 'order'].includes(requestedSource)) initial.contextSource = requestedSource;
   return initial;
 }
 export function saveFeasibility(browser, state) {
   try {
     const inputs = Object.fromEntries(Object.entries(state.inputs).filter(([key, item]) => FIELDS[key] && SOURCES.includes(item.source)).map(([key, item]) => [key, { value: item.value, source: item.source }]));
-    browser.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, contextKey: JSON.stringify(state.context), inputs, unusualMargin: state.unusualMargin, phase: state.phase, mode: state.mode ?? null, businessInputs: state.businessInputs ?? initialBusinessInputs(), savedAt: Date.now() }));
+    browser.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, contextKey: JSON.stringify(state.context), inputs, unusualMargin: state.unusualMargin, phase: state.phase, mode: state.mode ?? null, contextSource: state.contextSource ?? null, businessInputs: state.businessInputs ?? initialBusinessInputs(), savedAt: Date.now() }));
     return true;
   } catch { return false; }
 }
