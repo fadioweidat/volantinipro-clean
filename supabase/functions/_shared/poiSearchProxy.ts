@@ -30,23 +30,25 @@ export type PoiServiceType = (typeof POI_SERVICE_TYPES)[number];
 //   2. overpass.private.coffee
 //   3. overpass.kumi.systems (ultimo: se e' morto costa comunque solo l'ultimo giro)
 export const POI_OVERPASS_ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
   'https://lz4.overpass-api.de/api/interpreter',
   'https://z.overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter',
+  'https://overpass.openstreetmap.fr/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
 ];
 
 /**
  * Come resolveEndpoints di roadNetworkProxy, ma sull'ordine POI: eventuale
- * OVERPASS_ENDPOINT (env server) prima, poi POI_OVERPASS_ENDPOINTS. Solo
- * https://, nessun duplicato.
+ * POI_OVERPASS_ENDPOINT (env server) prima, poi POI_OVERPASS_ENDPOINTS. Solo
+ * https://, nessun duplicato, esclude endpoint noti come non funzionanti.
  */
 export function resolvePoiEndpoints(envEndpoint?: string | null): string[] {
   const list: string[] = [];
   const push = (u: unknown) => {
     const v = String(u || '').trim();
-    if (v && /^https:\/\//i.test(v) && !list.includes(v)) list.push(v);
+    if (v && /^https:\/\//i.test(v) && !list.includes(v) && !v.includes('kumi.systems') && !v.includes('private.coffee')) {
+      list.push(v);
+    }
   };
   push(envEndpoint);
   for (const u of POI_OVERPASS_ENDPOINTS) push(u);
@@ -73,7 +75,7 @@ export function resultCap(serviceType: string): number {
 // completa in ~5s lato Overpass non serve comunque (l'abort di rete scatta
 // prima). Era 12s -> con 3 provider + retry potevano sommarsi 30-70s prima del
 // 502 (ticket "POI SEARCH TOO SLOW + 502").
-export const POI_OVERPASS_QL_TIMEOUT_S = 8;
+export const POI_OVERPASS_QL_TIMEOUT_S = 25;
 
 // ── Tag-set per servizio (allowlist server-side) ──────────────────────────
 // SOLO `key`/`val` (guidano la QL) + `cat` (per il filtro per target).
@@ -152,7 +154,7 @@ export const POI_TAGS: Record<PoiServiceType, PoiTag[]> = {
     { key: 'amenity', val: 'hospital', cat: 'Ospedale' },
     { key: 'shop', val: 'car', cat: 'Concessionaria' },
     { key: 'shop', val: 'car_repair', cat: 'Officina' },
-    { key: 'office',  val: 'estate_agent', cat: 'Immobiliare' },
+    { key: 'office', val: 'estate_agent', cat: 'Immobiliare' },
   ],
   d2d: [
     { key: 'amenity', val: 'pharmacy', cat: 'Farmacia' },
@@ -190,24 +192,57 @@ export const POI_TAGS: Record<PoiServiceType, PoiTag[]> = {
 // client). "all"/"altro"/vuoto = tutte le categorie del servizio.
 export const TARGET_POI_CATEGORIES: Record<string, string[]> = {
   ristorazione: ['Ristorante', 'Bar', 'Bar/Caffè', 'Pub', 'Mercato'],
+  bar: ['Bar', 'Bar/Caffè', 'Pub'],
+  ristoranti: ['Ristorante', 'Bar/Caffè', 'Pub'],
   retail: ['Negozio', 'Supermercato', 'Centro comm.', 'Abbigliamento', 'Tabacchi'],
-  sanitario: ['Farmacia', 'Clinica', 'Ospedale'],
-  automotive: ['Officina', 'Concessionaria'],
-  business: ['Ufficio'],
-  hospitality: ['Hotel', 'Struttura ricettiva'],
-  professional_services: ['Studio professionale', 'Studio legale', 'Commercialista', 'Studio finanz.'],
-  industrial: ['Industria', 'Capannone'],
-  scuole: ['Scuola'],
-  universita: ['Università', 'Biblioteca'],
-  stazioni: ['Stazione', 'Metro'],
-  centri_commerciali: ['Centro comm.'],
-  immobiliare: ['Immobiliare'],
+  negozi: ['Negozio', 'Supermercato', 'Centro comm.', 'Abbigliamento'],
+  supermercato: ['Supermercato', 'Centro comm.'],
+  supermercati: ['Supermercato', 'Centro comm.'],
+  alimentari: ['Supermercato', 'Centro comm.', 'Mercato'],
+  sanitario: ['Farmacia', 'Clinica', 'Ospedale', 'Studio medico'],
+  farmacia: ['Farmacia', 'Clinica'],
+  farmacie: ['Farmacia', 'Clinica'],
+  salute: ['Farmacia', 'Clinica', 'Ospedale', 'Studio medico'],
+  benessere: ['Centro estetico', 'Parrucchiere', 'Palestra', 'Farmacia', 'Clinica'],
+  estetica: ['Centro estetico', 'Parrucchiere'],
   beauty: ['Parrucchiere', 'Centro estetico'],
+  parrucchieri: ['Parrucchiere', 'Centro estetico'],
   fitness: ['Palestra', 'Centro sportivo'],
   palestra: ['Palestra', 'Centro sportivo'],
   palestre: ['Palestra', 'Centro sportivo'],
   gym: ['Palestra', 'Centro sportivo'],
   sport: ['Palestra', 'Centro sportivo'],
+  centri_sportivi: ['Centro sportivo', 'Palestra'],
+  scuole: ['Scuola'],
+  scuola: ['Scuola'],
+  istruzione: ['Scuola', 'Università', 'Biblioteca'],
+  universita: ['Università', 'Biblioteca'],
+  stazioni: ['Stazione', 'Metro'],
+  stazione: ['Stazione', 'Metro'],
+  metro: ['Metro', 'Stazione'],
+  centri_commerciali: ['Centro comm.'],
+  centro_commerciale: ['Centro comm.'],
+  mall: ['Centro comm.'],
+  automotive: ['Officina', 'Concessionaria'],
+  officina: ['Officina', 'Concessionaria'],
+  concessionaria: ['Concessionaria', 'Officina'],
+  business: ['Ufficio'],
+  uffici: ['Ufficio'],
+  aziende: ['Ufficio', 'Capannone', 'Industria'],
+  hospitality: ['Hotel', 'Struttura ricettiva'],
+  hotel: ['Hotel', 'Struttura ricettiva'],
+  alberghi: ['Hotel', 'Struttura ricettiva'],
+  professional_services: ['Studio professionale', 'Studio legale', 'Commercialista', 'Studio finanz.'],
+  servizi_professionali: ['Studio professionale', 'Studio legale', 'Commercialista', 'Studio finanz.'],
+  industrial: ['Industria', 'Capannone'],
+  industria: ['Industria', 'Capannone'],
+  capannoni: ['Capannone', 'Industria'],
+  immobiliare: ['Immobiliare'],
+  agenzie_immobiliari: ['Immobiliare'],
+  teatro: ['Teatro', 'Cinema'],
+  cinema: ['Cinema', 'Teatro'],
+  spettacolo: ['Teatro', 'Cinema', 'Attrazione'],
+  eventi: ['Teatro', 'Cinema', 'Attrazione', 'Mercato'],
 };
 
 /**

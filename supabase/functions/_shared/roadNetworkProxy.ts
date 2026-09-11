@@ -143,7 +143,7 @@ export async function fetchRoadsWithFallback(opts: {
   // non-retriabile: e' la sola condizione che autorizza la classificazione
   // finale "bad_request" (query rifiutata ovunque, non solo da un mirror).
   let everyFailureNonRetriable4xx = true;
-
+  const attemptsLog: string[] = [];
   for (let i = 0; i < endpoints.length; i += 1) {
     // Budget totale esaurito: non provare altri provider.
     if (deadlineMs != null) {
@@ -151,6 +151,7 @@ export async function fetchRoadsWithFallback(opts: {
       if (remaining <= MIN_PROVIDER_MS) {
         const e: any = new Error('OVERPASS_TIMEOUT');
         e.attempts = attempts;
+        e.attemptsLog = attemptsLog;
         e.deadlineExceeded = true;
         e.cause = lastError;
         throw e;
@@ -162,19 +163,28 @@ export async function fetchRoadsWithFallback(opts: {
       : timeoutMs;
     const ctrl = new AC();
     const timer = setTimeout(() => ctrl.abort(), effectiveTimeout);
+    const useGet = query.length < 6000;
+    const fetchUrl = useGet ? `${endpoints[i]}?data=${encodeURIComponent(query)}` : endpoints[i];
+    const fetchHeaders: Record<string, string> = {
+      'User-Agent': 'VolantiniPro/1.0 (+https://www.volantinipro.it; info@volantinipro.it)',
+    };
+    if (!useGet) {
+      fetchHeaders['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
+    }
+    const fetchInit: any = {
+      method: useGet ? 'GET' : 'POST',
+      headers: fetchHeaders,
+      signal: ctrl.signal,
+    };
+    if (!useGet) {
+      fetchInit.body = body;
+    }
+
     try {
-      const res = await fetchImpl(endpoints[i], {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-          'User-Agent': 'VolantiniPro/1.0 (+https://www.volantinipro.it; info@volantinipro.it)',
-          'Accept': 'application/json',
-        },
-        body,
-        signal: ctrl.signal,
-      });
+      let res = await fetchImpl(fetchUrl, fetchInit);
+      attemptsLog.push(`${endpoints[i]} -> status ${res.status}`);
       if (!res.ok) {
-        if (isRetriableStatus(res.status)) {
+        if (isRetriableStatus(res.status) || res.status === 406) {
           lastError = new Error(`OVERPASS_HTTP_${res.status}`);
           everyFailureNonRetriable4xx = false;
           continue;
@@ -184,12 +194,14 @@ export async function fetchRoadsWithFallback(opts: {
         // dichiarare la query malformata (provata valida altrove). Solo se
         // TUTTI i provider tentati falliscono cosi' si classifica come
         // bad_request permanente (dopo il loop).
-        lastError = new Error(`OVERPASS_HTTP_${res.status}`);
+        lastError = new Error(`OVERPASS_HTTP_${res.status} on ${endpoints[i]}`);
         continue;
       }
       const data = await res.json();
       return { elements: Array.isArray(data?.elements) ? data.elements : [], endpointIndex: i, attempts };
     } catch (err: any) {
+      attemptsLog.push(`${endpoints[i]} -> threw ${err?.message || String(err)}`);
+      console.error(`[roadNetworkProxy] fetch error on ${endpoints[i]}:`, err?.message || String(err));
       lastError = err?.name === 'AbortError' ? new Error('OVERPASS_TIMEOUT') : err;
       everyFailureNonRetriable4xx = false;
     } finally {
@@ -199,6 +211,7 @@ export async function fetchRoadsWithFallback(opts: {
 
   const e: any = new Error(everyFailureNonRetriable4xx ? (lastError?.message || 'OVERPASS_HTTP_400') : 'ROAD_NETWORK_UNAVAILABLE');
   e.attempts = attempts;
+  e.attemptsLog = attemptsLog;
   e.cause = lastError;
   if (attempts > 0 && everyFailureNonRetriable4xx) e.fatal = true;
   throw e;

@@ -145,14 +145,14 @@ export default function AdminDashboard({ onNav, adminSession = null }) {
           eyebrow="Operatività"
           title="Chi lavora oggi"
           meta={`${todayGroups.length} gruppi programmati`}
-          action={todayGroups.length > 3 ? (showAllToday ? 'Mostra meno' : 'Vedi tutti') : null}
+          action={todayGroups.length > 4 ? (showAllToday ? 'Mostra meno' : 'Vedi tutti') : null}
           onAction={() => setShowAllToday((v) => !v)}
         />
         {!availability.today ? <EmptyState text="Programmi di oggi non disponibili." /> : todayGroups.length === 0 ? (
           <EmptyState text="Nessun gruppo programmato per oggi." action="Nuovo programma" onAction={() => onNav('admin-groups-manager')} />
         ) : (
           <div className={showAllToday ? 'admin-home__today-grid admin-home__today-grid--scroll' : 'admin-home__today-grid'}>
-            {(showAllToday ? todayGroups : todayGroups.slice(0, 3)).map((group) => <TodayGroupCard key={group.id} group={group} onWhatsApp={() => openProgramWhatsApp(group)} />)}
+            {(showAllToday || todayGroups.length <= 4 ? todayGroups : todayGroups.slice(0, 4)).map((group) => <TodayGroupCard key={group.id} group={group} onWhatsApp={() => openProgramWhatsApp(group)} />)}
           </div>
         )}
       </section>

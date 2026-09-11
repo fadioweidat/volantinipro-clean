@@ -61,7 +61,7 @@ test('poi-search/index.ts: cache fresca e fetch live etichettano source, il degr
   // degrado finale e quello di cache negativa servono SEMPRE `stale ?? []`,
   // mai un array vuoto forzato quando `stale` e' popolato.
   assert.match(edge, /const stale = poiStaleCache\.get\(cacheKey\);/);
-  assert.match(edge, /return degradedResponse\(reason, stale \?\? \[\]\);/);
+  assert.match(edge, /return degradedResponse\(reason, stale \?\? \[\](?:, lastErr)?\);/);
   assert.match(edge, /return degradedResponse\(negative\.reason, staleForNeg \?\? \[\]\);/);
   // temporaryUnavailable e' false quando ci sono elements (cioe' quando la
   // cache stale ha servito dati reali) — MAI vero con elements popolati.

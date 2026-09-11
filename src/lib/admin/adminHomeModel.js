@@ -16,7 +16,7 @@ export function presenceForGroup(groupId, liveOperators = []) {
   if (signals.some((item) => item.lifecycle === 'live')) return { key: 'online', label: 'Online' };
   if (signals.some((item) => item.lifecycle === 'warning')) return { key: 'warning', label: 'Segnale debole' };
   if (signals.some((item) => item.lifecycle === 'offline_recent')) return { key: 'offline', label: 'Offline' };
-  return { key: 'unavailable', label: 'Non disponibile' };
+  return { key: 'unavailable', label: 'Non in sessione' };
 }
 
 export function buildTodayGroupCards({ operations = [], liveOperators = [], operators = [] } = {}) {

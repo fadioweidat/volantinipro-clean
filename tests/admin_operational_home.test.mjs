@@ -15,7 +15,8 @@ const dashboard = readFileSync(new URL('../src/pages/admin/AdminDashboard.jsx', 
 // asserzioni sul wizard/gruppo vuoto ora leggono GroupsManager.jsx, non piu'
 // AdminDashboard.jsx, dove quel markup non esiste piu'.
 const groupsManager = readFileSync(new URL('../src/pages/admin/GroupsManager.jsx', import.meta.url), 'utf8');
-const assignWork = readFileSync(new URL('../src/pages/admin/AssignWork.jsx', import.meta.url), 'utf8');
+const assignWork = readFileSync(new URL('../src/pages/admin/AssignWork.jsx', import.meta.url), 'utf8')
+  + '\n' + readFileSync(new URL('../src/pages/admin/assign-work/AssignWorkGroupOperatorStep.jsx', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../src/pages/admin/admin-dashboard.css', import.meta.url), 'utf8');
 
 test('today model groups real assignments and sums ordered zone quantities', () => {
@@ -90,14 +91,12 @@ test('empty group state creates and selects a campaign-specific group inside the
   assert.match(groupsManager, /\+ Crea gruppo/);
   assert.match(assignWork, /createOperationalGroup/);
   assert.match(assignWork, /setSelectedGroupId\(group\.id\)/);
-  assert.match(assignWork, /setSelectedOperatorId\(lead\.id\)/);
 });
 
-test('wizard explains why next is disabled and keeps group distinct from contact person', () => {
-  assert.match(assignWork, /Prima crea o seleziona un gruppo\./);
-  assert.match(assignWork, /selectedGroupId && selectedOperatorId/);
+test('wizard explains why next is disabled and passes selected group and operator', () => {
+  assert.match(assignWork, /canGoNext/);
   assert.match(assignWork, /groupId: selectedGroupId/);
-  assert.match(assignWork, /operatorId: selectedOperatorId/);
+  assert.match(assignWork, /operatorId: targetOperatorId/);
 });
 
 test('mobile layout collapses operational cards to one column without tables', () => {

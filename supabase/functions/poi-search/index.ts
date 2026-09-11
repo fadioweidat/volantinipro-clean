@@ -87,9 +87,9 @@ const CACHE_TTL_MS = envInt("POI_SEARCH_CACHE_TTL_MS", 3600000, 60000, 86400000)
 // - Budget TOTALE dell'intera operazione (tutti i provider + eventuale retry):
 //   oltre questo si degrada, non si aspetta. Target 3-5s END-TO-END: qui 4s
 //   lascia ~1s di margine per cold start isolate + latenza di rete lato client.
-const TOTAL_BUDGET_MS = envInt("POI_SEARCH_TOTAL_BUDGET_MS", 9000, 1500, 20000);
+const TOTAL_BUDGET_MS = envInt("POI_SEARCH_TOTAL_BUDGET_MS", 16000, 1500, 30000);
 // - Timeout di rete per singolo provider (comunque limitato dal budget residuo).
-const PROVIDER_TIMEOUT_MS = envInt("POI_SEARCH_TIMEOUT_MS", 6500, 1000, 15000);
+const PROVIDER_TIMEOUT_MS = envInt("POI_SEARCH_TIMEOUT_MS", 8500, 1000, 20000);
 // Un solo retry, solo per fallimenti transitori, solo se resta budget, backoff breve.
 const RETRY_BACKOFF_MS = envInt("POI_SEARCH_RETRY_BACKOFF_MS", 300, 0, 2000);
 // Cache "stale": conserva l'ultimo risultato buono molto piu' a lungo del TTL
@@ -106,7 +106,7 @@ const poiNegativeCache = createTtlCache<{ reason: string }>(NEGATIVE_TTL_MS, 400
 // Risposta di degrado NON-bloccante: sempre HTTP 200 con lista vuota + flag,
 // mai un 502 grezzo verso il browser (ticket §4). `bad_request` resta 400
 // (bug client, non transitorio) e il rate limit NOSTRO resta 429 a monte.
-const degradedResponse = (reason: string, elements: any[] = []) =>
+const degradedResponse = (reason: string, elements: any[] = [], debugErr?: any) =>
   json({
     elements,
     ok: false,
@@ -116,6 +116,7 @@ const degradedResponse = (reason: string, elements: any[] = []) =>
     cached: elements.length > 0,
     source: elements.length > 0 ? "cache" : "none",
     reason,
+    ...(debugErr ? { debug: String(debugErr?.message || debugErr), attemptsLog: debugErr?.attemptsLog } : {}),
   });
 
 const safeLog = (payload: Record<string, unknown>) => {
@@ -155,7 +156,8 @@ serve(async (req: Request) => {
   });
   const cacheKey = makePoiCacheKey(input);
   const t0 = Date.now();
-  const endpoints = resolvePoiEndpoints(Deno.env.get("OVERPASS_ENDPOINT"));
+  const envOverpass = Deno.env.get("POI_OVERPASS_ENDPOINT") || Deno.env.get("OVERPASS_ENDPOINT");
+  const endpoints = resolvePoiEndpoints(envOverpass);
 
   const cached = poiCache.get(cacheKey);
   if (cached) {
@@ -209,8 +211,8 @@ serve(async (req: Request) => {
   // bad_request = bug lato client (query malformata): 400, nessun degrado,
   // nessuna cache negativa. Non dovrebbe capitare (QL costruita dal server).
   if (reason === "bad_request") {
-    safeLog({ outcome: "bad_request", reason, serviceType: input.serviceType, elapsedMs: Date.now() - t0, attempts });
-    return json({ error: "POI_SEARCH_UNAVAILABLE", reason, ...(attempts != null ? { attempts } : {}) }, 400);
+    safeLog({ outcome: "bad_request", reason, serviceType: input.serviceType, elapsedMs: Date.now() - t0, attempts, error: String(lastErr?.message || lastErr) });
+    return json({ error: "POI_SEARCH_UNAVAILABLE", reason, detail: String(lastErr?.message || lastErr), ...(attempts != null ? { attempts } : {}) }, 400);
   }
 
   // §3/§4/§6 — degrado NON bloccante (sempre HTTP 200): se esiste un ultimo
@@ -220,5 +222,5 @@ serve(async (req: Request) => {
   poiNegativeCache.set(cacheKey, { reason });
   const stale = poiStaleCache.get(cacheKey);
   safeLog({ outcome: stale ? "degraded_stale" : "degraded_empty", reason, serviceType: input.serviceType, center: [Number(input.centerLat.toFixed(3)), Number(input.centerLng.toFixed(3))], radiusKm: input.radiusKm, providers: endpoints.length, elapsedMs: Date.now() - t0, attempts, count: stale?.length ?? 0 });
-  return degradedResponse(reason, stale ?? []);
+  return degradedResponse(reason, stale ?? [], lastErr);
 });

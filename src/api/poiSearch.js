@@ -49,7 +49,7 @@ export async function fetchPoiSearchElements({ centerLat, centerLng, radiusKm, s
     headers.apikey = anonKey;
   }
 
-  const clientTimeoutMs = Number(readEnv('POI_SEARCH_CLIENT_TIMEOUT_MS')) || 7000;
+  const clientTimeoutMs = Number(readEnv('POI_SEARCH_CLIENT_TIMEOUT_MS')) || 18000;
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timer = controller ? setTimeout(() => controller.abort(), clientTimeoutMs) : null;
 
