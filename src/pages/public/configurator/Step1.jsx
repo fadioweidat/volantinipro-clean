@@ -1234,6 +1234,14 @@ export function Step1({
                   marginBottom: 20,
                   flex: 1
                 }}>
+                      {t.howItWorks ? (
+                        <div className="vp-s1-service-detail" style={{
+                          fontSize: 12,
+                          color: "#CBD5E1"
+                        }}><Step1Icon name="compass" size={14} /> <span><b style={{
+                            color: "#F8FAFC"
+                          }}>Come funziona:</b> {t.howItWorks}</span></div>
+                      ) : null}
                       <div className="vp-s1-service-detail" style={{
                     fontSize: 12,
                     color: "#CBD5E1"
