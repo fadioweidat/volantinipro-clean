@@ -10,7 +10,7 @@
 export async function geocodeAddress(query, { signal } = {}) {
   const trimmed = String(query || '').trim();
   if (!trimmed) return null;
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(trimmed)}&countrycodes=it&format=json&addressdetails=1&limit=1`;
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(trimmed)}&countrycodes=it&format=json&addressdetails=1&limit=1&accept-language=it`;
   const res = await fetch(url, { headers: { 'User-Agent': 'VolantiniPro/1.0' }, ...(signal ? { signal } : {}) });
   if (!res.ok) throw new Error('GEOCODE_HTTP_ERROR');
   const rows = await res.json();
