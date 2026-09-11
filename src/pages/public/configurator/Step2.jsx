@@ -2337,17 +2337,34 @@ export function Step2({
         }
       }
     } else if (gateMode === "address" || gateMode === "radius") {
+      const nilRows = filtered.filter(z => z?.isNil || z?.territoryLevel === "nil" || z?.nilCode);
+      const comuneRows = filtered.filter(z => !z?.isNil && z?.territoryLevel !== "nil" && !z?.nilCode);
+      const numRadius = Number(radiusKm) || 3;
+
       if (radiusCenter && Number.isFinite(Number(radiusCenter.lat)) && Number.isFinite(Number(radiusCenter.lng))) {
         const rLat = Number(radiusCenter.lat);
         const rLng = Number(radiusCenter.lng);
-        filtered.sort((a, b) => {
-          const aGeom = pickRealComuneGeometry(a);
-          const bGeom = pickRealComuneGeometry(b);
-          const aContains = aGeom ? geoJsonContainsPoint(aGeom, rLat, rLng) : false;
-          const bContains = bGeom ? geoJsonContainsPoint(bGeom, rLat, rLng) : false;
+
+        const isContainingZone = (zone) => {
+          if (!zone) return false;
+          const geom = pickRealComuneGeometry(zone);
+          if (geom && geoJsonContainsPoint(geom, rLat, rLng)) return true;
+          const zoneCode = extractOfficialNilCode(zone);
+          const targetCode = selectedSearchPoint?.nilCode ?? selectedSearchPoint?.nil_code ?? selectedSearchPoint?.nil_id;
+          if (targetCode != null && zoneCode != null && String(zoneCode) === String(targetCode)) return true;
+          const targetName = selectedSearchPoint?.nilName ?? selectedSearchPoint?.nil_name ?? selectedSearchPoint?.nil;
+          if (targetName && normalizeMunicipalityName(zone.name || "") === normalizeMunicipalityName(targetName)) return true;
+          return false;
+        };
+
+        const sortFn = (a, b) => {
+          const aContains = isContainingZone(a);
+          const bContains = isContainingZone(b);
           if (aContains && !bContains) return -1;
           if (!aContains && bContains) return 1;
 
+          const aGeom = pickRealComuneGeometry(a);
+          const bGeom = pickRealComuneGeometry(b);
           const aCoords = (Number.isFinite(Number(a?.lat)) && Number.isFinite(Number(a?.lng)))
             ? { lat: Number(a.lat), lng: Number(a.lng) }
             : (aGeom ? geoJsonApproxCentroid(aGeom) : null) || getZoneCoords(a, city, 0, filtered.length);
@@ -2357,17 +2374,19 @@ export function Step2({
           const aDist = aCoords ? haversineKm(rLat, rLng, aCoords.lat, aCoords.lng) : 9999;
           const bDist = bCoords ? haversineKm(rLat, rLng, bCoords.lat, bCoords.lng) : 9999;
           return aDist - bDist;
-        });
+        };
+
+        nilRows.sort(sortFn);
+        comuneRows.sort(sortFn);
       }
 
-      // Hard guard anti-regressione: un raggio piccolo non può coinvolgere
-      // decine di COMUNI interi. MA le NIL sono micro-zone (~1-3 km²) e non vanno mai troncate.
-      const nilRows = filtered.filter(z => z?.isNil || z?.territoryLevel === "nil" || z?.nilCode);
-      const comuneRows = filtered.filter(z => !z?.isNil && z?.territoryLevel !== "nil" && !z?.nilCode);
-      const numRadius = Number(radiusKm) || 3;
       if (nilRows.length > 0) {
         const maxComuni = numRadius <= 3 ? 8 : numRadius <= 5 ? 12 : 20;
-        filtered = [...comuneRows.slice(0, maxComuni), ...nilRows];
+        // Priority rule for radius mode:
+        // 1. Containing NIL of selected address (e.g. BRUZZANO)
+        // 2. Other intersected Milano NILs ordered outward
+        // 3. Intersected external comuni (e.g. Cormano, Bresso) ordered outward
+        filtered = [...nilRows, ...comuneRows.slice(0, maxComuni)];
         if (isStep2DebugEnabled()) {
           debugStep2Log("[STEP2_RADIUS_GUARD_WITH_NIL]", {
             nilRows: nilRows.length,
@@ -2375,6 +2394,25 @@ export function Step2({
           });
         }
       } else {
+        if (radiusCenter && Number.isFinite(Number(radiusCenter.lat)) && Number.isFinite(Number(radiusCenter.lng))) {
+          filtered.sort((a, b) => {
+            const aGeom = pickRealComuneGeometry(a);
+            const bGeom = pickRealComuneGeometry(b);
+            const aContains = aGeom ? geoJsonContainsPoint(aGeom, Number(radiusCenter.lat), Number(radiusCenter.lng)) : false;
+            const bContains = bGeom ? geoJsonContainsPoint(bGeom, Number(radiusCenter.lat), Number(radiusCenter.lng)) : false;
+            if (aContains && !bContains) return -1;
+            if (!aContains && bContains) return 1;
+            const aCoords = (Number.isFinite(Number(a?.lat)) && Number.isFinite(Number(a?.lng)))
+              ? { lat: Number(a.lat), lng: Number(a.lng) }
+              : (aGeom ? geoJsonApproxCentroid(aGeom) : null) || getZoneCoords(a, city, 0, filtered.length);
+            const bCoords = (Number.isFinite(Number(b?.lat)) && Number.isFinite(Number(b?.lng)))
+              ? { lat: Number(b.lat), lng: Number(b.lng) }
+              : (bGeom ? geoJsonApproxCentroid(bGeom) : null) || getZoneCoords(b, city, 0, filtered.length);
+            const aDist = aCoords ? haversineKm(Number(radiusCenter.lat), Number(radiusCenter.lng), aCoords.lat, aCoords.lng) : 9999;
+            const bDist = bCoords ? haversineKm(Number(radiusCenter.lat), Number(radiusCenter.lng), bCoords.lat, bCoords.lng) : 9999;
+            return aDist - bDist;
+          });
+        }
         if (numRadius <= 3 && filtered.length > 8) {
           debugStep2Warn("[STEP2_RADIUS_GUARD_TRIGGERED] radius <= 3 but got", filtered.length, "communes. Truncating to 8.");
           filtered = filtered.slice(0, 8);

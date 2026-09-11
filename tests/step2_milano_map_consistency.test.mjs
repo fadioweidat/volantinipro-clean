@@ -29,14 +29,17 @@ test("BUG 2 - Radius mode radial sorting prioritizes polygon containing search p
   const zones = [
     { id: "cormano", name: "Cormano", lat: 45.540, lng: 9.170, geometry_geojson: null },
     { id: "bresso", name: "Bresso", lat: 45.538, lng: 9.190, geometry_geojson: null },
-    { id: "duomo", name: "Duomo", lat: 45.464, lng: 9.190, geometry_geojson: null },
+    { id: "duomo", name: "Duomo", lat: 45.464, lng: 9.190, geometry_geojson: null, isNil: true },
     { id: "bruzzano", name: "BRUZZANO", lat: 45.5218, lng: 9.1725, geometry_geojson: bruzzanoGeom, isNil: true },
     { id: "affori", name: "AFFORI", lat: 45.505, lng: 9.170, geometry_geojson: afforiGeom, isNil: true }
   ];
 
   const rLat = Number(radiusCenter.lat);
   const rLng = Number(radiusCenter.lng);
-  const sorted = [...zones].sort((a, b) => {
+  const nilRows = zones.filter(z => z.isNil);
+  const comuneRows = zones.filter(z => !z.isNil);
+
+  const sortFn = (a, b) => {
     const aGeom = pickRealComuneGeometry(a);
     const bGeom = pickRealComuneGeometry(b);
     const aContains = aGeom ? geoJsonContainsPoint(aGeom, rLat, rLng) : false;
@@ -53,10 +56,16 @@ test("BUG 2 - Radius mode radial sorting prioritizes polygon containing search p
     const aDist = aCoords ? haversineKm(rLat, rLng, aCoords.lat, aCoords.lng) : 9999;
     const bDist = bCoords ? haversineKm(rLat, rLng, bCoords.lat, bCoords.lng) : 9999;
     return aDist - bDist;
-  });
+  };
 
-  assert.strictEqual(sorted[0].id, "bruzzano", "Bruzzano containing the point must be first (rank 1)");
-  assert.strictEqual(sorted[sorted.length - 1].id, "duomo", "Duomo (furthest) must be last");
+  nilRows.sort(sortFn);
+  comuneRows.sort(sortFn);
+  const filtered = [...nilRows, ...comuneRows];
+
+  assert.strictEqual(filtered[0].id, "bruzzano", "Bruzzano containing the point must be #1 priority");
+  assert.strictEqual(filtered[1].id, "affori", "Affori must be #2 (nearest Milano NIL)");
+  assert.ok(filtered.findIndex(z => z.id === "cormano") >= 3, "Cormano must come after Milano NILs as secondary external comune");
+  assert.ok(step2Src.includes("filtered = [...nilRows, ...comuneRows.slice(0, maxComuni)];"), "Step2.jsx must place nilRows before comuneRows in radius mode");
 });
 
 test("BUG 3 - Step2Map renders outer Milano boundary with strong contrast and internal 88 NILs with visible thin boundaries", () => {
