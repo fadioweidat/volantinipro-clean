@@ -1,5 +1,6 @@
 import React from 'react';
 import { FIELDS, SOURCE_LABELS } from './feasibilitySchemas.js';
+import { buildInfoMailtoUrl, buildInfoWhatsAppUrl, HAS_SUPPORT_WHATSAPP } from '../../../lib/contactConfig.js';
 export const money = value => value == null ? 'Non definito' : new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
 export const number = value => value == null ? 'Non raggiungibile' : new Intl.NumberFormat('it-IT', { maximumFractionDigits: 4 }).format(value);
 export const percent = value => value == null ? 'Non definito' : `${number(value * 100)}%`;
@@ -9,7 +10,7 @@ export default function FeasibilityReport({ inputs, result, narrative, aiState, 
   const note = key => narrative?.[key] || 'Interpretazione AI temporaneamente non disponibile.';
   const cards = [['Costo campagna', money(result.campaignCost), 'cost'], ['Clienti per pareggio', number(result.breakEvenCustomers), 'break-even'], ['Conversione per pareggio', percent(result.breakEvenConversion), 'break-even-conversion'], ['ROI scenario realistico', realistic.roi == null ? 'Non definito (costo zero)' : `${number(realistic.roi)}%`, 'roi'], ['Clienti attesi — realistico', number(realistic.expectedCustomers), 'customers'], ['Valutazione', result.classification, 'classification']];
   return <article className="vf-report" aria-labelledby="vf-report-title">
-    {snapshot && <section className="vf-panel"><h1>Studio di Fattibilità · VolantiniPro</h1><p>Report {snapshot.id}</p><p>{new Date(snapshot.created_at).toLocaleString("it-IT")}</p><p>Motore {snapshot.engine_version} · Prompt {snapshot.prompt_version} · Report {snapshot.report_version} · Prezzi {snapshot.pricing_version}</p><p className="vf-small">SHA256: {snapshot.snapshot_sha256}</p><p>Versione acquistata immutabile. Nuovi dati richiedono una nuova analisi.</p></section>}<header className="vf-report-heading"><span className="vf-eyebrow">VolantiniPro · Simulazione economica</span><h2 id="vf-report-title">Report di convenienza</h2><p>{DISCLAIMER}</p><div className="vf-actions vf-no-print">{onEdit && <button onClick={onEdit} disabled={aiState === 'loading'}>Modifica dati e ipotesi</button>}<button onClick={() => window.print()}>Stampa / Salva PDF</button></div></header>
+    {snapshot && <section className="vf-panel"><h2>Studio di Fattibilità · VolantiniPro</h2><p>Report {snapshot.id}</p><p>{new Date(snapshot.created_at).toLocaleString("it-IT")}</p><p>Motore {snapshot.engine_version} · Prompt {snapshot.prompt_version} · Report {snapshot.report_version} · Prezzi {snapshot.pricing_version}</p><p className="vf-small">SHA256: {snapshot.snapshot_sha256}</p><p>Versione acquistata immutabile. Nuovi dati richiedono una nuova analisi.</p></section>}<header className="vf-report-heading"><span className="vf-eyebrow">VolantiniPro · Studio di Fattibilità AI</span><h1 id="vf-report-title">Studio di Fattibilità AI — Campagna Pubblicitaria</h1><p className="vf-report-subtitle">Analisi economica, break-even e scenari</p><p>{DISCLAIMER}</p><div className="vf-actions vf-no-print">{onEdit && <button onClick={onEdit} disabled={aiState === 'loading'}>Modifica dati e ipotesi</button>}<button onClick={() => window.print()}>Stampa / Salva PDF</button></div></header>
     <div className="vf-kpis">{cards.map(([label, value, id]) => <section className="vf-kpi" key={id}><h3>{label}</h3><strong data-testid={`kpi-${id}`}>{value}</strong></section>)}</div>
     <p role="status" className="vf-ai-status">{aiState === 'loading' ? 'Calcoli pronti. Preparazione dell’interpretazione AI…' : aiState === 'ready' ? 'Interpretazione AI disponibile. Numeri e valutazione provengono esclusivamente dal motore di calcolo.' : 'Interpretazione AI temporaneamente non disponibile.'}</p>
     {aiState === 'failed' && onRetry && <button className="vf-no-print" onClick={onRetry}>Riprova interpretazione AI</button>}
@@ -25,6 +26,15 @@ export default function FeasibilityReport({ inputs, result, narrative, aiState, 
     <section className="vf-panel"><h3>11. Rischi</h3><p>{note('risks')}</p><p>Le conversioni non sono probabilità validate. Il modello non comprende costi fissi, imposte o ricavi futuri nei risultati della campagna.</p></section>
     <section className="vf-panel"><h3>12. Azioni consigliate</h3><p>{note('actions')}</p></section>
     <section className="vf-panel"><h3>13. Ipotesi e fonti dei dati</h3><p>Queste sono stime, non garanzie.</p>{unusualMargin && <p>È stato confermato esplicitamente un margine superiore al ricavo.</p>}<dl className="vf-sources">{Object.keys(FIELDS).map(key => <div key={key}><dt>{FIELDS[key].label}</dt><dd>{inputs[key].value == null ? 'Non disponibile' : FIELDS[key].rate ? percent(inputs[key].value) : String(inputs[key].value)}<small>{SOURCE_LABELS[inputs[key].source]}</small></dd></div>)}</dl><p className="vf-small">Conversioni iniziali: 0,03% / 0,05% / 0,10%. Applicazione facoltativa dello storico: × 0,6 / × 1 / × 2, massimo 100%. I valori effettivamente usati sono quelli riportati sopra. LTV e altri dati facoltativi non modificano il risultato del primo acquisto.</p></section>
-    <section className="vf-panel"><h3>14. Valutazione finale</h3><strong>{result.classification}</strong><p>{result.classificationRules}</p><p>{note('final')}</p><p>{DISCLAIMER}</p><small>Motore {result.engineVersion} · Valutazione della simulazione, non consulenza di investimento.</small></section>
+    <section className="vf-panel"><h3>14. Valutazione finale</h3><strong>{result.classification}</strong><p>{result.classificationRules}</p><p>{note('final')}</p><p>{DISCLAIMER}</p><small>Motore {result.engineVersion} · Valutazione della simulazione, non consulenza di investimento.</small>
+      <div className="vf-actions vf-no-print">
+        <a className="vf-button" href="/analisi-campagna">Calcola / aggiorna preventivo</a>
+        <a className="vf-button vf-primary" href="/configuratore">Avvia campagna</a>
+        <a className="vf-button" href={buildInfoMailtoUrl()}>Parla con un consulente</a>
+        {HAS_SUPPORT_WHATSAPP && <a className="vf-button" href={buildInfoWhatsAppUrl()} target="_blank" rel="noopener noreferrer">Scrivi su WhatsApp</a>}
+        <button type="button" onClick={() => window.print()}>Scarica PDF</button>
+      </div>
+    </section>
+    <div className="vf-print-footer"><span>VolantiniPro · Studio di Fattibilità AI — Campagna Pubblicitaria</span><span>{inputs.businessType?.value || 'Attività'} · {inputs.city?.value || 'Zona'}</span></div>
   </article>;
 }

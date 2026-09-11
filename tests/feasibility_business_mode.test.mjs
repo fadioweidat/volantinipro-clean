@@ -10,6 +10,7 @@ import {
   activityToPoiTargets,
   competitorCategoriesForTargets,
   NOT_AVAILABLE,
+  PRELIMINARY,
 } from '../src/pages/customer/feasibility/business/feasibilityBusinessSchemas.js';
 import { buildBusinessAnalysis } from '../src/pages/customer/feasibility/business/feasibilityBusinessEngine.js';
 import { buildBusinessNarrative } from '../src/pages/customer/feasibility/business/feasibilityBusinessNarrative.js';
@@ -141,9 +142,13 @@ test('missing data sources never get fabricated; they show "Dato non disponibile
     territorial: { available: false, population: null, households: null },
   });
   assert.equal(analysis.competitionLevel, NOT_AVAILABLE);
-  assert.equal(analysis.score, NOT_AVAILABLE);
+  // Ticket "PREMIUM FEASIBILITY REPORTS" §5: con zero fattori reali il
+  // giudizio complessivo non è un ALTA/MEDIA/BASSA "normale" ma una
+  // valutazione preliminare esplicita — i singoli campi restano NOT_AVAILABLE.
+  assert.equal(analysis.score, PRELIMINARY);
   assert.equal(analysis.targetPotential.available, false);
   assert.equal(analysis.factorsUsed, 0);
+  assert.equal(analysis.dataReliability.level, 'BASSA');
 
   const narrative = buildBusinessNarrative({ inputs: validBusinessInputs(), analysis });
   assert.match(narrative.whyPromising, /Dato non disponibile/);

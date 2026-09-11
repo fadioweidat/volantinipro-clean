@@ -1,7 +1,7 @@
 // Raccomandazioni pratiche (§11) — derivate dall'analisi, MAI una spinta
 // automatica all'acquisto di volantini. Il CTA verso una campagna reale è
 // una voce tra le possibili, mostrata solo dopo il report (§17).
-import { NOT_AVAILABLE } from './feasibilityBusinessSchemas.js';
+import { NOT_AVAILABLE, PRELIMINARY } from './feasibilityBusinessSchemas.js';
 
 export function buildBusinessRecommendations({ analysis }) {
   const recs = [];
@@ -12,7 +12,10 @@ export function buildBusinessRecommendations({ analysis }) {
   if (analysis.competitionLevel === 'BASSA') {
     recs.push('Valuta di ampliare leggermente il raggio: potresti trovare più pubblico senza molta più concorrenza.');
   }
-  if (!analysis.targetPotential.available || analysis.score === NOT_AVAILABLE) {
+  if (!analysis.poisAvailable) {
+    recs.push('Riprova più tardi: il provider di punti di interesse non era disponibile durante questa analisi.');
+  }
+  if (!analysis.targetPotential.available || analysis.score === NOT_AVAILABLE || analysis.score === PRELIMINARY) {
     recs.push('Prova con una località più precisa (comune specifico) per ottenere dati demografici reali.');
   }
   if (analysis.score === 'BASSA') {

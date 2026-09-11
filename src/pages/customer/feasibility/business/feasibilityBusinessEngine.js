@@ -3,7 +3,25 @@
 // produce concorrenza / bacino potenziale / punteggio finale con regole
 // fisse e verificabili. Nessun dato mancante viene inventato: dove non c'è
 // una fonte reale il campo torna `null` e la UI mostra "Dato non disponibile".
-import { NOT_AVAILABLE, competitorCategoriesForTargets } from './feasibilityBusinessSchemas.js';
+import { NOT_AVAILABLE, PRELIMINARY, competitorCategoriesForTargets } from './feasibilityBusinessSchemas.js';
+
+// ── Affidabilità dei dati (ticket "PREMIUM FEASIBILITY REPORTS" §4) ────────
+// Regola deterministica e trasparente: conta quante fonti reali erano
+// disponibili su un totale fisso di 4 — MAI un punteggio statistico
+// inventato. Le 4 fonti coincidono con gli esempi del ticket: geocoding
+// risolto, ISTAT (popolazione/famiglie), provider POI raggiungibile, dati
+// cliente completi.
+export function computeDataReliability({ locationResolved, territorialAvailable, poisAvailable, inputsComplete }) {
+  const factors = [
+    { name: 'Località geocodificata', available: Boolean(locationResolved) },
+    { name: 'Dati ISTAT (popolazione/famiglie)', available: Boolean(territorialAvailable) },
+    { name: 'Provider punti di interesse raggiungibile', available: Boolean(poisAvailable) },
+    { name: 'Dati cliente completi', available: Boolean(inputsComplete) },
+  ];
+  const available = factors.filter(f => f.available).length;
+  const level = available >= 3 ? 'ALTA' : available === 2 ? 'MEDIA' : 'BASSA';
+  return { level, factors, factorsAvailable: available, factorsPossible: factors.length };
+}
 
 const EARTH_RADIUS_KM = 6371;
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -22,8 +40,9 @@ function haversineKm(lat1, lng1, lat2, lng2) {
  * @param {boolean} params.poisAvailable false only on a real fetch error (never on "0 results")
  * @param {string[]} params.targets activityToPoiTargets(...).targets
  * @param {{population:number|null, households:number|null, available:boolean}} params.territorial
+ * @param {boolean} params.inputsComplete true se i campi cliente richiesti erano validi (§4 data reliability)
  */
-export function buildBusinessAnalysis({ center, radiusKm, pois = [], poisAvailable = true, targets = [], territorial }) {
+export function buildBusinessAnalysis({ center, radiusKm, pois = [], poisAvailable = true, targets = [], territorial, inputsComplete = true }) {
   const competitorCats = competitorCategoriesForTargets(targets);
   const distanced = (pois || []).map(p => ({ ...p, distanceKm: center ? Math.round(haversineKm(center.lat, center.lng, p.lat, p.lng) * 100) / 100 : null }));
 
@@ -56,7 +75,7 @@ export function buildBusinessAnalysis({ center, radiusKm, pois = [], poisAvailab
   // raggio). Ogni fattore "Dato non disponibile" viene escluso dalla somma
   // (mai sostituito con un valore a caso) e il punteggio si basa solo sui
   // fattori realmente disponibili; se NESSUN fattore è disponibile il
-  // risultato è "Dato non disponibile", mai un voto inventato.
+  // risultato è "Valutazione preliminare" (vedi sotto), mai un voto inventato.
   const factors = [];
   if (targetPotential.available) {
     const pop = targetPotential.population || 0;
@@ -69,11 +88,22 @@ export function buildBusinessAnalysis({ center, radiusKm, pois = [], poisAvailab
     factors.push(complementary.length >= 8 ? 2 : complementary.length >= 3 ? 1 : 0); // contesto/traffico
   }
 
-  let score = NOT_AVAILABLE;
+  // Nessun fattore reale disponibile: un ALTA/MEDIA/BASSA "normale" qui
+  // sarebbe un verdetto forte su zero dati. Il giudizio complessivo diventa
+  // "Valutazione preliminare" (§5) — i singoli campi restano NOT_AVAILABLE.
+  let score = PRELIMINARY;
   if (factors.length > 0) {
     const avg = factors.reduce((s, v) => s + v, 0) / factors.length;
     score = avg >= 1.5 ? 'ALTA' : avg >= 0.75 ? 'MEDIA' : 'BASSA';
   }
+
+  const locationResolved = Boolean(center);
+  const dataReliability = computeDataReliability({
+    locationResolved,
+    territorialAvailable: targetPotential.available,
+    poisAvailable,
+    inputsComplete,
+  });
 
   return {
     center, radiusKm,
@@ -87,5 +117,8 @@ export function buildBusinessAnalysis({ center, radiusKm, pois = [], poisAvailab
     score,
     factorsUsed: factors.length,
     factorsPossible: 3,
+    poisAvailable,
+    locationResolved,
+    dataReliability,
   };
 }

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { FeasibilityBusinessStep1, FeasibilityBusinessStep2 } from './FeasibilityBusinessInputs.jsx';
 import FeasibilityBusinessSmartPairing from './FeasibilityBusinessSmartPairing.jsx';
 import FeasibilityBusinessReport from './FeasibilityBusinessReport.jsx';
-import { resolveBusinessLocation, activityToPoiTargets } from './feasibilityBusinessSchemas.js';
+import { resolveBusinessLocation, activityToPoiTargets, isBusinessInputsComplete } from './feasibilityBusinessSchemas.js';
 import { fetchBusinessTerritorialData } from './feasibilityBusinessTerritory.js';
 import { buildBusinessAnalysis } from './feasibilityBusinessEngine.js';
 import { buildBusinessNarrative } from './feasibilityBusinessNarrative.js';
@@ -55,8 +55,9 @@ export default function FeasibilityBusinessFlow({ inputs, onChange, onBackToChoi
       poisAvailable: !poiError,
       targets,
       territorial,
+      inputsComplete: isBusinessInputsComplete(inputs),
     });
-  }, [phase, location, radiusKm, pois, poiError, targets, territorial]);
+  }, [phase, location, radiusKm, pois, poiError, targets, territorial, inputs]);
 
   const narrative = useMemo(() => (analysis ? buildBusinessNarrative({ inputs, analysis }) : null), [analysis, inputs]);
   const recommendations = useMemo(() => (analysis ? buildBusinessRecommendations({ analysis }) : []), [analysis]);
@@ -104,6 +105,7 @@ export default function FeasibilityBusinessFlow({ inputs, onChange, onBackToChoi
           onEdit={() => setPhase(0)}
           onCta={target => {
             // §17: la campagna reale resta un invito, mai un passo obbligato.
+            if (target === 'another_zone') { setPhase(0); return; }
             if (target === 'campaign' || target === 'quote') onNav?.('step1');
             else if (target === 'coverage') onNav?.('step1');
             else onNav?.('consultant');

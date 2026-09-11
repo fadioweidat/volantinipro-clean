@@ -131,3 +131,10 @@ export function competitorCategoriesForTargets(targets) {
 }
 
 export const NOT_AVAILABLE = 'Dato non disponibile';
+// Usato SOLO per il punteggio finale (mai per un singolo campo) quando
+// NESSUNA delle fonti maggiori (ISTAT, POI) è disponibile — ticket "PREMIUM
+// FEASIBILITY REPORTS" §5: un verdetto ALTA/MEDIA/BASSA "normale" sarebbe
+// fuorviante con zero fattori reali. "Dato non disponibile" resta il valore
+// per i singoli campi (concorrenza, bacino); solo il giudizio complessivo
+// diventa "preliminare".
+export const PRELIMINARY = 'Valutazione preliminare';
