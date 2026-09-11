@@ -193,13 +193,51 @@ test('timeout per provider: una richiesta appesa viene abortita e si passa oltre
   assert.ok(Date.now() - started < 2000, 'non deve attendere indefinitamente');
 });
 
-test('4xx non-retriabile (400) -> errore fatale senza martellare gli altri provider', async () => {
+test('4xx non-retriabile (400) su un solo provider -> NON abortisce la catena, prova il successivo', async () => {
   const fetchImpl = mockFetch(new Map([
     ['p1.example', { ok: false, status: 400 }],
-    ['p2.example', { ok: true, elements: [] }],
+    ['p2.example', { ok: true, elements: [{ type: 'way', id: 42 }] }],
   ]));
-  await assert.rejects(() => fetchRoadsWithFallback({ fetchImpl, endpoints: EPS, query: 'Q', timeoutMs: 1000 }), /OVERPASS_HTTP_400/);
-  assert.equal(fetchImpl.calls.length, 1);
+  const r = await fetchRoadsWithFallback({ fetchImpl, endpoints: EPS, query: 'Q', timeoutMs: 1000 });
+  assert.equal(r.elements[0].id, 42);
+  assert.equal(r.endpointIndex, 1);
+  assert.equal(fetchImpl.calls.length, 2, 'provider 2 deve essere tentato dopo il 400 del provider 1');
+});
+
+test('4xx non-retriabile su TUTTI i provider -> errore finale marcato fatal (bad_request)', async () => {
+  const fetchImpl = mockFetch(new Map([
+    ['p1.example', { ok: false, status: 400 }],
+    ['p2.example', { ok: false, status: 403 }],
+    ['p3.example', { ok: false, status: 422 }],
+  ]));
+  await assert.rejects(
+    () => fetchRoadsWithFallback({ fetchImpl, endpoints: EPS, query: 'Q', timeoutMs: 1000 }),
+    (err) => {
+      assert.match(err.message, /OVERPASS_HTTP_4\d\d/);
+      assert.equal(err.fatal, true);
+      assert.equal(err.attempts, 3);
+      return true;
+    },
+  );
+  assert.equal(fetchImpl.calls.length, 3, 'tutti i provider tentati prima della classificazione fatale');
+});
+
+test('4xx misto a timeout/5xx -> NON fatal (degrado transitorio, non bad_request permanente)', async () => {
+  const fetchImpl = mockFetch(new Map([
+    ['p1.example', { ok: false, status: 400 }],
+    ['p2.example', { hang: true }],
+    ['p3.example', { ok: false, status: 502 }],
+  ]));
+  await assert.rejects(
+    () => fetchRoadsWithFallback({ fetchImpl, endpoints: EPS, query: 'Q', timeoutMs: 40 }),
+    (err) => {
+      assert.equal(err.message, 'ROAD_NETWORK_UNAVAILABLE');
+      assert.equal(err.fatal, undefined, 'un mix con timeout/5xx non deve mai risultare fatal');
+      assert.equal(err.attempts, 3);
+      return true;
+    },
+  );
+  assert.equal(fetchImpl.calls.length, 3);
 });
 
 test('nessun endpoint configurato -> errore immediato', async () => {

@@ -151,3 +151,76 @@ test('TEST D: OVERPASS_ENDPOINT override -> provato per primo, prima di overpass
   assert.equal(elements[0].tags.name, 'Scuola Override');
   assert.equal(mock.calls.length, 1);
 });
+
+// ── Fix "Overpass fallback chain" (audit Milano / Via Oroboni, 2026-09):
+// un singolo 4xx non-retriabile da UN mirror non deve piu' abortire l'intera
+// catena — solo se TUTTI i provider tentati rifiutano con un 4xx la richiesta
+// va classificata come bad_request permanente. Scenari A-D del ticket.
+
+// NOTA substring-matching: 'overpass-api.de' e' un suffisso letterale anche
+// di 'lz4.overpass-api.de' e 'z.overpass-api.de', quindi nella Map le chiavi
+// piu' specifiche vanno elencate PRIMA della chiave generica, altrimenti
+// trackedFetchMock (find = primo match) applica per errore la config del
+// provider 1 anche ai provider successivi.
+test('FIX-A: provider1 429, provider2 400, provider3 200 -> SUCCESS, provider3 raggiunto', async () => {
+  const plan = new Map([
+    ['lz4.overpass-api.de', { status: 400 }],
+    ['z.overpass-api.de', { status: 200, elements: [schoolElement(10, 'Scuola Terzo Provider')] }],
+    ['overpass-api.de', { status: 429 }],
+  ]);
+  const mock = trackedFetchMock(plan);
+  const elements = await runPoiProxy(INPUT, mock);
+  assert.equal(elements[0].tags.name, 'Scuola Terzo Provider');
+  assert.equal(mock.calls.length, 3, 'provider3 deve essere raggiunto nonostante il 400 sul provider2');
+});
+
+test('FIX-B: provider1 400, provider2 403, provider3 200 -> SUCCESS', async () => {
+  const plan = new Map([
+    ['lz4.overpass-api.de', { status: 403 }],
+    ['z.overpass-api.de', { status: 200, elements: [schoolElement(11, 'Scuola Dopo Due 4xx')] }],
+    ['overpass-api.de', { status: 400 }],
+  ]);
+  const mock = trackedFetchMock(plan);
+  const elements = await runPoiProxy(INPUT, mock);
+  assert.equal(elements[0].tags.name, 'Scuola Dopo Due 4xx');
+  assert.equal(mock.calls.length, 3);
+});
+
+test('FIX-C: tutti i provider 400/4xx -> classificazione finale bad_request (fatal)', async () => {
+  const plan = new Map([
+    ['lz4.overpass-api.de', { status: 403 }],
+    ['z.overpass-api.de', { status: 422 }],
+    ['overpass.kumi.systems', { status: 400 }],
+    ['overpass.private.coffee', { status: 400 }],
+    ['overpass-api.de', { status: 400 }],
+  ]);
+  const mock = trackedFetchMock(plan);
+  await assert.rejects(
+    () => runPoiProxy(INPUT, mock),
+    (err) => {
+      assert.match(err.message, /OVERPASS_HTTP_4\d\d/);
+      assert.equal(err.fatal, true);
+      return true;
+    },
+  );
+  assert.equal(mock.calls.length, 5, 'tutti i provider tentati prima della classificazione fatale');
+});
+
+test('FIX-D: mix 400 + timeout(rejects) + 5xx -> NON classificato come bad_request permanente', async () => {
+  const plan = new Map([
+    ['lz4.overpass-api.de', { rejects: true, rejectMessage: 'TIMEOUT_LIKE' }],
+    ['z.overpass-api.de', { status: 502 }],
+    ['overpass.kumi.systems', { status: 400 }],
+    ['overpass.private.coffee', { status: 502 }],
+    ['overpass-api.de', { status: 400 }],
+  ]);
+  const mock = trackedFetchMock(plan);
+  await assert.rejects(
+    () => runPoiProxy(INPUT, mock),
+    (err) => {
+      assert.equal(err.fatal, undefined, 'un mix con timeout/5xx non deve mai risultare fatal/bad_request');
+      return true;
+    },
+  );
+  assert.equal(mock.calls.length, 5);
+});

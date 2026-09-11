@@ -100,8 +100,17 @@ function isRetriableStatus(status: number): boolean {
 /**
  * Prova gli endpoint in ordine. Per ogni endpoint: timeout dedicato via
  * AbortController. Passa al successivo su timeout / 429 / 5xx / errore di
- * rete. Non aspetta mai indefinitamente. Se TUTTI falliscono lancia
- * `ROAD_NETWORK_UNAVAILABLE` (con `.attempts` = numero di tentativi).
+ * rete / QUALUNQUE 4xx non-retriabile (un mirror puo' rifiutare/bloccare la
+ * richiesta pur restando la query valida altrove — un singolo 4xx da UN
+ * provider non e' piu' motivo per abortire l'intera catena, vedi audit
+ * "Overpass fallback chain" 2026-09). Non aspetta mai indefinitamente.
+ *
+ * Se TUTTI i provider tentati falliscono, l'errore finale e' marcato
+ * `.fatal = true` SOLO se ogni singolo fallimento era un 4xx non-retriabile
+ * (query davvero rifiutata ovunque = query malformata). Se il mix include
+ * anche un timeout / errore di rete / 5xx / 429, l'errore finale resta
+ * generico `ROAD_NETWORK_UNAVAILABLE` (nessun `.fatal`), cosi' il chiamante
+ * lo classifica come degrado transitorio e non come bug client permanente.
  *
  * `deadlineMs` (opzionale, epoch ms assoluto — usato SOLO da poi-search, non da
  * road-network): budget TOTALE per l'intera cascata di provider. Prima di ogni
@@ -130,6 +139,10 @@ export async function fetchRoadsWithFallback(opts: {
   const body = `data=${encodeURIComponent(query)}`;
   let attempts = 0;
   let lastError: any = null;
+  // Resta true solo se OGNI provider tentato ha fallito con un 4xx
+  // non-retriabile: e' la sola condizione che autorizza la classificazione
+  // finale "bad_request" (query rifiutata ovunque, non solo da un mirror).
+  let everyFailureNonRetriable4xx = true;
 
   for (let i = 0; i < endpoints.length; i += 1) {
     // Budget totale esaurito: non provare altri provider.
@@ -163,28 +176,31 @@ export async function fetchRoadsWithFallback(opts: {
       if (!res.ok) {
         if (isRetriableStatus(res.status)) {
           lastError = new Error(`OVERPASS_HTTP_${res.status}`);
+          everyFailureNonRetriable4xx = false;
           continue;
         }
-        // 4xx non-retriabile (query malformata ecc.): inutile insistere sugli
-        // altri provider con la stessa query.
-        const e: any = new Error(`OVERPASS_HTTP_${res.status}`);
-        e.attempts = attempts;
-        e.fatal = true;
-        throw e;
+        // 4xx non-retriabile da QUESTO provider: si registra e si passa al
+        // successivo — un singolo mirror che rifiuta/blocca non basta a
+        // dichiarare la query malformata (provata valida altrove). Solo se
+        // TUTTI i provider tentati falliscono cosi' si classifica come
+        // bad_request permanente (dopo il loop).
+        lastError = new Error(`OVERPASS_HTTP_${res.status}`);
+        continue;
       }
       const data = await res.json();
       return { elements: Array.isArray(data?.elements) ? data.elements : [], endpointIndex: i, attempts };
     } catch (err: any) {
-      if (err?.fatal) throw err;
       lastError = err?.name === 'AbortError' ? new Error('OVERPASS_TIMEOUT') : err;
+      everyFailureNonRetriable4xx = false;
     } finally {
       clearTimeout(timer);
     }
   }
 
-  const e: any = new Error('ROAD_NETWORK_UNAVAILABLE');
+  const e: any = new Error(everyFailureNonRetriable4xx ? (lastError?.message || 'OVERPASS_HTTP_400') : 'ROAD_NETWORK_UNAVAILABLE');
   e.attempts = attempts;
   e.cause = lastError;
+  if (attempts > 0 && everyFailureNonRetriable4xx) e.fatal = true;
   throw e;
 }
 
