@@ -31,16 +31,17 @@ test("E, F, G, H, I, J: WhyDifferentSection contains 5 cards, updated subtitle, 
   assert.match(src, /"Tracking GPS"/);
   assert.match(src, /"Report e prove"/);
 
-  // 5th Feasibility card
-  assert.match(src, /"Studio di fattibilità"/);
+  // 5th Feasibility card — teaser for the dual-service section below, not a
+  // duplicate of the campaign-only metrics (those now live only in the full
+  // dual-card section, ticket "HOMEPAGE FEASIBILITY DUAL-SERVICE").
+  assert.match(src, /"Studio di Fattibilità AI"/);
   assert.match(src, /"AI \+ ANALISI"/);
-  assert.match(src, /Prima di investire, analizziamo la sostenibilità economica della campagna in base alla tua attività, al budget e agli obiettivi\./);
-  assert.match(src, /"Break-even e ROI"/);
-  assert.match(src, /"Clienti necessari per rientrare"/);
-  assert.match(src, /"Scenari prudente, realistico e crescita"/);
-  assert.match(src, /"Rischi e raccomandazioni"/);
-  assert.match(src, /"\/analisi-campagna"/);
-  assert.match(src, /Scopri l'analisi/);
+  assert.match(src, /valuta se una zona è adatta alla tua attività, oppure se una campagna pubblicitaria è economicamente sostenibile\./);
+  assert.match(src, /"Fattibilità della tua attività"/);
+  assert.match(src, /"Fattibilità della campagna pubblicitaria"/);
+  assert.match(src, /"#feasibility-home-title"/);
+  assert.match(src, /Scopri le due analisi/);
+  assert.doesNotMatch(src, /"Break-even e ROI"/, 'metriche di dettaglio non devono duplicarsi qui: vivono solo nella sezione dual-card');
 
   // Grid layout for 5 cards: 3 cards span 4, 2 cards span 6
   assert.match(src, /nth-child\(1\)\s*\{\s*grid-column:\s*span\s*4;/);

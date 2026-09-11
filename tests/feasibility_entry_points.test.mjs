@@ -41,7 +41,8 @@ test('home, optional Step4 card and placeholder render accessible entry points',
     const home = renderToStaticMarkup(React.createElement(Home));
     const card = renderToStaticMarkup(React.createElement(Card, { context: { total: 321.50 } }));
     const page = renderToStaticMarkup(React.createElement(Page, { onNav() {} }));
-    assert.match(home, /Scopri se la tua campagna conviene davvero/);
+    assert.match(home, /Due analisi diverse, in base a ciò che vuoi decidere\./);
+    assert.match(home, /Analizza la tua attività/);
     assert.match(home, /Analizza la tua campagna/);
     assert.match(card, /Analizza la convenienza/);
     assert.match(card, /type="button"/);

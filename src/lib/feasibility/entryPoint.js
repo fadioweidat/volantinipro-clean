@@ -13,8 +13,16 @@ export function feasibilityContext({ referenceId, municipalities, quantity, serv
   };
 }
 
-export function openFeasibility(context = null, browser = window) {
-  browser.history.pushState({ feasibility: context ? feasibilityContext(context) : null }, '', FEASIBILITY_PATH);
+// `mode` (opzionale): 'business' | 'campaign' — quando presente, salta la
+// schermata di scelta esplicita (FeasibilityModeChoice) e apre direttamente
+// quel flusso, letto da feasibilityStorage.readFeasibility via
+// history.state.feasibilityMode. Additivo: le chiamate esistenti senza
+// `mode` (openFeasibility(), openFeasibility(draft, browser)) restano
+// identiche — nessun campo feasibilityMode viene scritto.
+export function openFeasibility(context = null, browser = window, mode = null) {
+  const state = { feasibility: context ? feasibilityContext(context) : null };
+  if (mode === 'business' || mode === 'campaign') state.feasibilityMode = mode;
+  browser.history.pushState(state, '', FEASIBILITY_PATH);
   browser.dispatchEvent(new PopStateEvent('popstate', { state: browser.history.state }));
   browser.scrollTo({ top: 0 });
 }

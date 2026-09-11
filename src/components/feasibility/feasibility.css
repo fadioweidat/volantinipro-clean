@@ -7,6 +7,15 @@
 .vp-feasibility p { color: #cbd5e1; line-height: 1.65; font-size: 16px; margin: 10px 0 18px; }
 .vp-feasibility-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin: 28px 0; }
 .vp-feasibility-benefit { padding: 22px; border: 1px solid #334155; border-radius: 16px; background: #111c30; }
+.vp-feasibility-dual-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin: 28px 0; align-items: stretch; }
+.vp-feasibility-dual-card { display: flex; flex-direction: column; padding: 28px; border: 1px solid #334155; border-radius: 18px; background: #111c30; min-width: 0; }
+.vp-feasibility-dual-card h3 { margin: 0 0 6px; font-size: 21px; }
+.vp-feasibility-dual-subtitle { color: #f8fafc; font-weight: 700; font-size: 15px; margin: 0 0 8px; }
+.vp-feasibility-dual-card > p { margin: 0 0 14px; }
+.vp-feasibility-dual-bullets { list-style: none; padding: 0; margin: 0 0 22px; display: flex; flex-direction: column; gap: 8px; color: #cbd5e1; font-size: 14px; }
+.vp-feasibility-dual-bullets li { padding-left: 20px; position: relative; }
+.vp-feasibility-dual-bullets li::before { content: '✓'; position: absolute; left: 0; color: #fb923c; font-weight: 800; }
+.vp-feasibility-dual-card .vp-feasibility-cta { margin-top: auto; align-self: flex-start; }
 .vp-feasibility h3 { margin: 0; font-size: 19px; }
 .vp-feasibility-benefit p { margin-bottom: 0; }
 .vp-feasibility-cta { display: inline-flex; justify-content: center; align-items: center; min-height: 48px; padding: 12px 20px; border: 1px solid transparent; border-radius: 10px; background: #e8571a; color: white; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; text-align: center; }
@@ -19,5 +28,5 @@
 .vp-feasibility-page h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.15; }
 .vp-feasibility-actions { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 28px; }
 .vp-feasibility-secondary { background: transparent; border-color: #64748b; }
-@media (max-width: 800px) { .vp-feasibility-grid { grid-template-columns: 1fr; } }
-@media (max-width: 480px) { .vp-feasibility-home { padding: 36px 20px; } .vp-feasibility-card { padding: 18px; } .vp-feasibility-cta { width: 100%; } }
+@media (max-width: 800px) { .vp-feasibility-grid { grid-template-columns: 1fr; } .vp-feasibility-dual-grid { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .vp-feasibility-home { padding: 36px 20px; } .vp-feasibility-card { padding: 18px; } .vp-feasibility-cta { width: 100%; } .vp-feasibility-dual-card { padding: 20px; } .vp-feasibility-dual-card .vp-feasibility-cta { width: 100%; } }

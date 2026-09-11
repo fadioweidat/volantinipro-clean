@@ -13,6 +13,13 @@ export function readFeasibility(browser) {
   // (entry point storici: home CTA, Step4 card) — la scelta esplicita (§1)
   // resta comunque raggiungibile via link nell'header o "Cambia tipo di analisi".
   const initial = { context, inputs: initialInputs(context), unusualMargin: false, phase: 0, mode: 'campaign', businessInputs: initialBusinessInputs() };
+  // Scelta esplicita da un CTA (homepage §1/§6): history.state.feasibilityMode
+  // vince sempre su una sessione salvata precedente — e' il segnale piu'
+  // fresco dell'intento dell'utente in questa navigazione, evita di dover
+  // rimostrare la schermata di scelta dopo un click mirato. Applicato PRIMA
+  // di ogni return (anche quello anticipato sotto) cosi' vince sempre.
+  const requestedMode = browser?.history?.state?.feasibilityMode;
+  if (requestedMode === 'business' || requestedMode === 'campaign') initial.mode = requestedMode;
   try {
     const saved = JSON.parse(browser?.sessionStorage?.getItem(STORAGE_KEY) || 'null');
     if (saved?.version !== 2 || saved.contextKey !== JSON.stringify(context) || Date.now() - saved.savedAt > 86400000) return initial;
@@ -34,6 +41,10 @@ export function readFeasibility(browser) {
       initial.businessInputs = restored;
     }
   } catch { /* Storage unavailable/corrupt: use current campaign snapshot. */ }
+  // Ri-applicato: il ramo sopra (riga ~34, saved.mode) puo' aver sovrascritto
+  // initial.mode con la preferenza SALVATA — la richiesta esplicita corrente
+  // deve comunque vincere anche in quel caso.
+  if (requestedMode === 'business' || requestedMode === 'campaign') initial.mode = requestedMode;
   return initial;
 }
 export function saveFeasibility(browser, state) {
