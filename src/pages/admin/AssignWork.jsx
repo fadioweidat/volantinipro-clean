@@ -525,11 +525,14 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       supplierName: activeSupplierName,
       groupName: selectedGroup?.name || null,
       campaignTitle,
+      service: campaign?.service || campaign?.type || campaign?.service_type || campaign?.metadata?.service || campaign?.metadata?.type,
+      comuni: campaign?.metadata?.comuni || campaign?.comuni || (campaign?.city ? [campaign.city] : []),
       date: startsAt ? new Date(startsAt).toLocaleDateString('it-IT') : 'Da definire',
       startTime: startsAt ? new Date(startsAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : null,
       programRows,
       qty: totalQty || null,
       supplierCompensation: supplierCompensation !== '' && supplierCompensation != null ? Number(supplierCompensation) : null,
+      notes: campaign?.notes || campaign?.metadata?.notes || null,
       link: generatedLink,
     });
   }

@@ -65,17 +65,17 @@ export function PagamentoBonificoPage({ campaignId, onNav }) {
       <CampaignSettlementSummary settlement={s}/>
       {s.amount_due_cents>0&&!isCreditSettled(s)&&<>
         <p>Richiedi le istruzioni per il solo residuo indicato. L’incasso sarà verificato da Admin.</p>
-        <div className="vf-actions"><a href={buildCampaignContactMailtoUrl(campagna.id)}>Richiedi istruzioni email</a>
-          {buildCampaignContactWhatsAppUrl(campagna.id)&&<a target="_blank" rel="noreferrer" href={buildCampaignContactWhatsAppUrl(campagna.id)}>Richiedi istruzioni WhatsApp</a>}
+        <div className="vf-actions"><a href={buildCampaignContactMailtoUrl(campagna)}>Richiedi istruzioni email</a>
+          {buildCampaignContactWhatsAppUrl(campagna)&&<a target="_blank" rel="noreferrer" href={buildCampaignContactWhatsAppUrl(campagna)}>Richiedi istruzioni WhatsApp</a>}
         </div>
       </>}
       <div className="vf-actions"><button className="vf-primary" onClick={()=>window.location.reload()}>Aggiorna saldo</button><button onClick={()=>onNav('dashboard')}>Dashboard</button></div>
     </section></div></main>;
   }
   if (IS_MANUAL_CONTACT) {
-    const contactId = campagna?.id || campaignId || null
-    const waUrl = buildCampaignContactWhatsAppUrl(contactId)
-    const mailUrl = buildCampaignContactMailtoUrl(contactId)
+    const contactPayload = campagna || campaignId || null
+    const waUrl = buildCampaignContactWhatsAppUrl(contactPayload)
+    const mailUrl = buildCampaignContactMailtoUrl(contactPayload)
     const primaryBtn = {
       minHeight: 48,
       padding: "0 20px",

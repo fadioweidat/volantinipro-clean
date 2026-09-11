@@ -1154,27 +1154,84 @@ export async function adminGetGroupAccessLink(campaignId, groupId) {
   return data;
 }
 
-export function buildDriverWhatsAppMessage({ operatorName, groupName = null, campaignTitle, date, startTime = null, comuni, zone, programRows = null, qty, total, link, mapLink = null }) {
+export function formatServiceLabel(service) {
+  if (!service) return null;
+  const s = String(service).toLowerCase().trim();
+  const map = {
+    d2d: 'Door to Door',
+    'door-to-door': 'Door to Door',
+    'door_to_door': 'Door to Door',
+    h2h: 'Hand to Hand',
+    'hand-to-hand': 'Hand to Hand',
+    'hand_to_hand': 'Hand to Hand',
+    b2b: 'Business to Business',
+    'business-to-business': 'Business to Business',
+    'business_to_business': 'Business to Business',
+    direct_mail: 'Direct Mail',
+    'direct-mail': 'Direct Mail',
+    'direct_marketing': 'Direct Marketing',
+  };
+  return map[s] || String(service);
+}
+
+export function formatZonesList(items) {
+  if (!items) return null;
+  if (typeof items === 'string') return items.trim() || null;
+  if (Array.isArray(items)) {
+    const list = items
+      .map((item) => {
+        if (!item) return null;
+        if (typeof item === 'string') return item.trim();
+        if (typeof item === 'object') return item.name || item.zone_name || item.municipality_name || item.nome || null;
+        return String(item);
+      })
+      .filter(Boolean);
+    return list.length ? [...new Set(list)].join(', ') : null;
+  }
+  return null;
+}
+
+export function buildDriverWhatsAppMessage({
+  operatorName,
+  groupName = null,
+  campaignTitle,
+  service = null,
+  date,
+  startTime = null,
+  comuni,
+  zone,
+  programRows = null,
+  qty,
+  total,
+  notes = null,
+  link,
+  mapLink = null,
+}) {
   const nomeDisplay = operatorName || 'Operatore';
-  const comuniText = (comuni || []).length ? comuni.join(', ') : 'Da definire';
-  const zoneText = (zone || []).length ? zone.join(', ') : 'Da definire';
+  const cleanComuni = formatZonesList(comuni);
+  const cleanZone = formatZonesList(zone);
+  const comuniText = cleanComuni || ((comuni || []).length ? (Array.isArray(comuni) ? comuni.join(', ') : String(comuni)) : 'Da definire');
+  const zoneText = cleanZone || ((zone || []).length ? (Array.isArray(zone) ? zone.join(', ') : String(zone)) : 'Da definire');
   const qtyText = qty ? `${Number(qty).toLocaleString('it-IT')} volantini` : 'Quantita da definire';
   const totalText = total || qtyText;
   const dateText = date || 'Da definire';
   const titleText = campaignTitle || 'Campagna VolantiniPro';
+  const serviceLabel = formatServiceLabel(service);
+  const serviceLine = serviceLabel ? `\nServizio: ${serviceLabel}` : '';
+  const notesLine = notes ? `\nNote: ${notes}` : '';
 
   if (Array.isArray(programRows) && programRows.length > 0) {
-    const rows = programRows.map((row, index) => `${index + 1}. ${row.name || 'Zona'} — ${row.quantity ? `${Number(row.quantity).toLocaleString('it-IT')} volantini` : 'quantita da definire'}`).join('\n');
+    const rows = programRows.map((row, index) => `${index + 1}. ${row.name || row.zone_name || 'Zona'} — ${row.quantity ? `${Number(row.quantity).toLocaleString('it-IT')} volantini` : 'quantita da definire'}`).join('\n');
     const mapSection = mapLink ? `\nApri mappa:\n${mapLink}\n` : '';
     return `Programma di lavoro — ${groupName || nomeDisplay}
 
-Campagna: ${titleText}
+Campagna: ${titleText}${serviceLine}
 
 ${rows}
 
 Totale: ${qtyText}
 Data: ${dateText}
-Inizio: ${startTime || 'Da definire'}
+Inizio: ${startTime || 'Da definire'}${notesLine}
 
 Apri programma:
 ${link || 'Link non disponibile'}
@@ -1186,12 +1243,12 @@ Conferma la presa in carico dal programma.`;
 
 ti e' stato assegnato questo lavoro:
 
-Campagna: ${titleText}
+Campagna: ${titleText}${serviceLine}
 Data: ${dateText}
 Comuni: ${comuniText}
 Ordine: ${zoneText}
 Quantita: ${qtyText}
-Totale: ${totalText}
+Totale: ${totalText}${notesLine}
 
 Apri il link per vedere il lavoro e avviare il GPS:
 ${link}
@@ -1205,11 +1262,15 @@ export function buildSupplierProgramWhatsAppMessage({
   supplierName,
   groupName = null,
   campaignTitle,
+  service = null,
+  comuni = null,
+  zone = null,
   date,
   startTime = null,
   programRows = null,
   qty,
   supplierCompensation = null,
+  notes = null,
   link,
   mapLink = null,
 }) {
@@ -1222,19 +1283,24 @@ export function buildSupplierProgramWhatsAppMessage({
   const compensationLine = (supplierCompensation != null && supplierCompensation !== '' && !Number.isNaN(compNum))
     ? `\nCompenso concordato: € ${compNum.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : '';
+  const serviceLabel = formatServiceLabel(service);
+  const serviceLine = serviceLabel ? `\nServizio: ${serviceLabel}` : '';
+  const zoneFormatted = formatZonesList(comuni || zone);
+  const zoneLine = zoneFormatted ? `\nZona: ${zoneFormatted}` : '';
+  const notesLine = notes ? `\nNote: ${notes}` : '';
 
   if (Array.isArray(programRows) && programRows.length > 0) {
-    const rows = programRows.map((row, index) => `${index + 1}. ${row.name || 'Zona'} — ${row.quantity ? `${Number(row.quantity).toLocaleString('it-IT')} volantini` : 'quantita da definire'}`).join('\n');
+    const rows = programRows.map((row, index) => `${index + 1}. ${row.name || row.zone_name || 'Zona'} — ${row.quantity ? `${Number(row.quantity).toLocaleString('it-IT')} volantini` : 'quantita da definire'}`).join('\n');
     const mapSection = mapLink ? `\nApri mappa:\n${mapLink}\n` : '';
     return `Programma di lavoro — ${groupHeader}
 
-Campagna: ${titleText}
+Campagna: ${titleText}${serviceLine}
 
 ${rows}
 
 Totale: ${qtyText}${compensationLine}
 Data: ${dateText}
-Inizio: ${startTime || 'Da definire'}
+Inizio: ${startTime || 'Da definire'}${notesLine}
 
 Apri programma:
 ${link || 'Link non disponibile'}
@@ -1244,10 +1310,10 @@ Conferma la presa in carico dal programma.`;
 
   return `Programma di lavoro — ${groupHeader}
 
-Campagna: ${titleText}
+Campagna: ${titleText}${serviceLine}${zoneLine}
 Totale: ${qtyText}${compensationLine}
 Data: ${dateText}
-Inizio: ${startTime || 'Da definire'}
+Inizio: ${startTime || 'Da definire'}${notesLine}
 
 Apri il link per vedere il lavoro:
 ${link || 'Link non disponibile'}
