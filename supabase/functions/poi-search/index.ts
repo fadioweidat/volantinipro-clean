@@ -114,6 +114,7 @@ const degradedResponse = (reason: string, elements: any[] = []) =>
     temporaryUnavailable: elements.length === 0,
     stale: elements.length > 0,
     cached: elements.length > 0,
+    source: elements.length > 0 ? "cache" : "none",
     reason,
   });
 
@@ -159,7 +160,7 @@ serve(async (req: Request) => {
   const cached = poiCache.get(cacheKey);
   if (cached) {
     safeLog({ outcome: "cache_fresh", serviceType: input.serviceType, center: [Number(input.centerLat.toFixed(3)), Number(input.centerLng.toFixed(3))], radiusKm: input.radiusKm, targets: input.targetSelection, count: cached.length });
-    return json({ elements: cached, cached: true });
+    return json({ elements: cached, cached: true, source: "cache" });
   }
 
   // Cache negativa: la stessa bbox ha appena fallito. Non ri-bruciare il budget
@@ -190,7 +191,7 @@ serve(async (req: Request) => {
       poiStaleCache.set(cacheKey, result.elements);
       // Lista vuota = esito valido ("zero attivita' reali"): 200, MAI errore.
       safeLog({ outcome: "ok", serviceType: input.serviceType, center: [Number(input.centerLat.toFixed(3)), Number(input.centerLng.toFixed(3))], radiusKm: input.radiusKm, targets: input.targetSelection, providers: endpoints.length, elapsedMs: Date.now() - t0, count: result.elements.length, retried: attempt > 0 });
-      return json({ elements: result.elements, cached: false });
+      return json({ elements: result.elements, cached: false, source: "live" });
     } catch (err: any) {
       lastErr = err;
       const budgetLeft = deadline - Date.now();

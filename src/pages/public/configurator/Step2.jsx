@@ -1488,6 +1488,14 @@ export function Step2({
     ? poiSectorSelectionLabel
     : null;
   const poiFetchFailed = svcType === "d2d" && !poiLoading && Boolean(poiError) && Boolean(city);
+  // Generico (H2H/Business, ticket "H2H POI resilient"): stessa distinzione
+  // "zero risultati" vs "richiesta fallita" del ramo D2D sopra, ma per il
+  // pannello attivita' (Step2PoiAssignmentPanel) invece della mappa. Senza
+  // svcType==="d2d": qui serve proprio per h2h/b2b, che non hanno il banner
+  // dedicato sulla mappa. Il server serve stale-cache quando disponibile
+  // (poi-search index.ts), quindi poiError e' vero solo quando NESSUN dato,
+  // fresco o in cache, era disponibile.
+  const poiRequestFailed = !poiLoading && Boolean(poiError) && Boolean(city);
   const [poiListSearch, setPoiListSearch] = useState("");
   const [businessPoiFilter, setBusinessPoiFilter] = useState("all");
   const [h2hPoiFilter, setH2hPoiFilter] = useState("all");
@@ -5198,8 +5206,10 @@ export function Step2({
         poiAssignments={poiAssignments}
         poiComuneResolver={poiComuneResolver}
         poiListSearch={poiListSearch}
+        poiRequestFailed={poiRequestFailed}
         pois={pois}
         rebalanceSelectedPois={rebalanceSelectedPois}
+        retryPoi={retryPoi}
         selectAndBalanceAllPois={selectAndBalanceAllPois}
         selectedOperationalPois={selectedOperationalPois}
         setBusinessPoiFilter={setBusinessPoiFilter}

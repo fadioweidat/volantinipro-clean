@@ -67,7 +67,7 @@ test('poi-search/index.ts — budget totale, retry budget-aware, degrado SEMPRE 
   assert.doesNotMatch(code, /\b502\b/);
   assert.doesNotMatch(code, /const status = reason === "bad_request"/);
   // "0 risultati" resta un 200 (commento + ramo elements)
-  assert.match(edge, /Lista vuota = esito valido[\s\S]{0,400}return json\(\{ elements: result\.elements, cached: false \}\)/);
+  assert.match(edge, /Lista vuota = esito valido[\s\S]{0,400}return json\(\{ elements: result\.elements, cached: false, source: "live" \}\)/);
   // log sicuro: nessun secret
   assert.match(edge, /const safeLog = \(payload/);
   assert.doesNotMatch(edge, /safeLog\([^)]*(SERVICE_ROLE|apikey|authorization|token|secret)/i);

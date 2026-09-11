@@ -5,7 +5,7 @@ import { businessOptionLabel, businessCategoryLabel, BUSINESS_DELIVERY_METHODS, 
 import { ACTIVITY_TARGET_LABELS } from "../../../../lib/step2/activityTargets.js";
 import { PROMOTER_COUNT_OPTIONS, PROMOTER_SHIFT_DURATION_OPTIONS, PROMOTER_TIME_SLOT_OPTIONS } from "../../../../lib/step1/step1OptionLists.js";
 
-export function Step2PoiAssignmentPanel({ assignPoiToOperator, businessMaterialPlan, businessOperationalPlan, businessPoiCategoryCounts, businessPoiFilter, changeOperatorCountInStep2, city, clearPoiAssignments, distributionTargetSelection, focusPoiRow, focusedPoiId, h2hPoiCategoryCounts, h2hPoiFilter, isBusinessStep2, isMobile, isMovementStep2, operatorCountForPoiAssignment, operatorSchedules, poiAssignments, poiComuneResolver, poiListSearch, pois, rebalanceSelectedPois, selectAndBalanceAllPois, selectedOperationalPois, setBusinessPoiFilter, setH2hPoiFilter, setPoiListSearch, togglePoiAssignment, updateOperatorScheduleInStep2, updatePoiCopies, visiblePoisForAssignment }) {
+export function Step2PoiAssignmentPanel({ assignPoiToOperator, businessMaterialPlan, businessOperationalPlan, businessPoiCategoryCounts, businessPoiFilter, changeOperatorCountInStep2, city, clearPoiAssignments, distributionTargetSelection, focusPoiRow, focusedPoiId, h2hPoiCategoryCounts, h2hPoiFilter, isBusinessStep2, isMobile, isMovementStep2, operatorCountForPoiAssignment, operatorSchedules, poiAssignments, poiComuneResolver, poiListSearch, poiRequestFailed, pois, rebalanceSelectedPois, retryPoi, selectAndBalanceAllPois, selectedOperationalPois, setBusinessPoiFilter, setH2hPoiFilter, setPoiListSearch, togglePoiAssignment, updateOperatorScheduleInStep2, updatePoiCopies, visiblePoisForAssignment }) {
   return (
     <>
       {(isMovementStep2 || isBusinessStep2) && city && <div style={{
@@ -264,13 +264,37 @@ export function Step2PoiAssignmentPanel({ assignPoiToOperator, businessMaterialP
                   }}>{label}{value !== "all" ? ` (${count})` : ""}</button>;
                 })}
                   </div>}
-                {visiblePoisForAssignment.length === 0 ? <div role="status" style={{
+                {visiblePoisForAssignment.length === 0 ? (poiRequestFailed ? <div role="status" style={{
+                padding: "12px 14px",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                flexWrap: "wrap",
+                fontFamily: F.sans,
+                fontSize: 9,
+                color: "#FCA5A5",
+                background: "rgba(248,113,113,.08)"
+              }}>
+                    <span>Attività commerciali temporaneamente non disponibili. La configurazione può continuare.</span>
+                    {retryPoi && <button type="button" onClick={retryPoi} style={{
+                  padding: "4px 10px",
+                  borderRadius: 7,
+                  border: "1px solid rgba(248,113,113,.45)",
+                  background: "rgba(248,113,113,.14)",
+                  color: "#FCA5A5",
+                  fontFamily: F.sans,
+                  fontSize: 8.5,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  flexShrink: 0
+                }}>Riprova</button>}
+                  </div> : <div role="status" style={{
                 padding: "12px 14px",
                 fontFamily: F.sans,
                 fontSize: 9,
                 color: "#FCD34D",
                 background: "rgba(245,158,11,.05)"
-              }}>{isBusinessStep2 ? "Nessuna attività compatibile trovata nel raggio selezionato. Riduci i filtri o amplia l'area." : "Nessun luogo compatibile trovato. Controlla il target scelto oppure aumenta il raggio."}</div> : <div style={{
+              }}>{isBusinessStep2 ? "Nessuna attività compatibile trovata nel raggio selezionato. Riduci i filtri o amplia l'area." : "Nessun luogo compatibile trovato. Controlla il target scelto oppure aumenta il raggio."}</div>) : <div style={{
                 maxHeight: 320,
                 overflowY: "auto"
               }}>
