@@ -184,7 +184,7 @@ export default function BusinessStep1Config({ data, updateData, isMobile }) {
             style={inputStyle}
           />
         </FieldGroup>
-        <FieldGroup title="Quali attività vuoi raggiungere?" description="Selezione multipla. La mappa mostrerà soltanto categorie compatibili realmente restituite dalle fonti.">
+        <FieldGroup title="Quali attività vuoi raggiungere?" description="Seleziona le categorie di attività che vuoi raggiungere con la distribuzione.">
           <GroupedTargetGrid value={targets} onChange={toggleTarget} isMobile={isMobile} />
           {targets.includes('altro') && <input aria-label="Specifica altro target Business" value={data.businessOtherTarget || ''} onChange={event => updateData({ businessOtherTarget: event.target.value })} placeholder="Specifica il tipo di attività" style={{ ...inputStyle, marginTop: 10 }} />}
         </FieldGroup>

@@ -5,6 +5,14 @@ import { useIsMobile } from "../../../hooks/useIsMobile.js";
 import { AnimatePresence, motion } from "framer-motion";
 
 import BusinessStep1Config from "../../../components/business/BusinessStep1Config.jsx";
+import {
+  BUSINESS_TARGET_OPTIONS,
+  BUSINESS_OBJECTIVES,
+  BUSINESS_DELIVERY_METHODS,
+  BUSINESS_MATERIAL_LOCATIONS,
+  BUSINESS_COPY_MODES,
+  businessOptionLabel,
+} from "../../../lib/business/business-config.js";
 import { activityButtons } from "../../../lib/activityButtons.js";
 import { buildPromoterAssignments, geocodePromoterAssignment } from "../../../lib/step1/promoterAssignments.js";
 import { DISTRIBUTION_TARGET_OPTIONS } from "../../../lib/step2/activityTargets.js";
@@ -778,8 +786,8 @@ export function Step1({
   const currentServiceLabel = {
     d2d: "Door to Door",
     h2h: "Hand to Hand",
-    b2b: "Distribuzione presso attività e aziende",
-    "business-distribution": "Distribuzione presso attività e aziende"
+    b2b: "Distribuzione Business",
+    "business-distribution": "Distribuzione Business"
   }[data.type] || "Da selezionare";
   const currentPlanLabel = {
     single: "Singola",
@@ -864,12 +872,107 @@ export function Step1({
     text: "Inserisci almeno 1.000 materiali per procedere.",
     color: "#FCD34D"
   };
-  const summaryRows = [{
+
+  const BUSINESS_OBJECTIVE_MACROS = [
+    ["information", "Informare"],
+    ["coupons", "Promuovere"],
+    ["service_presentation", "Vendere"],
+    ["b2b_partnership", "Partnership"],
+    ["professional_event", "Evento"],
+    ["catalogues", "Cataloghi / campioni"],
+  ];
+
+  const b2bTargets = Array.isArray(data.distributionTargets) ? data.distributionTargets : [];
+  const b2bTargetLabel = (() => {
+    if (!b2bTargets.length) return "Da selezionare";
+    if (b2bTargets.includes("all")) return "Selezione generale";
+    if (b2bTargets.length <= 2) {
+      return b2bTargets
+        .map(t => (t === "altro" && data.businessOtherTarget ? `Altro (${data.businessOtherTarget})` : BUSINESS_TARGET_OPTIONS.find(o => o.value === t)?.label || t))
+        .join(", ");
+    }
+    return `${b2bTargets.length} categorie selezionate`;
+  })();
+
+  const b2bMacroObj = { display_material: "coupons", other: "information" }[data.businessCampaignObjective] || data.businessCampaignObjective;
+  const b2bObjectiveLabel = data.businessCampaignObjective
+    ? (BUSINESS_OBJECTIVE_MACROS.find(o => o[0] === b2bMacroObj)?.[1] ||
+       BUSINESS_OBJECTIVES.find(o => (Array.isArray(o) ? o[0] : o.value) === data.businessCampaignObjective)?.[1] ||
+       data.businessCampaignObjective)
+    : "Da selezionare";
+
+  const b2bCopiesLabel = (() => {
+    const mode = data.businessCopiesMode || "fixed_1";
+    if (mode === "fixed_1") return "1 copia";
+    if (mode === "fixed_2") return "2 copie";
+    if (mode === "range_3_5") return "3–5 copie";
+    if (mode === "custom") return data.businessCustomCopies ? `${data.businessCustomCopies} copie` : "Quantità personalizzata";
+    if (mode === "by_category") return "Per categoria";
+    if (mode === "to_define") return "Da definire con VolantiniPro";
+    return businessOptionLabel(BUSINESS_COPY_MODES, mode) || "1 copia";
+  })();
+
+  const b2bDeliveryLabel = data.businessDeliveryMethod
+    ? (data.businessDeliveryMethod === "other"
+        ? (data.businessOtherDeliveryMethod || "Altro")
+        : (BUSINESS_DELIVERY_METHODS.find(m => m.value === data.businessDeliveryMethod)?.label || data.businessDeliveryMethod))
+    : "Da selezionare";
+
+  const b2bMaterialLocationLabel = data.businessMaterialLocation
+    ? (BUSINESS_MATERIAL_LOCATIONS.find(loc => loc[0] === data.businessMaterialLocation)?.[1] || data.businessMaterialLocation)
+    : "Da selezionare";
+
+  const b2bSectorLabel = (data.activityType === "altro" && data.activityNote
+    ? `Altro (${data.activityNote})`
+    : activityButtons.find(b => b.value === (data.activityType || data.businessSector))?.label) || (data.activityType || data.businessSector || "Da selezionare");
+
+  const summaryRows = isB2B ? [
+    {
+      label: "Servizio",
+      val: "Distribuzione Business",
+    },
+    {
+      label: "Settore",
+      val: b2bSectorLabel,
+    },
+    {
+      label: "Comune di partenza",
+      val: data.businessZone || "Da selezionare",
+    },
+    {
+      label: "Target",
+      val: b2bTargetLabel,
+    },
+    {
+      label: "Obiettivo",
+      val: b2bObjectiveLabel,
+    },
+    {
+      label: "Quantità materiale",
+      val: quantityValue > 0 ? `${new Intl.NumberFormat("it-IT").format(quantityValue)} pz` : "Da selezionare",
+    },
+    {
+      label: "Copie per attività",
+      val: b2bCopiesLabel,
+    },
+    {
+      label: "Modalità consegna",
+      val: b2bDeliveryLabel,
+    },
+    {
+      label: "Materiale",
+      val: b2bMaterialLocationLabel,
+    },
+    {
+      label: "Piano",
+      val: currentPlanLabel,
+    },
+  ] : [{
     label: "Servizio",
     val: currentServiceLabel
   }, {
     label: "Zona",
-    val: isB2B ? data.businessZone || "Da selezionare" : "Da selezionare nello Step 2"
+    val: "Da selezionare nello Step 2"
   }, {
     label: "Formato materiale",
     val: currentFormatLabel
@@ -1351,7 +1454,7 @@ export function Step1({
             color: "#F8FAFC",
             margin: "0 0 10px"
           }}>
-              Che tipo di attività devi pubblicizzare?
+              {isB2B ? "Qual è il tuo settore?" : "Che tipo di attività devi pubblicizzare?"}
               <Step1Help label="Come viene usato il settore">Per Hand to Hand e Business orienta le attività proposte sulla mappa. Per Door to Door resta un contesto della campagna.</Step1Help>
             </h2>
             <p style={{
@@ -1360,7 +1463,7 @@ export function Step1({
             color: "#94A3B8",
             margin: "0 0 24px"
           }}>
-              Selezionando il tuo settore, l'AI ottimizzerà le zone e le fasce di distribuzione suggerite nello Step 2.
+              {isB2B ? "Indica il settore della tua attività. Nel passaggio successivo scegli quali aziende o attività vuoi raggiungere." : "Selezionando il tuo settore, l'AI ottimizzerà le zone e le fasce di distribuzione suggerite nello Step 2."}
             </p>
             <div style={{
             display: "grid",
