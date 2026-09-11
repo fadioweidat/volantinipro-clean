@@ -16,6 +16,7 @@
 .vp-feasibility-dual-bullets li { padding-left: 20px; position: relative; }
 .vp-feasibility-dual-bullets li::before { content: '✓'; position: absolute; left: 0; color: #fb923c; font-weight: 800; }
 .vp-feasibility-dual-card .vp-feasibility-cta { margin-top: auto; align-self: flex-start; }
+.vp-feasibility-dual-microcopy { margin: 10px 0 0; font-size: 12.5px; color: #94a3b8; line-height: 1.5; }
 .vp-feasibility h3 { margin: 0; font-size: 19px; }
 .vp-feasibility-benefit p { margin-bottom: 0; }
 .vp-feasibility-cta { display: inline-flex; justify-content: center; align-items: center; min-height: 48px; padding: 12px 20px; border: 1px solid transparent; border-radius: 10px; background: #e8571a; color: white; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; text-align: center; }

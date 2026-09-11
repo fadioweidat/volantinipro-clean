@@ -89,7 +89,10 @@ test('FeasibilitySection: eyebrow, titolo e copy di supporto corrispondono esatt
   const html = await renderFeasibilitySection();
   assert.match(html, /Studio di Fattibilità AI/);
   assert.match(html, /Due analisi diverse, in base a ciò che vuoi decidere\./);
-  assert.match(html, /Puoi valutare il potenziale della tua attività in una zona oppure capire se una campagna pubblicitaria è economicamente sostenibile\./);
+  // Ticket "HOMEPAGE FEASIBILITY ENTRY FLOW CLEANUP" §4: la copy di supporto
+  // deve rendere esplicita la distinzione (analisi diretta vs campagna
+  // configurata con dati reali), non solo elencare i due argomenti.
+  assert.match(html, /Puoi analizzare direttamente il potenziale della tua attività oppure configurare una campagna e verificarne la sostenibilità economica utilizzando quantità, territorio e costo reali\./);
 });
 
 test('FeasibilitySection: Card A (business) ha titolo, sottotitolo, descrizione, bullet e CTA esatti', async () => {
@@ -111,13 +114,20 @@ test('FeasibilitySection: Card B (campaign) ha titolo, sottotitolo, descrizione,
   for (const bullet of ['Break-even', 'Clienti necessari per rientrare', 'Scenario prudente / realistico / crescita', 'Margine e sostenibilità', 'Rischi e raccomandazioni']) {
     assert.match(html, new RegExp(bullet.replace(/[/]/g, '\\/')));
   }
-  assert.match(html, />Analizza la tua campagna</);
+  // Ticket "HOMEPAGE FEASIBILITY ENTRY FLOW CLEANUP": la card campagna non
+  // apre più il flusso standalone (vuoto senza servizio/quantità/zona) dalla
+  // home — porta al configuratore, che poi rimanda a Fattibilità Campagna
+  // già prefillata (Step4 "Analizza la convenienza").
+  assert.match(html, />Configura e analizza la campagna</);
+  assert.doesNotMatch(html, />Analizza la tua campagna</);
+  assert.match(html, /Configura prima la campagna: useremo automaticamente/);
 });
 
-// ── 4. CTA wiring: apre il flusso esistente nel modo giusto ────────────────
-test('FeasibilitySection: la CTA business chiama openFeasibility(null, window, "business"), quella campaign "campaign"', () => {
+// ── 4. CTA wiring: business apre direttamente il flusso, campagna passa dal configuratore ─
+test('FeasibilitySection: la CTA business chiama openFeasibility(null, window, "business"); quella campaign usa onConfigure (mai openFeasibility standalone)', () => {
   assert.match(sectionSrc, /onClick=\{\(\) => openFeasibility\(null, window, 'business'\)\}/);
-  assert.match(sectionSrc, /onClick=\{\(\) => openFeasibility\(null, window, 'campaign'\)\}/);
+  assert.doesNotMatch(sectionSrc, /onClick=\{\(\) => openFeasibility\(null, window, 'campaign'\)\}/, 'la card campagna non deve più aprire il flusso standalone direttamente');
+  assert.match(sectionSrc, /onConfigure/);
 });
 
 // ── 5. Posizionamento commerciale (§7): business non menziona requisiti di campagna ─

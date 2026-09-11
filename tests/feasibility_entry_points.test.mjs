@@ -43,7 +43,10 @@ test('home, optional Step4 card and placeholder render accessible entry points',
     const page = renderToStaticMarkup(React.createElement(Page, { onNav() {} }));
     assert.match(home, /Due analisi diverse, in base a ciò che vuoi decidere\./);
     assert.match(home, /Analizza la tua attività/);
-    assert.match(home, /Analizza la tua campagna/);
+    // Ticket "HOMEPAGE FEASIBILITY ENTRY FLOW CLEANUP": la card campagna non
+    // apre più il flusso standalone dalla home — CTA verso il configuratore.
+    assert.match(home, /Configura e analizza la campagna/);
+    assert.doesNotMatch(home, /Analizza la tua campagna/);
     assert.match(card, /Analizza la convenienza/);
     assert.match(card, /type="button"/);
     assert.match(card, /non modifica il tuo preventivo/);

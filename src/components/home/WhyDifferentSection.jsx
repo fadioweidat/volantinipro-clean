@@ -16,14 +16,14 @@ const CARDS = [
   },
   {
     title: "Studio di Fattibilità AI",
-    desc: "Due analisi distinte: valuta se una zona è adatta alla tua attività, oppure se una campagna pubblicitaria è economicamente sostenibile.",
+    desc: "Due analisi per due decisioni diverse.",
     icon: "AI + ANALISI",
     bullets: [
-      "Fattibilità della tua attività",
-      "Fattibilità della campagna pubblicitaria",
+      "Stai valutando un'attività? Analizziamo territorio, bacino potenziale, concorrenza e opportunità, anche senza una campagna.",
+      "Vuoi verificare una campagna? Prima configuri servizio, quantità e zona; poi VolantiniPro utilizza il preventivo reale per calcolare break-even, ROI e scenari.",
     ],
     smallNote: "Analisi basata sui dati realmente disponibili e sulle informazioni che fornisci.",
-    cta: "Scopri le due analisi",
+    cta: "Scopri come funziona",
     href: "#feasibility-home-title",
     isFeasibility: true,
   },

@@ -33,14 +33,18 @@ test("E, F, G, H, I, J: WhyDifferentSection contains 5 cards, updated subtitle, 
 
   // 5th Feasibility card — teaser for the dual-service section below, not a
   // duplicate of the campaign-only metrics (those now live only in the full
-  // dual-card section, ticket "HOMEPAGE FEASIBILITY DUAL-SERVICE").
+  // dual-card section). Ticket "HOMEPAGE FEASIBILITY ENTRY FLOW CLEANUP":
+  // explains that business analysis starts immediately, campaign analysis
+  // uses a configured campaign — never a duplicate of the detailed metrics.
   assert.match(src, /"Studio di Fattibilità AI"/);
   assert.match(src, /"AI \+ ANALISI"/);
-  assert.match(src, /valuta se una zona è adatta alla tua attività, oppure se una campagna pubblicitaria è economicamente sostenibile\./);
-  assert.match(src, /"Fattibilità della tua attività"/);
-  assert.match(src, /"Fattibilità della campagna pubblicitaria"/);
+  assert.match(src, /Due analisi per due decisioni diverse\./);
+  assert.match(src, /Stai valutando un'attività\?/);
+  assert.match(src, /anche senza una campagna\./);
+  assert.match(src, /Vuoi verificare una campagna\?/);
+  assert.match(src, /VolantiniPro utilizza il preventivo reale/);
   assert.match(src, /"#feasibility-home-title"/);
-  assert.match(src, /Scopri le due analisi/);
+  assert.match(src, /Scopri come funziona/);
   assert.doesNotMatch(src, /"Break-even e ROI"/, 'metriche di dettaglio non devono duplicarsi qui: vivono solo nella sezione dual-card');
 
   // Grid layout for 5 cards: 3 cards span 4, 2 cards span 6
