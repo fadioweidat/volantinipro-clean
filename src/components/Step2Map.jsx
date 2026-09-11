@@ -1144,11 +1144,11 @@ function Step2MapImpl({
           interactive: false,
         } : isActiveComuneEntry ? {
           color: col,
-          weight: 2,
-          fillColor: col,
-          fillOpacity: isBoundaryInteractive ? (0.06 * (opacityScale || 1)) : 0,
-          dashArray: '8 4',
-          opacity: 0.9,
+          weight: isMilanoCityMapForBoundary ? 2.8 : 2,
+          fillColor: isMilanoCityMapForBoundary ? 'transparent' : col,
+          fillOpacity: isMilanoCityMapForBoundary ? 0 : (isBoundaryInteractive ? (0.06 * (opacityScale || 1)) : 0),
+          dashArray: isMilanoCityMapForBoundary ? null : '8 4',
+          opacity: 0.95,
           interactive: isBoundaryInteractive,
         } : {
           color: '#7F9BB0',
@@ -1306,35 +1306,35 @@ function Step2MapImpl({
         const comuneFill = coverageColors
           ? coverageColors.fill
           : (themeMode ? (z.metricColor || z.color || '#7F9BB0') : (z.color || '#7F9BB0'));
+        const isNilZone = Boolean(z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')));
         // Intensità per stato: "non coperto" è di gran lunga il caso più
         // frequente su Milano (fino a 87 NIL su 88) — un bordo/fill uguali a
-        // "coperto" lo fa dominare visivamente l'intera mappa. Bordo rosso
-        // leggero + fill quasi trasparente, "coperto" resta il più marcato
-        // (è il caso raro/interessante da individuare a colpo d'occhio).
+        // "coperto" lo fa dominare visivamente l'intera mappa. Bordo netto ma
+        // leggero (1.1px, 60% opacity) + fill quasi trasparente, "coperto"
+        // resta il più marcato (1.6px, 95% opacity).
         const coverageIntensity = coverageStatus === 'non_coperto'
-          ? { fillOpacity: 0.05, weight: 0.9, opacity: 0.45 }
+          ? { fillOpacity: 0.04, weight: isNilZone ? 1.1 : 0.9, opacity: isNilZone ? 0.60 : 0.45 }
           : coverageStatus === 'parziale'
             ? { fillOpacity: 0.16, weight: 1.3, opacity: 0.75 }
             : coverageStatus === 'coperto'
-              ? { fillOpacity: 0.22, weight: 1.6, opacity: 0.9 }
+              ? { fillOpacity: 0.22, weight: 1.6, opacity: 0.95 }
               : null;
-        const baseFill = settoriActive ? 0.010 : (coverageIntensity ? coverageIntensity.fillOpacity : (themeMode ? 0.16 : 0.055));
+        const baseFill = settoriActive ? 0.010 : (coverageIntensity ? coverageIntensity.fillOpacity : (themeMode ? 0.16 : (isNilZone ? 0.04 : 0.055)));
         const fillOpacity = Math.max(0.006, Math.min(0.32, baseFill * opacityScale));
-        const isNilZone = Boolean(z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')));
 
         const styleUnsel = {
-          color:       coverageColors ? coverageColors.border : 'rgba(15,23,42,0.40)',
+          color:       coverageColors ? coverageColors.border : (isNilZone ? 'rgba(100, 140, 185, 0.65)' : 'rgba(15,23,42,0.40)'),
           fillColor:   comuneFill,
           fillOpacity,
-          weight:      coverageIntensity ? Math.max(isNilZone ? 1.3 : 0.85, coverageIntensity.weight) : (isNilZone ? 1.3 : (settoriActive ? 0.55 : 0.85)),
-          opacity:     coverageIntensity ? Math.max(isNilZone ? 0.85 : 0.45, coverageIntensity.opacity) : (isNilZone ? 0.85 : (settoriActive ? 0.18 : 0.45)),
-          dashArray:   coverageColors ? null : (themeMode ? null : '5 5'),
+          weight:      coverageIntensity ? Math.max(isNilZone ? 1.1 : 0.85, coverageIntensity.weight) : (isNilZone ? 1.1 : (settoriActive ? 0.55 : 0.85)),
+          opacity:     coverageIntensity ? Math.max(isNilZone ? 0.60 : 0.45, coverageIntensity.opacity) : (isNilZone ? 0.60 : (settoriActive ? 0.18 : 0.45)),
+          dashArray:   coverageColors ? null : (themeMode || isNilZone ? null : '5 5'),
         };
         const styleSel = {
           color: coverageColors ? coverageColors.border : (z.color || col),
           fillColor: comuneFill,
-          fillOpacity: Math.max(fillOpacity, Math.min(0.34, 0.12 * opacityScale)),
-          weight: coverageIntensity ? Math.max(isNilZone ? 1.7 : 1.1, coverageIntensity.weight + 0.4) : (isNilZone ? 1.7 : 1.1),
+          fillOpacity: Math.max(fillOpacity, Math.min(0.34, 0.18 * opacityScale)),
+          weight: coverageIntensity ? Math.max(isNilZone ? 1.6 : 1.1, coverageIntensity.weight + 0.4) : (isNilZone ? 1.6 : 1.1),
           opacity: coverageIntensity ? Math.min(0.95, coverageIntensity.opacity + 0.1) : 0.85,
           dashArray: null,
           lineCap: 'round',

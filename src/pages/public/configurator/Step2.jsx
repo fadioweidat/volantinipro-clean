@@ -1408,10 +1408,25 @@ export function Step2({
   // la UI territoriale NON deve dichiarare "Dato non disponibile".
   const apiRequestFired = Boolean(apiData) || Boolean(apiError);
   const apiRequestSettled = !apiLoading && !apiPending;
+  const poiCenterLat = round6(
+    hasSearchPoint ? selectedSearchPoint.lat
+    : isRadiusMode && radiusCenter ? radiusCenter.lat
+    : city?.lat
+  );
+  const poiCenterLng = round6(
+    hasSearchPoint ? selectedSearchPoint.lng
+    : isRadiusMode && radiusCenter ? radiusCenter.lng
+    : city?.lng
+  );
+  const poiEffectiveRadiusKm = isRadiusMode
+    ? (Number(radiusKm) || Number(radius) || 3)
+    : hasSearchPoint
+      ? 2.5
+      : effectiveRadiusKm;
   const {
     sectors,
     loading: sectorsLoading
-  } = useSectors(queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType);
+  } = useSectors(poiCenterLat, poiCenterLng, poiEffectiveRadiusKm, svcType);
   // Il settore Step1 (data.activityType/businessSector) filtra i marker POI
   // mostrati sulla mappa per tutti i servizi, incluso D2D: la mappa D2D non
   // assegna cassette/promoter sui POI (quello resta un contesto di campagna),
@@ -1422,7 +1437,7 @@ export function Step2({
     loading: poiLoading,
     error: poiError,
     retry: retryPoi
-  } = usePoi(queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType, distributionTargetSelection);
+  } = usePoi(poiCenterLat, poiCenterLng, poiEffectiveRadiusKm, svcType, distributionTargetSelection);
   const backendPois = useMemo(() => {
     if (!['d2d', 'h2h', 'b2b'].includes(svcType)) return [];
     const arr = apiData?.metadata?.nearby_activities;
@@ -2322,6 +2337,29 @@ export function Step2({
         }
       }
     } else if (gateMode === "address" || gateMode === "radius") {
+      if (radiusCenter && Number.isFinite(Number(radiusCenter.lat)) && Number.isFinite(Number(radiusCenter.lng))) {
+        const rLat = Number(radiusCenter.lat);
+        const rLng = Number(radiusCenter.lng);
+        filtered.sort((a, b) => {
+          const aGeom = pickRealComuneGeometry(a);
+          const bGeom = pickRealComuneGeometry(b);
+          const aContains = aGeom ? geoJsonContainsPoint(aGeom, rLat, rLng) : false;
+          const bContains = bGeom ? geoJsonContainsPoint(bGeom, rLat, rLng) : false;
+          if (aContains && !bContains) return -1;
+          if (!aContains && bContains) return 1;
+
+          const aCoords = (Number.isFinite(Number(a?.lat)) && Number.isFinite(Number(a?.lng)))
+            ? { lat: Number(a.lat), lng: Number(a.lng) }
+            : (aGeom ? geoJsonApproxCentroid(aGeom) : null) || getZoneCoords(a, city, 0, filtered.length);
+          const bCoords = (Number.isFinite(Number(b?.lat)) && Number.isFinite(Number(b?.lng)))
+            ? { lat: Number(b.lat), lng: Number(b.lng) }
+            : (bGeom ? geoJsonApproxCentroid(bGeom) : null) || getZoneCoords(b, city, 0, filtered.length);
+          const aDist = aCoords ? haversineKm(rLat, rLng, aCoords.lat, aCoords.lng) : 9999;
+          const bDist = bCoords ? haversineKm(rLat, rLng, bCoords.lat, bCoords.lng) : 9999;
+          return aDist - bDist;
+        });
+      }
+
       // Hard guard anti-regressione: un raggio piccolo non può coinvolgere
       // decine di COMUNI interi. MA le NIL sono micro-zone (~1-3 km²) e non vanno mai troncate.
       const nilRows = filtered.filter(z => z?.isNil || z?.territoryLevel === "nil" || z?.nilCode);
@@ -2382,7 +2420,7 @@ export function Step2({
       });
     }
     return dedupedFiltered;
-  }, [hasUsefulApiZones, apiZones, searchMode, selectedMunicipality, selectedComuni, primaryMunicipalityCode, radiusKm, apiLoading, isResidentialStep2, requestedAnalysisLevel, hasUnconfirmedAddressPoint]);
+  }, [hasUsefulApiZones, apiZones, searchMode, selectedMunicipality, selectedComuni, primaryMunicipalityCode, radiusKm, apiLoading, isResidentialStep2, requestedAnalysisLevel, hasUnconfirmedAddressPoint, radiusCenter, city]);
   // Blocco di sicurezza Comune Milano: è VIETATO usare una sola NIL come
   // "comune completo". Se l'analisi NIL in modalità Comune (toggle manuale
   // spento) produce 0-1 NIL a caricamento finito, i dati comune completo NON
