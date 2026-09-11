@@ -86,7 +86,7 @@ export default function FeasibilityBusinessReport({ inputs, analysis, narrative,
             <div><dt>NIL</dt><dd>{resolvedNil || NOT_AVAILABLE} <Source tag={resolvedNil ? 'real' : 'unavailable'} /></dd></div>
           </dl>
         ) : null}
-        <p className="vf-small">{analysis.locationResolved ? 'Località geocodificata correttamente.' : 'Località non geocodificata: i dati territoriali potrebbero non essere disponibili.'}</p>
+        <p className="vf-small">{narrative.territoryInterpretation || (analysis.locationResolved ? 'Località geocodificata correttamente.' : 'Località non geocodificata: i dati territoriali potrebbero non essere disponibili.')}</p>
       </section>
 
       <section className="vf-panel">
@@ -109,7 +109,7 @@ export default function FeasibilityBusinessReport({ inputs, analysis, narrative,
           <div><dt>Famiglie nell'area</dt><dd data-testid="vfb-hh">{fmt(targetPotential.households)}</dd></div>
           <div><dt>Popolazione nell'area</dt><dd data-testid="vfb-pop">{fmt(targetPotential.population)}</dd></div>
         </dl>
-        {!targetPotential.available && <p className="vf-small">Dato ISTAT non disponibile per questa località: prova con il nome di un comune più preciso.</p>}
+        <p>{narrative.potentialCustomerInterpretation || narrative.whyPromising}</p>
         <p className="vf-small">Il bacino potenziale rappresenta il contesto territoriale, non una previsione garantita di clienti.</p>
       </section>
 
@@ -128,7 +128,7 @@ export default function FeasibilityBusinessReport({ inputs, analysis, narrative,
             ) : <p className="vf-small">{competitorCount === null ? `${NOT_AVAILABLE} (attività non mappata su categorie di concorrenza note).` : 'Nessun concorrente diretto rilevato nel raggio analizzato.'}</p>}
           </>
         )}
-        <p>{narrative.whyCompetitionHigh}</p>
+        <p>{narrative.competitionInterpretation || narrative.whyCompetitionHigh}</p>
       </section>
 
       <section className="vf-panel">
@@ -140,14 +140,28 @@ export default function FeasibilityBusinessReport({ inputs, analysis, narrative,
         ) : <p className="vf-small">Nessun punto di interesse complementare rilevato nel raggio analizzato.</p>}
       </section>
 
-      <section className="vf-panel"><h3>8. Punti di forza</h3><p>{narrative.positioning}</p></section>
+      <section className="vf-panel">
+        <h3>8. Punti di forza</h3>
+        {Array.isArray(narrative.strengths) && narrative.strengths.length > 0 ? (
+          <ul>{narrative.strengths.map((str, i) => <li key={i}>{str}</li>)}</ul>
+        ) : (
+          <p>{narrative.positioning}</p>
+        )}
+      </section>
 
       <section className="vf-panel">
         <h3>9. Rischi</h3>
-        <ul>{narrative.riskFactors.map((risk, i) => <li key={i}>{risk}</li>)}</ul>
+        <ul>{(narrative.risks || narrative.riskFactors || []).map((risk, i) => <li key={i}>{risk}</li>)}</ul>
       </section>
 
-      <section className="vf-panel"><h3>10. Opportunità</h3><p>{narrative.whyPromising}</p></section>
+      <section className="vf-panel">
+        <h3>10. Opportunità</h3>
+        {Array.isArray(narrative.opportunities) && narrative.opportunities.length > 0 ? (
+          <ul>{narrative.opportunities.map((opp, i) => <li key={i}>{opp}</li>)}</ul>
+        ) : (
+          <p>{narrative.whyPromising}</p>
+        )}
+      </section>
 
       <section className="vf-panel">
         <h3>11. Valutazione finale di fattibilità</h3>
@@ -159,12 +173,12 @@ export default function FeasibilityBusinessReport({ inputs, analysis, narrative,
 
       <section className="vf-panel">
         <h3>12. Raccomandazioni pratiche</h3>
-        <ul>{recommendations.map((rec, i) => <li key={i}>{rec}</li>)}</ul>
+        <ul>{(recommendations || narrative.recommendations || []).map((rec, i) => <li key={i}>{rec}</li>)}</ul>
       </section>
 
       <section className="vf-panel">
         <h3>13. Prossima azione consigliata</h3>
-        <p>{narrative.recommendedAction}</p>
+        <p>{narrative.nextAction || narrative.recommendedAction}</p>
         <p className="vf-small">L'acquisto di una campagna di distribuzione non è obbligatorio: questa è un'analisi indipendente.</p>
         {onCta && (
           <div className="vf-actions vf-no-print">
@@ -186,6 +200,7 @@ export default function FeasibilityBusinessReport({ inputs, analysis, narrative,
           <div><dt>Coordinate della località</dt><dd>{analysis.locationResolved ? 'Geocoding interno' : NOT_AVAILABLE}<Source tag={analysis.locationResolved ? 'real' : 'unavailable'} /></dd></div>
           <div><dt>Potenzialità finale e affidabilità dei dati</dt><dd>Regola deterministica basata sui fattori disponibili<Source tag="rule" /></dd></div>
         </dl>
+        {narrative.dataReliabilityComment && <p className="vf-small">{narrative.dataReliabilityComment}</p>}
         <p className="vf-small">Nessuna stima statistica di domanda è stata generata: dove manca una fonte reale, il report lo indica esplicitamente invece di stimare un valore.</p>
       </section>
       <div className="vf-print-footer"><span>VolantiniPro · Studio di Fattibilità AI — Attività e Territorio</span><span>{inputs.businessType || 'Attività'} · {inputs.location || 'Zona'}</span></div>
