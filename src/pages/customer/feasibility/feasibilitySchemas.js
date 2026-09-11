@@ -1,3 +1,5 @@
+import { formatServiceLabel } from '../../../lib/feasibility/entryPoint.js';
+
 export const SOURCES = ['campaign_existing', 'user_provided', 'model_assumption', 'benchmark', 'unavailable'];
 export const SOURCE_LABELS = { campaign_existing: 'Preventivo VolantiniPro', user_provided: 'Dato fornito da te', model_assumption: 'Ipotesi di scenario', benchmark: 'Benchmark documentato', unavailable: 'Non disponibile' };
 export const FIELDS = {
@@ -47,11 +49,21 @@ export function normalizeField(key, raw, source = 'user_provided') {
   if (!spec.text && spec.rate && value !== null) value /= 100;
   return cell(value, value === '' ? 'unavailable' : source);
 }
+
 export function initialInputs(context) {
   const inputs = Object.fromEntries(Object.keys(FIELDS).map(key => [key, cell()]));
   [0.0003, 0.0005, 0.001].forEach((value, i) => { inputs[SCENARIO_KEYS[i]] = cell(value, 'model_assumption'); });
   if (context) {
-    const values = { campaignCost: context.total, flyerQuantity: context.quantity, city: context.municipalities?.join(', '), campaignArea: context.areas?.join(', '), serviceType: context.service };
+    const rawService = context.serviceLabel || formatServiceLabel(context.service) || context.service;
+    const rawCity = context.operationalCity || (context.municipalities?.length ? context.municipalities.join(', ') : null);
+    const rawAreas = context.campaignAreas || (context.areas?.length ? context.areas.join(', ') : (context.municipalities?.length ? context.municipalities.join(', ') : null));
+    const values = {
+      campaignCost: context.total,
+      flyerQuantity: context.quantity,
+      city: rawCity,
+      campaignArea: rawAreas,
+      serviceType: rawService
+    };
     for (const [key, value] of Object.entries(values)) if (value !== null && value !== undefined && value !== '') inputs[key] = cell(value, 'campaign_existing');
   }
   return inputs;

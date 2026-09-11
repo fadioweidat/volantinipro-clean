@@ -8,6 +8,7 @@ import { applyEvidence } from './feasibilityAi.js';
 import { readFeasibility, saveFeasibility, STORAGE_KEY } from './feasibilityStorage.js';
 import './feasibility.css';
 import { commerce, analysisToken, errorText } from './feasibilityCommerce.js';
+import { formatServiceLabel } from '../../../lib/feasibility/entryPoint.js';
 import FeasibilityPurchase from './FeasibilityPurchase.jsx';
 import FeasibilityModeChoice from './business/FeasibilityModeChoice.jsx';
 import FeasibilityBusinessFlow from './business/FeasibilityBusinessFlow.jsx';
@@ -86,7 +87,7 @@ export default function FeasibilityPage({ onNav }) {
     <nav className="vf-progress" aria-label="Fasi analisi"><ol>{['Raccontaci la tua attività', 'Riepilogo', 'Analisi', 'Report'].map((label, index) => <li key={label} aria-current={phase === index ? 'step' : undefined}><span>{index + 1}</span>{label}</li>)}</ol></nav>
     {context && <aside className="vf-context" aria-label="Dati collegati alla campagna">
       <strong>Dati collegati alla campagna</strong>
-      <span>{{ d2d: 'Door to Door', h2h: 'Hand to Hand', b2b: 'Distribuzione Business' }[context.service] || context.service || 'Servizio non indicato'} · {context.municipalities.join(', ') || (context.areas.length ? context.areas.join(', ') : 'Zona non indicata')}</span>
+      <span>{formatServiceLabel(context.serviceLabel || context.service)} · {context.operationalCity || (context.municipalities.length ? context.municipalities.join(', ') : (context.areas.length ? context.areas.join(', ') : 'Zona non indicata'))}</span>
       <span>{context.quantity != null && `${number(context.quantity)} volantini`}{context.total != null && ` · Costo campagna: ${money(context.total)}`}{context.startDate && ` · Avvio: ${context.startDate}`}{context.referenceId && ` · Rif. ${context.referenceId}`}</span>
       <small>Dato già presente nel preventivo/campagna: sola lettura, non serve inserirlo di nuovo.</small>
       {allRequiredKnown

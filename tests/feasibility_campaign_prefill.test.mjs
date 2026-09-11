@@ -89,7 +89,7 @@ test('CASE A: service/quantity/cost/areas prefillati e in sola lettura, non rich
   assert.equal(state.inputs.campaignCost.value, 420);
   assert.equal(state.inputs.flyerQuantity.source, 'campaign_existing');
   assert.equal(state.inputs.flyerQuantity.value, 10000);
-  assert.equal(state.inputs.serviceType.value, 'd2d');
+  assert.equal(state.inputs.serviceType.value, 'Door to Door');
   assert.equal(state.inputs.city.value, 'Milano');
   assert.equal(state.inputs.campaignArea.value, 'Milano, Cormano');
   // §5 fast path: un context collegato salta la conversazione a fasi.

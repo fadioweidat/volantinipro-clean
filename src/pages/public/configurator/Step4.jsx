@@ -23,6 +23,7 @@ import { Step4ExtrasPanel } from "./step4/Step4ExtrasPanel.jsx";
 import { Step4PricingSummaryPanel } from "./step4/Step4PricingSummaryPanel.jsx";
 import { Step4CampaignActionsPanel } from "./step4/Step4CampaignActionsPanel.jsx";
 import Step4FeasibilityCard from "./step4/Step4FeasibilityCard.jsx";
+import { buildCampaignTerritoryContext, formatServiceLabel } from "../../../lib/feasibility/entryPoint.js";
 import { Step4PlanningPanel } from "./step4/Step4PlanningPanel.jsx";
 import { Step4TechnicalAnalysisPanel } from "./step4/Step4TechnicalAnalysisPanel.jsx";
 import { truthfulSourceLabel } from "../../../lib/step2/truthfulSourceLabel.js";
@@ -2907,7 +2908,31 @@ export function Step4({
               eur={eur}
             />
 
-            {!sent && <Step4FeasibilityCard context={{ referenceId: data.campaignId || null, municipalities: [data.cityName || data.city?.name].filter(Boolean), quantity: flyerQty, service: svcType, total: grandTotal, areas: selectedZoneNames, startDate: data.startDate || null }} />}
+            {!sent && (() => {
+              const feasibilityTerritory = buildCampaignTerritoryContext(data);
+              const feasibilitySvc = formatServiceLabel(svcType);
+              return (
+                <Step4FeasibilityCard
+                  context={{
+                    referenceId: data.campaignId || null,
+                    municipalities: feasibilityTerritory.municipalities,
+                    quantity: flyerQty,
+                    service: svcType,
+                    serviceLabel: feasibilitySvc,
+                    total: grandTotal,
+                    areas: feasibilityTerritory.areas,
+                    operationalCity: feasibilityTerritory.operationalCity,
+                    campaignAreas: feasibilityTerritory.campaignAreas,
+                    startDate: data.startDate || null,
+                    areaMode: feasibilityTerritory.areaMode,
+                    radiusKm: feasibilityTerritory.radiusKm,
+                    addressLabel: feasibilityTerritory.addressLabel,
+                    nilName: feasibilityTerritory.nilName,
+                    zonesCount: feasibilityTerritory.zonesCount,
+                  }}
+                />
+              );
+            })()}
 
             <Step4CampaignActionsPanel
               sent={sent}
