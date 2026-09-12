@@ -12,6 +12,7 @@ import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProc
 import { listCoverageAdjustments, VERIFIED_COVERAGE_STYLE } from '../../lib/services/coverage-adjustments-api.js';
 import { geoJsonPolygonToLeafletPositions } from '../../lib/geo/geoJsonToLeaflet.js';
 import { createCustomerIssue, ISSUE_REASONS } from '../../lib/services/customer-issues-api.js';
+import { CustomerMessagesPanel } from '../../components/customer/CampaignHubPanels.jsx';
 import { deriveLiveZoneStatus, estimateDistanceToZoneBoundaryMeters, ZONE_LIVE_STATUS_LABELS, ZONE_LIVE_STATUS_COLORS } from '../../lib/geofence/geofenceEngine.js';
 import { getMunicipalityCenterPoint } from '../../lib/geo/originRadialSelection.js';
 import { C, F } from '../../lib/constants.js';
@@ -261,6 +262,8 @@ export function CampaignTracking({ campaignId }) {
           zones={zoneRows}
           onCreated={() => setRefreshNonce((n) => n + 1)}
         />
+
+        <CustomerMessagesPanel campaignId={campaignId} />
 
         <div className="vp-tracking-two-col">
           <section style={cardStyle}>

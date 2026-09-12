@@ -17,7 +17,17 @@ export function navigateDriver(path) {
 // preservata — senza questo il link Driver pubblico perderebbe
 // l'autorizzazione passando da Programma a Mappa o viceversa.
 export function driverPathWithQuery(path) {
-  return `${path}${window.location.search}`;
+  if (typeof window === 'undefined') return path;
+  const [base, targetQuery] = path.split('?');
+  const currentParams = new URLSearchParams(window.location.search);
+  const targetParams = new URLSearchParams(targetQuery || '');
+  for (const [key, val] of currentParams.entries()) {
+    if (!targetParams.has(key)) {
+      targetParams.set(key, val);
+    }
+  }
+  const mergedQuery = targetParams.toString();
+  return mergedQuery ? `${base}?${mergedQuery}` : base;
 }
 
 // Click handler per il link "← Programma": resta un vero <a href> (tasto

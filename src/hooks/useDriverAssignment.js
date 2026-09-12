@@ -188,6 +188,7 @@ export function useDriverAssignment(assignmentId) {
         centerLat: Number.isFinite(Number(z.center_lat)) ? Number(z.center_lat) : null,
         centerLng: Number.isFinite(Number(z.center_lng)) ? Number(z.center_lng) : null,
         radiusM: Number.isFinite(Number(z.radius_m)) ? Number(z.radius_m) : null,
+        hasPolygon: Boolean(z.polygon_geojson || z.geometry || z.has_polygon),
         isLegacy: false,
       })).sort((a, b) => {
         if (a.priority !== b.priority) return a.priority - b.priority;

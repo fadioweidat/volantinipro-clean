@@ -146,7 +146,17 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
   // "principale" (campaign.city) anche quando la zona/sessione realmente
   // attiva e' un altro comune della stessa campagna.
   const activeAssignmentZoneId = tracking.session?.campaign_zone_id;
-  const primaryAssignmentZone = (assignmentZones || []).find(z => z.id === activeAssignmentZoneId) || (assignmentZones || [])[0] || null;
+  const primaryAssignmentZone = useMemo(() => {
+    if (!assignmentZones || assignmentZones.length === 0) return null;
+    if (activeAssignmentZoneId) {
+      const match = assignmentZones.find(z => z.id === activeAssignmentZoneId);
+      if (match) return match;
+    }
+    if (tracking.status === 'resuming' || tracking.assignmentStatus === 'loading') {
+      return null;
+    }
+    return assignmentZones[0] || null;
+  }, [assignmentZones, activeAssignmentZoneId, tracking.status, tracking.assignmentStatus]);
   const zoneCenter = primaryAssignmentZone && primaryAssignmentZone.centerLat != null && primaryAssignmentZone.centerLng != null
     && !(primaryAssignmentZone.centerLat === 0 && primaryAssignmentZone.centerLng === 0)
     ? { lat: primaryAssignmentZone.centerLat, lng: primaryAssignmentZone.centerLng }
@@ -533,6 +543,15 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
                     {z.status === 'Completata' && (tracking.isActive || tracking.isPaused || isCurrentZone) && (
                       <span style={{ color: '#22c55e', fontSize: 14, fontWeight: 'bold' }}>✓ Completata</span>
                     )}
+                    {z.id && (
+                      <button
+                        type="button"
+                        style={{ ...secondaryButtonStyle, padding: '8px 12px', fontSize: 14 }}
+                        onClick={() => navigateDriver(driverPathWithQuery(`/driver/assignment/${assignmentId}/map?zoneId=${z.id}`))}
+                      >
+                        Mappa
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -548,7 +567,17 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
 
       {/* Controls */}
       <section style={controlsCardStyle}>
-        <button type="button" style={secondaryButtonStyle} onClick={() => navigateDriver(driverPathWithQuery(`/driver/assignment/${assignmentId}/map`))}>Mappa</button>
+        <button
+          type="button"
+          style={secondaryButtonStyle}
+          onClick={() => {
+            const targetZoneId = tracking.session?.campaign_zone_id || primaryAssignmentZone?.id;
+            const path = targetZoneId ? `/driver/assignment/${assignmentId}/map?zoneId=${targetZoneId}` : `/driver/assignment/${assignmentId}/map`;
+            navigateDriver(driverPathWithQuery(path));
+          }}
+        >
+          Mappa
+        </button>
         <button type="button" style={secondaryButtonStyle} onClick={openGoogleMaps}>Google Maps</button>
         <button type="button" style={secondaryButtonStyle} onClick={() => { setSection('photo'); window.setTimeout(() => fileInputRef.current?.click(), 120); }}>Foto</button>
         <button type="button" style={secondaryButtonStyle} onClick={() => setSection('report')}>Report</button>

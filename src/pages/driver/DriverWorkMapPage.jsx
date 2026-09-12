@@ -83,35 +83,101 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
   // sotto. Nessuna fase viene rallentata da questi marker.
   const mapTimingRef = useRef(Boolean(import.meta.env.DEV) ? { shellMount: performance.now() } : null);
 
-  const activeAssignmentZoneId = tracking.session?.campaign_zone_id;
-  const activeZone = (assignmentZones || []).find(z => z.id === activeAssignmentZoneId) || (assignmentZones || [])[0] || null;
+  // Parametro esplicito da URL (?zoneId=... o ?zone=...)
+  const urlZoneId = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      return sp.get('zoneId') || sp.get('zone') || null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const [selectedZoneId, setSelectedZoneId] = useState(urlZoneId);
+
+  useEffect(() => {
+    if (urlZoneId) setSelectedZoneId(urlZoneId);
+  }, [urlZoneId]);
+
+  const activeSessionZoneId = tracking.session?.campaign_zone_id || null;
+
+  // Risoluzione canonica ID zona:
+  // 1. Zona selezionata esplicitamente da UI o URL
+  // 2. Zona attiva della sessione GPS corrente (campaign_zone_id)
+  // 3. In attesa di risoluzione se la sessione sta ancora caricando
+  // 4. Default prima zona solo a sessione confermata inattiva / assente
+  const activeAssignmentZoneId = useMemo(() => {
+    if (selectedZoneId) return selectedZoneId;
+    if (activeSessionZoneId) return activeSessionZoneId;
+    return null;
+  }, [selectedZoneId, activeSessionZoneId]);
+
+  const activeZone = useMemo(() => {
+    if (!assignmentZones || assignmentZones.length === 0) return null;
+    if (activeAssignmentZoneId) {
+      const match = assignmentZones.find(z => z.id === activeAssignmentZoneId);
+      if (match) return match;
+    }
+    // Se la sessione e' ancora in fase di verifica/resume iniziale, non
+    // ricadere prematuramente su [0] rischiando di mostrare il comune errato
+    if (tracking.status === 'resuming' || tracking.assignmentStatus === 'loading') {
+      return null;
+    }
+    return assignmentZones[0] || null;
+  }, [assignmentZones, activeAssignmentZoneId, tracking.status, tracking.assignmentStatus]);
+
   const zoneCenter = activeZone && activeZone.centerLat != null && activeZone.centerLng != null
     && !(activeZone.centerLat === 0 && activeZone.centerLng === 0)
     ? { lat: activeZone.centerLat, lng: activeZone.centerLng }
     : null;
-  // meta.comuni[0] viene da assignmentData.metadata, gia' disponibile al
-  // primo render (Fase 1 di useDriverAssignment, nessuna attesa aggiuntiva)
-  // — stesso fallback gia' usato da DriverAssignmentPage.jsx. Senza questo,
-  // su questa pagina il nome del comune restava null finche' non arrivavano
-  // le zone dettagliate (Fase 2) o la risoluzione di useGpsTracking, e la
-  // richiesta del confine partiva quindi in ritardo rispetto al primo paint.
+
+  // Centroide calcolato dal poligono del confine reale se centerLat/Lng sono 0 nel DB
+  const boundaryCenter = useMemo(() => {
+    if (!boundary || !boundary.coordinates) return null;
+    try {
+      let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+      const extractCoords = (coords) => {
+        if (!Array.isArray(coords) || coords.length === 0) return;
+        if (typeof coords[0] === 'number') {
+          const lng = Number(coords[0]);
+          const lat = Number(coords[1]);
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            if (lat < minLat) minLat = lat;
+            if (lat > maxLat) maxLat = lat;
+            if (lng < minLng) minLng = lng;
+            if (lng > maxLng) maxLng = lng;
+          }
+        } else {
+          coords.forEach(extractCoords);
+        }
+      };
+      extractCoords(boundary.coordinates);
+      if (Number.isFinite(minLat) && Number.isFinite(maxLat) && Number.isFinite(minLng) && Number.isFinite(maxLng)) {
+        return { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2 };
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }, [boundary]);
+
+  const effectiveCenter = zoneCenter || boundaryCenter;
+
   const metaPrimaryComune = useMemo(() => {
     const raw = assignmentData?.metadata;
     const meta = raw && typeof raw === 'object' ? raw : (() => { try { return JSON.parse(raw || '{}'); } catch { return {}; } })();
     return Array.isArray(meta.comuni) && meta.comuni[0] ? meta.comuni[0] : null;
   }, [assignmentData]);
-  // activeZone.zone_name viene da operator_assignment_zones.municipality_name
-  // (gia' risolto a livello Comune, mai una sotto-zona tipo "Monza Centro" —
-  // vedi useDriverAssignment.js): priorita' sulla zona realmente in corso,
-  // poi campaign?.city (assegnazioni senza zone strutturate), poi il comune
-  // gia' noto dai metadati dell'assegnazione (disponibile subito, Fase 1).
-  // Prima leggeva solo campaign?.city: su una campagna con piu' zone/comuni
-  // la mappa restava agganciata al comune "principale" della campagna anche
-  // quando la sessione GPS attiva (campaign_zone_id) era su un altro comune.
-  const realComuneName = activeZone?.zone_name || tracking.assignmentState.campaign?.city || metaPrimaryComune || null;
 
-  // Confine reale del Comune — stesso helper condiviso di DriverAssignmentPage
-  // e DriverCoverageMap, mai un cerchio inventato.
+  // Il nome del comune reale deriva strettamente dalla zona attiva selezionata.
+  // Evita tassativamente di ricadere su campaign.city quando la zona selezionata
+  // e' un altro comune della campagna multi-zona.
+  const realComuneName = activeZone?.zone_name
+    || (assignmentZones?.length === 1 ? assignmentZones[0]?.zone_name : null)
+    || (!activeAssignmentZoneId ? (tracking.assignmentState.campaign?.city || metaPrimaryComune || null) : null);
+
+  // Confine reale del Comune — helper condiviso, mai cerchi inventati.
   useEffect(() => {
     if (!realComuneName) { setBoundary(null); return; }
     let cancelled = false;
@@ -134,9 +200,7 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
   const sessionId = tracking.session?.id || null;
   const position = tracking.lastPosition;
 
-  // Punti GPS persistiti della sessione (con accuracy, per il filtro qualita'
-  // gia' esistente in pointQuality.js) — stessa fonte/logica gia' usata da
-  // DriverCoverageMap.jsx, non una nuova pipeline di raccolta.
+  // Punti GPS persistiti della sessione
   useEffect(() => {
     if (!sessionId) { setPoints([]); return; }
     let cancelled = false;
@@ -146,11 +210,12 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
     getCampaignGpsPoints(campaignId, { sessionId })
       .then((rows) => { if (!cancelled) setPoints(rows); })
       .catch(() => {});
-    // gps_calculate_zone_coverage richiede geometry/polygon_geojson/radius_m
-    // sulla zona: se sappiamo gia' lato client che radiusM e' null (unico
-    // segnale disponibile qui), evitiamo la chiamata RPC — restituirebbe
-    // comunque 'zone_geometry_missing', ma senza il giro di rete.
-    const zoneGeometryKnownMissing = activeZone && activeZone.radiusM == null;
+
+    // Se la zona ha una geometria nota (poligono boundary o raggio), tentiamo
+    // la stima della copertura via RPC senza bloccare prematuramente per radiusM null.
+    const zoneGeometryKnownMissing = Boolean(
+      activeZone && activeZone.radiusM == null && !activeZone.hasPolygon && !boundary
+    );
     if (zoneGeometryKnownMissing) {
       setCoverage({ calculation_status: 'zone_geometry_missing' });
     } else if (now - lastCoverageFetchRef.current >= COVERAGE_REFRESH_INTERVAL_MS || !lastCoverageFetchRef.current) {
@@ -158,7 +223,7 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
       calculateGpsCoverage(sessionId).then((result) => { if (!cancelled) setCoverage(result); }).catch(() => {});
     }
     return () => { cancelled = true; };
-  }, [campaignId, sessionId, position?.recorded_at, tracking.status, activeZone]);
+  }, [campaignId, sessionId, position?.recorded_at, tracking.status, activeZone, boundary]);
 
   const validPoints = useMemo(() => filterValidGpsPoints(points).valid, [points]);
   const trackPath = useMemo(
@@ -235,6 +300,44 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
         </div>
       </header>
 
+      {/* Switcher rapido per incarichi multi-zona */}
+      {assignmentZones && assignmentZones.length > 1 && (
+        <div style={{ display: 'flex', gap: 8, padding: '0 16px 12px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          {assignmentZones.map((z, idx) => {
+            const isSelected = activeZone?.id === z.id;
+            const isLive = activeSessionZoneId === z.id;
+            return (
+              <button
+                key={z.id || idx}
+                type="button"
+                onClick={() => {
+                  setSelectedZoneId(z.id);
+                  if (typeof window !== 'undefined') {
+                    const sp = new URLSearchParams(window.location.search);
+                    sp.set('zoneId', z.id);
+                    window.history.replaceState(null, '', `${window.location.pathname}?${sp.toString()}`);
+                  }
+                }}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: 20,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  border: isSelected ? '1.5px solid #E8571A' : '1px solid rgba(255,255,255,0.15)',
+                  background: isSelected ? 'rgba(232, 87, 26, 0.18)' : 'rgba(255,255,255,0.05)',
+                  color: isSelected ? '#E8571A' : 'rgba(255,255,255,0.7)',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {idx + 1}. {z.zone_name}{isLive ? ' · In corso' : ''}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div style={kpiGridStyle}>
         <Kpi label="Copertura" value={coverageLabel} />
         <Kpi label="Distanza valida" value={validAreaDistanceKm != null ? `${validAreaDistanceKm.toFixed(2)} km` : 'N.D.'} />
@@ -254,33 +357,11 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
       )}
 
       <div style={mapWrapStyle}>
-        {/* Container della mappa sempre visibile fin da subito (MapContainer
-            sotto non aspetta ne' boundary ne' tile): questo overlay copre
-            solo l'attesa dei tile di base, mai uno schermo vuoto o bloccato. */}
         {!tilesLoaded && (
           <div style={mapLoadingOverlayStyle}>Mappa in caricamento…</div>
         )}
         <DriverMapErrorBoundary>
-          {/* height:'100%' non si risolveva mai qui: il genitore (mapWrapStyle)
-              prende altezza da flex:'1 1 auto' (flex-basis:auto), e in questo
-              motore di rendering l'altezza risolta di un flex item con
-              flex-basis:auto NON viene propagata come "definita" ai figli con
-              height percentuale (verificato dal vivo: getComputedStyle del
-              genitore riportava gia' 466px, ma il figlio restava a 0px finche'
-              non si forzava un'altezza esplicita sul genitore). position:
-              absolute + inset:0 ancora il contenitore Leaflet al genitore
-              position:relative senza passare da nessuna risoluzione
-              percentuale, quindi non dipende da questa sottigliezza flex. */}
-          {/* fadeAnimation=false: con React.StrictMode (main.jsx) la MapContainer
-              viene montata/smontata/rimontata una volta in piu' in dev; il loop
-              rAF interno di Leaflet che anima l'opacita' dei tile da 0 a 1 resta
-              corrotto tra un'istanza scartata e quella reale, lasciando i tile
-              caricati (leaflet-tile-loaded, visibility:visible) bloccati a
-              style.opacity="0" (verificato dal vivo: forzare opacity=1 a mano
-              rende i tile visibili immediatamente). Disabilitare l'animazione
-              rimuove la dipendenza da quel loop: i tile compaiono a piena
-              opacita' non appena caricati, nessun impatto su GPS/DB/auth. */}
-          <MapContainer center={zoneCenter ? [zoneCenter.lat, zoneCenter.lng] : [45.4642, 9.19]} zoom={14} fadeAnimation={false} style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}>
+          <MapContainer center={effectiveCenter ? [effectiveCenter.lat, effectiveCenter.lng] : [45.4642, 9.19]} zoom={14} fadeAnimation={false} style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}>
             <TileLayer
               attribution="&copy; OpenStreetMap"
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -296,7 +377,11 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
               }}
             />
             {boundary && (
-              <GeoJSON data={boundary} style={{ color: '#E8571A', weight: 3, fillColor: '#E8571A', fillOpacity: 0.06 }} />
+              <GeoJSON
+                key={`zone-boundary-${activeZone?.id || realComuneName}`}
+                data={boundary}
+                style={{ color: '#E8571A', weight: 3, fillColor: '#E8571A', fillOpacity: 0.06 }}
+              />
             )}
             <MapReadyController onReady={() => {
               if (mapTimingRef.current && mapTimingRef.current.mapMount == null) {
@@ -305,9 +390,20 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
                 console.info(`[MAP LOAD] MAP_MOUNT=${Math.round(t.mapMount - t.shellMount)}ms`);
               }
             }} />
-            {boundary && <FitToBounds geometry={boundary} trigger={fitToArea} />}
-            {zoneCenter && (
-              <CircleMarker center={[zoneCenter.lat, zoneCenter.lng]} radius={8} pathOptions={{ color: '#0f766e', fillColor: '#0f766e', fillOpacity: 0.9, weight: 2 }}>
+            {boundary && (
+              <FitToBounds
+                key={`fit-${activeZone?.id || realComuneName}`}
+                geometry={boundary}
+                trigger={fitToArea}
+              />
+            )}
+            {effectiveCenter && (
+              <CircleMarker
+                key={`center-${activeZone?.id || realComuneName}`}
+                center={[effectiveCenter.lat, effectiveCenter.lng]}
+                radius={8}
+                pathOptions={{ color: '#0f766e', fillColor: '#0f766e', fillOpacity: 0.9, weight: 2 }}
+              >
                 <Tooltip direction="top" offset={[0, -8]}>{zoneLabel || 'Zona attiva'}</Tooltip>
               </CircleMarker>
             )}
