@@ -19,6 +19,9 @@ import { getBusinessDefaultCopies } from "../../lib/business/business-config.js"
 import { calculateQuotePricing } from "../../lib/quotePricing.js";
 import { QUOTE_PRICES } from "../../lib/appConstants.js";
 import { resolveConfiguratorDistributionZones } from "../../lib/pricing/resolveConfiguratorDistributionZones.js";
+import { submitPublicCampaign } from "../../lib/supabaseClient.js";
+import { sendQuoteAdminNotification, sendQuoteCustomerConfirmation } from "../../api/sendEmailConferma.js";
+import { trackQuoteCompleted } from "../../lib/analytics/siteEvents.js";
 
 const F = { serif: "'DM Serif Display',Georgia,serif", sans: "'DM Sans',sans-serif" };
 const C = {
@@ -136,6 +139,29 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   // cambiare silenziosamente una quantita' gia' accettata.
   const [acceptedBusinessEstimate, setAcceptedBusinessEstimate] = useState(null);
   const debounceRef = useRef(null);
+  const contactSectionRef = useRef(null);
+
+  const [clientForm, setClientForm] = useState({
+    nome: data?.name || data?.nome || "",
+    email: data?.email || "",
+    telefono: data?.phone || data?.telefono || "",
+  });
+  const [clientErrors, setClientErrors] = useState({});
+  const [submitState, setSubmitState] = useState("idle"); // idle | submitting | success | partial_success | error
+  const [submitError, setSubmitError] = useState("");
+  const [savedCampaignId, setSavedCampaignId] = useState(null);
+  const [savedQuoteData, setSavedQuoteData] = useState(null);
+
+  const handleContactChange = (field, value) => {
+    setClientForm((prev) => ({ ...prev, [field]: value }));
+    if (clientErrors[field]) {
+      setClientErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  };
 
   useEffect(() => {
     if (!comuneInput || comuneInput.length < 2 || comuni.length >= MAX_COMUNI) {
@@ -453,99 +479,240 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
   };
 
   const serviceLabel = SERVICE_OPTIONS.find((s) => s.id === service)?.label || service;
+  const currentTimingLabel = timing === "custom" && customDate
+    ? `Data: ${customDate}`
+    : (TIMING_OPTIONS.find((t) => t.id === timing)?.label || "Appena possibile");
 
-  // Riusa la stessa funzione di generazione PDF di Step4 (printQuotePdf),
-  // mappando solo i campi realmente disponibili nel Rapido. Le sezioni che
-  // richiedono dati non raccolti qui (pianificazione date, business plan,
-  // punteggi Step2) restano vuote/null cosi' printQuotePdf le omette da
-  // sola — mai un valore inventato per riempirle.
-  const handleRequestQuote = () => {
-    if (!canPrice) return;
-    const mainArea = comuni.map((c) => c.name).join(", ") || comuneInput || "Zona da definire";
-    const quotePdfData = {
-      generatedAt: new Date().toISOString(),
-      status: "Stima indicativa",
-      service: serviceLabel,
-      campaign: {
-        variant: null,
-        quantity: effectiveQuantity,
-        format: format,
-        grammage: null,
-        materialStatus: printed === "true" ? "già stampato" : "Da produrre",
-        graphicStatus: null,
-        plan: "Singola",
-        campaignsPerMonth: null,
-        duration: null,
-        areaMode: comuni.length > 1 ? "multi" : "comune",
-      },
-      business: null,
-      area: {
-        mainArea,
-        areaMode: comuni.length > 1 ? "multi" : "comune",
-        selectedCaps: [],
-        capAnalysis: [],
-        radiusKm: null,
-        coveredAreaKm2: null,
-        selectedMunicipalities: comuni.map((c) => c.name),
-        selectionMode: "Auto",
-      },
-      outputs: {
-        estimatedFamilies: campaign.allMatched ? campaign.breakdown.reduce((s, b) => s + (b.households || 0), 0) : null,
-        estimatedPopulation: null,
-        estimatedCoverage: coveragePctAtCurrentQty,
-        recommendedFlyers: recommendedQty,
-        fullCoverageFlyers: recommendedQty,
-        insertedFlyers: effectiveQuantity,
-        remainingFlyers: recommendedQty && effectiveQuantity > recommendedQty ? effectiveQuantity - recommendedQty : 0,
-        missingFlyers: recommendedQty && effectiveQuantity < recommendedQty ? recommendedQty - effectiveQuantity : 0,
-        coverageStatus: recommendedQty ? (effectiveQuantity >= recommendedQty ? "sufficient" : "partial") : null,
-      },
-      coverageStrategy: null,
-      municipalities: campaign.breakdown.map((b) => ({
-        name: b.municipality,
-        status: b.households != null ? "Dato disponibile" : "In elaborazione",
-        estimatedFlyers: b.requestedQuantity,
-        coveragePct: b.estimatedCoverage,
-        contributionPct: recommendedQty && b.recommendedQuantity ? Math.round((b.recommendedQuantity / recommendedQty) * 100) : null,
-      })),
-      scores: [],
-      adminInfo: [],
-      omi: null,
-      extras: extraIds.map((id) => ({
-        id,
-        label: registryById[id]?.head,
-        description: registryById[id]?.optionalDescription || null,
-        price: registryById[id]?.price || 0,
-        status: "Selezionato",
-      })),
-      aiAnalysis: { enabled: false, serviceType: service, mainArea },
-      planning: {
-        selectedDates: timing === "custom" && customDate ? [customDate] : [],
-        availabilityLabel: null,
-        smartPairingApplied: false,
-        smartPairingDiscountPct: null,
-        operationalWaypoints: [],
-        compatibleZone: null,
-      },
-      pricing: {
-        lines: [
-          {
-            label: `Distribuzione ${serviceLabel}`,
-            detail: `${n(effectiveQuantity)} volantini`,
-            quantity: effectiveQuantity,
-            unitPrice: pricePerThousand / 1000,
-            total: baseCost,
-          },
-          ...(urgencySurcharge > 0 ? [{ label: `Maggiorazione urgenza (+${urgencySurchargePctLabel}%)`, quantity: null, unitPrice: null, total: urgencySurcharge }] : []),
-        ],
+  const handleRequestQuote = async () => {
+    if (!canPrice || submitState === "submitting" || submitState === "success") return;
+
+    // Validazione recapiti cliente
+    const errors = {};
+    const nomeTrimmed = clientForm.nome.trim();
+    if (!nomeTrimmed || nomeTrimmed.length < 2) {
+      errors.nome = "Inserisci il tuo nome e cognome (almeno 2 caratteri)";
+    }
+    const emailTrimmed = clientForm.email.trim().toLowerCase();
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailTrimmed || !EMAIL_RE.test(emailTrimmed)) {
+      errors.email = "Inserisci un indirizzo email valido";
+    }
+    const telefonoTrimmed = clientForm.telefono.trim();
+    if (telefonoTrimmed && telefonoTrimmed.replace(/\D/g, "").length < 6) {
+      errors.telefono = "Inserisci un numero di telefono valido (almeno 6 cifre)";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setClientErrors(errors);
+      if (contactSectionRef.current) {
+        contactSectionRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      return;
+    }
+
+    setClientErrors({});
+    setSubmitState("submitting");
+    setSubmitError("");
+
+    const mainArea = comuni.map((c) => c.name).join(", ") || comuneInput || "Milano";
+    const totalAmount = Number(total.toFixed(2));
+    const timingLabel = timing === "custom" && customDate ? `Data: ${customDate}` : timing === "urgent" ? "Urgente" : "Flessibile";
+    const materialStatus = printed === "true" ? "già stampato" : "Da produrre";
+    const extraLabels = extraIds.map((id) => registryById[id]?.head || id);
+
+    const campaignZonesPayload = comuni.length > 0
+      ? comuni.map((c, idx) => ({
+          municipality: c.name,
+          quantity: Math.round(effectiveQuantity / Math.max(1, comuni.length)),
+          priority: idx + 1,
+          lat: c.lat || 0,
+          lng: c.lng || 0,
+        }))
+      : [{ municipality: mainArea, quantity: effectiveQuantity, priority: 1, lat: 0, lng: 0 }];
+
+    const payload = {
+      title: `Preventivo Rapido (${nomeTrimmed})`,
+      service_type: service,
+      status: "pending_review",
+      city_name: mainArea,
+      zone_name: mainArea,
+      campaignZones: campaignZonesPayload,
+      flyer_quantity: effectiveQuantity,
+      flyer_format: format,
+      client_name: nomeTrimmed,
+      client_email: emailTrimmed,
+      client_phone: telefonoTrimmed || null,
+      total_amount: totalAmount,
+      metadata: {
+        grand_total: totalAmount,
+        payment_status: "in_attesa_pagamento",
+        servizio: serviceLabel,
+        comuni: comuni.map((c) => c.name),
+        formato: format,
+        materiale: materialStatus,
+        timing: timingLabel,
+        servizi_extra: extraLabels,
         subtotal: baseCost,
-        extras: extraIds.map((id) => ({ label: registryById[id]?.head, amount: registryById[id]?.price || 0, status: "Selezionato" })),
-        discounts: [],
-        total,
+        urgency_surcharge: urgencySurcharge,
+        extras_cost: extrasCost,
+        total: totalAmount,
+        source: "quick_quote",
+        is_public_request: true,
       },
-      sources: campaign.allMatched ? ["Analisi territoriale GIS/NIL"] : [],
     };
-    printQuotePdf(quotePdfData);
+
+    let createdId = null;
+    try {
+      const res = await submitPublicCampaign(payload);
+      if (res?.error) {
+        throw new Error(res.error.message || "Errore nel salvataggio della richiesta.");
+      }
+      const savedRow = res?.data?.campaign || {};
+      createdId = savedRow.id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `quote-${Date.now()}`);
+      setSavedCampaignId(createdId);
+
+      // Snapshot per download PDF successivo dal pulsante secondario nella schermata di successo
+      const quotePdfData = {
+        generatedAt: new Date().toISOString(),
+        status: "Stima indicativa",
+        service: serviceLabel,
+        quoteId: createdId,
+        campaign: {
+          variant: null,
+          quantity: effectiveQuantity,
+          format: format,
+          grammage: null,
+          materialStatus,
+          graphicStatus: null,
+          plan: "Singola",
+          campaignsPerMonth: null,
+          duration: null,
+          areaMode: comuni.length > 1 ? "multi" : "comune",
+        },
+        business: null,
+        area: {
+          mainArea,
+          areaMode: comuni.length > 1 ? "multi" : "comune",
+          selectedCaps: [],
+          capAnalysis: [],
+          radiusKm: null,
+          coveredAreaKm2: null,
+          selectedMunicipalities: comuni.map((c) => c.name),
+          selectionMode: "Auto",
+        },
+        outputs: {
+          estimatedFamilies: campaign.allMatched ? campaign.breakdown.reduce((s, b) => s + (b.households || 0), 0) : null,
+          estimatedPopulation: null,
+          estimatedCoverage: coveragePctAtCurrentQty,
+          recommendedFlyers: recommendedQty,
+          fullCoverageFlyers: recommendedQty,
+          insertedFlyers: effectiveQuantity,
+          remainingFlyers: recommendedQty && effectiveQuantity > recommendedQty ? effectiveQuantity - recommendedQty : 0,
+          missingFlyers: recommendedQty && effectiveQuantity < recommendedQty ? recommendedQty - effectiveQuantity : 0,
+          coverageStatus: recommendedQty ? (effectiveQuantity >= recommendedQty ? "sufficient" : "partial") : null,
+        },
+        coverageStrategy: null,
+        municipalities: campaign.breakdown.map((b) => ({
+          name: b.municipality,
+          status: b.households != null ? "Dato disponibile" : "In elaborazione",
+          estimatedFlyers: b.requestedQuantity,
+          coveragePct: b.estimatedCoverage,
+          contributionPct: recommendedQty && b.recommendedQuantity ? Math.round((b.recommendedQuantity / recommendedQty) * 100) : null,
+        })),
+        scores: [],
+        adminInfo: [],
+        omi: null,
+        extras: extraIds.map((id) => ({
+          id,
+          label: registryById[id]?.head,
+          description: registryById[id]?.optionalDescription || null,
+          price: registryById[id]?.price || 0,
+          status: "Selezionato",
+        })),
+        aiAnalysis: { enabled: false, serviceType: service, mainArea },
+        planning: {
+          selectedDates: timing === "custom" && customDate ? [customDate] : [],
+          availabilityLabel: null,
+          smartPairingApplied: false,
+          smartPairingDiscountPct: null,
+          operationalWaypoints: [],
+          compatibleZone: null,
+        },
+        pricing: {
+          lines: [
+            {
+              label: `Distribuzione ${serviceLabel}`,
+              detail: `${n(effectiveQuantity)} volantini`,
+              quantity: effectiveQuantity,
+              unitPrice: pricePerThousand / 1000,
+              total: baseCost,
+            },
+            ...(urgencySurcharge > 0 ? [{ label: `Maggiorazione urgenza (+${urgencySurchargePctLabel}%)`, quantity: null, unitPrice: null, total: urgencySurcharge }] : []),
+          ],
+          subtotal: baseCost,
+          extras: extraIds.map((id) => ({ label: registryById[id]?.head, amount: registryById[id]?.price || 0, status: "Selezionato" })),
+          discounts: [],
+          total: totalAmount,
+        },
+        sources: campaign.allMatched ? ["Analisi territoriale GIS/NIL"] : [],
+      };
+      setSavedQuoteData(quotePdfData);
+
+      try {
+        trackQuoteCompleted({
+          campaignId: createdId,
+          municipality: mainArea,
+          quantity: effectiveQuantity,
+          service: serviceLabel,
+        });
+      } catch {}
+    } catch (dbErr) {
+      console.error("[QuickQuote] Persistence error:", dbErr);
+      setSubmitError("Non siamo riusciti a registrare il preventivo. Riprova tra qualche istante.");
+      setSubmitState("error");
+      return; // DB save failed -> DO NOT proceed to email or success screen
+    }
+
+    // DB save succeeded: trigger Admin email and Customer confirmation email
+    const emailQuotePayload = {
+      location: mainArea,
+      quantity: effectiveQuantity,
+      service: serviceLabel,
+      format,
+      printStatus: materialStatus,
+      timing: timingLabel,
+      extras: extraIds.map((id) => ({ label: registryById[id]?.head || id, amount: registryById[id]?.price || 0 })),
+      grandTotal: totalAmount,
+      quoteId: createdId,
+    };
+
+    const customerPayload = {
+      nome: nomeTrimmed,
+      email: emailTrimmed,
+      telefono: telefonoTrimmed || undefined,
+    };
+
+    let adminOk = false;
+    let customerOk = false;
+
+    try {
+      const [adminRes, customerRes] = await Promise.all([
+        sendQuoteAdminNotification({ campaignId: createdId, customer: customerPayload, quote: emailQuotePayload }),
+        sendQuoteCustomerConfirmation({ campaignId: createdId, customer: customerPayload, quote: emailQuotePayload }),
+      ]);
+      adminOk = Boolean(adminRes?.ok);
+      customerOk = Boolean(customerRes?.ok);
+    } catch (emailErr) {
+      console.warn("[QuickQuote] Email dispatch warning:", emailErr);
+    }
+
+    if (adminOk && customerOk) {
+      setSubmitState("success");
+    } else {
+      // In caso di ritardo o fallimento email, il preventivo resta SALVATO nel DB canonico
+      console.warn("[QuickQuote] Partial email delivery:", { adminOk, customerOk });
+      setSubmitState("partial_success");
+    }
   };
 
   return (
@@ -575,7 +742,149 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
           </p>
         </div>
 
-        <div className="qq-grid" style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 24, alignItems: "start" }}>
+        {submitState === "success" || submitState === "partial_success" ? (
+          <div style={{
+            background: "rgba(255,255,255,.03)",
+            borderRadius: 20,
+            border: "1px solid rgba(255,255,255,.1)",
+            padding: isMobile ? "28px 20px" : "40px 36px",
+            maxWidth: 760,
+            margin: "0 auto",
+            boxShadow: "0 25px 60px rgba(0,0,0,.4)",
+            textAlign: "center",
+          }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: "50%",
+              background: "rgba(46,204,138,.15)", border: `2px solid ${C.green}`,
+              color: C.green, fontSize: 32, display: "flex", alignItems: "center", justifyContent: "center",
+              margin: "0 auto 20px",
+            }}>
+              ✓
+            </div>
+
+            <h2 style={{ fontFamily: F.serif, fontSize: "clamp(24px, 3.5vw, 32px)", color: C.white, margin: "0 0 10px" }}>
+              {submitState === "success" ? "Preventivo inviato con successo!" : "Preventivo registrato nei sistemi"}
+            </h2>
+
+            <p style={{ fontFamily: F.sans, fontSize: 14.5, color: "rgba(255,255,255,.7)", lineHeight: 1.6, maxWidth: 580, margin: "0 auto 24px" }}>
+              {submitState === "success"
+                ? `Abbiamo registrato la tua richiesta e inviato un'email di riepilogo a ${clientForm.email}. Un consulente VolantiniPro analizzerà i dettagli territoriali e ti contatterà al più presto.`
+                : `La tua richiesta è stata registrata correttamente nel sistema. La notifica email potrebbe richiedere qualche istante per essere recapitata.`
+              }
+            </p>
+
+            {/* Badge ID Preventivo */}
+            <div style={{
+              display: "inline-block",
+              background: "rgba(255,255,255,.05)",
+              border: "1px dashed rgba(255,255,255,.2)",
+              borderRadius: 10,
+              padding: "10px 18px",
+              marginBottom: 28,
+            }}>
+              <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.45)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 2 }}>
+                ID Preventivo
+              </div>
+              <div style={{ fontFamily: F.sans, fontSize: 14, fontWeight: 700, color: C.blue, wordBreak: "break-all" }}>
+                {savedCampaignId || "—"}
+              </div>
+            </div>
+
+            {/* Recap Dettagli */}
+            <div style={{
+              background: "rgba(0,0,0,.25)",
+              borderRadius: 14,
+              border: "1px solid rgba(255,255,255,.06)",
+              padding: "20px 22px",
+              textAlign: "left",
+              marginBottom: 28,
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.65)" }}>
+                <span>Servizio:</span>
+                <span style={{ color: C.white, fontWeight: 700 }}>{serviceLabel}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.65)" }}>
+                <span>Comuni ({comuni.length}):</span>
+                <span style={{ color: C.white, fontWeight: 700, textAlign: "right", maxWidth: 280 }}>{comuni.map((c) => c.name).join(", ")}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.65)" }}>
+                <span>Quantità:</span>
+                <span style={{ color: C.white, fontWeight: 700 }}>{n(effectiveQuantity)} volantini</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.65)" }}>
+                <span>Formato / Stampa:</span>
+                <span style={{ color: C.white, fontWeight: 700 }}>{format} · {printed === "true" ? "Stampato" : "Da stampare"}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.65)" }}>
+                <span>Tempistica:</span>
+                <span style={{ color: C.white, fontWeight: 700 }}>{currentTimingLabel}</span>
+              </div>
+              {extraIds.length > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 13, color: C.blue }}>
+                  <span>Extra inclusi:</span>
+                  <span style={{ fontWeight: 700, textAlign: "right", maxWidth: 280 }}>{extraIds.map((id) => registryById[id]?.head || id).join(", ")}</span>
+                </div>
+              )}
+              <div style={{ borderTop: "1px solid rgba(255,255,255,.1)", paddingTop: 12, marginTop: 4, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <span style={{ fontFamily: F.sans, fontSize: 14, fontWeight: 700, color: C.white }}>Totale stimato:</span>
+                <span style={{ fontFamily: F.serif, fontSize: 24, fontWeight: 800, color: C.white }}>{money(total)} <span style={{ fontSize: 12, fontFamily: F.sans, color: "rgba(255,255,255,.5)" }}>+ IVA</span></span>
+              </div>
+              <div style={{ borderTop: "1px dashed rgba(255,255,255,.08)", paddingTop: 10, marginTop: 2, display: "flex", justifyContent: "space-between", fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.5)" }}>
+                <span>Intestato a:</span>
+                <span style={{ color: C.white }}>{clientForm.nome} ({clientForm.email}{clientForm.telefono ? ` · ${clientForm.telefono}` : ""})</span>
+              </div>
+            </div>
+
+            {/* Azioni */}
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+              {savedQuoteData && (
+                <button
+                  type="button"
+                  onClick={() => printQuotePdf(savedQuoteData)}
+                  style={{
+                    padding: "13px 22px", borderRadius: 10, border: "none",
+                    background: C.blue, color: C.white,
+                    fontFamily: F.sans, fontSize: 14, fontWeight: 800, cursor: "pointer",
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    boxShadow: "0 6px 18px rgba(56,189,248,.3)",
+                  }}
+                >
+                  📄 Scarica PDF preventivo
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onStart("home")}
+                style={{
+                  padding: "13px 22px", borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,.15)", background: "rgba(255,255,255,.05)",
+                  color: C.white, fontFamily: F.sans, fontSize: 14, fontWeight: 700, cursor: "pointer",
+                }}
+              >
+                Torna alla Home
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSubmitState("idle");
+                  setSavedCampaignId(null);
+                  setSavedQuoteData(null);
+                }}
+                style={{
+                  padding: "13px 22px", borderRadius: 10,
+                  border: "none", background: "transparent",
+                  color: "rgba(255,255,255,.6)", fontFamily: F.sans, fontSize: 13, fontWeight: 600, cursor: "pointer", textDecoration: "underline",
+                }}
+              >
+                Modifica preventivo
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="qq-grid" style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 24, alignItems: "start" }}>
           {/* Form principale a sinistra */}
           <div style={{ background: "rgba(255,255,255,.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,.08)", padding: isMobile ? "20px 16px" : "24px 26px", boxShadow: "0 20px 50px rgba(0,0,0,.25)" }}>
 
@@ -983,6 +1292,98 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
                 </div>
               )}
             </div>
+
+            {/* 8. RECAPITI CLIENTE */}
+            <div
+              ref={contactSectionRef}
+              style={{
+                marginTop: 24,
+                paddingTop: 20,
+                borderTop: "1px solid rgba(255,255,255,.08)",
+              }}
+            >
+              <FieldLabel>8. I tuoi recapiti per ricevere il preventivo</FieldLabel>
+              <div style={{ fontFamily: F.sans, fontSize: 12.5, color: "rgba(255,255,255,.6)", marginBottom: 14, lineHeight: 1.4 }}>
+                Inserisci i dati a cui inviare la notifica e il riepilogo del preventivo.
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                {/* Nome e Cognome */}
+                <div>
+                  <label style={{ display: "block", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.6)", marginBottom: 6 }}>
+                    Nome e Cognome *
+                  </label>
+                  <input
+                    type="text"
+                    value={clientForm.nome}
+                    onChange={(e) => handleContactChange("nome", e.target.value)}
+                    placeholder="Mario Rossi"
+                    style={{
+                      width: "100%", padding: "11px 13px", borderRadius: 9,
+                      background: "rgba(255,255,255,.06)",
+                      border: clientErrors.nome ? `1px solid ${C.red}` : "1px solid rgba(255,255,255,.12)",
+                      color: C.white, fontFamily: F.sans, fontSize: 13, outline: "none",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                  {clientErrors.nome && (
+                    <div style={{ fontFamily: F.sans, fontSize: 11, color: C.red, marginTop: 4 }}>
+                      {clientErrors.nome}
+                    </div>
+                  )}
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label style={{ display: "block", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.6)", marginBottom: 6 }}>
+                    Email aziendale / personale *
+                  </label>
+                  <input
+                    type="email"
+                    value={clientForm.email}
+                    onChange={(e) => handleContactChange("email", e.target.value)}
+                    placeholder="mario@azienda.it"
+                    style={{
+                      width: "100%", padding: "11px 13px", borderRadius: 9,
+                      background: "rgba(255,255,255,.06)",
+                      border: clientErrors.email ? `1px solid ${C.red}` : "1px solid rgba(255,255,255,.12)",
+                      color: C.white, fontFamily: F.sans, fontSize: 13, outline: "none",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                  {clientErrors.email && (
+                    <div style={{ fontFamily: F.sans, fontSize: 11, color: C.red, marginTop: 4 }}>
+                      {clientErrors.email}
+                    </div>
+                  )}
+                </div>
+
+                {/* Telefono */}
+                <div style={{ gridColumn: isMobile ? "span 1" : "span 2" }}>
+                  <label style={{ display: "block", fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.6)", marginBottom: 6 }}>
+                    Telefono (opzionale)
+                  </label>
+                  <input
+                    type="tel"
+                    value={clientForm.telefono}
+                    onChange={(e) => handleContactChange("telefono", e.target.value)}
+                    placeholder="+39 333 1234567"
+                    style={{
+                      width: "100%", padding: "11px 13px", borderRadius: 9,
+                      background: "rgba(255,255,255,.06)",
+                      border: clientErrors.telefono ? `1px solid ${C.red}` : "1px solid rgba(255,255,255,.12)",
+                      color: C.white, fontFamily: F.sans, fontSize: 13, outline: "none",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                  {clientErrors.telefono && (
+                    <div style={{ fontFamily: F.sans, fontSize: 11, color: C.red, marginTop: 4 }}>
+                      {clientErrors.telefono}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Colonna destra: Riepilogo Live Sticky */}
@@ -1078,22 +1479,30 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
               </>
             )}
 
+            {submitError && (
+              <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(248,113,113,.1)", border: `1px solid ${C.red}`, marginBottom: 12 }}>
+                <div style={{ fontFamily: F.sans, fontSize: 11.5, color: C.red, lineHeight: 1.4 }}>
+                  {submitError}
+                </div>
+              </div>
+            )}
+
             {/* Pulsante CTA principale */}
             <button
               type="button"
               onClick={handleRequestQuote}
-              disabled={!canPrice}
+              disabled={!canPrice || submitState === "submitting"}
               style={{
                 width: "100%", padding: "14px", borderRadius: 10, border: "none",
-                background: canPrice ? C.orange : "rgba(255,255,255,.08)",
-                color: canPrice ? C.white : "rgba(255,255,255,.35)",
+                background: canPrice && submitState !== "submitting" ? C.orange : "rgba(255,255,255,.08)",
+                color: canPrice && submitState !== "submitting" ? C.white : "rgba(255,255,255,.35)",
                 fontFamily: F.sans, fontSize: 14, fontWeight: 800,
-                cursor: canPrice ? "pointer" : "not-allowed", marginBottom: 10,
-                boxShadow: canPrice ? "0 8px 20px rgba(232,87,26,.3)" : "none",
+                cursor: canPrice && submitState !== "submitting" ? "pointer" : "not-allowed", marginBottom: 10,
+                boxShadow: canPrice && submitState !== "submitting" ? "0 8px 20px rgba(232,87,26,.3)" : "none",
                 transition: "all .15s ease",
               }}
             >
-              {canPrice ? "Ricevi il preventivo" : "Completa i dati"}
+              {submitState === "submitting" ? "Invio in corso…" : canPrice ? "Ricevi il preventivo" : "Completa i dati"}
             </button>
 
             <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.35)", lineHeight: 1.45, marginBottom: 16 }}>
@@ -1117,6 +1526,7 @@ export default function QuickQuotePage({ onStart, onContact, data }) {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       <style>{`

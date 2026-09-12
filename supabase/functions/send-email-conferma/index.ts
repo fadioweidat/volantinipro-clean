@@ -20,7 +20,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 import { sendTransactionalEmail } from "../_shared/sendTransactionalEmail.ts";
-import { buildQuoteEmail, sanitizeQuoteEmailSpec } from "../_shared/quoteEmail.ts";
+import {
+  buildQuoteEmail,
+  sanitizeQuoteEmailSpec,
+  buildAdminQuoteNotificationEmail,
+  buildCustomerQuoteConfirmationEmail,
+} from "../_shared/quoteEmail.ts";
 
 declare const Deno: any;
 
@@ -33,6 +38,19 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function getAdminRecipient(): string {
+  const candidates = [
+    Deno.env.get("CONSULTATION_REQUEST_TO"),
+    Deno.env.get("RESEND_REPLY_TO_EMAIL"),
+    "info@volantinipro.it",
+  ];
+  for (const c of candidates) {
+    const v = String(c || "").trim();
+    if (v && EMAIL_RE.test(v)) return v;
+  }
+  return "info@volantinipro.it";
+}
 
 // --- Hashing crittografico (SHA-256) per tutela della privacy (GDPR / zero PII) ---
 async function sha256Hex(value: string): Promise<string> {
@@ -143,13 +161,55 @@ serve(async (req: Request) => {
   const ipHash = await sha256Hex(clientIp);
 
   let recipientEmail = "";
+  let replyToEmail: string | undefined = undefined;
   let quoteOrCampaignId: string | null = null;
   let fingerprintPayload = "";
   let subject = "";
   let html = "";
   let text: string | undefined = undefined;
+  let customIdempotencyKey: string | null = null;
 
-  if (type === "preventivo") {
+  if (type === "preventivo_admin") {
+    // SICUREZZA: Il destinatario Admin è FORZATO lato server su info@volantinipro.it.
+    // Il payload frontend NON PUÒ MAI sovrascrivere il destinatario admin.
+    const siteUrl = String(Deno.env.get("SITE_URL") || "https://www.volantinipro.it").trim() || "https://www.volantinipro.it";
+    const spec = sanitizeQuoteEmailSpec(raw, siteUrl);
+    if (!spec) return json({ ok: false, code: "INVALID_PAYLOAD" }, 400);
+
+    recipientEmail = "info@volantinipro.it";
+    // Reply-to indirizzato al cliente così l'admin può rispondere con 1 click
+    replyToEmail = spec.recipientEmail;
+    quoteOrCampaignId = spec.quoteId || null;
+    fingerprintPayload = `admin:${spec.quoteId || ""}:${spec.grandTotal}:${spec.location || ""}`;
+
+    const content = buildAdminQuoteNotificationEmail(spec);
+    subject = content.subject;
+    html = content.html;
+    text = content.text;
+
+    if (quoteOrCampaignId) {
+      customIdempotencyKey = `quote_admin:${quoteOrCampaignId}`;
+    }
+  } else if (type === "preventivo_cliente") {
+    // Conferma per il cliente: destinatario validato con solo i dati della richiesta
+    const siteUrl = String(Deno.env.get("SITE_URL") || "https://www.volantinipro.it").trim() || "https://www.volantinipro.it";
+    const spec = sanitizeQuoteEmailSpec(raw, siteUrl);
+    if (!spec) return json({ ok: false, code: "INVALID_PAYLOAD" }, 400);
+
+    recipientEmail = spec.recipientEmail;
+    replyToEmail = "info@volantinipro.it";
+    quoteOrCampaignId = spec.quoteId || null;
+    fingerprintPayload = `cust:${spec.quoteId || ""}:${spec.grandTotal}:${spec.location || ""}`;
+
+    const content = buildCustomerQuoteConfirmationEmail(spec);
+    subject = content.subject;
+    html = content.html;
+    text = content.text;
+
+    if (quoteOrCampaignId) {
+      customIdempotencyKey = `quote_customer:${quoteOrCampaignId}`;
+    }
+  } else if (type === "preventivo") {
     const siteUrl = String(Deno.env.get("SITE_URL") || "https://www.volantinipro.it").trim() || "https://www.volantinipro.it";
     const spec = sanitizeQuoteEmailSpec(raw, siteUrl);
     if (!spec) return json({ ok: false, code: "INVALID_PAYLOAD" }, 400);
@@ -179,7 +239,7 @@ serve(async (req: Request) => {
   }
 
   const recipientHash = await sha256Hex(recipientEmail);
-  const key = await buildPersistentIdempotencyKey(type, recipientHash, quoteOrCampaignId, raw.requestId, fingerprintPayload);
+  const key = customIdempotencyKey || await buildPersistentIdempotencyKey(type, recipientHash, quoteOrCampaignId, raw.requestId, fingerprintPayload);
 
   const supabase = getSupabaseAdmin();
 
@@ -244,7 +304,13 @@ serve(async (req: Request) => {
   }
 
   // --- 3. Invio effettivo tramite provider transazionale (Resend) ----------
-  const result = await sendTransactionalEmail({ to: recipientEmail, subject, html, text });
+  const result = await sendTransactionalEmail({
+    to: recipientEmail,
+    subject,
+    html,
+    text,
+    ...(replyToEmail ? { replyTo: replyToEmail } : {}),
+  });
 
   // --- 4. Registrazione Esito Atomico nel DB -------------------------------
   if (supabase) {
