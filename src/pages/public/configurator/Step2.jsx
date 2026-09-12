@@ -2165,6 +2165,18 @@ export function Step2({
       debugStep2Log("[STEP2_RADIUS_FILTER_INPUT]", "Radius:", radiusKm, "Total zones from API:", filtered.length);
     }
     if (gateMode === "municipality") {
+      const isCanonicalMilanoNil = z => Boolean(
+        z?.isNil === true ||
+        z?.territoryLevel === "nil" ||
+        Boolean(z?.nilCode) ||
+        extractOfficialNilCode(z) !== null
+      );
+      const isMilanoNilSource = isResidentialStep2 && (
+        requestedAnalysisLevel === "nil" ||
+        isNilAnalysis === true ||
+        filtered.some(isCanonicalMilanoNil)
+      );
+
       // Indirizzo/punto non confermato (es. "Corso Como, Milano"): NON
       // calcolare il comune completo finché l'utente non clicca esplicitamente
       // "Usa Milano comune completo" — vedi hasUnconfirmedAddressPoint e il box
@@ -2180,7 +2192,8 @@ export function Step2({
         // comune diverso (Cormano, Como, ecc.), blocca l'override — il comune
         // deve restare Milano. Causa originale: reverse geocoding/coordinate di
         // confine risolvono a Cormano, sovrascrivendo Milano silenziosamente.
-      } else if (selectedSearchPoint?.type === "address" && selectedSearchPoint?.parentComune === "Milano" && filtered.length > 0) {
+        // Per sorgente NIL Milano, non collassare cercando una zona denominata letteralmente "milano".
+      } else if (!isMilanoNilSource && selectedSearchPoint?.type === "address" && selectedSearchPoint?.parentComune === "Milano" && filtered.length > 0) {
         const milanoZone = filtered.find(z => normalizeMunicipalityName(z.name) === "milano");
         const nonMilanoZones = filtered.filter(z => normalizeMunicipalityName(z.name) !== "milano");
         if (nonMilanoZones.length > 0 && (!milanoZone || filtered.length === nonMilanoZones.length)) {
@@ -2221,8 +2234,8 @@ export function Step2({
           normalized: normalizeMunicipalityName(z.name),
           municipality_code: z.municipality_code
         })));
-        if (isResidentialStep2 && requestedAnalysisLevel === "nil") {
-          const nilAreas = filtered.filter(z => z.isNil || z.territoryLevel === "nil" || z.nilCode);
+        if (isResidentialStep2 && (requestedAnalysisLevel === "nil" || isMilanoNilSource)) {
+          const nilAreas = filtered.filter(isCanonicalMilanoNil);
           filtered = nilAreas.length ? nilAreas : filtered;
         } else {
           const currComuni = selectedComuni && selectedComuni.length > 0 ? selectedComuni : city ? [city] : [];
