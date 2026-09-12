@@ -1,5 +1,5 @@
 import CampaignSettlementSummary from './CampaignSettlementSummary.jsx';
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { C, F } from "../../lib/constants.js";
 import Button from "../ui/Button.jsx";
 import {
@@ -11,6 +11,7 @@ import {
   MODIFICATION_STATUS_LABELS,
   MODIFICATION_TYPES,
 } from "../../lib/services/hub-api.js";
+import { mergeMessages, countUnreadMessages, subscribeToCustomerMessages } from "../../lib/services/messaging-realtime.js";
 
 // TICKET — CUSTOMER CONTROL CENTER + ADMIN HUB + DRIVER MESSAGING.
 // Due sezioni pensate per la Dashboard Cliente (CampaignDashboardPage in
@@ -201,12 +202,13 @@ export function CustomerMessagesPanel({ campaignId }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const broadcasterRef = useRef(null);
 
   const reload = useCallback(async () => {
     if (!campaignId) return;
     try {
       const rows = await customerListMessages(campaignId);
-      setMessages(Array.isArray(rows) ? rows : []);
+      setMessages((prev) => mergeMessages(prev, Array.isArray(rows) ? rows : []));
     } catch (e) {
       setError(e?.message || null);
     }
@@ -214,9 +216,35 @@ export function CustomerMessagesPanel({ campaignId }) {
 
   useEffect(() => {
     reload();
-    const timer = window.setInterval(reload, 15000);
-    return () => window.clearInterval(timer);
-  }, [reload]);
+
+    const sub = subscribeToCustomerMessages(campaignId, {
+      onMessage: (msg) => {
+        setMessages((prev) => mergeMessages(prev, msg));
+      },
+      onSeen: (seenMsg) => {
+        setMessages((prev) => mergeMessages(prev, seenMsg));
+      },
+    });
+
+    broadcasterRef.current = sub.broadcastMessage;
+
+    const timer = window.setInterval(reload, 3000);
+
+    const onOnline = () => reload();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") reload();
+    };
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      sub.unsubscribe();
+      broadcasterRef.current = null;
+      window.clearInterval(timer);
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [campaignId, reload]);
 
   useEffect(() => {
     if (messages.some((m) => m.recipient_role === "customer" && !m.seen_at)) {
@@ -229,8 +257,14 @@ export function CustomerMessagesPanel({ campaignId }) {
     if (!text.trim()) return;
     setBusy(true); setError(null);
     try {
-      await customerSendMessage({ campaignId, text: text.trim() });
+      const sentMsg = await customerSendMessage({ campaignId, text: text.trim() });
       setText("");
+      if (sentMsg) {
+        setMessages((prev) => mergeMessages(prev, sentMsg));
+        if (broadcasterRef.current) {
+          broadcasterRef.current(sentMsg);
+        }
+      }
       await reload();
     } catch (err) {
       setError(err?.message || "Invio messaggio non riuscito.");
@@ -239,7 +273,7 @@ export function CustomerMessagesPanel({ campaignId }) {
     }
   };
 
-  const unreadCount = messages.filter((m) => m.recipient_role === "customer" && !m.seen_at).length;
+  const unreadCount = countUnreadMessages(messages, 'customer');
 
   return (
     <section style={cardStyle}>

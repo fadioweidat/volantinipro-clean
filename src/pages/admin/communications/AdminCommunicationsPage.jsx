@@ -15,6 +15,13 @@ import {
 } from "../../../lib/services/hub-api.js";
 import { adminListIssues, adminRouteIssue, ISSUE_STATUS_LABELS } from "../../../lib/services/customer-issues-api.js";
 import { listCampaignAssignments } from "../../../lib/services/admin-api.js";
+import {
+  mergeMessages,
+  subscribeToAdminMessages,
+  subscribeToConversation,
+  subscribeToDriverMessages,
+  subscribeToCustomerMessages,
+} from "../../../lib/services/messaging-realtime.js";
 
 // TICKET — CUSTOMER CONTROL CENTER + ADMIN HUB + DRIVER MESSAGING — PARTE E.
 // Admin e' l'hub centrale: vede TUTTE le conversazioni (Cliente<->Admin e
@@ -84,12 +91,34 @@ export function AdminCommunicationsPage({ onNav }) {
     }
   }, [filter]);
 
-  // Polling leggero (20s): nuovi messaggi/segnalazioni/richieste visibili
-  // senza logout/refresh, stesso ordine di grandezza di Cliente/Driver.
+  // Sottoscrizione Realtime Admin (admin:messages) + network recovery + polling adattivo
   useEffect(() => {
     reload();
-    const timer = window.setInterval(reload, 20000);
-    return () => window.clearInterval(timer);
+
+    const sub = subscribeToAdminMessages({
+      onMessage: () => {
+        reload();
+      },
+      onSeen: () => {
+        reload();
+      },
+    });
+
+    const timer = window.setInterval(reload, 5000);
+
+    const onOnline = () => reload();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") reload();
+    };
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      sub.unsubscribe();
+      window.clearInterval(timer);
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [reload]);
 
   const selectedConversation = useMemo(
@@ -154,44 +183,106 @@ function ConversationDetail({ conversation, onSent }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  // TICKET — FIX FIRST MESSAGE ADMIN -> DRIVER: per una riga della directory
-  // Driver senza chat ancora, conversation.id e' null finche' l'Admin non
-  // invia il primo messaggio. Stato locale cosi' il resto della UI (polling,
-  // lista messaggi) si aggancia subito alla conversazione appena creata,
-  // senza dover riselezionare la riga dalla lista.
   const [conversationId, setConversationId] = useState(conversation.id || null);
+  const broadcasterRef = useRef(null);
 
-  useEffect(() => { setConversationId(conversation.id || null); setMessages([]); }, [conversation.key, conversation.id]);
+  useEffect(() => {
+    setConversationId(conversation.id || null);
+    setMessages([]);
+  }, [conversation.key, conversation.id]);
 
   const reload = useCallback(async () => {
     if (!conversationId) { setMessages([]); return; }
     const rows = await adminListMessages(conversationId).catch(() => []);
-    setMessages(Array.isArray(rows) ? rows : []);
+    setMessages((prev) => mergeMessages(prev, Array.isArray(rows) ? rows : []));
     if ((rows || []).some((m) => m.recipient_role === "admin" && !m.seen_at)) {
       adminMarkMessagesSeen(conversationId).catch(() => {});
+      onSent?.();
     }
-  }, [conversationId]);
+  }, [conversationId, onSent]);
 
+  // Sottoscrizione Realtime su conversazione e assignment/campagna
   useEffect(() => {
     reload();
-    const timer = window.setInterval(reload, 15000);
-    return () => window.clearInterval(timer);
-  }, [reload]);
+
+    const handleNewMessage = (msg) => {
+      setMessages((prev) => mergeMessages(prev, msg));
+      if (msg.recipient_role === "admin" && !msg.seen_at && conversationId) {
+        adminMarkMessagesSeen(conversationId).catch(() => {});
+        onSent?.();
+      }
+    };
+
+    const handleSeen = (seenMsg) => {
+      setMessages((prev) => mergeMessages(prev, seenMsg));
+      onSent?.();
+    };
+
+    // Canale 1: conversazione specifica (se ID disponibile)
+    const subConv = conversationId
+      ? subscribeToConversation(conversationId, {
+          onMessage: handleNewMessage,
+          onSeen: handleSeen,
+        })
+      : null;
+
+    // Canale 2: canale specifico Driver (assignment) o Cliente (campaign)
+    let subTarget = null;
+    if (conversation.kind === "driver_admin" && conversation.assignment_id) {
+      subTarget = subscribeToDriverMessages(conversation.assignment_id, {
+        onMessage: handleNewMessage,
+        onSeen: handleSeen,
+      });
+      broadcasterRef.current = subTarget.broadcastMessage;
+    } else if (conversation.kind === "customer_admin" && conversation.campaign_id) {
+      subTarget = subscribeToCustomerMessages(conversation.campaign_id, {
+        onMessage: handleNewMessage,
+        onSeen: handleSeen,
+      });
+      broadcasterRef.current = subTarget.broadcastMessage;
+    } else if (subConv) {
+      broadcasterRef.current = subConv.broadcastMessage;
+    }
+
+    // Polling adattivo di sicurezza a 2.5s quando la conversazione è aperta
+    const timer = window.setInterval(reload, 2500);
+
+    const onOnline = () => reload();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") reload();
+    };
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      subConv?.unsubscribe();
+      subTarget?.unsubscribe();
+      broadcasterRef.current = null;
+      window.clearInterval(timer);
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [conversationId, conversation.kind, conversation.assignment_id, conversation.campaign_id, reload, onSent]);
 
   const send = async (e) => {
     e.preventDefault();
     if (!text.trim()) return;
     setBusy(true);
     try {
+      let msg = null;
       if (conversation.kind === "driver_admin") {
-        // get-or-create idempotente: stesso path per il primo messaggio e
-        // per i successivi, l'Admin non deve mai sapere se la chat esisteva.
-        const msg = await adminSendDriverMessage({ assignmentId: conversation.assignment_id, text: text.trim() });
+        msg = await adminSendDriverMessage({ assignmentId: conversation.assignment_id, text: text.trim() });
         setConversationId(msg.conversation_id);
       } else {
-        await adminSendMessage({ conversationId, text: text.trim() });
+        msg = await adminSendMessage({ conversationId, text: text.trim() });
       }
       setText("");
+      if (msg) {
+        setMessages((prev) => mergeMessages(prev, msg));
+        if (broadcasterRef.current) {
+          broadcasterRef.current(msg);
+        }
+      }
       await reload();
       onSent?.();
     } finally {

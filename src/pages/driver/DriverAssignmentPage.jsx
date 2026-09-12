@@ -11,6 +11,7 @@ import { driverListIssues, driverTransitionIssue, ISSUE_STATUS_LABELS } from '..
 import { uploadIssueVerificationPhoto } from '../../lib/services/gps-api.js';
 import { driverListMessages, driverMarkMessagesSeen, driverSendMessage } from '../../lib/services/hub-api.js';
 import { buildIssueWatermarkLines, canvasToJpegBlob, compressPodImage, drawPodWatermark, releaseCanvas } from '../../lib/pod/podPhotoProcessing.js';
+import { mergeMessages, countUnreadMessages, subscribeToDriverMessages } from '../../lib/services/messaging-realtime.js';
 
 // ─── DriverAssignmentPage ─────────────────────────────────────────────────────
 // Pagina driver accessibile tramite /driver/assignment/{assignmentId}, link
@@ -849,23 +850,61 @@ function DriverMessagesSection({ assignmentId, accessToken }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const [realtimeStatus, setRealtimeStatus] = useState('DISCONNECTED');
+  const broadcasterRef = useRef(null);
 
   const reload = useCallback(async () => {
     try {
       const rows = await driverListMessages(assignmentId, accessToken || null);
-      setMessages(Array.isArray(rows) ? rows : []);
+      setMessages((prev) => mergeMessages(prev, Array.isArray(rows) ? rows : []));
     } catch (e) {
       setErr(e?.message || null);
     }
   }, [assignmentId, accessToken]);
 
-  // Stesso polling leggero di DriverIssuesSection (20s): un driver gia' con
-  // l'app aperta deve vedere un messaggio Admin senza logout/refresh.
+  // Iscrizione Realtime (Broadcast + DB trigger) con fallback polling adattivo
   useEffect(() => {
     reload();
-    const timer = window.setInterval(reload, 20000);
-    return () => window.clearInterval(timer);
-  }, [reload]);
+
+    const sub = subscribeToDriverMessages(assignmentId, {
+      onMessage: (msg) => {
+        setMessages((prev) => mergeMessages(prev, msg));
+      },
+      onSeen: (seenMsg) => {
+        setMessages((prev) => mergeMessages(prev, seenMsg));
+      },
+      onStatusChange: (status) => {
+        setRealtimeStatus(status);
+        if (status === 'SUBSCRIBED') {
+          reload();
+        }
+      },
+    });
+
+    broadcasterRef.current = sub.broadcastMessage;
+
+    // Polling adattivo:
+    // Se connesso in realtime, heartbeat a 6s.
+    // Se disconnesso o in riconnessione, polling accelerato a 2.5s.
+    const intervalMs = realtimeStatus === 'SUBSCRIBED' ? 6000 : 2500;
+    const timer = window.setInterval(reload, intervalMs);
+
+    // Network recovery automatico su riconnessione browser / ritorno in tab
+    const onOnline = () => reload();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') reload();
+    };
+    window.addEventListener('online', onOnline);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      sub.unsubscribe();
+      broadcasterRef.current = null;
+      window.clearInterval(timer);
+      window.removeEventListener('online', onOnline);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [assignmentId, reload, realtimeStatus]);
 
   useEffect(() => {
     if (messages.some((m) => m.recipient_role === 'driver' && !m.seen_at)) {
@@ -878,8 +917,14 @@ function DriverMessagesSection({ assignmentId, accessToken }) {
     if (!text.trim()) return;
     setBusy(true); setErr(null);
     try {
-      await driverSendMessage({ assignmentId, text: text.trim(), accessToken: accessToken || null });
+      const sentMsg = await driverSendMessage({ assignmentId, text: text.trim(), accessToken: accessToken || null });
       setText('');
+      if (sentMsg) {
+        setMessages((prev) => mergeMessages(prev, sentMsg));
+        if (broadcasterRef.current) {
+          broadcasterRef.current(sentMsg);
+        }
+      }
       await reload();
     } catch (e) {
       setErr(e?.message || 'Invio messaggio non riuscito.');
@@ -888,7 +933,7 @@ function DriverMessagesSection({ assignmentId, accessToken }) {
     }
   };
 
-  const unreadCount = messages.filter((m) => m.recipient_role === 'driver' && !m.seen_at).length;
+  const unreadCount = countUnreadMessages(messages, 'driver');
 
   return (
     <section style={{ maxWidth: 760, margin: '0 auto 12px', padding: 14, borderRadius: 16, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)' }}>
@@ -918,6 +963,7 @@ function DriverMessagesSection({ assignmentId, accessToken }) {
     </section>
   );
 }
+
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function assignmentLabel(status) {
