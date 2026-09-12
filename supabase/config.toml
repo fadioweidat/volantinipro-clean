@@ -81,3 +81,12 @@ verify_jwt = false
 # contesto applicativo internamente; un JWT valido abilita solo la cache utente.
 [functions.ai-core]
 verify_jwt = false
+
+# Il form pubblico "Parla con un consulente" è accessibile senza autenticazione.
+# L'Edge Function esegue la propria validazione + rate limiting + honeypot.
+[functions.send-consultation-request]
+verify_jwt = false
+
+# Il form pubblico servizio grafico è accessibile senza autenticazione.
+[functions.send-graphic-request]
+verify_jwt = false

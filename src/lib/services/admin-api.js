@@ -673,6 +673,27 @@ export async function selectOptionalTable(table, order = 'created_at') {
   }
 }
 
+// Richieste consulenza dal form pubblico "Parla con un consulente".
+// Legge consultation_requests (RLS: solo admin autenticato può fare SELECT).
+// Restituisce le ultime 50 richieste, ordinate per created_at DESC.
+// Fail-safe: se la tabella non esiste o l'utente non ha i permessi,
+// ritorna { rows: [], available: false } senza eccezioni al chiamante.
+export async function getConsultationRequests({ limit = 50 } = {}) {
+  if (!supabase) return { rows: [], available: false };
+  try {
+    await ensureSupabaseSessionBridge();
+    const { data, error } = await supabase
+      .from('consultation_requests')
+      .select('id, nome, telefono, email, comune, servizio, quantita, timing, custom_date, messaggio, status, source, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) return { rows: [], available: false };
+    return { rows: Array.isArray(data) ? data : [], available: true };
+  } catch {
+    return { rows: [], available: false };
+  }
+}
+
 // Marketplace Fornitori — lista Admin. NON esiste (per scelta) una RPC
 // dedicata: il modello previsto e' la policy RLS `supplier_profiles_admin_all`
 // (`for all to authenticated using jwt_is_admin()`), che concede all'Admin la

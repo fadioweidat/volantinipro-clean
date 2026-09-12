@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { getRealCampaigns, getSiteTraffic } from '../../lib/services/admin-api.js';
+import { getRealCampaigns, getSiteTraffic, getConsultationRequests } from '../../lib/services/admin-api.js';
 import { buildCommercialSnapshot, buildConsultationWhatsAppMessage } from '../../lib/admin/adminCommercialModel.js';
 import { computeSiteTrafficSummary } from '../../lib/analytics/siteTrafficSummary.js';
 import { AdminLayout } from './AdminLayout.jsx';
@@ -11,6 +11,7 @@ function formatPct(value) { return value == null ? '—' : `${Math.round(value *
 export function CommercialCenter({ onNav }) {
   const [state, setState] = useState({ loading: true, error: null, campaigns: [], availability: { campaigns: false } });
   const [traffic, setTraffic] = useState({ loading: true, available: false, rows: [] });
+  const [consultations, setConsultations] = useState({ loading: true, available: false, rows: [] });
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
@@ -31,8 +32,17 @@ export function CommercialCenter({ onNav }) {
         if (!cancelled) setTraffic({ loading: false, available: false, rows: [] });
       }
     }
+    async function loadConsultations() {
+      try {
+        const result = await getConsultationRequests({ limit: 20 });
+        if (!cancelled) setConsultations({ loading: false, available: result.available, rows: result.rows });
+      } catch {
+        if (!cancelled) setConsultations({ loading: false, available: false, rows: [] });
+      }
+    }
     load();
     loadTraffic();
+    loadConsultations();
     return () => { cancelled = true; };
   }, []);
 
@@ -98,7 +108,39 @@ export function CommercialCenter({ onNav }) {
             ))}
           </div>
         )}
-        <div className="admin-home__source-note"><strong>Richieste consulenza</strong><span>Fonte non configurata: il form pubblico attuale non persiste richieste. Nessun conteggio viene inventato.</span></div>
+      </section>
+
+      {/* ── Richieste consulenza (form pubblico "Parla con un consulente") ── */}
+      <section id="consulenze" className="admin-home__section" aria-labelledby="consultation-title">
+        <SectionHeading
+          id="consultation-title"
+          eyebrow="Consulenza sito"
+          title="Richieste consulenza"
+          meta={consultations.available ? `${consultations.rows.length} richieste` : (consultations.loading ? 'Caricamento...' : 'Non disponibile')}
+        />
+        {consultations.loading && <p style={{ color: 'rgba(255,255,255,.5)' }}>Caricamento richieste consulenza...</p>}
+        {!consultations.loading && !consultations.available && (
+          <div className="admin-home__source-note">
+            <strong>Tabella non disponibile</strong>
+            <span>La tabella consultation_requests non è raggiungibile. Verifica che la migration sia applicata e che l'admin abbia i permessi RLS corretti.</span>
+          </div>
+        )}
+        {!consultations.loading && consultations.available && consultations.rows.length === 0 && (
+          <EmptyState text="Nessuna richiesta consulenza ancora. Il form pubblico 'Parla con un consulente' invierà le richieste qui." />
+        )}
+        {!consultations.loading && consultations.available && consultations.rows.length > 0 && (
+          <div className="admin-home__lead-list">
+            {consultations.rows.map((req) => (
+              <ConsultationLead key={req.id} req={req} />
+            ))}
+          </div>
+        )}
+        {!consultations.loading && consultations.available && (
+          <div className="admin-home__source-note">
+            <strong>Fonte: consultation_requests</strong>
+            <span>Richieste reali dal form pubblico "Parla con un consulente" (source: Consulenza sito). Ultime 20, ordinate per data.</span>
+          </div>
+        )}
       </section>
 
       <section id="traffico" className="admin-home__section" aria-labelledby="traffic-title">
@@ -113,6 +155,65 @@ export function CommercialCenter({ onNav }) {
         )}
       </section>
     </AdminLayout>
+  );
+}
+
+const SERVIZIO_LABEL = { d2d: 'Door to Door', h2h: 'Hand to Hand', b2b: 'Business Distribution' };
+const TIMING_LABEL = { asap: 'Prima possibile', '1week': 'Entro 1 settimana', '2weeks': 'Entro 2 settimane', '1month': 'Entro 1 mese', custom: 'Data specifica' };
+const STATUS_COLORS = { new: '#60A5FA', contacted: '#FBBF24', converted: '#2ECC8A', closed: '#64748B' };
+
+function ConsultationLead({ req }) {
+  const fmtDate = (iso) => {
+    if (!iso) return '—';
+    try { return new Date(iso).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' }); } catch { return iso; }
+  };
+  const servLabel = SERVIZIO_LABEL[req.servizio] || req.servizio || '—';
+  const timingLabel = req.timing === 'custom' && req.custom_date
+    ? `Data: ${req.custom_date}`
+    : (TIMING_LABEL[req.timing] || req.timing || '—');
+  const statusColor = STATUS_COLORS[req.status] || '#64748B';
+
+  return (
+    <article style={{ borderRadius: 10, padding: '14px 16px', background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.07)', marginBottom: 10 }}>
+      <div className="admin-home__lead-main">
+        <div>
+          <strong>{req.nome}</strong>
+          <span>{req.comune} · {servLabel} · {(req.quantita || 0).toLocaleString('it-IT')} volantini</span>
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: statusColor, textTransform: 'uppercase', letterSpacing: '.05em' }}>
+          {req.status || 'new'}
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, color: 'rgba(255,255,255,.5)', marginTop: 6 }}>
+        {req.telefono && <span>📞 {req.telefono}</span>}
+        {req.email && <span>✉️ {req.email}</span>}
+        <span>🗓 {timingLabel}</span>
+        <span style={{ marginLeft: 'auto', color: 'rgba(255,255,255,.3)' }}>Consulenza sito · {fmtDate(req.created_at)}</span>
+      </div>
+      {req.messaggio && (
+        <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(255,255,255,.4)', fontStyle: 'italic', borderLeft: '2px solid rgba(255,255,255,.08)', paddingLeft: 10 }}>
+          "{req.messaggio.slice(0, 200)}{req.messaggio.length > 200 ? '…' : ''}"
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        {req.telefono && (
+          <a href={`tel:${req.telefono}`} style={{ fontSize: 12, color: '#60A5FA', textDecoration: 'none' }}>Chiama</a>
+        )}
+        {req.telefono && (
+          <a
+            href={`https://wa.me/${req.telefono.replace(/[^\d+]/g, '')}?text=${encodeURIComponent(`Ciao ${req.nome}, abbiamo ricevuto la sua richiesta per la distribuzione volantini a ${req.comune}. Quando possiamo sentirci?`)}`}
+            target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: 12, color: '#2ECC8A', textDecoration: 'none' }}
+          >WhatsApp</a>
+        )}
+        {req.email && (
+          <a
+            href={`mailto:${req.email}?subject=${encodeURIComponent(`Richiesta consulenza VolantiniPro · ${req.comune}`)}&body=${encodeURIComponent(`Buongiorno ${req.nome},\n\nho ricevuto la sua richiesta di consulenza per la distribuzione volantini a ${req.comune}.\n\nQuando possiamo sentirci?\n\nIl team VolantiniPro`)}`}
+            style={{ fontSize: 12, color: '#A78BFA', textDecoration: 'none' }}
+          >Email</a>
+        )}
+      </div>
+    </article>
   );
 }
 
