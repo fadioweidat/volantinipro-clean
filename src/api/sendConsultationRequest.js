@@ -82,6 +82,7 @@ export async function sendConsultationRequest(spec = {}) {
       return {
         ok: true,
         id: data.id,
+        persisted: Boolean(data.persisted ?? true),
         emailDispatched: Boolean(data.emailDispatched),
       };
     }

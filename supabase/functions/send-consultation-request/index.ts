@@ -188,7 +188,12 @@ serve(async (req: Request) => {
         servizio: spec.servizio,
         quantita: spec.quantita,
         timing: spec.timing,
-        custom_date: spec.customDate || null,
+        custom_date:
+          spec.timing === "custom" &&
+          typeof spec.customDate === "string" &&
+          /^\d{4}-\d{2}-\d{2}$/.test(spec.customDate)
+            ? spec.customDate
+            : null,
         messaggio: spec.messaggio || null,
         source: "consultant_form",
         status: "new",
@@ -238,10 +243,11 @@ serve(async (req: Request) => {
   }
 
   // Il salvataggio DB è avvenuto → risposta ok al client.
-  // L'email è best-effort; il failure non ritorna errore al cliente.
+  // L'email è best-effort; il failure non ritorna errore al cliente e non perde il lead.
   return json({
     ok: true,
     id: requestId,
+    persisted: true,
     emailDispatched: emailResult.ok,
     emailCode: emailResult.ok ? undefined : emailResult.code,
   });

@@ -255,3 +255,23 @@ test("ConsultantPage.jsx: validazione campi obbligatori lato client", () => {
   assert.ok(pageSrc.includes("REQUIRED_FIELDS"), "deve definire REQUIRED_FIELDS");
   assert.ok(pageSrc.includes("fieldErrors"), "deve gestire errori per campo");
 });
+
+// ---------------------------------------------------------------------------
+// 13. Security corrections — RLS & persistence architecture
+// ---------------------------------------------------------------------------
+test("20260912120000_consultation_requests.sql: nessun anon policy (firewall server preservato)", () => {
+  const migrationSrc = readFile("supabase/migrations/20260912120000_consultation_requests.sql");
+  assert.ok(!migrationSrc.includes("TO anon"), "non deve esistere alcuna policy TO anon");
+  assert.ok(migrationSrc.includes("public.jwt_is_admin()"), "deve usare public.jwt_is_admin() canonico per admin");
+  assert.ok(migrationSrc.includes("custom_date date"), "custom_date deve essere di tipo date");
+  assert.ok(migrationSrc.includes("'spam'"), "status check deve includere 'spam'");
+});
+
+test("send-consultation-request/index.ts: restituisce persisted: true e emailDispatched", () => {
+  assert.ok(edgeSrc.includes("persisted: true"), "Edge Function deve restituire persisted: true");
+  assert.ok(edgeSrc.includes("emailDispatched: emailResult.ok"), "Edge Function deve restituire emailDispatched");
+});
+
+test("sendConsultationRequest.js: espone persisted nel risultato", () => {
+  assert.ok(clientSrc.includes("persisted: Boolean("), "client frontend deve esporre persisted");
+});
