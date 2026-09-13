@@ -8,6 +8,7 @@ import {
   supplierListOwnOperators,
   supplierListCampaignAssignments,
   supplierAssignOperator,
+  supplierApply,
 } from '../../lib/services/supplier-api';
 import { mapMarketplaceError } from '../../lib/services/marketplaceErrors';
 import { F, C } from '../../lib/constants.js';
@@ -195,14 +196,41 @@ export function SupplierDashboard() {
       let query = supabase.from('supplier_profiles').select('*');
       if (user?.id) query = query.eq('id', user.id);
       const res = await (query.maybeSingle ? query.maybeSingle() : query.single());
-      const sp = res?.data || null;
+      let sp = res?.data || null;
+      if (!sp && user) {
+        let pending = null;
+        try {
+          const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('vp_pending_supplier_application') : null;
+          if (raw) pending = JSON.parse(raw);
+        } catch {}
+
+        const company = pending?.companyName || user.user_metadata?.company_name || '';
+        const contact = pending?.contactName || user.user_metadata?.contact_name || '';
+        const phone = pending?.phone || user.user_metadata?.phone || '';
+
+        if (company || contact || phone) {
+          try {
+            await supplierApply({
+              companyName: company || 'Fornitore',
+              contactName: contact || null,
+              phone: phone || null,
+            });
+            try { localStorage.removeItem('vp_pending_supplier_application'); } catch {}
+            const retryRes = await supabase.from('supplier_profiles').select('*').eq('id', user.id).maybeSingle();
+            sp = retryRes?.data || null;
+          } catch (e) {
+            console.warn('[SUPPLIER_DASHBOARD_AUTO_CLAIM_WARN]', e);
+          }
+        }
+      }
+
       if (sp) {
         setProfile({
           ...sp,
           email: sp.email || user?.email || '',
         });
       } else if (user) {
-        setProfile({ email: user.email || '', status: 'verified' });
+        setProfile({ email: user.email || '', status: 'pending' });
       }
     } catch {
       // Ignora silenziosamente

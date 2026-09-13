@@ -1026,7 +1026,7 @@ export async function listCampaignAssignments(campaignId) {
 
 export async function createOperatorAssignment({
   campaignId,
-  operatorId,
+  operatorId = null,
   groupId = null,
   zoneId = null,
   startsAt = null,
@@ -1036,7 +1036,21 @@ export async function createOperatorAssignment({
 }) {
   if (!supabase) throw new Error('Supabase non configurato.');
   if (!isValidUuid(campaignId)) throw new Error('campaign_id non valido.');
-  if (!isValidUuid(operatorId)) throw new Error('operator_id non valido.');
+
+  const isSupplierHandoff = Boolean(
+    metadata && (
+      metadata.supplier_mode === 'manual' ||
+      metadata.supplier_mode === 'registered' ||
+      metadata.manual_supplier ||
+      metadata.supplier_id
+    )
+  );
+
+  if (operatorId) {
+    if (!isValidUuid(operatorId)) throw new Error('operator_id non valido.');
+  } else if (!isSupplierHandoff) {
+    throw new Error('operator_id non valido.');
+  }
 
   const { data, error } = await supabase.rpc('admin_create_operator_assignment', {
     p_campaign_id: campaignId,

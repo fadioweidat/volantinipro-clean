@@ -20,6 +20,7 @@ import { AssignWorkGroupOperatorStep } from './assign-work/AssignWorkGroupOperat
 import { AssignWorkProgramStep } from './assign-work/AssignWorkProgramStep.jsx';
 import { AssignWorkPreviewStep } from './assign-work/AssignWorkPreviewStep.jsx';
 import { AssignWorkResultStep } from './assign-work/AssignWorkResultStep.jsx';
+import { resolveProgramRecipient } from '../../lib/services/recipientResolver.js';
 
 // ─── AssignWork ───────────────────────────────────────────────────────────────
 // Flusso a step per affidare il lavoro a un Fornitore partner, impostare il programma
@@ -210,7 +211,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
     }
     load();
     return () => { cancelled = true; };
-  }, [campaignId, isEdit, existingAssignment, isExistingManual]);
+  }, [campaignId, isEdit, existingAssignment?.id, isExistingManual]);
 
   const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId) || null;
   const selectedGroup = groups.find(group => group.id === selectedGroupId) || null;
@@ -361,13 +362,13 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       }
 
       // Determine target operator id for DB assignment table
+      // IMPORTANT: Supplier handoff must NOT fabricate an operator or fall back to Admin!
+      // operator_id stays null until a real driver/operator is associated.
+      const isSupplierHandoff = isManual || Boolean(selectedSupplierId);
       const targetOperatorId = existingAssignment?.operator_id
-        || initialOperatorId
-        || (!isManual ? operators.find(op => op.supplier_id === selectedSupplierId)?.id : null)
-        || operators[0]?.id
-        || null;
+        || (!isSupplierHandoff ? (initialOperatorId || operators[0]?.id || null) : null);
 
-      if (!targetOperatorId && !isEdit) {
+      if (!targetOperatorId && !isSupplierHandoff && !isEdit) {
         throw new Error('Nessun profilo operatore di sistema disponibile per l\'assegnazione.');
       }
 
@@ -558,13 +559,20 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   }
 
   function handleWhatsApp() {
-    const phone = activeSupplierPhone.replace(/[^\d+]/g, '') || '';
-    if (!phone) {
+    const resolved = resolveProgramRecipient({
+      assignment: savedAssignment || existingAssignment,
+      manualSupplier,
+      selectedSupplier,
+      group: selectedGroup,
+      operator: operators.find(op => op.id === (savedAssignment?.operator_id || existingAssignment?.operator_id)),
+      adminPhone: '+393277175000',
+    });
+    if (!resolved.valid || !resolved.phone) {
       setNotice('Numero WhatsApp del fornitore non disponibile. Puoi copiare il messaggio senza segnare il programma come inviato.');
       return;
     }
     const msg = buildWhatsAppMsg();
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
+    window.open(`https://wa.me/${resolved.phone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
     setNotice('Programma preparato in WhatsApp per il fornitore.');
   }
 

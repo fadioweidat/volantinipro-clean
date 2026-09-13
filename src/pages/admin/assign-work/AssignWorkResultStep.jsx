@@ -1,3 +1,5 @@
+import { cleanPhoneNumber } from '../../../lib/services/recipientResolver.js';
+
 export function AssignWorkResultStep({
   PreviewRow,
   Notice,
@@ -110,10 +112,10 @@ export function AssignWorkResultStep({
             Contatti rapidi fornitore (<strong>{activeSupplierName}</strong>):
           </span>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {activeSupplierPhone && (
+            {cleanPhoneNumber(activeSupplierPhone) && (
               <>
                 <a
-                  href={`https://wa.me/${activeSupplierPhone.replace(/[^\d+]/g, '')}?text=${encodeURIComponent(buildWhatsAppMsg())}`}
+                  href={`https://wa.me/${cleanPhoneNumber(activeSupplierPhone)}?text=${encodeURIComponent(buildWhatsAppMsg())}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ ...secondaryBtnStyle, fontSize: 12, padding: '4px 10px', background: 'rgba(46,204,138,.12)', color: '#86efac', borderColor: 'rgba(46,204,138,.25)' }}
@@ -121,7 +123,7 @@ export function AssignWorkResultStep({
                   📱 WhatsApp Fornitore
                 </a>
                 <a
-                  href={`tel:${activeSupplierPhone}`}
+                  href={`tel:${cleanPhoneNumber(activeSupplierPhone)}`}
                   style={{ ...secondaryBtnStyle, fontSize: 12, padding: '4px 10px' }}
                 >
                   📞 Chiama ({activeSupplierPhone})

@@ -99,10 +99,22 @@ export function AdminSuppliers({ onNav }) {
     <AdminLayout onNav={onNav} title="Fornitori" subtitle="Account Marketplace reali: verifica, sospensione, rifiuto." breadcrumbs={breadcrumbs}>
       {state.loading && <p style={{ color: 'rgba(255,255,255,.5)' }}>Caricamento fornitori…</p>}
       {notice && <div className="admin-home__notice" role="status">{notice}</div>}
-      {state.error && <div className="admin-home__notice admin-home__notice--danger" role="alert">{state.error}</div>}
+      {state.error && (
+        <div className="admin-home__notice admin-home__notice--danger" role="alert" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>{state.error}</span>
+          <button type="button" onClick={load} style={{ marginLeft: 12, padding: '4px 12px', borderRadius: 6, background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', cursor: 'pointer' }}>
+            Riprova
+          </button>
+        </div>
+      )}
 
       {!state.loading && !state.available && (
-        <div className="admin-home__empty"><p>Elenco fornitori non disponibile per questo account.</p></div>
+        <div className="admin-home__empty" style={{ textAlign: 'center', padding: '32px 16px' }}>
+          <p>Elenco fornitori non disponibile per questo account.</p>
+          <button type="button" onClick={load} style={{ marginTop: 12, padding: '6px 16px', borderRadius: 8, background: '#e8571a', border: 'none', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+            Riprova
+          </button>
+        </div>
       )}
 
       {state.available && (
@@ -128,7 +140,9 @@ export function AdminSuppliers({ onNav }) {
             </h2>
 
             {filtered.length === 0 ? (
-              <div className="admin-home__empty"><p>Nessun fornitore in questa vista.</p></div>
+              <div className="admin-home__empty">
+                <p>{state.rows.length === 0 ? 'Nessun fornitore registrato.' : 'Nessun fornitore in questa vista.'}</p>
+              </div>
             ) : (
               <div className="admin-home__lead-list">
                 {filtered.map((s) => {

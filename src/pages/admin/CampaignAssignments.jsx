@@ -5,9 +5,11 @@ import {
   updateOperatorAssignment,
   generateDriverAssignmentLink,
   buildDriverWhatsAppMessage,
+  buildSupplierProgramWhatsAppMessage,
   getAssignedZones,
 } from '../../lib/services/admin-api.js';
 import { getCampaignRecord } from '../../lib/services/gps-api.js';
+import { resolveProgramRecipient } from '../../lib/services/recipientResolver.js';
 import { CampaignAssignmentsSummaryPanel } from './campaign-assignments/CampaignAssignmentsSummaryPanel.jsx';
 import { CampaignAssignmentCardHeader } from './campaign-assignments/CampaignAssignmentCardHeader.jsx';
 
@@ -126,20 +128,44 @@ export function CampaignAssignments({ campaignId }) {
   function handleWhatsApp(assignment) {
     const meta = safeJson(assignment.metadata);
     const link = generateDriverAssignmentLink(assignment.id, assignment.access_token);
-    const phone = assignment.operator_phone?.replace(/[^\d+]/g, '') || '';
-    const msg = buildDriverWhatsAppMessage({
-      operatorName: assignment.operator_name || 'Operatore',
-      campaignTitle,
-      date: assignment.starts_at
-        ? new Date(assignment.starts_at).toLocaleDateString('it-IT')
-        : 'Da definire',
-      comuni: meta.comuni || [],
-      zone: meta.zone_labels || [],
-      qty: meta.qty || null,
-      link,
+    const resolved = resolveProgramRecipient({
+      assignment,
+      adminPhone: '+393277175000',
     });
-    const base = phone ? `https://wa.me/${phone}` : 'https://wa.me/';
-    window.open(`${base}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
+
+    if (!resolved.valid || !resolved.phone) {
+      setState(prev => ({ ...prev, notice: 'Numero WhatsApp destinatario non disponibile o non valido.' }));
+      return;
+    }
+
+    const isSupplier = meta?.supplier_mode === 'manual' || meta?.supplier_mode === 'registered' || Boolean(meta?.manual_supplier) || Boolean(meta?.supplier_id);
+    const msg = isSupplier
+      ? buildSupplierProgramWhatsAppMessage({
+          supplierName: resolved.recipientName || meta?.supplier_name || 'Fornitore',
+          campaignTitle,
+          date: assignment.starts_at
+            ? new Date(assignment.starts_at).toLocaleDateString('it-IT')
+            : 'Da definire',
+          comuni: meta.comuni || [],
+          zone: meta.zone_labels || [],
+          qty: meta.qty || null,
+          supplierCompensation: meta.supplier_compensation != null ? Number(meta.supplier_compensation) : null,
+          notes: meta.notes || null,
+          link,
+        })
+      : buildDriverWhatsAppMessage({
+          operatorName: resolved.recipientName || 'Operatore',
+          campaignTitle,
+          date: assignment.starts_at
+            ? new Date(assignment.starts_at).toLocaleDateString('it-IT')
+            : 'Da definire',
+          comuni: meta.comuni || [],
+          zone: meta.zone_labels || [],
+          qty: meta.qty || null,
+          link,
+        });
+
+    window.open(`https://wa.me/${resolved.phone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
   }
 
   return (

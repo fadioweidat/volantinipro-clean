@@ -53,16 +53,46 @@ export function SupplierGuard({ children, onNav }) {
 
         // Lettura del proprio profilo fornitore. RLS supplier_profiles_own_select
         // (id = auth.uid()) garantisce che un utente autenticato riceva la
-        // PROPRIA riga oppure zero righe (nessun errore). Un `spErr` qui e'
-        // quindi un guasto reale (tabella non raggiungibile / rete / sessione
-        // non valida per la RLS), NON "non sei fornitore".
-        const { data: sp, error: spErr } = await supabase
-          .from('supplier_profiles').select('status').eq('id', userId).single();
-        if (spErr) {
+        // PROPRIA riga oppure zero righe. Con maybeSingle() non lancia PGRST116.
+        const query = supabase.from('supplier_profiles').select('status').eq('id', userId);
+        const { data: sp, error: spErr } = await (query.maybeSingle ? query.maybeSingle() : query.single());
+        if (spErr && spErr.code !== 'PGRST116') {
           if (mounted) setState({ phase: 'service-unavailable', session: s, supplierStatus: null });
           return;
         }
         if (!sp) {
+          // Controlla se c'e' una candidatura pending salvata in localStorage o nei metadati auth
+          let pending = null;
+          try {
+            const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('vp_pending_supplier_application') : null;
+            if (raw) pending = JSON.parse(raw);
+          } catch {}
+
+          let userMeta = null;
+          try {
+            const { data: userData } = await supabase.auth.getUser();
+            userMeta = userData?.user?.user_metadata || null;
+          } catch {}
+
+          const company = pending?.companyName || userMeta?.company_name || '';
+          const contact = pending?.contactName || userMeta?.contact_name || '';
+          const phone = pending?.phone || userMeta?.phone || '';
+
+          if (company || contact || phone) {
+            try {
+              await supplierApply({
+                companyName: company || 'Fornitore',
+                contactName: contact || null,
+                phone: phone || null,
+              });
+              try { localStorage.removeItem('vp_pending_supplier_application'); } catch {}
+              if (mounted) setState({ phase: 'pending', session: s, supplierStatus: 'pending' });
+              return;
+            } catch (applyErr) {
+              console.warn('[SUPPLIER_AUTO_APPLY_WARN]', applyErr);
+            }
+          }
+
           // Autenticato ma senza candidatura fornitore: si offre il percorso
           // di registrazione, NON il pulsante che rimanda al login.
           if (mounted) setState({ phase: 'apply', session: s, supplierStatus: null });

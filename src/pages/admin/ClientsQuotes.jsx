@@ -7,6 +7,7 @@ import {
   buildDriverWhatsAppMessage,
   buildSupplierProgramWhatsAppMessage,
 } from '../../lib/services/admin-api.js';
+import { resolveProgramRecipient } from '../../lib/services/recipientResolver.js';
 import { confirmCampaignPayment } from '../../lib/supabaseClient.js';
 import { adminCancelCampaign, adminArchiveCampaign } from '../../lib/services/admin-transitions-api.js';
 import { ClientsQuotesSearchBar } from './clients-quotes/ClientsQuotesSearchBar.jsx';
@@ -148,25 +149,45 @@ export function ClientsQuotes({ onNav }) {
       alert('Conferma prima il pagamento.');
       return;
     }
-    const phone = String(row.operator?.phone || '').replace(/[^\d+]/g, '');
-    if (!phone) {
-      alert('Numero WhatsApp del referente non disponibile. Apri "Assegna gruppo" per verificare i dati dell\'operatore.');
+    const resolved = resolveProgramRecipient({
+      assignment,
+      manualSupplier: assignment.metadata?.manual_supplier,
+      selectedSupplier: row.supplierProfile || row.selectedSupplier,
+      group: row.group,
+      operator: row.operator,
+      adminPhone: '+393277175000',
+    });
+
+    if (!resolved.valid || !resolved.phone) {
+      alert(resolved.error || 'Numero destinatario non disponibile. Verifica i dati di contatto dell\'assegnazione.');
       return;
     }
+
+    const phone = resolved.phone;
     const link = generateDriverAssignmentLink(assignment.id, assignment.access_token);
     const programRows = (row.programZones || []).map((z, idx) => ({ name: z.name, quantity: z.quantity, priority: idx + 1 }));
     const totalQty = programRows.reduce((sum, z) => sum + (z.quantity || 0), 0);
     const rawComp = row.supplierCompensation ?? assignment.metadata?.supplier_compensation ?? row.metadata?.supplier_compensation ?? null;
     const supplierCompensation = (rawComp != null && rawComp !== '' && !Number.isNaN(Number(rawComp))) ? Number(rawComp) : null;
-    const isSupplierTarget = Boolean(row.supplierName || assignment.metadata?.supplier_name || assignment.metadata?.manual_supplier?.name || supplierCompensation != null);
+    const isSupplierTarget = Boolean(
+      resolved.recipientType === 'manual_supplier' ||
+      resolved.recipientType === 'registered_supplier' ||
+      row.supplierName ||
+      assignment.metadata?.supplier_name ||
+      assignment.metadata?.manual_supplier?.name ||
+      supplierCompensation != null
+    );
+
+    const recipientDisplayName = resolved.recipientName || row.supplierName || assignment.metadata?.supplier_name || assignment.metadata?.manual_supplier?.name || row.group?.name || row.operator?.name;
 
     const msg = isSupplierTarget
       ? buildSupplierProgramWhatsAppMessage({
-          supplierName: row.supplierName || assignment.metadata?.supplier_name || assignment.metadata?.manual_supplier?.name || row.group?.name || row.operator?.name,
+          supplierName: recipientDisplayName,
           groupName: row.group?.name || null,
           campaignTitle: row.name || row.client,
           service: row.service,
           date: assignment.starts_at ? new Date(assignment.starts_at).toLocaleDateString('it-IT') : 'Da definire',
+          startTime: assignment.starts_at ? new Date(assignment.starts_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : null,
           comuni: programRows.map((r) => r.name),
           zone: programRows.map((r, idx) => `${idx + 1}. ${r.name}`),
           programRows,
@@ -175,10 +196,11 @@ export function ClientsQuotes({ onNav }) {
           link,
         })
       : buildDriverWhatsAppMessage({
-          operatorName: row.operator?.name,
+          operatorName: recipientDisplayName,
           groupName: row.group?.name || null,
           campaignTitle: row.name || row.client,
           date: assignment.starts_at ? new Date(assignment.starts_at).toLocaleDateString('it-IT') : 'Da definire',
+          startTime: assignment.starts_at ? new Date(assignment.starts_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : null,
           comuni: programRows.map((r) => r.name),
           zone: programRows.map((r, idx) => `${idx + 1}. ${r.name}`),
           programRows,

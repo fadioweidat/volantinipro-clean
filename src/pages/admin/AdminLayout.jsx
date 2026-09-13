@@ -67,7 +67,27 @@ export function AdminLayout({
                 {breadcrumbs.map((b, i) => (
                   <React.Fragment key={i}>
                     {i > 0 && <span>/</span>}
-                    {b.href ? <a href={b.href} style={breadcrumbLinkStyle}>{b.label}</a> : <span style={{ color: "rgba(255,255,255,.8)" }}>{b.label}</span>}
+                    {b.href ? (
+                      <a
+                        href={b.href}
+                        onClick={(e) => {
+                          if (onNav) {
+                            e.preventDefault();
+                            const target = b.href === '/admin' || b.href === 'admin'
+                              ? 'admin'
+                              : b.href.startsWith('/admin/')
+                                ? b.href.replace('/admin/', 'admin-')
+                                : b.href.replace(/^\//, '');
+                            onNav(target);
+                          }
+                        }}
+                        style={breadcrumbLinkStyle}
+                      >
+                        {b.label}
+                      </a>
+                    ) : (
+                      <span style={{ color: "rgba(255,255,255,.8)" }}>{b.label}</span>
+                    )}
                   </React.Fragment>
                 ))}
               </div>
@@ -79,7 +99,9 @@ export function AdminLayout({
         <div style={{ display: "flex", gap: 10, alignSelf: "flex-start", alignItems: "center", flexWrap: "wrap" }}>
           {actions}
           {breadcrumbs.length > 0 && (
-            <a href="/admin" style={secondaryButtonStyle}>Dashboard Admin</a>
+            <button type="button" onClick={() => go("admin")} style={secondaryButtonStyle}>
+              Dashboard Admin
+            </button>
           )}
           <button onClick={() => go("home")} style={secondaryButtonStyle}>Sito Principale</button>
         </div>
