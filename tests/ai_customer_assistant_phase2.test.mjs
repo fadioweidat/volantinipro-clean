@@ -195,3 +195,32 @@ test('Security & Architecture: ispezione statica di ai-core/index.ts', () => {
   // 4. Cache insert limitata alla sola ai_territorial_chat_cache (nessuna mutazione di campagne o pagamenti)
   assert.match(code, /from\("ai_territorial_chat_cache"\)\.insert/);
 });
+
+test('Component Render: CustomerAssistantHost monta il trigger sulle route cliente e restituisce null altrove', async () => {
+  const React = (await import('react')).default;
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { createServer } = await import('vite');
+
+  const vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'silent' });
+  try {
+    const { default: CustomerAssistantHost } = await vite.ssrLoadModule('/src/components/ai/customer/CustomerAssistantHost.jsx');
+
+    // Su dashboard: monta trigger con aria-controls="customer-assistant-drawer"
+    const dashboardHtml = renderToStaticMarkup(React.createElement(CustomerAssistantHost, { page: 'dashboard' }));
+    assert.match(dashboardHtml, /customer-assistant-drawer/);
+    assert.match(dashboardHtml, /Assistente VolantiniPro/);
+
+    // Su campagna: monta trigger
+    const campaignHtml = renderToStaticMarkup(React.createElement(CustomerAssistantHost, { page: 'campaign:camp-123' }));
+    assert.match(campaignHtml, /customer-assistant-drawer/);
+
+    // Su home o login: restituisce null
+    const homeHtml = renderToStaticMarkup(React.createElement(CustomerAssistantHost, { page: 'home' }));
+    assert.equal(homeHtml, '');
+    const loginHtml = renderToStaticMarkup(React.createElement(CustomerAssistantHost, { page: 'login' }));
+    assert.equal(loginHtml, '');
+  } finally {
+    await vite.close();
+  }
+});
+
