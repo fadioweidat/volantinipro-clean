@@ -31,7 +31,6 @@ export default function AdminDashboard({ onNav, adminSession = null }) {
   // Admin (non una route, un pannello embedded) si attiva/disattiva dallo
   // stesso popover invece di un <details> nested in fondo.
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
-  const [showAiPanel, setShowAiPanel] = useState(false);
   const [showAllToday, setShowAllToday] = useState(false);
 
   async function load() {
@@ -122,9 +121,6 @@ export default function AdminDashboard({ onNav, adminSession = null }) {
             <a href="/admin/operations" role="menuitem" onClick={() => setToolsMenuOpen(false)}>Centrale Operativa</a>
             <a href="/admin/live" role="menuitem" onClick={() => setToolsMenuOpen(false)}>Monitor GPS</a>
             <a href="/admin/operations/report" role="menuitem" onClick={() => setToolsMenuOpen(false)}>Report giornaliero</a>
-            <button type="button" role="menuitem" onClick={() => { setShowAiPanel((v) => !v); setToolsMenuOpen(false); }}>
-              {showAiPanel ? 'Nascondi Assistente Admin' : 'Assistente Admin'}
-            </button>
           </div>
         )}
       </div>
@@ -170,15 +166,6 @@ export default function AdminDashboard({ onNav, adminSession = null }) {
         onNav={onNav}
         ModuleCard={ModuleCard}
       />
-
-      {showAiPanel && (
-        <section className="admin-home__section" aria-labelledby="ai-panel-title">
-          <SectionHeading id="ai-panel-title" eyebrow="Assistente" title="Assistente Admin" />
-          <React.Suspense fallback={<p>Caricamento Assistente Admin…</p>}>
-            <AdminCentralAiPanel adminIdentity={adminIdentity} campaigns={campaigns} availability={availability} operators={liveOperators} operatorsSummary={liveSummary} dataLoading={state.loading} dataError={state.error} />
-          </React.Suspense>
-        </section>
-      )}
     </AdminLayout>
   );
 }
