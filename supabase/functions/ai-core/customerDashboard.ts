@@ -9,7 +9,7 @@ export const CUSTOMER_SOURCE_ALLOWLIST = Object.freeze([
 const FORBIDDEN_CUSTOMER_KEYS = /(^|_)(password|token|secret|service_role|raw_gps|coordinates?|latitude|longitude|operator_id|driver_id|driver_phone|driver_email)$/i;
 const PII_PATTERN = /(?:[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?\d[\d .()-]{7,}\d))/i;
 const SECRET_PATTERN = /(service\s*role|api\s*key|secret|token|password)/i;
-const WRITE_PATTERN = /\b(cambi|modific|elimin|cancell|crea(?:re)?|aggiorn|impost|paga|bonifico|invia\s*email)/i;
+const WRITE_PATTERN = /\b(cambia|modifica|elimina|cancella|crea|aggiorna|imposta)\w*|\binvia\s*email\b|(?:effettua|esegui|registra|conferma|fai|invia)\s+(?:il\s+)?(?:pagamento|bonifico)|paga\s+(?:adesso|ora|subito|la|il|questa)|bonifico\s+automatico/i;
 const PRIVACY_PATTERN = /\b(driver|autista|autisti|coordinate|raw\s*gps|altri\s*clienti|altro\s*cliente)\b/i;
 const HUMAN_CONTACT_PATTERN = /(?:parlare|sentire|contattare|scrivere).*(?:persona|operatore|consulente|umano|assistenza|admin)|(?:persona|operatore|consulente|umano|assistenza|admin).*(?:parlare|sentire|contattare|scrivere)|(?:numero|whatsapp|telefono|email).*(?:contatt|supporto|assistenza)/i;
 
@@ -114,8 +114,19 @@ export function buildCustomerUserPrompt(snapshot: Record<string, unknown>, quest
 function normalizedNumericTokens(value: unknown): Set<string> {
   const text = typeof value === "string" ? value : JSON.stringify(value);
   const normalized = text.replace(/(\d)\.(\d{3})(?=\D|$)/g, (_m, p1, p2) => `${p1}${p2}`);
-  const matches = normalized.match(/-?\d+(?:[.,]\d+)?/g) || [];
-  return new Set(matches.map((token) => token.replace(",", ".")));
+  const rawMatches = normalized.match(/-?\d+(?:[.,]\d+)?/g) || [];
+  const tokens = new Set<string>();
+
+  for (const token of rawMatches) {
+    const clean = token.replace(",", ".");
+    tokens.add(clean);
+    const parsed = parseFloat(clean);
+    if (!Number.isNaN(parsed)) {
+      tokens.add(String(parsed));
+      tokens.add(String(Math.abs(parsed)));
+    }
+  }
+  return tokens;
 }
 
 export function customerAnswerNumbersAreGrounded(answer: string, snapshot: Record<string, unknown>): boolean {
@@ -129,7 +140,16 @@ export function customerAnswerNumbersAreGrounded(answer: string, snapshot: Recor
 
   const answerNumbers = normalizedNumericTokens(answer);
   for (const num of answerNumbers) {
-    if (!allowedNumbers.has(num)) {
+    const parsed = parseFloat(num);
+    const parsedStr = !Number.isNaN(parsed) ? String(parsed) : null;
+    const absStr = !Number.isNaN(parsed) ? String(Math.abs(parsed)) : null;
+
+    const isAllowed =
+      allowedNumbers.has(num) ||
+      (parsedStr !== null && allowedNumbers.has(parsedStr)) ||
+      (absStr !== null && allowedNumbers.has(absStr));
+
+    if (!isAllowed) {
       return false;
     }
   }

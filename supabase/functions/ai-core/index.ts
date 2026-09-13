@@ -784,12 +784,9 @@ async function handleCustomerDashboard(user: { id: string } | null, body: any) {
     if (campaignError) return json({ answer: null, status: "error", error: "CAMPAIGN_LOOKUP_FAILED" }, 500);
     if (!campaign) return json({ answer: null, status: "error", error: "CAMPAIGN_NOT_FOUND" }, 404);
 
-    // Ownership rule: campaign.user_id must match authenticated user.id (or verified admin)
+    // Ownership rule: campaign.user_id must strictly match authenticated user.id in customer dashboard scope
     if (campaign.user_id !== user.id) {
-      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
-      if (!isAdminProfile(profile)) {
-        return json({ answer: null, status: "error", error: "FORBIDDEN" }, 403);
-      }
+      return json({ answer: null, status: "error", error: "FORBIDDEN" }, 403);
     }
 
     canonicalSnapshot = {
