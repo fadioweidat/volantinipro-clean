@@ -776,7 +776,7 @@ async function handleCustomerDashboard(user: { id: string } | null, body: any) {
   if (targetCampaignId) {
     const { data: campaign, error: campaignError } = await supabase
       .from("campaigns")
-      .select("id, user_id, title, name, city, service_type, type, quantity, total_amount, status, payment_status, start_date, end_date, created_at, metadata, campaign_zones(id, zone_name, status)")
+      .select("id, user_id, title, city, service_type, quantity, total_amount, status, start_date, end_date, created_at, metadata, campaign_zones(id, zone_name, status)")
       .eq("id", targetCampaignId)
       .maybeSingle();
 
@@ -796,13 +796,13 @@ async function handleCustomerDashboard(user: { id: string } | null, body: any) {
       scope: "customer_campaign",
       currentCampaign: {
         id: campaign.id,
-        name: campaign.name || campaign.title || "Campagna",
+        name: campaign.title || "Campagna",
         city: campaign.city || "Non specificata",
-        service: campaign.service_type || campaign.type || "Non specificato",
+        service: campaign.service_type || "Non specificato",
         quantity: campaign.quantity ?? null,
         totalAmount: campaign.total_amount ?? null,
         status: campaign.status || "in_attesa",
-        paymentStatus: campaign.payment_status || "non_pagato",
+        paymentStatus: campaign.metadata?.payment_status || "non_pagato",
         startDate: campaign.start_date ?? null,
         endDate: campaign.end_date ?? null,
         zones: (campaign.campaign_zones || []).map((z: any) => z.zone_name),
@@ -813,7 +813,7 @@ async function handleCustomerDashboard(user: { id: string } | null, body: any) {
     // General customer dashboard overview: query campaigns belonging to authenticated user
     const { data: campaigns, error: campaignsError } = await supabase
       .from("campaigns")
-      .select("id, user_id, title, name, city, service_type, type, quantity, total_amount, status, payment_status, start_date, end_date, created_at, metadata, campaign_zones(id, zone_name, status)")
+      .select("id, user_id, title, city, service_type, quantity, total_amount, status, start_date, end_date, created_at, metadata, campaign_zones(id, zone_name, status)")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(10);
@@ -822,13 +822,13 @@ async function handleCustomerDashboard(user: { id: string } | null, body: any) {
 
     const safeList = (campaigns || []).map((c: any) => ({
       id: c.id,
-      name: c.name || c.title || "Campagna",
+      name: c.title || "Campagna",
       city: c.city || "Non specificata",
-      service: c.service_type || c.type || "Non specificato",
+      service: c.service_type || "Non specificato",
       quantity: c.quantity ?? null,
       totalAmount: c.total_amount ?? null,
       status: c.status || "in_attesa",
-      paymentStatus: c.payment_status || "non_pagato",
+      paymentStatus: c.metadata?.payment_status || "non_pagato",
       startDate: c.start_date ?? null,
       endDate: c.end_date ?? null,
       zones: (c.campaign_zones || []).map((z: any) => z.zone_name),
