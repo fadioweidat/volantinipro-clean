@@ -59,6 +59,7 @@ const CampaignAssignments = lazy(() => import("../pages/admin/CampaignAssignment
 
 const CampaignTracking = lazy(() => import("../pages/customer/CampaignTracking.jsx").then(m => ({ default: m.CampaignTracking })));
 const ClientCampaignReport = lazy(() => import("../pages/customer/ClientCampaignReport.jsx").then(m => ({ default: m.ClientCampaignReport })));
+const CustomerAssistantHost = lazy(() => import("../components/ai/customer/CustomerAssistantHost.jsx"));
 
 const SupplierDashboard = lazy(() => import("../pages/supplier/SupplierDashboard.jsx").then(m => ({ default: m.SupplierDashboard })));
 
@@ -340,6 +341,7 @@ export function AppRouter() {
   };
 
   const isConfiguratorPage = page === "step1" || page === "step2" || page === "step3" || page === "step4";
+  const isCustomerPage = page === "dashboard" || page.startsWith("campaign:") || page.startsWith("customer-payment:") || page.startsWith("customer-tracking:") || page.startsWith("customer-report:");
   // ?context=admin nella query e' l'indicazione primaria (redirect_to
   // onorato). Se manca ma l'hash porta un errore O un token Supabase, il
   // tentativo potrebbe comunque venire da Admin: il fallback su SITE_URL non
@@ -417,6 +419,11 @@ export function AppRouter() {
               <ClientCampaignReport campaignId={page.split(":")[1]} />
             </Suspense>
           </CustomerGuard>
+        )}
+        {isCustomerPage && (
+          <Suspense fallback={null}>
+            <CustomerAssistantHost page={page} />
+          </Suspense>
         )}
         {page === "not-found" && <NotFoundPage />}
 

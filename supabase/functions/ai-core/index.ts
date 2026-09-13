@@ -33,6 +33,13 @@ import {
   validateAdminSnapshot,
 } from "./adminDashboard.ts";
 import {
+  buildCustomerSystemPrompt,
+  buildCustomerUserPrompt,
+  customerAnswerNumbersAreGrounded,
+  deterministicCustomerResponse,
+  validateCustomerSnapshot,
+} from "./customerDashboard.ts";
+import {
   buildTerritorialReportSystemPrompt,
   buildTerritorialReportUserPrompt,
   deterministicTerritorialReportResponse,
@@ -457,6 +464,41 @@ async function callAdminOpenAi(snapshot: Record<string, unknown>, question: stri
   }
 }
 
+async function callCustomerOpenAi(snapshot: Record<string, unknown>, question: string, warnings: string[]) {
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) {
+    warnings.push("OPENAI_NOT_CONFIGURED");
+    return null;
+  }
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        temperature: 0.2,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: buildCustomerSystemPrompt() },
+          { role: "user", content: buildCustomerUserPrompt(snapshot, question) },
+        ],
+      }),
+    });
+    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    const data = await res.json();
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
+    const parsed = JSON.parse(content);
+    const answer = typeof parsed.answer === "string" ? parsed.answer.trim() : "";
+    if (!answer) throw new Error("OPENAI_EMPTY_ANSWER");
+    if (!customerAnswerNumbersAreGrounded(answer, snapshot)) throw new Error("OPENAI_UNGROUNDED_NUMBER");
+    return answer;
+  } catch (error) {
+    warnings.push(`OPENAI_CALL_FAILED:${error instanceof Error ? error.message : "unknown"}`);
+    return null;
+  }
+}
+
 async function callControlCenterOpenAi(snapshot: Record<string, unknown>, warnings: string[]) {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) {
@@ -717,6 +759,140 @@ async function handleTerritorialReport(user: { id: string } | null, body: any) {
   return json({ ...result, status: "ai", cached: false });
 }
 
+async function handleCustomerDashboard(user: { id: string } | null, body: any) {
+  if (!user) return json({ answer: null, status: "error", error: "AUTHENTICATION_REQUIRED" }, 401);
+
+  const supabase = supabaseAdmin();
+  if (!supabase) return json({ answer: null, status: "error", error: "AUTH_SERVICE_UNAVAILABLE" }, 500);
+
+  const validation = validateStep2Payload(body);
+  if (!validation.ok) return json({ answer: null, status: "error", error: validation.error }, 400);
+
+  const { snapshot, question } = validation;
+  const targetCampaignId = body.campaignId || (snapshot as any)?.campaignId || (snapshot as any)?.id;
+
+  let canonicalSnapshot: Record<string, unknown>;
+
+  if (targetCampaignId) {
+    const { data: campaign, error: campaignError } = await supabase
+      .from("campaigns")
+      .select("id, user_id, title, name, city, service_type, type, quantity, total_amount, status, payment_status, start_date, end_date, created_at, metadata, campaign_zones(id, zone_name, status)")
+      .eq("id", targetCampaignId)
+      .maybeSingle();
+
+    if (campaignError) return json({ answer: null, status: "error", error: "CAMPAIGN_LOOKUP_FAILED" }, 500);
+    if (!campaign) return json({ answer: null, status: "error", error: "CAMPAIGN_NOT_FOUND" }, 404);
+
+    // Ownership rule: campaign.user_id must match authenticated user.id (or verified admin)
+    if (campaign.user_id !== user.id) {
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+      if (!isAdminProfile(profile)) {
+        return json({ answer: null, status: "error", error: "FORBIDDEN" }, 403);
+      }
+    }
+
+    canonicalSnapshot = {
+      schemaVersion: 1,
+      scope: "customer_campaign",
+      currentCampaign: {
+        id: campaign.id,
+        name: campaign.name || campaign.title || "Campagna",
+        city: campaign.city || "Non specificata",
+        service: campaign.service_type || campaign.type || "Non specificato",
+        quantity: campaign.quantity ?? null,
+        totalAmount: campaign.total_amount ?? null,
+        status: campaign.status || "in_attesa",
+        paymentStatus: campaign.payment_status || "non_pagato",
+        startDate: campaign.start_date ?? null,
+        endDate: campaign.end_date ?? null,
+        zones: (campaign.campaign_zones || []).map((z: any) => z.zone_name),
+      },
+      view: (snapshot as any)?.view || "detail",
+    };
+  } else {
+    // General customer dashboard overview: query campaigns belonging to authenticated user
+    const { data: campaigns, error: campaignsError } = await supabase
+      .from("campaigns")
+      .select("id, user_id, title, name, city, service_type, type, quantity, total_amount, status, payment_status, start_date, end_date, created_at, metadata, campaign_zones(id, zone_name, status)")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (campaignsError) return json({ answer: null, status: "error", error: "CUSTOMER_CAMPAIGNS_LOOKUP_FAILED" }, 500);
+
+    const safeList = (campaigns || []).map((c: any) => ({
+      id: c.id,
+      name: c.name || c.title || "Campagna",
+      city: c.city || "Non specificata",
+      service: c.service_type || c.type || "Non specificato",
+      quantity: c.quantity ?? null,
+      totalAmount: c.total_amount ?? null,
+      status: c.status || "in_attesa",
+      paymentStatus: c.payment_status || "non_pagato",
+      startDate: c.start_date ?? null,
+      endDate: c.end_date ?? null,
+      zones: (c.campaign_zones || []).map((z: any) => z.zone_name),
+    }));
+
+    canonicalSnapshot = {
+      schemaVersion: 1,
+      scope: "customer_dashboard",
+      campaigns: safeList,
+      counts: {
+        total: safeList.length,
+        active: safeList.filter((c: any) => ["confermata", "in_preparazione", "in_distribuzione"].includes(c.status)).length,
+        completed: safeList.filter((c: any) => ["completata", "report_pronto"].includes(c.status)).length,
+      },
+      view: (snapshot as any)?.view || "dashboard",
+    };
+  }
+
+  if (!validateCustomerSnapshot(canonicalSnapshot)) {
+    return json({ answer: null, status: "error", error: "INVALID_CUSTOMER_SNAPSHOT" }, 400);
+  }
+
+  const deterministic = deterministicCustomerResponse(canonicalSnapshot, question);
+  if (deterministic) {
+    return json({ answer: deterministic.answer, status: "deterministic", warnings: deterministic.warnings || [] });
+  }
+
+  const payloadHash = await hashPayload({
+    verifiedCustomerId: user.id,
+    contextType: "customer_dashboard",
+    snapshot: canonicalSnapshot,
+    question,
+  });
+
+  const { data: cached } = await supabase
+    .from("ai_territorial_chat_cache")
+    .select("answer")
+    .eq("payload_hash", payloadHash)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (cached?.answer) {
+    return json({ answer: cached.answer, status: "ai", cached: true });
+  }
+
+  const warnings: string[] = [];
+  const aiResult = await callCustomerOpenAi(canonicalSnapshot, question, warnings);
+  if (!aiResult) {
+    return json({ answer: null, status: "fallback", warnings });
+  }
+
+  const { error: insertError } = await supabase.from("ai_territorial_chat_cache").insert({
+    user_id: user.id,
+    payload_hash: payloadHash,
+    question,
+    answer: aiResult,
+  });
+  if (insertError && insertError.code !== "23505") {
+    console.error("[ai-core:customer_dashboard] CACHE_INSERT_FAILED", insertError.message);
+  }
+
+  return json({ answer: aiResult, status: "ai", cached: false });
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ answer: null, status: "error", error: "METHOD_NOT_ALLOWED" }, 405);
@@ -734,13 +910,14 @@ serve(async (req: Request) => {
 
     // Identita' risolta una sola volta, sempre in modo opzionale a questo
     // livello: e' il singolo branch contextType a decidere se e' obbligatoria.
-    // Step2 e territorial_report accettano user===null; i contesti Admin
-    // respingono l'anonimo e verificano il ruolo nel proprio handler.
+    // Step2 e territorial_report accettano user===null; i contesti Admin e Customer
+    // respingono l'anonimo e verificano ruolo/ownership nel proprio handler.
     const user = await getAuthedUser(req);
     const collectorSecret = Deno.env.get("PLATFORM_HEALTH_COLLECTOR_SECRET");
     const trustedCollector = Boolean(collectorSecret && req.headers.get("x-collector-secret") === collectorSecret);
 
     if (QUOTE_CONTEXT_TYPES.has(contextType)) return await handleQuoteStep(contextType, user, body);
+    if (contextType === "customer_dashboard") return await handleCustomerDashboard(user, body);
     if (contextType === "admin_dashboard") return await handleAdminDashboard(user, body);
     if (contextType === "control_center_diagnosis") return await handleControlCenterDiagnosis(user, body, trustedCollector);
     if (contextType === "territorial_report") return await handleTerritorialReport(user, body);

@@ -46,19 +46,117 @@ export function getAssistantRouteConfig(page, { data = {}, context = null } = {}
     };
   }
 
-  // Future phases: Customer Dashboard
-  if (normalizedPage === "dashboard" || normalizedPage.startsWith("campaign:")) {
+  // Phase 2: Authenticated Customer Dashboard & Subviews
+  if (normalizedPage === "dashboard") {
     return {
-      enabled: false, // Phase 1: disabled
+      enabled: true,
       role: ASSISTANT_ROLES.CUSTOMER,
       page: normalizedPage,
-      eyebrow: "Area Cliente · Campagne",
+      eyebrow: "Area Cliente · Dashboard",
       title: "Assistente VolantiniPro",
-      subtitle: "Informazioni e stato delle tue campagne attive.",
+      subtitle: "Informazioni e riepilogo delle tue campagne.",
       disclaimer: "Sola consultazione dati autorizzati. Nessuna modifica automatica.",
-      inputPlaceholder: "Chiedi informazioni sulla tua campagna",
+      inputPlaceholder: "Chiedi informazioni sulle tue campagne",
       allowAnonymous: false,
       contextType: "customer_dashboard",
+      quickQuestions: [
+        "Quante campagne ho attive?",
+        "Qual è la mia ultima campagna?",
+        "Ci sono pagamenti da completare?",
+        "Come posso contattare l'assistenza?",
+      ],
+    };
+  }
+
+  if (normalizedPage.startsWith("campaign:")) {
+    const campaignId = normalizedPage.split(":")[1];
+    return {
+      enabled: true,
+      role: ASSISTANT_ROLES.CUSTOMER,
+      page: normalizedPage,
+      campaignId,
+      eyebrow: "Area Cliente · Dettaglio Campagna",
+      title: "Assistente VolantiniPro",
+      subtitle: "Stato, date e dettagli della campagna selezionata.",
+      disclaimer: "Sola consultazione dati autorizzati. Nessuna modifica automatica.",
+      inputPlaceholder: "Chiedi informazioni su questa campagna",
+      allowAnonymous: false,
+      contextType: "customer_dashboard",
+      quickQuestions: [
+        "A che punto è la mia campagna?",
+        "Qual è la quantità programmata?",
+        "In quale periodo è prevista la distribuzione?",
+        "Qual è lo stato del pagamento?",
+      ],
+    };
+  }
+
+  if (normalizedPage.startsWith("customer-tracking:")) {
+    const campaignId = normalizedPage.split(":")[1];
+    return {
+      enabled: true,
+      role: ASSISTANT_ROLES.CUSTOMER,
+      page: normalizedPage,
+      campaignId,
+      eyebrow: "Area Cliente · Tracking Live",
+      title: "Assistente VolantiniPro",
+      subtitle: "Avanzamento e monitoraggio della distribuzione.",
+      disclaimer: "Dati operativi autorizzati. Nessun dato personale o GPS non aggregato.",
+      inputPlaceholder: "Chiedi informazioni sul tracking",
+      allowAnonymous: false,
+      contextType: "customer_dashboard",
+      quickQuestions: [
+        "La distribuzione è iniziata?",
+        "Come procedono le zone assegnate?",
+        "A che punto è la copertura?",
+        "Come posso parlare con un operatore?",
+      ],
+    };
+  }
+
+  if (normalizedPage.startsWith("customer-report:")) {
+    const campaignId = normalizedPage.split(":")[1];
+    return {
+      enabled: true,
+      role: ASSISTANT_ROLES.CUSTOMER,
+      page: normalizedPage,
+      campaignId,
+      eyebrow: "Area Cliente · Report Finale",
+      title: "Assistente VolantiniPro",
+      subtitle: "Dati consuntivi e certificazione della distribuzione.",
+      disclaimer: "Sola consultazione dati verificati. Nessuna modifica ai report.",
+      inputPlaceholder: "Chiedi informazioni sul report finale",
+      allowAnonymous: false,
+      contextType: "customer_dashboard",
+      quickQuestions: [
+        "Il report finale è pronto?",
+        "Quanti volantini risultano distribuiti?",
+        "Qual è la percentuale di copertura raggiunta?",
+        "Come posso scaricare il documento?",
+      ],
+    };
+  }
+
+  if (normalizedPage.startsWith("customer-payment:")) {
+    const campaignId = normalizedPage.split(":")[1];
+    return {
+      enabled: true,
+      role: ASSISTANT_ROLES.CUSTOMER,
+      page: normalizedPage,
+      campaignId,
+      eyebrow: "Area Cliente · Pagamento",
+      title: "Assistente VolantiniPro",
+      subtitle: "Stato del pagamento e istruzioni per il bonifico.",
+      disclaimer: "L'assistente è in sola lettura e non registra né conferma pagamenti.",
+      inputPlaceholder: "Chiedi informazioni sul pagamento",
+      allowAnonymous: false,
+      contextType: "customer_dashboard",
+      quickQuestions: [
+        "Qual è l'importo totale da saldare?",
+        "Quali sono le coordinate bancarie per il bonifico?",
+        "Lo stato del bonifico è già confermato?",
+        "Chi posso contattare per l'amministrazione?",
+      ],
     };
   }
 

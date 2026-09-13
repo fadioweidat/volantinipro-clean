@@ -22,15 +22,15 @@ test('ai-core: contextType validi non implementati rispondono 501 e i context im
   const implementedCheckIndex = indexSource.indexOf('isImplementedContextType(contextType)');
   const notImplementedIndex = indexSource.indexOf('error: "CONTEXT_TYPE_NOT_IMPLEMENTED" }, 501');
   assert.ok(implementedCheckIndex >= 0 && notImplementedIndex > implementedCheckIndex);
-  // Gli Step 1-4 usano un unico ramo pubblico; dashboard cliente e report
-  // campagna restano noti ma non ancora implementati.
+  // Gli Step 1-4 usano un unico ramo pubblico; admin e customer dashboard hanno rami dedicati;
+  // campaign_report resta noto ma non ancora implementato.
+  assert.match(indexSource, /contextType\s*===\s*"customer_dashboard"/);
   assert.match(indexSource, /contextType\s*===\s*"admin_dashboard"/);
   assert.match(indexSource, /contextType\s*===\s*"territorial_report"/);
   assert.match(indexSource, /contextType\s*===\s*"control_center_diagnosis"/);
-  assert.doesNotMatch(indexSource, /contextType\s*===\s*"customer_dashboard"/);
   assert.doesNotMatch(indexSource, /contextType\s*===\s*"campaign_report"/);
   assert.match(contextTypesSource, /"step1"[\s\S]*"step2"[\s\S]*"step3"[\s\S]*"step4"[\s\S]*"customer_dashboard"[\s\S]*"admin_dashboard"[\s\S]*"territorial_report"[\s\S]*"campaign_report"/);
-  assert.match(contextTypesSource, /IMPLEMENTED_CONTEXT_TYPES = Object\.freeze\(\["step1", "step2", "step3", "step4", "admin_dashboard", "control_center_diagnosis", "territorial_report"\]\)/);
+  assert.match(contextTypesSource, /IMPLEMENTED_CONTEXT_TYPES = Object\.freeze\(\["step1", "step2", "step3", "step4", "customer_dashboard", "admin_dashboard", "control_center_diagnosis", "territorial_report"\]\)/);
 });
 
 test('ai-core: step2 NON impone JWT — l\'identità è risolta ma mai bloccante prima del branch', () => {

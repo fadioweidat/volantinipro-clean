@@ -1,3 +1,4 @@
+import { supabase } from "../../supabaseClient.js";
 import {
   getCustomerDashboardFoundation,
 } from "../../ai-foundation/integrations/customer-dashboard/customerDashboardFoundation.mjs";
@@ -5,6 +6,56 @@ import { AI_ROLES } from "../../ai-foundation/contracts.js";
 import { buildCustomerCampaignAiContext } from "../context/buildCustomerCampaignAiContext.js";
 import { resolveIntent } from "../router/intentRouter.js";
 import { buildAiResponse, buildFallbackResponse, validateAiResponse, sanitizeErrorForLog, AI_RESPONSE_STATUSES } from "../schema/aiResponseSchema.js";
+
+/**
+ * Invokes ai-core backend with customer_dashboard context type.
+ * Server strictly verifies JWT token and enforces campaign ownership.
+ */
+export async function runCustomerDashboardAi({ campaignId = null, snapshot = {}, question }) {
+  const trimmedQuestion = String(question || "").trim();
+  if (!trimmedQuestion) throw new Error("INVALID_QUESTION");
+
+  try {
+    const { data, error } = await supabase.functions.invoke("ai-core", {
+      body: {
+        contextType: "customer_dashboard",
+        campaignId: campaignId || snapshot?.campaignId || snapshot?.id || null,
+        snapshot: snapshot || {},
+        question: trimmedQuestion,
+      },
+    });
+
+    if (error) throw error;
+    if (data?.error) {
+      if (data.error === "AUTHENTICATION_REQUIRED") {
+        return {
+          answer: "Accesso non autorizzato o sessione scaduta. Effettua nuovamente il login per consultare i dati.",
+          status: "auth_error",
+        };
+      }
+      if (data.error === "FORBIDDEN") {
+        return {
+          answer: "Non hai i permessi per consultare questa campagna.",
+          status: "forbidden",
+        };
+      }
+      throw new Error(data.error);
+    }
+
+    if (typeof data?.answer === "string" && data.answer.trim()) {
+      return {
+        answer: data.answer.trim(),
+        status: data.status || "ai",
+        warnings: data.warnings || [],
+      };
+    }
+
+    throw new Error("EMPTY_ANSWER");
+  } catch (err) {
+    console.warn("[CUSTOMER_AI_INVOKE_FAILED]", err?.message);
+    throw err;
+  }
+}
 
 // Traduce l'intento AI-BRAIN-2 in un messaggio compatibile con la
 // classificazione a regex gia' esistente in CustomerDashboardReadOnlyRuntime
