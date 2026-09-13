@@ -388,6 +388,7 @@ function deterministicQuoteResponse(contextType: string, snapshot: any, question
     return service?.description
       ? `${service.label}: ${service.description}${typeof snapshot?.pricing?.extras?.find((item: any) => item?.id === requestedId)?.amount === "number" ? ` Importo nel preventivo: ${euro(snapshot.pricing.extras.find((item: any) => item?.id === requestedId).amount)}.` : ""}`
       : "Questo servizio non risulta selezionato nei dati correnti del preventivo.";
+  }
   return null;
 }
 
