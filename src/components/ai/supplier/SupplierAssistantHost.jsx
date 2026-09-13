@@ -50,53 +50,35 @@ export default function SupplierAssistantHost({ page = "supplier-dashboard", onN
 
   const handleAsk = useCallback(async (questionText) => {
     const cleanQuestion = String(questionText || "").trim();
-    if (!cleanQuestion || isThinking) return;
+    if (!cleanQuestion) return null;
 
-    const userMessage = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      text: cleanQuestion,
-      timestamp: new Date().toISOString(),
+    const result = await runSupplierDashboardAi({
+      campaignId: null,
+      question: cleanQuestion,
+      snapshot: { page },
+    });
+
+    return {
+      text: result.answer,
+      contacts: false,
+      action: result.action || null,
     };
+  }, [page]);
 
-    setConversation((prev) => [...prev, userMessage]);
-    setIsThinking(true);
-
-    try {
-      const result = await runSupplierDashboardAi({
-        campaignId: null,
-        question: cleanQuestion,
-        snapshot: { page },
-      });
-
-      const assistantMessage = {
-        id: `assistant-${Date.now()}`,
-        role: "assistant",
-        text: result.answer,
-        summary: result.summary || "",
-        priorities: result.priorities || [],
-        warnings: result.warnings || [],
-        sources: result.sources || [],
-        action: result.action || null,
-        status: result.status || "ai",
-        timestamp: new Date().toISOString(),
-      };
-
-      setConversation((prev) => [...prev, assistantMessage]);
-    } catch {
-      setConversation((prev) => [
-        ...prev,
-        {
-          id: `assistant-err-${Date.now()}`,
-          role: "assistant",
-          text: "Si è verificato un errore imprevisto. Riprova più tardi.",
-          timestamp: new Date().toISOString(),
-        },
-      ]);
-    } finally {
-      setIsThinking(false);
+  const handleNavigate = useCallback((route, action) => {
+    const targetId = action?.campaignId || action?.jobId || action?.requestId;
+    if (route.startsWith("supplier-job") || route.startsWith("supplier-assignment")) {
+      window.location.href = targetId ? `/supplier/dashboard#job-${targetId}` : "/supplier/dashboard";
+    } else if (route.startsWith("supplier-request")) {
+      window.location.href = "/supplier/dashboard#marketplace";
+    } else {
+      window.location.href = "/supplier/dashboard";
     }
-  }, [page, isThinking]);
+  }, []);
+
+  const handleConfirmAction = useCallback(async (action) => {
+    return { allowed: true, message: `Azione "${action.summary || action.action}" verificata per il fornitore.` };
+  }, []);
 
   if (!isAssistantEnabledForRoute(page)) return null;
 
@@ -112,17 +94,17 @@ export default function SupplierAssistantHost({ page = "supplier-dashboard", onN
       <VolantiniProAssistantDrawer
         open={isOpen}
         onClose={() => setIsOpen(false)}
+        role="supplier"
         eyebrow={routeConfig.eyebrow}
         title={routeConfig.title}
         subtitle={routeConfig.subtitle}
         disclaimer={routeConfig.disclaimer}
         inputPlaceholder={routeConfig.inputPlaceholder}
         quickQuestions={routeConfig.quickQuestions || []}
-        conversation={conversation}
-        isThinking={isThinking}
         contextCard={<SupplierContextCard />}
         onAsk={handleAsk}
-        onAction={handleAction}
+        onNavigate={handleNavigate}
+        onConfirmAction={handleConfirmAction}
       />
     </>
   );

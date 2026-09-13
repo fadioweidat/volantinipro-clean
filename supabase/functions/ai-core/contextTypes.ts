@@ -10,12 +10,13 @@ export const AI_CORE_CONTEXT_TYPES = Object.freeze([
   "admin_dashboard",
   "driver_assignment",
   "supplier_dashboard",
+  "action_verify",
   "control_center_diagnosis",
   "territorial_report",
   "campaign_report",
 ]);
 
-// Configuratore pubblico Step1-4, Report Territoriale pubblico, Customer, Admin, Driver e Supplier.
+// Configuratore pubblico Step1-4, Report Territoriale pubblico, Customer, Admin, Driver, Supplier e Action Verification.
 export const IMPLEMENTED_CONTEXT_TYPES = Object.freeze([
   "step1",
   "step2",
@@ -25,6 +26,7 @@ export const IMPLEMENTED_CONTEXT_TYPES = Object.freeze([
   "admin_dashboard",
   "driver_assignment",
   "supplier_dashboard",
+  "action_verify",
   "control_center_diagnosis",
   "territorial_report",
 ]);

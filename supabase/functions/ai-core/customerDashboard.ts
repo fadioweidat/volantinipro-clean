@@ -54,11 +54,37 @@ export function deterministicCustomerResponse(snapshot: any, question: string): 
 
   // 2. Tentativi di mutazione / modifica / pagamento
   if (WRITE_PATTERN.test(normalized)) {
-    return safeCustomerResult(
-      "L'Assistente VolantiniPro opera esclusivamente in modalità di sola lettura (read-only). Non può modificare campagne, date, importi o registrare pagamenti.",
-      ["READ_ONLY_ENFORCED"],
-      ["customer_campaigns"]
-    );
+    let previewAction: any = null;
+    if (/(?:paga|pagament|bonifico)/i.test(normalized)) {
+      previewAction = {
+        type: "preview_mutation",
+        action: "initiate_payment",
+        entityId: snapshot?.campaignId || snapshot?.campaign?.id || "current",
+        summary: "Richiesta procedura pagamento bonifico",
+        consequences: [
+          "Verranno fornite le coordinate bancarie ufficiali",
+          "Il saldo verrà registrato dopo la ricezione del bonifico",
+        ],
+      };
+    } else {
+      previewAction = {
+        type: "preview_mutation",
+        action: "customer_request_edit",
+        entityId: snapshot?.campaignId || snapshot?.campaign?.id || "current",
+        summary: "Richiesta di variazione campagna",
+        consequences: [
+          "La richiesta verrà inoltrata al team operativo",
+          "La campagna non verrà modificata automaticamente",
+        ],
+      };
+    }
+
+    return {
+      answer: "L'Assistente VolantiniPro opera esclusivamente in modalità di sola lettura (read-only). Non può modificare campagne, date, importi o registrare pagamenti. Ecco l'anteprima:",
+      warnings: ["READ_ONLY_ENFORCED"],
+      sources: ["customer_campaigns"],
+      action: previewAction,
+    };
   }
 
   // 3. Richiesta privacy / driver / altri clienti / segreti

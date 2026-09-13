@@ -69,6 +69,7 @@ import {
   validateSupplierAiResult,
   validateSupplierSnapshot,
 } from "./supplierDashboard.ts";
+import { handleActionVerify } from "./actionValidator.ts";
 
 declare const Deno: any;
 
@@ -1499,6 +1500,7 @@ serve(async (req: Request) => {
     const collectorSecret = Deno.env.get("PLATFORM_HEALTH_COLLECTOR_SECRET");
     const trustedCollector = Boolean(collectorSecret && req.headers.get("x-collector-secret") === collectorSecret);
 
+    if (contextType === "action_verify") return await handleActionVerify(supabaseAdmin, json, req, user, body?.action, body?.assignmentId);
     if (QUOTE_CONTEXT_TYPES.has(contextType)) return await handleQuoteStep(contextType, user, body);
     if (contextType === "customer_dashboard") return await handleCustomerDashboard(user, body);
     if (contextType === "admin_dashboard") return await handleAdminDashboard(user, body);

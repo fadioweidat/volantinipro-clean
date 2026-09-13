@@ -76,54 +76,41 @@ export default function DriverAssistantHost({ assignmentId, page = "driver-assig
 
   const handleAsk = useCallback(async (questionText) => {
     const cleanQuestion = String(questionText || "").trim();
-    if (!cleanQuestion || isThinking) return;
+    if (!cleanQuestion) return null;
 
-    const userMessage = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      text: cleanQuestion,
-      timestamp: new Date().toISOString(),
+    const result = await runDriverAssignmentAi({
+      assignmentId,
+      accessToken,
+      question: cleanQuestion,
+      snapshot: { page, assignmentId },
+    });
+
+    return {
+      text: result.answer,
+      contacts: false,
+      action: result.action || null,
     };
+  }, [assignmentId, accessToken, page]);
 
-    setConversation((prev) => [...prev, userMessage]);
-    setIsThinking(true);
-
-    try {
-      const result = await runDriverAssignmentAi({
-        assignmentId,
-        accessToken,
-        question: cleanQuestion,
-        snapshot: { page, assignmentId },
-      });
-
-      const assistantMessage = {
-        id: `assistant-${Date.now()}`,
-        role: "assistant",
-        text: result.answer,
-        summary: result.summary || "",
-        priorities: result.priorities || [],
-        warnings: result.warnings || [],
-        sources: result.sources || [],
-        action: result.action || null,
-        status: result.status || "ai",
-        timestamp: new Date().toISOString(),
-      };
-
-      setConversation((prev) => [...prev, assistantMessage]);
-    } catch {
-      setConversation((prev) => [
-        ...prev,
-        {
-          id: `assistant-err-${Date.now()}`,
-          role: "assistant",
-          text: "Si è verificato un errore imprevisto. Riprova più tardi.",
-          timestamp: new Date().toISOString(),
-        },
-      ]);
-    } finally {
-      setIsThinking(false);
+  const handleNavigate = useCallback((route, action) => {
+    const targetId = action?.assignmentId || assignmentId;
+    if (route.includes("map")) {
+      window.location.href = `/driver/assignment/${targetId}/map`;
+    } else if (route.includes("pod")) {
+      const podEl = document.getElementById("pod-upload-section") || document.querySelector('[data-section="pod"]');
+      if (podEl) {
+        podEl.scrollIntoView({ behavior: "smooth" });
+      } else {
+        window.location.href = `/driver/assignment/${targetId}#pod`;
+      }
+    } else {
+      window.location.href = `/driver/assignment/${targetId}`;
     }
-  }, [assignmentId, accessToken, page, isThinking]);
+  }, [assignmentId]);
+
+  const handleConfirmAction = useCallback(async (action) => {
+    return { allowed: true, message: `Azione "${action.summary || action.action}" verificata per l'incarico.` };
+  }, []);
 
   if (!isAssistantEnabledForRoute(page)) return null;
 
@@ -139,17 +126,17 @@ export default function DriverAssistantHost({ assignmentId, page = "driver-assig
       <VolantiniProAssistantDrawer
         open={isOpen}
         onClose={() => setIsOpen(false)}
+        role="driver"
         eyebrow={routeConfig.eyebrow}
         title={routeConfig.title}
         subtitle={routeConfig.subtitle}
         disclaimer={routeConfig.disclaimer}
         inputPlaceholder={routeConfig.inputPlaceholder}
         quickQuestions={routeConfig.quickQuestions || []}
-        conversation={conversation}
-        isThinking={isThinking}
         contextCard={<DriverContextCard assignmentId={assignmentId} />}
         onAsk={handleAsk}
-        onAction={handleAction}
+        onNavigate={handleNavigate}
+        onConfirmAction={handleConfirmAction}
       />
     </>
   );

@@ -94,7 +94,16 @@ export function deterministicDriverResponse(snapshot: Record<string, any>, quest
       priorities: [],
       warnings: ["READ_ONLY"],
       sources: [],
-      action: null,
+      action: {
+        type: "preview_mutation",
+        action: "driver_shift_action",
+        entityId: snapshot?.assignmentId || "current",
+        summary: "Operazione di turno sul campo",
+        consequences: [
+          "L'operazione deve essere avviata direttamente dai comandi dedicati",
+          "Nessuna modifica viene applicata in automatico dall'assistente",
+        ],
+      },
     };
   }
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { buildInfoMailtoUrl, buildInfoWhatsAppUrl } from "../../../lib/contactConfig.js";
+import AssistantActionCard from "../actions/AssistantActionCard.jsx";
 import "../quote/quote-assistant.css";
 
 const ASSISTANT_WHATSAPP_URL = "https://wa.me/393517673737";
@@ -43,6 +44,8 @@ export default function VolantiniProAssistantDrawer({
   fallbackTitle = "Assistente momentaneamente non disponibile.",
   fallbackText = "Il preventivo continua a funzionare normalmente.",
   showHumanContacts = true,
+  onNavigate = null,
+  onConfirmAction = null,
   children = null,
 }) {
   const [message, setMessage] = useState("");
@@ -89,10 +92,15 @@ export default function VolantiniProAssistantDrawer({
       if (response && response.text) {
         setHistory((items) => [
           ...items,
-          { role: "assistant", text: response.text, contacts: Boolean(response.contacts) },
+          {
+            role: "assistant",
+            text: response.text,
+            contacts: Boolean(response.contacts),
+            action: response.action || null,
+          },
         ]);
       } else if (typeof response === "string") {
-        setHistory((items) => [...items, { role: "assistant", text: response, contacts: false }]);
+        setHistory((items) => [...items, { role: "assistant", text: response, contacts: false, action: null }]);
       } else {
         setUnavailable(true);
       }
@@ -152,6 +160,14 @@ export default function VolantiniProAssistantDrawer({
               <div className={`quote-ai__message quote-ai__message--${item.role}`} key={`${item.role}-${index}`}>
                 <span>{item.role === "user" ? "Tu" : "Assistente"}</span>
                 <p>{item.text}</p>
+                {item.action && (
+                  <AssistantActionCard
+                    action={item.action}
+                    role={role}
+                    onNavigate={onNavigate}
+                    onConfirmAction={onConfirmAction}
+                  />
+                )}
                 {item.contacts && showHumanContacts && <AssistantContactLinks compact />}
               </div>
             ))}

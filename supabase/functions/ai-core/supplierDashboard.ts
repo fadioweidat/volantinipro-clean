@@ -90,7 +90,16 @@ export function deterministicSupplierResponse(snapshot: Record<string, any>, que
       priorities: [],
       warnings: ["READ_ONLY"],
       sources: [],
-      action: null,
+      action: {
+        type: "preview_mutation",
+        action: "supplier_dashboard_action",
+        entityId: snapshot?.supplierId || "current",
+        summary: "Operazione fornitore su marketplace/campagna",
+        consequences: [
+          "L'operazione deve essere gestita manualmente dalla sezione dedicata",
+          "Nessuna modifica viene applicata in automatico dall'assistente",
+        ],
+      },
     };
   }
 

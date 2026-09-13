@@ -44,3 +44,26 @@
 @media(max-width:760px){.quote-ai{top:auto;right:0;bottom:0;left:0;width:100%;height:min(82dvh,720px);border-right:0;border-bottom:0;border-left:0;border-radius:18px 18px 0 0}.quote-ai__header{padding:18px 17px 15px}.quote-ai__body{padding:15px 15px 7px}.quote-ai__form{padding:12px 15px max(14px,env(safe-area-inset-bottom))}.quote-ai__message{max-width:94%}}
 @media(max-width:390px){.quote-ai__form>div{grid-template-columns:1fr}.quote-ai__form button{width:100%}.quote-ai__contacts{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.configurator-assistant-layout{transition:none}.quote-ai button:active,.quote-ai a:active{transform:none}}
+
+/* Phase 5A: Action Card & Confirmation UX */
+.quote-ai__action-card{margin-top:10px;padding:12px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:rgba(255,255,255,.04)}
+.quote-ai__action-card--navigate{padding:4px 0 0 0;background:transparent;border:0}
+.quote-ai__action-btn--nav{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.08);color:#fff;font-size:12px;font-weight:700;cursor:pointer;transition:background .15s}
+.quote-ai__action-btn--nav:hover{background:rgba(255,255,255,.16)}
+.quote-ai__action-card--preview{border-left:3px solid #f59e0b;background:rgba(245,158,11,.06)}
+.quote-ai__preview-badge{display:inline-block;padding:2px 6px;border-radius:4px;background:#f59e0b;color:#000;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.quote-ai__preview-summary{color:#fff;font-size:12px;font-weight:600;margin-bottom:6px}
+.quote-ai__consequences{margin:0 0 10px 0;padding-left:16px;color:rgba(255,255,255,.75);font-size:11px;line-height:1.4}
+.quote-ai__confirm-box{padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}
+.quote-ai__confirm-prompt{margin:0 0 8px 0;color:#fde68a;font-size:11px;font-weight:700}
+.quote-ai__confirm-bar{display:flex;gap:8px}
+.quote-ai__btn{padding:6px 12px;border:0;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer}
+.quote-ai__btn--cancel{background:rgba(255,255,255,.12);color:rgba(255,255,255,.85)}
+.quote-ai__btn--cancel:hover{background:rgba(255,255,255,.2)}
+.quote-ai__btn--confirm{background:#10b981;color:#fff}
+.quote-ai__btn--confirm:hover{background:#059669}
+.quote-ai__action-feedback{margin-top:6px;padding:6px 8px;border-radius:6px;font-size:11px;font-weight:600}
+.quote-ai__action-feedback--confirmed{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.3)}
+.quote-ai__action-feedback--cancelled{background:rgba(255,255,255,.07);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.1)}
+.quote-ai__action-feedback--failed{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3)}
+

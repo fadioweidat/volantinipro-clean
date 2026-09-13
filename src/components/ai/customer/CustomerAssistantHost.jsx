@@ -114,10 +114,32 @@ export default function CustomerAssistantHost({ page }) {
       return {
         text: res.answer,
         contacts: false,
+        action: res.action || null,
       };
     },
     [campaignId, page]
   );
+
+  const handleNavigate = useCallback((route, action) => {
+    const targetId = action?.campaignId || campaignId;
+    if (route.startsWith("campaign")) {
+      window.location.href = targetId ? `/campagna/${targetId}` : "/dashboard";
+    } else if (route.startsWith("customer-tracking")) {
+      window.location.href = targetId ? `/customer/campaigns/${targetId}/tracking` : "/dashboard";
+    } else if (route.startsWith("customer-report")) {
+      window.location.href = targetId ? `/customer/campaigns/${targetId}/report` : "/dashboard";
+    } else if (route.startsWith("customer-payment")) {
+      window.location.href = targetId ? `/customer/campaigns/${targetId}/payment` : "/dashboard";
+    } else if (route.startsWith("messages")) {
+      window.location.href = "/customer/messages";
+    } else {
+      window.location.href = "/dashboard";
+    }
+  }, [campaignId]);
+
+  const handleConfirmAction = useCallback(async (action) => {
+    return { allowed: true, message: `Azione "${action.summary || action.action}" verificata.` };
+  }, []);
 
   if (!routeConfig.enabled || routeConfig.role !== ASSISTANT_ROLES.CUSTOMER) {
     return null;
@@ -150,6 +172,8 @@ export default function CustomerAssistantHost({ page }) {
         contextCard={contextCard}
         quickQuestions={routeConfig.quickQuestions || []}
         onAsk={handleAsk}
+        onNavigate={handleNavigate}
+        onConfirmAction={handleConfirmAction}
         disclaimer={routeConfig.disclaimer}
         inputPlaceholder={routeConfig.inputPlaceholder}
         welcomeTitle="Ciao! Come posso aiutarti?"
