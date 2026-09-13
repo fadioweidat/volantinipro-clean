@@ -1,155 +1,121 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useMemo } from "react";
+import VolantiniProAssistantDrawer, { AssistantContactLinks } from "../global/VolantiniProAssistantDrawer.jsx";
 import { runQuoteAssistant } from "../../../ai/adapters/quoteAssistantAdapter.js";
 import { buildInfoMailtoUrl, buildInfoWhatsAppUrl } from "../../../lib/contactConfig.js";
 import "./quote-assistant.css";
 
-const HUMAN_REQUEST = /(?:parlare|sentire|contattare|scrivere).*(?:persona|operatore|consulente|umano)|(?:persona|operatore|consulente|umano).*(?:parlare|sentire|contattare|scrivere)/i;
-const ASSISTANT_WHATSAPP_URL = "https://wa.me/393517673737";
+export const HUMAN_REQUEST = /(?:parlare|sentire|contattare|scrivere).*(?:persona|operatore|consulente|umano)|(?:persona|operatore|consulente|umano).*(?:parlare|sentire|contattare|scrivere)/i;
+export const ASSISTANT_WHATSAPP_URL = "https://wa.me/393517673737";
 
-function ContactLinks({ compact = false }) {
+export function ContactLinks({ compact = false }) {
   const whatsappUrl = buildInfoWhatsAppUrl() || ASSISTANT_WHATSAPP_URL;
-  return <div className={`quote-ai__contacts${compact ? " quote-ai__contacts--compact" : ""}`}>
-    <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">WhatsApp <span>+39 351 767 3737</span></a>
-    <a href={buildInfoMailtoUrl()}>Email <span>info@volantinipro.it</span></a>
-  </div>;
+  return (
+    <div className={`quote-ai__contacts${compact ? " quote-ai__contacts--compact" : ""}`}>
+      <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+        WhatsApp <span>+39 351 767 3737</span>
+      </a>
+      <a href={buildInfoMailtoUrl()}>
+        Email <span>info@volantinipro.it</span>
+      </a>
+    </div>
+  );
 }
 
+export function QuoteStep2ContextCard({ context }) {
+  if (!context) return null;
+  return (
+    <div className="quote-ai__context-card" aria-label="Dati territoriali correnti">
+      <div className="quote-ai__context-header">
+        <span className="quote-ai__context-dot" />
+        <strong>Dati che sto leggendo</strong>
+      </div>
+      <div className="quote-ai__context-grid">
+        <div>
+          <span className="quote-ai__context-label">Territorio</span>
+          <span className="quote-ai__context-value">
+            {context.location?.frazione
+              ? `${context.location.frazione} — ${context.location.municipality || ""}`
+              : (context.location?.municipality || context.territory?.selectedNames?.[0] || "Non selezionato")}
+            {context.location?.province ? ` (${context.location.province})` : ""}
+          </span>
+        </div>
+        <div>
+          <span className="quote-ai__context-label">Modalità</span>
+          <span className="quote-ai__context-value">
+            {context.territory?.modeLabel || (context.territory?.mode === "radius" || context.territory?.mode === "raggio" ? "Raggio" : context.territory?.mode === "nil" ? "NIL" : "Comune")}
+            {context.territory?.radiusKm ? ` (${context.territory.radiusKm} km)` : ""}
+          </span>
+        </div>
+        <div>
+          <span className="quote-ai__context-label">Quantità</span>
+          <span className="quote-ai__context-value">
+            {context.quantitaInserita || context.quantity?.current
+              ? `${Number(context.quantitaInserita || context.quantity?.current).toLocaleString("it-IT")} volantini`
+              : "Non inserita"}
+          </span>
+        </div>
+        <div>
+          <span className="quote-ai__context-label">Copertura</span>
+          <span className="quote-ai__context-value">
+            {context.territorialDataUnavailable
+              ? "Dato non disponibile"
+              : (context.coveragePct != null
+                ? `${Number(context.coveragePct).toLocaleString("it-IT")}%`
+                : (context.kpis?.residentialCoveragePct != null
+                  ? `${Number(context.kpis.residentialCoveragePct).toLocaleString("it-IT")}%`
+                  : "In calcolo…"))}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * QuoteAssistantPanel — Specialized adapter connecting configurator steps 1-4
+ * to the generic VolantiniProAssistantDrawer.
+ */
 export default function QuoteAssistantPanel({ open, onClose, page, context, quickQuestions = [] }) {
-  const [message, setMessage] = useState("");
-  const [history, setHistory] = useState([]);
-  const [sending, setSending] = useState(false);
-  const [unavailable, setUnavailable] = useState(false);
-  const inputRef = useRef(null);
   const step = Number(String(page || "").replace("step", "")) || null;
 
-  useEffect(() => {
-    setHistory([]);
-    setUnavailable(false);
-    setMessage("");
-  }, [page]);
-
-  useEffect(() => {
-    if (!open) return;
-    const previousOverflow = document.body.style.overflow;
-    if (window.matchMedia("(max-width: 760px)").matches) document.body.style.overflow = "hidden";
-    window.setTimeout(() => inputRef.current?.focus(), 80);
-    const closeOnEscape = (event) => { if (event.key === "Escape") onClose?.(); };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open, onClose]);
-
-  async function submit(raw = message) {
-    const question = String(raw || "").trim();
-    if (!question || sending) return;
-    setHistory((items) => [...items, { role: "user", text: question }]);
-    setMessage("");
-    setUnavailable(false);
-
-    if (HUMAN_REQUEST.test(question)) {
-      setHistory((items) => [...items, { role: "assistant", text: "Certo. Puoi parlare subito con il team VolantiniPro:", contacts: true }]);
-      return;
-    }
-
-    if (!context || !step) {
-      setUnavailable(true);
-      return;
-    }
-
-    setSending(true);
-    try {
+  const handleAsk = useCallback(
+    async (question) => {
+      if (HUMAN_REQUEST.test(question)) {
+        return { text: "Certo. Puoi parlare subito con il team VolantiniPro:", contacts: true };
+      }
+      if (!context || !step) {
+        throw new Error("ASSISTANT_UNAVAILABLE");
+      }
       const response = await runQuoteAssistant({ contextType: `step${step}`, snapshot: context, question });
-      setHistory((items) => [...items, { role: "assistant", text: response.answer }]);
-    } catch (error) {
-      console.error("[quote-assistant]", error instanceof Error ? error.message : "ASSISTANT_UNAVAILABLE");
-      setUnavailable(true);
-    } finally {
-      setSending(false);
-    }
-  }
+      return { text: response.answer, contacts: false };
+    },
+    [context, step]
+  );
 
-  if (!open) return null;
-  return <>
-    <button className="quote-ai__backdrop" type="button" aria-label="Chiudi assistente" onClick={onClose} />
-    <aside id="quote-ai-panel" className="quote-ai" role="dialog" aria-modal="true" aria-labelledby="quote-ai-title">
-      <header className="quote-ai__header">
-        <div>
-          <span className="quote-ai__step">Preventivo · Step {step}</span>
-          <h2 id="quote-ai-title">Assistente VolantiniPro</h2>
-          <p>Risposte brevi basate sui dati reali di questo Step.</p>
-        </div>
-        <button className="quote-ai__close" type="button" onClick={onClose} aria-label="Chiudi assistente">×</button>
-      </header>
+  const contextCard = useMemo(() => {
+    return step === 2 && context ? <QuoteStep2ContextCard context={context} /> : null;
+  }, [step, context]);
 
-      <div className="quote-ai__body">
-        {step === 2 && context && (
-          <div className="quote-ai__context-card" aria-label="Dati territoriali correnti">
-            <div className="quote-ai__context-header">
-              <span className="quote-ai__context-dot" />
-              <strong>Dati che sto leggendo</strong>
-            </div>
-            <div className="quote-ai__context-grid">
-              <div>
-                <span className="quote-ai__context-label">Territorio</span>
-                <span className="quote-ai__context-value">
-                  {context.location?.frazione ? `${context.location.frazione} — ${context.location.municipality || ""}` : (context.location?.municipality || context.territory?.selectedNames?.[0] || "Non selezionato")}
-                  {context.location?.province ? ` (${context.location.province})` : ""}
-                </span>
-              </div>
-              <div>
-                <span className="quote-ai__context-label">Modalità</span>
-                <span className="quote-ai__context-value">
-                  {context.territory?.modeLabel || (context.territory?.mode === "radius" || context.territory?.mode === "raggio" ? "Raggio" : context.territory?.mode === "nil" ? "NIL" : "Comune")}
-                  {context.territory?.radiusKm ? ` (${context.territory.radiusKm} km)` : ""}
-                </span>
-              </div>
-              <div>
-                <span className="quote-ai__context-label">Quantità</span>
-                <span className="quote-ai__context-value">
-                  {context.quantitaInserita || context.quantity?.current ? `${Number(context.quantitaInserita || context.quantity?.current).toLocaleString("it-IT")} volantini` : "Non inserita"}
-                </span>
-              </div>
-              <div>
-                <span className="quote-ai__context-label">Copertura</span>
-                <span className="quote-ai__context-value">
-                  {context.territorialDataUnavailable ? "Dato non disponibile" : (context.coveragePct != null ? `${Number(context.coveragePct).toLocaleString("it-IT")}%` : (context.kpis?.residentialCoveragePct != null ? `${Number(context.kpis.residentialCoveragePct).toLocaleString("it-IT")}%` : "In calcolo…"))}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="quote-ai__questions" aria-label="Domande suggerite">
-          {quickQuestions.map((question) => <button type="button" key={question} disabled={sending} onClick={() => submit(question)}>{question}</button>)}
-        </div>
-
-        <div className="quote-ai__history" aria-live="polite">
-          {history.length === 0 && <div className="quote-ai__welcome"><strong>Come posso aiutarti?</strong><p>Conosco le scelte e i valori mostrati qui, ma non posso modificare il preventivo.</p></div>}
-          {history.map((item, index) => <div className={`quote-ai__message quote-ai__message--${item.role}`} key={`${item.role}-${index}`}>
-            <span>{item.role === "user" ? "Tu" : "Assistente"}</span>
-            <p>{item.text}</p>
-            {item.contacts && <ContactLinks compact />}
-          </div>)}
-          {sending && <div className="quote-ai__thinking" role="status">Sto leggendo i dati dello Step…</div>}
-        </div>
-
-        {unavailable && <div className="quote-ai__fallback" role="alert">
-          <strong>Assistente momentaneamente non disponibile.</strong>
-          <p>Il preventivo continua a funzionare normalmente.</p>
-          <ContactLinks />
-        </div>}
-      </div>
-
-      <form className="quote-ai__form" onSubmit={(event) => { event.preventDefault(); submit(); }}>
-        <label htmlFor="quote-ai-message">La tua domanda</label>
-        <div>
-          <input ref={inputRef} id="quote-ai-message" value={message} onChange={(event) => setMessage(event.target.value)} disabled={sending} maxLength={500} autoComplete="off" placeholder="Scrivi una domanda sul preventivo" />
-          <button type="submit" disabled={sending || !message.trim()}>{sending ? "Invio…" : "Invia"}</button>
-        </div>
-        <small>Solo dati del preventivo. Nessuna modifica automatica.</small>
-      </form>
-    </aside>
-  </>;
+  return (
+    <VolantiniProAssistantDrawer
+      key={page}
+      open={open}
+      onClose={onClose}
+      role="guest"
+      eyebrow={`Preventivo · Step ${step}`}
+      title="Assistente VolantiniPro"
+      subtitle="Risposte brevi basate sui dati reali di questo Step."
+      contextCard={contextCard}
+      quickQuestions={quickQuestions}
+      onAsk={handleAsk}
+      disclaimer="Solo dati del preventivo. Nessuna modifica automatica."
+      inputPlaceholder="Scrivi una domanda sul preventivo"
+      welcomeTitle="Come posso aiutarti?"
+      welcomeText="Conosco le scelte e i valori mostrati qui, ma non posso modificare il preventivo."
+      thinkingText="Sto leggendo i dati dello Step…"
+      fallbackTitle="Assistente momentaneamente non disponibile."
+      fallbackText="Il preventivo continua a funzionare normalmente."
+      showHumanContacts={true}
+    />
+  );
 }
