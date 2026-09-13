@@ -1,4 +1,4 @@
-import { withCampaignSettlement } from '../lib/campaignSettlement.js';
+import { campaignSettlement, isCreditSettled } from '../lib/campaignSettlement.js';
 import { useEffect, useState } from 'react'
 import { ensureSupabaseSessionBridge, supabase } from '../supabaseClient'
 import { normalizeCustomerCampaign } from '../lib/customerCampaigns.js'
@@ -24,22 +24,41 @@ export function useCampagnaDetail(id) {
           .maybeSingle()
         if (queryError) throw queryError
         
-        let finalCoveragePct = null;
-        if (data) {
-          try {
-            const coverage = await getFinalCoverage(id);
-            finalCoveragePct = coverage?.final_operational_coverage_pct ?? null;
-          } catch (e) {
-            console.warn('[CAMPAIGN_DETAIL_COVERAGE_FAILED]', e?.message);
-          }
+        if (!data) {
+          setCampagna(null);
+          return;
         }
-        
-        const normalized = data ? normalizeCustomerCampaign(data, data.campaign_zones) : null;
+
+        const [coverageRes, settlementRes] = await Promise.allSettled([
+          getFinalCoverage(id),
+          campaignSettlement(id),
+        ]);
+
+        const finalCoveragePct = coverageRes.status === 'fulfilled'
+          ? coverageRes.value?.final_operational_coverage_pct ?? null
+          : null;
+        if (coverageRes.status === 'rejected') {
+          console.warn('[CAMPAIGN_DETAIL_COVERAGE_FAILED]', coverageRes.reason?.message);
+        }
+
+        const normalized = normalizeCustomerCampaign(data, data.campaign_zones);
         if (normalized) {
           normalized.copertura_pct = finalCoveragePct;
+          const settlement = settlementRes.status === 'fulfilled'
+            ? settlementRes.value
+            : { settlement_status: 'unavailable', amount_due_cents: null };
+          if (settlement.settlement_status === 'not_applicable') {
+            normalized.settlement = settlement;
+          } else {
+            normalized.settlement = settlement;
+            normalized.amount_due_euro = settlement.amount_due_cents == null ? null : settlement.amount_due_cents / 100;
+            normalized.stato_pagamento = isCreditSettled(settlement)
+              ? settlement.settlement_status
+              : settlement.settlement_status === 'awaiting_payment' ? 'in_attesa' : 'review_required';
+          }
         }
-        
-        setCampagna(await withCampaignSettlement(normalized))
+
+        setCampagna(normalized);
       } catch (loadError) {
         console.error('[CUSTOMER_CAMPAIGN_DETAIL_LOAD_FAILED]', { code: loadError?.code || null, message: loadError?.message || 'Errore sconosciuto' })
         setError(loadError?.message || 'Dettaglio campagna non disponibile.')

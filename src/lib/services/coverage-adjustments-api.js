@@ -19,14 +19,67 @@ function mapCoverageRpcError(error) {
   return mapped;
 }
 
+const coverageCache = new Map();
+const inFlightCoverage = new Map();
+const COVERAGE_CACHE_TTL_MS = 30_000;
+
+export function invalidateCoverageCache(campaignId) {
+  if (campaignId) {
+    coverageCache.delete(campaignId);
+    inFlightCoverage.delete(campaignId);
+  } else {
+    coverageCache.clear();
+    inFlightCoverage.clear();
+  }
+}
+
 /** Lista correzioni per una campagna (filtrata per ruolo lato RPC). */
 export async function listCoverageAdjustments(campaignId) {
   return callCoverageRpc('get_campaign_coverage_adjustments', { p_campaign_id: campaignId });
 }
 
 /** Copertura operativa finale separata per fonte (GPS/manuale/inaccessibile). */
-export async function getFinalCoverage(campaignId) {
-  return callCoverageRpc('calculate_campaign_final_coverage', { p_campaign_id: campaignId });
+export async function getFinalCoverage(campaignId, { forceFresh = false } = {}) {
+  if (!campaignId) return null;
+  const now = Date.now();
+  if (!forceFresh && coverageCache.has(campaignId)) {
+    const cached = coverageCache.get(campaignId);
+    if (now - cached.timestamp < COVERAGE_CACHE_TTL_MS) {
+      return cached.data;
+    }
+  }
+
+  if (!forceFresh && inFlightCoverage.has(campaignId)) {
+    return inFlightCoverage.get(campaignId);
+  }
+
+  const promise = (async () => {
+    let attempt = 0;
+    const maxAttempts = 2;
+    while (attempt < maxAttempts) {
+      attempt++;
+      try {
+        const data = await callCoverageRpc('calculate_campaign_final_coverage', { p_campaign_id: campaignId });
+        coverageCache.set(campaignId, { timestamp: Date.now(), data });
+        return data;
+      } catch (err) {
+        const status = Number(err?.status || err?.code);
+        const isTransient = status === 503 || status === 504 || /503|504|timeout|failed to fetch/i.test(err?.message || '');
+        if (isTransient && attempt < maxAttempts) {
+          await new Promise((r) => setTimeout(r, 600));
+          continue;
+        }
+        throw err;
+      }
+    }
+  })();
+
+  inFlightCoverage.set(campaignId, promise);
+  try {
+    return await promise;
+  } finally {
+    inFlightCoverage.delete(campaignId);
+  }
 }
 
 /** Crea una correzione verificata (solo Admin — verificato server-side).
@@ -39,7 +92,7 @@ export async function createCoverageAdjustment({
   campaignId, zoneId = null, adjustmentType, geometryGeoJson, reason, notes = null,
   metadata = {}, source = 'manual_verified', lineBufferM = null,
 }) {
-  return callCoverageRpc('admin_create_coverage_adjustment', {
+  const res = await callCoverageRpc('admin_create_coverage_adjustment', {
     p_campaign_id: campaignId,
     p_zone_id: zoneId,
     p_adjustment_type: adjustmentType,
@@ -50,6 +103,8 @@ export async function createCoverageAdjustment({
     p_source: source,
     p_line_buffer_m: lineBufferM,
   });
+  invalidateCoverageCache(campaignId);
+  return res;
 }
 
 /** Salvataggio ATOMICO di piu' LineString automatiche in una sola RPC/
@@ -62,7 +117,7 @@ export async function createCoverageAdjustmentsBatch({
   campaignId, lines, reason, source = 'automatic_verified', lineBufferM = 12,
   notes = null, metadata = {}, adjustmentType = 'manual_covered',
 }) {
-  return callCoverageRpc('admin_create_coverage_adjustments_batch', {
+  const res = await callCoverageRpc('admin_create_coverage_adjustments_batch', {
     p_campaign_id: campaignId,
     p_lines: lines,
     p_reason: reason,
@@ -72,6 +127,8 @@ export async function createCoverageAdjustmentsBatch({
     p_metadata: metadata,
     p_adjustment_type: adjustmentType,
   });
+  invalidateCoverageCache(campaignId);
+  return res;
 }
 
 /** Modifica/corregge una correzione non revocata (solo Admin). */

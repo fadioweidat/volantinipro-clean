@@ -5739,10 +5739,9 @@ export function CampaignDashboardPage({
     error
   } = useCampagnaDetail(routeCampaignId);
   if (loading) {
-    return <div style={{
+    return <div className="vp-campaign-dashboard-shell" style={{
       minHeight: "100vh",
-      background: C.navyMid,
-      padding: "105px 24px 80px"
+      background: C.navyMid
     }}><div style={{
         maxWidth: 1040,
         margin: "0 auto"
@@ -5760,10 +5759,9 @@ export function CampaignDashboardPage({
     const discounts = (pricing.discounts || []).reduce((a, x) => a + Number(x.amount || 0), 0);
     const base = pricing.subtotal || campagna.totale_euro || 0;
     const total = pricing.total || campagna.totale_euro || 0;
-    return <div style={{
+    return <div className="vp-campaign-dashboard-shell" style={{
       minHeight: "100vh",
-      background: C.navyMid,
-      padding: "105px 24px 80px"
+      background: C.navyMid
     }}>
         <div style={{
         maxWidth: 1180,
@@ -5957,7 +5955,7 @@ export function CampaignDashboardPage({
         }}>
             <div style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))",
+            gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))",
             gap: 10
           }}>
               {progressSteps.map(([id, label], i) => {
@@ -5990,11 +5988,7 @@ export function CampaignDashboardPage({
             </div>
           </div>
 
-          <div style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0,1.25fr) minmax(280px,.75fr)",
-          gap: 14
-        }}>
+          <div className="vp-campaign-dashboard-grid">
             <div style={{
             display: "flex",
             flexDirection: "column",
@@ -6276,10 +6270,9 @@ export function CampaignDashboardPage({
   const gpsPoints = [[18, 68], [28, 58], [38, 62], [48, 45], [58, 50], [70, 36], [82, 42]];
   const stats = [["Volantini distribuiti", "7.420", C.green], ["Copertura stimata", "74%", C.orange], ["Zone completate", "3/5", C.blue], ["Proof foto", "12", C.purple]];
   const history = [["VP-12052026-001", "Door to Door", "Cormano", "Completata", "386"], ["VP-18042026-002", "Business Distribution", "Bresso", "Completata", "420"]];
-  return <div style={{
+  return <div className="vp-campaign-dashboard-shell" style={{
     minHeight: "100vh",
-    background: C.navyMid,
-    padding: "105px 24px 80px"
+    background: C.navyMid
   }}>
       <div style={{
       maxWidth: 1180,
@@ -6339,7 +6332,7 @@ export function CampaignDashboardPage({
       }}>
           <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))",
+          gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))",
           gap: 10
         }}>
             {steps.map(([id, label], i) => {
@@ -6375,11 +6368,7 @@ export function CampaignDashboardPage({
           </div>
         </div>
 
-        <div style={{
-        display: "grid",
-        gridTemplateColumns: "minmax(0,1.25fr) minmax(280px,.75fr)",
-        gap: 14
-      }}>
+        <div className="vp-campaign-dashboard-grid">
           <div style={{
           display: "flex",
           flexDirection: "column",

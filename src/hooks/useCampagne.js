@@ -35,13 +35,17 @@ async function claimPendingCampaignIfAny(authUser) {
   }
 }
 
-export function useCampagne() {
+export function useCampagne({ enabled = true } = {}) {
   const [campagne, setCampagne] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(enabled)
   const [error, setError] = useState(null)
   const [sessionInvalid, setSessionInvalid] = useState(false)
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false)
+      return
+    }
     async function load() {
       if (!supabase) { setLoading(false); return }
       try {
@@ -64,13 +68,43 @@ export function useCampagne() {
         } catch (claimException) {
           console.warn('[PENDING_CAMPAIGN_CLAIM_EXCEPTION]', { message: claimException?.message || null })
         }
-        const { data, error: queryError } = await supabase
-          .from('campaigns')
-          .select('*, campaign_zones(*)')
-          .eq('user_id', authData.user.id)
-          .order('created_at', { ascending: false })
-        if (queryError) throw queryError
-        setCampagne(await Promise.all((data || []).map((row) => withCampaignSettlement(normalizeCustomerCampaign(row, row.campaign_zones)))))
+
+        const [campaignsRes, creditAppsRes] = await Promise.all([
+          supabase
+            .from('campaigns')
+            .select('*, campaign_zones(*)')
+            .eq('user_id', authData.user.id)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('feasibility_credit_applications')
+            .select('campaign_id')
+            .eq('owner_id', authData.user.id),
+        ])
+        if (campaignsRes.error) throw campaignsRes.error
+        const data = campaignsRes.data || []
+
+        let normalizedCampagne;
+        if (creditAppsRes.error) {
+          // Safeguard A: Pre-filter query failed. Do NOT assume not_applicable.
+          // Fall back to withCampaignSettlement safely for all user campaigns.
+          normalizedCampagne = await Promise.all(
+            data.map((row) => withCampaignSettlement(normalizeCustomerCampaign(row, row.campaign_zones)))
+          );
+        } else {
+          // Pre-filter succeeded with authoritative DB rows.
+          const creditCampaignIds = new Set((creditAppsRes.data || []).map((r) => r.campaign_id));
+          normalizedCampagne = await Promise.all(
+            data.map(async (row) => {
+              const norm = normalizeCustomerCampaign(row, row.campaign_zones);
+              if (!creditCampaignIds.has(row.id)) {
+                // Authoritative proof: this campaign has no credit application.
+                return { ...norm, settlement: { campaign_id: row.id, settlement_status: 'not_applicable', application_id: null } };
+              }
+              return withCampaignSettlement(norm);
+            })
+          );
+        }
+        setCampagne(normalizedCampagne)
       } catch (loadError) {
         const log = /auth session missing|autenticazione cliente richiesta/i.test(loadError?.message || '') ? console.warn : console.error
         log('[CUSTOMER_CAMPAIGNS_LOAD_FAILED]', { code: loadError?.code || null, message: loadError?.message || 'Errore sconosciuto' })
@@ -81,7 +115,7 @@ export function useCampagne() {
       }
     }
     load()
-  }, [])
+  }, [enabled])
 
   return { campagne, loading, error, sessionInvalid }
 }

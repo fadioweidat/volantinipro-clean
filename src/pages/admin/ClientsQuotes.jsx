@@ -5,6 +5,7 @@ import {
   getClientsQuotesOverview,
   generateDriverAssignmentLink,
   buildDriverWhatsAppMessage,
+  buildSupplierProgramWhatsAppMessage,
 } from '../../lib/services/admin-api.js';
 import { confirmCampaignPayment } from '../../lib/supabaseClient.js';
 import { adminCancelCampaign, adminArchiveCampaign } from '../../lib/services/admin-transitions-api.js';
@@ -155,17 +156,36 @@ export function ClientsQuotes({ onNav }) {
     const link = generateDriverAssignmentLink(assignment.id, assignment.access_token);
     const programRows = (row.programZones || []).map((z, idx) => ({ name: z.name, quantity: z.quantity, priority: idx + 1 }));
     const totalQty = programRows.reduce((sum, z) => sum + (z.quantity || 0), 0);
-    const msg = buildDriverWhatsAppMessage({
-      operatorName: row.operator?.name,
-      groupName: row.group?.name || null,
-      campaignTitle: row.name || row.client,
-      date: assignment.starts_at ? new Date(assignment.starts_at).toLocaleDateString('it-IT') : 'Da definire',
-      comuni: programRows.map((r) => r.name),
-      zone: programRows.map((r, idx) => `${idx + 1}. ${r.name}`),
-      programRows,
-      qty: totalQty || null,
-      link,
-    });
+    const rawComp = row.supplierCompensation ?? assignment.metadata?.supplier_compensation ?? row.metadata?.supplier_compensation ?? null;
+    const supplierCompensation = (rawComp != null && rawComp !== '' && !Number.isNaN(Number(rawComp))) ? Number(rawComp) : null;
+    const isSupplierTarget = Boolean(row.supplierName || assignment.metadata?.supplier_name || assignment.metadata?.manual_supplier?.name || supplierCompensation != null);
+
+    const msg = isSupplierTarget
+      ? buildSupplierProgramWhatsAppMessage({
+          supplierName: row.supplierName || assignment.metadata?.supplier_name || assignment.metadata?.manual_supplier?.name || row.group?.name || row.operator?.name,
+          groupName: row.group?.name || null,
+          campaignTitle: row.name || row.client,
+          service: row.service,
+          date: assignment.starts_at ? new Date(assignment.starts_at).toLocaleDateString('it-IT') : 'Da definire',
+          comuni: programRows.map((r) => r.name),
+          zone: programRows.map((r, idx) => `${idx + 1}. ${r.name}`),
+          programRows,
+          qty: totalQty || null,
+          supplierCompensation,
+          link,
+        })
+      : buildDriverWhatsAppMessage({
+          operatorName: row.operator?.name,
+          groupName: row.group?.name || null,
+          campaignTitle: row.name || row.client,
+          date: assignment.starts_at ? new Date(assignment.starts_at).toLocaleDateString('it-IT') : 'Da definire',
+          comuni: programRows.map((r) => r.name),
+          zone: programRows.map((r, idx) => `${idx + 1}. ${r.name}`),
+          programRows,
+          qty: totalQty || null,
+          supplierCompensation,
+          link,
+        });
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
     alert('WhatsApp aperto. Lo stato "Inviato" verra mostrato solo dopo un evento reale del driver (apertura/conferma programma).');
   }
@@ -208,12 +228,12 @@ export function ClientsQuotes({ onNav }) {
 
       {/* §1 — KPI summary dai dati reali della pagina (mai hardcoded). */}
       <div className="cq-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 14 }}>
-        <KpiCard label="Preventivi / Campagne" value={kpi.totali} color={C.white} />
-        <KpiCard label="Da pagare" value={kpi.da_pagare} color={CQ_FILTER_COLOR.da_pagare} onClick={() => setFilter('da_pagare')} active={filter === 'da_pagare'} />
-        <KpiCard label="Pagati" value={kpi.pagati} color={CQ_FILTER_COLOR.pagati} onClick={() => setFilter('pagati')} active={filter === 'pagati'} />
-        <KpiCard label="Da assegnare" value={kpi.da_assegnare} color={CQ_FILTER_COLOR.da_assegnare} onClick={() => setFilter('da_assegnare')} active={filter === 'da_assegnare'} />
-        <KpiCard label="In lavorazione" value={kpi.in_lavorazione} color={CQ_FILTER_COLOR.in_lavorazione} onClick={() => setFilter('in_lavorazione')} active={filter === 'in_lavorazione'} />
-        <KpiCard label="Completati" value={kpi.completati} color={CQ_FILTER_COLOR.completati} onClick={() => setFilter('completati')} active={filter === 'completati'} />
+        <KpiCard label="Preventivi / Campagne" value={kpi.totali} color={C.white} loading={state.loading && state.rows.length === 0} />
+        <KpiCard label="Da pagare" value={kpi.da_pagare} color={CQ_FILTER_COLOR.da_pagare} onClick={() => setFilter('da_pagare')} active={filter === 'da_pagare'} loading={state.loading && state.rows.length === 0} />
+        <KpiCard label="Pagati" value={kpi.pagati} color={CQ_FILTER_COLOR.pagati} onClick={() => setFilter('pagati')} active={filter === 'pagati'} loading={state.loading && state.rows.length === 0} />
+        <KpiCard label="Da assegnare" value={kpi.da_assegnare} color={CQ_FILTER_COLOR.da_assegnare} onClick={() => setFilter('da_assegnare')} active={filter === 'da_assegnare'} loading={state.loading && state.rows.length === 0} />
+        <KpiCard label="In lavorazione" value={kpi.in_lavorazione} color={CQ_FILTER_COLOR.in_lavorazione} onClick={() => setFilter('in_lavorazione')} active={filter === 'in_lavorazione'} loading={state.loading && state.rows.length === 0} />
+        <KpiCard label="Completati" value={kpi.completati} color={CQ_FILTER_COLOR.completati} onClick={() => setFilter('completati')} active={filter === 'completati'} loading={state.loading && state.rows.length === 0} />
       </div>
 
       {/* §2 — filtri rapidi + §8 ordinamento. Nessun reload; la ricerca resta. */}
@@ -252,12 +272,25 @@ export function ClientsQuotes({ onNav }) {
       </div>
 
       {state.error && (
-        <div style={{ background: 'rgba(239,68,68,.1)', border: '1px solid #ef4444', color: '#ef4444', padding: 12, borderRadius: 6, marginBottom: 20 }}>
-          {state.error}
+        <div style={{ background: 'rgba(239,68,68,.1)', border: '1px solid #ef4444', color: '#ef4444', padding: 12, borderRadius: 6, marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>{state.error}</span>
+          <button type="button" onClick={() => load()} style={{ background: '#ef4444', border: 'none', color: '#fff', borderRadius: 4, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Riprova</button>
         </div>
       )}
 
       <div style={{ display: 'grid', gap: 10 }}>
+        {state.loading && visibleRows.length === 0 && (
+          <>
+            {[1, 2, 3].map((i) => (
+              <div key={i} style={{ background: C.navyLight, border: '1px solid #374151', borderRadius: 10, padding: 16, minHeight: 90, opacity: 0.6 }}>
+                <div style={{ height: 16, width: '35%', background: 'rgba(255,255,255,.08)', borderRadius: 4, marginBottom: 8 }} />
+                <div style={{ height: 12, width: '55%', background: 'rgba(255,255,255,.05)', borderRadius: 4, marginBottom: 6 }} />
+                <div style={{ height: 12, width: '25%', background: 'rgba(255,255,255,.04)', borderRadius: 4 }} />
+              </div>
+            ))}
+          </>
+        )}
+
         {visibleRows.length === 0 && !state.loading && (
           <p style={{ color: C.gray }}>Nessun preventivo trovato.</p>
         )}
@@ -415,7 +448,7 @@ export function ClientsQuotes({ onNav }) {
   );
 }
 
-function KpiCard({ label, value, color, onClick, active }) {
+function KpiCard({ label, value, color, onClick, active, loading }) {
   const clickable = typeof onClick === 'function';
   return (
     <button
@@ -434,7 +467,13 @@ function KpiCard({ label, value, color, onClick, active }) {
       }}
     >
       <span style={{ fontSize: 22, fontWeight: 900, fontFamily: "'JetBrains Mono', monospace", color: color === '#FFFFFF' ? '#fff' : color, lineHeight: 1 }}>
-        {Number.isFinite(Number(value)) ? Number(value).toLocaleString('it-IT') : '0'}
+        {loading ? (
+          <span style={{ opacity: 0.35, letterSpacing: '0.1em' }}>—</span>
+        ) : Number.isFinite(Number(value)) ? (
+          Number(value).toLocaleString('it-IT')
+        ) : (
+          '0'
+        )}
       </span>
       <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.04em', textTransform: 'uppercase', color: 'rgba(255,255,255,.55)' }}>{label}</span>
     </button>

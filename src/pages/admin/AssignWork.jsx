@@ -184,6 +184,8 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           if (!supplierCompensation) {
             if (matchedQuote?.total_amount != null) {
               setSupplierCompensation(String(matchedQuote.total_amount));
+            } else if (existingAssignment?.metadata?.supplier_compensation != null) {
+              setSupplierCompensation(String(existingAssignment.metadata.supplier_compensation));
             } else if (camp?.metadata?.supplier_compensation != null) {
               setSupplierCompensation(String(camp.metadata.supplier_compensation));
             }
@@ -531,7 +533,11 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       startTime: startsAt ? new Date(startsAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : null,
       programRows,
       qty: totalQty || null,
-      supplierCompensation: supplierCompensation !== '' && supplierCompensation != null ? Number(supplierCompensation) : null,
+      supplierCompensation: (supplierCompensation !== '' && supplierCompensation != null)
+        ? Number(supplierCompensation)
+        : (existingAssignment?.metadata?.supplier_compensation != null
+            ? Number(existingAssignment.metadata.supplier_compensation)
+            : (campaign?.metadata?.supplier_compensation != null ? Number(campaign.metadata.supplier_compensation) : null)),
       notes: campaign?.notes || campaign?.metadata?.notes || null,
       link: generatedLink,
     });

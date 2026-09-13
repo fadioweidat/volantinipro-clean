@@ -330,7 +330,7 @@ export async function getClientsQuotesOverview({ includeTest = false, prefetched
   const needOperators = !prefetched?.operators;
   const needSessions = !prefetched?.sessions;
 
-  const [campaignsRes, groupsRes, assignmentsRes, assignmentZonesRes, operatorsRes, sessionsRes, logsRes] = await Promise.all([
+  const [campaignsRes, groupsRes, assignmentsRes, assignmentZonesRes, operatorsRes, sessionsRes, logsRes, creditAppsRes] = await Promise.all([
     needCampaigns ? getRealCampaigns({ includeTest }) : Promise.resolve(null),
     needGroups ? selectOptionalTable('operational_groups') : Promise.resolve(null),
     needAssignments ? selectOptionalTable('operator_assignments') : Promise.resolve(null),
@@ -343,6 +343,7 @@ export async function getClientsQuotesOverview({ includeTest = false, prefetched
     needOperators ? listAssignableOperators().catch(() => []) : Promise.resolve(null),
     needSessions ? selectOptionalTable('delivery_sessions') : Promise.resolve(null),
     selectOptionalTable('assignment_event_log'),
+    selectOptionalTable('feasibility_credit_applications', 'applied_at'),
   ]);
 
   const campaigns = needCampaigns
@@ -355,7 +356,34 @@ export async function getClientsQuotesOverview({ includeTest = false, prefetched
   const sessions = needSessions ? sessionsRes.rows : prefetched.sessions;
   const logs = logsRes.rows.filter((row) => ['assignment_program_sent', 'assignment_program_opened', 'assignment_program_confirmed', 'assignment_program_revoked'].includes(row.event_type));
 
-  const settlements = await Promise.all(campaigns.map(c => c.source === 'campaigns' ? campaignSettlement(c.id) : Promise.resolve({settlement_status:'not_applicable'})));
+  let settlements;
+  if (!creditAppsRes.available) {
+    // Safeguard A: Pre-filter query failed. Do NOT fabricate 'not_applicable'.
+    // Query campaignSettlement directly for real campaigns, bounded/cached.
+    settlements = await Promise.all(
+      campaigns.map((c) =>
+        c.source === 'campaigns'
+          ? campaignSettlement(c.id)
+          : Promise.resolve({ settlement_status: 'not_applicable', amount_due_cents: null })
+      )
+    );
+  } else {
+    // Pre-filter query succeeded with authoritative DB rows.
+    const creditAppsCampaignIds = new Set(creditAppsRes.rows.map((r) => r.campaign_id));
+    settlements = await Promise.all(
+      campaigns.map((c) => {
+        if (c.source !== 'campaigns') {
+          return Promise.resolve({ settlement_status: 'not_applicable', amount_due_cents: null });
+        }
+        if (!creditAppsCampaignIds.has(c.id)) {
+          // Authoritative DB proof: no credit application exists for this campaign.
+          return Promise.resolve({ campaign_id: c.id, settlement_status: 'not_applicable', application_id: null });
+        }
+        // Only campaigns with an active credit application call the settlement RPC
+        return campaignSettlement(c.id);
+      })
+    );
+  }
   return campaigns.map((campaign, campaignIndex) => {
     // Assegnazione attiva piu' recente per questa campagna (nessuna
     // revocata): la stessa regola "prendi la piu' recente non revocata" gia'
@@ -417,6 +445,11 @@ export async function getClientsQuotesOverview({ includeTest = false, prefetched
     const settlement = settlements[campaignIndex];
     const paymentStatus = settlement.settlement_status === 'not_applicable' ? (paymentRaw === 'pagato' ? 'pagato' : paymentRaw === 'in_attesa_pagamento' ? 'da_pagare' : 'non_disponibile') : settlement.settlement_status === 'awaiting_payment' ? 'da_pagare' : settlement.settlement_status;
 
+    const rawComp = rawAssignment?.metadata?.supplier_compensation ?? campaign.metadata?.supplier_compensation ?? null;
+    const supplierCompNum = (rawComp != null && rawComp !== '') ? Number(rawComp) : null;
+    const supplierCompensation = (supplierCompNum != null && !Number.isNaN(supplierCompNum)) ? supplierCompNum : null;
+    const supplierName = rawAssignment?.metadata?.supplier_name || rawAssignment?.metadata?.manual_supplier?.name || null;
+
     return {
       ...campaign,
       paymentStatus,
@@ -424,6 +457,8 @@ export async function getClientsQuotesOverview({ includeTest = false, prefetched
       assignment: rawAssignment,
       group,
       operator: operator ? { id: operator.id, name: operator.display_name, phone: operator.phone } : null,
+      supplierName,
+      supplierCompensation,
       programZones: zones,
       programStatus,
       programSentAt: sentAt,
@@ -1224,6 +1259,7 @@ export function buildDriverWhatsAppMessage({
   programRows = null,
   qty,
   total,
+  supplierCompensation = null,
   notes = null,
   link,
   mapLink = null,
@@ -1237,6 +1273,10 @@ export function buildDriverWhatsAppMessage({
   const totalText = total || qtyText;
   const dateText = date || 'Da definire';
   const titleText = campaignTitle || 'Campagna VolantiniPro';
+  const compNum = Number(supplierCompensation);
+  const compensationLine = (supplierCompensation != null && supplierCompensation !== '' && !Number.isNaN(compNum))
+    ? `\nCompenso concordato: € ${compNum.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : '';
   const serviceLabel = formatServiceLabel(service);
   const serviceLine = serviceLabel ? `\nServizio: ${serviceLabel}` : '';
   const notesLine = notes ? `\nNote: ${notes}` : '';
@@ -1250,7 +1290,7 @@ Campagna: ${titleText}${serviceLine}
 
 ${rows}
 
-Totale: ${qtyText}
+Totale: ${qtyText}${compensationLine}
 Data: ${dateText}
 Inizio: ${startTime || 'Da definire'}${notesLine}
 
@@ -1269,7 +1309,7 @@ Data: ${dateText}
 Comuni: ${comuniText}
 Ordine: ${zoneText}
 Quantita: ${qtyText}
-Totale: ${totalText}${notesLine}
+Totale: ${totalText}${compensationLine}${notesLine}
 
 Apri il link per vedere il lavoro e avviare il GPS:
 ${link}

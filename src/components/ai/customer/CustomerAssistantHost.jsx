@@ -81,7 +81,7 @@ export default function CustomerAssistantHost({ page }) {
   const isDetailPage = Boolean(campaignId);
 
   const { campagna: detailCampaign } = useCampagnaDetail(isDetailPage ? campaignId : null);
-  const { campagne: dashboardCampaigns } = useCampagne();
+  const { campagne: dashboardCampaigns } = useCampagne({ enabled: !isDetailPage });
 
   const stats = useMemo(() => {
     if (isDetailPage) return null;

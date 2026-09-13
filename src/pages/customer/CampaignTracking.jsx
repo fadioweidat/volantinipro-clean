@@ -200,7 +200,7 @@ export function CampaignTracking({ campaignId }) {
             color={C.orange}
           />
           <Metric
-            label="Ultimo aggiornamento"
+            label="Ultimo ping"
             value={operationalMetrics.latestEventIso ? formatDateTime(operationalMetrics.latestEventIso) : (latestPing ? formatDateTime(latestPing) : 'Non disponibile')}
             color={C.purple}
           />

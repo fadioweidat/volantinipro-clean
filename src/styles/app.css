@@ -2491,3 +2491,30 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   -webkit-backdrop-filter: none !important;
 }
 
+/* ── CUSTOMER CAMPAIGN DASHBOARD RESPONSIVE FIX ────────────────────────────── */
+.vp-campaign-dashboard-shell {
+  min-height: 100vh;
+  background: #0D1B2A;
+  padding: 105px 24px 80px;
+  box-sizing: border-box;
+}
+
+.vp-campaign-dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+  gap: 14px;
+}
+
+@media (max-width: 900px) {
+  .vp-campaign-dashboard-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .vp-campaign-dashboard-shell {
+    padding: 85px 14px 60px !important;
+  }
+}
+
+
