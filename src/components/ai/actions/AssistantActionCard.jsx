@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { ACTION_TYPES, ACTION_STATES, getActionExecutionKey } from "../../../ai/actions/actionSchema.js";
 
 /**
@@ -77,13 +77,33 @@ export default function AssistantActionCard({
       }
     };
 
+    const isSendMessage = action.action === "admin_send_message";
+    const confirmButtonLabel = isConfirming
+      ? "Invio in corso…"
+      : isSendMessage
+      ? "Conferma invio"
+      : "Conferma";
+
     return (
       <div
         className={`quote-ai__action-card quote-ai__action-card--preview ${state}`}
         data-action-key={getActionExecutionKey(action)}
       >
-        <div className="quote-ai__preview-badge">Anteprima Operazione</div>
+        <div className="quote-ai__preview-badge">
+          {isSendMessage ? "Anteprima Invio Messaggio" : "Anteprima Operazione"}
+        </div>
         <div className="quote-ai__preview-summary">{action.summary}</div>
+
+        {isSendMessage && action.messageText && (
+          <div style={{ margin: "6px 0 10px 0", padding: "8px 10px", background: "rgba(255,255,255,0.06)", borderRadius: "6px", fontSize: "11px" }}>
+            <div style={{ color: "#93c5fd", fontWeight: 700, marginBottom: "4px" }}>
+              Destinatario: {action.recipientName || (action.recipientType === "customer" ? "Cliente" : "Driver")}
+            </div>
+            <div style={{ color: "#fff", fontStyle: "italic", whiteSpace: "pre-wrap" }}>
+              "{action.messageText}"
+            </div>
+          </div>
+        )}
 
         {Array.isArray(action.consequences) && action.consequences.length > 0 && (
           <ul className="quote-ai__consequences">
@@ -95,7 +115,9 @@ export default function AssistantActionCard({
 
         {state === ACTION_STATES.IDLE || state === ACTION_STATES.CONFIRMING ? (
           <div className="quote-ai__confirm-box">
-            <p className="quote-ai__confirm-prompt">Vuoi confermare questa azione?</p>
+            <p className="quote-ai__confirm-prompt">
+              {isSendMessage ? "Vuoi confermare l'invio di questo messaggio?" : "Vuoi confermare questa azione?"}
+            </p>
             <div className="quote-ai__confirm-bar">
               <button
                 type="button"
@@ -111,13 +133,23 @@ export default function AssistantActionCard({
                 onClick={handleConfirm}
                 disabled={isConfirming}
               >
-                {isConfirming ? "Verifica in corso…" : "Conferma"}
+                {confirmButtonLabel}
               </button>
             </div>
           </div>
         ) : (
           <div className={`quote-ai__action-feedback quote-ai__action-feedback--${state}`}>
-            {feedback}
+            <div>{feedback}</div>
+            {state === ACTION_STATES.FAILED && (
+              <button
+                type="button"
+                className="quote-ai__btn quote-ai__btn--confirm"
+                style={{ marginTop: "6px" }}
+                onClick={() => { setState(ACTION_STATES.IDLE); setFeedback(null); }}
+              >
+                Riprova
+              </button>
+            )}
           </div>
         )}
       </div>

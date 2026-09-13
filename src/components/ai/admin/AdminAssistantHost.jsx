@@ -92,8 +92,46 @@ export default function AdminAssistantHost({ page, adminSession, onNav }) {
 
   const handleConfirmAction = useCallback(
     async (action) => {
-      // Phase 5A: verified action confirmation
-      return { allowed: true, message: `Azione "${action.summary || action.action}" confermata dall'amministratore.` };
+      try {
+        const { supabase, ensureSupabaseSessionBridge } = await import("../../../supabaseClient.js");
+        if (!supabase) throw new Error("Supabase non disponibile");
+        await ensureSupabaseSessionBridge();
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        if (!token) throw new Error("Sessione amministratore non attiva");
+
+        const { data, error } = await supabase.functions.invoke("ai-core", {
+          body: {
+            contextType: "action_verify",
+            action: {
+              ...action,
+              type: "confirmed_mutation",
+            },
+          },
+        });
+
+        if (error || !data?.allowed) {
+          return {
+            allowed: false,
+            error: data?.error || error?.message || "Operazione non autorizzata o fallita.",
+          };
+        }
+
+        return {
+          allowed: true,
+          message:
+            action.action === "admin_send_message"
+              ? `✓ Messaggio inviato con successo a ${action.recipientName || (action.recipientType === "customer" ? "Cliente" : "Driver")}.`
+              : `✓ Azione "${action.summary || action.action}" confermata con successo.`,
+          messageId: data?.messageId,
+          conversationId: data?.conversationId,
+        };
+      } catch (err) {
+        return {
+          allowed: false,
+          error: err instanceof Error ? err.message : "Errore durante l'esecuzione dell'azione.",
+        };
+      }
     },
     []
   );

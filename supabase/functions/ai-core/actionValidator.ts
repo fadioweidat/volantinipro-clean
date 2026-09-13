@@ -9,8 +9,11 @@ import {
   validateAction,
   validateMutationPreview,
   buildAuditLogEntry,
+  computeActionExecutionKey,
   type AuditLogEntry,
 } from "./actionSchema.ts";
+
+declare const Deno: any;
 
 export interface ActionValidationResult {
   allowed: boolean;
@@ -18,6 +21,8 @@ export interface ActionValidationResult {
   statusCode?: number;
   auditEntry?: AuditLogEntry;
 }
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Validates an action request with strict server-side authorization and ownership re-checks.
@@ -65,6 +70,10 @@ export async function validateActionServerSide(
   if (action.type === ACTION_TYPES.CONFIRMED_MUTATION) {
     const { action: mutationName, entityId } = action;
 
+    if (mutationName === "admin_send_message" && actor.role !== "admin") {
+      return { allowed: false, error: "FORBIDDEN_ROLE_MISMATCH", statusCode: 403 };
+    }
+
     // Role verification against database
     if (actor.role === "admin") {
       const { data: profile, error: pErr } = await supabase
@@ -72,7 +81,8 @@ export async function validateActionServerSide(
         .select("role")
         .eq("id", actor.id)
         .maybeSingle();
-      if (pErr || profile?.role !== "admin") {
+
+      if (pErr || !profile || (profile.role !== "admin" && profile.role !== "superadmin")) {
         return { allowed: false, error: "FORBIDDEN_ROLE_MISMATCH", statusCode: 403 };
       }
     } else if (actor.role === "customer") {
@@ -125,12 +135,17 @@ export async function validateActionServerSide(
       return { allowed: false, error: "FORBIDDEN_UNKNOWN_ROLE", statusCode: 403 };
     }
 
+    // Phase 5B.1: Initial mutation allowlist: admin_send_message ONLY
+    if (mutationName !== "admin_send_message") {
+      return { allowed: false, error: "MUTATION_ACTION_NOT_PERMITTED", statusCode: 403 };
+    }
+
     // Build audit entry
     const auditEntry = buildAuditLogEntry({
       actorId: actor.id,
       role: actor.role,
       actionType: mutationName,
-      entityId,
+      entityId: entityId || "none",
       beforeState: action.beforeState || null,
       afterState: action.afterState || null,
       metadata: { requestedVia: "ai_assistant_confirmation", sourceAction: action },
@@ -140,6 +155,332 @@ export async function validateActionServerSide(
   }
 
   return { allowed: false, error: "UNSUPPORTED_ACTION_TYPE", statusCode: 400 };
+}
+
+/**
+ * Executes confirmed admin_send_message mutation with durable idempotency
+ * and canonical database RPC invocation (Customer / Driver).
+ */
+async function executeAdminSendMessage(
+  supabaseAdmin: any,
+  req: Request,
+  actor: { id: string; role: string },
+  action: any,
+  jsonFn: (data: unknown, status?: number) => Response
+): Promise<Response> {
+  const recipientType = action.recipientType;
+  if (recipientType !== "customer" && recipientType !== "driver") {
+    return jsonFn({ allowed: false, error: "INVALID_RECIPIENT_TYPE" }, 400);
+  }
+
+  const messageText = typeof action.messageText === "string" ? action.messageText.trim() : "";
+  if (!messageText) {
+    return jsonFn({ allowed: false, error: "EMPTY_MESSAGE_TEXT" }, 400);
+  }
+
+  const rawEntityId = String(action.entityId || "").trim();
+  if (!rawEntityId || rawEntityId === "pending" || !UUID_REGEX.test(rawEntityId)) {
+    return jsonFn({ allowed: false, error: "INVALID_ENTITY_ID" }, 400);
+  }
+
+  const idempotencyKey = computeActionExecutionKey(action);
+
+  // 1. Check durable execution ledger for idempotency
+  const { data: existingRecord, error: fetchErr } = await supabaseAdmin
+    .from("ai_action_executions")
+    .select("*")
+    .eq("idempotency_key", idempotencyKey)
+    .maybeSingle();
+
+  if (fetchErr) {
+    return jsonFn({ allowed: false, error: "LEDGER_READ_FAILED", detail: fetchErr.message }, 500);
+  }
+
+  if (existingRecord) {
+    if (existingRecord.status === "succeeded") {
+      return jsonFn({
+        allowed: true,
+        status: "action_executed",
+        action,
+        deduplicated: true,
+        messageId: existingRecord.canonical_result_id,
+        conversationId: existingRecord.after_state?.conversationId || null,
+        afterState: existingRecord.after_state,
+        message: "Azione già eseguita in precedenza (riproduzione idempotente).",
+      });
+    }
+
+    if (existingRecord.status === "pending") {
+      const pendingAge = Date.now() - new Date(existingRecord.created_at).getTime();
+      if (pendingAge < 30000) {
+        return jsonFn(
+          {
+            allowed: false,
+            status: "in_progress",
+            error: "OPERATION_IN_PROGRESS",
+            message: "Un'operazione identica è già in corso di esecuzione.",
+          },
+          409
+        );
+      }
+    }
+  }
+
+  // 2. Insert or reset pending execution record
+  let executionId: string;
+  if (existingRecord) {
+    const { data: updated, error: uErr } = await supabaseAdmin
+      .from("ai_action_executions")
+      .update({
+        status: "pending",
+        actor_id: actor.id,
+        error_code: null,
+        error_message: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("idempotency_key", idempotencyKey)
+      .select("id")
+      .single();
+
+    if (uErr) {
+      return jsonFn({ allowed: false, error: "FAILED_TO_LOCK_ACTION", detail: uErr.message }, 500);
+    }
+    executionId = updated.id;
+  } else {
+    const { data: inserted, error: insertErr } = await supabaseAdmin
+      .from("ai_action_executions")
+      .insert({
+        idempotency_key: idempotencyKey,
+        actor_id: actor.id,
+        actor_role: "admin",
+        action_type: "admin_send_message",
+        entity_type: recipientType === "driver" ? "operator_assignment" : "campaign",
+        entity_id: rawEntityId,
+        status: "pending",
+        before_state: {
+          recipientType,
+          recipientName: action.recipientName || null,
+          entityId: rawEntityId,
+          text: messageText,
+        },
+        metadata: {
+          source: "ai_assistant_confirmation",
+          channel: "in_app",
+        },
+      })
+      .select("id")
+      .single();
+
+    if (insertErr) {
+      if (insertErr.code === "23505") {
+        const { data: raced } = await supabaseAdmin
+          .from("ai_action_executions")
+          .select("*")
+          .eq("idempotency_key", idempotencyKey)
+          .maybeSingle();
+
+        if (raced?.status === "succeeded") {
+          return jsonFn({
+            allowed: true,
+            status: "action_executed",
+            action,
+            deduplicated: true,
+            messageId: raced.canonical_result_id,
+            conversationId: raced.after_state?.conversationId || null,
+            afterState: raced.after_state,
+            message: "Azione già eseguita in precedenza (riproduzione idempotente).",
+          });
+        }
+        return jsonFn({ allowed: false, error: "CONCURRENT_EXECUTION_CONFLICT" }, 409);
+      }
+      return jsonFn({ allowed: false, error: "FAILED_TO_RECORD_ACTION", detail: insertErr.message }, 500);
+    }
+    executionId = inserted.id;
+  }
+
+  // 3. Client setup for canonical execution
+  const authHeader = req?.headers?.get("Authorization") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  let rpcClient = supabaseAdmin;
+  if (token && typeof Deno !== "undefined") {
+    const url = Deno.env.get("SUPABASE_URL");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    if (url && anonKey) {
+      // @ts-ignore
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.105.4");
+      rpcClient = createClient(url, anonKey, {
+        auth: { persistSession: false },
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      });
+    }
+  }
+
+  const markFailed = async (code: string, message: string) => {
+    await supabaseAdmin
+      .from("ai_action_executions")
+      .update({
+        status: "failed",
+        error_code: code,
+        error_message: message,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", executionId);
+  };
+
+  // 4. Canonical RPC Invocation
+  if (recipientType === "driver") {
+    let targetAssignmentId = rawEntityId;
+    const { data: asg } = await supabaseAdmin
+      .from("operator_assignments")
+      .select("id")
+      .eq("id", targetAssignmentId)
+      .maybeSingle();
+
+    if (!asg) {
+      const { data: conv } = await supabaseAdmin
+        .from("conversations")
+        .select("assignment_id")
+        .eq("id", rawEntityId)
+        .eq("kind", "driver_admin")
+        .maybeSingle();
+
+      if (conv?.assignment_id) {
+        targetAssignmentId = conv.assignment_id;
+      } else {
+        await markFailed("ASSIGNMENT_NOT_FOUND", "Incarico operatore non trovato.");
+        return jsonFn({ allowed: false, error: "ASSIGNMENT_NOT_FOUND" }, 404);
+      }
+    }
+
+    const { data: msgResult, error: rpcErr } = await rpcClient.rpc("admin_send_driver_message", {
+      p_assignment_id: targetAssignmentId,
+      p_text: messageText,
+    });
+
+    if (rpcErr || !msgResult) {
+      await markFailed(rpcErr?.code || "RPC_ERROR", rpcErr?.message || "Errore chiamata admin_send_driver_message");
+      return jsonFn({ allowed: false, error: rpcErr?.message || "INVIO_MESSAGGIO_DRIVER_FALLITO" }, 500);
+    }
+
+    const afterState = {
+      messageId: msgResult.id,
+      conversationId: msgResult.conversation_id,
+      recipientRole: "driver",
+      senderRole: "admin",
+      senderId: actor.id,
+      text: messageText,
+      sentAt: msgResult.created_at || new Date().toISOString(),
+    };
+
+    await supabaseAdmin
+      .from("ai_action_executions")
+      .update({
+        status: "succeeded",
+        canonical_result_id: msgResult.id,
+        after_state: afterState,
+        executed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", executionId);
+
+    return jsonFn({
+      allowed: true,
+      status: "action_executed",
+      action,
+      messageId: msgResult.id,
+      conversationId: msgResult.conversation_id,
+      afterState,
+      message: `✓ Messaggio inviato con successo al driver.`,
+    });
+  } else {
+    // Customer flow
+    let convId: string | null = null;
+    const { data: directConv } = await supabaseAdmin
+      .from("conversations")
+      .select("id, kind, campaign_id, customer_id")
+      .eq("id", rawEntityId)
+      .maybeSingle();
+
+    if (directConv && directConv.kind === "customer_admin") {
+      convId = directConv.id;
+    } else {
+      const { data: campConv } = await supabaseAdmin
+        .from("conversations")
+        .select("id")
+        .eq("kind", "customer_admin")
+        .eq("campaign_id", rawEntityId)
+        .maybeSingle();
+
+      if (campConv) {
+        convId = campConv.id;
+      } else {
+        const { data: camp } = await supabaseAdmin
+          .from("campaigns")
+          .select("id, user_id")
+          .eq("id", rawEntityId)
+          .maybeSingle();
+
+        if (camp && camp.user_id) {
+          const { data: newConvId, error: createConvErr } = await supabaseAdmin.rpc(
+            "hub_get_or_create_customer_conversation",
+            {
+              p_campaign_id: camp.id,
+              p_customer_id: camp.user_id,
+            }
+          );
+          if (!createConvErr && newConvId) {
+            convId = newConvId;
+          }
+        }
+      }
+    }
+
+    if (!convId) {
+      await markFailed("CONVERSATION_NOT_FOUND", "Conversazione cliente o campagna non trovata.");
+      return jsonFn({ allowed: false, error: "CONVERSATION_NOT_FOUND" }, 404);
+    }
+
+    const { data: msgResult, error: rpcErr } = await rpcClient.rpc("admin_send_message", {
+      p_conversation_id: convId,
+      p_text: messageText,
+    });
+
+    if (rpcErr || !msgResult) {
+      await markFailed(rpcErr?.code || "RPC_ERROR", rpcErr?.message || "Errore chiamata admin_send_message");
+      return jsonFn({ allowed: false, error: rpcErr?.message || "INVIO_MESSAGGIO_CLIENTE_FALLITO" }, 500);
+    }
+
+    const afterState = {
+      messageId: msgResult.id,
+      conversationId: msgResult.conversation_id || convId,
+      recipientRole: "customer",
+      senderRole: "admin",
+      senderId: actor.id,
+      text: messageText,
+      sentAt: msgResult.created_at || new Date().toISOString(),
+    };
+
+    await supabaseAdmin
+      .from("ai_action_executions")
+      .update({
+        status: "succeeded",
+        canonical_result_id: msgResult.id,
+        after_state: afterState,
+        executed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", executionId);
+
+    return jsonFn({
+      allowed: true,
+      status: "action_executed",
+      action,
+      messageId: msgResult.id,
+      conversationId: msgResult.conversation_id || convId,
+      afterState,
+      message: `✓ Messaggio inviato con successo al cliente.`,
+    });
+  }
 }
 
 /**
@@ -195,6 +536,14 @@ export async function handleActionVerify(
   const validation = await validateActionServerSide(supabase, actor, action);
   if (!validation.allowed) {
     return jsonFn({ allowed: false, error: validation.error }, validation.statusCode || 400);
+  }
+
+  // Phase 5B.1: Confirmed Mutation Execution for Admin Send Message
+  if (action?.type === ACTION_TYPES.CONFIRMED_MUTATION && action?.action === "admin_send_message") {
+    if (!actor || actor.role !== "admin") {
+      return jsonFn({ allowed: false, error: "FORBIDDEN_ROLE_MISMATCH" }, 403);
+    }
+    return await executeAdminSendMessage(supabase, req, actor, action, jsonFn);
   }
 
   return jsonFn({

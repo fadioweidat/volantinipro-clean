@@ -82,6 +82,76 @@ export function deterministicAdminResponse(snapshot: any, question: string): Adm
     return safeResult("Non posso accedere né mostrare chiavi, token o password di sistema.", "Richiesta di segreti rifiutata.", ["SECRETS_NOT_AVAILABLE"]);
   }
 
+  // 1.5 Invio messaggi (Admin -> Customer o Admin -> Driver)
+  const isMessageSend =
+    /(?:scrivi|manda|invia)\s+(?:subito\s+)?(?:un\s+messaggio\s+)?(?:al\s+|a\s+)?(?:cliente|driver|operatore)/i.test(normalized) ||
+    /^(?:scrivi|manda|invia)\s+(?:al\s+|a\s+)?(?:cliente|driver|operatore)/i.test(normalized);
+
+  if (isMessageSend) {
+    const isDriver = /driver|operatore/i.test(normalized);
+    const recipientType = isDriver ? "driver" : "customer";
+
+    let recipientName = isDriver ? "Driver" : "Cliente";
+    let messageText = "";
+
+    const colonIdx = question.indexOf(":");
+    if (colonIdx !== -1 && colonIdx < question.length - 1) {
+      messageText = question.slice(colonIdx + 1).trim();
+      const beforeColon = question.slice(0, colonIdx);
+      const nameMatch = beforeColon.match(/(?:cliente|driver|operatore)\s+([A-Za-zÀ-ÿ\s]+)/i);
+      if (nameMatch && nameMatch[1].trim()) {
+        recipientName = nameMatch[1].trim();
+      }
+    } else {
+      const cheMatch = question.match(/(?:cliente|driver|operatore)(?:\s+([A-Za-zÀ-ÿ\s]+?))?\s+che\s+(.+)/i);
+      if (cheMatch) {
+        if (cheMatch[1] && cheMatch[1].trim()) recipientName = cheMatch[1].trim();
+        messageText = cheMatch[2].trim();
+      } else {
+        const leadMatch = question.match(
+          /(?:scrivi|manda|invia)\s+(?:subito\s+)?(?:un\s+messaggio\s+)?(?:al\s+|a\s+)?(?:cliente|driver|operatore)(?:\s+([A-Za-zÀ-ÿ\s]+?))?[\s,]+(.+)/i
+        );
+        if (leadMatch) {
+          if (leadMatch[1] && leadMatch[1].trim()) recipientName = leadMatch[1].trim();
+          messageText = leadMatch[2].trim();
+        }
+      }
+    }
+
+    if (!messageText) {
+      messageText = question
+        .replace(/^(?:scrivi|manda|invia)\s+(?:subito\s+)?(?:un\s+messaggio\s+)?(?:al\s+|a\s+)?(?:cliente|driver|operatore)\s*/i, "")
+        .trim();
+    }
+
+    const uuidMatch = question.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+    let entityId = (uuidMatch && uuidMatch[0]) || (isDriver
+      ? snapshot?.assignmentId || (Array.isArray(snapshot?.assignments) && snapshot.assignments[0]?.id) || "pending"
+      : snapshot?.targetCampaign?.id || snapshot?.campaignId || (Array.isArray(snapshot?.campaigns) && snapshot.campaigns[0]?.id) || "pending");
+
+    const previewAction = {
+      type: "preview_mutation",
+      action: "admin_send_message",
+      recipientType,
+      recipientName,
+      entityId,
+      messageText,
+      summary: `Invia messaggio a ${recipientName}: "${messageText}"`,
+      consequences: [
+        `Il messaggio verrà recapitato in tempo reale sul canale canonico ${isDriver ? "dell'operatore" : "della campagna cliente"}`,
+        "L'invio richiede la conferma esplicita dell'amministratore prima di procedere",
+      ],
+    };
+
+    return safeResult(
+      `Ho preparato l'invio del messaggio per ${recipientName}: "${messageText}". Conferma l'operazione tramite il pulsante apposito per procedere con l'invio canonico.`,
+      `Anteprima messaggio ${recipientType}`,
+      ["READ_ONLY"],
+      ["conversations"],
+      previewAction
+    );
+  }
+
   // 2. Operazioni di scrittura / mutazione
   if (WRITE_PATTERN.test(normalized)) {
     let previewAction: any = null;

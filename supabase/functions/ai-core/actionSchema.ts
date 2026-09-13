@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Action Schema and Audit Log Definition for ai-core Edge Function.
  * Phase 5A: Controlled actions only. Zero autonomous mutations.
  */
@@ -138,3 +138,22 @@ export function buildAuditLogEntry(params: {
     timestamp: new Date().toISOString(),
   };
 }
+
+export function computeActionExecutionKey(action: any): string {
+  if (!action) return "unknown";
+  if (action.action === "admin_send_message") {
+    const normText = String(action.messageText || "").trim().toLowerCase();
+    let hash = 0;
+    for (let i = 0; i < normText.length; i++) {
+      hash = ((hash << 5) - hash) + normText.charCodeAt(i);
+      hash |= 0;
+    }
+    const textHash = Math.abs(hash).toString(16);
+    return `admin_send_message:${action.recipientType || "user"}:${action.entityId || "none"}:${textHash}`;
+  }
+  const id = action.entityId || action.targetZoneId || action.campaignId || action.route || "general";
+  const type = action.type || "unknown";
+  const name = action.action || action.route || "default";
+  return `${type}:${name}:${id}`;
+}
+

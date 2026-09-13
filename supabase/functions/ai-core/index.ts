@@ -899,6 +899,12 @@ async function handleAdminDashboard(user: { id: string } | null, body: any) {
     completedCampaigns: safeCampaigns.filter((c: any) => ["completata", "report_pronto"].includes(c.status)),
     gpsIssues,
     activeSuppliers,
+    assignments: rawAssignments.map((a: any) => ({
+      id: a.id,
+      campaignId: a.campaign_id,
+      operatorId: a.operator_id,
+      status: a.status,
+    })),
     campaigns: safeCampaigns,
     counts: {
       totalCampaigns: safeCampaigns.length,
