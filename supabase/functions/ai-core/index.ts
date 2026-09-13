@@ -53,6 +53,22 @@ import {
   validateControlCenterDiagnosis,
   validateControlCenterSnapshot,
 } from "./controlCenterDiagnosis.ts";
+import {
+  buildDriverSystemPrompt,
+  buildDriverUserPrompt,
+  deterministicDriverResponse,
+  driverNumbersAreGrounded,
+  validateDriverAiResult,
+  validateDriverSnapshot,
+} from "./driverAssignment.ts";
+import {
+  buildSupplierSystemPrompt,
+  buildSupplierUserPrompt,
+  deterministicSupplierResponse,
+  supplierNumbersAreGrounded,
+  validateSupplierAiResult,
+  validateSupplierSnapshot,
+} from "./supplierDashboard.ts";
 
 declare const Deno: any;
 
@@ -569,6 +585,74 @@ async function callTerritorialReportOpenAi(snapshot: Record<string, unknown>, qu
   }
 }
 
+async function callDriverOpenAi(snapshot: Record<string, unknown>, question: string, warnings: string[]) {
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) {
+    warnings.push("OPENAI_NOT_CONFIGURED");
+    return null;
+  }
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        temperature: 0.1,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: buildDriverSystemPrompt() },
+          { role: "user", content: buildDriverUserPrompt(snapshot, question) },
+        ],
+      }),
+    });
+    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    const data = await res.json();
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
+    const parsed = JSON.parse(content);
+    if (!validateDriverAiResult(parsed)) throw new Error("OPENAI_INVALID_DRIVER_RESPONSE");
+    if (!driverNumbersAreGrounded(parsed, snapshot)) throw new Error("OPENAI_UNGROUNDED_NUMBER");
+    return parsed;
+  } catch (error) {
+    warnings.push(`OPENAI_CALL_FAILED:${error instanceof Error ? error.message : "unknown"}`);
+    return null;
+  }
+}
+
+async function callSupplierOpenAi(snapshot: Record<string, unknown>, question: string, warnings: string[]) {
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) {
+    warnings.push("OPENAI_NOT_CONFIGURED");
+    return null;
+  }
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        temperature: 0.1,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: buildSupplierSystemPrompt() },
+          { role: "user", content: buildSupplierUserPrompt(snapshot, question) },
+        ],
+      }),
+    });
+    if (!res.ok) throw new Error(`OPENAI_${res.status}`);
+    const data = await res.json();
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) throw new Error("OPENAI_EMPTY_RESPONSE");
+    const parsed = JSON.parse(content);
+    if (!validateSupplierAiResult(parsed)) throw new Error("OPENAI_INVALID_SUPPLIER_RESPONSE");
+    if (!supplierNumbersAreGrounded(parsed, snapshot)) throw new Error("OPENAI_UNGROUNDED_NUMBER");
+    return parsed;
+  } catch (error) {
+    warnings.push(`OPENAI_CALL_FAILED:${error instanceof Error ? error.message : "unknown"}`);
+    return null;
+  }
+}
+
 // ── Branch step2 — porting 1:1 di ai-assistant-territory, identita' opzionale ──
 // contextType=step2 e' "public safe context": nessun dato cliente, nessuna
 // query su campaigns/profiles, nessun uso di un user_id ricevuto dal body
@@ -656,29 +740,220 @@ async function handleAdminDashboard(user: { id: string } | null, body: any) {
 
   const validation = validateStep2Payload(body);
   if (!validation.ok) return json({ answer: null, status: "error", error: validation.error }, 400);
-  const { snapshot, question } = validation;
-  if (!validateAdminSnapshot(snapshot)) return json({ answer: null, status: "error", error: "INVALID_ADMIN_SNAPSHOT" }, 400);
+  const { question } = validation;
 
-  const deterministic = deterministicAdminResponse(snapshot, question);
-  if (deterministic) return json({ ...deterministic, status: "deterministic" });
+  // Legacy snapshot path (backward compatibility with existing integration tests)
+  if (validation.snapshot?.totals && Array.isArray(validation.snapshot?.drivers)) {
+    const snapshot = validation.snapshot;
+    if (!validateAdminSnapshot(snapshot)) return json({ answer: null, status: "error", error: "INVALID_ADMIN_SNAPSHOT" }, 400);
+    const deterministic = deterministicAdminResponse(snapshot, question);
+    if (deterministic) return json({ ...deterministic, status: "deterministic" });
 
-  const payloadHash = await hashPayload({ verifiedAdminId: user.id, contextType: "admin_dashboard", snapshot, question });
+    const payloadHash = await hashPayload({ verifiedAdminId: user.id, contextType: "admin_dashboard", snapshot, question });
+    const { data: cached } = await supabase
+      .from("ai_territorial_chat_cache")
+      .select("answer")
+      .eq("payload_hash", payloadHash)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (cached?.answer) {
+      try {
+        const parsed = JSON.parse(cached.answer);
+        if (validateAdminAiResult(parsed) && numbersAreGrounded(parsed, snapshot)) return json({ ...parsed, status: "ai", cached: true });
+      } catch { /* cache legacy: ignorata */ }
+    }
+
+    const warnings: string[] = [];
+    const aiResult = await callAdminOpenAi(snapshot, question, warnings);
+    if (!aiResult) return json({ answer: null, summary: null, priorities: [], warnings, sources: [], status: "fallback" });
+
+    const { error: insertError } = await supabase.from("ai_territorial_chat_cache").insert({
+      user_id: user.id,
+      payload_hash: payloadHash,
+      question,
+      answer: JSON.stringify(aiResult),
+    });
+    if (insertError && insertError.code !== "23505") console.error("[ai-core:admin_dashboard] CACHE_INSERT_FAILED", insertError.message);
+    return json({ ...aiResult, status: "ai", cached: false });
+  }
+
+  // Global Admin Copilot Path (Phase 3)
+  const targetCampaignId = body.campaignId || (validation.snapshot as any)?.campaignId;
+  const page = body.page || (validation.snapshot as any)?.page || "admin";
+
+  const todayDate = new Date().toISOString().slice(0, 10);
+  const [
+    campaignsRes,
+    quotesRes,
+    assignmentsRes,
+    sessionsRes,
+    suppliersRes,
+  ] = await Promise.all([
+    supabase
+      .from("campaigns")
+      .select("id, title, city, service_type, quantity, total_amount, status, start_date, end_date, created_at, client_name, metadata, supplier_id, campaign_zones(id, zone_name, status)")
+      .order("created_at", { ascending: false })
+      .limit(40),
+    supabase
+      .from("quote_requests")
+      .select("id, service_type, zone_label, quantity, price_total, contact_name, status, created_at")
+      .order("created_at", { ascending: false })
+      .limit(30),
+    supabase
+      .from("operator_assignments")
+      .select("id, campaign_id, operator_id, status, starts_at, ends_at")
+      .limit(50),
+    supabase
+      .from("delivery_sessions")
+      .select("id, campaign_id, driver_name, status, started_at, paused_at, ended_at, updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(30),
+    supabase
+      .from("supplier_profiles")
+      .select("id, company_name, status, created_at")
+      .limit(30),
+  ]);
+
+  if (campaignsRes.error) {
+    return json({ answer: null, status: "error", error: "ADMIN_CAMPAIGNS_LOOKUP_FAILED" }, 500);
+  }
+
+  const rawCampaigns = campaignsRes.data || [];
+  const rawQuotes = quotesRes.data || [];
+  const rawAssignments = assignmentsRes.data || [];
+  const rawSessions = sessionsRes.data || [];
+  const rawSuppliers = suppliersRes.data || [];
+
+  const assignedCampaignIds = new Set(
+    rawAssignments.filter((a: any) => ["active", "assigned", "in_progress"].includes(a.status)).map((a: any) => a.campaign_id)
+  );
+
+  const safeCampaigns = rawCampaigns.map((c: any) => ({
+    id: c.id,
+    name: c.title || "Campagna",
+    city: c.city || "Non specificata",
+    service: c.service_type || "Non specificato",
+    quantity: c.quantity ?? null,
+    totalAmount: c.total_amount ?? null,
+    status: c.status || "in_attesa",
+    paymentStatus: c.metadata?.payment_status || "non_pagato",
+    startDate: c.start_date ?? null,
+    endDate: c.end_date ?? null,
+    clientName: c.client_name ?? null,
+    supplierId: c.supplier_id ?? null,
+    zones: (c.campaign_zones || []).map((z: any) => z.zone_name),
+    isAssigned: Boolean(c.supplier_id || assignedCampaignIds.has(c.id)),
+  }));
+
+  const safeQuotes = rawQuotes.map((q: any) => ({
+    id: q.id,
+    service: q.service_type || "Standard",
+    city: q.zone_label || "Zona non indicata",
+    quantity: q.quantity ?? null,
+    amount: q.price_total ?? null,
+    contactName: q.contact_name ?? "Anonimo",
+    status: q.status || "ricevuto",
+    createdAt: q.created_at,
+  }));
+
+  const quotesToday = safeQuotes.filter((q: any) => typeof q.createdAt === "string" && q.createdAt.startsWith(todayDate));
+  const unassignedCampaigns = safeCampaigns.filter((c: any) => !c.isAssigned && !["completata", "annullata", "bozza"].includes(c.status));
+  const unpaidCampaigns = safeCampaigns.filter((c: any) => c.paymentStatus !== "pagato" && !["completata", "annullata", "bozza"].includes(c.status));
+  const gpsIssues = rawSessions.filter((s: any) => ["paused", "stale", "alert", "error"].includes(s.status)).map((s: any) => ({
+    campaignId: s.campaign_id,
+    driverName: s.driver_name,
+    status: s.status,
+    updatedAt: s.updated_at,
+  }));
+
+  const supplierAssignmentCounts = new Map<string, number>();
+  for (const c of safeCampaigns) {
+    if (c.supplierId) {
+      supplierAssignmentCounts.set(c.supplierId, (supplierAssignmentCounts.get(c.supplierId) || 0) + 1);
+    }
+  }
+
+  const activeSuppliers = rawSuppliers
+    .filter((s: any) => s.status === "verified" || supplierAssignmentCounts.has(s.id))
+    .map((s: any) => ({
+      id: s.id,
+      companyName: s.company_name,
+      status: s.status,
+      activeCount: supplierAssignmentCounts.get(s.id) || 0,
+    }));
+
+  const targetCampaign = targetCampaignId ? safeCampaigns.find((c: any) => c.id === targetCampaignId) || null : null;
+
+  const canonicalSnapshot = {
+    schemaVersion: 1,
+    scope: "global_admin",
+    page,
+    today: todayDate,
+    targetCampaign,
+    quotesToday,
+    recentQuotes: safeQuotes.slice(0, 10),
+    unassignedCampaigns,
+    unpaidCampaigns,
+    activeCampaigns: safeCampaigns.filter((c: any) => ["confermata", "in_preparazione", "in_distribuzione"].includes(c.status)),
+    completedCampaigns: safeCampaigns.filter((c: any) => ["completata", "report_pronto"].includes(c.status)),
+    gpsIssues,
+    activeSuppliers,
+    campaigns: safeCampaigns,
+    counts: {
+      totalCampaigns: safeCampaigns.length,
+      quotesToday: quotesToday.length,
+      unassigned: unassignedCampaigns.length,
+      unpaid: unpaidCampaigns.length,
+      gpsIssues: gpsIssues.length,
+      activeSuppliers: activeSuppliers.length,
+    },
+  };
+
+  if (!validateAdminSnapshot(canonicalSnapshot)) {
+    return json({ answer: null, status: "error", error: "INVALID_ADMIN_SNAPSHOT" }, 400);
+  }
+
+  const deterministic = deterministicAdminResponse(canonicalSnapshot, question);
+  if (deterministic) {
+    return json({
+      answer: deterministic.answer,
+      summary: deterministic.summary,
+      priorities: deterministic.priorities || [],
+      warnings: deterministic.warnings || [],
+      sources: deterministic.sources || [],
+      action: deterministic.action || null,
+      status: "deterministic",
+    });
+  }
+
+  const payloadHash = await hashPayload({
+    verifiedAdminId: user.id,
+    contextType: "admin_dashboard",
+    snapshot: canonicalSnapshot,
+    question,
+  });
+
   const { data: cached } = await supabase
     .from("ai_territorial_chat_cache")
     .select("answer")
     .eq("payload_hash", payloadHash)
     .eq("user_id", user.id)
     .maybeSingle();
+
   if (cached?.answer) {
     try {
       const parsed = JSON.parse(cached.answer);
-      if (validateAdminAiResult(parsed) && numbersAreGrounded(parsed, snapshot)) return json({ ...parsed, status: "ai", cached: true });
-    } catch { /* cache legacy/non strutturata: ignorata */ }
+      if (validateAdminAiResult(parsed) && numbersAreGrounded(parsed, canonicalSnapshot)) {
+        return json({ ...parsed, status: "ai", cached: true });
+      }
+    } catch { /* cache legacy: skip */ }
   }
 
   const warnings: string[] = [];
-  const aiResult = await callAdminOpenAi(snapshot, question, warnings);
-  if (!aiResult) return json({ answer: null, summary: null, priorities: [], warnings, sources: [], status: "fallback" });
+  const aiResult = await callAdminOpenAi(canonicalSnapshot, question, warnings);
+  if (!aiResult) {
+    return json({ answer: null, summary: null, priorities: [], warnings, sources: [], status: "fallback" });
+  }
 
   const { error: insertError } = await supabase.from("ai_territorial_chat_cache").insert({
     user_id: user.id,
@@ -686,7 +961,10 @@ async function handleAdminDashboard(user: { id: string } | null, body: any) {
     question,
     answer: JSON.stringify(aiResult),
   });
-  if (insertError && insertError.code !== "23505") console.error("[ai-core:admin_dashboard] CACHE_INSERT_FAILED", insertError.message);
+  if (insertError && insertError.code !== "23505") {
+    console.error("[ai-core:admin_dashboard] CACHE_INSERT_FAILED", insertError.message);
+  }
+
   return json({ ...aiResult, status: "ai", cached: false });
 }
 
@@ -891,6 +1169,312 @@ async function handleCustomerDashboard(user: { id: string } | null, body: any) {
   return json({ answer: aiResult, status: "ai", cached: false });
 }
 
+async function handleDriverAssignment(req: Request, body: any) {
+  const assignmentId = typeof body?.assignmentId === "string" ? body.assignmentId.trim() : null;
+  const accessToken = typeof body?.accessToken === "string" && body.accessToken.trim()
+    ? body.accessToken.trim()
+    : req.headers.get("x-driver-access-token")?.trim() || null;
+
+  const question = typeof body?.question === "string" ? body.question.trim() : "";
+  if (!question) {
+    return json({ answer: null, status: "error", error: "QUESTION_REQUIRED" }, 400);
+  }
+
+  if (!assignmentId || !accessToken) {
+    return json({ answer: null, status: "error", error: "AUTHENTICATION_REQUIRED" }, 401);
+  }
+
+  const supabase = supabaseAdmin();
+  if (!supabase) return json({ answer: null, status: "error", error: "DATABASE_UNAVAILABLE" }, 500);
+
+  // Mandatory Cross-Check: id = assignmentId AND access_token = accessToken
+  const { data: assignment, error: assignmentError } = await supabase
+    .from("operator_assignments")
+    .select("id, campaign_id, operator_id, status, starts_at, ends_at, revoked_at, metadata, access_token")
+    .eq("id", assignmentId)
+    .eq("access_token", accessToken)
+    .maybeSingle();
+
+  if (assignmentError || !assignment) {
+    return json({ answer: null, status: "error", error: "FORBIDDEN" }, 403);
+  }
+
+  // Load campaign and zones and active session
+  const [campaignRes, zonesRes, sessionRes] = await Promise.all([
+    supabase
+      .from("campaigns")
+      .select("id, title, city, service_type, quantity, status")
+      .eq("id", assignment.campaign_id)
+      .maybeSingle(),
+    supabase
+      .from("operator_assignment_zones")
+      .select("id, municipality_name, quantity, status, zone_id")
+      .eq("assignment_id", assignment.id),
+    supabase
+      .from("delivery_sessions")
+      .select("id, status, started_at, paused_at, ended_at, distance_meters, current_zone_id")
+      .eq("assignment_id", assignment.id)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const campaign = campaignRes.data || {};
+  let rawZones = zonesRes.data || [];
+  if (rawZones.length === 0 && assignment.campaign_id) {
+    const { data: cZones } = await supabase
+      .from("campaign_zones")
+      .select("id, zone_name, quantity_assigned, status, priority")
+      .eq("campaign_id", assignment.campaign_id)
+      .order("priority", { ascending: true });
+    if (Array.isArray(cZones) && cZones.length > 0) {
+      rawZones = cZones.map((cz: any) => ({
+        id: cz.id,
+        municipality_name: cz.zone_name,
+        quantity: cz.quantity_assigned,
+        status: cz.status || "Da iniziare",
+      }));
+    }
+  }
+
+  const session = sessionRes.data || null;
+
+  const safeZones = rawZones.map((z: any, idx: number) => ({
+    id: z.id || z.zone_id || `zone-${idx}`,
+    zone_name: z.municipality_name || z.zone_name || "Zona",
+    quantity: z.quantity ?? null,
+    status: z.status || "Da iniziare",
+    priority: idx + 1,
+  }));
+
+  const activeZone = safeZones.find((z: any) => z.status === "In corso") || safeZones.find((z: any) => z.status !== "Completata") || null;
+
+  const canonicalSnapshot = {
+    scope: "driver_assignment",
+    assignmentId: assignment.id,
+    campaignTitle: campaign.title || "Incarico Distribuzione",
+    municipality: campaign.city || "Non specificato",
+    quantityAssigned: safeZones.reduce((sum: number, z: any) => sum + (z.quantity || 0), 0) || campaign.quantity || 0,
+    status: assignment.status,
+    startsAt: assignment.starts_at,
+    endsAt: assignment.ends_at,
+    zones: safeZones,
+    activeZone,
+    isGpsSessionActive: session?.status === "started",
+    gpsStatus: session?.status || "non_attivo",
+    verifiedDistanceMeters: session?.distance_meters != null ? Number(session.distance_meters) : null,
+    isInsideZone: null,
+  };
+
+  if (!validateDriverSnapshot(canonicalSnapshot)) {
+    return json({ answer: null, status: "error", error: "INVALID_DRIVER_SNAPSHOT" }, 400);
+  }
+
+  const deterministic = deterministicDriverResponse(canonicalSnapshot, question);
+  if (deterministic) {
+    return json({
+      answer: deterministic.answer,
+      summary: deterministic.summary,
+      priorities: deterministic.priorities || [],
+      warnings: deterministic.warnings || [],
+      sources: deterministic.sources || [],
+      action: deterministic.action || null,
+      status: "deterministic",
+    });
+  }
+
+  // Token is strictly NOT in payloadHash. Only verified assignment.id is used.
+  const payloadHash = await hashPayload({
+    contextType: "driver_assignment",
+    verifiedAssignmentId: assignment.id,
+    snapshot: canonicalSnapshot,
+    question,
+  });
+
+  const { data: cached } = await supabase
+    .from("ai_territorial_chat_cache")
+    .select("answer")
+    .eq("payload_hash", payloadHash)
+    .maybeSingle();
+
+  if (cached?.answer) {
+    try {
+      const parsed = JSON.parse(cached.answer);
+      if (validateDriverAiResult(parsed) && driverNumbersAreGrounded(parsed, canonicalSnapshot)) {
+        return json({ ...parsed, status: "ai", cached: true });
+      }
+    } catch { /* skip */ }
+  }
+
+  const warnings: string[] = [];
+  const aiResult = await callDriverOpenAi(canonicalSnapshot, question, warnings);
+  if (!aiResult) {
+    return json({ answer: null, summary: null, priorities: [], warnings, sources: [], status: "fallback" });
+  }
+
+  await supabase.from("ai_territorial_chat_cache").insert({
+    payload_hash: payloadHash,
+    question,
+    answer: JSON.stringify(aiResult),
+  }).catch(() => {});
+
+  return json({ ...aiResult, status: "ai", cached: false });
+}
+
+async function handleSupplierDashboard(user: { id: string } | null, body: any) {
+  if (!user) return json({ answer: null, status: "error", error: "AUTHENTICATION_REQUIRED" }, 401);
+
+  const supabase = supabaseAdmin();
+  if (!supabase) return json({ answer: null, status: "error", error: "DATABASE_UNAVAILABLE" }, 500);
+
+  // Supplier identity & verification check
+  const { data: supplierProfile, error: profileError } = await supabase
+    .from("supplier_profiles")
+    .select("id, company_name, status")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError || !supplierProfile || supplierProfile.status !== "verified") {
+    return json({ answer: null, status: "error", error: "FORBIDDEN" }, 403);
+  }
+
+  const question = typeof body?.question === "string" ? body.question.trim() : "";
+  if (!question) {
+    return json({ answer: null, status: "error", error: "QUESTION_REQUIRED" }, 400);
+  }
+
+  // Query supplier's assigned campaigns and own quotes
+  const [campaignsRes, quotesRes] = await Promise.all([
+    supabase
+      .from("campaigns")
+      .select("id, title, city, service_type, quantity, status, start_date, end_date, supplier_id, campaign_zones(id, zone_name, status)")
+      .eq("supplier_id", user.id)
+      .order("start_date", { ascending: true })
+      .limit(20),
+    supabase
+      .from("quotes")
+      .select("id, campaign_id, total_amount, quote_status, submitted_at, decided_at")
+      .eq("supplier_id", user.id)
+      .order("submitted_at", { ascending: false })
+      .limit(30),
+  ]);
+
+  if (campaignsRes.error) {
+    return json({ answer: null, status: "error", error: "SUPPLIER_CAMPAIGNS_LOOKUP_FAILED" }, 500);
+  }
+
+  const rawCampaigns = campaignsRes.data || [];
+  const rawQuotes = quotesRes.data || [];
+
+  // Map quotes by campaign_id to derive compensation
+  const quotesByCampaign = new Map<string, any>();
+  for (const q of rawQuotes) {
+    if (q.campaign_id && (!quotesByCampaign.has(q.campaign_id) || q.quote_status === "accepted")) {
+      quotesByCampaign.set(q.campaign_id, q);
+    }
+  }
+
+  const safeAssigned = rawCampaigns.map((c: any) => {
+    const q = quotesByCampaign.get(c.id);
+    const compensation = q?.total_amount != null ? Number(q.total_amount) : null;
+    return {
+      id: c.id,
+      title: c.title || "Lavoro",
+      city: c.city || "Territorio indicato",
+      service: c.service_type || "Standard",
+      quantity: c.quantity ?? null,
+      status: c.status || "in_preparazione",
+      startDate: c.start_date ?? null,
+      endDate: c.end_date ?? null,
+      supplierCompensation: compensation, // ONLY supplier's quote amount, NEVER customer total price!
+      zones: (c.campaign_zones || []).map((z: any) => z.zone_name),
+    };
+  });
+
+  const safeQuotes = rawQuotes.map((q: any) => ({
+    id: q.id,
+    campaignId: q.campaign_id,
+    totalAmount: q.total_amount != null ? Number(q.total_amount) : null,
+    status: q.quote_status,
+    submittedAt: q.submitted_at,
+  }));
+
+  const targetCampaignId = typeof body?.campaignId === "string" ? body.campaignId.trim() : null;
+  const targetCampaign = targetCampaignId ? safeAssigned.find((c: any) => c.id === targetCampaignId) || null : null;
+  if (targetCampaignId && !targetCampaign) {
+    return json({ answer: null, status: "error", error: "FORBIDDEN" }, 403);
+  }
+
+  const canonicalSnapshot = {
+    scope: "supplier_dashboard",
+    supplierId: user.id,
+    companyName: supplierProfile.company_name || "Partner Fornitore",
+    assignedCampaigns: safeAssigned,
+    ownQuotes: safeQuotes,
+    targetCampaign,
+    counts: {
+      totalAssigned: safeAssigned.length,
+      activeAssigned: safeAssigned.filter((c: any) => ["confermata", "in_preparazione", "in_distribuzione"].includes(c.status)).length,
+      pendingQuotes: safeQuotes.filter((q: any) => q.status === "submitted" || q.status === "Inviata").length,
+    },
+  };
+
+  if (!validateSupplierSnapshot(canonicalSnapshot)) {
+    return json({ answer: null, status: "error", error: "INVALID_SUPPLIER_SNAPSHOT" }, 400);
+  }
+
+  const deterministic = deterministicSupplierResponse(canonicalSnapshot, question);
+  if (deterministic) {
+    return json({
+      answer: deterministic.answer,
+      summary: deterministic.summary,
+      priorities: deterministic.priorities || [],
+      warnings: deterministic.warnings || [],
+      sources: deterministic.sources || [],
+      action: deterministic.action || null,
+      status: "deterministic",
+    });
+  }
+
+  const payloadHash = await hashPayload({
+    verifiedSupplierId: user.id,
+    contextType: "supplier_dashboard",
+    snapshot: canonicalSnapshot,
+    question,
+  });
+
+  const { data: cached } = await supabase
+    .from("ai_territorial_chat_cache")
+    .select("answer")
+    .eq("payload_hash", payloadHash)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (cached?.answer) {
+    try {
+      const parsed = JSON.parse(cached.answer);
+      if (validateSupplierAiResult(parsed) && supplierNumbersAreGrounded(parsed, canonicalSnapshot)) {
+        return json({ ...parsed, status: "ai", cached: true });
+      }
+    } catch { /* skip */ }
+  }
+
+  const warnings: string[] = [];
+  const aiResult = await callSupplierOpenAi(canonicalSnapshot, question, warnings);
+  if (!aiResult) {
+    return json({ answer: null, summary: null, priorities: [], warnings, sources: [], status: "fallback" });
+  }
+
+  await supabase.from("ai_territorial_chat_cache").insert({
+    user_id: user.id,
+    payload_hash: payloadHash,
+    question,
+    answer: JSON.stringify(aiResult),
+  }).catch(() => {});
+
+  return json({ ...aiResult, status: "ai", cached: false });
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ answer: null, status: "error", error: "METHOD_NOT_ALLOWED" }, 405);
@@ -908,8 +1492,9 @@ serve(async (req: Request) => {
 
     // Identita' risolta una sola volta, sempre in modo opzionale a questo
     // livello: e' il singolo branch contextType a decidere se e' obbligatoria.
-    // Step2 e territorial_report accettano user===null; i contesti Admin e Customer
-    // respingono l'anonimo e verificano ruolo/ownership nel proprio handler.
+    // Step2 e territorial_report accettano user===null; i contesti Admin, Customer
+    // e Supplier respingono l'anonimo e verificano ruolo/ownership nel proprio handler.
+    // Driver verifica l'access_token dell'incarico.
     const user = await getAuthedUser(req);
     const collectorSecret = Deno.env.get("PLATFORM_HEALTH_COLLECTOR_SECRET");
     const trustedCollector = Boolean(collectorSecret && req.headers.get("x-collector-secret") === collectorSecret);
@@ -917,6 +1502,8 @@ serve(async (req: Request) => {
     if (QUOTE_CONTEXT_TYPES.has(contextType)) return await handleQuoteStep(contextType, user, body);
     if (contextType === "customer_dashboard") return await handleCustomerDashboard(user, body);
     if (contextType === "admin_dashboard") return await handleAdminDashboard(user, body);
+    if (contextType === "driver_assignment") return await handleDriverAssignment(req, body);
+    if (contextType === "supplier_dashboard") return await handleSupplierDashboard(user, body);
     if (contextType === "control_center_diagnosis") return await handleControlCenterDiagnosis(user, body, trustedCollector);
     if (contextType === "territorial_report") return await handleTerritorialReport(user, body);
     return json({ answer: null, status: "error", error: "CONTEXT_TYPE_NOT_IMPLEMENTED" }, 501);

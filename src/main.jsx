@@ -68,6 +68,9 @@ const DriverWorkMapPage = lazy(() =>
 const DriverGroupJoinPage = lazy(() =>
   import("./pages/driver/DriverGroupJoinPage.jsx").then(m => ({ default: m.DriverGroupJoinPage }))
 );
+const DriverAssistantHost = lazy(() =>
+  import("./components/ai/driver/DriverAssistantHost.jsx")
+);
 
 warnIfMojibake(document.documentElement?.innerHTML || "", "initial document");
 
@@ -111,10 +114,20 @@ function Root() {
 
   // ADMIN-DRIVER-LINK-2: link personale driver via assignment_id (no driver_id nell'URL)
   const driverAssignmentMapMatch = path.match(/^\/driver\/assignment\/([^/]+)\/map$/);
-  if (driverAssignmentMapMatch) return <Suspense fallback={<RouteLoadingFallback />}><DriverWorkMapPage key={driverAssignmentMapMatch[1]} assignmentId={driverAssignmentMapMatch[1]} /></Suspense>;
+  if (driverAssignmentMapMatch) return (
+    <Suspense fallback={<RouteLoadingFallback />}>
+      <DriverWorkMapPage key={driverAssignmentMapMatch[1]} assignmentId={driverAssignmentMapMatch[1]} />
+      <DriverAssistantHost assignmentId={driverAssignmentMapMatch[1]} page={`driver-map:${driverAssignmentMapMatch[1]}`} />
+    </Suspense>
+  );
 
   const driverAssignmentMatch = path.match(/^\/driver\/assignment\/([^/]+)$/);
-  if (driverAssignmentMatch) return <Suspense fallback={<RouteLoadingFallback />}><DriverAssignmentPage key={driverAssignmentMatch[1]} assignmentId={driverAssignmentMatch[1]} /></Suspense>;
+  if (driverAssignmentMatch) return (
+    <Suspense fallback={<RouteLoadingFallback />}>
+      <DriverAssignmentPage key={driverAssignmentMatch[1]} assignmentId={driverAssignmentMatch[1]} />
+      <DriverAssistantHost assignmentId={driverAssignmentMatch[1]} page={`driver-assignment:${driverAssignmentMatch[1]}`} />
+    </Suspense>
+  );
 
   const customerMatch = path.match(/^\/customer\/campaigns\/([^/]+)\/tracking$/);
   if (customerMatch) return <Suspense fallback={<RouteLoadingFallback />}><CampaignTracking campaignId={customerMatch[1]} /></Suspense>;

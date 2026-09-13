@@ -160,51 +160,164 @@ export function getAssistantRouteConfig(page, { data = {}, context = null } = {}
     };
   }
 
-  // Future phases: Admin Dashboard
+  // Phase 3: Global Admin Copilot across all Admin routes
   if (normalizedPage === "admin" || normalizedPage.startsWith("admin-")) {
+    let eyebrow = "Pannello Admin · Operatività";
+    let subtitle = "Analisi operativa, preventivi e monitoraggio in tempo reale.";
+    let quickQuestions = [
+      "Quali preventivi sono arrivati oggi?",
+      "Quali campagne non sono assegnate?",
+      "Quali clienti devono ancora pagare?",
+      "Ci sono problemi GPS?",
+      "Chi aspetta una risposta?",
+    ];
+    let campaignId = null;
+
+    if (normalizedPage.includes(":")) {
+      campaignId = normalizedPage.split(":")[1];
+    }
+
+    if (normalizedPage === "admin") {
+      eyebrow = "Pannello Admin · Dashboard";
+      subtitle = "Panoramica operativa su preventivi, campagne, pagamenti e anomalie.";
+      quickQuestions = [
+        "Quali preventivi sono arrivati oggi?",
+        "Quali campagne non sono ancora assegnate?",
+        "Quali clienti devono ancora pagare?",
+        "Quali campagne hanno problemi GPS?",
+        "Chi aspetta una risposta?",
+      ];
+    } else if (normalizedPage === "admin-clients-quotes") {
+      eyebrow = "Pannello Admin · Clienti & Preventivi";
+      subtitle = "Gestione richieste preventivo e anagrafica clienti.";
+      quickQuestions = [
+        "Quali sono i preventivi più recenti?",
+        "Quali sono ancora in revisione?",
+        "Quali hanno importo più alto?",
+        "Quali preventivi sono arrivati oggi?",
+      ];
+    } else if (normalizedPage.startsWith("admin-operations")) {
+      eyebrow = "Pannello Admin · Operazioni Campagna";
+      subtitle = "Dettagli operativi, pianificazione e stato avanzamento.";
+      quickQuestions = [
+        "Qual è lo stato della campagna?",
+        "È già assegnata?",
+        "Il tracking è attivo?",
+        "Il report è pronto?",
+      ];
+    } else if (normalizedPage.startsWith("admin-assignments")) {
+      eyebrow = "Pannello Admin · Assegnazione Lavori";
+      subtitle = "Affidamento ordini a fornitori e driver.";
+      quickQuestions = [
+        "Quali fornitori hanno lavori attivi?",
+        "Quali campagne non sono ancora assegnate?",
+        "Qual è la data prevista per la distribuzione?",
+      ];
+    } else if (normalizedPage.startsWith("admin-gps")) {
+      eyebrow = "Pannello Admin · Monitor GPS";
+      subtitle = "Tracciamento in tempo reale, punti operatore e allarmi.";
+      quickQuestions = [
+        "Quando è arrivato l'ultimo aggiornamento?",
+        "Ci sono anomalie?",
+        "Qual è la copertura verificata?",
+        "Quali driver hanno GPS fermo?",
+      ];
+    } else if (normalizedPage === "admin-suppliers") {
+      eyebrow = "Pannello Admin · Gestione Fornitori";
+      subtitle = "Albo fornitori, verifiche documentali e affidamenti.";
+      quickQuestions = [
+        "Quali fornitori hanno lavori attivi?",
+        "Quali hanno più assegnazioni?",
+        "Ci sono fornitori in attesa di verifica?",
+      ];
+    } else if (normalizedPage === "admin-communications") {
+      eyebrow = "Pannello Admin · Hub Comunicazioni";
+      subtitle = "Messaggi clienti, comunicazioni driver e richieste di modifica.";
+      quickQuestions = [
+        "Chi aspetta una risposta?",
+        "Ci sono messaggi non letti dai clienti?",
+        "Ci sono segnalazioni o richieste di modifica?",
+      ];
+    } else if (normalizedPage === "admin-analytics") {
+      eyebrow = "Pannello Admin · Analytics & Traffico";
+      subtitle = "Dati sul traffico, funnel di conversione e conversion rate.";
+      quickQuestions = [
+        "Quali sono le pagine con più traffico?",
+        "Quanti preventivi sono stati completati?",
+        "Qual è il tasso di conversione?",
+      ];
+    }
+
     return {
-      enabled: false, // Phase 1: existing inline panel remains on /admin; global drawer disabled
+      enabled: true,
       role: ASSISTANT_ROLES.ADMIN,
       page: normalizedPage,
-      eyebrow: "Pannello Admin · Operatività",
+      campaignId,
+      eyebrow,
       title: "Assistente VolantiniPro Copilot",
-      subtitle: "Analisi operativa e monitoraggio in tempo reale.",
-      disclaimer: "Dati operativi autorizzati per amministratori.",
-      inputPlaceholder: "Chiedi informazioni sulle operazioni di oggi",
+      subtitle,
+      disclaimer: "Dati operativi autorizzati per amministratori. Operazioni in sola lettura.",
+      inputPlaceholder: "Chiedi informazioni o scrivi un comando (es. preventivi oggi)",
       allowAnonymous: false,
       contextType: "admin_dashboard",
+      quickQuestions,
     };
   }
 
-  // Future phases: Driver
-  if (normalizedPage.startsWith("driver")) {
+  // Phase 4: Driver
+  if (normalizedPage.startsWith("driver-assignment") || normalizedPage.startsWith("driver-map")) {
+    const isMap = normalizedPage.includes("map");
+    const assignmentId = normalizedPage.includes(":") ? normalizedPage.split(":")[1] : null;
     return {
-      enabled: false, // Phase 1: disabled
+      enabled: true,
       role: ASSISTANT_ROLES.DRIVER,
       page: normalizedPage,
-      eyebrow: "Driver · Assegnazione",
+      assignmentId,
+      eyebrow: isMap ? "Driver · Mappa & Geofence" : "Driver · Incarico & Programma",
       title: "Assistente VolantiniPro",
-      subtitle: "Informazioni sulla tua zona di distribuzione.",
-      disclaimer: "Sola lettura dell'assegnazione corrente.",
-      inputPlaceholder: "Chiedi informazioni sulla zona assegnata",
+      subtitle: isMap ? "Verifica della posizione, confini e tracciamento GPS." : "Informazioni sulle zone assegnate e procedura di turno.",
+      disclaimer: "Sola lettura dell'assegnazione corrente. Nessuna modifica automatica.",
+      inputPlaceholder: "Chiedi sulla zona, volantini o stato GPS",
       allowAnonymous: false,
       contextType: "driver_assignment",
+      quickQuestions: isMap
+        ? [
+            "Qual è la mia zona attiva?",
+            "Sono dentro la zona?",
+            "Il GPS sta funzionando?",
+            "Quanti volantini devo distribuire?",
+          ]
+        : [
+            "Qual è la mia zona attiva?",
+            "Quanti volantini devo distribuire?",
+            "Il GPS sta funzionando?",
+            "Cosa devo fare per chiudere il lavoro?",
+            "Come carico la prova?",
+            "Quante zone mi restano?",
+          ],
     };
   }
 
-  // Future phases: Supplier
-  if (normalizedPage === "supplier-dashboard") {
+  // Phase 4: Supplier
+  if (normalizedPage === "supplier" || normalizedPage === "supplier-dashboard" || normalizedPage.startsWith("supplier-dashboard:")) {
     return {
-      enabled: false, // Phase 1: disabled
+      enabled: true,
       role: ASSISTANT_ROLES.SUPPLIER,
       page: normalizedPage,
-      eyebrow: "Fornitore · Gestione",
-      title: "Assistente VolantiniPro",
-      subtitle: "Informazioni sui lavori affidati.",
-      disclaimer: "Sola lettura delle campagne affidate.",
-      inputPlaceholder: "Chiedi informazioni sui lavori affidati",
+      eyebrow: "Fornitore · Dashboard Marketplace",
+      title: "Assistente VolantiniPro Copilot",
+      subtitle: "Informazioni sui lavori affidati, compensi concordati e offerte.",
+      disclaimer: "Sola lettura dei lavori affidati. Nessuna modifica automatica.",
+      inputPlaceholder: "Chiedi informazioni sui tuoi lavori o compensi",
       allowAnonymous: false,
       contextType: "supplier_dashboard",
+      quickQuestions: [
+        "Quali lavori ho attivi?",
+        "Quanto è il mio compenso per questa campagna?",
+        "Quando devo iniziare?",
+        "Quali zone devo coprire?",
+        "Quali lavori sono ancora da accettare?",
+      ],
     };
   }
 

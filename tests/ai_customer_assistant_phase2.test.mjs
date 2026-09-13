@@ -85,8 +85,8 @@ test('Route Registry: abilita il Global Assistant per tutte le 5 route cliente',
 test('Route Registry: disabilita il Global Assistant per pagine non autorizzate o non cliente', () => {
   assert.equal(isAssistantEnabledForRoute('home'), false);
   assert.equal(isAssistantEnabledForRoute('login'), false);
-  assert.equal(isAssistantEnabledForRoute('admin'), false);
-  assert.equal(isAssistantEnabledForRoute('supplier-dashboard'), false);
+  assert.equal(isAssistantEnabledForRoute('privacy'), false);
+  assert.equal(isAssistantEnabledForRoute('supplier-settings'), false);
   assert.equal(isAssistantEnabledForRoute('random-unknown-page'), false);
 
   // Configurator steps 1-4 restano abilitati per guest

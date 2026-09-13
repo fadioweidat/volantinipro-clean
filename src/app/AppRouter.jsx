@@ -60,6 +60,8 @@ const CampaignAssignments = lazy(() => import("../pages/admin/CampaignAssignment
 const CampaignTracking = lazy(() => import("../pages/customer/CampaignTracking.jsx").then(m => ({ default: m.CampaignTracking })));
 const ClientCampaignReport = lazy(() => import("../pages/customer/ClientCampaignReport.jsx").then(m => ({ default: m.ClientCampaignReport })));
 const CustomerAssistantHost = lazy(() => import("../components/ai/customer/CustomerAssistantHost.jsx"));
+const AdminAssistantHost = lazy(() => import("../components/ai/admin/AdminAssistantHost.jsx"));
+const SupplierAssistantHost = lazy(() => import("../components/ai/supplier/SupplierAssistantHost.jsx"));
 
 const SupplierDashboard = lazy(() => import("../pages/supplier/SupplierDashboard.jsx").then(m => ({ default: m.SupplierDashboard })));
 
@@ -430,32 +432,39 @@ export function AppRouter() {
         {/* ADMIN ROUTES */}
         {page.startsWith("admin") && (
           <AdminGuard onNav={goTo}>
-            {({ session }) => <Suspense fallback={<RouteLoadingFallback />}>
-              {page === "admin" && <AdminDashboard onNav={goTo} adminSession={session} />}
-              {page === "admin-live" && <AdminLiveDashboard onNav={goTo} />}
-              {page === "admin-operations" && <AdminOperationsCenter onNav={goTo} />}
-              {page === "admin-clients-quotes" && <ClientsQuotes onNav={goTo} />}
-              {page === "admin-orders" && <AdminOrdersRegistry onNav={goTo} />}
-              {page === "admin-groups-manager" && <GroupsManager onNav={goTo} />}
-              {page === "admin-commercial" && <CommercialCenter onNav={goTo} />}
-              {page === "admin-status" && <PlatformStatus onNav={goTo} />}
-              {page === "admin-smart-pairing" && <SmartPairingWaitlist onNav={goTo} />}
-              {page === "admin-suppliers" && <AdminSuppliers onNav={goTo} />}
-              {page === "admin-daily-report" && <AdminDailyReport onNav={goTo} />}
-              {page === "admin-map-studio" && <MapStudioPage onNav={goTo} />}
-              {page === "admin-analytics" && <AnalyticsPage onNav={goTo} />}
-              {page === "admin-communications" && <AdminCommunicationsPage onNav={goTo} />}
-              {/* key={campaignId}: rimonta il Monitor/Editor da zero al cambio
-                  campagna — reset di selectedZoneId, tracce, draft, autoNetRef,
-                  center. Nessuna contaminazione fra campagne/zone. */}
-              {page.startsWith("admin-gps:") && <GpsMonitor key={page.split(":")[1]} campaignId={page.split(":")[1]} onNav={goTo} />}
-              {page.startsWith("admin-coverage-editor:") && <CoverageEditor key={page.split(":")[1]} campaignId={page.split(":")[1]} onNav={goTo} />}
-              {page.startsWith("admin-operations:") && <CampaignOperations campaignId={page.split(":")[1]} onNav={goTo} />}
-              {page.startsWith("admin-groups:") && <CampaignGroups campaignId={page.split(":")[1]} onNav={goTo} />}
-              {page.startsWith("admin-report:") && <CampaignReport campaignId={page.split(":")[1]} onNav={goTo} />}
-              {page.startsWith("admin-assignments-new:") && <AssignWork campaignId={page.split(":")[1]} />}
-              {page.startsWith("admin-assignments:") && <CampaignAssignments campaignId={page.split(":")[1]} />}
-            </Suspense>}
+            {({ session }) => (
+              <>
+                <Suspense fallback={<RouteLoadingFallback />}>
+                  {page === "admin" && <AdminDashboard onNav={goTo} adminSession={session} />}
+                  {page === "admin-live" && <AdminLiveDashboard onNav={goTo} />}
+                  {page === "admin-operations" && <AdminOperationsCenter onNav={goTo} />}
+                  {page === "admin-clients-quotes" && <ClientsQuotes onNav={goTo} />}
+                  {page === "admin-orders" && <AdminOrdersRegistry onNav={goTo} />}
+                  {page === "admin-groups-manager" && <GroupsManager onNav={goTo} />}
+                  {page === "admin-commercial" && <CommercialCenter onNav={goTo} />}
+                  {page === "admin-status" && <PlatformStatus onNav={goTo} />}
+                  {page === "admin-smart-pairing" && <SmartPairingWaitlist onNav={goTo} />}
+                  {page === "admin-suppliers" && <AdminSuppliers onNav={goTo} />}
+                  {page === "admin-daily-report" && <AdminDailyReport onNav={goTo} />}
+                  {page === "admin-map-studio" && <MapStudioPage onNav={goTo} />}
+                  {page === "admin-analytics" && <AnalyticsPage onNav={goTo} />}
+                  {page === "admin-communications" && <AdminCommunicationsPage onNav={goTo} />}
+                  {/* key={campaignId}: rimonta il Monitor/Editor da zero al cambio
+                      campagna — reset di selectedZoneId, tracce, draft, autoNetRef,
+                      center. Nessuna contaminazione fra campagne/zone. */}
+                  {page.startsWith("admin-gps:") && <GpsMonitor key={page.split(":")[1]} campaignId={page.split(":")[1]} onNav={goTo} />}
+                  {page.startsWith("admin-coverage-editor:") && <CoverageEditor key={page.split(":")[1]} campaignId={page.split(":")[1]} onNav={goTo} />}
+                  {page.startsWith("admin-operations:") && <CampaignOperations campaignId={page.split(":")[1]} onNav={goTo} />}
+                  {page.startsWith("admin-groups:") && <CampaignGroups campaignId={page.split(":")[1]} onNav={goTo} />}
+                  {page.startsWith("admin-report:") && <CampaignReport campaignId={page.split(":")[1]} onNav={goTo} />}
+                  {page.startsWith("admin-assignments-new:") && <AssignWork campaignId={page.split(":")[1]} />}
+                  {page.startsWith("admin-assignments:") && <CampaignAssignments campaignId={page.split(":")[1]} />}
+                </Suspense>
+                <Suspense fallback={null}>
+                  <AdminAssistantHost page={page} adminSession={session} onNav={goTo} />
+                </Suspense>
+              </>
+            )}
           </AdminGuard>
         )}
 
@@ -464,6 +473,9 @@ export function AppRouter() {
           <SupplierGuard onNav={goTo}>
             <Suspense fallback={<RouteLoadingFallback />}>
               <SupplierDashboard onNav={goTo} />
+            </Suspense>
+            <Suspense fallback={null}>
+              <SupplierAssistantHost page={page} onNav={goTo} />
             </Suspense>
           </SupplierGuard>
         )}
