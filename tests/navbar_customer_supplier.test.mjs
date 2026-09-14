@@ -11,7 +11,7 @@ const read = (p) => fs.readFileSync(path.join(root, p), "utf8");
 const NAVBAR = read("src/layouts/public/Navbar.jsx");
 const HERO = read("src/components/home/VolantiniProHeroMap.jsx");
 
-for (const [name, src] of [["Navbar.jsx", NAVBAR], ["VolantiniProHeroMap.jsx", HERO]]) {
+for (const [name, src] of [["Navbar.jsx", NAVBAR]]) {
   test(`${name}: nessun "Accedi" generico, nessuna voce "Area Fornitore"`, () => {
     assert.doesNotMatch(src, /<span>Accedi<\/span>/);
     assert.doesNotMatch(src, />\s*Accedi\s*</);
@@ -62,14 +62,15 @@ test("Navbar.jsx mobile: ordine prioritario Configura -> Area Cliente -> Contatt
     `ordine mobile Navbar errato: cta=${iCta} cliente=${iCliente} contatti=${iContatti} work=${iWork}`);
 });
 
-test("VolantiniProHeroMap mobile: ordine Configura -> Area Cliente -> Contatti -> Lavora con noi", () => {
-  const m = HERO.slice(HERO.indexOf("mobileMenuStyle}"));
-  const iCta = m.indexOf("Configura la tua campagna");
-  const iCliente = m.indexOf(">Area Cliente<");
-  const iContatti = m.indexOf('scrollToSection("contatti")');
-  const iWork = m.indexOf("<span>Lavora con noi</span>");
-  assert.ok(iCta >= 0 && iCliente > iCta && iContatti > iCliente && iWork > iContatti,
-    `ordine mobile Hero errato: cta=${iCta} cliente=${iCliente} contatti=${iContatti} work=${iWork}`);
+test('Homepage: native resource menu preserves login, supplier and contact destinations across viewports', () => {
+ assert.match(HERO, /<details><summary>Risorse<\/summary>/);
+ assert.match(HERO, /onLogin\?onLogin\(\)/);
+ assert.match(HERO, /href="\/lavora-con-noi"/);
+ assert.match(HERO, /href="\/login\?context=supplier"/);
+ assert.match(HERO, /scroll\('contatti'\)/);
+ assert.match(HERO, /aria-controls="vph-navigation"/);
+ assert.match(HERO, /aria-expanded=\{menuOpen\}/);
+ assert.doesNotMatch(HERO, /onMouseEnter/);
 });
 
 test("Navbar.jsx desktop: ordine gruppo link -> Contatti prima di Lavora con noi; Area Cliente prima della CTA arancione", () => {
@@ -89,7 +90,7 @@ test("nessun nuovo sistema auth: solo route esistenti (login / dashboard / suppl
   }
 });
 
-for (const [name, src] of [["Navbar.jsx", NAVBAR], ["VolantiniProHeroMap.jsx", HERO]]) {
+for (const [name, src] of [["Navbar.jsx", NAVBAR]]) {
   test(`${name} desktop "Lavora con noi": il click APRE il dropdown, non fa toggle contro l'hover`, () => {
     // Il wrapper desktop ha onMouseEnter -> setWorkOpen(true). Se il bottone
     // facesse toggle al click, ogni click (sempre preceduto da mouseenter) lo

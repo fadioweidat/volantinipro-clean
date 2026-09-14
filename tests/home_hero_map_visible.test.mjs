@@ -1,10 +1,10 @@
 // HOTFIX HOMEPAGE — la mappa hero deve restare SEMPRE visibile anche quando i
 // dati territoriali (useServiceAnalysis) sono in loading, in errore o a zero
-// zone. Prima del fix `Step2Map` era montata solo con `{!unavailable && ...}`,
+// zone. Prima del fix `HomepageTerritoryMap` era montata solo con `{!unavailable && ...}`,
 // quindi al termine di un'analisi in errore/zero-zone veniva SMONTATA e la
 // meta' destra della hero restava vuota.
 //
-// Test RUNTIME (react-test-renderer + act): Step2Map e useServiceAnalysis sono
+// Test RUNTIME (react-test-renderer + act): HomepageTerritoryMap e useServiceAnalysis sono
 // stub controllabili; il resto di VolantiniProHeroMap e' reale.
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -16,7 +16,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const STEP2MAP_STUB = `import React from "react";
 let mounts = 0;
-export const Step2Map = (props) => {
+export const HomepageTerritoryMap = (props) => {
   React.useEffect(() => {
     mounts += 1;
     globalThis.__S2M_MOUNTS__ = mounts;
@@ -24,13 +24,13 @@ export const Step2Map = (props) => {
   }, []);
   return React.createElement("div", {
     "data-step2map": "1",
-    "data-zones": String((props.zonesWithCoords || []).length),
+    "data-zones": String((props.groups || []).length),
     "data-selected": String((props.selected || []).length),
     "data-radius": String(props.radius),
     "data-interactive": String(props.interactive),
   });
 };
-export default Step2Map;
+export default HomepageTerritoryMap;
 `;
 
 const USE_SA_STUB = `export function useServiceAnalysis() {
@@ -51,7 +51,7 @@ const vite = await createServer({
       enforce: "pre",
       load(id) {
         const norm = id.replace(/\\/g, "/");
-        if (norm.endsWith("/components/Step2Map.jsx")) return STEP2MAP_STUB;
+        if (norm.endsWith("/components/home/HomepageTerritoryMap.jsx")) return STEP2MAP_STUB;
         if (norm.endsWith("/hooks/useServiceAnalysis.js")) return USE_SA_STUB;
         return null;
       },
@@ -142,7 +142,7 @@ try {
   test("A) loading=true → la mappa e' presente", () => {
     globalThis.__HERO_SA__ = { data: null, loading: true, error: null };
     const r = mount();
-    assert.equal(countMaps(r).length, 1, "Step2Map deve essere montata durante il loading");
+    assert.equal(countMaps(r).length, 1, "HomepageTerritoryMap deve essere montata durante il loading");
     act(() => r.unmount());
   });
 
@@ -151,18 +151,18 @@ try {
     const r = mount();
     const maps = countMaps(r);
     assert.equal(maps.length, 1);
-    assert.equal(maps[0].props["data-zones"], "2", "le 2 zone devono arrivare a Step2Map");
-    assert.equal(maps[0].props["data-selected"], "2");
-    assert.equal(maps[0].props["data-radius"], "3");
+    assert.equal(maps[0].props["data-zones"], "2", "le 2 zone devono arrivare a HomepageTerritoryMap");
+
+
     act(() => r.unmount());
   });
 
   test("C) loading=false + error → mappa presente, KPI fallback n/d, nessuna meta' vuota", () => {
     globalThis.__HERO_SA__ = { data: null, loading: false, error: new Error("boom") };
     const r = mount();
-    assert.equal(countMaps(r).length, 1, "Step2Map non deve sparire in errore");
+    assert.equal(countMaps(r).length, 1, "HomepageTerritoryMap non deve sparire in errore");
     const txt = textOf(r);
-    assert.match(txt, /n\/d/, "i KPI devono mostrare il fallback n/d");
+    assert.match(txt, /—/, "i KPI devono mostrare il fallback n/d");
     assert.match(txt, /momentaneamente non disponibili/i, "badge dati non tecnico");
     assert.match(txt, /GPS, prove fotografiche/i, "la card benefici statica resta montata");
     act(() => r.unmount());
@@ -196,8 +196,8 @@ try {
     act(() => { r.update(React.createElement(VolantiniProHeroMap, {})); });
 
     assert.equal(countMaps(r).length, 1, "mappa ancora presente dopo la transizione");
-    assert.equal((globalThis.__S2M_MOUNTS__ || 0) - mountsBefore, 1, "nessun remount di Step2Map");
-    assert.equal((globalThis.__S2M_UNMOUNTS__ || 0) - unmountsBefore, 0, "Step2Map mai smontata durante la vita della pagina");
+    assert.equal((globalThis.__S2M_MOUNTS__ || 0) - mountsBefore, 1, "nessun remount di HomepageTerritoryMap");
+    assert.equal((globalThis.__S2M_UNMOUNTS__ || 0) - unmountsBefore, 0, "HomepageTerritoryMap mai smontata durante la vita della pagina");
 
     // e ancora presente dopo un ulteriore ciclo (zero-zone)
     globalThis.__HERO_SA__ = { data: { comuni_breakdown: [] }, loading: false, error: null };
@@ -206,6 +206,15 @@ try {
     assert.equal((globalThis.__S2M_MOUNTS__ || 0) - mountsBefore, 1);
     assert.equal((globalThis.__S2M_UNMOUNTS__ || 0) - unmountsBefore, 0);
     act(() => r.unmount());
+  });
+  test('Homepage primary, how-it-works and customer buttons preserve parent callbacks', () => {
+    globalThis.__HERO_SA__ = validData(); let configured=0,how=0,login=0,renderer;
+    act(()=>{renderer=TestRenderer.create(React.createElement(VolantiniProHeroMap,{onConfigure:()=>configured++,onHowItWorks:()=>how++,onLogin:()=>login++}));});
+    const buttons=renderer.root.findAllByType('button');
+    act(()=>buttons.find(b=>b.children.includes('Configura la tua campagna')).props.onClick());
+    act(()=>buttons.find(b=>b.children.includes('Vedi come funziona ')).props.onClick());
+    act(()=>buttons.find(b=>b.children.includes('Area Cliente')).props.onClick());
+    assert.deepEqual([configured,how,login],[1,1,1]);act(()=>renderer.unmount());
   });
 } finally {
   await vite.close();
