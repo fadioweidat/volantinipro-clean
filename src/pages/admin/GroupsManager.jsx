@@ -1,9 +1,11 @@
+import { ProgramRecipientSummary } from './assign-work/ProgramRecipient.jsx';
+import { resolveProgramRecipient, savedSupplierCompensation } from '../../lib/services/recipientResolver.js';
 import React, { useEffect, useState } from 'react';
 import {
   createOperationalGroup,
   deactivateOperationalGroup,
   generateDriverAssignmentLink,
-  buildDriverWhatsAppMessage,
+  buildSupplierProgramWhatsAppMessage,
   renameOperationalGroup,
   revokeOperatorAssignment,
 } from '../../lib/services/admin-api.js';
@@ -33,11 +35,13 @@ export function GroupsManager({ onNav }) {
   const [confirmRemoveMember, setConfirmRemoveMember] = useState(null);
 
   async function load() {
+    setState(current => ({ ...current, loading: true, error: null }));
     try {
       const data = await loadAdminHomeData();
+      if (data.availability?.groups === false || data.availability?.campaigns === false) throw new Error('Impossibile caricare i gruppi e le campagne.');
       setState({ loading: false, error: null, data });
     } catch (error) {
-      setState({ loading: false, error: error?.message || 'Errore caricamento gruppi.', data: emptyData() });
+      setState(current => ({ ...current, loading: false, error: error?.message || 'Errore caricamento gruppi.' }));
     }
   }
 
@@ -66,21 +70,21 @@ export function GroupsManager({ onNav }) {
 
   function openGroupWhatsApp(group) {
     const assignment = group.activeAssignments[0] || null;
-    const member = group.members.find((item) => (item.id || item.user_id) === assignment?.operator_id && item.phone)
-      || group.members.find((item) => item.phone);
-    if (!member?.phone || !assignment?.id) {
-      setNotice('WhatsApp non disponibile: serve una persona con numero e un programma attivo reale.');
+    const resolved = resolveProgramRecipient({ assignment });
+    if (!resolved.valid || !assignment?.id) {
+      setNotice(resolved.error);
       return;
     }
-    const text = buildDriverWhatsAppMessage({
-      operatorName: member.display_name,
+    const text = buildSupplierProgramWhatsAppMessage({
+      supplierName: resolved.recipientName,
+      supplierCompensation: savedSupplierCompensation(assignment, group.campaign),
       groupName: group.name,
       campaignTitle: campaignName(group.campaign),
       date: assignment.starts_at ? new Date(assignment.starts_at).toLocaleDateString('it-IT') : null,
       qty: assignment.quantity_assigned || assignment.quantity || null,
       link: generateDriverAssignmentLink(assignment.id, assignment.access_token),
     });
-    window.open(`https://wa.me/${member.phone.replace(/[^\d+]/g, '')}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+    window.open(`https://wa.me/${resolved.phone}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
     setNotice('Link del programma reale preparato in WhatsApp; nessun evento di invio è stato inventato.');
   }
 
@@ -147,7 +151,7 @@ export function GroupsManager({ onNav }) {
   return (
     <AdminLayout onNav={onNav} title="Gruppi" subtitle="Persone, programmi e assegnazioni per ogni gruppo operativo." breadcrumbs={breadcrumbs}>
       {state.loading && <p style={{ color: 'rgba(255,255,255,.5)' }}>Caricamento gruppi reali...</p>}
-      {state.error && <Notice danger>{state.error}</Notice>}
+      {state.error && <Notice danger>{state.error} <button type="button" onClick={load}>Riprova</button></Notice>}
       {notice && <Notice>{notice}</Notice>}
 
       <nav className="admin-home__quick" aria-label="Azioni rapide">
@@ -168,7 +172,7 @@ export function GroupsManager({ onNav }) {
             campaignName={campaignName}
           />
         )}
-        {groups.length === 0 ? <EmptyState text="Nessun gruppo configurato." action="+ Crea gruppo" onAction={() => setGroupFormOpen(true)} /> : (
+        {!state.loading && !state.error && (groups.length === 0 ? <EmptyState text="Nessun gruppo configurato." action="+ Crea gruppo" onAction={() => setGroupFormOpen(true)} /> : (
           <div className="admin-home__groups-grid">
             {groups.map((group) => (
               <article className="admin-home__group-card" key={group.id}>
@@ -191,18 +195,19 @@ export function GroupsManager({ onNav }) {
                   )) : <em>Nessuna persona con programma attivo</em>}
                 </div>
                 <p className="admin-home__history">{group.members.length} {group.members.length === 1 ? 'membro' : 'membri'} · Referente: {group.lead_name || 'non configurato'} · {group.activeAssignments.length} programmi attivi</p>
+                <ProgramRecipientSummary assignment={group.activeAssignments[0]} compensation={savedSupplierCompensation(group.activeAssignments[0], group.campaign)} />
                 <div className="admin-home__card-actions">
                   {editingGroupId === group.id ? <><button type="button" onClick={() => saveGroupName(group)}>Salva nome</button><button type="button" onClick={() => setEditingGroupId(null)}>Annulla</button></> : <button type="button" onClick={() => { setEditingGroupId(group.id); setEditingGroupName(group.name); }}>Rinomina</button>}
                   <button type="button" onClick={() => openWizard(group.campaign_id, group.id)}>Aggiungi persona</button>
                   <button type="button" onClick={() => openWizard(group.campaign_id, group.id)}>Assegna lavoro</button>
-                  <button type="button" onClick={() => openGroupWhatsApp(group)}>WhatsApp</button>
+                  <button type="button" disabled={!resolveProgramRecipient({ assignment: group.activeAssignments[0] }).valid} onClick={() => openGroupWhatsApp(group)}>WhatsApp</button>
                   <a href={`/admin/campaigns/${group.campaign_id}/groups`}>Copia link gruppo</a>
                   <button type="button" disabled={busyGroupId === group.id} onClick={() => setConfirmDeactivateGroup(group)}>Disattiva programmi</button>
                 </div>
               </article>
             ))}
           </div>
-        )}
+        ))}
       </section>
 
       <section id="nuovo-programma" className="admin-home__section" aria-labelledby="program-title">

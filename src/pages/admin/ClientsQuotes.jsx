@@ -1,3 +1,4 @@
+import { ProgramRecipientSummary } from './assign-work/ProgramRecipient.jsx';
 import CampaignSettlementSummary from '../../components/customer/CampaignSettlementSummary.jsx';
 import React, { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { AdminLayout } from './AdminLayout.jsx';
@@ -7,7 +8,7 @@ import {
   buildDriverWhatsAppMessage,
   buildSupplierProgramWhatsAppMessage,
 } from '../../lib/services/admin-api.js';
-import { resolveProgramRecipient } from '../../lib/services/recipientResolver.js';
+import { resolveProgramRecipient, savedSupplierCompensation } from '../../lib/services/recipientResolver.js';
 import { confirmCampaignPayment } from '../../lib/supabaseClient.js';
 import { adminCancelCampaign, adminArchiveCampaign } from '../../lib/services/admin-transitions-api.js';
 import { ClientsQuotesSearchBar } from './clients-quotes/ClientsQuotesSearchBar.jsx';
@@ -149,14 +150,7 @@ export function ClientsQuotes({ onNav }) {
       alert('Conferma prima il pagamento.');
       return;
     }
-    const resolved = resolveProgramRecipient({
-      assignment,
-      manualSupplier: assignment.metadata?.manual_supplier,
-      selectedSupplier: row.supplierProfile || row.selectedSupplier,
-      group: row.group,
-      operator: row.operator,
-      adminPhone: '+393277175000',
-    });
+    const resolved = resolveProgramRecipient({ assignment });
 
     if (!resolved.valid || !resolved.phone) {
       alert(resolved.error || 'Numero destinatario non disponibile. Verifica i dati di contatto dell\'assegnazione.');
@@ -167,8 +161,7 @@ export function ClientsQuotes({ onNav }) {
     const link = generateDriverAssignmentLink(assignment.id, assignment.access_token);
     const programRows = (row.programZones || []).map((z, idx) => ({ name: z.name, quantity: z.quantity, priority: idx + 1 }));
     const totalQty = programRows.reduce((sum, z) => sum + (z.quantity || 0), 0);
-    const rawComp = row.supplierCompensation ?? assignment.metadata?.supplier_compensation ?? row.metadata?.supplier_compensation ?? null;
-    const supplierCompensation = (rawComp != null && rawComp !== '' && !Number.isNaN(Number(rawComp))) ? Number(rawComp) : null;
+    const supplierCompensation = savedSupplierCompensation(assignment, row);
     const isSupplierTarget = Boolean(
       resolved.recipientType === 'manual_supplier' ||
       resolved.recipientType === 'registered_supplier' ||
@@ -368,9 +361,10 @@ export function ClientsQuotes({ onNav }) {
                 >
                   {row.assignment ? 'Modifica gruppo' : 'Assegna gruppo'}
                 </ActionBtn>
+                <ProgramRecipientSummary assignment={row.assignment} compensation={savedSupplierCompensation(row.assignment, row)} />
                 <ActionBtn
                   onClick={() => handleInviaProgramma(row)}
-                  disabled={!isPaid || !row.assignment}
+                  disabled={!isPaid || !row.assignment || !resolveProgramRecipient({ assignment: row.assignment }).valid}
                   title={!isPaid ? 'Conferma prima il pagamento.' : (!row.assignment ? 'Assegna prima un gruppo.' : '')}
                 >
                   Invia programma

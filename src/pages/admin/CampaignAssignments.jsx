@@ -1,3 +1,4 @@
+import { ProgramRecipientSummary } from './assign-work/ProgramRecipient.jsx';
 import { useEffect, useState, useCallback } from 'react';
 import {
   listCampaignAssignments,
@@ -9,7 +10,7 @@ import {
   getAssignedZones,
 } from '../../lib/services/admin-api.js';
 import { getCampaignRecord } from '../../lib/services/gps-api.js';
-import { resolveProgramRecipient } from '../../lib/services/recipientResolver.js';
+import { resolveProgramRecipient, savedSupplierCompensation } from '../../lib/services/recipientResolver.js';
 import { CampaignAssignmentsSummaryPanel } from './campaign-assignments/CampaignAssignmentsSummaryPanel.jsx';
 import { CampaignAssignmentCardHeader } from './campaign-assignments/CampaignAssignmentCardHeader.jsx';
 
@@ -130,11 +131,10 @@ export function CampaignAssignments({ campaignId }) {
     const link = generateDriverAssignmentLink(assignment.id, assignment.access_token);
     const resolved = resolveProgramRecipient({
       assignment,
-      adminPhone: '+393277175000',
     });
 
     if (!resolved.valid || !resolved.phone) {
-      setState(prev => ({ ...prev, notice: 'Numero WhatsApp destinatario non disponibile o non valido.' }));
+      setState(prev => ({ ...prev, notice: resolved.error }));
       return;
     }
 
@@ -149,7 +149,7 @@ export function CampaignAssignments({ campaignId }) {
           comuni: meta.comuni || [],
           zone: meta.zone_labels || [],
           qty: meta.qty || null,
-          supplierCompensation: meta.supplier_compensation != null ? Number(meta.supplier_compensation) : null,
+          supplierCompensation: savedSupplierCompensation(assignment, campaign),
           notes: meta.notes || null,
           link,
         })
@@ -162,6 +162,7 @@ export function CampaignAssignments({ campaignId }) {
           comuni: meta.comuni || [],
           zone: meta.zone_labels || [],
           qty: meta.qty || null,
+          supplierCompensation: savedSupplierCompensation(assignment, campaign),
           link,
         });
 
@@ -289,6 +290,7 @@ export function CampaignAssignments({ campaignId }) {
                     </span>
                   </div>
 
+                  <ProgramRecipientSummary assignment={a} compensation={savedSupplierCompensation(a, campaign)} />
                   {/* Row 5: actions */}
                   <div style={{ fontSize: 11, color: '#b45309', fontWeight: 700, marginTop: 4 }}>
                     Link personale — non condividere con altri operatori.
@@ -304,6 +306,7 @@ export function CampaignAssignments({ campaignId }) {
                     <button
                       type="button"
                       style={{ ...smallBtnStyle, background: 'rgba(37,211,102,.12)', borderColor: 'rgba(37,211,102,.35)' }}
+                      disabled={!resolveProgramRecipient({ assignment: a }).valid}
                       onClick={() => handleWhatsApp(a)}
                     >
                       📱 WhatsApp

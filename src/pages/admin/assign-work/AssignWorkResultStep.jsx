@@ -1,4 +1,4 @@
-import { cleanPhoneNumber } from '../../../lib/services/recipientResolver.js';
+import { cleanPhoneNumber, parseSupplierCompensation } from '../../../lib/services/recipientResolver.js';
 
 export function AssignWorkResultStep({
   PreviewRow,
@@ -22,6 +22,7 @@ export function AssignWorkResultStep({
   handleCopyLink,
   handleCopyMsg,
   handleWhatsApp,
+  recipientValid,
   handleRevoke,
   buildWhatsAppMsg,
   saving,
@@ -43,8 +44,8 @@ export function AssignWorkResultStep({
     whatsappBtnStyle,
   } = styles;
 
-  const compNum = Number(supplierCompensation);
-  const compDisplay = (supplierCompensation != null && supplierCompensation !== '' && !Number.isNaN(compNum))
+  const compNum = parseSupplierCompensation(supplierCompensation);
+  const compDisplay = (compNum != null)
     ? `€ ${compNum.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : null;
 
@@ -96,8 +97,8 @@ export function AssignWorkResultStep({
           <button type="button" style={primaryBtnStyle} onClick={handleCopyLink}>
             {copiedLink ? '✓ Copiato!' : '📋 Copia link'}
           </button>
-          <button type="button" style={whatsappBtnStyle} onClick={handleWhatsApp}>
-            📱 Invia WhatsApp al Fornitore
+          <button type="button" style={whatsappBtnStyle} onClick={handleWhatsApp} disabled={!recipientValid}>
+            📱 Invia programma
           </button>
           <button type="button" style={secondaryBtnStyle} onClick={handleCopyMsg}>
             {copiedMsg ? '✓ Messaggio copiato!' : '📝 Copia messaggio WhatsApp'}
@@ -115,15 +116,7 @@ export function AssignWorkResultStep({
             {cleanPhoneNumber(activeSupplierPhone) && (
               <>
                 <a
-                  href={`https://wa.me/${cleanPhoneNumber(activeSupplierPhone)}?text=${encodeURIComponent(buildWhatsAppMsg())}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ ...secondaryBtnStyle, fontSize: 12, padding: '4px 10px', background: 'rgba(46,204,138,.12)', color: '#86efac', borderColor: 'rgba(46,204,138,.25)' }}
-                >
-                  📱 WhatsApp Fornitore
-                </a>
-                <a
-                  href={`tel:${cleanPhoneNumber(activeSupplierPhone)}`}
+                  href={`tel:+${cleanPhoneNumber(activeSupplierPhone)}`}
                   style={{ ...secondaryBtnStyle, fontSize: 12, padding: '4px 10px' }}
                 >
                   📞 Chiama ({activeSupplierPhone})
@@ -155,7 +148,7 @@ export function AssignWorkResultStep({
         <button
           type="button"
           style={secondaryBtnStyle}
-          onClick={() => { setStep(2); setSavedAssignment(null); }}
+          onClick={() => { setStep(2); }}
         >
           Modifica programma
         </button>

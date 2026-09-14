@@ -1,121 +1,60 @@
-/**
- * Canonical program recipient resolution service.
- * Enforces business priority for WhatsApp / SMS dispatch:
- * 1. Manual supplier contact phone (when assignment is manual or manual_supplier metadata exists)
- * 2. Registered supplier contact phone (from selectedSupplier or supplier_profiles)
- * 3. Operational group contact phone (if present on group object)
- * 4. Genuine driver/operator contact phone (only if explicitly assigned and not defaulting to admin)
- *
- * CRITICAL SAFETY INVARIANT:
- * Never silently fall back to Admin/logged-in user's own number or SUPPORT_WHATSAPP.
- * If no valid recipient phone is available, block send and report 'Numero destinatario non disponibile'.
- */
+export const RECIPIENT_REQUIRED = 'Seleziona un destinatario con un numero di telefono valido.';
 
+// wa.me requires international digits. Unprefixed Italian numbers receive +39.
 export function cleanPhoneNumber(raw) {
-  if (!raw) return '';
-  const cleaned = String(raw).trim().replace(/[^\d+]/g, '');
-  // Must have at least 6 digits to be a real phone number
-  const digitCount = cleaned.replace(/\D/g, '').length;
-  return digitCount >= 6 ? cleaned : '';
+  const value = String(raw ?? '').trim();
+  if (!value || !/^\+?[\d\s().-]+$/.test(value)) return '';
+  let digits = value.replace(/\D/g, '');
+  const international = value.startsWith('+') || digits.startsWith('00');
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  if (!international && (/^3\d{9}$/.test(digits) || /^0\d{5,10}$/.test(digits))) digits = `39${digits}`;
+  return /^[1-9]\d{7,14}$/.test(digits) ? digits : '';
 }
 
-export function resolveProgramRecipient({
-  explicitProgramRecipient = null,
-  assignment = null,
-  manualSupplier = null,
-  selectedSupplier = null,
-  group = null,
-  operator = null,
-  adminPhone = null,
-} = {}) {
-  const normalizedAdminPhone = cleanPhoneNumber(adminPhone || '+393277175000');
-  const meta = assignment?.metadata || {};
-
-  // 1. Explicit Program Recipient Priority
-  if (explicitProgramRecipient) {
-    const rawPhone = typeof explicitProgramRecipient === 'string'
-      ? explicitProgramRecipient
-      : explicitProgramRecipient.phone;
-    const phone = cleanPhoneNumber(rawPhone);
-    if (phone && (!normalizedAdminPhone || phone !== normalizedAdminPhone)) {
-      const name = (typeof explicitProgramRecipient === 'object' && explicitProgramRecipient.name)
-        ? explicitProgramRecipient.name.trim()
-        : 'Destinatario';
-      return {
-        valid: true,
-        phone,
-        recipientName: name,
-        recipientType: 'explicit',
-      };
-    }
+export function programMetadata(value) {
+  if (typeof value === 'string') {
+    try { return programMetadata(JSON.parse(value)); } catch { return {}; }
   }
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
 
-  const isManual = meta.supplier_mode === 'manual' || Boolean(meta.manual_supplier) || Boolean(manualSupplier?.phone);
-
-  // 2. Manual Supplier Priority
-  if (isManual || meta.manual_supplier || manualSupplier) {
-    const rawManual = meta.manual_supplier || manualSupplier || {};
-    const manualPhone = cleanPhoneNumber(rawManual.phone);
-    if (manualPhone && (!normalizedAdminPhone || manualPhone !== normalizedAdminPhone)) {
-      const name = rawManual.contact_name?.trim()
-        || rawManual.name?.trim()
-        || meta.supplier_name
-        || group?.name
-        || 'Fornitore';
-      return {
-        valid: true,
-        phone: manualPhone,
-        recipientName: name,
-        recipientType: 'manual_supplier',
-      };
-    }
+export function resolveProgramRecipient(options = {}) {
+  const meta = programMetadata(options.assignment?.metadata);
+  // An explicitly cleared/invalid draft must not revert to the saved recipient.
+  const recipient = Object.hasOwn(options, 'explicitProgramRecipient')
+    ? options.explicitProgramRecipient : meta.explicit_program_recipient;
+  const phone = cleanPhoneNumber(recipient?.phone);
+  const name = String(recipient?.name ?? '').trim();
+  const type = recipient?.type;
+  if (!phone || !name || !['manual_supplier', 'registered_supplier', 'group', 'operator'].includes(type)) {
+    return { valid: false, phone: null, recipientName: name || 'Non selezionato', recipientType: 'none', error: RECIPIENT_REQUIRED };
   }
+  // Only explicit choices reach here, including intentional self selection.
+  // No admin, support, supplier or arbitrary operator fallback exists.
+  return { valid: true, phone, recipientName: name, recipientType: type,
+    recipient: { type, id: recipient.id || null, name, phone } };
+}
 
-  // 3. Registered Supplier Priority
-  const suppPhone = cleanPhoneNumber(selectedSupplier?.phone || meta.supplier_phone);
-  if (suppPhone && (!normalizedAdminPhone || suppPhone !== normalizedAdminPhone)) {
-    const name = selectedSupplier?.contact_name?.trim()
-      || selectedSupplier?.company_name?.trim()
-      || meta.supplier_name
-      || 'Fornitore';
-    return {
-      valid: true,
-      phone: suppPhone,
-      recipientName: name,
-      recipientType: 'registered_supplier',
-    };
+export function parseSupplierCompensation(value) {
+  if (value == null || String(value).trim() === '') return null;
+  const amount = Number(String(value).replace(',', '.'));
+  return Number.isFinite(amount) && amount >= 0 ? amount : null;
+}
+
+export function savedSupplierCompensation(assignment, campaign) {
+  const meta = programMetadata(assignment?.metadata);
+  // An explicitly saved empty amount remains empty after reload.
+  return parseSupplierCompensation(Object.hasOwn(meta, 'supplier_compensation')
+    ? meta.supplier_compensation : programMetadata(campaign?.metadata).supplier_compensation);
+}
+
+export function prefillSupplierCompensation({ quotes = [], assignment, campaign, supplierId } = {}) {
+  // Editing preserves the saved agreement/manual amount, even if empty.
+  if (Object.hasOwn(programMetadata(assignment?.metadata), 'supplier_compensation')) {
+    return savedSupplierCompensation(assignment, campaign);
   }
-
-  // 4. Operational Group Contact Priority
-  const groupPhone = cleanPhoneNumber(group?.phone || group?.contact_phone || group?.lead_phone);
-  if (groupPhone && (!normalizedAdminPhone || groupPhone !== normalizedAdminPhone)) {
-    const name = group?.lead_name?.trim() || group?.name?.trim() || 'Gruppo';
-    return {
-      valid: true,
-      phone: groupPhone,
-      recipientName: name,
-      recipientType: 'group',
-    };
-  }
-
-  // 5. Genuine Assigned Operator Phone (strictly excludes Admin phone)
-  const operatorPhone = cleanPhoneNumber(operator?.phone);
-  if (operatorPhone && (!normalizedAdminPhone || operatorPhone !== normalizedAdminPhone)) {
-    const name = operator?.display_name?.trim() || operator?.name?.trim() || 'Operatore';
-    return {
-      valid: true,
-      phone: operatorPhone,
-      recipientName: name,
-      recipientType: 'operator',
-    };
-  }
-
-  // 6. ERROR — Numero destinatario non disponibile (Never fallback to admin, support, customer, or first operator)
-  return {
-    valid: false,
-    phone: null,
-    recipientName: meta.supplier_name || group?.name || 'Destinatario sconosciuto',
-    recipientType: 'none',
-    error: 'Numero destinatario non disponibile',
-  };
+  const accepted = quotes.filter(q => q.quote_status === 'accepted' && q.supplier_id
+    && (!supplierId || q.supplier_id === supplierId));
+  const amount = accepted.length === 1 ? parseSupplierCompensation(accepted[0].total_amount) : null;
+  return amount ?? savedSupplierCompensation(assignment, campaign);
 }

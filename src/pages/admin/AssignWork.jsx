@@ -20,7 +20,9 @@ import { AssignWorkGroupOperatorStep } from './assign-work/AssignWorkGroupOperat
 import { AssignWorkProgramStep } from './assign-work/AssignWorkProgramStep.jsx';
 import { AssignWorkPreviewStep } from './assign-work/AssignWorkPreviewStep.jsx';
 import { AssignWorkResultStep } from './assign-work/AssignWorkResultStep.jsx';
-import { resolveProgramRecipient } from '../../lib/services/recipientResolver.js';
+import { cleanPhoneNumber, programMetadata, parseSupplierCompensation, prefillSupplierCompensation, savedSupplierCompensation, resolveProgramRecipient } from '../../lib/services/recipientResolver.js';
+
+import { ProgramRecipientSelector, ProgramRecipientSummary } from './assign-work/ProgramRecipient.jsx';
 
 // ─── AssignWork ───────────────────────────────────────────────────────────────
 // Flusso a step per affidare il lavoro a un Fornitore partner, impostare il programma
@@ -33,7 +35,10 @@ import { resolveProgramRecipient } from '../../lib/services/recipientResolver.js
 //   existingAssignment — se passato, entra in modalità "modifica"
 
 export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = null, initialGroupId = null, initialOperatorId = null }) {
+  if (existingAssignment) existingAssignment = { ...existingAssignment, metadata: programMetadata(existingAssignment.metadata) };
   const isEdit = Boolean(existingAssignment);
+  const [explicitProgramRecipient, setExplicitProgramRecipient] = useState(existingAssignment?.metadata?.explicit_program_recipient || null);
+  const resolvedRecipient = resolveProgramRecipient({ explicitProgramRecipient });
 
   // Step 1=fornitore e gruppo, 2=programma e compenso, 3=anteprima, 4=risultato
   const [step, setStep] = useState(1);
@@ -45,6 +50,8 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   const [zones, setZones] = useState([]);
   const [campaign, setCampaign] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -122,30 +129,21 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
     let cancelled = false;
     async function load() {
       setLoading(true);
+      setLoadFailed(false);
       setError(null);
       setSupplierLoading(true);
       setSupplierError(null);
       try {
-        let quotesData = [];
-        if (supabase) {
-          try {
-            const { data, error: qErr } = await supabase
-              .from('quotes')
-              .select('id, total_amount, quote_status, supplier_id')
-              .eq('campaign_id', campaignId);
-            if (!qErr && Array.isArray(data)) {
-              quotesData = data;
-            }
-          } catch (_) {
-            quotesData = [];
-          }
-        }
-
-        const [suppliersRes, ops, zonesData, camp, existingZones] = await Promise.all([
+        const quotesRequest = supabase
+          ? Promise.resolve(supabase.from('quotes').select('id, total_amount, quote_status, supplier_id').eq('campaign_id', campaignId))
+              .then(({ data, error }) => { if (error) throw error; return data || []; })
+          : Promise.resolve([]);
+        const [quotesData, suppliersRes, ops, zonesData, camp, existingZones] = await Promise.all([
+          quotesRequest,
           adminListSuppliers().catch(err => ({ rows: [], available: false, error: err })),
-          listAssignableOperators().catch(() => []),
+          listAssignableOperators(),
           getCampaignZonesWithGroups(campaignId),
-          getCampaignRecord(campaignId).catch(() => null),
+          getCampaignRecord(campaignId),
           isEdit ? listAssignmentZones(existingAssignment.id).catch(() => []) : Promise.resolve([]),
         ]);
 
@@ -176,21 +174,8 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
             }
           }
 
-          // Prefill supplier compensation from quotes (marketplace offer) or campaign metadata
-          const quotesList = quotesData;
-          const matchedQuote = quotesList.find(q => q.quote_status === 'accepted')
-            || quotesList.find(q => q.supplier_id && q.supplier_id === resolvedSupplierId)
-            || quotesList[0];
-
-          if (!supplierCompensation) {
-            if (matchedQuote?.total_amount != null) {
-              setSupplierCompensation(String(matchedQuote.total_amount));
-            } else if (existingAssignment?.metadata?.supplier_compensation != null) {
-              setSupplierCompensation(String(existingAssignment.metadata.supplier_compensation));
-            } else if (camp?.metadata?.supplier_compensation != null) {
-              setSupplierCompensation(String(camp.metadata.supplier_compensation));
-            }
-          }
+          const prefill = prefillSupplierCompensation({ quotes: quotesData, assignment: existingAssignment, campaign: camp, supplierId: resolvedSupplierId });
+          setSupplierCompensation(current => current !== '' ? current : (prefill == null ? '' : String(prefill)));
 
           if (isEdit && existingZones.length > 0) {
              const initObj = {};
@@ -202,6 +187,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
         }
       } catch (err) {
         if (!cancelled) {
+          setLoadFailed(true);
           setError(err?.message || 'Errore caricamento dati.');
           setSupplierLoading(false);
         }
@@ -211,7 +197,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
     }
     load();
     return () => { cancelled = true; };
-  }, [campaignId, isEdit, existingAssignment?.id, isExistingManual]);
+  }, [campaignId, isEdit, existingAssignment?.id, isExistingManual, loadAttempt]);
 
   const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId) || null;
   const selectedGroup = groups.find(group => group.id === selectedGroupId) || null;
@@ -291,10 +277,11 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   }
 
   const canGoNext = useCallback(() => {
+    if (!resolvedRecipient.valid) return false;
     if (step === 1) {
       if (supplierMode === 'manual') {
         const hasName = Boolean(manualSupplier.name && manualSupplier.name.trim().length > 0);
-        const cleanPhone = (manualSupplier.phone || '').replace(/[^\d+]/g, '');
+        const cleanPhone = cleanPhoneNumber(manualSupplier.phone);
         const hasValidPhone = cleanPhone.length >= 6;
         const email = (manualSupplier.email || '').trim();
         const validEmail = !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -306,17 +293,17 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       return Boolean(startsAt && Object.keys(selectedZonesState).some(id => selectedZonesState[id]?.selected));
     }
     return true;
-  }, [step, supplierMode, manualSupplier, suppliers.length, selectedSupplierId, startsAt, selectedZonesState]);
+  }, [step, resolvedRecipient.valid, supplierMode, manualSupplier, suppliers.length, selectedSupplierId, startsAt, selectedZonesState]);
 
   async function handleSave() {
     if (saving) return; // guard doppio click
+    if (!resolvedRecipient.valid) { setError(resolvedRecipient.error); return; }
     setSaving(true);
     setError(null);
     try {
-      const compNum = Number(supplierCompensation);
-      const parsedCompensation = (supplierCompensation !== '' && supplierCompensation != null && !Number.isNaN(compNum))
-        ? compNum
-        : null;
+      const parsedCompensation = parseSupplierCompensation(supplierCompensation);
+      if (supplierCompensation !== '' && parsedCompensation == null) throw new Error('Inserisci un compenso valido oppure lascia il campo vuoto.');
+      const currentAssignment = savedAssignment || existingAssignment;
 
       const isManual = supplierMode === 'manual';
       const cleanManualName = manualSupplier.name.trim();
@@ -326,6 +313,9 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       const cleanManualNotes = manualSupplier.notes?.trim() || null;
 
       const metadata = {
+        ...programMetadata(currentAssignment?.metadata),
+        explicit_program_recipient: resolvedRecipient.recipient,
+        manual_supplier: null,
         notes,
         campaign_title: campaignTitle,
         supplier_mode: supplierMode,
@@ -365,16 +355,16 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       // IMPORTANT: Supplier handoff must NOT fabricate an operator or fall back to Admin!
       // operator_id stays null until a real driver/operator is associated.
       const isSupplierHandoff = isManual || Boolean(selectedSupplierId);
-      const targetOperatorId = existingAssignment?.operator_id
-        || (!isSupplierHandoff ? (initialOperatorId || operators[0]?.id || null) : null);
+      const targetOperatorId = currentAssignment?.operator_id
+        || (!isSupplierHandoff && resolvedRecipient.recipientType === 'operator' ? resolvedRecipient.recipient.id : null);
 
       if (!targetOperatorId && !isSupplierHandoff && !isEdit) {
         throw new Error('Nessun profilo operatore di sistema disponibile per l\'assegnazione.');
       }
 
       let result;
-      if (isEdit) {
-        result = await updateOperatorAssignment(existingAssignment.id, {
+      if (currentAssignment?.id) {
+        result = await updateOperatorAssignment(currentAssignment.id, {
           group_id: selectedGroupId || null,
           starts_at: startsAtUtc,
           ends_at: endsAtUtc,
@@ -390,6 +380,14 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           metadata,
           notes,
         });
+      }
+
+      // Retain the created ID even if a later zone write fails, so retry updates it.
+      setSavedAssignment(result);
+      const persistedRecipient = resolveProgramRecipient({ assignment: result });
+      if (!persistedRecipient.valid || JSON.stringify(persistedRecipient.recipient) !== JSON.stringify(resolvedRecipient.recipient)
+          || savedSupplierCompensation(result) !== parsedCompensation) {
+        throw new Error('Destinatario o compenso non confermati dal salvataggio. Riprova prima di inviare il programma.');
       }
 
       // Persist supplier_id and compensation metadata on campaigns row
@@ -525,7 +523,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
     const totalQty = programRows.reduce((sum, row) => sum + (row.quantity || 0), 0);
 
     return buildSupplierProgramWhatsAppMessage({
-      supplierName: activeSupplierName,
+      supplierName: step === 4 ? resolveProgramRecipient({ assignment: savedAssignment }).recipientName : resolvedRecipient.recipientName,
       groupName: selectedGroup?.name || null,
       campaignTitle,
       service: campaign?.service || campaign?.type || campaign?.service_type || campaign?.metadata?.service || campaign?.metadata?.type,
@@ -534,11 +532,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       startTime: startsAt ? new Date(startsAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : null,
       programRows,
       qty: totalQty || null,
-      supplierCompensation: (supplierCompensation !== '' && supplierCompensation != null)
-        ? Number(supplierCompensation)
-        : (existingAssignment?.metadata?.supplier_compensation != null
-            ? Number(existingAssignment.metadata.supplier_compensation)
-            : (campaign?.metadata?.supplier_compensation != null ? Number(campaign.metadata.supplier_compensation) : null)),
+      supplierCompensation: step === 4 ? savedSupplierCompensation(savedAssignment) : parseSupplierCompensation(supplierCompensation),
       notes: campaign?.notes || campaign?.metadata?.notes || null,
       link: generatedLink,
     });
@@ -559,22 +553,17 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   }
 
   function handleWhatsApp() {
-    const resolved = resolveProgramRecipient({
-      assignment: savedAssignment || existingAssignment,
-      manualSupplier,
-      selectedSupplier,
-      group: selectedGroup,
-      operator: operators.find(op => op.id === (savedAssignment?.operator_id || existingAssignment?.operator_id)),
-      adminPhone: '+393277175000',
-    });
+    const resolved = resolveProgramRecipient({ assignment: savedAssignment || existingAssignment });
     if (!resolved.valid || !resolved.phone) {
-      setNotice('Numero WhatsApp del fornitore non disponibile. Puoi copiare il messaggio senza segnare il programma come inviato.');
+      setNotice(resolved.error);
       return;
     }
     const msg = buildWhatsAppMsg();
     window.open(`https://wa.me/${resolved.phone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
     setNotice('Programma preparato in WhatsApp per il fornitore.');
   }
+
+  if (loadFailed) return <div style={shellStyle}><Notice danger text={error} /><button type="button" onClick={() => setLoadAttempt(value => value + 1)}>Riprova caricamento programma</button></div>;
 
   if (loading) {
     return (
@@ -612,6 +601,11 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           ))}
         </div>
       )}
+
+      {step < 4 && <ProgramRecipientSelector value={explicitProgramRecipient} onChange={setExplicitProgramRecipient}
+        supplier={supplierMode === 'manual' ? manualSupplier : selectedSupplier} supplierMode={supplierMode}
+        group={selectedGroup} operators={operators} />}
+      <ProgramRecipientSummary recipient={step === 4 ? resolveProgramRecipient({ assignment: savedAssignment }) : resolvedRecipient} compensation={step === 4 ? savedSupplierCompensation(savedAssignment) : supplierCompensation} />
 
       {/* ── STEP 1: Scegli fornitore e gruppo ── */}
       {step === 1 && (
@@ -714,6 +708,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           endsAt={endsAt}
           notes={notes}
           saving={saving}
+          recipientValid={resolvedRecipient.valid}
           isEdit={isEdit}
           handleSave={handleSave}
           setStep={setStep}
@@ -754,6 +749,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           handleCopyLink={handleCopyLink}
           handleCopyMsg={handleCopyMsg}
           handleWhatsApp={handleWhatsApp}
+          recipientValid={resolveProgramRecipient({ assignment: savedAssignment }).valid}
           handleRevoke={handleRevoke}
           buildWhatsAppMsg={buildWhatsAppMsg}
           saving={saving}

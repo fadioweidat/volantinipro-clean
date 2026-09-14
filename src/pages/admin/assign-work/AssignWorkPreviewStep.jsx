@@ -1,3 +1,4 @@
+import { parseSupplierCompensation } from '../../../lib/services/recipientResolver.js';
 export function AssignWorkPreviewStep({
   PreviewRow,
   supplierMode = 'registered',
@@ -15,6 +16,7 @@ export function AssignWorkPreviewStep({
   endsAt,
   notes,
   saving,
+  recipientValid,
   isEdit,
   handleSave,
   setStep,
@@ -31,8 +33,8 @@ export function AssignWorkPreviewStep({
     disabledBtnStyle,
   } = styles;
 
-  const compNum = Number(supplierCompensation);
-  const compDisplay = (supplierCompensation != null && supplierCompensation !== '' && !Number.isNaN(compNum))
+  const compNum = parseSupplierCompensation(supplierCompensation);
+  const compDisplay = (compNum != null)
     ? `€ ${compNum.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : 'Non specificato';
 
@@ -80,7 +82,7 @@ export function AssignWorkPreviewStep({
         <button
           type="button"
           style={saving ? disabledBtnStyle : primaryBtnStyle}
-          disabled={saving}
+          disabled={saving || !recipientValid}
           onClick={handleSave}
         >
           {saving ? 'Salvataggio...' : isEdit ? 'Aggiorna assegnazione' : '✓ Salva e genera link'}

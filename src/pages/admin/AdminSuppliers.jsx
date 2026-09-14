@@ -55,12 +55,13 @@ export function AdminSuppliers({ onNav }) {
 
   const load = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: null }));
-    const res = await adminListSuppliers();
-    if (!res.available) {
-      setState({ loading: false, error: res.error ? mapMarketplaceError(res.error) : null, rows: [], available: false });
-      return;
+    try {
+      const res = await adminListSuppliers();
+      if (!res.available || res.error) throw res.error || new Error('Impossibile caricare i fornitori.');
+      setState({ loading: false, error: null, rows: res.rows, available: true });
+    } catch (error) {
+      setState(current => ({ ...current, loading: false, error: `Impossibile caricare i fornitori. ${mapMarketplaceError(error)}`, available: false }));
     }
-    setState({ loading: false, error: null, rows: res.rows, available: true });
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -108,7 +109,7 @@ export function AdminSuppliers({ onNav }) {
         </div>
       )}
 
-      {!state.loading && !state.available && (
+      {!state.loading && !state.available && !state.error && (
         <div className="admin-home__empty" style={{ textAlign: 'center', padding: '32px 16px' }}>
           <p>Elenco fornitori non disponibile per questo account.</p>
           <button type="button" onClick={load} style={{ marginTop: 12, padding: '6px 16px', borderRadius: 8, background: '#e8571a', border: 'none', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
@@ -117,7 +118,7 @@ export function AdminSuppliers({ onNav }) {
         </div>
       )}
 
-      {state.available && (
+      {!state.loading && state.available && (
         <>
           <div className="admin-home__quick" role="tablist" aria-label="Filtro fornitori">
             {FILTERS.map(([key, label]) => (
