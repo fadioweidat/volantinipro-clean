@@ -1773,6 +1773,7 @@ export function Step2({
   const gisLoading = Boolean(city && (apiLoading || sectorsLoading || (poiIsOperationalData && poiLoading)));
   const [gisSlowConnection, setGisSlowConnection] = useState(false);
   const [gisTimedOut, setGisTimedOut] = useState(false);
+  const isGisFailed = Boolean(gisTimedOut || (apiError && !apiLoading && !apiPending));
   useEffect(() => {
     setGisSlowConnection(false);
     setGisTimedOut(false);
@@ -5236,7 +5237,7 @@ export function Step2({
         focusedPoiNonce={focusedPoiNonce}
         gisLoading={gisLoading}
         gisSlowConnection={gisSlowConnection || apiIsRetrying}
-        gisTimedOut={gisTimedOut}
+        gisTimedOut={isGisFailed}
         onRetryGis={handleRetryGis}
         handleManualMapClick={handleManualMapClick}
         hasUnconfirmedAddressPoint={hasUnconfirmedAddressPoint}

@@ -58,6 +58,7 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
     lastRequestKeyRef.current = "";
     lastResultKeyRef.current = "";
     lastSettledKeyRef.current = "";
+    setError(null);
     setManualRetryNonce((n) => n + 1);
   }, []);
 
