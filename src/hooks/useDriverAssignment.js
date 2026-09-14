@@ -404,6 +404,9 @@ export function isTransientSchemaOrNetworkError(err) {
     msg.includes('networkerror') ||
     msg.includes('network request failed') ||
     msg.includes('connection refused') ||
+    msg.includes('gateway timeout') ||
+    msg.includes('upstream') ||
+    msg.includes('timeout') ||
     msg.includes('temporaneamente non disponibile')
   );
 }
