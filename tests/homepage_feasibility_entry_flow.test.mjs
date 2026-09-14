@@ -30,14 +30,14 @@ async function renderFeasibilitySection(props) {
 // ── Business CTA: apre direttamente Business Feasibility (no regression) ──
 test('Business CTA "Analizza la tua attività" apre direttamente il flusso business, mai il configuratore', async () => {
   const html = await renderFeasibilitySection();
-  assert.match(html, />Analizza la tua attività</);
+  assert.match(html, />Analizza la tua attività\s*</);
   assert.match(sectionSrc, /onClick=\{\(\) => openFeasibility\(null, window, 'business'\)\}/);
 });
 
 // ── Campaign CTA: NON apre più il flusso standalone, porta al configuratore ─
 test('Campaign CTA "Configura e analizza la campagna" non apre il flusso standalone vuoto', async () => {
   const html = await renderFeasibilitySection();
-  assert.match(html, />Configura e analizza la campagna</);
+  assert.match(html, />Configura e analizza la campagna\s*</);
   assert.doesNotMatch(html, />Analizza la tua campagna</, 'la vecchia CTA che apriva lo standalone vuoto non deve più esistere');
   assert.doesNotMatch(sectionSrc, /onClick=\{\(\) => openFeasibility\([^)]*'campaign'\)\}/, 'la card campagna non deve più chiamare openFeasibility direttamente in modo campaign');
 });

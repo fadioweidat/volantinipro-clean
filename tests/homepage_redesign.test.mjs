@@ -90,10 +90,12 @@ test("HowItWorksSection: id=come-funziona, 4 step invariati, timeline orizzontal
   for (const t of ["Configura", "Analizza il territorio", "Personalizza", "Preventivo"]) {
     assert.match(src, new RegExp(t));
   }
-  assert.equal((src.match(/howitworks-node/g) || []).length >= 2, true);
-  assert.match(src, /@media \(max-width: 860px\)/);
-  assert.match(src, /flex-direction: column/);
-  assert.match(src, /useReducedMotion/);
+  const styles = read("src/components/home/process-feasibility.css");
+  assert.match(src, /className="vpp-steps"/);
+  assert.match(styles, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  assert.match(styles, /@media\(max-width:520px\)/);
+  assert.match(styles, /prefers-reduced-motion:reduce/);
+
 });
 
 // ── FAQ ridotte a 6 ─────────────────────────────────────────────────────────
@@ -126,7 +128,7 @@ test("prefers-reduced-motion: regola globale presente in app.css + useReducedMot
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   for (const file of [
     "GpsLiveSection.jsx", "SmartPairingSection.jsx", "DashboardClienteSection.jsx",
-    "HowItWorksSection.jsx", "WhyDifferentSection.jsx", "ServicesSection.jsx",
+    "WhyDifferentSection.jsx", "ServicesSection.jsx",
   ]) {
     const src = read(`src/components/home/${file}`);
     assert.match(src, /useReducedMotion/, `${file} deve rispettare prefers-reduced-motion`);
