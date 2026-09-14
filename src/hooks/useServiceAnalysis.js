@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { buildServiceAnalysisRequest } from '../lib/step2/buildServiceAnalysisRequest.js';
 
 const step2DebugEnabled = () =>
@@ -51,6 +51,15 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
   const prevFieldsRef = useRef(null);
   const prevRequestKeyRef = useRef("");
   const [bfcacheResumeNonce, setBfcacheResumeNonce] = useState(0);
+  const [manualRetryNonce, setManualRetryNonce] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  const refetch = useCallback(() => {
+    lastRequestKeyRef.current = "";
+    lastResultKeyRef.current = "";
+    lastSettledKeyRef.current = "";
+    setManualRetryNonce((n) => n + 1);
+  }, []);
 
   // Calcolo in fase di render (puro) della richiesta corrente. `fetchKey` e'
   // l'identita' STABILE su cui si basano debounce/dedup/settle: dipende solo
@@ -245,24 +254,67 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
           headers['Authorization'] = `Bearer ${anonKey}`;
         }
 
-        const response = await fetch(url, { headers, signal: controller.signal });
-        const result = await response.json().catch(() => ({ error: "INVALID_ANALYSIS_RESPONSE" }));
+        const maxRetries = 2;
+        let attempt = 0;
+        let response = null;
+        let result = null;
 
-        debugStep2('[ZONE_ANALYSIS_RESPONSE]', {
-          requestId,
-          status: response.status,
-          mainArea: result?.metadata?.municipality || result?.metadata?.comune || municipality,
-          resultsCount: (result?.comuni_breakdown?.length || 0) + (result?.nil_breakdown?.length || 0)
-        });
+        while (attempt <= maxRetries) {
+          if (controller.signal.aborted || requestId !== requestIdRef.current) return;
+          try {
+            response = await fetch(url, { headers, signal: controller.signal });
+            if (response.ok) {
+              result = typeof response.json === 'function'
+                ? await response.json().catch(() => ({ error: "INVALID_ANALYSIS_RESPONSE" }))
+                : { error: "INVALID_ANALYSIS_RESPONSE" };
+              break;
+            }
+
+            debugStep2('[ZONE_ANALYSIS_RESPONSE]', {
+              requestId,
+              status: response.status,
+              attempt,
+              mainArea: municipality,
+            });
+
+            if (requestId !== requestIdRef.current) return;
+
+            // Se 502/503/504, ritenta con backoff limitato (1s, 2s)
+            if ((response.status === 502 || response.status === 503 || response.status === 504) && attempt < maxRetries) {
+              setIsRetrying(true);
+              await new Promise((r) => setTimeout(r, (attempt + 1) * 1000));
+              attempt++;
+              continue;
+            }
+
+            result = typeof response.json === 'function'
+              ? await response.json().catch(() => ({ error: `HTTP_${response.status}` }))
+              : { error: `HTTP_${response.status}` };
+            break;
+          } catch (fetchErr) {
+            if (fetchErr?.name === 'AbortError' || controller.signal.aborted) return;
+            if (requestId !== requestIdRef.current) return;
+            if (attempt < maxRetries) {
+              setIsRetrying(true);
+              await new Promise((r) => setTimeout(r, (attempt + 1) * 1000));
+              attempt++;
+              continue;
+            }
+            result = { error: "CONNECTION_ERROR" };
+            break;
+          }
+        }
+
+        setIsRetrying(false);
 
         if (requestId !== requestIdRef.current) {
           debugStep2('[ZONE_ANALYSIS_IGNORED_STALE]', { requestId, current: requestIdRef.current });
           return;
         }
 
-        if (!response.ok || result.error) {
-          setError(result.error || result.code || `HTTP_${response.status}`);
-          setData(result.sources || result.metadata ? result : null);
+        if (!response?.ok || result?.error) {
+          setError(result?.error || result?.code || (response ? `HTTP_${response.status}` : "CONNECTION_ERROR"));
+          setData(result?.sources || result?.metadata ? result : null);
         } else {
           if (lastResultKeyRef.current !== fetchKey) {
             lastResultKeyRef.current = fetchKey;
@@ -286,6 +338,7 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
           // ramo `!url` (il `return` dentro try passa comunque di qui).
           lastSettledKeyRef.current = fetchKey;
           setLoading(false);
+          setIsRetrying(false);
         }
       }
     };
@@ -298,14 +351,10 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
       clearTimeout(timerId);
       controller.abort();
     };
-    // Dipende SOLO da `fetchKey` (identita' stabile della richiesta) e dal
-    // nonce bfcache. Non piu' da lat/lng/quantity/scope raw: un loro jitter
-    // che non cambia la richiesta reale non deve piu' far ripartire il
-    // debounce (era la causa di "apiPending" perenne). `built`/`data`/`error`
-    // sono letti apposta come closure "dell'ultimo fetchKey": non devono
-    // ri-triggerare l'effect.
+    // Dipende SOLO da `fetchKey` (identita' stabile della richiesta), dal
+    // nonce bfcache e dal nonce di retry manuale.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchKey, bfcacheResumeNonce]);
+  }, [fetchKey, bfcacheResumeNonce, manualRetryNonce]);
 
   // `pending` calcolato in fase di render (non in un effect): true quando la
   // zona e' valida ma per la fetchKey corrente non e' ancora arrivato alcun
@@ -318,5 +367,5 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
     !(lastRequestKeyRef.current === fetchKey && data !== null && error === null)
   );
 
-  return { data, loading, error, pending };
+  return { data, loading, error, pending, isRetrying, refetch };
 }

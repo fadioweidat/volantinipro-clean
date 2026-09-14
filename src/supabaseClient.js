@@ -117,12 +117,20 @@ export async function ensureSupabaseSessionBridge() {
 // invalidava, quindi DashboardPage continuava a mostrare "Sessione attiva"
 // (badge basato solo sulla presenza del blob, mai sulla sua validita') mentre
 // ogni query reale falliva silenziosamente. I chiamanti (useCliente,
-// useCampagne) invocano questa funzione SOLO quando supabase.auth.getUser()
-// restituisce un errore reale, cosi' da:
-//   - ripulire la sessione bridgeata stale (mai il pending campaign claim,
-//     che vive sotto una chiave separata e deve sopravvivere al logout)
-//   - azzerare la cache in-memory cosi' un login successivo bridgea pulito
-export function clearBridgedSupabaseSession() {
+export function isTransientSupabaseError(error) {
+  if (!error) return false;
+  if (error.name === "AuthRetryableFetchError" || error.__isAuthRetryableFetchError) return true;
+  const status = Number(error.status || error.statusCode || 0);
+  if (status === 0 || status === 408 || (status >= 500 && status <= 599)) return true;
+  const msg = String(error.message || "").toLowerCase();
+  return /504|502|503|gateway timeout|network error|failed to fetch|abort|timeout|econnreset|authretryablefetcherror/i.test(msg);
+}
+
+export function clearBridgedSupabaseSession(error = null) {
+  if (error && isTransientSupabaseError(error)) {
+    // Non ripulire la sessione se l'errore e' transitorio (502/503/504/network timeout)
+    return;
+  }
   try { localStorage.removeItem('vp_supabase_session') } catch {}
   bridgedAccessToken = null
 }

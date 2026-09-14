@@ -24,8 +24,11 @@ export function useCliente() {
           // a chi legge vp_supabase_session altrove (es. il badge di
           // DashboardPage), e il configuratore continua come anonimo senza
           // loggare [CUSTOMER_PROFILE_LOAD_FAILED].
-          clearBridgedSupabaseSession()
-          setSessionInvalid(true)
+          clearBridgedSupabaseSession(authError)
+          const isTransient = /504|502|503|gateway timeout|network error|failed to fetch|abort|timeout|authretryablefetcherror/i.test(String(authError?.message || '')) || Number(authError?.status || 0) >= 500;
+          if (!isTransient) {
+            setSessionInvalid(true)
+          }
           setCliente(null)
           return
         }

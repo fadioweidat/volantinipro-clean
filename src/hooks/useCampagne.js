@@ -53,10 +53,12 @@ export function useCampagne({ enabled = true } = {}) {
         const { data: authData, error: authError } = await supabase.auth.getUser()
         if (authError) {
           // Stesso motivo di useCliente.js: getUser() ha rifiutato il token
-          // bridgeato, la sessione salvata va ripulita (non il pending claim,
-          // chiave separata) invece di restare "attiva" indefinitamente.
-          clearBridgedSupabaseSession()
-          setSessionInvalid(true)
+          // bridgeato, la sessione salvata va ripulita solo se l'errore e' definitivo.
+          clearBridgedSupabaseSession(authError)
+          const isTransient = /504|502|503|gateway timeout|network error|failed to fetch|abort|timeout|authretryablefetcherror/i.test(String(authError?.message || '')) || Number(authError?.status || 0) >= 500;
+          if (!isTransient) {
+            setSessionInvalid(true)
+          }
         }
         if (authError || !authData?.user?.id) throw authError || new Error('Autenticazione Cliente richiesta.')
         // Il claim e' un'operazione best-effort accessoria: un suo fallimento

@@ -92,6 +92,32 @@ export function restoreSupabaseSession(preferredSession = null) {
   return promise;
 }
 
+export function isTransientAuthError(error) {
+  if (!error) return false;
+  if (error.name === "AuthRetryableFetchError" || error.__isAuthRetryableFetchError) return true;
+  const status = Number(error.status || error.statusCode || 0);
+  if (status === 0 || status === 408 || (status >= 500 && status <= 599)) return true;
+  const msg = String(error.message || "").toLowerCase();
+  return /504|502|503|gateway timeout|network error|failed to fetch|abort|timeout|econnreset|authretryablefetcherror/i.test(msg);
+}
+
+export function isDefinitiveAuthError(error) {
+  if (!error) return false;
+  if (isTransientAuthError(error)) return false;
+  const status = Number(error.status || error.statusCode || 0);
+  const msg = String(error.message || "").toLowerCase();
+  const code = String(error.code || "").toLowerCase();
+  if (status === 400 || status === 401 || status === 403) {
+    if (/invalid_grant|invalid grant|refresh[_ ]?token[_ ]?not[_ ]?found|invalid[_ ]?refresh[_ ]?token|token is expired|token revoked|already used/i.test(msg) ||
+        /invalid_grant|invalid grant|refresh[_ ]?token[_ ]?not[_ ]?found|invalid[_ ]?refresh[_ ]?token/i.test(code)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function _restoreSupabaseSession(preferredSession = null) {
   const stored = preferredSession || getStoredSupabaseSession();
 
@@ -103,59 +129,102 @@ async function _restoreSupabaseSession(preferredSession = null) {
 
   ensureAuthStateSync();
 
-  try {
-    if (preferredSession) {
-      const accessToken = preferredSession.accessToken || preferredSession.access_token;
-      const refreshToken = preferredSession.refreshToken || preferredSession.refresh_token;
-      if (!accessToken || !refreshToken) return null;
-      const { data, error } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken
-      });
-      if (error || !data?.session) return null;
-      const normalized = toStoredSession(data.session);
-      saveStoredSupabaseSession(normalized);
-      return normalized;
-    }
+  const maxAttempts = 3;
+  let lastError = null;
 
-    const { data, error } = await supabase.auth.getSession();
-    if (!error && data?.session) {
-      const normalized = toStoredSession(data.session);
-      saveStoredSupabaseSession(normalized);
-      return normalized;
-    }
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      if (preferredSession) {
+        const accessToken = preferredSession.accessToken || preferredSession.access_token;
+        const refreshToken = preferredSession.refreshToken || preferredSession.refresh_token;
+        if (!accessToken || !refreshToken) return null;
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+        if (error) {
+          lastError = error;
+          if (isTransientAuthError(error) && attempt < maxAttempts) {
+            await sleep(attempt * 1000);
+            continue;
+          }
+          if (isDefinitiveAuthError(error)) {
+            clearStoredSupabaseSession();
+          }
+          return null;
+        }
+        if (data?.session) {
+          const normalized = toStoredSession(data.session);
+          saveStoredSupabaseSession(normalized);
+          return normalized;
+        }
+        return null;
+      }
 
-    const accessToken = stored?.accessToken || stored?.access_token;
-    const refreshToken = stored?.refreshToken || stored?.refresh_token;
-    if (accessToken && refreshToken) {
-      const bridged = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken
-      });
-      if (!bridged.error && bridged.data?.session) {
-        const normalized = toStoredSession(bridged.data.session);
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        lastError = error;
+        if (isTransientAuthError(error) && attempt < maxAttempts) {
+          await sleep(attempt * 1000);
+          continue;
+        }
+      } else if (data?.session) {
+        const normalized = toStoredSession(data.session);
         saveStoredSupabaseSession(normalized);
         return normalized;
       }
+
+      const accessToken = stored?.accessToken || stored?.access_token;
+      const refreshToken = stored?.refreshToken || stored?.refresh_token;
+      if (accessToken && refreshToken) {
+        const bridged = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+        if (bridged.error) {
+          lastError = bridged.error;
+          if (isTransientAuthError(bridged.error) && attempt < maxAttempts) {
+            await sleep(attempt * 1000);
+            continue;
+          }
+          if (isDefinitiveAuthError(bridged.error)) {
+            clearStoredSupabaseSession();
+            return null;
+          }
+        } else if (bridged.data?.session) {
+          const normalized = toStoredSession(bridged.data.session);
+          saveStoredSupabaseSession(normalized);
+          return normalized;
+        }
+      }
+      break;
+    } catch (err) {
+      lastError = err;
+      if (isTransientAuthError(err) && attempt < maxAttempts) {
+        await sleep(attempt * 1000);
+        continue;
+      }
+      logError({
+        category: ERROR_CATEGORIES.AUTH,
+        module: "session_restore",
+        message: err?.message || "Ripristino sessione fallito con eccezione",
+        severity: ERROR_SEVERITY.WARNING,
+      });
+      break;
     }
-  } catch (err) {
-    // Una sessione che non puo' essere ripristinata non autorizza l'Admin
-    // (comportamento invariato). Un'eccezione qui e' pero' anomala — non e'
-    // il normale "nessuna sessione salvata" (quei rami sopra restituiscono
-    // null senza mai lanciare), e' un fallimento reale della SDK/rete
-    // durante getSession()/setSession(). Mai l'access/refresh token nel log
-    // (mai letti in questo blocco: solo err?.message, gia' sanitizzato da
-    // logError per pattern simili a JWT/apikey come ulteriore difesa).
-    logError({
-      category: ERROR_CATEGORIES.AUTH,
-      module: "session_restore",
-      message: err?.message || "Ripristino sessione fallito con eccezione",
-      severity: ERROR_SEVERITY.WARNING,
-    });
   }
 
+  // Se l'errore e' transitorio (502/503/504/timeout), NON distruggiamo la sessione in localStorage!
+  // Preserviamo stored cosi' non viene forzato un logout permanente a fronte di un blip di rete.
+  if (isTransientAuthError(lastError)) {
+    return isStoredSupabaseSessionValid(stored) ? stored : null;
+  }
+
+  // Solo in caso di errore definitivo (o sessione non valida senza errore transitorio) ripuliamo
   if (isStoredSupabaseSessionValid(stored)) return stored;
-  clearStoredSupabaseSession();
+  if (isDefinitiveAuthError(lastError)) {
+    clearStoredSupabaseSession();
+  }
   return null;
 }
 

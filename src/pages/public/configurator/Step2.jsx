@@ -1400,7 +1400,9 @@ export function Step2({
     data: apiData,
     loading: apiLoading,
     error: apiError,
-    pending: apiPending
+    pending: apiPending,
+    isRetrying: apiIsRetrying,
+    refetch: refetchServiceAnalysis
   } = useServiceAnalysis(analysisParams.lat, analysisParams.lng, analysisParams.radiusKm, analysisParams.serviceType, analysisParams.municipality, analysisParams.quantity, analysisParams.scope, analysisParams.analysisLevel, analysisParams.selectionScope, analysisParams.selectedMunicipalityCodes, analysisParams.targetSelection);
   const omiInfo = apiData?.metadata?.omi ?? null;
   // Richiesta analysis-istat/POI "conclusa" per i parametri correnti: c'e' un
@@ -1769,13 +1771,27 @@ export function Step2({
   // operativi (punti promoter / consegna) e restano parte del gate.
   const poiIsOperationalData = isBusinessStep2 || isMovementStep2;
   const gisLoading = Boolean(city && (apiLoading || sectorsLoading || (poiIsOperationalData && poiLoading)));
+  const [gisSlowConnection, setGisSlowConnection] = useState(false);
   const [gisTimedOut, setGisTimedOut] = useState(false);
   useEffect(() => {
+    setGisSlowConnection(false);
     setGisTimedOut(false);
     if (!gisLoading) return undefined;
-    const timeoutId = window.setTimeout(() => setGisTimedOut(true), 12000);
-    return () => window.clearTimeout(timeoutId);
+    const slowTimerId = window.setTimeout(() => setGisSlowConnection(true), 5000);
+    const timeoutId = window.setTimeout(() => setGisTimedOut(true), 16000);
+    return () => {
+      window.clearTimeout(slowTimerId);
+      window.clearTimeout(timeoutId);
+    };
   }, [gisLoading, data.activeZoneId, city?.lat, city?.lng, radiusKm, svcType]);
+
+  const handleRetryGis = useCallback(() => {
+    setGisSlowConnection(false);
+    setGisTimedOut(false);
+    if (typeof refetchServiceAnalysis === "function") {
+      refetchServiceAnalysis();
+    }
+  }, [refetchServiceAnalysis]);
   const primaryMunicipalityCode = useMemo(() => apiData?.comuni_breakdown?.[0]?.municipality_code ?? apiData?.comuni_breakdown?.[0]?.comune_code ?? null, [apiData]);
   const demographicsParams = useMemo(() => {
     const lat = Number(city?.lat);
@@ -5219,7 +5235,9 @@ export function Step2({
         focusedPoiId={focusedPoiId}
         focusedPoiNonce={focusedPoiNonce}
         gisLoading={gisLoading}
+        gisSlowConnection={gisSlowConnection || apiIsRetrying}
         gisTimedOut={gisTimedOut}
+        onRetryGis={handleRetryGis}
         handleManualMapClick={handleManualMapClick}
         hasUnconfirmedAddressPoint={hasUnconfirmedAddressPoint}
         hiddenBoundaries={hiddenBoundaries}

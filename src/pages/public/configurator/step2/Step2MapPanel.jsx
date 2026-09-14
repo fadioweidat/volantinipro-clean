@@ -10,7 +10,7 @@ import { getCoverageStatus } from "../../../../lib/step2/buildStep2ViewModel.js"
 import { normalizeMunicipalityName } from "../../../../lib/step2/addressIntent.js";
 import { truthfulSourceLabel } from "../../../../lib/step2/truthfulSourceLabel.js";
 
-export function Step2MapPanel({ activeLay, activeMapLayers, apiData, boundaryKpisForMap, city, civiciAvailable, civiciState, col, data, dusafLanduse, focusedPoiId, focusedPoiNonce, gisLoading, gisTimedOut, handleManualMapClick, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isComuneMode, isMovementStep2, isNilAnalysis, isNilManualMode, isRadiusMode, manualPinMode, mapBasemap, mapCityForStep2, mapConfiniOn, mapCoverageZones, municipalityBoundary, omiInfo, pois, poiEmptySectorLabel, poiFetchFailed, poiLoading, poiAssignments, radius, radiusKm, residentialRadiusRows, retryPoi, sectors, searchMode, selected, selectedSearchPoint, selectCampaignZone, selZones, serviceKpis, setActiveMapLayers, setManualPinMode, setMapBasemap, setMapConfiniOn, sharedCoveragePctText, showTerritoryData, step1OperationalPoints, svcType, targetBusinessMeta, thMax, thMin, toggleZone, togglePoiAssignment, viewMode, zoneAllocationById, zoneCoverageById, zonesInRadius, zonesWithCoords }) {
+export function Step2MapPanel({ activeLay, activeMapLayers, apiData, boundaryKpisForMap, city, civiciAvailable, civiciState, col, data, dusafLanduse, focusedPoiId, focusedPoiNonce, gisLoading, gisSlowConnection, gisTimedOut, onRetryGis, handleManualMapClick, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isComuneMode, isMovementStep2, isNilAnalysis, isNilManualMode, isRadiusMode, manualPinMode, mapBasemap, mapCityForStep2, mapConfiniOn, mapCoverageZones, municipalityBoundary, omiInfo, pois, poiEmptySectorLabel, poiFetchFailed, poiLoading, poiAssignments, radius, radiusKm, residentialRadiusRows, retryPoi, sectors, searchMode, selected, selectedSearchPoint, selectCampaignZone, selZones, serviceKpis, setActiveMapLayers, setManualPinMode, setMapBasemap, setMapConfiniOn, sharedCoveragePctText, showTerritoryData, step1OperationalPoints, svcType, targetBusinessMeta, thMax, thMin, toggleZone, togglePoiAssignment, viewMode, zoneAllocationById, zoneCoverageById, zonesInRadius, zonesWithCoords }) {
   return (
     <>
       {/* MAPPA GRANDE — solo Vista Cliente. */}
@@ -111,25 +111,65 @@ export function Step2MapPanel({ activeLay, activeMapLayers, apiData, boundaryKpi
               position: "absolute",
               inset: 0,
               zIndex: 760,
-              pointerEvents: "none",
+              pointerEvents: gisTimedOut ? "auto" : "none",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: gisTimedOut ? "rgba(8,15,30,.18)" : "rgba(8,15,30,.08)"
+              background: gisTimedOut ? "rgba(8,15,30,.45)" : "rgba(8,15,30,.08)"
             }}>
                 <div style={{
-                padding: "10px 14px",
+                padding: "12px 18px",
                 borderRadius: 10,
-                background: "rgba(8,15,30,.88)",
-                border: `1px solid ${gisTimedOut ? "rgba(239,68,68,.26)" : "rgba(255,255,255,.12)"}`,
-                color: gisTimedOut ? "#FCA5A5" : C.white,
+                background: "rgba(8,15,30,.92)",
+                border: `1px solid ${gisTimedOut ? "rgba(239,68,68,.36)" : gisSlowConnection ? "rgba(234,179,8,.36)" : "rgba(255,255,255,.12)"}`,
+                color: gisTimedOut ? "#FCA5A5" : gisSlowConnection ? "#FDE047" : C.white,
                 fontFamily: F.sans,
                 fontSize: 12,
-                fontWeight: 800,
+                fontWeight: 700,
                 boxShadow: "0 10px 28px rgba(0,0,0,.34)",
-                backdropFilter: "blur(10px)"
+                backdropFilter: "blur(10px)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 8,
+                textAlign: "center",
+                maxWidth: 320
               }}>
-                  {gisTimedOut ? "Dati non disponibili, riprova o cambia raggio." : "Analisi GIS in corso..."}
+                  {gisTimedOut ? (
+                    <>
+                      <div>Servizio temporaneamente non disponibile. Riprova.</div>
+                      {onRetryGis && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRetryGis();
+                          }}
+                          style={{
+                            cursor: "pointer",
+                            pointerEvents: "auto",
+                            background: "#E8571A",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: 6,
+                            padding: "6px 14px",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            fontFamily: F.sans,
+                            transition: "background .15s ease"
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = "#ff6a2b"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = "#E8571A"; }}
+                        >
+                          Riprova
+                        </button>
+                      )}
+                    </>
+                  ) : gisSlowConnection ? (
+                    "Connessione temporaneamente lenta. Riprovo..."
+                  ) : (
+                    "Analisi GIS in corso..."
+                  )}
                 </div>
               </div>}
 
