@@ -82,6 +82,8 @@ export function useDriverAssignment(assignmentId) {
   const [confirmedAt, setConfirmedAt] = useState(null);
   const [confirming, setConfirming] = useState(false);
   const [confirmationError, setConfirmationError] = useState(null);
+  const [openEventStatus, setOpenEventStatus] = useState('idle'); // 'idle' | 'recording' | 'success' | 'error'
+  const [openEventError, setOpenEventError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +99,8 @@ export function useDriverAssignment(assignmentId) {
     setAssignmentErrorType(null);
     setProgramDetailsError(null);
     setConfirmationError(null);
+    setOpenEventStatus('idle');
+    setOpenEventError(null);
 
     // Timing DEV-only (import.meta.env.DEV): performance.now() per fase,
     // stampato in una riga sola a fine caricamento. Nessun impatto in
@@ -222,20 +226,71 @@ export function useDriverAssignment(assignmentId) {
       // nulla. confirmed_at arriva gia' nella risposta di get_public_driver_
       // assignment (Fase 1, SECURITY DEFINER, non soggetta a RLS) e resta
       // l'unica fonte necessaria — vedi setConfirmedAt(data.confirmed_at)
-      // sopra.
-      supabase.rpc('log_assignment_event', {
-        p_assignment_id: assignmentId,
-        p_action: 'assignment_program_opened',
-        p_access_token: accessToken,
-      }).then(({ error: openedEventError }) => {
-        if (openedEventError && DEBUG_TIMING) console.info("[DRIVER LOAD] evento apertura non registrato:", openedEventError.message);
-      });
+      // ─── FASE 2 — CANONICAL OPEN EVENT & PROGRAM DETAILS ──────────────
+      // In FASE 2 we record the canonical assignment_program_opened event.
+      // We await this RPC to ensure the open event is persisted in DB before
+      // enabling the confirmation button, strictly eliminating race conditions.
+      setOpenEventStatus('recording');
+      setOpenEventError(null);
+      try {
+        const { error: openedEventError } = await supabase.rpc('log_assignment_event', {
+          p_assignment_id: assignmentId,
+          p_action: 'assignment_program_opened',
+          p_access_token: accessToken,
+        });
+        if (openedEventError) {
+          console.error('[DRIVER LOAD] evento apertura non registrato:', openedEventError.message);
+          if (!cancelled) {
+            setOpenEventStatus('error');
+            setOpenEventError("Non siamo riusciti a registrare l'apertura del programma. Riprova.");
+          }
+        } else {
+          if (!cancelled) {
+            setOpenEventStatus('success');
+            setOpenEventError(null);
+          }
+        }
+      } catch (err) {
+        console.error('[DRIVER LOAD] eccezione evento apertura:', err);
+        if (!cancelled) {
+          setOpenEventStatus('error');
+          setOpenEventError("Non siamo riusciti a registrare l'apertura del programma. Riprova.");
+        }
+      }
+
       if (DEBUG_TIMING) { t.fullProgramReady = performance.now(); logDriverLoadTiming(t); }
       if (!cancelled) setLoadingProgramDetails(false);
     }
     load();
     return () => { cancelled = true; };
-  }, [assignmentId]);
+  }, [assignmentId, accessToken]);
+
+  // Riprova registrazione apertura programma se fallita per motivi di rete
+  const retryOpenProgram = useCallback(async () => {
+    setOpenEventStatus('recording');
+    setOpenEventError(null);
+    try {
+      const { supabase } = await import('../supabaseClient.js');
+      if (!supabase) throw new Error('Supabase non configurato.');
+      const { error: openedEventError } = await supabase.rpc('log_assignment_event', {
+        p_assignment_id: assignmentId,
+        p_action: 'assignment_program_opened',
+        p_access_token: accessToken,
+      });
+      if (openedEventError) {
+        console.error('[DRIVER RETRY OPEN] evento apertura non registrato:', openedEventError.message);
+        setOpenEventStatus('error');
+        setOpenEventError("Non siamo riusciti a registrare l'apertura del programma. Riprova.");
+      } else {
+        setOpenEventStatus('success');
+        setOpenEventError(null);
+      }
+    } catch (err) {
+      console.error('[DRIVER RETRY OPEN] eccezione evento apertura:', err);
+      setOpenEventStatus('error');
+      setOpenEventError("Non siamo riusciti a registrare l'apertura del programma. Riprova.");
+    }
+  }, [assignmentId, accessToken]);
 
   // Presa in carico autorizzata dal token del link (vedi log_assignment_event
   // sopra) quando presente; senza ?access= nell'URL fallisce con un
@@ -246,26 +301,40 @@ export function useDriverAssignment(assignmentId) {
     setConfirmationError(null);
     try {
       const { supabase } = await import('../supabaseClient.js');
+      if (!supabase) throw new Error('Supabase non configurato.');
+
+      // Safeguard against any fast-click race: ensure open event is registered
+      // before taking charge, eliminating any possible PROGRAM_NOT_OPENED race.
+      if (openEventStatus !== 'success') {
+        const { error: ensureOpenErr } = await supabase.rpc('log_assignment_event', {
+          p_assignment_id: assignmentId,
+          p_action: 'assignment_program_opened',
+          p_access_token: accessToken,
+        });
+        if (ensureOpenErr) {
+          console.error('[DRIVER CONFIRM] Pre-open registration failed:', ensureOpenErr.message);
+          setOpenEventStatus('error');
+          setOpenEventError("Non siamo riusciti a registrare l'apertura del programma. Riprova.");
+          throw new Error('PROGRAM_NOT_OPENED');
+        }
+        setOpenEventStatus('success');
+        setOpenEventError(null);
+      }
+
       const { error } = await supabase.rpc('log_assignment_event', {
         p_assignment_id: assignmentId,
         p_action: 'assignment_program_confirmed',
         p_access_token: accessToken,
       });
       if (error) throw error;
-      const { data } = await supabase
-        .from('assignment_event_log')
-        .select('created_at')
-        .eq('assignment_id', assignmentId)
-        .eq('event_type', 'assignment_program_confirmed')
-        .order('created_at', { ascending: true })
-        .limit(1);
-      setConfirmedAt(data?.[0]?.created_at || new Date().toISOString());
+      setConfirmedAt(new Date().toISOString());
     } catch (error) {
-      setConfirmationError(error?.message || 'Impossibile confermare il programma.');
+      console.error('[DRIVER CONFIRM ERROR]', error?.message || error);
+      setConfirmationError(mapDriverConfirmationError(error));
     } finally {
       setConfirming(false);
     }
-  }, [assignmentId, accessToken, confirmedAt, confirming]);
+  }, [assignmentId, accessToken, confirmedAt, confirming, openEventStatus]);
 
   return {
     assignmentData,
@@ -282,5 +351,25 @@ export function useDriverAssignment(assignmentId) {
     confirmationError,
     confirmAssignment,
     accessToken,
+    openEventStatus,
+    openEventError,
+    retryOpenProgram,
   };
+}
+
+export function mapDriverConfirmationError(err) {
+  const msg = err?.message || String(err || '');
+  if (msg.includes('PROGRAM_NOT_OPENED')) {
+    return "Non siamo riusciti a registrare l'apertura del programma. Riprova.";
+  }
+  if (msg.includes('ASSIGNMENT_NOT_ACTIVE')) {
+    return "Questa assegnazione non è attiva al momento.";
+  }
+  if (msg.includes('UNAUTHORIZED')) {
+    return "Link di accesso non valido o non autorizzato. Verifica il messaggio ricevuto.";
+  }
+  if (msg.includes('NOT_FOUND')) {
+    return "Assegnazione non trovata. Contatta l'amministratore.";
+  }
+  return "Impossibile confermare la presa in carico del programma. Riprova.";
 }

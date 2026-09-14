@@ -52,6 +52,9 @@ export function DriverAssignmentPage({ assignmentId }) {
     confirmationError,
     confirmAssignment,
     accessToken,
+    openEventStatus,
+    openEventError,
+    retryOpenProgram,
   } = useDriverAssignment(assignmentId);
 
   if (loadingAssignment) {
@@ -84,6 +87,9 @@ export function DriverAssignmentPage({ assignmentId }) {
       confirmationError={confirmationError}
       onConfirm={confirmAssignment}
       accessToken={accessToken}
+      openEventStatus={openEventStatus}
+      openEventError={openEventError}
+      onRetryOpen={retryOpenProgram}
     />
   );
 }
@@ -92,7 +98,23 @@ export function DriverAssignmentPage({ assignmentId }) {
 // Il componente reale del tracker. Separato per permettere il mount
 // solo dopo che campaignId è risolto (evita chiamate con undefined).
 
-function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecord, assignmentZones, loadingProgramDetails, programDetailsError, confirmedAt, confirming, confirmationError, onConfirm, accessToken }) {
+function DriverTracker({
+  campaignId,
+  assignmentId,
+  assignmentData,
+  campaignRecord,
+  assignmentZones,
+  loadingProgramDetails,
+  programDetailsError,
+  confirmedAt,
+  confirming,
+  confirmationError,
+  onConfirm,
+  accessToken,
+  openEventStatus,
+  openEventError,
+  onRetryOpen,
+}) {
   // Stesso riuso di DriverWorkMapPage.jsx: assignment/campaign gia'
   // validati da useDriverAssignment, passati a useGpsTracking per evitare
   // di rifare da zero gps_get_operator_campaign/getValidOperatorAssignments.
@@ -420,17 +442,48 @@ function DriverTracker({ campaignId, assignmentId, assignmentData, campaignRecor
               Confermato alle {new Date(confirmedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
             </div>
           </div>
-        ) : loadingProgramDetails ? (
-          // Stato conferma non ancora noto (Fase 2 in corso): placeholder
-          // neutro, mai il pulsante prima di sapere se e' gia' confermato.
-          <p style={{ ...mutedStyle, marginTop: 8 }}>Verifica stato conferma...</p>
+        ) : (loadingProgramDetails || openEventStatus === 'recording' || openEventStatus === 'idle') ? (
+          // Stato conferma o registrazione apertura in corso: placeholder
+          // neutro, mai il pulsante prima che l'apertura sia persistita con successo.
+          <p style={{ ...mutedStyle, marginTop: 8 }}>Caricamento programma...</p>
+        ) : openEventStatus === 'error' ? (
+          <div style={{ marginTop: 8 }}>
+            <p role="alert" style={{ color: '#FCA5A5', margin: '0 0 8px', fontSize: 13 }}>
+              {openEventError || "Non siamo riusciti a registrare l'apertura del programma. Riprova."}
+            </p>
+            <button
+              type="button"
+              style={{ ...secondaryButtonStyle, fontSize: 13, padding: '6px 14px' }}
+              onClick={onRetryOpen}
+            >
+              Riprova
+            </button>
+          </div>
         ) : (
           <>
-            <button type="button" style={{ ...primaryButtonStyle, width: '100%', marginTop: 10 }} disabled={confirming} onClick={onConfirm}>
+            <button
+              type="button"
+              style={{ ...primaryButtonStyle, width: '100%', marginTop: 10 }}
+              disabled={confirming || openEventStatus !== 'success'}
+              onClick={onConfirm}
+            >
               {confirming ? 'Conferma in corso...' : 'Confermo e prendo in carico'}
             </button>
             <p style={{ ...mutedStyle, marginTop: 8 }}>Conferma di aver ricevuto e verificato il programma di lavoro.</p>
-            {confirmationError && <p role="alert" style={{ color: '#FCA5A5', margin: '8px 0 0', fontSize: 12 }}>{confirmationError}</p>}
+            {confirmationError && (
+              <div style={{ marginTop: 8 }}>
+                <p role="alert" style={{ color: '#FCA5A5', margin: '0 0 6px', fontSize: 12 }}>
+                  {confirmationError}
+                </p>
+                <button
+                  type="button"
+                  style={{ ...secondaryButtonStyle, fontSize: 12, padding: '4px 10px', marginTop: 4 }}
+                  onClick={onConfirm}
+                >
+                  Riprova
+                </button>
+              </div>
+            )}
           </>
         )}
       </section>
