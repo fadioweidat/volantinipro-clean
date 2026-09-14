@@ -77,6 +77,8 @@ export function useDriverAssignment(assignmentId) {
   const [loadingProgramDetails, setLoadingProgramDetails] = useState(true);
   // Errore NON bloccante: una query secondaria e' fallita ma l'accesso base
   // resta valido — il chiamante mostra un avviso locale, non la schermata
+  // Errore NON bloccante: una query secondaria e' fallita ma l'accesso base
+  // resta valido — il chiamante mostra un avviso locale, non la schermata
   // globale di blocco (quella resta riservata ad assignmentError).
   const [programDetailsError, setProgramDetailsError] = useState(null);
   const [confirmedAt, setConfirmedAt] = useState(null);
@@ -84,6 +86,12 @@ export function useDriverAssignment(assignmentId) {
   const [confirmationError, setConfirmationError] = useState(null);
   const [openEventStatus, setOpenEventStatus] = useState('idle'); // 'idle' | 'recording' | 'success' | 'error'
   const [openEventError, setOpenEventError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [isTransientError, setIsTransientError] = useState(false);
+
+  const retryLoadAssignment = useCallback(() => {
+    setReloadKey(k => k + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +105,7 @@ export function useDriverAssignment(assignmentId) {
     setConfirmedAt(null);
     setAssignmentError(null);
     setAssignmentErrorType(null);
+    setIsTransientError(false);
     setProgramDetailsError(null);
     setConfirmationError(null);
     setOpenEventStatus('idle');
@@ -127,12 +136,28 @@ export function useDriverAssignment(assignmentId) {
         supabase = bridge.supabase;
         if (!supabase) throw new Error('Supabase non configurato.');
 
-        const { data: rpcResult, error } = await supabase.rpc('get_public_driver_assignment', {
-          p_assignment_id: assignmentId,
-        });
+        let rpcResult = null;
+        let rpcErr = null;
+        // Bounded retry (up to 3 attempts, 1.2s delay) for transient PostgREST schema cache / 503 errors
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const { data: res, error } = await supabase.rpc('get_public_driver_assignment', {
+            p_assignment_id: assignmentId,
+          });
+          if (!error) {
+            rpcResult = res;
+            rpcErr = null;
+            break;
+          }
+          rpcErr = error;
+          if (!isTransientSchemaOrNetworkError(error) || attempt === 2) {
+            break;
+          }
+          await new Promise(r => setTimeout(r, 1200));
+        }
+
         if (DEBUG_TIMING) t.assignment = performance.now();
 
-        if (error) throw error;
+        if (rpcErr) throw rpcErr;
         if (!rpcResult || rpcResult.error === 'not_found') {
           throw new Error('Assegnazione non trovata. Verifica il link ricevuto o contatta il tuo amministratore.');
         }
@@ -164,7 +189,11 @@ export function useDriverAssignment(assignmentId) {
       } catch (err) {
         if (!cancelled) {
           if (DEBUG_TIMING) logDriverLoadTiming(t, err);
-          setAssignmentError(err?.message || 'Errore caricamento assegnazione.');
+          console.error('[DRIVER ASSIGNMENT LOAD ERROR]', err);
+          const isTransient = isTransientSchemaOrNetworkError(err);
+          const friendlyMessage = mapDriverAssignmentLoadError(err);
+          setAssignmentError(friendlyMessage);
+          setIsTransientError(isTransient);
           setAssignmentErrorType(null);
           setLoadingAssignment(false);
           setLoadingProgramDetails(false);
@@ -263,7 +292,7 @@ export function useDriverAssignment(assignmentId) {
     }
     load();
     return () => { cancelled = true; };
-  }, [assignmentId, accessToken]);
+  }, [assignmentId, accessToken, reloadKey]);
 
   // Riprova registrazione apertura programma se fallita per motivi di rete
   const retryOpenProgram = useCallback(async () => {
@@ -354,7 +383,52 @@ export function useDriverAssignment(assignmentId) {
     openEventStatus,
     openEventError,
     retryOpenProgram,
+    isTransientError,
+    retryLoadAssignment,
   };
+}
+
+export function isTransientSchemaOrNetworkError(err) {
+  const msg = (err?.message || String(err || '')).toLowerCase();
+  const status = err?.status || err?.statusCode || 0;
+  return (
+    status === 503 ||
+    status === 502 ||
+    status === 504 ||
+    msg.includes('schema cache') ||
+    msg.includes('schema-cache') ||
+    msg.includes('pgrst000') ||
+    msg.includes('pgrst002') ||
+    msg.includes('retrying') ||
+    msg.includes('failed to fetch') ||
+    msg.includes('networkerror') ||
+    msg.includes('network request failed') ||
+    msg.includes('connection refused') ||
+    msg.includes('temporaneamente non disponibile')
+  );
+}
+
+export function mapDriverAssignmentLoadError(err) {
+  if (isTransientSchemaOrNetworkError(err)) {
+    return 'Servizio temporaneamente non disponibile. Riprova tra poco.';
+  }
+  const msg = err?.message || String(err || '');
+  if (msg.includes('Assegnazione non trovata') || msg.includes('not_found')) {
+    return 'Assegnazione non trovata. Verifica il link ricevuto o contatta il tuo amministratore.';
+  }
+  if (msg.includes('revocata')) {
+    return 'Questa assegnazione è stata revocata. Contatta il tuo amministratore.';
+  }
+  if (msg.includes('già stata completata')) {
+    return 'Questa assegnazione è già stata completata.';
+  }
+  if (msg.includes('scaduta')) {
+    return msg;
+  }
+  if (msg.includes('lavoro inizia il')) {
+    return msg;
+  }
+  return 'Errore caricamento assegnazione.';
 }
 
 export function mapDriverConfirmationError(err) {

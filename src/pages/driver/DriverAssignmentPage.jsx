@@ -55,6 +55,8 @@ export function DriverAssignmentPage({ assignmentId }) {
     openEventStatus,
     openEventError,
     retryOpenProgram,
+    isTransientError,
+    retryLoadAssignment,
   } = useDriverAssignment(assignmentId);
 
   if (loadingAssignment) {
@@ -68,7 +70,11 @@ export function DriverAssignmentPage({ assignmentId }) {
   if (assignmentError || !campaignId) {
     return (
       <main style={shellStyle}>
-        <BlockedScreen error={assignmentError || 'Assegnazione non disponibile.'} />
+        <BlockedScreen
+          error={assignmentError || 'Assegnazione non disponibile.'}
+          isTransient={isTransientError}
+          onRetry={retryLoadAssignment}
+        />
       </main>
     );
   }
@@ -713,14 +719,36 @@ function LoadingScreen() {
   );
 }
 
-function BlockedScreen({ error }) {
+function BlockedScreen({ error, isTransient = false, onRetry = null }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', flexDirection: 'column', gap: 16, padding: 24 }}>
-      <div style={{ fontSize: 48 }}>🔒</div>
-      <h2 style={{ color: '#fff', textAlign: 'center', fontSize: 20, margin: 0 }}>Accesso non disponibile</h2>
-      <p style={{ color: '#fca5a5', textAlign: 'center', maxWidth: 400, lineHeight: 1.6, fontSize: 14 }}>{error}</p>
-      <p style={{ color: 'rgba(255,255,255,.45)', fontSize: 12, textAlign: 'center' }}>
-        Assicurati di essere loggato con l'account corretto e che l'assegnazione sia attiva.
+      <div style={{ fontSize: 48 }}>{isTransient ? '⏳' : '🔒'}</div>
+      <h2 style={{ color: '#fff', textAlign: 'center', fontSize: 20, margin: 0 }}>
+        {isTransient ? 'Servizio non disponibile' : 'Accesso non disponibile'}
+      </h2>
+      <p style={{ color: '#fca5a5', textAlign: 'center', maxWidth: 400, lineHeight: 1.6, fontSize: 14 }}>
+        {error}
+      </p>
+      {isTransient && onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          style={{
+            ...primaryButtonStyle,
+            marginTop: 4,
+            padding: '8px 22px',
+            fontSize: 14,
+            minHeight: 44,
+            cursor: 'pointer',
+          }}
+        >
+          Riprova
+        </button>
+      )}
+      <p style={{ color: 'rgba(255,255,255,.45)', fontSize: 12, textAlign: 'center', maxWidth: 360 }}>
+        {isTransient
+          ? 'Stiamo ristabilendo il collegamento. Premi Riprova per aggiornare.'
+          : "Verifica il link ricevuto su WhatsApp o contatta il tuo amministratore."}
       </p>
     </div>
   );

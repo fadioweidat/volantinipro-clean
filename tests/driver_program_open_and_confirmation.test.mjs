@@ -1,6 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mapDriverConfirmationError } from '../src/hooks/useDriverAssignment.js';
+import {
+  mapDriverConfirmationError,
+  mapDriverAssignmentLoadError,
+  isTransientSchemaOrNetworkError,
+} from '../src/hooks/useDriverAssignment.js';
+
 
 // Simulated DB model matching Supabase tables and RPCs
 class MockAssignmentDatabase {
@@ -301,4 +306,51 @@ describe('Driver Assignment Program Open & Confirmation Engine', () => {
     const errGeneric = mapDriverConfirmationError(new Error('Network connection timeout'));
     assert.equal(errGeneric, "Impossibile confermare la presa in carico del programma. Riprova.");
   });
+
+  it('G. POSTGREST SCHEMA CACHE DETECTION: isTransientSchemaOrNetworkError detects schema cache / 503 errors', () => {
+    // Exact production error
+    const schemaErr = new Error('Could not query the database for the schema cache. Retrying.');
+    assert.equal(isTransientSchemaOrNetworkError(schemaErr), true);
+
+    // PGRST error code
+    const pgrstErr = { message: 'PGRST002: database timeout' };
+    assert.equal(isTransientSchemaOrNetworkError(pgrstErr), true);
+
+    // HTTP 503 status
+    const status503Err = { status: 503, message: 'Service Unavailable' };
+    assert.equal(isTransientSchemaOrNetworkError(status503Err), true);
+
+    // Network / fetch error
+    const fetchErr = new TypeError('Failed to fetch');
+    assert.equal(isTransientSchemaOrNetworkError(fetchErr), true);
+
+    // Regular permanent errors must NOT be marked transient
+    const notFoundErr = new Error('Assegnazione non trovata.');
+    assert.equal(isTransientSchemaOrNetworkError(notFoundErr), false);
+
+    const revokedErr = new Error('Questa assegnazione è stata revocata.');
+    assert.equal(isTransientSchemaOrNetworkError(revokedErr), false);
+  });
+
+  it('H. SCHEMA CACHE / TRANSIENT ERROR UX: mapDriverAssignmentLoadError never shows raw schema cache error', () => {
+    const rawSchemaError = new Error('Could not query the database for the schema cache. Retrying.');
+    const userMessage = mapDriverAssignmentLoadError(rawSchemaError);
+
+    // Must be friendly Italian
+    assert.equal(userMessage, 'Servizio temporaneamente non disponibile. Riprova tra poco.');
+
+    // Must NEVER contain technical jargon
+    assert.doesNotMatch(userMessage, /schema/i);
+    assert.doesNotMatch(userMessage, /cache/i);
+    assert.doesNotMatch(userMessage, /retrying/i);
+    assert.doesNotMatch(userMessage, /pgrst/i);
+
+    // Permanent errors retain appropriate explanations
+    const notFoundMsg = mapDriverAssignmentLoadError(new Error('not_found'));
+    assert.equal(notFoundMsg, 'Assegnazione non trovata. Verifica il link ricevuto o contatta il tuo amministratore.');
+
+    const revokedMsg = mapDriverAssignmentLoadError(new Error('Questa assegnazione è stata revocata. Contatta il tuo amministratore.'));
+    assert.equal(revokedMsg, 'Questa assegnazione è stata revocata. Contatta il tuo amministratore.');
+  });
 });
+
