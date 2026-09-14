@@ -447,3 +447,24 @@ export function mapDriverConfirmationError(err) {
   }
   return "Impossibile confermare la presa in carico del programma. Riprova.";
 }
+
+export function mapDriverActionError(err) {
+  const msg = String(err?.message || err || '');
+  if (/permission denied|PERMISSION_DENIED|unauthorized|ASSEGNAZIONE_NON_AUTORIZZATA|OPERATORE_NON_AUTENTICATO/i.test(msg)) {
+    return 'Non sei autorizzato ad avviare questa sessione. Verifica il link o contatta l\'amministratore.';
+  }
+  if (/ACTIVE_SESSION_EXISTS|SESSIONE_GIA_ATTIVA/i.test(msg)) {
+    return 'Esiste già una sessione attiva per questa assegnazione.';
+  }
+  if (/DEVICE_MISMATCH/i.test(msg)) {
+    return 'Questa sessione è attiva su un altro dispositivo. Contatta l\'amministratore.';
+  }
+  if (/ZONA_NON_AUTORIZZATA/i.test(msg)) {
+    return 'Zona non autorizzata per questa campagna.';
+  }
+  if (/User denied Geolocation|geolocation/i.test(msg)) {
+    return 'Permesso di geolocalizzazione negato. Abilita la posizione nel browser per iniziare.';
+  }
+  return msg || 'Operazione non riuscita. Riprova.';
+}
+

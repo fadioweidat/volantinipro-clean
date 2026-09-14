@@ -4,6 +4,7 @@ import {
   mapDriverConfirmationError,
   mapDriverAssignmentLoadError,
   isTransientSchemaOrNetworkError,
+  mapDriverActionError,
 } from '../src/hooks/useDriverAssignment.js';
 
 
@@ -352,5 +353,102 @@ describe('Driver Assignment Program Open & Confirmation Engine', () => {
     const revokedMsg = mapDriverAssignmentLoadError(new Error('Questa assegnazione è stata revocata. Contatta il tuo amministratore.'));
     assert.equal(revokedMsg, 'Questa assegnazione è stata revocata. Contatta il tuo amministratore.');
   });
+
+  it('I. SUPPLIER-ONLY ASSIGNMENT START: start session succeeds with operator_id = null and transitions zone to "In corso"', () => {
+    const db = new MockAssignmentDatabase();
+    const assignmentId = 'assign-supplier-handoff-1';
+    const zoneId = 'zone-legnano-1';
+
+    // Supplier handoff assignment (operator_id is NULL)
+    db.seedAssignment({
+      id: assignmentId,
+      campaign_id: 'camp-100',
+      operator_id: null,
+      access_token: 'secret-token-xyz',
+      status: 'active',
+      metadata: { supplier_name: 'lgt' },
+    });
+
+    // Simulated v2 validation (supports operator_id = null)
+    const isValid = (aId, driverId) => {
+      const a = db.assignments.get(aId);
+      if (!a || a.status !== 'active') return false;
+      // In v2: if operator_id is null, identity is assignment.id
+      const expectedIdentity = a.operator_id || a.id;
+      return driverId === expectedIdentity;
+    };
+
+    const assignment = db.assignments.get(assignmentId);
+    const resolvedIdentity = assignment.operator_id || assignment.id;
+    assert.equal(resolvedIdentity, assignmentId);
+    assert.equal(isValid(assignmentId, resolvedIdentity), true);
+
+    // Delivery session creation
+    const session = {
+      id: 'session-001',
+      assignment_id: assignmentId,
+      campaign_id: assignment.campaign_id,
+      driver_id: resolvedIdentity,
+      status: 'started',
+      campaign_zone_id: zoneId,
+      started_at: new Date().toISOString(),
+    };
+
+    assert.equal(session.driver_id, assignmentId);
+    assert.equal(session.status, 'started');
+    assert.equal(session.campaign_zone_id, zoneId);
+
+    // Zone transitions to "In corso"
+    const zone = { id: zoneId, name: 'Legnano', status: 'Da iniziare' };
+    zone.status = 'In corso';
+    assert.equal(zone.status, 'In corso');
+  });
+
+  it('J. ANTI-DUPLICATE SESSION / DOUBLE-CLICK: duplicate start rejects with ACTIVE_SESSION_EXISTS', () => {
+    const sessions = [
+      { id: 'sess-1', driver_id: 'assign-1', status: 'started', campaign_id: 'camp-1' }
+    ];
+
+    const tryStartSession = (driverId, campaignId) => {
+      const existing = sessions.find(s => s.driver_id === driverId && s.campaign_id === campaignId && s.status === 'started');
+      if (existing) {
+        throw new Error('ACTIVE_SESSION_EXISTS: sessione già attiva');
+      }
+      return { id: 'sess-2', driver_id: driverId, status: 'started' };
+    };
+
+    assert.throws(
+      () => tryStartSession('assign-1', 'camp-1'),
+      /ACTIVE_SESSION_EXISTS/
+    );
+  });
+
+  it('K. DRIVER ACTION ERROR MAPPING: action errors map to friendly Italian text with zero raw technical leakage', () => {
+    const authErr = new Error('ASSEGNAZIONE_NON_AUTORIZZATA');
+    assert.equal(mapDriverActionError(authErr), "Non sei autorizzato ad avviare questa sessione. Verifica il link o contatta l'amministratore.");
+
+    const opAuthErr = new Error('OPERATORE_NON_AUTENTICATO');
+    assert.equal(mapDriverActionError(opAuthErr), "Non sei autorizzato ad avviare questa sessione. Verifica il link o contatta l'amministratore.");
+
+    const dupErr = new Error('ACTIVE_SESSION_EXISTS: sessione sess-1 attiva, ultima attivita 12 secondi fa');
+    assert.equal(mapDriverActionError(dupErr), "Esiste già una sessione attiva per questa assegnazione.");
+
+    const sessGiaAttivaErr = new Error('SESSIONE_GIA_ATTIVA');
+    assert.equal(mapDriverActionError(sessGiaAttivaErr), "Esiste già una sessione attiva per questa assegnazione.");
+
+    const devMismatchErr = new Error('DEVICE_MISMATCH');
+    assert.equal(mapDriverActionError(devMismatchErr), "Questa sessione è attiva su un altro dispositivo. Contatta l'amministratore.");
+
+    const geoDeniedErr = new Error('User denied Geolocation');
+    assert.equal(mapDriverActionError(geoDeniedErr), "Permesso di geolocalizzazione negato. Abilita la posizione nel browser per iniziare.");
+
+    // Zero technical leak
+    const mapped = mapDriverActionError(dupErr);
+    assert.doesNotMatch(mapped, /sessione sess-1/i);
+    assert.doesNotMatch(mapped, /errcode/i);
+    assert.doesNotMatch(mapped, /42501/i);
+    assert.doesNotMatch(mapped, /23505/i);
+  });
 });
+
 

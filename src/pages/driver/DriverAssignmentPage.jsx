@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useGpsTracking } from '../../hooks/useGpsTracking.js';
-import { useDriverAssignment } from '../../hooks/useDriverAssignment.js';
+import { useDriverAssignment, mapDriverActionError } from '../../hooks/useDriverAssignment.js';
 import { PodCapture } from '../../components/driver/PodCapture.jsx';
 import { resolveMunicipalityBoundary } from '../../lib/geo/resolveMunicipalityBoundary.js';
 import { geoJsonContainsPoint } from '../../lib/geo/pointInPolygon.js';
@@ -96,6 +96,7 @@ export function DriverAssignmentPage({ assignmentId }) {
       openEventStatus={openEventStatus}
       openEventError={openEventError}
       onRetryOpen={retryOpenProgram}
+      onRefreshAssignment={retryLoadAssignment}
     />
   );
 }
@@ -120,6 +121,7 @@ function DriverTracker({
   openEventStatus,
   openEventError,
   onRetryOpen,
+  onRefreshAssignment,
 }) {
   // Stesso riuso di DriverWorkMapPage.jsx: assignment/campaign gia'
   // validati da useDriverAssignment, passati a useGpsTracking per evitare
@@ -328,9 +330,13 @@ function DriverTracker({
   async function runAction(label, fn) {
     setActionError(null);
     setActionLoading(label);
-    try { await fn(); }
-    catch (err) { setActionError(err?.message || 'Operazione non riuscita.'); }
-    finally { setActionLoading(null); }
+    try {
+      await fn();
+    } catch (err) {
+      setActionError(mapDriverActionError(err));
+    } finally {
+      setActionLoading(null);
+    }
   }
 
   // "Termina lavoro": conferma esplicita + tracking.end() (che ha il proprio
@@ -506,11 +512,12 @@ function DriverTracker({
         <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
           {zonesToDisplay.map((z, idx) => {
             const isCurrentZone = tracking.session?.campaign_zone_id === z.id && z.id != null;
+            const effectiveStatus = (isCurrentZone && (tracking.isActive || tracking.isPaused)) ? 'In corso' : z.status;
             
-            let statusPill = z.status;
+            let statusPill = effectiveStatus;
             let statusColor = '#94a3b8'; // Da iniziare
-            if (z.status === 'In corso') statusColor = '#3b82f6';
-            if (z.status === 'Completata') statusColor = '#22c55e';
+            if (effectiveStatus === 'In corso') statusColor = '#3b82f6';
+            if (effectiveStatus === 'Completata') statusColor = '#22c55e';
             if (z.isLegacy) {
               statusPill = 'Legacy (Sola lettura)';
               statusColor = '#f59e0b';
@@ -533,6 +540,11 @@ function DriverTracker({
                   </div>
                 </div>
                 {z.notes && <p style={{ margin: '8px 0', fontSize: 13, color: '#64748b' }}>Note: {z.notes}</p>}
+                {actionError && (
+                  <div style={{ margin: '8px 0', padding: '8px 12px', background: '#fef2f2', border: '1px solid #f87171', borderRadius: 6, color: '#991b1b', fontSize: 13 }}>
+                    ⚠️ {actionError}
+                  </div>
+                )}
                 
                 {!z.isLegacy && (
                   <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
@@ -548,9 +560,14 @@ function DriverTracker({
                         type="button"
                         style={{ ...primaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
                         disabled={Boolean(actionLoading) || assignmentBlocksStart}
-                        onClick={() => runAction(z.status === 'Completata' ? ACTION_REOPEN : ACTION_START, () => tracking.start(z.id))}
+                        onClick={() => runAction(z.status === 'Completata' ? ACTION_REOPEN : ACTION_START, async () => {
+                          await tracking.start(z.id);
+                          onRefreshAssignment?.();
+                        })}
                       >
-                        {z.status === 'Completata' ? 'Riprendi zona' : 'Inizia'}
+                        {actionLoading === (z.status === 'Completata' ? ACTION_REOPEN : ACTION_START)
+                          ? (z.status === 'Completata' ? 'Riapertura in corso...' : 'Avvio in corso...')
+                          : (z.status === 'Completata' ? 'Riprendi zona' : 'Inizia')}
                       </button>
                     )}
                     {!isCurrentZone && !tracking.isActive && !tracking.isPaused && activeSessionElsewhere && (
