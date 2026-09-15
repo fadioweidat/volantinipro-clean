@@ -128,16 +128,24 @@ export function computeBreakEven(inputs) {
   if (contributionMarginPerCustomer <= 0) {
     // (§3-C) margine di contribuzione nullo o negativo: pareggio non
     // raggiungibile in ogni caso, indipendentemente da altri ricavi.
-    return { ...base, customers: null, revenue: null, reachable: false };
+    return { ...base, customers: null, revenue: null, totalRevenue: null, reachable: false };
   }
   if (residualFixedCosts <= 0) {
     // (§3-B) gli altri ricavi ricorrenti coprono già da soli i costi fissi:
     // il pareggio è già raggiunto con zero clienti, mai un numero negativo.
-    return { ...base, customers: 0, revenue: 0, reachable: true };
+    // Ricavo mensile totale al pareggio = 0 (da clienti) + altri ricavi
+    // ricorrenti: mai un €0 fuorviante quando gli altri ricavi coprono già
+    // il pareggio economicamente (ticket "FINAL BREAK-EVEN REVENUE LABEL").
+    return { ...base, customers: 0, revenue: 0, totalRevenue: round2(otherMonthlyRevenue), reachable: true };
   }
   const customers = Math.ceil(residualFixedCosts / contributionMarginPerCustomer);
   const revenue = round2(customers * inputs.averageCustomerRevenue);
-  return { ...base, customers, revenue, reachable: true };
+  // Ricavo mensile totale al pareggio = ricavo generato dai clienti + altri
+  // ricavi mensili ricorrenti già inclusi nella formula del pareggio stesso
+  // (§4): mostrare solo `revenue` sarebbe incoerente con la formula che ha
+  // sottratto `otherMonthlyRevenue` dai costi fissi per arrivarci.
+  const totalRevenue = round2(revenue + otherMonthlyRevenue);
+  return { ...base, customers, revenue, totalRevenue, reachable: true };
 }
 
 // ── Payback period sull'investimento iniziale, mese in cui il profitto

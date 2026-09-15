@@ -22,6 +22,7 @@ test('computeBreakEven: clienti per pareggio = costi fissi / margine di contribu
   assert.equal(be.contributionMarginPerCustomer, 50);
   assert.equal(be.customers, 20);
   assert.equal(be.revenue, 2000);
+  assert.equal(be.totalRevenue, 2000); // nessun altro ricavo -> totale = ricavo clienti
   assert.equal(be.reachable, true);
 });
 
@@ -40,6 +41,7 @@ test('computeBreakEven: margine di contribuzione nullo o negativo -> pareggio no
   assert.equal(zero.reachable, false);
   assert.equal(zero.customers, null);
   assert.equal(zero.revenue, null);
+  assert.equal(zero.totalRevenue, null); // §5-B: ricavo totale al pareggio non disponibile se il pareggio non è raggiungibile
 });
 
 // ── TICKET "FINAL BUSINESS FEASIBILITY ECONOMIC CLARITY FIX" §10 ──────────
@@ -54,6 +56,7 @@ test('§10-A: FitLife — costi fissi 11700, altri ricavi 800, margine 35.40 -> 
   assert.equal(be.contributionMarginPerCustomer, 35.4);
   assert.equal(be.customers, 308);
   assert.equal(be.reachable, true);
+  assert.equal(be.revenue, 18172); // ricavo generato solo dai 308 clienti
 });
 
 test('§10-B: stessi costi fissi ma senza altri ricavi (0) -> comportamento esistente, pareggio 331 clienti', () => {
@@ -63,6 +66,27 @@ test('§10-B: stessi costi fissi ma senza altri ricavi (0) -> comportamento esis
   assert.equal(be.otherMonthlyRevenue, 0);
   assert.equal(be.residualFixedCosts, 11700);
   assert.equal(be.customers, 331);
+});
+
+// ── TICKET "FINAL BREAK-EVEN REVENUE LABEL / CONSISTENCY FIX" §6 ──────────
+// Il ricavo mensile TOTALE al pareggio deve includere sia il ricavo generato
+// dai clienti sia gli altri ricavi mensili ricorrenti già sottratti nella
+// formula del pareggio — mostrare solo il ricavo clienti come "di pareggio"
+// era un'incongruenza terminologica (18.172 € non è il ricavo totale reale).
+test('§6-A: FitLife — 308 clienti × 59 € + 800 € altri ricavi -> ricavo mensile totale al pareggio 18.972 €', () => {
+  const inputs = { monthlyRent: 4500, monthlyStaffCost: 4 * 1800, otherFixedCostsMonthly: 0, averageCustomerRevenue: 59, grossMarginPct: 60, otherMonthlyRevenue: 800 };
+  const be = computeBreakEven(inputs);
+  assert.equal(be.customers, 308);
+  assert.equal(be.revenue, 18172);
+  assert.equal(be.totalRevenue, 18972);
+});
+
+test('§6-B: senza altri ricavi mensili -> ricavo totale al pareggio = 331 clienti × 59 € = 19.529 €', () => {
+  const inputs = { monthlyRent: 4500, monthlyStaffCost: 4 * 1800, otherFixedCostsMonthly: 0, averageCustomerRevenue: 59, grossMarginPct: 60, otherMonthlyRevenue: 0 };
+  const be = computeBreakEven(inputs);
+  assert.equal(be.customers, 331);
+  assert.equal(be.revenue, 19529);
+  assert.equal(be.totalRevenue, 19529);
 });
 
 test('§10-B bis: altri ricavi mensili mancanti (undefined) -> trattati come 0, stesso risultato', () => {
@@ -80,6 +104,9 @@ test('§10-C: altri ricavi mensili >= costi fissi -> pareggio raggiunto con 0 cl
   assert.equal(be.customers, 0);
   assert.equal(be.revenue, 0);
   assert.equal(be.reachable, true);
+  // §5-C: 0 clienti ma altri ricavi > 0 -> il ricavo totale riflette gli
+  // altri ricavi ricorrenti, mai uno 0 € fuorviante.
+  assert.equal(be.totalRevenue, 5000);
 });
 
 test('§10-D: margine di contribuzione <= 0 con altri ricavi presenti -> resta non raggiungibile (mai un numero inventato)', () => {
@@ -88,6 +115,7 @@ test('§10-D: margine di contribuzione <= 0 con altri ricavi presenti -> resta n
   assert.equal(be.reachable, false);
   assert.equal(be.customers, null);
   assert.equal(be.revenue, null);
+  assert.equal(be.totalRevenue, null);
 });
 
 // ── B. Contribution margin / monthly economics ─────────────────────────────

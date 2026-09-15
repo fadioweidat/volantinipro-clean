@@ -326,7 +326,15 @@ export default function FeasibilityBusinessReport({ inputs, analysis, narrative,
                 <>
                   <dl className="vf-metrics">
                     <div><dt>Clienti per il pareggio</dt><dd data-testid="vfb-breakeven-customers"><strong>{fmt(financial.breakEven.customers)}</strong></dd></div>
-                    <div><dt>Ricavo mensile di pareggio</dt><dd>{eur(financial.breakEven.revenue)}</dd></div>
+                    <div><dt>Ricavo da clienti al pareggio</dt><dd>{eur(financial.breakEven.revenue)}</dd></div>
+                  </dl>
+                  {/* Ticket "FINAL BREAK-EVEN REVENUE LABEL / CONSISTENCY FIX": la
+                      formula sottrae gli altri ricavi ricorrenti dai costi fissi,
+                      quindi il ricavo totale al pareggio deve rincludersi entrambe
+                      le fonti — mai il solo ricavo clienti sotto un'etichetta
+                      generica "di pareggio", che il ticket precedente rendeva ambigua. */}
+                  <dl className="vf-metrics">
+                    <div><dt>Ricavo mensile totale al pareggio</dt><dd data-testid="vfb-breakeven-total-revenue"><strong>{eur(financial.breakEven.totalRevenue)}</strong></dd></div>
                   </dl>
                   <p className="vf-small">
                     {financial.breakEven.otherMonthlyRevenue > 0

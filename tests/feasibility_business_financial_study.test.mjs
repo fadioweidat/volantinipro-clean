@@ -205,6 +205,25 @@ test('Report: senza altri ricavi mensili ricorrenti la formula si semplifica (ne
   assert.match(html, /vfb-breakeven-customers[^>]*>[^<]*<strong>331<\/strong>/);
 });
 
+// ── TICKET "FINAL BREAK-EVEN REVENUE LABEL / CONSISTENCY FIX" §6 ─────────
+// "Ricavo mensile di pareggio" mostrava solo il ricavo generato dai clienti
+// (18.172 €), non il ricavo totale che la formula del pareggio presuppone
+// (che include gli 800 € di altri ricavi ricorrenti già sottratti dai costi
+// fissi). L'etichetta ambigua non deve più apparire da nessuna parte.
+test('§6-C/D: Report mostra "Ricavo mensile totale al pareggio" (18.972 €) e non la vecchia etichetta ambigua "Ricavo mensile di pareggio"', () => {
+  const html = fullReportHtml();
+  assert.match(html, /Ricavo mensile totale al pareggio/);
+  assert.doesNotMatch(html, /Ricavo mensile di pareggio/);
+  assert.match(html, /vfb-breakeven-total-revenue[^>]*>[^<]*<strong>18\.972\s?€<\/strong>/);
+  // Il ricavo generato dai soli clienti resta visibile ma sotto un'etichetta inequivocabile.
+  assert.match(html, /<dt>Ricavo da clienti al pareggio<\/dt><dd>18\.172\s?€<\/dd>/);
+});
+
+test('§6-B (report): senza altri ricavi mensili, il ricavo totale al pareggio coincide con quello generato dai 331 clienti (19.529 €)', () => {
+  const html = fullReportHtml({ otherMonthlyRevenue: '' });
+  assert.match(html, /vfb-breakeven-total-revenue[^>]*>[^<]*<strong>19\.529\s?€<\/strong>/);
+});
+
 // ── §10-E: la tabella scenari espone sia la media 1° anno sia il mese 12 ──
 test('Report: la tabella scenari mostra sia "Clienti medi 1° anno" sia "Clienti al mese 12", senza alterare la matematica degli scenari', () => {
   const html = fullReportHtml();
