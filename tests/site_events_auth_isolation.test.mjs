@@ -201,7 +201,7 @@ test("sessione VALIDA nel client principale: il tracking resta indipendente (ste
   }
 });
 
-test("event allowlist (FASE 2): 11 nomi consentiti, i tracker pubblici usano solo quelli", async () => {
+test("event allowlist (FASE 2 + Business Feasibility commerce): 17 nomi consentiti, i tracker pubblici usano solo quelli", async () => {
   const env = installBrowserEnv();
   try {
     const mod = await freshModule();
@@ -211,6 +211,10 @@ test("event allowlist (FASE 2): 11 nomi consentiti, i tracker pubblici usano sol
         "consultation_requested", "page_view", "quote_completed", "quote_started", "session_started",
         "municipality_selected", "quantity_selected", "service_selected", "extras_selected",
         "quote_step_reached", "quote_abandoned",
+        // TICKET "BUSINESS FEASIBILITY €49 COMMERCE BACKEND" §14 — allowlist
+        // extended server-side by 20260915181000_business_feasibility_analytics_events.sql.
+        "feasibility_preview_viewed", "feasibility_paywall_viewed", "feasibility_unlock_clicked",
+        "feasibility_payment_requested", "feasibility_unlocked", "feasibility_pdf_opened",
       ].sort(),
     );
     mod.trackQuoteCompleted({ campaignId: "11111111-1111-4111-8111-111111111111" });

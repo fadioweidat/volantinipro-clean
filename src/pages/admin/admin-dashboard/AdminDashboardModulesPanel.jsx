@@ -117,6 +117,16 @@ export function AdminDashboardModulesPanel({ clientsQuotesCount, clientsStats, g
           cta="Apri Comunicazioni"
           onOpen={() => onNav('admin-communications')}
         />
+        {/* Fattibilità Attività — Acquisti (ticket "BUSINESS FEASIBILITY
+            €49 COMMERCE BACKEND"): verifica manuale dei bonifici €49 e
+            sblocco del report completo. Nessuno stat qui: i conteggi vivono
+            nella pagina dedicata (business_feasibility_purchases). */}
+        <ModuleCard
+          title="Fattibilità Attività — Acquisti"
+          stats={[]}
+          cta="Apri Acquisti"
+          onOpen={() => onNav('admin-business-feasibility')}
+        />
       </section>
     </>
   );

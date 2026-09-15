@@ -40,6 +40,17 @@ export const SITE_EVENT_NAMES = Object.freeze({
   EXTRAS_SELECTED: 'extras_selected',
   QUOTE_STEP_REACHED: 'quote_step_reached',
   QUOTE_ABANDONED: 'quote_abandoned',
+  // TICKET "BUSINESS FEASIBILITY €49 COMMERCE BACKEND" §14 — allowlist
+  // extended server-side by 20260915181000_business_feasibility_analytics_events.sql
+  // (CHECK constraint + both INSERT RLS policies). Adding a name here
+  // without that migration applied is a silent no-op (dispatch() only
+  // guards against unknown names; the DB itself would reject the insert).
+  FEASIBILITY_PREVIEW_VIEWED: 'feasibility_preview_viewed',
+  FEASIBILITY_PAYWALL_VIEWED: 'feasibility_paywall_viewed',
+  FEASIBILITY_UNLOCK_CLICKED: 'feasibility_unlock_clicked',
+  FEASIBILITY_PAYMENT_REQUESTED: 'feasibility_payment_requested',
+  FEASIBILITY_UNLOCKED: 'feasibility_unlocked',
+  FEASIBILITY_PDF_OPENED: 'feasibility_pdf_opened',
 });
 const ALLOWED_EVENTS = Object.values(SITE_EVENT_NAMES);
 
@@ -307,4 +318,27 @@ export function trackQuoteCompleted({ campaignId = null, quoteId = null, municip
 
 export function trackConsultationRequested() {
   dispatch(SITE_EVENT_NAMES.CONSULTATION_REQUESTED);
+}
+
+// ── Business Feasibility €49 funnel (§13) — no analysis/PII, dedup'd per
+// analysis id so a re-render never double-counts the same funnel step.
+export function trackFeasibilityPreviewViewed(analysisId) {
+  if (analysisId && isDuplicate(`feasibility_preview_viewed:${analysisId}`)) return;
+  dispatch(SITE_EVENT_NAMES.FEASIBILITY_PREVIEW_VIEWED);
+}
+export function trackFeasibilityPaywallViewed(analysisId) {
+  if (analysisId && isDuplicate(`feasibility_paywall_viewed:${analysisId}`)) return;
+  dispatch(SITE_EVENT_NAMES.FEASIBILITY_PAYWALL_VIEWED);
+}
+export function trackFeasibilityUnlockClicked() {
+  dispatch(SITE_EVENT_NAMES.FEASIBILITY_UNLOCK_CLICKED);
+}
+export function trackFeasibilityPaymentRequested() {
+  dispatch(SITE_EVENT_NAMES.FEASIBILITY_PAYMENT_REQUESTED);
+}
+export function trackFeasibilityUnlocked() {
+  dispatch(SITE_EVENT_NAMES.FEASIBILITY_UNLOCKED);
+}
+export function trackFeasibilityPdfOpened() {
+  dispatch(SITE_EVENT_NAMES.FEASIBILITY_PDF_OPENED);
 }
