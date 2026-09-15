@@ -106,16 +106,38 @@ export function monthlyEconomics(customers, inputs) {
   return { revenue: round2(revenue), fixedCosts: round2(fixedCosts), variableCosts: round2(variableCosts), contribution: round2(contribution), operatingProfit: round2(operatingProfit) };
 }
 
-// ── Pareggio (§4) — formula sempre ispezionabile nel report ────────────────
+// ── Pareggio (§4, corretto dal ticket "FINAL BUSINESS FEASIBILITY ECONOMIC
+// CLARITY FIX") — formula sempre ispezionabile nel report. Gli "altri ricavi
+// mensili" (es. personal training) sono ricorrenti e già usati altrove nel
+// motore (monthlyEconomics) per calcolare il risultato operativo: prima di
+// questo fix il pareggio li ignorava, creando un'incoerenza metodologica
+// interna (l'operating profit al break-even NON tornava esattamente a zero).
+// Formula: clienti per pareggio = max(0, ceil((costi fissi − altri ricavi
+// mensili ricorrenti) ÷ margine di contribuzione per cliente)).
 export function computeBreakEven(inputs) {
   const fixedCosts = inputs.monthlyRent + inputs.monthlyStaffCost + inputs.otherFixedCostsMonthly;
+  const otherMonthlyRevenue = inputs.otherMonthlyRevenue || 0; // (§3-D) mancante -> 0
   const contributionMarginPerCustomer = inputs.averageCustomerRevenue * (inputs.grossMarginPct / 100);
+  const residualFixedCosts = round2(fixedCosts - otherMonthlyRevenue);
+  const base = {
+    fixedCosts: round2(fixedCosts),
+    otherMonthlyRevenue: round2(otherMonthlyRevenue),
+    residualFixedCosts,
+    contributionMarginPerCustomer: round2(contributionMarginPerCustomer),
+  };
   if (contributionMarginPerCustomer <= 0) {
-    return { customers: null, revenue: null, fixedCosts: round2(fixedCosts), contributionMarginPerCustomer: round2(contributionMarginPerCustomer), reachable: false };
+    // (§3-C) margine di contribuzione nullo o negativo: pareggio non
+    // raggiungibile in ogni caso, indipendentemente da altri ricavi.
+    return { ...base, customers: null, revenue: null, reachable: false };
   }
-  const customers = Math.ceil(fixedCosts / contributionMarginPerCustomer);
+  if (residualFixedCosts <= 0) {
+    // (§3-B) gli altri ricavi ricorrenti coprono già da soli i costi fissi:
+    // il pareggio è già raggiunto con zero clienti, mai un numero negativo.
+    return { ...base, customers: 0, revenue: 0, reachable: true };
+  }
+  const customers = Math.ceil(residualFixedCosts / contributionMarginPerCustomer);
   const revenue = round2(customers * inputs.averageCustomerRevenue);
-  return { customers, revenue, fixedCosts: round2(fixedCosts), contributionMarginPerCustomer: round2(contributionMarginPerCustomer), reachable: true };
+  return { ...base, customers, revenue, reachable: true };
 }
 
 // ── Payback period sull'investimento iniziale, mese in cui il profitto

@@ -312,13 +312,31 @@ export default function FeasibilityBusinessReport({ inputs, analysis, narrative,
 
             <section className="vf-panel">
               <h3>20. Analisi del pareggio</h3>
+              {/* Ticket "FINAL BUSINESS FEASIBILITY ECONOMIC CLARITY FIX": gli
+                  altri ricavi mensili ricorrenti coprono parte dei costi
+                  fissi prima di contare i clienti — ogni riga qui sotto è
+                  ricalcolabile a mano dal lettore, nell'ordine in cui appare. */}
+              <dl className="vf-metrics">
+                <div><dt>Costi fissi mensili</dt><dd>{eur(financial.breakEven.fixedCosts)}</dd></div>
+                <div><dt>Altri ricavi mensili ricorrenti</dt><dd>{eur(financial.breakEven.otherMonthlyRevenue)}</dd></div>
+                <div><dt>Costi fissi residui da coprire</dt><dd data-testid="vfb-residual-fixed-costs"><strong>{eur(financial.breakEven.residualFixedCosts)}</strong></dd></div>
+                <div><dt>Margine di contribuzione per cliente</dt><dd>{eurPrecise(financial.breakEven.contributionMarginPerCustomer)}</dd></div>
+              </dl>
               {financial.breakEven.reachable ? (
                 <>
                   <dl className="vf-metrics">
                     <div><dt>Clienti per il pareggio</dt><dd data-testid="vfb-breakeven-customers"><strong>{fmt(financial.breakEven.customers)}</strong></dd></div>
                     <div><dt>Ricavo mensile di pareggio</dt><dd>{eur(financial.breakEven.revenue)}</dd></div>
                   </dl>
-                  <p className="vf-small">Clienti per pareggio = costi fissi mensili ({eur(financial.breakEven.fixedCosts)}) ÷ margine di contribuzione per cliente ({eurPrecise(financial.breakEven.contributionMarginPerCustomer)}), arrotondato per eccesso. <Source tag="rule" /></p>
+                  <p className="vf-small">
+                    {financial.breakEven.otherMonthlyRevenue > 0
+                      ? <>Clienti per pareggio = (costi fissi mensili ({eur(financial.breakEven.fixedCosts)}) − altri ricavi mensili ricorrenti ({eur(financial.breakEven.otherMonthlyRevenue)})) ÷ margine di contribuzione per cliente ({eurPrecise(financial.breakEven.contributionMarginPerCustomer)}), arrotondato per eccesso.</>
+                      : <>Clienti per pareggio = costi fissi mensili ({eur(financial.breakEven.fixedCosts)}) ÷ margine di contribuzione per cliente ({eurPrecise(financial.breakEven.contributionMarginPerCustomer)}), arrotondato per eccesso.</>}
+                    {' '}<Source tag="rule" />
+                  </p>
+                  {financial.breakEven.customers === 0 && (
+                    <p className="vf-small">Gli altri ricavi mensili ricorrenti da soli coprono già i costi fissi: il pareggio è raggiunto anche con zero clienti aggiuntivi.</p>
+                  )}
                 </>
               ) : (
                 <p><strong>{NOT_AVAILABLE}</strong> — il margine di contribuzione per cliente è nullo o negativo con i dati indicati: il pareggio non è raggiungibile finché prezzo/margine o costi non cambiano. <Source tag="rule" /></p>
@@ -331,12 +349,13 @@ export default function FeasibilityBusinessReport({ inputs, analysis, narrative,
               <div className="vf-table-wrap" tabIndex={0} role="region" aria-label="Tabella scenari scorrevole">
                 <table>
                   <caption>3 scenari deterministici</caption>
-                  <thead><tr>{['Scenario', 'Clienti/mese (1° anno)', 'Ricavo mensile (mese 12)', 'Risultato operativo (mese 12)', 'Risultato 12 mesi', 'Pareggio raggiunto', 'ROI 12 mesi', 'Payback'].map(h => <th scope="col" key={h}>{h}</th>)}</tr></thead>
+                  <thead><tr>{['Scenario', 'Clienti medi 1° anno', 'Clienti al mese 12', 'Ricavo mensile (mese 12)', 'Risultato operativo (mese 12)', 'Risultato 12 mesi', 'Pareggio raggiunto', 'ROI 12 mesi', 'Payback'].map(h => <th scope="col" key={h}>{h}</th>)}</tr></thead>
                   <tbody>
                     {scenarioRows.map(([label, s]) => (
                       <tr key={label}>
                         <th scope="row">{label}</th>
                         <td>{fmt(s.avgCustomersYear1)}</td>
+                        <td>{fmt(s.customersMonth12)}</td>
                         <td>{eur(s.monthlyRevenueMonth12)}</td>
                         <td>{eur(s.operatingProfitMonth12)}</td>
                         <td>{eur(s.annualResult12mo)}</td>

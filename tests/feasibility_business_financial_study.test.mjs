@@ -72,13 +72,16 @@ test('SCENARIO REALISTICO §18: palestra Milano, investimento 80k, 150->350 iscr
   assert.equal(fi.estimatedFields.averageCustomerRevenue.estimated, true);
   assert.equal(fi.averageCustomerRevenue, 59);
 
-  // Break-even: fixedCosts = 4500 + 7200 = 11700; contribution/cliente = 59*0.6 = 35.4
+  // Break-even: fixedCosts = 4500 + 7200 = 11700; altri ricavi mensili = 800;
+  // costi fissi residui = 10900; contribution/cliente = 59*0.6 = 35.4
   assert.equal(financial.breakEven.fixedCosts, 11700);
+  assert.equal(financial.breakEven.otherMonthlyRevenue, 800);
+  assert.equal(financial.breakEven.residualFixedCosts, 10900);
   assert.equal(financial.breakEven.contributionMarginPerCustomer, 35.4);
-  assert.equal(financial.breakEven.customers, 331); // ceil(11700/35.4)
+  assert.equal(financial.breakEven.customers, 308); // ceil((11700-800)/35.4)
   assert.equal(financial.breakEven.reachable, true);
 
-  // Break-even (331) supera i clienti al lancio (150) ma resta sotto i 350 a 12 mesi -> economia MEDIA.
+  // Break-even (308) supera i clienti al lancio (150) ma resta sotto i 350 a 12 mesi -> economia MEDIA.
   const economic = computeEconomicScore(financial);
   assert.equal(economic.label, 'MEDIA');
 
@@ -180,6 +183,45 @@ test('Report: la formula del pareggio mostra il margine di contribuzione con i c
   const html = fullReportHtml();
   assert.match(html, /margine di contribuzione per cliente \(35,40\s?€\)/);
   assert.doesNotMatch(html, /margine di contribuzione per cliente \(35\s?€\)/);
+});
+
+// ── TICKET "FINAL BUSINESS FEASIBILITY ECONOMIC CLARITY FIX" §10-A/§5 ─────
+// La formula deve sottrarre esplicitamente gli altri ricavi mensili
+// ricorrenti dai costi fissi, e il report deve mostrare l'aritmetica
+// verificabile a mano (costi fissi, altri ricavi, residuo, margine, clienti).
+test('Report: la formula del pareggio sottrae gli altri ricavi mensili ricorrenti e mostra i costi fissi residui da coprire', () => {
+  const html = fullReportHtml();
+  assert.match(html, /<dt>Costi fissi mensili<\/dt><dd>11\.700\s?€<\/dd>/);
+  assert.match(html, /<dt>Altri ricavi mensili ricorrenti<\/dt><dd>800\s?€<\/dd>/);
+  assert.match(html, /<dt>Costi fissi residui da coprire<\/dt><dd[^>]*><strong>10\.900\s?€<\/strong><\/dd>/);
+  assert.match(html, /vfb-breakeven-customers[^>]*>[^<]*<strong>308<\/strong>/);
+  assert.doesNotMatch(html, /vfb-breakeven-customers[^>]*>[^<]*<strong>331<\/strong>/);
+});
+
+test('Report: senza altri ricavi mensili ricorrenti la formula si semplifica (nessuna sottrazione mostrata)', () => {
+  const html = fullReportHtml({ otherMonthlyRevenue: '' });
+  assert.match(html, /Clienti per pareggio = costi fissi mensili/);
+  assert.doesNotMatch(html, /Clienti per pareggio = \(costi fissi mensili/);
+  assert.match(html, /vfb-breakeven-customers[^>]*>[^<]*<strong>331<\/strong>/);
+});
+
+// ── §10-E: la tabella scenari espone sia la media 1° anno sia il mese 12 ──
+test('Report: la tabella scenari mostra sia "Clienti medi 1° anno" sia "Clienti al mese 12", senza alterare la matematica degli scenari', () => {
+  const html = fullReportHtml();
+  const financial = buildBusinessFinancialAnalysis(inputsFixture());
+  assert.match(html, />Clienti medi 1° anno</);
+  assert.match(html, />Clienti al mese 12</);
+  assert.doesNotMatch(html, />Clienti\/mese \(1° anno\)</);
+  const realistico = financial.scenarios.realistico;
+  assert.match(html, new RegExp(`>${realistico.avgCustomersYear1}<`));
+  assert.match(html, new RegExp(`>${realistico.customersMonth12}<`));
+  assert.notEqual(realistico.avgCustomersYear1, realistico.customersMonth12);
+});
+
+// ── §10-F: contratto di stampa — nessun overflow A4 con la tabella a 9 colonne ─
+test('Report/print: la tabella scenari resta scrollabile a schermo (overflow-x) e a piena larghezza in stampa (nessun clipping)', () => {
+  const html = fullReportHtml();
+  assert.match(html, /<div class="vf-table-wrap"[^>]*role="region"[^>]*>\s*<table>\s*<caption>3 scenari deterministici<\/caption>/);
 });
 
 test('Report esteso: SWOT mostra 4 quadranti espliciti (Punti di forza / Debolezze / Opportunità / Minacce)', () => {

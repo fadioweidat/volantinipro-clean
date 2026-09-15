@@ -42,6 +42,54 @@ test('computeBreakEven: margine di contribuzione nullo o negativo -> pareggio no
   assert.equal(zero.revenue, null);
 });
 
+// ── TICKET "FINAL BUSINESS FEASIBILITY ECONOMIC CLARITY FIX" §10 ──────────
+// Break-even deve sottrarre gli altri ricavi mensili ricorrenti dai costi
+// fissi PRIMA di dividere per il margine di contribuzione per cliente.
+test('§10-A: FitLife — costi fissi 11700, altri ricavi 800, margine 35.40 -> pareggio 308 clienti', () => {
+  const inputs = { monthlyRent: 4500, monthlyStaffCost: 4 * 1800, otherFixedCostsMonthly: 0, averageCustomerRevenue: 59, grossMarginPct: 60, otherMonthlyRevenue: 800 };
+  const be = computeBreakEven(inputs);
+  assert.equal(be.fixedCosts, 11700);
+  assert.equal(be.otherMonthlyRevenue, 800);
+  assert.equal(be.residualFixedCosts, 10900);
+  assert.equal(be.contributionMarginPerCustomer, 35.4);
+  assert.equal(be.customers, 308);
+  assert.equal(be.reachable, true);
+});
+
+test('§10-B: stessi costi fissi ma senza altri ricavi (0) -> comportamento esistente, pareggio 331 clienti', () => {
+  const inputs = { monthlyRent: 4500, monthlyStaffCost: 4 * 1800, otherFixedCostsMonthly: 0, averageCustomerRevenue: 59, grossMarginPct: 60, otherMonthlyRevenue: 0 };
+  const be = computeBreakEven(inputs);
+  assert.equal(be.fixedCosts, 11700);
+  assert.equal(be.otherMonthlyRevenue, 0);
+  assert.equal(be.residualFixedCosts, 11700);
+  assert.equal(be.customers, 331);
+});
+
+test('§10-B bis: altri ricavi mensili mancanti (undefined) -> trattati come 0, stesso risultato', () => {
+  const inputs = { monthlyRent: 4500, monthlyStaffCost: 4 * 1800, otherFixedCostsMonthly: 0, averageCustomerRevenue: 59, grossMarginPct: 60 };
+  const be = computeBreakEven(inputs);
+  assert.equal(be.otherMonthlyRevenue, 0);
+  assert.equal(be.customers, 331);
+});
+
+test('§10-C: altri ricavi mensili >= costi fissi -> pareggio raggiunto con 0 clienti, mai negativo', () => {
+  const inputs = { monthlyRent: 500, monthlyStaffCost: 500, otherFixedCostsMonthly: 0, averageCustomerRevenue: 100, grossMarginPct: 50, otherMonthlyRevenue: 5000 };
+  const be = computeBreakEven(inputs);
+  assert.equal(be.fixedCosts, 1000);
+  assert.equal(be.residualFixedCosts, -4000);
+  assert.equal(be.customers, 0);
+  assert.equal(be.revenue, 0);
+  assert.equal(be.reachable, true);
+});
+
+test('§10-D: margine di contribuzione <= 0 con altri ricavi presenti -> resta non raggiungibile (mai un numero inventato)', () => {
+  const inputs = { monthlyRent: 500, monthlyStaffCost: 0, otherFixedCostsMonthly: 0, averageCustomerRevenue: 100, grossMarginPct: 0, otherMonthlyRevenue: 800 };
+  const be = computeBreakEven(inputs);
+  assert.equal(be.reachable, false);
+  assert.equal(be.customers, null);
+  assert.equal(be.revenue, null);
+});
+
 // ── B. Contribution margin / monthly economics ─────────────────────────────
 test('monthlyEconomics: ricavo, contribuzione e risultato operativo calcolati correttamente', () => {
   const inputs = { averageCustomerRevenue: 100, grossMarginPct: 50, otherMonthlyRevenue: 0, monthlyRent: 500, monthlyStaffCost: 500, otherFixedCostsMonthly: 0 };
