@@ -145,6 +145,19 @@ test("pagina conferma (volantinipro-final.jsx): copy esatto, 3 bottoni e ID camp
   assert.match(ROUTED_SRC, /boxSizing:\s*['"]border-box['"]/);
 });
 
+// ── Ticket "FIX PAYMENT WHATSAPP DETAILS": il testo WhatsApp deve usare i
+// dati REALI della campagna/cliente già in scope (campagna normalizzata +
+// cliente.nome dal profilo autenticato), non il solo ID campagna.
+test("pagina conferma (volantinipro-final.jsx): il link WhatsApp riceve l'oggetto campagna+cliente, non solo l'ID", () => {
+  assert.match(
+    ROUTED_SRC,
+    /const whatsappPayload = \{ \.\.\.campagna, id: contactId, customerName: cliente\?\.nome \|\| null \};/,
+  );
+  assert.match(ROUTED_SRC, /buildCampaignContactWhatsAppUrl\(whatsappPayload\)/);
+  // Il badge visibile "ID campagna: {contactId}" resta invariato.
+  assert.match(ROUTED_SRC, /ID campagna: \{contactId\}/);
+});
+
 test("pagina conferma (PagamentoBonifico.jsx): allineata con copy esatto e bottoni", () => {
   assert.match(LEGACY_SRC, /IS_MANUAL_CONTACT/);
   assert.match(LEGACY_SRC, /Campagna confermata/);

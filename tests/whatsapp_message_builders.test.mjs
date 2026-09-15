@@ -12,6 +12,7 @@ import {
   buildCampaignContactWhatsAppText,
   buildCampaignContactWhatsAppUrl,
 } from '../src/lib/paymentMode.js';
+import { HAS_SUPPORT_WHATSAPP } from '../src/lib/contactConfig.js';
 
 import {
   buildAdminClientWhatsAppMessage,
@@ -131,9 +132,14 @@ describe('WhatsApp Message Builders — Supplier Assignment & Customer Payment',
   // 3. CUSTOMER PAYMENT WHATSAPP BUILDER (paymentMode.js)
   // =========================================================================
   describe('Customer Payment WhatsApp Builder (Customer -> VolantiniPro)', () => {
-    test('formats rich message from full campaign detail object', () => {
+    // Ticket "FIX PAYMENT WHATSAPP DETAILS": struttura a sezioni con nome
+    // cliente, campagna, zona, servizio, quantità, totale, ID — mai i soli
+    // "ID campagna" + boilerplate generico di prima.
+    test('formats rich message with customer name, campaign, zone, service, qty, total and ID', () => {
       const campaign = {
         id: 'camp-2026-001',
+        customerName: 'Mario Rossi',
+        titolo: 'Campagna Autunno Milano',
         service: 'd2d',
         comuni: ['Milano', 'Corsico'],
         flyers_count: 15000,
@@ -142,19 +148,90 @@ describe('WhatsApp Message Builders — Supplier Assignment & Customer Payment',
       };
 
       const text = buildCampaignContactWhatsAppText(campaign);
-      assert.match(text, /Buongiorno, ho confermato la mia campagna VolantiniPro\./);
-      assert.match(text, /ID campagna: camp-2026-001/);
-      assert.match(text, /Servizio: Door to Door/);
-      assert.match(text, /Zona: Milano, Corsico/);
-      assert.match(text, /Quantità: 15\.000 volantini/);
-      assert.match(text, /Data campagna: 01\/11\/2026/);
-      assert.match(text, /Totale da pagare: € 750,50/);
-      assert.match(text, /Vorrei ricevere le istruzioni per completare il pagamento tramite bonifico\. Grazie\./);
+      assert.match(text, /^Buongiorno,\nho confermato una campagna VolantiniPro e vorrei ricevere le istruzioni per il pagamento tramite bonifico\./);
+      assert.match(text, /Cliente: Mario Rossi/);
+      assert.match(text, /Campagna:\nCampagna Autunno Milano/);
+      assert.match(text, /Zona:\nMilano, Corsico/);
+      assert.match(text, /Servizio:\nDoor to Door/);
+      assert.match(text, /Quantità:\n15\.000 volantini/);
+      assert.match(text, /Totale campagna:\n€ 750,50/);
+      assert.match(text, /ID campagna:\ncamp-2026-001/);
+      assert.match(text, /Grazie\.$/);
+    });
+
+    // §3 multi-zone: elenco reale dei comuni/zone della campagna, mai
+    // inventato dal testo dell'indirizzo.
+    test('multi-zone campaign: real municipality list included, comma-separated', () => {
+      const campaign = {
+        id: 'camp-multi-003',
+        customerName: 'Laura Bianchi',
+        service: 'd2d',
+        comuni: ['Varedo', 'Desio', 'Cesano Maderno', 'Senago'],
+        quantita: 8000,
+        totale_euro: 320,
+      };
+      const text = buildCampaignContactWhatsAppText(campaign);
+      assert.match(text, /Zona:\nVaredo, Desio, Cesano Maderno, Senago/);
+    });
+
+    // §4 privacy: mai compenso/identità fornitore o operatore in questo
+    // messaggio, anche se presenti sull'oggetto campagna (es. dopo
+    // un'assegnazione fornitore già salvata).
+    test('never leaks supplier compensation, supplier identity, or operator identity', () => {
+      const campaign = {
+        id: 'camp-privacy-004',
+        customerName: 'Anna Verdi',
+        service: 'h2h',
+        zone: 'Bologna Centro',
+        quantita: 5000,
+        totale_euro: 400,
+        supplier_id: 'sup-999',
+        supplier_name: 'Fornitore Segreto SRL',
+        metadata: { supplier_compensation: 199.5, manual_supplier: { name: 'Operatore X', phone: '+391234567' } },
+      };
+      const text = buildCampaignContactWhatsAppText(campaign);
+      assert.doesNotMatch(text, /Fornitore Segreto/i);
+      assert.doesNotMatch(text, /Operatore X/i);
+      assert.doesNotMatch(text, /compenso/i);
+      assert.doesNotMatch(text, /199,5|199\.5/);
+      assert.doesNotMatch(text, /sup-999/);
+    });
+
+    // §16-C: prezzo cliente corretto anche quando la campagna arriva dal
+    // modello normalizzato (normalizeCustomerCampaign: totale_euro/quantita).
+    test('uses normalized customer campaign fields (totale_euro, quantita) for customer total', () => {
+      const campaign = {
+        id: 'camp-normalized-005',
+        customerName: 'Giulia Neri',
+        servizio: 'd2d',
+        service: 'd2d',
+        comuni: ['Milano'],
+        quantita: 10000,
+        totale_euro: 420,
+      };
+      const text = buildCampaignContactWhatsAppText(campaign);
+      assert.match(text, /Totale campagna:\n€ 420,00/);
+      assert.match(text, /Quantità:\n10\.000 volantini/);
+    });
+
+    // §16-E: campo opzionale mancante -> messaggio resta valido/leggibile.
+    test('missing optional fields (no customer name, no zone, no total): message remains valid and readable', () => {
+      const campaign = { id: 'camp-partial-006', service: 'd2d' };
+      const text = buildCampaignContactWhatsAppText(campaign);
+      assert.match(text, /^Buongiorno,\nho confermato una campagna VolantiniPro/);
+      assert.match(text, /ID campagna:\ncamp-partial-006/);
+      assert.match(text, /Grazie\.$/);
+      assert.doesNotMatch(text, /undefined/);
+      assert.doesNotMatch(text, /null/);
+      assert.doesNotMatch(text, /Cliente:/);
+      assert.doesNotMatch(text, /Zona:/);
+      assert.doesNotMatch(text, /Totale campagna:/);
     });
 
     test('supports settlement amount due override when settlement is active', () => {
       const campaign = {
         id: 'camp-credit-002',
+        customerName: 'Paolo Gialli',
         service: 'h2h',
         zone: 'Bologna Centro',
         qty: 5000,
@@ -168,11 +245,11 @@ describe('WhatsApp Message Builders — Supplier Assignment & Customer Payment',
       };
 
       const text = buildCampaignContactWhatsAppText(campaign);
-      assert.match(text, /ID campagna: camp-credit-002/);
-      assert.match(text, /Servizio: Hand to Hand/);
-      assert.match(text, /Zona: Bologna Centro/);
-      assert.match(text, /Totale da pagare: € 250,00/);
-      assert.doesNotMatch(text, /Totale da pagare: € 400,00/);
+      assert.match(text, /ID campagna:\ncamp-credit-002/);
+      assert.match(text, /Servizio:\nHand to Hand/);
+      assert.match(text, /Zona:\nBologna Centro/);
+      assert.match(text, /Totale campagna:\n€ 250,00/);
+      assert.doesNotMatch(text, /€ 400,00/);
     });
 
     test('gracefully handles legacy string campaign ID', () => {
@@ -187,6 +264,28 @@ describe('WhatsApp Message Builders — Supplier Assignment & Customer Payment',
       assert.match(text, /Buongiorno, ho confermato la mia campagna VolantiniPro\./);
       assert.match(text, /Vorrei ricevere le istruzioni per completare il pagamento tramite bonifico\. Grazie\./);
       assert.doesNotMatch(text, /ID campagna:/);
+    });
+
+    // §16-F: URL correttamente encodata (accenti, spazi, virgole, newline).
+    test('wa.me URL correctly encodes the rich multi-line text (accents, commas, newlines)', () => {
+      const campaign = {
+        id: 'camp-encoding-007',
+        customerName: 'Città Bianchi',
+        service: 'd2d',
+        comuni: ['Città di Milano', 'Corsico'],
+        quantita: 12000,
+        totale_euro: 599.9,
+      };
+      const url = buildCampaignContactWhatsAppUrl(campaign);
+      const text = buildCampaignContactWhatsAppText(campaign);
+      if (!HAS_SUPPORT_WHATSAPP) {
+        assert.equal(url, null, 'senza VITE_SUPPORT_WHATSAPP il CTA WhatsApp non deve inventare un numero');
+        return;
+      }
+      assert.ok(url.startsWith('https://wa.me/'));
+      const encoded = url.slice(url.indexOf('?text=') + '?text='.length);
+      assert.equal(decodeURIComponent(encoded), text);
+      assert.doesNotMatch(url, /[<>"]/);
     });
   });
 

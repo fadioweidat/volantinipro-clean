@@ -90,35 +90,45 @@ export function buildCampaignContactWhatsAppText(campaignOrId) {
 
   const c = campaignOrId;
   const id = c.id || c.code || c.order_id || null;
+  // Ticket "PAYMENT WHATSAPP DETAILS": nome cliente REALE (mai dedotto dal
+  // testo reso altrove) — il chiamante lo passa dentro l'oggetto campagna
+  // (`customerName`) prendendolo dal profilo autenticato già in scope.
+  const customerName = c.customerName || c.customer_name || null;
   const service = formatPaymentServiceLabel(c.service || c.type || c.service_type || c.metadata?.service || c.metadata?.type);
+  // Titolo campagna se disponibile, altrimenti l'etichetta servizio (§2 del
+  // ticket: "campaignTitle or service label") — mai una stringa inventata.
+  const campaignTitle = c.titolo || c.campaignTitle || c.campaign_name || c.title || service || null;
   const zone = formatPaymentZoneLabel(c);
-  const qty = c.flyers_count || c.qty || c.quantity || c.metadata?.flyers_count || c.metadata?.qty || null;
-  const date = c.starts_at || c.date || c.metadata?.starts_at || null;
+  const qty = c.quantita ?? c.flyers_count ?? c.qty ?? c.quantity ?? c.metadata?.flyers_count ?? c.metadata?.qty ?? null;
 
   let amountDue = null;
   if (c.settlement && c.settlement.settlement_status !== 'not_applicable') {
     amountDue = c.settlement.amount_due_cents != null ? c.settlement.amount_due_cents / 100 : null;
   } else {
-    amountDue = c.total ?? c.metadata?.total ?? c.preventivo?.totale ?? c.price ?? null;
+    // `totale_euro`/`total_amount`: campi reali del modello campagna
+    // normalizzato (normalizeCustomerCampaign) — prima mancavano qui, quindi
+    // il totale non appariva mai per le campagne cliente reali.
+    amountDue = c.totale_euro ?? c.total ?? c.total_amount ?? c.metadata?.total ?? c.preventivo?.totale ?? c.price ?? null;
   }
 
-  const lines = [WHATSAPP_BASE_PREFIX];
-  if (id) lines.push(`ID campagna: ${id}`);
-  if (service) lines.push(`Servizio: ${service}`);
-  if (zone) lines.push(`Zona: ${zone}`);
-  if (qty) lines.push(`Quantità: ${Number(qty).toLocaleString('it-IT')} volantini`);
-  if (date) {
-    const dateFormatted = typeof date === 'string' && date.includes('-') && !date.includes('/')
-      ? new Date(date).toLocaleDateString('it-IT')
-      : String(date);
-    lines.push(`Data campagna: ${dateFormatted}`);
-  }
+  // §3/§4 del ticket: SOLO dati cliente/campagna. Compenso fornitore,
+  // identità fornitore/operatore, metadati admin-only, token GPS/accesso non
+  // vengono mai letti qui — questa funzione non li estrae in nessun campo.
+  const sections = [
+    'Buongiorno,\nho confermato una campagna VolantiniPro e vorrei ricevere le istruzioni per il pagamento tramite bonifico.',
+  ];
+  if (customerName) sections.push(`Cliente: ${customerName}`);
+  if (campaignTitle) sections.push(`Campagna:\n${campaignTitle}`);
+  if (zone) sections.push(`Zona:\n${zone}`);
+  if (service) sections.push(`Servizio:\n${service}`);
+  if (qty) sections.push(`Quantità:\n${Number(qty).toLocaleString('it-IT')} volantini`);
   if (amountDue != null && Number.isFinite(Number(amountDue))) {
-    lines.push(`Totale da pagare: € ${Number(amountDue).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+    sections.push(`Totale campagna:\n€ ${Number(amountDue).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
   }
-  lines.push(WHATSAPP_BASE_SUFFIX);
+  if (id) sections.push(`ID campagna:\n${id}`);
+  sections.push('Grazie.');
 
-  return lines.join('\n');
+  return sections.join('\n\n');
 }
 
 /** Oggetto email precompilato cliente -> VolantiniPro con ID campagna opzionale. */

@@ -6708,7 +6708,17 @@ export function PagamentoBonificoPage({
   // resta nel codice per un futuro ripristino (VITE_PAYMENT_MODE != manual_contact).
   if (IS_MANUAL_CONTACT) {
     const contactId = campagna.id || routeCampaignId || null;
-    const waUrl = buildCampaignContactWhatsAppUrl(contactId);
+    // Ticket "PAYMENT WHATSAPP DETAILS": il messaggio WhatsApp deve portare i
+    // dati reali della campagna (servizio, zona, quantita, totale) e del
+    // cliente (nome), non solo l'ID. `campagna` e' gia' l'oggetto canonico
+    // normalizzato (normalizeCustomerCampaign) usato da questa stessa pagina;
+    // `cliente.nome` viene dal profilo autenticato (useCliente, gia' in
+    // scope qui) — nessun nuovo fetch, nessun dato inventato o riletto dal
+    // testo reso. Il compenso fornitore/identita' fornitore/operatore non
+    // sono MAI presenti in `campagna` normalizzata, quindi non possono
+    // finire in questo messaggio cliente->admin.
+    const whatsappPayload = { ...campagna, id: contactId, customerName: cliente?.nome || null };
+    const waUrl = buildCampaignContactWhatsAppUrl(whatsappPayload);
     const mailUrl = buildCampaignContactMailtoUrl(contactId);
     const primaryBtn = {
       minHeight: 48,
