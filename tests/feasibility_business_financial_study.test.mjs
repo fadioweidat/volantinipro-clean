@@ -172,6 +172,16 @@ test('Report esteso: sezioni economiche 15-29 presenti (break-even, scenari, ROI
   assert.match(html, /Sintesi territorio \+ economia e verdetto finale</);
 });
 
+// ── QA "REAL PDF VISUAL REVIEW" §3/§12: la formula di pareggio deve mostrare
+// il margine di contribuzione con i centesimi reali (35,40 €), non
+// arrotondato a 35 € — altrimenti 331 clienti non torna a colpo d'occhio
+// con costi fissi (11.700 €) ÷ margine mostrato.
+test('Report: la formula del pareggio mostra il margine di contribuzione con i centesimi (35,40 €), mai arrotondato a un intero che non riconcilia', () => {
+  const html = fullReportHtml();
+  assert.match(html, /margine di contribuzione per cliente \(35,40\s?€\)/);
+  assert.doesNotMatch(html, /margine di contribuzione per cliente \(35\s?€\)/);
+});
+
 test('Report esteso: SWOT mostra 4 quadranti espliciti (Punti di forza / Debolezze / Opportunità / Minacce)', () => {
   const html = fullReportHtml();
   assert.match(html, /<dt>Punti di forza<\/dt>/);

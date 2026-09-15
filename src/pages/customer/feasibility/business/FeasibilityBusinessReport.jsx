@@ -4,6 +4,14 @@ import { FINANCIAL_DISCLAIMER } from './feasibilityBusinessFinancialSchemas.js';
 
 const fmt = value => (value == null ? NOT_AVAILABLE : new Intl.NumberFormat('it-IT').format(Math.round(value)));
 const eur = value => (value == null ? NOT_AVAILABLE : new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value));
+// QA "REAL PDF VISUAL REVIEW" §3/§12: il margine di contribuzione per
+// cliente (es. €35,40) appare accanto a una formula che il lettore può
+// ricalcolare a mano (clienti per pareggio = costi fissi ÷ margine). Con
+// l'arrotondamento a 0 decimali di `eur()` mostrava "35 €", che moltiplicato
+// per 331 non torna visivamente a 11.700 €, sembrando un'incongruenza. Solo
+// in questo punto si mostrano i centesimi reali — il resto del report (cifre
+// aggregate grandi) resta intenzionalmente a 0 decimali.
+const eurPrecise = value => (value == null ? NOT_AVAILABLE : new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value));
 const pct = value => (value == null ? NOT_AVAILABLE : `${new Intl.NumberFormat('it-IT', { maximumFractionDigits: 1 }).format(value)}%`);
 const months = value => (value == null ? NOT_AVAILABLE : `${value} mes${value === 1 ? 'e' : 'i'}`);
 
@@ -310,7 +318,7 @@ export default function FeasibilityBusinessReport({ inputs, analysis, narrative,
                     <div><dt>Clienti per il pareggio</dt><dd data-testid="vfb-breakeven-customers"><strong>{fmt(financial.breakEven.customers)}</strong></dd></div>
                     <div><dt>Ricavo mensile di pareggio</dt><dd>{eur(financial.breakEven.revenue)}</dd></div>
                   </dl>
-                  <p className="vf-small">Clienti per pareggio = costi fissi mensili ({eur(financial.breakEven.fixedCosts)}) ÷ margine di contribuzione per cliente ({eur(financial.breakEven.contributionMarginPerCustomer)}), arrotondato per eccesso. <Source tag="rule" /></p>
+                  <p className="vf-small">Clienti per pareggio = costi fissi mensili ({eur(financial.breakEven.fixedCosts)}) ÷ margine di contribuzione per cliente ({eurPrecise(financial.breakEven.contributionMarginPerCustomer)}), arrotondato per eccesso. <Source tag="rule" /></p>
                 </>
               ) : (
                 <p><strong>{NOT_AVAILABLE}</strong> — il margine di contribuzione per cliente è nullo o negativo con i dati indicati: il pareggio non è raggiungibile finché prezzo/margine o costi non cambiano. <Source tag="rule" /></p>
