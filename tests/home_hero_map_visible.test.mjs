@@ -52,6 +52,7 @@ const vite = await createServer({
       load(id) {
         const norm = id.replace(/\\/g, "/");
         if (norm.endsWith("/components/home/HomepageTerritoryMap.jsx")) return STEP2MAP_STUB;
+        if (norm.endsWith("/components/home/HomepageRadiusPreview.jsx")) return `import React from "react"; export default function Preview() { return React.createElement("figure", {className: "vph-radius-preview"}); }`;
         if (norm.endsWith("/hooks/useServiceAnalysis.js")) return USE_SA_STUB;
         return null;
       },
@@ -164,7 +165,7 @@ try {
     const txt = textOf(r);
     assert.match(txt, /—/, "i KPI devono mostrare il fallback n/d");
     assert.match(txt, /momentaneamente non disponibili/i, "badge dati non tecnico");
-    assert.match(txt, /GPS, prove fotografiche/i, "la card benefici statica resta montata");
+    assert.equal(r.root.findAll(n => n.props.className === "vph-benefits").length, 1, "i benefici restano montati anche senza dati territoriali");
     act(() => r.unmount());
   });
 

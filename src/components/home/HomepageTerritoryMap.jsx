@@ -6,7 +6,26 @@ import { HERO_SCENARIO, formatHeroMetric } from './homepageHeroData.js';
 export default function HomepageTerritoryMap({ groups, selected, onSelect, loading, unavailable, missingGeometries }) {
   const host=useRef(null), mapRef=useRef(null), territories=useRef(null), radiusLayer=useRef(null);
   const [boundaries,setBoundaries]=useState(true), [radiusVisible,setRadiusVisible]=useState(true), [tilesFailed,setTilesFailed]=useState(false);
-  const reset=()=>{const map=mapRef.current;if(map)map.fitBounds(L.latLng(HERO_SCENARIO.lat,HERO_SCENARIO.lng).toBounds(HERO_SCENARIO.radiusKm*2000),{padding:[60,70],maxZoom:12.5,animate:false});};
+  // Camera padding is presentation-only: retain the exact center, radius and geometry.
+  const reset=()=>{
+    const map=mapRef.current, element=host.current;
+    if(!map||!element)return;
+    const composition=element.closest('.vph-composition');
+    const wide=composition && getComputedStyle(composition).getPropertyValue('--vph-wide').trim()==='1';
+    const stage=composition?.querySelector('.vph-stage');
+    const copy=composition?.querySelector('.vph-copy');
+    const stageHeight=stage?.getBoundingClientRect().height||element.clientHeight;
+    const inset=wide?(copy?.getBoundingClientRect().width||0)+36:0;
+    const lower=wide?Math.max(0,element.clientHeight-stageHeight):0;
+    element.parentElement.style.setProperty('--vph-stage-height',`${stageHeight}px`);
+    if(wide)element.style.setProperty('--vph-map-lower',`${lower}px`);
+    else element.style.removeProperty('--vph-map-lower');
+    map.fitBounds(L.latLng(HERO_SCENARIO.lat,HERO_SCENARIO.lng).toBounds(HERO_SCENARIO.radiusKm*2000),{
+      paddingTopLeft:wide?[inset,150]:[30,70],
+      paddingBottomRight:wide?[60,lower+60]:[30,65],
+      maxZoom:12.5,animate:false
+    });
+  };
   useEffect(()=>{
     const map=L.map(host.current,{zoomControl:false,scrollWheelZoom:false,attributionControl:true,minZoom:9,maxZoom:17,zoomSnap:.25,zoomDelta:.5});mapRef.current=map;
     const tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:19}).addTo(map);

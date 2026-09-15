@@ -6,6 +6,7 @@ import { HERO_SCENARIO, normalizeHomepageAnalysis, formatHeroMetric } from './ho
 import { Logo } from '../common/Logo.jsx';
 import Button from '../ui/Button.jsx';
 import './homepage-hero.css';
+import HomepageRadiusPreview from './HomepageRadiusPreview.jsx';
 
 const C = {
   orange: "#E8571A",
@@ -382,26 +383,47 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
           <button onClick={() => { setMenuOpen(false); configure?.(); }} style={mobileMenuItemStyle}>Piattaforma: Configuratore</button>
         </div>
       )}
+      <div className="vph-composition">
       <div className="vph-stage">
         <div className="vph-copy">
           <p className="vph-eyebrow">VOLANTINAGGIO &middot; CONTROLLO GPS</p>
-          <h1 id="vph-title">Distribuisci volantini e<br className="vph-break"/> verifica ogni<br className="vph-break"/> consegna con<br className="vph-break"/> <em>GPS e report fotografico</em></h1>
-          <p className="vph-description">Configura la campagna con dati territoriali reali, segui la distribuzione con il tracking GPS degli operatori e ricevi foto, prove di consegna e report finale. Senza contratti fissi.</p>
-          <div className="vph-actions"><button type="button" className="vph-button" onClick={configure}>Configura la tua campagna</button><button type="button" className="vph-button vph-button-secondary" onClick={how}>Vedi come funziona <span aria-hidden="true">▶</span></button></div>
-          <div className="vph-chips">{['Door to Door','Hand to Hand','Negozi','Scuole','Eventi'].map(chip=><span key={chip}>{chip}</span>)}</div>
+          <h1 id="vph-title">Distribuisci volantini e verifica ogni consegna con <em>GPS e report fotografico</em></h1>
+          <p className="vph-description">Raggiungi il tuo pubblico nei comuni giusti. Pianifica con dati territoriali reali, segui gli operatori via GPS e verifica la distribuzione con foto e report.</p>
+          <div className="vph-actions">
+            <button type="button" className="vph-button" onClick={configure}>Configura la tua campagna <span aria-hidden="true">→</span></button>
+            <button type="button" className="vph-button vph-button-secondary" onClick={how}>Vedi come funziona <span aria-hidden="true">▶</span></button>
+          </div>
+          <div className="vph-chips" aria-label="Servizi di distribuzione">{['Door to Door','Hand to Hand','Negozi','Scuole','Eventi'].map(chip=><a key={chip} href="#prezzi">{chip}<span aria-hidden="true">↗</span></a>)}</div>
+          <div className="vph-benefits">
+            <div><HeroIcon type="radius"/><span>Tracking GPS<small>degli operatori</small></span></div>
+            <div><HeroIcon type="coverage"/><span>Dati territoriali<small>per pianificare</small></span></div>
+            <div><HeroIcon type="report"/><span>Foto e report<small>verificabili</small></span></div>
+          </div>
         </div>
         <div className="vph-map-area">
           <div className="vph-kpis" aria-label="Indicatori dello scenario reale">{kpis.map(([icon,label,value])=><div className="vph-kpi" key={icon}><HeroIcon type={icon}/><div><strong>{value}</strong><span>{label}</span></div></div>)}</div>
           <HomepageTerritoryMap groups={analysis.groups} selected={selected} onSelect={select} loading={pending} unavailable={Boolean(error)||!pending&&!analysis.groups.length} missingGeometries={analysis.missingGeometries}/>
         </div>
       </div>
-      <div className="vph-summary">
-        <div className="vph-benefits">{benefits.map(([icon,text])=><div key={text}><HeroIcon type={icon}/><span>{text}</span></div>)}</div>
-        <div className="vph-analysis"><h2>Analisi territorio Milano Nord</h2><div className="vph-list-heading"><span>Comune / territori analizzati</span><span>Famiglie</span><span>Quota</span></div>
-          {pending?<p className="vph-empty" role="status">Lettura dei dati territoriali…</p>:!analysis.groups.length?<p className="vph-empty" role="status">Dati territoriali momentaneamente non disponibili. Nessuna stima sostitutiva.</p>:<ul>{analysis.groups.map(g=><li key={g.id}><button type="button" className="vph-zone" onClick={()=>select(selected===g.id?null:g.id)} aria-pressed={selected===g.id}><span className="vph-zone-name"><i style={{backgroundColor:g.color}}/>{g.name}{g.isNil&&<small> · NIL nel raggio</small>}</span><strong>{formatHeroMetric(g.families)}</strong><span>{g.share===null?'—':`${Math.round(g.share)}%`}</span></button></li>)}</ul>}
-          <p className="vph-list-note">Esempio reale · {HERO_SCENARIO.name}, raggio {HERO_SCENARIO.radiusKm} km. Quote sul totale famiglie.</p>
+      <div className="vph-summary" role="region" aria-labelledby="vph-analysis-title">
+        <div className="vph-analysis-heading">
+          <HeroIcon type="coverage"/>
+          <div><h2 id="vph-analysis-title">Analisi Territorio Milano Nord</h2><p>Famiglie, comuni e copertura potenziale. Uno scenario reale da esplorare.</p></div>
+          <span className="vph-scenario-tag">{HERO_SCENARIO.name} · Raggio {HERO_SCENARIO.radiusKm} km</span>
         </div>
-        <div className="vph-totals"><div><span>Totale famiglie nel raggio</span><strong>{metric(analysis.families)}</strong></div><div><span>Copertura stimata</span><strong className="vph-orange">{metric(analysis.coverage)}{analysis.coverage!==null&&!pending?'%':''}</strong></div><p><HeroIcon type="report"/><span>{analysis.sources.length?analysis.sources.join(' · '):'Fonti territoriali della piattaforma'}<br/>Famiglie stimate; copertura media areale delle zone analizzate.</span></p></div>
+        <div className="vph-analysis">
+          <div className="vph-list-heading"><span>Comune</span><span>Famiglie</span><span>Quota</span></div>
+          {pending?<p className="vph-empty" role="status">Lettura dei dati territoriali…</p>:!analysis.groups.length?<p className="vph-empty" role="status">Dati territoriali momentaneamente non disponibili. Nessuna stima sostitutiva.</p>:<ul aria-label="Famiglie per comune">{analysis.groups.map(g=><li key={g.id}><button type="button" className="vph-zone" onClick={()=>select(selected===g.id?null:g.id)} aria-pressed={selected===g.id}><span className="vph-zone-name"><i style={{backgroundColor:g.color}}/><span>{g.name}{g.isNil&&<small>NIL nel raggio</small>}</span></span><strong>{formatHeroMetric(g.families)}</strong><span>{g.share===null?'—':`${Math.round(g.share)}%`}</span></button></li>)}</ul>}
+          <p className="vph-list-note">Quote sul totale famiglie. Seleziona un comune per evidenziarlo sulla mappa.</p>
+        </div>
+        <div className="vph-totals">
+          <div className="vph-stat"><HeroIcon type="families"/><strong>{metric(analysis.families)}</strong><span>Famiglie nel raggio</span></div>
+          <div className="vph-stat"><HeroIcon type="coverage"/><strong className="vph-orange">{metric(analysis.coverage)}{analysis.coverage!==null&&!pending?'%':''}</strong><span>Copertura stimata <a className="vph-info" href="#vph-methodology" aria-label="Come viene calcolata la copertura stimata" aria-describedby="vph-methodology">i</a></span></div>
+          <div className="vph-methodology" id="vph-methodology" tabIndex={-1}><h3>Come leggere la stima</h3><p>La copertura è la media delle percentuali di superficie delle zone analizzate comprese nel raggio. Si basa sui dati territoriali disponibili: non indica la quota di famiglie raggiunte e non garantisce un risultato di consegna.</p><span>{analysis.sources.length?analysis.sources.join(' · '):'Fonti territoriali della piattaforma'}</span></div>
+
+        </div>
+        <HomepageRadiusPreview groups={analysis.groups} selected={selected} loading={pending}/>
+      </div>
       </div>
       <ul className="vph-trust">{trust.map(text=><li key={text}><HeroIcon type="check"/>{text}</li>)}</ul>
     </div>

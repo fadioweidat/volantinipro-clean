@@ -3,7 +3,6 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 import { C, F, x, w, j, T, z, R } from "../../lib/constants.js";
 import KpiTooltip from "../../components/ui/KpiTooltip.jsx";
 import { Step1Icon } from "../../components/Step1Icon.jsx";
-import TrustBar from "../../components/home/TrustBar.jsx";
 import ServicesSection from "../../components/home/ServicesSection.jsx";
 import EnterpriseSection from "../../components/home/EnterpriseSection.jsx";
 import FAQSection from "../../components/home/FAQSection.jsx";
@@ -229,20 +228,6 @@ export function HomePage({
       onLogin: () => n("login"),
       onAdmin: () => n("admin"),
       onHowItWorks: i
-    }), _jsx(TrustBar, {
-      metrics: [{
-        value: "ISTAT",
-        label: "Dati territoriali"
-      }, {
-        value: "GIS",
-        label: "Analisi zona"
-      }, {
-        value: "GPS",
-        label: "Tracking operativo"
-      }, {
-        value: "PDF",
-        label: "Report verificabili"
-      }]
     }), _jsx(WhyDifferentSection, {}), _jsx(HowItWorksSection, {
       onConfigure: () => n("preventivo")
     }), _jsx(FeasibilitySection, {
