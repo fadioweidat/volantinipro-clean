@@ -83,3 +83,128 @@ test('AssignWork explicit recipient + €250: preview, save, result, modify and 
     await rm(temp, { recursive: true, force: true });
   }
 });
+
+test('AssignWork Step 1 deadlock fix: postini pubblicitari + fadi group resolves recipients, enables Avanti al programma, and explains blocks', async () => {
+  const temp = await mkdtemp(new URL('./.recipient-render-deadlock-', import.meta.url));
+  let renderer;
+  const previousWindow = globalThis.window;
+  try {
+    const api = {
+      buildSupplierProgramWhatsAppMessage,
+      adminListSuppliers: async () => ({
+        available: true,
+        rows: [{
+          id: 'supplier-postini',
+          company_name: 'postini pubblicitari',
+          contact_name: 'Fadi oweidat',
+          phone: '+393277175000',
+        }],
+      }),
+      listAssignableOperators: async () => [{ id: 'hassan', display_name: 'Hassan', phone: '3511234567' }],
+      getCampaignZonesWithGroups: async () => ({
+        groups: [{ id: 'group-fadi', name: 'fadi', lead_name: 'Fadi oweidat' }],
+        zones: [{ id: 'zone-1', zone_name: 'Centro', quantity_assigned: 500 }],
+      }),
+      getCampaignRecord: async () => ({ id: 'campaign-1', title: 'Campagna Test', total_amount: 1000, metadata: {} }),
+      listAssignmentZones: async () => [],
+      createOperatorAssignment: async payload => ({ id: 'new-assignment', metadata: payload.metadata }),
+      updateOperatorAssignment: async () => {},
+      setAssignmentZones: async () => [],
+      updateCampaignZoneAssignment: async () => {},
+      generateDriverAssignmentLink: () => 'https://example.test/program',
+      createOperationalGroup: async () => {},
+      revokeOperatorAssignment: async () => {},
+    };
+    globalThis.__recipientFixture = { api, supabase: { from: () => ({
+      select: () => ({ eq: async () => ({ data: [], error: null }) }),
+      update: () => ({ eq: async () => ({ error: null }) }),
+    }) } };
+    const outfile = `${temp}/bundle.mjs`;
+    await build({
+      stdin: {
+        contents: `export { AssignWork } from './src/pages/admin/AssignWork.jsx'; export { AssignWorkGroupOperatorStep as Group } from './src/pages/admin/assign-work/AssignWorkGroupOperatorStep.jsx'; export { AssignWorkProgramStep as Program } from './src/pages/admin/assign-work/AssignWorkProgramStep.jsx';`,
+        resolveDir: process.cwd(),
+      },
+      outfile,
+      bundle: true,
+      platform: 'node',
+      format: 'esm',
+      jsx: 'automatic',
+      external: ['react', 'react/jsx-runtime'],
+      plugins: [{
+        name: 'mock-db',
+        setup(b) {
+          b.onResolve({ filter: /(?:admin-api|gps-api|supabaseClient)\.js$/ }, args => ({ path: args.path, namespace: 'mock-db' }));
+          b.onLoad({ filter: /.*/, namespace: 'mock-db' }, args => ({
+            contents: args.path.includes('supabaseClient')
+              ? 'export const supabase = globalThis.__recipientFixture.supabase; export const ensureSupabaseSessionBridge = async () => {};'
+              : Object.keys(api).map(name => `export const ${name} = (...args) => globalThis.__recipientFixture.api.${name}(...args);`).join('\n') + '\nexport const buildDriverWhatsAppMessage = () => "";'
+          }));
+        }
+      }],
+      logLevel: 'silent',
+    });
+
+    const { AssignWork, Group, Program } = await import(pathToFileURL(outfile));
+    await act(async () => {
+      renderer = TestRenderer.create(React.createElement(AssignWork, { campaignId: 'campaign-1' }));
+    });
+
+    const groupStep = renderer.root.findByType(Group);
+
+    // 1. Select supplier 'supplier-postini'
+    await act(async () => {
+      groupStep.props.setSelectedSupplierId('supplier-postini');
+    });
+
+    // 2. The supplier is defaulted as explicit recipient because it has canonical phone +393277175000
+    assert.equal(renderer.root.findByType(Group).props.canGoNext(), true);
+    assert.match(JSON.stringify(renderer.toJSON()), /postini pubblicitari/);
+
+    // 3. Select group 'group-fadi'
+    await act(async () => {
+      groupStep.props.setSelectedGroupId('group-fadi');
+    });
+
+    // Both supplier and group contact are available
+    const select = renderer.root.findAllByType('select').find(n => n.findAllByType('option').some(o => o.props.value === '' && o.children.includes('Seleziona destinatario')));
+    const options = select.findAllByType('option').map(o => o.children.join(''));
+    assert.ok(options.some(opt => opt.includes('postini pubblicitari')));
+    assert.ok(options.some(opt => opt.includes('Fadi oweidat')));
+
+    // Next remains enabled
+    assert.equal(renderer.root.findByType(Group).props.canGoNext(), true);
+
+    // 4. Switch explicit recipient to Fadi oweidat (group)
+    const fadiOption = select.findAllByType('option').find(o => String(o.props.value).includes('Fadi oweidat'));
+    await act(async () => {
+      select.props.onChange({ target: { value: fadiOption.props.value } });
+    });
+    assert.equal(renderer.root.findByType(Group).props.canGoNext(), true);
+
+    // 5. If recipient is cleared: canGoNext is false and clear blocker message is displayed
+    await act(async () => {
+      select.props.onChange({ target: { value: '' } });
+    });
+    assert.equal(renderer.root.findByType(Group).props.canGoNext(), false);
+    assert.match(JSON.stringify(renderer.toJSON()), /Seleziona il destinatario del programma\./);
+
+    // 6. Reselect supplier recipient: enables next immediately and advancing to step 2 works
+    const postiniOption = select.findAllByType('option').find(o => String(o.props.value).includes('postini pubblicitari'));
+    await act(async () => {
+      select.props.onChange({ target: { value: postiniOption.props.value } });
+    });
+    assert.equal(renderer.root.findByType(Group).props.canGoNext(), true);
+    await act(async () => {
+      renderer.root.findByType(Group).props.setStep(2);
+    });
+    assert.ok(renderer.root.findByType(Program));
+  } finally {
+    if (renderer) await act(async () => renderer.unmount());
+    globalThis.window = previousWindow;
+    delete globalThis.__recipientFixture;
+    assert.ok(temp.startsWith(new URL('.', import.meta.url).pathname.replace(/^\/(?:([A-Za-z]):)/, '$1:')) || /^.*[\\/]tests[\\/]\.recipient-render-[^\\/]+$/.test(temp));
+    await rm(temp, { recursive: true, force: true });
+  }
+});
+

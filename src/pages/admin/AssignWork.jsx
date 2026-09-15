@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase, ensureSupabaseSessionBridge } from '../../supabaseClient.js';
 import {
   listAssignableOperators,
@@ -201,6 +201,67 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
 
   const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId) || null;
   const selectedGroup = groups.find(group => group.id === selectedGroupId) || null;
+
+  const autoDefaultedSupplierRef = useRef(isEdit && existingAssignment?.metadata?.explicit_program_recipient ? 'preserved' : null);
+
+  // Auto-present canonical supplier contact as the DEFAULT explicit recipient when supplier is selected/loaded.
+  // Preserves existing assignment saved recipients in edit mode and avoids clearing unless invalid.
+  useEffect(() => {
+    if (isEdit && existingAssignment?.metadata?.explicit_program_recipient && autoDefaultedSupplierRef.current === 'preserved') {
+      return;
+    }
+
+    const currentKey = supplierMode === 'registered' ? selectedSupplierId : (manualSupplier.name + ':' + manualSupplier.phone);
+    if (!currentKey) return;
+
+    // Do not auto-re-default if user explicitly cleared recipient for the current supplier
+    if (autoDefaultedSupplierRef.current === currentKey) return;
+
+    // Only default if no recipient selected, or if registered supplier changed
+    const isSupplierMismatch = (
+      supplierMode === 'registered' &&
+      explicitProgramRecipient?.type === 'registered_supplier' &&
+      explicitProgramRecipient?.id &&
+      selectedSupplierId &&
+      explicitProgramRecipient.id !== selectedSupplierId
+    );
+
+    if (explicitProgramRecipient && !isSupplierMismatch) {
+      autoDefaultedSupplierRef.current = currentKey;
+      return;
+    }
+
+    const supp = supplierMode === 'manual' ? manualSupplier : selectedSupplier;
+    if (!supp || !supp.phone) return;
+    const cleanPhone = cleanPhoneNumber(supp.phone);
+    if (!cleanPhone) return;
+
+    const suppName = supplierMode === 'manual'
+      ? (supp.contact_name || supp.name || 'Fornitore esterno')
+      : (supp.company_name || supp.contact_name || supp.name || 'Fornitore');
+    if (!suppName?.trim()) return;
+
+    const candidate = {
+      type: supplierMode === 'manual' ? 'manual_supplier' : 'registered_supplier',
+      id: supp.id || null,
+      name: suppName.trim(),
+      phone: cleanPhone,
+    };
+    const res = resolveProgramRecipient({ explicitProgramRecipient: candidate });
+    if (res.valid) {
+      setExplicitProgramRecipient(res.recipient);
+      autoDefaultedSupplierRef.current = currentKey;
+    }
+  }, [
+    isEdit,
+    existingAssignment?.metadata?.explicit_program_recipient,
+    supplierMode,
+    selectedSupplierId,
+    selectedSupplier,
+    manualSupplier.name,
+    manualSupplier.phone,
+    explicitProgramRecipient,
+  ]);
 
   const campaignTitle = campaign?.title || campaign?.campaign_name || campaign?.nome || `Campagna ${String(campaignId).slice(0, 8)}`;
 
@@ -602,10 +663,12 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
         </div>
       )}
 
-      {step < 4 && <ProgramRecipientSelector value={explicitProgramRecipient} onChange={setExplicitProgramRecipient}
-        supplier={supplierMode === 'manual' ? manualSupplier : selectedSupplier} supplierMode={supplierMode}
-        group={selectedGroup} operators={operators} />}
-      <ProgramRecipientSummary recipient={step === 4 ? resolveProgramRecipient({ assignment: savedAssignment }) : resolvedRecipient} compensation={step === 4 ? savedSupplierCompensation(savedAssignment) : supplierCompensation} />
+      {step > 1 && step < 4 && (
+        <ProgramRecipientSummary recipient={resolvedRecipient} compensation={supplierCompensation} />
+      )}
+      {step === 4 && (
+        <ProgramRecipientSummary recipient={resolveProgramRecipient({ assignment: savedAssignment })} compensation={savedSupplierCompensation(savedAssignment)} />
+      )}
 
       {/* ── STEP 1: Scegli fornitore e gruppo ── */}
       {step === 1 && (
@@ -633,6 +696,10 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           groupSaving={groupSaving}
           canGoNext={canGoNext}
           setStep={setStep}
+          explicitProgramRecipient={explicitProgramRecipient}
+          setExplicitProgramRecipient={setExplicitProgramRecipient}
+          resolvedRecipient={resolvedRecipient}
+          operators={operators}
           styles={{
             cardStyle,
             eyebrowStyle,

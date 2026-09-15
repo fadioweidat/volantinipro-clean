@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { ProgramRecipientSelector } from './ProgramRecipient.jsx';
 
 export function AssignWorkGroupOperatorStep({
   Notice,
@@ -24,6 +25,10 @@ export function AssignWorkGroupOperatorStep({
   groupSaving,
   canGoNext,
   setStep,
+  explicitProgramRecipient = null,
+  setExplicitProgramRecipient = () => {},
+  resolvedRecipient = { valid: false },
+  operators = [],
   styles,
 }) {
   const {
@@ -544,10 +549,64 @@ export function AssignWorkGroupOperatorStep({
         )}
       </div>
 
-      {/* Validation warnings */}
-      {suppliers.length > 0 && !selectedSupplierId && (
-        <Notice danger text="Seleziona il fornitore partner a cui affidare la campagna." />
-      )}
+      {/* ─────────────────────────────────────────────────────────────
+          3. DESTINATARIO DEL PROGRAMMA
+      ───────────────────────────────────────────────────────────── */}
+      <div style={{ marginBottom: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,.08)' }}>
+        <h3 style={{ ...sectionTitleStyle, fontSize: 18, marginBottom: 4 }}>3. Destinatario del Programma</h3>
+        <p style={{ margin: '0 0 12px', fontSize: 12, color: 'rgba(255,255,255,.5)' }}>
+          Indica chi riceverà il programma operativo via WhatsApp. Nessun invio a destinatari nascosti.
+        </p>
+
+        <ProgramRecipientSelector
+          value={explicitProgramRecipient}
+          onChange={setExplicitProgramRecipient}
+          supplier={supplierMode === 'manual' ? manualSupplier : selectedSupplier}
+          supplierMode={supplierMode}
+          group={groups.find(g => g.id === selectedGroupId) || null}
+          operators={operators}
+        />
+      </div>
+
+      {/* Blocker explanation directly above button */}
+      {(() => {
+        let step1BlockerReason = null;
+        if (supplierMode === 'registered' && suppliers.length > 0 && !selectedSupplierId) {
+          step1BlockerReason = 'Seleziona il fornitore partner a cui affidare la campagna.';
+        } else if (supplierMode === 'manual' && (!manualSupplier?.name || !manualSupplier.name.trim())) {
+          step1BlockerReason = 'Inserisci il nome del fornitore esterno.';
+        } else if (supplierMode === 'manual' && cleanManualPhone.length < 6) {
+          step1BlockerReason = 'Inserisci un numero di telefono valido per il fornitore esterno.';
+        } else if (!explicitProgramRecipient) {
+          step1BlockerReason = 'Seleziona il destinatario del programma.';
+        } else if (!resolvedRecipient?.valid) {
+          step1BlockerReason = 'Il destinatario selezionato non ha un numero di telefono valido.';
+        }
+
+        if (!step1BlockerReason) return null;
+
+        return (
+          <div
+            role="alert"
+            style={{
+              marginBottom: 12,
+              padding: '10px 14px',
+              borderRadius: 8,
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              color: '#fca5a5',
+              fontSize: 13,
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <span style={{ fontSize: 15 }}>⚠️</span>
+            <span>{step1BlockerReason}</span>
+          </div>
+        );
+      })()}
 
       <div style={footerRowStyle}>
         <span />
