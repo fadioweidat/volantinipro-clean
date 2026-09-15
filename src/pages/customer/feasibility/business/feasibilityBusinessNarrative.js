@@ -3,7 +3,7 @@
 // Implementazione DETERMINISTICA e RIGOROSAMENTE GROUNDED: compone frasi a partire
 // ESCLUSIVAMENTE dai fatti numerici già calcolati da feasibilityBusinessEngine.js.
 // Nessuna invenzione di popolazione, famiglie, concorrenti o esiti economici.
-import { NOT_AVAILABLE, PRELIMINARY } from './feasibilityBusinessSchemas.js';
+import { NOT_AVAILABLE, PRELIMINARY, businessGoalLabel } from './feasibilityBusinessSchemas.js';
 
 /**
  * Prepara il payload strutturato dei soli fatti verificati per l'interpretazione AI.
@@ -33,7 +33,7 @@ export function buildBusinessNarrativeFacts({ inputs, analysis }) {
     businessStatus: inputs?.businessStatus === 'existing' ? 'existing' : 'new',
     targetCustomer: inputs?.targetCustomer || NOT_AVAILABLE,
     averagePrice: inputs?.averagePrice || NOT_AVAILABLE,
-    goal: inputs?.businessGoal || NOT_AVAILABLE,
+    goal: businessGoalLabel(inputs?.businessGoal) || NOT_AVAILABLE,
     resolvedLocation: inputs?.location || NOT_AVAILABLE,
     locationResolved: Boolean(locationResolved),
     radiusKm,

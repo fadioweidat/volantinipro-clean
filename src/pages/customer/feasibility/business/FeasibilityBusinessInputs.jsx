@@ -58,6 +58,21 @@ export function FeasibilityBusinessStep1({ inputs, onChange, onNext }) {
           {attempted && errors.businessStatus && <small role="alert">{errors.businessStatus}</small>}
         </fieldset>
       </div>
+      {/* §9-D (QA "TWO FEASIBILITY STUDIES"): identità per il report/PDF —
+          facoltativi, mai bloccanti per continuare. */}
+      <details>
+        <summary>Nome attività e referente (facoltativo, per il report)</summary>
+        <div className="vf-form-grid">
+          <div className="vf-field">
+            <label htmlFor="vfb-businessName">Nome attività</label>
+            <input id="vfb-businessName" placeholder="es. FitLife Palestra" value={inputs.businessName} onChange={event => onChange({ businessName: event.target.value })} maxLength={120} />
+          </div>
+          <div className="vf-field">
+            <label htmlFor="vfb-referenceName">Nome cliente / referente</label>
+            <input id="vfb-referenceName" placeholder="es. Mario Rossi" value={inputs.referenceName} onChange={event => onChange({ referenceName: event.target.value })} maxLength={120} />
+          </div>
+        </div>
+      </details>
       <div className="vf-actions">
         <button className="vf-primary" type="submit">Continua</button>
       </div>

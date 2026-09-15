@@ -21,6 +21,14 @@ export const BUSINESS_GOAL_OPTIONS = [
   { value: 'improve_existing', label: "Migliorare l'attività esistente" },
 ];
 
+// §9-B (QA "TWO FEASIBILITY STUDIES"): il report/la narrativa devono SEMPRE
+// mostrare l'etichetta umana della select, mai il token interno (es.
+// "should_open"). Ritorna il valore grezzo solo se non è uno dei valori noti
+// (mai "Dato non disponibile" per un input davvero fornito dall'utente).
+export function businessGoalLabel(value) {
+  return BUSINESS_GOAL_OPTIONS.find(o => o.value === value)?.label || value || null;
+}
+
 export const BUSINESS_REQUIRED_FIELDS = [
   'businessType', 'location', 'businessStatus', 'targetCustomer', 'averagePrice', 'businessGoal',
 ];
@@ -31,6 +39,17 @@ export function initialBusinessInputs() {
     averagePrice: '', businessGoal: '',
     // opzionali (§3)
     radiusKm: '', knownCompetitors: '', priceRange: '', notes: '',
+    // §9-D (QA "TWO FEASIBILITY STUDIES"): identità per report/PDF —
+    // facoltativi, mai richiesti per generare l'analisi.
+    businessName: '', referenceName: '',
+    // ── Dati economici (ticket "UPGRADE FATTIBILITÀ DELLA MIA ATTIVITÀ") ──
+    // Stesso oggetto piatto `businessInputs` di sopra, cosi' il restore da
+    // sessionStorage (feasibilityStorage.js, loop su Object.keys) copre
+    // anche questi campi senza modifiche aggiuntive allo storage.
+    initialInvestment: '', monthlyRent: '', staffCount: '', monthlyStaffCost: '',
+    otherFixedCostsMonthly: '', variableCostPct: '', averageCustomerRevenue: '',
+    grossMarginPct: '', launchCustomers: '', targetCustomers12mo: '', monthlyGrowthPct: '',
+    otherMonthlyRevenue: '', availableCapital: '',
   };
 }
 
@@ -122,8 +141,21 @@ export async function resolveBusinessLocationAsync(rawLocation, { signal } = {})
     nilName = nil?.name || null;
   }
 
+  // §9-A (QA "TWO FEASIBILITY STUDIES"): quando il geocoder NON ha risolto
+  // una via/indirizzo reale (query a livello di solo comune, es. "Milano"),
+  // il display_name grezzo di Nominatim può contenere una gerarchia
+  // amministrativa ridondante/confusa ("Milano, Rodano, Milano, Lombardia,
+  // Italia"). In quel caso si mostra la forma canonica "Città, Regione"
+  // invece del testo grezzo — MAI un'alterazione della risoluzione reale
+  // (lat/lng/city/nilName restano quelli del geocoder). Quando invece è
+  // stata risolta una via reale, la label ricca (con via/quartiere/NIL) resta
+  // quella del geocoder, perché è informazione reale in più, non rumore.
+  const displayAddress = geocoded.hasStreet || !city
+    ? geocoded.label
+    : (geocoded.region ? `${city}, ${geocoded.region}` : city);
+
   return {
-    displayAddress: geocoded.label,
+    displayAddress,
     city,
     lat: geocoded.lat,
     lng: geocoded.lng,

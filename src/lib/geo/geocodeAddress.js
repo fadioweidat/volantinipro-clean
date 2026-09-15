@@ -26,7 +26,15 @@ export async function geocodeAddress(query, { signal } = {}) {
   const address = first?.address || {};
   const city = address.city || address.town || address.village || address.municipality || null;
   const postcode = address.postcode || null;
-  return { lat, lng, label: first.display_name || trimmed, city, postcode };
+  // `region`/`hasStreet` (ticket "BUSINESS FEASIBILITY FINANCIAL STUDY" §9-A):
+  // servono SOLO a decidere come mostrare l'indirizzo (via reale trovata ->
+  // etichetta completa; solo comune -> "Città, Regione" canonico invece del
+  // display_name grezzo, che per una città può contenere gerarchie
+  // amministrative ridondanti/confuse, es. "Milano, Rodano, Milano,
+  // Lombardia, Italia"). Nessun impatto su lat/lng/city già restituiti.
+  const region = address.state || null;
+  const hasStreet = Boolean(address.road || address.pedestrian || address.footway || address.residential);
+  return { lat, lng, label: first.display_name || trimmed, city, postcode, region, hasStreet };
 }
 
 // TICKET — WATERMARK FOTO CLIENTE (Fase 4): reverse geocoding NON bloccante

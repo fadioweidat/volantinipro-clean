@@ -1,21 +1,29 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { FeasibilityBusinessStep1, FeasibilityBusinessStep2 } from './FeasibilityBusinessInputs.jsx';
+import { FeasibilityBusinessFinancialInputs } from './FeasibilityBusinessFinancialInputs.jsx';
 import FeasibilityBusinessSmartPairing from './FeasibilityBusinessSmartPairing.jsx';
 import FeasibilityBusinessReport from './FeasibilityBusinessReport.jsx';
 import { resolveBusinessLocationAsync, activityToPoiTargets, isBusinessInputsComplete } from './feasibilityBusinessSchemas.js';
 import { fetchBusinessTerritorialData } from './feasibilityBusinessTerritory.js';
 import { buildBusinessAnalysis } from './feasibilityBusinessEngine.js';
+import { buildBusinessFinancialAnalysis } from './feasibilityBusinessFinancialEngine.js';
+import { buildBusinessSynthesis } from './feasibilityBusinessSynthesis.js';
 import { buildBusinessNarrative } from './feasibilityBusinessNarrative.js';
 import { buildBusinessRecommendations } from './feasibilityBusinessRecommendations.js';
 import { usePoi } from '../../../../hooks/usePoi.js';
 
-// Orchestratore Business Mode (§14): Step1 attività/località/stato -> Step2
-// pubblico/obiettivo -> Step3 Smart Pairing opzionale -> Step4 report.
-// Stato locale, isolato dalla Campaign Mode: nessuna interferenza con
-// feasibilitySchemas.js / feasibilityEngine.js esistenti.
+// Orchestratore Business Mode (§14, esteso dal ticket "UPGRADE FATTIBILITÀ
+// DELLA MIA ATTIVITÀ"): Step1 attività/località/stato -> Step2 pubblico/
+// obiettivo -> Step3 dati economici (NUOVO) -> Step4 Smart Pairing
+// opzionale -> Step5 report. Stato locale, isolato dalla Campaign Mode:
+// nessuna interferenza con feasibilitySchemas.js / feasibilityEngine.js
+// esistenti. Il motore territoriale (buildBusinessAnalysis) resta invariato:
+// il nuovo motore economico (buildBusinessFinancialAnalysis) e la sintesi
+// (buildBusinessSynthesis) sono puramente additivi.
 export default function FeasibilityBusinessFlow({ inputs, onChange, onBackToChoice, onNav }) {
   const [phase, setPhase] = useState(0);
   const change = patch => onChange({ ...inputs, ...patch });
+  const REPORT_PHASE = 4;
 
   // Risoluzione geografica REALE (ticket "GEOCODING + ISTAT + POI
   // CONSISTENCY"): asincrona perché puo' richiedere un geocoder di rete
@@ -26,7 +34,7 @@ export default function FeasibilityBusinessFlow({ inputs, onChange, onBackToChoi
   const [location, setLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
   useEffect(() => {
-    if (phase !== 3) return;
+    if (phase !== REPORT_PHASE) return;
     let cancelled = false;
     setLocationLoading(true);
     resolveBusinessLocationAsync(inputs.location)
@@ -46,7 +54,7 @@ export default function FeasibilityBusinessFlow({ inputs, onChange, onBackToChoi
   // località non è (ancora) risolta (§5 — "non usare il fallback centrale
   // Milano quando esiste una coordinata di indirizzo": qui semplicemente non
   // si interroga affatto finché non c'è una coordinata reale).
-  const poiActive = phase === 3 && Boolean(location);
+  const poiActive = phase === REPORT_PHASE && Boolean(location);
   const { pois, loading: poiLoading, error: poiError } = usePoi(
     poiActive ? location.lat : null,
     poiActive ? location.lng : null,
@@ -59,7 +67,7 @@ export default function FeasibilityBusinessFlow({ inputs, onChange, onBackToChoi
   const [territorialLoading, setTerritorialLoading] = useState(false);
 
   useEffect(() => {
-    if (phase !== 3 || !location) return;
+    if (phase !== REPORT_PHASE || !location) return;
     let cancelled = false;
     setTerritorialLoading(true);
     fetchBusinessTerritorialData({ lat: location.lat, lng: location.lng, municipalityName: location.city, radiusKm })
@@ -78,7 +86,7 @@ export default function FeasibilityBusinessFlow({ inputs, onChange, onBackToChoi
   const poisAvailable = Boolean(location) && !poiError;
 
   const analysis = useMemo(() => {
-    if (phase !== 3 || locationLoading) return null;
+    if (phase !== REPORT_PHASE || locationLoading) return null;
     return buildBusinessAnalysis({
       center: location ? { lat: location.lat, lng: location.lng } : null,
       location,
@@ -94,13 +102,24 @@ export default function FeasibilityBusinessFlow({ inputs, onChange, onBackToChoi
   const narrative = useMemo(() => (analysis ? buildBusinessNarrative({ inputs, analysis }) : null), [analysis, inputs]);
   const recommendations = useMemo(() => (analysis ? buildBusinessRecommendations({ analysis }) : []), [analysis]);
 
-  const reportLoading = phase === 3 && (locationLoading || (Boolean(location) && (poiLoading || territorialLoading)) || !analysis);
+  // Motore economico (ticket "UPGRADE FATTIBILITÀ DELLA MIA ATTIVITÀ"): nessuna
+  // chiamata di rete, calcola solo dai dati economici già in `inputs` — puro,
+  // sincrono, sempre disponibile appena si arriva al Report (non dipende da
+  // geocoding/ISTAT/POI). La sintesi combina questo risultato con `analysis`
+  // (motore territoriale, invariato) SENZA modificarne i campi.
+  const financialAnalysis = useMemo(() => (phase === REPORT_PHASE ? buildBusinessFinancialAnalysis(inputs) : null), [phase, inputs]);
+  const synthesis = useMemo(
+    () => (analysis && financialAnalysis ? buildBusinessSynthesis({ territorialAnalysis: analysis, financialAnalysis }) : null),
+    [analysis, financialAnalysis],
+  );
+
+  const reportLoading = phase === REPORT_PHASE && (locationLoading || (Boolean(location) && (poiLoading || territorialLoading)) || !analysis);
 
   return (
     <div>
       <nav className="vf-progress" aria-label="Fasi analisi attività">
         <ol>
-          {['Attività e località', 'Pubblico e obiettivo', 'Smart Pairing (facoltativo)', 'Report'].map((label, index) => (
+          {['Attività e località', 'Pubblico e obiettivo', 'Dati economici', 'Smart Pairing (facoltativo)', 'Report'].map((label, index) => (
             <li key={label} aria-current={phase === index ? 'step' : undefined}><span>{index + 1}</span>{label}</li>
           ))}
         </ol>
@@ -121,18 +140,29 @@ export default function FeasibilityBusinessFlow({ inputs, onChange, onBackToChoi
         />
       )}
       {phase === 2 && (
-        <FeasibilityBusinessSmartPairing
+        <FeasibilityBusinessFinancialInputs
           inputs={inputs}
+          businessType={inputs.businessType}
+          onChange={change}
           onNext={() => setPhase(3)}
           onBack={() => setPhase(1)}
         />
       )}
-      {phase === 3 && analysis && narrative && (
+      {phase === 3 && (
+        <FeasibilityBusinessSmartPairing
+          inputs={inputs}
+          onNext={() => setPhase(REPORT_PHASE)}
+          onBack={() => setPhase(2)}
+        />
+      )}
+      {phase === REPORT_PHASE && analysis && narrative && financialAnalysis && synthesis && (
         <FeasibilityBusinessReport
           inputs={inputs}
           analysis={analysis}
           narrative={narrative}
           recommendations={recommendations}
+          financial={financialAnalysis}
+          synthesis={synthesis}
           loading={reportLoading}
           onEdit={() => setPhase(0)}
           onCta={target => {
