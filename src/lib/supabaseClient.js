@@ -401,6 +401,11 @@ export async function confirmCampaignPayment(campagnaId) {
   if (!hasSupabaseConfig()) return null;
   const existing = await getCampaignById(campagnaId);
   if (!existing) return null;
+  // Idempotenza (ticket "CONFIRM PAYMENT ... IDEMPOTENCY"): una campagna già
+  // pagata non deve riscrivere payment_confirmed_at con un secondo timestamp
+  // ne' generare una seconda transizione di stato — ritorna lo stato attuale
+  // invariato, mai un errore, mai una seconda PATCH.
+  if (existing.metadata?.payment_status === 'pagato') return existing;
   return supabaseRequest(`/rest/v1/campaigns?id=eq.${encodeURIComponent(campagnaId)}`, {
     method: "PATCH",
     session: getStoredSupabaseSession(),

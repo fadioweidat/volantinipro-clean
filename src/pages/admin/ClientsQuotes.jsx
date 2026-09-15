@@ -216,9 +216,24 @@ export function ClientsQuotes({ onNav }) {
     setPaymentConfirmError('');
     try {
       if (paymentConfirmRow.settlement?.application_id) { window.location.assign('/le-mie-analisi'); return; }
-      await confirmCampaignPayment(paymentConfirmRow.id);
+      const confirmedId = paymentConfirmRow.id;
+      await confirmCampaignPayment(confirmedId);
+      // Ticket "CONFIRM PAYMENT ONE CLICK" — audit runtime confermato: il PATCH
+      // risponde in ~300ms, ma `load()` ri-esegue l'intero overview Admin
+      // (campaigns/zones/groups/assignments/sessions/operatori/...), che nel
+      // runtime osservato impiega diversi secondi. Aspettare quel reload prima
+      // di mostrare PAGATO dava l'impressione che la conferma non avesse
+      // funzionato. Qui si aggiorna la riga localmente appena il PATCH ha
+      // successo (200) — mai in modo ottimistico PRIMA della risposta — e il
+      // reload completo continua in background solo per riconciliare con lo
+      // stato canonico del server (gruppi/sessioni/assegnazioni), senza
+      // bloccare la UI che mostra gia' il risultato corretto.
+      setState((prev) => ({
+        ...prev,
+        rows: prev.rows.map((row) => (row.id === confirmedId ? { ...row, paymentStatus: 'pagato' } : row)),
+      }));
       setPaymentConfirmRow(null);
-      await load();
+      load({ background: true });
     } catch (err) {
       setPaymentConfirmError(err?.message || 'Impossibile confermare il pagamento.');
     } finally {

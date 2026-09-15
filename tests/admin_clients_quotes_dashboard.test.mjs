@@ -205,7 +205,15 @@ test('ClientsQuotes.jsx — wiring: KPI, filtri, ordinamento, copia riepilogo, W
   assert.match(page, /title="Apri chat WhatsApp con il cliente"/);
   assert.doesNotMatch(page, /Ciao \$\{row\.client \|\| ''\}, la contattiamo per la sua campagna VolantiniPro/);
   assert.doesNotMatch(page, /String\(row\.phone \|\| ''\)\.replace\(\/\[\^\\d\+\]/); // niente normalizzazione ad-hoc
-  // Conferma pagamento: business logic invariata
-  assert.match(page, /await confirmCampaignPayment\(paymentConfirmRow\.id\)/);
+  // Conferma pagamento: business logic invariata (stesso singolo argomento
+  // id, nessuna nuova opzione) — ticket "CONFIRM PAYMENT ONE CLICK": solo la
+  // UI post-successo cambia (aggiornamento locale immediato + reload in
+  // background), non la mutazione stessa.
+  assert.match(page, /const confirmedId = paymentConfirmRow\.id;/);
+  assert.match(page, /await confirmCampaignPayment\(confirmedId\)/);
   assert.doesNotMatch(page, /confirmCampaignPayment\([^)]*[,)]\s*\{/); // nessun nuovo argomento/opzione
+  // Aggiornamento locale immediato dopo il PATCH, mai prima (nessun optimistic
+  // update pre-successo) — e reload completo SOLO in background (non atteso).
+  assert.match(page, /setState\(\(prev\) => \(\{[\s\S]{0,200}paymentStatus: 'pagato'[\s\S]{0,50}\}\)\);/);
+  assert.match(page, /load\(\{ background: true \}\);/);
 });
