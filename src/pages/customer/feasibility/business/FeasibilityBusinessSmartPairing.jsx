@@ -39,7 +39,7 @@ export default function FeasibilityBusinessSmartPairing({ inputs, onNext, onBack
 
   return (
     <section className="vf-panel">
-      <span className="vf-eyebrow">Passo 3 di 4 · Facoltativo</span>
+      <span className="vf-eyebrow">Passo 4 di 5 · Facoltativo</span>
       <h2>Vuoi essere avvisato di opportunità nella tua zona?</h2>
       <p>Questo passo è del tutto facoltativo: puoi saltarlo senza alcuna conseguenza sul tuo report di fattibilità.</p>
       {notice && <p role="status" className="vf-notice">{notice}</p>}

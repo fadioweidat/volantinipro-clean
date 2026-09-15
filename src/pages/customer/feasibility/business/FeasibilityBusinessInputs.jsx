@@ -13,7 +13,7 @@ export function FeasibilityBusinessStep1({ inputs, onChange, onNext }) {
   }
   return (
     <form className="vf-panel" onSubmit={submit} noValidate>
-      <span className="vf-eyebrow">Passo 1 di 4</span>
+      <span className="vf-eyebrow">Passo 1 di 5</span>
       <h2>La tua attività</h2>
       <p>Nessuna quantità di volantini né costo campagna richiesti in questa modalità.</p>
       <div className="vf-form-grid">
@@ -92,7 +92,7 @@ export function FeasibilityBusinessStep2({ inputs, onChange, onNext, onBack }) {
   }
   return (
     <form className="vf-panel" onSubmit={submit} noValidate>
-      <span className="vf-eyebrow">Passo 2 di 4</span>
+      <span className="vf-eyebrow">Passo 2 di 5</span>
       <h2>Pubblico e obiettivo</h2>
       <div className="vf-form-grid">
         <div className="vf-field">

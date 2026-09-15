@@ -19,7 +19,7 @@ export default function FeasibilityBusinessReport({ inputs, analysis, narrative,
   if (loading) {
     return (
       <section className="vf-panel" role="status">
-        <span className="vf-eyebrow">Passo 4 di 4</span>
+        <span className="vf-eyebrow">Passo 5 di 5</span>
         <h2>Stiamo analizzando la zona…</h2>
         <p>Recupero dati territoriali reali e punti di interesse nella zona indicata.</p>
       </section>
