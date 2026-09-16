@@ -2243,8 +2243,8 @@ export function Step4({
               }, {
                 icon: "family",
                 l: "Persone stimate",
-                sub: "Stima su base ISTAT",
-                v: formatNumber(Math.round((kpis.families ?? totF) * 2.4)),
+                sub: kpisPopulation != null ? "Fonte: ISTAT" : "Stima su famiglie (coefficiente medio)",
+                v: formatNumber(kpisPopulation ?? Math.round((kpis.families ?? totF) * 2.4), "—"),
                 c: C.white
               }, {
                 icon: "pin",
