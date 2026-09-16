@@ -123,20 +123,40 @@ export async function ensureRestSessionFromSdk({ action } = {}) {
   return stored || null;
 }
 
+// BUG "ADMIN PAYMENT CONFIRM MODAL STUCK ON CONFERMA IN CORSO...": fetch()
+// here had no timeout at all, so a stalled request left every caller's
+// `await` pending forever — no resolve, no reject, no way for a `finally`
+// to ever clear a loading flag. Bounded timeout turns a network stall into
+// a normal, catchable error instead of an infinite hang. No change to
+// headers, payload, or any caller's business logic.
+const SUPABASE_REQUEST_TIMEOUT_MS = 15000;
+const SUPABASE_REQUEST_TIMEOUT_MESSAGE = "La richiesta al server ha impiegato troppo tempo. Riprova.";
+
 async function supabaseRequest(path, { method = "GET", body, session, prefer = "return=representation" } = {}) {
   const { url, anonKey } = supabaseEnv();
   if (!url || !anonKey) {
     throw new Error("Supabase environment variables are not configured.");
   }
   const token = session?.accessToken || session?.access_token || anonKey;
-  const response = await fetch(`${url}${path}`, {
-    method,
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",...(prefer ? { Prefer: prefer } : {}),
-    },...(body ? { body: JSON.stringify(body) } : {}),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), SUPABASE_REQUEST_TIMEOUT_MS);
+  let response;
+  try {
+    response = await fetch(`${url}${path}`, {
+      method,
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",...(prefer ? { Prefer: prefer } : {}),
+      },...(body ? { body: JSON.stringify(body) } : {}),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err?.name === "AbortError") throw new Error(SUPABASE_REQUEST_TIMEOUT_MESSAGE);
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
   if (!response.ok) {
     const text = await response.text();
     throw new Error(text || `Supabase request failed with ${response.status}`);
@@ -399,7 +419,16 @@ export async function saveCampaign(payload) {
 
 export async function confirmCampaignPayment(campagnaId) {
   if (!hasSupabaseConfig()) return null;
-  const existing = await getCampaignById(campagnaId);
+  // BUG "ADMIN PAYMENT CONFIRM MODAL STUCK ON CONFERMA IN CORSO...": questo
+  // pre-check leggeva l'intera campagna tramite getCampaignById(), che
+  // trascina anche un fetch NON limitato di gps_tracking_points — mai usato
+  // qui, solo per leggere metadata.payment_status. Query mirata alle sole
+  // colonne necessarie: stesso comportamento di idempotenza, molta meno
+  // superficie per una richiesta lenta/bloccata su questo percorso critico.
+  const rows = await supabaseRequest(`/rest/v1/campaigns?id=eq.${encodeURIComponent(campagnaId)}&select=id,status,metadata`, {
+    session: getStoredSupabaseSession(), prefer: null,
+  });
+  const existing = rows?.[0] || null;
   if (!existing) return null;
   // Idempotenza (ticket "CONFIRM PAYMENT ... IDEMPOTENCY"): una campagna già
   // pagata non deve riscrivere payment_confirmed_at con un secondo timestamp
