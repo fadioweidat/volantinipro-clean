@@ -3104,6 +3104,15 @@ export function Step2({
         precision: point.placeType || point.type || "address"
       };
       setSelectedSearchPoint(sp);
+      // Il nuovo punto ha coordinate valide (verificate sopra via
+      // hasValidCoordinates): a differenza di switchToRadiusMode()/
+      // updateActiveRadius(), questo handler non re-confermava mai il
+      // raggio per il punto appena selezionato, lasciando
+      // radiusSelectionConfirmed bloccato sul `false` impostato 2 righe
+      // sopra — il gate Step2→3 restava perennemente su "Seleziona una
+      // modalità di copertura" per Raggio+indirizzo (Comune/CAP non sono
+      // toccati: la loro hasConfirmedCoverageMode non dipende da questo flag).
+      setRadiusSelectionConfirmed(Number(radius || 3) > 0);
       // Contesto indirizzo PERSISTENTE della Zona (nearestNil* completati poi
       // da un effetto quando containingNil si risolve).
       persistCoverageAddress({ label: pointLabel, lat: sp.lat, lng: sp.lng, municipality: "Milano" });
