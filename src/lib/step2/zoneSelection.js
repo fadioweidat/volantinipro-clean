@@ -59,7 +59,18 @@ export function resolveZoneAutoSelection({
     return validPrev.length === prevArr.length ? currentSelected : validPrev;
   }
 
+  // BUG (riprodotto dal vivo: Milano, Via Antonio Oroboni, 3km -> 1km rapido):
+  // quando il raggio SI RESTRINGE, `validPrev` (currentSelected filtrato agli
+  // id ancora disponibili) puo' avere contenuto identico ad `avail` pur
+  // essendo currentSelected stesso PIU' LUNGO (contiene ancora gli id del
+  // raggio precedente, ora fuori disponibilita'). Il confronto per chiave
+  // sotto cattura correttamente "contenuto invariato", ma restituire
+  // `currentSelected` invece di `validPrev` in quel caso lascia nello stato
+  // gli id STALE del raggio vecchio — la sezione "Mostra dettagli zone"
+  // mostrava le NIL del raggio precedente (1km) mentre copertura/percentuale/
+  // riepilogo mostravano già correttamente il raggio nuovo (3km).
   const nextKey = avail.slice().sort().join("|");
   const prevKey = validPrev.slice().sort().join("|");
-  return prevKey === nextKey ? currentSelected : avail;
+  if (prevKey !== nextKey) return avail;
+  return validPrev.length === prevArr.length ? currentSelected : validPrev;
 }
