@@ -952,6 +952,29 @@ export function Step2ComunePanel({ activeCampaignZone, activeComuneZeroData, add
                                   useGrouping: true
                                 })} ab. – ${Number(z.area ?? z.area_km2 ?? 0)} km² – ${Number(z.coverage ?? z.pct_copertura ?? 0)}% ${searchMode === "municipality" ? "di copertura" : "nel raggio"}` : isBusinessStep2 ? `${Number(z.targetBiz ?? 0)} target – ${Number(z.competitors ?? 0)} competitor – ${Number(z.clusters ?? 0)} cluster – ${z.topCats ?? ""}` : isMovementStep2 ? `${Number(z.poi ?? 0)} POI reali - ${Number(z.transit || 0)} nodi TPL/metro - score ${Number(z.strength ?? 0)}/100` : z.dist ? `${Number(z.dist).toFixed(1)} km dal centro` : "Zona nel raggio"}
                                 </div>
+                                {/* "Seleziona solo questo NIL" — isola una singola NIL senza dover
+                                    deselezionare manualmente le altre 87. Riusa setSelected([id]),
+                                    lo stesso pattern gia' usato per il preselect da indirizzo
+                                    (candidate/addressPreviewNilZones qui sopra): nessun nuovo stato,
+                                    nessun calcolo nuovo, resta in modalita' NIL manuale. */}
+                                {z.isNil && nilManualMode && !(selected.length === 1 && selected[0] === z.id) && <button type="button" onClick={e => {
+                                e.stopPropagation();
+                                setSelected([z.id]);
+                              }} aria-label={`Seleziona solo il NIL ${z.name || z.id}`} style={{
+                                marginTop: 6,
+                                padding: "4px 9px",
+                                borderRadius: 6,
+                                border: `1px solid ${col}55`,
+                                background: `${col}14`,
+                                color: col,
+                                fontFamily: F.sans,
+                                fontSize: 9.5,
+                                fontWeight: 800,
+                                cursor: "pointer",
+                                whiteSpace: "nowrap"
+                              }}>
+                                    Seleziona solo questo NIL
+                                  </button>}
                                 {showTerritoryData && <div style={{
                                 display: "grid",
                                 gridTemplateColumns: "repeat(auto-fit,minmax(112px,1fr))",
