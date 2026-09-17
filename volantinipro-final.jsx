@@ -4996,6 +4996,21 @@ function getSupabaseEnv() {
     anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || ""
   };
 }
+// Stesso pattern di src/auth/guards/AdminGuard.jsx (withTimeout). Il client
+// SDK (src/supabaseClient.js) non ha alcun timeout configurato sul proprio
+// fetch interno: se GoTrue e' lento/non risponde (visto in produzione: 504
+// sul gateway Auth), la richiesta OTP resta pending a tempo indefinito e il
+// pulsante mostra "Invio in corso..." per sempre — nessun errore, nessun
+// modo di riprovare. Non cambia la logica di autenticazione: limita solo
+// quanto la UI aspetta prima di trattarla come un errore riprovabile.
+const MAGIC_LINK_REQUEST_TIMEOUT_MS = 15000;
+function withTimeout(promise, ms, timeoutMessage) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(timeoutMessage)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 export function LoginPage({
   onNav,
   context
@@ -5228,13 +5243,17 @@ export function LoginPage({
       // (window.location.origin = http://192.168.x.x:5174) atterrerebbe su
       // quell'IP privato. In dev getAuthRedirectBase() ritorna comunque
       // window.location.origin.
-      const { error: otpError } = await authSupabase.auth.signInWithOtp({
-        email: normalizedEmail,
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: `${getAuthRedirectBase()}${redirectPath}`
-        }
-      });
+      const { error: otpError } = await withTimeout(
+        authSupabase.auth.signInWithOtp({
+          email: normalizedEmail,
+          options: {
+            shouldCreateUser: true,
+            emailRedirectTo: `${getAuthRedirectBase()}${redirectPath}`
+          }
+        }),
+        MAGIC_LINK_REQUEST_TIMEOUT_MS,
+        "magic_link_timeout"
+      );
       if (otpError) {
         if (otpError.status === 429) {
           throw new Error("Hai richiesto troppi link di accesso. Usa l'ultimo link ricevuto oppure attendi qualche minuto.");
@@ -5243,7 +5262,9 @@ export function LoginPage({
       }
       setStatus(isAdminContext ? "Magic link inviato. Controlla la tua email per entrare nella dashboard admin." : "Magic link inviato. Controlla la tua email per entrare nella dashboard.");
     } catch (err) {
-      if (err.message !== "magic_link_failed" && err.message !== "Failed to fetch") {
+      if (err.message === "magic_link_timeout") {
+        setStatus("La richiesta al server ha impiegato troppo tempo. Riprova.");
+      } else if (err.message !== "magic_link_failed" && err.message !== "Failed to fetch") {
         setStatus(err.message);
       } else {
         setStatus("Non sono riuscito a inviare il codice. Verifica chiavi Supabase e redirect URL.");
