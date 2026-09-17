@@ -135,6 +135,11 @@ serve(async (req) => {
           // dal client (nessun geocoding per singolo comune in questo scope).
           center_lat: Number.isFinite(Number(z?.lat)) ? Number(z.lat) : 0,
           center_lng: Number.isFinite(Number(z?.lng)) ? Number(z.lng) : 0,
+          radius_m: Number.isFinite(Number(z?.radius_m)) ? Math.round(Number(z.radius_m)) : null,
+          polygon_geojson: z?.polygon_geojson ? (typeof z.polygon_geojson === "string" ? z.polygon_geojson : JSON.stringify(z.polygon_geojson)) : null,
+          territory_type: typeof z?.territory_type === "string" ? z.territory_type : (Number(z?.radius_m) > 0 ? "radius" : "comune"),
+          parent_municipality: typeof z?.parent_municipality === "string" ? z.parent_municipality : null,
+          address_label: typeof z?.address_label === "string" ? z.address_label : null,
         };
       })
       .filter((z): z is NonNullable<typeof z> => z !== null);

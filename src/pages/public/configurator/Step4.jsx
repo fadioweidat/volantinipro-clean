@@ -1292,28 +1292,52 @@ export function Step4({
     try {
       setConfirmSyncStatus("Inoltro richiesta in corso...");
 
-      // Zone strutturate per comune, non solo il nome nel title/city: source
-      // of truth per campaign_zones lato Edge Function. zonesAllocation (Step2)
-      // ha già quantità/comune reali per riga quando disponibile; senza
-      // allocazione granulare (es. preventivo rapido) si ripartisce comunque
-      // la quantità totale sui comuni selezionati, mai un singolo blob "city".
+      // Zone strutturate per comune/sotto-zona, non solo il nome nel title/city: source
+      // of truth per campaign_zones lato Edge Function. Preserva l'identita' territoriale
+      // end-to-end: NIL resta NIL, Radius resta Radius con centro e raggio in metri,
+      // Comune resta Comune.
+      const searchPointLat = Number(data.selectedSearchPoint?.lat ?? data.center?.lat ?? data.searchedLocationCoords?.lat);
+      const searchPointLng = Number(data.selectedSearchPoint?.lng ?? data.center?.lng ?? data.searchedLocationCoords?.lng);
+      const hasSearchPoint = Number.isFinite(searchPointLat) && Number.isFinite(searchPointLng);
+      const radiusMeters = Number.isFinite(Number(data.radiusKm)) ? Math.round(Number(data.radiusKm) * 1000) : (Number.isFinite(Number(data.radius)) ? Math.round(Number(data.radius) * 1000) : null);
+      const isRadiusCampaign = !isMunicipalityMode && (Boolean(radiusMeters) || data.areaMode === "radius");
+
       const campaignZonesPayload = zoneAllocs.length > 0
-        ? zoneAllocs.map((z, idx) => ({
-            municipality: step4AreaLabel(z.name) || `Zona ${idx + 1}`,
-            quantity: Number(z.assignedFlyers ?? z.requiredFlyers ?? 0) || 0,
-            priority: idx + 1,
-            lat: Number.isFinite(Number(z.lat)) ? Number(z.lat) : null,
-            lng: Number.isFinite(Number(z.lng)) ? Number(z.lng) : null,
-          }))
-        : selectedZoneNames.map((name, idx) => ({
-            municipality: name,
-            quantity: selectedZoneNames.length > 0 && Number.isFinite(flyerQty)
-              ? Math.round(flyerQty / selectedZoneNames.length)
-              : null,
-            priority: idx + 1,
-            lat: null,
-            lng: null,
-          }));
+        ? zoneAllocs.map((z, idx) => {
+            const zLat = Number.isFinite(Number(z.lat)) ? Number(z.lat) : (hasSearchPoint ? searchPointLat : null);
+            const zLng = Number.isFinite(Number(z.lng)) ? Number(z.lng) : (hasSearchPoint ? searchPointLng : null);
+            const zRadius = Number.isFinite(Number(z.radius_m)) ? Number(z.radius_m) : (isRadiusCampaign ? radiusMeters : null);
+            const zType = z.territory_type || (isRadiusCampaign ? 'radius' : (step4AnalysisLevel === 'nil' ? 'nil' : 'comune'));
+            return {
+              municipality: step4AreaLabel(z.name) || `Zona ${idx + 1}`,
+              quantity: Number(z.assignedFlyers ?? z.requiredFlyers ?? 0) || 0,
+              priority: idx + 1,
+              lat: zLat,
+              lng: zLng,
+              radius_m: zRadius,
+              territory_type: zType,
+              parent_municipality: z.parent_municipality || data.cityName || data.comune || null,
+              address_label: z.address_label || data.selectedSearchPoint?.label || data.searchedLocation || null,
+              polygon_geojson: z.polygon_geojson || z.geometry || null,
+            };
+          })
+        : selectedZoneNames.map((name, idx) => {
+            const zType = isRadiusCampaign ? 'radius' : (step4AnalysisLevel === 'nil' ? 'nil' : 'comune');
+            return {
+              municipality: name,
+              quantity: selectedZoneNames.length > 0 && Number.isFinite(flyerQty)
+                ? Math.round(flyerQty / selectedZoneNames.length)
+                : null,
+              priority: idx + 1,
+              lat: hasSearchPoint ? searchPointLat : null,
+              lng: hasSearchPoint ? searchPointLng : null,
+              radius_m: isRadiusCampaign ? radiusMeters : null,
+              territory_type: zType,
+              parent_municipality: data.cityName || data.comune || null,
+              address_label: data.selectedSearchPoint?.label || data.searchedLocation || null,
+              polygon_geojson: null,
+            };
+          });
 
       const payload = {
         title: `Campagna Preventivo (${clientForm.nome})`,

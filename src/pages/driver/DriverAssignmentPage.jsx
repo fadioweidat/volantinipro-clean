@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useGpsTracking } from '../../hooks/useGpsTracking.js';
 import { useDriverAssignment, mapDriverActionError } from '../../hooks/useDriverAssignment.js';
 import { PodCapture } from '../../components/driver/PodCapture.jsx';
-import { resolveMunicipalityBoundary } from '../../lib/geo/resolveMunicipalityBoundary.js';
+import { resolveProgramTerritory } from '../../lib/geo/territories/resolveProgramTerritory.js';
 import { geoJsonContainsPoint } from '../../lib/geo/pointInPolygon.js';
 import { estimateDistanceToZoneBoundaryMeters } from '../../lib/geofence/geofenceEngine.js';
 import { navigateDriver, driverPathWithQuery } from './driverNav.js';
@@ -193,19 +193,22 @@ function DriverTracker({
     : null;
   const realComuneName = primaryAssignmentZone?.zone_name || tracking.assignmentState.campaign?.city || primaryComune || null;
 
-  // Confine reale del Comune (stessa fonte/algoritmo di Step2: Nominatim
-  // validato sul centroide + fallback analysis-istat), MAI un cerchio
-  // inventato. boundaryLoading distingue "in corso" da "non disponibile".
+  // Confine reale dell'area/zona attiva con canonical territory resolver
   const [boundaryLoading, setBoundaryLoading] = useState(false);
   useEffect(() => {
-    if (!realComuneName) { setBoundary(null); return; }
+    if (!primaryAssignmentZone && !realComuneName) { setBoundary(null); return; }
     let cancelled = false;
     setBoundaryLoading(true);
-    resolveMunicipalityBoundary(realComuneName, { lat: zoneCenter?.lat, lng: zoneCenter?.lng })
-      .then(geom => { if (!cancelled) setBoundary(geom); })
+    resolveProgramTerritory(primaryAssignmentZone, {
+      city: realComuneName,
+      lat: zoneCenter?.lat,
+      lng: zoneCenter?.lng,
+    })
+      .then(res => { if (!cancelled) setBoundary(res.geometry); })
+      .catch(() => { if (!cancelled) setBoundary(null); })
       .finally(() => { if (!cancelled) setBoundaryLoading(false); });
     return () => { cancelled = true; };
-  }, [realComuneName, zoneCenter?.lat, zoneCenter?.lng]);
+  }, [primaryAssignmentZone, realComuneName, zoneCenter?.lat, zoneCenter?.lng]);
 
   // Prefetch del chunk della pagina Mappa (Leaflet + react-leaflet inclusi,
   // vedi import statici in cima a DriverWorkMapPage.jsx) DOPO che il

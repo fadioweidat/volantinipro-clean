@@ -221,6 +221,10 @@ export function useDriverAssignment(assignmentId) {
         centerLat: Number.isFinite(Number(z.center_lat)) ? Number(z.center_lat) : null,
         centerLng: Number.isFinite(Number(z.center_lng)) ? Number(z.center_lng) : null,
         radiusM: Number.isFinite(Number(z.radius_m)) ? Number(z.radius_m) : null,
+        polygonGeojson: z.polygon_geojson || z.geometry || null,
+        territoryType: z.territory_type || (Number(z.radius_m) > 0 ? 'radius' : (z.polygon_geojson ? 'polygon' : 'comune')),
+        parentMunicipality: z.parent_municipality || null,
+        addressLabel: z.address_label || null,
         hasPolygon: Boolean(z.polygon_geojson || z.geometry || z.has_polygon),
         isLegacy: false,
       })).sort((a, b) => {

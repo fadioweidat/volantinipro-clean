@@ -8,7 +8,7 @@ import { getCampaignGpsPoints, calculateGpsCoverage, getDriverGroupTracking } fr
 import { filterValidGpsPoints } from '../../lib/gps/pointQuality.js';
 import { C } from '../../lib/constants.js';
 import { geoJsonContainsPoint } from '../../lib/geo/pointInPolygon.js';
-import { resolveMunicipalityBoundary } from '../../lib/geo/resolveMunicipalityBoundary.js';
+import { resolveProgramTerritory } from '../../lib/geo/territories/resolveProgramTerritory.js';
 import { driverPathWithQuery, driverBackClick } from './driverNav.js';
 
 const POINTS_REFRESH_MIN_INTERVAL_MS = 8000;
@@ -69,8 +69,6 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
   const tracking = useGpsTracking(campaignId, { assignmentContext, accessToken, assignmentId });
   const [points, setPoints] = useState([]);
   const [coverage, setCoverage] = useState(null);
-  const [boundary, setBoundary] = useState(null);
-  const [boundaryLoading, setBoundaryLoading] = useState(false);
   const [flyToMe, setFlyToMe] = useState(null);
   const [fitToArea, setFitToArea] = useState(0);
   const [tilesLoaded, setTilesLoaded] = useState(false);
@@ -83,8 +81,8 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
   // sotto. Nessuna fase viene rallentata da questi marker.
   const mapTimingRef = useRef(Boolean(import.meta.env.DEV) ? { shellMount: performance.now() } : null);
 
-  // Parametro esplicito da URL (?zoneId=... o ?zone=...)
-  const urlZoneId = useMemo(() => {
+  // Parametro esplicito da URL (?zoneId=... o ?zone=...) con listener popstate per SPA
+  const [urlZoneId, setUrlZoneId] = useState(() => {
     if (typeof window === 'undefined') return null;
     try {
       const sp = new URLSearchParams(window.location.search);
@@ -92,6 +90,17 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
     } catch {
       return null;
     }
+  });
+
+  useEffect(() => {
+    const handleLocationChange = () => {
+      try {
+        const sp = new URLSearchParams(window.location.search);
+        setUrlZoneId(sp.get('zoneId') || sp.get('zone') || null);
+      } catch {}
+    };
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
   }, []);
 
   const [selectedZoneId, setSelectedZoneId] = useState(urlZoneId);
@@ -127,10 +136,72 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
     return assignmentZones[0] || null;
   }, [assignmentZones, activeAssignmentZoneId, tracking.status, tracking.assignmentStatus]);
 
-  const zoneCenter = activeZone && activeZone.centerLat != null && activeZone.centerLng != null
-    && !(activeZone.centerLat === 0 && activeZone.centerLng === 0)
-    ? { lat: activeZone.centerLat, lng: activeZone.centerLng }
-    : null;
+  // Canonical territory state: geometry, center, and labels update atomically
+  const [territoryState, setTerritoryState] = useState({
+    zoneId: null,
+    boundary: null,
+    center: null,
+    displayName: null,
+    loading: false,
+  });
+
+  useEffect(() => {
+    if (!activeZone) {
+      setTerritoryState({
+        zoneId: null,
+        boundary: null,
+        center: null,
+        displayName: null,
+        loading: false,
+      });
+      return;
+    }
+
+    const currentZoneId = activeZone.id || activeZone.zone_name;
+
+    // ATOMIC SWITCH: Immediately clear old geometry when zone changes so there is NO polygon bleeding
+    setTerritoryState(prev => (prev.zoneId === currentZoneId ? { ...prev, loading: true } : {
+      zoneId: currentZoneId,
+      boundary: null,
+      center: activeZone.centerLat && activeZone.centerLng ? { lat: activeZone.centerLat, lng: activeZone.centerLng } : null,
+      displayName: activeZone.zone_name,
+      loading: true,
+    }));
+
+    let cancelled = false;
+    const boundaryStart = mapTimingRef.current ? performance.now() : 0;
+
+    resolveProgramTerritory(activeZone, {
+      city: tracking.assignmentState.campaign?.city || null,
+      lat: activeZone.centerLat,
+      lng: activeZone.centerLng,
+    }).then(resolved => {
+      if (cancelled) return;
+      setTerritoryState({
+        zoneId: currentZoneId,
+        boundary: resolved.geometry,
+        center: resolved.center || (activeZone.centerLat && activeZone.centerLng ? { lat: activeZone.centerLat, lng: activeZone.centerLng } : null),
+        displayName: resolved.displayName || activeZone.zone_name,
+        loading: false,
+      });
+
+      if (mapTimingRef.current) {
+        const t = mapTimingRef.current;
+        t.boundaryReady = performance.now();
+        console.info(`[MAP LOAD] BOUNDARY_RESOLVE=${Math.round(t.boundaryReady - boundaryStart)}ms shellToBoundary=${Math.round(t.boundaryReady - t.shellMount)}ms mapMount=${t.mapMount != null ? Math.round(t.mapMount - t.shellMount) : '—'}ms firstTile=${t.firstTile != null ? Math.round(t.firstTile - t.shellMount) : '—'}ms`);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setTerritoryState(prev => ({ ...prev, loading: false }));
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [activeZone, tracking.assignmentState.campaign?.city]);
+
+  const boundary = territoryState.boundary;
+  const boundaryLoading = territoryState.loading;
+  const realComuneName = territoryState.displayName || activeZone?.zone_name || tracking.assignmentState.campaign?.city || 'Area assegnata';
 
   // Centroide calcolato dal poligono del confine reale se centerLat/Lng sono 0 nel DB
   const boundaryCenter = useMemo(() => {
@@ -162,40 +233,7 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
     return null;
   }, [boundary]);
 
-  const effectiveCenter = zoneCenter || boundaryCenter;
-
-  const metaPrimaryComune = useMemo(() => {
-    const raw = assignmentData?.metadata;
-    const meta = raw && typeof raw === 'object' ? raw : (() => { try { return JSON.parse(raw || '{}'); } catch { return {}; } })();
-    return Array.isArray(meta.comuni) && meta.comuni[0] ? meta.comuni[0] : null;
-  }, [assignmentData]);
-
-  // Il nome del comune reale deriva strettamente dalla zona attiva selezionata.
-  // Evita tassativamente di ricadere su campaign.city quando la zona selezionata
-  // e' un altro comune della campagna multi-zona.
-  const realComuneName = activeZone?.zone_name
-    || (assignmentZones?.length === 1 ? assignmentZones[0]?.zone_name : null)
-    || (!activeAssignmentZoneId ? (tracking.assignmentState.campaign?.city || metaPrimaryComune || null) : null);
-
-  // Confine reale del Comune — helper condiviso, mai cerchi inventati.
-  useEffect(() => {
-    if (!realComuneName) { setBoundary(null); return; }
-    let cancelled = false;
-    setBoundaryLoading(true);
-    const boundaryStart = mapTimingRef.current ? performance.now() : 0;
-    resolveMunicipalityBoundary(realComuneName, { lat: zoneCenter?.lat, lng: zoneCenter?.lng })
-      .then(geom => {
-        if (cancelled) return;
-        setBoundary(geom);
-        if (mapTimingRef.current) {
-          const t = mapTimingRef.current;
-          t.boundaryReady = performance.now();
-          console.info(`[MAP LOAD] BOUNDARY_RESOLVE=${Math.round(t.boundaryReady - boundaryStart)}ms shellToBoundary=${Math.round(t.boundaryReady - t.shellMount)}ms mapMount=${t.mapMount != null ? Math.round(t.mapMount - t.shellMount) : '—'}ms firstTile=${t.firstTile != null ? Math.round(t.firstTile - t.shellMount) : '—'}ms`);
-        }
-      })
-      .finally(() => { if (!cancelled) setBoundaryLoading(false); });
-    return () => { cancelled = true; };
-  }, [realComuneName, zoneCenter?.lat, zoneCenter?.lng]);
+  const effectiveCenter = territoryState.center || boundaryCenter;
 
   const sessionId = tracking.session?.id || null;
   const position = tracking.lastPosition;
