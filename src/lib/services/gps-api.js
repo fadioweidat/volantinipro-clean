@@ -756,18 +756,33 @@ export async function adminUnlockDevice(sessionId, reason) {
 // Esclude driver_id (identificatore tecnico dell'operatore) dal payload che
 // arriva al browser del cliente. session_id resta, serve come chiave di
 // raggruppamento delle tracce lato UI.
+//
+// Limite: CampaignTracking.jsx consuma questi punti per 3 cose — l'ultima
+// posizione live (latestPoint = ultimo elemento), la polyline del percorso
+// (validGpsPoints) e le metriche aggregate (aggregateOperationalMetrics) —
+// nessuna di queste richiede l'intera storia di una campagna pluri-settimanale
+// per restare corretta. GPS_CUSTOMER_POINTS_LIMIT e' generoso rispetto al
+// volume reale di una singola campagna (5-7 giorni lavorativi, non 24/7) e
+// protegge solo dal caso patologico (campagna molto vecchia, invio bloccato
+// per mesi). L'ordine richiesto al DB e' DESC per garantire che, quando il
+// limite scatta, siano i punti PIU' RECENTI a restare (mai i piu' vecchi) —
+// poi si riporta in ASC per non cambiare il contratto atteso dai consumer
+// (latestPoint = ultimo elemento dell'array).
+const GPS_CUSTOMER_POINTS_LIMIT = 20000;
+
 export async function getCustomerCampaignGpsPoints(campaignId) {
   const client = await requireSupabase();
   let query = client
     .from('gps_tracking_points')
     .select('id, campaign_id, session_id, lat, lng, accuracy, speed, heading, recorded_at, created_at')
-    .order('recorded_at', { ascending: true });
+    .order('recorded_at', { ascending: false })
+    .limit(GPS_CUSTOMER_POINTS_LIMIT);
   if (campaignId && campaignId !== 'all' && isValidUuid(campaignId)) {
     query = query.eq('campaign_id', campaignId);
   }
   const { data, error } = await query;
   if (error) throw error;
-  return data || [];
+  return (data || []).slice().reverse();
 }
 
 // Lettura sessioni per il CLIENTE: select esplicita customer-safe. NON invia

@@ -8,10 +8,17 @@ import {
   supplierListOwnOperators,
   supplierListCampaignAssignments,
   supplierAssignOperator,
-  supplierApply,
 } from '../../lib/services/supplier-api';
 import { mapMarketplaceError } from '../../lib/services/marketplaceErrors';
 import { F, C } from '../../lib/constants.js';
+
+// Colonne di supplier_profiles visibili al fornitore stesso: esclude
+// admin_notes / verified_by / suspended_by / verified_at / suspended_at —
+// metadati interni Admin. RLS (supplier_profiles_own_select) limita già la
+// riga alla propria (id = auth.uid()), quindi qui non c'è un rischio
+// cross-tenant, ma un SELECT * restituiva comunque quei campi interni al
+// fornitore che guarda il proprio profilo, non solo ad Admin.
+const SUPPLIER_SELF_VISIBLE_COLUMNS = 'id, public_code, company_name, contact_name, email, phone, vat_number, status, coverage_areas, services, created_at, updated_at';
 
 const card = { background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 12, padding: 16, marginBottom: 14 };
 const eyebrow = { margin: '0 0 10px', fontSize: 11, fontWeight: 900, letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,.45)' };
@@ -185,6 +192,11 @@ export function SupplierDashboard() {
     }
   }, []);
 
+  // Legge SOLO il profilo gia' risolto: nessun auto-claim qui. Per il
+  // momento in cui questo componente monta, SupplierGuard ha già eseguito
+  // (unico percorso, vedi src/auth/supplierAutoClaim.js) l'eventuale
+  // auto-claim di una candidatura pending — duplicarlo qui creava un rischio
+  // di doppia esecuzione/race sulla stessa mutazione.
   const reloadProfile = useCallback(async () => {
     try {
       let user = null;
@@ -193,36 +205,10 @@ export function SupplierDashboard() {
         user = u;
       } catch { user = null; }
 
-      let query = supabase.from('supplier_profiles').select('*');
+      let query = supabase.from('supplier_profiles').select(SUPPLIER_SELF_VISIBLE_COLUMNS);
       if (user?.id) query = query.eq('id', user.id);
       const res = await (query.maybeSingle ? query.maybeSingle() : query.single());
-      let sp = res?.data || null;
-      if (!sp && user) {
-        let pending = null;
-        try {
-          const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('vp_pending_supplier_application') : null;
-          if (raw) pending = JSON.parse(raw);
-        } catch {}
-
-        const company = pending?.companyName || user.user_metadata?.company_name || '';
-        const contact = pending?.contactName || user.user_metadata?.contact_name || '';
-        const phone = pending?.phone || user.user_metadata?.phone || '';
-
-        if (company || contact || phone) {
-          try {
-            await supplierApply({
-              companyName: company || 'Fornitore',
-              contactName: contact || null,
-              phone: phone || null,
-            });
-            try { localStorage.removeItem('vp_pending_supplier_application'); } catch {}
-            const retryRes = await supabase.from('supplier_profiles').select('*').eq('id', user.id).maybeSingle();
-            sp = retryRes?.data || null;
-          } catch (e) {
-            console.warn('[SUPPLIER_DASHBOARD_AUTO_CLAIM_WARN]', e);
-          }
-        }
-      }
+      const sp = res?.data || null;
 
       if (sp) {
         setProfile({

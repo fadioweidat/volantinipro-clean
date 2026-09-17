@@ -35,21 +35,40 @@ export async function getOwnedCustomerCampaign(campaignId) {
   return withCampaignSettlement(normalizeCustomerCampaign(data, data.campaign_zones));
 }
 
+// Ogni branch e' isolato (Promise.allSettled): un fallimento su GPS/sessioni/
+// foto non deve mai far cadere l'intera pagina di tracking quando le altre
+// fonti hanno risposto correttamente. `partialErrors` elenca SOLO le chiavi
+// che sono realmente falite (mai dati inventati al posto di quelli mancanti
+// — un branch falito resta un array/valore vuoto onesto, non un fallback
+// fittizio), cosi' la UI puo' scegliere di segnalarlo senza esporre l'errore
+// grezzo del provider.
 export async function getOwnedCustomerTracking(campaignId) {
   const campaign = await getOwnedCustomerCampaign(campaignId);
   // Letture customer-safe: select esplicite, nessun dato operatore (nome,
   // telefono, device_id, driver_id, assignment_id, metadata) nel payload che
   // arriva al browser del cliente.
-  const [points, sessions, photos, finalCoverage, issues] = await Promise.all([
+  const [pointsResult, sessionsResult, photosResult, finalCoverageResult, issuesResult] = await Promise.allSettled([
     getCustomerCampaignGpsPoints(campaignId),
     getCustomerCampaignGpsSessions(campaignId),
     getCampaignProofPhotos(campaignId, { approvedOnly: true }),
     // Copertura VERIFICATA/FINALE unica: e' l'unica geometria che il Cliente
     // deve vedere sulla mappa (GPS reale verificato + verifiche
     // manuali/automatiche - esclusioni), senza distinguere le fonti.
-    getFinalCoverage(campaignId).catch(() => null),
-    getCustomerIssues(campaignId).catch(() => []),
+    getFinalCoverage(campaignId),
+    getCustomerIssues(campaignId),
   ]);
+  const points = pointsResult.status === 'fulfilled' ? pointsResult.value : [];
+  const sessions = sessionsResult.status === 'fulfilled' ? sessionsResult.value : [];
+  const photos = photosResult.status === 'fulfilled' ? photosResult.value : [];
+  const finalCoverage = finalCoverageResult.status === 'fulfilled' ? finalCoverageResult.value : null;
+  const issues = issuesResult.status === 'fulfilled' ? issuesResult.value : [];
+  const partialErrors = [
+    pointsResult.status === 'rejected' && 'points',
+    sessionsResult.status === 'rejected' && 'sessions',
+    photosResult.status === 'rejected' && 'photos',
+    finalCoverageResult.status === 'rejected' && 'finalCoverage',
+    issuesResult.status === 'rejected' && 'issues',
+  ].filter(Boolean);
   const approvedPhotos = await Promise.all((photos || []).map(async (photo) => ({
     ...photo,
     signedUrl: await createProofPhotoSignedUrl(photo.storage_path).catch(() => null),
@@ -63,7 +82,7 @@ export async function getOwnedCustomerTracking(campaignId) {
       signedUrl: await createProofPhotoSignedUrl(p.storage_path).catch(() => null),
     }))),
   })));
-  return { campaign, points, sessions, photos: approvedPhotos, finalCoverage, issues: issuesWithPhotos };
+  return { campaign, points, sessions, photos: approvedPhotos, finalCoverage, issues: issuesWithPhotos, partialErrors };
 }
 
 export async function getOwnedCustomerReport(campaignId) {

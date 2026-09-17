@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { supplierApply } from '../../lib/services/supplier-api.js';
+import { claimPendingSupplierApplication } from '../supplierAutoClaim.js';
 import { RouteLoadingFallback } from '../../layouts/public/RouteLoadingFallback';
 import { F, C } from '../../lib/constants.js';
 
@@ -61,33 +62,23 @@ export function SupplierGuard({ children, onNav }) {
           return;
         }
         if (!sp) {
-          // Controlla se c'e' una candidatura pending salvata in localStorage o nei metadati auth
-          let pending = null;
-          try {
-            const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('vp_pending_supplier_application') : null;
-            if (raw) pending = JSON.parse(raw);
-          } catch {}
-
+          // Unico punto dell'app che esegue l'auto-claim di una candidatura
+          // pending (vedi src/auth/supplierAutoClaim.js) — SupplierDashboard
+          // non lo fa piu', per evitare la doppia esecuzione/race gia'
+          // osservata quando entrambi duplicavano la stessa logica.
           let userMeta = null;
           try {
             const { data: userData } = await supabase.auth.getUser();
-            userMeta = userData?.user?.user_metadata || null;
+            userMeta = userData?.user;
           } catch {}
 
-          const company = pending?.companyName || userMeta?.company_name || '';
-          const contact = pending?.contactName || userMeta?.contact_name || '';
-          const phone = pending?.phone || userMeta?.phone || '';
-
-          if (company || contact || phone) {
+          if (userMeta) {
             try {
-              await supplierApply({
-                companyName: company || 'Fornitore',
-                contactName: contact || null,
-                phone: phone || null,
-              });
-              try { localStorage.removeItem('vp_pending_supplier_application'); } catch {}
-              if (mounted) setState({ phase: 'pending', session: s, supplierStatus: 'pending' });
-              return;
+              const claimed = await claimPendingSupplierApplication(userMeta);
+              if (claimed) {
+                if (mounted) setState({ phase: 'pending', session: s, supplierStatus: 'pending' });
+                return;
+              }
             } catch (applyErr) {
               console.warn('[SUPPLIER_AUTO_APPLY_WARN]', applyErr);
             }
