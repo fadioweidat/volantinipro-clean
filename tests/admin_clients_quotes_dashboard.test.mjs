@@ -191,7 +191,12 @@ test('helper vari', () => {
 
 test('ClientsQuotes.jsx — wiring: KPI, filtri, ordinamento, copia riepilogo, WhatsApp corretto; conferma pagamento invariata', () => {
   assert.match(page, /import \{[\s\S]{0,400}computeKpiCounts,[\s\S]{0,400}applyClientsQuotesView,[\s\S]{0,400}buildAdminClientWhatsAppMessage,/);
-  assert.match(page, /const kpi = useMemo\(\(\) => computeKpiCounts\(state\.rows\), \[state\.rows\]\)/);
+  // TICKET — Admin non trovava una campagna reale post-fix per ricerca ID
+  // esatto (classificata quality:'test' dal nome cliente di prova). Fix:
+  // state.rows ora include anche le righe non "real" (load() usa
+  // includeTest:true) cosi' la ricerca esplicita puo' raggiungerle, ma i
+  // KPI restano filtrati a sole campagne "real" — stesso totale di prima.
+  assert.match(page, /computeKpiCounts\(state\.rows\.filter\(\(r\) => !r\.quality \|\| r\.quality === 'real'\)\)/);
   assert.match(page, /applyClientsQuotesView\(state\.rows, \{ search, filter, sort \}\)/);
   assert.match(page, /const \[filter, setFilter\] = useState\('tutti'\)/);
   assert.match(page, /const \[sort, setSort\] = useState\('default'\)/);

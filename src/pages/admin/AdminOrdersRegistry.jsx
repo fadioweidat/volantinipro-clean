@@ -146,7 +146,11 @@ export function AdminOrdersRegistry({ onNav }) {
   const load = async ({ background = false } = {}) => {
     if (!background) setState((prev) => ({ ...prev, loading: true }));
     try {
-      const rows = await getClientsQuotesOverview();
+      // includeTest:true — vedi stesso fix in ClientsQuotes.jsx /
+      // clientsQuotesView.js: le righe quality!=='real' restano nascoste
+      // dai filtri/KPI di default, ma una ricerca esplicita per ID/nome/
+      // email deve poterle raggiungere.
+      const rows = await getClientsQuotesOverview({ includeTest: true });
       setState({ loading: false, error: null, rows });
     } catch (err) {
       if (background) setState((prev) => ({ ...prev, loading: false }));
@@ -164,6 +168,9 @@ export function AdminOrdersRegistry({ onNav }) {
     const filterDef = QUICK_FILTERS.find((f) => f.key === activeFilter) || QUICK_FILTERS[0];
     const q = search.trim().toLowerCase();
     let rows = state.rows.filter(filterDef.test);
+    // Nasconde le righe quality!=='real' dalla navigazione di default;
+    // una ricerca esplicita (q non vuota) le rende comunque raggiungibili.
+    if (!q) rows = rows.filter((r) => !r.quality || r.quality === 'real');
     if (q) rows = rows.filter((r) => SEARCH_FIELDS(r).includes(q));
     const col = COLUMNS.find((c) => c.key === sort.key);
     if (col) {
@@ -181,7 +188,10 @@ export function AdminOrdersRegistry({ onNav }) {
   }, [state.rows, search, activeFilter, sort]);
 
   const kpi = useMemo(() => {
-    const rows = state.rows;
+    // Solo campagne "real": state.rows ora include anche quality!=='real'
+    // (includeTest:true in load(), per la ricerca esplicita), ma i KPI
+    // devono restare identici a prima.
+    const rows = state.rows.filter((r) => !r.quality || r.quality === 'real');
     const sum = (test) => rows.filter(test).length;
     const totalValue = rows.reduce((s, r) => s + (r.total || 0), 0);
     const paidValue = rows.filter((r) => r.paymentStatus === 'pagato').reduce((s, r) => s + (r.total || 0), 0);

@@ -88,7 +88,11 @@ export function ClientsQuotes({ onNav }) {
   const load = async ({ background = false } = {}) => {
     if (!background) setState((prev) => ({ ...prev, loading: true }));
     try {
-      const rows = await getClientsQuotesOverview();
+      // includeTest:true — le righe quality!=='real' restano nascoste dalla
+      // vista di default (applyClientsQuotesView le filtra quando search e'
+      // vuota), ma una ricerca esplicita per ID/nome/email deve poterle
+      // raggiungere. Vedi commento in clientsQuotesView.js.
+      const rows = await getClientsQuotesOverview({ includeTest: true });
       setState({ loading: false, error: null, rows });
     } catch (err) {
       console.error(err);
@@ -104,7 +108,14 @@ export function ClientsQuotes({ onNav }) {
     return () => { cancelled = true; window.clearInterval(timer); };
   }, []);
 
-  const kpi = useMemo(() => computeKpiCounts(state.rows), [state.rows]);
+  // KPI: sempre solo campagne "real" — state.rows ora include anche
+  // quality!=='test' (vedi load(), includeTest:true) per permettere alla
+  // ricerca esplicita di trovarle, ma i contatori KPI devono restare
+  // identici a prima (nessun rumore di test nei totali).
+  const kpi = useMemo(
+    () => computeKpiCounts(state.rows.filter((r) => !r.quality || r.quality === 'real')),
+    [state.rows],
+  );
   const visibleRows = useMemo(
     () => applyClientsQuotesView(state.rows, { search, filter, sort }),
     [state.rows, search, filter, sort],

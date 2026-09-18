@@ -100,8 +100,25 @@ export function sortRows(rows = [], sort = 'default') {
   return arr.sort((a, b) => rank(a) - rank(b) || ts(b) - ts(a));
 }
 
+// BUG (riprodotto dal vivo: Admin, "Clienti & Preventivi", ricerca per ID
+// campagna esatto -> "Nessun preventivo trovato" per una campagna reale
+// appena creata dal configuratore pubblico). Causa: getClientsQuotesOverview
+// esclude di default le campagne classificate quality!=='real' (nome/email
+// contenenti "test/demo/placeholder/..."), e quelle righe non arrivano mai
+// in `rows` qui — nessun filtro a valle puo' ritrovarle. La regola "nascondi
+// il rumore di test dalla navigazione" resta corretta e va preservata quando
+// non si sta cercando nulla; ma un admin che digita un ID/nome/email preciso
+// sta chiedendo esplicitamente quel record, quindi la ricerca deve poter
+// raggiungere anche le righe non "real" (il chiamante deve passare
+// includeTest:true a getClientsQuotesOverview perche' queste righe esistano
+// qui in primo luogo).
 export function applyClientsQuotesView(rows = [], { search = '', filter = 'tutti', sort = 'default' } = {}) {
-  const matched = rows.filter((r) => matchesSearch(r, search) && matchesFilter(r, filter));
+  const hasSearch = String(search || '').trim() !== '';
+  const matched = rows.filter((r) =>
+    matchesSearch(r, search) &&
+    matchesFilter(r, filter) &&
+    (hasSearch || !r.quality || r.quality === 'real')
+  );
   return sortRows(matched, sort);
 }
 
