@@ -197,11 +197,11 @@ function DriverTracker({
   // Confine reale dell'area/zona attiva con canonical territory resolver
   const [boundaryLoading, setBoundaryLoading] = useState(false);
   useEffect(() => {
-    if (!primaryAssignmentZone && !realComuneName) { setBoundary(null); return; }
+    if (!primaryAssignmentZone) { setBoundary(null); return; }
     let cancelled = false;
     setBoundaryLoading(true);
     resolveProgramTerritory(primaryAssignmentZone, {
-      city: realComuneName,
+      city: primaryAssignmentZone.parentMunicipality || null,
       lat: zoneCenter?.lat,
       lng: zoneCenter?.lng,
     })
@@ -209,7 +209,7 @@ function DriverTracker({
       .catch(() => { if (!cancelled) setBoundary(null); })
       .finally(() => { if (!cancelled) setBoundaryLoading(false); });
     return () => { cancelled = true; };
-  }, [primaryAssignmentZone, realComuneName, zoneCenter?.lat, zoneCenter?.lng]);
+  }, [primaryAssignmentZone, zoneCenter?.lat, zoneCenter?.lng]);
 
   // Prefetch del chunk della pagina Mappa (Leaflet + react-leaflet inclusi,
   // vedi import statici in cima a DriverWorkMapPage.jsx) DOPO che il

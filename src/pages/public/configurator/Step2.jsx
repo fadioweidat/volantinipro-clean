@@ -3307,6 +3307,13 @@ export function Step2({
     } else {
       assigned = manualAssignments[z.id] || 0;
     }
+    const zGeom = z.geometry || z.geometry_geojson || z.polygon_geojson || null;
+    const zLat = Number.isFinite(Number(z.lat ?? z.centerLat)) ? Number(z.lat ?? z.centerLat) : (Number.isFinite(Number(selectedSearchPoint?.lat)) ? Number(selectedSearchPoint.lat) : (Number.isFinite(Number(city?.lat)) ? Number(city.lat) : null));
+    const zLng = Number.isFinite(Number(z.lng ?? z.centerLng)) ? Number(z.lng ?? z.centerLng) : (Number.isFinite(Number(selectedSearchPoint?.lng)) ? Number(selectedSearchPoint.lng) : (Number.isFinite(Number(city?.lng)) ? Number(city.lng) : null));
+    const zRadiusM = Number.isFinite(Number(z.radius_m ?? z.radiusM)) ? Number(z.radius_m ?? z.radiusM) : (Number.isFinite(Number(radiusKm)) ? Math.round(Number(radiusKm) * 1000) : null);
+    const isNilZone = Boolean(z.isNil || z.territoryLevel === "nil");
+    const zType = z.territory_type || (isNilZone ? "nil" : ((zRadiusM && zRadiusM > 0) || (isRadiusMode && radiusKm > 0) ? "radius" : "comune"));
+
     return {
       id: z.id,
       name: z.name,
@@ -3314,7 +3321,19 @@ export function Step2({
       assignedFlyers: assigned,
       coveragePercent: req > 0 ? Math.round(assigned / req * 100) : 0,
       allocationStatus: assigned >= req ? "full" : assigned > 0 ? "partial" : "none",
-      priorityRank: index + 1
+      priorityRank: index + 1,
+      geometry: zGeom,
+      polygon_geojson: zGeom,
+      lat: zLat,
+      lng: zLng,
+      centerLat: zLat,
+      centerLng: zLng,
+      radius_m: zRadiusM,
+      isNil: isNilZone,
+      nilCode: z.nilCode || z.nil_code || null,
+      territory_type: zType,
+      parent_municipality: z.parent_municipality || city?.name || (typeof data.comune === "string" ? data.comune : null) || null,
+      address_label: z.address_label || selectedSearchPoint?.label || null,
     };
   });
   // Keep the scenario quantity reconcilable with the zone allocation. When all
@@ -3338,8 +3357,14 @@ export function Step2({
   // poligoni usano ESATTAMENTE gli stessi colori della legenda sotto la mappa.
   // zonesAllocation è ricreato a ogni render (const inline): per non far
   // ridisegnare i layer Leaflet ad ogni render React, i memo derivati usano
-  // una chiave serializzata stabile invece dell'identità dell'array.
-  const zonesAllocationKey = JSON.stringify(zonesAllocation);
+  // una chiave serializzata stabile basata sui soli parametri di stato/allocazione.
+  const zonesAllocationKey = JSON.stringify(zonesAllocation.map(a => ({
+    id: a.id,
+    assignedFlyers: a.assignedFlyers,
+    requiredFlyers: a.requiredFlyers,
+    coveragePercent: a.coveragePercent,
+    allocationStatus: a.allocationStatus,
+  })));
   // Dati allocazione per i tooltip mappa (famiglie/volantini assegnati/
   // consigliati/stato per zona) — stessa fonte di zoneCoverageById.
   const zoneAllocationById = useMemo(() => {

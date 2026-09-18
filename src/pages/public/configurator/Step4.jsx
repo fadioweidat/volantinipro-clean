@@ -1304,10 +1304,11 @@ export function Step4({
 
       const campaignZonesPayload = zoneAllocs.length > 0
         ? zoneAllocs.map((z, idx) => {
-            const zLat = Number.isFinite(Number(z.lat)) ? Number(z.lat) : (hasSearchPoint ? searchPointLat : null);
-            const zLng = Number.isFinite(Number(z.lng)) ? Number(z.lng) : (hasSearchPoint ? searchPointLng : null);
+            const zLat = Number.isFinite(Number(z.lat ?? z.centerLat)) ? Number(z.lat ?? z.centerLat) : (hasSearchPoint ? searchPointLat : null);
+            const zLng = Number.isFinite(Number(z.lng ?? z.centerLng)) ? Number(z.lng ?? z.centerLng) : (hasSearchPoint ? searchPointLng : null);
             const zRadius = Number.isFinite(Number(z.radius_m)) ? Number(z.radius_m) : (isRadiusCampaign ? radiusMeters : null);
-            const zType = z.territory_type || (isRadiusCampaign ? 'radius' : (step4AnalysisLevel === 'nil' ? 'nil' : 'comune'));
+            const zType = z.territory_type || (isRadiusCampaign ? 'radius' : (step4AnalysisLevel === 'nil' || z.isNil ? 'nil' : 'comune'));
+            const zGeom = z.polygon_geojson || z.geometry || z.geometry_geojson || null;
             return {
               municipality: step4AreaLabel(z.name) || `Zona ${idx + 1}`,
               quantity: Number(z.assignedFlyers ?? z.requiredFlyers ?? 0) || 0,
@@ -1318,7 +1319,7 @@ export function Step4({
               territory_type: zType,
               parent_municipality: z.parent_municipality || data.cityName || data.comune || null,
               address_label: z.address_label || data.selectedSearchPoint?.label || data.searchedLocation || null,
-              polygon_geojson: z.polygon_geojson || z.geometry || null,
+              polygon_geojson: zGeom,
             };
           })
         : selectedZoneNames.map((name, idx) => {

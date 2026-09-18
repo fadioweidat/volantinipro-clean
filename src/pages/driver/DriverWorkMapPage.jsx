@@ -136,6 +136,8 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
     return assignmentZones[0] || null;
   }, [assignmentZones, activeAssignmentZoneId, tracking.status, tracking.assignmentStatus]);
 
+  const zoneSeqRef = useRef(0);
+
   // Canonical territory state: geometry, center, and labels update atomically
   const [territoryState, setTerritoryState] = useState({
     zoneId: null,
@@ -146,6 +148,7 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
   });
 
   useEffect(() => {
+    const seq = ++zoneSeqRef.current;
     if (!activeZone) {
       setTerritoryState({
         zoneId: null,
@@ -172,11 +175,12 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
     const boundaryStart = mapTimingRef.current ? performance.now() : 0;
 
     resolveProgramTerritory(activeZone, {
-      city: tracking.assignmentState.campaign?.city || null,
+      city: activeZone.parentMunicipality || null,
       lat: activeZone.centerLat,
       lng: activeZone.centerLng,
     }).then(resolved => {
-      if (cancelled) return;
+      // ASYNC RACE PROTECTION: Drop late responses if a newer zone switch occurred
+      if (cancelled || zoneSeqRef.current !== seq) return;
       setTerritoryState({
         zoneId: currentZoneId,
         boundary: resolved.geometry,
@@ -191,13 +195,13 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
         console.info(`[MAP LOAD] BOUNDARY_RESOLVE=${Math.round(t.boundaryReady - boundaryStart)}ms shellToBoundary=${Math.round(t.boundaryReady - t.shellMount)}ms mapMount=${t.mapMount != null ? Math.round(t.mapMount - t.shellMount) : '—'}ms firstTile=${t.firstTile != null ? Math.round(t.firstTile - t.shellMount) : '—'}ms`);
       }
     }).catch(() => {
-      if (!cancelled) {
+      if (!cancelled && zoneSeqRef.current === seq) {
         setTerritoryState(prev => ({ ...prev, loading: false }));
       }
     });
 
     return () => { cancelled = true; };
-  }, [activeZone, tracking.assignmentState.campaign?.city]);
+  }, [activeZone]);
 
   const boundary = territoryState.boundary;
   const boundaryLoading = territoryState.loading;
@@ -416,7 +420,7 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
             />
             {boundary && (
               <GeoJSON
-                key={`zone-boundary-${activeZone?.id || realComuneName}`}
+                key={`zone-boundary-${territoryState.zoneId}`}
                 data={boundary}
                 style={{ color: '#E8571A', weight: 3, fillColor: '#E8571A', fillOpacity: 0.06 }}
               />
@@ -430,14 +434,14 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
             }} />
             {boundary && (
               <FitToBounds
-                key={`fit-${activeZone?.id || realComuneName}`}
+                key={`fit-${territoryState.zoneId}`}
                 geometry={boundary}
                 trigger={fitToArea}
               />
             )}
             {effectiveCenter && (
               <CircleMarker
-                key={`center-${activeZone?.id || realComuneName}`}
+                key={`center-${territoryState.zoneId}`}
                 center={[effectiveCenter.lat, effectiveCenter.lng]}
                 radius={8}
                 pathOptions={{ color: '#0f766e', fillColor: '#0f766e', fillOpacity: 0.9, weight: 2 }}

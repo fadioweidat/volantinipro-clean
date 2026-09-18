@@ -250,7 +250,17 @@ serve(async (req) => {
     if (validatedZones.length > 0) {
       const { error: zonesInsertError } = await supabase
         .from("campaign_zones")
-        .insert(validatedZones.map((z) => ({ ...z, campaign_id: campaign.id })));
+        .insert(validatedZones.map((z) => ({
+          campaign_id: campaign.id,
+          zone_name: z.zone_name,
+          quantity_assigned: z.quantity_assigned,
+          priority: z.priority,
+          center_lat: z.center_lat,
+          center_lng: z.center_lng,
+          radius_m: z.radius_m,
+          polygon_geojson: z.polygon_geojson,
+          address_label: z.address_label,
+        })));
       if (zonesInsertError) {
         console.error("Errore inserimento in campaign_zones, rollback campagna:", zonesInsertError);
         await supabase.from("campaigns").delete().eq("id", campaign.id);

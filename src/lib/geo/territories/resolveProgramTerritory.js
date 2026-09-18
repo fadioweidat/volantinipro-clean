@@ -1,5 +1,4 @@
 import { resolveMunicipalityBoundary } from '../resolveMunicipalityBoundary.js';
-import { normalizeMunicipalityName } from '../../step2/addressIntent.js';
 
 /**
  * Creates a GeoJSON Polygon representing a circular radius buffer around a center [lat, lng].
@@ -36,19 +35,19 @@ export function generateCirclePolygon(centerLat, centerLng, radiusM, numPoints =
 }
 
 /**
- * In-memory cache for resolved territory geometry keyed strictly by zone ID / canonical identifier.
+ * In-memory cache for resolved territory geometry keyed strictly by stable zone ID.
  */
 const resolvedTerritoryCache = new Map();
 
 /**
  * Resolves the canonical territory contract for a campaign/driver zone:
- * 1. Immediate polygon if `polygon_geojson` / `geometry` is present on the zone record.
- * 2. Generated circle polygon if `radius_m > 0` and center coordinates exist (Radius mode).
- * 3. NIL or sub-municipality boundary resolution with center hint.
- * 4. Municipality boundary via Nominatim / analysis-istat fallback.
+ * 1. Priority 1: Direct persisted canonical polygon (`polygon_geojson` / `geometry`).
+ * 2. Priority 2: Radius territory (circle geometry from center + radius_m). NEVER falls back to parent Comune.
+ * 3. Priority 3: NIL sub-territory resolution. NEVER silently becomes Comune Milano.
+ * 4. Priority 4: Municipality boundary resolution via Nominatim / analysis-istat for real Comuni.
  *
- * @param {Object} zone - The active zone object (from assignmentZones or campaign_zones)
- * @param {Object} [fallbackContext] - Optional fallback campaign context { city, lat, lng }
+ * @param {Object|null} zone - The active zone object
+ * @param {Object} [fallbackContext] - Context hints (e.g. lat, lng)
  * @returns {Promise<{
  *   id: string|null,
  *   type: 'radius'|'nil'|'comune'|'polygon',
@@ -62,41 +61,19 @@ const resolvedTerritoryCache = new Map();
  * }>}
  */
 export async function resolveProgramTerritory(zone, fallbackContext = {}) {
+  // SAFEGUARD: When zone is null/loading, NEVER resolve or return a parent municipality polygon.
   if (!zone) {
-    const fallbackName = fallbackContext.city || fallbackContext.cityName || null;
-    if (!fallbackName) {
-      return {
-        id: null,
-        type: 'comune',
-        displayName: 'Area assegnata',
-        parentMunicipality: null,
-        geometry: null,
-        center: null,
-        radiusM: null,
-        quantity: null,
-        source: 'none',
-      };
-    }
-    const geom = await resolveMunicipalityBoundary(fallbackName, {
-      lat: fallbackContext.lat,
-      lng: fallbackContext.lng,
-    });
     return {
       id: null,
       type: 'comune',
-      displayName: fallbackName,
+      displayName: 'Area assegnata',
       parentMunicipality: null,
-      geometry: geom,
-      center: fallbackContext.lat && fallbackContext.lng ? { lat: fallbackContext.lat, lng: fallbackContext.lng } : null,
+      geometry: null,
+      center: null,
       radiusM: null,
       quantity: null,
-      source: geom ? 'municipality-boundary' : 'none',
+      source: 'none',
     };
-  }
-
-  const zoneId = zone.id || zone.zone_name;
-  if (zoneId && resolvedTerritoryCache.has(zoneId)) {
-    return resolvedTerritoryCache.get(zoneId);
   }
 
   const rawLat = Number(zone.centerLat ?? zone.center_lat ?? zone.lat);
@@ -115,9 +92,25 @@ export async function resolveProgramTerritory(zone, fallbackContext = {}) {
 
   const zoneName = zone.zone_name || zone.name || zone.municipality || 'Zona';
   const parentMuni = zone.parent_municipality || zone.parentMunicipality || null;
-  const territoryType = zone.territory_type || (hasRadius ? 'radius' : directGeometry ? 'polygon' : 'comune');
+  const isNil = Boolean(
+    zone.territory_type === 'nil' ||
+    zone.territoryType === 'nil' ||
+    zone.isNil ||
+    (parentMuni && parentMuni.toLowerCase() !== zoneName.toLowerCase() && parentMuni.toLowerCase().includes('milano'))
+  );
+  const isRadius = Boolean(
+    zone.territory_type === 'radius' ||
+    zone.territoryType === 'radius' ||
+    hasRadius
+  );
+  const territoryType = isRadius ? 'radius' : isNil ? 'nil' : directGeometry ? 'polygon' : 'comune';
 
-  // Priority 1: Direct polygon already stored on the zone record
+  const zoneId = zone.id ? String(zone.id) : `${territoryType}_${zoneName}`;
+  if (zoneId && resolvedTerritoryCache.has(zoneId)) {
+    return resolvedTerritoryCache.get(zoneId);
+  }
+
+  // Priority 1: Direct persisted canonical polygon
   if (directGeometry && (directGeometry.type === 'Polygon' || directGeometry.type === 'MultiPolygon')) {
     const result = {
       id: zone.id || null,
@@ -134,42 +127,77 @@ export async function resolveProgramTerritory(zone, fallbackContext = {}) {
     return result;
   }
 
-  // Priority 2: Radius territory (circle geometry generated accurately)
-  if (hasRadius && center) {
-    const circleGeometry = generateCirclePolygon(center.lat, center.lng, rawRadius);
-    const radiusKm = Math.round(rawRadius / 100) / 10;
-    const addressHint = zone.address_label || zone.addressLabel || null;
-    const radiusLabel = addressHint
-      ? `${zoneName} (${addressHint} · Raggio ${radiusKm} km)`
-      : `${zoneName} (Raggio ${radiusKm} km)`;
+  // Priority 2: Radius territory (circle geometry generated accurately from center + radius)
+  if (isRadius) {
+    if (hasRadius && center) {
+      const circleGeometry = generateCirclePolygon(center.lat, center.lng, rawRadius);
+      const radiusKm = Math.round(rawRadius / 100) / 10;
+      const addressHint = zone.address_label || zone.addressLabel || null;
+      const radiusLabel = addressHint
+        ? `${zoneName} (${addressHint} · Raggio ${radiusKm} km)`
+        : `${zoneName} (Raggio ${radiusKm} km)`;
 
+      const result = {
+        id: zone.id || null,
+        type: 'radius',
+        displayName: zoneName.includes('Raggio') || zoneName.includes('km') ? zoneName : radiusLabel,
+        parentMunicipality: parentMuni,
+        geometry: circleGeometry,
+        center,
+        radiusM: rawRadius,
+        quantity: Number(zone.quantity ?? zone.quantity_assigned ?? 0) || null,
+        source: 'radius-circle',
+      };
+      if (zoneId) resolvedTerritoryCache.set(zoneId, result);
+      return result;
+    }
+
+    // SAFEGUARD 3: If radius mode lacks center or radius, NEVER fall back to Comune Milano!
     const result = {
       id: zone.id || null,
       type: 'radius',
-      displayName: zoneName.includes('Raggio') || zoneName.includes('km') ? zoneName : radiusLabel,
+      displayName: zoneName,
       parentMunicipality: parentMuni,
-      geometry: circleGeometry,
+      geometry: null,
       center,
-      radiusM: rawRadius,
+      radiusM: hasRadius ? rawRadius : null,
       quantity: Number(zone.quantity ?? zone.quantity_assigned ?? 0) || null,
-      source: 'radius-circle',
+      source: 'radius-missing-center',
     };
     if (zoneId) resolvedTerritoryCache.set(zoneId, result);
     return result;
   }
 
-  // Priority 3 & 4: Sub-territory (NIL) or municipality boundary resolution
-  // Query using zoneName and center hint if available
+  // Priority 3: Sub-territory (NIL Milano)
+  // Query Nominatim specifically for district/suburb in Milan. NEVER fall back to full Comune Milano!
+  if (isNil) {
+    const milanCenter = center || { lat: 45.4642, lng: 9.19 };
+    const nilGeom = await resolveMunicipalityBoundary(zoneName, milanCenter);
+
+    const result = {
+      id: zone.id || null,
+      type: 'nil',
+      displayName: zoneName,
+      parentMunicipality: parentMuni || 'Milano',
+      geometry: nilGeom,
+      center,
+      radiusM: null,
+      quantity: Number(zone.quantity ?? zone.quantity_assigned ?? 0) || null,
+      source: nilGeom ? 'nil-boundary' : 'none',
+    };
+    if (zoneId) resolvedTerritoryCache.set(zoneId, result);
+    return result;
+  }
+
+  // Priority 4: Municipality boundary resolution for real Comuni
   const boundaryGeom = await resolveMunicipalityBoundary(zoneName, center || {
     lat: fallbackContext.lat,
     lng: fallbackContext.lng,
   });
 
-  const isNil = territoryType === 'nil' || (parentMuni && parentMuni.toLowerCase() !== zoneName.toLowerCase());
-
   const result = {
     id: zone.id || null,
-    type: isNil ? 'nil' : 'comune',
+    type: 'comune',
     displayName: zoneName,
     parentMunicipality: parentMuni,
     geometry: boundaryGeom,
