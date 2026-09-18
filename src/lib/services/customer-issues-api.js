@@ -5,16 +5,27 @@ import { getDeviceInstallationId } from '../gps/deviceInstallationId.js';
 // SECURITY DEFINER (autorizzazione riletta server-side). Nessun access_token
 // viene mai loggato o incluso nei payload.
 
+import { isTransientSchemaOrNetworkError } from './transientErrors.js';
+
 async function callIssueRpc(name, args = {}) {
   if (!supabase) throw new Error('Supabase non configurato.');
   await ensureSupabaseSessionBridge();
-  const { data, error } = await supabase.rpc(name, args);
-  if (error) {
-    const mapped = new Error(error.message || 'Operazione segnalazione non riuscita.');
-    mapped.code = error.code || null;
-    throw mapped;
+
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data, error } = await supabase.rpc(name, args);
+    if (!error) return data;
+    lastError = error;
+    if (!isTransientSchemaOrNetworkError(error) || attempt === 2) {
+      break;
+    }
+    await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
   }
-  return data;
+
+  const mapped = new Error(lastError?.message || 'Operazione segnalazione non riuscita.');
+  mapped.code = lastError?.code || null;
+  mapped.status = lastError?.status || null;
+  throw mapped;
 }
 
 export const ISSUE_REASONS = Object.freeze([

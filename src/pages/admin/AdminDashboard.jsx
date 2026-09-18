@@ -12,6 +12,7 @@ import {
 import { buildOperationalGroups, buildTodayGroupCards } from '../../lib/admin/adminHomeModel.js';
 import { buildCommercialSnapshot } from '../../lib/admin/adminCommercialModel.js';
 import { getCurrentSupabaseUser } from '../../lib/supabaseClient.js';
+import { ensureSupabaseSessionBridge } from '../../supabaseClient.js';
 import { AdminLayout } from './AdminLayout.jsx';
 import { AdminDashboardMetricsPanel } from './admin-dashboard/AdminDashboardMetricsPanel.jsx';
 import { AdminDashboardModulesPanel } from './admin-dashboard/AdminDashboardModulesPanel.jsx';
@@ -205,6 +206,7 @@ export async function loadAdminHomeData() {
 }
 
 async function loadAdminHomeDataUncached() {
+  await ensureSupabaseSessionBridge?.();
   const today = localDateKey(new Date());
 
   // P0 ROOT CAUSE (misurato dal vivo, Admin autenticato): getLiveOperatorsSummary

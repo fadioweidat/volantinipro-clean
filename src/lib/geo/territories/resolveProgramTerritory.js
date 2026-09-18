@@ -137,10 +137,16 @@ export async function resolveProgramTerritory(zone, fallbackContext = {}) {
   // Priority 2: Radius territory (circle geometry generated accurately)
   if (hasRadius && center) {
     const circleGeometry = generateCirclePolygon(center.lat, center.lng, rawRadius);
+    const radiusKm = Math.round(rawRadius / 100) / 10;
+    const addressHint = zone.address_label || zone.addressLabel || null;
+    const radiusLabel = addressHint
+      ? `${zoneName} (${addressHint} · Raggio ${radiusKm} km)`
+      : `${zoneName} (Raggio ${radiusKm} km)`;
+
     const result = {
       id: zone.id || null,
       type: 'radius',
-      displayName: zoneName,
+      displayName: zoneName.includes('Raggio') || zoneName.includes('km') ? zoneName : radiusLabel,
       parentMunicipality: parentMuni,
       geometry: circleGeometry,
       center,

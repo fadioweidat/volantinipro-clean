@@ -22,15 +22,16 @@ import { classifyDeliverySession, GPS_SESSION_STATE } from '../monitoring/gpsSes
 const EMPTY = 'Dato non disponibile';
 
 export async function getRealCampaigns({ includeTest = false } = {}) {
+  await ensureSupabaseSessionBridge?.();
   const [campaignsTable, legacyCampaigns, quoteRequests, sessions, points, photos, groups, assignments, campaignZones] = await Promise.all([
     selectOptionalTable('campaigns'),
     selectOptionalTable('campagne'),
     selectOptionalTable('quote_requests'),
-    selectOptionalTable('delivery_sessions'),
-    selectOptionalTable('gps_tracking_points', 'recorded_at'),
+    selectOptionalTable('delivery_sessions', 'created_at', 'id,campaign_id,driver_id,assignment_id,group_id,status,started_at,ended_at,paused_at,updated_at,created_at', 2000),
+    selectOptionalTable('gps_tracking_points', 'recorded_at', 'session_id,recorded_at,created_at,lat,lng', 5000),
     selectOptionalTable('proof_photos'),
     selectOptionalTable('operational_groups'),
-    selectOptionalTable('operator_assignments'),
+    selectOptionalTable('operator_assignments', 'created_at', 'id,campaign_id,group_id,operator_id,status,starts_at,ends_at,revoked_at,created_at,access_token', 2000),
     selectOptionalTable('campaign_zones'),
   ]);
 
@@ -695,11 +696,13 @@ export async function updatePlatformIncident(id, patch) {
   }
 }
 
-export async function selectOptionalTable(table, order = 'created_at') {
+export async function selectOptionalTable(table, order = 'created_at', columns = '*', limit = null) {
   if (!supabase) return { rows: [], available: false };
   try {
-    let query = supabase.from(table).select('*');
+    await ensureSupabaseSessionBridge?.();
+    let query = supabase.from(table).select(columns);
     if (order) query = query.order(order, { ascending: false });
+    if (limit && Number.isFinite(limit)) query = query.limit(limit);
     const { data, error } = await query;
     if (error) return { rows: [], available: false };
     return { rows: Array.isArray(data) ? data : [], available: true };

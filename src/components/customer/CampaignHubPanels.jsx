@@ -228,7 +228,7 @@ export function CustomerMessagesPanel({ campaignId }) {
 
     broadcasterRef.current = sub.broadcastMessage;
 
-    const timer = window.setInterval(reload, 3000);
+    const timer = window.setInterval(reload, 15000);
 
     const onOnline = () => reload();
     const onVisibility = () => {
@@ -273,7 +273,7 @@ export function CustomerMessagesPanel({ campaignId }) {
     }
   };
 
-  const unreadCount = countUnreadMessages(messages, 'customer');
+  const unreadCount = messages.filter((m) => m.recipient_role === "customer" && !m.seen_at).length;
 
   return (
     <section style={cardStyle}>

@@ -8,7 +8,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 // usano lo stesso valore senza duplicare il parsing dell'URL.
 function readAccessTokenFromLocation() {
   try {
-    return new URLSearchParams(window.location.search).get('access') || null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('access') || params.get('token') || null;
   } catch {
     return null;
   }
@@ -392,32 +393,12 @@ export function useDriverAssignment(assignmentId) {
   };
 }
 
-export function isTransientSchemaOrNetworkError(err) {
-  const msg = (err?.message || String(err || '')).toLowerCase();
-  const status = err?.status || err?.statusCode || 0;
-  return (
-    status === 503 ||
-    status === 502 ||
-    status === 504 ||
-    msg.includes('schema cache') ||
-    msg.includes('schema-cache') ||
-    msg.includes('pgrst000') ||
-    msg.includes('pgrst002') ||
-    msg.includes('retrying') ||
-    msg.includes('failed to fetch') ||
-    msg.includes('networkerror') ||
-    msg.includes('network request failed') ||
-    msg.includes('connection refused') ||
-    msg.includes('gateway timeout') ||
-    msg.includes('upstream') ||
-    msg.includes('timeout') ||
-    msg.includes('temporaneamente non disponibile')
-  );
-}
+import { isTransientSchemaOrNetworkError, USER_FRIENDLY_TRANSIENT_ERROR } from '../lib/services/transientErrors.js';
+export { isTransientSchemaOrNetworkError };
 
 export function mapDriverAssignmentLoadError(err) {
   if (isTransientSchemaOrNetworkError(err)) {
-    return 'Servizio temporaneamente non disponibile. Riprova tra poco.';
+    return USER_FRIENDLY_TRANSIENT_ERROR;
   }
   const msg = err?.message || String(err || '');
   if (msg.includes('Assegnazione non trovata') || msg.includes('not_found')) {
@@ -456,6 +437,9 @@ export function mapDriverConfirmationError(err) {
 }
 
 export function mapDriverActionError(err) {
+  if (isTransientSchemaOrNetworkError(err)) {
+    return USER_FRIENDLY_TRANSIENT_ERROR;
+  }
   const msg = String(err?.message || err || '');
   if (/permission denied|PERMISSION_DENIED|unauthorized|ASSEGNAZIONE_NON_AUTORIZZATA|OPERATORE_NON_AUTENTICATO/i.test(msg)) {
     return 'Non sei autorizzato ad avviare questa sessione. Verifica il link o contatta l\'amministratore.';

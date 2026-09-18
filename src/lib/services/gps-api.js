@@ -108,11 +108,21 @@ function mapRpcError(error) {
   return mapped;
 }
 
+import { isTransientSchemaOrNetworkError } from './transientErrors.js';
+
 async function callGpsRpc(name, args = {}) {
   const client = await requireSupabase();
-  const { data, error } = await client.rpc(name, args);
-  if (error) throw mapRpcError(error);
-  return data;
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data, error } = await client.rpc(name, args);
+    if (!error) return data;
+    lastError = error;
+    if (!isTransientSchemaOrNetworkError(error) || attempt === 2) {
+      break;
+    }
+    await sleep(800 * (attempt + 1));
+  }
+  throw mapRpcError(lastError);
 }
 
 // "Funzione non trovata": PostgREST restituisce PGRST202 (o un messaggio

@@ -15,18 +15,29 @@ import { supabase, ensureSupabaseSessionBridge } from '../../supabaseClient.js';
 // nell'inbox). Lo schema (colonna `channel`) e' gia' pronto per un futuro
 // adapter WhatsApp, ma NESSUN messaggio viene finto come inviato via
 // WhatsApp: ogni messaggio creato da queste funzioni ha channel='in_app'.
+import { isTransientSchemaOrNetworkError } from './transientErrors.js';
+
 export const WHATSAPP_STATUS = Object.freeze({ configured: false, mode: 'adapter_ready' });
 
 async function callHubRpc(name, args = {}) {
   if (!supabase) throw new Error('Supabase non configurato.');
   await ensureSupabaseSessionBridge();
-  const { data, error } = await supabase.rpc(name, args);
-  if (error) {
-    const mapped = new Error(error.message || 'Operazione non riuscita.');
-    mapped.code = error.code || null;
-    throw mapped;
+
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data, error } = await supabase.rpc(name, args);
+    if (!error) return data;
+    lastError = error;
+    if (!isTransientSchemaOrNetworkError(error) || attempt === 2) {
+      break;
+    }
+    await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
   }
-  return data;
+
+  const mapped = new Error(lastError?.message || 'Operazione non riuscita.');
+  mapped.code = lastError?.code || null;
+  mapped.status = lastError?.status || null;
+  throw mapped;
 }
 
 export const MODIFICATION_TYPES = Object.freeze([

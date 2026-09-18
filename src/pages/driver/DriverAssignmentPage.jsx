@@ -12,6 +12,7 @@ import { uploadIssueVerificationPhoto } from '../../lib/services/gps-api.js';
 import { driverListMessages, driverMarkMessagesSeen, driverSendMessage } from '../../lib/services/hub-api.js';
 import { buildIssueWatermarkLines, canvasToJpegBlob, compressPodImage, drawPodWatermark, releaseCanvas } from '../../lib/pod/podPhotoProcessing.js';
 import { mergeMessages, countUnreadMessages, subscribeToDriverMessages } from '../../lib/services/messaging-realtime.js';
+import { isTransientSchemaOrNetworkError, USER_FRIENDLY_TRANSIENT_ERROR } from '../../lib/services/transientErrors.js';
 
 // ─── DriverAssignmentPage ─────────────────────────────────────────────────────
 // Pagina driver accessibile tramite /driver/assignment/{assignmentId}, link
@@ -830,6 +831,7 @@ function Notice({ text, danger = false, id }) {
 // ─── Segnalazioni Cliente -> Autista ─────────────────────────────────────────
 function DriverIssuesSection({ assignmentId, campaignId, accessToken }) {
   const [issues, setIssues] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [err, setErr] = useState(null);
   const fileRefs = useRef({});
@@ -838,8 +840,11 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken }) {
     try {
       const rows = await driverListIssues(assignmentId, accessToken || null);
       setIssues(Array.isArray(rows) ? rows : []);
+      setErr(null);
     } catch (e) {
-      setErr(e?.message || null);
+      setErr(isTransientSchemaOrNetworkError(e) ? USER_FRIENDLY_TRANSIENT_ERROR : (e?.message || null));
+    } finally {
+      setLoading(false);
     }
   }, [assignmentId, accessToken]);
 
@@ -865,7 +870,7 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken }) {
       await driverTransitionIssue({ issueId: issue.id, action, note, assignmentId, accessToken: accessToken || null });
       await reload();
     } catch (e) {
-      setErr(e?.message || 'Operazione non riuscita.');
+      setErr(isTransientSchemaOrNetworkError(e) ? USER_FRIENDLY_TRANSIENT_ERROR : (e?.message || 'Operazione non riuscita.'));
     } finally {
       setBusyId(null);
     }
@@ -907,13 +912,11 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken }) {
       });
       await reload();
     } catch (e) {
-      setErr(e?.message || 'Caricamento foto non riuscito.');
+      setErr(isTransientSchemaOrNetworkError(e) ? USER_FRIENDLY_TRANSIENT_ERROR : (e?.message || 'Caricamento foto non riuscito.'));
     } finally {
       setBusyId(null);
     }
   };
-
-  if (!issues.length && !err) return null;
 
   // §9 notifica in-app (nessun push/SMS/WhatsApp): quante segnalazioni non
   // ancora prese in carico (nuove/assegnate).
@@ -930,6 +933,12 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken }) {
         )}
       </p>
       {err && <Notice danger text={err} />}
+      {loading && issues.length === 0 && !err && (
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', padding: '6px 0' }}>Caricamento segnalazioni...</div>
+      )}
+      {!loading && issues.length === 0 && !err && (
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', padding: '6px 0' }}>Nessuna segnalazione cliente attiva per questo incarico.</div>
+      )}
       {issues.map((issue) => {
         const done = issue.status === 'resolved' || issue.status === 'not_resolvable';
         return (
@@ -987,12 +996,13 @@ function DriverMessagesSection({ assignmentId, accessToken }) {
     try {
       const rows = await driverListMessages(assignmentId, accessToken || null);
       setMessages((prev) => mergeMessages(prev, Array.isArray(rows) ? rows : []));
+      setErr(null);
     } catch (e) {
-      setErr(e?.message || null);
+      setErr(isTransientSchemaOrNetworkError(e) ? USER_FRIENDLY_TRANSIENT_ERROR : (e?.message || null));
     }
   }, [assignmentId, accessToken]);
 
-  // Iscrizione Realtime (Broadcast + DB trigger) con fallback polling adattivo
+  // Iscrizione Realtime (Broadcast + DB trigger) con montaggio stabile (nessuna dipendenza da realtimeStatus)
   useEffect(() => {
     reload();
 
@@ -1013,13 +1023,16 @@ function DriverMessagesSection({ assignmentId, accessToken }) {
 
     broadcasterRef.current = sub.broadcastMessage;
 
-    // Polling adattivo:
-    // Se connesso in realtime, heartbeat a 6s.
-    // Se disconnesso o in riconnessione, polling accelerato a 2.5s.
-    const intervalMs = realtimeStatus === 'SUBSCRIBED' ? 6000 : 2500;
-    const timer = window.setInterval(reload, intervalMs);
+    return () => {
+      sub.unsubscribe();
+      broadcasterRef.current = null;
+    };
+  }, [assignmentId, reload]);
 
-    // Network recovery automatico su riconnessione browser / ritorno in tab
+  // Polling separato di sicurezza costante (20s) - disaccoppiato dal ciclo di vita della connessione realtime
+  useEffect(() => {
+    const timer = window.setInterval(reload, 20000);
+
     const onOnline = () => reload();
     const onVisibility = () => {
       if (document.visibilityState === 'visible') reload();
@@ -1028,13 +1041,11 @@ function DriverMessagesSection({ assignmentId, accessToken }) {
     document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
-      sub.unsubscribe();
-      broadcasterRef.current = null;
       window.clearInterval(timer);
       window.removeEventListener('online', onOnline);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [assignmentId, reload, realtimeStatus]);
+  }, [reload]);
 
   useEffect(() => {
     if (messages.some((m) => m.recipient_role === 'driver' && !m.seen_at)) {
@@ -1057,13 +1068,13 @@ function DriverMessagesSection({ assignmentId, accessToken }) {
       }
       await reload();
     } catch (e) {
-      setErr(e?.message || 'Invio messaggio non riuscito.');
+      setErr(isTransientSchemaOrNetworkError(e) ? USER_FRIENDLY_TRANSIENT_ERROR : (e?.message || 'Invio messaggio non riuscito.'));
     } finally {
       setBusy(false);
     }
   };
 
-  const unreadCount = countUnreadMessages(messages, 'driver');
+  const unreadCount = messages.filter((m) => m.recipient_role === 'driver' && !m.seen_at).length;
 
   return (
     <section style={{ maxWidth: 760, margin: '0 auto 12px', padding: 14, borderRadius: 16, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)' }}>
