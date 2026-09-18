@@ -745,7 +745,7 @@ export function Step2ComunePanel({ activeCampaignZone, activeComuneZeroData, add
                             lineHeight: 1.15
                           }}>{value}</div>
                           </div>;
-                        return <div key={z.id} className="town-list-item" style={{
+                        return <div key={z.id} id={`vp-zone-row-${z.id}`} className="town-list-item" style={{
                           borderRadius: 12,
                           border: `1px solid ${sel ? `${col}45` : "rgba(255,255,255,.035)"}`,
                           background: sel ? `${col}0a` : "rgba(255,255,255,.012)",

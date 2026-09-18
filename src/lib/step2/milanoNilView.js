@@ -123,6 +123,42 @@ export function filterNilRows(rows, query) {
 }
 
 /**
+ * TICKET — "Trova una zona" da filtro debole ad autocomplete reale.
+ * Filtra + ORDINA (prefisso prima, poi sottostringa) le righe zona per la
+ * tendina risultati. Stessa fonte dati di filterNilRows (zoneRowsForList),
+ * stesso matching accent+case-insensitive (normalizeTerritoryName) — solo
+ * ordinamento aggiunto, nessun nuovo criterio di inclusione/esclusione:
+ * qualunque riga che filterNilRows includerebbe e' inclusa anche qui, nello
+ * stesso identico set, solo riordinata. Nessuna chiamata di rete: legge SOLO
+ * `rows` gia' calcolate da Step2.jsx (zoneRowsForList).
+ * @param {Array} rows righe { type, zone:{id,name,isNil} } di Step2
+ * @param {string} query
+ * @param {{ limit?: number }} [opts] limite risultati mostrati in tendina
+ * @returns {Array<{id:string, name:string, isNil:boolean}>}
+ */
+export function rankNilSearchResults(rows, query, { limit = 20 } = {}) {
+  const q = normalizeTerritoryName(String(query || "").trim());
+  if (!q || !Array.isArray(rows)) return [];
+  const matches = [];
+  for (const row of rows) {
+    if (!row || row.type !== "zone" || !row.zone) continue;
+    const name = row.zone.name ?? row.zone.nil_name ?? row.zone.comune_name ?? "";
+    const normalized = normalizeTerritoryName(name);
+    if (!normalized.includes(q)) continue;
+    matches.push({
+      id: row.zone.id,
+      name,
+      isNil: Boolean(row.zone.isNil),
+      // prefisso vince su sottostringa; a parita' di tipo, ordine alfabetico
+      // stabile cosi' il risultato non "salta" ad ogni digitazione.
+      rank: normalized.startsWith(q) ? 0 : 1,
+    });
+  }
+  matches.sort((a, b) => (a.rank - b.rank) || a.name.localeCompare(b.name, "it"));
+  return matches.slice(0, Math.max(0, limit)).map(({ id, name, isNil }) => ({ id, name, isNil }));
+}
+
+/**
  * Copy della guida "bassa copertura" (§5) con quantita' e copertura REALI.
  * Nessun numero hardcoded: tutto passato dal chiamante.
  * @returns {string}
