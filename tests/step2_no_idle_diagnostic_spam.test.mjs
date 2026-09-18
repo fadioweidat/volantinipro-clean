@@ -69,8 +69,8 @@ test("[MAP_SECTORS_RPC_REQUEST]/[MAP_SECTORS_RPC_SUCCESS] (sectors-api) gated; e
 });
 
 test("data flow INVARIATO: fetchKey / debounce / P1-A non toccati", () => {
-  // fetchKey debounce (22c5779): l'effect di fetch dipende SOLO da fetchKey + nonce
-  assert.match(hook, /\n\s*\}, \[fetchKey, bfcacheResumeNonce\]\);/);
+  // fetchKey debounce (22c5779): l'effect di fetch dipende da fetchKey + nonce
+  assert.match(hook, /\n\s*\}, \[fetchKey, bfcacheResumeNonce, manualRetryNonce\]\);/);
   assert.match(hook, /const pending = Boolean\(\s*zoneValid &&\s*lastSettledKeyRef\.current !== fetchKey/);
   // P1-A zone selection preservation (8296b15)
   assert.match(step2, /setSelected\(prev => resolveZoneAutoSelection\(\{/);

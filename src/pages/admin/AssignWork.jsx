@@ -37,8 +37,11 @@ import { ProgramRecipientSelector, ProgramRecipientSummary } from './assign-work
 export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = null, initialGroupId = null, initialOperatorId = null }) {
   if (existingAssignment) existingAssignment = { ...existingAssignment, metadata: programMetadata(existingAssignment.metadata) };
   const isEdit = Boolean(existingAssignment);
-  const [explicitProgramRecipient, setExplicitProgramRecipient] = useState(existingAssignment?.metadata?.explicit_program_recipient || null);
-  const resolvedRecipient = resolveProgramRecipient({ explicitProgramRecipient });
+  const [explicitProgramRecipient, setExplicitProgramRecipient] = useState(
+    existingAssignment?.metadata?.explicit_program_recipient
+      ? { ...existingAssignment.metadata.explicit_program_recipient, isManualChoice: true }
+      : null
+  );
 
   // Step 1=fornitore e gruppo, 2=programma e compenso, 3=anteprima, 4=risultato
   const [step, setStep] = useState(1);
@@ -202,66 +205,20 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId) || null;
   const selectedGroup = groups.find(group => group.id === selectedGroupId) || null;
 
-  const autoDefaultedSupplierRef = useRef(isEdit && existingAssignment?.metadata?.explicit_program_recipient ? 'preserved' : null);
-
-  // Auto-present canonical supplier contact as the DEFAULT explicit recipient when supplier is selected/loaded.
-  // Preserves existing assignment saved recipients in edit mode and avoids clearing unless invalid.
-  useEffect(() => {
-    if (isEdit && existingAssignment?.metadata?.explicit_program_recipient && autoDefaultedSupplierRef.current === 'preserved') {
-      return;
-    }
-
-    const currentKey = supplierMode === 'registered' ? selectedSupplierId : (manualSupplier.name + ':' + manualSupplier.phone);
-    if (!currentKey) return;
-
-    // Do not auto-re-default if user explicitly cleared recipient for the current supplier
-    if (autoDefaultedSupplierRef.current === currentKey) return;
-
-    // Only default if no recipient selected, or if registered supplier changed
-    const isSupplierMismatch = (
-      supplierMode === 'registered' &&
-      explicitProgramRecipient?.type === 'registered_supplier' &&
-      explicitProgramRecipient?.id &&
-      selectedSupplierId &&
-      explicitProgramRecipient.id !== selectedSupplierId
-    );
-
-    if (explicitProgramRecipient && !isSupplierMismatch) {
-      autoDefaultedSupplierRef.current = currentKey;
-      return;
-    }
-
-    const supp = supplierMode === 'manual' ? manualSupplier : selectedSupplier;
-    if (!supp || !supp.phone) return;
-    const cleanPhone = cleanPhoneNumber(supp.phone);
-    if (!cleanPhone) return;
-
-    const suppName = supplierMode === 'manual'
-      ? (supp.contact_name || supp.name || 'Fornitore esterno')
-      : (supp.company_name || supp.contact_name || supp.name || 'Fornitore');
-    if (!suppName?.trim()) return;
-
-    const candidate = {
-      type: supplierMode === 'manual' ? 'manual_supplier' : 'registered_supplier',
-      id: supp.id || null,
-      name: suppName.trim(),
-      phone: cleanPhone,
-    };
-    const res = resolveProgramRecipient({ explicitProgramRecipient: candidate });
-    if (res.valid) {
-      setExplicitProgramRecipient(res.recipient);
-      autoDefaultedSupplierRef.current = currentKey;
-    }
-  }, [
-    isEdit,
-    existingAssignment?.metadata?.explicit_program_recipient,
-    supplierMode,
-    selectedSupplierId,
-    selectedSupplier,
-    manualSupplier.name,
-    manualSupplier.phone,
+  // Resolve recipient with canonical precedence:
+  // 1. Explicit choice ONLY when Admin actively selected one (isManualChoice: true)
+  // 2. Selected Group Lead / contact
+  // 3. Selected Supplier contact
+  // 4. HARD BLOCK (never fallback to Admin/self, customer, or support)
+  const resolvedRecipient = resolveProgramRecipient({
     explicitProgramRecipient,
-  ]);
+    selectedGroup,
+    selectedSupplier,
+    supplierMode,
+    manualSupplier,
+    operators,
+    suppliers,
+  });
 
   const campaignTitle = campaign?.title || campaign?.campaign_name || campaign?.nome || `Campagna ${String(campaignId).slice(0, 8)}`;
 
@@ -583,8 +540,24 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
     const programRows = getSelectedProgramRows();
     const totalQty = programRows.reduce((sum, row) => sum + (row.quantity || 0), 0);
 
+    const activeRecip = step === 4
+      ? resolveProgramRecipient({
+          assignment: savedAssignment,
+          selectedGroup,
+          selectedSupplier,
+          supplierMode,
+          manualSupplier,
+          operators,
+          suppliers,
+        })
+      : resolvedRecipient;
+
+    const currentCompensation = step === 4
+      ? savedSupplierCompensation(savedAssignment)
+      : parseSupplierCompensation(supplierCompensation);
+
     return buildSupplierProgramWhatsAppMessage({
-      supplierName: step === 4 ? resolveProgramRecipient({ assignment: savedAssignment }).recipientName : resolvedRecipient.recipientName,
+      supplierName: activeRecip.recipientName,
       groupName: selectedGroup?.name || null,
       campaignTitle,
       service: campaign?.service || campaign?.type || campaign?.service_type || campaign?.metadata?.service || campaign?.metadata?.type,
@@ -593,7 +566,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       startTime: startsAt ? new Date(startsAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : null,
       programRows,
       qty: totalQty || null,
-      supplierCompensation: step === 4 ? savedSupplierCompensation(savedAssignment) : parseSupplierCompensation(supplierCompensation),
+      supplierCompensation: currentCompensation,
       notes: campaign?.notes || campaign?.metadata?.notes || null,
       link: generatedLink,
     });
@@ -614,14 +587,29 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   }
 
   function handleWhatsApp() {
-    const resolved = resolveProgramRecipient({ assignment: savedAssignment || existingAssignment });
+    const currentAssignment = savedAssignment || existingAssignment;
+    const resolved = resolveProgramRecipient({
+      assignment: currentAssignment,
+      explicitProgramRecipient,
+      selectedGroup,
+      selectedSupplier,
+      supplierMode,
+      manualSupplier,
+      operators,
+      suppliers,
+    });
     if (!resolved.valid || !resolved.phone) {
-      setNotice(resolved.error);
+      setNotice(resolved.error || 'Numero destinatario non disponibile.');
+      return;
+    }
+    const dest = cleanPhoneNumber(resolved.phone);
+    if (!dest) {
+      setNotice('Numero destinatario non valido.');
       return;
     }
     const msg = buildWhatsAppMsg();
-    window.open(`https://wa.me/${resolved.phone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
-    setNotice('Programma preparato in WhatsApp per il fornitore.');
+    window.open(`https://wa.me/${dest}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
+    setNotice(`Programma preparato in WhatsApp per +${dest}.`);
   }
 
   if (loadFailed) return <div style={shellStyle}><Notice danger text={error} /><button type="button" onClick={() => setLoadAttempt(value => value + 1)}>Riprova caricamento programma</button></div>;
@@ -667,7 +655,18 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
         <ProgramRecipientSummary recipient={resolvedRecipient} compensation={supplierCompensation} />
       )}
       {step === 4 && (
-        <ProgramRecipientSummary recipient={resolveProgramRecipient({ assignment: savedAssignment })} compensation={savedSupplierCompensation(savedAssignment)} />
+        <ProgramRecipientSummary
+          recipient={resolveProgramRecipient({
+            assignment: savedAssignment,
+            selectedGroup,
+            selectedSupplier,
+            supplierMode,
+            manualSupplier,
+            operators,
+            suppliers,
+          })}
+          compensation={savedSupplierCompensation(savedAssignment)}
+        />
       )}
 
       {/* ── STEP 1: Scegli fornitore e gruppo ── */}
@@ -681,13 +680,23 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           supplierError={supplierError}
           onRetrySuppliers={fetchSuppliers}
           selectedSupplierId={selectedSupplierId}
-          setSelectedSupplierId={setSelectedSupplierId}
+          setSelectedSupplierId={(id) => {
+            setSelectedSupplierId(id);
+            if (!explicitProgramRecipient?.isManualChoice) {
+              setExplicitProgramRecipient(null);
+            }
+          }}
           selectedSupplier={selectedSupplier}
           manualSupplier={manualSupplier}
           setManualSupplier={setManualSupplier}
           groups={groups}
           selectedGroupId={selectedGroupId}
-          setSelectedGroupId={setSelectedGroupId}
+          setSelectedGroupId={(id) => {
+            setSelectedGroupId(id);
+            if (!explicitProgramRecipient?.isManualChoice) {
+              setExplicitProgramRecipient(null);
+            }
+          }}
           groupCreatorOpen={groupCreatorOpen}
           setGroupCreatorOpen={setGroupCreatorOpen}
           handleCreateGroup={handleCreateGroup}
@@ -776,6 +785,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           notes={notes}
           saving={saving}
           recipientValid={resolvedRecipient.valid}
+          resolvedRecipient={resolvedRecipient}
           isEdit={isEdit}
           handleSave={handleSave}
           setStep={setStep}
@@ -816,7 +826,24 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           handleCopyLink={handleCopyLink}
           handleCopyMsg={handleCopyMsg}
           handleWhatsApp={handleWhatsApp}
-          recipientValid={resolveProgramRecipient({ assignment: savedAssignment }).valid}
+          resolvedRecipient={resolveProgramRecipient({
+            assignment: savedAssignment,
+            selectedGroup,
+            selectedSupplier,
+            supplierMode,
+            manualSupplier,
+            operators,
+            suppliers,
+          })}
+          recipientValid={resolveProgramRecipient({
+            assignment: savedAssignment,
+            selectedGroup,
+            selectedSupplier,
+            supplierMode,
+            manualSupplier,
+            operators,
+            suppliers,
+          }).valid}
           handleRevoke={handleRevoke}
           buildWhatsAppMsg={buildWhatsAppMsg}
           saving={saving}

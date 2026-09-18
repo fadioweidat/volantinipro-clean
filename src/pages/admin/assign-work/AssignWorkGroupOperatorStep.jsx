@@ -565,6 +565,7 @@ export function AssignWorkGroupOperatorStep({
           supplierMode={supplierMode}
           group={groups.find(g => g.id === selectedGroupId) || null}
           operators={operators}
+          resolvedRecipient={resolvedRecipient}
         />
       </div>
 
@@ -577,10 +578,8 @@ export function AssignWorkGroupOperatorStep({
           step1BlockerReason = 'Inserisci il nome del fornitore esterno.';
         } else if (supplierMode === 'manual' && cleanManualPhone.length < 6) {
           step1BlockerReason = 'Inserisci un numero di telefono valido per il fornitore esterno.';
-        } else if (!explicitProgramRecipient) {
-          step1BlockerReason = 'Seleziona il destinatario del programma.';
         } else if (!resolvedRecipient?.valid) {
-          step1BlockerReason = 'Il destinatario selezionato non ha un numero di telefono valido.';
+          step1BlockerReason = resolvedRecipient?.error || 'Nessun destinatario valido disponibile con numero di telefono.';
         }
 
         if (!step1BlockerReason) return null;

@@ -3,12 +3,37 @@ import { resolveProgramRecipient, parseSupplierCompensation } from '../../../lib
 export function ProgramRecipientSummary({ assignment, recipient, compensation }) {
   const resolved = recipient ?? resolveProgramRecipient({ assignment });
   const amount = parseSupplierCompensation(compensation);
-  return <div aria-label="Riepilogo destinatario programma" style={{ padding: 12, margin: '12px 0', border: '1px solid #64748b', borderRadius: 8, overflowWrap: 'anywhere' }}>
-    <div>Destinatario: <strong>{resolved.recipientName}</strong></div>
-    <div>Telefono: {resolved.phone ? `+${resolved.phone}` : 'Non disponibile'}</div>
-    <div>Compenso: {amount == null ? 'Compenso non definito' : `€ ${amount.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</div>
-    {!resolved.valid && <p role="alert">{resolved.error}</p>}
-  </div>;
+  return (
+    <div
+      aria-label="Riepilogo destinatario programma"
+      style={{
+        padding: 14,
+        margin: '12px 0',
+        border: `1px solid ${resolved.valid ? 'rgba(46,204,138,.3)' : 'rgba(239,68,68,.3)'}`,
+        borderRadius: 8,
+        background: resolved.valid ? 'rgba(46,204,138,.06)' : 'rgba(239,68,68,.06)',
+        overflowWrap: 'anywhere',
+      }}
+    >
+      <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: resolved.valid ? '#86efac' : '#fca5a5', marginBottom: 4 }}>
+        Destinatario programma
+      </div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{resolved.recipientName}</div>
+      <div style={{ fontSize: 14, color: resolved.valid ? '#86efac' : '#fca5a5', marginTop: 2 }}>
+        {resolved.phone ? `+${resolved.phone}` : 'Numero non disponibile'}
+      </div>
+      {amount != null && (
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,.8)', marginTop: 4 }}>
+          Compenso concordato: <strong>€ {amount.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+        </div>
+      )}
+      {!resolved.valid && (
+        <p role="alert" style={{ margin: '6px 0 0', fontSize: 12, color: '#fca5a5' }}>
+          ⚠️ {resolved.error}
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function getRecipientCandidates({ supplier, supplierMode, group, operators = [] }) {
@@ -24,7 +49,8 @@ export function getRecipientCandidates({ supplier, supplierMode, group, operator
     const opMatch = (operators || []).find(op =>
       (group.lead_name && op.display_name && op.display_name.trim().toLowerCase() === group.lead_name.trim().toLowerCase()) ||
       (group.lead_name && op.name && op.name.trim().toLowerCase() === group.lead_name.trim().toLowerCase()) ||
-      (group.name && op.display_name && op.display_name.trim().toLowerCase() === group.name.trim().toLowerCase())
+      (group.name && op.display_name && op.display_name.trim().toLowerCase() === group.name.trim().toLowerCase()) ||
+      (group.name && op.name && op.name.trim().toLowerCase() === group.name.trim().toLowerCase())
     );
     if (opMatch?.phone) {
       groupPhone = opMatch.phone;
@@ -45,18 +71,18 @@ export function getRecipientCandidates({ supplier, supplierMode, group, operator
   }
 
   const rawCandidates = [
-    supplier && supplierName && supplierPhone && {
-      type: supplierMode === 'manual' ? 'manual_supplier' : 'registered_supplier',
-      id: supplier.id || null,
-      name: supplierName.trim(),
-      phone: supplierPhone,
-    },
     group && groupContactName && groupPhone && {
       type: 'group',
       id: group.id,
       name: groupContactName.trim(),
       phone: groupPhone,
       groupName: group.name,
+    },
+    supplier && supplierName && supplierPhone && {
+      type: supplierMode === 'manual' ? 'manual_supplier' : 'registered_supplier',
+      id: supplier.id || null,
+      name: supplierName.trim(),
+      phone: supplierPhone,
     },
     ...(operators || []).map(op => ({
       type: 'operator',
@@ -69,7 +95,7 @@ export function getRecipientCandidates({ supplier, supplierMode, group, operator
   const seen = new Set();
   const validCandidates = [];
   for (const raw of rawCandidates) {
-    const res = resolveProgramRecipient({ explicitProgramRecipient: raw });
+    const res = resolveProgramRecipient({ explicitProgramRecipient: raw, isExplicitLocked: true });
     if (res.valid && res.recipient) {
       const k = JSON.stringify(res.recipient);
       if (!seen.has(k)) {
@@ -81,13 +107,19 @@ export function getRecipientCandidates({ supplier, supplierMode, group, operator
   return validCandidates;
 }
 
-export function ProgramRecipientSelector({ value, onChange, supplier, supplierMode, group, operators }) {
+export function ProgramRecipientSelector({ value, onChange, supplier, supplierMode, group, operators, resolvedRecipient }) {
   const candidates = getRecipientCandidates({ supplier, supplierMode, group, operators });
   const key = candidate => JSON.stringify(candidate);
   // Preserve the saved snapshot if a directory contact later changes.
   if (value && !candidates.some(candidate => key(candidate) === key(value))) candidates.unshift(value);
 
-  const resolved = resolveProgramRecipient({ explicitProgramRecipient: value });
+  const activeResolved = resolvedRecipient ?? resolveProgramRecipient({
+    explicitProgramRecipient: value,
+    selectedGroup: group,
+    selectedSupplier: supplier,
+    supplierMode,
+    operators,
+  });
 
   return (
     <div style={{ margin: '14px 0', padding: 14, borderRadius: 10, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.1)' }}>
@@ -97,10 +129,10 @@ export function ProgramRecipientSelector({ value, onChange, supplier, supplierMo
         </span>
         <select
           value={value ? key(value) : ''}
-          onChange={event => onChange(event.target.value ? JSON.parse(event.target.value) : null)}
+          onChange={event => onChange(event.target.value ? { ...JSON.parse(event.target.value), isManualChoice: true } : null)}
           style={{ width: '100%', minWidth: 0, padding: '10px 12px', color: '#fff', background: '#0d1e30', border: '1px solid #64748b', borderRadius: 8, fontSize: 13 }}
         >
-          <option value="">Seleziona destinatario</option>
+          <option value="">Automatico (in base a Gruppo / Fornitore)</option>
           {candidates.map((candidate, index) => {
             const roleTag = candidate.type === 'operator'
               ? 'Operatore'
@@ -116,15 +148,16 @@ export function ProgramRecipientSelector({ value, onChange, supplier, supplierMo
         </select>
       </label>
 
-      {resolved.valid ? (
+      {activeResolved.valid ? (
         <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#2ecc8a', fontWeight: 600 }}>
-          <span>✓ Destinatario confermato:</span>
-          <span style={{ color: '#fff' }}>{resolved.recipientName}</span>
-          <span style={{ color: 'rgba(255,255,255,.6)' }}>(+{resolved.phone})</span>
+          <span>✓ Destinatario programma:</span>
+          <span style={{ color: '#fff' }}>{activeResolved.recipientName}</span>
+          <span style={{ color: '#86efac' }}>(+{activeResolved.phone})</span>
+          {value?.isManualChoice && <span style={{ fontSize: 10, color: 'rgba(255,255,255,.5)', padding: '1px 5px', borderRadius: 4, background: 'rgba(255,255,255,.1)' }}>Manuale</span>}
         </div>
       ) : (
-        <p style={{ margin: '8px 0 0', fontSize: 12, color: 'rgba(255,255,255,.5)' }}>
-          {candidates.length > 0 ? 'Scegli uno dei destinatari disponibili dall’elenco.' : 'Nessun destinatario valido disponibile con numero di telefono.'}
+        <p style={{ margin: '8px 0 0', fontSize: 12, color: '#fca5a5' }}>
+          ⚠️ {activeResolved.error || 'Nessun destinatario valido disponibile con numero di telefono.'}
         </p>
       )}
     </div>

@@ -147,8 +147,32 @@ export function SupplierLandingPage({ onNav }) {
       return;
     }
 
-    // If not authenticated: save pending application and send magic link with supplier context
+    // If not authenticated: persist to intake table via RPC, then send magic link
     try {
+      const { data: intakeRes, error: intakeErr } = await supabase.rpc(
+        "submit_public_supplier_application",
+        {
+          p_company_name: payload.companyName,
+          p_contact_name: payload.contactName,
+          p_phone: payload.phone,
+          p_email: payload.email,
+          p_vat_number: payload.vatNumber,
+          p_coverage_areas: payload.coverageAreas,
+          p_services: payload.services,
+          p_notes: payload.notes,
+        }
+      );
+
+      if (intakeErr) {
+        throw new Error(intakeErr.message || "Errore durante il salvataggio della candidatura.");
+      }
+
+      if (intakeRes?.status === "already_registered") {
+        setError("Risulti già registrato come fornitore con questa email. Accedi alla tua bacheca.");
+        setBusy(false);
+        return;
+      }
+
       try {
         localStorage.setItem("vp_pending_supplier_application", JSON.stringify(payload));
         rememberPendingAuthContext("supplier");

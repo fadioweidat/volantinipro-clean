@@ -17,6 +17,7 @@ export function AssignWorkPreviewStep({
   notes,
   saving,
   recipientValid,
+  resolvedRecipient,
   isEdit,
   handleSave,
   setStep,
@@ -77,12 +78,39 @@ export function AssignWorkPreviewStep({
         {notes && <PreviewRow label="Note" value={notes} />}
       </div>
 
+      {/* Box Destinatario Programma (WhatsApp) */}
+      <div
+        style={{
+          marginTop: 18,
+          marginBottom: 16,
+          padding: '14px 16px',
+          borderRadius: 10,
+          background: recipientValid && resolvedRecipient?.phone ? 'rgba(46,204,138,.08)' : 'rgba(239,68,68,.08)',
+          border: `1px solid ${recipientValid && resolvedRecipient?.phone ? 'rgba(46,204,138,.3)' : 'rgba(239,68,68,.3)'}`,
+        }}
+      >
+        <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: recipientValid && resolvedRecipient?.phone ? '#86efac' : '#fca5a5' }}>
+          Destinatario programma:
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginTop: 4 }}>
+          {resolvedRecipient?.recipientName || 'Non selezionato'}
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: recipientValid && resolvedRecipient?.phone ? '#86efac' : '#fca5a5', marginTop: 2 }}>
+          {resolvedRecipient?.phone ? `+${resolvedRecipient.phone}` : 'Numero non disponibile'}
+        </div>
+        {(!recipientValid || !resolvedRecipient?.phone) && (
+          <div style={{ fontSize: 12, color: '#fca5a5', marginTop: 6 }}>
+            ⚠️ Numero destinatario non disponibile. Inserisci un recapito valido per il gruppo o fornitore prima di inviare il programma.
+          </div>
+        )}
+      </div>
+
       <div style={{ ...footerRowStyle, marginTop: 20 }}>
         <button type="button" style={secondaryBtnStyle} onClick={() => setStep(2)}>← Modifica</button>
         <button
           type="button"
-          style={saving ? disabledBtnStyle : primaryBtnStyle}
-          disabled={saving || !recipientValid}
+          style={saving || !recipientValid || !resolvedRecipient?.phone ? disabledBtnStyle : primaryBtnStyle}
+          disabled={saving || !recipientValid || !resolvedRecipient?.phone}
           onClick={handleSave}
         >
           {saving ? 'Salvataggio...' : isEdit ? 'Aggiorna assegnazione' : '✓ Salva e genera link'}

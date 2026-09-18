@@ -758,6 +758,24 @@ export async function adminListSuppliers() {
   }
 }
 
+const ADMIN_SUPPLIER_APPLICATION_COLUMNS =
+  'id, company_name, contact_name, email, phone, vat_number, coverage_areas, services, notes, status, claimed_by, claimed_at, created_at, updated_at';
+
+export async function adminListSupplierApplications() {
+  if (!supabase) return { rows: [], available: false };
+  try {
+    await ensureSupabaseSessionBridge();
+    const { data, error } = await supabase
+      .from('supplier_applications')
+      .select(ADMIN_SUPPLIER_APPLICATION_COLUMNS)
+      .order('created_at', { ascending: false });
+    if (error) return { rows: [], available: false, error };
+    return { rows: Array.isArray(data) ? data : [], available: true };
+  } catch (error) {
+    return { rows: [], available: false, error };
+  }
+}
+
 export async function getCampaignZonesWithGroups(campaignId) {
   const [zonesRes, groupsRes] = await Promise.all([
     supabase.from('campaign_zones').select('*').eq('campaign_id', campaignId).order('priority', { ascending: true, nullsFirst: false }).order('zone_name'),

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { adminListSuppliers } from '../../lib/services/admin-api.js';
+import { adminListSuppliers, adminListSupplierApplications } from '../../lib/services/admin-api.js';
 import { adminSetSupplierStatus } from '../../lib/services/supplier-api.js';
 import { mapMarketplaceError } from '../../lib/services/marketplaceErrors.js';
 import { AdminLayout } from './AdminLayout.jsx';
@@ -48,6 +48,7 @@ function fmtDate(value) {
 
 export function AdminSuppliers({ onNav }) {
   const [state, setState] = useState({ loading: true, error: null, rows: [], available: false });
+  const [appsState, setAppsState] = useState({ loading: true, error: null, rows: [] });
   const [filter, setFilter] = useState('all');
   const [busyId, setBusyId] = useState(null);      // supplier in mutazione: blocca doppio submit
   const [confirm, setConfirm] = useState(null);    // { id, to } — conferma inline (nessun dialog nativo)
@@ -55,12 +56,18 @@ export function AdminSuppliers({ onNav }) {
 
   const load = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: null }));
+    setAppsState((s) => ({ ...s, loading: true, error: null }));
     try {
-      const res = await adminListSuppliers();
-      if (!res.available || res.error) throw res.error || new Error('Impossibile caricare i fornitori.');
-      setState({ loading: false, error: null, rows: res.rows, available: true });
+      const [suppliersRes, appsRes] = await Promise.all([
+        adminListSuppliers(),
+        adminListSupplierApplications(),
+      ]);
+      if (!suppliersRes.available || suppliersRes.error) throw suppliersRes.error || new Error('Impossibile caricare i fornitori.');
+      setState({ loading: false, error: null, rows: suppliersRes.rows, available: true });
+      setAppsState({ loading: false, error: appsRes.error ? mapMarketplaceError(appsRes.error) : null, rows: appsRes.rows || [] });
     } catch (error) {
       setState(current => ({ ...current, loading: false, error: `Impossibile caricare i fornitori. ${mapMarketplaceError(error)}`, available: false }));
+      setAppsState(current => ({ ...current, loading: false, error: mapMarketplaceError(error) }));
     }
   }, []);
 
@@ -88,6 +95,11 @@ export function AdminSuppliers({ onNav }) {
     for (const r of state.rows) if (c[r.status] != null) c[r.status] += 1;
     return c;
   }, [state.rows]);
+
+  const pendingApps = useMemo(
+    () => appsState.rows.filter((a) => a.status === 'pending'),
+    [appsState.rows]
+  );
 
   const filtered = useMemo(
     () => (filter === 'all' ? state.rows : state.rows.filter((r) => r.status === filter)),
@@ -120,6 +132,66 @@ export function AdminSuppliers({ onNav }) {
 
       {!state.loading && state.available && (
         <>
+          {/* Candidature fornitore in attesa (intake staging) */}
+          <section className="admin-home__section" aria-labelledby="applications-title" style={{ marginBottom: 32 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <h2 id="applications-title" style={{ margin: 0, color: '#fff', font: '500 22px "DM Serif Display",Georgia,serif' }}>
+                Candidature in attesa ({pendingApps.length})
+              </h2>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,.5)' }}>
+                Ricevute tramite il portale pubblico "Lavora con noi"
+              </span>
+            </div>
+
+            {pendingApps.length === 0 ? (
+              <div className="admin-home__empty" style={{ padding: '16px', background: 'rgba(255,255,255,.02)', borderRadius: 10 }}>
+                <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,.5)' }}>Nessuna nuova candidatura fornitore in attesa.</p>
+              </div>
+            ) : (
+              <div className="admin-home__lead-list">
+                {pendingApps.map((app) => (
+                  <article key={app.id} style={{ borderLeft: '3px solid #E8571A' }}>
+                    <div className="admin-home__lead-main">
+                      <div>
+                        <strong>{app.company_name}</strong>
+                        <span>Referente: {app.contact_name || EMPTY} · Email: {app.email}</span>
+                        <span>Tel: {app.phone || EMPTY}{app.vat_number ? ` · P.IVA ${app.vat_number}` : ''}</span>
+                        {app.coverage_areas && app.coverage_areas.length > 0 && (
+                          <span style={{ color: 'rgba(255,255,255,.6)', fontSize: 11.5 }}>
+                            Aree: {app.coverage_areas.join(', ')}
+                          </span>
+                        )}
+                        {app.services && app.services.length > 0 && (
+                          <span style={{ color: 'rgba(255,255,255,.6)', fontSize: 11.5 }}>
+                            Servizi: {app.services.join(', ')}
+                          </span>
+                        )}
+                        <span>Ricevuta il: {fmtDate(app.created_at)}</span>
+                      </div>
+                      <span className="admin-home__lead-state admin-home__lead-state--new">
+                        Candidatura Inviata
+                      </span>
+                    </div>
+                    {app.notes && (
+                      <p style={{ margin: '10px 0 0', color: 'rgba(255,255,255,.5)', fontSize: 11 }}>
+                        Note fornitore: {app.notes}
+                      </p>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <div style={{ borderTop: '1px solid rgba(255,255,255,.1)', paddingTop: 24, marginBottom: 16 }}>
+            <h2 style={{ margin: '0 0 4px', color: '#fff', font: '500 22px "DM Serif Display",Georgia,serif' }}>
+              Fornitori Registrati ({state.rows.length})
+            </h2>
+            <p style={{ margin: '0 0 16px', color: 'rgba(255,255,255,.5)', fontSize: 13 }}>
+              Profili fornitore attivi con account verificato nel marketplace
+            </p>
+          </div>
+
           <div className="admin-home__quick" role="tablist" aria-label="Filtro fornitori">
             {FILTERS.map(([key, label]) => (
               <button

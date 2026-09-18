@@ -23,6 +23,7 @@ export function AssignWorkResultStep({
   handleCopyMsg,
   handleWhatsApp,
   recipientValid,
+  resolvedRecipient,
   handleRevoke,
   buildWhatsAppMsg,
   saving,
@@ -43,6 +44,9 @@ export function AssignWorkResultStep({
     secondaryBtnStyle,
     whatsappBtnStyle,
   } = styles;
+
+  const activeRecipient = resolvedRecipient || resolveProgramRecipient({ assignment: savedAssignment });
+  const isSendDisabled = !recipientValid || !activeRecipient?.valid || !activeRecipient?.phone;
 
   const compNum = parseSupplierCompensation(supplierCompensation);
   const compDisplay = (compNum != null)
@@ -93,11 +97,44 @@ export function AssignWorkResultStep({
       <div style={linkBoxStyle}>
         <p style={eyebrowStyle}>Link al programma operativo (da condividere con il fornitore)</p>
         <div style={linkTextStyle}>{generatedLink}</div>
+
+        {/* Box Destinatario Programma Prima Dell'Invio */}
+        <div
+          style={{
+            marginTop: 14,
+            marginBottom: 14,
+            padding: '12px 14px',
+            borderRadius: 8,
+            background: !isSendDisabled ? 'rgba(46,204,138,.08)' : 'rgba(239,68,68,.08)',
+            border: `1px solid ${!isSendDisabled ? 'rgba(46,204,138,.3)' : 'rgba(239,68,68,.3)'}`,
+          }}
+        >
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: !isSendDisabled ? '#86efac' : '#fca5a5' }}>
+            Destinatario programma:
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginTop: 3 }}>
+            {activeRecipient?.recipientName || 'Non definito'}
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: !isSendDisabled ? '#86efac' : '#fca5a5', marginTop: 2 }}>
+            {activeRecipient?.phone ? `+${activeRecipient.phone}` : 'Numero non disponibile'}
+          </div>
+          {isSendDisabled && (
+            <div style={{ fontSize: 12, color: '#fca5a5', marginTop: 4 }}>
+              ⚠️ Numero destinatario non disponibile. Inserisci un recapito valido per il gruppo o fornitore prima di inviare il programma via WhatsApp.
+            </div>
+          )}
+        </div>
+
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
           <button type="button" style={primaryBtnStyle} onClick={handleCopyLink}>
             {copiedLink ? '✓ Copiato!' : '📋 Copia link'}
           </button>
-          <button type="button" style={whatsappBtnStyle} onClick={handleWhatsApp} disabled={!recipientValid}>
+          <button
+            type="button"
+            style={isSendDisabled ? { ...whatsappBtnStyle, opacity: 0.45, cursor: 'not-allowed', background: '#374151' } : whatsappBtnStyle}
+            onClick={handleWhatsApp}
+            disabled={isSendDisabled}
+          >
             📱 Invia programma
           </button>
           <button type="button" style={secondaryBtnStyle} onClick={handleCopyMsg}>

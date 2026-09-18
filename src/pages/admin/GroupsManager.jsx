@@ -214,7 +214,7 @@ export function GroupsManager({ onNav }) {
         <SectionHeading id="program-title" eyebrow="Assegnazione" title="Nuovo programma" meta="Usa il flusso Driver esistente" action={wizardOpen ? 'Chiudi' : 'Apri'} onAction={() => setWizardOpen((value) => !value)} />
         {wizardOpen && (!wizardCampaignId ? (
           <div className="admin-home__campaign-picker"><h3>Step A · Scegli campagna</h3>{realCampaigns.map((campaign) => <button type="button" key={campaign.id} onClick={() => setWizardCampaignId(campaign.id)}><strong>{campaignName(campaign)}</strong><span>{campaign.qty ? `${campaign.qty.toLocaleString('it-IT')} volantini` : 'Quantità non disponibile'}</span></button>)}</div>
-        ) : <AssignWork key={`${wizardCampaignId}:${wizardGroupId}:${wizardOperatorId}`} campaignId={wizardCampaignId} initialGroupId={wizardGroupId} initialOperatorId={wizardOperatorId} onSaved={() => load()} onClose={() => { setWizardOpen(false); setWizardCampaignId(''); setWizardGroupId(''); setWizardOperatorId(''); }} />)}
+        ) : <AssignWork key={wizardCampaignId} campaignId={wizardCampaignId} initialGroupId={wizardGroupId} initialOperatorId={wizardOperatorId} onSaved={() => load()} onClose={() => { setWizardOpen(false); setWizardCampaignId(''); setWizardGroupId(''); setWizardOperatorId(''); }} />)}
       </section>
 
       {/* Confirmation Modal for Remove Member */}

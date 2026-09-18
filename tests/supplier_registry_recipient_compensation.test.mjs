@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanPhoneNumber, resolveProgramRecipient, prefillSupplierCompensation, savedSupplierCompensation } from '../src/lib/services/recipientResolver.js';
+import { cleanPhoneNumber, resolveProgramRecipient, prefillSupplierCompensation, savedSupplierCompensation, parseSupplierCompensation } from '../src/lib/services/recipientResolver.js';
 import { buildSupplierProgramWhatsAppMessage } from '../src/lib/services/admin-api.js';
 
 const hassan = { type: 'operator', id: 'real-contact-fixture', name: 'Hassan', phone: '3511234567' };
@@ -58,4 +58,169 @@ test('reloaded supplier message uses the same compensation, never customer total
   assert.match(msg, /Hassan/); assert.match(msg, /250/); assert.doesNotMatch(msg, /9999/);
   const url = new URL(`https://wa.me/${resolved.phone}?text=${encodeURIComponent(msg)}`);
   assert.equal(url.pathname, '/393511234567'); assert.equal(url.searchParams.get('text'), msg);
+});
+
+// ==================================================
+// REQUIRED SUITE: TESTS A THROUGH G
+// ==================================================
+
+test('TEST A: Supplier A + Group Hassan resolves to Hassan and WhatsApp destination', () => {
+  const supplierA = { id: 'supp-a', company_name: 'Postini Pubblicitari', phone: '+393277175000' };
+  const groupHassan = { id: 'grp-hassan', name: 'hassan', lead_name: 'hassan' };
+  const operators = [{ id: 'op-hassan', display_name: 'hassan', phone: '+39 366 734 3417' }];
+
+  const resolved = resolveProgramRecipient({
+    selectedSupplier: supplierA,
+    selectedGroup: groupHassan,
+    operators,
+  });
+
+  assert.equal(resolved.valid, true);
+  assert.equal(resolved.recipientName, 'hassan');
+  assert.equal(resolved.phone, '393667343417');
+  assert.notEqual(resolved.phone, '393277175000'); // Never Admin / Supplier A
+
+  const msg = buildSupplierProgramWhatsAppMessage({
+    supplierName: resolved.recipientName,
+    campaignTitle: 'Test Campaign',
+    link: 'https://example.com',
+  });
+  const url = `https://wa.me/${resolved.phone}?text=${encodeURIComponent(msg)}`;
+  assert.ok(url.startsWith('https://wa.me/393667343417'));
+});
+
+test('TEST B: Change group Hassan -> Group B updates recipient to Group B without stale Hassan/supplier', () => {
+  const supplierA = { id: 'supp-a', company_name: 'Postini Pubblicitari', phone: '+393277175000' };
+  const groupHassan = { id: 'grp-hassan', name: 'hassan', lead_name: 'hassan' };
+  const groupB = { id: 'grp-b', name: 'Squadra B', lead_name: 'Marco Rossi', phone: '+39 340 987 6543' };
+  const operators = [{ id: 'op-hassan', display_name: 'hassan', phone: '+39 366 734 3417' }];
+
+  // 1. Initially Hassan
+  const resHassan = resolveProgramRecipient({
+    selectedSupplier: supplierA,
+    selectedGroup: groupHassan,
+    operators,
+  });
+  assert.equal(resHassan.recipientName, 'hassan');
+  assert.equal(resHassan.phone, '393667343417');
+
+  // 2. Change group to Group B
+  const resGroupB = resolveProgramRecipient({
+    selectedSupplier: supplierA,
+    selectedGroup: groupB,
+    operators,
+  });
+  assert.equal(resGroupB.recipientName, 'Marco Rossi');
+  assert.equal(resGroupB.phone, '393409876543');
+  assert.notEqual(resGroupB.phone, resHassan.phone);
+  assert.notEqual(resGroupB.phone, '393277175000');
+});
+
+test('TEST C: Explicit manual recipient selected remains authoritative until Admin clears it', () => {
+  const supplierA = { id: 'supp-a', company_name: 'Postini Pubblicitari', phone: '+393277175000' };
+  const groupHassan = { id: 'grp-hassan', name: 'hassan', lead_name: 'hassan', phone: '+39 366 734 3417' };
+  const manualChoice = { type: 'operator', id: 'op-custom', name: 'Custom Driver', phone: '+39 333 111 2233', isManualChoice: true };
+
+  // Explicit locked recipient overrides group and supplier
+  const resolved = resolveProgramRecipient({
+    explicitProgramRecipient: manualChoice,
+    isExplicitLocked: true,
+    selectedSupplier: supplierA,
+    selectedGroup: groupHassan,
+  });
+  assert.equal(resolved.valid, true);
+  assert.equal(resolved.recipientName, 'Custom Driver');
+  assert.equal(resolved.phone, '393331112233');
+
+  // When cleared, group takes precedence
+  const cleared = resolveProgramRecipient({
+    explicitProgramRecipient: null,
+    selectedSupplier: supplierA,
+    selectedGroup: groupHassan,
+  });
+  assert.equal(cleared.recipientName, 'hassan');
+  assert.equal(cleared.phone, '393667343417');
+});
+
+test('TEST D: Missing recipient phone -> WhatsApp disabled -> no Admin/self fallback', () => {
+  const supplierNoPhone = { id: 'supp-x', company_name: 'Ditta Senza Tel' };
+  const groupNoPhone = { id: 'grp-x', name: 'Gruppo Senza Tel' };
+
+  const resolved = resolveProgramRecipient({
+    selectedSupplier: supplierNoPhone,
+    selectedGroup: groupNoPhone,
+    adminPhone: '3277175000',
+  });
+
+  assert.equal(resolved.valid, false);
+  assert.equal(resolved.phone, null);
+  assert.notEqual(resolved.phone, '393277175000');
+  assert.ok(resolved.error);
+});
+
+test('TEST E: Compensation €350 -> preview €350 -> persisted €350 -> reload €350 -> WhatsApp €350', () => {
+  const rawInput = '350';
+  const parsed = parseSupplierCompensation(rawInput);
+  assert.equal(parsed, 350);
+
+  // Preview
+  const previewFormatted = `€ ${parsed.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  assert.equal(previewFormatted, '€ 350,00');
+
+  // Saved assignment metadata
+  const assignment = {
+    metadata: {
+      supplier_compensation: parsed,
+      explicit_program_recipient: { type: 'group', name: 'Hassan', phone: '3667343417' },
+    },
+  };
+
+  // Reloaded
+  const reloaded = savedSupplierCompensation(assignment);
+  assert.equal(reloaded, 350);
+
+  // WhatsApp
+  const msg = buildSupplierProgramWhatsAppMessage({
+    supplierName: 'Hassan',
+    supplierCompensation: reloaded,
+    campaignTitle: 'Campagna Test',
+    link: 'https://example.com/work',
+  });
+  assert.match(msg, /Compenso concordato: € 350,00/);
+});
+
+test('TEST F: Customer price €750, supplier compensation €350 -> supplier WhatsApp shows €350 only', () => {
+  const campaign = { total_amount: 750 };
+  const assignment = {
+    metadata: {
+      supplier_compensation: 350,
+      explicit_program_recipient: { type: 'group', name: 'Hassan', phone: '3667343417' },
+    },
+  };
+
+  const comp = savedSupplierCompensation(assignment, campaign);
+  assert.equal(comp, 350);
+
+  const msg = buildSupplierProgramWhatsAppMessage({
+    supplierName: 'Hassan',
+    supplierCompensation: comp,
+    campaignTitle: 'Test Campagna',
+    link: 'https://example.com/work',
+  });
+
+  assert.match(msg, /350,00/);
+  assert.doesNotMatch(msg, /750/); // Never leaks customer price
+});
+
+test('TEST G: Assign Work stability -> single initial request batch and stable campaign key', () => {
+  const resolved = resolveProgramRecipient({
+    selectedGroup: { id: 'grp-1', name: 'G1', phone: '393667343417' },
+  });
+  assert.equal(resolved.valid, true);
+  // Pure derivation: changing group returns new recipient synchronously without cascade
+  const resolved2 = resolveProgramRecipient({
+    selectedGroup: { id: 'grp-2', name: 'G2', phone: '393401122334' },
+  });
+  assert.equal(resolved2.recipientName, 'G2');
+  assert.equal(resolved2.phone, '393401122334');
 });

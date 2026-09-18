@@ -1,4 +1,4 @@
-export const RECIPIENT_REQUIRED = 'Seleziona un destinatario con un numero di telefono valido.';
+export const RECIPIENT_REQUIRED = 'Numero destinatario non disponibile. Inserisci un recapito valido per il gruppo o fornitore prima di inviare il programma.';
 
 // wa.me requires international digits. Unprefixed Italian numbers receive +39.
 export function cleanPhoneNumber(raw) {
@@ -18,21 +18,170 @@ export function programMetadata(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
+export function resolveSupplierRecipientCandidate(supplier, supplierMode = 'registered') {
+  if (!supplier) return null;
+  const rawPhone = supplier.phone;
+  const cleanPhone = cleanPhoneNumber(rawPhone);
+  if (!cleanPhone) return null;
+  const isManual = supplierMode === 'manual';
+  const name = isManual
+    ? (supplier.contact_name || supplier.name || null)
+    : (supplier.company_name || supplier.contact_name || supplier.name || null);
+  if (!name || !name.trim()) return null;
+  return {
+    type: isManual ? 'manual_supplier' : 'registered_supplier',
+    id: supplier.id || null,
+    name: name.trim(),
+    phone: cleanPhone,
+  };
+}
+
+export function resolveGroupRecipientCandidate(group, operators = [], suppliers = [], selectedSupplier = null) {
+  if (!group) return null;
+  let rawPhone = group.phone || group.contact_phone || group.lead_phone || null;
+  let contactName = group.lead_name || group.name || null;
+
+  if (!rawPhone) {
+    // 1. Check in operators
+    const opMatch = (operators || []).find(op =>
+      (group.lead_name && op.display_name && op.display_name.trim().toLowerCase() === group.lead_name.trim().toLowerCase()) ||
+      (group.lead_name && op.name && op.name.trim().toLowerCase() === group.lead_name.trim().toLowerCase()) ||
+      (group.name && op.display_name && op.display_name.trim().toLowerCase() === group.name.trim().toLowerCase()) ||
+      (group.name && op.name && op.name.trim().toLowerCase() === group.name.trim().toLowerCase())
+    );
+    if (opMatch?.phone) {
+      rawPhone = opMatch.phone;
+      contactName = opMatch.display_name || opMatch.name || contactName;
+    } else {
+      // 2. Check in selectedSupplier / suppliers
+      const allSuppliers = selectedSupplier ? [selectedSupplier, ...(suppliers || [])] : (suppliers || []);
+      const suppMatch = allSuppliers.find(supp =>
+        (group.lead_name && supp.contact_name && group.lead_name.trim().toLowerCase() === supp.contact_name.trim().toLowerCase()) ||
+        (group.lead_name && supp.company_name && group.lead_name.trim().toLowerCase() === supp.company_name.trim().toLowerCase()) ||
+        (group.name && supp.contact_name && (
+          supp.contact_name.trim().toLowerCase().includes(group.name.trim().toLowerCase()) ||
+          group.name.trim().toLowerCase().includes(supp.contact_name.trim().toLowerCase())
+        )) ||
+        (group.name && supp.company_name && (
+          supp.company_name.trim().toLowerCase().includes(group.name.trim().toLowerCase()) ||
+          group.name.trim().toLowerCase().includes(supp.company_name.trim().toLowerCase())
+        ))
+      );
+      if (suppMatch?.phone) {
+        rawPhone = suppMatch.phone;
+        contactName = group.lead_name || suppMatch.contact_name || suppMatch.company_name || group.name;
+      }
+    }
+  }
+
+  const cleanPhone = cleanPhoneNumber(rawPhone);
+  if (!cleanPhone || !contactName || !contactName.trim()) return null;
+  return {
+    type: 'group',
+    id: group.id || null,
+    name: contactName.trim(),
+    phone: cleanPhone,
+    groupName: group.name,
+  };
+}
+
+/**
+ * Resolves the operational WhatsApp program recipient with strict canonical precedence:
+ * 1. Explicit recipient ONLY when Admin actively selected one (manually chosen or locked)
+ * 2. Selected Group Lead / contact
+ * 3. Selected Supplier contact
+ * 4. HARD BLOCK (valid: false, phone: null, never fall back to Admin/self, customer, or support)
+ */
 export function resolveProgramRecipient(options = {}) {
   const meta = programMetadata(options.assignment?.metadata);
-  // An explicitly cleared/invalid draft must not revert to the saved recipient.
-  const recipient = Object.hasOwn(options, 'explicitProgramRecipient')
-    ? options.explicitProgramRecipient : meta.explicit_program_recipient;
-  const phone = cleanPhoneNumber(recipient?.phone);
-  const name = String(recipient?.name ?? '').trim();
-  const type = recipient?.type;
-  if (!phone || !name || !['manual_supplier', 'registered_supplier', 'group', 'operator'].includes(type)) {
-    return { valid: false, phone: null, recipientName: name || 'Non selezionato', recipientType: 'none', error: RECIPIENT_REQUIRED };
+  const hasExplicitArg = Object.hasOwn(options, 'explicitProgramRecipient');
+  const explicitArg = options.explicitProgramRecipient;
+  const isExplicitLocked = Boolean(options.isExplicitLocked || explicitArg?.isManualChoice);
+
+  // 1. Explicit recipient ONLY when Admin actively selected one
+  if (isExplicitLocked && explicitArg) {
+    const phone = cleanPhoneNumber(explicitArg.phone);
+    const name = String(explicitArg.name ?? '').trim();
+    const type = explicitArg.type;
+    if (phone && name && ['manual_supplier', 'registered_supplier', 'group', 'operator'].includes(type)) {
+      return {
+        valid: true,
+        phone,
+        recipientName: name,
+        recipientType: type,
+        recipient: { type, id: explicitArg.id || null, name, phone, isManualChoice: true },
+      };
+    }
+    return {
+      valid: false,
+      phone: null,
+      recipientName: name || 'Non selezionato',
+      recipientType: 'none',
+      error: RECIPIENT_REQUIRED,
+    };
   }
-  // Only explicit choices reach here, including intentional self selection.
-  // No admin, support, supplier or arbitrary operator fallback exists.
-  return { valid: true, phone, recipientName: name, recipientType: type,
-    recipient: { type, id: recipient.id || null, name, phone } };
+
+  const group = options.selectedGroup || options.group;
+  const supplier = options.selectedSupplier || (options.supplierMode === 'manual' ? options.manualSupplier : null);
+
+  // 2. Selected Group Lead / contact (takes precedence when group is selected)
+  if (group) {
+    const groupCandidate = resolveGroupRecipientCandidate(
+      group,
+      options.operators,
+      options.suppliers,
+      options.selectedSupplier
+    );
+    if (groupCandidate && groupCandidate.phone) {
+      return {
+        valid: true,
+        phone: groupCandidate.phone,
+        recipientName: groupCandidate.name,
+        recipientType: 'group',
+        recipient: groupCandidate,
+      };
+    }
+  }
+
+  // 3. Selected Supplier contact (if no group or group has no phone)
+  if (supplier) {
+    const suppCandidate = resolveSupplierRecipientCandidate(supplier, options.supplierMode);
+    if (suppCandidate && suppCandidate.phone) {
+      return {
+        valid: true,
+        phone: suppCandidate.phone,
+        recipientName: suppCandidate.name,
+        recipientType: suppCandidate.type,
+        recipient: suppCandidate,
+      };
+    }
+  }
+
+  // Fallback to explicit draft or saved assignment recipient only if no group/supplier was given
+  const fallbackExplicit = hasExplicitArg ? explicitArg : meta.explicit_program_recipient;
+  if (fallbackExplicit) {
+    const phone = cleanPhoneNumber(fallbackExplicit.phone);
+    const name = String(fallbackExplicit.name ?? '').trim();
+    const type = fallbackExplicit.type;
+    if (phone && name && ['manual_supplier', 'registered_supplier', 'group', 'operator'].includes(type)) {
+      return {
+        valid: true,
+        phone,
+        recipientName: name,
+        recipientType: type,
+        recipient: { type, id: fallbackExplicit.id || null, name, phone },
+      };
+    }
+  }
+
+  // 4. HARD BLOCK: Never fall back to Admin/self, customer, or support
+  return {
+    valid: false,
+    phone: null,
+    recipientName: 'Non selezionato',
+    recipientType: 'none',
+    error: RECIPIENT_REQUIRED,
+  };
 }
 
 export function parseSupplierCompensation(value) {
