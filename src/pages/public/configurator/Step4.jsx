@@ -602,7 +602,12 @@ export function Step4({
       contribution
     };
   });
-  const mainAreaLabel = step4AreaLabel(data.cityName) || step4AreaLabel(data.comune) || selectedZoneNames[0] || "l'area selezionata";
+  // BUG (riprodotto dal vivo: Milano -> NIL BRUZZANO isolata -> Step4 mostrava
+  // "Milano (MI)" invece di "BRUZZANO" in ZONA/COMUNE, titolo, PDF e
+  // metadata.zona del payload campagna). Con UNA sola zona/NIL selezionata,
+  // quel nome specifico e' piu' preciso del comune padre e va preferito;
+  // con piu' zone (incl. "Milano completo") il comportamento resta invariato.
+  const mainAreaLabel = (selectedZoneNames.length === 1 && selectedZoneNames[0]) || step4AreaLabel(data.cityName) || step4AreaLabel(data.comune) || selectedZoneNames[0] || "l'area selezionata";
   const estimatedFamiliesForSummary = svcType === "d2d" ? kpis.families ?? (selZ.length ? totF : null) : null;
   const coverageForSummary = svcType === "d2d" ? requiredQty > 0 ? Math.min(100, Math.round(flyerQty / requiredQty * 100)) : kpis.coverage ?? (selZ.length ? avgCov : null) : null;
   // Surplus decision made in Step 2 (municipality mode, quantity > recommended).
