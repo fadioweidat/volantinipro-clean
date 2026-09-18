@@ -604,10 +604,17 @@ export function Step4({
   });
   // BUG (riprodotto dal vivo: Milano -> NIL BRUZZANO isolata -> Step4 mostrava
   // "Milano (MI)" invece di "BRUZZANO" in ZONA/COMUNE, titolo, PDF e
-  // metadata.zona del payload campagna). Con UNA sola zona/NIL selezionata,
-  // quel nome specifico e' piu' preciso del comune padre e va preferito;
-  // con piu' zone (incl. "Milano completo") il comportamento resta invariato.
-  const mainAreaLabel = (selectedZoneNames.length === 1 && selectedZoneNames[0]) || step4AreaLabel(data.cityName) || step4AreaLabel(data.comune) || selectedZoneNames[0] || "l'area selezionata";
+  // metadata.zona del payload campagna — confermato anche nel payload REALE
+  // inviato a submit-campaign-request). Root cause reale: selectedZoneNames
+  // preferisce data.selectedComuni (sempre ["Milano"], il comune padre,
+  // popolato anche in modalita' NIL) PRIMA di considerare zoneAllocs, quindi
+  // selectedZoneNames[0] non e' mai la NIL specifica in questo scenario.
+  // zoneAllocs (Step2) e' invece SEMPRE corretto per singola zona (verificato
+  // dal vivo: name="BRUZZANO"), ed e' gia' la fonte usata da
+  // campaignZonesPayload per i campaign_zones reali. Con UNA sola zona in
+  // zoneAllocs, quel nome specifico va preferito; con piu' zone (incl.
+  // "Milano completo") il comportamento resta invariato.
+  const mainAreaLabel = (zoneAllocs.length === 1 && step4AreaLabel(zoneAllocs[0].name)) || (selectedZoneNames.length === 1 && selectedZoneNames[0]) || step4AreaLabel(data.cityName) || step4AreaLabel(data.comune) || selectedZoneNames[0] || "l'area selezionata";
   const estimatedFamiliesForSummary = svcType === "d2d" ? kpis.families ?? (selZ.length ? totF : null) : null;
   const coverageForSummary = svcType === "d2d" ? requiredQty > 0 ? Math.min(100, Math.round(flyerQty / requiredQty * 100)) : kpis.coverage ?? (selZ.length ? avgCov : null) : null;
   // Surplus decision made in Step 2 (municipality mode, quantity > recommended).
