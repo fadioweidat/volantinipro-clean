@@ -27,7 +27,6 @@
     "test:all": "node scripts/run-all-tests.mjs"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@vitejs/plugin-react": "^5.0.0",
     "adm-zip": "^0.5.17",
