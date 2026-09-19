@@ -18,3 +18,7 @@
 .admin-home__today-grid--scroll{max-height:520px;overflow-y:auto;padding-right:4px}
 @media(max-width:820px){.admin-home__header-actions{flex-wrap:wrap}}
 @media(max-width:460px){.admin-home__header-actions{width:100%}.admin-home__header-actions .admin-home__primary,.admin-home__tools-menu{flex:1}.admin-home__tools-trigger{width:100%}.admin-home__tools-popover{left:0;right:0;min-width:0}}
+.admin-home__skeleton-bar{border-radius:8px;background:linear-gradient(90deg,rgba(255,255,255,.03),rgba(255,255,255,.08),rgba(255,255,255,.03));background-size:200% 100%;animation:admin-shimmer 1.3s infinite}
+.admin-home__skeleton-section{min-height:160px;display:flex;flex-direction:column;justify-content:center}
+.admin-home__skeleton-card{min-height:160px;display:flex;flex-direction:column}
+

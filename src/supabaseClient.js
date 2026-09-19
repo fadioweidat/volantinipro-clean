@@ -110,6 +110,23 @@ export async function ensureSupabaseSessionBridge() {
   }
 }
 
+let bridgedUserInFlight = null
+export async function getBridgedUser() {
+  if (!supabase) return { data: { user: null }, error: null }
+  await ensureSupabaseSessionBridge()
+  if (bridgedUserInFlight) return bridgedUserInFlight
+  bridgedUserInFlight = (async () => {
+    try {
+      return await supabase.auth.getUser()
+    } finally {
+      setTimeout(() => {
+        bridgedUserInFlight = null
+      }, 80)
+    }
+  })()
+  return bridgedUserInFlight
+}
+
 // P0: quando supabase.auth.getUser() rifiuta il token bridgeato (access_token
 // scaduto E refresh_token non piu' valido — /auth/v1/user 403 seguito da
 // /auth/v1/token?grant_type=refresh_token 400, riprodotto dal vivo), il blob

@@ -5407,6 +5407,7 @@ export function DashboardPage({
   });
   const {
     cliente,
+    loading: clienteLoading,
     sessionInvalid: clienteSessionInvalid
   } = useCliente();
   const {
@@ -5515,7 +5516,7 @@ export function DashboardPage({
             fontSize: 34,
             color: C.white,
             letterSpacing: "-1px"
-          }}>Ciao {cliente?.nome || cliente?.email || "Cliente"}</h1>
+          }}>Ciao {cliente?.nome || cliente?.email || (clienteLoading ? "..." : "Cliente")}</h1>
             <div style={{
             marginTop: 7,
             display: "inline-flex",
@@ -5567,7 +5568,17 @@ export function DashboardPage({
           background: "rgba(255,255,255,.045)",
           border: "1px solid rgba(255,255,255,.08)"
         }}>
-              {v == null ? <MissingValueBadge /> : <div style={{
+              {loading ? (
+                <div style={{
+                  height: 30,
+                  width: 60,
+                  borderRadius: 6,
+                  background: "linear-gradient(90deg,rgba(255,255,255,.04),rgba(255,255,255,.1),rgba(255,255,255,.04))",
+                  backgroundSize: "200% 100%",
+                  animation: "admin-shimmer 1.3s infinite",
+                  marginBottom: 4
+                }} />
+              ) : v == null ? <MissingValueBadge /> : <div style={{
             fontFamily: F.serif,
             fontSize: 28,
             color: c,

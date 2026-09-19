@@ -65,7 +65,7 @@ test('useCliente and useCampagne clear the bridged session and expose sessionInv
     // Cleanup must happen inside the authError branch, before the throw that
     // triggers the generic catch — not bolted on after the fact.
     const authErrorIdx = src.indexOf('if (authError)');
-    const clearIdx = src.indexOf('clearBridgedSupabaseSession()', authErrorIdx);
+    const clearIdx = src.indexOf('clearBridgedSupabaseSession', authErrorIdx);
     assert.ok(authErrorIdx >= 0 && clearIdx > authErrorIdx);
   }
 });

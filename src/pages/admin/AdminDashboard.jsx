@@ -130,43 +130,48 @@ export default function AdminDashboard({ onNav, adminSession = null }) {
 
   return (
     <AdminLayout onNav={onNav} title="Oggi" subtitle="Chi lavora, dove deve andare e cosa richiede attenzione." actions={headerActions}>
-      {state.loading && <DashboardSkeleton />}
-      {state.error && <Notice danger>{state.error}</Notice>}
-      {notice && <Notice>{notice}</Notice>}
+      {state.loading ? (
+        <DashboardSkeleton />
+      ) : (
+        <>
+          {state.error && <Notice danger>{state.error}</Notice>}
+          {notice && <Notice>{notice}</Notice>}
 
-      <AdminDashboardMetricsPanel metrics={metrics} Metric={Metric} />
+          <AdminDashboardMetricsPanel metrics={metrics} Metric={Metric} />
 
-      <section className="admin-home__section" aria-labelledby="today-title">
-        <SectionHeading
-          id="today-title"
-          eyebrow="Operatività"
-          title="Chi lavora oggi"
-          meta={`${todayGroups.length} gruppi programmati`}
-          action={todayGroups.length > 4 ? (showAllToday ? 'Mostra meno' : 'Vedi tutti') : null}
-          onAction={() => setShowAllToday((v) => !v)}
-        />
-        {!availability.today ? <EmptyState text="Programmi di oggi non disponibili." /> : todayGroups.length === 0 ? (
-          <EmptyState text="Nessun gruppo programmato per oggi." action="Nuovo programma" onAction={() => onNav('admin-groups-manager')} />
-        ) : (
-          <div className={showAllToday ? 'admin-home__today-grid admin-home__today-grid--scroll' : 'admin-home__today-grid'}>
-            {(showAllToday || todayGroups.length <= 4 ? todayGroups : todayGroups.slice(0, 4)).map((group) => <TodayGroupCard key={group.id} group={group} onWhatsApp={() => openProgramWhatsApp(group)} />)}
-          </div>
-        )}
-      </section>
+          <section className="admin-home__section" aria-labelledby="today-title">
+            <SectionHeading
+              id="today-title"
+              eyebrow="Operatività"
+              title="Chi lavora oggi"
+              meta={`${todayGroups.length} gruppi programmati`}
+              action={todayGroups.length > 4 ? (showAllToday ? 'Mostra meno' : 'Vedi tutti') : null}
+              onAction={() => setShowAllToday((v) => !v)}
+            />
+            {!availability.today ? <EmptyState text="Programmi di oggi non disponibili." /> : todayGroups.length === 0 ? (
+              <EmptyState text="Nessun gruppo programmato per oggi." action="Nuovo programma" onAction={() => onNav('admin-groups-manager')} />
+            ) : (
+              <div className={showAllToday ? 'admin-home__today-grid admin-home__today-grid--scroll' : 'admin-home__today-grid'}>
+                {(showAllToday || todayGroups.length <= 4 ? todayGroups : todayGroups.slice(0, 4)).map((group) => <TodayGroupCard key={group.id} group={group} onWhatsApp={() => openProgramWhatsApp(group)} />)}
+              </div>
+            )}
+          </section>
 
-      <AdminDashboardModulesPanel
-        clientsQuotesCount={clientsQuotes.length}
-        clientsStats={clientsStats}
-        groupsCount={groups.length}
-        groupsOnline={groupsOnline}
-        programsStats={programsStats}
-        liveCount={liveSummary.liveCount || 0}
-        smartPairingAvailable={smartPairing.available}
-        smartPairingStats={smartPairingStats}
-        commercial={commercial}
-        onNav={onNav}
-        ModuleCard={ModuleCard}
-      />
+          <AdminDashboardModulesPanel
+            clientsQuotesCount={clientsQuotes.length}
+            clientsStats={clientsStats}
+            groupsCount={groups.length}
+            groupsOnline={groupsOnline}
+            programsStats={programsStats}
+            liveCount={liveSummary.liveCount || 0}
+            smartPairingAvailable={smartPairing.available}
+            smartPairingStats={smartPairingStats}
+            commercial={commercial}
+            onNav={onNav}
+            ModuleCard={ModuleCard}
+          />
+        </>
+      )}
     </AdminLayout>
   );
 }
@@ -220,32 +225,33 @@ async function loadAdminHomeDataUncached() {
   // gli altri 4 (che restano paralleli tra loro). AdminLiveDashboard.jsx
   // continua a chiamare getLiveDrivers()/getLiveOperatorsSummary() senza
   // prefetched, comportamento invariato per quella pagina.
-  const campaignResult = await getRealCampaigns({ includeTest: true });
-
-  const [operations, liveSummary, operators, smartPairingResult] = await Promise.all([
+  // Phase 1 (parallel): getRealCampaigns runs concurrently with independent operations, operators, and smart_pairing
+  const [campaignResult, operations, operators, smartPairingResult] = await Promise.all([
+    getRealCampaigns({ includeTest: true }),
     getDailyOperations(today).then((rows) => ({ rows, available: true })).catch(() => ({ rows: [], available: false })),
-    getLiveOperatorsSummary({ prefetched: { sessions: campaignResult.sessions, points: campaignResult.points } })
-      .catch(() => ({ current: [], liveCount: 0, warningCount: 0 })),
     listAssignableOperators().catch(() => []),
     selectOptionalTable('smart_pairing_waitlist'),
   ]);
-  const liveOperators = liveSummary.current || [];
+
   const realCampaignIds = new Set(campaignResult.allRows.filter((campaign) => campaign.quality === 'real').map((campaign) => campaign.id));
   const realOperations = operations.rows.filter((assignment) => realCampaignIds.has(assignment.campaign_id));
   const realGroups = campaignResult.groups.filter((group) => realCampaignIds.has(group.campaign_id));
-  // Stesso identico risultato di prima (nessun override includeTest: solo
-  // campagne reali, cosi' Pagati/Da pagare/Da assegnare in Home restano
-  // identici a ClientsQuotes.jsx), ma senza rifare da zero campaigns/groups/
-  // assignments/operators/sessions gia' recuperati sopra.
-  const clientsQuotesResult = await getClientsQuotesOverview({
-    prefetched: {
-      campaigns: campaignResult.allRows,
-      groups: campaignResult.groups,
-      assignments: campaignResult.assignments,
-      sessions: campaignResult.sessions,
-      operators,
-    },
-  }).catch(() => []);
+
+  // Phase 2 (parallel): liveSummary and clientsQuotesResult run concurrently using prefetched campaigns/sessions/points/operators
+  const [liveSummary, clientsQuotesResult] = await Promise.all([
+    getLiveOperatorsSummary({ prefetched: { sessions: campaignResult.sessions, points: campaignResult.points } })
+      .catch(() => ({ current: [], liveCount: 0, warningCount: 0 })),
+    getClientsQuotesOverview({
+      prefetched: {
+        campaigns: campaignResult.allRows,
+        groups: campaignResult.groups,
+        assignments: campaignResult.assignments,
+        sessions: campaignResult.sessions,
+        operators,
+      },
+    }).catch(() => []),
+  ]);
+  const liveOperators = liveSummary.current || [];
   return {
     campaigns: campaignResult.allRows,
     todayGroups: buildTodayGroupCards({ operations: realOperations, liveOperators, operators }),
@@ -283,7 +289,37 @@ function Metric({ label, value, tone }) { return <article className={`admin-home
 function SectionHeading({ id, eyebrow, title, meta, action, onAction }) { return <header className="admin-home__heading"><div><p>{eyebrow}</p><h2 id={id}>{title}</h2>{meta && <span>{meta}</span>}</div>{action && <button type="button" onClick={onAction}>{action}</button>}</header>; }
 function EmptyState({ text, action, onAction }) { return <div className="admin-home__empty"><p>{text}</p>{action && <button type="button" onClick={onAction}>{action}</button>}</div>; }
 function Notice({ children, danger = false }) { return <div className={`admin-home__notice${danger ? ' admin-home__notice--danger' : ''}`} role={danger ? 'alert' : 'status'}>{children}</div>; }
-function DashboardSkeleton() { return <div className="admin-home__skeleton" aria-label="Caricamento dashboard"><span /><span /><span /><span /></div>; }
+function DashboardSkeleton() {
+  return (
+    <div className="admin-home__skeleton-wrap" aria-label="Caricamento dashboard">
+      <div className="admin-home__skeleton">
+        <span />
+        <span />
+        <span />
+        <span />
+      </div>
+      <div className="admin-home__section admin-home__skeleton-section">
+        <div className="admin-home__skeleton-bar" style={{ width: '130px', height: '12px', marginBottom: '8px' }} />
+        <div className="admin-home__skeleton-bar" style={{ width: '210px', height: '22px', marginBottom: '16px' }} />
+        <div className="admin-home__skeleton-bar" style={{ width: '100%', height: '76px' }} />
+      </div>
+      <div className="admin-home__module-grid">
+        <div className="admin-home__module-card admin-home__skeleton-card">
+          <div className="admin-home__skeleton-bar" style={{ width: '90px', height: '12px', marginBottom: '16px' }} />
+          <div className="admin-home__skeleton-bar" style={{ width: '100%', height: '16px', marginBottom: '8px' }} />
+          <div className="admin-home__skeleton-bar" style={{ width: '100%', height: '16px', marginBottom: '8px' }} />
+          <div className="admin-home__skeleton-bar" style={{ width: '100%', height: '38px', marginTop: '14px' }} />
+        </div>
+        <div className="admin-home__module-card admin-home__skeleton-card">
+          <div className="admin-home__skeleton-bar" style={{ width: '90px', height: '12px', marginBottom: '16px' }} />
+          <div className="admin-home__skeleton-bar" style={{ width: '100%', height: '16px', marginBottom: '8px' }} />
+          <div className="admin-home__skeleton-bar" style={{ width: '100%', height: '16px', marginBottom: '8px' }} />
+          <div className="admin-home__skeleton-bar" style={{ width: '100%', height: '38px', marginTop: '14px' }} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function localDateKey(date) { const offset = date.getTimezoneOffset() * 60000; return new Date(date.getTime() - offset).toISOString().slice(0, 10); }
 function emptyData() {

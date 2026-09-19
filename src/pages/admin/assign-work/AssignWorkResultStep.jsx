@@ -95,7 +95,7 @@ export function AssignWorkResultStep({
 
       {/* Link box */}
       <div style={linkBoxStyle}>
-        <p style={eyebrowStyle}>Link al programma operativo (da condividere con il fornitore)</p>
+        <p style={eyebrowStyle}>Link personale al programma operativo (da condividere con il fornitore)</p>
         <div style={linkTextStyle}>{generatedLink}</div>
 
         {/* Box Destinatario Programma Prima Dell'Invio */}

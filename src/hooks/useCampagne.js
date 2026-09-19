@@ -1,6 +1,6 @@
 import { withCampaignSettlement } from '../lib/campaignSettlement.js';
 import { useEffect, useState } from 'react'
-import { ensureSupabaseSessionBridge, supabase, clearBridgedSupabaseSession } from '../supabaseClient'
+import { getBridgedUser, supabase, clearBridgedSupabaseSession } from '../supabaseClient'
 import { normalizeCustomerCampaign } from '../lib/customerCampaigns.js'
 
 const PENDING_CLAIM_KEY = 'volantinipro_pending_campaign_claim'
@@ -49,8 +49,7 @@ export function useCampagne({ enabled = true } = {}) {
     async function load() {
       if (!supabase) { setLoading(false); return }
       try {
-        await ensureSupabaseSessionBridge()
-        const { data: authData, error: authError } = await supabase.auth.getUser()
+        const { data: authData, error: authError } = await getBridgedUser()
         if (authError) {
           // Stesso motivo di useCliente.js: getUser() ha rifiutato il token
           // bridgeato, la sessione salvata va ripulita solo se l'errore e' definitivo.

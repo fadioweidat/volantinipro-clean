@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ensureSupabaseSessionBridge, supabase, clearBridgedSupabaseSession } from '../supabaseClient'
+import { getBridgedUser, supabase, clearBridgedSupabaseSession } from '../supabaseClient'
 
 export function useCliente() {
   const [cliente, setCliente] = useState(null)
@@ -10,8 +10,8 @@ export function useCliente() {
     async function load() {
       if (!supabase) { setLoading(false); return }
       try {
-        await ensureSupabaseSessionBridge()
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        const { data: authData, error: authError } = await getBridgedUser()
+        const user = authData?.user || null
         if (authError) {
           // P0: getUser() ha rifiutato il token bridgeato — access_token
           // scaduto E refresh_token non piu' valido (assente, scaduto,

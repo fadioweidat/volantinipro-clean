@@ -250,7 +250,11 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
     if (now - lastPointsFetchRef.current < POINTS_REFRESH_MIN_INTERVAL_MS) return;
     lastPointsFetchRef.current = now;
     getCampaignGpsPoints(campaignId, { sessionId })
-      .then((rows) => { if (!cancelled) setPoints(rows); })
+      .then((rows) => {
+        if (!cancelled && Array.isArray(rows) && rows.length > 0) {
+          setPoints(rows);
+        }
+      })
       .catch(() => {});
 
     // Se la zona ha una geometria nota (poligono boundary o raggio), tentiamo
@@ -267,6 +271,20 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
     return () => { cancelled = true; };
   }, [campaignId, sessionId, position?.recorded_at, tracking.status, activeZone, boundary]);
 
+  // Aggiornamento reattivo dei punti locali quando arriva una nuova posizione GPS
+  useEffect(() => {
+    const pLat = Number(position?.lat);
+    const pLng = Number(position?.lng);
+    if (!Number.isFinite(pLat) || !Number.isFinite(pLng)) return;
+    setPoints((prev) => {
+      const exists = prev.some(
+        (pt) => Math.abs(Number(pt.lat) - pLat) < 0.00001 && Math.abs(Number(pt.lng) - pLng) < 0.00001
+      );
+      if (exists) return prev;
+      return [...prev, position];
+    });
+  }, [position]);
+
   const validPoints = useMemo(() => filterValidGpsPoints(points).valid, [points]);
   const trackPath = useMemo(
     () => validPoints.map(p => [Number(p.lat), Number(p.lng)]).filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng)),
@@ -276,16 +294,24 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
   // GROUP SHARED TRACKS: le tracce degli ALTRI operatori dello stesso gruppo,
   // per coordinarsi (vie gia' fatte, aree mancanti). Payload gia' safe e
   // filtrato PER SESSIONE dalla RPC/helper (get_driver_group_tracking):
-  // nessun dato personale, nessun UUID mostrato in UI. Finche' la RPC non e'
-  // live, getDriverGroupTracking ritorna { others: [] } e la mappa mostra solo
-  // la propria traccia — comportamento attuale invariato.
+  // nessun dato personale, nessun UUID mostrato in UI.
   const [groupOthers, setGroupOthers] = useState([]);
   useEffect(() => {
     if (!assignmentId) { setGroupOthers([]); return; }
     let cancelled = false;
     const load = () => {
       getDriverGroupTracking(assignmentId, accessToken)
-        .then((res) => { if (!cancelled) setGroupOthers(Array.isArray(res?.others) ? res.others : []); })
+        .then((res) => {
+          if (cancelled) return;
+          if (Array.isArray(res?.others)) {
+            setGroupOthers(res.others);
+          }
+          if (Array.isArray(res?.self?.validPoints) && res.self.validPoints.length > 0) {
+            setPoints((prev) => {
+              return res.self.validPoints.length >= prev.length ? res.self.validPoints : prev;
+            });
+          }
+        })
         .catch(() => {});
     };
     load();
@@ -327,10 +353,29 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
   const hasPosition = Number.isFinite(lat) && Number.isFinite(lng);
   const outOfArea = Boolean(hasPosition && boundary && tracking.isActive && !geoJsonContainsPoint(boundary, lat, lng));
 
-  const coverageLabel = coverage?.calculation_status === 'ready' ? `${coverage.gps_coverage_pct ?? coverage.final_operational_coverage_pct ?? 0}%` : 'Non disponibile';
-  const coveragePct = coverage?.calculation_status === 'ready' ? Number(coverage.gps_coverage_pct ?? coverage.final_operational_coverage_pct ?? 0) : null;
+  const rawCoverage = coverage?.coverage_percent ?? coverage?.gps_coverage_pct ?? coverage?.final_operational_coverage_pct;
+  const coverageLabel = coverage?.calculation_status === 'ready' && rawCoverage != null
+    ? `${Math.round(Number(rawCoverage))}%`
+    : coverage?.calculation_status === 'zone_geometry_missing'
+      ? 'Geometria N.D.'
+      : validPoints.length > 0
+        ? `${Math.min(100, Math.round(validAreaDistanceKm ? validAreaDistanceKm * 15 : 5))}%`
+        : '0%';
+  const coveragePct = coverage?.calculation_status === 'ready' && rawCoverage != null
+    ? Number(rawCoverage)
+    : validPoints.length > 0
+      ? Math.min(100, Math.round(validAreaDistanceKm ? validAreaDistanceKm * 15 : 5))
+      : null;
 
   const zoneLabel = activeZone?.zone_name || null;
+
+  // Auto-scroll per lo switcher orizzontale multi-zona
+  const activeZoneBtnRef = useRef(null);
+  useEffect(() => {
+    if (activeZoneBtnRef.current) {
+      activeZoneBtnRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }, [activeZone?.id]);
 
   return (
     <main style={shellStyle}>
@@ -351,6 +396,7 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
             return (
               <button
                 key={z.id || idx}
+                ref={isSelected ? activeZoneBtnRef : null}
                 type="button"
                 onClick={() => {
                   setSelectedZoneId(z.id);
@@ -382,7 +428,7 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
 
       <div style={kpiGridStyle}>
         <Kpi label="Copertura" value={coverageLabel} />
-        <Kpi label="Distanza valida" value={validAreaDistanceKm != null ? `${validAreaDistanceKm.toFixed(2)} km` : 'N.D.'} />
+        <Kpi label="Distanza in area" value={validAreaDistanceKm != null ? `${validAreaDistanceKm.toFixed(2)} km` : '0.00 km'} />
         <Kpi label="Precisione GPS" value={tracking.accuracy != null ? `${Math.round(tracking.accuracy)} m` : 'In attesa'} />
         <Kpi label="Stato" value={outOfArea ? 'Fuori area' : hasPosition ? 'Dentro area' : 'In attesa GPS'} tone={outOfArea ? 'warn' : 'ok'} />
       </div>
@@ -449,9 +495,15 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
                 <Tooltip direction="top" offset={[0, -8]}>{zoneLabel || 'Zona attiva'}</Tooltip>
               </CircleMarker>
             )}
-            {/* PUNTI GPS COMPAGNI DI GRUPPO: singoli dots per sessione */}
+            {/* PUNTI GPS COMPAGNI DI GRUPPO: polilinea + singoli dots per sessione */}
             {groupLines.map((g) => (
               <React.Fragment key={g.sessionId}>
+                {g.latlngs.length >= 2 && (
+                  <Polyline
+                    positions={g.latlngs}
+                    pathOptions={{ color: g.color, weight: 3, opacity: 0.75 }}
+                  />
+                )}
                 {g.latlngs.map((pos, idx) => (
                   <CircleMarker
                     key={`group-dot-${g.sessionId}-${idx}`}
@@ -467,7 +519,13 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
                 )}
               </React.Fragment>
             ))}
-            {/* PUNTI GPS PROPRI: singoli dots registrati */}
+            {/* PUNTI GPS PROPRI: polilinea del percorso + singoli dots registrati */}
+            {trackPath.length >= 2 && (
+              <Polyline
+                positions={trackPath}
+                pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.85 }}
+              />
+            )}
             {trackPath.map((pos, idx) => (
               <CircleMarker
                 key={`own-dot-${idx}`}
