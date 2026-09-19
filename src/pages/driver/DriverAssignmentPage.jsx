@@ -852,15 +852,32 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken, activeZone
     }
   }, [assignmentId, accessToken]);
 
-  // TICKET FIX SEGNALAZIONI: prima solo al mount, un driver gia' con l'app
-  // aperta non vedeva mai una segnalazione arrivata dopo (bisognava fare
-  // logout/login o ricaricare). Polling leggero (nessuna nuova infrastruttura
-  // realtime), stesso ordine di grandezza gia' usato altrove nell'app per il
-  // tracking cliente (30s) — qui 20s perche' il ticket chiede "15-30 secondi".
+  // Live fallback robusto per il link Driver pubblico: le postgres_changes
+  // possono non arrivare in tempo reale a un client anonimo/tokenizzato per
+  // policy/RLS/browser mobile in background. Per le segnalazioni facciamo
+  // quindi un refresh leggero ogni 5s SOLO quando la pagina e' visibile, piu'
+  // refresh immediato su focus/ritorno online/visibilitychange. Nessun reload
+  // pagina necessario.
   useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') reload();
+    };
     reload();
-    const timer = window.setInterval(reload, 20000);
-    return () => window.clearInterval(timer);
+    const timer = window.setInterval(refreshIfVisible, 5000);
+    const onOnline = () => reload();
+    const onFocus = () => reload();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') reload();
+    };
+    window.addEventListener('online', onOnline);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [reload]);
 
   const openMaps = (issue) => {
@@ -1061,20 +1078,29 @@ function DriverMessagesSection({ assignmentId, accessToken }) {
     };
   }, [assignmentId, reload]);
 
-  // Polling separato di sicurezza costante (20s) - disaccoppiato dal ciclo di vita della connessione realtime
+  // Realtime resta il canale principale. Come fallback, il Driver aggiorna i
+  // messaggi ogni 5s quando la pagina e' visibile. Questo copre i browser
+  // mobile che sospendono/rompono il websocket o i casi in cui postgres_changes
+  // non viene consegnato al link pubblico tokenizzato. Nessun refresh manuale.
   useEffect(() => {
-    const timer = window.setInterval(reload, 20000);
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') reload();
+    };
+    const timer = window.setInterval(refreshIfVisible, 5000);
 
     const onOnline = () => reload();
+    const onFocus = () => reload();
     const onVisibility = () => {
       if (document.visibilityState === 'visible') reload();
     };
     window.addEventListener('online', onOnline);
+    window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
       window.clearInterval(timer);
       window.removeEventListener('online', onOnline);
+      window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [reload]);
