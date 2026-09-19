@@ -13,7 +13,7 @@ import { normalizeZonesFromCampaign, summarizeGeofencePoints, deriveLiveZoneStat
 import { useZoneBoundaries } from '../../hooks/useZoneBoundaries.js';
 import { resolveMunicipalityBoundary } from '../../lib/geo/resolveMunicipalityBoundary.js';
 import { AdminLayout } from './AdminLayout.jsx';
-import { listCampaignAssignments, getCampaignManualOperationalMetrics, revokeOperatorAssignment } from '../../lib/services/admin-api.js';
+import { listCampaignAssignments, getCampaignManualOperationalMetrics, revokeOperatorAssignment, renameGroupParticipant } from '../../lib/services/admin-api.js';
 import { getOperatorColor } from '../../lib/geo/operatorColor.js';
 import { operatorKeyFor } from '../../lib/geo/operatorSplit.js';
 import { FitToZoneBounds } from '../../components/map/FitToZoneBounds.jsx';
@@ -177,6 +177,7 @@ export function GpsMonitor({ campaignId, onNav }) {
   // quando l'Admin apre "Correggi copertura".
   const [assignmentRows, setAssignmentRows] = useState([]);
   const [revokingAssignmentId, setRevokingAssignmentId] = useState(null);
+  const [renamingAssignmentId, setRenamingAssignmentId] = useState(null);
   useEffect(() => {
     let cancelled = false;
     if (!campaignId) { setAssignmentRows([]); return undefined; }
@@ -185,6 +186,31 @@ export function GpsMonitor({ campaignId, onNav }) {
       .catch(() => { if (!cancelled) setAssignmentRows([]); });
     return () => { cancelled = true; };
   }, [campaignId]);
+  async function handleRenameOperator(op) {
+    const assignmentId = op?.assignmentId;
+    if (!assignmentId || renamingAssignmentId) return;
+    const current = op.displayName || op.slot || '';
+    const next = window.prompt('Nuovo nome operatore (es. OP 2, Squadra 2):', current);
+    if (next == null) return;
+    const trimmed = next.trim();
+    if (!trimmed || trimmed === current) return;
+
+    setRenamingAssignmentId(assignmentId);
+    try {
+      const updated = await renameGroupParticipant(assignmentId, trimmed);
+      const displayName = updated?.display_name || trimmed;
+      setAssignmentRows((prev) => prev.map((row) =>
+        row.id === assignmentId
+          ? { ...row, operator_name: displayName, participant_label: displayName }
+          : row
+      ));
+    } catch (err) {
+      window.alert(err?.message || 'Rinomina operatore non riuscita.');
+    } finally {
+      setRenamingAssignmentId(null);
+    }
+  }
+
   async function handleRevokeOperator(op) {
     const assignmentId = op?.assignmentId;
     if (!assignmentId || revokingAssignmentId) return;
@@ -702,6 +728,8 @@ export function GpsMonitor({ campaignId, onNav }) {
               activeSessionId={state.activeSession?.id}
               formatDateTime={formatDateTime}
               onUnlockDevice={handleUnlockDevice}
+              onRenameOperator={handleRenameOperator}
+              renamingAssignmentId={renamingAssignmentId}
               onRevokeOperator={handleRevokeOperator}
               revokingAssignmentId={revokingAssignmentId}
               onNav={onNav}
@@ -1043,7 +1071,7 @@ function calculatePointsDistanceKm(points) {
 // una riga per operatore, con traccia distinguibile,
 // stato (ONLINE / IN PAUSA / OFFLINE / TERMINATO), conteggi punti, km e toggle
 // mostra/nascondi la traccia sulla mappa.
-export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperators = [], assignedOperatorCount = 0, totalAssignedOperators = 0, operatorsWithGpsCount = 0, trackVisibility = {}, toggleTrack, zoneRows = [], activeSessionId, formatDateTime: fmt, onUnlockDevice, onRevokeOperator, revokingAssignmentId = null, onNav, campaignId }) {
+export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperators = [], assignedOperatorCount = 0, totalAssignedOperators = 0, operatorsWithGpsCount = 0, trackVisibility = {}, toggleTrack, zoneRows = [], activeSessionId, formatDateTime: fmt, onUnlockDevice, onRenameOperator, renamingAssignmentId = null, onRevokeOperator, revokingAssignmentId = null, onNav, campaignId }) {
   if (!sessionTracks.length && !canonicalOperators.length) return null;
   const format = fmt || ((v) => (v ? new Date(v).toLocaleString('it-IT') : 'n/d'));
   const opByDriver = new Map(
@@ -1102,6 +1130,7 @@ export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperator
             const currentZoneId = track?.session?.campaign_zone_id || op.zoneId || null;
             const currentZoneName = currentZoneId ? zoneNameById.get(currentZoneId) || null : null;
             const isRevoking = revokingAssignmentId === op.assignmentId;
+            const isRenaming = renamingAssignmentId === op.assignmentId;
 
             return (
               <div
@@ -1135,25 +1164,46 @@ export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperator
                   <span>{validPts} punti</span>
                   <span style={{ fontSize: 10, color: 'rgba(255,255,255,.4)' }}>{lastAt ? format(lastAt) : 'nessun ping'}</span>
                 </div>
-                {onRevokeOperator && op.assignmentId && (
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-                    <button
-                      type="button"
-                      disabled={isRevoking}
-                      onClick={() => onRevokeOperator(op)}
-                      style={{
-                        border: '1px solid rgba(248,113,113,.35)',
-                        background: 'rgba(248,113,113,.08)',
-                        color: isRevoking ? 'rgba(255,255,255,.4)' : '#fca5a5',
-                        borderRadius: 8,
-                        padding: '5px 9px',
-                        fontSize: 10,
-                        fontWeight: 900,
-                        cursor: isRevoking ? 'default' : 'pointer',
-                      }}
-                    >
-                      {isRevoking ? 'Revoca…' : 'Revoca OP'}
-                    </button>
+                {op.assignmentId && (onRenameOperator || onRevokeOperator) && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                    {onRenameOperator && (
+                      <button
+                        type="button"
+                        disabled={isRenaming || isRevoking}
+                        onClick={() => onRenameOperator(op)}
+                        style={{
+                          border: '1px solid rgba(255,255,255,.18)',
+                          background: 'rgba(255,255,255,.05)',
+                          color: (isRenaming || isRevoking) ? 'rgba(255,255,255,.4)' : '#fff',
+                          borderRadius: 8,
+                          padding: '5px 9px',
+                          fontSize: 10,
+                          fontWeight: 900,
+                          cursor: (isRenaming || isRevoking) ? 'default' : 'pointer',
+                        }}
+                      >
+                        {isRenaming ? 'Rinomina…' : 'Rinomina OP'}
+                      </button>
+                    )}
+                    {onRevokeOperator && (
+                      <button
+                        type="button"
+                        disabled={isRevoking || isRenaming}
+                        onClick={() => onRevokeOperator(op)}
+                        style={{
+                          border: '1px solid rgba(248,113,113,.35)',
+                          background: 'rgba(248,113,113,.08)',
+                          color: (isRevoking || isRenaming) ? 'rgba(255,255,255,.4)' : '#fca5a5',
+                          borderRadius: 8,
+                          padding: '5px 9px',
+                          fontSize: 10,
+                          fontWeight: 900,
+                          cursor: (isRevoking || isRenaming) ? 'default' : 'pointer',
+                        }}
+                      >
+                        {isRevoking ? 'Revoca…' : 'Revoca OP'}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
