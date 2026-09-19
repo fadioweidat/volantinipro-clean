@@ -97,7 +97,9 @@ test("DriverAssignmentPage.jsx: importa ed usa subscribeToDriverMessages", () =>
 test("DriverAssignmentPage.jsx: polling adattivo e network recovery presenti", () => {
   assert.ok(driverPageSrc.includes("window.addEventListener('online'"), "deve ascoltare evento online per riconnessione immediata");
   assert.ok(driverPageSrc.includes("document.addEventListener('visibilitychange'"), "deve ascoltare visibilitychange per reload immediato al ritorno in tab");
-  assert.ok(driverPageSrc.includes("realtimeStatus === 'SUBSCRIBED'"), "deve avere polling adattivo basato sullo stato realtime");
+  // Realtime (broadcast+postgres_changes) e' il canale principale; fallback a 5s SOLO a pagina visibile.
+  assert.ok(driverPageSrc.includes("if (status === 'SUBSCRIBED')"), "ricarica alla (ri)sottoscrizione realtime");
+  assert.ok(driverPageSrc.includes("window.setInterval(refreshIfVisible, 5000)"), "fallback polling 5s a pagina visibile");
 });
 
 test("DriverAssignmentPage.jsx: badge non letti presente nel markup", () => {

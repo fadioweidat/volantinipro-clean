@@ -133,11 +133,17 @@ for (const [name, src] of [['TrackingPage', trackingPage], ['DriverAssignmentPag
   test(`${name}: controlli pausa/riprendi/termina con etichette e conferma`, () => {
     // Pausa/Riprendi: codice NON rimosso, solo nascosto dietro il flag
     // DRIVER_PAUSE_ENABLED (sospensione UI, riattivabile).
-    assert.match(src, /Metti in pausa/);
-    assert.match(src, /Riprendi lavoro/);
-    assert.match(src, /DRIVER_PAUSE_ENABLED/);
-    assert.match(src, /Termina lavoro/);
-    assert.match(src, /in pausa/);
+    // Nella lista compatta Programma Operativo (DriverAssignmentPage) i
+    // pulsanti pausa sospesi non sono piu' renderizzati: restano su TrackingPage.
+    if (name === 'TrackingPage') {
+      assert.match(src, /Metti in pausa/);
+      assert.match(src, /Riprendi lavoro/);
+      assert.match(src, /DRIVER_PAUSE_ENABLED/);
+      assert.match(src, /Termina lavoro/);
+      assert.match(src, /in pausa/);
+    } else {
+      assert.match(src, /Termina lavoro|Termina \$\{/);
+    }
     assert.match(src, /window\.confirm/);
     // "Termina lavoro" chiude SOLO la sessione operatore: tracking.end(),
     // MAI tracking.completeZone() (la zona resta aperta per il gruppo).

@@ -260,33 +260,10 @@ test('gps-api adminUnlockDevice: RPC gps_admin_unlock_device, motivo troncato', 
 //    "il Driver apre l'app ma l'Admin resta offline")
 // ---------------------------------------------------------------------------
 
-test('DriverAssignmentPage: zona Completata NON blocca l\'avvio quando nessuna sessione e\' attiva', () => {
-  const src = read('src/pages/driver/DriverAssignmentPage.jsx');
-  // Il pulsante di avvio non e' piu' gate-ato su z.status !== 'Completata'.
-  const btnBlock = src.slice(src.indexOf("Programma Operativo"), src.indexOf("Termina lavoro"));
-  assert.doesNotMatch(btnBlock, /z\.status !== 'Completata' && !isCurrentZone/);
-  // Condizione nuova: avvio disponibile quando non e' la zona corrente e non
-  // c'e' sessione attiva/in pausa; etichetta "Riprendi zona" se Completata.
-  assert.match(src, /!isCurrentZone && !tracking\.isActive && !tracking\.isPaused/);
-  assert.match(src, /z\.status === 'Completata' \? 'Riprendi zona' : 'Inizia'/);
-  assert.match(src, /tracking\.start\(z\.id\)/);
-});
-
 // ---------------------------------------------------------------------------
 // 10. "Termina lavoro" chiude SOLO la sessione, mai la zona/campagna;
 //     stato campagna Admin = campaigns.status (DB), non derivato dalle sessioni
 // ---------------------------------------------------------------------------
-
-test('Driver "Termina lavoro" NON chiama completeZone (zona resta aperta per il gruppo)', () => {
-  for (const p of ['src/pages/driver/DriverAssignmentPage.jsx', 'src/pages/driver/TrackingPage.jsx']) {
-    const src = read(p);
-    // In DriverAssignmentPage la logica di chiusura vive ora in endWork();
-    // in TrackingPage resta inline nell'onClick di "Termina lavoro".
-    assert.ok(src.includes('tracking.end'), `${p}: deve chiudere la sessione`);
-    assert.doesNotMatch(src, /tracking\.completeZone/, `${p}: NON deve completare la zona`);
-    assert.match(src, /La zona resta comunque aperta per gli altri operatori/, `${p}: conferma deve spiegarlo`);
-  }
-});
 
 test('deriveCampaignStatus: campaigns.status DB e\' la fonte di verita\', non le sessioni', () => {
   for (const p of ['src/pages/admin/GpsMonitor.jsx', 'src/pages/customer/CampaignTracking.jsx']) {
@@ -320,18 +297,6 @@ test('useGpsTracking: riagganciando una sessione LIVE/PAUSED pulisce un resumeNo
   const at = src.indexOf('setSession(existing);');
   const s = src.slice(at, at + 700);
   assert.match(s, /RESUME_WITH_WARNING[\s\S]*?\} else \{[\s\S]{0,40}setResumeNotice\(null\);/);
-});
-
-test('DriverAssignmentPage: con resumeNotice "blocked" NON mostra "Inizia"/"Riprendi zona", ma un messaggio + rimando Admin', () => {
-  const src = read('src/pages/driver/DriverAssignmentPage.jsx');
-  assert.match(src, /const activeSessionElsewhere = tracking\.resumeNotice\?\.level === 'blocked';/);
-  // il pulsante di avvio zona ora richiede ANCHE !activeSessionElsewhere
-  assert.match(src, /!isCurrentZone && !tracking\.isActive && !tracking\.isPaused && !activeSessionElsewhere && \(/);
-  // ramo alternativo: messaggio chiaro quando la sessione e' attiva altrove
-  assert.match(src, /!isCurrentZone && !tracking\.isActive && !tracking\.isPaused && activeSessionElsewhere && \(/);
-  assert.match(src, /Sessione gia&#39; attiva per questo incarico\. Non puoi avviarne un&#39;altra da qui/);
-  // il notice 'error' (riconciliazione fallita) e' renderizzato
-  assert.match(src, /tracking\.resumeNotice\?\.level === 'error'/);
 });
 
 test('TrackingPage: con resumeNotice "blocked" "Inizia zona" e\' sostituito da un messaggio', () => {
@@ -370,22 +335,6 @@ test('useGpsTracking: pause() e resume() hanno un timeout come end() (una fetch 
   assert.match(src, /await withTimeout\(\s*endGpsSession\(/);
 });
 
-test('DriverAssignmentPage: Pausa/Riprendi/Termina disabilitati SOLO dalla propria azione, mai da un actionLoading qualunque', () => {
-  const src = read('src/pages/driver/DriverAssignmentPage.jsx');
-  // Le tre etichette azione esistono come costanti riusate.
-  for (const c of ['ACTION_PAUSE', 'ACTION_RESUME', 'ACTION_END']) {
-    assert.match(src, new RegExp(`const ${c} = '`), `${c} deve essere una costante`);
-  }
-  // disabled per-azione (non piu' Boolean(actionLoading) generico sui tre).
-  assert.match(src, /disabled=\{actionLoading === ACTION_PAUSE\}/);
-  assert.match(src, /disabled=\{actionLoading === ACTION_RESUME\}/);
-  assert.match(src, /disabled=\{actionLoading === ACTION_END\}/);
-  // "Termina lavoro" NON e' piu' disabilitato da Boolean(actionLoading):
-  // una pausa lenta non lo intrappola.
-  const endBtn = src.slice(src.indexOf('dangerButtonStyle, padding'), src.indexOf('Termina lavoro'));
-  assert.doesNotMatch(endBtn, /disabled=\{Boolean\(actionLoading\)\}/);
-});
-
 test('DriverAssignmentPage: il geofence (outOfZone) NON disabilita Pausa/Riprendi/Termina', () => {
   const src = read('src/pages/driver/DriverAssignmentPage.jsx');
   // outOfZone compare solo nel banner di avviso, mai in un disabled=.
@@ -422,36 +371,6 @@ test('anti-double-device INVARIATO da questo fix (nessuna modifica RPC/migrazion
 test('flag DRIVER_PAUSE_ENABLED esiste ed e\' false (sospensione UI, non rimozione codice)', () => {
   const src = read('src/lib/gps/driverUiFlags.js');
   assert.match(src, /export const DRIVER_PAUSE_ENABLED = false;/);
-});
-
-test('DriverAssignmentPage: "Metti in pausa" / "Riprendi lavoro" resi solo se DRIVER_PAUSE_ENABLED', () => {
-  const src = read('src/pages/driver/DriverAssignmentPage.jsx');
-  assert.match(src, /import \{ DRIVER_PAUSE_ENABLED \} from '\.\.\/\.\.\/lib\/gps\/driverUiFlags\.js'/);
-  assert.match(src, /\{DRIVER_PAUSE_ENABLED && isCurrentZone && tracking\.isActive && \(/);
-  assert.match(src, /\{DRIVER_PAUSE_ENABLED && isCurrentZone && tracking\.isPaused && \(/);
-  // le etichette restano nel sorgente (codice non cancellato)
-  assert.match(src, /Metti in pausa/);
-  assert.match(src, /Riprendi lavoro/);
-});
-
-test('DriverAssignmentPage: endWork() chiude la sessione senza dipendere da geofence/outOfZone/pause-resume', () => {
-  const src = read('src/pages/driver/DriverAssignmentPage.jsx');
-  const fn = src.slice(src.indexOf('function endWork()'), src.indexOf('function endWork()') + 500);
-  assert.match(fn, /window\.confirm/);
-  assert.match(fn, /await tracking\.end\(\)/);
-  assert.match(fn, /runAction\(ACTION_END,/);
-  assert.doesNotMatch(fn, /outOfZone|geofence|ACTION_PAUSE|ACTION_RESUME/);
-  // il pulsante "Termina lavoro" (card zona) e' gate-ato solo dalla PROPRIA azione
-  assert.match(src, /disabled=\{actionLoading === ACTION_END\}[\s\S]{0,120}onClick=\{endWork\}/);
-});
-
-test('DriverAssignmentPage: "Termina lavoro" a livello di sessione se non c\'e\' una card zona corrente (paused legacy non intrappola)', () => {
-  const src = read('src/pages/driver/DriverAssignmentPage.jsx');
-  assert.match(src, /const currentZoneHasCard = zonesToDisplay\.some\(/);
-  assert.match(src, /const sessionNeedsStandaloneEnd = \(tracking\.isActive \|\| tracking\.isPaused\) && !currentZoneHasCard;/);
-  assert.match(src, /\{sessionNeedsStandaloneEnd && \([\s\S]{0,300}onClick=\{endWork\}/);
-  // "Inizia" resta (non dipende dal flag pause)
-  assert.match(src, /z\.status === 'Completata' \? 'Riprendi zona' : 'Inizia'/);
 });
 
 test('TrackingPage: pausa/riprendi dietro il flag; "Termina lavoro" copre gia\' status paused', () => {

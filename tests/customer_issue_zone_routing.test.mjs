@@ -70,10 +70,13 @@ test('FASE 2/4/7 — nuovo stato "seen" (Presa visione) additivo, distinto da in
 });
 
 // ── Fase 5: delivery al driver senza logout/refresh manuale ───────────────
-test('FASE 5 — Driver App: polling leggero (15-30s), nessuna nuova infrastruttura realtime, nessun logout/refresh richiesto', () => {
+test('FASE 5 — Driver App: refresh live ogni 5s SOLO a pagina visibile + focus/online/visibilitychange, nessuna nuova infrastruttura realtime, nessun refresh manuale', () => {
   const section = DRV.slice(DRV.indexOf('function DriverIssuesSection'), DRV.indexOf('function assignmentLabel'));
-  assert.match(section, /const timer = window\.setInterval\(reload, 20000\);/);
-  assert.match(section, /return \(\) => window\.clearInterval\(timer\);/);
+  assert.match(section, /const timer = window\.setInterval\(refreshIfVisible, 5000\);/);
+  assert.match(section, /document\.visibilityState === 'visible'/);
+  assert.match(section, /window\.addEventListener\('focus', onFocus\)/);
+  assert.match(section, /document\.addEventListener\('visibilitychange', onVisibility\)/);
+  assert.match(section, /window\.clearInterval\(timer\)/);
   assert.doesNotMatch(section, /supabase\.channel|EventSource|WebSocket/, 'nessuna nuova infrastruttura realtime introdotta, solo polling leggero');
 });
 

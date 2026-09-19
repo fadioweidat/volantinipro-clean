@@ -155,11 +155,12 @@ test("PARTE D — CustomerMessagesPanel: solo Admin come contatto, badge non let
 });
 
 // ── Parte F: Driver App messaggi ────────────────────────────────────────
-test("PARTE F — DriverMessagesSection: solo 'VolantiniPro Admin / Centrale Operativa' come contatto, badge, polling 20s", () => {
-  const section = DRIVER_PAGE.slice(DRIVER_PAGE.indexOf("function DriverMessagesSection"), DRIVER_PAGE.indexOf("function DriverMessagesSection") + 4000);
+test("PARTE F — DriverMessagesSection: solo 'VolantiniPro Admin / Centrale Operativa' come contatto, badge, realtime + fallback 5s a pagina visibile", () => {
+  const section = DRIVER_PAGE.slice(DRIVER_PAGE.indexOf("function DriverMessagesSection"), DRIVER_PAGE.indexOf("function DriverMessagesSection") + 6500);
   assert.match(section, /VolantiniPro Admin \/ Centrale Operativa/);
   assert.doesNotMatch(section, /Cliente|customer/i, "il Driver non deve mai vedere un contatto Cliente");
-  assert.match(section, /window\.setInterval\(reload, 20000\)/);
+  assert.match(section, /window\.setInterval\(refreshIfVisible, 5000\)/);
+  assert.match(section, /document\.visibilityState === 'visible'/);
   assert.match(section, /const unreadCount = messages\.filter\(\(m\) => m\.recipient_role === 'driver' && !m\.seen_at\)\.length/);
 });
 
