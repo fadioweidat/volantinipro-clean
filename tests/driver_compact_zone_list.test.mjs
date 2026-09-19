@@ -96,15 +96,22 @@ test('H. filtri Tutte / In corso / Da iniziare / Completate', () => {
   assert.match(comp, /overflowX: 'auto'/);
 });
 
-test('I/J. gli handler di avvio/chiusura restano quelli esistenti (stessa RPC, stessi status)', () => {
-  // Modello multi-device: Inizia apre la sessione GPS di QUESTO telefono
-  // (gps_start_session_v3 lato server marca la zona In corso); Termina chiude
-  // sessione + zona nella stessa transazione (gps_transition_session_v3).
+test('I/J. start/stop seguono il modello multi-device corrente: GPS del device, stop solo sulla propria zona', () => {
+  // Inizia apre la sessione GPS di QUESTO telefono; gps_start_session_v3
+  // marca la zona In corso. Termina usa gps_transition_session_v3('complete')
+  // tramite tracking.end(), che chiude sessione + zona dello stesso device.
   assert.match(page, /function startZone\(z\)/);
+  assert.match(page, /if \(tracking\.isActive \|\| tracking\.isPaused\)/);
   assert.match(page, /await tracking\.start\(z\.id\)/);
-  assert.match(page, /function completeZone\(z\)/);
-  assert.match(page, /await tracking\.end\(\)/);
   assert.match(page, /Questo telefono sta già lavorando su/);
+
+  assert.match(page, /function completeZone\(z\)/);
+  assert.match(page, /const isCurrentZone = tracking\.session\?\.campaign_zone_id === z\.id/);
+  assert.match(page, /è in corso su un altro dispositivo\. Va terminata dal telefono che la sta tracciando/);
+  assert.match(page, /await tracking\.end\(\)/);
+
+  assert.match(comp, /ownedByThisDevice/);
+  assert.match(comp, /In corso su un altro dispositivo/);
   assert.match(comp, /`Termina \$\{z\.zone_name\}`/);
   assert.match(comp, /aria-label=\{`Inizia \$\{z\.zone_name\}`\}/);
   assert.match(page, /onStart=\{startZone\}/);
