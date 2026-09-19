@@ -234,7 +234,7 @@ export function GpsMonitor({ campaignId, onNav }) {
         displayName: o.name || `Operatore ${shortOperatorId(key)}`,
         color: getOperatorColor(key),
         assigned: true,
-        hasGps: o.operatorId ? gpsDriverIds.has(o.operatorId) : false,
+        hasGps: gpsDriverIds.has(o.operatorId || o.assignmentId),
       });
       if (out.length >= 5) break;
     }
@@ -272,7 +272,7 @@ export function GpsMonitor({ campaignId, onNav }) {
     (state.sessionTracks || []).forEach((t) => {
       const id = t.session?.driver_id;
       if (!id || byId.has(id)) return;
-      const match = campaignOperators.find((o) => o.operatorId && o.operatorId === id);
+      const match = campaignOperators.find((o) => (o.operatorId || o.assignmentId) === id);
       byId.set(id, { id, name: match?.name || null, color: getOperatorColor(id) });
     });
     return [...byId.values()];
@@ -641,6 +641,7 @@ export function GpsMonitor({ campaignId, onNav }) {
               <GpsMap
                 points={filteredPoints}
                 sessionTracks={filteredSessionTracks}
+                canonicalOperators={canonicalOperators}
                 trackVisibility={trackVisibility}
                 showExcludedGpsPoints={showExcludedGpsPoints}
                 latest={latest}
@@ -786,7 +787,7 @@ function getLatestTrackableSession(sessions) {
     })[0] || null;
 }
 
-function GpsMap({ points, sessionTracks = [], trackVisibility = {}, showExcludedGpsPoints = false, latest, zones = [], selectedZoneId = null, onSelectZone = null, selectedZoneGeometry = null, searchGeometry = null, mapRef }) {
+function GpsMap({ points, sessionTracks = [], canonicalOperators = [], trackVisibility = {}, showExcludedGpsPoints = false, latest, zones = [], selectedZoneId = null, onSelectZone = null, selectedZoneGeometry = null, searchGeometry = null, mapRef }) {
   const center = useMemo(() => {
     if (selectedZoneGeometry) {
       const c = getMunicipalityCenterPoint(selectedZoneGeometry);
@@ -802,19 +803,28 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, showExcluded
   }, [latest, selectedZoneGeometry]);
 
   const trackLayers = useMemo(() => (sessionTracks || []).map((track, index) => {
-    const color = track.session?.driver_id ? getOperatorColor(track.session.driver_id) : trackColor(index);
+    const driverId = track.session?.driver_id || null;
+    const assignmentId = track.session?.assignment_id || null;
+    const canonical = canonicalOperators.find((o) =>
+      (o.operatorId && o.operatorId === driverId)
+      || (o.assignmentId && (o.assignmentId === assignmentId || o.assignmentId === driverId))
+    ) || null;
+    const colorKey = canonical?.colorKey || driverId || assignmentId;
+    const color = colorKey ? getOperatorColor(colorKey) : trackColor(index);
     const validPts = track.validPoints || [];
     const excludedPts = track.excludedPoints || [];
     return {
       sessionId: track.session.id,
-      driverId: track.session?.driver_id,
+      driverId,
+      assignmentId,
+      operatorLabel: canonical?.displayName || canonical?.slot || `OP ${index + 1}`,
       color,
       visible: trackVisibility[track.session.id] !== false,
       lastPoint: track.lastPoint,
       validPoints: validPts,
       excludedPoints: excludedPts,
     };
-  }), [sessionTracks, trackVisibility]);
+  }), [sessionTracks, canonicalOperators, trackVisibility]);
 
   // Stile poligono NIL: base tenue, evidenza forte quando selezionato; il
   // colore riflette l'eventuale correzione copertura (inaccessibile / manuale).
@@ -938,8 +948,12 @@ function GpsMap({ points, sessionTracks = [], trackVisibility = {}, showExcluded
                 pane="gpsLivePane"
                 pathOptions={{ color: '#ffffff', fillColor: '#dc2626', fillOpacity: 0.98, weight: 2 }}
               >
+                <Tooltip permanent direction="top" className="vp-gps-operator-label">
+                  <span>{track.operatorLabel}</span>
+                </Tooltip>
                 <Popup>
-                  <strong>Ultima posizione rilevata</strong>
+                  <strong>{track.operatorLabel}</strong>
+                  <br />Ultima posizione rilevata
                   <br />{formatDateTime(track.lastPoint.recorded_at)}
                   <br />Accuratezza: {track.lastPoint.accuracy != null ? `${Math.round(track.lastPoint.accuracy)} m` : 'n/d'}
                 </Popup>
@@ -1008,7 +1022,10 @@ function calculatePointsDistanceKm(points) {
 export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperators = [], assignedOperatorCount = 0, totalAssignedOperators = 0, operatorsWithGpsCount = 0, trackVisibility = {}, toggleTrack, zoneRows = [], activeSessionId, formatDateTime: fmt, onUnlockDevice, onNav, campaignId }) {
   if (!sessionTracks.length && !canonicalOperators.length) return null;
   const format = fmt || ((v) => (v ? new Date(v).toLocaleString('it-IT') : 'n/d'));
-  const opByDriver = new Map(canonicalOperators.filter((o) => o.operatorId).map((o) => [o.operatorId, o]));
+  const opByDriver = new Map(
+    canonicalOperators
+      .flatMap((o) => [o.operatorId, o.assignmentId].filter(Boolean).map((id) => [id, o]))
+  );
   // Etichetta OP-01/02/03... stabile per operatore canonico
   const opLabelByKey = new Map(canonicalOperators.map((o, i) => [o.colorKey, o.slot || operatorKeyFor('OP', i)]));
   const zoneNameById = new Map((zoneRows || []).map((z) => [z.id, z.zone_name]));
@@ -1049,7 +1066,10 @@ export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperator
       {canonicalOperators.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
           {canonicalOperators.map((op) => {
-            const track = sessionTracks.find((t) => t.session?.driver_id === op.operatorId);
+            const operatorTrackKey = op.operatorId || op.assignmentId;
+            const track = sessionTracks.find((t) =>
+              t.session?.driver_id === operatorTrackKey || t.session?.assignment_id === op.assignmentId
+            );
             const distKm = track ? calculatePointsDistanceKm(track.validPoints) : 0;
             const validPts = track?.validPoints?.length || 0;
             const lastAt = track?.lastPoint?.recorded_at || track?.session?.updated_at || null;
