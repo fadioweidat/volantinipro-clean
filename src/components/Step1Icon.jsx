@@ -1,3 +1,5 @@
+import React from "react";
+
 /* Flat line icons for Step 1 (replace emoji). Same treatment as the
    existing site icon set (see ServicesSection.jsx Mailbox/Users/Briefcase):
    stroke-based, currentColor by default, sized via width/height. */
@@ -139,6 +141,7 @@ export function Step1Icon({ name, size = 24, color = "currentColor", style }) {
         </svg>
       );
     case "warning":
+    case "alert":
       return (
         <svg {...svgProps} viewBox="0 0 24 24">
           <path {...strokeProps} strokeLinejoin="round" d="M12 4 21.5 20H2.5L12 4Z" /><path {...strokeProps} d="M12 10v4" /><circle cx="12" cy="17" r=".9" fill={color} stroke="none" />
