@@ -39,7 +39,7 @@ export const ISSUE_STATUS_LABELS = Object.freeze({
   new: 'Nuova',
   assigned: 'Assegnata',
   seen: 'Presa visione',
-  in_progress: 'Presa in carico',
+  in_progress: 'In gestione',
   resolved: 'Risolta',
   not_resolvable: 'Non risolvibile',
 });

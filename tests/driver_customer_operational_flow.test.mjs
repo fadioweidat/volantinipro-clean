@@ -30,7 +30,7 @@ test('DriverWorkMapPage: Multi-zone switcher has auto-scroll on active zone', ()
 test('DriverAssignmentPage: Multi-zone isolation ensures only active session zone is marked In corso', () => {
   const code = read('src/pages/driver/DriverAssignmentPage.jsx');
   assert.match(code, /isCurrentZone\s*=\s*tracking\.session\?\.campaign_zone_id === z\.id/, 'Deve identificare la zona corrente della sessione');
-  assert.match(code, /effectiveStatus\s*=\s*\(isCurrentZone && \(tracking\.isActive \|\| tracking\.isPaused\)\) \? 'In corso' : z\.status/, 'Solo la zona corrente deve diventare In corso');
+  assert.match(code, /computeZoneWorkflow\(zonesToDisplay, tracking\.session\?\.campaign_zone_id/, 'Lo stato zona deriva dalla macchina a stati (una sola IN_CORSO)');
 });
 
 test('Communication boundary: Customer and Driver interact strictly via structured Segnalazioni, no direct chat', () => {

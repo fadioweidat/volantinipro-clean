@@ -6,6 +6,8 @@ import { resolveProgramTerritory } from '../../lib/geo/territories/resolveProgra
 import { geoJsonContainsPoint } from '../../lib/geo/pointInPolygon.js';
 import { estimateDistanceToZoneBoundaryMeters } from '../../lib/geofence/geofenceEngine.js';
 import { navigateDriver, driverPathWithQuery } from './driverNav.js';
+import { computeZoneWorkflow, ZONE_STATE } from '../../lib/driver/zoneWorkflow.js';
+import { partitionIssuesByZone, validateResolutionNote } from '../../lib/driver/issueZoneView.js';
 import { DRIVER_PAUSE_ENABLED } from '../../lib/gps/driverUiFlags.js';
 import { driverListIssues, driverTransitionIssue, ISSUE_STATUS_LABELS } from '../../lib/services/customer-issues-api.js';
 import { uploadIssueVerificationPhoto } from '../../lib/services/gps-api.js';
@@ -308,6 +310,13 @@ function DriverTracker({
   })) : [];
   const zonesToDisplay = assignmentZones?.length > 0 ? assignmentZones : fallbackZones;
 
+  // UNA ZONA ALLA VOLTA (stessa regola imposta server-side da
+  // gps_zone_start_guard): al massimo una zona "In corso"; le successive
+  // restano "Da iniziare" e senza controlli operativi finche' la precedente
+  // non e' completata; la prossima parte SOLO con conferma esplicita.
+  const zoneWorkflow = computeZoneWorkflow(zonesToDisplay, tracking.session?.campaign_zone_id, tracking.isActive || tracking.isPaused);
+  const activeIssueZoneId = zoneWorkflow.inProgressZone?.id || null;
+
   // La "card" della zona corrente (quella con id === session.campaign_zone_id)
   // e' l'unico punto in cui compare "Termina lavoro" nel loop zone. Se una
   // sessione active/paused non ha una zona corrispondente in lista (es.
@@ -349,8 +358,17 @@ function DriverTracker({
   // l'unico gate e' actionLoading === ACTION_END (il proprio tentativo).
   // Usato sia dalla card zona corrente sia dal fallback session-level.
   function endWork() {
-    if (!window.confirm('Confermi di aver terminato il lavoro assegnato? La tua sessione GPS verra\' chiusa. La zona resta comunque aperta per gli altri operatori.')) return;
+    const zoneToComplete = zoneWorkflow.inProgressZone;
+    if (!window.confirm(zoneToComplete
+      ? `Confermi di aver terminato ${zoneToComplete.zone_name}? La zona verra' segnata come completata e la sessione GPS chiusa. La zona successiva partira' solo quando la avvii tu.`
+      : 'Confermi di aver terminato il lavoro assegnato? La tua sessione GPS verra\' chiusa.')) return;
     runAction(ACTION_END, async () => {
+      // Completa PRIMA la zona attiva (se la sessione e' su quella zona), poi
+      // chiude la sessione: i punti GPS/foto restano attribuiti a quella zona
+      // e la zona successiva iniziera' una NUOVA sessione con il proprio zone_id.
+      if (zoneToComplete?.id && tracking.session?.campaign_zone_id === zoneToComplete.id) {
+        await tracking.completeZone(zoneToComplete.id);
+      }
       await tracking.end();
       // A small timeout to let the UI refresh (or let the polling catch up)
       window.setTimeout(() => window.location.reload(), 1000);
@@ -507,6 +525,11 @@ function DriverTracker({
       {/* Programma Operativo (Structured Zones) */}
       <section style={cardStyle}>
         <p style={eyebrowStyle}>Programma Operativo</p>
+        {assignmentZones !== null && !zoneWorkflow.inProgressZone && zoneWorkflow.nextZone && zonesToDisplay.some((z) => zoneWorkflow.stateOf(z) === ZONE_STATE.COMPLETED) && (
+          <p data-testid="next-zone-banner" style={{ margin: '8px 0 0', fontWeight: 800, fontSize: 14, color: '#86EFAC' }}>
+            Prossima zona: {zoneWorkflow.nextZone.zone_name}
+          </p>
+        )}
         {assignmentZones === null ? (
           // Fase 2 ancora in corso (operator_assignment_zones non arrivata):
           // messaggio locale SOLO in questa sezione, mai un blocco dell'intera
@@ -516,12 +539,16 @@ function DriverTracker({
         <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
           {zonesToDisplay.map((z, idx) => {
             const isCurrentZone = tracking.session?.campaign_zone_id === z.id && z.id != null;
-            const effectiveStatus = (isCurrentZone && (tracking.isActive || tracking.isPaused)) ? 'In corso' : z.status;
-            
-            let statusPill = effectiveStatus;
+            const zState = zoneWorkflow.stateOf(z);
+            const zoneCanStart = zoneWorkflow.canStart(z);
+            const zoneCanReopen = zoneWorkflow.canReopen(z);
+            const zoneBlockedReason = zoneWorkflow.blockedReason(z);
+            const isFutureLockedZone = !z.isLegacy && zState === ZONE_STATE.TO_START && !zoneCanStart;
+
+            let statusPill = zState === ZONE_STATE.IN_PROGRESS ? 'IN CORSO' : zState === ZONE_STATE.COMPLETED ? 'COMPLETATA' : 'DA INIZIARE';
             let statusColor = '#94a3b8'; // Da iniziare
-            if (effectiveStatus === 'In corso') statusColor = '#3b82f6';
-            if (effectiveStatus === 'Completata') statusColor = '#22c55e';
+            if (zState === ZONE_STATE.IN_PROGRESS) statusColor = '#3b82f6';
+            if (zState === ZONE_STATE.COMPLETED) statusColor = '#22c55e';
             if (z.isLegacy) {
               statusPill = 'Legacy (Sola lettura)';
               statusColor = '#f59e0b';
@@ -544,7 +571,7 @@ function DriverTracker({
                   </div>
                 </div>
                 {z.notes && <p style={{ margin: '8px 0', fontSize: 13, color: '#64748b' }}>Note: {z.notes}</p>}
-                {actionError && (
+                {actionError && (zoneCanStart || zoneCanReopen || z.id === zoneWorkflow.inProgressZone?.id) && (
                   <div style={{ margin: '8px 0', padding: '8px 12px', background: '#fef2f2', border: '1px solid #f87171', borderRadius: 6, color: '#991b1b', fontSize: 13 }}>
                     ⚠️ {actionError}
                   </div>
@@ -559,20 +586,23 @@ function DriverTracker({
                         riapre il link non ha alcun modo di ripartire (root
                         cause "Admin resta offline"). gps_start_session rimette
                         gia' la zona a "In corso" lato server. */}
-                    {!isCurrentZone && !tracking.isActive && !tracking.isPaused && !activeSessionElsewhere && (
+                    {!isCurrentZone && !tracking.isActive && !tracking.isPaused && !activeSessionElsewhere && (zoneCanStart || zoneCanReopen) && (
                       <button
                         type="button"
                         style={{ ...primaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
                         disabled={Boolean(actionLoading) || assignmentBlocksStart}
-                        onClick={() => runAction(z.status === 'Completata' ? ACTION_REOPEN : ACTION_START, async () => {
+                        onClick={() => runAction(zoneCanReopen ? ACTION_REOPEN : ACTION_START, async () => {
                           await tracking.start(z.id);
                           onRefreshAssignment?.();
                         })}
                       >
-                        {actionLoading === (z.status === 'Completata' ? ACTION_REOPEN : ACTION_START)
-                          ? (z.status === 'Completata' ? 'Riapertura in corso...' : 'Avvio in corso...')
-                          : (z.status === 'Completata' ? 'Riprendi zona' : 'Inizia')}
+                        {actionLoading === (zoneCanReopen ? ACTION_REOPEN : ACTION_START)
+                          ? (zoneCanReopen ? 'Riapertura in corso...' : 'Avvio in corso...')
+                          : (zoneCanReopen ? 'Riprendi zona' : `Inizia ${z.zone_name}`)}
                       </button>
+                    )}
+                    {isFutureLockedZone && zoneBlockedReason && z.id === zoneWorkflow.nextZone?.id && (
+                      <span data-testid="zone-blocked-reason" style={{ fontSize: 13, color: '#b45309', flex: 1 }}>{zoneBlockedReason}</span>
                     )}
                     {!isCurrentZone && !tracking.isActive && !tracking.isPaused && activeSessionElsewhere && (
                       <span style={{ fontSize: 13, color: '#b91c1c', flex: 1 }}>
@@ -623,7 +653,7 @@ function DriverTracker({
                     {z.status === 'Completata' && (tracking.isActive || tracking.isPaused || isCurrentZone) && (
                       <span style={{ color: '#22c55e', fontSize: 14, fontWeight: 'bold' }}>✓ Completata</span>
                     )}
-                    {z.id && (
+                    {z.id && !isFutureLockedZone && (
                       <button
                         type="button"
                         style={{ ...secondaryButtonStyle, padding: '8px 12px', fontSize: 14 }}
@@ -641,7 +671,13 @@ function DriverTracker({
         )}
       </section>
 
-      <DriverIssuesSection assignmentId={assignmentId} campaignId={campaignId} accessToken={accessToken} />
+      <DriverIssuesSection
+        assignmentId={assignmentId}
+        campaignId={campaignId}
+        accessToken={accessToken}
+        activeZone={zoneWorkflow.inProgressZone}
+        onOpenZoneMap={(zoneId) => navigateDriver(driverPathWithQuery(`/driver/assignment/${assignmentId}/map${zoneId ? `?zoneId=${zoneId}` : ''}`))}
+      />
 
       <DriverMessagesSection assignmentId={assignmentId} accessToken={accessToken} />
 
@@ -829,7 +865,7 @@ function Notice({ text, danger = false, id }) {
 }
 
 // ─── Segnalazioni Cliente -> Autista ─────────────────────────────────────────
-function DriverIssuesSection({ assignmentId, campaignId, accessToken }) {
+function DriverIssuesSection({ assignmentId, campaignId, accessToken, activeZone = null, onOpenZoneMap = null }) {
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
@@ -920,7 +956,16 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken }) {
 
   // §9 notifica in-app (nessun push/SMS/WhatsApp): quante segnalazioni non
   // ancora prese in carico (nuove/assegnate).
-  const newCount = issues.filter((i) => i.status === 'new' || i.status === 'assigned').length;
+  const { active: activeIssues, future: futureIssues, done: doneIssues } = partitionIssuesByZone(issues, activeZone?.id || null);
+  const newCount = activeIssues.length;
+  const zoneLabel = activeZone?.zone_name || null;
+  const askResolution = (issue) => {
+    const n = window.prompt('Nota di risoluzione per il cliente (obbligatoria):', '');
+    if (n === null) return;
+    const check = validateResolutionNote(n);
+    if (!check.ok) { setErr(check.error); return; }
+    act(issue, 'resolve', check.note);
+  };
 
   return (
     <section style={{ maxWidth: 760, margin: '0 auto 12px', padding: 14, borderRadius: 16, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)' }}>
@@ -928,41 +973,44 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken }) {
         Segnalazioni
         {newCount > 0 && (
           <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: '.02em', color: '#0B1020', background: '#f97316', borderRadius: 999, padding: '2px 8px' }}>
-            {newCount} nuov{newCount === 1 ? 'a' : 'e'} segnalazion{newCount === 1 ? 'e' : 'i'}
+            {newCount} attiv{newCount === 1 ? 'a' : 'e'}
           </span>
         )}
+        {zoneLabel && <span style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,.55)' }}>· {zoneLabel}</span>}
       </p>
       {err && <Notice danger text={err} />}
       {loading && issues.length === 0 && !err && (
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', padding: '6px 0' }}>Caricamento segnalazioni...</div>
       )}
-      {!loading && issues.length === 0 && !err && (
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', padding: '6px 0' }}>Nessuna segnalazione cliente attiva per questo incarico.</div>
+      {!loading && activeIssues.length === 0 && !err && (
+        <div data-testid="driver-issues-empty" style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', padding: '6px 0' }}>Nessuna segnalazione cliente attiva per questa zona.</div>
       )}
-      {issues.map((issue) => {
+      {[...activeIssues, ...futureIssues, ...doneIssues].map((issue) => {
         const done = issue.status === 'resolved' || issue.status === 'not_resolvable';
+        const isFuture = futureIssues.includes(issue);
         return (
-          <div key={issue.id} style={{ padding: 10, borderTop: '1px solid rgba(255,255,255,.08)', fontSize: 13, color: 'rgba(255,255,255,.85)' }}>
-            <div style={{ fontWeight: 900 }}>VERIFICA CLIENTE</div>
-            <div>{issue.municipality} — {issue.street} {issue.house_number || ''}</div>
+          <div key={issue.id} data-issue-scope={done ? 'done' : isFuture ? 'future' : 'active'} style={{ padding: 10, borderTop: '1px solid rgba(255,255,255,.08)', fontSize: 13, color: 'rgba(255,255,255,.85)', opacity: isFuture ? 0.7 : 1 }}>
+            <div style={{ fontWeight: 900 }}>{isFuture ? 'Segnalazione futura' : 'Cliente ha segnalato un problema'}</div>
+            <div>Zona: {issue.zone_name || issue.municipality} — {issue.street} {issue.house_number || ''}</div>
             <div style={{ color: 'rgba(255,255,255,.55)', fontSize: 12, margin: '4px 0' }}>
-              {issue.notes || 'Vai sul posto e verifica.'} · Stato: {ISSUE_STATUS_LABELS[issue.status] || issue.status}
+              {issue.notes || 'Vai sul posto e verifica.'} · {new Date(issue.created_at).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · Stato: {ISSUE_STATUS_LABELS[issue.status] || issue.status}
             </div>
-            {!done && (
+            {isFuture && <div style={{ fontSize: 12, color: '#fbbf24' }}>Sara' attiva quando avvierai {issue.zone_name || 'quella zona'}. Non avvia la zona.</div>}
+            {!done && !isFuture && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                <button type="button" style={secondaryButtonStyle} onClick={() => openMaps(issue)}>Naviga</button>
+                <button type="button" style={secondaryButtonStyle} onClick={() => (onOpenZoneMap ? onOpenZoneMap(issue.zone_id || activeZone?.id || null) : openMaps(issue))}>Apri sulla mappa</button>
                 {(issue.status === 'new' || issue.status === 'assigned') && (
                   <button type="button" style={secondaryButtonStyle} disabled={busyId === issue.id} onClick={() => act(issue, 'seen')}>Presa visione</button>
                 )}
                 {issue.status !== 'in_progress' && (
-                  <button type="button" style={secondaryButtonStyle} disabled={busyId === issue.id} onClick={() => act(issue, 'take')}>Sono sul posto</button>
+                  <button type="button" style={secondaryButtonStyle} disabled={busyId === issue.id} onClick={() => act(issue, 'take')}>Prendi in carico</button>
                 )}
                 <button type="button" style={secondaryButtonStyle} disabled={busyId === issue.id} onClick={() => fileRefs.current[issue.id]?.click()}>Foto verifica</button>
                 <input ref={(el) => { fileRefs.current[issue.id] = el; }} type="file" accept="image/*" capture="environment"
                   style={{ display: 'none' }} onChange={(e) => onPhoto(issue, e.target.files?.[0])} />
                 <button type="button" style={{ ...primaryButtonStyle, padding: '6px 12px' }} disabled={busyId === issue.id}
-                  onClick={() => { const n = window.prompt('Nota per il cliente (facoltativa):', 'Verifica effettuata e distribuzione completata.'); if (n === null) return; act(issue, 'resolve', n); }}>
-                  Chiudi come risolta
+                  onClick={() => askResolution(issue)}>
+                  Risolvi
                 </button>
                 <button type="button" style={secondaryButtonStyle} disabled={busyId === issue.id}
                   onClick={() => { const n = window.prompt('Perché non risolvibile?', ''); if (n === null) return; act(issue, 'not_resolvable', n); }}>

@@ -532,7 +532,7 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
     sessionRef.current = updated;
     setSession(updated);
     return updated;
-  }, []);
+  }, [accessToken, assignmentId]);
 
   const end = useCallback(async () => {
     if (!sessionRef.current?.id) return null;

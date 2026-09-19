@@ -241,10 +241,10 @@ test('C: driver_list_issues / driver_transition_issue scoped alla SOLA assignmen
 test('C: sezione Driver "Segnalazioni" — naviga / sul posto / foto / nota / chiudi', () => {
   assert.match(driverPage, /function DriverIssuesSection/);
   assert.match(driverPage, /driverListIssues\(assignmentId, accessToken/);
-  assert.match(driverPage, /VERIFICA CLIENTE/);
-  assert.match(driverPage, /Sono sul posto/);
+  assert.match(driverPage, /Cliente ha segnalato un problema/);
+  assert.match(driverPage, /Prendi in carico/);
   assert.match(driverPage, /Foto verifica/);
-  assert.match(driverPage, /Chiudi come risolta/);
+  assert.match(driverPage, /Risolvi/);
   assert.match(driverPage, /Non risolvibile/);
   assert.match(driverPage, /driverTransitionIssue\(\{ issueId: issue\.id, action/);
 });

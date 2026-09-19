@@ -84,15 +84,15 @@ test('E — RLS cliente: solo issue delle proprie campagne', () => {
 test('F — DriverIssuesSection: lista via driver_list_issues + badge "N nuove segnalazioni" (§9, in-app)', () => {
   assert.match(DRV, /const rows = await driverListIssues\(assignmentId, accessToken \|\| null\)/);
   const section = DRV.slice(DRV.indexOf('function DriverIssuesSection'), DRV.indexOf('function assignmentLabel'));
-  assert.match(section, /const newCount = issues\.filter\(\(i\) => i\.status === 'new' \|\| i\.status === 'assigned'\)\.length/);
-  assert.match(section, /\{newCount\} nuov\{newCount === 1 \? 'a' : 'e'\} segnalazion/);
+  assert.match(section, /const newCount = activeIssues\.length/);
+  assert.match(section, /\{newCount\} attiv\{newCount === 1 \? 'a' : 'e'\}/);
   assert.doesNotMatch(section, /\.serviceWorker|new Notification\(|webpush|firebase|twilio|sendSms\(|wa\.me\/|api\/whatsapp/i, 'niente integrazioni push/SMS/WhatsApp nella sezione segnalazioni');
 });
 
 // ── G: prendi in carico ────────────────────────────────────────────
 test('G — take: status in_progress + taken_at, dalla UI "Sono sul posto"', () => {
   assert.match(M2, /if p_action = 'take' then\s*\n\s*update public\.customer_issues\s*\n\s*set status = 'in_progress', taken_at = coalesce\(taken_at, now\(\)\)/);
-  assert.match(DRV, /onClick=\{\(\) => act\(issue, 'take'\)\}>Sono sul posto/);
+  assert.match(DRV, /onClick=\{\(\) => act\(issue, 'take'\)\}>Prendi in carico/);
 });
 
 // ── H: foto verifica richiede geolocalizzazione ────────────────────
@@ -127,8 +127,8 @@ test('J — foto issue isolata: caricata a parte, mai in approvedPhotos/proof ga
 test('K — resolve: status resolved + resolution_note + resolved_at/by + eventi cliente', () => {
   assert.match(M2, /elsif p_action = 'resolve' then\s*\n\s*update public\.customer_issues\s*\n\s*set status = 'resolved', resolution_note = nullif\(btrim\(p_note\), ''\),\s*\n\s*resolved_at = now\(\), resolved_by = v_identity/);
   assert.match(M2, /'DRIVER_ISSUE_RESOLVED'[\s\S]{0,200}'CUSTOMER_ISSUE_RESOLVED'/);
-  assert.match(DRV, /act\(issue, 'resolve', n\)/);
-  assert.match(DRV, /Verifica effettuata e distribuzione completata/);
+  assert.match(DRV, /act\(issue, 'resolve', check\.note\)/);
+  assert.match(DRV, /Nota di risoluzione per il cliente \(obbligatoria\)/);
 });
 
 // ── L: risposta cliente + foto dedicata ─────────────────────────

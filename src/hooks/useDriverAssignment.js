@@ -444,6 +444,10 @@ export function mapDriverActionError(err) {
   if (/permission denied|PERMISSION_DENIED|unauthorized|ASSEGNAZIONE_NON_AUTORIZZATA|OPERATORE_NON_AUTENTICATO/i.test(msg)) {
     return 'Non sei autorizzato ad avviare questa sessione. Verifica il link o contatta l\'amministratore.';
   }
+  // Una zona alla volta: il server rifiuta l'avvio con un messaggio gia'
+  // leggibile ("Completa o termina X prima di iniziare Y.").
+  const zoneRule = msg.match(/ZONA_(?:ALTRA_IN_CORSO|PRECEDENTE_NON_COMPLETATA):\s*([^\n]+)/);
+  if (zoneRule) return zoneRule[1].trim();
   if (/ACTIVE_SESSION_EXISTS|SESSIONE_GIA_ATTIVA/i.test(msg)) {
     return 'Esiste già una sessione attiva per questa assegnazione.';
   }

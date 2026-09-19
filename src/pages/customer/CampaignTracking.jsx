@@ -555,6 +555,9 @@ function CustomerIssuesCard({ campaignId, issues = [], zones = [], onCreated }) 
   const submit = async (e) => {
     e.preventDefault();
     if (!form.street.trim()) { setError('La via è obbligatoria.'); return; }
+    // La segnalazione e' per ZONA: senza zona non si puo' instradare al driver
+    // giusto (finiva in coda Admin e il Driver non la vedeva mai).
+    if (zones.length > 0 && !form.zoneId) { setError('Seleziona la zona della segnalazione.'); return; }
     setBusy(true); setError(null); setOk(null);
     try {
       const selectedZone = zones.find((z) => z.id === form.zoneId);
@@ -604,8 +607,8 @@ function CustomerIssuesCard({ campaignId, issues = [], zones = [], onCreated }) 
       )}
       {open && (
         <form onSubmit={submit} style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-          <select value={form.zoneId} onChange={(e) => setForm({ ...form, zoneId: e.target.value })} style={issueInputStyle}>
-            <option value="">Zona non specificata (verifica manuale Admin)</option>
+          <select value={form.zoneId} required={zones.length > 0} onChange={(e) => setForm({ ...form, zoneId: e.target.value })} style={issueInputStyle}>
+            <option value="">{zones.length > 0 ? 'Seleziona la zona *' : 'Zona non specificata (verifica manuale Admin)'}</option>
             {zones.map((z) => <option key={z.id} value={z.id}>{z.zone_name}</option>)}
           </select>
           <div style={{ display: 'flex', gap: 8 }}>
