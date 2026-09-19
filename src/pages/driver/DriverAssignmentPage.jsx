@@ -542,7 +542,7 @@ function DriverTracker({
             const zState = zoneWorkflow.stateOf(z);
             const zoneCanStart = zoneWorkflow.canStart(z);
             const zoneCanReopen = zoneWorkflow.canReopen(z);
-            const zoneBlockedReason = zoneWorkflow.blockedReason(z);
+            const zoneWaitingLabel = zoneWorkflow.waitingLabel(z);
             const isFutureLockedZone = !z.isLegacy && zState === ZONE_STATE.TO_START && !zoneCanStart;
 
             let statusPill = zState === ZONE_STATE.IN_PROGRESS ? 'IN CORSO' : zState === ZONE_STATE.COMPLETED ? 'COMPLETATA' : 'DA INIZIARE';
@@ -601,11 +601,16 @@ function DriverTracker({
                           : (zoneCanReopen ? 'Riprendi zona' : `Inizia ${z.zone_name}`)}
                       </button>
                     )}
-                    {isFutureLockedZone && zoneBlockedReason && z.id === zoneWorkflow.nextZone?.id && (
-                      <span data-testid="zone-blocked-reason" style={{ fontSize: 13, color: '#b45309', flex: 1 }}>{zoneBlockedReason}</span>
+                    {/* ATTESA NORMALE (non e' un errore): testo neutro per le zone
+                        future, mai rosso e mai "contatta l'Admin". */}
+                    {isFutureLockedZone && zoneWaitingLabel && (
+                      <span data-testid="zone-waiting-label" style={{ fontSize: 13, color: '#64748b', flex: 1 }}>{zoneWaitingLabel}</span>
                     )}
-                    {!isCurrentZone && !tracking.isActive && !tracking.isPaused && activeSessionElsewhere && (
-                      <span style={{ fontSize: 13, color: '#b91c1c', flex: 1 }}>
+                    {/* ERRORE REALE (sessione attiva altrove / da recuperare):
+                        UNA sola volta, sulla zona che il driver potrebbe avviare —
+                        non ripetuto su ogni card, non sulla zona attiva. */}
+                    {!isCurrentZone && !tracking.isActive && !tracking.isPaused && activeSessionElsewhere && (zoneCanStart || zoneCanReopen) && (
+                      <span data-testid="zone-session-error" role="alert" style={{ fontSize: 13, color: '#b91c1c', flex: 1 }}>
                         Sessione gia&#39; attiva per questo incarico. Non puoi avviarne un&#39;altra da qui — contatta l&#39;Admin.
                       </span>
                     )}
@@ -970,28 +975,38 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken, activeZone
   return (
     <section style={{ maxWidth: 760, margin: '0 auto 12px', padding: 14, borderRadius: 16, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)' }}>
       <p style={{ margin: '0 0 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: 'rgba(255,255,255,.5)', fontWeight: 900, display: 'flex', alignItems: 'center', gap: 8 }}>
-        Segnalazioni
+        Segnalazioni{zoneLabel ? ` · ${zoneLabel}` : ''}
         {newCount > 0 && (
           <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: '.02em', color: '#0B1020', background: '#f97316', borderRadius: 999, padding: '2px 8px' }}>
             {newCount} attiv{newCount === 1 ? 'a' : 'e'}
           </span>
         )}
-        {zoneLabel && <span style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,.55)' }}>· {zoneLabel}</span>}
       </p>
       {err && <Notice danger text={err} />}
       {loading && issues.length === 0 && !err && (
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', padding: '6px 0' }}>Caricamento segnalazioni...</div>
       )}
       {!loading && activeIssues.length === 0 && !err && (
-        <div data-testid="driver-issues-empty" style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', padding: '6px 0' }}>Nessuna segnalazione cliente attiva per questa zona.</div>
+        <div data-testid="driver-issues-empty" style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', padding: '6px 0' }}>Nessuna segnalazione attiva.</div>
       )}
-      {[...activeIssues, ...futureIssues, ...doneIssues].map((issue) => {
+      {[...activeIssues, ...futureIssues, ...doneIssues].map((issue, issueIdx, ordered) => {
         const done = issue.status === 'resolved' || issue.status === 'not_resolvable';
         const isFuture = futureIssues.includes(issue);
+        const scope = done ? 'done' : isFuture ? 'future' : 'active';
+        const prev = ordered[issueIdx - 1];
+        const prevScope = prev ? (prev.status === 'resolved' || prev.status === 'not_resolvable' ? 'done' : futureIssues.includes(prev) ? 'future' : 'active') : null;
+        const groupHeading = scope !== prevScope
+          ? (scope === 'done' ? 'Storico risolte' : scope === 'future' ? 'Segnalazioni future' : 'Segnalazioni attive')
+          : null;
         return (
-          <div key={issue.id} data-issue-scope={done ? 'done' : isFuture ? 'future' : 'active'} style={{ padding: 10, borderTop: '1px solid rgba(255,255,255,.08)', fontSize: 13, color: 'rgba(255,255,255,.85)', opacity: isFuture ? 0.7 : 1 }}>
+          <React.Fragment key={issue.id}>
+          {groupHeading && (
+            <div data-testid={`issues-group-${scope}`} style={{ margin: '12px 0 4px', fontSize: 11, fontWeight: 900, letterSpacing: '.1em', textTransform: 'uppercase', color: scope === 'done' ? 'rgba(255,255,255,.45)' : 'rgba(255,255,255,.7)' }}>{groupHeading}</div>
+          )}
+          <div data-issue-scope={scope} style={{ padding: 10, borderTop: '1px solid rgba(255,255,255,.08)', fontSize: 13, color: 'rgba(255,255,255,.85)', opacity: isFuture ? 0.7 : 1 }}>
             <div style={{ fontWeight: 900 }}>{isFuture ? 'Segnalazione futura' : 'Cliente ha segnalato un problema'}</div>
-            <div>Zona: {issue.zone_name || issue.municipality} — {issue.street} {issue.house_number || ''}</div>
+            <div>Zona: {issue.zone_name || issue.municipality}</div>
+            <div>{issue.street} {issue.house_number || ''}{issue.municipality && issue.municipality !== (issue.zone_name || '') ? `, ${issue.municipality}` : ''}</div>
             <div style={{ color: 'rgba(255,255,255,.55)', fontSize: 12, margin: '4px 0' }}>
               {issue.notes || 'Vai sul posto e verifica.'} · {new Date(issue.created_at).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · Stato: {ISSUE_STATUS_LABELS[issue.status] || issue.status}
             </div>
@@ -1018,8 +1033,14 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken, activeZone
                 </button>
               </div>
             )}
-            {done && <div style={{ color: '#86EFAC', fontSize: 12 }}>Verifica completata.</div>}
+            {done && (
+              <div style={{ color: '#86EFAC', fontSize: 12 }}>
+                Verifica completata.
+                {issue.resolution_note && <div style={{ color: 'rgba(255,255,255,.65)', marginTop: 2 }}>“{issue.resolution_note}”</div>}
+              </div>
+            )}
           </div>
+          </React.Fragment>
         );
       })}
     </section>

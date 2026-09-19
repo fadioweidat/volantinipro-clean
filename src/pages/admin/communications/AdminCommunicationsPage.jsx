@@ -15,6 +15,8 @@ import {
 } from "../../../lib/services/hub-api.js";
 import { adminListIssues, adminRouteIssue, ISSUE_STATUS_LABELS } from "../../../lib/services/customer-issues-api.js";
 import { listCampaignAssignments } from "../../../lib/services/admin-api.js";
+import { loadCommunicationIdentityDirectory } from "../../../lib/services/communicationIdentityApi.js";
+import { resolveConversationIdentity } from "../../../lib/admin/communicationIdentity.js";
 import {
   mergeMessages,
   subscribeToAdminMessages,
@@ -83,7 +85,9 @@ export function AdminCommunicationsPage({ onNav }) {
         adminListIssues(null).catch(() => []),
         adminListModificationRequests({}).catch(() => []),
       ]);
-      setConversations(convs);
+      // Identita' umane (cliente/campagna/driver/gruppo) da dati canonici.
+      const identityDir = await loadCommunicationIdentityDirectory(convs);
+      setConversations(convs.map((c) => ({ ...c, identity: resolveConversationIdentity(c, identityDir) })));
       setIssues(Array.isArray(issueRows) ? issueRows : []);
       setModRequests(Array.isArray(modRows) ? modRows : []);
     } catch (e) {
@@ -147,13 +151,17 @@ export function AdminCommunicationsPage({ onNav }) {
               <button key={c.key} type="button" onClick={() => setSelectedKey(c.key)}
                 style={{ display: "block", width: "100%", textAlign: "left", padding: 12, borderBottom: "1px solid rgba(255,255,255,.06)", background: c.key === selectedKey ? "rgba(232,87,26,.1)" : "transparent", border: "none", borderTop: "none", cursor: "pointer" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                  <strong style={{ fontFamily: F.sans, fontSize: 13, color: C.white }}>
-                    {c.kind === "customer_admin" ? (c.customer_name || c.campaign_name || `Campagna #${String(c.campaign_id || "").slice(0, 8)}`) : (c.operator_name || c.zone_name || `Assignment #${String(c.assignment_id || "").slice(0, 8)}`)}
+                  <strong data-testid="conversation-title" style={{ fontFamily: F.sans, fontSize: 13, color: C.white }}>
+                    {c.identity?.title || (c.kind === "customer_admin" ? "Cliente" : "Driver")}
                   </strong>
                   {c.unread_count > 0 && <span style={{ fontSize: 10, fontWeight: 900, color: "#0B1020", background: "#f97316", borderRadius: 999, padding: "2px 7px" }}>{c.unread_count}</span>}
                 </div>
-                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.4)", marginTop: 2 }}>
-                  {c.kind === "customer_admin" ? "Cliente" : `Driver${c.zone_name ? ` · ${c.zone_name}` : ""}${c.campaign_name ? ` · ${c.campaign_name}` : ""}`}
+                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)", marginTop: 2 }}>
+                  {c.identity?.subtitle || ""}
+                </div>
+                <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "rgba(255,255,255,.4)", marginTop: 2 }}>
+                  {c.identity?.kindLabel || (c.kind === "customer_admin" ? "Cliente" : "Driver")}
+                  {c.identity?.technicalId ? ` · ID ${c.identity.technicalId}` : ""}
                 </div>
                 {c.last_message ? (
                   <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.last_message.text}</div>
@@ -292,8 +300,14 @@ function ConversationDetail({ conversation, onSent }) {
 
   return (
     <div>
-      <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.5)", marginBottom: 10 }}>
-        {conversation.kind === "customer_admin" ? `Cliente — ${conversation.customer_name || "Campagna " + String(conversation.campaign_id || "").slice(0, 8)}` : `Driver — ${conversation.operator_name || ""}${conversation.zone_name ? ` · ${conversation.zone_name}` : ""}`}
+      <div style={{ marginBottom: 10 }}>
+        <div data-testid="conversation-header-title" style={{ fontFamily: F.sans, fontSize: 16, fontWeight: 800, color: C.white }}>
+          {conversation.identity?.title || (conversation.kind === "customer_admin" ? "Cliente" : "Driver")}
+        </div>
+        <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
+          {[conversation.kind === "customer_admin" ? "Cliente" : "Driver", conversation.identity?.subtitle].filter(Boolean).join(" · ")}
+          {conversation.identity?.technicalId ? ` · ID ${conversation.identity.technicalId}` : ""}
+        </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 380, overflowY: "auto", marginBottom: 10 }}>
         {!conversationId && <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.4)" }}>Nessun messaggio ancora. Scrivi il primo messaggio a questo Driver.</div>}

@@ -46,6 +46,18 @@ export function computeZoneWorkflow(zones = [], sessionZoneId = null, sessionLiv
     canReopen(z) {
       return Boolean(z) && !z.isLegacy && !sessionLive && allCompleted && states.get(z.id) === ZONE_STATE.COMPLETED;
     },
+    // Stato di ATTESA normale (non e' un errore): testo neutro per le zone
+    // future. La zona subito dopo quella in corso/prossima nomina la
+    // precedente; le successive usano la forma generica.
+    waitingLabel(z) {
+      if (!z || z.isLegacy || states.get(z.id) !== ZONE_STATE.TO_START) return null;
+      if (this.canStart(z)) return null;
+      const frontier = inProgressZone || nextZone;
+      const frontierIdx = frontier ? list.findIndex((x) => x.id === frontier.id) : -1;
+      const idx = list.findIndex((x) => x.id === z.id);
+      if (frontier && frontier.id !== z.id && idx === frontierIdx + 1) return `Disponibile dopo ${frontier.zone_name}`;
+      return 'Disponibile dopo la zona precedente';
+    },
     // Messaggio mostrato quando si tenta di avviare una zona che non e'
     // ancora la sua volta (stesso testo del server).
     blockedReason(z) {

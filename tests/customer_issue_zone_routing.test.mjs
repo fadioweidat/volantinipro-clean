@@ -41,7 +41,8 @@ test('ROOT CAUSE — frontend: createCustomerIssue passa zoneId, CustomerIssuesC
   assert.match(API, /export async function createCustomerIssue\(\{ campaignId, municipality, street, houseNumber = null, lat = null, lng = null, zoneId = null, reason, notes = null \}\)/);
   assert.match(API, /p_zone_id: zoneId/);
   assert.match(CT, /function CustomerIssuesCard\(\{ campaignId, issues = \[\], zones = \[\], onCreated \}\)/);
-  assert.match(CT, /zones\.map\(\(z\) => <option key=\{z\.id\} value=\{z\.id\}>\{z\.zone_name\}<\/option>\)/);
+  // (selettore leggibile su mobile: IssueZoneSelect elenca le stesse zone reali)
+  assert.match(CT, /<IssueZoneSelect zones=\{zones\}/);
   assert.match(CT, /zoneId: form\.zoneId \|\| null/);
   // le zone passate sono la STESSA fonte gia' usata dalla mappa tracking
   // (useZoneBoundaries), non una nuova query duplicata.

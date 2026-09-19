@@ -12,6 +12,7 @@ import { parseProofPhotoNote, podOutcomeLabel } from '../../lib/pod/podPhotoProc
 import { listCoverageAdjustments, VERIFIED_COVERAGE_STYLE } from '../../lib/services/coverage-adjustments-api.js';
 import { geoJsonPolygonToLeafletPositions } from '../../lib/geo/geoJsonToLeaflet.js';
 import { createCustomerIssue, ISSUE_REASONS } from '../../lib/services/customer-issues-api.js';
+import { IssueZoneSelect } from '../../components/customer/IssueZoneSelect.jsx';
 import { CustomerMessagesPanel } from '../../components/customer/CampaignHubPanels.jsx';
 import { deriveLiveZoneStatus, estimateDistanceToZoneBoundaryMeters, ZONE_LIVE_STATUS_LABELS, ZONE_LIVE_STATUS_COLORS } from '../../lib/geofence/geofenceEngine.js';
 import { getMunicipalityCenterPoint } from '../../lib/geo/originRadialSelection.js';
@@ -607,10 +608,9 @@ function CustomerIssuesCard({ campaignId, issues = [], zones = [], onCreated }) 
       )}
       {open && (
         <form onSubmit={submit} style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-          <select value={form.zoneId} required={zones.length > 0} onChange={(e) => setForm({ ...form, zoneId: e.target.value })} style={issueInputStyle}>
-            <option value="">{zones.length > 0 ? 'Seleziona la zona *' : 'Zona non specificata (verifica manuale Admin)'}</option>
-            {zones.map((z) => <option key={z.id} value={z.id}>{z.zone_name}</option>)}
-          </select>
+          {zones.length > 0 && (
+            <IssueZoneSelect zones={zones} value={form.zoneId} onChange={(zoneId) => setForm({ ...form, zoneId })} style={issueInputStyle} />
+          )}
           <div style={{ display: 'flex', gap: 8 }}>
             <input placeholder="Via (es. Via Roma)" value={form.street}
               onChange={(e) => setForm({ ...form, street: e.target.value })} style={{ ...issueInputStyle, flex: 2 }} />
@@ -618,7 +618,7 @@ function CustomerIssuesCard({ campaignId, issues = [], zones = [], onCreated }) 
               onChange={(e) => setForm({ ...form, houseNumber: e.target.value })} style={{ ...issueInputStyle, flex: 1 }} />
           </div>
           <select value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} style={issueInputStyle}>
-            {ISSUE_REASONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+            {ISSUE_REASONS.map((r) => <option key={r.value} value={r.value} style={{ color: '#0f172a', background: '#ffffff' }}>{r.label}</option>)}
           </select>
           <textarea placeholder="Note (facoltative)" rows={2} value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })} style={issueInputStyle} />

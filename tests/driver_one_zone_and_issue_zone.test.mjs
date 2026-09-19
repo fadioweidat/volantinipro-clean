@@ -93,7 +93,7 @@ test('O. risoluzione richiede una nota; il cliente/admin vedono lo stato risolto
   assert.match(page, />\s*Risolvi\s*</);
   assert.match(page, /Prendi in carico/);
   assert.match(page, /Apri sulla mappa/);
-  assert.match(page, /Nessuna segnalazione cliente attiva per questa zona\./);
+  assert.match(page, /Nessuna segnalazione attiva\./);
   assert.doesNotMatch(page, /Nessuna segnalazione cliente attiva per questo incarico/);
 });
 

@@ -212,7 +212,7 @@ test('B: Dashboard Cliente ha la card "Segnala un problema" (zona reale/via/civi
   // digitata a mano — root cause del mancato instradamento al driver
   // (customer_create_issue instradava solo via point-in-polygon su lat/lng,
   // mai raccolti dal form; con la zona reale instrada per zone_id).
-  assert.match(customerTracking, /zones\.map\(\(z\) => <option key=\{z\.id\} value=\{z\.id\}>\{z\.zone_name\}<\/option>\)/);
+  assert.match(customerTracking, /<IssueZoneSelect zones=\{zones\}/);
   assert.match(customerTracking, /zoneId: form\.zoneId \|\| null/);
   assert.match(customerTracking, /Via \(es\. Via Roma\)/);
   assert.match(customerTracking, /Civico/);
