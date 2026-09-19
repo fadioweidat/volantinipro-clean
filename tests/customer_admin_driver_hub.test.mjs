@@ -161,6 +161,12 @@ test("PARTE F — DriverMessagesSection: solo 'VolantiniPro Admin / Centrale Ope
   assert.doesNotMatch(section, /Cliente|customer/i, "il Driver non deve mai vedere un contatto Cliente");
   assert.match(section, /window\.setInterval\(refreshIfVisible, 5000\)/);
   assert.match(section, /document\.visibilityState === 'visible'/);
+  assert.match(section, /window\.addEventListener\('focus', onFocus\)/);
+  assert.match(section, /window\.addEventListener\('online', onOnline\)/);
+  assert.match(section, /document\.addEventListener\('visibilitychange', onVisibility\)/);
+  assert.match(section, /window\.clearInterval\(timer\)/);
+  assert.match(section, /window\.removeEventListener\('focus', onFocus\)/);
+  assert.match(section, /document\.removeEventListener\('visibilitychange', onVisibility\)/);
   assert.match(section, /const unreadCount = messages\.filter\(\(m\) => m\.recipient_role === 'driver' && !m\.seen_at\)\.length/);
 });
 
