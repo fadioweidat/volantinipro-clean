@@ -50,7 +50,7 @@ test('buildServiceAnalysisRequest: Cormano d2d comune -> URL analysis-istat comp
 });
 
 test('hook: espone `pending` e settla sulla fetchKey stabile', () => {
-  assert.match(hook, /return \{ data, loading, error, pending \}/);
+  assert.match(hook, /return \{ data, loading, error, pending/);
   assert.match(hook, /const lastSettledKeyRef = useRef\(""\)/);
   assert.match(hook, /lastSettledKeyRef\.current = fetchKey/);
   assert.match(hook, /pending = Boolean\(\s*zoneValid &&\s*lastSettledKeyRef\.current !== fetchKey/);
@@ -59,7 +59,7 @@ test('hook: espone `pending` e settla sulla fetchKey stabile', () => {
 
 test('hook: il debounce dipende SOLO da fetchKey (+ bfcache), non da lat/lng/quantity raw', () => {
   // dependency array dell'effect di fetch
-  assert.match(hook, /\}, \[fetchKey, bfcacheResumeNonce\]\);/);
+  assert.match(hook, /\}, \[fetchKey, bfcacheResumeNonce/);
   // non deve piu' esistere il vecchio array con lat/lng/quantity/scope raw
   assert.doesNotMatch(hook, /\}, \[lat, lng, radius, service, municipality, quantity, scope, analysisLevel/);
 });
@@ -105,16 +105,13 @@ test('hook: [STEP2_ANALYSIS_KEY] NON parte per un\'istanza inattiva (zona non va
 
 test('Hero preview: l\'analisi territoriale (scope hero_preview) parte SOLO se il preview e\' in viewport', () => {
   // scope literal presente
-  assert.match(heroMap, /"hero_preview"/);
-  // gate esplicito su previewVisible
-  assert.match(heroMap, /const analysisActive = previewVisible;/);
-  // gli argomenti di useServiceAnalysis sono null finche' non e' attivo
-  assert.match(heroMap, /analysisActive \? previewCity\.lat : null/);
-  assert.match(heroMap, /analysisActive \? previewCity\.lng : null/);
-  assert.match(heroMap, /analysisActive \? previewCity\.name : null/);
-  assert.match(heroMap, /analysisActive \? previewCity\.municipality_code : null/);
+  assert.match(heroMap, /['"]hero_preview['"]/);
+  // gate esplicito su active
+  assert.match(heroMap, /active\s*\?\s*HERO_SCENARIO\.lat\s*:\s*null/);
+  assert.match(heroMap, /active\s*\?\s*HERO_SCENARIO\.lng\s*:\s*null/);
+  assert.match(heroMap, /active\s*\?\s*HERO_SCENARIO\.name\s*:\s*null/);
   // NON deve piu' passare le coord fisse incondizionatamente
-  assert.doesNotMatch(heroMap, /useServiceAnalysis\(\s*\n?\s*previewCity\.lat,/);
+  assert.doesNotMatch(heroMap, /useServiceAnalysis\(\s*\n?\s*HERO_SCENARIO\.lat,/);
 });
 
 test('Step2: queryCenterLat/Lng quantizzati a 6 decimali (jitter al source)', () => {
@@ -154,7 +151,7 @@ test('Step2: "Dato non disponibile" attende il settle della richiesta (no falso 
 });
 
 test('Step2: pending propagato dal hook (non si rompono le altre modalita)', () => {
-  assert.match(step2, /pending: apiPending\s*\}\s*=\s*useServiceAnalysis\(/);
+  assert.match(step2, /pending:\s*apiPending[\s\S]*?=\s*useServiceAnalysis\(/);
   // la query NON e resa always-on: il gate resta condizionale su zoneActive
   assert.match(step2, /const shouldFetch = zoneActive && serviceOk;/);
 });

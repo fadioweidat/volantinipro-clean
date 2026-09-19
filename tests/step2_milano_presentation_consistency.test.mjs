@@ -144,37 +144,37 @@ const vite = await createServer({
 });
 
 test("2. SSR Render of Step 2 with Address Context", async () => {
-  try {
-    const mod = await vite.ssrLoadModule("/src/pages/public/configurator/Step2.jsx");
-    const Step2 = mod.Step2 || mod.default;
+  const mod = await vite.ssrLoadModule("/src/pages/public/configurator/Step2.jsx");
+  const Step2 = mod.Step2 || mod.default;
 
-    const addressData = {
-      activeService: "d2d", selectedService: "d2d", type: "d2d",
-      qty: 10000, flyerQuantity: 10000, flyerQuantityFromStep1: 10000,
-      searchMode: "municipality", campaignZones: [], distributionTargets: ["all"], activityType: "retail",
-      cityName: "Milano",
-      city: { name: "Milano", label: "Milano", comune: "Milano", municipality_code: "015146", istat_code: "015146", lat: 45.4642, lng: 9.19, provincia: "MI" },
-      selectedSearchPoint: {
-        label: "Via Antonio Oroboni, 20161 Milano",
-        lat: 45.525,
-        lng: 9.176,
-        type: "address",
-        parentComune: "Milano"
-      }
-    };
+  const addressData = {
+    activeService: "d2d", selectedService: "d2d", type: "d2d",
+    qty: 10000, flyerQuantity: 10000, flyerQuantityFromStep1: 10000,
+    searchMode: "municipality", campaignZones: [], distributionTargets: ["all"], activityType: "retail",
+    cityName: "Milano",
+    city: { name: "Milano", label: "Milano", comune: "Milano", municipality_code: "015146", istat_code: "015146", lat: 45.4642, lng: 9.19, provincia: "MI" },
+    selectedSearchPoint: {
+      label: "Via Antonio Oroboni, 20161 Milano",
+      lat: 45.525,
+      lng: 9.176,
+      type: "address",
+      parentComune: "Milano"
+    }
+  };
 
-    const html = renderToStaticMarkup(React.createElement(Step2, {
-      data: addressData,
-      setData: noop,
-      onNext: noop,
-      onBack: noop,
-      onAssistantContextChange: noop
-    }));
+  const html = renderToStaticMarkup(React.createElement(Step2, {
+    data: addressData,
+    setData: noop,
+    onNext: noop,
+    onBack: noop,
+    onAssistantContextChange: noop
+  }));
 
-    // Check that there is no crash and basic structure renders
-    assert.ok(html.length > 0);
-    assert.doesNotMatch(html, /Impossibile caricare la pagina/);
-  } finally {
-    await vite.close();
-  }
+  // Check that there is no crash and basic structure renders
+  assert.ok(html.length > 0);
+  assert.doesNotMatch(html, /Impossibile caricare la pagina/);
+});
+
+test.after(async () => {
+  await vite.close();
 });

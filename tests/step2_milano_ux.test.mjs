@@ -2,7 +2,7 @@
 // I helper sono PURI e presentazionali: nessun calcolo territoriale, nessuna
 // nuova source of truth, nessun numero Milano hardcoded. Questo test copre i
 // casi A-G del ticket.
-import test from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import React from "react";
@@ -224,30 +224,30 @@ const milanoData = () => ({
 });
 const varedoData = () => ({ ...milanoData(), cityName: "Varedo", city: { name: "Varedo", label: "Varedo", comune: "Varedo", municipality_code: "108048", lat: 45.5986, lng: 9.1497, provincia: "MB" } });
 
-try {
-  const mod = await vite.ssrLoadModule("/src/pages/public/configurator/Step2.jsx");
-  const Step2 = mod.Step2 || mod.default;
-  const renderStep2 = (data) => renderToStaticMarkup(React.createElement(Step2, { data, setData: noop, onNext: noop, onBack: noop, onAssistantContextChange: noop }));
+const mod = await vite.ssrLoadModule("/src/pages/public/configurator/Step2.jsx");
+const Step2 = mod.Step2 || mod.default;
+const renderStep2 = (data) => renderToStaticMarkup(React.createElement(Step2, { data, setData: noop, onNext: noop, onBack: noop, onAssistantContextChange: noop }));
 
-  test("A. Milano: la guida UX Milano E' presente, con mode chips + Municipio disabilitato + ricerca NIL", () => {
-    const html = renderStep2(milanoData());
-    assert.match(html, /vp-step2-milano-guidance/, "container guida presente");
-    assert.match(html, /Milano · scegli come distribuire/);
-    assert.match(html, /Milano completo/);
-    assert.match(html, /Municipio · Disponibile prossimamente/);
-    assert.match(html, /Cerca NIL \/ quartiere/, "campo ricerca NIL presente");
-    assert.match(html, /NIL disponibili nel Comune/, "label mode-aware presente");
-    assert.doesNotMatch(html, /Impossibile caricare la pagina/);
-  });
+test("A. Milano: la guida UX Milano E' presente, con mode chips + Municipio disabilitato + ricerca NIL", () => {
+  const html = renderStep2(milanoData());
+  assert.match(html, /vp-step2-milano-guidance/, "container guida presente");
+  assert.match(html, /Milano · scegli come distribuire/);
+  assert.match(html, /Milano completo/);
+  assert.match(html, /Municipio · Disponibile prossimamente/);
+  assert.match(html, /Cerca NIL \/ quartiere/, "campo ricerca NIL presente");
+  assert.match(html, /NIL disponibili nel Comune/, "label mode-aware presente");
+  assert.doesNotMatch(html, /Impossibile caricare la pagina/);
+});
 
-  test("B. Varedo: NESSUNA guida UX Milano; Step 2 normale, nessun crash", () => {
-    const html = renderStep2(varedoData());
-    assert.doesNotMatch(html, /vp-step2-milano-guidance/);
-    assert.doesNotMatch(html, /Milano · scegli come distribuire/);
-    assert.doesNotMatch(html, /Municipio · Disponibile prossimamente/);
-    assert.doesNotMatch(html, /Impossibile caricare la pagina/);
-    assert.ok(html.length > 0);
-  });
-} finally {
+test("B. Varedo: NESSUNA guida UX Milano; Step 2 normale, nessun crash", () => {
+  const html = renderStep2(varedoData());
+  assert.doesNotMatch(html, /vp-step2-milano-guidance/);
+  assert.doesNotMatch(html, /Milano · scegli come distribuire/);
+  assert.doesNotMatch(html, /Municipio · Disponibile prossimamente/);
+  assert.doesNotMatch(html, /Impossibile caricare la pagina/);
+  assert.ok(html.length > 0);
+});
+
+test.after(async () => {
   await vite.close();
-}
+});

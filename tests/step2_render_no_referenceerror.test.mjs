@@ -128,46 +128,46 @@ function makeData(overrides = {}) {
   };
 }
 
-try {
-  const mod = await vite.ssrLoadModule("/src/pages/public/configurator/Step2.jsx");
-  const Step2 = mod.Step2 || mod.default;
-  assert.ok(typeof Step2 === "function", "Step2 deve essere esportato come componente");
+const mod = await vite.ssrLoadModule("/src/pages/public/configurator/Step2.jsx");
+const Step2 = mod.Step2 || mod.default;
+assert.ok(typeof Step2 === "function", "Step2 deve essere esportato come componente");
 
-  const scenarios = [
-    ["modalita' comune, nessun comune risolto (path del crash)", makeData()],
-    ["modalita' comune, Cormano", makeData({
-      cityName: "Cormano",
-      city: { name: "Cormano", label: "Cormano", lat: 45.5438, lng: 9.1724, municipality_code: "015086", provincia: "MI" },
-    })],
-    ["modalita' comune, Varedo", makeData({
-      cityName: "Varedo",
-      city: { name: "Varedo", label: "Varedo", lat: 45.5986, lng: 9.1497, municipality_code: "108048", provincia: "MB" },
-    })],
-  ];
+const scenarios = [
+  ["modalita' comune, nessun comune risolto (path del crash)", makeData()],
+  ["modalita' comune, Cormano", makeData({
+    cityName: "Cormano",
+    city: { name: "Cormano", label: "Cormano", lat: 45.5438, lng: 9.1724, municipality_code: "015086", provincia: "MI" },
+  })],
+  ["modalita' comune, Varedo", makeData({
+    cityName: "Varedo",
+    city: { name: "Varedo", label: "Varedo", lat: 45.5986, lng: 9.1497, municipality_code: "108048", provincia: "MB" },
+  })],
+];
 
-  for (const [label, data] of scenarios) {
-    test(`Step 2 render — ${label} — nessun ReferenceError`, () => {
-      let err = null;
-      let html = null;
-      try {
-        html = renderToStaticMarkup(
-          React.createElement(Step2, {
-            data,
-            setData: noop,
-            onNext: noop,
-            onBack: noop,
-            onAssistantContextChange: noop,
-          })
-        );
-      } catch (e) {
-        err = e;
-      }
-      assert.ok(!err || !CITYNAME_RE.test(String(err && (err.message || err))), `crash "cityName is not defined": ${err && err.stack}`);
-      assert.ok(!err || !REFERENCE_ERROR_RE.test(String(err && (err.message || err))), `ReferenceError al render di Step 2 (${label}): ${err && err.stack}`);
-      assert.equal(typeof html, "string", `Step 2 deve produrre markup (${label})`);
-      assert.ok(html.length > 0, `markup vuoto (${label})`);
-    });
-  }
-} finally {
-  await vite.close();
+for (const [label, data] of scenarios) {
+  test(`Step 2 render — ${label} — nessun ReferenceError`, () => {
+    let err = null;
+    let html = null;
+    try {
+      html = renderToStaticMarkup(
+        React.createElement(Step2, {
+          data,
+          setData: noop,
+          onNext: noop,
+          onBack: noop,
+          onAssistantContextChange: noop,
+        })
+      );
+    } catch (e) {
+      err = e;
+    }
+    assert.ok(!err || !CITYNAME_RE.test(String(err && (err.message || err))), `crash "cityName is not defined": ${err && err.stack}`);
+    assert.ok(!err || !REFERENCE_ERROR_RE.test(String(err && (err.message || err))), `ReferenceError al render di Step 2 (${label}): ${err && err.stack}`);
+    assert.equal(typeof html, "string", `Step 2 deve produrre markup (${label})`);
+    assert.ok(html.length > 0, `markup vuoto (${label})`);
+  });
 }
+
+test.after(async () => {
+  await vite.close();
+});
