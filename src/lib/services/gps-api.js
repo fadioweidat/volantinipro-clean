@@ -145,8 +145,8 @@ function isRpcNotFound(error) {
 }
 
 // Prova le RPC nell'ordine dato (piu' recente -> piu' vecchia). Ricade sulla
-// successiva SOLO se quella corrente "non esiste" (migrazione non applicata /
-// grant mancante): isRpcNotFound. Qualsiasi ALTRO errore applicativo
+// successiva SOLO se quella corrente non e' disponibile nel deployment
+// corrente (funzione assente / grant mancante): isRpcNotFound. Qualsiasi ALTRO errore applicativo
 // (PAUSED_SESSION, DEVICE_MISMATCH, SESSIONE_GIA_ATTIVA, auth, validazione)
 // viene propagato: NON e' un motivo per ripiegare su una versione precedente.
 // specs: [{ name, args }, ...]
@@ -303,8 +303,8 @@ export async function startGpsSession(campaignId, { assignmentId, deviceId, zone
     p_campaign_zone_id: zoneId || null,
     p_access_token: accessToken || null,
   };
-  // _v3 gestisce l'identita' participant di gruppo (operator_id NULL); v1
-  // resta il fallback per i link personali finche' la migrazione non e' live.
+  // _v3 e' la source of truth attuale e gestisce anche participant di gruppo
+  // (operator_id NULL); v1 resta solo come fallback di retro-compatibilita'.
   return callGpsRpcVersioned([
     { name: 'gps_start_session_v3', args },
     { name: 'gps_start_session', args },
@@ -371,11 +371,10 @@ export async function getActiveGpsSessionByToken(assignmentId, accessToken) {
   // quando la sessione appartiene a un altro dispositivo.
   if (data?.blocked === 'device_mismatch') return { _blocked: 'device_mismatch' };
   if (!data?.session) return null;
-  // last_gps_recorded_at aggiunto dalla migrazione
-  // 20260826130000_get_active_driver_session_last_gps.sql (proposta, non
-  // ancora applicata a questo turno): finche' non e' live il campo e'
-  // semplicemente assente/undefined e il chiamante lo tratta come "nessuna
-  // evidenza GPS nota", MAI come un errore.
+  // get_active_driver_session_v3 in produzione restituisce last_gps_recorded_at.
+  // Le versioni legacy possono non includerlo: in quel caso il campo resta
+  // assente/undefined e il chiamante lo tratta come "nessuna evidenza GPS nota",
+  // MAI come un errore.
   return { ...data.session, _lastGpsRecordedAt: data.last_gps_recorded_at ?? null };
 }
 
@@ -402,9 +401,10 @@ export async function getLastGpsRecordedAt(sessionId) {
   return data?.recorded_at || null;
 }
 
-// pause/resume/complete passano SEMPRE p_device_id: la RPC v2 verifica che sia
+// pause/resume/complete passano SEMPRE p_device_id: la RPC v3 verifica che sia
 // lo stesso dispositivo che possiede la sessione (DEVICE_MISMATCH altrimenti).
-// Fallback a gps_transition_session v1 finche' la migrazione non e' applicata.
+// v2/v1 restano fallback di retro-compatibilita' solo se la versione piu' recente
+// non e' disponibile.
 function transitionSession(sessionId, action, accessToken) {
   const deviceId = getDeviceInstallationId();
   const withDevice = { p_session_id: sessionId, p_action: action, p_access_token: accessToken || null, p_device_id: deviceId };
@@ -655,11 +655,11 @@ export async function getCampaignSessionTracks(campaignId, { statuses = TRACKABL
 // membri dello STESSO group_id+campaign_id per coordinarsi (vie gia' fatte,
 // aree mancanti). NON e' "tutte le sessioni della campagna": l'autorizzazione
 // (stesso gruppo, assignment valido del chiamante) e i campi safe sono decisi
-// server-side dalla RPC get_driver_group_tracking (migrazione
-// 20260829160000, non applicata). Nessun select('*') diretto: nessun
-// driver_phone / device_id / token / metadata privata nel payload.
-// Fallback: finche' la RPC non e' live ritorna { self: null, others: [] } e
-// la mappa Driver mostra solo la propria traccia (comportamento attuale).
+// server-side dalla RPC get_driver_group_tracking, attiva in produzione.
+// Nessun select('*') diretto: nessun driver_phone / device_id / token / metadata
+// privata nel payload. Il fallback prudente resta per deployment incompatibili:
+// se la RPC non e' disponibile ritorna { self: null, others: [] } e la mappa
+// Driver mostra solo la propria traccia.
 export async function getDriverGroupTracking(assignmentId, accessToken) {
   if (!isValidUuid(assignmentId)) return { self: null, others: [] };
   try {
@@ -751,8 +751,8 @@ export async function driverGroupJoin(groupToken, displayName) {
   return result;
 }
 
-// ADMIN — sblocca il dispositivo associato a una sessione (RPC admin-only
-// gps_admin_unlock_device, migrazione 20260829150000, non applicata).
+// ADMIN — sblocca il dispositivo associato a una sessione tramite la RPC
+// admin-only gps_admin_unlock_device, attiva in produzione.
 // Preserva sessione / GPS / assignment / storico: azzera solo device_id.
 export async function adminUnlockDevice(sessionId, reason) {
   if (!isValidUuid(sessionId)) throw permanentGpsError('assignment_missing');
