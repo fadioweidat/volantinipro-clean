@@ -16,7 +16,6 @@ import { driverListMessages, driverMarkMessagesSeen, driverSendMessage } from '.
 import { buildIssueWatermarkLines, canvasToJpegBlob, compressPodImage, drawPodWatermark, releaseCanvas } from '../../lib/pod/podPhotoProcessing.js';
 import { mergeMessages, countUnreadMessages, subscribeToDriverMessages } from '../../lib/services/messaging-realtime.js';
 import { isTransientSchemaOrNetworkError, USER_FRIENDLY_TRANSIENT_ERROR } from '../../lib/services/transientErrors.js';
-import { setDriverZoneWorkStatus } from '../../lib/services/driver-zone-status-api.js';
 
 // ─── DriverAssignmentPage ─────────────────────────────────────────────────────
 // Pagina driver accessibile tramite /driver/assignment/{assignmentId}, link
@@ -360,20 +359,15 @@ function DriverTracker({
   // l'unico gate e' actionLoading === ACTION_END (il proprio tentativo).
   // Usato sia dalla card zona corrente sia dal fallback session-level.
   function endWork() {
-    const zoneToComplete = zoneWorkflow.inProgressZone;
+    const zoneToComplete = zonesToDisplay.find((z) => z.id === tracking.session?.campaign_zone_id) || null;
     if (!window.confirm(zoneToComplete
-      ? `Confermi di aver terminato ${zoneToComplete.zone_name}? La zona verra' segnata come completata e la sessione GPS chiusa. La zona successiva partira' solo quando la avvii tu.`
-      : 'Confermi di aver terminato il lavoro assegnato? La tua sessione GPS verra\' chiusa.')) return;
+      ? `Confermi di aver terminato ${zoneToComplete.zone_name}? La sessione GPS di questo telefono verrà chiusa e la zona segnata come completata.`
+      : 'Confermi di aver terminato il lavoro su questo dispositivo? La sessione GPS verrà chiusa.')) return;
     runAction(ACTION_END, async () => {
-      // Completa PRIMA la zona attiva (se la sessione e' su quella zona), poi
-      // chiude la sessione: i punti GPS/foto restano attribuiti a quella zona
-      // e la zona successiva iniziera' una NUOVA sessione con il proprio zone_id.
-      if (zoneToComplete?.id && tracking.session?.campaign_zone_id === zoneToComplete.id) {
-        await tracking.completeZone(zoneToComplete.id);
-      }
+      // La v3 completa sessione + zona in un'unica transazione ed è scoped
+      // al device_id: non può chiudere la sessione di un altro telefono.
       await tracking.end();
-      // A small timeout to let the UI refresh (or let the polling catch up)
-      window.setTimeout(() => window.location.reload(), 1000);
+      onRefreshAssignment?.();
     });
   }
 
