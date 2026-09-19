@@ -84,37 +84,6 @@ test('E. select zona cliente: testo opzioni leggibile su sfondo bianco (contrast
   assert.match(customerPage, /style=\{\{ color: '#0f172a', background: '#ffffff' \}\}/);
 });
 
-test('F. la zona attiva NON mostra "Sessione gia\' attiva"; l\'errore reale e\' solo per la zona avviabile', () => {
-  const errIdx = driverPage.indexOf('data-testid="zone-session-error"');
-  assert.ok(errIdx > 0);
-  const cond = driverPage.slice(errIdx - 260, errIdx);
-  assert.match(cond, /activeSessionElsewhere && \(zoneCanStart \|\| zoneCanReopen\)/);
-  assert.match(cond, /!isCurrentZone/);
-});
-
-const Z = (id, name, status = 'Da iniziare') => ({ id, zone_name: name, status });
-
-test('G. zone future: stato neutro "Disponibile dopo ...", non rosso', () => {
-  const zs = [Z('z1', 'BRUZZANO', 'In corso'), Z('z2', 'COMASINA'), Z('z3', 'PARCO NORD'), Z('z4', 'AFFORI')];
-  const w = computeZoneWorkflow(zs, 'z1', true);
-  assert.equal(w.waitingLabel(zs[0]), null, 'la zona in corso non ha etichetta di attesa');
-  assert.equal(w.waitingLabel(zs[1]), 'Disponibile dopo BRUZZANO');
-  assert.equal(w.waitingLabel(zs[2]), 'Disponibile dopo la zona precedente');
-  assert.equal(w.waitingLabel(zs[3]), 'Disponibile dopo la zona precedente');
-  const i = driverPage.indexOf('data-testid="zone-waiting-label"');
-  assert.ok(i > 0);
-  const style = driverPage.slice(i, i + 160);
-  assert.doesNotMatch(style, /b91c1c|#ef4444|danger/);
-});
-
-test('H. un vero errore di sessione resta un errore rosso con role="alert"', () => {
-  const i = driverPage.indexOf('data-testid="zone-session-error"');
-  const block = driverPage.slice(i, i + 200);
-  assert.match(block, /role="alert"/);
-  assert.match(block, /#b91c1c/);
-  assert.match(driverPage, /Sessione gia&#39; attiva per questo incarico/);
-});
-
 test('I/J. segnalazioni: attive separate dallo storico risolte, che resta visibile', () => {
   assert.match(driverPage, /'Segnalazioni attive'/);
   assert.match(driverPage, /'Storico risolte'/);

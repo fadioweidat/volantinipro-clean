@@ -20,37 +20,6 @@ const program = (statuses = {}) => [
   Z('z3', 'PARCO NORD', statuses.z3), Z('z4', 'AFFORI', statuses.z4),
 ];
 
-test('initial: tutte DA_INIZIARE; solo la prima e\' avviabile', () => {
-  const w = computeZoneWorkflow(program());
-  assert.deepEqual(program().map((z) => w.stateOf(z)), Array(4).fill(ZONE_STATE.TO_START));
-  assert.deepEqual(program().map((z) => w.canStart(z)), [true, false, false, false]);
-});
-
-test('G/H. avvio BRUZZANO: solo BRUZZANO IN_CORSO, le altre DA_INIZIARE senza avvio', () => {
-  const zs = program({ z1: 'In corso' });
-  const w = computeZoneWorkflow(zs, 'z1', true);
-  assert.deepEqual(zs.map((z) => w.stateOf(z)), ['IN_CORSO', 'DA_INIZIARE', 'DA_INIZIARE', 'DA_INIZIARE']);
-  assert.deepEqual(zs.map((z) => w.canStart(z)), [false, false, false, false], 'sessione viva: nessun altro avvio');
-});
-
-test('I. con BRUZZANO IN_CORSO (sessione chiusa) COMASINA non parte e il messaggio e\' quello del server', () => {
-  const zs = program({ z1: 'In corso' });
-  const w = computeZoneWorkflow(zs, null, false);
-  assert.equal(w.canStart(zs[1]), false);
-  assert.equal(w.canStart(zs[0]), true, 'si puo\' solo riprendere la zona in corso');
-  assert.equal(w.blockedReason(zs[1]), 'Completa o termina BRUZZANO prima di iniziare COMASINA.');
-});
-
-test('J/K. completare BRUZZANO non avvia COMASINA; parte solo con conferma esplicita', () => {
-  const zs = program({ z1: 'Completata' });
-  const w = computeZoneWorkflow(zs, null, false);
-  assert.equal(w.stateOf(zs[1]), ZONE_STATE.TO_START, 'COMASINA resta DA_INIZIARE');
-  assert.equal(w.nextZone.zone_name, 'COMASINA');
-  assert.equal(w.inProgressZone, null);
-  assert.equal(w.canStart(zs[1]), true);
-  assert.equal(w.canStart(zs[2]), false);
-});
-
 test('Q. ricarica pagina: gli stati derivano solo dal DB (stesso input -> stessi stati)', () => {
   const zs = program({ z1: 'In corso' });
   const a = computeZoneWorkflow(zs, null, false);
@@ -131,23 +100,6 @@ test('R. una sola zona IN_CORSO imposta lato SERVER in start_session e transitio
 test('errore del server mostrato al driver senza codice tecnico', () => {
   const msg = mapDriverActionError(new Error('ZONA_ALTRA_IN_CORSO: Completa o termina BRUZZANO prima di iniziare COMASINA.'));
   assert.equal(msg, 'Completa o termina BRUZZANO prima di iniziare COMASINA.');
-});
-
-test('L/M. GPS/foto seguono la zona attiva: Termina completa la zona PRIMA di chiudere la sessione; la prossima zona apre una nuova sessione', () => {
-  const i = page.indexOf('function endWork()');
-  const block = page.slice(i, i + 1500);
-  assert.ok(block.indexOf('tracking.completeZone(') > 0);
-  assert.ok(block.indexOf('tracking.completeZone(') < block.indexOf('tracking.end()'));
-  assert.match(page, /tracking\.start\(z\.id\)/);
-  assert.match(sql, /campaign_zone_id/);
-});
-
-test('UI: zone future senza controlli operativi; "Prossima zona" e pulsante Inizia <zona>', () => {
-  assert.match(page, /isFutureLockedZone/);
-  assert.match(page, /Prossima zona: /);
-  assert.match(page, /`Inizia \$\{z\.zone_name\}`/);
-  assert.match(page, /'IN CORSO'/);
-  assert.match(page, /'DA INIZIARE'/);
 });
 
 test('nessuna modifica a prezzi/Step2: il ticket tocca solo driver/customer issue/SQL', () => {

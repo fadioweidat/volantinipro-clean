@@ -6,7 +6,8 @@ import { resolveProgramTerritory } from '../../lib/geo/territories/resolveProgra
 import { geoJsonContainsPoint } from '../../lib/geo/pointInPolygon.js';
 import { estimateDistanceToZoneBoundaryMeters } from '../../lib/geofence/geofenceEngine.js';
 import { navigateDriver, driverPathWithQuery } from './driverNav.js';
-import { computeZoneWorkflow, ZONE_STATE } from '../../lib/driver/zoneWorkflow.js';
+import { computeZoneWorkflow } from '../../lib/driver/zoneWorkflow.js';
+import { DriverZoneProgram } from '../../components/driver/DriverZoneProgram.jsx';
 import { partitionIssuesByZone, validateResolutionNote } from '../../lib/driver/issueZoneView.js';
 import { DRIVER_PAUSE_ENABLED } from '../../lib/gps/driverUiFlags.js';
 import { driverListIssues, driverTransitionIssue, ISSUE_STATUS_LABELS } from '../../lib/services/customer-issues-api.js';
@@ -376,6 +377,45 @@ function DriverTracker({
     });
   }
 
+  // Avvio/chiusura manuale zona: STESSE chiamate di prima
+  // (setDriverZoneWorkStatus), solo estratte in funzioni per la lista compatta.
+  function startZone(z) {
+    runAction(`START_ZONE:${z.id}`, async () => {
+      await setDriverZoneWorkStatus({
+        assignmentId,
+        zoneId: z.id,
+        status: 'In corso',
+        accessToken,
+      });
+      onRefreshAssignment?.();
+    });
+  }
+
+  function completeZone(z) {
+    if (!window.confirm(`Confermi di aver finito ${z.zone_name}? La zona verrà segnata come completata.`)) return;
+    const isCurrentZone = tracking.session?.campaign_zone_id === z.id && z.id != null;
+    runAction(`COMPLETE_ZONE:${z.id}`, async () => {
+      await setDriverZoneWorkStatus({
+        assignmentId,
+        zoneId: z.id,
+        status: 'Completata',
+        accessToken,
+      });
+      // Se questo telefono sta tracciando proprio questa zona,
+      // chiudi anche la sessione GPS. La chiusura della zona resta
+      // comunque una scelta manuale dell'operatore.
+      if (isCurrentZone && (tracking.isActive || tracking.isPaused)) {
+        try { await tracking.end(); } catch { /* stato zona già salvato; errore GPS mostrato separatamente */ }
+      }
+      onRefreshAssignment?.();
+    });
+  }
+
+  function openZoneMap(z) {
+    if (!z?.id) return;
+    navigateDriver(driverPathWithQuery(`/driver/assignment/${assignmentId}/map?zoneId=${z.id}`));
+  }
+
   function sendSos() {
     const event = {
       type: 'sos', assignmentId, campaignId, operatorName,
@@ -532,110 +572,15 @@ function DriverTracker({
           // pagina — l'accesso base e' gia' autorizzato.
           <p style={{ ...mutedStyle, marginTop: 8 }}>Caricamento programma...</p>
         ) : (
-        <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
-          {zonesToDisplay.map((z, idx) => {
-            const isCurrentZone = tracking.session?.campaign_zone_id === z.id && z.id != null;
-            const zState = zoneWorkflow.stateOf(z);
-            const zoneCanStart = zoneWorkflow.canStart(z);
-            const startAction = `START_ZONE:${z.id}`;
-            const completeAction = `COMPLETE_ZONE:${z.id}`;
-
-            let statusPill = zState === ZONE_STATE.IN_PROGRESS ? 'IN CORSO' : zState === ZONE_STATE.COMPLETED ? 'COMPLETATA' : 'DA INIZIARE';
-            let statusColor = '#22c55e'; // DA INIZIARE: verde, pronto ad avviare
-            if (zState === ZONE_STATE.IN_PROGRESS) statusColor = '#3b82f6';
-            if (zState === ZONE_STATE.COMPLETED) statusColor = '#ef4444';
-            if (z.isLegacy) {
-              statusPill = 'Legacy (Sola lettura)';
-              statusColor = '#f59e0b';
-            }
-
-            return (
-              <div key={z.id || idx} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 12, background: isCurrentZone ? '#f0fdf4' : '#fff' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: 16, color: '#0f172a' }}>
-                      <span style={{ color: '#64748b', marginRight: 6 }}>{idx + 1}.</span>
-                      {z.zone_name}
-                    </h3>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-                      {z.quantity != null && <span style={{ fontSize: 13, color: '#475569' }}>Qtà: {Number(z.quantity).toLocaleString('it-IT')}</span>}
-                      <span style={{ fontSize: 12, padding: '2px 6px', borderRadius: 4, background: statusColor, color: '#fff' }}>
-                        {statusPill}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {z.notes && <p style={{ margin: '8px 0', fontSize: 13, color: '#64748b' }}>Note: {z.notes}</p>}
-
-                {!z.isLegacy && (
-                  <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {zoneCanStart && (
-                      <button
-                        type="button"
-                        style={{ ...primaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: '1 1 220px' }}
-                        disabled={Boolean(actionLoading)}
-                        onClick={() => runAction(startAction, async () => {
-                          await setDriverZoneWorkStatus({
-                            assignmentId,
-                            zoneId: z.id,
-                            status: 'In corso',
-                            accessToken,
-                          });
-                          onRefreshAssignment?.();
-                        })}
-                      >
-                        {actionLoading === startAction ? 'Avvio in corso...' : `Inizia ${z.zone_name}`}
-                      </button>
-                    )}
-
-                    {zState === ZONE_STATE.IN_PROGRESS && (
-                      <button
-                        type="button"
-                        style={{ ...dangerButtonStyle, padding: '8px 12px', fontSize: 14, flex: '1 1 220px' }}
-                        disabled={Boolean(actionLoading)}
-                        onClick={() => {
-                          if (!window.confirm(`Confermi di aver finito ${z.zone_name}? La zona verrà segnata come completata.`)) return;
-                          runAction(completeAction, async () => {
-                            await setDriverZoneWorkStatus({
-                              assignmentId,
-                              zoneId: z.id,
-                              status: 'Completata',
-                              accessToken,
-                            });
-                            // Se questo telefono sta tracciando proprio questa zona,
-                            // chiudi anche la sessione GPS. La chiusura della zona resta
-                            // comunque una scelta manuale dell'operatore.
-                            if (isCurrentZone && (tracking.isActive || tracking.isPaused)) {
-                              try { await tracking.end(); } catch { /* stato zona già salvato; errore GPS mostrato separatamente */ }
-                            }
-                            onRefreshAssignment?.();
-                          });
-                        }}
-                      >
-                        {actionLoading === completeAction ? 'Chiusura in corso...' : `Termina ${z.zone_name}`}
-                      </button>
-                    )}
-
-                    {zState === ZONE_STATE.COMPLETED && (
-                      <span style={{ color: '#b91c1c', fontSize: 14, fontWeight: 800, alignSelf: 'center' }}>✓ Zona completata</span>
-                    )}
-
-                    {z.id && (
-                      <button
-                        type="button"
-                        style={{ ...secondaryButtonStyle, padding: '8px 12px', fontSize: 14 }}
-                        onClick={() => navigateDriver(driverPathWithQuery(`/driver/assignment/${assignmentId}/map?zoneId=${z.id}`))}
-                      >
-                        Mappa
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <DriverZoneProgram
+          zones={zonesToDisplay}
+          stateOf={zoneWorkflow.stateOf}
+          actionLoading={actionLoading}
+          onStart={startZone}
+          onComplete={completeZone}
+          onOpenZone={openZoneMap}
+          onOpenMap={openZoneMap}
+        />
         )}
       </section>
 
