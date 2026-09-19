@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useGpsTracking } from '../../hooks/useGpsTracking.js';
 import { useDriverAssignment, mapDriverActionError } from '../../hooks/useDriverAssignment.js';
 import { PodCapture } from '../../components/driver/PodCapture.jsx';
@@ -999,7 +999,7 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken, activeZone
           ? (scope === 'done' ? 'Storico risolte' : scope === 'future' ? 'Segnalazioni future' : 'Segnalazioni attive')
           : null;
         return (
-          <React.Fragment key={issue.id}>
+          <Fragment key={issue.id}>
           {groupHeading && (
             <div data-testid={`issues-group-${scope}`} style={{ margin: '12px 0 4px', fontSize: 11, fontWeight: 900, letterSpacing: '.1em', textTransform: 'uppercase', color: scope === 'done' ? 'rgba(255,255,255,.45)' : 'rgba(255,255,255,.7)' }}>{groupHeading}</div>
           )}
@@ -1040,7 +1040,7 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken, activeZone
               </div>
             )}
           </div>
-          </React.Fragment>
+          </Fragment>
         );
       })}
     </section>
