@@ -91,6 +91,8 @@ export function MilanoGuidance({
   // logica di selezione qui).
   nilSearchResults = [],
   nilSearchContextLabel = "",
+  selected = [],
+  onToggleZone = null,
   onFocusNilSearchResult = null,
   onSelectOnlyNil = null,
   // azioni (handler ESISTENTI di Step2.jsx)
@@ -347,6 +349,7 @@ export function MilanoGuidance({
               ) : (
                 nilSearchResults.map((result, idx) => {
                   const active = idx === searchActiveIndex;
+                  const isSelected = Boolean(selected?.includes(result.id));
                   return (
                     <div
                       key={result.id}
@@ -363,33 +366,63 @@ export function MilanoGuidance({
                         gap: 8,
                         padding: "9px 14px",
                         cursor: "pointer",
-                        background: active ? "rgba(232,87,26,.14)" : "transparent",
+                        background: active ? "rgba(232,87,26,.14)" : isSelected ? "rgba(34,197,94,.08)" : "transparent",
                         borderBottom: idx < nilSearchResults.length - 1 ? "1px solid rgba(255,255,255,.06)" : "none",
                       }}
                     >
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontFamily: F.sans, fontSize: 12.5, fontWeight: 700, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {result.name}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontFamily: F.sans, fontSize: 12.5, fontWeight: 700, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {result.name}
+                          </span>
+                          {isSelected && (
+                            <span style={{ fontSize: 9.5, padding: "1px 6px", borderRadius: 4, background: "rgba(34,197,94,.2)", color: "#4ADE80", fontWeight: 700 }}>
+                              Selezionato
+                            </span>
+                          )}
                         </div>
                         <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)" }}>
                           {result.isNil ? `NIL / Quartiere${nilSearchContextLabel ? ` · ${nilSearchContextLabel}` : ""}` : (nilSearchContextLabel || "Comune")}
                         </div>
                       </div>
-                      {result.isNil && nilManualMode && onSelectOnlyNil ? (
-                        <button
-                          type="button"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectOnlyNil(result.id);
-                            setSearchDropdownOpen(false);
-                            setSearchActiveIndex(-1);
-                          }}
-                          style={{ ...chipBtn(false), padding: "4px 9px", fontSize: 9.5, flexShrink: 0 }}
-                        >
-                          Solo questo NIL
-                        </button>
-                      ) : null}
+
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                        {onToggleZone && result.isNil ? (
+                          <button
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              onToggleZone(result.id);
+                              if (onFocusNilSearchResult) onFocusNilSearchResult(result.id);
+                            }}
+                            style={{
+                              ...chipBtn(isSelected),
+                              padding: "4px 8px",
+                              fontSize: 9.5,
+                              borderColor: isSelected ? "#EF4444" : "rgba(255,255,255,.25)",
+                              color: isSelected ? "#FCA5A5" : C.white,
+                              background: isSelected ? "rgba(239,68,68,.16)" : "rgba(255,255,255,.06)",
+                            }}
+                          >
+                            {isSelected ? "Rimuovi" : "+ Aggiungi"}
+                          </button>
+                        ) : null}
+
+                        {result.isNil && nilManualMode && onSelectOnlyNil ? (
+                          <button
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              onSelectOnlyNil(result.id);
+                              setSearchDropdownOpen(false);
+                              setSearchActiveIndex(-1);
+                            }}
+                            style={{ ...chipBtn(false), padding: "4px 8px", fontSize: 9.5 }}
+                          >
+                            Solo questo
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   );
                 })

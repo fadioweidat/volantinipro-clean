@@ -61,6 +61,8 @@ import { Step2PoiAssignmentPanel } from "./step2/Step2PoiAssignmentPanel.jsx";
 import { Step2CapPanel } from "./step2/Step2CapPanel.jsx";
 import { Step2ComunePanel } from "./step2/Step2ComunePanel.jsx";
 import { Step2TerritoryControlsPanel } from "./step2/Step2TerritoryControlsPanel.jsx";
+import { ServiceExplanationCard } from "./step2/ServiceExplanationCard.jsx";
+import { SelectedZonesSummary } from "./step2/SelectedZonesSummary.jsx";
 export function Step2({
   data,
   setData,
@@ -5135,6 +5137,13 @@ export function Step2({
     overflow: "visible"
   }}>
 
+      {!isAdminView && (
+        <ServiceExplanationCard
+          serviceType={svcType}
+          serviceColor={col}
+        />
+      )}
+
       {!isAdminView && <Step2TerritoryControlsPanel
           activeAreaTab={activeAreaTab}
           activeZoneId={data.activeZoneId}
@@ -5344,6 +5353,23 @@ export function Step2({
         zonesWithCoords={zonesWithCoords}
           />
 
+          <SelectedZonesSummary
+            selectedZones={selZones}
+            onRemoveZone={(zoneId) => {
+              if (selected && selected.length > 0) {
+                setSelected(selected.filter(id => id !== zoneId));
+              } else {
+                toggleZone(zoneId);
+              }
+            }}
+            totalFamilies={d2dKpiZone?.families || (selZones || []).reduce((sum, z) => sum + (z.families || 0), 0) || 0}
+            recommendedFlyers={requiredFlyers || 0}
+            currentQuantity={finalFlyersRounded || flyerQuantityFromStep1 || 0}
+            coveragePercent={step2TruthModel?.coverage?.coverage_percent ?? (serviceKpis?.coverage || 0)}
+            serviceType={svcType}
+            serviceColor={col}
+          />
+
           <Step2PoiAssignmentPanel
         assignPoiToOperator={assignPoiToOperator}
         businessMaterialPlan={businessMaterialPlan}
@@ -5440,6 +5466,8 @@ export function Step2({
             addressPoint={selectedSearchPoint?.type === "address" ? selectedSearchPoint : null}
             coverageAddress={coverageAddress}
             containingNil={containingNil}
+            selected={selected}
+            onToggleZone={toggleZone}
           />
           <Step2ComunePanel
         activeCampaignZone={activeCampaignZone}

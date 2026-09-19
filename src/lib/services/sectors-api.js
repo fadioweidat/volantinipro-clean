@@ -109,7 +109,7 @@ export async function fetchSectors({ serviceType, centerLat, centerLng, radiusKm
 
   debugStep2Log(`[MAP_SECTORS_REQUEST] type: ${normalizedService}, lat: ${latNum}, lng: ${lngNum}, radiusKm: ${rpcParams.p_radius_km}`);
   mapSectorsInfo('[MAP_SECTORS_RPC_REQUEST]', {
-    rpc: 'get_map_sectors_v2',
+    rpc: 'get_map_sectors',
     source: 'anon_rest',
     params: rpcParams,
     headers: {
@@ -118,50 +118,26 @@ export async function fetchSectors({ serviceType, centerLat, centerLng, radiusKm
     },
   });
 
-  // Try v2 primary, with fallback to get_map_sectors if v2 not yet deployed or error
   try {
-    const data = await executeSectorRpc('get_map_sectors_v2', rpcParams, signal, 8000);
-    debugStep2Log(`[MAP_SECTORS_RESPONSE] Success v2, received features: ${data?.features?.length || 0}`);
+    const data = await executeSectorRpc('get_map_sectors', rpcParams, signal, 8000);
+    debugStep2Log(`[MAP_SECTORS_RESPONSE] Success, received features: ${data?.features?.length || 0}`);
     mapSectorsInfo('[MAP_SECTORS_RPC_SUCCESS]', {
-      rpc: 'get_map_sectors_v2',
+      rpc: 'get_map_sectors',
       source: 'anon_rest',
       features: data?.features?.length ?? 0,
     });
     return data ?? { type: 'FeatureCollection', features: [] };
-  } catch (errV2) {
-    if (errV2?.name === 'AbortError' || signal?.aborted) return null;
+  } catch (err) {
+    if (err?.name === 'AbortError' || signal?.aborted) return null;
     
-    // Attempt fallback to get_map_sectors
-    try {
-      const dataV1 = await executeSectorRpc('get_map_sectors', rpcParams, signal, 8000);
-      debugStep2Log(`[MAP_SECTORS_RESPONSE] Success v1 fallback, received features: ${dataV1?.features?.length || 0}`);
-      mapSectorsInfo('[MAP_SECTORS_RPC_SUCCESS]', {
-        rpc: 'get_map_sectors',
-        source: 'anon_rest_fallback',
-        features: dataV1?.features?.length ?? 0,
-      });
-      return dataV1 ?? { type: 'FeatureCollection', features: [] };
-    } catch (errV1) {
-      if (errV1?.name === 'AbortError' || signal?.aborted) return null;
-      
-      debugStep2Error('[MAP_SECTORS_ERROR]', { errV2: errV2?.message, errV1: errV1?.message });
-      mapSectorsWarn('[MAP_SECTORS_RPC_ERROR]', {
-        source: 'anon_rest',
-        status: errV1?.status ?? errV2?.status ?? null,
-        code: errV1?.code ?? errV2?.code ?? null,
-        message: errV1?.message ?? errV2?.message ?? String(errV1),
-      });
-      mapSectorsWarn('[TERRITORY_PRIMARY_FAILED]', {
-        rpc: 'get_map_sectors_v2',
-        error: errV2?.message,
-      });
-      mapSectorsWarn('[MAP_SECTORS_RPC_FALLBACK_USED]', {
-        source: 'ui_no_sectors',
-        failed: true,
-        error: errV1?.message ?? String(errV1),
-      });
-      return null;
-    }
+    debugStep2Error('[MAP_SECTORS_ERROR]', { err: err?.message });
+    mapSectorsWarn('[MAP_SECTORS_RPC_ERROR]', {
+      source: 'anon_rest',
+      status: err?.status ?? null,
+      code: err?.code ?? null,
+      message: err?.message ?? String(err),
+    });
+    return null;
   }
 }
 

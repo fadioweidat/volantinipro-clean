@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -134,6 +134,7 @@ function memStorage() { const m = new Map(); return { getItem: k => m.has(k) ? m
 const STUB_MAP = `import React from "react";const N=()=>null;export const Step2Map=N;export default N;`;
 const STUB_MOTION = `import React from "react";const p=(t)=>React.forwardRef((props,ref)=>React.createElement(t,{...props,ref}));export const motion=new Proxy({},{get:(_,k)=>p(typeof k==="string"?k:"div")});export const AnimatePresence=({children})=>children??null;export default {motion,AnimatePresence};`;
 const vite = await createServer({
+  configFile: false,
   server: { middlewareMode: true, watch: null }, appType: "custom", logLevel: "silent",
   optimizeDeps: { noDiscovery: true, include: [] },
   plugins: [{
@@ -175,6 +176,18 @@ test("2. SSR Render of Step 2 with Address Context", async () => {
   assert.doesNotMatch(html, /Impossibile caricare la pagina/);
 });
 
-test.after(async () => {
-  await vite.close();
+after(async () => {
+  try {
+    await vite.close();
+    await vite.watcher?.close();
+  } catch (e) {}
+  setTimeout(() => {
+    const handles = process._getActiveHandles?.() || [];
+    for (const h of handles) {
+      if (typeof h.unref === "function") h.unref();
+      if (typeof h.close === "function" && h.constructor?.name !== "WriteStream" && h.constructor?.name !== "ReadStream") {
+        try { h.close(); } catch(e) {}
+      }
+    }
+  }, 50);
 });

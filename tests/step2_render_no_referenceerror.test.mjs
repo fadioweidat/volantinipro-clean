@@ -10,7 +10,7 @@
 // Questo test ESEGUE davvero il corpo di <Step2/> via renderToStaticMarkup su
 // piu' varianti di stato (nessun comune / Cormano / Varedo, modalita' comune)
 // e verifica che NON venga lanciato alcun ReferenceError.
-import test from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -86,6 +86,7 @@ const STUB_ENDINGS = [
 ];
 
 const vite = await createServer({
+  configFile: false,
   server: { middlewareMode: true, watch: null },
   appType: "custom",
   logLevel: "silent",
@@ -168,6 +169,20 @@ for (const [label, data] of scenarios) {
   });
 }
 
-test.after(async () => {
-  await vite.close();
+after(async () => {
+  try {
+    await vite.close();
+    await vite.watcher?.close();
+  } catch (e) {}
+  setTimeout(() => {
+    const handles = process._getActiveHandles?.() || [];
+    console.log("ACTIVE HANDLES COUNT:", handles.length);
+    for (const h of handles) {
+      console.log("Handle:", h.constructor?.name, h._idleTimeout ? `timeout=${h._idleTimeout}` : "", h.path || "");
+      if (typeof h.unref === "function") h.unref();
+      if (typeof h.close === "function" && h.constructor?.name !== "WriteStream" && h.constructor?.name !== "ReadStream") {
+        try { h.close(); } catch(e) {}
+      }
+    }
+  }, 100);
 });

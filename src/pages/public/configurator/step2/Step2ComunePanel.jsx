@@ -1569,7 +1569,7 @@ export function Step2ComunePanel({ activeCampaignZone, activeComuneZeroData, add
                                       </div>
                                     </div>
 
-                                    {coverageDecision === "keepCurrent" && <div style={{
+                                     {coverageDecision === "keepCurrent" && <div style={{
                             padding: "10px 14px",
                             borderRadius: 10,
                             background: "rgba(46,204,138,.08)",
@@ -1580,7 +1580,20 @@ export function Step2ComunePanel({ activeCampaignZone, activeComuneZeroData, add
                             fontWeight: 700,
                             textAlign: "center"
                           }}>
-                                        Quantita disponibile confermata. Puoi modificare la scelta qui sotto.
+                                        Quantità disponibile confermata ({Number(availableFlyers || 0).toLocaleString("it-IT", { useGrouping: true })} pz). Copertura parziale impostata.
+                                      </div>}
+                                     {coverageDecision === "useRecommended" && <div style={{
+                            padding: "10px 14px",
+                            borderRadius: 10,
+                            background: "rgba(34,197,94,.12)",
+                            border: "1px solid rgba(34,197,94,.35)",
+                            fontFamily: F.sans,
+                            fontSize: 12,
+                            color: C.green,
+                            fontWeight: 700,
+                            textAlign: "center"
+                          }}>
+                                        Configurazione pronta: quantità aggiornata a {formatIntegerIT(requiredFlyers)} volantini (copertura completa 100%).
                                       </div>}
                                     <div style={{
                             display: "flex",

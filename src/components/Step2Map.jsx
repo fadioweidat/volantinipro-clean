@@ -1424,6 +1424,10 @@ function Step2MapImpl({
               pane: 'nilPolygonsPane',
               onEachFeature: (feature, layer) => {
                 layer.bindTooltip(tip, { direction: 'auto', opacity: 1, sticky: true, interactive: false, pane: 'tooltipPane' });
+                layer.on('click', () => {
+                  if (import.meta.env.DEV) console.log('[COVERAGE_POLYGON_CLICKED]', { zone: z.name, id: z.id || z.zoneId });
+                  onToggleZone?.(z.id || z.zoneId || z.name);
+                });
                 layer.on('mouseover', () => {
                   layer.setStyle({ weight: gisStyle.weight + 1.4, fillOpacity: Math.min(0.5, gisStyle.fillOpacity + 0.18) });
                   layer.bringToFront?.();

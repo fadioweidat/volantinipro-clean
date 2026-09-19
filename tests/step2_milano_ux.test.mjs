@@ -206,6 +206,7 @@ function memStorage() { const m = new Map(); return { getItem: k => m.has(k) ? m
 const STUB_MAP = `import React from "react";const N=()=>null;export const Step2Map=N;export default N;`;
 const STUB_MOTION = `import React from "react";const p=(t)=>React.forwardRef((props,ref)=>React.createElement(t,{...props,ref}));export const motion=new Proxy({},{get:(_,k)=>p(typeof k==="string"?k:"div")});export const AnimatePresence=({children})=>children??null;export default {motion,AnimatePresence};`;
 const vite = await createServer({
+  configFile: false,
   server: { middlewareMode: true, watch: null }, appType: "custom", logLevel: "silent",
   optimizeDeps: { noDiscovery: true, include: [] },
   plugins: [{
@@ -214,7 +215,8 @@ const vite = await createServer({
     load(id) { if (id === "\0fm") return STUB_MOTION; const n = id.replace(/\\/g, "/"); return n.endsWith("/components/Step2Map.jsx") ? STUB_MAP : null; },
   }],
 });
-
+const mod = await vite.ssrLoadModule("/src/pages/public/configurator/Step2.jsx");
+const Step2 = mod.Step2 || mod.default;
 const milanoData = () => ({
   activeService: "d2d", selectedService: "d2d", type: "d2d",
   qty: 10000, flyerQuantity: 10000, flyerQuantityFromStep1: 10000,
@@ -223,9 +225,6 @@ const milanoData = () => ({
   city: { name: "Milano", label: "Milano", comune: "Milano", municipality_code: "015146", istat_code: "015146", lat: 45.4642, lng: 9.19, provincia: "MI" },
 });
 const varedoData = () => ({ ...milanoData(), cityName: "Varedo", city: { name: "Varedo", label: "Varedo", comune: "Varedo", municipality_code: "108048", lat: 45.5986, lng: 9.1497, provincia: "MB" } });
-
-const mod = await vite.ssrLoadModule("/src/pages/public/configurator/Step2.jsx");
-const Step2 = mod.Step2 || mod.default;
 const renderStep2 = (data) => renderToStaticMarkup(React.createElement(Step2, { data, setData: noop, onNext: noop, onBack: noop, onAssistantContextChange: noop }));
 
 test("A. Milano: la guida UX Milano E' presente, con mode chips + Municipio disabilitato + ricerca NIL", () => {
@@ -248,6 +247,18 @@ test("B. Varedo: NESSUNA guida UX Milano; Step 2 normale, nessun crash", () => {
   assert.ok(html.length > 0);
 });
 
-test.after(async () => {
-  await vite.close();
+after(async () => {
+  try {
+    await vite.close();
+    await vite.watcher?.close();
+  } catch (e) {}
+  setTimeout(() => {
+    const handles = process._getActiveHandles?.() || [];
+    for (const h of handles) {
+      if (typeof h.unref === "function") h.unref();
+      if (typeof h.close === "function" && h.constructor?.name !== "WriteStream" && h.constructor?.name !== "ReadStream") {
+        try { h.close(); } catch(e) {}
+      }
+    }
+  }, 50);
 });
