@@ -377,36 +377,33 @@ function DriverTracker({
     });
   }
 
-  // Avvio/chiusura manuale zona: STESSE chiamate di prima
-  // (setDriverZoneWorkStatus), solo estratte in funzioni per la lista compatta.
+  // Ogni telefono possiede UNA propria sessione GPS. Più telefoni che usano
+  // lo stesso link di gruppo possono lavorare contemporaneamente su zone
+  // diverse. "Inizia" apre la sessione GPS di QUESTO dispositivo e marca la
+  // zona In corso in modo atomico lato server.
   function startZone(z) {
+    if (tracking.isActive || tracking.isPaused) {
+      const ownZone = zonesToDisplay.find((zone) => zone.id === tracking.session?.campaign_zone_id);
+      setActionError(`Questo telefono sta già lavorando su ${ownZone?.zone_name || 'un’altra zona'}. Termina quella zona prima di avviarne un’altra su questo dispositivo.`);
+      return;
+    }
     runAction(`START_ZONE:${z.id}`, async () => {
-      await setDriverZoneWorkStatus({
-        assignmentId,
-        zoneId: z.id,
-        status: 'In corso',
-        accessToken,
-      });
+      await tracking.start(z.id);
       onRefreshAssignment?.();
     });
   }
 
   function completeZone(z) {
-    if (!window.confirm(`Confermi di aver finito ${z.zone_name}? La zona verrà segnata come completata.`)) return;
     const isCurrentZone = tracking.session?.campaign_zone_id === z.id && z.id != null;
+    if (!isCurrentZone || (!tracking.isActive && !tracking.isPaused)) {
+      setActionError(`${z.zone_name} è in corso su un altro dispositivo. Va terminata dal telefono che la sta tracciando.`);
+      return;
+    }
+    if (!window.confirm(`Confermi di aver finito ${z.zone_name}? La sessione GPS verrà chiusa e la zona segnata come completata.`)) return;
     runAction(`COMPLETE_ZONE:${z.id}`, async () => {
-      await setDriverZoneWorkStatus({
-        assignmentId,
-        zoneId: z.id,
-        status: 'Completata',
-        accessToken,
-      });
-      // Se questo telefono sta tracciando proprio questa zona,
-      // chiudi anche la sessione GPS. La chiusura della zona resta
-      // comunque una scelta manuale dell'operatore.
-      if (isCurrentZone && (tracking.isActive || tracking.isPaused)) {
-        try { await tracking.end(); } catch { /* stato zona già salvato; errore GPS mostrato separatamente */ }
-      }
+      // gps_transition_session_v3('complete') chiude sessione + zona nella
+      // stessa transazione. Nessun auto-completamento su percentuale.
+      await tracking.end();
       onRefreshAssignment?.();
     });
   }
@@ -588,7 +585,7 @@ function DriverTracker({
         assignmentId={assignmentId}
         campaignId={campaignId}
         accessToken={accessToken}
-        activeZone={zoneWorkflow.inProgressZone}
+        activeZone={zonesToDisplay.find((z) => z.id === tracking.session?.campaign_zone_id) || null}
         onOpenZoneMap={(zoneId) => navigateDriver(driverPathWithQuery(`/driver/assignment/${assignmentId}/map${zoneId ? `?zoneId=${zoneId}` : ''}`))}
       />
 
