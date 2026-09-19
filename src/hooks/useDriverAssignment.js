@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // Segreto per-assignment (operator_assignments.access_token) incorporato dal
 // link WhatsApp come ?access=... (vedi generateDriverAssignmentLink in
@@ -60,6 +60,7 @@ function logDriverLoadTiming(t, err = null) {
 // anonimo puo' restare vuoto, trattato come "non ancora confermato").
 export function useDriverAssignment(assignmentId) {
   const accessToken = useMemo(() => readAccessTokenFromLocation(), [assignmentId]);
+  const hydratedRef = useRef(false);
   const [assignmentData, setAssignmentData] = useState(null);
   const [assignmentZones, setAssignmentZones] = useState(null);
   const [assignmentError, setAssignmentError] = useState(null);
@@ -97,19 +98,26 @@ export function useDriverAssignment(assignmentId) {
   useEffect(() => {
     let cancelled = false;
 
-    setLoadingAssignment(true);
+    const backgroundRefresh = hydratedRef.current;
+    if (!backgroundRefresh) {
+      setLoadingAssignment(true);
+      setAssignmentData(null);
+      setAssignmentZones(null);
+      setCampaignId(null);
+      setCampaignRecord(null);
+      setConfirmedAt(null);
+      setOpenEventStatus('idle');
+    } else {
+      // Refresh dopo Start/Stop zona: mantieni la pagina gia' visibile.
+      // Non tornare alla schermata full-screen "Caricamento assegnazione...".
+      setLoadingAssignment(false);
+    }
     setLoadingProgramDetails(true);
-    setAssignmentData(null);
-    setAssignmentZones(null);
-    setCampaignId(null);
-    setCampaignRecord(null);
-    setConfirmedAt(null);
     setAssignmentError(null);
     setAssignmentErrorType(null);
     setIsTransientError(false);
     setProgramDetailsError(null);
     setConfirmationError(null);
-    setOpenEventStatus('idle');
     setOpenEventError(null);
 
     // Timing DEV-only (import.meta.env.DEV): performance.now() per fase,
@@ -139,21 +147,35 @@ export function useDriverAssignment(assignmentId) {
 
         let rpcResult = null;
         let rpcErr = null;
-        // Bounded retry (up to 3 attempts, 1.2s delay) for transient PostgREST schema cache / 503 errors
-        for (let attempt = 0; attempt < 3; attempt++) {
-          const { data: res, error } = await supabase.rpc('get_public_driver_assignment', {
-            p_assignment_id: assignmentId,
-          });
-          if (!error) {
-            rpcResult = res;
-            rpcErr = null;
-            break;
+        // Mobile fail-fast: una fetch PostgREST puo' restare appesa per minuti
+        // quando la rete cambia radio/Wi-Fi. Limitiamo ogni tentativo a 8s e
+        // facciamo al massimo un retry. La pagina gia' caricata resta visibile
+        // durante i refresh successivi.
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const rpcCall = supabase.rpc('get_public_driver_assignment', {
+              p_assignment_id: assignmentId,
+            });
+            const { data: res, error } = await Promise.race([
+              rpcCall,
+              new Promise((_, reject) => window.setTimeout(() => {
+                const timeout = new Error('DRIVER_ASSIGNMENT_TIMEOUT');
+                timeout.code = 'DRIVER_ASSIGNMENT_TIMEOUT';
+                reject(timeout);
+              }, 8000)),
+            ]);
+            if (!error) {
+              rpcResult = res;
+              rpcErr = null;
+              break;
+            }
+            rpcErr = error;
+            if (!isTransientSchemaOrNetworkError(error) || attempt === 1) break;
+          } catch (error) {
+            rpcErr = error;
+            if (attempt === 1) break;
           }
-          rpcErr = error;
-          if (!isTransientSchemaOrNetworkError(error) || attempt === 2) {
-            break;
-          }
-          await new Promise(r => setTimeout(r, 1200));
+          await new Promise(r => setTimeout(r, 600));
         }
 
         if (DEBUG_TIMING) t.assignment = performance.now();
@@ -191,11 +213,18 @@ export function useDriverAssignment(assignmentId) {
         if (!cancelled) {
           if (DEBUG_TIMING) logDriverLoadTiming(t, err);
           console.error('[DRIVER ASSIGNMENT LOAD ERROR]', err);
-          const isTransient = isTransientSchemaOrNetworkError(err);
-          const friendlyMessage = mapDriverAssignmentLoadError(err);
-          setAssignmentError(friendlyMessage);
-          setIsTransientError(isTransient);
-          setAssignmentErrorType(null);
+          const timeout = err?.code === 'DRIVER_ASSIGNMENT_TIMEOUT' || String(err?.message || '').includes('DRIVER_ASSIGNMENT_TIMEOUT');
+          const isTransient = timeout || isTransientSchemaOrNetworkError(err);
+          const friendlyMessage = timeout
+            ? 'Connessione lenta. Il programma resta disponibile; riprova tra poco.'
+            : mapDriverAssignmentLoadError(err);
+          if (backgroundRefresh && hydratedRef.current) {
+            setProgramDetailsError(friendlyMessage);
+          } else {
+            setAssignmentError(friendlyMessage);
+            setIsTransientError(isTransient);
+            setAssignmentErrorType(null);
+          }
           setLoadingAssignment(false);
           setLoadingProgramDetails(false);
         }
@@ -240,6 +269,7 @@ export function useDriverAssignment(assignmentId) {
       // anonimo. Impostato qui cosi' "✓ Programma confermato" resta visibile
       // anche dopo un reload, invece di sparire per poi (forse) ricomparire.
       setConfirmedAt(data.confirmed_at || null);
+      hydratedRef.current = true;
       setLoadingAssignment(false);
 
       // ─── FASE 2 — NON-BLOCKING: evento apertura, fire-and-forget ───────
