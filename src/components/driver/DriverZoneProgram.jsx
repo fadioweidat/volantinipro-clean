@@ -33,7 +33,7 @@ function StatusPill({ state, legacy }) {
   );
 }
 
-export function DriverZoneProgram({ zones = [], stateOf, actionLoading = null, onStart, onComplete, onOpenMap }) {
+export function DriverZoneProgram({ zones = [], stateOf, actionLoading = null, onStart, onComplete, onOpenMap, currentDeviceZoneId = null, deviceTrackingActive = false }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const [expandedFuture, setExpandedFuture] = useState(false);
@@ -88,7 +88,9 @@ export function DriverZoneProgram({ zones = [], stateOf, actionLoading = null, o
         <section aria-label="Zone in corso">
           <h3 data-testid="section-in-progress" style={sectionTitle}>In corso ({view.inProgress.length})</h3>
           <div style={{ display: 'grid', gap: 8 }}>
-            {view.inProgress.map(({ zone: z, number }) => (
+            {view.inProgress.map(({ zone: z, number }) => {
+              const ownedByThisDevice = Boolean(deviceTrackingActive && currentDeviceZoneId && z.id === currentDeviceZoneId);
+              return (
               <div key={z.id || number} data-zone-row="active" style={{ border: '2px solid #2563eb', borderRadius: 12, padding: 12, background: '#eff6ff', minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <div style={{ minWidth: 0 }}>
@@ -99,13 +101,20 @@ export function DriverZoneProgram({ zones = [], stateOf, actionLoading = null, o
                 </div>
                 {z.notes && <p style={{ margin: '6px 0 0', fontSize: 13, color: '#64748b' }}>Note: {z.notes}</p>}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-                  <button type="button" style={{ ...endBtn, flex: '1 1 180px' }} disabled={busy} onClick={() => onComplete?.(z)}>
-                    {actionLoading === `COMPLETE_ZONE:${z.id}` ? 'Chiusura in corso...' : `Termina ${z.zone_name}`}
-                  </button>
+                  {ownedByThisDevice ? (
+                    <button type="button" style={{ ...endBtn, flex: '1 1 180px' }} disabled={busy} onClick={() => onComplete?.(z)}>
+                      {actionLoading === `COMPLETE_ZONE:${z.id}` ? 'Chiusura in corso...' : `Termina ${z.zone_name}`}
+                    </button>
+                  ) : (
+                    <span style={{ flex: '1 1 180px', alignSelf: 'center', fontSize: 12, fontWeight: 800, color: '#475569' }}>
+                      In corso su un altro dispositivo
+                    </span>
+                  )}
                   {z.id && <button type="button" style={ghostBtn} onClick={() => onOpenMap?.(z)}>Mappa</button>}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
