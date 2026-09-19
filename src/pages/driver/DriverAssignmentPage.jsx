@@ -166,7 +166,9 @@ function DriverTracker({
   const endsAt = assignmentData?.ends_at;
   const primaryComune = comuni[0] || null;
 
-  const operatorName = tracking.session?.driver_name
+  const operatorName = assignmentData?.operator_label
+    || tracking.session?.metadata?.operator_label
+    || tracking.session?.driver_name
     || tracking.session?.driverName
     || meta.operator_display_name
     || `Operatore ${String(tracking.session?.driver_id || assignmentData?.operator_id || 'assegnato').slice(0, 6)}`;
