@@ -13,7 +13,7 @@ import { normalizeZonesFromCampaign, summarizeGeofencePoints, deriveLiveZoneStat
 import { useZoneBoundaries } from '../../hooks/useZoneBoundaries.js';
 import { resolveMunicipalityBoundary } from '../../lib/geo/resolveMunicipalityBoundary.js';
 import { AdminLayout } from './AdminLayout.jsx';
-import { listCampaignAssignments, getCampaignManualOperationalMetrics } from '../../lib/services/admin-api.js';
+import { listCampaignAssignments, getCampaignManualOperationalMetrics, revokeOperatorAssignment } from '../../lib/services/admin-api.js';
 import { getOperatorColor } from '../../lib/geo/operatorColor.js';
 import { operatorKeyFor } from '../../lib/geo/operatorSplit.js';
 import { FitToZoneBounds } from '../../components/map/FitToZoneBounds.jsx';
@@ -176,6 +176,7 @@ export function GpsMonitor({ campaignId, onNav }) {
   // (pannello operatori del monitor) e vengono passati all'Editor Copertura
   // quando l'Admin apre "Correggi copertura".
   const [assignmentRows, setAssignmentRows] = useState([]);
+  const [revokingAssignmentId, setRevokingAssignmentId] = useState(null);
   useEffect(() => {
     let cancelled = false;
     if (!campaignId) { setAssignmentRows([]); return undefined; }
@@ -184,6 +185,27 @@ export function GpsMonitor({ campaignId, onNav }) {
       .catch(() => { if (!cancelled) setAssignmentRows([]); });
     return () => { cancelled = true; };
   }, [campaignId]);
+  async function handleRevokeOperator(op) {
+    const assignmentId = op?.assignmentId;
+    if (!assignmentId || revokingAssignmentId) return;
+    const label = op.displayName || op.slot || 'questo operatore';
+    const ok = window.confirm(
+      `Revocare ${label}? Non potrà più avviare o continuare nuove operazioni con questo accesso. Lo storico GPS resta conservato.`
+    );
+    if (!ok) return;
+    setRevokingAssignmentId(assignmentId);
+    try {
+      await revokeOperatorAssignment(assignmentId);
+      setAssignmentRows((prev) => prev.map((row) =>
+        row.id === assignmentId ? { ...row, status: 'revoked', revoked_at: new Date().toISOString() } : row
+      ));
+    } catch (err) {
+      window.alert(err?.message || 'Revoca operatore non riuscita.');
+    } finally {
+      setRevokingAssignmentId(null);
+    }
+  }
+
   const campaignOperators = useMemo(
     () => assignmentRows
       .filter((a) => !a.revoked_at && (a.status == null || a.status === 'active'))
@@ -680,6 +702,8 @@ export function GpsMonitor({ campaignId, onNav }) {
               activeSessionId={state.activeSession?.id}
               formatDateTime={formatDateTime}
               onUnlockDevice={handleUnlockDevice}
+              onRevokeOperator={handleRevokeOperator}
+              revokingAssignmentId={revokingAssignmentId}
               onNav={onNav}
               campaignId={campaignId}
             />
@@ -1019,7 +1043,7 @@ function calculatePointsDistanceKm(points) {
 // una riga per operatore, con traccia distinguibile,
 // stato (ONLINE / IN PAUSA / OFFLINE / TERMINATO), conteggi punti, km e toggle
 // mostra/nascondi la traccia sulla mappa.
-export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperators = [], assignedOperatorCount = 0, totalAssignedOperators = 0, operatorsWithGpsCount = 0, trackVisibility = {}, toggleTrack, zoneRows = [], activeSessionId, formatDateTime: fmt, onUnlockDevice, onNav, campaignId }) {
+export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperators = [], assignedOperatorCount = 0, totalAssignedOperators = 0, operatorsWithGpsCount = 0, trackVisibility = {}, toggleTrack, zoneRows = [], activeSessionId, formatDateTime: fmt, onUnlockDevice, onRevokeOperator, revokingAssignmentId = null, onNav, campaignId }) {
   if (!sessionTracks.length && !canonicalOperators.length) return null;
   const format = fmt || ((v) => (v ? new Date(v).toLocaleString('it-IT') : 'n/d'));
   const opByDriver = new Map(
@@ -1075,6 +1099,9 @@ export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperator
             const lastAt = track?.lastPoint?.recorded_at || track?.session?.updated_at || null;
             const status = track ? operatorStatusLabel(track) : (op.assigned ? 'ASSEGNATO' : 'REVOCATO');
             const statusColor = status === 'ONLINE' ? '#22c55e' : status === 'IN PAUSA' ? '#fbbf24' : status === 'TERMINATO' ? '#94a3b8' : '#f87171';
+            const currentZoneId = track?.session?.campaign_zone_id || op.zoneId || null;
+            const currentZoneName = currentZoneId ? zoneNameById.get(currentZoneId) || null : null;
+            const isRevoking = revokingAssignmentId === op.assignmentId;
 
             return (
               <div
@@ -1098,11 +1125,37 @@ export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperator
                     {status}
                   </span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'rgba(255,255,255,.6)', marginTop: 2 }}>
+                {currentZoneName && (
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,.7)' }}>
+                    Zona: <strong style={{ color: '#fff' }}>{currentZoneName}</strong>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'rgba(255,255,255,.6)', marginTop: 2, gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ color: '#2ecc8a', fontWeight: 800 }}>{distKm.toFixed(1)} km</span>
                   <span>{validPts} punti</span>
                   <span style={{ fontSize: 10, color: 'rgba(255,255,255,.4)' }}>{lastAt ? format(lastAt) : 'nessun ping'}</span>
                 </div>
+                {onRevokeOperator && op.assignmentId && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                    <button
+                      type="button"
+                      disabled={isRevoking}
+                      onClick={() => onRevokeOperator(op)}
+                      style={{
+                        border: '1px solid rgba(248,113,113,.35)',
+                        background: 'rgba(248,113,113,.08)',
+                        color: isRevoking ? 'rgba(255,255,255,.4)' : '#fca5a5',
+                        borderRadius: 8,
+                        padding: '5px 9px',
+                        fontSize: 10,
+                        fontWeight: 900,
+                        cursor: isRevoking ? 'default' : 'pointer',
+                      }}
+                    >
+                      {isRevoking ? 'Revoca…' : 'Revoca OP'}
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
