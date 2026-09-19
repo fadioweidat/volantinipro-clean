@@ -1399,12 +1399,16 @@ function Step2MapImpl({
                 ? { fillOpacity: 0.16, weight: 1.3, opacity: 0.75 }
                 : { fillOpacity: 0.22, weight: 1.6, opacity: 0.9 };
         const fillOpacity = Math.max(0.006, Math.min(0.32, coverageIntensity.fillOpacity * opacityScale));
+        // NIL selezionabili (Quartieri): click aggiunge/rimuove tramite lo stesso
+        // onToggleZone/`selected` usato da lista e ricerca. Le NIL scelte hanno
+        // bordo piu' marcato e riempimento piu' pieno.
+        const isSelectableNil = Boolean(z.selectable && isD2D && onToggleZone);
         const gisStyle = {
-          color: coverageColors.border,
+          color: z.isSelected ? '#E8571A' : coverageColors.border,
           fillColor: coverageColors.fill,
-          fillOpacity,
-          weight: coverageIntensity.weight,
-          opacity: coverageIntensity.opacity,
+          fillOpacity: z.isSelected ? Math.max(fillOpacity, 0.28) : fillOpacity,
+          weight: z.isSelected ? Math.max(coverageIntensity.weight, 2.4) : coverageIntensity.weight,
+          opacity: z.isSelected ? 1 : coverageIntensity.opacity,
           lineCap: 'round',
           lineJoin: 'round',
         };
@@ -1424,8 +1428,12 @@ function Step2MapImpl({
                 layer.bindTooltip(tip, { direction: 'auto', opacity: 1, sticky: true, interactive: false, pane: 'tooltipPane' });
                 layer.on('click', () => {
                   if (import.meta.env.DEV) console.log('[COVERAGE_POLYGON_CLICKED]', { zone: z.name, id: z.id || z.zoneId });
-                  onToggleZone?.(z.id || z.zoneId || z.name);
+                  onToggleZone?.(isSelectableNil ? z.id : (z.id || z.zoneId || z.name));
                 });
+                if (isSelectableNil) {
+                  const el = layer.getElement?.();
+                  if (el) el.style.cursor = 'pointer';
+                }
                 layer.on('mouseover', () => {
                   layer.setStyle({ weight: gisStyle.weight + 1.4, fillOpacity: Math.min(0.5, gisStyle.fillOpacity + 0.18) });
                   layer.bringToFront?.();

@@ -71,7 +71,9 @@ test('rankNilSearchResults rispetta il limite risultati (default 20) senza alter
 test('Step2.jsx: milanoNilSearchResults deriva da rankNilSearchResults sulla stessa zoneRowsForList, nessun nuovo fetch/calcolo', () => {
   assert.match(step2, /import \{ filterNilRows, rankNilSearchResults \} from "\.\.\/\.\.\/\.\.\/lib\/step2\/milanoNilView\.js"/);
   assert.match(step2, /const milanoNilSearchResults = useMemo\(/);
-  assert.match(step2, /rankNilSearchResults\(zoneRowsForList, nilQuery, \{ limit: 20 \}\)/);
+  assert.match(step2, /rankNilSearchResults\(milanoGlobalNilRows, nilQuery, \{ limit: 20 \}\)/);
+  assert.match(step2, /onToggleNilSelection=\{toggleNilZone\}/);
+  assert.match(step2, /nilSearchPoolSize=\{globalNilZones\.length\}/);
 });
 
 test('Step2.jsx: onSelectOnlyNil riusa setSelected([zoneId]) — stessa funzione canonica del bottone card, nessuna logica duplicata', () => {

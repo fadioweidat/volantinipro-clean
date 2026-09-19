@@ -4,7 +4,7 @@ import { formatIntegerIT, formatPercentIT } from "../../../../lib/utils/format.j
 
 import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 
-export function Step2ComunePanel({ activeCampaignZone, activeComuneZeroData, addressPreviewNilZones, addressSearchError, allocationMode, analysisError, analysisLoading, areaMode, availableFlyers, businessMetrics, city, col, comuniPriorityOrder, containingNil, coverageAddress, coverageDecision, coverageMode, coverageStrategy, debugStep2Log, flyerQuantityFromStep1, getComuneColor, getCoverageStatus, handleNext, hasAtLeastOne, hasSearchPoint, hasSurplus, hasUnconfirmedAddressPoint, isBusinessStep2, isComuneMode, isCoverageDecisionValid, isInvalid, isMilanoComuneCollapsible, isMobile, isMovementStep2, isNilAnalysis, isPartial, isRadiusMode, isResidentialStep2, manualAssignments, manualFlyers, marginalResidentialZones, marginalZoneCoverage, marginalZoneFamilies, milanoComuneNilInsufficient, missingFlyers, movePriorityZone, municipalityTotalFamilies, municipalityTotalFamiliesLabel, municipalityTotalFamiliesRowLabel, nilManualMode, nilUnavailable, primaryCoveredZones, radius, radiusKm, remainingFlyers, requiredFlyers, resolveMilanoCity, searchMode, selected, selZones, selectCoverageQuantityDecision, selectedAreaFamiliesLabel, selectedCaps, selectedNils, selectedSearchPoint, serviceKpis, setAddressFullCoverageConfirmed, setAddressSearchError, setAllocationMode, setCity, setCoverageDecision, setCoverageStrategy, setData, setDropOpen, setNilManualMode, setPartialCoverageConfirmed, setRequestedAnalysisLevel, setSearch, setSelected, setSelectedComuni, setSelectedSearchPoint, setShowMarginalZones, setShowMilanoNilList, setZoneListSort, sharedCoveragePctText, shouldGroupMarginalZones, showMarginalZones, showMilanoNilList, showTerritoryData, startManualPinSelection, step2CoverageFullLabel, step2RequirementContextLabel, step2TruthModel, step2ViewModel, summaryComuniStats, surplusFlyers, switchToComuneMode, switchToNilMode, switchToRadiusMode, territorialDataUnavailable, territorySingularLabel, toggleZone, totalAssigned, updateActiveRadius, updateManual, updateManualFlyersQuantity, zCap, zoneCoveragePctForBox, zoneListSort, zoneListSourceCount, zoneRowsForList, zonesAllocation, zonesInRadius }) {
+export function Step2ComunePanel({ activeCampaignZone, activeComuneZeroData, addressPreviewNilZones, addressSearchError, allocationMode, analysisError, analysisLoading, areaMode, availableFlyers, businessMetrics, city, col, comuniPriorityOrder, containingNil, coverageAddress, coverageDecision, coverageMode, coverageStrategy, debugStep2Log, flyerQuantityFromStep1, getComuneColor, getCoverageStatus, handleNext, hasAtLeastOne, hasSearchPoint, hasSurplus, hasUnconfirmedAddressPoint, isBusinessStep2, isComuneMode, isCoverageDecisionValid, isInvalid, isMilanoComuneCollapsible, isMobile, isMovementStep2, isNilAnalysis, isPartial, isRadiusMode, isResidentialStep2, manualAssignments, manualFlyers, marginalResidentialZones, marginalZoneCoverage, marginalZoneFamilies, milanoComuneNilInsufficient, missingFlyers, movePriorityZone, municipalityTotalFamilies, municipalityTotalFamiliesLabel, municipalityTotalFamiliesRowLabel, nilManualMode, nilUnavailable, primaryCoveredZones, radius, radiusKm, remainingFlyers, requiredFlyers, resolveMilanoCity, searchMode, selected, selZones, selectCoverageQuantityDecision, selectedAreaFamiliesLabel, selectedCaps, selectedNils, selectedSearchPoint, serviceKpis, setAddressFullCoverageConfirmed, setAddressSearchError, setAllocationMode, setCity, setCoverageDecision, setCoverageStrategy, setData, setDropOpen, setNilManualMode, setPartialCoverageConfirmed, setRequestedAnalysisLevel, setSearch, setSelected, setSelectedComuni, setSelectedSearchPoint, setShowMarginalZones, setShowMilanoNilList, setZoneListSort, sharedCoveragePctText, shouldGroupMarginalZones, showMarginalZones, showMilanoNilList, showTerritoryData, startManualPinSelection, step2CoverageFullLabel, step2RequirementContextLabel, step2TruthModel, step2ViewModel, summaryComuniStats, surplusFlyers, switchToComuneMode, switchToNilMode, switchToRadiusMode, territorialDataUnavailable, territorySingularLabel, toggleZone, nilResidual, totalAssigned, updateActiveRadius, updateManual, updateManualFlyersQuantity, zCap, zoneCoveragePctForBox, zoneListSort, zoneListSourceCount, zoneRowsForList, zonesAllocation, zonesInRadius }) {
   return (
     <>
       {/* TICKET — COVERAGE MODE: switcher PERMANENTE dopo la prima ricerca.
@@ -1723,13 +1723,17 @@ export function Step2ComunePanel({ activeCampaignZone, activeComuneZeroData, add
                               color: "rgba(255,255,255,.8)",
                               lineHeight: 1.5
                             }}>
-                                        Hai inserito {flyerQuantityFromStep1.toLocaleString("it-IT", {
+                                        {nilResidual?.active ? <>
+                                          <strong>{nilResidual.anchorName} coperto al 100% — {requiredFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini</strong>
+                                          <br />
+                                          Restano {surplusFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini da assegnare
+                                        </> : <>Hai inserito {flyerQuantityFromStep1.toLocaleString("it-IT", {
                                 useGrouping: true
                               })} volantini. Per coprire {hasUnconfirmedAddressPoint ? (containingNil?.name || addressPreviewNilZones?.main?.name || selZones?.[0]?.name || "il NIL vicino") : areaMode === "custom_zone" ? (selZones.map(z => z.name).join(", ") || "l'area selezionata") : (city?.name || "l'area selezionata")} la quantità consigliata è circa {requiredFlyers.toLocaleString("it-IT", {
                                 useGrouping: true
                               })}. I volantini residui sono {surplusFlyers.toLocaleString("it-IT", {
                                 useGrouping: true
-                              })}.
+                              })}.</>}
                                       </div>
                                       <div style={{
                               display: "grid",
@@ -1784,7 +1788,7 @@ export function Step2ComunePanel({ activeCampaignZone, activeComuneZeroData, add
                                       </div>
                                     </div>
 
-                                    {coverageStrategy && <div style={{
+                                    {coverageStrategy && !nilResidual?.active && <div style={{
                             padding: "10px 14px",
                             borderRadius: 10,
                             background: "rgba(46,204,138,.08)",
@@ -1797,10 +1801,53 @@ export function Step2ComunePanel({ activeCampaignZone, activeComuneZeroData, add
                                         {coverageStrategy === "reduce_to_recommended" && `Quantità ridotta a ${requiredFlyers.toLocaleString("it-IT", {
                               useGrouping: true
                             })} volantini.`}
-                                        {coverageStrategy === "extra_frequency" && "Useremo i volantini extra per rinforzare le zone migliori / secondo passaggio dove utile."}
+                                        {coverageStrategy === "extra_frequency" && `I ${surplusFlyers.toLocaleString("it-IT", { useGrouping: true })} volantini extra restano su ${selZones?.[0]?.name || "questa zona"} come secondo passaggio.`}
                                         {coverageStrategy === "expand_area" && "Espansione area richiesta — passa a modalità Raggio o aggiungi comuni vicini per usare tutti i volantini."}
                                       </div>}
 
+                                    {nilResidual?.active ? (() => {
+                                      const fmt = n => Number(n || 0).toLocaleString("it-IT", { useGrouping: true });
+                                      const proposal = nilResidual.proposal;
+                                      const options = [
+                                        {
+                                          key: "residual_auto",
+                                          title: "A · Automatico",
+                                          body: proposal
+                                            ? `${proposal.name} — fabbisogno pieno ${fmt(proposal.need)} · assegnati ${fmt(proposal.allocated)} · copertura ${proposal.coveragePct}% · mancano ${fmt(proposal.missing)} al 100%`
+                                            : "Nessuna NIL vicina disponibile",
+                                          disabled: !proposal
+                                        },
+                                        {
+                                          key: "residual_manual",
+                                          title: "B · Manuale",
+                                          body: "Seleziona una zona sulla mappa: i volantini residui vanno alla NIL che scegli."
+                                        },
+                                        {
+                                          key: "residual_second_pass",
+                                          title: "C · Secondo passaggio",
+                                          body: `Usa i ${fmt(surplusFlyers)} volantini residui su ${nilResidual.anchorName} (secondo passaggio nella stessa zona).`
+                                        }
+                                      ];
+                                      return <div role="radiogroup" aria-label="Come assegnare i volantini residui" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                        {options.map(opt => {
+                                          const active = nilResidual.strategy === opt.key;
+                                          return <button key={opt.key} type="button" role="radio" aria-checked={active} disabled={opt.disabled} onClick={() => nilResidual.onChoose(opt.key)} style={{
+                                            textAlign: "left",
+                                            padding: "10px 12px",
+                                            borderRadius: 10,
+                                            background: active ? `${col}22` : "rgba(255,255,255,.03)",
+                                            border: `1px solid ${active ? col : "rgba(255,255,255,.14)"}`,
+                                            color: opt.disabled ? "rgba(255,255,255,.35)" : C.white,
+                                            cursor: opt.disabled ? "not-allowed" : "pointer",
+                                            fontFamily: F.sans
+                                          }}>
+                                            <div style={{ fontSize: 11, fontWeight: 800, color: active ? col : C.white }}>{active ? "[x] " : ""}{opt.title}</div>
+                                            <div style={{ fontSize: 11, lineHeight: 1.4, color: "rgba(255,255,255,.7)", marginTop: 2 }}>{opt.body}</div>
+                                          </button>;
+                                        })}
+                                        {nilResidual.strategy === "residual_manual" && <div style={{ fontFamily: F.sans, fontSize: 11, fontWeight: 700, color: col }}>Seleziona una zona sulla mappa</div>}
+                                      </div>;
+                                    })() : (
                                     <div style={{
                                       display: "grid",
                                       gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
@@ -1901,7 +1948,7 @@ export function Step2ComunePanel({ activeCampaignZone, activeComuneZeroData, add
                                             color: "rgba(255,255,255,.65)",
                                             lineHeight: 1.4
                                           }}>
-                                            Mantieni <b>{formatIntegerIT(flyerQuantityFromStep1)}</b> volantini: useremo i {formatIntegerIT(surplusFlyers)} extra per un 2° passaggio o rinforzo.
+                                            Mantieni <b>{formatIntegerIT(flyerQuantityFromStep1)}</b> volantini: i {formatIntegerIT(surplusFlyers)} extra restano su {selZones?.[0]?.name || "questa zona"} come secondo passaggio.
                                           </div>
                                         </div>
                                         <button
@@ -1984,6 +2031,7 @@ export function Step2ComunePanel({ activeCampaignZone, activeComuneZeroData, add
                                         </button>
                                       </div>
                                     </div>
+                                    )}
 
                                     {coverageStrategy === "expand_area" && <div style={{
                             display: "flex",

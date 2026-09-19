@@ -95,6 +95,8 @@ export function MilanoGuidance({
   onToggleZone = null,
   onFocusNilSearchResult = null,
   onSelectOnlyNil = null,
+  onToggleNilSelection = null,
+  nilSearchPoolSize = null,
   // azioni (handler ESISTENTI di Step2.jsx)
   onShowNil = null,
   onUseRadius = null,
@@ -161,7 +163,7 @@ export function MilanoGuidance({
   });
   const statusLine = nilStatusSummaryLine(summary);
   const priority = neutralPriorityLabel({ allocationMode, firstZoneName: firstAllocationZoneName });
-  const showNilSearch = !isRadiusMode && !isCapMode; // ricerca solo dove esiste una lista NIL
+  const showNilSearch = (!isRadiusMode || nilManualMode) && !isCapMode; // ricerca solo dove esiste una lista NIL
 
   return (
     <div
@@ -360,7 +362,7 @@ export function MilanoGuidance({
           {nilQuery ? (
             <div style={{ fontSize: 10.5, color: "rgba(255,255,255,.5)" }}>
               {Number(nilResultCount) || 0} {Number(nilResultCount) === 1 ? "zona trovata" : "zone trovate"}
-              {availableNilCount ? ` su ${availableNilCount}` : ""} · la selezione non cambia con la ricerca
+              {(Number(nilSearchPoolSize) || availableNilCount) ? ` su ${Number(nilSearchPoolSize) || availableNilCount}` : ""} · la selezione non cambia con la ricerca
             </div>
           ) : null}
 
@@ -393,7 +395,7 @@ export function MilanoGuidance({
               ) : (
                 nilSearchResults.map((result, idx) => {
                   const active = idx === searchActiveIndex;
-                  const isSelected = Boolean(selected?.includes(result.id));
+                  const isSelected = typeof result.isSelected === "boolean" ? result.isSelected : Boolean(selected?.includes(result.id));
                   return (
                     <div
                       key={result.id}
@@ -431,12 +433,12 @@ export function MilanoGuidance({
                       </div>
 
                       <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-                        {onToggleZone && result.isNil ? (
+                        {(onToggleNilSelection || onToggleZone) && result.isNil ? (
                           <button
                             type="button"
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => {
-                              onToggleZone(result.id);
+                              (onToggleNilSelection || onToggleZone)(result.id);
                               if (onFocusNilSearchResult) onFocusNilSearchResult(result.id);
                             }}
                             style={{

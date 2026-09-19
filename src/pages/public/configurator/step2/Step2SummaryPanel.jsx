@@ -5,7 +5,7 @@ import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 import { Step2BottomActions } from "./Step2BottomActions.jsx";
 import { Step2SynthesisMessage } from "./Step2SynthesisMessage.jsx";
 
-export function Step2SummaryPanel({ activeCampaignZone, areaMode, businessMaterialPlan, businessOperationalPlan, canContinueCalendar, col, continueLabel, coverageDecisionReady, finalFlyersRounded, h2hMainOutputs, handleNext, hasUnconfirmedAddressPoint, isBusinessStep2, isMobile, isMovementStep2, isResidentialStep2, missingFlyers, operationalSelectionReady, pois, radius, radiusKm, residentialMainOutputsNormalized, selZones, selectedOperationalPois, setIsAdminView, showTerritoryData, step2CoverageFullLabel, step2CoveragePctLabel, step2RequirementContextLabel, step2TruthModel, step2ViewModel, step2ZonesReady, transportState, zonesInRadius }) {
+export function Step2SummaryPanel({ activeCampaignZone, areaMode, businessMaterialPlan, businessOperationalPlan, canContinueCalendar, col, continueLabel, step2ConfigReady, coverageDecisionReady, finalFlyersRounded, h2hMainOutputs, handleNext, hasUnconfirmedAddressPoint, isBusinessStep2, isMobile, isMovementStep2, isResidentialStep2, missingFlyers, operationalSelectionReady, pois, radius, radiusKm, residentialMainOutputsNormalized, selZones, selectedOperationalPois, setIsAdminView, showTerritoryData, step2CoverageFullLabel, step2CoveragePctLabel, step2RequirementContextLabel, step2TruthModel, step2ViewModel, step2ZonesReady, transportState, zonesInRadius }) {
   return (
     <>
       {/* RIGHT COLUMN - ACTIVE ZONE SUMMARY */}
@@ -424,9 +424,16 @@ export function Step2SummaryPanel({ activeCampaignZone, areaMode, businessMateri
           })()}
 
           {/* Bottom actions container (Sempre visibile in fondo al rail) */}
+          {step2ConfigReady ? <div data-testid="step2-config-ready" style={{
+            fontFamily: F.sans,
+            fontSize: 12,
+            fontWeight: 800,
+            color: C.green,
+            marginBottom: 8
+          }}>Configurazione pronta</div> : null}
           <Step2BottomActions
             step2ZonesReady={step2ZonesReady}
-            coverageDecisionReady={coverageDecisionReady}
+            coverageDecisionReady={coverageDecisionReady || step2ConfigReady}
             canContinueCalendar={canContinueCalendar}
             handleNext={handleNext}
             col={col}

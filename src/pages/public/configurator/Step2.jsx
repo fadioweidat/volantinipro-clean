@@ -2799,7 +2799,16 @@ export function Step2({
       areas = zonesInRadius; // already filtered to target zones; bypasses stale `selected`
       // Modalità NIL manuale o selezione esplicita NIL:
       if ((isNilAnalysis || nilManualMode || requestedAnalysisLevel === "nil") && selected.length > 0) {
-        const picked = areas.filter(z => selected.includes(z.id) || selected.includes(String(z.nilCode || z.nil_code)));
+        const selIndexOf = z => {
+          const byId = selected.indexOf(z.id);
+          return byId >= 0 ? byId : selected.indexOf(String(z.nilCode || z.nil_code));
+        };
+        const picked = areas.filter(z => selIndexOf(z) >= 0);
+        // Ordine = ordine di selezione (la NIL di partenza per prima, poi quelle
+        // aggiunte dal cliente): e' l'ordine con cui l'allocazione automatica
+        // assegna il residuo, cosi' il residuo va alla NIL aggiunta e non a
+        // quella di partenza. Solo NIL manuale: gli altri flussi restano invariati.
+        if (nilManualMode) picked.sort((a, b) => selIndexOf(a) - selIndexOf(b));
         if (picked.length > 0) areas = picked;
       } else if (hasUnconfirmedAddressPoint && !addressFullCoverageConfirmed && !nilManualMode) {
         // Se l'utente ha selezionato un indirizzo all'interno di Milano (es. Via Brera 5) e non ha confermato
@@ -3264,7 +3273,9 @@ export function Step2({
   // Surplus (business/UX layer only — does not touch families/coverage calc):
   // quantity > recommendedFlyers with 100% municipality coverage. !isPartial already
   // implies flyerQuantityFromStep1 >= requiredFlyers, so this only adds the ">" case.
-  const hasSurplus = isResidentialStep2 && searchMode === "municipality" && !isPartial && requiredFlyers > 0 && flyerQuantityFromStep1 > requiredFlyers;
+  // Esteso alla modalita' Quartieri (NIL manuale, searchMode "address"): li' il
+  // residuo esiste ugualmente e non deve sparire in silenzio (ticket residuo).
+  const hasSurplus = isResidentialStep2 && (searchMode === "municipality" || nilManualMode && isNilAnalysis) && !isPartial && requiredFlyers > 0 && flyerQuantityFromStep1 > requiredFlyers;
   const surplusFlyers = hasSurplus ? flyerQuantityFromStep1 - requiredFlyers : 0;
   useEffect(() => {
     if (hasSurplus) {
@@ -3394,6 +3405,95 @@ export function Step2({
   const finalFlyersRounded = Math.round(Number(finalFlyers || 0));
   const hasUsableAllocationData = isResidentialStep2 ? selZones.some(zone => !zone?.isFallback && Number(zone?.families || 0) > 0 && getZoneFullCoverageFlyers(zone) > 0) : isMovementStep2 ? selectedOperationalPois.length > 0 || step1OperationalPoints.length > 0 : selectedOperationalPois.length > 0;
   const allocationStatus = hasUsableAllocationData && assignedFlyersTotal === finalFlyersRounded ? "success" : "pending";
+  // ── RESIDUO NIL (ticket "residuo non allocato") ───────────────────────────
+  // Nessuna nuova formula: il residuo e' quanto della quantita' NON copre il
+  // fabbisogno pieno delle NIL selezionate, letto da zonesAllocation (stessa
+  // fonte di mappa/riepilogo). Con "secondo passaggio" l'eccedenza resta sulla
+  // prima zona come extra operativo dichiarato, quindi non e' "non assegnata".
+  const globalNilZones = useMemo(() => (zonesInRadius || []).filter(z => z && (z.isNil || z.territoryLevel === "nil" || z.nilCode || z.nil_code)), [zonesInRadius]);
+  const nilResidualContext = isResidentialStep2 && isNilAnalysis && (hasUnconfirmedAddressPoint || nilManualMode) && selZones.length > 0 && selZones.length < globalNilZones.length;
+  const residualCoveredTotal = zonesAllocation.reduce((sum, a) => sum + Math.min(Number(a.assignedFlyers || 0), Number(a.requiredFlyers || 0)), 0);
+  const residualUnassigned = nilResidualContext && coverageStrategy !== "residual_second_pass" ? Math.max(0, Math.round(allocationFlyers - residualCoveredTotal)) : 0;
+  const residualDecisionPending = nilResidualContext && residualUnassigned > 0;
+  const nilResidualProposal = useMemo(() => {
+    if (!nilResidualContext || residualUnassigned <= 0 || !selZones[0]) return null;
+    const coordsOf = z => {
+      const la = Number(z?.lat), ln = Number(z?.lng);
+      if (Number.isFinite(la) && Number.isFinite(ln)) return { lat: la, lng: ln };
+      const g = pickRealComuneGeometry(z);
+      return g ? geoJsonApproxCentroid(g) : null;
+    };
+    const anchor = coordsOf(selZones[0]);
+    if (!anchor) return null;
+    const pickedIds = new Set(selZones.map(z => z.id));
+    let best = null;
+    for (const z of globalNilZones) {
+      if (pickedIds.has(z.id) || !(Number(z.families) > 0)) continue;
+      const c = coordsOf(z);
+      if (!c) continue;
+      const d = haversineKm(anchor.lat, anchor.lng, c.lat, c.lng);
+      if (!best || d < best.d) best = { z, d };
+    }
+    if (!best) return null;
+    const need = getZoneFullCoverageFlyers(best.z);
+    const allocated = Math.min(residualUnassigned, need);
+    return {
+      id: best.z.id,
+      name: best.z.name,
+      need,
+      allocated,
+      coveragePct: need > 0 ? Math.round(allocated / need * 100) : 0,
+      missing: Math.max(0, need - allocated)
+    };
+  }, [nilResidualContext, residualUnassigned, selZones, globalNilZones]);
+  // Scelta esplicita del cliente su dove vanno i volantini residui. Conferma
+  // anche la modalita' Quartieri (era il "Seleziona una modalita' di copertura"
+  // ancora aperto nella sidebar) e usa SOLO lo stato canonico `selected`.
+  function chooseResidualStrategy(kind) {
+    const anchorId = selZones[0]?.id;
+    if (!anchorId) return;
+    if (!nilManualMode) switchToNilMode();
+    const nextSelected = kind === "residual_auto" && nilResidualProposal ? [anchorId, nilResidualProposal.id] : [anchorId];
+    setSelected(nextSelected);
+    setPendingNilPreselectName(null);
+    setAllocationMode("auto");
+    setManualFlyers("");
+    setManualAssignments({});
+    setCoverageStrategy(kind);
+    setCoverageDecision("keepCurrent");
+    setPartialCoverageConfirmed(true);
+  }
+  // Toggle NIL condiviso da mappa e ricerca: stesso `selected` della lista.
+  // Se la selezione e' ancora solo l'anteprima indirizzo (selected vuoto) parte
+  // dalle zone correnti, cosi' la NIL di partenza non viene persa.
+  function toggleNilZone(zoneId) {
+    if (String(zoneId).startsWith("cap_")) {
+      toggleZone(zoneId);
+      return;
+    }
+    if (coverageDecision !== "keepCurrent") {
+      setCoverageDecision(null);
+      setCoverageStrategy(null);
+    }
+    setSelected(prev => {
+      const base = prev.length ? prev : selZones.map(z => z.id);
+      if (base.includes(zoneId)) {
+        const next = base.filter(x => x !== zoneId);
+        return next.length ? next : base;
+      }
+      return [...base, zoneId];
+    });
+    if (!nilManualMode) setNilManualMode(true);
+  }
+  // La mappa Leaflet ridisegna i layer solo quando cambiano i suoi dati, non
+  // quando cambia l'identita' della callback: il wrapper stabile legge sempre
+  // l'ultima toggleNilZone (niente closure obsolete).
+  const toggleNilZoneRef = useRef(null);
+  toggleNilZoneRef.current = toggleNilZone;
+  const toggleNilZoneStable = useCallback(zoneId => toggleNilZoneRef.current?.(zoneId), []);
+  useEffect(() => {
+    if (coverageStrategy === "residual_auto" && nilResidualContext && residualUnassigned > 0) setCoverageStrategy(null);
+  }, [coverageStrategy, nilResidualContext, residualUnassigned]);
   const isInvalid = allocationMode === "manual" && totalAssigned > allocationFlyers;
   const isCoverageDecisionValid = coverageDecision === "keepCurrent" ? Number(availableFlyers) > 0 && finalFlyersRounded === Math.round(Number(availableFlyers)) : coverageDecision === "useRecommended" ? Number(requiredFlyers) > 0 && finalFlyersRounded === Math.round(Number(requiredFlyers)) : coverageDecision === "manual" ? Number.isFinite(manualFlyersNumber) && manualFlyersNumber > 0 && assignedFlyersTotal === finalFlyersRounded : false;
   useEffect(() => {
@@ -4133,20 +4233,29 @@ export function Step2({
     () => (milanoUxVisible && !isRadiusMode && nilQuery ? filterNilRows(zoneRowsForList, nilQuery) : zoneRowsForList),
     [milanoUxVisible, isRadiusMode, nilQuery, zoneRowsForList]
   );
+  const milanoGlobalNilRows = useMemo(
+    () => (milanoUxVisible ? globalNilZones.map(z => ({ type: "zone", zone: z })) : []),
+    [milanoUxVisible, globalNilZones]
+  );
   const milanoNilResultCount = useMemo(
-    () => (nilQuery ? (milanoFilteredZoneRows || []).filter(r => r && r.type === "zone").length : null),
-    [nilQuery, milanoFilteredZoneRows]
+    () => (nilQuery ? rankNilSearchResults(milanoGlobalNilRows, nilQuery, { limit: 1000 }).length : null),
+    [nilQuery, milanoGlobalNilRows]
   );
   // TICKET — "Trova una zona" -> autocomplete reale. Stessa sorgente dati di
   // milanoFilteredZoneRows (zoneRowsForList gia' calcolate sopra), solo
   // ri-ordinate (prefisso prima) e mappate a {id,name,isNil} per la tendina
   // risultati di MilanoGuidance. Nessun nuovo calcolo territoriale, nessuna
   // chiamata di rete: puro riuso presentazionale.
+  // BUG (ticket): la ricerca leggeva zoneRowsForList, cioe' SOLO le zone gia'
+  // selezionate/visibili ("comasina" con BRUZZANO selezionata -> 0 su 1). Ora
+  // legge il dataset NIL canonico completo (globalNilZones = tutte le NIL
+  // caricate, indipendente dalla selezione) e marca quali sono selezionate.
+  const selectedZoneIdSet = useMemo(() => new Set(selZones.map(z => z.id)), [selZones]);
   const milanoNilSearchResults = useMemo(
-    () => (milanoUxVisible && !isRadiusMode && !isCapMode && nilQuery
-      ? rankNilSearchResults(zoneRowsForList, nilQuery, { limit: 20 })
+    () => (milanoUxVisible && !isCapMode && nilQuery
+      ? rankNilSearchResults(milanoGlobalNilRows, nilQuery, { limit: 20 }).map(r => ({ ...r, isSelected: selectedZoneIdSet.has(r.id) }))
       : []),
-    [milanoUxVisible, isRadiusMode, isCapMode, nilQuery, zoneRowsForList]
+    [milanoUxVisible, isCapMode, nilQuery, milanoGlobalNilRows, selectedZoneIdSet]
   );
   const scrollToMilanoZoneRow = useCallback((zoneId) => {
     if (typeof document === "undefined" || !zoneId) return;
@@ -4312,10 +4421,16 @@ export function Step2({
         families: z.families || 0,
         assignedFlyers: alloc?.assignedFlyers || 0,
         recommendedFlyers: alloc?.requiredFlyers || z.volantiniNelRaggio || 0,
-        coveragePct: alloc?.coveragePercent || 0
+        coveragePct: alloc?.coveragePercent || 0,
+        // BUG (ticket): in Quartieri con indirizzo (searchMode "address", quindi
+        // isRadiusMode) i poligoni NIL venivano disegnati SENZA click handler.
+        // Cliccabili SOLO in NIL manuale (in Raggio puro la selezione resta
+        // automatica); isSelected serve a evidenziare le NIL scelte.
+        selectable: Boolean(nilManualMode && (z.isNil || z.territoryLevel === 'nil')),
+        isSelected: selectedZoneIdSet.has(z.id)
       };
     });
-  }, [isRadiusMode, zonesWithCoords, zoneAllocationById, zoneCoverageById]);
+  }, [isRadiusMode, zonesWithCoords, zoneAllocationById, zoneCoverageById, nilManualMode, selectedZoneIdSet]);
   if (isStep2DebugEnabled() && isRadiusMode) {
     console.log('[STEP2_RADIUS_POLYGONS_DEBUG]', {
       activeAreaTab,
@@ -4921,8 +5036,13 @@ export function Step2({
     selectedNilCount: selectedNils.length
   });
   const operationalSelectionReady = isResidentialStep2 || isMovementStep2 && (pois.length > 0 ? selectedOperationalPois.length > 0 : step1OperationalPoints.length > 0) || isBusinessStep2 && selectedOperationalPois.length > 0;
-  const canContinueCalendar = isBusinessStep2 ? step2ZonesReady && operationalSelectionReady && !gisLoading && !gisTimedOut : !step2ViewModel.ctaDisabled && step2ZonesReady && operationalSelectionReady && coverageDecisionReady && (!coverageDecisionRequired || allocationStatus === "success");
-  const continueLabel = step2ViewModel.ctaLabel || "Continua allo Step 3";
+  const residualDecisionMade = nilResidualContext && Boolean(coverageStrategy) && String(coverageStrategy).startsWith("residual_");
+  const residualBlocksContinue = residualDecisionPending;
+  const canContinueCalendar = isBusinessStep2 ? step2ZonesReady && operationalSelectionReady && !gisLoading && !gisTimedOut : !residualBlocksContinue && (residualDecisionMade || !step2ViewModel.ctaDisabled) && step2ZonesReady && operationalSelectionReady && (residualDecisionMade || coverageDecisionReady) && (residualDecisionMade || !coverageDecisionRequired || allocationStatus === "success");
+  const step2ConfigReady = !isBusinessStep2 && canContinueCalendar && residualDecisionMade;
+  const continueLabel = residualBlocksContinue
+    ? (coverageStrategy === "residual_manual" ? "Seleziona una zona sulla mappa" : "Scegli dove assegnare i volantini residui")
+    : (residualDecisionMade ? "Continua allo Step 3" : (step2ViewModel.ctaLabel || "Continua allo Step 3"));
 
   const assistantSnapshot = buildTerritorialAiSnapshot({
     truthModel: step2TruthModel,
@@ -5344,7 +5464,7 @@ export function Step2({
         targetBusinessMeta={targetBusinessMeta}
         thMax={thMax}
         thMin={thMin}
-        toggleZone={toggleZone}
+        toggleZone={toggleNilZoneStable}
         togglePoiAssignment={togglePoiAssignment}
         viewMode={viewMode}
         zoneAllocationById={zoneAllocationById}
@@ -5460,6 +5580,8 @@ export function Step2({
             nilSearchContextLabel={city?.label || city?.name || "Milano"}
             onFocusNilSearchResult={scrollToMilanoZoneRow}
             onSelectOnlyNil={(zoneId) => setSelected([zoneId])}
+            onToggleNilSelection={toggleNilZone}
+            nilSearchPoolSize={globalNilZones.length}
             onShowNil={enterNilManualMode}
             onUseRadius={switchToRadiusMode}
             onKeepMilanoComplete={switchToComuneMode}
@@ -5582,6 +5704,7 @@ export function Step2({
         territorialDataUnavailable={territorialDataUnavailable}
         territorySingularLabel={territorySingularLabel}
         toggleZone={toggleZone}
+        nilResidual={{ active: nilResidualContext, anchorName: selZones[0]?.name || "", proposal: nilResidualProposal, strategy: coverageStrategy, onChoose: chooseResidualStrategy }}
         totalAssigned={totalAssigned}
         updateActiveRadius={updateActiveRadius}
         updateManual={updateManual}
@@ -5605,6 +5728,7 @@ export function Step2({
           canContinueCalendar={canContinueCalendar}
           col={col}
           continueLabel={continueLabel}
+          step2ConfigReady={step2ConfigReady}
           coverageDecisionReady={coverageDecisionReady}
           finalFlyersRounded={finalFlyersRounded}
           h2hMainOutputs={h2hMainOutputs}
