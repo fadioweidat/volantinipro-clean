@@ -186,11 +186,13 @@ test('main.jsx: rotta /driver/group/:token -> DriverGroupJoinPage', () => {
   assert.match(mainJsx, /\/\^\\\/driver\\\/group\\\/\(\[\^\/\]\+\)\$\//);
 });
 
-test('DriverGroupJoinPage: reuse locale -> redirect al link personale; form nome operativo', () => {
+test('DriverGroupJoinPage: reuse locale -> redirect al link personale; identita\' OP automatica (nessun nome richiesto)', () => {
   assert.match(joinPage, /readDriverGroupJoin\(token\)/);
   assert.match(joinPage, /\/driver\/assignment\/\$\{join\.assignmentId\}\?access=/);
-  assert.match(joinPage, /id="group-operative-name"/);
-  assert.match(joinPage, /driverGroupJoin\(token, trimmed\)/);
+  // Prodotto attuale: OP 1, OP 2... assegnati automaticamente, nessun campo nome.
+  assert.doesNotMatch(joinPage, /id="group-operative-name"/);
+  assert.match(joinPage, /OP 1, OP 2, OP 3/);
+  assert.match(joinPage, /driverGroupJoin\(/);
   assert.match(joinPage, /GROUP_LINK_PIENO/);
   assert.match(joinPage, /GROUP_LINK_REVOCATO/);
 });
