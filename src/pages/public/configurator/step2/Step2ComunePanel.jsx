@@ -1789,68 +1789,187 @@ export function Step2ComunePanel({ activeCampaignZone, activeComuneZeroData, add
                                       </div>}
 
                                     <div style={{
-                            display: "flex",
-                            flexDirection: isMobile ? "column" : "row",
-                            gap: 8
-                          }}>
-                                        <button onClick={() => {
-                              selectCoverageQuantityDecision("useRecommended");
-                              setCoverageStrategy("reduce_to_recommended");
-                              debugStep2Log("[STEP2_COVERAGE_STRATEGY_SELECTED]", "reduce_to_recommended");
-                            }} aria-pressed={coverageStrategy === "reduce_to_recommended"} data-selected={coverageStrategy === "reduce_to_recommended" ? "true" : "false"} style={{
-                              flex: 1,
-                              padding: "9px 12px",
-                              borderRadius: 8,
-                              background: coverageStrategy === "reduce_to_recommended" ? col : `${col}22`,
-                              color: C.white,
-                              border: `1px solid ${col}66`,
-                              fontFamily: F.sans,
-                              fontSize: 11,
-                              fontWeight: 800,
-                              cursor: "pointer"
-                            }}>
-                                        Adatta a {requiredFlyers.toLocaleString("it-IT", {
-                                useGrouping: true
-                              })} volantini
-                                      </button>
-                                        <button onClick={() => {
-                              setCoverageStrategy("extra_frequency");
-                              selectCoverageQuantityDecision("keepCurrent");
-                              debugStep2Log("[STEP2_COVERAGE_STRATEGY_SELECTED]", "extra_frequency");
-                            }} aria-pressed={coverageStrategy === "extra_frequency"} data-selected={coverageStrategy === "extra_frequency" ? "true" : "false"} style={{
-                              flex: 1,
-                              padding: "9px 12px",
-                              borderRadius: 8,
-                              background: coverageStrategy === "extra_frequency" ? "rgba(46,204,138,.16)" : "transparent",
-                              color: C.white,
-                              border: `1px solid ${coverageStrategy === "extra_frequency" ? "rgba(46,204,138,.45)" : "rgba(255,255,255,.3)"}`,
-                              fontFamily: F.sans,
-                              fontSize: 11,
-                              fontWeight: 800,
-                              cursor: "pointer"
-                            }}>
-                                        Mantieni {flyerQuantityFromStep1.toLocaleString("it-IT", {
-                                useGrouping: true
-                              })}
-                                      </button>
-                                        <button onClick={() => {
-                              setCoverageStrategy("expand_area");
-                              selectCoverageQuantityDecision("keepCurrent");
-                              debugStep2Log("[STEP2_COVERAGE_STRATEGY_SELECTED]", "expand_area");
-                            }} aria-pressed={coverageStrategy === "expand_area"} data-selected={coverageStrategy === "expand_area" ? "true" : "false"} style={{
-                              flex: 1,
-                              padding: "9px 12px",
-                              borderRadius: 8,
-                              background: coverageStrategy === "expand_area" ? `${col}22` : "transparent",
-                              color: col,
-                              border: `1px solid ${col}45`,
-                              fontFamily: F.sans,
-                              fontSize: 11,
-                              fontWeight: 800,
-                              cursor: "pointer"
-                            }}>
-                                        Espandi area
-                                      </button>
+                                      display: "grid",
+                                      gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
+                                      gap: 10,
+                                      marginTop: 4
+                                    }}>
+                                      {/* Card 1: Consigliato */}
+                                      <div style={{
+                                        background: coverageStrategy === "reduce_to_recommended" ? `${col}18` : "rgba(255,255,255,.04)",
+                                        border: `1.5px solid ${coverageStrategy === "reduce_to_recommended" ? col : "rgba(255,255,255,.14)"}`,
+                                        borderRadius: 12,
+                                        padding: "14px",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        justifyContent: "space-between",
+                                        gap: 12,
+                                        position: "relative"
+                                      }}>
+                                        <div>
+                                          <div style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "space-between",
+                                            gap: 6,
+                                            marginBottom: 6
+                                          }}>
+                                            <span style={{
+                                              fontSize: 13,
+                                              fontWeight: 800,
+                                              color: C.white
+                                            }}>1. Adatta quantità</span>
+                                            <span style={{
+                                              fontSize: 9,
+                                              background: "#22C55E",
+                                              color: "#000",
+                                              padding: "2px 6px",
+                                              borderRadius: 4,
+                                              fontWeight: 900,
+                                              textTransform: "uppercase"
+                                            }}>Consigliato</span>
+                                          </div>
+                                          <div style={{
+                                            fontSize: 11,
+                                            color: "rgba(255,255,255,.65)",
+                                            lineHeight: 1.4
+                                          }}>
+                                            Usa <b>{formatIntegerIT(requiredFlyers)}</b> volantini per coprire il 100% dell'area selezionata senza sprechi.
+                                          </div>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            selectCoverageQuantityDecision("useRecommended");
+                                            setCoverageStrategy("reduce_to_recommended");
+                                            debugStep2Log("[STEP2_COVERAGE_STRATEGY_SELECTED]", "reduce_to_recommended");
+                                          }}
+                                          aria-pressed={coverageStrategy === "reduce_to_recommended"}
+                                          data-selected={coverageStrategy === "reduce_to_recommended" ? "true" : "false"}
+                                          style={{
+                                            padding: "9px 12px",
+                                            borderRadius: 8,
+                                            background: coverageStrategy === "reduce_to_recommended" ? col : `${col}22`,
+                                            color: coverageStrategy === "reduce_to_recommended" ? "#000" : C.white,
+                                            border: `1px solid ${coverageStrategy === "reduce_to_recommended" ? col : `${col}66`}`,
+                                            fontFamily: F.sans,
+                                            fontSize: 11.5,
+                                            fontWeight: 800,
+                                            cursor: "pointer",
+                                            width: "100%",
+                                            boxShadow: coverageStrategy === "reduce_to_recommended" ? "0 2px 8px rgba(0,0,0,.25)" : "none",
+                                            transition: "all .15s ease"
+                                          }}
+                                        >
+                                          {coverageStrategy === "reduce_to_recommended" ? "✓ Selezionato (" : "Adatta a "}{formatIntegerIT(requiredFlyers)} vol.{coverageStrategy === "reduce_to_recommended" ? ")" : ""}
+                                        </button>
+                                      </div>
+
+                                      {/* Card 2: Mantieni quantità iniziale */}
+                                      <div style={{
+                                        background: coverageStrategy === "extra_frequency" ? "rgba(46,204,138,.14)" : "rgba(255,255,255,.04)",
+                                        border: `1.5px solid ${coverageStrategy === "extra_frequency" ? "rgba(46,204,138,.55)" : "rgba(255,255,255,.14)"}`,
+                                        borderRadius: 12,
+                                        padding: "14px",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        justifyContent: "space-between",
+                                        gap: 12
+                                      }}>
+                                        <div>
+                                          <div style={{
+                                            fontSize: 13,
+                                            fontWeight: 800,
+                                            color: C.white,
+                                            marginBottom: 6
+                                          }}>2. Mantieni quantità</div>
+                                          <div style={{
+                                            fontSize: 11,
+                                            color: "rgba(255,255,255,.65)",
+                                            lineHeight: 1.4
+                                          }}>
+                                            Mantieni <b>{formatIntegerIT(flyerQuantityFromStep1)}</b> volantini: useremo i {formatIntegerIT(surplusFlyers)} extra per un 2° passaggio o rinforzo.
+                                          </div>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setCoverageStrategy("extra_frequency");
+                                            selectCoverageQuantityDecision("keepCurrent");
+                                            debugStep2Log("[STEP2_COVERAGE_STRATEGY_SELECTED]", "extra_frequency");
+                                          }}
+                                          aria-pressed={coverageStrategy === "extra_frequency"}
+                                          data-selected={coverageStrategy === "extra_frequency" ? "true" : "false"}
+                                          style={{
+                                            padding: "9px 12px",
+                                            borderRadius: 8,
+                                            background: coverageStrategy === "extra_frequency" ? "rgba(46,204,138,.25)" : "rgba(255,255,255,.06)",
+                                            color: C.white,
+                                            border: `1px solid ${coverageStrategy === "extra_frequency" ? "rgba(46,204,138,.6)" : "rgba(255,255,255,.2)"}`,
+                                            fontFamily: F.sans,
+                                            fontSize: 11.5,
+                                            fontWeight: 800,
+                                            cursor: "pointer",
+                                            width: "100%",
+                                            transition: "all .15s ease"
+                                          }}
+                                        >
+                                          {coverageStrategy === "extra_frequency" ? "✓ Selezionato (" : "Mantieni "}{formatIntegerIT(flyerQuantityFromStep1)}{coverageStrategy === "extra_frequency" ? ")" : ""}
+                                        </button>
+                                      </div>
+
+                                      {/* Card 3: Espandi area */}
+                                      <div style={{
+                                        background: coverageStrategy === "expand_area" ? `${col}15` : "rgba(255,255,255,.04)",
+                                        border: `1.5px solid ${coverageStrategy === "expand_area" ? `${col}66` : "rgba(255,255,255,.14)"}`,
+                                        borderRadius: 12,
+                                        padding: "14px",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        justifyContent: "space-between",
+                                        gap: 12
+                                      }}>
+                                        <div>
+                                          <div style={{
+                                            fontSize: 13,
+                                            fontWeight: 800,
+                                            color: C.white,
+                                            marginBottom: 6
+                                          }}>3. Espandi area</div>
+                                          <div style={{
+                                            fontSize: 11,
+                                            color: "rgba(255,255,255,.65)",
+                                            lineHeight: 1.4
+                                          }}>
+                                            Aumenta il raggio o aggiungi zone e comuni confinanti per raggiungere più famiglie.
+                                          </div>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setCoverageStrategy("expand_area");
+                                            selectCoverageQuantityDecision("keepCurrent");
+                                            debugStep2Log("[STEP2_COVERAGE_STRATEGY_SELECTED]", "expand_area");
+                                          }}
+                                          aria-pressed={coverageStrategy === "expand_area"}
+                                          data-selected={coverageStrategy === "expand_area" ? "true" : "false"}
+                                          style={{
+                                            padding: "9px 12px",
+                                            borderRadius: 8,
+                                            background: coverageStrategy === "expand_area" ? `${col}25` : "rgba(255,255,255,.06)",
+                                            color: col,
+                                            border: `1px solid ${coverageStrategy === "expand_area" ? col : "rgba(255,255,255,.2)"}`,
+                                            fontFamily: F.sans,
+                                            fontSize: 11.5,
+                                            fontWeight: 800,
+                                            cursor: "pointer",
+                                            width: "100%",
+                                            transition: "all .15s ease"
+                                          }}
+                                        >
+                                          {coverageStrategy === "expand_area" ? "✓ Espandi area" : "Espandi area"}
+                                        </button>
+                                      </div>
                                     </div>
 
                                     {coverageStrategy === "expand_area" && <div style={{

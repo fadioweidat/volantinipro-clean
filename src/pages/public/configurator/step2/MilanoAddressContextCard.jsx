@@ -65,30 +65,128 @@ export default function MilanoAddressContextCard({ addressPoint, coverageAddress
     ['NIL / quartiere', context.nil.name || 'NIL non rilevato'],
     ['Municipio', context.municipio.name || (derived.loading ? 'Rilevamento…' : 'Municipio non rilevato')],
     ['CAP', capDisplayValue],
-    ['Coordinate', context.lat === null || context.lng === null ? 'Non disponibili' : `${context.lat.toFixed(6)}, ${context.lng.toFixed(6)}`],
   ];
 
   return (
-    <section data-testid="milano-address-context" aria-label="Contesto territoriale dell'indirizzo" style={{ background: 'rgba(232,87,26,.07)', border: '1px solid rgba(232,87,26,.3)', borderRadius: 12, padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 10, fontFamily: F.sans }}>
-      <div><div style={{ color: C.orange, fontSize: 10, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase' }}>Indirizzo rilevato</div><div style={{ color: C.white, fontSize: 13, fontWeight: 750, lineHeight: 1.4, marginTop: 4 }}>{context.addressLabel}</div></div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {values.map(([label, value]) => <div key={label} style={rowStyle}><span style={{ color: 'rgba(255,255,255,.55)', fontSize: 10.5 }}>{label}</span><strong style={{ color: C.white, fontSize: 11.5, overflowWrap: 'anywhere' }}>{value}</strong></div>)}
+    <section data-testid="milano-address-context" aria-label="Contesto territoriale dell'indirizzo" style={{ background: 'rgba(232,87,26,.07)', border: '1px solid rgba(232,87,26,.3)', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12, fontFamily: F.sans }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <div>
+          <div style={{ color: C.orange, fontSize: 10, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase' }}>Indirizzo rilevato</div>
+          <div style={{ color: C.white, fontSize: 14, fontWeight: 800, lineHeight: 1.4, marginTop: 3 }}>{context.addressLabel}</div>
+        </div>
+        {context.lat !== null && context.lng !== null && (
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,.45)', background: 'rgba(0,0,0,.2)', padding: '3px 7px', borderRadius: 6 }}>
+            {context.lat.toFixed(4)}, {context.lng.toFixed(4)}
+          </span>
+        )}
       </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, background: 'rgba(0,0,0,.15)', padding: '10px 12px', borderRadius: 9 }}>
+        {values.map(([label, value]) => (
+          <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span style={{ color: 'rgba(255,255,255,.5)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.03em' }}>{label}</span>
+            <strong style={{ color: C.white, fontSize: 12, overflowWrap: 'anywhere' }}>{value}</strong>
+          </div>
+        ))}
+      </div>
+
       {derived.capEstimate?.available ? (
-        <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,.58)', lineHeight: 1.35, background: 'rgba(0,0,0,0.15)', padding: '6px 8px', borderRadius: 6 }}>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,.7)', lineHeight: 1.4, background: 'rgba(251,146,60,0.1)', border: '1px solid rgba(251,146,60,0.25)', padding: '8px 10px', borderRadius: 8 }}>
           <strong style={{ color: '#fb923c' }}>Stima territoriale CAP {derived.cap.cap}:</strong> ~{intLabel(derived.capEstimate.estimatedFamilies)} famiglie stimate · Quantità indicativa: ~{intLabel(derived.capEstimate.recommendedQuantity)} vol. (Affidabilità: {derived.capEstimate.confidenceLabel})
-          <div style={{ marginTop: 2, fontSize: 8.5, opacity: 0.8 }}>Stima VolantiniPro ottenuta dalla distribuzione dei civici CAP all'interno dei NIL e dai dati territoriali disponibili.</div>
+          <div style={{ marginTop: 2, fontSize: 9, opacity: 0.75 }}>Stima VolantiniPro ottenuta dalla distribuzione dei civici CAP all'interno dei NIL e dai dati territoriali disponibili.</div>
         </div>
       ) : (
         <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,.48)' }}>{context.cap.available ? context.cap.label : 'CAP non disponibile per questo civico'}</div>
       )}
-      <div style={{ color: 'rgba(255,255,255,.7)', fontSize: 10.5, fontWeight: 750 }}>Come vuoi definire la zona di distribuzione?</div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-        {context.nil.available && onUseNil ? <button type="button" style={actionStyle} onClick={onUseNil}>Usa NIL {context.nil.name}</button> : null}
-        {context.municipio.available && onPreviewMunicipio ? <button type="button" style={actionStyle} onClick={() => onPreviewMunicipio(context.municipio.number)}>Apri {context.municipio.name}</button> : null}
-        {onUseRadius ? <button type="button" style={actionStyle} onClick={onUseRadius}>Usa Raggio</button> : null}
-        {onKeepMilanoComplete ? <button type="button" style={actionStyle} onClick={onKeepMilanoComplete}>Milano completo</button> : null}
+
+      <div>
+        <div style={{ color: 'rgba(255,255,255,.85)', fontSize: 11, fontWeight: 800, marginBottom: 8, letterSpacing: '.02em' }}>
+          Come vuoi definire la zona di distribuzione?
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          {context.nil.available && onUseNil ? (
+            <button
+              type="button"
+              style={{
+                padding: '8px 14px',
+                borderRadius: 8,
+                border: '1px solid rgba(34,197,94,.5)',
+                background: 'rgba(34,197,94,.18)',
+                color: '#4ADE80',
+                cursor: 'pointer',
+                font: `800 12px ${F.sans}`,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: '0 2px 8px rgba(34,197,94,.2)'
+              }}
+              onClick={onUseNil}
+            >
+              <span>★ Usa NIL {context.nil.name}</span>
+              <span style={{ fontSize: 9, background: '#22C55E', color: '#000', padding: '1px 5px', borderRadius: 4, fontWeight: 900 }}>Consigliato</span>
+            </button>
+          ) : null}
+
+          {onUseRadius ? (
+            <button
+              type="button"
+              style={{
+                padding: '8px 13px',
+                borderRadius: 8,
+                border: '1px solid rgba(255,255,255,.2)',
+                background: 'rgba(255,255,255,.06)',
+                color: C.white,
+                cursor: 'pointer',
+                font: `700 11.5px ${F.sans}`
+              }}
+              onClick={onUseRadius}
+            >
+              Usa Raggio
+            </button>
+          ) : null}
+
+          {onKeepMilanoComplete ? (
+            <button
+              type="button"
+              style={{
+                padding: '8px 13px',
+                borderRadius: 8,
+                border: '1px solid rgba(255,255,255,.2)',
+                background: 'rgba(255,255,255,.06)',
+                color: C.white,
+                cursor: 'pointer',
+                font: `700 11.5px ${F.sans}`
+              }}
+              onClick={onKeepMilanoComplete}
+            >
+              Milano completo
+            </button>
+          ) : null}
+
+          {context.municipio.available && onPreviewMunicipio ? (
+            <button
+              type="button"
+              style={{
+                padding: '8px 13px',
+                borderRadius: 8,
+                border: '1px solid rgba(255,255,255,.15)',
+                background: 'transparent',
+                color: 'rgba(255,255,255,.7)',
+                cursor: 'pointer',
+                font: `700 11px ${F.sans}`
+              }}
+              onClick={() => onPreviewMunicipio(context.municipio.number)}
+            >
+              Apri {context.municipio.name}
+            </button>
+          ) : (
+            <span style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', padding: '6px 10px', background: 'rgba(255,255,255,.03)', borderRadius: 8, border: '1px dashed rgba(255,255,255,.1)' }}>
+              Municipio · Disponibile prossimamente
+            </span>
+          )}
+        </div>
       </div>
+
       <p style={{ margin: 0, color: 'rgba(255,255,255,.46)', fontSize: 9.5, lineHeight: 1.4 }}>
         Il CAP è utilizzato come area operativa stimata. Non rappresenta un confine postale ufficiale.
       </p>

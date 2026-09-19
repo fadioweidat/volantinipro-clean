@@ -201,7 +201,12 @@ export function MilanoGuidance({
         addressPoint={addressPoint}
         coverageAddress={coverageAddress}
         containingNil={containingNil}
-        onUseNil={onShowNil}
+        onUseNil={() => {
+          if (containingNil?.id && onSelectOnlyNil) {
+            onSelectOnlyNil(containingNil.id);
+          }
+          if (onShowNil) onShowNil();
+        }}
         onPreviewMunicipio={number => setMunicipioFocus(previous => ({ number, nonce: (previous?.nonce || 0) + 1 }))}
         onUseRadius={onUseRadius}
         onKeepMilanoComplete={onKeepMilanoComplete}
