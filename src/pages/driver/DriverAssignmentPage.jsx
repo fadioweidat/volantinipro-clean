@@ -15,6 +15,7 @@ import { driverListMessages, driverMarkMessagesSeen, driverSendMessage } from '.
 import { buildIssueWatermarkLines, canvasToJpegBlob, compressPodImage, drawPodWatermark, releaseCanvas } from '../../lib/pod/podPhotoProcessing.js';
 import { mergeMessages, countUnreadMessages, subscribeToDriverMessages } from '../../lib/services/messaging-realtime.js';
 import { isTransientSchemaOrNetworkError, USER_FRIENDLY_TRANSIENT_ERROR } from '../../lib/services/transientErrors.js';
+import { setDriverZoneWorkStatus } from '../../lib/services/driver-zone-status-api.js';
 
 // ─── DriverAssignmentPage ─────────────────────────────────────────────────────
 // Pagina driver accessibile tramite /driver/assignment/{assignmentId}, link
@@ -525,11 +526,6 @@ function DriverTracker({
       {/* Programma Operativo (Structured Zones) */}
       <section style={cardStyle}>
         <p style={eyebrowStyle}>Programma Operativo</p>
-        {assignmentZones !== null && !zoneWorkflow.inProgressZone && zoneWorkflow.nextZone && zonesToDisplay.some((z) => zoneWorkflow.stateOf(z) === ZONE_STATE.COMPLETED) && (
-          <p data-testid="next-zone-banner" style={{ margin: '8px 0 0', fontWeight: 800, fontSize: 14, color: '#86EFAC' }}>
-            Prossima zona: {zoneWorkflow.nextZone.zone_name}
-          </p>
-        )}
         {assignmentZones === null ? (
           // Fase 2 ancora in corso (operator_assignment_zones non arrivata):
           // messaggio locale SOLO in questa sezione, mai un blocco dell'intera
@@ -541,14 +537,13 @@ function DriverTracker({
             const isCurrentZone = tracking.session?.campaign_zone_id === z.id && z.id != null;
             const zState = zoneWorkflow.stateOf(z);
             const zoneCanStart = zoneWorkflow.canStart(z);
-            const zoneCanReopen = zoneWorkflow.canReopen(z);
-            const zoneWaitingLabel = zoneWorkflow.waitingLabel(z);
-            const isFutureLockedZone = !z.isLegacy && zState === ZONE_STATE.TO_START && !zoneCanStart;
+            const startAction = `START_ZONE:${z.id}`;
+            const completeAction = `COMPLETE_ZONE:${z.id}`;
 
             let statusPill = zState === ZONE_STATE.IN_PROGRESS ? 'IN CORSO' : zState === ZONE_STATE.COMPLETED ? 'COMPLETATA' : 'DA INIZIARE';
-            let statusColor = '#94a3b8'; // Da iniziare
+            let statusColor = '#22c55e'; // DA INIZIARE: verde, pronto ad avviare
             if (zState === ZONE_STATE.IN_PROGRESS) statusColor = '#3b82f6';
-            if (zState === ZONE_STATE.COMPLETED) statusColor = '#22c55e';
+            if (zState === ZONE_STATE.COMPLETED) statusColor = '#ef4444';
             if (z.isLegacy) {
               statusPill = 'Legacy (Sola lettura)';
               statusColor = '#f59e0b';
@@ -570,95 +565,63 @@ function DriverTracker({
                     </div>
                   </div>
                 </div>
+
                 {z.notes && <p style={{ margin: '8px 0', fontSize: 13, color: '#64748b' }}>Note: {z.notes}</p>}
-                {actionError && (zoneCanStart || zoneCanReopen || z.id === zoneWorkflow.inProgressZone?.id) && (
-                  <div style={{ margin: '8px 0', padding: '8px 12px', background: '#fef2f2', border: '1px solid #f87171', borderRadius: 6, color: '#991b1b', fontSize: 13 }}>
-                    ⚠️ {actionError}
-                  </div>
-                )}
-                
+
                 {!z.isLegacy && (
-                  <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-                    {/* Avvio zona: disponibile anche quando la zona risulta
-                        "Completata" ma nessuna sessione e' attiva — con 11.701
-                        volantini una zona non e' mai "finita" dopo una sola
-                        sessione breve, e senza questo pulsante il Driver che
-                        riapre il link non ha alcun modo di ripartire (root
-                        cause "Admin resta offline"). gps_start_session rimette
-                        gia' la zona a "In corso" lato server. */}
-                    {!isCurrentZone && !tracking.isActive && !tracking.isPaused && !activeSessionElsewhere && (zoneCanStart || zoneCanReopen) && (
+                  <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {zoneCanStart && (
                       <button
                         type="button"
-                        style={{ ...primaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
-                        disabled={Boolean(actionLoading) || assignmentBlocksStart}
-                        onClick={() => runAction(zoneCanReopen ? ACTION_REOPEN : ACTION_START, async () => {
-                          await tracking.start(z.id);
+                        style={{ ...primaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: '1 1 220px' }}
+                        disabled={Boolean(actionLoading)}
+                        onClick={() => runAction(startAction, async () => {
+                          await setDriverZoneWorkStatus({
+                            assignmentId,
+                            zoneId: z.id,
+                            status: 'In corso',
+                            accessToken,
+                          });
                           onRefreshAssignment?.();
                         })}
                       >
-                        {actionLoading === (zoneCanReopen ? ACTION_REOPEN : ACTION_START)
-                          ? (zoneCanReopen ? 'Riapertura in corso...' : 'Avvio in corso...')
-                          : (zoneCanReopen ? 'Riprendi zona' : `Inizia ${z.zone_name}`)}
+                        {actionLoading === startAction ? 'Avvio in corso...' : `Inizia ${z.zone_name}`}
                       </button>
                     )}
-                    {/* ATTESA NORMALE (non e' un errore): testo neutro per le zone
-                        future, mai rosso e mai "contatta l'Admin". */}
-                    {isFutureLockedZone && zoneWaitingLabel && (
-                      <span data-testid="zone-waiting-label" style={{ fontSize: 13, color: '#64748b', flex: 1 }}>{zoneWaitingLabel}</span>
-                    )}
-                    {/* ERRORE REALE (sessione attiva altrove / da recuperare):
-                        UNA sola volta, sulla zona che il driver potrebbe avviare —
-                        non ripetuto su ogni card, non sulla zona attiva. */}
-                    {!isCurrentZone && !tracking.isActive && !tracking.isPaused && activeSessionElsewhere && (zoneCanStart || zoneCanReopen) && (
-                      <span data-testid="zone-session-error" role="alert" style={{ fontSize: 13, color: '#b91c1c', flex: 1 }}>
-                        Sessione gia&#39; attiva per questo incarico. Non puoi avviarne un&#39;altra da qui — contatta l&#39;Admin.
-                      </span>
-                    )}
-                    {/* Pausa/Riprendi SOSPESI dalla UI (DRIVER_PAUSE_ENABLED=false):
-                        il flusso Driver e' ridotto a "Inizia" -> "Termina lavoro".
-                        La logica tracking.pause()/resume() resta intatta e
-                        riattivabile rimettendo il flag a true. "Termina lavoro"
-                        qui sotto resta disponibile anche per una sessione gia'
-                        in pausa (legacy), senza bisogno di riprendere. */}
-                    {DRIVER_PAUSE_ENABLED && isCurrentZone && tracking.isActive && (
+
+                    {zState === ZONE_STATE.IN_PROGRESS && (
                       <button
                         type="button"
-                        style={{ ...secondaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
-                        disabled={actionLoading === ACTION_PAUSE}
-                        onClick={() => runAction(ACTION_PAUSE, tracking.pause)}
+                        style={{ ...dangerButtonStyle, padding: '8px 12px', fontSize: 14, flex: '1 1 220px' }}
+                        disabled={Boolean(actionLoading)}
+                        onClick={() => {
+                          if (!window.confirm(`Confermi di aver finito ${z.zone_name}? La zona verrà segnata come completata.`)) return;
+                          runAction(completeAction, async () => {
+                            await setDriverZoneWorkStatus({
+                              assignmentId,
+                              zoneId: z.id,
+                              status: 'Completata',
+                              accessToken,
+                            });
+                            // Se questo telefono sta tracciando proprio questa zona,
+                            // chiudi anche la sessione GPS. La chiusura della zona resta
+                            // comunque una scelta manuale dell'operatore.
+                            if (isCurrentZone && (tracking.isActive || tracking.isPaused)) {
+                              try { await tracking.end(); } catch { /* stato zona già salvato; errore GPS mostrato separatamente */ }
+                            }
+                            onRefreshAssignment?.();
+                          });
+                        }}
                       >
-                        Metti in pausa
+                        {actionLoading === completeAction ? 'Chiusura in corso...' : `Termina ${z.zone_name}`}
                       </button>
                     )}
-                    {DRIVER_PAUSE_ENABLED && isCurrentZone && tracking.isPaused && (
-                      <button
-                        type="button"
-                        style={{ ...primaryButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
-                        disabled={actionLoading === ACTION_RESUME}
-                        onClick={() => runAction(ACTION_RESUME, tracking.resume)}
-                      >
-                        Riprendi lavoro
-                      </button>
+
+                    {zState === ZONE_STATE.COMPLETED && (
+                      <span style={{ color: '#b91c1c', fontSize: 14, fontWeight: 800, alignSelf: 'center' }}>✓ Zona completata</span>
                     )}
-                    {isCurrentZone && (tracking.isActive || tracking.isPaused) && (
-                      <button
-                        type="button"
-                        style={{ ...dangerButtonStyle, padding: '8px 12px', fontSize: 14, flex: 1 }}
-                        disabled={actionLoading === ACTION_END}
-                        // "Termina lavoro" chiude SOLO la delivery_session di
-                        // questo operatore (status = completed). NON marca la
-                        // campaign_zone "Completata" ne' completa la campagna:
-                        // la zona resta "In corso" per gli altri operatori del
-                        // gruppo. Vedi endWork() sopra.
-                        onClick={endWork}
-                      >
-                        Termina lavoro
-                      </button>
-                    )}
-                    {z.status === 'Completata' && (tracking.isActive || tracking.isPaused || isCurrentZone) && (
-                      <span style={{ color: '#22c55e', fontSize: 14, fontWeight: 'bold' }}>✓ Completata</span>
-                    )}
-                    {z.id && !isFutureLockedZone && (
+
+                    {z.id && (
                       <button
                         type="button"
                         style={{ ...secondaryButtonStyle, padding: '8px 12px', fontSize: 14 }}
