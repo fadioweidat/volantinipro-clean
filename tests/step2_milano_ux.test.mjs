@@ -19,6 +19,7 @@ import {
 
 const step2 = readFileSync(new URL("../src/pages/public/configurator/Step2.jsx", import.meta.url), "utf8");
 const guidance = readFileSync(new URL("../src/pages/public/configurator/step2/MilanoGuidance.jsx", import.meta.url), "utf8");
+const nilSearch = readFileSync(new URL("../src/pages/public/configurator/step2/MilanoNilSearch.jsx", import.meta.url), "utf8");
 const helper = readFileSync(new URL("../src/lib/step2/milanoNilView.js", import.meta.url), "utf8");
 
 // ── C: ricerca NIL locale (filter-only, accent/case insensitive, no side effects)
@@ -127,12 +128,14 @@ test("A/B. MilanoGuidance renderizzata SOLO se municipio = Milano; nessun impatt
   assert.match(guidance, /if \(!visible\) return null;/);
 });
 
-test("A/B. il filtro NIL e' SOLO visivo: non tocca selected/selZones/allocazione", () => {
-  // milanoFilteredZoneRows deriva da zoneRowsForList; passato SOLO al pannello lista
-  assert.match(step2, /const milanoFilteredZoneRows = useMemo\(/);
-  assert.match(step2, /milanoUxVisible && !isRadiusMode && nilQuery \? filterNilRows\(zoneRowsForList, nilQuery\) : zoneRowsForList/);
+test("A/B. la ricerca NIL e' separata dalla lista/allocazione: usa il pool canonico completo e non muta selected/selZones", () => {
+  // La ricerca e' stata spostata sopra la mappa in MilanoNilSearch.
+  // La lista operativa resta invariata: nessun filtro nilQuery su zoneRowsForList.
+  assert.match(step2, /const milanoFilteredZoneRows = useMemo\(\s*\(\) => zoneRowsForList,/);
   assert.match(step2, /zoneRowsForList=\{milanoFilteredZoneRows\}/);
-  // nilQuery NON compare in nessun setSelected / setSelZones / setData
+  assert.match(step2, /<MilanoNilSearch[\s\S]{0,500}query=\{nilQuery\}[\s\S]{0,500}results=\{milanoNilSearchResults\}/);
+  assert.match(step2, /rankNilSearchResults\(milanoGlobalNilRows, nilQuery/);
+  // nilQuery NON compare in nessun setSelected / setSelZones / setData.
   assert.doesNotMatch(step2, /setSelected\([^)]*nilQuery/);
   assert.doesNotMatch(step2, /nilQuery[\s\S]{0,40}setSelected/);
 });
@@ -148,12 +151,15 @@ test("G. nessun numero Milano hardcoded nei nuovi file", () => {
   }
 });
 
-test("G. responsive: griglia summary si adatta a mobile, input NIL full-width, nessun overflow forzato", () => {
+test("G. responsive: summary mobile + ricerca NIL sopra mappa senza overflow/zoom iOS", () => {
   assert.match(guidance, /gridTemplateColumns: isMobile \? "1fr 1fr" : "repeat\(4, 1fr\)"/);
-  assert.match(guidance, /flex: "1 1 180px"[\s\S]{0,60}minWidth: 0/);
   assert.match(guidance, /flexWrap: "wrap"/);
   assert.match(guidance, /whiteSpace: "nowrap"/); // chip mode non vanno a capo dentro la pill
   assert.match(guidance, /boxSizing: "border-box"/);
+  // L'input NIL vive ora in MilanoNilSearch.jsx, non dentro MilanoGuidance.
+  assert.match(nilSearch, /flex: "1 1 180px"[\s\S]{0,80}minWidth: 0/);
+  assert.match(nilSearch, /fontSize: 16/); // niente auto-zoom iOS
+  assert.match(nilSearch, /boxSizing: "border-box"/);
 });
 
 test("Municipio: NON implementato (dati reali assenti) -> chip disabilitato 'Disponibile prossimamente'", () => {
@@ -233,7 +239,8 @@ test("A. Milano: la guida UX Milano E' presente, con mode chips + Municipio disa
   assert.match(html, /Milano · scegli come distribuire/);
   assert.match(html, /Milano completo/);
   assert.match(html, /Municipio · Disponibile prossimamente/);
-  assert.match(html, /Cerca NIL \/ quartiere/, "campo ricerca NIL presente");
+  assert.match(html, /Aggiungi un quartiere \/ zona/, "ricerca NIL unica sopra la mappa presente");
+  assert.match(html, /Cerca quartiere di Milano, es\. Comasina/, "input ricerca NIL presente");
   assert.match(html, /NIL disponibili nel Comune/, "label mode-aware presente");
   assert.doesNotMatch(html, /Impossibile caricare la pagina/);
 });
