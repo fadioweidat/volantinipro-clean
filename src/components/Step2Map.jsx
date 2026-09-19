@@ -235,14 +235,12 @@ function selectablePoiIcon(L, color, selected, operatorNumber = null, category =
 }
 
 // Marker di contesto per Door to Door: visibile ma non assegnabile.
-// Icona fissa "cassetta postale" (punto di consegna) invece del simbolo per
-// categoria: per D2D ogni punto rappresenta un'attività nel raggio di
-// consegna, non va confuso con le icone per categoria di H2H/Business.
-function informationalPoiIcon(L, color) {
-  const size = 20;
-  const mailboxSvg = `<svg width="13" height="13" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M6 26V13.5A7.5 7.5 0 0 1 13.5 6h5A7.5 7.5 0 0 1 26 13.5V26" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M6 14h20M16 6v20M20 11h4" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M10 26h12" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>`;
+// Icona tematica per categoria (palestre, scuole, retail, ristoranti, ecc.)
+function informationalPoiIcon(L, color, category = '') {
+  const size = 22;
+  const symbol = poiCategorySymbol(category);
   return L.divIcon({
-    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;cursor:help">${mailboxSvg}</div>`,
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:#fff;font:700 12px/1 system-ui,sans-serif;cursor:help">${symbol}</div>`,
     className: '',
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
@@ -1813,7 +1811,7 @@ function Step2MapImpl({
           const tip = `${_buildPoiTip(item)}${contextLabel}`;
           const poiMarker = L.marker([item.lat, item.lng], {
             icon: svcType === 'd2d'
-              ? informationalPoiIcon(L, item.color || categoryColor(item.category))
+              ? informationalPoiIcon(L, item.color || categoryColor(item.category), item.category)
               : selectablePoiIcon(L, item.color || categoryColor(item.category), isSel, assignment?.operatorNumber, item.category),
             zIndexOffset: isSel ? 500 : 200,
             pane: 'poiSelectionPane',
@@ -2028,24 +2026,23 @@ function Step2MapImpl({
 
       {/* La richiesta POI (Overpass) e' fallita/andata in timeout: NON e' uno
           zero risultati confermato, quindi NON riusa il badge "Nessuna
-          attività" sopra (mostrerebbe come vero un dato in realta' mai
-          arrivato). Retry mirato alla sola query POI, senza ricaricare il
-          resto di Step2 (confine/copertura/quantita' restano intatti). */}
+          attività" sopra. Notifica discreta e non bloccante con retry mirato */}
       {leafletLoaded && city && !loadingPois && poiFetchFailed && (
         <div style={{
-          position: 'absolute', left: '50%', bottom: 14, transform: 'translateX(-50%)',
-          zIndex: 1050, maxWidth: '86%', padding: '9px 14px', borderRadius: 10,
-          background: 'rgba(8,15,30,.9)', border: '1px solid rgba(248,113,113,.32)',
-          boxShadow: '0 8px 24px rgba(0,0,0,.35)', textAlign: 'center',
-          fontFamily: 'system-ui,sans-serif', fontSize: 11.5, color: 'rgba(255,255,255,.78)',
-          display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'auto',
+          position: 'absolute', right: 10, bottom: 12,
+          zIndex: 850, maxWidth: 360, padding: '7px 12px', borderRadius: 8,
+          background: 'rgba(8,15,30,.92)', border: '1px solid rgba(248,113,113,.35)',
+          boxShadow: '0 4px 16px rgba(0,0,0,.4)', textAlign: 'left',
+          fontFamily: 'system-ui,sans-serif', fontSize: 11, color: 'rgba(255,255,255,.82)',
+          display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto',
         }}>
-          <span>Attività commerciali temporaneamente non disponibili. La configurazione può continuare.</span>
+          <span style={{ color: '#F87171', fontSize: 13, flexShrink: 0 }}>⚠</span>
+          <span style={{ lineHeight: 1.35 }}>Attività commerciali temporaneamente non disponibili. La configurazione può continuare.</span>
           {onRetryPoi && (
             <button type="button" onClick={onRetryPoi} style={{
-              padding: '4px 10px', borderRadius: 7, border: '1px solid rgba(248,113,113,.45)',
-              background: 'rgba(248,113,113,.14)', color: '#FCA5A5', fontFamily: 'system-ui,sans-serif',
-              fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+              padding: '3px 9px', borderRadius: 6, border: '1px solid rgba(248,113,113,.45)',
+              background: 'rgba(248,113,113,.16)', color: '#FCA5A5', fontFamily: 'system-ui,sans-serif',
+              fontSize: 10.5, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
             }}>
               Riprova
             </button>

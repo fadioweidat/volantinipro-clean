@@ -62,7 +62,7 @@ export default function MilanoAddressContextCard({ addressPoint, coverageAddress
 
   const values = [
     ['Comune', `${context.comune.name} (${context.comune.province})`],
-    ['NIL / quartiere', context.nil.name || 'NIL non rilevato'],
+    ['Quartiere / zona di Milano (NIL)', context.nil.name || 'NIL non rilevato'],
     ['Municipio', context.municipio.name || (derived.loading ? 'Rilevamento…' : 'Municipio non rilevato')],
     ['CAP', capDisplayValue],
   ];
@@ -71,8 +71,20 @@ export default function MilanoAddressContextCard({ addressPoint, coverageAddress
     <section data-testid="milano-address-context" aria-label="Contesto territoriale dell'indirizzo" style={{ background: 'rgba(232,87,26,.07)', border: '1px solid rgba(232,87,26,.3)', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12, fontFamily: F.sans }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <div>
-          <div style={{ color: C.orange, fontSize: 10, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase' }}>Indirizzo rilevato</div>
-          <div style={{ color: C.white, fontSize: 14, fontWeight: 800, lineHeight: 1.4, marginTop: 3 }}>{context.addressLabel}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ color: C.orange, fontSize: 10, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+              Indirizzo di partenza
+            </span>
+            {context.nil.name && (
+              <span style={{ background: 'rgba(34,197,94,.18)', border: '1px solid rgba(34,197,94,.4)', color: '#4ADE80', fontSize: 10.5, fontWeight: 800, padding: '2px 8px', borderRadius: 6 }}>
+                Zona di partenza: {context.nil.name.toUpperCase()}
+              </span>
+            )}
+          </div>
+          <div style={{ color: C.white, fontSize: 14, fontWeight: 800, lineHeight: 1.4, marginTop: 4 }}>{context.addressLabel}</div>
+          <p style={{ margin: '4px 0 0', fontSize: 11, color: 'rgba(255,255,255,.65)', lineHeight: 1.4 }}>
+            Milano è divisa in zone chiamate NIL. Non devi conoscerle: le individuiamo automaticamente dal tuo indirizzo.
+          </p>
         </div>
         {context.lat !== null && context.lng !== null && (
           <span style={{ fontSize: 10, color: 'rgba(255,255,255,.45)', background: 'rgba(0,0,0,.2)', padding: '3px 7px', borderRadius: 6 }}>

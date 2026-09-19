@@ -104,6 +104,7 @@ export function MilanoGuidance({
   containingNil = null,
 }) {
   const [municipioFocus, setMunicipioFocus] = useState(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   // Stato SOLO UI (nessuna selezione): indice attivo tastiera + apertura
   // tendina. La query stessa resta in Step2.jsx (nilQuery/onNilQueryChange),
   // come gia' prima.
@@ -214,8 +215,6 @@ export function MilanoGuidance({
         onKeepMilanoComplete={onKeepMilanoComplete}
       />
 
-      <TerritoryGeometryPreview focusRequest={municipioFocus} />
-
       {/* Summary card NIL (§4 + §9) — SOLO valori Step 2 esistenti. */}
       <div style={card}>
         <span style={kicker}>{modeLabel}</span>
@@ -242,6 +241,55 @@ export function MilanoGuidance({
         ) : null}
       </div>
 
+      {/* Ripartizione zone in modalita' Raggio */}
+      {isRadiusMode && Array.isArray(zonesAllocation) && zonesAllocation.length > 0 && (
+        <div style={{ ...card, gap: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={kicker}>Ripartizione zone nel raggio</span>
+            <span style={{ fontSize: 10.5, color: 'rgba(255,255,255,.5)', fontWeight: 600 }}>
+              {zonesAllocation.length} {zonesAllocation.length === 1 ? 'zona intersecata' : 'zone intersecate'}
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {zonesAllocation.map((z) => {
+              const req = Number(z.requiredFlyers || z.families || 0);
+              const ass = Number(z.assignedFlyers || 0);
+              const pct = req > 0 ? Math.round((ass / req) * 100) : (ass > 0 ? 100 : 0);
+              const missing = Math.max(0, req - ass);
+              const isFull = pct >= 100;
+              const isPartial = pct > 0 && pct < 100;
+              const statusCol = isFull ? C.green : isPartial ? '#FBBF24' : 'rgba(255,255,255,.45)';
+              return (
+                <div key={z.id || z.name} style={{
+                  padding: '8px 11px', borderRadius: 8,
+                  background: 'rgba(0,0,0,.22)', border: `1px solid ${isFull ? 'rgba(34,197,94,.25)' : isPartial ? 'rgba(251,191,36,.25)' : 'rgba(255,255,255,.07)'}`,
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6,
+                }}>
+                  <div style={{ minWidth: 120, flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.white }}>{z.name}</div>
+                    <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,.45)' }}>
+                      Fabbisogno: ~{req.toLocaleString('it-IT')} vol.
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 11.5, fontWeight: 800, color: statusCol }}>
+                        {ass.toLocaleString('it-IT')} vol. ({pct}%)
+                      </div>
+                      {missing > 0 && (
+                        <div style={{ fontSize: 9, color: '#F87171' }}>
+                          Mancano {missing.toLocaleString('it-IT')} per 100%
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Guida bassa copertura (§5) — copy con quantita'/copertura REALI. */}
       {lowCoverage && isMilanoCompletoMode ? (
         <div style={{ ...card, border: "1px solid rgba(251,191,36,.3)", background: "rgba(251,191,36,.06)" }}>
@@ -263,14 +311,10 @@ export function MilanoGuidance({
         </div>
       ) : null}
 
-      {/* Ricerca NIL locale (§6) — autocomplete reale. La query filtra SOLO
-          la lista mostrata piu' sotto (comportamento invariato); la tendina
-          qui e' un puro layer di navigazione/focus, MAI di selezione
-          implicita — solo click esplicito su "Seleziona solo questo NIL"
-          (azione gia' esistente, riusata) cambia `selected`. */}
+      {/* Ricerca NIL locale (§6) — autocomplete reale. */}
       {showNilSearch ? (
         <div style={{ ...card, gap: 6, position: "relative" }}>
-          <label style={{ ...kicker, fontSize: 9.5 }} htmlFor="vp-milano-nil-search">Trova una zona</label>
+          <label style={{ ...kicker, fontSize: 9.5 }} htmlFor="vp-milano-nil-search">Vuoi aggiungere un altro quartiere? (Trova una zona)</label>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <input
               id="vp-milano-nil-search"
@@ -289,7 +333,7 @@ export function MilanoGuidance({
               onFocus={() => setSearchDropdownOpen(Boolean(nilQuery))}
               onBlur={() => window.setTimeout(() => setSearchDropdownOpen(false), 120)}
               onKeyDown={handleSearchKeyDown}
-              placeholder="Cerca NIL / quartiere"
+              placeholder="Cerca quartiere o zona di Milano (Cerca NIL / quartiere)"
               autoComplete="off"
               style={{
                 flex: "1 1 180px",
@@ -431,6 +475,35 @@ export function MilanoGuidance({
           ) : null}
         </div>
       ) : null}
+
+      {/* Sezione Dettagli Avanzati / Accordion */}
+      <div style={{ marginTop: 2 }}>
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((v) => !v)}
+          style={{
+            background: "transparent",
+            border: "none",
+            color: "rgba(255,255,255,.45)",
+            fontSize: 11,
+            fontWeight: 700,
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "4px 2px",
+            fontFamily: F.sans,
+          }}
+        >
+          <span>{showAdvanced ? "▾" : "▸"}</span>
+          <span>{showAdvanced ? "Nascondi dettagli avanzati" : "Mostra dettagli avanzati (Municipio, confini)"}</span>
+        </button>
+        {showAdvanced ? (
+          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+            <TerritoryGeometryPreview focusRequest={municipioFocus} />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
