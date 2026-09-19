@@ -13,11 +13,11 @@ import { readFileSync } from 'node:fs';
 
 const panel = readFileSync(new URL('../src/pages/public/configurator/step2/Step2ComunePanel.jsx', import.meta.url), 'utf8');
 const step2 = readFileSync(new URL('../src/pages/public/configurator/Step2.jsx', import.meta.url), 'utf8');
-const milanoGuidance = readFileSync(new URL('../src/pages/public/configurator/step2/MilanoGuidance.jsx', import.meta.url), 'utf8');
+const milanoGuidance = readFileSync(new URL('../src/pages/public/configurator/step2/MilanoNilSearch.jsx', import.meta.url), 'utf8');
 
 test('A. la ricerca NIL resta filter-only: nessun setSelected/toggleZone legato a onNilQueryChange/nilQuery in MilanoGuidance', () => {
-  assert.match(milanoGuidance, /la selezione non cambia con la ricerca/, 'la copy esplicita non-destruttiva deve restare');
-  assert.doesNotMatch(milanoGuidance, /onNilQueryChange[\s\S]{0,80}setSelected/, 'onNilQueryChange non deve mai chiamare setSelected');
+  assert.match(milanoGuidance, /onToggle\(result\.id\)/, 'la selezione cambia solo con Aggiungi/Rimuovi');
+  assert.doesNotMatch(milanoGuidance, /onQueryChange\([\s\S]{0,80}setSelected|onNilQueryChange[\s\S]{0,80}setSelected/, 'onNilQueryChange non deve mai chiamare setSelected');
 });
 
 test('B/D. il bottone "Seleziona solo questo NIL" chiama setSelected([z.id]) — isola esattamente una NIL', () => {

@@ -29,9 +29,10 @@ test('Step2: ricerca usa pool globale, non solo selezionate; toggle condiviso', 
 });
 
 test('Ricerca: azioni Aggiungi/Rimuovi visibili anche in Quartieri', () => {
-  assert.match(guidance, /Rimuovi/);
-  assert.match(guidance, /Aggiungi/);
-  assert.match(guidance, /\(!isRadiusMode \|\| nilManualMode\) && !isCapMode/);
+  const s = rd('../src/pages/public/configurator/step2/MilanoNilSearch.jsx');
+  assert.match(s, /Rimuovi/);
+  assert.match(s, /Aggiungi/);
+  assert.match(step2, /milanoUxVisible && !isCapMode \? <MilanoNilSearch/);
 });
 
 test('Mappa: poligoni NIL selezionabili con click handler', () => {

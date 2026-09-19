@@ -11,8 +11,7 @@ import {
 } from "../../../../lib/step2/milanoNilView.js";
 
 // UX Milano — SOLO presentazionale (§0 firewall). Nessun calcolo territoriale,
-// nessuno stato autoritativo: tutti i valori arrivano gia' calcolati da
-// Step2.jsx. `nilQuery` e' l'unico stato UI (in Step2.jsx), qui solo bindato.
+// nessuno stato autoritativo. La ricerca NIL vive in MilanoNilSearch.jsx (sopra la mappa).
 // Reso solo quando `visible` (municipio selezionato = Milano). Non altera la UX
 // degli altri comuni.
 
@@ -81,22 +80,6 @@ export function MilanoGuidance({
   quantity = null,
   coveragePct = null,
   lowCoverage = false,
-  // ricerca NIL locale (§6) — stato in Step2.jsx
-  nilQuery = "",
-  onNilQueryChange = () => {},
-  nilResultCount = null,
-  // TICKET — autocomplete: risultati gia' filtrati+ordinati (Step2.jsx,
-  // rankNilSearchResults), etichetta contesto (comune) e azioni di
-  // navigazione/selezione che riusano handler ESISTENTI (nessuna nuova
-  // logica di selezione qui).
-  nilSearchResults = [],
-  nilSearchContextLabel = "",
-  selected = [],
-  onToggleZone = null,
-  onFocusNilSearchResult = null,
-  onSelectOnlyNil = null,
-  onToggleNilSelection = null,
-  nilSearchPoolSize = null,
   // azioni (handler ESISTENTI di Step2.jsx)
   onShowNil = null,
   onUseRadius = null,
@@ -107,40 +90,7 @@ export function MilanoGuidance({
 }) {
   const [municipioFocus, setMunicipioFocus] = useState(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  // Stato SOLO UI (nessuna selezione): indice attivo tastiera + apertura
-  // tendina. La query stessa resta in Step2.jsx (nilQuery/onNilQueryChange),
-  // come gia' prima.
-  const [searchActiveIndex, setSearchActiveIndex] = useState(-1);
-  const [searchDropdownOpen, setSearchDropdownOpen] = useState(false);
   if (!visible) return null;
-
-  const handleSelectSearchResult = (result) => {
-    if (!result) return;
-    onNilQueryChange(result.name);
-    if (onFocusNilSearchResult) onFocusNilSearchResult(result.id);
-    setSearchDropdownOpen(false);
-    setSearchActiveIndex(-1);
-  };
-  const handleSearchKeyDown = (e) => {
-    if (!searchDropdownOpen || nilSearchResults.length === 0) {
-      if (e.key === "ArrowDown" && nilQuery) setSearchDropdownOpen(true);
-      return;
-    }
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setSearchActiveIndex((i) => (i + 1) % nilSearchResults.length);
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSearchActiveIndex((i) => (i <= 0 ? nilSearchResults.length - 1 : i - 1));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const target = nilSearchResults[searchActiveIndex] || nilSearchResults[0];
-      handleSelectSearchResult(target);
-    } else if (e.key === "Escape") {
-      setSearchDropdownOpen(false);
-      setSearchActiveIndex(-1);
-    }
-  };
 
   const summary =
     nilStats && Number.isFinite(Number(nilStats.available))
@@ -163,7 +113,6 @@ export function MilanoGuidance({
   });
   const statusLine = nilStatusSummaryLine(summary);
   const priority = neutralPriorityLabel({ allocationMode, firstZoneName: firstAllocationZoneName });
-  const showNilSearch = (!isRadiusMode || nilManualMode) && !isCapMode; // ricerca solo dove esiste una lista NIL
 
   return (
     <div
@@ -310,171 +259,6 @@ export function MilanoGuidance({
               <button type="button" style={chipBtn(true)} onClick={() => onKeepMilanoComplete()}>Mantieni Milano completo</button>
             ) : null}
           </div>
-        </div>
-      ) : null}
-
-      {/* Ricerca NIL locale (§6) — autocomplete reale. */}
-      {showNilSearch ? (
-        <div style={{ ...card, gap: 6, position: "relative" }}>
-          <label style={{ ...kicker, fontSize: 9.5 }} htmlFor="vp-milano-nil-search">Vuoi aggiungere un altro quartiere? (Trova una zona)</label>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <input
-              id="vp-milano-nil-search"
-              type="text"
-              role="combobox"
-              aria-expanded={searchDropdownOpen && Boolean(nilQuery)}
-              aria-controls="vp-milano-nil-search-results"
-              aria-autocomplete="list"
-              aria-activedescendant={searchActiveIndex >= 0 && nilSearchResults[searchActiveIndex] ? `vp-nil-search-option-${nilSearchResults[searchActiveIndex].id}` : undefined}
-              value={nilQuery}
-              onChange={(e) => {
-                onNilQueryChange(e.target.value);
-                setSearchDropdownOpen(Boolean(e.target.value));
-                setSearchActiveIndex(-1);
-              }}
-              onFocus={() => setSearchDropdownOpen(Boolean(nilQuery))}
-              onBlur={() => window.setTimeout(() => setSearchDropdownOpen(false), 120)}
-              onKeyDown={handleSearchKeyDown}
-              placeholder="Cerca quartiere o zona di Milano (Cerca NIL / quartiere)"
-              autoComplete="off"
-              style={{
-                flex: "1 1 180px",
-                minWidth: 0,
-                padding: "7px 10px",
-                borderRadius: 8,
-                border: "1px solid rgba(255,255,255,.18)",
-                background: "rgba(0,0,0,.25)",
-                color: C.white,
-                fontSize: 12,
-                fontFamily: F.sans,
-              }}
-            />
-            {nilQuery ? (
-              <button
-                type="button"
-                onClick={() => { onNilQueryChange(""); setSearchDropdownOpen(false); setSearchActiveIndex(-1); }}
-                style={{ ...chipBtn(false), padding: "6px 10px" }}
-              >
-                Pulisci
-              </button>
-            ) : null}
-          </div>
-          {nilQuery ? (
-            <div style={{ fontSize: 10.5, color: "rgba(255,255,255,.5)" }}>
-              {Number(nilResultCount) || 0} {Number(nilResultCount) === 1 ? "zona trovata" : "zone trovate"}
-              {(Number(nilSearchPoolSize) || availableNilCount) ? ` su ${Number(nilSearchPoolSize) || availableNilCount}` : ""} · la selezione non cambia con la ricerca
-            </div>
-          ) : null}
-
-          {/* Tendina risultati: solo mentre l'input e' a fuoco/appena
-              digitato E c'e' del testo. Query vuota -> nessuna tendina
-              (§6 empty state). */}
-          {searchDropdownOpen && nilQuery ? (
-            <div
-              id="vp-milano-nil-search-results"
-              role="listbox"
-              style={{
-                position: "absolute",
-                top: "100%",
-                left: 12,
-                right: 12,
-                marginTop: 4,
-                maxHeight: 260,
-                overflowY: "auto",
-                background: "#14181f",
-                border: "1px solid rgba(255,255,255,.14)",
-                borderRadius: 10,
-                boxShadow: "0 12px 28px rgba(0,0,0,.45)",
-                zIndex: 40,
-              }}
-            >
-              {nilSearchResults.length === 0 ? (
-                <div style={{ padding: "12px 14px", fontSize: 11.5, color: "rgba(255,255,255,.5)", fontFamily: F.sans }}>
-                  Nessuna zona trovata
-                </div>
-              ) : (
-                nilSearchResults.map((result, idx) => {
-                  const active = idx === searchActiveIndex;
-                  const isSelected = typeof result.isSelected === "boolean" ? result.isSelected : Boolean(selected?.includes(result.id));
-                  return (
-                    <div
-                      key={result.id}
-                      id={`vp-nil-search-option-${result.id}`}
-                      role="option"
-                      aria-selected={active}
-                      onMouseDown={(e) => e.preventDefault()} // evita che il blur chiuda la tendina prima del click
-                      onClick={() => handleSelectSearchResult(result)}
-                      onMouseEnter={() => setSearchActiveIndex(idx)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 8,
-                        padding: "9px 14px",
-                        cursor: "pointer",
-                        background: active ? "rgba(232,87,26,.14)" : isSelected ? "rgba(34,197,94,.08)" : "transparent",
-                        borderBottom: idx < nilSearchResults.length - 1 ? "1px solid rgba(255,255,255,.06)" : "none",
-                      }}
-                    >
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontFamily: F.sans, fontSize: 12.5, fontWeight: 700, color: C.white, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {result.name}
-                          </span>
-                          {isSelected && (
-                            <span style={{ fontSize: 9.5, padding: "1px 6px", borderRadius: 4, background: "rgba(34,197,94,.2)", color: "#4ADE80", fontWeight: 700 }}>
-                              Selezionato
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ fontFamily: F.sans, fontSize: 10, color: "rgba(255,255,255,.5)" }}>
-                          {result.isNil ? `NIL / Quartiere${nilSearchContextLabel ? ` · ${nilSearchContextLabel}` : ""}` : (nilSearchContextLabel || "Comune")}
-                        </div>
-                      </div>
-
-                      <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-                        {(onToggleNilSelection || onToggleZone) && result.isNil ? (
-                          <button
-                            type="button"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => {
-                              (onToggleNilSelection || onToggleZone)(result.id);
-                              if (onFocusNilSearchResult) onFocusNilSearchResult(result.id);
-                            }}
-                            style={{
-                              ...chipBtn(isSelected),
-                              padding: "4px 8px",
-                              fontSize: 9.5,
-                              borderColor: isSelected ? "#EF4444" : "rgba(255,255,255,.25)",
-                              color: isSelected ? "#FCA5A5" : C.white,
-                              background: isSelected ? "rgba(239,68,68,.16)" : "rgba(255,255,255,.06)",
-                            }}
-                          >
-                            {isSelected ? "Rimuovi" : "+ Aggiungi"}
-                          </button>
-                        ) : null}
-
-                        {result.isNil && nilManualMode && onSelectOnlyNil ? (
-                          <button
-                            type="button"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => {
-                              onSelectOnlyNil(result.id);
-                              setSearchDropdownOpen(false);
-                              setSearchActiveIndex(-1);
-                            }}
-                            style={{ ...chipBtn(false), padding: "4px 8px", fontSize: 9.5 }}
-                          >
-                            Solo questo
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          ) : null}
         </div>
       ) : null}
 

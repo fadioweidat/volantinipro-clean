@@ -742,6 +742,7 @@ function Step2MapImpl({
   onMapClick,
   focusPoiId,   // id del POI su cui centrare/evidenziare la mappa (click dalla lista H2H/Business)
   focusPoiNonce, // incrementato ad ogni click, anche se si riclicca lo stesso POI
+  focusNil = null, // { id, geometry, nonce } — dalla ricerca NIL: inquadra ed evidenzia il poligono, NON cambia la selezione
   interactive = true, // false = disabilita drag/zoom/pan (solo preview statica, es. hero homepage); default invariato per Step2/Tracking/Admin/Driver
   centerLabel = null, // string|null — se valorizzato, il marker centro della zona
                       // attiva mostra un tooltip PERMANENTE con questo testo,
@@ -1951,6 +1952,34 @@ function Step2MapImpl({
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusPoiId, focusPoiNonce]);
+
+  // Click su un risultato della ricerca NIL: inquadra ed evidenzia il poligono
+  // con un layer temporaneo. Nessuna chiamata a onToggleZone: la selezione
+  // cambia solo con "Aggiungi"/"Rimuovi" o con il click esplicito sulla mappa.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!focusNil || !map || !leafletLoaded) return undefined;
+    const gj = focusNil.geometry ? parseAndValidateGeoJsonGeometry(focusNil.geometry) : null;
+    if (!gj) return undefined;
+    let layer = null;
+    try {
+      layer = L.geoJSON(gj, {
+        style: { color: '#E8571A', weight: 3.5, opacity: 1, fillColor: '#E8571A', fillOpacity: 0.28 },
+        interactive: false,
+        pane: 'nilPolygonsPane',
+      }).addTo(map);
+      const b = layer.getBounds();
+      if (b && b.isValid()) map.fitBounds(b, { padding: [40, 40], maxZoom: 15, animate: true });
+    } catch (e) {
+      warnStep2('[STEP2_NIL_FOCUS_FAILED]', { id: focusNil.id, error: e });
+    }
+    const timer = setTimeout(() => { if (layer) { try { layer.remove(); } catch (_) { /* gia' rimosso */ } } }, 3500);
+    return () => {
+      clearTimeout(timer);
+      if (layer) { try { layer.remove(); } catch (_) { /* gia' rimosso */ } }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusNil?.id, focusNil?.nonce, leafletLoaded]);
 
   return (
     <div className="vp-step2-map-shell" style={{ position: 'relative', width: '100%' }}>

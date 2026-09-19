@@ -19,7 +19,9 @@ import { readFileSync } from 'node:fs';
 import { rankNilSearchResults } from '../src/lib/step2/milanoNilView.js';
 
 const step2 = readFileSync(new URL('../src/pages/public/configurator/Step2.jsx', import.meta.url), 'utf8');
-const guidance = readFileSync(new URL('../src/pages/public/configurator/step2/MilanoGuidance.jsx', import.meta.url), 'utf8');
+const guidance = readFileSync(new URL("../src/pages/public/configurator/step2/MilanoGuidance.jsx", import.meta.url), "utf8");
+const search = readFileSync(new URL("../src/pages/public/configurator/step2/MilanoNilSearch.jsx", import.meta.url), "utf8");
+const mapSrc = readFileSync(new URL("../src/components/Step2Map.jsx", import.meta.url), "utf8");
 const comunePanel = readFileSync(new URL('../src/pages/public/configurator/step2/Step2ComunePanel.jsx', import.meta.url), 'utf8');
 
 function row(id, name, isNil = true) {
@@ -68,51 +70,85 @@ test('rankNilSearchResults rispetta il limite risultati (default 20) senza alter
   assert.equal(out.length, 20);
 });
 
-test('Step2.jsx: milanoNilSearchResults deriva da rankNilSearchResults sulla stessa zoneRowsForList, nessun nuovo fetch/calcolo', () => {
-  assert.match(step2, /import \{ filterNilRows, rankNilSearchResults \} from "\.\.\/\.\.\/\.\.\/lib\/step2\/milanoNilView\.js"/);
-  assert.match(step2, /const milanoNilSearchResults = useMemo\(/);
+// ── Ticket "CERCA NIL": ricerca globale sopra la mappa ─────────────────────
+const fullPool = [
+  'BRUZZANO', 'COMASINA', 'AFFORI', 'BRERA', 'PORTA VENEZIA',
+  'PORTA GARIBALDI - VARESINE', 'PORTA TICINESE - CONCHETTA', 'DUOMO',
+].map((n, i) => row(`nil_${i}`, n));
+
+test('A. la sorgente della ricerca e\' il dataset NIL completo (allMilanoNilRows da apiZones)', () => {
+  assert.match(step2, /const allMilanoNilRows = useMemo\(/);
+  assert.match(step2, /for \(const z of apiZones\)/);
   assert.match(step2, /rankNilSearchResults\(milanoGlobalNilRows, nilQuery, \{ limit: 20 \}\)/);
-  assert.match(step2, /onToggleNilSelection=\{toggleNilZone\}/);
-  assert.match(step2, /nilSearchPoolSize=\{globalNilZones\.length\}/);
 });
 
-test('Step2.jsx: onSelectOnlyNil riusa setSelected([zoneId]) — stessa funzione canonica del bottone card, nessuna logica duplicata', () => {
-  assert.match(step2, /onSelectOnlyNil=\{\(zoneId\) => setSelected\(\[zoneId\]\)\}/);
+test('B. il sottoinsieme selezionato/visibile NON e\' sorgente di ricerca', () => {
+  const i = step2.indexOf('const allMilanoNilRows = useMemo(');
+  const block = step2.slice(i, i + 900);
+  assert.doesNotMatch(block, /zonesInRadius|selZones|zoneRowsForList|globalNilZones|selected\b/);
+  assert.doesNotMatch(step2, /rankNilSearchResults\((zoneRowsForList|selZones|zonesInRadius)/);
 });
 
-test('MilanoGuidance.jsx: tendina risultati con ruolo ARIA combobox/listbox e navigazione tastiera (ArrowDown/ArrowUp/Enter/Escape)', () => {
-  assert.match(guidance, /role="combobox"/);
-  assert.match(guidance, /role="listbox"/);
-  assert.match(guidance, /handleSearchKeyDown/);
-  assert.match(guidance, /e\.key === "ArrowDown"/);
-  assert.match(guidance, /e\.key === "ArrowUp"/);
-  assert.match(guidance, /e\.key === "Enter"/);
-  assert.match(guidance, /e\.key === "Escape"/);
+test('C. "comasina" trova COMASINA anche se nel pool esiste solo BRUZZANO selezionata (pool indipendente dalla selezione)', () => {
+  assert.deepEqual(rankNilSearchResults(fullPool, 'comasina').map(r => r.name), ['COMASINA']);
 });
 
-test('MilanoGuidance.jsx: stato vuoto "Nessuna zona trovata" quando non ci sono risultati', () => {
-  assert.match(guidance, /Nessuna zona trovata/);
+test('D. "comas" trova COMASINA', () => {
+  assert.deepEqual(rankNilSearchResults(fullPool, 'comas').map(r => r.name), ['COMASINA']);
 });
 
-test('MilanoGuidance.jsx: selezionare un risultato dalla tendina NON chiama mai setSelected/onSelectOnlyNil implicitamente — solo onNilQueryChange + focus/scroll', () => {
-  const idx = guidance.indexOf('const handleSelectSearchResult');
-  const block = guidance.slice(idx, idx + 400);
-  assert.match(block, /onNilQueryChange\(result\.name\)/);
-  assert.match(block, /onFocusNilSearchResult\(result\.id\)/);
-  assert.doesNotMatch(block, /onSelectOnlyNil/, 'il click sul risultato stesso non deve invocare la selezione esplicita');
+test('E. "affori" trova AFFORI (accent/case-insensitive)', () => {
+  assert.deepEqual(rankNilSearchResults(fullPool, 'AFFÓRI').map(r => r.name), ['AFFORI']);
 });
 
-test('MilanoGuidance.jsx: azione opzionale "Solo questo NIL" e\' gated su isNil && nilManualMode, come il bottone card esistente', () => {
-  assert.match(guidance, /result\.isNil && nilManualMode && onSelectOnlyNil/);
+test('F. "porta" restituisce piu\' risultati', () => {
+  assert.equal(rankNilSearchResults(fullPool, 'porta').length, 3);
 });
 
-test('Step2ComunePanel.jsx: ogni riga zona ha un id stabile per lo scroll-into-view dalla ricerca (vp-zone-row-<id>)', () => {
-  assert.match(comunePanel, /id=\{`vp-zone-row-\$\{z\.id\}`\}/);
+test('G. in caricamento: "Caricamento quartieri..." e nessun falso "Nessuna zona trovata"', () => {
+  assert.match(search, /Caricamento quartieri\.\.\./);
+  assert.match(search, /Impossibile caricare i quartieri di Milano/);
+  assert.match(search, /Riprova/);
+  assert.match(search, /const ready = poolStatus === "ready"/);
+  assert.match(search, /ready && open && query \?/, 'la tendina (e "Nessuna zona trovata") esiste solo a pool pronto');
+  assert.match(step2, /const nilSearchPoolStatus = allMilanoNilRows\.length > 0 \? "ready" : \(apiError && !apiLoading \? "error" : "loading"\)/);
 });
 
-test('nessuna modifica al motore prezzi/quantita\' Step2 o a filterNilRows esistente (comportamento invariato per la lista card sotto)', () => {
-  assert.match(step2, /filterNilRows\(zoneRowsForList, nilQuery\)/, 'filterNilRows continua a filtrare la lista card come prima, invariato');
-  const idx = guidance.indexOf('const handleSelectSearchResult');
-  const block = guidance.slice(Math.max(0, idx - 50), idx + 800);
-  assert.doesNotMatch(block, /requiredQty\s*=|flyerQty\s*=|zCap\(/, 'nessun calcolo di prezzo/quantita\' introdotto dall\'autocomplete');
+test('H. Aggiungi usa il gestore canonico toggleNilZone (stesso `selected`)', () => {
+  assert.match(step2, /onToggle=\{toggleNilZone\}/);
+  const i = step2.indexOf('function toggleNilZone(');
+  assert.match(step2.slice(i, i + 900), /setSelected\(/);
+  assert.match(search, /"Aggiungi"/);
 });
+
+test('I. Rimuovi usa lo stesso gestore canonico', () => {
+  assert.match(search, /"Rimuovi"/);
+  assert.match(search, /onToggle\(result\.id\)/);
+  assert.match(step2, /isSelected: selectedZoneIdSet\.has\(r\.id\)/);
+});
+
+test('J. selezionare un risultato inquadra la mappa senza cambiare la selezione', () => {
+  const i = search.indexOf('const pick = (result)');
+  const block = search.slice(i, i + 300);
+  assert.match(block, /onFocusResult\(result\)/);
+  assert.doesNotMatch(block, /onToggle/);
+  assert.match(step2, /focusedNil=\{focusedNil\}/);
+  assert.match(mapSrc, /focusNil = null/);
+  assert.match(mapSrc, /map\.fitBounds\(b, \{ padding: \[40, 40\], maxZoom: 15/);
+});
+
+test('K. il campo di ricerca sta SOPRA la mappa', () => {
+  const s = step2.indexOf('<MilanoNilSearch');
+  const m = step2.indexOf('<Step2MapPanel');
+  assert.ok(s > 0 && m > 0 && s < m, 'MilanoNilSearch precede Step2MapPanel');
+  assert.match(search, /Aggiungi un quartiere \/ zona/);
+  assert.match(search, /Cerca un quartiere di Milano e aggiungilo alla distribuzione\./);
+  assert.match(search, /Cerca quartiere di Milano, es\. Comasina/);
+});
+
+test('L. la vecchia ricerca duplicata piu\' in basso e\' rimossa e il contatore sbagliato non esiste', () => {
+  assert.doesNotMatch(guidance, /Trova una zona|zone trovate|nilQuery/);
+  assert.equal((step2.match(/<MilanoNilSearch/g) || []).length, 1);
+  assert.doesNotMatch(search, /zone trovate/);
+});
+

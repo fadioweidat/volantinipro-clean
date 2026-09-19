@@ -9,7 +9,8 @@ import { ACTIVITY_TARGET_LABELS } from "../../../lib/step2/activityTargets.js";
 import { ADDRESS_INTENT_RE, detectSearchIntent, extractOfficialNilCode, getMunicipalityDedupKey, getVerifiedBusinessMetrics, getZoneVerdict, isAddressLikePlaceType, isGeocoderResultInMilanoComune, isNilLikePlaceType, logAddressVsMunicipalityDebug, looksLikeAddressResult, normalizeCoverageDecision, normalizeMunicipalityName, normalizeTerritoryName } from "../../../lib/step2/addressIntent.js";
 import { apiToZones, capToZone, getZoneCoords, haversineKm, pickRealComuneGeometry } from "../../../lib/step2/zoneGeoHelpers.js";
 import { resolveZoneAutoSelection } from "../../../lib/step2/zoneSelection.js";
-import { filterNilRows, rankNilSearchResults } from "../../../lib/step2/milanoNilView.js";
+import { rankNilSearchResults } from "../../../lib/step2/milanoNilView.js";
+import { MilanoNilSearch } from "./step2/MilanoNilSearch.jsx";
 import { MilanoGuidance } from "./step2/MilanoGuidance.jsx";
 import { bizCategoryChart, businessRows, businessZoneScore, getComuneColor, getH2HMetrics, getTargetBizMeta, H2H_HOTSPOT_META, h2hHotspotRows, h2hHotspotStrength, residentialRows, residentialStrength } from "../../../lib/step2/businessZoneHelpers.js";
 import { buildOperationalAdvice, D2D_DAILY_CAPACITY, estimateOperationalDays, H2H_FLYERS_PER_PROMOTER_HOUR, resolveAssignedQuantity } from "../../../lib/step2/operationalMetrics.js";
@@ -4230,17 +4231,32 @@ export function Step2({
     excluded: Number(summaryComuniStats?.esclusi) || 0,
   }), [summaryComuniStats, availableNils.length]);
   const milanoFilteredZoneRows = useMemo(
-    () => (milanoUxVisible && !isRadiusMode && nilQuery ? filterNilRows(zoneRowsForList, nilQuery) : zoneRowsForList),
-    [milanoUxVisible, isRadiusMode, nilQuery, zoneRowsForList]
+    () => zoneRowsForList,
+    [zoneRowsForList]
   );
-  const milanoGlobalNilRows = useMemo(
-    () => (milanoUxVisible ? globalNilZones.map(z => ({ type: "zone", zone: z })) : []),
-    [milanoUxVisible, globalNilZones]
-  );
-  const milanoNilResultCount = useMemo(
-    () => (nilQuery ? rankNilSearchResults(milanoGlobalNilRows, nilQuery, { limit: 1000 }).length : null),
-    [nilQuery, milanoGlobalNilRows]
-  );
+  // SORGENTE CANONICA della ricerca NIL: tutte le NIL di Milano dal dataset API
+  // (apiZones), MAI zonesInRadius/selZones/zoneRowsForList, che cambiano con
+  // modalita', indirizzo non confermato, raggio e selezione ("0 zone trovate su 1").
+  const allMilanoNilRows = useMemo(() => {
+    if (!milanoUxVisible || !Array.isArray(apiZones)) return [];
+    const seen = new Set();
+    const rows = [];
+    for (const z of apiZones) {
+      if (!z || !(z.isNil || z.territoryLevel === "nil" || z.nilCode || z.nil_code)) continue;
+      if (seen.has(z.id)) continue;
+      seen.add(z.id);
+      rows.push({ type: "zone", zone: z });
+    }
+    return rows;
+  }, [milanoUxVisible, apiZones]);
+  const milanoGlobalNilRows = allMilanoNilRows;
+  const nilSearchPoolStatus = allMilanoNilRows.length > 0 ? "ready" : (apiError && !apiLoading ? "error" : "loading");
+  const [focusedNil, setFocusedNil] = useState(null);
+  const focusNilSearchResult = useCallback((result) => {
+    const zone = result && (apiZones || []).find(z => z.id === result.id);
+    if (!zone) return;
+    setFocusedNil({ id: zone.id, geometry: zone.geometry || zone.geometry_geojson || pickRealComuneGeometry(zone) || null, nonce: Date.now() });
+  }, [apiZones]);
   // TICKET — "Trova una zona" -> autocomplete reale. Stessa sorgente dati di
   // milanoFilteredZoneRows (zoneRowsForList gia' calcolate sopra), solo
   // ri-ordinate (prefisso prima) e mappate a {id,name,isNil} per la tendina
@@ -4248,7 +4264,7 @@ export function Step2({
   // chiamata di rete: puro riuso presentazionale.
   // BUG (ticket): la ricerca leggeva zoneRowsForList, cioe' SOLO le zone gia'
   // selezionate/visibili ("comasina" con BRUZZANO selezionata -> 0 su 1). Ora
-  // legge il dataset NIL canonico completo (globalNilZones = tutte le NIL
+  // legge il dataset NIL canonico completo (allMilanoNilRows da apiZones = tutte le NIL
   // caricate, indipendente dalla selezione) e marca quali sono selezionate.
   const selectedZoneIdSet = useMemo(() => new Set(selZones.map(z => z.id)), [selZones]);
   const milanoNilSearchResults = useMemo(
@@ -4257,13 +4273,6 @@ export function Step2({
       : []),
     [milanoUxVisible, isCapMode, nilQuery, milanoGlobalNilRows, selectedZoneIdSet]
   );
-  const scrollToMilanoZoneRow = useCallback((zoneId) => {
-    if (typeof document === "undefined" || !zoneId) return;
-    const el = document.getElementById(`vp-zone-row-${zoneId}`);
-    if (el && typeof el.scrollIntoView === "function") {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, []);
   const milanoLowCoverage = Boolean(
     milanoUxVisible && isMilanoComuneCollapsible &&
     Number.isFinite(Number(serviceKpis?.coverage)) && Number(serviceKpis?.coverage) < 60
@@ -5402,8 +5411,22 @@ export function Step2({
           gap: 10
         }}>
 
+          {/* Ricerca NIL unica — sopra la mappa, dopo il pannello indirizzo. */}
+          {milanoUxVisible && !isCapMode ? <MilanoNilSearch
+            query={nilQuery}
+            onQueryChange={setNilQuery}
+            results={milanoNilSearchResults}
+            poolStatus={nilSearchPoolStatus}
+            poolSize={allMilanoNilRows.length}
+            onRetry={handleRetryGis}
+            onToggle={toggleNilZone}
+            onFocusResult={focusNilSearchResult}
+            contextLabel={city?.label || city?.name || "Milano"}
+          /> : null}
+
           {/* MAPPA GRANDE — solo Vista Cliente. */}
           <Step2MapPanel
+        focusedNil={focusedNil}
         activeLay={activeLay}
         activeMapLayers={activeMapLayers}
         apiData={apiData}
@@ -5573,15 +5596,6 @@ export function Step2({
             quantity={Number(flyerQuantityFromStep1) || allocationFlyers || null}
             coveragePct={Number.isFinite(Number(serviceKpis?.coverage)) ? Number(serviceKpis.coverage) : null}
             lowCoverage={milanoLowCoverage}
-            nilQuery={nilQuery}
-            onNilQueryChange={setNilQuery}
-            nilResultCount={milanoNilResultCount}
-            nilSearchResults={milanoNilSearchResults}
-            nilSearchContextLabel={city?.label || city?.name || "Milano"}
-            onFocusNilSearchResult={scrollToMilanoZoneRow}
-            onSelectOnlyNil={(zoneId) => setSelected([zoneId])}
-            onToggleNilSelection={toggleNilZone}
-            nilSearchPoolSize={globalNilZones.length}
             onShowNil={enterNilManualMode}
             onUseRadius={switchToRadiusMode}
             onKeepMilanoComplete={switchToComuneMode}
