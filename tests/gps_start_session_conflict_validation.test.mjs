@@ -59,9 +59,13 @@ test("5. started + zero GPS da 5 ore => v_last_activity = started_at (5h fa), et
   assert.match(fnBody, /v_last_activity timestamptz/);
 });
 
-test("6. updated_at recente (bump admin) + GPS vecchio => ABANDONED_SESSION_EXISTS: updated_at MAI letto nel check di classificazione", () => {
-  assert.doesNotMatch(checkBlock, /v_blocking\.updated_at/);
-  assert.doesNotMatch(checkBlock, /\bupdated_at\b/);
+test("6. classificazione conflitto usa solo ultimo GPS/started_at: updated_at non influenza LIVE/STALE/ABANDONED", () => {
+  // Il contratto corretto non dipende dal fatto che la parola updated_at
+  // compaia altrove nella migration (es. INSERT della nuova sessione). Qui
+  // verifichiamo positivamente la sorgente temporale usata dal classificatore.
+  assert.match(checkBlock, /select greatest\([\s\S]*?max\(p\.recorded_at\)[\s\S]*?v_blocking\.started_at[\s\S]*?\) into v_last_activity;/);
+  assert.match(checkBlock, /v_age_seconds := extract\(epoch from \(now\(\) - v_last_activity\)\);/);
+  assert.doesNotMatch(checkBlock, /v_last_activity\s*:=?[\s\S]{0,120}updated_at/);
 });
 
 test("7. sessione paused legittima => sempre ACTIVE_SESSION_EXISTS, MAI ABANDONED per sola assenza GPS (check status='paused' prima di qualunque calcolo eta')", () => {
