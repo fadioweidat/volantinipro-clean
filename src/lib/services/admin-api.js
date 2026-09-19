@@ -1125,6 +1125,25 @@ export async function revokeOperatorAssignment(id) {
   return data;
 }
 
+
+export async function renameGroupParticipant(assignmentId, displayName) {
+  if (!supabase) throw new Error('Supabase non configurato.');
+  if (!isValidUuid(assignmentId)) throw new Error('id assegnazione non valido.');
+  const name = String(displayName || '').trim();
+  if (!name) throw new Error('Nome operativo obbligatorio.');
+
+  const { data, error } = await supabase.rpc('admin_rename_group_participant', {
+    p_assignment_id: assignmentId,
+    p_display_name: name,
+  });
+
+  if (error) {
+    console.error('[ADMIN_RENAME_GROUP_PARTICIPANT_ERROR]', error?.message);
+    throw error;
+  }
+  return data;
+}
+
 export async function listAssignmentZones(assignmentId) {
   if (!supabase) return [];
   if (!isValidUuid(assignmentId)) return [];
