@@ -1,4 +1,4 @@
-import { cleanPhoneNumber, parseSupplierCompensation } from '../../../lib/services/recipientResolver.js';
+import { cleanPhoneNumber, parseSupplierCompensation, resolveProgramRecipient } from '../../../lib/services/recipientResolver.js';
 
 export function AssignWorkResultStep({
   PreviewRow,

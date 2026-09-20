@@ -20,7 +20,7 @@ import { AssignWorkGroupOperatorStep } from './assign-work/AssignWorkGroupOperat
 import { AssignWorkProgramStep } from './assign-work/AssignWorkProgramStep.jsx';
 import { AssignWorkPreviewStep } from './assign-work/AssignWorkPreviewStep.jsx';
 import { AssignWorkResultStep } from './assign-work/AssignWorkResultStep.jsx';
-import { cleanPhoneNumber, programMetadata, parseSupplierCompensation, prefillSupplierCompensation, savedSupplierCompensation, resolveProgramRecipient } from '../../lib/services/recipientResolver.js';
+import { cleanPhoneNumber, programMetadata, parseSupplierCompensation, prefillSupplierCompensation, savedSupplierCompensation, resolveProgramRecipient, recipientIdentity, isSameRecipientIdentity } from '../../lib/services/recipientResolver.js';
 
 import { ProgramRecipientSelector, ProgramRecipientSummary } from './assign-work/ProgramRecipient.jsx';
 
@@ -220,6 +220,33 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
     suppliers,
   });
 
+  // Destinatario mostrato, scritto nel messaggio e usato come target WhatsApp dopo il salvataggio (step 4):
+  // e' UNA sola risoluzione, basata sullo snapshot SALVATO e bloccata come scelta esplicita, cosi' un
+  // gruppo/fornitore selezionato non puo' sostituirlo e visualizzazione, messaggio, stato di invio e
+  // numero wa.me non possono divergere. Assegnazioni legacy senza snapshot mantengono la precedenza automatica.
+  function resolveSavedRecipient(assignment) {
+    const saved = programMetadata(assignment?.metadata).explicit_program_recipient;
+    if (!saved) {
+      return resolveProgramRecipient({
+        assignment,
+        selectedGroup,
+        selectedSupplier,
+        supplierMode,
+        manualSupplier,
+        operators,
+        suppliers,
+      });
+    }
+    return resolveProgramRecipient({
+      assignment,
+      explicitProgramRecipient: { ...saved, isManualChoice: true },
+      operators,
+      suppliers,
+    });
+  }
+  const step4Assignment = savedAssignment || existingAssignment;
+  const activeRecipient = step === 4 && step4Assignment ? resolveSavedRecipient(step4Assignment) : resolvedRecipient;
+
   const campaignTitle = campaign?.title || campaign?.campaign_name || campaign?.nome || `Campagna ${String(campaignId).slice(0, 8)}`;
 
   // Resolved active supplier values based on mode
@@ -315,7 +342,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
 
   async function handleSave() {
     if (saving) return; // guard doppio click
-    if (!resolvedRecipient.valid) { setError(resolvedRecipient.error); return; }
+    if (!resolvedRecipient.valid || !recipientIdentity(resolvedRecipient.recipient)) { setError(resolvedRecipient.error || 'Destinatario del programma non valido.'); return; }
     setSaving(true);
     setError(null);
     try {
@@ -332,7 +359,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
 
       const metadata = {
         ...programMetadata(currentAssignment?.metadata),
-        explicit_program_recipient: resolvedRecipient.recipient,
+        explicit_program_recipient: recipientIdentity(resolvedRecipient.recipient),
         manual_supplier: null,
         notes,
         campaign_title: campaignTitle,
@@ -403,7 +430,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       // Retain the created ID even if a later zone write fails, so retry updates it.
       setSavedAssignment(result);
       const persistedRecipient = resolveProgramRecipient({ assignment: result });
-      if (!persistedRecipient.valid || JSON.stringify(persistedRecipient.recipient) !== JSON.stringify(resolvedRecipient.recipient)
+      if (!persistedRecipient.valid || !isSameRecipientIdentity(persistedRecipient.recipient, resolvedRecipient.recipient)
           || savedSupplierCompensation(result) !== parsedCompensation) {
         throw new Error('Destinatario o compenso non confermati dal salvataggio. Riprova prima di inviare il programma.');
       }
@@ -540,17 +567,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
     const programRows = getSelectedProgramRows();
     const totalQty = programRows.reduce((sum, row) => sum + (row.quantity || 0), 0);
 
-    const activeRecip = step === 4
-      ? resolveProgramRecipient({
-          assignment: savedAssignment,
-          selectedGroup,
-          selectedSupplier,
-          supplierMode,
-          manualSupplier,
-          operators,
-          suppliers,
-        })
-      : resolvedRecipient;
+    const activeRecip = activeRecipient;
 
     const currentCompensation = step === 4
       ? savedSupplierCompensation(savedAssignment)
@@ -587,17 +604,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
   }
 
   function handleWhatsApp() {
-    const currentAssignment = savedAssignment || existingAssignment;
-    const resolved = resolveProgramRecipient({
-      assignment: currentAssignment,
-      explicitProgramRecipient,
-      selectedGroup,
-      selectedSupplier,
-      supplierMode,
-      manualSupplier,
-      operators,
-      suppliers,
-    });
+    const resolved = activeRecipient;
     if (!resolved.valid || !resolved.phone) {
       setNotice(resolved.error || 'Numero destinatario non disponibile.');
       return;
@@ -656,15 +663,7 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
       )}
       {step === 4 && (
         <ProgramRecipientSummary
-          recipient={resolveProgramRecipient({
-            assignment: savedAssignment,
-            selectedGroup,
-            selectedSupplier,
-            supplierMode,
-            manualSupplier,
-            operators,
-            suppliers,
-          })}
+          recipient={activeRecipient}
           compensation={savedSupplierCompensation(savedAssignment)}
         />
       )}
@@ -826,24 +825,8 @@ export function AssignWork({ campaignId, onSaved, onClose, existingAssignment = 
           handleCopyLink={handleCopyLink}
           handleCopyMsg={handleCopyMsg}
           handleWhatsApp={handleWhatsApp}
-          resolvedRecipient={resolveProgramRecipient({
-            assignment: savedAssignment,
-            selectedGroup,
-            selectedSupplier,
-            supplierMode,
-            manualSupplier,
-            operators,
-            suppliers,
-          })}
-          recipientValid={resolveProgramRecipient({
-            assignment: savedAssignment,
-            selectedGroup,
-            selectedSupplier,
-            supplierMode,
-            manualSupplier,
-            operators,
-            suppliers,
-          }).valid}
+          resolvedRecipient={activeRecipient}
+          recipientValid={activeRecipient.valid}
           handleRevoke={handleRevoke}
           buildWhatsAppMsg={buildWhatsAppMsg}
           saving={saving}

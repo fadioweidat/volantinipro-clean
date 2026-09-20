@@ -120,8 +120,16 @@ test("AssignWork: flusso semplificato fornitore-first con compenso e gruppo opzi
 test("WhatsApp: handleWhatsApp risolve il destinatario via resolveProgramRecipient (fornitore incluso) e apre wa.me con il numero pulito", () => {
   const fn = ASSIGN_WORK.match(/function handleWhatsApp\(\)\s*\{[\s\S]*?\r?\n  \}\r?\n/);
   assert.ok(fn, "handleWhatsApp non trovata");
-  // il fornitore selezionato partecipa alla risoluzione del destinatario
-  assert.match(fn[0], /resolveProgramRecipient\(\{[\s\S]*?selectedSupplier[\s\S]*?\}\)/);
+  // il target usa la STESSA risoluzione mostrata e scritta nel messaggio (activeRecipient), non una separata
+  assert.match(fn[0], /const resolved = activeRecipient;/);
+  assert.doesNotMatch(fn[0], /resolveProgramRecipient\(/);
+  // a step 4 activeRecipient e' il destinatario SALVATO bloccato come scelta esplicita: un fornitore o gruppo
+  // selezionato non puo' sostituirlo (l'esclusione e' verificata a runtime in program_recipient_persistence)
+  assert.match(ASSIGN_WORK, /const step4Assignment = savedAssignment \|\| existingAssignment;/);
+  assert.match(ASSIGN_WORK, /const activeRecipient = step === 4 && step4Assignment \? resolveSavedRecipient\(step4Assignment\) : resolvedRecipient;/);
+  const savedFn = ASSIGN_WORK.match(/function resolveSavedRecipient\(assignment\)\s*\{[\s\S]*?\r?\n  \}\r?\n/);
+  assert.ok(savedFn, "resolveSavedRecipient non trovata");
+  assert.match(savedFn[0], /explicitProgramRecipient: \{ \.\.\.saved, isManualChoice: true \}/);
   // destinatario non valido: nessuna apertura di WhatsApp, solo avviso
   assert.match(fn[0], /if \(!resolved\.valid \|\| !resolved\.phone\) \{\s*setNotice\([^)]*\);\s*return;\s*\}/);
   // numero pulito e link wa.me verso la destinazione risolta

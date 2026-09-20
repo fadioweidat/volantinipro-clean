@@ -11,6 +11,28 @@ export function cleanPhoneNumber(raw) {
   return /^[1-9]\d{7,14}$/.test(digits) ? digits : '';
 }
 
+// Identita' canonica del destinatario: solo i campi stabili (type, id, name, phone normalizzato).
+// Sono metadati transitori di UI e NON fanno parte dell'identita': isManualChoice (blocco di scelta
+// manuale, ripristinato in AssignWork all'apertura) e groupName (derivabile dal gruppo).
+export function recipientIdentity(recipient) {
+  if (!recipient || typeof recipient !== 'object') return null;
+  const phone = cleanPhoneNumber(recipient.phone);
+  const name = String(recipient.name ?? '').trim();
+  if (!recipient.type || !phone || !name) return null;
+  return { type: recipient.type, id: recipient.id || null, name, phone };
+}
+
+export function recipientIdentityKey(recipient) {
+  const identity = recipientIdentity(recipient);
+  return identity ? JSON.stringify([identity.type, identity.id, identity.name, identity.phone]) : null;
+}
+
+// Due destinatari sono lo stesso destinatario solo se entrambi validi e con identita' canonica uguale.
+export function isSameRecipientIdentity(a, b) {
+  const keyA = recipientIdentityKey(a);
+  return keyA !== null && keyA === recipientIdentityKey(b);
+}
+
 export function programMetadata(value) {
   if (typeof value === 'string') {
     try { return programMetadata(JSON.parse(value)); } catch { return {}; }
