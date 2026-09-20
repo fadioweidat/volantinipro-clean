@@ -374,7 +374,7 @@ export function AppRouter() {
       <div style={{ paddingTop: 0 }}>
 
         {/* PUBLIC ROUTES */}
-        {isConfiguratorPage && <StepperBar current={page} onGo={goTo} />}
+        {isConfiguratorPage && page !== "step1" && <StepperBar current={page} onGo={goTo} />}
         <PublicRoutes page={page} data={data} setData={setData} goTo={goTo} prefillPatch={prefill.patch} />
 
         {/* AUTH */}

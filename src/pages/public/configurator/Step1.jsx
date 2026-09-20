@@ -25,6 +25,8 @@ import { sendGraphicRequest } from "../../../api/sendGraphicRequest.js";
 import { GEO_DATA } from "../../../lib/geoData.js";
 import { getMunicipalityDedupKey, normalizeTerritoryName } from "../../../lib/step2/addressIntent.js";
 import { H2H_FLYERS_PER_PROMOTER_HOUR } from "../../../lib/step2/operationalMetrics.js";
+import "./step1-reference.css";
+import { Logo } from "../../../components/common/Logo.jsx";
 import { NavButton } from "../../../components/NavButton.jsx";
 import { Step1Help } from "../../../components/Step1Help.jsx";
 import { Step1Icon } from "../../../components/Step1Icon.jsx";
@@ -1004,6 +1006,13 @@ export function Step1({
     label: "Punti Vetrina",
     val: "Inclusi (+€35)"
   }] : [])];
+  const startSummaryLabel = data.startDate ? formatDateDisplay(data.startDate) : periodPresets.find(p => p.id === (data.campaignPeriodPreset || "custom"))?.label;
+  const displaySummaryRows = [...summaryRows, ...(isB2B ? [
+    { label: "Zona", val: "Da selezionare nello Step 2" },
+    { label: "Formato materiale", val: currentFormatLabel },
+    { label: "Stampa", val: currentPrintLabel },
+    { label: "Urgenza", val: currentUrgencyLabel }
+  ] : []), { label: "Avvio/data", val: startSummaryLabel || "Da selezionare" }];
   const ctaChecklist = [{
     label: "Servizio",
     complete: Boolean(data.type)
@@ -1026,10 +1035,10 @@ export function Step1({
   const s1Green = "#22C55E";
   const s1Panel = {
     background: "linear-gradient(180deg, rgba(18,32,54,.96), rgba(12,24,42,.96))",
-    borderRadius: 22,
+    borderRadius: 16,
     border: "1px solid rgba(255,255,255,0.105)",
-    padding: isMobile ? 20 : 32,
-    boxShadow: "0 22px 60px rgba(0,0,0,.22)"
+    padding: isMobile ? 18 : 20,
+    boxShadow: "0 6px 20px rgba(0,0,0,.12)"
   };
   const s1Card = (active = false) => ({
     background: active ? "linear-gradient(180deg, rgba(34,197,94,.13), rgba(34,197,94,.055))" : "rgba(9,18,33,.58)",
@@ -1052,9 +1061,9 @@ export function Step1({
     boxShadow: active ? "0 12px 28px rgba(34,197,94,.11)" : "none"
   });
   return <div className="vp-s1-root" style={{
-    maxWidth: 1440,
+    maxWidth: 1200,
     margin: "0 auto",
-    padding: isMobile ? "32px 16px 120px" : "48px 28px 140px",
+    padding: isMobile ? "20px 16px 80px" : "24px 28px 64px",
     color: "#F8FAFC",
     background: "linear-gradient(180deg,#07111f 0%, #0b182a 52%, #101c2c 100%)"
   }}>
@@ -1099,6 +1108,7 @@ export function Step1({
         .vp-s1-summary-mobile summary span { float: right; color: #CBD5E1; font-size: 11px; }
         .vp-s1-summary-mobile > div { padding: 0 18px 18px; }
       `}</style>
+      <header className="vp-s1-brand"><Logo dark size={34} /><span>Campagne che fanno crescere il tuo business</span></header>
       {onHome && <NavButton onClick={onHome} style={{
       marginBottom: 24
     }}>
@@ -1106,10 +1116,10 @@ export function Step1({
         </NavButton>}
 
       {/* Hero & Progress Bar */}
-      <div style={{
-      marginBottom: 48
+      <div className="vp-s1-hero" style={{
+      marginBottom: 28
     }}>
-        <div style={{
+        <div className="vp-s1-stepper" aria-label="Avanzamento campagna" style={{
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
@@ -1124,7 +1134,7 @@ export function Step1({
       }}>
           {[{
           step: 1,
-          label: "Configurazione campagna",
+          label: "Campagna",
           active: true
         }, {
           step: 2,
@@ -1190,6 +1200,7 @@ export function Step1({
             </div>)}
         </div>
 
+        <div className="vp-s1-hero-kicker">STEP 1 DI 4</div>
         <h1 style={{
         fontFamily: F.serif,
         fontSize: isMobile ? 36 : 48,
@@ -1213,10 +1224,10 @@ export function Step1({
       </div>
 
       {/* Main Layout Grid */}
-      <div style={{
+      <div className="vp-s1-layout" style={{
       display: "grid",
-      gridTemplateColumns: isMobile ? "minmax(0,1fr)" : "minmax(0,1fr) 310px",
-      gap: isMobile ? 0 : 28,
+      gridTemplateColumns: isMobile ? "minmax(0,1fr)" : "minmax(0,1fr) 300px",
+      gap: isMobile ? 16 : 16,
       alignItems: "start"
     }}>
         <aside style={{
@@ -1226,7 +1237,7 @@ export function Step1({
         top: 22,
         zIndex: 8
       }} aria-label="Riepilogo configurazione">
-          <Step1Summary rows={summaryRows} issues={step1Issues} isMobile={isMobile} estimate={{
+          <Step1Summary rows={displaySummaryRows} issues={step1Issues} isMobile={isMobile} estimate={{
           printActive,
           printCost: printEst,
           printUnknown: printEstUnknown,
@@ -1236,10 +1247,10 @@ export function Step1({
         }} />
         </aside>
         {/* Left Column: Configuration Sections */}
-        <div style={{
+        <div className="vp-s1-sections" style={{
         display: "flex",
         flexDirection: "column",
-        gap: 36,
+        gap: 12,
         gridColumn: 1,
         gridRow: isMobile ? 2 : 1,
         minWidth: 0
@@ -1248,7 +1259,7 @@ export function Step1({
           {/* Section 1: Tipo di distribuzione */}
           <div id="section-servizio" style={s1Panel}>
             <div style={s1EyebrowStyle}>
-              1 - Tipo di distribuzione
+              <span className="vp-s1-section-number">1</span>Tipo di distribuzione
             </div>
             <h2 style={{
             fontFamily: F.serif,
@@ -1326,43 +1337,12 @@ export function Step1({
                   margin: "0 0 18px",
                   minHeight: 40
                 }}>{t.desc}</p>
-                    <div style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                  padding: 14,
-                  borderRadius: 12,
-                  background: "rgba(255,255,255,.035)",
-                  border: "1px solid rgba(255,255,255,0.065)",
-                  marginBottom: 20,
-                  flex: 1
-                }}>
-                      {t.howItWorks ? (
-                        <div className="vp-s1-service-detail" style={{
-                          fontSize: 12,
-                          color: "#CBD5E1"
-                        }}><Step1Icon name="compass" size={14} /> <span><b style={{
-                            color: "#F8FAFC"
-                          }}>Come funziona:</b> {t.howItWorks}</span></div>
-                      ) : null}
-                      <div className="vp-s1-service-detail" style={{
-                    fontSize: 12,
-                    color: "#CBD5E1"
-                  }}><Step1Icon name="lightbulb" size={14} /> <span><b style={{
-                      color: "#F8FAFC"
-                    }}>Casi d'uso:</b> {t.useCases}</span></div>
-                      <div className="vp-s1-service-detail" style={{
-                    fontSize: 12,
-                    color: "#CBD5E1"
-                  }}><Step1Icon name="target" size={14} /> <span><b style={{
-                      color: "#F8FAFC"
-                    }}>Target:</b> {t.target}</span></div>
-                      <div className="vp-s1-service-detail" style={{
-                    fontSize: 12,
-                    color: "#CBD5E1"
-                  }}><Step1Icon name="clock" size={14} /> <span><b style={{
-                      color: "#F8FAFC"
-                    }}>Tempo medio:</b> {t.time}</span></div>
+                    <div className="vp-s1-service-benefits">
+                      {{
+                        d2d: ["Copertura capillare", "Ideale per attività locali", "Visibilità nel territorio"],
+                        h2h: ["Contatto diretto con il pubblico", "Target e fasce orarie mirate", "Ideale per eventi e promozioni"],
+                        b2b: ["Target professionale", "Consegna presso le attività", "Selezione per settore e zona"]
+                      }[t.id]?.map(benefit => <div key={benefit}><span aria-hidden="true">✓</span>{benefit}</div>)}
                     </div>
                     <div style={{
                   display: "flex",
@@ -1377,7 +1357,7 @@ export function Step1({
                     fontWeight: 600,
                     color: "#64748B",
                     fontStyle: "italic"
-                  }}>Prezzo calcolato nel preventivo finale</span>
+                  }}>{active ? "Selezionato" : "Seleziona"}</span>
                       <span style={{
                     width: 26,
                     height: 26,
@@ -1446,7 +1426,7 @@ export function Step1({
           {/* Section 2: Attività cliente */}
           <div id="section-settore" style={s1Panel}>
             <div style={s1EyebrowStyle}>
-              2 - Settore o Attività
+              <span className="vp-s1-section-number">2</span>Settore o Attività
             </div>
             <h2 style={{
             fontFamily: F.serif,
@@ -1838,7 +1818,7 @@ export function Step1({
           display: isB2B ? "none" : undefined
         }}>
             <div style={s1EyebrowStyle}>
-              3 - Quantità volantini
+              <span className="vp-s1-section-number">3</span>Quantità volantini
             </div>
             <h2 style={{
             fontFamily: F.serif,
@@ -1893,7 +1873,7 @@ export function Step1({
             })}
             </div>
 
-            <input type="range" min={1000} max={100000} step={1000} value={Math.max(1000, Math.min(100000, data.qty || 10000))} onChange={e => updateData({
+            <input type="range" aria-label="Quantità volantini" min={1000} max={100000} step={1000} value={Math.max(1000, Math.min(100000, data.qty || 10000))} onChange={e => updateData({
             qty: Number(e.target.value)
           })} className="vp-s1-slider" />
 
@@ -1915,7 +1895,7 @@ export function Step1({
                 <span style={{
                 fontSize: 13,
                 color: "#94A3B8"
-              }}>Inserimento manuale:</span>
+              }}>Inserimento manuale (pz):</span>
                 <input type="text" inputMode="numeric" value={data.qty ? new Intl.NumberFormat("it-IT", {
                 useGrouping: true
               }).format(data.qty) : ""} onChange={e => {
@@ -1956,7 +1936,7 @@ export function Step1({
           display: isB2B ? "none" : undefined
         }}>
             <div style={s1EyebrowStyle}>
-              4 - Periodo di distribuzione
+              <span className="vp-s1-section-number">4</span>Periodo di distribuzione
             </div>
             <h2 style={{
             fontFamily: F.serif,
@@ -2147,7 +2127,7 @@ export function Step1({
           {/* Section 5: Materiale e Formato */}
           <div id="section-formato" style={s1Panel}>
             <div style={s1EyebrowStyle}>
-              5 - Materiale & Formato
+              <span className="vp-s1-section-number">5</span>Materiale & Formato
             </div>
             <h2 style={{
             fontFamily: F.serif,
@@ -2536,7 +2516,7 @@ export function Step1({
           display: isB2B ? "none" : undefined
         }}>
             <div style={s1EyebrowStyle}>
-              6 - Priorità operativa
+              <span className="vp-s1-section-number">6</span>Priorità operativa
             </div>
             <h2 style={{
             fontFamily: F.serif,
@@ -2594,7 +2574,7 @@ export function Step1({
           {/* Section 8: Piano */}
           <div id="section-piano" style={s1Panel}>
             <div style={s1EyebrowStyle}>
-              7 - Piano promozionale
+              <span className="vp-s1-section-number">7</span>Piano promozionale
             </div>
             <h2 style={{
             fontFamily: F.serif,
@@ -2721,8 +2701,9 @@ export function Step1({
               </div>}
           </div>
 
-          {/* NUOVA CARD "PROSSIMO PASSAGGIO" */}
-          <div style={{
+        </div>
+          {/* Prossimo passaggio: same handler and validation, full-width presentation. */}
+          <div className="vp-s1-finish" style={{
           ...s1Panel,
           padding: isMobile ? 24 : 36,
           position: "relative",
@@ -2753,7 +2734,7 @@ export function Step1({
             letterSpacing: ".1em",
             marginBottom: 16
           }}>
-              <Step1Icon name="lightning" size={13} /> Trasparenza Garantita
+              <Step1Icon name="lightning" size={13} /> QUASI FATTO!
             </div>
             <h2 style={{
             fontFamily: F.serif,
@@ -2763,42 +2744,15 @@ export function Step1({
           }}>
               Prossimo passaggio
             </h2>
-            <div style={{
-            display: "grid",
-            gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)",
-            gap: 18,
-            marginBottom: 28
-          }}>
-              {(data.quickMode ? ["Riceverai un preventivo immediato senza passare dalla mappa.", "Potrai selezionare servizi extra come tracking GPS.", "Scarica il PDF o richiedi consulenza diretta."] : ["Selezionerai la zona direttamente sulla mappa.", "Vedrai famiglie, popolazione e copertura stimata.", "Riceverai un preventivo automatico basato sulla zona scelta.", "Potrai modificare tutto prima della conferma finale."]).map((pt, idx) => <div key={idx} style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 12
-            }}>
-                  <div style={{
-                width: 24,
-                height: 24,
-                borderRadius: "50%",
-                background: "rgba(34,197,94,.14)",
-                border: "1px solid rgba(34,197,94,.36)",
-                color: s1Green,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 13,
-                fontWeight: 900,
-                flexShrink: 0,
-                marginTop: 2
-              }}>
-                    ✓
-                  </div>
-                  <span style={{
-                fontSize: 15,
-                color: "#E2E8F0",
-                lineHeight: 1.5,
-                fontWeight: 500
-              }}>{pt}</span>
-                </div>)}
-            </div>
+            <p className="vp-s1-finish-copy">{data.quickMode ? "Riceverai un preventivo immediato senza passare dalla mappa." : "Nel prossimo step selezionerai la zona sulla mappa e vedrai in tempo reale famiglie, copertura e prezzo."}</p>
+            <div className="vp-s1-choices"><strong>Le tue scelte</strong><div>
+              {[
+                ["Servizio", currentServiceLabel], ["Attività", b2bSectorLabel],
+                ["Quantità", `${new Intl.NumberFormat("it-IT").format(quantityValue || 0)} volantini`],
+                ["Piano", currentPlanLabel], ["Stampa", currentPrintLabel],
+                ["Urgenza", currentUrgencyLabel], ["Inizio", startSummaryLabel]
+              ].map(([label, value]) => <div key={label}><span aria-hidden="true">{!value || String(value).includes("Da selezionare") ? "○" : "✓"}</span><span>{label}: <b>{value}</b></span></div>)}
+            </div></div>
 
             {/* CTA Button & Note */}
             <div style={{
@@ -2884,8 +2838,6 @@ export function Step1({
               </div>
             </div>
           </div>
-
-        </div>
 
       </div>
 
