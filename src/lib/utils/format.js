@@ -50,15 +50,15 @@ export function formatAreaKm2(value) {
   return `${n.toLocaleString("it-IT", {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1
-  })} km`;
+  })} km\u00b2`;
 }
 
 export function formatPaperWeight(value) {
   if (!value) return "";
-  const s = String(value).replace(/g\/m[2]?/gi, "").replace(/[\-]+$/, "").trim();
+  const s = String(value).replace(/g\/m(?:2|\u00b2)?/gi, "").replace(/[\-]+$/, "").trim();
   const n = Number(s.replace(",", "."));
-  if (Number.isFinite(n) && n > 0) return `${n} g/m`;
-  return `${s} g/m`;
+  if (Number.isFinite(n) && n > 0) return `${n} g/m\u00b2`;
+  return `${s} g/m\u00b2`;
 }
 
 export function formatRadiusLabel(radiusKm) {
