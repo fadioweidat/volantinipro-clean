@@ -13,7 +13,7 @@ const HOME = read("src/pages/public/HomePage.jsx");
 // ── Ordine sezioni homepage ────────────────────────────────────────────────
 test("HomePage: ordine sezioni Hero -> Perché -> Come funziona -> Servizi -> GPS -> Smart Pairing -> Dashboard -> Business -> FAQ -> Contatti -> CTA -> Footer", () => {
   const order = [
-    "VolantiniProHeroMap", "TrustBar", "WhyDifferentSection", "HowItWorksSection",
+    "VolantiniProHeroMap", "WhyDifferentSection", "HowItWorksSection",
     "ServicesSection", "GpsLiveSection", "SmartPairingSection", "DashboardClienteSection",
     "EnterpriseSection", "FAQSection", "ContattiSection", "FinalCtaSection", "Footer",
   ];

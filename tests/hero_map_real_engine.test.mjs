@@ -53,7 +53,7 @@ test('Homepage: mappa isolata reale, senza import Step2Map o stato preventivo', 
   assert.match(isolated, /radius:.*radiusKm\*1000/); assert.match(isolated, /tile\.openstreetmap\.org/);
 });
 test('Homepage: stessa analisi read-only, nessuna statistica sostitutiva', () => {
-  assert.match(hero, /useServiceAnalysis/); assert.match(hero, /'hero_preview','comune','radius'/);
+  assert.match(hero, /useServiceAnalysis/); assert.match(hero, /'hero_preview',\s*'comune',\s*'radius'/);
   assert.doesNotMatch(hero + adapter, /DEFAULT_MILANO_NORD_ZONES|50990|94\.8/);
   assert.match(adapter, /households_in_radius/); assert.match(adapter, /geometry_geojson/);
 });

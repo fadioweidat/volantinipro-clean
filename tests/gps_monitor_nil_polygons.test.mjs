@@ -34,9 +34,12 @@ test('GpsMonitor: poligoni NIL nel nilPane con label permanente e click -> onSel
 test('GpsMonitor: i poligoni NIL vengono dalla STESSA lista dei chip (zoneRows), non solo dalle zone con progress', () => {
   assert.match(src, /const nilMapZones = useMemo\(\(\) => \(zoneRows \|\| \[\]\)\.map\(/);
   assert.match(src, /geometry: resolvedBoundaries\[z\.id\] \|\| null/);
-  assert.match(src, /<GpsMap[\s\S]{0,400}zones=\{nilMapZones\}/);
-  assert.match(src, /<GpsMap[\s\S]{0,400}selectedZoneId=\{selectedZoneId\}/);
-  assert.match(src, /<GpsMap[\s\S]{0,400}onSelectZone=\{\(id\) => setSelectedZoneId\(id\)\}/);
+  // Elemento <GpsMap ... /> completo (senza assumere distanze fra le prop)
+  const gpsMapEl = src.match(/^([ \t]*)<GpsMap\b[\s\S]*?^\1\/>/m); // chiusura con la stessa indentazione (ignora <Foo /> annidati)
+  assert.ok(gpsMapEl, 'elemento <GpsMap ... /> non trovato');
+  assert.match(gpsMapEl[0], /zones=\{nilMapZones\}/);
+  assert.match(gpsMapEl[0], /selectedZoneId=\{selectedZoneId\}/);
+  assert.match(gpsMapEl[0], /onSelectZone=\{\(id\) => setSelectedZoneId\(id\)\}/);
 });
 
 test('GpsMonitor: fitBounds sulla zona selezionata (FitToZoneBounds su selectedZoneGeometry)', () => {

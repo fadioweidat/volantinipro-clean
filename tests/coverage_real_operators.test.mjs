@@ -53,7 +53,7 @@ test('A/B — operatori derivati da campaignOperators reali, nessun MAN-0N hardc
   assert.doesNotMatch(PANEL, /`MAN-\$\{/); // nessuna GENERAZIONE di chiavi MAN-0N (i commenti che le nominano vanno bene)
   // GpsMonitor carica gli assignment reali (per la lista operatori canonica);
   // l'Editor Copertura Avanzato li passa al pannello di correzione.
-  assert.match(GM, /import \{ listCampaignAssignments \} from '\.\.\/\.\.\/lib\/services\/admin-api\.js'/);
+  assert.match(GM, /import\s*\{[^}]*\blistCampaignAssignments\b[^}]*\}\s*from\s*'\.\.\/\.\.\/lib\/services\/admin-api\.js'/);
   assert.match(GM, /listCampaignAssignments\(campaignId\)/);
   assert.match(GM, /const campaignOperators = useMemo\(/);
   assert.match(COVEDIT, /const campaignOperators = useMemo\(/);

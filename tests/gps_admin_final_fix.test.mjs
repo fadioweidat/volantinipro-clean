@@ -13,6 +13,14 @@ import { mergeRoadNetworks } from '../src/lib/geo/mergeRoadNetworks.js';
 import { getOperatorColor, UNASSIGNED_OPERATOR_COLOR } from '../src/lib/geo/operatorColor.js';
 
 const GM = readFileSync(new URL('../src/pages/admin/GpsMonitor.jsx', import.meta.url), 'utf8');
+// Corpo di GpsMonitorOperatorsPanel: dalla dichiarazione fino alla prossima funzione top-level.
+function panelSource(src) {
+  const start = src.indexOf('export function GpsMonitorOperatorsPanel');
+  assert.ok(start >= 0, 'GpsMonitorOperatorsPanel non trovato');
+  const rest = src.slice(start + 10);
+  const next = rest.search(/\r?\n(?:export )?(?:async )?function /);
+  return next === -1 ? src.slice(start) : src.slice(start, start + 10 + next);
+}
 const PANEL = readFileSync(new URL('../src/components/admin/CoverageAdjustmentPanel.jsx', import.meta.url), 'utf8');
 
 // Rete stradale sintetica: n vie da wayLen m, a distanza crescente dall'origine.
@@ -34,8 +42,13 @@ test('§18-A — "OPERATORI: N" usa gli operatori ASSEGNATI, mai il numero di se
   // conteggio canonico da assegnazioni reali
   assert.match(GM, /const assignedOperatorCount = canonicalOperators\.filter\(\(o\) => o\.assigned\)\.length;/);
   assert.match(GM, /const operatorsWithGpsCount = canonicalOperators\.filter\(\(o\) => o\.hasGps\)\.length;/);
-  // header pannello: OPERATORI: {assignedOperatorCount} (+ CON GPS opzionale)
-  assert.match(GM, /OPERATORI: \{assignedOperatorCount\}\{operatorsWithGpsCount > 0 \? ` · CON GPS: \$\{operatorsWithGpsCount\}` : ''\}/);
+  // header pannello (estratto in GpsMonitorOperatorsPanel): OPERATORI CAMPAGNA (assegnati/5) (+ CON GPS opzionale)
+  assert.ok(GM.includes('export function GpsMonitorOperatorsPanel'), 'GpsMonitorOperatorsPanel non trovato');
+  const panelFn = panelSource(GM);
+  assert.match(panelFn, /OPERATORI CAMPAGNA \(\{assignedOperatorCount\}\/5\)\{operatorsWithGpsCount > 0 \? ` · CON GPS: \$\{operatorsWithGpsCount\}` : ''\}/);
+  // e il monitor passa al pannello i conteggi canonici
+  assert.match(GM, /assignedOperatorCount=\{assignedOperatorCount\}/);
+  assert.match(GM, /operatorsWithGpsCount=\{operatorsWithGpsCount\}/);
   // il vecchio conteggio da sessioni non deve piu' essere l'intestazione
   assert.doesNotMatch(GM, /Operatori · \{sessionTracks\.length\}/);
 });
@@ -43,7 +56,8 @@ test('§18-A — "OPERATORI: N" usa gli operatori ASSEGNATI, mai il numero di se
 test('§18-A — canonicalOperators: fonte primaria = assegnazioni reali, hasGps = driver_id fra le sessioni', () => {
   assert.match(GM, /const canonicalOperators = useMemo\(\(\) => \{/);
   assert.match(GM, /for \(const o of campaignOperators\) \{/);
-  assert.match(GM, /hasGps: o\.operatorId \? gpsDriverIds\.has\(o\.operatorId\) : false/);
+  // operatori shared-link senza operatorId: match per assignmentId
+  assert.match(GM, /hasGps: gpsDriverIds\.has\(o\.operatorId \|\| o\.assignmentId\)/);
   assert.match(GM, /assigned: true/);
   // 4 assegnati / 1 GPS => assignedOperatorCount = 4 (indipendente dalle sessioni):
   // la formula filtra su o.assigned, non su sessionTracks.
@@ -52,7 +66,9 @@ test('§18-A — canonicalOperators: fonte primaria = assegnazioni reali, hasGps
 
 test('§18-B — legenda OPERATORI CAMPAGNA: elenca TUTTI gli operatori canonici col nome reale', () => {
   assert.match(GM, /OPERATORI CAMPAGNA/);
-  assert.match(GM, /canonicalOperators\.map\(\(op\) => \(/);
+  // la legenda e' renderizzata nel pannello estratto GpsMonitorOperatorsPanel
+  const legendPanel = panelSource(GM);
+  assert.match(legendPanel, /canonicalOperators\.map\(\(op\) => \{/);
   assert.match(GM, /\{op\.displayName\}/);
   // pallino col colore stabile dell'operatore
   assert.match(GM, /background: op\.color/);

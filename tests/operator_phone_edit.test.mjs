@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import { normalizePhone, isValidPhone, phoneDigits, PHONE_INPUT_PLACEHOLDER } from "../src/lib/phoneNumber.js";
+import { resolveProgramRecipient } from "../src/lib/services/recipientResolver.js";
 
 const MIGRATION = readFileSync(new URL("../supabase/migrations/20260827120000_admin_set_operator_phone.sql", import.meta.url), "utf8");
 const ADMIN_API = readFileSync(new URL("../src/lib/services/admin-api.js", import.meta.url), "utf8");
@@ -116,9 +117,31 @@ test("AssignWork: flusso semplificato fornitore-first con compenso e gruppo opzi
 
 // --- WhatsApp usa il numero del fornitore, link Driver invariato --------
 
-test("WhatsApp: handleWhatsApp legge selectedSupplier.phone (routing al fornitore)", () => {
-  assert.match(ASSIGN_WORK, /function handleWhatsApp\(\)\s*\{\s*const phone = selectedSupplier\?\.phone/);
-  assert.match(ASSIGN_WORK, /window\.open\(`https:\/\/wa\.me\/\$\{phone\}/);
+test("WhatsApp: handleWhatsApp risolve il destinatario via resolveProgramRecipient (fornitore incluso) e apre wa.me con il numero pulito", () => {
+  const fn = ASSIGN_WORK.match(/function handleWhatsApp\(\)\s*\{[\s\S]*?\r?\n  \}\r?\n/);
+  assert.ok(fn, "handleWhatsApp non trovata");
+  // il fornitore selezionato partecipa alla risoluzione del destinatario
+  assert.match(fn[0], /resolveProgramRecipient\(\{[\s\S]*?selectedSupplier[\s\S]*?\}\)/);
+  // destinatario non valido: nessuna apertura di WhatsApp, solo avviso
+  assert.match(fn[0], /if \(!resolved\.valid \|\| !resolved\.phone\) \{\s*setNotice\([^)]*\);\s*return;\s*\}/);
+  // numero pulito e link wa.me verso la destinazione risolta
+  assert.match(fn[0], /cleanPhoneNumber\(resolved\.phone\)/);
+  assert.match(fn[0], /window\.open\(`https:\/\/wa\.me\/\$\{dest\}\?text=/);
+  assert.doesNotMatch(fn[0], /selectedSupplier\?\.phone/);
+});
+
+test("resolveProgramRecipient: fornitore selezionato -> numero destinatario risolto; senza numero -> non valido", () => {
+  const ok = resolveProgramRecipient({
+    selectedSupplier: { id: "s1", company_name: "Acme", phone: "333 1234567" },
+    supplierMode: "registered",
+  });
+  assert.equal(ok.valid, true);
+  assert.equal(ok.phone, "393331234567");
+  assert.equal(ok.recipientType, "registered_supplier");
+  assert.equal(ok.recipientName, "Acme");
+  const noPhone = resolveProgramRecipient({ selectedSupplier: { id: "s2", company_name: "Senza numero", phone: "" } });
+  assert.equal(noPhone.valid, false);
+  assert.equal(noPhone.phone, null);
 });
 
 test("link Driver invariato: nessuna modifica al formato /driver/assignment/ e a generateDriverAssignmentLink", () => {

@@ -21,7 +21,7 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const MIG = read('supabase/migrations/20260831130000_coverage_erase_partial_and_timeout.sql');
+const MIG = read('supabase/migrations/20260831162245_coverage_erase_partial_and_timeout.sql');
 const API = read('src/lib/services/coverage-adjustments-api.js');
 const PANEL = read('src/components/admin/CoverageAdjustmentPanel.jsx');
 

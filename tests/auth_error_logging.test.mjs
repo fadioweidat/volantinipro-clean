@@ -49,10 +49,15 @@ test("2. Callback magic link: restoreSupabaseSession() che ritorna null dopo un 
 
 // 3. session restore exception -> error_log
 test("3. session.js: il catch di _restoreSupabaseSession() (eccezione reale, non 'nessuna sessione') chiama logError (module='session_restore', warning)", () => {
-  const catchBlock = sessionSource.match(/\} catch \(err\) \{[\s\S]*?logError\(\{[\s\S]*?\}\);\s*\n\s*\}/);
+  // Il catch e' ora dentro un loop di retry (504/transitori): logError puo' essere
+  // seguito da `break;`, quindi non richiediamo che sia l'ultimo statement.
+  const fnBlock = sessionSource.match(/async function _restoreSupabaseSession\([\s\S]*?\n\}/);
+  assert.ok(fnBlock, "funzione _restoreSupabaseSession non trovata");
+  const catchBlock = fnBlock[0].match(/\} catch \(err\) \{[\s\S]*?logError\(\{[\s\S]*?\}\);\s*(?:break;\s*)?\}/);
   assert.ok(catchBlock, "blocco catch di _restoreSupabaseSession non trovato");
-  assert.match(catchBlock[0], /module:\s*"session_restore"/);
-  assert.match(catchBlock[0], /severity:\s*ERROR_SEVERITY\.WARNING/);
+  const logCall = catchBlock[0].match(/logError\(\{[\s\S]*?\}\);/)[0];
+  assert.match(logCall, /module:\s*"session_restore"/);
+  assert.match(logCall, /severity:\s*ERROR_SEVERITY\.WARNING/);
   assert.doesNotMatch(catchBlock[0], /accessToken|refreshToken|refresh_token|access_token/);
 });
 

@@ -15,7 +15,7 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const MIG = read('supabase/migrations/20260831120000_coverage_adjustments_batch.sql');
+const MIG = read('supabase/migrations/20260831153621_coverage_adjustments_batch.sql');
 const API = read('src/lib/services/coverage-adjustments-api.js');
 const PANEL = read('src/components/admin/CoverageAdjustmentPanel.jsx');
 // RPC singola esistente (invariata): serve a verificare che NON condivida
