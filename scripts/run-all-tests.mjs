@@ -1,11 +1,16 @@
 import { readdir } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { basename, join, relative, sep } from 'node:path';
 import { spawn } from 'node:child_process';
 
 const ROOT = process.cwd();
 const TEST_DIR = join(ROOT, 'tests');
 const BATCH_SIZE = 40;
 const TEST_RE = /\.test\.(?:mjs|cjs|js|mts|cts|ts)$/i;
+// Script Playwright standalone (*.browser.test.*): non sono suite node:test, richiedono dev server
+// gia' avviati su porte dedicate e un Playwright locale. Eseguirli a mano nell'ambiente dedicato
+// (es. `node tests/<nome>.browser.test.cjs` con le variabili *_URL/*_BASE_URL impostate).
+// Il pattern e' applicato al basename: indipendente dal separatore di percorso.
+const BROWSER_RE = /\.browser\.test\.[cm]?[jt]s$/i;
 
 async function walk(dir) {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -38,10 +43,17 @@ function runBatch(files, index, total) {
   });
 }
 
-const all = (await walk(TEST_DIR)).sort();
+const discovered = (await walk(TEST_DIR)).sort();
+const skippedBrowser = discovered.filter((f) => BROWSER_RE.test(basename(f)));
+const all = discovered.filter((f) => !BROWSER_RE.test(basename(f)));
 if (all.length === 0) {
-  console.error('[test:all] nessun file *.test.* trovato in tests/');
+  console.error('[test:all] nessun test node:test trovato in tests/ (' + skippedBrowser.length + ' script browser esclusi)');
   process.exit(1);
+}
+
+if (skippedBrowser.length > 0) {
+  console.log('[test:all] esclusi ' + skippedBrowser.length + ' test browser standalone (*.browser.test.*): richiedono dev server e Playwright, eseguirli a mano.');
+  for (const f of skippedBrowser) console.log('  - ' + relative(ROOT, f).split(sep).join('/'));
 }
 
 console.log('[test:all] trovati ' + all.length + ' test file. Esecuzione completa in batch da ' + BATCH_SIZE + '.');
@@ -57,4 +69,4 @@ if (failedBatches > 0) {
   process.exit(1);
 }
 
-console.log('\n[test:all] PASS — tutti i ' + all.length + ' test file eseguiti.');
+console.log('\n[test:all] PASS — tutti i ' + all.length + ' test file eseguiti (' + skippedBrowser.length + ' script browser standalone esclusi: non coperti da questo comando).');
