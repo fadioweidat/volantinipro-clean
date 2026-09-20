@@ -1,0 +1,203 @@
+[
+  {
+    "name": "desktop",
+    "metrics": {
+      "width": 1440,
+      "scrollWidth": 1440,
+      "sections": 7,
+      "inputSizes": [
+        13.3333,
+        16
+      ],
+      "services": [
+        {
+          "width": 254,
+          "x": 169
+        },
+        {
+          "width": 254,
+          "x": 435
+        },
+        {
+          "width": 254,
+          "x": 701
+        }
+      ]
+    },
+    "errors": [],
+    "step2Reached": true,
+    "payloadFieldsPreserved": true,
+    "verifiedPayload": {
+      "type": "d2d",
+      "selectedService": "d2d",
+      "activityType": "ristorazione",
+      "businessSector": "ristorazione",
+      "qty": 10000,
+      "flyerQuantity": 10000,
+      "flyerFormat": "A5",
+      "printing": {
+        "format": "A5",
+        "orientation": "verticale",
+        "paperType": "patinata_opaca",
+        "grammage": "130",
+        "sides": "fronte_retro",
+        "color": "cmyk",
+        "folding": "nessuna",
+        "artworkStatus": "pronto",
+        "enabled": false,
+        "selected": false,
+        "price": null,
+        "artwork": {
+          "status": "READY",
+          "graphicServiceRequested": false,
+          "graphicPriceStatus": "NOT_REQUIRED",
+          "required": false,
+          "selected": false,
+          "price": null
+        },
+        "notes": ""
+      },
+      "extraServices": [],
+      "urgency": "normal",
+      "subscription": "single",
+      "campaignPeriodPreset": "asap",
+      "startDate": "",
+      "endDate": "",
+      "planDiscount": 0
+    }
+  },
+  {
+    "name": "samsung",
+    "metrics": {
+      "width": 412,
+      "scrollWidth": 412,
+      "sections": 7,
+      "inputSizes": [
+        16,
+        16
+      ],
+      "services": [
+        {
+          "width": 342,
+          "x": 35
+        },
+        {
+          "width": 342,
+          "x": 35
+        },
+        {
+          "width": 342,
+          "x": 35
+        }
+      ]
+    },
+    "errors": [],
+    "step2Reached": true,
+    "payloadFieldsPreserved": true,
+    "verifiedPayload": {
+      "type": "d2d",
+      "selectedService": "d2d",
+      "activityType": "ristorazione",
+      "businessSector": "ristorazione",
+      "qty": 10000,
+      "flyerQuantity": 10000,
+      "flyerFormat": "A5",
+      "printing": {
+        "format": "A5",
+        "orientation": "verticale",
+        "paperType": "patinata_opaca",
+        "grammage": "130",
+        "sides": "fronte_retro",
+        "color": "cmyk",
+        "folding": "nessuna",
+        "artworkStatus": "pronto",
+        "enabled": false,
+        "selected": false,
+        "price": null,
+        "artwork": {
+          "status": "READY",
+          "graphicServiceRequested": false,
+          "graphicPriceStatus": "NOT_REQUIRED",
+          "required": false,
+          "selected": false,
+          "price": null
+        },
+        "notes": ""
+      },
+      "extraServices": [],
+      "urgency": "normal",
+      "subscription": "single",
+      "campaignPeriodPreset": "asap",
+      "startDate": "",
+      "endDate": "",
+      "planDiscount": 0
+    }
+  },
+  {
+    "name": "iphone",
+    "metrics": {
+      "width": 390,
+      "scrollWidth": 390,
+      "sections": 7,
+      "inputSizes": [
+        16,
+        16
+      ],
+      "services": [
+        {
+          "width": 320,
+          "x": 35
+        },
+        {
+          "width": 320,
+          "x": 35
+        },
+        {
+          "width": 320,
+          "x": 35
+        }
+      ]
+    },
+    "errors": [],
+    "step2Reached": true,
+    "payloadFieldsPreserved": true,
+    "verifiedPayload": {
+      "type": "d2d",
+      "selectedService": "d2d",
+      "activityType": "ristorazione",
+      "businessSector": "ristorazione",
+      "qty": 10000,
+      "flyerQuantity": 10000,
+      "flyerFormat": "A5",
+      "printing": {
+        "format": "A5",
+        "orientation": "verticale",
+        "paperType": "patinata_opaca",
+        "grammage": "130",
+        "sides": "fronte_retro",
+        "color": "cmyk",
+        "folding": "nessuna",
+        "artworkStatus": "pronto",
+        "enabled": false,
+        "selected": false,
+        "price": null,
+        "artwork": {
+          "status": "READY",
+          "graphicServiceRequested": false,
+          "graphicPriceStatus": "NOT_REQUIRED",
+          "required": false,
+          "selected": false,
+          "price": null
+        },
+        "notes": ""
+      },
+      "extraServices": [],
+      "urgency": "normal",
+      "subscription": "single",
+      "campaignPeriodPreset": "asap",
+      "startDate": "",
+      "endDate": "",
+      "planDiscount": 0
+    }
+  }
+]

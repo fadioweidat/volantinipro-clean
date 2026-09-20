@@ -1,0 +1,41 @@
+{
+  "results": [
+    {
+      "width": 1440,
+      "service": "Hand to Hand",
+      "scrollWidth": 1440,
+      "errors": []
+    },
+    {
+      "width": 1440,
+      "service": "Distribuzione Business",
+      "scrollWidth": 1440,
+      "errors": []
+    },
+    {
+      "width": 412,
+      "service": "Hand to Hand",
+      "scrollWidth": 412,
+      "errors": []
+    },
+    {
+      "width": 412,
+      "service": "Distribuzione Business",
+      "scrollWidth": 412,
+      "errors": []
+    },
+    {
+      "width": 390,
+      "service": "Hand to Hand",
+      "scrollWidth": 390,
+      "errors": []
+    },
+    {
+      "width": 390,
+      "service": "Distribuzione Business",
+      "scrollWidth": 390,
+      "errors": []
+    }
+  ],
+  "payloadPreserved": true
+}

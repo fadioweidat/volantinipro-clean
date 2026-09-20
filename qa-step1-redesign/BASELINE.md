@@ -18,6 +18,8 @@ Baseline: npm run build PASS; targeted tests 104/104 PASS (logs in qa-step1-rede
 - summaryRows derive from data; add only presentation of existing period values. Final choices likewise derive from canonical values.
 
 ## Verification scope
-Anonymous /preventivo, desktop 1440x900, Samsung-like 412x915 and iPhone-like 390x844. Open configurator, select service/sector/quantity/period/material/urgency/plan, inspect summary and continue using the existing CTA. Capture baseline and final browser images, check overflow and retain conditional operational forms.
+Anonymous /configuratore, desktop 1440x900, Samsung-like 412x915 and iPhone-like 390x844. Open configurator, select service/sector/quantity/period/material/urgency/plan, inspect summary and continue using the existing CTA. Capture baseline and final browser images, check overflow and retain conditional operational forms.
 Targeted contracts: configurator_step1_4, step1_print_material_format, step1_business_summary_ux, pricing_distribution_engine, pricing_live_wiring. Build, npm test and test:all are run separately.
 Reference differences retained deliberately: original logo/assets, real 5% six-month discount, conditional dates, existing mandatory choices and B2B/H2H operational fields. No fabricated default selections.
+
+Baseline screenshot note: the initial capture attempted /preventivo (service center), not Step 1. The original Step1 module was subsequently reconstructed from BASE HEAD and rendered through Vite request interception for baseline-reconstructed-desktop.png. This is reconstructed baseline evidence, not a screenshot captured before editing.
