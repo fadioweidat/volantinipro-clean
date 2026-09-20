@@ -104,7 +104,48 @@ test("I. Existing ai-core request shape unchanged", () => {
   assert.match(adapterSrc, /VALID_CONTEXT_TYPES = new Set\(\["step1", "step2", "step3", "step4"\]\)/);
 });
 
-test("J. No assistant leaks onto forbidden routes unexpectedly", () => {
+// Politica di rollout per fasi: Phase 1 (5ed327f) aveva tutto disabilitato; Phase 2 (6b94244) ha attivato
+// l'area cliente, Phase 3 l'admin dashboard, Phase 4 (fc9a1de) driver e fornitore. Questa tabella codifica la
+// politica CORRENTE: le rotte abilitate hanno ruolo esplicito e allowAnonymous=false (tranne i passi guest
+// del configuratore); tutte le rotte pubbliche/auth restano disabilitate.
+test("J. Assistant route policy: enabled routes carry explicit role/auth metadata", () => {
+  const R = ASSISTANT_ROLES;
+  // [route, role, allowAnonymous, contextType]
+  const enabledPolicy = [
+    ["step1", R.GUEST, true, "step1"],
+    ["step2", R.GUEST, true, "step2"],
+    ["step3", R.GUEST, true, "step3"],
+    ["step4", R.GUEST, true, "step4"],
+    ["dashboard", R.CUSTOMER, false, "customer_dashboard"],
+    ["campaign:abc", R.CUSTOMER, false, "customer_dashboard"],
+    ["customer-tracking:abc", R.CUSTOMER, false, "customer_dashboard"],
+    ["customer-report:abc", R.CUSTOMER, false, "customer_dashboard"],
+    ["customer-payment:abc", R.CUSTOMER, false, "customer_dashboard"],
+    ["admin", R.ADMIN, false, "admin_dashboard"],
+    ["admin-live", R.ADMIN, false, "admin_dashboard"],
+    ["admin-operations", R.ADMIN, false, "admin_dashboard"],
+    ["admin-operations:abc", R.ADMIN, false, "admin_dashboard"],
+    ["admin-clients-quotes", R.ADMIN, false, "admin_dashboard"],
+    ["admin-assignments:abc", R.ADMIN, false, "admin_dashboard"],
+    ["admin-gps:abc", R.ADMIN, false, "admin_dashboard"],
+    ["admin-unknown-page", R.ADMIN, false, "admin_dashboard"],
+    ["supplier-dashboard", R.SUPPLIER, false, "supplier_dashboard"],
+    ["driver-assignment:123", R.DRIVER, false, "driver_assignment"],
+    ["driver-map:123", R.DRIVER, false, "driver_assignment"],
+  ];
+  for (const [route, role, anon, ctx] of enabledPolicy) {
+    const config = getAssistantRouteConfig(route);
+    assert.equal(config.enabled, true, `Route "${route}" must be enabled`);
+    assert.equal(isAssistantEnabledForRoute(route), true, `isAssistantEnabledForRoute("${route}") must be true`);
+    assert.equal(config.role, role, `Route "${route}" role`);
+    assert.equal(config.allowAnonymous, anon, `Route "${route}" allowAnonymous`);
+    assert.equal(config.contextType, ctx, `Route "${route}" contextType`);
+    // ogni rotta non-guest non deve mai consentire l'accesso anonimo
+    if (role !== R.GUEST) assert.equal(config.allowAnonymous, false, `Route "${route}" must not allow anonymous`);
+  }
+});
+
+test("J1. No assistant leaks onto public/auth/tracking routes", () => {
   const forbiddenRoutes = [
     "home",
     "privacy",
@@ -117,19 +158,88 @@ test("J. No assistant leaks onto forbidden routes unexpectedly", () => {
     "preventivo",
     "milano-landing",
     "supplier-landing",
-    "dashboard",
-    "admin",
-    "admin-live",
-    "admin-operations",
-    "supplier-dashboard",
+    "login",
+    "auth",
+    "step5",
+    "not-found",
+    "tracking",
+    "campaign-tracking",
+    "quote:slug",
+    "q/slug",
+    "adminx",
+    "admin:",
     "driver/assignment/123",
+    "",
   ];
 
   for (const route of forbiddenRoutes) {
     const config = getAssistantRouteConfig(route);
-    assert.equal(config.enabled, false, `Route "${route}" must NOT have assistant enabled in Phase 1`);
+    assert.equal(config.enabled, false, `Route "${route}" must NOT have assistant enabled`);
     assert.equal(isAssistantEnabledForRoute(route), false, `isAssistantEnabledForRoute("${route}") must be false`);
+    assert.equal(config.contextType, null, `Route "${route}" must have no assistant contextType`);
   }
+});
+
+test("J2. Privileged assistant hosts are mounted inside their auth guards", () => {
+  const router = read("src/app/AppRouter.jsx");
+  // Il guard piu' vicino aperto prima dell'host (tag esatto: <Guard seguito da spazio o >, non <GuardLoader)
+  // non deve essere gia' chiuso prima dell'host e deve chiudersi dopo di esso.
+  const insideGuard = (guard, host) => {
+    const hostAt = router.indexOf(host);
+    if (hostAt < 0) return false;
+    const opens = [...router.matchAll(new RegExp(`<${guard}[\\s>]`, "g"))].map((m) => m.index).filter((i) => i < hostAt);
+    if (opens.length === 0) return false;
+    const openAt = opens[opens.length - 1];
+    const closeTag = `</${guard}>`;
+    const closedBefore = router.slice(openAt, hostAt).includes(closeTag);
+    return !closedBefore && router.indexOf(closeTag, hostAt) > hostAt;
+  };
+  assert.equal((router.match(/<AdminAssistantHost/g) || []).length, 1);
+  assert.equal((router.match(/<SupplierAssistantHost/g) || []).length, 1);
+  assert.ok(insideGuard("AdminGuard", "<AdminAssistantHost"), "AdminAssistantHost must be inside AdminGuard");
+  assert.ok(insideGuard("SupplierGuard", "<SupplierAssistantHost"), "SupplierAssistantHost must be inside SupplierGuard");
+  // difesa in profondita': gli host verificano anche il ruolo della rotta
+  assert.match(read("src/components/ai/admin/AdminAssistantHost.jsx"), /routeConfig\.role !== ASSISTANT_ROLES\.ADMIN/);
+  assert.match(read("src/components/ai/customer/CustomerAssistantHost.jsx"), /routeConfig\.role !== ASSISTANT_ROLES\.CUSTOMER/);
+});
+
+// Corpo di una funzione TypeScript per bilanciamento delle graffe (le parentesi del tipo dei parametri,
+// es. `{ id: string }`, precedono la graffa d'apertura del corpo ") {").
+function functionBody(src, name) {
+  const start = src.indexOf(`async function ${name}(`);
+  assert.ok(start >= 0, `${name} not found`);
+  const open = src.indexOf(") {", start) + 2;
+  let depth = 0;
+  for (let i = open; i < src.length; i += 1) {
+    if (src[i] === "{") depth += 1;
+    else if (src[i] === "}") { depth -= 1; if (depth === 0) return src.slice(open, i + 1); }
+  }
+  assert.fail(`${name} body not delimitable`);
+}
+
+test("J3. Server enforces authentication and authorization per assistant context, independent of the client route", () => {
+  const core = read("supabase/functions/ai-core/index.ts");
+  // contextType -> handler; l'autorizzazione avviene sul JWT/token lato server, non sulla rotta del client.
+  const handlers = [
+    ["customer_dashboard", "handleCustomerDashboard"],
+    ["admin_dashboard", "handleAdminDashboard"],
+    ["driver_assignment", "handleDriverAssignment"],
+    ["supplier_dashboard", "handleSupplierDashboard"],
+  ];
+  for (const [contextType, handlerName] of handlers) {
+    assert.match(core, new RegExp(`if \\(contextType === "${contextType}"\\) return await ${handlerName}\\(`), `${contextType} must dispatch to ${handlerName}`);
+    const body = functionBody(core, handlerName);
+    const authAt = body.indexOf('"AUTHENTICATION_REQUIRED"');
+    const forbiddenAt = body.indexOf('"FORBIDDEN"');
+    assert.ok(authAt >= 0, `${handlerName}: missing AUTHENTICATION_REQUIRED (401) for unauthenticated callers`);
+    assert.ok(forbiddenAt > authAt, `${handlerName}: FORBIDDEN (403) must follow the authentication check`);
+    assert.match(body, /401\)/, `${handlerName}: unauthenticated callers must get HTTP 401`);
+    assert.match(body, /403\)/, `${handlerName}: unauthorized callers must get HTTP 403`);
+  }
+  // Admin: il 403 dipende dal ruolo del profilo, non da un valore fornito dal client.
+  const admin = functionBody(core, "handleAdminDashboard");
+  assert.ok(admin.indexOf("isAdminProfile(profile)") > admin.indexOf('"AUTHENTICATION_REQUIRED"'), "admin role check must come after authentication");
+  assert.match(read("supabase/functions/_shared/aiAuthorization.ts"), /export function isAdminProfile\(profile: AiAuthProfile\): boolean \{\s*return profile\?\.role === "admin";/);
 });
 
 test("K. No duplicate floating trigger", () => {
