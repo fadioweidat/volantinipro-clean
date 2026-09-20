@@ -8,12 +8,17 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const migration = readFileSync('supabase/migrations/20260915180000_business_feasibility_commerce.sql', 'utf8');
-const analyticsMigration = readFileSync('supabase/migrations/20260915181000_business_feasibility_analytics_events.sql', 'utf8');
-const service = readFileSync('supabase/functions/feasibility-business-commerce/service.ts', 'utf8');
-const campaignMigration = readFileSync('supabase/migrations/20260909143528_feasibility_commerce.sql', 'utf8');
-const campaignService = readFileSync('supabase/functions/feasibility-commerce/service.ts', 'utf8');
-const siteEvents = readFileSync('src/lib/analytics/siteEvents.js', 'utf8');
+// Le sorgenti SQL/TS sono lette con normalizzazione CRLF -> LF: in un checkout Windows
+// (core.autocrlf=true) i file hanno CRLF mentre git li conserva con LF. Le asserzioni
+// restano invariate (nessuna regex indebolita), ma non dipendono dal tipo di fine riga.
+const readLf = (path) => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
+
+const migration = readLf('supabase/migrations/20260915180000_business_feasibility_commerce.sql');
+const analyticsMigration = readLf('supabase/migrations/20260915181000_business_feasibility_analytics_events.sql');
+const service = readLf('supabase/functions/feasibility-business-commerce/service.ts');
+const campaignMigration = readLf('supabase/migrations/20260909143528_feasibility_commerce.sql');
+const campaignService = readLf('supabase/functions/feasibility-commerce/service.ts');
+const siteEvents = readLf('src/lib/analytics/siteEvents.js');
 
 // ── A. create purchase ──────────────────────────────────────────────────
 test('A: la migration definisce business_feasibility_create_purchase e il service la invoca sull\'azione "purchase"', () => {
@@ -72,7 +77,7 @@ test('G: get_report restituisce purchase+analysis completi quando lo stato è "p
 // ── H. refresh/new session still unlocked ───────────────────────────────
 test('H: nessuna persistenza lato browser (sessionStorage/localStorage/query-string) nel backend o nel client wrapper — solo la tabella Postgres', () => {
   assert.doesNotMatch(service, /sessionStorage|localStorage/);
-  const clientWrapper = readFileSync('src/pages/customer/feasibility/business/feasibilityBusinessCommerce.js', 'utf8');
+  const clientWrapper = readLf('src/pages/customer/feasibility/business/feasibilityBusinessCommerce.js');
   assert.doesNotMatch(clientWrapper, /sessionStorage|localStorage/);
   assert.match(migration, /create table public\.business_feasibility_purchases/);
 });
