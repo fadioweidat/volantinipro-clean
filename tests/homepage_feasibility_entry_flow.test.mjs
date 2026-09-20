@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
+import { FEASIBILITY_PATH } from '../src/lib/feasibility/entryPoint.js';
 
 const sectionSrc = readFileSync(new URL('../src/components/home/FeasibilitySection.jsx', import.meta.url), 'utf8');
 const whySrc = readFileSync(new URL('../src/components/home/WhyDifferentSection.jsx', import.meta.url), 'utf8');
@@ -22,6 +23,16 @@ async function renderFeasibilitySection(props) {
   try {
     const Home = (await vite.ssrLoadModule('/src/components/home/FeasibilitySection.jsx')).default;
     return renderToStaticMarkup(React.createElement(Home, props));
+  } finally {
+    await vite.close();
+  }
+}
+
+async function renderWhy() {
+  const vite = await createServer({ server: { middlewareMode: true, watch: null }, appType: 'custom', logLevel: 'silent' });
+  try {
+    const Why = (await vite.ssrLoadModule('/src/components/home/WhyDifferentSection.jsx')).default;
+    return renderToStaticMarkup(React.createElement(Why));
   } finally {
     await vite.close();
   }
@@ -74,12 +85,24 @@ test('entryPoint.js e feasibilityStorage.js (prefill Step4/campagna esistente) n
 });
 
 // ── "Perché diverso": spiega la distinzione tra i due percorsi ────────────
-test('WhyDifferentSection spiega che business parte subito e campagna usa i dati configurati', () => {
-  assert.match(whySrc, /Due analisi per due decisioni diverse\./);
-  assert.match(whySrc, /anche senza una campagna\./); // business: puo' iniziare subito
-  assert.match(whySrc, /Prima configuri servizio, quantità e zona/); // campaign: richiede configurazione prima
-  assert.match(whySrc, /Scopri come funziona/);
-  assert.match(whySrc, /#feasibility-home-title/);
+test('WhyDifferentSection presenta le due analisi; la distinzione business-subito / campagna-configurata vive nella sezione Fattibilita', async () => {
+  const why = await renderWhy();
+  const card = why.match(/<article class="vpd-card vpd-card--analysis"[\s\S]*?<\/article>/)?.[0];
+  assert.ok(card, 'card Studio di Fattibilità AI presente');
+  assert.match(card, /Due analisi per due decisioni diverse\./);
+  // business: nessun requisito di campagna nella riga del teaser
+  assert.match(card, /<span>Valutazione di attività, territorio, concorrenza e opportunità<\/span>/);
+  // campagna: break-even, ROI e scenari
+  assert.match(card, /<span>Verifica di una campagna con break-even, ROI e scenari<\/span>/);
+  assert.doesNotMatch(card, /volantini|quantità|budget|acquist/i, 'la riga business del teaser non implica requisiti di campagna');
+  assert.match(card, /Analisi basata sui dati realmente disponibili e sulle informazioni che fornisci\./);
+  // rimando al flusso Fattibilità (rotta canonica)
+  assert.equal(FEASIBILITY_PATH, '/analisi-campagna');
+  assert.match(card, new RegExp('<a class="vpd-cta" href="' + FEASIBILITY_PATH + '">Scopri come funziona'));
+  // La spiegazione "business parte subito / campagna usa i dati configurati" e' nella sezione dual-card.
+  const feas = await renderFeasibilitySection();
+  assert.match(feas, /Puoi analizzare direttamente il potenziale della tua attività oppure configurare una campagna e verificarne la sostenibilità economica utilizzando quantità, territorio e costo reali\./);
+  assert.match(feas, /Configura prima la campagna: useremo automaticamente quantità, area e costo del preventivo/);
 });
 
 // ── Firewall: nessuna modifica a motori, formule, report PDF ──────────────

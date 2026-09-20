@@ -89,5 +89,38 @@ test('nessuna modifica alla regola di classificazione (classifyCampaign) o ad al
   assert.match(adminApi, /function classifyCampaign\(campaign, row, serviceSource\) \{/, 'classifyCampaign invariata, stessa firma');
   assert.match(adminApi, /if \(\/\\b\(test\|demo\|placeholder\|fake\|sample\)\\b\/\.test\(haystack\)\)/, 'regola test/demo/placeholder/fake/sample invariata');
   const dashboard = readFileSync(new URL('../src/pages/admin/AdminDashboard.jsx', import.meta.url), 'utf8');
-  assert.match(dashboard, /clientsQuotesResult = await getClientsQuotesOverview\(\{\s*prefetched:/, 'AdminDashboard.jsx Home KPI continua a NON passare includeTest:true (nessun cambiamento ai totali Home)');
+  // Dal refactor a Promise.all (dff6ae6) la chiamata Home non e' piu' "clientsQuotesResult = await ...":
+  // si verifica il contratto sugli ARGOMENTI dell'unica chiamata getClientsQuotesOverview({...}).
+  const calls = [...dashboard.matchAll(/getClientsQuotesOverview\(\{[\s\S]*?\}\)/g)].map((m) => m[0]);
+  assert.equal(calls.length, 1, 'un solo consumer Home di getClientsQuotesOverview');
+  assert.match(calls[0], /prefetched:\s*\{/);
+  assert.match(calls[0], /campaigns:\s*campaignResult\.allRows/);
+  assert.doesNotMatch(calls[0], /includeTest/, 'AdminDashboard.jsx Home KPI continua a NON passare includeTest:true (nessun cambiamento ai totali Home)');
+});
+
+test('getClientsQuotesOverview: con prefetched e senza includeTest scarta le campagne non "real"; con includeTest le mantiene (runtime, senza rete)', async () => {
+  // Nessun client Supabase: il test non deve mai toccare la rete ne' la produzione.
+  const savedUrl = process.env.VITE_SUPABASE_URL;
+  const savedKey = process.env.VITE_SUPABASE_ANON_KEY;
+  delete process.env.VITE_SUPABASE_URL;
+  delete process.env.VITE_SUPABASE_ANON_KEY;
+  const previousFetch = globalThis.fetch;
+  const fetchCalls = [];
+  globalThis.fetch = async (...args) => { fetchCalls.push(String(args[0])); throw new Error('rete non consentita nel test'); };
+  try {
+    const { supabase } = await import('../src/supabaseClient.js');
+    assert.equal(supabase, null, 'nessun client Supabase: il test non deve toccare la rete');
+    const { getClientsQuotesOverview } = await import('../src/lib/services/admin-api.js');
+    const mk = (id, quality) => ({ id, quality, source: 'campaigns', client: 'C-' + id, zone: 'Z', qty: 1, rawStatus: 'active', createdAt: '2026-08-13T09:00:00Z' });
+    const prefetched = { campaigns: [mk('r1', 'real'), mk('t1', 'test')], groups: [], assignments: [], sessions: [], operators: [] };
+    const idsOf = (rows) => rows.map((r) => r.id);
+    assert.deepEqual(idsOf(await getClientsQuotesOverview({ prefetched })), ['r1']);
+    assert.deepEqual(idsOf(await getClientsQuotesOverview({ includeTest: false, prefetched })), ['r1']);
+    assert.deepEqual(idsOf(await getClientsQuotesOverview({ includeTest: true, prefetched })), ['r1', 't1']);
+    assert.deepEqual(fetchCalls, [], 'nessuna chiamata di rete');
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (savedUrl !== undefined) process.env.VITE_SUPABASE_URL = savedUrl;
+    if (savedKey !== undefined) process.env.VITE_SUPABASE_ANON_KEY = savedKey;
+  }
 });

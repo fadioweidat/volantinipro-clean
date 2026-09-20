@@ -14,6 +14,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import React from "react";
+import TR from "react-test-renderer";
 
 import {
   buildSmartPairingBypassState,
@@ -21,12 +23,33 @@ import {
   fetchSmartPairingAvailability,
   getSelectedSmartPairingDates,
 } from "../src/lib/smartPairingAvailability.js";
+import { Step3SmartPairingMainPanel } from "../src/pages/public/configurator/step3/Step3SmartPairingMainPanel.jsx";
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+// Dal refactor 1c153b1 il pannello Smart Pairing (banner error, retry, skip, zero-match, legenda)
+// e' un componente estratto: si renderizza davvero invece di cercare stringhe in Step3.jsx.
+const flat = (j) => (Array.isArray(j) ? j.map(flat).join(" ") : j == null ? "" : typeof j === "string" ? j : flat(j.children));
+const PANEL_BASE = {
+  setAvailabilityStatus() {}, setAvailabilityRetryCount() {}, realSmartPairingSlots: [], availableDates: new Set(),
+  isMobile: false, handleSkipPairing() {}, month: 8, setMonth() {}, year: 2099, setYear() {}, selDays: [], setSelDays() {},
+  isSelectableCalendarDate: () => true, form: {}, setForm() {}, setFormError() {}, pairs: {}, toggle() {}, dateMode: "multi",
+  setShowRequest() {}, setFormSent() {},
+};
+function renderPanel(props) {
+  let renderer;
+  TR.act(() => { renderer = TR.create(React.createElement(Step3SmartPairingMainPanel, { ...PANEL_BASE, ...props })); });
+  return { renderer, text: flat(renderer.toJSON()) };
+}
 
 const root = path.resolve(import.meta.dirname, "..");
 const step3Source = fs.readFileSync(
   path.join(root, "src/pages/public/configurator/Step3.jsx"),
   "utf8"
 );
+// Blocco <Step3SmartPairingMainPanel ... /> montato da Step3.jsx (CRLF-safe).
+// Chiusura con la stessa indentazione dell'apertura (ignora eventuali elementi JSX annidati nelle prop).
+const step3PanelCall = step3Source.match(/^([ \t]*)<Step3SmartPairingMainPanel\b[\s\S]*?^\1\/>/m)?.[0] || "";
 
 // TEST A - SUCCESS + 0 MATCH
 test("TEST A - SUCCESS ZERO MATCH: 200 con 0 slot - availableDates e smartPairingSlots vuoti", () => {
@@ -96,17 +119,36 @@ test("TEST C - ERROR: client non configurato - lancia eccezione SMART_PAIRING_BA
 });
 
 // TEST D - RETRY
-test("TEST D - RETRY: availabilityRetryCount e il retry button sono presenti in Step3", () => {
-  assert.match(step3Source, /availabilityRetryCount/);
-  assert.match(step3Source, /setAvailabilityRetryCount\(c\s*=>\s*c\s*\+\s*1\)/);
-  assert.match(step3Source, /id="step3-retry-availability"/);
+test("TEST D - RETRY: il pannello espone il retry (loading + contatore) e Step3 lo cabla come dipendenza del fetch", () => {
+  const calls = [];
+  const { renderer } = renderPanel({
+    availabilityStatus: "error",
+    setAvailabilityStatus: (s) => calls.push(["status", s]),
+    setAvailabilityRetryCount: (fn) => calls.push(["retry", fn(4)]),
+  });
+  const retry = renderer.root.findByProps({ id: "step3-retry-availability" });
+  TR.act(() => { retry.props.onClick(); });
+  assert.deepEqual(calls, [["status", "loading"], ["retry", 5]]);
+  // Step3 possiede lo stato, lo usa come dipendenza dell'effect e lo passa al pannello.
+  assert.match(step3Source, /const \[availabilityRetryCount, setAvailabilityRetryCount\] = useState\(0\)/);
+  assert.match(step3Source, /availabilityRetryCount\]\);/);
+  assert.ok(step3PanelCall.length > 0, "blocco <Step3SmartPairingMainPanel> trovato in Step3");
+  assert.match(step3PanelCall, /setAvailabilityRetryCount=\{setAvailabilityRetryCount\}/);
+  assert.match(step3PanelCall, /availabilityStatus=\{availabilityStatus\}/);
+  assert.match(step3PanelCall, /setAvailabilityStatus=\{setAvailabilityStatus\}/);
 });
 
 // TEST E - CONTINUA SENZA
 test("TEST E - CONTINUA SENZA: in stato error usa smartPairingStatus=skipped_unverified", () => {
-  assert.match(step3Source, /skipped_unverified/);
-  assert.match(step3Source, /availabilityStatus === "error"/);
-  assert.match(step3Source, /id="step3-skip-unverified"/);
+  let skipped = 0;
+  const { renderer } = renderPanel({ availabilityStatus: "error", handleSkipPairing: () => { skipped += 1; } });
+  const skip = renderer.root.findByProps({ id: "step3-skip-unverified" });
+  TR.act(() => { skip.props.onClick(); });
+  assert.equal(skipped, 1);
+  assert.equal(buildSmartPairingBypassState({}, "error").smartPairingStatus, "skipped_unverified");
+  assert.equal(buildSmartPairingBypassState({}, "success").smartPairingStatus, "none");
+  assert.match(step3PanelCall, /handleSkipPairing=\{handleSkipPairing\}/);
+  assert.match(step3Source, /function handleSkipPairing\(\)[\s\S]{0,900}buildSmartPairingBypassState\(d, availabilityStatus\)/);
 });
 
 test("BUG TEST A - zero match: bypass non richiede date e preserva lo state precedente", () => {
@@ -131,7 +173,14 @@ test("BUG TEST A - zero match: bypass non richiede date e preserva lo state prec
 
 test("BUG TEST B - zero slot: date generiche non diventano match Smart Pairing", () => {
   assert.deepEqual(getSelectedSmartPairingDates(["2099-04-10"], []), []);
-  assert.match(step3Source, /realSmartPairingSlots\.length > 0 && <div/);
+  const LEGEND = "Verde: Smart Pairing stessa zona confermato";
+  // Date generiche (availableDates) senza slot backend: nessuna legenda di match.
+  const noSlots = renderPanel({ availabilityStatus: "ready", availableDates: new Set(["2099-09-12"]) });
+  assert.ok(!noSlots.text.includes(LEGEND));
+  // Con uno slot reale restituito dal backend la legenda compare (controllo positivo).
+  const slot = { date: "2099-09-12", type: "same", placesAvailable: 2, discountPercent: 40 };
+  const withSlot = renderPanel({ availabilityStatus: "ready", realSmartPairingSlots: [slot], availableDates: new Set(["2099-09-12"]), pairs: { "2099-09-12": slot } });
+  assert.ok(withSlot.text.includes(LEGEND));
 });
 
 test("BUG TEST C - slot reale: solo una data restituita dal backend puo essere confermata", () => {
@@ -160,12 +209,19 @@ test("INVARIANTE KPI: slot operativi ternary: error=Non disponibile, match=Dispo
 });
 
 test("INVARIANTE BANNER ERROR: messaggio esplicito di impossibilita di verifica", () => {
-  assert.match(step3Source, /Impossibile verificare la disponibilit/);
+  const { text } = renderPanel({ availabilityStatus: "error" });
+  assert.match(text, /Impossibile verificare la disponibilità Smart Pairing\./);
+  assert.match(text, /Non possiamo confermare se ci siano o meno slot disponibili/);
+  assert.match(text, /Riprova verifica/);
+  assert.match(text, /Continua senza Smart Pairing/);
 });
 
-test("INVARIANTE WAITLIST: banner error NON propone Attivami", () => {
-  const errorBannerMatch = step3Source.match(/Impossibile verificare la disponibilit[\s\S]{0,800}Attivami/);
-  assert.equal(errorBannerMatch, null, "Il banner error NON deve proporre Attivami (waitlist)");
+test("INVARIANTE WAITLIST: banner error NON propone Attivami (ma lo zero-match si)", () => {
+  assert.ok(!renderPanel({ availabilityStatus: "error" }).text.includes("Attivami"), "Il banner error NON deve proporre Attivami (waitlist)");
+  // Controllo positivo: la CTA esiste nel caso zero-match, quindi l'assenza sopra non e' vacua.
+  const zero = renderPanel({ availabilityStatus: "ready" }).text;
+  assert.match(zero, /Nessuna campagna compatibile al momento\./);
+  assert.match(zero, /Attivami/);
 });
 
 // INVARIANTI SORGENTE

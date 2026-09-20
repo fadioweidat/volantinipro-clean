@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import TR from 'react-test-renderer';
 import { createServer } from 'vite';
 import { normalizeMilanoMunicipi, loadMilanoMunicipi, MUNICIPI_ATTRIBUTION } from '../src/lib/geo/territories/municipioMilano.js';
 import { InvalidTerritoryGeometry } from '../src/lib/geo/territories/territoryTypes.js';
@@ -61,15 +62,42 @@ test('adapter and preview cannot access campaign state or business services', ()
   assert.match(preview, /function TerritoryGeometryPreview\(\{ focusRequest = null \}\)/);
   assert.match(preview, /Dati demografici non ancora disponibili/);
 });
-test('Milano-only guidance: Varedo hidden, operational Municipio disabled, preview initially closed', async () => {
+test('Milano-only guidance: Varedo hidden, operational Municipio disabled, preview initially closed (dentro accordion avanzato)', async () => {
   const vite = await createServer({ server: { middlewareMode: true, watch: null }, appType: 'custom', logLevel: 'silent' });
+  const previousActEnv = globalThis.IS_REACT_ACT_ENVIRONMENT;
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   try {
     const { MilanoGuidance } = await vite.ssrLoadModule('/src/pages/public/configurator/step2/MilanoGuidance.jsx');
+    const Preview = (await vite.ssrLoadModule('/src/pages/public/configurator/step2/TerritoryGeometryPreview.jsx')).default;
     const render = props => renderToStaticMarkup(React.createElement(MilanoGuidance, props));
     assert.equal(render({ visible: false }), '');
     const html = render({ visible: true });
-    assert.match(html, /Visualizza Municipi 1–9/);
-    assert.match(html, /disabled="" title="Suddivisione per Municipio/);
+    // Dal flusso guidato Milano l'anteprima Municipi sta nell'accordion "dettagli avanzati", chiuso di default.
+    assert.match(html, /Mostra dettagli avanzati \(Municipio, confini\)/);
+    assert.doesNotMatch(html, /Nascondi dettagli avanzati/);
+    assert.doesNotMatch(html, /Visualizza Municipi 1–9/);
     assert.doesNotMatch(html, /data-testid="municipi-preview"/);
-  } finally { await vite.close(); }
+    // Il Municipio operativo resta disabilitato.
+    assert.match(html, /disabled="" title="Suddivisione per Municipio/);
+
+    // Controllo positivo: il componente di anteprima, una volta montato, ha il trigger chiuso e nessun pannello.
+    const previewHtml = renderToStaticMarkup(React.createElement(Preview));
+    assert.match(previewHtml, /<button type="button" aria-expanded="false"[^>]*>Visualizza Municipi 1–9<\/button>/);
+    assert.doesNotMatch(previewHtml, /data-testid="municipi-preview"/);
+
+    // Espansione reale dell'accordion (solo toggle: NON si clicca il trigger dell'anteprima, che avvierebbe il fetch GeoJSON).
+    const txt = n => (typeof n === 'string' ? n : n.children.map(txt).join(''));
+    let renderer;
+    TR.act(() => { renderer = TR.create(React.createElement(MilanoGuidance, { visible: true })); });
+    const buttons = () => renderer.root.findAll(n => n.type === 'button');
+    TR.act(() => { buttons().find(b => txt(b).includes('Mostra dettagli avanzati')).props.onClick(); });
+    const expanded = JSON.stringify(renderer.toJSON());
+    assert.ok(expanded.includes('Visualizza Municipi 1–9') && expanded.includes('Nascondi dettagli avanzati'), 'anteprima montata dopo l espansione');
+    assert.ok(!expanded.includes('municipi-preview'), 'il pannello resta chiuso finche non si clicca il trigger');
+    TR.act(() => { buttons().find(b => txt(b).includes('Nascondi dettagli avanzati')).props.onClick(); });
+    assert.ok(!JSON.stringify(renderer.toJSON()).includes('Visualizza Municipi'), 'richiudendo l accordion l anteprima sparisce');
+  } finally {
+    if (previousActEnv === undefined) delete globalThis.IS_REACT_ACT_ENVIRONMENT; else globalThis.IS_REACT_ACT_ENVIRONMENT = previousActEnv;
+    await vite.close();
+  }
 });
