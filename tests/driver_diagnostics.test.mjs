@@ -7,7 +7,7 @@ import test from 'node:test';
 import {
   DIAG_BUFFER_KEY, DIAG_FLAG_KEY, FLAG_TTL_MS, MAX_BYTES, MAX_EVENTS, MAX_PENDING,
   classifyPath, classifyRequest, createBrowserDiagnostics, createDiagnostics, driverDiag, resolveEnabled, sanitizeMeta,
-  urlWithoutDiagParam, DIAG_URL_PARAM,
+  urlWithoutDiagParam, DIAG_URL_PARAM, parseFlag,
 } from '../src/lib/diagnostics/driverDiagnostics.js';
 
 const SECRET = 'SECRETTOKEN0123456789abcdef';
@@ -244,7 +244,8 @@ test('G/C4: singleton is OFF in a plain runtime; flag is driver-only, expiring a
   assert.equal(calls(), before, 'non-driver paths never touch storage');
   // enabling on a driver path stores an EXPIRY timestamp, not a bare flag
   assert.equal(resolveEnabled({ storage: s, search: '?vpdiag=1', pathname: driver, now }), true);
-  assert.equal(Number(s.map.get(DIAG_FLAG_KEY)), clock.t + FLAG_TTL_MS);
+  assert.equal(parseFlag(s.map.get(DIAG_FLAG_KEY)).expiresAt, clock.t + FLAG_TTL_MS);
+  assert.match(s.map.get(DIAG_FLAG_KEY), /^\d+:[0-9a-z]{6}$/, 'expiry plus a generation id');
   assert.equal(resolveEnabled({ storage: s, search: '', pathname: driver, now }), true, 'persisted across driver page loads');
   assert.equal(resolveEnabled({ storage: s, search: '', pathname: '/customer/x', now }), false, 'never honoured on non-driver paths');
   s.map.set(DIAG_BUFFER_KEY, '{"v":2}');
@@ -609,10 +610,10 @@ test('D7: counters of different tabs are summed, not overwritten; only the last 
   a.diag.count('bridge_skip'); // A flushes last
   a.diag.flush();
   assert.deepEqual(a.diag.exportSnapshot().counters, { bridge_skip: 4, pending_overflow: 1 });
-  for (let i = 0; i < 8; i += 1) { const t = mk(); t.diag.count('bridge_skip'); t.diag.flush(); }
+  for (let i = 0; i < 25; i += 1) { const t = mk(); t.diag.count('bridge_skip'); t.win.fire('pagehide'); }
   const stored = JSON.parse(storage.map.get(DIAG_BUFFER_KEY));
   assert.ok(Object.keys(stored.counters).length <= 6, 'per-load counters bounded');
-  assert.ok(Object.keys(stored.loadState).length <= 20);
+  assert.equal(Object.keys(stored.loadState).length, 20, 'loadState is trimmed to exactly the last 20 loads (27 were created)');
 });
 
 test('D8: recordThrottled suppresses inside the window, counts suppressed, re-emits after the window', () => {
@@ -643,7 +644,7 @@ test('D9: createBrowserDiagnostics glue — enabled only on /driver/ with a live
   // ?vpdiag=1 on a driver path enables (and stores an expiring flag)
   let s = fakeStorage();
   assert.equal(build('/driver/assignment/x', '?access=t&vpdiag=1', s).enabled, true);
-  assert.ok(Number(s.map.get(DIAG_FLAG_KEY)) > Date.now());
+  assert.ok(parseFlag(s.map.get(DIAG_FLAG_KEY)).expiresAt > Date.now());
   // same URL parameter on any other path: disabled, storage untouched
   s = fakeStorage();
   assert.equal(build('/customer/dashboard', '?vpdiag=1', s).enabled, false);
@@ -758,12 +759,68 @@ test('E6: the production factory wires requireFlag — an instance it builds sto
   diag.record('REQUEST', 'end', { rid: 2 });
   diag.flush();
   assert.equal(storage.map.has(DIAG_BUFFER_KEY), false, 'the factory-built instance must not re-create the buffer');
-  // and an expired flag stops it as well
+  // and an expired flag stops it as well (no wall-clock race: the flag has an hour of margin, then is expired by hand)
   const s2 = fakeStorage();
-  s2.map.set(DIAG_FLAG_KEY, String(Date.now() + 50));
+  s2.map.set(DIAG_FLAG_KEY, `${Date.now() + 3_600_000}:g`);
   const b = build(s2).diag;
-  s2.map.set(DIAG_FLAG_KEY, String(Date.now() - 1));
+  assert.equal(b.enabled, true, 'precondition: the instance really runs under a live flag');
   b.record('REQUEST', 'end', { rid: 1 });
   b.flush();
-  assert.equal(s2.map.has(DIAG_BUFFER_KEY), false);
+  assert.ok(s2.map.has(DIAG_BUFFER_KEY), 'precondition: it wrote its buffer');
+  s2.map.set(DIAG_FLAG_KEY, `${Date.now() - 1}:g`);        // the flag expires while the tab is open
+  b.record('REQUEST', 'end', { rid: 2 });
+  b.flush();
+  assert.equal(s2.map.has(DIAG_BUFFER_KEY), false, 'expired flag: the buffer is wiped and nothing is re-created');
+});
+
+// ── Third final-review round (G2) ────────────────────────────────────────
+test('G2: a tab left over from an earlier enablement stops without wiping the NEW session', () => {
+  const storage = fakeStorage();
+  const clock = { t: 1_700_000_000_000 };
+  const now = () => clock.t;
+  // enablement #1 (generation from a fixed random)
+  resolveEnabled({ storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.111 });
+  const gen1 = parseFlag(storage.map.get(DIAG_FLAG_KEY)).gen;
+  const mk = () => make({ storage, env: fakeWindow(), deps: { now, requireFlag: true } });
+  const a = mk();
+  const b = mk();
+  b.diag.record('REQUEST', 'end', { rid: 1 });
+  b.diag.flush();
+  a.diag.disable();                                                  // "Disattiva" in tab A: flag + buffer removed
+  resolveEnabled({ storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.777 }); // tab C re-enables
+  const gen2 = parseFlag(storage.map.get(DIAG_FLAG_KEY)).gen;
+  assert.notEqual(gen1, gen2, 'a re-enablement gets a new generation');
+  storage.map.set(DIAG_BUFFER_KEY, JSON.stringify({ v: 2, loads: 9, lastWrite: 1, events: [], pending: {}, counters: {}, loadState: {} })); // C's fresh buffer
+  const before = storage.map.get(DIAG_BUFFER_KEY);
+  b.diag.record('REQUEST', 'end', { rid: 2 });
+  b.diag.flush();                                                    // stale tab B flushes
+  assert.equal(storage.map.get(DIAG_BUFFER_KEY), before, "B did not write into (or wipe) the new session's buffer");
+  b.diag.record('REQUEST', 'end', { rid: 3 });
+  b.diag.flush();
+  assert.equal(storage.map.get(DIAG_BUFFER_KEY), before, 'and B stays stopped');
+});
+
+test('G2: a second tab opened with ?vpdiag=1 while diagnostics are on keeps the SAME enablement (first tab keeps running)', () => {
+  const storage = fakeStorage();
+  const clock = { t: 1_700_000_000_000 };
+  const now = () => clock.t;
+  resolveEnabled({ storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.25 });
+  const gen1 = parseFlag(storage.map.get(DIAG_FLAG_KEY)).gen;
+  const a = make({ storage, env: fakeWindow(), deps: { now, requireFlag: true } });
+  clock.t += 60_000;
+  resolveEnabled({ storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.9 }); // tab B, still valid
+  const flag2 = parseFlag(storage.map.get(DIAG_FLAG_KEY));
+  assert.equal(flag2.gen, gen1, 'generation preserved while the flag is valid');
+  assert.equal(flag2.expiresAt, clock.t + FLAG_TTL_MS, 'expiry refreshed');
+  a.diag.record('REQUEST', 'end', { rid: 1 });
+  a.diag.flush();
+  assert.ok(storage.map.has(DIAG_BUFFER_KEY), 'tab A keeps writing');
+});
+
+test('G2: legacy numeric flag (no generation) still works and parseFlag is strict', () => {
+  assert.deepEqual(parseFlag('123'), { expiresAt: 123, gen: '' });
+  assert.deepEqual(parseFlag('123:abc'), { expiresAt: 123, gen: 'abc' });
+  assert.equal(parseFlag(null), null);
+  assert.equal(parseFlag(''), null);
+  assert.equal(parseFlag('abc:x'), null);
 });

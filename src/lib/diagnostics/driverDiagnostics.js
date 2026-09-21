@@ -35,6 +35,21 @@ export const DIAG_FLAG_KEY = 'vp_diag_driver';
 export const DIAG_BUFFER_KEY = 'vp_diag_driver_buf';
 export const DIAG_URL_PARAM = 'vpdiag';
 export const FLAG_TTL_MS = 8 * 60 * 60 * 1000;
+
+// The flag value is "<expiresAt>:<generation>". The generation identifies ONE
+// enablement: it is kept while the flag stays valid (a second tab opened with
+// ?vpdiag=1 only refreshes the expiry) and is new after a disable/expiry, so a
+// tab left over from an earlier enablement can tell it no longer owns the buffer.
+export function parseFlag(raw) {
+  if (raw === null || raw === undefined) return null;
+  const [exp, gen = ''] = String(raw).split(':');
+  const expiresAt = Number(exp);
+  return exp !== '' && Number.isFinite(expiresAt) ? { expiresAt, gen } : null;
+}
+
+function newGeneration(random) {
+  return Math.floor(random() * 36 ** 6).toString(36).padStart(6, '0');
+}
 export const MAX_EVENTS = 600;
 export const MAX_PENDING = 60;
 export const MAX_BYTES = 200000;
@@ -193,6 +208,7 @@ export function createDiagnostics(deps = {}) {
   let state = emptyStored();
   let myLoad = 0;
   let myVersion = 0; // version of this load's entry in loadState
+  let myGeneration = ''; // flag generation (enablement) this page started under
   let dead = false; // set by disable(): nothing may ever be written again
   const droppedPending = new Set(); // orphans already reported: never merged back from storage
   let ridSeq = 0;
@@ -206,12 +222,26 @@ export function createDiagnostics(deps = {}) {
 
   // disable()/?vpdiag=0/expiry in ANY tab removes the flag: every other tab
   // notices at its next flush, stops for good and writes nothing more.
-  function flagStillValid() {
+  // 'ok'       flag valid and it is the enablement this page started with;
+  // 'gone'     flag missing/expired/unreadable: diagnostics are off everywhere;
+  // 'replaced' diagnostics were disabled and RE-enabled since this page started:
+  //            the buffer now belongs to the newer session.
+  function flagState() {
     try {
-      const raw = storage && storage.getItem(DIAG_FLAG_KEY);
-      const expiresAt = Number(raw);
-      return raw !== null && Number.isFinite(expiresAt) && expiresAt > now();
-    } catch { return false; }
+      const flag = parseFlag(storage && storage.getItem(DIAG_FLAG_KEY));
+      if (!flag || flag.expiresAt <= now()) return 'gone';
+      return flag.gen === myGeneration ? 'ok' : 'replaced';
+    } catch { return 'gone'; }
+  }
+
+  // Applies a flag verdict. Returns true when this page must stop writing.
+  function stopIfFlagChanged() {
+    if (!requireFlag) return false;
+    const st = flagState();
+    if (st === 'ok') return false;
+    if (st === 'gone') stopAndWipe();
+    else dead = true; // 'replaced': stop, but do NOT wipe the newer session's buffer
+    return true;
   }
 
   function serialize() {
@@ -261,14 +291,14 @@ export function createDiagnostics(deps = {}) {
   function flush() {
     persistScheduled = false;
     if (!isLive() || !storage) return;
-    if (requireFlag && !flagStillValid()) { stopAndWipe(); return; }
+    if (stopIfFlagChanged()) return;
     try {
       mergeFromStorage();
       state.lastWrite = now();
       storage.setItem(DIAG_BUFFER_KEY, serialize());
       // Another tab may have disabled diagnostics between the check above and
       // the write: never leave a buffer behind once the flag is gone.
-      if (requireFlag && !flagStillValid()) stopAndWipe();
+      stopIfFlagChanged();
     } catch { /* quota/private mode: diagnostics must never throw */ }
   }
 
@@ -518,6 +548,7 @@ export function createDiagnostics(deps = {}) {
     if (stored) state = stored;
     state.loads += 1;
     myLoad = state.loads * 1000 + Math.floor(random() * 1000);
+    if (requireFlag) { try { const f = parseFlag(storage && storage.getItem(DIAG_FLAG_KEY)); myGeneration = f ? f.gen : ''; } catch { myGeneration = ''; } }
     orphanPendingOfClosedLoads();
     lastPathClass = classifyPath(win && win.location && win.location.pathname);
     record('PAGE_LIFECYCLE', 'load', { navType: navigationType(), loads: state.loads, to: lastPathClass, vis: visibility() });
@@ -545,7 +576,7 @@ export function urlWithoutDiagParam(href) {
 // Reads the enable flag. Diagnostics exist ONLY on /driver/ paths: elsewhere
 // this returns false without touching storage. ?vpdiag=1 stores an expiring
 // flag (its literal value is never recorded); ?vpdiag=0 disables and wipes.
-export function resolveEnabled({ storage, search, pathname, now = () => Date.now() }) {
+export function resolveEnabled({ storage, search, pathname, now = () => Date.now(), random = Math.random }) {
   try {
     if (!/^\/driver\//.test(String(pathname || ''))) return false;
     const value = new URLSearchParams(search || '').get(DIAG_URL_PARAM);
@@ -554,11 +585,15 @@ export function resolveEnabled({ storage, search, pathname, now = () => Date.now
       storage.removeItem(DIAG_BUFFER_KEY);
       return false;
     }
-    if (value === '1') storage.setItem(DIAG_FLAG_KEY, String(now() + FLAG_TTL_MS));
+    if (value === '1') {
+      const current = parseFlag(storage.getItem(DIAG_FLAG_KEY));
+      const gen = current && current.expiresAt > now() ? current.gen : newGeneration(random); // same enablement while valid
+      storage.setItem(DIAG_FLAG_KEY, `${now() + FLAG_TTL_MS}:${gen}`);
+    }
     const raw = storage.getItem(DIAG_FLAG_KEY);
     if (raw === null) return false;
-    const expiresAt = Number(raw);
-    if (Number.isFinite(expiresAt) && expiresAt > now()) return true;
+    const flag = parseFlag(raw);
+    if (flag && flag.expiresAt > now()) return true;
     storage.removeItem(DIAG_FLAG_KEY); // expired or legacy/invalid flag: wipe the leftovers too
     storage.removeItem(DIAG_BUFFER_KEY);
     return false;
