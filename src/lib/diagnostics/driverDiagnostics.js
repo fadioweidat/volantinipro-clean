@@ -176,6 +176,7 @@ export function createDiagnostics(deps = {}) {
   const random = deps.random || Math.random;
   const schedule = deps.schedule || ((fn) => setTimeout(fn, PERSIST_DELAY_MS));
   const enabled = Boolean(deps.enabled);
+  const requireFlag = Boolean(deps.requireFlag); // browser instance: the expiring flag must still exist
 
   let state = emptyStored();
   let myLoad = 0;
@@ -190,6 +191,16 @@ export function createDiagnostics(deps = {}) {
   const inflight = { REQUEST: 0 };
 
   const isLive = () => enabled && !dead;
+
+  // disable()/?vpdiag=0/expiry in ANY tab removes the flag: every other tab
+  // notices at its next flush, stops for good and writes nothing more.
+  function flagStillValid() {
+    try {
+      const raw = storage && storage.getItem(DIAG_FLAG_KEY);
+      const expiresAt = Number(raw);
+      return raw !== null && Number.isFinite(expiresAt) && expiresAt > now();
+    } catch { return false; }
+  }
 
   function serialize() {
     let text = JSON.stringify(state);
@@ -226,6 +237,7 @@ export function createDiagnostics(deps = {}) {
   function flush() {
     persistScheduled = false;
     if (!isLive() || !storage) return;
+    if (requireFlag && !flagStillValid()) { dead = true; return; }
     try {
       mergeFromStorage();
       state.lastWrite = now();
@@ -407,7 +419,19 @@ export function createDiagnostics(deps = {}) {
   function installListeners() {
     if (!win || typeof win.addEventListener !== 'function') return;
     win.addEventListener('pageshow', (e) => {
-      if (e && e.persisted) myClosed = false; // restored from bfcache: alive again
+      if (e && e.persisted) {
+        // Restored from bfcache: alive again. Operations another load already
+        // reported as orphaned (they are gone from storage) must not come back.
+        const stored = parseStored(storage);
+        if (stored) {
+          for (const [k, p] of Object.entries(state.pending)) {
+            if (p && p.l === myLoad && !stored.pending[k]) delete state.pending[k];
+          }
+        }
+        myClosed = false;
+        state.closed = state.closed.filter((l) => l !== myLoad);
+        flush(); // publish "not closed" immediately so a new load cannot orphan live ops
+      }
       record('PAGE_LIFECYCLE', 'pageshow', { persisted: Boolean(e && e.persisted) });
     });
     win.addEventListener('pagehide', () => {
@@ -482,6 +506,16 @@ export function createDiagnostics(deps = {}) {
   };
 }
 
+// URL of the current page without the enabling parameter, so that turning
+// diagnostics off (then reloading) is not undone by ?vpdiag=1 still in the URL.
+export function urlWithoutDiagParam(href) {
+  try {
+    const u = new URL(href);
+    u.searchParams.delete(DIAG_URL_PARAM);
+    return u.toString();
+  } catch { return href; }
+}
+
 // Reads the enable flag. Diagnostics exist ONLY on /driver/ paths: elsewhere
 // this returns false without touching storage. ?vpdiag=1 stores an expiring
 // flag (its literal value is never recorded); ?vpdiag=0 disables and wipes.
@@ -499,24 +533,26 @@ export function resolveEnabled({ storage, search, pathname, now = () => Date.now
     if (raw === null) return false;
     const expiresAt = Number(raw);
     if (Number.isFinite(expiresAt) && expiresAt > now()) return true;
-    storage.removeItem(DIAG_FLAG_KEY); // expired or legacy/invalid flag
+    storage.removeItem(DIAG_FLAG_KEY); // expired or legacy/invalid flag: wipe the leftovers too
+    storage.removeItem(DIAG_BUFFER_KEY);
     return false;
   } catch { return false; }
 }
 
 // Must never throw at import time (partial/mocked windows, blocked storage).
-function createBrowserInstance() {
+// `g` is the window-like global (injectable for tests).
+export function createBrowserDiagnostics(g) {
   try {
-    if (typeof window === 'undefined' || !window.location) return createDiagnostics({ enabled: false });
+    if (!g || !g.location) return createDiagnostics({ enabled: false });
     let storage = null;
-    try { storage = window.localStorage; } catch { /* blocked storage */ }
+    try { storage = g.localStorage; } catch { /* blocked storage */ }
     const enabled = storage
-      ? resolveEnabled({ storage, search: window.location.search, pathname: window.location.pathname })
+      ? resolveEnabled({ storage, search: g.location.search, pathname: g.location.pathname })
       : false;
-    return createDiagnostics({ enabled, storage, win: window, doc: window.document, perf: window.performance });
+    return createDiagnostics({ enabled, requireFlag: true, storage, win: g, doc: g.document, perf: g.performance });
   } catch {
     return createDiagnostics({ enabled: false });
   }
 }
 
-export const driverDiag = createBrowserInstance();
+export const driverDiag = createBrowserDiagnostics(typeof window === 'undefined' ? undefined : window);

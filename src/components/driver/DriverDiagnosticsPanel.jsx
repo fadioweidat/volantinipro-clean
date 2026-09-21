@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { driverDiag } from '../../lib/diagnostics/driverDiagnostics.js';
+import { driverDiag, urlWithoutDiagParam } from '../../lib/diagnostics/driverDiagnostics.js';
 
-// TEMP diagnostics panel (BUG D). Renders NOTHING unless this device has the
-// diagnostics flag on (localStorage vp_diag_driver=1). Export is local only:
+// TEMP diagnostics panel (BUG D). Renders NOTHING unless diagnostics are on
+// (expiring localStorage flag, enabled with ?vpdiag=1 on a /driver/ URL). Export is local only:
 // copy to clipboard, download a file, or select the text manually. Nothing is
 // transmitted anywhere.
 const btn = {
@@ -58,7 +58,10 @@ export function DriverDiagnosticsPanel() {
 
   const turnOff = () => {
     driverDiag.disable();
-    window.location.reload();
+    // Reload WITHOUT ?vpdiag=1, otherwise the URL would immediately re-enable diagnostics.
+    const clean = urlWithoutDiagParam(window.location.href);
+    if (clean !== window.location.href) window.location.replace(clean);
+    else window.location.reload();
   };
 
   return (

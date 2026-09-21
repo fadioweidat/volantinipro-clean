@@ -6,7 +6,8 @@ import test from 'node:test';
 
 import {
   DIAG_BUFFER_KEY, DIAG_FLAG_KEY, FLAG_TTL_MS, MAX_BYTES, MAX_EVENTS, MAX_PENDING,
-  classifyPath, classifyRequest, createDiagnostics, driverDiag, resolveEnabled, sanitizeMeta,
+  classifyPath, classifyRequest, createBrowserDiagnostics, createDiagnostics, driverDiag, resolveEnabled, sanitizeMeta,
+  urlWithoutDiagParam, DIAG_URL_PARAM,
 } from '../src/lib/diagnostics/driverDiagnostics.js';
 
 const SECRET = 'SECRETTOKEN0123456789abcdef';
@@ -246,9 +247,11 @@ test('G/C4: singleton is OFF in a plain runtime; flag is driver-only, expiring a
   assert.equal(Number(s.map.get(DIAG_FLAG_KEY)), clock.t + FLAG_TTL_MS);
   assert.equal(resolveEnabled({ storage: s, search: '', pathname: driver, now }), true, 'persisted across driver page loads');
   assert.equal(resolveEnabled({ storage: s, search: '', pathname: '/customer/x', now }), false, 'never honoured on non-driver paths');
+  s.map.set(DIAG_BUFFER_KEY, '{"v":2}');
   clock.t += FLAG_TTL_MS + 1;
   assert.equal(resolveEnabled({ storage: s, search: '', pathname: driver, now }), false, 'flag expires');
   assert.equal(s.map.has(DIAG_FLAG_KEY), false, 'expired flag removed');
+  assert.equal(s.map.has(DIAG_BUFFER_KEY), false, 'expired flag also wipes the leftover buffer');
   s.map.set(DIAG_FLAG_KEY, '1');
   assert.equal(resolveEnabled({ storage: s, search: '', pathname: driver, now }), false, 'legacy bare "1" flag is not honoured');
   resolveEnabled({ storage: s, search: '?vpdiag=1', pathname: driver, now });
@@ -275,7 +278,7 @@ test('C11: instrumented call sites keep their original statements and are wired 
   assert.equal((main.match(/<DriverDiagnosticsPanel \/>/g) || []).length, 2, 'panel mounted on the two driver routes only');
   const panel = src('src/components/driver/DriverDiagnosticsPanel.jsx');
   assert.match(panel, /if \(!driverDiag\.enabled\) return null;/);
-  assert.match(panel, /disable\(\);\n\s*window\.location\.reload\(\)/);
+  assert.match(panel, /driverDiag\.disable\(\);\n(?:\s*\/\/[^\n]*\n)?\s*const clean = urlWithoutDiagParam\(window\.location\.href\);\n\s*if \(clean !== window\.location\.href\) window\.location\.replace\(clean\);\n\s*else window\.location\.reload\(\);/);
 
   const gps = src('src/lib/services/gps-api.js');
   assert.match(gps, /await driverDiag\.trace\('PHOTO_PIPELINE', 'upload', \(\) => withRetry\(/);
@@ -506,4 +509,154 @@ test('C3: at the pending cap the OLDEST (stuck) operation is kept, new ones are 
   const oldest = snap.pending.reduce((x, y) => (x.ageMs > y.ageMs ? x : y));
   assert.equal(oldest.ageMs, 30_000, 'the original stuck getSession is still listed with its true age');
   assert.ok(snap.counters.pending_overflow >= 20, 'overflow is counted, not silent');
+});
+
+// ── Final review findings (D2, D3, D4, D5, D7, D8, D9) ───────────────────
+const liveFlag = (storage, clock) => storage.map.set(DIAG_FLAG_KEY, String(clock.t + FLAG_TTL_MS));
+
+test('D3: disabling in ANOTHER tab is final everywhere (flag re-checked at every flush)', () => {
+  const storage = fakeStorage();
+  const clock = { t: 1_700_000_000_000 };
+  liveFlag(storage, clock);
+  const mk = (r) => make({ storage, env: fakeWindow(), deps: { now: () => clock.t, random: () => r, requireFlag: true } });
+  const a = mk(0.1);
+  const b = mk(0.2);
+  a.diag.record('REQUEST', 'end', { rid: 1 });
+  a.diag.flush();
+  assert.ok(storage.map.has(DIAG_BUFFER_KEY));
+  b.diag.disable(); // "Disattiva" / ?vpdiag=0 in tab B: removes flag + buffer
+  assert.equal(storage.map.has(DIAG_BUFFER_KEY) || storage.map.has(DIAG_FLAG_KEY), false);
+  a.diag.record('REQUEST', 'end', { rid: 2 });
+  a.diag.flush();
+  a.win.fire('pagehide');
+  assert.equal(storage.map.has(DIAG_BUFFER_KEY), false, 'tab A must not re-create the buffer');
+  a.diag.record('REQUEST', 'end', { rid: 3 });
+  a.diag.flush();
+  assert.equal(storage.map.has(DIAG_BUFFER_KEY), false, 'and stays silent afterwards');
+});
+
+test('D3: an expired flag also stops a running tab', () => {
+  const storage = fakeStorage();
+  const clock = { t: 1_700_000_000_000 };
+  liveFlag(storage, clock);
+  const { diag } = make({ storage, deps: { now: () => clock.t, requireFlag: true } });
+  diag.flush();
+  assert.ok(storage.map.has(DIAG_BUFFER_KEY));
+  storage.map.delete(DIAG_BUFFER_KEY);
+  clock.t += FLAG_TTL_MS + 1;
+  diag.record('REQUEST', 'end', { rid: 1 });
+  diag.flush();
+  assert.equal(storage.map.has(DIAG_BUFFER_KEY), false);
+});
+
+test('D4: "Disattiva" reload URL drops vpdiag so it cannot re-enable diagnostics', () => {
+  assert.equal(urlWithoutDiagParam(`https://h.example/driver/assignment/x?access=abc&${DIAG_URL_PARAM}=1`), 'https://h.example/driver/assignment/x?access=abc');
+  assert.equal(urlWithoutDiagParam(`https://h.example/driver/assignment/x?${DIAG_URL_PARAM}=1`), 'https://h.example/driver/assignment/x');
+  assert.equal(urlWithoutDiagParam('https://h.example/driver/assignment/x?access=abc'), 'https://h.example/driver/assignment/x?access=abc', 'no param: unchanged');
+  assert.equal(urlWithoutDiagParam('not a url'), 'not a url', 'never throws');
+  // and the cleaned URL really does not re-enable
+  const s = fakeStorage();
+  const clean = new URL(urlWithoutDiagParam(`https://h.example/driver/assignment/x?access=abc&${DIAG_URL_PARAM}=1`));
+  assert.equal(resolveEnabled({ storage: s, search: clean.search, pathname: clean.pathname }), false);
+  assert.equal(s.map.has(DIAG_FLAG_KEY), false);
+});
+
+test('D2: a page restored from bfcache does not resurrect operations another load already orphaned', () => {
+  const storage = fakeStorage();
+  const clock = { t: 1_700_000_000_000 };
+  let n = 0;
+  const mk = () => make({ storage, env: fakeWindow(), deps: { now: () => clock.t, random: () => (++n) / 10 } });
+  const a = mk();
+  a.diag.startOp('PHOTO_PIPELINE', 'upload');
+  a.win.fire('pagehide');                 // A enters bfcache
+  const b = mk();                         // navigation: B orphans A's pending op
+  assert.equal(b.diag.exportSnapshot().events.filter((e) => e.v === 'orphaned_pending').length, 1);
+  a.win.fire('pageshow', { persisted: true }); // Back: A restored
+  a.diag.flush();
+  assert.equal(a.diag.exportSnapshot().pending.length, 0, 'orphaned op not listed as live again');
+  assert.equal(JSON.parse(storage.map.get(DIAG_BUFFER_KEY)).pending && Object.keys(JSON.parse(storage.map.get(DIAG_BUFFER_KEY)).pending).length, 0);
+  // an operation started after the restore is tracked normally
+  a.diag.startOp('PHOTO_PIPELINE', 'register');
+  a.diag.flush();
+  assert.equal(a.diag.exportSnapshot().pending.length, 1);
+});
+
+test('D7: pageshow(persisted) marks a restored tab alive at once, so a new load does not orphan its live ops', () => {
+  const storage = fakeStorage();
+  const clock = { t: 1_700_000_000_000 };
+  let n = 0;
+  const mk = () => make({ storage, env: fakeWindow(), deps: { now: () => clock.t, random: () => (++n) / 10 } });
+  const a = mk();
+  a.diag.startOp('PHOTO_PIPELINE', 'upload');
+  a.win.fire('pagehide');
+  a.win.fire('pageshow', { persisted: true });   // restored, still running
+  const b = mk();                                // another load starts right after
+  assert.equal(b.diag.exportSnapshot().events.filter((e) => e.v === 'orphaned_pending').length, 0, 'live op not orphaned');
+  assert.equal(b.diag.exportSnapshot().pending.length, 1);
+});
+
+test('D7: counters of different tabs are summed, not overwritten; only the last 6 loads are kept', () => {
+  const storage = fakeStorage();
+  const clock = { t: 1_700_000_000_000 };
+  let n = 0;
+  const mk = () => make({ storage, env: fakeWindow(), deps: { now: () => clock.t, random: () => (++n) / 100 } });
+  const a = mk();
+  a.diag.count('bridge_skip'); a.diag.count('bridge_skip');
+  a.diag.flush();
+  const b = mk();
+  b.diag.count('bridge_skip'); b.diag.count('pending_overflow');
+  b.diag.flush();
+  a.diag.count('bridge_skip'); // A flushes last
+  a.diag.flush();
+  assert.deepEqual(a.diag.exportSnapshot().counters, { bridge_skip: 4, pending_overflow: 1 });
+  for (let i = 0; i < 8; i += 1) { const t = mk(); t.diag.count('bridge_skip'); t.diag.flush(); }
+  const stored = JSON.parse(storage.map.get(DIAG_BUFFER_KEY));
+  assert.ok(Object.keys(stored.counters).length <= 6, 'per-load counters bounded');
+  assert.ok(stored.closed.length <= 20);
+});
+
+test('D8: recordThrottled suppresses inside the window, counts suppressed, re-emits after the window', () => {
+  const { diag, clock } = make();
+  const emit = () => diag.recordThrottled('gps_flush_skip', 30_000, 'GPS_QUEUE', 'flush_skipped', { sending: true, online: true });
+  emit(); clock.t += 1_000; emit(); clock.t += 1_000; emit();
+  let snap = diag.exportSnapshot();
+  assert.equal(snap.events.filter((e) => e.v === 'flush_skipped').length, 1, 'one event inside the window');
+  assert.equal(snap.counters.gps_flush_skip_suppressed, 2);
+  clock.t += 30_000; emit();
+  snap = diag.exportSnapshot();
+  assert.equal(snap.events.filter((e) => e.v === 'flush_skipped').length, 2, 're-emitted after the window');
+  diag.count('x_counter'); diag.count('x_counter');
+  assert.equal(diag.exportSnapshot().counters.x_counter, 2);
+  diag.count('Bad Name'); // invalid counter names are ignored
+  assert.equal(diag.exportSnapshot().counters['Bad Name'], undefined);
+});
+
+test('D9: createBrowserDiagnostics glue — enabled only on /driver/ with a live flag, never elsewhere', () => {
+  const build = (pathname, search, storage) => {
+    const { win, doc } = fakeWindow(pathname);
+    win.location.search = search;
+    win.localStorage = storage;
+    win.document = doc;
+    win.performance = { getEntriesByType: () => [{ type: 'navigate' }] };
+    return createBrowserDiagnostics(win);
+  };
+  // ?vpdiag=1 on a driver path enables (and stores an expiring flag)
+  let s = fakeStorage();
+  assert.equal(build('/driver/assignment/x', '?access=t&vpdiag=1', s).enabled, true);
+  assert.ok(Number(s.map.get(DIAG_FLAG_KEY)) > Date.now());
+  // same URL parameter on any other path: disabled, storage untouched
+  s = fakeStorage();
+  assert.equal(build('/customer/dashboard', '?vpdiag=1', s).enabled, false);
+  assert.deepEqual([s.calls.get, s.calls.set, s.calls.remove], [0, 0, 0]);
+  // no flag, driver path: disabled
+  assert.equal(build('/driver/assignment/x', '', fakeStorage()).enabled, false);
+  // persisted live flag + driver path: enabled; same device on a non-driver path: disabled
+  s = fakeStorage();
+  s.map.set(DIAG_FLAG_KEY, String(Date.now() + 60_000));
+  assert.equal(build('/driver/assignment/x', '', s).enabled, true);
+  assert.equal(build('/admin', '', s).enabled, false);
+  // partial / missing / hostile globals never throw and stay off
+  assert.equal(createBrowserDiagnostics(undefined).enabled, false);
+  assert.equal(createBrowserDiagnostics({}).enabled, false);
+  assert.equal(createBrowserDiagnostics({ location: { pathname: '/driver/x', search: '' }, get localStorage() { throw new Error('blocked'); } }).enabled, false);
 });
