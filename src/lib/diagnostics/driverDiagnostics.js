@@ -141,7 +141,19 @@ function decodeBase64Url(segment) {
 }
 
 function emptyStored() {
-  return { v: 2, loads: 0, lastWrite: 0, events: [], pending: {}, counters: {}, closed: [] };
+  return { v: 2, loads: 0, lastWrite: 0, events: [], pending: {}, counters: {}, loadState: {} };
+}
+
+// loadState[loadId] = { c: closed?, v: version }. Only the OWNER load bumps its
+// own version, and merges keep the highest version per load, so a stale copy
+// held by another tab can never undo the owner's "alive again" (bfcache restore).
+function parseLoadState(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [k, e] of Object.entries(raw)) {
+    if (e && typeof e === 'object' && typeof e.c === 'boolean' && Number.isFinite(e.v)) out[k] = { c: e.c, v: e.v };
+  }
+  return out;
 }
 
 function parseStored(storage) {
@@ -157,7 +169,7 @@ function parseStored(storage) {
       events: p.events.filter((e) => e && typeof e === 'object').slice(-MAX_EVENTS),
       pending: p.pending && typeof p.pending === 'object' ? p.pending : {},
       counters: p.counters && typeof p.counters === 'object' ? p.counters : {},
-      closed: Array.isArray(p.closed) ? p.closed.filter((x) => Number.isFinite(x)) : [],
+      loadState: parseLoadState(p.loadState),
     };
   } catch { return null; /* corrupt buffer: start empty */ }
 }
@@ -180,7 +192,7 @@ export function createDiagnostics(deps = {}) {
 
   let state = emptyStored();
   let myLoad = 0;
-  let myClosed = false;
+  let myVersion = 0; // version of this load's entry in loadState
   let dead = false; // set by disable(): nothing may ever be written again
   const droppedPending = new Set(); // orphans already reported: never merged back from storage
   let ridSeq = 0;
@@ -228,20 +240,35 @@ export function createDiagnostics(deps = {}) {
     if (state.counters[myLoad]) counters[myLoad] = state.counters[myLoad];
     const keep = Object.keys(counters).map(Number).sort((a, b) => a - b).slice(-MAX_TRACKED_LOADS);
     state.counters = Object.fromEntries(keep.map((k) => [k, counters[k]]));
-    const closed = new Set([...stored.closed, ...state.closed]);
-    if (!myClosed) closed.delete(myLoad);
-    state.closed = [...closed].slice(-20);
+    const loadState = { ...stored.loadState };
+    for (const [k, e] of Object.entries(state.loadState)) {
+      const other = loadState[k];
+      if (!other || e.v > other.v) loadState[k] = e;
+    }
+    if (state.loadState[myLoad]) loadState[myLoad] = state.loadState[myLoad]; // the owner is authoritative
+    const keepLoads = Object.keys(loadState).map(Number).sort((a, b) => a - b).slice(-20);
+    state.loadState = Object.fromEntries(keepLoads.map((k) => [k, loadState[k]]));
     state.loads = Math.max(state.loads, stored.loads);
+  }
+
+  // The flag is gone or expired (disable in any tab, ?vpdiag=0, 8 h TTL): this
+  // page stops for good and removes whatever buffer exists.
+  function stopAndWipe() {
+    dead = true;
+    try { storage && storage.removeItem(DIAG_BUFFER_KEY); } catch { /* ignore */ }
   }
 
   function flush() {
     persistScheduled = false;
     if (!isLive() || !storage) return;
-    if (requireFlag && !flagStillValid()) { dead = true; return; }
+    if (requireFlag && !flagStillValid()) { stopAndWipe(); return; }
     try {
       mergeFromStorage();
       state.lastWrite = now();
       storage.setItem(DIAG_BUFFER_KEY, serialize());
+      // Another tab may have disabled diagnostics between the check above and
+      // the write: never leave a buffer behind once the flag is gone.
+      if (requireFlag && !flagStillValid()) stopAndWipe();
     } catch { /* quota/private mode: diagnostics must never throw */ }
   }
 
@@ -404,7 +431,7 @@ export function createDiagnostics(deps = {}) {
   // Pending operations of loads that fired `pagehide` (reload/close) can never
   // finish: report them once and drop them. Live tabs are left alone.
   function orphanPendingOfClosedLoads() {
-    const closed = new Set(state.closed);
+    const closed = new Set(Object.entries(state.loadState).filter(([, e]) => e.c).map(([k]) => Number(k)));
     if (!closed.size) return;
     const lastSeen = state.lastWrite || now();
     for (const [k, p] of Object.entries(state.pending)) {
@@ -413,7 +440,6 @@ export function createDiagnostics(deps = {}) {
       delete state.pending[k];
       droppedPending.add(k);
     }
-    state.closed = state.closed.filter((l) => !Object.values(state.pending).some((p) => p && p.l === l));
   }
 
   function installListeners() {
@@ -428,16 +454,16 @@ export function createDiagnostics(deps = {}) {
             if (p && p.l === myLoad && !stored.pending[k]) delete state.pending[k];
           }
         }
-        myClosed = false;
-        state.closed = state.closed.filter((l) => l !== myLoad);
+        myVersion += 1;
+        state.loadState[myLoad] = { c: false, v: myVersion };
         flush(); // publish "not closed" immediately so a new load cannot orphan live ops
       }
       record('PAGE_LIFECYCLE', 'pageshow', { persisted: Boolean(e && e.persisted) });
     });
     win.addEventListener('pagehide', () => {
       record('PAGE_LIFECYCLE', 'pagehide', { vis: visibility() });
-      myClosed = true;
-      if (!state.closed.includes(myLoad)) state.closed.push(myLoad);
+      myVersion += 1;
+      state.loadState[myLoad] = { c: true, v: myVersion };
       flush();
     });
     win.addEventListener('online', () => record('PAGE_LIFECYCLE', 'network_online', { online: true }));

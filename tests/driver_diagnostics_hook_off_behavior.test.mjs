@@ -18,9 +18,23 @@ const repoRoot = fileURLToPath(new URL('../', import.meta.url));
 const srcUrl = new URL('../src/', import.meta.url).href; // ends with /src/
 const PRE_D1_REF = '10ee7f12b20fb4cc586c50506afb34237b1d3a80'; // upstream base: hook before D1
 
+// Storage spy. It is attached as window.localStorage (what the diagnostics
+// singleton actually reads) and as the global (what the session bridge reads),
+// BEFORE anything is imported: the singleton is built at import time on a
+// /driver/ path, so the real flag logic (resolveEnabled) runs against it.
+const store = new Map();
+const touched = []; // { op: 'get'|'set'|'remove', key }
+const spy = {
+  getItem: (k) => { touched.push({ op: 'get', key: k }); return store.has(k) ? store.get(k) : null; },
+  setItem: (k, v) => { touched.push({ op: 'set', key: k }); store.set(k, String(v)); },
+  removeItem: (k) => { touched.push({ op: 'remove', key: k }); store.delete(k); },
+};
+globalThis.localStorage = spy;
+
 // window shim (the hook reads window.location.search and window.setTimeout)
 globalThis.window = {
   location: { search: '?access=link-token-1', pathname: '/driver/assignment/00000000-0000-4000-8000-000000000001' },
+  localStorage: spy,
   setTimeout: (fn, ms) => { const t = setTimeout(fn, ms); if (t.unref) t.unref(); return t; },
   clearTimeout,
 };
@@ -45,15 +59,15 @@ globalThis.fetch = async (input, init) => {
   return json(200, null); // log_assignment_event and anything else
 };
 
-const store = new Map();
-const touched = [];
-globalThis.localStorage = {
-  getItem: (k) => { touched.push(k); return store.has(k) ? store.get(k) : null; },
-  setItem: (k, v) => { touched.push(k); store.set(k, String(v)); },
-  removeItem: (k) => { touched.push(k); store.delete(k); },
-};
-
 await import('../src/supabaseClient.js'); // same module instance the hook loads dynamically
+const { driverDiag } = await import('../src/lib/diagnostics/driverDiagnostics.js');
+const importTimeStorage = [...touched]; // what the singleton did while being built on a /driver/ path
+touched.length = 0;
+test('OFF: the singleton, built on a /driver/ path with no flag, only READ the flag key and stayed disabled', () => {
+  assert.equal(driverDiag.enabled, false);
+  assert.deepEqual(importTimeStorage, [{ op: 'get', key: 'vp_diag_driver' }], 'exactly one read of the flag key, nothing else');
+});
+
 
 const tmpDir = new URL('../node_modules/.vp-hook-test/', import.meta.url);
 mkdirSync(tmpDir, { recursive: true });
@@ -103,7 +117,9 @@ async function run(mod, name) {
     programDetailsError: latest.programDetailsError,
     accessToken: latest.accessToken,
     requests: [...requests],
-    diagStorageKeys: touched.filter((k) => String(k).startsWith('vp_diag')),
+    // Only READING the expiring flag key is allowed while off; no other vp_diag access, no writes.
+    diagStorage: touched.filter((t) => String(t.key).startsWith('vp_diag') && !(t.op === 'get' && t.key === 'vp_diag_driver')),
+    flagReads: touched.filter((t) => t.op === 'get' && t.key === 'vp_diag_driver').length,
   };
   await act(async () => { renderer.unmount(); });
   return snapshot;
@@ -116,7 +132,7 @@ for (const name of SCENARIOS) {
     scenario = name;
     const mod = await materialise(`head-${name}`, headSource);
     const s = await run(mod, `head-${name}`);
-    assert.deepEqual(s.diagStorageKeys, [], 'no vp_diag key touched');
+    assert.deepEqual(s.diagStorage, [], 'no diagnostic buffer read/written/removed and no flag write (only a flag READ is allowed)');
     assert.equal(s.accessToken, 'link-token-1');
     if (name === 'success') {
       assert.equal(s.error, null);

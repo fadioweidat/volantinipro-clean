@@ -612,7 +612,7 @@ test('D7: counters of different tabs are summed, not overwritten; only the last 
   for (let i = 0; i < 8; i += 1) { const t = mk(); t.diag.count('bridge_skip'); t.diag.flush(); }
   const stored = JSON.parse(storage.map.get(DIAG_BUFFER_KEY));
   assert.ok(Object.keys(stored.counters).length <= 6, 'per-load counters bounded');
-  assert.ok(stored.closed.length <= 20);
+  assert.ok(Object.keys(stored.loadState).length <= 20);
 });
 
 test('D8: recordThrottled suppresses inside the window, counts suppressed, re-emits after the window', () => {
@@ -659,4 +659,111 @@ test('D9: createBrowserDiagnostics glue — enabled only on /driver/ with a live
   assert.equal(createBrowserDiagnostics(undefined).enabled, false);
   assert.equal(createBrowserDiagnostics({}).enabled, false);
   assert.equal(createBrowserDiagnostics({ location: { pathname: '/driver/x', search: '' }, get localStorage() { throw new Error('blocked'); } }).enabled, false);
+});
+
+// ── Second final-review round (E1, E2, E4, E6) ───────────────────────────
+test('E2: a restored tab stays "alive" even if another tab still holds its old closed marker', () => {
+  const storage = fakeStorage();
+  const clock = { t: 1_700_000_000_000 };
+  let n = 0;
+  const mk = () => make({ storage, env: fakeWindow(), deps: { now: () => clock.t, random: () => (++n) / 10 } });
+  const x = mk();
+  const y = mk();                               // Y is already open next to X
+  x.diag.startOp('PHOTO_PIPELINE', 'upload');
+  x.diag.flush();
+  x.win.fire('pagehide');                       // X -> bfcache: storage marks X closed
+  y.diag.record('REQUEST', 'end', { rid: 1 });
+  y.diag.flush();                               // Y merges (and caches) X's closed marker
+  const closedLoads = Object.values(JSON.parse(storage.map.get(DIAG_BUFFER_KEY)).loadState).filter((e) => e.c);
+  assert.equal(closedLoads.length, 1, "precondition: X is stored as closed (and Y now holds that marker too)");
+  x.win.fire('pageshow', { persisted: true });  // X restored: publishes "alive"
+  y.diag.record('REQUEST', 'end', { rid: 2 });
+  y.diag.flush();                               // Y flushes with its stale copy
+  y.win.fire('pagehide');
+  const z = mk();                               // a brand-new load
+  assert.equal(z.diag.exportSnapshot().events.filter((e) => e.v === 'orphaned_pending').length, 0, "X's live op is not orphaned");
+  assert.equal(z.diag.exportSnapshot().pending.some((p) => p.op === 'upload'), true);
+});
+
+test('E2: a load that really closed (pagehide, never restored) is still orphaned once', () => {
+  const storage = fakeStorage();
+  let n = 0;
+  const clock = { t: 1_700_000_000_000 };
+  const mk = () => make({ storage, env: fakeWindow(), deps: { now: () => clock.t, random: () => (++n) / 10 } });
+  const a = mk();
+  a.diag.startOp('PHOTO_PIPELINE', 'upload');
+  a.win.fire('pagehide');
+  const b = mk();
+  b.diag.flush();
+  const c = mk();
+  assert.equal(b.diag.exportSnapshot().events.filter((e) => e.v === 'orphaned_pending').length, 1);
+  assert.equal(c.diag.exportSnapshot().events.filter((e) => e.v === 'orphaned_pending').length, 1, 'reported once, not again');
+});
+
+test('E1: a flag that expires inside an open tab stops it AND wipes the leftover buffer', () => {
+  const storage = fakeStorage();
+  const clock = { t: 1_700_000_000_000 };
+  storage.map.set(DIAG_FLAG_KEY, String(clock.t + FLAG_TTL_MS));
+  const { diag } = make({ storage, deps: { now: () => clock.t, requireFlag: true } });
+  diag.record('REQUEST', 'end', { rid: 1 });
+  diag.flush();
+  assert.ok(storage.map.has(DIAG_BUFFER_KEY));
+  clock.t += FLAG_TTL_MS + 1;
+  diag.record('REQUEST', 'end', { rid: 2 });
+  diag.flush();
+  assert.equal(storage.map.has(DIAG_BUFFER_KEY), false, 'buffer removed when the flag expired');
+  diag.record('REQUEST', 'end', { rid: 3 });
+  diag.flush();
+  assert.equal(storage.map.has(DIAG_BUFFER_KEY), false, 'and nothing is written afterwards');
+});
+
+test('E4: a disable that lands between the flag check and the buffer write leaves no buffer behind', () => {
+  const storage = fakeStorage();
+  const clock = { t: 1_700_000_000_000 };
+  storage.map.set(DIAG_FLAG_KEY, String(clock.t + FLAG_TTL_MS));
+  const realSet = storage.setItem;
+  let armed = false;
+  let raced = false;
+  storage.setItem = (k, v) => {
+    if (armed && k === DIAG_BUFFER_KEY && !raced) { raced = true; storage.map.delete(DIAG_FLAG_KEY); storage.map.delete(DIAG_BUFFER_KEY); } // tab A: "Disattiva"
+    realSet(k, v); // ...then this tab's write lands after the wipe
+  };
+  const { diag } = make({ storage, deps: { now: () => clock.t, requireFlag: true } });
+  armed = true; // the race happens on a LATER flush (after the constructor's own first flush)
+  diag.record('REQUEST', 'end', { rid: 1 });
+  diag.flush();
+  assert.equal(raced, true);
+  assert.equal(storage.map.has(DIAG_BUFFER_KEY), false, 'the stray buffer was removed by the post-write re-check');
+  assert.equal(storage.map.has(DIAG_FLAG_KEY), false);
+});
+
+test('E6: the production factory wires requireFlag — an instance it builds stops when the flag disappears', () => {
+  const build = (storage) => {
+    const { win, doc } = fakeWindow('/driver/assignment/x');
+    win.location.search = '';
+    win.localStorage = storage;
+    win.document = doc;
+    win.performance = { getEntriesByType: () => [{ type: 'navigate' }] };
+    return { win, diag: createBrowserDiagnostics(win) };
+  };
+  const storage = fakeStorage();
+  storage.map.set(DIAG_FLAG_KEY, String(Date.now() + 3_600_000));
+  const { diag } = build(storage);
+  assert.equal(diag.enabled, true);
+  diag.record('REQUEST', 'end', { rid: 1 });
+  diag.flush();
+  assert.ok(storage.map.has(DIAG_BUFFER_KEY));
+  storage.map.delete(DIAG_FLAG_KEY);          // another tab disabled diagnostics
+  storage.map.delete(DIAG_BUFFER_KEY);
+  diag.record('REQUEST', 'end', { rid: 2 });
+  diag.flush();
+  assert.equal(storage.map.has(DIAG_BUFFER_KEY), false, 'the factory-built instance must not re-create the buffer');
+  // and an expired flag stops it as well
+  const s2 = fakeStorage();
+  s2.map.set(DIAG_FLAG_KEY, String(Date.now() + 50));
+  const b = build(s2).diag;
+  s2.map.set(DIAG_FLAG_KEY, String(Date.now() - 1));
+  b.record('REQUEST', 'end', { rid: 1 });
+  b.flush();
+  assert.equal(s2.map.has(DIAG_BUFFER_KEY), false);
 });

@@ -20,11 +20,15 @@ globalThis.fetch = async (input, init) => {
 
 const storageCalls = { get: [], set: [], remove: [] };
 const store = new Map();
-globalThis.localStorage = {
+const spy = {
   getItem: (k) => { storageCalls.get.push(k); return store.has(k) ? store.get(k) : null; },
   setItem: (k, v) => { storageCalls.set.push(k); store.set(k, String(v)); },
   removeItem: (k) => { storageCalls.remove.push(k); store.delete(k); },
 };
+globalThis.localStorage = spy; // read by the session bridge
+// window.localStorage is what the diagnostics singleton reads: give it a /driver/ page with
+// no flag so the REAL flag logic runs at import time and must stay off.
+globalThis.window = { location: { pathname: '/driver/assignment/00000000-0000-4000-8000-000000000001', search: '' }, localStorage: spy };
 
 const { supabase, ensureSupabaseSessionBridge } = await import('../src/supabaseClient.js');
 const { driverDiag, DIAG_BUFFER_KEY } = await import('../src/lib/diagnostics/driverDiagnostics.js');
@@ -35,10 +39,15 @@ const normalise = (r) => ({
   body: r.init && typeof r.init.body === 'string' ? r.init.body : null,
   headers: Object.fromEntries(new Headers((r.init && r.init.headers) || {}).entries()),
 });
-const noDiagStorage = () => [...storageCalls.get, ...storageCalls.set, ...storageCalls.remove].every((k) => !String(k).startsWith('vp_diag'));
+// Reading the expiring flag key is the only diagnostic storage access allowed while off.
+const importTimeGets = [...storageCalls.get];
+const noDiagStorage = () => storageCalls.set.every((k) => !String(k).startsWith('vp_diag'))
+  && storageCalls.remove.every((k) => !String(k).startsWith('vp_diag'))
+  && storageCalls.get.every((k) => !String(k).startsWith('vp_diag') || k === 'vp_diag_driver');
 
-test('OFF: the diagnostics singleton is inert (no window / no flag)', () => {
+test('OFF: the diagnostics singleton is inert (driver page, no flag)', () => {
   assert.equal(driverDiag.enabled, false);
+  assert.deepEqual(importTimeGets.filter((k) => String(k).startsWith('vp_diag')), ['vp_diag_driver'], 'the real flag logic ran at import: one flag read, nothing else');
   assert.equal(driverDiag.clientOptions(() => {}), null);
   assert.equal(driverDiag.exportSnapshot().events.length, 0);
   const p = Promise.resolve(1);
