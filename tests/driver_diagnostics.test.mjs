@@ -940,3 +940,21 @@ test('I1: a stale tab whose buffer write lands AFTER a new enablement started re
   a.diag.flush();
   assert.equal(storage.map.has(DIAG_BUFFER_KEY), false, 'and A stays stopped');
 });
+
+// ── Sixth final-review round (J2) ────────────────────────────────────────
+test('J2: a running page treats the flag as expired at exactly its expiry instant, and as valid 1 ms earlier', () => {
+  const expiresAt = 1_700_000_000_000 + FLAG_TTL_MS;
+  const setup = (clockT) => {
+    const storage = fakeStorage();
+    const clock = { t: 1_700_000_000_000 };
+    storage.map.set(DIAG_FLAG_KEY, `${expiresAt}:g`);
+    const { diag } = make({ storage, deps: { now: () => clock.t, requireFlag: true } });
+    diag.record('REQUEST', 'end', { rid: 1 });
+    clock.t = clockT;
+    storage.map.delete(DIAG_BUFFER_KEY);
+    diag.flush();
+    return storage;
+  };
+  assert.equal(setup(expiresAt - 1).map.has(DIAG_BUFFER_KEY), true, '1 ms before expiry the page keeps writing');
+  assert.equal(setup(expiresAt).map.has(DIAG_BUFFER_KEY), false, 'at the expiry instant the page stops and leaves no buffer');
+});
