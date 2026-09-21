@@ -30,6 +30,7 @@ import { isAuthorizedAdminEmail, normalizeEmail } from "./src/auth/adminAuthoriz
 import { getBankTransferDetails, BANK_TRANSFER_UNAVAILABLE_MESSAGE } from "./src/lib/bankTransfer.js";
 import { IS_MANUAL_CONTACT, buildCampaignContactWhatsAppUrl, buildCampaignContactMailtoUrl } from "./src/lib/paymentMode.js";
 import { getAuthRedirectBase } from "./src/lib/publicAppUrl.js";
+import { buildAuthCallbackPath } from "./src/auth/loginIntent.js";
 import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "./src/lib/monitoring/errorLog.js";
 
 // Badge neutro per "Dato non disponibile": usato al posto del rendering
@@ -5034,7 +5035,6 @@ export function LoginPage({
   // da SupplierGuard/RPC verified_supplier).
   const isSupplierContext = context === "supplier";
   const isAuthCallback = window.location.pathname.toLowerCase() === "/auth/callback";
-  const redirectPath = "/auth/callback";
   const [sessionCheck, setSessionCheck] = useState(() => configured && (isAdminContext || isAuthCallback) ? "checking" : "ready");
 
   useEffect(() => {
@@ -5248,7 +5248,7 @@ export function LoginPage({
           email: normalizedEmail,
           options: {
             shouldCreateUser: true,
-            emailRedirectTo: `${getAuthRedirectBase()}${redirectPath}`
+            emailRedirectTo: `${getAuthRedirectBase()}${buildAuthCallbackPath(context)}`
           }
         }),
         MAGIC_LINK_REQUEST_TIMEOUT_MS,

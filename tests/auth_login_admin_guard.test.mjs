@@ -452,9 +452,10 @@ test("Admin magic-link session and rate-limit contract", async (t) => {
     // Base via getAuthRedirectBase() (dominio pubblico in produzione), non
     // window.location.origin — che su un dev server LAN/localhost sarebbe un
     // IP privato irraggiungibile dal link email. Vedi tests/magic_link_redirect.test.mjs.
-    assert.match(loginBlock, /emailRedirectTo:\s*`\$\{getAuthRedirectBase\(\)\}\$\{redirectPath\}`/);
+    assert.match(loginBlock, /emailRedirectTo:\s*`\$\{getAuthRedirectBase\(\)\}\$\{buildAuthCallbackPath\(context\)\}`/);
     assert.doesNotMatch(loginBlock, /emailRedirectTo:\s*`\$\{window\.location\.origin\}/);
-    assert.match(loginBlock, /const redirectPath = "\/auth\/callback"/);
+    // il path "/auth/callback" (+ ?context=admin solo per Admin) vive in src/auth/loginIntent.js
+    assert.match(readFileSync(new URL("../src/auth/loginIntent.js", import.meta.url), "utf8"), /AUTH_CALLBACK_PATH = "\/auth\/callback"/);
     assert.match(loginBlock, /const cleanPath = "\/auth\/callback"/);
     assert.match(loginBlock, /Accesso in corso\.\.\./);
     assert.doesNotMatch(loginBlock, /email_redirect_to\s*:/);

@@ -48,7 +48,7 @@ const AUTH_BASE_BODY = authRedirectBaseBody(PUBLIC_APP_URL_CODE);
 
 test("signInWithOtp: emailRedirectTo usa getAuthRedirectBase(), non window.location.origin", () => {
   assert.match(FINAL_CODE, /signInWithOtp\(\{/, "chiamata signInWithOtp non trovata");
-  assert.match(FINAL_CODE, /emailRedirectTo:\s*`\$\{getAuthRedirectBase\(\)\}\$\{redirectPath\}`/,
+  assert.match(FINAL_CODE, /emailRedirectTo:\s*`\$\{getAuthRedirectBase\(\)\}\$\{buildAuthCallbackPath\(context\)\}`/,
     "emailRedirectTo deve usare getAuthRedirectBase()");
   assert.doesNotMatch(FINAL_CODE, /emailRedirectTo:\s*`\$\{window\.location\.origin\}/,
     "emailRedirectTo non deve piu' usare window.location.origin");
@@ -58,8 +58,10 @@ test("volantinipro-final.jsx importa getAuthRedirectBase dall'helper unico", () 
   assert.match(FINAL_CODE, /import\s*\{[^}]*getAuthRedirectBase[^}]*\}\s*from\s*["']\.\/src\/lib\/publicAppUrl\.js["']/);
 });
 
-test("redirectPath del magic link resta /auth/callback", () => {
-  assert.match(FINAL_CODE, /const redirectPath = "\/auth\/callback"/);
+test("il path del magic link resta /auth/callback (Admin: + ?context=admin)", () => {
+  const src = readFileSync(new URL("../src/auth/loginIntent.js", import.meta.url), "utf8");
+  assert.match(src, /AUTH_CALLBACK_PATH = "\/auth\/callback"/);
+  assert.match(src, /context === "admin" \? `\$\{AUTH_CALLBACK_PATH\}\?context=admin` : AUTH_CALLBACK_PATH/);
 });
 
 // --- helper getAuthRedirectBase: regola prod vs dev -------------------

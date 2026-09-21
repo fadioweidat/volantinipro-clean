@@ -10,6 +10,7 @@ import { CustomerGuard } from "../auth/guards/CustomerGuard.jsx";
 import { AdminGuard } from "../auth/guards/AdminGuard.jsx";
 import { SupplierGuard } from "../auth/guards/SupplierGuard.jsx";
 import { getStoredSupabaseSession, hasSupabaseAuthHashError, hasSupabaseAuthHashToken, isStoredSupabaseSessionValid, readPendingAuthContext } from "../auth/session.js";
+import { resolveLoginContext } from "../auth/loginIntent.js";
 import { resolveAppRoute } from "./routeResolution.js";
 import { clearConfiguratorDraft, configuratorHistoryState, readConfiguratorDraft, readConfiguratorHistoryState, writeConfiguratorDraft } from "../lib/configuratorState.js";
 import {
@@ -352,19 +353,7 @@ export function AppRouter() {
   // momento dell'invio del magic link (vedi rememberPendingAuthContext).
   const queryContext = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("context") : null;
   const pendingAuthContext = (hasSupabaseAuthHashError() || hasSupabaseAuthHashToken()) ? readPendingAuthContext() : null;
-  const loginContext = queryContext === "admin"
-    ? "admin"
-    : queryContext === "customer"
-      ? "customer"
-      : queryContext === "driver"
-        ? "driver"
-        : pendingAuthContext === "admin"
-          ? "admin"
-          : pendingAuthContext === "driver"
-            ? "driver"
-            : queryContext === "supplier" || pendingAuthContext === "supplier"
-              ? "supplier"
-              : "customer";
+  const loginContext = resolveLoginContext({ queryContext, pendingContext: pendingAuthContext });
 
   return (
     <div style={{ fontFamily: F.sans, minHeight: "100vh", background: C.navyMid }}>

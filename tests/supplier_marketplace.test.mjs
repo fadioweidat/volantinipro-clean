@@ -298,7 +298,8 @@ test('routing — voce "Lavora con noi" instrada al flusso Fornitore, mai a /das
   assert.match(FINAL, /loginIntentIsSupplier = isSupplierContext/);
   assert.match(FINAL, /if \(loginIntentIsSupplier\) \{\s*\n\s*onNav\("supplier-dashboard"\)/);
   // Il context supplier e' onorato nella risoluzione loginContext di AppRouter.
-  assert.match(APPROUTER, /queryContext === "supplier" \|\| pendingAuthContext === "supplier"\s*\n?\s*\?\s*"supplier"/);
+  assert.match(APPROUTER, /resolveLoginContext\(\{ queryContext, pendingContext: pendingAuthContext \}\)/);
+  assert.match(read('src/auth/loginIntent.js'), /queryContext === "supplier" \|\| pendingContext === "supplier"\)\s*return "supplier"/);
 });
 
 // ── CustomerQuotesView montata nella pagina dettaglio campagna Cliente ──
