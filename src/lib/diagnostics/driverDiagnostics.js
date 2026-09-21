@@ -586,9 +586,14 @@ export function resolveEnabled({ storage, search, pathname, now = () => Date.now
       return false;
     }
     if (value === '1') {
+      const fresh = newGeneration(random);
+      // Read the current flag and write the new one back-to-back: two tabs enabling at the
+      // same moment then converge on the same enablement instead of each inventing its own.
       const current = parseFlag(storage.getItem(DIAG_FLAG_KEY));
-      const gen = current && current.expiresAt > now() ? current.gen : newGeneration(random); // same enablement while valid
-      storage.setItem(DIAG_FLAG_KEY, `${now() + FLAG_TTL_MS}:${gen}`);
+      const stillValid = Boolean(current) && current.expiresAt > now();
+      // A NEW enablement (no flag, or an expired one) never inherits an old buffer.
+      if (!stillValid) storage.removeItem(DIAG_BUFFER_KEY);
+      storage.setItem(DIAG_FLAG_KEY, `${now() + FLAG_TTL_MS}:${stillValid ? current.gen : fresh}`);
     }
     const raw = storage.getItem(DIAG_FLAG_KEY);
     if (raw === null) return false;

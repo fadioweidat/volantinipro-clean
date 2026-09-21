@@ -824,3 +824,49 @@ test('G2: legacy numeric flag (no generation) still works and parseFlag is stric
   assert.equal(parseFlag(''), null);
   assert.equal(parseFlag('abc:x'), null);
 });
+
+// ── Fourth final-review round (H2, H3, H1) ───────────────────────────────
+test('H2/H3: re-enabling after EXPIRY starts a new enablement: new generation, old buffer wiped', () => {
+  const storage = fakeStorage();
+  const clock = { t: 1_700_000_000_000 };
+  const now = () => clock.t;
+  resolveEnabled({ storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.111 });
+  const gen1 = parseFlag(storage.map.get(DIAG_FLAG_KEY)).gen;
+  storage.map.set(DIAG_BUFFER_KEY, JSON.stringify({ v: 2, loads: 5, lastWrite: 1, events: [{ l: 5001, i: 1, t: 1, c: 'REQUEST', v: 'end', m: { ok: false } }], pending: {}, counters: {}, loadState: {} }));
+  clock.t += FLAG_TTL_MS + 1;                    // 8 h pass, nobody flushes: the flag is expired, the buffer remains
+  assert.ok(storage.map.has(DIAG_BUFFER_KEY));
+  assert.equal(resolveEnabled({ storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.777 }), true);
+  assert.notEqual(parseFlag(storage.map.get(DIAG_FLAG_KEY)).gen, gen1, 'expired flag: the generation is NOT reused');
+  assert.equal(storage.map.has(DIAG_BUFFER_KEY), false, "the old enablement's buffer is gone");
+  // the new page therefore starts clean: the old failure is not reported as firstFailure
+  const { diag } = make({ storage, deps: { now, requireFlag: true } });
+  assert.equal(diag.exportSnapshot().firstFailure, null);
+  assert.equal(diag.exportSnapshot().loads, 1);
+});
+
+test('H2: enabling while NO flag exists but an old buffer does also starts clean; a still-valid flag keeps its buffer', () => {
+  const storage = fakeStorage();
+  const clock = { t: 1_700_000_000_000 };
+  const now = () => clock.t;
+  storage.map.set(DIAG_BUFFER_KEY, '{"v":2,"events":[]}');
+  resolveEnabled({ storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.5 });
+  assert.equal(storage.map.has(DIAG_BUFFER_KEY), false, 'no flag + old buffer: wiped on a new enablement');
+  storage.map.set(DIAG_BUFFER_KEY, '{"v":2,"events":[]}');
+  clock.t += 60_000;
+  resolveEnabled({ storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.9 }); // second tab, same enablement
+  assert.equal(storage.map.has(DIAG_BUFFER_KEY), true, 'refreshing a valid enablement must keep its buffer');
+});
+
+test('H1: the flag is read and written back-to-back so simultaneous enables converge on one generation', () => {
+  const storage = fakeStorage();
+  const clock = { t: 1_700_000_000_000 };
+  const now = () => clock.t;
+  // tab A and tab B both call resolveEnabled at the same instant; B's call happens after A's write
+  resolveEnabled({ storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.2 });
+  const genA = parseFlag(storage.map.get(DIAG_FLAG_KEY)).gen;
+  resolveEnabled({ storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.8 });
+  assert.equal(parseFlag(storage.map.get(DIAG_FLAG_KEY)).gen, genA, 'the second enabler adopts the first one\'s generation');
+  const src = readFileSync(new URL('../src/lib/diagnostics/driverDiagnostics.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(src, /const fresh = newGeneration\(random\);\n(?:\s*\/\/[^\n]*\n)+\s*const current = parseFlag\(storage\.getItem\(DIAG_FLAG_KEY\)\);/, 'random generation happens BEFORE the read');
+  assert.match(src, /if \(!stillValid\) storage\.removeItem\(DIAG_BUFFER_KEY\);\n\s*storage\.setItem\(DIAG_FLAG_KEY,/, 'nothing but the buffer wipe sits between the read and the write');
+});
