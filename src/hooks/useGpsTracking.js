@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { driverDiag } from '../lib/diagnostics/driverDiagnostics.js';
 import {
   endGpsSession,
   getActiveGpsSession,
@@ -197,7 +198,11 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
 
   const flushQueue = useCallback(async () => {
     const key = queueKeyRef.current;
-    if (!key || sendingRef.current || navigator.onLine === false) return;
+    if (!key || sendingRef.current || navigator.onLine === false) {
+      // TEMP diagnostics (BUG D): booleans only, no coordinates.
+      if (key) driverDiag.recordThrottled('gps_flush_skip', 30000, 'GPS_QUEUE', 'flush_skipped', { sending: sendingRef.current, online: navigator.onLine !== false });
+      return;
+    }
     const queue = dedupeGpsPointQueue(readQueue(key));
     if (!queue.length) {
       setQueueSize(0);
@@ -206,6 +211,8 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
 
     sendingRef.current = true;
     const remaining = [];
+    const flushOp = driverDiag.startOp('GPS_QUEUE', 'flush', { queue: queue.length, sending: true });
+    let flushError = null;
     try {
       for (const queuedPoint of queue) {
         try {
@@ -217,6 +224,7 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
           setAccuracy(point.accuracy ?? payload.accuracy ?? null);
         } catch (err) {
           if (!isPermanentGpsWriteError(err)) {
+            flushError = err;
             remaining.push(queuedPoint);
             console.warn('Punto GPS rimasto in coda', err);
           } else {
@@ -229,6 +237,7 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
       if (!remaining.length) setError(null);
     } finally {
       sendingRef.current = false;
+      flushOp.end({ ok: !flushError, err: flushError, extra: { remaining: remaining.length, sending: false } });
     }
   }, []);
 

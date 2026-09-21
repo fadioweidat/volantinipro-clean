@@ -1,4 +1,5 @@
 import { supabase } from '../../supabaseClient.js';
+import { driverDiag } from '../diagnostics/driverDiagnostics.js';
 
 /**
  * Unisce una lista esistente di messaggi con uno o più nuovi messaggi,
@@ -78,6 +79,8 @@ export function subscribeToDriverMessages(assignmentId, { onMessage, onSeen, onS
       }
     )
     .subscribe((status) => {
+      // TEMP diagnostics (BUG D): fixed status enum only.
+      driverDiag.record('REALTIME', 'status', { state: String(status).toLowerCase() });
       if (onStatusChange) onStatusChange(status);
     });
 

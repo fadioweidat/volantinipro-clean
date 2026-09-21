@@ -1,4 +1,5 @@
 import { supabase, ensureSupabaseSessionBridge } from '../../supabaseClient.js';
+import { driverDiag } from '../diagnostics/driverDiagnostics.js';
 import { calculateFilteredDistanceKm, filterValidGpsPoints } from '../gps/pointQuality.js';
 import { getDeviceInstallationId } from '../gps/deviceInstallationId.js';
 
@@ -980,14 +981,15 @@ export async function uploadIssueVerificationPhoto({
   const client = await requireSupabase();
   const storagePath = buildIssuePhotoStoragePath({ campaignId, issueId });
 
-  await withRetry(async () => {
+  // TEMP diagnostics (BUG D): stage timing only (blob size, never content).
+  await driverDiag.trace('PHOTO_PIPELINE', 'upload', () => withRetry(async () => {
     const { error: uploadError } = await client.storage
       .from('proof-photos')
       .upload(storagePath, blob, { contentType: 'image/jpeg', upsert: false });
     if (uploadError) throw mapRpcError(uploadError);
-  }, 'upload foto verifica');
+  }, 'upload foto verifica'), { bytes: blob.size });
 
-  return callGpsRpc('driver_register_issue_photo', {
+  return driverDiag.trace('PHOTO_PIPELINE', 'register', () => callGpsRpc('driver_register_issue_photo', {
     p_issue_id: issueId,
     p_storage_path: storagePath,
     p_lat: Number(lat),
@@ -997,7 +999,7 @@ export async function uploadIssueVerificationPhoto({
     p_note: note || null,
     p_assignment_id: assignmentId || null,
     p_access_token: accessToken || null,
-  });
+  }));
 }
 
 function safeJson(value) {

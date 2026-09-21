@@ -4,6 +4,7 @@ import { RouteLoadingFallback } from "./layouts/public/RouteLoadingFallback.jsx"
 import { RouteErrorBoundary } from "./bootstrap/RouteErrorBoundary.jsx";
 import { clearRetryFlag } from "./bootstrap/chunkRetry.js";
 import { warnIfMojibake } from "./lib/mojibakeGuard.js";
+import { DriverDiagnosticsPanel } from "./components/driver/DriverDiagnosticsPanel.jsx";
 
 // Segnale per il fallback statico in index.html (script inline, non-module):
 // raggiungere questa riga prova che l'INTERO grafo di import statici di
@@ -117,6 +118,7 @@ function Root() {
   if (driverAssignmentMapMatch) return (
     <Suspense fallback={<RouteLoadingFallback />}>
       <DriverWorkMapPage key={driverAssignmentMapMatch[1]} assignmentId={driverAssignmentMapMatch[1]} />
+      <DriverDiagnosticsPanel />
       <DriverAssistantHost assignmentId={driverAssignmentMapMatch[1]} page={`driver-map:${driverAssignmentMapMatch[1]}`} />
     </Suspense>
   );
@@ -125,6 +127,7 @@ function Root() {
   if (driverAssignmentMatch) return (
     <Suspense fallback={<RouteLoadingFallback />}>
       <DriverAssignmentPage key={driverAssignmentMatch[1]} assignmentId={driverAssignmentMatch[1]} />
+      <DriverDiagnosticsPanel />
       <DriverAssistantHost assignmentId={driverAssignmentMatch[1]} page={`driver-assignment:${driverAssignmentMatch[1]}`} />
     </Suspense>
   );

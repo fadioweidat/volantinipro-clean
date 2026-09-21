@@ -16,6 +16,8 @@ import { driverListMessages, driverMarkMessagesSeen, driverSendMessage } from '.
 import { buildIssueWatermarkLines, canvasToJpegBlob, compressPodImage, drawPodWatermark, releaseCanvas } from '../../lib/pod/podPhotoProcessing.js';
 import { mergeMessages, countUnreadMessages, subscribeToDriverMessages } from '../../lib/services/messaging-realtime.js';
 import { isTransientSchemaOrNetworkError, USER_FRIENDLY_TRANSIENT_ERROR } from '../../lib/services/transientErrors.js';
+import { driverDiag } from '../../lib/diagnostics/driverDiagnostics.js';
+import { useDiagLifecycle } from '../../lib/diagnostics/useDiagLifecycle.js';
 
 // ─── DriverAssignmentPage ─────────────────────────────────────────────────────
 // Pagina driver accessibile tramite /driver/assignment/{assignmentId}, link
@@ -32,6 +34,7 @@ function formatDistanceLabel(meters) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function DriverAssignmentPage({ assignmentId }) {
+  useDiagLifecycle('assignment_page');
   // Timing diagnostico SOLO DEV (audit "Driver main page still loads too
   // slow"): PAGE_MOUNT = primo render di questo componente (la shell
   // "Caricamento assegnazione..." e' gia' in DOM a questo punto, prima di
@@ -772,6 +775,7 @@ function Notice({ text, danger = false, id }) {
 
 // ─── Segnalazioni Cliente -> Autista ─────────────────────────────────────────
 function DriverIssuesSection({ assignmentId, campaignId, accessToken, activeZone = null, onOpenZoneMap = null }) {
+  useDiagLifecycle('issues_section');
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
@@ -838,11 +842,18 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken, activeZone
   const onPhoto = async (issue, file) => {
     if (!file) return;
     setBusyId(issue.id); setErr(null);
+    // TEMP diagnostics (BUG D): stage timings only; original statements below are unchanged.
+    const flowOp = driverDiag.startOp('PHOTO_PIPELINE', 'flow');
+    let stageOp = null;
+    const beginStage = (name) => { stageOp = driverDiag.startOp('PHOTO_PIPELINE', name); };
+    const endStage = () => { stageOp?.end({ ok: true }); stageOp = null; };
     try {
+      beginStage('gps');
       const pos = await new Promise((resolve, reject) => {
         if (!navigator.geolocation) { reject(new Error('GPS non disponibile: impossibile allegare una foto di verifica.')); return; }
         navigator.geolocation.getCurrentPosition(resolve, () => reject(new Error('Posizione GPS negata: la foto di verifica richiede il GPS.')), { enableHighAccuracy: true, timeout: 15000 });
       });
+      endStage();
       // TICKET — WATERMARK FOTO CLIENTE: watermark burnato sui pixel PRIMA
       // dell'upload, con via/civico/comune REALI della segnalazione
       // (customer_issues.street/house_number/municipality, mai digitati qui)
@@ -853,7 +864,10 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken, activeZone
       // compressPodImage: decode + downscale in un passo (lato lungo 1600px,
       // mai il buffer RGBA full-res). releaseCanvas subito dopo il Blob:
       // stesso presidio memoria del flusso foto prova.
+      beginStage('compress');
       const { canvas } = await compressPodImage(file);
+      endStage();
+      beginStage('watermark');
       drawPodWatermark(canvas, buildIssueWatermarkLines({
         takenAt,
         lat: pos.coords.latitude,
@@ -862,15 +876,21 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken, activeZone
         street: issue.street,
         houseNumber: issue.house_number,
       }));
+      endStage();
+      beginStage('encode');
       const watermarkedBlob = await canvasToJpegBlob(canvas);
       releaseCanvas(canvas);
+      endStage();
       await uploadIssueVerificationPhoto({
         campaignId, issueId: issue.id, blob: watermarkedBlob,
         lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy,
         assignmentId, accessToken: accessToken || null,
       });
       await reload();
+      flowOp.end({ ok: true });
     } catch (e) {
+      stageOp?.end({ ok: false, err: e });
+      flowOp.end({ ok: false, err: e });
       setErr(isTransientSchemaOrNetworkError(e) ? USER_FRIENDLY_TRANSIENT_ERROR : (e?.message || 'Caricamento foto non riuscito.'));
     } finally {
       setBusyId(null);
@@ -972,6 +992,7 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken, activeZone
 // verso un Cliente (driver_send_message forza sempre recipient_role='admin'
 // lato DB, vedi migration 20260905130000).
 function DriverMessagesSection({ assignmentId, accessToken }) {
+  useDiagLifecycle('messages_section');
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);

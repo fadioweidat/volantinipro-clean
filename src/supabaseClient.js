@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { driverDiag } from './lib/diagnostics/driverDiagnostics.js'
 
 // import.meta.env is always a real object under Vite (dev server and build),
 // so reading .VITE_SUPABASE_URL directly off it is deterministic there. It is
@@ -61,7 +62,12 @@ if (supabaseUrl && supabaseKey && isValidHttpUrl(supabaseUrl)) {
         autoRefreshToken: true,
         detectSessionInUrl: false,
       },
+      // TEMP driver diagnostics (BUG D): clientOptions() is null unless the
+      // device flag is on, so the default client is created exactly as before.
+      ...(driverDiag.clientOptions((...args) => fetch(...args)) || {}),
     });
+    driverDiag.instrumentAuthClient(supabaseInstance.auth);
+    driverDiag.watchLockWarnings(typeof console !== 'undefined' ? console : null);
   } catch (error) {
     // Non deve mai propagare: l'app deve poter caricare anche senza client.
     console.error('[SUPABASE_CLIENT_INIT_FAILED]', error?.message || String(error));
@@ -89,20 +95,30 @@ export async function ensureSupabaseSessionBridge() {
   if (!supabase) return
   try {
     const raw = localStorage.getItem('vp_supabase_session')
-    if (!raw) return
+    if (!raw) { driverDiag.count('bridge_no_session'); return }
     const stored = JSON.parse(raw)
     const accessToken = stored?.accessToken || stored?.access_token
     const refreshToken = stored?.refreshToken || stored?.refresh_token
-    if (!accessToken || accessToken === bridgedAccessToken) return
+    if (!accessToken || accessToken === bridgedAccessToken) { driverDiag.count('bridge_skip'); return }
     if (!bridgeInFlight) {
+      // TEMP diagnostics: booleans/durations only, never token contents.
+      const diagOp = driverDiag.startOp('SESSION_BRIDGE', 'setsession', {
+        exists: true, expired: driverDiag.tokenExpired(accessToken) ?? undefined,
+      })
       bridgeInFlight = supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken || '',
       }).then(({ error }) => {
         if (!error) bridgedAccessToken = accessToken
+        diagOp.end({ ok: !error, err: error })
+      }, (thrown) => {
+        diagOp.end({ ok: false, err: thrown })
+        throw thrown
       }).finally(() => {
         bridgeInFlight = null
       })
+    } else {
+      driverDiag.count('bridge_join')
     }
     await bridgeInFlight
   } catch {

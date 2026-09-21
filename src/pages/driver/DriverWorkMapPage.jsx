@@ -10,6 +10,7 @@ import { C } from '../../lib/constants.js';
 import { geoJsonContainsPoint } from '../../lib/geo/pointInPolygon.js';
 import { resolveProgramTerritory } from '../../lib/geo/territories/resolveProgramTerritory.js';
 import { driverPathWithQuery, driverBackClick } from './driverNav.js';
+import { useDiagLifecycle } from '../../lib/diagnostics/useDiagLifecycle.js';
 
 const POINTS_REFRESH_MIN_INTERVAL_MS = 8000;
 const COVERAGE_REFRESH_INTERVAL_MS = 60000;
@@ -26,6 +27,7 @@ const GROUP_STATUS_LABEL = { started: 'In corso', paused: 'In pausa', completed:
 // (resumeExistingSession in useGpsTracking.js, non toccato qui), quindi
 // navigare qui e tornare indietro non interrompe/riavvia il tracking.
 export function DriverWorkMapPage({ assignmentId }) {
+  useDiagLifecycle('map_page');
   const { assignmentData, assignmentZones, assignmentError, campaignId, campaignRecord, loadingAssignment, accessToken } = useDriverAssignment(assignmentId);
 
   if (loadingAssignment) {

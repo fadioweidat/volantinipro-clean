@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { driverDiag } from '../lib/diagnostics/driverDiagnostics.js';
 
 // Segreto per-assignment (operator_assignments.access_token) incorporato dal
 // link WhatsApp come ?access=... (vedi generateDriverAssignmentLink in
@@ -125,6 +126,8 @@ export function useDriverAssignment(assignmentId) {
     // produzione (il blocco if e' escluso dal bundle prod da Vite tree-shake
     // su import.meta.env.PROD, ma qui lo guardiamo esplicitamente per
     // chiarezza). Nessuna logica esistente toccata, solo marker di tempo.
+    // TEMP diagnostics (BUG D): no-op unless the device flag is on.
+    const loadOp = driverDiag.startOp('DRIVER_ASSIGNMENT', 'load', { bg: backgroundRefresh, n: reloadKey });
     const DEBUG_TIMING = Boolean(import.meta.env.DEV);
     const t = DEBUG_TIMING ? { start: performance.now() } : null;
 
@@ -152,6 +155,7 @@ export function useDriverAssignment(assignmentId) {
         // facciamo al massimo un retry. La pagina gia' caricata resta visibile
         // durante i refresh successivi.
         for (let attempt = 0; attempt < 2; attempt++) {
+          const attemptOp = driverDiag.startOp('DRIVER_ASSIGNMENT', 'rpc_attempt', { attempt });
           try {
             const rpcCall = supabase.rpc('get_public_driver_assignment', {
               p_assignment_id: assignmentId,
@@ -165,13 +169,16 @@ export function useDriverAssignment(assignmentId) {
               }, 8000)),
             ]);
             if (!error) {
+              attemptOp.end({ ok: true });
               rpcResult = res;
               rpcErr = null;
               break;
             }
+            attemptOp.end({ ok: false, err: error });
             rpcErr = error;
             if (!isTransientSchemaOrNetworkError(error) || attempt === 1) break;
           } catch (error) {
+            attemptOp.end({ ok: false, err: error, timeout: error?.code === 'DRIVER_ASSIGNMENT_TIMEOUT' });
             rpcErr = error;
             if (attempt === 1) break;
           }
@@ -215,6 +222,7 @@ export function useDriverAssignment(assignmentId) {
           console.error('[DRIVER ASSIGNMENT LOAD ERROR]', err);
           const timeout = err?.code === 'DRIVER_ASSIGNMENT_TIMEOUT' || String(err?.message || '').includes('DRIVER_ASSIGNMENT_TIMEOUT');
           const isTransient = timeout || isTransientSchemaOrNetworkError(err);
+          loadOp.end({ ok: false, err, timeout, state: timeout ? 'error_slow' : (isTransient ? 'error_transient' : 'error_other') });
           const friendlyMessage = timeout
             ? 'Connessione lenta. Il programma resta disponibile; riprova tra poco.'
             : mapDriverAssignmentLoadError(err);
@@ -271,6 +279,7 @@ export function useDriverAssignment(assignmentId) {
       setConfirmedAt(data.confirmed_at || null);
       hydratedRef.current = true;
       setLoadingAssignment(false);
+      loadOp.end({ ok: true, state: 'ready' });
 
       // ─── FASE 2 — NON-BLOCKING: evento apertura, fire-and-forget ───────
       // log_assignment_event(p_assignment_id, p_action, p_access_token):
@@ -326,7 +335,7 @@ export function useDriverAssignment(assignmentId) {
       if (!cancelled) setLoadingProgramDetails(false);
     }
     load();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; loadOp.end({ state: 'cancelled' }); };
   }, [assignmentId, accessToken, reloadKey]);
 
   // Riprova registrazione apertura programma se fallita per motivi di rete
