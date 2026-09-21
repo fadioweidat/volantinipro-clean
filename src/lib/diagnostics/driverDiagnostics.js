@@ -235,12 +235,17 @@ export function createDiagnostics(deps = {}) {
   }
 
   // Applies a flag verdict. Returns true when this page must stop writing.
-  function stopIfFlagChanged() {
+  // `afterWrite`: the verdict is taken right after this page wrote the buffer.
+  function stopIfFlagChanged(afterWrite = false) {
     if (!requireFlag) return false;
     const st = flagState();
     if (st === 'ok') return false;
-    if (st === 'gone') stopAndWipe();
-    else dead = true; // 'replaced': stop, but do NOT wipe the newer session's buffer
+    if (st === 'gone') { stopAndWipe(); return true; }
+    // 'replaced': stop. Before writing, the buffer belongs to the newer session and is left alone.
+    // After writing, what is in storage was JUST written by this stale page (a new enablement
+    // started in between), so it is removed rather than left to pollute the new session.
+    dead = true;
+    if (afterWrite) { try { storage && storage.removeItem(DIAG_BUFFER_KEY); } catch { /* ignore */ } }
     return true;
   }
 
@@ -298,7 +303,7 @@ export function createDiagnostics(deps = {}) {
       storage.setItem(DIAG_BUFFER_KEY, serialize());
       // Another tab may have disabled diagnostics between the check above and
       // the write: never leave a buffer behind once the flag is gone.
-      stopIfFlagChanged();
+      stopIfFlagChanged(true);
     } catch { /* quota/private mode: diagnostics must never throw */ }
   }
 

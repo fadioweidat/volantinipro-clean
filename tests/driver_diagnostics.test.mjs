@@ -857,16 +857,86 @@ test('H2: enabling while NO flag exists but an old buffer does also starts clean
   assert.equal(storage.map.has(DIAG_BUFFER_KEY), true, 'refreshing a valid enablement must keep its buffer');
 });
 
-test('H1: the flag is read and written back-to-back so simultaneous enables converge on one generation', () => {
+test('H1: enabling reads the flag and writes it back-to-back (recorded storage call order), so simultaneous enables converge', () => {
+  const clock = { t: 1_700_000_000_000 };
+  const now = () => clock.t;
+  const recording = () => {
+    const storage = fakeStorage();
+    const calls = [];
+    for (const op of ['getItem', 'setItem', 'removeItem']) {
+      const real = storage[op];
+      storage[op] = (k, ...rest) => { calls.push(`${op}:${k}`); return real(k, ...rest); };
+    }
+    return { storage, calls };
+  };
+  // tab A enables, then tab B enables at the same moment: B adopts A's generation
+  const { storage, calls } = recording();
+  resolveEnabled({ storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.2 });
+  const genA = parseFlag(storage.map.get(DIAG_FLAG_KEY)).gen;
+  calls.length = 0;
+  resolveEnabled({ storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.8 });
+  assert.equal(parseFlag(storage.map.get(DIAG_FLAG_KEY)).gen, genA, "the second enabler adopts the first one's generation");
+  assert.deepEqual(calls, ['getItem:vp_diag_driver', 'setItem:vp_diag_driver', 'getItem:vp_diag_driver'], 'valid flag: read, write, read-back; buffer untouched');
+  // new enablement (no flag): read, wipe the old buffer, write, read-back; nothing else in between
+  const fresh = recording();
+  resolveEnabled({ storage: fresh.storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.5 });
+  assert.deepEqual(fresh.calls, ['getItem:vp_diag_driver', 'removeItem:vp_diag_driver_buf', 'setItem:vp_diag_driver', 'getItem:vp_diag_driver'], 'no other storage call between the read and the write');
+});
+
+test('I3: expiry boundary — a flag exactly at its expiry instant is EXPIRED (new generation, buffer wiped); 1 ms earlier it is still valid', () => {
+  const clock = { t: 1_700_000_000_000 };
+  const now = () => clock.t;
+  const s = fakeStorage();
+  resolveEnabled({ storage: s, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.111 });
+  const { expiresAt, gen } = parseFlag(s.map.get(DIAG_FLAG_KEY));
+  s.map.set(DIAG_BUFFER_KEY, '{"v":2,"events":[]}');
+  clock.t = expiresAt - 1;
+  resolveEnabled({ storage: s, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.777 });
+  assert.equal(parseFlag(s.map.get(DIAG_FLAG_KEY)).gen, gen, '1 ms before expiry: same enablement');
+  assert.equal(s.map.has(DIAG_BUFFER_KEY), true);
+  const s2 = fakeStorage();
+  s2.map.set(DIAG_FLAG_KEY, `${expiresAt}:${gen}`);
+  s2.map.set(DIAG_BUFFER_KEY, '{"v":2,"events":[]}');
+  clock.t = expiresAt;
+  resolveEnabled({ storage: s2, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.777 });
+  assert.notEqual(parseFlag(s2.map.get(DIAG_FLAG_KEY)).gen, gen, 'at the expiry instant: NOT reused');
+  assert.equal(s2.map.has(DIAG_BUFFER_KEY), false, 'at the expiry instant: old buffer wiped');
+});
+
+test('I3: a corrupt flag plus a leftover buffer is treated as "no valid flag" when enabling', () => {
+  const s = fakeStorage();
+  s.map.set(DIAG_FLAG_KEY, 'garbage:::x');
+  s.map.set(DIAG_BUFFER_KEY, '{"v":2,"events":[]}');
+  const clock = { t: 1_700_000_000_000 };
+  assert.equal(resolveEnabled({ storage: s, search: '?vpdiag=1', pathname: '/driver/x', now: () => clock.t, random: () => 0.5 }), true);
+  assert.equal(s.map.has(DIAG_BUFFER_KEY), false);
+  assert.match(s.map.get(DIAG_FLAG_KEY), /^\d+:[0-9a-z]{6}$/, 'a clean flag replaces the corrupt one');
+});
+
+test('I1: a stale tab whose buffer write lands AFTER a new enablement started removes what it wrote', () => {
   const storage = fakeStorage();
   const clock = { t: 1_700_000_000_000 };
   const now = () => clock.t;
-  // tab A and tab B both call resolveEnabled at the same instant; B's call happens after A's write
-  resolveEnabled({ storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.2 });
-  const genA = parseFlag(storage.map.get(DIAG_FLAG_KEY)).gen;
-  resolveEnabled({ storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.8 });
-  assert.equal(parseFlag(storage.map.get(DIAG_FLAG_KEY)).gen, genA, 'the second enabler adopts the first one\'s generation');
-  const src = readFileSync(new URL('../src/lib/diagnostics/driverDiagnostics.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(src, /const fresh = newGeneration\(random\);\n(?:\s*\/\/[^\n]*\n)+\s*const current = parseFlag\(storage\.getItem\(DIAG_FLAG_KEY\)\);/, 'random generation happens BEFORE the read');
-  assert.match(src, /if \(!stillValid\) storage\.removeItem\(DIAG_BUFFER_KEY\);\n\s*storage\.setItem\(DIAG_FLAG_KEY,/, 'nothing but the buffer wipe sits between the read and the write');
+  resolveEnabled({ storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.111 });
+  const { expiresAt } = parseFlag(storage.map.get(DIAG_FLAG_KEY));
+  const a = make({ storage, env: fakeWindow(), deps: { now, requireFlag: true } });
+  a.diag.record('REQUEST', 'end', { rid: 1, ok: false });      // old-enablement evidence
+  clock.t = expiresAt - 1;                                     // A's pre-write check will still see a valid flag
+  const realSet = storage.setItem;
+  let raced = false;
+  storage.setItem = (k, v) => {
+    if (k === DIAG_BUFFER_KEY && !raced) {
+      raced = true;
+      clock.t = expiresAt + 5;                                 // the flag expires while A is mid-flush...
+      resolveEnabled({ storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.777 }); // ...tab B starts a NEW enablement
+    }
+    realSet(k, v);                                             // ...and A's write of the old data lands afterwards
+  };
+  a.diag.flush();
+  assert.equal(raced, true);
+  assert.equal(storage.map.has(DIAG_BUFFER_KEY), false, "A's stale write was removed: the new enablement starts clean");
+  assert.match(storage.map.get(DIAG_FLAG_KEY), /^\d+:[0-9a-z]{6}$/, "B's new flag is intact");
+  a.diag.record('REQUEST', 'end', { rid: 2 });
+  a.diag.flush();
+  assert.equal(storage.map.has(DIAG_BUFFER_KEY), false, 'and A stays stopped');
 });
