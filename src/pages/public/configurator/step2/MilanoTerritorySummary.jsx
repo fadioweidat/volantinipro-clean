@@ -1,14 +1,15 @@
 import React from "react";
 import { Step2BottomActions } from "./Step2BottomActions.jsx";
-import { formatIntegerIT } from "../../../../lib/utils/format.js";
+import { formatIntegerIT, formatRadiusLabel } from "../../../../lib/utils/format.js";
 
 // No estimates or allocation calculations here: values come from the existing truth/view models.
-export function MilanoTerritorySummary({ mode, hasSelection, zoneLabel, viewModel, truthModel, quantity, coverageLabel, areaLabel, loading, failed, onRetry, coverageDecisionRequired, coverageDecision, availableFlyers, requiredFlyers, manualFlyers, isCoverageDecisionValid, onQuantityDecision, onManualQuantity, nilResidual, advancedContent, onOpenReport, actions }) {
+export function MilanoTerritorySummary({ radiusKm, radiusMunicipalities = [], radiusNils = [], mode, hasSelection, zoneLabel, viewModel, truthModel, quantity, coverageLabel, areaLabel, loading, failed, onRetry, coverageDecisionRequired, coverageDecision, availableFlyers, requiredFlyers, manualFlyers, isCoverageDecisionValid, onQuantityDecision, onManualQuantity, nilResidual, advancedContent, onOpenReport, actions }) {
   const ready = hasSelection && viewModel.hasUsableCoverageData;
   const unavailable = !hasSelection ? "Da scegliere" : loading ? "Calcolo in corso…" : "Dato non disponibile";
   const rows = [
     ["Zona", zoneLabel || "Milano"],
     ["Modalità", {nil: "Quartieri / NIL", radius: "Raggio", municipality: "Tutto Milano"}[mode] || "Da scegliere"],
+    ...(mode === "radius" ? [["Raggio", formatRadiusLabel(radiusKm)], ["Comuni coinvolti", ready ? radiusMunicipalities.length : unavailable]] : []),
     ["Famiglie stimate", ready ? formatIntegerIT(viewModel.primaryFamiliesValue) : unavailable],
     ["Quantità scelta", `${formatIntegerIT(quantity)} pz`],
     ["Quantità consigliata", ready ? `${formatIntegerIT(viewModel.recommendedFlyersValue)} pz` : unavailable],
@@ -18,6 +19,13 @@ export function MilanoTerritorySummary({ mode, hasSelection, zoneLabel, viewMode
   return <aside className="vp-milano-summary" aria-label="Riepilogo territorio Milano" data-testid="milano-territory-summary">
     <div className="vp-milano-eyebrow">03 · Riepilogo</div><h2>La tua distribuzione</h2>
     <dl>{rows.map(([label,value]) => <div key={label}><dt>{label}</dt><dd>{value || "Dato non disponibile"}</dd></div>)}</dl>
+    {mode === "radius" && ready && <section className="vp-milano-radius-context" aria-label="Territori nel raggio">
+      <h3>Comuni nel raggio</h3>
+      <p>Quota delle famiglie stimate nel raggio</p>
+      <ul>{radiusMunicipalities.map(row => <li key={row.id}><span>{row.name}</span><strong>{row.contribution === 0 && row.families > 0 ? "<1" : row.contribution}%</strong></li>)}</ul>
+      <small>Percentuali arrotondate; non rappresentano la quota di superficie.</small>
+      {radiusNils.length > 0 && <details><summary>{radiusNils.length} NIL interessati</summary><ul>{radiusNils.map(row => <li key={row.code}>{row.name}</li>)}</ul></details>}
+    </section>}
     {!hasSelection && <p className="vp-milano-summary-note">{mode === "nil" ? "Cerca e aggiungi almeno un quartiere per vedere quantità e copertura." : "Milano è il contesto iniziale. Scegli Quartieri o Raggio per definire l’area da coprire."}</p>}
     {hasSelection && !ready && <div role="status" className="vp-milano-summary-note">{loading ? "Stiamo calcolando la copertura dell’area scelta." : "I dati territoriali non sono disponibili. Riprova prima di continuare."}{failed && <button type="button" onClick={onRetry}>Riprova</button>}</div>}
     {ready && (coverageDecisionRequired || nilResidual?.active) && <section className="vp-milano-quantity" aria-labelledby="milano-quantity-title">

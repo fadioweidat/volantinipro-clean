@@ -700,6 +700,7 @@ function computeBreaks(values) {
 }
 
 function Step2MapImpl({
+  containingNil = null,
   simplifiedMilano = false, // Client presentation only; territory data and calculations are unchanged.
   city,
   radius,
@@ -1103,7 +1104,7 @@ function Step2MapImpl({
     // as the radius circle); additional comuni get a neutral style so
     // multi-comune is immediately readable.
     let renderedBoundaryCount = 0;
-    if (isMunicipalityMode && municipalityBoundary) {
+    if ((isMunicipalityMode || simplifiedMilano) && municipalityBoundary) {
       // Normalize to array-of-{name,geometry} regardless of input shape
       const cityLabel = city?.label || city?.name || 'Comune';
       let boundaryEntries = [];
@@ -1130,7 +1131,7 @@ function Step2MapImpl({
       const isMilanoCityMapForBoundary = Boolean(city && (String(city.name || city.label || '').toLowerCase().includes('milano')));
       const hasNilZonesForBoundary = Boolean((zonesWithCoords || []).some(z => z && (z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')) || (typeof z.type === 'string' && z.type === 'nil'))));
       const willRenderNilPolygonsForBoundary = activeLayers?.comuni !== false && (zonesWithCoords?.length || 0) > 0 && (!isMunicipalityMode || nilMode || hasNilZonesForBoundary || isMilanoCityMapForBoundary);
-      const shouldRenderCoveragePolygonsForBoundary = (!isMunicipalityMode || unconfirmedAddressMode) && Array.isArray(coveragePolygons) && coveragePolygons.length > 0;
+      const shouldRenderCoveragePolygonsForBoundary = (!isMunicipalityMode || (!simplifiedMilano && unconfirmedAddressMode)) && Array.isArray(coveragePolygons) && coveragePolygons.length > 0;
 
       boundaryEntries.forEach((entry, idx) => {
         const entryName = String(entry.name || `Comune ${idx + 1}`);
@@ -1145,11 +1146,11 @@ function Step2MapImpl({
           return isMilanoCityMapForBoundary ? normEntry.includes('milano') : true;
         });
         const hasInteractiveSubZones = willRenderNilPolygonsForBoundary ? (entryHasNils || ((zonesWithCoords?.length || 0) > 0 && (isActiveComuneEntry || !isMunicipalityMode))) : shouldRenderCoveragePolygonsForBoundary;
-        const isBoundaryInteractive = !hasInteractiveSubZones && !unconfirmedAddressMode;
+        const isBoundaryInteractive = !simplifiedMilano && !hasInteractiveSubZones && !unconfirmedAddressMode;
 
         // Active comune: strong green border, light green fill (or faint context when unconfirmedAddressMode)
         // Additional comuni in multi-mode: slightly different shade, still visible
-        const polyStyle = unconfirmedAddressMode || (simplifiedMilano && nilMode) ? {
+        const polyStyle = unconfirmedAddressMode || (simplifiedMilano && (nilMode || !isMunicipalityMode)) ? {
           color: simplifiedMilano ? '#0284c7' : '#8A9EA7',
           weight: simplifiedMilano ? 2.5 : 1.5,
           fillColor: 'transparent',
@@ -1312,16 +1313,18 @@ function Step2MapImpl({
     const isMilanoCityMap = Boolean(city && (String(city.name || city.label || '').toLowerCase().includes('milano')));
     const hasNilZones = Boolean((zonesWithCoords || []).some(z => z && (z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')) || (typeof z.type === 'string' && z.type === 'nil'))));
     let renderedZonePolygonLayers = 0;
-    const shouldRenderCoveragePolygonsEarly = (!isMunicipalityMode || unconfirmedAddressMode) && Array.isArray(coveragePolygons) && coveragePolygons.length > 0;
-    if (!shouldRenderCoveragePolygonsEarly && activeLayers?.comuni !== false && zonesWithCoords?.length > 0 && (!isMunicipalityMode || nilMode || hasNilZones || isMilanoCityMap)) {
+    const shouldRenderCoveragePolygonsEarly = (!isMunicipalityMode || (!simplifiedMilano && unconfirmedAddressMode)) && Array.isArray(coveragePolygons) && coveragePolygons.length > 0;
+    if (!shouldRenderCoveragePolygonsEarly && (simplifiedMilano || activeLayers?.comuni !== false) && zonesWithCoords?.length > 0 && (!isMunicipalityMode || nilMode || hasNilZones || isMilanoCityMap)) {
       zonesWithCoords.forEach(z => {
-        const sel = isD2D && selected?.includes(z.id);
+        const sel = isD2D && selected?.includes(z.id) && (!simplifiedMilano || nilMode);
         const coverageStatus = zoneCoverageById?.[z.id] || null;
         const coverageColors = coverageStatus ? COVERAGE_MAP_COLORS[coverageStatus] : null;
         const comuneFill = coverageColors
           ? coverageColors.fill
           : (themeMode ? (z.metricColor || z.color || '#7F9BB0') : (z.color || '#7F9BB0'));
         const isNilZone = Boolean(z.isNil || z.territoryLevel === 'nil' || z.code || z.nilCode || z.nil_code || (typeof z.id === 'string' && z.id.startsWith('nil_')));
+        if (simplifiedMilano && (isNilZone ? activeLayers?.nil === false : activeLayers?.comuni === false)) return;
+        const isContainingNil = simplifiedMilano && isNilZone && (String(containingNil?.code) === String(z.id) || containingNil?.name === z.name);
         // Intensità per stato: "non coperto" è di gran lunga il caso più
         // frequente su Milano (fino a 87 NIL su 88) — un bordo/fill uguali a
         // "coperto" lo fa dominare visivamente l'intera mappa. Bordo netto ma
@@ -1355,9 +1358,16 @@ function Step2MapImpl({
           lineCap: 'round',
           lineJoin: 'round',
         };
+        if (simplifiedMilano && isNilZone) {
+          Object.assign(styleUnsel, { color: isContainingNil ? '#38BDF8' : '#7F9DB5', fillColor: '#38BDF8', fillOpacity: isContainingNil ? 0.08 : 0.025, weight: isContainingNil ? 2 : 1, opacity: 0.75, dashArray: isContainingNil ? '4 3' : null });
+          Object.assign(styleSel, { color: '#22D99A', fillColor: '#22D99A', fillOpacity: 0.3, weight: 2.5, opacity: 1 });
+        }
         const gisStyle = sel ? styleSel : styleUnsel;
         const alloc = zoneAllocationById?.[z.id] || null;
-        const tip = _buildZoneOrNilTooltip(z, col, sel, alloc, coverageStatus, false);
+        const fmtIT = n => Number(n || 0).toLocaleString('it-IT', { useGrouping: true });
+        const tip = simplifiedMilano && isNilZone && !sel
+          ? `<b>${esc(z.name)}</b><br>Famiglie: <b>${fmtIT(z.families)}</b><br>Fabbisogno: <b>${fmtIT(z.volantiniNelRaggio || z.flyersMin || 0)}</b><br>${isContainingNil ? 'NIL contenente l’indirizzo · ' : ''}Non selezionato`
+          : _buildZoneOrNilTooltip(z, col, sel, alloc, coverageStatus, false);
 
         const validZoneGeometry = z.geometry ? parseAndValidateGeoJsonGeometry(z.geometry) : null;
         if (validZoneGeometry) {
@@ -1370,9 +1380,10 @@ function Step2MapImpl({
               interactive,
               pane: 'nilPolygonsPane',
               onEachFeature: (feature, layer) => {
+                Object.assign(layer.options, { vpZoneId: z.id, vpZoneName: z.name, vpZoneType: isNilZone ? 'nil' : 'municipality' });
                 layer.bindTooltip(tip, { direction: 'auto', opacity: 1, sticky: true, interactive: false, pane: 'tooltipPane' });
                 layer.on('click', () => {
-                  if (!isD2D) return;
+                  if (!isD2D || (simplifiedMilano && !nilMode)) return;
                   if (import.meta.env.DEV) console.log('[LAYER_ZONE_CLICKED]', { zone: z.name, metricLabel: z.metricLabel, metricFmt: z.metricFmt, families: z.families });
                   onToggleZone?.(z.id);
                 });
@@ -1400,11 +1411,13 @@ function Step2MapImpl({
     // Territori REALMENTE usati nel calcolo (comuni o NIL, secondo
     // zonesInRadius) passati da volantinipro-final.jsx — sostituisce il
     // confine comunale come contenuto principale in modalità Raggio.
-    const shouldRenderCoveragePolygons = (!isMunicipalityMode || unconfirmedAddressMode) && Array.isArray(coveragePolygons) && coveragePolygons.length > 0;
+    const shouldRenderCoveragePolygons = (!isMunicipalityMode || (!simplifiedMilano && unconfirmedAddressMode)) && Array.isArray(coveragePolygons) && coveragePolygons.length > 0;
     let missingGeometryNames = [];
     let renderedCoveragePolygonLayers = 0;
     if (shouldRenderCoveragePolygons) {
       coveragePolygons.forEach(z => {
+        const isNilCoverage = z.type === 'nil' || z.isNil || z.territoryLevel === 'nil';
+        if (simplifiedMilano && (isNilCoverage ? activeLayers?.nil === false : activeLayers?.comuni === false)) return;
         const coverageColors = COVERAGE_MAP_COLORS[z.status] || COVERAGE_MAP_COLORS.non_coperto;
         const coverageIntensity = z.status === 'preview_main'
           ? { fillOpacity: 0.28, weight: 2.4, opacity: 0.95 }
@@ -1442,8 +1455,10 @@ function Step2MapImpl({
               interactive,
               pane: 'nilPolygonsPane',
               onEachFeature: (feature, layer) => {
+                Object.assign(layer.options, { vpZoneId: z.id, vpZoneName: z.name, vpZoneType: isNilCoverage ? 'nil' : 'municipality' });
                 layer.bindTooltip(tip, { direction: 'auto', opacity: 1, sticky: true, interactive: false, pane: 'tooltipPane' });
                 layer.on('click', () => {
+                  if (simplifiedMilano && !isSelectableNil) return;
                   if (import.meta.env.DEV) console.log('[COVERAGE_POLYGON_CLICKED]', { zone: z.name, id: z.id || z.zoneId });
                   onToggleZone?.(isSelectableNil ? z.id : (z.id || z.zoneId || z.name));
                 });
@@ -1934,6 +1949,7 @@ function Step2MapImpl({
         zonesWithCoordsCount: Array.isArray(zonesWithCoords) ? zonesWithCoords.length : 0,
         zonesWithCoordsNilCount: Array.isArray(zonesWithCoords) ? zonesWithCoords.filter(z => z?.isNil || z?.territoryLevel === 'nil').length : 0,
         zonesWithCoordsGeometryCount: Array.isArray(zonesWithCoords) ? zonesWithCoords.filter(z => Boolean(z?.geometry)).length : 0,
+        renderedBoundaryCount,
         renderedZonePolygonLayers,
         coveragePolygonsCount: Array.isArray(coveragePolygons) ? coveragePolygons.length : 0,
         renderedCoveragePolygonLayers,
@@ -1946,7 +1962,7 @@ function Step2MapImpl({
       };
     }
 
-  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, operationalPoints, poiAssignments, onTogglePoi, businessConfig, civiciState, mapZoom, campaignZones, activeZoneId, municipalityBoundary, isMunicipalityMode, nilMode, coveragePolygons, themeMode, activeLayerId, zoneCoverageById, zoneAllocationById, boundaryKpis, unconfirmedAddressMode, centerLabel, viewportShiftX]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [leafletLoaded, city, radius, zonesWithCoords, selected, apiData, svcType, serviceColor, targetColor, activeLayers, settori, selectedSectorId, pois, operationalPoints, poiAssignments, onTogglePoi, businessConfig, civiciState, mapZoom, campaignZones, activeZoneId, municipalityBoundary, isMunicipalityMode, nilMode, coveragePolygons, themeMode, activeLayerId, zoneCoverageById, zoneAllocationById, boundaryKpis, unconfirmedAddressMode, simplifiedMilano, containingNil, centerLabel, viewportShiftX]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Click da lista H2H/Business: centra la mappa sul POI ed evidenzia il
   // marker, senza toccare assegnazione/selezione (nessuna chiamata a

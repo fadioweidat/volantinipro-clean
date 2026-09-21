@@ -52,3 +52,15 @@
  .vp-milano-radius-presets button { padding:10px 6px; }
 }
 @media(prefers-reduced-motion:reduce) { .vp-milano-mode-card { transition:none; } }
+
+.vp-milano-map-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:10px 12px; border:1px solid #2a4054; border-radius:12px; background:#0b192b; margin-bottom:8px; font-size:12px; }
+.vp-milano-map-toolbar button { min-height:40px; padding:8px 12px; border:1px solid #38566c; border-radius:8px; background:#091929; color:#aebfd0; cursor:pointer; font:inherit; }
+.vp-milano-map-toolbar button[aria-pressed=true] { color:#71d9bd; border-color:#27cf9477; background:#27cf9414; }
+.vp-milano-map-toolbar small { flex-basis:100%; color:#aebfd0; line-height:1.5; }
+.vp-milano-radius-context { border-top:1px solid #ffffff18; padding:16px 0; }
+.vp-milano-radius-context h3 { font-size:15px; margin:0; }
+.vp-milano-radius-context ul { list-style:none; padding:0; margin:10px 0; }
+.vp-milano-radius-context li { display:flex; justify-content:space-between; gap:12px; font-size:12px; padding:6px 0; }
+.vp-milano-radius-context small,.vp-milano-radius-context summary { color:#92aabe; font-size:11px; line-height:1.5; }
+.vp-milano-radius-context details { margin-top:12px; }
+.vp-milano-radius-context summary { cursor:pointer; }

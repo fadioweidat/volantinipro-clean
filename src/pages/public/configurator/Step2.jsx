@@ -662,7 +662,7 @@ export function Step2({
   // ancora confermato, il marker resta sul punto cercato invece che sul
   // centroide Milano — evita di mostrare il confine comunale come "scelta
   // finale" mentre l'utente non ha ancora deciso comune/raggio/NIL.
-  const mapCenterOverride = isRadiusMode ? hasSearchPoint ? radiusCenter : null : hasUnconfirmedAddressPoint && hasSearchPoint ? {
+  const mapCenterOverride = isRadiusMode ? hasSearchPoint ? radiusCenter : null : (hasUnconfirmedAddressPoint || nilManualMode) && hasSearchPoint ? {
     lat: Number(selectedSearchPoint.lat),
     lng: Number(selectedSearchPoint.lng),
     label: selectedSearchPoint.label || null
@@ -3484,7 +3484,7 @@ export function Step2({
       const base = prev.length ? prev : nilManualMode ? [] : selZones.map(z => z.id);
       if (base.includes(zoneId)) {
         const next = base.filter(x => x !== zoneId);
-        return next.length ? next : base;
+        return nilManualMode ? next : next.length ? next : base;
       }
       return [...base, zoneId];
     });
@@ -4356,7 +4356,9 @@ export function Step2({
   // Riga controllo mappa nel pannello "Vista avanzata" (solo visualizzazione, no KPI).
   const MAP_H_PX = 420;
   const _totalFamiliesInRadius = zonesInRadius.reduce((a, z) => a + (z.families || 0), 0);
-  const zonesWithCoords = zonesInRadius.map((z, i) => {
+  // Il contesto iniziale legge gli stessi NIL canonici della ricerca, senza
+  // riempire zonesInRadius: i calcoli restano bloccati fino alla scelta utente.
+  const zonesWithCoords = (milanoClientView && hasUnconfirmedAddressPoint ? allMilanoNilRows.map(row => row.zone) : zonesInRadius).map((z, i) => {
     const coords = getZoneCoords(z, city, i, zonesInRadius.length);
     if (!coords) return null;
     const weightPct = _totalFamiliesInRadius > 0 ? Math.round((z.families || 0) / _totalFamiliesInRadius * 100) : 0;
@@ -4635,6 +4637,17 @@ export function Step2({
     c: C.green
   }] : [])];
   const residentialRadiusRows = residentialRows(zonesInRadius);
+  const radiusMunicipalityRows = useMemo(() => {
+    const municipalities = new Map();
+    for (const zone of zonesInRadius) {
+      const isMilanoNil = zone.isNil || zone.territoryLevel === "nil";
+      const id = isMilanoNil ? "milano-nil-total" : zone.id;
+      const row = municipalities.get(id) || { id, name: isMilanoNil ? "Milano" : zone.name, families: 0 };
+      row.families += Number(zone.families) || 0;
+      municipalities.set(id, row);
+    }
+    return residentialRows([...municipalities.values()]);
+  }, [zonesInRadius]);
   const businessCategorySummary = isBusinessStep2 && targetBusinessMeta ? businessMetrics.categories.length ? businessMetrics.categories : bizCategoryChart(selZones, targetBusinessMeta) : [];
   const businessClusterSummary = isBusinessStep2 && targetBusinessMeta ? businessMetrics.clusterRows.length ? businessMetrics.clusterRows : businessRows(selZones, targetBusinessMeta) : [];
   const h2hAttractionSummary = isMovementStep2 ? [{
@@ -5110,6 +5123,7 @@ export function Step2({
     const apiNils = Array.isArray(apiData?.nil_breakdown) ? apiData.nil_breakdown : [];
     const apiNilsWithGeometry = apiNils.filter(z => Boolean(z?.geometry_geojson || z?.geometry || z?.geojson));
     window.__VOLANTINIPRO_STEP2_STATE__ = {
+      radiusMunicipalityRows,
       canonicalSelectedIds: [...selected],
       nilManualMode,
       url: window.location.href,
@@ -5550,6 +5564,7 @@ export function Step2({
           {/* MAPPA GRANDE — solo Vista Cliente. */}
           <Step2MapPanel
         simplifiedMilano={milanoClientView}
+        containingNil={containingNil}
         focusedNil={focusedNil}
         activeLay={activeLay}
         activeMapLayers={activeMapLayers}
@@ -5581,7 +5596,7 @@ export function Step2({
         mapBasemap={mapBasemap}
         mapCityForStep2={mapCityForStep2}
         mapConfiniOn={mapConfiniOn}
-        mapCoverageZones={milanoClientView ? [] : mapCoverageZones}
+        mapCoverageZones={mapCoverageZones}
         municipalityBoundary={municipalityBoundary}
         omiInfo={omiInfo}
         pois={pois}
@@ -5617,7 +5632,7 @@ export function Step2({
         zoneAllocationById={zoneAllocationById}
         zoneCoverageById={zoneCoverageById}
         zonesInRadius={zonesInRadius}
-        zonesWithCoords={milanoClientView ? (milanoClientMode === "nil" ? zonesWithCoords.filter(z => selected.includes(z.id)) : []) : zonesWithCoords}
+        zonesWithCoords={zonesWithCoords}
           />
 
 
@@ -5625,7 +5640,7 @@ export function Step2({
             mode={milanoClientMode}
             address={coverageAddress || selectedSearchPoint}
             containingNil={containingNil || (coverageAddress?.nearestNilName ? { name: coverageAddress.nearestNilName } : null)}
-            onChooseNil={() => { switchToComuneMode(); setPendingNilPreselectName(null); enterNilManualMode(); }} onChooseRadius={switchToRadiusMode} onChooseComune={switchToComuneMode}
+            onChooseNil={() => { switchToComuneMode(); setPendingNilPreselectName(null); enterNilManualMode(); setActiveMapLayers(prev => ({ ...prev, nil: true })); }} onChooseRadius={switchToRadiusMode} onChooseComune={switchToComuneMode}
             radiusKm={radiusKm} onRadiusChange={updateActiveRadius} radiusDisabled={apiLoading}
             recommendedRadius={recommendedRadiusForSlider}
           ><MilanoNilSearch
@@ -5757,6 +5772,7 @@ export function Step2({
 
         {milanoClientView ? <MilanoTerritorySummary
           mode={milanoClientMode} hasSelection={milanoClientHasSelection}
+          radiusKm={radiusKm} radiusMunicipalities={radiusMunicipalityRows} radiusNils={intersectedNils}
           zoneLabel={milanoClientMode === "nil" && selected.length ? selZones.filter(z => selected.includes(z.id)).map(z => z.name).join(", ") : (city?.label || city?.name || "Milano")}
           viewModel={step2ViewModel} truthModel={step2TruthModel} quantity={finalFlyersRounded}
           coverageLabel={step2CoverageFullLabel} areaLabel={residentialMainOutputsNormalized.find(item => /area|superficie/i.test(item.l))?.v ? `${residentialMainOutputsNormalized.find(item => /area|superficie/i.test(item.l)).v} ${residentialMainOutputsNormalized.find(item => /area|superficie/i.test(item.l)).u || ""}` : "Dato non disponibile"}
