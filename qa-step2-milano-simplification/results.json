@@ -1,0 +1,28 @@
+{
+  "targeted": {
+    "tests": 53,
+    "pass": 53,
+    "fail": 0,
+    "skipped": 0
+  },
+  "npm_test": {
+    "tests": 1838,
+    "pass": 1838,
+    "fail": 0,
+    "skipped": 0
+  },
+  "test_all": {
+    "tests": 2782,
+    "pass": 2769,
+    "fail": 12,
+    "skipped": 1
+  },
+  "build": "PASS",
+  "implementation_head": "ea8c373c5e657153431ab01c9c5ed725a264467e",
+  "base_head": "6cf46dd59f0b396a903254f9bdea306e0ae7ea9d",
+  "runtime_viewports": [
+    "1440x900",
+    "412x915",
+    "390x844"
+  ]
+}

@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://www.volantinipro.it/api/track",
+    "error": "net::ERR_ABORTED"
+  },
+  {
+    "url": "https://www.volantinipro.it/api/track",
+    "error": "net::ERR_ABORTED"
+  },
+  {
+    "url": "https://www.volantinipro.it/api/track",
+    "error": "net::ERR_ABORTED"
+  },
+  {
+    "url": "https://www.volantinipro.it/api/track",
+    "error": "net::ERR_ABORTED"
+  },
+  {
+    "url": "https://www.volantinipro.it/api/track",
+    "error": "net::ERR_ABORTED"
+  },
+  {
+    "url": "https://mqkelrsvksrzrpmbstvd.supabase.co/rest/v1/rpc/get_map_sectors",
+    "error": "net::ERR_ABORTED"
+  },
+  {
+    "url": "https://www.volantinipro.it/api/track",
+    "error": "net::ERR_ABORTED"
+  }
+]

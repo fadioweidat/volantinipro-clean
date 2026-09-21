@@ -1,0 +1,74 @@
+Tipo campagna
+2
+Zona & Mappa
+3
+Smart Pairing
+4
+Preventivo
+← Torna allo Step 1
+Scegli la zona di distribuzione
+Hai scelto Milano. Ora scegli uno o più quartieri oppure un raggio.
+Door to Door
+Hand to Hand
+Business
+-
+Comune selezionato:
+✓ Milano
+✓ confine
+Confine OK/Caricato
+Confine ON
+✕
+Zona 1 · Milano
+Modifica zona
+Reset zona
++ Aggiungi un'altra zona / comune
++
+−
+ Leaflet | Mapbox OpenStreetMap
+⚠
+Attività commerciali temporaneamente non disponibili. La configurazione può continuare.
+Riprova
+Servizio temporaneamente non disponibile. Riprova.
+Riprova
+OpenStreetMap
+Indirizzo selezionato
+Via Antonio Oroboni, 20161 Milano città metropolitana di Milano, Italia
+02 · MODALITÀ DI DISTRIBUZIONE
+Come vuoi distribuire a Milano?
+
+Scegli i quartieri oppure un raggio intorno al tuo punto di partenza.
+
+Via Antonio Oroboni, 20161 Milano città metropolitana di Milano, Italia
+Scegli uno o più quartieri
+Milano è suddivisa in quartieri/NIL. Scegli questa modalità per distribuire solo in zone precise della città.
+Esempio: Bruzzano, Comasina, Affori
+Scegli quartieri →
+Distribuisci intorno a un punto
+Partiamo dall’indirizzo cercato e copriamo l’area entro una distanza scelta.
+500 m · 1 km · 2 km · 3 km
+Usa un raggio →
+Distribuisci in tutto Milano
+03 · RIEPILOGO
+La tua distribuzione
+Zona
+Milano
+Modalità
+Da scegliere
+Famiglie stimate
+Da scegliere
+Quantità scelta
+10.000 pz
+Quantità consigliata
+Da scegliere
+Copertura
+Da scegliere
+Area
+Da scegliere
+
+Milano è il contesto iniziale. Scegli Quartieri o Raggio per definire l’area da coprire.
+
+Scegli Quartieri o Raggio
+Assicurati che tutte le zone abbiano un'area geografica e una quantità di volantini valida.
+?
+Hai bisogno di aiuto?
+Chiedi all’assistente VolantiniPro

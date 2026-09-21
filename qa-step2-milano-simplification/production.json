@@ -1,0 +1,32 @@
+[
+  {
+    "viewport": "desktop",
+    "width": 1440,
+    "height": 900,
+    "url": "https://www.volantinipro.it/configuratore?step=2&service=d2d&qty=10000",
+    "initialUnconfirmed": true,
+    "nilSearchAndSelection": true,
+    "radiusPreset": true,
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "viewport": "samsung",
+    "width": 412,
+    "height": 915,
+    "url": "https://www.volantinipro.it/configuratore?step=2&service=d2d&qty=10000",
+    "initialUnconfirmed": true,
+    "nilSearchAndSelection": true,
+    "radiusPreset": true,
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "viewport": "iphone",
+    "width": 390,
+    "height": 844,
+    "url": "https://www.volantinipro.it/configuratore?step=2&service=d2d&qty=10000",
+    "status": "NOT VERIFIED",
+    "reason": "Territorial service unavailable after repeated 90-second wait; no containing NIL data. See production-iphone-data-timeout.png and production-iphone-network.json."
+  }
+]

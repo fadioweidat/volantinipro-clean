@@ -1,0 +1,5192 @@
+[
+  {
+    "viewport": "desktop",
+    "case": "initial",
+    "areaMode": "unconfirmed_address",
+    "searchMode": "municipality",
+    "selectedNils": [],
+    "canonicalSelectedIds": [],
+    "containingNil": {
+      "code": "nil_66_83",
+      "name": "BRUZZANO"
+    },
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 3,
+    "requiredFlyers": 7524,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": false,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 0,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 0,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 6,
+      "isMunicipalityMode": true,
+      "nilMode": false,
+      "unconfirmedAddressMode": true
+    },
+    "center": {
+      "lat": 45.528478758066484,
+      "lng": 9.171524047851564
+    },
+    "addressPixel": {
+      "x": 441,
+      "y": 240
+    },
+    "mapSize": {
+      "x": 881,
+      "y": 480
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.5289346,
+          "lng": 9.1717006
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nMilano\nModalità\nDa scegliere\nFamiglie stimate\nDa scegliere\nQuantità scelta\n10.000 pz\nQuantità consigliata\nDa scegliere\nCopertura\nDa scegliere\nArea\nDa scegliere\n\nMilano è il contesto iniziale. Scegli Quartieri o Raggio per definire l’area da coprire.\n\nScegli Quartieri o Raggio\nAssicurati che tutte le zone abbiano un'area geografica e una quantità di volantini valida."
+  },
+  {
+    "viewport": "desktop",
+    "case": "nil-empty",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "1",
+        "name": "DUOMO"
+      },
+      {
+        "code": "2",
+        "name": "BRERA"
+      },
+      {
+        "code": "5",
+        "name": "PORTA VIGENTINA - PORTA LODOVICA"
+      },
+      {
+        "code": "4",
+        "name": "GUASTALLA"
+      },
+      {
+        "code": "6",
+        "name": "PORTA TICINESE - CONCA DEL NAVIGLIO"
+      },
+      {
+        "code": "3",
+        "name": "GIARDINI P.TA VENEZIA"
+      },
+      {
+        "code": "7",
+        "name": "MAGENTA - S. VITTORE"
+      },
+      {
+        "code": "8",
+        "name": "PARCO SEMPIONE"
+      },
+      {
+        "code": "27",
+        "name": "PTA ROMANA"
+      },
+      {
+        "code": "44",
+        "name": "PORTA TICINESE - CONCHETTA"
+      },
+      {
+        "code": "9",
+        "name": "PORTA GARIBALDI - PORTA NUOVA"
+      },
+      {
+        "code": "69",
+        "name": "SARPI"
+      },
+      {
+        "code": "10",
+        "name": "STAZIONE CENTRALE - PONTE SEVESO"
+      },
+      {
+        "code": "21",
+        "name": "BUENOS AIRES - PORTA VENEZIA - PORTA MONFORTE"
+      },
+      {
+        "code": "26",
+        "name": "XXII MARZO"
+      },
+      {
+        "code": "37",
+        "name": "MORIVIONE"
+      },
+      {
+        "code": "43",
+        "name": "TIBALDI"
+      },
+      {
+        "code": "11",
+        "name": "ISOLA"
+      },
+      {
+        "code": "36",
+        "name": "SCALO ROMANA"
+      },
+      {
+        "code": "68",
+        "name": "PAGANO"
+      },
+      {
+        "code": "50",
+        "name": "PORTA GENOVA"
+      },
+      {
+        "code": "78",
+        "name": "FARINI"
+      },
+      {
+        "code": "51",
+        "name": "PORTA MAGENTA"
+      },
+      {
+        "code": "28",
+        "name": "UMBRIA - MOLISE - CALVAIRATE"
+      },
+      {
+        "code": "42",
+        "name": "STADERA - CHIESA ROSSA - Q.RE TORRETTA - CONCA FALLATA"
+      },
+      {
+        "code": "38",
+        "name": "VIGENTINO - Q.RE FATIMA"
+      },
+      {
+        "code": "45",
+        "name": "MONCUCCO - SAN CRISTOFORO"
+      },
+      {
+        "code": "70",
+        "name": "GHISOLFA"
+      },
+      {
+        "code": "12",
+        "name": "MACIACHINI - MAGGIOLINA"
+      },
+      {
+        "code": "35",
+        "name": "LODI - CORVETTO"
+      },
+      {
+        "code": "59",
+        "name": "TRE TORRI"
+      },
+      {
+        "code": "67",
+        "name": "PORTELLO"
+      },
+      {
+        "code": "20",
+        "name": "LORETO - CASORETTO - NOLO"
+      },
+      {
+        "code": "46",
+        "name": "BARONA"
+      },
+      {
+        "code": "79",
+        "name": "DERGANO"
+      },
+      {
+        "code": "25",
+        "name": "CORSICA"
+      },
+      {
+        "code": "22",
+        "name": "CITTA' STUDI"
+      },
+      {
+        "code": "58",
+        "name": "DE ANGELI - MONTE ROSA"
+      },
+      {
+        "code": "29",
+        "name": "ORTOMERCATO"
+      },
+      {
+        "code": "13",
+        "name": "GRECO - SEGNANO"
+      },
+      {
+        "code": "49",
+        "name": "GIAMBELLINO"
+      },
+      {
+        "code": "85",
+        "name": "PARCO DELLE ABBAZIE"
+      },
+      {
+        "code": "77",
+        "name": "BOVISA"
+      },
+      {
+        "code": "52",
+        "name": "BANDE NERE"
+      },
+      {
+        "code": "14",
+        "name": "NIGUARDA - CA' GRANDA - PRATO CENTENARO - Q.RE FULVIO TESTI"
+      },
+      {
+        "code": "84",
+        "name": "PARCO NORD"
+      },
+      {
+        "code": "80",
+        "name": "AFFORI"
+      },
+      {
+        "code": "71",
+        "name": "VILLAPIZZONE - CAGNOLA - BOLDINASCO"
+      },
+      {
+        "code": "41",
+        "name": "GRATOSOGLIO - Q.RE MISSAGLIA - Q.RE TERRAZZE"
+      },
+      {
+        "code": "57",
+        "name": "SAN SIRO"
+      },
+      {
+        "code": "48",
+        "name": "RONCHETTO SUL NAVIGLIO - Q.RE LODOVICO IL MORO"
+      },
+      {
+        "code": "19",
+        "name": "PADOVA - TURRO - CRESCENZAGO"
+      },
+      {
+        "code": "16",
+        "name": "GORLA - PRECOTTO"
+      },
+      {
+        "code": "47",
+        "name": "CANTALUPA"
+      },
+      {
+        "code": "30",
+        "name": "TALIEDO - MORSENCHIO - Q.RE FORLANINI"
+      },
+      {
+        "code": "24",
+        "name": "PARCO FORLANINI - CAVRIANO"
+      },
+      {
+        "code": "86",
+        "name": "PARCO DEI NAVIGLI"
+      },
+      {
+        "code": "23",
+        "name": "LAMBRATE - ORTICA"
+      },
+      {
+        "code": "33",
+        "name": "ROGOREDO - SANTA GIULIA"
+      },
+      {
+        "code": "15",
+        "name": "BICOCCA"
+      },
+      {
+        "code": "66",
+        "name": "QT 8"
+      },
+      {
+        "code": "60",
+        "name": "STADIO - IPPODROMI"
+      },
+      {
+        "code": "18",
+        "name": "CIMIANO - ROTTOLE - Q.RE FELTRE"
+      },
+      {
+        "code": "39",
+        "name": "QUINTOSOLE"
+      },
+      {
+        "code": "81",
+        "name": "BOVISASCA"
+      },
+      {
+        "code": "53",
+        "name": "LORENTEGGIO"
+      },
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      },
+      {
+        "code": "76",
+        "name": "QUARTO OGGIARO - VIALBA - MUSOCCO"
+      },
+      {
+        "code": "32",
+        "name": "TRIULZO SUPERIORE"
+      },
+      {
+        "code": "56",
+        "name": "FORZE ARMATE"
+      },
+      {
+        "code": "40",
+        "name": "RONCHETTO DELLE RANE"
+      },
+      {
+        "code": "31",
+        "name": "MONLUE' - PONTE LAMBRO"
+      },
+      {
+        "code": "82",
+        "name": "COMASINA"
+      },
+      {
+        "code": "65",
+        "name": "Q.RE GALLARATESE - Q.RE SAN LEONARDO - LAMPUGNANO"
+      },
+      {
+        "code": "17",
+        "name": "ADRIANO"
+      },
+      {
+        "code": "34",
+        "name": "CHIARAVALLE"
+      },
+      {
+        "code": "72",
+        "name": "MAGGIORE - MUSOCCO - CERTOSA"
+      },
+      {
+        "code": "61",
+        "name": "QUARTO CAGNINO"
+      },
+      {
+        "code": "75",
+        "name": "STEPHENSON"
+      },
+      {
+        "code": "88",
+        "name": "PARCO BOSCO IN CITTA'"
+      },
+      {
+        "code": "74",
+        "name": "ROSERIO"
+      },
+      {
+        "code": "73",
+        "name": "CASCINA MERLATA"
+      },
+      {
+        "code": "64",
+        "name": "TRENNO"
+      },
+      {
+        "code": "55",
+        "name": "BAGGIO - Q.RE DEGLI OLMI - Q.RE VALSESIA"
+      },
+      {
+        "code": "62",
+        "name": "QUINTO ROMANO"
+      },
+      {
+        "code": "63",
+        "name": "FIGINO"
+      },
+      {
+        "code": "87",
+        "name": "ASSIANO"
+      },
+      {
+        "code": "54",
+        "name": "MUGGIANO"
+      }
+    ],
+    "canonicalSelectedIds": [],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 3,
+    "requiredFlyers": 818723,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 0,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 0,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 6,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.460130637921004,
+      "lng": 9.157447814941408
+    },
+    "addressPixel": {
+      "x": 461,
+      "y": 97
+    },
+    "mapSize": {
+      "x": 881,
+      "y": 480
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nMilano\nModalità\nQuartieri / NIL\nFamiglie stimate\nDa scegliere\nQuantità scelta\n10.000 pz\nQuantità consigliata\nDa scegliere\nCopertura\nDa scegliere\nArea\nDa scegliere\n\nCerca e aggiungi almeno un quartiere per vedere quantità e copertura.\n\nAggiungi almeno un quartiere\nAssicurati che tutte le zone abbiano un'area geografica e una quantità di volantini valida."
+  },
+  {
+    "viewport": "desktop",
+    "case": "nil-bruzzano",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_66_83"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 3,
+    "requiredFlyers": 7524,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 1,
+      "zonesWithCoordsNilCount": 1,
+      "zonesWithCoordsGeometryCount": 1,
+      "renderedZonePolygonLayers": 1,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 3,
+      "totalLeafletLayerCount": 11,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.527467009328596,
+      "lng": 9.171012413499998
+    },
+    "addressPixel": {
+      "x": 448,
+      "y": 215
+    },
+    "mapSize": {
+      "x": 881,
+      "y": 480
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nBRUZZANO\nModalità\nQuartieri / NIL\nFamiglie stimate\n6.840\nQuantità scelta\n10.000 pz\nQuantità consigliata\n7.524 pz\nCopertura\n100% del fabbisogno operativo\nArea\n1,7 km²\nScegli la quantità\n\nHai 10.000 volantini disponibili. Per l’area scelta ne consigliamo 7.524.\n\nAdatta a 7.524\nMantieni 10.000\nAltra quantità\nEspandi l’area o gestisci i volantini residui\nDettagli avanzati\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nScegli dove assegnare i volantini residui",
+    "advancedOpen": false
+  },
+  {
+    "viewport": "desktop",
+    "case": "nil-multiple",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      },
+      {
+        "code": "82",
+        "name": "COMASINA"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_66_83",
+      "nil_72_82"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 3,
+    "requiredFlyers": 11698,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 2,
+      "zonesWithCoordsNilCount": 2,
+      "zonesWithCoordsGeometryCount": 2,
+      "renderedZonePolygonLayers": 2,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 4,
+      "totalLeafletLayerCount": 13,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.52748686487302,
+      "lng": 9.160263794499983
+    },
+    "addressPixel": {
+      "x": 574,
+      "y": 216
+    },
+    "mapSize": {
+      "x": 881,
+      "y": 480
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nBRUZZANO, COMASINA\nModalità\nQuartieri / NIL\nFamiglie stimate\n10.635\nQuantità scelta\n10.000 pz\nQuantità consigliata\n11.698 pz\nCopertura\n85,5% del fabbisogno operativo\nArea\n2,6 km²\nScegli la quantità\n\nHai 10.000 volantini disponibili. Per l’area scelta ne consigliamo 11.698.\n\nAdatta a 11.698\nMantieni 10.000\nAltra quantità\nDettagli avanzati\nScegli come gestire la copertura parziale.\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nContinua allo Step 3",
+    "advancedOpen": false
+  },
+  {
+    "viewport": "desktop",
+    "case": "advanced",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      },
+      {
+        "code": "82",
+        "name": "COMASINA"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_66_83",
+      "nil_72_82"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 3,
+    "requiredFlyers": 11698,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 2,
+      "zonesWithCoordsNilCount": 2,
+      "zonesWithCoordsGeometryCount": 2,
+      "renderedZonePolygonLayers": 2,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 4,
+      "totalLeafletLayerCount": 13,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.52751668442124,
+      "lng": 9.160237312316896
+    },
+    "addressPixel": {
+      "x": 574,
+      "y": 216
+    },
+    "mapSize": {
+      "x": 881,
+      "y": 480
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nBRUZZANO, COMASINA\nModalità\nQuartieri / NIL\nFamiglie stimate\n10.635\nQuantità scelta\n10.000 pz\nQuantità consigliata\n11.698 pz\nCopertura\n85,5% del fabbisogno operativo\nArea\n2,6 km²\nScegli la quantità\n\nHai 10.000 volantini disponibili. Per l’area scelta ne consigliamo 11.698.\n\nAdatta a 11.698\nMantieni 10.000\nAltra quantità\nDettagli avanzati\n\nFonti e criteri territoriali della configurazione corrente.\n\nFonte famiglie\ncustom_zone\nNIL coinvolti\n2\nMargine operativo\n1.063 pz\nApri Analisi Avanzata\nNIL selezionate: 2 di 88\nQuantità inserita: 10.000 volantini\nAuto\nPriorità\nManuale\nCon 10.000 volantini il sistema copre prima le zone con priorità più alta. Le zone non coperte verranno incluse aumentando la quantità o modificando la distribuzione manuale.\nOrdina per:\nRilevanza\nFamiglie\nCopertura\nCOPERTURA E SCELTA QUANTITÀ\nSCENARIO ATTUALE\n10.000 volantini\nCopertura scenario corrente\n85,5% del fabbisogno operativo\nZone coinvolte / disponibili\n2 / 88\nSCENARIO CONSIGLIATO\n11.698 volantini\nMargine operativo\n+1.063 pz.\nCopertura prevista\n100% del fabbisogno operativo\nCOPERTURA PARZIALE\nCon 10.000 volantini puoi coprire 85,5% del fabbisogno operativo. Denominatore: fabbisogno operativo delle zone selezionate. Per copertura completa stimiamo 11.698 volantini. Scegli la quantita finale da portare al preventivo.\nMantieni 10.000 volantini\nAumenta a 11.698 volantini\nModifica manualmente\nCon 10.000 volantini copriremo progressivamente le zone a priorità più alta, fino all'esaurimento della quantità. Le zone non raggiunte restano escluse.\nScegli come gestire la copertura parziale.\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nContinua allo Step 3",
+    "advancedOpen": true
+  },
+  {
+    "viewport": "desktop",
+    "case": "radius",
+    "areaMode": "radius",
+    "searchMode": "address",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      },
+      {
+        "code": "82",
+        "name": "COMASINA"
+      },
+      {
+        "code": "80",
+        "name": "AFFORI"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_0_83",
+      "nil_1_82",
+      "nil_2_80"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 0.5,
+    "requiredFlyers": 3515,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 3,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": true,
+    "map": {
+      "zonesWithCoordsCount": 0,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 0,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 7,
+      "isMunicipalityMode": false,
+      "nilMode": false,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "addressPixel": {
+      "x": 440,
+      "y": 240
+    },
+    "mapSize": {
+      "x": 881,
+      "y": 480
+    },
+    "layers": [
+      {
+        "pane": "radiusCirclePane",
+        "point": {
+          "lat": 45.5289346,
+          "lng": 9.1717006
+        },
+        "radius": 500
+      },
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.5289346,
+          "lng": 9.1717006
+        }
+      }
+    ],
+    "boundary": [],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nMilano\nModalità\nRaggio\nFamiglie stimate\n3.196\nQuantità scelta\n10.000 pz\nQuantità consigliata\n3.515 pz\nCopertura\n100% del fabbisogno operativo\nArea\n0,8 km²\nDettagli avanzati\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nContinua allo Step 3",
+    "advancedOpen": false
+  },
+  {
+    "viewport": "desktop",
+    "case": "return-nil",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "1",
+        "name": "DUOMO"
+      },
+      {
+        "code": "2",
+        "name": "BRERA"
+      },
+      {
+        "code": "5",
+        "name": "PORTA VIGENTINA - PORTA LODOVICA"
+      },
+      {
+        "code": "4",
+        "name": "GUASTALLA"
+      },
+      {
+        "code": "6",
+        "name": "PORTA TICINESE - CONCA DEL NAVIGLIO"
+      },
+      {
+        "code": "3",
+        "name": "GIARDINI P.TA VENEZIA"
+      },
+      {
+        "code": "7",
+        "name": "MAGENTA - S. VITTORE"
+      },
+      {
+        "code": "8",
+        "name": "PARCO SEMPIONE"
+      },
+      {
+        "code": "27",
+        "name": "PTA ROMANA"
+      },
+      {
+        "code": "44",
+        "name": "PORTA TICINESE - CONCHETTA"
+      },
+      {
+        "code": "9",
+        "name": "PORTA GARIBALDI - PORTA NUOVA"
+      },
+      {
+        "code": "69",
+        "name": "SARPI"
+      },
+      {
+        "code": "10",
+        "name": "STAZIONE CENTRALE - PONTE SEVESO"
+      },
+      {
+        "code": "21",
+        "name": "BUENOS AIRES - PORTA VENEZIA - PORTA MONFORTE"
+      },
+      {
+        "code": "26",
+        "name": "XXII MARZO"
+      },
+      {
+        "code": "37",
+        "name": "MORIVIONE"
+      },
+      {
+        "code": "43",
+        "name": "TIBALDI"
+      },
+      {
+        "code": "11",
+        "name": "ISOLA"
+      },
+      {
+        "code": "36",
+        "name": "SCALO ROMANA"
+      },
+      {
+        "code": "68",
+        "name": "PAGANO"
+      },
+      {
+        "code": "50",
+        "name": "PORTA GENOVA"
+      },
+      {
+        "code": "78",
+        "name": "FARINI"
+      },
+      {
+        "code": "51",
+        "name": "PORTA MAGENTA"
+      },
+      {
+        "code": "28",
+        "name": "UMBRIA - MOLISE - CALVAIRATE"
+      },
+      {
+        "code": "42",
+        "name": "STADERA - CHIESA ROSSA - Q.RE TORRETTA - CONCA FALLATA"
+      },
+      {
+        "code": "38",
+        "name": "VIGENTINO - Q.RE FATIMA"
+      },
+      {
+        "code": "45",
+        "name": "MONCUCCO - SAN CRISTOFORO"
+      },
+      {
+        "code": "70",
+        "name": "GHISOLFA"
+      },
+      {
+        "code": "12",
+        "name": "MACIACHINI - MAGGIOLINA"
+      },
+      {
+        "code": "35",
+        "name": "LODI - CORVETTO"
+      },
+      {
+        "code": "59",
+        "name": "TRE TORRI"
+      },
+      {
+        "code": "67",
+        "name": "PORTELLO"
+      },
+      {
+        "code": "20",
+        "name": "LORETO - CASORETTO - NOLO"
+      },
+      {
+        "code": "46",
+        "name": "BARONA"
+      },
+      {
+        "code": "79",
+        "name": "DERGANO"
+      },
+      {
+        "code": "25",
+        "name": "CORSICA"
+      },
+      {
+        "code": "22",
+        "name": "CITTA' STUDI"
+      },
+      {
+        "code": "58",
+        "name": "DE ANGELI - MONTE ROSA"
+      },
+      {
+        "code": "29",
+        "name": "ORTOMERCATO"
+      },
+      {
+        "code": "13",
+        "name": "GRECO - SEGNANO"
+      },
+      {
+        "code": "49",
+        "name": "GIAMBELLINO"
+      },
+      {
+        "code": "85",
+        "name": "PARCO DELLE ABBAZIE"
+      },
+      {
+        "code": "77",
+        "name": "BOVISA"
+      },
+      {
+        "code": "52",
+        "name": "BANDE NERE"
+      },
+      {
+        "code": "14",
+        "name": "NIGUARDA - CA' GRANDA - PRATO CENTENARO - Q.RE FULVIO TESTI"
+      },
+      {
+        "code": "84",
+        "name": "PARCO NORD"
+      },
+      {
+        "code": "80",
+        "name": "AFFORI"
+      },
+      {
+        "code": "71",
+        "name": "VILLAPIZZONE - CAGNOLA - BOLDINASCO"
+      },
+      {
+        "code": "41",
+        "name": "GRATOSOGLIO - Q.RE MISSAGLIA - Q.RE TERRAZZE"
+      },
+      {
+        "code": "57",
+        "name": "SAN SIRO"
+      },
+      {
+        "code": "48",
+        "name": "RONCHETTO SUL NAVIGLIO - Q.RE LODOVICO IL MORO"
+      },
+      {
+        "code": "19",
+        "name": "PADOVA - TURRO - CRESCENZAGO"
+      },
+      {
+        "code": "16",
+        "name": "GORLA - PRECOTTO"
+      },
+      {
+        "code": "47",
+        "name": "CANTALUPA"
+      },
+      {
+        "code": "30",
+        "name": "TALIEDO - MORSENCHIO - Q.RE FORLANINI"
+      },
+      {
+        "code": "24",
+        "name": "PARCO FORLANINI - CAVRIANO"
+      },
+      {
+        "code": "86",
+        "name": "PARCO DEI NAVIGLI"
+      },
+      {
+        "code": "23",
+        "name": "LAMBRATE - ORTICA"
+      },
+      {
+        "code": "33",
+        "name": "ROGOREDO - SANTA GIULIA"
+      },
+      {
+        "code": "15",
+        "name": "BICOCCA"
+      },
+      {
+        "code": "66",
+        "name": "QT 8"
+      },
+      {
+        "code": "60",
+        "name": "STADIO - IPPODROMI"
+      },
+      {
+        "code": "18",
+        "name": "CIMIANO - ROTTOLE - Q.RE FELTRE"
+      },
+      {
+        "code": "39",
+        "name": "QUINTOSOLE"
+      },
+      {
+        "code": "81",
+        "name": "BOVISASCA"
+      },
+      {
+        "code": "53",
+        "name": "LORENTEGGIO"
+      },
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      },
+      {
+        "code": "76",
+        "name": "QUARTO OGGIARO - VIALBA - MUSOCCO"
+      },
+      {
+        "code": "32",
+        "name": "TRIULZO SUPERIORE"
+      },
+      {
+        "code": "56",
+        "name": "FORZE ARMATE"
+      },
+      {
+        "code": "40",
+        "name": "RONCHETTO DELLE RANE"
+      },
+      {
+        "code": "31",
+        "name": "MONLUE' - PONTE LAMBRO"
+      },
+      {
+        "code": "82",
+        "name": "COMASINA"
+      },
+      {
+        "code": "65",
+        "name": "Q.RE GALLARATESE - Q.RE SAN LEONARDO - LAMPUGNANO"
+      },
+      {
+        "code": "17",
+        "name": "ADRIANO"
+      },
+      {
+        "code": "34",
+        "name": "CHIARAVALLE"
+      },
+      {
+        "code": "72",
+        "name": "MAGGIORE - MUSOCCO - CERTOSA"
+      },
+      {
+        "code": "61",
+        "name": "QUARTO CAGNINO"
+      },
+      {
+        "code": "75",
+        "name": "STEPHENSON"
+      },
+      {
+        "code": "88",
+        "name": "PARCO BOSCO IN CITTA'"
+      },
+      {
+        "code": "74",
+        "name": "ROSERIO"
+      },
+      {
+        "code": "73",
+        "name": "CASCINA MERLATA"
+      },
+      {
+        "code": "64",
+        "name": "TRENNO"
+      },
+      {
+        "code": "55",
+        "name": "BAGGIO - Q.RE DEGLI OLMI - Q.RE VALSESIA"
+      },
+      {
+        "code": "62",
+        "name": "QUINTO ROMANO"
+      },
+      {
+        "code": "63",
+        "name": "FIGINO"
+      },
+      {
+        "code": "87",
+        "name": "ASSIANO"
+      },
+      {
+        "code": "54",
+        "name": "MUGGIANO"
+      }
+    ],
+    "canonicalSelectedIds": [],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 0.5,
+    "requiredFlyers": 818723,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 0,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 0,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 8,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.460130637921004,
+      "lng": 9.157447814941408
+    },
+    "addressPixel": {
+      "x": 461,
+      "y": 97
+    },
+    "mapSize": {
+      "x": 881,
+      "y": 480
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nMilano\nModalità\nQuartieri / NIL\nFamiglie stimate\nDa scegliere\nQuantità scelta\n10.000 pz\nQuantità consigliata\nDa scegliere\nCopertura\nDa scegliere\nArea\nDa scegliere\n\nCerca e aggiungi almeno un quartiere per vedere quantità e copertura.\n\nAggiungi almeno un quartiere\nAssicurati che tutte le zone abbiano un'area geografica e una quantità di volantini valida."
+  },
+  {
+    "viewport": "desktop",
+    "case": "return-selected",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_66_83"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 0.5,
+    "requiredFlyers": 7524,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 1,
+      "zonesWithCoordsNilCount": 1,
+      "zonesWithCoordsGeometryCount": 1,
+      "renderedZonePolygonLayers": 1,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 3,
+      "totalLeafletLayerCount": 12,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.527467009328596,
+      "lng": 9.171012413499998
+    },
+    "addressPixel": {
+      "x": 448,
+      "y": 215
+    },
+    "mapSize": {
+      "x": 881,
+      "y": 480
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nBRUZZANO\nModalità\nQuartieri / NIL\nFamiglie stimate\n6.840\nQuantità scelta\n10.000 pz\nQuantità consigliata\n7.524 pz\nCopertura\n100% del fabbisogno operativo\nArea\n1,7 km²\nScegli la quantità\n\nHai 10.000 volantini disponibili. Per l’area scelta ne consigliamo 7.524.\n\nAdatta a 7.524\nMantieni 10.000\nAltra quantità\nEspandi l’area o gestisci i volantini residui\nDettagli avanzati\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nScegli dove assegnare i volantini residui",
+    "advancedOpen": false
+  },
+  {
+    "viewport": "desktop",
+    "case": "quantity-confirmed",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_66_83"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 0.5,
+    "requiredFlyers": 7524,
+    "availableFlyers": 10000,
+    "finalFlyers": 7524,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": true,
+    "map": {
+      "zonesWithCoordsCount": 1,
+      "zonesWithCoordsNilCount": 1,
+      "zonesWithCoordsGeometryCount": 1,
+      "renderedZonePolygonLayers": 1,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 3,
+      "totalLeafletLayerCount": 10,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.460130637921004,
+      "lng": 9.157447814941408
+    },
+    "addressPixel": {
+      "x": 461,
+      "y": 97
+    },
+    "mapSize": {
+      "x": 881,
+      "y": 480
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nBRUZZANO\nModalità\nQuartieri / NIL\nFamiglie stimate\n6.840\nQuantità scelta\n7.524 pz\nQuantità consigliata\n7.524 pz\nCopertura\n100% del fabbisogno operativo\nArea\n1,7 km²\nDettagli avanzati\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nContinua allo Step 3",
+    "advancedOpen": false
+  },
+  {
+    "viewport": "desktop",
+    "case": "other-comune",
+    "areaMode": "full_municipality",
+    "searchMode": "municipality",
+    "selectedNils": [],
+    "canonicalSelectedIds": [
+      "api_0_108045"
+    ],
+    "containingNil": null,
+    "point": null,
+    "coordinates": null,
+    "radiusKm": 0.5,
+    "requiredFlyers": 6794,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 0,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": true,
+    "map": {
+      "zonesWithCoordsCount": 1,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 1,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 7,
+      "isMunicipalityMode": true,
+      "nilMode": false,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.598305364577826,
+      "lng": 9.165301322937013
+    },
+    "addressPixel": null,
+    "mapSize": {
+      "x": 881,
+      "y": 480
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.5973268,
+          "lng": 9.1565874
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.5877186,
+            "lng": 9.142644
+          },
+          "_northEast": {
+            "lat": 45.609263,
+            "lng": 9.1885417
+          }
+        }
+      },
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.5877186,
+            "lng": 9.142644
+          },
+          "_northEast": {
+            "lat": 45.609263,
+            "lng": 9.1885417
+          }
+        }
+      }
+    ],
+    "overflow": false
+  },
+  {
+    "viewport": "samsung",
+    "case": "initial",
+    "areaMode": "unconfirmed_address",
+    "searchMode": "municipality",
+    "selectedNils": [],
+    "canonicalSelectedIds": [],
+    "containingNil": {
+      "code": "nil_66_83",
+      "name": "BRUZZANO"
+    },
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 3,
+    "requiredFlyers": 7524,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": false,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 0,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 0,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 6,
+      "isMunicipalityMode": true,
+      "nilMode": false,
+      "unconfirmedAddressMode": true
+    },
+    "center": {
+      "lat": 45.52944081525669,
+      "lng": 9.172210693359377
+    },
+    "addressPixel": {
+      "x": 188,
+      "y": 160
+    },
+    "mapSize": {
+      "x": 377,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.5289346,
+          "lng": 9.1717006
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nMilano\nModalità\nDa scegliere\nFamiglie stimate\nDa scegliere\nQuantità scelta\n10.000 pz\nQuantità consigliata\nDa scegliere\nCopertura\nDa scegliere\nArea\nDa scegliere\n\nMilano è il contesto iniziale. Scegli Quartieri o Raggio per definire l’area da coprire.\n\nScegli Quartieri o Raggio\nAssicurati che tutte le zone abbiano un'area geografica e una quantità di volantini valida."
+  },
+  {
+    "viewport": "samsung",
+    "case": "nil-empty",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "1",
+        "name": "DUOMO"
+      },
+      {
+        "code": "2",
+        "name": "BRERA"
+      },
+      {
+        "code": "5",
+        "name": "PORTA VIGENTINA - PORTA LODOVICA"
+      },
+      {
+        "code": "4",
+        "name": "GUASTALLA"
+      },
+      {
+        "code": "6",
+        "name": "PORTA TICINESE - CONCA DEL NAVIGLIO"
+      },
+      {
+        "code": "3",
+        "name": "GIARDINI P.TA VENEZIA"
+      },
+      {
+        "code": "7",
+        "name": "MAGENTA - S. VITTORE"
+      },
+      {
+        "code": "8",
+        "name": "PARCO SEMPIONE"
+      },
+      {
+        "code": "27",
+        "name": "PTA ROMANA"
+      },
+      {
+        "code": "44",
+        "name": "PORTA TICINESE - CONCHETTA"
+      },
+      {
+        "code": "9",
+        "name": "PORTA GARIBALDI - PORTA NUOVA"
+      },
+      {
+        "code": "69",
+        "name": "SARPI"
+      },
+      {
+        "code": "10",
+        "name": "STAZIONE CENTRALE - PONTE SEVESO"
+      },
+      {
+        "code": "21",
+        "name": "BUENOS AIRES - PORTA VENEZIA - PORTA MONFORTE"
+      },
+      {
+        "code": "26",
+        "name": "XXII MARZO"
+      },
+      {
+        "code": "37",
+        "name": "MORIVIONE"
+      },
+      {
+        "code": "43",
+        "name": "TIBALDI"
+      },
+      {
+        "code": "11",
+        "name": "ISOLA"
+      },
+      {
+        "code": "36",
+        "name": "SCALO ROMANA"
+      },
+      {
+        "code": "68",
+        "name": "PAGANO"
+      },
+      {
+        "code": "50",
+        "name": "PORTA GENOVA"
+      },
+      {
+        "code": "78",
+        "name": "FARINI"
+      },
+      {
+        "code": "51",
+        "name": "PORTA MAGENTA"
+      },
+      {
+        "code": "28",
+        "name": "UMBRIA - MOLISE - CALVAIRATE"
+      },
+      {
+        "code": "42",
+        "name": "STADERA - CHIESA ROSSA - Q.RE TORRETTA - CONCA FALLATA"
+      },
+      {
+        "code": "38",
+        "name": "VIGENTINO - Q.RE FATIMA"
+      },
+      {
+        "code": "45",
+        "name": "MONCUCCO - SAN CRISTOFORO"
+      },
+      {
+        "code": "70",
+        "name": "GHISOLFA"
+      },
+      {
+        "code": "12",
+        "name": "MACIACHINI - MAGGIOLINA"
+      },
+      {
+        "code": "35",
+        "name": "LODI - CORVETTO"
+      },
+      {
+        "code": "59",
+        "name": "TRE TORRI"
+      },
+      {
+        "code": "67",
+        "name": "PORTELLO"
+      },
+      {
+        "code": "20",
+        "name": "LORETO - CASORETTO - NOLO"
+      },
+      {
+        "code": "46",
+        "name": "BARONA"
+      },
+      {
+        "code": "79",
+        "name": "DERGANO"
+      },
+      {
+        "code": "25",
+        "name": "CORSICA"
+      },
+      {
+        "code": "22",
+        "name": "CITTA' STUDI"
+      },
+      {
+        "code": "58",
+        "name": "DE ANGELI - MONTE ROSA"
+      },
+      {
+        "code": "29",
+        "name": "ORTOMERCATO"
+      },
+      {
+        "code": "13",
+        "name": "GRECO - SEGNANO"
+      },
+      {
+        "code": "49",
+        "name": "GIAMBELLINO"
+      },
+      {
+        "code": "85",
+        "name": "PARCO DELLE ABBAZIE"
+      },
+      {
+        "code": "77",
+        "name": "BOVISA"
+      },
+      {
+        "code": "52",
+        "name": "BANDE NERE"
+      },
+      {
+        "code": "14",
+        "name": "NIGUARDA - CA' GRANDA - PRATO CENTENARO - Q.RE FULVIO TESTI"
+      },
+      {
+        "code": "84",
+        "name": "PARCO NORD"
+      },
+      {
+        "code": "80",
+        "name": "AFFORI"
+      },
+      {
+        "code": "71",
+        "name": "VILLAPIZZONE - CAGNOLA - BOLDINASCO"
+      },
+      {
+        "code": "41",
+        "name": "GRATOSOGLIO - Q.RE MISSAGLIA - Q.RE TERRAZZE"
+      },
+      {
+        "code": "57",
+        "name": "SAN SIRO"
+      },
+      {
+        "code": "48",
+        "name": "RONCHETTO SUL NAVIGLIO - Q.RE LODOVICO IL MORO"
+      },
+      {
+        "code": "19",
+        "name": "PADOVA - TURRO - CRESCENZAGO"
+      },
+      {
+        "code": "16",
+        "name": "GORLA - PRECOTTO"
+      },
+      {
+        "code": "47",
+        "name": "CANTALUPA"
+      },
+      {
+        "code": "30",
+        "name": "TALIEDO - MORSENCHIO - Q.RE FORLANINI"
+      },
+      {
+        "code": "24",
+        "name": "PARCO FORLANINI - CAVRIANO"
+      },
+      {
+        "code": "86",
+        "name": "PARCO DEI NAVIGLI"
+      },
+      {
+        "code": "23",
+        "name": "LAMBRATE - ORTICA"
+      },
+      {
+        "code": "33",
+        "name": "ROGOREDO - SANTA GIULIA"
+      },
+      {
+        "code": "15",
+        "name": "BICOCCA"
+      },
+      {
+        "code": "66",
+        "name": "QT 8"
+      },
+      {
+        "code": "60",
+        "name": "STADIO - IPPODROMI"
+      },
+      {
+        "code": "18",
+        "name": "CIMIANO - ROTTOLE - Q.RE FELTRE"
+      },
+      {
+        "code": "39",
+        "name": "QUINTOSOLE"
+      },
+      {
+        "code": "81",
+        "name": "BOVISASCA"
+      },
+      {
+        "code": "53",
+        "name": "LORENTEGGIO"
+      },
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      },
+      {
+        "code": "76",
+        "name": "QUARTO OGGIARO - VIALBA - MUSOCCO"
+      },
+      {
+        "code": "32",
+        "name": "TRIULZO SUPERIORE"
+      },
+      {
+        "code": "56",
+        "name": "FORZE ARMATE"
+      },
+      {
+        "code": "40",
+        "name": "RONCHETTO DELLE RANE"
+      },
+      {
+        "code": "31",
+        "name": "MONLUE' - PONTE LAMBRO"
+      },
+      {
+        "code": "82",
+        "name": "COMASINA"
+      },
+      {
+        "code": "65",
+        "name": "Q.RE GALLARATESE - Q.RE SAN LEONARDO - LAMPUGNANO"
+      },
+      {
+        "code": "17",
+        "name": "ADRIANO"
+      },
+      {
+        "code": "34",
+        "name": "CHIARAVALLE"
+      },
+      {
+        "code": "72",
+        "name": "MAGGIORE - MUSOCCO - CERTOSA"
+      },
+      {
+        "code": "61",
+        "name": "QUARTO CAGNINO"
+      },
+      {
+        "code": "75",
+        "name": "STEPHENSON"
+      },
+      {
+        "code": "88",
+        "name": "PARCO BOSCO IN CITTA'"
+      },
+      {
+        "code": "74",
+        "name": "ROSERIO"
+      },
+      {
+        "code": "73",
+        "name": "CASCINA MERLATA"
+      },
+      {
+        "code": "64",
+        "name": "TRENNO"
+      },
+      {
+        "code": "55",
+        "name": "BAGGIO - Q.RE DEGLI OLMI - Q.RE VALSESIA"
+      },
+      {
+        "code": "62",
+        "name": "QUINTO ROMANO"
+      },
+      {
+        "code": "63",
+        "name": "FIGINO"
+      },
+      {
+        "code": "87",
+        "name": "ASSIANO"
+      },
+      {
+        "code": "54",
+        "name": "MUGGIANO"
+      }
+    ],
+    "canonicalSelectedIds": [],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 3,
+    "requiredFlyers": 818723,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 0,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 0,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 6,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.45820413751095,
+      "lng": 9.155044555664064
+    },
+    "addressPixel": {
+      "x": 201,
+      "y": 87
+    },
+    "mapSize": {
+      "x": 377,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nMilano\nModalità\nQuartieri / NIL\nFamiglie stimate\nDa scegliere\nQuantità scelta\n10.000 pz\nQuantità consigliata\nDa scegliere\nCopertura\nDa scegliere\nArea\nDa scegliere\n\nCerca e aggiungi almeno un quartiere per vedere quantità e copertura.\n\nAggiungi almeno un quartiere\nAssicurati che tutte le zone abbiano un'area geografica e una quantità di volantini valida."
+  },
+  {
+    "viewport": "samsung",
+    "case": "nil-bruzzano",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_66_83"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 3,
+    "requiredFlyers": 7524,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 1,
+      "zonesWithCoordsNilCount": 1,
+      "zonesWithCoordsGeometryCount": 1,
+      "renderedZonePolygonLayers": 1,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 3,
+      "totalLeafletLayerCount": 11,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.527467009328596,
+      "lng": 9.171012413499998
+    },
+    "addressPixel": {
+      "x": 192,
+      "y": 148
+    },
+    "mapSize": {
+      "x": 377,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nBRUZZANO\nModalità\nQuartieri / NIL\nFamiglie stimate\n6.840\nQuantità scelta\n10.000 pz\nQuantità consigliata\n7.524 pz\nCopertura\n100% del fabbisogno operativo\nArea\n1,7 km²\nScegli la quantità\n\nHai 10.000 volantini disponibili. Per l’area scelta ne consigliamo 7.524.\n\nAdatta a 7.524\nMantieni 10.000\nAltra quantità\nEspandi l’area o gestisci i volantini residui\nDettagli avanzati\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nScegli dove assegnare i volantini residui",
+    "advancedOpen": false
+  },
+  {
+    "viewport": "samsung",
+    "case": "nil-multiple",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      },
+      {
+        "code": "82",
+        "name": "COMASINA"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_66_83",
+      "nil_72_82"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 3,
+    "requiredFlyers": 11698,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 2,
+      "zonesWithCoordsNilCount": 2,
+      "zonesWithCoordsGeometryCount": 2,
+      "renderedZonePolygonLayers": 2,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 4,
+      "totalLeafletLayerCount": 13,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.52748686487302,
+      "lng": 9.160263794499983
+    },
+    "addressPixel": {
+      "x": 322,
+      "y": 136
+    },
+    "mapSize": {
+      "x": 377,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nBRUZZANO, COMASINA\nModalità\nQuartieri / NIL\nFamiglie stimate\n10.635\nQuantità scelta\n10.000 pz\nQuantità consigliata\n11.698 pz\nCopertura\n85,5% del fabbisogno operativo\nArea\n2,6 km²\nScegli la quantità\n\nHai 10.000 volantini disponibili. Per l’area scelta ne consigliamo 11.698.\n\nAdatta a 11.698\nMantieni 10.000\nAltra quantità\nDettagli avanzati\nScegli come gestire la copertura parziale.\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nContinua allo Step 3",
+    "advancedOpen": false
+  },
+  {
+    "viewport": "samsung",
+    "case": "advanced",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      },
+      {
+        "code": "82",
+        "name": "COMASINA"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_66_83",
+      "nil_72_82"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 3,
+    "requiredFlyers": 11698,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 2,
+      "zonesWithCoordsNilCount": 2,
+      "zonesWithCoordsGeometryCount": 2,
+      "renderedZonePolygonLayers": 2,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 4,
+      "totalLeafletLayerCount": 13,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.52751668442124,
+      "lng": 9.160237312316896
+    },
+    "addressPixel": {
+      "x": 322,
+      "y": 136
+    },
+    "mapSize": {
+      "x": 377,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nBRUZZANO, COMASINA\nModalità\nQuartieri / NIL\nFamiglie stimate\n10.635\nQuantità scelta\n10.000 pz\nQuantità consigliata\n11.698 pz\nCopertura\n85,5% del fabbisogno operativo\nArea\n2,6 km²\nScegli la quantità\n\nHai 10.000 volantini disponibili. Per l’area scelta ne consigliamo 11.698.\n\nAdatta a 11.698\nMantieni 10.000\nAltra quantità\nDettagli avanzati\n\nFonti e criteri territoriali della configurazione corrente.\n\nFonte famiglie\ncustom_zone\nNIL coinvolti\n2\nMargine operativo\n1.063 pz\nApri Analisi Avanzata\nNIL selezionate: 2 di 88\nQuantità inserita: 10.000 volantini\nAuto\nPriorità\nManuale\nCon 10.000 volantini il sistema copre prima le zone con priorità più alta. Le zone non coperte verranno incluse aumentando la quantità o modificando la distribuzione manuale.\nOrdina per:\nRilevanza\nFamiglie\nCopertura\nCOPERTURA E SCELTA QUANTITÀ\nSCENARIO ATTUALE\n10.000 volantini\nCopertura scenario corrente\n85,5% del fabbisogno operativo\nZone coinvolte / disponibili\n2 / 88\nSCENARIO CONSIGLIATO\n11.698 volantini\nMargine operativo\n+1.063 pz.\nCopertura prevista\n100% del fabbisogno operativo\nCOPERTURA PARZIALE\nCon 10.000 volantini puoi coprire 85,5% del fabbisogno operativo. Denominatore: fabbisogno operativo delle zone selezionate. Per copertura completa stimiamo 11.698 volantini. Scegli la quantita finale da portare al preventivo.\nMantieni 10.000 volantini\nAumenta a 11.698 volantini\nModifica manualmente\nCon 10.000 volantini copriremo progressivamente le zone a priorità più alta, fino all'esaurimento della quantità. Le zone non raggiunte restano escluse.\nScegli come gestire la copertura parziale.\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nContinua allo Step 3",
+    "advancedOpen": true
+  },
+  {
+    "viewport": "samsung",
+    "case": "radius",
+    "areaMode": "radius",
+    "searchMode": "address",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      },
+      {
+        "code": "82",
+        "name": "COMASINA"
+      },
+      {
+        "code": "80",
+        "name": "AFFORI"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_0_83",
+      "nil_1_82",
+      "nil_2_80"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 0.5,
+    "requiredFlyers": 3515,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 3,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": true,
+    "map": {
+      "zonesWithCoordsCount": 0,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 0,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 7,
+      "isMunicipalityMode": false,
+      "nilMode": false,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "addressPixel": {
+      "x": 188,
+      "y": 160
+    },
+    "mapSize": {
+      "x": 377,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCirclePane",
+        "point": {
+          "lat": 45.5289346,
+          "lng": 9.1717006
+        },
+        "radius": 500
+      },
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.5289346,
+          "lng": 9.1717006
+        }
+      }
+    ],
+    "boundary": [],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nMilano\nModalità\nRaggio\nFamiglie stimate\n3.196\nQuantità scelta\n10.000 pz\nQuantità consigliata\n3.515 pz\nCopertura\n100% del fabbisogno operativo\nArea\n0,8 km²\nDettagli avanzati\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nContinua allo Step 3",
+    "advancedOpen": false
+  },
+  {
+    "viewport": "samsung",
+    "case": "return-nil",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "1",
+        "name": "DUOMO"
+      },
+      {
+        "code": "2",
+        "name": "BRERA"
+      },
+      {
+        "code": "5",
+        "name": "PORTA VIGENTINA - PORTA LODOVICA"
+      },
+      {
+        "code": "4",
+        "name": "GUASTALLA"
+      },
+      {
+        "code": "6",
+        "name": "PORTA TICINESE - CONCA DEL NAVIGLIO"
+      },
+      {
+        "code": "3",
+        "name": "GIARDINI P.TA VENEZIA"
+      },
+      {
+        "code": "7",
+        "name": "MAGENTA - S. VITTORE"
+      },
+      {
+        "code": "8",
+        "name": "PARCO SEMPIONE"
+      },
+      {
+        "code": "27",
+        "name": "PTA ROMANA"
+      },
+      {
+        "code": "44",
+        "name": "PORTA TICINESE - CONCHETTA"
+      },
+      {
+        "code": "9",
+        "name": "PORTA GARIBALDI - PORTA NUOVA"
+      },
+      {
+        "code": "69",
+        "name": "SARPI"
+      },
+      {
+        "code": "10",
+        "name": "STAZIONE CENTRALE - PONTE SEVESO"
+      },
+      {
+        "code": "21",
+        "name": "BUENOS AIRES - PORTA VENEZIA - PORTA MONFORTE"
+      },
+      {
+        "code": "26",
+        "name": "XXII MARZO"
+      },
+      {
+        "code": "37",
+        "name": "MORIVIONE"
+      },
+      {
+        "code": "43",
+        "name": "TIBALDI"
+      },
+      {
+        "code": "11",
+        "name": "ISOLA"
+      },
+      {
+        "code": "36",
+        "name": "SCALO ROMANA"
+      },
+      {
+        "code": "68",
+        "name": "PAGANO"
+      },
+      {
+        "code": "50",
+        "name": "PORTA GENOVA"
+      },
+      {
+        "code": "78",
+        "name": "FARINI"
+      },
+      {
+        "code": "51",
+        "name": "PORTA MAGENTA"
+      },
+      {
+        "code": "28",
+        "name": "UMBRIA - MOLISE - CALVAIRATE"
+      },
+      {
+        "code": "42",
+        "name": "STADERA - CHIESA ROSSA - Q.RE TORRETTA - CONCA FALLATA"
+      },
+      {
+        "code": "38",
+        "name": "VIGENTINO - Q.RE FATIMA"
+      },
+      {
+        "code": "45",
+        "name": "MONCUCCO - SAN CRISTOFORO"
+      },
+      {
+        "code": "70",
+        "name": "GHISOLFA"
+      },
+      {
+        "code": "12",
+        "name": "MACIACHINI - MAGGIOLINA"
+      },
+      {
+        "code": "35",
+        "name": "LODI - CORVETTO"
+      },
+      {
+        "code": "59",
+        "name": "TRE TORRI"
+      },
+      {
+        "code": "67",
+        "name": "PORTELLO"
+      },
+      {
+        "code": "20",
+        "name": "LORETO - CASORETTO - NOLO"
+      },
+      {
+        "code": "46",
+        "name": "BARONA"
+      },
+      {
+        "code": "79",
+        "name": "DERGANO"
+      },
+      {
+        "code": "25",
+        "name": "CORSICA"
+      },
+      {
+        "code": "22",
+        "name": "CITTA' STUDI"
+      },
+      {
+        "code": "58",
+        "name": "DE ANGELI - MONTE ROSA"
+      },
+      {
+        "code": "29",
+        "name": "ORTOMERCATO"
+      },
+      {
+        "code": "13",
+        "name": "GRECO - SEGNANO"
+      },
+      {
+        "code": "49",
+        "name": "GIAMBELLINO"
+      },
+      {
+        "code": "85",
+        "name": "PARCO DELLE ABBAZIE"
+      },
+      {
+        "code": "77",
+        "name": "BOVISA"
+      },
+      {
+        "code": "52",
+        "name": "BANDE NERE"
+      },
+      {
+        "code": "14",
+        "name": "NIGUARDA - CA' GRANDA - PRATO CENTENARO - Q.RE FULVIO TESTI"
+      },
+      {
+        "code": "84",
+        "name": "PARCO NORD"
+      },
+      {
+        "code": "80",
+        "name": "AFFORI"
+      },
+      {
+        "code": "71",
+        "name": "VILLAPIZZONE - CAGNOLA - BOLDINASCO"
+      },
+      {
+        "code": "41",
+        "name": "GRATOSOGLIO - Q.RE MISSAGLIA - Q.RE TERRAZZE"
+      },
+      {
+        "code": "57",
+        "name": "SAN SIRO"
+      },
+      {
+        "code": "48",
+        "name": "RONCHETTO SUL NAVIGLIO - Q.RE LODOVICO IL MORO"
+      },
+      {
+        "code": "19",
+        "name": "PADOVA - TURRO - CRESCENZAGO"
+      },
+      {
+        "code": "16",
+        "name": "GORLA - PRECOTTO"
+      },
+      {
+        "code": "47",
+        "name": "CANTALUPA"
+      },
+      {
+        "code": "30",
+        "name": "TALIEDO - MORSENCHIO - Q.RE FORLANINI"
+      },
+      {
+        "code": "24",
+        "name": "PARCO FORLANINI - CAVRIANO"
+      },
+      {
+        "code": "86",
+        "name": "PARCO DEI NAVIGLI"
+      },
+      {
+        "code": "23",
+        "name": "LAMBRATE - ORTICA"
+      },
+      {
+        "code": "33",
+        "name": "ROGOREDO - SANTA GIULIA"
+      },
+      {
+        "code": "15",
+        "name": "BICOCCA"
+      },
+      {
+        "code": "66",
+        "name": "QT 8"
+      },
+      {
+        "code": "60",
+        "name": "STADIO - IPPODROMI"
+      },
+      {
+        "code": "18",
+        "name": "CIMIANO - ROTTOLE - Q.RE FELTRE"
+      },
+      {
+        "code": "39",
+        "name": "QUINTOSOLE"
+      },
+      {
+        "code": "81",
+        "name": "BOVISASCA"
+      },
+      {
+        "code": "53",
+        "name": "LORENTEGGIO"
+      },
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      },
+      {
+        "code": "76",
+        "name": "QUARTO OGGIARO - VIALBA - MUSOCCO"
+      },
+      {
+        "code": "32",
+        "name": "TRIULZO SUPERIORE"
+      },
+      {
+        "code": "56",
+        "name": "FORZE ARMATE"
+      },
+      {
+        "code": "40",
+        "name": "RONCHETTO DELLE RANE"
+      },
+      {
+        "code": "31",
+        "name": "MONLUE' - PONTE LAMBRO"
+      },
+      {
+        "code": "82",
+        "name": "COMASINA"
+      },
+      {
+        "code": "65",
+        "name": "Q.RE GALLARATESE - Q.RE SAN LEONARDO - LAMPUGNANO"
+      },
+      {
+        "code": "17",
+        "name": "ADRIANO"
+      },
+      {
+        "code": "34",
+        "name": "CHIARAVALLE"
+      },
+      {
+        "code": "72",
+        "name": "MAGGIORE - MUSOCCO - CERTOSA"
+      },
+      {
+        "code": "61",
+        "name": "QUARTO CAGNINO"
+      },
+      {
+        "code": "75",
+        "name": "STEPHENSON"
+      },
+      {
+        "code": "88",
+        "name": "PARCO BOSCO IN CITTA'"
+      },
+      {
+        "code": "74",
+        "name": "ROSERIO"
+      },
+      {
+        "code": "73",
+        "name": "CASCINA MERLATA"
+      },
+      {
+        "code": "64",
+        "name": "TRENNO"
+      },
+      {
+        "code": "55",
+        "name": "BAGGIO - Q.RE DEGLI OLMI - Q.RE VALSESIA"
+      },
+      {
+        "code": "62",
+        "name": "QUINTO ROMANO"
+      },
+      {
+        "code": "63",
+        "name": "FIGINO"
+      },
+      {
+        "code": "87",
+        "name": "ASSIANO"
+      },
+      {
+        "code": "54",
+        "name": "MUGGIANO"
+      }
+    ],
+    "canonicalSelectedIds": [],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 0.5,
+    "requiredFlyers": 818723,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 0,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 0,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 8,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.45820413751095,
+      "lng": 9.155044555664064
+    },
+    "addressPixel": {
+      "x": 201,
+      "y": 87
+    },
+    "mapSize": {
+      "x": 377,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nMilano\nModalità\nQuartieri / NIL\nFamiglie stimate\nDa scegliere\nQuantità scelta\n10.000 pz\nQuantità consigliata\nDa scegliere\nCopertura\nDa scegliere\nArea\nDa scegliere\n\nCerca e aggiungi almeno un quartiere per vedere quantità e copertura.\n\nAggiungi almeno un quartiere\nAssicurati che tutte le zone abbiano un'area geografica e una quantità di volantini valida."
+  },
+  {
+    "viewport": "samsung",
+    "case": "return-selected",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_66_83"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 0.5,
+    "requiredFlyers": 7524,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 1,
+      "zonesWithCoordsNilCount": 1,
+      "zonesWithCoordsGeometryCount": 1,
+      "renderedZonePolygonLayers": 1,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 3,
+      "totalLeafletLayerCount": 12,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.527467009328596,
+      "lng": 9.171012413499998
+    },
+    "addressPixel": {
+      "x": 192,
+      "y": 148
+    },
+    "mapSize": {
+      "x": 377,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nBRUZZANO\nModalità\nQuartieri / NIL\nFamiglie stimate\n6.840\nQuantità scelta\n10.000 pz\nQuantità consigliata\n7.524 pz\nCopertura\n100% del fabbisogno operativo\nArea\n1,7 km²\nScegli la quantità\n\nHai 10.000 volantini disponibili. Per l’area scelta ne consigliamo 7.524.\n\nAdatta a 7.524\nMantieni 10.000\nAltra quantità\nEspandi l’area o gestisci i volantini residui\nDettagli avanzati\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nScegli dove assegnare i volantini residui",
+    "advancedOpen": false
+  },
+  {
+    "viewport": "samsung",
+    "case": "quantity-confirmed",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_66_83"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 0.5,
+    "requiredFlyers": 7524,
+    "availableFlyers": 10000,
+    "finalFlyers": 7524,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": true,
+    "map": {
+      "zonesWithCoordsCount": 1,
+      "zonesWithCoordsNilCount": 1,
+      "zonesWithCoordsGeometryCount": 1,
+      "renderedZonePolygonLayers": 1,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 3,
+      "totalLeafletLayerCount": 10,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.45820413751095,
+      "lng": 9.155044555664064
+    },
+    "addressPixel": {
+      "x": 201,
+      "y": 87
+    },
+    "mapSize": {
+      "x": 377,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nBRUZZANO\nModalità\nQuartieri / NIL\nFamiglie stimate\n6.840\nQuantità scelta\n7.524 pz\nQuantità consigliata\n7.524 pz\nCopertura\n100% del fabbisogno operativo\nArea\n1,7 km²\nDettagli avanzati\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nContinua allo Step 3",
+    "advancedOpen": false
+  },
+  {
+    "viewport": "samsung",
+    "case": "other-comune",
+    "areaMode": "full_municipality",
+    "searchMode": "municipality",
+    "selectedNils": [],
+    "canonicalSelectedIds": [
+      "api_0_108045"
+    ],
+    "containingNil": null,
+    "point": null,
+    "coordinates": null,
+    "radiusKm": 0.5,
+    "requiredFlyers": 6794,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 0,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": true,
+    "map": {
+      "zonesWithCoordsCount": 1,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 1,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 7,
+      "isMunicipalityMode": true,
+      "nilMode": false,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.59818525564936,
+      "lng": 9.165086746215822
+    },
+    "addressPixel": null,
+    "mapSize": {
+      "x": 377,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.5973268,
+          "lng": 9.1565874
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.5877186,
+            "lng": 9.142644
+          },
+          "_northEast": {
+            "lat": 45.609263,
+            "lng": 9.1885417
+          }
+        }
+      },
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.5877186,
+            "lng": 9.142644
+          },
+          "_northEast": {
+            "lat": 45.609263,
+            "lng": 9.1885417
+          }
+        }
+      }
+    ],
+    "overflow": false
+  },
+  {
+    "viewport": "iphone",
+    "case": "initial",
+    "areaMode": "unconfirmed_address",
+    "searchMode": "municipality",
+    "selectedNils": [],
+    "canonicalSelectedIds": [],
+    "containingNil": {
+      "code": "nil_66_83",
+      "name": "BRUZZANO"
+    },
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 3,
+    "requiredFlyers": 7524,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": false,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 0,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 0,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 6,
+      "isMunicipalityMode": true,
+      "nilMode": false,
+      "unconfirmedAddressMode": true
+    },
+    "center": {
+      "lat": 45.52944081525669,
+      "lng": 9.170837402343752
+    },
+    "addressPixel": {
+      "x": 178,
+      "y": 160
+    },
+    "mapSize": {
+      "x": 356,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.5289346,
+          "lng": 9.1717006
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nMilano\nModalità\nDa scegliere\nFamiglie stimate\nDa scegliere\nQuantità scelta\n10.000 pz\nQuantità consigliata\nDa scegliere\nCopertura\nDa scegliere\nArea\nDa scegliere\n\nMilano è il contesto iniziale. Scegli Quartieri o Raggio per definire l’area da coprire.\n\nScegli Quartieri o Raggio\nAssicurati che tutte le zone abbiano un'area geografica e una quantità di volantini valida."
+  },
+  {
+    "viewport": "iphone",
+    "case": "nil-empty",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "1",
+        "name": "DUOMO"
+      },
+      {
+        "code": "2",
+        "name": "BRERA"
+      },
+      {
+        "code": "5",
+        "name": "PORTA VIGENTINA - PORTA LODOVICA"
+      },
+      {
+        "code": "4",
+        "name": "GUASTALLA"
+      },
+      {
+        "code": "6",
+        "name": "PORTA TICINESE - CONCA DEL NAVIGLIO"
+      },
+      {
+        "code": "3",
+        "name": "GIARDINI P.TA VENEZIA"
+      },
+      {
+        "code": "7",
+        "name": "MAGENTA - S. VITTORE"
+      },
+      {
+        "code": "8",
+        "name": "PARCO SEMPIONE"
+      },
+      {
+        "code": "27",
+        "name": "PTA ROMANA"
+      },
+      {
+        "code": "44",
+        "name": "PORTA TICINESE - CONCHETTA"
+      },
+      {
+        "code": "9",
+        "name": "PORTA GARIBALDI - PORTA NUOVA"
+      },
+      {
+        "code": "69",
+        "name": "SARPI"
+      },
+      {
+        "code": "10",
+        "name": "STAZIONE CENTRALE - PONTE SEVESO"
+      },
+      {
+        "code": "21",
+        "name": "BUENOS AIRES - PORTA VENEZIA - PORTA MONFORTE"
+      },
+      {
+        "code": "26",
+        "name": "XXII MARZO"
+      },
+      {
+        "code": "37",
+        "name": "MORIVIONE"
+      },
+      {
+        "code": "43",
+        "name": "TIBALDI"
+      },
+      {
+        "code": "11",
+        "name": "ISOLA"
+      },
+      {
+        "code": "36",
+        "name": "SCALO ROMANA"
+      },
+      {
+        "code": "68",
+        "name": "PAGANO"
+      },
+      {
+        "code": "50",
+        "name": "PORTA GENOVA"
+      },
+      {
+        "code": "78",
+        "name": "FARINI"
+      },
+      {
+        "code": "51",
+        "name": "PORTA MAGENTA"
+      },
+      {
+        "code": "28",
+        "name": "UMBRIA - MOLISE - CALVAIRATE"
+      },
+      {
+        "code": "42",
+        "name": "STADERA - CHIESA ROSSA - Q.RE TORRETTA - CONCA FALLATA"
+      },
+      {
+        "code": "38",
+        "name": "VIGENTINO - Q.RE FATIMA"
+      },
+      {
+        "code": "45",
+        "name": "MONCUCCO - SAN CRISTOFORO"
+      },
+      {
+        "code": "70",
+        "name": "GHISOLFA"
+      },
+      {
+        "code": "12",
+        "name": "MACIACHINI - MAGGIOLINA"
+      },
+      {
+        "code": "35",
+        "name": "LODI - CORVETTO"
+      },
+      {
+        "code": "59",
+        "name": "TRE TORRI"
+      },
+      {
+        "code": "67",
+        "name": "PORTELLO"
+      },
+      {
+        "code": "20",
+        "name": "LORETO - CASORETTO - NOLO"
+      },
+      {
+        "code": "46",
+        "name": "BARONA"
+      },
+      {
+        "code": "79",
+        "name": "DERGANO"
+      },
+      {
+        "code": "25",
+        "name": "CORSICA"
+      },
+      {
+        "code": "22",
+        "name": "CITTA' STUDI"
+      },
+      {
+        "code": "58",
+        "name": "DE ANGELI - MONTE ROSA"
+      },
+      {
+        "code": "29",
+        "name": "ORTOMERCATO"
+      },
+      {
+        "code": "13",
+        "name": "GRECO - SEGNANO"
+      },
+      {
+        "code": "49",
+        "name": "GIAMBELLINO"
+      },
+      {
+        "code": "85",
+        "name": "PARCO DELLE ABBAZIE"
+      },
+      {
+        "code": "77",
+        "name": "BOVISA"
+      },
+      {
+        "code": "52",
+        "name": "BANDE NERE"
+      },
+      {
+        "code": "14",
+        "name": "NIGUARDA - CA' GRANDA - PRATO CENTENARO - Q.RE FULVIO TESTI"
+      },
+      {
+        "code": "84",
+        "name": "PARCO NORD"
+      },
+      {
+        "code": "80",
+        "name": "AFFORI"
+      },
+      {
+        "code": "71",
+        "name": "VILLAPIZZONE - CAGNOLA - BOLDINASCO"
+      },
+      {
+        "code": "41",
+        "name": "GRATOSOGLIO - Q.RE MISSAGLIA - Q.RE TERRAZZE"
+      },
+      {
+        "code": "57",
+        "name": "SAN SIRO"
+      },
+      {
+        "code": "48",
+        "name": "RONCHETTO SUL NAVIGLIO - Q.RE LODOVICO IL MORO"
+      },
+      {
+        "code": "19",
+        "name": "PADOVA - TURRO - CRESCENZAGO"
+      },
+      {
+        "code": "16",
+        "name": "GORLA - PRECOTTO"
+      },
+      {
+        "code": "47",
+        "name": "CANTALUPA"
+      },
+      {
+        "code": "30",
+        "name": "TALIEDO - MORSENCHIO - Q.RE FORLANINI"
+      },
+      {
+        "code": "24",
+        "name": "PARCO FORLANINI - CAVRIANO"
+      },
+      {
+        "code": "86",
+        "name": "PARCO DEI NAVIGLI"
+      },
+      {
+        "code": "23",
+        "name": "LAMBRATE - ORTICA"
+      },
+      {
+        "code": "33",
+        "name": "ROGOREDO - SANTA GIULIA"
+      },
+      {
+        "code": "15",
+        "name": "BICOCCA"
+      },
+      {
+        "code": "66",
+        "name": "QT 8"
+      },
+      {
+        "code": "60",
+        "name": "STADIO - IPPODROMI"
+      },
+      {
+        "code": "18",
+        "name": "CIMIANO - ROTTOLE - Q.RE FELTRE"
+      },
+      {
+        "code": "39",
+        "name": "QUINTOSOLE"
+      },
+      {
+        "code": "81",
+        "name": "BOVISASCA"
+      },
+      {
+        "code": "53",
+        "name": "LORENTEGGIO"
+      },
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      },
+      {
+        "code": "76",
+        "name": "QUARTO OGGIARO - VIALBA - MUSOCCO"
+      },
+      {
+        "code": "32",
+        "name": "TRIULZO SUPERIORE"
+      },
+      {
+        "code": "56",
+        "name": "FORZE ARMATE"
+      },
+      {
+        "code": "40",
+        "name": "RONCHETTO DELLE RANE"
+      },
+      {
+        "code": "31",
+        "name": "MONLUE' - PONTE LAMBRO"
+      },
+      {
+        "code": "82",
+        "name": "COMASINA"
+      },
+      {
+        "code": "65",
+        "name": "Q.RE GALLARATESE - Q.RE SAN LEONARDO - LAMPUGNANO"
+      },
+      {
+        "code": "17",
+        "name": "ADRIANO"
+      },
+      {
+        "code": "34",
+        "name": "CHIARAVALLE"
+      },
+      {
+        "code": "72",
+        "name": "MAGGIORE - MUSOCCO - CERTOSA"
+      },
+      {
+        "code": "61",
+        "name": "QUARTO CAGNINO"
+      },
+      {
+        "code": "75",
+        "name": "STEPHENSON"
+      },
+      {
+        "code": "88",
+        "name": "PARCO BOSCO IN CITTA'"
+      },
+      {
+        "code": "74",
+        "name": "ROSERIO"
+      },
+      {
+        "code": "73",
+        "name": "CASCINA MERLATA"
+      },
+      {
+        "code": "64",
+        "name": "TRENNO"
+      },
+      {
+        "code": "55",
+        "name": "BAGGIO - Q.RE DEGLI OLMI - Q.RE VALSESIA"
+      },
+      {
+        "code": "62",
+        "name": "QUINTO ROMANO"
+      },
+      {
+        "code": "63",
+        "name": "FIGINO"
+      },
+      {
+        "code": "87",
+        "name": "ASSIANO"
+      },
+      {
+        "code": "54",
+        "name": "MUGGIANO"
+      }
+    ],
+    "canonicalSelectedIds": [],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 3,
+    "requiredFlyers": 818723,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 0,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 0,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 6,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.45820413751095,
+      "lng": 9.155731201171877
+    },
+    "addressPixel": {
+      "x": 190,
+      "y": 87
+    },
+    "mapSize": {
+      "x": 356,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nMilano\nModalità\nQuartieri / NIL\nFamiglie stimate\nDa scegliere\nQuantità scelta\n10.000 pz\nQuantità consigliata\nDa scegliere\nCopertura\nDa scegliere\nArea\nDa scegliere\n\nCerca e aggiungi almeno un quartiere per vedere quantità e copertura.\n\nAggiungi almeno un quartiere\nAssicurati che tutte le zone abbiano un'area geografica e una quantità di volantini valida."
+  },
+  {
+    "viewport": "iphone",
+    "case": "nil-bruzzano",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_66_83"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 3,
+    "requiredFlyers": 7524,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 1,
+      "zonesWithCoordsNilCount": 1,
+      "zonesWithCoordsGeometryCount": 1,
+      "renderedZonePolygonLayers": 1,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 3,
+      "totalLeafletLayerCount": 11,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.527467009328596,
+      "lng": 9.171012413499998
+    },
+    "addressPixel": {
+      "x": 182,
+      "y": 148
+    },
+    "mapSize": {
+      "x": 356,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nBRUZZANO\nModalità\nQuartieri / NIL\nFamiglie stimate\n6.840\nQuantità scelta\n10.000 pz\nQuantità consigliata\n7.524 pz\nCopertura\n100% del fabbisogno operativo\nArea\n1,7 km²\nScegli la quantità\n\nHai 10.000 volantini disponibili. Per l’area scelta ne consigliamo 7.524.\n\nAdatta a 7.524\nMantieni 10.000\nAltra quantità\nEspandi l’area o gestisci i volantini residui\nDettagli avanzati\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nScegli dove assegnare i volantini residui",
+    "advancedOpen": false
+  },
+  {
+    "viewport": "iphone",
+    "case": "nil-multiple",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      },
+      {
+        "code": "82",
+        "name": "COMASINA"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_66_83",
+      "nil_72_82"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 3,
+    "requiredFlyers": 11698,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 2,
+      "zonesWithCoordsNilCount": 2,
+      "zonesWithCoordsGeometryCount": 2,
+      "renderedZonePolygonLayers": 2,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 4,
+      "totalLeafletLayerCount": 13,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.52748686487302,
+      "lng": 9.160263794499983
+    },
+    "addressPixel": {
+      "x": 311,
+      "y": 136
+    },
+    "mapSize": {
+      "x": 356,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nBRUZZANO, COMASINA\nModalità\nQuartieri / NIL\nFamiglie stimate\n10.635\nQuantità scelta\n10.000 pz\nQuantità consigliata\n11.698 pz\nCopertura\n85,5% del fabbisogno operativo\nArea\n2,6 km²\nScegli la quantità\n\nHai 10.000 volantini disponibili. Per l’area scelta ne consigliamo 11.698.\n\nAdatta a 11.698\nMantieni 10.000\nAltra quantità\nDettagli avanzati\nScegli come gestire la copertura parziale.\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nContinua allo Step 3",
+    "advancedOpen": false
+  },
+  {
+    "viewport": "iphone",
+    "case": "advanced",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      },
+      {
+        "code": "82",
+        "name": "COMASINA"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_66_83",
+      "nil_72_82"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 3,
+    "requiredFlyers": 11698,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 2,
+      "zonesWithCoordsNilCount": 2,
+      "zonesWithCoordsGeometryCount": 2,
+      "renderedZonePolygonLayers": 2,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 4,
+      "totalLeafletLayerCount": 13,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.52751668442124,
+      "lng": 9.160280227661135
+    },
+    "addressPixel": {
+      "x": 311,
+      "y": 136
+    },
+    "mapSize": {
+      "x": 356,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nBRUZZANO, COMASINA\nModalità\nQuartieri / NIL\nFamiglie stimate\n10.635\nQuantità scelta\n10.000 pz\nQuantità consigliata\n11.698 pz\nCopertura\n85,5% del fabbisogno operativo\nArea\n2,6 km²\nScegli la quantità\n\nHai 10.000 volantini disponibili. Per l’area scelta ne consigliamo 11.698.\n\nAdatta a 11.698\nMantieni 10.000\nAltra quantità\nDettagli avanzati\n\nFonti e criteri territoriali della configurazione corrente.\n\nFonte famiglie\ncustom_zone\nNIL coinvolti\n2\nMargine operativo\n1.063 pz\nApri Analisi Avanzata\nNIL selezionate: 2 di 88\nQuantità inserita: 10.000 volantini\nAuto\nPriorità\nManuale\nCon 10.000 volantini il sistema copre prima le zone con priorità più alta. Le zone non coperte verranno incluse aumentando la quantità o modificando la distribuzione manuale.\nOrdina per:\nRilevanza\nFamiglie\nCopertura\nCOPERTURA E SCELTA QUANTITÀ\nSCENARIO ATTUALE\n10.000 volantini\nCopertura scenario corrente\n85,5% del fabbisogno operativo\nZone coinvolte / disponibili\n2 / 88\nSCENARIO CONSIGLIATO\n11.698 volantini\nMargine operativo\n+1.063 pz.\nCopertura prevista\n100% del fabbisogno operativo\nCOPERTURA PARZIALE\nCon 10.000 volantini puoi coprire 85,5% del fabbisogno operativo. Denominatore: fabbisogno operativo delle zone selezionate. Per copertura completa stimiamo 11.698 volantini. Scegli la quantita finale da portare al preventivo.\nMantieni 10.000 volantini\nAumenta a 11.698 volantini\nModifica manualmente\nCon 10.000 volantini copriremo progressivamente le zone a priorità più alta, fino all'esaurimento della quantità. Le zone non raggiunte restano escluse.\nScegli come gestire la copertura parziale.\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nContinua allo Step 3",
+    "advancedOpen": true
+  },
+  {
+    "viewport": "iphone",
+    "case": "radius",
+    "areaMode": "radius",
+    "searchMode": "address",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      },
+      {
+        "code": "82",
+        "name": "COMASINA"
+      },
+      {
+        "code": "80",
+        "name": "AFFORI"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_0_83",
+      "nil_1_82",
+      "nil_2_80"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 0.5,
+    "requiredFlyers": 3515,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 3,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": true,
+    "map": {
+      "zonesWithCoordsCount": 0,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 0,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 7,
+      "isMunicipalityMode": false,
+      "nilMode": false,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "addressPixel": {
+      "x": 178,
+      "y": 160
+    },
+    "mapSize": {
+      "x": 356,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCirclePane",
+        "point": {
+          "lat": 45.5289346,
+          "lng": 9.1717006
+        },
+        "radius": 500
+      },
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.5289346,
+          "lng": 9.1717006
+        }
+      }
+    ],
+    "boundary": [],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nMilano\nModalità\nRaggio\nFamiglie stimate\n3.196\nQuantità scelta\n10.000 pz\nQuantità consigliata\n3.515 pz\nCopertura\n100% del fabbisogno operativo\nArea\n0,8 km²\nDettagli avanzati\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nContinua allo Step 3",
+    "advancedOpen": false
+  },
+  {
+    "viewport": "iphone",
+    "case": "return-nil",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "1",
+        "name": "DUOMO"
+      },
+      {
+        "code": "2",
+        "name": "BRERA"
+      },
+      {
+        "code": "5",
+        "name": "PORTA VIGENTINA - PORTA LODOVICA"
+      },
+      {
+        "code": "4",
+        "name": "GUASTALLA"
+      },
+      {
+        "code": "6",
+        "name": "PORTA TICINESE - CONCA DEL NAVIGLIO"
+      },
+      {
+        "code": "3",
+        "name": "GIARDINI P.TA VENEZIA"
+      },
+      {
+        "code": "7",
+        "name": "MAGENTA - S. VITTORE"
+      },
+      {
+        "code": "8",
+        "name": "PARCO SEMPIONE"
+      },
+      {
+        "code": "27",
+        "name": "PTA ROMANA"
+      },
+      {
+        "code": "44",
+        "name": "PORTA TICINESE - CONCHETTA"
+      },
+      {
+        "code": "9",
+        "name": "PORTA GARIBALDI - PORTA NUOVA"
+      },
+      {
+        "code": "69",
+        "name": "SARPI"
+      },
+      {
+        "code": "10",
+        "name": "STAZIONE CENTRALE - PONTE SEVESO"
+      },
+      {
+        "code": "21",
+        "name": "BUENOS AIRES - PORTA VENEZIA - PORTA MONFORTE"
+      },
+      {
+        "code": "26",
+        "name": "XXII MARZO"
+      },
+      {
+        "code": "37",
+        "name": "MORIVIONE"
+      },
+      {
+        "code": "43",
+        "name": "TIBALDI"
+      },
+      {
+        "code": "11",
+        "name": "ISOLA"
+      },
+      {
+        "code": "36",
+        "name": "SCALO ROMANA"
+      },
+      {
+        "code": "68",
+        "name": "PAGANO"
+      },
+      {
+        "code": "50",
+        "name": "PORTA GENOVA"
+      },
+      {
+        "code": "78",
+        "name": "FARINI"
+      },
+      {
+        "code": "51",
+        "name": "PORTA MAGENTA"
+      },
+      {
+        "code": "28",
+        "name": "UMBRIA - MOLISE - CALVAIRATE"
+      },
+      {
+        "code": "42",
+        "name": "STADERA - CHIESA ROSSA - Q.RE TORRETTA - CONCA FALLATA"
+      },
+      {
+        "code": "38",
+        "name": "VIGENTINO - Q.RE FATIMA"
+      },
+      {
+        "code": "45",
+        "name": "MONCUCCO - SAN CRISTOFORO"
+      },
+      {
+        "code": "70",
+        "name": "GHISOLFA"
+      },
+      {
+        "code": "12",
+        "name": "MACIACHINI - MAGGIOLINA"
+      },
+      {
+        "code": "35",
+        "name": "LODI - CORVETTO"
+      },
+      {
+        "code": "59",
+        "name": "TRE TORRI"
+      },
+      {
+        "code": "67",
+        "name": "PORTELLO"
+      },
+      {
+        "code": "20",
+        "name": "LORETO - CASORETTO - NOLO"
+      },
+      {
+        "code": "46",
+        "name": "BARONA"
+      },
+      {
+        "code": "79",
+        "name": "DERGANO"
+      },
+      {
+        "code": "25",
+        "name": "CORSICA"
+      },
+      {
+        "code": "22",
+        "name": "CITTA' STUDI"
+      },
+      {
+        "code": "58",
+        "name": "DE ANGELI - MONTE ROSA"
+      },
+      {
+        "code": "29",
+        "name": "ORTOMERCATO"
+      },
+      {
+        "code": "13",
+        "name": "GRECO - SEGNANO"
+      },
+      {
+        "code": "49",
+        "name": "GIAMBELLINO"
+      },
+      {
+        "code": "85",
+        "name": "PARCO DELLE ABBAZIE"
+      },
+      {
+        "code": "77",
+        "name": "BOVISA"
+      },
+      {
+        "code": "52",
+        "name": "BANDE NERE"
+      },
+      {
+        "code": "14",
+        "name": "NIGUARDA - CA' GRANDA - PRATO CENTENARO - Q.RE FULVIO TESTI"
+      },
+      {
+        "code": "84",
+        "name": "PARCO NORD"
+      },
+      {
+        "code": "80",
+        "name": "AFFORI"
+      },
+      {
+        "code": "71",
+        "name": "VILLAPIZZONE - CAGNOLA - BOLDINASCO"
+      },
+      {
+        "code": "41",
+        "name": "GRATOSOGLIO - Q.RE MISSAGLIA - Q.RE TERRAZZE"
+      },
+      {
+        "code": "57",
+        "name": "SAN SIRO"
+      },
+      {
+        "code": "48",
+        "name": "RONCHETTO SUL NAVIGLIO - Q.RE LODOVICO IL MORO"
+      },
+      {
+        "code": "19",
+        "name": "PADOVA - TURRO - CRESCENZAGO"
+      },
+      {
+        "code": "16",
+        "name": "GORLA - PRECOTTO"
+      },
+      {
+        "code": "47",
+        "name": "CANTALUPA"
+      },
+      {
+        "code": "30",
+        "name": "TALIEDO - MORSENCHIO - Q.RE FORLANINI"
+      },
+      {
+        "code": "24",
+        "name": "PARCO FORLANINI - CAVRIANO"
+      },
+      {
+        "code": "86",
+        "name": "PARCO DEI NAVIGLI"
+      },
+      {
+        "code": "23",
+        "name": "LAMBRATE - ORTICA"
+      },
+      {
+        "code": "33",
+        "name": "ROGOREDO - SANTA GIULIA"
+      },
+      {
+        "code": "15",
+        "name": "BICOCCA"
+      },
+      {
+        "code": "66",
+        "name": "QT 8"
+      },
+      {
+        "code": "60",
+        "name": "STADIO - IPPODROMI"
+      },
+      {
+        "code": "18",
+        "name": "CIMIANO - ROTTOLE - Q.RE FELTRE"
+      },
+      {
+        "code": "39",
+        "name": "QUINTOSOLE"
+      },
+      {
+        "code": "81",
+        "name": "BOVISASCA"
+      },
+      {
+        "code": "53",
+        "name": "LORENTEGGIO"
+      },
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      },
+      {
+        "code": "76",
+        "name": "QUARTO OGGIARO - VIALBA - MUSOCCO"
+      },
+      {
+        "code": "32",
+        "name": "TRIULZO SUPERIORE"
+      },
+      {
+        "code": "56",
+        "name": "FORZE ARMATE"
+      },
+      {
+        "code": "40",
+        "name": "RONCHETTO DELLE RANE"
+      },
+      {
+        "code": "31",
+        "name": "MONLUE' - PONTE LAMBRO"
+      },
+      {
+        "code": "82",
+        "name": "COMASINA"
+      },
+      {
+        "code": "65",
+        "name": "Q.RE GALLARATESE - Q.RE SAN LEONARDO - LAMPUGNANO"
+      },
+      {
+        "code": "17",
+        "name": "ADRIANO"
+      },
+      {
+        "code": "34",
+        "name": "CHIARAVALLE"
+      },
+      {
+        "code": "72",
+        "name": "MAGGIORE - MUSOCCO - CERTOSA"
+      },
+      {
+        "code": "61",
+        "name": "QUARTO CAGNINO"
+      },
+      {
+        "code": "75",
+        "name": "STEPHENSON"
+      },
+      {
+        "code": "88",
+        "name": "PARCO BOSCO IN CITTA'"
+      },
+      {
+        "code": "74",
+        "name": "ROSERIO"
+      },
+      {
+        "code": "73",
+        "name": "CASCINA MERLATA"
+      },
+      {
+        "code": "64",
+        "name": "TRENNO"
+      },
+      {
+        "code": "55",
+        "name": "BAGGIO - Q.RE DEGLI OLMI - Q.RE VALSESIA"
+      },
+      {
+        "code": "62",
+        "name": "QUINTO ROMANO"
+      },
+      {
+        "code": "63",
+        "name": "FIGINO"
+      },
+      {
+        "code": "87",
+        "name": "ASSIANO"
+      },
+      {
+        "code": "54",
+        "name": "MUGGIANO"
+      }
+    ],
+    "canonicalSelectedIds": [],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 0.5,
+    "requiredFlyers": 818723,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 0,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 0,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 8,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.45820413751095,
+      "lng": 9.155731201171877
+    },
+    "addressPixel": {
+      "x": 190,
+      "y": 87
+    },
+    "mapSize": {
+      "x": 356,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nMilano\nModalità\nQuartieri / NIL\nFamiglie stimate\nDa scegliere\nQuantità scelta\n10.000 pz\nQuantità consigliata\nDa scegliere\nCopertura\nDa scegliere\nArea\nDa scegliere\n\nCerca e aggiungi almeno un quartiere per vedere quantità e copertura.\n\nAggiungi almeno un quartiere\nAssicurati che tutte le zone abbiano un'area geografica e una quantità di volantini valida."
+  },
+  {
+    "viewport": "iphone",
+    "case": "return-selected",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_66_83"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 0.5,
+    "requiredFlyers": 7524,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": false,
+    "map": {
+      "zonesWithCoordsCount": 1,
+      "zonesWithCoordsNilCount": 1,
+      "zonesWithCoordsGeometryCount": 1,
+      "renderedZonePolygonLayers": 1,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 3,
+      "totalLeafletLayerCount": 12,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.527467009328596,
+      "lng": 9.171012413499998
+    },
+    "addressPixel": {
+      "x": 182,
+      "y": 148
+    },
+    "mapSize": {
+      "x": 356,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": false,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nBRUZZANO\nModalità\nQuartieri / NIL\nFamiglie stimate\n6.840\nQuantità scelta\n10.000 pz\nQuantità consigliata\n7.524 pz\nCopertura\n100% del fabbisogno operativo\nArea\n1,7 km²\nScegli la quantità\n\nHai 10.000 volantini disponibili. Per l’area scelta ne consigliamo 7.524.\n\nAdatta a 7.524\nMantieni 10.000\nAltra quantità\nEspandi l’area o gestisci i volantini residui\nDettagli avanzati\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nScegli dove assegnare i volantini residui",
+    "advancedOpen": false
+  },
+  {
+    "viewport": "iphone",
+    "case": "quantity-confirmed",
+    "areaMode": "custom_zone",
+    "searchMode": "municipality",
+    "selectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      }
+    ],
+    "canonicalSelectedIds": [
+      "nil_66_83"
+    ],
+    "containingNil": null,
+    "point": {
+      "label": "Milano Bruzzano,  Via Antonio Oroboni,  Bruzzano",
+      "lat": 45.5289346,
+      "lng": 9.1717006,
+      "type": "address",
+      "parentComune": "Milano",
+      "street": "Via Antonio Oroboni",
+      "houseNumber": null,
+      "postcode": "20161",
+      "city": "Milano",
+      "province": "Milan",
+      "providerPlaceId": 75413139,
+      "precision": "building"
+    },
+    "coordinates": {
+      "lat": 45.5289346,
+      "lng": 9.1717006
+    },
+    "radiusKm": 0.5,
+    "requiredFlyers": 7524,
+    "availableFlyers": 10000,
+    "finalFlyers": 7524,
+    "apiNilCount": 88,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": true,
+    "map": {
+      "zonesWithCoordsCount": 1,
+      "zonesWithCoordsNilCount": 1,
+      "zonesWithCoordsGeometryCount": 1,
+      "renderedZonePolygonLayers": 1,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 3,
+      "totalLeafletLayerCount": 12,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.45820413751095,
+      "lng": 9.155731201171877
+    },
+    "addressPixel": {
+      "x": 190,
+      "y": 87
+    },
+    "mapSize": {
+      "x": 356,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.4641943,
+          "lng": 9.1896346
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      },
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.3867381,
+            "lng": 9.0408867
+          },
+          "_northEast": {
+            "lat": 45.5358482,
+            "lng": 9.2781103
+          }
+        }
+      }
+    ],
+    "overflow": false,
+    "summary": "03 · RIEPILOGO\nLa tua distribuzione\nZona\nBRUZZANO\nModalità\nQuartieri / NIL\nFamiglie stimate\n6.840\nQuantità scelta\n7.524 pz\nQuantità consigliata\n7.524 pz\nCopertura\n100% del fabbisogno operativo\nArea\n1,7 km²\nDettagli avanzati\nLa quantità selezionata verrà utilizzata nel preventivo. Potrai ancora modificarla prima della conferma.\nContinua allo Step 3",
+    "advancedOpen": false
+  },
+  {
+    "viewport": "iphone",
+    "case": "other-comune",
+    "areaMode": "full_municipality",
+    "searchMode": "municipality",
+    "selectedNils": [],
+    "canonicalSelectedIds": [
+      "api_0_108045"
+    ],
+    "containingNil": null,
+    "point": null,
+    "coordinates": null,
+    "radiusKm": 0.5,
+    "requiredFlyers": 6794,
+    "availableFlyers": 10000,
+    "finalFlyers": 10000,
+    "apiNilCount": 0,
+    "hasConfirmedCoverageMode": true,
+    "canContinueCalendar": true,
+    "map": {
+      "zonesWithCoordsCount": 1,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 1,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 9,
+      "isMunicipalityMode": true,
+      "nilMode": false,
+      "unconfirmedAddressMode": false
+    },
+    "center": {
+      "lat": 45.59818525564936,
+      "lng": 9.165000915527346
+    },
+    "addressPixel": null,
+    "mapSize": {
+      "x": 356,
+      "y": 320
+    },
+    "layers": [
+      {
+        "pane": "radiusCenterPane",
+        "point": {
+          "lat": 45.5973268,
+          "lng": 9.1565874
+        }
+      }
+    ],
+    "boundary": [
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.5877186,
+            "lng": 9.142644
+          },
+          "_northEast": {
+            "lat": 45.609263,
+            "lng": 9.1885417
+          }
+        }
+      },
+      {
+        "visible": true,
+        "bounds": {
+          "_southWest": {
+            "lat": 45.5877186,
+            "lng": 9.142644
+          },
+          "_northEast": {
+            "lat": 45.609263,
+            "lng": 9.1885417
+          }
+        }
+      }
+    ],
+    "overflow": false
+  }
+]
