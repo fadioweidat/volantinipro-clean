@@ -700,6 +700,7 @@ function computeBreaks(values) {
 }
 
 function Step2MapImpl({
+  simplifiedMilano = false, // Client presentation only; territory data and calculations are unchanged.
   city,
   radius,
   svcType,
@@ -865,7 +866,9 @@ function Step2MapImpl({
       const errEl = document.getElementById('vp-map-error-msg');
       if (errEl) errEl.style.display = 'none';
     };
-    const buildCartoLayer = () => L.tileLayer(CARTO_VOYAGER, { attribution: CARTO_ATTR, maxZoom: 19 });
+    const buildCartoLayer = () => simplifiedMilano
+      ? L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 19 })
+      : L.tileLayer(CARTO_VOYAGER, { attribution: CARTO_ATTR, maxZoom: 19 });
 
     let tileLayer;
     if (mbToken) {
@@ -896,7 +899,9 @@ function Step2MapImpl({
     tileLayer.addTo(map);
 
     const resizeObserver = new ResizeObserver(() => {
-      requestAnimationFrame(() => map.invalidateSize());
+      requestAnimationFrame(() => {
+        if (mapRef.current === map && map._mapPane && map.getContainer()?.isConnected) map.invalidateSize();
+      });
     });
     resizeObserver.observe(containerRef.current);
 
@@ -1017,6 +1022,17 @@ function Step2MapImpl({
                 const mapSize = map.getSize();
                 const horizontalPadding = Math.max(28, Math.min(72, Math.round(mapSize.x * 0.08)));
                 const verticalPadding = Math.max(28, Math.min(58, Math.round(mapSize.y * 0.09)));
+                if (simplifiedMilano && unconfirmedAddressMode) {
+                  // Keep the searched address centered while fitting the entire municipal context.
+                  const center = L.latLng(city.lat, city.lng);
+                  const sw = selectedBounds.getSouthWest();
+                  const ne = selectedBounds.getNorthEast();
+                  const latSpan = Math.max(Math.abs(center.lat - sw.lat), Math.abs(ne.lat - center.lat));
+                  const lngSpan = Math.max(Math.abs(center.lng - sw.lng), Math.abs(ne.lng - center.lng));
+                  const centeredBounds = L.latLngBounds([center.lat - latSpan, center.lng - lngSpan], [center.lat + latSpan, center.lng + lngSpan]);
+                  map.setView(center, map.getBoundsZoom(centeredBounds, false, L.point(horizontalPadding * 2, verticalPadding * 2)), { animate: false });
+                  return;
+                }
                 map.fitBounds(selectedBounds, {
                   paddingTopLeft: [horizontalPadding + 6, verticalPadding],
                   paddingBottomRight: [horizontalPadding, verticalPadding + 6],
@@ -1133,13 +1149,13 @@ function Step2MapImpl({
 
         // Active comune: strong green border, light green fill (or faint context when unconfirmedAddressMode)
         // Additional comuni in multi-mode: slightly different shade, still visible
-        const polyStyle = unconfirmedAddressMode ? {
-          color: '#8A9EA7',
-          weight: 1.5,
+        const polyStyle = unconfirmedAddressMode || (simplifiedMilano && nilMode) ? {
+          color: simplifiedMilano ? '#0284c7' : '#8A9EA7',
+          weight: simplifiedMilano ? 2.5 : 1.5,
           fillColor: 'transparent',
           fillOpacity: 0,
           dashArray: '4 4',
-          opacity: 0.35,
+          opacity: simplifiedMilano ? 0.95 : 0.35,
           interactive: false,
         } : isActiveComuneEntry ? {
           color: col,

@@ -137,10 +137,11 @@ test('J. selezionare un risultato inquadra la mappa senza cambiare la selezione'
   assert.match(mapSrc, /map\.fitBounds\(b, \{ padding: \[40, 40\], maxZoom: 15/);
 });
 
-test('K. il campo di ricerca sta SOPRA la mappa', () => {
+test('K. il campo di ricerca segue la mappa dentro la scelta Quartieri', () => {
   const s = step2.indexOf('<MilanoNilSearch');
   const m = step2.indexOf('<Step2MapPanel');
-  assert.ok(s > 0 && m > 0 && s < m, 'MilanoNilSearch precede Step2MapPanel');
+  const chooser = step2.indexOf('<MilanoCoverageModeChooser');
+  assert.ok(m > 0 && chooser > m && s > chooser, 'Mappa, scelta modalità, ricerca NIL');
   assert.match(search, /Aggiungi un quartiere \/ zona/);
   assert.match(search, /Cerca un quartiere di Milano e aggiungilo alla distribuzione\./);
   assert.match(search, /Cerca quartiere di Milano, es\. Comasina/);

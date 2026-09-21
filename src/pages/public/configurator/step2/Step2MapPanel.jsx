@@ -10,7 +10,7 @@ import { getCoverageStatus } from "../../../../lib/step2/buildStep2ViewModel.js"
 import { normalizeMunicipalityName } from "../../../../lib/step2/addressIntent.js";
 import { truthfulSourceLabel } from "../../../../lib/step2/truthfulSourceLabel.js";
 
-export function Step2MapPanel({ activeLay, activeMapLayers, apiData, boundaryKpisForMap, city, civiciAvailable, civiciState, col, data, dusafLanduse, focusedPoiId, focusedPoiNonce, focusedNil, gisLoading, gisSlowConnection, gisTimedOut, onRetryGis, handleManualMapClick, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isComuneMode, isMovementStep2, isNilAnalysis, isNilManualMode, isRadiusMode, manualPinMode, mapBasemap, mapCityForStep2, mapConfiniOn, mapCoverageZones, municipalityBoundary, omiInfo, pois, poiEmptySectorLabel, poiFetchFailed, poiLoading, poiAssignments, radius, radiusKm, residentialRadiusRows, retryPoi, sectors, searchMode, selected, selectedSearchPoint, selectCampaignZone, selZones, serviceKpis, setActiveMapLayers, setManualPinMode, setMapBasemap, setMapConfiniOn, sharedCoveragePctText, showTerritoryData, step1OperationalPoints, svcType, targetBusinessMeta, thMax, thMin, toggleZone, togglePoiAssignment, viewMode, zoneAllocationById, zoneCoverageById, zonesInRadius, zonesWithCoords }) {
+export function Step2MapPanel({ simplifiedMilano = false, activeLay, activeMapLayers, apiData, boundaryKpisForMap, city, civiciAvailable, civiciState, col, data, dusafLanduse, focusedPoiId, focusedPoiNonce, focusedNil, gisLoading, gisSlowConnection, gisTimedOut, onRetryGis, handleManualMapClick, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isComuneMode, isMovementStep2, isNilAnalysis, isNilManualMode, isRadiusMode, manualPinMode, mapBasemap, mapCityForStep2, mapConfiniOn, mapCoverageZones, municipalityBoundary, omiInfo, pois, poiEmptySectorLabel, poiFetchFailed, poiLoading, poiAssignments, radius, radiusKm, residentialRadiusRows, retryPoi, sectors, searchMode, selected, selectedSearchPoint, selectCampaignZone, selZones, serviceKpis, setActiveMapLayers, setManualPinMode, setMapBasemap, setMapConfiniOn, sharedCoveragePctText, showTerritoryData, step1OperationalPoints, svcType, targetBusinessMeta, thMax, thMin, toggleZone, togglePoiAssignment, viewMode, zoneAllocationById, zoneCoverageById, zonesInRadius, zonesWithCoords }) {
   return (
     <>
       {/* MAPPA GRANDE — solo Vista Cliente. */}
@@ -90,7 +90,7 @@ export function Step2MapPanel({ activeLay, activeMapLayers, apiData, boundaryKpi
                 </span>
               </div>}
             <Step2MapErrorBoundary resetKey={`${mapCityForStep2?.name || mapCityForStep2?.label || ""}|${data.activeZoneId || ""}`}>
-            <Step2Map city={mapCityForStep2} radius={isRadiusMode ? Number(radiusKm) || Number(radius) || 3 : radiusKm} svcType={svcType} serviceColor={col} zonesWithCoords={zonesWithCoords} selected={selected} onToggleZone={toggleZone} apiData={apiData} targetColor={targetBusinessMeta?.color || '#a78bfa'} activeLayers={activeMapLayers} settori={sectors} pois={pois} loadingPois={poiLoading} poiEmptySectorLabel={poiEmptySectorLabel} poiFetchFailed={poiFetchFailed} onRetryPoi={retryPoi} operationalPoints={step1OperationalPoints} poiAssignments={poiAssignments} onTogglePoi={togglePoiAssignment} focusPoiId={focusedPoiId} focusPoiNonce={focusedPoiNonce} focusNil={focusedNil}businessConfig={isBusinessStep2 ? {
+            <Step2Map key={simplifiedMilano ? "milano-client" : "standard"} simplifiedMilano={simplifiedMilano} city={mapCityForStep2} radius={isRadiusMode ? Number(radiusKm) || Number(radius) || 3 : radiusKm} svcType={svcType} serviceColor={col} zonesWithCoords={zonesWithCoords} selected={selected} onToggleZone={toggleZone} apiData={apiData} targetColor={targetBusinessMeta?.color || '#a78bfa'} activeLayers={activeMapLayers} settori={sectors} pois={pois} loadingPois={poiLoading} poiEmptySectorLabel={poiEmptySectorLabel} poiFetchFailed={poiFetchFailed} onRetryPoi={retryPoi} operationalPoints={step1OperationalPoints} poiAssignments={poiAssignments} onTogglePoi={togglePoiAssignment} focusPoiId={focusedPoiId} focusPoiNonce={focusedPoiNonce} focusNil={focusedNil}businessConfig={isBusinessStep2 ? {
               deliveryLabel: businessOptionLabel(BUSINESS_DELIVERY_METHODS, data.businessDeliveryMethod),
               recipientLabel: businessOptionLabel(BUSINESS_RECIPIENTS, data.businessPreferredRecipient)
             } : null} civiciState={civiciState} onLayerToggle={id => {
@@ -105,7 +105,7 @@ export function Step2MapPanel({ activeLay, activeMapLayers, apiData, boundaryKpi
             // mapConfiniOn does NOT gate the Comune polygon; it only gates the boundary in Raggio/address mode.
             // hiddenBoundaries (per-comune toggle from the UI) still applies.
             // Indirizzo non confermato: il confine comune viene passato come contesto leggero tratteggiato.
-            (isComuneMode || mapConfiniOn && searchMode === "address") && municipalityBoundary ? Array.isArray(municipalityBoundary) ? municipalityBoundary.filter(b => !hiddenBoundaries.includes(normalizeMunicipalityName(b?.name || ""))) : hiddenBoundaries.includes(normalizeMunicipalityName(municipalityBoundary?.name || city?.label || city?.name || "")) ? null : municipalityBoundary : null} isMunicipalityMode={isComuneMode && !hasUnconfirmedAddressPoint} unconfirmedAddressMode={hasUnconfirmedAddressPoint} nilMode={isNilManualMode} coveragePolygons={mapCoverageZones} zoneAllocationById={zoneAllocationById} boundaryKpis={boundaryKpisForMap} themeMode={viewMode !== "distribuzione"} activeLayerId={activeLay?.id || null} zoneCoverageById={zoneCoverageById} basemap={mapBasemap} mapConfiniOn={mapConfiniOn} onToggleConfini={() => setMapConfiniOn(v => !v)} dusafLanduse={dusafLanduse} omiInfo={omiInfo} onBasemapToggle={() => setMapBasemap(b => b === "standard" ? "satellite" : "standard")} onMapClick={manualPinMode ? handleManualMapClick : null} />
+            (isComuneMode || mapConfiniOn && searchMode === "address") && municipalityBoundary ? Array.isArray(municipalityBoundary) ? municipalityBoundary.filter(b => !hiddenBoundaries.includes(normalizeMunicipalityName(b?.name || ""))) : hiddenBoundaries.includes(normalizeMunicipalityName(municipalityBoundary?.name || city?.label || city?.name || "")) ? null : municipalityBoundary : null} isMunicipalityMode={isComuneMode && (simplifiedMilano || !hasUnconfirmedAddressPoint)} unconfirmedAddressMode={hasUnconfirmedAddressPoint} nilMode={isNilManualMode} coveragePolygons={mapCoverageZones} zoneAllocationById={zoneAllocationById} boundaryKpis={boundaryKpisForMap} themeMode={viewMode !== "distribuzione"} activeLayerId={activeLay?.id || null} zoneCoverageById={zoneCoverageById} basemap={mapBasemap} mapConfiniOn={mapConfiniOn} onToggleConfini={() => setMapConfiniOn(v => !v)} dusafLanduse={dusafLanduse} omiInfo={omiInfo} onBasemapToggle={() => setMapBasemap(b => b === "standard" ? "satellite" : "standard")} onMapClick={manualPinMode ? handleManualMapClick : null} />
             </Step2MapErrorBoundary>
             {showTerritoryData && (gisLoading || gisTimedOut) && <div style={{
               position: "absolute",
@@ -191,7 +191,7 @@ export function Step2MapPanel({ activeLay, activeMapLayers, apiData, boundaryKpi
                 color: "rgba(255,255,255,.5)",
                 border: "1px solid rgba(255,255,255,.07)"
               }}>
-                CartoDB – OSM
+                {simplifiedMilano ? "OpenStreetMap" : "CartoDB – OSM"}
               </div>
               {isAdminView && activeLay && viewMode !== "distribuzione" && <div style={{
                 background: "rgba(8,15,30,.88)",
@@ -207,7 +207,7 @@ export function Step2MapPanel({ activeLay, activeMapLayers, apiData, boundaryKpi
                 }}>{activeLay.label}</b>
                 </div>}
             </div>
-            {city && selZones.length > 0 && searchMode !== "municipality" && <div style={{
+            {!simplifiedMilano && city && selZones.length > 0 && searchMode !== "municipality" && <div style={{
               position: "absolute",
               top: 58,
               right: 10,
@@ -227,7 +227,7 @@ export function Step2MapPanel({ activeLay, activeMapLayers, apiData, boundaryKpi
                 solo dopo conferma: mentre un indirizzo non è confermato non
                 è ancora vero che la distribuzione è "limitata al confine
                 comunale" (potrebbe diventare un raggio o una NIL). */}
-            {searchMode === "municipality" && city && !hasUnconfirmedAddressPoint && <div style={{
+            {!simplifiedMilano && searchMode === "municipality" && city && !hasUnconfirmedAddressPoint && <div style={{
               position: "absolute",
               top: 10,
               right: 10,
@@ -300,7 +300,7 @@ export function Step2MapPanel({ activeLay, activeMapLayers, apiData, boundaryKpi
                 }}>{selectedSearchPoint?.label || "Scegli raggio o comune completo"}</div>
                 </div>
               </div>}
-            {showTerritoryData && city && <div style={{
+            {!simplifiedMilano && showTerritoryData && city && <div style={{
               position: "absolute",
               top: 10,
               left: 10,

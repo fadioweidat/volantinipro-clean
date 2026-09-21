@@ -32,7 +32,9 @@ test('Ricerca: azioni Aggiungi/Rimuovi visibili anche in Quartieri', () => {
   const s = rd('../src/pages/public/configurator/step2/MilanoNilSearch.jsx');
   assert.match(s, /Rimuovi/);
   assert.match(s, /Aggiungi/);
-  assert.match(step2, /milanoUxVisible && !isCapMode \? <MilanoNilSearch/);
+  assert.match(step2, /milanoClientView && <MilanoCoverageModeChooser/);
+  assert.match(step2, /<MilanoNilSearch[\s\S]*?onToggle=\{toggleNilZone\}/);
+  assert.match(rd('../src/pages/public/configurator/step2/MilanoCoverageModeChooser.jsx'), /mode === "nil" &&/);
 });
 
 test('Mappa: poligoni NIL selezionabili con click handler', () => {

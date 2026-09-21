@@ -8,7 +8,7 @@ import { getServiceAccent } from "../../../../lib/services/service-config.js";
 import { detectSearchIntent, ADDRESS_INTENT_RE, isGeocoderResultInMilanoComune, looksLikeAddressResult, logAddressVsMunicipalityDebug, normalizeMunicipalityName, isNilLikePlaceType } from "../../../../lib/step2/addressIntent.js";
 import { S2_RADII } from "../../../../lib/step2/s2Constants.js";
 
-export function Step2TerritoryControlsPanel({ activeAreaTab, activeZoneId, addressFullCoverageConfirmed, addressIntentInMilano, addressSearchError, apiLoading, appendMunicipalityToActiveZone, campaignZones, capSearchLoading, capSuggestions, city, col, data, dropOpen, duplicateComuneNotice, geocodeSuggestions, getCampaignZoneLabel, handleAddZone, handleCapSelect, hasSearchPoint, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isMobile, isMovementStep2, isNilAnalysis, isRadiusMode, municipalityBoundary, nilManualMode, onBack, pendingAddMunicipality, pill, radiusAdvisoryData, radiusKm, recommendedRadiusForSlider, removeMunicipalityFromActiveZone, resetActiveZone, resolveMilanoCity, search, searchedLocation, searchMode, selectAddressPointInMilano, selectCampaignZone, selectMilanoAsNil, selectMunicipalityAsRadiusCenter, selectOperationalPoint, selectPrimaryMunicipality, selectedCaps, selectedComuni, selectedSearchPoint, setAddressFullCoverageConfirmed, setAddressSearchError, setCapDataMap, setCity, setCoverageDecision, setCoverageStrategy, setData, setDismissedAdvisoryRadius, setDropOpen, setHiddenBoundaries, setPartialCoverageConfirmed, setPendingAddMunicipality, setSearch, setSelected, setSelectedCaps, setSelectedComuni, setSelectedSearchPoint, sharedCoveragePctText, startManualPinSelection, svcType, switchToCapMode, switchToComuneMode, switchToRadiusMode, updateActiveRadius, zonesInRadius }) {
+export function Step2TerritoryControlsPanel({ simplifiedMilano = false, activeAreaTab, activeZoneId, addressFullCoverageConfirmed, addressIntentInMilano, addressSearchError, apiLoading, appendMunicipalityToActiveZone, campaignZones, capSearchLoading, capSuggestions, city, col, data, dropOpen, duplicateComuneNotice, geocodeSuggestions, getCampaignZoneLabel, handleAddZone, handleCapSelect, hasSearchPoint, hasUnconfirmedAddressPoint, hiddenBoundaries, isAdminView, isBusinessStep2, isMobile, isMovementStep2, isNilAnalysis, isRadiusMode, municipalityBoundary, nilManualMode, onBack, pendingAddMunicipality, pill, radiusAdvisoryData, radiusKm, recommendedRadiusForSlider, removeMunicipalityFromActiveZone, resetActiveZone, resolveMilanoCity, search, searchedLocation, searchMode, selectAddressPointInMilano, selectCampaignZone, selectMilanoAsNil, selectMunicipalityAsRadiusCenter, selectOperationalPoint, selectPrimaryMunicipality, selectedCaps, selectedComuni, selectedSearchPoint, setAddressFullCoverageConfirmed, setAddressSearchError, setCapDataMap, setCity, setCoverageDecision, setCoverageStrategy, setData, setDismissedAdvisoryRadius, setDropOpen, setHiddenBoundaries, setPartialCoverageConfirmed, setPendingAddMunicipality, setSearch, setSelected, setSelectedCaps, setSelectedComuni, setSelectedSearchPoint, sharedCoveragePctText, startManualPinSelection, svcType, switchToCapMode, switchToComuneMode, switchToRadiusMode, updateActiveRadius, zonesInRadius }) {
   return (
     <>
       {/* Section */}
@@ -56,7 +56,7 @@ export function Step2TerritoryControlsPanel({ activeAreaTab, activeZoneId, addre
                   fontSize: 13,
                   color: "rgba(255,255,255,.55)",
                   marginTop: 4
-                }}>{isBusinessStep2 ? "Definisci l’area, verifica le attività reali disponibili e costruisci il piano di visita Business." : "Cerca un comune o CAP, scegli il raggio e verifica la copertura stimata dei tuoi volantini."}</div>
+                }}>{isBusinessStep2 ? "Definisci l’area, verifica le attività reali disponibili e costruisci il piano di visita Business." : simplifiedMilano ? "Hai scelto Milano. Ora scegli uno o più quartieri oppure un raggio." : "Cerca un comune o CAP, scegli il raggio e verifica la copertura stimata dei tuoi volantini."}</div>
               </div>
 
               <div style={{
@@ -111,7 +111,7 @@ export function Step2TerritoryControlsPanel({ activeAreaTab, activeZoneId, addre
               {/* Search */}
               <div style={{
                 position: "relative",
-                flex: "0 0 340px"
+                flex: simplifiedMilano ? "1 1 340px" : "0 0 340px"
               }}>
                 <div style={{
                   display: "flex",
@@ -123,7 +123,7 @@ export function Step2TerritoryControlsPanel({ activeAreaTab, activeZoneId, addre
                   border: "1px solid rgba(255,255,255,.12)",
                   overflow: "hidden"
                 }}>
-                  <div style={{
+                  {!simplifiedMilano && <div style={{
                     display: "flex",
                     background: "rgba(255,255,255,.03)",
                     borderRight: "1px solid rgba(255,255,255,.12)"
@@ -161,7 +161,7 @@ export function Step2TerritoryControlsPanel({ activeAreaTab, activeZoneId, addre
                       cursor: "pointer",
                       transition: "all.2s"
                     }}>CAP</button>
-                  </div>
+                  </div>}
                   <div style={{
                     flex: 1,
                     display: "flex",
@@ -241,7 +241,7 @@ export function Step2TerritoryControlsPanel({ activeAreaTab, activeZoneId, addre
                           }
                         }
                       }}
-                      placeholder={searchMode === "cap" ? "Inserisci CAP (es. 20121)..." : searchMode === "municipality" ? pendingAddMunicipality ? "Aggiungi comune (es. Meda, Cesano...)" : "Cerca comune" : "Cerca comune o CAP"} style={{
+                      placeholder={simplifiedMilano ? "Cerca un indirizzo o un altro comune" : searchMode === "cap" ? "Inserisci CAP (es. 20121)..." : searchMode === "municipality" ? pendingAddMunicipality ? "Aggiungi comune (es. Meda, Cesano...)" : "Cerca comune" : "Cerca comune o CAP"} style={{
                       flex: 1,
                       background: "transparent",
                       border: "none",
@@ -771,7 +771,7 @@ export function Step2TerritoryControlsPanel({ activeAreaTab, activeZoneId, addre
                 </div>}
 
               {/* Radius pills & info - in modalità raggio */}
-              {activeAreaTab === "raggio" && <div style={{
+              {!simplifiedMilano && activeAreaTab === "raggio" && <div style={{
                 display: "flex",
                 flexDirection: "column",
                 gap: 8,
@@ -907,7 +907,7 @@ export function Step2TerritoryControlsPanel({ activeAreaTab, activeZoneId, addre
             </div>
 
             {/* BARRA COMPATTA DI CONSIGLIO SUL RAGGIO */}
-            {radiusAdvisoryData && <div style={{
+            {!simplifiedMilano && radiusAdvisoryData && <div style={{
               margin: "0 0 16px",
               padding: "12px 16px",
               borderRadius: 12,
@@ -1031,11 +1031,11 @@ export function Step2TerritoryControlsPanel({ activeAreaTab, activeZoneId, addre
                   whiteSpace: "nowrap",
                   flexShrink: 0
                 }}>
-                    <span>{getCampaignZoneLabel(z, idx)}</span>
-                    <span style={{
+                    <span>{simplifiedMilano && isActive ? `Zona ${idx + 1} · Milano` : getCampaignZoneLabel(z, idx)}</span>
+                    {!(simplifiedMilano && isActive) && <span style={{
                     fontSize: 9,
                     color: zUnconfirmed ? "#FBBF24" : configured ? C.green : C.yellow
-                  }}>{zUnconfirmed ? "Anteprima" : configured ? "OK" : "Da configurare"}</span>
+                  }}>{zUnconfirmed ? "Anteprima" : configured ? "OK" : "Da configurare"}</span>}
                   </button>;
               })}
               <button type="button" onClick={() => setDropOpen(true)} style={{
@@ -1054,7 +1054,7 @@ export function Step2TerritoryControlsPanel({ activeAreaTab, activeZoneId, addre
               }}>
                 Modifica zona
               </button>
-              {!isRadiusMode && (() => {
+              {!simplifiedMilano && !isRadiusMode && (() => {
                 const hasValidSearchPoint = Boolean(selectedSearchPoint && Number.isFinite(Number(selectedSearchPoint.lat)) && Number.isFinite(Number(selectedSearchPoint.lng)));
                 const hasValidCityPoint = Boolean(!hasValidSearchPoint && city && Number.isFinite(Number(city.lat)) && Number.isFinite(Number(city.lng)));
                 if (!hasValidSearchPoint && !hasValidCityPoint) return null;

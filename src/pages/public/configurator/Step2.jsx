@@ -11,6 +11,9 @@ import { apiToZones, capToZone, getZoneCoords, haversineKm, pickRealComuneGeomet
 import { resolveZoneAutoSelection } from "../../../lib/step2/zoneSelection.js";
 import { rankNilSearchResults } from "../../../lib/step2/milanoNilView.js";
 import { MilanoNilSearch } from "./step2/MilanoNilSearch.jsx";
+import { MilanoCoverageModeChooser } from "./step2/MilanoCoverageModeChooser.jsx";
+import { MilanoTerritorySummary } from "./step2/MilanoTerritorySummary.jsx";
+import "./step2/milano-client.css";
 import { MilanoGuidance } from "./step2/MilanoGuidance.jsx";
 import { bizCategoryChart, businessRows, businessZoneScore, getComuneColor, getH2HMetrics, getTargetBizMeta, H2H_HOTSPOT_META, h2hHotspotRows, h2hHotspotStrength, residentialRows, residentialStrength } from "../../../lib/step2/businessZoneHelpers.js";
 import { buildOperationalAdvice, D2D_DAILY_CAPACITY, estimateOperationalDays, H2H_FLYERS_PER_PROMOTER_HOUR, resolveAssignedQuantity } from "../../../lib/step2/operationalMetrics.js";
@@ -2638,13 +2641,14 @@ export function Step2({
     const availableIds = hasUsefulApiZones ? (zonesInRadius || []).map(z => z.id) : [];
     const prevAvailableIds = prevAvailableZoneIdsRef.current || [];
     prevAvailableZoneIdsRef.current = availableIds;
+    if (nilManualMode && isComuneMode && isResidentialStep2 && requestedAnalysisLevel === "nil") return;
     setSelected(prev => resolveZoneAutoSelection({
       hasUsefulApiZones,
       availableIds,
       prevAvailableIds,
       currentSelected: prev,
     }));
-  }, [hasUsefulApiZones, zonesInRadius]);
+  }, [hasUsefulApiZones, zonesInRadius, nilManualMode, isComuneMode, isResidentialStep2, requestedAnalysisLevel]);
 
   // Anteprima NIL per indirizzo Milano non ancora confermato (es. Via Brera):
   // calcolata prima di selZones per consentire al calcolo coperture/KPI e alla
@@ -3477,7 +3481,7 @@ export function Step2({
       setCoverageStrategy(null);
     }
     setSelected(prev => {
-      const base = prev.length ? prev : selZones.map(z => z.id);
+      const base = prev.length ? prev : nilManualMode ? [] : selZones.map(z => z.id);
       if (base.includes(zoneId)) {
         const next = base.filter(x => x !== zoneId);
         return next.length ? next : base;
@@ -4224,6 +4228,9 @@ export function Step2({
   // sopra (hasMilanoTerritory, summaryComuniStats, zonesAllocation, serviceKpis,
   // conteggi NIL per modalita'). `nilQuery` filtra SOLO le righe mostrate.
   const milanoUxVisible = isResidentialStep2 && hasMilanoTerritory;
+  const milanoClientView = milanoUxVisible && !isAdminView && !isCapMode;
+  const milanoClientMode = nilManualMode ? "nil" : isRadiusMode ? "radius" : addressFullCoverageConfirmed ? "municipality" : null;
+  const milanoClientHasSelection = Boolean(milanoClientMode && (milanoClientMode !== "nil" || selected.length > 0));
   const milanoNilStats = useMemo(() => ({
     available: Number(summaryComuniStats?.total) || availableNils.length || 0,
     full: Number(summaryComuniStats?.coperti) || 0,
@@ -4266,7 +4273,7 @@ export function Step2({
   // selezionate/visibili ("comasina" con BRUZZANO selezionata -> 0 su 1). Ora
   // legge il dataset NIL canonico completo (allMilanoNilRows da apiZones = tutte le NIL
   // caricate, indipendente dalla selezione) e marca quali sono selezionate.
-  const selectedZoneIdSet = useMemo(() => new Set(selZones.map(z => z.id)), [selZones]);
+  const selectedZoneIdSet = useMemo(() => new Set(nilManualMode ? selected : selZones.map(z => z.id)), [nilManualMode, selected, selZones]);
   const milanoNilSearchResults = useMemo(
     () => (milanoUxVisible && !isCapMode && nilQuery
       ? rankNilSearchResults(milanoGlobalNilRows, nilQuery, { limit: 20 }).map(r => ({ ...r, isSelected: selectedZoneIdSet.has(r.id) }))
@@ -5103,6 +5110,8 @@ export function Step2({
     const apiNils = Array.isArray(apiData?.nil_breakdown) ? apiData.nil_breakdown : [];
     const apiNilsWithGeometry = apiNils.filter(z => Boolean(z?.geometry_geojson || z?.geometry || z?.geojson));
     window.__VOLANTINIPRO_STEP2_STATE__ = {
+      canonicalSelectedIds: [...selected],
+      nilManualMode,
       url: window.location.href,
       areaMode,
       searchMode,
@@ -5257,7 +5266,133 @@ export function Step2({
       });
     }
   }
-  return <div style={{
+  const renderComunePanel = () => (<Step2ComunePanel simplifiedMilano={milanoClientView}
+        activeCampaignZone={activeCampaignZone}
+        activeComuneZeroData={activeComuneZeroData}
+        addressPreviewNilZones={addressPreviewNilZones}
+        addressSearchError={addressSearchError}
+        allocationMode={allocationMode}
+        analysisError={analysisError}
+        analysisLoading={analysisLoading}
+        areaMode={areaMode}
+        availableFlyers={availableFlyers}
+        businessMetrics={businessMetrics}
+        city={city}
+        col={col}
+        comuniPriorityOrder={comuniPriorityOrder}
+        containingNil={containingNil}
+
+        coverageDecision={coverageDecision}
+        coverageStrategy={coverageStrategy}
+        debugStep2Log={debugStep2Log}
+
+        flyerQuantityFromStep1={flyerQuantityFromStep1}
+
+        getComuneColor={getComuneColor}
+        getCoverageStatus={getCoverageStatus}
+        handleNext={handleNext}
+        hasAtLeastOne={hasAtLeastOne}
+        hasSearchPoint={hasSearchPoint}
+        hasSurplus={hasSurplus}
+        hasUnconfirmedAddressPoint={hasUnconfirmedAddressPoint}
+
+        isBusinessStep2={isBusinessStep2}
+
+        isComuneMode={isComuneMode}
+        isCoverageDecisionValid={isCoverageDecisionValid}
+        isInvalid={isInvalid}
+        isMilanoComuneCollapsible={isMilanoComuneCollapsible}
+        isMobile={isMobile}
+        isMovementStep2={isMovementStep2}
+        isNilAnalysis={isNilAnalysis}
+        isPartial={isPartial}
+        isRadiusMode={isRadiusMode}
+        isResidentialStep2={isResidentialStep2}
+        manualAssignments={manualAssignments}
+        manualFlyers={manualFlyers}
+        marginalResidentialZones={marginalResidentialZones}
+        marginalZoneCoverage={marginalZoneCoverage}
+        marginalZoneFamilies={marginalZoneFamilies}
+        milanoComuneNilInsufficient={milanoComuneNilInsufficient}
+        missingFlyers={missingFlyers}
+        movePriorityZone={movePriorityZone}
+
+        municipalityTotalFamilies={municipalityTotalFamilies}
+        municipalityTotalFamiliesLabel={municipalityTotalFamiliesLabel}
+        municipalityTotalFamiliesRowLabel={municipalityTotalFamiliesRowLabel}
+        nilManualMode={nilManualMode}
+        nilUnavailable={nilUnavailable}
+
+
+        primaryCoveredZones={primaryCoveredZones}
+
+        radius={radius}
+        radiusKm={radiusKm}
+        remainingFlyers={remainingFlyers}
+        requiredFlyers={requiredFlyers}
+
+        resolveMilanoCity={resolveMilanoCity}
+        searchMode={searchMode}
+        selected={selected}
+        selZones={selZones}
+        selectCoverageQuantityDecision={selectCoverageQuantityDecision}
+        selectedAreaFamiliesLabel={selectedAreaFamiliesLabel}
+        selectedCaps={selectedCaps}
+        selectedNils={selectedNils}
+        selectedSearchPoint={selectedSearchPoint}
+        serviceKpis={serviceKpis}
+        setAddressFullCoverageConfirmed={setAddressFullCoverageConfirmed}
+        setAddressSearchError={setAddressSearchError}
+        setAllocationMode={setAllocationMode}
+        setCity={setCity}
+        setCoverageDecision={setCoverageDecision}
+        setCoverageStrategy={setCoverageStrategy}
+        setData={setData}
+        setDropOpen={setDropOpen}
+        setNilManualMode={setNilManualMode}
+        setPartialCoverageConfirmed={setPartialCoverageConfirmed}
+        setRequestedAnalysisLevel={() => {}}
+        setSearch={setSearch}
+        setSelected={setSelected}
+        setSelectedComuni={setSelectedComuni}
+        setSelectedSearchPoint={setSelectedSearchPoint}
+        setShowMarginalZones={setShowMarginalZones}
+        setShowMilanoNilList={setShowMilanoNilList}
+        setZoneListSort={setZoneListSort}
+        sharedCoveragePctText={sharedCoveragePctText}
+        shouldGroupMarginalZones={shouldGroupMarginalZones}
+        showMarginalZones={showMarginalZones}
+        showMilanoNilList={showMilanoNilList}
+        showTerritoryData={showTerritoryData}
+        startManualPinSelection={startManualPinSelection}
+        step2CoverageFullLabel={step2CoverageFullLabel}
+        step2RequirementContextLabel={step2RequirementContextLabel}
+        step2TruthModel={step2TruthModel}
+        step2ViewModel={step2ViewModel}
+        summaryComuniStats={summaryComuniStats}
+        surplusFlyers={surplusFlyers}
+        switchToComuneMode={switchToComuneMode}
+        switchToRadiusMode={switchToRadiusMode}
+        switchToNilMode={switchToNilMode}
+        coverageMode={coverageMode}
+        coverageAddress={coverageAddress}
+        territorialDataUnavailable={territorialDataUnavailable}
+        territorySingularLabel={territorySingularLabel}
+        toggleZone={toggleZone}
+        nilResidual={{ active: residualDecisionPending, anchorName: selZones[0]?.name || "", proposal: nilResidualProposal, strategy: coverageStrategy, onChoose: chooseResidualStrategy }}
+        totalAssigned={totalAssigned}
+        updateActiveRadius={updateActiveRadius}
+        updateManual={updateManual}
+        updateManualFlyersQuantity={updateManualFlyersQuantity}
+        zCap={zCap}
+        zoneCoveragePctForBox={zoneCoveragePctForBox}
+        zoneListSort={zoneListSort}
+        zoneListSourceCount={zoneListSourceCount}
+        zoneRowsForList={milanoFilteredZoneRows}
+        zonesAllocation={zonesAllocation}
+        zonesInRadius={zonesInRadius}
+      />);
+  return <div className={milanoClientView ? "vp-milano-client" : undefined} style={{
     maxWidth: 1280,
     margin: "0 auto",
     padding: "34px clamp(16px, 4vw, 32px) 160px",
@@ -5266,7 +5401,7 @@ export function Step2({
     overflow: "visible"
   }}>
 
-      {!isAdminView && (
+      {!isAdminView && !milanoClientView && (
         <ServiceExplanationCard
           serviceType={svcType}
           serviceColor={col}
@@ -5274,6 +5409,7 @@ export function Step2({
       )}
 
       {!isAdminView && <Step2TerritoryControlsPanel
+          simplifiedMilano={milanoClientView}
           activeAreaTab={activeAreaTab}
           activeZoneId={data.activeZoneId}
           addressFullCoverageConfirmed={addressFullCoverageConfirmed}
@@ -5411,21 +5547,9 @@ export function Step2({
           gap: 10
         }}>
 
-          {/* Ricerca NIL unica — sopra la mappa, dopo il pannello indirizzo. */}
-          {milanoUxVisible && !isCapMode ? <MilanoNilSearch
-            query={nilQuery}
-            onQueryChange={setNilQuery}
-            results={milanoNilSearchResults}
-            poolStatus={nilSearchPoolStatus}
-            poolSize={allMilanoNilRows.length}
-            onRetry={handleRetryGis}
-            onToggle={toggleNilZone}
-            onFocusResult={focusNilSearchResult}
-            contextLabel={city?.label || city?.name || "Milano"}
-          /> : null}
-
           {/* MAPPA GRANDE — solo Vista Cliente. */}
           <Step2MapPanel
+        simplifiedMilano={milanoClientView}
         focusedNil={focusedNil}
         activeLay={activeLay}
         activeMapLayers={activeMapLayers}
@@ -5457,7 +5581,7 @@ export function Step2({
         mapBasemap={mapBasemap}
         mapCityForStep2={mapCityForStep2}
         mapConfiniOn={mapConfiniOn}
-        mapCoverageZones={mapCoverageZones}
+        mapCoverageZones={milanoClientView ? [] : mapCoverageZones}
         municipalityBoundary={municipalityBoundary}
         omiInfo={omiInfo}
         pois={pois}
@@ -5493,10 +5617,32 @@ export function Step2({
         zoneAllocationById={zoneAllocationById}
         zoneCoverageById={zoneCoverageById}
         zonesInRadius={zonesInRadius}
-        zonesWithCoords={zonesWithCoords}
+        zonesWithCoords={milanoClientView ? (milanoClientMode === "nil" ? zonesWithCoords.filter(z => selected.includes(z.id)) : []) : zonesWithCoords}
           />
 
-          <SelectedZonesSummary
+
+          {milanoClientView && <MilanoCoverageModeChooser
+            mode={milanoClientMode}
+            address={coverageAddress || selectedSearchPoint}
+            containingNil={containingNil || (coverageAddress?.nearestNilName ? { name: coverageAddress.nearestNilName } : null)}
+            onChooseNil={() => { switchToComuneMode(); setPendingNilPreselectName(null); enterNilManualMode(); }} onChooseRadius={switchToRadiusMode} onChooseComune={switchToComuneMode}
+            radiusKm={radiusKm} onRadiusChange={updateActiveRadius} radiusDisabled={apiLoading}
+            recommendedRadius={recommendedRadiusForSlider}
+          ><MilanoNilSearch
+            query={nilQuery}
+            onQueryChange={setNilQuery}
+            results={milanoNilSearchResults}
+            poolStatus={nilSearchPoolStatus}
+            poolSize={allMilanoNilRows.length}
+            onRetry={handleRetryGis}
+            onToggle={toggleNilZone}
+            onFocusResult={focusNilSearchResult}
+            contextLabel={city?.label || city?.name || "Milano"}
+          />
+            {selected.length > 0 && <div className="vp-milano-selected" aria-label="Quartieri selezionati">{selZones.filter(z => selected.includes(z.id)).map(z => <button type="button" key={z.id} onClick={() => toggleNilZone(z.id)} aria-label={`Rimuovi ${z.name}`}>{z.name} ×</button>)}</div>}
+          </MilanoCoverageModeChooser>}
+
+          {!milanoClientView && <SelectedZonesSummary
             selectedZones={selZones}
             onRemoveZone={(zoneId) => {
               if (selected && selected.length > 0) {
@@ -5511,7 +5657,7 @@ export function Step2({
             coveragePercent={step2TruthModel?.coverage?.coverage_percent ?? (serviceKpis?.coverage || 0)}
             serviceType={svcType}
             serviceColor={col}
-          />
+          />}
 
           <Step2PoiAssignmentPanel
         assignPoiToOperator={assignPoiToOperator}
@@ -5549,7 +5695,7 @@ export function Step2({
         updatePoiCopies={updatePoiCopies}
         visiblePoisForAssignment={visiblePoisForAssignment}
       />
-      <Step2CapPanel
+      {!milanoClientView && <Step2CapPanel
         businessMetrics={businessMetrics}
         capDataMap={capDataMap}
         col={col}
@@ -5576,9 +5722,9 @@ export function Step2({
         zoneListSort={zoneListSort}
         zoneListSourceCount={zoneListSourceCount}
         zonesInRadius={zonesInRadius}
-      />
+      />}
           <MilanoGuidance
-            visible={milanoUxVisible}
+            visible={milanoUxVisible && !milanoClientView}
             isMobile={isMobile}
             isRadiusMode={isRadiusMode}
             isCapMode={isCapMode}
@@ -5605,136 +5751,23 @@ export function Step2({
             selected={selected}
             onToggleZone={toggleZone}
           />
-          <Step2ComunePanel
-        activeCampaignZone={activeCampaignZone}
-        activeComuneZeroData={activeComuneZeroData}
-        addressPreviewNilZones={addressPreviewNilZones}
-        addressSearchError={addressSearchError}
-        allocationMode={allocationMode}
-        analysisError={analysisError}
-        analysisLoading={analysisLoading}
-        areaMode={areaMode}
-        availableFlyers={availableFlyers}
-        businessMetrics={businessMetrics}
-        city={city}
-        col={col}
-        comuniPriorityOrder={comuniPriorityOrder}
-        containingNil={containingNil}
-
-        coverageDecision={coverageDecision}
-        coverageStrategy={coverageStrategy}
-        debugStep2Log={debugStep2Log}
-
-        flyerQuantityFromStep1={flyerQuantityFromStep1}
-
-        getComuneColor={getComuneColor}
-        getCoverageStatus={getCoverageStatus}
-        handleNext={handleNext}
-        hasAtLeastOne={hasAtLeastOne}
-        hasSearchPoint={hasSearchPoint}
-        hasSurplus={hasSurplus}
-        hasUnconfirmedAddressPoint={hasUnconfirmedAddressPoint}
-
-        isBusinessStep2={isBusinessStep2}
-
-        isComuneMode={isComuneMode}
-        isCoverageDecisionValid={isCoverageDecisionValid}
-        isInvalid={isInvalid}
-        isMilanoComuneCollapsible={isMilanoComuneCollapsible}
-        isMobile={isMobile}
-        isMovementStep2={isMovementStep2}
-        isNilAnalysis={isNilAnalysis}
-        isPartial={isPartial}
-        isRadiusMode={isRadiusMode}
-        isResidentialStep2={isResidentialStep2}
-        manualAssignments={manualAssignments}
-        manualFlyers={manualFlyers}
-        marginalResidentialZones={marginalResidentialZones}
-        marginalZoneCoverage={marginalZoneCoverage}
-        marginalZoneFamilies={marginalZoneFamilies}
-        milanoComuneNilInsufficient={milanoComuneNilInsufficient}
-        missingFlyers={missingFlyers}
-        movePriorityZone={movePriorityZone}
-
-        municipalityTotalFamilies={municipalityTotalFamilies}
-        municipalityTotalFamiliesLabel={municipalityTotalFamiliesLabel}
-        municipalityTotalFamiliesRowLabel={municipalityTotalFamiliesRowLabel}
-        nilManualMode={nilManualMode}
-        nilUnavailable={nilUnavailable}
-
-
-        primaryCoveredZones={primaryCoveredZones}
-
-        radius={radius}
-        radiusKm={radiusKm}
-        remainingFlyers={remainingFlyers}
-        requiredFlyers={requiredFlyers}
-
-        resolveMilanoCity={resolveMilanoCity}
-        searchMode={searchMode}
-        selected={selected}
-        selZones={selZones}
-        selectCoverageQuantityDecision={selectCoverageQuantityDecision}
-        selectedAreaFamiliesLabel={selectedAreaFamiliesLabel}
-        selectedCaps={selectedCaps}
-        selectedNils={selectedNils}
-        selectedSearchPoint={selectedSearchPoint}
-        serviceKpis={serviceKpis}
-        setAddressFullCoverageConfirmed={setAddressFullCoverageConfirmed}
-        setAddressSearchError={setAddressSearchError}
-        setAllocationMode={setAllocationMode}
-        setCity={setCity}
-        setCoverageDecision={setCoverageDecision}
-        setCoverageStrategy={setCoverageStrategy}
-        setData={setData}
-        setDropOpen={setDropOpen}
-        setNilManualMode={setNilManualMode}
-        setPartialCoverageConfirmed={setPartialCoverageConfirmed}
-        setRequestedAnalysisLevel={() => {}}
-        setSearch={setSearch}
-        setSelected={setSelected}
-        setSelectedComuni={setSelectedComuni}
-        setSelectedSearchPoint={setSelectedSearchPoint}
-        setShowMarginalZones={setShowMarginalZones}
-        setShowMilanoNilList={setShowMilanoNilList}
-        setZoneListSort={setZoneListSort}
-        sharedCoveragePctText={sharedCoveragePctText}
-        shouldGroupMarginalZones={shouldGroupMarginalZones}
-        showMarginalZones={showMarginalZones}
-        showMilanoNilList={showMilanoNilList}
-        showTerritoryData={showTerritoryData}
-        startManualPinSelection={startManualPinSelection}
-        step2CoverageFullLabel={step2CoverageFullLabel}
-        step2RequirementContextLabel={step2RequirementContextLabel}
-        step2TruthModel={step2TruthModel}
-        step2ViewModel={step2ViewModel}
-        summaryComuniStats={summaryComuniStats}
-        surplusFlyers={surplusFlyers}
-        switchToComuneMode={switchToComuneMode}
-        switchToRadiusMode={switchToRadiusMode}
-        switchToNilMode={switchToNilMode}
-        coverageMode={coverageMode}
-        coverageAddress={coverageAddress}
-        territorialDataUnavailable={territorialDataUnavailable}
-        territorySingularLabel={territorySingularLabel}
-        toggleZone={toggleZone}
-        nilResidual={{ active: nilResidualContext, anchorName: selZones[0]?.name || "", proposal: nilResidualProposal, strategy: coverageStrategy, onChoose: chooseResidualStrategy }}
-        totalAssigned={totalAssigned}
-        updateActiveRadius={updateActiveRadius}
-        updateManual={updateManual}
-        updateManualFlyersQuantity={updateManualFlyersQuantity}
-        zCap={zCap}
-        zoneCoveragePctForBox={zoneCoveragePctForBox}
-        zoneListSort={zoneListSort}
-        zoneListSourceCount={zoneListSourceCount}
-        zoneRowsForList={milanoFilteredZoneRows}
-        zonesAllocation={zonesAllocation}
-        zonesInRadius={zonesInRadius}
-      />
+          {!milanoClientView && renderComunePanel()}
 
         </div>
 
-        <Step2SummaryPanel
+        {milanoClientView ? <MilanoTerritorySummary
+          mode={milanoClientMode} hasSelection={milanoClientHasSelection}
+          zoneLabel={milanoClientMode === "nil" && selected.length ? selZones.filter(z => selected.includes(z.id)).map(z => z.name).join(", ") : (city?.label || city?.name || "Milano")}
+          viewModel={step2ViewModel} truthModel={step2TruthModel} quantity={finalFlyersRounded}
+          coverageLabel={step2CoverageFullLabel} areaLabel={residentialMainOutputsNormalized.find(item => /area|superficie/i.test(item.l))?.v ? `${residentialMainOutputsNormalized.find(item => /area|superficie/i.test(item.l)).v} ${residentialMainOutputsNormalized.find(item => /area|superficie/i.test(item.l)).u || ""}` : "Dato non disponibile"}
+          loading={gisLoading || apiLoading} failed={isGisFailed || territorialDataUnavailable} onRetry={handleRetryGis}
+          coverageDecisionRequired={coverageDecisionRequired} coverageDecision={coverageDecision}
+          availableFlyers={availableFlyers} requiredFlyers={requiredFlyers} manualFlyers={manualFlyers}
+          isCoverageDecisionValid={isCoverageDecisionValid} onQuantityDecision={selectCoverageQuantityDecision} onManualQuantity={updateManualFlyersQuantity}
+          nilResidual={{ active: residualDecisionPending, proposal: nilResidualProposal, strategy: coverageStrategy, onChoose: chooseResidualStrategy }}
+          advancedContent={renderComunePanel()} onOpenReport={() => setIsAdminView(true)}
+          actions={{ step2ZonesReady, coverageDecisionReady: coverageDecisionReady || step2ConfigReady, canContinueCalendar, handleNext, col, continueLabel, operationalSelectionReady, isMovementStep2, isBusinessStep2 }}
+        /> : <Step2SummaryPanel
           activeCampaignZone={activeCampaignZone}
           areaMode={areaMode}
           businessMaterialPlan={businessMaterialPlan}
@@ -5770,7 +5803,7 @@ export function Step2({
           step2ZonesReady={step2ZonesReady}
           transportState={transportState}
           zonesInRadius={zonesInRadius}
-        />
+        />}
         </>}
       </div>
     </div>;

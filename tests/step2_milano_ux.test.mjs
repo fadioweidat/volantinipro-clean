@@ -123,7 +123,7 @@ test("nilStatusSummaryLine: 'N completi · N parziali · N esclusi' (§9), singo
 test("A/B. MilanoGuidance renderizzata SOLO se municipio = Milano; nessun impatto altrove", () => {
   // in Step2.jsx: visible gated su isResidentialStep2 && hasMilanoTerritory
   assert.match(step2, /const milanoUxVisible = isResidentialStep2 && hasMilanoTerritory;/);
-  assert.match(step2, /<MilanoGuidance\s+visible=\{milanoUxVisible\}/);
+  assert.match(step2, /<MilanoGuidance\s+visible=\{milanoUxVisible && !milanoClientView\}/);
   // il componente esce subito se !visible -> zero markup per Varedo & co.
   assert.match(guidance, /if \(!visible\) return null;/);
 });
@@ -213,6 +213,7 @@ const STUB_MAP = `import React from "react";const N=()=>null;export const Step2M
 const STUB_MOTION = `import React from "react";const p=(t)=>React.forwardRef((props,ref)=>React.createElement(t,{...props,ref}));export const motion=new Proxy({},{get:(_,k)=>p(typeof k==="string"?k:"div")});export const AnimatePresence=({children})=>children??null;export default {motion,AnimatePresence};`;
 const vite = await createServer({
   configFile: false,
+  esbuild: { jsx: "automatic" },
   server: { middlewareMode: true, watch: null }, appType: "custom", logLevel: "silent",
   optimizeDeps: { noDiscovery: true, include: [] },
   plugins: [{
@@ -233,15 +234,16 @@ const milanoData = () => ({
 const varedoData = () => ({ ...milanoData(), cityName: "Varedo", city: { name: "Varedo", label: "Varedo", comune: "Varedo", municipality_code: "108048", lat: 45.5986, lng: 9.1497, provincia: "MB" } });
 const renderStep2 = (data) => renderToStaticMarkup(React.createElement(Step2, { data, setData: noop, onNext: noop, onBack: noop, onAssistantContextChange: noop }));
 
-test("A. Milano: la guida UX Milano E' presente, con mode chips + Municipio disabilitato + ricerca NIL", () => {
+test("A. Milano: una scelta Quartieri/Raggio, ricerca NIL e dettagli solo dopo la scelta", () => {
   const html = renderStep2(milanoData());
-  assert.match(html, /vp-step2-milano-guidance/, "container guida presente");
-  assert.match(html, /Milano · scegli come distribuire/);
-  assert.match(html, /Milano completo/);
-  assert.match(html, /Municipio · Disponibile prossimamente/);
-  assert.match(html, /Aggiungi un quartiere \/ zona/, "ricerca NIL unica sopra la mappa presente");
-  assert.match(html, /Cerca quartiere di Milano, es\. Comasina/, "input ricerca NIL presente");
-  assert.match(html, /NIL disponibili nel Comune/, "label mode-aware presente");
+  assert.match(html, /data-testid="milano-mode-chooser"/);
+  assert.match(html, /Scegli uno o più quartieri/);
+  assert.match(html, /Distribuisci intorno a un punto/);
+  assert.match(html, /Distribuisci in tutto Milano/);
+  assert.doesNotMatch(html, /vp-step2-milano-guidance|Municipio · Disponibile prossimamente/);
+  assert.doesNotMatch(html, /Cerca quartiere di Milano, es\. Comasina/);
+  assert.doesNotMatch(html, /NIL disponibili nel Comune|Auto<|Priorità<|Copertura e scelta quantità/);
+  assert.match(html, /Famiglie stimate<\/dt><dd>Da scegliere/);
   assert.doesNotMatch(html, /Impossibile caricare la pagina/);
 });
 
@@ -252,6 +254,18 @@ test("B. Varedo: NESSUNA guida UX Milano; Step 2 normale, nessun crash", () => {
   assert.doesNotMatch(html, /Municipio · Disponibile prossimamente/);
   assert.doesNotMatch(html, /Impossibile caricare la pagina/);
   assert.ok(html.length > 0);
+});
+
+test("Milano chooser: NIL search and radius controls are mutually exclusive", async () => {
+  const { MilanoCoverageModeChooser } = await vite.ssrLoadModule("/src/pages/public/configurator/step2/MilanoCoverageModeChooser.jsx");
+  const props = { address: { label: "Via Antonio Oroboni" }, containingNil: { name: "BRUZZANO" }, radiusKm: 1, onChooseNil: noop, onChooseRadius: noop, onChooseComune: noop, onRadiusChange: noop, children: React.createElement("input", { "data-testid": "canonical-nil-search" }) };
+  const render = mode => renderToStaticMarkup(React.createElement(MilanoCoverageModeChooser, { ...props, mode }));
+  assert.doesNotMatch(render(null), /canonical-nil-search|milano-radius-controls/);
+  assert.match(render(null), /BRUZZANO.*riferimento non seleziona automaticamente una zona/);
+  assert.match(render("nil"), /canonical-nil-search/);
+  assert.doesNotMatch(render("nil"), /milano-radius-controls/);
+  assert.match(render("radius"), /milano-radius-controls/);
+  assert.doesNotMatch(render("radius"), /canonical-nil-search/);
 });
 
 after(async () => {

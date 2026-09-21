@@ -4,20 +4,20 @@ import { formatIntegerIT, formatPercentIT } from "../../../../lib/utils/format.j
 
 import { Step1Icon } from "../../../../components/Step1Icon.jsx";
 
-export function Step2ComunePanel({ activeCampaignZone, activeComuneZeroData, addressPreviewNilZones, addressSearchError, allocationMode, analysisError, analysisLoading, areaMode, availableFlyers, businessMetrics, city, col, comuniPriorityOrder, containingNil, coverageAddress, coverageDecision, coverageMode, coverageStrategy, debugStep2Log, flyerQuantityFromStep1, getComuneColor, getCoverageStatus, handleNext, hasAtLeastOne, hasSearchPoint, hasSurplus, hasUnconfirmedAddressPoint, isBusinessStep2, isComuneMode, isCoverageDecisionValid, isInvalid, isMilanoComuneCollapsible, isMobile, isMovementStep2, isNilAnalysis, isPartial, isRadiusMode, isResidentialStep2, manualAssignments, manualFlyers, marginalResidentialZones, marginalZoneCoverage, marginalZoneFamilies, milanoComuneNilInsufficient, missingFlyers, movePriorityZone, municipalityTotalFamilies, municipalityTotalFamiliesLabel, municipalityTotalFamiliesRowLabel, nilManualMode, nilUnavailable, primaryCoveredZones, radius, radiusKm, remainingFlyers, requiredFlyers, resolveMilanoCity, searchMode, selected, selZones, selectCoverageQuantityDecision, selectedAreaFamiliesLabel, selectedCaps, selectedNils, selectedSearchPoint, serviceKpis, setAddressFullCoverageConfirmed, setAddressSearchError, setAllocationMode, setCity, setCoverageDecision, setCoverageStrategy, setData, setDropOpen, setNilManualMode, setPartialCoverageConfirmed, setRequestedAnalysisLevel, setSearch, setSelected, setSelectedComuni, setSelectedSearchPoint, setShowMarginalZones, setShowMilanoNilList, setZoneListSort, sharedCoveragePctText, shouldGroupMarginalZones, showMarginalZones, showMilanoNilList, showTerritoryData, startManualPinSelection, step2CoverageFullLabel, step2RequirementContextLabel, step2TruthModel, step2ViewModel, summaryComuniStats, surplusFlyers, switchToComuneMode, switchToNilMode, switchToRadiusMode, territorialDataUnavailable, territorySingularLabel, toggleZone, nilResidual, totalAssigned, updateActiveRadius, updateManual, updateManualFlyersQuantity, zCap, zoneCoveragePctForBox, zoneListSort, zoneListSourceCount, zoneRowsForList, zonesAllocation, zonesInRadius }) {
+export function Step2ComunePanel({ simplifiedMilano = false, activeCampaignZone, activeComuneZeroData, addressPreviewNilZones, addressSearchError, allocationMode, analysisError, analysisLoading, areaMode, availableFlyers, businessMetrics, city, col, comuniPriorityOrder, containingNil, coverageAddress, coverageDecision, coverageMode, coverageStrategy, debugStep2Log, flyerQuantityFromStep1, getComuneColor, getCoverageStatus, handleNext, hasAtLeastOne, hasSearchPoint, hasSurplus, hasUnconfirmedAddressPoint, isBusinessStep2, isComuneMode, isCoverageDecisionValid, isInvalid, isMilanoComuneCollapsible, isMobile, isMovementStep2, isNilAnalysis, isPartial, isRadiusMode, isResidentialStep2, manualAssignments, manualFlyers, marginalResidentialZones, marginalZoneCoverage, marginalZoneFamilies, milanoComuneNilInsufficient, missingFlyers, movePriorityZone, municipalityTotalFamilies, municipalityTotalFamiliesLabel, municipalityTotalFamiliesRowLabel, nilManualMode, nilUnavailable, primaryCoveredZones, radius, radiusKm, remainingFlyers, requiredFlyers, resolveMilanoCity, searchMode, selected, selZones, selectCoverageQuantityDecision, selectedAreaFamiliesLabel, selectedCaps, selectedNils, selectedSearchPoint, serviceKpis, setAddressFullCoverageConfirmed, setAddressSearchError, setAllocationMode, setCity, setCoverageDecision, setCoverageStrategy, setData, setDropOpen, setNilManualMode, setPartialCoverageConfirmed, setRequestedAnalysisLevel, setSearch, setSelected, setSelectedComuni, setSelectedSearchPoint, setShowMarginalZones, setShowMilanoNilList, setZoneListSort, sharedCoveragePctText, shouldGroupMarginalZones, showMarginalZones, showMilanoNilList, showTerritoryData, startManualPinSelection, step2CoverageFullLabel, step2RequirementContextLabel, step2TruthModel, step2ViewModel, summaryComuniStats, surplusFlyers, switchToComuneMode, switchToNilMode, switchToRadiusMode, territorialDataUnavailable, territorySingularLabel, toggleZone, nilResidual, totalAssigned, updateActiveRadius, updateManual, updateManualFlyersQuantity, zCap, zoneCoveragePctForBox, zoneListSort, zoneListSourceCount, zoneRowsForList, zonesAllocation, zonesInRadius }) {
   return (
     <>
       {/* TICKET — COVERAGE MODE: switcher PERMANENTE dopo la prima ricerca.
           Tre modalita' sempre selezionabili per la Zona; una attiva. Riusa il
           contesto indirizzo persistente: nessun reinserimento. */}
-      <CoverageModeSwitcher
+      {!simplifiedMilano && <CoverageModeSwitcher
         coverageAddress={coverageAddress}
         coverageMode={coverageMode}
         nearestNilName={coverageAddress?.nearestNilName || containingNil?.name || addressPreviewNilZones?.main?.name || null}
         switchToNilMode={switchToNilMode}
         switchToRadiusMode={switchToRadiusMode}
         switchToComuneMode={switchToComuneMode}
-      />
+      />}
       {/* COMUNE MODE: Zone di distribuzione */}
                 {showTerritoryData && searchMode !== "cap" && city && <div style={{
                   background: "rgba(255,255,255,.04)",
@@ -55,7 +55,7 @@ export function Step2ComunePanel({ activeCampaignZone, activeComuneZeroData, add
                           })}</b> volantini
                         </div>
                       </div>
-                      {isComuneMode && isNilAnalysis && <button onClick={() => {
+                      {!simplifiedMilano && isComuneMode && isNilAnalysis && <button onClick={() => {
                       setNilManualMode(v => {
                         const next = !v;
                         // Uscendo dalla modalità manuale si torna al comune completo:
@@ -322,7 +322,7 @@ export function Step2ComunePanel({ activeCampaignZone, activeComuneZeroData, add
                             </button>
                           </div>
                         </div>}
-                      {hasUnconfirmedAddressPoint && <div style={{
+                      {!simplifiedMilano && hasUnconfirmedAddressPoint && <div style={{
                       padding: 16,
                       borderRadius: 10,
                       background: "rgba(59,130,246,.08)",
