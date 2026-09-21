@@ -32,6 +32,26 @@ export function normalizeSectorServiceType(serviceType) {
   return raw || 'd2d';
 }
 
+const DECIMAL_COORDINATE_RE = /^[+-]?(?:\d+\.?\d*|\.\d+)$/;
+
+/**
+ * Strict coordinate parsing: a finite number, or a non-blank decimal string, within +-limit.
+ * Number() is NOT used on arbitrary values: Number(null), Number(''), Number(' '), Number(false)
+ * and Number([]) are all 0 and would turn missing input into the valid coordinate 0.
+ * Returns null when the value is not a usable coordinate; 0 is a valid coordinate.
+ */
+function parseCoordinate(value, limit) {
+  let parsed;
+  if (typeof value === 'number') {
+    parsed = value;
+  } else if (typeof value === 'string' && DECIMAL_COORDINATE_RE.test(value.trim())) {
+    parsed = Number(value.trim());
+  } else {
+    return null;
+  }
+  return Number.isFinite(parsed) && Math.abs(parsed) <= limit ? parsed : null;
+}
+
 async function executeSectorRpc(rpcName, params, parentSignal, timeoutMs = 8000) {
   const url = import.meta.env?.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const anonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
@@ -93,9 +113,9 @@ async function executeSectorRpc(rpcName, params, parentSignal, timeoutMs = 8000)
  * a first failing 401 before the public request.
  */
 export async function fetchSectors({ serviceType, centerLat, centerLng, radiusKm = 5, signal }) {
-  const latNum = Number(centerLat);
-  const lngNum = Number(centerLng);
-  if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) {
+  const latNum = parseCoordinate(centerLat, 90);
+  const lngNum = parseCoordinate(centerLng, 180);
+  if (latNum === null || lngNum === null) {
     return { type: 'FeatureCollection', features: [] };
   }
 
