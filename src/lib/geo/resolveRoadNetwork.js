@@ -23,7 +23,31 @@ import { fetchRoadNetworkElements } from '../../api/roadNetwork.js';
 
 const roadCache = new Map();
 const roadInFlight = new Map();
+const recentFailures = new Map();
+export const FAILURE_BACKOFF_MS = 2000;
 const SESSION_STORAGE_PREFIX = 'vp_road_network_cache:';
+
+export function clearRoadNetworkCache() {
+  roadCache.clear();
+  roadInFlight.clear();
+  recentFailures.clear();
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      if (typeof sessionStorage.clear === 'function') {
+        sessionStorage.clear();
+      } else if (typeof sessionStorage.length === 'number') {
+        const keys = [];
+        for (let i = 0; i < sessionStorage.length; i += 1) {
+          const k = sessionStorage.key(i);
+          if (k && k.startsWith(SESSION_STORAGE_PREFIX)) keys.push(k);
+        }
+        keys.forEach((k) => sessionStorage.removeItem(k));
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 function readSessionCache(key) {
   try {
@@ -105,12 +129,15 @@ function ringToOverpassPoly(ring) {
 // classificazione idonea usata da elementToWay/audit; il server usa la stessa
 // lista canonica.
 
+export const ELIGIBLE_HIGHWAY_CLASSES = ['residential', 'living_street', 'unclassified', 'service'];
+
 // service=parking_aisle/driveway sono spiazzi privati, non vie di
 // distribuzione — esclusi anche se rientrano nella classe "service".
 const EXCLUDED_SERVICE_VALUES = new Set(['parking_aisle', 'driveway', 'drive-through']);
 
 function elementToWay(el) {
   if (el.type !== 'way' || !Array.isArray(el.geometry) || el.geometry.length < 2) return null;
+  if (!ELIGIBLE_HIGHWAY_CLASSES.includes(el.tags?.highway)) return null;
   if (el.tags?.highway === 'service' && EXCLUDED_SERVICE_VALUES.has(el.tags?.service)) return null;
   const geometry = el.geometry
     .filter((p) => Number.isFinite(p?.lat) && Number.isFinite(p?.lon))
@@ -131,7 +158,7 @@ function elementToWay(el) {
  * resolveMunicipalityBoundary.js), dedup delle richieste concorrenti.
  * @returns {Promise<{ways: Array, totalLengthM: number}|null>} null = source non disponibile (MAI un fallback finto)
  */
-export async function resolveRoadNetwork(municipalityName, boundaryGeometry) {
+export async function resolveRoadNetwork(municipalityName, boundaryGeometry, opts = {}) {
   const key = normalizeMunicipalityName(municipalityName) || null;
   if (!key || !boundaryGeometry) return null;
 
@@ -142,6 +169,17 @@ export async function resolveRoadNetwork(municipalityName, boundaryGeometry) {
     return persisted;
   }
   if (roadInFlight.has(key)) return roadInFlight.get(key);
+
+  const backoffMs = typeof opts?.backoffMs === 'number' ? opts.backoffMs : FAILURE_BACKOFF_MS;
+  if (backoffMs > 0 && recentFailures.has(key)) {
+    const elapsed = Date.now() - recentFailures.get(key);
+    if (elapsed < backoffMs) {
+      // Cooldown / dedup: entro la finestra di backoff temporanea (es. doppio mount StrictMode in React 18),
+      // non inviare una seconda richiesta di rete identica e costosa. Restituisce null immediatamente.
+      return null;
+    }
+    recentFailures.delete(key);
+  }
 
   const request = (async () => {
     const ring = largestRing(boundaryGeometry);
@@ -155,11 +193,13 @@ export async function resolveRoadNetwork(municipalityName, boundaryGeometry) {
       ways.sort((a, b) => a.id - b.id);
       const totalLengthM = ways.reduce((sum, w) => sum + w.lengthM, 0);
       const result = { ways, totalLengthM };
+      // Successo: resetta eventuale backoff
+      recentFailures.delete(key);
       // Un risultato VUOTO (0 vie / lunghezza <= 0) NON viene cacheato: puo'
       // dipendere da una decimazione poly troppo aggressiva o da un transitorio
       // lato Overpass. Cachearlo "congelava" permanentemente lo 0 per tutta la
       // sessione pagina (ticket "automatico 80% resta 0"). Lo restituiamo
-      // comunque: il chiamante lo tratta come "rete non disponibile".
+      // comunque: il chiamante lo tratta come "rete vuota".
       if (!ways.length || totalLengthM <= 0) {
         return result;
       }
@@ -167,11 +207,20 @@ export async function resolveRoadNetwork(municipalityName, boundaryGeometry) {
       writeSessionCache(key, result);
       return result;
     } catch {
+      // Registra timestamp di fallimento per dedup/backoff a breve termine (StrictMode)
+      const failureTime = Date.now();
+      recentFailures.set(key, failureTime);
+      if (backoffMs > 0) {
+        setTimeout(() => {
+          if (recentFailures.get(key) === failureTime) {
+            recentFailures.delete(key);
+          }
+        }, backoffMs + 50);
+      }
       // Source non disponibile (rete/timeout/entrambi gli endpoint giu'):
       // null propagato al chiamante, che NON deve generare nessuna traccia
       // finta (Fase 11) — mostra solo un messaggio, MAI cache di un fallimento
-      // (un problema di rete temporaneo non deve "avvelenare" i prossimi
-      // tentativi in questa stessa sessione pagina).
+      // permanente.
       return null;
     }
   })();

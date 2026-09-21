@@ -92,6 +92,13 @@ test('resolveEndpoints ignora env vuoto/non-https e non duplica', () => {
   assert.deepEqual(resolveEndpoints(DEFAULT_OVERPASS_ENDPOINTS[0]), DEFAULT_OVERPASS_ENDPOINTS);
 });
 
+test('resolveEndpoints esclude host morti noti (kumi.systems, private.coffee) anche se passati da env', () => {
+  const eps = resolveEndpoints('https://overpass.kumi.systems/api/interpreter');
+  assert.ok(!eps.some((u) => u.includes('kumi.systems')), 'kumi.systems deve essere escluso');
+  assert.ok(!eps.some((u) => u.includes('private.coffee')), 'private.coffee deve essere escluso');
+  assert.deepEqual(eps, DEFAULT_OVERPASS_ENDPOINTS);
+});
+
 // ── fetchRoadsWithFallback ───────────────────────────────────────────────
 function mockFetch(plan) {
   const calls = [];
@@ -263,3 +270,44 @@ test('makeCacheKey e\' stabile per stesso comune+poly e diverso al variare del p
   assert.equal(a, b);
   assert.notEqual(a, d);
 });
+
+// ── Cinisello Balsamo geometry & empty results ────────────────────────────
+test('validatePoly accetta la geometria reale di Cinisello Balsamo decimata', () => {
+  const ciniselloPoly = [
+    '45.549 9.205', '45.550 9.225', '45.565 9.225', '45.565 9.205', '45.549 9.205'
+  ].join(' ');
+  const r = validatePoly(ciniselloPoly);
+  assert.equal(r.ok, true);
+  assert.equal(r.vertices, 5);
+  const q = buildRoadQuery(r.poly);
+  assert.ok(q.includes(r.poly));
+  assert.ok(q.includes('residential'));
+});
+
+test('Overpass risponde con 0 elementi -> risultato valido elements: [], NON errore', async () => {
+  const fetchImpl = mockFetch(new Map([
+    ['p1.example', { ok: true, elements: [] }],
+  ]));
+  const r = await fetchRoadsWithFallback({ fetchImpl, endpoints: EPS, query: 'Q', timeoutMs: 1000 });
+  assert.equal(r.elements.length, 0);
+  assert.equal(r.endpointIndex, 0);
+  assert.equal(r.attempts, 1);
+});
+
+test('deadlineMs superata interrompe la cascata di provider', async () => {
+  const fetchImpl = mockFetch(new Map([
+    ['p1.example', { hang: true }],
+    ['p2.example', { ok: true, elements: [{ type: 'way', id: 99 }] }],
+  ]));
+  // Deadline già scaduta o quasi scaduta (budget 50ms, provider timeout 100ms)
+  const deadlineMs = Date.now() + 30;
+  await assert.rejects(
+    () => fetchRoadsWithFallback({ fetchImpl, endpoints: EPS, query: 'Q', timeoutMs: 100, deadlineMs }),
+    (err) => {
+      assert.equal(err.message, 'OVERPASS_TIMEOUT');
+      assert.equal(err.deadlineExceeded, true);
+      return true;
+    }
+  );
+});
+

@@ -45,17 +45,28 @@ export async function fetchRoadNetworkElements({ municipality, poly }) {
       headers,
       body: JSON.stringify({ municipality: municipality || null, poly }),
     });
-  } catch {
-    throw new Error('ROAD_NETWORK_UNAVAILABLE');
+  } catch (err) {
+    const error = new Error('ROAD_NETWORK_UNAVAILABLE');
+    error.cause = err;
+    throw error;
   }
-  if (!res.ok) throw new Error('ROAD_NETWORK_UNAVAILABLE');
 
   let data = null;
   try {
     data = await res.json();
   } catch {
-    throw new Error('ROAD_NETWORK_UNAVAILABLE');
+    /* Non-JSON response */
   }
+
+  if (!res.ok) {
+    const errCode = data?.error || 'ROAD_NETWORK_UNAVAILABLE';
+    const error = new Error(errCode);
+    error.status = res.status;
+    error.code = errCode;
+    error.attempts = data?.attempts;
+    throw error;
+  }
+
   if (!data || !Array.isArray(data.elements)) throw new Error('ROAD_NETWORK_UNAVAILABLE');
   return data.elements;
 }

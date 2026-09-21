@@ -883,12 +883,17 @@ export function CoverageAdjustmentPanel({ campaignId, points = [], zones = [], b
         net = merged;
       } else {
         net = await resolveRoadNetwork(municipalityName, boundaryGeometry);
-        // §4 ticket: una rete con 0 vie o lunghezza totale <= 0 NON è una
-        // base valida — mai cache, errore esplicito, autoNetRef invalidato
-        // (così il cambio percentuale non produce più 0 in silenzio).
+        // Distinzione contrattuale errore:
+        // - net === null -> provider/servizio non raggiungibile (HTTP 502 / timeout / network)
+        // - net con 0 vie -> query valida ma nessuna via idonea per la zona
+        if (net === null) {
+          autoNetRef.current = null;
+          setAutoBaseState({ loading: false, error: 'Servizio rete stradale temporaneamente non disponibile. Riprova.', loaded: 0 });
+          return;
+        }
         if (!net?.ways?.length || !(net.totalLengthM > 0)) {
           autoNetRef.current = null;
-          setAutoBaseState({ loading: false, error: 'Rete stradale non disponibile per questa zona (nessuna via idonea trovata). Riprova più tardi.', loaded: 0 });
+          setAutoBaseState({ loading: false, error: 'Nessuna via idonea trovata per questa zona.', loaded: 0 });
           return;
         }
       }

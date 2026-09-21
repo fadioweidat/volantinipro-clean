@@ -16,16 +16,26 @@ export const ELIGIBLE_HIGHWAY_CLASSES = ['residential', 'living_street', 'unclas
 // runtime dall'endpoint di OVERPASS_ENDPOINT se configurato (vedi
 // resolveEndpoints). Tutti pubblici, compatibili con la stessa Overpass QL.
 export const DEFAULT_OVERPASS_ENDPOINTS = [
-  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.freemap.sk/api/interpreter',
+  'https://z.overpass-api.de/api/interpreter',
+  'https://lz4.overpass-api.de/api/interpreter',
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter',
 ];
 
 export function resolveEndpoints(envEndpoint?: string | null): string[] {
   const list: string[] = [];
   const push = (u: unknown) => {
     const v = String(u || '').trim();
-    if (v && /^https:\/\//i.test(v) && !list.includes(v)) list.push(v);
+    if (
+      v &&
+      /^https:\/\//i.test(v) &&
+      !list.includes(v) &&
+      !v.includes('kumi.systems') &&
+      !v.includes('private.coffee') &&
+      !v.includes('openstreetmap.fr')
+    ) {
+      list.push(v);
+    }
   };
   push(envEndpoint);
   for (const u of DEFAULT_OVERPASS_ENDPOINTS) push(u);
@@ -163,26 +173,29 @@ export async function fetchRoadsWithFallback(opts: {
       : timeoutMs;
     const ctrl = new AC();
     const timer = setTimeout(() => ctrl.abort(), effectiveTimeout);
-    const useGet = query.length < 6000;
-    const fetchUrl = useGet ? `${endpoints[i]}?data=${encodeURIComponent(query)}` : endpoints[i];
+    const fetchUrl = endpoints[i];
     const fetchHeaders: Record<string, string> = {
-      'User-Agent': 'VolantiniPro/1.0 (+https://www.volantinipro.it; info@volantinipro.it)',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'Accept': '*/*',
     };
-    if (!useGet) {
-      fetchHeaders['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
-    }
     const fetchInit: any = {
-      method: useGet ? 'GET' : 'POST',
+      method: 'POST',
       headers: fetchHeaders,
+      body,
       signal: ctrl.signal,
     };
-    if (!useGet) {
-      fetchInit.body = body;
-    }
 
     try {
       let res = await fetchImpl(fetchUrl, fetchInit);
-      attemptsLog.push(`${endpoints[i]} -> status ${res.status}`);
+      let errSnippet = '';
+      if (!res.ok) {
+        try {
+          const t = await res.text();
+          errSnippet = ` [${t.replace(/\s+/g, ' ').slice(0, 500)}]`;
+        } catch { /* ignore */ }
+      }
+      attemptsLog.push(`${endpoints[i]} -> status ${res.status}${errSnippet}`);
       if (!res.ok) {
         if (isRetriableStatus(res.status) || res.status === 406) {
           lastError = new Error(`OVERPASS_HTTP_${res.status}`);

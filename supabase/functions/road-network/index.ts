@@ -77,7 +77,8 @@ function consumeRateLimit(req: Request): { allowed: boolean; retryAfterSeconds: 
 
 // ── Cache TTL server-side (istanza warm) ───────────────────────────────────
 const CACHE_TTL_MS = envInt("ROAD_NETWORK_CACHE_TTL_MS", 3600000, 60000, 86400000);
-const PROVIDER_TIMEOUT_MS = envInt("ROAD_NETWORK_TIMEOUT_MS", 25000, 5000, 55000);
+const PROVIDER_TIMEOUT_MS = envInt("ROAD_NETWORK_TIMEOUT_MS", 8000, 3000, 30000);
+const CASCADE_DEADLINE_MS = envInt("ROAD_NETWORK_DEADLINE_MS", 25000, 5000, 55000);
 const roadCache = createTtlCache<any[]>(CACHE_TTL_MS);
 
 serve(async (req: Request) => {
@@ -116,12 +117,16 @@ serve(async (req: Request) => {
       endpoints: resolveEndpoints(Deno.env.get("OVERPASS_ENDPOINT")),
       query,
       timeoutMs: PROVIDER_TIMEOUT_MS,
+      deadlineMs: Date.now() + CASCADE_DEADLINE_MS,
     });
     roadCache.set(cacheKey, result.elements);
     return json({ elements: result.elements, cached: false });
   } catch (err: any) {
     // Mai propagare URL provider / stack al client: solo un codice generico.
     const attempts = Number.isFinite(err?.attempts) ? err.attempts : undefined;
-    return json({ error: "ROAD_NETWORK_UNAVAILABLE", ...(attempts != null ? { attempts } : {}) }, 502);
+    const isFatal = err?.fatal === true;
+    const status = isFatal ? 400 : 502;
+    const errorCode = isFatal ? "INVALID_QUERY" : "ROAD_NETWORK_UNAVAILABLE";
+    return json({ error: errorCode, ...(attempts != null ? { attempts } : {}) }, status);
   }
 });
