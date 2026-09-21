@@ -958,3 +958,24 @@ test('J2: a running page treats the flag as expired at exactly its expiry instan
   assert.equal(setup(expiresAt - 1).map.has(DIAG_BUFFER_KEY), true, '1 ms before expiry the page keeps writing');
   assert.equal(setup(expiresAt).map.has(DIAG_BUFFER_KEY), false, 'at the expiry instant the page stops and leaves no buffer');
 });
+
+// ── Eighth final-review round (L2) ───────────────────────────────────────
+test('L2: enabling over a still-valid legacy flag with NO generation keeps its (empty) generation and its buffer', () => {
+  const storage = fakeStorage();
+  const clock = { t: 1_700_000_000_000 };
+  const now = () => clock.t;
+  storage.map.set(DIAG_FLAG_KEY, String(clock.t + 3_600_000)); // legacy "<expiresAt>" flag, still valid
+  storage.map.set(DIAG_BUFFER_KEY, '{"v":2,"events":[]}');
+  const running = make({ storage, env: fakeWindow(), deps: { now, requireFlag: true } }); // a tab that started under the legacy flag
+  storage.map.set(DIAG_BUFFER_KEY, '{"v":2,"events":[]}');
+  clock.t += 60_000;
+  assert.equal(resolveEnabled({ storage, search: '?vpdiag=1', pathname: '/driver/x', now, random: () => 0.5 }), true);
+  const flag = parseFlag(storage.map.get(DIAG_FLAG_KEY));
+  assert.equal(flag.gen, '', 'the empty generation is preserved (same enablement), not replaced by a fresh one');
+  assert.equal(flag.expiresAt, clock.t + FLAG_TTL_MS, 'expiry refreshed');
+  assert.match(storage.map.get(DIAG_FLAG_KEY), /^\d+:$/);
+  assert.equal(storage.map.has(DIAG_BUFFER_KEY), true, 'a still-valid enablement keeps its buffer');
+  running.diag.record('REQUEST', 'end', { rid: 1 });
+  running.diag.flush();
+  assert.ok(storage.map.get(DIAG_BUFFER_KEY).includes('"REQUEST"'), 'the tab started under the legacy flag keeps writing');
+});
