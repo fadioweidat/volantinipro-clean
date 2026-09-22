@@ -1,0 +1,131 @@
+[
+  {
+    "mode": "unconfirmed_address",
+    "map": {
+      "zonesWithCoordsCount": 0,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 0,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 6,
+      "isMunicipalityMode": true,
+      "nilMode": false,
+      "unconfirmedAddressMode": true
+    },
+    "selected": [],
+    "intersectedNils": [],
+    "polygons": 6
+  },
+  {
+    "mode": "custom_zone",
+    "map": {
+      "zonesWithCoordsCount": 0,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 0,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 6,
+      "isMunicipalityMode": true,
+      "nilMode": true,
+      "unconfirmedAddressMode": false
+    },
+    "selected": [],
+    "intersectedNils": [],
+    "polygons": 0
+  },
+  {
+    "mode": "radius",
+    "map": {
+      "zonesWithCoordsCount": 0,
+      "zonesWithCoordsNilCount": 0,
+      "zonesWithCoordsGeometryCount": 0,
+      "renderedZonePolygonLayers": 0,
+      "coveragePolygonsCount": 0,
+      "renderedCoveragePolygonLayers": 0,
+      "missingCoveragePolygonCount": 0,
+      "groupLayerCount": 2,
+      "totalLeafletLayerCount": 6,
+      "isMunicipalityMode": false,
+      "nilMode": false,
+      "unconfirmedAddressMode": false
+    },
+    "selected": [
+      "nil_0_83",
+      "nil_1_82",
+      "nil_3_81",
+      "nil_2_80",
+      "nil_4_84",
+      "nil_5_14",
+      "nil_8_76",
+      "nil_6_77",
+      "nil_7_79",
+      "nil_11_74",
+      "nil_9_71",
+      "nil_10_12",
+      "api_12_015086",
+      "api_13_015157",
+      "api_14_015032",
+      "api_15_015098",
+      "api_17_015166",
+      "api_16_015027",
+      "api_18_015077"
+    ],
+    "intersectedNils": [
+      {
+        "code": "83",
+        "name": "BRUZZANO"
+      },
+      {
+        "code": "82",
+        "name": "COMASINA"
+      },
+      {
+        "code": "81",
+        "name": "BOVISASCA"
+      },
+      {
+        "code": "80",
+        "name": "AFFORI"
+      },
+      {
+        "code": "84",
+        "name": "PARCO NORD"
+      },
+      {
+        "code": "14",
+        "name": "NIGUARDA - CA' GRANDA - PRATO CENTENARO - Q.RE FULVIO TESTI"
+      },
+      {
+        "code": "76",
+        "name": "QUARTO OGGIARO - VIALBA - MUSOCCO"
+      },
+      {
+        "code": "77",
+        "name": "BOVISA"
+      },
+      {
+        "code": "79",
+        "name": "DERGANO"
+      },
+      {
+        "code": "74",
+        "name": "ROSERIO"
+      },
+      {
+        "code": "71",
+        "name": "VILLAPIZZONE - CAGNOLA - BOLDINASCO"
+      },
+      {
+        "code": "12",
+        "name": "MACIACHINI - MAGGIOLINA"
+      }
+    ],
+    "polygons": 19
+  }
+]
