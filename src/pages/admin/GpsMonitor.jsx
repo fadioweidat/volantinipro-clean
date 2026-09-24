@@ -47,6 +47,39 @@ function operatorStatusLabel(track) {
   return OPERATOR_STATUS_LABELS[track.lifecycleStatus] || 'OFFLINE';
 }
 
+function resolveCampaignOperatorForSession(session, campaignOperators = []) {
+  if (!session) return null;
+
+  const assignmentId = session.assignment_id || null;
+  const driverId = session.driver_id || null;
+  const deviceId = session.device_id || null;
+  const startedAtMs = session.started_at ? new Date(session.started_at).getTime() : null;
+
+  // 1) Una assignment partecipante esplicita vince sempre.
+  const explicitParticipant = campaignOperators.find((o) =>
+    o.participantLabel && o.assignmentId && o.assignmentId === assignmentId
+  );
+  if (explicitParticipant) return explicitParticipant;
+
+  // 2) Compatibilita' con sessioni storiche avviate col link personale:
+  // se il device e' stato poi registrato come OP e la sessione e' successiva
+  // alla creazione di quell'OP, attribuiscila al partecipante corretto.
+  if (deviceId) {
+    const byDevice = campaignOperators.find((o) => {
+      if (!o.participantLabel || !o.deviceInstallationId || o.deviceInstallationId !== deviceId) return false;
+      if (!o.createdAt || startedAtMs == null) return true;
+      return startedAtMs >= (new Date(o.createdAt).getTime() - 60_000);
+    });
+    if (byDevice) return byDevice;
+  }
+
+  // 3) Fallback canonico: assignment/driver originale (es. caposquadra).
+  return campaignOperators.find((o) =>
+    (o.assignmentId && o.assignmentId === assignmentId)
+    || (o.operatorId && o.operatorId === driverId)
+  ) || null;
+}
+
 export function GpsMonitor({ campaignId, onNav }) {
   // Modalita' Admin GPS Monitor: 'monitor' | 'coverage' | 'manual'
   const [adminMode, setAdminMode] = useState('monitor');
@@ -55,7 +88,7 @@ export function GpsMonitor({ campaignId, onNav }) {
   // MULTI-OPERATORE: si caricano TUTTE le sessioni trackabili della campagna
   // (una per operatore) con i punti gia' separati per session_id. `points` e'
   // solo la concatenazione piatta per i pannelli/metriche esistenti — la mappa
-  // NON la usa mai per la polilinea (vedi GpsMap): una <Polyline> per traccia.
+  // la mappa renderizza i punti GPS per identita' operatore, senza Polyline.
   const [state, setState] = useState({ loading: true, error: null, points: [], sessions: [], sessionTracks: [], photos: [], activeSession: null, campaign: null });
   const [coverage, setCoverage] = useState(null);
   const [trackVisibility, setTrackVisibility] = useState({});
@@ -64,21 +97,6 @@ export function GpsMonitor({ campaignId, onNav }) {
   const [selectedOperatorFilter, setSelectedOperatorFilter] = useState('all');
   const [showExcludedGpsPoints, setShowExcludedGpsPoints] = useState(false);
 
-  // Filtraggio per operatore selezionato (quick filter bar)
-  const filteredSessionTracks = useMemo(() => {
-    if (selectedOperatorFilter === 'all') return state.sessionTracks;
-    return state.sessionTracks.filter((track) => {
-      const driverId = track.session?.driver_id;
-      const assignmentId = track.session?.assignment_id;
-      const sessionId = track.session?.id;
-      return driverId === selectedOperatorFilter || assignmentId === selectedOperatorFilter || sessionId === selectedOperatorFilter;
-    });
-  }, [state.sessionTracks, selectedOperatorFilter]);
-
-  const filteredPoints = useMemo(() => {
-    if (selectedOperatorFilter === 'all') return state.points;
-    return filteredSessionTracks.flatMap((t) => t.points || []);
-  }, [selectedOperatorFilter, filteredSessionTracks, state.points]);
   // Confine reale del comune (stesso hook condiviso con Cliente/CampaignTracking.jsx
   // e stesso resolveMunicipalityBoundary della Driver App) — MAI un cerchio
   // inventato quando manca il poligono. Persistito su
@@ -249,6 +267,10 @@ export function GpsMonitor({ campaignId, onNav }) {
         assignmentId: a.id,
         operatorId: a.operator_id || null,
         name: a.operator_name && a.operator_name !== a.operator_id ? a.operator_name : null,
+        participantLabel: a.participant_label || null,
+        deviceInstallationId: a.device_installation_id || null,
+        groupAccessLinkId: a.group_access_link_id || null,
+        createdAt: a.created_at || null,
         zoneId: a.zone_id || null,
         groupId: a.group_id || null,
       })),
@@ -264,10 +286,15 @@ export function GpsMonitor({ campaignId, onNav }) {
   // Fonte primaria: TUTTE le assegnazioni reali attive/non revocate.
   // Nessun limite UI hardcoded: il caposquadra non consuma uno "slot OP" e
   // i partecipanti mantengono la loro label persistente (OP 1, OP 2, ...).
-  const gpsDriverIds = useMemo(
-    () => new Set((state.sessionTracks || []).map((t) => t.session?.driver_id).filter(Boolean)),
-    [state.sessionTracks],
-  );
+  const gpsIdentityKeys = useMemo(() => {
+    const keys = new Set();
+    for (const track of state.sessionTracks || []) {
+      const matched = resolveCampaignOperatorForSession(track.session, campaignOperators);
+      const key = matched?.operatorId || matched?.assignmentId || track.session?.driver_id || track.session?.assignment_id;
+      if (key) keys.add(key);
+    }
+    return keys;
+  }, [state.sessionTracks, campaignOperators]);
   const canonicalOperators = useMemo(() => {
     const out = [];
     const seen = new Set();
@@ -296,14 +323,17 @@ export function GpsMonitor({ campaignId, onNav }) {
           : (o.name || slot || `Operatore ${shortOperatorId(key)}`),
         color: getOperatorColor(key),
         assigned: true,
-        hasGps: gpsDriverIds.has(o.operatorId || o.assignmentId),
+        hasGps: gpsIdentityKeys.has(o.operatorId || o.assignmentId),
         isPrimaryAssignment,
+        participantLabel: persistedOpLabel,
+        deviceInstallationId: o.deviceInstallationId || null,
+        createdAt: o.createdAt || null,
       });
     }
 
     // Sessioni GPS storiche/legacy senza assegnazione canonica: non vanno
     // nascoste, ma nemmeno devono alterare la numerazione degli OP reali.
-    for (const id of gpsDriverIds) {
+    for (const id of gpsIdentityKeys) {
       if (seen.has(id)) continue;
       seen.add(id);
       const slot = `GPS ${shortOperatorId(id)}`;
@@ -321,7 +351,7 @@ export function GpsMonitor({ campaignId, onNav }) {
     }
 
     return out;
-  }, [campaignOperators, gpsDriverIds]);
+  }, [campaignOperators, gpsIdentityKeys]);
   // "OPERATORI: N" = operatori realmente ASSEGNATI (mai il numero di sessioni GPS).
   const assignedOperatorCount = canonicalOperators.filter((o) => o.assigned).length;
   const operatorsWithGpsCount = canonicalOperators.filter((o) => o.hasGps).length;
@@ -333,14 +363,40 @@ export function GpsMonitor({ campaignId, onNav }) {
   const gpsOperators = useMemo(() => {
     const byId = new Map();
     (state.sessionTracks || []).forEach((t) => {
-      const id = t.session?.driver_id;
+      const match = resolveCampaignOperatorForSession(t.session, campaignOperators);
+      const id = match?.operatorId || match?.assignmentId || t.session?.driver_id || t.session?.assignment_id;
       if (!id || byId.has(id)) return;
-      const match = campaignOperators.find((o) => (o.operatorId || o.assignmentId) === id);
-      byId.set(id, { id, name: match?.name || null, color: getOperatorColor(id) });
+      byId.set(id, {
+        id,
+        name: match?.participantLabel || match?.name || null,
+        color: getOperatorColor(id),
+      });
     });
     return [...byId.values()];
   }, [state.sessionTracks, campaignOperators]);
-  const gpsOperatorCount = gpsDriverIds.size;
+  const gpsOperatorCount = gpsIdentityKeys.size;
+
+  // Quick filter coerente con l'identita' canonica: per le vecchie sessioni
+  // avviate col link personale usa anche il device del partecipante.
+  const filteredSessionTracks = useMemo(() => {
+    if (selectedOperatorFilter === 'all') return state.sessionTracks;
+    return (state.sessionTracks || []).filter((track) => {
+      const matched = resolveCampaignOperatorForSession(track.session, campaignOperators);
+      const matchedKey = matched?.operatorId || matched?.assignmentId || null;
+      const driverId = track.session?.driver_id || null;
+      const assignmentId = track.session?.assignment_id || null;
+      const sessionId = track.session?.id || null;
+      return matchedKey === selectedOperatorFilter
+        || driverId === selectedOperatorFilter
+        || assignmentId === selectedOperatorFilter
+        || sessionId === selectedOperatorFilter;
+    });
+  }, [state.sessionTracks, selectedOperatorFilter, campaignOperators]);
+
+  const filteredPoints = useMemo(() => {
+    if (selectedOperatorFilter === 'all') return state.points;
+    return filteredSessionTracks.flatMap((t) => t.points || []);
+  }, [selectedOperatorFilter, filteredSessionTracks, state.points]);
 
   // Stessa forma normalizzata { kind, geometry } richiesta da
   // deriveLiveZoneStatus/estimateDistanceToZoneBoundaryMeters — le funzioni
@@ -674,7 +730,7 @@ export function GpsMonitor({ campaignId, onNav }) {
                 const isSelected = selectedOperatorFilter === opKey;
                 const label = op.isPrimaryAssignment
                   ? 'Caposquadra'
-                  : (op.displayName && op.displayName !== op.slot ? `${op.slot} · ${op.displayName}` : (op.displayName || op.slot));
+                  : (op.participantLabel || op.displayName || op.slot);
                 return (
                   <button
                     key={op.colorKey}
@@ -871,29 +927,74 @@ function GpsMap({ points, sessionTracks = [], canonicalOperators = [], trackVisi
     return [45.4642, 9.1900];
   }, [latest, selectedZoneGeometry]);
 
-  const trackLayers = useMemo(() => (sessionTracks || []).map((track, index) => {
-    const driverId = track.session?.driver_id || null;
-    const assignmentId = track.session?.assignment_id || null;
-    const canonical = canonicalOperators.find((o) =>
-      (o.operatorId && o.operatorId === driverId)
-      || (o.assignmentId && (o.assignmentId === assignmentId || o.assignmentId === driverId))
-    ) || null;
-    const colorKey = canonical?.colorKey || driverId || assignmentId;
-    const color = colorKey ? getOperatorColor(colorKey) : trackColor(index);
-    const validPts = track.validPoints || [];
-    const excludedPts = track.excludedPoints || [];
-    return {
-      sessionId: track.session.id,
-      driverId,
-      assignmentId,
-      operatorLabel: canonical?.displayName || canonical?.slot || `OP ${index + 1}`,
-      color,
-      visible: trackVisibility[track.session.id] !== false,
-      lastPoint: track.lastPoint,
-      validPoints: validPts,
-      excludedPoints: excludedPts,
-    };
-  }), [sessionTracks, canonicalOperators, trackVisibility]);
+  const trackLayers = useMemo(() => {
+    const grouped = new Map();
+
+    (sessionTracks || []).forEach((track, index) => {
+      const session = track.session || {};
+      const canonical = (() => {
+        const assignmentId = session.assignment_id || null;
+        const driverId = session.driver_id || null;
+        const deviceId = session.device_id || null;
+        const startedAtMs = session.started_at ? new Date(session.started_at).getTime() : null;
+
+        const explicitParticipant = canonicalOperators.find((o) =>
+          o.participantLabel && o.assignmentId && o.assignmentId === assignmentId
+        );
+        if (explicitParticipant) return explicitParticipant;
+
+        if (deviceId) {
+          const byDevice = canonicalOperators.find((o) => {
+            if (!o.participantLabel || !o.deviceInstallationId || o.deviceInstallationId !== deviceId) return false;
+            if (!o.createdAt || startedAtMs == null) return true;
+            return startedAtMs >= (new Date(o.createdAt).getTime() - 60_000);
+          });
+          if (byDevice) return byDevice;
+        }
+
+        return canonicalOperators.find((o) =>
+          (o.assignmentId && o.assignmentId === assignmentId)
+          || (o.operatorId && o.operatorId === driverId)
+        ) || null;
+      })();
+
+      const driverId = session.driver_id || null;
+      const assignmentId = session.assignment_id || null;
+      const colorKey = canonical?.colorKey || driverId || assignmentId || session.id;
+      const color = colorKey ? getOperatorColor(colorKey) : trackColor(index);
+      const key = canonical?.colorKey || String(colorKey || session.id || index);
+      const sessionVisible = trackVisibility[session.id] !== false;
+      const existing = grouped.get(key) || {
+        sessionId: key,
+        driverId,
+        assignmentId: canonical?.assignmentId || assignmentId,
+        operatorLabel: canonical?.isPrimaryAssignment
+          ? 'Caposquadra'
+          : (canonical?.participantLabel || canonical?.displayName || canonical?.slot || `OP ${index + 1}`),
+        color,
+        visible: false,
+        lastPoint: null,
+        validPoints: [],
+        excludedPoints: [],
+      };
+
+      if (sessionVisible) {
+        existing.visible = true;
+        existing.validPoints.push(...(track.validPoints || []));
+        existing.excludedPoints.push(...(track.excludedPoints || []));
+        const candidate = track.lastPoint || null;
+        if (candidate) {
+          const candidateAt = new Date(candidate.recorded_at || 0).getTime();
+          const existingAt = existing.lastPoint ? new Date(existing.lastPoint.recorded_at || 0).getTime() : -Infinity;
+          if (!existing.lastPoint || candidateAt >= existingAt) existing.lastPoint = candidate;
+        }
+      }
+
+      grouped.set(key, existing);
+    });
+
+    return [...grouped.values()];
+  }, [sessionTracks, canonicalOperators, trackVisibility]);
 
   // Stile poligono NIL: base tenue, evidenza forte quando selezionato; il
   // colore riflette l'eventuale correzione copertura (inaccessibile / manuale).
