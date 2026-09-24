@@ -752,6 +752,27 @@ export async function driverGroupJoin(groupToken, displayName) {
   return result;
 }
 
+// BUG FIX — "Link per operatore": il caposquadra (assignment ORIGINARIA,
+// mai un participant OP creato da driver_group_join) ottiene/crea il group
+// token del SUO campaign_id+group_id, derivati server-side dall'assignment
+// validata (id + access_token personale) — mai passati liberamente dal
+// client. Idempotente: una riapertura della schermata (refresh) ritorna
+// sempre lo stesso token, senza rigenerare/revocare nulla.
+export async function driverGetOrCreateGroupLink(assignmentId, accessToken) {
+  const data = await callGpsRpc('driver_get_or_create_group_access_link', {
+    p_assignment_id: assignmentId,
+    p_access_token: accessToken,
+  });
+  return {
+    token: data?.token || null,
+    linkId: data?.link_id || null,
+    created: Boolean(data?.created),
+    recoverable: Boolean(data?.recoverable),
+    campaignId: data?.campaign_id || null,
+    groupId: data?.group_id || null,
+  };
+}
+
 // ADMIN — sblocca il dispositivo associato a una sessione tramite la RPC
 // admin-only gps_admin_unlock_device, attiva in produzione.
 // Preserva sessione / GPS / assignment / storico: azzera solo device_id.

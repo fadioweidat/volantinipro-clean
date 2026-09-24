@@ -11,7 +11,8 @@ import { DriverZoneProgram } from '../../components/driver/DriverZoneProgram.jsx
 import { partitionIssuesByZone, validateResolutionNote } from '../../lib/driver/issueZoneView.js';
 import { DRIVER_PAUSE_ENABLED } from '../../lib/gps/driverUiFlags.js';
 import { driverListIssues, driverTransitionIssue, ISSUE_STATUS_LABELS } from '../../lib/services/customer-issues-api.js';
-import { uploadIssueVerificationPhoto } from '../../lib/services/gps-api.js';
+import { uploadIssueVerificationPhoto, driverGetOrCreateGroupLink } from '../../lib/services/gps-api.js';
+import { getPublicAppUrl } from '../../lib/publicAppUrl.js';
 import { driverListMessages, driverMarkMessagesSeen, driverSendMessage } from '../../lib/services/hub-api.js';
 import { buildIssueWatermarkLines, canvasToJpegBlob, compressPodImage, drawPodWatermark, releaseCanvas } from '../../lib/pod/podPhotoProcessing.js';
 import { mergeMessages, countUnreadMessages, subscribeToDriverMessages } from '../../lib/services/messaging-realtime.js';
@@ -580,6 +581,8 @@ function DriverTracker({
         )}
       </section>
 
+      <DriverGroupLinkSection assignmentId={assignmentId} accessToken={accessToken} />
+
       <DriverIssuesSection
         assignmentId={assignmentId}
         campaignId={campaignId}
@@ -770,6 +773,97 @@ function Notice({ text, danger = false, id }) {
     }}>
       {text}
     </div>
+  );
+}
+
+// ─── Link per operatore (caposquadra -> gruppo) ────────────────────────────
+// BUG FIX: il caposquadra ottiene/crea il link condiviso /driver/group/:token
+// del SUO campaign_id+group_id tramite driver_get_or_create_group_access_link
+// (autorizzata SOLO da assignment_id + access_token personali, mai da
+// campaign/group passati liberamente qui). Idempotente: riaprire questa
+// schermata NON rigenera/revoca il link gia' condiviso — ritorna sempre lo
+// stesso. Un participant OP (creato da driver_group_join) riceve
+// PARTECIPANTE_NON_AUTORIZZATO dal server e la sezione si nasconde da sola.
+const GROUP_LINK_ERROR_MESSAGES = {
+  PARTECIPANTE_NON_AUTORIZZATO: null, // OP: sezione nascosta, nessun messaggio
+  GRUPPO_NON_DISPONIBILE: null, // nessun gruppo operativo: sezione nascosta
+  ASSEGNAZIONE_NON_ATTIVA: 'La tua assegnazione non è più attiva: non puoi generare un nuovo link operatori.',
+  ASSEGNAZIONE_NON_AUTORIZZATA: 'Link non valido per questa richiesta.',
+};
+
+function DriverGroupLinkSection({ assignmentId, accessToken }) {
+  const [state, setState] = useState('idle'); // idle | loading | ready | unavailable | error | hidden
+  const [link, setLink] = useState(null);
+  const [recoverable, setRecoverable] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const request = async () => {
+    setState('loading');
+    setErr(null);
+    try {
+      const result = await driverGetOrCreateGroupLink(assignmentId, accessToken || '');
+      if (!result.recoverable || !result.token) {
+        setRecoverable(false);
+        setState('unavailable');
+        return;
+      }
+      setLink(`${getPublicAppUrl()}/driver/group/${encodeURIComponent(result.token)}`);
+      setRecoverable(true);
+      setState('ready');
+    } catch (e) {
+      const raw = String(e?.message || '');
+      const key = Object.keys(GROUP_LINK_ERROR_MESSAGES).find((k) => raw.includes(k));
+      if (key && GROUP_LINK_ERROR_MESSAGES[key] === null) {
+        setState('hidden');
+        return;
+      }
+      setErr(isTransientSchemaOrNetworkError(e) ? USER_FRIENDLY_TRANSIENT_ERROR : (key ? GROUP_LINK_ERROR_MESSAGES[key] : (raw || 'Impossibile generare il link operatori.')));
+      setState('error');
+    }
+  };
+
+  if (state === 'hidden') return null;
+
+  const copy = async () => {
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch { /* clipboard non disponibile: il link resta selezionabile a mano */ }
+  };
+
+  return (
+    <section style={{ maxWidth: 760, margin: '0 auto 12px', padding: 14, borderRadius: 16, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)' }}>
+      <p style={{ margin: '0 0 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.12em', color: 'rgba(255,255,255,.5)', fontWeight: 900 }}>
+        Link per operatore
+      </p>
+      {state === 'idle' && (
+        <>
+          <p style={{ ...mutedStyle, marginBottom: 8 }}>Condividi un link con la tua squadra: ogni telefono che lo apre riceve un proprio codice operatore (OP 1, OP 2, ...).</p>
+          <button type="button" style={secondaryButtonStyle} onClick={request}>Ottieni link per operatore</button>
+        </>
+      )}
+      {state === 'loading' && <div style={{ fontSize: 12, color: 'rgba(255,255,255,.4)' }}>Generazione link…</div>}
+      {state === 'ready' && link && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input readOnly value={link} onFocus={(e) => e.target.select()} style={{ flex: '1 1 220px', minWidth: 0, padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(0,0,0,.25)', color: '#fff', fontSize: 12 }} />
+          <button type="button" style={secondaryButtonStyle} onClick={copy}>{copied ? 'Copiato!' : 'Copia'}</button>
+        </div>
+      )}
+      {state === 'unavailable' && !recoverable && (
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,.6)' }}>
+          Esiste già un link operatori per questo gruppo, generato in precedenza dall'Admin. Non può essere mostrato di nuovo qui: chiedilo all'Admin o fattelo rigenerare.
+        </div>
+      )}
+      {state === 'error' && err && (
+        <div style={{ fontSize: 12, color: '#FCA5A5', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span>{err}</span>
+          <button type="button" style={secondaryButtonStyle} onClick={request}>Riprova</button>
+        </div>
+      )}
+    </section>
   );
 }
 
