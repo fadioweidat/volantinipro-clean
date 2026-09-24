@@ -1034,11 +1034,17 @@ export async function listCampaignAssignments(campaignId) {
   if (!supabase) return [];
   if (!isValidUuid(campaignId)) return [];
   try {
-    const { data, error } = await supabase.rpc('admin_list_campaign_assignments', {
+    const v2 = await supabase.rpc('admin_list_campaign_assignments_v2', {
       p_campaign_id: campaignId,
     });
-    if (error) throw error;
-    return Array.isArray(data) ? data : [];
+    if (!v2.error) return Array.isArray(v2.data) ? v2.data : [];
+
+    // Compatibilita' temporanea con ambienti che non hanno ancora la v2.
+    const legacy = await supabase.rpc('admin_list_campaign_assignments', {
+      p_campaign_id: campaignId,
+    });
+    if (legacy.error) throw legacy.error;
+    return Array.isArray(legacy.data) ? legacy.data : [];
   } catch (err) {
     console.error('[ADMIN_LIST_ASSIGNMENTS_ERROR]', err?.message);
     throw err;
