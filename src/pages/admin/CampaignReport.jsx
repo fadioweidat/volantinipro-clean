@@ -1,5 +1,5 @@
 import 'leaflet/dist/leaflet.css';
-import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-leaflet';
+import { CircleMarker, MapContainer, Popup, TileLayer } from 'react-leaflet';
 import { useEffect, useMemo, useState } from 'react';
 import {
   calculateDistanceKm,
@@ -273,7 +273,14 @@ function ReportMap({ rows }) {
           const color = REPORT_COLORS[index % REPORT_COLORS.length];
           return (
             <Fragment key={item.session.id}>
-              {path.length > 1 && <Polyline positions={path} pathOptions={{ color, weight: 4, opacity: 0.86 }} />}
+              {path.map((point, pointIndex) => (
+                <CircleMarker
+                  key={`gps-${item.session.id}-${pointIndex}`}
+                  center={point}
+                  radius={2.5}
+                  pathOptions={{ color, fillColor: color, fillOpacity: 0.65, weight: 1 }}
+                />
+              ))}
               {latest && (
                 <CircleMarker center={[Number(latest.lat), Number(latest.lng)]} radius={7} pathOptions={{ color, fillColor: color, fillOpacity: 0.9 }}>
                   <Popup>
