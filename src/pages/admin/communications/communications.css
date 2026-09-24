@@ -1,0 +1,58 @@
+.comms-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: 16px;
+}
+.comms-grid > * { min-width: 0; }
+.comms-card {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  text-align: left;
+  font: inherit;
+  border: 0;
+  border-bottom: 1px solid rgba(255,255,255,.1);
+  border-left: 3px solid transparent;
+  background: transparent;
+  cursor: pointer;
+}
+.comms-card:last-child { border-bottom: 0; }
+.comms-card:hover { background: rgba(255,255,255,.04); }
+.comms-card[aria-pressed="true"] { background: rgba(232,87,26,.13); border-left-color: #f97316; }
+.comms-card:focus-visible { outline: 2px solid #fb923c; outline-offset: -3px; }
+.comms-identity { display: grid; gap: 5px; line-height: 1.45; overflow-wrap: anywhere; }
+.comms-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.comms-title { color: #fff; font-size: 15px; font-weight: 800; min-width: 0; }
+.comms-role { color: #fdba74; font-size: 10px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.comms-campaign { color: #e2e8f0; font-size: 13px; font-weight: 600; }
+.comms-location { color: #cbd5e1; font-size: 12px; }
+.comms-meta { color: #aebacc; font-size: 11px; }
+.comms-preview { color: #aebacc; font-size: 12px; margin-top: 5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.comms-unread { flex-shrink: 0; border-radius: 999px; background: #f97316; color: #0b1020; font-size: 11px; font-weight: 900; padding: 2px 8px; }
+.comms-identity--header { padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,.1); }
+.comms-identity--header .comms-title { font-size: 19px; }
+.comms-card .comms-identity { gap: 4px; line-height: 1.35; }
+.comms-card .comms-title { font-size: 15px; font-weight: 800; }
+.comms-card .comms-role {
+  justify-self: start;
+  padding: 2px 7px;
+  border: 1px solid rgba(253,186,116,.22);
+  border-radius: 5px;
+  background: rgba(249,115,22,.09);
+  font-size: 9px;
+  letter-spacing: .07em;
+}
+.comms-card .comms-campaign { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin-top: 2px; }
+.comms-card .comms-location { display: flex; align-items: baseline; gap: 5px; font-size: 11px; }
+.comms-pin { width: 12px; height: 12px; flex-shrink: 0; align-self: center; color: #94a3b8; }
+.comms-card .comms-preview { margin-top: 3px; color: #a0aec0; }
+.comms-card [data-kind="driver_admin"] .comms-role { color: #bae6fd; background: rgba(56,189,248,.08); border-color: rgba(125,211,252,.22); }
+.comms-detail--empty { display: grid; place-items: center; min-height: 300px; }
+.comms-empty { max-width: 280px; padding: 24px 12px; text-align: center; }
+.comms-empty-icon { width: 32px; height: 32px; color: #94a3b8; margin-bottom: 12px; }
+.comms-empty h2 { margin: 0 0 8px; color: #e2e8f0; font-size: 16px; font-weight: 700; }
+.comms-empty p { margin: 0; color: #aebacc; font-size: 13px; line-height: 1.6; }
+@media (max-width: 1000px) {
+  .comms-grid { grid-template-columns: minmax(0, 1fr); }
+  .comms-list { max-height: 420px; overflow-y: auto !important; }
+}

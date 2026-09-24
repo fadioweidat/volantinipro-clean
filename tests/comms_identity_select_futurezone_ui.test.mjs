@@ -9,6 +9,7 @@ import { ISSUE_ZONE_SELECT_COLORS } from '../src/components/customer/IssueZoneSe
 
 const rd = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const commsPage = rd('../src/pages/admin/communications/AdminCommunicationsPage.jsx');
+const commsIdentity = rd('../src/pages/admin/communications/ConversationIdentity.jsx');
 const driverPage = rd('../src/pages/driver/DriverAssignmentPage.jsx');
 const customerPage = rd('../src/pages/customer/CampaignTracking.jsx');
 const guard = rd('../supabase/migrations/20260919150000_driver_one_zone_at_a_time_and_issue_zone.sql');
@@ -58,8 +59,8 @@ test('C. l\'ID tecnico compare solo come ultimo fallback (e mai un UUID travesti
 
 test('D. header conversazione e righe usano l\'identita\' risolta, non piu\' "Campagna #"/"Assignment #"', () => {
   assert.match(commsPage, /resolveConversationIdentity\(c, identityDir\)/);
-  assert.match(commsPage, /conversation-header-title/);
-  assert.doesNotMatch(commsPage, /Assignment #|Campagna #\$\{/);
+  assert.match(commsIdentity, /conversation-header-title/);
+  assert.doesNotMatch(commsPage + commsIdentity, /Campagna #\$\{/);
   assert.doesNotMatch(commsPage, /Cliente — /);
   const viaConv = resolveConversationIdentity(
     { kind: 'driver_admin', assignment_id: 'a1', campaign_id: 'c1' },

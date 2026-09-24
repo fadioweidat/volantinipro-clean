@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ConversationIdentity, ConversationEmptyState } from "./ConversationIdentity.jsx";
+import "./communications.css";
 import { AdminLayout } from "../AdminLayout.jsx";
 import { F, C } from "../../../lib/constants.js";
 import {
@@ -144,38 +146,20 @@ export function AdminCommunicationsPage({ onNav }) {
       </div>
 
       {(filter === "all" || filter === "customer_admin" || filter === "driver_admin" || filter === "unread") && (
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 320px) 1fr", gap: 16 }}>
-          <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
+        <div className="comms-grid" style={{ fontFamily: F.sans }}>
+          <div className="comms-list" style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
             {conversations.length === 0 && <div style={{ padding: 16, fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.4)" }}>{filter === "driver_admin" ? "Nessun Driver assegnato." : "Nessuna conversazione."}</div>}
             {conversations.map((c) => (
-              <button key={c.key} type="button" onClick={() => setSelectedKey(c.key)}
-                style={{ display: "block", width: "100%", textAlign: "left", padding: 12, borderBottom: "1px solid rgba(255,255,255,.06)", background: c.key === selectedKey ? "rgba(232,87,26,.1)" : "transparent", border: "none", borderTop: "none", cursor: "pointer" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                  <strong data-testid="conversation-title" style={{ fontFamily: F.sans, fontSize: 13, color: C.white }}>
-                    {c.identity?.title || (c.kind === "customer_admin" ? "Cliente" : "Driver")}
-                  </strong>
-                  {c.unread_count > 0 && <span style={{ fontSize: 10, fontWeight: 900, color: "#0B1020", background: "#f97316", borderRadius: 999, padding: "2px 7px" }}>{c.unread_count}</span>}
-                </div>
-                <div style={{ fontFamily: F.sans, fontSize: 11, color: "rgba(255,255,255,.55)", marginTop: 2 }}>
-                  {c.identity?.subtitle || ""}
-                </div>
-                <div style={{ fontFamily: F.sans, fontSize: 10, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "rgba(255,255,255,.4)", marginTop: 2 }}>
-                  {c.identity?.kindLabel || (c.kind === "customer_admin" ? "Cliente" : "Driver")}
-                  {c.identity?.technicalId ? ` · ID ${c.identity.technicalId}` : ""}
-                </div>
-                {c.last_message ? (
-                  <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.last_message.text}</div>
-                ) : c.kind === "driver_admin" && !c.id ? (
-                  <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.35)", marginTop: 4, fontStyle: "italic" }}>Nessuna conversazione ancora — scrivi il primo messaggio</div>
-                ) : null}
+              <button key={c.key} type="button" className="comms-card" aria-pressed={c.key === selectedKey} onClick={() => setSelectedKey(c.key)}>
+                <ConversationIdentity conversation={c} />
               </button>
             ))}
           </div>
-          <div style={cardStyle}>
+          <div className={selectedConversation ? "comms-detail" : "comms-detail comms-detail--empty"} style={cardStyle}>
             {selectedConversation ? (
               <ConversationDetail conversation={selectedConversation} onSent={reload} />
             ) : (
-              <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.4)" }}>Seleziona una conversazione.</div>
+              <ConversationEmptyState />
             )}
           </div>
         </div>
@@ -300,15 +284,7 @@ function ConversationDetail({ conversation, onSent }) {
 
   return (
     <div>
-      <div style={{ marginBottom: 10 }}>
-        <div data-testid="conversation-header-title" style={{ fontFamily: F.sans, fontSize: 16, fontWeight: 800, color: C.white }}>
-          {conversation.identity?.title || (conversation.kind === "customer_admin" ? "Cliente" : "Driver")}
-        </div>
-        <div style={{ fontFamily: F.sans, fontSize: 12, color: "rgba(255,255,255,.55)" }}>
-          {[conversation.kind === "customer_admin" ? "Cliente" : "Driver", conversation.identity?.subtitle].filter(Boolean).join(" · ")}
-          {conversation.identity?.technicalId ? ` · ID ${conversation.identity.technicalId}` : ""}
-        </div>
-      </div>
+      <ConversationIdentity conversation={conversation} header />
       <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 380, overflowY: "auto", marginBottom: 10 }}>
         {!conversationId && <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.4)" }}>Nessun messaggio ancora. Scrivi il primo messaggio a questo Driver.</div>}
         {messages.map((m) => (

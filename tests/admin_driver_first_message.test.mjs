@@ -16,6 +16,7 @@ const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 const FIX = read("supabase/migrations/20260905140000_admin_driver_first_message.sql");
 const HUB_API = read("src/lib/services/hub-api.js");
 const ADMIN_HUB = read("src/pages/admin/communications/AdminCommunicationsPage.jsx");
+const IDENTITY_MAPPER = read("src/lib/admin/communicationIdentity.js");
 const RPCS_BASE = read("supabase/migrations/20260905131000_messaging_and_modification_rpcs.sql");
 
 test("ROOT CAUSE — admin_list_driver_directory elenca TUTTI gli assignment reali, anche senza conversazione (LEFT JOIN conversations)", () => {
@@ -59,7 +60,7 @@ test("Frontend: adminListDriverDirectory + adminSendDriverMessage esposte, Admin
 });
 
 test("Admin UI: il tab Driver mostra assignment senza conversazione con invito a scrivere il primo messaggio, mai bloccato in attesa del Driver", () => {
-  assert.match(ADMIN_HUB, /Nessuna conversazione ancora — scrivi il primo messaggio/);
+  assert.match(IDENTITY_MAPPER, /Nessuna conversazione ancora — scrivi il primo messaggio/);
   assert.match(ADMIN_HUB, /Scrivi il primo messaggio/);
   assert.doesNotMatch(ADMIN_HUB, /il [Dd]river deve scrivere prima|richied\w* che il [Dd]river/i);
 });
