@@ -1,6 +1,7 @@
 // Real, live health checks for the Admin "Centro Controllo Sito" (Blocco 1).
-// Every check below performs an actual network round-trip when called —
-// nothing here is a simulated/estimated value. Failures are logged into
+// I check compatibili eseguono un round-trip reale. Le Edge Function business
+// sono demandate al collector server-side, che usa un preflight non mutante.
+// Nulla viene stimato o simulato. Failures are logged into
 // error_log (category=supabase/edge_function) so they also surface in
 // "Errori recenti" (Blocco 2), not just in this one-off run.
 
@@ -23,15 +24,11 @@ try {
   }
 }
 
-// submit-campaign-request, ai-core, admin-grant-access: le 3 funzioni
-// principali gia' identificate. send-email-conferma resta esclusa dal ping
-// live (comportamento OPTIONS non pulito, gia' verificato in precedenza).
+// Queste funzioni non espongono un endpoint GET di health: chiamarle con GET
+// produceva volutamente 401/405/500 nella console Admin e nei log Supabase.
+// Il controllo attivo e' delegato al collector server-side, che puo' usare
+// OPTIONS senza i vincoli CORS del browser e senza eseguire logica business.
 const PINGABLE_EDGE_FUNCTIONS = ["submit-campaign-request", "ai-core", "admin-grant-access"];
-
-// Timeout esplicito: senza questo, una richiesta che si blocca (rete
-// instabile, funzione che non risponde mai) farebbe attendere il check
-// all'infinito invece di classificare la funzione come irraggiungibile.
-const EDGE_FUNCTION_PING_TIMEOUT_MS = 8000;
 
 async function timed(fn) {
   const start = (typeof performance !== "undefined" ? performance : Date).now();
@@ -85,73 +82,20 @@ async function checkGpsBackend() {
   });
 }
 
-// REACHABLE vs UNREACHABLE (diagnosi precedente): un fetch(url,{method:
-// "OPTIONS"}) dal browser non e' un preflight CORS automatico, e' una
-// richiesta reale con metodo "OPTIONS" — e nessuna delle 3 funzioni dichiara
-// Access-Control-Allow-Methods, quindi il browser la blocca PRIMA di
-// arrivare al server ("Method OPTIONS is not allowed by
-// Access-Control-Allow-Methods in preflight response"), producendo un falso
-// ERRORE anche se curl (che non applica CORS) riceve 200. GET e HEAD sono
-// invece metodi "semplici" per il CORS spec: nessun preflight del browser,
-// nessun Access-Control-Allow-Methods richiesto — bastano gli header che le
-// funzioni hanno gia' (Access-Control-Allow-Origin: *).
-//
-// Un fetch() che RESOLVE (qualunque status HTTP, incluso 401/403/405/500)
-// significa che una risposta e' stata effettivamente ricevuta dal
-// servizio: la funzione e' REACHABLE, anche se rifiuta o fallisce la
-// richiesta stessa (es. submit-campaign-request risponde 500 a un GET
-// perche' si aspetta sempre un body POST — comportamento della funzione,
-// non un segnale di infrastruttura down, e non viene modificato qui). Solo
-// un fetch() che LANCIA un'eccezione (network/DNS/CORS-block) o che supera
-// il timeout esplicito e' classificato UNREACHABLE.
-// Esportata per i test unitari (mock di fetch): la classificazione
-// REACHABLE/UNREACHABLE e' la parte critica da verificare in isolamento,
-// senza dipendere da import.meta.env.VITE_SUPABASE_URL (assente sotto
-// node:test) ne' da una vera chiamata di rete.
+// API mantenuta per compatibilita' con i consumer/test esistenti. Non esegue
+// rete dal browser: non esiste una sonda non mutante che restituisca 2xx con
+// il contratto applicativo delle tre funzioni. Il collector periodico resta
+// la fonte reale della reachability Edge.
 export async function pingEdgeFunction(name) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), EDGE_FUNCTION_PING_TIMEOUT_MS);
-  const start = (typeof performance !== "undefined" ? performance : Date).now();
-  try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, { method: "GET", signal: controller.signal });
-    const responseTimeMs = Math.round((typeof performance !== "undefined" ? performance : Date).now() - start);
-    // Il gateway Supabase risponde 404 con {"code":"NOT_FOUND"} solo quando
-    // la funzione non e' deployata con quel nome — non e' l'applicazione
-    // stessa a rispondere, quindi va classificato come irraggiungibile
-    // (vedi regola "404 function non deployata").
-    if (res.status === 404) {
-      return { name, reachable: false, status: 404, responseTimeMs, error: "Funzione non deployata (404)" };
-    }
-    // submit-campaign-request accetta solo POST con body JSON: un probe GET
-    // riceve sempre 500 dalla function stessa (non un errore infrastrutturale).
-    // Etichettato esplicitamente cosi' il report mensile non lo confonde con
-    // un guasto reale — la funzione resta REACHABLE, il probe non e' cambiato.
-    const classification = name === "submit-campaign-request" && res.status >= 500 ? "method_not_supported" : "ok";
-    return { name, reachable: true, status: res.status, responseTimeMs, classification };
-  } catch (error) {
-    const timedOut = error?.name === "AbortError";
-    return {
-      name,
-      reachable: false,
-      status: null,
-      responseTimeMs: Math.round((typeof performance !== "undefined" ? performance : Date).now() - start),
-      error: timedOut ? `Timeout dopo ${EDGE_FUNCTION_PING_TIMEOUT_MS}ms` : (error?.message || String(error)),
-    };
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  return { name, reachable: null, status: null, responseTimeMs: null, classification: "collector_only", error: null };
 }
 
 async function checkEdgeFunctions() {
-  if (!SUPABASE_URL) return { status: "error", responseTimeMs: null, error: "Supabase non configurato", checked: [] };
-  const start = (typeof performance !== "undefined" ? performance : Date).now();
   const results = await Promise.all(PINGABLE_EDGE_FUNCTIONS.map(pingEdgeFunction));
-  const responseTimeMs = Math.round((typeof performance !== "undefined" ? performance : Date).now() - start);
-  const unreachable = results.filter((r) => !r.reachable);
   return {
-    status: unreachable.length === 0 ? "ok" : unreachable.length === results.length ? "error" : "warning",
-    responseTimeMs,
-    error: unreachable.length > 0 ? `${unreachable.length}/${results.length} funzioni irraggiungibili: ${unreachable.map((f) => `${f.name} (${f.error})`).join(", ")}` : null,
+    status: "unknown",
+    responseTimeMs: null,
+    error: null,
     checked: results,
   };
 }

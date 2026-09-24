@@ -116,11 +116,13 @@ test('report mensile: sezione performance confronta col mese precedente e non ge
   assert.equal(report.sections.azioniEseguite.automaticRedActions, 0);
 });
 
-test('submit-campaign-request: 500 su GET classificato esplicitamente come method_not_supported, mai un falso critical', () => {
+test('le sonde Edge non invocano i metodi business e non generano 401/405/500 sintetici', () => {
   const src = fs.readFileSync(new URL('../supabase/functions/platform-health-collector/index.ts', import.meta.url), 'utf8');
-  assert.match(src, /submit-campaign-request.*method_not_supported/s);
+  assert.match(src, /method:\s*"OPTIONS"/);
+  assert.doesNotMatch(src, /method_not_supported|health-check-invalid-token/);
   const browserSrc = fs.readFileSync(new URL('../src/lib/monitoring/platformHealth.js', import.meta.url), 'utf8');
-  assert.match(browserSrc, /submit-campaign-request.*method_not_supported/s);
+  assert.match(browserSrc, /classification:\s*"collector_only"/);
+  assert.doesNotMatch(browserSrc, /functions\/v1\/\$\{name\}/);
 });
 
 test('UI: riepilogo manutenzione mensile deriva prossima data, stato ultimo report e warning persistenti', () => {

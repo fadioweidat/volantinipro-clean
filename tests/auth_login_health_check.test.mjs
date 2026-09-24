@@ -43,6 +43,7 @@ function jsonResponse(body, { ok = true, status = 200 } = {}) {
 }
 
 const authHealthSource = readFileSync(new URL("../src/lib/monitoring/authHealth.js", import.meta.url), "utf8");
+const validAdminSession = { accessToken: "valid-admin-session", expiresAt: Math.floor(Date.now() / 1000) + 3600 };
 
 // 1. Auth endpoint reachable => infrastructure OK
 test("1. checkAuthInfrastructure(): endpoint Auth raggiungibile (200) => status OK", async (t) => {
@@ -97,21 +98,23 @@ test("4. checkAuthContract(): sessione assente/scaduta e' sempre non valida (inv
   assert.ok(sessionCases.every((c) => c.pass));
 });
 
-// 5. cliente autenticato non-admin => mai admin
-test("5. probeAdminRoleFailsClosedLive (via checkAuthContract): un token non valido non diventa mai admin", async (t) => {
+// 5. la sonda usa la sessione Admin corrente, mai un token inventato
+test("5. checkAuthContract usa la sessione Admin valida e jwt_is_admin risponde true", async (t) => {
   withSupabaseConfig(t);
-  mockFetch(t, (url) => (url.includes("jwt_is_admin") ? jsonResponse(false) : jsonResponse({})));
-  const contract = await checkAuthContract();
+  const calls = mockFetch(t, (url) => (url.includes("jwt_is_admin") ? jsonResponse(true) : jsonResponse({})));
+  const contract = await checkAuthContract({ session: validAdminSession });
   assert.equal(contract.admin.liveProbe.status, "ok");
   assert.equal(contract.admin.status, "pass");
+  const roleCall = calls.find((call) => call.url.includes("jwt_is_admin"));
+  assert.equal(roleCall.options.headers.Authorization, "Bearer valid-admin-session");
 });
 
-test("5b. Se jwt_is_admin rispondesse true per un token inventato, la sonda lo rileva come fail-open (status error)", async (t) => {
+test("5b. jwt_is_admin false per la sessione Admin corrente viene rilevato come errore", async (t) => {
   withSupabaseConfig(t);
-  mockFetch(t, (url) => (url.includes("jwt_is_admin") ? jsonResponse(true) : jsonResponse({})));
-  const contract = await checkAuthContract();
+  mockFetch(t, (url) => (url.includes("jwt_is_admin") ? jsonResponse(false) : jsonResponse({})));
+  const contract = await checkAuthContract({ session: validAdminSession });
   assert.equal(contract.admin.liveProbe.status, "error");
-  assert.match(contract.admin.liveProbe.error, /fail-open/);
+  assert.match(contract.admin.liveProbe.error, /non ha confermato/);
   assert.equal(contract.admin.status, "fail");
 });
 
@@ -194,12 +197,11 @@ test("13. Il report tecnico (authHealth serializzato) contiene solo stringhe di 
 });
 
 // 14. token non incluso nel report
-test("14. Nessun token/bearer/JWT compare nel report ne' nel messaggio di errore della sonda live, anche quando la sonda fallisce", async (t) => {
+test("14. Nessun token/bearer compare nel report ne' nel messaggio di errore della sonda live", async (t) => {
   withSupabaseConfig(t);
-  mockFetch(t, (url) => (url.includes("jwt_is_admin") ? jsonResponse(true) : jsonResponse({})));
+  mockFetch(t, (url) => (url.includes("jwt_is_admin") ? jsonResponse(false) : jsonResponse({})));
   const { buildPlatformStatusReport } = await import("../src/lib/monitoring/platformReport.js");
-  const authHealth = await computeAuthHealth({});
-  assert.doesNotMatch(authHealth.adminContract.liveProbe.error, /health-check-invalid-token-\d+/);
+  const authHealth = await computeAuthHealth({ session: validAdminSession });
   assert.doesNotMatch(authHealth.adminContract.liveProbe.error, /bearer/i);
   const report = buildPlatformStatusReport({ authHealth });
   assert.doesNotMatch(JSON.stringify(report.authHealth), /token/i);

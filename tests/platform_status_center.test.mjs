@@ -189,83 +189,23 @@ test("RLS: la migration error_log consente INSERT pubblico limitato e SELECT/UPD
   assert.match(sql, /CONSTRAINT "error_log_message_length_check" CHECK/);
 });
 
-// ---- Fix health check Edge Functions: REACHABLE vs UNREACHABLE ----
-// pingEdgeFunction usa GET (browser-safe, nessun preflight CORS come
-// method:"OPTIONS" richiederebbe) e classifica in base a "fetch ha
-// ricevuto una risposta reale" (REACHABLE, qualunque status) vs "fetch ha
-// lanciato un'eccezione o e' scaduto il timeout" (UNREACHABLE).
-
-function withMockedFetch(impl, run) {
+// ---- Edge Functions: nessuna richiesta business usata come health probe ----
+test("il browser delega la reachability Edge al collector e non genera 401/405/500 sintetici", async () => {
   const original = global.fetch;
-  global.fetch = impl;
-  return run().finally(() => { global.fetch = original; });
-}
-
-test("submit-campaign-request: risposta 500 (crash su GET, comportamento della funzione stessa) e' comunque REACHABLE", () => withMockedFetch(
-  async () => ({ status: 500 }),
-  async () => {
-    const result = await pingEdgeFunction("submit-campaign-request");
-    assert.equal(result.reachable, true);
-    assert.equal(result.status, 500);
+  let calls = 0;
+  global.fetch = async () => { calls += 1; throw new Error("fetch non previsto"); };
+  try {
+    for (const name of ["submit-campaign-request", "ai-core", "admin-grant-access"]) {
+      const result = await pingEdgeFunction(name);
+      assert.equal(result.reachable, null);
+      assert.equal(result.status, null);
+      assert.equal(result.classification, "collector_only");
+    }
+    assert.equal(calls, 0);
+  } finally {
+    global.fetch = original;
   }
-));
-
-test("ai-core: risposta 405 (metodo non supportato) e' REACHABLE", () => withMockedFetch(
-  async () => ({ status: 405 }),
-  async () => {
-    const result = await pingEdgeFunction("ai-core");
-    assert.equal(result.reachable, true);
-    assert.equal(result.status, 405);
-  }
-));
-
-test("admin-grant-access: risposta 401 (non autenticato) e' REACHABLE", () => withMockedFetch(
-  async () => ({ status: 401 }),
-  async () => {
-    const result = await pingEdgeFunction("admin-grant-access");
-    assert.equal(result.reachable, true);
-    assert.equal(result.status, 401);
-  }
-));
-
-test("403 e' REACHABLE (risposta ricevuta dal servizio, solo autorizzazione negata)", () => withMockedFetch(
-  async () => ({ status: 403 }),
-  async () => {
-    const result = await pingEdgeFunction("admin-grant-access");
-    assert.equal(result.reachable, true);
-  }
-));
-
-test("404 (funzione non deployata sul gateway) e' UNREACHABLE", () => withMockedFetch(
-  async () => ({ status: 404 }),
-  async () => {
-    const result = await pingEdgeFunction("funzione-inesistente");
-    assert.equal(result.reachable, false);
-    assert.match(result.error, /non deployata/i);
-  }
-));
-
-test("network failure (fetch lancia un'eccezione) risulta UNREACHABLE", () => withMockedFetch(
-  async () => { throw new TypeError("Failed to fetch"); },
-  async () => {
-    const result = await pingEdgeFunction("submit-campaign-request");
-    assert.equal(result.reachable, false);
-    assert.match(result.error, /failed to fetch/i);
-  }
-));
-
-test("timeout (AbortError, es. rete che non risponde mai entro il limite) risulta UNREACHABLE con messaggio esplicito", () => withMockedFetch(
-  // Simula direttamente cio' che accade quando l'AbortController interno
-  // scatta (fetch rifiutata con un errore name="AbortError"): non serve
-  // attendere il vero timeout di produzione per verificare che il ramo di
-  // classificazione lo tratti correttamente come UNREACHABLE.
-  async () => { throw Object.assign(new Error("The operation was aborted"), { name: "AbortError" }); },
-  async () => {
-    const result = await pingEdgeFunction("submit-campaign-request");
-    assert.equal(result.reachable, false);
-    assert.match(result.error, /timeout/i);
-  }
-));
+});
 
 // ---- Sicurezza: pagina solo Admin, nessun secret nel frontend ----
 

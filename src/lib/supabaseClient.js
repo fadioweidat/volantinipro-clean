@@ -460,5 +460,14 @@ export async function submitPublicCampaign(payload) {
 }
 
 export async function adminGrantAccess(campaignId) {
-  return sdkSupabase.functions.invoke('admin-grant-access', { body: { campaignId } });
+  await ensureSupabaseSessionBridge();
+  const { data: sessionData, error: sessionError } = await sdkSupabase.auth.getSession();
+  const accessToken = sessionData?.session?.access_token;
+  if (sessionError || !accessToken) {
+    return { data: null, error: sessionError || new Error('Sessione Admin non disponibile') };
+  }
+  return sdkSupabase.functions.invoke('admin-grant-access', {
+    body: { campaignId },
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
 }

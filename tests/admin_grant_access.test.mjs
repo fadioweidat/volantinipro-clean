@@ -127,3 +127,15 @@ test('confirmCampaignPayment: promuove ad "approved" anche le campagne pending_r
   assert.match(fnBody, /existing\.status === 'draft' \|\| existing\.status === 'pending_review'/, 'submit-campaign-request crea sempre le campagne con status pending_review, mai draft: entrambe devono promuovere ad approved');
   assert.match(fnBody, /payment_status:\s*"pagato"/, 'lo schema reale non ha una colonna payment_status: deve restare dentro metadata');
 });
+
+test('adminGrantAccess ripristina la sessione SDK e usa il JWT Admin corrente prima dell\'invoke', () => {
+  const fnStart = paymentSrc.indexOf('export async function adminGrantAccess');
+  const fnEnd = paymentSrc.indexOf('\n}', fnStart);
+  const fnBody = paymentSrc.slice(fnStart, fnEnd);
+  const bridge = fnBody.indexOf('await ensureSupabaseSessionBridge();');
+  const session = fnBody.indexOf('sdkSupabase.auth.getSession()');
+  const invoke = fnBody.indexOf("sdkSupabase.functions.invoke('admin-grant-access'");
+  assert.ok(bridge >= 0 && session > bridge && invoke > session);
+  assert.match(fnBody, /Authorization:\s*`Bearer \$\{accessToken\}`/);
+  assert.doesNotMatch(fnBody, /health-check-invalid-token|SUPABASE_SERVICE_ROLE_KEY/);
+});

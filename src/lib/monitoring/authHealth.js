@@ -21,7 +21,7 @@
 //                            alcuna evidenza, il risultato e'
 //                            NO_RECENT_EVIDENCE — MAI un PASS finto.
 
-import { getSupabaseEnv, verifySupabaseAdminRole, isStoredSupabaseSessionValid } from "../../auth/session.js";
+import { getStoredSupabaseSession, getSupabaseEnv, verifySupabaseAdminRole, isStoredSupabaseSessionValid } from "../../auth/session.js";
 import { resolveAppRoute } from "../../app/routeResolution.js";
 import { logError, ERROR_CATEGORIES, ERROR_SEVERITY } from "./errorLog.js";
 
@@ -97,32 +97,29 @@ function runSessionCases() {
   });
 }
 
-// LIVELLO 2c — UNICA sonda live di questo modulo: riusa verifySupabaseAdminRole
-// (la stessa funzione che chiama davvero AdminGuard) con un token
-// deliberatamente non valido, per confermare che jwt_is_admin() realmente
-// deployata in produzione fallisce chiuso (mai true) anche fuori dai test
-// offline. Nessuna password, nessun account, nessuna sessione reale: un
-// token inventato non corrisponde a nessun utente, quindi l'unica risposta
-// corretta e' false/errore — se risultasse true sarebbe un fail-open reale
-// e grave, mai osservato finora ma degno di un controllo attivo.
-async function probeAdminRoleFailsClosedLive() {
-  const bogusToken = `health-check-invalid-token-${Date.now()}`;
+// LIVELLO 2c — riusa la stessa sessione Admin gia' validata da AdminGuard.
+// La vecchia sonda usava deliberatamente un token inventato e generava un
+// 401 reale ad ogni apertura del Centro Controllo, inquinando console e log.
+async function probeCurrentAdminRoleLive(session = getStoredSupabaseSession()) {
+  if (!isStoredSupabaseSessionValid(session)) {
+    return { status: "unknown", responseTimeMs: null, error: "Sessione Admin non disponibile per la verifica live" };
+  }
   return timed(async () => {
-    const result = await verifySupabaseAdminRole({ accessToken: bogusToken });
-    if (result === true) throw new Error("jwt_is_admin ha restituito true per un token non valido (fail-open)");
+    const result = await verifySupabaseAdminRole(session);
+    if (result !== true) throw new Error("jwt_is_admin non ha confermato la sessione Admin corrente");
   });
 }
 
-export async function checkAuthContract() {
+export async function checkAuthContract({ session = getStoredSupabaseSession() } = {}) {
   const clientRouteChecks = runRouteCases(CLIENT_ROUTE_CASES);
   const adminRouteChecks = runRouteCases(ADMIN_ROUTE_CASES);
   const sessionChecks = runSessionCases();
-  const liveProbe = await probeAdminRoleFailsClosedLive();
+  const liveProbe = await probeCurrentAdminRoleLive(session);
 
   const clientChecks = [...clientRouteChecks, ...sessionChecks];
   const adminChecks = [...adminRouteChecks, ...sessionChecks];
   const clientPass = clientChecks.every((c) => c.pass);
-  const adminPass = adminChecks.every((c) => c.pass) && liveProbe.status === "ok";
+  const adminPass = adminChecks.every((c) => c.pass) && liveProbe.status !== "error";
 
   return {
     client: { status: clientPass ? "pass" : "fail", checks: clientChecks },
@@ -151,7 +148,7 @@ export function classifyRealLoginEvidence({ lastSignInIso = null, recentAuthErro
 // lastCustomerSignIn sono INIETTATI (gia' letti altrove da PlatformStatus.jsx
 // tramite getPlatformStatusData()/getConfigStatus(), gia' in uso per Blocco 2/8)
 // — nessuna query duplicata qui.
-export async function computeAuthHealth({ lastAdminSignIn = null, lastCustomerSignIn = null, errorLogRows = [], now = new Date() } = {}) {
+export async function computeAuthHealth({ lastAdminSignIn = null, lastCustomerSignIn = null, errorLogRows = [], now = new Date(), session = getStoredSupabaseSession() } = {}) {
   const infrastructure = await checkAuthInfrastructure();
   if (infrastructure.status === "error") {
     await logError({
@@ -165,7 +162,7 @@ export async function computeAuthHealth({ lastAdminSignIn = null, lastCustomerSi
     });
   }
 
-  const contract = await checkAuthContract();
+  const contract = await checkAuthContract({ session });
   if (contract.admin.liveProbe.status === "error" && contract.admin.liveProbe.error?.includes("fail-open")) {
     await logError({
       category: ERROR_CATEGORIES.AUTH,

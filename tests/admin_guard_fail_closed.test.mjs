@@ -235,9 +235,11 @@ test("7. Contratto sorgente: 'admin' viene assegnato SOLO dentro il ternario pos
 test("8. authHealth.checkAuthContract() continua a funzionare correttamente insieme ad AdminGuard nello stesso processo", async (t) => {
   withSupabaseConfig(t);
   const { checkAuthContract } = await import("../src/lib/monitoring/authHealth.js");
-  const fetchMock = mockFetchOnce(async (url) => (String(url).includes("jwt_is_admin") ? { ok: true, json: async () => false } : { ok: true, json: async () => ({}) }));
+  const fetchMock = mockFetchOnce(async (url) => (String(url).includes("jwt_is_admin") ? { ok: true, json: async () => true } : { ok: true, json: async () => ({}) }));
   try {
-    const contract = await checkAuthContract();
+    const contract = await checkAuthContract({
+      session: { accessToken: "valid-admin-session", expiresAt: Math.floor(Date.now() / 1000) + 3600 },
+    });
     assert.equal(contract.admin.status, "pass");
     assert.equal(contract.client.status, "pass");
   } finally {
