@@ -173,19 +173,18 @@ function maintenanceResult(checkName: string, checkGroup: string, result: any) {
 // (fetch diretto all'RPC, senza il client SDK autenticato) — stesso esito
 // atteso, stessa assenza di password/account reali.
 async function probeAdminRoleFailsClosed(url: string, anonKey: string) {
-  const bogusToken = `health-check-invalid-token-${Date.now()}`;
+  // Usa il JWT anon valido: deve restituire false, senza generare un 401
+  // intenzionale ad ogni ciclo del collector.
   return timed(async (signal) => {
     const res = await fetch(`${url}/rest/v1/rpc/jwt_is_admin`, {
       method: "POST",
-      headers: { apikey: anonKey, Authorization: `Bearer ${bogusToken}`, "Content-Type": "application/json" },
+      headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, "Content-Type": "application/json" },
       body: "{}",
       signal,
     });
-    if (res.ok) {
-      const result = await res.json();
-      if (result === true) throw new Error("jwt_is_admin ha restituito true per un token non valido (fail-open)");
-    }
-    // non-ok (401/403/ecc.) e' l'esito atteso per un token inventato: OK.
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const result = await res.json();
+    if (result === true) throw new Error("jwt_is_admin ha restituito true per il ruolo anon (fail-open)");
   });
 }
 
@@ -194,15 +193,13 @@ async function pingEdgeFunction(url: string, anonKey: string, name: string) {
   const timeoutId = setTimeout(() => controller.abort(), EDGE_FUNCTION_PING_TIMEOUT_MS);
   const start = Date.now();
   try {
-    const res = await fetch(`${url}/functions/v1/${name}`, { method: "GET", headers: { apikey: anonKey }, signal: controller.signal });
+    const res = await fetch(`${url}/functions/v1/${name}`, { method: "OPTIONS", headers: { apikey: anonKey }, signal: controller.signal });
     const responseTimeMs = Date.now() - start;
     if (res.status === 404) return { reachable: false, responseTimeMs, error: "Funzione non deployata (404)" };
-    // submit-campaign-request accetta solo POST: un GET riceve sempre 500
-    // dalla function stessa, non un segnale di infrastruttura down — resta
-    // REACHABLE, solo etichettata esplicitamente (stessa logica lato browser
-    // in src/lib/monitoring/platformHealth.js, duplicazione deliberata).
-    const classification = name === "submit-campaign-request" && res.status >= 500 ? "method_not_supported" : "ok";
-    return { reachable: true, responseTimeMs, error: null as string | null, classification };
+    // Probe side-effect-free: tutte le funzioni target gestiscono OPTIONS.
+    // Evita di chiamare la logica business con GET e quindi evita 401/405/500 artificiali.
+    if (!res.ok) return { reachable: false, responseTimeMs, error: `HTTP ${res.status}` };
+    return { reachable: true, responseTimeMs, error: null as string | null, classification: "ok" };
   } catch (err: any) {
     const timedOut = err?.name === "AbortError";
     return { reachable: false, responseTimeMs: Date.now() - start, error: timedOut ? `Timeout dopo ${EDGE_FUNCTION_PING_TIMEOUT_MS}ms` : sanitizeMessage(err?.message || String(err)) };
