@@ -260,8 +260,10 @@ export function GpsMonitor({ campaignId, onNav }) {
   // revocate). Arricchita con la presenza GPS = driver_id tra le sessioni
   // trackabili. operatorId stabile; colore SEMPRE da
   // getOperatorColor(operatorId||assignmentId) — mai da indice/etichetta.
-  // Lista CANONICA degli operatori della campagna (ticket §2 — max 5 slot OP-01..OP-05).
-  // Fonte primaria: le assegnazioni reali (admin_list_campaign_assignments, attive/non revocate).
+  // Lista CANONICA degli operatori della campagna.
+  // Fonte primaria: TUTTE le assegnazioni reali attive/non revocate.
+  // Nessun limite UI hardcoded: il caposquadra non consuma uno "slot OP" e
+  // i partecipanti mantengono la loro label persistente (OP 1, OP 2, ...).
   const gpsDriverIds = useMemo(
     () => new Set((state.sessionTracks || []).map((t) => t.session?.driver_id).filter(Boolean)),
     [state.sessionTracks],
@@ -269,42 +271,55 @@ export function GpsMonitor({ campaignId, onNav }) {
   const canonicalOperators = useMemo(() => {
     const out = [];
     const seen = new Set();
+    let anonymousOpIndex = 0;
+
     for (const o of campaignOperators) {
       const key = o.operatorId || o.assignmentId;
       if (!key || seen.has(key)) continue;
       seen.add(key);
-      const slot = operatorKeyFor('OP', out.length);
+
+      const persistedOpLabel = typeof o.name === 'string' && /^OP\\s*\\d+$/i.test(o.name.trim())
+        ? o.name.trim().replace(/^OP\\s*/i, 'OP ')
+        : null;
+      const isPrimaryAssignment = !persistedOpLabel && !o.operatorId;
+      const slot = isPrimaryAssignment
+        ? 'CAPOSQUADRA'
+        : (persistedOpLabel || operatorKeyFor('OP', anonymousOpIndex++));
+
       out.push({
         slot,
         operatorId: o.operatorId || null,
         assignmentId: o.assignmentId || null,
         colorKey: String(key),
-        displayName: o.name || `Operatore ${shortOperatorId(key)}`,
+        displayName: isPrimaryAssignment
+          ? 'Caposquadra'
+          : (o.name || slot || `Operatore ${shortOperatorId(key)}`),
         color: getOperatorColor(key),
         assigned: true,
         hasGps: gpsDriverIds.has(o.operatorId || o.assignmentId),
+        isPrimaryAssignment,
       });
-      if (out.length >= 5) break;
     }
-    // GPS driver senza assegnazione corrispondente (assegnazione revocata ma sessione storica)
-    if (out.length < 5) {
-      for (const id of gpsDriverIds) {
-        if (seen.has(id)) continue;
-        seen.add(id);
-        const slot = operatorKeyFor('OP', out.length);
-        out.push({
-          slot,
-          operatorId: id,
-          assignmentId: null,
-          colorKey: String(id),
-          displayName: `Operatore ${shortOperatorId(id)}`,
-          color: getOperatorColor(id),
-          assigned: false,
-          hasGps: true,
-        });
-        if (out.length >= 5) break;
-      }
+
+    // Sessioni GPS storiche/legacy senza assegnazione canonica: non vanno
+    // nascoste, ma nemmeno devono alterare la numerazione degli OP reali.
+    for (const id of gpsDriverIds) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const slot = `GPS ${shortOperatorId(id)}`;
+      out.push({
+        slot,
+        operatorId: id,
+        assignmentId: null,
+        colorKey: String(id),
+        displayName: `Operatore ${shortOperatorId(id)}`,
+        color: getOperatorColor(id),
+        assigned: false,
+        hasGps: true,
+        isPrimaryAssignment: false,
+      });
     }
+
     return out;
   }, [campaignOperators, gpsDriverIds]);
   // "OPERATORI: N" = operatori realmente ASSEGNATI (mai il numero di sessioni GPS).
@@ -657,7 +672,9 @@ export function GpsMonitor({ campaignId, onNav }) {
               {canonicalOperators.map((op, idx) => {
                 const opKey = op.operatorId || op.assignmentId || op.colorKey;
                 const isSelected = selectedOperatorFilter === opKey;
-                const label = `${operatorKeyFor('OP', idx)}${op.displayName && !op.displayName.startsWith('Operatore') ? ` · ${op.displayName}` : ''}`;
+                const label = op.isPrimaryAssignment
+                  ? 'Caposquadra'
+                  : (op.displayName && op.displayName !== op.slot ? `${op.slot} · ${op.displayName}` : (op.displayName || op.slot));
                 return (
                   <button
                     key={op.colorKey}
@@ -1086,9 +1103,9 @@ export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperator
     <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
         <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.08em', color: 'rgba(255,255,255,.6)', fontWeight: 900 }}>
-          OPERATORI CAMPAGNA ({assignedOperatorCount}/5){operatorsWithGpsCount > 0 ? ` · CON GPS: ${operatorsWithGpsCount}` : ''}
+          OPERATORI CAMPAGNA ({assignedOperatorCount}){operatorsWithGpsCount > 0 ? ` · CON GPS: ${operatorsWithGpsCount}` : ''}
         </div>
-        {assignedOperatorCount < 5 && onNav && (
+        {onNav && (
           <button
             type="button"
             onClick={() => onNav('/admin/clienti-preventivi')}
@@ -1108,13 +1125,7 @@ export function GpsMonitorOperatorsPanel({ sessionTracks = [], canonicalOperator
         )}
       </div>
 
-      {totalAssignedOperators > 5 && (
-        <div style={{ padding: '6px 10px', borderRadius: 8, background: 'rgba(251,191,36,.12)', border: '1px solid rgba(251,191,36,.3)', color: '#fbbf24', fontSize: 11 }}>
-          Presenti {totalAssignedOperators} operatori assegnati nel database. Il monitor rapido mostra i primi 5 slot (OP-01..OP-05); tutti i dati e sessioni GPS restano preservati integralmente.
-        </div>
-      )}
-
-      {/* OPERATORI CAMPAGNA — slot card reali (OP-01..OP-05) */}
+      {/* OPERATORI CAMPAGNA — tutte le assegnazioni reali, senza limite di slot */}
       {canonicalOperators.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
           {canonicalOperators.map((op) => {
