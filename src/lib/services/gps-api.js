@@ -672,14 +672,15 @@ export async function getDriverGroupTracking(assignmentId, accessToken) {
     const points = Array.isArray(data?.points) ? data.points : [];
     const bySession = groupGpsPointsBySession(points);
     const tracks = sessions.map((s, index) => {
-      const raw = bySession.get(s.id) || [];
+      const raw = s.id ? (bySession.get(s.id) || []) : [];
       const { valid } = filterValidGpsPoints(raw);
       return {
-        sessionId: s.id,
-        status: s.status,
-        startedAt: s.started_at,
-        pausedAt: s.paused_at,
-        endedAt: s.ended_at,
+        sessionId: s.id || null,
+        assignmentId: s.assignment_id || null,
+        status: s.status || 'not_started',
+        startedAt: s.started_at || null,
+        pausedAt: s.paused_at || null,
+        endedAt: s.ended_at || null,
         isSelf: Boolean(s.is_self),
         // Etichetta UI: mai UUID. "Tu" per la propria sessione, "Operatore N"
         // per gli altri (o l'alias di gruppo se gia' fornito safe dalla RPC).

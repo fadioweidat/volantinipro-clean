@@ -823,6 +823,13 @@ function DriverGroupLinkSection({ assignmentId, accessToken }) {
     }
   };
 
+  useEffect(() => {
+    if (assignmentId && accessToken) {
+      request();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignmentId, accessToken]);
+
   if (state === 'hidden') return null;
 
   const copy = async () => {
@@ -845,11 +852,88 @@ function DriverGroupLinkSection({ assignmentId, accessToken }) {
           <button type="button" style={secondaryButtonStyle} onClick={request}>Ottieni link per operatore</button>
         </>
       )}
-      {state === 'loading' && <div style={{ fontSize: 12, color: 'rgba(255,255,255,.4)' }}>Generazione link…</div>}
+      {state === 'loading' && <div style={{ fontSize: 12, color: 'rgba(255,255,255,.4)' }}>Caricamento link operatore…</div>}
       {state === 'ready' && link && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <input readOnly value={link} onFocus={(e) => e.target.select()} style={{ flex: '1 1 220px', minWidth: 0, padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,.18)', background: 'rgba(0,0,0,.25)', color: '#fff', fontSize: 12 }} />
-          <button type="button" style={secondaryButtonStyle} onClick={copy}>{copied ? 'Copiato!' : 'Copia'}</button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              readOnly
+              value={link}
+              onFocus={(e) => e.target.select()}
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '10px 12px',
+                borderRadius: 10,
+                border: '1px solid rgba(255,255,255,.18)',
+                background: 'rgba(0,0,0,.3)',
+                color: '#e2e8f0',
+                fontSize: 12.5,
+                fontFamily: 'monospace',
+              }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <a
+              href={link}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                flex: '1 1 200px',
+                minHeight: 52,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: '0 20px',
+                borderRadius: 14,
+                background: '#2ECC8A',
+                color: '#071426',
+                fontWeight: 900,
+                fontSize: 15,
+                textDecoration: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 10px 24px rgba(46,204,138,.24)',
+                textAlign: 'center',
+                boxSizing: 'border-box',
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+              Apri link operatore
+            </a>
+            <button
+              type="button"
+              onClick={copy}
+              style={{
+                flex: '1 1 140px',
+                minHeight: 52,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: '0 18px',
+                borderRadius: 14,
+                border: '1px solid rgba(255,255,255,.16)',
+                background: copied ? 'rgba(46,204,138,.15)' : 'rgba(255,255,255,.07)',
+                color: copied ? '#86EFAC' : '#fff',
+                fontWeight: 800,
+                fontSize: 14.5,
+                cursor: 'pointer',
+                boxSizing: 'border-box',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+              {copied ? 'Copiato!' : 'Copia link'}
+            </button>
+          </div>
         </div>
       )}
       {state === 'unavailable' && !recoverable && (

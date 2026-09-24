@@ -1,6 +1,6 @@
 import 'leaflet/dist/leaflet.css';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CircleMarker, GeoJSON, MapContainer, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet';
+import { CircleMarker, GeoJSON, MapContainer, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { useGpsTracking } from '../../hooks/useGpsTracking.js';
 import { useDriverAssignment } from '../../hooks/useDriverAssignment.js';
@@ -18,7 +18,7 @@ const GROUP_TRACKS_REFRESH_MS = 20000;
 // Colori tracce compagni di gruppo: token del design system esistente.
 // La PROPRIA traccia resta blu (#2563eb, gia' usata sotto).
 const GROUP_TRACK_COLORS = [C.orange, C.purple, C.green, C.teal, C.yellow];
-const GROUP_STATUS_LABEL = { started: 'In corso', paused: 'In pausa', completed: 'Terminato' };
+const GROUP_STATUS_LABEL = { started: 'In corso', paused: 'In pausa', completed: 'Terminato', not_started: 'non ancora avviato' };
 
 // ─── DriverWorkMapPage ────────────────────────────────────────────────────────
 // /driver/assignment/{assignmentId}/map — mappa grande dedicata, separata da
@@ -324,7 +324,9 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
   // Una polilinea PER SESSIONE compagno (mai un array unico). validPoints
   // gia' filtrato per sessione lato helper -> nessun segmento cross-driver.
   const groupLines = useMemo(() => groupOthers.map((track, index) => ({
-    sessionId: track.sessionId,
+    sessionId: track.sessionId || `pending-participant-${track.assignmentId || index}`,
+    assignmentId: track.assignmentId,
+    status: track.status,
     color: GROUP_TRACK_COLORS[index % GROUP_TRACK_COLORS.length],
     label: track.label || `Operatore ${index + 1}`,
     statusLabel: GROUP_STATUS_LABEL[track.status] || track.status || '',
@@ -497,50 +499,54 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
                 <Tooltip direction="top" offset={[0, -8]}>{zoneLabel || 'Zona attiva'}</Tooltip>
               </CircleMarker>
             )}
-            {/* PUNTI GPS COMPAGNI DI GRUPPO: polilinea + singoli dots per sessione */}
-            {groupLines.map((g) => (
-              <React.Fragment key={g.sessionId}>
-                {g.latlngs.length >= 2 && (
-                  <Polyline
-                    positions={g.latlngs}
-                    pathOptions={{ color: g.color, weight: 3, opacity: 0.75 }}
-                  />
-                )}
-                {g.latlngs.map((pos, idx) => (
-                  <CircleMarker
-                    key={`group-dot-${g.sessionId}-${idx}`}
-                    center={pos}
-                    radius={3}
-                    pathOptions={{ color: g.color, fillColor: g.color, fillOpacity: 0.65, weight: 1 }}
-                  />
-                ))}
-                {g.lastPoint && (
-                  <CircleMarker center={[Number(g.lastPoint.lat), Number(g.lastPoint.lng)]} radius={6} pathOptions={{ color: g.color, fillColor: g.color, fillOpacity: 0.9, weight: 2 }}>
-                    <Tooltip direction="top" offset={[0, -8]}>{g.label}{g.statusLabel ? ` · ${g.statusLabel}` : ''}</Tooltip>
-                  </CircleMarker>
-                )}
-              </React.Fragment>
-            ))}
-            {/* PUNTI GPS PROPRI: polilinea del percorso + singoli dots registrati */}
-            {trackPath.length >= 2 && (
-              <Polyline
-                positions={trackPath}
-                pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.85 }}
-              />
-            )}
+            {/* PUNTI GPS COMPAGNI DI GRUPPO: singoli dots per sessione + ultimo punto evidenziato (ZERO polilinee) */}
+            {groupLines.map((g) => {
+              const histLatLngs = g.lastPoint && g.latlngs.length > 1 ? g.latlngs.slice(0, -1) : g.latlngs;
+              return (
+                <React.Fragment key={g.sessionId}>
+                  {histLatLngs.map((pos, idx) => (
+                    <CircleMarker
+                      key={`group-dot-${g.sessionId}-${idx}`}
+                      center={pos}
+                      radius={3}
+                      pathOptions={{ color: g.color, fillColor: g.color, fillOpacity: 0.55, weight: 1 }}
+                    />
+                  ))}
+                  {g.lastPoint && (
+                    <CircleMarker center={[Number(g.lastPoint.lat), Number(g.lastPoint.lng)]} radius={6.5} pathOptions={{ color: g.color, fillColor: g.color, fillOpacity: 0.95, weight: 2 }}>
+                      <Tooltip permanent direction="top" offset={[0, -8]}>{g.label}{g.statusLabel ? ` · ${g.statusLabel}` : ''}</Tooltip>
+                    </CircleMarker>
+                  )}
+                </React.Fragment>
+              );
+            })}
+            {/* PUNTI GPS PROPRI: singoli dots registrati, piccoli e semi-trasparenti (ZERO polilinee) */}
             {trackPath.map((pos, idx) => (
               <CircleMarker
                 key={`own-dot-${idx}`}
                 center={pos}
-                radius={3.5}
-                pathOptions={{ color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.8, weight: 1 }}
+                radius={3}
+                pathOptions={{ color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 0.55, weight: 1 }}
               />
             ))}
-            {hasPosition && (
-              <CircleMarker center={[lat, lng]} radius={9} pathOptions={{ color: '#1d4ed8', fillColor: '#3b82f6', fillOpacity: 0.95, weight: 2 }}>
+            {/* Ultimo punto registrato proprio (evidenziato quando la posizione live è attiva) */}
+            {hasPosition && trackPath.length > 0 && (
+              <CircleMarker
+                center={trackPath[trackPath.length - 1]}
+                radius={6}
+                pathOptions={{ color: '#1d4ed8', fillColor: '#2563eb', fillOpacity: 0.9, weight: 2 }}
+              />
+            )}
+            {/* Posizione live corrente / ultimo punto con tooltip permanente ("Tu sei qui") */}
+            {hasPosition ? (
+              <CircleMarker center={[lat, lng]} radius={8.5} pathOptions={{ color: '#1e40af', fillColor: '#60a5fa', fillOpacity: 0.95, weight: 2.5 }}>
                 <Tooltip permanent direction="top" offset={[0, -8]}>Tu sei qui</Tooltip>
               </CircleMarker>
-            )}
+            ) : trackPath.length > 0 ? (
+              <CircleMarker center={trackPath[trackPath.length - 1]} radius={8.5} pathOptions={{ color: '#1e40af', fillColor: '#60a5fa', fillOpacity: 0.95, weight: 2.5 }}>
+                <Tooltip permanent direction="top" offset={[0, -8]}>Tu sei qui</Tooltip>
+              </CircleMarker>
+            ) : null}
             <FlyToPosition position={flyToMe} />
           </MapContainer>
         </DriverMapErrorBoundary>
@@ -549,21 +555,39 @@ function WorkMap({ assignmentId, campaignId, assignmentData, campaignRecord, ass
           <button type="button" style={mapControlBtnStyle} disabled={!hasPosition} onClick={() => setFlyToMe({ lat, lng, ts: Date.now() })}>La mia posizione</button>
           <button type="button" style={mapControlBtnStyle} disabled={!boundary} onClick={() => setFitToArea((n) => n + 1)}>Torna all'area</button>
         </div>
+      </div>
 
-        {groupLines.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, padding: '8px 12px', fontSize: 12, color: '#334155' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 14, height: 3, background: '#2563eb', display: 'inline-block' }} /> Tu
+      {groupLines.length > 0 && (
+        <div style={{
+          margin: '0 16px 16px',
+          padding: '12px 14px',
+          background: '#111c30',
+          border: '1px solid #1f2c45',
+          borderRadius: 12,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+            Operatori del gruppo ({groupLines.length + 1})
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 13 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, color: '#fff' }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#2563eb', display: 'inline-block' }} /> Tu
             </span>
             {groupLines.map((g) => (
-              <span key={g.sessionId} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 14, height: 3, background: g.color, display: 'inline-block' }} />
-                {g.label}{g.statusLabel ? ` · ${g.statusLabel}` : ''}
+              <span key={g.sessionId} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600, color: g.status === 'not_started' ? '#94a3b8' : '#e2e8f0' }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: g.color, display: 'inline-block', opacity: g.status === 'not_started' ? 0.4 : 1 }} />
+                {g.status === 'not_started' ? (
+                  <span>{g.label} — non ancora avviato</span>
+                ) : (
+                  <span>{g.label}{g.statusLabel ? ` · ${g.statusLabel}` : ''}</span>
+                )}
               </span>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </main>
   );
 }
