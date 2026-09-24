@@ -61,7 +61,6 @@ export function ZoneCoverageMap({
   // sola comunica gia' il percorso). Nascosti di default, dietro un toggle
   // esplicito — stesso pattern gia' validato in CoverageAdjustmentPanel.jsx
   // ("Mostra ogni punto GPS dettagliato").
-  const [showGpsPoints, setShowGpsPoints] = useState(false);
 
   // Fase 1: punto di partenza. Default "Centro comune".
   const [originMode, setOriginMode] = useState('center');
@@ -229,13 +228,10 @@ export function ZoneCoverageMap({
             />
           )}
 
-          {path.length > 1 && (
-            <Polyline positions={path} pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.85 }} />
-          )}
-          {/* P1: punti GPS reali nascosti di default (rumore visivo, la linea
-              sopra comunica gia' il percorso) — mostrati solo su richiesta. */}
-          {showGpsPoints && path.map((p, i) => (
-            <CircleMarker key={i} center={p} radius={2} pathOptions={{ color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.6 }} />
+          {/* GPS REALE = punti soltanto. Le Polyline qui sotto sono riservate
+              esclusivamente alle simulazioni Admin NON-GPS. */}
+          {path.map((p, i) => (
+            <CircleMarker key={`gps-real-${i}`} center={p} radius={2.5} pathOptions={{ color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.65, weight: 1 }} />
           ))}
 
           {/* P1: ogni operatore Admin automatico in un colore distinto
@@ -290,12 +286,6 @@ export function ZoneCoverageMap({
         <p style={{ margin: '4px 0 0', fontSize: 11, color: 'rgba(255,255,255,.45)', fontStyle: 'italic' }}>
           Copertura/tracce Admin automatiche — simulazione su vie reali, NON GPS.
         </p>
-      )}
-      {path.length > 0 && (
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 11, color: 'rgba(255,255,255,.5)' }}>
-          <input type="checkbox" checked={showGpsPoints} onChange={(e) => setShowGpsPoints(e.target.checked)} />
-          Mostra ogni punto GPS reale (dettaglio)
-        </label>
       )}
       {roadState.loading && (
         <p style={{ margin: '6px 0 0', fontSize: 12, color: 'rgba(255,255,255,.5)' }}>Caricamento vie...</p>
