@@ -125,12 +125,24 @@ function DriverNativeHome({ onNavigate }) {
 
   const pasteAndOpen = async () => {
     try {
-      const clipboardText = await navigator.clipboard.readText();
-      setValue(clipboardText || "");
+      let clipboardText = "";
+
+      // Nell'APK Android usa il plugin nativo: navigator.clipboard.readText()
+      // dentro WebView puo' essere bloccato/non supportato e su Samsung
+      // mostrava il menu "Gestire app" invece di incollare.
+      if (isNativeDriverApp()) {
+        const { Clipboard } = await import("@capacitor/clipboard");
+        const result = await Clipboard.read();
+        clipboardText = String(result?.value || "").trim();
+      } else if (navigator.clipboard?.readText) {
+        clipboardText = String(await navigator.clipboard.readText() || "").trim();
+      }
+
+      setValue(clipboardText);
       if (clipboardText) openRoute(clipboardText);
-      else setMessage("Nessun link trovato negli appunti.");
+      else setMessage("Nessun link Driver trovato negli appunti.");
     } catch {
-      setMessage("Incolla il link nel campo qui sotto.");
+      setMessage("Non riesco a leggere gli appunti. Apri il link Driver direttamente da WhatsApp.");
     }
   };
 

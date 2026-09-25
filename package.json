@@ -49,7 +49,8 @@
     "@capacitor/core": "^7.0.0",
     "@capacitor-community/background-geolocation": "^1.2.26",
     "@capacitor/ios": "^7.0.0",
-    "@capacitor/app": "^7.0.0"
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/clipboard": "^7.0.0"
   },
   "devDependencies": {
     "pg": "^8.22.0",
