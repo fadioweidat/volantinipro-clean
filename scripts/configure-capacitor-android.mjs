@@ -27,5 +27,25 @@ for (const permission of permissions) {
   );
 }
 
+
+const driverDeepLinkFilter = `
+            <!-- VolantiniPro Driver deep links: WhatsApp/browser -> APK -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="www.volantinipro.it" android:pathPrefix="/driver/" />
+                <data android:scheme="https" android:host="volantinipro.it" android:pathPrefix="/driver/" />
+            </intent-filter>`;
+
+if (!xml.includes('android:host="www.volantinipro.it"')) {
+  const activityClose = xml.indexOf('</activity>');
+  if (activityClose === -1) {
+    console.error('Activity Android non trovata: impossibile configurare i deep link Driver.');
+    process.exit(1);
+  }
+  xml = xml.slice(0, activityClose) + driverDeepLinkFilter + '\n        ' + xml.slice(activityClose);
+}
+
 fs.writeFileSync(manifestPath, xml);
-console.log('Permessi Android background GPS applicati:', manifestPath);
+console.log('Permessi Android background GPS + deep link Driver applicati:', manifestPath);

@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useEffect, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { createRoot } from "react-dom/client";
 import { RouteLoadingFallback } from "./layouts/public/RouteLoadingFallback.jsx";
 import { RouteErrorBoundary } from "./bootstrap/RouteErrorBoundary.jsx";
@@ -81,11 +82,9 @@ const DRIVER_ROUTE_RE = /^\/driver\/(?:assignment\/[^/]+(?:\/map)?|group\/[^/]+|
 function isNativeDriverApp() {
   if (typeof window === "undefined") return false;
   try {
-    const cap = window.Capacitor;
-    if (!cap) return false;
-    if (typeof cap.isNativePlatform === "function") return cap.isNativePlatform();
-    if (typeof cap.getPlatform === "function") return cap.getPlatform() !== "web";
-    return Boolean(cap.isNative);
+    if (typeof Capacitor?.isNativePlatform === "function") return Capacitor.isNativePlatform();
+    if (typeof Capacitor?.getPlatform === "function") return Capacitor.getPlatform() !== "web";
+    return false;
   } catch {
     return false;
   }
@@ -94,7 +93,10 @@ function isNativeDriverApp() {
 function normalizeDriverRoute(value) {
   if (!value || typeof value !== "string") return null;
   try {
-    const url = new URL(value.trim(), "https://www.volantinipro.it");
+    const raw = value.trim();
+    const isAbsolute = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw);
+    const url = new URL(raw, "https://www.volantinipro.it");
+    if (isAbsolute && !["www.volantinipro.it", "volantinipro.it"].includes(url.hostname.toLowerCase())) return null;
     if (!DRIVER_ROUTE_RE.test(url.pathname)) return null;
     return `${url.pathname}${url.search}${url.hash}`;
   } catch {
@@ -208,6 +210,50 @@ function Root() {
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
+
+  // Android deep link: toccando da WhatsApp un URL
+  // https://www.volantinipro.it/driver/... l'APK apre direttamente quel
+  // lavoro, senza copia/incolla. Gestisce sia cold start sia app gia' aperta.
+  useEffect(() => {
+    if (!nativeDriverApp) return undefined;
+
+    let cancelled = false;
+    let removeListener = null;
+
+    const openNativeDriverUrl = (rawUrl) => {
+      const route = normalizeDriverRoute(rawUrl);
+      if (!route || cancelled) return;
+      try {
+        window.localStorage.setItem(DRIVER_LAST_ROUTE_KEY, route);
+      } catch {}
+      window.history.replaceState({}, "", route);
+      setPath(new URL(route, window.location.origin).pathname);
+    };
+
+    import("@capacitor/app")
+      .then(async ({ App }) => {
+        const launch = await App.getLaunchUrl().catch(() => null);
+        if (launch?.url) openNativeDriverUrl(launch.url);
+
+        const handle = await App.addListener("appUrlOpen", ({ url }) => {
+          openNativeDriverUrl(url);
+        });
+        if (cancelled) {
+          await handle.remove();
+        } else {
+          removeListener = () => handle.remove();
+        }
+      })
+      .catch(() => {
+        // L'app resta utilizzabile con la schermata Driver manuale anche se
+        // il plugin nativo non fosse disponibile in una build vecchia.
+      });
+
+    return () => {
+      cancelled = true;
+      removeListener?.();
+    };
+  }, [nativeDriverApp]);
 
   useEffect(() => {
     if (!nativeDriverApp) return;
