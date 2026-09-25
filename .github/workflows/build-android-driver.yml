@@ -1,4 +1,5 @@
 name: Build Android Driver APK
+# trigger-ready
 
 on:
   workflow_dispatch:
