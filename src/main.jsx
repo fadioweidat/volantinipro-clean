@@ -105,7 +105,6 @@ function normalizeDriverRoute(value) {
 }
 
 function DriverNativeHome({ onNavigate }) {
-  const [value, setValue] = useState("");
   const [message, setMessage] = useState("");
   const lastRoute = normalizeDriverRoute(
     typeof window !== "undefined" ? window.localStorage.getItem(DRIVER_LAST_ROUTE_KEY) : null,
@@ -114,36 +113,13 @@ function DriverNativeHome({ onNavigate }) {
   const openRoute = (candidate) => {
     const route = normalizeDriverRoute(candidate);
     if (!route) {
-      setMessage("Link Driver non valido. Incolla il link ricevuto da VolantiniPro.");
+      setMessage("Nessun lavoro ancora collegato a questo telefono. Apri una volta il link Driver ricevuto su WhatsApp.");
       return;
     }
     setMessage("");
     window.history.replaceState({}, "", route);
     window.localStorage.setItem(DRIVER_LAST_ROUTE_KEY, route);
     onNavigate(new URL(route, window.location.origin).pathname);
-  };
-
-  const pasteAndOpen = async () => {
-    try {
-      let clipboardText = "";
-
-      // Nell'APK Android usa il plugin nativo: navigator.clipboard.readText()
-      // dentro WebView puo' essere bloccato/non supportato e su Samsung
-      // mostrava il menu "Gestire app" invece di incollare.
-      if (isNativeDriverApp()) {
-        const { Clipboard } = await import("@capacitor/clipboard");
-        const result = await Clipboard.read();
-        clipboardText = String(result?.value || "").trim();
-      } else if (navigator.clipboard?.readText) {
-        clipboardText = String(await navigator.clipboard.readText() || "").trim();
-      }
-
-      setValue(clipboardText);
-      if (clipboardText) openRoute(clipboardText);
-      else setMessage("Nessun link Driver trovato negli appunti.");
-    } catch {
-      setMessage("Non riesco a leggere gli appunti. Apri il link Driver direttamente da WhatsApp.");
-    }
   };
 
   return (
@@ -154,43 +130,13 @@ function DriverNativeHome({ onNavigate }) {
         </div>
         <h1 style={{ margin: "10px 0 8px", fontSize: 30, lineHeight: 1.15 }}>App Autista</h1>
         <p style={{ margin: "0 0 22px", color: "rgba(255,255,255,.72)", lineHeight: 1.55 }}>
-          Apri il lavoro assegnato con il link Driver ricevuto da VolantiniPro.
+          Apri il lavoro assegnato.
         </p>
 
-        {lastRoute && (
-          <button
-            type="button"
-            onClick={() => openRoute(lastRoute)}
-            style={{ width: "100%", minHeight: 54, border: 0, borderRadius: 14, background: "#2ECC8A", color: "#071426", fontSize: 16, fontWeight: 900, marginBottom: 14 }}
-          >
-            Continua ultimo lavoro
-          </button>
-        )}
-
         <button
           type="button"
-          onClick={pasteAndOpen}
-          style={{ width: "100%", minHeight: 52, borderRadius: 14, border: "1px solid rgba(255,255,255,.18)", background: "rgba(255,255,255,.08)", color: "#fff", fontSize: 15, fontWeight: 800, marginBottom: 14 }}
-        >
-          Incolla link Driver
-        </button>
-
-        <input
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") openRoute(value);
-          }}
-          placeholder="https://www.volantinipro.it/driver/..."
-          inputMode="url"
-          autoCapitalize="none"
-          autoCorrect="off"
-          style={{ width: "100%", boxSizing: "border-box", minHeight: 50, borderRadius: 12, border: "1px solid rgba(255,255,255,.18)", background: "#0d1d32", color: "#fff", padding: "0 14px", fontSize: 14, outline: "none" }}
-        />
-        <button
-          type="button"
-          onClick={() => openRoute(value)}
-          style={{ width: "100%", minHeight: 50, border: 0, borderRadius: 12, background: "#fff", color: "#071426", fontSize: 15, fontWeight: 900, marginTop: 10 }}
+          onClick={() => openRoute(lastRoute)}
+          style={{ width: "100%", minHeight: 58, border: 0, borderRadius: 14, background: "#fff", color: "#071426", fontSize: 18, fontWeight: 900 }}
         >
           Apri lavoro
         </button>
