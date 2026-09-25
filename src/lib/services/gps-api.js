@@ -2,6 +2,7 @@ import { supabase, ensureSupabaseSessionBridge } from '../../supabaseClient.js';
 import { driverDiag } from '../diagnostics/driverDiagnostics.js';
 import { calculateFilteredDistanceKm, filterValidGpsPoints } from '../gps/pointQuality.js';
 import { getDeviceInstallationId } from '../gps/deviceInstallationId.js';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
 const RETRY_DELAYS_MS = [800, 1800, 4000];
 const GPS_DRIVER_MISMATCH_MESSAGE = 'Il driver autenticato non corrisponde alla sessione GPS.';
@@ -442,6 +443,41 @@ export async function calculateGpsCoverage(sessionId, bufferMeters = 30) {
   return callGpsRpc('gps_calculate_zone_coverage', { p_session_id: sessionId, p_buffer_meters: bufferMeters });
 }
 
+function canUseNativeGpsTransport(accessToken) {
+  return Boolean(
+    accessToken &&
+    typeof Capacitor?.isNativePlatform === 'function' &&
+    Capacitor.isNativePlatform() &&
+    import.meta.env.VITE_SUPABASE_URL &&
+    import.meta.env.VITE_SUPABASE_ANON_KEY
+  );
+}
+
+async function insertGpsPointNative(args) {
+  const baseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
+  const anonKey = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
+  const response = await CapacitorHttp.post({
+    url: `${baseUrl}/rest/v1/rpc/gps_insert_point_v3`,
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
+    },
+    data: args,
+    connectTimeout: 12000,
+    readTimeout: 15000,
+  });
+  if (response.status < 200 || response.status >= 300) {
+    const message = typeof response.data === 'string'
+      ? response.data
+      : JSON.stringify(response.data || {});
+    const error = new Error(message || `gps_insert_point_v3 HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return response.data;
+}
+
 export async function insertGpsPoint({
   sessionId,
   driverId,
@@ -477,6 +513,17 @@ export async function insertGpsPoint({
   // _v3 (identita' participant/personale) -> _v2 (device-aware) -> v1.
   // Blocco server-side PAUSED_SESSION / SESSION_COMPLETED / DEVICE_MISMATCH.
   const withDevice = { ...common, p_device_id: getDeviceInstallationId() };
+
+  // App Android/Capacitor + link pubblico Driver: usa HTTP nativo per il punto
+  // GPS. In questo modo la scrittura non dipende dal fetch della WebView e
+  // resta compatibile con lo stesso RPC/token/device ownership di produzione.
+  if (canUseNativeGpsTransport(accessToken)) {
+    return withRetry(
+      () => insertGpsPointNative(withDevice),
+      'invio punto GPS nativo',
+    );
+  }
+
   return withRetry(
     () => callGpsRpcVersioned([
       { name: 'gps_insert_point_v3', args: withDevice },
