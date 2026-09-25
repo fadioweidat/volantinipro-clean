@@ -75,6 +75,122 @@ const DriverAssistantHost = lazy(() =>
 
 warnIfMojibake(document.documentElement?.innerHTML || "", "initial document");
 
+const DRIVER_LAST_ROUTE_KEY = "vp_driver_last_route";
+const DRIVER_ROUTE_RE = /^\/driver\/(?:assignment\/[^/]+(?:\/map)?|group\/[^/]+|tracking\/[^/]+(?:\/map)?)\/?$/;
+
+function isNativeDriverApp() {
+  if (typeof window === "undefined") return false;
+  try {
+    const cap = window.Capacitor;
+    if (!cap) return false;
+    if (typeof cap.isNativePlatform === "function") return cap.isNativePlatform();
+    if (typeof cap.getPlatform === "function") return cap.getPlatform() !== "web";
+    return Boolean(cap.isNative);
+  } catch {
+    return false;
+  }
+}
+
+function normalizeDriverRoute(value) {
+  if (!value || typeof value !== "string") return null;
+  try {
+    const url = new URL(value.trim(), "https://www.volantinipro.it");
+    if (!DRIVER_ROUTE_RE.test(url.pathname)) return null;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+}
+
+function DriverNativeHome({ onNavigate }) {
+  const [value, setValue] = useState("");
+  const [message, setMessage] = useState("");
+  const lastRoute = normalizeDriverRoute(
+    typeof window !== "undefined" ? window.localStorage.getItem(DRIVER_LAST_ROUTE_KEY) : null,
+  );
+
+  const openRoute = (candidate) => {
+    const route = normalizeDriverRoute(candidate);
+    if (!route) {
+      setMessage("Link Driver non valido. Incolla il link ricevuto da VolantiniPro.");
+      return;
+    }
+    setMessage("");
+    window.history.replaceState({}, "", route);
+    window.localStorage.setItem(DRIVER_LAST_ROUTE_KEY, route);
+    onNavigate(new URL(route, window.location.origin).pathname);
+  };
+
+  const pasteAndOpen = async () => {
+    try {
+      const clipboardText = await navigator.clipboard.readText();
+      setValue(clipboardText || "");
+      if (clipboardText) openRoute(clipboardText);
+      else setMessage("Nessun link trovato negli appunti.");
+    } catch {
+      setMessage("Incolla il link nel campo qui sotto.");
+    }
+  };
+
+  return (
+    <main style={{ minHeight: "100dvh", background: "#071426", color: "#fff", padding: "28px 20px", fontFamily: "Inter, system-ui, sans-serif" }}>
+      <section style={{ width: "100%", maxWidth: 520, margin: "0 auto", paddingTop: "10vh" }}>
+        <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1.1, color: "#2ECC8A", textTransform: "uppercase" }}>
+          VolantiniPro Driver
+        </div>
+        <h1 style={{ margin: "10px 0 8px", fontSize: 30, lineHeight: 1.15 }}>App Autista</h1>
+        <p style={{ margin: "0 0 22px", color: "rgba(255,255,255,.72)", lineHeight: 1.55 }}>
+          Apri il lavoro assegnato con il link Driver ricevuto da VolantiniPro.
+        </p>
+
+        {lastRoute && (
+          <button
+            type="button"
+            onClick={() => openRoute(lastRoute)}
+            style={{ width: "100%", minHeight: 54, border: 0, borderRadius: 14, background: "#2ECC8A", color: "#071426", fontSize: 16, fontWeight: 900, marginBottom: 14 }}
+          >
+            Continua ultimo lavoro
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={pasteAndOpen}
+          style={{ width: "100%", minHeight: 52, borderRadius: 14, border: "1px solid rgba(255,255,255,.18)", background: "rgba(255,255,255,.08)", color: "#fff", fontSize: 15, fontWeight: 800, marginBottom: 14 }}
+        >
+          Incolla link Driver
+        </button>
+
+        <input
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") openRoute(value);
+          }}
+          placeholder="https://www.volantinipro.it/driver/..."
+          inputMode="url"
+          autoCapitalize="none"
+          autoCorrect="off"
+          style={{ width: "100%", boxSizing: "border-box", minHeight: 50, borderRadius: 12, border: "1px solid rgba(255,255,255,.18)", background: "#0d1d32", color: "#fff", padding: "0 14px", fontSize: 14, outline: "none" }}
+        />
+        <button
+          type="button"
+          onClick={() => openRoute(value)}
+          style={{ width: "100%", minHeight: 50, border: 0, borderRadius: 12, background: "#fff", color: "#071426", fontSize: 15, fontWeight: 900, marginTop: 10 }}
+        >
+          Apri lavoro
+        </button>
+
+        {message && (
+          <p role="alert" style={{ marginTop: 14, color: "#ffcc80", fontSize: 14, lineHeight: 1.45 }}>
+            {message}
+          </p>
+        )}
+      </section>
+    </main>
+  );
+}
+
 function Root() {
   // path era window.location.pathname letto una sola volta (nessun
   // re-render possibile su cambio route): serviva per Driver Programma<->
@@ -85,11 +201,28 @@ function Root() {
   // altra route continua a essere raggiunta solo da una navigazione browser
   // reale (link esterni, digitazione URL), che gia' rimonta tutto da zero.
   const [path, setPath] = useState(() => window.location.pathname);
+  const nativeDriverApp = isNativeDriverApp();
+
   useEffect(() => {
     const onPopState = () => setPath(window.location.pathname);
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
+
+  useEffect(() => {
+    if (!nativeDriverApp) return;
+    const current = normalizeDriverRoute(
+      `${window.location.pathname}${window.location.search}${window.location.hash}`,
+    );
+    if (current) window.localStorage.setItem(DRIVER_LAST_ROUTE_KEY, current);
+  }, [nativeDriverApp, path]);
+
+  // Nell'APK Driver la route "/" non deve mai mostrare la homepage commerciale.
+  // Primo avvio: schermata Driver dedicata per aprire/incollare il link assegnato.
+  // Avvii successivi: l'operatore puo' riprendere l'ultimo lavoro salvato sul dispositivo.
+  if (nativeDriverApp && path === "/") {
+    return <DriverNativeHome onNavigate={setPath} />;
+  }
 
   // Fase D (retry singolo su chunk load error): se Root per questo path
   // resta montato senza che RouteErrorBoundary intercetti nulla per qualche
