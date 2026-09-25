@@ -25,6 +25,7 @@ import {
 } from '../lib/geofence/geofenceEngine.js';
 import { dedupeGpsPointQueue, gpsPointQueueKey } from '../lib/gps/offlineQueue.js';
 import { getDeviceInstallationId, readSessionClaim, writeSessionClaim, clearSessionClaim } from '../lib/gps/deviceInstallationId.js';
+import { isNativeBackgroundGpsAvailable, startNativeBackgroundGps, stopNativeBackgroundGps } from '../lib/gps/nativeBackgroundLocation.js';
 
 // Mostrato quando lo stesso link/token e' gia' in uso su un altro dispositivo
 // (device_id della sessione != questo device, e nessun claim locale). Testo
@@ -153,6 +154,9 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
       navigator.geolocation.clearWatch(watchIdRef.current);
     }
     watchIdRef.current = null;
+    // Capacitor/native: il watcher Android continua anche quando la WebView va
+    // in background. La rimozione e' best-effort e non blocca la UI.
+    stopNativeBackgroundGps().catch(() => {});
   }, []);
 
   const releaseWakeLock = useCallback(async () => {
@@ -305,46 +309,76 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
     }
   }, [campaignId, enqueuePoint, accessToken]);
 
+  const handlePosition = useCallback((position, allowAccuracySwitch = true) => {
+    const coords = position?.coords || {};
+    const lat = Number(coords.latitude);
+    const lng = Number(coords.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    const speedValue = Number.isFinite(Number(coords.speed)) ? Number(coords.speed) : 0;
+    const shouldUseHighAccuracy = speedValue >= HIGH_SPEED_MPS;
+    if (allowAccuracySwitch && shouldUseHighAccuracy !== highAccuracyRef.current && statusRef.current === 'active') {
+      window.setTimeout(() => startWatchRef.current?.(shouldUseHighAccuracy), 0);
+    }
+
+    setAccuracy(Number.isFinite(Number(coords.accuracy)) ? Number(coords.accuracy) : null);
+    setSpeed(Number.isFinite(Number(coords.speed)) ? Number(coords.speed) : null);
+    setHeading(Number.isFinite(Number(coords.heading)) ? Number(coords.heading) : null);
+    setLastPosition({
+      lat,
+      lng,
+      accuracy: Number.isFinite(Number(coords.accuracy)) ? Number(coords.accuracy) : null,
+      recorded_at: new Date(position.timestamp || Date.now()).toISOString(),
+    });
+
+    const prevPoint = lastPathPointRef.current;
+    if (prevPoint) {
+      distanceMetersRef.current += distanceMeters(prevPoint.lat, prevPoint.lng, lat, lng);
+      setDistanceKm(distanceMetersRef.current / 1000);
+    }
+    lastPathPointRef.current = { lat, lng };
+    setPath((prev) => [...prev, { lat, lng }]);
+    evaluateGeofence({
+      lat,
+      lng,
+      accuracy: Number.isFinite(Number(coords.accuracy)) ? Number(coords.accuracy) : null,
+      recordedAt: new Date(position.timestamp || Date.now()).toISOString(),
+    });
+    sendPosition(position);
+  }, [evaluateGeofence, sendPosition]);
+
+  const startWatchRef = useRef(null);
   const startWatch = useCallback((forceHighAccuracy = highAccuracyRef.current) => {
+    stopWatch();
+    highAccuracyRef.current = forceHighAccuracy;
+
+    if (isNativeBackgroundGpsAvailable()) {
+      startNativeBackgroundGps(
+        (position) => handlePosition(position, false),
+        (geoError) => {
+          const code = String(geoError?.code || '');
+          if (code === 'NOT_AUTHORIZED') {
+            setStatus('permission_error');
+            setError('Permesso GPS negato. Abilita la posizione per iniziare il tracking.');
+            stopWatch();
+            return;
+          }
+          setError(geoError?.message || 'Errore lettura posizione GPS in background.');
+        },
+      ).catch((err) => {
+        setError(err?.message || 'Impossibile avviare il GPS nativo in background.');
+      });
+      return;
+    }
+
     if (!navigator.geolocation) {
       setStatus('permission_error');
       setError('GPS non disponibile su questo dispositivo/browser.');
       return;
     }
-    stopWatch();
-    highAccuracyRef.current = forceHighAccuracy;
+
     watchIdRef.current = navigator.geolocation.watchPosition(
-      (position) => {
-        const coords = position.coords;
-        const speed = Number.isFinite(coords.speed) ? coords.speed : 0;
-        const shouldUseHighAccuracy = speed >= HIGH_SPEED_MPS;
-        if (shouldUseHighAccuracy !== highAccuracyRef.current && statusRef.current === 'active') {
-          window.setTimeout(() => startWatch(shouldUseHighAccuracy), 0);
-        }
-        setAccuracy(Number.isFinite(coords.accuracy) ? coords.accuracy : null);
-        setSpeed(Number.isFinite(coords.speed) ? coords.speed : null);
-        setHeading(Number.isFinite(coords.heading) ? coords.heading : null);
-        setLastPosition({
-          lat: coords.latitude,
-          lng: coords.longitude,
-          accuracy: coords.accuracy,
-          recorded_at: new Date(position.timestamp || Date.now()).toISOString(),
-        });
-        const prevPoint = lastPathPointRef.current;
-        if (prevPoint) {
-          distanceMetersRef.current += distanceMeters(prevPoint.lat, prevPoint.lng, coords.latitude, coords.longitude);
-          setDistanceKm(distanceMetersRef.current / 1000);
-        }
-        lastPathPointRef.current = { lat: coords.latitude, lng: coords.longitude };
-        setPath((prev) => [...prev, { lat: coords.latitude, lng: coords.longitude }]);
-        evaluateGeofence({
-          lat: coords.latitude,
-          lng: coords.longitude,
-          accuracy: Number.isFinite(coords.accuracy) ? coords.accuracy : null,
-          recordedAt: new Date(position.timestamp || Date.now()).toISOString(),
-        });
-        sendPosition(position);
-      },
+      (position) => handlePosition(position, true),
       (geoError) => {
         if (geoError.code === geoError.PERMISSION_DENIED) {
           setStatus('permission_error');
@@ -356,7 +390,11 @@ export function useGpsTracking(campaignId, { assignmentContext = null, accessTok
       },
       { enableHighAccuracy: forceHighAccuracy, maximumAge: forceHighAccuracy ? 5000 : 15000, timeout: 20000 },
     );
-  }, [evaluateGeofence, sendPosition, stopWatch]);
+  }, [handlePosition, stopWatch]);
+
+  useEffect(() => {
+    startWatchRef.current = startWatch;
+  }, [startWatch]);
 
   const start = useCallback(async (zoneId = null) => {
     setError(null);
