@@ -79,12 +79,24 @@ export function MilanoNilSearch({
 
   return (
     <div className="vp-step2-nil-search" style={box}>
-      <label htmlFor="vp-milano-nil-search" style={{ fontSize: 13, fontWeight: 800, color: C.white }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: C.white }}>
         Aggiungi un quartiere / zona
+      </div>
+      <div style={{ marginTop: 4, padding: "12px", borderRadius: 8, background: "rgba(232,87,26,.10)", border: "1px solid rgba(232,87,26,.30)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 700, lineHeight: 1.4, color: C.white }}>
+          <svg aria-hidden="true" focusable="false" width="20" height="24" viewBox="0 0 24 28" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" style={{ flexShrink: 0, color: "#FFA577" }}>
+            <rect x="5" y="2" width="14" height="24" rx="7" />
+            <path d="M12 6v5" />
+          </svg>
+          <span>Seleziona direttamente sulla mappa</span>
+        </div>
+        <p style={{ margin: "8px 0 0", fontSize: 13, lineHeight: 1.5, color: "rgba(255,255,255,.85)" }}>
+          Clicca su un quartiere (NIL) per aggiungerlo alla distribuzione. Clicca nuovamente per rimuoverlo.
+        </p>
+      </div>
+      <label htmlFor="vp-milano-nil-search" style={{ marginTop: 8, fontSize: 13, lineHeight: 1.5, fontWeight: 600, color: "rgba(255,255,255,.85)" }}>
+        Oppure cerca un quartiere per nome
       </label>
-      <span style={{ fontSize: 11, color: "rgba(255,255,255,.6)" }}>
-        Cerca un quartiere di Milano e aggiungilo alla distribuzione.
-      </span>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <input
           id="vp-milano-nil-search"
@@ -123,6 +135,10 @@ export function MilanoNilSearch({
           </button>
         ) : null}
       </div>
+
+      <p style={{ margin: "2px 0 0", fontSize: 12, lineHeight: 1.5, color: "rgba(255,255,255,.65)" }}>
+        Mappa e riepilogo si aggiornano in base ai quartieri selezionati.
+      </p>
 
       {poolStatus === "loading" && query ? (
         <div role="status" style={{ fontSize: 11, color: "rgba(255,255,255,.55)" }}>Caricamento quartieri...</div>

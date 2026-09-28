@@ -143,7 +143,10 @@ test('K. il campo di ricerca segue la mappa dentro la scelta Quartieri', () => {
   const chooser = step2.indexOf('<MilanoCoverageModeChooser');
   assert.ok(m > 0 && chooser > m && s > chooser, 'Mappa, scelta modalità, ricerca NIL');
   assert.match(search, /Aggiungi un quartiere \/ zona/);
-  assert.match(search, /Cerca un quartiere di Milano e aggiungilo alla distribuzione\./);
+  assert.match(search, /Seleziona direttamente sulla mappa/);
+  assert.match(search, /Clicca su un quartiere \(NIL\) per aggiungerlo alla distribuzione\. Clicca nuovamente per rimuoverlo\./);
+  assert.match(search, /Oppure cerca un quartiere per nome/);
+  assert.match(search, /Mappa e riepilogo si aggiornano in base ai quartieri selezionati\./);
   assert.match(search, /Cerca quartiere di Milano, es\. Comasina/);
 });
 
