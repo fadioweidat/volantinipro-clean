@@ -94,17 +94,19 @@ export default function DriverAssistantHost({ assignmentId, page = "driver-assig
 
   const handleNavigate = useCallback((route, action) => {
     const targetId = action?.assignmentId || assignmentId;
+    // driverPathWithQuery: conserva ?access=TOKEN — senza, la pagina di
+    // destinazione perdeva l'autorizzazione (Start/GPS rifiutati).
     if (route.includes("map")) {
-      window.location.href = `/driver/assignment/${targetId}/map`;
+      navigateDriver(driverPathWithQuery(`/driver/assignment/${targetId}/map`));
     } else if (route.includes("pod")) {
       const podEl = document.getElementById("pod-upload-section") || document.querySelector('[data-section="pod"]');
       if (podEl) {
         podEl.scrollIntoView({ behavior: "smooth" });
       } else {
-        window.location.href = `/driver/assignment/${targetId}#pod`;
+        navigateDriver(`${driverPathWithQuery(`/driver/assignment/${targetId}`)}#pod`);
       }
     } else {
-      window.location.href = `/driver/assignment/${targetId}`;
+      navigateDriver(driverPathWithQuery(`/driver/assignment/${targetId}`));
     }
   }, [assignmentId]);
 

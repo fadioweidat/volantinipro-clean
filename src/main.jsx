@@ -138,7 +138,7 @@ function DriverNativeHome({ onNavigate }) {
           onClick={() => openRoute(lastRoute)}
           style={{ width: "100%", minHeight: 58, border: 0, borderRadius: 14, background: "#fff", color: "#071426", fontSize: 18, fontWeight: 900 }}
         >
-          Apri lavoro
+          Apri il lavoro
         </button>
 
         {message && (
@@ -221,13 +221,6 @@ function Root() {
     if (current) window.localStorage.setItem(DRIVER_LAST_ROUTE_KEY, current);
   }, [nativeDriverApp, path]);
 
-  // Nell'APK Driver la route "/" non deve mai mostrare la homepage commerciale.
-  // Primo avvio: schermata Driver dedicata per aprire/incollare il link assegnato.
-  // Avvii successivi: l'operatore puo' riprendere l'ultimo lavoro salvato sul dispositivo.
-  if (nativeDriverApp && path === "/") {
-    return <DriverNativeHome onNavigate={setPath} />;
-  }
-
   // Fase D (retry singolo su chunk load error): se Root per questo path
   // resta montato senza che RouteErrorBoundary intercetti nulla per qualche
   // secondo, il chunk lazy di questa route e' verosimilmente stato caricato
@@ -239,6 +232,16 @@ function Root() {
     const timer = window.setTimeout(() => clearRetryFlag(path), 3000);
     return () => window.clearTimeout(timer);
   }, [path]);
+
+  // Nell'APK Driver la route "/" non deve mai mostrare la homepage commerciale:
+  // schermata Driver dedicata con il solo pulsante "Apri il lavoro".
+  // Deve restare DOPO tutti gli hook di Root: un return anticipato prima di
+  // un useEffect cambiava il numero di hook tra "/" e "/driver/..." e React
+  // andava in crash (#310, "Impossibile caricare la pagina") proprio al tocco
+  // di "Apri il lavoro" o all'arrivo del deep link WhatsApp.
+  if (nativeDriverApp && path === "/") {
+    return <DriverNativeHome onNavigate={setPath} />;
+  }
 
   // Driver Group Access: 1 link condiviso di gruppo -> join -> identita' personale.
   const driverGroupMatch = path.match(/^\/driver\/group\/([^/]+)$/);

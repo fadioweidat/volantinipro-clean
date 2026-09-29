@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "it.volantinipro.driver",
+      "sha256_cert_fingerprints": [
+        "63:56:69:9C:14:1B:6F:F1:EA:39:28:32:99:A4:43:FD:D6:9D:99:F2:F9:08:1B:68:EA:19:6A:E6:56:4C:89:99"
+      ]
+    }
+  }
+]

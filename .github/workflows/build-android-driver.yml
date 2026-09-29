@@ -8,6 +8,7 @@ on:
     paths:
       - 'src/**'
       - 'scripts/configure-capacitor-android.mjs'
+      - 'public/.well-known/**'
       - 'capacitor.config.ts'
       - 'package.json'
       - 'package-lock.json'
@@ -35,8 +36,30 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      # L'APK impacchetta dist/ in locale (nessun server.url): le VITE_* vanno
+      # inlineate a build time. Senza, supabaseClient.js resta null e ogni
+      # RPC Driver (programma, Start, punti GPS) fallisce sul telefono.
+      # Configurarle in Settings > Secrets and variables > Actions
+      # (Variables o Secrets, stessi valori pubblici del sito su Vercel).
+      - name: Check Driver build configuration
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          missing=0
+          case "$VITE_SUPABASE_URL" in https://*) ;; *) echo "::error::VITE_SUPABASE_URL mancante o non https"; missing=1;; esac
+          [ -n "$VITE_SUPABASE_ANON_KEY" ] || { echo "::error::VITE_SUPABASE_ANON_KEY mancante"; missing=1; }
+          exit $missing
+
       - name: Build web app
-        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_PUBLIC_APP_URL: ${{ vars.VITE_PUBLIC_APP_URL || 'https://www.volantinipro.it' }}
+        run: |
+          npm run build
+          host="${VITE_SUPABASE_URL#https://}"; host="${host%%/*}"
+          grep -rqF "$host" dist/assets || { echo "::error::Bundle senza endpoint Supabase: APK non funzionante"; exit 1; }
 
       - name: Create Android project
         run: |
@@ -45,16 +68,49 @@ jobs:
           node scripts/configure-capacitor-android.mjs
           npx cap sync android
 
+      # Versione riconoscibile sul telefono (Impostazioni > App) e sempre
+      # crescente, cosi' ogni APK si installa sopra il precedente.
+      - name: Set APK version
+        run: |
+          sed -i -E "s/versionCode [0-9]+/versionCode ${{ github.run_number }}/; s/versionName \"[^\"]*\"/versionName \"1.0.${{ github.run_number }}-${GITHUB_SHA::7}\"/" android/app/build.gradle
+          grep -E "versionCode|versionName" android/app/build.gradle
+
       - name: Build debug APK
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
+      # Firma stabile (scripts/android-driver-signing.mjs): senza, ogni run
+      # usa una chiave debug nuova, l'aggiornamento sopra l'APK precedente
+      # fallisce ("App non installata") e assetlinks.json non combacia.
+      - name: Sign APK with stable key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ]; then
+            ks="$RUNNER_TEMP/volantinipro-driver.p12"
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$ks"
+            "$apksigner" sign --ks "$ks" --ks-type PKCS12 --ks-key-alias volantinipro-driver \
+              --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEYSTORE_PASSWORD "$apk"
+            rm -f "$ks"
+          else
+            echo "::warning::Secret di firma assenti: APK con chiave debug temporanea"
+          fi
+          sha=$("$apksigner" verify --print-certs "$apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1 | tr 'a-f' 'A-F' | sed 's/../&:/g; s/:$//')
+          echo "Certificato APK SHA-256: $sha"
+          if [ -f public/.well-known/assetlinks.json ] && ! grep -qF "$sha" public/.well-known/assetlinks.json; then
+            echo "::error::Il certificato dell'APK non e' in public/.well-known/assetlinks.json: i link WhatsApp non aprirebbero l'app"
+            exit 1
+          fi
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: VolantiniPro-Driver-debug
+          name: VolantiniPro-Driver-debug-${{ github.run_number }}
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
