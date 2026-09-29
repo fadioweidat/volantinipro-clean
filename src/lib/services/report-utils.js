@@ -70,8 +70,17 @@ export function sessionDurationMs(session) {
 }
 
 export function lastActivityAt(session, points = []) {
-  const latestPoint = points[points.length - 1];
+  const latestPoint = latestGpsPoint(points);
   return latestPoint?.recorded_at || latestPoint?.created_at || session?.updated_at || session?.ended_at || session?.paused_at || session?.started_at || session?.created_at || null;
+}
+
+export function latestGpsPoint(points = []) {
+  return points.reduce((latest, point) => {
+    if (!latest) return point;
+    const pointAt = new Date(point?.recorded_at || point?.created_at || 0).getTime();
+    const latestAt = new Date(latest?.recorded_at || latest?.created_at || 0).getTime();
+    return pointAt > latestAt ? point : latest;
+  }, null);
 }
 
 export function filterOperationalRows(rows, filters = {}) {

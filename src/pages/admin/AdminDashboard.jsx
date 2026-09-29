@@ -4,13 +4,21 @@ import {
   generateDriverAssignmentLink,
   getClientsQuotesOverview,
   getDailyOperations,
-  getLiveOperatorsSummary,
   getRealCampaigns,
   listAssignableOperators,
   selectOptionalTable,
+  summarizeLiveOperations,
 } from '../../lib/services/admin-api.js';
 import { buildOperationalGroups, buildTodayGroupCards } from '../../lib/admin/adminHomeModel.js';
 import { buildCommercialSnapshot } from '../../lib/admin/adminCommercialModel.js';
+import {
+  AdminResourceUnavailableError,
+  createAdminRefreshLoop,
+  createAdminResourceStore,
+  createSingleFlightLoader,
+  summarizeAdminResourceStates,
+  withAbortTimeout,
+} from '../../lib/admin/adminDashboardResilience.js';
 import { getCurrentSupabaseUser } from '../../lib/supabaseClient.js';
 import { ensureSupabaseSessionBridge } from '../../supabaseClient.js';
 import { AdminLayout } from './AdminLayout.jsx';
@@ -23,7 +31,7 @@ const AdminCentralAiPanel = React.lazy(() => import('../../components/ai/admin/A
 export { normalizeCampaign } from '../../lib/services/admin-api.js';
 
 export default function AdminDashboard({ onNav, adminSession = null }) {
-  const [state, setState] = useState({ loading: true, error: null, data: emptyData() });
+  const [state, setState] = useState({ loading: true, refreshing: false, error: null, refreshNotice: '', data: emptyData() });
   const [notice, setNotice] = useState('');
   const [adminIdentity, setAdminIdentity] = useState(null);
   // Redesign compattezza (P1): "Strumenti avanzati" era un accordion enorme
@@ -34,21 +42,33 @@ export default function AdminDashboard({ onNav, adminSession = null }) {
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const [showAllToday, setShowAllToday] = useState(false);
 
-  async function load() {
-    try {
-      const data = await loadAdminHomeData();
-      setState({ loading: false, error: null, data });
-    } catch (error) {
-      setState({ loading: false, error: error?.message || 'Errore caricamento dashboard admin.', data: emptyData() });
-    }
-  }
-
   useEffect(() => {
-    let cancelled = false;
-    const refresh = async () => { if (!cancelled) await load(); };
-    refresh();
-    const timer = window.setInterval(refresh, 30000);
-    return () => { cancelled = true; window.clearInterval(timer); };
+    return createAdminRefreshLoop({
+      run: async () => {
+        setState((previous) => ({ ...previous, refreshing: !previous.loading }));
+        return loadAdminHomeData();
+      },
+      onResult: (result) => {
+        setState({
+          loading: false,
+          refreshing: false,
+          error: null,
+          refreshNotice: result.refreshIssues.length
+            ? `Aggiornamento parziale: alcuni dati non sono disponibili. Ultimi dati validi mantenuti (${result.refreshIssues.join(', ')}).`
+            : '',
+          data: result,
+        });
+      },
+      onError: (error) => {
+        setState((previous) => ({
+          ...previous,
+          loading: false,
+          refreshing: false,
+          error: previous.data.hasAnyData ? null : (error?.message || 'Errore caricamento dashboard admin.'),
+          refreshNotice: previous.data.hasAnyData ? 'Aggiornamento non riuscito. Sono mostrati gli ultimi dati validi.' : '',
+        }));
+      },
+    });
   }, []);
 
   useEffect(() => {
@@ -62,26 +82,30 @@ export default function AdminDashboard({ onNav, adminSession = null }) {
   }, [adminSession]);
 
   const { campaigns, todayGroups, groups, liveOperators, liveSummary, availability, clientsQuotes, smartPairing } = state.data;
-  const metrics = useMemo(() => ({
+  const metrics = useMemo(() => state.data.availability.today ? ({
     groups: todayGroups.length,
     online: todayGroups.filter((group) => group.presence.key === 'online').length,
     pending: todayGroups.filter((group) => ['sent', 'opened'].includes(group.program.key)).length,
     problems: todayGroups.filter((group) => group.work.key === 'problem').length,
-  }), [todayGroups]);
+  }) : ({ groups: '—', online: '—', pending: '—', problems: '—' }), [todayGroups, state.data.availability.today]);
   const commercial = useMemo(() => buildCommercialSnapshot({ campaigns, today: localDateKey(new Date()) }), [campaigns]);
   const groupsOnline = groups.filter((group) => group.presence?.key === 'online').length;
-  const clientsStats = useMemo(() => ({
+  const clientsStats = useMemo(() => state.data.availability.clientsQuotes ? ({
     pagati: clientsQuotes.filter((row) => row.paymentStatus === 'pagato').length,
     daPagare: clientsQuotes.filter((row) => row.paymentStatus === 'da_pagare').length,
     // "Da assegnare" = campagne reali E pagate senza gruppo/programma: una
     // campagna non ancora pagata o di test non e' operativamente "da
     // assegnare" (nessuno deve mandarci un gruppo finche' non e' pagata).
     daAssegnare: clientsQuotes.filter((row) => row.paymentStatus === 'pagato' && !row.assignment).length,
-  }), [clientsQuotes]);
-  const programsStats = useMemo(() => ({
+  }) : ({ pagati: 'Non disponibile', daPagare: 'Non disponibile', daAssegnare: 'Non disponibile' }), [clientsQuotes, state.data.availability.clientsQuotes]);
+  const programsStats = useMemo(() => state.data.availability.clientsQuotes ? ({
     pronti: clientsQuotes.filter((row) => row.programStatus !== 'nessun_programma').length,
     daConfermare: clientsQuotes.filter((row) => ['inviato', 'aperto'].includes(row.programStatus)).length,
-  }), [clientsQuotes]);
+  }) : ({ pronti: 'Non disponibile', daConfermare: 'Non disponibile' }), [clientsQuotes, state.data.availability.clientsQuotes]);
+  const commercialDisplay = useMemo(() => state.data.availability.campaigns ? commercial : ({
+    ...commercial,
+    metrics: { newToday: 'Non disponibile', toContact: 'Non disponibile', converted: 'Non disponibile', closed: 'Non disponibile' },
+  }), [commercial, state.data.availability.campaigns]);
   const smartPairingStats = useMemo(() => ({
     richieste: smartPairing.rows.filter((row) => (row.status || 'open') === 'open').length,
     match: Math.max(smartPairing.rows.length - smartPairing.rows.filter((row) => (row.status || 'open') === 'open').length, 0),
@@ -135,6 +159,8 @@ export default function AdminDashboard({ onNav, adminSession = null }) {
       ) : (
         <>
           {state.error && <Notice danger>{state.error}</Notice>}
+          {state.refreshNotice && <Notice warning>{state.refreshNotice}</Notice>}
+          {state.refreshing && <div role="status" style={{ margin: '-8px 0 14px', color: 'rgba(255,255,255,.5)', fontSize: 11, fontWeight: 700 }}>Aggiornamento dati…</div>}
           {notice && <Notice>{notice}</Notice>}
 
           <AdminDashboardMetricsPanel metrics={metrics} Metric={Metric} />
@@ -144,7 +170,7 @@ export default function AdminDashboard({ onNav, adminSession = null }) {
               id="today-title"
               eyebrow="Operatività"
               title="Chi lavora oggi"
-              meta={`${todayGroups.length} gruppi programmati`}
+              meta={availability.today ? `${todayGroups.length} gruppi programmati` : 'Dato non disponibile'}
               action={todayGroups.length > 4 ? (showAllToday ? 'Mostra meno' : 'Vedi tutti') : null}
               onAction={() => setShowAllToday((v) => !v)}
             />
@@ -158,15 +184,15 @@ export default function AdminDashboard({ onNav, adminSession = null }) {
           </section>
 
           <AdminDashboardModulesPanel
-            clientsQuotesCount={clientsQuotes.length}
+            clientsQuotesCount={state.data.availability.clientsQuotes ? clientsQuotes.length : 'Non disponibile'}
             clientsStats={clientsStats}
-            groupsCount={groups.length}
-            groupsOnline={groupsOnline}
+            groupsCount={state.data.availability.groups ? groups.length : 'Non disponibile'}
+            groupsOnline={state.data.availability.groups ? groupsOnline : 'Non disponibile'}
             programsStats={programsStats}
-            liveCount={liveSummary.liveCount || 0}
+            liveCount={state.data.availability.gps ? (liveSummary.liveCount || 0) : 'Non disponibile'}
             smartPairingAvailable={smartPairing.available}
             smartPairingStats={smartPairingStats}
-            commercial={commercial}
+            commercial={commercialDisplay}
             onNav={onNav}
             ModuleCard={ModuleCard}
           />
@@ -198,19 +224,15 @@ export default function AdminDashboard({ onNav, adminSession = null }) {
 // in parallelo (confermato dal vivo con misurazione reale Admin autenticato).
 // In-flight dedup qui, non un cambio a React.StrictMode: due mount dev
 // consumano ora la STESSA Promise/risultato, un solo fetch reale.
-let __loadAdminHomeDataInFlight = null;
+const ADMIN_HOME_REQUEST_TIMEOUT_MS = 25_000;
+const ADMIN_HOME_COMMERCIAL_TTL_MS = 5 * 60_000;
+const ADMIN_HOME_OPERATIONAL_REFERENCE_TTL_MS = 60_000;
+const adminHomeResources = createAdminResourceStore();
+export const loadAdminHomeData = createSingleFlightLoader(() => (
+  withAbortTimeout((signal) => loadAdminHomeDataUncached({ signal }), ADMIN_HOME_REQUEST_TIMEOUT_MS)
+));
 
-export async function loadAdminHomeData() {
-  if (__loadAdminHomeDataInFlight) return __loadAdminHomeDataInFlight;
-  __loadAdminHomeDataInFlight = loadAdminHomeDataUncached();
-  try {
-    return await __loadAdminHomeDataInFlight;
-  } finally {
-    __loadAdminHomeDataInFlight = null;
-  }
-}
-
-async function loadAdminHomeDataUncached() {
+async function loadAdminHomeDataUncached({ signal }) {
   await ensureSupabaseSessionBridge?.();
   const today = localDateKey(new Date());
 
@@ -226,43 +248,89 @@ async function loadAdminHomeDataUncached() {
   // continua a chiamare getLiveDrivers()/getLiveOperatorsSummary() senza
   // prefetched, comportamento invariato per quella pagina.
   // Phase 1 (parallel): getRealCampaigns runs concurrently with independent operations, operators, and smart_pairing
-  const [campaignResult, operations, operators, smartPairingResult] = await Promise.all([
-    getRealCampaigns({ includeTest: true }),
-    getDailyOperations(today).then((rows) => ({ rows, available: true })).catch(() => ({ rows: [], available: false })),
-    listAssignableOperators().catch(() => []),
-    selectOptionalTable('smart_pairing_waitlist'),
+  const [campaignState, operationsState, operationalReferenceState, operatorsState, smartPairingState] = await Promise.all([
+    adminHomeResources.load('commercial-campaigns', () => getRealCampaigns({
+      includeTest: true,
+      includeGpsPoints: false,
+      requireComplete: true,
+      signal,
+    }), { fallback: emptyCampaignResult(), maxAgeMs: ADMIN_HOME_COMMERCIAL_TTL_MS }),
+    adminHomeResources.load(`daily-operations:${today}`, () => getDailyOperations(today, { signal, requireComplete: true }), { fallback: [] }),
+    adminHomeResources.load('operational-reference', async () => {
+      const [groups, assignments] = await Promise.all([
+        selectOptionalTable('operational_groups', 'created_at', '*', null, { signal }),
+        selectOptionalTable('operator_assignments', 'created_at', 'id,campaign_id,group_id,operator_id,status,starts_at,ends_at,revoked_at,created_at,access_token', null, { signal }),
+      ]);
+      const unavailable = [
+        ...(!groups.available ? ['operational_groups'] : []),
+        ...(!assignments.available ? ['operator_assignments'] : []),
+      ];
+      if (unavailable.length) throw new AdminResourceUnavailableError(unavailable.join(', '));
+      return { groups: groups.rows, assignments: assignments.rows };
+    }, { fallback: { groups: [], assignments: [] }, maxAgeMs: ADMIN_HOME_OPERATIONAL_REFERENCE_TTL_MS }),
+    adminHomeResources.load('operators', () => listAssignableOperators({ signal }), { fallback: [] }),
+    adminHomeResources.load('smart-pairing', async () => {
+      const result = await selectOptionalTable('smart_pairing_waitlist', 'created_at', '*', null, { signal });
+      if (!result.available) throw new AdminResourceUnavailableError('smart_pairing_waitlist', result.error);
+      return result.rows;
+    }, { fallback: [], maxAgeMs: ADMIN_HOME_COMMERCIAL_TTL_MS }),
   ]);
+  const campaignResult = campaignState.value;
+  const operations = { rows: operationsState.value, available: operationsState.available };
+  const operationalReference = operationalReferenceState.value;
+  const operators = operatorsState.value;
 
   const realCampaignIds = new Set(campaignResult.allRows.filter((campaign) => campaign.quality === 'real').map((campaign) => campaign.id));
   const realOperations = operations.rows.filter((assignment) => realCampaignIds.has(assignment.campaign_id));
-  const realGroups = campaignResult.groups.filter((group) => realCampaignIds.has(group.campaign_id));
+  const realGroups = operationalReference.groups.filter((group) => realCampaignIds.has(group.campaign_id));
 
-  // Phase 2 (parallel): liveSummary and clientsQuotesResult run concurrently using prefetched campaigns/sessions/points/operators
-  const [liveSummary, clientsQuotesResult] = await Promise.all([
-    getLiveOperatorsSummary({ prefetched: { sessions: campaignResult.sessions, points: campaignResult.points } })
-      .catch(() => ({ current: [], liveCount: 0, warningCount: 0 })),
-    getClientsQuotesOverview({
+  // Il riepilogo live riusa le operazioni giornaliere gia' caricate: la home
+  // non esegue una seconda lettura globale delle tracce GPS.
+  const liveSummary = summarizeLiveOperations(operations.rows);
+  const clientsQuotesState = await adminHomeResources.load('clients-quotes', async () => {
+    if (!campaignState.available || !operatorsState.available) {
+      throw new AdminResourceUnavailableError('clients-quotes-dependencies');
+    }
+    return getClientsQuotesOverview({
       prefetched: {
         campaigns: campaignResult.allRows,
-        groups: campaignResult.groups,
-        assignments: campaignResult.assignments,
+        groups: operationalReference.groups,
+        assignments: operationalReference.assignments,
         sessions: campaignResult.sessions,
         operators,
       },
-    }).catch(() => []),
-  ]);
+      requireComplete: true,
+      signal,
+    });
+  }, { fallback: [], maxAgeMs: ADMIN_HOME_COMMERCIAL_TTL_MS });
+  const clientsQuotesResult = clientsQuotesState.value;
   const liveOperators = liveSummary.current || [];
-  return {
+  const states = { campaignState, operationsState, operationalReferenceState, operatorsState, smartPairingState, clientsQuotesState };
+  const { refreshIssues, hasAnyData } = summarizeAdminResourceStates(states);
+  const availability = {
+    ...campaignResult.availability,
+    campaigns: campaignState.available,
+    today: operationsState.available && campaignState.available,
+    groups: operationalReferenceState.available,
+    assignments: operationalReferenceState.available,
+    gps: operationsState.available,
+    operators: operatorsState.available,
+    clientsQuotes: clientsQuotesState.available,
+  };
+  const result = {
     campaigns: campaignResult.allRows,
     todayGroups: buildTodayGroupCards({ operations: realOperations, liveOperators, operators }),
-    groups: buildOperationalGroups({ groups: realGroups, assignments: campaignResult.assignments, operators, liveOperators, campaigns: campaignResult.allRows }),
+    groups: buildOperationalGroups({ groups: realGroups, assignments: operationalReference.assignments, operators, liveOperators, campaigns: campaignResult.allRows }),
     operators,
     liveOperators,
     liveSummary,
     clientsQuotes: clientsQuotesResult,
-    smartPairing: { rows: smartPairingResult.rows, available: smartPairingResult.available },
-    availability: { ...campaignResult.availability, today: operations.available },
+    smartPairing: { rows: smartPairingState.value, available: smartPairingState.available },
+    availability,
+    refreshIssues,
+    hasAnyData,
   };
+  return result;
 }
 
 function TodayGroupCard({ group, onWhatsApp }) {
@@ -288,7 +356,10 @@ function StatusDot({ status }) { return <span className={`admin-home__presence a
 function Metric({ label, value, tone }) { return <article className={`admin-home__metric admin-home__metric--${tone}`}><strong>{value}</strong><span>{label}</span></article>; }
 function SectionHeading({ id, eyebrow, title, meta, action, onAction }) { return <header className="admin-home__heading"><div><p>{eyebrow}</p><h2 id={id}>{title}</h2>{meta && <span>{meta}</span>}</div>{action && <button type="button" onClick={onAction}>{action}</button>}</header>; }
 function EmptyState({ text, action, onAction }) { return <div className="admin-home__empty"><p>{text}</p>{action && <button type="button" onClick={onAction}>{action}</button>}</div>; }
-function Notice({ children, danger = false }) { return <div className={`admin-home__notice${danger ? ' admin-home__notice--danger' : ''}`} role={danger ? 'alert' : 'status'}>{children}</div>; }
+function Notice({ children, danger = false, warning = false }) {
+  const style = warning ? { background: 'rgba(251,191,36,.07)', borderColor: 'rgba(251,191,36,.22)', color: '#fde68a' } : undefined;
+  return <div className={`admin-home__notice${danger ? ' admin-home__notice--danger' : ''}`} style={style} role={danger ? 'alert' : 'status'}>{children}</div>;
+}
 function DashboardSkeleton() {
   return (
     <div className="admin-home__skeleton-wrap" aria-label="Caricamento dashboard">
@@ -326,6 +397,14 @@ function emptyData() {
   return {
     campaigns: [], todayGroups: [], groups: [], operators: [], liveOperators: [],
     liveSummary: { liveCount: 0, warningCount: 0 }, clientsQuotes: [], smartPairing: { rows: [], available: false },
-    availability: { campaigns: false, today: false, groups: false },
+    availability: { campaigns: false, today: false, groups: false, gps: false, operators: false, clientsQuotes: false },
+    refreshIssues: [], hasAnyData: false,
+  };
+}
+
+function emptyCampaignResult() {
+  return {
+    rows: [], allRows: [], groups: [], assignments: [], sessions: [], points: [],
+    availability: { campaigns: false, sessions: false, gps: false, photos: false, groups: false, assignments: false, zones: false },
   };
 }

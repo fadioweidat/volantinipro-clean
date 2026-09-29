@@ -15,25 +15,46 @@ import {
   getSessionGroup,
 } from './gps-api.js';
 import { buildGroupRows } from './group-ops.js';
-import { dedupeSessionsByOperator, lastActivityAt, sessionDurationMs } from './report-utils.js';
+import { dedupeSessionsByOperator, lastActivityAt, latestGpsPoint, sessionDurationMs } from './report-utils.js';
+import { AdminResourceUnavailableError } from '../admin/adminDashboardResilience.js';
 import { getPublicAppUrl } from '../publicAppUrl.js';
 import { classifyDeliverySession, GPS_SESSION_STATE } from '../monitoring/gpsSessionLifecycle.js';
 
 const EMPTY = 'Dato non disponibile';
 
-export async function getRealCampaigns({ includeTest = false } = {}) {
+function withAbortSignal(query, signal) {
+  return signal && typeof query?.abortSignal === 'function' ? query.abortSignal(signal) : query;
+}
+
+export async function getRealCampaigns({ includeTest = false, includeGpsPoints = true, requireComplete = false, signal = null } = {}) {
   await ensureSupabaseSessionBridge?.();
   const [campaignsTable, legacyCampaigns, quoteRequests, sessions, points, photos, groups, assignments, campaignZones] = await Promise.all([
-    selectOptionalTable('campaigns'),
-    selectOptionalTable('campagne'),
-    selectOptionalTable('quote_requests'),
-    selectOptionalTable('delivery_sessions', 'created_at', 'id,campaign_id,driver_id,assignment_id,group_id,status,started_at,ended_at,paused_at,updated_at,created_at', 2000),
-    selectOptionalTable('gps_tracking_points', 'recorded_at', 'session_id,recorded_at,created_at,lat,lng', 5000),
-    selectOptionalTable('proof_photos'),
-    selectOptionalTable('operational_groups'),
-    selectOptionalTable('operator_assignments', 'created_at', 'id,campaign_id,group_id,operator_id,status,starts_at,ends_at,revoked_at,created_at,access_token', 2000),
-    selectOptionalTable('campaign_zones'),
+    selectOptionalTable('campaigns', 'created_at', '*', null, { signal }),
+    selectOptionalTable('campagne', 'created_at', '*', null, { signal }),
+    selectOptionalTable('quote_requests', 'created_at', '*', null, { signal }),
+    selectOptionalTable('delivery_sessions', 'created_at', 'id,campaign_id,driver_id,assignment_id,group_id,status,started_at,ended_at,paused_at,updated_at,created_at', 2000, { signal }),
+    includeGpsPoints
+      ? selectOptionalTable('gps_tracking_points', 'recorded_at', 'session_id,recorded_at,created_at,lat,lng', 5000, { signal })
+      : Promise.resolve({ rows: [], available: true, skipped: true, error: null }),
+    selectOptionalTable('proof_photos', 'created_at', '*', null, { signal }),
+    selectOptionalTable('operational_groups', 'created_at', '*', null, { signal }),
+    selectOptionalTable('operator_assignments', 'created_at', 'id,campaign_id,group_id,operator_id,status,starts_at,ends_at,revoked_at,created_at,access_token', 2000, { signal }),
+    selectOptionalTable('campaign_zones', 'created_at', '*', null, { signal }),
   ]);
+
+  if (requireComplete) {
+    const unavailable = [
+      ...(!campaignsTable.available ? ['campaigns'] : []),
+      ...(!legacyCampaigns.available ? ['campagne'] : []),
+      ...(!quoteRequests.available ? ['quote_requests'] : []),
+      ...[
+        ['delivery_sessions', sessions], ['proof_photos', photos], ['operational_groups', groups],
+        ['operator_assignments', assignments], ['campaign_zones', campaignZones],
+      ].filter(([, result]) => !result.available).map(([name]) => name),
+      ...(includeGpsPoints && !points.available ? ['gps_tracking_points'] : []),
+    ];
+    if (unavailable.length) throw new AdminResourceUnavailableError(unavailable.join(', '));
+  }
 
   const rows = uniqueById([
     ...campaignsTable.rows.map((row) => normalizeCampaign(row, 'campaigns')),
@@ -77,6 +98,7 @@ export async function getRealCampaigns({ includeTest = false } = {}) {
       photos: photos.available,
       groups: groups.available,
       assignments: assignments.available,
+      zones: campaignZones.available,
     },
   };
 }
@@ -324,7 +346,7 @@ export async function recoverAbandonedGpsSession(target, { now = new Date() } = 
 // della lentezza dell'Admin Dashboard. Comportamento standalone (nessun
 // prefetched, es. ClientsQuotes.jsx aperta direttamente) invariato: fa
 // tutte le sue query come prima.
-export async function getClientsQuotesOverview({ includeTest = false, prefetched = null } = {}) {
+export async function getClientsQuotesOverview({ includeTest = false, prefetched = null, requireComplete = false, signal = null } = {}) {
   const needCampaigns = !prefetched?.campaigns;
   const needGroups = !prefetched?.groups;
   const needAssignments = !prefetched?.assignments;
@@ -332,20 +354,33 @@ export async function getClientsQuotesOverview({ includeTest = false, prefetched
   const needSessions = !prefetched?.sessions;
 
   const [campaignsRes, groupsRes, assignmentsRes, assignmentZonesRes, operatorsRes, sessionsRes, logsRes, creditAppsRes] = await Promise.all([
-    needCampaigns ? getRealCampaigns({ includeTest }) : Promise.resolve(null),
-    needGroups ? selectOptionalTable('operational_groups') : Promise.resolve(null),
-    needAssignments ? selectOptionalTable('operator_assignments') : Promise.resolve(null),
-    selectOptionalTable('operator_assignment_zones'),
+    needCampaigns ? getRealCampaigns({ includeTest, requireComplete, signal }) : Promise.resolve(null),
+    needGroups ? selectOptionalTable('operational_groups', 'created_at', '*', null, { signal }) : Promise.resolve(null),
+    needAssignments ? selectOptionalTable('operator_assignments', 'created_at', '*', null, { signal }) : Promise.resolve(null),
+    selectOptionalTable('operator_assignment_zones', 'created_at', '*', null, { signal }),
     // operator_profiles non ha una colonna phone reale: il telefono viene da
     // un join server-side dentro la RPC admin_list_operators (verificato
     // chiamandola direttamente: restituisce id/display_name/phone/status,
     // mentre una select diretta sulla tabella non ha ne' phone ne' status).
     // Stessa RPC gia' usata da AssignWork.jsx, nessun percorso parallelo.
-    needOperators ? listAssignableOperators().catch(() => []) : Promise.resolve(null),
-    needSessions ? selectOptionalTable('delivery_sessions') : Promise.resolve(null),
-    selectOptionalTable('assignment_event_log'),
-    selectOptionalTable('feasibility_credit_applications', 'applied_at'),
+    needOperators ? listAssignableOperators({ signal }) : Promise.resolve(null),
+    needSessions ? selectOptionalTable('delivery_sessions', 'created_at', '*', null, { signal }) : Promise.resolve(null),
+    selectOptionalTable('assignment_event_log', 'created_at', '*', null, { signal }),
+    selectOptionalTable('feasibility_credit_applications', 'applied_at', '*', null, { signal }),
   ]);
+
+  if (requireComplete) {
+    const unavailable = [
+      ...(needCampaigns && !campaignsRes?.availability?.campaigns ? ['campaigns'] : []),
+      ...(needGroups && !groupsRes?.available ? ['operational_groups'] : []),
+      ...(needAssignments && !assignmentsRes?.available ? ['operator_assignments'] : []),
+      ...(!assignmentZonesRes.available ? ['operator_assignment_zones'] : []),
+      ...(needSessions && !sessionsRes?.available ? ['delivery_sessions'] : []),
+      ...(!logsRes.available ? ['assignment_event_log'] : []),
+      ...(!creditAppsRes.available ? ['feasibility_credit_applications'] : []),
+    ];
+    if (unavailable.length) throw new AdminResourceUnavailableError(unavailable.join(', '));
+  }
 
   const campaigns = needCampaigns
     ? campaignsRes.rows
@@ -519,7 +554,7 @@ export async function getLiveDrivers({ prefetched = null } = {}) {
   }
   const drivers = sessions.map((session) => {
     const points = pointsBySession.get(session.id) || [];
-    const latest = points[points.length - 1] || null;
+    const latest = latestGpsPoint(points);
     const activityAt = lastActivityAt(session, points);
     return {
       session,
@@ -696,19 +731,47 @@ export async function updatePlatformIncident(id, patch) {
   }
 }
 
-export async function selectOptionalTable(table, order = 'created_at', columns = '*', limit = null) {
-  if (!supabase) return { rows: [], available: false };
+export async function selectOptionalTable(table, order = 'created_at', columns = '*', limit = null, { signal = null } = {}) {
+  if (!supabase) return { rows: [], available: false, error: new AdminResourceUnavailableError(table) };
   try {
     await ensureSupabaseSessionBridge?.();
     let query = supabase.from(table).select(columns);
     if (order) query = query.order(order, { ascending: false });
     if (limit && Number.isFinite(limit)) query = query.limit(limit);
+    if (signal) query = query.abortSignal(signal);
     const { data, error } = await query;
-    if (error) return { rows: [], available: false };
-    return { rows: Array.isArray(data) ? data : [], available: true };
-  } catch {
-    return { rows: [], available: false };
+    if (error) return { rows: [], available: false, error };
+    return { rows: Array.isArray(data) ? data : [], available: true, error: null };
+  } catch (error) {
+    return { rows: [], available: false, error };
   }
+}
+
+export function summarizeLiveOperations(operations = []) {
+  const drivers = operations.flatMap((operation) => (operation.sessions || []).map((session) => {
+    const activityAt = operation.gpsLastPingBySession?.[session.id]
+      || session.updated_at || session.ended_at || session.paused_at || session.started_at || session.created_at || null;
+    return {
+      session,
+      latest: activityAt ? { recorded_at: activityAt } : null,
+      points: [],
+      activityAt,
+      lastPing: activityAt,
+      status: classifyDriverStatus(activityAt),
+      driverName: displayDriverName(session),
+      group: getSessionGroup(session),
+      groupName: getSessionGroup(session).name,
+      km: 0,
+      lifecycle: classifySessionLifecycle(session, activityAt),
+    };
+  }));
+  const current = dedupeSessionsByOperator(drivers.filter((item) => item.lifecycle !== 'history'));
+  return {
+    all: drivers,
+    current,
+    liveCount: current.filter((item) => item.lifecycle === 'live').length,
+    warningCount: current.filter((item) => item.lifecycle === 'warning').length,
+  };
 }
 
 // Richieste consulenza dal form pubblico "Parla con un consulente".
@@ -998,10 +1061,10 @@ export async function getAssignedZones(campaignId, { groupId } = {}) {
   }
 }
 
-export async function listAssignableOperators() {
+export async function listAssignableOperators({ signal = null } = {}) {
   if (!supabase) return [];
   try {
-    const { data, error } = await supabase.rpc('admin_list_operators');
+    const { data, error } = await withAbortSignal(supabase.rpc('admin_list_operators'), signal);
     if (error) throw error;
     return Array.isArray(data) ? data : [];
   } catch (err) {
@@ -1442,158 +1505,99 @@ ${link || 'Link non disponibile'}
 Conferma la presa in carico dal programma.`;
 }
 
-export async function getDailyOperations(dateStr) {
+export async function getDailyOperations(dateStr, { signal = null, requireComplete = false } = {}) {
   await ensureSupabaseSessionBridge();
-  // P0 ROOT CAUSE (audit "Chi lavora oggi" mostra assignment vecchi): i
-  // limiti giorno venivano costruiti con `new Date(dateStr)` (parse come
-  // UTC mezzanotte) seguito da `.setHours(0,0,0,0)` (mutazione in ORARIO
-  // LOCALE) — un doppio giro UTC->locale che puo' spostare il confine del
-  // giorno di alcune ore rispetto a Europe/Rome reale. Riusato invece
-  // l'helper condiviso `localDayBounds` (stesso identico usato poco sotto
-  // da getDailyOperationsReport nello stesso file): costruisce la
-  // mezzanotte locale direttamente dai componenti anno/mese/giorno, senza
-  // il round-trip che causava lo shift.
   const { start: todayStart, endExclusive: todayEndExclusive } = localDayBounds(dateStr);
   const todayEnd = new Date(todayEndExclusive.getTime() - 1);
+  const sessionColumns = 'id,campaign_id,driver_id,assignment_id,group_id,status,started_at,paused_at,ended_at,updated_at,created_at';
+  const [todaySessionResult, activeSessionResult] = await Promise.all([
+    withAbortSignal(supabase.from('delivery_sessions').select(sessionColumns)
+      .gte('created_at', todayStart.toISOString()).lt('created_at', todayEndExclusive.toISOString()), signal),
+    withAbortSignal(supabase.from('delivery_sessions').select(sessionColumns)
+      .in('status', ['started', 'paused']), signal),
+  ]);
+  const sessionErrors = [todaySessionResult.error, activeSessionResult.error].filter(Boolean);
+  if (sessionErrors.length && requireComplete) throw new AdminResourceUnavailableError('delivery_sessions', sessionErrors[0]);
+  const dailySessions = uniqueById([
+    ...(todaySessionResult.error ? [] : (todaySessionResult.data || [])),
+    ...(activeSessionResult.error ? [] : (activeSessionResult.data || [])),
+  ]);
 
-  // 1. Fetch assignments attivi (TODAY SOURCE OF TRUTH: nessun campo
-  // work_date/scheduled_date dedicato esiste sullo schema reale — starts_at/
-  // ends_at di operator_assignments sono gli unici campi data operativa
-  // disponibili, confermati in un audit precedente di questa sessione).
-  const { data: assignments, error: assignErr } = await supabase
-    .from('operator_assignments')
-    .select(`
-      id,
-      operator_id,
-      campaign_id,
-      group_id,
-      status,
-      starts_at,
-      ends_at,
-      access_token,
-      operator_profiles ( user_id, display_name ),
-      operational_groups ( name ),
-      campaigns ( title ),
-      operator_assignment_zones (
-        id,
-        quantity,
-        municipality_name,
-        campaign_zones ( id, priority, status, quantity_assigned )
-      )
-    `)
-    .eq('status', 'active');
-
-  if (assignErr) throw assignErr;
-
-  const allAssignments = assignments || [];
-  if (allAssignments.length === 0) return [];
-
-  // 2. Fetch sessioni per la giornata (SESSION DATE FIELD = created_at,
-  // invariato dalla versione precedente: un cambio a started_at
-  // richiederebbe verifica dal vivo sui dati reali, non disponibile in
-  // questa sessione — nessuna modifica non verificata).
-  const { data: sessions, error: sessErr } = await supabase
-    .from('delivery_sessions')
-    .select(`
-      id,
-      campaign_id,
-      driver_id,
-      assignment_id,
-      group_id,
-      status,
-      started_at,
-      created_at
-    `)
-    .gte('created_at', todayStart.toISOString())
-    .lt('created_at', todayEndExclusive.toISOString());
-
-  // La telemetria e' accessoria alla centrale operativa: un errore nella
-  // query GPS non deve nascondere assegnazioni ed eventi sent/opened.
-  const dailySessions = sessErr ? [] : (sessions || []);
-
-  // P0 ROOT CAUSE: la vecchia regola era `s <= endOfDay && (!e || e >=
-  // startOfDay)` — con ends_at nullo (`!e`), la condizione era SEMPRE vera
-  // indipendentemente da quanto vecchio fosse starts_at: un assignment
-  // creato mesi fa e mai chiuso restava "di oggi" per sempre. Root cause
-  // esatta di Fabio/Schazad/Michele. Nuova regola (ticket, unione A/B/C):
-  //   A) la finestra starts_at..effectiveEnd copre davvero oggi — ends_at
-  //      nullo ora significa "programma di un solo giorno" (effectiveEnd =
-  //      starts_at), MAI "aperto all'infinito";
-  //   oppure
-  //   B/C) esiste almeno una sessione operativa reale di oggi per questo
-  //      assignment (iniziata/attiva/completata oggi), anche se la
-  //      finestra nominale dell'assignment non combacia esattamente.
-  // Nessun assignment storico viene toccato/cancellato: continua a esistere
-  // per storico/gruppi/campagne/GPS/report, semplicemente non compare più
-  // in "Oggi" se la sua data operativa reale non è oggi.
-  const hasTodaySession = (assignmentId, operatorId, campaignId) =>
-    dailySessions.some((s) => (s.assignment_id ? s.assignment_id === assignmentId : (s.driver_id === operatorId && s.campaign_id === campaignId)));
-
-  const validAssignments = allAssignments.filter((a) => {
-    const s = new Date(a.starts_at);
-    const effectiveEnd = a.ends_at ? new Date(a.ends_at) : s;
-    const windowCoversToday = s <= todayEnd && effectiveEnd >= todayStart;
-    return windowCoversToday || hasTodaySession(a.id, a.operator_id, a.campaign_id);
-  });
-
-  if (validAssignments.length === 0) return [];
-
-  // 3. Fetch GPS data for these sessions (gia' scoped a dailySessions di
-  // oggi, MAI l'intera tabella storica — confermato dall'audit performance).
-  let gpsPoints = [];
-  if (dailySessions.length > 0) {
-    const sessionIds = dailySessions.map(s => s.id);
-    const { data: points } = await supabase
-      .from('gps_tracking_points')
-      .select('session_id, recorded_at')
-      .in('session_id', sessionIds)
-      .order('recorded_at', { ascending: false });
-    if (points) gpsPoints = points;
+  const assignmentColumns = `
+    id, operator_id, campaign_id, group_id, status, starts_at, ends_at, access_token,
+    operator_profiles ( user_id, display_name ), operational_groups ( name ), campaigns ( title ),
+    operator_assignment_zones (
+      id, quantity, municipality_name,
+      campaign_zones ( id, priority, status, quantity_assigned )
+    )
+  `;
+  const sessionAssignmentIds = [...new Set(dailySessions.map(session => session.assignment_id).filter(Boolean))];
+  const assignmentQueries = [
+    withAbortSignal(supabase.from('operator_assignments').select(assignmentColumns)
+      .eq('status', 'active')
+      .lte('starts_at', todayEnd.toISOString())
+      .or(`ends_at.gte.${todayStart.toISOString()},and(ends_at.is.null,starts_at.gte.${todayStart.toISOString()})`), signal),
+  ];
+  if (sessionAssignmentIds.length) {
+    assignmentQueries.push(withAbortSignal(supabase.from('operator_assignments').select(assignmentColumns)
+      .eq('status', 'active').in('id', sessionAssignmentIds), signal));
   }
+  const assignmentResults = await Promise.all(assignmentQueries);
+  const assignmentError = assignmentResults.find(result => result.error)?.error;
+  if (assignmentError && requireComplete) throw new AdminResourceUnavailableError('operator_assignments', assignmentError);
+  const allAssignments = uniqueById(assignmentResults.flatMap(result => result.error ? [] : (result.data || [])));
 
-  // 4. Fetch proof photos (gia' scoped a dailySessions di oggi).
-  let photoCountMap = {};
-  if (dailySessions.length > 0) {
-    const sessionIds = dailySessions.map(s => s.id);
-    const { data: photos } = await supabase
-      .from('proof_photos')
-      .select('session_id')
-      .in('session_id', sessionIds);
-    if (photos) {
-      photos.forEach(p => {
-        photoCountMap[p.session_id] = (photoCountMap[p.session_id] || 0) + 1;
-      });
+  const sessionsByAssignment = new Map();
+  const sessionsByDriverCampaign = new Map();
+  for (const session of dailySessions) {
+    if (session.assignment_id) {
+      if (!sessionsByAssignment.has(session.assignment_id)) sessionsByAssignment.set(session.assignment_id, []);
+      sessionsByAssignment.get(session.assignment_id).push(session);
+    } else {
+      const key = `${session.driver_id || ''}::${session.campaign_id || ''}`;
+      if (!sessionsByDriverCampaign.has(key)) sessionsByDriverCampaign.set(key, []);
+      sessionsByDriverCampaign.get(key).push(session);
     }
   }
+  const sessionsFor = assignment => [
+    ...(sessionsByAssignment.get(assignment.id) || []),
+    ...(sessionsByDriverCampaign.get(`${assignment.operator_id || ''}::${assignment.campaign_id || ''}`) || []),
+  ];
+  const validAssignments = allAssignments.filter(assignment => {
+    const start = Date.parse(assignment.starts_at || '');
+    const end = assignment.ends_at ? Date.parse(assignment.ends_at) : start;
+    const windowCoversToday = Number.isFinite(start) && start <= todayEnd.getTime() && Number.isFinite(end) && end >= todayStart.getTime();
+    return windowCoversToday || sessionsFor(assignment).length > 0;
+  });
+  if (validAssignments.length === 0) return [];
 
-  // 5. Fetch audit logs (sent/opened) — gia' scoped a validAssignments di oggi.
-  let assignmentLogs = [];
-  if (validAssignments.length > 0) {
-    const assignmentIds = validAssignments.map(a => a.id);
-    const { data: logs, error: logsError } = await supabase
-      .from('assignment_event_log')
+  const assignmentIds = validAssignments.map(assignment => assignment.id);
+  const sessionIds = dailySessions.map(session => session.id);
+  const [telemetryBySession, logsResult] = await Promise.all([
+    getDailyTelemetryBySession(sessionIds, { signal, requireComplete }),
+    withAbortSignal(supabase.from('assignment_event_log')
       .select('assignment_id, event_type, created_at')
       .in('assignment_id', assignmentIds)
       .in('event_type', ['assignment_program_sent', 'assignment_program_opened', 'assignment_program_confirmed'])
-      .order('created_at', { ascending: false });
-    if (!logsError && logs) assignmentLogs = logs;
+      .order('created_at', { ascending: false }), signal),
+  ]);
+  if (logsResult.error && requireComplete) throw new AdminResourceUnavailableError('assignment_event_log', logsResult.error);
+  const logsByAssignment = new Map();
+  for (const log of logsResult.error ? [] : (logsResult.data || [])) {
+    if (!logsByAssignment.has(log.assignment_id)) logsByAssignment.set(log.assignment_id, []);
+    logsByAssignment.get(log.assignment_id).push(log);
   }
 
   return validAssignments.map(assignment => {
-    // Sessioni del driver
-    const driverSessions = dailySessions.filter(s => s.assignment_id ? s.assignment_id === assignment.id : s.driver_id === assignment.operator_id && s.campaign_id === assignment.campaign_id);
-
-    // Ultimo ping GPS
-    const driverPoints = gpsPoints.filter(p => driverSessions.some(s => s.id === p.session_id));
-    const lastPing = driverPoints.length > 0 ? driverPoints[0].recorded_at : null;
-    const startedSessionIds = new Set(driverSessions.filter(s => s.status === 'started').map(s => s.id));
-    const activeSessionLastPing = gpsPoints.find(p => startedSessionIds.has(p.session_id))?.recorded_at || null;
-
-    // Foto totali
-    const photosCount = driverSessions.reduce((acc, s) => acc + (photoCountMap[s.id] || 0), 0);
-
-    // Logs invio/apertura
-    const driverLogs = assignmentLogs.filter(l => l.assignment_id === assignment.id);
+    const driverSessions = sessionsFor(assignment);
+    const sessionPings = driverSessions.map(session => telemetryBySession[session.id]?.last_gps_at).filter(Boolean).sort();
+    const activeSessionPings = driverSessions
+      .filter(session => ['started', 'paused'].includes(session.status))
+      .map(session => telemetryBySession[session.id]?.last_gps_at).filter(Boolean).sort();
+    const lastPing = sessionPings.at(-1) || null;
+    const activeSessionLastPing = activeSessionPings.at(-1) || null;
+    const photosCount = driverSessions.reduce((count, session) => count + Number(telemetryBySession[session.id]?.photo_count || 0), 0);
+    const driverLogs = logsByAssignment.get(assignment.id) || [];
     const sentLog = driverLogs.find(l => l.event_type === 'assignment_program_sent');
     const openedLog = sentLog
       ? driverLogs.find(l => l.event_type === 'assignment_program_opened' && l.created_at >= sentLog.created_at)
@@ -1610,6 +1614,10 @@ export async function getDailyOperations(dateStr) {
         status: row.campaign_zones?.status || 'Da iniziare',
       })),
       sessions: driverSessions,
+      gpsLastPingBySession: Object.fromEntries(driverSessions.map((session) => [
+        session.id,
+        telemetryBySession[session.id]?.last_gps_at || null,
+      ])),
       lastPing,
       activeSessionLastPing,
       photosCount,
@@ -1623,20 +1631,21 @@ export async function getDailyOperations(dateStr) {
   });
 }
 
-async function getDailyTelemetryBySession(sessionIds) {
+async function getDailyTelemetryBySession(sessionIds, { signal = null, requireComplete = false } = {}) {
   if (sessionIds.length === 0) return {};
-  const { data: aggregateRows, error: aggregateError } = await supabase.rpc('admin_daily_report_telemetry', {
+  const { data: aggregateRows, error: aggregateError } = await withAbortSignal(supabase.rpc('admin_daily_report_telemetry', {
     p_session_ids: sessionIds,
-  });
+  }), signal);
   if (!aggregateError) {
     return Object.fromEntries((aggregateRows || []).map(row => [row.session_id, row]));
   }
+  if (requireComplete) throw new AdminResourceUnavailableError('gps_tracking_points, proof_photos', aggregateError);
 
   // Compatibilita' locale prima dell'applicazione della migration: carica
   // soltanto chiavi e timestamp necessari, mai coordinate o payload foto.
   const [gpsResult, photoResult] = await Promise.all([
-    supabase.from('gps_tracking_points').select('session_id, recorded_at').in('session_id', sessionIds),
-    supabase.from('proof_photos').select('session_id').in('session_id', sessionIds),
+    withAbortSignal(supabase.from('gps_tracking_points').select('session_id, recorded_at').in('session_id', sessionIds), signal),
+    withAbortSignal(supabase.from('proof_photos').select('session_id').in('session_id', sessionIds), signal),
   ]);
   const telemetry = Object.fromEntries(sessionIds.map(id => [id, {
     session_id: id, gps_count: 0, first_gps_at: null, last_gps_at: null, photo_count: 0,
