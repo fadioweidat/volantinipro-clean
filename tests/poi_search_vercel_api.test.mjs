@@ -203,3 +203,26 @@ test('PARITA\': motore NON duplicato — solo import dai moduli condivisi, nessu
     assert.ok(edgeSrc.includes(fn), fn);
   }
 });
+
+// ── Deploy Vercel: i due moduli condivisi devono esistere nella build ────────
+// .vercelignore escludeva l'intera supabase/: su Vercel gli import di
+// api/poi-search.ts fallivano (ERR_MODULE_NOT_FOUND). Solo i due moduli puri
+// sono riammessi; il resto di supabase/ resta fuori dal deploy.
+test('.vercelignore: riammessi SOLO poiSearchProxy.ts e roadNetworkProxy.ts, resto di supabase/ escluso', () => {
+  const lines = read('../.vercelignore').split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+  const reIncluded = lines.filter((l) => l.startsWith('!supabase/'));
+  assert.deepEqual(reIncluded, [
+    '!supabase/functions',
+    '!supabase/functions/_shared',
+    '!supabase/functions/_shared/poiSearchProxy.ts',
+    '!supabase/functions/_shared/roadNetworkProxy.ts',
+  ]);
+  for (const excluded of ['supabase/*', 'supabase/functions/*', 'supabase/functions/_shared/*']) assert.ok(lines.includes(excluded), excluded);
+  assert.ok(!lines.includes('supabase/'), 'una directory esclusa per intero non puo\' riammettere file figli');
+  // I due moduli riammessi sono puri: nessun import, nessuna API Deno, nessun secret.
+  for (const f of ['poiSearchProxy.ts', 'roadNetworkProxy.ts']) {
+    const src = read(`../supabase/functions/_shared/${f}`);
+    assert.doesNotMatch(src, /^import /m, f);
+    assert.doesNotMatch(src, /Deno\.|SERVICE_ROLE|service_role/, f);
+  }
+});
