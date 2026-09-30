@@ -246,4 +246,26 @@ test("Release workflow: solo manuale, verifica e pubblica, mai firma ne' keystor
   const publish = releaseWorkflow.slice(releaseWorkflow.indexOf("- name: Publish GitHub Release"));
   assert.match(publish, /if: \$\{\{ inputs\.mode == 'publish' \}\}/);
   assert.match(publish, /gh release view "\$TAG"[\s\S]*exit 1/, "non sovrascrive una release esistente");
+
+  // Permessi: contents: write (necessario per la Release) e nessun'altra scrittura.
+  const permissions = releaseWorkflow.slice(releaseWorkflow.indexOf("\npermissions:"), releaseWorkflow.indexOf("\njobs:"));
+  assert.match(permissions, /\n  contents: write\n/);
+  assert.deepEqual([...releaseWorkflow.matchAll(/^\s*([a-z-]+): write\s*$/gm)].map((m) => m[1]), ["contents"]);
+  assert.equal((releaseWorkflow.match(/^\s*permissions:/gm) || []).length, 1, "un solo blocco permissions");
+
+  // Il tag NON punta al commit sorgente (servirebbe il permesso "workflows",
+  // negato al token delle Actions: 403). Il sorgente e' tracciato nelle note.
+  const command = publish.split("\n").filter((line) => !line.trim().startsWith("#")).join("\n");
+  assert.match(command, /gh release create "\$TAG"/);
+  assert.doesNotMatch(command, /--target/);
+  assert.match(command, /--latest/);
+  assert.match(command, /--notes "\$notes"/);
+  for (const expected of [
+    "Versione $VERSION (versionCode $CODE).",
+    "APK costruita dal commit $SHA, run $RUN_ID.",
+    "Certificato SHA-256: $FP.",
+    "Installazione: https://www.volantinipro.it/app-driver",
+  ]) assert.ok(command.includes(`"${expected}"`), expected);
+  assert.match(publish, /SHA: \$\{\{ steps\.source\.outputs\.sha \}\}/);
+  assert.match(releaseWorkflow, /RUN_ID: \$\{\{ inputs\.run_id \}\}/);
 });
