@@ -2,8 +2,8 @@ name: Release Android Driver APK
 
 # Pubblica come GitHub Release l'APK GIA' costruita e firmata da una run
 # riuscita di "Build Android Driver APK". Solo manuale. Non costruisce, non
-# firma e non legge alcun keystore: verifica e pubblica (o solo verifica, con
-# dry_run). L'asset ha nome fisso, cosi' l'URL
+# firma e non legge alcun keystore: verifica (mode = verify, predefinito) e,
+# solo con mode = publish, pubblica. L'asset ha nome fisso, cosi' l'URL
 #   .../releases/latest/download/VolantiniPro-Driver.apk
 # usato da https://www.volantinipro.it/app-driver resta stabile.
 
@@ -14,11 +14,14 @@ on:
         description: 'ID della run riuscita di "Build Android Driver APK" (numero nell''URL della run)'
         required: true
         type: string
-      dry_run:
-        description: 'Solo verifica, senza pubblicare'
+      mode:
+        description: 'Modalità: verify = solo verifica · publish = crea la GitHub Release'
         required: true
-        type: boolean
-        default: true
+        type: choice
+        default: verify
+        options:
+          - verify
+          - publish
 
 permissions:
   contents: write
@@ -96,11 +99,11 @@ jobs:
             echo "- package: \`$package\`"
             echo "- certificato SHA-256: \`$fp\` (presente in assetlinks.json)"
             echo "- run sorgente: $RUN_ID @ ${{ steps.source.outputs.sha }}"
-            echo "- dry_run: ${{ inputs.dry_run }}"
+            echo "- mode: ${{ inputs.mode }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish GitHub Release
-        if: ${{ !inputs.dry_run }}
+        if: ${{ inputs.mode == 'publish' }}
         env:
           TAG: ${{ steps.verify.outputs.tag }}
           VERSION: ${{ steps.verify.outputs.version }}

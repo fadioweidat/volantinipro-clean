@@ -230,7 +230,9 @@ test("Release workflow: solo manuale, verifica e pubblica, mai firma ne' keystor
   const onBlock = releaseWorkflow.slice(releaseWorkflow.indexOf("\non:"), releaseWorkflow.indexOf("\npermissions:"));
   assert.match(onBlock, /workflow_dispatch:/);
   assert.doesNotMatch(onBlock, /\n  (push|pull_request|schedule|release|workflow_run):/);
-  assert.match(onBlock, /dry_run:[\s\S]*default: true/);
+  // Scelta esplicita (non una casella booleana negata): default = sola verifica.
+  assert.match(onBlock, /mode:[\s\S]*type: choice\n\s+default: verify\n\s+options:\n\s+- verify\n\s+- publish\n/);
+  assert.doesNotMatch(releaseWorkflow, /dry_run/);
   // Solo codice eseguibile: i commenti YAML spiegano proprio cosa NON viene fatto.
   const executable = releaseWorkflow.split("\n").filter((line) => !line.trim().startsWith("#")).join("\n");
   assert.doesNotMatch(executable, /KEYSTORE|keystore|apksigner" sign|apksigner sign|gradlew|npm run build|cap add/);
@@ -242,6 +244,6 @@ test("Release workflow: solo manuale, verifica e pubblica, mai firma ne' keystor
   assert.match(releaseWorkflow, /esattamente un firmatario/);
   assert.match(releaseWorkflow, new RegExp(`ASSET_NAME: ${DRIVER_APK_FILE_NAME.replace(".", "\\.")}`));
   const publish = releaseWorkflow.slice(releaseWorkflow.indexOf("- name: Publish GitHub Release"));
-  assert.match(publish, /if: \$\{\{ !inputs\.dry_run \}\}/);
+  assert.match(publish, /if: \$\{\{ inputs\.mode == 'publish' \}\}/);
   assert.match(publish, /gh release view "\$TAG"[\s\S]*exit 1/, "non sovrascrive una release esistente");
 });
