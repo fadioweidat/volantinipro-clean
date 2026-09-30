@@ -1,4 +1,5 @@
 import { cleanPhoneNumber, parseSupplierCompensation, resolveProgramRecipient } from '../../../lib/services/recipientResolver.js';
+import { DRIVER_APP_BUTTON_LABEL, DRIVER_JOB_BUTTON_LABEL, buildDriverAppInstallWhatsAppUrl } from '../../../lib/services/driverAppDistribution.js';
 
 export function AssignWorkResultStep({
   PreviewRow,
@@ -135,7 +136,16 @@ export function AssignWorkResultStep({
             onClick={handleWhatsApp}
             disabled={isSendDisabled}
           >
-            📱 Invia programma
+            {DRIVER_JOB_BUTTON_LABEL}
+          </button>
+          <button
+            type="button"
+            style={isSendDisabled ? { ...secondaryBtnStyle, opacity: 0.45, cursor: 'not-allowed' } : secondaryBtnStyle}
+            onClick={() => window.open(buildDriverAppInstallWhatsAppUrl(activeRecipient.phone), '_blank', 'noopener,noreferrer')}
+            disabled={isSendDisabled}
+            title="Messaggio di installazione: uguale per tutti, inoltrabile, senza link personale."
+          >
+            {DRIVER_APP_BUTTON_LABEL}
           </button>
           <button type="button" style={secondaryBtnStyle} onClick={handleCopyMsg}>
             {copiedMsg ? '✓ Messaggio copiato!' : '📝 Copia messaggio WhatsApp'}

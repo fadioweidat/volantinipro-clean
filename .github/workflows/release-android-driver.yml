@@ -1,0 +1,117 @@
+name: Release Android Driver APK
+
+# Pubblica come GitHub Release l'APK GIA' costruita e firmata da una run
+# riuscita di "Build Android Driver APK". Solo manuale. Non costruisce, non
+# firma e non legge alcun keystore: verifica e pubblica (o solo verifica, con
+# dry_run). L'asset ha nome fisso, cosi' l'URL
+#   .../releases/latest/download/VolantiniPro-Driver.apk
+# usato da https://www.volantinipro.it/app-driver resta stabile.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'ID della run riuscita di "Build Android Driver APK" (numero nell''URL della run)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Solo verifica, senza pubblicare'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN_ID: ${{ inputs.run_id }}
+      EXPECTED_PACKAGE: it.volantinipro.driver
+      BUILD_WORKFLOW: .github/workflows/build-android-driver.yml
+      PRODUCTION_BRANCH: integration/rc2-full-site
+      ASSET_NAME: VolantiniPro-Driver.apk
+    steps:
+      - name: Check source run
+        id: source
+        run: |
+          case "$RUN_ID" in ''|*[!0-9]*) echo "::error::run_id non numerico"; exit 1;; esac
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")
+          path=$(echo "$run" | jq -r .path)
+          conclusion=$(echo "$run" | jq -r .conclusion)
+          branch=$(echo "$run" | jq -r .head_branch)
+          sha=$(echo "$run" | jq -r .head_sha)
+          [ "$path" = "$BUILD_WORKFLOW" ] || { echo "::error::La run $RUN_ID non e' di $BUILD_WORKFLOW ($path)"; exit 1; }
+          [ "$conclusion" = "success" ] || { echo "::error::La run $RUN_ID non e' riuscita ($conclusion)"; exit 1; }
+          [ "$branch" = "$PRODUCTION_BRANCH" ] || { echo "::error::La run $RUN_ID non e' del branch $PRODUCTION_BRANCH ($branch)"; exit 1; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      # assetlinks.json e capacitor.config.ts dello STESSO commit dell'APK.
+      - name: Checkout source commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.source.outputs.sha }}
+
+      - name: Download APK from source run
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          pattern: VolantiniPro-Driver-debug-*
+          merge-multiple: true
+          path: apk-in
+
+      - name: Verify package and certificate
+        id: verify
+        run: |
+          [ "$(find apk-in -name '*.apk' | wc -l)" = "1" ] || { echo "::error::Atteso esattamente un APK nell'artifact"; exit 1; }
+          apk=$(find apk-in -name '*.apk')
+          tools=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)
+          "${tools}aapt2" dump badging "$apk" > badging.txt
+          badging=$(sed -n 1p badging.txt)
+          package=$(echo "$badging" | sed -n "s/.*package: name='\([^']*\)'.*/\1/p")
+          version=$(echo "$badging" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")
+          code=$(echo "$badging" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")
+          [ "$package" = "$EXPECTED_PACKAGE" ] || { echo "::error::Package inatteso: $package"; exit 1; }
+          grep -q "appId: '$EXPECTED_PACKAGE'" capacitor.config.ts || { echo "::error::appId di capacitor.config.ts diverso da $EXPECTED_PACKAGE"; exit 1; }
+          [ -n "$version" ] && [ -n "$code" ] || { echo "::error::Versione APK non leggibile"; exit 1; }
+
+          certs=$("${tools}apksigner" verify --print-certs "$apk")
+          [ "$(echo "$certs" | grep -c 'certificate SHA-256 digest')" = "1" ] || { echo "::error::L'APK deve avere esattamente un firmatario"; exit 1; }
+          fp=$(echo "$certs" | sed -n 's/.*certificate SHA-256 digest: //p' | tr 'a-f' 'A-F' | sed 's/../&:/g; s/:$//')
+          grep -qF "\"$fp\"" public/.well-known/assetlinks.json || { echo "::error::Certificato APK ($fp) non presente in assetlinks.json: pubblicazione rifiutata"; exit 1; }
+
+          mkdir -p apk-out && cp "$apk" "apk-out/$ASSET_NAME"
+          (cd apk-out && sha256sum "$ASSET_NAME" > "$ASSET_NAME.sha256")
+          {
+            echo "version=$version"; echo "code=$code"; echo "fp=$fp"
+            echo "tag=driver-v$version"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### VolantiniPro Driver $version (versionCode $code)"
+            echo "- package: \`$package\`"
+            echo "- certificato SHA-256: \`$fp\` (presente in assetlinks.json)"
+            echo "- run sorgente: $RUN_ID @ ${{ steps.source.outputs.sha }}"
+            echo "- dry_run: ${{ inputs.dry_run }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish GitHub Release
+        if: ${{ !inputs.dry_run }}
+        env:
+          TAG: ${{ steps.verify.outputs.tag }}
+          VERSION: ${{ steps.verify.outputs.version }}
+          CODE: ${{ steps.verify.outputs.code }}
+          FP: ${{ steps.verify.outputs.fp }}
+          SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::La release $TAG esiste gia': non viene sovrascritta"; exit 1
+          fi
+          gh release create "$TAG" "apk-out/$ASSET_NAME" "apk-out/$ASSET_NAME.sha256" \
+            --target "$SHA" --latest \
+            --title "VolantiniPro Driver $VERSION" \
+            --notes "APK Android ufficiale VolantiniPro Driver. Versione $VERSION (versionCode $CODE). Certificato SHA-256: $FP. Installazione: https://www.volantinipro.it/app-driver"

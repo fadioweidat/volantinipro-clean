@@ -18,6 +18,7 @@ import { buildGroupRows } from './group-ops.js';
 import { dedupeSessionsByOperator, lastActivityAt, latestGpsPoint, sessionDurationMs } from './report-utils.js';
 import { AdminResourceUnavailableError } from '../admin/adminDashboardResilience.js';
 import { getPublicAppUrl } from '../publicAppUrl.js';
+import { buildDriverJobWhatsAppMessage } from './driverAppDistribution.js';
 import { classifyDeliverySession, GPS_SESSION_STATE } from '../monitoring/gpsSessionLifecycle.js';
 
 const EMPTY = 'Dato non disponibile';
@@ -1406,8 +1407,8 @@ export function buildDriverWhatsAppMessage({
 
   if (Array.isArray(programRows) && programRows.length > 0) {
     const rows = programRows.map((row, index) => `${index + 1}. ${row.name || row.zone_name || 'Zona'} — ${row.quantity ? `${Number(row.quantity).toLocaleString('it-IT')} volantini` : 'quantita da definire'}`).join('\n');
-    const mapSection = mapLink ? `\nApri mappa:\n${mapLink}\n` : '';
-    return `Programma di lavoro — ${groupName || nomeDisplay}
+    return buildDriverJobWhatsAppMessage({
+      details: `Programma di lavoro — ${groupName || nomeDisplay}
 
 Campagna: ${titleText}${serviceLine}
 
@@ -1415,31 +1416,23 @@ ${rows}
 
 Totale: ${qtyText}${compensationLine}
 Data: ${dateText}
-Inizio: ${startTime || 'Da definire'}${notesLine}
-
-Apri programma:
-${link || 'Link non disponibile'}
-${mapSection}
-Conferma la presa in carico dal programma.`;
+Inizio: ${startTime || 'Da definire'}${notesLine}`,
+      link,
+      mapLink,
+    });
   }
 
-  return `Ciao ${nomeDisplay},
-
-ti e' stato assegnato questo lavoro:
+  return buildDriverJobWhatsAppMessage({
+    details: `Ciao ${nomeDisplay},
 
 Campagna: ${titleText}${serviceLine}
 Data: ${dateText}
 Comuni: ${comuniText}
 Ordine: ${zoneText}
 Quantita: ${qtyText}
-Totale: ${totalText}${compensationLine}${notesLine}
-
-Apri il link per vedere il lavoro e avviare il GPS:
-${link}
-
-Dopo aver aperto il programma, conferma la presa in carico.
-
-Quando inizi, premi "Inizia tracciamento".`;
+Totale: ${totalText}${compensationLine}${notesLine}`,
+    link,
+  });
 }
 
 export function buildSupplierProgramWhatsAppMessage({
@@ -1475,8 +1468,8 @@ export function buildSupplierProgramWhatsAppMessage({
 
   if (Array.isArray(programRows) && programRows.length > 0) {
     const rows = programRows.map((row, index) => `${index + 1}. ${row.name || row.zone_name || 'Zona'} — ${row.quantity ? `${Number(row.quantity).toLocaleString('it-IT')} volantini` : 'quantita da definire'}`).join('\n');
-    const mapSection = mapLink ? `\nApri mappa:\n${mapLink}\n` : '';
-    return `Programma di lavoro — ${groupHeader}
+    return buildDriverJobWhatsAppMessage({
+      details: `Programma di lavoro — ${groupHeader}
 
 Campagna: ${titleText}${serviceLine}
 
@@ -1484,25 +1477,21 @@ ${rows}
 
 Totale: ${qtyText}${compensationLine}
 Data: ${dateText}
-Inizio: ${startTime || 'Da definire'}${notesLine}
-
-Apri programma:
-${link || 'Link non disponibile'}
-${mapSection}
-Conferma la presa in carico dal programma.`;
+Inizio: ${startTime || 'Da definire'}${notesLine}`,
+      link,
+      mapLink,
+    });
   }
 
-  return `Programma di lavoro — ${groupHeader}
+  return buildDriverJobWhatsAppMessage({
+    details: `Programma di lavoro — ${groupHeader}
 
 Campagna: ${titleText}${serviceLine}${zoneLine}
 Totale: ${qtyText}${compensationLine}
 Data: ${dateText}
-Inizio: ${startTime || 'Da definire'}${notesLine}
-
-Apri il link per vedere il lavoro:
-${link || 'Link non disponibile'}
-
-Conferma la presa in carico dal programma.`;
+Inizio: ${startTime || 'Da definire'}${notesLine}`,
+    link,
+  });
 }
 
 export async function getDailyOperations(dateStr, { signal = null, requireComplete = false } = {}) {

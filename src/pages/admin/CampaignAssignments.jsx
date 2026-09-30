@@ -11,6 +11,7 @@ import {
 } from '../../lib/services/admin-api.js';
 import { getCampaignRecord } from '../../lib/services/gps-api.js';
 import { resolveProgramRecipient, savedSupplierCompensation } from '../../lib/services/recipientResolver.js';
+import { DRIVER_APP_BUTTON_LABEL, DRIVER_JOB_BUTTON_LABEL, buildDriverAppInstallWhatsAppUrl } from '../../lib/services/driverAppDistribution.js';
 import { CampaignAssignmentsSummaryPanel } from './campaign-assignments/CampaignAssignmentsSummaryPanel.jsx';
 import { CampaignAssignmentCardHeader } from './campaign-assignments/CampaignAssignmentCardHeader.jsx';
 
@@ -309,7 +310,16 @@ export function CampaignAssignments({ campaignId }) {
                       disabled={!resolveProgramRecipient({ assignment: a }).valid}
                       onClick={() => handleWhatsApp(a)}
                     >
-                      📱 WhatsApp
+                      {DRIVER_JOB_BUTTON_LABEL}
+                    </button>
+                    <button
+                      type="button"
+                      style={smallBtnStyle}
+                      disabled={!resolveProgramRecipient({ assignment: a }).valid}
+                      onClick={() => window.open(buildDriverAppInstallWhatsAppUrl(resolveProgramRecipient({ assignment: a }).phone), '_blank', 'noopener,noreferrer')}
+                      title="Messaggio di installazione: uguale per tutti, inoltrabile, senza link personale."
+                    >
+                      {DRIVER_APP_BUTTON_LABEL}
                     </button>
                     <a
                       style={smallBtnStyle}

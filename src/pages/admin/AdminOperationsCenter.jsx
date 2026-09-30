@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AdminLayout } from './AdminLayout.jsx';
 import { getDailyOperations, generateDriverAssignmentLink, buildDriverWhatsAppMessage } from '../../lib/services/admin-api.js';
+import { DRIVER_APP_BUTTON_LABEL, DRIVER_JOB_BUTTON_LABEL, buildDriverAppInstallWhatsAppUrl } from '../../lib/services/driverAppDistribution.js';
 import { operationAlertPriority } from '../../lib/operations/deriveOperationAlerts.js';
 import { AdminOperationsKpiPanel } from './admin-operations/AdminOperationsKpiPanel.jsx';
 import { AdminOperationsDateFilter } from './admin-operations/AdminOperationsDateFilter.jsx';
@@ -349,7 +350,8 @@ export function AdminOperationsCenter({ onNav }) {
 
             {/* Card Footer - Actions */}
             <div style={{ padding: '12px 16px', background: 'rgba(0,0,0,0.1)', borderTop: '1px solid #374151', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <button onClick={() => handleSendProgram(a, 'whatsapp')} style={{...actionBtnStyle, background: 'rgba(16, 185, 129, 0.1)', color: C.green, border: `1px solid ${C.green}`}}>Invia via WhatsApp</button>
+              <button onClick={() => handleSendProgram(a, 'whatsapp')} style={{...actionBtnStyle, background: 'rgba(16, 185, 129, 0.1)', color: C.green, border: `1px solid ${C.green}`}}>{DRIVER_JOB_BUTTON_LABEL}</button>
+              <button onClick={() => window.open(buildDriverAppInstallWhatsAppUrl(), '_blank', 'noopener,noreferrer')} style={actionBtnStyle} title="Messaggio di installazione: uguale per tutti, inoltrabile, senza link personale.">{DRIVER_APP_BUTTON_LABEL}</button>
               <button onClick={() => handleSendProgram(a, 'copy')} style={actionBtnStyle}>Copia Messaggio</button>
               <div style={{ width: '1px', background: '#374151', margin: '0 4px' }}></div>
               <button onClick={() => window.open(generateDriverAssignmentLink(a.id, a.access_token), '_blank')} style={actionBtnStyle}>Apri programma</button>

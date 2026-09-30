@@ -55,7 +55,7 @@ describe('WhatsApp Message Builders — Supplier Assignment & Customer Payment',
       assert.match(msg, /Data: 15\/10\/2026/);
       assert.match(msg, /Inizio: 08:30/);
       assert.match(msg, /Note: Ritirare i colli al magazzino entro le 08:00/);
-      assert.match(msg, /Apri programma:\nhttps:\/\/app\.volantinipro\.it\/driver\/assignment\/assign-999/);
+      assert.match(msg, /👇 Apri il tuo lavoro VolantiniPro:\nhttps:\/\/app\.volantinipro\.it\/driver\/assignment\/assign-999/);
       assert.match(msg, /Apri mappa:\nhttps:\/\/maps\.google\.com\/\?q=45\.4642,9\.1900/);
       assert.match(msg, /Conferma la presa in carico dal programma\./);
 
@@ -84,7 +84,7 @@ describe('WhatsApp Message Builders — Supplier Assignment & Customer Payment',
       assert.match(msg, /Compenso concordato: € 320,00/);
       assert.match(msg, /Data: 20\/10\/2026/);
       assert.match(msg, /Inizio: 09:00/);
-      assert.match(msg, /Apri il link per vedere il lavoro:\nhttps:\/\/app\.volantinipro\.it\/driver\/assignment\/assign-100/);
+      assert.match(msg, /👇 Apri il tuo lavoro VolantiniPro:\nhttps:\/\/app\.volantinipro\.it\/driver\/assignment\/assign-100/);
     });
 
     test('omits compensation line when compensation is null/undefined', () => {
@@ -123,7 +123,7 @@ describe('WhatsApp Message Builders — Supplier Assignment & Customer Payment',
       assert.match(msg, /Comuni: Monza, Villasanta/);
       assert.match(msg, /Ordine: Centro, Stazione/);
       assert.match(msg, /Quantita: 3\.?500 volantini/);
-      assert.match(msg, /Apri il link per vedere il lavoro e avviare il GPS:/);
+      assert.match(msg, /👇 Apri il tuo lavoro VolantiniPro:\nhttps:\/\/app\.volantinipro\.it\/driver\/assignment\/assign-77/);
       assert.doesNotMatch(msg, /\[object Object\]/);
     });
   });

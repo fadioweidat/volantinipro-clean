@@ -8,6 +8,7 @@ import {
   buildDriverWhatsAppMessage,
   buildSupplierProgramWhatsAppMessage,
 } from '../../lib/services/admin-api.js';
+import { DRIVER_APP_BUTTON_LABEL, DRIVER_JOB_BUTTON_LABEL, buildDriverAppInstallWhatsAppUrl } from '../../lib/services/driverAppDistribution.js';
 import { resolveProgramRecipient, savedSupplierCompensation } from '../../lib/services/recipientResolver.js';
 import { confirmCampaignPayment } from '../../lib/supabaseClient.js';
 import { adminCancelCampaign, adminArchiveCampaign } from '../../lib/services/admin-transitions-api.js';
@@ -393,7 +394,14 @@ export function ClientsQuotes({ onNav }) {
                   disabled={!isPaid || !row.assignment || !resolveProgramRecipient({ assignment: row.assignment }).valid}
                   title={!isPaid ? 'Conferma prima il pagamento.' : (!row.assignment ? 'Assegna prima un gruppo.' : '')}
                 >
-                  Invia programma
+                  {DRIVER_JOB_BUTTON_LABEL}
+                </ActionBtn>
+                <ActionBtn
+                  onClick={() => window.open(buildDriverAppInstallWhatsAppUrl(resolveProgramRecipient({ assignment: row.assignment }).phone), '_blank', 'noopener,noreferrer')}
+                  disabled={!row.assignment || !resolveProgramRecipient({ assignment: row.assignment }).valid}
+                  title="Messaggio di installazione: uguale per tutti, inoltrabile, senza link personale."
+                >
+                  {DRIVER_APP_BUTTON_LABEL}
                 </ActionBtn>
                 <ActionBtn onClick={() => handleGps(row)} disabled={row.gpsStatus === 'non_disponibile'}>GPS</ActionBtn>
                 <ActionBtn onClick={() => { setActionModalRow(row); setActionModalType('cancel'); setActionModalReason(''); setActionModalError(''); }} style={{ color: '#fca5a5' }}>Annulla</ActionBtn>

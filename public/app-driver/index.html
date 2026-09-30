@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#071426" />
+  <title>VolantiniPro Driver — App Android</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <!--
+    Pagina statica di download di VolantiniPro Driver (Android).
+    - Volutamente FUORI da /driver/: l'APK installata intercetta /driver/*.
+    - Uguale per tutti: nessun token, nessun dato di assegnazione.
+    - URL e nome file devono restare allineati a
+      src/lib/services/driverAppDistribution.js (verificato dai test).
+  -->
+  <style>
+    :root { --bg:#071426; --card:#0d1d32; --line:rgba(255,255,255,.14); --text:#fff; --muted:rgba(255,255,255,.72); --green:#2ECC8A; --warn:#ffcc80; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body { background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.5; -webkit-text-size-adjust: 100%; }
+    main { width: 100%; max-width: 520px; margin: 0 auto; padding: 28px 16px 40px; }
+    .brand { font-size: 13px; font-weight: 800; letter-spacing: 1.1px; color: var(--green); text-transform: uppercase; }
+    h1 { margin: 8px 0 6px; font-size: 28px; line-height: 1.15; }
+    .lead { margin: 0 0 18px; color: var(--muted); }
+    .version { display: inline-block; margin: 0 0 16px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; color: var(--muted); }
+    .btn { display: block; width: 100%; min-height: 58px; padding: 16px; border: 0; border-radius: 14px; background: var(--green); color: #071426; font-size: 18px; font-weight: 900; text-align: center; text-decoration: none; }
+    .btn[aria-disabled="true"] { background: #33465c; color: rgba(255,255,255,.6); pointer-events: none; }
+    .card { margin-top: 18px; padding: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+    .card h2 { margin: 0 0 8px; font-size: 16px; }
+    ol { margin: 0; padding-left: 20px; }
+    li { margin: 6px 0; }
+    .note { color: var(--warn); font-size: 14px; }
+    .muted { color: var(--muted); font-size: 14px; }
+    .qr { width: 220px; max-width: 100%; margin: 6px auto 12px; padding: 10px; background: #fff; border-radius: 12px; }
+    .qr svg { display: block; width: 100%; height: auto; }
+    .link { word-break: break-all; color: var(--green); font-weight: 700; }
+    .center { text-align: center; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand">VolantiniPro</div>
+    <h1>VolantiniPro Driver</h1>
+
+    <!-- ANDROID -->
+    <section id="view-android" hidden>
+      <p class="lead">L'app Android per gli operatori VolantiniPro. Si installa una sola volta.</p>
+      <div class="version" id="apk-version">Versione: verifica in corso…</div>
+      <a class="btn" id="apk-download" href="https://github.com/fadioweidat/volantinipro-clean/releases/latest/download/VolantiniPro-Driver.apk" rel="noopener">Scarica app Android</a>
+
+      <div class="card">
+        <h2>Come installare</h2>
+        <ol>
+          <li>Tocca <strong>Scarica app Android</strong> e attendi la fine del download.</li>
+          <li>Apri il file <strong>VolantiniPro-Driver.apk</strong> dalla notifica o dalla cartella Download.</li>
+          <li>Se richiesto, consenti al browser di <strong>installare app sconosciute</strong>, poi torna indietro.</li>
+          <li>Tocca <strong>Installa</strong>.</li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <h2>Avviso di Android o Play Protect</h2>
+        <p class="note">L'app è distribuita direttamente da VolantiniPro e non dal Play Store: per questo Android può mostrare un avviso prima dell'installazione.</p>
+        <p class="muted">Scarica l'app solo da questa pagina. Se compare l'avviso di Play Protect, scegli «Altri dettagli» e poi «Installa comunque».</p>
+      </div>
+
+      <div class="card">
+        <h2>Dopo l'installazione</h2>
+        <p class="muted">Non devi reinstallare l'app per i lavori successivi. Per ogni lavoro riceverai su WhatsApp il tuo link personale: aprilo e premi «Apri il lavoro».</p>
+      </div>
+    </section>
+
+    <!-- IPHONE / IPAD -->
+    <section id="view-ios" hidden>
+      <p class="lead">VolantiniPro Driver è attualmente disponibile per Android.</p>
+    </section>
+
+    <!-- DESKTOP -->
+    <section id="view-desktop" hidden>
+      <p class="lead">Apri questa pagina dal telefono Android su cui vuoi installare l'app.</p>
+      <div class="card center">
+        <h2>Inquadra il QR code con il telefono</h2>
+        <div class="qr" role="img" aria-label="QR code per https://www.volantinipro.it/app-driver"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 33 33" shape-rendering="crispEdges"><path fill="#ffffff" d="M0 0h33v33H0z"/><path stroke="#071426" d="M2 2.5h7m3 0h1m1 0h1m3 0h1m2 0h2m1 0h7M2 3.5h1m5 0h1m4 0h1m2 0h2m1 0h2m3 0h1m5 0h1M2 4.5h1m1 0h3m1 0h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h1m3 0h1m1 0h3m1 0h1M2 5.5h1m1 0h3m1 0h1m1 0h2m1 0h1m1 0h5m2 0h1m1 0h1m1 0h3m1 0h1M2 6.5h1m1 0h3m1 0h1m1 0h3m1 0h1m1 0h1m1 0h5m1 0h1m1 0h3m1 0h1M2 7.5h1m5 0h1m1 0h1m2 0h1m1 0h1m1 0h3m2 0h1m1 0h1m5 0h1M2 8.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M10 9.5h2m2 0h1m2 0h1M2 10.5h1m1 0h5m3 0h2m5 0h3m2 0h5M3 11.5h1m3 0h1m4 0h1m1 0h2m2 0h5m1 0h3m3 0h1M2 12.5h1m2 0h1m2 0h4m2 0h4m1 0h1M4 13.5h1m5 0h6m4 0h6m1 0h1m1 0h1M5 14.5h2m1 0h1m2 0h1m1 0h2m1 0h4m1 0h1m5 0h2M3 15.5h4m2 0h6m3 0h7m1 0h1m3 0h1M3 16.5h1m3 0h3m2 0h3m2 0h1m2 0h1m1 0h1m1 0h2m1 0h2M3 17.5h2m2 0h1m3 0h2m3 0h3m5 0h3m2 0h1M4 18.5h3m1 0h2m2 0h1m4 0h1m1 0h1m1 0h1m3 0h1m1 0h2M2 19.5h1m4 0h1m1 0h1m2 0h2m1 0h2m1 0h1m2 0h6m1 0h1m1 0h1M2 20.5h1m2 0h4m5 0h5m5 0h2m2 0h1M2 21.5h1m1 0h3m2 0h1m1 0h1m2 0h2m1 0h2m1 0h1m1 0h2m1 0h2m2 0h1M2 22.5h1m1 0h1m3 0h1m1 0h1m1 0h3m1 0h1m2 0h2m1 0h5m1 0h3M10 23.5h1m8 0h4m3 0h5M2 24.5h7m3 0h2m3 0h1m1 0h1m1 0h2m1 0h1m1 0h3M2 25.5h1m5 0h1m1 0h1m1 0h3m1 0h2m3 0h2m3 0h1m2 0h2M2 26.5h1m1 0h3m1 0h1m1 0h3m4 0h3m2 0h5m1 0h1M2 27.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h3m1 0h1m1 0h1m1 0h1m2 0h1m1 0h4M2 28.5h1m1 0h3m1 0h1m1 0h1m1 0h2m2 0h2m2 0h10M2 29.5h1m5 0h1m3 0h1m4 0h1m4 0h2m1 0h1m1 0h1m1 0h1M2 30.5h7m1 0h1m1 0h3m1 0h4m1 0h1m3 0h4"/></svg></div>
+        <p class="muted">Oppure apri questo indirizzo sul telefono:</p>
+        <a class="link" href="https://www.volantinipro.it/app-driver">https://www.volantinipro.it/app-driver</a>
+      </div>
+    </section>
+
+    <noscript>
+      <p class="lead">VolantiniPro Driver è disponibile per Android. Apri questa pagina da un telefono Android per scaricare l'app.</p>
+    </noscript>
+  </main>
+
+  <script>
+    (function () {
+      var ua = navigator.userAgent || "";
+      var isAndroid = /Android/i.test(ua);
+      // iPadOS si presenta come Macintosh: lo distinguono i touch point.
+      var isIos = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+      var view = isAndroid ? "android" : isIos ? "ios" : "desktop";
+      document.getElementById("view-" + view).hidden = false;
+      if (view !== "android") return;
+
+      var versionEl = document.getElementById("apk-version");
+      var button = document.getElementById("apk-download");
+      // Solo lettura dell'ultima release pubblica: nessun dato dell'utente inviato.
+      fetch("https://api.github.com/repos/fadioweidat/volantinipro-clean/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
+        .then(function (res) {
+          if (res.status === 404) return { missing: true };
+          if (!res.ok) throw new Error("status " + res.status);
+          return res.json();
+        })
+        .then(function (release) {
+          var asset = release.missing ? null : (release.assets || []).filter(function (a) { return a.name === "VolantiniPro-Driver.apk"; })[0];
+          if (!asset) {
+            versionEl.textContent = "Download non ancora disponibile";
+            button.setAttribute("aria-disabled", "true");
+            button.removeAttribute("href");
+            return;
+          }
+          var version = String(release.tag_name || "").replace(/^driver-v/, "");
+          var date = release.published_at ? new Date(release.published_at).toLocaleDateString("it-IT") : "";
+          var size = asset.size ? (asset.size / 1048576).toFixed(1).replace(".", ",") + " MB" : "";
+          versionEl.textContent = ["Versione " + version, date, size].filter(Boolean).join(" · ");
+        })
+        .catch(function () {
+          // Verifica non riuscita (rete/limite API): il download resta disponibile.
+          versionEl.textContent = "Ultima versione disponibile";
+        });
+    })();
+  </script>
+</body>
+</html>

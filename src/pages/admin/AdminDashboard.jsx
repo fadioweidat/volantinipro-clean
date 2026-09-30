@@ -9,6 +9,7 @@ import {
   selectOptionalTable,
   summarizeLiveOperations,
 } from '../../lib/services/admin-api.js';
+import { DRIVER_APP_BUTTON_LABEL, DRIVER_JOB_BUTTON_LABEL, buildDriverAppInstallWhatsAppUrl } from '../../lib/services/driverAppDistribution.js';
 import { buildOperationalGroups, buildTodayGroupCards } from '../../lib/admin/adminHomeModel.js';
 import { buildCommercialSnapshot } from '../../lib/admin/adminCommercialModel.js';
 import {
@@ -335,7 +336,7 @@ async function loadAdminHomeDataUncached({ signal }) {
 
 function TodayGroupCard({ group, onWhatsApp }) {
   const tone = group.work.key === 'problem' ? 'red' : group.work.key === 'started' ? 'blue' : ['sent', 'opened'].includes(group.program.key) ? 'yellow' : group.presence.key === 'online' ? 'green' : 'gray';
-  return <article className={`admin-home__today-card admin-home__today-card--${tone}`}><header><div><h3>{group.name}</h3><StatusDot status={group.presence} /></div><span className={`admin-home__work admin-home__work--${tone}`}>{group.work.label}</span></header><dl><div><dt>Campagna</dt><dd>{group.campaign}</dd></div><div><dt>Zona corrente</dt><dd>{group.zoneLabel}</dd></div><div><dt>Quantità assegnata</dt><dd>{group.quantity ? `${group.quantity.toLocaleString('it-IT')} volantini` : 'Dato non disponibile'}</dd></div><div><dt>Programma</dt><dd>{group.program.label}</dd></div></dl>{group.problem && <p className="admin-home__problem">{group.problem}</p>}<footer><a href={generateDriverAssignmentLink(group.primaryAssignmentId, group.primaryAssignmentAccessToken)}>Apri</a><a href="/admin/live">GPS</a><button type="button" onClick={onWhatsApp}>{['sent', 'opened'].includes(group.program.key) ? 'Reinvia WhatsApp' : 'WhatsApp'}</button></footer></article>;
+  return <article className={`admin-home__today-card admin-home__today-card--${tone}`}><header><div><h3>{group.name}</h3><StatusDot status={group.presence} /></div><span className={`admin-home__work admin-home__work--${tone}`}>{group.work.label}</span></header><dl><div><dt>Campagna</dt><dd>{group.campaign}</dd></div><div><dt>Zona corrente</dt><dd>{group.zoneLabel}</dd></div><div><dt>Quantità assegnata</dt><dd>{group.quantity ? `${group.quantity.toLocaleString('it-IT')} volantini` : 'Dato non disponibile'}</dd></div><div><dt>Programma</dt><dd>{group.program.label}</dd></div></dl>{group.problem && <p className="admin-home__problem">{group.problem}</p>}<footer><a href={generateDriverAssignmentLink(group.primaryAssignmentId, group.primaryAssignmentAccessToken)}>Apri</a><a href="/admin/live">GPS</a><button type="button" onClick={onWhatsApp}>{['sent', 'opened'].includes(group.program.key) ? 'Reinvia link lavoro' : DRIVER_JOB_BUTTON_LABEL}</button><button type="button" disabled={!group.phone} onClick={() => window.open(buildDriverAppInstallWhatsAppUrl(group.phone), '_blank', 'noopener,noreferrer')} title="Messaggio di installazione: uguale per tutti, inoltrabile, senza link personale.">{DRIVER_APP_BUTTON_LABEL}</button></footer></article>;
 }
 
 function ModuleCard({ title, stats, cta, onOpen }) {
