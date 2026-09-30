@@ -114,7 +114,17 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "::error::La release $TAG esiste gia': non viene sovrascritta"; exit 1
           fi
+          # Nessun target esplicito: il tag nasce sulla testa del branch predefinito.
+          # Puntarlo al commit sorgente richiederebbe il permesso "workflows"
+          # (quel commit modifica file in .github/workflows), che il token
+          # delle Actions non puo' avere (403). Il sorgente resta nelle note.
+          notes=$(printf '%s\n' \
+            "APK Android ufficiale VolantiniPro Driver." \
+            "Versione $VERSION (versionCode $CODE)." \
+            "APK costruita dal commit $SHA, run $RUN_ID." \
+            "Certificato SHA-256: $FP." \
+            "Installazione: https://www.volantinipro.it/app-driver")
           gh release create "$TAG" "apk-out/$ASSET_NAME" "apk-out/$ASSET_NAME.sha256" \
-            --target "$SHA" --latest \
+            --latest \
             --title "VolantiniPro Driver $VERSION" \
-            --notes "APK Android ufficiale VolantiniPro Driver. Versione $VERSION (versionCode $CODE). Certificato SHA-256: $FP. Installazione: https://www.volantinipro.it/app-driver"
+            --notes "$notes"
