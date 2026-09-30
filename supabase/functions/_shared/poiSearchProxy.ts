@@ -23,18 +23,19 @@ export type PoiServiceType = (typeof POI_SERVICE_TYPES)[number];
 
 // ── Ordine provider Overpass SPECIFICO per poi-search ─────────────────────
 // Override locale del default condiviso (_shared/roadNetworkProxy.ts, che
-// resta invariato per road-network). Motivo (audit 502): overpass.kumi.systems
-// e' attualmente non responsivo e, essendo primo nel default condiviso,
-// bruciava l'intero timeout su OGNI richiesta prima del fallback. Qui:
-//   1. overpass-api.de       (di norma 200 in 2-8s)
-//   2. overpass.private.coffee
-//   3. overpass.kumi.systems (ultimo: se e' morto costa comunque solo l'ultimo giro)
+// resta invariato per road-network). Ordine per tempo di risposta misurato
+// (diagnosi POI 2026-09-30, con User-Agent identificativo):
+//   1. overpass.openstreetmap.fr  (200 in 0.6-5s)
+//   2. overpass-api.de            (200 in 3-7s, a tratti 504)
+//   3-4. lz4 / z .overpass-api.de (mirror dello stesso servizio)
+//   5. maps.mail.ru               (ULTIMO: 17s+ o 504 anche su query minime;
+//      da primo bruciava l'intero timeout-provider su OGNI richiesta)
 export const POI_OVERPASS_ENDPOINTS = [
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
-  'https://lz4.overpass-api.de/api/interpreter',
-  'https://z.overpass-api.de/api/interpreter',
   'https://overpass.openstreetmap.fr/api/interpreter',
   'https://overpass-api.de/api/interpreter',
+  'https://lz4.overpass-api.de/api/interpreter',
+  'https://z.overpass-api.de/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ];
 
 /**

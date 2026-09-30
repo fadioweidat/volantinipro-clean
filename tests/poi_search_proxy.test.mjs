@@ -94,21 +94,22 @@ test('POI_TAGS server e client hanno lo stesso set di coppie key:val per ogni se
 });
 
 // ── ordine provider POI (override locale, road-network invariato) ────────
-test('resolvePoiEndpoints: ordine Overpass di produzione (primario maps.mail.ru, 5 provider affidabili)', () => {
+test('resolvePoiEndpoints: ordine Overpass di produzione (primario overpass.openstreetmap.fr, maps.mail.ru ultimo)', () => {
   const eps = resolvePoiEndpoints(null);
   assert.deepEqual(eps, POI_OVERPASS_ENDPOINTS);
   assert.equal(eps.length, 5);
-  assert.match(eps[0], /^https:\/\/maps\.mail\.ru\//);
-  assert.match(eps[1], /lz4\.overpass-api\.de/);
-  assert.match(eps[2], /z\.overpass-api\.de/);
-  assert.match(eps[3], /overpass\.openstreetmap\.fr/);
-  assert.match(eps[4], /overpass-api\.de/);
+  assert.match(eps[0], /^https:\/\/overpass\.openstreetmap\.fr\//);
+  assert.match(eps[1], /^https:\/\/overpass-api\.de\//);
+  assert.match(eps[2], /^https:\/\/lz4\.overpass-api\.de\//);
+  assert.match(eps[3], /^https:\/\/z\.overpass-api\.de\//);
+  // Lento/instabile (17s+ o 504 anche su query minime): mai primario.
+  assert.match(eps[4], /^https:\/\/maps\.mail\.ru\//);
 });
 
 test('resolvePoiEndpoints: POI_OVERPASS_ENDPOINT env passa per primo, poi l\'ordine POI', () => {
   const eps = resolvePoiEndpoints('https://my-overpass.internal/api/interpreter');
   assert.match(eps[0], /my-overpass\.internal/);
-  assert.match(eps[1], /maps\.mail\.ru/);
+  assert.match(eps[1], /overpass\.openstreetmap\.fr/);
   assert.equal(eps.length, 6);
 });
 
@@ -119,7 +120,9 @@ function endpointMock(plan) {
   const calls = [];
   const fn = async (url) => {
     calls.push(String(url));
-    const key = Object.keys(plan).find((k) => String(url).includes(k));
+    // Match per HOST ESATTO ('overpass-api.de' non cattura 'lz4.'/'z.').
+    const host = new URL(String(url)).host;
+    const key = Object.keys(plan).find((k) => host === k);
     const cfg = key ? plan[key] : { status: 500 };
     if (cfg.throws) throw Object.assign(new Error(cfg.name || 'NET'), { name: cfg.name || 'Error' });
     return { ok: cfg.status ? cfg.status < 400 : true, status: cfg.status || 200, json: async () => ({ elements: cfg.elements || [] }) };
@@ -128,10 +131,10 @@ function endpointMock(plan) {
   return fn;
 }
 
-test('fallback: primario (maps.mail.ru) 200 -> nessun altro provider contattato', async () => {
+test('fallback: primario (overpass.openstreetmap.fr) 200 -> nessun altro provider contattato', async () => {
   const mock = endpointMock({
-    'maps.mail.ru': { status: 200, elements: [{ type: 'node', id: 1 }] },
-    'lz4.overpass-api.de': { status: 200, elements: [{ type: 'node', id: 2 }] },
+    'overpass.openstreetmap.fr': { status: 200, elements: [{ type: 'node', id: 1 }] },
+    'overpass-api.de': { status: 200, elements: [{ type: 'node', id: 2 }] },
   });
   const res = await fetchRoadsWithFallback({
     fetchImpl: mock, endpoints: resolvePoiEndpoints(null), query: POI_QUERY, timeoutMs: 5000,
@@ -139,38 +142,38 @@ test('fallback: primario (maps.mail.ru) 200 -> nessun altro provider contattato'
   assert.deepEqual(res.elements, [{ type: 'node', id: 1 }]);
   assert.equal(res.endpointIndex, 0);
   assert.equal(mock.calls.length, 1);
-  assert.match(mock.calls[0], /maps\.mail\.ru/);
+  assert.match(mock.calls[0], /overpass\.openstreetmap\.fr/);
 });
 
 test('fallback: primario 429 -> risale la catena fino al primo provider valido', async () => {
   const mock = endpointMock({
-    'maps.mail.ru': { status: 429 },
-    'lz4.overpass-api.de': { status: 502 },
+    'overpass.openstreetmap.fr': { status: 429 },
+    'overpass-api.de': { status: 502 },
+    'lz4.overpass-api.de': { status: 504 },
     'z.overpass-api.de': { status: 504 },
-    'overpass.openstreetmap.fr': { status: 504 },
-    'overpass-api.de': { status: 200, elements: [{ type: 'node', id: 3 }] },
+    'maps.mail.ru': { status: 200, elements: [{ type: 'node', id: 3 }] },
   });
   const res = await fetchRoadsWithFallback({
     fetchImpl: mock, endpoints: resolvePoiEndpoints(null), query: POI_QUERY, timeoutMs: 5000,
   });
   assert.deepEqual(res.elements, [{ type: 'node', id: 3 }]);
   assert.equal(mock.calls.length, 5);
-  assert.match(mock.calls[0], /maps\.mail\.ru/);
-  assert.match(mock.calls[mock.calls.length - 1], /overpass-api\.de/);
+  assert.match(mock.calls[0], /overpass\.openstreetmap\.fr/);
+  assert.match(mock.calls[mock.calls.length - 1], /maps\.mail\.ru/);
 });
 
-test('fallback: catena di 504 -> serve il primo provider valido (z.overpass-api.de, 3°)', async () => {
+test('fallback: catena di 504 -> serve il primo provider valido (lz4.overpass-api.de, 3°)', async () => {
   const mock = endpointMock({
-    'maps.mail.ru': { status: 504 },
-    'lz4.overpass-api.de': { status: 504 },
-    'z.overpass-api.de': { status: 200, elements: [{ id: 7 }] },
+    'overpass.openstreetmap.fr': { status: 504 },
+    'overpass-api.de': { status: 504 },
+    'lz4.overpass-api.de': { status: 200, elements: [{ id: 7 }] },
   });
   const res = await fetchRoadsWithFallback({
     fetchImpl: mock, endpoints: resolvePoiEndpoints(null), query: POI_QUERY, timeoutMs: 5000,
   });
   assert.deepEqual(res.elements, [{ id: 7 }]);
   assert.equal(mock.calls.length, 3);
-  assert.match(mock.calls[2], /z\.overpass-api\.de/);
+  assert.match(mock.calls[2], /lz4\.overpass-api\.de/);
 });
 
 test('fallback: tutti i provider falliti -> lancia (nessun risultato finto)', async () => {
@@ -191,7 +194,7 @@ test('fallback: tutti i provider falliti -> lancia (nessun risultato finto)', as
 });
 
 test('empty result NON e\' un errore: elements [] risolve regolarmente', async () => {
-  const mock = endpointMock({ 'maps.mail.ru': { status: 200, elements: [] } });
+  const mock = endpointMock({ 'overpass.openstreetmap.fr': { status: 200, elements: [] } });
   const res = await fetchRoadsWithFallback({
     fetchImpl: mock, endpoints: resolvePoiEndpoints(null), query: POI_QUERY, timeoutMs: 5000,
   });

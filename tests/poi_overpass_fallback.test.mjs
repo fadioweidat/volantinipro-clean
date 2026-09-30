@@ -51,9 +51,14 @@ async function runPoiProxy(rawInput, fetchImpl, { envEndpoint = null, timeoutMs 
 // plan: Map<urlSubstring, { status?, elements?, rejects? }>
 function trackedFetchMock(plan) {
   const calls = [];
-  const fn = async (url) => {
+  const inits = [];
+  // Match per HOST ESATTO: 'overpass-api.de' non deve catturare anche
+  // 'lz4.overpass-api.de' / 'z.overpass-api.de'.
+  const fn = async (url, init) => {
     calls.push(String(url));
-    const key = [...plan.keys()].find((k) => String(url).includes(k));
+    inits.push(init || {});
+    const host = new URL(String(url)).host;
+    const key = [...plan.keys()].find((k) => host === k);
     const cfg = key ? plan.get(key) : null;
     if (!cfg) throw new Error(`UNEXPECTED_URL:${url}`);
     if (cfg.rejects) throw new Error(cfg.rejectMessage || 'NETWORK_ERROR');
@@ -64,14 +69,15 @@ function trackedFetchMock(plan) {
     };
   };
   fn.calls = calls;
+  fn.inits = inits;
   return fn;
 }
 
 const INPUT = { centerLat: 45.6, centerLng: 9.1, radiusKm: 3, serviceType: 'd2d', targetSelection: ['scuole'] };
 
-test('TEST A: primario maps.mail.ru 200 -> risultati, nessun fallback contattato', async () => {
+test('TEST A: primario overpass.openstreetmap.fr 200 -> risultati, nessun fallback contattato', async () => {
   const plan = new Map([
-    ['maps.mail.ru', { status: 200, elements: [schoolElement(1, 'Scuola De')] }],
+    ['overpass.openstreetmap.fr', { status: 200, elements: [schoolElement(1, 'Scuola De')] }],
     ['overpass-api.de', { status: 200, elements: [schoolElement(2, 'Scuola Coffee')] }],
   ]);
   const mock = trackedFetchMock(plan);
@@ -79,39 +85,39 @@ test('TEST A: primario maps.mail.ru 200 -> risultati, nessun fallback contattato
   assert.equal(elements.length, 1);
   assert.equal(elements[0].tags.name, 'Scuola De');
   assert.equal(mock.calls.length, 1);
-  assert.match(mock.calls[0], /maps\.mail\.ru/);
+  assert.match(mock.calls[0], /overpass\.openstreetmap\.fr/);
 });
 
 test('TEST B: primario 429 -> fallback lungo la catena fino a un provider valido', async () => {
   const plan = new Map([
-    ['maps.mail.ru', { status: 429 }],
+    ['overpass.openstreetmap.fr', { status: 429 }],
+    ['overpass-api.de', { status: 502 }],
     ['lz4.overpass-api.de', { status: 502 }],
-    ['z.overpass-api.de', { status: 502 }],
-    ['overpass.openstreetmap.fr', { status: 504 }],
-    ['overpass-api.de', { status: 200, elements: [schoolElement(3, 'Scuola Fallback')] }],
+    ['z.overpass-api.de', { status: 504 }],
+    ['maps.mail.ru', { status: 200, elements: [schoolElement(3, 'Scuola Fallback')] }],
   ]);
   const mock = trackedFetchMock(plan);
   const elements = await runPoiProxy(INPUT, mock);
   assert.equal(elements.length, 1);
   assert.equal(elements[0].tags.name, 'Scuola Fallback');
   assert.equal(mock.calls.length, 5);
-  assert.match(mock.calls[0], /maps\.mail\.ru/);
-  assert.match(mock.calls[mock.calls.length - 1], /overpass-api\.de/);
+  assert.match(mock.calls[0], /overpass\.openstreetmap\.fr/);
+  assert.match(mock.calls[mock.calls.length - 1], /maps\.mail\.ru/);
 });
 
-test('TEST B bis: catena di 504 -> 4° provider overpass.openstreetmap.fr 200', async () => {
+test('TEST B bis: catena di 504 -> 4° provider z.overpass-api.de 200', async () => {
   const plan = new Map([
-    ['maps.mail.ru', { status: 504 }],
+    ['overpass.openstreetmap.fr', { status: 504 }],
+    ['overpass-api.de', { status: 504 }],
     ['lz4.overpass-api.de', { status: 504 }],
-    ['z.overpass-api.de', { status: 504 }],
-    ['overpass.openstreetmap.fr', { status: 200, elements: [schoolElement(7, 'Scuola Quarto Provider')] }],
+    ['z.overpass-api.de', { status: 200, elements: [schoolElement(7, 'Scuola Quarto Provider')] }],
   ]);
   const mock = trackedFetchMock(plan);
   const elements = await runPoiProxy(INPUT, mock);
   assert.equal(elements[0].tags.name, 'Scuola Quarto Provider');
   assert.equal(mock.calls.length, 4);
-  assert.match(mock.calls[0], /maps\.mail\.ru/);
-  assert.match(mock.calls[3], /overpass\.openstreetmap\.fr/);
+  assert.match(mock.calls[0], /overpass\.openstreetmap\.fr/);
+  assert.match(mock.calls[3], /\/\/z\.overpass-api\.de/);
 });
 
 test('TEST C: tutti i provider in errore -> propaga un errore (error-state)', async () => {
@@ -129,11 +135,11 @@ test('TEST C: tutti i provider in errore -> propaga un errore (error-state)', as
 
 test('TEST C bis: reject di rete sul primario -> comunque fallback lungo la catena', async () => {
   const plan = new Map([
-    ['maps.mail.ru', { rejects: true, rejectMessage: 'NETWORK_DOWN' }],
+    ['overpass.openstreetmap.fr', { rejects: true, rejectMessage: 'NETWORK_DOWN' }],
+    ['overpass-api.de', { status: 502 }],
     ['lz4.overpass-api.de', { status: 502 }],
-    ['z.overpass-api.de', { status: 502 }],
-    ['overpass.openstreetmap.fr', { status: 504 }],
-    ['overpass-api.de', { status: 200, elements: [schoolElement(4, 'Scuola Dopo Rete Giu')] }],
+    ['z.overpass-api.de', { status: 504 }],
+    ['maps.mail.ru', { status: 200, elements: [schoolElement(4, 'Scuola Dopo Rete Giu')] }],
   ]);
   const mock = trackedFetchMock(plan);
   const elements = await runPoiProxy(INPUT, mock);
@@ -141,10 +147,10 @@ test('TEST C bis: reject di rete sul primario -> comunque fallback lungo la cate
   assert.equal(mock.calls.length, 5);
 });
 
-test('TEST D: OVERPASS_ENDPOINT override -> provato per primo, prima di maps.mail.ru', async () => {
+test('TEST D: OVERPASS_ENDPOINT override -> provato per primo, prima di overpass.openstreetmap.fr', async () => {
   const plan = new Map([
     ['my-overpass.internal', { status: 200, elements: [schoolElement(5, 'Scuola Override')] }],
-    ['maps.mail.ru', { status: 200, elements: [schoolElement(6, 'Scuola De')] }],
+    ['overpass.openstreetmap.fr', { status: 200, elements: [schoolElement(6, 'Scuola De')] }],
   ]);
   const mock = trackedFetchMock(plan);
   const elements = await runPoiProxy(INPUT, mock, { envEndpoint: 'https://my-overpass.internal/api/interpreter' });
@@ -164,9 +170,9 @@ test('TEST D: OVERPASS_ENDPOINT override -> provato per primo, prima di maps.mai
 // provider 1 anche ai provider successivi.
 test('FIX-A: provider1 429, provider2 400, provider3 200 -> SUCCESS, provider3 raggiunto', async () => {
   const plan = new Map([
-    ['maps.mail.ru', { status: 429 }],
-    ['lz4.overpass-api.de', { status: 400 }],
-    ['z.overpass-api.de', { status: 200, elements: [schoolElement(10, 'Scuola Terzo Provider')] }],
+    ['overpass.openstreetmap.fr', { status: 429 }],
+    ['overpass-api.de', { status: 400 }],
+    ['lz4.overpass-api.de', { status: 200, elements: [schoolElement(10, 'Scuola Terzo Provider')] }],
   ]);
   const mock = trackedFetchMock(plan);
   const elements = await runPoiProxy(INPUT, mock);
@@ -176,9 +182,9 @@ test('FIX-A: provider1 429, provider2 400, provider3 200 -> SUCCESS, provider3 r
 
 test('FIX-B: provider1 400, provider2 403, provider3 200 -> SUCCESS', async () => {
   const plan = new Map([
-    ['maps.mail.ru', { status: 400 }],
-    ['lz4.overpass-api.de', { status: 403 }],
-    ['z.overpass-api.de', { status: 200, elements: [schoolElement(11, 'Scuola Dopo Due 4xx')] }],
+    ['overpass.openstreetmap.fr', { status: 400 }],
+    ['overpass-api.de', { status: 403 }],
+    ['lz4.overpass-api.de', { status: 200, elements: [schoolElement(11, 'Scuola Dopo Due 4xx')] }],
   ]);
   const mock = trackedFetchMock(plan);
   const elements = await runPoiProxy(INPUT, mock);
@@ -223,4 +229,57 @@ test('FIX-D: mix 400 + timeout(rejects) + 5xx -> NON classificato come bad_reque
     },
   );
   assert.equal(mock.calls.length, 5);
+});
+
+// ── Diagnosi POI 2026-09-30: i mirror Overpass rifiutano (406/403) un finto
+// User-Agent da browser inviato da un server. Con un UA identificativo le
+// stesse query rispondono 200. Questi test fissano l'header e il fallback.
+import { OVERPASS_USER_AGENT } from '../supabase/functions/_shared/roadNetworkProxy.ts';
+
+test('USER-AGENT: identificativo VolantiniPro, mai un finto browser', async () => {
+  assert.doesNotMatch(OVERPASS_USER_AGENT, /Mozilla/i);
+  assert.doesNotMatch(OVERPASS_USER_AGENT, /Chrome|Safari|AppleWebKit/i);
+  assert.match(OVERPASS_USER_AGENT, /^VolantiniPro\/\d/);
+  assert.match(OVERPASS_USER_AGENT, /https:\/\/www\.volantinipro\.it/);
+
+  // ...ed e' DAVVERO quello inviato a ogni provider contattato.
+  const plan = new Map([
+    ['overpass.openstreetmap.fr', { status: 504 }],
+    ['overpass-api.de', { status: 200, elements: [schoolElement(20, 'Scuola UA')] }],
+  ]);
+  const mock = trackedFetchMock(plan);
+  await runPoiProxy(INPUT, mock);
+  assert.equal(mock.inits.length, 2);
+  for (const init of mock.inits) {
+    assert.equal(init.headers['User-Agent'], OVERPASS_USER_AGENT);
+    assert.doesNotMatch(init.headers['User-Agent'], /Mozilla|Chrome/i);
+    assert.equal(init.method, 'POST');
+  }
+});
+
+test('403/406 dal provider -> fallback al provider successivo (caso reale della diagnosi)', async () => {
+  const plan = new Map([
+    ['overpass.openstreetmap.fr', { status: 403 }],
+    ['overpass-api.de', { status: 406 }],
+    ['lz4.overpass-api.de', { status: 406 }],
+    ['z.overpass-api.de', { status: 200, elements: [schoolElement(21, 'Scuola Dopo 403 e 406')] }],
+  ]);
+  const mock = trackedFetchMock(plan);
+  const elements = await runPoiProxy(INPUT, mock);
+  assert.equal(elements[0].tags.name, 'Scuola Dopo 403 e 406');
+  assert.equal(mock.calls.length, 4, 'ogni rifiuto passa al provider successivo');
+});
+
+test('maps.mail.ru NON e\' il provider primario: contattato solo come ultimo', async () => {
+  const eps = resolvePoiEndpoints(null);
+  assert.doesNotMatch(eps[0], /maps\.mail\.ru/);
+  assert.match(eps[eps.length - 1], /maps\.mail\.ru/);
+  const plan = new Map([
+    ['overpass.openstreetmap.fr', { status: 200, elements: [schoolElement(22, 'Scuola Primario')] }],
+    ['maps.mail.ru', { status: 200, elements: [schoolElement(23, 'Scuola Lenta')] }],
+  ]);
+  const mock = trackedFetchMock(plan);
+  const elements = await runPoiProxy(INPUT, mock);
+  assert.equal(elements[0].tags.name, 'Scuola Primario');
+  assert.ok(mock.calls.every((u) => !/maps\.mail\.ru/.test(u)));
 });

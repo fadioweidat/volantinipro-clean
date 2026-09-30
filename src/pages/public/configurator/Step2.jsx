@@ -12,6 +12,7 @@ import { resolveZoneAutoSelection } from "../../../lib/step2/zoneSelection.js";
 import { rankNilSearchResults } from "../../../lib/step2/milanoNilView.js";
 import { MilanoNilSearch } from "./step2/MilanoNilSearch.jsx";
 import { MilanoCoverageModeChooser } from "./step2/MilanoCoverageModeChooser.jsx";
+import { OutsideMilanoCoverageModeChooser, deriveOutsideMilanoMode, isOutsideMilanoGuidedView } from "./step2/OutsideMilanoCoverageModeChooser.jsx";
 import { MilanoTerritorySummary } from "./step2/MilanoTerritorySummary.jsx";
 import "./step2/milano-client.css";
 import { MilanoGuidance } from "./step2/MilanoGuidance.jsx";
@@ -4231,6 +4232,18 @@ export function Step2({
   const milanoClientView = milanoUxVisible && !isAdminView && !isCapMode;
   const milanoClientMode = nilManualMode ? "nil" : isRadiusMode ? "radius" : addressFullCoverageConfirmed ? "municipality" : null;
   const milanoClientHasSelection = Boolean(milanoClientMode && (milanoClientMode !== "nil" || selected.length > 0));
+  // ── UX fuori Milano (ticket "STEP 2 UX FUORI MILANO") — SOLO presentazionale ──
+  // Due card d'ingresso (Comuni / Raggio) prima della configurazione avanzata.
+  // Nessuno state nuovo e nessun calcolo: la modalità è DERIVATA da stati
+  // canonici già esistenti e le card chiamano solo switchToComuneMode /
+  // switchToRadiusMode. "Comuni" = comune completo esistente (+ multi-comune).
+  // Già scelto se: tab Raggio attivo, conferma comune completo, più comuni
+  // selezionati, oppure una decisione quantità già presa (rientro da Step 3).
+  // Il riepilogo (Step2SummaryPanel) e "Continua" NON sono toccati: stessi
+  // gate di prima. Le card nascondono solo la configurazione avanzata.
+  const outsideMilanoGuidedView = isOutsideMilanoGuidedView({ isResidentialStep2, hasMilanoTerritory, isAdminView, isCapMode, hasCity: Boolean(city) });
+  const outsideMilanoMode = deriveOutsideMilanoMode({ isRadiusMode, addressFullCoverageConfirmed, selectedComuniCount: selectedComuni?.length || 0, coverageDecision });
+  const outsideMilanoAwaitingChoice = outsideMilanoGuidedView && outsideMilanoMode === null;
   const milanoNilStats = useMemo(() => ({
     available: Number(summaryComuniStats?.total) || availableNils.length || 0,
     full: Number(summaryComuniStats?.coperti) || 0,
@@ -5657,7 +5670,14 @@ export function Step2({
             {selected.length > 0 && <div className="vp-milano-selected" aria-label="Quartieri selezionati">{selZones.filter(z => selected.includes(z.id)).map(z => <button type="button" key={z.id} onClick={() => toggleNilZone(z.id)} aria-label={`Rimuovi ${z.name}`}>{z.name} ×</button>)}</div>}
           </MilanoCoverageModeChooser>}
 
-          {!milanoClientView && <SelectedZonesSummary
+          {outsideMilanoGuidedView && <OutsideMilanoCoverageModeChooser
+            mode={outsideMilanoMode}
+            comuneLabel={(selectedComuni?.length || 0) > 1 ? "" : (selectedMunicipality || city?.label || city?.name || "")}
+            onChooseComuni={switchToComuneMode}
+            onChooseRadius={switchToRadiusMode}
+          />}
+
+          {!milanoClientView && !outsideMilanoAwaitingChoice && <SelectedZonesSummary
             selectedZones={selZones}
             onRemoveZone={(zoneId) => {
               if (selected && selected.length > 0) {
@@ -5766,7 +5786,7 @@ export function Step2({
             selected={selected}
             onToggleZone={toggleZone}
           />
-          {!milanoClientView && renderComunePanel()}
+          {!milanoClientView && !outsideMilanoAwaitingChoice && renderComunePanel()}
 
         </div>
 

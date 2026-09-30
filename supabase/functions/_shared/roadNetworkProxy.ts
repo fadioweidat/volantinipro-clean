@@ -130,6 +130,13 @@ function isRetriableStatus(status: number): boolean {
  * tempo di risposta massimo per un arricchimento opzionale (POI) invece di
  * sommare N timeout per-provider.
  */
+// User-Agent IDENTIFICATIVO verso Overpass. Un finto UA da browser
+// ("Mozilla/... Chrome/...") inviato da un server viene rifiutato dai mirror
+// pubblici: overpass-api.de / lz4 / z -> 406, overpass.openstreetmap.fr -> 403
+// ("only available to white-listed usages"). Con questo UA le stesse query
+// rispondono 200 (diagnosi POI 2026-09-30). Non sostituirlo con un UA browser.
+export const OVERPASS_USER_AGENT = 'VolantiniPro/1.0 (+https://www.volantinipro.it)';
+
 export async function fetchRoadsWithFallback(opts: {
   fetchImpl: FetchLike;
   endpoints: string[];
@@ -175,7 +182,7 @@ export async function fetchRoadsWithFallback(opts: {
     const timer = setTimeout(() => ctrl.abort(), effectiveTimeout);
     const fetchUrl = endpoints[i];
     const fetchHeaders: Record<string, string> = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+      'User-Agent': OVERPASS_USER_AGENT,
       'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
       'Accept': '*/*',
     };
