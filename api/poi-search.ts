@@ -145,7 +145,9 @@ export function createPoiSearchHandler(deps: { fetchImpl?: any; env?: Record<str
     if (raw == null) return send(res, 400, { error: "INVALID_JSON" });
 
     const check = validatePoiInput(raw);
-    if (!check.ok) return send(res, 400, { error: "INVALID_INPUT", detail: check.error });
+    // Confronto esplicito: senza strictNullChecks (build Vercel senza tsconfig)
+    // `!check.ok` non restringe l'unione e `check.error` risulta inesistente.
+    if (check.ok === false) return send(res, 400, { error: "INVALID_INPUT", detail: check.error });
     const input = check.input;
 
     const tags = getServiceTargetTags(input.serviceType, input.targetSelection);

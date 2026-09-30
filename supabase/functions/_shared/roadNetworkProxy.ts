@@ -99,6 +99,8 @@ export type FetchLike = (url: string, init: any) => Promise<{
   ok: boolean;
   status: number;
   json: () => Promise<any>;
+  // Letto solo sulle risposte !ok, per riportare nel log il corpo dell'errore.
+  text: () => Promise<string>;
 }>;
 
 export type RoadFetchResult = { elements: any[]; endpointIndex: number; attempts: number };

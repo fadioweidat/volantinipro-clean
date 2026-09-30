@@ -226,3 +226,30 @@ test('.vercelignore: riammessi SOLO poiSearchProxy.ts e roadNetworkProxy.ts, res
     assert.doesNotMatch(src, /Deno\.|SERVICE_ROLE|service_role/, f);
   }
 });
+
+// ── Type-check: la build Vercel (nessun tsconfig, quindi NON strict) e quella
+// Deno (strict) non devono segnalare errori sul guscio e sui moduli che importa.
+// Due TS2339 erano comparse nel log di build della prima Preview:
+//  - `!check.ok` non restringe l'unione senza strictNullChecks;
+//  - FetchLike non dichiarava `text()`, letto sulle risposte !ok.
+test('type-check: api/poi-search.ts pulito sia non-strict (Vercel) sia strict (Deno)', async () => {
+  const ts = (await import('typescript')).default;
+  const { fileURLToPath } = await import('node:url');
+  const entry = fileURLToPath(new URL('../api/poi-search.ts', import.meta.url));
+  for (const strict of [false, true]) {
+    const program = ts.createProgram([entry], {
+      noEmit: true, strict, skipLibCheck: true,
+      target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler,
+    });
+    const errors = ts.getPreEmitDiagnostics(program)
+      .filter((d) => d.category === ts.DiagnosticCategory.Error)
+      .map((d) => `TS${d.code} ${d.file ? d.file.fileName.split('/').pop() : ''}: ${ts.flattenDiagnosticMessageText(d.messageText, ' ')}`);
+    assert.deepEqual(errors, [], `strict=${strict}`);
+  }
+});
+
+test('nessun cast cieco per zittire il compilatore nel guscio Vercel', () => {
+  assert.doesNotMatch(vercelSrc, /@ts-ignore|@ts-expect-error|@ts-nocheck/);
+  assert.match(vercelSrc, /if \(check\.ok === false\) return send\(res, 400, \{ error: "INVALID_INPUT", detail: check\.error \}\);/);
+  assert.match(read('../supabase/functions/_shared/roadNetworkProxy.ts'), /json: \(\) => Promise<any>;\n[^\n]*\n\s+text: \(\) => Promise<string>;/);
+});
