@@ -90,3 +90,50 @@ test('SORGENTE — poi-api.js e src/api/poiSearch.js non contengono host Overpas
   assert.doesNotMatch(src, /\/api\/interpreter/, 'nessun path Overpass nel client');
   assert.match(src, /\/functions\/v1\/poi-search/, 'il client punta al proxy same-project');
 });
+
+// ── Interruttore VITE_POI_SEARCH_URL (endpoint Vercel gemello 1:1) ───────────
+// Solo l'indirizzo cambia: payload, risposta e gestione errori restano gli
+// stessi. Senza la variabile il comportamento e' quello di sempre (Supabase).
+test('VITE_POI_SEARCH_URL impostata -> stessa richiesta verso quell\'endpoint, senza header Supabase', async () => {
+  process.env.VITE_POI_SEARCH_URL = '/api/poi-search';
+  try {
+    const calls = installFetch(async () => ({
+      ok: true, status: 200,
+      json: async () => ({ elements: [schoolEl(2, 'Scuola B'), schoolEl(1, 'Scuola A')], cached: false, source: 'live' }),
+    }));
+    const pois = await fetchPois({ centerLat: 45.551, centerLng: 9.163, radiusKm: 3, serviceType: 'd2d', targetSelection: ['scuole'] });
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, '/api/poi-search');
+    for (const re of OVERPASS_HOST_RE) assert.ok(!re.test(calls[0].url));
+    assert.equal(calls[0].init.method, 'POST');
+    // La anon key serve solo alle Edge Function Supabase (/functions/v1/).
+    assert.equal(calls[0].init.headers.apikey, undefined);
+    assert.equal(calls[0].init.headers.Authorization, undefined);
+    assert.equal(calls[0].init.headers['Content-Type'], 'application/json');
+    const body = JSON.parse(calls[0].init.body);
+    assert.deepEqual(body, { centerLat: 45.551, centerLng: 9.163, radiusKm: 3, serviceType: 'd2d', targetSelection: ['scuole'] });
+    assert.equal(pois.length, 2);
+
+    // Stessa distinzione errore / zero reale anche sul nuovo endpoint.
+    installFetch(async () => ({ ok: true, status: 200, json: async () => ({ elements: [] }) }));
+    assert.deepEqual(await fetchPois({ centerLat: 46.1, centerLng: 10.1, radiusKm: 3, serviceType: 'd2d', targetSelection: ['scuole'] }), []);
+    installFetch(async () => ({ ok: true, status: 200, json: async () => ({ elements: [], temporaryUnavailable: true, degraded: true }) }));
+    await assert.rejects(() => fetchPois({ centerLat: 46.2, centerLng: 10.2, radiusKm: 3, serviceType: 'd2d', targetSelection: [] }), /POI_SEARCH_UNAVAILABLE/);
+    installFetch(async () => ({ ok: false, status: 429, json: async () => ({ error: 'RATE_LIMITED' }) }));
+    await assert.rejects(() => fetchPois({ centerLat: 46.3, centerLng: 10.3, radiusKm: 3, serviceType: 'd2d', targetSelection: [] }), /POI_SEARCH_UNAVAILABLE/);
+  } finally {
+    delete process.env.VITE_POI_SEARCH_URL;
+  }
+});
+
+test('VITE_POI_SEARCH_URL assente o vuota -> endpoint Supabase invariato (rollback = togliere la variabile)', async () => {
+  for (const value of [undefined, '', '   ']) {
+    if (value === undefined) delete process.env.VITE_POI_SEARCH_URL; else process.env.VITE_POI_SEARCH_URL = value;
+    const calls = installFetch(async () => ({ ok: true, status: 200, json: async () => ({ elements: [] }) }));
+    await fetchPois({ centerLat: 45.5, centerLng: 9.1, radiusKm: 3, serviceType: 'd2d', targetSelection: [] });
+    assert.equal(calls[0].url, 'https://proj.supabase.co/functions/v1/poi-search');
+    assert.equal(calls[0].init.headers.apikey, 'anon-test-key');
+  }
+  delete process.env.VITE_POI_SEARCH_URL;
+});

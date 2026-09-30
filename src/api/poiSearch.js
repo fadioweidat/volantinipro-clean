@@ -40,7 +40,12 @@ function readEnv(key) {
 export async function fetchPoiSearchElements({ centerLat, centerLng, radiusKm, serviceType, targetSelection = [] }) {
   const base = readEnv('VITE_API_BASE_URL') || readEnv('VITE_SUPABASE_URL');
   const anonKey = readEnv('VITE_SUPABASE_ANON_KEY');
-  const endpoint = base ? `${String(base).replace(/\/+$/, '')}/functions/v1/poi-search` : null;
+  // Interruttore SOLO per i POI (VITE_API_BASE_URL e' condivisa da altri
+  // client): se VITE_POI_SEARCH_URL e' impostata (es. "/api/poi-search",
+  // endpoint Vercel gemello 1:1) si usa quella; altrimenti resta l'Edge
+  // Function Supabase. Payload, risposta e gestione errori sono identici.
+  const override = String(readEnv('VITE_POI_SEARCH_URL') || '').trim();
+  const endpoint = override || (base ? `${String(base).replace(/\/+$/, '')}/functions/v1/poi-search` : null);
   if (!endpoint) throw new Error('POI_SEARCH_UNAVAILABLE');
 
   const headers = { 'Content-Type': 'application/json' };
