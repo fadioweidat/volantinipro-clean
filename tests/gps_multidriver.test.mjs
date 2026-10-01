@@ -118,8 +118,10 @@ test('GpsMonitor: carica TUTTE le sessioni trackabili, non solo la piu\' recente
   assert.match(gpsMonitor, /Nascondi traccia|Mostra traccia/);
 });
 
-test('GpsMonitor: geofence dalla geometria reale (mapZones), non da campaigns.metadata', () => {
-  assert.match(gpsMonitor, /normalizeZonesFromCampaign\(\{ campaign_zones: \(mapZones/);
+test('GpsMonitor: geofence dalla geometria reale (useZoneBoundaries), non da campaigns.metadata', () => {
+  // Zona di riferimento = zona assegnata alla sessione attiva, geometria dai
+  // confini reali risolti (resolvedBoundaries), mai dal record campagna.
+  assert.match(gpsMonitor, /evaluateSessionGeofence\(\{\s*\n\s*activeSession: state\.activeSession,[\s\S]*?boundaries: resolvedBoundaries,/);
   assert.doesNotMatch(gpsMonitor, /normalizeZonesFromCampaign\(state\.campaign\)/);
   // Contratto esistente: nessuna fetch diretta di campaign_zones nell'Admin.
   assert.doesNotMatch(gpsMonitor, /\.from\(['"]campaign_zones['"]\)/);

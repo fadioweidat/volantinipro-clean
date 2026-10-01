@@ -14,7 +14,10 @@ import { geoJsonPolygonToLeafletPositions } from '../../lib/geo/geoJsonToLeaflet
 import { createCustomerIssue, ISSUE_REASONS } from '../../lib/services/customer-issues-api.js';
 import { IssueZoneSelect } from '../../components/customer/IssueZoneSelect.jsx';
 import { CustomerMessagesPanel } from '../../components/customer/CampaignHubPanels.jsx';
-import { deriveLiveZoneStatus, estimateDistanceToZoneBoundaryMeters, ZONE_LIVE_STATUS_LABELS, ZONE_LIVE_STATUS_COLORS } from '../../lib/geofence/geofenceEngine.js';
+import { ZONE_LIVE_STATUS_LABELS, ZONE_LIVE_STATUS_COLORS } from '../../lib/geofence/geofenceEngine.js';
+import { evaluateSessionGeofence } from '../../lib/geofence/sessionZoneGeofence.js';
+import { classifyDriverPresence, getLatestTrackableSession, latestPointForSession } from '../../lib/gps/driverPresence.js';
+import { formatCoveragePercent } from '../../lib/gps/coverageDisplay.js';
 import { getMunicipalityCenterPoint } from '../../lib/geo/originRadialSelection.js';
 import { C, F } from '../../lib/constants.js';
 
@@ -32,18 +35,11 @@ export function CampaignTracking({ campaignId }) {
     ...zone,
     geometry: resolvedBoundaries[zone.campaign_zone_id] || null,
   })), [zoneProgress.zones, resolvedBoundaries]);
-  // SOLO le geometrie delle zone di QUESTA campagna (zoneRows), mai
+  // SOLO le zone di QUESTA campagna (zoneRows), mai
   // Object.values(resolvedBoundaries) — che, non resettato fra campagne prima
   // del fix in useZoneBoundaries, poteva far entrare un confine di una
   // campagna vista in precedenza (root cause "Bergamo mostra Milano").
-  const liveZones = useMemo(
-    () => (zoneRows || [])
-      .map((z) => resolvedBoundaries[z.id])
-      .filter(Boolean)
-      .map((geometry) => ({ kind: 'polygon', geometry })),
-    [zoneRows, resolvedBoundaries],
-  );
-  const activeZoneName = zoneRows?.[0]?.zone_name || null;
+  const zoneIds = useMemo(() => (zoneRows || []).map((z) => z.id), [zoneRows]);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,21 +88,29 @@ export function CampaignTracking({ campaignId }) {
     selectedZoneId,
   }), [state.points, state.sessions, state.photos, manualMetrics, state.finalCoverage, zoneProgress, selectedZoneId]);
 
-  const latestPoint = state.points[state.points.length - 1] || null;
-  // Stesso badge/soglia della Driver App e di Admin/GpsMonitor.jsx
-  // (deriveLiveZoneStatus, geofenceEngine.js) — nessuna logica separata.
-  const liveZoneStatus = useMemo(() => deriveLiveZoneStatus(liveZones, latestPoint?.lat, latestPoint?.lng), [liveZones, latestPoint]);
-  const outsideDistanceKm = useMemo(() => {
-    if (liveZoneStatus !== 'outside' || !latestPoint) return null;
-    const meters = estimateDistanceToZoneBoundaryMeters(liveZones, latestPoint.lat, latestPoint.lng);
-    return meters != null ? meters / 1000 : null;
-  }, [liveZoneStatus, liveZones, latestPoint]);
+  // Sessione attiva e zona ASSEGNATA (delivery_sessions.campaign_zone_id):
+  // stessa sessione, stessa zona, stesso punto e stessa funzione pura
+  // dell'Admin (evaluateSessionGeofence -> deriveLiveZoneStatus).
+  const activeSession = useMemo(() => getLatestTrackableSession(state.sessions), [state.sessions]);
+  const sessionGeofence = useMemo(() => evaluateSessionGeofence({
+    activeSession,
+    points: state.points,
+    zoneIds,
+    boundaries: resolvedBoundaries,
+  }), [activeSession, state.points, zoneIds, resolvedBoundaries]);
+  const latestPoint = sessionGeofence.latestPoint || state.points[state.points.length - 1] || null;
+  const liveZoneStatus = sessionGeofence.liveStatus;
+  const outsideDistanceKm = sessionGeofence.distanceKm;
+  const referenceZoneGeometry = sessionGeofence.zones[0]?.geometry || null;
+  const activeZoneName = (sessionGeofence.referenceZoneId
+    ? zoneRows?.find((z) => z.id === sessionGeofence.referenceZoneId)?.zone_name
+    : null) || zoneRows?.[0]?.zone_name || null;
   const mapRef = useRef(null);
   const handleGoToOperatorPosition = () => {
     if (latestPoint && mapRef.current) mapRef.current.setView([Number(latestPoint.lat), Number(latestPoint.lng)], Math.max(mapRef.current.getZoom(), 16));
   };
   const handleReturnToArea = () => {
-    const geometry = liveZones[0]?.geometry;
+    const geometry = referenceZoneGeometry;
     if (!geometry || !mapRef.current) return;
     try {
       const bounds = L.geoJSON(geometry).getBounds();
@@ -115,10 +119,14 @@ export function CampaignTracking({ campaignId }) {
       // geometria non valida per Leaflet: nessuna azione, nessun crash.
     }
   };
-  const latestPing = [...state.points].reverse().find((point) => point.recorded_at || point.created_at)?.recorded_at
-    || [...state.sessions].sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))[0]?.updated_at
-    || null;
-  const connectionStatus = latestPing && Date.now() - new Date(latestPing).getTime() <= 5 * 60 * 1000 ? 'online' : 'offline';
+  // Presenza: stesso helper di header e riga operatore Admin
+  // (max(session.updated_at, ultimo GPS recorded_at); <=2 min online,
+  // <=5 min segnale debole, oltre offline).
+  const presence = classifyDriverPresence({
+    session: activeSession,
+    lastPoint: latestPointForSession(state.points, activeSession?.id || null),
+  });
+  const latestPing = presence.lastActivityIso;
   // zona (es. "Saronno") evita la ridondanza "Campagna Campagna X": titolo
   // in DB e' gia' salvato come "Campagna {citta}" (vedi Step4.jsx saveCampaign).
   const campaignTitle = state.campaign?.zona || state.campaign?.titolo || 'Campagna';
@@ -207,8 +215,8 @@ export function CampaignTracking({ campaignId }) {
           />
           <Metric
             label="Connessione"
-            value={connectionStatus === 'online' ? 'Online' : 'Offline'}
-            color={connectionStatus === 'online' ? C.green : 'rgba(255,255,255,.45)'}
+            value={CUSTOMER_PRESENCE_LABELS[presence.status]}
+            color={presence.status === 'online' ? C.green : presence.status === 'weak' ? C.yellow : 'rgba(255,255,255,.45)'}
           />
           <Metric
             label="Foto approvate"
@@ -220,7 +228,6 @@ export function CampaignTracking({ campaignId }) {
         {state.campaign && (
           <AuthorizedZoneProgress
             zoneProgress={zoneProgress}
-            finalCoverage={state.finalCoverage}
             selectedZoneId={selectedZoneId}
             onSelectZone={(zoneId) => setSelectedZoneId((curr) => (curr === zoneId ? null : zoneId))}
           />
@@ -246,7 +253,7 @@ export function CampaignTracking({ campaignId }) {
                 onSelectZone={(zoneId) => setSelectedZoneId((curr) => (curr === zoneId ? null : zoneId))}
               />
               <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-                <button onClick={handleReturnToArea} disabled={!liveZones[0]?.geometry} style={mapActionButtonStyle(!liveZones[0]?.geometry)}>⟲ Torna all'area</button>
+                <button onClick={handleReturnToArea} disabled={!referenceZoneGeometry} style={mapActionButtonStyle(!referenceZoneGeometry)}>⟲ Torna all'area</button>
               </div>
             </>
           ) : (
@@ -303,25 +310,15 @@ export function CampaignTracking({ campaignId }) {
   );
 }
 
-function AuthorizedZoneProgress({ zoneProgress, finalCoverage, selectedZoneId = null, onSelectZone = null }) {
-  // Sincronizzazione source-of-truth: se calculate_campaign_final_coverage ha
-  // una percentuale calcolata, viene usata in caso di mancata sync della cache zona
-  const syncedZones = useMemo(() => {
-    const rawZones = zoneProgress.zones || [];
-    if (!rawZones.length) return [];
-    if (finalCoverage?.final_operational_coverage_pct != null) {
-      return rawZones.map((z) => ({
-        ...z,
-        effective_percent: z.effective_percent > 0 ? z.effective_percent : finalCoverage.final_operational_coverage_pct,
-      }));
-    }
-    return rawZones;
-  }, [zoneProgress.zones, finalCoverage]);
-
+// Ogni zona mostra SOLO la propria percentuale (campaign_zone_progress).
+// Una zona senza dato resta "non disponibile": mai la percentuale globale
+// della campagna (final_operational_coverage_pct) copiata su ogni zona, mai
+// un falso 0%. La copertura totale e' il KPI "Copertura verificata".
+function AuthorizedZoneProgress({ zoneProgress, selectedZoneId = null, onSelectZone = null }) {
   return (
     <div style={{ marginBottom: 16 }}>
       <ZoneProgressPanel
-        zones={syncedZones}
+        zones={zoneProgress.zones || []}
         loading={zoneProgress.loading}
         refreshing={zoneProgress.refreshing}
         error={zoneProgress.error}
@@ -472,7 +469,7 @@ function TrackingMap({
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginTop: 4 }}>
                     <span style={{ color: '#334155' }}>Copertura:</span>
                     <strong style={{ color: '#16a34a' }}>
-                      {zone.effective_percent != null ? `${Number(zone.effective_percent).toFixed(1)}%` : '0%'}
+                      {formatCoveragePercent(zone.effective_percent)}
                     </strong>
                   </div>
                   {zone.target_quantity != null && (
@@ -679,6 +676,8 @@ function FitToZoneBounds({ geometry }) {
 // Stesso badge di Admin/GpsMonitor.jsx (stessi ZONE_LIVE_STATUS_LABELS/COLORS
 // da geofenceEngine.js, import diretto): allineamento richiesto tra Cliente e
 // Driver App, mai una seconda logica per il desktop.
+const CUSTOMER_PRESENCE_LABELS = { online: 'Online', weak: 'Segnale debole', offline: 'Offline' };
+
 function LiveZoneStatusBadge({ status, distanceKm }) {
   const color = ZONE_LIVE_STATUS_COLORS[status] || ZONE_LIVE_STATUS_COLORS.zone_unavailable;
   const label = ZONE_LIVE_STATUS_LABELS[status] || ZONE_LIVE_STATUS_LABELS.zone_unavailable;

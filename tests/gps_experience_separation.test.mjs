@@ -84,7 +84,8 @@ test('C — MAI Milano hard-coded come fallback per una zona non-Milano', () => 
   // Cliente: stesso principio
   assert.match(CUSTOMER, /getMunicipalityCenterPoint\(zoneWithGeometry\.geometry\)/);
   // le geometrie del Cliente sono limitate alle zone della campagna corrente
-  assert.match(CUSTOMER, /\(zoneRows \|\| \[\]\)\s*\n\s*\.map\(\(z\) => resolvedBoundaries\[z\.id\]\)/);
+  assert.match(CUSTOMER, /const zoneIds = useMemo\(\(\) => \(zoneRows \|\| \[\]\)\.map\(\(z\) => z\.id\), \[zoneRows\]\);/);
+  assert.match(CUSTOMER, /zoneIds,\s*\n\s*boundaries: resolvedBoundaries,/);
 });
 
 // ─────────────────────────────────────────────────────────────────────

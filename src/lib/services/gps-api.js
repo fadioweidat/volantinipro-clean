@@ -2,6 +2,7 @@ import { supabase, ensureSupabaseSessionBridge } from '../../supabaseClient.js';
 import { driverDiag } from '../diagnostics/driverDiagnostics.js';
 import { calculateFilteredDistanceKm, filterValidGpsPoints } from '../gps/pointQuality.js';
 import { getDeviceInstallationId } from '../gps/deviceInstallationId.js';
+import { classifyDriverPresence, classifyPresenceFromActivity } from '../gps/driverPresence.js';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
 const RETRY_DELAYS_MS = [800, 1800, 4000];
@@ -681,15 +682,22 @@ export async function getCampaignSessionTracks(campaignId, { statuses = TRACKABL
       const sessionPoints = bySession.get(session.id) || [];
       const { valid, excluded } = filterValidGpsPoints(sessionPoints);
       const lastPoint = valid[valid.length - 1] || sessionPoints[sessionPoints.length - 1] || null;
-      const lastActivityIso =
-        session.updated_at || lastPoint?.recorded_at || lastPoint?.created_at || session.started_at || null;
+      // Presenza condivisa (driverPresence.js): ultima attivita' =
+      // max(session.updated_at, ultimo punto GPS recorded_at), stesso helper
+      // dell'header Admin e del Cliente. Qualsiasi punto ricevuto e' attivita',
+      // anche se escluso dal filtro qualita'.
+      const presence = classifyDriverPresence({
+        session,
+        lastPoint: sessionPoints[sessionPoints.length - 1] || null,
+      });
       return {
         session,
         points: sessionPoints,
         validPoints: valid,
         excludedPoints: excluded,
         lastPoint,
-        lifecycleStatus: classifySessionLifecycle(session, lastActivityIso),
+        presence,
+        lifecycleStatus: classifySessionLifecycle(session, presence.lastActivityIso),
       };
     })
     .sort((a, b) => {
@@ -1130,14 +1138,12 @@ export function displayDeviceId(session) {
   return String(explicit).slice(0, 10);
 }
 
-export function classifyDriverStatus(lastPingIso) {
-  if (!lastPingIso) return 'offline';
-  const lastMs = new Date(lastPingIso).getTime();
-  if (!Number.isFinite(lastMs)) return 'offline';
-  const ageMs = Date.now() - lastMs;
-  if (ageMs <= 2 * 60000) return 'online';
-  if (ageMs <= 5 * 60000) return 'warning';
-  return 'offline';
+// Soglie uniche in driverPresence.js (<= 2 min online, <= 5 min segnale
+// debole, oltre offline). Qui resta il vecchio nome del valore intermedio
+// ('warning') per i chiamanti esistenti (lifecycle, AdminLiveDashboard).
+export function classifyDriverStatus(lastPingIso, nowMs = Date.now()) {
+  const status = classifyPresenceFromActivity(lastPingIso, nowMs);
+  return status === 'weak' ? 'warning' : status;
 }
 
 const SESSION_RECENT_OFFLINE_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -1210,17 +1216,20 @@ export function aggregateOperationalMetrics({
   }
 
   // 1. Copertura verificata %
+  // KPI campagna = final_operational_coverage_pct quando e' un numero valido,
+  // 0 COMPRESO (0 = 0% reale, non "dato mancante"). Solo null/undefined/
+  // risposta assente passano ai ripieghi; la percentuale di una singola zona
+  // (zoneProgress) non sostituisce MAI il KPI campagna.
   let coveragePct = null;
   let coverageDisplay = 'Dato non disponibile';
-  if (finalCoverage?.final_operational_coverage_pct != null && finalCoverage.final_operational_coverage_pct > 0) {
-    coveragePct = Number(finalCoverage.final_operational_coverage_pct);
+  const finalPctRaw = finalCoverage?.final_operational_coverage_pct;
+  const finalPct = finalPctRaw == null || finalPctRaw === '' ? null : Number(finalPctRaw);
+  if (finalPct != null && Number.isFinite(finalPct)) {
+    coveragePct = finalPct;
     coverageDisplay = `${coveragePct}%`;
   } else if (scopedManual?.coverage_percent != null) {
     coveragePct = Number(scopedManual.coverage_percent);
     coverageDisplay = `${scopedManual.coverage_percent}%`;
-  } else if (zoneProgress?.zones?.[0]?.effective_percent != null && zoneProgress.zones[0].effective_percent > 0) {
-    coveragePct = Number(zoneProgress.zones[0].effective_percent);
-    coverageDisplay = `${zoneProgress.zones[0].effective_percent}%`;
   } else if (points.length > 0) {
     coverageDisplay = 'In calcolo...';
   }

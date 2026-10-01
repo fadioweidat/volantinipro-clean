@@ -1,4 +1,14 @@
-export function GpsMonitorMetricsPanel({ state, status, activeMs, activeSessionLabel, driverOnline, geofence, coverage, handleRecalculateCoverage, formatDuration, Metric, GeofenceBadge, styles }) {
+import { formatCoveragePercent } from '../../../lib/gps/coverageDisplay.js';
+
+// Header Admin GPS Monitor.
+// - Driver: presenza condivisa (classifyDriverPresence) — stessa della riga
+//   operatore e del Cliente: ONLINE / SEGNALE DEBOLE / OFFLINE.
+// - Geofence: stesso stato e stessa distanza della mappa Admin e del Cliente
+//   (zona assegnata alla sessione attiva, evaluateSessionGeofence).
+// - Copertura campagna: final_operational_coverage_pct, stessa derivazione
+//   del KPI Cliente. La copertura della sola zona della sessione resta
+//   disponibile ma etichettata come tale.
+export function GpsMonitorMetricsPanel({ state, status, activeMs, activeSessionLabel, driverPresence, liveZoneStatus, outsideDistanceKm, campaignCoverageDisplay, coverage, handleRecalculateCoverage, formatDuration, Metric, LiveZoneStatusBadge, styles }) {
   const { metricGridStyle } = styles;
   return (
       <div style={metricGridStyle}>
@@ -6,15 +16,16 @@ export function GpsMonitorMetricsPanel({ state, status, activeMs, activeSessionL
         <Metric label="Sessioni" value={state.sessions.length} />
         <Metric label="Punti GPS" value={state.points.length} />
         <Metric label="Sessione mappa" value={activeSessionLabel} />
-        <Metric label="Driver" value={driverOnline ? 'online' : 'offline'} />
+        <Metric label="Driver" value={driverPresence?.label} />
         <Metric label="Tempo attivo" value={formatDuration(activeMs)} />
-        <Metric label="Geofence" value={<GeofenceBadge status={geofence.status} />} />
+        <Metric label="Geofence" value={<LiveZoneStatusBadge status={liveZoneStatus} distanceKm={outsideDistanceKm} />} />
+        <Metric label="Copertura campagna" value={campaignCoverageDisplay} />
         {coverage && coverage.calculation_status === 'ready' && (
           <Metric
-            label="Copertura calcolata"
+            label="Copertura zona sessione"
             value={
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {coverage.coverage_percent}%
+                {formatCoveragePercent(coverage.coverage_percent)}
                 <button
                   onClick={handleRecalculateCoverage}
                   disabled={coverage.calculating}

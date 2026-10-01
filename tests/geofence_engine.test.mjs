@@ -268,9 +268,17 @@ test("deriveLiveZoneStatus e i suoi label/colori sono importati (mai ridefiniti)
   const driver = readFileSync(new URL("../src/components/driver/DriverZoneMap.jsx", import.meta.url), "utf8");
   const admin = readFileSync(new URL("../src/pages/admin/GpsMonitor.jsx", import.meta.url), "utf8");
   const customer = readFileSync(new URL("../src/pages/customer/CampaignTracking.jsx", import.meta.url), "utf8");
+  // Admin e Cliente passano dal wrapper condiviso sessionZoneGeofence.js
+  // (zona assegnata alla sessione attiva), che a sua volta usa
+  // deriveLiveZoneStatus: stessa funzione pura, nessuna copia.
+  const sessionZone = readFileSync(new URL("../src/lib/geofence/sessionZoneGeofence.js", import.meta.url), "utf8");
+  assert.match(sessionZone, /deriveLiveZoneStatus\(reference\.zones/);
+  for (const [name, src] of [["Admin", admin], ["Cliente", customer]]) {
+    assert.match(src, /evaluateSessionGeofence\(\{/, `${name} deve usare evaluateSessionGeofence`);
+  }
   for (const [name, src] of [["Driver", driver], ["Admin", admin], ["Cliente", customer]]) {
     assert.match(src, /from ['"].*geofenceEngine\.js['"]/, `${name} deve importare da geofenceEngine.js`);
-    assert.match(src, /deriveLiveZoneStatus/, `${name} deve usare deriveLiveZoneStatus`);
+    if (name === "Driver") assert.match(src, /deriveLiveZoneStatus/, `${name} deve usare deriveLiveZoneStatus`);
     // Nessuna ridefinizione locale della soglia/label: se qualcuno reintroduce
     // una costante locale con questi nomi, la duplicazione che il refactor
     // doveva eliminare sarebbe tornata.

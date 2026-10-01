@@ -39,7 +39,9 @@ test('GpsMonitor: i poligoni NIL vengono dalla STESSA lista dei chip (zoneRows),
   assert.ok(gpsMapEl, 'elemento <GpsMap ... /> non trovato');
   assert.match(gpsMapEl[0], /zones=\{nilMapZones\}/);
   assert.match(gpsMapEl[0], /selectedZoneId=\{selectedZoneId\}/);
-  assert.match(gpsMapEl[0], /onSelectZone=\{\(id\) => setSelectedZoneId\(id\)\}/);
+  // Il click sulla mappa e' una scelta manuale dell'Admin (pickZone): da li'
+  // la selezione non segue piu' la zona della sessione.
+  assert.match(gpsMapEl[0], /onSelectZone=\{\(id\) => pickZone\(id\)\}/);
 });
 
 test('GpsMonitor: fitBounds sulla zona selezionata (FitToZoneBounds su selectedZoneGeometry)', () => {

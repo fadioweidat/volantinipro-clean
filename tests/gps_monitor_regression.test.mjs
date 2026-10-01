@@ -130,7 +130,8 @@ test('STALE-ZONE — nessun Milano hard-coded come default di zona (GpsMonitor +
   const CUSTOMER = read('src/pages/customer/CampaignTracking.jsx');
   assert.match(CUSTOMER, /const c = getMunicipalityCenterPoint\(zoneWithGeometry\.geometry\);/);
   // il Cliente limita le geometrie alle zone della campagna corrente
-  assert.match(CUSTOMER, /const liveZones = useMemo\(\s*\n\s*\(\) => \(zoneRows \|\| \[\]\)\s*\n\s*\.map\(\(z\) => resolvedBoundaries\[z\.id\]\)/);
+  assert.match(CUSTOMER, /const zoneIds = useMemo\(\(\) => \(zoneRows \|\| \[\]\)\.map\(\(z\) => z\.id\), \[zoneRows\]\);/);
+  assert.match(CUSTOMER, /zoneIds,\s*\n\s*boundaries: resolvedBoundaries,/);
 });
 
 // ── TEST 3 — AUTOMATICO: non-zero con rete valida, errore con rete vuota ──
