@@ -244,9 +244,9 @@ test("il gate nasconde SOLO la configurazione avanzata: riepilogo e «Continua»
   assert.match(step2Src, /const milanoClientMode = nilManualMode \? "nil" : isRadiusMode \? "radius" : addressFullCoverageConfirmed \? "municipality" : null;/);
 });
 
-test("raggio POI invariato (15 km in analisi NIL): fuori dal perimetro di questo ticket", () => {
+test("raggio di analisi invariato (15 km NIL); ai POI arriva solo il raggio limitato senza settore", () => {
   assert.match(step2Src, /requestedAnalysisLevel === "nil" \? Math\.max\(15, numericRadiusKm\)/);
-  assert.match(step2Src, /usePoi\(poiCenterLat, poiCenterLng, poiEffectiveRadiusKm, svcType, distributionTargetSelection\)/);
+  assert.match(step2Src, /usePoi\(poiCenterLat, poiCenterLng, poiQueryRadiusKm, svcType, distributionTargetSelection\)/);
 });
 
 after(async () => {

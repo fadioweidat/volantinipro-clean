@@ -11,7 +11,10 @@ test("BUG 1 - POI query center uses selectedSearchPoint/address coords instead o
   assert.ok(step2Src.includes("poiCenterLat = round6("), "poiCenterLat must be defined with round6");
   assert.ok(step2Src.includes("hasSearchPoint ? selectedSearchPoint.lat"), "poiCenterLat must prioritize selectedSearchPoint.lat");
   assert.ok(step2Src.includes("poiEffectiveRadiusKm"), "poiEffectiveRadiusKm must be defined");
-  assert.ok(step2Src.includes("usePoi(poiCenterLat, poiCenterLng, poiEffectiveRadiusKm"), "usePoi must consume poiCenterLat/poiCenterLng/poiEffectiveRadiusKm");
+  // Il raggio POI deriva da poiEffectiveRadiusKm tramite il solo limite "senza
+  // settore" (src/lib/step2/poiQueryRadius.js); il centro resta quello sopra.
+  assert.ok(step2Src.includes("poiRadiusKm: poiEffectiveRadiusKm,"), "poiQueryRadiusKm must derive from poiEffectiveRadiusKm");
+  assert.ok(step2Src.includes("usePoi(poiCenterLat, poiCenterLng, poiQueryRadiusKm"), "usePoi must consume poiCenterLat/poiCenterLng/poiQueryRadiusKm");
 });
 
 test("BUG 2 - Radius mode radial sorting prioritizes polygon containing search point and sorts outward", () => {

@@ -13,6 +13,7 @@ import { rankNilSearchResults } from "../../../lib/step2/milanoNilView.js";
 import { MilanoNilSearch } from "./step2/MilanoNilSearch.jsx";
 import { MilanoCoverageModeChooser } from "./step2/MilanoCoverageModeChooser.jsx";
 import { OutsideMilanoCoverageModeChooser, deriveOutsideMilanoMode, isOutsideMilanoGuidedView } from "./step2/OutsideMilanoCoverageModeChooser.jsx";
+import { resolvePoiQueryRadiusKm } from "../../../lib/step2/poiQueryRadius.js";
 import { MilanoTerritorySummary } from "./step2/MilanoTerritorySummary.jsx";
 import "./step2/milano-client.css";
 import { MilanoGuidance } from "./step2/MilanoGuidance.jsx";
@@ -1432,6 +1433,16 @@ export function Step2({
     : hasSearchPoint
       ? 2.5
       : effectiveRadiusKm;
+  // Raggio della SOLA richiesta POI: senza un settore specifico il raggio
+  // tecnico di analisi (15 km Milano NIL, 25 km multi-comune) viene limitato
+  // a 6 km, altrimenti la query con tutte le categorie va in timeout. Nessun
+  // altro valore cambia (useSectors e analisi usano i raggi di sempre).
+  const poiQueryRadiusKm = resolvePoiQueryRadiusKm({
+    poiRadiusKm: poiEffectiveRadiusKm,
+    usesTechnicalAnalysisRadius: !isRadiusMode && !hasSearchPoint,
+    serviceType: svcType,
+    targetSelection: distributionTargetSelection,
+  });
   const {
     sectors,
     loading: sectorsLoading
@@ -1446,7 +1457,7 @@ export function Step2({
     loading: poiLoading,
     error: poiError,
     retry: retryPoi
-  } = usePoi(poiCenterLat, poiCenterLng, poiEffectiveRadiusKm, svcType, distributionTargetSelection);
+  } = usePoi(poiCenterLat, poiCenterLng, poiQueryRadiusKm, svcType, distributionTargetSelection);
   const backendPois = useMemo(() => {
     if (!['d2d', 'h2h', 'b2b'].includes(svcType)) return [];
     const arr = apiData?.metadata?.nearby_activities;
