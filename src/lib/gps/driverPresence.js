@@ -72,6 +72,23 @@ export function classifyDriverPresence({ session, lastPoint, nowMs = Date.now() 
   return { status, label: DRIVER_PRESENCE_LABELS[status], lastActivityIso };
 }
 
+export const SESSION_TERMINAL_LABEL = 'TERMINATO';
+export const SESSION_PAUSED_LABEL = 'IN PAUSA';
+
+/**
+ * Etichetta della riga operatore / pannello sessioni.
+ * Lo stato terminale dipende SOLO dal record (completed/cancelled); una
+ * sessione ancora 'started', anche inattiva da giorni (lifecycle "history"),
+ * mostra la presenza condivisa (ONLINE / SEGNALE DEBOLE / OFFLINE), come
+ * l'header Admin e il Cliente — mai TERMINATO.
+ */
+export function resolveOperatorStatusLabel({ session, presence } = {}) {
+  const status = session?.status;
+  if (status === 'completed' || status === 'cancelled') return SESSION_TERMINAL_LABEL;
+  if (status === 'paused') return SESSION_PAUSED_LABEL;
+  return presence?.label || DRIVER_PRESENCE_LABELS.offline;
+}
+
 const TRACKABLE_SESSION_STATUSES = new Set(['started', 'paused', 'completed']);
 
 /**

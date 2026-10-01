@@ -210,8 +210,19 @@ function normalizeProgressRow(row) {
       'Risposta avanzamento zona non valida.',
     );
   }
-  const effectivePercent = nullableNumber(row.effective_percent);
-  if (effectivePercent == null || effectivePercent < 0 || effectivePercent > 100) {
+  // get_campaign_zone_progress fa LEFT JOIN campaign_zone_progress con
+  // COALESCE(effective_percent, 0) / COALESCE(automatic_percent, 0): per una
+  // zona SENZA riga di avanzamento arrivano degli 0 finti. updated_at e'
+  // restituito grezzo (p.updated_at) ed e' NOT NULL DEFAULT now() nella
+  // tabella: updated_at null <=> nessuna riga reale. Solo la combinazione
+  // prodotta dal COALESCE (nessuna riga + 0) diventa "non disponibile"
+  // (null), mai 0%. Una riga reale con 0 resta 0; un valore non zero non
+  // viene mai annullato.
+  const hasProgressRow = nullableText(row.updated_at) != null;
+  const rawEffectivePercent = nullableNumber(row.effective_percent);
+  const coalescedMissingRow = !hasProgressRow && rawEffectivePercent === 0;
+  const effectivePercent = coalescedMissingRow ? null : rawEffectivePercent;
+  if (!coalescedMissingRow && (effectivePercent == null || effectivePercent < 0 || effectivePercent > 100)) {
     throw new ZoneProgressError(
       'zone_progress_invalid_response',
       'Risposta avanzamento zona non valida.',
@@ -223,8 +234,9 @@ function normalizeProgressRow(row) {
     zone_name: nullableText(row.zone_name),
     address_label: nullableText(row.address_label),
     effective_percent: effectivePercent,
+    has_progress_row: hasProgressRow,
     updated_at: nullableText(row.updated_at),
-    automatic_percent: nullableNumber(row.automatic_percent),
+    automatic_percent: coalescedMissingRow ? null : nullableNumber(row.automatic_percent),
     manual_percent: nullableNumber(row.manual_percent),
     manual_override_enabled: typeof row.manual_override_enabled === 'boolean'
       ? row.manual_override_enabled

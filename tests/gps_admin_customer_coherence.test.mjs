@@ -22,6 +22,9 @@ import {
   DRIVER_PRESENCE_LABELS,
 } from '../src/lib/gps/driverPresence.js';
 import { formatCoveragePercent } from '../src/lib/gps/coverageDisplay.js';
+import { resolveOperatorStatusLabel, SESSION_TERMINAL_LABEL } from '../src/lib/gps/driverPresence.js';
+import { createZoneProgressClient } from '../src/lib/services/zone-progress-api.js';
+import { classifySessionLifecycle } from '../src/lib/services/gps-api.js';
 import { aggregateOperationalMetrics, classifyDriverStatus } from '../src/lib/services/gps-api.js';
 import { ZoneProgressPanel } from '../src/components/zone-progress/ZoneProgressPanel.jsx';
 
@@ -236,7 +239,8 @@ test('presenza: contratti sorgente — un solo helper, nessuna soglia duplicata 
     assert.doesNotMatch(src, /5 \* 60 \* 1000|5 \* 60000|300000/, `${name}: soglia 5 min duplicata`);
   }
   assert.match(GM, /const driverPresence = classifyDriverPresence\(\{/);
-  assert.match(GM, /return track\.presence\?\.label \|\| DRIVER_PRESENCE_LABELS\.offline;/);
+  assert.match(GM, /return resolveOperatorStatusLabel\(\{ session: track\.session, presence: track\.presence \}\);/);
+  assert.doesNotMatch(GM, /lifecycleStatus === 'history'\) return 'TERMINATO'/);
   assert.doesNotMatch(GM, /warning: 'ONLINE'/);
   assert.match(PANEL, /<Metric label="Driver" value=\{driverPresence\?\.label\} \/>/);
   assert.match(GPS_API, /const presence = classifyDriverPresence\(\{\s*\n\s*session,/);
@@ -328,4 +332,123 @@ test('copertura: la copertura della sola sessione/zona resta distinta ("Copertur
   assert.match(GM, /<MiniStat label="Copertura zona sessione"/);
   assert.doesNotMatch(PANEL, /Copertura calcolata/);
   assert.doesNotMatch(GM, /Copertura operatore \(stimata\)/);
+});
+
+// ── 4. RUNTIME FAIL 2026-10-01 — BUG 1: sessione 'started' mostrata TERMINATO ─
+// Runtime reale: record 'started', ultima attivita' > 24 h -> lifecycle
+// "history"; header e pannello sessioni OFFLINE ma riga operatore TERMINATO.
+function rowLabel(sessionStatus, activityAgoMs) {
+  const session = { id: 's', status: sessionStatus, started_at: ago(3 * 86_400_000), updated_at: ago(activityAgoMs) };
+  const lastPoint = { session_id: 's', recorded_at: ago(activityAgoMs) };
+  const presence = classifyDriverPresence({ session, lastPoint, nowMs: NOW });
+  const lifecycle = classifySessionLifecycle(session, presence.lastActivityIso);
+  const header = classifyDriverPresence({ session: getLatestTrackableSession([session]), lastPoint, nowMs: NOW }).label;
+  return { row: resolveOperatorStatusLabel({ session, presence }), header, lifecycle };
+}
+
+test("riga operatore: 'started' + attivita' vecchia > 5 min (anche > 24 h) -> OFFLINE, come l'header (mai TERMINATO)", () => {
+  for (const ms of [6 * 60_000, 26 * 3_600_000]) {
+    const v = rowLabel('started', ms);
+    assert.equal(v.row, 'OFFLINE');
+    assert.equal(v.row, v.header);
+  }
+  // Il lifecycle resta un concetto distinto (puo' valere "history") ma non decide l'etichetta.
+  assert.equal(rowLabel('started', 26 * 3_600_000).lifecycle, 'history');
+});
+
+test("riga operatore: 'started' + attivita' 3 min -> SEGNALE DEBOLE", () => {
+  const v = rowLabel('started', 3 * 60_000);
+  assert.equal(v.row, 'SEGNALE DEBOLE');
+  assert.equal(v.row, v.header);
+});
+
+test("riga operatore: 'started' + attivita' recente -> ONLINE", () => {
+  const v = rowLabel('started', 20_000);
+  assert.equal(v.row, 'ONLINE');
+  assert.equal(v.row, v.header);
+});
+
+test("riga operatore: 'completed' -> stato terminale", () => {
+  assert.equal(rowLabel('completed', 20_000).row, SESSION_TERMINAL_LABEL);
+  assert.equal(rowLabel('completed', 26 * 3_600_000).row, 'TERMINATO');
+});
+
+test("riga operatore: 'cancelled' -> stato terminale", () => {
+  assert.equal(rowLabel('cancelled', 20_000).row, 'TERMINATO');
+  assert.equal(rowLabel('paused', 20_000).row, 'IN PAUSA');
+});
+
+// ── 5. RUNTIME FAIL 2026-10-01 — BUG 2: falso 0% nelle zone senza riga ───────
+// get_campaign_zone_progress: LEFT JOIN + COALESCE(effective_percent, 0);
+// updated_at = p.updated_at (NOT NULL nella tabella) -> null solo senza riga.
+const CAMPAIGN_ID = '1f1706f5-2c68-4921-a02a-eaaeb9c62e59';
+const rpcRow = (zoneId, zoneName, { effective = 0, automatic = 0, updatedAt = null } = {}) => ({
+  campaign_zone_id: zoneId, campaign_id: CAMPAIGN_ID, zone_name: zoneName, address_label: null,
+  effective_percent: effective, updated_at: updatedAt, automatic_percent: automatic, manual_percent: null,
+  inaccessible_percent: null, adjustment_type: null, manual_override_enabled: false, override_reason: null,
+  notes: null, source: 'legacy', calculation_version: null, source_summary: {},
+});
+async function progressFrom(rows) {
+  const client = createZoneProgressClient({ rpc: async (name) => {
+    assert.equal(name, 'get_campaign_zone_progress');
+    return { data: rows, error: null };
+  } });
+  return client.getCampaignZoneProgress(CAMPAIGN_ID);
+}
+
+test('zone progress: nessuna riga (RPC restituisce effective_percent 0 da COALESCE) -> n/d, mai 0%', async () => {
+  const [z] = await progressFrom([rpcRow(BRUZZANO, 'BRUZZANO')]);
+  assert.equal(z.has_progress_row, false);
+  assert.equal(z.effective_percent, null);
+  assert.equal(z.automatic_percent, null);
+  assert.equal(formatCoveragePercent(z.effective_percent), 'n/d');
+  const html = renderToStaticMarkup(React.createElement(ZoneProgressPanel, { zones: [z], theme: 'dark' }));
+  assert.match(html, /Dato non disponibile/);
+  assert.doesNotMatch(html, />0\s*%</);
+});
+
+test('zone progress: riga reale con effective_percent 0 -> 0% vero', async () => {
+  const [z] = await progressFrom([rpcRow(BRUZZANO, 'BRUZZANO', { effective: 0, updatedAt: '2026-09-30T14:00:00Z' })]);
+  assert.equal(z.has_progress_row, true);
+  assert.equal(z.effective_percent, 0);
+  assert.equal(formatCoveragePercent(z.effective_percent), '0%');
+  const html = renderToStaticMarkup(React.createElement(ZoneProgressPanel, { zones: [z], theme: 'dark' }));
+  assert.match(html, />0%</);
+});
+
+test('zone progress: riga reale con effective_percent 0.09 -> 0,09%', async () => {
+  const [z] = await progressFrom([rpcRow(BRUZZANO, 'BRUZZANO', { effective: 0.09, automatic: 0.09, updatedAt: '2026-09-30T14:00:00Z' })]);
+  assert.equal(z.effective_percent, 0.09);
+  assert.equal(formatCoveragePercent(z.effective_percent), '0,09%');
+  const html = renderToStaticMarkup(React.createElement(ZoneProgressPanel, { zones: [z], theme: 'dark' }));
+  assert.match(html, /0,09%/);
+});
+
+test('zone progress: le 5 zone senza riga (runtime reale) -> tutte n/d, nessuna percentuale globale copiata', async () => {
+  const zones = await progressFrom([
+    rpcRow(PARCO_NORD, 'PARCO NORD'), rpcRow('z-comasina', 'COMASINA'), rpcRow('z-bovisasca', 'BOVISASCA'),
+    rpcRow(AFFORI, 'AFFORI'), rpcRow(BRUZZANO, 'BRUZZANO'),
+  ]);
+  assert.equal(zones.length, 5);
+  for (const z of zones) {
+    assert.equal(z.effective_percent, null, `${z.zone_name} non deve essere 0`);
+    assert.equal(formatCoveragePercent(z.effective_percent), 'n/d');
+  }
+  // KPI campagna 0.1 (final) non finisce sulle zone; il pannello Cliente riceve le zone tali e quali.
+  const kpi = aggregateOperationalMetrics({ gpsPoints: POINTS, sessions: [SESSION], finalCoverage: { final_operational_coverage_pct: 0.1 }, zoneProgress: { zones } });
+  assert.equal(kpi.coverageDisplay, '0.1%');
+  const html = renderToStaticMarkup(React.createElement(ZoneProgressPanel, { zones, theme: 'dark' }));
+  assert.doesNotMatch(html, /0[,.]1\s*%|>0\s*%</);
+  assert.equal((html.match(/Dato non disponibile/g) || []).length >= 5, true);
+  assert.match(CUSTOMER, /zones=\{zoneProgress\.zones \|\| \[\]\}/);
+});
+
+test('zone progress: riga reale con percentuale fuori range resta una risposta non valida', async () => {
+  await assert.rejects(progressFrom([rpcRow(BRUZZANO, 'BRUZZANO', { effective: 140, updatedAt: '2026-09-30T14:00:00Z' })]), /non valida/);
+});
+
+test('zone progress: solo la combinazione COALESCE (nessuna riga + 0) diventa n/d; un valore non zero non viene mai annullato', async () => {
+  const [z] = await progressFrom([rpcRow(BRUZZANO, 'BRUZZANO', { effective: 37.5, automatic: 37.5, updatedAt: null })]);
+  assert.equal(z.effective_percent, 37.5);
+  assert.equal(z.automatic_percent, 37.5);
 });

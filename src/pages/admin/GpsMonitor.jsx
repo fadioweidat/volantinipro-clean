@@ -5,7 +5,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useZoneProgress } from '../../hooks/useZoneProgress.js';
 import { createProofPhotoSignedUrl, getCampaignGpsSessions, getCampaignSessionTracks, getCampaignProofPhotos, getCampaignRecord, calculateGpsCoverage, adminUnlockDevice, aggregateOperationalMetrics } from '../../lib/services/gps-api.js';
 import { getFinalCoverage } from '../../lib/services/coverage-adjustments-api.js';
-import { classifyDriverPresence, getLatestTrackableSession, latestPointForSession, DRIVER_PRESENCE_LABELS } from '../../lib/gps/driverPresence.js';
+import { classifyDriverPresence, getLatestTrackableSession, latestPointForSession, resolveOperatorStatusLabel, DRIVER_PRESENCE_LABELS, SESSION_PAUSED_LABEL, SESSION_TERMINAL_LABEL } from '../../lib/gps/driverPresence.js';
 import { formatCoveragePercent } from '../../lib/gps/coverageDisplay.js';
 import { evaluateSessionGeofence, resolveSelectedZoneId } from '../../lib/geofence/sessionZoneGeofence.js';
 import { ProofPhotoApproveButton } from '../../components/admin/ProofPhotoApproveButton.jsx';
@@ -41,16 +41,15 @@ export function shortOperatorId(value) {
 }
 // Riga operatore: stessa presenza (classifyDriverPresence, driverPresence.js)
 // dell'header Admin e del Cliente. 'weak' = SEGNALE DEBOLE, mai ONLINE.
+// Lo stato terminale viene SOLO dal record (completed/cancelled): una
+// sessione 'started' inattiva resta OFFLINE, mai TERMINATO.
 export function operatorStatusLabel(track) {
-  if (track.session?.status === 'paused') return 'IN PAUSA';
-  if (track.session?.status === 'completed' || track.session?.status === 'cancelled') return 'TERMINATO';
-  if (track.lifecycleStatus === 'history') return 'TERMINATO';
-  return track.presence?.label || DRIVER_PRESENCE_LABELS.offline;
+  return resolveOperatorStatusLabel({ session: track.session, presence: track.presence });
 }
 function operatorStatusColor(label) {
   if (label === DRIVER_PRESENCE_LABELS.online) return '#22c55e';
-  if (label === DRIVER_PRESENCE_LABELS.weak || label === 'IN PAUSA') return '#fbbf24';
-  if (label === 'TERMINATO') return '#94a3b8';
+  if (label === DRIVER_PRESENCE_LABELS.weak || label === SESSION_PAUSED_LABEL) return '#fbbf24';
+  if (label === SESSION_TERMINAL_LABEL) return '#94a3b8';
   return '#f87171';
 }
 
