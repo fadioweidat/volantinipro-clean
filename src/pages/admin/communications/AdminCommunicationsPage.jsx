@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSingleFlightRefresh } from '../../../hooks/useSingleFlightRefresh.js';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ConversationIdentity, ConversationEmptyState } from "./ConversationIdentity.jsx";
 import "./communications.css";
 import { AdminLayout } from "../AdminLayout.jsx";
@@ -53,7 +54,7 @@ export function AdminCommunicationsPage({ onNav }) {
   const [selectedKey, setSelectedKey] = useState(null);
   const [error, setError] = useState(null);
 
-  const reload = useCallback(async () => {
+  const load = useCallback(async (isCurrent) => {
     try {
       let convs;
       if (filter === "driver_admin") {
@@ -89,25 +90,24 @@ export function AdminCommunicationsPage({ onNav }) {
       ]);
       // Identita' umane (cliente/campagna/driver/gruppo) da dati canonici.
       const identityDir = await loadCommunicationIdentityDirectory(convs);
+      if (!isCurrent()) return;
+      setError(null);
       setConversations(convs.map((c) => ({ ...c, identity: resolveConversationIdentity(c, identityDir) })));
       setIssues(Array.isArray(issueRows) ? issueRows : []);
       setModRequests(Array.isArray(modRows) ? modRows : []);
     } catch (e) {
+      if (!isCurrent()) return;
       setError(e?.message || "Comunicazioni non disponibili.");
     }
   }, [filter]);
+  const reload = useSingleFlightRefresh(load);
 
   // Sottoscrizione Realtime Admin (admin:messages) + network recovery + polling adattivo
   useEffect(() => {
     reload();
 
     const sub = subscribeToAdminMessages({
-      onMessage: () => {
-        reload();
-      },
-      onSeen: () => {
-        reload();
-      },
+      onChanged: reload,
     });
 
     const timer = window.setInterval(reload, 5000);
@@ -157,7 +157,7 @@ export function AdminCommunicationsPage({ onNav }) {
           </div>
           <div className={selectedConversation ? "comms-detail" : "comms-detail comms-detail--empty"} style={cardStyle}>
             {selectedConversation ? (
-              <ConversationDetail conversation={selectedConversation} onSent={reload} />
+              <ConversationDetail key={selectedConversation.key} conversation={selectedConversation} onSent={reload} />
             ) : (
               <ConversationEmptyState />
             )}
@@ -175,46 +175,38 @@ function ConversationDetail({ conversation, onSent }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
   const [conversationId, setConversationId] = useState(conversation.id || null);
-  const broadcasterRef = useRef(null);
 
   useEffect(() => {
     setConversationId(conversation.id || null);
     setMessages([]);
   }, [conversation.key, conversation.id]);
 
-  const reload = useCallback(async () => {
+  const load = useCallback(async (isCurrent) => {
     if (!conversationId) { setMessages([]); return; }
-    const rows = await adminListMessages(conversationId).catch(() => []);
+    const rows = await adminListMessages(conversationId).catch((e) => {
+      if (isCurrent()) setError(e?.message || "Messaggi non disponibili.");
+      return null;
+    });
+    if (!isCurrent() || !rows) return;
+    setError(null);
     setMessages((prev) => mergeMessages(prev, Array.isArray(rows) ? rows : []));
     if ((rows || []).some((m) => m.recipient_role === "admin" && !m.seen_at)) {
-      adminMarkMessagesSeen(conversationId).catch(() => {});
-      onSent?.();
+      await adminMarkMessagesSeen(conversationId).catch(() => {});
+      if (isCurrent()) onSent?.();
     }
   }, [conversationId, onSent]);
+  const reload = useSingleFlightRefresh(load);
 
   // Sottoscrizione Realtime su conversazione e assignment/campagna
   useEffect(() => {
     reload();
 
-    const handleNewMessage = (msg) => {
-      setMessages((prev) => mergeMessages(prev, msg));
-      if (msg.recipient_role === "admin" && !msg.seen_at && conversationId) {
-        adminMarkMessagesSeen(conversationId).catch(() => {});
-        onSent?.();
-      }
-    };
-
-    const handleSeen = (seenMsg) => {
-      setMessages((prev) => mergeMessages(prev, seenMsg));
-      onSent?.();
-    };
-
     // Canale 1: conversazione specifica (se ID disponibile)
     const subConv = conversationId
       ? subscribeToConversation(conversationId, {
-          onMessage: handleNewMessage,
-          onSeen: handleSeen,
+          onChanged: reload,
         })
       : null;
 
@@ -222,18 +214,12 @@ function ConversationDetail({ conversation, onSent }) {
     let subTarget = null;
     if (conversation.kind === "driver_admin" && conversation.assignment_id) {
       subTarget = subscribeToDriverMessages(conversation.assignment_id, {
-        onMessage: handleNewMessage,
-        onSeen: handleSeen,
+        onChanged: reload,
       });
-      broadcasterRef.current = subTarget.broadcastMessage;
     } else if (conversation.kind === "customer_admin" && conversation.campaign_id) {
       subTarget = subscribeToCustomerMessages(conversation.campaign_id, {
-        onMessage: handleNewMessage,
-        onSeen: handleSeen,
+        onChanged: reload,
       });
-      broadcasterRef.current = subTarget.broadcastMessage;
-    } else if (subConv) {
-      broadcasterRef.current = subConv.broadcastMessage;
     }
 
     // Polling adattivo di sicurezza a 2.5s quando la conversazione è aperta
@@ -249,7 +235,6 @@ function ConversationDetail({ conversation, onSent }) {
     return () => {
       subConv?.unsubscribe();
       subTarget?.unsubscribe();
-      broadcasterRef.current = null;
       window.clearInterval(timer);
       window.removeEventListener("online", onOnline);
       document.removeEventListener("visibilitychange", onVisibility);
@@ -271,12 +256,11 @@ function ConversationDetail({ conversation, onSent }) {
       setText("");
       if (msg) {
         setMessages((prev) => mergeMessages(prev, msg));
-        if (broadcasterRef.current) {
-          broadcasterRef.current(msg);
-        }
       }
       await reload();
       onSent?.();
+    } catch (e) {
+      setError(e?.message || "Invio messaggio non riuscito.");
     } finally {
       setBusy(false);
     }
@@ -285,6 +269,7 @@ function ConversationDetail({ conversation, onSent }) {
   return (
     <div>
       <ConversationIdentity conversation={conversation} header />
+      {error && <p role="alert">{error}</p>}
       <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 380, overflowY: "auto", marginBottom: 10 }}>
         {!conversationId && <div style={{ fontFamily: F.sans, fontSize: 13, color: "rgba(255,255,255,.4)" }}>Nessun messaggio ancora. Scrivi il primo messaggio a questo Driver.</div>}
         {messages.map((m) => (
@@ -306,15 +291,16 @@ function ConversationDetail({ conversation, onSent }) {
 function IssuesPanel({ issues, assignments, setAssignments, onChanged }) {
   const [busyId, setBusyId] = useState(null);
 
-  useEffect(() => {
-    // Assignment reali per l'instradamento manuale (fallback admin_queue) —
-    // caricate una sola volta per campagna quando servono, per non appesantire
-    // il polling generale della pagina.
-    const campaignIds = [...new Set(issues.map((i) => i.campaign_id).filter(Boolean))];
-    if (!campaignIds.length) return;
-    Promise.all(campaignIds.map((id) => listCampaignAssignments(id).catch(() => [])))
-      .then((lists) => setAssignments(lists.flat()));
-  }, [issues, setAssignments]);
+  const campaignKey = [...new Set(issues.map((i) => i.campaign_id).filter(Boolean))].sort().join(",");
+  const loadAssignments = useCallback(async (isCurrent) => {
+    // The parent poll remains the refresh signal, sharing one request even
+    // when the previous assignment-directory lookup is still running.
+    const campaignIds = campaignKey ? campaignKey.split(",") : [];
+    const lists = await Promise.all(campaignIds.map((id) => listCampaignAssignments(id).catch(() => [])));
+    if (isCurrent()) setAssignments(lists.flat());
+  }, [campaignKey, setAssignments]);
+  const reloadAssignments = useSingleFlightRefresh(loadAssignments);
+  useEffect(() => { reloadAssignments(); }, [issues, reloadAssignments]);
 
   const route = async (issueId, assignmentId) => {
     if (!assignmentId) return;

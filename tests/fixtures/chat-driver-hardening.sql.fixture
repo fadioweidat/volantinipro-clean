@@ -1,0 +1,75 @@
+-- Synthetic dependency fixture ONLY. Production RPC bodies and messaging DDL
+-- are loaded verbatim from migrations by the integration runner. No real data.
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
+create schema auth;
+create schema storage;
+create schema realtime;
+create table auth.users(id uuid primary key);
+create function auth.uid() returns uuid language sql stable as $$
+  select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+$$;
+create table public.profiles(id uuid primary key);
+create table public.campaigns(id uuid primary key, customer_id uuid, campaign_name text, customer_name text);
+create function public.gps_is_admin() returns boolean language sql stable as $$
+  select coalesce(current_setting('request.jwt.claim.app_role', true) = 'admin', false)
+$$;
+create function public.current_user_owns_campaign(p_id uuid) returns boolean language sql stable as $$
+  select exists(select 1 from public.campaigns where id=p_id and customer_id=auth.uid())
+$$;
+create table public.operational_groups(id uuid primary key, campaign_id uuid references public.campaigns, unique(id,campaign_id));
+create table public.operator_assignments(
+  id uuid primary key, campaign_id uuid references public.campaigns, group_id uuid references public.operational_groups,
+  operator_id uuid, zone_id uuid, access_token text, status text default 'active', revoked_at timestamptz,
+  starts_at timestamptz default now(), ends_at timestamptz, group_access_link_id uuid, created_at timestamptz default now()
+);
+create table public.campaign_zones(id uuid primary key, campaign_id uuid, group_id uuid, geometry jsonb, priority integer, zone_name text);
+create table public.operator_assignment_zones(assignment_id uuid, zone_id uuid);
+create table public.assignment_event_log(
+  id uuid primary key default gen_random_uuid(), assignment_id uuid references public.operator_assignments,
+  operator_id uuid not null, campaign_id uuid, event_type text, created_at timestamptz default now()
+);
+create unique index fixture_confirm_once on public.assignment_event_log(assignment_id)
+  where event_type = 'assignment_program_confirmed';
+create table public.gps_operator_audit_log(operator_id uuid, action text, campaign_id uuid, assignment_id uuid references public.operator_assignments, context jsonb);
+create table public.customer_issues(
+  id uuid primary key default gen_random_uuid(), campaign_id uuid, created_by uuid,
+  municipality text, street text, house_number text, lat double precision, lng double precision,
+  reason text, notes text, status text, zone_id uuid, assignment_id uuid references public.operator_assignments,
+  routed_to text, driver_id uuid, created_at timestamptz default now(), seen_at timestamptz,
+  taken_at timestamptz, resolved_at timestamptz, resolved_by uuid, resolution_note text
+);
+create table public.issue_events(issue_id uuid references public.customer_issues, event_type text, actor uuid, context jsonb);
+create table public.issue_verification_photos(
+  id uuid primary key default gen_random_uuid(), issue_id uuid references public.customer_issues,
+  campaign_id uuid, assignment_id uuid, driver_id uuid, storage_path text,
+  lat double precision, lng double precision, accuracy double precision,
+  address_label text, note text, created_at timestamptz default now(), taken_at timestamptz default now()
+);
+create table storage.objects(bucket_id text, name text);
+create table realtime.messages(
+  topic text not null, extension text not null, payload jsonb, event text,
+  private boolean default false, inserted_at timestamp not null default now()
+);
+-- Boundary double shaped like Supabase realtime.send: ordinary errors become a
+-- WARNING (no row), real pg_sleep cancellation propagates. Does not claim to
+-- test Supabase websocket transport.
+create function realtime.send(payload jsonb, event text, topic text, private boolean)
+returns void language plpgsql as $$
+begin
+  begin
+    if current_setting('chat_test.realtime_failure', true) = 'ordinary' then
+      raise exception 'synthetic notification failure' using errcode = 'P0001';
+    elsif current_setting('chat_test.realtime_failure', true) = 'cancel' then
+      perform pg_sleep(2);
+    end if;
+    insert into realtime.messages(payload, event, topic, private, extension)
+    values (payload, event, topic, private, 'broadcast');
+  exception when others then
+    raise warning 'ErrorSendingBroadcastMessage: %', sqlerrm;
+  end;
+end;
+$$;
+grant usage on schema auth, storage, realtime, extensions to postgres, anon, authenticated;
+grant all on all tables in schema public, auth, storage, realtime to postgres;
+grant execute on all functions in schema public, auth, realtime to postgres;

@@ -1,5 +1,6 @@
+import { useSingleFlightRefresh } from '../../hooks/useSingleFlightRefresh.js';
 import CampaignSettlementSummary from './CampaignSettlementSummary.jsx';
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { C, F } from "../../lib/constants.js";
 import Button from "../ui/Button.jsx";
 import {
@@ -158,15 +159,17 @@ function ModificationRequestModal({ campaignId, campagna, initialType, onClose }
 function ModificationRequestsList({ campaignId }) {
   const [requests, setRequests] = useState([]);
 
-  const reload = useCallback(async () => {
+  const load = useCallback(async (isCurrent) => {
     if (!campaignId) return;
     try {
       const rows = await customerListModificationRequests(campaignId);
+      if (!isCurrent()) return;
       setRequests(Array.isArray(rows) ? rows : []);
     } catch {
       // Nessun crash della dashboard se la richiesta fallisce: sezione vuota.
     }
   }, [campaignId]);
+  const reload = useSingleFlightRefresh(load);
 
   useEffect(() => {
     reload();
@@ -202,31 +205,32 @@ export function CustomerMessagesPanel({ campaignId }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const broadcasterRef = useRef(null);
 
-  const reload = useCallback(async () => {
+  const load = useCallback(async (isCurrent) => {
     if (!campaignId) return;
     try {
       const rows = await customerListMessages(campaignId);
+      if (!isCurrent()) return;
+      setError(null);
       setMessages((prev) => mergeMessages(prev, Array.isArray(rows) ? rows : []));
+      if ((rows || []).some((m) => m.recipient_role === "customer" && !m.seen_at)) {
+        await customerMarkMessagesSeen(campaignId);
+      }
     } catch (e) {
+      if (!isCurrent()) return;
       setError(e?.message || null);
     }
   }, [campaignId]);
+  const reload = useSingleFlightRefresh(load);
+  useEffect(() => { setMessages([]); setError(null); }, [campaignId]);
 
   useEffect(() => {
     reload();
 
     const sub = subscribeToCustomerMessages(campaignId, {
-      onMessage: (msg) => {
-        setMessages((prev) => mergeMessages(prev, msg));
-      },
-      onSeen: (seenMsg) => {
-        setMessages((prev) => mergeMessages(prev, seenMsg));
-      },
+      onChanged: reload,
     });
 
-    broadcasterRef.current = sub.broadcastMessage;
 
     const timer = window.setInterval(reload, 15000);
 
@@ -239,18 +243,12 @@ export function CustomerMessagesPanel({ campaignId }) {
 
     return () => {
       sub.unsubscribe();
-      broadcasterRef.current = null;
       window.clearInterval(timer);
       window.removeEventListener("online", onOnline);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [campaignId, reload]);
 
-  useEffect(() => {
-    if (messages.some((m) => m.recipient_role === "customer" && !m.seen_at)) {
-      customerMarkMessagesSeen(campaignId).catch(() => {});
-    }
-  }, [messages, campaignId]);
 
   const send = async (e) => {
     e.preventDefault();
@@ -261,9 +259,6 @@ export function CustomerMessagesPanel({ campaignId }) {
       setText("");
       if (sentMsg) {
         setMessages((prev) => mergeMessages(prev, sentMsg));
-        if (broadcasterRef.current) {
-          broadcasterRef.current(sentMsg);
-        }
       }
       await reload();
     } catch (err) {

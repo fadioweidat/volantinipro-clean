@@ -41,245 +41,45 @@ export function countUnreadMessages(messages = [], recipientRole = 'driver') {
   return messages.filter((m) => m && m.recipient_role === recipientRole && !m.seen_at).length;
 }
 
-/**
- * Iscrizione Realtime per il Driver sul canale dell'assignment.
- * Ascolta sia i messaggi broadcast dal database/admin che le conferme di lettura.
+/** Invalidations only. Payloads are deliberately ignored: authorized RPCs own
+ * message content and access checks, including on public Driver channels.
+ * client is injectable to test the actual subscription contract.
  */
-export function subscribeToDriverMessages(assignmentId, { onMessage, onSeen, onStatusChange } = {}) {
-  if (!supabase || !assignmentId) {
-    return { unsubscribe: () => {}, broadcastMessage: async () => {} };
-  }
-
-  const topic = `assignment:${assignmentId}`;
-  const channel = supabase.channel(topic, {
-    config: {
-      broadcast: { self: false },
-    },
+export function subscribeToMessageInvalidations(topic, { onChanged, onStatusChange } = {}, client = supabase) {
+  if (!client || !topic) return { unsubscribe() {} };
+  let active = true;
+  const channel = client.channel(topic, { config: { broadcast: { self: false } } });
+  channel.on('broadcast', { event: 'messages_changed' }, () => {
+    if (active) onChanged?.();
+  }).subscribe((status) => {
+    if (!active) return;
+    onStatusChange?.(status);
+    if (status === 'SUBSCRIBED') onChanged?.();
   });
+  return {
+    channel,
+    unsubscribe() {
+      active = false;
+      try { Promise.resolve(client.removeChannel(channel)).catch(() => {}); } catch { /* cleanup */ }
+    },
+  };
+}
 
-  channel
-    .on('broadcast', { event: 'new_message' }, ({ payload }) => {
-      if (payload && onMessage) onMessage(payload);
-    })
-    .on('broadcast', { event: 'messages_seen' }, ({ payload }) => {
-      if (payload && onSeen) onSeen(payload);
-    })
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'conversation_messages' },
-      (payload) => {
-        if (payload?.new && onMessage) onMessage(payload.new);
-      }
-    )
-    .on(
-      'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'conversation_messages' },
-      (payload) => {
-        if (payload?.new && onSeen) onSeen(payload.new);
-      }
-    )
-    .subscribe((status) => {
-      // TEMP diagnostics (BUG D): fixed status enum only.
+export function subscribeToDriverMessages(assignmentId, options = {}) {
+  return subscribeToMessageInvalidations(assignmentId ? `assignment:${assignmentId}` : null, {
+    ...options,
+    onStatusChange(status) {
       driverDiag.record('REALTIME', 'status', { state: String(status).toLowerCase() });
-      if (onStatusChange) onStatusChange(status);
-    });
-
-  const broadcastMessage = async (msg) => {
-    try {
-      if (channel && msg) {
-        await channel.send({
-          type: 'broadcast',
-          event: 'new_message',
-          payload: msg,
-        });
-      }
-    } catch {
-      // best effort — la transazione DB ha già inviato o invierà via trigger
-    }
-  };
-
-  const unsubscribe = () => {
-    try {
-      supabase.removeChannel(channel);
-    } catch {
-      // safe cleanup
-    }
-  };
-
-  return { unsubscribe, broadcastMessage, channel };
-}
-
-/**
- * Iscrizione Realtime per l'Admin Hub generale (`admin:messages`).
- * Notifica l'arrivo di nuovi messaggi da qualunque Driver o Cliente.
- */
-export function subscribeToAdminMessages({ onMessage, onSeen, onStatusChange } = {}) {
-  if (!supabase) {
-    return { unsubscribe: () => {} };
-  }
-
-  const topic = 'admin:messages';
-  const channel = supabase.channel(topic, {
-    config: {
-      broadcast: { self: false },
+      options.onStatusChange?.(status);
     },
   });
-
-  channel
-    .on('broadcast', { event: 'new_message' }, ({ payload }) => {
-      if (payload && onMessage) onMessage(payload);
-    })
-    .on('broadcast', { event: 'messages_seen' }, ({ payload }) => {
-      if (payload && onSeen) onSeen(payload);
-    })
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'conversation_messages' },
-      (payload) => {
-        if (payload?.new && onMessage) onMessage(payload.new);
-      }
-    )
-    .on(
-      'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'conversation_messages' },
-      (payload) => {
-        if (payload?.new && onSeen) onSeen(payload.new);
-      }
-    )
-    .subscribe((status) => {
-      if (onStatusChange) onStatusChange(status);
-    });
-
-  const unsubscribe = () => {
-    try {
-      supabase.removeChannel(channel);
-    } catch {
-      // safe cleanup
-    }
-  };
-
-  return { unsubscribe, channel };
 }
-
-/**
- * Iscrizione Realtime su una specifica conversazione (`conversation:${id}`).
- */
-export function subscribeToConversation(conversationId, { onMessage, onSeen, onStatusChange } = {}) {
-  if (!supabase || !conversationId) {
-    return { unsubscribe: () => {}, broadcastMessage: async () => {} };
-  }
-
-  const topic = `conversation:${conversationId}`;
-  const channel = supabase.channel(topic, {
-    config: {
-      broadcast: { self: false },
-    },
-  });
-
-  channel
-    .on('broadcast', { event: 'new_message' }, ({ payload }) => {
-      if (payload && onMessage) onMessage(payload);
-    })
-    .on('broadcast', { event: 'messages_seen' }, ({ payload }) => {
-      if (payload && onSeen) onSeen(payload);
-    })
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'conversation_messages', filter: `conversation_id=eq.${conversationId}` },
-      (payload) => {
-        if (payload?.new && onMessage) onMessage(payload.new);
-      }
-    )
-    .on(
-      'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'conversation_messages', filter: `conversation_id=eq.${conversationId}` },
-      (payload) => {
-        if (payload?.new && onSeen) onSeen(payload.new);
-      }
-    )
-    .subscribe((status) => {
-      if (onStatusChange) onStatusChange(status);
-    });
-
-  const broadcastMessage = async (msg) => {
-    try {
-      if (channel && msg) {
-        await channel.send({
-          type: 'broadcast',
-          event: 'new_message',
-          payload: msg,
-        });
-      }
-    } catch {
-      // best-effort
-    }
-  };
-
-  const unsubscribe = () => {
-    try {
-      supabase.removeChannel(channel);
-    } catch {
-      // safe cleanup
-    }
-  };
-
-  return { unsubscribe, broadcastMessage, channel };
+export function subscribeToAdminMessages(options = {}) {
+  return subscribeToMessageInvalidations('admin:messages', options);
 }
-
-/**
- * Iscrizione Realtime per il Cliente sulla sua campagna (`campaign:${id}`).
- */
-export function subscribeToCustomerMessages(campaignId, { onMessage, onSeen, onStatusChange } = {}) {
-  if (!supabase || !campaignId) {
-    return { unsubscribe: () => {}, broadcastMessage: async () => {} };
-  }
-
-  const topic = `campaign:${campaignId}`;
-  const channel = supabase.channel(topic, {
-    config: {
-      broadcast: { self: false },
-    },
-  });
-
-  channel
-    .on('broadcast', { event: 'new_message' }, ({ payload }) => {
-      if (payload && onMessage) onMessage(payload);
-    })
-    .on('broadcast', { event: 'messages_seen' }, ({ payload }) => {
-      if (payload && onSeen) onSeen(payload);
-    })
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'conversation_messages' },
-      (payload) => {
-        if (payload?.new && onMessage) onMessage(payload.new);
-      }
-    )
-    .subscribe((status) => {
-      if (onStatusChange) onStatusChange(status);
-    });
-
-  const broadcastMessage = async (msg) => {
-    try {
-      if (channel && msg) {
-        await channel.send({
-          type: 'broadcast',
-          event: 'new_message',
-          payload: msg,
-        });
-      }
-    } catch {
-      // best-effort
-    }
-  };
-
-  const unsubscribe = () => {
-    try {
-      supabase.removeChannel(channel);
-    } catch {
-      // safe cleanup
-    }
-  };
-
-  return { unsubscribe, broadcastMessage, channel };
+export function subscribeToConversation(conversationId, options = {}) {
+  return subscribeToMessageInvalidations(conversationId ? `conversation:${conversationId}` : null, options);
+}
+export function subscribeToCustomerMessages(campaignId, options = {}) {
+  return subscribeToMessageInvalidations(campaignId ? `campaign:${campaignId}` : null, options);
 }

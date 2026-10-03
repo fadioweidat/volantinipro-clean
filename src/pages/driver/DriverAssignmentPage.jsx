@@ -1,3 +1,4 @@
+import { useSingleFlightRefresh } from '../../hooks/useSingleFlightRefresh.js';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useGpsTracking } from '../../hooks/useGpsTracking.js';
 import { useDriverAssignment, mapDriverActionError } from '../../hooks/useDriverAssignment.js';
@@ -798,11 +799,12 @@ function DriverGroupLinkSection({ assignmentId, accessToken }) {
   const [copied, setCopied] = useState(false);
   const [err, setErr] = useState(null);
 
-  const request = async () => {
+  const loadLink = useCallback(async (isCurrent) => {
     setState('loading');
     setErr(null);
     try {
       const result = await driverGetOrCreateGroupLink(assignmentId, accessToken || '');
+      if (!isCurrent()) return;
       if (!result.recoverable || !result.token) {
         setRecoverable(false);
         setState('unavailable');
@@ -812,6 +814,7 @@ function DriverGroupLinkSection({ assignmentId, accessToken }) {
       setRecoverable(true);
       setState('ready');
     } catch (e) {
+      if (!isCurrent()) return;
       const raw = String(e?.message || '');
       const key = Object.keys(GROUP_LINK_ERROR_MESSAGES).find((k) => raw.includes(k));
       if (key && GROUP_LINK_ERROR_MESSAGES[key] === null) {
@@ -821,14 +824,14 @@ function DriverGroupLinkSection({ assignmentId, accessToken }) {
       setErr(isTransientSchemaOrNetworkError(e) ? USER_FRIENDLY_TRANSIENT_ERROR : (key ? GROUP_LINK_ERROR_MESSAGES[key] : (raw || 'Impossibile generare il link operatori.')));
       setState('error');
     }
-  };
+  }, [assignmentId, accessToken]);
+  const request = useSingleFlightRefresh(loadLink);
 
   useEffect(() => {
     if (assignmentId && accessToken) {
       request();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assignmentId, accessToken]);
+  }, [assignmentId, accessToken, request]);
 
   if (state === 'hidden') return null;
 
@@ -960,17 +963,20 @@ function DriverIssuesSection({ assignmentId, campaignId, accessToken, activeZone
   const [err, setErr] = useState(null);
   const fileRefs = useRef({});
 
-  const reload = useCallback(async () => {
+  const load = useCallback(async (isCurrent) => {
     try {
       const rows = await driverListIssues(assignmentId, accessToken || null);
+      if (!isCurrent()) return;
       setIssues(Array.isArray(rows) ? rows : []);
       setErr(null);
     } catch (e) {
+      if (!isCurrent()) return;
       setErr(isTransientSchemaOrNetworkError(e) ? USER_FRIENDLY_TRANSIENT_ERROR : (e?.message || null));
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, [assignmentId, accessToken]);
+  const reload = useSingleFlightRefresh(load);
 
   // Live fallback robusto per il link Driver pubblico: le postgres_changes
   // possono non arrivare in tempo reale a un client anonimo/tokenizzato per
@@ -1176,29 +1182,30 @@ function DriverMessagesSection({ assignmentId, accessToken }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [realtimeStatus, setRealtimeStatus] = useState('DISCONNECTED');
-  const broadcasterRef = useRef(null);
 
-  const reload = useCallback(async () => {
+  const load = useCallback(async (isCurrent) => {
     try {
       const rows = await driverListMessages(assignmentId, accessToken || null);
+      if (!isCurrent()) return;
       setMessages((prev) => mergeMessages(prev, Array.isArray(rows) ? rows : []));
       setErr(null);
+      if ((rows || []).some((m) => m.recipient_role === 'driver' && !m.seen_at)) {
+        await driverMarkMessagesSeen(assignmentId, accessToken || null);
+      }
     } catch (e) {
+      if (!isCurrent()) return;
       setErr(isTransientSchemaOrNetworkError(e) ? USER_FRIENDLY_TRANSIENT_ERROR : (e?.message || null));
     }
   }, [assignmentId, accessToken]);
+  const reload = useSingleFlightRefresh(load);
+  useEffect(() => { setMessages([]); setErr(null); }, [assignmentId, accessToken]);
 
   // Iscrizione Realtime (Broadcast + DB trigger) con montaggio stabile (nessuna dipendenza da realtimeStatus)
   useEffect(() => {
     reload();
 
     const sub = subscribeToDriverMessages(assignmentId, {
-      onMessage: (msg) => {
-        setMessages((prev) => mergeMessages(prev, msg));
-      },
-      onSeen: (seenMsg) => {
-        setMessages((prev) => mergeMessages(prev, seenMsg));
-      },
+      onChanged: reload,
       onStatusChange: (status) => {
         setRealtimeStatus(status);
         if (status === 'SUBSCRIBED') {
@@ -1207,11 +1214,9 @@ function DriverMessagesSection({ assignmentId, accessToken }) {
       },
     });
 
-    broadcasterRef.current = sub.broadcastMessage;
 
     return () => {
       sub.unsubscribe();
-      broadcasterRef.current = null;
     };
   }, [assignmentId, reload]);
 
@@ -1242,11 +1247,6 @@ function DriverMessagesSection({ assignmentId, accessToken }) {
     };
   }, [reload]);
 
-  useEffect(() => {
-    if (messages.some((m) => m.recipient_role === 'driver' && !m.seen_at)) {
-      driverMarkMessagesSeen(assignmentId, accessToken || null).catch(() => {});
-    }
-  }, [messages, assignmentId, accessToken]);
 
   const send = async (e) => {
     e.preventDefault();
@@ -1257,9 +1257,6 @@ function DriverMessagesSection({ assignmentId, accessToken }) {
       setText('');
       if (sentMsg) {
         setMessages((prev) => mergeMessages(prev, sentMsg));
-        if (broadcasterRef.current) {
-          broadcasterRef.current(sentMsg);
-        }
       }
       await reload();
     } catch (e) {

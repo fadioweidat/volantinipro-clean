@@ -23,12 +23,14 @@ async function callHubRpc(name, args = {}) {
   if (!supabase) throw new Error('Supabase non configurato.');
   await ensureSupabaseSessionBridge();
 
+  // A failed response does not prove a write was rolled back. Never replay sends.
+  const maxAttempts = /^(driver_send_message|admin_send_message|admin_send_driver_message|customer_send_message)$/.test(name) ? 1 : 3;
   let lastError = null;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const { data, error } = await supabase.rpc(name, args);
     if (!error) return data;
     lastError = error;
-    if (!isTransientSchemaOrNetworkError(error) || attempt === 2) {
+    if (!isTransientSchemaOrNetworkError(error) || attempt === maxAttempts - 1) {
       break;
     }
     await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));

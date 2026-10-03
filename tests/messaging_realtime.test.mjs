@@ -119,8 +119,10 @@ test("AdminCommunicationsPage.jsx: sottoscrive a admin:messages e canali convers
   assert.ok(adminPageSrc.includes("mergeMessages"), "AdminCommunicationsPage deve usare mergeMessages per deduping");
 });
 
-test("AdminCommunicationsPage.jsx: broadcast su invio messaggio Admin -> Driver", () => {
-  assert.ok(adminPageSrc.includes("broadcasterRef.current(msg)"), "deve trasmettere in broadcast il messaggio inviato per ricezione immediata");
+test("AdminCommunicationsPage.jsx: il testo non viene trasmesso dal client", () => {
+  assert.ok(!adminPageSrc.includes("broadcasterRef"));
+  assert.ok(adminPageSrc.includes("onChanged: reload"));
+  assert.ok(!realtimeSrc.includes("channel.send("));
 });
 
 // ---------------------------------------------------------------------------
