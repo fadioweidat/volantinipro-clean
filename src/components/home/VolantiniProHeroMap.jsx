@@ -386,25 +386,27 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
       <div className="vph-composition">
       <div className="vph-stage">
         <div className="vph-copy">
-          <p className="vph-eyebrow">VOLANTINAGGIO &middot; CONTROLLO GPS</p>
-          <h1 id="vph-title">Distribuisci volantini e verifica ogni consegna con <em>GPS e report fotografico</em></h1>
-          <p className="vph-description">Raggiungi il tuo pubblico nei comuni giusti. Pianifica con dati territoriali reali, segui gli operatori via GPS e verifica la distribuzione con foto e report.</p>
+          <p className="vph-eyebrow">VOLANTINAGGIO PROFESSIONALE</p>
+          <h1 id="vph-title">Distribuisci volantini<br />nel territorio giusto,<br />con la <em>quantità giusta</em></h1>
+          <p className="vph-description">Scopri quante famiglie puoi raggiungere in ogni Comune, calcola subito il preventivo online e verifica la distribuzione con GPS e report fotografico.</p>
+          <div className="vph-benefits">
+            <div><HeroIcon type="check"/><span>Dati territoriali reali</span></div>
+            <div><HeroIcon type="check"/><span>Preventivo immediato online</span></div>
+            <div><HeroIcon type="check"/><span>Controllo GPS con foto e report</span></div>
+          </div>
           <div className="vph-actions">
-            <button type="button" className="vph-button" onClick={configure}>Configura la tua campagna <span aria-hidden="true">→</span></button>
+            <button type="button" className="vph-button" onClick={configure}>Calcola il preventivo online <span aria-hidden="true">→</span></button>
             <button type="button" className="vph-button vph-button-secondary" onClick={how}>Vedi come funziona <span aria-hidden="true">▶</span></button>
           </div>
           <div className="vph-chips" aria-label="Servizi di distribuzione">{['Door to Door','Hand to Hand','Negozi','Scuole','Eventi'].map(chip=><a key={chip} href="#prezzi">{chip}<span aria-hidden="true">↗</span></a>)}</div>
-          <div className="vph-benefits">
-            <div><HeroIcon type="radius"/><span>Tracking GPS<small>degli operatori</small></span></div>
-            <div><HeroIcon type="coverage"/><span>Dati territoriali<small>per pianificare</small></span></div>
-            <div><HeroIcon type="report"/><span>Foto e report<small>verificabili</small></span></div>
-          </div>
         </div>
         <div className="vph-map-area">
           <div className="vph-kpis" aria-label="Indicatori dello scenario reale">{kpis.map(([icon,label,value])=><div className="vph-kpi" key={icon}><HeroIcon type={icon}/><div><strong>{value}</strong><span>{label}</span></div></div>)}</div>
           <HomepageTerritoryMap groups={analysis.groups} selected={selected} onSelect={select} loading={pending} unavailable={Boolean(error)||!pending&&!analysis.groups.length} missingGeometries={analysis.missingGeometries}/>
         </div>
       </div>
+      <details className="vpq-territory-details">
+      <summary>Esplora i dati territoriali di Milano Nord <span aria-hidden="true">+</span></summary>
       <div className="vph-summary" role="region" aria-labelledby="vph-analysis-title">
         <div className="vph-analysis-heading">
           <HeroIcon type="coverage"/>
@@ -424,6 +426,7 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
         </div>
         <HomepageRadiusPreview groups={analysis.groups} selected={selected} loading={pending}/>
       </div>
+      </details>
       </div>
       <ul className="vph-trust">{trust.map(text=><li key={text}><HeroIcon type="check"/>{text}</li>)}</ul>
     </div>
