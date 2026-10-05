@@ -69,6 +69,8 @@ import { Step2ComunePanel } from "./step2/Step2ComunePanel.jsx";
 import { Step2TerritoryControlsPanel } from "./step2/Step2TerritoryControlsPanel.jsx";
 import { ServiceExplanationCard } from "./step2/ServiceExplanationCard.jsx";
 import { SelectedZonesSummary } from "./step2/SelectedZonesSummary.jsx";
+import { buildZoneKpiSnapshot, getCampaignZoneLabel as getCampaignZoneQuoteLabel, resolveNewZoneStartingQuantity, summarizeCampaignZones } from "../../../lib/step2/campaignZonesModel.js";
+import { projectStep2LegacyAliases } from "../../../lib/step2/buildStep2TruthModel.js";
 export function Step2({
   data,
   setData,
@@ -682,6 +684,13 @@ export function Step2({
   const radiusMeters = radiusKm != null ? radiusKm * 1000 : null;
   const quantityForAnalysis = Number(activeZoneForRadius?.assigned_flyers || data.qty || 10000);
   const prevActiveZoneIdRef = useRef(null);
+  // FASE 1 MULTI-ZONE: id della zona i cui valori sono ATTUALMENTE caricati
+  // negli state locali (city/radius/selected/...). Al cambio zona c'e' un
+  // render in cui data.activeZoneId e' gia' la nuova zona ma gli state locali
+  // sono ancora quelli della precedente: in quel render gli effect che
+  // scrivono nella zona attiva NON devono girare, altrimenti copiano la zona
+  // precedente nella nuova (riprodotto: "+ Aggiungi" -> Zona 2 eredita Monza).
+  const [localZoneId, setLocalZoneId] = useState(data.activeZoneId || null);
 
   // Mount Prefill / Initialization effect
   useEffect(() => {
@@ -734,9 +743,15 @@ export function Step2({
         type: svcType,
         flyerQuantityFromStep1: flyerQuantityFromStep1,
         qty: flyerQuantityFromStep1,
-        flyerQuantity: flyerQuantityFromStep1
+        flyerQuantity: flyerQuantityFromStep1,
+        // FASE 1 MULTI-ZONE: quantita' di partenza della CAMPAGNA (Step1),
+        // registrata una sola volta alla creazione della prima zona. Le zone
+        // aggiunte dopo partono da qui, mai dalla quantita' finale di
+        // un'altra zona (data.qty segue la zona attiva).
+        campaignBaseQuantity: flyerQuantityFromStep1
       }));
       prevActiveZoneIdRef.current = defaultZoneId;
+      setLocalZoneId(defaultZoneId);
     } else if (!data.activeZoneId && data.campaignZones.length > 0) {
       const activeZone = data.campaignZones[0];
       setData(prev => ({
@@ -751,8 +766,10 @@ export function Step2({
         flyerFormat: activeZone.service_variant || "a5"
       }));
       prevActiveZoneIdRef.current = activeZone.id;
+      setLocalZoneId(activeZone.id);
     } else {
       prevActiveZoneIdRef.current = data.activeZoneId;
+      setLocalZoneId(data.activeZoneId);
     }
   }, []);
 
@@ -787,7 +804,10 @@ export function Step2({
       setAvailableFlyers(Number(activeZone.availableFlyers || activeZone.assigned_flyers || data.availableFlyers || data.qty || 10000));
       setManualFlyers(Number(activeZone.manualFlyers || 0) || "");
       setRadiusSelectionConfirmed(inferredRadiusConfirmed);
-      setSelectedSearchPoint(activeZone.selectedSearchPoint || data.selectedSearchPoint || null);
+      // Su un vero cambio zona il punto ricerca e' SOLO quello della zona:
+      // il fallback top-level (= zona precedente) spostava il centro di una
+      // zona Raggio sul centro dell'altra.
+      setSelectedSearchPoint(isZoneSwitch ? activeZone.selectedSearchPoint || null : activeZone.selectedSearchPoint || data.selectedSearchPoint || null);
       // Only restore searchMode on an actual zone switch — not on the city-resolution
       // fallback path (!city && resolvedCity), which would overwrite the user's current tab
       // with a stale "address" value saved from a previous session.
@@ -795,6 +815,12 @@ export function Step2({
         const zoneMode = activeZone.searchMode || "municipality";
         userModeRef.current = zoneMode;
         setSearchMode(zoneMode);
+        // Modalita' Milano per zona: NIL manuale (custom_zone) e conferma
+        // "comune completo" vanno ripristinate, altrimenti una zona NIL
+        // tornava "Comune completo" dopo Zona A -> Zona B -> Zona A.
+        setNilManualMode(Boolean(activeZone.nilManualMode));
+        setAddressFullCoverageConfirmed(Boolean(activeZone.addressFullCoverageConfirmed));
+        setLocalZoneId(data.activeZoneId);
       }
       if (activeZone.activeMapLayers) {
         setActiveMapLayers(activeZone.activeMapLayers);
@@ -837,13 +863,14 @@ export function Step2({
   // Reciprocally update data.campaignZones when local states change
   useEffect(() => {
     if (!data.activeZoneId || !data.campaignZones || data.campaignZones.length === 0) return;
+    if (localZoneId !== data.activeZoneId) return;
     setData(prev => {
       if (!prev.campaignZones || !prev.activeZoneId) return prev;
       const zoneIndex = prev.campaignZones.findIndex(z => z.id === prev.activeZoneId);
       if (zoneIndex === -1) return prev;
       const currentZone = prev.campaignZones[zoneIndex];
       const confirmedCityName = searchMode === "municipality" && selectedMunicipalityDisplayLabel ? selectedMunicipalityDisplayLabel : city?.label || city?.name || currentZone.cityName || "";
-      const changed = currentZone.cityName !== confirmedCityName || JSON.stringify(currentZone.city) !== JSON.stringify(city) || JSON.stringify(currentZone.selectedComuni) !== JSON.stringify(selectedComuni) || JSON.stringify(currentZone.selectedMunicipalities) !== JSON.stringify(selectedMunicipalitySummary) || Number(currentZone.radiusKm ?? currentZone.radius) !== Number(radiusKm) || JSON.stringify(currentZone.selected) !== JSON.stringify(selected) || JSON.stringify(currentZone.selectedCaps) !== JSON.stringify(selectedCaps) || JSON.stringify(currentZone.selectedSearchPoint || null) !== JSON.stringify(selectedSearchPoint || null) || JSON.stringify(currentZone.capDataMap) !== JSON.stringify(capDataMap) || JSON.stringify(currentZone.manualAssignments) !== JSON.stringify(manualAssignments) || currentZone.allocationMode !== allocationMode || currentZone.coverageDecision !== coverageDecision || currentZone.coverageStrategy !== coverageStrategy || currentZone.radiusSelectionConfirmed !== radiusSelectionConfirmed || currentZone.searchMode !== searchMode || JSON.stringify(currentZone.activeMapLayers) !== JSON.stringify(activeMapLayers);
+      const changed = currentZone.cityName !== confirmedCityName || JSON.stringify(currentZone.city) !== JSON.stringify(city) || JSON.stringify(currentZone.selectedComuni) !== JSON.stringify(selectedComuni) || JSON.stringify(currentZone.selectedMunicipalities) !== JSON.stringify(selectedMunicipalitySummary) || Number(currentZone.radiusKm ?? currentZone.radius) !== Number(radiusKm) || JSON.stringify(currentZone.selected) !== JSON.stringify(selected) || JSON.stringify(currentZone.selectedCaps) !== JSON.stringify(selectedCaps) || JSON.stringify(currentZone.selectedSearchPoint || null) !== JSON.stringify(selectedSearchPoint || null) || JSON.stringify(currentZone.capDataMap) !== JSON.stringify(capDataMap) || JSON.stringify(currentZone.manualAssignments) !== JSON.stringify(manualAssignments) || currentZone.allocationMode !== allocationMode || currentZone.coverageDecision !== coverageDecision || currentZone.coverageStrategy !== coverageStrategy || currentZone.radiusSelectionConfirmed !== radiusSelectionConfirmed || currentZone.searchMode !== searchMode || JSON.stringify(currentZone.activeMapLayers) !== JSON.stringify(activeMapLayers) || Boolean(currentZone.nilManualMode) !== nilManualMode || Boolean(currentZone.addressFullCoverageConfirmed) !== addressFullCoverageConfirmed;
       if (!changed) return prev;
       const updatedZones = [...prev.campaignZones];
       updatedZones[zoneIndex] = {
@@ -864,7 +891,9 @@ export function Step2({
         coverageStrategy: coverageStrategy,
         radiusSelectionConfirmed: radiusSelectionConfirmed,
         searchMode: searchMode,
-        activeMapLayers: activeMapLayers
+        activeMapLayers: activeMapLayers,
+        nilManualMode,
+        addressFullCoverageConfirmed
       };
       return {
         ...prev,
@@ -888,7 +917,7 @@ export function Step2({
         searchMode: searchMode
       };
     });
-  }, [city, radiusKm, selected, selectedCaps, selectedSearchPoint, selectedComuni, selectedMunicipalityDisplayLabel, selectedMunicipalitySummary, capDataMap, manualAssignments, allocationMode, coverageDecision, coverageStrategy, radiusSelectionConfirmed, searchMode, activeMapLayers, data.activeZoneId]);
+  }, [city, radiusKm, selected, selectedCaps, selectedSearchPoint, selectedComuni, selectedMunicipalityDisplayLabel, selectedMunicipalitySummary, capDataMap, manualAssignments, allocationMode, coverageDecision, coverageStrategy, radiusSelectionConfirmed, searchMode, activeMapLayers, data.activeZoneId, localZoneId, nilManualMode, addressFullCoverageConfirmed]);
   // Ripristina il punto indirizzo dal contesto persistente della Zona quando
   // manca (es. si arriva da "Comune completo"). Mai reinserire l'indirizzo.
   const restoreSearchPointFromCoverageAddress = () => {
@@ -1259,16 +1288,19 @@ export function Step2({
   const handleAddZone = () => {
     const newId = "zone_" + Date.now();
     const nextSvc = svcType || data.type || "d2d";
+    const startQty = resolveNewZoneStartingQuantity(data);
     const newZone = {
       id: newId,
       zone_label: `Zona ${(data.campaignZones || []).length + 1}`,
       store_name: "",
       service_type: nextSvc,
       service_variant: data.flyerFormat || "a5",
-      assigned_flyers: data.qty || 10000,
-      assigned_budget: (data.qty || 10000) * ((QUOTE_PRICES[nextSvc] || 18.5) / 1000),
+      assigned_flyers: startQty,
+      assigned_budget: startQty * ((QUOTE_PRICES[nextSvc] || 18.5) / 1000),
       coverage_percent: 100,
-      recommended_flyers: data.qty || 10000,
+      recommended_flyers: startQty,
+      availableFlyers: startQty,
+      finalFlyers: startQty,
       searchMode: "municipality",
       city: null,
       selectedComuni: [],
@@ -2654,13 +2686,17 @@ export function Step2({
     const prevAvailableIds = prevAvailableZoneIdsRef.current || [];
     prevAvailableZoneIdsRef.current = availableIds;
     if (nilManualMode && isComuneMode && isResidentialStep2 && requestedAnalysisLevel === "nil") return;
+    // FASE 1 MULTI-ZONE: una zona appena aggiunta non ha ancora territorio ma
+    // apiData/zonesInRadius sono ancora quelli della zona precedente: non
+    // auto-selezionare quelle NIL/comuni nella nuova zona.
+    if ((data.campaignZones || []).length > 1 && (!city && searchMode !== "cap" || (localZoneId || null) !== (data.activeZoneId || null))) return;
     setSelected(prev => resolveZoneAutoSelection({
       hasUsefulApiZones,
       availableIds,
       prevAvailableIds,
       currentSelected: prev,
     }));
-  }, [hasUsefulApiZones, zonesInRadius, nilManualMode, isComuneMode, isResidentialStep2, requestedAnalysisLevel]);
+  }, [hasUsefulApiZones, zonesInRadius, nilManualMode, isComuneMode, isResidentialStep2, requestedAnalysisLevel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Anteprima NIL per indirizzo Milano non ancora confermato (es. Via Brera):
   // calcolata prima di selZones per consentire al calcolo coperture/KPI e alla
@@ -3515,6 +3551,9 @@ export function Step2({
   const isCoverageDecisionValid = coverageDecision === "keepCurrent" ? Number(availableFlyers) > 0 && finalFlyersRounded === Math.round(Number(availableFlyers)) : coverageDecision === "useRecommended" ? Number(requiredFlyers) > 0 && finalFlyersRounded === Math.round(Number(requiredFlyers)) : coverageDecision === "manual" ? Number.isFinite(manualFlyersNumber) && manualFlyersNumber > 0 && assignedFlyersTotal === finalFlyersRounded : false;
   useEffect(() => {
     if (!data.activeZoneId || !Array.isArray(data.campaignZones)) return;
+    if (localZoneId !== data.activeZoneId) return;
+    // Stessa guardia: nessuna allocazione derivata dai dati della zona precedente.
+    if (!city && searchMode !== "cap" && data.campaignZones.length > 1) return;
     setData(prev => {
       const zones = Array.isArray(prev.campaignZones) ? prev.campaignZones : [];
       const zoneIndex = zones.findIndex(z => z.id === prev.activeZoneId);
@@ -3550,7 +3589,7 @@ export function Step2({
         calculationStatus: nextCalculationStatus
       };
     });
-  }, [data.activeZoneId, coverageMode, coverageDecision, availableFlyers, requiredFlyers, manualFlyersNumber, finalFlyersRounded, allocationStatus, hasUsableAllocationData, zonesAllocationKey]);
+  }, [data.activeZoneId, localZoneId, coverageMode, coverageDecision, availableFlyers, requiredFlyers, manualFlyersNumber, finalFlyersRounded, allocationStatus, hasUsableAllocationData, zonesAllocationKey]);
   function updateManual(id, val) {
     const num = parseInt(val) || 0;
     setAllocationMode("manual");
@@ -3689,7 +3728,12 @@ export function Step2({
         poiAssignments,
         selectedOperationalPois,
         totalAssigned: step2TruthModel.quantity.allocatedQuantity,
-        coverageStatus: step2TruthModel.quantity.shortage > 0 ? "partial" : "sufficient"
+        coverageStatus: step2TruthModel.quantity.shortage > 0 ? "partial" : "sufficient",
+        searchMode,
+        nilManualMode,
+        addressFullCoverageConfirmed,
+        kpiSnapshot: activeZoneKpiSnapshot,
+        readyForQuote: true
       } : zone) : prev.campaignZones,
       qty: finalFlyerQuantity,
       flyerQuantity: finalFlyerQuantity,
@@ -4810,14 +4854,20 @@ export function Step2({
   const hasCoverageCalculationError = Boolean(apiError || activeComuneZeroData || milanoComuneNilInsufficient || addressSearchError);
   const primaryReachForGeometry = isResidentialStep2 ? Number(serviceKpis?.families || 0) : isMovementStep2 ? Number(serviceKpis?.poi || 0) : Number(serviceKpis?.businesses || 0);
   const isRadiusGeometryValid = areaMode !== "radius" || Boolean(radiusSelectionConfirmed && radiusCenter && Number.isFinite(Number(radiusCenter.lat)) && Number.isFinite(Number(radiusCenter.lng)) && Number(radiusKm) > 0 && hasValidCoverageGeometry && isCoverageCalculationComplete && primaryReachForGeometry > 0 && Number(requiredFlyers || 0) > 0 && !hasCoverageCalculationError);
-  const step2ZonesReady = (data.campaignZones || []).length > 0 && (data.campaignZones || []).every(z => {
+  const isCampaignZoneReadyForGate = z => {
     if (z.id === data.activeZoneId) {
       const activeTerritoryReady = searchMode === "cap" ? selectedCaps.length > 0 : Boolean(city);
       return activeTerritoryReady && (isBusinessStep2 ? selectedOperationalPois.length > 0 : finalFlyersRounded > 0);
     }
     const savedTerritoryReady = z.searchMode === "cap" ? Boolean(z.selectedCaps?.length) : Boolean(z.city);
     return savedTerritoryReady && (isBusinessStep2 ? selectedOperationalPois.length > 0 : Number(z.assigned_flyers || z.finalFlyers || 0) > 0);
-  });
+  };
+  const step2ZonesReady = (data.campaignZones || []).length > 0 && (data.campaignZones || []).every(isCampaignZoneReadyForGate);
+  // FASE 1 MULTI-ZONE: readiness della SOLA zona attiva (con una zona sola
+  // coincide con step2ZonesReady). E' quella usata dal view model e salvata
+  // sulla zona (readyForQuote): non deve dipendere dalle altre zone,
+  // altrimenti una Zona 2 ancora vuota invaliderebbe la Zona 1 gia' completa.
+  const activeZoneSelfReady = (data.campaignZones || []).some(z => z.id === data.activeZoneId && isCampaignZoneReadyForGate(z));
   const isAvailableQuantityPartial = Number(availableFlyers) > 0 && Number(requiredFlyers) > 0 && Number(availableFlyers) < Number(requiredFlyers);
   const coverageDecisionRequired = isAvailableQuantityPartial && !isMultiMunicipalitySelection;
   const coverageDecisionReady = !coverageDecisionRequired || isCoverageDecisionValid;
@@ -5076,7 +5126,7 @@ export function Step2({
     coverageDecision: coverageDecision || "keepCurrent",
     manualFlyers: manualFlyersNumber || allocationFlyers || null,
     assignedFlyersTotal: assignedFlyersTotal || allocationFlyers || null,
-    step2ZonesReady,
+    step2ZonesReady: activeZoneSelfReady,
     coverageDecisionReady,
     coverageDecisionRequired,
     allocationStatus,
@@ -5091,9 +5141,51 @@ export function Step2({
   const operationalSelectionReady = isResidentialStep2 || isMovementStep2 && (pois.length > 0 ? selectedOperationalPois.length > 0 : step1OperationalPoints.length > 0) || isBusinessStep2 && selectedOperationalPois.length > 0;
   const residualDecisionMade = nilResidualContext && Boolean(coverageStrategy) && String(coverageStrategy).startsWith("residual_");
   const residualBlocksContinue = residualDecisionPending;
-  const canContinueCalendar = isBusinessStep2 ? step2ZonesReady && operationalSelectionReady && !gisLoading && !gisTimedOut : !residualBlocksContinue && (residualDecisionMade || !step2ViewModel.ctaDisabled) && step2ZonesReady && operationalSelectionReady && (residualDecisionMade || coverageDecisionReady) && (residualDecisionMade || !coverageDecisionRequired || allocationStatus === "success");
+  // Gate della zona ATTIVA: formula di produzione invariata.
+  const activeZoneQuoteReady = isBusinessStep2 ? activeZoneSelfReady && operationalSelectionReady && !gisLoading && !gisTimedOut : !residualBlocksContinue && (residualDecisionMade || !step2ViewModel.ctaDisabled) && activeZoneSelfReady && operationalSelectionReady && (residualDecisionMade || coverageDecisionReady) && (residualDecisionMade || !coverageDecisionRequired || allocationStatus === "success");
+  // FASE 1 MULTI-ZONE: ogni zona NON attiva deve essere stata validata con lo
+  // stesso gate mentre era attiva (readyForQuote, scritto sotto). Con una sola
+  // zona otherCampaignZones e' vuoto -> canContinueCalendar === gate di produzione.
+  const otherCampaignZones = (data.campaignZones || []).filter(z => z.id !== data.activeZoneId);
+  const blockingCampaignZoneIndex = (data.campaignZones || []).findIndex(z => z.id !== data.activeZoneId && z.readyForQuote !== true);
+  const blockingCampaignZone = blockingCampaignZoneIndex >= 0 ? data.campaignZones[blockingCampaignZoneIndex] : null;
+  // Pricing/payload multi-zona sono implementati solo per Door to Door:
+  // per gli altri servizi bloccare esplicitamente invece di scartare zone.
+  const multiZoneServiceUnsupported = otherCampaignZones.length > 0 && svcType !== "d2d";
+  const canContinueCalendar = activeZoneQuoteReady && step2ZonesReady && !blockingCampaignZone && !multiZoneServiceUnsupported;
+  const activeZoneKpiSnapshot = buildZoneKpiSnapshot({
+    serviceKpis: projectStep2LegacyAliases(step2TruthModel).serviceKpis,
+    requiredFlyers: step2TruthModel.quantity?.recommendedRequirement ?? null,
+    finalFlyers: step2TruthModel.quantity?.current ?? null,
+    areaMode,
+    analysisLevel: activeAnalysisLevel,
+    radiusCenter: isRadiusMode ? radiusCenter : null,
+    radiusKm: isRadiusMode ? radiusKm : null
+  });
+  const activeZoneHasTerritory = searchMode === "cap" ? selectedCaps.length > 0 : Boolean(city);
+  const activeZoneReadyForQuote = Boolean(activeZoneQuoteReady && activeZoneHasTerritory && !gisLoading && !apiLoading);
+  const activeZoneSnapshotForSave = activeZoneHasTerritory ? activeZoneKpiSnapshot : null;
+  const activeZoneSnapshotKey = `${activeZoneReadyForQuote}|${JSON.stringify(activeZoneSnapshotForSave)}`;
+  useEffect(() => {
+    if (!data.activeZoneId || localZoneId !== data.activeZoneId) return;
+    setData(prev => {
+      const zones = Array.isArray(prev.campaignZones) ? prev.campaignZones : [];
+      const zoneIndex = zones.findIndex(z => z.id === prev.activeZoneId);
+      if (zoneIndex === -1) return prev;
+      const currentZone = zones[zoneIndex];
+      if (currentZone.readyForQuote === activeZoneReadyForQuote && JSON.stringify(currentZone.kpiSnapshot || null) === JSON.stringify(activeZoneSnapshotForSave)) return prev;
+      const nextZones = [...zones];
+      nextZones[zoneIndex] = { ...currentZone, readyForQuote: activeZoneReadyForQuote, kpiSnapshot: activeZoneSnapshotForSave };
+      return { ...prev, campaignZones: nextZones };
+    });
+  }, [data.activeZoneId, localZoneId, activeZoneSnapshotKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const campaignZonesOverview = useMemo(() => summarizeCampaignZones(data.campaignZones), [data.campaignZones]);
   const step2ConfigReady = !isBusinessStep2 && canContinueCalendar && residualDecisionMade;
-  const continueLabel = residualBlocksContinue
+  const continueLabel = activeZoneQuoteReady && multiZoneServiceUnsupported
+    ? "Più zone disponibili solo per Door to Door"
+    : activeZoneQuoteReady && blockingCampaignZone
+    ? `Completa ${getCampaignZoneQuoteLabel(blockingCampaignZone, blockingCampaignZoneIndex)} per continuare`
+    : residualBlocksContinue
     ? (coverageStrategy === "residual_manual" ? "Seleziona una zona sulla mappa" : "Scegli dove assegnare i volantini residui")
     : (residualDecisionMade ? "Continua allo Step 3" : (step2ViewModel.ctaLabel || "Continua allo Step 3"));
 
@@ -5527,6 +5619,23 @@ export function Step2({
           updateActiveRadius={updateActiveRadius}
           zonesInRadius={zonesInRadius}
         />}
+      {!isAdminView && campaignZonesOverview.isMultiZone && campaignZonesOverview.hasOverlap && <div role="status" data-testid="step2-multizone-overlap-warning" style={{
+        margin: "0 0 12px",
+        padding: "10px 12px",
+        borderRadius: 10,
+        border: "1px solid rgba(251,191,36,.45)",
+        background: "rgba(251,191,36,.08)",
+        color: "#FDE68A",
+        fontFamily: F.sans,
+        fontSize: 12,
+        lineHeight: 1.45
+      }}>
+          <strong>Zone sovrapposte.</strong> {campaignZonesOverview.overlaps.map(o => {
+          const a = campaignZonesOverview.zones.find(z => z.id === o.zoneAId);
+          const b = campaignZonesOverview.zones.find(z => z.id === o.zoneBId);
+          return `${a?.label || "Zona"} e ${b?.label || "Zona"}${o.certainty === "certain" ? " si sovrappongono" : " condividono parte del territorio"}`;
+        }).join("; ")}. Famiglie e capacità delle zone vengono sommate senza deduplica: nell'area comune il conteggio può essere doppio.
+        </div>}
 
       {/* ========================================================= */}
       {/* REPORT TERRITORIALE AVANZATO — dashboard modulare, service-adaptive */}
