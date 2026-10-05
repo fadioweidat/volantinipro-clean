@@ -3,6 +3,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 import { C, F, x, w, j, T, z, R } from "../../lib/constants.js";
 import { useIsMobile } from "../../hooks/useIsMobile.js";
 import { Logo } from "../../components/common/Logo.jsx";
+import PlatformFeasibilityEntry from "../../components/common/PlatformFeasibilityEntry.jsx";
 
 export function Navbar({
   onNav,
@@ -133,7 +134,7 @@ export function Navbar({
             <div style={{
           position: "relative"
         }} onMouseEnter={() => setPlatformOpen(true)} onMouseLeave={() => setPlatformOpen(false)}>
-              <button aria-expanded={platformOpen} aria-haspopup="true" onClick={() => setPlatformOpen(!platformOpen)} style={{
+              <button aria-expanded={platformOpen} aria-haspopup="true" onClick={() => setPlatformOpen(true)} style={{
             background: "transparent",
             border: "none",
             color: "rgba(255, 255, 255, 0.82)",
@@ -172,6 +173,7 @@ export function Navbar({
             gap: 4,
             zIndex: 210
           }}>
+                  <PlatformFeasibilityEntry onNavigate={() => { setPlatformOpen(false); setMenuOpen(false); }} />
                   <button onClick={() => go("step1")} style={{
               textAlign: "left",
               padding: "10px 12px",
@@ -521,6 +523,7 @@ export function Navbar({
       }}>
             Prezzi
           </button>
+          <PlatformFeasibilityEntry onNavigate={() => { setPlatformOpen(false); setMenuOpen(false); }} />
           <button onClick={() => go("step1")} style={{
         minHeight: 44,
         display: "flex",

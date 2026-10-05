@@ -7,6 +7,7 @@ import { Logo } from '../common/Logo.jsx';
 import Button from '../ui/Button.jsx';
 import './homepage-hero.css';
 import HomepageRadiusPreview from './HomepageRadiusPreview.jsx';
+import PlatformFeasibilityEntry from '../common/PlatformFeasibilityEntry.jsx';
 
 const C = {
   orange: "#E8571A",
@@ -256,7 +257,7 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
               <button
                 aria-expanded={platformOpen}
                 aria-haspopup="true"
-                onClick={() => setPlatformOpen(!platformOpen)}
+                onClick={() => setPlatformOpen(true)}
                 style={{ ...navButtonStyle, display: "flex", alignItems: "center", gap: 6 }}
               >
                 <span>Piattaforma</span>
@@ -281,6 +282,7 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
                     zIndex: 210,
                   }}
                 >
+                  <PlatformFeasibilityEntry onNavigate={() => { setPlatformOpen(false); setMenuOpen(false); }} />
                   <button
                     onClick={() => configure()}
                     style={{ textAlign: "left", padding: "10px 12px", borderRadius: 8, background: "transparent", border: "none", color: C.white, fontFamily: F.sans, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}
@@ -380,6 +382,7 @@ export function VolantiniProHeroMap({onConfigure,onQuote,onLogin,onAdmin,onHowIt
           <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "6px 0" }} />
           <button onClick={() => { setMenuOpen(false); scrollToSection("come-funziona"); }} style={mobileMenuItemStyle}>Come funziona</button>
           <button onClick={() => { setMenuOpen(false); scrollToSection("prezzi"); }} style={mobileMenuItemStyle}>Prezzi</button>
+          <PlatformFeasibilityEntry onNavigate={() => { setPlatformOpen(false); setMenuOpen(false); }} />
           <button onClick={() => { setMenuOpen(false); configure?.(); }} style={mobileMenuItemStyle}>Piattaforma: Configuratore</button>
         </div>
       )}
