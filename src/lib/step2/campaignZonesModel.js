@@ -22,6 +22,7 @@
 // contratto single-zone di produzione (isMultiZone === false).
 
 import { resolveConfiguratorDistributionZones } from "../pricing/resolveConfiguratorDistributionZones.js";
+import { calculateMultiZoneDistributionPrice, roundMoney } from "../pricing/distributionPricing.js";
 
 const EARTH_RADIUS_KM = 6371;
 
@@ -96,18 +97,92 @@ export function getCampaignZoneAllocation(zone) {
   return [];
 }
 
-export function getCampaignZoneLabel(zone, index) {
+// FASE 2 — PUNTI VENDITA. Ogni campaignZone e' un punto vendita (PV): nessun
+// modello locations[] parallelo. Il nome e' opzionale (store_name, gia'
+// presente sull'oggetto zona) e non serve mai per calcolare il territorio.
+export const STORE_NAME_MAX_LENGTH = 60;
+
+/** Nome PV normalizzato: trim, spazi compressi, max STORE_NAME_MAX_LENGTH. "" se vuoto. */
+export function sanitizeStoreName(value) {
+  return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, STORE_NAME_MAX_LENGTH).trim();
+}
+
+/** "Negozio Duomo" se impostato, altrimenti "Punto vendita N" (N = ordine mostrato). */
+export function getPointOfSaleName(zone, index) {
+  return sanitizeStoreName(zone?.store_name) || `Punto vendita ${index + 1}`;
+}
+
+function municipalityNames(zone) {
   const munis = Array.isArray(zone?.selectedMunicipalities) && zone.selectedMunicipalities.length
     ? zone.selectedMunicipalities
     : Array.isArray(zone?.selectedComuni) ? zone.selectedComuni : [];
-  const names = munis.map(m => (typeof m === "string" ? m : m?.label || m?.name || "")).filter(Boolean);
-  const base = `Zona ${index + 1}`;
-  if (zone?.searchMode === "municipality" && names.length > 1) return `${base} · ${names.length} comuni completi`;
-  if (zone?.searchMode === "cap" && Array.isArray(zone?.selectedCaps) && zone.selectedCaps.length) {
-    return `${base} · ${zone.selectedCaps.length === 1 ? `CAP ${zone.selectedCaps[0]}` : `${zone.selectedCaps.length} CAP`}`;
+  return munis.map(m => (typeof m === "string" ? m : m?.label || m?.name || "")).filter(Boolean);
+}
+
+function compactList(names, max = 2) {
+  if (names.length <= max) return names.join(", ");
+  return `${names.slice(0, max).join(", ")} +${names.length - max}`;
+}
+
+/**
+ * Posizione leggibile del PV, solo da dati gia' presenti (mai un indirizzo
+ * inventato): Raggio -> indirizzo/punto cercato o comune centro; Comune ->
+ * comune/i; Milano NIL -> "Milano · NIL scelte"; CAP -> CAP. "" se ignota.
+ */
+export function getPointOfSaleLocation(zone) {
+  if (!zone) return "";
+  if (zone.searchMode === "cap") {
+    const caps = Array.isArray(zone.selectedCaps) ? zone.selectedCaps : [];
+    return caps.length ? (caps.length === 1 ? `CAP ${caps[0]}` : `${caps.length} CAP`) : "";
   }
-  const city = zone?.cityName || zone?.city?.label || zone?.city?.name || "";
-  return city ? `${base} · ${city}` : zone?.zone_label || base;
+  const city = zone.cityName || zone.city?.label || zone.city?.name || "";
+  if (zone.searchMode === "address") {
+    const point = zone.selectedSearchPoint?.label || zone.addressLabel || "";
+    return String(point || city).split(",").slice(0, 2).join(",").trim();
+  }
+  const isNil = Boolean(zone.nilManualMode) || zone.kpiSnapshot?.areaMode === "custom_zone";
+  if (isNil) {
+    const nils = getCampaignZoneAllocation(zone).map(r => r?.name).filter(Boolean);
+    return nils.length ? `${city || "Milano"} · ${compactList(nils)}` : city;
+  }
+  const names = municipalityNames(zone);
+  if (names.length > 1) return compactList(names);
+  return city || names[0] || "";
+}
+
+/** Modalita' territoriale leggibile: "Raggio 2 km" | "NIL / quartieri" | "Comune" | "CAP". */
+export function getPointOfSaleModeLabel(zone) {
+  if (zone?.searchMode === "address") {
+    const r = finite(zone.radiusKm) ?? finite(zone.radius);
+    return r ? `Raggio ${String(r).replace(".", ",")} km` : "Raggio";
+  }
+  if (zone?.searchMode === "cap") return "CAP";
+  if (zone?.nilManualMode || zone?.kpiSnapshot?.areaMode === "custom_zone") return "NIL / quartieri";
+  return municipalityNames(zone).length > 1 ? "Comuni" : "Comune";
+}
+
+/** Etichetta completa: "Negozio Duomo · Milano · BRUZZANO" / "Punto vendita 2 · Monza (MB)". */
+export function getCampaignZoneLabel(zone, index) {
+  const name = getPointOfSaleName(zone, index);
+  const location = getPointOfSaleLocation(zone);
+  return location ? `${name} · ${location}` : name;
+}
+
+/**
+ * Zona attiva da selezionare dopo l'eliminazione di zoneId: deterministica.
+ * Se si elimina un PV non attivo, l'attivo non cambia; se si elimina l'attivo
+ * si passa al precedente (o al nuovo primo). null se l'operazione e' vietata
+ * (ultimo PV o id inesistente).
+ */
+export function resolveDeletePointOfSale(campaignZones, activeZoneId, zoneId) {
+  const zones = Array.isArray(campaignZones) ? campaignZones : [];
+  const idx = zones.findIndex(z => z?.id === zoneId);
+  if (idx === -1 || zones.length <= 1) return null;
+  const remaining = zones.filter(z => z.id !== zoneId);
+  const nextActiveId = activeZoneId === zoneId
+    ? remaining[Math.max(0, idx - 1)].id
+    : (remaining.some(z => z.id === activeZoneId) ? activeZoneId : remaining[0].id);
+  return { campaignZones: remaining, activeZoneId: nextActiveId };
 }
 
 function hasTerritory(zone) {
@@ -210,6 +285,9 @@ export function summarizeCampaignZones(campaignZones) {
       id: zone.id,
       index,
       label: getCampaignZoneLabel(zone, index),
+      name: getPointOfSaleName(zone, index),
+      location: getPointOfSaleLocation(zone),
+      modeLabel: getPointOfSaleModeLabel(zone),
       searchMode: zone.searchMode || "municipality",
       radiusKm: isRadiusZone(zone) ? finite(zone.radiusKm) ?? finite(zone.radius) : null,
       center: zoneCenter(zone),
@@ -285,7 +363,7 @@ export function buildMultiZoneCampaignZonesPayload(summary) {
     const addressLabel = sp?.label || zone.addressLabel || null;
     const parent = zone.cityName || rowName(zone.city) || null;
     const isNilLevel = zone.kpiSnapshot?.analysisLevel === "nil";
-    const owner = { campaign_zone_id: z.id, campaign_zone_label: z.label, campaign_zone_index: z.index, campaign_zone_mode: z.searchMode };
+    const owner = { campaign_zone_id: z.id, campaign_zone_label: z.label, campaign_zone_index: z.index, campaign_zone_mode: z.searchMode, campaign_zone_name: z.name, campaign_zone_location: z.location || null, store_name: sanitizeStoreName(zone.store_name) || null };
     const rows = z.allocation.length ? z.allocation : null;
     if (rows) {
       for (const r of rows) {
@@ -347,6 +425,10 @@ export function buildMultiZoneMetadata(summary) {
     zones: summary.zones.map(z => ({
       id: z.id,
       label: z.label,
+      name: z.name,
+      store_name: sanitizeStoreName(z.source?.store_name) || null,
+      location_label: z.location || null,
+      mode_label: z.modeLabel,
       search_mode: z.searchMode,
       radius_km: z.radiusKm,
       center: z.center,
@@ -356,4 +438,20 @@ export function buildMultiZoneMetadata(summary) {
       population: z.population,
     })),
   };
+}
+
+/**
+ * Prezzo distribuzione per PV con lo STESSO motore della campagna
+ * (resolveConfiguratorDistributionZones + calculateMultiZoneDistributionPrice):
+ * la somma dei PV coincide per costruzione con il baseCost di Step4. La UI
+ * mostra questi valori, non li ricalcola.
+ */
+export function buildPointOfSalePricing(summary) {
+  const zones = summary?.zones || [];
+  const rows = zones.map(z => {
+    const single = { zones: [z] };
+    const price = calculateMultiZoneDistributionPrice(buildMultiZoneDistributionZones(single)).distributionSubtotal;
+    return { id: z.id, distributionPrice: price };
+  });
+  return { rows, distributionTotal: roundMoney(rows.reduce((a, r) => a + (r.distributionPrice || 0), 0)) };
 }

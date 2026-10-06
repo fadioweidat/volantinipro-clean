@@ -11,7 +11,7 @@ import { BUSINESS_DELIVERY_METHODS, BUSINESS_MATERIAL_LOCATIONS, BUSINESS_OBJECT
 import { formatAreaKm2, formatNumber, formatPaperWeight } from "../../../lib/utils/format.js";
 import { formatCoverageProportion } from "../../../lib/step2/buildStep2ViewModel.js";
 import { Step4MultiZoneSummary } from "./step4/Step4MultiZoneSummary.jsx";
-import { buildMultiZoneCampaignZonesPayload, buildMultiZoneDistributionZones, buildMultiZoneMetadata, flattenMultiZoneAllocation, summarizeCampaignZones } from "../../../lib/step2/campaignZonesModel.js";
+import { buildMultiZoneCampaignZonesPayload, buildMultiZoneDistributionZones, buildMultiZoneMetadata, buildPointOfSalePricing, flattenMultiZoneAllocation, summarizeCampaignZones } from "../../../lib/step2/campaignZonesModel.js";
 import { getServiceAccent } from "../../../lib/services/service-config.js";
 import { getZoneFullCoverageFlyers } from "../../../lib/doorToDoorCoverage.js";
 import { MONTHS_SHORT, QUOTE_PRICES } from "../../../lib/appConstants.js";
@@ -78,6 +78,8 @@ export function Step4({
   // valore sotto resta identico al contratto single-zone di produzione.
   const multiZoneSummary = useMemo(() => summarizeCampaignZones(data.campaignZones), [data.campaignZones]);
   const isMultiZoneQuote = !isQuick && svcType === "d2d" && multiZoneSummary.isMultiZone;
+  // FASE 2: prezzo distribuzione per punto vendita dallo stesso motore della campagna.
+  const multiZonePosPricing = useMemo(() => isMultiZoneQuote ? buildPointOfSalePricing(multiZoneSummary) : null, [isMultiZoneQuote, multiZoneSummary]);
   const multiZoneUnsupported = !isQuick && svcType !== "d2d" && multiZoneSummary.isMultiZone;
   const cfg = SERVICE_META[svcType] || SERVICE_META.d2d;
   const col = cfg.color;
@@ -635,7 +637,7 @@ export function Step4({
   // campaignZonesPayload per i campaign_zones reali. Con UNA sola zona in
   // zoneAllocs, quel nome specifico va preferito; con piu' zone (incl.
   // "Milano completo") il comportamento resta invariato.
-  const mainAreaLabel = isMultiZoneQuote ? multiZoneSummary.zones.map(z => step4AreaLabel(z.source?.cityName) || z.label).join(" + ") : (zoneAllocs.length === 1 && step4AreaLabel(zoneAllocs[0].name)) || (selectedZoneNames.length === 1 && selectedZoneNames[0]) || step4AreaLabel(data.cityName) || step4AreaLabel(data.comune) || selectedZoneNames[0] || "l'area selezionata";
+  const mainAreaLabel = isMultiZoneQuote ? multiZoneSummary.zones.map(z => (z.source?.store_name && String(z.source.store_name).trim() ? z.name : step4AreaLabel(z.source?.cityName) || z.name)).join(" + ") : (zoneAllocs.length === 1 && step4AreaLabel(zoneAllocs[0].name)) || (selectedZoneNames.length === 1 && selectedZoneNames[0]) || step4AreaLabel(data.cityName) || step4AreaLabel(data.comune) || selectedZoneNames[0] || "l'area selezionata";
   const estimatedFamiliesForSummary = svcType === "d2d" ? kpis.families ?? (selZ.length ? totF : null) : null;
   const coverageForSummary = svcType === "d2d" ? requiredQty > 0 ? Math.min(100, Math.round(flyerQty / requiredQty * 100)) : kpis.coverage ?? (selZ.length ? avgCov : null) : null;
   // Surplus decision made in Step 2 (municipality mode, quantity > recommended).
@@ -1772,7 +1774,7 @@ export function Step4({
         }}>{formatNumber(estimatedFamiliesForSummary, "—")} famiglie{isMultiZoneQuote && multiZoneSummary.hasOverlap ? " (somma non deduplicata, zone sovrapposte)" : ""}</strong>
             {selectedZoneNames.length > 1 && <>{" "}distribuite in <strong style={{
             color: col
-          }}>{selectedZoneNames.length} {isMultiZoneQuote ? "zone" : "comuni"}</strong></>}
+          }}>{selectedZoneNames.length} {isMultiZoneQuote ? "punti vendita" : "comuni"}</strong></>}
             {", "}coprendo{" "}
             <strong style={{
           color: C.green
@@ -2270,7 +2272,7 @@ export function Step4({
           padding: "18px"
         }}>
             {secHead("2", "Famiglie e copertura", "Quante persone raggiungerai con questa campagna", sectionAccent)}
-            {isMultiZoneQuote && <Step4MultiZoneSummary summary={multiZoneSummary} />}
+            {isMultiZoneQuote && <Step4MultiZoneSummary summary={multiZoneSummary} posPricing={multiZonePosPricing} campaignTotal={total} campaignQuantity={flyerQty} />}
             {isQuick ? <div style={{
             padding: "14px",
             borderRadius: 10,
@@ -2479,7 +2481,7 @@ export function Step4({
                     fontWeight: 700,
                     color: C.white
                   }}>
-                          {selectedZoneNames.length === 1 ? selectedZoneNames[0] : isMultiZoneQuote ? `${selectedZoneNames.length} zone · ${mainAreaLabel}` : `${selectedZoneNames[0]} · ${selectedZoneNames.length} aree`}
+                          {selectedZoneNames.length === 1 ? selectedZoneNames[0] : isMultiZoneQuote ? `${selectedZoneNames.length} punti vendita · ${mainAreaLabel}` : `${selectedZoneNames[0]} · ${selectedZoneNames.length} aree`}
                         </div>
                         <div style={{
                     fontFamily: F.sans,
