@@ -13,7 +13,9 @@ const step2 = readFileSync(new URL('../src/pages/public/configurator/Step2.jsx',
 const panel = readFileSync(new URL('../src/pages/public/configurator/step2/Step2ComunePanel.jsx', import.meta.url), 'utf8');
 
 test('address context PERSISTENTE: coverage.address con label/lat/lng/municipality/nearestNil*', () => {
-  assert.match(step2, /const coverageAddress = activeZoneForRadius\?\.coverage\?\.address \|\| data\.coverage\?\.address \|\| null/);
+  // Indirizzo della Zona; il top-level e' fallback solo con un PV
+  // (isolamento multi punto vendita: mai l'indirizzo di un altro PV).
+  assert.match(step2, /const coverageAddress = activeZoneForRadius \? resolvePointOfSaleCoverageAddress\(activeZoneForRadius, data\.campaignZones, data\.coverage\) : data\.coverage\?\.address \|\| null/);
   assert.match(step2, /const persistCoverageAddress = useCallback\(/);
   for (const f of ['label', 'lat', 'lng', 'municipality', 'nearestNilId', 'nearestNilName']) {
     assert.match(step2, new RegExp(`${f}:`), `persistCoverageAddress deve gestire ${f}`);
