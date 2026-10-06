@@ -32,6 +32,11 @@ export function isAnalysisZoneValid({ lat, lng, radius, municipality } = {}) {
 
 export function useServiceAnalysis(lat, lng, radius, service, municipality = null, quantity = null, scope = null, analysisLevel = null, selectionScope = null, selectedMunicipalityCodes = null, targetSelection = null) {
   const [data, setData] = useState(null);
+  // fetchKey a cui appartiene `data`. Tra un cambio di parametri e la nuova
+  // risposta `data` resta quella dei parametri precedenti: chi la consuma
+  // (Step2 multi punto vendita) deve poter distinguere un dato corrente da
+  // uno di un altro territorio.
+  const [dataKey, setDataKey] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const requestIdRef = useRef(0);
@@ -234,6 +239,7 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
         if (!url) {
           setError("ANALYSIS_BACKEND_NOT_CONFIGURED");
           setData({ values: {}, comuni_breakdown: [], metadata: { isEstimated: false }, sources: [], error: "ANALYSIS_BACKEND_NOT_CONFIGURED" });
+          setDataKey(fetchKey);
           return;
         }
 
@@ -316,11 +322,13 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
         if (!response?.ok || result?.error) {
           setError(result?.error || result?.code || (response ? `HTTP_${response.status}` : "CONNECTION_ERROR"));
           setData(result?.sources || result?.metadata ? result : null);
+          setDataKey(fetchKey);
         } else {
           if (lastResultKeyRef.current !== fetchKey) {
             lastResultKeyRef.current = fetchKey;
             setData(result);
           }
+          setDataKey(fetchKey);
           setError(null);
           debugStep2('[ZONE_ANALYSIS_APPLIED]', { requestId, municipality });
         }
@@ -368,5 +376,5 @@ export function useServiceAnalysis(lat, lng, radius, service, municipality = nul
     !(lastRequestKeyRef.current === fetchKey && data !== null && error === null)
   );
 
-  return { data, loading, error, pending, isRetrying, refetch };
+  return { data, dataKey, fetchKey, loading, error, pending, isRetrying, refetch };
 }

@@ -50,7 +50,8 @@ test('buildServiceAnalysisRequest: Cormano d2d comune -> URL analysis-istat comp
 });
 
 test('hook: espone `pending` e settla sulla fetchKey stabile', () => {
-  assert.match(hook, /return \{ data, loading, error, pending/);
+  // dataKey/fetchKey: identita' del dato (isolamento PV multi punto vendita).
+  assert.match(hook, /return \{ data, dataKey, fetchKey, loading, error, pending/);
   assert.match(hook, /const lastSettledKeyRef = useRef\(""\)/);
   assert.match(hook, /lastSettledKeyRef\.current = fetchKey/);
   assert.match(hook, /pending = Boolean\(\s*zoneValid &&\s*lastSettledKeyRef\.current !== fetchKey/);

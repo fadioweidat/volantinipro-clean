@@ -148,7 +148,8 @@ test("I. the last PV cannot be deleted; unknown id is a no-op", () => {
   const fn = step2.slice(step2.indexOf("const deletePointOfSale = useCallback"), step2.indexOf("const selectCampaignZone = useCallback"));
   assert.match(fn, /zones\.length <= 1\) return;/);
   assert.match(fn, /window\.confirm\(/, "nessuna eliminazione silenziosa");
-  assert.match(fn, /resolveDeletePointOfSale\(prev\.campaignZones, prev\.activeZoneId, zoneId\)/);
+  // elimina + attiva il superstite atomicamente (stesso percorso dello switch)
+  assert.match(fn, /deleteAndActivatePointOfSale\(prev, zoneId, \{ resolveCity: resolveCampaignZoneCity \}\) \|\| prev/);
 });
 
 test("J/M/N/O. mixed 5 PV: all present, quantities, total qty and aggregated price", () => {

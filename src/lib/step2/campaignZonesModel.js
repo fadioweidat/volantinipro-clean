@@ -23,6 +23,7 @@
 
 import { resolveConfiguratorDistributionZones } from "../pricing/resolveConfiguratorDistributionZones.js";
 import { calculateMultiZoneDistributionPrice, roundMoney } from "../pricing/distributionPricing.js";
+import { normalizeCoverageDecision } from "./addressIntent.js";
 
 const EARTH_RADIUS_KM = 6371;
 
@@ -183,6 +184,138 @@ export function resolveDeletePointOfSale(campaignZones, activeZoneId, zoneId) {
     ? remaining[Math.max(0, idx - 1)].id
     : (remaining.some(z => z.id === activeZoneId) ? activeZoneId : remaining[0].id);
   return { campaignZones: remaining, activeZoneId: nextActiveId };
+}
+
+// ISOLAMENTO PV. Ogni campaignZone e' l'unica fonte del proprio territorio,
+// indirizzo, modalita' e quantita'. Lo stato "di lavoro" top-level di Step2
+// (city, raggio, punto, quantita', coverage.address...) rispecchia SEMPRE la
+// zona attiva: attivarne una lo ricostruisce solo dai suoi dati, mai dal
+// valore precedente (che apparteneva a un altro PV).
+
+/** Campi top-level di lavoro per la zona attivata. `resolvedCity` = city risolta da Step2. */
+export function buildActivePointOfSaleState(zone, { resolvedCity = null, fallbackQuantity = 10000 } = {}) {
+  const qty = finite(zone?.assigned_flyers) ?? finite(zone?.finalFlyers) ?? fallbackQuantity;
+  const radius = finite(zone?.radiusKm) ?? finite(zone?.radius) ?? 3;
+  const svc = zone?.service_type || "d2d";
+  const city = zone?.city || resolvedCity || null;
+  return {
+    activeZoneId: zone?.id || null,
+    selectedService: svc,
+    activeService: svc,
+    type: svc,
+    flyerFormat: zone?.service_variant || "a5",
+    qty,
+    flyerQuantity: qty,
+    flyerQuantityFromStep1: qty,
+    cityName: zone?.cityName || city?.label || city?.name || "",
+    city,
+    selectedComuni: zone?.selectedComuni || (city ? [city] : []),
+    radius,
+    radiusKm: radius,
+    selectedRadius: radius,
+    zones: zone?.selected || [],
+    selectedSearchPoint: zone?.selectedSearchPoint || null,
+    selectedCaps: zone?.selectedCaps || [],
+    capDataMap: zone?.capDataMap || {},
+    manualAssignments: zone?.manualAssignments || {},
+    allocationMode: zone?.allocationMode || "auto",
+    coverageDecision: normalizeCoverageDecision(zone?.coverageDecision),
+    coverageStrategy: zone?.coverageStrategy || null,
+    availableFlyers: finite(zone?.availableFlyers) ?? qty,
+    manualFlyers: finite(zone?.manualFlyers) || null,
+    finalFlyers: finite(zone?.finalFlyers) ?? qty,
+    searchMode: zone?.searchMode || "municipality",
+    nilManualMode: Boolean(zone?.nilManualMode),
+    addressFullCoverageConfirmed: Boolean(zone?.addressFullCoverageConfirmed),
+    startDate: zone?.startDate || "",
+    endDate: zone?.endDate || "",
+  };
+}
+
+/**
+ * Attiva zoneId su `prev` (switch / aggiunta / elimina / idratazione):
+ * stato top-level solo dalla zona, coverage.address compreso.
+ * options.resolveCity(zone) -> city per zone salvate senza oggetto city.
+ */
+export function activatePointOfSale(prev, zoneId, { resolveCity } = {}) {
+  const zones = Array.isArray(prev?.campaignZones) ? prev.campaignZones : [];
+  const zone = zones.find(z => z?.id === zoneId);
+  if (!zone) return prev;
+  return {
+    ...prev,
+    ...buildActivePointOfSaleState(zone, {
+      resolvedCity: zone.city ? null : (resolveCity ? resolveCity(zone) : null),
+      fallbackQuantity: resolveNewZoneStartingQuantity(prev),
+    }),
+    coverage: { ...(prev.coverage || {}), address: resolvePointOfSaleCoverageAddress(zone, zones, prev.coverage) },
+  };
+}
+
+/** Elimina zoneId e attiva atomicamente il PV superstite. null se vietato (ultimo PV / id inesistente). */
+export function deleteAndActivatePointOfSale(prev, zoneId, options = {}) {
+  const result = resolveDeletePointOfSale(prev?.campaignZones, prev?.activeZoneId, zoneId);
+  if (!result) return null;
+  return activatePointOfSale({ ...prev, campaignZones: result.campaignZones }, result.activeZoneId, options);
+}
+
+/**
+ * Indirizzo di copertura del PV attivo: SOLO il suo. Il valore top-level e'
+ * ammesso come fallback esclusivamente con un solo PV (bozze legacy senza
+ * coverage per zona), mai con piu' PV.
+ */
+export function resolvePointOfSaleCoverageAddress(activeZone, campaignZones, topLevelCoverage) {
+  if (activeZone?.coverage?.address) return activeZone.coverage.address;
+  const zoneCount = Array.isArray(campaignZones) ? campaignZones.length : 0;
+  if (zoneCount <= 1) return topLevelCoverage?.address || null;
+  return null;
+}
+
+/**
+ * L'analisi territoriale (useServiceAnalysis) non porta l'identita' del PV:
+ * dopo switch / elimina / aggiungi / rimontaggio `data` e' ancora quella del
+ * territorio precedente. Il PV attivo la "adotta" solo quando e' idratato
+ * (localZoneId), e' passato almeno un ciclo dopo l'idratazione (armedZoneId)
+ * e la risposta corrisponde alla sua richiesta corrente (dataKey === fetchKey).
+ * Senza richiesta valida (fetchKey vuoto, es. PV vuoto o CAP) non c'e' dato
+ * da attendere: si adotta subito, ma il dato non va usato (vedi Step2).
+ */
+export function shouldAdoptZoneAnalysis({ localZoneId, activeZoneId, armedZoneId, fetchKey, dataKey, loading }) {
+  if (!activeZoneId || localZoneId !== activeZoneId || armedZoneId !== activeZoneId) return false;
+  if (!fetchKey) return true;
+  return !loading && dataKey === fetchKey;
+}
+
+/**
+ * Prossimo proprietario dell'analisi { zoneId, dataKey }. La proprieta' e'
+ * legata anche all'IDENTITA' del dato: un PV adottato senza richiesta
+ * (fetchKey vuoto, es. PV appena aggiunto) non possiede il dato residuo di un
+ * altro PV quando poi riceve un territorio. Ritorna `owner` invariato se non
+ * cambia nulla.
+ */
+export function nextZoneAnalysisOwner(owner, { localZoneId, activeZoneId, armedZoneId, fetchKey, dataKey, loading }) {
+  const current = owner || { zoneId: null, dataKey: null };
+  if (current.zoneId !== activeZoneId) {
+    if (!shouldAdoptZoneAnalysis({ localZoneId, activeZoneId, armedZoneId, fetchKey, dataKey, loading })) return current;
+    return { zoneId: activeZoneId, dataKey: fetchKey ? dataKey : null };
+  }
+  // Stesso PV: registra la nuova risposta della SUA richiesta corrente.
+  if (localZoneId === activeZoneId && fetchKey && !loading && dataKey === fetchKey && current.dataKey !== dataKey) {
+    return { zoneId: activeZoneId, dataKey };
+  }
+  return current;
+}
+
+/**
+ * Il dato dell'analisi e' utilizzabile per il PV attivo solo se: il PV ne e'
+ * proprietario ed e' idratato, esiste una richiesta valida, e il dato e'
+ * quello adottato (stale-while-revalidate dello STESSO PV) oppure e'
+ * esattamente la risposta alla richiesta corrente del PV (dopo l'armamento).
+ */
+export function isZoneAnalysisDataUsable({ owner, localZoneId, activeZoneId, armedZoneId, fetchKey, dataKey }) {
+  if (!owner || !activeZoneId || owner.zoneId !== activeZoneId || localZoneId !== activeZoneId) return false;
+  if (!fetchKey || !dataKey) return false;
+  if (owner.dataKey && dataKey === owner.dataKey) return true;
+  return armedZoneId === activeZoneId && dataKey === fetchKey;
 }
 
 function hasTerritory(zone) {

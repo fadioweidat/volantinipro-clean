@@ -69,7 +69,7 @@ import { Step2ComunePanel } from "./step2/Step2ComunePanel.jsx";
 import { Step2TerritoryControlsPanel } from "./step2/Step2TerritoryControlsPanel.jsx";
 import { ServiceExplanationCard } from "./step2/ServiceExplanationCard.jsx";
 import { SelectedZonesSummary } from "./step2/SelectedZonesSummary.jsx";
-import { buildZoneKpiSnapshot, getCampaignZoneLabel as getCampaignZoneQuoteLabel, getPointOfSaleName, resolveDeletePointOfSale, resolveNewZoneStartingQuantity, sanitizeStoreName, STORE_NAME_MAX_LENGTH, summarizeCampaignZones } from "../../../lib/step2/campaignZonesModel.js";
+import { activatePointOfSale, buildZoneKpiSnapshot, deleteAndActivatePointOfSale, getCampaignZoneLabel as getCampaignZoneQuoteLabel, getPointOfSaleName, isZoneAnalysisDataUsable, nextZoneAnalysisOwner, resolveNewZoneStartingQuantity, resolvePointOfSaleCoverageAddress, sanitizeStoreName, STORE_NAME_MAX_LENGTH, summarizeCampaignZones } from "../../../lib/step2/campaignZonesModel.js";
 import { projectStep2LegacyAliases } from "../../../lib/step2/buildStep2TruthModel.js";
 export function Step2({
   data,
@@ -605,7 +605,10 @@ export function Step2({
   // Milano + NIL vicina BRUZZANO) e MAI cancellato dai passaggi di modalità
   // (Comune completo / Raggio / NIL). Serve a rendere ogni modalità
   // reversibile senza reinserire l'indirizzo.
-  const coverageAddress = activeZoneForRadius?.coverage?.address || data.coverage?.address || null;
+  // ISOLAMENTO PV: solo l'indirizzo del PV attivo. Il fallback top-level vale
+  // solo con un PV (bozze legacy): con piu' PV apparteneva a un altro punto
+  // vendita ("Raggio da <indirizzo altrui>", tab Raggio che copiava l'indirizzo).
+  const coverageAddress = activeZoneForRadius ? resolvePointOfSaleCoverageAddress(activeZoneForRadius, data.campaignZones, data.coverage) : data.coverage?.address || null;
   const persistCoverageAddress = useCallback((patch) => {
     if (!patch) return;
     setData(prev => {
@@ -824,42 +827,20 @@ export function Step2({
         // tornava "Comune completo" dopo Zona A -> Zona B -> Zona A.
         setNilManualMode(Boolean(activeZone.nilManualMode));
         setAddressFullCoverageConfirmed(Boolean(activeZone.addressFullCoverageConfirmed));
+        // Stato UI transitorio del PV precedente: mai portarlo nel nuovo.
+        setPendingNilPreselectName(null);
+        setAddressSearchError("");
         setLocalZoneId(data.activeZoneId);
       }
       if (activeZone.activeMapLayers) {
         setActiveMapLayers(activeZone.activeMapLayers);
       }
 
-      // Sync active zone parameters back to global data for compatibility with other modules and hooks
-      const zSvc = activeZone.service_type || "d2d";
+      // Stato top-level di lavoro = SOLO il PV attivo (stesso percorso di
+      // switch / elimina / aggiungi: activatePointOfSale).
       setData(prev => ({
-        ...prev,
-        selectedService: zSvc,
-        activeService: zSvc,
-        type: zSvc,
-        flyerFormat: activeZone.service_variant || "a5",
-        qty: activeZone.assigned_flyers || 10000,
-        flyerQuantity: activeZone.assigned_flyers || 10000,
-        flyerQuantityFromStep1: activeZone.assigned_flyers || 10000,
-        cityName: activeZone.cityName || resolvedCity?.label || resolvedCity?.name || "",
-        city: resolvedCity,
-        selectedComuni: activeZone.selectedComuni || (resolvedCity ? [resolvedCity] : []),
-        radius: activeZone.radiusKm || activeZone.radius || 3,
-        radiusKm: activeZone.radiusKm || activeZone.radius || 3,
-        zones: activeZone.selected || [],
-        selectedSearchPoint: activeZone.selectedSearchPoint || prev.selectedSearchPoint || null,
-        selectedCaps: activeZone.selectedCaps || [],
-        capDataMap: activeZone.capDataMap || {},
-        manualAssignments: activeZone.manualAssignments || {},
-        allocationMode: activeZone.allocationMode || "auto",
-        coverageDecision: normalizeCoverageDecision(activeZone.coverageDecision),
-        coverageStrategy: activeZone.coverageStrategy || null,
-        availableFlyers: Number(activeZone.availableFlyers || activeZone.assigned_flyers || prev.availableFlyers || prev.qty || 10000),
-        manualFlyers: Number(activeZone.manualFlyers || 0) || null,
-        finalFlyers: Number(activeZone.finalFlyers || activeZone.assigned_flyers || prev.qty || 10000),
-        radiusSelectionConfirmed: inferredRadiusConfirmed,
-        startDate: activeZone.startDate || "",
-        endDate: activeZone.endDate || ""
+        ...activatePointOfSale(prev, activeZone.id, { resolveCity: () => resolvedCity }),
+        radiusSelectionConfirmed: inferredRadiusConfirmed
       }));
     }
   }, [data.activeZoneId, data.campaignZones]);
@@ -1263,15 +1244,7 @@ export function Step2({
   const handleDeleteZone = (zoneId, e) => {
     if (e) e.stopPropagation();
     if (data.campaignZones.length <= 1) return;
-    setData(prev => {
-      const newZones = prev.campaignZones.filter(z => z.id !== zoneId);
-      const newActiveId = prev.activeZoneId === zoneId ? newZones[0].id : prev.activeZoneId;
-      return {
-        ...prev,
-        campaignZones: newZones,
-        activeZoneId: newActiveId
-      };
-    });
+    setData(prev => deleteAndActivatePointOfSale(prev, zoneId, { resolveCity: resolveCampaignZoneCity }) || prev);
   };
   const handleMoveZone = (idx, direction, e) => {
     if (e) e.stopPropagation();
@@ -1317,13 +1290,14 @@ export function Step2({
       allocationMode: "auto",
       startDate: data.startDate || "",
       endDate: data.endDate || "",
-      activeMapLayers: defaultLayerState(nextSvc)
+      activeMapLayers: defaultLayerState(nextSvc),
+      // PV nuovo = nessun indirizzo: mai quello di un altro punto vendita.
+      coverage: { address: null }
     };
-    setData(prev => ({
+    setData(prev => activatePointOfSale({
       ...prev,
-      campaignZones: [...prev.campaignZones, newZone],
-      activeZoneId: newId
-    }));
+      campaignZones: [...prev.campaignZones, newZone]
+    }, newId));
   };
   const updateZoneField = (zoneId, field, val) => {
     setData(prev => {
@@ -1441,13 +1415,44 @@ export function Step2({
     targetSelection: distributionTargetSelection
   }), [queryCenterLat, queryCenterLng, effectiveRadiusKm, svcType, selectedMunicipality, requestedAnalysisLevel, quantityForAnalysis, analysisScope, computedSelectionScope, selectedMunicipalityCodes, distributionTargetSelection]);
   const {
-    data: apiData,
+    data: rawApiData,
+    dataKey: analysisDataKey,
+    fetchKey: analysisFetchKey,
     loading: apiLoading,
     error: apiError,
     pending: apiPending,
     isRetrying: apiIsRetrying,
     refetch: refetchServiceAnalysis
   } = useServiceAnalysis(analysisParams.lat, analysisParams.lng, analysisParams.radiusKm, analysisParams.serviceType, analysisParams.municipality, analysisParams.quantity, analysisParams.scope, analysisParams.analysisLevel, analysisParams.selectionScope, analysisParams.selectedMunicipalityCodes, analysisParams.targetSelection);
+  // ISOLAMENTO PV — proprietario dell'analisi. Dopo switch / elimina /
+  // aggiungi / rimontaggio `rawApiData` appartiene ancora al territorio
+  // precedente (altro PV): finche' il PV attivo non adotta una risposta della
+  // SUA richiesta, nessun dato territoriale e' suo -> niente auto-selezione,
+  // allocazione, quantita' o readiness scritte con dati altrui. Con un solo PV
+  // che non cambia, il proprietario non cambia: comportamento invariato.
+  // Proprietario = { zoneId, dataKey }: legato al PV E all'identita' del dato.
+  const [analysisOwner, setAnalysisOwner] = useState(null);
+  const [analysisArmedZoneId, setAnalysisArmedZoneId] = useState(null);
+  const analysisOwnershipInput = { localZoneId, activeZoneId: data.activeZoneId, armedZoneId: analysisArmedZoneId, fetchKey: analysisFetchKey, dataKey: analysisDataKey, loading: apiLoading };
+  useEffect(() => {
+    // Un ciclo di render dopo l'idratazione del PV (gli effetti a valle
+    // dell'idratazione si assestano) prima di poter adottare l'analisi.
+    if (localZoneId !== data.activeZoneId) {
+      if (analysisArmedZoneId !== null) setAnalysisArmedZoneId(null);
+      return;
+    }
+    if (analysisArmedZoneId !== data.activeZoneId) {
+      setAnalysisArmedZoneId(data.activeZoneId);
+      return;
+    }
+    const next = nextZoneAnalysisOwner(analysisOwner, analysisOwnershipInput);
+    if (next !== analysisOwner && (next?.zoneId !== analysisOwner?.zoneId || next?.dataKey !== analysisOwner?.dataKey)) setAnalysisOwner(next);
+  }, [localZoneId, data.activeZoneId, analysisArmedZoneId, analysisOwner, analysisFetchKey, analysisDataKey, apiLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+  const analysisOwnedByActiveZone = Boolean(data.activeZoneId) && analysisOwner?.zoneId === data.activeZoneId && localZoneId === data.activeZoneId;
+  // Dato usabile solo se e' del PV attivo (adottato o risposta alla sua
+  // richiesta corrente): mai il residuo di un altro PV, nemmeno per un PV
+  // appena aggiunto che riceve ora il suo primo territorio.
+  const apiData = isZoneAnalysisDataUsable({ owner: analysisOwner, ...analysisOwnershipInput }) ? rawApiData : null;
   const omiInfo = apiData?.metadata?.omi ?? null;
   // Richiesta analysis-istat/POI "conclusa" per i parametri correnti: c'e' un
   // esito (dati o errore) e non e' in corso ne' in debounce. Finche' e' false
@@ -2689,6 +2694,10 @@ export function Step2({
     const availableIds = hasUsefulApiZones ? (zonesInRadius || []).map(z => z.id) : [];
     const prevAvailableIds = prevAvailableZoneIdsRef.current || [];
     prevAvailableZoneIdsRef.current = availableIds;
+    // ISOLAMENTO PV: zonesInRadius di un'analisi non ancora adottata dal PV
+    // attivo appartengono a un altro territorio -> non toccare la selezione
+    // (NIL -> Raggio restringeva le 7 NIL di Via Torino alla sola DUOMO).
+    if (!analysisOwnedByActiveZone) return;
     if (nilManualMode && isComuneMode && isResidentialStep2 && requestedAnalysisLevel === "nil") return;
     // FASE 1 MULTI-ZONE: una zona appena aggiunta non ha ancora territorio ma
     // apiData/zonesInRadius sono ancora quelli della zona precedente: non
@@ -3297,6 +3306,8 @@ export function Step2({
   // rifare la ricerca. Non riscrive lat/lng/label gia' salvati.
   useEffect(() => {
     if (!containingNil?.name) return;
+    // ISOLAMENTO PV: NIL vicina solo da un'analisi del PV attivo.
+    if (!analysisOwnedByActiveZone) return;
     if (coverageAddress?.nearestNilName === containingNil.name && coverageAddress?.nearestNilId === (containingNil.code || null)) return;
     if (!coverageAddress?.lat && !selectedSearchPoint?.lat) return;
     persistCoverageAddress({ nearestNilId: containingNil.code || null, nearestNilName: containingNil.name });
@@ -3556,6 +3567,8 @@ export function Step2({
   useEffect(() => {
     if (!data.activeZoneId || !Array.isArray(data.campaignZones)) return;
     if (localZoneId !== data.activeZoneId) return;
+    // ISOLAMENTO PV: allocazione/quantita' solo da un'analisi del PV attivo.
+    if (!analysisOwnedByActiveZone) return;
     // Stessa guardia: nessuna allocazione derivata dai dati della zona precedente.
     if (!city && searchMode !== "cap" && data.campaignZones.length > 1) return;
     setData(prev => {
@@ -3593,7 +3606,7 @@ export function Step2({
         calculationStatus: nextCalculationStatus
       };
     });
-  }, [data.activeZoneId, localZoneId, coverageMode, coverageDecision, availableFlyers, requiredFlyers, manualFlyersNumber, finalFlyersRounded, allocationStatus, hasUsableAllocationData, zonesAllocationKey]);
+  }, [data.activeZoneId, localZoneId, analysisOwnedByActiveZone, coverageMode, coverageDecision, availableFlyers, requiredFlyers, manualFlyersNumber, finalFlyersRounded, allocationStatus, hasUsableAllocationData, zonesAllocationKey]);
   function updateManual(id, val) {
     const num = parseInt(val) || 0;
     setAllocationMode("manual");
@@ -4821,43 +4834,14 @@ export function Step2({
     if (idx === -1 || zones.length <= 1) return;
     const label = getCampaignZoneQuoteLabel(zones[idx], idx);
     if (typeof window !== "undefined" && typeof window.confirm === "function" && !window.confirm(`Eliminare "${label}" dalla campagna? Territorio e quantità di questo punto vendita verranno rimossi.`)) return;
-    setData(prev => {
-      const result = resolveDeletePointOfSale(prev.campaignZones, prev.activeZoneId, zoneId);
-      return result ? { ...prev, ...result } : prev;
-    });
-  }, [data.campaignZones, setData]);
+    // Elimina + attiva il superstite in UN solo aggiornamento: lo stato di
+    // lavoro del PV eliminato non resta mai caricato sul nuovo PV attivo.
+    setData(prev => deleteAndActivatePointOfSale(prev, zoneId, { resolveCity: resolveCampaignZoneCity }) || prev);
+  }, [data.campaignZones, resolveCampaignZoneCity, setData]);
   const selectCampaignZone = useCallback(zoneId => {
-    const zone = campaignZones.find(z => z.id === zoneId);
-    if (!zone) return;
-    const resolvedCity = resolveCampaignZoneCity(zone);
-    const zSvc = zone.service_type || svcType;
-    setData(prev => ({
-      ...prev,
-      activeZoneId: zone.id,
-      selectedService: zSvc,
-      activeService: zSvc,
-      type: zSvc,
-      flyerFormat: zone.service_variant || prev.flyerFormat || "a5",
-      qty: zone.assigned_flyers || prev.qty || 10000,
-      flyerQuantity: zone.assigned_flyers || prev.qty || 10000,
-      flyerQuantityFromStep1: zone.assigned_flyers || prev.qty || 10000,
-      cityName: zone.cityName || resolvedCity?.name || "",
-      city: resolvedCity,
-      radius: zone.radiusKm || zone.radius || 3,
-      radiusKm: zone.radiusKm || zone.radius || 3,
-      selectedRadius: zone.radiusKm || zone.radius || 3,
-      zones: zone.selected || [],
-      selectedCaps: zone.selectedCaps || [],
-      capDataMap: zone.capDataMap || {},
-      manualAssignments: zone.manualAssignments || {},
-      allocationMode: zone.allocationMode || "auto",
-      coverageDecision: normalizeCoverageDecision(zone.coverageDecision),
-      availableFlyers: Number(zone.availableFlyers || zone.assigned_flyers || prev.availableFlyers || prev.qty || 10000),
-      manualFlyers: Number(zone.manualFlyers || 0) || null,
-      finalFlyers: Number(zone.finalFlyers || zone.assigned_flyers || prev.qty || 10000),
-      searchMode: zone.searchMode || "municipality"
-    }));
-  }, [campaignZones, resolveCampaignZoneCity, setData, svcType]);
+    if (!campaignZones.some(z => z.id === zoneId)) return;
+    setData(prev => activatePointOfSale(prev, zoneId, { resolveCity: resolveCampaignZoneCity }));
+  }, [campaignZones, resolveCampaignZoneCity, setData]);
   const gisSkeleton = (width = 54) => <span aria-hidden="true" style={{
     display: "inline-block",
     width,
@@ -5189,6 +5173,8 @@ export function Step2({
   const activeZoneSnapshotKey = `${activeZoneReadyForQuote}|${JSON.stringify(activeZoneSnapshotForSave)}`;
   useEffect(() => {
     if (!data.activeZoneId || localZoneId !== data.activeZoneId) return;
+    // ISOLAMENTO PV: readiness/KPI mai calcolati su un'analisi di un altro PV.
+    if (!analysisOwnedByActiveZone) return;
     setData(prev => {
       const zones = Array.isArray(prev.campaignZones) ? prev.campaignZones : [];
       const zoneIndex = zones.findIndex(z => z.id === prev.activeZoneId);
@@ -5199,7 +5185,7 @@ export function Step2({
       nextZones[zoneIndex] = { ...currentZone, readyForQuote: activeZoneReadyForQuote, kpiSnapshot: activeZoneSnapshotForSave };
       return { ...prev, campaignZones: nextZones };
     });
-  }, [data.activeZoneId, localZoneId, activeZoneSnapshotKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data.activeZoneId, localZoneId, analysisOwnedByActiveZone, activeZoneSnapshotKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const campaignZonesOverview = useMemo(() => summarizeCampaignZones(data.campaignZones), [data.campaignZones]);
   const step2ConfigReady = !isBusinessStep2 && canContinueCalendar && residualDecisionMade;
   const continueLabel = activeZoneQuoteReady && multiZoneServiceUnsupported
